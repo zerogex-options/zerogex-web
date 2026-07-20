@@ -22,17 +22,20 @@ import {
 } from '@/core/signalHelpers';
 import { spectrumIndicatorLeft } from '@/core/spectrumIndicator';
 import AutoFitValue from '@/components/AutoFitValue';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './page.i18n';
 
-function interpretation(score: number | null): string {
-  if (score == null) return 'No reading';
-  if (score <= -60) return 'Fear bid — hedge / tighten longs';
-  if (score <= -25) return 'Elevated put skew';
-  if (score >= 50) return 'Call-skew bid — upside squeeze watch';
-  if (score >= 25) return 'Calls richer than usual';
-  return 'Normal skew';
+function interpretation(score: number | null, t: (key: string) => string): string {
+  if (score == null) return t('noReading');
+  if (score <= -60) return t('fearBid');
+  if (score <= -25) return t('elevatedPutSkew');
+  if (score >= 50) return t('callSkewBid');
+  if (score >= 25) return t('callsRicher');
+  return t('normalSkew');
 }
 
 export default function SkewDeltaPage() {
+  const t = usePageT(dict);
   const { symbol } = useTimeframe();
   const { data, loading, error, refetch } = useSkewDeltaSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.skewDeltaMs);
 
@@ -55,9 +58,9 @@ export default function SkewDeltaPage() {
     <PageShell>
       <SignalPageTitle
         title="Skew Delta"
-        subtitle={'"How much is fear bid into puts?"'}
+        subtitle={t('subtitle')}
         icon={Scale}
-        tooltip="Short-dated OTM put-vs-call IV spread expressed as deviation from a configurable baseline. Equity-index skew is structurally positive — this measures how elevated it is vs normal. Elevated put skew (negative score) is a leading fear gauge."
+        tooltip={t('tooltip')}
       />
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
@@ -68,7 +71,7 @@ export default function SkewDeltaPage() {
             <SignalScoreHero
               score={score}
               trend={trend}
-              interpretation={interpretation(score)}
+              interpretation={interpretation(score, t)}
               history={history}
             />
           </div>
@@ -76,16 +79,16 @@ export default function SkewDeltaPage() {
           <div className="lg:col-span-3 space-y-4">
             <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
               <div className="flex items-center justify-between text-sm font-semibold mb-3">
-                <span className="flex items-center gap-2"><ShieldAlert size={14} /> Fear ↔ Euphoria</span>
+                <span className="flex items-center gap-2"><ShieldAlert size={14} /> {t('fearEuphoria')}</span>
                 <span className="text-[10px] text-[var(--color-text-secondary)] font-mono">−100 to +100</span>
               </div>
               <div className="relative h-6 rounded-full" style={{ background: 'linear-gradient(90deg, var(--color-bear) 0%, var(--color-bear-soft) 30%, var(--color-surface) 50%, var(--color-bull-soft) 70%, var(--color-bull) 100%)' }}>
                 <div className="absolute top-0 h-6 w-1 bg-[var(--color-text-primary)]" style={{ left: spectrumIndicatorLeft(needlePct, 24, 4), transform: 'translateX(-50%)' }} />
               </div>
               <div className="mt-1.5 flex justify-between text-[10px] font-mono text-[var(--color-text-secondary)]">
-                <span>Fear</span>
-                <span>Normal</span>
-                <span>Euphoria</span>
+                <span>{t('fearLabel')}</span>
+                <span>{t('normalLabel')}</span>
+                <span>{t('euphoriaLabel')}</span>
               </div>
             </div>
 
@@ -95,14 +98,14 @@ export default function SkewDeltaPage() {
                 <AutoFitValue className="text-2xl sm:text-3xl font-black" style={{ color: 'var(--color-bear)' }}>
                   {formatPct(otmPutIv, 2, false)}
                 </AutoFitValue>
-                <p className="mt-2 text-xs text-[var(--color-text-secondary)]">Nearest-window OTM put implied volatility.</p>
+                <p className="mt-2 text-xs text-[var(--color-text-secondary)]">{t('otmPutIvDesc')}</p>
               </div>
               <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
                 <div className="text-sm font-semibold mb-1">OTM call IV</div>
                 <AutoFitValue className="text-2xl sm:text-3xl font-black" style={{ color: 'var(--color-bull)' }}>
                   {formatPct(otmCallIv, 2, false)}
                 </AutoFitValue>
-                <p className="mt-2 text-xs text-[var(--color-text-secondary)]">Nearest-window OTM call implied volatility.</p>
+                <p className="mt-2 text-xs text-[var(--color-text-secondary)]">{t('otmCallIvDesc')}</p>
               </div>
               <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
                 <div className="text-sm font-semibold mb-1">Spread</div>
@@ -124,14 +127,14 @@ export default function SkewDeltaPage() {
       </section>
 
       <SignalHowItsBuilt
-        caveat={<>The negative sign means elevated put skew → bearish score. Null IV → no short-dated data that cycle (not the same as neutral).</>}
+        caveat={<>{t('caveat')}</>}
       >
         <div><code>Spread = OTM Put IV − OTM Call IV</code></div>
         <div><code>Deviation = Spread − Baseline</code> (baseline default 0.02)</div>
         <div><code>Score = −clip(Deviation / Saturation, [−1, 1]) × 100</code> (saturation default 0.04).</div>
       </SignalHowItsBuilt>
 
-      <SignalEventsPanel signalName="skew_delta" symbol={symbol} title="Event Timeline" />
+      <SignalEventsPanel signalName="skew_delta" symbol={symbol} title={t('eventTimeline')} />
     </PageShell>
   );
 }

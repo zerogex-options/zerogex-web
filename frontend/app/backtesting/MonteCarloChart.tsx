@@ -13,6 +13,8 @@ import {
   YAxis,
 } from 'recharts';
 import type { BacktestConePoint } from './types';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './MonteCarloChart.i18n';
 
 interface Props {
   cone: BacktestConePoint[];
@@ -34,6 +36,7 @@ function formatCurrency(value: number): string {
 }
 
 function MonteCarloChartImpl({ cone, startingCapital }: Props) {
+  const t = usePageT(dict);
   const data: ConeRow[] = useMemo(
     () => cone.map((c) => ({ i: c.i, band: [c.p5, c.p95], p50: c.p50 })),
     [cone],
@@ -51,7 +54,7 @@ function MonteCarloChartImpl({ cone, startingCapital }: Props) {
         }}
       >
         <div className="flex h-full items-center justify-center">
-          Not enough trades for a Monte Carlo simulation.
+          {t('notEnoughTrades')}
         </div>
       </div>
     );
@@ -83,7 +86,7 @@ function MonteCarloChartImpl({ cone, startingCapital }: Props) {
             stroke="var(--color-border)"
             height={28}
             label={{
-              value: 'Trades',
+              value: t('tradesAxis'),
               position: 'insideBottom',
               offset: -4,
               fill: 'var(--color-text-secondary)',
@@ -103,7 +106,7 @@ function MonteCarloChartImpl({ cone, startingCapital }: Props) {
             strokeOpacity={0.5}
             strokeDasharray="4 4"
           />
-          <Tooltip content={<ConeTooltip />} />
+          <Tooltip content={<ConeTooltip t={t} />} />
           <Area
             type="monotone"
             dataKey="band"
@@ -128,9 +131,11 @@ function MonteCarloChartImpl({ cone, startingCapital }: Props) {
 function ConeTooltip({
   active,
   payload,
+  t,
 }: {
   active?: boolean;
   payload?: Array<{ payload?: ConeRow }>;
+  t: (key: string, vars?: Record<string, string | number>) => string;
 }) {
   if (!active || !payload || payload.length === 0) return null;
   const point = payload[0]?.payload;
@@ -146,10 +151,10 @@ function ConeTooltip({
         fontVariantNumeric: 'tabular-nums',
       }}
     >
-      <div className="font-mono">After {point.i} trades</div>
-      <div className="mt-1 font-semibold">Median {formatCurrency(point.p50)}</div>
+      <div className="font-mono">{t('afterTrades', { n: point.i })}</div>
+      <div className="mt-1 font-semibold">{t('median', { value: formatCurrency(point.p50) })}</div>
       <div className="mt-0.5 text-[var(--color-text-secondary)]">
-        90% range {formatCurrency(p5)} – {formatCurrency(p95)}
+        {t('rangeLabel', { low: formatCurrency(p5), high: formatCurrency(p95) })}
       </div>
     </div>
   );

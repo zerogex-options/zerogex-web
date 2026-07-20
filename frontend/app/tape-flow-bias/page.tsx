@@ -20,17 +20,20 @@ import {
   formatGexCompact,
 } from '@/core/signalHelpers';
 import { spectrumIndicatorLeft } from '@/core/spectrumIndicator';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './page.i18n';
 
-function interpretation(score: number | null): string {
-  if (score == null) return 'No reading';
-  if (score >= 50) return 'Early bullish accumulation';
-  if (score >= 25) return 'Bullish tape tilt';
-  if (score <= -50) return 'Distribution / early bearish';
-  if (score <= -25) return 'Bearish tape tilt';
-  return 'Flat / thin tape';
+function interpretation(score: number | null, t: (key: string) => string): string {
+  if (score == null) return t('interpNoReading');
+  if (score >= 50) return t('interpBullAccum');
+  if (score >= 25) return t('interpBullTilt');
+  if (score <= -50) return t('interpBearDist');
+  if (score <= -25) return t('interpBearTilt');
+  return t('interpFlat');
 }
 
 export default function TapeFlowBiasPage() {
+  const t = usePageT(dict);
   const { symbol } = useTimeframe();
   const { data, loading, error, refetch } = useTapeFlowBiasSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.tapeFlowBiasMs);
 
@@ -58,9 +61,9 @@ export default function TapeFlowBiasPage() {
     <PageShell>
       <SignalPageTitle
         title="Tape Flow Bias"
-        subtitle={'"Which way is the tape leaning?"'}
+        subtitle={t('pageSubtitle')}
         icon={Waves}
-        tooltip="Continuous aggressive-vs-passive option-tape premium imbalance. Calls bought aggressively + puts sold aggressively = bullish. Abstains when total premium falls below the minimum threshold."
+        tooltip={t('pageTooltip')}
       />
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
@@ -71,14 +74,14 @@ export default function TapeFlowBiasPage() {
             <SignalScoreHero
               score={score}
               trend={trend}
-              interpretation={interpretation(score)}
+              interpretation={interpretation(score, t)}
               history={history}
             />
           </div>
 
           <div className="lg:col-span-3 space-y-4">
             <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
-              <div className="text-sm font-semibold mb-3">Bidirectional tape meter</div>
+              <div className="text-sm font-semibold mb-3">{t('meterHeading')}</div>
               <div className="relative h-6 rounded-full" style={{ background: 'linear-gradient(90deg, var(--color-bear) 0%, var(--color-bear-soft) 35%, var(--color-surface) 50%, var(--color-bull-soft) 65%, var(--color-bull) 100%)' }}>
                 <div className="absolute top-0 h-6 w-1 bg-[var(--color-text-primary)]" style={{ left: spectrumIndicatorLeft(needlePct, 24, 4), transform: 'translateX(-50%)' }} />
               </div>
@@ -104,7 +107,7 @@ export default function TapeFlowBiasPage() {
             </div>
 
             <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
-              <div className="text-sm font-semibold mb-3">Premium components</div>
+              <div className="text-sm font-semibold mb-3">{t('premiumComponentsHeading')}</div>
               <div className="flex flex-col gap-2">
                 <PremiumBar label="Call buy" value={callBuy} total={totalAbs} color="var(--color-bull)" />
                 <PremiumBar label="Call sell" value={callSell} total={totalAbs} color="var(--color-bear-soft)" />
@@ -117,15 +120,15 @@ export default function TapeFlowBiasPage() {
       </section>
 
       <SignalHowItsBuilt
-        caveat={<>Score ≈ 0 during market hours means premium below minimum (thin tape), not &ldquo;neutral conviction&rdquo;.</>}
+        caveat={<>{t('caveatText')}</>}
       >
         <div><code>Call Net = Call Buy Premium − Call Sell Premium</code></div>
         <div><code>Put Net = Put Buy Premium − Put Sell Premium</code></div>
         <div><code>Directional = Call Net − Put Net</code>, <code>Ratio = Directional / (|Call Net| + |Put Net|)</code></div>
-        <div><code>Score = clip(Ratio / Saturation, [−1, 1]) × 100</code>. Saturation default 0.6 (60% one-sided imbalance saturates).</div>
+        <div><code>Score = clip(Ratio / Saturation, [−1, 1]) × 100</code>. {t('saturationNote')}</div>
       </SignalHowItsBuilt>
 
-      <SignalEventsPanel signalName="tape_flow_bias" symbol={symbol} title="Event Timeline" />
+      <SignalEventsPanel signalName="tape_flow_bias" symbol={symbol} title={t('eventTimelineTitle')} />
     </PageShell>
   );
 }

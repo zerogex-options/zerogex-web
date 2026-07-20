@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from 'react';
 import { colors } from '@/core/colors';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './PremiumSurfacePlot.i18n';
 
 interface PremiumSurfacePlotProps {
   /** Strike axis (x). */
@@ -41,6 +43,7 @@ export default function PremiumSurfacePlot({
   height = 560,
 }: PremiumSurfacePlotProps) {
   const elRef = useRef<HTMLDivElement | null>(null);
+  const t = usePageT(dict);
 
   useEffect(() => {
     const el = elRef.current;
@@ -63,8 +66,8 @@ export default function PremiumSurfacePlot({
     }
 
     const isPct = metric === 'breakeven_pct';
-    const colorbarTitle = isPct ? '% to Breakeven' : 'Extrinsic ($)';
-    const zHover = isPct ? 'Move to BE: %{z:.2f}%' : 'Extrinsic: $%{z:.2f}';
+    const colorbarTitle = isPct ? t('breakevenColorbar') : t('extrinsicColorbar');
+    const zHover = isPct ? t('hoverMoveToBe') : t('hoverExtrinsic');
 
     const data = [
       {
@@ -89,8 +92,8 @@ export default function PremiumSurfacePlot({
           z: { show: true, usecolormap: true, highlightcolor: '#ffffff', project: { z: true } },
         },
         hovertemplate:
-          'Strike: %{x}<br>' +
-          'Exp: %{customdata} (%{y} DTE)<br>' +
+          t('hoverStrike') +
+          t('hoverExp') +
           zHover + '<extra></extra>',
       },
     ];
@@ -108,19 +111,19 @@ export default function PremiumSurfacePlot({
       uirevision: 'premium-surface',
       scene: {
         xaxis: {
-          title: { text: 'Strike' },
+          title: { text: t('strikeAxis') },
           gridcolor: gridColor,
           zerolinecolor: gridColor,
           color: fontColor,
         },
         yaxis: {
-          title: { text: 'Days to Expiration' },
+          title: { text: t('dteAxis') },
           gridcolor: gridColor,
           zerolinecolor: gridColor,
           color: fontColor,
         },
         zaxis: {
-          title: { text: isPct ? '% Move to Breakeven' : 'Premium − Intrinsic ($)' },
+          title: { text: isPct ? t('breakevenPctAxis') : t('premiumIntrinsicAxis') },
           gridcolor: gridColor,
           zerolinecolor: gridColor,
           color: fontColor,
@@ -157,7 +160,7 @@ export default function PremiumSurfacePlot({
       if (resizeObserver) resizeObserver.disconnect();
       if (plotly && el) plotly.purge(el);
     };
-  }, [strikes, dtes, z, expirationLabels, optionType, spot, metric, theme, height]);
+  }, [strikes, dtes, z, expirationLabels, optionType, spot, metric, theme, height, t]);
 
   return <div ref={elRef} style={{ width: '100%', height }} />;
 }

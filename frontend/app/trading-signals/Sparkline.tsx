@@ -11,6 +11,8 @@
  */
 
 import { useMemo } from 'react';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './Sparkline.i18n';
 
 interface Props {
   values: number[];
@@ -31,6 +33,7 @@ export default function Sparkline({
   showEndDot = true,
   ariaLabel,
 }: Props) {
+  const t = usePageT(dict);
   const path = useMemo(() => buildPath(values, width, height), [values, width, height]);
   const baselineY = useMemo(() => {
     if (baseline === undefined) return null;
@@ -53,7 +56,7 @@ export default function Sparkline({
         width={width}
         height={height}
         role="img"
-        aria-label={ariaLabel ?? 'awaiting data'}
+        aria-label={ariaLabel ?? t('awaitingData')}
         style={{ display: 'block', overflow: 'visible' }}
       >
         <line
@@ -74,7 +77,7 @@ export default function Sparkline({
       width={width}
       height={height}
       role="img"
-      aria-label={ariaLabel ?? 'equity curve'}
+      aria-label={ariaLabel ?? t('equityCurve')}
       style={{ display: 'block', overflow: 'visible' }}
     >
       {baselineY !== null ? (

@@ -16,6 +16,8 @@ import {
   Table,
   Zap,
 } from 'lucide-react';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './page.i18n';
 import TooltipWrapper from '@/components/TooltipWrapper';
 import AdvancedSignalCard, { type AdvancedSignalContextRow } from '@/components/AdvancedSignalCard';
 import ConfluenceMatrix from '@/components/ConfluenceMatrix';
@@ -46,41 +48,38 @@ import {
 } from '@/core/signalHelpers';
 
 const TABS = [
-  { id: 'grid', label: 'Signal Grid', icon: LayoutGrid },
-  { id: 'matrix', label: 'Confluence Matrix', icon: Table },
-  { id: 'events', label: 'Event Timelines', icon: LineChartIcon },
+  { id: 'grid', labelKey: 'tabGrid', icon: LayoutGrid },
+  { id: 'matrix', labelKey: 'tabMatrix', icon: Table },
+  { id: 'events', labelKey: 'tabEvents', icon: LineChartIcon },
 ] as const;
 
 type TabId = (typeof TABS)[number]['id'];
 
-const EVENT_SIGNAL_LABELS: Array<{ name: SignalEventName; label: string }> = [
-  { name: 'vol_expansion', label: 'Volatility Expansion' },
-  { name: 'eod_pressure', label: 'EOD Pressure' },
-  { name: 'squeeze_setup', label: 'Squeeze Setup' },
-  { name: 'trap_detection', label: 'Trap Detection' },
-  { name: 'zero_dte_position_imbalance', label: '0DTE Position Imbalance' },
-  { name: 'gamma_vwap_confluence', label: 'Gamma/VWAP Confluence' },
-  { name: 'range_break_imminence', label: 'Range Break Imminence' },
-  { name: 'market_pressure', label: 'Market Pressure Index' },
+const EVENT_SIGNAL_LABELS: Array<{ name: SignalEventName; labelKey: string }> = [
+  { name: 'vol_expansion', labelKey: 'titleVolExpansion' },
+  { name: 'eod_pressure', labelKey: 'titleEodPressure' },
+  { name: 'squeeze_setup', labelKey: 'titleSqueezeSetup' },
+  { name: 'trap_detection', labelKey: 'titleTrapDetection' },
+  { name: 'zero_dte_position_imbalance', labelKey: 'titleZeroDte' },
+  { name: 'gamma_vwap_confluence', labelKey: 'titleGammaVwap' },
+  { name: 'range_break_imminence', labelKey: 'titleRangeBreak' },
+  { name: 'market_pressure', labelKey: 'titleMarketPressure' },
 ];
 
-function isEodInactive(payload: Record<string, unknown>): string | null {
+function isEodInactive(payload: Record<string, unknown>): boolean {
   const tr = getNumber(payload.time_ramp);
   const score = getNumber(payload.score);
-  if (tr != null && tr === 0 && (score == null || score === 0)) {
-    return 'Inactive — EOD window opens at 14:30 ET';
-  }
-  return null;
+  return tr != null && tr === 0 && (score == null || score === 0);
 }
 
-function isZeroDteInactive(payload: Record<string, unknown>): string | null {
+function isZeroDteInactive(payload: Record<string, unknown>): boolean {
   const ctx = asObject(payload.context_values) ?? {};
   const tod = getNumber(ctx.tod_multiplier);
-  if (tod != null && tod === 0) return 'Inactive — 0DTE window closed';
-  return null;
+  return tod != null && tod === 0;
 }
 
 export default function AdvancedSignalsPage() {
+  const t = usePageT(dict);
   const { symbol } = useTimeframe();
   const [tab, setTab] = useState<TabId>('grid');
 
@@ -194,23 +193,23 @@ export default function AdvancedSignalsPage() {
     ];
 
     return [
-      { payload: volPayload, title: 'Volatility Expansion', href: '/volatility-expansion', icon: Zap, threshold: 25, description: 'Short-gamma vol readiness × momentum direction.', rows: volRows, hook: volExpansion },
-      { payload: eodPayload, title: 'EOD Pressure', href: '/eod-pressure', icon: CalendarClock, threshold: 25, description: 'Late-session pin/drift: charm + gamma-gated pin × time ramp.', rows: eodRows, hook: eodPressure, inactive: isEodInactive(eodPayload) },
-      { payload: squeezePayload, title: 'Squeeze Setup', href: '/squeeze-setup', icon: Rocket, threshold: 25, description: 'Directional flow z × momentum × dealer-gamma posture.', rows: squeezeRows, hook: squeezeSetup },
-      { payload: trapPayload, title: 'Trap Detection', href: '/trap-detection', icon: AlertTriangle, threshold: 25, description: 'Failed-breakout fades when dealer gamma reinforces reversal.', rows: trapRows, hook: trapDetection },
-      { payload: zeroDtePayload, title: '0DTE Position Imbalance', href: '/0dte-position-imbalance', icon: Activity, threshold: 25, description: 'Same-day bucket-weighted flow tilt × time-of-day ramp.', rows: zeroDteRows, hook: zeroDte, inactive: isZeroDteInactive(zeroDtePayload) },
-      { payload: gvcPayload, title: 'Gamma/VWAP Confluence', href: '/gamma-vwap-confluence', icon: Compass, threshold: 20, description: 'Multi-level magnet: flip + VWAP + max pain + max gamma + call wall.', rows: gvcRows, hook: gammaVwap },
-      { payload: rbiPayload, title: 'Range Break Imminence', href: '/range-break-imminence', icon: ArrowLeftRight, threshold: 65, description: 'Regime-switch detector: skew + dealer Δ + trap + compression → 0–100 imminence.', rows: rbiRows, hook: rangeBreak },
-      { payload: mpPayload, title: 'Market Pressure Index', href: '/market-pressure', icon: Gauge, threshold: 22, description: 'Forward-looking coiled-spring: compression × hedging × flow × tension loading + direction.', rows: mpRows, hook: marketPressure },
+      { payload: volPayload, title: t('titleVolExpansion'), href: '/volatility-expansion', icon: Zap, threshold: 25, description: t('descVolExpansion'), rows: volRows, hook: volExpansion },
+      { payload: eodPayload, title: t('titleEodPressure'), href: '/eod-pressure', icon: CalendarClock, threshold: 25, description: t('descEodPressure'), rows: eodRows, hook: eodPressure, inactive: isEodInactive(eodPayload) ? t('eodInactive') : null },
+      { payload: squeezePayload, title: t('titleSqueezeSetup'), href: '/squeeze-setup', icon: Rocket, threshold: 25, description: t('descSqueezeSetup'), rows: squeezeRows, hook: squeezeSetup },
+      { payload: trapPayload, title: t('titleTrapDetection'), href: '/trap-detection', icon: AlertTriangle, threshold: 25, description: t('descTrapDetection'), rows: trapRows, hook: trapDetection },
+      { payload: zeroDtePayload, title: t('titleZeroDte'), href: '/0dte-position-imbalance', icon: Activity, threshold: 25, description: t('descZeroDte'), rows: zeroDteRows, hook: zeroDte, inactive: isZeroDteInactive(zeroDtePayload) ? t('zeroDteInactive') : null },
+      { payload: gvcPayload, title: t('titleGammaVwap'), href: '/gamma-vwap-confluence', icon: Compass, threshold: 20, description: t('descGammaVwap'), rows: gvcRows, hook: gammaVwap },
+      { payload: rbiPayload, title: t('titleRangeBreak'), href: '/range-break-imminence', icon: ArrowLeftRight, threshold: 65, description: t('descRangeBreak'), rows: rbiRows, hook: rangeBreak },
+      { payload: mpPayload, title: t('titleMarketPressure'), href: '/market-pressure', icon: Gauge, threshold: 22, description: t('descMarketPressure'), rows: mpRows, hook: marketPressure },
     ];
-  }, [volExpansion, eodPressure, squeezeSetup, trapDetection, zeroDte, gammaVwap, rangeBreak, marketPressure]);
+  }, [t, volExpansion, eodPressure, squeezeSetup, trapDetection, zeroDte, gammaVwap, rangeBreak, marketPressure]);
 
   return (
     <PageShell>
       <div className="flex items-center gap-2 mb-6">
-        <h1 className="text-3xl font-bold">Advanced Signal Dashboard</h1>
+        <h1 className="text-3xl font-bold">{t('title')}</h1>
         <TooltipWrapper
-          text="Dashboard of eight advanced signals, plus cross-component confluence analysis. Six extend the composite MSI; Range Break Imminence and Market Pressure Index are standalone overlays. Each card below is a standalone detector; triggered cards are outlined. Switch tabs to inspect cross-signal confluence or per-signal event timelines."
+          text={t('tooltip')}
           placement="bottom"
         >
           <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
@@ -224,16 +223,13 @@ export default function AdvancedSignalsPage() {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <ShieldAlert size={16} className="text-[var(--color-warning)]" />
-              <div className="text-xs uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">Signal Lens</div>
+              <div className="text-xs uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">{t('signalLens')}</div>
             </div>
             <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
-              Eight weighted detectors with directional triggers and pin-risk setups — six extending the composite
-              MSI plus Range Break Imminence (regime-switch) and Market Pressure Index (coiled-spring) as
-              standalone overlays. Outlined tiles have crossed their activation threshold — interpret each
-              alongside the current regime.
+              {t('signalLensDesc')}
             </p>
             <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-[var(--color-text-secondary)]">
-              <span><span className="text-[var(--color-text-primary)] font-semibold">Symbol</span> {symbol}</span>
+              <span><span className="text-[var(--color-text-primary)] font-semibold">{t('symbol')}</span> {symbol}</span>
             </div>
           </div>
 
@@ -260,14 +256,14 @@ export default function AdvancedSignalsPage() {
       </section>
 
       <div className="flex gap-2 mt-6 border-b border-[var(--color-border)]">
-        {TABS.map((t) => {
-          const Icon = t.icon;
-          const active = tab === t.id;
+        {TABS.map((tabItem) => {
+          const Icon = tabItem.icon;
+          const active = tab === tabItem.id;
           return (
             <button
-              key={t.id}
+              key={tabItem.id}
               type="button"
-              onClick={() => setTab(t.id)}
+              onClick={() => setTab(tabItem.id)}
               className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold"
               style={{
                 color: active ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
@@ -276,7 +272,7 @@ export default function AdvancedSignalsPage() {
               }}
             >
               <Icon size={14} />
-              {t.label}
+              {t(tabItem.labelKey)}
             </button>
           );
         })}
@@ -307,14 +303,14 @@ export default function AdvancedSignalsPage() {
       {tab === 'matrix' && (
         <section className="mt-6">
           <ConfluenceMatrix data={matrix.data} />
-          {matrix.error && <div className="mt-2 text-[11px] text-[var(--color-bear)]">Failed to load matrix: {matrix.error}</div>}
+          {matrix.error && <div className="mt-2 text-[11px] text-[var(--color-bear)]">{t('matrixError', { msg: matrix.error })}</div>}
         </section>
       )}
 
       {tab === 'events' && (
         <section className="mt-6 space-y-6">
           {EVENT_SIGNAL_LABELS.map((s) => (
-            <SignalEventsPanel key={s.name} signalName={s.name} symbol={symbol} title={s.label} />
+            <SignalEventsPanel key={s.name} signalName={s.name} symbol={symbol} title={t(s.labelKey)} />
           ))}
         </section>
       )}

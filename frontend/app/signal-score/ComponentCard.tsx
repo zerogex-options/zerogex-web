@@ -3,7 +3,9 @@
 import { memo } from 'react';
 import { Info } from 'lucide-react';
 import TooltipWrapper from '@/components/TooltipWrapper';
+import { usePageT } from '@/core/LanguageContext';
 import { ComponentEntry, GammaAnchorContext, getComponentLabel } from './data';
+import { dict } from './ComponentCard.i18n';
 
 interface Props {
   entry: ComponentEntry;
@@ -19,9 +21,9 @@ function colorFor(score: number | null): string {
   return score >= 0 ? POSITIVE : NEGATIVE;
 }
 
-function regimePushLabel(score: number | null): string {
-  if (score == null || !Number.isFinite(score) || Math.abs(score) < 0.05) return 'Neutral push';
-  return score > 0 ? 'Pushes toward trend / expansion' : 'Pushes toward chop / reversal';
+function regimePushLabel(score: number | null, t: (key: string) => string): string {
+  if (score == null || !Number.isFinite(score) || Math.abs(score) < 0.05) return t('neutralPush');
+  return score > 0 ? t('pushExpansion') : t('pushReversal');
 }
 
 function ScoreBar({ score }: { score: number | null }) {
@@ -52,6 +54,7 @@ function ScoreBar({ score }: { score: number | null }) {
 }
 
 function ComponentCardImpl({ entry }: Props) {
+  const t = usePageT(dict);
   const label = getComponentLabel(entry.key);
   const isGammaAnchor = entry.key === 'gamma_anchor';
   const score = entry.score;
@@ -85,14 +88,19 @@ function ComponentCardImpl({ entry }: Props) {
         borderColor: cardBorder,
         background: cardBg,
       }}
-      aria-label={`${label.title}. Score ${score?.toFixed(3) ?? 'unavailable'}, contribution ${contribution >= 0 ? '+' : ''}${contribution.toFixed(2)} of ${entry.maxPoints}.`}
+      aria-label={t('cardAriaLabel', {
+        title: label.title,
+        score: score?.toFixed(3) ?? 'unavailable',
+        contribution: `${contribution >= 0 ? '+' : ''}${contribution.toFixed(2)}`,
+        maxPoints: entry.maxPoints,
+      })}
     >
       <div className="flex items-start justify-between gap-2">
         <div>
           <h3 className="text-base font-semibold flex items-center gap-1.5" style={{ color: 'var(--color-text-primary)' }}>
             {label.title}
             <TooltipWrapper
-              text={`${label.description}\n\n+1 score: ${label.positive}\n−1 score: ${label.negative}\n\nIn the MSI, +score pushes the composite toward the trend / expansion regime; −score pushes it toward chop / pinning / high-risk reversal.`}
+              text={`${label.description}\n\n${t('plusScoreLabel')} ${label.positive}\n${t('minusScoreLabel')} ${label.negative}\n\n${t('msiTooltip')}`}
               placement="bottom"
             >
               <Info size={12} className="text-[var(--color-text-secondary)] cursor-help" />
@@ -108,9 +116,9 @@ function ComponentCardImpl({ entry }: Props) {
       <div
         className="text-[11px] font-semibold uppercase tracking-[0.12em]"
         style={{ color }}
-        aria-label={regimePushLabel(score)}
+        aria-label={regimePushLabel(score, t)}
       >
-        {regimePushLabel(score)}
+        {regimePushLabel(score, t)}
       </div>
 
       <ScoreBar score={score} />
@@ -146,9 +154,9 @@ function ComponentCardImpl({ entry }: Props) {
             background: 'var(--color-surface-subtle)',
             fontVariantNumeric: 'tabular-nums',
           }}
-          title={`Used ${weightPct}% of available ${entry.maxPoints} weight pts`}
+          title={t('weightTitle', { weightPct, maxPoints: entry.maxPoints })}
         >
-          {weightPct}% of weight
+          {t('weightBadge', { weightPct })}
         </div>
         {isGammaAnchor && (
           <GammaAnchorSubSignals context={entry.context ?? null} />
@@ -183,28 +191,29 @@ const ComponentCard = memo(ComponentCardImpl, (prev, next) => entryEquals(prev.e
 export default ComponentCard;
 
 function GammaAnchorSubSignals({ context }: { context: GammaAnchorContext | null }) {
+  const t = usePageT(dict);
   if (!context) {
     return (
       <span
         className="text-[11px] text-[var(--color-text-secondary)] italic"
-        title="Sub-signal detail unavailable for this tick."
+        title={t('subSignalUnavailableTitle')}
       >
-        Sub-signal detail unavailable.
+        {t('subSignalUnavailable')}
       </span>
     );
   }
   const rows: Array<{ label: string; value: number | null; weight: number }> = [
-    { label: 'Flip distance', value: context.flipDistance, weight: context.weights.flipDistance },
-    { label: 'Local gamma density', value: context.localGamma, weight: context.weights.localGamma },
-    { label: 'Price vs max-gamma', value: context.priceVsMaxGamma, weight: context.weights.priceVsMaxGamma },
+    { label: t('flipDistance'), value: context.flipDistance, weight: context.weights.flipDistance },
+    { label: t('localGammaDensity'), value: context.localGamma, weight: context.weights.localGamma },
+    { label: t('priceVsMaxGamma'), value: context.priceVsMaxGamma, weight: context.weights.priceVsMaxGamma },
   ];
-  const tooltip = `Three internal sub-signals are blended into the gamma_anchor score:\n${rows
+  const tooltip = `${t('subSignalTooltipIntro')}\n${rows
     .map((r) => `• ${r.label}: ${r.value != null ? r.value.toFixed(3) : '—'} × ${r.weight.toFixed(2)}`)
     .join('\n')}`;
   return (
     <TooltipWrapper text={tooltip} placement="bottom">
       <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--color-text-secondary)] cursor-help">
-        Sub-signals
+        {t('subSignals')}
         <Info size={11} />
       </span>
     </TooltipWrapper>

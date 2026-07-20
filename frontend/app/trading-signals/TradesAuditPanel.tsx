@@ -21,8 +21,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Download, FileSpreadsheet, TrendingDown, TrendingUp } from 'lucide-react';
+import { usePageT } from '@/core/LanguageContext';
 import { fmtMoney, fmtSignedMoney, fmtSignedPct } from './format';
 import type { BotRow } from './types';
+import { dict } from './TradesAuditPanel.i18n';
 
 type Origin = 'all' | 'live' | 'simulate';
 
@@ -145,6 +147,7 @@ interface Props {
 const PAGE_SIZE = 100;
 
 export default function TradesAuditPanel({ bots, isAdmin = false }: Props) {
+  const t = usePageT(dict);
   // Non-admin viewers are locked to origin='live' — they never see sim
   // rows or the origin toggle. The backend endpoint respects this filter
   // regardless of whether the tab is present in the DOM.
@@ -181,11 +184,11 @@ export default function TradesAuditPanel({ bots, isAdmin = false }: Props) {
       const body = (await res.json()) as AuditResponse;
       setData(body);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load trades');
+      setError(err instanceof Error ? err.message : t('failedToLoadTrades'));
     } finally {
       setLoading(false);
     }
-  }, [queryParams]);
+  }, [queryParams, t]);
 
   useEffect(() => {
     void load();
@@ -252,20 +255,19 @@ export default function TradesAuditPanel({ bots, isAdmin = false }: Props) {
       >
         <div>
           <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
-            Trade audit
+            {t('tradeAudit')}
           </h2>
           <p className="text-xs text-[var(--color-text-secondary)] mt-0.5">
-            Every position the fleet holds right now, and every trade it has
-            closed. Prices are{' '}
-            <span className="font-medium text-[var(--color-text-primary)]">per share</span>
-            ; each contract = 100 shares.
+            {t('perShareDesc')}{' '}
+            <span className="font-medium text-[var(--color-text-primary)]">{t('perShare')}</span>
+            {t('perShareSuffix')}
             {isAdmin ? (
               <>
-                {' '}Origin tags:{' '}
-                <span className="font-medium text-[var(--color-text-primary)]">SIM</span>{' '}
-                = seed data,{' '}
-                <span className="font-medium text-[var(--color-text-primary)]">LIVE</span>{' '}
-                = real engine entries.
+                {' '}{t('originTagsPrefix')}{' '}
+                <span className="font-medium text-[var(--color-text-primary)]">{t('originTagsSim')}</span>{' '}
+                {t('originTagsSimDesc')}{' '}
+                <span className="font-medium text-[var(--color-text-primary)]">{t('originTagsLive')}</span>{' '}
+                {t('originTagsLiveDesc')}
               </>
             ) : null}
           </p>
@@ -282,7 +284,7 @@ export default function TradesAuditPanel({ bots, isAdmin = false }: Props) {
               color: 'var(--color-text-primary)',
             }}
           >
-            <option value="">All bots</option>
+            <option value="">{t('allBots')}</option>
             {bots.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.display_name}
@@ -298,10 +300,10 @@ export default function TradesAuditPanel({ bots, isAdmin = false }: Props) {
                 border: '1px solid var(--color-border)',
                 color: 'var(--color-text-primary)',
               }}
-              title="Download the currently-filtered trades as CSV"
+              title={t('downloadCsvTitle')}
             >
               <FileSpreadsheet className="w-3 h-3" />
-              CSV
+              {t('csv')}
             </button>
           ) : null}
         </div>
@@ -325,20 +327,20 @@ export default function TradesAuditPanel({ bots, isAdmin = false }: Props) {
       >
         <div>
           <div className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-primary)]">
-            Closed trades
+            {t('closedTrades')}
           </div>
           <div className="text-[11px] text-[var(--color-text-secondary)] mt-0.5">
-            Every trade that has already exited, newest first.
+            {t('closedTradesDesc')}
           </div>
         </div>
         {data ? (
           <div className="flex items-center gap-6 text-xs">
             <SummaryCell
-              label="Trades"
+              label={t('trades')}
               value={data.summary.n_trades.toLocaleString()}
             />
             <SummaryCell
-              label="Realized P&L"
+              label={t('realizedPnl')}
               value={fmtSignedMoney(data.summary.sum_realized_pnl)}
               tone={
                 data.summary.sum_realized_pnl >= 0
@@ -347,15 +349,15 @@ export default function TradesAuditPanel({ bots, isAdmin = false }: Props) {
               }
             />
             <SummaryCell
-              label="Wins"
+              label={t('wins')}
               value={data.summary.n_wins.toLocaleString()}
             />
             <SummaryCell
-              label="Losses"
+              label={t('losses')}
               value={data.summary.n_losses.toLocaleString()}
             />
             <SummaryCell
-              label="Scratches"
+              label={t('scratches')}
               value={data.summary.n_scratches.toLocaleString()}
             />
           </div>
@@ -364,7 +366,7 @@ export default function TradesAuditPanel({ bots, isAdmin = false }: Props) {
 
       {loading && !data ? (
         <div className="p-8 text-center text-xs text-[var(--color-text-secondary)]">
-          Loading trades…
+          {t('loadingTrades')}
         </div>
       ) : error ? (
         <div
@@ -378,7 +380,7 @@ export default function TradesAuditPanel({ bots, isAdmin = false }: Props) {
         </div>
       ) : data && data.entries.length === 0 ? (
         <div className="p-8 text-center text-xs text-[var(--color-text-secondary)]">
-          No trades match this filter.
+          {t('noTradesMatch')}
         </div>
       ) : (
         <div className="overflow-x-auto">
@@ -391,19 +393,19 @@ export default function TradesAuditPanel({ bots, isAdmin = false }: Props) {
                   color: 'var(--color-text-secondary)',
                 }}
               >
-                {isAdmin ? <Th>Origin</Th> : null}
-                <Th width="6.5rem">Opened</Th>
-                <Th width="6.5rem">Closed</Th>
-                <Th width="9.5rem">Bot</Th>
-                <Th width="8.5rem">Contract</Th>
-                <Th align="center" width="3.25rem">Lean</Th>
-                <Th align="right">Entry / sh</Th>
-                <Th align="right">Exit / sh</Th>
-                <Th align="right">Qty</Th>
-                <Th align="right">Cost basis</Th>
-                <Th align="right">Proceeds</Th>
-                <Th align="right">P&amp;L $</Th>
-                <Th align="right">P&amp;L %</Th>
+                {isAdmin ? <Th>{t('origin')}</Th> : null}
+                <Th width="6.5rem">{t('opened')}</Th>
+                <Th width="6.5rem">{t('closed')}</Th>
+                <Th width="9.5rem">{t('bot')}</Th>
+                <Th width="8.5rem">{t('contract')}</Th>
+                <Th align="center" width="3.25rem">{t('lean')}</Th>
+                <Th align="right">{t('entryPerSh')}</Th>
+                <Th align="right">{t('exitPerSh')}</Th>
+                <Th align="right">{t('qty')}</Th>
+                <Th align="right">{t('costBasis')}</Th>
+                <Th align="right">{t('proceeds')}</Th>
+                <Th align="right">{t('pnlDollar')}</Th>
+                <Th align="right">{t('pnlPercent')}</Th>
                 <Th>&nbsp;</Th>
               </tr>
             </thead>
@@ -512,7 +514,10 @@ export default function TradesAuditPanel({ bots, isAdmin = false }: Props) {
           style={{ borderColor: 'var(--color-border)' }}
         >
           <span className="text-[var(--color-text-secondary)]">
-            Showing {data.entries.length} of {data.summary.n_trades.toLocaleString()}
+            {t('showing', {
+              shown: data.entries.length,
+              total: data.summary.n_trades.toLocaleString(),
+            })}
           </span>
           <div className="flex items-center gap-2">
             <button
@@ -525,7 +530,7 @@ export default function TradesAuditPanel({ bots, isAdmin = false }: Props) {
                 color: 'var(--color-text-primary)',
               }}
             >
-              ← Prev
+              {t('prev')}
             </button>
             <span className="text-[var(--color-text-secondary)] tabular-nums">
               {offset + 1}–{offset + data.entries.length}
@@ -540,7 +545,7 @@ export default function TradesAuditPanel({ bots, isAdmin = false }: Props) {
                 color: 'var(--color-text-primary)',
               }}
             >
-              Next →
+              {t('next')}
             </button>
           </div>
         </div>
@@ -550,6 +555,7 @@ export default function TradesAuditPanel({ bots, isAdmin = false }: Props) {
 }
 
 function OpenPositionsSection({ data }: { data: OpenPositionsResponse | null }) {
+  const t = usePageT(dict);
   if (!data) return null;
   const now = Date.now();
   // Per-position winning/losing/scratch counts derived from the sign of
@@ -577,20 +583,19 @@ function OpenPositionsSection({ data }: { data: OpenPositionsResponse | null }) 
       <div className="flex items-center justify-between mb-2 gap-4 flex-wrap">
         <div>
           <div className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-primary)]">
-            Open positions
+            {t('openPositions')}
           </div>
           <div className="text-[11px] text-[var(--color-text-secondary)] mt-0.5">
-            Currently held — updates every 15s. Closed trades appear below
-            once they exit.
+            {t('openPositionsDesc')}
           </div>
         </div>
         <div className="flex items-center gap-6 text-xs">
           <SummaryCell
-            label="Positions"
+            label={t('positions')}
             value={data.summary.n_open.toLocaleString()}
           />
           <SummaryCell
-            label="Unrealized P&L"
+            label={t('unrealizedPnl')}
             value={fmtSignedMoney(data.summary.total_unrealized_pnl)}
             tone={
               data.summary.total_unrealized_pnl >= 0
@@ -598,16 +603,15 @@ function OpenPositionsSection({ data }: { data: OpenPositionsResponse | null }) 
                 : 'var(--color-bear)'
             }
           />
-          <SummaryCell label="Winning" value={winning.toLocaleString()} />
-          <SummaryCell label="Losing" value={losing.toLocaleString()} />
-          <SummaryCell label="Scratch" value={scratch.toLocaleString()} />
+          <SummaryCell label={t('winning')} value={winning.toLocaleString()} />
+          <SummaryCell label={t('losing')} value={losing.toLocaleString()} />
+          <SummaryCell label={t('scratch')} value={scratch.toLocaleString()} />
         </div>
       </div>
 
       {data.entries.length === 0 ? (
         <div className="text-[11px] text-[var(--color-text-secondary)] mt-2 italic">
-          No positions currently held. The engine opens on the next
-          qualifying tick.
+          {t('noPositionsHeld')}
         </div>
       ) : (
         <div className="overflow-x-auto mt-3">
@@ -620,18 +624,18 @@ function OpenPositionsSection({ data }: { data: OpenPositionsResponse | null }) 
                   color: 'var(--color-text-secondary)',
                 }}
               >
-                <Th width="9.5rem">Bot</Th>
-                <Th width="8.5rem">Contract</Th>
-                <Th align="center" width="3.25rem">Lean</Th>
-                <Th align="right">Entry / sh</Th>
-                <Th align="right">Mark / sh</Th>
-                <Th align="right">Qty</Th>
-                <Th align="right">Cost basis</Th>
-                <Th align="right">Unrealized</Th>
-                <Th align="right">Target</Th>
-                <Th align="right">Stop</Th>
-                <Th>Held</Th>
-                <Th>Time stop</Th>
+                <Th width="9.5rem">{t('bot')}</Th>
+                <Th width="8.5rem">{t('contract')}</Th>
+                <Th align="center" width="3.25rem">{t('lean')}</Th>
+                <Th align="right">{t('entryPerSh')}</Th>
+                <Th align="right">{t('markPerSh')}</Th>
+                <Th align="right">{t('qty')}</Th>
+                <Th align="right">{t('costBasis')}</Th>
+                <Th align="right">{t('unrealized')}</Th>
+                <Th align="right">{t('target')}</Th>
+                <Th align="right">{t('stop')}</Th>
+                <Th>{t('held')}</Th>
+                <Th>{t('timeStop')}</Th>
               </tr>
             </thead>
             <tbody>
@@ -654,7 +658,7 @@ function OpenPositionsSection({ data }: { data: OpenPositionsResponse | null }) 
                   ? Math.max(0, (timeStopMs - now) / 1000)
                   : null;
                 const timeStopLabel = untilTimeStopSec != null
-                  ? `in ${fmtDuration(untilTimeStopSec) ?? '—'}`
+                  ? t('timeStopIn', { duration: fmtDuration(untilTimeStopSec) ?? '—' })
                   : '—';
                 return (
                   <tr
@@ -732,10 +736,11 @@ function OriginTabs({
   current: Origin;
   onChange: (o: Origin) => void;
 }) {
+  const t = usePageT(dict);
   const opts: { key: Origin; label: string }[] = [
-    { key: 'all', label: 'All' },
-    { key: 'live', label: 'Live' },
-    { key: 'simulate', label: 'Sim' },
+    { key: 'all', label: t('all') },
+    { key: 'live', label: t('live') },
+    { key: 'simulate', label: t('sim') },
   ];
   return (
     <div
@@ -843,6 +848,7 @@ function ContractCell({
  * raw text so nothing silently vanishes.
  */
 function DirectionCell({ direction }: { direction: string }) {
+  const t = usePageT(dict);
   const dir = (direction ?? '').toLowerCase();
   const isBull = dir === 'bullish';
   const isBear = dir === 'bearish';
@@ -853,7 +859,7 @@ function DirectionCell({ direction }: { direction: string }) {
       </span>
     );
   }
-  const label = isBull ? 'Bullish' : 'Bearish';
+  const label = isBull ? t('bullish') : t('bearish');
   return (
     <span
       className="inline-flex items-center justify-center rounded-full"
@@ -932,6 +938,7 @@ function LegsTable({
   legs: Leg[] | null | undefined;
   emptyLabel: string;
 }) {
+  const t = usePageT(dict);
   if (!legs || legs.length === 0) {
     return (
       <div className="text-[11px] text-[var(--color-text-secondary)] italic">
@@ -951,11 +958,11 @@ function LegsTable({
             style={{ backgroundColor: 'var(--color-surface)' }}
           >
             <th className="px-2 py-1.5 text-left font-semibold">#</th>
-            <th className="px-2 py-1.5 text-left font-semibold">Side</th>
-            <th className="px-2 py-1.5 text-left font-semibold">Type</th>
-            <th className="px-2 py-1.5 text-right font-semibold">Strike</th>
-            <th className="px-2 py-1.5 text-left font-semibold">Expires</th>
-            <th className="px-2 py-1.5 text-left font-semibold">Symbol</th>
+            <th className="px-2 py-1.5 text-left font-semibold">{t('legSide')}</th>
+            <th className="px-2 py-1.5 text-left font-semibold">{t('legType')}</th>
+            <th className="px-2 py-1.5 text-right font-semibold">{t('legStrike')}</th>
+            <th className="px-2 py-1.5 text-left font-semibold">{t('legExpires')}</th>
+            <th className="px-2 py-1.5 text-left font-semibold">{t('legSymbol')}</th>
           </tr>
         </thead>
         <tbody>
@@ -1003,6 +1010,7 @@ function LegsTable({
 }
 
 function ExpandedDetail({ row }: { row: TradeRow }) {
+  const t = usePageT(dict);
   return (
     <div className="space-y-4 py-2">
       {/*
@@ -1013,7 +1021,7 @@ function ExpandedDetail({ row }: { row: TradeRow }) {
       */}
       <div>
         <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)] mb-1">
-          Close reason
+          {t('closeReason')}
         </div>
         <div className="text-xs text-[var(--color-text-primary)] capitalize">
           {row.close_reason ? row.close_reason.replace(/[_-]+/g, ' ') : '—'}
@@ -1028,15 +1036,15 @@ function ExpandedDetail({ row }: { row: TradeRow }) {
       */}
       <div>
         <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)] mb-1">
-          Legs ({row.legs?.length ?? 0})
+          {t('legsCount', { count: row.legs?.length ?? 0 })}
         </div>
-        <LegsTable legs={row.legs} emptyLabel="No legs recorded for this trade." />
+        <LegsTable legs={row.legs} emptyLabel={t('noLegsRecorded')} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)] mb-1">
-            Components at entry
+            {t('componentsAtEntry')}
           </div>
           <pre
             className="text-[11px] p-2 rounded overflow-x-auto whitespace-pre-wrap break-words"
@@ -1052,7 +1060,7 @@ function ExpandedDetail({ row }: { row: TradeRow }) {
         </div>
         <div>
           <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)] mb-1">
-            Components at exit
+            {t('componentsAtExit')}
           </div>
           <pre
             className="text-[11px] p-2 rounded overflow-x-auto whitespace-pre-wrap break-words"

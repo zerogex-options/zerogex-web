@@ -29,6 +29,8 @@ import { colors } from "@/core/colors";
 import { etTodayDateKey, omitOutOfHoursForSymbol } from "@/core/utils";
 import MobileScrollableChart from "@/components/MobileScrollableChart";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { usePageT } from "@/core/LanguageContext";
+import { dict } from "./page.i18n";
 
 interface MaxPainPoint {
   settlement_price: number;
@@ -126,6 +128,7 @@ function getNiceStrikeStep(range: number): number {
 }
 
 export default function MaxPainPage() {
+  const t = usePageT(dict);
   const { symbol, getMaxDataPoints } = useTimeframe();
   const { theme } = useTheme();
   const isMobile = useIsMobile();
@@ -255,17 +258,21 @@ export default function MaxPainPage() {
   const maxPainTone: 'bullish' | 'bearish' | 'neutral' =
     Math.abs(impliedMovePct) <= 0.4 ? 'neutral' : impliedMove > 0 ? 'bullish' : 'bearish';
   const maxPainBadge = Math.abs(impliedMovePct) <= 0.4
-    ? 'Pin Risk Elevated'
+    ? t('badgePinRisk')
     : impliedMove > 0
-      ? 'Upside Magnet'
-      : 'Downside Magnet';
-  const maxPainSummary = `Spot is ${impliedMove >= 0 ? 'below' : 'above'} max pain by ${Math.abs(impliedMove).toFixed(2)} points (${Math.abs(impliedMovePct).toFixed(2)}%). ${
+      ? t('badgeUpside')
+      : t('badgeDownside');
+  const maxPainSummary = `${t('summaryIntro', {
+    word: impliedMove >= 0 ? t('belowWord') : t('aboveWord'),
+    move: Math.abs(impliedMove).toFixed(2),
+    pct: Math.abs(impliedMovePct).toFixed(2),
+  })} ${
     Math.abs(impliedMovePct) <= 0.4
-      ? 'Price is already near the pin, so expect more mean-reversion behavior and faster failed breakouts.'
+      ? t('summaryNeutral')
       : impliedMove > 0
-        ? 'A higher pin suggests dealer hedging can nudge price upward into expirations if buyers stay engaged.'
-        : 'A lower pin suggests gravity can remain to the downside into expiry, especially on failed bounces.'
-  } Day and swing traders can use this as context: fade overextensions near the pin, but treat decisive breaks away from max pain as trend-confirmation signals.`;
+        ? t('summaryUpside')
+        : t('summaryDownside')
+  } ${t('summaryOutro')}`;
 
   const textColor = 'var(--text-primary)';
   const panelBg = 'var(--bg-card)';
@@ -390,21 +397,21 @@ export default function MaxPainPage() {
 
   return (
     <PageShell>
-      <h1 className="zg-h1 mb-8">Max Pain</h1>
+      <h1 className="zg-h1 mb-8">{t('pageTitle')}</h1>
       <RegimeSummaryBanner
-        title="Max Pain Regime"
+        title={t('regimeTitle')}
         badge={maxPainBadge}
         tone={maxPainTone}
         summary={maxPainSummary}
       />
 
       <section className="mb-8">
-        <SectionHead title="Max Pain Snapshot" tooltip="Current max pain context combining summary and intraday series." />
+        <SectionHead title={t('sectionSnapshotTitle')} tooltip={t('sectionSnapshotTooltip')} />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="rounded-lg p-4 border" style={{ backgroundColor: panelBg, borderColor: 'var(--text-secondary)' }}>
             <div className="text-xs mb-1 flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
-              Current Max Pain (All Expirations)
-              <TooltipWrapper text="Whole-chain max pain: the single strike where the most option value across ALL listed expirations would expire worthless, pooled into one payout curve. Open interest only changes at settlement, so this is recomputed once a day (pre-market). It's the authoritative value and is what drives the Implied Move below.">
+              {t('currentMaxPainLabel')}
+              <TooltipWrapper text={t('currentMaxPainTooltip')}>
                 <Info size={12} />
               </TooltipWrapper>
             </div>
@@ -418,30 +425,30 @@ export default function MaxPainPage() {
                     : `${impliedMove >= 0 ? 'var(--color-bull)' : 'var(--color-bear)'}10`,
                 color: impliedMove >= 0 ? 'var(--color-bull)' : 'var(--color-bear)',
               }}
-              title="Implied move = Max Pain - Current Underlying"
+              title={t('impliedMoveTitle')}
             >
-              <span>Implied Move:</span>
+              <span>{t('impliedMoveLabel')}</span>
               {impliedMove >= 0 ? <TrendingUp size={12} strokeWidth={2.5} /> : <TrendingDown size={12} strokeWidth={2.5} />}
               {impliedMove >= 0 ? "+" : ""}{impliedMove.toFixed(2)} ({impliedMove >= 0 ? "+" : ""}{impliedMovePct.toFixed(2)}%)
             </div>
           </div>
-          <MetricCard title="Nearest-Expiration Max Pain" value={nearestExpirationMaxPain ? `$${nearestExpirationMaxPain.toFixed(2)}` : "--"} tooltip="Max pain for only the nearest non-expired expiration (often a daily or weekly contract) — the same value shown on the dashed Max Pain line in the chart below when its dropdown is set to that expiration. Because it covers a single expiration, it can sit a few points apart from the whole-chain Current Max Pain above, and it stays flat intraday since open interest only changes at settlement." theme={theme} />
+          <MetricCard title={t('nearestExpMaxPainTitle')} value={nearestExpirationMaxPain ? `$${nearestExpirationMaxPain.toFixed(2)}` : "--"} tooltip={t('nearestExpMaxPainTooltip')} theme={theme} />
           <MetricCard
-            title="Underlying Price"
+            title={t('underlyingPriceTitle')}
             value={latest?.close ? `$${latest.close.toFixed(2)}` : "--"}
             trend={latest?.close && currentMaxPain ? (latest.close > currentMaxPain ? "bullish" : "bearish") : "neutral"}
-            tooltip="Latest underlying close mapped from /api/market/historical."
+            tooltip={t('underlyingPriceTooltip')}
             theme={theme}
           />
         </div>
       </section>
 
       <section className="mb-8 rounded-lg p-6" style={{ backgroundColor: panelBg }}>
-        <SectionHead title="Notional Open Interest by Strike" tooltip="Select expiration and view call/put notional by strike with max pain and underlying reference lines." />
+        <SectionHead title={t('sectionOiTitle')} tooltip={t('sectionOiTooltip')} />
 
         {expirationOptions.length > 0 ? (
           <div className="mb-4">
-            <label className="mr-3" style={{ color: textColor }}>Expiration:</label>
+            <label className="mr-3" style={{ color: textColor }}>{t('expirationLabel')}</label>
             <select
               value={activeExpirationValue}
               onChange={(e) => setSelectedExpiration(e.target.value)}
@@ -456,11 +463,11 @@ export default function MaxPainPage() {
         ) : null}
 
         {oiError ? (
-          <ErrorMessage message={`Error loading data: ${oiError}`} />
+          <ErrorMessage message={t('errorLoadingData', { error: oiError })} />
         ) : oiLoading && !maxPainCurrent ? (
           <div className="py-8"><LoadingSpinner /></div>
         ) : oiChart.length === 0 ? (
-          <div className="text-center py-8" style={{ color: 'var(--text-secondary)' }}>No max pain OI data available</div>
+          <div className="text-center py-8" style={{ color: 'var(--text-secondary)' }}>{t('noOiData')}</div>
         ) : (
           <MobileScrollableChart>
           <ResponsiveContainer width="100%" height={380}>
@@ -530,7 +537,7 @@ export default function MaxPainPage() {
 
       <section className="mb-8 rounded-lg p-6" style={{ backgroundColor: panelBg }}>
         <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
-          <SectionHead title="Max Pain vs Underlying Price" tooltip="Timeseries of max pain (line) overlaid with underlying candlesticks." />
+          <SectionHead title={t('sectionSeriesTitle')} tooltip={t('sectionSeriesTooltip')} />
           <div className="flex items-center gap-3 flex-wrap">
             <ChartTimeframeSelect value={timeseriesTimeframe} onChange={setTimeseriesTimeframe} className="mb-0" />
           </div>
@@ -540,7 +547,7 @@ export default function MaxPainPage() {
         ) : seriesLoading && !maxPainSeries ? (
           <div className="py-8"><LoadingSpinner /></div>
         ) : seriesChart.length === 0 ? (
-          <div className="text-center py-8" style={{ color: 'var(--text-secondary)' }}>No max pain timeseries data available</div>
+          <div className="text-center py-8" style={{ color: 'var(--text-secondary)' }}>{t('noSeriesData')}</div>
         ) : (
           <div className="relative overflow-x-auto">
           <svg width="100%" height={tsHeight} viewBox={`0 0 ${tsWidth} ${tsHeight}`} className="min-w-[760px] md:min-w-0" onMouseMove={handleChartMouseMove} onMouseLeave={() => { setHoveredIdx(null); setHoverPx(null); }}>

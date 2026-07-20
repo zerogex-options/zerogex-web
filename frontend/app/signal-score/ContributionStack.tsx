@@ -3,6 +3,8 @@
 import { memo, useMemo } from 'react';
 import MobileScrollableChart from '@/components/MobileScrollableChart';
 import { COMPONENT_KEYS, ComponentEntry, getComponentLabel } from './data';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './ContributionStack.i18n';
 
 interface Props {
   components: ComponentEntry[];
@@ -13,6 +15,7 @@ const POSITIVE = 'var(--color-bull)';
 const NEGATIVE = 'var(--color-bear)';
 
 function ContributionStackImpl({ components, composite }: Props) {
+  const t = usePageT(dict);
   // Order strictly matches the spec: net_gex → gamma_anchor → PCR → vol → flow → delta.
   const ordered = useMemo(() => {
     const byKey = new Map(components.map((c) => [c.key, c]));
@@ -60,7 +63,7 @@ function ContributionStackImpl({ components, composite }: Props) {
   return (
     <div
       role="img"
-      aria-label={`Component contribution stack. Composite ${compositeAria}.`}
+      aria-label={t('ariaLabel', { composite: compositeAria })}
     >
       <div className="flex items-baseline justify-end mb-3">
         <div className="text-xs text-[var(--color-text-secondary)] font-mono" style={{ fontVariantNumeric: 'tabular-nums' }}>
@@ -75,7 +78,13 @@ function ContributionStackImpl({ components, composite }: Props) {
             const label = getComponentLabel(entry.key);
             const showLabel = width >= 6; // ~6% width ≈ 60px on a 1000px bar
             const weightPct = entry.maxPoints > 0 ? Math.round((Math.abs(entry.contribution ?? 0) / entry.maxPoints) * 100) : 0;
-            const tooltip = `${label.title} • score ${entry.score?.toFixed(3) ?? '—'} • contrib ${(entry.contribution ?? 0) >= 0 ? '+' : ''}${(entry.contribution ?? 0).toFixed(2)} • max ${entry.maxPoints} (${weightPct}% of weight)`;
+            const tooltip = t('tooltip', {
+              title: label.title,
+              score: entry.score?.toFixed(3) ?? '—',
+              contrib: `${(entry.contribution ?? 0) >= 0 ? '+' : ''}${(entry.contribution ?? 0).toFixed(2)}`,
+              max: entry.maxPoints,
+              weightPct,
+            });
             return (
               <div
                 key={entry.key}
@@ -108,7 +117,7 @@ function ContributionStackImpl({ components, composite }: Props) {
         </div>
         <div className="mt-2 flex justify-between text-[10px] font-mono text-[var(--color-text-secondary)]">
           <span>0</span>
-          <span>50 (Neutral)</span>
+          <span>{t('neutral')}</span>
           <span>100</span>
         </div>
       </MobileScrollableChart>

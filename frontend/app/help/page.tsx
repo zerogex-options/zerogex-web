@@ -8,6 +8,8 @@ import {
   Search,
   Mail,
 } from 'lucide-react';
+import { getServerT } from '@/core/localizedContent';
+import { dict } from './page.i18n';
 
 export const metadata = {
   title: 'ZeroGEX Help Center: Platform Guide, FAQs & Quick Starts',
@@ -19,52 +21,48 @@ export const metadata = {
 const sections = [
   {
     href: '/help/platform',
-    title: 'Platform Guide',
-    description:
-      'A complete tour of every page in ZeroGEX — Dashboard, Live Bulletin, Signals, Metrics, Strategy Tools, and more. Built so a new user can learn the platform without ever having to ask.',
+    titleKey: 'platformTitle',
+    descriptionKey: 'platformDesc',
     icon: BookOpenCheck,
-    badge: 'Walkthroughs',
+    badgeKey: 'platformBadge',
   },
   {
     href: '/help/faqs',
-    title: 'FAQs',
-    description:
-      'Answers to the most common questions on data, billing, signals, account, supported symbols, refresh cadence, and the things that genuinely confuse first-time users.',
+    titleKey: 'faqTitle',
+    descriptionKey: 'faqDesc',
     icon: HelpCircle,
-    badge: 'Quick answers',
+    badgeKey: 'faqBadge',
   },
   {
     href: '/help/quickstarts',
-    title: 'Quick Starts',
-    description:
-      'Short, focused video walkthroughs — 60-to-180-second clips that show you exactly how to read a chart, run a screen, or configure a feature. Watch and trade.',
+    titleKey: 'quickstartsTitle',
+    descriptionKey: 'quickstartsDesc',
     icon: PlayCircle,
-    badge: 'Video tutorials',
+    badgeKey: 'quickstartsBadge',
   },
-];
+] as const;
 
 const popular = [
-  { href: '/help/platform/dashboard', label: 'Reading the Dashboard' },
-  { href: '/help/platform/signals-overview', label: 'How signals work end-to-end' },
-  { href: '/help/faqs#data-refresh', label: 'How often does data refresh?' },
-  { href: '/help/faqs#billing', label: 'Billing, refunds & cancellation' },
-  { href: '/help/platform/options-calculator', label: 'Using the Strategy Builder' },
-  { href: '/help/quickstarts#first-trade', label: 'Your first trade in ZeroGEX' },
-];
+  { href: '/help/platform/dashboard', labelKey: 'dashboardLabel' },
+  { href: '/help/platform/signals-overview', labelKey: 'signalsLabel' },
+  { href: '/help/faqs#data-refresh', labelKey: 'dataRefreshLabel' },
+  { href: '/help/faqs#billing', labelKey: 'billingLabel' },
+  { href: '/help/platform/options-calculator', labelKey: 'strategyBuilderLabel' },
+  { href: '/help/quickstarts#first-trade', labelKey: 'firstTradeLabel' },
+] as const;
 
-export default function HelpCenterPage() {
+export default async function HelpCenterPage() {
+  const t = await getServerT(dict);
   return (
     <div className="mx-auto max-w-4xl px-6 py-14">
       <div className="zg-feature-shell mb-10 p-8">
         <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">
           <LifeBuoy size={14} />
-          Help Center
+          {t('badgeText')}
         </div>
-        <h1 className="mb-3 text-3xl font-bold text-[var(--color-text-primary)]">ZeroGEX Help Center</h1>
+        <h1 className="mb-3 text-3xl font-bold text-[var(--color-text-primary)]">{t('h1Title')}</h1>
         <p className="mb-6 max-w-2xl text-sm leading-7 text-[var(--color-text-secondary)]">
-          Everything you need to get the most out of ZeroGEX. Step-by-step walkthroughs for every
-          page on the platform, plain-English answers to the questions traders ask most often, and
-          short Quick Start videos for when you want to learn by watching.
+          {t('introP')}
         </p>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -73,14 +71,14 @@ export default function HelpCenterPage() {
             className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-2 text-sm font-semibold text-[var(--heat-low)] transition hover:bg-[var(--color-warning-soft)]"
           >
             <Search size={14} />
-            Start with the Platform Guide
+            {t('ctaStart')}
           </Link>
           <a
             href="mailto:support@zerogex.io"
             className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-4 py-2 text-sm font-semibold text-[var(--color-text-secondary)] transition hover:text-[var(--color-text-primary)]"
           >
             <Mail size={14} />
-            Contact support
+            {t('ctaContact')}
           </a>
         </div>
       </div>
@@ -98,14 +96,14 @@ export default function HelpCenterPage() {
                 <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] text-[var(--color-warning)]">
                   <Icon size={20} />
                 </span>
-                <h2 className="text-xl font-semibold text-[var(--color-text-primary)]">{section.title}</h2>
+                <h2 className="text-xl font-semibold text-[var(--color-text-primary)]">{t(section.titleKey)}</h2>
               </div>
               <div className="mb-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">
-                {section.badge}
+                {t(section.badgeKey)}
               </div>
-              <p className="mb-5 flex-1 text-sm leading-7 text-[var(--color-text-secondary)]">{section.description}</p>
+              <p className="mb-5 flex-1 text-sm leading-7 text-[var(--color-text-secondary)]">{t(section.descriptionKey)}</p>
               <span className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-warning)] transition group-hover:text-[var(--heat-low)]">
-                Explore
+                {t('exploreLabel')}
                 <ArrowRight size={16} />
               </span>
             </Link>
@@ -119,8 +117,8 @@ export default function HelpCenterPage() {
             <Search size={16} />
           </span>
           <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">Popular topics</div>
-            <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Most-visited help pages</h2>
+            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">{t('popularTopics')}</div>
+            <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">{t('mostVisited')}</h2>
           </div>
         </div>
         <ul className="grid gap-2 sm:grid-cols-2">
@@ -130,7 +128,7 @@ export default function HelpCenterPage() {
                 href={item.href}
                 className="group flex items-center justify-between rounded-lg border border-[var(--color-border)] px-4 py-3 text-sm font-semibold text-[var(--color-text-primary)] transition hover:border-[var(--color-warning-soft)] hover:bg-[var(--color-warning-soft)]"
               >
-                <span>{item.label}</span>
+                <span>{t(item.labelKey)}</span>
                 <ArrowRight size={14} className="text-[var(--color-warning)] transition group-hover:translate-x-0.5" />
               </Link>
             </li>
@@ -139,36 +137,35 @@ export default function HelpCenterPage() {
       </div>
 
       <div className="mt-10 zg-feature-shell p-6">
-        <div className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">Can&apos;t find what you need?</div>
-        <h2 className="mb-2 text-lg font-semibold text-[var(--color-text-primary)]">Talk to a human</h2>
+        <div className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">{t('cantFind')}</div>
+        <h2 className="mb-2 text-lg font-semibold text-[var(--color-text-primary)]">{t('talkHuman')}</h2>
         <p className="mb-4 text-sm leading-7 text-[var(--color-text-secondary)]">
-          The Help Center covers everything we&apos;ve documented so far — but real questions don&apos;t always
-          fit a category. Email{' '}
+          {t('supportP1')}{' '}
           <a className="font-semibold text-[var(--color-warning)] hover:text-[var(--heat-low)]" href="mailto:support@zerogex.io">
             support@zerogex.io
           </a>{' '}
-          and we&apos;ll get back to you fast, usually the same trading day.
+          {t('supportP2')}
         </p>
         <div className="flex flex-wrap gap-3">
           <Link
             href="/about"
             className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-4 py-2 text-sm font-semibold text-[var(--color-text-secondary)] transition hover:text-[var(--color-text-primary)]"
           >
-            About ZeroGEX
+            {t('aboutLabel')}
             <ArrowRight size={14} />
           </Link>
           <Link
             href="/education"
             className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-4 py-2 text-sm font-semibold text-[var(--color-text-secondary)] transition hover:text-[var(--color-text-primary)]"
           >
-            Education Hub
+            {t('educationLabel')}
             <ArrowRight size={14} />
           </Link>
           <Link
             href="/pricing"
             className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-4 py-2 text-sm font-semibold text-[var(--color-text-secondary)] transition hover:text-[var(--color-text-primary)]"
           >
-            Pricing &amp; Plans
+            {t('pricingLabel')}
             <ArrowRight size={14} />
           </Link>
         </div>

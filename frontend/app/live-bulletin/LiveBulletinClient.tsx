@@ -18,6 +18,8 @@ import {
   type HorizonKey,
 } from './bulletinHelpers';
 import { nodeToPngBlob, nodeToPngDataUrl, rasterizeSvg } from './imageExport';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './LiveBulletinClient.i18n';
 
 const SYMBOLS = ['SPX', 'SPY', 'QQQ'] as const;
 type Symbol = (typeof SYMBOLS)[number];
@@ -27,6 +29,7 @@ const HORIZON_KEYS = Object.keys(HORIZONS) as HorizonKey[];
 type ExportState = 'idle' | 'working' | 'copied' | 'error';
 
 export default function LiveBulletinClient({ watermark = true }: { watermark?: boolean } = {}) {
+  const t = usePageT(dict);
   const [symbol, setSymbol] = useState<Symbol>('SPX');
   const [horizon, setHorizon] = useState<HorizonKey>('daily');
   // Per-render edits keyed to the current symbol. Cleared on symbol change so
@@ -166,11 +169,10 @@ export default function LiveBulletinClient({ watermark = true }: { watermark?: b
     <div className="max-w-6xl mx-auto px-4 py-8">
       <header className="mb-6">
         <h1 className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
-          Live Bulletin
+          {t('pageTitle')}
         </h1>
         <p className="mt-1 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-          Pick an underlying — the dealer-gamma snapshot is pulled live from the backend. Tweak the
-          copy if you like, then download or copy a share-ready PNG for social.
+          {t('pageDesc')}
         </p>
       </header>
 
@@ -184,7 +186,7 @@ export default function LiveBulletinClient({ watermark = true }: { watermark?: b
           }}
         >
           <div>
-            <label style={labelStyle}>Underlying</label>
+            <label style={labelStyle}>{t('underlyingLabel')}</label>
             <div className="flex gap-2">
               {SYMBOLS.map((s) => {
                 const active = s === symbol;
@@ -207,7 +209,7 @@ export default function LiveBulletinClient({ watermark = true }: { watermark?: b
           </div>
 
           <div>
-            <label style={labelStyle}>Expected-range horizon</label>
+            <label style={labelStyle}>{t('horizonLabel')}</label>
             <div className="flex gap-2">
               {HORIZON_KEYS.map((h) => {
                 const active = h === horizon;
@@ -229,21 +231,26 @@ export default function LiveBulletinClient({ watermark = true }: { watermark?: b
             </div>
             <p className="mt-2 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
               {vix != null
-                ? `1σ implied move ${HORIZONS[horizon].phrase} from ${volIndex} ${vix.toFixed(1)} (~68% band). Horizon is a ${HORIZONS[horizon].days}-trading-day span, not a calendar date.`
-                : `${volIndex} implied-vol data unavailable — the expected-range band is hidden.`}
+                ? t('horizonImpliedMove', {
+                    phrase: HORIZONS[horizon].phrase,
+                    volIndex,
+                    vix: vix.toFixed(1),
+                    days: HORIZONS[horizon].days,
+                  })
+                : t('horizonUnavailable', { volIndex })}
             </p>
           </div>
 
           <div>
             <div className="flex items-center justify-between">
-              <label style={labelStyle}>Headline</label>
+              <label style={labelStyle}>{t('headlineLabel')}</label>
               {hasEdits && (
                 <button
                   onClick={() => setEdited({})}
                   className="flex items-center gap-1 text-xs font-semibold mb-2"
                   style={{ color: 'var(--color-text-secondary)' }}
                 >
-                  <RotateCcw size={12} /> Reset to auto
+                  <RotateCcw size={12} /> {t('resetToAuto')}
                 </button>
               )}
             </div>
@@ -256,7 +263,7 @@ export default function LiveBulletinClient({ watermark = true }: { watermark?: b
           </div>
 
           <div>
-            <label style={labelStyle}>Summary</label>
+            <label style={labelStyle}>{t('summaryLabel')}</label>
             <textarea
               value={lead}
               onChange={(e) => setEdited((p) => ({ ...p, lead: e.target.value }))}
@@ -273,7 +280,7 @@ export default function LiveBulletinClient({ watermark = true }: { watermark?: b
               style={{ background: 'var(--color-warning)', color: 'var(--text-inverse)' }}
             >
               <Download size={16} />
-              {downloadState === 'working' ? 'Rendering…' : 'Download PNG'}
+              {downloadState === 'working' ? t('rendering') : t('downloadPng')}
             </button>
             <button
               onClick={handleCopy}
@@ -287,16 +294,14 @@ export default function LiveBulletinClient({ watermark = true }: { watermark?: b
             >
               {copyState === 'copied' ? <ImageDown size={16} /> : <Copy size={16} />}
               {copyState === 'working'
-                ? 'Copying…'
+                ? t('copying')
                 : copyState === 'copied'
-                  ? 'Copied to clipboard'
-                  : 'Copy to clipboard'}
+                  ? t('copiedToClipboard')
+                  : t('copyToClipboard')}
             </button>
             {(downloadState === 'error' || copyState === 'error') && (
               <p className="text-xs" style={{ color: 'var(--color-bear)' }}>
-                {copyState === 'error'
-                  ? 'Clipboard image copy isn’t supported here — use Download PNG instead.'
-                  : 'Could not render the image. Please try again.'}
+                {copyState === 'error' ? t('clipboardUnsupported') : t('renderError')}
               </p>
             )}
           </div>
@@ -308,7 +313,7 @@ export default function LiveBulletinClient({ watermark = true }: { watermark?: b
             className="self-start text-xs font-semibold uppercase tracking-wide"
             style={{ color: 'var(--color-text-secondary)' }}
           >
-            Live preview
+            {t('livePreview')}
           </span>
           <div className="w-full overflow-x-auto flex justify-center">
             <GammaReportCard

@@ -24,25 +24,30 @@ import {
   formatGexCompact,
 } from '@/core/signalHelpers';
 import AutoFitValue from '@/components/AutoFitValue';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './page.i18n';
 
-function regimeLabel(signal: string, score: number | null): string {
-  if (score == null) return 'No reading';
-  if (signal === 'bullish_squeeze') return 'Bullish squeeze triggered';
-  if (signal === 'bearish_squeeze') return 'Bearish squeeze triggered';
-  if (score >= 15) return 'Building bullish pressure';
-  if (score <= -15) return 'Building bearish pressure';
-  return 'No squeeze edge';
+function regimeLabel(t: ReturnType<typeof usePageT>, signal: string, score: number | null): string {
+  if (score == null) return t('noReading');
+  if (signal === 'bullish_squeeze') return t('bullishSqueezeTriggered');
+  if (signal === 'bearish_squeeze') return t('bearishSqueezeTriggered');
+  if (score >= 15) return t('buildingBullishPressure');
+  if (score <= -15) return t('buildingBearishPressure');
+  return t('noSqueezeEdge');
 }
 
-const VIX_TONES: Record<string, { label: string; color: string }> = {
-  dead: { label: 'Dead', color: 'var(--color-text-secondary)' },
-  normal: { label: 'Normal', color: 'var(--color-warning)' },
-  elevated: { label: 'Elevated', color: 'var(--color-bear)' },
-  panic: { label: 'Panic', color: 'var(--color-bear)' },
-  unknown: { label: 'Unknown', color: 'var(--color-text-secondary)' },
-};
+function vixTones(t: ReturnType<typeof usePageT>): Record<string, { label: string; color: string }> {
+  return {
+    dead: { label: t('vixDead'), color: 'var(--color-text-secondary)' },
+    normal: { label: t('vixNormal'), color: 'var(--color-warning)' },
+    elevated: { label: t('vixElevated'), color: 'var(--color-bear)' },
+    panic: { label: t('vixPanic'), color: 'var(--color-bear)' },
+    unknown: { label: t('vixUnknown'), color: 'var(--color-text-secondary)' },
+  };
+}
 
 export default function SqueezeSetupPage() {
+  const t = usePageT(dict);
   const { symbol } = useTimeframe();
   const { data, loading, error, refetch } = useSqueezeSetupSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.squeezeSetupMs);
 
@@ -73,17 +78,18 @@ export default function SqueezeSetupPage() {
     };
   }, [payload]);
 
-  const vix = VIX_TONES[vixRegime] ?? VIX_TONES.unknown;
+  const vixTonesMap = useMemo(() => vixTones(t), [t]);
+  const vix = vixTonesMap[vixRegime] ?? vixTonesMap.unknown;
 
   if (loading && !data) return <LoadingSpinner size="lg" />;
 
   return (
     <PageShell>
       <SignalPageTitle
-        title="Squeeze Setup"
-        subtitle={'"Is the market coiled?"'}
+        title={t('pageTitle')}
+        subtitle={t('pageSubtitle')}
         icon={Zap}
-        tooltip="Standalone detector — not part of the MSI. Correlates directional flow z-scores with momentum acceleration and dealer-gamma posture. Triggers at |score| ≥ 25. Dead-VIX regimes attenuate conviction ~50%."
+        tooltip={t('pageTooltip')}
       />
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
@@ -93,15 +99,15 @@ export default function SqueezeSetupPage() {
           <div className="lg:col-span-2">
             <SignalScoreHero
               score={score}
-              scoreLabel="Squeeze Score"
+              scoreLabel={t('scoreLabel')}
               trend={trend}
-              interpretation={regimeLabel(signal, score)}
+              interpretation={regimeLabel(t, signal, score)}
               history={history}
               badges={
                 <>
                   <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide" style={{ background: `${color}1f`, color }}>
                     {triggered && <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />}
-                    {humanize(signal) || 'None'}
+                    {humanize(signal) || t('none')}
                   </span>
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border border-[var(--color-border)]" style={{ color: vix.color }}>
                     VIX {vix.label}
@@ -112,90 +118,89 @@ export default function SqueezeSetupPage() {
           </div>
 
           <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <FlowZCard label="Call flow z" value={callFlowZ} positiveColor="var(--color-bull)" hint="Net call flow standardized over recent window." />
-            <FlowZCard label="Put flow z" value={putFlowZ} positiveColor="var(--color-bear)" hint="Net put flow standardized over recent window." />
+            <FlowZCard label={t('callFlowZ')} value={callFlowZ} positiveColor="var(--color-bull)" hint={t('callFlowZHint')} />
+            <FlowZCard label={t('putFlowZ')} value={putFlowZ} positiveColor="var(--color-bear)" hint={t('putFlowZHint')} />
             <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
-              <div className="text-sm font-semibold mb-1 flex items-center gap-2"><ArrowRightLeft size={14} /> Momentum z</div>
+              <div className="text-sm font-semibold mb-1 flex items-center gap-2"><ArrowRightLeft size={14} /> {t('momentumZ')}</div>
               <AutoFitValue className="text-2xl sm:text-3xl font-black" style={{ color: momentumZ != null && momentumZ > 0.5 ? 'var(--color-bull)' : momentumZ != null && momentumZ < -0.5 ? 'var(--color-bear)' : 'var(--color-warning)' }}>
                 {formatSigned(momentumZ, 2)}
               </AutoFitValue>
-              <p className="mt-2 text-xs text-[var(--color-text-secondary)]">Price momentum z-score. Diverges from flow → early (no price) or exhausted (no flow).</p>
+              <p className="mt-2 text-xs text-[var(--color-text-secondary)]">{t('momentumZHint')}</p>
             </div>
             <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
-              <div className="text-sm font-semibold mb-1 flex items-center gap-2"><Rocket size={14} /> Acceleration</div>
+              <div className="text-sm font-semibold mb-1 flex items-center gap-2"><Rocket size={14} /> {t('acceleration')}</div>
               <div className="flex items-center gap-2 mt-1">
-                <AccelPill label="Up" on={ctx.accelUp} color="var(--color-bull)" />
-                <AccelPill label="Down" on={ctx.accelDn} color="var(--color-bear)" />
+                <AccelPill label={t('accelUp')} on={ctx.accelUp} color="var(--color-bull)" />
+                <AccelPill label={t('accelDown')} on={ctx.accelDn} color="var(--color-bear)" />
               </div>
-              <p className="mt-3 text-xs text-[var(--color-text-secondary)]">Applies a 1.2× boost when momentum is accelerating in the signal direction.</p>
+              <p className="mt-3 text-xs text-[var(--color-text-secondary)]">{t('accelerationHint')}</p>
             </div>
           </div>
         </div>
       </section>
 
       <section className="zg-feature-shell mt-8 p-6">
-        <h2 className="text-xl font-semibold mb-4">Signal Inputs</h2>
+        <h2 className="text-xl font-semibold mb-4">{t('signalInputs')}</h2>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 text-sm">
           <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-            <div className="font-semibold mb-2 flex items-center gap-2"><Gauge size={16} /> State</div>
+            <div className="font-semibold mb-2 flex items-center gap-2"><Gauge size={16} /> {t('state')}</div>
             <div className="space-y-2 text-[var(--color-text-secondary)]">
-              <Row label="Signal" value={humanize(signal)} />
-              <Row label="Triggered" value={triggered ? 'Yes' : 'No'} />
-              <Row label="VIX regime" value={vix.label} />
+              <Row label={t('signal')} value={humanize(signal)} />
+              <Row label={t('triggered')} value={triggered ? t('yes') : t('no')} />
+              <Row label={t('vixRegime')} value={vix.label} />
             </div>
           </div>
 
           <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-            <div className="font-semibold mb-2 flex items-center gap-2"><ArrowRightLeft size={16} /> Flow &amp; momentum</div>
+            <div className="font-semibold mb-2 flex items-center gap-2"><ArrowRightLeft size={16} /> {t('flowAndMomentum')}</div>
             <div className="space-y-2 text-[var(--color-text-secondary)]">
-              <Row label="Call flow Δ" value={formatSigned(callFlowDelta, 0)} />
-              <Row label="Put flow Δ" value={formatSigned(putFlowDelta, 0)} />
-              <Row label="Momentum 5-bar" value={formatSigned(ctx.momentum5Bar, 4)} />
-              <Row label="Momentum 10-bar" value={formatSigned(ctx.momentum10Bar, 4)} />
+              <Row label={t('callFlowDelta')} value={formatSigned(callFlowDelta, 0)} />
+              <Row label={t('putFlowDelta')} value={formatSigned(putFlowDelta, 0)} />
+              <Row label={t('momentum5Bar')} value={formatSigned(ctx.momentum5Bar, 4)} />
+              <Row label={t('momentum10Bar')} value={formatSigned(ctx.momentum10Bar, 4)} />
             </div>
           </div>
 
           <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-            <div className="font-semibold mb-2 flex items-center gap-2"><Rocket size={16} /> Gamma context</div>
+            <div className="font-semibold mb-2 flex items-center gap-2"><Rocket size={16} /> {t('gammaContext')}</div>
             <div className="space-y-2 text-[var(--color-text-secondary)]">
-              <Row label="Net GEX (chain-wide)" value={formatGexCompact(ctx.netGex)} />
-              <Row label="Gamma flip" value={ctx.gammaFlip != null ? ctx.gammaFlip.toFixed(2) : '—'} />
-              <Row label="Close" value={ctx.close != null ? ctx.close.toFixed(2) : '—'} />
-              <Row label="Above flip" value={ctx.close != null && ctx.gammaFlip != null ? (ctx.close > ctx.gammaFlip ? 'Yes' : 'No') : '—'} />
+              <Row label={t('netGexChainWide')} value={formatGexCompact(ctx.netGex)} />
+              <Row label={t('gammaFlip')} value={ctx.gammaFlip != null ? ctx.gammaFlip.toFixed(2) : t('dash')} />
+              <Row label={t('close')} value={ctx.close != null ? ctx.close.toFixed(2) : t('dash')} />
+              <Row label={t('aboveFlip')} value={ctx.close != null && ctx.gammaFlip != null ? (ctx.close > ctx.gammaFlip ? t('yes') : t('no')) : t('dash')} />
             </div>
           </div>
         </div>
       </section>
 
       <section className="zg-feature-shell mt-8 p-6">
-        <h2 className="text-xl font-semibold mb-4">Interpretation</h2>
+        <h2 className="text-xl font-semibold mb-4">{t('interpretation')}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-            <div className="font-semibold mb-2 flex items-center gap-2 text-[var(--color-bull)]"><TrendingUp size={16} /> Bullish squeeze</div>
+            <div className="font-semibold mb-2 flex items-center gap-2 text-[var(--color-bull)]"><TrendingUp size={16} /> {t('bullishSqueezeHeading')}</div>
             <p className="text-[var(--color-text-secondary)]">
-              Price above gamma flip, <code>net_gex &lt; 0</code>, call flow z high, and accelerating up → classic
-              short-gamma squeeze. Long call spreads typical.
+              {t('bullishSqueezeBodyPre')} <code>net_gex &lt; 0</code>{t('bullishSqueezeBodyPost')}
             </p>
           </div>
           <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-            <div className="font-semibold mb-2 flex items-center gap-2 text-[var(--color-bear)]"><TrendingDown size={16} /> Bearish squeeze</div>
+            <div className="font-semibold mb-2 flex items-center gap-2 text-[var(--color-bear)]"><TrendingDown size={16} /> {t('bearishSqueezeHeading')}</div>
             <p className="text-[var(--color-text-secondary)]">
-              Mirror: price below flip, <code>net_gex &lt; 0</code>, rising put flow z, accelerating down.
+              {t('bearishSqueezeBodyPre')} <code>net_gex &lt; 0</code>{t('bearishSqueezeBodyPost')}
             </p>
           </div>
         </div>
       </section>
 
       <SignalHowItsBuilt
-        caveat={<>Dead-VIX regimes attenuate conviction ~50%. The signal abstains when no directional flow z-score crosses ±0.5 or there&apos;s no detectable momentum acceleration in the same direction.</>}
+        caveat={<>{t('caveat')}</>}
       >
-        <div>Direction picked from the larger of <code>|Call Flow Z|</code>, <code>|Put Flow Z|</code>; same-side momentum required.</div>
+        <div>{t('howBuiltDirectionPre')} <code>|Call Flow Z|</code>{t('howBuiltDirectionMid')} <code>|Put Flow Z|</code>{t('howBuiltDirectionPost')}</div>
         <div><code>Conviction = clip(|Flow Z| × Momentum Align × Accel Boost × VIX Factor, [0, 1])</code>.</div>
-        <div><code>Accel Boost = 1.2 if accelerating in signal direction, else 1.0</code>.</div>
-        <div><code>Score = ±Conviction × 100</code> (sign matches direction). Triggers at |Score| ≥ 25.</div>
+        <div><code>Accel Boost = 1.2</code> {t('howBuiltAccelBoostPre')} <code>1.0</code>.</div>
+        <div><code>Score = ±Conviction × 100</code> {t('howBuiltScorePre')}</div>
       </SignalHowItsBuilt>
 
-      <SignalEventsPanel signalName="squeeze_setup" symbol={symbol} title="Event Timeline" />
+      <SignalEventsPanel signalName="squeeze_setup" symbol={symbol} title={t('eventTimeline')} />
     </PageShell>
   );
 }

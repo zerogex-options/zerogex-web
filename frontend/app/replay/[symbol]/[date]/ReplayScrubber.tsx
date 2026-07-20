@@ -13,6 +13,8 @@ import {
   YAxis,
 } from 'recharts';
 import { capture } from '@/core/telemetry/posthog-client';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './ReplayScrubber.i18n';
 
 // Interactive replay of one trading day's per-minute GEX frames. Pure
 // client-side once the initial range payload is hydrated — scrubbing
@@ -285,6 +287,7 @@ export default function ReplayScrubber({
   initialCandles,
   siteUrl,
 }: ReplayScrubberProps) {
+  const t = usePageT(dict);
   const frames = initialFrames;
   const candles = initialCandles;
   const [cursor, setCursor] = useState<number>(frames.length > 0 ? frames.length - 1 : 0);
@@ -423,11 +426,15 @@ export default function ReplayScrubber({
         channel: 'copy_link',
       });
     } catch {
-      window.prompt('Copy this URL', snapshotUrl);
+      window.prompt(t('copyUrlPrompt'), snapshotUrl);
     }
   };
 
-  const tweetBody = `${symbol} GEX surface at ${formatTime(cursorTimestamp ?? '')} ET on ${sessionDate}.`;
+  const tweetBody = t('tweetBody', {
+    symbol,
+    time: formatTime(cursorTimestamp ?? ''),
+    date: sessionDate,
+  });
   const tweetHref = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
     tweetBody,
   )}&url=${encodeURIComponent(snapshotUrl)}`;
@@ -464,7 +471,7 @@ export default function ReplayScrubber({
   if (frames.length === 0) {
     return (
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-6 text-sm text-[var(--color-text-secondary)]">
-        No frames available for this session.
+        {t('noFrames')}
       </div>
     );
   }
@@ -476,7 +483,7 @@ export default function ReplayScrubber({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="text-[10px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
-              Now showing
+              {t('nowShowing')}
             </div>
             <div className="mt-0.5 font-mono text-lg font-bold">
               {cursorTimestamp ? formatTime(cursorTimestamp) : '—'} ET
@@ -489,7 +496,7 @@ export default function ReplayScrubber({
               className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-surface-subtle)]"
             >
               {isPlaying ? <Pause size={13} /> : <Play size={13} />}
-              {isPlaying ? 'Pause' : 'Play'}
+              {isPlaying ? t('pause') : t('play')}
             </button>
             <div className="inline-flex overflow-hidden rounded-md border border-[var(--color-border)] text-[10px] uppercase tracking-[0.14em]">
               {PLAY_SPEEDS.map((s) => (
@@ -518,7 +525,7 @@ export default function ReplayScrubber({
               className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] hover:bg-[var(--color-surface-subtle)]"
               style={{ color: pinA != null ? 'var(--color-warning)' : 'var(--color-text-primary)' }}
             >
-              Pin A {pinA != null && cursorTimestamp ? `· ${formatTime(frames[pinA].timestamp)}` : ''}
+              {t('pinA')} {pinA != null && cursorTimestamp ? `· ${formatTime(frames[pinA].timestamp)}` : ''}
             </button>
             <button
               type="button"
@@ -526,7 +533,7 @@ export default function ReplayScrubber({
               className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] hover:bg-[var(--color-surface-subtle)]"
               style={{ color: pinB != null ? 'var(--color-bull)' : 'var(--color-text-primary)' }}
             >
-              Pin B {pinB != null && cursorTimestamp ? `· ${formatTime(frames[pinB].timestamp)}` : ''}
+              {t('pinB')} {pinB != null && cursorTimestamp ? `· ${formatTime(frames[pinB].timestamp)}` : ''}
             </button>
             {(pinA != null || pinB != null) && (
               <button
@@ -534,7 +541,7 @@ export default function ReplayScrubber({
                 onClick={clearPins}
                 className="text-[10px] uppercase tracking-[0.18em] font-bold text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
               >
-                Clear pins
+                {t('clearPins')}
               </button>
             )}
           </div>
@@ -548,7 +555,7 @@ export default function ReplayScrubber({
             value={cursor}
             onChange={(e) => handleScrub(Number(e.target.value))}
             className="w-full"
-            aria-label="Scrub through replay frames"
+            aria-label={t('scrubAriaLabel')}
           />
           <div className="mt-1 flex justify-between font-mono text-[10px] text-[var(--color-text-secondary)]">
             <span>{formatTime(frames[0]?.timestamp ?? '')}</span>
@@ -562,7 +569,7 @@ export default function ReplayScrubber({
             onClick={handleCopyShare}
             className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] hover:bg-[var(--color-surface-subtle)]"
           >
-            <Link2 size={13} /> {copied ? 'Copied' : 'Snapshot this minute'}
+            <Link2 size={13} /> {copied ? t('copied') : t('snapshotThisMinute')}
           </button>
           <a
             href={tweetHref}
@@ -578,7 +585,7 @@ export default function ReplayScrubber({
             }
             className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] hover:bg-[var(--color-surface-subtle)]"
           >
-            <Twitter size={13} /> Share to X
+            <Twitter size={13} /> {t('shareToX')}
           </a>
         </div>
       </div>
@@ -606,7 +613,7 @@ export default function ReplayScrubber({
         <div className="rounded-xl border-2 px-5 py-4" style={{ borderColor: 'var(--color-warning)', background: 'var(--color-surface)' }}>
           <div className="flex items-baseline justify-between gap-3">
             <div className="text-[10px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
-              Pin diff · A→B
+              {t('pinDiffLabel')}
             </div>
             {pinA != null && pinB != null && (
               <div className="font-mono text-xs text-[var(--color-text-secondary)]">
@@ -695,6 +702,7 @@ function ReplayOverlayChart({
   pinATimestamp,
   pinBTimestamp,
 }: ReplayOverlayChartProps) {
+  const t = usePageT(dict);
   // ── Layout ──
   // Candles occupy the left ~60% of the canvas, strike labels sit in a
   // narrow column, and the horizontal GEX bars extend from a center line
@@ -950,8 +958,8 @@ function ReplayOverlayChart({
             aria-pressed={hideFuture}
             title={
               hideFuture
-                ? 'Show future bars (ghosted ahead of the playhead)'
-                : 'Hide future bars (draw only up to the playhead)'
+                ? t('showFutureTitle')
+                : t('hideFutureTitle')
             }
             className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] transition-colors hover:bg-[var(--color-surface-subtle)]"
             style={{
@@ -960,20 +968,20 @@ function ReplayOverlayChart({
             }}
           >
             {hideFuture ? <EyeOff size={13} /> : <Eye size={13} />}
-            Future
+            {t('futureLabel')}
           </button>
 
           {/* Vertical strike-axis zoom — scroll to zoom, or use the buttons. */}
           <div
             className="inline-flex overflow-hidden rounded-md border border-[var(--color-border)]"
             role="group"
-            aria-label="Zoom the strike axis vertically"
+            aria-label={t('zoomGroupAriaLabel')}
           >
             <button
               type="button"
               onClick={() => setYZoom((v) => clampZoom(v * Y_ZOOM_STEP))}
               disabled={yZoom >= Y_ZOOM_MAX - 1e-6}
-              title="Zoom out (compress more strikes into view)"
+              title={t('zoomOutTitle')}
               className="px-2 py-1.5 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-subtle)] disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <ZoomOut size={13} />
@@ -982,7 +990,7 @@ function ReplayOverlayChart({
               type="button"
               onClick={() => setYZoom((v) => clampZoom(v / Y_ZOOM_STEP))}
               disabled={yZoom <= Y_ZOOM_MIN + 1e-6}
-              title="Zoom in (spread the strikes apart)"
+              title={t('zoomInTitle')}
               className="border-l border-[var(--color-border)] px-2 py-1.5 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-subtle)] disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <ZoomIn size={13} />
@@ -991,7 +999,7 @@ function ReplayOverlayChart({
               type="button"
               onClick={() => setYZoom(Y_ZOOM_DEFAULT)}
               disabled={Math.abs(yZoom - Y_ZOOM_DEFAULT) < 1e-6}
-              title="Reset zoom to full strike range"
+              title={t('resetZoomTitle')}
               className="border-l border-[var(--color-border)] px-2 py-1.5 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-subtle)] disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <RotateCcw size={13} />
@@ -1003,7 +1011,7 @@ function ReplayOverlayChart({
         <svg
           ref={svgRef}
           role="img"
-          aria-label={`${symbol} replay overlay: candles left, horizontal strike profile right, shared price axis`}
+          aria-label={t('svgAriaLabel', { symbol })}
           width="100%"
           viewBox={`0 0 ${CW} ${CH}`}
           preserveAspectRatio="xMinYMin meet"
@@ -1161,7 +1169,7 @@ function ReplayOverlayChart({
               fontSize={12}
               fill="var(--color-text-secondary)"
             >
-              No underlying candles available for this session.
+              {t('noCandles')}
             </text>
           ) : (
             <g clipPath={`url(#${clipId})`}>

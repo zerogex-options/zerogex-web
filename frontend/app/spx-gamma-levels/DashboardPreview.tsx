@@ -3,6 +3,8 @@
 import { CheckCircle2, LineChart } from 'lucide-react';
 import { TelemetryEvent } from '@/core/telemetry/events';
 import { TrialButton } from './TrialCtaButtons';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './DashboardPreview.i18n';
 
 // Requirement #5 — a preview of what a subscriber actually gets inside the live
 // dashboard. Reuses the existing dashboard screenshot already shipped for the
@@ -11,19 +13,21 @@ import { TrialButton } from './TrialCtaButtons';
 // feature list is the concrete inventory of live tools, framed as "the levels
 // that matter" — no performance or profit claims.
 
-const FEATURES: { label: string; detail: string }[] = [
-  { label: 'Real-time SPY/SPX/QQQ gamma levels', detail: 'Sub-second refresh, not a 15-minute snapshot' },
-  { label: 'Gamma Flip', detail: 'The regime line, live as spot moves across it' },
-  { label: 'Call Wall & Put Wall', detail: 'Where price may pin, reject, or accelerate' },
-  { label: 'Max Pain', detail: 'The expiration magnet, tracked intraday' },
-  { label: 'Net GEX / Dealer Positioning', detail: 'Whether hedging is dampening or amplifying moves' },
-  { label: 'Strike-level GEX profile', detail: 'The full dealer-gamma curve, strike by strike' },
-  { label: 'GEX heatmaps', detail: 'Strike-by-DTE gamma, visualized' },
-  { label: 'Options flow classification', detail: 'Live tape sorted into directional pressure' },
-  { label: 'Market State / signal tools', detail: 'The 13-signal composite regime read' },
-];
-
 export default function DashboardPreview({ symbol }: { symbol: string }) {
+  const t = usePageT(dict);
+
+  const FEATURES: { label: string; detail: string }[] = [
+    { label: t('feature1Label'), detail: t('feature1Detail') },
+    { label: t('feature2Label'), detail: t('feature2Detail') },
+    { label: t('feature3Label'), detail: t('feature3Detail') },
+    { label: t('feature4Label'), detail: t('feature4Detail') },
+    { label: t('feature5Label'), detail: t('feature5Detail') },
+    { label: t('feature6Label'), detail: t('feature6Detail') },
+    { label: t('feature7Label'), detail: t('feature7Detail') },
+    { label: t('feature8Label'), detail: t('feature8Detail') },
+    { label: t('feature9Label'), detail: t('feature9Detail') },
+  ];
+
   return (
     <section
       aria-labelledby="dashboard-preview-heading"
@@ -56,18 +60,16 @@ export default function DashboardPreview({ symbol }: { symbol: string }) {
             marginBottom: 14,
           }}
         >
-          <LineChart size={12} /> Inside the live dashboard
+          <LineChart size={12} /> {t('badge')}
         </div>
         <h2
           id="dashboard-preview-heading"
           style={{ margin: '0 0 10px 0', fontSize: 24, fontWeight: 800, letterSpacing: '-0.3px' }}
         >
-          What you get with the live {symbol} dashboard
+          {t('heading', { symbol })}
         </h2>
         <p style={{ margin: 0, fontSize: 15, lineHeight: 1.65, color: 'var(--color-text-secondary)', maxWidth: 720 }}>
-          The free levels above are the map. The live dashboard is the real-time terrain &mdash; the same levels that
-          can shape intraday price action, updating as the session moves, with the tools to see where price may pin,
-          reject, accelerate, or chop.
+          {t('description')}
         </p>
       </div>
 
@@ -103,7 +105,7 @@ export default function DashboardPreview({ symbol }: { symbol: string }) {
           event={TelemetryEvent.DashboardPreviewCtaClick}
         />
         <span style={{ fontSize: 12, color: 'var(--color-text-secondary)', opacity: 0.85 }}>
-          7-day free trial. No charge until day 7. Cancel anytime.
+          {t('ctaHelper')}
         </span>
       </div>
     </section>

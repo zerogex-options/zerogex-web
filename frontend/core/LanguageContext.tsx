@@ -73,19 +73,23 @@ export function LanguageProvider({
     }
   }, [locale]);
 
-  // Self-heal: if the SSR cookie was absent/expired but the user previously
-  // chose a language (mirrored to localStorage), adopt it now and restore the
-  // cookie so future paints match. Guarded on a missing cookie, so the common
-  // case (cookie present) never triggers a post-hydration text flip.
+  // Post-mount reconcile with the persisted preference. Dynamic routes already
+  // seed initialLocale from the server-read cookie, so this is a no-op for them
+  // (no flip). But statically-cached routes (force-static SEO pages) are always
+  // built with the default locale, so the server can't honor the cookie — here
+  // we adopt the persisted cookie/localStorage value client-side so the user's
+  // language still applies (a one-time post-hydration update, not a hydration
+  // mismatch since it runs in an effect). Also restores the cookie from
+  // localStorage if the cookie expired.
   useEffect(() => {
     try {
-      if (readCookie(COOKIE_NAME)) return;
-      const stored = localStorage.getItem(COOKIE_NAME);
-      if (!stored) return;
-      const normalized = normalizeLocale(stored);
+      const cookie = readCookie(COOKIE_NAME);
+      const persisted = cookie ?? localStorage.getItem(COOKIE_NAME);
+      if (!persisted) return;
+      const normalized = normalizeLocale(persisted);
       if (normalized !== locale) {
         setLocale(normalized);
-      } else {
+      } else if (!cookie) {
         writeCookie(COOKIE_NAME, normalized);
       }
     } catch {

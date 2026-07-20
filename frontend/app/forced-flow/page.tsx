@@ -1,6 +1,8 @@
 'use client';
 
 import { useTimeframe, type UnderlyingSymbol } from '@/core/TimeframeContext';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './page.i18n';
 import ForcedFlowRail from '@/components/ForcedFlowRail';
 import ForcedFlowCurveChart from '@/components/ForcedFlowCurveChart';
 import CharmIntoCloseChart from '@/components/CharmIntoCloseChart';
@@ -15,13 +17,14 @@ const SYMBOLS: UnderlyingSymbol[] = ['SPY', 'SPX', 'QQQ'];
 
 export default function ForcedFlowPage() {
   const { symbol, setSymbol } = useTimeframe();
+  const t = usePageT(dict);
 
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex flex-wrap items-center gap-3 mb-2">
-        <h1 className="text-3xl font-bold">Forced Flow</h1>
+        <h1 className="text-3xl font-bold">{t('heading')}</h1>
         {/* Symbol selector — styled to match the global SymbolPicker. */}
-        <div className="flex items-center gap-2" aria-label="Symbol">
+        <div className="flex items-center gap-2" aria-label={t('symbolAriaLabel')}>
           {SYMBOLS.map((s) => {
             const active = s === symbol;
             return (
@@ -45,8 +48,7 @@ export default function ForcedFlowPage() {
       </div>
 
       <p className="text-sm mb-6" style={{ color: 'var(--text-secondary)' }}>
-        <strong>Forced Flow</strong> = the dollars of stock dealers are mechanically compelled to trade to stay
-        delta-hedged under a scenario of spot, time, or implied vol. Positive = dealers must buy; negative = sell.
+        <strong>{t('heading')}</strong> {t('descriptionBody')}
       </p>
 
       {/* Hero row: slim regime rail beside the flagship reprice curve. */}

@@ -18,6 +18,8 @@ import ErrorMessage from '@/components/ErrorMessage';
 import TooltipWrapper from '@/components/TooltipWrapper';
 import MobileScrollableChart from '@/components/MobileScrollableChart';
 import RegimeSummaryBanner from '@/components/RegimeSummaryBanner';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './page.i18n';
 
 interface SmartMoneyRow {
   timestamp?: string;
@@ -253,6 +255,7 @@ const SmartMoneyTableRow = memo(function SmartMoneyTableRow({
 });
 
 export default function SmartMoneyPage() {
+  const t = usePageT(dict);
   const { symbol } = useTimeframe();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
@@ -600,14 +603,19 @@ export default function SmartMoneyPage() {
   const smartMoneyTone: 'bullish' | 'bearish' | 'neutral' =
     Math.abs(smartMoneyNet) < 250_000 ? 'neutral' : smartMoneyNet > 0 ? 'bullish' : 'bearish';
   const smartMoneyBadge =
-    smartMoneyTone === 'neutral' ? 'Balanced Positioning' : smartMoneyTone === 'bullish' ? 'Call Buyers in Control' : 'Put Buyers in Control';
-  const smartMoneySummary = `Filtered blocks show ${smartMoneyNet >= 0 ? 'net call' : 'net put'} notional of $${(Math.abs(smartMoneyNet) / 1_000_000).toFixed(2)}M ($${(smartMoneyTotals.call / 1_000_000).toFixed(2)}M calls vs $${(smartMoneyTotals.put / 1_000_000).toFixed(2)}M puts). ${
+    smartMoneyTone === 'neutral' ? t('badgeBalanced') : smartMoneyTone === 'bullish' ? t('badgeBullish') : t('badgeBearish');
+  const smartMoneySummary = `${t('summaryPrefix', {
+    direction: smartMoneyNet >= 0 ? t('netCall') : t('netPut'),
+    net: (Math.abs(smartMoneyNet) / 1_000_000).toFixed(2),
+    calls: (smartMoneyTotals.call / 1_000_000).toFixed(2),
+    puts: (smartMoneyTotals.put / 1_000_000).toFixed(2),
+  })} ${
     smartMoneyTone === 'neutral'
-      ? 'Positioning is relatively balanced, so confirmation from price action is more important than flow alone.'
+      ? t('toneNeutral')
       : smartMoneyTone === 'bullish'
-        ? 'Call-heavy institutional flow supports dip-buying and upside continuation if price holds key supports.'
-        : 'Put-heavy institutional flow supports defensive or downside setups unless price decisively reclaims resistance.'
-  } Day traders can use this for intraday bias, while swing traders can treat sustained multi-session imbalance as a potential trend filter.`;
+        ? t('toneBullish')
+        : t('toneBearish')
+  } ${t('audienceNote')}`;
   const toggleSmartMoneySort = (key: SmartMoneySortKey) => {
     setSortStack((stack) => {
       if (stack.length > 0 && stack[0].key === key) {
@@ -641,7 +649,7 @@ export default function SmartMoneyPage() {
   return (
     <PageShell>
       <RegimeSummaryBanner
-        title="Smart Money Regime"
+        title={t('regimeTitle')}
         badge={smartMoneyBadge}
         tone={smartMoneyTone}
         summary={smartMoneySummary}
@@ -652,32 +660,32 @@ export default function SmartMoneyPage() {
             __html: `.smart-money-section tr[data-smart-row-key]{cursor:default}.smart-money-section tr[data-smart-row-key][data-smart-hover='true']{background-color:var(--color-warning-soft)}.smart-money-section rect[data-smart-cell-key][data-smart-hover='true']{fill-opacity:1;stroke:var(--color-brand-primary);stroke-width:2.5}`,
           }}
         />
-        <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">Smart Money Flow
-          <TooltipWrapper text="Session view overlays smart-money block notional versus underlying price, with a sortable detail table below."><Info size={14} /></TooltipWrapper>
+        <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">{t('pageTitle')}
+          <TooltipWrapper text={t('pageTooltip')}><Info size={14} /></TooltipWrapper>
         </h2>
         <div className="flex flex-wrap items-center justify-start gap-3 mb-4">
-          <label className="text-sm" style={{ color: mutedText }}>Session
+          <label className="text-sm" style={{ color: mutedText }}>{t('sessionLabel')}
             <select className="ml-2 rounded px-2 py-1" style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor, border: `1px solid ${inputBorder}` }} value={sessionView} onChange={(e) => setSessionView(e.target.value as 'current' | 'prior')}>
-              <option value="current">Current{currentDateLabel ? ` (${currentDateLabel})` : ''}</option>
-              <option value="prior">Prior{priorDateLabel ? ` (${priorDateLabel})` : ''}</option>
+              <option value="current">{t('currentOption')}{currentDateLabel ? ` (${currentDateLabel})` : ''}</option>
+              <option value="prior">{t('priorOption')}{priorDateLabel ? ` (${priorDateLabel})` : ''}</option>
             </select>
           </label>
-            <label className="text-sm" style={{ color: mutedText }}>Min Class
+            <label className="text-sm" style={{ color: mutedText }}>{t('minClassLabel')}
               <select className="ml-2 rounded px-2 py-1" style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor, border: `1px solid ${inputBorder}` }} value={minClass} onChange={(e) => setMinClass(e.target.value as MinClassFilter)}>
                 {minClassOptions.map((option) => (<option key={option.value} value={option.value}>{option.label}</option>))}
               </select>
             </label>
         </div>
         <div className="text-sm mb-3" style={{ color: mutedText }}>
-          Daily Totals as of: {dailyTotalsTimestamp ? new Date(dailyTotalsTimestamp).toLocaleString() : '--'}
+          {t('dailyTotalsPrefix', { value: dailyTotalsTimestamp ? new Date(dailyTotalsTimestamp).toLocaleString() : '--' })}
         </div>
         <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
-          {effectiveSmartMoneyError ? <ErrorMessage message={effectiveSmartMoneyError} /> : !filteredSmartMoneyData.length ? <div className="text-center py-6" style={{ color: mutedText }}>{!smartMoneyData && !smartMoneyError ? 'Loading...' : `No smart money flow data available for ${sessionView} session at the ${minClass} filter. Try a different session or Min Class.`}</div> : (
+          {effectiveSmartMoneyError ? <ErrorMessage message={effectiveSmartMoneyError} /> : !filteredSmartMoneyData.length ? <div className="text-center py-6" style={{ color: mutedText }}>{!smartMoneyData && !smartMoneyError ? t('loading') : t('noData', { session: sessionView === 'current' ? t('currentOption').toLowerCase() : t('priorOption').toLowerCase(), minClass })}</div> : (
             <>
               <div className="mb-5">
                 <div className="flex items-center gap-2 mb-2">
-                  <h3 className="zg-h3" style={{ color: textColor }}>Smart-money blocks vs. underlying price</h3>
-                  <TooltipWrapper text="Stacked bars show filtered smart-money notional by minute; yellow line overlays underlying price across the full 09:30–16:15 ET session timeline."><Info size={14} /></TooltipWrapper>
+                  <h3 className="zg-h3" style={{ color: textColor }}>{t('chartTitle')}</h3>
+                  <TooltipWrapper text={t('chartTooltip')}><Info size={14} /></TooltipWrapper>
                 </div>
                 <MobileScrollableChart>
                 <ResponsiveContainer width="100%" height={300}>
@@ -738,8 +746,8 @@ export default function SmartMoneyPage() {
                 </MobileScrollableChart>
               </div>
               <div className="flex items-center gap-2 mb-2">
-                <h3 className="zg-h3" style={{ color: textColor }}>Smart-money flow</h3>
-                <TooltipWrapper text="Click the funnel icon on Strike, Expiration, or Type to pick a value to filter by. Click a header to sort; clicking a second header keeps the prior sort as a secondary tiebreaker (up to 3 levels)."><Info size={14} /></TooltipWrapper>
+                <h3 className="zg-h3" style={{ color: textColor }}>{t('tableTitle')}</h3>
+                <TooltipWrapper text={t('tableTooltip')}><Info size={14} /></TooltipWrapper>
               </div>
               <div className="overflow-x-auto mt-2">
                 <table className="w-full min-w-[960px] text-sm"><thead><tr className="text-left border-b" style={{ borderColor: inputBorder, color: mutedText }}>
@@ -754,7 +762,7 @@ export default function SmartMoneyPage() {
                             <button
                               type="button"
                               onClick={(e) => { e.stopPropagation(); setOpenFilter((curr) => (curr === filterKey ? null : filterKey)); }}
-                              aria-label={`Filter ${col.label}`}
+                              aria-label={t('filterAriaLabel', { col: col.label })}
                               className="inline-flex items-center"
                               style={{ color: activeFilter ? 'var(--color-brand-primary)' : mutedText }}
                             >
@@ -772,10 +780,10 @@ export default function SmartMoneyPage() {
                                   style={{ backgroundColor: !activeFilter ? 'var(--bg-hover)' : 'transparent', color: inputColor }}
                                   onClick={() => { setColumnFilter(filterKey, ''); setOpenFilter(null); }}
                                 >
-                                  All
+                                  {t('allOption')}
                                 </button>
                                 {uniqueFilterValues[filterKey].length === 0 ? (
-                                  <div className="px-3 py-1.5 text-xs" style={{ color: mutedText }}>No values</div>
+                                  <div className="px-3 py-1.5 text-xs" style={{ color: mutedText }}>{t('noValues')}</div>
                                 ) : (
                                   uniqueFilterValues[filterKey].map((value) => (
                                     <button
@@ -822,7 +830,7 @@ export default function SmartMoneyPage() {
                     })}
                   </tbody></table>
               </div>
-              {tableRowLimit < sortedSmartMoneyRows.length ? <div className="mt-3 text-right"><button type="button" className="px-3 py-1 rounded border text-xs" style={{ borderColor: inputBorder, color: mutedText }} onClick={() => setTableRowLimit((v) => v + 50)}>Show more</button></div> : null}
+              {tableRowLimit < sortedSmartMoneyRows.length ? <div className="mt-3 text-right"><button type="button" className="px-3 py-1 rounded border text-xs" style={{ borderColor: inputBorder, color: mutedText }} onClick={() => setTableRowLimit((v) => v + 50)}>{t('showMore')}</button></div> : null}
             </>
           )}
         </div>

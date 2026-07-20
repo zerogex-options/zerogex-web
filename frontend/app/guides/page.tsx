@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { ArrowRight, GraduationCap } from 'lucide-react';
+import { getServerT } from '@/core/localizedContent';
+import { dict } from './page.i18n';
 
 export const metadata = {
   title: 'ZeroGEX Guides: Signals & Gamma Flip Reference',
@@ -8,56 +10,52 @@ export const metadata = {
   alternates: { canonical: '/guides' },
 };
 
-export default function GuidesPage() {
+export default async function GuidesPage() {
+  const t = await getServerT(dict);
   return (
     <div className="mx-auto max-w-4xl px-6 py-14">
       <div className="zg-feature-shell mb-10 p-8">
         <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">
           <GraduationCap size={14} />
-          Guides
+          {t('badge')}
         </div>
-        <h1 className="mb-3 text-3xl font-bold text-[var(--color-text-primary)]">ZeroGEX Guides</h1>
+        <h1 className="mb-3 text-3xl font-bold text-[var(--color-text-primary)]">{t('title')}</h1>
         <p className="max-w-2xl text-sm leading-7 text-[var(--color-text-secondary)]">
-          Reference material you come back to — concise, structured, and built to be scanned
-          while you trade.
+          {t('intro')}
         </p>
       </div>
 
       <div className="space-y-6">
         <div className="zg-feature-shell p-6">
-          <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">Reference Guide</div>
+          <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">{t('referenceGuide')}</div>
           <h2 className="mb-3 text-xl font-semibold text-[var(--color-text-primary)]">
-            Signals: Explained
+            {t('signalsTitle')}
           </h2>
           <p className="mb-5 text-sm leading-7 text-[var(--color-text-secondary)]">
-            Every ZeroGEX signal on one page — what each one asks, the timeframe it reads, when it fires,
-            and what a positive, negative, or zero score actually means. Includes the full 30-second
-            matrix and the score-sign reference for both Advanced and Basic signals.
+            {t('signalsBody')}
           </p>
           <Link
             href="/guides/signals-explained"
             className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-2 text-sm font-semibold text-[var(--heat-low)] transition hover:bg-[var(--color-warning-soft)]"
           >
-            Read guide
+            {t('readGuide')}
             <ArrowRight size={16} />
           </Link>
         </div>
 
         <div className="zg-feature-shell p-6">
-          <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">Reference Guide</div>
+          <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">{t('referenceGuide')}</div>
           <h2 className="mb-3 text-xl font-semibold text-[var(--color-text-primary)]">
-            Gamma Flip Calculation: Before vs. After
+            {t('gammaFlipTitle')}
           </h2>
           <p className="mb-5 text-sm leading-7 text-[var(--color-text-secondary)]">
-            How ZeroGEX locates the zero-gamma level — the move from a cumulative net-GEX
-            approximation to the spot-shift dealer gamma profile, why it changed, and what you
-            will see on the platform. Includes the full before/after and pros/cons matrix.
+            {t('gammaFlipBody')}
           </p>
           <Link
             href="/guides/gamma-flip-calculation-before-vs-after"
             className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-2 text-sm font-semibold text-[var(--heat-low)] transition hover:bg-[var(--color-warning-soft)]"
           >
-            Read guide
+            {t('readGuide')}
             <ArrowRight size={16} />
           </Link>
         </div>

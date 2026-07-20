@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { ArrowRight, BarChart2, BookOpen, Sparkles } from 'lucide-react';
+import { getServerT } from '@/core/localizedContent';
+import { dict } from './page.i18n';
 
 type UnauthorizedPageProps = {
   searchParams: Promise<{
@@ -11,6 +13,7 @@ type UnauthorizedPageProps = {
 
 export default async function UnauthorizedPage({ searchParams }: UnauthorizedPageProps) {
   const params = await searchParams;
+  const t = await getServerT(dict);
 
   const current = params.current ?? 'public';
   const required = params.required ?? 'basic';
@@ -33,27 +36,27 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
         <div className="w-full max-w-xl">
           <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-xl">
             <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[var(--color-brand-primary)]/40 bg-[var(--color-brand-primary)]/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-[var(--color-brand-primary)]">
-              <Sparkles size={13} /> Start your trial
+              <Sparkles size={13} /> {t('startTrialBadge')}
             </div>
-            <h1 className="text-3xl font-bold">Start your ZeroGEX trial</h1>
+            <h1 className="text-3xl font-bold">{t('startTrialHeading')}</h1>
             <p className="mt-3 text-[var(--color-text-secondary)]">
-              Your account is ready. Choose a plan to unlock the live dashboard.
+              {t('startTrialSub')}
             </p>
             <p className="mt-4 rounded-lg border border-[var(--color-brand-primary)]/30 bg-[var(--color-brand-primary)]/10 px-4 py-3 text-sm font-semibold text-[var(--color-text-primary)]">
-              7-day free trial. No charge until day 7. Cancel anytime.
+              {t('trialBanner')}
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <Link
                 href="/pricing?trial=1&plan=basic"
                 className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--color-brand-primary)] px-5 py-3 font-semibold text-[var(--text-inverse)]"
               >
-                Start Basic Trial <ArrowRight size={16} />
+                {t('startBasicTrial')} <ArrowRight size={16} />
               </Link>
               <Link
                 href="/pricing?trial=1&plan=pro"
                 className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--color-brand-primary)] px-5 py-3 font-semibold text-[var(--color-brand-primary)]"
               >
-                Start Pro Trial <ArrowRight size={16} />
+                {t('startProTrial')} <ArrowRight size={16} />
               </Link>
             </div>
             <p className="mt-5">
@@ -61,7 +64,7 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
                 href="/spx-gamma-levels"
                 className="text-sm font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-brand-primary)] hover:underline"
               >
-                View Free Delayed Levels
+                {t('viewFreeLevels')}
               </Link>
             </p>
           </section>
@@ -73,14 +76,14 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
   let heading: string;
   let message: string;
   if (needsSubscription) {
-    heading = 'Subscribe to unlock';
-    message = `This page is included with the ${required === 'pro' ? 'Pro' : 'Basic'} plan. Pick a plan to unlock it and the rest of the paid features.`;
+    heading = t('subscribeHeading');
+    message = t('subscribeMessage', { plan: required === 'pro' ? 'Pro' : 'Basic' });
   } else if (needsUpgrade) {
-    heading = 'Upgrade to unlock';
-    message = `Your current ${tierLabel(current)} plan does not include this page. Upgrade to ${tierLabel(required)} to unlock it.`;
+    heading = t('upgradeHeading');
+    message = t('upgradeMessage', { current: tierLabel(current), required: tierLabel(required) });
   } else {
-    heading = 'Access denied';
-    message = 'Your current tier does not grant permission for this page.';
+    heading = t('accessDeniedHeading');
+    message = t('accessDeniedMessage');
   }
 
   const showPricingCta = needsSubscription || needsUpgrade;
@@ -94,15 +97,15 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
 
           <dl className="mt-6 space-y-2 text-sm">
             <div className="flex justify-between gap-4 border-b border-[var(--color-border)] pb-2">
-              <dt className="text-[var(--color-text-secondary)]">Requested path</dt>
-              <dd className="font-medium">{params.path ?? 'Unknown'}</dd>
+              <dt className="text-[var(--color-text-secondary)]">{t('requestedPath')}</dt>
+              <dd className="font-medium">{params.path ?? t('unknown')}</dd>
             </div>
             <div className="flex justify-between gap-4 border-b border-[var(--color-border)] pb-2">
-              <dt className="text-[var(--color-text-secondary)]">Current tier</dt>
+              <dt className="text-[var(--color-text-secondary)]">{t('currentTier')}</dt>
               <dd className="font-medium">{current}</dd>
             </div>
             <div className="flex justify-between gap-4 border-b border-[var(--color-border)] pb-2">
-              <dt className="text-[var(--color-text-secondary)]">Required tier</dt>
+              <dt className="text-[var(--color-text-secondary)]">{t('requiredTier')}</dt>
               <dd className="font-medium">{required}</dd>
             </div>
           </dl>
@@ -111,22 +114,22 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
             {showPricingCta ? (
               <>
                 <Link href="/pricing" className="rounded-lg bg-[var(--color-brand-primary)] px-4 py-2 text-[var(--text-inverse)] font-semibold">
-                  {needsUpgrade ? 'Upgrade your plan' : 'See pricing'}
+                  {needsUpgrade ? t('upgradePlan') : t('seePricing')}
                 </Link>
                 <Link href="/login" className="text-[var(--color-brand-primary)] hover:underline">
-                  Sign in as a different user
+                  {t('signInDifferent')}
                 </Link>
                 <Link href="/" className="text-[var(--color-brand-primary)] hover:underline">
-                  Back to Landing
+                  {t('backToLanding')}
                 </Link>
               </>
             ) : (
               <>
                 <Link href="/login" className="rounded-lg bg-[var(--color-brand-primary)] px-4 py-2 text-[var(--text-inverse)] font-semibold">
-                  Sign in as a different user
+                  {t('signInDifferent')}
                 </Link>
                 <Link href="/" className="text-[var(--color-brand-primary)] hover:underline">
-                  Back to Landing
+                  {t('backToLanding')}
                 </Link>
               </>
             )}
@@ -145,13 +148,13 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
               <BarChart2 size={18} />
             </div>
             <h2 className="mb-2 text-base font-semibold text-[var(--color-text-primary)]">
-              Try the free Gamma Levels
+              {t('freeGammaHeading')}
             </h2>
             <p className="mb-4 flex-1 text-sm leading-6 text-[var(--color-text-secondary)]">
-              Net GEX, the gamma flip, call and put walls, max pain for SPX, SPY, and QQQ — 15-min delayed, no signup, no card.
+              {t('freeGammaDesc')}
             </p>
             <span className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-warning)] transition group-hover:text-[var(--heat-low)]">
-              Open Gamma Levels <ArrowRight size={14} />
+              {t('openGammaLevels')} <ArrowRight size={14} />
             </span>
           </Link>
 
@@ -163,13 +166,13 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
               <BookOpen size={18} />
             </div>
             <h2 className="mb-2 text-base font-semibold text-[var(--color-text-primary)]">
-              Start with the GEX guide
+              {t('gexGuideHeading')}
             </h2>
             <p className="mb-4 flex-1 text-sm leading-6 text-[var(--color-text-secondary)]">
-              The pillar piece — what gamma exposure is, the flip, the walls, and how to read the regime intraday.
+              {t('gexGuideDesc')}
             </p>
             <span className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-warning)] transition group-hover:text-[var(--heat-low)]">
-              Read the pillar <ArrowRight size={14} />
+              {t('readPillar')} <ArrowRight size={14} />
             </span>
           </Link>
 
@@ -181,13 +184,13 @@ export default async function UnauthorizedPage({ searchParams }: UnauthorizedPag
               <Sparkles size={18} />
             </div>
             <h2 className="mb-2 text-base font-semibold text-[var(--color-text-primary)]">
-              See what Pro includes
+              {t('proHeading')}
             </h2>
             <p className="mb-4 flex-1 text-sm leading-6 text-[var(--color-text-secondary)]">
-              Real-time dealer book, live regime reads, and the Advanced Signal stack built for 0DTE traders.
+              {t('proDesc')}
             </p>
             <span className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-warning)] transition group-hover:text-[var(--heat-low)]">
-              Tour the product <ArrowRight size={14} />
+              {t('tourProduct')} <ArrowRight size={14} />
             </span>
           </Link>
         </section>

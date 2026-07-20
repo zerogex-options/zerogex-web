@@ -33,6 +33,8 @@ import { useTimeframe } from "@/core/TimeframeContext";
 import { useTheme } from "@/core/ThemeContext";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { getSessionTimestamps } from "@/core/utils";
+import { usePageT } from "@/core/LanguageContext";
+import { dict } from "./page.i18n";
 
 // ── Chart row shape ───────────────────────────────────────────────────────────
 
@@ -554,6 +556,7 @@ function FilterRow({
   loading?: boolean;
   error?: string | null;
 }) {
+  const t = usePageT(dict);
   const active = selected.size > 0;
   const allSelected = active && selected.size === options.length;
   const btnBase =
@@ -590,7 +593,7 @@ function FilterRow({
           className={`${btnBase} ${options.length === 0 || allSelected ? "opacity-50 cursor-not-allowed" : "hover:border-[var(--border-strong)]"}`}
           style={controlBtn}
         >
-          Select All
+          {t('selectAll')}
         </button>
         <button
           type="button"
@@ -599,22 +602,22 @@ function FilterRow({
           className={`${btnBase} ${!active ? "opacity-50 cursor-not-allowed" : "hover:border-[var(--border-strong)]"}`}
           style={controlBtn}
         >
-          Clear
+          {t('clear')}
         </button>
       </div>
       <div className="flex gap-1.5 overflow-x-auto flex-1 min-w-0 py-0.5" style={{ scrollbarWidth: "thin" }}>
         {options.length === 0 ? (
           error ? (
             <span className="text-xs italic" style={{ color: "var(--color-danger, #ef4444)" }}>
-              Failed to load — {error}
+              {t('failedToLoad', { error })}
             </span>
           ) : loading ? (
             <span className="text-xs italic" style={{ color: "var(--color-text-secondary)" }}>
-              Loading…
+              {t('loadingLabel')}
             </span>
           ) : (
             <span className="text-xs italic" style={{ color: "var(--color-text-secondary)" }}>
-              None available
+              {t('noneAvailable')}
             </span>
           )
         ) : (
@@ -666,13 +669,14 @@ function FlowFilters({
   loading?: boolean;
   error?: string | null;
 }) {
+  const t = usePageT(dict);
   return (
     <div
       className="mb-4 rounded-lg border p-3 space-y-2.5"
       style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-surface-subtle)" }}
     >
       <FilterRow
-        label="Strike"
+        label={t('filterStrikeLabel')}
         options={strikeOptions}
         selected={selectedStrikes}
         onToggle={onToggleStrike}
@@ -682,7 +686,7 @@ function FlowFilters({
         error={error}
       />
       <FilterRow
-        label="Expiration"
+        label={t('filterExpirationLabel')}
         options={expirationOptions}
         selected={selectedExpirations}
         onToggle={onToggleExpiration}
@@ -696,10 +700,11 @@ function FlowFilters({
 }
 
 function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[]; isDark: boolean; isMobile: boolean }) {
+  const t = usePageT(dict);
   const axisStroke = isDark ? "var(--color-text-primary)" : "var(--color-text-primary)";
 
   if (rows.length === 0) {
-    return <div className="text-center py-8" style={{ color: isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)" }}>No chart data available</div>;
+    return <div className="text-center py-8" style={{ color: isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)" }}>{t('noChartData')}</div>;
   }
 
   // ── Premium axis: handle negative cumulative values ─────────────────────────
@@ -905,7 +910,7 @@ function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[];
               return (
                 <div style={{ backgroundColor: "var(--color-chart-tooltip-bg)", borderColor: "var(--color-border)", color: "var(--color-chart-tooltip-text)" }} className="rounded-lg border px-3 py-2 text-sm">
                   <div className="font-semibold">{new Date(String(label)).toLocaleString()}</div>
-                  <div>Net Volume: {Number(point?.netVolume ?? 0).toLocaleString()}</div>
+                  <div>{t('netVolumeLabel')}: {Number(point?.netVolume ?? 0).toLocaleString()}</div>
                 </div>
               );
             }}
@@ -946,6 +951,7 @@ function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[];
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function FlowAnalysisPage() {
+  const t = usePageT(dict);
   const { symbol } = useTimeframe();
   const { theme } = useTheme();
   const isDark = theme === "dark";
@@ -1022,12 +1028,22 @@ export default function FlowAnalysisPage() {
           ? 'bearish'
           : 'neutral';
   const flowBadge =
-    flowTone === 'neutral' ? 'Mixed / Two-Way Flow' : flowTone === 'bullish' ? 'Risk-On Flow Regime' : 'Risk-Off Flow Regime';
+    flowTone === 'neutral' ? t('badgeMixed') : flowTone === 'bullish' ? t('badgeBullish') : t('badgeBearish');
   const flowSummary = !latestSnapshot
-    ? 'Flow snapshot is still loading. Once data arrives, this banner will summarize whether options participants are pressing risk-on or risk-off in the selected session.'
-    : `Session flow is showing ${latestSnapshot.netPremium >= 0 ? 'net call-premium' : 'net put-premium'} pressure of $${(Math.abs(latestSnapshot.netPremium) / 1_000_000).toFixed(2)}M with a net contract imbalance of ${Math.abs(latestSnapshot.netFlow).toLocaleString()} (${latestSnapshot.netFlow >= 0 ? 'call-led' : 'put-led'}). Put/Call ratio is ${latestSnapshot.putCallRatio.toFixed(2)}, which ${
-      latestSnapshot.putCallRatio > 1.1 ? 'leans defensive' : latestSnapshot.putCallRatio < 0.9 ? 'leans risk-on' : 'is close to balanced'
-    }. Day traders can anchor directional bias to this flow regime, while swing traders should watch for follow-through across multiple sessions before sizing up.`;
+    ? t('summaryLoading')
+    : t('summaryTemplate', {
+        direction: latestSnapshot.netPremium >= 0 ? t('directionCall') : t('directionPut'),
+        amount: (Math.abs(latestSnapshot.netPremium) / 1_000_000).toFixed(2),
+        imbalance: Math.abs(latestSnapshot.netFlow).toLocaleString(),
+        led: latestSnapshot.netFlow >= 0 ? t('ledCall') : t('ledPut'),
+        ratio: latestSnapshot.putCallRatio.toFixed(2),
+        lean:
+          latestSnapshot.putCallRatio > 1.1
+            ? t('leanDefensive')
+            : latestSnapshot.putCallRatio < 0.9
+              ? t('leanRiskOn')
+              : t('leanBalanced'),
+      });
 
   // ── Filter chips (Strike / Expiration) ───────────────────────────────────
   const strikeOptions = useMemo(
@@ -1139,10 +1155,10 @@ export default function FlowAnalysisPage() {
 
   return (
     <PageShell>
-      <h1 className="text-3xl font-bold mb-8">Flow Analysis</h1>
+      <h1 className="text-3xl font-bold mb-8">{t('pageTitle')}</h1>
       {flowError && !flowSeriesUnfiltered && <ErrorMessage message={flowError} />}
       <RegimeSummaryBanner
-        title="Flow Analysis Regime"
+        title={t('regimeBannerTitle')}
         badge={flowBadge}
         tone={flowTone}
         summary={flowSummary}
@@ -1151,7 +1167,7 @@ export default function FlowAnalysisPage() {
       {/* Session selector — shared across all sections */}
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-3">
-          <span className="text-sm" style={{ color: mutedText }}>Session</span>
+          <span className="text-sm" style={{ color: mutedText }}>{t('sessionLabel')}</span>
           <select
             value={flowSession}
             onChange={(e) => {
@@ -1162,20 +1178,20 @@ export default function FlowAnalysisPage() {
             className="px-3 py-1.5 text-sm rounded-md border focus:outline-none cursor-pointer"
             style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor }}
           >
-            <option value="current">Current{currentDateLabel ? ` (${currentDateLabel})` : ""}</option>
-            <option value="prior">Prior{priorDateLabel ? ` (${priorDateLabel})` : ""}</option>
+            <option value="current">{t('optionCurrent')}{currentDateLabel ? ` (${currentDateLabel})` : ""}</option>
+            <option value="prior">{t('optionPrior')}{priorDateLabel ? ` (${priorDateLabel})` : ""}</option>
           </select>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-sm" style={{ color: mutedText }}>Net Volume Basis</span>
+          <span className="text-sm" style={{ color: mutedText }}>{t('netVolumeBasisLabel')}</span>
           <select
             value={netVolumeMode}
             onChange={(e) => setNetVolumeMode(e.target.value as NetVolumeMode)}
             className="px-3 py-1.5 text-sm rounded-md border focus:outline-none cursor-pointer"
             style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor }}
           >
-            <option value="directional">Directional</option>
-            <option value="raw">Raw Net</option>
+            <option value="directional">{t('optionDirectional')}</option>
+            <option value="raw">{t('optionRawNet')}</option>
           </select>
         </div>
       </div>
@@ -1183,50 +1199,50 @@ export default function FlowAnalysisPage() {
       {/* ── Flow Snapshot ─────────────────────────────────────────────── */}
       <section className="mb-8">
         <SectionHead
-          title="Flow Snapshot"
-          tooltip="Cumulative snapshot from the most recent data point in the selected trading session."
+          title={t('flowSnapshotTitle')}
+          tooltip={t('flowSnapshotTooltip')}
         />
         <div className="text-sm mb-3" style={{ color: mutedText }}>
-          Daily Totals as of:{" "}
+          {t('dailyTotalsAsOf')}{" "}
           {latestSnapshot?.timestamp ? new Date(latestSnapshot.timestamp).toLocaleString() : "--"}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <MetricCard
-            title="Call Volume"
+            title={t('metricCallVolume')}
             value={Number(latestSnapshot?.callVolume || 0).toLocaleString()}
             subtitle={`${Number(latestSnapshot?.callPremium || 0) < 0 ? '-' : ''}$${(Math.abs(Number(latestSnapshot?.callPremium || 0)) / 1_000_000).toFixed(2)}M premium`}
             trend="bullish"
-            tooltip="Cumulative call contracts and net call premium across the selected date."
+            tooltip={t('metricCallVolumeTooltip')}
             theme="dark"
           />
           <MetricCard
-            title="Put Volume"
+            title={t('metricPutVolume')}
             value={Number(latestSnapshot?.putVolume || 0).toLocaleString()}
             subtitle={`${Number(latestSnapshot?.putPremium || 0) < 0 ? '-' : ''}$${(Math.abs(Number(latestSnapshot?.putPremium || 0)) / 1_000_000).toFixed(2)}M premium`}
             trend="bearish"
-            tooltip="Cumulative put contracts and net put premium across the selected date."
+            tooltip={t('metricPutVolumeTooltip')}
             theme="dark"
           />
           <MetricCard
-            title="Net Flow"
+            title={t('metricNetFlow')}
             value={Number(latestSnapshot?.netFlow || 0).toLocaleString()}
-            subtitle="contracts"
+            subtitle={t('metricNetFlowSubtitle')}
             trend={Number(latestSnapshot?.netFlow || 0) > 0 ? "bullish" : "bearish"}
-            tooltip="Cumulative call volume minus put volume across the selected date."
+            tooltip={t('metricNetFlowTooltip')}
             theme="dark"
           />
           <MetricCard
-            title="Net Premium"
+            title={t('metricNetPremium')}
             value={`${Number(latestSnapshot?.netPremium || 0) < 0 ? '-' : ''}$${(Math.abs(Number(latestSnapshot?.netPremium || 0)) / 1_000_000).toFixed(2)}M`}
             trend={Number(latestSnapshot?.netPremium || 0) > 0 ? "bullish" : "bearish"}
-            tooltip="Cumulative call premium minus put premium across the selected date."
+            tooltip={t('metricNetPremiumTooltip')}
             theme="dark"
           />
           <MetricCard
-            title="Put/Call Ratio"
+            title={t('putCallRatioLabel')}
             value={Number(latestSnapshot?.putCallRatio || 0).toFixed(2)}
             trend={Number(latestSnapshot?.putCallRatio || 0) > 1 ? "bearish" : "bullish"}
-            tooltip="Cumulative put volume divided by cumulative call volume across the selected date."
+            tooltip={t('metricPutCallRatioTooltip')}
             theme="dark"
           />
         </div>
@@ -1235,8 +1251,8 @@ export default function FlowAnalysisPage() {
       {/* ── Options Flow ──────────────────────────────────────────────── */}
       <section className="mb-8 rounded-lg p-6" style={{ backgroundColor: cardBg }}>
         <SectionHead
-          title="Options Flow"
-          tooltip="Primary axis: net call premium (green) and net put premium (red). Bottom axis: net volume area, green above zero and red below zero. Aggregates every contract returned by the by-contract endpoint in 5-minute intervals. Use the filters below to narrow by strike or expiration."
+          title={t('optionsFlowTitle')}
+          tooltip={t('optionsFlowTooltip')}
         />
         <FlowFilters
           strikeOptions={strikeOptions}
@@ -1258,14 +1274,14 @@ export default function FlowAnalysisPage() {
       {/* ── Compact charts row (Net Directional Premium · Put/Call Ratio · Net Position) ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
       {/* ── Net Directional Premium ───────────────────────────────────── */}
-      <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart" className="h-full">
+      <ExpandableCard expandTrigger="button" expandButtonLabel={t('expandChart')} className="h-full">
       <div className="rounded-lg p-6 h-full" style={{ backgroundColor: cardBg }}>
         <SectionHead
-          title="Net Directional Premium"
-          tooltip="Running session total of net_premium aggregated across every contract (accumulated across 5-minute bars). Positive values indicate net bullish premium pressure, negative values indicate net bearish premium pressure."
+          title={t('netDirectionalPremiumTitle')}
+          tooltip={t('netDirectionalPremiumTooltip')}
         />
         {!hasDirectionalPremiumData ? (
-          <div className="text-center py-8" style={{ color: mutedText }}>No net directional premium data available</div>
+          <div className="text-center py-8" style={{ color: mutedText }}>{t('noDirectionalPremiumData')}</div>
         ) : (
           <div className={isMobile ? "overflow-x-auto pb-2" : ""}>
             <div style={{ width: isMobile ? 900 : "100%", minWidth: isMobile ? 900 : undefined, height: 320 }}>
@@ -1331,7 +1347,7 @@ export default function FlowAnalysisPage() {
                       return (
                         <div className="rounded border px-3 py-2 text-sm" style={{ backgroundColor: "var(--color-chart-tooltip-bg)", borderColor: "var(--color-border)", color: "var(--color-chart-tooltip-text)" }}>
                           <div className="font-semibold">{new Date(String(label)).toLocaleString()}</div>
-                          <div>Cumulative Net Premium: {point?.premium != null ? `$${point.premium.toLocaleString()}` : "—"}</div>
+                          <div>{t('cumulativeNetPremiumLabel')}: {point?.premium != null ? `$${point.premium.toLocaleString()}` : "—"}</div>
                         </div>
                       );
                     }}
@@ -1366,14 +1382,14 @@ export default function FlowAnalysisPage() {
       </ExpandableCard>
 
       {/* ── Put/Call Ratio ────────────────────────────────────────────── */}
-      <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart" className="h-full">
+      <ExpandableCard expandTrigger="button" expandButtonLabel={t('expandChart')} className="h-full">
       <div className="rounded-lg p-6 h-full" style={{ backgroundColor: cardBg }}>
         <SectionHead
-          title="Put/Call Ratio"
-          tooltip="Session-cumulative put volume ÷ session-cumulative call volume at each 5-minute bar. Sums total puts traded through the day over total calls traded up to that point, carrying forward contracts that stopped reporting in earlier bars."
+          title={t('putCallRatioLabel')}
+          tooltip={t('putCallRatioTooltip')}
         />
         {!hasRatioData ? (
-          <div className="text-center py-8" style={{ color: mutedText }}>No put/call ratio data available</div>
+          <div className="text-center py-8" style={{ color: mutedText }}>{t('noRatioData')}</div>
         ) : (
           <div className={isMobile ? "overflow-x-auto pb-2" : ""}>
             <div style={{ width: isMobile ? 900 : "100%", minWidth: isMobile ? 900 : undefined, height: 320 }}>
@@ -1454,7 +1470,7 @@ export default function FlowAnalysisPage() {
                       return (
                         <div className="rounded border px-3 py-2 text-sm" style={{ backgroundColor: isDark ? "var(--color-surface)" : "var(--color-surface)", borderColor: isDark ? "var(--color-surface)" : "var(--color-border)", color: isDark ? "var(--color-text-primary)" : "var(--color-text-primary)" }}>
                           <div className="font-semibold">{new Date(String(label)).toLocaleString()}</div>
-                          <div>Put/Call Ratio: {Number(payload[0]?.value ?? 0).toFixed(2)}</div>
+                          <div>{t('putCallRatioLabel')}: {Number(payload[0]?.value ?? 0).toFixed(2)}</div>
                         </div>
                       );
                     }}
@@ -1477,14 +1493,14 @@ export default function FlowAnalysisPage() {
       </ExpandableCard>
 
       {/* ── Net Position (Buys vs Sells) ─────────────────────────────── */}
-      <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart" className="h-full">
+      <ExpandableCard expandTrigger="button" expandButtonLabel={t('expandChart')} className="h-full">
       <div className="rounded-lg p-6 h-full" style={{ backgroundColor: cardBg }}>
         <SectionHead
-          title="Net Position (Buys vs. Sells)"
-          tooltip="Running session totals of net_volume per 5-minute bar, split by option_type. Positive values mean net buying pressure, negative values mean net selling pressure. The Put/Call Ratio above measures raw activity — this chart accounts for trade direction to distinguish buying from selling."
+          title={t('netPositionTitle')}
+          tooltip={t('netPositionTooltip')}
         />
         {!hasNetPositionData ? (
-          <div className="text-center py-8" style={{ color: mutedText }}>No net position data available</div>
+          <div className="text-center py-8" style={{ color: mutedText }}>{t('noNetPositionData')}</div>
         ) : (
           <div className={isMobile ? "overflow-x-auto pb-2" : ""}>
             <div style={{ width: isMobile ? 900 : "100%", minWidth: isMobile ? 900 : undefined, height: 320 }}>
@@ -1553,8 +1569,8 @@ export default function FlowAnalysisPage() {
                       return (
                         <div className="rounded border px-3 py-2 text-sm" style={{ backgroundColor: "var(--color-chart-tooltip-bg)", borderColor: "var(--color-border)", color: "var(--color-chart-tooltip-text)" }}>
                           <div className="font-semibold">{new Date(String(label)).toLocaleString()}</div>
-                          <div>Net Call Position: {point?.callPosition != null ? Number(point.callPosition).toLocaleString() : "—"}</div>
-                          <div>Net Put Position: {point?.putPosition != null ? Number(point.putPosition).toLocaleString() : "—"}</div>
+                          <div>{t('netCallPositionLabel')}: {point?.callPosition != null ? Number(point.callPosition).toLocaleString() : "—"}</div>
+                          <div>{t('netPutPositionLabel')}: {point?.putPosition != null ? Number(point.putPosition).toLocaleString() : "—"}</div>
                         </div>
                       );
                     }}

@@ -26,6 +26,8 @@ import {
 import TooltipWrapper from '@/components/TooltipWrapper';
 import BetaBadge from '@/components/BetaBadge';
 import { backtestAPI } from '@/core/api/endpoints';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './page.i18n';
 import { useBacktest, TRADES_PAGE_SIZE } from './useBacktest';
 import type {
   BacktestCondition,
@@ -50,22 +52,26 @@ function isNeutral(id: StrategyStructureId): boolean {
   return NEUTRAL_STRUCTURES.includes(id);
 }
 
+/** Translated loading fallback for a dynamically-imported chart. */
+function ChartSkeleton({ height, textKey }: { height: number; textKey: 'loadingChart' | 'loadingSimulation' }) {
+  const t = usePageT(dict);
+  return <Skeleton height={height} label={t(textKey)} />;
+}
+
 // Recharts is heavy; the equity curve sits below the config panel and only
 // appears once a run completes. Split it out so the form paints immediately.
 const EquityChart = dynamic(() => import('./EquityChart'), {
   ssr: false,
-  loading: () => <Skeleton height={320} label="Loading chart…" />,
+  loading: () => <ChartSkeleton height={320} textKey="loadingChart" />,
 });
 
 const MonteCarloChart = dynamic(() => import('./MonteCarloChart'), {
   ssr: false,
-  loading: () => <Skeleton height={280} label="Loading simulation…" />,
+  loading: () => <ChartSkeleton height={280} textKey="loadingSimulation" />,
 });
 
-const TITLE_TOOLTIP =
-  'Backtest a basket of signal patterns against historical option data. ' +
-  'Configure the underlying, date range, patterns, fill model, and sizing, then run. ' +
-  'Results include an equity curve, per-pattern breakdown, and a full trade blotter.';
+/** Translator shape passed to plain (non-component) helper functions below. */
+type PageT = (key: string, vars?: Record<string, string | number>) => string;
 
 // ---- Local form state ----------------------------------------------------
 
@@ -446,13 +452,14 @@ function formatDateTime(iso: string): string {
 
 export default function BacktestingPage() {
   const bt = useBacktest();
+  const t = usePageT(dict);
 
   return (
     <PageShell>
       <div className="flex flex-wrap items-center gap-2 mb-6">
         <h1 className="text-3xl font-bold">Backtesting</h1>
         <BetaBadge size="md" />
-        <TooltipWrapper text={TITLE_TOOLTIP} placement="bottom">
+        <TooltipWrapper text={t('titleTooltip')} placement="bottom">
           <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
         </TooltipWrapper>
         <Link
@@ -464,7 +471,7 @@ export default function BacktestingPage() {
           }}
         >
           <TrendingUp size={14} />
-          Pattern Insights
+          {t('patternInsights')}
         </Link>
       </div>
 
@@ -485,6 +492,7 @@ export default function BacktestingPage() {
 
 function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
   const { meta, metaState, metaError, running, submit, submitError, submitSweep, sweepRunning } = bt;
+  const t = usePageT(dict);
   const [form, setForm] = useState<FormState | null>(null);
   const [sweepAxes, setSweepAxes] = useState<SweepAxisForm[]>([]);
 
@@ -519,15 +527,15 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
       .getSharedConfig(token)
       .then((cfg) => {
         setForm(specToForm(cfg.spec, meta));
-        setConfigNotice(`Loaded shared config “${cfg.name}”.`);
+        setConfigNotice(t('noticeLoadedShared', { name: cfg.name }));
       })
-      .catch(() => setConfigNotice('Could not load that shared configuration.'))
+      .catch(() => setConfigNotice(t('noticeSharedLoadFailed')))
       .finally(() => {
         const url = new URL(window.location.href);
         url.searchParams.delete('config');
         window.history.replaceState({}, '', url.toString());
       });
-  }, [meta]);
+  }, [meta, t]);
 
   // Seed the form the first render after meta resolves. Adjusting state
   // during render (guarded so it runs once) is React's recommended pattern
@@ -539,7 +547,7 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
   if (metaState === 'loading' || (metaState === 'ready' && form == null)) {
     return (
       <section className="zg-feature-shell p-6">
-        <Skeleton height={420} label="Loading configuration…" />
+        <Skeleton height={420} label={t('loadingConfig')} />
       </section>
     );
   }
@@ -547,7 +555,7 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
   if (metaState === 'error' || !meta || !form) {
     return (
       <section className="zg-feature-shell p-6">
-        <ErrorBox title="Couldn't load backtest options" message={metaError ?? 'Please try again.'} />
+        <ErrorBox title={t('couldntLoadOptions')} message={metaError ?? t('pleaseTryAgain')} />
       </section>
     );
   }
@@ -616,11 +624,11 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
 
   const strategyMissing =
     validConditions.length === 0
-      ? 'Add at least one condition to run a custom strategy.'
+      ? t('strategyMissingConditions')
       : neutralStructure && !hasPremiumExit
-        ? 'This structure is non-directional — set a premium take-profit or stop-loss.'
+        ? t('strategyMissingNeutral')
         : !neutralStructure && !hasLevelExit && !hasPremiumExit
-          ? 'Set an exit: a target/stop offset, or a premium take-profit/stop-loss.'
+          ? t('strategyMissingDirectional')
           : null;
 
   const canSubmit =
@@ -648,10 +656,10 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
     try {
       await backtestAPI.saveConfig(name, formToSpec(form, meta));
       setSaveName('');
-      setConfigNotice(`Saved “${name}”.`);
+      setConfigNotice(t('noticeSaved', { name }));
       refreshConfigs();
     } catch (err) {
-      setConfigNotice(err instanceof Error ? err.message : 'Could not save configuration.');
+      setConfigNotice(err instanceof Error ? err.message : t('noticeSaveFailed'));
     } finally {
       setSavingBusy(false);
     }
@@ -662,9 +670,9 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
     try {
       const cfg = await backtestAPI.getConfig(id);
       setForm(specToForm(cfg.spec, meta));
-      setConfigNotice(`Loaded “${cfg.name}”.`);
+      setConfigNotice(t('noticeLoaded', { name: cfg.name }));
     } catch {
-      setConfigNotice('Could not load that configuration.');
+      setConfigNotice(t('noticeLoadFailed'));
     }
   };
 
@@ -673,7 +681,7 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
       await backtestAPI.deleteConfig(id);
       refreshConfigs();
     } catch {
-      setConfigNotice('Could not delete that configuration.');
+      setConfigNotice(t('noticeDeleteFailed'));
     }
   };
 
@@ -682,7 +690,7 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
     const link = `${window.location.origin}/backtesting?config=${cfg.share_token}`;
     try {
       await navigator.clipboard.writeText(link);
-      setConfigNotice('Share link copied to clipboard.');
+      setConfigNotice(t('noticeShareCopied'));
     } catch {
       setConfigNotice(link);
     }
@@ -690,7 +698,7 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
 
   const onLoadFeatured = (s: FeaturedStrategy) => {
     setForm(featuredToForm(s, meta));
-    setConfigNotice(`Loaded “${s.name}”. Review the date range, then run.`);
+    setConfigNotice(t('noticeLoadedFeatured', { name: s.name }));
   };
 
   // ---- Parameter-sweep gating + actions ---------------------------------
@@ -717,11 +725,11 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
     <section className="zg-feature-shell p-6">
       <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
         <SlidersHorizontal size={20} />
-        Configuration
+        {t('configHeading')}
       </h2>
 
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
-        <Field label="Underlying">
+        <Field label={t('underlyingLabel')}>
           <select
             className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
             value={form.underlying}
@@ -736,7 +744,7 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
         </Field>
 
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Start date">
+          <Field label={t('startDateLabel')}>
             <input
               type="date"
               className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
@@ -746,7 +754,7 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
               onChange={(e) => setField('start_date', e.target.value)}
             />
           </Field>
-          <Field label="End date">
+          <Field label={t('endDateLabel')}>
             <input
               type="date"
               className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
@@ -760,7 +768,7 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
 
         <div>
           <div className="text-[11px] uppercase tracking-[0.16em] text-[var(--color-text-secondary)] mb-2">
-            Signal source
+            {t('signalSource')}
           </div>
           <div
             className="grid grid-cols-2 gap-1 rounded-lg border p-1"
@@ -769,8 +777,8 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
           >
             {(
               [
-                ['patterns', 'Playbook patterns'],
-                ['strategy', 'Custom strategy'],
+                ['patterns', t('tabPatterns')],
+                ['strategy', t('tabStrategy')],
               ] as const
             ).map(([value, label]) => {
               const active = form.mode === value;
@@ -798,7 +806,7 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
         {form.mode === 'patterns' ? (
           <div>
             <div className="text-[11px] uppercase tracking-[0.16em] text-[var(--color-text-secondary)] mb-2">
-              Patterns
+              {t('patternsHeading')}
             </div>
             <div className="flex flex-col gap-3">
               {[...patternsByTier.entries()].map(([tier, list]) => (
@@ -834,24 +842,24 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
           <div className="flex flex-col gap-4">
             {neutralStructure ? (
               <p className="text-[11px] text-[var(--color-text-secondary)]">
-                Non-directional structure — exits use the premium take-profit / stop-loss below.
+                {t('nonDirectionalNote')}
               </p>
             ) : (
-              <Field label="Direction">
+              <Field label={t('directionLabel')}>
                 <select
                   className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
                   value={form.direction}
                   onChange={(e) => setField('direction', e.target.value as 'bullish' | 'bearish')}
                 >
-                  <option value="bullish">Bullish</option>
-                  <option value="bearish">Bearish</option>
+                  <option value="bullish">{t('bullish')}</option>
+                  <option value="bearish">{t('bearish')}</option>
                 </select>
               </Field>
             )}
 
             <div>
               <div className="text-[11px] uppercase tracking-[0.16em] text-[var(--color-text-secondary)] mb-2">
-                Conditions
+                {t('conditionsHeading')}
               </div>
               <div className="flex flex-col gap-2">
                 {form.conditions.map((c, idx) => {
@@ -864,7 +872,7 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
                     >
                       <div className="flex items-center gap-2">
                         <select
-                          aria-label="Field"
+                          aria-label={t('fieldAria')}
                           className="flex-1 min-w-0 rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2 py-1.5 text-sm"
                           value={c.field}
                           onChange={(e) => changeConditionField(idx, e.target.value)}
@@ -877,7 +885,7 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
                         </select>
                         <button
                           type="button"
-                          aria-label="Remove condition"
+                          aria-label={t('removeConditionAria')}
                           onClick={() => removeCondition(idx)}
                           disabled={form.conditions.length === 1}
                           className="shrink-0 rounded-md border px-2 py-1.5 text-sm leading-none disabled:opacity-40 disabled:cursor-not-allowed"
@@ -888,7 +896,7 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
                       </div>
                       <div className="flex items-center gap-2">
                         <select
-                          aria-label="Operator"
+                          aria-label={t('operatorAria')}
                           className="shrink-0 rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2 py-1.5 text-sm font-mono"
                           value={c.op}
                           onChange={(e) => updateCondition(idx, { op: e.target.value })}
@@ -901,12 +909,12 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
                         </select>
                         {def?.type === 'categorical' ? (
                           <select
-                            aria-label="Value"
+                            aria-label={t('valueAria')}
                             className="flex-1 min-w-0 rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2 py-1.5 text-sm"
                             value={c.value}
                             onChange={(e) => updateCondition(idx, { value: e.target.value })}
                           >
-                            <option value="">Select…</option>
+                            <option value="">{t('selectPlaceholder')}</option>
                             {(def.values ?? []).map((v) => (
                               <option key={v} value={v}>
                                 {v}
@@ -916,11 +924,11 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
                         ) : (
                           <div className="relative flex-1 min-w-0">
                             <input
-                              aria-label="Value"
+                              aria-label={t('valueAria')}
                               type="number"
                               className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2 py-1.5 text-sm pr-7"
                               value={c.value}
-                              placeholder="Value"
+                              placeholder={t('valuePlaceholder')}
                               onChange={(e) => updateCondition(idx, { value: e.target.value })}
                             />
                             {def?.unit ? (
@@ -941,12 +949,12 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
                 className="mt-2 rounded-md border px-2.5 py-1 text-xs font-semibold"
                 style={{ borderColor: 'var(--color-border)' }}
               >
-                + Add condition
+                {t('addConditionBtn')}
               </button>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Structure">
+              <Field label={t('structureLabel')}>
                 <select
                   className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
                   value={form.structure}
@@ -955,8 +963,8 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
                   }
                 >
                   {(meta.strategy_structures ?? [
-                    { id: 'single', label: 'Single option (ATM)' },
-                    { id: 'vertical', label: 'Vertical spread (defined risk)' },
+                    { id: 'single', label: t('structureSingleOption') },
+                    { id: 'vertical', label: t('structureVerticalSpread') },
                   ]).map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.label}
@@ -968,8 +976,8 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
                 <Field
                   label={
                     form.structure === 'strangle' || form.structure === 'condor'
-                      ? 'Strike offset (pts)'
-                      : 'Spread width (pts)'
+                      ? t('strikeOffsetPts')
+                      : t('spreadWidthPts')
                   }
                 >
                   <input
@@ -985,7 +993,7 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
                 <div />
               )}
               {form.structure === 'condor' ? (
-                <Field label="Wing width (pts)">
+                <Field label={t('wingWidthPts')}>
                   <input
                     type="number"
                     className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
@@ -1011,7 +1019,7 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
               </Field>
               {!neutralStructure ? (
                 <>
-                  <Field label="Target offset (%)">
+                  <Field label={t('targetOffsetPct')}>
                     <input
                       type="number"
                       className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
@@ -1022,7 +1030,7 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
                       onChange={(e) => setField('target_offset_pct', e.target.value)}
                     />
                   </Field>
-                  <Field label="Stop offset (%)">
+                  <Field label={t('stopOffsetPct')}>
                     <input
                       type="number"
                       className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
@@ -1039,16 +1047,15 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
             <p className="text-[11px] text-[var(--color-text-secondary)] leading-snug">
               {neutralStructure ? (
                 <>
-                  This structure exits on the premium <span className="font-medium">Take profit</span> /{' '}
-                  <span className="font-medium">Stop loss</span> inputs below (and the time stop).
+                  {t('neutralExitPre')}<span className="font-medium">{t('takeProfitTerm')}</span> /{' '}
+                  <span className="font-medium">{t('stopLossTerm')}</span>{t('neutralExitPost')}
                 </>
               ) : (
                 <>
-                  Target/stop offsets are moves in the{' '}
-                  <span className="font-medium">underlying price</span> from entry (favorable /
-                  adverse). The premium <span className="font-medium">Take profit</span> /{' '}
-                  <span className="font-medium">Stop loss</span> inputs below also apply to the
-                  option.
+                  {t('dirExitPre')}
+                  <span className="font-medium">{t('underlyingPriceTerm')}</span>
+                  {t('dirExitMid')}<span className="font-medium">{t('takeProfitTerm')}</span> /{' '}
+                  <span className="font-medium">{t('stopLossTerm')}</span>{t('dirExitPost')}
                 </>
               )}
             </p>
@@ -1056,7 +1063,7 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
         )}
 
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Capital ($)">
+          <Field label={t('capitalLabel')}>
             <input
               type="number"
               className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
@@ -1066,7 +1073,7 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
               onChange={(e) => numField('capital', e.target.value)}
             />
           </Field>
-          <Field label="Risk / trade (%)">
+          <Field label={t('riskPerTradeLabel')}>
             <input
               type="number"
               className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
@@ -1076,7 +1083,7 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
               onChange={(e) => numField('risk_per_trade_pct', e.target.value)}
             />
           </Field>
-          <Field label="Slippage (%)">
+          <Field label={t('slippageLabel')}>
             <input
               type="number"
               className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
@@ -1086,7 +1093,7 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
               onChange={(e) => numField('slippage_pct', e.target.value)}
             />
           </Field>
-          <Field label="Commission / contract ($)">
+          <Field label={t('commissionLabel')}>
             <input
               type="number"
               className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
@@ -1096,7 +1103,7 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
               onChange={(e) => numField('commission_per_contract', e.target.value)}
             />
           </Field>
-          <Field label="Max concurrent">
+          <Field label={t('maxConcurrentLabel')}>
             <input
               type="number"
               className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
@@ -1106,7 +1113,7 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
               onChange={(e) => numField('max_concurrent', e.target.value)}
             />
           </Field>
-          <Field label="Max net Δ">
+          <Field label={t('maxNetDeltaLabel')}>
             <input
               type="number"
               className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
@@ -1117,7 +1124,7 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
               onChange={(e) => setField('max_net_delta', e.target.value)}
             />
           </Field>
-          <Field label="Max net vega">
+          <Field label={t('maxNetVegaLabel')}>
             <input
               type="number"
               className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
@@ -1128,7 +1135,7 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
               onChange={(e) => setField('max_net_vega', e.target.value)}
             />
           </Field>
-          <Field label="Max hold (min)">
+          <Field label={t('maxHoldLabel')}>
             <input
               type="number"
               className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
@@ -1139,7 +1146,7 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
               onChange={(e) => setField('max_hold_minutes', e.target.value)}
             />
           </Field>
-          <Field label="Take profit (%)">
+          <Field label={t('takeProfitPctLabel')}>
             <input
               type="number"
               className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
@@ -1150,7 +1157,7 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
               onChange={(e) => setField('profit_target_pct', e.target.value)}
             />
           </Field>
-          <Field label="Stop loss (%)">
+          <Field label={t('stopLossPctLabel')}>
             <input
               type="number"
               className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
@@ -1166,7 +1173,7 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
 
         {form.mode === 'patterns' && form.patterns.length === 0 ? (
           <p className="text-[11px] text-[var(--color-text-secondary)]">
-            Select at least one pattern to run a backtest.
+            {t('selectPatternHint')}
           </p>
         ) : null}
 
@@ -1174,7 +1181,7 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
           <p className="text-[11px] text-[var(--color-text-secondary)]">{strategyMissing}</p>
         ) : null}
 
-        {submitError ? <ErrorBox title="Run failed to start" message={submitError} /> : null}
+        {submitError ? <ErrorBox title={t('runFailedTitle')} message={submitError} /> : null}
 
         <button
           type="submit"
@@ -1183,7 +1190,7 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
           style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-elevated)' }}
         >
           <Play size={16} />
-          {running ? 'Running…' : 'Run Backtest'}
+          {running ? t('runningBtn') : t('runBacktestBtn')}
         </button>
 
         <SweepEditor
@@ -1218,11 +1225,12 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
 // ---- Featured strategies UI ---------------------------------------------
 
 function FeaturedStrategies({ onLoad }: { onLoad: (s: FeaturedStrategy) => void }) {
+  const t = usePageT(dict);
   if (FEATURED_STRATEGIES.length === 0) return null;
   return (
     <div className="mt-6 pt-5 border-t" style={{ borderColor: 'var(--color-border)' }}>
       <div className="text-[11px] uppercase tracking-[0.16em] text-[var(--color-text-secondary)] mb-2">
-        Featured strategies
+        {t('featuredHeading')}
       </div>
       <ul className="flex flex-col gap-2">
         {FEATURED_STRATEGIES.map((s) => (
@@ -1235,14 +1243,14 @@ function FeaturedStrategies({ onLoad }: { onLoad: (s: FeaturedStrategy) => void 
               type="button"
               onClick={() => onLoad(s)}
               className="block w-full text-left"
-              title="Load this strategy into the form"
+              title={t('loadStrategyTitle')}
             >
               <span className="block text-sm font-semibold">{s.name}</span>
               <span className="block mt-0.5 text-[11px] text-[var(--color-text-secondary)]">
-                {s.blurb}
+                {t('featuredStratBlurb')}
               </span>
               <span className="block mt-1 text-[11px] leading-snug text-[var(--color-text-secondary)]">
-                {s.evidence}
+                {t('featuredStratEvidence')}
               </span>
             </button>
           </li>
@@ -1277,17 +1285,18 @@ function SavedConfigs({
   busy: boolean;
   notice: string | null;
 }) {
+  const t = usePageT(dict);
   return (
     <div className="mt-6 pt-5 border-t" style={{ borderColor: 'var(--color-border)' }}>
       <div className="text-[11px] uppercase tracking-[0.16em] text-[var(--color-text-secondary)] mb-2">
-        Saved configurations
+        {t('savedConfigsHeading')}
       </div>
 
       <div className="flex items-center gap-2">
         <input
           type="text"
           value={saveName}
-          placeholder="Name this configuration…"
+          placeholder={t('nameConfigPlaceholder')}
           maxLength={120}
           onChange={(e) => onSaveNameChange(e.target.value)}
           onKeyDown={(e) => {
@@ -1306,7 +1315,7 @@ function SavedConfigs({
           style={{ borderColor: 'var(--color-border)' }}
         >
           <Save size={15} />
-          {busy ? 'Saving…' : 'Save'}
+          {busy ? t('savingBtn') : t('saveBtn')}
         </button>
       </div>
 
@@ -1326,7 +1335,7 @@ function SavedConfigs({
                 type="button"
                 onClick={() => onLoad(c.id)}
                 className="flex-1 min-w-0 text-left"
-                title="Load this configuration"
+                title={t('loadConfigTitle')}
               >
                 <span className="block truncate text-sm font-medium">{c.name}</span>
                 <span className="block text-[11px] text-[var(--color-text-secondary)]">
@@ -1337,8 +1346,8 @@ function SavedConfigs({
                 type="button"
                 onClick={() => onShare(c)}
                 disabled={!c.share_token}
-                aria-label={`Copy share link for ${c.name}`}
-                title="Copy share link"
+                aria-label={t('copyShareLinkAria', { name: c.name })}
+                title={t('copyShareLinkTitle')}
                 className="shrink-0 rounded-md border p-1.5 disabled:opacity-40"
                 style={{ borderColor: 'var(--color-border)' }}
               >
@@ -1347,8 +1356,8 @@ function SavedConfigs({
               <button
                 type="button"
                 onClick={() => onDelete(c.id)}
-                aria-label={`Delete ${c.name}`}
-                title="Delete"
+                aria-label={t('deleteAria', { name: c.name })}
+                title={t('deleteTitle')}
                 className="shrink-0 rounded-md border p-1.5"
                 style={{ borderColor: 'var(--color-border)' }}
               >
@@ -1359,7 +1368,7 @@ function SavedConfigs({
         </ul>
       ) : (
         <p className="mt-3 text-[11px] text-[var(--color-text-secondary)]">
-          No saved configurations yet. Name the current setup and press Save.
+          {t('noSavedConfigs')}
         </p>
       )}
     </div>
@@ -1385,6 +1394,7 @@ function SweepEditor({
   busy: boolean;
   onRunSweep: () => void;
 }) {
+  const t = usePageT(dict);
   if (params.length === 0) return null;
 
   const usedParams = new Set(axes.map((a) => a.param));
@@ -1401,7 +1411,7 @@ function SweepEditor({
     <div className="mt-2 pt-5 border-t" style={{ borderColor: 'var(--color-border)' }}>
       <div className="flex items-center justify-between mb-2">
         <span className="text-[11px] uppercase tracking-[0.16em] text-[var(--color-text-secondary)]">
-          Parameter sweep
+          {t('sweepHeading')}
         </span>
         {axes.length < 2 ? (
           <button
@@ -1410,15 +1420,14 @@ function SweepEditor({
             className="rounded-md border px-2 py-1 text-[11px] font-semibold"
             style={{ borderColor: 'var(--color-border)' }}
           >
-            + Add axis
+            {t('addAxisBtn')}
           </button>
         ) : null}
       </div>
 
       {axes.length === 0 ? (
         <p className="text-[11px] text-[var(--color-text-secondary)]">
-          Optional — vary one or two parameters across a grid and compare the results.
-          Add an axis to begin.
+          {t('sweepIntro')}
         </p>
       ) : (
         <div className="flex flex-col gap-2">
@@ -1435,7 +1444,7 @@ function SweepEditor({
               >
                 <div className="flex items-center gap-2">
                   <select
-                    aria-label="Sweep parameter"
+                    aria-label={t('sweepParamAria')}
                     className="flex-1 min-w-0 rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2 py-1.5 text-sm"
                     value={a.param}
                     onChange={(e) => updateAxis(idx, { param: e.target.value })}
@@ -1453,7 +1462,7 @@ function SweepEditor({
                   </select>
                   <button
                     type="button"
-                    aria-label="Remove axis"
+                    aria-label={t('removeAxisAria')}
                     onClick={() => removeAxis(idx)}
                     className="shrink-0 rounded-md border px-2 py-1.5 text-sm leading-none"
                     style={{ borderColor: 'var(--color-border)' }}
@@ -1462,7 +1471,7 @@ function SweepEditor({
                   </button>
                 </div>
                 <input
-                  aria-label="Axis values"
+                  aria-label={t('axisValuesAria')}
                   type="text"
                   value={a.valuesText}
                   placeholder={def?.unit === '%' ? 'e.g. 25, 50, 75' : 'e.g. 1, 2, 3'}
@@ -1470,8 +1479,9 @@ function SweepEditor({
                   className="w-full rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-sm"
                 />
                 <span className="text-[10px] text-[var(--color-text-secondary)]">
-                  Comma-separated values{def?.unit ? ` in ${def.unit === '%' ? 'percent' : def.unit}` : ''}.
-                  {count > 0 ? ` ${count} value${count === 1 ? '' : 's'}.` : ''}
+                  {t('commaSeparatedBase')}
+                  {def?.unit ? t('commaSeparatedInUnit', { unit: def.unit === '%' ? 'percent' : def.unit }) : t('commaSeparatedPlain')}
+                  {count > 0 ? t('valuesCountMsg', { count }) : ''}
                 </span>
               </div>
             );
@@ -1483,9 +1493,9 @@ function SweepEditor({
           >
             {cells > 0
               ? overLimit
-                ? `${cells} cells exceeds the ${SWEEP_MAX_CELLS}-cell limit — trim a value list.`
-                : `${cells} cell${cells === 1 ? '' : 's'} — ${cells} full backtest${cells === 1 ? '' : 's'} will run.`
-              : 'Enter values for each axis to build the grid.'}
+                ? t('overLimitMsg', { cells, max: SWEEP_MAX_CELLS })
+                : t('cellsWillRunMsg', { cells })
+              : t('enterValuesHint')}
           </p>
 
           <button
@@ -1496,7 +1506,7 @@ function SweepEditor({
             style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-elevated)' }}
           >
             <LayoutGrid size={16} />
-            {busy ? 'Sweeping…' : 'Run Sweep'}
+            {busy ? t('sweepingBtn') : t('runSweepBtn')}
           </button>
         </div>
       )}
@@ -1517,14 +1527,15 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function RecentRuns({ bt }: { bt: ReturnType<typeof useBacktest> }) {
   const { recentRuns, openRun, run } = bt;
+  const t = usePageT(dict);
   return (
     <section className="zg-feature-shell p-6">
       <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
         <History size={18} />
-        Recent Runs
+        {t('recentRunsHeading')}
       </h2>
       {recentRuns.length === 0 ? (
-        <p className="text-sm text-[var(--color-text-secondary)]">No runs yet.</p>
+        <p className="text-sm text-[var(--color-text-secondary)]">{t('noRunsYet')}</p>
       ) : (
         <ul className="flex flex-col gap-1.5">
           {recentRuns.map((r) => {
@@ -1581,6 +1592,7 @@ function StatusBadge({ status }: { status: string }) {
 
 function Results({ bt }: { bt: ReturnType<typeof useBacktest> }) {
   const { run, running, equity, trades, tradesPage, tradesLoading, setTradesPage } = bt;
+  const t = usePageT(dict);
 
   // Parameter-sweep view takes over the results pane while active.
   if (bt.view === 'sweep') {
@@ -1602,7 +1614,7 @@ function Results({ bt }: { bt: ReturnType<typeof useBacktest> }) {
     return (
       <section className="zg-feature-shell p-6">
         {bt.pollError ? (
-          <ErrorBox title="Run status unavailable" message={bt.pollError} />
+          <ErrorBox title={t('runStatusUnavailable')} message={bt.pollError} />
         ) : (
           <ProgressView status={run.status} progress={run.progress} runId={run.run_id} />
         )}
@@ -1622,8 +1634,8 @@ function Results({ bt }: { bt: ReturnType<typeof useBacktest> }) {
     return (
       <section className="zg-feature-shell p-6">
         <ErrorBox
-          title={`Run #${run.run_id} failed`}
-          message={run.error ?? 'The backtest engine reported a failure with no detail.'}
+          title={t('runFailedHeading', { id: run.run_id })}
+          message={run.error ?? t('engineFailureDefault')}
         />
       </section>
     );
@@ -1637,7 +1649,7 @@ function Results({ bt }: { bt: ReturnType<typeof useBacktest> }) {
         {summary && summary.n_trades > 0 ? (
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="text-sm text-[var(--color-text-secondary)]">
-              Run #{run.run_id} — share a public, read-only report of this result.
+              {t('shareReportText', { id: run.run_id })}
             </div>
             <ShareButton runId={run.run_id} />
           </div>
@@ -1654,7 +1666,7 @@ function Results({ bt }: { bt: ReturnType<typeof useBacktest> }) {
         <section className="zg-feature-shell p-6">
           <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
             <LineChartIcon size={20} />
-            Equity Curve
+            {t('equityCurveHeading')}
           </h2>
           <EquityChart equity={equity} startingCapital={run.spec.sizing.capital} />
         </section>
@@ -1671,7 +1683,7 @@ function Results({ bt }: { bt: ReturnType<typeof useBacktest> }) {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold flex items-center gap-2">
               <ListOrdered size={20} />
-              Trade Blotter
+              {t('tradeBlotterHeading')}
             </h2>
             {summary && summary.n_trades > 0 ? (
               <a
@@ -1680,7 +1692,7 @@ function Results({ bt }: { bt: ReturnType<typeof useBacktest> }) {
                 className="inline-flex items-center gap-1.5 text-sm rounded-md border border-[var(--color-border)] px-3 py-1.5 hover:bg-[var(--color-surface-subtle)]"
               >
                 <Download size={15} />
-                Export CSV
+                {t('exportCsv')}
               </a>
             ) : null}
           </div>
@@ -1747,6 +1759,7 @@ function SweepResults({
   meta: BacktestMeta | null;
 }) {
   const [metric, setMetric] = useState<SweepMetricKey>('net_pnl');
+  const t = usePageT(dict);
 
   if (!sweep) {
     return (
@@ -1791,11 +1804,11 @@ function SweepResults({
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <h2 className="text-xl font-semibold flex items-center gap-2">
             <LayoutGrid size={20} />
-            Parameter Sweep #{sweep.sweep_id}
+            {t('sweepResultsHeading', { id: sweep.sweep_id })}
           </h2>
           <div className="flex items-center gap-2">
             <span className="text-[11px] uppercase tracking-[0.16em] text-[var(--color-text-secondary)]">
-              Metric
+              {t('metricLabel')}
             </span>
             <select
               value={metric}
@@ -1813,7 +1826,7 @@ function SweepResults({
 
         <div className="flex items-center justify-between mb-2 text-xs">
           <span className="text-[var(--color-text-secondary)]">
-            {sweep.underlying} · {sweep.completed}/{sweep.n_cells} cells complete
+            {sweep.underlying} · {t('cellsCompleteMsg', { completed: sweep.completed, total: sweep.n_cells })}
           </span>
           <StatusBadge status={running ? 'running' : 'completed'} />
         </div>
@@ -2025,11 +2038,12 @@ function ProgressView({
   runId: number | null;
 }) {
   const pct = Math.max(0, Math.min(100, Math.round(progress * 100)));
+  const t = usePageT(dict);
   return (
     <div className="py-8">
       <div className="flex items-center justify-between mb-2">
         <span className="text-sm font-semibold">
-          {runId != null ? `Running backtest #${runId}` : 'Starting backtest…'}
+          {runId != null ? t('runningBacktestHeading', { id: runId }) : t('startingBacktest')}
         </span>
         <StatusBadge status={status} />
       </div>
@@ -2051,15 +2065,15 @@ function ProgressView({
 }
 
 function EmptyState() {
+  const t = usePageT(dict);
   return (
     <div
       className="rounded-xl border p-12 text-center"
       style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-subtle)' }}
     >
-      <div className="text-lg font-semibold mb-1">No backtest run yet</div>
+      <div className="text-lg font-semibold mb-1">{t('noBacktestYet')}</div>
       <div className="text-sm text-[var(--color-text-secondary)]">
-        Configure a run on the left and press <span className="font-semibold">Run Backtest</span>, or re-open a
-        recent run.
+        {t('emptyStateHintPre')}<span className="font-semibold">{t('runBacktestBtn')}</span>{t('emptyStateHintPost')}
       </div>
     </div>
   );
@@ -2070,6 +2084,7 @@ function ShareButton({ runId }: { runId: number }) {
   const [link, setLink] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  const t = usePageT(dict);
 
   const onShare = async () => {
     setBusy(true);
@@ -2101,7 +2116,7 @@ function ShareButton({ runId }: { runId: number }) {
         className="inline-flex items-center gap-1.5 text-sm rounded-md border border-[var(--color-border)] px-3 py-1.5 hover:bg-[var(--color-surface-subtle)] disabled:opacity-60"
       >
         <Share2 size={15} />
-        {busy ? 'Creating link…' : 'Share result'}
+        {busy ? t('creatingLink') : t('shareResult')}
       </button>
       {link ? (
         <div className="flex items-center gap-2 text-xs">
@@ -2111,7 +2126,7 @@ function ShareButton({ runId }: { runId: number }) {
             onFocus={(e) => e.currentTarget.select()}
             className="rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2 py-1 font-mono w-[240px] max-w-full"
           />
-          {copied ? <span className="text-[var(--color-bull)]">Copied!</span> : null}
+          {copied ? <span className="text-[var(--color-bull)]">{t('copiedText')}</span> : null}
         </div>
       ) : null}
     </div>
@@ -2198,6 +2213,7 @@ function Metric({
  * headline win rate. Only rendered once a run has trades.
  */
 function TearsheetPanel({ summary }: { summary: BacktestSummary }) {
+  const t = usePageT(dict);
   if (!summary.n_trades) return null;
   const tstat = summary.expectancy_tstat;
   const bench = summary.benchmark;
@@ -2227,18 +2243,18 @@ function TearsheetPanel({ summary }: { summary: BacktestSummary }) {
       hint:
         tstat != null
           ? Math.abs(tstat) >= 2
-            ? 'significant (|t| ≥ 2)'
-            : 'not yet significant'
+            ? t('significantHint')
+            : t('notSignificantHint')
           : undefined,
     },
   ];
   return (
     <section className="zg-feature-shell p-6">
       <h2 className="text-xl font-semibold mb-1 flex items-center gap-2">
-        <Gauge size={20} /> Performance tearsheet
+        <Gauge size={20} /> {t('tearsheetHeading')}
       </h2>
       <p className="text-xs text-[var(--color-text-secondary)] mb-4">
-        Risk-adjusted, net of modeled fills, slippage, and commission.
+        {t('tearsheetSubtitle')}
       </p>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {metrics.map((m) => (
@@ -2251,22 +2267,22 @@ function TearsheetPanel({ summary }: { summary: BacktestSummary }) {
           style={{ borderColor: 'var(--color-border)' }}
         >
           <span className="text-[var(--color-text-secondary)] flex items-center gap-1.5">
-            <Activity size={15} /> Strategy vs. benchmark:
+            <Activity size={15} /> {t('strategyVsBenchmark')}
           </span>
           <span>
-            Strategy{' '}
+            {t('strategyLabel')}{' '}
             <b className="font-mono" style={{ color: pnlColor(summary.total_return_pct) }}>
               {fmtPct(summary.total_return_pct)}
             </b>
           </span>
           <span>
-            Buy &amp; hold {bench.underlying}{' '}
+            {t('buyAndHold', { underlying: bench.underlying })}{' '}
             <b className="font-mono" style={{ color: pnlColor(bench.buy_hold_return_pct) }}>
               {fmtPct(bench.buy_hold_return_pct)}
             </b>
           </span>
           <span>
-            Excess{' '}
+            {t('excessLabel')}{' '}
             <b
               className="font-mono"
               style={{ color: pnlColor(summary.total_return_pct - bench.buy_hold_return_pct) }}
@@ -2280,15 +2296,15 @@ function TearsheetPanel({ summary }: { summary: BacktestSummary }) {
   );
 }
 
-function gammaRegimeLabel(regime: string): string {
-  if (regime === 'positive') return 'Positive γ (suppressive)';
-  if (regime === 'negative') return 'Negative γ (amplifying)';
-  if (regime === 'flat') return 'Flat γ';
-  return 'Unknown';
+function gammaRegimeLabel(regime: string, t: PageT): string {
+  if (regime === 'positive') return t('gammaPositive');
+  if (regime === 'negative') return t('gammaNegative');
+  if (regime === 'flat') return t('gammaFlat');
+  return t('regimeUnknown');
 }
 
-function msiRegimeLabel(regime: string): string {
-  return regime === 'unknown' ? 'Unknown' : regime.replace(/_/g, ' ');
+function msiRegimeLabel(regime: string, t: PageT): string {
+  return regime === 'unknown' ? t('regimeUnknown') : regime.replace(/_/g, ' ');
 }
 
 function RegimeTable({
@@ -2300,8 +2316,9 @@ function RegimeTable({
   rows: BacktestRegimeBreakdown[];
   labeler: (r: string) => string;
 }) {
+  const t = usePageT(dict);
   if (rows.length === 0) {
-    return <div className="text-sm text-[var(--color-text-secondary)]">{title}: no data.</div>;
+    return <div className="text-sm text-[var(--color-text-secondary)]">{t('noDataFor', { title })}</div>;
   }
   return (
     <div>
@@ -2357,19 +2374,28 @@ function RegimeTable({
 
 /** Win rate / net / expectancy split by the gamma & MSI regime at entry. */
 function RegimeBreakdown({ summary }: { summary: BacktestSummary }) {
+  const t = usePageT(dict);
   const byRegime = summary.by_regime;
   if (!byRegime || (byRegime.gamma.length === 0 && byRegime.msi.length === 0)) return null;
   return (
     <section className="zg-feature-shell p-6">
       <h2 className="text-xl font-semibold mb-1 flex items-center gap-2">
-        <Layers size={20} /> Results by market regime
+        <Layers size={20} /> {t('regimeHeading')}
       </h2>
       <p className="text-xs text-[var(--color-text-secondary)] mb-4">
-        The ZeroGEX edge: how the same rules performed under different dealer-gamma backdrops.
+        {t('regimeSubtitle')}
       </p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <RegimeTable title="Gamma regime" rows={byRegime.gamma} labeler={gammaRegimeLabel} />
-        <RegimeTable title="MSI regime" rows={byRegime.msi} labeler={msiRegimeLabel} />
+        <RegimeTable
+          title={t('gammaRegimeTitle')}
+          rows={byRegime.gamma}
+          labeler={(r) => gammaRegimeLabel(r, t)}
+        />
+        <RegimeTable
+          title={t('msiRegimeTitle')}
+          rows={byRegime.msi}
+          labeler={(r) => msiRegimeLabel(r, t)}
+        />
       </div>
     </section>
   );
@@ -2377,6 +2403,7 @@ function RegimeBreakdown({ summary }: { summary: BacktestSummary }) {
 
 /** Monte Carlo: the distribution of outcomes, not a single lucky equity line. */
 function MonteCarloPanel({ summary, capital }: { summary: BacktestSummary; capital: number }) {
+  const t = usePageT(dict);
   const mc = summary.monte_carlo;
   if (!mc) return null;
   const tr = mc.terminal_return_pct;
@@ -2386,7 +2413,7 @@ function MonteCarloPanel({ summary, capital }: { summary: BacktestSummary; capit
       label: 'Risk of ruin',
       value: fmtPct(mc.risk_of_ruin_50pct * 100, 1),
       color: mc.risk_of_ruin_50pct > 0 ? 'var(--color-bear)' : undefined,
-      hint: '≥50% drawdown',
+      hint: t('riskOfRuinHint'),
     },
     { label: 'Median return', value: fmtPct(tr.p50), color: pnlColor(tr.p50) },
     { label: 'Range (p5–p95)', value: `${fmtPct(tr.p5)} … ${fmtPct(tr.p95)}` },
@@ -2400,11 +2427,10 @@ function MonteCarloPanel({ summary, capital }: { summary: BacktestSummary; capit
   return (
     <section className="zg-feature-shell p-6">
       <h2 className="text-xl font-semibold mb-1 flex items-center gap-2">
-        <Shuffle size={20} /> Monte Carlo outcomes
+        <Shuffle size={20} /> {t('monteCarloHeading')}
       </h2>
       <p className="text-xs text-[var(--color-text-secondary)] mb-4">
-        {mc.iterations.toLocaleString()} resampled paths of your trade sequence — the realistic
-        range of results, not one backtest&apos;s luck.
+        {t('monteCarloSubtitle', { iterations: mc.iterations.toLocaleString() })}
       </p>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
         {stats.map((s) => (
@@ -2416,21 +2442,22 @@ function MonteCarloPanel({ summary, capital }: { summary: BacktestSummary; capit
   );
 }
 
-// Human-readable labels for the engine's drop-reason codes.
-const DROP_LABELS: Record<string, string> = {
-  'outcome:no_fill': 'Entry trigger never reached',
-  'outcome:no_data': 'No underlying quotes in hold window',
-  'outcome:unresolved': 'Non-price exit (premium / event structure)',
-  'outcome:no_exit_ts': 'No exit timestamp resolved',
-  no_leg: 'No option leg could be selected',
-  no_entry_quote: 'No option quote at entry',
-  no_exit_quote: 'No option quote at exit',
-  bad_premium: 'Invalid entry premium',
-  error: 'Pricing error (skipped)',
+// Human-readable labels for the engine's drop-reason codes, keyed to dictionary entries.
+const DROP_LABEL_KEYS: Record<string, string> = {
+  'outcome:no_fill': 'dropNoFill',
+  'outcome:no_data': 'dropNoData',
+  'outcome:unresolved': 'dropUnresolved',
+  'outcome:no_exit_ts': 'dropNoExitTs',
+  no_leg: 'dropNoLeg',
+  no_entry_quote: 'dropNoEntryQuote',
+  no_exit_quote: 'dropNoExitQuote',
+  bad_premium: 'dropBadPremium',
+  error: 'dropError',
 };
 
-function dropLabel(code: string): string {
-  return DROP_LABELS[code] ?? code;
+function dropLabel(code: string, t: PageT): string {
+  const key = DROP_LABEL_KEYS[code];
+  return key ? t(key) : code;
 }
 
 /**
@@ -2445,28 +2472,29 @@ function DiagnosticsPanel({
   diagnostics: NonNullable<BacktestSummary['diagnostics']>;
   nTrades: number;
 }) {
+  const t = usePageT(dict);
   const steps = [
-    { label: 'Cards loaded', value: diagnostics.cards_total },
-    { label: 'In selected patterns', value: diagnostics.cards_in_scope },
-    { label: 'After cooldown', value: diagnostics.cards_after_cooldown },
-    { label: 'Priced', value: diagnostics.priced_candidates },
-    { label: 'Traded', value: nTrades },
+    { label: t('stepCardsLoaded'), value: diagnostics.cards_total },
+    { label: t('stepInPatterns'), value: diagnostics.cards_in_scope },
+    { label: t('stepAfterCooldown'), value: diagnostics.cards_after_cooldown },
+    { label: t('stepPriced'), value: diagnostics.priced_candidates },
+    { label: t('stepTraded'), value: nTrades },
   ];
   const drops = Object.entries(diagnostics.drops ?? {}).sort((a, b) => b[1] - a[1]);
   const hint =
     diagnostics.cards_in_scope === 0
-      ? 'None of the selected patterns fired in this window — try other patterns or a wider date range.'
+      ? t('hintNoPatterns')
       : diagnostics.priced_candidates === 0 && diagnostics.cards_after_cooldown > 0
-        ? 'Cards fired but none could be priced — see the drop reasons below.'
+        ? t('hintNotPriced')
         : nTrades === 0 && diagnostics.priced_candidates > 0
-          ? 'Trades were priced but none opened — likely the concurrency cap or sizing.'
+          ? t('hintNoneOpened')
           : null;
 
   return (
     <section className="zg-feature-shell p-6">
       <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
         <Search size={20} />
-        Why {nTrades} {nTrades === 1 ? 'trade' : 'trades'}?
+        {t('whyTradesHeading', { n: nTrades })}
       </h2>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -2497,17 +2525,17 @@ function DiagnosticsPanel({
       {(drops.length > 0 || diagnostics.concurrency_skipped > 0 || diagnostics.sized_out > 0) ? (
         <div className="mt-4 grid gap-1 text-sm">
           <div className="text-xs uppercase tracking-[0.12em] text-[var(--color-text-secondary)] mb-1">
-            Where cards dropped
+            {t('whereCardsDropped')}
           </div>
           {drops.map(([code, count]) => (
             <div key={code} className="flex justify-between gap-4">
-              <span>{dropLabel(code)}</span>
+              <span>{dropLabel(code, t)}</span>
               <span className="font-mono text-[var(--color-text-secondary)]">{count}</span>
             </div>
           ))}
           {diagnostics.concurrency_skipped > 0 ? (
             <div className="flex justify-between gap-4">
-              <span>Skipped — max concurrent positions reached</span>
+              <span>{t('skippedConcurrency')}</span>
               <span className="font-mono text-[var(--color-text-secondary)]">
                 {diagnostics.concurrency_skipped}
               </span>
@@ -2515,7 +2543,7 @@ function DiagnosticsPanel({
           ) : null}
           {diagnostics.sized_out > 0 ? (
             <div className="flex justify-between gap-4">
-              <span>Skipped — capital couldn&apos;t afford one contract</span>
+              <span>{t('skippedCapital')}</span>
               <span className="font-mono text-[var(--color-text-secondary)]">
                 {diagnostics.sized_out}
               </span>
@@ -2528,9 +2556,10 @@ function DiagnosticsPanel({
 }
 
 function ByPatternTable({ summary }: { summary: BacktestSummary }) {
+  const t = usePageT(dict);
   return (
     <section className="zg-feature-shell p-6">
-      <h2 className="text-xl font-semibold mb-4">By Pattern</h2>
+      <h2 className="text-xl font-semibold mb-4">{t('byPatternHeading')}</h2>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -2570,13 +2599,14 @@ function TradesBlotter({
   loading: boolean;
   onPage: (page: number) => void;
 }) {
+  const pt = usePageT(dict);
   if (!page) {
-    return <Skeleton height={240} label="Loading trades…" />;
+    return <Skeleton height={240} label={pt('loadingTrades')} />;
   }
   if (page.total === 0) {
     return (
       <div className="text-sm text-[var(--color-text-secondary)]">
-        This run produced no trades.
+        {pt('noTradesText')}
       </div>
     );
   }
@@ -2655,7 +2685,7 @@ function TradesBlotter({
             className="rounded-md border px-2.5 py-1 disabled:opacity-40 disabled:cursor-not-allowed"
             style={{ borderColor: 'var(--color-border)' }}
           >
-            Prev
+            {pt('prevBtn')}
           </button>
           <button
             type="button"
@@ -2664,7 +2694,7 @@ function TradesBlotter({
             className="rounded-md border px-2.5 py-1 disabled:opacity-40 disabled:cursor-not-allowed"
             style={{ borderColor: 'var(--color-border)' }}
           >
-            Next
+            {pt('nextBtn')}
           </button>
         </div>
       </div>

@@ -12,6 +12,8 @@ import {
   YAxis,
 } from 'recharts';
 import type { BacktestEquityPoint } from './types';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './EquityChart.i18n';
 
 interface Props {
   equity: BacktestEquityPoint[];
@@ -52,6 +54,7 @@ function formatCurrency(value: number): string {
 }
 
 function EquityChartImpl({ equity, startingCapital }: Props) {
+  const t = usePageT(dict);
   const data: ChartPoint[] = useMemo(
     () =>
       equity
@@ -75,7 +78,7 @@ function EquityChartImpl({ equity, startingCapital }: Props) {
           height: 320,
         }}
       >
-        <div className="flex h-full items-center justify-center">No equity data for this run.</div>
+        <div className="flex h-full items-center justify-center">{t('noEquityData')}</div>
       </div>
     );
   }
@@ -139,6 +142,7 @@ function ChartTooltip({
   active?: boolean;
   payload?: Array<{ payload?: ChartPoint }>;
 }) {
+  const t = usePageT(dict);
   if (!active || !payload || payload.length === 0) return null;
   const point = payload[0]?.payload;
   if (!point) return null;
@@ -155,7 +159,7 @@ function ChartTooltip({
       <div className="font-mono">{formatTooltipDate(point.ts)}</div>
       <div className="mt-1 font-semibold">{formatCurrency(point.equity)}</div>
       <div className="mt-0.5 text-[var(--color-text-secondary)]">
-        Drawdown {point.drawdown_pct.toFixed(2)}%
+        {t('drawdown', { value: point.drawdown_pct.toFixed(2) })}
       </div>
     </div>
   );

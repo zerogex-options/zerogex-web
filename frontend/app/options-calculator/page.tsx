@@ -18,6 +18,8 @@ import {
 } from '@/core/optionChainCache';
 import ErrorMessage from '@/components/ErrorMessage';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './page.i18n';
 
 type XAxisMode = 'percent' | 'dollar';
 
@@ -200,6 +202,7 @@ function CustomTooltip({ active, payload, label, spot = 0 }: TooltipProps) {
 }
 
 export default function OptionsCalculatorPage() {
+  const t = usePageT(dict);
   const { symbol } = useTimeframe();
   const [strategy, setStrategy] = useState<StrategyType>('long_put');
   // contracts is held as a string so the input can transiently be empty
@@ -534,12 +537,12 @@ export default function OptionsCalculatorPage() {
 
   return (
     <PageShell>
-      <h1 className="text-3xl font-bold mb-8">Strategy Builder</h1>
+      <h1 className="text-3xl font-bold mb-8">{t('title')}</h1>
 
       <div className="bg-[var(--color-surface)] rounded-lg p-6 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <label className="text-sm text-[var(--color-text-secondary)]">
-            Strategy
+            {t('strategyLabel')}
             <select
               className="ml-2 rounded bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2 py-1"
               value={strategy}
@@ -551,7 +554,7 @@ export default function OptionsCalculatorPage() {
             </select>
           </label>
           <label className="text-sm text-[var(--color-text-secondary)]">
-            Contracts
+            {t('contractsLabel')}
             <input
               className="ml-2 w-24 rounded bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2 py-1"
               type="text"
@@ -564,7 +567,7 @@ export default function OptionsCalculatorPage() {
             />
           </label>
           <div className="text-sm text-[var(--color-text-secondary)]">
-            Underlying: <span className="font-semibold text-[var(--color-text-primary)]">{symbol} {spot ? `$${spot.toFixed(2)}` : '--'}</span>
+            {t('underlyingLabel')} <span className="font-semibold text-[var(--color-text-primary)]">{symbol} {spot ? `$${spot.toFixed(2)}` : '--'}</span>
           </div>
         </div>
 
@@ -586,10 +589,10 @@ export default function OptionsCalculatorPage() {
               <div key={leg.id} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-center bg-[var(--color-surface-subtle)] p-3 rounded">
                 <div className="text-sm font-semibold">{leg.label}</div>
                 {isStock ? (
-                  <div className="col-span-2 text-sm text-[var(--color-text-secondary)] italic">Underlying share position · spot ${spot > 0 ? spot.toFixed(2) : '--'}</div>
+                  <div className="col-span-2 text-sm text-[var(--color-text-secondary)] italic">{t('stockLegDesc', { spot: `$${spot > 0 ? spot.toFixed(2) : '--'}` })}</div>
                 ) : (
                   <>
-                    <label className="text-sm text-[var(--color-text-secondary)]">Exp
+                    <label className="text-sm text-[var(--color-text-secondary)]">{t('expLabel')}
                       <select
                         className="ml-2 rounded bg-[var(--color-surface)] border border-[var(--color-border)] px-2 py-1"
                         value={leg.expiration}
@@ -598,7 +601,7 @@ export default function OptionsCalculatorPage() {
                         {expirationChoices.map((exp) => <option key={exp} value={exp}>{exp}</option>)}
                       </select>
                     </label>
-                    <label className="text-sm text-[var(--color-text-secondary)]">Strike
+                    <label className="text-sm text-[var(--color-text-secondary)]">{t('strikeLabel')}
                       <select
                         className="ml-2 rounded bg-[var(--color-surface)] border border-[var(--color-border)] px-2 py-1"
                         value={String(leg.strike)}
@@ -620,32 +623,32 @@ export default function OptionsCalculatorPage() {
         </div>
 
         <div className="text-sm text-[var(--color-text-secondary)]">
-          Total position:{' '}
+          {t('totalPositionLabel')}{' '}
           <span className={`font-semibold ${totalPosition > 0 ? 'text-[var(--color-bull)]' : totalPosition < 0 ? 'text-[var(--color-bear)]' : 'text-[var(--color-text-primary)]'}`}>
             {fmtDollar(Math.abs(totalPosition))}
           </span>{' '}
           <span className="text-[var(--color-text-secondary)]">
-            ({totalPosition > 0 ? 'credit' : totalPosition < 0 ? 'debit' : 'even'})
+            ({totalPosition > 0 ? t('credit') : totalPosition < 0 ? t('debit') : t('even')})
           </span>
         </div>
           </>
         ) : (
           <div className="bg-[var(--color-surface-subtle)] rounded p-8 flex flex-col items-center gap-3 text-sm text-[var(--color-text-secondary)]">
             <LoadingSpinner />
-            <div>Loading option chain for {symbol}…</div>
+            <div>{t('loadingChain', { symbol })}</div>
           </div>
         )}
       </div>
 
       <div className="bg-[var(--color-surface)] rounded-lg p-4">
         <div className="flex items-center justify-between flex-wrap gap-3 mb-3">
-          <h2 className="text-xl font-semibold">Profit / Loss at Expiration</h2>
+          <h2 className="text-xl font-semibold">{t('plTitle')}</h2>
           {chainReady && (
             <div className="flex items-center gap-3 text-xs">
               {/* x-axis $/% toggle */}
               <div
                 role="group"
-                aria-label="X-axis units"
+                aria-label={t('xAxisUnitsAria')}
                 className="inline-flex rounded border border-[var(--color-border)] overflow-hidden"
               >
                 <button
@@ -671,7 +674,7 @@ export default function OptionsCalculatorPage() {
                   type="button"
                   onClick={() => setZoomLevel((z) => Math.max(MIN_ZOOM, z - 1))}
                   disabled={zoomLevel <= MIN_ZOOM}
-                  aria-label="Zoom out"
+                  aria-label={t('zoomOutAria')}
                   className="rounded border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Minus size={14} />
@@ -682,13 +685,13 @@ export default function OptionsCalculatorPage() {
                   disabled={zoomLevel === 0}
                   className="rounded border border-[var(--color-border)] bg-[var(--color-surface-subtle)] px-2 py-1 text-[10px] font-semibold text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  RESET
+                  {t('resetBtn')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setZoomLevel((z) => Math.min(MAX_ZOOM, z + 1))}
                   disabled={zoomLevel >= MAX_ZOOM}
-                  aria-label="Zoom in"
+                  aria-label={t('zoomInAria')}
                   className="rounded border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Plus size={14} />
@@ -700,13 +703,13 @@ export default function OptionsCalculatorPage() {
         {!chainReady ? (
           <div className="bg-[var(--color-surface-subtle)] rounded p-12 flex flex-col items-center gap-3 text-sm text-[var(--color-text-secondary)]">
             <LoadingSpinner />
-            <div>Loading payoff curve…</div>
+            <div>{t('loadingPayoff')}</div>
           </div>
         ) : (
         <>
         {hasMultipleExpirations && (
           <p className="text-xs text-[var(--color-warning)]/80 mb-3">
-            ⚠ This strategy has legs with different expirations. The chart shows intrinsic P&amp;L as if all legs expired simultaneously, which underestimates the far-leg&apos;s remaining time value. Use it as a rough guide only.
+            ⚠ {t('multiExpWarning')}
           </p>
         )}
         <MobileScrollableChart>
@@ -751,7 +754,7 @@ export default function OptionsCalculatorPage() {
                 stroke="var(--color-border)"
                 strokeDasharray="5 3"
                 label={{
-                  value: `Spot $${spot.toFixed(2)}`,
+                  value: t('spotAxisLabel', { spot: `$${spot.toFixed(2)}` }),
                   position: 'insideTop',
                   dy: -26,
                   fill: 'var(--color-text-secondary)',
@@ -773,7 +776,7 @@ export default function OptionsCalculatorPage() {
                   stroke="var(--color-brand-primary)"
                   strokeDasharray="5 3"
                   label={{
-                    value: `BE $${be.toFixed(2)}`,
+                    value: t('beAxisLabel', { be: `$${be.toFixed(2)}` }),
                     position: 'insideTop',
                     dy: -12,
                     fill: 'var(--color-primary-400)',

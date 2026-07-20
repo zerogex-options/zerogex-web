@@ -12,6 +12,8 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import BetaBadge from '@/components/BetaBadge';
 import TooltipWrapper from '@/components/TooltipWrapper';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './page.i18n';
 
 // plotly.js is heavy and not SSR-safe — load the surface only on the client.
 const PremiumSurfacePlot = dynamic(() => import('./PremiumSurfacePlot'), {
@@ -22,12 +24,6 @@ const PremiumSurfacePlot = dynamic(() => import('./PremiumSurfacePlot'), {
     </div>
   ),
 });
-
-const TITLE_TOOLTIP =
-  'A 3D surface of option time value. X = strike, Y = days to expiration, ' +
-  'Z = either extrinsic dollars (premium − intrinsic, floored at $0) or the ' +
-  '% move from current spot to break even at expiry — toggle via the Z ' +
-  'dropdown. Use the symbol selector in the header to change the underlying.';
 
 type Metric = 'extrinsic' | 'breakeven_pct';
 
@@ -87,6 +83,7 @@ function interpolateRowGaps(row: (number | null)[]): (number | null)[] {
 }
 
 export default function PremiumHeatmapPage() {
+  const t = usePageT(dict);
   const { symbol } = useTimeframe();
   const { theme } = useTheme();
 
@@ -202,85 +199,85 @@ export default function PremiumHeatmapPage() {
   return (
     <PageShell>
       <div className="flex flex-wrap items-center gap-2 mb-2">
-        <h1 className="text-3xl font-bold">Premium Surface</h1>
+        <h1 className="text-3xl font-bold">{t('pageTitle')}</h1>
         <BetaBadge size="md" />
-        <TooltipWrapper text={TITLE_TOOLTIP} placement="bottom">
+        <TooltipWrapper text={t('titleTooltip')} placement="bottom">
           <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
         </TooltipWrapper>
       </div>
       <p className="text-sm mb-6" style={{ color: muted }}>
-        {metric === 'extrinsic' ? 'Extrinsic (time) value surface' : '% move from spot to breakeven at expiry'}{' '}
-        for{' '}
+        {metric === 'extrinsic' ? t('descExtrinsic') : t('descBreakevenPct')}{' '}
+        {t('descFor')}{' '}
         <span style={{ color: inputColor, fontWeight: 600 }}>{symbol}</span> {' '}
-        {optionType === 'C' ? 'calls' : 'puts'} —{' '}
+        {optionType === 'C' ? t('calls') : t('puts')} —{' '}
         {metric === 'extrinsic'
-          ? 'premium minus intrinsic value across strikes and expirations.'
-          : 'how far spot must move (in %) for each contract to break even at expiry.'}
+          ? t('descExtrinsicDetail')
+          : t('descBreakevenDetail')}
       </p>
 
       {/* ── Controls ────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-4 mb-6">
         <div className="flex items-center gap-2">
-          <span className="text-sm" style={{ color: muted }}>Type</span>
+          <span className="text-sm" style={{ color: muted }}>{t('typeLabel')}</span>
           <select
             value={optionType}
             onChange={(e) => setOptionType(e.target.value as 'C' | 'P')}
             style={selectStyle}
-            aria-label="Option type"
+            aria-label={t('optionTypeAria')}
           >
-            <option value="C">Calls</option>
-            <option value="P">Puts</option>
+            <option value="C">{t('callsOption')}</option>
+            <option value="P">{t('putsOption')}</option>
           </select>
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-sm" style={{ color: muted }}>Max DTE</span>
+          <span className="text-sm" style={{ color: muted }}>{t('maxDteLabel')}</span>
           <select
             value={dteMax}
             onChange={(e) => setDteMax(Number(e.target.value))}
             style={selectStyle}
-            aria-label="Maximum days to expiration"
+            aria-label={t('maxDteAria')}
           >
             {dteOptions.map((d, i) => (
               <option key={d} value={d}>
-                {d} days{i === dteOptions.length - 1 ? ' (max)' : ''}
+                {d} {t('daysUnit')}{i === dteOptions.length - 1 ? ` ${t('maxSuffix')}` : ''}
               </option>
             ))}
           </select>
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-sm" style={{ color: muted }}>Strikes</span>
+          <span className="text-sm" style={{ color: muted }}>{t('strikesLabel')}</span>
           <select
             value={strikeCount}
             onChange={(e) => setStrikeCount(Number(e.target.value))}
             style={selectStyle}
-            aria-label="Number of strikes around spot"
+            aria-label={t('strikesAria')}
           >
             {strikeOptions.map((s, i) => (
               <option key={s} value={s}>
-                {s} strikes{i === strikeOptions.length - 1 ? ' (max)' : ''}
+                {s} {t('strikesUnit')}{i === strikeOptions.length - 1 ? ` ${t('maxSuffix')}` : ''}
               </option>
             ))}
           </select>
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-sm" style={{ color: muted }}>Z</span>
+          <span className="text-sm" style={{ color: muted }}>{t('zLabel')}</span>
           <select
             value={metric}
             onChange={(e) => setMetric(e.target.value as Metric)}
             style={selectStyle}
-            aria-label="Z-axis metric"
+            aria-label={t('zAxisAria')}
           >
-            <option value="extrinsic">Extrinsic $</option>
-            <option value="breakeven_pct">% to Breakeven</option>
+            <option value="extrinsic">{t('extrinsicOption')}</option>
+            <option value="breakeven_pct">{t('breakevenOption')}</option>
           </select>
         </div>
 
         {data && (
           <div className="text-sm ml-auto" style={{ color: muted }}>
-            Spot{' '}
+            {t('spotLabel')}{' '}
             <span style={{ color: inputColor, fontWeight: 600 }}>
               ${data.spot_price.toFixed(2)}
             </span>
@@ -304,24 +301,21 @@ export default function PremiumHeatmapPage() {
             className="flex items-center justify-center text-sm"
             style={{ height: 560, color: muted }}
           >
-            No options premium data available for {symbol} {optionType === 'C' ? 'calls' : 'puts'} yet.
+            {t('noDataMsg', { symbol, type: optionType === 'C' ? t('calls') : t('puts') })}
           </div>
         ) : !plot.hasGrid ? (
           <div
             className="flex items-center justify-center text-sm"
             style={{ height: 560, color: muted }}
           >
-            Not enough strikes/expirations to render a surface — try widening Max DTE or strike count.
+            {t('notEnoughGridMsg')}
           </div>
         ) : !plot.hasData ? (
           <div
             className="flex items-center justify-center text-sm text-center px-6"
             style={{ height: 560, color: muted }}
           >
-            The snapshot returned strikes and expirations for {symbol}{' '}
-            {optionType === 'C' ? 'calls' : 'puts'}, but no usable premium quotes
-            (bid/ask/mid/last) — so there are no time-value points to plot. This usually
-            means the latest option-chain snapshot has empty quotes.
+            {t('noUsableDataMsg', { symbol, type: optionType === 'C' ? t('calls') : t('puts') })}
           </div>
         ) : (
           <PremiumSurfacePlot

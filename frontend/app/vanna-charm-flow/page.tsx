@@ -19,17 +19,20 @@ import {
   toTrend,
   formatGexCompact,
 } from '@/core/signalHelpers';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './page.i18n';
 
-function interpretation(score: number | null): string {
-  if (score == null) return 'No reading';
-  if (score >= 40) return 'Vanna lift — melt-up bias';
-  if (score >= 20) return 'Bullish hedging pressure';
-  if (score <= -40) return 'Charm fade — afternoon drag';
-  if (score <= -20) return 'Bearish hedging pressure';
-  return 'Neutral dealer pressure';
+function interpretation(score: number | null, t: (key: string) => string): string {
+  if (score == null) return t('interpNone');
+  if (score >= 40) return t('interpVannaLift');
+  if (score >= 20) return t('interpBullishHedging');
+  if (score <= -40) return t('interpCharmFade');
+  if (score <= -20) return t('interpBearishHedging');
+  return t('interpNeutral');
 }
 
 export default function VannaCharmFlowPage() {
+  const t = usePageT(dict);
   const { symbol } = useTimeframe();
   const { data, loading, error, refetch } = useVannaCharmFlowSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.vannaCharmFlowMs);
 
@@ -55,9 +58,9 @@ export default function VannaCharmFlowPage() {
     <PageShell>
       <SignalPageTitle
         title="Vanna/Charm Flow"
-        subtitle={'"Will vol or time force dealers to re-hedge?"'}
+        subtitle={t('subtitle')}
         icon={Activity}
-        tooltip="Second-order greek dealer hedging pressure. Vanna captures dealer delta changes when IV moves. Charm captures decay of short-dated deltas toward expiry. Late-session charm amplification boosts the afternoon fade signal."
+        tooltip={t('tooltip')}
       />
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
@@ -68,12 +71,12 @@ export default function VannaCharmFlowPage() {
             <SignalScoreHero
               score={score}
               trend={trend}
-              interpretation={interpretation(score)}
+              interpretation={interpretation(score, t)}
               history={history}
             />
 
             <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-4">
-              <div className="flex items-center gap-2 text-sm font-semibold mb-2"><Clock size={14} /> Charm amplification</div>
+              <div className="flex items-center gap-2 text-sm font-semibold mb-2"><Clock size={14} /> {t('charmAmplification')}</div>
               <div className="text-2xl font-black">{charmAmp.toFixed(2)}×</div>
               <div className="mt-2 h-2 rounded-full bg-[var(--color-border)]/40 overflow-hidden">
                 <div className="h-full" style={{ width: `${ampPct}%`, background: 'linear-gradient(90deg, var(--color-text-secondary), var(--color-warning))' }} />
@@ -87,19 +90,19 @@ export default function VannaCharmFlowPage() {
 
           <div className="lg:col-span-3 space-y-4">
             <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
-              <div className="text-sm font-semibold mb-3">Vanna total</div>
+              <div className="text-sm font-semibold mb-3">{t('vannaTotal')}</div>
               <SignedBar value={vannaTotal} absMax={vcMax} />
               <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
-                Positive = dealer delta grows with spot up (bullish hedging). Morning vol-crush lift lives here.
+                {t('vannaTotalHelp')}
               </p>
             </div>
 
             <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
-              <div className="text-sm font-semibold mb-3">Charm total × amplification</div>
+              <div className="text-sm font-semibold mb-3">{t('charmTotalTimesAmp')}</div>
               <SignedBar value={charmWeighted} absMax={vcMax} />
               <div className="mt-2 text-xs text-[var(--color-text-secondary)] flex items-center justify-between">
-                <span>Raw charm: <span className="font-mono">{formatGexCompact(charmTotal)}</span></span>
-                <span>Weighted: <span className="font-mono">{formatGexCompact(charmWeighted)}</span></span>
+                <span>{t('rawCharm')} <span className="font-mono">{formatGexCompact(charmTotal)}</span></span>
+                <span>{t('weighted')} <span className="font-mono">{formatGexCompact(charmWeighted)}</span></span>
               </div>
             </div>
           </div>
@@ -107,14 +110,14 @@ export default function VannaCharmFlowPage() {
       </section>
 
       <SignalHowItsBuilt
-        caveat={<>Source <code>Market Exposure Negated</code> = legacy fallback path; signal is still valid but less precise than <code>Dealer Exposure</code>.</>}
+        caveat={<>{t('caveatPre')} <code>Market Exposure Negated</code> {t('caveatMid')} <code>Dealer Exposure</code>{t('caveatEnd')}</>}
       >
         <div><code>Vanna Total = Σ Dealer Vanna Exposure</code>, <code>Charm Total = Σ Dealer Charm Exposure</code></div>
-        <div><code>Amp = Charm Amplification(Session Time)</code> — 1.0 morning, ramps to 1.5 in the final ~40% of session.</div>
+        <div><code>Amp = Charm Amplification(Session Time)</code> {t('ampFormulaSuffix')}</div>
         <div><code>Combined = Vanna Total + Charm Total × Amp</code>, <code>Score = clip(Combined / VC Norm, [−1, 1]) × 100</code>.</div>
       </SignalHowItsBuilt>
 
-      <SignalEventsPanel signalName="vanna_charm_flow" symbol={symbol} title="Event Timeline" />
+      <SignalEventsPanel signalName="vanna_charm_flow" symbol={symbol} title={t('eventTimeline')} />
     </PageShell>
   );
 }

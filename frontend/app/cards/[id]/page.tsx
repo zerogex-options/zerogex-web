@@ -7,6 +7,8 @@ import ShareCardButton from '@/components/ShareCardButton';
 import { StandDownCard, TradeCard } from '@/components/ActionCard';
 import { serverApiGet } from '@/core/api/serverFetch';
 import type { SignalActionResponse } from '@/hooks/useApiData';
+import { getServerT } from '@/core/localizedContent';
+import { dict } from './page.i18n';
 
 // Public permalink for a single Playbook Action Card. Server-rendered so the
 // OG image preview matches what a Twitter/Discord/Slack crawler sees, and so
@@ -115,6 +117,7 @@ export default async function ActionCardPage({
   if (cardId == null) notFound();
   const card = await loadCard(cardId);
   if (!card) notFound();
+  const t = await getServerT(dict);
 
   const isStandDown = String(card.action ?? '').toUpperCase() === 'STAND_DOWN';
   const symbol = (card.underlying || 'SPY').toUpperCase();
@@ -129,7 +132,7 @@ export default async function ActionCardPage({
           href="/trading-signals"
           className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)]"
         >
-          <ChevronLeft size={14} /> Trading Signals
+          <ChevronLeft size={14} /> {t('tradingSignals')}
         </Link>
         <ShareCardButton cardId={cardId} tweetText={tweetText} cardUrl={cardUrl} />
       </div>
@@ -139,11 +142,11 @@ export default async function ActionCardPage({
           ZeroGEX · Action Card #{cardId}
         </div>
         <h1 className="mt-1 text-2xl font-bold tracking-tight">
-          {symbol} · {humanizeWords(String(card.action ?? '')) || 'Action Card'}
+          {symbol} · {humanizeWords(String(card.action ?? '')) || t('actionCardFallback')}
         </h1>
         {issuedAt && !Number.isNaN(issuedAt.getTime()) && (
           <div className="mt-1 font-mono text-xs text-[var(--color-text-secondary)]">
-            Issued {issuedAt.toISOString()}
+            {t('issued')} {issuedAt.toISOString()}
           </div>
         )}
       </header>
@@ -151,13 +154,9 @@ export default async function ActionCardPage({
       {isStandDown ? <StandDownCard data={card} /> : <TradeCard data={card} />}
 
       <section className="mt-8 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5 text-xs text-[var(--color-text-secondary)] leading-relaxed">
-        <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">About this card</div>
-        Every cycle (~1 minute) the ZeroGEX Playbook engine fuses dealer positioning, options
-        flow, the Market State Index, and live structural levels into one decisive instruction.
-        This is the permanent receipt for card <span className="font-mono">#{cardId}</span> —
-        the entry, stop, target, and reasoning at the moment it was emitted. Closed Action
-        Cards never re-write; the engine cannot retroactively edit a published call. Live
-        positioning lives on{' '}
+        <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">{t('aboutThisCard')}</div>
+        {t('aboutParagraph1')} <span className="font-mono">#{cardId}</span>{' '}
+        {t('aboutParagraph2')}{' '}
         <Link href="/trading-signals" className="underline">
           /trading-signals
         </Link>

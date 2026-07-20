@@ -20,6 +20,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Bell } from 'lucide-react';
 import { useApiData } from '@/hooks/useApiData';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './NotificationBell.i18n';
 import { botColor } from './palette';
 import { fmtDateTime, fmtSignedMoney, fmtSignedPct } from './format';
 
@@ -57,6 +59,7 @@ interface FeedResponse {
 const LOCAL_STORAGE_KEY = 'tradeworkz.last_seen_notification_id';
 
 export default function NotificationBell() {
+  const t = usePageT(dict);
   const [open, setOpen] = useState(false);
   const [lastSeen, setLastSeen] = useState<number>(() => readLastSeen());
   const [busy, setBusy] = useState(false);
@@ -139,7 +142,7 @@ export default function NotificationBell() {
       <button
         ref={buttonRef}
         onClick={toggleOpen}
-        aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
+        aria-label={`${t('notifications')}${unreadCount > 0 ? t('unreadSuffix', { count: unreadCount }) : ''}`}
         className="relative inline-flex items-center justify-center w-9 h-9 rounded-full transition-colors"
         style={{
           backgroundColor: open ? 'var(--color-info-soft)' : 'transparent',
@@ -177,7 +180,7 @@ export default function NotificationBell() {
             style={{ borderColor: 'var(--color-border)' }}
           >
             <div className="text-sm font-semibold text-[var(--color-text-primary)]">
-              Notifications
+              {t('notifications')}
             </div>
             <div className="flex items-center gap-2">
               {entries.length > 0 ? (
@@ -186,33 +189,34 @@ export default function NotificationBell() {
                   disabled={busy}
                   className="text-[11px] font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-bear)] transition-colors"
                   style={{ opacity: busy ? 0.6 : 1 }}
-                  title="Delete every in-app notification for your account. Queued email notifications are unaffected."
+                  title={t('clearTitle')}
                 >
-                  Clear
+                  {t('clear')}
                 </button>
               ) : null}
               <a
                 href="/account/notifications"
                 className="text-[11px] font-medium text-[var(--color-info)] hover:underline"
-                title="Manage channels + conviction thresholds under Account > Notifications."
+                title={t('manageTitle')}
               >
-                Manage
+                {t('manage')}
               </a>
             </div>
           </div>
           <div className="max-h-96 overflow-y-auto">
             {feed.loading && !feed.data ? (
               <div className="p-6 text-center text-xs text-[var(--color-text-secondary)]">
-                Loading feed…
+                {t('loadingFeed')}
               </div>
             ) : entries.length === 0 ? (
               <div className="p-6 text-center">
                 <div className="text-xs text-[var(--color-text-primary)] font-medium mb-1">
-                  No notifications yet
+                  {t('noNotifications')}
                 </div>
                 <div className="text-[11px] text-[var(--color-text-secondary)] leading-snug">
-                  Follow a bot (click <span className="text-[var(--color-text-primary)]">Follow</span> on
-                  any roster card) and you'll get an in-app notification when it enters or exits a trade.
+                  {t('noNotificationsPre')}
+                  <span className="text-[var(--color-text-primary)]">{t('followWord')}</span>
+                  {t('noNotificationsPost')}
                 </div>
               </div>
             ) : (
@@ -230,6 +234,7 @@ export default function NotificationBell() {
 }
 
 function FeedRow({ entry, isUnread }: { entry: FeedEntry; isUnread: boolean }) {
+  const t = usePageT(dict);
   const color = botColor(entry.bot_id);
   const payload = entry.payload || {};
   const eventLabel = entry.event_type.toUpperCase();
@@ -271,9 +276,9 @@ function FeedRow({ entry, isUnread }: { entry: FeedEntry; isUnread: boolean }) {
           </div>
           <div className="mt-1 text-[11px] text-[var(--color-text-secondary)] leading-snug">
             {payload.underlying ?? 'SPY'} ·{' '}
-            {payload.direction === 'bullish' ? 'LONG' : payload.direction === 'bearish' ? 'SHORT' : payload.direction} ·{' '}
+            {payload.direction === 'bullish' ? t('long') : payload.direction === 'bearish' ? t('short') : payload.direction} ·{' '}
             {payload.strategy_type ?? 'debit'}
-            {payload.contracts ? ` · ${payload.contracts} contracts` : ''}
+            {payload.contracts ? ` · ${payload.contracts} ${t('contracts')}` : ''}
           </div>
           {isExit ? (
             <div
@@ -292,7 +297,7 @@ function FeedRow({ entry, isUnread }: { entry: FeedEntry; isUnread: boolean }) {
             </div>
           ) : (
             <div className="mt-1 text-[11px] text-[var(--color-text-secondary)]">
-              Entry @ ${payload.entry_price?.toFixed(2) ?? '—'} · target ${payload.target_price?.toFixed(2) ?? '—'} · stop ${payload.stop_price?.toFixed(2) ?? '—'}
+              {t('entryWord')} @ ${payload.entry_price?.toFixed(2) ?? '—'} · {t('targetWord')} ${payload.target_price?.toFixed(2) ?? '—'} · {t('stopWord')} ${payload.stop_price?.toFixed(2) ?? '—'}
             </div>
           )}
           <div className="mt-1 text-[10px] text-[var(--color-text-secondary)]">

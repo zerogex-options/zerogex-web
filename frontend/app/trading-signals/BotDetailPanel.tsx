@@ -40,6 +40,8 @@ import type {
   BotTradesResponse,
   EquityCurveResponse,
 } from './types';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './BotDetailPanel.i18n';
 
 interface Props {
   botId: string;
@@ -61,6 +63,7 @@ interface DrawdownChartPoint {
 }
 
 export default function BotDetailPanel({ botId, paletteIndex, onClose }: Props) {
+  const t = usePageT(dict);
   const color = botColor(botId, paletteIndex);
 
   const detail = useApiData<BotDetailResponse>(`/api/tradeworkz/bots/${botId}`, {
@@ -148,20 +151,20 @@ export default function BotDetailPanel({ botId, paletteIndex, onClose }: Props) 
         <button
           onClick={onClose}
           className="absolute top-4 right-4 rounded-full p-1.5 hover:bg-[var(--color-surface-subtle)] z-10"
-          aria-label="Close"
+          aria-label={t('close')}
         >
           <X className="w-5 h-5" style={{ color: 'var(--color-text-secondary)' }} />
         </button>
 
         <div className="p-6">
           {detail.error && !detail.data ? (
-            <EmptyState title="Could not load bot" description={detail.error} />
+            <EmptyState title={t('couldNotLoadBot')} description={detail.error} />
           ) : (
             <>
               <header className="mb-6">
                 <div className="flex items-center gap-3 flex-wrap">
                   <h2 className="text-2xl font-semibold text-[var(--color-text-primary)]">
-                    {detail.data?.display_name ?? 'Loading…'}
+                    {detail.data?.display_name ?? t('loading')}
                   </h2>
                   {detail.data ? (
                     <span
@@ -173,7 +176,7 @@ export default function BotDetailPanel({ botId, paletteIndex, onClose }: Props) 
                   ) : null}
                   {detail.data ? (
                     <span className="text-[11px] text-[var(--color-text-secondary)]">
-                      strategy: <span className="font-mono">{detail.data.strategy_class}</span>
+                      {t('strategyLabel')}: <span className="font-mono">{detail.data.strategy_class}</span>
                     </span>
                   ) : null}
                 </div>
@@ -190,14 +193,14 @@ export default function BotDetailPanel({ botId, paletteIndex, onClose }: Props) 
               </header>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-                <MiniStat label="Current NAV" value={fmtMoney(detail.data?.capital.current)} />
-                <MiniStat label="Peak NAV" value={fmtMoney(detail.data?.capital.peak)} />
+                <MiniStat label={t('currentNav')} value={fmtMoney(detail.data?.capital.current)} />
+                <MiniStat label={t('peakNav')} value={fmtMoney(detail.data?.capital.peak)} />
                 <MiniStat
-                  label="Hit Rate"
+                  label={t('hitRate')}
                   value={fmtPct((detail.data?.ml_state?.hit_rate as number | null) ?? null, 1)}
                 />
                 <MiniStat
-                  label="ML Size Mult."
+                  label={t('mlSizeMult')}
                   value={
                     detail.data?.ml_state?.size_multiplier != null
                       ? fmtRatio(Number(detail.data.ml_state.size_multiplier))
@@ -206,7 +209,7 @@ export default function BotDetailPanel({ botId, paletteIndex, onClose }: Props) 
                 />
               </div>
 
-              <SectionHeading>Cumulative Return</SectionHeading>
+              <SectionHeading>{t('cumulativeReturn')}</SectionHeading>
               <ChartFrame>
                 {equityPoints.length >= 2 ? (
                   <ResponsiveContainer width="100%" height={240}>
@@ -248,11 +251,11 @@ export default function BotDetailPanel({ botId, paletteIndex, onClose }: Props) 
                     </AreaChart>
                   </ResponsiveContainer>
                 ) : (
-                  <EmptyChart label="Cumulative return chart needs at least two closed sessions." />
+                  <EmptyChart label={t('cumulativeReturnEmpty')} />
                 )}
               </ChartFrame>
 
-              <SectionHeading>Daily P&amp;L and Drawdown</SectionHeading>
+              <SectionHeading>{t('dailyPnlDrawdown')}</SectionHeading>
               <ChartFrame>
                 {drawdownPoints.length >= 2 ? (
                   <ResponsiveContainer width="100%" height={220}>
@@ -309,11 +312,11 @@ export default function BotDetailPanel({ botId, paletteIndex, onClose }: Props) 
                     </ComposedChart>
                   </ResponsiveContainer>
                 ) : (
-                  <EmptyChart label="Waiting for daily P&L data." />
+                  <EmptyChart label={t('waitingForPnl')} />
                 )}
               </ChartFrame>
 
-              <SectionHeading>Recent Trades</SectionHeading>
+              <SectionHeading>{t('recentTrades')}</SectionHeading>
               <div
                 className="rounded-xl overflow-hidden mb-6"
                 style={{
@@ -329,13 +332,13 @@ export default function BotDetailPanel({ botId, paletteIndex, onClose }: Props) 
                         style={{ backgroundColor: 'var(--color-surface)' }}
                       >
                         <tr>
-                          <TradeTh>Closed</TradeTh>
-                          <TradeTh>Dir</TradeTh>
-                          <TradeTh>Type</TradeTh>
-                          <TradeTh align="right">Qty</TradeTh>
-                          <TradeTh align="right">P&amp;L</TradeTh>
-                          <TradeTh align="right">%</TradeTh>
-                          <TradeTh>Reason</TradeTh>
+                          <TradeTh>{t('thClosed')}</TradeTh>
+                          <TradeTh>{t('thDir')}</TradeTh>
+                          <TradeTh>{t('thType')}</TradeTh>
+                          <TradeTh align="right">{t('thQty')}</TradeTh>
+                          <TradeTh align="right">{t('thPnl')}</TradeTh>
+                          <TradeTh align="right">{t('thPct')}</TradeTh>
+                          <TradeTh>{t('thReason')}</TradeTh>
                         </tr>
                       </thead>
                       <tbody>
@@ -392,14 +395,14 @@ export default function BotDetailPanel({ botId, paletteIndex, onClose }: Props) 
                   ) : (
                     <div className="p-6 text-center">
                       <p className="text-xs text-[var(--color-text-secondary)]">
-                        No closed trades yet. Trades appear here as the bot exits positions.
+                        {t('noClosedTrades')}
                       </p>
                     </div>
                   )}
                 </div>
               </div>
 
-              <SectionHeading>ML Calibration</SectionHeading>
+              <SectionHeading>{t('mlCalibration')}</SectionHeading>
               <div
                 className="p-4 rounded-xl grid grid-cols-2 md:grid-cols-4 gap-3 text-xs"
                 style={{
@@ -408,28 +411,28 @@ export default function BotDetailPanel({ botId, paletteIndex, onClose }: Props) 
                 }}
               >
                 <MiniStat
-                  label="Confidence Base"
+                  label={t('confidenceBase')}
                   value={fmtPct(
                     (detail.data?.ml_state?.confidence_base as number | null) ?? null,
                     1,
                   )}
                 />
                 <MiniStat
-                  label="Trigger Threshold"
+                  label={t('triggerThreshold')}
                   value={fmtPct(
                     (detail.data?.ml_state?.confidence_threshold as number | null) ?? null,
                     1,
                   )}
                 />
                 <MiniStat
-                  label="Win Rate (30d)"
+                  label={t('winRate30d')}
                   value={fmtPct(
                     (detail.data?.ml_state?.last_win_rate_30d as number | null) ?? null,
                     1,
                   )}
                 />
                 <MiniStat
-                  label="Profit Factor"
+                  label={t('profitFactor')}
                   value={
                     detail.data?.ml_state?.last_profit_factor != null
                       ? fmtRatio(Number(detail.data.ml_state.last_profit_factor))
@@ -438,9 +441,11 @@ export default function BotDetailPanel({ botId, paletteIndex, onClose }: Props) 
                 />
               </div>
               <p className="text-[11px] text-[var(--color-text-secondary)] mt-2">
-                Bot self-calibrates after each closed trade via a per-bot online logistic-regression
-                classifier. Confidence base and sizing multiplier are recomputed from the trailing{' '}
-                {(detail.data?.params?.calibration_lookback_days as number | undefined) ?? 60}-day trade log.
+                {t('calibrationNote', {
+                  days: String(
+                    (detail.data?.params?.calibration_lookback_days as number | undefined) ?? 60,
+                  ),
+                })}
               </p>
             </>
           )}
@@ -518,6 +523,7 @@ interface EquityTooltipProps {
 }
 
 function EquityTooltip({ active, payload, label, color }: EquityTooltipProps) {
+  const t = usePageT(dict);
   if (!active || !payload || payload.length === 0) return null;
   const p = payload[0].payload;
   return (
@@ -533,18 +539,18 @@ function EquityTooltip({ active, payload, label, color }: EquityTooltipProps) {
         {fmtDate(String(label))}
       </div>
       <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 items-baseline">
-        <span className="text-[var(--color-text-secondary)]">Return</span>
+        <span className="text-[var(--color-text-secondary)]">{t('tooltipReturn')}</span>
         <span
           className="text-right tabular-nums font-medium"
           style={{ color: p.return_pct >= 0 ? 'var(--color-bull)' : 'var(--color-bear)' }}
         >
           {fmtSignedPct(p.return_pct / 100, 2)}
         </span>
-        <span className="text-[var(--color-text-secondary)]">NAV</span>
+        <span className="text-[var(--color-text-secondary)]">{t('tooltipNav')}</span>
         <span className="text-right tabular-nums" style={{ color }}>
           {fmtMoney(p.ending_nav)}
         </span>
-        <span className="text-[var(--color-text-secondary)]">Realized</span>
+        <span className="text-[var(--color-text-secondary)]">{t('tooltipRealized')}</span>
         <span
           className="text-right tabular-nums"
           style={{ color: p.realized_pnl >= 0 ? 'var(--color-bull)' : 'var(--color-bear)' }}
@@ -564,6 +570,7 @@ interface DrawdownTooltipProps {
 }
 
 function DrawdownTooltip({ active, payload, label, color }: DrawdownTooltipProps) {
+  const t = usePageT(dict);
   if (!active || !payload || payload.length === 0) return null;
   const p = payload[0].payload;
   return (
@@ -579,14 +586,14 @@ function DrawdownTooltip({ active, payload, label, color }: DrawdownTooltipProps
         {fmtDate(String(label))}
       </div>
       <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 items-baseline">
-        <span className="text-[var(--color-text-secondary)]">Realized P&amp;L</span>
+        <span className="text-[var(--color-text-secondary)]">{t('tooltipRealizedPnl')}</span>
         <span
           className="text-right tabular-nums font-medium"
           style={{ color: p.realized_pnl >= 0 ? 'var(--color-bull)' : 'var(--color-bear)' }}
         >
           {fmtSignedMoney(p.realized_pnl)}
         </span>
-        <span className="text-[var(--color-text-secondary)]">Drawdown</span>
+        <span className="text-[var(--color-text-secondary)]">{t('tooltipDrawdown')}</span>
         <span className="text-right tabular-nums" style={{ color }}>
           {fmtSignedPct(p.drawdown_pct / 100, 2)}
         </span>

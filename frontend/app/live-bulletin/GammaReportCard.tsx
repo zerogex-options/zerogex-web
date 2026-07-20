@@ -2,6 +2,8 @@
 
 import { forwardRef, useMemo } from 'react';
 import { useChartTheme } from '@/hooks/useChartTheme';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './GammaReportCard.i18n';
 import {
   fmtNetGex,
   fmtPrice,
@@ -104,6 +106,7 @@ const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(functio
   ref,
 ) {
   const chart = useChartTheme();
+  const t = usePageT(dict);
   const C = useMemo(() => buildCardColors(chart), [chart]);
 
   // The brand ribbon spans the palette's spectrum: gold → warm accent →
@@ -225,7 +228,7 @@ const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(functio
                 textTransform: 'uppercase',
               }}
             >
-              Dealer Gamma Positioning
+              {t('dealerGammaPositioning')}
             </span>
           </div>
           <div
@@ -323,7 +326,7 @@ const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(functio
               // future, not a live print. Flag it so the card (and the tweet
               // PNG that screenshots it) never reads as a live SPX quote.
               <div style={{ fontSize: 12, fontWeight: 700, color: C.amber, marginTop: 3 }}>
-                futures-implied via {model.spotSourceLabel ?? 'futures'} · cash closed
+                {t('futuresImpliedVia', { source: model.spotSourceLabel ?? 'futures' })}
               </div>
             )}
           </div>
@@ -380,7 +383,7 @@ const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(functio
             <BrandMark logoUrl={logoUrl} height={16} coral={C.coral} />
             <span style={{ color: C.textFaint, fontWeight: 500 }}>zerogex.io · @zerogex</span>
           </span>
-          <span>Derived analytics · not financial advice</span>
+          <span>{t('derivedAnalytics')}</span>
         </div>
       </div>
     </div>
@@ -472,6 +475,7 @@ function makeCardLabel(color: string): React.CSSProperties {
 // The probability-bounded prediction: a 1σ implied expected-move band for the
 // chosen horizon, plus a sentence on how the dealer walls sit relative to it.
 function ExpectedRangePanel({ symbol, range, C }: { symbol: string; range: ExpectedRange; C: CardColors }) {
+  const t = usePageT(dict);
   const pct = (range.sigmaPct * 100).toFixed(1);
   return (
     <div
@@ -484,7 +488,7 @@ function ExpectedRangePanel({ symbol, range, C }: { symbol: string; range: Expec
       }}
     >
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-        <div style={makeCardLabel(C.textFaint)}>Expected Range · {range.horizonLabel}</div>
+        <div style={makeCardLabel(C.textFaint)}>{t('expectedRangeLabel', { horizon: range.horizonLabel })}</div>
         <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, color: C.blue }}>
           ~68% · 1σ · {range.volIndex} {range.vix.toFixed(1)}
         </div>
@@ -509,8 +513,14 @@ function ExpectedRangePanel({ symbol, range, C }: { symbol: string; range: Expec
           color: C.textSecondary,
         }}
       >
-        {symbol} ~68% likely to trade between {fmtPrice(range.low)} and {fmtPrice(range.high)}{' '}
-        {range.horizonPhrase} (1σ implied by {range.volIndex}). {range.context}
+        {t('expectedRangeSentence', {
+          symbol,
+          low: fmtPrice(range.low),
+          high: fmtPrice(range.high),
+          horizonPhrase: range.horizonPhrase,
+          volIndex: range.volIndex,
+          context: range.context,
+        })}
       </p>
     </div>
   );
@@ -586,6 +596,7 @@ function assignLevels(points: MapPoint[], pos: (v: number) => number) {
 }
 
 function GammaMap({ model, C }: { model: ReportModel; C: CardColors }) {
+  const t = usePageT(dict);
   const points: MapPoint[] = [
     { key: 'put', label: 'Put Wall', value: model.putWall!, color: C.bull, side: 'below' as const, priority: 1 },
     { key: 'flip', label: 'Flip', value: model.gammaFlip!, color: C.amber, side: 'above' as const, priority: 2 },
@@ -624,7 +635,7 @@ function GammaMap({ model, C }: { model: ReportModel; C: CardColors }) {
 
   return (
     <div style={{ marginTop: 20 }}>
-      <div style={makeCardLabel(C.textFaint)}>Positioning Map</div>
+      <div style={makeCardLabel(C.textFaint)}>{t('positioningMap')}</div>
       <div style={{ position: 'relative', height, marginTop: 6 }}>
         {above.map((p) => (
           <Marker

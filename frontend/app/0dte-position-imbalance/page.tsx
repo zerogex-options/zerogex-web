@@ -4,6 +4,8 @@ import PageShell from '@/components/layout/PageShell';
 import { useMemo } from 'react';
 import { Activity, AlertCircle, Brain, Clock, Gauge } from 'lucide-react';
 import { useTimeframe } from '@/core/TimeframeContext';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './page.i18n';
 import { useZeroDtePositionImbalanceSignal } from '@/hooks/useApiData';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
@@ -31,16 +33,17 @@ function formatUsd(value: number | null): string {
   return `${sign}$${abs.toFixed(0)}`;
 }
 
-function label(signal: string, score: number | null): string {
-  if (score == null) return 'No reading';
-  if (signal === 'call_heavy') return 'Call-heavy crowding';
-  if (signal === 'put_heavy') return 'Put-heavy crowding';
-  if (score >= 25) return 'Upside tilt building';
-  if (score <= -25) return 'Downside tilt building';
-  return 'Balanced same-day positioning';
+function label(signal: string, score: number | null, t: (key: string) => string): string {
+  if (score == null) return t('noReading');
+  if (signal === 'call_heavy') return t('callHeavyCrowding');
+  if (signal === 'put_heavy') return t('putHeavyCrowding');
+  if (score >= 25) return t('upsideTilt');
+  if (score <= -25) return t('downsideTilt');
+  return t('balancedPositioning');
 }
 
 export default function ZeroDtePositionImbalancePage() {
+  const t = usePageT(dict);
   const { symbol } = useTimeframe();
   const { data, loading, error, refetch } = useZeroDtePositionImbalanceSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.zeroDteImbalanceMs);
 
@@ -79,10 +82,10 @@ export default function ZeroDtePositionImbalancePage() {
   return (
     <PageShell>
       <SignalPageTitle
-        title="0DTE Position Imbalance"
-        subtitle={'"Are 0DTE traders leaning one way?"'}
+        title={t('title')}
+        subtitle={t('subtitle')}
         icon={Activity}
-        tooltip="Same-day-expiry flow tilt weighted by moneyness. Score blends flow imbalance, smart-money subset, and PCR tilt, then scales by a time-of-day multiplier. Triggers at |score| ≥ 25. OTM flow is weighted heaviest (0.6×) since dealers hedging short OTM options drive the largest chase."
+        tooltip={t('tooltip')}
       />
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
@@ -91,9 +94,9 @@ export default function ZeroDtePositionImbalancePage() {
         <div className="mb-6 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-4 text-sm flex items-start gap-3">
           <Clock size={16} className="text-[var(--color-warning)] mt-0.5" />
           <div>
-            <div className="font-semibold">Inactive — 0DTE window closed</div>
+            <div className="font-semibold">{t('inactiveTitle')}</div>
             <div className="text-xs text-[var(--color-text-secondary)] mt-0.5">
-              Time-of-day multiplier is zero after hours; score is gated to 0.
+              {t('inactiveDesc')}
             </div>
           </div>
         </div>
@@ -103,9 +106,9 @@ export default function ZeroDtePositionImbalancePage() {
         <div className="mb-6 rounded-xl border border-[var(--color-warning)] bg-[var(--color-warning-soft)] p-4 text-sm flex items-start gap-3">
           <AlertCircle size={16} className="text-[var(--color-warning)] mt-0.5" />
           <div>
-            <div className="font-semibold text-[var(--color-warning)]">Flow source: all-expiry fallback</div>
+            <div className="font-semibold text-[var(--color-warning)]">{t('fallbackTitle')}</div>
             <div className="text-xs text-[var(--color-text-secondary)] mt-0.5">
-              0DTE flow is missing — the picture is inferred from all-expiry flow, not measured same-day.
+              {t('fallbackDesc')}
             </div>
           </div>
         </div>
@@ -116,9 +119,9 @@ export default function ZeroDtePositionImbalancePage() {
           <div className="lg:col-span-2">
             <SignalScoreHero
               score={score}
-              scoreLabel="Imbalance Score"
+              scoreLabel={t('scoreLabel')}
               trend={trend}
-              interpretation={label(signal, score)}
+              interpretation={label(signal, score, t)}
               history={history}
               badges={
                 <>
@@ -136,27 +139,28 @@ export default function ZeroDtePositionImbalancePage() {
           </div>
 
           <div className="lg:col-span-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
-            <div className="text-sm font-semibold mb-3 flex items-center gap-2"><Activity size={14} /> Moneyness bucket flow</div>
+            <div className="text-sm font-semibold mb-3 flex items-center gap-2"><Activity size={14} /> {t('moneynessBucketFlow')}</div>
             <MoneynessBars
               otmCall={ctx.otmCallNet}
               atmCall={ctx.atmCallNet}
               otmPut={ctx.otmPutNet}
               atmPut={ctx.atmPutNet}
+              t={t}
             />
             <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
               <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
-                <div className="text-[var(--color-text-secondary)]">Flow imbalance</div>
+                <div className="text-[var(--color-text-secondary)]">{t('flowImbalanceLabel')}</div>
                 <div className="text-xl font-black" style={{ color: (flowImbalance ?? 0) > 0.1 ? 'var(--color-bull)' : (flowImbalance ?? 0) < -0.1 ? 'var(--color-bear)' : 'var(--color-text-primary)' }}>
                   {formatSigned(flowImbalance, 2)}
                 </div>
-                <div className="text-[10px] text-[var(--color-text-secondary)]">Bucket-weighted, gated ≥ $50k gross.</div>
+                <div className="text-[10px] text-[var(--color-text-secondary)]">{t('flowImbalanceNote')}</div>
               </div>
               <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
-                <div className="text-[var(--color-text-secondary)]">Smart imbalance</div>
+                <div className="text-[var(--color-text-secondary)]">{t('smartImbalanceLabel')}</div>
                 <div className="text-xl font-black" style={{ color: (smartImbalance ?? 0) > 0.1 ? 'var(--color-bull)' : (smartImbalance ?? 0) < -0.1 ? 'var(--color-bear)' : 'var(--color-text-primary)' }}>
                   {formatSigned(smartImbalance, 2)}
                 </div>
-                <div className="text-[10px] text-[var(--color-text-secondary)]">Smart-money subset of the same buckets.</div>
+                <div className="text-[10px] text-[var(--color-text-secondary)]">{t('smartImbalanceNote')}</div>
               </div>
             </div>
           </div>
@@ -164,48 +168,48 @@ export default function ZeroDtePositionImbalancePage() {
       </section>
 
       <section className="zg-feature-shell mt-8 p-6">
-        <h2 className="text-xl font-semibold mb-4">Crowding Inputs</h2>
+        <h2 className="text-xl font-semibold mb-4">{t('crowdingInputs')}</h2>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 text-sm">
           <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-            <div className="font-semibold mb-2 flex items-center gap-2"><Activity size={16} /> Net premium</div>
+            <div className="font-semibold mb-2 flex items-center gap-2"><Activity size={16} /> {t('netPremium')}</div>
             <div className="space-y-2 text-[var(--color-text-secondary)]">
-              <Row label="Call net premium" value={formatUsd(ctx.callNetPremium)} />
-              <Row label="Put net premium" value={formatUsd(ctx.putNetPremium)} />
-              <Row label="OTM call net" value={formatUsd(ctx.otmCallNet)} />
-              <Row label="ATM call net" value={formatUsd(ctx.atmCallNet)} />
-              <Row label="OTM put net" value={formatUsd(ctx.otmPutNet)} />
-              <Row label="ATM put net" value={formatUsd(ctx.atmPutNet)} />
+              <Row label={t('callNetPremium')} value={formatUsd(ctx.callNetPremium)} />
+              <Row label={t('putNetPremium')} value={formatUsd(ctx.putNetPremium)} />
+              <Row label={t('otmCallNet')} value={formatUsd(ctx.otmCallNet)} />
+              <Row label={t('atmCallNet')} value={formatUsd(ctx.atmCallNet)} />
+              <Row label={t('otmPutNet')} value={formatUsd(ctx.otmPutNet)} />
+              <Row label={t('atmPutNet')} value={formatUsd(ctx.atmPutNet)} />
             </div>
           </div>
           <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-            <div className="font-semibold mb-2 flex items-center gap-2"><Brain size={16} /> Imbalances</div>
+            <div className="font-semibold mb-2 flex items-center gap-2"><Brain size={16} /> {t('imbalances')}</div>
             <div className="space-y-2 text-[var(--color-text-secondary)]">
-              <Row label="Flow imbalance" value={formatSigned(flowImbalance, 3)} />
-              <Row label="Smart imbalance" value={formatSigned(smartImbalance, 3)} />
-              <Row label="PCR tilt" value={formatSigned(ctx.pcrTilt, 3)} />
-              <Row label="Put/Call ratio" value={ctx.putCallRatio != null ? ctx.putCallRatio.toFixed(2) : '—'} />
+              <Row label={t('flowImbalanceLabel')} value={formatSigned(flowImbalance, 3)} />
+              <Row label={t('smartImbalanceLabel')} value={formatSigned(smartImbalance, 3)} />
+              <Row label={t('pcrTilt')} value={formatSigned(ctx.pcrTilt, 3)} />
+              <Row label={t('putCallRatio')} value={ctx.putCallRatio != null ? ctx.putCallRatio.toFixed(2) : '—'} />
             </div>
           </div>
           <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-            <div className="font-semibold mb-2 flex items-center gap-2"><Gauge size={16} /> Mechanics</div>
+            <div className="font-semibold mb-2 flex items-center gap-2"><Gauge size={16} /> {t('mechanics')}</div>
             <div className="text-[var(--color-text-secondary)] text-xs space-y-2">
-              <div><strong className="text-[var(--color-text-primary)]">Blend:</strong> 0.55 × flow + 0.30 × smart + 0.15 × PCR tilt, then × time-of-day multiplier.</div>
-              <div><strong className="text-[var(--color-text-primary)]">Weights:</strong> 0.6 × OTM, 0.3 × ATM, 0.1 × ITM.</div>
+              <div><strong className="text-[var(--color-text-primary)]">{t('blendLabel')}</strong> {t('blendText')}</div>
+              <div><strong className="text-[var(--color-text-primary)]">{t('weightsLabel')}</strong> {t('weightsText')}</div>
             </div>
           </div>
         </div>
       </section>
 
       <SignalHowItsBuilt
-        caveat={<>Time-of-day multiplier is 0 outside the 0DTE window (forces score to 0). When the all-expiry fallback fires, the picture is inferred — not measured same-day — and conviction should be discounted.</>}
+        caveat={<>{t('caveat')}</>}
       >
-        <div>Net premium per moneyness bucket; weighted <code>0.6 × OTM + 0.3 × ATM + 0.1 × ITM</code> for both calls and puts.</div>
-        <div><code>Flow Imbalance = (Weighted Call Net − Weighted Put Net) / (|...| + |...|)</code>, gated above $50k gross premium.</div>
-        <div><code>Blended = 0.55 × Flow + 0.30 × Smart + 0.15 × PCR Tilt</code>, then × time-of-day multiplier.</div>
-        <div><code>Score = clip(Blended, [−1, 1]) × 100</code>. Triggers at |Score| ≥ 25.</div>
+        <div>{t('howBuilt1a')} <code>0.6 × OTM + 0.3 × ATM + 0.1 × ITM</code> {t('howBuilt1b')}</div>
+        <div><code>Flow Imbalance = (Weighted Call Net − Weighted Put Net) / (|...| + |...|)</code>{t('howBuilt2')}</div>
+        <div><code>Blended = 0.55 × Flow + 0.30 × Smart + 0.15 × PCR Tilt</code>{t('howBuilt3')}</div>
+        <div><code>Score = clip(Blended, [−1, 1]) × 100</code>. {t('howBuilt4')}</div>
       </SignalHowItsBuilt>
 
-      <SignalEventsPanel signalName="zero_dte_position_imbalance" symbol={symbol} title="Event Timeline" />
+      <SignalEventsPanel signalName="zero_dte_position_imbalance" symbol={symbol} title={t('eventTimeline')} />
     </PageShell>
   );
 }
@@ -219,14 +223,14 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-function MoneynessBars({ otmCall, atmCall, otmPut, atmPut }: { otmCall: number | null; atmCall: number | null; otmPut: number | null; atmPut: number | null }) {
+function MoneynessBars({ otmCall, atmCall, otmPut, atmPut, t }: { otmCall: number | null; atmCall: number | null; otmPut: number | null; atmPut: number | null; t: (key: string) => string }) {
   const values = [otmCall, atmCall, atmPut, otmPut].filter((v): v is number => v != null);
   const maxAbs = Math.max(1, ...values.map((v) => Math.abs(v)));
   const rows: Array<{ label: string; value: number | null; color: string; weight: string }> = [
-    { label: 'OTM Call', value: otmCall, color: 'var(--color-bull)', weight: '0.6×' },
-    { label: 'ATM Call', value: atmCall, color: 'var(--color-bull)', weight: '0.3×' },
-    { label: 'ATM Put', value: atmPut, color: 'var(--color-bear)', weight: '0.3×' },
-    { label: 'OTM Put', value: otmPut, color: 'var(--color-bear)', weight: '0.6×' },
+    { label: t('otmCallShort'), value: otmCall, color: 'var(--color-bull)', weight: '0.6×' },
+    { label: t('atmCallShort'), value: atmCall, color: 'var(--color-bull)', weight: '0.3×' },
+    { label: t('atmPutShort'), value: atmPut, color: 'var(--color-bear)', weight: '0.3×' },
+    { label: t('otmPutShort'), value: otmPut, color: 'var(--color-bear)', weight: '0.6×' },
   ];
 
   return (

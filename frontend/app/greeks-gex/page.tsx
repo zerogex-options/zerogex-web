@@ -18,6 +18,8 @@ import { useTheme } from '@/core/ThemeContext';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { GexUnit, GEX_UNIT_LABEL, gexScaleFactor, useGexUnit } from '@/core/GexUnitContext';
 import { isIndexSymbol } from '@/core/utils';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './page.i18n';
 
 function formatGexValue(value: number): string {
   const abs = Math.abs(value);
@@ -37,6 +39,7 @@ function formatGexInUnit(value: number | null | undefined, unit: GexUnit, spot: 
 }
 
 export default function GreeksGEXPage() {
+  const t = usePageT(dict);
   const { theme } = useTheme();
   const { symbol } = useTimeframe();
   // Fetch data with different refresh intervals
@@ -69,7 +72,7 @@ export default function GreeksGEXPage() {
   if (gexLoading && !gexData) {
     return (
       <PageShell>
-        <h1 className="text-3xl font-bold mb-8">GEX Summary</h1>
+        <h1 className="text-3xl font-bold mb-8">{t('pageTitle')}</h1>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
           <LoadingCard />
           <LoadingCard />
@@ -89,7 +92,7 @@ export default function GreeksGEXPage() {
 
   return (
     <PageShell>
-      <h1 className="text-3xl font-bold mb-8">GEX Summary</h1>
+      <h1 className="text-3xl font-bold mb-8">{t('pageTitle')}</h1>
 
       {/* Error Messages */}
       {gexError && (
@@ -107,49 +110,49 @@ export default function GreeksGEXPage() {
       <section className="mb-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <MetricCard
-            title={`${symbol} Price`}
+            title={t('priceTitle', { symbol })}
             value={quoteData && quoteDisplayPrice != null ? `$${quoteDisplayPrice.toFixed(2)}` : '--'}
             subtitle={
               futuresTicker
-                ? `◆ ${futuresTicker} futures`
+                ? t('futuresSubtitle', { ticker: futuresTicker })
                 : quoteData && !isIndexSymbol(symbol)
-                  ? `Vol: ${(((quoteData.volume ?? 0) / 1000000)).toFixed(1)}M`
+                  ? t('volSubtitle', { vol: (((quoteData.volume ?? 0) / 1000000)).toFixed(1) })
                   : ''
             }
             subtitleColor={futuresTicker ? 'var(--color-brand-coral)' : undefined}
             tooltip={
               futuresTicker
-                ? `${symbol} cash is closed — showing ${futuresTicker} futures. GEX levels stay on the ${symbol} cash index.`
+                ? t('futuresTooltip', { symbol, ticker: futuresTicker })
                 : isIndexSymbol(symbol)
-                  ? `Current ${symbol} price from the real-time quote feed.`
-                  : `Current ${symbol} price and volume from the real-time quote feed.`
+                  ? t('indexTooltip', { symbol })
+                  : t('stockTooltip', { symbol })
             }
             theme={theme}
           />
           <MetricCard
-            title="Net GEX"
+            title={t('netGexTitle')}
             value={formatGexInUnit(netGexAtSpot, gexUnit, gexSpot)}
             subtitle={unitLabel}
             trend={netGexPositive ? 'bullish' : 'bearish'}
-            tooltip="Cumulative dealer gamma at the current spot price (sign-consistent with the gamma flip). Positive = dealer long gamma (pinning, mean-reversion). Negative = dealer short gamma (trending, vol amplification). Shown per 1% move by default; toggle to per 1 point above."
+            tooltip={t('netGexTooltip')}
             theme={theme}
           />
           <MetricCard
-            title="Gamma Flip"
+            title={t('gammaFlipTitle')}
             value={gexData?.gamma_flip != null ? `$${gexData.gamma_flip.toFixed(2)}` : 'N/A'}
             subtitle={
               gexData?.gamma_flip_raw != null
-                ? `Raw nearest: $${gexData.gamma_flip_raw.toFixed(2)}`
-                : 'Dealer positioning'
+                ? t('rawNearest', { value: `$${gexData.gamma_flip_raw.toFixed(2)}` })
+                : t('dealerPositioning')
             }
-            tooltip="Structural gamma flip: the price where aggregate net gamma changes sign, computed with a horizon-occupancy weighting that down-weights near-dated 0DTE walls. Above it dealers tend to dampen volatility; below it they amplify it. 'Raw nearest' is the nearest crossing on the UN-weighted profile — the convention competitor dashboards publish; dropping the weighting lets near-dated walls pull it toward spot, so it can sit much closer to spot than the structural flip."
+            tooltip={t('gammaFlipTooltip')}
             theme={theme}
           />
           <MetricCard
-            title="Max Pain"
+            title={t('maxPainTitle')}
             value={gexData?.max_pain != null ? `$${gexData.max_pain.toFixed(2)}` : 'N/A'}
-            subtitle="Options expiry target"
-            tooltip="Estimated strike where option-holder payout is minimized at expiry. Acts as a magnetic level into expiration."
+            subtitle={t('maxPainSubtitle')}
+            tooltip={t('maxPainTooltip')}
             theme={theme}
           />
         </div>
@@ -159,49 +162,53 @@ export default function GreeksGEXPage() {
       <section className="mb-8">
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <MetricCard
-            title="Call GEX"
+            title={t('callGexTitle')}
             value={formatGexInUnit(gexData?.total_call_gex, gexUnit, gexSpot)}
             subtitle={unitLabel}
             trend="neutral"
-            tooltip="Total gamma exposure from call options. Higher values create upside resistance as dealers hedge by selling into rallies. Shown per 1% move by default; toggle to per 1 point above."
+            tooltip={t('callGexTooltip')}
             theme={theme}
           />
           <MetricCard
-            title="Put GEX"
+            title={t('putGexTitle')}
             value={formatGexInUnit(gexData?.total_put_gex, gexUnit, gexSpot)}
             subtitle={unitLabel}
             trend="neutral"
-            tooltip="Total gamma exposure from put options. Higher values create downside support as dealers hedge by buying into selloffs. Shown per 1% move by default; toggle to per 1 point above."
+            tooltip={t('putGexTooltip')}
             theme={theme}
           />
           <MetricCard
-            title="Put/Call Ratio"
+            title={t('putCallRatioTitle')}
             value={gexData?.put_call_ratio != null ? gexData.put_call_ratio.toFixed(2) : '--'}
             trend={gexData && (gexData.put_call_ratio ?? 0) > 1 ? 'bearish' : 'bullish'}
-            tooltip="Ratio of put volume to call volume. >1 leans bearish; <1 leans bullish."
+            tooltip={t('putCallRatioTooltip')}
             theme={theme}
           />
           <MetricCard
-            title="Call Wall (Resistance)"
+            title={t('callWallTitle')}
             value={gexData?.call_wall != null ? `$${gexData.call_wall.toFixed(2)}` : 'N/A'}
             subtitle={
               gexData?.call_wall && quoteData?.close
-                ? `${((gexData.call_wall - quoteData.close) / quoteData.close * 100) >= 0 ? '+' : ''}${((gexData.call_wall - quoteData.close) / quoteData.close * 100).toFixed(1)}% from spot`
-                : 'Heavy call open interest'
+                ? t('fromSpot', {
+                    pct: `${((gexData.call_wall - quoteData.close) / quoteData.close * 100) >= 0 ? '+' : ''}${((gexData.call_wall - quoteData.close) / quoteData.close * 100).toFixed(1)}`,
+                  })
+                : t('callWallDefaultSubtitle')
             }
-            tooltip="Strike with the heaviest call open interest. Tends to act as resistance as dealers sell into rallies toward it."
+            tooltip={t('callWallTooltip')}
             theme={theme}
             trend="bearish"
           />
           <MetricCard
-            title="Put Wall (Support)"
+            title={t('putWallTitle')}
             value={gexData?.put_wall != null ? `$${gexData.put_wall.toFixed(2)}` : 'N/A'}
             subtitle={
               gexData?.put_wall && quoteData?.close
-                ? `${((gexData.put_wall - quoteData.close) / quoteData.close * 100) >= 0 ? '+' : ''}${((gexData.put_wall - quoteData.close) / quoteData.close * 100).toFixed(1)}% from spot`
-                : 'Heavy put open interest'
+                ? t('fromSpot', {
+                    pct: `${((gexData.put_wall - quoteData.close) / quoteData.close * 100) >= 0 ? '+' : ''}${((gexData.put_wall - quoteData.close) / quoteData.close * 100).toFixed(1)}`,
+                  })
+                : t('putWallDefaultSubtitle')
             }
-            tooltip="Strike with the heaviest put open interest. Tends to act as support as dealers buy into selloffs toward it."
+            tooltip={t('putWallTooltip')}
             theme={theme}
             trend="bullish"
           />
@@ -222,7 +229,7 @@ export default function GreeksGEXPage() {
       {/* Data Freshness */}
       {gexData && (
         <div className="text-right text-sm text-[var(--text-muted)]">
-          Last updated: {new Date(gexData.timestamp).toLocaleTimeString()}
+          {t('lastUpdated', { time: new Date(gexData.timestamp).toLocaleTimeString() })}
         </div>
       )}
     </PageShell>

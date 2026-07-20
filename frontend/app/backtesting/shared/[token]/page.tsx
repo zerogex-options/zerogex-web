@@ -6,6 +6,8 @@ import { useParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { backtestAPI } from '@/core/api/endpoints';
 import type { BacktestEquityPoint, SharedBacktestRun } from '../../types';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './page.i18n';
 
 const EquityChart = dynamic(() => import('../../EquityChart'), { ssr: false });
 const MonteCarloChart = dynamic(() => import('../../MonteCarloChart'), { ssr: false });
@@ -47,17 +49,22 @@ function Tile({ label, value, color, hint }: { label: string; value: string; col
   );
 }
 
-function regimeLabel(kind: 'gamma' | 'msi', regime: string): string {
+function regimeLabel(
+  t: (key: string, vars?: Record<string, string | number>) => string,
+  kind: 'gamma' | 'msi',
+  regime: string,
+): string {
   if (kind === 'gamma') {
-    if (regime === 'positive') return 'Positive γ';
-    if (regime === 'negative') return 'Negative γ';
-    if (regime === 'flat') return 'Flat γ';
-    return 'Unknown';
+    if (regime === 'positive') return t('regimePositive');
+    if (regime === 'negative') return t('regimeNegative');
+    if (regime === 'flat') return t('regimeFlat');
+    return t('regimeUnknown');
   }
-  return regime === 'unknown' ? 'Unknown' : regime.replace(/_/g, ' ');
+  return regime === 'unknown' ? t('regimeUnknown') : regime.replace(/_/g, ' ');
 }
 
 export default function SharedBacktestReport() {
+  const t = usePageT(dict);
   const params = useParams();
   const token = String(params?.token ?? '');
   const [run, setRun] = useState<SharedBacktestRun | null>(null);
@@ -85,19 +92,19 @@ export default function SharedBacktestReport() {
   if (state === 'loading') {
     return (
       <div className="container mx-auto px-4 py-16 text-center text-[var(--color-text-secondary)]">
-        Loading backtest report…
+        {t('loading')}
       </div>
     );
   }
   if (state === 'error' || !run) {
     return (
       <div className="container mx-auto px-4 py-16 text-center">
-        <h1 className="text-2xl font-bold mb-2">Report not found</h1>
+        <h1 className="text-2xl font-bold mb-2">{t('reportNotFoundTitle')}</h1>
         <p className="text-[var(--color-text-secondary)]">
-          This shared backtest link is invalid or has been removed.
+          {t('reportNotFoundBody')}
         </p>
         <Link href="/pricing" className="mt-6 inline-block text-[var(--color-accent)] underline">
-          Explore ZeroGEX backtesting →
+          {t('exploreLink')}
         </Link>
       </div>
     );
@@ -114,27 +121,26 @@ export default function SharedBacktestReport() {
       {/* Header */}
       <div className="flex flex-wrap items-center gap-2 mb-1">
         <span className="text-[11px] uppercase tracking-[0.18em] text-[var(--color-accent)] font-semibold">
-          ZeroGEX · Backtest report
+          ZeroGEX · {t('backtestReportLabel')}
         </span>
       </div>
       <h1 className="text-2xl md:text-3xl font-bold" style={{ textWrap: 'balance' }}>
         {run.strategy_label}
       </h1>
       <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-        {run.underlying} · {run.start_date} → {run.end_date} · realized option P&amp;L, net of slippage &amp;
-        commission
+        {run.underlying} · {run.start_date} → {run.end_date} · {t('summarySuffix')}
       </p>
 
       {/* Headline stats */}
       <section className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
-        <Tile label="Total return" value={fmtPct(s.total_return_pct)} color={pnlColor(s.total_return_pct)} />
-        <Tile label="Win rate" value={s.win_rate != null ? fmtPct(s.win_rate * 100, 0) : '—'} />
-        <Tile label="Profit factor" value={fmtNum(s.profit_factor)} />
-        <Tile label="Max drawdown" value={fmtPct(s.max_drawdown_pct)} color="var(--color-bear)" />
+        <Tile label={t('totalReturn')} value={fmtPct(s.total_return_pct)} color={pnlColor(s.total_return_pct)} />
+        <Tile label={t('winRate')} value={s.win_rate != null ? fmtPct(s.win_rate * 100, 0) : '—'} />
+        <Tile label={t('profitFactor')} value={fmtNum(s.profit_factor)} />
+        <Tile label={t('maxDrawdown')} value={fmtPct(s.max_drawdown_pct)} color="var(--color-bear)" />
         <Tile label="Sharpe" value={fmtNum(s.sharpe)} />
         <Tile label="Sortino" value={fmtNum(s.sortino)} />
-        <Tile label="Expectancy / trade" value={fmtCurrency(s.expectancy)} color={pnlColor(s.expectancy)} />
-        <Tile label="# Trades" value={String(s.n_trades)} />
+        <Tile label={t('expectancyPerTrade')} value={fmtCurrency(s.expectancy)} color={pnlColor(s.expectancy)} />
+        <Tile label={t('numTrades')} value={String(s.n_trades)} />
       </section>
 
       {/* Benchmark */}
@@ -143,15 +149,15 @@ export default function SharedBacktestReport() {
           className="mt-4 rounded-lg border p-3 text-sm flex flex-wrap items-center gap-x-6 gap-y-1"
           style={{ borderColor: 'var(--color-border)' }}
         >
-          <span className="text-[var(--color-text-secondary)]">vs. buy &amp; hold:</span>
+          <span className="text-[var(--color-text-secondary)]">{t('vsBuyHold')}</span>
           <span>
-            Strategy{' '}
+            {t('strategyLabel')}{' '}
             <b className="font-mono" style={{ color: pnlColor(s.total_return_pct) }}>
               {fmtPct(s.total_return_pct)}
             </b>
           </span>
           <span>
-            Buy &amp; hold {bench.underlying}{' '}
+            {t('buyHoldLabel', { underlying: bench.underlying })}{' '}
             <b className="font-mono" style={{ color: pnlColor(bench.buy_hold_return_pct) }}>
               {fmtPct(bench.buy_hold_return_pct)}
             </b>
@@ -161,27 +167,27 @@ export default function SharedBacktestReport() {
 
       {/* Equity curve */}
       <section className="mt-6">
-        <h2 className="text-lg font-semibold mb-2">Equity curve</h2>
+        <h2 className="text-lg font-semibold mb-2">{t('equityCurveHeading')}</h2>
         <EquityChart equity={equity} startingCapital={run.capital ?? 25000} />
       </section>
 
       {/* Monte Carlo */}
       {mc ? (
         <section className="mt-8">
-          <h2 className="text-lg font-semibold mb-1">Monte Carlo — the range of outcomes</h2>
+          <h2 className="text-lg font-semibold mb-1">{t('monteCarloHeading')}</h2>
           <p className="text-xs text-[var(--color-text-secondary)] mb-3">
-            {mc.iterations.toLocaleString()} resampled paths of this trade sequence.
+            {t('monteCarloSubtitle', { iterations: mc.iterations.toLocaleString() })}
           </p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-            <Tile label="Prob. profitable" value={fmtPct(mc.prob_profit * 100, 0)} />
+            <Tile label={t('probProfitable')} value={fmtPct(mc.prob_profit * 100, 0)} />
             <Tile
-              label="Risk of ruin"
+              label={t('riskOfRuin')}
               value={fmtPct(mc.risk_of_ruin_50pct * 100, 1)}
               color={mc.risk_of_ruin_50pct > 0 ? 'var(--color-bear)' : undefined}
-              hint="≥50% drawdown"
+              hint={t('riskOfRuinHint')}
             />
-            <Tile label="Median return" value={fmtPct(mc.terminal_return_pct.p50)} color={pnlColor(mc.terminal_return_pct.p50)} />
-            <Tile label="Range (p5–p95)" value={`${fmtPct(mc.terminal_return_pct.p5)} … ${fmtPct(mc.terminal_return_pct.p95)}`} />
+            <Tile label={t('medianReturn')} value={fmtPct(mc.terminal_return_pct.p50)} color={pnlColor(mc.terminal_return_pct.p50)} />
+            <Tile label={t('rangeLabel')} value={`${fmtPct(mc.terminal_return_pct.p5)} … ${fmtPct(mc.terminal_return_pct.p95)}`} />
           </div>
           <MonteCarloChart cone={mc.cone} startingCapital={run.capital ?? 25000} />
         </section>
@@ -190,15 +196,15 @@ export default function SharedBacktestReport() {
       {/* Regime split */}
       {gamma.length > 0 || msi.length > 0 ? (
         <section className="mt-8">
-          <h2 className="text-lg font-semibold mb-1">By market regime</h2>
+          <h2 className="text-lg font-semibold mb-1">{t('byRegimeHeading')}</h2>
           <p className="text-xs text-[var(--color-text-secondary)] mb-3">
-            How the same rules performed under different dealer-gamma backdrops.
+            {t('byRegimeSubtitle')}
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {(
               [
-                ['gamma', 'Gamma regime', gamma],
-                ['msi', 'MSI regime', msi],
+                ['gamma', t('gammaRegimeTitle'), gamma],
+                ['msi', t('msiRegimeTitle'), msi],
               ] as const
             ).map(([kind, title, rows]) =>
               rows.length ? (
@@ -212,16 +218,16 @@ export default function SharedBacktestReport() {
                         className="text-[var(--color-text-secondary)] text-left border-b"
                         style={{ borderColor: 'var(--color-border)' }}
                       >
-                        <th className="py-1.5 pr-3 font-medium">Regime</th>
-                        <th className="py-1.5 pr-3 font-medium text-right">Trades</th>
-                        <th className="py-1.5 pr-3 font-medium text-right">Win %</th>
-                        <th className="py-1.5 font-medium text-right">Net P&amp;L</th>
+                        <th className="py-1.5 pr-3 font-medium">{t('regimeCol')}</th>
+                        <th className="py-1.5 pr-3 font-medium text-right">{t('tradesCol')}</th>
+                        <th className="py-1.5 pr-3 font-medium text-right">{t('winPctCol')}</th>
+                        <th className="py-1.5 font-medium text-right">{t('netPnlCol')}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {rows.map((r) => (
                         <tr key={r.regime} className="border-b last:border-0" style={{ borderColor: 'var(--color-border)' }}>
-                          <td className="py-1.5 pr-3">{regimeLabel(kind, r.regime)}</td>
+                          <td className="py-1.5 pr-3">{regimeLabel(t, kind, r.regime)}</td>
                           <td className="py-1.5 pr-3 text-right font-mono">{r.n}</td>
                           <td className="py-1.5 pr-3 text-right font-mono">
                             {r.win_rate != null ? fmtPct(r.win_rate * 100, 0) : '—'}
@@ -249,23 +255,21 @@ export default function SharedBacktestReport() {
             'radial-gradient(120% 140% at 0 0, color-mix(in srgb, var(--color-accent) 12%, transparent), transparent 60%)',
         }}
       >
-        <h2 className="text-xl font-bold">Backtest your own dealer-positioning strategy</h2>
+        <h2 className="text-xl font-bold">{t('ctaHeading')}</h2>
         <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-          Realized 0DTE option P&amp;L on SPX/SPY/QQQ — net of slippage &amp; commission, by gamma regime, with
-          a Monte-Carlo range. We show the losers too.
+          {t('ctaBody')}
         </p>
         <Link
           href="/pricing?trial=1&plan=pro"
           className="mt-4 inline-flex items-center rounded-md px-5 py-2.5 text-sm font-semibold"
           style={{ background: 'var(--color-accent)', color: 'var(--color-bg, #000)' }}
         >
-          Start your 7-day free trial →
+          {t('ctaButton')}
         </Link>
       </section>
 
       <p className="mt-6 text-[11px] text-[var(--color-text-secondary)] leading-relaxed">
-        Past performance does not guarantee future returns. This is a historical simulation of a hypothetical
-        strategy on the window shown, net of modeled fills, slippage, and commission. Not investment advice.
+        {t('disclaimer')}
       </p>
     </div>
   );

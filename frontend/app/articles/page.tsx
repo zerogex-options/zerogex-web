@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { ArrowRight, Newspaper } from 'lucide-react';
+import { getServerT } from '@/core/localizedContent';
+import { dict } from './page.i18n';
 
 export const metadata = {
   title:
@@ -245,27 +247,25 @@ const ARTICLES: Article[] = [
   },
 ];
 
-export default function ArticlesPage() {
+export default async function ArticlesPage() {
+  const t = await getServerT(dict);
   return (
     <div className="mx-auto max-w-4xl px-6 py-14">
       <div className="zg-feature-shell mb-10 p-8">
         <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">
           <Newspaper size={14} />
-          Articles
+          {t('badge')}
         </div>
         <h1 className="mb-3 text-3xl font-bold text-[var(--color-text-primary)]">
-          Options Gamma Trading Articles
+          {t('heading')}
         </h1>
         <p className="max-w-2xl text-sm leading-7 text-[var(--color-text-secondary)]">
-          Practical, flow-focused breakdowns of options market structure for SPX, SPY, and QQQ
-          traders — gamma exposure (GEX), the gamma flip, call walls, put walls, pinning, and 0DTE
-          dealer positioning. Every piece pairs the concept with a worked example and links straight
-          to{' '}
+          {t('introText')}{' '}
           <Link
             href="/spx-gamma-levels"
             className="font-semibold text-[var(--color-warning)] underline-offset-2 hover:underline"
           >
-            today’s live SPX / SPY / QQQ gamma levels
+            {t('introLink')}
           </Link>
           .
         </p>
@@ -283,7 +283,7 @@ export default function ArticlesPage() {
             <h2 className="mb-3 text-xl font-semibold text-[var(--color-text-primary)]">{a.title}</h2>
             <p className="mb-5 text-sm leading-7 text-[var(--color-text-secondary)]">{a.blurb}</p>
             <span className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-2 text-sm font-semibold text-[var(--heat-low)]">
-              {a.cta ?? 'Read article'}
+              {a.cta ?? t('readArticle')}
               <ArrowRight size={16} />
             </span>
           </Link>

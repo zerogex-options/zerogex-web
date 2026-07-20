@@ -22,6 +22,8 @@ import { isWithinExtendedMarketHours } from '@/core/utils';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
 import { spectrumIndicatorLeft } from '@/core/spectrumIndicator';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './page.i18n';
 
 function getDateMarkerMeta(timestamps: string[]) {
   const groups = new Map<string, { first: number; last: number }>();
@@ -121,6 +123,7 @@ function gradientVolumeColor(upPct: number | null): string {
 const VOLUME_BUCKET_MS = 5 * 60 * 1000;
 
 export default function IntradayToolsPage() {
+  const t = usePageT(dict);
   const { symbol } = useTimeframe();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
@@ -347,7 +350,7 @@ export default function IntradayToolsPage() {
     <PageShell>
       {lastUpdatedLabel ? (
         <div className="text-right text-sm text-[var(--text-muted)] mb-4">
-          Last updated: {lastUpdatedLabel}
+          {t('lastUpdated', { time: lastUpdatedLabel })}
         </div>
       ) : null}
 
@@ -356,28 +359,28 @@ export default function IntradayToolsPage() {
       ) : null}
 
       <section className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4">VWAP Analysis</h2>
+        <h2 className="text-2xl font-semibold mb-4">{t('vwapAnalysisHeading')}</h2>
         {showInitialLoading ? (
           <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
             <LoadingSpinner />
           </div>
         ) : !hasVwap ? (
           <div className="rounded-lg p-6 text-center" style={{ backgroundColor: cardBg, color: mutedText }}>
-            No VWAP data available (market may be closed)
+            {t('noVwapData')}
           </div>
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-              <MetricCard title="Current Price" value={`$${fmtFixed(latest?.close)}`} tooltip="Current market price" />
-              <MetricCard title="VWAP" value={`$${fmtFixed(vwapLatest?.vwap)}`} tooltip="Volume weighted average price" />
-              <MetricCard title="Deviation" value={`${fmtFixed(vwapLatest?.vwap_deviation_pct)}%`} trend={Math.abs(safeNum(vwapLatest?.vwap_deviation_pct) ?? 0) > 0.2 ? 'bearish' : 'neutral'} tooltip="Percentage deviation from VWAP" />
-              <MetricCard title="Position" value={vwapLatest?.vwap_position ?? '--'} tooltip="Price position relative to VWAP" />
+              <MetricCard title={t('currentPriceTitle')} value={`$${fmtFixed(latest?.close)}`} tooltip={t('currentPriceTooltip')} />
+              <MetricCard title="VWAP" value={`$${fmtFixed(vwapLatest?.vwap)}`} tooltip={t('vwapTooltip')} />
+              <MetricCard title={t('deviationTitle')} value={`${fmtFixed(vwapLatest?.vwap_deviation_pct)}%`} trend={Math.abs(safeNum(vwapLatest?.vwap_deviation_pct) ?? 0) > 0.2 ? 'bearish' : 'neutral'} tooltip={t('deviationTooltip')} />
+              <MetricCard title={t('positionTitle')} value={vwapLatest?.vwap_position ?? '--'} tooltip={t('positionTooltip')} />
             </div>
             {vwapChart.length > 0 ? (
               <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
                 <div className="flex items-center gap-2 mb-2">
-                  <h3 className="zg-h3" style={{ color: textColor }}>VWAP vs. underlying price</h3>
-                  <TooltipWrapper text="VWAP (yellow dashed) and underlying price (white) for the current session, sourced from the unified technicals API. The shaded channel widens as price diverges from VWAP — green when above, red when below."><Info size={14} /></TooltipWrapper>
+                  <h3 className="zg-h3" style={{ color: textColor }}>{t('vwapChartTitle')}</h3>
+                  <TooltipWrapper text={t('vwapChartTooltip')}><Info size={14} /></TooltipWrapper>
                 </div>
                 <MobileScrollableChart>
                   <ResponsiveContainer width="100%" height={320}>
@@ -409,9 +412,9 @@ export default function IntradayToolsPage() {
                           return (
                             <div style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', color: 'var(--color-chart-tooltip-text)' }} className="rounded-lg border px-3 py-2 text-sm">
                               <div className="font-semibold mb-1">{labelStr}</div>
-                              <div>Price: {point.price != null ? `$${point.price.toFixed(2)}` : '--'}</div>
-                              <div>VWAP: {point.vwap != null ? `$${point.vwap.toFixed(2)}` : '--'}</div>
-                              <div style={{ color: devColor }}>Deviation: {point.deviationPct != null ? `${point.deviationPct >= 0 ? '+' : ''}${point.deviationPct.toFixed(2)}%` : '--'}</div>
+                              <div>{t('priceLabel')} {point.price != null ? `$${point.price.toFixed(2)}` : '--'}</div>
+                              <div>{t('vwapLabel')} {point.vwap != null ? `$${point.vwap.toFixed(2)}` : '--'}</div>
+                              <div style={{ color: devColor }}>{t('deviationLabel')} {point.deviationPct != null ? `${point.deviationPct >= 0 ? '+' : ''}${point.deviationPct.toFixed(2)}%` : '--'}</div>
                             </div>
                           );
                         }}
@@ -430,22 +433,22 @@ export default function IntradayToolsPage() {
       </section>
 
       <section className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4">Opening Range Breakout</h2>
+        <h2 className="text-2xl font-semibold mb-4">{t('orbHeading')}</h2>
         {showInitialLoading ? (
           <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
             <LoadingSpinner />
           </div>
         ) : !hasOrb || latest?.close == null ? (
           <div className="rounded-lg p-6 text-center" style={{ backgroundColor: cardBg, color: mutedText }}>
-            No ORB data available (market may be closed)
+            {t('noOrbData')}
           </div>
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-              <MetricCard title="Current Price" value={`$${fmtFixed(latest?.close)}`} tooltip="Current market price" />
-              <MetricCard title="ORB High" value={`$${fmtFixed(orbLatest?.orb_high)}`} subtitle={`+${fmtFixed(orbLatest?.distance_above_orb_high)}`} tooltip="Opening range high" />
-              <MetricCard title="ORB Low" value={`$${fmtFixed(orbLatest?.orb_low)}`} subtitle={`-${fmtFixed(orbLatest?.distance_below_orb_low)}`} tooltip="Opening range low" />
-              <MetricCard title="ORB Range" value={`$${fmtFixed(orbLatest?.orb_range)}`} tooltip="Opening range size" />
+              <MetricCard title={t('currentPriceTitle')} value={`$${fmtFixed(latest?.close)}`} tooltip={t('currentPriceTooltip')} />
+              <MetricCard title={t('orbHighTitle')} value={`$${fmtFixed(orbLatest?.orb_high)}`} subtitle={`+${fmtFixed(orbLatest?.distance_above_orb_high)}`} tooltip={t('orbHighTooltip')} />
+              <MetricCard title={t('orbLowTitle')} value={`$${fmtFixed(orbLatest?.orb_low)}`} subtitle={`-${fmtFixed(orbLatest?.distance_below_orb_low)}`} tooltip={t('orbLowTooltip')} />
+              <MetricCard title={t('orbRangeTitle')} value={`$${fmtFixed(orbLatest?.orb_range)}`} tooltip={t('orbRangeTooltip')} />
             </div>
             <div className="rounded-lg p-6 mb-4" style={{ backgroundColor: cardBg }}>
               {(() => {
@@ -466,13 +469,13 @@ export default function IntradayToolsPage() {
                 return (
                   <div>
                     <div className="flex items-baseline justify-between mb-3">
-                      <h3 className="zg-h3" style={{ color: textColor }}>Position Within Range</h3>
+                      <h3 className="zg-h3" style={{ color: textColor }}>{t('positionWithinRangeTitle')}</h3>
                       <div className="text-sm" style={{ color: statusColor, fontWeight: 600 }}>{status}</div>
                     </div>
                     <div className="flex items-center justify-between text-[10px] uppercase tracking-wider mb-2" style={{ color: mutedText }}>
-                      <span>Below Range</span>
-                      <span>Inside Range</span>
-                      <span>Above Range</span>
+                      <span>{t('belowRange')}</span>
+                      <span>{t('insideRange')}</span>
+                      <span>{t('aboveRange')}</span>
                     </div>
                     <div
                       className="relative h-5 rounded-full overflow-visible"
@@ -501,8 +504,8 @@ export default function IntradayToolsPage() {
             {orbChart.length > 0 ? (
               <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
                 <div className="flex items-center gap-2 mb-2">
-                  <h3 className="zg-h3" style={{ color: textColor }}>ORB breakout map</h3>
-                  <TooltipWrapper text="30-minute opening range (09:30–09:59 ET). The green line is the ORB High and the red line is the ORB Low, both computed from that first 30 minutes of the regular session and then held flat for the rest of the day. The yellow band is the live opening range, and the white line is the underlying price."><Info size={14} /></TooltipWrapper>
+                  <h3 className="zg-h3" style={{ color: textColor }}>{t('orbBreakoutMapTitle')}</h3>
+                  <TooltipWrapper text={t('orbBreakoutMapTooltip')}><Info size={14} /></TooltipWrapper>
                 </div>
                 <MobileScrollableChart>
                   <ResponsiveContainer width="100%" height={320}>
@@ -526,16 +529,16 @@ export default function IntradayToolsPage() {
                           const distLow = point.price != null && point.orbLow != null ? point.price - point.orbLow : null;
                           const zone = point.price == null || point.orbHigh == null || point.orbLow == null
                             ? null
-                            : point.price > point.orbHigh ? 'Above ORB High' : point.price < point.orbLow ? 'Below ORB Low' : 'Inside ORB Range';
-                          const zoneColor = zone === 'Above ORB High' ? 'var(--color-bull)' : zone === 'Below ORB Low' ? 'var(--color-bear)' : 'var(--color-warning)';
+                            : point.price > point.orbHigh ? t('aboveOrbHigh') : point.price < point.orbLow ? t('belowOrbLow') : t('insideOrbRange');
+                          const zoneColor = zone === t('aboveOrbHigh') ? 'var(--color-bull)' : zone === t('belowOrbLow') ? 'var(--color-bear)' : 'var(--color-warning)';
                           return (
                             <div style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', color: 'var(--color-chart-tooltip-text)' }} className="rounded-lg border px-3 py-2 text-sm">
                               <div className="font-semibold mb-1">{labelStr}</div>
-                              <div>Price: {point.price != null ? `$${point.price.toFixed(2)}` : '--'}</div>
-                              <div>ORB High: {point.orbHigh != null ? `$${point.orbHigh.toFixed(2)}` : '--'}</div>
-                              <div>ORB Low: {point.orbLow != null ? `$${point.orbLow.toFixed(2)}` : '--'}</div>
-                              {distHigh != null ? <div>vs High: {distHigh >= 0 ? '+' : ''}${'$'}{distHigh.toFixed(2)}</div> : null}
-                              {distLow != null ? <div>vs Low: {distLow >= 0 ? '+' : ''}${'$'}{distLow.toFixed(2)}</div> : null}
+                              <div>{t('priceLabel')} {point.price != null ? `$${point.price.toFixed(2)}` : '--'}</div>
+                              <div>{t('orbHighLabel')} {point.orbHigh != null ? `$${point.orbHigh.toFixed(2)}` : '--'}</div>
+                              <div>{t('orbLowLabel')} {point.orbLow != null ? `$${point.orbLow.toFixed(2)}` : '--'}</div>
+                              {distHigh != null ? <div>{t('vsHighLabel')} {distHigh >= 0 ? '+' : ''}${'$'}{distHigh.toFixed(2)}</div> : null}
+                              {distLow != null ? <div>{t('vsLowLabel')} {distLow >= 0 ? '+' : ''}${'$'}{distLow.toFixed(2)}</div> : null}
                               {zone ? <div style={{ color: zoneColor }}>{zone}</div> : null}
                             </div>
                           );
@@ -561,20 +564,20 @@ export default function IntradayToolsPage() {
       </section>
 
       <section className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4">Unusual Volume Spikes</h2>
+        <h2 className="text-2xl font-semibold mb-4">{t('volumeSpikesHeading')}</h2>
         {showInitialLoading ? (
           <div className="rounded-lg p-6 text-center" style={{ backgroundColor: cardBg, color: mutedText }}>
-            Loading volume spikes...
+            {t('loadingVolumeSpikes')}
           </div>
         ) : volumeSpikesChart.length === 0 ? (
           <div className="rounded-lg p-6 text-center" style={{ backgroundColor: cardBg, color: mutedText }}>
-            No unusual volume detected
+            {t('noVolumeSpikes')}
           </div>
         ) : (
           <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
             <div className="flex items-center gap-2 mb-2">
-              <h3 className="zg-h3" style={{ color: textColor }}>Volume spikes vs. underlying price</h3>
-              <TooltipWrapper text="Bars show spike volume by minute (taller = larger spike). Bar color shades from bright red (all down-volume) through neutral (balanced) to bright green (all up-volume). The yellow line overlays the underlying price on the right axis. Hover any bar for full detail."><Info size={14} /></TooltipWrapper>
+              <h3 className="zg-h3" style={{ color: textColor }}>{t('volumeSpikesChartTitle')}</h3>
+              <TooltipWrapper text={t('volumeSpikesChartTooltip')}><Info size={14} /></TooltipWrapper>
             </div>
             <MobileScrollableChart>
               <ResponsiveContainer width="100%" height={320}>
@@ -610,16 +613,16 @@ export default function IntradayToolsPage() {
                           <div className="font-semibold mb-1">{labelStr}</div>
                           {hasSpike ? (
                             <>
-                              <div>Volume: {point.volumeRaw!.toLocaleString()}</div>
-                              {point.upVolume != null ? <div>Up Volume: {point.upVolume.toLocaleString()}</div> : null}
-                              {point.downVolume != null ? <div>Down Volume: {point.downVolume.toLocaleString()}</div> : null}
-                              {point.volumeRatio != null ? <div>Ratio: {point.volumeRatio.toFixed(1)}x avg</div> : null}
-                              {point.volumeSigma != null ? <div>Sigma: {point.volumeSigma.toFixed(1)}σ</div> : null}
-                              {point.volumeClass ? <div>Class: {point.volumeClass}</div> : null}
-                              {point.buyingPressurePct != null ? <div>Buying Pressure: {point.buyingPressurePct.toFixed(1)}%</div> : null}
+                              <div>{t('volumeLabel')} {point.volumeRaw!.toLocaleString()}</div>
+                              {point.upVolume != null ? <div>{t('upVolumeLabel')} {point.upVolume.toLocaleString()}</div> : null}
+                              {point.downVolume != null ? <div>{t('downVolumeLabel')} {point.downVolume.toLocaleString()}</div> : null}
+                              {point.volumeRatio != null ? <div>{t('ratioLabel')} {point.volumeRatio.toFixed(1)}{t('ratioAvgSuffix')}</div> : null}
+                              {point.volumeSigma != null ? <div>{t('sigmaLabel')} {point.volumeSigma.toFixed(1)}σ</div> : null}
+                              {point.volumeClass ? <div>{t('classLabel')} {point.volumeClass}</div> : null}
+                              {point.buyingPressurePct != null ? <div>{t('buyingPressureLabel')} {point.buyingPressurePct.toFixed(1)}%</div> : null}
                             </>
                           ) : (
-                            <div style={{ color: mutedText }}>No spike at this minute</div>
+                            <div style={{ color: mutedText }}>{t('noSpikeAtMinute')}</div>
                           )}
                         </div>
                       );
@@ -646,13 +649,13 @@ export default function IntradayToolsPage() {
       </section>
 
       <section className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4">Momentum Divergence Signals</h2>
+        <h2 className="text-2xl font-semibold mb-4">{t('momentumDivergenceHeading')}</h2>
         {showInitialLoading ? (
           <div className="rounded-lg p-6 text-center" style={{ backgroundColor: cardBg, color: mutedText }}>
-            Loading divergence signals...
+            {t('loadingDivergenceSignals')}
           </div>
         ) : divergenceRows.length === 0 ? (
-          <div className="rounded-lg p-6 text-center" style={{ backgroundColor: cardBg, color: mutedText }}>No divergence signals</div>
+          <div className="rounded-lg p-6 text-center" style={{ backgroundColor: cardBg, color: mutedText }}>{t('noDivergenceSignals')}</div>
         ) : (
           <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
             <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
@@ -672,7 +675,7 @@ export default function IntradayToolsPage() {
                         {divergenceSignal}
                       </div>
                     </div>
-                    <div className="text-sm" style={{ color: mutedText }}>Price: ${price.toFixed(2)}</div>
+                    <div className="text-sm" style={{ color: mutedText }}>{t('priceLabel')} ${price.toFixed(2)}</div>
                   </div>
                 );
               })}

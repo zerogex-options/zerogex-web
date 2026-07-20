@@ -1,6 +1,8 @@
 'use client';
 
 import { SignalTrend } from '@/core/signalHelpers';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './BiasTape.i18n';
 
 // The signed bias on one scale: -100 (bearish, left) → 0 (neutral, center) →
 // +100 (bullish, right). A single number instead of six labels; the marker
@@ -12,6 +14,7 @@ export default function BiasTape({
   biasScore: number | null;
   trend: SignalTrend;
 }) {
+  const t = usePageT(dict);
   const clamped = biasScore == null ? null : Math.max(-100, Math.min(100, biasScore));
   const leftPct = clamped == null ? 50 : ((clamped + 100) / 200) * 100;
   const markerColor =
@@ -33,8 +36,8 @@ export default function BiasTape({
         role="img"
         aria-label={
           clamped == null
-            ? 'Bias unavailable'
-            : `Bias ${clamped >= 0 ? '+' : ''}${clamped.toFixed(0)} of 100`
+            ? t('biasUnavailable')
+            : t('biasValue', { value: `${clamped >= 0 ? '+' : ''}${clamped.toFixed(0)}` })
         }
       >
         {/* center (neutral) line */}
@@ -57,9 +60,9 @@ export default function BiasTape({
         )}
       </div>
       <div className="mt-1.5 flex justify-between text-[11px] font-mono text-[var(--color-text-secondary)]" style={{ fontVariantNumeric: 'tabular-nums' }}>
-        <span>−100 · Bearish</span>
-        <span>0 · Neutral</span>
-        <span>+100 · Bullish</span>
+        <span>−100 · {t('bearish')}</span>
+        <span>0 · {t('neutral')}</span>
+        <span>+100 · {t('bullish')}</span>
       </div>
     </div>
   );

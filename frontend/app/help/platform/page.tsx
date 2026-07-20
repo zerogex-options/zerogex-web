@@ -13,6 +13,8 @@ import {
   Sparkles,
   Compass,
 } from 'lucide-react';
+import { getServerT } from '@/core/localizedContent';
+import { dict } from './page.i18n';
 
 export const metadata = {
   title: 'ZeroGEX Platform Guide: Feature-by-Feature Walkthroughs',
@@ -277,23 +279,22 @@ const sections: Section[] = [
   },
 ];
 
-export default function PlatformGuidePage() {
+export default async function PlatformGuidePage() {
+  const t = await getServerT(dict);
   return (
     <div className="mx-auto max-w-4xl px-6 py-12">
       <Link href="/help" className="mb-8 inline-block text-sm font-semibold text-[var(--color-warning)] hover:text-[var(--heat-low)]">
-        ← Back to Help Center
+        {t('backToHelp')}
       </Link>
 
       <div className="zg-feature-shell mb-10 p-8">
         <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">
           <BookOpenCheck size={14} />
-          Platform Guide
+          {t('badge')}
         </div>
-        <h1 className="mb-3 text-3xl font-bold text-[var(--color-text-primary)]">Platform Guide</h1>
+        <h1 className="mb-3 text-3xl font-bold text-[var(--color-text-primary)]">{t('heading')}</h1>
         <p className="max-w-2xl text-sm leading-7 text-[var(--color-text-secondary)]">
-          Feature-by-feature walkthroughs of every page on the platform. Start at the top if you&apos;re
-          new — the order roughly mirrors how a working day flows on ZeroGEX. Already know what you
-          need? Skip straight to the right section.
+          {t('intro')}
         </p>
       </div>
 
@@ -330,7 +331,7 @@ export default function PlatformGuidePage() {
                       />
                     </div>
                     <span className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-warning)] transition group-hover:text-[var(--heat-low)] sm:pt-1">
-                      Read
+                      {t('readLabel')}
                       <ArrowRight size={14} />
                     </span>
                   </Link>

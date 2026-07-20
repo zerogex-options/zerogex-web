@@ -10,6 +10,7 @@
  */
 
 import { useMemo } from 'react';
+import { usePageT } from '@/core/LanguageContext';
 import { LeaderboardSkeleton } from './Skeleton';
 import Sparkline from './Sparkline';
 import EmptyState from './EmptyState';
@@ -17,6 +18,7 @@ import FollowControl from './FollowControl';
 import { botColor, botColorSoft } from './palette';
 import { fmtMoney, fmtPct, fmtSignedPct, toneVar } from './format';
 import type { BotEquityBundle, LeaderboardResponse, BotRow } from './types';
+import { dict } from './LeaderboardTable.i18n';
 
 interface Props {
   data: LeaderboardResponse | null;
@@ -43,6 +45,7 @@ export default function LeaderboardTable({
   onFollowChanged,
   onOptimisticFollow,
 }: Props) {
+  const t = usePageT(dict);
   const rows = useMemo(() => data?.leaderboard ?? [], [data]);
   // Palette index is fixed by the FULL roster order (not the leaderboard
   // ordering) so a bot keeps its color across period toggles.
@@ -55,7 +58,7 @@ export default function LeaderboardTable({
   if (error && !data) {
     return (
       <EmptyState
-        title="Leaderboard unavailable"
+        title={t('unavailableTitle')}
         description={error}
       />
     );
@@ -63,8 +66,8 @@ export default function LeaderboardTable({
   if (rows.length === 0) {
     return (
       <EmptyState
-        title="No trades yet in this window"
-        description="The leaderboard populates as bots close round-trip trades. Change the period above or seed demo data to explore the shape."
+        title={t('emptyTitle')}
+        description={t('emptyDescription')}
       />
     );
   }
@@ -84,15 +87,15 @@ export default function LeaderboardTable({
               className="border-b"
               style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)' }}
             >
-              <Th className="pl-5 w-14">Rank</Th>
-              <Th>Bot</Th>
-              <Th className="w-32 hidden md:table-cell">Trend (30d)</Th>
-              <Th align="right" className="hidden md:table-cell">Trades</Th>
-              <Th align="right">Win %</Th>
-              <Th align="right">Avg %</Th>
-              <Th align="right">P&amp;L</Th>
-              <Th align="right">Return</Th>
-              <Th align="right" className="pr-5 w-14">Follow</Th>
+              <Th className="pl-5 w-14">{t('colRank')}</Th>
+              <Th>{t('colBot')}</Th>
+              <Th className="w-32 hidden md:table-cell">{t('colTrend')}</Th>
+              <Th align="right" className="hidden md:table-cell">{t('colTrades')}</Th>
+              <Th align="right">{t('colWinPct')}</Th>
+              <Th align="right">{t('colAvgPct')}</Th>
+              <Th align="right">{t('colPnl')}</Th>
+              <Th align="right">{t('colReturn')}</Th>
+              <Th align="right" className="pr-5 w-14">{t('colFollow')}</Th>
             </tr>
           </thead>
           <tbody>
@@ -153,7 +156,7 @@ export default function LeaderboardTable({
                       baseline={sparkPoints[0]}
                       width={96}
                       height={28}
-                      ariaLabel={`${row.display_name} 30-day equity curve`}
+                      ariaLabel={t('sparklineAriaLabel', { name: row.display_name })}
                     />
                   </td>
                   <td className="py-3 text-right tabular-nums text-[var(--color-text-primary)] hidden md:table-cell">

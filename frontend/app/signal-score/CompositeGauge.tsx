@@ -2,6 +2,8 @@
 
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { REGIME_BANDS, classifyRegime } from '@/core/regime';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './CompositeGauge.i18n';
 
 interface CompositeGaugeProps {
   score: number | null;
@@ -20,6 +22,7 @@ const TICKS = [
 ];
 
 function CompositeGaugeImpl({ score, size = 320 }: CompositeGaugeProps) {
+  const t = usePageT(dict);
   const strokeWidth = Math.max(16, Math.round(size * 0.06));
   const tickPadding = 22;
   const radius = size / 2 - strokeWidth / 2 - tickPadding;
@@ -109,8 +112,8 @@ function CompositeGaugeImpl({ score, size = 320 }: CompositeGaugeProps) {
       role="img"
       aria-label={
         safeScore != null
-          ? `Composite score ${safeScore.toFixed(2)} of 100. Regime: ${regime.label}.`
-          : 'Composite score unavailable.'
+          ? t('ariaScore', { score: safeScore.toFixed(2), regime: regime.label })
+          : t('ariaUnavailable')
       }
     >
       <svg
@@ -166,7 +169,7 @@ function CompositeGaugeImpl({ score, size = 320 }: CompositeGaugeProps) {
                 dominantBaseline="middle"
                 style={{ fontVariantNumeric: 'tabular-nums' }}
               >
-                {tick.value === 50 ? 'Neutral' : tick.value}
+                {tick.value === 50 ? t('neutral') : tick.value}
               </text>
             </g>
           );

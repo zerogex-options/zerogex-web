@@ -6,6 +6,8 @@ import { ArrowRight, X } from 'lucide-react';
 import { capture } from '@/core/telemetry/posthog-client';
 import { TelemetryEvent } from '@/core/telemetry/events';
 import { readUtmParams } from '@/core/telemetry/utm';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './StickyTrialBar.i18n';
 
 // Requirement #3 — a sticky bottom CTA bar that keeps the next action obvious
 // without being intrusive. It:
@@ -24,6 +26,7 @@ import { readUtmParams } from '@/core/telemetry/utm';
 const DISMISS_KEY = 'zgx.stickyTrialDismissed';
 
 export default function StickyTrialBar({ symbol }: { symbol: string }) {
+  const t = usePageT(dict);
   // Starts hidden; only ever renders after the sentinel scrolls out of view, so
   // nothing paints during SSR/first paint and there's no flash.
   const [visible, setVisible] = useState(false);
@@ -77,7 +80,7 @@ export default function StickyTrialBar({ symbol }: { symbol: string }) {
       {visible && (
     <div
       role="region"
-      aria-label="Start free trial"
+      aria-label={t('regionLabel')}
       className="zgx-sticky-trial"
       style={{
         position: 'fixed',
@@ -105,9 +108,9 @@ export default function StickyTrialBar({ symbol }: { symbol: string }) {
           color: 'var(--color-text-primary)',
         }}
       >
-        Live SPX/SPY/QQQ gamma levels{' '}
+        {t('message')}{' '}
         <span style={{ color: 'var(--color-text-secondary)', fontWeight: 500 }}>
-          &mdash; delayed here, real-time inside ZeroGEX
+          {t('messageSuffix')}
         </span>
       </p>
 
@@ -122,13 +125,13 @@ export default function StickyTrialBar({ symbol }: { symbol: string }) {
           whiteSpace: 'nowrap',
         }}
       >
-        Start Free Trial <ArrowRight size={15} />
+        {t('ctaLabel')} <ArrowRight size={15} />
       </Link>
 
       <button
         type="button"
         onClick={handleDismiss}
-        aria-label="Dismiss"
+        aria-label={t('dismissLabel')}
         style={{
           flexShrink: 0,
           width: 32,

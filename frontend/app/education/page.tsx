@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { ArrowRight, BookOpen, Newspaper, GraduationCap, LifeBuoy } from 'lucide-react';
+import { getServerT } from '@/core/localizedContent';
+import { dict } from './page.i18n';
 
 export const metadata = {
   title: 'Options Gamma Education: GEX, Gamma Flip, Call Walls & 0DTE Dealer Positioning',
@@ -35,26 +37,25 @@ const sections = [
   },
 ];
 
-export default function EducationHubPage() {
+export default async function EducationHubPage() {
+  const t = await getServerT(dict);
   return (
     <div className="mx-auto max-w-4xl px-6 py-14">
       <div className="zg-feature-shell mb-10 p-8">
         <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">
           <BookOpen size={14} />
-          Education
+          {t('badge')}
         </div>
         <h1 className="mb-3 text-3xl font-bold text-[var(--color-text-primary)]">
-          Options Gamma Education Hub
+          {t('heroTitle')}
         </h1>
         <p className="max-w-2xl text-sm leading-7 text-[var(--color-text-secondary)]">
-          Practical options market-structure education — gamma exposure (GEX), the gamma flip, call
-          walls, put walls, and 0DTE dealer positioning. Browse in-depth articles, reference guides,
-          and product help, then check{' '}
+          {t('heroDescription')}{' '}
           <Link
             href="/spx-gamma-levels"
             className="font-semibold text-[var(--color-warning)] underline-offset-2 hover:underline"
           >
-            today’s live SPX / SPY / QQQ gamma levels
+            {t('heroLinkText')}
           </Link>
           .
         </p>
@@ -76,13 +77,13 @@ export default function EducationHubPage() {
                 <h2 className="text-xl font-semibold text-[var(--color-text-primary)]">{section.title}</h2>
                 {!section.available && (
                   <span className="rounded-full border border-[var(--color-border)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-secondary)]">
-                    Under construction
+                    {t('underConstruction')}
                   </span>
                 )}
               </div>
               <p className="mb-5 flex-1 text-sm leading-7 text-[var(--color-text-secondary)]">{section.description}</p>
               <span className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-warning)] transition group-hover:text-[var(--heat-low)]">
-                {section.available ? 'Explore' : 'Preview'}
+                {section.available ? t('explore') : t('preview')}
                 <ArrowRight size={16} />
               </span>
             </Link>

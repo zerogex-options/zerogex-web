@@ -22,17 +22,20 @@ import {
 } from '@/core/signalHelpers';
 import { spectrumIndicatorLeft } from '@/core/spectrumIndicator';
 import AutoFitValue from '@/components/AutoFitValue';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './page.i18n';
 
-function interpretation(score: number | null): string {
-  if (score == null) return 'No reading';
-  if (score >= 60) return 'Dealers deeply short delta — chase risk';
-  if (score >= 25) return 'Dealers net short delta (bullish bias)';
-  if (score <= -60) return 'Dealers deeply long — rallies sold';
-  if (score <= -25) return 'Dealers net long delta (bearish bias)';
-  return 'Balanced dealer delta';
+function interpretation(score: number | null, t: (key: string) => string): string {
+  if (score == null) return t('noReading');
+  if (score >= 60) return t('deepShort');
+  if (score >= 25) return t('netShort');
+  if (score <= -60) return t('deepLong');
+  if (score <= -25) return t('netLong');
+  return t('balanced');
 }
 
 export default function DealerDeltaPressurePage() {
+  const t = usePageT(dict);
   const { symbol } = useTimeframe();
   const { data, loading, error, refetch } = useDealerDeltaPressureSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.dealerDeltaPressureMs);
 
@@ -51,10 +54,10 @@ export default function DealerDeltaPressurePage() {
   return (
     <PageShell>
       <SignalPageTitle
-        title="Dealer Delta Pressure"
-        subtitle={'"Are dealers forced to chase this move?"'}
+        title={t('title')}
+        subtitle={t('subtitle')}
         icon={Compass}
-        tooltip="Estimates dealers' aggregate net-delta position. Score is inverted: positive = dealers short delta = mechanical buying on rallies (bullish). Delta flow leads gamma exposure by minutes, so this is the closest thing to a leading indicator for 0DTE regimes."
+        tooltip={t('tooltip')}
       />
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
@@ -65,7 +68,7 @@ export default function DealerDeltaPressurePage() {
             <SignalScoreHero
               score={score}
               trend={trend}
-              interpretation={interpretation(score)}
+              interpretation={interpretation(score, t)}
               history={history}
             />
           </div>
@@ -73,34 +76,34 @@ export default function DealerDeltaPressurePage() {
           <div className="lg:col-span-3 space-y-4">
             <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
               <div className="flex items-center justify-between text-sm font-semibold mb-3">
-                <span>Dealer Delta Pressure</span>
+                <span>{t('gaugeLabel')}</span>
                 <span className="text-[10px] font-mono text-[var(--color-text-secondary)]">−100 to +100</span>
               </div>
               <div className="relative h-6 rounded-full" style={{ background: 'linear-gradient(90deg, var(--color-bear) 0%, var(--color-bear-soft) 35%, var(--color-surface) 50%, var(--color-bull-soft) 65%, var(--color-bull) 100%)' }}>
                 <div className="absolute top-0 h-6 w-1 bg-[var(--color-text-primary)]" style={{ left: spectrumIndicatorLeft(needlePct, 24, 4), transform: 'translateX(-50%)' }} />
               </div>
               <div className="mt-1.5 flex justify-between text-[10px] text-[var(--color-text-secondary)]">
-                <span>Dealers long → bearish</span>
-                <span>Neutral</span>
-                <span>Dealers short → bullish</span>
+                <span>{t('dealersLongBearish')}</span>
+                <span>{t('neutral')}</span>
+                <span>{t('dealersShortBullish')}</span>
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
-                <div className="text-sm font-semibold mb-1">Dealer net delta (est.)</div>
+                <div className="text-sm font-semibold mb-1">{t('dealerNetDeltaLabel')}</div>
                 <AutoFitValue className="text-2xl sm:text-3xl font-black" style={{ color: (dealerNetDelta ?? 0) < 0 ? 'var(--color-bull)' : 'var(--color-bear)' }}>
                   {formatGexCompact(dealerNetDelta)}
                 </AutoFitValue>
                 <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
-                  Shares-equivalent. Negative = dealer short delta (bullish for price).
+                  {t('dealerNetDeltaHelp')}
                 </p>
               </div>
               <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
-                <div className="text-sm font-semibold mb-1">DNI normalized</div>
+                <div className="text-sm font-semibold mb-1">{t('dniNormalizedLabel')}</div>
                 <AutoFitValue className="text-2xl sm:text-3xl font-black">{formatSigned(dniNormalized, 3)}</AutoFitValue>
                 <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
-                  value / DNI_NORM (default $3e8). Sign is opposite the score.
+                  {t('dniNormalizedHelp')}
                 </p>
               </div>
             </div>
@@ -109,13 +112,13 @@ export default function DealerDeltaPressurePage() {
       </section>
 
       <SignalHowItsBuilt
-        caveat={<>When this disagrees with GEX Gradient (structural view), trust Dealer Delta Pressure on a shorter (≤ 30m) horizon.</>}
+        caveat={<>{t('caveat')}</>}
       >
-        <div>Three data paths in priority order: Dealer Net Delta field → GEX-by-Strike Delta OI sum → distance-proxy fallback.</div>
+        <div>{t('howItsBuiltDesc')}</div>
         <div><code>Score = −clip(DNI / DNI Norm, [−1, 1]) × 100</code> (DNI Norm default $3e8).</div>
       </SignalHowItsBuilt>
 
-      <SignalEventsPanel signalName="dealer_delta_pressure" symbol={symbol} title="Event Timeline" />
+      <SignalEventsPanel signalName="dealer_delta_pressure" symbol={symbol} title={t('eventTimeline')} />
     </PageShell>
   );
 }

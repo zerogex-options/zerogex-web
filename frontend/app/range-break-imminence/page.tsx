@@ -23,20 +23,23 @@ import {
   formatPrice,
   formatGexCompact,
 } from '@/core/signalHelpers';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './page.i18n';
 
 const FADE_COLOR = 'var(--color-warning)';
 const BULL_COLOR = 'var(--color-bull)';
 const BEAR_COLOR = 'var(--color-bear)';
 
-function bandFromImminence(imminence: number | null): { name: string; threshold: number } {
+function bandFromImminence(imminence: number | null, t: (key: string) => string): { name: string; threshold: number } {
   if (imminence == null) return { name: '—', threshold: 0 };
-  if (imminence >= 80) return { name: 'Breakout Mode', threshold: 80 };
-  if (imminence >= 65) return { name: 'Break Watch', threshold: 65 };
-  if (imminence >= 40) return { name: 'Weak Range', threshold: 40 };
-  return { name: 'Range Fade', threshold: 0 };
+  if (imminence >= 80) return { name: t('bandBreakoutMode'), threshold: 80 };
+  if (imminence >= 65) return { name: t('bandBreakWatch'), threshold: 65 };
+  if (imminence >= 40) return { name: t('bandWeakRange'), threshold: 40 };
+  return { name: t('bandRangeFade'), threshold: 0 };
 }
 
 export default function RangeBreakImminencePage() {
+  const t = usePageT(dict);
   const { symbol } = useTimeframe();
   const { data, loading, error, refetch } = useRangeBreakImminenceSignal(
     symbol,
@@ -48,7 +51,7 @@ export default function RangeBreakImminencePage() {
   const imminence = getNumber(payload.imminence);
   const bias = getNumber(payload.bias);
   const signalStr = String(payload.signal ?? 'neutral');
-  const label = String(payload.label ?? bandFromImminence(imminence).name);
+  const label = String(payload.label ?? bandFromImminence(imminence, t).name);
   const playbook = typeof payload.playbook === 'string' ? payload.playbook : '';
   const triggered = payload.triggered === true || (imminence != null && imminence >= 65);
   const directionRaw = String(payload.direction ?? 'neutral').toLowerCase();
@@ -111,19 +114,19 @@ export default function RangeBreakImminencePage() {
   if (loading && !data) return <LoadingSpinner size="lg" />;
 
   const subScores: Array<{ key: string; label: string; magnitude: number | null; weight: number; signed: number | null; color: string }> = [
-    { key: 'skew', label: 'Skew extreme', magnitude: ctx.skew.magnitude, weight: ctx.weights.skew, signed: ctx.skew.signed, color: '#6EA8FE' },
-    { key: 'dealer', label: 'Dealer delta', magnitude: ctx.dealer.magnitude, weight: ctx.weights.dealer, signed: ctx.dealer.signed, color: '#C084FC' },
-    { key: 'trap', label: 'Trap', magnitude: ctx.trap.magnitude, weight: ctx.weights.trap, signed: ctx.trap.signed, color: BEAR_COLOR },
-    { key: 'compression', label: 'Compression', magnitude: ctx.compression.magnitude, weight: ctx.weights.compression, signed: null, color: BULL_COLOR },
+    { key: 'skew', label: t('subScoreSkewExtreme'), magnitude: ctx.skew.magnitude, weight: ctx.weights.skew, signed: ctx.skew.signed, color: '#6EA8FE' },
+    { key: 'dealer', label: t('subScoreDealerDelta'), magnitude: ctx.dealer.magnitude, weight: ctx.weights.dealer, signed: ctx.dealer.signed, color: '#C084FC' },
+    { key: 'trap', label: t('subScoreTrap'), magnitude: ctx.trap.magnitude, weight: ctx.weights.trap, signed: ctx.trap.signed, color: BEAR_COLOR },
+    { key: 'compression', label: t('subScoreCompression'), magnitude: ctx.compression.magnitude, weight: ctx.weights.compression, signed: null, color: BULL_COLOR },
   ];
 
   return (
     <PageShell>
       <SignalPageTitle
-        title="Range Break Imminence"
-        subtitle={'"Is this range about to break?"'}
+        title={t('title')}
+        subtitle={t('subtitle')}
         icon={Radio}
-        tooltip="Regime-switch detector between chop and breakout. Fuses IV skew (30%), dealer delta pressure (25%), trap detection (25%), and volatility compression (20%) into a 0–100 imminence score. Triggers at imminence ≥ 65. Standalone detector, not part of the MSI composite."
+        tooltip={t('tooltip')}
       />
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
@@ -146,7 +149,7 @@ export default function RangeBreakImminencePage() {
                     {humanize(signalStr)}
                   </span>
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border border-[var(--color-border)]">
-                    Imminence
+                    {t('metricImminence')}
                     <span className="font-mono ml-1" style={{ color: accentColor }}>
                       {imminence != null ? imminence.toFixed(1) : '—'}
                     </span>
@@ -163,19 +166,19 @@ export default function RangeBreakImminencePage() {
               style={{ borderColor: 'var(--color-border)' }}
             >
               <div className="flex items-center justify-between mb-3">
-                <div className="text-sm font-semibold flex items-center gap-2"><Layers size={14} /> Sub-score contributions</div>
+                <div className="text-sm font-semibold flex items-center gap-2"><Layers size={14} /> {t('subScoreContributionsTitle')}</div>
                 <div className="text-[11px] text-[var(--color-text-secondary)]">
-                  Imminence = weighted sum of absolute sub-scores
+                  {t('imminenceFormulaCaption')}
                 </div>
               </div>
               <div className="flex-1 flex flex-col">
                 <SubScoreBars rows={subScores} />
               </div>
               <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-                <MetricPill label="Score" value={score != null ? score.toFixed(1) : '—'} color={directionalColor} />
-                <MetricPill label="Imminence" value={imminence != null ? imminence.toFixed(1) : '—'} color={accentColor} />
-                <MetricPill label="Direction" value={directionRaw} color={directionalColor} capitalize />
-                <MetricPill label="Bias" value={bias != null ? bias.toFixed(2) : '—'} color="var(--color-text-primary)" />
+                <MetricPill label={t('metricScore')} value={score != null ? score.toFixed(1) : '—'} color={directionalColor} />
+                <MetricPill label={t('metricImminence')} value={imminence != null ? imminence.toFixed(1) : '—'} color={accentColor} />
+                <MetricPill label={t('metricDirection')} value={directionRaw} color={directionalColor} capitalize />
+                <MetricPill label={t('metricBias')} value={bias != null ? bias.toFixed(2) : '—'} color="var(--color-text-primary)" />
               </div>
             </div>
           </div>
@@ -183,51 +186,51 @@ export default function RangeBreakImminencePage() {
       </section>
 
       <section className="zg-feature-shell mt-8 p-6">
-        <h2 className="text-xl font-semibold mb-4">Input Breakdown</h2>
+        <h2 className="text-xl font-semibold mb-4">{t('inputBreakdownTitle')}</h2>
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-4 text-sm">
           <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-            <div className="font-semibold mb-2 flex items-center gap-2"><ArrowLeftRight size={16} /> Skew <span className="text-[10px] text-[var(--color-text-secondary)]">{ctx.weights.skew}%</span></div>
+            <div className="font-semibold mb-2 flex items-center gap-2"><ArrowLeftRight size={16} /> {t('cardSkewTitle')} <span className="text-[10px] text-[var(--color-text-secondary)]">{ctx.weights.skew}%</span></div>
             <div className="space-y-2 text-[var(--color-text-secondary)]">
-              <Row label="Signed" value={ctx.skew.signed != null ? ctx.skew.signed.toFixed(2) : '—'} />
-              <Row label="Magnitude" value={ctx.skew.magnitude != null ? ctx.skew.magnitude.toFixed(1) : '—'} />
-              <Row label="Spread" value={ctx.skew.spread != null ? ctx.skew.spread.toFixed(4) : '—'} />
-              <Row label="Deviation" value={ctx.skew.deviation != null ? ctx.skew.deviation.toFixed(4) : '—'} />
-              <Row label="OTM put IV" value={formatPct(ctx.skew.otmPutIv, 2, false)} />
-              <Row label="OTM call IV" value={formatPct(ctx.skew.otmCallIv, 2, false)} />
+              <Row label={t('rowSigned')} value={ctx.skew.signed != null ? ctx.skew.signed.toFixed(2) : '—'} />
+              <Row label={t('rowMagnitude')} value={ctx.skew.magnitude != null ? ctx.skew.magnitude.toFixed(1) : '—'} />
+              <Row label={t('rowSpread')} value={ctx.skew.spread != null ? ctx.skew.spread.toFixed(4) : '—'} />
+              <Row label={t('rowDeviation')} value={ctx.skew.deviation != null ? ctx.skew.deviation.toFixed(4) : '—'} />
+              <Row label={t('rowOtmPutIv')} value={formatPct(ctx.skew.otmPutIv, 2, false)} />
+              <Row label={t('rowOtmCallIv')} value={formatPct(ctx.skew.otmCallIv, 2, false)} />
             </div>
           </div>
           <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-            <div className="font-semibold mb-2 flex items-center gap-2"><Gauge size={16} /> Dealer <span className="text-[10px] text-[var(--color-text-secondary)]">{ctx.weights.dealer}%</span></div>
+            <div className="font-semibold mb-2 flex items-center gap-2"><Gauge size={16} /> {t('cardDealerTitle')} <span className="text-[10px] text-[var(--color-text-secondary)]">{ctx.weights.dealer}%</span></div>
             <div className="space-y-2 text-[var(--color-text-secondary)]">
-              <Row label="Signed" value={ctx.dealer.signed != null ? ctx.dealer.signed.toFixed(2) : '—'} />
-              <Row label="Magnitude" value={ctx.dealer.magnitude != null ? ctx.dealer.magnitude.toFixed(1) : '—'} />
-              <Row label="Dealer net Δ" value={formatGexCompact(ctx.dealer.dealerNetDelta)} />
+              <Row label={t('rowSigned')} value={ctx.dealer.signed != null ? ctx.dealer.signed.toFixed(2) : '—'} />
+              <Row label={t('rowMagnitude')} value={ctx.dealer.magnitude != null ? ctx.dealer.magnitude.toFixed(1) : '—'} />
+              <Row label={t('rowDealerNetDelta')} value={formatGexCompact(ctx.dealer.dealerNetDelta)} />
             </div>
           </div>
           <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-            <div className="font-semibold mb-2 flex items-center gap-2"><Radar size={16} /> Trap <span className="text-[10px] text-[var(--color-text-secondary)]">{ctx.weights.trap}%</span></div>
+            <div className="font-semibold mb-2 flex items-center gap-2"><Radar size={16} /> {t('cardTrapTitle')} <span className="text-[10px] text-[var(--color-text-secondary)]">{ctx.weights.trap}%</span></div>
             <div className="space-y-2 text-[var(--color-text-secondary)]">
-              <Row label="Side" value={<span className="capitalize">{ctx.trap.side}</span>} />
-              <Row label="Signed" value={ctx.trap.signed != null ? ctx.trap.signed.toFixed(2) : '—'} />
-              <Row label="Magnitude" value={ctx.trap.magnitude != null ? ctx.trap.magnitude.toFixed(1) : '—'} />
-              <Row label="Range high" value={formatPrice(ctx.trap.rangeHigh)} />
-              <Row label="Range low" value={formatPrice(ctx.trap.rangeLow)} />
-              <Row label="Near high" value={formatPct(ctx.trap.nearHighPct, 2, false)} />
-              <Row label="Near low" value={formatPct(ctx.trap.nearLowPct, 2, false)} />
-              <Row label="Put flow Δ" value={formatGexCompact(ctx.trap.putFlowDelta)} />
-              <Row label="Call flow Δ" value={formatGexCompact(ctx.trap.callFlowDelta)} />
+              <Row label={t('rowSide')} value={<span className="capitalize">{ctx.trap.side}</span>} />
+              <Row label={t('rowSigned')} value={ctx.trap.signed != null ? ctx.trap.signed.toFixed(2) : '—'} />
+              <Row label={t('rowMagnitude')} value={ctx.trap.magnitude != null ? ctx.trap.magnitude.toFixed(1) : '—'} />
+              <Row label={t('rowRangeHigh')} value={formatPrice(ctx.trap.rangeHigh)} />
+              <Row label={t('rowRangeLow')} value={formatPrice(ctx.trap.rangeLow)} />
+              <Row label={t('rowNearHigh')} value={formatPct(ctx.trap.nearHighPct, 2, false)} />
+              <Row label={t('rowNearLow')} value={formatPct(ctx.trap.nearLowPct, 2, false)} />
+              <Row label={t('rowPutFlowDelta')} value={formatGexCompact(ctx.trap.putFlowDelta)} />
+              <Row label={t('rowCallFlowDelta')} value={formatGexCompact(ctx.trap.callFlowDelta)} />
             </div>
           </div>
           <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-            <div className="font-semibold mb-2 flex items-center gap-2"><Compass size={16} /> Compression <span className="text-[10px] text-[var(--color-text-secondary)]">{ctx.weights.compression}%</span></div>
+            <div className="font-semibold mb-2 flex items-center gap-2"><Compass size={16} /> {t('cardCompressionTitle')} <span className="text-[10px] text-[var(--color-text-secondary)]">{ctx.weights.compression}%</span></div>
             <div className="space-y-2 text-[var(--color-text-secondary)]">
-              <Row label="Ratio (10/60)" value={ctx.compression.ratio != null ? ctx.compression.ratio.toFixed(3) : '—'} />
-              <Row label="Magnitude" value={ctx.compression.magnitude != null ? ctx.compression.magnitude.toFixed(1) : '—'} />
-              <Row label="Short σ" value={ctx.compression.shortSigma != null ? ctx.compression.shortSigma.toFixed(4) : '—'} />
-              <Row label="Long σ" value={ctx.compression.longSigma != null ? ctx.compression.longSigma.toFixed(4) : '—'} />
+              <Row label={t('rowRatio1060')} value={ctx.compression.ratio != null ? ctx.compression.ratio.toFixed(3) : '—'} />
+              <Row label={t('rowMagnitude')} value={ctx.compression.magnitude != null ? ctx.compression.magnitude.toFixed(1) : '—'} />
+              <Row label={t('rowShortSigma')} value={ctx.compression.shortSigma != null ? ctx.compression.shortSigma.toFixed(4) : '—'} />
+              <Row label={t('rowLongSigma')} value={ctx.compression.longSigma != null ? ctx.compression.longSigma.toFixed(4) : '—'} />
             </div>
             <p className="mt-3 pt-2 border-t border-[var(--color-border)]/40 text-[11px] text-[var(--color-text-secondary)]">
-              Directionless — adds magnitude only.
+              {t('compressionNote')}
             </p>
           </div>
         </div>
@@ -236,20 +239,18 @@ export default function RangeBreakImminencePage() {
       <SignalHowItsBuilt
         caveat={
           <>
-            <strong>Bands:</strong> 0–39 Range Fade · 40–64 Weak Range · 65–79 Break Watch · 80–100 Breakout Mode.
-            Triggers at imminence ≥ 65 — stop blindly fading and prepare retest trades.
+            <strong>{t('caveatBandsLabel')}</strong> 0–39 {t('bandRangeFade')} · 40–64 {t('bandWeakRange')} · 65–79 {t('bandBreakWatch')} · 80–100 {t('bandBreakoutMode')}.
+            {' '}{t('caveatTrigger')}
           </>
         }
       >
-        <div>Four sub-signals are computed independently as 0–100 magnitudes with optional signed direction:
-          IV skew (30%), dealer delta pressure (25%), trap detection (25%), volatility compression (20%, directionless).
-        </div>
+        <div>{t('howItsBuiltDesc')}</div>
         <div><code>Imminence = Σ (Magnitude<sub>i</sub> × Weight<sub>i</sub>) / 100</code> in 0–100.</div>
         <div><code>Bias = Σ (Signed<sub>i</sub> × Weight<sub>i</sub>) / 100</code> in [−1, +1] — drives the directional <code>Score</code>.</div>
         <div><code>Score = Imminence × Bias</code> (sign carried by Bias). Direction is derived from sign of Bias.</div>
       </SignalHowItsBuilt>
 
-      <SignalEventsPanel signalName="range_break_imminence" symbol={symbol} title="Event Timeline" />
+      <SignalEventsPanel signalName="range_break_imminence" symbol={symbol} title={t('eventTimeline')} />
     </PageShell>
   );
 }

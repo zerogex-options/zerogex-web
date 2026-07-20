@@ -6,6 +6,8 @@ import type { CSSProperties } from 'react';
 import { capture } from '@/core/telemetry/posthog-client';
 import { TelemetryEvent, type TelemetryEventName } from '@/core/telemetry/events';
 import { readUtmParams } from '@/core/telemetry/utm';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './TrialCtaButtons.i18n';
 
 // Shared, analytics-instrumented CTA buttons for the paid-traffic conversion
 // blocks on the free gamma-levels pages. Centralizing them keeps the trial
@@ -30,7 +32,7 @@ const secondaryStyle: CSSProperties = {
 };
 
 export function TrialButton({
-  label = 'Start 7-Day Free Trial',
+  label,
   location,
   symbol,
   event = TelemetryEvent.TrialCtaClick,
@@ -46,6 +48,8 @@ export function TrialButton({
   style?: CSSProperties;
   showArrow?: boolean;
 }) {
+  const t = usePageT(dict);
+  const resolvedLabel = label ?? t('startTrial');
   return (
     <Link
       href={TRIAL_HREF}
@@ -53,13 +57,13 @@ export function TrialButton({
       style={{ ...primaryStyle, ...style }}
       className="zg-btn zg-btn--primary"
     >
-      {label} {showArrow && <ArrowRight size={16} />}
+      {resolvedLabel} {showArrow && <ArrowRight size={16} />}
     </Link>
   );
 }
 
 export function ComparePlansButton({
-  label = 'Compare Plans',
+  label,
   location,
   symbol,
   style,
@@ -69,6 +73,8 @@ export function ComparePlansButton({
   symbol: string;
   style?: CSSProperties;
 }) {
+  const t = usePageT(dict);
+  const resolvedLabel = label ?? t('comparePlans');
   return (
     <Link
       href={PRICING_HREF}
@@ -76,7 +82,7 @@ export function ComparePlansButton({
       style={{ ...secondaryStyle, ...style }}
       className="zg-btn zg-btn--secondary"
     >
-      {label}
+      {resolvedLabel}
     </Link>
   );
 }

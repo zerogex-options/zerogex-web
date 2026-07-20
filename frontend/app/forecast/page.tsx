@@ -4,6 +4,10 @@ import Link from 'next/link';
 import { serverApiGet } from '@/core/api/serverFetch';
 import SymbolPicker from '@/components/SymbolPicker';
 import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
+import { getServerT } from '@/core/localizedContent';
+import { dict } from './page.i18n';
+
+type ServerT = (key: string, vars?: Record<string, string | number>) => string;
 
 // Landing page for /forecast — lists every trading day the writer has
 // committed a daily_forecast row for, links to /forecast/[date]. Mirrors
@@ -59,23 +63,27 @@ function formatHumanDate(raw: string): string {
   }
 }
 
-function humanizeRegime(raw: string | null): string {
-  if (!raw) return 'Unknown';
+function humanizeRegime(raw: string | null, t: ServerT): string {
+  if (!raw) return t('unknownRegime');
   return raw.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
 }
 
 // The receipt landed but at least one verdict came back false — flag it
 // so the picker can lead with the days we called wrong (they're the most
 // interesting).
-function verdictSummary(entry: ForecastDateEntry): { label: string; tone: string } {
-  if (!entry.has_receipt) return { label: 'Pending 4 PM', tone: 'var(--color-text-secondary)' };
+function verdictSummary(entry: ForecastDateEntry, t: ServerT): { label: string; tone: string } {
+  if (!entry.has_receipt) return { label: t('pendingLabel'), tone: 'var(--color-text-secondary)' };
   const flags = [entry.range_respected, entry.vol_state_correct];
   const graded = flags.filter((f) => f != null);
   const wins = graded.filter((f) => f === true).length;
-  if (graded.length === 0) return { label: 'Ungraded', tone: 'var(--color-text-secondary)' };
-  if (wins === graded.length) return { label: `${wins}/${graded.length} · clean`, tone: 'var(--color-bull)' };
-  if (wins === 0) return { label: `0/${graded.length} · missed`, tone: 'var(--color-bear)' };
-  return { label: `${wins}/${graded.length} · mixed`, tone: 'var(--color-warning)' };
+  if (graded.length === 0) return { label: t('ungradedLabel'), tone: 'var(--color-text-secondary)' };
+  if (wins === graded.length) {
+    return { label: t('cleanLabel', { wins, graded: graded.length }), tone: 'var(--color-bull)' };
+  }
+  if (wins === 0) {
+    return { label: t('missedLabel', { wins: 0, graded: graded.length }), tone: 'var(--color-bear)' };
+  }
+  return { label: t('mixedLabel', { wins, graded: graded.length }), tone: 'var(--color-warning)' };
 }
 
 async function loadDates(symbol: string): Promise<ForecastDateList | null> {
@@ -90,6 +98,7 @@ export default async function ForecastLanding({
 }: {
   searchParams: Promise<{ symbol?: string }>;
 }) {
+  const t = await getServerT(dict);
   const symbol = resolveSymbol((await searchParams)?.symbol);
   const data = await loadDates(symbol);
   const entries = data?.dates ?? [];
@@ -101,32 +110,28 @@ export default async function ForecastLanding({
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="text-[11px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
-              ZeroGEX · Gamma Forecast
+              {t('kicker')}
             </div>
             <h1 className="mt-1 text-3xl font-bold tracking-tight">
-              Yesterday&rsquo;s promise, today&rsquo;s receipt
+              {t('heading')}
             </h1>
           </div>
           <SymbolPicker current={symbol} hrefs={pickerHrefs} />
         </div>
         <p className="mt-2 max-w-2xl text-sm text-[var(--color-text-secondary)] leading-relaxed">
-          Every morning at 7 AM ET we commit {symbol} to a projected range, an expected-volatility
-          call, and the key gamma levels with touch odds — hashed and immutable. We never forecast
-          direction. Every afternoon at 4:05 PM we grade ourselves against the actual low, high, and
-          close. Pick a date to see the promise, the receipt, and the verdict pills.
+          {t('intro', { symbol })}
         </p>
       </header>
 
       <section>
         {entries.length === 0 ? (
           <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-8 text-center text-sm text-[var(--color-text-secondary)]">
-            No forecasts committed for {symbol} yet. The 07:00 ET writer runs Mon-Fri; check back
-            after the next trading day.
+            {t('emptyState', { symbol })}
           </div>
         ) : (
           <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {entries.map((entry) => {
-              const verdict = verdictSummary(entry);
+              const verdict = verdictSummary(entry, t);
               return (
                 <li key={entry.date}>
                   <Link
@@ -146,7 +151,7 @@ export default async function ForecastLanding({
                       className="mt-1 font-mono text-[11px]"
                       style={{ color: 'var(--color-accent)' }}
                     >
-                      {humanizeRegime(entry.expected_vol_state)} vol
+                      {humanizeRegime(entry.expected_vol_state, t)} {t('volSuffix')}
                     </div>
                   </Link>
                 </li>
@@ -157,13 +162,9 @@ export default async function ForecastLanding({
       </section>
 
       <section className="mt-10 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5 text-xs text-[var(--color-text-secondary)] leading-relaxed">
-        <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">About the receipts</div>
-        The commitment is written to <span className="font-mono">daily_forecast</span> at 07:00 ET
-        with a SHA-256 content hash and a database-level immutability trigger — nothing about the
-        morning row can change once it lands. The 16:05 ET receipt writer joins realized L/H/C from{' '}
-        <span className="font-mono">underlying_quotes</span> and flips the verdict pills. If a
-        forecast was later proven wrong, the receipt page shows it — the whole point is to grade
-        ourselves in public, not hide misses.
+        <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">{t('aboutHeading')}</div>
+        {t('aboutPart1')} <span className="font-mono">daily_forecast</span> {t('aboutPart2')}{' '}
+        <span className="font-mono">underlying_quotes</span> {t('aboutPart3')}
       </section>
     </main>
   );

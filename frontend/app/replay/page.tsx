@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { serverApiGet } from '@/core/api/serverFetch';
 import SymbolPicker from '@/components/SymbolPicker';
 import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
+import { getServerT } from '@/core/localizedContent';
+import { dict } from './page.i18n';
 
 // Landing page for /replay — lists the recent trading days that have
 // replayable GEX data and links to /replay/[date]. ISR-cached for an
@@ -54,10 +56,10 @@ function formatHumanDate(raw: string): string {
   }
 }
 
-function sessionLabel(bars: number): { label: string; tone: 'full' | 'partial' | 'thin' } {
-  if (bars >= 380) return { label: 'Full session', tone: 'full' };
-  if (bars >= 120) return { label: 'Partial', tone: 'partial' };
-  return { label: 'Thin', tone: 'thin' };
+function sessionTone(bars: number): 'full' | 'partial' | 'thin' {
+  if (bars >= 380) return 'full';
+  if (bars >= 120) return 'partial';
+  return 'thin';
 }
 
 async function loadSessions(symbol: string): Promise<ReplaySessionList | null> {
@@ -72,10 +74,16 @@ export default async function ReplayLanding({
 }: {
   searchParams: Promise<{ symbol?: string }>;
 }) {
+  const t = await getServerT(dict);
   const symbol = resolveSymbol((await searchParams)?.symbol);
   const data = await loadSessions(symbol);
   const sessions = data?.sessions ?? [];
   const pickerHrefs = buildSymbolHrefs((s) => (s === 'SPY' ? '/replay' : `/replay?symbol=${s}`));
+  const toneLabels: Record<'full' | 'partial' | 'thin', string> = {
+    full: t('fullSession'),
+    partial: t('partial'),
+    thin: t('thin'),
+  };
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:py-10">
@@ -86,31 +94,28 @@ export default async function ReplayLanding({
               ZeroGEX · GEX Replay
             </div>
             <h1 className="mt-1 text-3xl font-bold tracking-tight">
-              Scrub through any past session
+              {t('heading')}
             </h1>
           </div>
           <SymbolPicker current={symbol} hrefs={pickerHrefs} />
         </div>
         <p className="mt-2 max-w-2xl text-sm text-[var(--color-text-secondary)] leading-relaxed">
-          Every per-minute dealer gamma snapshot from the last {sessions.length || '90'} trading
-          days is replayable. Drag the playhead to watch walls shift, gamma flip drift, and
-          per-strike GEX migrate. Drop two pins and see the strike-by-strike delta between any
-          two moments. Share the exact minute that mattered.
+          {t('intro', { count: String(sessions.length || '90') })}
         </p>
       </header>
 
       <section>
         {sessions.length === 0 ? (
           <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-8 text-center text-sm text-[var(--color-text-secondary)]">
-            No replayable sessions for {symbol} yet. Check back after the next trading day.
+            {t('noSessions', { symbol })}
           </div>
         ) : (
           <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {sessions.map((session) => {
-              const meta = sessionLabel(session.bar_count);
+              const toneKey = sessionTone(session.bar_count);
               const tone =
-                meta.tone === 'full' ? 'var(--color-bull)' :
-                meta.tone === 'partial' ? 'var(--color-warning)' :
+                toneKey === 'full' ? 'var(--color-bull)' :
+                toneKey === 'partial' ? 'var(--color-warning)' :
                 'var(--color-text-secondary)';
               return (
                 <li key={session.date}>
@@ -124,7 +129,7 @@ export default async function ReplayLanding({
                         className="text-[10px] uppercase tracking-[0.18em] font-bold"
                         style={{ color: tone }}
                       >
-                        {meta.label}
+                        {toneLabels[toneKey]}
                       </div>
                     </div>
                     <div className="mt-1 font-mono text-[11px] text-[var(--color-text-secondary)]">
@@ -139,14 +144,10 @@ export default async function ReplayLanding({
       </section>
 
       <section className="mt-10 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5 text-xs text-[var(--color-text-secondary)] leading-relaxed">
-        <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">About GEX Replay</div>
-        The data layer is the same{' '}
-        <span className="font-mono">gex_summary</span> and{' '}
-        <span className="font-mono">gex_by_strike</span> rows that power the live dashboard —
-        the replay just lets you scrub the timestamp. Per-minute resolution; cash-session
-        only (09:30–16:00 ET). MP4 export of arbitrary windows is a v2 feature; today you
-        can share branded snapshot cards of any specific moment via the snapshot button on
-        the player.
+        <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">{t('aboutHeading')}</div>
+        {t('aboutPre')}{' '}
+        <span className="font-mono">gex_summary</span> {t('aboutMid')}{' '}
+        <span className="font-mono">gex_by_strike</span> {t('aboutPost')}
       </section>
     </main>
   );

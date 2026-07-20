@@ -22,6 +22,8 @@ import BetaBadge from '@/components/BetaBadge';
 import TooltipWrapper from '@/components/TooltipWrapper';
 import { backtestAPI } from '@/core/api/endpoints';
 import { useAuthSession } from '@/hooks/useAuthSession';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './page.i18n';
 import type { BacktestMeta, InsightsSource, PatternInsight } from '../types';
 import {
   applyInsightsView,
@@ -36,8 +38,8 @@ const TRUSTWORTHY_MIN_N = 40;
 
 interface SourceOption {
   value: InsightsSource;
-  label: string;
-  tooltip: string;
+  labelKey: string;
+  tooltipKey: string;
   /** Admin-only sources are hidden from non-admin tiers. */
   adminOnly?: boolean;
 }
@@ -45,82 +47,73 @@ interface SourceOption {
 const ALL_SOURCE_OPTIONS: SourceOption[] = [
   {
     value: 'option_pnl',
-    label: 'Realized P&L',
-    tooltip:
-      "Standardized single-leg backtest at the card's own target/stop, with " +
-      "real option fills, slippage, and commission. The honest measure.",
+    labelKey: 'sourceOptionPnlLabel',
+    tooltipKey: 'sourceOptionPnlTooltip',
   },
   {
     value: 'underlying_touch',
-    label: 'Touch proxy (debug)',
-    tooltip:
-      "Debug view: did the underlying reach the target/stop? Ignores premium " +
-      "decay and bid/ask. NOT a measure of P&L — useful only as a sanity check.",
+    labelKey: 'sourceTouchLabel',
+    tooltipKey: 'sourceTouchTooltip',
     adminOnly: true,
   },
 ];
 
 interface HeaderSpec {
   key: InsightsSortKey;
-  label: string;
+  labelKey: string;
   align?: 'left' | 'right';
-  tooltip?: string;
+  tooltipKey?: string;
 }
 
 const HEADERS: HeaderSpec[] = [
-  { key: 'pattern', label: 'Pattern', align: 'left' },
-  { key: 'underlying', label: 'Undl.', align: 'left' },
+  { key: 'pattern', labelKey: 'headerPattern', align: 'left' },
+  { key: 'underlying', labelKey: 'headerUndl', align: 'left' },
   {
     key: 'n_resolved',
-    label: 'N',
+    labelKey: 'headerN',
     align: 'right',
-    tooltip:
-      'Resolved trades in the 60-day calibration window after the per-pattern cooldown. ' +
-      'Pairs with N < 40 are considered too small to trust.',
+    tooltipKey: 'headerNTooltip',
   },
   {
     key: 'hit_rate',
-    label: 'Win %',
+    labelKey: 'headerWinPct',
     align: 'right',
-    tooltip:
-      'Share of trades whose net P&L was > 0 after slippage and commission. Not a ' +
-      'coin-flip baseline: a pattern can have a low win rate and still be profitable ' +
-      'overall if its winners are much larger than its losers (check PF and Avg / trade).',
+    tooltipKey: 'headerWinPctTooltip',
   },
   {
     key: 'profit_factor',
-    label: 'PF',
+    labelKey: 'headerPf',
     align: 'right',
-    tooltip:
-      'Profit factor = sum of winners ÷ absolute sum of losers. > 1.0 means the wins outpace the losses.',
+    tooltipKey: 'headerPfTooltip',
   },
   {
     key: 'expectancy',
-    label: 'Avg / trade',
+    labelKey: 'headerAvgTrade',
     align: 'right',
-    tooltip: 'Expectancy: net P&L per resolved trade, net of slippage and commission.',
+    tooltipKey: 'headerAvgTradeTooltip',
   },
   {
     key: 'net_pnl',
-    label: 'Net P&L',
+    labelKey: 'headerNetPnl',
     align: 'right',
-    tooltip: 'Sum of net_pnl across every trade in the window.',
+    tooltipKey: 'headerNetPnlTooltip',
   },
   {
     key: 'avg_win_pnl',
-    label: 'Avg win',
+    labelKey: 'headerAvgWin',
     align: 'right',
-    tooltip: 'Average dollar size of a winning trade (gross_win_pnl ÷ n_wins).',
+    tooltipKey: 'headerAvgWinTooltip',
   },
   {
     key: 'avg_loss_pnl',
-    label: 'Avg loss',
+    labelKey: 'headerAvgLoss',
     align: 'right',
-    tooltip: 'Average dollar size of a losing trade (-gross_loss_pnl ÷ n_losses).',
+    tooltipKey: 'headerAvgLossTooltip',
   },
 ];
 
 export default function InsightsPage() {
+  const t = usePageT(dict);
   // Auth — the touch-proxy source is admin-only. Until the session has loaded
   // we assume non-admin so the touch tab can't flicker into view.
   const { data: session } = useAuthSession();
@@ -195,13 +188,13 @@ export default function InsightsPage() {
       })
       .catch((e: unknown) => {
         if (cancelled) return;
-        setError(e instanceof Error ? e.message : 'Failed to load insights.');
+        setError(e instanceof Error ? e.message : t('failedToLoad'));
         setRows([]);
       });
     return () => {
       cancelled = true;
     };
-  }, [source, underlying]);
+  }, [source, underlying, t]);
 
   const view = useMemo(
     () =>
@@ -239,27 +232,23 @@ export default function InsightsPage() {
           className="inline-flex items-center gap-1 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text)]"
         >
           <ArrowLeft size={14} />
-          Backtesting
+          {t('backLinkText')}
         </Link>
         <span className="text-[var(--color-text-secondary)]">›</span>
-        <h1 className="text-3xl font-bold">Pattern Insights</h1>
+        <h1 className="text-3xl font-bold">{t('pageTitle')}</h1>
         <BetaBadge size="md" />
       </div>
 
       <p className="text-sm text-[var(--color-text-secondary)] max-w-3xl mb-6">
-        Measured performance for each playbook pattern on the standardized
-        realized-P&L backtest — net of bid/ask fills, slippage, and
-        commission. One row per (pattern, underlying) pair, latest window per
-        pair. <span className="font-semibold">Past performance does not
-        guarantee future returns.</span> Use these as a sanity check, not a
-        promise.
+        {t('descIntro')}{' '}
+        <span className="font-semibold">{t('descBold')}</span> {t('descOutro')}
       </p>
 
       <div className="flex flex-wrap items-center gap-3 mb-4">
         {sourceOptions.length > 1 ? (
           <div className="inline-flex rounded-md border" style={{ borderColor: 'var(--color-border)' }}>
             {sourceOptions.map((opt) => (
-              <TooltipWrapper key={opt.value} text={opt.tooltip} placement="bottom">
+              <TooltipWrapper key={opt.value} text={t(opt.tooltipKey)} placement="bottom">
                 <button
                   type="button"
                   onClick={() => setSource(opt.value)}
@@ -269,7 +258,7 @@ export default function InsightsPage() {
                       : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text)]'
                   }`}
                 >
-                  {opt.label}
+                  {t(opt.labelKey)}
                 </button>
               </TooltipWrapper>
             ))}
@@ -281,7 +270,7 @@ export default function InsightsPage() {
           onChange={(e) => setUnderlying(e.target.value)}
           className="rounded-md bg-[var(--color-surface-subtle)] border border-[var(--color-border)] px-2.5 py-1.5 text-xs"
         >
-          <option value="">All underlyings</option>
+          <option value="">{t('allUnderlyings')}</option>
           {underlyings.map((u) => (
             <option key={u} value={u}>{u}</option>
           ))}
@@ -293,9 +282,9 @@ export default function InsightsPage() {
             checked={trustworthyOnly}
             onChange={(e) => setTrustworthyOnly(e.target.checked)}
           />
-          <span>Hide pairs with N &lt; {TRUSTWORTHY_MIN_N}</span>
+          <span>{t('hideThinSamples', { n: TRUSTWORTHY_MIN_N })}</span>
           <TooltipWrapper
-            text={`Sub-${TRUSTWORTHY_MIN_N} samples are noisy: the measured rate can swing materially as more trades resolve. Filter on to see only the pairs we'd trust today.`}
+            text={t('thinSampleTooltip', { n: TRUSTWORTHY_MIN_N })}
             placement="bottom"
           >
             <Info size={12} className="text-[var(--color-text-secondary)] cursor-help" />
@@ -322,18 +311,18 @@ export default function InsightsPage() {
                 setError(null);
               })
               .catch((e: unknown) => {
-                setError(e instanceof Error ? e.message : 'Failed to load insights.');
+                setError(e instanceof Error ? e.message : t('failedToLoad'));
                 setRows([]);
               });
           }}
           disabled={loading}
-          aria-label="Refresh"
-          title="Refresh"
+          aria-label={t('refreshLabel')}
+          title={t('refreshLabel')}
           className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-xs disabled:opacity-50"
           style={{ borderColor: 'var(--color-border)' }}
         >
           <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
-          Refresh
+          {t('refreshLabel')}
         </button>
       </div>
 
@@ -353,14 +342,12 @@ export default function InsightsPage() {
         >
           <AlertTriangle size={14} className="mt-0.5 shrink-0" style={{ color: '#eab308' }} />
           <div className="leading-snug">
-            <strong>Debug view.</strong>{' '}
-            The Win % column here counts whether the underlying&apos;s price reached
-            the card&apos;s target before its stop &mdash;{' '}
-            <em>not</em> whether the trade made money. Touch and realized option P&L
-            can disagree wildly (e.g. <code>overnight_trap_continuation</code>:
-            ~95% touch rate, ~85% loss rate on options). Use{' '}
-            <span className="font-semibold">Realized P&amp;L</span> for any
-            trading decisions; this view exists only as an engine sanity check.
+            <strong>{t('debugViewLabel')}</strong>{' '}
+            {t('debugViewPart1')}{' '}
+            <em>{t('debugViewNot')}</em> {t('debugViewPart2')}{' '}
+            <code>overnight_trap_continuation</code>
+            {t('debugViewPart3')}{' '}
+            <span className="font-semibold">Realized P&amp;L</span> {t('debugViewPart4')}
           </div>
         </div>
       ) : null}
@@ -384,12 +371,12 @@ export default function InsightsPage() {
                       h.align === 'right' ? 'text-right' : 'text-left'
                     } ${active ? 'text-[var(--color-text)]' : 'text-[var(--color-text-secondary)]'}`}
                   >
-                    {h.tooltip ? (
-                      <TooltipWrapper text={h.tooltip} placement="top">
-                        <span>{h.label}{arrow}</span>
+                    {h.tooltipKey ? (
+                      <TooltipWrapper text={t(h.tooltipKey)} placement="top">
+                        <span>{t(h.labelKey)}{arrow}</span>
                       </TooltipWrapper>
                     ) : (
-                      <span>{h.label}{arrow}</span>
+                      <span>{t(h.labelKey)}{arrow}</span>
                     )}
                   </th>
                 );
@@ -400,15 +387,15 @@ export default function InsightsPage() {
             {loading && view.length === 0 ? (
               <tr>
                 <td colSpan={HEADERS.length} className="px-3 py-6 text-center text-[var(--color-text-secondary)]">
-                  Loading…
+                  {t('loadingText')}
                 </td>
               </tr>
             ) : view.length === 0 ? (
               <tr>
                 <td colSpan={HEADERS.length} className="px-3 py-6 text-center text-[var(--color-text-secondary)]">
                   {trustworthyOnly
-                    ? `No pairs with at least ${TRUSTWORTHY_MIN_N} resolved trades yet.`
-                    : 'No measurements for this source / underlying yet.'}
+                    ? t('emptyTrustworthy', { n: TRUSTWORTHY_MIN_N })
+                    : t('emptyGeneral')}
                 </td>
               </tr>
             ) : (
@@ -456,12 +443,9 @@ export default function InsightsPage() {
       </div>
 
       <p className="mt-4 text-xs text-[var(--color-text-secondary)] max-w-3xl">
-        Standardized spec: single-leg ATM entries at each card&apos;s own
-        target/stop, with a +75% premium take-profit and −50% premium stop
-        overlaid. Net of 1% slippage and $0.65 / contract commission. Rows
-        refresh nightly from the calibration backtest.{' '}
+        {t('footerSpec')}{' '}
         <Link href="/backtesting" className="underline">
-          Run your own backtest →
+          {t('footerLinkText')}
         </Link>
       </p>
     </PageShell>

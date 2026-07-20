@@ -2,6 +2,8 @@
 
 import { useMemo } from 'react';
 import { TradeBiasHistoryRow } from './data';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './BiasSparkline.i18n';
 
 // Lightweight, dependency-free intraday view of the signed bias over the
 // session: an area around the 0-line, green above / red below, with the last
@@ -14,6 +16,7 @@ export default function BiasSparkline({
   history: TradeBiasHistoryRow[];
   height?: number;
 }) {
+  const t = usePageT(dict);
   const width = 800; // viewBox width; the SVG scales to its container
   const pad = 6;
 
@@ -39,7 +42,7 @@ export default function BiasSparkline({
         className="rounded-lg border flex items-center justify-center text-xs text-[var(--color-text-secondary)]"
         style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-subtle)', height }}
       >
-        Not enough history yet — the bias plots here as it accumulates.
+        {t('notEnoughHistory')}
       </div>
     );
   }
@@ -53,7 +56,7 @@ export default function BiasSparkline({
       preserveAspectRatio="none"
       style={{ width: '100%', height }}
       role="img"
-      aria-label="Intraday bias trend"
+      aria-label={t('ariaLabel')}
     >
       <defs>
         <linearGradient id="biasFill" x1="0" y1="0" x2="0" y2="1">

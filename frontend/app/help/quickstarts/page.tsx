@@ -1,5 +1,9 @@
 import Link from 'next/link';
 import { ArrowLeft, ArrowRight, PlayCircle, Clock, Bookmark } from 'lucide-react';
+import { getServerT } from '@/core/localizedContent';
+import { dict } from './page.i18n';
+
+type T = (key: string, vars?: Record<string, string | number>) => string;
 
 export const metadata = {
   title: 'ZeroGEX Quick Starts: Short Video Walkthroughs',
@@ -314,7 +318,7 @@ function levelStyle(level: Walkthrough['level']) {
   }
 }
 
-function WalkthroughCard({ wt }: { wt: Walkthrough }) {
+function WalkthroughCard({ wt, t }: { wt: Walkthrough; t: T }) {
   const isComingSoon = wt.status === 'coming-soon';
   return (
     <div
@@ -333,7 +337,7 @@ function WalkthroughCard({ wt }: { wt: Walkthrough }) {
         </div>
         {isComingSoon && (
           <div className="absolute left-3 top-3 rounded-full border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">
-            Coming soon
+            {t('comingSoon')}
           </div>
         )}
       </div>
@@ -350,14 +354,14 @@ function WalkthroughCard({ wt }: { wt: Walkthrough }) {
         <p className="mb-4 flex-1 text-sm leading-6 text-[var(--color-text-secondary)]" dangerouslySetInnerHTML={{ __html: wt.blurb }} />
         {isComingSoon ? (
           <div className="text-xs font-semibold text-[var(--color-text-secondary)]">
-            We&apos;re recording this. Bookmark the page and check back.
+            {t('recordingNotice')}
           </div>
         ) : wt.href ? (
           <Link
             href={wt.href}
             className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-warning)] hover:text-[var(--heat-low)]"
           >
-            Watch
+            {t('watch')}
             <ArrowRight size={14} />
           </Link>
         ) : null}
@@ -366,54 +370,52 @@ function WalkthroughCard({ wt }: { wt: Walkthrough }) {
   );
 }
 
-export default function QuickStartsPage() {
-  const totalCount = tracks.reduce((sum, t) => sum + t.walkthroughs.length, 0);
+export default async function QuickStartsPage() {
+  const t = await getServerT(dict);
+  const totalCount = tracks.reduce((sum, track) => sum + track.walkthroughs.length, 0);
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-12">
       <Link href="/help" className="mb-6 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--color-warning)] hover:text-[var(--heat-low)]">
         <ArrowLeft size={14} />
-        Back to Help Center
+        {t('backToHelp')}
       </Link>
 
       <div className="zg-feature-shell mb-10 p-8">
         <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">
           <PlayCircle size={14} />
-          Quick Starts
+          {t('badge')}
         </div>
-        <h1 className="mb-3 text-3xl font-bold text-[var(--color-text-primary)]">Quick Start Walkthroughs</h1>
+        <h1 className="mb-3 text-3xl font-bold text-[var(--color-text-primary)]">{t('heroTitle')}</h1>
         <p className="mb-6 max-w-2xl text-sm leading-7 text-[var(--color-text-secondary)]">
-          Short, focused video walkthroughs — most run under 3 minutes — that show you exactly how
-          to read a chart, run a screen, or configure a feature. The library is being recorded; new
-          walkthroughs land each week.
+          {t('heroDescription')}
         </p>
         <div className="flex flex-wrap gap-3 text-xs">
           <div className="rounded-full border border-[var(--color-border)] bg-[var(--bg-card)] px-3 py-1.5 font-semibold text-[var(--color-text-secondary)]">
-            {totalCount} walkthroughs in total
+            {t('totalCount', { count: totalCount })}
           </div>
           <div className="rounded-full border border-[var(--color-border)] bg-[var(--bg-card)] px-3 py-1.5 font-semibold text-[var(--color-text-secondary)]">
-            {tracks.length} tracks
+            {t('trackCount', { count: tracks.length })}
           </div>
           <div className="rounded-full border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-3 py-1.5 font-semibold text-[var(--color-warning)]">
             <Bookmark size={11} className="-mt-0.5 mr-1 inline" />
-            Bookmark this page
+            {t('bookmarkThisPage')}
           </div>
         </div>
       </div>
 
       <div className="mb-8 rounded-xl border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] p-5">
-        <h3 className="mb-1 text-sm font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">Quick Start library — rolling launch</h3>
+        <h3 className="mb-1 text-sm font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">{t('rollingLaunchTitle')}</h3>
         <p className="text-sm leading-6 text-[var(--color-text-primary)]">
-          We&apos;re publishing walkthroughs on a rolling basis. The card layouts, titles, durations, and
-          tags are final; the videos themselves are being recorded. In the meantime, the full{' '}
+          {t('rollingLaunchIntro')}
           <Link href="/help/platform" className="font-semibold text-[var(--color-warning)] hover:text-[var(--heat-low)]">
-            Platform Guide
-          </Link>{' '}
-          covers every page in writing and the{' '}
+            {t('platformGuide')}
+          </Link>
+          {t('rollingLaunchMid')}
           <Link href="/help/faqs" className="font-semibold text-[var(--color-warning)] hover:text-[var(--heat-low)]">
-            FAQs
-          </Link>{' '}
-          cover the most common questions.
+            {t('faqs')}
+          </Link>
+          {t('rollingLaunchEnd')}
         </p>
       </div>
 
@@ -426,7 +428,7 @@ export default function QuickStartsPage() {
             </div>
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {track.walkthroughs.map((wt) => (
-                <WalkthroughCard key={wt.id} wt={wt} />
+                <WalkthroughCard key={wt.id} wt={wt} t={t} />
               ))}
             </div>
           </section>
@@ -434,27 +436,27 @@ export default function QuickStartsPage() {
       </div>
 
       <div className="zg-feature-shell mt-12 p-6">
-        <h2 className="mb-2 text-lg font-semibold text-[var(--color-text-primary)]">Want a walkthrough we haven&apos;t recorded?</h2>
+        <h2 className="mb-2 text-lg font-semibold text-[var(--color-text-primary)]">{t('requestTitle')}</h2>
         <p className="mb-4 text-sm leading-7 text-[var(--color-text-secondary)]">
-          Email{' '}
+          {t('requestBodyStart')}
           <a className="font-semibold text-[var(--color-warning)] hover:text-[var(--heat-low)]" href="mailto:support@zerogex.io">
             support@zerogex.io
-          </a>{' '}
-          and tell us what would be useful. Requested topics jump the queue.
+          </a>
+          {t('requestBodyEnd')}
         </p>
         <div className="flex flex-wrap gap-3">
           <Link
             href="/help/platform"
             className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-2 text-sm font-semibold text-[var(--heat-low)]"
           >
-            Platform Guide
+            {t('platformGuide')}
             <ArrowRight size={14} />
           </Link>
           <Link
             href="/help/faqs"
             className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-border)] px-4 py-2 text-sm font-semibold text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
           >
-            FAQs
+            {t('faqs')}
             <ArrowRight size={14} />
           </Link>
         </div>

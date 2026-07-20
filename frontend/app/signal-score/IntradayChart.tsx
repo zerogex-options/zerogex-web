@@ -14,6 +14,8 @@ import {
 } from 'recharts';
 import { CompositeHistoryRow, getComponentLabel } from './data';
 import { REGIME_BANDS, classifyRegime } from '@/core/regime';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './IntradayChart.i18n';
 
 interface Props {
   history: CompositeHistoryRow[];
@@ -134,6 +136,7 @@ interface ChartPoint {
 }
 
 function IntradayChartImpl({ history, currentScore }: Props) {
+  const t = usePageT(dict);
   const [win, setWin] = useState<Window>('TODAY');
 
   const data: ChartPoint[] = useMemo(() => {
@@ -214,7 +217,7 @@ function IntradayChartImpl({ history, currentScore }: Props) {
           }}
         >
           <div className="flex h-full items-center justify-center">
-            No data for today yet — markets open at 09:30 ET.
+            {t('emptyState')}
           </div>
         </div>
       </div>
@@ -276,6 +279,7 @@ const IntradayChart = memo(IntradayChartImpl);
 export default IntradayChart;
 
 function WindowSelector({ value, onChange }: { value: Window; onChange: (w: Window) => void }) {
+  const t = usePageT(dict);
   return (
     <div className="flex items-center gap-2 text-xs">
       <button
@@ -292,7 +296,7 @@ function WindowSelector({ value, onChange }: { value: Window; onChange: (w: Wind
         className={`rounded-md border px-2 py-1 ${value === 'TODAY' ? 'font-semibold' : 'text-[var(--color-text-secondary)]'}`}
         style={{ borderColor: 'var(--color-border)', background: value === 'TODAY' ? 'var(--color-surface-elevated)' : 'transparent' }}
       >
-        Today
+        {t('today')}
       </button>
       <button
         type="button"

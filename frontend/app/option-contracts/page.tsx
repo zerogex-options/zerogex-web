@@ -21,6 +21,8 @@ import { useTimeframe } from "@/core/TimeframeContext";
 import { useTheme } from "@/core/ThemeContext";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { normalizeToMinute } from "@/core/utils";
+import { usePageT } from "@/core/LanguageContext";
+import { dict } from "./page.i18n";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -189,6 +191,7 @@ function ContractStatsHeader({
   latest: OptionContractRow | null;
   isDark: boolean;
 }) {
+  const t = usePageT(dict);
   const stats = useMemo(() => {
     if (rows.length === 0 || !latest) return null;
 
@@ -219,7 +222,7 @@ function ContractStatsHeader({
   if (!stats) {
     return (
       <div className="px-4 py-2 text-sm" style={{ color: isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)" }}>
-        No data
+        {t('noData')}
       </div>
     );
   }
@@ -372,6 +375,7 @@ function ContractChart({
   // rawRows[length - 1] can yield a non-latest row whose Last price disagrees
   // with the chart's rightmost plotted point. Pick the row with the max
   // timestamp instead so the legend/stats track the chart.
+  const t = usePageT(dict);
   const latestRaw = useMemo<OptionContractRow | null>(() => {
     if (rawRows.length === 0) return null;
     let best = rawRows[0];
@@ -394,7 +398,7 @@ function ContractChart({
         className="flex items-center justify-center h-64 text-sm"
         style={{ color: isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)" }}
       >
-        No contract data available for the selected parameters.
+        {t('noContractData')}
       </div>
     );
   }
@@ -552,6 +556,7 @@ export default function OptionContractsPage() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const isMobile = useIsMobile();
+  const t = usePageT(dict);
 
   const [selectedExpiration, setSelectedExpiration] = useState<string>("");
   const [selectedStrike, setSelectedStrike] = useState<string>("");
@@ -710,7 +715,7 @@ export default function OptionContractsPage() {
 
   return (
     <PageShell>
-      <h1 className="text-3xl font-bold mb-6">Live Options Quotes</h1>
+      <h1 className="text-3xl font-bold mb-6">{t('title')}</h1>
 
       {dropdownLoadError && (
         <div className="mb-4">
@@ -722,7 +727,7 @@ export default function OptionContractsPage() {
       <div className="flex flex-wrap items-center gap-3 mb-6">
         {/* Expiration */}
         <div className="flex items-center gap-2">
-          <span className="text-sm" style={{ color: mutedText }}>Expiration</span>
+          <span className="text-sm" style={{ color: mutedText }}>{t('expirationLabel')}</span>
           <select
             value={resolvedExpiration}
             onChange={(e) => setSelectedExpiration(e.target.value)}
@@ -730,7 +735,7 @@ export default function OptionContractsPage() {
           >
             {expirationOptions.length === 0 ? (
               <option value="">
-                {expirationLoading ? "Loading…" : expirationError ? "Unavailable" : "No expirations"}
+                {expirationLoading ? t('loading') : expirationError ? t('unavailable') : t('noExpirations')}
               </option>
             ) : (
               expirationOptions.map((exp) => (
@@ -742,7 +747,7 @@ export default function OptionContractsPage() {
 
         {/* Strike */}
         <div className="flex items-center gap-2">
-          <span className="text-sm" style={{ color: mutedText }}>Strike</span>
+          <span className="text-sm" style={{ color: mutedText }}>{t('strikeLabel')}</span>
           <select
             value={resolvedStrike}
             onChange={(e) => setSelectedStrike(e.target.value)}
@@ -750,7 +755,7 @@ export default function OptionContractsPage() {
           >
             {strikeOptions.length === 0 ? (
               <option value="">
-                {strikeLoading ? "Loading…" : strikeError ? "Unavailable" : "No strikes"}
+                {strikeLoading ? t('loading') : strikeError ? t('unavailable') : t('noStrikes')}
               </option>
             ) : (
               strikeOptions.map((s) => (
@@ -762,7 +767,7 @@ export default function OptionContractsPage() {
 
         {/* Type */}
         <div className="flex items-center gap-2">
-          <span className="text-sm" style={{ color: mutedText }}>Type</span>
+          <span className="text-sm" style={{ color: mutedText }}>{t('typeLabel')}</span>
           <select
             value={optionType}
             onChange={(e) => setOptionType(e.target.value as "C" | "P")}

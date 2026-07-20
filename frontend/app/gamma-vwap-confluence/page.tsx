@@ -4,6 +4,8 @@ import PageShell from '@/components/layout/PageShell';
 import { useMemo } from 'react';
 import { Compass, Gauge, Magnet, ArrowUp, ArrowDown } from 'lucide-react';
 import { useTimeframe } from '@/core/TimeframeContext';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './page.i18n';
 import { useGammaVwapConfluenceSignal, useGEXSummary } from '@/hooks/useApiData';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
@@ -25,13 +27,13 @@ import {
   formatGexCompact,
 } from '@/core/signalHelpers';
 
-function label(signal: string, score: number | null): string {
-  if (score == null) return 'No reading';
-  if (signal === 'bullish_confluence') return 'Bullish confluence';
-  if (signal === 'bearish_confluence') return 'Bearish confluence';
-  if (score >= 20) return 'Bullish confluence forming';
-  if (score <= -20) return 'Bearish confluence forming';
-  return 'No confluence edge';
+function label(signal: string, score: number | null, t: (key: string) => string): string {
+  if (score == null) return t('noReading');
+  if (signal === 'bullish_confluence') return t('bullishConfluence');
+  if (signal === 'bearish_confluence') return t('bearishConfluence');
+  if (score >= 20) return t('bullishConfluenceForming');
+  if (score <= -20) return t('bearishConfluenceForming');
+  return t('noConfluenceEdge');
 }
 
 const LEVEL_COLORS: Record<string, string> = {
@@ -44,6 +46,7 @@ const LEVEL_COLORS: Record<string, string> = {
 };
 
 export default function GammaVwapConfluencePage() {
+  const t = usePageT(dict);
   const { symbol } = useTimeframe();
   const { data, loading, error, refetch } = useGammaVwapConfluenceSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.gammaVwapConfluenceMs);
   // Gamma-flip, close, and net GEX are still sourced from gex-summary so the
@@ -113,10 +116,10 @@ export default function GammaVwapConfluencePage() {
   return (
     <PageShell>
       <SignalPageTitle
-        title="Gamma / VWAP Confluence"
-        subtitle={'"Are key levels stacking up here?"'}
+        title={t('pageTitle')}
+        subtitle={t('pageSubtitle')}
         icon={Magnet}
-        tooltip="Detects when gamma flip, VWAP, max pain, max gamma, and the call wall cluster at the same price — a high-conviction magnet or bounce level. Triggers at |score| ≥ 20. In short-gamma regimes the level acts as a continuation breakout; in long-gamma regimes it reverts."
+        tooltip={t('pageTooltip')}
       />
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
@@ -126,9 +129,9 @@ export default function GammaVwapConfluencePage() {
           <div className="lg:col-span-2">
             <SignalScoreHero
               score={score}
-              scoreLabel="Confluence Score"
+              scoreLabel={t('scoreLabel')}
               trend={trend}
-              interpretation={label(signal, score)}
+              interpretation={label(signal, score, t)}
               history={history}
               badges={
                 <>
@@ -145,34 +148,35 @@ export default function GammaVwapConfluencePage() {
               }
               footnote={
                 <>
-                  Cluster gap: <span className="font-mono text-[var(--color-text-primary)]">{formatPct(clusterGapPct, 3, false)}</span>
+                  {t('footnoteClusterGap')} <span className="font-mono text-[var(--color-text-primary)]">{formatPct(clusterGapPct, 3, false)}</span>
                   {' · '}
-                  Quality: <span className="font-mono text-[var(--color-text-primary)]">{ctx.clusterQuality != null ? ctx.clusterQuality.toFixed(2) : '—'}</span>
+                  {t('footnoteQuality')} <span className="font-mono text-[var(--color-text-primary)]">{ctx.clusterQuality != null ? ctx.clusterQuality.toFixed(2) : '—'}</span>
                   {' · '}
-                  Members: <span className="font-mono text-[var(--color-text-primary)]">{ctx.clusterMembers.length || '—'}</span>
+                  {t('footnoteMembers')} <span className="font-mono text-[var(--color-text-primary)]">{ctx.clusterMembers.length || '—'}</span>
                 </>
               }
             />
           </div>
 
           <div className="lg:col-span-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
-            <div className="text-sm font-semibold mb-3 flex items-center gap-2"><Compass size={14} /> Level stack</div>
+            <div className="text-sm font-semibold mb-3 flex items-center gap-2"><Compass size={14} /> {t('levelStackHeading')}</div>
             <LevelStack
               levels={levels}
               close={ctx.close}
               confluence={confluenceLevel}
               expectedTarget={expectedTarget}
               members={ctx.clusterMembers}
+              t={t}
             />
           </div>
         </div>
       </section>
 
       <section className="zg-feature-shell mt-8 p-6">
-        <h2 className="text-xl font-semibold mb-4">Confluence Inputs</h2>
+        <h2 className="text-xl font-semibold mb-4">{t('confluenceInputsHeading')}</h2>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 text-sm">
           <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-            <div className="font-semibold mb-2 flex items-center gap-2"><Compass size={16} /> Levels</div>
+            <div className="font-semibold mb-2 flex items-center gap-2"><Compass size={16} /> {t('levelsHeading')}</div>
             <div className="space-y-2 text-[var(--color-text-secondary)]">
               {levels.map((l) => (
                 <div key={l.name} className="flex items-center justify-between">
@@ -186,39 +190,39 @@ export default function GammaVwapConfluencePage() {
             </div>
           </div>
           <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-            <div className="font-semibold mb-2 flex items-center gap-2"><Magnet size={16} /> Cluster</div>
+            <div className="font-semibold mb-2 flex items-center gap-2"><Magnet size={16} /> {t('clusterHeading')}</div>
             <div className="space-y-2 text-[var(--color-text-secondary)]">
-              <Row label="Confluence level" value={formatPrice(confluenceLevel)} />
-              <Row label="Expected target" value={formatPrice(expectedTarget)} />
-              <Row label="Cluster gap" value={formatPct(clusterGapPct, 3, false)} />
-              <Row label="Cluster quality" value={ctx.clusterQuality != null ? ctx.clusterQuality.toFixed(2) : '—'} />
-              <Row label="Distance from level" value={formatPct(ctx.distanceFromLevelPct, 3)} />
+              <Row label={t('confluenceLevelLabel')} value={formatPrice(confluenceLevel)} />
+              <Row label={t('expectedTargetLabel')} value={formatPrice(expectedTarget)} />
+              <Row label={t('clusterGapLabel')} value={formatPct(clusterGapPct, 3, false)} />
+              <Row label={t('clusterQualityLabel')} value={ctx.clusterQuality != null ? ctx.clusterQuality.toFixed(2) : '—'} />
+              <Row label={t('distanceFromLevelLabel')} value={formatPct(ctx.distanceFromLevelPct, 3)} />
             </div>
           </div>
           <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-            <div className="font-semibold mb-2 flex items-center gap-2"><Gauge size={16} /> Regime</div>
+            <div className="font-semibold mb-2 flex items-center gap-2"><Gauge size={16} /> {t('regimeHeading')}</div>
             <div className="space-y-2 text-[var(--color-text-secondary)]">
-              <Row label="Net GEX (chain-wide)" value={formatGexCompact(ctx.netGex)} />
-              <Row label="Direction" value={humanize(ctx.regimeDirection)} />
-              <Row label="Close vs level" value={ctx.close != null && confluenceLevel != null ? (ctx.close > confluenceLevel ? 'Above' : 'Below') : '—'} />
+              <Row label={t('netGexLabel')} value={formatGexCompact(ctx.netGex)} />
+              <Row label={t('directionLabel')} value={humanize(ctx.regimeDirection)} />
+              <Row label={t('closeVsLevelLabel')} value={ctx.close != null && confluenceLevel != null ? (ctx.close > confluenceLevel ? t('above') : t('below')) : '—'} />
             </div>
             <p className="mt-3 pt-2 border-t border-[var(--color-border)]/40 text-[11px] text-[var(--color-text-secondary)]">
-              Short-gamma → breakout continues past level. Long-gamma → reverts to level (× 0.7).
+              {t('regimeNote')}
             </p>
           </div>
         </div>
       </section>
 
       <SignalHowItsBuilt
-        caveat={<>Short-gamma regime → breakout continues past the level (continuation). Long-gamma regime → reverts to the level (mean-reversion, ×0.7 conviction).</>}
+        caveat={<>{t('caveatText')}</>}
       >
-        <div>Cluster the five reference levels (Gamma Flip, VWAP, Max Pain, Max Gamma, Call Wall) by their pairwise gap relative to spot.</div>
+        <div>{t('howBuiltStep1')}</div>
         <div><code>Cluster Quality = (Members in Cluster / 5) × (1 − Cluster Gap % / Max Gap)</code>.</div>
         <div><code>Raw = Cluster Quality × sign(Close − Confluence Level) × Regime Factor</code>, where Regime Factor depends on dealer Net GEX sign.</div>
         <div><code>Score = clip(Raw, [−1, 1]) × 100</code>. Triggers at |Score| ≥ 20.</div>
       </SignalHowItsBuilt>
 
-      <SignalEventsPanel signalName="gamma_vwap_confluence" symbol={symbol} title="Event Timeline" />
+      <SignalEventsPanel signalName="gamma_vwap_confluence" symbol={symbol} title={t('eventTimelineTitle')} />
     </PageShell>
   );
 }
@@ -238,9 +242,10 @@ interface LevelStackProps {
   confluence: number | null;
   expectedTarget: number | null;
   members: string[];
+  t: (key: string) => string;
 }
 
-function LevelStack({ levels, close, confluence, expectedTarget, members }: LevelStackProps) {
+function LevelStack({ levels, close, confluence, expectedTarget, members, t }: LevelStackProps) {
   const values = [
     ...levels.map((l) => l.value),
     close,
@@ -248,7 +253,7 @@ function LevelStack({ levels, close, confluence, expectedTarget, members }: Leve
     expectedTarget,
   ].filter((v): v is number => v != null);
   if (values.length < 2) {
-    return <div className="text-sm text-[var(--color-text-secondary)]">Level data not available.</div>;
+    return <div className="text-sm text-[var(--color-text-secondary)]">{t('levelDataNotAvailable')}</div>;
   }
   const min = Math.min(...values);
   const max = Math.max(...values);
@@ -299,20 +304,20 @@ function LevelStack({ levels, close, confluence, expectedTarget, members }: Leve
               <span className="inline-block h-2 w-2 rounded-full" style={{ background: l.color }} />
               <span className="w-24 font-semibold" style={{ color: l.color }}>{l.name}</span>
               <span className="font-mono text-[var(--color-text-primary)]">{formatPrice(l.value)}</span>
-              {inCluster && <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-warning-soft)] text-[var(--color-warning)] font-semibold uppercase tracking-wide">In cluster</span>}
+              {inCluster && <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-warning-soft)] text-[var(--color-warning)] font-semibold uppercase tracking-wide">{t('inCluster')}</span>}
             </div>
           );
         })}
         <div className="mt-1 border-t border-[var(--color-border)]/40 pt-2 space-y-1">
           <div className="flex items-center gap-2">
             <Magnet size={12} className="text-[var(--color-warning)]" />
-            <span className="font-semibold">Confluence level</span>
+            <span className="font-semibold">{t('confluenceLevelLabel')}</span>
             <span className="font-mono text-[var(--color-text-primary)]">{formatPrice(confluence)}</span>
           </div>
           {close != null && expectedTarget != null && (
             <div className="flex items-center gap-2">
               {expectedTarget >= close ? <ArrowUp size={12} className="text-[var(--color-bull)]" /> : <ArrowDown size={12} className="text-[var(--color-bear)]" />}
-              <span className="font-semibold">Expected target</span>
+              <span className="font-semibold">{t('expectedTargetLabel')}</span>
               <span className="font-mono text-[var(--color-text-primary)]">{formatPrice(expectedTarget)}</span>
             </div>
           )}

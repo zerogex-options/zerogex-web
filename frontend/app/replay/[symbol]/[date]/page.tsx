@@ -7,7 +7,9 @@ import { serverApiGet } from '@/core/api/serverFetch';
 import ShareCardButton from '@/components/ShareCardButton';
 import SymbolPicker from '@/components/SymbolPicker';
 import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
+import { getServerT } from '@/core/localizedContent';
 import ReplayScrubber from './ReplayScrubber';
+import { dict } from './page.i18n';
 
 const REVALIDATE_SECONDS = 1800;
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://zerogex.io').replace(/\/+$/, '');
@@ -100,6 +102,7 @@ export default async function ReplayDatePage({
   const { symbol, date } = await params;
   const sym = resolveSymbol(symbol);
   if (!isValidDate(date)) notFound();
+  const t = await getServerT(dict);
   const data = await loadRange(date, sym);
   if (!data || data.frames.length === 0) {
     return (
@@ -109,12 +112,11 @@ export default async function ReplayDatePage({
             href="/replay"
             className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
           >
-            <ChevronLeft size={14} /> All sessions
+            <ChevronLeft size={14} /> {t('allSessions')}
           </Link>
         </div>
         <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-8 text-sm text-[var(--color-text-secondary)]">
-          No replayable frames for {sym} on {formatHumanDate(date)}. Either the session
-          predates GEX ingestion or the analytics engine didn&rsquo;t write that day.
+          {t('noFramesTitle', { sym, date: formatHumanDate(date) })} {t('noFramesBody')}
         </div>
       </main>
     );
@@ -131,7 +133,7 @@ export default async function ReplayDatePage({
           href="/replay"
           className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
         >
-          <ChevronLeft size={14} /> All sessions
+          <ChevronLeft size={14} /> {t('allSessions')}
         </Link>
         <ShareCardButton
           cardId={`replay:${sym}:${date}`}
@@ -144,13 +146,13 @@ export default async function ReplayDatePage({
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="text-[11px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
-              ZeroGEX · GEX Replay
+              ZeroGEX · {t('replayLabel')}
             </div>
             <h1 className="mt-1 text-2xl font-bold tracking-tight">
               {sym} · {human}
             </h1>
             <p className="mt-1 font-mono text-xs text-[var(--color-text-secondary)]">
-              {data.count} per-minute frames · {data.is_today ? 'live (today)' : 'historical'}
+              {data.count} {t('perMinuteFrames')} · {data.is_today ? t('liveToday') : t('historical')}
             </p>
           </div>
           <SymbolPicker current={sym} hrefs={pickerHrefs} />
@@ -166,18 +168,9 @@ export default async function ReplayDatePage({
       />
 
       <section className="mt-8 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5 text-xs text-[var(--color-text-secondary)] leading-relaxed">
-        <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">How to use</div>
-        Drag the scrubber to any minute · use play/pause to auto-advance · the combined chart puts
-        the session tape on the left and the dealer-net-GEX strike profile on the right, sharing
-        the same price axis so a wick and a strike bar at the same level line up horizontally ·
-        the call wall (resistance), put wall (support), and gamma flip draw as horizontal levels
-        that migrate minute-by-minute as you scrub ·
-        candles past the cursor ghost out and light back to full opacity as the playhead sweeps
-        through them — or hit <em>Future</em> to hide everything ahead of the playhead for an
-        as-it-happened tape · drop pin A then pin B to see the strike-by-strike delta between two moments ·
-        click <em>Snapshot this minute</em> to generate a branded permalink with an OG image you
-        can share. MP4 export of arbitrary windows is on the roadmap; today you share branded
-        stills of the moments that mattered.
+        <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">{t('howToUse')}</div>
+        {t('howToUseBody1')} <em>{t('futureLabel')}</em> {t('howToUseBody2')} <em>{t('snapshotLabel')}</em>{' '}
+        {t('howToUseBody3')}
       </section>
     </main>
   );

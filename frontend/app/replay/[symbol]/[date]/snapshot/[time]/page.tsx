@@ -7,7 +7,9 @@ import ShareCardButton from '@/components/ShareCardButton';
 import SymbolPicker from '@/components/SymbolPicker';
 import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
 import { serverApiGet } from '@/core/api/serverFetch';
+import { getServerT } from '@/core/localizedContent';
 import StrikeProfileSnapshot from './StrikeProfileSnapshot';
+import { dict } from './page.i18n';
 
 // Permalink page for a single replay moment. /replay/{date}/snapshot/{HHMM}
 // resolves the HHMM-in-ET token to an absolute UTC timestamp, fetches one
@@ -140,6 +142,7 @@ export default async function ReplaySnapshotPage({
   params: Promise<{ symbol: string; date: string; time: string }>;
 }) {
   const { symbol, date, time } = await params;
+  const t = await getServerT(dict);
   const sym = resolveSymbol(symbol);
   if (!ISO_DATE.test(date) || !HHMM.test(time)) notFound();
   const frame = await loadFrame(date, time, sym);
@@ -159,7 +162,7 @@ export default async function ReplaySnapshotPage({
           href={`/replay/${sym}/${date}`}
           className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
         >
-          <ChevronLeft size={14} /> Back to player
+          <ChevronLeft size={14} /> {t('backToPlayer')}
         </Link>
         <ShareCardButton
           cardId={`${sym}:${date}:${time}`}
@@ -173,13 +176,13 @@ export default async function ReplaySnapshotPage({
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="text-[11px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
-              ZeroGEX · Replay snapshot
+              {t('replaySnapshot')}
             </div>
             <h1 className="mt-1 text-2xl font-bold tracking-tight">
               {sym} · {human} @ {minute}
             </h1>
             <p className="mt-1 font-mono text-xs text-[var(--color-text-secondary)]">
-              Frame {formatTimeEt(frame.frame_ts)} ET (requested {formatTimeEt(frame.requested_ts)} ET)
+              {t('frameLabel', { frameTime: formatTimeEt(frame.frame_ts), requestedTime: formatTimeEt(frame.requested_ts) })}
             </p>
           </div>
           <SymbolPicker current={sym} hrefs={pickerHrefs} />
@@ -187,16 +190,16 @@ export default async function ReplaySnapshotPage({
       </header>
 
       <section className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="Spot" value={fmtPrice(summary?.spot)} accent="var(--color-text-primary)" icon={TrendingUp} />
-        <Stat label="Call wall" value={fmtPrice(summary?.call_wall)} accent="var(--color-bear)" />
-        <Stat label="Put wall" value={fmtPrice(summary?.put_wall)} accent="var(--color-bull)" />
-        <Stat label="Gamma flip" value={fmtPrice(summary?.gamma_flip)} accent="var(--color-warning)" />
+        <Stat label={t('spot')} value={fmtPrice(summary?.spot)} accent="var(--color-text-primary)" icon={TrendingUp} />
+        <Stat label={t('callWall')} value={fmtPrice(summary?.call_wall)} accent="var(--color-bear)" />
+        <Stat label={t('putWall')} value={fmtPrice(summary?.put_wall)} accent="var(--color-bull)" />
+        <Stat label={t('gammaFlip')} value={fmtPrice(summary?.gamma_flip)} accent="var(--color-warning)" />
       </section>
 
       {summary?.max_pain != null && (
         <section className="mb-6 rounded-xl border-2 border-[var(--color-warning)] bg-[var(--color-surface)] px-5 py-4">
           <div className="flex items-baseline gap-2 text-[10px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
-            <Magnet size={11} /> Max pain at this moment
+            <Magnet size={11} /> {t('maxPainLabel')}
           </div>
           <div className="mt-1 text-3xl font-black tracking-tight">
             {fmtPrice(summary.max_pain)}
@@ -215,14 +218,10 @@ export default async function ReplaySnapshotPage({
       </section>
 
       <section className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5 text-xs text-[var(--color-text-secondary)] leading-relaxed">
-        <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">About this snapshot</div>
-        Permanent permalink for the dealer gamma surface at the exact moment requested. The
-        scrubber landed on the nearest published GEX frame; competitor tools only show live
-        snapshots, so a shareable historical moment doesn&rsquo;t exist anywhere else. Built
-        from the same {' '}
-        <span className="font-mono">gex_summary</span> and{' '}
-        <span className="font-mono">gex_by_strike</span> rows that power the live dashboard,
-        so the math is identical — just pinned to a past timestamp.
+        <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">{t('aboutTitle')}</div>
+        {t('aboutText1')} {' '}
+        <span className="font-mono">gex_summary</span> {t('aboutText2')}{' '}
+        <span className="font-mono">gex_by_strike</span> {t('aboutText3')}
       </section>
     </main>
   );

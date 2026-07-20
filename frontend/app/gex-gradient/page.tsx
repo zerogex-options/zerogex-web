@@ -22,17 +22,20 @@ import {
   formatPct,
 } from '@/core/signalHelpers';
 import { spectrumIndicatorLeft } from '@/core/spectrumIndicator';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './page.i18n';
 
-function interpretation(score: number | null, netGex: number | null): string {
-  if (score == null) return 'No reading';
+function interpretation(score: number | null, netGex: number | null, t: (key: string) => string): string {
+  if (score == null) return t('noReading');
   const shortGamma = netGex != null && netGex < 0;
-  if (score >= 50) return shortGamma ? 'Short-gamma upside setup — dealers chase' : 'Structural resistance above — fade rips';
-  if (score <= -50) return shortGamma ? 'Short-gamma downside setup — dealers flush' : 'Structural support below — buy dips';
-  if (Math.abs(score) >= 25) return 'Moderate gamma gradient';
-  return 'Balanced strike gamma';
+  if (score >= 50) return shortGamma ? t('interpShortUpside') : t('interpStructResistance');
+  if (score <= -50) return shortGamma ? t('interpShortDownside') : t('interpStructSupport');
+  if (Math.abs(score) >= 25) return t('interpModerate');
+  return t('interpBalanced');
 }
 
 export default function GexGradientPage() {
+  const t = usePageT(dict);
   const { symbol } = useTimeframe();
   const { data, loading, error, refetch } = useGexGradientSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.gexGradientMs);
 
@@ -62,10 +65,10 @@ export default function GexGradientPage() {
   return (
     <PageShell>
       <SignalPageTitle
-        title="GEX Gradient"
-        subtitle={'"Is gamma stacked on one side?"'}
+        title={t('title')}
+        subtitle={t('subtitle')}
         icon={ScatterChart}
-        tooltip="Decomposes per-strike dealer gamma into four zones (above / below spot × ATM / wings) and scores the asymmetry. Short-gamma regimes: heavy above-spot gamma means dealers chase rallies (bullish). Long-gamma regimes flip the signal (above-spot = resistance)."
+        tooltip={t('tooltip')}
       />
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
@@ -76,17 +79,17 @@ export default function GexGradientPage() {
             <SignalScoreHero
               score={score}
               trend={trend}
-              interpretation={interpretation(score, netGex)}
+              interpretation={interpretation(score, netGex, t)}
               history={history}
               badges={
                 <>
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-[var(--color-border)] text-[11px]">
-                    Regime: <span className="font-mono" style={{ color: (netGex ?? 0) < 0 ? 'var(--color-bear)' : 'var(--color-bull)' }}>
-                      {netGex != null ? (netGex < 0 ? 'Short gamma' : 'Long gamma') : '—'}
+                    {t('regimeLabel')} <span className="font-mono" style={{ color: (netGex ?? 0) < 0 ? 'var(--color-bear)' : 'var(--color-bull)' }}>
+                      {netGex != null ? (netGex < 0 ? t('shortGamma') : t('longGamma')) : '—'}
                     </span>
                   </span>
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-[var(--color-border)] text-[11px]">
-                    Strikes: <span className="font-mono">{strikeCount != null ? Math.floor(strikeCount) : '—'}</span>
+                    {t('strikesLabel')} <span className="font-mono">{strikeCount != null ? Math.floor(strikeCount) : '—'}</span>
                   </span>
                 </>
               }
@@ -95,11 +98,11 @@ export default function GexGradientPage() {
 
           <div className="lg:col-span-3 space-y-4">
             <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
-              <div className="text-sm font-semibold mb-3">Strike-zone gamma map</div>
+              <div className="text-sm font-semibold mb-3">{t('strikeZoneMap')}</div>
               <div className="space-y-2">
                 <div>
                   <div className="flex items-center justify-between text-[11px] mb-1">
-                    <span className="text-[var(--color-text-secondary)]">Above spot</span>
+                    <span className="text-[var(--color-text-secondary)]">{t('aboveSpot')}</span>
                     <span className="font-mono">{formatGexCompact(above)}</span>
                   </div>
                   <div className="h-3 rounded-full bg-[var(--color-border)]/30 overflow-hidden">
@@ -108,7 +111,7 @@ export default function GexGradientPage() {
                 </div>
                 <div>
                   <div className="flex items-center justify-between text-[11px] mb-1">
-                    <span className="text-[var(--color-text-secondary)]">Below spot</span>
+                    <span className="text-[var(--color-text-secondary)]">{t('belowSpot')}</span>
                     <span className="font-mono">{formatGexCompact(below)}</span>
                   </div>
                   <div className="h-3 rounded-full bg-[var(--color-border)]/30 overflow-hidden">
@@ -118,7 +121,7 @@ export default function GexGradientPage() {
               </div>
 
               <div className="mt-4 pt-3 border-t border-[var(--color-border)]">
-                <div className="text-[11px] text-[var(--color-text-secondary)] mb-2 uppercase tracking-wide">Asymmetry</div>
+                <div className="text-[11px] text-[var(--color-text-secondary)] mb-2 uppercase tracking-wide">{t('asymmetryLabel')}</div>
                 <div className="relative h-4 rounded-full" style={{ background: 'linear-gradient(90deg, var(--color-bear) 0%, var(--color-surface) 50%, var(--color-bull) 100%)' }}>
                   <div className="absolute top-0 h-4 w-0.5 bg-[var(--color-text-primary)]" style={{ left: spectrumIndicatorLeft(asymmetryNeedlePct, 16, 2), transform: 'translateX(-50%)' }} />
                 </div>
@@ -132,22 +135,22 @@ export default function GexGradientPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-4">
-                <div className="text-sm font-semibold mb-2">ATM vs Wings</div>
+                <div className="text-sm font-semibold mb-2">{t('atmVsWings')}</div>
                 <div className="flex h-4 rounded-full overflow-hidden">
                   <div style={{ width: `${atmShare}%`, background: 'var(--color-warning)' }} />
                   <div style={{ width: `${wingShare}%`, background: 'var(--color-text-secondary)' }} />
                 </div>
                 <div className="mt-2 text-[11px] text-[var(--color-text-secondary)]">
-                  ATM: <span className="font-mono">{formatGexCompact(atm)}</span> · Wings: <span className="font-mono">{formatGexCompact(wing)}</span>
+                  {t('atmLabel')} <span className="font-mono">{formatGexCompact(atm)}</span> · {t('wingsLabel')} <span className="font-mono">{formatGexCompact(wing)}</span>
                 </div>
               </div>
               <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-4">
-                <div className="text-sm font-semibold mb-2">Wing fraction</div>
+                <div className="text-sm font-semibold mb-2">{t('wingFractionLabel')}</div>
                 <div className="text-2xl font-black" style={{ color: (wingFraction ?? 0) > 0.5 ? 'var(--color-warning)' : 'var(--color-text-primary)' }}>
                   {formatPct(wingFraction, 1, false)}
                 </div>
                 <p className="mt-1 text-[11px] text-[var(--color-text-secondary)]">
-                  Share of |gamma| at wings (&gt; ±4% OTM). Above 50% reduces confidence.
+                  {t('wingFractionHelp')}
                 </p>
               </div>
             </div>
@@ -157,12 +160,12 @@ export default function GexGradientPage() {
 
       <SignalHowItsBuilt>
         <div><code>Asymmetry = (Above Abs − Below Abs) / (Above Abs + Below Abs)</code>.</div>
-        <div>Short-gamma regime: <code>Raw = Asymmetry</code>. Long-gamma: <code>Raw = −Asymmetry × Damping</code> (damping 0.40).</div>
-        <div><code>Confidence = max(0.25, 1 − Wing Fraction)</code>. Wings pin, so they kill directional edge.</div>
-        <div><code>Score = clip(Raw × Confidence, [−1, 1]) × 100</code>. Abstains if total gamma below threshold.</div>
+        <div>{t('howBuiltShortRegime')} <code>Raw = Asymmetry</code>. {t('howBuiltLongRegime')} <code>Raw = −Asymmetry × Damping</code> (damping 0.40).</div>
+        <div><code>Confidence = max(0.25, 1 − Wing Fraction)</code>. {t('howBuiltWingsPin')}</div>
+        <div><code>Score = clip(Raw × Confidence, [−1, 1]) × 100</code>. {t('howBuiltAbstain')}</div>
       </SignalHowItsBuilt>
 
-      <SignalEventsPanel signalName="gex_gradient" symbol={symbol} title="Event Timeline" />
+      <SignalEventsPanel signalName="gex_gradient" symbol={symbol} title={t('eventTimeline')} />
     </PageShell>
   );
 }

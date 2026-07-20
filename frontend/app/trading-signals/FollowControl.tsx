@@ -36,6 +36,8 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertCircle, Bell, BellDot, Check, Loader2 } from 'lucide-react';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './FollowControl.i18n';
 import { botColor, botColorSoft } from './palette';
 
 type Variant = 'pill' | 'icon';
@@ -200,6 +202,7 @@ export default function FollowControl({
   onOptimisticFollow,
   variant = 'pill',
 }: Props) {
+  const t = usePageT(dict);
   const [open, setOpen] = useState(false);
   // Two state slices tracked separately so the Save button can compare
   // them: `saved` is the last-known DB record for this (user, bot), and
@@ -487,12 +490,12 @@ export default function FollowControl({
         disabled={busy}
         aria-label={
           followed
-            ? 'Manage notifications for this bot'
-            : 'Follow this bot'
+            ? t('manageAriaLabel')
+            : t('followThisBot')
         }
         aria-expanded={followed ? open : undefined}
         aria-haspopup={followed ? 'menu' : undefined}
-        title={followed ? 'Following — click to manage' : 'Follow this bot'}
+        title={followed ? t('followingTitle') : t('followThisBot')}
         className="inline-flex items-center justify-center w-7 h-7 rounded-full transition-colors"
         style={{
           backgroundColor: followed ? botColorSoft(botId, paletteIndex) : 'transparent',
@@ -527,12 +530,12 @@ export default function FollowControl({
         {triggerBusy ? (
           <>
             <Loader2 className="w-3 h-3 animate-spin" />
-            Following…
+            {t('followingEllipsis')}
           </>
         ) : followed ? (
-          '✓ Following'
+          t('followingBtn')
         ) : (
-          'Follow'
+          t('followBtn')
         )}
       </button>
     );
@@ -563,43 +566,45 @@ export default function FollowControl({
                 style={{ borderColor: 'var(--color-border)' }}
               >
                 <div className="text-xs font-semibold text-[var(--color-text-primary)]">
-                  {followed ? 'Notification settings' : 'Follow this bot'}
+                  {followed ? t('notificationSettings') : t('followThisBot')}
                 </div>
                 <div className="text-[11px] text-[var(--color-text-secondary)] mt-0.5 leading-snug">
-                  Pick channels for entry / exit events and the minimum
-                  conviction to notify on.
+                  {t('popoverIntro')}
                 </div>
               </div>
               <div className="px-4 py-3 space-y-2.5">
                 <ChannelRow
-                  label="In-app"
+                  label={t('channelInApp')}
                   status="Live"
+                  statusLabel={t('statusLive')}
                   checked={draft.in_app}
                   onToggle={() => patchDraft({ in_app: !draft.in_app })}
                   color={color}
-                  description="Appears in the bell at the top of the TradeWorkz™ page."
+                  description={t('channelInAppDesc')}
                 />
                 <ChannelRow
-                  label="Email"
+                  label={t('channelEmail')}
                   status="Live"
+                  statusLabel={t('statusLive')}
                   checked={draft.email}
                   onToggle={() => patchDraft({ email: !draft.email })}
                   color={color}
-                  description="Sent by the minute-cadence email worker. Requires a verified email."
+                  description={t('channelEmailDesc')}
                 />
                 <ChannelRow
-                  label="Webhook"
+                  label={t('channelWebhook')}
                   status="Queued"
+                  statusLabel={t('statusQueued')}
                   checked={draft.webhook}
                   onToggle={() => patchDraft({ webhook: !draft.webhook })}
                   color={color}
-                  description="Rows are logged now; a webhook delivery worker is not yet wired."
+                  description={t('channelWebhookDesc')}
                 />
 
                 <div className="pt-2">
                   <div className="flex items-center justify-between mb-1">
                     <label className="text-[11px] font-semibold text-[var(--color-text-primary)]">
-                      Min. conviction
+                      {t('minConviction')}
                     </label>
                     <span className="text-[11px] tabular-nums text-[var(--color-text-secondary)]">
                       {(draft.min_confidence * 100).toFixed(0)}%
@@ -619,8 +624,7 @@ export default function FollowControl({
                     style={{ accentColor: color }}
                   />
                   <div className="text-[10px] text-[var(--color-text-secondary)] mt-1 leading-snug">
-                    Suppress notifications for entries below this bot's
-                    confidence-blend score.
+                    {t('minConvictionHelp')}
                   </div>
                 </div>
               </div>
@@ -656,15 +660,15 @@ export default function FollowControl({
                     {phase === 'removing' ? (
                       <>
                         <Loader2 className="w-3 h-3 animate-spin" />
-                        Removing…
+                        {t('removingEllipsis')}
                       </>
                     ) : phase === 'removed' ? (
                       <>
                         <Check className="w-3 h-3" />
-                        Unfollowed
+                        {t('unfollowed')}
                       </>
                     ) : (
-                      'Unfollow'
+                      t('unfollow')
                     )}
                   </button>
                 ) : (
@@ -673,8 +677,8 @@ export default function FollowControl({
                     style={{ opacity: hasChanges && anyChannelOn ? 1 : 0.6 }}
                   >
                     {anyChannelOn
-                      ? 'Ready to follow'
-                      : 'Pick at least one channel'}
+                      ? t('readyToFollow')
+                      : t('pickAtLeastOneChannel')}
                   </span>
                 )}
                 {/*
@@ -723,15 +727,15 @@ export default function FollowControl({
                       {savingUi ? (
                         <>
                           <Loader2 className="w-3 h-3 animate-spin" />
-                          Saving…
+                          {t('savingEllipsis')}
                         </>
                       ) : savedUi ? (
                         <>
                           <Check className="w-3 h-3" />
-                          Saved
+                          {t('saved')}
                         </>
                       ) : (
-                        'Save'
+                        t('save')
                       )}
                     </button>
                   );
@@ -748,6 +752,7 @@ export default function FollowControl({
 function ChannelRow({
   label,
   status,
+  statusLabel,
   checked,
   onToggle,
   color,
@@ -755,6 +760,7 @@ function ChannelRow({
 }: {
   label: string;
   status: 'Live' | 'Queued';
+  statusLabel: string;
   checked: boolean;
   onToggle: () => void;
   color: string;
@@ -787,7 +793,7 @@ function ChannelRow({
               color: status === 'Live' ? 'var(--color-bull)' : 'var(--color-warning)',
             }}
           >
-            {status}
+            {statusLabel}
           </span>
         </div>
         <div className="text-[10px] text-[var(--color-text-secondary)] leading-snug mt-0.5">

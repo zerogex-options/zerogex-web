@@ -7,6 +7,8 @@ import ShareCardButton from '@/components/ShareCardButton';
 import SymbolPicker from '@/components/SymbolPicker';
 import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
 import { serverApiGet } from '@/core/api/serverFetch';
+import { getServerT } from '@/core/localizedContent';
+import { dict } from './page.i18n';
 
 // Public permalink for one trading day's Scorecard recap. Server-rendered,
 // ISR-cached for one hour after the close (the underlying scorecard is
@@ -143,6 +145,7 @@ export default async function ScorecardPage({
   if (!isValidDate(date)) notFound();
   const data = await loadScorecard(date, sym);
   if (!data) notFound();
+  const t = await getServerT(dict);
 
   const human = formatHumanDate(date);
   const regimeLabel = data.regime?.label || 'unknown';
@@ -161,7 +164,7 @@ export default async function ScorecardPage({
           href="/trading-signals"
           className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)]"
         >
-          <ChevronLeft size={14} /> Trading Signals
+          <ChevronLeft size={14} /> {t('backLink')}
         </Link>
         <ShareCardButton
           cardId={`${sym}:${date}`}
@@ -185,9 +188,7 @@ export default async function ScorecardPage({
         </div>
         {data.is_empty ? (
           <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
-            Quiet tape. No Playbook calls were emitted and no signals flipped direction. Either a
-            non-trading day or a flat session — the engine refuses to manufacture a setup just to
-            have something to say.
+            {t('emptyState')}
           </p>
         ) : (
           <p className="mt-2 text-sm text-[var(--color-text-secondary)]">{tweetBody}</p>
@@ -196,27 +197,27 @@ export default async function ScorecardPage({
 
       <section className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <ScorecardStat
-          label="Playbook calls"
+          label={t('playbookCalls')}
           value={data.cards.total.toString()}
           accent="var(--color-warning)"
           hint={
             data.cards.first_card_permalink ? (
               <Link href={data.cards.first_card_permalink} className="underline">
-                Open first call ↗
+                {t('openFirstCall')}
               </Link>
             ) : (
-              'No persisted cards today'
+              t('noPersistedCards')
             )
           }
         />
         <ScorecardStat
-          label="Best signal (60m)"
+          label={t('bestSignal')}
           value={data.signals.best ? humanizeName(data.signals.best.name) : '—'}
           accent="var(--color-bull)"
           delta={data.signals.best ? formatPct(data.signals.best.avg_directional_return) : null}
         />
         <ScorecardStat
-          label="Worst signal (60m)"
+          label={t('worstSignal')}
           value={data.signals.worst ? humanizeName(data.signals.worst.name) : '—'}
           accent="var(--color-bear)"
           delta={data.signals.worst ? formatPct(data.signals.worst.avg_directional_return) : null}
@@ -230,7 +231,7 @@ export default async function ScorecardPage({
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <div>
             <div className="text-[10px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
-              Closing regime
+              {t('closingRegime')}
             </div>
             <div className="mt-1 text-2xl font-black uppercase tracking-tight" style={{ color: regimeColor }}>
               {regimeLabel}
@@ -239,7 +240,7 @@ export default async function ScorecardPage({
           {typeof data.regime?.normalized_score === 'number' && (
             <div className="text-right">
               <div className="text-[10px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
-                MSI close
+                {t('msiClose')}
               </div>
               <div className="mt-1 font-mono text-xl font-bold" style={{ color: regimeColor }}>
                 {data.regime.normalized_score.toFixed(1)}
@@ -252,17 +253,17 @@ export default async function ScorecardPage({
       {data.signals.events.length > 0 && (
         <section className="mb-8">
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">
-            All signals · 60-minute forward return
+            {t('allSignalsHeading')}
           </h2>
           <div className="overflow-x-auto rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]">
             <table className="w-full min-w-[640px] text-sm">
               <thead>
                 <tr className="bg-[var(--color-surface-subtle)] text-[10px] uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">
-                  <th className="px-4 py-2 text-left">Signal</th>
-                  <th className="px-4 py-2 text-right">Flips</th>
-                  <th className="px-4 py-2 text-right">Wins</th>
-                  <th className="px-4 py-2 text-right">Losses</th>
-                  <th className="px-4 py-2 text-right">Avg fwd return</th>
+                  <th className="px-4 py-2 text-left">{t('colSignal')}</th>
+                  <th className="px-4 py-2 text-right">{t('colFlips')}</th>
+                  <th className="px-4 py-2 text-right">{t('colWins')}</th>
+                  <th className="px-4 py-2 text-right">{t('colLosses')}</th>
+                  <th className="px-4 py-2 text-right">{t('colAvgFwdReturn')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -294,14 +295,8 @@ export default async function ScorecardPage({
       )}
 
       <section className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5 text-xs text-[var(--color-text-secondary)] leading-relaxed">
-        <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">About this scorecard</div>
-        Daily aggregate of the ZeroGEX engine&rsquo;s output for {sym}. &ldquo;Playbook calls&rdquo;
-        counts every non-STAND_DOWN Action Card persisted that day; each one has its own
-        /cards/{'<id>'} permalink. &ldquo;Best/Worst signal&rdquo; picks the signal whose
-        direction-flip events that day produced the highest/lowest average 60-minute forward
-        return on {sym}, with a 2-flip minimum so a single outlier doesn&rsquo;t crown a signal
-        of the day. The receipt is immutable once written — the engine cannot retroactively edit
-        a published scorecard.
+        <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">{t('aboutHeading')}</div>
+        {t('aboutBody', { sym })}
       </section>
     </main>
   );

@@ -21,6 +21,8 @@ import ConfluenceMatrix from '@/components/ConfluenceMatrix';
 import SignalEventsPanel from '@/components/SignalEventsPanel';
 import SignalsGuide from '@/components/SignalsGuide';
 import { useTimeframe } from '@/core/TimeframeContext';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './page.i18n';
 import {
   useBasicSignalsBundle,
   useTapeFlowBiasSignal,
@@ -43,9 +45,9 @@ import {
 } from '@/core/signalHelpers';
 
 const TABS = [
-  { id: 'grid', label: 'Signal Grid', icon: LayoutGrid },
-  { id: 'matrix', label: 'Confluence Matrix', icon: Table },
-  { id: 'events', label: 'Event Timelines', icon: LineChartIcon },
+  { id: 'grid', labelKey: 'tabGrid', icon: LayoutGrid },
+  { id: 'matrix', labelKey: 'tabMatrix', icon: Table },
+  { id: 'events', labelKey: 'tabEvents', icon: LineChartIcon },
 ] as const;
 
 type TabId = (typeof TABS)[number]['id'];
@@ -62,6 +64,7 @@ const EVENT_SIGNAL_LABELS: Array<{ name: SignalEventName; label: string }> = [
 export default function BasicSignalsPage() {
   const { symbol } = useTimeframe();
   const [tab, setTab] = useState<TabId>('grid');
+  const t = usePageT(dict);
 
   const bundle = useBasicSignalsBundle(symbol, PROPRIETARY_SIGNALS_REFRESH.basicBundleMs);
   const tapeFlow = useTapeFlowBiasSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.tapeFlowBiasMs);
@@ -139,7 +142,7 @@ export default function BasicSignalsPage() {
         href: '/tape-flow-bias',
         icon: Waves,
         threshold: 25,
-        description: 'Aggressive-vs-passive option-tape premium imbalance (calls bought + puts sold = bullish).',
+        description: t('descTapeFlowBias'),
         rows: tapeRows,
         hook: tapeFlow,
       },
@@ -150,7 +153,7 @@ export default function BasicSignalsPage() {
         href: '/skew-delta',
         icon: Scale,
         threshold: 25,
-        description: 'Short-dated OTM put-vs-call IV spread as deviation from baseline. Fear gauge.',
+        description: t('descSkewDelta'),
         rows: skewRows,
         hook: skew,
       },
@@ -161,7 +164,7 @@ export default function BasicSignalsPage() {
         href: '/vanna-charm-flow',
         icon: Activity,
         threshold: 25,
-        description: 'Second-order greek dealer-hedging pressure. Morning vanna lift, afternoon charm fade.',
+        description: t('descVannaCharmFlow'),
         rows: vcRows,
         hook: vc,
       },
@@ -172,7 +175,7 @@ export default function BasicSignalsPage() {
         href: '/dealer-delta-pressure',
         icon: Compass,
         threshold: 25,
-        description: "Estimated dealer net delta (inverted: positive = dealers short delta = bullish).",
+        description: t('descDealerDeltaPressure'),
         rows: ddpRows,
         hook: ddp,
       },
@@ -183,7 +186,7 @@ export default function BasicSignalsPage() {
         href: '/gex-gradient',
         icon: ScatterChart,
         threshold: 25,
-        description: 'Above-vs-below-spot gamma asymmetry, regime-aware (short vs long gamma).',
+        description: t('descGexGradient'),
         rows: gexRows,
         hook: gexGrad,
       },
@@ -194,12 +197,12 @@ export default function BasicSignalsPage() {
         href: '/positioning-trap',
         icon: AlertTriangle,
         threshold: 25,
-        description: 'Crowded positioning × flow × momentum × gamma — classic squeeze / flush setup.',
+        description: t('descPositioningTrap'),
         rows: trapRows,
         hook: posTrap,
       },
     ];
-  }, [tapeFlow, skew, vc, ddp, gexGrad, posTrap]);
+  }, [tapeFlow, skew, vc, ddp, gexGrad, posTrap, t]);
 
   // Fallback to bundle data when per-signal endpoints haven't loaded
   const cardsWithBundleFallback = useMemo(() => {
@@ -220,9 +223,9 @@ export default function BasicSignalsPage() {
   return (
     <PageShell>
       <div className="flex items-center gap-2 mb-6">
-        <h1 className="text-3xl font-bold">Basic Signal Dashboard</h1>
+        <h1 className="text-3xl font-bold">{t('pageTitle')}</h1>
         <TooltipWrapper
-          text="Six independent, continuous directional reads of market microstructure sitting outside the composite MSI. None dominates — the value is in their agreement (conviction) or disagreement (divergence, trap risk). Drill into any tile for detail."
+          text={t('lensTooltip')}
           placement="bottom"
         >
           <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
@@ -238,16 +241,15 @@ export default function BasicSignalsPage() {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <ShieldAlert size={16} className="text-[var(--color-warning)]" />
-              <div className="text-xs uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">Microstructure Lens</div>
+              <div className="text-xs uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">{t('microstructureLens')}</div>
             </div>
             <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
-              Basic signals run at weight = 0 — they do not feed the composite MSI. Use them as an early cross-check:
-              when flow-side signals diverge from structure signals, a regime shift is usually underway.
+              {t('lensParagraph')}
             </p>
             <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-[var(--color-text-secondary)]">
-              <span><span className="text-[var(--color-text-primary)] font-semibold">Symbol</span> {symbol}</span>
+              <span><span className="text-[var(--color-text-primary)] font-semibold">{t('symbolLabel')}</span> {symbol}</span>
               {bundlePayload.underlying ? (
-                <span><span className="text-[var(--color-text-primary)] font-semibold">Series</span> {String(bundlePayload.underlying)}</span>
+                <span><span className="text-[var(--color-text-primary)] font-semibold">{t('seriesLabel')}</span> {String(bundlePayload.underlying)}</span>
               ) : null}
             </div>
           </div>
@@ -275,14 +277,14 @@ export default function BasicSignalsPage() {
       </section>
 
       <div className="flex gap-2 mt-6 border-b border-[var(--color-border)]">
-        {TABS.map((t) => {
-          const Icon = t.icon;
-          const active = tab === t.id;
+        {TABS.map((tabItem) => {
+          const Icon = tabItem.icon;
+          const active = tab === tabItem.id;
           return (
             <button
-              key={t.id}
+              key={tabItem.id}
               type="button"
-              onClick={() => setTab(t.id)}
+              onClick={() => setTab(tabItem.id)}
               className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold"
               style={{
                 color: active ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
@@ -291,7 +293,7 @@ export default function BasicSignalsPage() {
               }}
             >
               <Icon size={14} />
-              {t.label}
+              {t(tabItem.labelKey)}
             </button>
           );
         })}
@@ -321,7 +323,7 @@ export default function BasicSignalsPage() {
       {tab === 'matrix' && (
         <section className="mt-6">
           <ConfluenceMatrix data={matrix.data} />
-          {matrix.error && <div className="mt-2 text-[11px] text-[var(--color-bear)]">Failed to load matrix: {matrix.error}</div>}
+          {matrix.error && <div className="mt-2 text-[11px] text-[var(--color-bear)]">{t('failedToLoadMatrix', { error: matrix.error })}</div>}
         </section>
       )}
 

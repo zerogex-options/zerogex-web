@@ -18,52 +18,23 @@ import SignalsGuide from '@/components/SignalsGuide';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { getMarketSession } from '@/core/utils';
 import { humanize, SignalTrend, trendColor } from '@/core/signalHelpers';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './page.i18n';
 import BiasTape from './BiasTape';
 import BiasSparkline from './BiasSparkline';
 import { useTradeBiasData } from './useTradeBiasData';
 import { BIAS_INPUT_KEYS, BIAS_INPUT_META, TACTICAL_PILLAR_META, TradeBiasPayload } from './data';
 
-const TITLE_TOOLTIP =
-  'Trade Bias is a single, signed directional call — which way to lean, how convinced, and the regime it started from. ' +
-  'It fuses the gamma regime and volatility (the structural baseline) with price action, order flow, tape, and momentum (the live read). ' +
-  'Most of the time the live read confirms the structure; when it disagrees loudly enough it overrides it — and the card says so. ' +
-  'Unlike the Composite Score (a directionless 0–100 regime-strength gauge), Trade Bias tells you which direction the read favors. ' +
-  'Computed by the Signals Engine every cycle, not in your browser.';
-
-const TENOR_TOOLTIP =
-  'Which horizon this read is for. Swing is the multi-day, structural bias led by the gamma and volatility regime. ' +
-  'Intraday is the same-day (0DTE), faster read led by flow, tape, and momentum. They can — and often do — disagree.';
-
-const INPUTS_TOOLTIP =
-  'The nine signals behind the structural baseline. ' +
-  'Each is shown on its −100…+100 scale; green leans bullish, red bearish.';
-
-const LIVE_READ_TOOLTIP =
-  'The tactical layer — price action (bounce/reject), order flow, tape, and momentum — fused into one signed direction and a conviction. ' +
-  'When it agrees with the structural baseline it confirms; when it leans against it, it diverges (caution); when it is loud and broad enough, it overrides — flipping the bias to a reversal/squeeze playbook.';
-
-const STATE_VERB: Record<string, string> = {
-  confirmed: 'confirms',
-  divergent: 'diverges from',
-  override: 'overrode',
-  baseline: 'sits on',
-};
-
-const TENOR_OPTIONS: { value: string; label: string }[] = [
-  { value: 'swing', label: 'Swing · Multi-day' },
-  { value: 'intraday', label: 'Intraday · 0DTE' },
-];
-
 type ConnectionState = 'idle' | 'live' | 'stale' | 'disconnected';
 
-const SESSION_LABEL: Record<string, string> = {
-  open: 'Market Open',
-  'pre-market': 'Pre-market',
-  'after-hours': 'After-hours',
-  closed: 'Closed',
-  'closed-weekend': 'Closed',
-  'closed-holiday': 'Closed',
-  halted: 'Halted',
+const SESSION_KEY: Record<string, string> = {
+  open: 'sessionOpen',
+  'pre-market': 'sessionPreMarket',
+  'after-hours': 'sessionAfterHours',
+  closed: 'sessionClosed',
+  'closed-weekend': 'sessionClosed',
+  'closed-holiday': 'sessionClosed',
+  halted: 'sessionHalted',
 };
 
 function LiveIndicator({
@@ -73,6 +44,7 @@ function LiveIndicator({
   connection: ConnectionState;
   lastUpdatedAt: number | null;
 }) {
+  const t = usePageT(dict);
   const [now, setNow] = useState(() => Date.now());
   const [session, setSession] = useState(getMarketSession());
 
@@ -86,18 +58,18 @@ function LiveIndicator({
 
   const ageSec = lastUpdatedAt != null ? Math.max(0, Math.floor((now - lastUpdatedAt) / 1000)) : null;
   let dotColor = 'var(--color-text-secondary)';
-  let statusText = 'Connecting…';
+  let statusText = t('connecting');
   let statusGlyph: '●' | '◐' | '○' = '○';
   if (connection === 'disconnected') {
     dotColor = 'var(--color-bear)';
-    statusText = 'Disconnected — retrying';
+    statusText = t('disconnectedRetrying');
   } else if (connection === 'stale') {
     dotColor = 'var(--color-warning)';
-    statusText = ageSec != null ? `Stale • ${ageSec}s ago` : 'Stale';
+    statusText = ageSec != null ? t('staleAgo', { age: ageSec }) : t('stale');
     statusGlyph = '◐';
   } else if (connection === 'live') {
     dotColor = 'var(--color-bull)';
-    statusText = ageSec != null ? `LIVE • updated ${ageSec}s ago` : 'LIVE';
+    statusText = ageSec != null ? t('liveAgo', { age: ageSec }) : t('live');
     statusGlyph = '●';
   }
 
@@ -108,7 +80,7 @@ function LiveIndicator({
         {statusText}
       </span>
       <span className="hidden md:inline text-[var(--color-text-secondary)] opacity-60">·</span>
-      <span className="hidden md:inline text-[var(--color-text-secondary)]">{SESSION_LABEL[session] ?? 'Market'}</span>
+      <span className="hidden md:inline text-[var(--color-text-secondary)]">{t(SESSION_KEY[session] ?? 'sessionMarket')}</span>
     </div>
   );
 }
@@ -117,11 +89,12 @@ function StateChip({ state, overrideActive }: { state: string; overrideActive: b
   // Phase 1 always reports "baseline"; the graded states (confirmed / divergent /
   // override) light up once the fusion layer lands. Keep the vocabulary here so
   // the chip is ready when they do.
+  const t = usePageT(dict);
   const map: Record<string, { label: string; color: string; soft: string }> = {
-    override: { label: 'Override', color: 'var(--color-info)', soft: 'var(--color-info-soft)' },
-    confirmed: { label: 'Confirmed', color: 'var(--color-bull)', soft: 'var(--color-bull-soft, transparent)' },
-    divergent: { label: 'Divergent', color: 'var(--color-warning)', soft: 'var(--color-warning-soft)' },
-    baseline: { label: 'Baseline', color: 'var(--color-text-secondary)', soft: 'var(--color-surface-subtle)' },
+    override: { label: t('stateOverride'), color: 'var(--color-info)', soft: 'var(--color-info-soft)' },
+    confirmed: { label: t('stateConfirmed'), color: 'var(--color-bull)', soft: 'var(--color-bull-soft, transparent)' },
+    divergent: { label: t('stateDivergent'), color: 'var(--color-warning)', soft: 'var(--color-warning-soft)' },
+    baseline: { label: t('stateBaseline'), color: 'var(--color-text-secondary)', soft: 'var(--color-surface-subtle)' },
   };
   const s = overrideActive ? map.override : (map[state] ?? map.baseline);
   return (
@@ -189,6 +162,7 @@ function InputBar({ value }: { value: number | null }) {
 }
 
 function InputsBreakdown({ payload }: { payload: TradeBiasPayload }) {
+  const t = usePageT(dict);
   const structural = BIAS_INPUT_KEYS.filter((k) => BIAS_INPUT_META[k].layer === 'structural');
   const tactical = BIAS_INPUT_KEYS.filter((k) => BIAS_INPUT_META[k].layer === 'tactical');
 
@@ -213,13 +187,13 @@ function InputsBreakdown({ payload }: { payload: TradeBiasPayload }) {
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-1">
       <div>
         <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)] mb-1.5">
-          Structural · baseline posture
+          {t('structuralBaseline')}
         </div>
         {structural.map((k) => <Row key={k} k={k} />)}
       </div>
       <div>
         <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)] mb-1.5">
-          Tactical · live read
+          {t('tacticalLiveRead')}
         </div>
         {tactical.map((k) => <Row key={k} k={k} />)}
       </div>
@@ -227,27 +201,34 @@ function InputsBreakdown({ payload }: { payload: TradeBiasPayload }) {
   );
 }
 
+const STATE_DESC_KEY: Record<string, string> = {
+  confirmed: 'liveReadDescConfirmed',
+  divergent: 'liveReadDescDivergent',
+  override: 'liveReadDescOverride',
+  baseline: 'liveReadDescBaseline',
+};
+
 function TacticalPanel({ payload }: { payload: TradeBiasPayload }) {
-  const t = payload.tactical;
+  const t = usePageT(dict);
+  const tac = payload.tactical;
   const dirTrend: SignalTrend =
-    t.direction == null ? 'neutral' : t.direction > 0.15 ? 'bullish' : t.direction < -0.15 ? 'bearish' : 'neutral';
+    tac.direction == null ? 'neutral' : tac.direction > 0.15 ? 'bullish' : tac.direction < -0.15 ? 'bearish' : 'neutral';
   const dirColor = trendColor(dirTrend);
-  const dirLabel = dirTrend === 'bullish' ? 'Long' : dirTrend === 'bearish' ? 'Short' : 'Neutral';
-  const convPct = t.conviction != null ? Math.round(t.conviction * 100) : null;
-  const verb = STATE_VERB[payload.state] ?? 'sits on';
+  const dirLabel = dirTrend === 'bullish' ? t('dirLong') : dirTrend === 'bearish' ? t('dirShort') : t('dirNeutral');
+  const convPct = tac.conviction != null ? Math.round(tac.conviction * 100) : null;
+  const descKey = STATE_DESC_KEY[payload.state] ?? 'liveReadDescBaseline';
 
   return (
     <section className="zg-feature-shell mt-8 p-6">
       <h2 className="text-xl font-semibold mb-1 flex items-center gap-2">
         <Zap size={20} />
-        Live read
-        <TooltipWrapper text={LIVE_READ_TOOLTIP} placement="bottom">
+        {t('liveReadHeading')}
+        <TooltipWrapper text={t('liveReadTooltip')} placement="bottom">
           <Info size={14} className="text-[var(--color-text-secondary)] cursor-help" />
         </TooltipWrapper>
       </h2>
       <p className="text-xs text-[var(--color-text-secondary)] mb-4">
-        Price action, order flow, tape and momentum — the tactical layer that {verb} the{' '}
-        {payload.structuralBiasLabel ?? 'structural'} baseline.
+        {t(descKey, { structural: payload.structuralBiasLabel ?? 'structural' })}
       </p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-1">
         {TACTICAL_PILLAR_META.map((p) => {
@@ -268,16 +249,16 @@ function TacticalPanel({ payload }: { payload: TradeBiasPayload }) {
       </div>
       <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs border-t pt-3" style={{ borderColor: 'var(--color-border)' }}>
         <span className="text-[var(--color-text-secondary)]">
-          Tactical direction <span className="font-semibold" style={{ color: dirColor }}>{dirLabel}</span>
+          {t('tacticalDirectionLabel')} <span className="font-semibold" style={{ color: dirColor }}>{dirLabel}</span>
         </span>
         <span className="text-[var(--color-text-secondary)]">
-          Conviction <span className="font-semibold font-mono text-[var(--color-text-primary)]">{convPct == null ? '—' : `${convPct}%`}</span>
+          {t('convictionLabel')} <span className="font-semibold font-mono text-[var(--color-text-primary)]">{convPct == null ? '—' : `${convPct}%`}</span>
         </span>
         <span className="text-[var(--color-text-secondary)]">
-          <span className="font-semibold font-mono text-[var(--color-text-primary)]">{t.alignedCount ?? '—'}/{t.availableCount ?? '—'}</span> pillars aligned
+          <span className="font-semibold font-mono text-[var(--color-text-primary)]">{tac.alignedCount ?? '—'}/{tac.availableCount ?? '—'}</span> {t('pillarsAligned')}
         </span>
         <span className="flex items-center gap-1.5 text-[var(--color-text-secondary)]">
-          → resolved as <StateChip state={payload.state} overrideActive={payload.overrideActive} />
+          {t('resolvedAsPrefix')} <StateChip state={payload.state} overrideActive={payload.overrideActive} />
         </span>
       </div>
     </section>
@@ -285,6 +266,7 @@ function TacticalPanel({ payload }: { payload: TradeBiasPayload }) {
 }
 
 export default function TradeBiasPage() {
+  const t = usePageT(dict);
   const { symbol } = useTimeframe();
   const [tenor, setTenor] = useState('swing');
   const { payload, history, lastUpdatedAt, connection, loading, historyLoaded, noData, refetch } =
@@ -295,29 +277,33 @@ export default function TradeBiasPage() {
   const biasIcon = trend === 'bullish' ? TrendingUp : trend === 'bearish' ? TrendingDown : AlertTriangle;
   const confidence = payload?.confidence ?? null;
   const isIntraday = tenor === 'intraday';
+  const tenorOptions = [
+    { value: 'swing', label: t('tenorSwing') },
+    { value: 'intraday', label: t('tenorIntraday') },
+  ];
 
   return (
     <PageShell>
       <div className="flex flex-wrap items-center gap-2 mb-6">
-        <h1 className="text-3xl font-bold">Trade Bias</h1>
-        <TooltipWrapper text={TITLE_TOOLTIP} placement="bottom">
+        <h1 className="text-3xl font-bold">{t('pageTitle')}</h1>
+        <TooltipWrapper text={t('titleTooltip')} placement="bottom">
           <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
         </TooltipWrapper>
         <div className="ml-auto flex items-center gap-4">
           <label className="flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)]">
-            <span className="hidden sm:inline">Horizon</span>
+            <span className="hidden sm:inline">{t('horizonLabel')}</span>
             <select
               value={tenor}
               onChange={(e) => setTenor(e.target.value)}
               className="rounded-md border bg-transparent px-2 py-1 text-xs font-medium text-[var(--color-text-primary)]"
               style={{ borderColor: 'var(--color-border)' }}
-              aria-label="Bias horizon"
+              aria-label={t('horizonAriaLabel')}
             >
-              {TENOR_OPTIONS.map((o) => (
+              {tenorOptions.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>
-            <TooltipWrapper text={TENOR_TOOLTIP} />
+            <TooltipWrapper text={t('tenorTooltip')} />
           </label>
           <LiveIndicator connection={connection} lastUpdatedAt={lastUpdatedAt} />
         </div>
@@ -329,8 +315,8 @@ export default function TradeBiasPage() {
           style={{ borderColor: 'var(--color-warning)', background: 'var(--color-warning-soft)', color: 'var(--color-text-primary)' }}
           role="status"
         >
-          Reconnecting… last values shown may be stale.{' '}
-          <button onClick={refetch} className="underline ml-1">Retry now</button>
+          {t('reconnecting')}{' '}
+          <button onClick={refetch} className="underline ml-1">{t('retryNow')}</button>
         </div>
       )}
 
@@ -343,11 +329,10 @@ export default function TradeBiasPage() {
         ) : noData ? (
           <div className="rounded-xl border p-12 text-center" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-subtle)' }}>
             <div className="text-lg font-semibold mb-1">
-              No {isIntraday ? 'intraday' : 'swing'} bias for {symbol} yet
+              {isIntraday ? t('noDataTitleIntraday', { symbol }) : t('noDataTitleSwing', { symbol })}
             </div>
             <div className="text-sm text-[var(--color-text-secondary)]">
-              The signal engine has no {isIntraday ? 'same-day (0DTE)' : 'multi-day'} bias rows for this
-              underlying yet. Check back during market hours{isIntraday ? '' : ', or try another symbol'}.
+              {isIntraday ? t('noDataDescIntraday') : t('noDataDescSwing')}
             </div>
           </div>
         ) : payload ? (
@@ -361,23 +346,23 @@ export default function TradeBiasPage() {
                   </span>
                   <StateChip state={payload.state} overrideActive={payload.overrideActive} />
                   {payload.convictionDriven && (
-                    <span className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-wider" style={{ borderColor: color, color }} title="Regime triggered by a single dominant signal rather than broad consensus.">
-                      <Zap size={11} /> Conviction
+                    <span className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-wider" style={{ borderColor: color, color }} title={t('convictionBadgeTooltip')}>
+                      <Zap size={11} /> {t('convictionBadge')}
                     </span>
                   )}
                 </div>
                 <BiasTape biasScore={payload.biasScore} trend={trend} />
                 <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-[11px] uppercase tracking-[0.16em] text-[var(--color-text-secondary)]">Direction</span>
-                    <span className="text-sm font-semibold" style={{ color }}>{humanize(payload.directionRaw) || 'Neutral'}</span>
+                    <span className="text-[11px] uppercase tracking-[0.16em] text-[var(--color-text-secondary)]">{t('directionLabel')}</span>
+                    <span className="text-sm font-semibold" style={{ color }}>{humanize(payload.directionRaw) || t('dirNeutral')}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[11px] uppercase tracking-[0.16em] text-[var(--color-text-secondary)]">Gamma</span>
+                    <span className="text-[11px] uppercase tracking-[0.16em] text-[var(--color-text-secondary)]">{t('gammaLabel')}</span>
                     <span className="text-sm font-mono">{payload.gammaRegime ?? '—'}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[11px] uppercase tracking-[0.16em] text-[var(--color-text-secondary)]">Volatility</span>
+                    <span className="text-[11px] uppercase tracking-[0.16em] text-[var(--color-text-secondary)]">{t('volatilityLabel')}</span>
                     <span className="text-sm font-mono">{payload.volatilityRegime ?? '—'}</span>
                   </div>
                 </div>
@@ -386,7 +371,7 @@ export default function TradeBiasPage() {
                 <div className="text-5xl font-black leading-none" style={{ color, fontVariantNumeric: 'tabular-nums' }}>
                   {confidence == null ? '—' : Math.round(confidence)}
                 </div>
-                <div className="text-[11px] uppercase tracking-wide text-[var(--color-text-secondary)] mt-1">Confidence / 100</div>
+                <div className="text-[11px] uppercase tracking-wide text-[var(--color-text-secondary)] mt-1">{t('confidenceLabel')}</div>
                 <div className="mt-2 h-1.5 w-32 mx-auto lg:ml-auto lg:mr-0 rounded-full overflow-hidden" style={{ background: 'var(--color-border)' }}>
                   <div className="h-full rounded-full transition-all duration-500" style={{ width: `${confidence ?? 0}%`, background: color }} />
                 </div>
@@ -396,11 +381,11 @@ export default function TradeBiasPage() {
             {payload.overrideActive && (
               <div className="rounded-lg border-l-4 px-4 py-3" style={{ borderLeftColor: 'var(--color-info)', background: 'var(--color-info-soft)' }}>
                 <div className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--color-info)' }}>
-                  <Zap size={14} /> Override active
+                  <Zap size={14} /> {t('overrideActiveLabel')}
                 </div>
                 <p className="text-xs text-[var(--color-text-primary)] mt-1">
-                  {payload.overrideReason ?? 'The live read overruled the structural posture.'}
-                  {payload.overruledPosture ? ` (overruled: ${payload.overruledPosture})` : ''}
+                  {payload.overrideReason ?? t('overrideReasonDefault')}
+                  {payload.overruledPosture ? t('overruledSuffix', { posture: payload.overruledPosture }) : ''}
                 </p>
               </div>
             )}
@@ -414,7 +399,7 @@ export default function TradeBiasPage() {
       {/* Regime / Bias / Playbook — the read, its behavior, and the plan */}
       {payload && !noData && (
         <section className="mt-8 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          <Card title="Regime" icon={Compass} color={color}>
+          <Card title={t('regimeTitle')} icon={Compass} color={color}>
             <div className="text-2xl font-black leading-tight break-words" style={{ color }}>{payload.regimeLabel}</div>
             <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed">{payload.regimeDesc}</p>
             <div className="mt-auto grid grid-cols-1 gap-1.5 text-xs">
@@ -429,7 +414,7 @@ export default function TradeBiasPage() {
             </div>
           </Card>
 
-          <Card title="Bias" icon={biasIcon} color={color}>
+          <Card title={t('biasTitle')} icon={biasIcon} color={color}>
             <div className="text-3xl font-black leading-none break-words" style={{ color }}>{payload.biasLabel}</div>
             <div className="text-[11px] text-[var(--color-text-secondary)] uppercase tracking-wide">{humanize(payload.biasCode)}</div>
             {payload.watching.length > 0 && (
@@ -438,14 +423,14 @@ export default function TradeBiasPage() {
                   const wc = w.direction === 'bullish' ? 'var(--color-bull)' : 'var(--color-bear)';
                   return (
                     <span key={w.key} className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full border" style={{ borderColor: wc, color: wc }}>
-                      Watching: {w.label} {w.direction === 'bullish' ? '↑' : '↓'}
+                      {t('watchingLabel', { label: w.label })} {w.direction === 'bullish' ? '↑' : '↓'}
                     </span>
                   );
                 })}
               </div>
             )}
             <div className="mt-auto">
-              <div className="text-[11px] uppercase tracking-wide text-[var(--color-text-secondary)] mb-1.5">Expected Behavior</div>
+              <div className="text-[11px] uppercase tracking-wide text-[var(--color-text-secondary)] mb-1.5">{t('expectedBehaviorLabel')}</div>
               <ul className="flex flex-col gap-1 text-xs">
                 {payload.expectedBehavior.map((line, i) => (
                   <li key={i} className="flex items-start gap-2">
@@ -457,9 +442,9 @@ export default function TradeBiasPage() {
             </div>
           </Card>
 
-          <Card title="Playbook" icon={ListChecks} color={color}>
+          <Card title={t('playbookTitle')} icon={ListChecks} color={color}>
             <div className="text-2xl font-black leading-tight break-words" style={{ color }}>{payload.setup}</div>
-            <div className="text-[11px] text-[var(--color-text-secondary)] uppercase tracking-wide">Setup</div>
+            <div className="text-[11px] text-[var(--color-text-secondary)] uppercase tracking-wide">{t('setupLabel')}</div>
             <ol className="mt-1 flex flex-col gap-1.5 text-xs">
               {payload.playbook.map((step, i) => (
                 <li key={i} className="flex items-start gap-2">
@@ -479,8 +464,8 @@ export default function TradeBiasPage() {
         <section className="zg-feature-shell mt-8 p-6">
           <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
             <Activity size={20} />
-            What&apos;s driving it
-            <TooltipWrapper text={INPUTS_TOOLTIP} placement="bottom">
+            {t('drivingItHeading')}
+            <TooltipWrapper text={t('inputsTooltip')} placement="bottom">
               <Info size={14} className="text-[var(--color-text-secondary)] cursor-help" />
             </TooltipWrapper>
           </h2>
@@ -493,7 +478,7 @@ export default function TradeBiasPage() {
         <section className="zg-feature-shell mt-8 p-6">
           <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
             <LineChartIcon size={20} />
-            Intraday Bias
+            {t('intradayBiasHeading')}
           </h2>
           {!historyLoaded ? (
             <div className="animate-pulse h-40 rounded-lg" style={{ background: 'var(--color-surface-subtle)' }} />

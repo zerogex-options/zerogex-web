@@ -4,6 +4,8 @@ import PageShell from '@/components/layout/PageShell';
 import { useMemo } from 'react';
 import { AlertTriangle, Gauge, Radar, TrendingDown, TrendingUp } from 'lucide-react';
 import { useTimeframe } from '@/core/TimeframeContext';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './page.i18n';
 import { useTrapDetectionSignal } from '@/hooks/useApiData';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
@@ -25,16 +27,17 @@ import {
   formatGexCompact,
 } from '@/core/signalHelpers';
 
-function setupLabel(signal: string, score: number | null): string {
-  if (score == null) return 'No reading';
-  if (signal === 'bearish_fade') return 'Bearish fade — failed upside breakout';
-  if (signal === 'bullish_fade') return 'Bullish fade — failed downside break';
-  if (score <= -25) return 'Bearish fade risk';
-  if (score >= 25) return 'Bullish fade risk';
-  return 'No strong trap edge';
+function setupLabel(signal: string, score: number | null, t: (key: string) => string): string {
+  if (score == null) return t('noReading');
+  if (signal === 'bearish_fade') return t('bearishFadeSignal');
+  if (signal === 'bullish_fade') return t('bullishFadeSignal');
+  if (score <= -25) return t('bearishFadeRisk');
+  if (score >= 25) return t('bullishFadeRisk');
+  return t('noTrapEdge');
 }
 
 export default function TrapDetectionPage() {
+  const t = usePageT(dict);
   const { symbol } = useTimeframe();
   const { data, loading, error, refetch } = useTrapDetectionSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.trapDetectionMs);
 
@@ -88,10 +91,10 @@ export default function TrapDetectionPage() {
   return (
     <PageShell>
       <SignalPageTitle
-        title="Trap Detection"
-        subtitle={'"Did this breakout just fail?"'}
+        title={t('pageTitle')}
+        subtitle={t('pageSubtitle')}
         icon={AlertTriangle}
-        tooltip="Flags failed breakouts as fade opportunities when dealer long gamma is reinforcing a reversal at a wall. Triggers at |score| ≥ 25. Prior resistance is the most-recently-breached upside wall; prior support, the most-recently-breached downside wall. The level persists in the payload after the break, so its position relative to close depends on tape since."
+        tooltip={t('pageTooltip')}
       />
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
@@ -101,19 +104,19 @@ export default function TrapDetectionPage() {
           <div className="lg:col-span-2">
             <SignalScoreHero
               score={score}
-              scoreLabel="Trap Score"
+              scoreLabel={t('scoreLabel')}
               trend={trend}
-              interpretation={setupLabel(signal, score)}
+              interpretation={setupLabel(signal, score, t)}
               history={history}
               badges={
                 <>
                   <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide" style={{ background: `${color}1f`, color }}>
                     {triggered && <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />}
-                    {humanize(signal) || 'None'}
+                    {humanize(signal) || t('noneFallback')}
                   </span>
                   {triggered && (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold" style={{ background: 'var(--color-bear-soft)', color: 'var(--color-bear)' }}>
-                      <AlertTriangle size={12} /> TRAP
+                      <AlertTriangle size={12} /> {t('trapBadge')}
                     </span>
                   )}
                 </>
@@ -122,7 +125,7 @@ export default function TrapDetectionPage() {
           </div>
 
           <div className="lg:col-span-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
-            <div className="text-sm font-semibold mb-3 flex items-center gap-2"><Radar size={14} /> Price ladder</div>
+            <div className="text-sm font-semibold mb-3 flex items-center gap-2"><Radar size={14} /> {t('priceLadderHeading')}</div>
             {ladderRange && ctx.close != null ? (
               <PriceLadder
                 min={ladderRange.min}
@@ -135,32 +138,32 @@ export default function TrapDetectionPage() {
                 breakoutDown={breakoutDown}
               />
             ) : (
-              <div className="text-sm text-[var(--color-text-secondary)]">Price levels not available.</div>
+              <div className="text-sm text-[var(--color-text-secondary)]">{t('priceLevelsUnavailable')}</div>
             )}
             <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
               <Chip
-                label="Gamma strengthening"
+                label={t('chipGammaStrengthening')}
                 on={ctx.gammaStrengthening}
                 color="var(--color-bull)"
-                tooltip="Net GEX is rising session-over-session — dealer long-gamma is intensifying. Reinforces fade-trade behavior at the wall."
+                tooltip={t('chipGammaStrengtheningTooltip')}
               />
               <Chip
-                label="Call wall migrated ↑"
+                label={t('chipCallWallUp')}
                 on={callWallMigratedUp}
                 color="var(--color-bear)"
-                tooltip="The call wall has migrated higher (call_wall > prior_call_wall) — dealers are repositioning their upside reference up with price, which invalidates the bearish-fade setup at the prior resistance."
+                tooltip={t('chipCallWallUpTooltip')}
               />
               <Chip
-                label="Put wall migrated ↓"
+                label={t('chipPutWallDown')}
                 on={putWallMigratedDown}
                 color="var(--color-bear)"
-                tooltip="The put wall has migrated lower (put_wall < prior_put_wall) — dealers are repositioning their downside reference down with price, which invalidates the bullish-fade setup at the prior support."
+                tooltip={t('chipPutWallDownTooltip')}
               />
               <Chip
-                label="Long gamma"
+                label={t('chipLongGamma')}
                 on={ctx.longGamma}
                 color="var(--color-bull)"
-                tooltip="Net GEX > 0: dealers are net long gamma. They sell into rallies and buy dips, dampening volatility — supportive of fade behavior at walls."
+                tooltip={t('chipLongGammaTooltip')}
               />
             </div>
           </div>
@@ -168,44 +171,44 @@ export default function TrapDetectionPage() {
       </section>
 
       <section className="zg-feature-shell mt-8 p-6">
-        <h2 className="text-xl font-semibold mb-4">Breakout &amp; Gamma Context</h2>
+        <h2 className="text-xl font-semibold mb-4">{t('breakoutGammaContextHeading')}</h2>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 text-sm">
           <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-            <div className="font-semibold mb-2 flex items-center gap-2"><Radar size={16} /> Structure</div>
+            <div className="font-semibold mb-2 flex items-center gap-2"><Radar size={16} /> {t('structureHeading')}</div>
             <div className="space-y-2 text-[var(--color-text-secondary)]">
-              <Row label="Spot" value={formatPrice(ctx.close)} />
-              <Row label="Prior Resistance" value={formatPrice(priorResistance)} />
-              <Row label="Prior Support" value={formatPrice(priorSupport)} />
-              <Row label="Buffer %" value={formatPct(bufferPct, 3, false)} />
-              <Row label="Realized σ" value={ctx.realizedSigma != null ? ctx.realizedSigma.toFixed(4) : '—'} />
+              <Row label={t('rowSpot')} value={formatPrice(ctx.close)} />
+              <Row label={t('rowPriorResistance')} value={formatPrice(priorResistance)} />
+              <Row label={t('rowPriorSupport')} value={formatPrice(priorSupport)} />
+              <Row label={t('rowBufferPct')} value={formatPct(bufferPct, 3, false)} />
+              <Row label={t('rowRealizedSigma')} value={ctx.realizedSigma != null ? ctx.realizedSigma.toFixed(4) : '—'} />
             </div>
           </div>
           <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-            <div className="font-semibold mb-2 flex items-center gap-2"><Gauge size={16} /> Dealer</div>
+            <div className="font-semibold mb-2 flex items-center gap-2"><Gauge size={16} /> {t('dealerHeading')}</div>
             <div className="space-y-2 text-[var(--color-text-secondary)]">
-              <Row label="Net GEX (chain-wide)" value={formatGexCompact(ctx.netGex)} />
-              <Row label="Net GEX Δ" value={formatGexCompact(netGexDelta)} />
-              <Row label="Net GEX Δ%" value={formatPct(netGexDeltaPct, 2)} />
-              <Row label="Call wall" value={formatPrice(ctx.callWall)} />
-              <Row label="Prior call wall" value={formatPrice(ctx.priorCallWall)} />
-              <Row label="Put wall" value={formatPrice(ctx.putWall)} />
-              <Row label="Prior put wall" value={formatPrice(ctx.priorPutWall)} />
+              <Row label={t('rowNetGex')} value={formatGexCompact(ctx.netGex)} />
+              <Row label={t('rowNetGexDelta')} value={formatGexCompact(netGexDelta)} />
+              <Row label={t('rowNetGexDeltaPct')} value={formatPct(netGexDeltaPct, 2)} />
+              <Row label={t('rowCallWall')} value={formatPrice(ctx.callWall)} />
+              <Row label={t('rowPriorCallWall')} value={formatPrice(ctx.priorCallWall)} />
+              <Row label={t('rowPutWall')} value={formatPrice(ctx.putWall)} />
+              <Row label={t('rowPriorPutWall')} value={formatPrice(ctx.priorPutWall)} />
             </div>
           </div>
           <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-            <div className="font-semibold mb-2 flex items-center gap-2"><AlertTriangle size={16} /> Flow decel</div>
+            <div className="font-semibold mb-2 flex items-center gap-2"><AlertTriangle size={16} /> {t('flowDecelHeading')}</div>
             <div className="space-y-2 text-[var(--color-text-secondary)]">
-              <Row label="Call flow decel" value={ctx.callFlowDecelerating ? 'Yes' : 'No'} />
-              <Row label="Put flow decel" value={ctx.putFlowDecelerating ? 'Yes' : 'No'} />
-              <Row label="Breakout ↑" value={breakoutUp ? 'Yes' : 'No'} />
-              <Row label="Breakout ↓" value={breakoutDown ? 'Yes' : 'No'} />
+              <Row label={t('rowCallFlowDecel')} value={ctx.callFlowDecelerating ? t('yes') : t('no')} />
+              <Row label={t('rowPutFlowDecel')} value={ctx.putFlowDecelerating ? t('yes') : t('no')} />
+              <Row label={t('rowBreakoutUp')} value={breakoutUp ? t('yes') : t('no')} />
+              <Row label={t('rowBreakoutDown')} value={breakoutDown ? t('yes') : t('no')} />
             </div>
           </div>
         </div>
       </section>
 
       <section className="zg-feature-shell mt-8 p-6">
-        <h2 className="text-xl font-semibold mb-4">Interpretation</h2>
+        <h2 className="text-xl font-semibold mb-4">{t('interpretationHeading')}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <div
             className="rounded-xl border p-4 bg-[var(--color-surface-subtle)]"
@@ -213,19 +216,18 @@ export default function TrapDetectionPage() {
           >
             <div className="font-semibold mb-2 flex items-center gap-2 text-[var(--color-bear)]">
               <TrendingDown size={16} />
-              <span>Bearish fade</span>
+              <span>{t('bearishFadeLabel')}</span>
               {signal === 'bearish_fade' && (
                 <span
                   className="ml-auto text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
                   style={{ background: 'var(--color-bear-soft)', color: 'var(--color-bear)' }}
                 >
-                  Active
+                  {t('activeBadge')}
                 </span>
               )}
             </div>
             <p className="text-[var(--color-text-secondary)]">
-              Price popped above the prior resistance (now sitting below close) but failed to hold + dealers long
-              gamma + call wall not migrating → fade the failed break with a short-call-spread or put-debit.
+              {t('bearishFadeParagraph')}
             </p>
           </div>
           <div
@@ -234,32 +236,31 @@ export default function TrapDetectionPage() {
           >
             <div className="font-semibold mb-2 flex items-center gap-2 text-[var(--color-bull)]">
               <TrendingUp size={16} />
-              <span>Bullish fade</span>
+              <span>{t('bullishFadeLabel')}</span>
               {signal === 'bullish_fade' && (
                 <span
                   className="ml-auto text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
                   style={{ background: 'var(--color-bull-soft)', color: 'var(--color-bull)' }}
                 >
-                  Active
+                  {t('activeBadge')}
                 </span>
               )}
             </div>
             <p className="text-[var(--color-text-secondary)]">
-              Mirror: price slipped beneath the prior support (now sitting above close) but failed to hold, with
-              reinforcing long gamma → fade the failed break. Invalidate on wall migration with price.
+              {t('bullishFadeParagraph')}
             </p>
           </div>
         </div>
       </section>
 
       <SignalHowItsBuilt
-        caveat={<>Wall migration with price (dealers repositioning) invalidates the setup. Buffer band is min(0.1%, 0.15 × realized σ × √5).</>}
+        caveat={<>{t('howBuiltCaveat')}</>}
       >
-        <div>Detects upside / downside breakouts beyond the prior resistance / support wall by at least the buffer band.</div>
-        <div>Requires dealer long gamma (<code>Net GEX &gt; 0</code>), gamma strengthening, and the relevant wall <em>not</em> migrating in the breakout direction — call wall not moving up on a bearish fade (<code>call_wall_migrated_up</code>), put wall not moving down on a bullish fade (<code>put_wall_migrated_down</code>).</div>
-        <div>Optional confirmation: same-side flow decelerating into the wall.</div>
-        <div><code>Score = ±Confidence × 100</code>, where Confidence aggregates the boolean triggers above. Sign opposes the failed-breakout direction.</div>
-        <div><code>broken_resistance_level</code> / <code>broken_support_level</code> are the most-recently-breached walls — prior resistance was punched through to the upside; prior support, to the downside. The fields persist past the breakout flag, so the level can sit on either side of close as price retraces.</div>
+        <div>{t('howBuiltDetects')}</div>
+        <div>{t('howBuiltReq1')}<code>Net GEX &gt; 0</code>{t('howBuiltReq2')}<em>{t('howBuiltReqNot')}</em>{t('howBuiltReq3')}<code>call_wall_migrated_up</code>{t('howBuiltReq4')}<code>put_wall_migrated_down</code>{t('howBuiltReq5')}</div>
+        <div>{t('howBuiltOptional')}</div>
+        <div><code>Score = ±Confidence × 100</code>{t('howBuiltScoreDesc')}</div>
+        <div><code>broken_resistance_level</code> / <code>broken_support_level</code> {t('howBuiltBrokenDesc')}</div>
       </SignalHowItsBuilt>
 
       <SignalEventsPanel signalName="trap_detection" symbol={symbol} title="Event Timeline" />
@@ -305,6 +306,7 @@ interface PriceLadderProps {
 }
 
 function PriceLadder({ min, max, spot, priorResistance, priorSupport, bufferPct, breakoutUp, breakoutDown }: PriceLadderProps) {
+  const t = usePageT(dict);
   const height = 180;
   const range = max - min;
   const toY = (v: number) => height - ((v - min) / range) * height;
@@ -353,13 +355,13 @@ function PriceLadder({ min, max, spot, priorResistance, priorSupport, bufferPct,
       <div className="flex flex-col gap-3 text-xs">
         {rungs.map((r) => {
           if (r.kind === 'resistance') {
-            const hint = r.value < spot ? 'below close' : r.value > spot ? 'above close' : 'at close';
+            const hint = r.value < spot ? t('belowClose') : r.value > spot ? t('aboveClose') : t('atClose');
             return (
               <div key="resistance" className="flex items-baseline gap-3">
-                <span className="text-[var(--color-bull)] font-semibold w-28">Prior Resistance</span>
+                <span className="text-[var(--color-bull)] font-semibold w-28">{t('rowPriorResistance')}</span>
                 <span className="font-mono">{formatPrice(r.value)}</span>
                 <span className="text-[10px] font-semibold uppercase tracking-wide">
-                  <span className="text-[var(--color-bull)]">Broken ↑</span>
+                  <span className="text-[var(--color-bull)]">{t('brokenUp')}</span>
                   <span className="text-[var(--color-text-secondary)]"> · {hint}</span>
                 </span>
                 {breakoutUp && (
@@ -367,20 +369,20 @@ function PriceLadder({ min, max, spot, priorResistance, priorSupport, bufferPct,
                     className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
                     style={{ background: 'var(--color-bull-soft)', color: 'var(--color-bull)' }}
                   >
-                    Active
+                    {t('activeBadge')}
                   </span>
                 )}
               </div>
             );
           }
           if (r.kind === 'support') {
-            const hint = r.value < spot ? 'below close' : r.value > spot ? 'above close' : 'at close';
+            const hint = r.value < spot ? t('belowClose') : r.value > spot ? t('aboveClose') : t('atClose');
             return (
               <div key="support" className="flex items-baseline gap-3">
-                <span className="text-[var(--color-bear)] font-semibold w-28">Prior Support</span>
+                <span className="text-[var(--color-bear)] font-semibold w-28">{t('rowPriorSupport')}</span>
                 <span className="font-mono">{formatPrice(r.value)}</span>
                 <span className="text-[10px] font-semibold uppercase tracking-wide">
-                  <span className="text-[var(--color-bear)]">Broken ↓</span>
+                  <span className="text-[var(--color-bear)]">{t('brokenDown')}</span>
                   <span className="text-[var(--color-text-secondary)]"> · {hint}</span>
                 </span>
                 {breakoutDown && (
@@ -388,7 +390,7 @@ function PriceLadder({ min, max, spot, priorResistance, priorSupport, bufferPct,
                     className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
                     style={{ background: 'var(--color-bear-soft)', color: 'var(--color-bear)' }}
                   >
-                    Active
+                    {t('activeBadge')}
                   </span>
                 )}
               </div>
@@ -396,13 +398,13 @@ function PriceLadder({ min, max, spot, priorResistance, priorSupport, bufferPct,
           }
           return (
             <div key="spot" className="flex items-baseline gap-3">
-              <span className="text-[var(--color-warning)] font-semibold w-28">Spot</span>
+              <span className="text-[var(--color-warning)] font-semibold w-28">{t('rowSpot')}</span>
               <span className="font-mono">{formatPrice(r.value)}</span>
             </div>
           );
         })}
         <div className="text-[11px] text-[var(--color-text-secondary)] border-t border-[var(--color-border)]/40 pt-2">
-          Buffer band = min(0.1%, 0.15 × realized σ × √5).
+          {t('bufferBandFooter')}
         </div>
       </div>
     </div>

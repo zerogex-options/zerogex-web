@@ -30,6 +30,8 @@ import ExpandableCard, { useExpandedCard } from '@/components/ExpandableCard';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
 import { etTodayDateKey } from '@/core/utils';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './page.i18n';
 
 // Wraps the GEX Metrics Snapshot table scroller so its max height tracks the
 // expanded-card state — collapsed view fits ~20 rows, expanded view fills the
@@ -128,6 +130,7 @@ function aggregateStrikes(rows: GexByStrikeRow[] | null | undefined): StrikeAggr
 }
 
 export default function GammaExposurePage() {
+  const t = usePageT(dict);
   const { symbol, timeframe, setTimeframe } = useTimeframe();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
@@ -361,60 +364,60 @@ export default function GammaExposurePage() {
     const locationText =
       spot != null && callWall != null && putWall != null
         ? spot > callWall
-          ? 'Spot is above the call wall, so upside continuation can squeeze quickly but failed breakouts can snap back hard.'
+          ? t('locAboveCallWall')
           : spot < putWall
-            ? 'Spot is below the put wall, so downside can accelerate fast if support keeps failing.'
+            ? t('locBelowPutWall')
             : nearestWall === 'put'
-              ? 'Spot is just above the put wall, where failed breakdowns often reverse sharply and trap late shorts.'
-              : 'Spot is leaning toward the call wall, where breakouts can run if buyers keep pressure on.'
-        : 'Wall placement is incomplete, so treat directional conviction as lower until structure is clearer.';
+              ? t('locNearPutWall')
+              : t('locNearCallWall')
+        : t('locIncomplete');
 
     const gexText =
       netGex == null
-        ? 'Dealer gamma at spot is unclear, so expect less reliable pinning behavior.'
+        ? t('gexUnclear')
         : netGex > 2e9
-          ? 'Dealers are deeply long gamma at spot, which usually suppresses volatility and favors fade/mean-reversion over aggressive trend chasing.'
+          ? t('gexDeepLong')
           : netGex > 0
-            ? 'Dealers are net long gamma at spot, so price is more likely to mean-revert than sustain runaway moves.'
+            ? t('gexNetLong')
             : netGex < -2e9
-              ? 'Dealers are deeply short gamma at spot, which often amplifies volatility and can punish late entries on both sides.'
-              : 'Dealers are net short gamma at spot, which supports trend extension and larger directional swings.';
+              ? t('gexDeepShort')
+              : t('gexNetShort');
 
     const flowText =
       vannaTrend === 'bullish' && charmLabel === 'Bullish'
-        ? 'Vanna flow and charm decay are both adding a bullish tailwind as dealers rebalance delta across vol and time.'
+        ? t('flowBullish')
         : vannaTrend === 'bearish' && charmLabel === 'Bearish'
-          ? 'Vanna flow and charm decay are both adding bearish pressure, so downside moves can snowball faster.'
-          : 'Vanna and charm are mixed, so directional follow-through is less trustworthy and fake-outs are more likely.';
+          ? t('flowBearish')
+          : t('flowMixed');
 
     const riskText =
       ivRankPct == null
-        ? 'Volatility regime is unclear; size risk conservatively.'
+        ? t('riskUnclear')
         : ivRankPct >= 70
-          ? 'Vol is elevated, so prioritize defined-risk structures and avoid oversized directional bets.'
+          ? t('riskElevated')
           : ivRankPct <= 30
-            ? 'Vol is relatively calm, which favors cleaner structure-driven entries but still requires trap awareness near walls.'
-            : 'Vol is in a middle regime; stay selective and demand confirmation before pressing size.';
+            ? t('riskCalm')
+            : t('riskMiddle');
 
     const crowdingText =
       pcr == null
         ? ''
         : pcr >= 1.2
-          ? 'Positioning is put-heavy, so failed downside can trigger sharp reflex squeezes.'
+          ? t('crowdPutHeavy')
           : pcr <= 0.8
-            ? 'Positioning is call-heavy, so upside failures can unwind quickly.'
-            : 'Positioning is fairly balanced, so wall behavior matters more than crowding extremes.';
+            ? t('crowdCallHeavy')
+            : t('crowdBalanced');
 
     const actionText =
       netGex != null && netGex < 0
-        ? 'Trading posture: bias toward momentum when structure confirms, but avoid chasing extended candles because reversals can be violent.'
-        : 'Trading posture: favor disciplined entries near key levels, take profits faster on extensions, and be ready to fade obvious trap moves.';
+        ? t('actionBearish')
+        : t('actionDefault');
     const horizonText = horizonLabel === 'intraday'
-      ? 'Intraday lens: prioritize reaction at walls/flip and tighten risk quickly if tape fails to follow through.'
-      : 'Swing lens: focus on whether price can hold outside walls for multiple sessions before committing full size.';
+      ? t('horizonIntraday')
+      : t('horizonSwing');
 
     return `${locationText} ${gexText} ${flowText} ${riskText} ${crowdingText} ${actionText} ${horizonText}`.trim();
-  }, [quoteData?.close, gexData, netGexAtSpot, vannaTrend, charmLabel, ivRankPct, timeframe]);
+  }, [quoteData?.close, gexData, netGexAtSpot, vannaTrend, charmLabel, ivRankPct, timeframe, t]);
 
   const toggleSort = (key: SortKey) => {
     if (key === sortKey) {
@@ -490,7 +493,7 @@ export default function GammaExposurePage() {
   if (gexLoading && !gexData) {
     return (
       <PageShell>
-        <h1 className="text-3xl font-bold mb-8">Dealer Positioning Analysis</h1>
+        <h1 className="text-3xl font-bold mb-8">{t('pageTitle')}</h1>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <LoadingCard /><LoadingCard /><LoadingCard /><LoadingCard />
         </div>
@@ -500,7 +503,7 @@ export default function GammaExposurePage() {
 
   return (
     <PageShell>
-      <h1 className="text-3xl font-bold mb-6">Dealer Positioning Analysis</h1>
+      <h1 className="text-3xl font-bold mb-6">{t('pageTitle')}</h1>
       <div className="mb-4">
         <GexUnitToggle />
       </div>
@@ -523,7 +526,7 @@ export default function GammaExposurePage() {
             title="Net GEX"
             value={netGexAtSpot != null ? formatGexValue(netGexAtSpot) : '--'}
             trend={netGexPositive ? 'bullish' : 'bearish'}
-            tooltip="Cumulative dealer gamma at the current spot price — the value of the same low→high cumulative curve whose zero crossing is the gamma flip, so it is always sign-consistent with the flip. Positive = dealers net long gamma here (pinning, mean-reversion); negative = net short gamma here (trending, vol amplification). The regime flips at the gamma flip level above. (Not the chain-wide total, which can carry the opposite sign when far-OTM strikes dominate the tail.)"
+            tooltip={t('netGexTooltip')}
             contextBadge={
               <HistoricalContextBadge
                 metric={historicalContext?.metrics?.net_gex_at_spot}
@@ -536,18 +539,18 @@ export default function GammaExposurePage() {
             title="IV Rank"
             value={ivRankPct != null ? `${ivRankPct}%` : '--'}
             subtitle={volGauge?.level_label}
-            tooltip={`Implied volatility rank derived from ${volIndex} level. 0% = historically calm, 100% = extreme fear. Maps ${volIndex} to a 0-100 percentile scale.`}
+            tooltip={t('ivRankTooltip', { volIndex })}
           />
           <MetricCard
             title="Vanna Flow"
             value={vannaLabel}
             trend={vannaTrend}
-            tooltip="Net vanna exposure across all strikes. Positive vanna = vol crush supports upside (tailwind). Negative vanna = vol crush pressures downside (headwind)."
+            tooltip={t('vannaTooltip')}
           />
           <MetricCard
             title="Charm Decay"
             value={charmLabel}
-            tooltip="Net charm (delta decay over time) across all strikes. Shows whether time decay is systematically adding or removing directional delta pressure."
+            tooltip={t('charmTooltip')}
           />
         </div>
       </section>
@@ -618,15 +621,15 @@ export default function GammaExposurePage() {
 
       {/* Section 7: Strike Data Table */}
       <section className="mb-8">
-        <ExpandableCard expandTrigger="button" expandButtonLabel="Expand card">
+        <ExpandableCard expandTrigger="button" expandButtonLabel={t('expandCardLabel')}>
           <div className="rounded-lg p-6" style={{ backgroundColor: cardBg, border: `1px solid ${borderColor}` }}>
-            <SectionHead title="GEX Metrics Snapshot" tooltip="Filter expirations and inspect strike-level net GEX, vanna, charm, OI, and volume from /api/gex/by-strike." />
+            <SectionHead title={t('metricsSnapshotTitle')} tooltip={t('metricsSnapshotTooltip')} />
             {byStrikeError ? <ErrorMessage message={byStrikeError} /> : expirationOptions.length === 0 ? (
-              <div className="text-center py-8" style={{ color: mutedText }}>No strike-level gamma data available</div>
+              <div className="text-center py-8" style={{ color: mutedText }}>{t('noStrikeData')}</div>
             ) : (
               <>
                 <div className="mb-5 flex flex-wrap gap-2 items-center">
-                  <span className="text-sm" style={{ color: mutedText }}>Expirations:</span>
+                  <span className="text-sm" style={{ color: mutedText }}>{t('expirationsLabel')}</span>
                   {(() => {
                     const allSelected =
                       selectedExpirations === null ||
@@ -642,7 +645,7 @@ export default function GammaExposurePage() {
                         }
                         className={`px-3 py-1 text-xs rounded border ${allSelected ? '' : 'bg-[var(--color-info-soft)] border-[var(--color-info)] text-[var(--text-primary)]'}`}
                       >
-                        All
+                        {t('allButton')}
                       </button>
                     );
                   })()}
@@ -662,9 +665,9 @@ export default function GammaExposurePage() {
                           cursor: canClear ? 'pointer' : 'not-allowed',
                         }}
                         className="px-3 py-1 text-xs rounded border"
-                        title="Clear all expiration selections"
+                        title={t('clearButtonTitle')}
                       >
-                        Clear
+                        {t('clearButton')}
                       </button>
                     );
                   })()}
@@ -717,7 +720,7 @@ export default function GammaExposurePage() {
                       {sortedRows.length === 0 ? (
                         <tr>
                           <td colSpan={9} className="text-center py-8" style={{ color: mutedText }}>
-                            No expirations selected. Click an expiration or &ldquo;All&rdquo; to display data.
+                            {t('noExpirationsSelected')}
                           </td>
                         </tr>
                       ) : (

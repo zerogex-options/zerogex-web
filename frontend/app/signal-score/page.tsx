@@ -14,6 +14,8 @@ import { REGIME_BANDS, classifyRegime } from '@/core/regime';
 import { COMPONENT_KEYS, ComponentEntry } from './data';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { getMarketSession } from '@/core/utils';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './page.i18n';
 
 // Recharts is ~200KB minzipped and the intraday chart is the last section
 // on the page. Split it out so the gauge above the fold can paint without
@@ -25,33 +27,7 @@ const IntradayChart = dynamic(() => import('./IntradayChart'), {
 
 const NEUTRAL_DELTA_THRESHOLD = 0.5;
 
-const TITLE_TOOLTIP =
-  'Composite Score, also known as the Market State Index (MSI), is a single 0–100 number that reads the current option-structure regime — not market direction. ' +
-  'It blends six independent components — net dealer gamma sign, gamma anchor, put/call ratio, volatility regime, smart-money order-flow imbalance, and dealer delta pressure — ' +
-  'each weighted to a max-points cap that sums to 100. ' +
-  '50 is neutral; readings ≥70 indicate a tradable trend / expansion regime, 40–70 a controlled trend, 20–40 chop / range, and <20 high-risk reversal (mean-reversion only, fragile tape). ' +
-  'A high MSI does not mean "bullish" — it means trends can run. A low MSI does not mean "bearish" — it means trends are unlikely to work.';
-
-const INTRADAY_TOOLTIP =
-  "The MSI's path through today's session, plotted as 0–100 with shaded regime bands at <20 (high-risk reversal), 20–40 (chop), 40–70 (controlled trend), and ≥70 (trend / expansion). " +
-  "Hover any point for the timestamp, score, regime, and the top-3 components that drove the reading.";
-
-const CONTRIB_TOOLTIP =
-  'Single horizontal bar showing each component\'s signed point contribution around the 50-baseline. ' +
-  'Right-pushers (green) argue for a tradable / trending regime; left-pushers (red) argue for chop / pinning / reversal. ' +
-  'Total visual offset equals |composite − 50|. Hover any segment for its raw score, contribution, and weight share.';
-
 type ConnectionState = 'idle' | 'live' | 'stale' | 'disconnected';
-
-const SESSION_LABEL: Record<string, string> = {
-  open: 'Market Open',
-  'pre-market': 'Pre-market',
-  'after-hours': 'After-hours',
-  closed: 'Closed',
-  'closed-weekend': 'Closed',
-  'closed-holiday': 'Closed',
-  halted: 'Halted',
-};
 
 function findOpenScore(history: { timestamp: string; composite: number }[]): number | null {
   if (history.length === 0) return null;
@@ -96,6 +72,7 @@ function emptyComponents(): ComponentEntry[] {
 type HistoryRow = { timestamp: string; composite: number };
 
 function HeroDeltas({ history, composite }: { history: HistoryRow[]; composite: number | null }) {
+  const t = usePageT(dict);
   // The 5-min-ago lookup needs a wall-clock reference. Keep that state
   // local so the 30s tick only re-renders these two badges — not the
   // gauge, contribution stack, component cards, or chart.
@@ -118,8 +95,8 @@ function HeroDeltas({ history, composite }: { history: HistoryRow[]; composite: 
 
   return (
     <div className="flex flex-wrap gap-x-6 gap-y-2">
-      <DeltaBadge label="Δ since open" value={deltaSinceOpen} />
-      <DeltaBadge label="Δ last 5 min" value={deltaFiveMin} />
+      <DeltaBadge label={t('deltaSinceOpen')} value={deltaSinceOpen} />
+      <DeltaBadge label={t('deltaLast5Min')} value={deltaFiveMin} />
     </div>
   );
 }
@@ -209,6 +186,7 @@ function LiveIndicator({
   connection: ConnectionState;
   lastUpdatedAt: number | null;
 }) {
+  const t = usePageT(dict);
   const [now, setNow] = useState(() => Date.now());
   const [session, setSession] = useState(getMarketSession());
 
@@ -222,20 +200,30 @@ function LiveIndicator({
 
   const ageSec = lastUpdatedAt != null ? Math.max(0, Math.floor((now - lastUpdatedAt) / 1000)) : null;
 
+  const SESSION_LABEL: Record<string, string> = {
+    open: t('sessionOpen'),
+    'pre-market': t('sessionPreMarket'),
+    'after-hours': t('sessionAfterHours'),
+    closed: t('sessionClosed'),
+    'closed-weekend': t('sessionClosed'),
+    'closed-holiday': t('sessionClosed'),
+    halted: t('sessionHalted'),
+  };
+
   let dotColor = 'var(--color-text-secondary)';
-  let statusText = 'Connecting…';
+  let statusText = t('connecting');
   let statusGlyph: '●' | '◐' | '○' = '○';
   if (connection === 'disconnected') {
     dotColor = 'var(--color-bear)';
-    statusText = 'Disconnected — retrying';
+    statusText = t('disconnectedRetrying');
     statusGlyph = '○';
   } else if (connection === 'stale') {
     dotColor = 'var(--color-warning)';
-    statusText = ageSec != null ? `Stale • ${ageSec}s ago` : 'Stale';
+    statusText = ageSec != null ? t('staleAgo', { sec: ageSec }) : t('stale');
     statusGlyph = '◐';
   } else if (connection === 'live') {
     dotColor = 'var(--color-bull)';
-    statusText = ageSec != null ? `LIVE • updated ${ageSec}s ago` : 'LIVE';
+    statusText = ageSec != null ? t('liveUpdatedAgo', { sec: ageSec }) : t('liveLabel');
     statusGlyph = '●';
   }
 
@@ -251,13 +239,14 @@ function LiveIndicator({
       </span>
       <span className="hidden md:inline text-[var(--color-text-secondary)] opacity-60">·</span>
       <span className="hidden md:inline text-[var(--color-text-secondary)]">
-        {SESSION_LABEL[session] ?? 'Market'}
+        {SESSION_LABEL[session] ?? t('sessionMarket')}
       </span>
     </div>
   );
 }
 
 export default function CompositeScorePage() {
+  const t = usePageT(dict);
   const { symbol } = useTimeframe();
   const { payload, history, lastUpdatedAt, connection, loading, historyLoaded, refetch } = useCompositeData(symbol);
 
@@ -269,10 +258,10 @@ export default function CompositeScorePage() {
   return (
     <PageShell>
       <div className="flex flex-wrap items-center gap-2 mb-6">
-        <h1 className="text-3xl font-bold">Composite Score</h1>
+        <h1 className="text-3xl font-bold">{t('title')}</h1>
         <span className="text-[var(--color-text-secondary)] text-base">·</span>
         <span className="text-[var(--color-text-secondary)] text-lg font-semibold">MSI</span>
-        <TooltipWrapper text={TITLE_TOOLTIP} placement="bottom">
+        <TooltipWrapper text={t('titleTooltip')} placement="bottom">
           <span className="text-[var(--color-text-secondary)] cursor-help">ⓘ</span>
         </TooltipWrapper>
         <div className="ml-auto">
@@ -286,9 +275,9 @@ export default function CompositeScorePage() {
           style={{ borderColor: 'var(--color-warning)', background: 'var(--color-warning-soft)', color: 'var(--color-text-primary)' }}
           role="status"
         >
-          Reconnecting… last values shown may be stale.{' '}
+          {t('reconnecting')}{' '}
           <button onClick={refetch} className="underline ml-1">
-            Retry now
+            {t('retryNow')}
           </button>
         </div>
       )}
@@ -299,18 +288,18 @@ export default function CompositeScorePage() {
       <section className="zg-feature-shell p-6">
         {loading && composite == null ? (
           <div className="grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)_240px] gap-6">
-            <Skeleton height={300} label="Loading gauge…" />
-            <Skeleton height={300} label="Loading regime…" />
-            <Skeleton height={300} label="Loading ranges…" />
+            <Skeleton height={300} label={t('loadingGauge')} />
+            <Skeleton height={300} label={t('loadingRegime')} />
+            <Skeleton height={300} label={t('loadingRanges')} />
           </div>
         ) : noData ? (
           <div
             className="rounded-xl border p-12 text-center"
             style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-subtle)' }}
           >
-            <div className="text-lg font-semibold mb-1">No score data for {symbol} yet.</div>
+            <div className="text-lg font-semibold mb-1">{t('noDataTitle', { symbol })}</div>
             <div className="text-sm text-[var(--color-text-secondary)]">
-              The signal engine has no rows for this underlying. Try another symbol or check back during market hours.
+              {t('noDataBody')}
             </div>
           </div>
         ) : (
@@ -342,14 +331,14 @@ export default function CompositeScorePage() {
               </p>
               <HeroDeltas history={history} composite={composite} />
               <div className="mt-1 flex flex-wrap gap-3 text-[11px] text-[var(--color-text-secondary)]">
-                <span><span className="text-[var(--color-text-primary)] font-semibold">Symbol</span> {symbol}</span>
-                <span><span className="text-[var(--color-text-primary)] font-semibold">Scale</span> 0 – 100</span>
-                <span><span className="text-[var(--color-text-primary)] font-semibold">Neutral</span> 50</span>
+                <span><span className="text-[var(--color-text-primary)] font-semibold">{t('symbolLabel')}</span> {symbol}</span>
+                <span><span className="text-[var(--color-text-primary)] font-semibold">{t('scaleLabel')}</span> 0 – 100</span>
+                <span><span className="text-[var(--color-text-primary)] font-semibold">{t('neutralLabel')}</span> 50</span>
               </div>
             </div>
             <div>
               <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)] mb-1.5">
-                Score ranges
+                {t('scoreRanges')}
               </div>
               <ScoreRangeLegend
                 activeKey={composite != null ? regime.key : null}
@@ -364,13 +353,13 @@ export default function CompositeScorePage() {
       <section className="zg-feature-shell mt-8 p-6">
         <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
           <LayoutGrid size={20} />
-          Component Contributions
-          <TooltipWrapper text={CONTRIB_TOOLTIP} placement="bottom">
+          {t('componentContributions')}
+          <TooltipWrapper text={t('contribTooltip')} placement="bottom">
             <Info size={14} className="text-[var(--color-text-secondary)] cursor-help" />
           </TooltipWrapper>
         </h2>
         {loading && composite == null ? (
-          <Skeleton height={120} label="Loading contributions…" />
+          <Skeleton height={120} label={t('loadingContributions')} />
         ) : (
           <ContributionStack components={components} composite={composite} />
         )}
@@ -380,7 +369,7 @@ export default function CompositeScorePage() {
       <section className="zg-feature-shell mt-8 p-6">
         <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
           <Activity size={20} />
-          Components
+          {t('componentsHeading')}
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-stretch">
           {components.map((c) => (
@@ -393,13 +382,13 @@ export default function CompositeScorePage() {
       <section className="zg-feature-shell mt-8 p-6">
         <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
           <LineChartIcon size={20} />
-          Intraday Trend
-          <TooltipWrapper text={INTRADAY_TOOLTIP} placement="bottom">
+          {t('intradayTrend')}
+          <TooltipWrapper text={t('intradayTooltip')} placement="bottom">
             <Info size={14} className="text-[var(--color-text-secondary)] cursor-help" />
           </TooltipWrapper>
         </h2>
         {!historyLoaded ? (
-          <Skeleton height={320} label="Loading chart…" />
+          <Skeleton height={320} label={t('loadingChart')} />
         ) : (
           <IntradayChart history={history} currentScore={composite} />
         )}

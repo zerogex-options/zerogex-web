@@ -2,12 +2,15 @@
 
 import { Zap } from 'lucide-react';
 import { TrialButton, ComparePlansButton } from './TrialCtaButtons';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './LiveReadConversion.i18n';
 
 // Requirement #1 — the strong conversion block placed directly after the free
 // delayed levels, before the product preview and educational content. Makes the
 // "these are delayed; the live read is a click away" pitch to paid visitors
 // without overselling: no profit claims, just what the live dashboard adds.
 export default function LiveReadConversion({ symbol }: { symbol: string }) {
+  const t = usePageT(dict);
   return (
     <section
       aria-labelledby="live-read-heading"
@@ -30,20 +33,18 @@ export default function LiveReadConversion({ symbol }: { symbol: string }) {
           color: 'var(--color-brand-primary)',
         }}
       >
-        <Zap size={12} /> Live dashboard
+        <Zap size={12} /> {t('eyebrow')}
       </div>
 
       <h2
         id="live-read-heading"
         style={{ margin: 0, fontSize: 'clamp(24px, 3.2vw, 30px)', fontWeight: 900, letterSpacing: '-0.5px', lineHeight: 1.15 }}
       >
-        Want the live, sub-second version?
+        {t('heading')}
       </h2>
 
       <p style={{ margin: 0, fontSize: 16, lineHeight: 1.7, color: 'var(--color-text-secondary)', maxWidth: 720 }}>
-        These are the delayed free preview levels. Inside ZeroGEX, SPY, SPX, and QQQ levels update in real time with
-        the full GEX profile, strike-level heatmaps, options-flow classification, dealer positioning, and Market State
-        signals &mdash; so you know the levels that matter before price gets there.
+        {t('body')}
       </p>
 
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 4 }}>
@@ -52,7 +53,7 @@ export default function LiveReadConversion({ symbol }: { symbol: string }) {
       </div>
 
       <p style={{ margin: '2px 0 0 0', fontSize: 12, color: 'var(--color-text-secondary)', opacity: 0.85 }}>
-        7-day free trial. No charge until day 7. Cancel anytime.
+        {t('trialNote')}
       </p>
     </section>
   );

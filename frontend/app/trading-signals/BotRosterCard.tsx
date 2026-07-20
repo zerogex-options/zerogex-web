@@ -17,6 +17,8 @@
 
 import { useMemo } from 'react';
 import { useApiData } from '@/hooks/useApiData';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './BotRosterCard.i18n';
 import FollowControl from './FollowControl';
 import Sparkline from './Sparkline';
 import { botColor, botColorSoft } from './palette';
@@ -42,6 +44,7 @@ export default function BotRosterCard({
   onFollowChanged,
   onOptimisticFollow,
 }: Props) {
+  const t = usePageT(dict);
   const sparkline = useApiData<EquityCurveResponse>(
     `/api/tradeworkz/bots/${bot.id}/equity-curve?days=30`,
     { refreshInterval: 60_000 },
@@ -98,7 +101,7 @@ export default function BotRosterCard({
               color: bot.enabled ? 'var(--color-bull)' : 'var(--color-bear)',
             }}
           >
-            {bot.enabled ? 'LIVE' : 'PAUSED'}
+            {bot.enabled ? t('live') : t('paused')}
           </span>
         </div>
 
@@ -145,7 +148,10 @@ export default function BotRosterCard({
               </span>
             </div>
             <div className="mt-0.5">
-              Hit rate {fmtPct(bot.lifetime_win_rate, 1)} · {bot.lifetime_trades} trades
+              {t('hitRate', {
+                rate: fmtPct(bot.lifetime_win_rate, 1),
+                trades: bot.lifetime_trades,
+              })}
             </div>
           </div>
           <FollowControl

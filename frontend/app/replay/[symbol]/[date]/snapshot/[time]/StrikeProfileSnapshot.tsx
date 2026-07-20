@@ -11,6 +11,9 @@ import {
   YAxis,
 } from 'recharts';
 
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './StrikeProfileSnapshot.i18n';
+
 // Horizontal-strike-profile card for the shareable moment page. Mirrors
 // the flipped ReplayScrubber chart so the snapshot reads the same way
 // as the live scrubber a user just came from.
@@ -45,6 +48,7 @@ export default function StrikeProfileSnapshot({
   callWall,
   putWall,
 }: StrikeProfileSnapshotProps) {
+  const t = usePageT(dict);
   const rows = strikes
     .filter((s) => s.strike != null && s.net_gex != null)
     .map((s) => ({
@@ -60,7 +64,7 @@ export default function StrikeProfileSnapshot({
   if (rows.length === 0) {
     return (
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-6 text-sm text-[var(--color-text-secondary)]">
-        No per-strike GEX rows for this moment.
+        {t('empty')}
       </div>
     );
   }
@@ -74,7 +78,7 @@ export default function StrikeProfileSnapshot({
   return (
     <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-4">
       <div className="text-[10px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
-        Dealer net GEX · strike profile
+        {t('heading')}
       </div>
       <div className="mt-3 h-[520px] w-full">
         <ResponsiveContainer width="100%" height="100%">

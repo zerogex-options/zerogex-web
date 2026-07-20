@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import Footer from '@/components/Footer';
 import { useTheme } from '@/core/ThemeContext';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './Client.i18n';
 import {
   ArrowRight,
   Activity,
@@ -94,6 +96,7 @@ function TierCard({
   features,
   ctaLabel,
   ctaHref,
+  includesTrialLabel,
 }: {
   title: string;
   price: string;
@@ -102,6 +105,7 @@ function TierCard({
   features: string[];
   ctaLabel: string;
   ctaHref: string;
+  includesTrialLabel: string;
 }) {
   return (
     <article
@@ -139,7 +143,7 @@ function TierCard({
         <span style={{ fontSize: 13, color: C.muted, fontWeight: 600 }}>{cadence}</span>
       </div>
       <p style={{ margin: '8px 0 0', fontSize: 12, color: C.muted, lineHeight: 1.55 }}>
-        Includes a {TRIAL_DAYS}-day free trial.
+        {includesTrialLabel}
       </p>
 
       <ul style={{ margin: '20px 0 0', padding: 0, listStyle: 'none', display: 'grid', gap: 10, flex: 1 }}>
@@ -170,6 +174,7 @@ function TierCard({
 export default function RealTimeGexLandingClient() {
   const { theme, setTheme } = useTheme();
   const isDark = theme === 'dark';
+  const t = usePageT(dict);
 
   return (
     <div style={{ background: 'transparent', color: C.light, fontFamily: 'DM Sans, sans-serif', overflowX: 'hidden' }}>
@@ -196,7 +201,7 @@ export default function RealTimeGexLandingClient() {
               cursor: 'pointer',
               color: C.muted,
             }}
-            aria-label="Toggle theme"
+            aria-label={t('toggleTheme')}
           >
             {isDark ? <Sun size={14} /> : <Moon size={14} />}
           </button>
@@ -208,7 +213,7 @@ export default function RealTimeGexLandingClient() {
                 fontSize: 13,
               }}
             >
-              Pricing
+              {t('navPricing')}
             </button>
           </Link>
           <Link href="/spx-gamma-levels" style={{ textDecoration: 'none' }}>
@@ -219,7 +224,7 @@ export default function RealTimeGexLandingClient() {
                 fontSize: 13,
               }}
             >
-              Free Gamma Levels <ArrowRight size={14} />
+              {t('navFreeGammaLevels')} <ArrowRight size={14} />
             </button>
           </Link>
         </div>
@@ -242,7 +247,7 @@ export default function RealTimeGexLandingClient() {
         />
         <div style={{ position: 'relative', zIndex: 1, maxWidth: 1100, margin: '0 auto', textAlign: 'center' }}>
           <Pill>
-            <Activity size={14} /> Real-Time GEX for 0DTE Traders
+            <Activity size={14} /> {t('heroPill')}
           </Pill>
 
           <h1
@@ -255,21 +260,21 @@ export default function RealTimeGexLandingClient() {
               fontWeight: 900,
             }}
           >
-            Read the dealer book before the move,{' '}
+            {t('heroTitlePre')}{' '}
             <span
               style={{
                 color: 'var(--color-accent-hot)',
               }}
             >
-              not after it.
+              {t('heroTitleHighlight')}
             </span>
           </h1>
 
           <p style={{ margin: '0 auto 14px', maxWidth: 760, color: C.light, fontSize: 19, lineHeight: 1.65, fontWeight: 500 }}>
-            ZeroGEX is real-time gamma exposure built for the way SPX and 0DTE actually trade today — live gamma flip, call and put walls, dealer positioning, and composite signals you can read.
+            {t('heroSubtitle1')}
           </p>
           <p style={{ margin: '0 auto 32px', maxWidth: 720, color: C.muted, fontSize: 15, lineHeight: 1.7 }}>
-            No black-box scores. See the free, 15-minute-delayed gamma levels — or start a trial to read the live dealer book.
+            {t('heroSubtitle2')}
           </p>
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, justifyContent: 'center' }}>
@@ -281,7 +286,7 @@ export default function RealTimeGexLandingClient() {
                   fontSize: 15,
                 }}
               >
-                Open free gamma levels <ArrowRight size={16} />
+                {t('ctaOpenFreeGammaLevels')} <ArrowRight size={16} />
               </button>
             </Link>
             <Link href="/pricing" style={{ textDecoration: 'none' }}>
@@ -292,17 +297,17 @@ export default function RealTimeGexLandingClient() {
                   fontSize: 15,
                 }}
               >
-                Start {TRIAL_DAYS}-day free trial <ArrowRight size={16} />
+                {t('ctaStartTrial', { days: TRIAL_DAYS })} <ArrowRight size={16} />
               </button>
             </Link>
           </div>
 
           <div style={{ marginTop: 30, display: 'inline-flex', gap: 18, color: C.muted, fontSize: 13, flexWrap: 'wrap', justifyContent: 'center' }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <ShieldCheck size={14} color={C.amber} /> No card for the free preview
+              <ShieldCheck size={14} color={C.amber} /> {t('noCardPreview')}
             </span>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <Clock size={14} color={C.amber} /> Cancel anytime, no email required
+              <Clock size={14} color={C.amber} /> {t('cancelAnytime')}
             </span>
           </div>
         </div>
@@ -313,7 +318,7 @@ export default function RealTimeGexLandingClient() {
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 36 }}>
             <Pill>
-              <Target size={14} /> Why 0DTE breaks delayed GEX
+              <Target size={14} /> {t('problemPill')}
             </Pill>
             <h2
               style={{
@@ -325,29 +330,29 @@ export default function RealTimeGexLandingClient() {
                 fontWeight: 800,
               }}
             >
-              The chain moves under you between morning coffee and lunch.
+              {t('problemTitle')}
             </h2>
             <p style={{ margin: '0 auto', maxWidth: 740, color: C.muted, fontSize: 15, lineHeight: 1.7 }}>
-              Same-day expiries now dominate SPX flow. That changes what dealer positioning means, how fast the regime can flip, and what a stale read costs.
+              {t('problemSubtitle')}
             </p>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 18 }}>
             <PainPoint
-              title="Delayed feeds miss the flip"
-              body="A 15-minute-delayed GEX read is structurally wrong when the gamma flip is migrating intraday. The regime can change during the delay window, and the trade decisions that follow are out of sync with the actual dealer book."
+              title={t('pain1Title')}
+              body={t('pain1Body')}
             />
             <PainPoint
-              title="Static screenshots miss the migration"
-              body="Walls, the flip, and the gamma magnet all migrate intraday. A call wall that's chasing price is a very different read than one that's holding — and a screenshot can't show you which one you're looking at."
+              title={t('pain2Title')}
+              body={t('pain2Body')}
             />
             <PainPoint
-              title="Per-strike GEX misses sign consistency"
-              body="The retail shortcut of summing gamma × OI by strike can produce a positive headline number while the underlying curve says spot is below the flip. The headline and the regime line cannot contradict — but in some tools they do."
+              title={t('pain3Title')}
+              body={t('pain3Body')}
             />
             <PainPoint
-              title="Aggregate gamma misses the 0DTE bucket"
-              body="When most of today's gamma sits in same-day options, an all-expiries average is the wrong read for the intraday tape. The 0DTE bucket is where the hedging actually happens."
+              title={t('pain4Title')}
+              body={t('pain4Body')}
             />
           </div>
         </div>
@@ -358,7 +363,7 @@ export default function RealTimeGexLandingClient() {
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 36 }}>
             <Pill>
-              <Zap size={14} /> How ZeroGEX is built
+              <Zap size={14} /> {t('solutionPill')}
             </Pill>
             <h2
               style={{
@@ -370,43 +375,43 @@ export default function RealTimeGexLandingClient() {
                 fontWeight: 800,
               }}
             >
-              Real-time, methodology-first, 0DTE-aware.
+              {t('solutionTitle')}
             </h2>
             <p style={{ margin: '0 auto', maxWidth: 740, color: C.muted, fontSize: 15, lineHeight: 1.7 }}>
-              Built specifically for the structural reads that matter intraday — and structurally honest about what the data can and can&apos;t say.
+              {t('solutionSubtitle')}
             </p>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 18 }}>
             <FeatureCard
               icon={Activity}
-              title="Real-time dealer gamma"
-              body="Live spot-shift dealer gamma profile, recalculated continuously. The headline Net GEX and the gamma flip read off one curve — they cannot contradict each other."
+              title={t('feat1Title')}
+              body={t('feat1Body')}
             />
             <FeatureCard
               icon={Target}
-              title="Hardened gamma flip"
-              body="Interior, structural, and actionable-distance gates against grid-edge artifacts and noise-floor crossings. Reports NULL on degraded chains instead of silently freezing on a stale value."
+              title={t('feat2Title')}
+              body={t('feat2Body')}
             />
             <FeatureCard
               icon={Layers}
-              title="Per-DTE bucketing"
-              body="Strike-by-DTE GEX heatmap so the 0DTE concentration that dominates the intraday tape is visible directly, not buried inside an all-expiries average."
+              title={t('feat3Title')}
+              body={t('feat3Body')}
             />
             <FeatureCard
               icon={BarChart2}
-              title="Composite signal layer"
-              body="Squeeze Setup, Positioning Trap, Trap Detection, EOD Pressure — each with published methodology in the Education section, not black-box alerts."
+              title={t('feat4Title')}
+              body={t('feat4Body')}
             />
             <FeatureCard
               icon={ShieldCheck}
-              title="Methodology you can read"
-              body="Every signal and structural read has a write-up explaining how it's built and when it fails. No magic numbers, no hidden multipliers."
+              title={t('feat5Title')}
+              body={t('feat5Body')}
             />
             <FeatureCard
               icon={Sparkles}
-              title="Free read on the structural stack"
-              body="Net GEX, gamma flip, call wall, put wall, max pain, and the dealer gamma profile across SPX, SPY, and QQQ — open to anyone, no signup required, refreshed every 15 minutes."
+              title={t('feat6Title')}
+              body={t('feat6Body')}
             />
           </div>
         </div>
@@ -424,7 +429,7 @@ export default function RealTimeGexLandingClient() {
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18, alignItems: 'center', textAlign: 'center' }}>
             <Pill>
-              <BarChart2 size={14} /> Free Gamma Levels
+              <BarChart2 size={14} /> {t('proofPill')}
             </Pill>
             <h2
               style={{
@@ -437,10 +442,10 @@ export default function RealTimeGexLandingClient() {
                 maxWidth: 720,
               }}
             >
-              See today&apos;s dealer book without paying for it.
+              {t('proofTitle')}
             </h2>
             <p style={{ margin: 0, maxWidth: 680, color: C.muted, fontSize: 15, lineHeight: 1.7 }}>
-              The free gamma-levels page surfaces the structural reads for SPX, SPY, and QQQ — Net GEX, gamma flip with distance from spot, call and put walls, max pain, and the dealer gamma profile. Refreshed every 15 minutes. Anonymous access, no signup, no card.
+              {t('proofSubtitle')}
             </p>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14, width: '100%', marginTop: 8 }}>
@@ -482,7 +487,7 @@ export default function RealTimeGexLandingClient() {
                   fontSize: 15,
                 }}
               >
-                Open free gamma levels <ArrowRight size={16} />
+                {t('ctaOpenFreeGammaLevels')} <ArrowRight size={16} />
               </button>
             </Link>
           </div>
@@ -494,7 +499,7 @@ export default function RealTimeGexLandingClient() {
         <div style={{ maxWidth: 1000, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 36 }}>
             <Pill>
-              <Sparkles size={14} /> Upgrade when you&apos;re ready
+              <Sparkles size={14} /> {t('tiersPill')}
             </Pill>
             <h2
               style={{
@@ -506,10 +511,10 @@ export default function RealTimeGexLandingClient() {
                 fontWeight: 800,
               }}
             >
-              Pricing built for the way 0DTE traders actually work.
+              {t('tiersTitle')}
             </h2>
             <p style={{ margin: '0 auto', maxWidth: 720, color: C.muted, fontSize: 15, lineHeight: 1.7 }}>
-              Free 15-min-delayed gamma levels for the structural reads. Paid plans add real-time updates, the full dashboard, the signal layer, the Advanced Signals, and direct API access. Every plan starts with a {TRIAL_DAYS}-day free trial — cancel anytime.
+              {t('tiersSubtitle', { days: TRIAL_DAYS })}
             </p>
           </div>
 
@@ -519,36 +524,38 @@ export default function RealTimeGexLandingClient() {
               price="$39"
               cadence="/month"
               features={[
-                'Real-time metrics and full strategy tools',
-                'Access to Basic Signals',
-                'Per-signal context fields and intraday timelines',
-                'Designed for disciplined daily execution',
+                t('basicFeat1'),
+                t('basicFeat2'),
+                t('basicFeat3'),
+                t('basicFeat4'),
               ]}
-              ctaLabel={`Start ${TRIAL_DAYS}-day free trial`}
+              ctaLabel={t('ctaStartTrial', { days: TRIAL_DAYS })}
               ctaHref="/pricing"
+              includesTrialLabel={t('includesTrial', { days: TRIAL_DAYS })}
             />
             <TierCard
               title="Pro"
               price="$59"
               cadence="/month"
-              highlight="Most popular"
+              highlight={t('mostPopular')}
               features={[
-                'Everything in Basic',
-                'Access to Advanced Signals (EOD Pressure, Trap Detection, Squeeze Setup, more)',
-                'Direct access to ZeroGEX APIs',
-                'Real-time scoring + historical score charts',
+                t('proFeat1'),
+                t('proFeat2'),
+                t('proFeat3'),
+                t('proFeat4'),
               ]}
-              ctaLabel={`Start ${TRIAL_DAYS}-day free trial`}
+              ctaLabel={t('ctaStartTrial', { days: TRIAL_DAYS })}
               ctaHref="/pricing"
+              includesTrialLabel={t('includesTrial', { days: TRIAL_DAYS })}
             />
           </div>
 
           <p style={{ textAlign: 'center', marginTop: 22, color: C.muted, fontSize: 13 }}>
-            Annual billing also available — see{' '}
+            {t('annualBillingPre')}{' '}
             <Link href="/pricing" style={{ color: C.amber }}>
-              the pricing page
+              {t('pricingPageLink')}
             </Link>{' '}
-            for current promo pricing and annual savings.
+            {t('annualBillingPost')}
           </p>
         </div>
       </section>
@@ -558,7 +565,7 @@ export default function RealTimeGexLandingClient() {
         <div style={{ maxWidth: 1000, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 28 }}>
             <Pill>
-              <Layers size={14} /> Read the methodology
+              <Layers size={14} /> {t('eduPill')}
             </Pill>
             <h2
               style={{
@@ -570,21 +577,21 @@ export default function RealTimeGexLandingClient() {
                 fontWeight: 800,
               }}
             >
-              Every read has a write-up.
+              {t('eduTitle')}
             </h2>
             <p style={{ margin: '0 auto', maxWidth: 720, color: C.muted, fontSize: 15, lineHeight: 1.7 }}>
-              The structural reads, the signal layer, and the methodology — all documented. Pick a starting point.
+              {t('eduSubtitle')}
             </p>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
             {[
-              { href: '/education/gamma-exposure-explained', title: 'Gamma Exposure (GEX) Explained', body: 'The complete guide — pillar piece.' },
-              { href: '/education/how-to-read-a-gamma-flip', title: 'How to Read a Gamma Flip', body: 'Practical intraday workflow.' },
-              { href: '/education/gamma-walls-explained', title: 'Gamma Walls Explained', body: 'Call wall, put wall, and how price reacts.' },
-              { href: '/education/0dte-dealer-positioning-explained', title: '0DTE Dealer Positioning', body: 'Why same-day expiries dominate the read.' },
-              { href: '/education/max-pain-explained', title: 'Max Pain — Does It Work?', body: 'Evidence-honest read.' },
-              { href: '/education/vanna-and-charm-explained', title: 'Vanna and Charm Explained', body: 'Second-order Greeks and dealer hedging.' },
+              { href: '/education/gamma-exposure-explained', title: t('edu1Title'), body: t('edu1Body') },
+              { href: '/education/how-to-read-a-gamma-flip', title: t('edu2Title'), body: t('edu2Body') },
+              { href: '/education/gamma-walls-explained', title: t('edu3Title'), body: t('edu3Body') },
+              { href: '/education/0dte-dealer-positioning-explained', title: t('edu4Title'), body: t('edu4Body') },
+              { href: '/education/max-pain-explained', title: t('edu5Title'), body: t('edu5Body') },
+              { href: '/education/vanna-and-charm-explained', title: t('edu6Title'), body: t('edu6Body') },
             ].map((item) => (
               <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
                 <div
@@ -601,7 +608,7 @@ export default function RealTimeGexLandingClient() {
                   <span style={{ color: C.light, fontWeight: 700, fontSize: 15 }}>{item.title}</span>
                   <span style={{ color: C.muted, fontSize: 13, lineHeight: 1.55 }}>{item.body}</span>
                   <span style={{ color: C.amber, fontSize: 13, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                    Read <ArrowRight size={14} />
+                    {t('readMore')} <ArrowRight size={14} />
                   </span>
                 </div>
               </Link>
@@ -623,17 +630,17 @@ export default function RealTimeGexLandingClient() {
               fontWeight: 900,
             }}
           >
-            See the dealer book.{' '}
+            {t('finalTitlePre')}{' '}
             <span
               style={{
                 color: 'var(--color-accent-hot)',
               }}
             >
-              Decide for yourself.
+              {t('finalTitleHighlight')}
             </span>
           </h2>
           <p style={{ margin: '0 auto 28px', maxWidth: 640, fontSize: 17, color: C.muted, lineHeight: 1.65 }}>
-            The free read is the same calculation paid users get — just 15 minutes behind. Try it on today&apos;s tape before you decide whether to upgrade.
+            {t('finalSubtitle')}
           </p>
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, justifyContent: 'center' }}>
@@ -645,7 +652,7 @@ export default function RealTimeGexLandingClient() {
                   fontSize: 15,
                 }}
               >
-                Open free gamma levels <ArrowRight size={18} />
+                {t('ctaOpenFreeGammaLevels')} <ArrowRight size={18} />
               </button>
             </Link>
             <Link href="/pricing" style={{ textDecoration: 'none' }}>
@@ -656,13 +663,13 @@ export default function RealTimeGexLandingClient() {
                   fontSize: 15,
                 }}
               >
-                See pricing <ArrowRight size={18} />
+                {t('seePricing')} <ArrowRight size={18} />
               </button>
             </Link>
           </div>
 
           <p style={{ marginTop: 24, color: C.muted, fontSize: 13, lineHeight: 1.65, maxWidth: 640, marginLeft: 'auto', marginRight: 'auto' }}>
-            Educational content only — not financial advice. ZeroGEX surfaces structural reads on dealer positioning; trade decisions remain yours.
+            {t('disclaimer')}
           </p>
         </div>
       </section>

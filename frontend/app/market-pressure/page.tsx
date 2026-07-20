@@ -23,6 +23,8 @@ import {
   formatGexCompact,
   formatPct,
 } from '@/core/signalHelpers';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './page.i18n';
 
 const FADE_COLOR = 'var(--color-warning)';
 const BULL_COLOR = 'var(--color-bull)';
@@ -36,7 +38,20 @@ function labelFromLoading(loading: number | null): string {
   return 'Discharged';
 }
 
+// Maps the API's (or fallback) band word to its translated display label,
+// keeping the underlying English band value used for triggering logic.
+function bandLabel(t: (key: string) => string, raw: string): string {
+  switch (raw) {
+    case 'Critical': return t('bandCritical');
+    case 'Loaded': return t('bandLoaded');
+    case 'Building': return t('bandBuilding');
+    case 'Discharged': return t('bandDischarged');
+    default: return raw;
+  }
+}
+
 export default function MarketPressurePage() {
+  const t = usePageT(dict);
   const { symbol } = useTimeframe();
   const { data, loading, error, refetch } = useMarketPressureSignal(
     symbol,
@@ -49,7 +64,7 @@ export default function MarketPressurePage() {
   const directionValue = getNumber(payload.direction_value);
   const confidenceMult = getNumber(payload.confidence_mult);
   const signalStr = String(payload.signal ?? 'discharged');
-  const label = String(payload.label ?? labelFromLoading(loadingVal));
+  const label = bandLabel(t, String(payload.label ?? labelFromLoading(loadingVal)));
   const playbook = typeof payload.playbook === 'string' ? payload.playbook : '';
   const triggered = payload.triggered === true || (loadingVal != null && loadingVal >= 50 && directionValue != null && Math.abs(directionValue) >= 0.2);
   const trend = toTrend(payload.direction);
@@ -120,27 +135,27 @@ export default function MarketPressurePage() {
   if (loading && !data) return <LoadingSpinner size="lg" />;
 
   const pillars: Array<{ key: string; label: string; magnitude: number | null; signed: number | null; color: string; description: string }> = [
-    { key: 'compression', label: 'Compression', magnitude: ctx.compression.magnitude, signed: null, color: BULL_COLOR, description: 'Wall pinch × flip proximity (geo mean)' },
-    { key: 'hedging', label: 'Hedging', magnitude: ctx.hedging.magnitude, signed: ctx.hedging.signed, color: '#6EA8FE', description: 'Vanna + charm session-weighted' },
-    { key: 'flow', label: 'Flow', magnitude: ctx.flow.magnitude, signed: ctx.flow.signed, color: '#C084FC', description: 'Premium + smart-money skew' },
-    { key: 'tension', label: 'Tension', magnitude: ctx.tension.magnitude, signed: null, color: FADE_COLOR, description: '√((1 − IV rank) · vol squeeze)' },
+    { key: 'compression', label: t('pillarCompressionLabel'), magnitude: ctx.compression.magnitude, signed: null, color: BULL_COLOR, description: t('pillarCompressionDesc') },
+    { key: 'hedging', label: t('pillarHedgingLabel'), magnitude: ctx.hedging.magnitude, signed: ctx.hedging.signed, color: '#6EA8FE', description: t('pillarHedgingDesc') },
+    { key: 'flow', label: t('pillarFlowLabel'), magnitude: ctx.flow.magnitude, signed: ctx.flow.signed, color: '#C084FC', description: t('pillarFlowDesc') },
+    { key: 'tension', label: t('pillarTensionLabel'), magnitude: ctx.tension.magnitude, signed: null, color: FADE_COLOR, description: t('pillarTensionDesc') },
   ];
 
   const confidenceLabel = confidenceMult != null
     ? confidenceMult >= 1.15
-      ? 'all aligned'
+      ? t('confidenceAllAligned')
       : confidenceMult >= 0.95
-        ? 'partial agreement'
-        : 'forces fighting'
+        ? t('confidencePartial')
+        : t('confidenceForcesFighting')
     : '—';
 
   return (
     <PageShell>
       <SignalPageTitle
         title="Market Pressure Index"
-        subtitle={'"Is the market loaded to move, and which way will it break?"'}
+        subtitle={t('subtitle')}
         icon={Gauge}
-        tooltip="Forward-looking coiled-spring detector. Magnitude is multiplicative across four pillars — Compression × Hedging × Flow × Tension (loading 0–100). Direction is a weighted vector across hedging, gated flow, and dealer net-delta with a ±30% agreement multiplier. Triggers when loading ≥ 50 AND |direction| ≥ 0.20. Standalone — not in the MSI composite."
+        tooltip={t('tooltip')}
       />
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
@@ -171,7 +186,7 @@ export default function MarketPressurePage() {
                   <span
                     className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border"
                     style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
-                    title="Confidence multiplier applied to direction when hedging / flow / dealer inputs agree or fight."
+                    title={t('confidenceTooltip')}
                   >
                     {confidenceMult != null ? `${confidenceMult.toFixed(2)}× — ${confidenceLabel}` : '—'}
                   </span>
@@ -190,7 +205,7 @@ export default function MarketPressurePage() {
                 <HalfCircleGauge value={loadingVal} color={accentColor} label={label} />
                 <div className="flex-1 flex flex-col">
                   <div className="text-sm font-semibold flex items-center gap-2 mb-3">
-                    <Layers size={14} /> Pillar magnitudes
+                    <Layers size={14} /> {t('pillarMagnitudesLabel')}
                   </div>
                   <PillarBars rows={pillars} />
                 </div>
@@ -208,10 +223,10 @@ export default function MarketPressurePage() {
       </section>
 
       <section className="zg-feature-shell mt-8 p-6">
-        <h2 className="text-xl font-semibold mb-4">Input Breakdown</h2>
+        <h2 className="text-xl font-semibold mb-4">{t('inputBreakdownHeading')}</h2>
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-4 text-sm">
           <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-            <div className="font-semibold mb-2 flex items-center gap-2"><Compass size={16} /> Compression</div>
+            <div className="font-semibold mb-2 flex items-center gap-2"><Compass size={16} /> {t('pillarCompressionLabel')}</div>
             <div className="space-y-2 text-[var(--color-text-secondary)]">
               <Row label="Magnitude" value={ctx.compression.magnitude != null ? ctx.compression.magnitude.toFixed(3) : '—'} />
               <Row label="Wall pinch" value={ctx.compression.wallPinch != null ? ctx.compression.wallPinch.toFixed(3) : '—'} />
@@ -224,12 +239,12 @@ export default function MarketPressurePage() {
               <Row label="Net GEX" value={formatGexCompact(ctx.compression.netGex)} />
             </div>
             <p className="mt-3 pt-2 border-t border-[var(--color-border)]/40 text-[11px] text-[var(--color-text-secondary)]">
-              Geometric mean of wall pinch and flip proximity. Short-gamma regimes amplify (×1.0); long-gamma damps (×0.5).
+              {t('compressionCaption')}
             </p>
           </div>
 
           <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-            <div className="font-semibold mb-2 flex items-center gap-2"><Wind size={16} /> Hedging Vector</div>
+            <div className="font-semibold mb-2 flex items-center gap-2"><Wind size={16} /> {t('cardHedgingTitle')}</div>
             <div className="space-y-2 text-[var(--color-text-secondary)]">
               <Row label="Magnitude" value={ctx.hedging.magnitude != null ? ctx.hedging.magnitude.toFixed(3) : '—'} />
               <Row label="Signed" value={formatSigned(ctx.hedging.signed, 3)} />
@@ -241,12 +256,12 @@ export default function MarketPressurePage() {
               <Row label="Dealer DNI" value={formatSigned(ctx.hedging.dealerDni, 3)} />
             </div>
             <p className="mt-3 pt-2 border-t border-[var(--color-border)]/40 text-[11px] text-[var(--color-text-secondary)]">
-              <code>α·vanna + (1−α)·charm·charm_amp</code>. α ramps 0.7→0.3 open→close. +20% bonus when vanna and charm agree.
+              <code>α·vanna + (1−α)·charm·charm_amp</code>. {t('hedgingCaptionSuffix')}
             </p>
           </div>
 
           <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-            <div className="font-semibold mb-2 flex items-center gap-2"><ArrowLeftRight size={16} /> Flow Asymmetry</div>
+            <div className="font-semibold mb-2 flex items-center gap-2"><ArrowLeftRight size={16} /> {t('cardFlowTitle')}</div>
             <div className="space-y-2 text-[var(--color-text-secondary)]">
               <Row label="Magnitude" value={ctx.flow.magnitude != null ? ctx.flow.magnitude.toFixed(3) : '—'} />
               <Row label="Signed" value={formatSigned(ctx.flow.signed, 3)} />
@@ -257,12 +272,12 @@ export default function MarketPressurePage() {
               <Row label="Dealer net Δ" value={formatGexCompact(ctx.dealer.netDelta)} />
             </div>
             <p className="mt-3 pt-2 border-t border-[var(--color-border)]/40 text-[11px] text-[var(--color-text-secondary)]">
-              <code>0.6·premium_skew + 0.4·smart_money_skew</code>. Magnitude-gated on total premium flux.
+              <code>0.6·premium_skew + 0.4·smart_money_skew</code>. {t('flowCaptionSuffix')}
             </p>
           </div>
 
           <div className="rounded-xl border border-[var(--color-border)] p-4 bg-[var(--color-surface-subtle)]">
-            <div className="font-semibold mb-2 flex items-center gap-2"><Flame size={16} /> Vol Tension</div>
+            <div className="font-semibold mb-2 flex items-center gap-2"><Flame size={16} /> {t('cardTensionTitle')}</div>
             <div className="space-y-2 text-[var(--color-text-secondary)]">
               <Row label="Magnitude" value={ctx.tension.magnitude != null ? ctx.tension.magnitude.toFixed(3) : '—'} />
               <Row label="IV rank" value={formatPct(ctx.tension.ivRank, 1, false)} />
@@ -271,7 +286,7 @@ export default function MarketPressurePage() {
               <Row label="Long σ (60-bar)" value={ctx.tension.longSigma != null ? ctx.tension.longSigma.toFixed(4) : '—'} />
             </div>
             <p className="mt-3 pt-2 border-t border-[var(--color-border)]/40 text-[11px] text-[var(--color-text-secondary)]">
-              <code>√((1 − iv_rank) · vol_squeeze)</code>. Modulates loading 0.5× → 1.0×; never zeros out.
+              <code>√((1 − iv_rank) · vol_squeeze)</code>. {t('tensionCaptionSuffix')}
             </p>
           </div>
         </div>
@@ -279,32 +294,32 @@ export default function MarketPressurePage() {
 
       <section className="zg-feature-shell mt-8 p-6">
         <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-          <ShieldCheck size={18} /> Playbook by label
+          <ShieldCheck size={18} /> {t('playbookHeading')}
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 text-sm">
           <PlaybookCard
-            band="Discharged"
+            band={t('bandDischarged')}
             range="0–24"
             tone={FADE_COLOR}
-            description="No actionable loading. Trade existing setups — this lens is dark."
+            description={t('descDischarged')}
           />
           <PlaybookCard
-            band="Building"
+            band={t('bandBuilding')}
             range="25–49"
             tone={FADE_COLOR}
-            description="Tighten stops on counter-pressure trades; prepare directional templates."
+            description={t('descBuilding')}
           />
           <PlaybookCard
-            band="Loaded"
+            band={t('bandLoaded')}
             range="50–74"
             tone={BULL_COLOR}
-            description="Stop fading. Scale into continuation entries on first confirmation (VWAP reclaim, wall break, flow spike)."
+            description={t('descLoaded')}
           />
           <PlaybookCard
-            band="Critical"
+            band={t('bandCritical')}
             range="75–100"
             tone={BEAR_COLOR}
-            description="Coil at the limit. Take the directional trade with reduced size on stops; cut all counter-pressure exposure."
+            description={t('descCritical')}
           />
         </div>
       </section>
@@ -312,20 +327,24 @@ export default function MarketPressurePage() {
       <SignalHowItsBuilt
         caveat={
           <>
-            <strong>Bands:</strong> 0–24 Discharged · 25–49 Building · 50–74 Loaded · 75–100 Critical. A score of 0
-            does NOT mean &quot;neutral market&quot; — it means a pillar collapsed (no walls, no greeks, no flow) or
-            opposing directional forces are cancelling. Treat as &quot;this lens is dark.&quot;
+            <strong>{t('caveatBandsLabel')}</strong>{' '}
+            {t('caveatBody', {
+              discharged: t('bandDischarged'),
+              building: t('bandBuilding'),
+              loaded: t('bandLoaded'),
+              critical: t('bandCritical'),
+            })}
           </>
         }
       >
-        <div>Four pillars produce 0–1 magnitudes (Compression, Hedging, Flow, Tension); three of them also carry signed direction (Hedging, Flow, Dealer).</div>
-        <div><code>loading = 100 · C · H<sub>mag</sub> · F<sub>mag</sub> · (0.5 + 0.5·T)</code> — multiplicative magnitude in [0, 100].</div>
-        <div><code>direction = clamp((0.45·H + 0.40·F·F<sub>mag</sub> + 0.15·dealer) · confidence_mult, ±1)</code> with <code>confidence_mult ∈ [0.7, 1.3]</code> rewarding agreement and penalizing disagreement among the three directional inputs.</div>
-        <div><code>score = sign(direction) · √|direction| · (loading/100)</code> ∈ [−1, +1], displayed × 100.</div>
-        <div>Triggers when <strong>loading ≥ 50 AND |direction| ≥ 0.20</strong> — both magnitude AND directional clarity required.</div>
+        <div>{t('pillarsIntro')}</div>
+        <div><code>loading = 100 · C · H<sub>mag</sub> · F<sub>mag</sub> · (0.5 + 0.5·T)</code> {t('loadingFormulaSuffix')}</div>
+        <div><code>direction = clamp((0.45·H + 0.40·F·F<sub>mag</sub> + 0.15·dealer) · confidence_mult, ±1)</code> {t('directionFormulaWith')} <code>confidence_mult ∈ [0.7, 1.3]</code> {t('directionFormulaDesc')}</div>
+        <div><code>score = sign(direction) · √|direction| · (loading/100)</code> {t('scoreFormulaSuffix')}</div>
+        <div>{t('triggersPrefix')} <strong>loading ≥ 50 AND |direction| ≥ 0.20</strong> {t('triggersSuffix')}</div>
       </SignalHowItsBuilt>
 
-      <SignalEventsPanel signalName="market_pressure" symbol={symbol} title="Event Timeline" />
+      <SignalEventsPanel signalName="market_pressure" symbol={symbol} title={t('eventTimelineTitle')} />
     </PageShell>
   );
 }

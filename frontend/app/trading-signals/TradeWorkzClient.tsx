@@ -16,6 +16,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Sparkles, Zap } from 'lucide-react';
 import { useApiData } from '@/hooks/useApiData';
 import { useAuthSession } from '@/hooks/useAuthSession';
+import { usePageT } from '@/core/LanguageContext';
 import TooltipWrapper from '@/components/TooltipWrapper';
 import BotDetailPanel from './BotDetailPanel';
 import BotRosterCard from './BotRosterCard';
@@ -28,6 +29,7 @@ import { RosterSkeleton, SummarySkeleton } from './Skeleton';
 import { botColor } from './palette';
 import { fmtMoney, fmtSignedMoney, fmtSignedPct, toneVar } from './format';
 import { PERIOD_OPTIONS } from './types';
+import { dict } from './TradeWorkzClient.i18n';
 import type {
   BotEquityBundle,
   BotListResponse,
@@ -43,9 +45,10 @@ interface FollowResponse {
 const AUTO_REFRESH_MS = 15_000;
 
 export default function TradeWorkzClient() {
+  const t = usePageT(dict);
   const [period, setPeriod] = useState<PeriodKey>('30d');
   const [selectedBotId, setSelectedBotId] = useState<string | null>(null);
-  const [simMessage, setSimMessage] = useState<string | null>(null);
+  const [simMessage, setSimMessage] = useState<{ text: string; ok: boolean } | null>(null);
   const [simBusy, setSimBusy] = useState(false);
 
   const session = useAuthSession();
@@ -173,21 +176,24 @@ export default function TradeWorkzClient() {
         throw new Error(`HTTP ${res.status}: ${body.slice(0, 200)}`);
       }
       const data = await res.json();
-      setSimMessage(
-        `Seeded ${data.total_trades ?? 0} synthetic trades across ${
-          data.bots_simulated?.length ?? 0
-        } bots (${data.days_simulated ?? 0} sessions).`,
-      );
+      setSimMessage({
+        text: t('seededMessage', {
+          count: data.total_trades ?? 0,
+          bots: data.bots_simulated?.length ?? 0,
+          days: data.days_simulated ?? 0,
+        }),
+        ok: true,
+      });
       summary.refetch();
       botsData.refetch();
       leaderboard.refetch();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setSimMessage(`Simulate failed: ${message}`);
+      setSimMessage({ text: t('simulateFailed', { message }), ok: false });
     } finally {
       setSimBusy(false);
     }
-  }, [simBusy, summary, botsData, leaderboard]);
+  }, [simBusy, summary, botsData, leaderboard, t]);
 
   const runInjectTest = useCallback(async () => {
     if (simBusy) return;
@@ -201,7 +207,7 @@ export default function TradeWorkzClient() {
       bots[0]?.id ??
       null;
     if (!targetBotId) {
-      setSimMessage('No bot available to inject a test event against.');
+      setSimMessage({ text: t('noBotAvailable'), ok: false });
       return;
     }
     setSimBusy(true);
@@ -220,32 +226,29 @@ export default function TradeWorkzClient() {
       const data = await res.json();
       const entry = data.notifications_written?.entry ?? 0;
       const exit = data.notifications_written?.exit ?? 0;
-      setSimMessage(
-        `Injected test entry + exit against ${data.bot_display_name ?? targetBotId}. ` +
-          `Notifications queued: ${entry + exit} (entry=${entry}, exit=${exit}). ` +
-          `Email rows deliver on the next minute-cadence timer fire.`,
-      );
+      setSimMessage({
+        text: t('injectedMessage', {
+          bot: data.bot_display_name ?? targetBotId,
+          total: entry + exit,
+          entry,
+          exit,
+        }),
+        ok: true,
+      });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setSimMessage(`Inject failed: ${message}`);
+      setSimMessage({ text: t('injectFailed', { message }), ok: false });
     } finally {
       setSimBusy(false);
     }
-  }, [simBusy, selectedBotId, followedIds, leaderboard.data, bots]);
+  }, [simBusy, selectedBotId, followedIds, leaderboard.data, bots, t]);
 
   const runClear = useCallback(async () => {
     if (simBusy) return;
     // Explicit confirm — the button says "Reset fleet" but the operator
     // needs to know this wipes REAL live trades too, not just seeded
     // history. Cheap safety on a destructive-and-irreversible action.
-    if (
-      !window.confirm(
-        'Reset the entire fleet? This wipes every trade, position, ' +
-          'notification, equity row, and ML state — for BOTH simulated ' +
-          'and real live-engine data — and resets every bot to its ' +
-          'starting capital. This cannot be undone.',
-      )
-    ) {
+    if (!window.confirm(t('resetConfirm'))) {
       return;
     }
     setSimBusy(true);
@@ -266,21 +269,24 @@ export default function TradeWorkzClient() {
         (a, b) => a + (b ?? 0),
         0,
       );
-      setSimMessage(
-        `Fleet reset: ${totalRows.toLocaleString()} rows deleted across ` +
-          `${Object.keys(body.deleted_rows ?? {}).length} tables, ` +
-          `${body.sleeves_reset ?? 0} sleeves reset to starting capital.`,
-      );
+      setSimMessage({
+        text: t('fleetResetMessage', {
+          rows: totalRows.toLocaleString(),
+          tables: Object.keys(body.deleted_rows ?? {}).length,
+          sleeves: body.sleeves_reset ?? 0,
+        }),
+        ok: true,
+      });
       summary.refetch();
       botsData.refetch();
       leaderboard.refetch();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setSimMessage(`Reset failed: ${message}`);
+      setSimMessage({ text: t('resetFailed', { message }), ok: false });
     } finally {
       setSimBusy(false);
     }
-  }, [simBusy, summary, botsData, leaderboard]);
+  }, [simBusy, summary, botsData, leaderboard, t]);
 
   return (
     <div className="min-h-screen">
@@ -295,13 +301,11 @@ export default function TradeWorkzClient() {
                 className="text-[10px] uppercase tracking-widest px-2 py-1 rounded"
                 style={{ backgroundColor: 'var(--color-info-soft)', color: 'var(--color-info)' }}
               >
-                Beta
+                {t('betaBadge')}
               </span>
             </div>
             <p className="text-sm text-[var(--color-text-secondary)] max-w-3xl leading-relaxed">
-              A competing fleet of autonomous trading bots. Each bot owns a capital sleeve, an
-              entry / exit rule set, and a per-bot online-ML calibrator. Leaderboard ranks by
-              realized P&amp;L over the selected window.
+              {t('headerDescription')}
             </p>
           </div>
           <div className="flex flex-col items-start md:items-end gap-2">
@@ -309,7 +313,7 @@ export default function TradeWorkzClient() {
               <NotificationBell />
               {isAdmin ? (
                 <>
-                  <TooltipWrapper text="Wipe existing history and seed 60 sessions of deterministic synthetic trades per bot. Admin only.">
+                  <TooltipWrapper text={t('seedTooltip')}>
                     <button
                       onClick={runSimulate}
                       disabled={simBusy}
@@ -321,10 +325,10 @@ export default function TradeWorkzClient() {
                       }}
                     >
                       <Sparkles className="w-3.5 h-3.5" />
-                      Seed demo data
+                      {t('seedButton')}
                     </button>
                   </TooltipWrapper>
-                  <TooltipWrapper text="Inject a fake entry + exit notification against the focused / followed bot. Notifications fan out to every follower on all their enabled channels — in-app appears in the bell immediately, email lands on the next timer fire (≤60s). Admin only.">
+                  <TooltipWrapper text={t('testEventTooltip')}>
                     <button
                       onClick={runInjectTest}
                       disabled={simBusy}
@@ -337,10 +341,10 @@ export default function TradeWorkzClient() {
                       }}
                     >
                       <Zap className="w-3.5 h-3.5" />
-                      Test event
+                      {t('testEventButton')}
                     </button>
                   </TooltipWrapper>
-                  <TooltipWrapper text="Wipe EVERY bot's trades (sim + live), positions, notifications, equity, metrics, and ML state, then reset each sleeve to starting capital. Cannot be undone. Admin only.">
+                  <TooltipWrapper text={t('resetTooltip')}>
                     <button
                       onClick={runClear}
                       disabled={simBusy}
@@ -352,7 +356,7 @@ export default function TradeWorkzClient() {
                         opacity: simBusy ? 0.6 : 1,
                       }}
                     >
-                      Reset fleet
+                      {t('resetButton')}
                     </button>
                   </TooltipWrapper>
                 </>
@@ -361,9 +365,9 @@ export default function TradeWorkzClient() {
             {simMessage ? (
               <div
                 className="text-[11px] max-w-xs md:text-right"
-                style={{ color: simMessage.startsWith('Cleared') || simMessage.startsWith('Seeded') || simMessage.startsWith('Fleet reset') ? 'var(--color-bull)' : 'var(--color-bear)' }}
+                style={{ color: simMessage.ok ? 'var(--color-bull)' : 'var(--color-bear)' }}
               >
-                {simMessage}
+                {simMessage.text}
               </div>
             ) : null}
           </div>
@@ -371,15 +375,15 @@ export default function TradeWorkzClient() {
 
         <section className="mb-6">
           {summaryError ? (
-            <EmptyState title="Summary unavailable" description={summary.error ?? 'Failed to load fleet summary'} />
+            <EmptyState title={t('summaryUnavailable')} description={summary.error ?? t('failedToLoadSummary')} />
           ) : summaryLoading ? (
             <SummarySkeleton />
           ) : summary.data ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <StatTile
-                label="Fleet NAV"
+                label={t('fleetNav')}
                 value={fmtMoney(summary.data.fleet_capital_current)}
-                subline={`Start ${fmtMoney(summary.data.fleet_capital_starting)}`}
+                subline={t('startSubline', { value: fmtMoney(summary.data.fleet_capital_starting) })}
                 tone={toneVar(summary.data.fleet_return_pct)}
                 delta={
                   summary.data.fleet_return_pct !== null
@@ -388,21 +392,24 @@ export default function TradeWorkzClient() {
                 }
               />
               <StatTile
-                label="Realized P&L Today"
+                label={t('realizedPnlToday')}
                 value={fmtSignedMoney(summary.data.realized_pnl_today)}
-                subline={`${summary.data.trades_today} trades · ${summary.data.wins_today} wins`}
+                subline={t('tradesWinsSubline', {
+                  trades: summary.data.trades_today,
+                  wins: summary.data.wins_today,
+                })}
                 tone={toneVar(summary.data.realized_pnl_today)}
               />
               <StatTile
-                label="Live Positions"
+                label={t('livePositions')}
                 value={String(summary.data.live_positions)}
-                subline={`Unrealized ${fmtSignedMoney(summary.data.unrealized_pnl)}`}
+                subline={t('unrealizedSubline', { value: fmtSignedMoney(summary.data.unrealized_pnl) })}
                 tone={toneVar(summary.data.unrealized_pnl)}
               />
               <StatTile
-                label="Bots in Fleet"
+                label={t('botsInFleet')}
                 value={String(summary.data.n_bots)}
-                subline="Slice: fleet capital / bots"
+                subline={t('sliceSubline')}
                 tone="var(--color-text-secondary)"
               />
             </div>
@@ -413,7 +420,7 @@ export default function TradeWorkzClient() {
           <section className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
             {bestBot ? (
               <Callout
-                label="Best 24h"
+                label={t('best24h')}
                 bot={bestBot.display_name}
                 botId={bestBot.id}
                 paletteIndex={paletteIndex(bestBot.id)}
@@ -424,7 +431,7 @@ export default function TradeWorkzClient() {
             ) : null}
             {worstBot ? (
               <Callout
-                label="Worst 24h"
+                label={t('worst24h')}
                 bot={worstBot.display_name}
                 botId={worstBot.id}
                 paletteIndex={paletteIndex(worstBot.id)}
@@ -440,10 +447,10 @@ export default function TradeWorkzClient() {
           <div className="flex items-center justify-between mb-3 gap-3">
             <div>
               <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
-                Fleet Performance
+                {t('fleetPerformance')}
               </h2>
               <p className="text-xs text-[var(--color-text-secondary)]">
-                90-day cumulative return, indexed to 100 at the start of each bot's window.
+                {t('fleetPerformanceDesc')}
               </p>
             </div>
           </div>
@@ -456,7 +463,7 @@ export default function TradeWorkzClient() {
           >
             {equityBundles.length === 0 || equityBundles.every((b) => b.points.length < 2) ? (
               <div className="h-52 flex items-center justify-center text-xs text-[var(--color-text-secondary)]">
-                Fleet equity curves appear here once bots have at least two closed sessions.
+                {t('equityCurvesEmpty')}
               </div>
             ) : (
               <>
@@ -479,10 +486,10 @@ export default function TradeWorkzClient() {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-3 gap-3">
             <div>
               <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
-                Leaderboard
+                {t('leaderboard')}
               </h2>
               <p className="text-xs text-[var(--color-text-secondary)]">
-                Ranked by realized P&amp;L over the selected window. Row click opens the drilldown.
+                {t('leaderboardDesc')}
               </p>
             </div>
             <PeriodToggle current={period} onChange={setPeriod} />
@@ -505,21 +512,21 @@ export default function TradeWorkzClient() {
           <div className="flex items-center justify-between mb-3 gap-3">
             <div>
               <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
-                The Fleet
+                {t('theFleet')}
               </h2>
               <p className="text-xs text-[var(--color-text-secondary)]">
-                Every bot: identity color, 30-day equity curve, and rolling P&amp;L windows.
+                {t('theFleetDesc')}
               </p>
             </div>
           </div>
           {botsData.loading && !botsData.data ? (
             <RosterSkeleton />
           ) : botsData.error && !botsData.data ? (
-            <EmptyState title="Roster unavailable" description={botsData.error} />
+            <EmptyState title={t('rosterUnavailable')} description={botsData.error} />
           ) : sortedBots.length === 0 ? (
             <EmptyState
-              title="No bots provisioned"
-              description="On first API boot the default roster is auto-seeded. If you're seeing this and the API is up, hit POST /api/tradeworkz/admin/provision to re-run seeding."
+              title={t('noBotsProvisionedTitle')}
+              description={t('noBotsProvisionedDesc')}
             />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">

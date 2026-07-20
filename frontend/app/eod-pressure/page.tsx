@@ -23,17 +23,20 @@ import {
   formatPrice,
 } from '@/core/signalHelpers';
 import AutoFitValue from '@/components/AutoFitValue';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './page.i18n';
 
-function pressureLabel(score: number | null): string {
-  if (score == null) return 'No reading';
-  if (score >= 70) return 'Strong bullish close pressure';
-  if (score >= 30) return 'Bullish close tilt';
-  if (score <= -70) return 'Strong bearish close pressure';
-  if (score <= -30) return 'Bearish close tilt';
-  return 'Neutral close setup';
+function pressureLabel(score: number | null, t: (k: string) => string): string {
+  if (score == null) return t('noReading');
+  if (score >= 70) return t('strongBullish');
+  if (score >= 30) return t('bullishTilt');
+  if (score <= -70) return t('strongBearish');
+  if (score <= -30) return t('bearishTilt');
+  return t('neutralSetup');
 }
 
 export default function EodPressurePage() {
+  const t = usePageT(dict);
   const { symbol } = useTimeframe();
   const { data, loading, error, refetch } = useEodPressureSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.eodPressureMs);
 
@@ -62,9 +65,9 @@ export default function EodPressurePage() {
     <PageShell>
       <SignalPageTitle
         title="EOD Pressure"
-        subtitle={'"Is the close getting pinned?"'}
+        subtitle={t('subtitle')}
         icon={Hourglass}
-        tooltip="End-of-day close pin/drift forecast. Combines dealer charm at spot, gamma-gated pin gravity, a calendar amplifier, and a linear time ramp. Active only during the closing window (14:30–16:00 ET). The time ramp scales contribution from 0 at 14:30 toward 1.0 by 15:45 ET."
+        tooltip={t('tooltip')}
       />
 
       {error && <ErrorMessage message={error} onRetry={refetch} />}
@@ -73,9 +76,9 @@ export default function EodPressurePage() {
         <div className="mb-6 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-4 text-sm flex items-start gap-3">
           <Timer size={16} className="text-[var(--color-warning)] mt-0.5" />
           <div>
-            <div className="font-semibold">Inactive — EOD window opens at 14:30 ET</div>
+            <div className="font-semibold">{t('inactiveTitle')}</div>
             <div className="text-xs text-[var(--color-text-secondary)] mt-0.5">
-              Score returns 0 outside the activation window; live fields will populate as the close approaches.
+              {t('inactiveDesc')}
             </div>
           </div>
         </div>
@@ -88,7 +91,7 @@ export default function EodPressurePage() {
               score={score}
               scoreLabel="EOD Pressure Score"
               trend={trend}
-              interpretation={pressureLabel(score)}
+              interpretation={pressureLabel(score, t)}
               history={history}
               badges={
                 <>
@@ -109,7 +112,7 @@ export default function EodPressurePage() {
               <div className="relative mt-3 h-3 rounded-full bg-[var(--color-border)]/40 overflow-hidden">
                 <div className="h-full" style={{ width: `${Math.max(0, Math.min(100, timeRamp * 100))}%`, background: 'linear-gradient(90deg, var(--color-text-secondary), var(--color-warning), var(--color-bull))' }} />
               </div>
-              <p className="mt-3 text-xs text-[var(--color-text-secondary)]">Linear 0 → 1 from 14:30 to 15:45 ET.</p>
+              <p className="mt-3 text-xs text-[var(--color-text-secondary)]">{t('rampDesc')}</p>
             </div>
 
             <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
@@ -125,27 +128,27 @@ export default function EodPressurePage() {
               <AutoFitValue className="text-2xl sm:text-3xl font-black" style={{ color: charmAtSpot != null && charmAtSpot > 0 ? 'var(--color-bull)' : charmAtSpot != null && charmAtSpot < 0 ? 'var(--color-bear)' : 'var(--color-text-primary)' }}>
                 {charmAtSpot != null ? `${charmAtSpot >= 0 ? '+' : ''}${(charmAtSpot / 1e6).toFixed(2)}M` : '—'}
               </AutoFitValue>
-              <p className="mt-2 text-xs text-[var(--color-text-secondary)]">Signed dollar-delta of dealer charm within ATM band{atmBandPct ? ` (±${(atmBandPct * 100).toFixed(2)}%)` : ''}.</p>
+              <p className="mt-2 text-xs text-[var(--color-text-secondary)]">{t('charmDesc')}{atmBandPct ? ` (±${(atmBandPct * 100).toFixed(2)}%)` : ''}.</p>
             </div>
 
             <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
               <div className="flex items-center gap-2 text-sm font-semibold mb-1"><CalendarClock size={14} /> Gamma regime</div>
               <AutoFitValue className="text-2xl sm:text-3xl font-black" style={{ color: gammaRegime === 'positive' ? 'var(--color-bull)' : gammaRegime === 'negative' ? 'var(--color-bear)' : 'var(--color-warning)' }}>{humanize(gammaRegime)}</AutoFitValue>
-              <p className="mt-2 text-xs text-[var(--color-text-secondary)]">Positive → dealers pull toward pin. Negative → dealers amplify moves away.</p>
+              <p className="mt-2 text-xs text-[var(--color-text-secondary)]">{t('regimeDesc')}</p>
             </div>
           </div>
         </div>
       </section>
 
       <SignalHowItsBuilt
-        caveat={<>Activation window: 14:30 ET → 16:00 ET. Ramp reaches 1.0 by ~15:45 ET. Outside the window the score is forced to 0.</>}
+        caveat={<>{t('caveat')}</>}
       >
-        <div><code>Charm Score = tanh(Charm at Spot / 20M)</code> across an ATM band — captures accelerating delta decay into the close.</div>
-        <div><code>Pin Gravity = sign(Net GEX) × min(1.0, Pin Distance % / 0.3%)</code> — flips direction when dealers cross to short gamma.</div>
-        <div><code>Score = (0.6 · Charm + 0.4 · Pin) × Calendar Amp × Time Ramp</code>. OpEx 1.5×, quad-witching 2.0×.</div>
+        <div><code>Charm Score = tanh(Charm at Spot / 20M)</code>{t('charmFormulaDesc')}</div>
+        <div><code>Pin Gravity = sign(Net GEX) × min(1.0, Pin Distance % / 0.3%)</code>{t('pinFormulaDesc')}</div>
+        <div><code>Score = (0.6 · Charm + 0.4 · Pin) × Calendar Amp × Time Ramp</code>{t('scoreFormulaDesc')}</div>
       </SignalHowItsBuilt>
 
-      <SignalEventsPanel signalName="eod_pressure" symbol={symbol} title="Event Timeline" />
+      <SignalEventsPanel signalName="eod_pressure" symbol={symbol} title={t('eventTimelineTitle')} />
     </PageShell>
   );
 }
