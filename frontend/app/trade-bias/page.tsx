@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import {
   Activity,
   AlertTriangle,
@@ -19,9 +20,17 @@ import { useTimeframe } from '@/core/TimeframeContext';
 import { getMarketSession } from '@/core/utils';
 import { humanize, SignalTrend, trendColor } from '@/core/signalHelpers';
 import BiasTape from './BiasTape';
-import BiasSparkline from './BiasSparkline';
 import { useTradeBiasData } from './useTradeBiasData';
 import { BIAS_INPUT_KEYS, BIAS_INPUT_META, TACTICAL_PILLAR_META, TradeBiasPayload } from './data';
+
+// Recharts is heavy and the chart is the last section on the page — code-split
+// it (ssr:false) so the hero + cards paint without waiting on the chart bundle.
+const IntradayBiasChart = dynamic(() => import('./IntradayBiasChart'), {
+  ssr: false,
+  loading: () => (
+    <div className="animate-pulse h-80 rounded-lg" style={{ background: 'var(--color-surface-subtle)' }} />
+  ),
+});
 
 const TITLE_TOOLTIP =
   'Trade Bias is a single, signed directional call — which way to lean, how convinced, and the regime it started from. ' +
@@ -496,9 +505,9 @@ export default function TradeBiasPage() {
             Intraday Bias
           </h2>
           {!historyLoaded ? (
-            <div className="animate-pulse h-40 rounded-lg" style={{ background: 'var(--color-surface-subtle)' }} />
+            <div className="animate-pulse h-80 rounded-lg" style={{ background: 'var(--color-surface-subtle)' }} />
           ) : (
-            <BiasSparkline history={history} />
+            <IntradayBiasChart history={history} currentBias={payload.biasScore} />
           )}
         </section>
       )}
