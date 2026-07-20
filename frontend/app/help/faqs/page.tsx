@@ -1,11 +1,16 @@
+import type { Metadata } from 'next';
+import { getServerT } from '@/core/localizedContent';
 import FAQsClient from './Client';
+import { dict as metaDict } from './meta.i18n';
 
-export const metadata = {
-  title: 'ZeroGEX FAQs: Data, Signals, Billing &amp; Account',
-  description:
-    'Plain-English answers to the questions ZeroGEX traders ask most often — supported symbols, refresh cadence, signal scores, billing, and account topics.',
-  alternates: { canonical: '/help/faqs' },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getServerT(metaDict);
+  return {
+    title: t('title'),
+    description: t('description'),
+    alternates: { canonical: '/help/faqs' },
+  };
+}
 
 export default function FAQsPage() {
   return <FAQsClient />;

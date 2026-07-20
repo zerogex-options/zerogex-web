@@ -6,6 +6,9 @@ import {
 } from '@/core/stripe';
 import { isFoundingLockinOpen } from '@/core/foundingLockin';
 import FoundingClient from './Client';
+import { dict as metaDict } from './meta.i18n';
+import { getServerT } from '@/core/localizedContent';
+import type { Metadata } from 'next';
 
 // Cache the page for at most 60s so the 404 cut-over at the deadline lands
 // quickly even if Next.js has the route statically cached from a build that
@@ -13,11 +16,14 @@ import FoundingClient from './Client';
 // a page with no other dynamic inputs.)
 export const revalidate = 60;
 
-export const metadata = {
-  title: 'Founding Member Activation — ZeroGEX',
-  robots: { index: false, follow: false },
-  alternates: { canonical: '/founding' },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getServerT(metaDict);
+  return {
+    title: t('title'),
+    robots: { index: false, follow: false },
+    alternates: { canonical: '/founding' },
+  };
+}
 
 // Convenience landing page for the founding-member cohort. Reads
 // FOUNDING_PROMO_CODE server-side and hands it to the client so the

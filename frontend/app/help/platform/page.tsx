@@ -15,13 +15,17 @@ import {
 } from 'lucide-react';
 import { getServerT } from '@/core/localizedContent';
 import { dict } from './page.i18n';
+import { dict as metaDict } from './meta.i18n';
+import type { Metadata } from 'next';
 
-export const metadata = {
-  title: 'ZeroGEX Platform Guide: Feature-by-Feature Walkthroughs',
-  description:
-    'Step-by-step product help for the ZeroGEX platform — every page, panel, and chart explained. Dashboard, Live Bulletin, Signals, Metrics, Strategy Tools, and account workflows.',
-  alternates: { canonical: '/help/platform' },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getServerT(metaDict);
+  return {
+    title: t('title'),
+    description: t('description'),
+    alternates: { canonical: '/help/platform' },
+  };
+}
 
 type GuideEntry = { href: string; title: string; blurb: string };
 

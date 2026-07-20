@@ -4,13 +4,18 @@ import { isReferralProgramEnabled } from '@/core/referrals';
 import { normalizeCampaignCode } from '@/core/campaigns';
 import { REFERRAL_COOKIE_NAME } from '@/core/serverAuth';
 import PricingClient from './Client';
+import { getServerT } from '@/core/localizedContent';
+import { dict as metaDict } from './meta.i18n';
+import type { Metadata } from 'next';
 
-export const metadata = {
-  title: 'Pricing — ZeroGEX',
-  description:
-    'ZeroGEX paid plans. Monthly and annual billing for Basic and Pro tiers.',
-  alternates: { canonical: '/pricing' },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getServerT(metaDict);
+  return {
+    title: t('title'),
+    description: t('description'),
+    alternates: { canonical: '/pricing' },
+  };
+}
 
 // Public pricing page. Reads env state server-side (active promo coupon
 // configuration per cadence) and hands the client just enough to render the

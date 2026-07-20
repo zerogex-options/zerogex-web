@@ -1,14 +1,18 @@
 import path from 'node:path';
 import Link from 'next/link';
 import { renderMarkdown } from '@/components/MarkdownContent';
-import { loadLocalizedMarkdown } from '@/core/localizedContent';
+import { getServerT, loadLocalizedMarkdown } from '@/core/localizedContent';
+import { dict as metaDict } from './meta.i18n';
+import type { Metadata } from 'next';
 
-export const metadata = {
-  title: 'Gamma Flip Calculation: Before vs After (ZeroGEX Guide)',
-  description:
-    'How ZeroGEX locates the zero-gamma level — the move from a cumulative net-GEX approximation to the spot-shift dealer gamma profile, and what you see on the platform.',
-  alternates: { canonical: '/guides/gamma-flip-calculation-before-vs-after' },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getServerT(metaDict);
+  return {
+    title: t('title'),
+    description: t('description'),
+    alternates: { canonical: '/guides/gamma-flip-calculation-before-vs-after' },
+  };
+}
 
 const guidePath = path.join(process.cwd(), 'content/guides/gamma-flip-calculation-before-vs-after.md');
 

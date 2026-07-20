@@ -2,13 +2,17 @@ import Link from 'next/link';
 import { ArrowRight, BookOpen, Newspaper, GraduationCap, LifeBuoy } from 'lucide-react';
 import { getServerT } from '@/core/localizedContent';
 import { dict } from './page.i18n';
+import { dict as metaDict } from './meta.i18n';
+import type { Metadata } from 'next';
 
-export const metadata = {
-  title: 'Options Gamma Education: GEX, Gamma Flip, Call Walls & 0DTE Dealer Positioning',
-  description:
-    'ZeroGEX options gamma education — GEX, the gamma flip, call walls, put walls, 0DTE dealer positioning, vanna and charm, and max pain. Plain-English explainers plus today’s live SPX / SPY / QQQ levels.',
-  alternates: { canonical: '/education' },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getServerT(metaDict);
+  return {
+    title: t('title'),
+    description: t('description'),
+    alternates: { canonical: '/education' },
+  };
+}
 
 const sections = [
   {

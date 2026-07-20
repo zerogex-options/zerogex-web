@@ -1,14 +1,18 @@
 import path from 'node:path';
 import Link from 'next/link';
 import { renderMarkdown } from '@/components/MarkdownContent';
-import { loadLocalizedMarkdown } from '@/core/localizedContent';
+import { getServerT, loadLocalizedMarkdown } from '@/core/localizedContent';
+import { dict as metaDict } from './meta.i18n';
+import type { Metadata } from 'next';
 
-export const metadata = {
-  title: 'ZeroGEX Signals Explained: Score Reference & Trigger Guide',
-  description:
-    'Every ZeroGEX signal on one page — what each asks, the timeframe, when it fires, and what a positive, negative, or zero score actually means.',
-  alternates: { canonical: '/guides/signals-explained' },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getServerT(metaDict);
+  return {
+    title: t('title'),
+    description: t('description'),
+    alternates: { canonical: '/guides/signals-explained' },
+  };
+}
 
 const guidePath = path.join(process.cwd(), 'content/guides/signals-explained.md');
 

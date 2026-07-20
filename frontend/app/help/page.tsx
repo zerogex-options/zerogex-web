@@ -10,13 +10,17 @@ import {
 } from 'lucide-react';
 import { getServerT } from '@/core/localizedContent';
 import { dict } from './page.i18n';
+import { dict as metaDict } from './meta.i18n';
+import type { Metadata } from 'next';
 
-export const metadata = {
-  title: 'ZeroGEX Help Center: Platform Guide, FAQs & Quick Starts',
-  description:
-    'ZeroGEX Help Center — feature-by-feature platform walkthroughs, FAQs covering data, billing, signals, and account, plus short Quick Start video tutorials.',
-  alternates: { canonical: '/help' },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getServerT(metaDict);
+  return {
+    title: t('title'),
+    description: t('description'),
+    alternates: { canonical: '/help' },
+  };
+}
 
 const sections = [
   {

@@ -2,13 +2,17 @@ import Link from 'next/link';
 import { ArrowRight, GraduationCap } from 'lucide-react';
 import { getServerT } from '@/core/localizedContent';
 import { dict } from './page.i18n';
+import { dict as metaDict } from './meta.i18n';
+import type { Metadata } from 'next';
 
-export const metadata = {
-  title: 'ZeroGEX Guides: Signals & Gamma Flip Reference',
-  description:
-    'ZeroGEX Guides — reference material for the platform. Every signal explained, score interpretation, and the gamma flip calculation methodology.',
-  alternates: { canonical: '/guides' },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getServerT(metaDict);
+  return {
+    title: t('title'),
+    description: t('description'),
+    alternates: { canonical: '/guides' },
+  };
+}
 
 export default async function GuidesPage() {
   const t = await getServerT(dict);

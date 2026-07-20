@@ -6,9 +6,25 @@ import ArticleJsonLd from '@/components/ArticleJsonLd';
 import RelatedArticles from '@/components/RelatedArticles';
 import { articleMetadata } from '@/core/articleRegistry';
 import LiveLevelsCTA from '@/components/LiveLevelsCTA';
-import { loadLocalizedMarkdown } from '@/core/localizedContent';
+import { getServerT, loadLocalizedMarkdown } from '@/core/localizedContent';
+import { dict as metaDict } from './meta.i18n';
+import type { Metadata } from 'next';
 
-export const metadata = articleMetadata('squeeze-setup-positioning-trap-and-trap-detection');
+export async function generateMetadata(): Promise<Metadata> {
+  const base: Metadata = articleMetadata('squeeze-setup-positioning-trap-and-trap-detection');
+  const t = await getServerT(metaDict);
+  return {
+    ...base,
+    title: t('title'),
+    description: t('description'),
+    openGraph: base.openGraph
+      ? { ...base.openGraph, title: t('title'), description: t('description') }
+      : base.openGraph,
+    twitter: base.twitter
+      ? { ...base.twitter, title: t('title'), description: t('description') }
+      : base.twitter,
+  };
+}
 
 const articlePath = path.join(process.cwd(), 'content/articles/squeeze-setup-positioning-trap-and-trap-detection.md');
 

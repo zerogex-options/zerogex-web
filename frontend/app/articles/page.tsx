@@ -2,14 +2,17 @@ import Link from 'next/link';
 import { ArrowRight, Newspaper } from 'lucide-react';
 import { getServerT } from '@/core/localizedContent';
 import { dict } from './page.i18n';
+import { dict as metaDict } from './meta.i18n';
+import type { Metadata } from 'next';
 
-export const metadata = {
-  title:
-    'Options Gamma Trading Articles: SPX / SPY / QQQ Pinning, Gamma Flip & Dealer Flow | ZeroGEX',
-  description:
-    'ZeroGEX options gamma trading articles — SPX, SPY and QQQ pinning, the gamma flip, call walls, put walls, 0DTE dealer positioning, and dealer-flow deep dives. Definitions, worked examples, and today’s live levels.',
-  alternates: { canonical: '/articles' },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getServerT(metaDict);
+  return {
+    title: t('title'),
+    description: t('description'),
+    alternates: { canonical: '/articles' },
+  };
+}
 
 type Article = {
   href: string;

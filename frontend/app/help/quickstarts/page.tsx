@@ -2,15 +2,19 @@ import Link from 'next/link';
 import { ArrowLeft, ArrowRight, PlayCircle, Clock, Bookmark } from 'lucide-react';
 import { getServerT } from '@/core/localizedContent';
 import { dict } from './page.i18n';
+import { dict as metaDict } from './meta.i18n';
+import type { Metadata } from 'next';
 
 type T = (key: string, vars?: Record<string, string | number>) => string;
 
-export const metadata = {
-  title: 'ZeroGEX Quick Starts: Short Video Walkthroughs',
-  description:
-    'Short, focused video walkthroughs for the ZeroGEX platform — under 3 minutes each. Reading the dashboard, using signals, building a strategy, and more.',
-  alternates: { canonical: '/help/quickstarts' },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getServerT(metaDict);
+  return {
+    title: t('title'),
+    description: t('description'),
+    alternates: { canonical: '/help/quickstarts' },
+  };
+}
 
 type Walkthrough = {
   id: string;

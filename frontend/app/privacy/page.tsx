@@ -1,11 +1,16 @@
+import type { Metadata } from 'next';
+import { getServerT } from '@/core/localizedContent';
 import PrivacyClient from './Client';
+import { dict as metaDict } from './meta.i18n';
 
-export const metadata = {
-  title: 'Privacy Policy — ZeroGEX',
-  description:
-    'ZeroGEX Privacy Policy. What we collect, how we use it, and the controls available to users of zerogex.io and related services.',
-  alternates: { canonical: '/privacy' },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getServerT(metaDict);
+  return {
+    title: t('title'),
+    description: t('description'),
+    alternates: { canonical: '/privacy' },
+  };
+}
 
 export default function PrivacyPage() {
   return <PrivacyClient />;
