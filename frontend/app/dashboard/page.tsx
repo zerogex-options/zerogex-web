@@ -30,6 +30,8 @@ import { getPrimaryPriceChangeSummary } from '@/core/priceChange';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 import { buildReportModel } from '@/app/live-bulletin/bulletinHelpers';
 import { isIndexSymbol } from '@/core/utils';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './page.i18n';
 
 function formatCompactUsd(value: number | null | undefined, showPositiveSign = false): string {
   if (value == null || !Number.isFinite(value)) return '--';
@@ -44,12 +46,13 @@ function formatCompactUsd(value: number | null | undefined, showPositiveSign = f
 
 function DensityToggle() {
   const { density, setDensity } = useDensity();
+  const t = usePageT(dict);
   return (
     <div
       className="inline-flex rounded-md border overflow-hidden text-xs"
       style={{ borderColor: 'var(--color-border)' }}
       role="group"
-      aria-label="View density"
+      aria-label={t('densityAriaLabel')}
     >
       {(['simple', 'detailed'] as const).map((d) => (
         <button
@@ -74,7 +77,8 @@ export default function DashboardPage() {
   const { theme } = useTheme();
   const { symbol } = useTimeframe();
   const { density, detailed } = useDensity();
-  
+  const t = usePageT(dict);
+
   // Fetch data with different refresh intervals
   const { data: gexData, loading: gexLoading, error: gexError, refetch: refetchGex } = useGEXSummary(symbol, 5000);
   const { data: historicalContext } = useGEXHistoricalContext(symbol, 15000);
@@ -130,7 +134,7 @@ export default function DashboardPage() {
   if (gexLoading && !gexData) {
     return (
       <PageShell>
-        <h1 className="zg-h1 mb-8">Dashboard</h1>
+        <h1 className="zg-h1 mb-8">{t('dashboardTitle')}</h1>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <LoadingCard />
           <LoadingCard />
@@ -146,7 +150,7 @@ export default function DashboardPage() {
       <TrialStartedBanner />
 
       <div className="flex items-center justify-between gap-3 mb-4">
-        <h1 className="zg-h1">Dashboard</h1>
+        <h1 className="zg-h1">{t('dashboardTitle')}</h1>
         <DensityToggle />
       </div>
 
@@ -156,8 +160,8 @@ export default function DashboardPage() {
           the same buildReportModel as /live-bulletin so the two stay in sync. */}
       <Collapsible
         key={`todays-read-${density}`}
-        title="Today's Read"
-        subtitle="auto-generated regime summary"
+        title={t('todaysReadTitle')}
+        subtitle={t('todaysReadSubtitle')}
         defaultOpen={detailed}
       >
         <TodaysReadCard model={todaysReadModel} bulletinLink />
@@ -172,18 +176,18 @@ export default function DashboardPage() {
 
       {/* Market Overview */}
       <section className="mb-8">
-        <SectionHead title="Market Overview" />
+        <SectionHead title={t('marketOverviewTitle')} />
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-stretch">
           {/* Left column: 4 cards stacked, each sized to its content. */}
           <div className="md:col-span-1 grid grid-cols-1 gap-4 content-start">
             <MetricCard
-              title={`${symbol} Price`}
+              title={t('symbolPriceTitle', { symbol })}
               value={underlyingPrice.displayPrice != null ? `$${underlyingPrice.displayPrice.toFixed(2)}` : '--'}
               subtitle={(
                 <div className="flex flex-col gap-1">
                   {dashFuturesTicker && (
                     <span style={{ color: 'var(--color-brand-coral)', fontWeight: 600 }}>
-                      ◆ {dashFuturesTicker} futures
+                      {t('futuresLabel', { ticker: dashFuturesTicker })}
                     </span>
                   )}
                   <span
@@ -194,23 +198,23 @@ export default function DashboardPage() {
                     }}
                   >
                     {underlyingPrice.change != null && underlyingPrice.changePercent != null
-                      ? `${underlyingPrice.isPositive ? '+' : '-'}$${Math.abs(underlyingPrice.change).toFixed(2)} / ${underlyingPrice.isPositive ? '+' : '-'}${Math.abs(underlyingPrice.changePercent).toFixed(2)}%${dashFuturesTicker ? '' : ' vs previous'}`
-                      : 'Awaiting previous-close context'}
+                      ? `${underlyingPrice.isPositive ? '+' : '-'}$${Math.abs(underlyingPrice.change).toFixed(2)} / ${underlyingPrice.isPositive ? '+' : '-'}${Math.abs(underlyingPrice.changePercent).toFixed(2)}%${dashFuturesTicker ? '' : t('vsPrevious')}`
+                      : t('awaitingPrevClose')}
                   </span>
                   {!isIndexSymbol(symbol) && (
-                    <span>{quoteData?.volume != null ? `Day Vol: ${Math.round(quoteData.volume).toLocaleString()}` : ''}</span>
+                    <span>{quoteData?.volume != null ? t('dayVolLabel', { value: Math.round(quoteData.volume).toLocaleString() }) : ''}</span>
                   )}
                 </div>
               )}
-              tooltip={`Current ${symbol} closing price from the real-time quote feed.`}
+              tooltip={t('priceTooltip', { symbol })}
               theme={theme}
               trend="neutral"
             />
             <MetricCard
-              title="Net GEX"
+              title={t('netGexTitle')}
               value={formatCompactUsd(gexData?.net_gex_at_spot ?? gexData?.net_gex, true)}
               trend={(gexData?.net_gex_at_spot ?? gexData?.net_gex ?? 0) > 0 ? 'bullish' : 'bearish'}
-              tooltip="Cumulative dealer gamma at the current spot price (the value of the same low→high cumulative-net-GEX curve whose zero crossing is the gamma flip, so it stays sign-consistent with it). Positive = dealers net long gamma (hedging dampens moves — pinning, mean-reversion, lower vol). Negative = dealers net short gamma (hedging amplifies moves — trending, higher vol). The regime flips at the gamma flip level."
+              tooltip={t('netGexTooltip')}
               theme={theme}
               contextBadge={
                 <HistoricalContextBadge
@@ -221,17 +225,17 @@ export default function DashboardPage() {
               }
             />
             <PriceDistanceMetricCard
-              title="Gamma Flip"
+              title={t('gammaFlipTitle')}
               level={gexData?.gamma_flip}
               spotPrice={quoteData?.close}
-              tooltip="Price where aggregate net gamma changes sign. The card also shows the live dollar and percent distance from the current underlying so you can quickly judge whether spot is above or below the flip."
+              tooltip={t('gammaFlipTooltip')}
               theme={theme}
             />
             <PriceDistanceMetricCard
-              title="Max Pain"
+              title={t('maxPainTitle')}
               level={gexData?.max_pain}
               spotPrice={quoteData?.close}
-              tooltip="Estimated strike where option-holder payout is minimized at expiry. The card also shows the live dollar and percent distance from the current underlying so you can gauge how far spot is from the options pin."
+              tooltip={t('maxPainTooltip')}
               theme={theme}
             />
           </div>
@@ -261,20 +265,20 @@ export default function DashboardPage() {
           takes 8/12 cols; Vol Monitor 4/12 with gauges stacked. */}
       <Collapsible
         key={`signals-vol-${density}`}
-        title="Proprietary Signals & Volatility"
-        subtitle="MSI synthesis, breadth, regime, vol monitor"
+        title={t('signalsVolTitle')}
+        subtitle={t('signalsVolSubtitle')}
         defaultOpen={detailed}
       >
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
           <section className="lg:col-span-8 flex flex-col">
-            <h3 className="zg-h3 mb-4">Proprietary Signals</h3>
+            <h3 className="zg-h3 mb-4">{t('proprietarySignalsHeading')}</h3>
             <div className="flex-1 min-h-0">
               <ProprietarySignalsSynthesis />
             </div>
           </section>
 
           <section className="lg:col-span-4 flex flex-col">
-            <h3 className="zg-h3 mb-4">Volatility Monitor</h3>
+            <h3 className="zg-h3 mb-4">{t('volatilityMonitorHeading')}</h3>
             <div className="flex-1 min-h-0">
               <VolatilityCard stacked />
             </div>
@@ -286,72 +290,72 @@ export default function DashboardPage() {
           (3-wide). Collapsed by default in Simple mode. */}
       <Collapsible
         key={`positioning-${density}`}
-        title="Positioning & Flow"
-        subtitle="dealer gamma walls + session flow"
+        title={t('positioningTitle')}
+        subtitle={t('positioningSubtitle')}
         defaultOpen={detailed}
       >
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <MetricCard
-              title="Call GEX"
+              title={t('callGexTitle')}
               value={formatCompactUsd(gexData?.total_call_gex)}
               trend="neutral"
-              tooltip="Total gamma exposure from call options. Calculation: Sum of (gamma × open interest × contract multiplier × spot price²) for all call strikes. Higher values indicate strong call positioning, which creates upside resistance as dealers hedge by selling into rallies."
+              tooltip={t('callGexTooltip')}
               theme={theme}
             />
             <MetricCard
-              title="Put GEX"
+              title={t('putGexTitle')}
               value={formatCompactUsd(gexData?.total_put_gex)}
               trend="neutral"
-              tooltip="Total gamma exposure from put options. Calculation: Sum of (gamma × open interest × contract multiplier × spot price²) for all put strikes. Higher values indicate strong put positioning, which creates downside support as dealers hedge by buying into selloffs."
+              tooltip={t('putGexTooltip')}
               theme={theme}
             />
             <MetricCard
-              title="Call Wall (Resistance)"
+              title={t('callWallTitle')}
               value={gexData?.call_wall != null ? `$${gexData.call_wall.toFixed(2)}` : 'N/A'}
               subtitle={
                 gexData?.call_wall && quoteData?.close
-                  ? `${((gexData.call_wall - quoteData.close) / quoteData.close * 100) >= 0 ? '+' : ''}${((gexData.call_wall - quoteData.close) / quoteData.close * 100).toFixed(1)}% from spot`
-                  : 'Heavy call open interest'
+                  ? `${((gexData.call_wall - quoteData.close) / quoteData.close * 100) >= 0 ? '+' : ''}${((gexData.call_wall - quoteData.close) / quoteData.close * 100).toFixed(1)}${t('fromSpotSuffix')}`
+                  : t('callWallFallback')
               }
-              tooltip="Strike with the heaviest call open interest. Tends to act as resistance as dealers sell into rallies toward it."
+              tooltip={t('callWallTooltip')}
               theme={theme}
               trend="bearish"
             />
             <MetricCard
-              title="Put Wall (Support)"
+              title={t('putWallTitle')}
               value={gexData?.put_wall != null ? `$${gexData.put_wall.toFixed(2)}` : 'N/A'}
               subtitle={
                 gexData?.put_wall && quoteData?.close
-                  ? `${((gexData.put_wall - quoteData.close) / quoteData.close * 100) >= 0 ? '+' : ''}${((gexData.put_wall - quoteData.close) / quoteData.close * 100).toFixed(1)}% from spot`
-                  : 'Heavy put open interest'
+                  ? `${((gexData.put_wall - quoteData.close) / quoteData.close * 100) >= 0 ? '+' : ''}${((gexData.put_wall - quoteData.close) / quoteData.close * 100).toFixed(1)}${t('fromSpotSuffix')}`
+                  : t('putWallFallback')
               }
-              tooltip="Strike with the heaviest put open interest. Tends to act as support as dealers buy into selloffs toward it."
+              tooltip={t('putWallTooltip')}
               theme={theme}
               trend="bullish"
             />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <MetricCard
-              title="Net Flow"
+              title={t('netFlowTitle')}
               value={Number(latestFlowSnapshot?.netFlow ?? 0).toLocaleString()}
-              subtitle="contracts"
+              subtitle={t('netFlowSubtitle')}
               trend={Number(latestFlowSnapshot?.netFlow ?? 0) > 0 ? "bullish" : "bearish"}
-              tooltip="Cumulative call volume minus put volume for the current session."
+              tooltip={t('netFlowTooltip')}
               theme={theme}
             />
             <MetricCard
-              title="Net Premium"
+              title={t('netPremiumTitle')}
               value={`${Number(latestFlowSnapshot?.netPremium ?? 0) < 0 ? '-' : ''}$${(Math.abs(Number(latestFlowSnapshot?.netPremium ?? 0)) / 1_000_000).toFixed(2)}M`}
               trend={Number(latestFlowSnapshot?.netPremium ?? 0) > 0 ? "bullish" : "bearish"}
-              tooltip="Cumulative call premium minus put premium for the current session."
+              tooltip={t('netPremiumTooltip')}
               theme={theme}
             />
             <MetricCard
-              title="Put/Call Ratio"
+              title={t('putCallRatioTitle')}
               value={Number(latestFlowSnapshot?.putCallRatio ?? 0).toFixed(2)}
               trend={Number(latestFlowSnapshot?.putCallRatio ?? 0) > 1 ? 'bearish' : 'bullish'}
-              tooltip="Cumulative put volume divided by cumulative call volume for the current session."
+              tooltip={t('putCallRatioTooltip')}
               theme={theme}
             />
           </div>
@@ -361,7 +365,7 @@ export default function DashboardPage() {
       {/* Data Freshness */}
       {gexData && (
         <div className="text-right text-sm text-[var(--text-muted)]">
-          Last updated: {new Date(gexData.timestamp).toLocaleTimeString()}
+          {t('lastUpdatedLabel', { time: new Date(gexData.timestamp).toLocaleTimeString() })}
         </div>
       )}
     </PageShell>

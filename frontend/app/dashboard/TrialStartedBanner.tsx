@@ -2,6 +2,8 @@
 
 import { useState, useSyncExternalStore } from 'react';
 import { X } from 'lucide-react';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './TrialStartedBanner.i18n';
 
 // Post-checkout welcome. Stripe's success_url is /dashboard?trial_started=1;
 // this shows a one-time, dismissible confirmation so the just-converted trialer
@@ -26,6 +28,7 @@ const readServer = () => false;
 export default function TrialStartedBanner() {
   const trialStarted = useSyncExternalStore(subscribe, readTrialStarted, readServer);
   const [dismissed, setDismissed] = useState(false);
+  const t = usePageT(dict);
 
   if (!trialStarted || dismissed) return null;
 
@@ -45,15 +48,15 @@ export default function TrialStartedBanner() {
       }}
     >
       <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 600, lineHeight: 1.4 }}>
-        Welcome — your 7-day free trial is now active.{' '}
+        {t('welcomeMessage')}{' '}
         <span style={{ color: 'var(--color-text-secondary)', fontWeight: 500 }}>
-          No charge until day 7. Cancel anytime.
+          {t('noChargeMessage')}
         </span>
       </span>
       <button
         type="button"
         onClick={() => setDismissed(true)}
-        aria-label="Dismiss"
+        aria-label={t('dismiss')}
         style={{
           flexShrink: 0,
           width: 30,

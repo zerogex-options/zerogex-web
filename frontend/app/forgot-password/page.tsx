@@ -3,8 +3,11 @@
 import { FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getCsrfToken } from '@/core/csrfClient';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './page.i18n';
 
 export default function ForgotPasswordPage() {
+  const t = usePageT(dict);
   const [email, setEmail] = useState('');
   const [csrfToken, setCsrfToken] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'sent' | 'error'>('idle');
@@ -45,7 +48,7 @@ export default function ForgotPasswordPage() {
     const token = (await getCsrfToken()) || csrfToken;
     if (!token) {
       setStatus('error');
-      setErrorMessage('Unable to initialize secure request. Please refresh and try again.');
+      setErrorMessage(t('initErrorMessage'));
       return;
     }
 
@@ -59,39 +62,39 @@ export default function ForgotPasswordPage() {
       if (!response.ok) {
         const payload = (await response.json().catch(() => ({}))) as { error?: string };
         setStatus('error');
-        setErrorMessage(payload.error ?? 'Unable to process request');
+        setErrorMessage(payload.error ?? t('genericErrorMessage'));
         return;
       }
 
       setStatus('sent');
     } catch {
       setStatus('error');
-      setErrorMessage('Network error. Please try again.');
+      setErrorMessage(t('networkErrorMessage'));
     }
   };
 
   return (
     <main className="min-h-screen px-6 py-12 flex items-center justify-center bg-[var(--color-bg)] text-[var(--color-text-primary)]">
       <section className="w-full max-w-xl rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-xl">
-        <h1 className="text-3xl font-bold">Forgot your password?</h1>
+        <h1 className="text-3xl font-bold">{t('heading')}</h1>
         <p className="mt-3 text-[var(--color-text-secondary)]">
-          Enter the email associated with your ZeroGEX account and we&apos;ll send you a link to reset your password.
+          {t('intro')}
         </p>
 
         {status === 'sent' ? (
           <div className="mt-8 rounded-lg border border-[var(--color-border)] bg-[var(--bg-card)] p-4 text-sm">
-            <p className="font-semibold">Check your email.</p>
+            <p className="font-semibold">{t('checkEmailTitle')}</p>
             <p className="mt-2 text-[var(--color-text-secondary)]">
-              If an account with that email exists, a password reset link has been sent. The link expires in 30 minutes.
+              {t('checkEmailBody')}
             </p>
             <p className="mt-2 text-[var(--color-text-secondary)]">
-              If you signed up with Google, use &ldquo;Continue with Google&rdquo; on the sign-in page instead.
+              {t('googleSignupHint')}
             </p>
           </div>
         ) : (
           <form onSubmit={onSubmit} className="mt-8 space-y-4">
             <label className="block text-sm">
-              <span className="mb-1 block text-[var(--color-text-secondary)]">Email</span>
+              <span className="mb-1 block text-[var(--color-text-secondary)]">{t('emailLabel')}</span>
               <input
                 className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--bg-card)] px-3 py-2"
                 type="email"
@@ -109,17 +112,17 @@ export default function ForgotPasswordPage() {
               className="w-full rounded-lg bg-[var(--color-brand-primary)] px-4 py-2 font-semibold text-black transition-all duration-150 hover:brightness-110 hover:shadow-[0_8px_20px_var(--color-info-soft)] hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-60"
               type="submit"
             >
-              {status === 'loading' ? 'Sending...' : 'Send reset link'}
+              {status === 'loading' ? t('sendingButton') : t('sendButton')}
             </button>
           </form>
         )}
 
         <div className="mt-6 flex items-center justify-between text-sm">
           <Link href="/login" className="text-[var(--color-brand-primary)] hover:underline">
-            Back to sign in
+            {t('backToSignIn')}
           </Link>
           <Link href="/register" className="text-[var(--color-brand-primary)] hover:underline">
-            Create account
+            {t('createAccount')}
           </Link>
         </div>
       </section>

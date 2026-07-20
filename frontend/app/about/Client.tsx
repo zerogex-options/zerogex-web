@@ -6,6 +6,8 @@ import Link from 'next/link';
 import Footer from '@/components/Footer';
 import LandingHeader from '@/components/LandingHeader';
 import { useTheme } from '@/core/ThemeContext';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './Client.i18n';
 import {
   ArrowRight,
   BarChart2,
@@ -150,6 +152,7 @@ function APILink({ href, label, desc, isDark = true }: { href: string; label: st
 
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function AboutPage() {
+  const t = usePageT(dict);
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const bg = 'transparent';
@@ -187,48 +190,48 @@ export default function AboutPage() {
 
         <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', maxWidth: 800 }}>
           <div className="zg-eyebrow" style={{ color: C.green, marginBottom: 24, fontSize: 12 }}>
-            About ZeroGEX
+            {t('aboutEyebrow')}
           </div>
           <h1 style={{
             fontSize: 'clamp(36px, 6vw, 72px)', fontWeight: 900,
             lineHeight: 1.08, letterSpacing: '-2px', margin: '0 0 24px', color: text,
           }}>
-            Trade With Dealer Positioning —{' '}
+            {t('heroTitle')}{' '}
             <span style={{
               color: 'var(--color-accent-hot)',
             }}>
-              Not Guesswork
+              {t('heroTitleHighlight')}
             </span>
           </h1>
           <p style={{
             fontSize: 'clamp(16px, 2vw, 20px)', color: subtext,
             lineHeight: 1.7, maxWidth: 640, margin: '0 auto 36px',
           }}>
-            Real-time gamma exposure, flow, and market structure used to anticipate moves before they happen.
+            {t('heroSub')}
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
             <Link href="/dashboard" style={{ textDecoration: 'none' }}>
               <button className="zg-btn zg-btn--primary" style={{ fontSize: 15, padding: '14px 28px' }}>
-                Open Dashboard <ArrowRight size={16} />
+                {t('btnOpenDashboard')} <ArrowRight size={16} />
               </button>
             </Link>
             <Link href="/pricing" style={{ textDecoration: 'none' }}>
               <button className="zg-btn zg-btn--secondary" style={{ fontSize: 15, padding: '14px 28px' }}>
-                View Price Tiers <ArrowRight size={14} />
+                {t('btnViewPriceTiers')} <ArrowRight size={14} />
               </button>
             </Link>
           </div>
 
           <div style={{ marginTop: 48, maxWidth: 560, marginInline: 'auto' }}>
             <div className="zg-eyebrow" style={{ color: C.amber, textAlign: 'center', marginBottom: 18, fontSize: 12 }}>
-              Why Traders Use ZeroGEX
+              {t('whyEyebrow')}
             </div>
             <div className="zg-panel" style={{ overflow: 'hidden', textAlign: 'left' }}>
               {[
-                { icon: Target, text: 'Identify support and resistance before price gets there.' },
-                { icon: Activity, text: 'Know when volatility is likely to expand or compress.' },
-                { icon: Eye, text: 'See dealer hedging flows as they happen, in real time.' },
-                { icon: Shield, text: 'Avoid getting trapped on the wrong side of a move.' },
+                { icon: Target, text: t('why1') },
+                { icon: Activity, text: t('why2') },
+                { icon: Eye, text: t('why3') },
+                { icon: Shield, text: t('why4') },
               ].map((w, i) => {
                 const Icon = w.icon;
                 return (
@@ -271,13 +274,10 @@ export default function AboutPage() {
             }}
           />
           <div className="zg-eyebrow" style={{ color: C.amber, marginBottom: 18, fontSize: 12 }}>
-            About ZeroGEX
+            {t('aboutEyebrow')}
           </div>
           <p style={{ fontSize: 'clamp(16px, 2vw, 19px)', color: text, lineHeight: 1.75, margin: 0 }}>
-            ZeroGEX was built for traders who want more than lagging indicators and hand-drawn levels.
-            It provides a live map of SPY/SPX/QQQ options positioning — including gamma exposure,
-            call/put walls, gamma flip, dealer positioning, and flow pressure — so traders can better
-            understand where support, resistance, acceleration, pinning, or squeeze risk may develop.
+            {t('founderIntro')}
           </p>
         </div>
       </section>
@@ -291,38 +291,32 @@ export default function AboutPage() {
         }}>
           <div>
             <div className="zg-eyebrow" style={{ color: C.amber, marginBottom: 20, fontSize: 12 }}>
-              Our Mission
+              {t('missionEyebrow')}
             </div>
             <h2 style={{
               fontSize: 'clamp(26px, 3.5vw, 40px)', fontWeight: 800,
               color: text, margin: '0 0 20px', lineHeight: 1.2, letterSpacing: '-0.5px',
             }}>
-              Democratizing{' '}
-              <span style={{ color: C.amber }}>Institutional Analytics</span>
+              {t('missionTitle')}{' '}
+              <span style={{ color: C.amber }}>{t('missionTitleHighlight')}</span>
             </h2>
             <p style={{ fontSize: 16, color: subtext, lineHeight: 1.8, margin: '0 0 18px' }}>
-              For decades, gamma exposure data was the exclusive domain of market makers and
-              prime brokers. The tools to interpret dealer positioning, identify gamma flip levels,
-              and anticipate hedging-driven price moves cost hundreds of thousands of dollars per year.
+              {t('missionP1')}
             </p>
             <p style={{ fontSize: 16, color: subtext, lineHeight: 1.8, margin: '0 0 18px' }}>
-              ZeroGEX changes that. We built a real-time analytics engine that computes the same
-              metrics used by institutional desks — and delivers them to every trader, at every level,
-              through a single unified platform.
+              {t('missionP2')}
             </p>
             <p style={{ fontSize: 16, color: subtext, lineHeight: 1.8 }}>
-              Our belief is simple: better data leads to better decisions. When retail traders can
-              see what the market makers see, they stop being the uninformed counterparty and start
-              trading with structural advantage.
+              {t('missionP3')}
             </p>
           </div>
 
           <div className="zg-panel" style={{ padding: '28px 28px 12px' }}>
             {[
-              { icon: Shield, label: 'Institutional Grade', desc: 'Same metrics tracked by major banks and market makers, without the Bloomberg subscription', color: C.amber },
-              { icon: Clock,  label: '1-Second Refresh',   desc: 'Real-time data pipeline refreshing GEX, flow, and positioning every second markets are open', color: C.green },
-              { icon: Globe,  label: 'Accessible to All',  desc: 'No accreditation required, no minimum account size — every serious trader gets the same edge', color: C.amber },
-              { icon: Cpu,    label: 'Purpose-Built Engine', desc: 'Proprietary gamma calculation engine built from the ground up for speed and accuracy', color: C.green },
+              { icon: Shield, label: t('missionItem1Label'), desc: t('missionItem1Desc'), color: C.amber },
+              { icon: Clock,  label: t('missionItem2Label'), desc: t('missionItem2Desc'), color: C.green },
+              { icon: Globe,  label: t('missionItem3Label'), desc: t('missionItem3Desc'), color: C.amber },
+              { icon: Cpu,    label: t('missionItem4Label'), desc: t('missionItem4Desc'), color: C.green },
             ].map((item) => (
               <div key={item.label} style={{
                 display: 'flex', gap: 16, alignItems: 'flex-start',
@@ -360,7 +354,7 @@ export default function AboutPage() {
             }}>
               <Image
                 src="/folds-of-honor-proud-supporter.png"
-                alt="Folds of Honor Proud Supporter"
+                alt={t('givingAlt')}
                 width={64}
                 height={64}
                 style={{ width: 64, height: 64, objectFit: 'contain' }}
@@ -368,13 +362,13 @@ export default function AboutPage() {
             </div>
             <div style={{ minWidth: 0 }}>
               <div className="zg-eyebrow" style={{ color: C.amber, marginBottom: 6, fontSize: 11 }}>
-                Folds of Honor Proud Supporter
+                {t('givingAlt')}
               </div>
               <div style={{ fontSize: 'clamp(15px, 1.8vw, 17px)', fontWeight: 700, color: text, marginBottom: 4 }}>
-                3% of every ZeroGEX subscription funds educational scholarships for military families.
+                {t('givingHeadline')}
               </div>
               <div style={{ fontSize: 13, color: subtext, lineHeight: 1.55 }}>
-                Donated quarterly to Folds of Honor. Full mechanics, running total, and receipts on our giving page.
+                {t('givingDesc')}
               </div>
             </div>
             <ArrowRight size={20} style={{ color: C.amber, flexShrink: 0 }} />
@@ -391,47 +385,47 @@ export default function AboutPage() {
       }}>
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
           <SectionHeading
-            eyebrow="Under the Hood"
-            title="How ZeroGEX Works"
-            sub="A real-time data pipeline built on market microstructure principles — from options chain to actionable insight in under a second."
+            eyebrow={t('howEyebrow')}
+            title={t('howTitle')}
+            sub={t('howSub')}
             color={C.green}
           />
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 20 }}>
             <InfoCard isDark={isDark}
               icon={Database}
-              title="Options Chain Ingestion"
-              body="We ingest live options chain data across all strikes and expirations for SPY, SPX, and QQQ. Open interest, volume, bid/ask spreads, and Greeks are captured tick-by-tick during market hours."
+              title={t('infoCard1Title')}
+              body={t('infoCard1Body')}
               color={C.amber}
             />
             <InfoCard isDark={isDark}
               icon={Cpu}
-              title="Gamma Exposure Calculation"
-              body="For each strike, we compute GEX as: Gamma × Open Interest × Contract Multiplier × Spot Price². Calls contribute positive gamma; puts contribute negative gamma. The displayed Net GEX is this cumulative curve's value at the current spot price (not a raw all-strikes sum), so it stays sign-consistent with the gamma flip — positive Net GEX at spot means dealers are net long gamma."
+              title={t('infoCard2Title')}
+              body={t('infoCard2Body')}
               color={C.green}
             />
             <InfoCard isDark={isDark}
               icon={TrendingUp}
-              title="Key Level Detection"
-              body="Gamma Flip is the zero-gamma level where the cumulative net GEX curve crosses zero: with spot above it dealers are long gamma and hedging is stabilizing, below it dealers are short gamma and hedging is destabilizing. Call Wall and Put Wall are the strikes with maximum gamma-weighted open interest on each side. Max Pain is computed as the expiry price minimizing total option holder value."
+              title={t('infoCard3Title')}
+              body={t('infoCard3Body')}
               color={C.amber}
             />
             <InfoCard isDark={isDark}
               icon={Activity}
-              title="Flow & Signal Synthesis"
-              body="Unusual options activity is flagged by comparing volume to open interest ratios and premium size versus average. Trading signals synthesize GEX regime, flow direction, and technical factors into composite scores with directional conviction levels."
+              title={t('infoCard4Title')}
+              body={t('infoCard4Body')}
               color={C.green}
             />
             <InfoCard isDark={isDark}
               icon={Zap}
-              title="Real-Time Delivery"
-              body="All computed metrics are pushed to the frontend every second via an optimized API layer. The platform auto-refreshes without page reloads, so you always see current positioning without any manual intervention."
+              title={t('infoCard5Title')}
+              body={t('infoCard5Body')}
               color={C.amber}
             />
             <InfoCard isDark={isDark}
               icon={BarChart2}
-              title="Greeks Pipeline"
-              body="Per-contract Greeks — Delta, Gamma, Theta, Vega — are calculated on every chain ingest using a Black-Scholes pipeline against our live implied-volatility surfaces, then aggregated into dealer-level vanna and charm exposures for the signals engine."
+              title={t('infoCard6Title')}
+              body={t('infoCard6Body')}
               color={C.green}
             />
           </div>
@@ -441,44 +435,44 @@ export default function AboutPage() {
       {/* ── Platform modules ─────────────────────────────────────────────────── */}
       <section style={{ padding: '80px 32px', maxWidth: 1200, margin: '0 auto' }}>
         <SectionHeading
-          eyebrow="The Platform"
-          title="Eight Modules, One Cohesive Edge"
-          sub="Every tool in the suite is designed to work together, giving you a complete picture of market structure from every angle."
+          eyebrow={t('platformEyebrow')}
+          title={t('platformTitle')}
+          sub={t('platformSub')}
         />
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 16 }}>
           {[
             {
-              icon: BarChart2, href: '/dashboard', label: 'Dashboard', color: C.amber,
-              desc: 'The command center. Net GEX, Gamma Flip, Max Pain, Call/Put Walls, and live candlestick charts — everything you need to orient to the current market structure at a glance.',
+              icon: BarChart2, href: '/dashboard', label: t('module1Label'), color: C.amber,
+              desc: t('module1Desc'),
             },
             {
-              icon: Zap, href: '/trading-signals', label: 'Trading Signals', color: C.green,
-              desc: 'Composite buy/sell signals built from GEX regime, options flow direction, and technical momentum. Signals are rated by conviction level and tagged with the timeframe they\'re most relevant to.',
+              icon: Zap, href: '/trading-signals', label: t('module2Label'), color: C.green,
+              desc: t('module2Desc'),
             },
             {
-              icon: Activity, href: '/flow-analysis', label: 'Flow Analysis', color: C.amber,
-              desc: 'Real-time smart money tracker. Identifies unusual options activity — large premium blocks, sweep orders, and sentiment-shifting prints — filtered by size, expiry, and directional bias.',
+              icon: Activity, href: '/flow-analysis', label: t('module3Label'), color: C.amber,
+              desc: t('module3Desc'),
             },
             {
-              icon: BarChart2, href: '/gamma-exposure', label: 'Dealer Positioning', color: C.green,
-              desc: 'Full strike-by-strike GEX heatmap across all expirations. Visualize exactly where dealer gamma is concentrated, how it\'s distributed, and which levels are most likely to influence price.',
+              icon: BarChart2, href: '/gamma-exposure', label: t('module4Label'), color: C.green,
+              desc: t('module4Desc'),
             },
             {
-              icon: Target, href: '/intraday-tools', label: 'Intraday Tools', color: C.amber,
-              desc: 'Tactical intraday edge for active traders. VWAP deviation alerts, Opening Range Breakout levels, volume-weighted momentum, and gamma-adjusted support/resistance updated every minute.',
+              icon: Target, href: '/intraday-tools', label: t('module5Label'), color: C.amber,
+              desc: t('module5Desc'),
             },
             {
-              icon: Eye, href: '/max-pain', label: 'Max Pain', color: C.red,
-              desc: 'Calculates max pain across all expirations — daily, weekly, monthly. Shows the gravitational pull of market maker profit maximization, especially powerful for 0DTE and options expiry weeks.',
+              icon: Eye, href: '/max-pain', label: t('module6Label'), color: C.red,
+              desc: t('module6Desc'),
             },
             {
-              icon: Calculator, href: '/options-calculator', label: 'Options Calculator', color: C.amber,
-              desc: 'Pull a live entry price from the chain, then project intrinsic P&L across a configurable fan of underlying moves. Returns position cost, break-even, and per-step P&L for any strike or expiration.',
+              icon: Calculator, href: '/options-calculator', label: t('module7Label'), color: C.amber,
+              desc: t('module7Desc'),
             },
             {
-              icon: Layers, href: '/greeks-gex', label: 'GEX Summary', color: C.green,
-              desc: 'Headline GEX numbers (Net, Call, Put) plus the day\'s key dealer levels — gamma flip, max pain, and the call/put walls — at a glance.',
+              icon: Layers, href: '/greeks-gex', label: t('module8Label'), color: C.green,
+              desc: t('module8Desc'),
             },
           ].map((item) => (
             <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
@@ -517,27 +511,27 @@ export default function AboutPage() {
       }}>
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
           <SectionHeading
-            eyebrow="API Access"
-            title="Build on ZeroGEX"
-            sub="Forty-plus endpoints across GEX, options flow, signals, technicals, max pain, market data, and backtesting. OpenAPI 3.1 compliant with interactive documentation."
+            eyebrow={t('apiEyebrow')}
+            title={t('apiTitle')}
+            sub={t('apiSub')}
             color={C.green}
           />
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16, marginBottom: 40 }}>
             <APILink isDark={isDark}
               href="https://api.zerogex.io/docs"
-              label="Swagger UI — Interactive API Explorer"
-              desc="Browse all endpoints, inspect request/response schemas, and execute live API calls from your browser"
+              label={t('apiLink1Label')}
+              desc={t('apiLink1Desc')}
             />
             <APILink isDark={isDark}
               href="https://api.zerogex.io/redoc"
-              label="ReDoc — Full API Reference"
-              desc="Clean, searchable reference documentation for every endpoint, parameter, and data model"
+              label={t('apiLink2Label')}
+              desc={t('apiLink2Desc')}
             />
             <APILink isDark={isDark}
               href="https://api.zerogex.io/openapi.json"
-              label="OpenAPI 3.1 Schema"
-              desc="Machine-readable OpenAPI specification for code generation, SDK building, or integration testing"
+              label={t('apiLink3Label')}
+              desc={t('apiLink3Desc')}
             />
           </div>
 
@@ -545,26 +539,26 @@ export default function AboutPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
               <Code2 size={24} strokeWidth={1.75} style={{ color: C.green, flexShrink: 0 }} />
               <div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: C.light }}>Sample of available endpoints</div>
-                <div style={{ fontSize: 13, color: C.muted }}>A selection of the most-used endpoints — full catalog at the docs links above. All endpoints require a Bearer API key.</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: C.light }}>{t('sampleEndpointsTitle')}</div>
+                <div style={{ fontSize: 13, color: C.muted }}>{t('sampleEndpointsDesc')}</div>
               </div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 10 }}>
               {[
-                { method: 'GET', path: '/api/gex/summary', desc: 'Net GEX at spot, gamma flip, call/put walls, max pain' },
-                { method: 'GET', path: '/api/gex/by-strike', desc: 'Per-strike GEX with vanna/charm exposures' },
-                { method: 'GET', path: '/api/gex/profile', desc: 'Spot-shift dealer gamma curve across strikes' },
-                { method: 'GET', path: '/api/gex/historical-context', desc: 'Live GEX vs 30d / all-time distributions' },
-                { method: 'GET', path: '/api/market/quote', desc: 'Real-time underlying OHLC with session context' },
-                { method: 'GET', path: '/api/market/volatility', desc: 'VIX/VXN level and momentum (0–10 scale)' },
-                { method: 'GET', path: '/api/flow/smart-money', desc: 'Unusual options activity feed (1-min granularity)' },
-                { method: 'GET', path: '/api/flow/series', desc: '5-min aggregated call/put premium and volume' },
-                { method: 'GET', path: '/api/max-pain/current', desc: 'Current max pain with per-expiration payoff curves' },
-                { method: 'GET', path: '/api/signals/score', desc: 'Composite MSI gauge (0–100) with components' },
-                { method: 'GET', path: '/api/signals/basic', desc: 'Bundle of all six Basic Signal scores' },
-                { method: 'GET', path: '/api/signals/advanced/squeeze-setup', desc: 'Squeeze Setup signal (one of eight Advanced)' },
-                { method: 'GET', path: '/api/technicals/dealer-hedging', desc: 'Current dealer hedge-pressure snapshot' },
-                { method: 'GET', path: '/api/tools/option-calculator', desc: 'Intrinsic-value P&L fan across underlying moves' },
+                { method: 'GET', path: '/api/gex/summary', desc: t('ep1Desc') },
+                { method: 'GET', path: '/api/gex/by-strike', desc: t('ep2Desc') },
+                { method: 'GET', path: '/api/gex/profile', desc: t('ep3Desc') },
+                { method: 'GET', path: '/api/gex/historical-context', desc: t('ep4Desc') },
+                { method: 'GET', path: '/api/market/quote', desc: t('ep5Desc') },
+                { method: 'GET', path: '/api/market/volatility', desc: t('ep6Desc') },
+                { method: 'GET', path: '/api/flow/smart-money', desc: t('ep7Desc') },
+                { method: 'GET', path: '/api/flow/series', desc: t('ep8Desc') },
+                { method: 'GET', path: '/api/max-pain/current', desc: t('ep9Desc') },
+                { method: 'GET', path: '/api/signals/score', desc: t('ep10Desc') },
+                { method: 'GET', path: '/api/signals/basic', desc: t('ep11Desc') },
+                { method: 'GET', path: '/api/signals/advanced/squeeze-setup', desc: t('ep12Desc') },
+                { method: 'GET', path: '/api/technicals/dealer-hedging', desc: t('ep13Desc') },
+                { method: 'GET', path: '/api/tools/option-calculator', desc: t('ep14Desc') },
               ].map((ep) => (
                 <div key={ep.path} style={{
                   background: isDark ? `${C.bgDark}cc` : 'var(--bg-hover)', border: `1px solid ${C.border}`,
@@ -591,43 +585,43 @@ export default function AboutPage() {
       {/* ── FAQ ──────────────────────────────────────────────────────────────── */}
       <section style={{ padding: '80px 32px', maxWidth: 900, margin: '0 auto' }}>
         <SectionHeading
-          eyebrow="FAQ"
-          title="Common Questions"
-          sub="Everything you need to know about how ZeroGEX works and how to get the most from it."
+          eyebrow={t('faqEyebrow')}
+          title={t('faqTitle')}
+          sub={t('faqSub')}
         />
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <FAQItem isDark={isDark}
-            q="What is Gamma Exposure (GEX) and why does it matter?"
-            a="Gamma Exposure is the aggregate sensitivity of options dealers' delta hedges to price moves in the underlying. When dealers are long gamma (positive net GEX at spot), they must sell when price rises and buy when it falls — creating a dampening effect on volatility and strong intraday support/resistance. When they're short gamma (negative net GEX at spot), they chase price and amplify moves in both directions. Knowing the GEX regime helps you understand whether the market is likely to mean-revert or trend on any given day."
+            q={t('faq1Q')}
+            a={t('faq1A')}
           />
           <FAQItem isDark={isDark}
-            q="How is the Gamma Flip level calculated?"
-            a="The Gamma Flip is the level at which the cumulative net GEX curve transitions from positive to negative (or vice versa) — the zero-gamma crossing. With spot above the flip, dealers are long gamma and hedging is stabilizing; with spot below it, dealers are short gamma and hedging amplifies moves. The displayed Net GEX is measured at spot, so it never contradicts the flip. This level often acts as a pivot between mean-reverting and trending market regimes."
+            q={t('faq2Q')}
+            a={t('faq2A')}
           />
           <FAQItem isDark={isDark}
-            q="What is Max Pain, and how reliable is it?"
-            a="Max Pain is the price at expiration where the total dollar value of options held by buyers is minimized — i.e., where option sellers (market makers) make the most money. It's calculated by summing the intrinsic value of all calls and puts at each possible expiry price and finding the minimum. Max Pain is most reliable in the final 24–48 hours before expiration, especially for 0DTE options, where market maker incentives to pin price near that level are strongest."
+            q={t('faq3Q')}
+            a={t('faq3A')}
           />
           <FAQItem isDark={isDark}
-            q="What symbols are currently supported?"
-            a="ZeroGEX currently provides full analytics coverage for SPY (S&P 500 ETF), SPX (S&P 500 Index), and QQQ (Nasdaq 100 ETF). These instruments represent the most liquid and most gamma-rich underlyings in the U.S. options market, where dealer hedging activity has the greatest impact on intraday price dynamics."
+            q={t('faq4Q')}
+            a={t('faq4A')}
           />
           <FAQItem isDark={isDark}
-            q="How often does the data refresh?"
-            a="Key GEX metrics, flow data, and price quotes refresh every 1 second during regular market hours (9:30 AM – 4:00 PM ET). The platform streams updates automatically — there's no need to manually refresh the page. During pre-market and after-hours sessions, we show extended-hours quotes alongside the prior regular-session close for context."
+            q={t('faq5Q')}
+            a={t('faq5A')}
           />
           <FAQItem isDark={isDark}
-            q="Can I access ZeroGEX data programmatically via API?"
-            a="Yes. The full ZeroGEX data API is documented at api.zerogex.io/docs (Swagger UI) and api.zerogex.io/redoc (ReDoc), with an OpenAPI 3.1 schema published at api.zerogex.io/openapi.json. Every endpoint exposes the same data powering the web platform — GEX summaries, per-strike breakdowns, the spot-shift dealer-gamma profile, options flow, the composite MSI score and the eight Advanced + six Basic signals, max pain, technicals, and the backtesting engine. All endpoints require a Bearer API key; direct API access ships with the Pro plan."
+            q={t('faq6Q')}
+            a={t('faq6A')}
           />
           <FAQItem isDark={isDark}
-            q="Is ZeroGEX suitable for 0DTE trading?"
-            a="Absolutely — in fact, 0DTE traders often get the most value from GEX analytics. On expiration days, the gamma of 0DTE options is extremely high, meaning dealer hedging flows are at their most intense. Max Pain becomes particularly reliable as a price magnet, Call Wall and Put Wall define the intraday trading range with high accuracy, and the GEX regime (positive vs. negative) predicts whether the market is likely to pin or break out. The 1-second data refresh is also critical for 0DTE timeframes."
+            q={t('faq7Q')}
+            a={t('faq7A')}
           />
           <FAQItem isDark={isDark}
-            q="How does the Options Calculator work?"
-            a="The Options Calculator pulls the live entry price from the chain (mid → last → bid/ask midpoint fallback) and then walks a configurable fan of underlying-price moves — up for calls, down for puts — at the step size you choose. For each step it returns the position's intrinsic value at expiration, the P&L net of your brokerage fees, and the exact break-even price. Use the per-contract Greeks shown on each option contract for Δ, Γ, Θ, V at the chosen strike."
+            q={t('faq8Q')}
+            a={t('faq8A')}
           />
         </div>
       </section>
@@ -648,25 +642,25 @@ export default function AboutPage() {
             fontSize: 'clamp(28px, 4.5vw, 52px)', fontWeight: 900,
             color: text, margin: '0 0 16px', letterSpacing: '-1px', lineHeight: 1.1,
           }}>
-            Start Trading with{' '}
+            {t('ctaTitle')}{' '}
             <span style={{
               color: 'var(--color-accent-hot)',
             }}>
-              Institutional Intelligence
+              {t('ctaTitleHighlight')}
             </span>
           </h2>
           <p style={{ fontSize: 18, color: subtext, margin: '0 auto 40px', maxWidth: 500, lineHeight: 1.65 }}>
-            The Dashboard is the real-time command center — and the free Gamma Levels pages (SPX, SPY, QQQ) — delayed about 15 minutes — are open to anyone, no sign-up required.
+            {t('ctaSub')}
           </p>
           <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
             <Link href="/dashboard" style={{ textDecoration: 'none' }}>
               <button className="zg-btn zg-btn--primary" style={{ padding: '16px 40px', fontSize: 15 }}>
-                Launch Dashboard <ArrowRight size={18} />
+                {t('btnLaunchDashboard')} <ArrowRight size={18} />
               </button>
             </Link>
             <Link href="/pricing" style={{ textDecoration: 'none' }}>
               <button className="zg-btn zg-btn--secondary" style={{ padding: '16px 32px', fontSize: 14 }}>
-                <BookOpen size={16} /> Review Tier Access
+                <BookOpen size={16} /> {t('btnReviewTierAccess')}
               </button>
             </Link>
           </div>

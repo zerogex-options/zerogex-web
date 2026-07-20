@@ -12,7 +12,9 @@ import PriceDistanceMetricCard from '@/components/PriceDistanceMetricCard';
 import HistoricalContextBadge from '@/components/HistoricalContextBadge';
 import { getPrimaryPriceChangeSummary } from '@/core/priceChange';
 import { isIndexSymbol } from '@/core/utils';
+import { usePageT } from '@/core/LanguageContext';
 import { useMyDashboardData } from './DashboardData';
+import { dict } from './tiles.i18n';
 
 function formatCompactUsd(value: number | null | undefined, showPositiveSign = false): string {
   if (value == null || !Number.isFinite(value)) return '--';
@@ -26,6 +28,7 @@ function formatCompactUsd(value: number | null | undefined, showPositiveSign = f
 }
 
 export function PriceTile() {
+  const t = usePageT(dict);
   const { symbol, theme, quote, sessionCloses } = useMyDashboardData();
   const underlyingPrice = getPrimaryPriceChangeSummary({
     quoteClose: quote?.close,
@@ -40,13 +43,13 @@ export function PriceTile() {
 
   return (
     <MetricCard
-      title={`${symbol} Price`}
+      title={t('priceTitle', { symbol })}
       value={underlyingPrice.displayPrice != null ? `$${underlyingPrice.displayPrice.toFixed(2)}` : '--'}
       subtitle={
         <div className="flex flex-col gap-1">
           {dashFuturesTicker && (
             <span style={{ color: 'var(--color-brand-coral)', fontWeight: 600 }}>
-              ◆ {dashFuturesTicker} futures
+              {t('priceFuturesLabel', { ticker: dashFuturesTicker })}
             </span>
           )}
           <span
@@ -61,14 +64,14 @@ export function PriceTile() {
           >
             {underlyingPrice.change != null && underlyingPrice.changePercent != null
               ? `${underlyingPrice.isPositive ? '+' : '-'}$${Math.abs(underlyingPrice.change).toFixed(2)} / ${underlyingPrice.isPositive ? '+' : '-'}${Math.abs(underlyingPrice.changePercent).toFixed(2)}%${dashFuturesTicker ? '' : ' vs previous'}`
-              : 'Awaiting previous-close context'}
+              : t('priceAwaitingContext')}
           </span>
           {!isIndexSymbol(symbol) && (
-            <span>{quote?.volume != null ? `Day Vol: ${Math.round(quote.volume).toLocaleString()}` : ''}</span>
+            <span>{quote?.volume != null ? t('priceDayVol', { volume: Math.round(quote.volume).toLocaleString() }) : ''}</span>
           )}
         </div>
       }
-      tooltip={`Current ${symbol} price from the real-time quote feed.`}
+      tooltip={t('priceTooltip', { symbol })}
       theme={theme}
       trend="neutral"
     />
@@ -76,14 +79,15 @@ export function PriceTile() {
 }
 
 export function NetGexTile() {
+  const t = usePageT(dict);
   const { theme, gex, historical } = useMyDashboardData();
   const netGex = gex?.net_gex_at_spot ?? gex?.net_gex;
   return (
     <MetricCard
-      title="Net GEX"
+      title={t('netGexTitle')}
       value={formatCompactUsd(netGex, true)}
       trend={(netGex ?? 0) > 0 ? 'bullish' : 'bearish'}
-      tooltip="Cumulative dealer gamma at the current spot price. Positive = dealers net long gamma (hedging dampens moves — pinning, mean-reversion, lower vol). Negative = dealers net short gamma (hedging amplifies moves — trending, higher vol). The regime flips at the gamma flip level."
+      tooltip={t('netGexTooltip')}
       theme={theme}
       contextBadge={
         <HistoricalContextBadge
@@ -97,69 +101,74 @@ export function NetGexTile() {
 }
 
 export function GammaFlipTile() {
+  const t = usePageT(dict);
   const { theme, gex, quote } = useMyDashboardData();
   return (
     <PriceDistanceMetricCard
-      title="Gamma Flip"
+      title={t('gammaFlipTitle')}
       level={gex?.gamma_flip}
       spotPrice={quote?.close}
-      tooltip="Price where aggregate net gamma changes sign. The card shows the live dollar and percent distance from the current underlying so you can judge whether spot is above or below the flip."
+      tooltip={t('gammaFlipTooltip')}
       theme={theme}
     />
   );
 }
 
 export function MaxPainTile() {
+  const t = usePageT(dict);
   const { theme, gex, quote } = useMyDashboardData();
   return (
     <PriceDistanceMetricCard
-      title="Max Pain"
+      title={t('maxPainTitle')}
       level={gex?.max_pain}
       spotPrice={quote?.close}
-      tooltip="Estimated strike where option-holder payout is minimized at expiry. The card shows the live dollar and percent distance from the current underlying so you can gauge how far spot is from the options pin."
+      tooltip={t('maxPainTooltip')}
       theme={theme}
     />
   );
 }
 
 export function CallGexTile() {
+  const t = usePageT(dict);
   const { theme, gex } = useMyDashboardData();
   return (
     <MetricCard
-      title="Call GEX"
+      title={t('callGexTitle')}
       value={formatCompactUsd(gex?.total_call_gex)}
       trend="neutral"
-      tooltip="Total gamma exposure from call options. Higher values indicate strong call positioning, which creates upside resistance as dealers hedge by selling into rallies."
+      tooltip={t('callGexTooltip')}
       theme={theme}
     />
   );
 }
 
 export function PutGexTile() {
+  const t = usePageT(dict);
   const { theme, gex } = useMyDashboardData();
   return (
     <MetricCard
-      title="Put GEX"
+      title={t('putGexTitle')}
       value={formatCompactUsd(gex?.total_put_gex)}
       trend="neutral"
-      tooltip="Total gamma exposure from put options. Higher values indicate strong put positioning, which creates downside support as dealers hedge by buying into selloffs."
+      tooltip={t('putGexTooltip')}
       theme={theme}
     />
   );
 }
 
 export function CallWallTile() {
+  const t = usePageT(dict);
   const { theme, gex, quote } = useMyDashboardData();
   return (
     <MetricCard
-      title="Call Wall (Resistance)"
+      title={t('callWallTitle')}
       value={gex?.call_wall != null ? `$${gex.call_wall.toFixed(2)}` : 'N/A'}
       subtitle={
         gex?.call_wall && quote?.close
           ? `${((gex.call_wall - quote.close) / quote.close) * 100 >= 0 ? '+' : ''}${(((gex.call_wall - quote.close) / quote.close) * 100).toFixed(1)}% from spot`
-          : 'Heavy call open interest'
+          : t('callWallSubtitle')
       }
-      tooltip="Strike with the heaviest call open interest. Tends to act as resistance as dealers sell into rallies toward it."
+      tooltip={t('callWallTooltip')}
       theme={theme}
       trend="bearish"
     />
@@ -167,17 +176,18 @@ export function CallWallTile() {
 }
 
 export function PutWallTile() {
+  const t = usePageT(dict);
   const { theme, gex, quote } = useMyDashboardData();
   return (
     <MetricCard
-      title="Put Wall (Support)"
+      title={t('putWallTitle')}
       value={gex?.put_wall != null ? `$${gex.put_wall.toFixed(2)}` : 'N/A'}
       subtitle={
         gex?.put_wall && quote?.close
           ? `${((gex.put_wall - quote.close) / quote.close) * 100 >= 0 ? '+' : ''}${(((gex.put_wall - quote.close) / quote.close) * 100).toFixed(1)}% from spot`
-          : 'Heavy put open interest'
+          : t('putWallSubtitle')
       }
-      tooltip="Strike with the heaviest put open interest. Tends to act as support as dealers buy into selloffs toward it."
+      tooltip={t('putWallTooltip')}
       theme={theme}
       trend="bullish"
     />
@@ -185,61 +195,65 @@ export function PutWallTile() {
 }
 
 export function NetFlowTile() {
+  const t = usePageT(dict);
   const { theme, flow } = useMyDashboardData();
   return (
     <MetricCard
-      title="Net Flow"
+      title={t('netFlowTitle')}
       value={Number(flow?.netFlow ?? 0).toLocaleString()}
-      subtitle="contracts"
+      subtitle={t('netFlowSubtitle')}
       trend={Number(flow?.netFlow ?? 0) > 0 ? 'bullish' : 'bearish'}
-      tooltip="Cumulative call volume minus put volume for the current session."
+      tooltip={t('netFlowTooltip')}
       theme={theme}
     />
   );
 }
 
 export function NetPremiumTile() {
+  const t = usePageT(dict);
   const { theme, flow } = useMyDashboardData();
   const netPremium = Number(flow?.netPremium ?? 0);
   return (
     <MetricCard
-      title="Net Premium"
+      title={t('netPremiumTitle')}
       value={`${netPremium < 0 ? '-' : ''}$${(Math.abs(netPremium) / 1_000_000).toFixed(2)}M`}
       trend={netPremium > 0 ? 'bullish' : 'bearish'}
-      tooltip="Cumulative call premium minus put premium for the current session."
+      tooltip={t('netPremiumTooltip')}
       theme={theme}
     />
   );
 }
 
 export function PutCallRatioTile() {
+  const t = usePageT(dict);
   const { theme, flow } = useMyDashboardData();
   const ratio = Number(flow?.putCallRatio ?? 0);
   return (
     <MetricCard
-      title="Put/Call Ratio"
+      title={t('putCallRatioTitle')}
       value={ratio.toFixed(2)}
       trend={ratio > 1 ? 'bearish' : 'bullish'}
-      tooltip="Cumulative put volume divided by cumulative call volume for the current session."
+      tooltip={t('putCallRatioTooltip')}
       theme={theme}
     />
   );
 }
 
 export function VixTile() {
+  const t = usePageT(dict);
   const { theme, vol, volIndex } = useMyDashboardData();
   return (
     <MetricCard
-      title={`${volIndex} Level`}
+      title={t('vixTitle', { volIndex })}
       value={vol?.index != null ? vol.index.toFixed(2) : '--'}
       subtitle={
         vol?.level_label ? (
           <span className="capitalize">{`${vol.level_label} · ${vol.momentum_label ?? ''}`.trim()}</span>
         ) : (
-          'Implied volatility'
+          t('vixSubtitleFallback')
         )
       }
-      tooltip={`${volIndex} implied-volatility index — the market's expected 30-day volatility. Rising ${volIndex} signals fear / demand for protection; falling signals calm.`}
+      tooltip={t('vixTooltip', { volIndex })}
       theme={theme}
       trend="neutral"
     />

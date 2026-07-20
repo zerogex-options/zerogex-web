@@ -12,6 +12,8 @@ import {
   type WidgetDef,
 } from './registry';
 import { WIDGET_SIZE_LABEL } from '@/core/myDashboardLayout';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './AddWidgetGallery.i18n';
 
 export default function AddWidgetGallery({
   open,
@@ -26,6 +28,7 @@ export default function AddWidgetGallery({
   presentIds: ReadonlySet<string>;
   onToggle: (widget: WidgetDef) => void;
 }) {
+  const t = usePageT(dict);
   const [query, setQuery] = useState('');
   const [activeCat, setActiveCat] = useState<WidgetCategory | 'all'>('all');
 
@@ -55,11 +58,11 @@ export default function AddWidgetGallery({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[80]" role="dialog" aria-modal="true" aria-label="Add widgets">
+    <div className="fixed inset-0 z-[80]" role="dialog" aria-modal="true" aria-label={t('dialogLabel')}>
       {/* Scrim */}
       <button
         type="button"
-        aria-label="Close"
+        aria-label={t('close')}
         onClick={onClose}
         className="absolute inset-0"
         style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(2px)' }}
@@ -79,15 +82,15 @@ export default function AddWidgetGallery({
           style={{ borderColor: 'var(--border-subtle)' }}
         >
           <div>
-            <h2 className="zg-h3">Add widgets</h2>
+            <h2 className="zg-h3">{t('title')}</h2>
             <p className="zg-caption" style={{ color: 'var(--text-muted)' }}>
-              Click to add or remove. Rearrange them on your board.
+              {t('subtitle')}
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t('close')}
             className="flex h-9 w-9 items-center justify-center rounded-lg border"
             style={{ borderColor: 'var(--border-default)', color: 'var(--text-secondary)' }}
           >
@@ -105,12 +108,12 @@ export default function AddWidgetGallery({
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search widgets…"
+              placeholder={t('searchPlaceholder')}
               className="w-full bg-transparent py-2.5 text-sm outline-none"
               style={{ color: 'var(--text-primary)' }}
             />
             {query && (
-              <button type="button" onClick={() => setQuery('')} aria-label="Clear search">
+              <button type="button" onClick={() => setQuery('')} aria-label={t('clearSearch')}>
                 <X size={14} style={{ color: 'var(--text-muted)' }} />
               </button>
             )}
@@ -120,7 +123,7 @@ export default function AddWidgetGallery({
         {/* Category filter */}
         <div className="flex flex-wrap gap-1.5 px-5 py-3">
           <CatChip active={activeCat === 'all'} onClick={() => setActiveCat('all')}>
-            All
+            {t('all')}
           </CatChip>
           {CATEGORY_ORDER.map((c) => (
             <CatChip key={c} active={activeCat === c} onClick={() => setActiveCat(c)}>
@@ -133,7 +136,7 @@ export default function AddWidgetGallery({
         <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-8">
           {grouped.length === 0 && (
             <p className="zg-small py-8 text-center" style={{ color: 'var(--text-muted)' }}>
-              No widgets match “{query}”.
+              {t('noResults', { query })}
             </p>
           )}
           {grouped.map(({ category, widgets }) => (
@@ -196,6 +199,7 @@ function GalleryItem({
   locked: boolean;
   onToggle: () => void;
 }) {
+  const t = usePageT(dict);
   const Icon = widget.icon;
   const sizeHint = WIDGET_SIZE_LABEL[widget.defaultSize];
 
@@ -223,7 +227,7 @@ function GalleryItem({
               className="zg-chip"
               style={{ ['--chip-color' as string]: 'var(--color-accent-hot)' }}
             >
-              Pro
+              {t('pro')}
             </span>
           )}
         </div>
@@ -241,7 +245,7 @@ function GalleryItem({
           className="shrink-0 inline-flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-bold"
           style={{ background: 'var(--color-accent-hot)', color: 'var(--text-inverse)' }}
         >
-          <Lock size={13} /> Upgrade
+          <Lock size={13} /> {t('upgrade')}
         </Link>
       ) : (
         <button
@@ -257,11 +261,11 @@ function GalleryItem({
         >
           {added ? (
             <>
-              <Check size={13} /> Added
+              <Check size={13} /> {t('added')}
             </>
           ) : (
             <>
-              <Plus size={13} /> Add
+              <Plus size={13} /> {t('add')}
             </>
           )}
         </button>

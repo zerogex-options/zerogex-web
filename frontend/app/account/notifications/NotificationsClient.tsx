@@ -22,6 +22,8 @@ import { AlertCircle, ArrowLeft, BellOff, Check } from 'lucide-react';
 import { useApiData } from '@/hooks/useApiData';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './NotificationsClient.i18n';
 
 interface FollowRecord {
   bot_id: string;
@@ -132,6 +134,7 @@ async function removeFollow(botId: string): Promise<void> {
 }
 
 export default function NotificationsClient() {
+  const t = usePageT(dict);
   const follows = useApiData<FollowsResponse>('/api/tradeworkz/me/follows', {
     refreshInterval: 0,
   });
@@ -263,11 +266,11 @@ export default function NotificationsClient() {
           return next;
         });
         setRemoveError(
-          err instanceof Error ? err.message : 'Could not unfollow — please try again.',
+          err instanceof Error ? err.message : t('unfollowError'),
         );
       }
     },
-    [follows],
+    [follows, t],
   );
 
   // Rows still shown = followed rows minus the ones being unfollowed.
@@ -311,15 +314,13 @@ export default function NotificationsClient() {
             className="inline-flex items-center gap-1 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            Back to Account
+            {t('backToAccount')}
           </Link>
           <h1 className="text-3xl font-bold text-[var(--color-text-primary)] mt-3">
-            Notifications
+            {t('notifications')}
           </h1>
           <p className="text-sm text-[var(--color-text-secondary)] max-w-2xl mt-2 leading-relaxed">
-            Manage the TradeWorkz™ bots you follow and the channels each subscription uses.
-            Changes save automatically. Turning a channel off or unfollowing also cancels any
-            not-yet-delivered notifications on that channel.
+            {t('pageDescription')}
           </p>
         </div>
 
@@ -348,12 +349,10 @@ export default function NotificationsClient() {
           >
             <div>
               <div className="text-sm font-semibold text-[var(--color-text-primary)]">
-                Bulk actions
+                {t('bulkActions')}
               </div>
               <div className="text-xs text-[var(--color-text-secondary)] mt-0.5">
-                {anyEmailOn
-                  ? 'Turn off email notifications across every followed bot.'
-                  : 'Turn on email notifications for every bot you already follow.'}
+                {anyEmailOn ? t('bulkEmailOffDesc') : t('bulkEmailOnDesc')}
               </div>
             </div>
             <button
@@ -365,7 +364,7 @@ export default function NotificationsClient() {
                 border: `1px solid ${anyEmailOn ? 'var(--color-border)' : 'var(--color-info)'}`,
               }}
             >
-              {anyEmailOn ? 'Turn off all email' : 'Turn on email for all'}
+              {anyEmailOn ? t('turnOffAllEmail') : t('turnOnEmailForAll')}
             </button>
           </section>
         ) : null}
@@ -385,18 +384,17 @@ export default function NotificationsClient() {
               <BellOff className="w-5 h-5" />
             </div>
             <h2 className="text-base font-semibold text-[var(--color-text-primary)] mb-1">
-              You aren't following any bots yet
+              {t('emptyTitle')}
             </h2>
             <p className="text-sm text-[var(--color-text-secondary)] max-w-md mx-auto">
-              Head to TradeWorkz™ and click Follow on any bot to start receiving entry / exit
-              notifications.
+              {t('emptyDescription')}
             </p>
             <Link
               href="/trading-signals"
               className="inline-block mt-4 text-xs font-medium px-3 py-2 rounded-full"
               style={{ backgroundColor: 'var(--color-info)', color: 'var(--color-on-info, #ffffff)' }}
             >
-              Open TradeWorkz™
+              {t('openTradeWorkz')}
             </Link>
           </div>
         ) : (
@@ -449,7 +447,7 @@ export default function NotificationsClient() {
                               className="text-[10px] inline-flex items-center gap-1"
                               style={{ color: 'var(--color-bull)' }}
                             >
-                              <Check className="w-3 h-3" /> Saved
+                              <Check className="w-3 h-3" /> {t('saved')}
                             </span>
                           ) : null}
                         </div>
@@ -463,7 +461,7 @@ export default function NotificationsClient() {
                         onClick={() => onUnfollow(rec.bot_id)}
                         className="text-[11px] text-[var(--color-bear)] hover:underline whitespace-nowrap"
                       >
-                        Unfollow
+                        {t('unfollow')}
                       </button>
                     </div>
 
@@ -516,7 +514,7 @@ export default function NotificationsClient() {
                     <div className="pt-3 border-t border-[var(--color-border)]">
                       <div className="flex items-center justify-between mb-1">
                         <label className="text-[11px] font-semibold text-[var(--color-text-primary)]">
-                          Min. conviction
+                          {t('minConviction')}
                         </label>
                         <span className="text-[11px] tabular-nums text-[var(--color-text-secondary)]">
                           {(s.min_confidence * 100).toFixed(0)}%
@@ -537,8 +535,7 @@ export default function NotificationsClient() {
                         style={{ accentColor: color }}
                       />
                       <div className="text-[10px] text-[var(--color-text-secondary)] mt-1 leading-snug">
-                        Suppress notifications for entries below this bot's confidence-blend
-                        score.
+                        {t('confidenceHelper')}
                       </div>
                     </div>
                   </div>

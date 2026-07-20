@@ -9,6 +9,8 @@ import { AUTH_TIERS, normalizeTier, TierId } from '@/core/auth';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import VerifyEmailBanner from '@/components/VerifyEmailBanner';
 import AccountApiKeys from '@/components/AccountApiKeys';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './page.i18n';
 
 type DonationPayload = {
   pledgePct: number;
@@ -59,11 +61,12 @@ const TIER_LABELS: Record<TierId, string> = AUTH_TIERS.reduce(
 );
 
 export default function AccountPage() {
+  const t = usePageT(dict);
   return (
     <Suspense
       fallback={
         <main style={{ minHeight: '100vh', padding: '48px 24px', color: C.light }}>
-          <p style={{ color: C.muted }}>Loading account...</p>
+          <p style={{ color: C.muted }}>{t('loadingAccount')}</p>
         </main>
       }
     >
@@ -75,6 +78,7 @@ export default function AccountPage() {
 function AccountPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const t = usePageT(dict);
   const { data: authSession, loading } = useAuthSession();
   const [opening, setOpening] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -186,19 +190,19 @@ function AccountPageContent() {
       setReferralCopied(true);
       setTimeout(() => setReferralCopied(false), 2000);
     } catch {
-      setFeedback({ type: 'error', message: 'Could not copy link. Copy it manually.' });
+      setFeedback({ type: 'error', message: t('couldNotCopyLink') });
     }
   };
 
   useEffect(() => {
     const link = searchParams?.get('link');
     if (link === 'success') {
-      setFeedback({ type: 'success', message: 'Provider linked to your account.' });
+      setFeedback({ type: 'success', message: t('providerLinked') });
     } else if (link === 'error') {
       const reason = searchParams?.get('reason');
-      setFeedback({ type: 'error', message: reason ? decodeURIComponent(reason) : 'Could not link provider.' });
+      setFeedback({ type: 'error', message: reason ? decodeURIComponent(reason) : t('couldNotLinkProvider') });
     }
-  }, [searchParams]);
+  }, [searchParams, t]);
 
   useEffect(() => {
     if (!authSession?.authenticated) return;
@@ -230,11 +234,11 @@ function AccountPageContent() {
     setPasswordError(null);
 
     if (newPassword.length < PASSWORD_MIN_LENGTH) {
-      setPasswordError(`Password must be at least ${PASSWORD_MIN_LENGTH} characters.`);
+      setPasswordError(t('passwordMinLength', { min: PASSWORD_MIN_LENGTH }));
       return;
     }
     if (newPassword !== confirmPassword) {
-      setPasswordError('Passwords do not match.');
+      setPasswordError(t('passwordsDoNotMatch'));
       return;
     }
 
@@ -243,7 +247,7 @@ function AccountPageContent() {
       const csrfResponse = await fetch('/api/auth/csrf', { credentials: 'include' });
       const csrf = (await csrfResponse.json()) as { csrfToken?: string };
       if (!csrf.csrfToken) {
-        setPasswordError('Unable to obtain CSRF token. Please refresh and try again.');
+        setPasswordError(t('csrfError'));
         return;
       }
       const response = await fetch('/api/account/password/set', {
@@ -254,16 +258,16 @@ function AccountPageContent() {
       });
       const payload = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!response.ok) {
-        setPasswordError(payload.error ?? 'Failed to set password.');
+        setPasswordError(payload.error ?? t('failedToSetPassword'));
         return;
       }
-      setFeedback({ type: 'success', message: 'Password set. You can now sign in with your email and password.' });
+      setFeedback({ type: 'success', message: t('passwordSetSuccess') });
       setShowSetPassword(false);
       setNewPassword('');
       setConfirmPassword('');
       await refreshIdentities();
     } catch {
-      setPasswordError('Something went wrong. Please try again.');
+      setPasswordError(t('somethingWentWrong'));
     } finally {
       setSettingPassword(false);
     }
@@ -276,7 +280,7 @@ function AccountPageContent() {
       const csrfResponse = await fetch('/api/auth/csrf', { credentials: 'include' });
       const csrf = (await csrfResponse.json()) as { csrfToken?: string };
       if (!csrf.csrfToken) {
-        setFeedback({ type: 'error', message: 'Unable to obtain CSRF token. Please refresh and try again.' });
+        setFeedback({ type: 'error', message: t('csrfError') });
         return;
       }
       const response = await fetch('/api/account/identities/unlink', {
@@ -287,13 +291,13 @@ function AccountPageContent() {
       });
       const payload = (await response.json()) as { ok?: boolean; error?: string };
       if (!response.ok) {
-        setFeedback({ type: 'error', message: payload.error ?? 'Failed to unlink provider.' });
+        setFeedback({ type: 'error', message: payload.error ?? t('failedToUnlinkProvider') });
         return;
       }
-      setFeedback({ type: 'success', message: `Disconnected ${provider}.` });
+      setFeedback({ type: 'success', message: t('disconnectedProvider', { provider }) });
       await refreshIdentities();
     } catch {
-      setFeedback({ type: 'error', message: 'Something went wrong. Please try again.' });
+      setFeedback({ type: 'error', message: t('somethingWentWrong') });
     } finally {
       setUnlinkingProvider(null);
     }
@@ -307,7 +311,7 @@ function AccountPageContent() {
       const csrfResponse = await fetch('/api/auth/csrf', { credentials: 'include' });
       const csrf = (await csrfResponse.json()) as { csrfToken?: string };
       if (!csrf.csrfToken) {
-        setXHandleError('Unable to obtain CSRF token. Please refresh and try again.');
+        setXHandleError(t('csrfError'));
         return;
       }
       const response = await fetch('/api/account/social', {
@@ -322,15 +326,15 @@ function AccountPageContent() {
         error?: string;
       };
       if (!response.ok) {
-        setXHandleError(payload.error ?? 'Failed to save X handle.');
+        setXHandleError(payload.error ?? t('failedToSaveXHandle'));
         return;
       }
       const saved = payload.xHandle ?? null;
       setXHandleSaved(saved);
       setXHandle(saved ?? '');
-      setFeedback({ type: 'success', message: saved ? 'X handle saved.' : 'X handle removed.' });
+      setFeedback({ type: 'success', message: saved ? t('xHandleSaved') : t('xHandleRemoved') });
     } catch {
-      setXHandleError('Something went wrong. Please try again.');
+      setXHandleError(t('somethingWentWrong'));
     } finally {
       setSavingXHandle(false);
     }
@@ -354,7 +358,7 @@ function AccountPageContent() {
       const csrfResponse = await fetch('/api/auth/csrf', { credentials: 'include' });
       const csrf = (await csrfResponse.json()) as { csrfToken?: string };
       if (!csrf.csrfToken) {
-        setFeedback({ type: 'error', message: 'Unable to obtain CSRF token. Please refresh and try again.' });
+        setFeedback({ type: 'error', message: t('csrfError') });
         return;
       }
 
@@ -365,13 +369,13 @@ function AccountPageContent() {
       });
       const payload = (await response.json()) as { url?: string; error?: string };
       if (!response.ok || !payload.url) {
-        setFeedback({ type: 'error', message: payload.error ?? 'Could not open billing portal.' });
+        setFeedback({ type: 'error', message: payload.error ?? t('couldNotOpenBillingPortal') });
         return;
       }
 
       window.location.href = payload.url;
     } catch {
-      setFeedback({ type: 'error', message: 'Something went wrong. Please try again.' });
+      setFeedback({ type: 'error', message: t('somethingWentWrong') });
     } finally {
       setOpening(false);
     }
@@ -380,7 +384,7 @@ function AccountPageContent() {
   if (loading) {
     return (
       <main style={{ minHeight: '100vh', padding: '48px 24px', color: C.light }}>
-        <p style={{ color: C.muted }}>Loading account...</p>
+        <p style={{ color: C.muted }}>{t('loadingAccount')}</p>
       </main>
     );
   }
@@ -398,9 +402,9 @@ function AccountPageContent() {
             padding: 28,
           }}
         >
-          <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800 }}>Account</h1>
+          <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800 }}>{t('accountTitle')}</h1>
           <p style={{ marginTop: 12, color: C.muted }}>
-            You need to be signed in to view your account.
+            {t('signInRequired')}
           </p>
           <button
             onClick={() => router.push('/login?next=/account')}
@@ -416,7 +420,7 @@ function AccountPageContent() {
               cursor: 'pointer',
             }}
           >
-            Sign in
+            {t('signIn')}
           </button>
         </section>
       </main>
@@ -427,9 +431,9 @@ function AccountPageContent() {
     <main style={{ minHeight: '100vh', padding: '48px 24px', color: C.light }}>
       <div style={{ maxWidth: 720, margin: '0 auto' }}>
         <header style={{ marginBottom: 28 }}>
-          <h1 style={{ margin: 0, fontSize: 32, fontWeight: 800, letterSpacing: '-0.5px' }}>Account</h1>
+          <h1 style={{ margin: 0, fontSize: 32, fontWeight: 800, letterSpacing: '-0.5px' }}>{t('accountTitle')}</h1>
           <p style={{ margin: '8px 0 0', color: C.muted, fontSize: 15 }}>
-            Manage your profile, subscription tier, and membership.
+            {t('accountSubtitle')}
           </p>
         </header>
 
@@ -466,17 +470,20 @@ function AccountPageContent() {
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 4 }}>
-                Welcome aboard — and thank you.
+                {t('donationWelcome')}
               </div>
               <div style={{ fontSize: 13.5, color: C.muted, lineHeight: 1.55 }}>
-                Your subscription just contributed{' '}
+                {t('donationContributedPrefix')}{' '}
                 <strong style={{ color: C.amber }}>
                   ${donation.donationUsd.toFixed(2)}
                 </strong>{' '}
-                to <strong style={{ color: C.light }}>{donation.partner}</strong> — {donation.pledgePct}% of
-                every {donation.interval === 'year' ? 'annual' : 'monthly'} billing cycle.{' '}
+                {t('donationContributedTo')} <strong style={{ color: C.light }}>{donation.partner}</strong>{' '}
+                {t('donationContributedSuffix', {
+                  pct: donation.pledgePct,
+                  interval: donation.interval === 'year' ? t('donationIntervalAnnual') : t('donationIntervalMonthly'),
+                })}{' '}
                 <Link href="/giving" style={{ color: C.amber, fontWeight: 700, textDecoration: 'none' }}>
-                  See our giving page →
+                  {t('seeGivingPage')}
                 </Link>
               </div>
             </div>
@@ -518,7 +525,7 @@ function AccountPageContent() {
           <div style={{ display: 'grid', gap: 20 }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: C.muted, fontSize: 12, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
-                <Mail size={14} /> Account Name
+                <Mail size={14} /> {t('accountName')}
               </div>
               <div style={{ marginTop: 8, fontSize: 20, fontWeight: 700, color: C.light, wordBreak: 'break-all' }}>{email}</div>
             </div>
@@ -527,7 +534,7 @@ function AccountPageContent() {
 
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: C.muted, fontSize: 12, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
-                <ShieldCheck size={14} /> Tier
+                <ShieldCheck size={14} /> {t('tier')}
               </div>
               <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
                 <span
@@ -565,7 +572,7 @@ function AccountPageContent() {
                       gap: 8,
                     }}
                   >
-                    <Rocket size={14} /> Upgrade
+                    <Rocket size={14} /> {t('upgrade')}
                   </button>
                 )}
               </div>
@@ -574,7 +581,7 @@ function AccountPageContent() {
         </section>
 
         <section style={{ marginTop: 24 }}>
-          <SectionHeading icon={<CreditCard size={18} />}>Subscription</SectionHeading>
+          <SectionHeading icon={<CreditCard size={18} />}>{t('subscription')}</SectionHeading>
           {billing?.paymentIssue && (
             <div
               role="alert"
@@ -589,12 +596,11 @@ function AccountPageContent() {
                 background: 'var(--color-bear-soft)',
               }}
             >
-              ⚠️ Your last payment didn&apos;t go through, so your access is paused. Update your
-              payment method below to restore your subscription — no need to sign up again.
+              {t('paymentIssueWarning')}
             </div>
           )}
           <p style={{ margin: '6px 0 14px', color: C.muted, fontSize: 14 }}>
-            Update payment methods, switch plans, or cancel your subscription in the secure Stripe billing portal. Tier changes on paid plans are pro-rated automatically. Switching plans during your free trial ends the trial and starts billing immediately on the new plan.
+            {t('billingDescription')}
           </p>
           <button
             type="button"
@@ -619,18 +625,18 @@ function AccountPageContent() {
           >
             <Settings size={16} />{' '}
             {opening
-              ? 'Opening portal…'
+              ? t('openingPortal')
               : billing?.paymentIssue
-                ? 'Update payment method'
-                : 'Manage Subscription'}
+                ? t('updatePaymentMethod')
+                : t('manageSubscription')}
           </button>
           {!canManageBilling && tier === 'public' && (
             <p style={{ margin: '10px 0 0', color: C.muted, fontSize: 13 }}>
-              You don&apos;t have an active subscription yet. Choose a plan on the{' '}
+              {t('noActiveSubscription')}{' '}
               <Link href="/pricing" style={{ color: C.amber, fontWeight: 700, textDecoration: 'none' }}>
-                pricing page
+                {t('pricingPage')}
               </Link>{' '}
-              to get started.
+              {t('toGetStarted')}
             </p>
           )}
         </section>
@@ -638,24 +644,24 @@ function AccountPageContent() {
         <AccountApiKeys />
 
         <section style={{ marginTop: 24 }}>
-          <SectionHeading icon={<Fingerprint size={18} />}>Sign-in methods</SectionHeading>
+          <SectionHeading icon={<Fingerprint size={18} />}>{t('signInMethods')}</SectionHeading>
           <p style={{ margin: '6px 0 14px', color: C.muted, fontSize: 14 }}>
-            Connect or disconnect the providers you use to sign in. You must keep at least one method active.
+            {t('signInMethodsDescription')}
           </p>
           {identitiesLoading ? (
-            <p style={{ color: C.muted, fontSize: 14 }}>Loading sign-in methods…</p>
+            <p style={{ color: C.muted, fontSize: 14 }}>{t('loadingSignInMethods')}</p>
           ) : (
             <div style={{ display: 'grid', gap: 12 }}>
               <div>
                 <SignInMethodRow
                   icon={<KeyRound size={16} />}
-                  label="Email & password"
-                  status={identities?.hasPassword ? 'Active' : 'Not set'}
+                  label={t('emailPassword')}
+                  status={identities?.hasPassword ? t('active') : t('notSet')}
                   statusActive={!!identities?.hasPassword}
                   action={
                     identities?.hasPassword ? (
                       <a href="/forgot-password" style={secondaryButtonStyle(false)}>
-                        Reset password
+                        {t('resetPassword')}
                       </a>
                     ) : (
                       <button
@@ -668,7 +674,7 @@ function AccountPageContent() {
                         }}
                         style={primaryLinkButtonStyle()}
                       >
-                        {showSetPassword ? 'Cancel' : 'Set password'}
+                        {showSetPassword ? t('cancel') : t('setPassword')}
                       </button>
                     )
                   }
@@ -687,11 +693,10 @@ function AccountPageContent() {
                     }}
                   >
                     <p style={{ margin: 0, color: C.muted, fontSize: 13 }}>
-                      Add a password so you can sign in with your email in addition to your linked provider.
-                      Your existing sign-in methods will keep working.
+                      {t('setPasswordDescription')}
                     </p>
                     <label style={{ display: 'block', fontSize: 13 }}>
-                      <span style={{ color: C.muted, display: 'block', marginBottom: 4 }}>New password</span>
+                      <span style={{ color: C.muted, display: 'block', marginBottom: 4 }}>{t('newPassword')}</span>
                       <input
                         type="password"
                         value={newPassword}
@@ -711,7 +716,7 @@ function AccountPageContent() {
                       />
                     </label>
                     <label style={{ display: 'block', fontSize: 13 }}>
-                      <span style={{ color: C.muted, display: 'block', marginBottom: 4 }}>Confirm new password</span>
+                      <span style={{ color: C.muted, display: 'block', marginBottom: 4 }}>{t('confirmNewPassword')}</span>
                       <input
                         type="password"
                         value={confirmPassword}
@@ -731,7 +736,7 @@ function AccountPageContent() {
                       />
                     </label>
                     <p style={{ margin: 0, color: C.muted, fontSize: 12 }}>
-                      Must be at least {PASSWORD_MIN_LENGTH} characters.
+                      {t('passwordMinCharacters', { min: PASSWORD_MIN_LENGTH })}
                     </p>
                     {passwordError && (
                       <p style={{ margin: 0, color: 'var(--color-bear)', fontSize: 13, fontWeight: 600 }}>
@@ -748,7 +753,7 @@ function AccountPageContent() {
                           cursor: settingPassword ? 'not-allowed' : 'pointer',
                         }}
                       >
-                        {settingPassword ? 'Saving…' : 'Save password'}
+                        {settingPassword ? t('saving') : t('savePassword')}
                       </button>
                     </div>
                   </form>
@@ -756,8 +761,8 @@ function AccountPageContent() {
               </div>
               <SignInMethodRow
                 icon={<Link2 size={16} />}
-                label="Google"
-                status={identities?.identities.some((i) => i.provider === 'google') ? 'Connected' : 'Not connected'}
+                label={t('google')}
+                status={identities?.identities.some((i) => i.provider === 'google') ? t('connected') : t('notConnected')}
                 statusActive={!!identities?.identities.some((i) => i.provider === 'google')}
                 action={
                   identities?.identities.some((i) => i.provider === 'google') ? (
@@ -767,23 +772,23 @@ function AccountPageContent() {
                       disabled={unlinkingProvider === 'google'}
                       style={secondaryButtonStyle(unlinkingProvider === 'google')}
                     >
-                      {unlinkingProvider === 'google' ? 'Disconnecting…' : 'Disconnect'}
+                      {unlinkingProvider === 'google' ? t('disconnecting') : t('disconnect')}
                     </button>
                   ) : (
                     <a href="/api/auth/oauth/google/start?intent=link" style={primaryLinkButtonStyle()}>
-                      Connect
+                      {t('connect')}
                     </a>
                   )
                 }
               />
               <SignInMethodRow
                 icon={<Link2 size={16} />}
-                label="Apple"
-                status="Coming soon"
+                label={t('apple')}
+                status={t('comingSoon')}
                 statusActive={false}
                 action={
                   <span style={secondaryButtonStyle(true)} aria-disabled="true">
-                    Connect
+                    {t('connect')}
                   </span>
                 }
               />
@@ -792,10 +797,9 @@ function AccountPageContent() {
         </section>
 
         <section style={{ marginTop: 24 }}>
-          <SectionHeading icon={<Bell size={18} />}>Notifications</SectionHeading>
+          <SectionHeading icon={<Bell size={18} />}>{t('notifications')}</SectionHeading>
           <p style={{ margin: '6px 0 14px', color: C.muted, fontSize: 14 }}>
-            Manage the TradeWorkz™ bots you follow and the channels (in-app / email / webhook)
-            each subscription uses.
+            {t('notificationsDescription')}
           </p>
           <Link
             href="/account/notifications"
@@ -812,18 +816,17 @@ function AccountPageContent() {
               textDecoration: 'none',
             }}
           >
-            <Bell size={14} /> Manage notifications
+            <Bell size={14} /> {t('manageNotifications')}
           </Link>
         </section>
 
         <section style={{ marginTop: 24 }}>
-          <SectionHeading icon={<XLogo size={16} />}>Social Media</SectionHeading>
+          <SectionHeading icon={<XLogo size={16} />}>{t('socialMedia')}</SectionHeading>
           <p style={{ margin: '6px 0 14px', color: C.muted, fontSize: 14 }}>
-            Add your X (formerly Twitter) handle so we can reach you there. It&apos;s optional —
-            add, change, or remove it anytime.
+            {t('socialMediaDescription')}
           </p>
           {xHandleLoading ? (
-            <p style={{ color: C.muted, fontSize: 14 }}>Loading…</p>
+            <p style={{ color: C.muted, fontSize: 14 }}>{t('loading')}</p>
           ) : (
             <form onSubmit={handleSaveXHandle} style={{ display: 'grid', gap: 12 }}>
               <div
@@ -847,11 +850,11 @@ function AccountPageContent() {
                     setXHandle(e.target.value.replace(/^@+/, ''));
                     setXHandleError(null);
                   }}
-                  placeholder="yourhandle"
+                  placeholder={t('xHandlePlaceholder')}
                   maxLength={15}
                   autoComplete="off"
                   spellCheck={false}
-                  aria-label="X handle"
+                  aria-label={t('xHandleAriaLabel')}
                   style={{
                     flex: 1,
                     background: 'transparent',
@@ -876,7 +879,7 @@ function AccountPageContent() {
                         : 'pointer',
                   }}
                 >
-                  {savingXHandle ? 'Saving…' : 'Save'}
+                  {savingXHandle ? t('saving') : t('save')}
                 </button>
               </div>
               {xHandleError && (
@@ -886,7 +889,7 @@ function AccountPageContent() {
               )}
               {xHandleSaved ? (
                 <p style={{ margin: 0, color: C.muted, fontSize: 13 }}>
-                  Connected as{' '}
+                  {t('connectedAs')}{' '}
                   <a
                     href={`https://x.com/${xHandleSaved}`}
                     target="_blank"
@@ -895,11 +898,11 @@ function AccountPageContent() {
                   >
                     @{xHandleSaved}
                   </a>
-                  . Clear the field and save to remove it.
+                  {t('clearFieldToRemove')}
                 </p>
               ) : (
                 <p style={{ margin: 0, color: C.muted, fontSize: 13 }}>
-                  1–15 characters — letters, numbers, and underscores only.
+                  {t('xHandleHelper')}
                 </p>
               )}
             </form>
@@ -908,10 +911,9 @@ function AccountPageContent() {
 
         {referral?.enabled && referral.link && (
           <section style={{ marginTop: 24 }}>
-            <SectionHeading icon={<Gift size={18} />}>Refer a friend</SectionHeading>
+            <SectionHeading icon={<Gift size={18} />}>{t('referAFriend')}</SectionHeading>
             <p style={{ margin: '6px 0 14px', color: C.muted, fontSize: 14 }}>
-              Share your link. Your friend gets their first month free (or 10% off their first year on annual),
-              and you earn a free month every time a referral subscribes.
+              {t('referralDescription')}
             </p>
 
             <div
@@ -951,16 +953,16 @@ function AccountPageContent() {
                   whiteSpace: 'nowrap',
                 }}
               >
-                <Copy size={14} /> {referralCopied ? 'Copied!' : 'Copy link'}
+                <Copy size={14} /> {referralCopied ? t('copied') : t('copyLink')}
               </button>
             </div>
 
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 14 }}>
-              <ReferralStat label="Signed up" value={referral.totalSignups ?? 0} />
-              <ReferralStat label="Subscribed" value={referral.totalConverted ?? 0} />
-              <ReferralStat label="Free months earned" value={referral.monthsEarned ?? 0} />
+              <ReferralStat label={t('signedUp')} value={referral.totalSignups ?? 0} />
+              <ReferralStat label={t('subscribed')} value={referral.totalConverted ?? 0} />
+              <ReferralStat label={t('freeMonthsEarned')} value={referral.monthsEarned ?? 0} />
               {(referral.bankedMonths ?? 0) > 0 && (
-                <ReferralStat label="Months banked" value={referral.bankedMonths ?? 0} />
+                <ReferralStat label={t('monthsBanked')} value={referral.bankedMonths ?? 0} />
               )}
             </div>
             {referral.creditOnNextBill && (
@@ -976,12 +978,12 @@ function AccountPageContent() {
                   fontWeight: 700,
                 }}
               >
-                {referral.creditOnNextBill} credit will be applied to your next bill.
+                {t('creditAppliedToNextBill', { credit: referral.creditOnNextBill })}
               </div>
             )}
             {(referral.bankedMonths ?? 0) > 0 && (
               <p style={{ margin: '10px 0 0', color: C.muted, fontSize: 13 }}>
-                Banked months are applied automatically as account credit the next time you subscribe.
+                {t('bankedMonthsAutoApplied')}
               </p>
             )}
           </section>

@@ -22,6 +22,8 @@ import {
 import PageShell from '@/components/layout/PageShell';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { useTimeframe } from '@/core/TimeframeContext';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './page.i18n';
 import { hasTierAccess, normalizeTier } from '@/core/auth';
 import { SYMBOLS } from '@/core/symbols';
 import {
@@ -49,6 +51,7 @@ import DashboardGrid from './DashboardGrid';
 import AddWidgetGallery from './AddWidgetGallery';
 
 export default function MyDashboardPage() {
+  const t = usePageT(dict);
   const { data: authSession, loading: authLoading } = useAuthSession();
   const { symbol } = useTimeframe();
   const tier = authSession?.user?.tier ?? 'public';
@@ -131,13 +134,13 @@ export default function MyDashboardPage() {
   );
 
   const handleReset = useCallback(() => {
-    if (typeof window !== 'undefined' && !window.confirm('Clear your dashboard and start over?')) {
+    if (typeof window !== 'undefined' && !window.confirm(t('confirmResetBoard'))) {
       return;
     }
     clearLayout(scope);
     setLayout(emptyLayout());
     setEditing(false);
-  }, [scope]);
+  }, [scope, t]);
 
   const isEmpty = layout.widgets.length === 0;
 
@@ -172,8 +175,7 @@ export default function MyDashboardPage() {
               }}
             >
               <Sparkles size={14} style={{ color: 'var(--color-accent-hot)' }} />
-              Drag tiles to rearrange. Resize or remove with the controls on each tile — on touch,
-              use the arrow buttons.
+              {t('editingHint')}
             </div>
           )}
           <MyDashboardDataProvider activeFeeds={activeFeeds}>
@@ -216,18 +218,19 @@ function Header({
   onOpenGallery: () => void;
   onReset: () => void;
 }) {
+  const t = usePageT(dict);
   return (
     <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
       <div>
         <div className="mb-1 flex items-center gap-2">
           <LayoutGrid size={18} style={{ color: 'var(--color-accent-hot)' }} />
           <span className="zg-eyebrow" style={{ color: 'var(--color-accent-hot)' }}>
-            Your board
+            {t('yourBoard')}
           </span>
         </div>
-        <h1 className="zg-h1">My Dashboard</h1>
+        <h1 className="zg-h1">{t('myDashboard')}</h1>
         <p className="zg-small mt-1" style={{ color: 'var(--text-secondary)' }}>
-          Build a personal command center from the pieces of ZeroGEX you use most.
+          {t('heroSubtitle')}
         </p>
       </div>
 
@@ -236,8 +239,8 @@ function Header({
         {!isEmpty && (
           <>
             {editing && (
-              <button type="button" onClick={onReset} className="zg-btn zg-btn--ghost" title="Reset board">
-                <RotateCcw size={15} /> Reset
+              <button type="button" onClick={onReset} className="zg-btn zg-btn--ghost" title={t('resetBoardTitle')}>
+                <RotateCcw size={15} /> {t('reset')}
               </button>
             )}
             <button
@@ -247,18 +250,18 @@ function Header({
             >
               {editing ? (
                 <>
-                  <Check size={15} /> Done
+                  <Check size={15} /> {t('done')}
                 </>
               ) : (
                 <>
-                  <Pencil size={15} /> Customize
+                  <Pencil size={15} /> {t('customize')}
                 </>
               )}
             </button>
           </>
         )}
         <button type="button" onClick={onOpenGallery} className="zg-btn zg-btn--primary">
-          <Plus size={15} /> Add widgets
+          <Plus size={15} /> {t('addWidgets')}
         </button>
       </div>
     </div>
@@ -268,13 +271,14 @@ function Header({
 // ── Symbol control ─────────────────────────────────────────────────────────────
 
 function SymbolToggle() {
+  const t = usePageT(dict);
   const { symbol, setSymbol } = useTimeframe();
   return (
     <div
       className="inline-flex overflow-hidden rounded-lg border"
       style={{ borderColor: 'var(--border-default)' }}
       role="group"
-      aria-label="Underlying symbol"
+      aria-label={t('underlyingSymbol')}
     >
       {SYMBOLS.map((s) => {
         const active = s === symbol;
@@ -311,6 +315,7 @@ function EmptyState({
   onApplyPreset: (preset: DashboardPreset) => void;
   onOpenGallery: () => void;
 }) {
+  const t = usePageT(dict);
   return (
     <div className="zg-panel relative overflow-hidden p-8 md:p-12">
       <div
@@ -327,19 +332,18 @@ function EmptyState({
         >
           <LayoutGrid size={26} />
         </div>
-        <h2 className="zg-h2 mb-2">Design your dashboard</h2>
+        <h2 className="zg-h2 mb-2">{t('designYourDashboard')}</h2>
         <p className="zg-lead mb-6 max-w-2xl">
-          Pull in live gamma levels, dealer positioning, options flow, proprietary signals and more —
-          arranged exactly how you like. Start from a preset or add widgets one at a time.
+          {t('emptyStateLead')}
         </p>
 
         <div className="mb-8 flex flex-wrap gap-3">
           <button type="button" onClick={onOpenGallery} className="zg-btn zg-btn--primary">
-            <Plus size={16} /> Add your first widget
+            <Plus size={16} /> {t('addFirstWidget')}
           </button>
         </div>
 
-        <h3 className="zg-label mb-3">Quick-start presets</h3>
+        <h3 className="zg-label mb-3">{t('quickStartPresets')}</h3>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {presets.map((preset) => {
             const locked = preset.tier === 'pro' && !hasPro;
@@ -364,7 +368,7 @@ function EmptyState({
                       className="zg-chip"
                       style={{ ['--chip-color' as string]: 'var(--color-accent-hot)' }}
                     >
-                      {locked ? <Lock size={10} /> : null} Pro
+                      {locked ? <Lock size={10} /> : null} {t('proChip')}
                     </span>
                   )}
                 </div>
@@ -376,7 +380,7 @@ function EmptyState({
                 </span>
                 {locked && (
                   <span className="mt-2 text-[11px] font-semibold" style={{ color: 'var(--color-accent-hot)' }}>
-                    Applies the Basic-tier widgets
+                    {t('appliesBasicTierWidgets')}
                   </span>
                 )}
               </button>
