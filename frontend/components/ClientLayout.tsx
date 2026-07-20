@@ -8,11 +8,13 @@ import { useAuthSession } from '@/hooks/useAuthSession';
 import { identify as telemetryIdentify, reset as telemetryReset } from '@/core/telemetry/posthog-client';
 import { DISCLAIMER_VERSION } from '@/core/disclaimer';
 import { FOUNDING_LOCKIN_DEADLINE_ISO } from '@/core/foundingLockin';
+import { PRO_WELCOME_SESSION_KEY, isProWelcomeEligible } from '@/core/proWelcome';
 import Header from './Header';
 import Navigation from './Navigation';
 import Footer from './Footer';
 import DisclaimerModal from './DisclaimerModal';
 import FoundingLockinModal from './FoundingLockinModal';
+import ProWelcomeModal from './ProWelcomeModal';
 import TechnicalSnapshotPrewarm from './TechnicalSnapshotPrewarm';
 import OptionChainPrewarm from './OptionChainPrewarm';
 
@@ -35,6 +37,20 @@ const getFoundingLockinGateClient = () => {
   }
 };
 
+// Pro-welcome session gate, same SSR-safe shape as the founding one above. The
+// authoritative one-time gate is the server flag (user.proWelcomeSeenAt); this
+// sessionStorage check is only a within-session backstop so a failed persist
+// can't re-pop the modal on the next client navigation. SSR returns false so
+// the modal never renders during hydration.
+const getProWelcomeGateServer = () => false;
+const getProWelcomeGateClient = () => {
+  try {
+    return window.sessionStorage.getItem(PRO_WELCOME_SESSION_KEY) !== '1';
+  } catch {
+    return false;
+  }
+};
+
 // Routes that render their own full-page layout (no app chrome)
 const STANDALONE_ROUTES = ['/', '/about', '/giving', '/pricing', '/founding', '/login', '/register', '/unauthorized', '/terms', '/privacy', '/real-time-gex-0dte', '/spx-gamma-levels', '/spy-gamma-levels', '/qqq-gamma-levels', '/trading-mistakes'];
 
@@ -50,12 +66,19 @@ const DISCLAIMER_SUPPRESSED_ROUTES = new Set(['/login', '/register', '/unauthori
 // isn't reminded on the page they're actively converting from).
 const FOUNDING_LOCKIN_SUPPRESSED_ROUTES = new Set(['/login', '/register', '/unauthorized', '/terms', '/privacy', '/forgot-password', '/reset-password', '/pricing', '/founding']);
 
+// Don't pop the Pro welcome over the auth/legal/checkout flows, and skip
+// /account itself — that's where the CTA points, so a modal linking to the
+// page you're already on would be redundant. It simply shows on the next
+// non-suppressed page instead (e.g. the /dashboard the checkout returns to).
+const PRO_WELCOME_SUPPRESSED_ROUTES = new Set(['/login', '/register', '/unauthorized', '/terms', '/privacy', '/forgot-password', '/reset-password', '/pricing', '/founding', '/account']);
+
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const { theme, setTheme } = useTheme();
   const pathname = usePathname();
   const { data: authSession, refresh: refreshAuth } = useAuthSession();
   const [acknowledgedLocally, setAcknowledgedLocally] = useState(false);
   const [foundingLockinClosed, setFoundingLockinClosed] = useState(false);
+  const [proWelcomeClosed, setProWelcomeClosed] = useState(false);
   // SSR returns false (suppress modal); client snapshot reads sessionStorage
   // + checks the deadline. Avoids the impure-Date.now()-during-render lint
   // and the hydration mismatch a naive useState lazy initializer would cause.
@@ -63,6 +86,11 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     noopSubscribe,
     getFoundingLockinGateClient,
     getFoundingLockinGateServer,
+  );
+  const proWelcomeGatePassed = useSyncExternalStore(
+    noopSubscribe,
+    getProWelcomeGateClient,
+    getProWelcomeGateServer,
   );
 
   const toggleTheme = () => {
@@ -160,12 +188,47 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     />
   ) : null;
 
+  // One-time "Welcome to Pro" onboarding. Waits for the disclaimer AND founding
+  // modals to clear so at most one modal is ever on screen. Gated by the server
+  // seen-flag (isProWelcomeEligible) plus the sessionStorage backstop, and
+  // suppressed on the auth/legal/checkout/account routes. Fires for a freshly
+  // subscribed Pro member on their first landing back from Stripe checkout.
+  const shouldShowProWelcome =
+    !shouldShowDisclaimer &&
+    !shouldShowFoundingLockin &&
+    proWelcomeGatePassed &&
+    !proWelcomeClosed &&
+    !PRO_WELCOME_SUPPRESSED_ROUTES.has(pathname) &&
+    authSession?.authenticated === true &&
+    isProWelcomeEligible(authSession.user);
+
+  const markProWelcomeSeenForSession = useCallback(() => {
+    try {
+      window.sessionStorage.setItem(PRO_WELCOME_SESSION_KEY, '1');
+    } catch {
+      // sessionStorage unavailable (private-mode quirks); the in-memory flag
+      // below still prevents re-render within this tab.
+    }
+    setProWelcomeClosed(true);
+  }, []);
+
+  const proWelcomeModal = shouldShowProWelcome ? (
+    <ProWelcomeModal
+      theme={theme}
+      onClose={() => {
+        markProWelcomeSeenForSession();
+        void refreshAuth();
+      }}
+    />
+  ) : null;
+
   if (STANDALONE_ROUTES.includes(pathname)) {
     return (
       <>
         {children}
         {disclaimerModal}
         {foundingLockinModal}
+        {proWelcomeModal}
       </>
     );
   }
@@ -190,6 +253,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       <Footer theme={theme} />
       {disclaimerModal}
       {foundingLockinModal}
+      {proWelcomeModal}
     </div>
   );
 }
