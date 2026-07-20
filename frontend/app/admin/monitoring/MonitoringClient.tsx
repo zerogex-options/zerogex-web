@@ -2116,7 +2116,7 @@ function DailyRegistrationsChartCard({ data, flow, cardBg, axisStroke, mutedText
         <h3 className="zg-h3" style={{ color: axisStroke }}>Daily Registrations</h3>
         <div className="flex items-center gap-x-4 gap-y-1 text-xs flex-wrap" style={{ color: mutedText }}>
           <span><span style={{ color: totalUsersColor }}>●</span> Total Users: {latest.totalUsers.toLocaleString()}</span>
-          <span><span style={{ color: disclaimerColor }}>●</span> Accepted: {latest.disclaimer.toLocaleString()}</span>
+          <span><span style={{ color: disclaimerColor }}>●</span> Accepted Disclosure: {latest.disclaimer.toLocaleString()}</span>
         </div>
       </div>
       {data.length === 0 ? (
@@ -2171,7 +2171,7 @@ function DailyRegistrationsChartCard({ data, flow, cardBg, axisStroke, mutedText
                       <div className="font-semibold mb-1">{formatDayLabel(String(label))}</div>
                       <div style={{ color: registrationsColor }}>Registrations added: {registrations.toLocaleString()}</div>
                       <div className="mt-1" style={{ color: totalUsersColor }}>Total Users: {totalUsers.toLocaleString()}</div>
-                      <div style={{ color: disclaimerColor }}>Accepted: {disclaimer.toLocaleString()}</div>
+                      <div style={{ color: disclaimerColor }}>Accepted Disclosure: {disclaimer.toLocaleString()}</div>
                     </div>
                   );
                 }}
@@ -2190,7 +2190,7 @@ function DailyRegistrationsChartCard({ data, flow, cardBg, axisStroke, mutedText
                 yAxisId="users"
                 type="monotone"
                 dataKey="disclaimer"
-                name="Accepted"
+                name="Accepted Disclosure"
                 stroke={disclaimerColor}
                 fill={disclaimerColor}
                 fillOpacity={0.5}
