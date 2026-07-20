@@ -31,6 +31,7 @@ import ClientLayout from '@/components/ClientLayout';
 import TelemetryProvider from '@/components/TelemetryProvider';
 import PageAnalytics from '@/components/PageAnalytics';
 import TwitterPixelProvider from '@/components/TwitterPixelProvider';
+import SiteJsonLd from '@/components/SiteJsonLd';
 
 // Site body sans — Inter is the shared body font across every palette.
 const inter = Inter({
@@ -275,6 +276,8 @@ export default async function RootLayout({
     <html lang={locale} className={htmlClass}>
       <head>
         <link rel="icon" href="/favicon.ico" />
+        {/* Site-wide Organization + WebSite structured data (brand entity). */}
+        <SiteJsonLd />
       </head>
       <body style={{ margin: 0, padding: 0 }}>
         <ThemeProvider>

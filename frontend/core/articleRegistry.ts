@@ -28,6 +28,25 @@ export const SITE_URL = 'https://zerogex.io';
 export const SITE_NAME = 'ZeroGEX';
 export const SITE_DEFAULT_OG_IMAGE = `${SITE_URL}/og-image.png`;
 
+// One-line brand description reused by the Organization JSON-LD node. Kept
+// separate from the per-page SITE_DESCRIPTION so the entity description stays
+// stable even if a page-level meta description is tuned.
+export const SITE_ORG_DESCRIPTION =
+  'ZeroGEX is an options analytics platform for real-time gamma exposure (GEX), dealer positioning, gamma walls, and live options flow — with free delayed SPX, SPY, and QQQ gamma levels.';
+
+// Support/contact address surfaced in Organization structured data.
+export const SITE_CONTACT_EMAIL = 'support@zerogex.io';
+
+// Canonical brand profile URLs for schema.org `sameAs` — used for Organization
+// entity reconciliation (knowledge panel, brand SERP, answer engines). These
+// mirror the social profiles linked in components/Footer.tsx; keep the two in
+// sync when a profile is added or changed.
+export const SITE_SAME_AS = [
+  'https://x.com/ZeroGEXOptions',
+  'https://www.youtube.com/@ZeroGEX',
+  'https://www.reddit.com/user/LopsidedComparison26',
+];
+
 export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
   'announcing-folds-of-honor-pledge': {
     slug: 'announcing-folds-of-honor-pledge',
