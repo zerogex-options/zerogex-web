@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowRight, Moon, Sun } from 'lucide-react';
+import { ArrowRight, Moon, Search, Sun } from 'lucide-react';
 import { useTheme } from '@/core/ThemeContext';
 import { normalizeTier } from '@/core/auth';
 import { useAuthSession } from '@/hooks/useAuthSession';
@@ -112,6 +112,15 @@ export default function LandingHeader({ hidePricingButton = false }: LandingHead
         <div className="hidden sm:block">
           <ThemeDropdown />
         </div>
+
+        <Link
+          href="/search"
+          aria-label="Search"
+          className="w-8 h-8 sm:w-[38px] sm:h-[38px] flex items-center justify-center rounded-[10px]"
+          style={{ background: 'var(--bg-hover)', border: `1px solid ${C.border}`, color: C.muted }}
+        >
+          <Search size={15} />
+        </Link>
 
         <Link href="/education" className="hidden sm:block" style={{ textDecoration: 'none' }}>
           <button
