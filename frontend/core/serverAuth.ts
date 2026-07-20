@@ -45,6 +45,10 @@ type SessionWithUser = {
     disclaimerVersionAcknowledged: string | null;
     foundingEligible: boolean;
     foundingLockinDismissedAt: string | null;
+    // ISO timestamp the one-time "Welcome to Pro" onboarding modal was shown/
+    // dismissed. NULL = the member has never seen it, so a new Pro subscriber
+    // is greeted once on their first landing back from Stripe checkout.
+    proWelcomeSeenAt: string | null;
   };
   session: SessionRecord;
 };
@@ -184,7 +188,7 @@ function getSessionByToken(token: string): SessionWithUser | null {
               u.id as user_id2, u.email, u.tier, u.stripe_subscription_id,
               u.email_verified_at, u.paid_welcome_email_sent_at, u.subscription_lapsed,
               u.disclaimer_acknowledged_at, u.disclaimer_version_acknowledged,
-              u.founding_eligible, u.founding_lockin_dismissed_at
+              u.founding_eligible, u.founding_lockin_dismissed_at, u.pro_welcome_seen_at
        FROM sessions s
        JOIN users u ON u.id = s.user_id
        WHERE s.token_hash = ?`
@@ -217,6 +221,7 @@ function getSessionByToken(token: string): SessionWithUser | null {
       disclaimerVersionAcknowledged: (row.disclaimer_version_acknowledged as string | null) ?? null,
       foundingEligible: !!row.founding_eligible,
       foundingLockinDismissedAt: (row.founding_lockin_dismissed_at as string | null) ?? null,
+      proWelcomeSeenAt: (row.pro_welcome_seen_at as string | null) ?? null,
     },
     session: {
       id: row.session_id as string,
@@ -247,7 +252,7 @@ function createSessionForUser(user: AuthUser) {
     .prepare(
       `SELECT disclaimer_acknowledged_at, disclaimer_version_acknowledged,
               stripe_subscription_id, email_verified_at,
-              founding_eligible, founding_lockin_dismissed_at
+              founding_eligible, founding_lockin_dismissed_at, pro_welcome_seen_at
        FROM users WHERE id = ?`
     )
     .get(user.id) as
@@ -258,6 +263,7 @@ function createSessionForUser(user: AuthUser) {
         email_verified_at: string | null;
         founding_eligible: number | null;
         founding_lockin_dismissed_at: string | null;
+        pro_welcome_seen_at: string | null;
       }
     | undefined;
 
@@ -275,6 +281,7 @@ function createSessionForUser(user: AuthUser) {
       disclaimerVersionAcknowledged: ackRow?.disclaimer_version_acknowledged ?? null,
       foundingEligible: !!ackRow?.founding_eligible,
       foundingLockinDismissedAt: ackRow?.founding_lockin_dismissed_at ?? null,
+      proWelcomeSeenAt: ackRow?.pro_welcome_seen_at ?? null,
     },
   };
 }
@@ -1221,6 +1228,35 @@ export async function dismissFoundingLockinForRequest(request: NextRequest) {
 
   return {
     dismissedAt: now,
+    rotatedToken: data.rotatedToken,
+    csrfToken: data.csrfToken,
+  };
+}
+
+// Stamp that the caller has seen the one-time "Welcome to Pro" onboarding
+// modal, so it never greets them again (across devices — the flag lives on the
+// user row, not just sessionStorage). Idempotent: writing the same latch twice
+// is harmless; the first non-null value is what "seen" means.
+export async function markProWelcomeSeenForRequest(request: NextRequest) {
+  const data = await getSessionFromRequest(request);
+  if (!data) return null;
+
+  const db = getDb();
+  const now = nowIso();
+  db.prepare(
+    'UPDATE users SET pro_welcome_seen_at = ?, updated_at = ? WHERE id = ? AND pro_welcome_seen_at IS NULL'
+  ).run(now, now, data.user.id);
+
+  appendAuditEvent({
+    type: 'pro_welcome_seen',
+    userId: data.user.id,
+    email: data.user.email,
+    ip: getClientIp(request),
+    message: 'User acknowledged the Pro welcome / API-key onboarding modal',
+  });
+
+  return {
+    seenAt: now,
     rotatedToken: data.rotatedToken,
     csrfToken: data.csrfToken,
   };

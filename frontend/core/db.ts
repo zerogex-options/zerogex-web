@@ -294,6 +294,21 @@ function initDb(): DatabaseSync {
   // (basic → premium with no intervening cancel) trigger nothing.
   ensureColumn('users', 'paid_welcome_email_sent_at', 'TEXT');
 
+  // One-time in-app "Welcome to Pro" onboarding modal (announces self-service
+  // API-key generation). NULL = not yet shown; set to the ISO timestamp the
+  // first time the member sees/dismisses it, so it greets a new Pro subscriber
+  // exactly once — on their first landing back after the Stripe checkout
+  // redirect. Backfilled to "already seen" for everyone who ALREADY holds a
+  // subscription the boot this column is born, so the popup only reaches
+  // members who subscribe to Pro *after* this ships, never the existing paid
+  // base on their next visit. Gated on ensureColumn's "just added" return so
+  // the backfill runs exactly once (same pattern as email_verified_at above).
+  if (ensureColumn('users', 'pro_welcome_seen_at', 'TEXT')) {
+    db.prepare(
+      `UPDATE users SET pro_welcome_seen_at = ? WHERE stripe_subscription_id IS NOT NULL`,
+    ).run(new Date().toISOString());
+  }
+
   // Idempotency latch for the ~48h-before-trial-end reminder nudge sent by
   // scripts/send-trial-reminders.mts. NULL = eligible, set to the ISO
   // timestamp of the send once delivered. Cleared back to NULL the next

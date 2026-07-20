@@ -190,7 +190,13 @@ export default function AccountApiKeys() {
   }, [revealed]);
 
   return (
-    <section style={{ marginTop: 24 }}>
+    // id="api-access" is the deep-link target for the Pro welcome modal's CTA
+    // (/account#api-access). scroll-margin clears the sticky app nav so the
+    // section header isn't hidden under it after the hash jump.
+    <section
+      id="api-access"
+      style={{ marginTop: 24, scrollMarginTop: 'calc(var(--zgx-nav-height, 0px) + 16px)' }}
+    >
       <h2
         style={{
           margin: 0,

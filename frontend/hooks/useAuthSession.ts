@@ -24,6 +24,10 @@ type SessionUser = {
   disclaimerVersionAcknowledged?: string | null;
   foundingEligible?: boolean;
   foundingLockinDismissedAt?: string | null;
+  // ISO timestamp the one-time "Welcome to Pro" onboarding modal was seen/
+  // dismissed. NULL/absent = never shown, so a freshly-subscribed Pro member is
+  // greeted once on their first landing back from Stripe checkout.
+  proWelcomeSeenAt?: string | null;
 };
 
 type SessionResponse = {
