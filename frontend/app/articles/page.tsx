@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { ArrowRight, Newspaper } from 'lucide-react';
+import ItemListJsonLd from '@/components/ItemListJsonLd';
 
 export const metadata = {
   title:
@@ -248,6 +249,11 @@ const ARTICLES: Article[] = [
 export default function ArticlesPage() {
   return (
     <div className="mx-auto max-w-4xl px-6 py-14">
+      {/* CollectionPage ItemList — mirrors the visible article list below. */}
+      <ItemListJsonLd
+        items={ARTICLES.map((a) => ({ href: a.href, name: a.title }))}
+        id="/articles#articles"
+      />
       <div className="zg-feature-shell mb-10 p-8">
         <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">
           <Newspaper size={14} />
