@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { Check, Lock, Plus, Search, X } from 'lucide-react';
 
 import {
-  CATEGORY_META,
   CATEGORY_ORDER,
   WIDGETS,
   type WidgetCategory,
@@ -14,6 +13,7 @@ import {
 import { WIDGET_SIZE_LABEL } from '@/core/myDashboardLayout';
 import { usePageT } from '@/core/LanguageContext';
 import { dict } from './AddWidgetGallery.i18n';
+import { dict as widgetsDict } from './widgets.i18n';
 
 export default function AddWidgetGallery({
   open,
@@ -29,6 +29,7 @@ export default function AddWidgetGallery({
   onToggle: (widget: WidgetDef) => void;
 }) {
   const t = usePageT(dict);
+  const tw = usePageT(widgetsDict);
   const [query, setQuery] = useState('');
   const [activeCat, setActiveCat] = useState<WidgetCategory | 'all'>('all');
 
@@ -38,12 +39,12 @@ export default function AddWidgetGallery({
       if (activeCat !== 'all' && w.category !== activeCat) return false;
       if (!q) return true;
       return (
-        w.title.toLowerCase().includes(q) ||
-        w.blurb.toLowerCase().includes(q) ||
-        CATEGORY_META[w.category].label.toLowerCase().includes(q)
+        tw('w.' + w.id + '.title').toLowerCase().includes(q) ||
+        tw('w.' + w.id + '.blurb').toLowerCase().includes(q) ||
+        tw('cat.' + w.category + '.label').toLowerCase().includes(q)
       );
     });
-  }, [query, activeCat]);
+  }, [query, activeCat, tw]);
 
   const grouped = useMemo(() => {
     const map = new Map<WidgetCategory, WidgetDef[]>();
@@ -127,7 +128,7 @@ export default function AddWidgetGallery({
           </CatChip>
           {CATEGORY_ORDER.map((c) => (
             <CatChip key={c} active={activeCat === c} onClick={() => setActiveCat(c)}>
-              {CATEGORY_META[c].label}
+              {tw('cat.' + c + '.label')}
             </CatChip>
           ))}
         </div>
@@ -141,7 +142,7 @@ export default function AddWidgetGallery({
           )}
           {grouped.map(({ category, widgets }) => (
             <section key={category} className="mb-5">
-              <h3 className="zg-label mb-2 mt-1">{CATEGORY_META[category].label}</h3>
+              <h3 className="zg-label mb-2 mt-1">{tw('cat.' + category + '.label')}</h3>
               <div className="flex flex-col gap-2">
                 {widgets.map((w) => (
                   <GalleryItem
@@ -200,6 +201,7 @@ function GalleryItem({
   onToggle: () => void;
 }) {
   const t = usePageT(dict);
+  const tw = usePageT(widgetsDict);
   const Icon = widget.icon;
   const sizeHint = WIDGET_SIZE_LABEL[widget.defaultSize];
 
@@ -220,7 +222,7 @@ function GalleryItem({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="truncate text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-            {widget.title}
+            {tw('w.' + widget.id + '.title')}
           </span>
           {widget.tier === 'pro' && (
             <span
@@ -232,7 +234,7 @@ function GalleryItem({
           )}
         </div>
         <p className="truncate text-xs" style={{ color: 'var(--text-muted)' }}>
-          {widget.blurb}
+          {tw('w.' + widget.id + '.blurb')}
         </p>
         <p className="mt-0.5 text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
           {sizeHint}

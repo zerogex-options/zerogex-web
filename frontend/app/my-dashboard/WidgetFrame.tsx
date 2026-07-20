@@ -18,6 +18,7 @@ import { WIDGET_SIZE_LABEL } from '@/core/myDashboardLayout';
 import type { WidgetDef } from './registry';
 import { usePageT } from '@/core/LanguageContext';
 import { dict } from './WidgetFrame.i18n';
+import { dict as widgetsDict } from './widgets.i18n';
 
 const SIZE_SHORT: Record<WidgetSize, string> = { sm: 'S', md: 'M', lg: 'L', xl: 'XL' };
 
@@ -74,6 +75,7 @@ class WidgetErrorBoundary extends Component<
 // data-fetching component, so no gated endpoint is ever called.
 function UpgradeCard({ widget }: { widget: WidgetDef }) {
   const t = usePageT(dict);
+  const tw = usePageT(widgetsDict);
   const Icon = widget.icon;
   return (
     <div className="zg-panel relative flex h-full min-h-[160px] flex-col justify-between overflow-hidden p-5">
@@ -88,7 +90,7 @@ function UpgradeCard({ widget }: { widget: WidgetDef }) {
         <div className="flex items-center gap-2">
           <Icon size={16} style={{ color: 'var(--text-muted)' }} />
           <h3 className="zg-eyebrow" style={{ color: 'var(--text-secondary)' }}>
-            {widget.title}
+            {tw('w.' + widget.id + '.title')}
           </h3>
         </div>
         <span
@@ -100,7 +102,7 @@ function UpgradeCard({ widget }: { widget: WidgetDef }) {
       </div>
       <div className="relative mt-3">
         <p className="zg-small mb-3" style={{ color: 'var(--text-secondary)' }}>
-          {widget.blurb}
+          {tw('w.' + widget.id + '.blurb')}
         </p>
         <Link href="/pricing" className="zg-btn zg-btn--primary" style={{ padding: '8px 14px' }}>
           {t('upgradeToPro')}
@@ -142,6 +144,7 @@ export default function WidgetFrame({
   canMoveNext,
 }: WidgetFrameProps) {
   const t = usePageT(dict);
+  const tw = usePageT(widgetsDict);
   const cycleSize = () => {
     const sizes = widget.allowedSizes.length ? widget.allowedSizes : [size];
     const idx = sizes.indexOf(size);
@@ -213,7 +216,7 @@ export default function WidgetFrame({
             </button>
           )}
           <FrameIconButton
-            label={t('removeWidget', { title: widget.title })}
+            label={t('removeWidget', { title: tw('w.' + widget.id + '.title') })}
             onClick={onRemove}
             danger
           >
