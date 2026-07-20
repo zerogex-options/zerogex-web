@@ -12,6 +12,8 @@ import { normalizeTier } from '@/core/auth';
 import { capture } from '@/core/telemetry/posthog-client';
 import { TelemetryEvent } from '@/core/telemetry/events';
 import { readUtmParams } from '@/core/telemetry/utm';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './LandingClient.i18n';
 import {
   TrendingUp,
   TrendingDown,
@@ -216,6 +218,7 @@ function SectionHeading({ eyebrow, title, sub }: { eyebrow: string; title: strin
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function LandingPage() {
   const { theme } = useTheme();
+  const t = usePageT(dict);
 
   const isDark = theme === 'dark';
   const bg     = 'transparent';
@@ -342,7 +345,7 @@ export default function LandingPage() {
                 animation: 'pulse 2s infinite',
               }}
             />
-            For SPY · SPX · QQQ day traders
+            {t('heroBadge')}
           </div>
 
           {/* Headline — pain-first hook */}
@@ -350,9 +353,9 @@ export default function LandingPage() {
             className="zg-display"
             style={{ margin: '0 0 18px', color: text }}
           >
-            Stop trading{' '}
+            {t('heroHeadline')}{' '}
             <span style={{ color: 'var(--color-accent-hot)' }}>
-              SPY blind.
+              {t('heroHeadlineHighlight')}
             </span>
           </h1>
 
@@ -365,7 +368,7 @@ export default function LandingPage() {
               maxWidth: 760,
             }}
           >
-            Know the levels that matter — before SPY/SPX/QQQ get there.
+            {t('heroTagline')}
           </p>
 
           {/* Sub-headline body */}
@@ -373,7 +376,7 @@ export default function LandingPage() {
             className="zg-lead"
             style={{ color: subtext, maxWidth: 680, margin: '0 auto 40px' }}
           >
-            ZeroGEX shows live call walls, put walls, the gamma flip, and dealer positioning — so you can see where price is likely to react, instead of guessing.
+            {t('heroSub')}
           </p>
 
           {/* CTAs (requirement #7): primary = trial for cold visitors (dashboard
@@ -389,12 +392,12 @@ export default function LandingPage() {
               }
             >
               <button className="zg-btn zg-btn--primary" style={{ fontSize: 15, padding: '13px 22px' }}>
-                {canLaunchApp ? 'View Live Dashboard' : 'Start 7-Day Free Trial'} <ArrowRight size={18} />
+                {canLaunchApp ? t('ctaViewDashboard') : t('ctaStartTrial')} <ArrowRight size={18} />
               </button>
             </Link>
             <Link href="/spx-gamma-levels" style={{ textDecoration: 'none' }}>
               <button className="zg-btn zg-btn--secondary" style={{ fontSize: 15, padding: '13px 22px' }}>
-                View Free Levels <ArrowRight size={16} />
+                {t('ctaViewFreeLevels')} <ArrowRight size={16} />
               </button>
             </Link>
           </div>
@@ -466,9 +469,9 @@ export default function LandingPage() {
         }}
       >
         <SectionHeading
-          eyebrow="What traders use ZeroGEX for"
-          title="Plan trades around live positioning, not guesswork."
-          sub="The dealer book sets the structural pressure that drives where price reacts. ZeroGEX surfaces it in six ways you can act on."
+          eyebrow={t('useCasesEyebrow')}
+          title={t('useCasesTitle')}
+          sub={t('useCasesSub')}
         />
 
         <div
@@ -481,38 +484,38 @@ export default function LandingPage() {
           {[
             {
               icon: Target,
-              title: 'Identify likely support and resistance',
-              body: 'Use put walls and call walls as structural zones — not psychological levels — so you know where flow concentration is most likely to absorb or reject price.',
+              title: t('useCase1Title'),
+              body: t('useCase1Body'),
               color: C.amber,
             },
             {
               icon: BarChart2,
-              title: 'Spot pinning and compression',
-              body: 'See when price is being magneted toward a heavy gamma strike and the range is structurally compressed. Fade extremes, skip the middle.',
+              title: t('useCase2Title'),
+              body: t('useCase2Body'),
               color: C.green,
             },
             {
               icon: Activity,
-              title: 'Track gamma flip regime changes',
-              body: 'The flip is the line between dealer-dampening and dealer-amplifying regimes. Watch live distance from spot — when spot crosses it, the playbook flips with it.',
+              title: t('useCase3Title'),
+              body: t('useCase3Body'),
               color: C.amber,
             },
             {
               icon: Shield,
-              title: 'Avoid chasing into major walls',
-              body: 'When price runs toward a heavy call wall in a long-gamma regime, the dealer reflex is to fade. Knowing the wall is there keeps you from buying the top.',
+              title: t('useCase4Title'),
+              body: t('useCase4Body'),
               color: C.red,
             },
             {
               icon: Layers,
-              title: 'Know when dips get absorbed vs. extended',
-              body: 'Above the flip, dealer hedging tends to absorb weakness. Below the flip, the same weakness gets amplified. Same dip, opposite outcome depending on regime.',
+              title: t('useCase5Title'),
+              body: t('useCase5Body'),
               color: C.green,
             },
             {
               icon: Zap,
-              title: 'Plan around real-time positioning',
-              body: 'Levels migrate intraday as positioning rebalances. ZeroGEX shows the current structural map, not yesterday’s — so your plan stays calibrated to today’s book.',
+              title: t('useCase6Title'),
+              body: t('useCase6Body'),
               color: C.amber,
             },
           ].map((item) => (
@@ -540,12 +543,12 @@ export default function LandingPage() {
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 36, gap: 12, flexWrap: 'wrap' }}>
           <Link href="/spx-gamma-levels" style={{ textDecoration: 'none' }}>
             <button className="zg-btn zg-btn--primary" style={{ fontSize: 15, padding: '13px 24px' }}>
-              See today&apos;s free gamma levels <ArrowRight size={16} />
+              {t('ctaSeeFreeLevels')} <ArrowRight size={16} />
             </button>
           </Link>
           <Link href="/trading-mistakes" style={{ textDecoration: 'none' }}>
             <button className="zg-btn zg-btn--secondary" style={{ fontSize: 15, padding: '13px 24px' }}>
-              5 mistakes ZeroGEX helps you avoid <ArrowRight size={16} />
+              {t('ctaTradingMistakes')} <ArrowRight size={16} />
             </button>
           </Link>
         </div>
@@ -565,10 +568,10 @@ export default function LandingPage() {
             gap: 20,
           }}
         >
-          <StatCard isDark={isDark} label="Analytics Modules" value={<AnimatedNumber target={8} suffix="+" />} sub="Gamma, Flow, Signals & more" />
-          <StatCard isDark={isDark} label="Data Refresh Rate" value={<AnimatedNumber target={1} suffix="s" />} sub="Real-time market updates" />
-          <StatCard isDark={isDark} label="Options Greeks" value={<AnimatedNumber target={4} />} sub="Delta, Gamma, Theta, Vega per contract" />
-          <StatCard isDark={isDark} label="Supported Symbols" value={<AnimatedNumber target={3} suffix="+" />} sub="SPY, SPX, QQQ" />
+          <StatCard isDark={isDark} label={t('statAnalyticsModules')} value={<AnimatedNumber target={8} suffix="+" />} sub={t('statAnalyticsModulesSub')} />
+          <StatCard isDark={isDark} label={t('statDataRefresh')} value={<AnimatedNumber target={1} suffix="s" />} sub={t('statDataRefreshSub')} />
+          <StatCard isDark={isDark} label={t('statOptionsGreeks')} value={<AnimatedNumber target={4} />} sub={t('statOptionsGreeksSub')} />
+          <StatCard isDark={isDark} label={t('statSupportedSymbols')} value={<AnimatedNumber target={3} suffix="+" />} sub={t('statSupportedSymbolsSub')} />
         </div>
       </section>
 
@@ -591,20 +594,17 @@ export default function LandingPage() {
               className="zg-eyebrow"
               style={{ display: 'inline-block', color: C.green, marginBottom: 20 }}
             >
-              What is ZeroGEX?
+              {t('whatIsEyebrow')}
             </div>
             <h2 className="zg-h1" style={{ color: text, margin: '0 0 20px' }}>
-              Gamma Exposure,{' '}
-              <span style={{ color: C.amber }}>Decoded</span>
+              {t('whatIsTitle')}{' '}
+              <span style={{ color: C.amber }}>{t('whatIsTitleHighlight')}</span>
             </h2>
             <p className="zg-body" style={{ color: subtext, margin: '0 0 20px' }}>
-              <strong style={{ color: text }}>Gamma Exposure (GEX)</strong> is the hidden force that drives
-              intraday market dynamics. When dealers sell options, they must hedge by trading the underlying —
-              creating predictable price gravity and invisible walls at key levels.
+              <strong style={{ color: text }}>{t('whatIsBody1Strong')}</strong> {t('whatIsBody1Rest')}
             </p>
             <p className="zg-body" style={{ color: subtext, margin: '0 0 28px' }}>
-              ZeroGEX surfaces these forces in real-time so you can anticipate institutional hedging flows,
-              identify gamma flip levels, and time your entries with precision.
+              {t('whatIsBody2')}
             </p>
             <Link
               href={exploreDashboardHref}
@@ -616,7 +616,7 @@ export default function LandingPage() {
               style={{ textDecoration: 'none' }}
             >
               <button className="zg-btn zg-btn--secondary" style={{ fontSize: 14, padding: '12px 24px' }}>
-                Explore GEX Dashboard <ArrowRight size={15} />
+                {t('ctaExploreDashboard')} <ArrowRight size={15} />
               </button>
             </Link>
           </div>
@@ -624,11 +624,11 @@ export default function LandingPage() {
           {/* Visual explanation */}
           <div className="zg-panel" style={{ padding: 28 }}>
             {[
-              { label: 'Gamma Flip Level', desc: 'Price where dealer hedging reverses direction', color: C.amber, icon: Target },
-              { label: 'Call Wall',        desc: 'Resistance level from heavy call open interest', color: C.green, icon: TrendingUp },
-              { label: 'Put Wall',         desc: 'Support level from heavy put open interest',    color: C.red,   icon: TrendingDown },
-              { label: 'Net GEX',          desc: 'Dealer gamma at spot — long (pinning) vs short (amplifying)', color: C.amber, icon: BarChart2 },
-              { label: 'Max Pain',         desc: 'Expiry price where option sellers profit most',  color: C.muted, icon: Target },
+              { label: t('glossaryGammaFlipLabel'), desc: t('glossaryGammaFlipDesc'), color: C.amber, icon: Target },
+              { label: t('glossaryCallWallLabel'),  desc: t('glossaryCallWallDesc'),  color: C.green, icon: TrendingUp },
+              { label: t('glossaryPutWallLabel'),   desc: t('glossaryPutWallDesc'),   color: C.red,   icon: TrendingDown },
+              { label: t('glossaryNetGexLabel'),    desc: t('glossaryNetGexDesc'),    color: C.amber, icon: BarChart2 },
+              { label: t('glossaryMaxPainLabel'),   desc: t('glossaryMaxPainDesc'),   color: C.muted, icon: Target },
             ].map((item) => (
               <div
                 key={item.label}
@@ -658,9 +658,9 @@ export default function LandingPage() {
       >
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
           <SectionHeading
-            eyebrow="Platform Features"
-            title="Everything You Need to Trade Smarter"
-            sub="Professional analytics tools built for serious options traders — all in one unified platform."
+            eyebrow={t('featuresEyebrow')}
+            title={t('featuresTitle')}
+            sub={t('featuresSub')}
           />
 
           <div
@@ -672,38 +672,38 @@ export default function LandingPage() {
           >
             <FeatureCard isDark={isDark}
               icon={Activity}
-              title="Real-Time GEX Analysis"
-              description="Monitor live gamma exposure by strike across all expirations. See exactly where dealer hedging pressure accumulates and where price is most likely to pin or repel."
+              title={t('feature1Title')}
+              description={t('feature1Desc')}
               color={C.amber}
             />
             <FeatureCard isDark={isDark}
               icon={BarChart2}
-              title="Options Flow Tracking"
-              description="Track smart money in real-time. Filter unusual options activity by expiration, strike, or premium size to spot institutional positioning before price moves."
+              title={t('feature2Title')}
+              description={t('feature2Desc')}
               color={C.green}
             />
             <FeatureCard isDark={isDark}
               icon={Zap}
-              title="Intraday Trading Tools"
-              description="VWAP deviation signals, Opening Range Breakout levels, volume spike detection, and momentum divergence — the tactical edge for day traders."
+              title={t('feature3Title')}
+              description={t('feature3Desc')}
               color={C.amber}
             />
             <FeatureCard isDark={isDark}
               icon={Target}
-              title="Trading Signals"
-              description="Composite signals synthesized from GEX, flow, and technical factors across intraday, swing, and multi-day timeframes with backtested accuracy metrics."
+              title={t('feature4Title')}
+              description={t('feature4Desc')}
               color={C.green}
             />
             <FeatureCard isDark={isDark}
               icon={Eye}
-              title="Max Pain Analysis"
-              description="Know exactly where options market makers want price to settle at each expiration. Max pain levels act as magnetic targets for 0DTE and weekly option expiries."
+              title={t('feature5Title')}
+              description={t('feature5Desc')}
               color={C.red}
             />
             <FeatureCard isDark={isDark}
               icon={Calculator}
-              title="Options Calculator"
-              description="Model any options position in seconds. Project intrinsic P&L across a fan of underlying moves, with live entry pricing from the chain and exact break-even output."
+              title={t('feature6Title')}
+              description={t('feature6Desc')}
               color={C.muted}
             />
           </div>
@@ -713,9 +713,9 @@ export default function LandingPage() {
       {/* ── Why ZeroGEX ──────────────────────────────────────────────────────── */}
       <section style={{ padding: '80px 32px', maxWidth: 1200, margin: '0 auto' }}>
         <SectionHeading
-          eyebrow="Why ZeroGEX"
-          title="The Edge That Institutions Keep Secret"
-          sub="Retail traders have historically been at a disadvantage. ZeroGEX levels the playing field."
+          eyebrow={t('whyEyebrow')}
+          title={t('whyTitle')}
+          sub={t('whySub')}
         />
 
         <div
@@ -728,26 +728,26 @@ export default function LandingPage() {
           {[
             {
               icon: Shield,
-              title: 'Institutional Intelligence',
-              body: 'The same gamma exposure data tracked by major banks and market makers — delivered to your screen in real-time, without the six-figure Bloomberg subscription.',
+              title: t('why1Title'),
+              body: t('why1Body'),
               color: C.amber,
             },
             {
               icon: Clock,
-              title: '1-Second Data Refresh',
-              body: 'Options markets move fast. Our platform refreshes key metrics every second so you\'re always working with the most current picture of dealer positioning.',
+              title: t('why2Title'),
+              body: t('why2Body'),
               color: C.green,
             },
             {
               icon: Layers,
-              title: 'Multi-Symbol Coverage',
-              body: 'SPY, SPX, and QQQ covered with full GEX analytics, flow tracking, and signal generation — the most liquid and most gamma-rich underlyings in the market.',
+              title: t('why3Title'),
+              body: t('why3Body'),
               color: C.amber,
             },
             {
               icon: BarChart,
-              title: 'Unified Analytics Suite',
-              body: 'Eight specialized modules all speaking the same language. No more juggling tabs between platforms — gamma, flow, signals, Greeks, and charts live in one place.',
+              title: t('why4Title'),
+              body: t('why4Body'),
               color: C.green,
             },
           ].map((item) => (
@@ -773,9 +773,9 @@ export default function LandingPage() {
       >
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
           <SectionHeading
-            eyebrow="The Full Suite"
-            title="Eight Modules. One Platform."
-            sub="Each tool is purpose-built for a specific edge in the options market."
+            eyebrow={t('suiteEyebrow')}
+            title={t('suiteTitle')}
+            sub={t('suiteSub')}
           />
 
           <div
@@ -785,14 +785,14 @@ export default function LandingPage() {
               gap: 12,
             }}
           >
-            <ToolPill isDark={isDark} href="/dashboard"            icon={BarChart2}    label="Dashboard — Market Overview"         color={C.amber} />
-            <ToolPill isDark={isDark} href="/trading-signals"      icon={Zap}          label="Trading Signals — Buy/Sell Signals"  color={C.green} />
-            <ToolPill isDark={isDark} href="/flow-analysis"        icon={Activity}     label="Flow Analysis — Smart Money Tracker" color={C.amber} />
-            <ToolPill isDark={isDark} href="/gamma-exposure"       icon={BarChart}     label="Dealer Positioning — GEX Heatmap"    color={C.green} />
-            <ToolPill isDark={isDark} href="/intraday-tools"       icon={Target}       label="Intraday Tools — VWAP / ORB"         color={C.amber} />
-            <ToolPill isDark={isDark} href="/max-pain"             icon={Eye}          label="Max Pain — Expiry Magnets"           color={C.red}   />
-            <ToolPill isDark={isDark} href="/options-calculator"   icon={Calculator}   label="Options Calculator — P&L & Break-Even"  color={C.amber} />
-            <ToolPill isDark={isDark} href="/greeks-gex"           icon={Layers}       label="GEX Summary — Headline Levels"       color={C.green} />
+            <ToolPill isDark={isDark} href="/dashboard"            icon={BarChart2}    label={t('toolDashboard')}   color={C.amber} />
+            <ToolPill isDark={isDark} href="/trading-signals"      icon={Zap}          label={t('toolSignals')}     color={C.green} />
+            <ToolPill isDark={isDark} href="/flow-analysis"        icon={Activity}     label={t('toolFlow')}        color={C.amber} />
+            <ToolPill isDark={isDark} href="/gamma-exposure"       icon={BarChart}     label={t('toolGex')}         color={C.green} />
+            <ToolPill isDark={isDark} href="/intraday-tools"       icon={Target}       label={t('toolIntraday')}    color={C.amber} />
+            <ToolPill isDark={isDark} href="/max-pain"             icon={Eye}          label={t('toolMaxPain')}     color={C.red}   />
+            <ToolPill isDark={isDark} href="/options-calculator"   icon={Calculator}   label={t('toolCalculator')}  color={C.amber} />
+            <ToolPill isDark={isDark} href="/greeks-gex"           icon={Layers}       label={t('toolGreeks')}      color={C.green} />
           </div>
         </div>
       </section>
@@ -812,15 +812,15 @@ export default function LandingPage() {
         >
           <div>
             <div className="zg-eyebrow" style={{ color: C.amber, marginBottom: 8 }}>
-              Education Hub
+              {t('eduEyebrow')}
             </div>
             <div className="zg-h2" style={{ color: C.light }}>
-              Read the methodology, then read the tape.
+              {t('eduTitle')}
             </div>
           </div>
           <Link href="/articles" style={{ textDecoration: 'none' }}>
             <button className="zg-btn zg-btn--secondary" style={{ fontSize: 13, padding: '10px 16px' }}>
-              See all articles <ArrowRight size={14} />
+              {t('ctaSeeAllArticles')} <ArrowRight size={14} />
             </button>
           </Link>
         </div>
@@ -835,21 +835,21 @@ export default function LandingPage() {
           {[
             {
               href: '/education/gamma-exposure-explained',
-              eyebrow: 'Pillar Guide',
-              title: 'Gamma Exposure (GEX) Explained',
-              body: 'The complete guide — what GEX is, how dealer gamma is calculated, and how the flip and walls structure the intraday tape.',
+              eyebrow: t('edu1Eyebrow'),
+              title: t('edu1Title'),
+              body: t('edu1Body'),
             },
             {
               href: '/real-time-gex-0dte',
-              eyebrow: 'For 0DTE Traders',
-              title: 'Real-Time GEX for 0DTE',
-              body: 'Live gamma flip, call and put walls, dealer positioning, and composite signals — built for SPX/0DTE intraday flow.',
+              eyebrow: t('edu2Eyebrow'),
+              title: t('edu2Title'),
+              body: t('edu2Body'),
             },
             {
               href: '/education/best-gex-tools',
-              eyebrow: 'Comparison',
-              title: 'Best GEX Tools, Fairly Compared',
-              body: 'Real-time vs delayed, 0DTE coverage, methodology, signals, and price — the criteria that matter when picking a GEX tool.',
+              eyebrow: t('edu3Eyebrow'),
+              title: t('edu3Title'),
+              body: t('edu3Body'),
             },
           ].map((item) => (
             <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
@@ -875,7 +875,7 @@ export default function LandingPage() {
                   {item.body}
                 </div>
                 <div className="zg-small" style={{ marginTop: 6, fontWeight: 700, color: C.amber, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  Read <ArrowRight size={14} />
+                  {t('ctaRead')} <ArrowRight size={14} />
                 </div>
               </div>
             </Link>
@@ -895,15 +895,15 @@ export default function LandingPage() {
         {/* Glow */}
         <div style={{ position: 'relative', zIndex: 1 }}>
           <h2 className="zg-h1" style={{ color: text, margin: '0 0 16px' }}>
-            Ready to See What the{' '}
+            {t('finalCtaTitle')}{' '}
             <span style={{ color: 'var(--color-accent-hot)' }}>
-              Market Makers See?
+              {t('finalCtaTitleHighlight')}
             </span>
           </h2>
           <p className="zg-lead" style={{ color: subtext, margin: '0 auto 40px', maxWidth: 520 }}>
             {canLaunchApp
-              ? 'Launch the ZeroGEX dashboard now and start trading with institutional gamma intelligence.'
-              : 'Start your 7-day free trial and trade with institutional gamma intelligence — live SPY, SPX, and QQQ.'}
+              ? t('finalCtaSubAuthed')
+              : t('finalCtaSubTrial')}
           </p>
           <Link
             href={exploreDashboardHref}
@@ -915,12 +915,12 @@ export default function LandingPage() {
             style={{ textDecoration: 'none' }}
           >
             <button className="zg-btn zg-btn--primary" style={{ fontSize: 17, padding: '16px 40px' }}>
-              {canLaunchApp ? 'Launch ZeroGEX Dashboard' : 'Start 7-Day Free Trial'} <ArrowRight size={20} />
+              {canLaunchApp ? t('ctaLaunchDashboard') : t('ctaStartTrial')} <ArrowRight size={20} />
             </button>
           </Link>
           {!canLaunchApp && (
             <p className="zg-small" style={{ color: subtext, margin: '16px 0 0', fontWeight: 600 }}>
-              7-day free trial. No charge until day 7. Cancel anytime.
+              {t('finalCtaTrialNote')}
             </p>
           )}
         </div>

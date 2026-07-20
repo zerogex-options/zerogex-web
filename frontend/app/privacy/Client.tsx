@@ -3,7 +3,9 @@
 import Footer from '@/components/Footer';
 import LandingHeader from '@/components/LandingHeader';
 import { useTheme } from '@/core/ThemeContext';
+import { usePageT } from '@/core/LanguageContext';
 import { ShieldCheck } from 'lucide-react';
+import { dict } from './Client.i18n';
 
 const C = {
   card: 'var(--color-surface)',
@@ -37,6 +39,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export default function PrivacyPage() {
   const { theme } = useTheme();
+  const t = usePageT(dict);
 
   return (
     <div
@@ -80,7 +83,7 @@ export default function PrivacyPage() {
                 textTransform: 'uppercase',
               }}
             >
-              <ShieldCheck size={14} /> Privacy
+              <ShieldCheck size={14} /> {t('badgeLabel')}
             </div>
             <h1
               style={{
@@ -90,226 +93,147 @@ export default function PrivacyPage() {
                 letterSpacing: '-1.2px',
               }}
             >
-              Privacy Policy
+              {t('pageTitle')}
             </h1>
             <p style={{ margin: 0, color: C.muted, fontSize: 14 }}>
-              Effective date: {EFFECTIVE_DATE}
+              {t('effectiveDate', { date: EFFECTIVE_DATE })}
             </p>
           </div>
 
-          <Section title="1. Introduction">
-            <p>
-              This Privacy Policy describes how ZeroGEX (&ldquo;ZeroGEX,&rdquo; &ldquo;we,&rdquo; or
-              &ldquo;us&rdquo;) collects, uses, and shares information about you when you use the website at
-              zerogex.io and related products and services (collectively, the &ldquo;Services&rdquo;). By using
-              the Services, you agree to this Privacy Policy.
-            </p>
+          <Section title={t('s1Title')}>
+            <p>{t('s1Body')}</p>
           </Section>
 
-          <Section title="2. Information We Collect">
-            <p>We collect the following categories of information:</p>
+          <Section title={t('s2Title')}>
+            <p>{t('s2Intro')}</p>
             <ul style={{ paddingLeft: 22, marginTop: 8 }}>
               <li>
-                <strong>Account information.</strong> Email address, password (stored as a salted hash), and, if
-                you sign in with Google or Apple, the unique provider identifier and email returned by that
-                provider.
+                <strong>{t('s2Item1Label')}</strong> {t('s2Item1Text')}
               </li>
               <li>
-                <strong>Subscription and payment information.</strong> Subscription tier, status, current
-                billing period, and Stripe customer/subscription identifiers. Payment instruments (card numbers,
-                expirations, billing addresses) are collected and processed by Stripe; we do not receive or
-                store full card data.
+                <strong>{t('s2Item2Label')}</strong> {t('s2Item2Text')}
               </li>
               <li>
-                <strong>Usage and device information.</strong> IP address, request timestamps, pages visited,
-                and basic browser/device metadata, used for security, abuse prevention, and product analytics.
+                <strong>{t('s2Item3Label')}</strong> {t('s2Item3Text')}
               </li>
               <li>
-                <strong>Audit events.</strong> Limited records of authentication and account-management actions
-                (logins, role changes, subscription changes) for security and compliance.
+                <strong>{t('s2Item4Label')}</strong> {t('s2Item4Text')}
               </li>
             </ul>
           </Section>
 
-          <Section title="3. How We Use Information">
+          <Section title={t('s3Title')}>
             <ul style={{ paddingLeft: 22 }}>
-              <li>Provide, maintain, and improve the Services.</li>
-              <li>Authenticate users and prevent fraud or abuse.</li>
-              <li>Process subscriptions and payments via Stripe.</li>
-              <li>Enforce tier-based access to features.</li>
-              <li>Communicate with you about your account, billing, and material changes to the Services.</li>
-              <li>Comply with legal obligations and respond to lawful requests.</li>
+              <li>{t('s3Item1')}</li>
+              <li>{t('s3Item2')}</li>
+              <li>{t('s3Item3')}</li>
+              <li>{t('s3Item4')}</li>
+              <li>{t('s3Item5')}</li>
+              <li>{t('s3Item6')}</li>
             </ul>
           </Section>
 
-          <Section title="4. Third-Party Service Providers">
-            <p>
-              We share information with third parties that help us operate the Services. The principal
-              providers are:
-            </p>
+          <Section title={t('s4Title')}>
+            <p>{t('s4Intro')}</p>
             <ul style={{ paddingLeft: 22, marginTop: 8 }}>
               <li>
-                <strong>Stripe</strong> — payment processing, billing portal, and subscription management.
-                Stripe&rsquo;s privacy practices are described at{' '}
+                <strong>{t('s4Item1Label')}</strong> {t('s4Item1TextPrefix')}{' '}
                 <a href="https://stripe.com/privacy" target="_blank" rel="noreferrer" style={{ color: C.amber }}>
                   stripe.com/privacy
                 </a>
                 .
               </li>
               <li>
-                <strong>Cloud infrastructure providers</strong> — hosting, storage, and content delivery for the
-                Services.
+                <strong>{t('s4Item2Label')}</strong> {t('s4Item2Text')}
               </li>
               <li>
-                <strong>Identity providers</strong> — Google and Apple, when you choose to sign in with those
-                services.
+                <strong>{t('s4Item3Label')}</strong> {t('s4Item3Text')}
               </li>
             </ul>
-            <p style={{ marginTop: 12 }}>
-              We do not sell your personal information. We do not share personal information with third parties
-              for their own marketing purposes.
-            </p>
+            <p style={{ marginTop: 12 }}>{t('s4Closing')}</p>
           </Section>
 
-          <Section title="5. Cookies and Similar Technologies">
-            <p>
-              We use first-party cookies to keep you signed in (a session cookie) and to mitigate
-              cross-site-request-forgery attacks (a CSRF cookie). Stripe-hosted pages set their own cookies
-              under their domain, governed by Stripe&rsquo;s privacy policy. Most browsers allow you to refuse
-              or delete cookies; however, doing so may make parts of the Services unusable.
-            </p>
+          <Section title={t('s5Title')}>
+            <p>{t('s5Body')}</p>
           </Section>
 
-          <Section title="6. Data Retention">
-            <p>
-              We retain account, subscription, and audit information for as long as your account remains active
-              and for a reasonable period afterward to comply with legal, tax, or accounting obligations and to
-              resolve disputes. You may request deletion as described below.
-            </p>
+          <Section title={t('s6Title')}>
+            <p>{t('s6Body')}</p>
           </Section>
 
-          <Section title="7. Your Rights">
+          <Section title={t('s7Title')}>
             <p>
-              Depending on where you live, you may have the right to access, correct, delete, or export your
-              personal information, or to object to or restrict certain processing. To exercise any of these
-              rights, contact us at{' '}
+              {t('s7Prefix')}{' '}
               <a href={`mailto:${CONTACT_EMAIL}`} style={{ color: C.amber }}>
                 {CONTACT_EMAIL}
               </a>
-              . We may need to verify your identity before acting on a request. We will not discriminate against
-              you for exercising any of these rights.
+              {t('s7Suffix')}
             </p>
           </Section>
 
-          <Section title="8. Your U.S. State Privacy Rights (California and Other States)">
-            <p>
-              This section provides additional disclosures for residents of California under the California
-              Consumer Privacy Act, as amended by the California Privacy Rights Act (collectively,
-              &ldquo;CCPA&rdquo;), and for residents of other U.S. states with comprehensive privacy laws
-              (including Virginia, Colorado, Connecticut, and Utah). These laws may give you the rights
-              described below, subject to certain exceptions.
+          <Section title={t('s8Title')}>
+            <p>{t('s8Intro')}</p>
+            <p style={{ marginTop: 12 }}>
+              <strong>{t('s8CategoriesLabel')}</strong> {t('s8CategoriesText')}
             </p>
             <p style={{ marginTop: 12 }}>
-              <strong>Categories of personal information we collect.</strong> In the preceding twelve months,
-              we have collected the following categories of personal information, as described in Section 2:
-              identifiers (such as email address and account identifiers); commercial information (such as
-              subscription tier, status, and billing period); internet or other electronic network activity
-              information (such as IP address, request timestamps, and pages visited); and audit records of
-              account and authentication activity. We collect this information from you directly, from your
-              use of the Services, and from identity and payment providers such as Google, Apple, and Stripe.
-              We use it for the business purposes described in Section 3.
+              <strong>{t('s8NoSaleLabel')}</strong> {t('s8NoSaleText')}
             </p>
             <p style={{ marginTop: 12 }}>
-              <strong>No sale or sharing of personal information.</strong> We do not sell your personal
-              information and we do not share it for cross-context behavioral advertising or targeted
-              advertising, as those terms are defined under the CCPA and other state privacy laws. We have not
-              done so in the preceding twelve months, including with respect to information about consumers
-              under 16 years of age. We also do not use or disclose sensitive personal information for
-              purposes that would give rise to a right to limit its use.
-            </p>
-            <p style={{ marginTop: 12 }}>
-              <strong>Your rights.</strong> Depending on your state of residence, you may have the right to:
+              <strong>{t('s8RightsLabel')}</strong> {t('s8RightsIntro')}
             </p>
             <ul style={{ paddingLeft: 22, marginTop: 8 }}>
               <li>
-                <strong>Know and access</strong> the categories and specific pieces of personal information we
-                have collected about you, the sources, the purposes, and the categories of third parties to
-                whom it was disclosed.
+                <strong>{t('s8RightsItem1Label')}</strong> {t('s8RightsItem1Text')}
               </li>
               <li>
-                <strong>Delete</strong> personal information we have collected from you, subject to legal
-                exceptions.
+                <strong>{t('s8RightsItem2Label')}</strong> {t('s8RightsItem2Text')}
               </li>
               <li>
-                <strong>Correct</strong> inaccurate personal information we maintain about you.
+                <strong>{t('s8RightsItem3Label')}</strong> {t('s8RightsItem3Text')}
               </li>
               <li>
-                <strong>Opt out</strong> of the sale or sharing of personal information and of targeted
-                advertising and certain profiling (we do not engage in these activities).
+                <strong>{t('s8RightsItem4Label')}</strong> {t('s8RightsItem4Text')}
               </li>
               <li>
-                <strong>Limit the use</strong> of sensitive personal information (we do not use sensitive
-                personal information for purposes requiring this option).
+                <strong>{t('s8RightsItem5Label')}</strong> {t('s8RightsItem5Text')}
               </li>
               <li>
-                <strong>Non-discrimination</strong> for exercising your privacy rights, and, where applicable,
-                the right to <strong>appeal</strong> a denial of a request.
+                <strong>{t('s8RightsItem6Label')}</strong> {t('s8RightsItem6TextPrefix')}{' '}
+                <strong>{t('s8RightsItem6AppealLabel')}</strong> {t('s8RightsItem6TextSuffix')}
               </li>
             </ul>
             <p style={{ marginTop: 12 }}>
-              <strong>How to exercise your rights.</strong> You or an authorized agent acting on your behalf
-              may submit a request by emailing{' '}
+              <strong>{t('s8HowToLabel')}</strong> {t('s8HowToPrefix')}{' '}
               <a href={`mailto:${CONTACT_EMAIL}`} style={{ color: C.amber }}>
                 {CONTACT_EMAIL}
               </a>
-              . To protect your information, we will take reasonable steps to verify your identity before
-              responding, and we may request additional information for that purpose. We will respond within
-              the timeframes required by applicable law. If we deny your request, you may appeal by replying
-              to our response; if you have concerns about the outcome, you may contact your state attorney
-              general.
+              {t('s8HowToSuffix')}
             </p>
             <p style={{ marginTop: 12 }}>
-              <strong>California &ldquo;Shine the Light.&rdquo;</strong> California Civil Code Section 1798.83
-              permits California residents to request information about disclosures of personal information to
-              third parties for their direct marketing purposes. We do not share personal information with
-              third parties for their own direct marketing purposes.
+              <strong>{t('s8ShineLabel')}</strong> {t('s8ShineText')}
             </p>
           </Section>
 
-          <Section title="9. Security">
-            <p>
-              We use technical and organizational measures designed to protect your information, including
-              encryption in transit (TLS), salted password hashing, signed session tokens, and rate limiting on
-              authentication endpoints. No method of transmission or storage is perfectly secure, and we cannot
-              guarantee absolute security.
-            </p>
+          <Section title={t('s9Title')}>
+            <p>{t('s9Body')}</p>
           </Section>
 
-          <Section title="10. International Transfers">
-            <p>
-              The Services are operated from the United States. If you access them from outside the United
-              States, your information will be transferred to, processed in, and stored in the United States.
-            </p>
+          <Section title={t('s10Title')}>
+            <p>{t('s10Body')}</p>
           </Section>
 
-          <Section title="11. Children">
-            <p>
-              The Services are not directed to children under 18. We do not knowingly collect personal
-              information from children under 18. If you believe a child has provided us with personal
-              information, please contact us so we can delete it.
-            </p>
+          <Section title={t('s11Title')}>
+            <p>{t('s11Body')}</p>
           </Section>
 
-          <Section title="12. Changes to This Policy">
-            <p>
-              We may update this Privacy Policy from time to time. When we do, we will revise the effective date
-              above and, where appropriate, provide additional notice through the Services.
-            </p>
+          <Section title={t('s12Title')}>
+            <p>{t('s12Body')}</p>
           </Section>
 
-          <Section title="13. Contact">
+          <Section title={t('s13Title')}>
             <p>
-              Questions about this Privacy Policy can be sent to{' '}
+              {t('s13Prefix')}{' '}
               <a href={`mailto:${CONTACT_EMAIL}`} style={{ color: C.amber }}>
                 {CONTACT_EMAIL}
               </a>

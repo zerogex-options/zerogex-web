@@ -17,6 +17,8 @@ import { readUtmParams } from '@/core/telemetry/utm';
 import { trackTwitter } from '@/core/telemetry/twitter-client';
 import { TwitterEvent } from '@/core/telemetry/twitter-events';
 import { ArrowRight, CheckCircle2, Loader2, Sparkles } from 'lucide-react';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './Client.i18n';
 
 const C = {
   card: 'var(--color-surface)',
@@ -174,6 +176,7 @@ function PriceDisplay({
   tier: BillableTier;
   promoActive: boolean;
 }) {
+  const t = usePageT(dict);
   if (cadence === 'annual') {
     const { rack, perMonth, promo, promoPerMonth } = DISPLAY[tier].annual;
     if (promoActive) {
@@ -202,10 +205,10 @@ function PriceDisplay({
             >
               {formatMoney(promo)}
             </span>
-            <span style={{ fontSize: 14, color: C.muted, fontWeight: 700 }}>/year</span>
+            <span style={{ fontSize: 14, color: C.muted, fontWeight: 700 }}>{t('perYearSuffix')}</span>
           </div>
           <div style={{ marginTop: 6, fontSize: 13, color: C.muted, fontWeight: 600 }}>
-            ≈ {formatMoney(promoPerMonth)}/mo first year, then {formatMoney(rack)}/yr.
+            {t('annualPromoNote', { promoPerMonth: formatMoney(promoPerMonth), rack: formatMoney(rack) })}
           </div>
         </div>
       );
@@ -216,10 +219,10 @@ function PriceDisplay({
           <span style={{ fontSize: 36, fontWeight: 900, letterSpacing: '-1px', color: C.light }}>
             {formatMoney(rack)}
           </span>
-          <span style={{ fontSize: 14, color: C.muted, fontWeight: 600 }}>/year</span>
+          <span style={{ fontSize: 14, color: C.muted, fontWeight: 600 }}>{t('perYearSuffix')}</span>
         </div>
         <div style={{ marginTop: 4, fontSize: 13, color: C.muted }}>
-          ≈ {formatMoney(perMonth)}/mo, billed annually
+          {t('annualRegularNote', { perMonth: formatMoney(perMonth) })}
         </div>
       </div>
     );
@@ -253,10 +256,10 @@ function PriceDisplay({
           >
             {formatMoney(promo)}
           </span>
-          <span style={{ fontSize: 14, color: C.muted, fontWeight: 700 }}>/mo</span>
+          <span style={{ fontSize: 14, color: C.muted, fontWeight: 700 }}>{t('perMonthSuffix')}</span>
         </div>
         <div style={{ marginTop: 6, fontSize: 13, color: C.muted, fontWeight: 600 }}>
-          First 6 months at this rate, then {formatMoney(rack)}/mo.
+          {t('monthlyPromoNote', { rack: formatMoney(rack) })}
         </div>
       </div>
     );
@@ -266,7 +269,7 @@ function PriceDisplay({
       <span style={{ fontSize: 36, fontWeight: 900, letterSpacing: '-1px', color: C.light }}>
         {formatMoney(rack)}
       </span>
-      <span style={{ fontSize: 14, color: C.muted, fontWeight: 600 }}>/mo</span>
+      <span style={{ fontSize: 14, color: C.muted, fontWeight: 600 }}>{t('perMonthSuffix')}</span>
     </div>
   );
 }
@@ -322,6 +325,7 @@ function TierCard({
   onSubscribe: (tier: BillableTier) => void;
   onPortal: () => void;
 }) {
+  const t = usePageT(dict);
   return (
     <article
       className="zg-panel"
@@ -337,7 +341,7 @@ function TierCard({
         <h3 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: C.light }}>{title}</h3>
         {(highlighted || highlights.length > 0) && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-            {highlighted && <Badge accent={accent}>Your pick</Badge>}
+            {highlighted && <Badge accent={accent}>{t('yourPickBadge')}</Badge>}
             {highlights.map((h) => (
               <Badge key={h} accent={accent}>
                 {h}
@@ -351,7 +355,7 @@ function TierCard({
 
       {startsTrial && (
         <p style={{ margin: '8px 0 0', fontSize: 12, color: C.muted, lineHeight: 1.55 }}>
-          {TRIAL_DAYS}-day free trial — cancel anytime before it ends and you won&rsquo;t be charged.
+          {t('trialDaysNote', { days: TRIAL_DAYS })}
         </p>
       )}
 
@@ -376,7 +380,7 @@ function TierCard({
             padding: 1,
           }}
         />
-        Includes 3% donation to Folds of Honor
+        {t('foldsOfHonorLink')}
       </Link>
 
       <ul style={{ margin: '20px 0 0', padding: 0, listStyle: 'none', display: 'grid', gap: 12, flex: 1 }}>
@@ -391,7 +395,7 @@ function TierCard({
       <CtaButton action={action} busy={busy} tier={tier} onSubscribe={onSubscribe} onPortal={onPortal} />
       {startsTrial && (action.kind === 'subscribe' || action.kind === 'link') && (
         <p style={{ margin: '10px 0 0', fontSize: 12, color: C.muted, textAlign: 'center', fontWeight: 600 }}>
-          No charge today.
+          {t('noChargeToday')}
         </p>
       )}
     </article>
@@ -403,6 +407,7 @@ function TierCard({
 // CSS-animated (no JS), so they animate even before hydration. Keep the copy
 // short — the cards below carry the per-tier specifics.
 function LimitedTimeBanner({ deadlineLabel }: { deadlineLabel: string | null }) {
+  const t = usePageT(dict);
   return (
     <div
       role="status"
@@ -433,7 +438,7 @@ function LimitedTimeBanner({ deadlineLabel }: { deadlineLabel: string | null }) 
           opacity: 0.92,
         }}
       >
-        [ LIMITED-TIME OFFER ]
+        {t('limitedTimeOfferLabel')}
       </div>
       <div
         style={{
@@ -443,12 +448,12 @@ function LimitedTimeBanner({ deadlineLabel }: { deadlineLabel: string | null }) 
           lineHeight: 1.2,
         }}
       >
-        Save up to 51% — Basic from <span style={{ textDecoration: 'underline' }}>$19/mo</span>,
-        Pro from <span style={{ textDecoration: 'underline' }}>$29/mo</span>.
+        {t('limitedTimeSaveIntro')} <span style={{ textDecoration: 'underline' }}>$19/mo</span>,{' '}
+        {t('limitedTimeProFrom')} <span style={{ textDecoration: 'underline' }}>$29/mo</span>.
       </div>
       <div style={{ marginTop: 4, fontSize: 13, fontWeight: 700, opacity: 0.9 }}>
-        First 6 months on monthly · First year on annual ·{' '}
-        {deadlineLabel ? `Offer ends ${deadlineLabel}` : 'For a limited time'}
+        {t('limitedTimeCadenceInfo')}{' '}
+        {deadlineLabel ? t('limitedTimeOfferEnds', { deadline: deadlineLabel }) : t('limitedTimeForLimited')}
       </div>
     </div>
   );
@@ -461,6 +466,7 @@ function CadenceToggle({
   cadence: Cadence;
   setCadence: (c: Cadence) => void;
 }) {
+  const t = usePageT(dict);
   const btn = (active: boolean) =>
     ({
       flex: 1,
@@ -492,10 +498,10 @@ function CadenceToggle({
       }}
     >
       <button type="button" style={btn(cadence === 'monthly')} onClick={() => setCadence('monthly')}>
-        Monthly
+        {t('monthlyToggle')}
       </button>
       <button type="button" style={btn(cadence === 'annual')} onClick={() => setCadence('annual')}>
-        Annual
+        {t('annualToggle')}
         <span
           style={{
             fontSize: 10,
@@ -506,7 +512,7 @@ function CadenceToggle({
             color: cadence === 'annual' ? 'var(--text-inverse)' : C.amber,
           }}
         >
-          SAVE 57%
+          {t('save57Badge')}
         </span>
       </button>
     </div>
@@ -531,6 +537,7 @@ function PricingClientInner({
   referralEnabled,
   campaignActive,
 }: Props) {
+  const t = usePageT(dict);
   const { theme } = useTheme();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -557,19 +564,19 @@ function PricingClientInner({
   // (verified state hasn't regressed; an invalid link is still invalid).
   const verifyNotice = useMemo<{ kind: 'success' | 'error'; message: string } | null>(() => {
     if (searchParams.get('verified') === '1') {
-      return { kind: 'success', message: 'Email verified! You can now subscribe.' };
+      return { kind: 'success', message: t('verifySuccessMessage') };
     }
     const verifyError = searchParams.get('verify_error');
     if (verifyError === 'expired') {
       return {
         kind: 'error',
-        message: 'That verification link has expired. Use Resend below to get a new one.',
+        message: t('verifyExpiredMessage'),
       };
     }
     if (verifyError === 'invalid') {
       return {
         kind: 'error',
-        message: 'That verification link is no longer valid. Use Resend below to get a new one.',
+        message: t('verifyInvalidMessage'),
       };
     }
     // Signaled by /register when Resend errored during signup — the account is
@@ -578,12 +585,11 @@ function PricingClientInner({
     if (searchParams.get('email_send_failed') === '1') {
       return {
         kind: 'error',
-        message:
-          'Your account is ready, but we couldn’t send the verification email. Use Resend below to try again.',
+        message: t('verifyEmailSendFailedMessage'),
       };
     }
     return null;
-  }, [searchParams]);
+  }, [searchParams, t]);
 
   // When the user lands here from the verify-email redirect, their session
   // was minted BEFORE email_verified_at was stamped — so emailVerified is
@@ -671,7 +677,7 @@ function PricingClientInner({
       const csrfResponse = await fetch('/api/auth/csrf', { credentials: 'include' });
       const csrf = (await csrfResponse.json()) as { csrfToken?: string };
       if (!csrf.csrfToken) {
-        throw new Error('Could not obtain CSRF token. Refresh and try again.');
+        throw new Error(t('errorCsrfFailed'));
       }
       const response = await fetch(path, {
         method: 'POST',
@@ -689,13 +695,13 @@ function PricingClientInner({
         message?: string;
       };
       if (!response.ok || !payload.url) {
-        const thrown = new Error(payload.message ?? payload.error ?? 'Billing request failed');
+        const thrown = new Error(payload.message ?? payload.error ?? t('errorBillingFailed'));
         if (payload.code) (thrown as Error & { code?: string }).code = payload.code;
         throw thrown;
       }
       window.location.href = payload.url;
     },
-    [],
+    [t],
   );
 
   const handleSubscribe = useCallback(
@@ -705,7 +711,7 @@ function PricingClientInner({
         return;
       }
       if (currentTier === 'admin') {
-        setError('Admin accounts cannot subscribe.');
+        setError(t('errorAdminNoSubscribe'));
         return;
       }
       setError(null);
@@ -736,14 +742,14 @@ function PricingClientInner({
           // Refresh in case verification just happened in another tab — if
           // it did, the banner above will be gone too and the user can retry.
           void refreshSession();
-          setError('Please verify your email first — use the Resend button in the banner above.');
+          setError(t('errorVerifyEmailFirst'));
         } else {
-          setError(err instanceof Error ? err.message : 'Something went wrong.');
+          setError(err instanceof Error ? err.message : t('errorSomethingWrong'));
         }
         setBusyTier(null);
       }
     },
-    [authSession?.user?.id, callBilling, cadence, cameFromWinback, currentTier, hasActiveSubscription, isAuthed, refreshSession, router],
+    [authSession?.user?.id, callBilling, cadence, cameFromWinback, currentTier, hasActiveSubscription, isAuthed, refreshSession, router, t],
   );
 
   const handlePortal = useCallback(async () => {
@@ -752,18 +758,18 @@ function PricingClientInner({
     try {
       await callBilling('/api/billing/portal');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong.');
+      setError(err instanceof Error ? err.message : t('errorSomethingWrong'));
       setBusyTier(null);
     }
-  }, [callBilling]);
+  }, [callBilling, t]);
 
   const actionFor = useCallback(
     (tier: BillableTier): TierAction => {
-      const label = tier === 'basic' ? 'Basic' : 'Pro';
+      const label = tier === 'basic' ? t('basicTitle') : t('proTitle');
       // Keep the word "trial" the moment they click through from "Start free
       // trial" — tier-specific so the button reads "Start Basic Trial" /
       // "Start Pro Trial", never "Subscribe" / "Choose plan".
-      const trialLabel = `Start ${label} Trial`;
+      const trialLabel = t('startTrialLabel', { label });
       // Tier-specific register link so a logged-out plan click returns to the
       // trial hero with THIS plan preselected (register carries the plan through).
       const registerTrialHref = `/register?next=${encodeURIComponent(`/pricing?trial=1&plan=${tier}`)}`;
@@ -771,31 +777,31 @@ function PricingClientInner({
       if (!isAuthed) {
         return { kind: 'link', href: registerTrialHref, label: trialLabel };
       }
-      if (currentTier === 'admin') return { kind: 'current', label: 'Admin (no subscription)' };
+      if (currentTier === 'admin') return { kind: 'current', label: t('adminNoSubscription') };
 
       if (hasActiveSubscription) {
         // Real subscriber: the tier truly reflects which plan they're on.
-        if (currentTier === tier) return { kind: 'current', label: 'Current Plan' };
-        return { kind: 'portal', label: `Switch to ${label}` };
+        if (currentTier === tier) return { kind: 'current', label: t('currentPlanLabel') };
+        return { kind: 'portal', label: t('switchToLabel', { label }) };
       }
 
       // No active Stripe sub. First-timers get the free trial; a returning
       // member with prior paid history is charged immediately (checkout
       // suppresses the trial), so label it a subscribe, not a trial.
-      if (isResubscribe) return { kind: 'subscribe', tier, label: `Subscribe to ${label}` };
+      if (isResubscribe) return { kind: 'subscribe', tier, label: t('subscribeToLabel', { label }) };
       return { kind: 'subscribe', tier, label: trialLabel };
     },
-    [authLoading, currentTier, hasActiveSubscription, isAuthed, isResubscribe],
+    [authLoading, currentTier, hasActiveSubscription, isAuthed, isResubscribe, t],
   );
 
   // "Limited Time" pill omitted from the per-card highlights when the global
   // banner is already shown above — the banner carries that callout once
   // instead of repeating it twice per card.
   const basicHighlights: string[] = [];
-  if (cadence === 'annual') basicHighlights.push('Save 57%');
+  if (cadence === 'annual') basicHighlights.push(t('save57Highlight'));
 
-  const proHighlights: string[] = ['Most Popular'];
-  if (cadence === 'annual') proHighlights.push('Save 58%');
+  const proHighlights: string[] = [t('mostPopularHighlight')];
+  if (cadence === 'annual') proHighlights.push(t('save58Highlight'));
 
   return (
     <div style={{ background: 'transparent', color: C.light, fontFamily: 'DM Sans, sans-serif', overflowX: 'hidden' }}>
@@ -840,36 +846,33 @@ function PricingClientInner({
                 color: C.amber,
               }}
             >
-              <Sparkles size={14} /> {showTrialHero ? 'Almost done' : 'Pricing'}
+              <Sparkles size={14} /> {showTrialHero ? t('eyebrowAlmostDone') : t('eyebrowPricing')}
             </div>
             {showTrialHero ? (
               <>
                 <h1 style={{ margin: '18px 0 14px', fontSize: 'clamp(34px, 5vw, 64px)', lineHeight: 1.08, letterSpacing: '-1.2px' }}>
-                  You&rsquo;re almost done.
+                  {t('heroTrialTitle')}
                 </h1>
                 <p style={{ margin: '0 auto 12px', maxWidth: 760, color: C.light, fontSize: 20, lineHeight: 1.6, fontWeight: 600 }}>
-                  Choose your plan to start your {TRIAL_DAYS}-day free trial.
+                  {t('heroTrialSubtitle', { days: TRIAL_DAYS })}
                 </p>
                 <p style={{ margin: '0 auto 14px', maxWidth: 760, color: C.amber, fontSize: 15, lineHeight: 1.7, fontWeight: 700 }}>
-                  No charge until day {TRIAL_DAYS}. Cancel anytime.
+                  {t('heroTrialNoCharge', { days: TRIAL_DAYS })}
                 </p>
                 <p style={{ margin: '0 auto', maxWidth: 760, color: C.muted, fontSize: 15, lineHeight: 1.7 }}>
-                  Your ZeroGEX account is ready. Pick Basic or Pro to unlock live SPY, SPX, and QQQ gamma
-                  levels, dealer positioning, flow pressure, and market state signals.
+                  {t('heroTrialBody')}
                 </p>
               </>
             ) : (
               <>
                 <h1 style={{ margin: '18px 0 14px', fontSize: 'clamp(34px, 5vw, 64px)', lineHeight: 1.08, letterSpacing: '-1.2px' }}>
-                  Trade with a live map of the options levels that matter.
+                  {t('heroTitle')}
                 </h1>
                 <p style={{ margin: '0 auto 18px', maxWidth: 760, color: C.light, fontSize: 18, lineHeight: 1.7, fontWeight: 500 }}>
-                  ZeroGEX helps SPY/SPX/QQQ traders track gamma exposure, call/put walls, gamma flip,
-                  dealer positioning, and flow pressure in real time.
+                  {t('heroSubtitle')}
                 </p>
                 <p style={{ margin: '0 auto', maxWidth: 760, color: C.muted, fontSize: 15, lineHeight: 1.7 }}>
-                  {TRIAL_DAYS}-day free trial. Full access now. No charge until day {TRIAL_DAYS}. Cancel anytime —
-                  no email or support request required.
+                  {t('heroBody', { days: TRIAL_DAYS })}
                 </p>
               </>
             )}
@@ -891,7 +894,7 @@ function PricingClientInner({
                 fontWeight: 600,
               }}
             >
-              No problem — your trial has not started yet. Choose a plan whenever you&rsquo;re ready.
+              {t('checkoutCancelledNotice')}
             </div>
           )}
 
@@ -916,7 +919,7 @@ function PricingClientInner({
                 fontWeight: 600,
               }}
             >
-              [ REFERRAL APPLIED ] &nbsp;A friend referred you — your discount is applied automatically at checkout.
+              {t('referralAppliedLabel')} &nbsp;{t('referralAppliedBody')}
             </div>
           )}
 
@@ -935,7 +938,7 @@ function PricingClientInner({
                 fontWeight: 600,
               }}
             >
-              [ DISCOUNT APPLIED ] &nbsp;Your discount is applied automatically at checkout.
+              {t('discountAppliedLabel')} &nbsp;{t('discountAppliedBody')}
             </div>
           )}
 
@@ -954,7 +957,7 @@ function PricingClientInner({
                 fontWeight: 600,
               }}
             >
-              👋 Welcome back — your win-back discount is applied automatically at checkout.
+              {t('winbackWelcome')}
             </div>
           )}
 
@@ -1002,7 +1005,7 @@ function PricingClientInner({
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 18 }}>
             <TierCard
-              title="Basic"
+              title={t('basicTitle')}
               tier="basic"
               cadence={cadence}
               promoActive={promoActive}
@@ -1011,9 +1014,9 @@ function PricingClientInner({
               startsTrial={!isResubscribe}
               accent="var(--color-brand-primary)"
               features={[
-                'Real-time metrics and full strategy tools.',
-                'Access to Basic Signals.',
-                'Designed for disciplined daily execution.',
+                t('basicFeature1'),
+                t('basicFeature2'),
+                t('basicFeature3'),
               ]}
               action={actionFor('basic')}
               busy={busyTier === 'basic' || busyTier === 'portal'}
@@ -1021,7 +1024,7 @@ function PricingClientInner({
               onPortal={handlePortal}
             />
             <TierCard
-              title="Pro"
+              title={t('proTitle')}
               tier="pro"
               cadence={cadence}
               promoActive={promoActive}
@@ -1030,10 +1033,10 @@ function PricingClientInner({
               startsTrial={!isResubscribe}
               accent="var(--color-brand-accent)"
               features={[
-                'Everything included in Basic.',
-                'Access to Advanced Signals.',
-                'Access to Backtesting (Beta).',
-                'Direct access to ZeroGEX APIs.',
+                t('proFeature1'),
+                t('proFeature2'),
+                t('proFeature3'),
+                t('proFeature4'),
               ]}
               action={actionFor('pro')}
               busy={busyTier === 'pro' || busyTier === 'portal'}
@@ -1063,46 +1066,34 @@ function PricingClientInner({
                 letterSpacing: '-0.3px',
               }}
             >
-              Refund &amp; Cancellation Policy
+              {t('refundPolicyTitle')}
             </h2>
             <div style={{ marginTop: 12, color: C.muted, fontSize: 15, lineHeight: 1.75 }}>
               <p style={{ margin: 0 }}>
-                Paid subscriptions are billed in advance on a recurring basis through Stripe. You can
-                cancel your subscription at any time from the Stripe-hosted billing portal, accessible
-                from your{' '}
+                {t('refundPolicyIntro1')}{' '}
                 <Link href="/account" style={{ color: C.amber }}>
-                  account
+                  {t('accountLinkText')}
                 </Link>{' '}
-                page.
+                {t('refundPolicyIntro2')}
               </p>
               <ul style={{ paddingLeft: 22, marginTop: 12 }}>
                 <li>
-                  <strong>{TRIAL_DAYS}-day free trial.</strong> You get full access right away. Your card
-                  is collected at signup but isn&rsquo;t charged until the trial ends. Cancel before then
-                  and you pay nothing.
+                  <strong>{t('trialListLabel', { days: TRIAL_DAYS })}</strong> {t('trialListBody')}
                 </li>
                 <li>
-                  <strong>Cancel anytime.</strong> Manage or cancel your plan yourself through the
-                  billing portal — no email or support request required.
+                  <strong>{t('cancelAnytimeLabel')}</strong> {t('cancelAnytimeBody')}
                 </li>
                 <li>
-                  <strong>Plan switches during trial.</strong> Changing plans while on the free
-                  trial ends the trial early and charges you for the new plan immediately. To keep
-                  the trial, wait until it ends before switching plans.
+                  <strong>{t('planSwitchLabel')}</strong> {t('planSwitchBody')}
                 </li>
                 <li>
-                  <strong>Upgrades &amp; downgrades on paid plans.</strong> After the trial, switching
-                  tiers is pro-rated automatically through the Stripe-hosted billing portal.
+                  <strong>{t('upgradesLabel')}</strong> {t('upgradesBody')}
                 </li>
                 <li>
-                  <strong>No prorated refunds.</strong> Except where required by law, payments are
-                  non-refundable, and we do not provide prorated refunds for partial billing periods or
-                  unused time.
+                  <strong>{t('noRefundsLabel')}</strong> {t('noRefundsBody')}
                 </li>
                 <li>
-                  <strong>Access through the paid period.</strong> When you cancel, your subscription
-                  remains active and you keep access to paid features until the end of the billing
-                  period you have already paid for. It will not renew after that.
+                  <strong>{t('accessThroughLabel')}</strong> {t('accessThroughBody')}
                 </li>
               </ul>
             </div>

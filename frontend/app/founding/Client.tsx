@@ -12,6 +12,8 @@ import { normalizeTier, TierId } from '@/core/auth';
 import { FOUNDING_BILLING_START_LABEL } from '@/core/foundingLockin';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { ArrowRight, CheckCircle2, Crown, Loader2, Moon, Sun } from 'lucide-react';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './Client.i18n';
 
 const C = {
   card: 'var(--color-surface)',
@@ -150,6 +152,7 @@ function CadenceToggle({
   cadence: Cadence;
   setCadence: (c: Cadence) => void;
 }) {
+  const t = usePageT(dict);
   const btn = (active: boolean) =>
     ({
       flex: 1,
@@ -181,10 +184,10 @@ function CadenceToggle({
       }}
     >
       <button type="button" style={btn(cadence === 'monthly')} onClick={() => setCadence('monthly')}>
-        Monthly
+        {t('cadenceMonthly')}
       </button>
       <button type="button" style={btn(cadence === 'annual')} onClick={() => setCadence('annual')}>
-        Annual
+        {t('cadenceAnnual')}
         <span
           style={{
             fontSize: 10,
@@ -195,7 +198,7 @@ function CadenceToggle({
             color: cadence === 'annual' ? 'var(--text-inverse)' : C.amber,
           }}
         >
-          2 MONTHS FREE
+          {t('twoMonthsFree')}
         </span>
       </button>
     </div>
@@ -223,6 +226,7 @@ function FoundingCard({
   onSubscribe: (tier: BillableTier) => void;
   onPortal: () => void;
 }) {
+  const t = usePageT(dict);
   // Bind to the cadence-specific plan inside each branch so TypeScript can
   // narrow the union shape. Pre-binding `plan = FOUNDING[tier][cadence]` and
   // then accessing .perMonth in the annual branch doesn't type-check because
@@ -243,7 +247,7 @@ function FoundingCard({
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <h3 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: C.light }}>{title}</h3>
-        <Badge accent={accent}>Founding Rate</Badge>
+        <Badge accent={accent}>{t('foundingRateBadge')}</Badge>
       </div>
 
       {cadence === 'monthly' ? (
@@ -266,9 +270,9 @@ function FoundingCard({
             <span style={{ fontSize: 14, color: C.muted, fontWeight: 600 }}>/mo</span>
           </div>
           <p style={{ margin: '8px 0 0', fontSize: 12, color: C.muted, lineHeight: 1.55 }}>
-            First 12 months at this rate, then{' '}
+            {t('monthlyIntroPrefix')}{' '}
             <strong style={{ color: C.light }}>{formatMoney(monthlyPlan.postLifetime)}/mo</strong>{' '}
-            for life (25% off standard).
+            {t('lifetimeSuffixMonthly')}
           </p>
         </>
       ) : (
@@ -291,12 +295,12 @@ function FoundingCard({
             <span style={{ fontSize: 14, color: C.muted, fontWeight: 600 }}>/yr</span>
           </div>
           <p style={{ margin: '4px 0 0', fontSize: 13, color: C.muted }}>
-            ≈ {formatMoney(annualPlan.perMonth)}/mo, billed annually — two months free vs the monthly founding rate.
+            {t('annualPerMonthNote', { price: formatMoney(annualPlan.perMonth) })}
           </p>
           <p style={{ margin: '8px 0 0', fontSize: 12, color: C.muted, lineHeight: 1.55 }}>
-            Year 1 at this rate, then{' '}
+            {t('annualIntroPrefix')}{' '}
             <strong style={{ color: C.light }}>{formatMoney(annualPlan.postLifetime)}/yr</strong>{' '}
-            for life (25% off standard).
+            {t('lifetimeSuffixAnnual')}
           </p>
         </>
       )}
@@ -316,6 +320,7 @@ function FoundingCard({
 }
 
 export default function FoundingClient({ foundingCode, annualEnabled }: Props) {
+  const t = usePageT(dict);
   const { theme, setTheme } = useTheme();
   const router = useRouter();
   const isDark = theme === 'dark';
@@ -376,7 +381,7 @@ export default function FoundingClient({ foundingCode, annualEnabled }: Props) {
         return;
       }
       if (currentTier === 'admin') {
-        setError('Admin accounts cannot subscribe.');
+        setError(t('adminNoSubscribeError'));
         return;
       }
       setError(null);
@@ -395,14 +400,14 @@ export default function FoundingClient({ foundingCode, annualEnabled }: Props) {
         const code = (err as Error & { code?: string })?.code;
         if (code === 'EMAIL_NOT_VERIFIED') {
           void refreshSession();
-          setError('Please verify your email first — use the Resend button in the banner above.');
+          setError(t('verifyEmailError'));
         } else {
-          setError(err instanceof Error ? err.message : 'Something went wrong.');
+          setError(err instanceof Error ? err.message : t('genericErrorMessage'));
         }
         setBusyTier(null);
       }
     },
-    [callBilling, cadence, currentTier, foundingCode, hasActiveSubscription, isAuthed, refreshSession, registerHref, router],
+    [callBilling, cadence, currentTier, foundingCode, hasActiveSubscription, isAuthed, refreshSession, registerHref, router, t],
   );
 
   const handlePortal = useCallback(async () => {
@@ -411,29 +416,29 @@ export default function FoundingClient({ foundingCode, annualEnabled }: Props) {
     try {
       await callBilling('/api/billing/portal');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong.');
+      setError(err instanceof Error ? err.message : t('genericErrorMessage'));
       setBusyTier(null);
     }
-  }, [callBilling]);
+  }, [callBilling, t]);
 
   const actionFor = useCallback(
     (tier: BillableTier): TierAction => {
-      const label = tier === 'basic' ? 'Basic' : 'Pro';
-      if (authLoading) return { kind: 'link', href: registerHref, label: 'Get Started' };
+      const label = tier === 'basic' ? t('basicTitle') : t('proTitle');
+      if (authLoading) return { kind: 'link', href: registerHref, label: t('getStarted') };
       if (!isAuthed) {
-        return { kind: 'link', href: registerHref, label: 'Sign up to activate' };
+        return { kind: 'link', href: registerHref, label: t('signUpToActivate') };
       }
-      if (currentTier === 'admin') return { kind: 'current', label: 'Admin (no subscription)' };
+      if (currentTier === 'admin') return { kind: 'current', label: t('adminNoSubscription') };
 
       if (hasActiveSubscription) {
-        if (currentTier === tier) return { kind: 'current', label: 'Current Plan' };
-        return { kind: 'portal', label: `Switch to ${label}` };
+        if (currentTier === tier) return { kind: 'current', label: t('currentPlan') };
+        return { kind: 'portal', label: t('switchToPlan', { label }) };
       }
       const plan = FOUNDING[tier][cadence];
       const suffix = cadence === 'monthly' ? '/mo' : '/yr';
-      return { kind: 'subscribe', tier, label: `Activate ${label} at $${plan.intro}${suffix}` };
+      return { kind: 'subscribe', tier, label: t('activatePlan', { label, price: plan.intro, suffix }) };
     },
-    [authLoading, cadence, currentTier, hasActiveSubscription, isAuthed, registerHref],
+    [authLoading, cadence, currentTier, hasActiveSubscription, isAuthed, registerHref, t],
   );
 
   return (
@@ -476,7 +481,7 @@ export default function FoundingClient({ foundingCode, annualEnabled }: Props) {
                 cursor: 'pointer',
               }}
             >
-              About
+              {t('aboutButton')}
             </button>
           </Link>
         </div>
@@ -506,15 +511,15 @@ export default function FoundingClient({ foundingCode, annualEnabled }: Props) {
                 color: C.amber,
               }}
             >
-              <Crown size={14} /> Founding Member Activation
+              <Crown size={14} /> {t('eyebrow')}
             </div>
             <h1 style={{ margin: '18px 0 14px', fontSize: 'clamp(34px, 5vw, 56px)', lineHeight: 1.08, letterSpacing: '-1.2px' }}>
-              Lock in your founding rate.
+              {t('heroHeading')}
             </h1>
             <p style={{ margin: '0 auto', maxWidth: 720, color: C.muted, fontSize: 17, lineHeight: 1.7 }}>
-              Invitation only. As one of our earliest accounts you lock in our founding rate{' '}
-              {annualEnabled ? '— pick monthly or annual ' : ''}for your first 12 months, then a permanent
-              25% discount on the standard rate for life.
+              {t('heroIntro', {
+                cadencePart: annualEnabled ? t('heroIntroCadencePart') : '',
+              })}
             </p>
           </div>
 
@@ -532,12 +537,11 @@ export default function FoundingClient({ foundingCode, annualEnabled }: Props) {
             }}
           >
             <div style={{ fontSize: 16, fontWeight: 800, color: C.amber, letterSpacing: '0.04em' }}>
-              No charge today.
+              {t('noChargeToday')}
             </div>
             <div style={{ marginTop: 6, fontSize: 14, color: C.muted }}>
-              Activate now to lock in your founding rate — your first payment isn&rsquo;t until{' '}
-              <strong style={{ color: C.light }}>{FOUNDING_BILLING_START_LABEL}</strong>. Cancel anytime before
-              then and you won&rsquo;t be billed.
+              {t('noChargeBodyPrefix')}{' '}
+              <strong style={{ color: C.light }}>{FOUNDING_BILLING_START_LABEL}</strong>. {t('noChargeBodySuffix')}
             </div>
           </div>
 
@@ -571,14 +575,14 @@ export default function FoundingClient({ foundingCode, annualEnabled }: Props) {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 18, maxWidth: 820, margin: '0 auto' }}>
             <FoundingCard
-              title="Basic"
+              title={t('basicTitle')}
               tier="basic"
               cadence={cadence}
               accent="var(--color-brand-primary)"
               features={[
-                'Real-time metrics and full strategy tools.',
-                'Access to Basic Signals.',
-                'Designed for disciplined daily execution.',
+                t('basicFeature1'),
+                t('basicFeature2'),
+                t('basicFeature3'),
               ]}
               action={actionFor('basic')}
               busy={busyTier === 'basic' || busyTier === 'portal'}
@@ -586,15 +590,15 @@ export default function FoundingClient({ foundingCode, annualEnabled }: Props) {
               onPortal={handlePortal}
             />
             <FoundingCard
-              title="Pro"
+              title={t('proTitle')}
               tier="pro"
               cadence={cadence}
               accent="var(--color-brand-accent)"
               features={[
-                'Everything included in Basic.',
-                'Access to Advanced Signals.',
-                'Access to Backtesting (beta).',
-                'Direct access to ZeroGEX APIs.',
+                t('proFeature1'),
+                t('proFeature2'),
+                t('proFeature3'),
+                t('proFeature4'),
               ]}
               action={actionFor('pro')}
               busy={busyTier === 'pro' || busyTier === 'portal'}
@@ -615,12 +619,11 @@ export default function FoundingClient({ foundingCode, annualEnabled }: Props) {
               lineHeight: 1.7,
             }}
           >
-            Only accounts on the founding-member list can activate this rate. If you weren&rsquo;t expecting
-            this page, see{' '}
+            {t('inviteOnlyNoticePrefix')}{' '}
             <Link href="/pricing" style={{ color: C.amber, fontWeight: 700 }}>
-              standard pricing
+              {t('standardPricingLink')}
             </Link>{' '}
-            instead.
+            {t('inviteOnlyNoticeSuffix')}
           </p>
 
           <PlanComparison />
@@ -648,7 +651,7 @@ export default function FoundingClient({ foundingCode, annualEnabled }: Props) {
               }}>
                 <Image
                   src="/folds-of-honor-proud-supporter.png"
-                  alt="Folds of Honor Proud Supporter"
+                  alt={t('foldsAlt')}
                   width={50}
                   height={50}
                   style={{ width: 50, height: 50, objectFit: 'contain' }}
@@ -656,12 +659,12 @@ export default function FoundingClient({ foundingCode, annualEnabled }: Props) {
               </div>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: C.amber, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 4 }}>
-                  Folds of Honor Proud Supporter
+                  {t('foldsLabel')}
                 </div>
                 <div style={{ fontSize: 14, color: C.muted, lineHeight: 1.55 }}>
-                  3% of every founding subscription funds educational scholarships for the families of fallen
-                  and disabled U.S. service members. See <span style={{ color: C.amber, fontWeight: 700 }}>/giving</span> for
-                  mechanics and the running donation total.
+                  {t('foldsBodyPrefix')}{' '}
+                  <span style={{ color: C.amber, fontWeight: 700 }}>/giving</span>{' '}
+                  {t('foldsBodySuffix')}
                 </div>
               </div>
             </div>
@@ -686,35 +689,27 @@ export default function FoundingClient({ foundingCode, annualEnabled }: Props) {
                 letterSpacing: '-0.3px',
               }}
             >
-              Refund &amp; Cancellation Policy
+              {t('refundHeading')}
             </h2>
             <div style={{ marginTop: 12, color: C.muted, fontSize: 15, lineHeight: 1.75 }}>
               <p style={{ margin: 0 }}>
-                Founding activations get a deferred trial that ends on{' '}
-                <strong style={{ color: C.light }}>{FOUNDING_BILLING_START_LABEL}</strong>, not the standard
-                seven-day trial — your card is on file but is not charged today. From that date, your founding
-                rate is billed in advance on a recurring basis through Stripe. You can cancel your subscription
-                at any time — including before the first charge — from the Stripe-hosted billing portal,
-                accessible from your{' '}
+                {t('refundIntroPart1')}{' '}
+                <strong style={{ color: C.light }}>{FOUNDING_BILLING_START_LABEL}</strong>
+                {t('refundIntroPart2')}{' '}
                 <Link href="/account" style={{ color: C.amber }}>
-                  account
-                </Link>{' '}
-                page. Cancel before {FOUNDING_BILLING_START_LABEL} and you will not be billed.
+                  {t('accountLinkLabel')}
+                </Link>
+                {t('refundIntroPart3', { date: FOUNDING_BILLING_START_LABEL })}
               </p>
               <ul style={{ paddingLeft: 22, marginTop: 12 }}>
                 <li>
-                  <strong>Cancel anytime.</strong> Manage or cancel your plan yourself through the
-                  billing portal — no email or support request required.
+                  <strong>{t('cancelAnytimeTitle')}</strong> {t('cancelAnytimeBody')}
                 </li>
                 <li>
-                  <strong>No prorated refunds.</strong> Except where required by law, payments are
-                  non-refundable, and we do not provide prorated refunds for partial billing periods or
-                  unused time.
+                  <strong>{t('noProratedTitle')}</strong> {t('noProratedBody')}
                 </li>
                 <li>
-                  <strong>Access through the paid period.</strong> When you cancel, your subscription
-                  remains active and you keep access to paid features until the end of the billing
-                  period you have already paid for. It will not renew after that.
+                  <strong>{t('accessThroughPaidTitle')}</strong> {t('accessThroughPaidBody')}
                 </li>
               </ul>
             </div>

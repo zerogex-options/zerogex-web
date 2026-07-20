@@ -16,6 +16,8 @@ import {
 import type { WidgetSize } from '@/core/myDashboardLayout';
 import { WIDGET_SIZE_LABEL } from '@/core/myDashboardLayout';
 import type { WidgetDef } from './registry';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './WidgetFrame.i18n';
 
 const SIZE_SHORT: Record<WidgetSize, string> = { sm: 'S', md: 'M', lg: 'L', xl: 'XL' };
 
@@ -71,6 +73,7 @@ class WidgetErrorBoundary extends Component<
 // Shown in place of a Pro widget for a Basic member. Never mounts the widget's
 // data-fetching component, so no gated endpoint is ever called.
 function UpgradeCard({ widget }: { widget: WidgetDef }) {
+  const t = usePageT(dict);
   const Icon = widget.icon;
   return (
     <div className="zg-panel relative flex h-full min-h-[160px] flex-col justify-between overflow-hidden p-5">
@@ -92,7 +95,7 @@ function UpgradeCard({ widget }: { widget: WidgetDef }) {
           className="zg-chip"
           style={{ ['--chip-color' as string]: 'var(--color-accent-hot)' }}
         >
-          <Lock size={11} /> Pro
+          <Lock size={11} /> {t('proLabel')}
         </span>
       </div>
       <div className="relative mt-3">
@@ -100,7 +103,7 @@ function UpgradeCard({ widget }: { widget: WidgetDef }) {
           {widget.blurb}
         </p>
         <Link href="/pricing" className="zg-btn zg-btn--primary" style={{ padding: '8px 14px' }}>
-          Upgrade to Pro
+          {t('upgradeToPro')}
         </Link>
       </div>
     </div>
@@ -138,6 +141,7 @@ export default function WidgetFrame({
   canMovePrev,
   canMoveNext,
 }: WidgetFrameProps) {
+  const t = usePageT(dict);
   const cycleSize = () => {
     const sizes = widget.allowedSizes.length ? widget.allowedSizes : [size];
     const idx = sizes.indexOf(size);
@@ -185,22 +189,22 @@ export default function WidgetFrame({
           <span
             className="flex h-6 w-5 items-center justify-center"
             style={{ color: 'var(--text-muted)', cursor: 'grab' }}
-            title="Drag to reorder"
+            title={t('dragToReorder')}
             aria-hidden
           >
             <GripVertical size={14} />
           </span>
-          <FrameIconButton label="Move earlier" disabled={!canMovePrev} onClick={onMovePrev}>
+          <FrameIconButton label={t('moveEarlier')} disabled={!canMovePrev} onClick={onMovePrev}>
             <ChevronLeft size={14} />
           </FrameIconButton>
-          <FrameIconButton label="Move later" disabled={!canMoveNext} onClick={onMoveNext}>
+          <FrameIconButton label={t('moveLater')} disabled={!canMoveNext} onClick={onMoveNext}>
             <ChevronRight size={14} />
           </FrameIconButton>
           {widget.allowedSizes.length > 1 && (
             <button
               type="button"
               onClick={cycleSize}
-              title={`Resize (now: ${WIDGET_SIZE_LABEL[size]})`}
+              title={t('resizeTitle', { label: WIDGET_SIZE_LABEL[size] })}
               className="flex h-6 items-center gap-1 rounded-md px-1.5 text-[10px] font-bold"
               style={{ color: 'var(--text-secondary)' }}
             >
@@ -208,7 +212,11 @@ export default function WidgetFrame({
               {SIZE_SHORT[size]}
             </button>
           )}
-          <FrameIconButton label={`Remove ${widget.title}`} onClick={onRemove} danger>
+          <FrameIconButton
+            label={t('removeWidget', { title: widget.title })}
+            onClick={onRemove}
+            danger
+          >
             <X size={14} />
           </FrameIconButton>
         </div>

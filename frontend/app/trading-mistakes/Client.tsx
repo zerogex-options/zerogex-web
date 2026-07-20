@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import Footer from '@/components/Footer';
 import { useTheme } from '@/core/ThemeContext';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './Client.i18n';
 import {
   ArrowRight,
   BarChart2,
@@ -135,6 +137,7 @@ function Pill({ children }: { children: React.ReactNode }) {
 }
 
 function MistakeSection({ mistake }: { mistake: Mistake }) {
+  const t = usePageT(dict);
   const Icon = mistake.icon;
   return (
     <article
@@ -179,11 +182,11 @@ function MistakeSection({ mistake }: { mistake: Mistake }) {
         </h2>
 
         <p style={{ margin: '0 0 14px', fontSize: 15, color: C.muted, lineHeight: 1.7 }}>
-          <strong style={{ color: C.light, fontWeight: 700 }}>The mistake.</strong> {mistake.mistake}
+          <strong style={{ color: C.light, fontWeight: 700 }}>{t('mistakeLabel')}</strong> {mistake.mistake}
         </p>
 
         <p style={{ margin: '0 0 22px', fontSize: 15, color: C.muted, lineHeight: 1.7 }}>
-          <strong style={{ color: C.light, fontWeight: 700 }}>What happens.</strong> {mistake.whatHappens}
+          <strong style={{ color: C.light, fontWeight: 700 }}>{t('whatHappensLabel')}</strong> {mistake.whatHappens}
         </p>
 
         <div
@@ -208,7 +211,7 @@ function MistakeSection({ mistake }: { mistake: Mistake }) {
               marginBottom: 8,
             }}
           >
-            <CheckCircle2 size={14} /> How ZeroGEX prevents it
+            <CheckCircle2 size={14} /> {t('preventsLabel')}
           </div>
           <p style={{ margin: 0, fontSize: 14, color: C.light, lineHeight: 1.65, fontWeight: 500 }}>
             {mistake.zerogex}
@@ -227,7 +230,7 @@ function MistakeSection({ mistake }: { mistake: Mistake }) {
             textDecoration: 'none',
           }}
         >
-          Deeper read: {mistake.reference.label} <ArrowRight size={14} />
+          {t('deeperRead')} {mistake.reference.label} <ArrowRight size={14} />
         </Link>
       </div>
 
@@ -253,6 +256,7 @@ function MistakeSection({ mistake }: { mistake: Mistake }) {
 export default function TradingMistakesClient() {
   const { theme, setTheme } = useTheme();
   const isDark = theme === 'dark';
+  const t = usePageT(dict);
 
   return (
     <div style={{ background: 'transparent', color: C.light, fontFamily: 'DM Sans, sans-serif', overflowX: 'hidden' }}>
@@ -288,7 +292,7 @@ export default function TradingMistakesClient() {
               cursor: 'pointer',
               color: C.muted,
             }}
-            aria-label="Toggle theme"
+            aria-label={t('toggleThemeAria')}
           >
             {isDark ? <Sun size={14} /> : <Moon size={14} />}
           </button>
@@ -300,7 +304,7 @@ export default function TradingMistakesClient() {
                 fontSize: 13,
               }}
             >
-              Pricing
+              {t('pricingBtn')}
             </button>
           </Link>
           <Link href="/spx-gamma-levels" style={{ textDecoration: 'none' }}>
@@ -311,7 +315,7 @@ export default function TradingMistakesClient() {
                 fontSize: 13,
               }}
             >
-              Free Gamma Levels <ArrowRight size={14} />
+              {t('freeGammaLevelsBtn')} <ArrowRight size={14} />
             </button>
           </Link>
         </div>
@@ -334,7 +338,7 @@ export default function TradingMistakesClient() {
         />
         <div style={{ position: 'relative', zIndex: 1, maxWidth: 900, margin: '0 auto', textAlign: 'center' }}>
           <Pill>
-            <ShieldAlert size={14} /> Trader Mistakes ZeroGEX Helps You Avoid
+            <ShieldAlert size={14} /> {t('pillTraderMistakes')}
           </Pill>
 
           <h1
@@ -347,21 +351,21 @@ export default function TradingMistakesClient() {
               fontWeight: 900,
             }}
           >
-            5 trading mistakes{' '}
+            {t('heroTitleLine1')}{' '}
             <span
               style={{
                 color: 'var(--color-accent-hot)',
               }}
             >
-              ZeroGEX helps you avoid.
+              {t('heroTitleHighlight')}
             </span>
           </h1>
 
           <p style={{ margin: '0 auto 18px', maxWidth: 760, color: C.light, fontSize: 19, lineHeight: 1.55, fontWeight: 500 }}>
-            Every one of these costs SPY/SPX day traders real money — and every one of them is the kind of structural setup that&apos;s readable in real time if you know where to look.
+            {t('heroSubtitle1')}
           </p>
           <p style={{ margin: '0 auto', maxWidth: 700, color: C.muted, fontSize: 15, lineHeight: 1.7 }}>
-            The dealer book sets up these traps; the trader who can&apos;t see the dealer book walks into them. Here&apos;s what each mistake looks like, what happens when you make it, and the specific ZeroGEX surface that prevents it.
+            {t('heroSubtitle2')}
           </p>
         </div>
       </section>
@@ -377,7 +381,7 @@ export default function TradingMistakesClient() {
       <section style={{ padding: '80px 24px 100px', textAlign: 'center', borderTop: `1px solid ${C.border}` }}>
         <div style={{ maxWidth: 820, margin: '0 auto' }}>
           <Pill>
-            <BarChart2 size={14} /> Free Public Dashboard
+            <BarChart2 size={14} /> {t('pillFreeDashboard')}
           </Pill>
           <h2
             style={{
@@ -389,17 +393,17 @@ export default function TradingMistakesClient() {
               fontWeight: 900,
             }}
           >
-            See the structural map{' '}
+            {t('ctaTitleLine1')}{' '}
             <span
               style={{
                 color: 'var(--color-accent-hot)',
               }}
             >
-              before your next trade.
+              {t('ctaTitleHighlight')}
             </span>
           </h2>
           <p style={{ margin: '0 auto 28px', maxWidth: 620, fontSize: 16, color: C.muted, lineHeight: 1.65 }}>
-            The free ZeroGEX Gamma Levels pages surface today&apos;s gamma flip, call and put walls, max pain, and dealer gamma profile for SPY, SPX, and QQQ, delayed about 15 minutes. No signup, no card.
+            {t('ctaSubtitle')}
           </p>
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, justifyContent: 'center' }}>
@@ -411,7 +415,7 @@ export default function TradingMistakesClient() {
                   fontSize: 15,
                 }}
               >
-                Open the free gamma levels <ArrowRight size={18} />
+                {t('ctaPrimaryBtn')} <ArrowRight size={18} />
               </button>
             </Link>
             <Link href="/pricing" style={{ textDecoration: 'none' }}>
@@ -422,13 +426,13 @@ export default function TradingMistakesClient() {
                   fontSize: 15,
                 }}
               >
-                See pricing <ArrowRight size={18} />
+                {t('ctaSecondaryBtn')} <ArrowRight size={18} />
               </button>
             </Link>
           </div>
 
           <p style={{ marginTop: 24, color: C.muted, fontSize: 13, lineHeight: 1.65, maxWidth: 620, marginLeft: 'auto', marginRight: 'auto' }}>
-            Educational content only — not financial advice. ZeroGEX surfaces structural reads on dealer positioning; trade decisions remain yours.
+            {t('ctaDisclaimer')}
           </p>
         </div>
       </section>

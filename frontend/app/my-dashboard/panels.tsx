@@ -27,9 +27,11 @@ import { useTimeframe } from '@/core/TimeframeContext';
 import { getMarketSession } from '@/core/utils';
 import { useBasicConfluenceMatrix, type SignalEventName } from '@/hooks/useApiData';
 import { buildReportModel } from '@/app/live-bulletin/bulletinHelpers';
+import { usePageT } from '@/core/LanguageContext';
 
 import { WidgetCard } from './primitives';
 import { useMyDashboardData } from './DashboardData';
+import { dict } from './panels.i18n';
 
 // ── Overview ──────────────────────────────────────────────────────────────
 
@@ -63,8 +65,9 @@ export function DealerExposuresPanel() {
 }
 
 export function PriceActionPanel() {
+  const t = usePageT(dict);
   return (
-    <WidgetCard href="/intraday-tools" hrefLabel="Technicals" pad>
+    <WidgetCard href="/intraday-tools" hrefLabel={t('technicals')} pad>
       <UnderlyingCandlesChart />
     </WidgetCard>
   );
@@ -84,16 +87,18 @@ export function GammaPulseWidget() {
 // ── Signals ─────────────────────────────────────────────────────────────────
 
 export function SignalsSynthesisPanel() {
+  const t = usePageT(dict);
   return (
-    <WidgetCard title="Proprietary Signals" fill minHeight={440}>
+    <WidgetCard title={t('proprietarySignals')} fill minHeight={440}>
       <ProprietarySignalsSynthesis />
     </WidgetCard>
   );
 }
 
 export function TradeBiasPanel() {
+  const t = usePageT(dict);
   return (
-    <WidgetCard title="Trade Bias">
+    <WidgetCard title={t('tradeBias')}>
       <TradeBiasSection compact />
     </WidgetCard>
   );
@@ -102,8 +107,9 @@ export function TradeBiasPanel() {
 export function ConfluencePanel() {
   const { symbol } = useTimeframe();
   const { data } = useBasicConfluenceMatrix(symbol, 120, 30000);
+  const t = usePageT(dict);
   return (
-    <WidgetCard title="Confluence Matrix" href="/basic-signals" pad={false}>
+    <WidgetCard title={t('confluenceMatrix')} href="/basic-signals" pad={false}>
       <div className="overflow-x-auto p-3">
         <ConfluenceMatrix data={data} />
       </div>
@@ -113,16 +119,17 @@ export function ConfluencePanel() {
 
 export function CompositeScorePanel() {
   const { signalScore } = useMyDashboardData();
+  const t = usePageT(dict);
   const raw = signalScore?.composite_score ?? signalScore?.score ?? signalScore?.normalized_score;
   const score = typeof raw === 'number' && Number.isFinite(raw) ? raw : null;
   const direction = signalScore?.direction;
   return (
-    <WidgetCard title="Composite Score" icon={Gauge}>
+    <WidgetCard title={t('compositeScore')} icon={Gauge}>
       <div className="flex items-center justify-center py-1">
         <MsiGauge
           score={score}
           size={240}
-          label="Composite Score"
+          label={t('compositeScore')}
           subLabel={direction ? direction.toUpperCase() : undefined}
         />
       </div>
@@ -163,20 +170,22 @@ function SignalEventsWidget({
 }
 
 export function VolExpansionEventsWidget() {
+  const t = usePageT(dict);
   return (
     <SignalEventsWidget
       signalName="vol_expansion"
-      title="Volatility Expansion — Timeline"
+      title={t('volExpansionTimeline')}
       href="/advanced-signals"
     />
   );
 }
 
 export function EodPressureEventsWidget() {
+  const t = usePageT(dict);
   return (
     <SignalEventsWidget
       signalName="eod_pressure"
-      title="EOD Pressure — Timeline"
+      title={t('eodPressureTimeline')}
       href="/advanced-signals"
     />
   );
@@ -185,8 +194,9 @@ export function EodPressureEventsWidget() {
 // ── Volatility ────────────────────────────────────────────────────────────────
 
 export function VolatilityPanel() {
+  const t = usePageT(dict);
   return (
-    <WidgetCard title="Volatility Monitor" fill minHeight={320}>
+    <WidgetCard title={t('volatilityMonitor')} fill minHeight={320}>
       <VolatilityCard stacked />
     </WidgetCard>
   );
@@ -196,8 +206,9 @@ export function VolatilityPanel() {
 
 export function WorldClocksPanel() {
   const { theme } = useMyDashboardData();
+  const t = usePageT(dict);
   return (
-    <WidgetCard title="World Clocks">
+    <WidgetCard title={t('worldClocks')}>
       <div className="flex items-center justify-center py-2">
         <WorldClocks theme={theme} session={getMarketSession()} />
       </div>

@@ -4,6 +4,8 @@ import { FormEvent, Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getCsrfToken } from '@/core/csrfClient';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './page.i18n';
 
 const PASSWORD_MIN_LENGTH = 12;
 
@@ -24,6 +26,7 @@ function ResetPasswordPageContent() {
   const [csrfToken, setCsrfToken] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const t = usePageT(dict);
 
   const fetchCsrf = async () => {
     try {
@@ -52,17 +55,17 @@ function ResetPasswordPageContent() {
 
     if (!token) {
       setStatus('error');
-      setErrorMessage('This reset link is invalid. Please request a new one.');
+      setErrorMessage(t('invalidLink'));
       return;
     }
     if (password !== confirm) {
       setStatus('error');
-      setErrorMessage('Passwords do not match.');
+      setErrorMessage(t('passwordsDontMatch'));
       return;
     }
     if (password.length < PASSWORD_MIN_LENGTH) {
       setStatus('error');
-      setErrorMessage(`Password must be at least ${PASSWORD_MIN_LENGTH} characters.`);
+      setErrorMessage(t('passwordTooShort', { minLength: PASSWORD_MIN_LENGTH }));
       return;
     }
 
@@ -77,7 +80,7 @@ function ResetPasswordPageContent() {
     const csrf = (await getCsrfToken()) || csrfToken;
     if (!csrf) {
       setStatus('error');
-      setErrorMessage('Unable to initialize secure request. Please refresh and try again.');
+      setErrorMessage(t('csrfInitFailed'));
       return;
     }
 
@@ -91,7 +94,7 @@ function ResetPasswordPageContent() {
       const payload = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok) {
         setStatus('error');
-        setErrorMessage(payload.error ?? 'Unable to reset password');
+        setErrorMessage(payload.error ?? t('resetFailed'));
         return;
       }
 
@@ -99,36 +102,36 @@ function ResetPasswordPageContent() {
       setTimeout(() => router.replace('/login'), 2500);
     } catch {
       setStatus('error');
-      setErrorMessage('Network error. Please try again.');
+      setErrorMessage(t('networkError'));
     }
   };
 
   return (
     <main className="min-h-screen px-6 py-12 flex items-center justify-center bg-[var(--color-bg)] text-[var(--color-text-primary)]">
       <section className="w-full max-w-xl rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-xl">
-        <h1 className="text-3xl font-bold">Set a new password</h1>
+        <h1 className="text-3xl font-bold">{t('title')}</h1>
         <p className="mt-3 text-[var(--color-text-secondary)]">
-          Choose a new password for your ZeroGEX account. Must be at least {PASSWORD_MIN_LENGTH} characters.
+          {t('subtitle', { minLength: PASSWORD_MIN_LENGTH })}
         </p>
 
         {status === 'success' ? (
           <div className="mt-8 rounded-lg border border-[var(--color-border)] bg-[var(--bg-card)] p-4 text-sm">
-            <p className="font-semibold">Password updated.</p>
+            <p className="font-semibold">{t('successTitle')}</p>
             <p className="mt-2 text-[var(--color-text-secondary)]">
-              All existing sessions have been signed out. Redirecting to sign in...
+              {t('successBody')}
             </p>
           </div>
         ) : !token ? (
           <div className="mt-8 rounded-lg border border-[var(--color-border)] bg-[var(--bg-card)] p-4 text-sm">
-            <p className="font-semibold">This reset link is invalid.</p>
+            <p className="font-semibold">{t('invalidLinkTitle')}</p>
             <p className="mt-2 text-[var(--color-text-secondary)]">
-              Reset links expire after 30 minutes. <Link href="/forgot-password" className="text-[var(--color-brand-primary)] hover:underline">Request a new one</Link>.
+              {t('invalidLinkBody')} <Link href="/forgot-password" className="text-[var(--color-brand-primary)] hover:underline">{t('requestNewOne')}</Link>.
             </p>
           </div>
         ) : (
           <form onSubmit={onSubmit} className="mt-8 space-y-4">
             <label className="block text-sm">
-              <span className="mb-1 block text-[var(--color-text-secondary)]">New password</span>
+              <span className="mb-1 block text-[var(--color-text-secondary)]">{t('newPasswordLabel')}</span>
               <input
                 className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--bg-card)] px-3 py-2"
                 type="password"
@@ -141,7 +144,7 @@ function ResetPasswordPageContent() {
             </label>
 
             <label className="block text-sm">
-              <span className="mb-1 block text-[var(--color-text-secondary)]">Confirm new password</span>
+              <span className="mb-1 block text-[var(--color-text-secondary)]">{t('confirmPasswordLabel')}</span>
               <input
                 className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--bg-card)] px-3 py-2"
                 type="password"
@@ -160,14 +163,14 @@ function ResetPasswordPageContent() {
               className="w-full rounded-lg bg-[var(--color-brand-primary)] px-4 py-2 font-semibold text-black transition-all duration-150 hover:brightness-110 hover:shadow-[0_8px_20px_var(--color-info-soft)] hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-60"
               type="submit"
             >
-              {status === 'loading' ? 'Updating...' : 'Update password'}
+              {status === 'loading' ? t('updating') : t('updatePassword')}
             </button>
           </form>
         )}
 
         <div className="mt-6 text-sm">
           <Link href="/login" className="text-[var(--color-brand-primary)] hover:underline">
-            Back to sign in
+            {t('backToSignIn')}
           </Link>
         </div>
       </section>

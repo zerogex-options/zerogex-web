@@ -6,6 +6,8 @@ import Link from 'next/link';
 import Footer from '@/components/Footer';
 import LandingHeader from '@/components/LandingHeader';
 import { useTheme } from '@/core/ThemeContext';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './Client.i18n';
 import type { GivingTotals } from '@/core/giving';
 import {
   ArrowRight,
@@ -135,6 +137,7 @@ function FAQItem({ q, a, isDark = true }: { q: string; a: React.ReactNode; isDar
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function GivingPage({ totals }: { totals: GivingTotals }) {
   const { theme } = useTheme();
+  const t = usePageT(dict);
   const isDark = theme === 'dark';
   const hasDonations = totals.totalDonatedUsd > 0 && totals.lastDonation !== null;
   const bg = 'transparent';
@@ -173,40 +176,38 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
             display: 'inline-flex', alignItems: 'center', gap: 8,
             color: C.amber, marginBottom: 24,
           }}>
-            <Heart size={12} /> Giving Back
+            <Heart size={12} /> {t('heroEyebrow')}
           </div>
           <h1 style={{
             fontSize: 'clamp(36px, 6vw, 68px)', fontWeight: 900,
             lineHeight: 1.08, letterSpacing: '-2px', margin: '0 0 24px', color: text,
           }}>
-            {DONATION_PCT}% of every subscription supports{' '}
+            {t('heroTitlePre', { pct: DONATION_PCT })}
             <span style={{
               color: 'var(--color-accent-hot)',
             }}>
-              military families
+              {t('heroTitleHighlight')}
             </span>
           </h1>
           <p style={{
             fontSize: 'clamp(16px, 2vw, 20px)', color: subtext,
             lineHeight: 1.7, maxWidth: 680, margin: '0 auto 36px',
           }}>
-            ZeroGEX donates {DONATION_PCT}% of every subscription to Folds of Honor — funding
-            educational scholarships for the spouses and children of fallen and disabled
-            U.S. service members.
+            {t('heroSub', { pct: DONATION_PCT })}
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
             <a href={FOH_URL} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
               <button className="zg-btn zg-btn--primary" style={{
                 padding: '14px 28px', fontSize: 15,
               }}>
-                Visit Folds of Honor <ExternalLink size={14} />
+                {t('btnVisitFoh')} <ExternalLink size={14} />
               </button>
             </a>
             <Link href="/pricing" style={{ textDecoration: 'none' }}>
               <button className="zg-btn zg-btn--secondary" style={{
                 padding: '14px 28px', fontSize: 15,
               }}>
-                See Pricing <ArrowRight size={14} />
+                {t('btnSeePricing')} <ArrowRight size={14} />
               </button>
             </Link>
           </div>
@@ -245,7 +246,7 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
           }}>
             <Image
               src="/folds-of-honor-proud-supporter.png"
-              alt="Folds of Honor — Proud Supporter"
+              alt={t('proudSupporterAlt')}
               width={260}
               height={260}
               style={{ width: '100%', height: 'auto', maxWidth: 260, objectFit: 'contain' }}
@@ -257,22 +258,16 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
               className="zg-eyebrow"
               style={{ display: 'inline-block', color: C.amber, marginBottom: 18 }}
             >
-              Proud Supporter · Our Charity Partner
+              {t('spotlightEyebrow')}
             </div>
             <h2 style={{ fontSize: 'clamp(22px, 3vw, 30px)', fontWeight: 800, color: text, margin: '0 0 14px', lineHeight: 1.2 }}>
-              Folds of Honor
+              {t('spotlightTitle')}
             </h2>
             <p style={{ fontSize: 'clamp(15px, 1.8vw, 17px)', color: subtext, lineHeight: 1.75, margin: '0 0 14px' }}>
-              Founded in 2007 by Lt Col Dan Rooney — the only person to have served as
-              an F-16 fighter pilot (with three combat tours in Iraq) and a PGA
-              Professional — Folds of Honor provides educational scholarships to the
-              spouses and children of U.S. service members and first responders who
-              have fallen or been disabled while serving.
+              {t('spotlightPara1')}
             </p>
             <p style={{ fontSize: 14, color: subtext, lineHeight: 1.7, margin: 0 }}>
-              Since 2007, Folds of Honor has awarded nearly 73,000 scholarships totaling
-              over $340 million in all 50 states. 91% of expenses fund the scholarship
-              mission. Rated 4-star by Charity Navigator and Platinum on Candid.
+              {t('spotlightPara2')}
             </p>
           </div>
         </div>
@@ -281,29 +276,29 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
       {/* ── How it works ─────────────────────────────────────────────────────── */}
       <section style={{ padding: '80px 32px', maxWidth: 1200, margin: '0 auto' }}>
         <SectionHeading
-          eyebrow="How It Works"
-          title="A clean, transparent pledge"
-          sub={`${DONATION_PCT}% of every ZeroGEX subscription — gross of taxes and processing fees — is set aside automatically and donated to Folds of Honor each quarter.`}
+          eyebrow={t('howEyebrow')}
+          title={t('howTitle')}
+          sub={t('howSub', { pct: DONATION_PCT })}
           color={C.green}
         />
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 20 }}>
           <InfoCard isDark={isDark}
             icon={Receipt}
-            title="Calculated per subscription"
-            body={`Every paid plan — monthly or annual, founding or standard — contributes ${DONATION_PCT}% of its revenue to the pool. The allocation is tracked in our billing system on each successful Stripe invoice.`}
+            title={t('card1Title')}
+            body={t('card1Body', { pct: DONATION_PCT })}
             color={C.amber}
           />
           <InfoCard isDark={isDark}
             icon={CalendarCheck}
-            title="Donated quarterly"
-            body="At the end of every calendar quarter we total the contributions and send a single donation to Folds of Honor. We publish the receipt and the running total on this page."
+            title={t('card2Title')}
+            body={t('card2Body')}
             color={C.green}
           />
           <InfoCard isDark={isDark}
             icon={Shield}
-            title="No price increase"
-            body={`The donation comes out of ZeroGEX's revenue, not yours. You pay the same subscription price you would otherwise — and ${DONATION_PCT}% of it routes to Folds of Honor.`}
+            title={t('card3Title')}
+            body={t('card3Body', { pct: DONATION_PCT })}
             color={C.amber}
           />
         </div>
@@ -321,23 +316,19 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
             <div className="zg-eyebrow" style={{
               display: 'inline-block', color: C.amber, marginBottom: 20,
             }}>
-              Why Education
+              {t('whyEyebrow')}
             </div>
             <h2 style={{
               fontSize: 'clamp(26px, 3.5vw, 38px)', fontWeight: 800,
               color: text, margin: '0 0 20px', lineHeight: 1.2, letterSpacing: '-0.5px',
             }}>
-              Knowledge changes outcomes
+              {t('whyTitle')}
             </h2>
             <p style={{ fontSize: 16, color: subtext, lineHeight: 1.8, margin: '0 0 18px' }}>
-              ZeroGEX exists because we believe that better information leads to better
-              decisions. The same belief is at the heart of Folds of Honor — every scholarship
-              they fund opens doors for a military family that has already paid an
-              extraordinary price.
+              {t('whyPara1')}
             </p>
             <p style={{ fontSize: 16, color: subtext, lineHeight: 1.8 }}>
-              Every subscription on ZeroGEX helps fund a scholarship. It is the cleanest
-              alignment we could find between what we build and what we believe.
+              {t('whyPara2')}
             </p>
           </div>
 
@@ -346,21 +337,21 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
               fontSize: 11, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase',
               color: C.green, marginBottom: 6,
             }}>
-              ZeroGEX → Folds of Honor
+              {t('flowLabel')}
             </div>
             <div style={{ fontSize: 13, color: subtext, marginBottom: 18 }}>
-              Updated each quarter after the donation clears.
+              {t('flowUpdated')}
             </div>
 
             <div style={{ padding: '20px 0', borderBottom: `1px solid ${C.border}` }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
-                Total donated to date
+                {t('totalDonatedLabel')}
               </div>
               <div style={{ fontSize: 'clamp(32px, 5vw, 44px)', fontWeight: 900, color: C.amber, letterSpacing: '-1px', lineHeight: 1.1 }}>
                 {formatUsd(totals.totalDonatedUsd)}
               </div>
               <div style={{ fontSize: 13, color: subtext, marginTop: 6 }}>
-                Across {totals.donationsCount} {totals.donationsCount === 1 ? 'quarterly donation' : 'quarterly donations'} from ZeroGEX subscribers.
+                {t(totals.donationsCount === 1 ? 'donationsCountSingular' : 'donationsCountPlural', { count: totals.donationsCount })}
               </div>
             </div>
 
@@ -368,12 +359,16 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
               <HandHeart size={24} strokeWidth={1.75} style={{ color: C.green, flexShrink: 0, marginTop: 2 }} />
               <div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: text, marginBottom: 4 }}>
-                  {hasDonations ? 'Last donation' : 'First donation pending'}
+                  {hasDonations ? t('lastDonationLabel') : t('firstDonationPendingLabel')}
                 </div>
                 <div style={{ fontSize: 13, color: subtext, lineHeight: 1.55 }}>
                   {hasDonations
-                    ? `${formatUsd(totals.lastDonation!.amountUsd)} sent on ${formatDate(totals.lastDonation!.donatedAtIso)} (${totals.lastDonation!.quarter}).`
-                    : 'No donations have cleared yet — we publish the first quarterly receipt here as soon as it ships.'}
+                    ? t('lastDonationBody', {
+                        amount: formatUsd(totals.lastDonation!.amountUsd),
+                        date: formatDate(totals.lastDonation!.donatedAtIso),
+                        quarter: totals.lastDonation!.quarter,
+                      })
+                    : t('noDonationsYet')}
                 </div>
               </div>
             </div>
@@ -382,10 +377,10 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
               <CalendarCheck size={24} strokeWidth={1.75} style={{ color: C.amber, flexShrink: 0, marginTop: 2 }} />
               <div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: text, marginBottom: 4 }}>
-                  Next donation
+                  {t('nextDonationLabel')}
                 </div>
                 <div style={{ fontSize: 13, color: subtext, lineHeight: 1.55 }}>
-                  Scheduled for {formatShortDate(totals.nextDonationAtIso)} — covering the current calendar quarter.
+                  {t('nextDonationBody', { date: formatShortDate(totals.nextDonationAtIso) })}
                 </div>
               </div>
             </div>
@@ -396,9 +391,9 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
       {/* ── Donate directly (QR + boilerplate) ──────────────────────────────── */}
       <section style={{ padding: '80px 32px', maxWidth: 1100, margin: '0 auto' }}>
         <SectionHeading
-          eyebrow="Give More"
-          title="Donate to Folds of Honor directly"
-          sub="Beyond our 3% pledge, you can make a tax-deductible personal donation to Folds of Honor at any time. Scan the code or use the button below."
+          eyebrow={t('donateEyebrow')}
+          title={t('donateTitle')}
+          sub={t('donateSub', { pct: DONATION_PCT })}
           color={C.amber}
         />
 
@@ -416,7 +411,7 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
           }}>
             <Image
               src="/folds-of-honor-donation-qr.png"
-              alt="QR code linking to the Folds of Honor donation page"
+              alt={t('qrAlt')}
               width={260}
               height={260}
               style={{ width: '100%', height: 'auto', maxWidth: 260, objectFit: 'contain' }}
@@ -428,22 +423,15 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
               className="zg-eyebrow"
               style={{ display: 'inline-block', color: C.amber, marginBottom: 14 }}
             >
-              About Folds of Honor
+              {t('aboutEyebrow')}
             </div>
             <p style={{ fontSize: 14, color: subtext, lineHeight: 1.75, margin: '0 0 18px' }}>
-              Folds of Honor is a 501(c)(3) nonprofit that provides educational
-              scholarships to the spouses and children of U.S. military service members
-              and first responders who have fallen or been disabled while serving.
-              Scholarships cover private-school tuition or tutoring in grades K–12,
-              tuition for college, technical or trade school, and post-graduate work —
-              including master&rsquo;s degrees, doctorates, and professional programs.
-              Among students served, 43% are minorities and 57% are female. Personal
-              donations are tax-deductible; the receipt is issued to you directly.
+              {t('aboutPara')}
             </p>
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
               <a href={FOH_DONATION_URL} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
                 <button className="zg-btn zg-btn--primary" style={{ padding: '12px 22px', fontSize: 14 }}>
-                  <Heart size={14} /> Donate directly
+                  <Heart size={14} /> {t('btnDonateDirectly')}
                 </button>
               </a>
               <a href={FOH_URL} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
@@ -459,32 +447,29 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
       {/* ── FAQ ──────────────────────────────────────────────────────────────── */}
       <section style={{ padding: '80px 32px', maxWidth: 900, margin: '0 auto' }}>
         <SectionHeading
-          eyebrow="FAQ"
-          title="Common questions"
-          sub="The mechanics of the pledge and where the money goes."
+          eyebrow={t('faqEyebrow')}
+          title={t('faqTitle')}
+          sub={t('faqSub')}
         />
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <FAQItem isDark={isDark}
-            q={`Is the ${DONATION_PCT}% calculated on gross revenue or profit?`}
-            a={`We calculate ${DONATION_PCT}% on gross subscription revenue, before taxes and payment-processing fees. We chose gross revenue (rather than profit) because it is unambiguous, easy to audit from our Stripe invoices, and removes any incentive to "creative-accounting" the donation downward.`}
+            q={t('faq1Q', { pct: DONATION_PCT })}
+            a={t('faq1A', { pct: DONATION_PCT })}
           />
           <FAQItem isDark={isDark}
-            q="How often do you donate?"
-            a="We tally contributions monthly and send one consolidated donation to Folds of Honor at the end of each calendar quarter. After each donation we update the running total on this page and post the receipt to social media."
+            q={t('faq2Q')}
+            a={t('faq2A')}
           />
           <FAQItem isDark={isDark}
-            q="Does my subscription cost more because of the donation?"
-            a={`No. The ${DONATION_PCT}% comes out of ZeroGEX's share of the revenue, not yours. You pay the same price you would otherwise — we simply earn slightly less per subscription so that Folds of Honor earns more.`}
+            q={t('faq3Q')}
+            a={t('faq3A', { pct: DONATION_PCT })}
           />
           <FAQItem isDark={isDark}
-            q="Can I get a tax receipt for the donation?"
+            q={t('faq4Q')}
             a={
               <>
-                No — the donation is made by ZeroGEX, not by you, so the receipt is issued
-                to ZeroGEX. If you would like to make a personal tax-deductible donation
-                directly to Folds of Honor in addition to your subscription, you can do so
-                through our tracked partner page at{' '}
+                {t('faq4A1')}{' '}
                 <a
                   href={FOH_DONATION_URL}
                   target="_blank"
@@ -493,19 +478,17 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
                 >
                   foldsofhonorpartners.donorsupport.co/page/ZeroGX
                 </a>
-                . Donations through that link are attributed to the ZeroGEX partner page
-                inside FOH&rsquo;s donor system, so you also help us track the total
-                community impact.
+                {t('faq4A2')}
               </>
             }
           />
           <FAQItem isDark={isDark}
-            q="Why Folds of Honor specifically?"
-            a="Folds of Honor combines mission alignment (education is how we believe outcomes change), proven impact (nearly 73,000 scholarships and over $340M distributed since 2007), and top-tier accountability (4-star Charity Navigator and Platinum on Candid, with 91% of expenses funding the scholarship mission). The organization was founded by Lt Col Dan Rooney, the only-ever F-16 fighter pilot and PGA Professional, and the educational focus pairs cleanly with what ZeroGEX is — a platform for traders who want to learn the market better than the people on the other side of their trades."
+            q={t('faq5Q')}
+            a={t('faq5A')}
           />
           <FAQItem isDark={isDark}
-            q="Will the donation percentage change in the future?"
-            a={`The current pledge is ${DONATION_PCT}% of gross subscription revenue. We may raise this percentage over time, but we will never lower it without a clear explanation here. Any change will be announced on this page and on our social channels in advance.`}
+            q={t('faq6Q')}
+            a={t('faq6A', { pct: DONATION_PCT })}
           />
         </div>
       </section>
@@ -526,29 +509,29 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
             fontSize: 'clamp(28px, 4.5vw, 48px)', fontWeight: 900,
             color: text, margin: '0 0 16px', letterSpacing: '-1px', lineHeight: 1.1,
           }}>
-            Subscribe, trade,{' '}
+            {t('ctaTitlePre')}
             <span style={{
               color: 'var(--color-accent-hot)',
             }}>
-              and give back
+              {t('ctaTitleHighlight')}
             </span>
           </h2>
           <p style={{ fontSize: 18, color: subtext, margin: '0 auto 40px', maxWidth: 560, lineHeight: 1.65 }}>
-            Every ZeroGEX subscription helps fund a scholarship for a military family.
+            {t('ctaSub')}
           </p>
           <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
             <Link href="/pricing" style={{ textDecoration: 'none' }}>
               <button className="zg-btn zg-btn--primary" style={{
                 padding: '16px 40px', fontSize: 15,
               }}>
-                See Pricing <ArrowRight size={18} />
+                {t('btnSeePricing')} <ArrowRight size={18} />
               </button>
             </Link>
             <a href={FOH_URL} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
               <button className="zg-btn zg-btn--secondary" style={{
                 padding: '16px 32px', fontSize: 16,
               }}>
-                <ExternalLink size={16} /> Learn about Folds of Honor
+                <ExternalLink size={16} /> {t('btnLearnAboutFoh')}
               </button>
             </a>
           </div>

@@ -3,6 +3,8 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { ArrowUpRight, type LucideIcon } from 'lucide-react';
+import { usePageT } from '@/core/LanguageContext';
+import { dict } from './primitives.i18n';
 
 /**
  * The uniform container for widgets that don't carry their own card chrome
@@ -14,7 +16,7 @@ export function WidgetCard({
   title,
   icon: Icon,
   href,
-  hrefLabel = 'Open',
+  hrefLabel,
   bordered = true,
   pad = true,
   fill = false,
@@ -31,6 +33,7 @@ export function WidgetCard({
   minHeight?: number;
   children: ReactNode;
 }) {
+  const t = usePageT(dict);
   const header = title ? (
     <div
       className="flex items-center justify-between gap-2 px-4 pt-3.5 pb-2.5 border-b"
@@ -48,7 +51,7 @@ export function WidgetCard({
           className="shrink-0 inline-flex items-center gap-1 zg-caption transition-opacity opacity-60 hover:opacity-100"
           style={{ color: 'var(--color-accent-hot)' }}
         >
-          <span>{hrefLabel}</span>
+          <span>{hrefLabel ?? t('open')}</span>
           <ArrowUpRight size={13} />
         </Link>
       ) : null}
