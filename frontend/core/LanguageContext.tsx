@@ -114,3 +114,31 @@ export function useLanguage() {
   }
   return context;
 }
+
+// Per-page dictionary: English is required (the fallback + key shape); the
+// other locales are optional so a page can ship partially translated.
+export type PageDictionary = { en: Record<string, string> } & Partial<
+  Record<Locale, Record<string, string>>
+>;
+
+// Scoped translator for a single page/component. Each page imports its OWN
+// co-located dictionary and calls usePageT(dict) — nothing is registered in a
+// shared file, so any number of pages (and the agents that build them) can be
+// worked on in parallel without ever touching the same module. Missing keys
+// fall back to English, then to the raw key.
+export function usePageT(dict: PageDictionary) {
+  const { locale } = useLanguage();
+  return useCallback(
+    (key: string, vars?: Record<string, string | number>) => {
+      const table = dict[locale] ?? dict.en;
+      let value: string = table[key] ?? dict.en[key] ?? key;
+      if (vars) {
+        for (const [name, replacement] of Object.entries(vars)) {
+          value = value.replace(new RegExp(`\\{${name}\\}`, 'g'), String(replacement));
+        }
+      }
+      return value;
+    },
+    [dict, locale],
+  );
+}
