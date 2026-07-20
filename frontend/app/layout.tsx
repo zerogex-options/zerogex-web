@@ -20,7 +20,8 @@ import {
 import './globals.css';
 import { ThemeProvider } from '@/core/ThemeContext';
 import { LanguageProvider } from '@/core/LanguageContext';
-import { normalizeLocale } from '@/core/i18n/locales';
+import { normalizeLocale, type Locale } from '@/core/i18n/locales';
+import { getRequestLocale } from '@/core/localizedMetadata';
 import { TimeframeProvider } from '@/core/TimeframeContext';
 import { GexUnitProvider } from '@/core/GexUnitContext';
 import { DensityProvider } from '@/core/DensityContext';
@@ -182,36 +183,76 @@ const LEGACY_PALETTE_MAP: Record<string, PaletteId> = {
 // around 160). 138 characters lands cleanly inside both windows.
 const SITE_DESCRIPTION = 'Real-time gamma exposure, dealer positioning, gamma walls, and live options flow for SPX/0DTE traders. Free 15-min-delayed gamma levels, no signup required.';
 
-export const metadata: Metadata = {
-  title: 'ZeroGEX™ | Real-Time Options Analytics',
-  description: SITE_DESCRIPTION,
-  icons: {
-    icon: '/favicon.ico',
-  },
-  metadataBase: new URL('https://zerogex.io'),
-  openGraph: {
+// Site-wide title + description per locale. ZeroGEX and the options-trading
+// terms (gamma exposure, dealer positioning, gamma walls, options flow, GEX,
+// 0DTE) and tickers (SPX) stay in English; the sentence around them is
+// translated. This is the default/fallback metadata for every route.
+const SITE_META: Record<Locale, { title: string; description: string; ogLocale: string }> = {
+  en: {
     title: 'ZeroGEX™ | Real-Time Options Analytics',
     description: SITE_DESCRIPTION,
-    url: 'https://zerogex.io',
-    siteName: 'ZeroGEX',
-    images: [
-      {
-        url: '/og-image.png',
-        width: 1200,
-        height: 630,
-        alt: 'ZeroGEX Options Analytics Platform',
-      },
-    ],
-    locale: 'en_US',
-    type: 'website',
+    ogLocale: 'en_US',
   },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'ZeroGEX™ | Real-Time Options Analytics',
-    description: SITE_DESCRIPTION,
-    images: ['/og-image.png'],
+  it: {
+    title: 'ZeroGEX™ | Analisi delle opzioni in tempo reale',
+    description:
+      'Gamma exposure in tempo reale, posizionamento dei dealer, gamma walls e options flow live per i trader SPX/0DTE. Livelli gamma gratuiti con ritardo di 15 minuti, senza registrazione.',
+    ogLocale: 'it_IT',
+  },
+  de: {
+    title: 'ZeroGEX™ | Optionsanalyse in Echtzeit',
+    description:
+      'Echtzeit-Gamma-Exposure, Dealer-Positionierung, Gamma-Walls und Live-Options-Flow für SPX/0DTE-Trader. Kostenlose, 15 Minuten verzögerte Gamma-Level — ohne Anmeldung.',
+    ogLocale: 'de_DE',
+  },
+  es: {
+    title: 'ZeroGEX™ | Análisis de opciones en tiempo real',
+    description:
+      'Gamma exposure en tiempo real, posicionamiento de dealers, gamma walls y options flow en vivo para traders de SPX/0DTE. Niveles gamma gratuitos con retraso de 15 minutos, sin registro.',
+    ogLocale: 'es_ES',
+  },
+  fr: {
+    title: 'ZeroGEX™ | Analyse d’options en temps réel',
+    description:
+      'Gamma exposure en temps réel, positionnement des dealers, gamma walls et options flow en direct pour les traders SPX/0DTE. Niveaux gamma gratuits différés de 15 min, sans inscription.',
+    ogLocale: 'fr_FR',
   },
 };
+
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getRequestLocale();
+  const m = SITE_META[locale] ?? SITE_META.en;
+  return {
+    title: m.title,
+    description: m.description,
+    icons: {
+      icon: '/favicon.ico',
+    },
+    metadataBase: new URL('https://zerogex.io'),
+    openGraph: {
+      title: m.title,
+      description: m.description,
+      url: 'https://zerogex.io',
+      siteName: 'ZeroGEX',
+      images: [
+        {
+          url: '/og-image.png',
+          width: 1200,
+          height: 630,
+          alt: 'ZeroGEX Options Analytics Platform',
+        },
+      ],
+      locale: m.ogLocale,
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: m.title,
+      description: m.description,
+      images: ['/og-image.png'],
+    },
+  };
+}
 
 export default async function RootLayout({
   children,
