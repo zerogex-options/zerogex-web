@@ -28,15 +28,18 @@ type SignupPoint = {
   disclaimer: number;
 };
 
-// Mirrors SignupFlowPoint in core/monitoring.ts. Paid adds are positive, paid
-// cancellations negative (pre-negated server-side); registrations is the daily
-// count of new self-serve accounts (any tier).
+// Mirrors SignupFlowPoint in core/monitoring.ts. Paid adds are positive; paid
+// cancellations and payment-failure downgrades are negative (pre-negated
+// server-side); registrations is the daily count of new self-serve accounts
+// (any tier).
 type SignupFlowPoint = {
   day: string;
   basicAdd: number;
   proAdd: number;
   basicCancel: number;
   proCancel: number;
+  basicPaymentFail: number;
+  proPaymentFail: number;
   registrations: number;
 };
 
@@ -289,7 +292,7 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
       <section className="mb-8">
         <div className="flex items-baseline justify-between mb-2">
           <h2 className="text-lg font-semibold" style={{ color: textColor }}>User Signups</h2>
-          <span className="text-xs" style={{ color: mutedText }}>Subscriber and tier-headcount snapshots (latest sample overwrites today&apos;s point). Subscription Flow charts each user&apos;s own Basic/Pro Stripe conversions (up) and cancellations (down) per day, with a net-onboards line (adds minus cancels) sharing the bars&apos; zero baseline. Daily Registrations areas total registered users with the disclaimer-accepted subset in front, plus daily new-account registration columns on a secondary axis.</span>
+          <span className="text-xs" style={{ color: mutedText }}>Subscriber and tier-headcount snapshots (latest sample overwrites today&apos;s point). Subscription Flow charts each user&apos;s own Basic/Pro Stripe conversions (up) against cancellations and payment-failure downgrades (down) per day, with a net-onboards line (adds minus both) sharing the bars&apos; zero baseline. Daily Registrations areas total registered users with the disclaimer-accepted subset in front, plus daily new-account registration columns on a secondary axis.</span>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <TotalSubscribersChartCard
@@ -1871,19 +1874,26 @@ type SubscriptionFlowChartCardProps = {
 };
 
 // Per-day paid-subscription flow with a net-onboards line overlaid. Basic/Pro
-// conversions stack above the x-axis, cancellations below it (each user's own
-// Stripe signup/cancel — no public tier); adds are the signups brand (blue)
-// family, cancels a bear-red family, tier the shade within. The net line
-// (adds − cancels for the day) rides the same primary axis as the bars, sharing
-// their zero baseline so it reads directly against the columns it summarizes.
+// conversions stack above the x-axis; below it sit the two net-negative churn
+// causes — voluntary cancellations and involuntary payment-failure downgrades
+// (each user's own Stripe sub — no public tier). Adds are the signups brand
+// (blue) family, cancels a bear-red family, payment-failure downgrades a purple
+// family, tier the shade within. The net line (adds − cancels − payment fails
+// for the day) rides the same primary axis as the bars, sharing their zero
+// baseline so it reads directly against the columns it summarizes.
 function SubscriptionFlowChartCard({ data, cardBg, axisStroke, mutedText, brandColor }: SubscriptionFlowChartCardProps) {
   const proAddColor = brandColor;
   const basicAddColor = lighten(brandColor, 0.45);
   const cancelBase = '#c1435b';
   const proCancelColor = cancelBase;
   const basicCancelColor = lighten(cancelBase, 0.35);
-  // Bright accent so the net line reads clearly in front of the blue add / red
-  // cancel columns.
+  // Payment-failure downgrades are also net-negative but a distinct cause, so
+  // they get their own (purple) family below the red cancellation columns.
+  const paymentFailBase = '#7a5195';
+  const proPaymentFailColor = paymentFailBase;
+  const basicPaymentFailColor = lighten(paymentFailBase, 0.4);
+  // Bright accent so the net line reads clearly in front of the add / cancel /
+  // payment-failure columns.
   const netColor = '#ffa600';
 
   const totals = useMemo(() => {
@@ -1891,31 +1901,52 @@ function SubscriptionFlowChartCard({ data, cardBg, axisStroke, mutedText, brandC
     let basicAdd = 0;
     let proCancel = 0;
     let basicCancel = 0;
+    let proPaymentFail = 0;
+    let basicPaymentFail = 0;
     for (const p of data) {
       proAdd += p.proAdd;
       basicAdd += p.basicAdd;
       proCancel += p.proCancel;
       basicCancel += p.basicCancel;
+      proPaymentFail += p.proPaymentFail;
+      basicPaymentFail += p.basicPaymentFail;
     }
-    // Cancels are stored negative, so net onboards is the straight algebraic sum.
-    return { proAdd, basicAdd, proCancel, basicCancel, net: proAdd + basicAdd + proCancel + basicCancel };
+    // Cancels and payment-fails are stored negative, so net onboards is the
+    // straight algebraic sum of all six flows.
+    return {
+      proAdd,
+      basicAdd,
+      proCancel,
+      basicCancel,
+      proPaymentFail,
+      basicPaymentFail,
+      net: proAdd + basicAdd + proCancel + basicCancel + proPaymentFail + basicPaymentFail,
+    };
   }, [data]);
 
-  // Net onboards per day: adds minus cancels. Cancels are stored negative, so
-  // it's the plain sum of the four flow fields, and it always lands within the
-  // bars' own domain (a day's net ≤ its adds and ≥ its cancels), so it shares
-  // the primary axis instead of needing one of its own.
+  // Net onboards per day: adds minus cancels minus payment-failure downgrades.
+  // Cancels and payment-fails are stored negative, so it's the plain sum of the
+  // six flow fields, and it always lands within the bars' own domain (a day's
+  // net ≤ its adds and ≥ its combined negatives), so it shares the primary axis
+  // instead of needing one of its own.
   const chartData = useMemo(
-    () => data.map((p) => ({ ...p, net: p.proAdd + p.basicAdd + p.proCancel + p.basicCancel })),
+    () =>
+      data.map((p) => ({
+        ...p,
+        net: p.proAdd + p.basicAdd + p.proCancel + p.basicCancel + p.proPaymentFail + p.basicPaymentFail,
+      })),
     [data],
   );
 
   // One axis for both the diverging bars and the net line, scaled just to the
-  // paid add/cancel stacks (positive above the zero baseline, negative below) so
-  // the columns stay legible.
+  // paid add stack (above the zero baseline) and the combined cancel +
+  // payment-failure stack (below it) so the columns stay legible.
   const barScale = useMemo(() => {
     const barPosBound = data.reduce((m, p) => Math.max(m, p.proAdd + p.basicAdd), 0);
-    const barNegBound = data.reduce((m, p) => Math.max(m, -(p.proCancel + p.basicCancel)), 0);
+    const barNegBound = data.reduce(
+      (m, p) => Math.max(m, -(p.proCancel + p.basicCancel + p.proPaymentFail + p.basicPaymentFail)),
+      0,
+    );
     const barPos = niceYScale(barPosBound);
     const barNegMax = barNegBound > 0 ? niceYScale(barNegBound).max : 0;
     const barNegTicks = barNegBound > 0 ? niceYScale(barNegBound).ticks.filter((t) => t > 0) : [];
@@ -1926,7 +1957,13 @@ function SubscriptionFlowChartCard({ data, cardBg, axisStroke, mutedText, brandC
   const hasData = useMemo(
     () =>
       data.some(
-        (p) => p.proAdd !== 0 || p.basicAdd !== 0 || p.proCancel !== 0 || p.basicCancel !== 0,
+        (p) =>
+          p.proAdd !== 0 ||
+          p.basicAdd !== 0 ||
+          p.proCancel !== 0 ||
+          p.basicCancel !== 0 ||
+          p.proPaymentFail !== 0 ||
+          p.basicPaymentFail !== 0,
       ),
     [data],
   );
@@ -1942,6 +1979,8 @@ function SubscriptionFlowChartCard({ data, cardBg, axisStroke, mutedText, brandC
           <span><span style={{ color: basicAddColor }}>●</span> Basic adds: {totals.basicAdd.toLocaleString()}</span>
           <span><span style={{ color: proCancelColor }}>●</span> Pro cancels: {Math.abs(totals.proCancel).toLocaleString()}</span>
           <span><span style={{ color: basicCancelColor }}>●</span> Basic cancels: {Math.abs(totals.basicCancel).toLocaleString()}</span>
+          <span><span style={{ color: proPaymentFailColor }}>●</span> Pro payment fails: {Math.abs(totals.proPaymentFail).toLocaleString()}</span>
+          <span><span style={{ color: basicPaymentFailColor }}>●</span> Basic payment fails: {Math.abs(totals.basicPaymentFail).toLocaleString()}</span>
         </div>
       </div>
       {!hasData ? (
@@ -1979,7 +2018,9 @@ function SubscriptionFlowChartCard({ data, cardBg, axisStroke, mutedText, brandC
                   const basicAdd = num('basicAdd');
                   const proCancel = num('proCancel');
                   const basicCancel = num('basicCancel');
-                  const net = proAdd + basicAdd + proCancel + basicCancel;
+                  const proPaymentFail = num('proPaymentFail');
+                  const basicPaymentFail = num('basicPaymentFail');
+                  const net = proAdd + basicAdd + proCancel + basicCancel + proPaymentFail + basicPaymentFail;
                   return (
                     <div
                       className="rounded-lg border px-3 py-2 text-xs"
@@ -1993,6 +2034,9 @@ function SubscriptionFlowChartCard({ data, cardBg, axisStroke, mutedText, brandC
                       <div className="mt-1" style={{ color: cancelBase }}>Cancellations: {signed(proCancel + basicCancel)}</div>
                       <div className="pl-2">Pro: {signed(proCancel)}</div>
                       <div className="pl-2">Basic: {signed(basicCancel)}</div>
+                      <div className="mt-1" style={{ color: paymentFailBase }}>Payment-failure downgrades: {signed(proPaymentFail + basicPaymentFail)}</div>
+                      <div className="pl-2">Pro: {signed(proPaymentFail)}</div>
+                      <div className="pl-2">Basic: {signed(basicPaymentFail)}</div>
                     </div>
                   );
                 }}
@@ -2001,6 +2045,8 @@ function SubscriptionFlowChartCard({ data, cardBg, axisStroke, mutedText, brandC
               <Bar yAxisId="flow" dataKey="proAdd" name="Pro adds" stackId="flow" fill={proAddColor} maxBarSize={28} isAnimationActive={false} />
               <Bar yAxisId="flow" dataKey="basicCancel" name="Basic cancellations" stackId="flow" fill={basicCancelColor} maxBarSize={28} isAnimationActive={false} />
               <Bar yAxisId="flow" dataKey="proCancel" name="Pro cancellations" stackId="flow" fill={proCancelColor} maxBarSize={28} isAnimationActive={false} />
+              <Bar yAxisId="flow" dataKey="basicPaymentFail" name="Basic payment-failure downgrades" stackId="flow" fill={basicPaymentFailColor} maxBarSize={28} isAnimationActive={false} />
+              <Bar yAxisId="flow" dataKey="proPaymentFail" name="Pro payment-failure downgrades" stackId="flow" fill={proPaymentFailColor} maxBarSize={28} isAnimationActive={false} />
               <Line
                 yAxisId="flow"
                 type="monotone"

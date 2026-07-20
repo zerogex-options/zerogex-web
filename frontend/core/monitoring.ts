@@ -65,8 +65,15 @@ export type SignupPoint = {
 // Per-day paid-subscription flow plus account registrations, sourced from the
 // audit_events log. The paid flow counts each user's own Stripe signup/cancel:
 //   • basicAdd / proAdd     — a subscription's first paid observation (conversion)
-//   • basicCancel / proCancel — a subscription cancellation (stored negative so it
+//   • basicCancel / proCancel — a VOLUNTARY cancellation: the sub ended while not
+//                               in a payment-failure state (stored negative so it
 //                               stacks straight below the x-axis)
+//   • basicPaymentFail / proPaymentFail — an INVOLUNTARY downgrade: the sub ended
+//                               out of a dunning (past_due/unpaid) state, i.e. it
+//                               was lost to a failed payment rather than cancelled
+//                               (also stored negative)
+// Every ended subscription is booked into exactly ONE of the cancel /
+// payment-fail pairs, so the two never double-count the same churn.
 // `registrations` is the number of new self-serve accounts that day (any tier —
 // everyone starts on Public at email registration), for the separate line chart.
 export type SignupFlowPoint = {
@@ -75,6 +82,8 @@ export type SignupFlowPoint = {
   proAdd: number;
   basicCancel: number;
   proCancel: number;
+  basicPaymentFail: number;
+  proPaymentFail: number;
   registrations: number;
 };
 
@@ -698,11 +707,21 @@ type FlowAcc = {
   proAdd: number;
   basicCancel: number;
   proCancel: number;
+  basicPaymentFail: number;
+  proPaymentFail: number;
   registrations: number;
 };
 
 function emptyFlowAcc(): FlowAcc {
-  return { basicAdd: 0, proAdd: 0, basicCancel: 0, proCancel: 0, registrations: 0 };
+  return {
+    basicAdd: 0,
+    proAdd: 0,
+    basicCancel: 0,
+    proCancel: 0,
+    basicPaymentFail: 0,
+    proPaymentFail: 0,
+    registrations: 0,
+  };
 }
 
 // Stripe subscription ids are always `sub_...`; the audit messages embed exactly
@@ -722,14 +741,33 @@ function parseSyncTier(message: string): PaidTier | null {
   return null;
 }
 
+// stripe_subscription_sync messages read "... status=<stripe status> tier=...".
+// The Stripe status is what distinguishes an involuntary payment-failure
+// downgrade (past_due/unpaid) from a healthy sub, so a later deletion can be
+// attributed to dunning vs. a voluntary cancel.
+function parseSyncStatus(message: string): string | null {
+  const m = message.match(/\bstatus=([A-Za-z_]+)/);
+  return m ? m[1] : null;
+}
+
+// Stripe statuses that mean the subscription is failing payment (in dunning).
+// A sub observed in one of these has already been downgraded to public locally
+// (the webhook's ACTIVE_STATUSES excludes them); if it goes on to be deleted,
+// the deletion is booked as a payment-failure downgrade rather than a cancel.
+const DUNNING_STATUSES = new Set(['past_due', 'unpaid']);
+
 // Per-day paid-subscription flow and account registrations, sourced from the
 // audit_events log, spanning the same MAX_DAILY window as the other daily charts.
 //
 //   • Paid adds        — the FIRST `stripe_subscription_sync` that saw a given
 //     subscription in a paid tier (pro/basic): the day that user converted.
-//   • Paid cancellations — `stripe_subscription_deleted` rows (the sub actually
-//     ended), tier recovered from that subscription's most recent paid sync,
-//     stored negative so they stack below the axis.
+//   • Paid cancellations / payment-failure downgrades — one per
+//     `stripe_subscription_deleted` row (the sub actually ended; tier recovered
+//     from its most recent paid sync), split by cause: a sub whose last synced
+//     status was a dunning state (past_due/unpaid) is booked as an involuntary
+//     payment-failure downgrade, everything else as a voluntary cancellation.
+//     Both are stored negative so they stack below the axis, and they partition
+//     the deleted subs so the same churn is never counted twice.
 //   • Registrations    — new rows in the `users` table, counted by `created_at`
 //     (one per account, matching `make users`). Deliberately NOT sourced from
 //     `register`/`oauth_login` audit events: before 2026-06-18, `oauth_login`
@@ -768,11 +806,17 @@ function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
       .all() as Array<{ created_at: string; message: string }>;
     const firstPaid = new Map<string, { day: string; tier: PaidTier }>();
     const lastPaidTier = new Map<string, PaidTier>();
+    // Latest synced Stripe status per subscription, tracked for EVERY sync
+    // (including the tier=public dunning syncs that parseSyncTier skips) so a
+    // later deletion can be attributed to payment failure vs. voluntary cancel.
+    const lastStatus = new Map<string, string>();
     for (const row of syncRows) {
-      const tier = parseSyncTier(row.message);
-      if (!tier) continue;
       const subId = parseSubIdFromMessage(row.message);
       if (!subId) continue;
+      const status = parseSyncStatus(row.message);
+      if (status) lastStatus.set(subId, status);
+      const tier = parseSyncTier(row.message);
+      if (!tier) continue;
       const day = etDay(row.created_at);
       if (!day) continue;
       if (!firstPaid.has(subId)) firstPaid.set(subId, { day, tier });
@@ -787,8 +831,12 @@ function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
       else bucket.basicAdd += 1;
     }
 
-    // Paid cancellations: one per deleted subscription, tier from its last paid
-    // sync (fall back to Basic if unrecoverable so a real cancel is never lost).
+    // Paid churn: one per deleted subscription, tier from its last paid sync
+    // (fall back to Basic if unrecoverable so a real churn is never lost). Split
+    // by cause: a sub whose last synced status was a dunning state
+    // (past_due/unpaid) was lost to a failed payment — an involuntary
+    // downgrade; anything else is a voluntary cancellation. The two are mutually
+    // exclusive, so net-onboards never subtracts the same churn twice.
     const deletedRows = db
       .prepare(
         `SELECT created_at, message FROM audit_events
@@ -800,8 +848,14 @@ function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
       if (!day || !acc[day]) continue;
       const subId = parseSubIdFromMessage(row.message);
       const tier = (subId ? lastPaidTier.get(subId) : null) ?? 'basic';
-      if (tier === 'pro') acc[day].proCancel -= 1;
-      else acc[day].basicCancel -= 1;
+      const endedInDunning = subId ? DUNNING_STATUSES.has(lastStatus.get(subId) ?? '') : false;
+      if (endedInDunning) {
+        if (tier === 'pro') acc[day].proPaymentFail -= 1;
+        else acc[day].basicPaymentFail -= 1;
+      } else {
+        if (tier === 'pro') acc[day].proCancel -= 1;
+        else acc[day].basicCancel -= 1;
+      }
     }
 
     // Registrations: authoritative new-account count from the users table (one
