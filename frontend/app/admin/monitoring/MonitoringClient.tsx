@@ -1947,11 +1947,27 @@ function SubscriptionFlowChartCard({ data, cardBg, axisStroke, mutedText, brandC
       (m, p) => Math.max(m, -(p.proCancel + p.basicCancel + p.proPaymentFail + p.basicPaymentFail)),
       0,
     );
-    const barPos = niceYScale(barPosBound);
-    const barNegMax = barNegBound > 0 ? niceYScale(barNegBound).max : 0;
-    const barNegTicks = barNegBound > 0 ? niceYScale(barNegBound).ticks.filter((t) => t > 0) : [];
-    const barTicks = [...barNegTicks.map((t) => -t).reverse(), 0, ...barPos.ticks.filter((t) => t > 0)];
-    return { min: -barNegMax, max: barPos.max, ticks: barTicks };
+    // Both halves of the diverging axis share ONE tick interval so the negative
+    // labels step by the same amount as the positive ones (e.g. both by 5). The
+    // larger side sets the "nice" step (and keeps niceYScale's own padded max);
+    // the smaller side just rounds its bound up to that same step. Scaling each
+    // side independently used to let niceYScale pick a finer step for the
+    // smaller bound — a big positive bound got step 5 while a small negative
+    // bound got step 1, so the two halves stepped by different amounts.
+    const posDominant = barPosBound >= barNegBound;
+    const nice = niceYScale(Math.max(barPosBound, barNegBound));
+    const step = nice.ticks.length > 1 ? nice.ticks[1] - nice.ticks[0] : nice.max || 1;
+    const roundToStep = (bound: number) => {
+      const max = Math.ceil(bound / step) * step;
+      const ticks: number[] = [];
+      for (let v = step; v <= max + 1e-9; v += step) ticks.push(Math.round(v));
+      return { max, ticks };
+    };
+    const niceSide = { max: nice.max, ticks: nice.ticks.filter((t) => t > 0) };
+    const pos = posDominant ? niceSide : roundToStep(barPosBound);
+    const neg = barNegBound > 0 ? (posDominant ? roundToStep(barNegBound) : niceSide) : { max: 0, ticks: [] as number[] };
+    const barTicks = [...neg.ticks.map((t) => -t).reverse(), 0, ...pos.ticks];
+    return { min: -neg.max, max: pos.max, ticks: barTicks };
   }, [data]);
 
   const hasData = useMemo(
