@@ -83,8 +83,20 @@ const VOL_BOTTOM = 586;
 const TIME_AXIS_Y = 604;
 const PLOT_LEFT = 16;
 const PLOT_RIGHT = 1092;
-const INNER_PAD_X = 12;
+const INNER_PAD_X = 12; // left inset before the first bar
+// Right-side gutter reserved between the newest bar and the price axis, so the
+// last candle is never hidden under the wall / gamma / last-price tags that
+// sit on the axis. (Grid + level lines still run the full width to PLOT_RIGHT;
+// only the bars are inset.)
+const PAD_RIGHT = 82;
 const AXIS_COL_X = PLOT_RIGHT + 10; // right-hand price axis / tag column
+
+// View window (zoom + pan). We keep a deep pool of bars in memory and show a
+// movable slice of it; the price axis auto-fits whatever is visible.
+const POOL = 400; // bars retained for panning
+const DEFAULT_COUNT = 90; // bars shown in the default, live-following view
+const MIN_COUNT = 18; // most zoomed-in
+const ZOOM_FACTOR = 1.2;
 const RAIL_LEFT = 1190;
 const RAIL_RIGHT = 1348;
 const RAIL_CENTER = (RAIL_LEFT + RAIL_RIGHT) / 2;
@@ -186,6 +198,16 @@ export default function GammaTerminalChart({ className = "" }: { className?: str
   const [style, setStyle] = useState<PriceStyle>("candles");
   const [overlays, setOverlays] = useState<OverlayState>(DEFAULT_OVERLAYS);
   const [hydrated, setHydrated] = useState(false);
+  const [view, setView] = useState<{ count: number; offset: number }>({ count: DEFAULT_COUNT, offset: 0 });
+
+  // Snap the view back to the live default whenever the instrument or timeframe
+  // changes. This is the React-sanctioned "adjust state during render on a prop
+  // change" pattern (same shape the data hooks use), so it needs no effect.
+  const [viewKey, setViewKey] = useState(`${symbol}:${timeframe}`);
+  if (viewKey !== `${symbol}:${timeframe}`) {
+    setViewKey(`${symbol}:${timeframe}`);
+    setView({ count: DEFAULT_COUNT, offset: 0 });
+  }
 
   // Restore persisted view preferences once on mount. Server and the first
   // client render intentionally use the defaults; we only reconcile from
@@ -225,7 +247,6 @@ export default function GammaTerminalChart({ className = "" }: { className?: str
   }, [style, hydrated]);
 
   const intervalMinutes = TIMEFRAMES.find((t) => t.value === timeframe)?.minutes ?? 5;
-  const maxPoints = 90;
 
   // ── Data ───────────────────────────────────────────────────────────────────
   const { rows: dataAll, loading, error } = useMarketHistorical(symbol, timeframe);
@@ -238,7 +259,7 @@ export default function GammaTerminalChart({ className = "" }: { className?: str
   const { data: gexSummary } = useGEXSummary(symbol, 5000);
   const technicals = useTechnicals(symbol);
 
-  const data = useMemo(() => dataAll.slice(-maxPoints), [dataAll]);
+  const data = useMemo(() => dataAll.slice(-POOL), [dataAll]);
 
   // Stage 1 — normalize + aggregate history (expensive; independent of the tick).
   const historicalBars = useMemo(() => {
@@ -262,12 +283,13 @@ export default function GammaTerminalChart({ className = "" }: { className?: str
       },
       { rows: [] as Bar[], prevClose: seed },
     );
-    return aggregateBars(normalized.rows, intervalMinutes, maxPoints);
+    return aggregateBars(normalized.rows, intervalMinutes, POOL);
   }, [data, intervalMinutes]);
 
   // Stage 2 — overlay the live tick onto the tip bar (same bucket-scoped,
-  // history-authoritative rules proven out in UnderlyingCandlesChart).
-  const bars = useMemo(() => {
+  // history-authoritative rules proven out in UnderlyingCandlesChart). This is
+  // the full pool; the visible window is sliced from it below.
+  const allBars = useMemo(() => {
     if (historicalBars.length === 0) return historicalBars;
     if (liveClose == null || !session || session === "closed") return historicalBars;
     const tip = historicalBars[historicalBars.length - 1];
@@ -287,6 +309,19 @@ export default function GammaTerminalChart({ className = "" }: { className?: str
     };
     return patched;
   }, [historicalBars, liveClose, session, quoteTs, intervalMinutes]);
+
+  // ── Zoom + pan: derive the visible window from the view state. `offset` is
+  // how many bars are hidden to the RIGHT of the view (0 = live edge, so the
+  // window follows new bars). `count` is how many bars are visible.
+  const total = allBars.length;
+  const effCount = total === 0 ? 0 : clamp(view.count, MIN_COUNT, Math.max(MIN_COUNT, total));
+  const maxOffset = Math.max(0, total - effCount);
+  const effOffset = clamp(view.offset, 0, maxOffset);
+  const viewEnd = total - effOffset;
+  const viewStart = Math.max(0, viewEnd - effCount);
+  const bars = useMemo(() => allBars.slice(viewStart, viewEnd), [allBars, viewStart, viewEnd]);
+  const atLiveEdge = effOffset === 0;
+  const isCustomView = view.offset !== 0 || view.count !== DEFAULT_COUNT;
 
   // ── Gamma levels ─────────────────────────────────────────────────────────
   const flip = num(gexProfile?.gamma_flip ?? gexSummary?.gamma_flip);
@@ -318,6 +353,9 @@ export default function GammaTerminalChart({ className = "" }: { className?: str
   // ── Crosshair state ──────────────────────────────────────────────────────
   const [hover, setHover] = useState<{ idx: number; price: number; px: number; py: number; w: number; h: number } | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const dragRef = useRef<{ startX: number; startOffset: number; moved: boolean } | null>(null);
+  const [dragging, setDragging] = useState(false);
 
   // ── Domain / scales ──────────────────────────────────────────────────────
   const layout = useMemo(() => {
@@ -342,7 +380,9 @@ export default function GammaTerminalChart({ className = "" }: { className?: str
     dMax += pad;
 
     const n = bars.length;
-    const xStep = (PLOT_RIGHT - PLOT_LEFT - 2 * INNER_PAD_X) / Math.max(1, n - 1);
+    // Asymmetric insets: a small left pad, and a wide right gutter (PAD_RIGHT)
+    // so the newest bar sits clear of the axis price tags.
+    const xStep = (PLOT_RIGHT - PLOT_LEFT - INNER_PAD_X - PAD_RIGHT) / Math.max(1, n - 1);
     const candleWidth = Math.max(2, Math.min(15, xStep * 0.62));
     const maxVol = Math.max(...bars.map((b) => b.volume), 1);
     const priceAxis = niceAxis(dMin, dMax, 6);
@@ -418,18 +458,77 @@ export default function GammaTerminalChart({ className = "" }: { className?: str
     return markers;
   }, [bars]);
 
-  const handleMouseMove = (event: MouseEvent<SVGSVGElement>) => {
-    if (!layout || bars.length === 0) return;
-    const rect = event.currentTarget.getBoundingClientRect();
-    const scaleX = VW / Math.max(1, rect.width);
-    const scaleY = VH / Math.max(1, rect.height);
-    const vx = (event.clientX - rect.left) * scaleX;
-    const vy = (event.clientY - rect.top) * scaleY;
-    const idx = Math.round((vx - PLOT_LEFT - INNER_PAD_X) / Math.max(1e-9, layout.xStep));
-    const clamped = Math.max(0, Math.min(bars.length - 1, idx));
-    const price = layout.priceForY(clamp(vy, PAD_TOP, PRICE_BOTTOM));
-    setHover({ idx: clamped, price, px: event.clientX - rect.left, py: event.clientY - rect.top, w: rect.width, h: rect.height });
+  const handlePointerDown = (e: MouseEvent<SVGSVGElement>) => {
+    dragRef.current = { startX: e.clientX, startOffset: effOffset, moved: false };
   };
+
+  const handlePointerMove = (e: MouseEvent<SVGSVGElement>) => {
+    if (!layout || bars.length === 0) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const drag = dragRef.current;
+    if (drag) {
+      const dxScreen = e.clientX - drag.startX;
+      if (!drag.moved && Math.abs(dxScreen) > 3) {
+        drag.moved = true;
+        setDragging(true);
+        setHover(null);
+      }
+      if (drag.moved) {
+        const dxView = dxScreen * (VW / Math.max(1, rect.width));
+        const dBars = Math.round(dxView / Math.max(1e-9, layout.xStep));
+        // Dragging the tape to the right reveals older bars → hide more on the right.
+        const nextOffset = clamp(drag.startOffset + dBars, 0, maxOffset);
+        setView((v) => (v.offset === nextOffset ? v : { ...v, offset: nextOffset }));
+        return;
+      }
+    }
+    const vx = (e.clientX - rect.left) * (VW / Math.max(1, rect.width));
+    const vy = (e.clientY - rect.top) * (VH / Math.max(1, rect.height));
+    const idx = Math.round((vx - PLOT_LEFT - INNER_PAD_X) / Math.max(1e-9, layout.xStep));
+    const clampedIdx = Math.max(0, Math.min(bars.length - 1, idx));
+    const price = layout.priceForY(clamp(vy, PAD_TOP, PRICE_BOTTOM));
+    setHover({ idx: clampedIdx, price, px: e.clientX - rect.left, py: e.clientY - rect.top, w: rect.width, h: rect.height });
+  };
+
+  const endDrag = () => {
+    dragRef.current = null;
+    if (dragging) setDragging(false);
+  };
+
+  const handlePointerLeave = () => {
+    setHover(null);
+    endDrag();
+  };
+
+  const resetView = () => setView({ count: DEFAULT_COUNT, offset: 0 });
+
+  // Wheel-zoom, anchored on the bar under the cursor. Attached natively with
+  // { passive: false } so preventDefault actually stops the page from scrolling
+  // (React's synthetic onWheel can be passive and silently ignore it).
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el || total <= 1) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = el.getBoundingClientRect();
+      const vx = (e.clientX - rect.left) * (VW / Math.max(1, rect.width));
+      const curCount = clamp(view.count, MIN_COUNT, Math.max(MIN_COUNT, total));
+      const curOffset = clamp(view.offset, 0, Math.max(0, total - curCount));
+      const curEnd = total - curOffset;
+      const curStart = Math.max(0, curEnd - curCount);
+      const curVisible = Math.max(1, curEnd - curStart);
+      const curXStep = (PLOT_RIGHT - PLOT_LEFT - INNER_PAD_X - PAD_RIGHT) / Math.max(1, curVisible - 1);
+      const rel = clamp((vx - PLOT_LEFT - INNER_PAD_X) / Math.max(1e-9, curXStep), 0, curVisible - 1);
+      const cursorAbs = curStart + rel;
+      const f = curVisible > 1 ? rel / (curVisible - 1) : 0.5;
+      const newCount = clamp(Math.round(curCount * (e.deltaY < 0 ? 1 / ZOOM_FACTOR : ZOOM_FACTOR)), MIN_COUNT, total);
+      const newStart = Math.round(cursorAbs - f * (newCount - 1));
+      const newOffset = clamp(total - (newStart + newCount), 0, Math.max(0, total - newCount));
+      setView({ count: newCount, offset: newOffset });
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [view.count, view.offset, total]);
 
   // ── Loading / error / empty ──────────────────────────────────────────────
   if (loading && bars.length === 0) {
@@ -457,10 +556,14 @@ export default function GammaTerminalChart({ className = "" }: { className?: str
   const { xForIndex, yPrice, yVol, priceAxis, candleWidth, xStep } = layout;
   const lastBar = bars[bars.length - 1];
   const lastIdx = bars.length - 1;
+  // The true latest bar (pool tip) — used for the accent "last price" line and
+  // tag so they stay anchored to the current price even when panned into
+  // history, where the last *visible* bar is older.
+  const liveTip = allBars[allBars.length - 1] ?? lastBar;
   const activeIdx = hover ? hover.idx : lastIdx;
   const activeBar = bars[activeIdx] ?? lastBar;
   const activePrevClose = activeIdx > 0 ? bars[activeIdx - 1].close : activeBar.open;
-  const spot = priceSummary.displayPrice ?? lastBar.close;
+  const spot = priceSummary.displayPrice ?? liveTip.close;
 
   const inDomain = (v: number | null): v is number => v != null && v >= layout.dMin && v <= layout.dMax;
   const regimeUnknown = flip == null;
@@ -619,11 +722,35 @@ export default function GammaTerminalChart({ className = "" }: { className?: str
           <OverlayPill label="VWAP" color="var(--color-hazy)" active={overlays.vwap} onClick={() => setOverlays((o) => ({ ...o, vwap: !o.vwap }))} />
           <OverlayPill label="Max Pain" color="var(--color-gold)" active={overlays.maxPain} onClick={() => setOverlays((o) => ({ ...o, maxPain: !o.maxPain }))} />
 
-          <div className="ml-auto hidden md:flex items-center gap-1.5" style={{ color: "var(--text-muted)" }}>
-            <Crosshair size={13} />
-            <span className="zg-eyebrow" style={{ fontSize: 10 }}>
-              Hover for price × gamma
-            </span>
+          <div className="ml-auto flex items-center gap-2">
+            {isCustomView && (
+              <button
+                type="button"
+                onClick={resetView}
+                title="Reset zoom & pan to the live view"
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                  padding: "5px 11px",
+                  borderRadius: "var(--radius-pill)",
+                  border: "1px solid var(--color-accent-hot)",
+                  color: "var(--color-accent-hot)",
+                  background: "color-mix(in srgb, var(--color-accent-hot) 12%, transparent)",
+                  cursor: "pointer",
+                }}
+              >
+                ⟲ Reset
+              </button>
+            )}
+            <div className="hidden md:flex items-center gap-1.5" style={{ color: "var(--text-muted)" }}>
+              <Crosshair size={13} />
+              <span className="zg-eyebrow" style={{ fontSize: 10 }}>
+                Scroll zoom · drag pan · hover for gamma
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -632,12 +759,23 @@ export default function GammaTerminalChart({ className = "" }: { className?: str
       <div ref={containerRef} className="relative" style={{ background: "var(--bg-card)" }}>
         <MobileScrollableChart minWidthClass="min-w-[1000px]">
           <svg
+            ref={svgRef}
             width="100%"
             viewBox={`0 0 ${VW} ${VH}`}
             preserveAspectRatio="xMinYMin meet"
-            style={{ aspectRatio: `${VW} / ${VH}`, display: "block", width: "100%" }}
-            onMouseMove={handleMouseMove}
-            onMouseLeave={() => setHover(null)}
+            style={{
+              aspectRatio: `${VW} / ${VH}`,
+              display: "block",
+              width: "100%",
+              cursor: dragging ? "grabbing" : "crosshair",
+              userSelect: "none",
+              touchAction: "pan-y",
+            }}
+            onMouseMove={handlePointerMove}
+            onMouseDown={handlePointerDown}
+            onMouseUp={endDrag}
+            onMouseLeave={handlePointerLeave}
+            onDoubleClick={resetView}
           >
             <defs>
               <linearGradient id="zg-gc-area" x1="0" y1="0" x2="0" y2="1">
@@ -735,7 +873,11 @@ export default function GammaTerminalChart({ className = "" }: { className?: str
                   const bodyH = Math.max(1, Math.abs(openY - closeY));
                   return (
                     <g key={b.timestamp}>
-                      <line x1={x} x2={x} y1={highY} y2={lowY} stroke={c} strokeWidth={1} opacity={0.9} />
+                      {/* Wick drawn as two segments — high→body-top and
+                          body-bottom→low — so it never crosses the interior of
+                          a hollow (transparent) candle body. */}
+                      <line x1={x} x2={x} y1={highY} y2={bodyY} stroke={c} strokeWidth={1} opacity={0.9} />
+                      <line x1={x} x2={x} y1={bodyY + bodyH} y2={lowY} stroke={c} strokeWidth={1} opacity={0.9} />
                       <rect
                         x={x - candleWidth / 2}
                         y={bodyY}
@@ -773,14 +915,16 @@ export default function GammaTerminalChart({ className = "" }: { className?: str
 
             {/* ── Last-price line + live cursor (tag drawn in declutter pass) ── */}
             {(() => {
-              const y = clamp(yPrice(lastBar.close), PAD_TOP, PRICE_BOTTOM);
+              const y = clamp(yPrice(liveTip.close), PAD_TOP, PRICE_BOTTOM);
               const x = xForIndex(lastIdx);
               const isLive = !!session && session !== "closed";
               return (
                 <g>
                   <line x1={PLOT_LEFT} x2={PLOT_RIGHT} y1={y} y2={y} stroke="var(--color-accent-hot)" strokeWidth={1} strokeDasharray="2 3" opacity={0.8} />
-                  {isLive && <circle className="zg-gc-ping" cx={x} cy={y} r={4} fill="none" stroke="var(--color-accent-hot)" strokeWidth={1.5} />}
-                  <circle className={isLive ? "zg-gc-dot" : ""} cx={x} cy={y} r={3.4} fill="var(--color-accent-hot)" />
+                  {/* The dot marks the live bar — only shown when it's on screen
+                      (i.e. at the live edge, not scrolled back into history). */}
+                  {atLiveEdge && isLive && <circle className="zg-gc-ping" cx={x} cy={y} r={4} fill="none" stroke="var(--color-accent-hot)" strokeWidth={1.5} />}
+                  {atLiveEdge && <circle className={isLive ? "zg-gc-dot" : ""} cx={x} cy={y} r={3.4} fill="var(--color-accent-hot)" />}
                 </g>
               );
             })()}
@@ -802,8 +946,8 @@ export default function GammaTerminalChart({ className = "" }: { className?: str
                   })),
                 {
                   key: "last",
-                  y: clamp(yPrice(lastBar.close), PAD_TOP, PRICE_BOTTOM),
-                  value: fmtPrice(lastBar.close),
+                  y: clamp(yPrice(liveTip.close), PAD_TOP, PRICE_BOTTOM),
+                  value: fmtPrice(liveTip.close),
                   bg: "var(--color-accent-hot)",
                   strong: true,
                   arrow: null as "up" | "down" | null,
