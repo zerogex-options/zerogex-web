@@ -19,7 +19,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
-import { Activity, Crosshair, Info } from "lucide-react";
+import { Activity, ChevronsRight, Crosshair, Info } from "lucide-react";
 import { useMarketQuote, useGEXProfile, useGEXSummary, useSessionCloses, type SessionClosesData } from "@/hooks/useApiData";
 import { useMarketHistorical, type PriceBar } from "@/hooks/useMarketHistorical";
 import { useTechnicals } from "@/hooks/useTechnicals";
@@ -418,10 +418,16 @@ export default function GammaTerminalChart({
     startCenter: number;
     startSpan: number;
     startPriceManual: boolean;
+    startZoom: number;
+    axisZone: boolean;
     priceEngaged: boolean;
     moved: boolean;
   } | null>(null);
   const [dragging, setDragging] = useState(false);
+  // True while dragging the right-hand price scale (vertical zoom) or hovering
+  // over it — drives the ns-resize cursor, TradingView-style.
+  const [axisZoomActive, setAxisZoomActive] = useState(false);
+  const [overAxis, setOverAxis] = useState(false);
 
   // ── Domain / scales ──────────────────────────────────────────────────────
   const layout = useMemo(() => {
@@ -537,6 +543,11 @@ export default function GammaTerminalChart({
   }, [bars]);
 
   const handlePointerDown = (e: MouseEvent<SVGSVGElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const vx = (e.clientX - rect.left) * (VW / Math.max(1, rect.width));
+    // A drag that starts on the right-hand price scale zooms the y-axis
+    // (TradingView-style) rather than panning.
+    const axisZone = vx > PLOT_RIGHT && vx < RAIL_LEFT;
     dragRef.current = {
       startX: e.clientX,
       startY: e.clientY,
@@ -544,9 +555,12 @@ export default function GammaTerminalChart({
       startCenter: layout ? (layout.dMin + layout.dMax) / 2 : 0,
       startSpan: layout ? layout.dMax - layout.dMin : 1,
       startPriceManual: priceView.center !== null || priceView.zoom !== 1,
+      startZoom: priceView.zoom,
+      axisZone,
       priceEngaged: false,
       moved: false,
     };
+    if (axisZone) setAxisZoomActive(true);
   };
 
   const handlePointerMove = (e: MouseEvent<SVGSVGElement>) => {
@@ -556,6 +570,21 @@ export default function GammaTerminalChart({
     if (drag) {
       const dxScreen = e.clientX - drag.startX;
       const dyScreen = e.clientY - drag.startY;
+      // Price-scale drag → vertical zoom about the current center. Drag up
+      // zooms in (candles stretch), drag down zooms out (compress).
+      if (drag.axisZone) {
+        if (!drag.moved && Math.abs(dyScreen) > 2) {
+          drag.moved = true;
+          setDragging(true);
+          setHover(null);
+        }
+        if (drag.moved) {
+          const factor = Math.exp(dyScreen * 0.006);
+          const nextZoom = clamp(drag.startZoom * factor, PRICE_ZOOM_MIN, PRICE_ZOOM_MAX);
+          setPriceView((pv) => (pv.zoom === nextZoom ? pv : { zoom: nextZoom, center: pv.center }));
+        }
+        return;
+      }
       if (!drag.moved && Math.hypot(dxScreen, dyScreen) > 3) {
         drag.moved = true;
         setDragging(true);
@@ -586,6 +615,15 @@ export default function GammaTerminalChart({
     }
     const vx = (e.clientX - rect.left) * (VW / Math.max(1, rect.width));
     const vy = (e.clientY - rect.top) * (VH / Math.max(1, rect.height));
+    // Over the price scale (not dragging): show the ns-resize affordance and
+    // suppress the crosshair, so the drag-to-zoom target reads clearly.
+    const inAxis = vx > PLOT_RIGHT && vx < RAIL_LEFT;
+    if (inAxis) {
+      if (!overAxis) setOverAxis(true);
+      setHover(null);
+      return;
+    }
+    if (overAxis) setOverAxis(false);
     const idx = Math.round((vx - PLOT_LEFT - INNER_PAD_X) / Math.max(1e-9, layout.xStep));
     const clampedIdx = Math.max(0, Math.min(bars.length - 1, idx));
     const price = layout.priceForY(clamp(vy, PAD_TOP, PRICE_BOTTOM));
@@ -595,10 +633,12 @@ export default function GammaTerminalChart({
   const endDrag = () => {
     dragRef.current = null;
     if (dragging) setDragging(false);
+    if (axisZoomActive) setAxisZoomActive(false);
   };
 
   const handlePointerLeave = () => {
     setHover(null);
+    if (overAxis) setOverAxis(false);
     endDrag();
   };
 
@@ -947,7 +987,7 @@ export default function GammaTerminalChart({
               aspectRatio: `${VW} / ${VH}`,
               display: "block",
               width: "100%",
-              cursor: dragging ? "grabbing" : "crosshair",
+              cursor: axisZoomActive || overAxis ? "ns-resize" : dragging ? "grabbing" : "crosshair",
               userSelect: "none",
               // Let the mobile wrapper scroll horizontally: don't reserve
               // horizontal-swipe gestures for the SVG (there's no touch-drag
@@ -1265,8 +1305,33 @@ export default function GammaTerminalChart({
           </div>
         )}
 
-        {/* ── On-screen zoom controls (time + price axes) ───────────────── */}
-        <div className="absolute z-20 flex flex-col gap-1.5" style={{ right: 12, bottom: 12 }}>
+        {/* ── On-screen controls: jump-to-latest + zoom (time + price) ──── */}
+        <div className="absolute z-20 flex flex-col items-end gap-1.5" style={{ right: 12, bottom: 12 }}>
+          {!atLiveEdge && (
+            <button
+              type="button"
+              onClick={() => {
+                setView((v) => ({ ...v, offset: 0 }));
+                setHover(null);
+              }}
+              title="Jump to the latest bar"
+              aria-label="Jump to the latest bar"
+              style={{
+                display: "grid",
+                placeItems: "center",
+                width: 30,
+                height: 30,
+                borderRadius: 999,
+                border: "1px solid var(--color-accent-hot)",
+                color: "var(--color-accent-hot)",
+                background: "color-mix(in srgb, var(--color-accent-hot) 14%, transparent)",
+                backdropFilter: "blur(3px)",
+                cursor: "pointer",
+              }}
+            >
+              <ChevronsRight size={17} />
+            </button>
+          )}
           <ZoomCluster label="Time" onIn={() => zoomTimeCentered(1 / ZOOM_FACTOR)} onOut={() => zoomTimeCentered(ZOOM_FACTOR)} />
           <ZoomCluster label="Price" onIn={() => zoomPrice(1 / ZOOM_FACTOR)} onOut={() => zoomPrice(ZOOM_FACTOR)} />
         </div>
