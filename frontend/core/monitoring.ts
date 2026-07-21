@@ -812,8 +812,38 @@ function parseSyncStatus(message: string): string | null {
 // the user their tier — booked right then, not when Stripe later deletes the sub.
 const DUNNING_STATUSES = new Set(['past_due', 'unpaid']);
 
+// How far back the flow / registration charts DISPLAY. Unlike the traffic
+// buckets (pruned at 90 days), these recompute from the retained, append-only
+// audit_events + users logs every request, so they can show far more history.
+// ~2 years; the axis then trims to the earliest day with real activity (floored
+// at MAX_DAILY), so a young product still shows the usual 90-day window.
+const FLOW_WINDOW_DAYS = 730;
+// The sync scan reaches a bit further than the displayed window: attributing a
+// cancel/payment-fail near the oldest displayed day to the right tier needs
+// that subscription's earlier sync history as context. Bookings still only land
+// inside the FLOW_WINDOW_DAYS display window.
+const FLOW_SYNC_WINDOW_DAYS = 850;
+
+// A flow day on which nothing happened — no adds, cancels, payment-failure
+// downgrades, or registrations. Leading (oldest) empty days are trimmed off the
+// display so the chart starts at the first real activity instead of a long flat
+// lead-in for products younger than FLOW_WINDOW_DAYS.
+function isFlowDayEmpty(p: SignupFlowPoint): boolean {
+  return (
+    p.proAdd === 0 &&
+    p.basicAdd === 0 &&
+    p.proCancel === 0 &&
+    p.basicCancel === 0 &&
+    p.proPaymentFail === 0 &&
+    p.basicPaymentFail === 0 &&
+    p.registrations === 0
+  );
+}
+
 // Per-day paid-subscription flow and account registrations, sourced from the
-// audit_events log, spanning the same MAX_DAILY window as the other daily charts.
+// audit_events log. Displays up to FLOW_WINDOW_DAYS of history (trimmed to the
+// earliest day with activity, floored at MAX_DAILY) since it recomputes from the
+// retained event log rather than a pruned bucket store.
 //
 //   • Paid adds        — a paid activation, from two sources (both positive): the
 //     FIRST `stripe_subscription_sync` that saw a subscription in a paid tier
@@ -844,7 +874,7 @@ const DUNNING_STATUSES = new Set(['past_due', 'unpaid']);
 // upgrades/downgrades (basic↔pro) aren't a first-conversion, so they don't count
 // as an add.
 function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
-  const dailyKeys = generateDailyKeys(now);
+  const dailyKeys = generateDailyKeys(now, FLOW_WINDOW_DAYS);
   const acc: Record<string, FlowAcc> = {};
   for (const day of dailyKeys) acc[day] = emptyFlowAcc();
 
@@ -859,12 +889,13 @@ function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
 
     // Subscription tier history from sync events, oldest first so a single pass
     // yields both the first paid observation (the conversion) and the latest paid
-    // tier (for cancellation attribution). Bounded to ~2.2y: long enough to
-    // cover a cancelling sub's lifetime, capped so the scan can't grow forever.
+    // tier (for cancellation attribution). Bounded to FLOW_SYNC_WINDOW_DAYS: a
+    // bit longer than the displayed window so attribution near the oldest shown
+    // day has prior sync history, and capped so the scan can't grow forever.
     const syncRows = db
       .prepare(
         `SELECT created_at, message FROM audit_events
-         WHERE type = 'stripe_subscription_sync' AND created_at > datetime('now', '-800 days')
+         WHERE type = 'stripe_subscription_sync' AND created_at > datetime('now', '-${FLOW_SYNC_WINDOW_DAYS} days')
          ORDER BY created_at ASC`,
       )
       .all() as Array<{ created_at: string; message: string }>;
@@ -935,7 +966,7 @@ function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
     const deletedRows = db
       .prepare(
         `SELECT created_at, message FROM audit_events
-         WHERE type = 'stripe_subscription_deleted' AND created_at > datetime('now', '-100 days')`,
+         WHERE type = 'stripe_subscription_deleted' AND created_at > datetime('now', '-${FLOW_WINDOW_DAYS} days')`,
       )
       .all() as Array<{ created_at: string; message: string }>;
     for (const row of deletedRows) {
@@ -954,7 +985,7 @@ function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
     const userRows = db
       .prepare(
         `SELECT created_at FROM users
-         WHERE created_at > datetime('now', '-100 days')`,
+         WHERE created_at > datetime('now', '-${FLOW_WINDOW_DAYS} days')`,
       )
       .all() as Array<{ created_at: string }>;
     for (const row of userRows) {
@@ -966,7 +997,15 @@ function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
     // the charts render empty rather than 500-ing the admin page.
   }
 
-  return dailyKeys.map((day) => ({ day, ...acc[day] }));
+  const points = dailyKeys.map((day) => ({ day, ...acc[day] }));
+  // Trim the leading run of all-empty days (before the product's first activity)
+  // so the axis starts at real data, but never trim into the most recent
+  // MAX_DAILY days — a quiet or brand-new product keeps its familiar 90-day
+  // window instead of collapsing to a couple of points.
+  const floorStart = Math.max(0, points.length - MAX_DAILY);
+  const firstActive = points.findIndex((p) => !isFlowDayEmpty(p));
+  const start = firstActive < 0 ? floorStart : Math.min(firstActive, floorStart);
+  return points.slice(start);
 }
 
 // Counts audit_events rows of `type` whose created_at is newer than
