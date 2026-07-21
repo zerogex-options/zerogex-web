@@ -1,0 +1,1045 @@
+"use client";
+
+/**
+ * GammaTerminalChart — ZeroGEX's proprietary price + dealer-gamma instrument.
+ *
+ * The whole reason this exists (and the reason it beats a generic price chart):
+ * it fuses live candles with the dealer-gamma structure we compute nowhere
+ * else. On one surface a trader sees WHERE price is AND where the market makers
+ * are forced to trade against it — the Gamma Flip regime boundary, the Call and
+ * Put Walls, Max Pain, and a price-aligned gamma-structure rail (a silhouette of
+ * net dealer gamma by price, so the "walls" show up as literal bars beside the
+ * candles). No public charting tool draws this because no public charting tool
+ * has the positioning engine behind it.
+ *
+ * Rendering is hand-rolled SVG (no chart lib) for three reasons: pixel control
+ * over the gamma overlays, zero new dependencies, and full theme reactivity —
+ * every color is a CSS custom property, so the instrument re-skins instantly
+ * across all twelve ZeroGEX palettes in light and dark.
+ */
+
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import { Activity, Crosshair, Info } from "lucide-react";
+import { useMarketQuote, useGEXProfile, useGEXSummary, useSessionCloses } from "@/hooks/useApiData";
+import { useMarketHistorical } from "@/hooks/useMarketHistorical";
+import { useTechnicals } from "@/hooks/useTechnicals";
+import { useTimeframe, type UnderlyingSymbol } from "@/core/TimeframeContext";
+import { getPrimaryPriceChangeSummary } from "@/core/priceChange";
+import { omitClosedMarketTimes } from "@/core/utils";
+import { SYMBOLS } from "@/core/symbols";
+import { useIsMobile } from "@/hooks/useIsMobile";
+import LoadingSpinner from "./LoadingSpinner";
+import ErrorMessage from "./ErrorMessage";
+import MobileScrollableChart from "./MobileScrollableChart";
+
+type ChartTimeframe = "1min" | "5min" | "15min" | "1hr" | "1day";
+type PriceStyle = "candles" | "line" | "area";
+
+const TIMEFRAMES: Array<{ value: ChartTimeframe; label: string; minutes: number }> = [
+  { value: "1min", label: "1m", minutes: 1 },
+  { value: "5min", label: "5m", minutes: 5 },
+  { value: "15min", label: "15m", minutes: 15 },
+  { value: "1hr", label: "1H", minutes: 60 },
+  { value: "1day", label: "1D", minutes: 1440 },
+];
+
+interface Bar {
+  timestamp: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  upVolume: number;
+  downVolume: number;
+}
+
+interface OverlayState {
+  levels: boolean; // gamma flip + call/put walls
+  maxPain: boolean;
+  vwap: boolean;
+  rail: boolean; // gamma structure rail
+  regime: boolean; // long/short gamma background zones
+}
+
+const DEFAULT_OVERLAYS: OverlayState = {
+  levels: true,
+  maxPain: true,
+  vwap: true,
+  rail: true,
+  regime: true,
+};
+
+const OVERLAY_STORAGE_KEY = "zg.gammaChart.overlays.v1";
+const STYLE_STORAGE_KEY = "zg.gammaChart.style.v1";
+
+// ── Geometry (SVG viewBox coordinates; the SVG scales to its container) ──────
+const VW = 1360;
+const VH = 624;
+const PAD_TOP = 46;
+const PRICE_BOTTOM = 486;
+const VOL_TOP = 508;
+const VOL_BOTTOM = 586;
+const TIME_AXIS_Y = 604;
+const PLOT_LEFT = 16;
+const PLOT_RIGHT = 1092;
+const INNER_PAD_X = 12;
+const AXIS_COL_X = PLOT_RIGHT + 10; // right-hand price axis / tag column
+const RAIL_LEFT = 1190;
+const RAIL_RIGHT = 1348;
+const RAIL_CENTER = (RAIL_LEFT + RAIL_RIGHT) / 2;
+const RAIL_HALF = (RAIL_RIGHT - RAIL_LEFT) / 2 - 10;
+
+// ── Numeric helpers (shared shape with UnderlyingCandlesChart) ───────────────
+function niceStep(value: number): number {
+  if (value <= 0 || !Number.isFinite(value)) return 1;
+  const exp = Math.pow(10, Math.floor(Math.log10(value)));
+  const norm = value / exp;
+  if (norm < 1.5) return 1 * exp;
+  if (norm < 3) return 2 * exp;
+  if (norm < 7) return 5 * exp;
+  return 10 * exp;
+}
+
+interface NiceAxis {
+  ticks: number[];
+  step: number;
+}
+
+function niceAxis(min: number, max: number, targetTicks: number): NiceAxis {
+  if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) {
+    return { ticks: [Number.isFinite(min) ? min : 0], step: 1 };
+  }
+  const step = niceStep((max - min) / Math.max(1, targetTicks - 1));
+  const niceMin = Math.floor(min / step) * step;
+  const niceMax = Math.ceil(max / step) * step;
+  const count = Math.max(1, Math.round((niceMax - niceMin) / step) + 1);
+  const ticks: number[] = [];
+  for (let i = 0; i < count; i++) ticks.push(niceMin + i * step);
+  return { ticks, step };
+}
+
+// SPY, QQQ and SPX all trade in cents, so every price readout uses two
+// decimals. Rounding to whole dollars (as a $1+ tick step would imply)
+// collapses a sub-dollar candle's O/H/L/C onto a single integer and reads as
+// broken — the axis grid can be coarse, but the numbers a trader reads cannot.
+function fmtPrice(p: number): string {
+  return p.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function fmtVol(v: number): string {
+  const abs = Math.abs(v);
+  if (abs >= 1_000_000) return `${(v / 1_000_000).toFixed(abs >= 10_000_000 ? 0 : 1)}M`;
+  if (abs >= 1_000) return `${(v / 1_000).toFixed(abs >= 10_000 ? 0 : 1)}K`;
+  return `${Math.round(v)}`;
+}
+
+function fmtGex(v: number): string {
+  const abs = Math.abs(v);
+  const sign = v >= 0 ? "+" : "−";
+  if (abs >= 1e9) return `${sign}$${(abs / 1e9).toFixed(2)}B`;
+  if (abs >= 1e6) return `${sign}$${(abs / 1e6).toFixed(1)}M`;
+  if (abs >= 1e3) return `${sign}$${(abs / 1e3).toFixed(0)}K`;
+  return `${sign}$${abs.toFixed(0)}`;
+}
+
+function aggregateBars(data: Bar[], bucketMinutes: number, maxPoints: number): Bar[] {
+  if (data.length === 0) return [];
+  const sorted = [...data].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  const bucketMs = bucketMinutes * 60 * 1000;
+  const buckets = new Map<number, Bar[]>();
+  sorted.forEach((bar) => {
+    const t = new Date(bar.timestamp).getTime();
+    const bucket = Math.floor(t / bucketMs) * bucketMs;
+    if (!buckets.has(bucket)) buckets.set(bucket, []);
+    buckets.get(bucket)!.push(bar);
+  });
+  return Array.from(buckets.entries())
+    .sort((a, b) => a[0] - b[0])
+    .slice(-maxPoints)
+    .map(([bucket, bars]) => {
+      const upVolume = bars.reduce((s, b) => s + b.upVolume, 0);
+      const downVolume = bars.reduce((s, b) => s + b.downVolume, 0);
+      return {
+        timestamp: new Date(bucket).toISOString(),
+        open: bars[0].open,
+        close: bars[bars.length - 1].close,
+        high: Math.max(...bars.map((b) => b.high)),
+        low: Math.min(...bars.map((b) => b.low)),
+        volume: upVolume + downVolume,
+        upVolume,
+        downVolume,
+      };
+    });
+}
+
+interface ProfilePoint {
+  price: number;
+  gex: number;
+}
+
+// ── Component ────────────────────────────────────────────────────────────────
+export default function GammaTerminalChart({ className = "" }: { className?: string }) {
+  const { symbol, setSymbol } = useTimeframe();
+  const isMobile = useIsMobile();
+  const [timeframe, setTimeframe] = useState<ChartTimeframe>("5min");
+  const [style, setStyle] = useState<PriceStyle>("candles");
+  const [overlays, setOverlays] = useState<OverlayState>(DEFAULT_OVERLAYS);
+  const [hydrated, setHydrated] = useState(false);
+
+  // Restore persisted view preferences once on mount. Server and the first
+  // client render intentionally use the defaults; we only reconcile from
+  // localStorage after mount so there is no hydration mismatch. The rule below
+  // guards against cascading-render setState in effects, which is exactly (and
+  // only) what this one-time hydration does on purpose.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    try {
+      const rawO = localStorage.getItem(OVERLAY_STORAGE_KEY);
+      if (rawO) setOverlays((cur) => ({ ...cur, ...JSON.parse(rawO) }));
+      const rawS = localStorage.getItem(STYLE_STORAGE_KEY);
+      if (rawS === "candles" || rawS === "line" || rawS === "area") setStyle(rawS);
+    } catch {
+      /* ignore malformed prefs */
+    }
+    setHydrated(true);
+  }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      localStorage.setItem(OVERLAY_STORAGE_KEY, JSON.stringify(overlays));
+    } catch {
+      /* storage unavailable */
+    }
+  }, [overlays, hydrated]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      localStorage.setItem(STYLE_STORAGE_KEY, style);
+    } catch {
+      /* storage unavailable */
+    }
+  }, [style, hydrated]);
+
+  const intervalMinutes = TIMEFRAMES.find((t) => t.value === timeframe)?.minutes ?? 5;
+  const maxPoints = 90;
+
+  // ── Data ───────────────────────────────────────────────────────────────────
+  const { rows: dataAll, loading, error } = useMarketHistorical(symbol, timeframe);
+  const { data: quote } = useMarketQuote(symbol, 1000);
+  const liveClose = quote?.close ?? null;
+  const session = quote?.session ?? null;
+  const quoteTs = quote?.timestamp ?? null;
+  const { data: sessionCloses } = useSessionCloses(symbol, 60000, session ?? null);
+  const { data: gexProfile } = useGEXProfile(symbol, 10000);
+  const { data: gexSummary } = useGEXSummary(symbol, 5000);
+  const technicals = useTechnicals(symbol);
+
+  const data = useMemo(() => dataAll.slice(-maxPoints), [dataAll]);
+
+  // Stage 1 — normalize + aggregate history (expensive; independent of the tick).
+  const historicalBars = useMemo(() => {
+    const filtered = omitClosedMarketTimes(data || [], (d) => d.timestamp);
+    const seed = filtered[0]?.close ?? filtered[0]?.price ?? 0;
+    const normalized = filtered.reduce(
+      (acc, d) => {
+        const close = d.close ?? d.price ?? acc.prevClose;
+        const open = d.open ?? acc.prevClose;
+        const high = d.high ?? Math.max(open, close);
+        const low = d.low ?? Math.min(open, close);
+        const volume = d.volume ?? 0;
+        const apiUp = d.up_volume ?? null;
+        const apiDown = d.down_volume ?? null;
+        const up = close >= open;
+        const upVolume = apiUp !== null && apiDown !== null ? apiUp : up ? volume : 0;
+        const downVolume = apiUp !== null && apiDown !== null ? apiDown : up ? 0 : volume;
+        acc.rows.push({ timestamp: d.timestamp, open, high, low, close, volume: upVolume + downVolume, upVolume, downVolume });
+        acc.prevClose = close;
+        return acc;
+      },
+      { rows: [] as Bar[], prevClose: seed },
+    );
+    return aggregateBars(normalized.rows, intervalMinutes, maxPoints);
+  }, [data, intervalMinutes]);
+
+  // Stage 2 — overlay the live tick onto the tip bar (same bucket-scoped,
+  // history-authoritative rules proven out in UnderlyingCandlesChart).
+  const bars = useMemo(() => {
+    if (historicalBars.length === 0) return historicalBars;
+    if (liveClose == null || !session || session === "closed") return historicalBars;
+    const tip = historicalBars[historicalBars.length - 1];
+    const bucketMs = intervalMinutes * 60 * 1000;
+    const tipStartMs = new Date(tip.timestamp).getTime();
+    if (!Number.isFinite(tipStartMs)) return historicalBars;
+    const tipEndMs = tipStartMs + bucketMs;
+    const quoteTsMs = quoteTs ? new Date(quoteTs).getTime() : NaN;
+    if (!Number.isFinite(quoteTsMs) || quoteTsMs < tipStartMs || quoteTsMs >= tipEndMs) return historicalBars;
+    if (liveClose === tip.close) return historicalBars;
+    const patched = historicalBars.slice();
+    patched[patched.length - 1] = {
+      ...tip,
+      close: liveClose,
+      high: Math.max(tip.high, liveClose),
+      low: Math.min(tip.low, liveClose),
+    };
+    return patched;
+  }, [historicalBars, liveClose, session, quoteTs, intervalMinutes]);
+
+  // ── Gamma levels ─────────────────────────────────────────────────────────
+  const flip = num(gexProfile?.gamma_flip ?? gexSummary?.gamma_flip);
+  const callWall = num(gexProfile?.call_wall ?? gexSummary?.call_wall);
+  const putWall = num(gexProfile?.put_wall ?? gexSummary?.put_wall);
+  const maxPain = num(gexSummary?.max_pain);
+  const netGexAtSpot = num(gexProfile?.net_gex_at_spot ?? gexSummary?.net_gex);
+  const vwap = num(technicals.latest?.vwap_deviation?.vwap);
+
+  const profilePoints = useMemo<ProfilePoint[]>(() => {
+    const raw = gexProfile?.profile;
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .map((p) => ({ price: Number(p.price), gex: Number(p.gex) }))
+      .filter((p) => Number.isFinite(p.price) && Number.isFinite(p.gex))
+      .sort((a, b) => a.price - b.price);
+  }, [gexProfile]);
+
+  // ── Price/change readout ─────────────────────────────────────────────────
+  const priceSummary = getPrimaryPriceChangeSummary({
+    quoteClose: quote?.close,
+    quoteSession: session,
+    sessionCloses,
+    displaySource: quote?.display_source,
+    futuresClose: quote?.futures_close,
+    futuresReferenceClose: quote?.futures_reference_close,
+  });
+
+  // ── Crosshair state ──────────────────────────────────────────────────────
+  const [hover, setHover] = useState<{ idx: number; price: number; px: number; py: number; w: number; h: number } | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  // ── Domain / scales ──────────────────────────────────────────────────────
+  const layout = useMemo(() => {
+    if (bars.length === 0) return null;
+    const lows = bars.map((b) => b.low);
+    const highs = bars.map((b) => b.high);
+    let dMin = Math.min(...lows);
+    let dMax = Math.max(...highs);
+    const barSpan = Math.max(dMax - dMin, dMax * 0.001, 0.01);
+    // Fold in gamma levels that sit within ~1.2 bar-spans of the tape so the
+    // walls/flip stay visible without a far Max Pain blowing out the scale.
+    const band = barSpan * 1.2;
+    const includable = [flip, callWall, putWall, vwap].filter((v): v is number => v != null);
+    for (const v of includable) {
+      if (v >= dMin - band && v <= dMax + band) {
+        dMin = Math.min(dMin, v);
+        dMax = Math.max(dMax, v);
+      }
+    }
+    const pad = (dMax - dMin) * 0.06 || dMax * 0.01;
+    dMin -= pad;
+    dMax += pad;
+
+    const n = bars.length;
+    const xStep = (PLOT_RIGHT - PLOT_LEFT - 2 * INNER_PAD_X) / Math.max(1, n - 1);
+    const candleWidth = Math.max(2, Math.min(15, xStep * 0.62));
+    const maxVol = Math.max(...bars.map((b) => b.volume), 1);
+    const priceAxis = niceAxis(dMin, dMax, 6);
+
+    const xForIndex = (i: number) => PLOT_LEFT + INNER_PAD_X + i * xStep;
+    const yPrice = (p: number) => PAD_TOP + (1 - (p - dMin) / (dMax - dMin)) * (PRICE_BOTTOM - PAD_TOP);
+    const priceForY = (y: number) => dMin + (1 - (y - PAD_TOP) / (PRICE_BOTTOM - PAD_TOP)) * (dMax - dMin);
+    const yVol = (v: number) => VOL_BOTTOM - (v / maxVol) * (VOL_BOTTOM - VOL_TOP);
+
+    return { dMin, dMax, xStep, candleWidth, maxVol, priceAxis, xForIndex, yPrice, priceForY, yVol, n };
+  }, [bars, flip, callWall, putWall, vwap]);
+
+  // Rail silhouette geometry (net dealer gamma by price, aligned to the y-axis).
+  const rail = useMemo(() => {
+    if (!layout || profilePoints.length < 2) return null;
+    const pts = profilePoints.filter((p) => p.price >= layout.dMin && p.price <= layout.dMax);
+    if (pts.length < 2) return null;
+    const maxAbs = Math.max(...pts.map((p) => Math.abs(p.gex)), 1);
+    const xFor = (gex: number) => RAIL_CENTER + clamp(gex / maxAbs, -1, 1) * RAIL_HALF;
+    const yFor = (price: number) => layout.yPrice(price);
+
+    const posPath =
+      `M ${RAIL_CENTER} ${yFor(pts[0].price)} ` +
+      pts.map((p) => `L ${xFor(Math.max(0, p.gex)).toFixed(1)} ${yFor(p.price).toFixed(1)}`).join(" ") +
+      ` L ${RAIL_CENTER} ${yFor(pts[pts.length - 1].price)} Z`;
+    const negPath =
+      `M ${RAIL_CENTER} ${yFor(pts[0].price)} ` +
+      pts.map((p) => `L ${xFor(Math.min(0, p.gex)).toFixed(1)} ${yFor(p.price).toFixed(1)}`).join(" ") +
+      ` L ${RAIL_CENTER} ${yFor(pts[pts.length - 1].price)} Z`;
+    const edge = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${xFor(p.gex).toFixed(1)} ${yFor(p.price).toFixed(1)}`).join(" ");
+
+    // Peaks — the call-side and put-side extrema (the literal "walls").
+    let callPeak = pts[0];
+    let putPeak = pts[0];
+    for (const p of pts) {
+      if (p.gex > callPeak.gex) callPeak = p;
+      if (p.gex < putPeak.gex) putPeak = p;
+    }
+    return { pts, maxAbs, xFor, yFor, posPath, negPath, edge, callPeak, putPeak };
+  }, [layout, profilePoints]);
+
+  // Interpolate net dealer gamma at an arbitrary price (for the crosshair).
+  const gexAtPrice = useCallback(
+    (price: number): number | null => {
+      const pts = profilePoints;
+      if (pts.length === 0) return null;
+      if (price <= pts[0].price) return pts[0].gex;
+      if (price >= pts[pts.length - 1].price) return pts[pts.length - 1].gex;
+      for (let i = 1; i < pts.length; i++) {
+        if (price <= pts[i].price) {
+          const a = pts[i - 1];
+          const b = pts[i];
+          const t = (price - a.price) / Math.max(1e-9, b.price - a.price);
+          return a.gex + t * (b.gex - a.gex);
+        }
+      }
+      return pts[pts.length - 1].gex;
+    },
+    [profilePoints],
+  );
+
+  // Day-boundary separators for the time axis.
+  const dateMarkers = useMemo(() => {
+    const markers: Array<{ index: number; label: string }> = [];
+    let prevKey = "";
+    bars.forEach((bar, index) => {
+      const dt = new Date(bar.timestamp);
+      const key = dt.toLocaleDateString("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" });
+      if (key === prevKey) return;
+      prevKey = key;
+      markers.push({ index, label: dt.toLocaleDateString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric" }) });
+    });
+    return markers;
+  }, [bars]);
+
+  const handleMouseMove = (event: MouseEvent<SVGSVGElement>) => {
+    if (!layout || bars.length === 0) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const scaleX = VW / Math.max(1, rect.width);
+    const scaleY = VH / Math.max(1, rect.height);
+    const vx = (event.clientX - rect.left) * scaleX;
+    const vy = (event.clientY - rect.top) * scaleY;
+    const idx = Math.round((vx - PLOT_LEFT - INNER_PAD_X) / Math.max(1e-9, layout.xStep));
+    const clamped = Math.max(0, Math.min(bars.length - 1, idx));
+    const price = layout.priceForY(clamp(vy, PAD_TOP, PRICE_BOTTOM));
+    setHover({ idx: clamped, price, px: event.clientX - rect.left, py: event.clientY - rect.top, w: rect.width, h: rect.height });
+  };
+
+  // ── Loading / error / empty ──────────────────────────────────────────────
+  if (loading && bars.length === 0) {
+    return (
+      <div className={`zg-feature-shell ${className}`} style={{ minHeight: 420, display: "grid", placeItems: "center" }}>
+        <LoadingSpinner />
+      </div>
+    );
+  }
+  if (error && bars.length === 0) {
+    return (
+      <div className={`zg-feature-shell ${className}`} style={{ padding: 24 }}>
+        <ErrorMessage message={error} />
+      </div>
+    );
+  }
+  if (!layout || bars.length === 0) {
+    return (
+      <div className={`zg-feature-shell ${className}`} style={{ padding: 48, textAlign: "center", color: "var(--text-secondary)" }}>
+        No price data available for {symbol}
+      </div>
+    );
+  }
+
+  const { xForIndex, yPrice, yVol, priceAxis, candleWidth, xStep } = layout;
+  const lastBar = bars[bars.length - 1];
+  const lastIdx = bars.length - 1;
+  const activeIdx = hover ? hover.idx : lastIdx;
+  const activeBar = bars[activeIdx] ?? lastBar;
+  const activePrevClose = activeIdx > 0 ? bars[activeIdx - 1].close : activeBar.open;
+  const spot = priceSummary.displayPrice ?? lastBar.close;
+
+  const inDomain = (v: number | null): v is number => v != null && v >= layout.dMin && v <= layout.dMax;
+  const regimeUnknown = flip == null;
+  const longGammaNow = netGexAtSpot != null ? netGexAtSpot >= 0 : flip != null && spot >= flip;
+
+  // Level definitions rendered as reference lines + right-axis tags.
+  type LevelDef = { key: string; label: string; value: number | null; color: string; dash: string; show: boolean };
+  const levelDefs: LevelDef[] = [
+    { key: "flip", label: "FLIP", value: flip, color: "var(--heat-mid)", dash: "7 4", show: overlays.levels },
+    { key: "call", label: "CALL WALL", value: callWall, color: "var(--color-bull)", dash: "3 4", show: overlays.levels },
+    { key: "put", label: "PUT WALL", value: putWall, color: "var(--color-bear)", dash: "3 4", show: overlays.levels },
+    { key: "pain", label: "MAX PAIN", value: maxPain, color: "var(--color-gold)", dash: "1 5", show: overlays.maxPain },
+    { key: "vwap", label: "VWAP", value: vwap, color: "var(--color-hazy)", dash: "6 5", show: overlays.vwap },
+  ];
+
+  // Confluence: is spot pinned to a level (within 0.12%)? Emphasize if so.
+  const confluenceKey = (() => {
+    let best: { key: string; d: number } | null = null;
+    for (const l of levelDefs) {
+      if (!l.show || l.value == null) continue;
+      const d = Math.abs(l.value - spot) / Math.max(1e-9, spot);
+      if (d < 0.0012 && (!best || d < best.d)) best = { key: l.key, d };
+    }
+    return best?.key ?? null;
+  })();
+
+  // Line/area path for the close series (used by line + area styles).
+  const closePath = bars.map((b, i) => `${i === 0 ? "M" : "L"} ${xForIndex(i).toFixed(1)} ${yPrice(b.close).toFixed(1)}`).join(" ");
+  const areaPath = `${closePath} L ${xForIndex(lastIdx).toFixed(1)} ${PRICE_BOTTOM} L ${xForIndex(0).toFixed(1)} ${PRICE_BOTTOM} Z`;
+  const seriesUp = lastBar.close >= bars[0].open;
+  const seriesColor = seriesUp ? "var(--color-bull)" : "var(--color-bear)";
+
+  const timeLabelEvery = Math.max(1, Math.ceil(bars.length / (isMobile ? 4 : 9)));
+
+  // Crosshair-price gamma context for the floating readout.
+  const hoverGex = hover ? gexAtPrice(hover.price) : null;
+  const nearestLevel = hover
+    ? levelDefs
+        .filter((l) => l.value != null)
+        .map((l) => ({ label: l.label, value: l.value as number, color: l.color, dist: Math.abs((l.value as number) - hover.price) }))
+        .sort((a, b) => a.dist - b.dist)[0] ?? null
+    : null;
+
+  const sessionBadge = sessionLabel(session);
+
+  return (
+    <div className={`zg-feature-shell zg-gc-rise ${className}`} style={{ overflow: "hidden" }}>
+      {/* ── Header ─────────────────────────────────────────────────────── */}
+      <div
+        className="flex flex-col gap-4 p-4 sm:p-5"
+        style={{ borderBottom: "1px solid var(--border-default)", background: "var(--bg-subtle)" }}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          {/* Symbol + live price */}
+          <div className="flex items-end gap-4">
+            <div className="flex flex-col">
+              <div className="flex items-center gap-2">
+                <span className="zg-eyebrow" style={{ color: "var(--color-brand-primary)" }}>
+                  ZeroGEX Gamma Chart
+                </span>
+                {sessionBadge && (
+                  <span className="zg-chip" style={{ ["--chip-color" as string]: sessionBadge.color }}>
+                    {sessionBadge.label}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-baseline gap-3 mt-1">
+                <span style={{ fontFamily: "var(--font-display)", fontSize: 30, fontWeight: 700, letterSpacing: "-0.02em", color: "var(--text-primary)", lineHeight: 1 }}>
+                  {symbol}
+                </span>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 28, fontWeight: 600, color: "var(--text-primary)", lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>
+                  {spot != null ? fmtPrice(spot) : "--"}
+                </span>
+                {priceSummary.change != null && (
+                  <span
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 15,
+                      fontWeight: 600,
+                      color: priceSummary.isPositive ? "var(--color-bull)" : "var(--color-bear)",
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
+                    {priceSummary.isPositive ? "+" : ""}
+                    {priceSummary.change.toFixed(2)}
+                    {priceSummary.changePercent != null && ` (${priceSummary.isPositive ? "+" : ""}${priceSummary.changePercent.toFixed(2)}%)`}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Regime chip */}
+          <div className="flex items-center gap-2">
+            <div
+              className="flex flex-col items-end px-3 py-1.5"
+              style={{
+                border: `1px solid ${regimeUnknown ? "var(--border-default)" : longGammaNow ? "var(--color-bull)" : "var(--color-bear)"}`,
+                borderRadius: "var(--radius-control)",
+                background: regimeUnknown
+                  ? "transparent"
+                  : `color-mix(in srgb, ${longGammaNow ? "var(--color-bull)" : "var(--color-bear)"} 10%, transparent)`,
+              }}
+            >
+              <span className="zg-eyebrow" style={{ color: "var(--text-muted)", fontSize: 9 }}>
+                Dealer Gamma @ Spot
+              </span>
+              <div className="flex items-center gap-1.5">
+                <Activity size={13} style={{ color: regimeUnknown ? "var(--text-muted)" : longGammaNow ? "var(--color-bull)" : "var(--color-bear)" }} />
+                <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 13, letterSpacing: "0.04em", color: regimeUnknown ? "var(--text-secondary)" : longGammaNow ? "var(--color-bull)" : "var(--color-bear)" }}>
+                  {regimeUnknown ? "—" : longGammaNow ? "LONG Γ" : "SHORT Γ"}
+                </span>
+                {netGexAtSpot != null && (
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
+                    {fmtGex(netGexAtSpot)}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Controls */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          {/* Symbol */}
+          <div className="zg-gc-seg" role="tablist" aria-label="Symbol">
+            {SYMBOLS.map((s) => (
+              <button key={s} type="button" className="zg-gc-seg-btn" data-active={s === symbol} onClick={() => setSymbol(s as UnderlyingSymbol)} aria-pressed={s === symbol}>
+                {s}
+              </button>
+            ))}
+          </div>
+          {/* Timeframe */}
+          <div className="zg-gc-seg" role="tablist" aria-label="Timeframe">
+            {TIMEFRAMES.map((t) => (
+              <button key={t.value} type="button" className="zg-gc-seg-btn" data-active={t.value === timeframe} onClick={() => setTimeframe(t.value)} aria-pressed={t.value === timeframe}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+          {/* Price style */}
+          <div className="zg-gc-seg" role="tablist" aria-label="Price style">
+            {(["candles", "line", "area"] as PriceStyle[]).map((s) => (
+              <button key={s} type="button" className="zg-gc-seg-btn" data-active={s === style} onClick={() => setStyle(s)} aria-pressed={s === style}>
+                {s === "candles" ? "Candle" : s === "line" ? "Line" : "Area"}
+              </button>
+            ))}
+          </div>
+
+          <div className="hidden sm:block" style={{ width: 1, height: 22, background: "var(--border-default)" }} />
+
+          {/* Overlay pills */}
+          <OverlayPill label="Gamma Levels" color="var(--heat-mid)" active={overlays.levels} onClick={() => setOverlays((o) => ({ ...o, levels: !o.levels }))} />
+          <OverlayPill label="Gamma Rail" color="var(--color-bull)" active={overlays.rail} onClick={() => setOverlays((o) => ({ ...o, rail: !o.rail }))} />
+          <OverlayPill label="Regime" color="var(--color-accent-hot)" active={overlays.regime} onClick={() => setOverlays((o) => ({ ...o, regime: !o.regime }))} />
+          <OverlayPill label="VWAP" color="var(--color-hazy)" active={overlays.vwap} onClick={() => setOverlays((o) => ({ ...o, vwap: !o.vwap }))} />
+          <OverlayPill label="Max Pain" color="var(--color-gold)" active={overlays.maxPain} onClick={() => setOverlays((o) => ({ ...o, maxPain: !o.maxPain }))} />
+
+          <div className="ml-auto hidden md:flex items-center gap-1.5" style={{ color: "var(--text-muted)" }}>
+            <Crosshair size={13} />
+            <span className="zg-eyebrow" style={{ fontSize: 10 }}>
+              Hover for price × gamma
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Chart body ─────────────────────────────────────────────────── */}
+      <div ref={containerRef} className="relative" style={{ background: "var(--bg-card)" }}>
+        <MobileScrollableChart minWidthClass="min-w-[1000px]">
+          <svg
+            width="100%"
+            viewBox={`0 0 ${VW} ${VH}`}
+            preserveAspectRatio="xMinYMin meet"
+            style={{ aspectRatio: `${VW} / ${VH}`, display: "block", width: "100%" }}
+            onMouseMove={handleMouseMove}
+            onMouseLeave={() => setHover(null)}
+          >
+            <defs>
+              <linearGradient id="zg-gc-area" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={seriesColor} stopOpacity={0.32} />
+                <stop offset="100%" stopColor={seriesColor} stopOpacity={0} />
+              </linearGradient>
+              <linearGradient id="zg-gc-rail-pos" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stopColor="var(--color-bull)" stopOpacity={0.12} />
+                <stop offset="100%" stopColor="var(--color-bull)" stopOpacity={0.55} />
+              </linearGradient>
+              <linearGradient id="zg-gc-rail-neg" x1="1" y1="0" x2="0" y2="0">
+                <stop offset="0%" stopColor="var(--color-bear)" stopOpacity={0.12} />
+                <stop offset="100%" stopColor="var(--color-bear)" stopOpacity={0.55} />
+              </linearGradient>
+              <clipPath id="zg-gc-plot-clip">
+                <rect x={PLOT_LEFT} y={PAD_TOP} width={PLOT_RIGHT - PLOT_LEFT} height={PRICE_BOTTOM - PAD_TOP} />
+              </clipPath>
+            </defs>
+
+            {/* Regime zones */}
+            {overlays.regime && !regimeUnknown && inDomain(flip) && (
+              <g>
+                <rect x={PLOT_LEFT} y={PAD_TOP} width={PLOT_RIGHT - PLOT_LEFT} height={Math.max(0, yPrice(flip) - PAD_TOP)} fill="color-mix(in srgb, var(--color-bull) 7%, transparent)" />
+                <rect x={PLOT_LEFT} y={yPrice(flip)} width={PLOT_RIGHT - PLOT_LEFT} height={Math.max(0, PRICE_BOTTOM - yPrice(flip))} fill="color-mix(in srgb, var(--color-bear) 7%, transparent)" />
+                <text x={(PLOT_LEFT + PLOT_RIGHT) / 2} y={PAD_TOP + 15} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={10} letterSpacing="0.16em" fill="var(--color-bull)" opacity={0.65}>
+                  LONG &#915; · PINNING
+                </text>
+                <text x={(PLOT_LEFT + PLOT_RIGHT) / 2} y={PRICE_BOTTOM - 9} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={10} letterSpacing="0.16em" fill="var(--color-bear)" opacity={0.65}>
+                  SHORT &#915; · TRENDING
+                </text>
+              </g>
+            )}
+            {overlays.regime && !regimeUnknown && !inDomain(flip) && (
+              <text x={(PLOT_LEFT + PLOT_RIGHT) / 2} y={PAD_TOP + 15} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={10} letterSpacing="0.16em" fill={longGammaNow ? "var(--color-bull)" : "var(--color-bear)"} opacity={0.65}>
+                {longGammaNow ? "LONG Γ · PINNING REGIME" : "SHORT Γ · TRENDING REGIME"}
+              </text>
+            )}
+
+            {/* Price grid + right axis labels */}
+            {priceAxis.ticks.map((p) => {
+              const y = yPrice(p);
+              if (y < PAD_TOP - 0.5 || y > PRICE_BOTTOM + 0.5) return null;
+              return (
+                <g key={`grid-${p}`}>
+                  <line x1={PLOT_LEFT} x2={PLOT_RIGHT} y1={y} y2={y} stroke="var(--color-grid-line)" strokeWidth={1} />
+                  <text x={AXIS_COL_X} y={y + 3.5} fontFamily="var(--font-mono)" fontSize={11} fill="var(--text-muted)" style={{ fontVariantNumeric: "tabular-nums" }}>
+                    {fmtPrice(p)}
+                  </text>
+                </g>
+              );
+            })}
+
+            {/* ── Gamma structure rail ──────────────────────────────────── */}
+            {overlays.rail && rail && (
+              <g>
+                <rect x={RAIL_LEFT - 6} y={PAD_TOP} width={RAIL_RIGHT - RAIL_LEFT + 12} height={PRICE_BOTTOM - PAD_TOP} fill="color-mix(in srgb, var(--text-primary) 3%, transparent)" />
+                <text x={(RAIL_LEFT + RAIL_RIGHT) / 2} y={PAD_TOP - 6} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={10} letterSpacing="0.12em" fill="var(--text-muted)">
+                  DEALER GAMMA BY PRICE
+                </text>
+                {/* zero baseline */}
+                <line x1={RAIL_CENTER} x2={RAIL_CENTER} y1={PAD_TOP} y2={PRICE_BOTTOM} stroke="var(--border-strong)" strokeWidth={1} opacity={0.5} />
+                {/* silhouette */}
+                <path d={rail.posPath} fill="url(#zg-gc-rail-pos)" />
+                <path d={rail.negPath} fill="url(#zg-gc-rail-neg)" />
+                <path d={rail.edge} fill="none" stroke="var(--text-secondary)" strokeWidth={1} opacity={0.35} />
+                {/* flip zero-crossing tie-line to the plot */}
+                {inDomain(flip) && (
+                  <line x1={RAIL_LEFT - 6} x2={RAIL_RIGHT} y1={yPrice(flip)} y2={yPrice(flip)} stroke="var(--heat-mid)" strokeWidth={1} strokeDasharray="2 3" opacity={0.6} />
+                )}
+                {/* peak markers */}
+                {[{ p: rail.callPeak, c: "var(--color-bull)", side: 1 }, { p: rail.putPeak, c: "var(--color-bear)", side: -1 }].map(({ p, c }, i) => (
+                  <g key={`peak-${i}`}>
+                    <circle cx={rail.xFor(p.gex)} cy={rail.yFor(p.price)} r={2.6} fill={c} />
+                  </g>
+                ))}
+              </g>
+            )}
+
+            {/* ── Price series ──────────────────────────────────────────── */}
+            <g clipPath="url(#zg-gc-plot-clip)">
+              {style === "area" && <path d={areaPath} fill="url(#zg-gc-area)" />}
+              {(style === "line" || style === "area") && <path d={closePath} fill="none" stroke={seriesColor} strokeWidth={1.8} strokeLinejoin="round" strokeLinecap="round" />}
+              {style === "candles" &&
+                bars.map((b, i) => {
+                  const x = xForIndex(i);
+                  const prevClose = i > 0 ? bars[i - 1].close : b.open;
+                  const isUp = b.close >= prevClose;
+                  const isHollow = b.close >= b.open;
+                  const c = isUp ? "var(--color-bull)" : "var(--color-bear)";
+                  const openY = yPrice(b.open);
+                  const closeY = yPrice(b.close);
+                  const highY = yPrice(b.high);
+                  const lowY = yPrice(b.low);
+                  const bodyY = Math.min(openY, closeY);
+                  const bodyH = Math.max(1, Math.abs(openY - closeY));
+                  return (
+                    <g key={b.timestamp}>
+                      <line x1={x} x2={x} y1={highY} y2={lowY} stroke={c} strokeWidth={1} opacity={0.9} />
+                      <rect
+                        x={x - candleWidth / 2}
+                        y={bodyY}
+                        width={candleWidth}
+                        height={bodyH}
+                        fill={isHollow ? "transparent" : c}
+                        stroke={c}
+                        strokeWidth={1.1}
+                      />
+                    </g>
+                  );
+                })}
+            </g>
+
+            {/* ── Gamma level lines + left-side name chips ──────────────── */}
+            {levelDefs.map((l) => {
+              if (!l.show || l.value == null) return null;
+              const clamped = !inDomain(l.value);
+              const y = clamp(yPrice(l.value), PAD_TOP + 1, PRICE_BOTTOM - 1);
+              const emphasized = confluenceKey === l.key;
+              return (
+                <g key={`level-${l.key}`}>
+                  {!clamped && (
+                    <line x1={PLOT_LEFT} x2={PLOT_RIGHT} y1={y} y2={y} stroke={l.color} strokeWidth={emphasized ? 2 : 1.3} strokeDasharray={l.dash} opacity={emphasized ? 1 : 0.85} />
+                  )}
+                  <g transform={`translate(${PLOT_LEFT + 6}, ${y})`}>
+                    <rect x={0} y={-8} width={labelWidth(l.label)} height={16} rx={2} fill="var(--bg-card)" stroke={l.color} strokeWidth={1} opacity={0.95} />
+                    <text x={6} y={3.5} fontFamily="var(--font-mono)" fontSize={9.5} letterSpacing="0.08em" fill={l.color} fontWeight={600}>
+                      {l.label}
+                    </text>
+                  </g>
+                </g>
+              );
+            })}
+
+            {/* ── Last-price line + live cursor (tag drawn in declutter pass) ── */}
+            {(() => {
+              const y = clamp(yPrice(lastBar.close), PAD_TOP, PRICE_BOTTOM);
+              const x = xForIndex(lastIdx);
+              const isLive = !!session && session !== "closed";
+              return (
+                <g>
+                  <line x1={PLOT_LEFT} x2={PLOT_RIGHT} y1={y} y2={y} stroke="var(--color-accent-hot)" strokeWidth={1} strokeDasharray="2 3" opacity={0.8} />
+                  {isLive && <circle className="zg-gc-ping" cx={x} cy={y} r={4} fill="none" stroke="var(--color-accent-hot)" strokeWidth={1.5} />}
+                  <circle className={isLive ? "zg-gc-dot" : ""} cx={x} cy={y} r={3.4} fill="var(--color-accent-hot)" />
+                </g>
+              );
+            })()}
+
+            {/* ── Right-axis price tags — decluttered so clustered levels stay
+                 legible (last price + every visible gamma level, spread just
+                 enough to never overlap, the way a pro terminal's axis does). ── */}
+            {(() => {
+              const raw = [
+                ...levelDefs
+                  .filter((l): l is typeof l & { value: number } => l.show && l.value != null)
+                  .map((l) => ({
+                    key: l.key,
+                    y: clamp(yPrice(l.value), PAD_TOP + 1, PRICE_BOTTOM - 1),
+                    value: fmtPrice(l.value),
+                    bg: l.color,
+                    strong: false,
+                    arrow: (!inDomain(l.value) ? (l.value > layout.dMax ? "up" : "down") : null) as "up" | "down" | null,
+                  })),
+                {
+                  key: "last",
+                  y: clamp(yPrice(lastBar.close), PAD_TOP, PRICE_BOTTOM),
+                  value: fmtPrice(lastBar.close),
+                  bg: "var(--color-accent-hot)",
+                  strong: true,
+                  arrow: null as "up" | "down" | null,
+                },
+              ];
+              return spreadTags(raw, 16, PAD_TOP + 2, PRICE_BOTTOM - 2).map((t) => (
+                <PriceTag key={t.key} x={AXIS_COL_X - 6} y={t.yAdj} value={t.value} bg={t.bg} strong={t.strong} arrow={t.arrow} />
+              ));
+            })()}
+
+            {/* ── Volume pane ───────────────────────────────────────────── */}
+            <g>
+              <text x={PLOT_LEFT + 4} y={VOL_TOP + 11} fontFamily="var(--font-mono)" fontSize={9.5} letterSpacing="0.12em" fill="var(--text-muted)">
+                VOLUME
+              </text>
+              {bars.map((b, i) => {
+                const x = xForIndex(i);
+                const w = Math.max(1.5, candleWidth);
+                const downTop = yVol(b.downVolume);
+                const upTop = yVol(b.upVolume + b.downVolume);
+                const dim = hover ? (i === activeIdx ? 1 : 0.5) : 0.72;
+                return (
+                  <g key={`vol-${b.timestamp}`} opacity={dim}>
+                    {b.downVolume > 0 && <rect x={x - w / 2} y={downTop} width={w} height={Math.max(0.6, VOL_BOTTOM - downTop)} fill="var(--color-bear)" />}
+                    {b.upVolume > 0 && <rect x={x - w / 2} y={upTop} width={w} height={Math.max(0.6, downTop - upTop)} fill="var(--color-bull)" />}
+                  </g>
+                );
+              })}
+              <line x1={PLOT_LEFT} x2={PLOT_RIGHT} y1={VOL_BOTTOM} y2={VOL_BOTTOM} stroke="var(--border-default)" strokeWidth={1} />
+            </g>
+
+            {/* ── Time axis + day separators ────────────────────────────── */}
+            {bars.map((b, i) => {
+              if (i % timeLabelEvery !== 0) return null;
+              const x = xForIndex(i);
+              const label =
+                timeframe === "1day"
+                  ? new Date(b.timestamp).toLocaleDateString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric" })
+                  : new Date(b.timestamp).toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit", hour12: false });
+              return (
+                <text key={`t-${b.timestamp}`} x={x} y={TIME_AXIS_Y} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={10} fill="var(--text-muted)" style={{ fontVariantNumeric: "tabular-nums" }}>
+                  {label}
+                </text>
+              );
+            })}
+            {timeframe !== "1day" &&
+              dateMarkers.map((m) => {
+                if (m.index === 0) return null;
+                const x = xForIndex(m.index) - xStep / 2;
+                return <line key={`dm-${m.index}`} x1={x} x2={x} y1={PAD_TOP} y2={VOL_BOTTOM} stroke="var(--border-default)" strokeWidth={1} strokeDasharray="2 4" opacity={0.5} />;
+              })}
+
+            {/* ── Crosshair ─────────────────────────────────────────────── */}
+            {hover && (() => {
+              const crossY = clamp(yPrice(hover.price), PAD_TOP, PRICE_BOTTOM);
+              return (
+                <g pointerEvents="none">
+                  <line x1={xForIndex(hover.idx)} x2={xForIndex(hover.idx)} y1={PAD_TOP} y2={VOL_BOTTOM} stroke="var(--text-secondary)" strokeWidth={1} strokeDasharray="3 3" opacity={0.6} />
+                  <line x1={PLOT_LEFT} x2={PLOT_RIGHT} y1={crossY} y2={crossY} stroke="var(--text-secondary)" strokeWidth={1} strokeDasharray="3 3" opacity={0.5} />
+                  <PriceTag x={AXIS_COL_X - 6} y={crossY} value={fmtPrice(hover.price)} bg="var(--text-secondary)" />
+                </g>
+              );
+            })()}
+          </svg>
+        </MobileScrollableChart>
+
+        {/* ── In-plot legend (OHLC of active bar) ───────────────────────── */}
+        <div className="pointer-events-none absolute left-3 top-3 sm:left-4 sm:top-4">
+          <div
+            className="flex flex-wrap items-center gap-x-3 gap-y-0.5 px-2.5 py-1.5"
+            style={{ background: "color-mix(in srgb, var(--bg-card) 82%, transparent)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-control)", backdropFilter: "blur(3px)" }}
+          >
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 700, color: "var(--text-primary)" }}>{symbol}</span>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>{TIMEFRAMES.find((t) => t.value === timeframe)?.label}</span>
+            {(["O", activeBar.open, "H", activeBar.high, "L", activeBar.low, "C", activeBar.close] as const).map((v, i) =>
+              typeof v === "string" ? (
+                <span key={`k-${i}`} style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>{v}</span>
+              ) : (
+                <span key={`v-${i}`} style={{ fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 600, color: activeBar.close >= activePrevClose ? "var(--color-bull)" : "var(--color-bear)", fontVariantNumeric: "tabular-nums" }}>
+                  {fmtPrice(v)}
+                </span>
+              ),
+            )}
+          </div>
+        </div>
+
+        {/* ── Floating crosshair readout (price × gamma) ────────────────── */}
+        {hover && (
+          <div
+            className="pointer-events-none absolute z-20"
+            style={{
+              left: hover.px + 16 + 210 > hover.w ? Math.max(8, hover.px - 210) : hover.px + 16,
+              top: Math.max(8, Math.min(hover.py + 14, hover.h - 172)),
+              minWidth: 196,
+            }}
+          >
+            <div style={{ background: "var(--color-chart-tooltip-bg)", border: "1px solid var(--color-chart-tooltip-border)", borderRadius: "var(--radius-control)", boxShadow: "var(--shadow-pop)", padding: "9px 11px" }}>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-muted)", marginBottom: 5 }}>
+                {new Date(activeBar.timestamp).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })} ET
+              </div>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-0.5" style={{ fontFamily: "var(--font-mono)", fontSize: 11, fontVariantNumeric: "tabular-nums" }}>
+                <Row k="O" v={fmtPrice(activeBar.open)} />
+                <Row k="H" v={fmtPrice(activeBar.high)} />
+                <Row k="L" v={fmtPrice(activeBar.low)} />
+                <Row k="C" v={fmtPrice(activeBar.close)} color={activeBar.close >= activePrevClose ? "var(--color-bull)" : "var(--color-bear)"} />
+                <Row k="Vol" v={fmtVol(activeBar.volume)} />
+              </div>
+              <div style={{ height: 1, background: "var(--border-subtle)", margin: "7px 0" }} />
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.1em", color: "var(--color-brand-primary)", marginBottom: 4 }}>GAMMA @ {fmtPrice(hover.price)}</div>
+              {hoverGex != null ? (
+                <div className="flex items-center justify-between" style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>
+                  <span style={{ color: "var(--text-secondary)" }}>Net dealer &#915;</span>
+                  <span style={{ fontWeight: 600, color: hoverGex >= 0 ? "var(--color-bull)" : "var(--color-bear)" }}>{fmtGex(hoverGex)}</span>
+                </div>
+              ) : (
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>No gamma data</div>
+              )}
+              {hoverGex != null && (
+                <div className="flex items-center justify-between" style={{ fontFamily: "var(--font-mono)", fontSize: 11, marginTop: 2 }}>
+                  <span style={{ color: "var(--text-secondary)" }}>Regime</span>
+                  <span style={{ fontWeight: 600, color: hoverGex >= 0 ? "var(--color-bull)" : "var(--color-bear)" }}>{hoverGex >= 0 ? "Long Γ" : "Short Γ"}</span>
+                </div>
+              )}
+              {nearestLevel && (
+                <div className="flex items-center justify-between" style={{ fontFamily: "var(--font-mono)", fontSize: 11, marginTop: 2 }}>
+                  <span style={{ color: "var(--text-secondary)" }}>{nearestLevel.label}</span>
+                  <span style={{ fontWeight: 600, color: nearestLevel.color }}>
+                    {nearestLevel.dist <= 0 ? "at" : `${fmtPrice(nearestLevel.dist)} away`}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Footer legend ───────────────────────────────────────────────── */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-4 py-2.5" style={{ borderTop: "1px solid var(--border-default)", background: "var(--bg-subtle)" }}>
+        <LegendDot color="var(--heat-mid)" label="Gamma Flip" />
+        <LegendDot color="var(--color-bull)" label="Call Wall" />
+        <LegendDot color="var(--color-bear)" label="Put Wall" />
+        <LegendDot color="var(--color-gold)" label="Max Pain" />
+        <LegendDot color="var(--color-hazy)" label="VWAP" />
+        <LegendDot color="var(--color-accent-hot)" label="Last" />
+        <div className="ml-auto flex items-center gap-1.5" style={{ color: "var(--text-muted)" }}>
+          <Info size={12} />
+          <span className="zg-eyebrow" style={{ fontSize: 9.5 }}>
+            Dealer gamma computed by ZeroGEX · updates live
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Small presentational helpers ─────────────────────────────────────────────
+function num(v: number | null | undefined): number | null {
+  return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
+
+function clamp(v: number, lo: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, v));
+}
+
+function labelWidth(label: string): number {
+  return 14 + label.length * 5.6;
+}
+
+/**
+ * Vertical label de-collision for the right-hand price axis. Sorts tags by
+ * their true y, then makes two passes — push overlapping tags down, then pull
+ * the cluster back inside the bottom bound — so no two tags overlap while each
+ * stays as close as possible to the price it marks. Returns the input objects
+ * augmented with `yAdj` (the tag's drawn y); the reference line itself keeps
+ * its true y, exactly like TradingView's axis.
+ */
+function spreadTags<T extends { y: number }>(items: T[], gap: number, top: number, bottom: number): Array<T & { yAdj: number }> {
+  const arr = items.map((it) => ({ ...it, yAdj: it.y })).sort((a, b) => a.y - b.y);
+  for (let i = 1; i < arr.length; i++) {
+    if (arr[i].yAdj < arr[i - 1].yAdj + gap) arr[i].yAdj = arr[i - 1].yAdj + gap;
+  }
+  for (let i = arr.length - 1; i >= 0; i--) {
+    if (arr[i].yAdj > bottom) arr[i].yAdj = bottom;
+    if (i < arr.length - 1 && arr[i].yAdj > arr[i + 1].yAdj - gap) arr[i].yAdj = arr[i + 1].yAdj - gap;
+    if (arr[i].yAdj < top) arr[i].yAdj = top;
+  }
+  return arr;
+}
+
+function sessionLabel(session: string | null | undefined): { label: string; color: string } | null {
+  if (!session) return null;
+  const s = session.toLowerCase();
+  if (s === "open" || s === "regular") return { label: "● LIVE", color: "var(--color-bull)" };
+  if (s === "pre" || s === "premarket") return { label: "PRE-MKT", color: "var(--color-warning)" };
+  if (s === "ah" || s === "afterhours" || s === "post") return { label: "AFTER-HRS", color: "var(--color-warning)" };
+  if (s === "closed") return { label: "CLOSED", color: "var(--text-muted)" };
+  return { label: session.toUpperCase(), color: "var(--text-secondary)" };
+}
+
+function PriceTag({ x, y, value, bg, strong = false, arrow = null }: { x: number; y: number; value: string; bg: string; strong?: boolean; arrow?: "up" | "down" | null }) {
+  const w = 8 + value.length * 6.6 + (arrow ? 8 : 0);
+  const h = strong ? 18 : 15;
+  return (
+    <g transform={`translate(${x - w}, ${y})`}>
+      <rect x={0} y={-h / 2} width={w} height={h} rx={2} fill={bg} />
+      <text x={w / 2} y={strong ? 4 : 3.5} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={strong ? 12 : 10.5} fontWeight={strong ? 700 : 600} fill="var(--text-inverse)" style={{ fontVariantNumeric: "tabular-nums" }}>
+        {arrow === "up" ? "▲ " : arrow === "down" ? "▼ " : ""}
+        {value}
+      </text>
+    </g>
+  );
+}
+
+function Row({ k, v, color }: { k: string; v: string; color?: string }) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span style={{ color: "var(--text-muted)" }}>{k}</span>
+      <span style={{ color: color ?? "var(--text-primary)", fontWeight: 600 }}>{v}</span>
+    </div>
+  );
+}
+
+function OverlayPill({ label, color, active, onClick }: { label: string; color: string; active: boolean; onClick: () => void }) {
+  return (
+    <button type="button" className="zg-gc-pill" data-active={active} onClick={onClick} style={{ ["--pill-color" as string]: color }} aria-pressed={active}>
+      <span className="zg-gc-swatch" />
+      {label}
+    </button>
+  );
+}
+
+function LegendDot({ color, label }: { color: string; label: string }) {
+  return (
+    <span className="flex items-center gap-1.5" style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, color: "var(--text-secondary)", letterSpacing: "0.03em" }}>
+      <span style={{ width: 12, height: 2, background: color, display: "inline-block", borderRadius: 1 }} />
+      {label}
+    </span>
+  );
+}

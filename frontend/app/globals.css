@@ -1627,6 +1627,115 @@ html {
 }
 
 /* ============================================================
+   GAMMA CHART — the proprietary price + dealer-gamma terminal.
+   Motion is used sparingly: a single live-cursor ping to signal
+   "this is a live tape", and a soft entrance so the instrument
+   assembles rather than pops. Both quiet under reduced-motion via
+   the global guard above.
+   ============================================================ */
+
+/* Live-cursor ping — a ring that expands and fades off the last
+   price dot. `r` is animated directly (supported in all evergreen
+   engines); paired with opacity so it reads as a radar ping. */
+@keyframes zg-gc-ping {
+  0%   { r: 4;  opacity: 0.55; }
+  70%  { r: 15; opacity: 0; }
+  100% { r: 15; opacity: 0; }
+}
+.zg-gc-ping {
+  animation: zg-gc-ping 2.4s var(--ease-standard) infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* The solid live dot breathes just enough to catch the eye without
+   pulling focus from the tape. */
+@keyframes zg-gc-breathe {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.62; }
+}
+.zg-gc-dot { animation: zg-gc-breathe 2.4s var(--ease-standard) infinite; }
+
+/* Instrument entrance — the whole surface fades up once on mount. */
+@keyframes zg-gc-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.zg-gc-rise { animation: zg-gc-rise var(--dur-3) var(--ease-standard) both; }
+
+/* Segmented control used for timeframe / overlay toggles inside the
+   chart chrome. Flat, hairline, mono — same DNA as .zg-chip. */
+.zg-gc-seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-control);
+  background: var(--bg-subtle);
+}
+.zg-gc-seg-btn {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 5px 10px;
+  border-radius: var(--radius-control);
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  background: transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color var(--dur-1) var(--ease-standard),
+              color var(--dur-1) var(--ease-standard);
+}
+.zg-gc-seg-btn:hover { color: var(--text-primary); }
+.zg-gc-seg-btn[data-active="true"] {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+/* Overlay pill — a toggle that carries its own accent when live. The
+   accent color is passed via --pill-color so each overlay (flip,
+   walls, VWAP, rail…) lights up in its own hue. */
+.zg-gc-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 5px 11px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  background: transparent;
+  cursor: pointer;
+  transition: border-color var(--dur-1) var(--ease-standard),
+              color var(--dur-1) var(--ease-standard),
+              background-color var(--dur-1) var(--ease-standard);
+}
+.zg-gc-pill:hover { color: var(--text-primary); border-color: var(--border-strong); }
+.zg-gc-pill[data-active="true"] {
+  color: var(--pill-color, var(--color-accent-hot));
+  border-color: var(--pill-color, var(--color-accent-hot));
+  background: color-mix(in srgb, var(--pill-color, var(--color-accent-hot)) 12%, transparent);
+}
+.zg-gc-pill .zg-gc-swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background: var(--pill-color, var(--color-accent-hot));
+  opacity: 0.4;
+  transition: opacity var(--dur-1) var(--ease-standard);
+}
+.zg-gc-pill[data-active="true"] .zg-gc-swatch { opacity: 1; }
+
+/* ============================================================
    MY DASHBOARD — customizable widget grid
    A 4-column desktop grid; each widget's footprint (sm/md/lg/xl)
    collapses responsively (4→2→1 columns). Tiles in the same row stretch
