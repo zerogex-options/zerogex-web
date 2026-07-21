@@ -15,6 +15,7 @@ import ProprietarySignalsSynthesis from '@/components/ProprietarySignalsSynthesi
 import VolatilityCard from '@/components/VolatilityCard';
 import TradeBiasSection from '@/components/TradeBiasSection';
 import UnderlyingCandlesChart from '@/components/UnderlyingCandlesChart';
+import GammaTerminalChart from '@/components/GammaTerminalChart';
 import GammaPulsePanel from '@/components/GammaPulsePanel';
 import SignalScorePanel from '@/components/SignalScorePanel';
 import SignalEventsPanel from '@/components/SignalEventsPanel';
@@ -70,6 +71,16 @@ export function PriceActionPanel() {
     <WidgetCard href="/intraday-tools" hrefLabel={t('technicals')} pad>
       <UnderlyingCandlesChart />
     </WidgetCard>
+  );
+}
+
+// The flagship price + dealer-gamma instrument. Carries its own bordered card,
+// header and controls, so — like DealerExposuresPanel — it renders bare.
+export function GammaChartPanel() {
+  return (
+    <div className="h-full">
+      <GammaTerminalChart />
+    </div>
   );
 }
 

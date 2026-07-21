@@ -38,6 +38,11 @@ const PUBLIC_ROUTE_PATTERNS = [
   // /spx-gamma-levels (same public, delayed view; canonical → spx-gamma-levels).
   '/spy-gamma-levels',
   '/qqq-gamma-levels',
+  // /chart is a dual-mode page: anonymous visitors get the same ~15-min-delayed
+  // snapshot the gamma-levels pages serve (rendered as the full interactive
+  // chart), while logged-in subscribers get the live, real-time version. The
+  // page itself branches on the session, so the route stays public here.
+  '/chart',
   '/trading-mistakes',
   // Action Card permalinks (/cards/{id}) are the public viral artifact for
   // every emitted Playbook Card — must stay anonymous-accessible so X/LinkedIn/

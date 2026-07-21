@@ -513,8 +513,8 @@ function shouldAcceptSignalScoreSnapshot(next: SignalScoreResponse, prev: Signal
   return nextCount >= minimumExpected;
 }
 
-export function useGEXSummary(symbol = 'SPY', refreshInterval = 5000) {
-  return useApiData<GEXSummaryRow>(`/api/gex/summary?${symbolQuery(symbol)}`, { refreshInterval });
+export function useGEXSummary(symbol = 'SPY', refreshInterval = 5000, enabled = true) {
+  return useApiData<GEXSummaryRow>(`/api/gex/summary?${symbolQuery(symbol)}`, { refreshInterval, enabled });
 }
 
 export function useGEXByStrike(
@@ -536,8 +536,8 @@ export function useGEXWalls(symbol = 'SPY', refreshInterval = 10000) {
   return useApiData<GEXWallsRow>(`/api/gex/walls?${symbolQuery(symbol)}`, { refreshInterval });
 }
 
-export function useGEXProfile(symbol = 'SPY', refreshInterval = 10000) {
-  return useApiData<GEXProfileRow>(`/api/gex/profile?${symbolQuery(symbol)}`, { refreshInterval });
+export function useGEXProfile(symbol = 'SPY', refreshInterval = 10000, enabled = true) {
+  return useApiData<GEXProfileRow>(`/api/gex/profile?${symbolQuery(symbol)}`, { refreshInterval, enabled });
 }
 
 // Historical-context endpoint is read-cached server-side (10s TTL) and the
@@ -998,7 +998,7 @@ function syncMarketQuotePoll(symbol: string): void {
   }
 }
 
-export function useMarketQuote(symbol = 'SPY', refreshInterval = 1000) {
+export function useMarketQuote(symbol = 'SPY', refreshInterval = 1000, enabled = true) {
   const [state, setState] = useState(() => snapshotMarketQuote(getOrCreateMarketQuoteEntry(symbol)));
 
   // Synchronously swap snapshots when the symbol changes so stale data
@@ -1017,6 +1017,8 @@ export function useMarketQuote(symbol = 'SPY', refreshInterval = 1000) {
   const id = idRef.current;
 
   useEffect(() => {
+    // Disabled: caller supplies its own data (delayed snapshot). Do no network.
+    if (!enabled) return;
     const entry = getOrCreateMarketQuoteEntry(symbol);
     ensureInitialMarketQuoteFetch(symbol);
 
@@ -1063,7 +1065,7 @@ export function useMarketQuote(symbol = 'SPY', refreshInterval = 1000) {
       entry.liveIntervals.delete(id);
       syncMarketQuotePoll(symbol);
     };
-  }, [symbol, refreshInterval, id]);
+  }, [symbol, refreshInterval, id, enabled]);
 
   const refetch = useCallback(() => {
     void fetchMarketQuote(symbol);
@@ -1093,10 +1095,11 @@ export function useSessionCloses(
   symbol = 'SPY',
   refreshInterval = 60000,
   sessionTrigger?: string | null,
+  enabled = true,
 ) {
   const result = useApiData<SessionClosesData>(
     `/api/market/session-closes?${symbolQuery(symbol)}`,
-    { refreshInterval }
+    { refreshInterval, enabled }
   );
 
   // The session-closes endpoint advances `current_session_close` from yesterday

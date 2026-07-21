@@ -20,8 +20,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import { Activity, Crosshair, Info } from "lucide-react";
-import { useMarketQuote, useGEXProfile, useGEXSummary, useSessionCloses } from "@/hooks/useApiData";
-import { useMarketHistorical } from "@/hooks/useMarketHistorical";
+import { useMarketQuote, useGEXProfile, useGEXSummary, useSessionCloses, type SessionClosesData } from "@/hooks/useApiData";
+import { useMarketHistorical, type PriceBar } from "@/hooks/useMarketHistorical";
 import { useTechnicals } from "@/hooks/useTechnicals";
 import { useTimeframe, type UnderlyingSymbol } from "@/core/TimeframeContext";
 import { getPrimaryPriceChangeSummary } from "@/core/priceChange";
@@ -197,11 +197,51 @@ interface ProfilePoint {
   gex: number;
 }
 
+/**
+ * A frozen, server-fetched view of everything the chart needs. Passed to the
+ * chart for the public "delayed" mode: when present, the component renders from
+ * it and does ZERO client-side fetching (all live hooks are disabled), so a
+ * public visitor can never pull real-time data off the wire. Built on the
+ * server from ~15-min ISR-cached `serverApiGet` calls.
+ */
+export interface ChartSnapshot {
+  symbol: string;
+  timeframe: ChartTimeframe;
+  generatedAt: string | null;
+  bars: PriceBar[];
+  quote: {
+    close: number | null;
+    session: string | null;
+    timestamp: string | null;
+    display_source?: string | null;
+    futures_close?: number | null;
+    futures_reference_close?: number | null;
+  } | null;
+  sessionCloses: SessionClosesData | null;
+  gamma: { flip: number | null; callWall: number | null; putWall: number | null; maxPain: number | null; netGexAtSpot: number | null };
+  profile: ProfilePoint[];
+  vwap: number | null;
+}
+
 // ── Component ────────────────────────────────────────────────────────────────
-export default function GammaTerminalChart({ className = "" }: { className?: string }) {
-  const { symbol, setSymbol } = useTimeframe();
+export default function GammaTerminalChart({
+  className = "",
+  snapshot = null,
+  delayed: delayedProp = false,
+}: {
+  className?: string;
+  snapshot?: ChartSnapshot | null;
+  /** Force delayed (public) mode even without a snapshot, so a failed snapshot
+   *  fetch degrades to an empty delayed chart rather than live client polling. */
+  delayed?: boolean;
+}) {
+  const delayed = delayedProp || !!snapshot;
+  const live = !delayed;
+  const { symbol: ctxSymbol, setSymbol } = useTimeframe();
+  const symbol = snapshot ? snapshot.symbol : ctxSymbol;
   const isMobile = useIsMobile();
-  const [timeframe, setTimeframe] = useState<ChartTimeframe>("5min");
+  const [timeframeState, setTimeframe] = useState<ChartTimeframe>("5min");
+  const timeframe = snapshot ? snapshot.timeframe : timeframeState;
   const [style, setStyle] = useState<PriceStyle>("candles");
   const [overlays, setOverlays] = useState<OverlayState>(DEFAULT_OVERLAYS);
   const [hydrated, setHydrated] = useState(false);
@@ -257,16 +297,22 @@ export default function GammaTerminalChart({ className = "" }: { className?: str
 
   const intervalMinutes = TIMEFRAMES.find((t) => t.value === timeframe)?.minutes ?? 5;
 
-  // ── Data ───────────────────────────────────────────────────────────────────
-  const { rows: dataAll, loading, error } = useMarketHistorical(symbol, timeframe);
-  const { data: quote } = useMarketQuote(symbol, 1000);
-  const liveClose = quote?.close ?? null;
-  const session = quote?.session ?? null;
-  const quoteTs = quote?.timestamp ?? null;
-  const { data: sessionCloses } = useSessionCloses(symbol, 60000, session ?? null);
-  const { data: gexProfile } = useGEXProfile(symbol, 10000);
-  const { data: gexSummary } = useGEXSummary(symbol, 5000);
-  const technicals = useTechnicals(symbol);
+  // ── Data ── Live mode polls the API; delayed mode renders a frozen server
+  // snapshot and does zero client fetching (every hook disabled via `live`).
+  const { rows: liveRows, loading: liveLoading, error: liveError } = useMarketHistorical(symbol, timeframe, false, live);
+  const { data: quote } = useMarketQuote(symbol, 1000, live);
+  const { data: liveSessionCloses } = useSessionCloses(symbol, 60000, quote?.session ?? null, live);
+  const { data: gexProfile } = useGEXProfile(symbol, 10000, live);
+  const { data: gexSummary } = useGEXSummary(symbol, 5000, live);
+  const technicals = useTechnicals(symbol, live);
+
+  const dataAll = snapshot ? snapshot.bars : liveRows;
+  const loading = snapshot ? false : liveLoading;
+  const error = snapshot ? null : liveError;
+  const liveClose = snapshot ? snapshot.quote?.close ?? null : quote?.close ?? null;
+  const session = snapshot ? snapshot.quote?.session ?? null : quote?.session ?? null;
+  const quoteTs = snapshot ? snapshot.quote?.timestamp ?? null : quote?.timestamp ?? null;
+  const sessionCloses = snapshot ? snapshot.sessionCloses : liveSessionCloses;
 
   const data = useMemo(() => dataAll.slice(-POOL), [dataAll]);
 
@@ -300,7 +346,7 @@ export default function GammaTerminalChart({ className = "" }: { className?: str
   // the full pool; the visible window is sliced from it below.
   const allBars = useMemo(() => {
     if (historicalBars.length === 0) return historicalBars;
-    if (liveClose == null || !session || session === "closed") return historicalBars;
+    if (delayed || liveClose == null || !session || session === "closed") return historicalBars;
     const tip = historicalBars[historicalBars.length - 1];
     const bucketMs = intervalMinutes * 60 * 1000;
     const tipStartMs = new Date(tip.timestamp).getTime();
@@ -317,7 +363,7 @@ export default function GammaTerminalChart({ className = "" }: { className?: str
       low: Math.min(tip.low, liveClose),
     };
     return patched;
-  }, [historicalBars, liveClose, session, quoteTs, intervalMinutes]);
+  }, [historicalBars, liveClose, session, quoteTs, intervalMinutes, delayed]);
 
   // ── Zoom + pan: derive the visible window from the view state. `offset` is
   // how many bars are hidden to the RIGHT of the view (0 = live edge, so the
@@ -334,30 +380,31 @@ export default function GammaTerminalChart({ className = "" }: { className?: str
     view.offset !== 0 || view.count !== DEFAULT_COUNT || priceView.zoom !== 1 || priceView.center !== null;
 
   // ── Gamma levels ─────────────────────────────────────────────────────────
-  const flip = num(gexProfile?.gamma_flip ?? gexSummary?.gamma_flip);
-  const callWall = num(gexProfile?.call_wall ?? gexSummary?.call_wall);
-  const putWall = num(gexProfile?.put_wall ?? gexSummary?.put_wall);
-  const maxPain = num(gexSummary?.max_pain);
-  const netGexAtSpot = num(gexProfile?.net_gex_at_spot ?? gexSummary?.net_gex);
-  const vwap = num(technicals.latest?.vwap_deviation?.vwap);
+  const flip = snapshot ? snapshot.gamma.flip : num(gexProfile?.gamma_flip ?? gexSummary?.gamma_flip);
+  const callWall = snapshot ? snapshot.gamma.callWall : num(gexProfile?.call_wall ?? gexSummary?.call_wall);
+  const putWall = snapshot ? snapshot.gamma.putWall : num(gexProfile?.put_wall ?? gexSummary?.put_wall);
+  const maxPain = snapshot ? snapshot.gamma.maxPain : num(gexSummary?.max_pain);
+  const netGexAtSpot = snapshot ? snapshot.gamma.netGexAtSpot : num(gexProfile?.net_gex_at_spot ?? gexSummary?.net_gex);
+  const vwap = snapshot ? snapshot.vwap : num(technicals.latest?.vwap_deviation?.vwap);
 
   const profilePoints = useMemo<ProfilePoint[]>(() => {
+    if (snapshot) return snapshot.profile;
     const raw = gexProfile?.profile;
     if (!Array.isArray(raw)) return [];
     return raw
       .map((p) => ({ price: Number(p.price), gex: Number(p.gex) }))
       .filter((p) => Number.isFinite(p.price) && Number.isFinite(p.gex))
       .sort((a, b) => a.price - b.price);
-  }, [gexProfile]);
+  }, [gexProfile, snapshot]);
 
   // ── Price/change readout ─────────────────────────────────────────────────
   const priceSummary = getPrimaryPriceChangeSummary({
-    quoteClose: quote?.close,
+    quoteClose: snapshot ? snapshot.quote?.close : quote?.close,
     quoteSession: session,
     sessionCloses,
-    displaySource: quote?.display_source,
-    futuresClose: quote?.futures_close,
-    futuresReferenceClose: quote?.futures_reference_close,
+    displaySource: snapshot ? snapshot.quote?.display_source : quote?.display_source,
+    futuresClose: snapshot ? snapshot.quote?.futures_close : quote?.futures_close,
+    futuresReferenceClose: snapshot ? snapshot.quote?.futures_reference_close : quote?.futures_reference_close,
   });
 
   // ── Crosshair state ──────────────────────────────────────────────────────
@@ -719,7 +766,9 @@ export default function GammaTerminalChart({ className = "" }: { className?: str
         .sort((a, b) => a.dist - b.dist)[0] ?? null
     : null;
 
-  const sessionBadge = sessionLabel(session);
+  const sessionBadge = delayed
+    ? { label: "◷ DELAYED ~15 MIN", color: "var(--color-warning)" }
+    : sessionLabel(session);
 
   return (
     <div className={`zg-feature-shell zg-gc-rise ${className}`} style={{ overflow: "hidden" }}>
@@ -800,22 +849,41 @@ export default function GammaTerminalChart({ className = "" }: { className?: str
 
         {/* Controls */}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          {/* Symbol */}
-          <div className="zg-gc-seg" role="tablist" aria-label="Symbol">
-            {SYMBOLS.map((s) => (
-              <button key={s} type="button" className="zg-gc-seg-btn" data-active={s === symbol} onClick={() => setSymbol(s as UnderlyingSymbol)} aria-pressed={s === symbol}>
-                {s}
-              </button>
-            ))}
-          </div>
-          {/* Timeframe */}
-          <div className="zg-gc-seg" role="tablist" aria-label="Timeframe">
-            {TIMEFRAMES.map((t) => (
-              <button key={t.value} type="button" className="zg-gc-seg-btn" data-active={t.value === timeframe} onClick={() => setTimeframe(t.value)} aria-pressed={t.value === timeframe}>
-                {t.label}
-              </button>
-            ))}
-          </div>
+          {/* Symbol + timeframe — switchable when live; in the delayed public
+              snapshot they're fixed (switching needs data the snapshot lacks),
+              so we show an unlock CTA instead. */}
+          {live ? (
+            <>
+              <div className="zg-gc-seg" role="tablist" aria-label="Symbol">
+                {SYMBOLS.map((s) => (
+                  <button key={s} type="button" className="zg-gc-seg-btn" data-active={s === symbol} onClick={() => setSymbol(s as UnderlyingSymbol)} aria-pressed={s === symbol}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+              <div className="zg-gc-seg" role="tablist" aria-label="Timeframe">
+                {TIMEFRAMES.map((t) => (
+                  <button key={t.value} type="button" className="zg-gc-seg-btn" data-active={t.value === timeframe} onClick={() => setTimeframe(t.value)} aria-pressed={t.value === timeframe}>
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <span className="zg-chip" style={{ ["--chip-color" as string]: "var(--text-secondary)" }}>
+                {symbol} · {TIMEFRAMES.find((t) => t.value === timeframe)?.label}
+              </span>
+              <a
+                href="/register"
+                className="zg-gc-pill"
+                data-active
+                style={{ ["--pill-color" as string]: "var(--color-warning)", textDecoration: "none" }}
+              >
+                Unlock live · all symbols & timeframes →
+              </a>
+            </>
+          )}
           {/* Price style */}
           <div className="zg-gc-seg" role="tablist" aria-label="Price style">
             {(["candles", "line", "area"] as PriceStyle[]).map((s) => (
@@ -1028,7 +1096,7 @@ export default function GammaTerminalChart({ className = "" }: { className?: str
             {(() => {
               const y = clamp(yPrice(liveTip.close), PAD_TOP, PRICE_BOTTOM);
               const x = xForIndex(lastIdx);
-              const isLive = !!session && session !== "closed";
+              const isLive = !delayed && !!session && session !== "closed";
               return (
                 <g>
                   <line x1={PLOT_LEFT} x2={PLOT_RIGHT} y1={y} y2={y} stroke="var(--color-accent-hot)" strokeWidth={1} strokeDasharray="2 3" opacity={0.8} />
@@ -1212,7 +1280,7 @@ export default function GammaTerminalChart({ className = "" }: { className?: str
         <div className="ml-auto flex items-center gap-1.5" style={{ color: "var(--text-muted)" }}>
           <Info size={12} />
           <span className="zg-eyebrow" style={{ fontSize: 9.5 }}>
-            Dealer gamma computed by ZeroGEX · updates live
+            Dealer gamma computed by ZeroGEX · {delayed ? "delayed ~15 min" : "updates live"}
           </span>
         </div>
       </div>
