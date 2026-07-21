@@ -52,6 +52,7 @@ import {
 import {
   TodaysReadPanel,
   DealerExposuresPanel,
+  GammaChartPanel,
   PriceActionPanel,
   GammaPulseWidget,
   SignalsSynthesisPanel,
@@ -127,6 +128,18 @@ export const WIDGETS: WidgetDef[] = [
     allowedSizes: ['md', 'lg', 'xl'],
     feeds: ['gex', 'quote', 'sessionCloses', 'vol'],
     render: () => <TodaysReadPanel />,
+  },
+  {
+    id: 'gamma-chart',
+    title: 'Gamma Chart',
+    blurb: 'The flagship price + dealer-gamma terminal: candles with the Gamma Flip, Call/Put Walls, Max Pain and the gamma-structure rail drawn inline. Zoom, pan and overlay controls built in.',
+    category: 'overview',
+    tier: 'basic',
+    icon: Sparkles,
+    defaultSize: 'xl',
+    allowedSizes: ['lg', 'xl'],
+    feeds: [],
+    render: () => <GammaChartPanel />,
   },
   {
     id: 'dealer-exposures',

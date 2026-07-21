@@ -6,14 +6,11 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useGEXHistoricalContext, useGEXSummary, useMarketQuote, useSessionCloses, useVolatilityGauge } from '@/hooks/useApiData';
+import { useGEXSummary, useMarketQuote, useSessionCloses, useVolatilityGauge } from '@/hooks/useApiData';
 import { snapshotFromSeries, useFlowSeries } from '@/hooks/useFlowSeries';
 import MetricCard from '@/components/MetricCard';
 import PageShell from '@/components/layout/PageShell';
-import SectionHead from '@/components/layout/SectionHead';
-import HistoricalContextBadge from '@/components/HistoricalContextBadge';
-import MarketMakerExposures from '@/components/MarketMakerExposures';
-import PriceDistanceMetricCard from '@/components/PriceDistanceMetricCard';
+import GammaTerminalChart from '@/components/GammaTerminalChart';
 import { LoadingCard } from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import ProprietarySignalsSynthesis from '@/components/ProprietarySignalsSynthesis';
@@ -26,10 +23,8 @@ import Collapsible from '@/components/Collapsible';
 import TrialStartedBanner from './TrialStartedBanner';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useDensity } from '@/core/DensityContext';
-import { getPrimaryPriceChangeSummary } from '@/core/priceChange';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 import { buildReportModel } from '@/app/live-bulletin/bulletinHelpers';
-import { isIndexSymbol } from '@/core/utils';
 import { usePageT } from '@/core/LanguageContext';
 import { dict } from './page.i18n';
 
@@ -81,7 +76,6 @@ export default function DashboardPage() {
 
   // Fetch data with different refresh intervals
   const { data: gexData, loading: gexLoading, error: gexError, refetch: refetchGex } = useGEXSummary(symbol, 5000);
-  const { data: historicalContext } = useGEXHistoricalContext(symbol, 15000);
   const { data: quoteData } = useMarketQuote(symbol, 1000);
   const { data: sessionClosesData } = useSessionCloses(symbol, 60000, quoteData?.session ?? null);
   const { rows: flowSeriesRows } = useFlowSeries(symbol, 'current', {
@@ -115,18 +109,6 @@ export default function DashboardPage() {
     ],
   );
 
-  const underlyingPrice = getPrimaryPriceChangeSummary({
-    quoteClose: quoteData?.close,
-    quoteSession: quoteData?.session,
-    sessionCloses: sessionClosesData,
-    displaySource: quoteData?.display_source,
-    futuresClose: quoteData?.futures_close,
-    futuresReferenceClose: quoteData?.futures_reference_close,
-  });
-  // Overnight index→future display swap: headline price card only. The GEX
-  // spot, flip/max-pain distances, and Day Vol all stay on the cash index.
-  const dashFuturesTicker =
-    quoteData?.display_source === 'futures' ? quoteData?.data_symbol ?? 'FUT' : null;
 
   const latestFlowSnapshot = snapshotFromSeries(flowSeriesRows);
 
@@ -174,81 +156,12 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Market Overview */}
+      {/* Gamma Chart — the flagship price + dealer-gamma instrument, full
+          width. Its own header carries the live price, change, session and
+          dealer-gamma regime, so the standalone Price / Net GEX / Gamma Flip /
+          Max Pain cards that used to sit beside it are no longer needed here. */}
       <section className="mb-8">
-        <SectionHead title={t('marketOverviewTitle')} />
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-stretch">
-          {/* Left column: 4 cards stacked, each sized to its content. */}
-          <div className="md:col-span-1 grid grid-cols-1 gap-4 content-start">
-            <MetricCard
-              title={t('symbolPriceTitle', { symbol })}
-              value={underlyingPrice.displayPrice != null ? `$${underlyingPrice.displayPrice.toFixed(2)}` : '--'}
-              subtitle={(
-                <div className="flex flex-col gap-1">
-                  {dashFuturesTicker && (
-                    <span style={{ color: 'var(--color-brand-coral)', fontWeight: 600 }}>
-                      {t('futuresLabel', { ticker: dashFuturesTicker })}
-                    </span>
-                  )}
-                  <span
-                    style={{
-                      color: underlyingPrice.change != null
-                        ? (underlyingPrice.isPositive ? 'var(--color-bull)' : 'var(--color-bear)')
-                        : undefined,
-                    }}
-                  >
-                    {underlyingPrice.change != null && underlyingPrice.changePercent != null
-                      ? `${underlyingPrice.isPositive ? '+' : '-'}$${Math.abs(underlyingPrice.change).toFixed(2)} / ${underlyingPrice.isPositive ? '+' : '-'}${Math.abs(underlyingPrice.changePercent).toFixed(2)}%${dashFuturesTicker ? '' : t('vsPrevious')}`
-                      : t('awaitingPrevClose')}
-                  </span>
-                  {!isIndexSymbol(symbol) && (
-                    <span>{quoteData?.volume != null ? t('dayVolLabel', { value: Math.round(quoteData.volume).toLocaleString() }) : ''}</span>
-                  )}
-                </div>
-              )}
-              tooltip={t('priceTooltip', { symbol })}
-              theme={theme}
-              trend="neutral"
-            />
-            <MetricCard
-              title={t('netGexTitle')}
-              value={formatCompactUsd(gexData?.net_gex_at_spot ?? gexData?.net_gex, true)}
-              trend={(gexData?.net_gex_at_spot ?? gexData?.net_gex ?? 0) > 0 ? 'bullish' : 'bearish'}
-              tooltip={t('netGexTooltip')}
-              theme={theme}
-              contextBadge={
-                <HistoricalContextBadge
-                  metric={historicalContext?.metrics?.net_gex_at_spot}
-                  window="30d"
-                  trackingStartedAt={historicalContext?.tracking_started_at}
-                />
-              }
-            />
-            <PriceDistanceMetricCard
-              title={t('gammaFlipTitle')}
-              level={gexData?.gamma_flip}
-              spotPrice={quoteData?.close}
-              tooltip={t('gammaFlipTooltip')}
-              theme={theme}
-            />
-            <PriceDistanceMetricCard
-              title={t('maxPainTitle')}
-              level={gexData?.max_pain}
-              spotPrice={quoteData?.close}
-              tooltip={t('maxPainTooltip')}
-              theme={theme}
-            />
-          </div>
-          {/* The chart fills cols 2-4 by absolute-positioning inside the grid
-              cell — that keeps the SVG's natural max-content from pushing the
-              row tracks past the card column's stacked height, so the tile
-              matches the 4-card column's size exactly. */}
-          <div className="md:col-span-3 md:relative">
-            <div className="md:absolute md:inset-0">
-              <MarketMakerExposures compact />
-            </div>
-          </div>
-        </div>
+        <GammaTerminalChart />
       </section>
 
 
