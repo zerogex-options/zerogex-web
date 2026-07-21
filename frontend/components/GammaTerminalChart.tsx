@@ -937,7 +937,7 @@ export default function GammaTerminalChart({
 
       {/* ── Chart body ─────────────────────────────────────────────────── */}
       <div ref={containerRef} className="relative" style={{ background: "var(--bg-card)" }}>
-        <MobileScrollableChart minWidthClass="min-w-[1000px]">
+        <MobileScrollableChart minWidthClass="min-w-[1000px]" initialScroll="end">
           <svg
             ref={svgRef}
             width="100%"
@@ -949,7 +949,10 @@ export default function GammaTerminalChart({
               width: "100%",
               cursor: dragging ? "grabbing" : "crosshair",
               userSelect: "none",
-              touchAction: "pan-y",
+              // Let the mobile wrapper scroll horizontally: don't reserve
+              // horizontal-swipe gestures for the SVG (there's no touch-drag
+              // handler). Desktop mouse zoom/pan is unaffected by touch-action.
+              touchAction: "auto",
             }}
             onMouseMove={handlePointerMove}
             onMouseDown={handlePointerDown}
