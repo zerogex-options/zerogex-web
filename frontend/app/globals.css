@@ -1162,9 +1162,9 @@
 /* ---- Palette: Monochrome Madison ---------- */
 /* Late-50s/early-60s Madison Avenue & Twilight Zone: near-black graphite,
    bone white, one cold steel/phosphor-blue accent and a single restrained
-   signal red. Montserrat geometric modernist display over Spectral. Dark is the hero. */
+   signal red. Jost Futura-style geometric display over Spectral. Dark is the hero. */
 :root.palette-monochrome-madison {
-  --font-display: var(--font-montserrat);
+  --font-display: var(--font-jost);
   --font-body: var(--font-spectral);
   --font-mono: var(--font-jetbrains-mono);
   --heat-low: #D8DEE6; --heat-mid: #7C8DA2; --heat-high: #2C3440;

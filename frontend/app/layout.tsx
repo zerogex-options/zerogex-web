@@ -10,8 +10,8 @@ import {
   Hanken_Grotesk,
   Inter,
   JetBrains_Mono,
+  Jost,
   Libre_Baskerville,
-  Montserrat,
   Newsreader,
   Noto_Sans,
   Outfit,
@@ -148,11 +148,11 @@ const rubik = Rubik({
   display: 'swap',
 });
 
-// Monochrome Madison — geometric modernist display, heavy poster grotesque.
-const montserrat = Montserrat({
+// Monochrome Madison — Futura-style geometric display, mid-century modernist.
+const jost = Jost({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
-  variable: '--font-montserrat',
+  variable: '--font-jost',
   display: 'swap',
 });
 
@@ -195,7 +195,7 @@ const FONT_VARIABLES = [
   chakraPetch.variable,
   baloo2.variable,
   rubik.variable,
-  montserrat.variable,
+  jost.variable,
   spectral.variable,
   gloock.variable,
   hankenGrotesk.variable,
