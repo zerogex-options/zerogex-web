@@ -19,7 +19,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
-import { Activity, ChevronsRight, Crosshair, Info, Pause, Play, Rewind } from "lucide-react";
+import { Activity, ChevronsRight, Crosshair, Info, Pause, Play, Repeat, Rewind } from "lucide-react";
 import { useMarketQuote, useGEXProfile, useGEXSummary, useSessionCloses, type SessionClosesData } from "@/hooks/useApiData";
 import { useMarketHistorical, type PriceBar } from "@/hooks/useMarketHistorical";
 import { useStrikeProfileTimeseries, type StrikeProfileStrike } from "@/hooks/useStrikeProfileTimeseries";
@@ -257,6 +257,9 @@ export default function GammaTerminalChart({
   const [rewindTime, setRewindTime] = useState<number | null>(null);
   const [playbackActive, setPlaybackActive] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<1 | 2 | 4>(1);
+  // Sticky preference: when on, playback wraps back to the earliest replayable
+  // bar at the live edge instead of stopping (kept across enter/exit rewind).
+  const [playbackLoop, setPlaybackLoop] = useState(false);
 
   // Snap the view back to the live default whenever the instrument or timeframe
   // changes. This is the React-sanctioned "adjust state during render on a prop
@@ -833,10 +836,12 @@ export default function GammaTerminalChart({
   const allBarsRef = useRef(allBars);
   const rewindTimeRef = useRef(rewindTime);
   const rewindMinIdxRef = useRef(rewindMinIdx);
+  const playbackLoopRef = useRef(playbackLoop);
   useEffect(() => {
     allBarsRef.current = allBars;
     rewindTimeRef.current = rewindTime;
     rewindMinIdxRef.current = rewindMinIdx;
+    playbackLoopRef.current = playbackLoop;
   });
 
   const enterRewind = () => {
@@ -888,11 +893,18 @@ export default function GammaTerminalChart({
         }
       }
       idx = Math.max(idx, rewindMinIdxRef.current);
-      const next = idx + 1;
-      if (next >= arr.length - 1) {
-        setPlaybackActive(false);
-        setRewindTime(new Date(arr[arr.length - 1].timestamp).getTime());
-        return;
+      const liveEdge = arr.length - 1;
+      let next = idx + 1;
+      if (next > liveEdge) {
+        // Reached the live edge: loop back to the earliest replayable bar and
+        // keep playing, or (loop off) stop pinned to the latest bar.
+        if (playbackLoopRef.current && rewindMinIdxRef.current < liveEdge) {
+          next = rewindMinIdxRef.current;
+        } else {
+          setPlaybackActive(false);
+          setRewindTime(new Date(arr[liveEdge].timestamp).getTime());
+          return;
+        }
       }
       setRewindTime(new Date(arr[next].timestamp).getTime());
     }, stepMs);
@@ -1571,6 +1583,26 @@ export default function GammaTerminalChart({
                 style={{ display: "grid", placeItems: "center", width: 28, height: 26, borderRadius: "var(--radius-control)", border: "1px solid var(--border-strong)", color: "var(--text-primary)", background: "var(--bg-card)", cursor: "pointer" }}
               >
                 {playbackActive ? <Pause size={13} /> : <Play size={13} />}
+              </button>
+              <button
+                type="button"
+                onClick={() => setPlaybackLoop((v) => !v)}
+                aria-label={playbackLoop ? "Disable loop" : "Enable loop"}
+                aria-pressed={playbackLoop}
+                title={playbackLoop ? "Loop on — replays continuously (click to disable)" : "Loop off — click to replay continuously"}
+                style={{
+                  display: "grid",
+                  placeItems: "center",
+                  width: 28,
+                  height: 26,
+                  borderRadius: "var(--radius-control)",
+                  border: `1px solid ${playbackLoop ? "var(--color-accent-hot)" : "var(--border-strong)"}`,
+                  color: playbackLoop ? "var(--color-accent-hot)" : "var(--text-primary)",
+                  background: playbackLoop ? "color-mix(in srgb, var(--color-accent-hot) 16%, transparent)" : "var(--bg-card)",
+                  cursor: "pointer",
+                }}
+              >
+                <Repeat size={13} />
               </button>
               <div className="zg-gc-seg" aria-label="Playback speed">
                 {([1, 2, 4] as const).map((s) => (
