@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import {
   Archivo,
-  Baloo_2,
+  Bagel_Fat_One,
   Chakra_Petch,
   Cormorant_Garamond,
   Fraunces,
@@ -130,13 +130,13 @@ const chakraPetch = Chakra_Petch({
   display: 'swap',
 });
 
-// Vinyl Topanga — warm rounded 70s display. A true multi-weight family, so
-// heading semibolds render as real weights instead of a synthesized faux-bold
-// (the previous single-weight face looked over-inked at chart-title sizes).
-const baloo2 = Baloo_2({
+// Vinyl Topanga — chunky rounded 70s display (Cooper-Black lineage). Ships a
+// single 400 weight, so Vinyl's headings are pinned to 400 in globals.css to
+// avoid a synthesized faux-bold on this already-heavy face.
+const bagelFatOne = Bagel_Fat_One({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-baloo2',
+  weight: ['400'],
+  variable: '--font-bagel-fat-one',
   display: 'swap',
 });
 
@@ -193,7 +193,7 @@ const FONT_VARIABLES = [
   outfit.variable,
   fraunces.variable,
   chakraPetch.variable,
-  baloo2.variable,
+  bagelFatOne.variable,
   rubik.variable,
   jost.variable,
   spectral.variable,
