@@ -1280,7 +1280,7 @@ export default function GammaTerminalChart({
         <div className="ml-auto flex items-center gap-1.5" style={{ color: "var(--text-muted)" }}>
           <Info size={12} />
           <span className="zg-eyebrow" style={{ fontSize: 9.5 }}>
-            Dealer gamma computed by ZeroGEX · updates live
+            Dealer gamma computed by ZeroGEX · {delayed ? "delayed ~15 min" : "updates live"}
           </span>
         </div>
       </div>
