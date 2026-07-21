@@ -27,6 +27,34 @@ export function formatDayLabel(bucket: string): string {
   return `${Number(match[2])}/${Number(match[3])}`;
 }
 
+// Day-axis tick/tooltip formatter that adapts to the plotted range. Stays "M/D"
+// (unchanged) until the span exceeds ~a year, then switches to "M/'YY". The
+// switch is keyed on span length, NOT on crossing a calendar-year boundary: a
+// short window that merely straddles New Year keeps "M/D" (still unique there),
+// while a multi-year range — which the subscriber / flow / registration charts
+// can now show — uses the year so the same "M/D" recurring 12 months apart isn't
+// ambiguous. Pass the days actually plotted; the decision is made once, not per
+// tick.
+export function makeDayLabelFormatter(days: readonly string[]): (bucket: string) => string {
+  let minDay: string | null = null;
+  let maxDay: string | null = null;
+  for (const d of days) {
+    if (!/^\d{4}-\d{2}-\d{2}/.test(d)) continue;
+    if (minDay === null || d < minDay) minDay = d;
+    if (maxDay === null || d > maxDay) maxDay = d;
+  }
+  let spanDays = 0;
+  if (minDay && maxDay) {
+    spanDays = Math.abs(Date.parse(`${maxDay}T00:00:00Z`) - Date.parse(`${minDay}T00:00:00Z`)) / 86400_000;
+  }
+  const withYear = spanDays > 365;
+  return (bucket: string) => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(bucket);
+    if (!m) return bucket;
+    return withYear ? `${Number(m[2])}/'${m[1].slice(2)}` : `${Number(m[2])}/${Number(m[3])}`;
+  };
+}
+
 // Round a positive integer max up to a "nice" axis cap with evenly spaced
 // integer ticks (e.g. 90 -> cap 100 with ticks 0/25/50/75/100).
 export function niceYScale(value: number): { max: number; ticks: number[] } {

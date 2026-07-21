@@ -29,6 +29,12 @@ const SIGNUP_STORE_PATH = process.env.SIGNUP_STORE_PATH ?? path.join(process.cwd
 const MRR_STORE_PATH = process.env.MRR_STORE_PATH ?? path.join(process.cwd(), 'data', 'mrr.json');
 const FLUSH_INTERVAL_MS = 60_000;
 const PRUNE_INTERVAL_MS = 60 * 60_000;
+// How often the background sampler captures a daily MRR/subscriber point so the
+// series don't depend on an admin opening the page (see initMonitoring).
+const SAMPLE_INTERVAL_MS = 6 * 60 * 60_000;
+// First sample shortly after boot, so a day that only sees process restarts
+// (e.g. a deploy, which resets the interval timer) still records a point.
+const INITIAL_SAMPLE_DELAY_MS = 30_000;
 const TOKEN_CACHE_TTL_MS = 60_000;
 const TOKEN_CACHE_MAX = 10_000;
 
@@ -159,6 +165,7 @@ let dirty = false;
 let initialized = false;
 let flushTimer: NodeJS.Timeout | null = null;
 let pruneTimer: NodeJS.Timeout | null = null;
+let sampleTimer: NodeJS.Timeout | null = null;
 
 const tokenCache = new Map<string, { userId: string | null; expiresAt: number }>();
 
@@ -298,6 +305,27 @@ export function initMonitoring() {
       persist();
     }, PRUNE_INTERVAL_MS);
     if (typeof pruneTimer.unref === 'function') pruneTimer.unref();
+  }
+  if (sampleTimer === null) {
+    // Capture a daily MRR/subscriber sample even on days no admin opens the
+    // Monitoring page. getSnapshot() writes today's point as a side effect and
+    // is idempotent — it only writes when the day's value is new or changed, so
+    // an unchanged tick is a couple of cheap COUNT queries and no disk write.
+    // Without this, buildMrrSeries/buildSignupSeries only sampled on an admin
+    // view, leaving permanent gaps in the daily history on quiet days.
+    const sample = () => {
+      try {
+        getSnapshot();
+      } catch {
+        /* transient DB/FS error — the next tick (or an admin view) retries */
+      }
+    };
+    sampleTimer = setInterval(sample, SAMPLE_INTERVAL_MS);
+    if (typeof sampleTimer.unref === 'function') sampleTimer.unref();
+    // Defer the first sample slightly so it lands after the app/DB have settled
+    // rather than mid-boot; unref'd so it never holds the process open.
+    const initialSample = setTimeout(sample, INITIAL_SAMPLE_DELAY_MS);
+    if (typeof initialSample.unref === 'function') initialSample.unref();
   }
   const flushOnExit = () => {
     try { persist(); } catch { /* ignore */ }
@@ -586,11 +614,35 @@ function writeMrrStore(s: MrrStoreShape) {
   }
 }
 
+// Daily x-axis keys for a series whose samples are RETAINED FOREVER (the MRR
+// and subscriber stores are append-only and never pruned). Defaults to the
+// usual MAX_DAILY window, but once history reaches past that window it widens
+// the axis to start at the earliest stored sample so the full retained history
+// renders instead of being truncated at 90 days. The floor case returns the
+// exact MAX_DAILY window (unchanged behavior); only genuinely older stores
+// extend. Derived series that are recomputed from bounded event-log windows
+// (signup flow / registrations) deliberately keep the fixed MAX_DAILY window.
+function retainedDailyKeys(now: Date, storedDays: string[]): string[] {
+  const base = generateDailyKeys(now);
+  if (storedDays.length === 0) return base;
+  const earliest = storedDays.reduce((a, b) => (a < b ? a : b));
+  // Earliest sample already inside the default window → nothing to widen.
+  if (earliest >= base[0]) return base;
+  const todayKey = etBucketKeys(now).day;
+  const start = Date.parse(`${earliest}T00:00:00Z`);
+  const end = Date.parse(`${todayKey}T00:00:00Z`);
+  if (Number.isNaN(start) || Number.isNaN(end) || end < start) return base;
+  const span = Math.round((end - start) / 86400_000) + 1;
+  // +2 buffer absorbs DST drift in the fixed-24h walk; trim any keys that land
+  // before the first sample so no empty pre-history day is prepended.
+  return generateDailyKeys(now, span + 2).filter((k) => k >= earliest);
+}
+
 // One MRR plot point per ET day, mirroring buildSignupSeries: re-sampling the
 // same day overwrites that day's point with the latest estimate; a new point
 // is only created once the day rolls over. Days with no sample carry the prior
-// day forward so the line stays continuous, and the x-axis spans MAX_DAILY
-// days back to align with the signup and traffic charts.
+// day forward so the line stays continuous. The x-axis spans MAX_DAILY days by
+// default and widens to the earliest retained sample once history exceeds it.
 function buildMrrSeries(now: Date, current: MrrSnapshot): MrrPoint[] {
   const today = etBucketKeys(now).day;
   const store = readMrrStore();
@@ -612,7 +664,7 @@ function buildMrrSeries(now: Date, current: MrrSnapshot): MrrPoint[] {
     writeMrrStore(store);
   }
 
-  const dailyKeys = generateDailyKeys(now);
+  const dailyKeys = retainedDailyKeys(now, Object.keys(store.days));
   const series: MrrPoint[] = [];
   let last: MrrDaySample = {
     estMrr: 0,
@@ -648,8 +700,9 @@ function currentDisclaimerCount(): number {
 // One plot point per ET day. Re-sampling the same day overwrites that
 // day's point with the latest counts; a new point is only created once
 // the day rolls over. Days with no sample carry the prior day forward so
-// the area stays continuous. The x-axis spans MAX_DAILY days back to match
-// the other daily charts on the page.
+// the area stays continuous. The x-axis spans MAX_DAILY days by default and
+// widens to the earliest retained sample once history exceeds that window
+// (these counts are stored forever, so the chart shows all of them).
 function buildSignupSeries(now: Date): SignupPoint[] {
   const today = etBucketKeys(now).day;
   const store = readSignupStore();
@@ -678,7 +731,7 @@ function buildSignupSeries(now: Date): SignupPoint[] {
     writeSignupStore(store);
   }
 
-  const dailyKeys = generateDailyKeys(now);
+  const dailyKeys = retainedDailyKeys(now, Object.keys(store.days));
   const series: SignupPoint[] = [];
   let last: SignupDay = {
     basic: 0,
@@ -759,8 +812,38 @@ function parseSyncStatus(message: string): string | null {
 // the user their tier — booked right then, not when Stripe later deletes the sub.
 const DUNNING_STATUSES = new Set(['past_due', 'unpaid']);
 
+// How far back the flow / registration charts DISPLAY. Unlike the traffic
+// buckets (pruned at 90 days), these recompute from the retained, append-only
+// audit_events + users logs every request, so they can show far more history.
+// ~2 years; the axis then trims to the earliest day with real activity (floored
+// at MAX_DAILY), so a young product still shows the usual 90-day window.
+const FLOW_WINDOW_DAYS = 730;
+// The sync scan reaches a bit further than the displayed window: attributing a
+// cancel/payment-fail near the oldest displayed day to the right tier needs
+// that subscription's earlier sync history as context. Bookings still only land
+// inside the FLOW_WINDOW_DAYS display window.
+const FLOW_SYNC_WINDOW_DAYS = 850;
+
+// A flow day on which nothing happened — no adds, cancels, payment-failure
+// downgrades, or registrations. Leading (oldest) empty days are trimmed off the
+// display so the chart starts at the first real activity instead of a long flat
+// lead-in for products younger than FLOW_WINDOW_DAYS.
+function isFlowDayEmpty(p: SignupFlowPoint): boolean {
+  return (
+    p.proAdd === 0 &&
+    p.basicAdd === 0 &&
+    p.proCancel === 0 &&
+    p.basicCancel === 0 &&
+    p.proPaymentFail === 0 &&
+    p.basicPaymentFail === 0 &&
+    p.registrations === 0
+  );
+}
+
 // Per-day paid-subscription flow and account registrations, sourced from the
-// audit_events log, spanning the same MAX_DAILY window as the other daily charts.
+// audit_events log. Displays up to FLOW_WINDOW_DAYS of history (trimmed to the
+// earliest day with activity, floored at MAX_DAILY) since it recomputes from the
+// retained event log rather than a pruned bucket store.
 //
 //   • Paid adds        — a paid activation, from two sources (both positive): the
 //     FIRST `stripe_subscription_sync` that saw a subscription in a paid tier
@@ -791,7 +874,7 @@ const DUNNING_STATUSES = new Set(['past_due', 'unpaid']);
 // upgrades/downgrades (basic↔pro) aren't a first-conversion, so they don't count
 // as an add.
 function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
-  const dailyKeys = generateDailyKeys(now);
+  const dailyKeys = generateDailyKeys(now, FLOW_WINDOW_DAYS);
   const acc: Record<string, FlowAcc> = {};
   for (const day of dailyKeys) acc[day] = emptyFlowAcc();
 
@@ -806,12 +889,13 @@ function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
 
     // Subscription tier history from sync events, oldest first so a single pass
     // yields both the first paid observation (the conversion) and the latest paid
-    // tier (for cancellation attribution). Bounded to ~2.2y: long enough to
-    // cover a cancelling sub's lifetime, capped so the scan can't grow forever.
+    // tier (for cancellation attribution). Bounded to FLOW_SYNC_WINDOW_DAYS: a
+    // bit longer than the displayed window so attribution near the oldest shown
+    // day has prior sync history, and capped so the scan can't grow forever.
     const syncRows = db
       .prepare(
         `SELECT created_at, message FROM audit_events
-         WHERE type = 'stripe_subscription_sync' AND created_at > datetime('now', '-800 days')
+         WHERE type = 'stripe_subscription_sync' AND created_at > datetime('now', '-${FLOW_SYNC_WINDOW_DAYS} days')
          ORDER BY created_at ASC`,
       )
       .all() as Array<{ created_at: string; message: string }>;
@@ -882,7 +966,7 @@ function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
     const deletedRows = db
       .prepare(
         `SELECT created_at, message FROM audit_events
-         WHERE type = 'stripe_subscription_deleted' AND created_at > datetime('now', '-100 days')`,
+         WHERE type = 'stripe_subscription_deleted' AND created_at > datetime('now', '-${FLOW_WINDOW_DAYS} days')`,
       )
       .all() as Array<{ created_at: string; message: string }>;
     for (const row of deletedRows) {
@@ -901,7 +985,7 @@ function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
     const userRows = db
       .prepare(
         `SELECT created_at FROM users
-         WHERE created_at > datetime('now', '-100 days')`,
+         WHERE created_at > datetime('now', '-${FLOW_WINDOW_DAYS} days')`,
       )
       .all() as Array<{ created_at: string }>;
     for (const row of userRows) {
@@ -913,7 +997,15 @@ function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
     // the charts render empty rather than 500-ing the admin page.
   }
 
-  return dailyKeys.map((day) => ({ day, ...acc[day] }));
+  const points = dailyKeys.map((day) => ({ day, ...acc[day] }));
+  // Trim the leading run of all-empty days (before the product's first activity)
+  // so the axis starts at real data, but never trim into the most recent
+  // MAX_DAILY days — a quiet or brand-new product keeps its familiar 90-day
+  // window instead of collapsing to a couple of points.
+  const floorStart = Math.max(0, points.length - MAX_DAILY);
+  const firstActive = points.findIndex((p) => !isFlowDayEmpty(p));
+  const start = firstActive < 0 ? floorStart : Math.min(firstActive, floorStart);
+  return points.slice(start);
 }
 
 // Counts audit_events rows of `type` whose created_at is newer than
@@ -1058,7 +1150,12 @@ export function getSnapshot(): MonitoringSnapshot {
   return {
     mrr,
     mrrSeries,
-    mrrTrend: computeMrrTrend(mrrSeries, mrr.targetMrr),
+    // The chart shows all retained history, but the headline growth-rate /
+    // months-to-target stat stays on the trailing MAX_DAILY window it has
+    // always used — otherwise widening the series would silently redefine the
+    // rate as a long-run average. (The forward projection line is computed
+    // client-side from a shorter trailing window and is unaffected either way.)
+    mrrTrend: computeMrrTrend(mrrSeries.slice(-MAX_DAILY), mrr.targetMrr),
     signups: buildSignupSeries(now),
     signupFlow: buildSignupFlowSeries(now),
     hourly: hourlyKeys.map((key) => bucketToPoint(key, live.hourly[key])),

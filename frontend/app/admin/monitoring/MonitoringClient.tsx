@@ -7,7 +7,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import MobileScrollableChart from '@/components/MobileScrollableChart';
 import BackendMonitoring from './BackendMonitoring';
-import { formatDayLabel, formatHourLabel, lighten, niceYScale } from './monitoringHelpers';
+import { formatDayLabel, formatHourLabel, lighten, makeDayLabelFormatter, niceYScale } from './monitoringHelpers';
 import { buildMrrProjection, buildGrowthProjection, MRR_PROJECTION_HORIZONS } from '@/core/pricing';
 
 type SnapshotPoint = {
@@ -1675,6 +1675,7 @@ function TierBreakdownChartCard({ data, cardBg, axisStroke, mutedText, brandColo
   const publicColor = lighten(brandColor, 0.7);
   const latest = data.length > 0 ? data[data.length - 1] : { basic: 0, pro: 0, public: 0 };
   const totalUsers = latest.basic + latest.pro + latest.public;
+  const dayLabel = useMemo(() => makeDayLabelFormatter(data.map((p) => p.day)), [data]);
   return (
     <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
       <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
@@ -1699,7 +1700,7 @@ function TierBreakdownChartCard({ data, cardBg, axisStroke, mutedText, brandColo
                 tick={{ fill: axisStroke, fontSize: 10 }}
                 tickLine={false}
                 minTickGap={40}
-                tickFormatter={formatDayLabel}
+                tickFormatter={dayLabel}
               />
               <YAxis
                 stroke={axisStroke}
@@ -1722,7 +1723,7 @@ function TierBreakdownChartCard({ data, cardBg, axisStroke, mutedText, brandColo
                       className="rounded-lg border px-3 py-2 text-xs"
                       style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', color: 'var(--color-chart-tooltip-text)' }}
                     >
-                      <div className="font-semibold mb-1">{formatDayLabel(String(label))}</div>
+                      <div className="font-semibold mb-1">{dayLabel(String(label))}</div>
                       <div>Pro: {pro.toLocaleString()}</div>
                       <div>Basic: {basic.toLocaleString()}</div>
                       <div>Public: {pub.toLocaleString()}</div>
@@ -1784,6 +1785,7 @@ function TotalSubscribersChartCard({ data, cardBg, axisStroke, mutedText, yScale
   const trialingColor = '#ffa600';
   const latest = data.length > 0 ? data[data.length - 1] : { paying: 0, trialing: 0 };
   const totalSubscribers = latest.paying + latest.trialing;
+  const dayLabel = useMemo(() => makeDayLabelFormatter(data.map((p) => p.day)), [data]);
   return (
     <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
       <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
@@ -1807,7 +1809,7 @@ function TotalSubscribersChartCard({ data, cardBg, axisStroke, mutedText, yScale
                 tick={{ fill: axisStroke, fontSize: 10 }}
                 tickLine={false}
                 minTickGap={40}
-                tickFormatter={formatDayLabel}
+                tickFormatter={dayLabel}
               />
               <YAxis
                 stroke={axisStroke}
@@ -1829,7 +1831,7 @@ function TotalSubscribersChartCard({ data, cardBg, axisStroke, mutedText, yScale
                       className="rounded-lg border px-3 py-2 text-xs"
                       style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', color: 'var(--color-chart-tooltip-text)' }}
                     >
-                      <div className="font-semibold mb-1">{formatDayLabel(String(label))}</div>
+                      <div className="font-semibold mb-1">{dayLabel(String(label))}</div>
                       <div>Full Subscriber: {paying.toLocaleString()}</div>
                       <div>Free Trial: {trialing.toLocaleString()}</div>
                       <div className="mt-1">Total Subscribers: {(paying + trialing).toLocaleString()}</div>
@@ -1984,6 +1986,7 @@ function SubscriptionFlowChartCard({ data, cardBg, axisStroke, mutedText, brandC
     [data],
   );
   const signed = (n: number) => `${n > 0 ? '+' : ''}${n.toLocaleString()}`;
+  const dayLabel = useMemo(() => makeDayLabelFormatter(data.map((p) => p.day)), [data]);
 
   return (
     <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
@@ -2012,7 +2015,7 @@ function SubscriptionFlowChartCard({ data, cardBg, axisStroke, mutedText, brandC
                 tick={{ fill: axisStroke, fontSize: 10 }}
                 tickLine={false}
                 minTickGap={40}
-                tickFormatter={formatDayLabel}
+                tickFormatter={dayLabel}
               />
               <YAxis
                 yAxisId="flow"
@@ -2042,7 +2045,7 @@ function SubscriptionFlowChartCard({ data, cardBg, axisStroke, mutedText, brandC
                       className="rounded-lg border px-3 py-2 text-xs"
                       style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', color: 'var(--color-chart-tooltip-text)' }}
                     >
-                      <div className="font-semibold mb-1">{formatDayLabel(String(label))}</div>
+                      <div className="font-semibold mb-1">{dayLabel(String(label))}</div>
                       <div style={{ color: netColor }}>Net onboards: {signed(net)}</div>
                       <div className="mt-1" style={{ color: proAddColor }}>Signups: {signed(proAdd + basicAdd)}</div>
                       <div className="pl-2">Pro: {signed(proAdd)}</div>
@@ -2125,6 +2128,7 @@ function DailyRegistrationsChartCard({ data, flow, cardBg, axisStroke, mutedText
   );
 
   const latest = chartData.length > 0 ? chartData[chartData.length - 1] : { disclaimer: 0, totalUsers: 0 };
+  const dayLabel = useMemo(() => makeDayLabelFormatter(chartData.map((p) => p.day)), [chartData]);
 
   return (
     <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
@@ -2148,7 +2152,7 @@ function DailyRegistrationsChartCard({ data, flow, cardBg, axisStroke, mutedText
                 tick={{ fill: axisStroke, fontSize: 10 }}
                 tickLine={false}
                 minTickGap={40}
-                tickFormatter={formatDayLabel}
+                tickFormatter={dayLabel}
               />
               <YAxis
                 yAxisId="users"
@@ -2184,7 +2188,7 @@ function DailyRegistrationsChartCard({ data, flow, cardBg, axisStroke, mutedText
                       className="rounded-lg border px-3 py-2 text-xs"
                       style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', color: 'var(--color-chart-tooltip-text)' }}
                     >
-                      <div className="font-semibold mb-1">{formatDayLabel(String(label))}</div>
+                      <div className="font-semibold mb-1">{dayLabel(String(label))}</div>
                       <div style={{ color: registrationsColor }}>Registrations added: {registrations.toLocaleString()}</div>
                       <div className="mt-1" style={{ color: totalUsersColor }}>Total Users: {totalUsers.toLocaleString()}</div>
                       <div style={{ color: disclaimerColor }}>Accepted Disclosure: {disclaimer.toLocaleString()}</div>
