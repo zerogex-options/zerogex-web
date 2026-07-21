@@ -404,16 +404,19 @@ public-cohort:
 cancellations:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/list-cancellations.mjs $(if $(STATUS),--status $(STATUS),) $(if $(EMAILS),--emails,) $(if $(CSV),--csv,) $(if $(SINCE),--since $(SINCE),)'
 
-# Backup Admin->Monitoring data files (frontend/data/monitoring.json and
-# signups.json) into a timestamped tar.gz. Defaults to a dir OUTSIDE the
-# repo so archives are not swept into the whole-app backup or git. Files
-# are written atomically by the app, so this is safe to run live. Set
-# S3_BUCKET to also upload (e.g. S3_BUCKET=s3://my-bucket/zerogex). Prunes
-# local archives older than BACKUP_RETENTION_DAYS (default 30).
+# Backup Admin->Monitoring data files (frontend/data/monitoring.json,
+# signups.json, and mrr.json) into a timestamped tar.gz. signups.json and
+# mrr.json hold the append-only daily subscriber/MRR history and are the only
+# copy of it, so this is what keeps those daily numbers durable off-box.
+# Defaults to a dir OUTSIDE the repo so archives are not swept into the
+# whole-app backup or git. Files are written atomically by the app, so this is
+# safe to run live. Set S3_BUCKET to also upload (e.g.
+# S3_BUCKET=s3://my-bucket/zerogex). Prunes local archives older than
+# BACKUP_RETENTION_DAYS (default 30).
 BACKUP_DIR ?= $(HOME)/zerogex-monitoring-backups
 BACKUP_RETENTION_DAYS ?= 30
 backup-monitoring:
-	@if [ ! -f frontend/data/monitoring.json ] && [ ! -f frontend/data/signups.json ]; then \
+	@if [ ! -f frontend/data/monitoring.json ] && [ ! -f frontend/data/signups.json ] && [ ! -f frontend/data/mrr.json ]; then \
 		echo "No monitoring data found in frontend/data/ (nothing to back up)."; \
 		exit 0; \
 	fi; \
@@ -423,6 +426,7 @@ backup-monitoring:
 	files=""; \
 	if [ -f frontend/data/monitoring.json ]; then files="$$files monitoring.json"; fi; \
 	if [ -f frontend/data/signups.json ]; then files="$$files signups.json"; fi; \
+	if [ -f frontend/data/mrr.json ]; then files="$$files mrr.json"; fi; \
 	tar -czf "$$archive" -C frontend/data $$files && echo "Created $$archive"; \
 	if [ -n "$(S3_BUCKET)" ]; then \
 		if command -v aws >/dev/null 2>&1; then \

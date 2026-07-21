@@ -1,0 +1,39 @@
+[Unit]
+Description=ZeroGEX web Admin->Monitoring data backup (tar.gz of signups/mrr/traffic JSON -> optional S3)
+Documentation=https://github.com/zerogex-options/zerogex-web
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/zerogex-web
+
+# Tools used by `make backup-monitoring`: tar, gzip, find, aws (optional). No
+# nvm/node, sqlite3, or gpg needed.
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+# Optional config: S3_BUCKET, BACKUP_DIR, BACKUP_RETENTION_DAYS. The leading '-'
+# makes the file optional so the unit still runs (local-only backup) if absent.
+EnvironmentFile=-/home/ubuntu/zerogex-web/deploy/systemd/monitoring-backup.env
+
+ExecStart=/usr/bin/make -C /home/ubuntu/zerogex-web backup-monitoring
+
+# The job is tiny; cap it so a hung S3 upload can't run forever.
+TimeoutStartSec=300
+
+# Security hardening (mirrors the zerogex-web-auth-backup unit).
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+# RW exception: the backup output dir, which lives under $HOME and would
+# otherwise be read-only under ProtectHome. The source JSON in frontend/data is
+# only READ, so it needs no write exception. If you change BACKUP_DIR in
+# monitoring-backup.env, update this to match.
+ReadWritePaths=/home/ubuntu/zerogex-monitoring-backups
+
+# Logging -> journald (view with: journalctl -u zerogex-web-monitoring-backup)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=zerogex-web-monitoring-backup

@@ -192,6 +192,18 @@ The deployment process runs these steps in order:
 - Runs one verification backup if the auth DB already exists
 - See "Auth Database Backups" below for restore + the S3/encryption knobs
 
+### Step 081: Admin->Monitoring Data Backup Timer (idempotent)
+- Pre-creates the `~/zerogex-monitoring-backups` output dir (mode 700) so the
+  hardened service's `ReadWritePaths` resolves
+- Installs and enables `zerogex-web-monitoring-backup.{service,timer}` (every
+  6h, `Persistent=true`) from `deploy/systemd/`, running `make backup-monitoring`
+- Seeds `deploy/systemd/monitoring-backup.env` (mode 600) from the example on
+  first run — backups are local-only until you set `S3_BUCKET` there
+- Runs one verification backup if the JSON stores already exist
+- Backs up `signups.json` + `mrr.json` (the append-only daily subscriber/MRR
+  history — their only off-box copy) plus `monitoring.json`; see "Monitoring
+  Data Backup" below for restore
+
 ### Step 100: Deployment Validation
 - Comprehensive deployment validation
 - Checks Node.js installation
@@ -658,16 +670,23 @@ This backs up daily at 2 AM and keeps 7 days of backups.
 
 ### Monitoring Data Backup
 
-The Admin -> Monitoring charts read two JSON files that live only on the
+The Admin -> Monitoring charts read three JSON files that live only on the
 server. They are gitignored, so they are **not** in the application code
 backup unless you tar the whole directory:
 
 - `frontend/data/monitoring.json` - API calls, page accesses, unique users/IPs
-- `frontend/data/signups.json` - daily Basic/Pro signup totals
+- `frontend/data/signups.json` - daily Basic/Pro/paying subscriber totals
+- `frontend/data/mrr.json` - daily MRR + active/trialing subscriber history
 
-Back them up with the bundled make target. The app writes these files
-atomically (temp file + rename), so it is safe to run against the live
-process without stopping PM2:
+`signups.json` and `mrr.json` are **append-only, never pruned, and the only
+copy** of the daily subscriber/MRR history — losing the instance volume loses
+it, so keeping them backed up off-box is what makes those daily numbers durable.
+
+Deploy step 081 installs a systemd timer that runs the backup automatically
+every 6h (see "Step 081" above); it is local-only until you set `S3_BUCKET` in
+`deploy/systemd/monitoring-backup.env`. You can also run it on demand with the
+bundled make target. The app writes these files atomically (temp file +
+rename), so it is safe to run against the live process without stopping PM2:
 
 ```bash
 cd ~/zerogex-web
@@ -681,12 +700,9 @@ Options (all optional):
 - `BACKUP_RETENTION_DAYS` - prune local archives older than N days (default 30)
 - `S3_BUCKET` - if set, also `aws s3 cp` the archive there
 
-Automated daily backup at 02:30 (offset from the 02:00 application
-backup) via `crontab -e`:
-
-```
-30 2 * * * cd ~/zerogex-web && make backup-monitoring S3_BUCKET=s3://your-bucket/zerogex >> ~/zerogex-monitoring-backup.log 2>&1
-```
+To back up on a different schedule, edit the timer's `OnCalendar` in
+`deploy/systemd/zerogex-web-monitoring-backup.timer`. (A `crontab -e` line
+calling `make backup-monitoring` works too if you prefer cron over the timer.)
 
 Restore by extracting an archive back into place:
 
