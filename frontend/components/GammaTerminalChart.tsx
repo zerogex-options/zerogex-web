@@ -18,7 +18,7 @@
  * across all twelve ZeroGEX palettes in light and dark.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import { Activity, Crosshair, Info } from "lucide-react";
 import { useMarketQuote, useGEXProfile, useGEXSummary, useSessionCloses } from "@/hooks/useApiData";
 import { useMarketHistorical } from "@/hooks/useMarketHistorical";
@@ -95,8 +95,15 @@ const AXIS_COL_X = PLOT_RIGHT + 10; // right-hand price axis / tag column
 // movable slice of it; the price axis auto-fits whatever is visible.
 const POOL = 400; // bars retained for panning
 const DEFAULT_COUNT = 90; // bars shown in the default, live-following view
-const MIN_COUNT = 18; // most zoomed-in
+const MIN_COUNT = 18; // most zoomed-in (time)
 const ZOOM_FACTOR = 1.2;
+// Vertical (price-axis) zoom. `zoom` is the fraction of the auto-fit price
+// range shown: <1 stretches the candles (zoom in), >1 scrunches them (more
+// range in the same height). `center` is null while auto-fitting, or a pinned
+// price once the user scrunches / pans vertically.
+const PRICE_ZOOM_MIN = 0.15;
+const PRICE_ZOOM_MAX = 8;
+const DEFAULT_PRICE_VIEW: { zoom: number; center: number | null } = { zoom: 1, center: null };
 const RAIL_LEFT = 1190;
 const RAIL_RIGHT = 1348;
 const RAIL_CENTER = (RAIL_LEFT + RAIL_RIGHT) / 2;
@@ -199,6 +206,7 @@ export default function GammaTerminalChart({ className = "" }: { className?: str
   const [overlays, setOverlays] = useState<OverlayState>(DEFAULT_OVERLAYS);
   const [hydrated, setHydrated] = useState(false);
   const [view, setView] = useState<{ count: number; offset: number }>({ count: DEFAULT_COUNT, offset: 0 });
+  const [priceView, setPriceView] = useState<{ zoom: number; center: number | null }>(DEFAULT_PRICE_VIEW);
 
   // Snap the view back to the live default whenever the instrument or timeframe
   // changes. This is the React-sanctioned "adjust state during render on a prop
@@ -207,6 +215,7 @@ export default function GammaTerminalChart({ className = "" }: { className?: str
   if (viewKey !== `${symbol}:${timeframe}`) {
     setViewKey(`${symbol}:${timeframe}`);
     setView({ count: DEFAULT_COUNT, offset: 0 });
+    setPriceView(DEFAULT_PRICE_VIEW);
   }
 
   // Restore persisted view preferences once on mount. Server and the first
@@ -321,7 +330,8 @@ export default function GammaTerminalChart({ className = "" }: { className?: str
   const viewStart = Math.max(0, viewEnd - effCount);
   const bars = useMemo(() => allBars.slice(viewStart, viewEnd), [allBars, viewStart, viewEnd]);
   const atLiveEdge = effOffset === 0;
-  const isCustomView = view.offset !== 0 || view.count !== DEFAULT_COUNT;
+  const isCustomView =
+    view.offset !== 0 || view.count !== DEFAULT_COUNT || priceView.zoom !== 1 || priceView.center !== null;
 
   // ── Gamma levels ─────────────────────────────────────────────────────────
   const flip = num(gexProfile?.gamma_flip ?? gexSummary?.gamma_flip);
@@ -354,7 +364,16 @@ export default function GammaTerminalChart({ className = "" }: { className?: str
   const [hover, setHover] = useState<{ idx: number; price: number; px: number; py: number; w: number; h: number } | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
-  const dragRef = useRef<{ startX: number; startOffset: number; moved: boolean } | null>(null);
+  const dragRef = useRef<{
+    startX: number;
+    startY: number;
+    startOffset: number;
+    startCenter: number;
+    startSpan: number;
+    startPriceManual: boolean;
+    priceEngaged: boolean;
+    moved: boolean;
+  } | null>(null);
   const [dragging, setDragging] = useState(false);
 
   // ── Domain / scales ──────────────────────────────────────────────────────
@@ -379,6 +398,18 @@ export default function GammaTerminalChart({ className = "" }: { className?: str
     dMin -= pad;
     dMax += pad;
 
+    // Auto-fit domain complete. Apply the manual vertical zoom/pan on top:
+    // scrunch by priceView.zoom around a center (priceView.center, or the
+    // auto midpoint while still auto-fitting).
+    const autoMin = dMin;
+    const autoMax = dMax;
+    const autoMid = (autoMin + autoMax) / 2;
+    const autoHalf = Math.max((autoMax - autoMin) / 2, 1e-6);
+    const half = autoHalf * priceView.zoom;
+    const center = priceView.center ?? autoMid;
+    dMin = center - half;
+    dMax = center + half;
+
     const n = bars.length;
     // Asymmetric insets: a small left pad, and a wide right gutter (PAD_RIGHT)
     // so the newest bar sits clear of the axis price tags.
@@ -392,8 +423,8 @@ export default function GammaTerminalChart({ className = "" }: { className?: str
     const priceForY = (y: number) => dMin + (1 - (y - PAD_TOP) / (PRICE_BOTTOM - PAD_TOP)) * (dMax - dMin);
     const yVol = (v: number) => VOL_BOTTOM - (v / maxVol) * (VOL_BOTTOM - VOL_TOP);
 
-    return { dMin, dMax, xStep, candleWidth, maxVol, priceAxis, xForIndex, yPrice, priceForY, yVol, n };
-  }, [bars, flip, callWall, putWall, vwap]);
+    return { dMin, dMax, autoMid, autoHalf, xStep, candleWidth, maxVol, priceAxis, xForIndex, yPrice, priceForY, yVol, n };
+  }, [bars, flip, callWall, putWall, vwap, priceView.zoom, priceView.center]);
 
   // Rail silhouette geometry (net dealer gamma by price, aligned to the y-axis).
   const rail = useMemo(() => {
@@ -459,7 +490,16 @@ export default function GammaTerminalChart({ className = "" }: { className?: str
   }, [bars]);
 
   const handlePointerDown = (e: MouseEvent<SVGSVGElement>) => {
-    dragRef.current = { startX: e.clientX, startOffset: effOffset, moved: false };
+    dragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      startOffset: effOffset,
+      startCenter: layout ? (layout.dMin + layout.dMax) / 2 : 0,
+      startSpan: layout ? layout.dMax - layout.dMin : 1,
+      startPriceManual: priceView.center !== null || priceView.zoom !== 1,
+      priceEngaged: false,
+      moved: false,
+    };
   };
 
   const handlePointerMove = (e: MouseEvent<SVGSVGElement>) => {
@@ -468,17 +508,32 @@ export default function GammaTerminalChart({ className = "" }: { className?: str
     const drag = dragRef.current;
     if (drag) {
       const dxScreen = e.clientX - drag.startX;
-      if (!drag.moved && Math.abs(dxScreen) > 3) {
+      const dyScreen = e.clientY - drag.startY;
+      if (!drag.moved && Math.hypot(dxScreen, dyScreen) > 3) {
         drag.moved = true;
         setDragging(true);
         setHover(null);
       }
       if (drag.moved) {
+        // Horizontal → time pan. Dragging the tape right reveals older bars.
         const dxView = dxScreen * (VW / Math.max(1, rect.width));
         const dBars = Math.round(dxView / Math.max(1e-9, layout.xStep));
-        // Dragging the tape to the right reveals older bars → hide more on the right.
         const nextOffset = clamp(drag.startOffset + dBars, 0, maxOffset);
         setView((v) => (v.offset === nextOffset ? v : { ...v, offset: nextOffset }));
+
+        // Vertical → price pan. Keep price auto-fitting during ordinary
+        // horizontal panning; only engage manual price mode once the user has
+        // already scrunched, or the gesture turns clearly vertical.
+        const verticalGesture = Math.abs(dyScreen) > Math.abs(dxScreen) && Math.abs(dyScreen) > 6;
+        if (drag.startPriceManual || drag.priceEngaged || verticalGesture) {
+          drag.priceEngaged = true;
+          const dyView = dyScreen * (VH / Math.max(1, rect.height));
+          const dPrice = (dyView * drag.startSpan) / (PRICE_BOTTOM - PAD_TOP);
+          const lo = layout.autoMid - layout.autoHalf * 6;
+          const hi = layout.autoMid + layout.autoHalf * 6;
+          const nextCenter = clamp(drag.startCenter + dPrice, lo, hi);
+          setPriceView((pv) => (pv.center === nextCenter ? pv : { zoom: pv.zoom, center: nextCenter }));
+        }
         return;
       }
     }
@@ -500,11 +555,36 @@ export default function GammaTerminalChart({ className = "" }: { className?: str
     endDrag();
   };
 
-  const resetView = () => setView({ count: DEFAULT_COUNT, offset: 0 });
+  const resetView = () => {
+    setView({ count: DEFAULT_COUNT, offset: 0 });
+    setPriceView(DEFAULT_PRICE_VIEW);
+    setHover(null);
+  };
 
-  // Wheel-zoom, anchored on the bar under the cursor. Attached natively with
-  // { passive: false } so preventDefault actually stops the page from scrolling
-  // (React's synthetic onWheel can be passive and silently ignore it).
+  // Time zoom about the current view center (used by the on-screen buttons).
+  const zoomTimeCentered = (factor: number) => {
+    setHover(null);
+    setView((v) => {
+      if (total <= 1) return v;
+      const curCount = clamp(v.count, MIN_COUNT, Math.max(MIN_COUNT, total));
+      const curOffset = clamp(v.offset, 0, Math.max(0, total - curCount));
+      const center = total - curOffset - curCount / 2;
+      const newCount = clamp(Math.round(curCount * factor), MIN_COUNT, total);
+      const newStart = Math.round(center - newCount / 2);
+      const newOffset = clamp(total - (newStart + newCount), 0, Math.max(0, total - newCount));
+      return { count: newCount, offset: newOffset };
+    });
+  };
+
+  // Vertical (price) zoom — scrunch/expand about the current center.
+  const zoomPrice = (factor: number) => {
+    setPriceView((pv) => ({ zoom: clamp(pv.zoom * factor, PRICE_ZOOM_MIN, PRICE_ZOOM_MAX), center: pv.center }));
+  };
+
+  // Wheel: over the candles → time zoom (anchored on the bar under the cursor);
+  // over the price axis / rail, or with Shift held → vertical price zoom.
+  // Attached natively with { passive: false } so preventDefault actually stops
+  // the page from scrolling (React's synthetic onWheel can be passive).
   useEffect(() => {
     const el = svgRef.current;
     if (!el || total <= 1) return;
@@ -512,6 +592,12 @@ export default function GammaTerminalChart({ className = "" }: { className?: str
       e.preventDefault();
       const rect = el.getBoundingClientRect();
       const vx = (e.clientX - rect.left) * (VW / Math.max(1, rect.width));
+      const factor = e.deltaY < 0 ? 1 / ZOOM_FACTOR : ZOOM_FACTOR;
+      if (e.shiftKey || vx > PLOT_RIGHT) {
+        setPriceView((pv) => ({ zoom: clamp(pv.zoom * factor, PRICE_ZOOM_MIN, PRICE_ZOOM_MAX), center: pv.center }));
+        return;
+      }
+      setHover(null);
       const curCount = clamp(view.count, MIN_COUNT, Math.max(MIN_COUNT, total));
       const curOffset = clamp(view.offset, 0, Math.max(0, total - curCount));
       const curEnd = total - curOffset;
@@ -521,7 +607,7 @@ export default function GammaTerminalChart({ className = "" }: { className?: str
       const rel = clamp((vx - PLOT_LEFT - INNER_PAD_X) / Math.max(1e-9, curXStep), 0, curVisible - 1);
       const cursorAbs = curStart + rel;
       const f = curVisible > 1 ? rel / (curVisible - 1) : 0.5;
-      const newCount = clamp(Math.round(curCount * (e.deltaY < 0 ? 1 / ZOOM_FACTOR : ZOOM_FACTOR)), MIN_COUNT, total);
+      const newCount = clamp(Math.round(curCount * factor), MIN_COUNT, total);
       const newStart = Math.round(cursorAbs - f * (newCount - 1));
       const newOffset = clamp(total - (newStart + newCount), 0, Math.max(0, total - newCount));
       setView({ count: newCount, offset: newOffset });
@@ -560,7 +646,10 @@ export default function GammaTerminalChart({ className = "" }: { className?: str
   // tag so they stay anchored to the current price even when panned into
   // history, where the last *visible* bar is older.
   const liveTip = allBars[allBars.length - 1] ?? lastBar;
-  const activeIdx = hover ? hover.idx : lastIdx;
+  // Clamp to the visible range: a zoom can shrink bars.length while a stale
+  // hover index from the previous (wider) window is still set, and indexing
+  // bars[activeIdx - 1] out of range below would otherwise throw.
+  const activeIdx = hover ? Math.max(0, Math.min(hover.idx, bars.length - 1)) : lastIdx;
   const activeBar = bars[activeIdx] ?? lastBar;
   const activePrevClose = activeIdx > 0 ? bars[activeIdx - 1].close : activeBar.open;
   const spot = priceSummary.displayPrice ?? liveTip.close;
@@ -588,6 +677,29 @@ export default function GammaTerminalChart({ className = "" }: { className?: str
       if (d < 0.0012 && (!best || d < best.d)) best = { key: l.key, d };
     }
     return best?.key ?? null;
+  })();
+
+  // Left-side level name chips, de-collided horizontally: when two chips would
+  // land on the same line they're placed side by side (each shifted right past
+  // any already-placed chip it vertically overlaps) instead of stacking on top
+  // of each other. Only in-domain levels get a chip; out-of-range levels are
+  // shown by their arrowed axis tag alone.
+  const chipPlacements = (() => {
+    const CHIP_H = 16;
+    const GAP = 5;
+    const visible = levelDefs
+      .filter((l): l is LevelDef & { value: number } => l.show && l.value != null && inDomain(l.value))
+      .map((l) => ({ key: l.key, label: l.label, color: l.color, y: clamp(yPrice(l.value), PAD_TOP + 1, PRICE_BOTTOM - 1), w: labelWidth(l.label) }))
+      .sort((a, b) => a.y - b.y);
+    const placed: Array<{ key: string; label: string; color: string; y: number; w: number; x: number }> = [];
+    for (const c of visible) {
+      let x = PLOT_LEFT + 6;
+      for (const p of placed) {
+        if (Math.abs(p.y - c.y) < CHIP_H) x = Math.max(x, p.x + p.w + GAP);
+      }
+      placed.push({ ...c, x });
+    }
+    return placed;
   })();
 
   // Line/area path for the close series (used by line + area styles).
@@ -892,26 +1004,25 @@ export default function GammaTerminalChart({ className = "" }: { className?: str
                 })}
             </g>
 
-            {/* ── Gamma level lines + left-side name chips ──────────────── */}
+            {/* ── Gamma level reference lines (in-domain only) ──────────── */}
             {levelDefs.map((l) => {
-              if (!l.show || l.value == null) return null;
-              const clamped = !inDomain(l.value);
+              if (!l.show || l.value == null || !inDomain(l.value)) return null;
               const y = clamp(yPrice(l.value), PAD_TOP + 1, PRICE_BOTTOM - 1);
               const emphasized = confluenceKey === l.key;
               return (
-                <g key={`level-${l.key}`}>
-                  {!clamped && (
-                    <line x1={PLOT_LEFT} x2={PLOT_RIGHT} y1={y} y2={y} stroke={l.color} strokeWidth={emphasized ? 2 : 1.3} strokeDasharray={l.dash} opacity={emphasized ? 1 : 0.85} />
-                  )}
-                  <g transform={`translate(${PLOT_LEFT + 6}, ${y})`}>
-                    <rect x={0} y={-8} width={labelWidth(l.label)} height={16} rx={2} fill="var(--bg-card)" stroke={l.color} strokeWidth={1} opacity={0.95} />
-                    <text x={6} y={3.5} fontFamily="var(--font-mono)" fontSize={9.5} letterSpacing="0.08em" fill={l.color} fontWeight={600}>
-                      {l.label}
-                    </text>
-                  </g>
-                </g>
+                <line key={`levelline-${l.key}`} x1={PLOT_LEFT} x2={PLOT_RIGHT} y1={y} y2={y} stroke={l.color} strokeWidth={emphasized ? 2 : 1.3} strokeDasharray={l.dash} opacity={emphasized ? 1 : 0.85} />
               );
             })}
+
+            {/* ── Level name chips, de-collided so they never overlap ────── */}
+            {chipPlacements.map((c) => (
+              <g key={`chip-${c.key}`} transform={`translate(${c.x}, ${c.y})`}>
+                <rect x={0} y={-8} width={c.w} height={16} rx={2} fill="var(--bg-card)" stroke={c.color} strokeWidth={1} opacity={0.95} />
+                <text x={6} y={3.5} fontFamily="var(--font-mono)" fontSize={9.5} letterSpacing="0.08em" fill={c.color} fontWeight={600}>
+                  {c.label}
+                </text>
+              </g>
+            ))}
 
             {/* ── Last-price line + live cursor (tag drawn in declutter pass) ── */}
             {(() => {
@@ -1005,7 +1116,7 @@ export default function GammaTerminalChart({ className = "" }: { className?: str
               const crossY = clamp(yPrice(hover.price), PAD_TOP, PRICE_BOTTOM);
               return (
                 <g pointerEvents="none">
-                  <line x1={xForIndex(hover.idx)} x2={xForIndex(hover.idx)} y1={PAD_TOP} y2={VOL_BOTTOM} stroke="var(--text-secondary)" strokeWidth={1} strokeDasharray="3 3" opacity={0.6} />
+                  <line x1={xForIndex(activeIdx)} x2={xForIndex(activeIdx)} y1={PAD_TOP} y2={VOL_BOTTOM} stroke="var(--text-secondary)" strokeWidth={1} strokeDasharray="3 3" opacity={0.6} />
                   <line x1={PLOT_LEFT} x2={PLOT_RIGHT} y1={crossY} y2={crossY} stroke="var(--text-secondary)" strokeWidth={1} strokeDasharray="3 3" opacity={0.5} />
                   <PriceTag x={AXIS_COL_X - 6} y={crossY} value={fmtPrice(hover.price)} bg="var(--text-secondary)" />
                 </g>
@@ -1082,6 +1193,12 @@ export default function GammaTerminalChart({ className = "" }: { className?: str
             </div>
           </div>
         )}
+
+        {/* ── On-screen zoom controls (time + price axes) ───────────────── */}
+        <div className="absolute z-20 flex flex-col gap-1.5" style={{ right: 12, bottom: 12 }}>
+          <ZoomCluster label="Time" onIn={() => zoomTimeCentered(1 / ZOOM_FACTOR)} onOut={() => zoomTimeCentered(ZOOM_FACTOR)} />
+          <ZoomCluster label="Price" onIn={() => zoomPrice(1 / ZOOM_FACTOR)} onOut={() => zoomPrice(ZOOM_FACTOR)} />
+        </div>
       </div>
 
       {/* ── Footer legend ───────────────────────────────────────────────── */}
@@ -1176,6 +1293,47 @@ function OverlayPill({ label, color, active, onClick }: { label: string; color: 
       <span className="zg-gc-swatch" />
       {label}
     </button>
+  );
+}
+
+const zoomBtnStyle: CSSProperties = {
+  fontFamily: "var(--font-mono)",
+  fontSize: 15,
+  fontWeight: 700,
+  lineHeight: 1,
+  width: 22,
+  height: 20,
+  display: "grid",
+  placeItems: "center",
+  borderRadius: "var(--radius-control)",
+  border: "1px solid var(--border-default)",
+  background: "var(--bg-subtle)",
+  color: "var(--text-secondary)",
+  cursor: "pointer",
+};
+
+function ZoomCluster({ label, onIn, onOut }: { label: string; onIn: () => void; onOut: () => void }) {
+  return (
+    <div
+      className="flex items-center gap-1"
+      style={{
+        background: "color-mix(in srgb, var(--bg-card) 88%, transparent)",
+        border: "1px solid var(--border-default)",
+        borderRadius: "var(--radius-control)",
+        padding: "3px 5px",
+        backdropFilter: "blur(3px)",
+      }}
+    >
+      <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text-muted)", width: 34, textAlign: "right", paddingRight: 2 }}>
+        {label}
+      </span>
+      <button type="button" onClick={onOut} aria-label={`Zoom out (${label})`} title={`Zoom out (${label})`} style={zoomBtnStyle}>
+        −
+      </button>
+      <button type="button" onClick={onIn} aria-label={`Zoom in (${label})`} title={`Zoom in (${label})`} style={zoomBtnStyle}>
+        +
+      </button>
+    </div>
   );
 }
 
