@@ -1099,10 +1099,10 @@
 
 /* ---- Palette: Vinyl Topanga ---------- */
 /* 1970s groovy: rust-orange field, harvest gold, avocado lichen, petrol
-   teal, warm chocolate & cream. Titan One chunky-rounded block display over
+   teal, warm chocolate & cream. Baloo 2 warm-rounded display over
    Rubik. Dark is a velvet 70s night; light a warm dust-plain day. */
 :root.palette-vinyl-topanga {
-  --font-display: var(--font-titan-one);
+  --font-display: var(--font-baloo2);
   --font-body: var(--font-rubik);
   --font-mono: var(--font-jetbrains-mono);
   --heat-low: #F0D8A8; --heat-mid: #DE7A34; --heat-high: #A6331A;
@@ -1162,9 +1162,9 @@
 /* ---- Palette: Monochrome Madison ---------- */
 /* Late-50s/early-60s Madison Avenue & Twilight Zone: near-black graphite,
    bone white, one cold steel/phosphor-blue accent and a single restrained
-   signal red. Oswald editorial display over Spectral. Dark is the hero. */
+   signal red. Montserrat geometric modernist display over Spectral. Dark is the hero. */
 :root.palette-monochrome-madison {
-  --font-display: var(--font-oswald);
+  --font-display: var(--font-montserrat);
   --font-body: var(--font-spectral);
   --font-mono: var(--font-jetbrains-mono);
   --heat-low: #D8DEE6; --heat-mid: #7C8DA2; --heat-high: #2C3440;

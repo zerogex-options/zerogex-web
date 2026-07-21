@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import {
   Archivo,
+  Baloo_2,
   Chakra_Petch,
   Cormorant_Garamond,
   Fraunces,
@@ -10,15 +11,14 @@ import {
   Inter,
   JetBrains_Mono,
   Libre_Baskerville,
+  Montserrat,
   Newsreader,
   Noto_Sans,
-  Oswald,
   Outfit,
   Playfair_Display,
   Rubik,
   Space_Grotesk,
   Spectral,
-  Titan_One,
 } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/core/ThemeContext';
@@ -130,11 +130,13 @@ const chakraPetch = Chakra_Petch({
   display: 'swap',
 });
 
-// Vinyl Topanga — chunky rounded 70s block display.
-const titanOne = Titan_One({
+// Vinyl Topanga — warm rounded 70s display. A true multi-weight family, so
+// heading semibolds render as real weights instead of a synthesized faux-bold
+// (the previous single-weight face looked over-inked at chart-title sizes).
+const baloo2 = Baloo_2({
   subsets: ['latin'],
-  weight: ['400'],
-  variable: '--font-titan-one',
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-baloo2',
   display: 'swap',
 });
 
@@ -146,11 +148,11 @@ const rubik = Rubik({
   display: 'swap',
 });
 
-// Monochrome Madison — condensed mid-century editorial display.
-const oswald = Oswald({
+// Monochrome Madison — geometric modernist display, heavy poster grotesque.
+const montserrat = Montserrat({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
-  variable: '--font-oswald',
+  variable: '--font-montserrat',
   display: 'swap',
 });
 
@@ -191,9 +193,9 @@ const FONT_VARIABLES = [
   outfit.variable,
   fraunces.variable,
   chakraPetch.variable,
-  titanOne.variable,
+  baloo2.variable,
   rubik.variable,
-  oswald.variable,
+  montserrat.variable,
   spectral.variable,
   gloock.variable,
   hankenGrotesk.variable,
