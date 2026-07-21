@@ -19,9 +19,10 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
-import { Activity, ChevronsRight, Crosshair, Info } from "lucide-react";
+import { Activity, ChevronsRight, Crosshair, Info, Pause, Play, Rewind } from "lucide-react";
 import { useMarketQuote, useGEXProfile, useGEXSummary, useSessionCloses, type SessionClosesData } from "@/hooks/useApiData";
 import { useMarketHistorical, type PriceBar } from "@/hooks/useMarketHistorical";
+import { useStrikeProfileTimeseries } from "@/hooks/useStrikeProfileTimeseries";
 import { useTechnicals } from "@/hooks/useTechnicals";
 import { useTimeframe, type UnderlyingSymbol } from "@/core/TimeframeContext";
 import { getPrimaryPriceChangeSummary } from "@/core/priceChange";
@@ -248,6 +249,15 @@ export default function GammaTerminalChart({
   const [view, setView] = useState<{ count: number; offset: number }>({ count: DEFAULT_COUNT, offset: 0 });
   const [priceView, setPriceView] = useState<{ zoom: number; center: number | null }>(DEFAULT_PRICE_VIEW);
 
+  // ── Rewind (session replay) ── Live-only. When active the chart freezes at
+  // `rewindTime` and shows price + dealer gamma "as it looked" then; playback
+  // steps the anchor forward. The gamma structure comes from the strike-profile
+  // timeseries (only fetched once rewind is entered, so it adds no idle load).
+  const [rewindActive, setRewindActive] = useState(false);
+  const [rewindTime, setRewindTime] = useState<number | null>(null);
+  const [playbackActive, setPlaybackActive] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState<1 | 2 | 4>(1);
+
   // Snap the view back to the live default whenever the instrument or timeframe
   // changes. This is the React-sanctioned "adjust state during render on a prop
   // change" pattern (same shape the data hooks use), so it needs no effect.
@@ -256,6 +266,9 @@ export default function GammaTerminalChart({
     setViewKey(`${symbol}:${timeframe}`);
     setView({ count: DEFAULT_COUNT, offset: 0 });
     setPriceView(DEFAULT_PRICE_VIEW);
+    setRewindActive(false);
+    setRewindTime(null);
+    setPlaybackActive(false);
   }
 
   // Restore persisted view preferences once on mount. Server and the first
@@ -305,6 +318,12 @@ export default function GammaTerminalChart({
   const { data: gexProfile } = useGEXProfile(symbol, 10000, live);
   const { data: gexSummary } = useGEXSummary(symbol, 5000, live);
   const technicals = useTechnicals(symbol, live);
+  // GEX structure over time, for rewind. Only enabled once the user enters
+  // rewind (a one-time seed pulls the full session), and always paused (we use
+  // it frozen), so it adds no continuous polling. Never enabled in delayed mode.
+  // Pinned to 5-min buckets (the cadence that always has data); the anchor is
+  // resolved by timestamp, so these align with candles of any timeframe.
+  const { buckets: rewindBuckets } = useStrikeProfileTimeseries(symbol, "5min", "all", true, live && rewindActive);
 
   const dataAll = snapshot ? snapshot.bars : liveRows;
   const loading = snapshot ? false : liveLoading;
@@ -346,7 +365,7 @@ export default function GammaTerminalChart({
   // the full pool; the visible window is sliced from it below.
   const allBars = useMemo(() => {
     if (historicalBars.length === 0) return historicalBars;
-    if (delayed || liveClose == null || !session || session === "closed") return historicalBars;
+    if (delayed || rewindActive || liveClose == null || !session || session === "closed") return historicalBars;
     const tip = historicalBars[historicalBars.length - 1];
     const bucketMs = intervalMinutes * 60 * 1000;
     const tipStartMs = new Date(tip.timestamp).getTime();
@@ -363,7 +382,7 @@ export default function GammaTerminalChart({
       low: Math.min(tip.low, liveClose),
     };
     return patched;
-  }, [historicalBars, liveClose, session, quoteTs, intervalMinutes, delayed]);
+  }, [historicalBars, liveClose, session, quoteTs, intervalMinutes, delayed, rewindActive]);
 
   // ── Zoom + pan: derive the visible window from the view state. `offset` is
   // how many bars are hidden to the RIGHT of the view (0 = live edge, so the
@@ -372,22 +391,72 @@ export default function GammaTerminalChart({
   const effCount = total === 0 ? 0 : clamp(view.count, MIN_COUNT, Math.max(MIN_COUNT, total));
   const maxOffset = Math.max(0, total - effCount);
   const effOffset = clamp(view.offset, 0, maxOffset);
-  const viewEnd = total - effOffset;
+
+  // Rewind pins the window's right edge to the bar nearest `rewindTime`; live
+  // view pins it to the newest bar (minus the pan offset).
+  const rewindEdgeIdx = useMemo(() => {
+    if (!rewindActive || rewindTime == null || allBars.length === 0) return null;
+    let best = 0;
+    let bestDist = Infinity;
+    for (let i = 0; i < allBars.length; i++) {
+      const t = new Date(allBars[i].timestamp).getTime();
+      if (!Number.isFinite(t)) continue;
+      const d = Math.abs(t - rewindTime);
+      if (d < bestDist) {
+        bestDist = d;
+        best = i;
+      }
+    }
+    return best;
+  }, [rewindActive, rewindTime, allBars]);
+
+  const viewEnd = rewindEdgeIdx != null ? Math.min(total, rewindEdgeIdx + 1) : total - effOffset;
   const viewStart = Math.max(0, viewEnd - effCount);
   const bars = useMemo(() => allBars.slice(viewStart, viewEnd), [allBars, viewStart, viewEnd]);
-  const atLiveEdge = effOffset === 0;
+  const atLiveEdge = !rewindActive && effOffset === 0;
   const isCustomView =
     view.offset !== 0 || view.count !== DEFAULT_COUNT || priceView.zoom !== 1 || priceView.center !== null;
 
-  // ── Gamma levels ─────────────────────────────────────────────────────────
-  const flip = snapshot ? snapshot.gamma.flip : num(gexProfile?.gamma_flip ?? gexSummary?.gamma_flip);
-  const callWall = snapshot ? snapshot.gamma.callWall : num(gexProfile?.call_wall ?? gexSummary?.call_wall);
-  const putWall = snapshot ? snapshot.gamma.putWall : num(gexProfile?.put_wall ?? gexSummary?.put_wall);
-  const maxPain = snapshot ? snapshot.gamma.maxPain : num(gexSummary?.max_pain);
-  const netGexAtSpot = snapshot ? snapshot.gamma.netGexAtSpot : num(gexProfile?.net_gex_at_spot ?? gexSummary?.net_gex);
-  const vwap = snapshot ? snapshot.vwap : num(technicals.latest?.vwap_deviation?.vwap);
+  // The gamma structure at the rewound moment (nearest strike-profile bucket).
+  const rewindBucket = useMemo(() => {
+    if (!rewindActive || rewindTime == null || rewindBuckets.length === 0) return null;
+    let best: (typeof rewindBuckets)[number] | null = null;
+    let bestDist = Infinity;
+    for (const b of rewindBuckets) {
+      const t = new Date(b.timestamp).getTime();
+      if (!Number.isFinite(t)) continue;
+      const d = Math.abs(t - rewindTime);
+      if (d < bestDist) {
+        bestDist = d;
+        best = b;
+      }
+    }
+    return best;
+  }, [rewindActive, rewindTime, rewindBuckets]);
+
+  // ── Gamma levels ── Rewind takes flip/walls from the historical bucket;
+  // Max Pain / net-GEX / VWAP aren't in the timeseries, so they're hidden then.
+  const flip = rewindBucket
+    ? coerceNum(rewindBucket.gamma_flip)
+    : snapshot ? snapshot.gamma.flip : num(gexProfile?.gamma_flip ?? gexSummary?.gamma_flip);
+  const callWall = rewindBucket
+    ? coerceNum(rewindBucket.call_wall)
+    : snapshot ? snapshot.gamma.callWall : num(gexProfile?.call_wall ?? gexSummary?.call_wall);
+  const putWall = rewindBucket
+    ? coerceNum(rewindBucket.put_wall)
+    : snapshot ? snapshot.gamma.putWall : num(gexProfile?.put_wall ?? gexSummary?.put_wall);
+  const maxPain = rewindActive ? null : snapshot ? snapshot.gamma.maxPain : num(gexSummary?.max_pain);
+  const netGexAtSpot = rewindActive ? null : snapshot ? snapshot.gamma.netGexAtSpot : num(gexProfile?.net_gex_at_spot ?? gexSummary?.net_gex);
+  const vwap = rewindActive ? null : snapshot ? snapshot.vwap : num(technicals.latest?.vwap_deviation?.vwap);
 
   const profilePoints = useMemo<ProfilePoint[]>(() => {
+    // Rewind: rebuild the rail from the bucket's per-strike net gamma.
+    if (rewindBucket) {
+      return (rewindBucket.strikes ?? [])
+        .map((s) => ({ price: coerceNum(s.strike), gex: coerceNum(s.net_gamma) }))
+        .filter((p): p is ProfilePoint => p.price != null && p.gex != null)
+        .sort((a, b) => a.price - b.price);
+    }
     if (snapshot) return snapshot.profile;
     const raw = gexProfile?.profile;
     if (!Array.isArray(raw)) return [];
@@ -395,7 +464,7 @@ export default function GammaTerminalChart({
       .map((p) => ({ price: Number(p.price), gex: Number(p.gex) }))
       .filter((p) => Number.isFinite(p.price) && Number.isFinite(p.gex))
       .sort((a, b) => a.price - b.price);
-  }, [gexProfile, snapshot]);
+  }, [gexProfile, snapshot, rewindBucket]);
 
   // ── Price/change readout ─────────────────────────────────────────────────
   const priceSummary = getPrimaryPriceChangeSummary({
@@ -703,6 +772,73 @@ export default function GammaTerminalChart({
     return () => el.removeEventListener("wheel", onWheel);
   }, [view.count, view.offset, total]);
 
+  // ── Rewind controls ──────────────────────────────────────────────────────
+  // Keep the latest bars in a ref so the playback interval can read them
+  // without being torn down and recreated on every live tick.
+  const allBarsRef = useRef(allBars);
+  const rewindTimeRef = useRef(rewindTime);
+  useEffect(() => {
+    allBarsRef.current = allBars;
+    rewindTimeRef.current = rewindTime;
+  });
+
+  const enterRewind = () => {
+    if (allBars.length < 3) return;
+    // Start a bit back from the live edge so there's room to play forward.
+    const startIdx = Math.max(0, allBars.length - Math.min(40, Math.floor(allBars.length / 2)));
+    setRewindTime(new Date(allBars[startIdx].timestamp).getTime());
+    setRewindActive(true);
+    setPlaybackActive(false);
+    setHover(null);
+  };
+
+  const exitRewind = () => {
+    setRewindActive(false);
+    setRewindTime(null);
+    setPlaybackActive(false);
+    setView((v) => ({ ...v, offset: 0 }));
+  };
+
+  const scrubToIndex = (idx: number) => {
+    const arr = allBarsRef.current;
+    if (arr.length === 0) return;
+    const clamped = Math.max(0, Math.min(arr.length - 1, idx));
+    setRewindTime(new Date(arr[clamped].timestamp).getTime());
+    setPlaybackActive(false);
+  };
+
+  // Playback: advance the anchor one bar per tick; stop at the live edge. Reads
+  // bars + anchor from refs so the interval isn't torn down on every live tick,
+  // and calls setState directly (never inside an updater) so it stays pure.
+  useEffect(() => {
+    if (!rewindActive || !playbackActive) return;
+    const stepMs = 640 / playbackSpeed;
+    const id = setInterval(() => {
+      const arr = allBarsRef.current;
+      const prev = rewindTimeRef.current;
+      if (arr.length === 0 || prev == null) return;
+      let idx = 0;
+      let bestDist = Infinity;
+      for (let i = 0; i < arr.length; i++) {
+        const t = new Date(arr[i].timestamp).getTime();
+        if (!Number.isFinite(t)) continue;
+        const d = Math.abs(t - prev);
+        if (d < bestDist) {
+          bestDist = d;
+          idx = i;
+        }
+      }
+      const next = idx + 1;
+      if (next >= arr.length - 1) {
+        setPlaybackActive(false);
+        setRewindTime(new Date(arr[arr.length - 1].timestamp).getTime());
+        return;
+      }
+      setRewindTime(new Date(arr[next].timestamp).getTime());
+    }, stepMs);
+    return () => clearInterval(id);
+  }, [rewindActive, playbackActive, playbackSpeed]);
+
   // ── Loading / error / empty ──────────────────────────────────────────────
   if (loading && bars.length === 0) {
     return (
@@ -739,7 +875,9 @@ export default function GammaTerminalChart({
   const activeIdx = hover ? Math.max(0, Math.min(hover.idx, bars.length - 1)) : lastIdx;
   const activeBar = bars[activeIdx] ?? lastBar;
   const activePrevClose = activeIdx > 0 ? bars[activeIdx - 1].close : activeBar.open;
-  const spot = priceSummary.displayPrice ?? liveTip.close;
+  // During rewind, "spot" is the rewound bar's close (so the regime read
+  // reflects that moment); otherwise it's the live price.
+  const spot = rewindActive ? lastBar.close : priceSummary.displayPrice ?? liveTip.close;
 
   const inDomain = (v: number | null): v is number => v != null && v >= layout.dMin && v <= layout.dMax;
   const regimeUnknown = flip == null;
@@ -806,9 +944,11 @@ export default function GammaTerminalChart({
         .sort((a, b) => a.dist - b.dist)[0] ?? null
     : null;
 
-  const sessionBadge = delayed
-    ? { label: "◷ DELAYED ~15 MIN", color: "var(--color-warning)" }
-    : sessionLabel(session);
+  const sessionBadge = rewindActive
+    ? { label: "◀ REWIND", color: "var(--color-accent-hot)" }
+    : delayed
+      ? { label: "◷ DELAYED ~15 MIN", color: "var(--color-warning)" }
+      : sessionLabel(session);
 
   return (
     <div className={`zg-feature-shell zg-gc-rise ${className}`} style={{ overflow: "hidden" }}>
@@ -838,7 +978,7 @@ export default function GammaTerminalChart({
                 <span style={{ fontFamily: "var(--font-mono)", fontSize: 28, fontWeight: 600, color: "var(--text-primary)", lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>
                   {spot != null ? fmtPrice(spot) : "--"}
                 </span>
-                {priceSummary.change != null && (
+                {!rewindActive && priceSummary.change != null && (
                   <span
                     style={{
                       fontFamily: "var(--font-mono)",
@@ -851,6 +991,11 @@ export default function GammaTerminalChart({
                     {priceSummary.isPositive ? "+" : ""}
                     {priceSummary.change.toFixed(2)}
                     {priceSummary.changePercent != null && ` (${priceSummary.isPositive ? "+" : ""}${priceSummary.changePercent.toFixed(2)}%)`}
+                  </span>
+                )}
+                {rewindActive && rewindTime != null && (
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 600, color: "var(--color-accent-hot)", fontVariantNumeric: "tabular-nums" }}>
+                    {new Date(rewindTime).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })} ET
                   </span>
                 )}
               </div>
@@ -1139,7 +1284,7 @@ export default function GammaTerminalChart({
             {(() => {
               const y = clamp(yPrice(liveTip.close), PAD_TOP, PRICE_BOTTOM);
               const x = xForIndex(lastIdx);
-              const isLive = !delayed && !!session && session !== "closed";
+              const isLive = !delayed && !rewindActive && !!session && session !== "closed";
               return (
                 <g>
                   <line x1={PLOT_LEFT} x2={PLOT_RIGHT} y1={y} y2={y} stroke="var(--color-accent-hot)" strokeWidth={1} strokeDasharray="2 3" opacity={0.8} />
@@ -1311,11 +1456,15 @@ export default function GammaTerminalChart({
             <button
               type="button"
               onClick={() => {
-                setView((v) => ({ ...v, offset: 0 }));
-                setHover(null);
+                if (rewindActive) {
+                  exitRewind();
+                } else {
+                  setView((v) => ({ ...v, offset: 0 }));
+                  setHover(null);
+                }
               }}
-              title="Jump to the latest bar"
-              aria-label="Jump to the latest bar"
+              title={rewindActive ? "Return to live" : "Jump to the latest bar"}
+              aria-label={rewindActive ? "Return to live" : "Jump to the latest bar"}
               style={{
                 display: "grid",
                 placeItems: "center",
@@ -1336,6 +1485,59 @@ export default function GammaTerminalChart({
           <ZoomCluster label="Price" onIn={() => zoomPrice(1 / ZOOM_FACTOR)} onOut={() => zoomPrice(ZOOM_FACTOR)} />
         </div>
       </div>
+
+      {/* ── Rewind / session-replay bar (live mode only) ─────────────────── */}
+      {live && (
+        <div className="flex items-center gap-2 px-4 py-2" style={{ borderTop: "1px solid var(--border-default)", background: "var(--bg-subtle)" }}>
+          {!rewindActive ? (
+            <>
+              <button type="button" onClick={enterRewind} className="zg-gc-pill" style={{ ["--pill-color" as string]: "var(--color-accent-hot)" }}>
+                <Rewind size={13} /> Rewind
+              </button>
+              <span className="zg-eyebrow hidden sm:inline" style={{ fontSize: 9.5, color: "var(--text-muted)" }}>
+                Replay how price &amp; dealer gamma moved through the session
+              </span>
+            </>
+          ) : (
+            <>
+              <button type="button" onClick={exitRewind} className="zg-gc-pill" data-active style={{ ["--pill-color" as string]: "var(--color-bull)" }}>
+                ● Live
+              </button>
+              <button
+                type="button"
+                onClick={() => setPlaybackActive((p) => !p)}
+                aria-label={playbackActive ? "Pause playback" : "Play forward"}
+                title={playbackActive ? "Pause playback" : "Play forward"}
+                style={{ display: "grid", placeItems: "center", width: 28, height: 26, borderRadius: "var(--radius-control)", border: "1px solid var(--border-strong)", color: "var(--text-primary)", background: "var(--bg-card)", cursor: "pointer" }}
+              >
+                {playbackActive ? <Pause size={13} /> : <Play size={13} />}
+              </button>
+              <div className="zg-gc-seg" aria-label="Playback speed">
+                {([1, 2, 4] as const).map((s) => (
+                  <button key={s} type="button" className="zg-gc-seg-btn" data-active={playbackSpeed === s} onClick={() => setPlaybackSpeed(s)}>
+                    {s}×
+                  </button>
+                ))}
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={Math.max(1, total - 1)}
+                value={rewindEdgeIdx ?? Math.max(0, total - 1)}
+                onChange={(e) => scrubToIndex(Number(e.target.value))}
+                aria-label="Rewind scrubber"
+                className="flex-1"
+                style={{ accentColor: "var(--color-accent-hot)", minWidth: 80 }}
+              />
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
+                {rewindTime != null
+                  ? `${new Date(rewindTime).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })} ET`
+                  : ""}
+              </span>
+            </>
+          )}
+        </div>
+      )}
 
       {/* ── Footer legend ───────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-4 py-2.5" style={{ borderTop: "1px solid var(--border-default)", background: "var(--bg-subtle)" }}>
@@ -1359,6 +1561,14 @@ export default function GammaTerminalChart({
 // ── Small presentational helpers ─────────────────────────────────────────────
 function num(v: number | null | undefined): number | null {
   return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
+
+// Like num() but coerces the number-or-string values the timeseries buckets
+// carry (keeps null/empty as null rather than Number('') === 0).
+function coerceNum(v: unknown): number | null {
+  if (v == null || v === "") return null;
+  const n = typeof v === "string" ? Number(v) : (v as number);
+  return typeof n === "number" && Number.isFinite(n) ? n : null;
 }
 
 function clamp(v: number, lo: number, hi: number): number {
