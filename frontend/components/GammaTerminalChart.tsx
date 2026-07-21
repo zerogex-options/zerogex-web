@@ -22,7 +22,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { Activity, ChevronsRight, Crosshair, Info, Pause, Play, Rewind } from "lucide-react";
 import { useMarketQuote, useGEXProfile, useGEXSummary, useSessionCloses, type SessionClosesData } from "@/hooks/useApiData";
 import { useMarketHistorical, type PriceBar } from "@/hooks/useMarketHistorical";
-import { useStrikeProfileTimeseries } from "@/hooks/useStrikeProfileTimeseries";
+import { useStrikeProfileTimeseries, type StrikeProfileStrike } from "@/hooks/useStrikeProfileTimeseries";
 import { useTechnicals } from "@/hooks/useTechnicals";
 import { useTimeframe, type UnderlyingSymbol } from "@/core/TimeframeContext";
 import { getPrimaryPriceChangeSummary } from "@/core/priceChange";
@@ -392,8 +392,41 @@ export default function GammaTerminalChart({
   const maxOffset = Math.max(0, total - effCount);
   const effOffset = clamp(view.offset, 0, maxOffset);
 
-  // Rewind pins the window's right edge to the bar nearest `rewindTime`; live
-  // view pins it to the newest bar (minus the pan offset).
+  // ── Rewind window bounds ── The strike-profile timeseries only covers the
+  // recent session(s). Index the buckets by time and find the earliest pool bar
+  // it covers. Rewind may never go left of that bar (walls/flip/rail would have
+  // no data there) nor so far that fewer than a full screen of candles remains —
+  // so the SAME number of candles is always on screen at any zoom/interval.
+  const gexByTs = useMemo(() => {
+    const m = new Map<number, (typeof rewindBuckets)[number]>();
+    for (const b of rewindBuckets) {
+      const t = new Date(b.timestamp).getTime();
+      if (Number.isFinite(t)) m.set(t, b);
+    }
+    return m;
+  }, [rewindBuckets]);
+  const gexMinTs = useMemo(() => {
+    let m = Infinity;
+    for (const t of gexByTs.keys()) if (t < m) m = t;
+    return Number.isFinite(m) ? m : null;
+  }, [gexByTs]);
+  const firstGexIdx = useMemo(() => {
+    if (gexMinTs == null) return null;
+    for (let i = 0; i < allBars.length; i++) {
+      const t = new Date(allBars[i].timestamp).getTime();
+      if (Number.isFinite(t) && t >= gexMinTs) return i;
+    }
+    return allBars.length > 0 ? allBars.length - 1 : null;
+  }, [gexMinTs, allBars]);
+  // Left bound for the rewind anchor (its right-edge bar index): keep a full
+  // window of `effCount` candles AND stay within the GEX-covered range.
+  const rewindMinIdx = Math.max(
+    0,
+    Math.min(Math.max(0, total - 1), Math.max(effCount - 1, firstGexIdx ?? effCount - 1)),
+  );
+
+  // Rewind pins the window's right edge to the bar nearest `rewindTime`, clamped
+  // into the replayable range; live view pins it to the newest bar (minus pan).
   const rewindEdgeIdx = useMemo(() => {
     if (!rewindActive || rewindTime == null || allBars.length === 0) return null;
     let best = 0;
@@ -407,8 +440,15 @@ export default function GammaTerminalChart({
         best = i;
       }
     }
-    return best;
-  }, [rewindActive, rewindTime, allBars]);
+    return clamp(best, rewindMinIdx, Math.max(0, allBars.length - 1));
+  }, [rewindActive, rewindTime, allBars, rewindMinIdx]);
+
+  // Timestamp of the (clamped) rewound right-edge bar. Walls, flip, rail, spot
+  // and the on-screen clock all read from this so they stay in lockstep.
+  const rewindAnchorTs =
+    rewindEdgeIdx != null && allBars[rewindEdgeIdx]
+      ? new Date(allBars[rewindEdgeIdx].timestamp).getTime()
+      : null;
 
   const viewEnd = rewindEdgeIdx != null ? Math.min(total, rewindEdgeIdx + 1) : total - effOffset;
   const viewStart = Math.max(0, viewEnd - effCount);
@@ -417,22 +457,27 @@ export default function GammaTerminalChart({
   const isCustomView =
     view.offset !== 0 || view.count !== DEFAULT_COUNT || priceView.zoom !== 1 || priceView.center !== null;
 
-  // The gamma structure at the rewound moment (nearest strike-profile bucket).
+  // The gamma structure at the rewound moment: the exact bucket for the anchor
+  // bar if one exists (aligned timeframes), else the nearest bucket in time.
+  // Keyed off the CLAMPED anchor, so it tracks the bar actually on the right
+  // edge — that's why the walls / flip now move as you scrub.
   const rewindBucket = useMemo(() => {
-    if (!rewindActive || rewindTime == null || rewindBuckets.length === 0) return null;
+    if (!rewindActive || rewindAnchorTs == null || rewindBuckets.length === 0) return null;
+    const exact = gexByTs.get(rewindAnchorTs);
+    if (exact) return exact;
     let best: (typeof rewindBuckets)[number] | null = null;
     let bestDist = Infinity;
     for (const b of rewindBuckets) {
       const t = new Date(b.timestamp).getTime();
       if (!Number.isFinite(t)) continue;
-      const d = Math.abs(t - rewindTime);
+      const d = Math.abs(t - rewindAnchorTs);
       if (d < bestDist) {
         bestDist = d;
         best = b;
       }
     }
     return best;
-  }, [rewindActive, rewindTime, rewindBuckets]);
+  }, [rewindActive, rewindAnchorTs, rewindBuckets, gexByTs]);
 
   // ── Gamma levels ── Rewind takes flip/walls from the historical bucket;
   // Max Pain / net-GEX / VWAP aren't in the timeseries, so they're hidden then.
@@ -445,17 +490,27 @@ export default function GammaTerminalChart({
   const putWall = rewindBucket
     ? coerceNum(rewindBucket.put_wall)
     : snapshot ? snapshot.gamma.putWall : num(gexProfile?.put_wall ?? gexSummary?.put_wall);
-  const maxPain = rewindActive ? null : snapshot ? snapshot.gamma.maxPain : num(gexSummary?.max_pain);
+  // Max Pain isn't a stored field on the timeseries buckets, but their
+  // per-strike open interest is — so during rewind we recover the historical
+  // Max Pain from that OI (textbook min-writer-payout strike) instead of
+  // dropping it. Live/delayed paths use the served value.
+  const maxPain = rewindActive
+    ? rewindBucket
+      ? computeMaxPain(rewindBucket.strikes)
+      : null
+    : snapshot ? snapshot.gamma.maxPain : num(gexSummary?.max_pain);
   const netGexAtSpot = rewindActive ? null : snapshot ? snapshot.gamma.netGexAtSpot : num(gexProfile?.net_gex_at_spot ?? gexSummary?.net_gex);
   const vwap = rewindActive ? null : snapshot ? snapshot.vwap : num(technicals.latest?.vwap_deviation?.vwap);
 
   const profilePoints = useMemo<ProfilePoint[]>(() => {
-    // Rewind: rebuild the rail from the bucket's per-strike net gamma.
+    // Rewind: rebuild the rail from the bucket's per-strike net gamma, but
+    // Gaussian-smoothed onto a fine price grid so it reads as the same clean
+    // silhouette the live rail draws. The raw per-strike values are discrete and
+    // sign-alternating between adjacent strikes — plotted directly they made the
+    // jagged, center-crossing "funky" rail. Smoothing collapses them into the
+    // two lobes (put-side / call-side walls) live shows, sign convention intact.
     if (rewindBucket) {
-      return (rewindBucket.strikes ?? [])
-        .map((s) => ({ price: coerceNum(s.strike), gex: coerceNum(s.net_gamma) }))
-        .filter((p): p is ProfilePoint => p.price != null && p.gex != null)
-        .sort((a, b) => a.price - b.price);
+      return rewindRailCurve(rewindBucket.strikes);
     }
     if (snapshot) return snapshot.profile;
     const raw = gexProfile?.profile;
@@ -777,15 +832,19 @@ export default function GammaTerminalChart({
   // without being torn down and recreated on every live tick.
   const allBarsRef = useRef(allBars);
   const rewindTimeRef = useRef(rewindTime);
+  const rewindMinIdxRef = useRef(rewindMinIdx);
   useEffect(() => {
     allBarsRef.current = allBars;
     rewindTimeRef.current = rewindTime;
+    rewindMinIdxRef.current = rewindMinIdx;
   });
 
   const enterRewind = () => {
-    if (allBars.length < 3) return;
-    // Start a bit back from the live edge so there's room to play forward.
-    const startIdx = Math.max(0, allBars.length - Math.min(40, Math.floor(allBars.length / 2)));
+    if (allBars.length < MIN_COUNT) return;
+    // Anchor deep into history; the render-time clamp pulls it forward to the
+    // earliest replayable bar (full window + GEX coverage), giving the longest
+    // valid runway to play forward from.
+    const startIdx = clamp(allBars.length - 1 - Math.max(effCount, 60), 0, allBars.length - 1);
     setRewindTime(new Date(allBars[startIdx].timestamp).getTime());
     setRewindActive(true);
     setPlaybackActive(false);
@@ -802,7 +861,7 @@ export default function GammaTerminalChart({
   const scrubToIndex = (idx: number) => {
     const arr = allBarsRef.current;
     if (arr.length === 0) return;
-    const clamped = Math.max(0, Math.min(arr.length - 1, idx));
+    const clamped = clamp(idx, rewindMinIdx, arr.length - 1);
     setRewindTime(new Date(arr[clamped].timestamp).getTime());
     setPlaybackActive(false);
   };
@@ -828,6 +887,7 @@ export default function GammaTerminalChart({
           idx = i;
         }
       }
+      idx = Math.max(idx, rewindMinIdxRef.current);
       const next = idx + 1;
       if (next >= arr.length - 1) {
         setPlaybackActive(false);
@@ -993,9 +1053,9 @@ export default function GammaTerminalChart({
                     {priceSummary.changePercent != null && ` (${priceSummary.isPositive ? "+" : ""}${priceSummary.changePercent.toFixed(2)}%)`}
                   </span>
                 )}
-                {rewindActive && rewindTime != null && (
+                {rewindActive && rewindAnchorTs != null && (
                   <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 600, color: "var(--color-accent-hot)", fontVariantNumeric: "tabular-nums" }}>
-                    {new Date(rewindTime).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })} ET
+                    {new Date(rewindAnchorTs).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })} ET
                   </span>
                 )}
               </div>
@@ -1521,17 +1581,17 @@ export default function GammaTerminalChart({
               </div>
               <input
                 type="range"
-                min={0}
-                max={Math.max(1, total - 1)}
-                value={rewindEdgeIdx ?? Math.max(0, total - 1)}
+                min={rewindMinIdx}
+                max={Math.max(rewindMinIdx, total - 1)}
+                value={rewindEdgeIdx ?? Math.max(rewindMinIdx, total - 1)}
                 onChange={(e) => scrubToIndex(Number(e.target.value))}
                 aria-label="Rewind scrubber"
                 className="flex-1"
                 style={{ accentColor: "var(--color-accent-hot)", minWidth: 80 }}
               />
               <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                {rewindTime != null
-                  ? `${new Date(rewindTime).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })} ET`
+                {rewindAnchorTs != null
+                  ? `${new Date(rewindAnchorTs).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })} ET`
                   : ""}
               </span>
             </>
@@ -1569,6 +1629,72 @@ function coerceNum(v: unknown): number | null {
   if (v == null || v === "") return null;
   const n = typeof v === "string" ? Number(v) : (v as number);
   return typeof n === "number" && Number.isFinite(n) ? n : null;
+}
+
+// Textbook Max Pain: the strike that minimizes total in-the-money option value
+// (writers' payout) across the chain — Σ callOI·(K−s) for s<K plus Σ putOI·(s−K)
+// for s>K. Recovers a historical Max Pain from a rewound bucket's per-strike OI,
+// which the timeseries doesn't carry as a first-class field.
+function computeMaxPain(strikes: StrikeProfileStrike[] | undefined): number | null {
+  if (!Array.isArray(strikes)) return null;
+  const rows = strikes
+    .map((s) => ({ k: coerceNum(s.strike), c: coerceNum(s.call_oi) ?? 0, p: coerceNum(s.put_oi) ?? 0 }))
+    .filter((r): r is { k: number; c: number; p: number } => r.k != null)
+    .sort((a, b) => a.k - b.k);
+  if (rows.length < 3 || !rows.some((r) => r.c > 0 || r.p > 0)) return null;
+  let bestK: number | null = null;
+  let bestLoss = Infinity;
+  for (const cand of rows) {
+    let loss = 0;
+    for (const r of rows) {
+      if (r.k < cand.k) loss += r.c * (cand.k - r.k);
+      else if (r.k > cand.k) loss += r.p * (r.k - cand.k);
+    }
+    if (loss < bestLoss) {
+      bestLoss = loss;
+      bestK = cand.k;
+    }
+  }
+  return bestK;
+}
+
+// Rebuild the gamma rail for a rewound moment from a bucket's per-strike net
+// gamma. The live rail draws a smooth net-gamma-by-price density (two lobes
+// peaking at the put-side / call-side walls); the raw bucket strikes are the
+// same quantity but discrete and sign-alternating between neighbours, so plotted
+// directly they read as a jagged, center-crossing silhouette (the "funky" rail).
+// We convolve them with a Gaussian (bandwidth ≈ the strike spacing) onto a fine
+// price grid to recover that clean silhouette, preserving the sign convention
+// (positive net gamma → long-Γ lobe, green/right — same as the live rail).
+function rewindRailCurve(strikes: StrikeProfileStrike[] | undefined): ProfilePoint[] {
+  const rows = (strikes ?? [])
+    .map((s) => ({ price: coerceNum(s.strike), ng: coerceNum(s.net_gamma) }))
+    .filter((s): s is { price: number; ng: number } => s.price != null && s.ng != null)
+    .sort((a, b) => a.price - b.price);
+  if (rows.length < 2) return [];
+  const lo = rows[0].price;
+  const hi = rows[rows.length - 1].price;
+  const span = hi - lo;
+  if (!(span > 0)) return [];
+  // Kernel bandwidth from the median strike gap (falls back to a fraction of the
+  // span for irregular chains) so the smoothing tracks the strike granularity.
+  const gaps: number[] = [];
+  for (let i = 1; i < rows.length; i++) gaps.push(rows[i].price - rows[i - 1].price);
+  gaps.sort((a, b) => a - b);
+  const medGap = gaps[Math.floor(gaps.length / 2)] || span / rows.length;
+  const sigma = Math.max(medGap * 1.1, span / 120);
+  const N = 96;
+  const out: ProfilePoint[] = [];
+  for (let i = 0; i < N; i++) {
+    const price = lo + (span * i) / (N - 1);
+    let acc = 0;
+    for (const r of rows) {
+      const d = (price - r.price) / sigma;
+      acc += r.ng * Math.exp(-0.5 * d * d);
+    }
+    out.push({ price, gex: acc });
+  }
+  return out;
 }
 
 function clamp(v: number, lo: number, hi: number): number {
