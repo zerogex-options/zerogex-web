@@ -6,7 +6,7 @@ interface MobileScrollableChartProps {
   children: ReactNode;
   minWidthClass?: string;
   className?: string;
-  initialScroll?: "start" | "center";
+  initialScroll?: "start" | "center" | "end";
 }
 
 export default function MobileScrollableChart({
@@ -16,9 +16,14 @@ export default function MobileScrollableChart({
   initialScroll = "start",
 }: MobileScrollableChartProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  // Position the initial scroll exactly once. `children` is a dep so we retry
+  // until the content has laid out (scrollWidth known), but the guard stops us
+  // re-snapping on every subsequent re-render — otherwise a live chart that
+  // re-renders each second would fight the user's own scrolling.
+  const didInitialScroll = useRef(false);
 
   useEffect(() => {
-    if (initialScroll !== "center") return;
+    if (initialScroll === "start" || didInitialScroll.current) return;
     const container = scrollRef.current;
     if (!container) return;
     if (typeof window === "undefined") return;
@@ -26,7 +31,10 @@ export default function MobileScrollableChart({
 
     const maxScrollLeft = container.scrollWidth - container.clientWidth;
     if (maxScrollLeft > 0) {
-      container.scrollLeft = maxScrollLeft / 2;
+      // "end" opens on the newest bars + the gamma rail (the right side of the
+      // chart); "center" splits the difference.
+      container.scrollLeft = initialScroll === "end" ? maxScrollLeft : maxScrollLeft / 2;
+      didInitialScroll.current = true;
     }
   }, [initialScroll, minWidthClass, children]);
 
