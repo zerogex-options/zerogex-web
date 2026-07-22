@@ -61,7 +61,7 @@ Il charm e il vanna portano le proprie etichette in dollari. In una giornata 0DT
 
 ---
 
-## Perché il forced flow è il flow che vale la pena leggere
+## Perché il Forced Flow è il flow che vale la pena leggere
 
 Gran parte dell'order flow è una nebbia di intenzioni contrapposte. Qualcuno compra, qualcuno vende, e voi state indovinando il motivo. L'hedging dei dealer è diverso per natura: è un flusso persistente, plasmato dal posizionamento e dalle tre variabili sopra descritte più che dall'opinione di chiunque. Questo lo rende di norma più stimabile del flow discrezionale. Se lo spot si muove dell'1%, l'hedging legato al gamma tende a rispondere. Man mano che l'orologio si avvicina alla chiusura, l'hedging guidato dal charm tende ad accumularsi. Se la vol scende di due punti, può seguire una pressione di copertura legata al vanna — in una direzione fissata dal posizionamento stimato del book. La necessità di gestire il rischio è meccanica, anche se i tempi e l'esecuzione restano discrezionali.
 
