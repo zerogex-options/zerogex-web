@@ -8,6 +8,17 @@ type Props = {
    * gamma-levels headline when omitted.
    */
   concept?: string;
+  /**
+   * Optional explicit headline that overrides the concept template. Use when a
+   * page needs precise wording — e.g. to avoid implying "in real time" next to
+   * the delayed-data offer below.
+   */
+  headline?: string;
+  /**
+   * Optional bridge sentence rendered above the free-levels description, to
+   * ease the transition from the article into the CTA.
+   */
+  intro?: string;
 };
 
 const TICKERS = [
@@ -28,10 +39,10 @@ const linkClass =
  * Kept in one component so the article → levels internal-link graph stays
  * consistent across every post and is edited in exactly one place.
  */
-export default function LiveLevelsCTA({ concept }: Props) {
-  const headline = concept
-    ? `See today's ${concept} in real time`
-    : "See today's gamma levels in real time";
+export default function LiveLevelsCTA({ concept, headline, intro }: Props) {
+  const resolvedHeadline =
+    headline ??
+    (concept ? `See today's ${concept} in real time` : "See today's gamma levels in real time");
 
   return (
     <div className="zg-feature-shell mt-8 p-6 md:p-8">
@@ -39,7 +50,10 @@ export default function LiveLevelsCTA({ concept }: Props) {
         <BarChart2 size={14} />
         Free Gamma Levels
       </div>
-      <h3 className="mb-2 text-xl font-semibold text-[var(--color-text-primary)]">{headline}</h3>
+      <h3 className="mb-2 text-xl font-semibold text-[var(--color-text-primary)]">{resolvedHeadline}</h3>
+      {intro ? (
+        <p className="mb-3 text-sm leading-7 text-[var(--color-text-secondary)]">{intro}</p>
+      ) : null}
       <p className="mb-5 text-sm leading-7 text-[var(--color-text-secondary)]">
         Want to see this in real time? View today&apos;s SPX, SPY, and QQQ gamma flip, call wall,
         put wall, and Net GEX — free, delayed roughly 15 minutes, no signup required.
