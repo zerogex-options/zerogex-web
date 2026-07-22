@@ -7,10 +7,19 @@ import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
 
 // Landing page for /forecast — lists every trading day the writer has
 // committed a daily_forecast row for, links to /forecast/[date]. Mirrors
-// the /replay landing page pattern.  ISR-cached hourly; new dates only
-// arrive after the 07:00 writer + 16:05 receipt cycle each trading day.
-
-const REVALIDATE_SECONDS = 3600;
+// the /replay landing page pattern.  New dates arrive after the morning
+// writer + 16:05 receipt cycle each trading day.
+//
+// Cache window: the morning writer commits the row but does NOT ping the
+// on-demand revalidation hook — only the 16:05 receipt cron does (see
+// app/api/revalidate/forecast/route.ts). So before 4 PM the ISR window is
+// the ONLY thing that surfaces a just-committed forecast in this list. We
+// keep it short (5 min, not an hour) because this fetch is keyed per symbol
+// and the default SPY variant is re-cached constantly through the morning:
+// an hour-long window let it serve a pre-commit snapshot that omitted today
+// for up to a full hour after the ~08:30 ET write, while the low-traffic
+// QQQ/SPX variants happened to re-cache after the write and looked fine.
+const REVALIDATE_SECONDS = 300;
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://zerogex.io').replace(/\/+$/, '');
 
 interface ForecastDateEntry {
@@ -39,7 +48,7 @@ export const metadata: Metadata = {
     type: 'website',
     url: `${SITE_URL}/forecast`,
     title: 'Gamma Forecast — ZeroGEX',
-    description: 'Daily 7 AM commitments graded against realized 4 PM close.',
+    description: 'Daily pre-market commitments graded against realized 4 PM close.',
     siteName: 'ZeroGEX',
   },
 };
@@ -110,7 +119,7 @@ export default async function ForecastLanding({
           <SymbolPicker current={symbol} hrefs={pickerHrefs} />
         </div>
         <p className="mt-2 max-w-2xl text-sm text-[var(--color-text-secondary)] leading-relaxed">
-          Every morning at 7 AM ET we commit {symbol} to a projected range, an expected-volatility
+          Every morning before the open we commit {symbol} to a projected range, an expected-volatility
           call, and the key gamma levels with touch odds — hashed and immutable. We never forecast
           direction. Every afternoon at 4:05 PM we grade ourselves against the actual low, high, and
           close. Pick a date to see the promise, the receipt, and the verdict pills.
@@ -120,7 +129,7 @@ export default async function ForecastLanding({
       <section>
         {entries.length === 0 ? (
           <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-8 text-center text-sm text-[var(--color-text-secondary)]">
-            No forecasts committed for {symbol} yet. The 07:00 ET writer runs Mon-Fri; check back
+            No forecasts committed for {symbol} yet. The morning writer runs Mon-Fri; check back
             after the next trading day.
           </div>
         ) : (
@@ -158,8 +167,8 @@ export default async function ForecastLanding({
 
       <section className="mt-10 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5 text-xs text-[var(--color-text-secondary)] leading-relaxed">
         <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">About the receipts</div>
-        The commitment is written to <span className="font-mono">daily_forecast</span> at 07:00 ET
-        with a SHA-256 content hash and a database-level immutability trigger — nothing about the
+        The commitment is written to <span className="font-mono">daily_forecast</span> each morning
+        before the open with a SHA-256 content hash and a database-level immutability trigger — nothing about the
         morning row can change once it lands. The 16:05 ET receipt writer joins realized L/H/C from{' '}
         <span className="font-mono">underlying_quotes</span> and flips the verdict pills. If a
         forecast was later proven wrong, the receipt page shows it — the whole point is to grade
