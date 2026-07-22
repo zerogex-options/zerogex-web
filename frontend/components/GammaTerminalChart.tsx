@@ -44,6 +44,18 @@ const TIMEFRAMES: Array<{ value: ChartTimeframe; label: string; minutes: number 
   { value: "1day", label: "1D", minutes: 1440 },
 ];
 
+// The interval one step finer than each candle, used to build the growing
+// replay candle smoothly (same idea as /replay: a 5-min candle plays at 1-min
+// resolution). 1-min has no finer supported interval, so it replays per-candle.
+const SUB_INTERVAL: Record<ChartTimeframe, ChartTimeframe | null> = {
+  "1min": null,
+  "5min": "1min",
+  "15min": "5min",
+  "1hr": "15min",
+  "1day": "1hr",
+};
+const tfMinutes = (tf: ChartTimeframe): number => TIMEFRAMES.find((t) => t.value === tf)?.minutes ?? 5;
+
 interface Bar {
   timestamp: string;
   open: number;
@@ -355,6 +367,36 @@ export default function GammaTerminalChart({
 
   const data = useMemo(() => dataAll.slice(-POOL), [dataAll]);
 
+  // ── Sub-interval bars for SMOOTH candle replay ── While rewinding a
+  // candlestick chart, the current (right-edge) candle is rebuilt from the
+  // next-finer interval up to the replay clock, so it grows sub-step by sub-step
+  // instead of snapping in fully formed (the /replay technique, generalized to
+  // every timeframe). Only fetched while it's needed: live + rewinding + candles
+  // + a finer interval exists (1-min has none, so it replays per-candle).
+  const subTf = SUB_INTERVAL[timeframe];
+  const subEnabled = live && rewindActive && style === "candles" && subTf != null;
+  const { rows: subRowsRaw } = useMarketHistorical(symbol, subTf ?? timeframe, !symbolIsIndex, subEnabled);
+  const subBars = useMemo(() => {
+    if (!subEnabled) return [] as Array<{ ms: number; open: number; high: number; low: number; close: number; up: number; down: number }>;
+    const rows = omitClosedMarketTimes(subRowsRaw || [], (d) => d.timestamp);
+    return rows
+      .map((d) => {
+        const close = Number(d.close ?? d.price ?? 0);
+        const open = Number(d.open ?? close);
+        const high = Number(d.high ?? Math.max(open, close));
+        const low = Number(d.low ?? Math.min(open, close));
+        const volume = Number(d.volume ?? 0);
+        const apiUp = d.up_volume ?? null;
+        const apiDown = d.down_volume ?? null;
+        const isUp = close >= open;
+        const up = apiUp != null && apiDown != null ? Number(apiUp) : isUp ? volume : 0;
+        const down = apiUp != null && apiDown != null ? Number(apiDown) : isUp ? 0 : volume;
+        return { ms: new Date(d.timestamp).getTime(), open, high, low, close, up, down };
+      })
+      .filter((b) => Number.isFinite(b.ms))
+      .sort((a, b) => a.ms - b.ms);
+  }, [subEnabled, subRowsRaw]);
+
   // Stage 1 — normalize + aggregate history (expensive; independent of the tick).
   const historicalBars = useMemo(() => {
     const filtered = omitClosedMarketTimes(data || [], (d) => d.timestamp);
@@ -445,34 +487,74 @@ export default function GammaTerminalChart({
     Math.min(Math.max(0, total - 1), Math.max(effCount - 1, firstGexIdx ?? effCount - 1)),
   );
 
-  // Rewind pins the window's right edge to the bar nearest `rewindTime`, clamped
-  // into the replayable range; live view pins it to the newest bar (minus pan).
+  // Rewind pins the window's right edge to the bar CONTAINING `rewindTime` (the
+  // floor bucket — so the replay clock can sit part-way through the current
+  // candle while it builds), clamped into the replayable range; live view pins
+  // it to the newest bar (minus pan).
   const rewindEdgeIdx = useMemo(() => {
     if (!rewindActive || rewindTime == null || allBars.length === 0) return null;
-    let best = 0;
-    let bestDist = Infinity;
+    let idx = 0;
     for (let i = 0; i < allBars.length; i++) {
       const t = new Date(allBars[i].timestamp).getTime();
       if (!Number.isFinite(t)) continue;
-      const d = Math.abs(t - rewindTime);
-      if (d < bestDist) {
-        bestDist = d;
-        best = i;
-      }
+      if (t <= rewindTime) idx = i;
+      else break;
     }
-    return clamp(best, rewindMinIdx, Math.max(0, allBars.length - 1));
+    return clamp(idx, rewindMinIdx, Math.max(0, allBars.length - 1));
   }, [rewindActive, rewindTime, allBars, rewindMinIdx]);
-
-  // Timestamp of the (clamped) rewound right-edge bar. Walls, flip, rail, spot
-  // and the on-screen clock all read from this so they stay in lockstep.
-  const rewindAnchorTs =
-    rewindEdgeIdx != null && allBars[rewindEdgeIdx]
-      ? new Date(allBars[rewindEdgeIdx].timestamp).getTime()
-      : null;
 
   const viewEnd = rewindEdgeIdx != null ? Math.min(total, rewindEdgeIdx + 1) : total - effOffset;
   const viewStart = Math.max(0, viewEnd - effCount);
-  const bars = useMemo(() => allBars.slice(viewStart, viewEnd), [allBars, viewStart, viewEnd]);
+
+  // The right-edge candle rebuilt from sub-interval bars up to the replay clock,
+  // so it GROWS during playback instead of snapping in fully formed. Null when
+  // not applicable (line/area style, no sub-data, or 1-min) → the full candle is
+  // used as-is.
+  const partialCurrentBar = useMemo<Bar | null>(() => {
+    if (!rewindActive || style !== "candles" || rewindEdgeIdx == null || rewindTime == null || subBars.length === 0) return null;
+    const cur = allBars[rewindEdgeIdx];
+    if (!cur) return null;
+    const startMs = new Date(cur.timestamp).getTime();
+    const endMs = startMs + intervalMinutes * 60 * 1000;
+    const limit = Math.min(rewindTime, endMs - 1);
+    let open: number | null = null;
+    let close: number | null = null;
+    let high = -Infinity;
+    let low = Infinity;
+    let up = 0;
+    let down = 0;
+    for (const s of subBars) {
+      if (s.ms < startMs) continue;
+      if (s.ms > limit || s.ms >= endMs) break;
+      if (open == null) open = s.open;
+      close = s.close;
+      if (s.high > high) high = s.high;
+      if (s.low < low) low = s.low;
+      up += s.up;
+      down += s.down;
+    }
+    if (open == null || close == null) return null;
+    return {
+      timestamp: cur.timestamp,
+      open,
+      high: Number.isFinite(high) ? high : Math.max(open, close),
+      low: Number.isFinite(low) ? low : Math.min(open, close),
+      close,
+      volume: up + down,
+      upVolume: up,
+      downVolume: down,
+    };
+  }, [rewindActive, style, rewindEdgeIdx, rewindTime, subBars, allBars, intervalMinutes]);
+
+  const bars = useMemo(() => {
+    const base = allBars.slice(viewStart, viewEnd);
+    if (partialCurrentBar && base.length > 0) {
+      const copy = base.slice();
+      copy[copy.length - 1] = partialCurrentBar;
+      return copy;
+    }
+    return base;
+  }, [allBars, viewStart, viewEnd, partialCurrentBar]);
   const atLiveEdge = !rewindActive && effOffset === 0;
   const isCustomView =
     view.offset !== 0 || view.count !== DEFAULT_COUNT || priceView.zoom !== 1 || priceView.center !== null;
@@ -482,22 +564,22 @@ export default function GammaTerminalChart({
   // Keyed off the CLAMPED anchor, so it tracks the bar actually on the right
   // edge — that's why the walls / flip now move as you scrub.
   const rewindBucket = useMemo(() => {
-    if (!rewindActive || rewindAnchorTs == null || gexBuckets.length === 0) return null;
-    const exact = gexByTs.get(rewindAnchorTs);
+    if (!rewindActive || rewindTime == null || gexBuckets.length === 0) return null;
+    const exact = gexByTs.get(rewindTime);
     if (exact) return exact;
     let best: (typeof gexBuckets)[number] | null = null;
     let bestDist = Infinity;
     for (const b of gexBuckets) {
       const t = new Date(b.timestamp).getTime();
       if (!Number.isFinite(t)) continue;
-      const d = Math.abs(t - rewindAnchorTs);
+      const d = Math.abs(t - rewindTime);
       if (d < bestDist) {
         bestDist = d;
         best = b;
       }
     }
     return best;
-  }, [rewindActive, rewindAnchorTs, gexBuckets, gexByTs]);
+  }, [rewindActive, rewindTime, gexBuckets, gexByTs]);
 
   // Session-anchored VWAP for the rewound moment, computed from the pool bars
   // (Σ typical-price × volume ÷ Σ volume over the anchor bar's regular session,
@@ -896,11 +978,13 @@ export default function GammaTerminalChart({
   const rewindTimeRef = useRef(rewindTime);
   const rewindMinIdxRef = useRef(rewindMinIdx);
   const playbackLoopRef = useRef(playbackLoop);
+  const subBarsRef = useRef(subBars);
   useEffect(() => {
     allBarsRef.current = allBars;
     rewindTimeRef.current = rewindTime;
     rewindMinIdxRef.current = rewindMinIdx;
     playbackLoopRef.current = playbackLoop;
+    subBarsRef.current = subBars;
   });
 
   const enterRewind = () => {
@@ -908,11 +992,11 @@ export default function GammaTerminalChart({
     // Freeze the y-axis to the current auto-fit domain so scrubbing doesn't move
     // it (the user can still adjust it by hand afterwards).
     if (layout) setFrozenAxis({ mid: layout.autoMid, half: layout.autoHalf });
-    // Anchor deep into history; the render-time clamp pulls it forward to the
-    // earliest replayable bar (full window + GEX coverage), giving the longest
-    // valid runway to play forward from.
-    const startIdx = clamp(allBars.length - 1 - Math.max(effCount, 60), 0, allBars.length - 1);
-    setRewindTime(new Date(allBars[startIdx].timestamp).getTime());
+    // Anchor at the earliest replayable bar (full window + GEX coverage) so Play
+    // has the longest runway. Set the clock to that candle's END so it opens on
+    // a fully-formed candle; playback then builds the next one forward.
+    const startIdx = clamp(allBars.length - 1 - Math.max(effCount, 60), rewindMinIdx, allBars.length - 1);
+    setRewindTime(barStartMs(allBars, startIdx) + intervalMinutes * 60 * 1000 - 1);
     setRewindActive(true);
     setPlaybackActive(false);
     setHover(null);
@@ -926,53 +1010,80 @@ export default function GammaTerminalChart({
     setView((v) => ({ ...v, offset: 0 }));
   };
 
+  // Scrub lands on a fully-formed candle (clock = the candle's end), so dragging
+  // shows each candle complete; Play then builds forward from there.
   const scrubToIndex = (idx: number) => {
     const arr = allBarsRef.current;
     if (arr.length === 0) return;
     const clamped = clamp(idx, rewindMinIdx, arr.length - 1);
-    setRewindTime(new Date(arr[clamped].timestamp).getTime());
+    setRewindTime(barStartMs(arr, clamped) + intervalMinutes * 60 * 1000 - 1);
     setPlaybackActive(false);
   };
 
-  // Playback: advance the anchor one bar per tick; stop at the live edge. Reads
-  // bars + anchor from refs so the interval isn't torn down on every live tick,
-  // and calls setState directly (never inside an updater) so it stays pure.
+  // Playback. For a candlestick chart on a timeframe with a finer interval, the
+  // clock advances by that SUB-interval (walking real sub-bars, so session gaps
+  // are skipped) and the right-edge candle grows smoothly; otherwise (line/area,
+  // or 1-min) it advances one full candle per step. The per-candle pace is held
+  // roughly constant (~700ms/candle at 1×) regardless of how many sub-steps that
+  // candle is built from. Reads bars/anchor/subs from refs so the interval isn't
+  // recreated on every tick, and calls setState directly so it stays pure.
   useEffect(() => {
     if (!rewindActive || !playbackActive) return;
-    const stepMs = 640 / playbackSpeed;
+    const bucketMs = intervalMinutes * 60 * 1000;
+    const smooth = style === "candles" && subTf != null;
+    const subMs = smooth && subTf ? tfMinutes(subTf) * 60 * 1000 : bucketMs;
+    const stepsPerCandle = Math.max(1, Math.round(bucketMs / subMs));
+    const tickMs = Math.max(60, Math.round(700 / stepsPerCandle / playbackSpeed));
     const id = setInterval(() => {
       const arr = allBarsRef.current;
+      const subs = subBarsRef.current;
       const prev = rewindTimeRef.current;
+      const minIdx = rewindMinIdxRef.current;
       if (arr.length === 0 || prev == null) return;
-      let idx = 0;
-      let bestDist = Infinity;
-      for (let i = 0; i < arr.length; i++) {
-        const t = new Date(arr[i].timestamp).getTime();
-        if (!Number.isFinite(t)) continue;
-        const d = Math.abs(t - prev);
-        if (d < bestDist) {
-          bestDist = d;
-          idx = i;
+      // Smooth mode with sub-bars not yet loaded: hold until they arrive rather
+      // than fast-forwarding whole candles at the sub-step tick rate.
+      if (smooth && subs.length === 0) return;
+      const lastIdx = arr.length - 1;
+      const liveEdge = barStartMs(arr, lastIdx) + bucketMs - 1;
+      let next: number | null;
+      if (smooth) {
+        // Advance to the next real sub-bar after the clock (skips closed-hours
+        // gaps, since sub-bars are session-only).
+        next = null;
+        for (const s of subs) {
+          if (s.ms > prev) {
+            next = s.ms;
+            break;
+          }
         }
+      } else {
+        // Per-candle: jump to the end of the next candle.
+        let idx = 0;
+        for (let i = 0; i < arr.length; i++) {
+          const t = barStartMs(arr, i);
+          if (Number.isFinite(t) && t <= prev) idx = i;
+          else break;
+        }
+        const ni = idx + 1;
+        next = ni <= lastIdx ? barStartMs(arr, ni) + bucketMs - 1 : null;
       }
-      idx = Math.max(idx, rewindMinIdxRef.current);
-      const liveEdge = arr.length - 1;
-      let next = idx + 1;
-      if (next > liveEdge) {
-        // Reached the live edge: loop back to the earliest replayable bar and
+      if (next == null || next > liveEdge) {
+        // Reached the live edge: loop back to the earliest replayable candle and
         // keep playing, or (loop off) stop pinned to the latest bar.
-        if (playbackLoopRef.current && rewindMinIdxRef.current < liveEdge) {
-          next = rewindMinIdxRef.current;
+        if (playbackLoopRef.current && minIdx < lastIdx) {
+          setRewindTime(barStartMs(arr, minIdx));
         } else {
           setPlaybackActive(false);
-          setRewindTime(new Date(arr[liveEdge].timestamp).getTime());
-          return;
+          setRewindTime(liveEdge);
         }
+        return;
       }
-      setRewindTime(new Date(arr[next].timestamp).getTime());
-    }, stepMs);
+      // Never fall left of the replayable range.
+      const minTime = barStartMs(arr, minIdx);
+      setRewindTime(next < minTime ? minTime : next);
+    }, tickMs);
     return () => clearInterval(id);
-  }, [rewindActive, playbackActive, playbackSpeed]);
+  }, [rewindActive, playbackActive, playbackSpeed, style, subTf, intervalMinutes]);
 
   // ── Loading / error / empty ──────────────────────────────────────────────
   if (loading && bars.length === 0) {
@@ -1128,9 +1239,9 @@ export default function GammaTerminalChart({
                     {priceSummary.changePercent != null && ` (${priceSummary.isPositive ? "+" : ""}${priceSummary.changePercent.toFixed(2)}%)`}
                   </span>
                 )}
-                {rewindActive && rewindAnchorTs != null && (
+                {rewindActive && rewindTime != null && (
                   <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 600, color: "var(--color-accent-hot)", fontVariantNumeric: "tabular-nums" }}>
-                    {new Date(rewindAnchorTs).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })} ET
+                    {new Date(rewindTime).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })} ET
                   </span>
                 )}
               </div>
@@ -1689,8 +1800,8 @@ export default function GammaTerminalChart({
                 style={{ accentColor: "var(--color-accent-hot)", minWidth: 80 }}
               />
               <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                {rewindAnchorTs != null
-                  ? `${new Date(rewindAnchorTs).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })} ET`
+                {rewindTime != null
+                  ? `${new Date(rewindTime).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })} ET`
                   : ""}
               </span>
             </>
@@ -1798,6 +1909,12 @@ function rewindRailCurve(strikes: StrikeProfileStrike[] | undefined): ProfilePoi
 
 function clamp(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v));
+}
+
+// Epoch-ms of a bar's (bucket-start) timestamp. Module-scoped so the playback
+// interval can use it without becoming an effect dependency.
+function barStartMs(arr: Bar[], idx: number): number {
+  return new Date(arr[idx].timestamp).getTime();
 }
 
 // ET calendar-day key (YYYY-MM-DD in America/New_York) — used to anchor the
