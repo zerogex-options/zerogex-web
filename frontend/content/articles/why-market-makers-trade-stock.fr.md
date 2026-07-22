@@ -61,7 +61,7 @@ Le charm et le vanna portent leurs propres étiquettes en dollars. Lors d'une lo
 
 ---
 
-## Pourquoi le forced flow est le flow qui mérite d'être lu
+## Pourquoi le Forced Flow est le flow qui mérite d'être lu
 
 La majeure partie de l'order flow est un brouillard d'intentions concurrentes. Quelqu'un achète, quelqu'un vend, et vous devinez le motif. Le hedging des dealers est différent par nature : c'est un flux persistant, façonné par le positionnement et les trois variables évoquées plus haut plutôt que par l'avis de quiconque. Cela le rend généralement plus estimable que le flow discrétionnaire. Si le spot bouge de 1%, le hedging lié au gamma tend à réagir. À mesure que l'horloge approche de la clôture, le hedging piloté par le charm tend à s'accumuler. Si la vol baisse de deux points, une pression de couverture liée au vanna peut suivre — dans une direction fixée par le positionnement estimé du book. La nécessité de gérer le risque est mécanique, même si le timing et l'exécution restent discrétionnaires.
 

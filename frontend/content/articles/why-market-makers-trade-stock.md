@@ -61,7 +61,7 @@ Charm and vanna carry their own dollar tags. On a heavy 0DTE day, time decay alo
 
 ---
 
-## Why forced flow is the flow worth reading
+## Why Forced Flow is the flow worth reading
 
 Most order flow is a fog of competing intentions. Someone is buying, someone is selling, and you are guessing at motive. Dealer hedging is different in kind: it is a persistent stream shaped by positioning and the three variables above rather than by anybody's opinion. That makes it generally more estimable than discretionary flow. If spot moves 1%, gamma-related hedging tends to respond. As the clock runs toward the close, charm-driven hedging tends to build. If vol drops two points, vanna-related hedge pressure can follow — in a direction set by the book's estimated positioning. The need to manage the risk is mechanical, even though the timing and execution remain discretionary.
 
