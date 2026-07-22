@@ -220,7 +220,11 @@ export interface ChartSnapshot {
   } | null;
   sessionCloses: SessionClosesData | null;
   gamma: { flip: number | null; callWall: number | null; putWall: number | null; maxPain: number | null; netGexAtSpot: number | null };
+  /** Cumulative GEX-profile curve (fallback rail source). */
   profile: ProfilePoint[];
+  /** Per-strike net gamma for the delayed rail, so the public view draws the
+   *  same net-gamma-by-strike density the live/rewind rail does. */
+  strikes?: StrikeProfileStrike[] | null;
   vwap: number | null;
 }
 
@@ -260,6 +264,10 @@ export default function GammaTerminalChart({
   // Sticky preference: when on, playback wraps back to the earliest replayable
   // bar at the live edge instead of stopping (kept across enter/exit rewind).
   const [playbackLoop, setPlaybackLoop] = useState(false);
+  // Vertical domain captured when rewind is entered. While rewinding we freeze
+  // the y-axis to this instead of re-fitting to the scrubbed bars, so the price
+  // scale never jumps as you scrub — the user still zooms/pans it by hand.
+  const [frozenAxis, setFrozenAxis] = useState<{ mid: number; half: number } | null>(null);
 
   // Snap the view back to the live default whenever the instrument or timeframe
   // changes. This is the React-sanctioned "adjust state during render on a prop
@@ -272,6 +280,7 @@ export default function GammaTerminalChart({
     setRewindActive(false);
     setRewindTime(null);
     setPlaybackActive(false);
+    setFrozenAxis(null);
   }
 
   // Restore persisted view preferences once on mount. Server and the first
@@ -315,18 +324,25 @@ export default function GammaTerminalChart({
 
   // ── Data ── Live mode polls the API; delayed mode renders a frozen server
   // snapshot and does zero client fetching (every hook disabled via `live`).
-  const { rows: liveRows, loading: liveLoading, error: liveError } = useMarketHistorical(symbol, timeframe, false, live);
+  // allow_futures=true: outside the cash session the backend serves the cash
+  // index's FUTURE for this series so the chart keeps ticking after hours (and
+  // ETFs like SPY/QQQ, which trade extended hours natively, simply gain their
+  // after-hours bars). This mirrors the GEX Strike Profile chart, which is why
+  // that one shows live in after hours and the old candle chart did not.
+  const { rows: liveRows, loading: liveLoading, error: liveError } = useMarketHistorical(symbol, timeframe, true, live);
   const { data: quote } = useMarketQuote(symbol, 1000, live);
   const { data: liveSessionCloses } = useSessionCloses(symbol, 60000, quote?.session ?? null, live);
   const { data: gexProfile } = useGEXProfile(symbol, 10000, live);
   const { data: gexSummary } = useGEXSummary(symbol, 5000, live);
   const technicals = useTechnicals(symbol, live);
-  // GEX structure over time, for rewind. Only enabled once the user enters
-  // rewind (a one-time seed pulls the full session), and always paused (we use
-  // it frozen), so it adds no continuous polling. Never enabled in delayed mode.
-  // Pinned to 5-min buckets (the cadence that always has data); the anchor is
-  // resolved by timestamp, so these align with candles of any timeframe.
-  const { buckets: rewindBuckets } = useStrikeProfileTimeseries(symbol, "5min", "all", true, live && rewindActive);
+  // Per-strike dealer gamma over time. Enabled for the whole live session (not
+  // just rewind) so the live rail is drawn from the SAME per-strike source the
+  // rewind rail uses — the two now read identically. Paused (no 1s tip poll)
+  // while rewinding since we hold it frozen; polled otherwise so the live tip
+  // stays fresh. Never enabled in delayed mode (the snapshot supplies strikes).
+  // Pinned to 5-min buckets; anchors resolve by timestamp so they align with
+  // candles of any timeframe. Seeding here also makes entering rewind instant.
+  const { buckets: gexBuckets } = useStrikeProfileTimeseries(symbol, "5min", "all", rewindActive, live);
 
   const dataAll = snapshot ? snapshot.bars : liveRows;
   const loading = snapshot ? false : liveLoading;
@@ -335,12 +351,17 @@ export default function GammaTerminalChart({
   const session = snapshot ? snapshot.quote?.session ?? null : quote?.session ?? null;
   const quoteTs = snapshot ? snapshot.quote?.timestamp ?? null : quote?.timestamp ?? null;
   const sessionCloses = snapshot ? snapshot.sessionCloses : liveSessionCloses;
+  // Futures display: when the backend swaps in the index future outside the cash
+  // session, keep the overnight bars (don't clip to equity hours) and surface the
+  // future's ticker on the session badge.
+  const isFuturesMode = useMemo(() => (dataAll || []).some((b) => b.display_source === "futures"), [dataAll]);
+  const futuresTicker = useMemo(() => (dataAll || []).find((b) => b.display_source === "futures")?.data_symbol ?? null, [dataAll]);
 
   const data = useMemo(() => dataAll.slice(-POOL), [dataAll]);
 
   // Stage 1 — normalize + aggregate history (expensive; independent of the tick).
   const historicalBars = useMemo(() => {
-    const filtered = omitClosedMarketTimes(data || [], (d) => d.timestamp);
+    const filtered = isFuturesMode ? (data || []) : omitClosedMarketTimes(data || [], (d) => d.timestamp);
     const seed = filtered[0]?.close ?? filtered[0]?.price ?? 0;
     const normalized = filtered.reduce(
       (acc, d) => {
@@ -361,7 +382,7 @@ export default function GammaTerminalChart({
       { rows: [] as Bar[], prevClose: seed },
     );
     return aggregateBars(normalized.rows, intervalMinutes, POOL);
-  }, [data, intervalMinutes]);
+  }, [data, intervalMinutes, isFuturesMode]);
 
   // Stage 2 — overlay the live tick onto the tip bar (same bucket-scoped,
   // history-authoritative rules proven out in UnderlyingCandlesChart). This is
@@ -401,13 +422,13 @@ export default function GammaTerminalChart({
   // no data there) nor so far that fewer than a full screen of candles remains —
   // so the SAME number of candles is always on screen at any zoom/interval.
   const gexByTs = useMemo(() => {
-    const m = new Map<number, (typeof rewindBuckets)[number]>();
-    for (const b of rewindBuckets) {
+    const m = new Map<number, (typeof gexBuckets)[number]>();
+    for (const b of gexBuckets) {
       const t = new Date(b.timestamp).getTime();
       if (Number.isFinite(t)) m.set(t, b);
     }
     return m;
-  }, [rewindBuckets]);
+  }, [gexBuckets]);
   const gexMinTs = useMemo(() => {
     let m = Infinity;
     for (const t of gexByTs.keys()) if (t < m) m = t;
@@ -465,12 +486,12 @@ export default function GammaTerminalChart({
   // Keyed off the CLAMPED anchor, so it tracks the bar actually on the right
   // edge — that's why the walls / flip now move as you scrub.
   const rewindBucket = useMemo(() => {
-    if (!rewindActive || rewindAnchorTs == null || rewindBuckets.length === 0) return null;
+    if (!rewindActive || rewindAnchorTs == null || gexBuckets.length === 0) return null;
     const exact = gexByTs.get(rewindAnchorTs);
     if (exact) return exact;
-    let best: (typeof rewindBuckets)[number] | null = null;
+    let best: (typeof gexBuckets)[number] | null = null;
     let bestDist = Infinity;
-    for (const b of rewindBuckets) {
+    for (const b of gexBuckets) {
       const t = new Date(b.timestamp).getTime();
       if (!Number.isFinite(t)) continue;
       const d = Math.abs(t - rewindAnchorTs);
@@ -480,7 +501,7 @@ export default function GammaTerminalChart({
       }
     }
     return best;
-  }, [rewindActive, rewindAnchorTs, rewindBuckets, gexByTs]);
+  }, [rewindActive, rewindAnchorTs, gexBuckets, gexByTs]);
 
   // ── Gamma levels ── Rewind takes flip/walls from the historical bucket;
   // Max Pain / net-GEX / VWAP aren't in the timeseries, so they're hidden then.
@@ -505,24 +526,36 @@ export default function GammaTerminalChart({
   const netGexAtSpot = rewindActive ? null : snapshot ? snapshot.gamma.netGexAtSpot : num(gexProfile?.net_gex_at_spot ?? gexSummary?.net_gex);
   const vwap = rewindActive ? null : snapshot ? snapshot.vwap : num(technicals.latest?.vwap_deviation?.vwap);
 
-  const profilePoints = useMemo<ProfilePoint[]>(() => {
-    // Rewind: rebuild the rail from the bucket's per-strike net gamma, but
-    // Gaussian-smoothed onto a fine price grid so it reads as the same clean
-    // silhouette the live rail draws. The raw per-strike values are discrete and
-    // sign-alternating between adjacent strikes — plotted directly they made the
-    // jagged, center-crossing "funky" rail. Smoothing collapses them into the
-    // two lobes (put-side / call-side walls) live shows, sign convention intact.
-    if (rewindBucket) {
-      return rewindRailCurve(rewindBucket.strikes);
+  // The most-recent per-strike bucket that actually carries gamma — the live
+  // rail's source. Walk back from the tip so an empty / all-zero after-hours
+  // bucket doesn't blank the rail (the last real surface stays drawn).
+  const liveGexBucket = useMemo(() => {
+    for (let i = gexBuckets.length - 1; i >= 0; i--) {
+      const b = gexBuckets[i];
+      if (Array.isArray(b.strikes) && b.strikes.some((s) => coerceNum(s.net_gamma))) return b;
     }
-    if (snapshot) return snapshot.profile;
+    return null;
+  }, [gexBuckets]);
+
+  const profilePoints = useMemo<ProfilePoint[]>(() => {
+    // The rail is a Gaussian-smoothed net-gamma-by-strike density (two lobes at
+    // the put-side / call-side walls). Live and rewind draw from the SAME
+    // per-strike source (the strike-profile timeseries) so they render
+    // identically — only the bucket differs (the rewound moment vs the live
+    // tip). Raw per-strike values are discrete and sign-alternating between
+    // neighbours, so rewindRailCurve smooths them into the clean silhouette.
+    const strikeBucket = rewindBucket ?? (live ? liveGexBucket : null);
+    if (strikeBucket) return rewindRailCurve(strikeBucket.strikes);
+    // Delayed snapshot: per-strike if present, else the served cumulative curve.
+    if (snapshot) return snapshot.strikes ? rewindRailCurve(snapshot.strikes) : snapshot.profile;
+    // Fallback while the timeseries seeds: the cumulative GEX-profile curve.
     const raw = gexProfile?.profile;
     if (!Array.isArray(raw)) return [];
     return raw
       .map((p) => ({ price: Number(p.price), gex: Number(p.gex) }))
       .filter((p) => Number.isFinite(p.price) && Number.isFinite(p.gex))
       .sort((a, b) => a.price - b.price);
-  }, [gexProfile, snapshot, rewindBucket]);
+  }, [gexProfile, snapshot, rewindBucket, liveGexBucket, live]);
 
   // ── Price/change readout ─────────────────────────────────────────────────
   const priceSummary = getPrimaryPriceChangeSummary({
@@ -585,8 +618,14 @@ export default function GammaTerminalChart({
     const autoMax = dMax;
     const autoMid = (autoMin + autoMax) / 2;
     const autoHalf = Math.max((autoMax - autoMin) / 2, 1e-6);
-    const half = autoHalf * priceView.zoom;
-    const center = priceView.center ?? autoMid;
+    // While rewinding, freeze the vertical scale to the domain captured at
+    // rewind entry so scrubbing never moves the y-axis; live view fits to the
+    // visible bars. Manual zoom/pan (priceView) still applies on top of either.
+    const frozen = rewindActive ? frozenAxis : null;
+    const baseMid = frozen ? frozen.mid : autoMid;
+    const baseHalf = frozen ? frozen.half : autoHalf;
+    const half = baseHalf * priceView.zoom;
+    const center = priceView.center ?? baseMid;
     dMin = center - half;
     dMax = center + half;
 
@@ -604,7 +643,7 @@ export default function GammaTerminalChart({
     const yVol = (v: number) => VOL_BOTTOM - (v / maxVol) * (VOL_BOTTOM - VOL_TOP);
 
     return { dMin, dMax, autoMid, autoHalf, xStep, candleWidth, maxVol, priceAxis, xForIndex, yPrice, priceForY, yVol, n };
-  }, [bars, flip, callWall, putWall, vwap, priceView.zoom, priceView.center]);
+  }, [bars, flip, callWall, putWall, vwap, priceView.zoom, priceView.center, rewindActive, frozenAxis]);
 
   // Rail silhouette geometry (net dealer gamma by price, aligned to the y-axis).
   const rail = useMemo(() => {
@@ -846,6 +885,9 @@ export default function GammaTerminalChart({
 
   const enterRewind = () => {
     if (allBars.length < MIN_COUNT) return;
+    // Freeze the y-axis to the current auto-fit domain so scrubbing doesn't move
+    // it (the user can still adjust it by hand afterwards).
+    if (layout) setFrozenAxis({ mid: layout.autoMid, half: layout.autoHalf });
     // Anchor deep into history; the render-time clamp pulls it forward to the
     // earliest replayable bar (full window + GEX coverage), giving the longest
     // valid runway to play forward from.
@@ -860,6 +902,7 @@ export default function GammaTerminalChart({
     setRewindActive(false);
     setRewindTime(null);
     setPlaybackActive(false);
+    setFrozenAxis(null);
     setView((v) => ({ ...v, offset: 0 }));
   };
 
@@ -1020,7 +1063,9 @@ export default function GammaTerminalChart({
     ? { label: "◀ REWIND", color: "var(--color-accent-hot)" }
     : delayed
       ? { label: "◷ DELAYED ~15 MIN", color: "var(--color-warning)" }
-      : sessionLabel(session);
+      : isFuturesMode
+        ? { label: `⧉ FUTURES${futuresTicker ? ` · ${futuresTicker}` : ""}`, color: "var(--color-warning)" }
+        : sessionLabel(session);
 
   return (
     <div className={`zg-feature-shell zg-gc-rise ${className}`} style={{ overflow: "hidden" }}>
@@ -1273,7 +1318,7 @@ export default function GammaTerminalChart({
               <g>
                 <rect x={RAIL_LEFT - 6} y={PAD_TOP} width={RAIL_RIGHT - RAIL_LEFT + 12} height={PRICE_BOTTOM - PAD_TOP} fill="color-mix(in srgb, var(--text-primary) 3%, transparent)" />
                 <text x={(RAIL_LEFT + RAIL_RIGHT) / 2} y={PAD_TOP - 6} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={10} letterSpacing="0.12em" fill="var(--text-muted)">
-                  DEALER GAMMA BY PRICE
+                  DEALER GAMMA BY STRIKE
                 </text>
                 {/* zero baseline */}
                 <line x1={RAIL_CENTER} x2={RAIL_CENTER} y1={PAD_TOP} y2={PRICE_BOTTOM} stroke="var(--border-strong)" strokeWidth={1} opacity={0.5} />

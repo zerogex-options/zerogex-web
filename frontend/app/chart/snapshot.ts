@@ -3,6 +3,7 @@ import 'server-only';
 import { serverApiGet } from '@/core/api/serverFetch';
 import type { SessionClosesData } from '@/hooks/useApiData';
 import type { PriceBar } from '@/hooks/useMarketHistorical';
+import type { StrikeProfileStrike } from '@/hooks/useStrikeProfileTimeseries';
 import type { ChartSnapshot } from '@/components/GammaTerminalChart';
 
 // The whole point of the public /chart view: the data is fetched once per this
@@ -58,6 +59,35 @@ interface RawQuote {
 interface RawTechnicals {
   bars?: Array<{ vwap_deviation?: { vwap?: unknown } }>;
 }
+interface RawStrikeRow {
+  strike?: unknown;
+  net_gamma?: unknown;
+  call_oi?: unknown;
+  put_oi?: unknown;
+}
+interface RawBucket {
+  timestamp?: string;
+  strikes?: RawStrikeRow[];
+}
+
+// Most-recent bucket that actually carries per-strike gamma (walk back so an
+// empty after-hours tip doesn't blank the public rail). Mirrors the live
+// chart's liveGexBucket selection.
+function pickStrikeSurface(buckets: RawBucket[] | null | undefined): StrikeProfileStrike[] | null {
+  if (!Array.isArray(buckets)) return null;
+  for (let i = buckets.length - 1; i >= 0; i -= 1) {
+    const s = buckets[i]?.strikes;
+    if (Array.isArray(s) && s.some((r) => { const g = num(r?.net_gamma); return g != null && g !== 0; })) {
+      return s.map((r) => ({
+        strike: num(r?.strike) ?? undefined,
+        net_gamma: num(r?.net_gamma),
+        call_oi: num(r?.call_oi),
+        put_oi: num(r?.put_oi),
+      }));
+    }
+  }
+  return null;
+}
 
 /**
  * Build the frozen, ~15-min-delayed snapshot the public chart renders from.
@@ -70,13 +100,17 @@ export async function loadChartSnapshot(
   timeframe: ChartTimeframe = '5min',
 ): Promise<ChartSnapshot | null> {
   const q = symbolQ(symbol);
-  const [barsRaw, profile, summary, quote, closes, technicals] = await Promise.all([
-    serverApiGet<RawBar[]>(`/api/market/historical?${q}&timeframe=${encodeURIComponent(timeframe)}&window_units=${WINDOW_UNITS}`, DELAY_SECONDS),
+  const [barsRaw, profile, summary, quote, closes, technicals, buckets] = await Promise.all([
+    // allow_futures=1 so the delayed view keeps ticking after hours too (matches
+    // the live chart, which now also opts in).
+    serverApiGet<RawBar[]>(`/api/market/historical?${q}&timeframe=${encodeURIComponent(timeframe)}&window_units=${WINDOW_UNITS}&allow_futures=1`, DELAY_SECONDS),
     serverApiGet<RawProfile>(`/api/gex/profile?${q}`, DELAY_SECONDS),
     serverApiGet<RawSummary>(`/api/gex/summary?${q}`, DELAY_SECONDS),
     serverApiGet<RawQuote>(`/api/market/quote?${q}`, DELAY_SECONDS),
     serverApiGet<SessionClosesData>(`/api/market/session-closes?${q}`, DELAY_SECONDS),
     serverApiGet<RawTechnicals>(`/api/technicals?${q}`, DELAY_SECONDS),
+    // Per-strike surface for the rail (same density the live/rewind rail draws).
+    serverApiGet<RawBucket[]>(`/api/gex/strike-profile-timeseries?${q}&timeframe=5min&window_units=3&expirations=all`, DELAY_SECONDS),
   ]);
 
   if (!Array.isArray(barsRaw) || barsRaw.length === 0) return null;
@@ -129,6 +163,7 @@ export async function loadChartSnapshot(
       netGexAtSpot: num(profile?.net_gex_at_spot) ?? num(summary?.net_gex),
     },
     profile: profilePoints,
+    strikes: pickStrikeSurface(buckets),
     vwap,
   };
 }
