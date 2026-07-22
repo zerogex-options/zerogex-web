@@ -55,7 +55,7 @@ export default function LiveLevelsCTA({ concept, headline, intro }: Props) {
         <p className="mb-3 text-sm leading-7 text-[var(--color-text-secondary)]">{intro}</p>
       ) : null}
       <p className="mb-5 text-sm leading-7 text-[var(--color-text-secondary)]">
-        Want to see this in real time? View today&apos;s SPX, SPY, and QQQ gamma flip, call wall,
+        Want to follow this throughout the trading day? View today&apos;s SPX, SPY, and QQQ gamma flip, call wall,
         put wall, and Net GEX — free, delayed roughly 15 minutes, no signup required.
       </p>
       <div className="flex flex-wrap gap-3">
