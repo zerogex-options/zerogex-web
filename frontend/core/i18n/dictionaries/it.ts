@@ -70,6 +70,7 @@ export const it: Dictionary = {
   'footer.navigation': 'Navigazione',
   'footer.platform': 'Piattaforma',
   'footer.freeGammaLevels': 'Livelli Gamma gratuiti',
+  'footer.updates': 'Novità',
   'footer.givingBack': 'Beneficenza',
   'footer.apiDocs': 'Documentazione API',
   'footer.privacy': 'Privacy',

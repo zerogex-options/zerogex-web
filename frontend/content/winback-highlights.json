@@ -3,11 +3,11 @@
   "highlights": [
     {
       "title": "Backtesting",
-      "body": "test any options strategy against historical market data, with a full tearsheet, Monte Carlo cone, benchmark, and a shareable report you can send to anyone."
+      "body": "test options strategies and ZeroGEX signals against historical market data, with a full tearsheet, Monte Carlo cone, benchmark, and a shareable report you can send to anyone."
     },
     {
       "title": "TradeWorkz™ automated bots",
-      "body": "a fleet of bots that post their entries and exits in real time, backed by a fully public trade audit that shows every win and loss, not just the highlights."
+      "body": "a growing set of bots that post their entries and exits in real time, backed by a fully public trade audit that shows every win and loss, not just the highlights."
     },
     {
       "title": "Sharper gamma levels & Live Bulletin",

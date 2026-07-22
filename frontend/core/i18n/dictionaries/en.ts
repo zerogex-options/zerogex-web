@@ -80,6 +80,7 @@ export const en = {
   'footer.navigation': 'Navigation',
   'footer.platform': 'Platform',
   'footer.freeGammaLevels': 'Free Gamma Levels',
+  'footer.updates': 'Updates',
   'footer.givingBack': 'Giving Back',
   'footer.apiDocs': 'API Docs',
   'footer.privacy': 'Privacy',

@@ -1004,12 +1004,12 @@ export const DEFAULT_WINBACK_HIGHLIGHTS: WinbackHighlight[] = [
   {
     title: 'Backtesting',
     body:
-      'test any options strategy against historical market data, with a full tearsheet, Monte Carlo cone, benchmark, and a shareable report you can send to anyone.',
+      'test options strategies and ZeroGEX signals against historical market data, with a full tearsheet, Monte Carlo cone, benchmark, and a shareable report you can send to anyone.',
   },
   {
     title: 'TradeWorkz™ automated bots',
     body:
-      'a fleet of bots that post their entries and exits in real time, backed by a fully public trade audit that shows every win and loss, not just the highlights.',
+      'a growing set of bots that post their entries and exits in real time, backed by a fully public trade audit that shows every win and loss, not just the highlights.',
   },
   {
     title: 'Sharper gamma levels & Live Bulletin',
