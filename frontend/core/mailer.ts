@@ -521,6 +521,10 @@ export async function sendTrialReminderEmail(
       // Formatted recurring charge, e.g. "$29.00/month". Built by the caller
       // from the subscription's price so the tier/cadence are always correct.
       chargeLabel: string;
+      // Display-ready card brand, e.g. "Visa" — already normalized by the
+      // caller (Stripe reports brands lowercased). Optional/null for wallet or
+      // unrecognized methods, in which case a neutral phrasing is used.
+      cardBrand?: string | null;
       // Last four digits of the card on file, e.g. "4242".
       cardLast4: string;
     } | null;
@@ -540,15 +544,27 @@ export async function sendTrialReminderEmail(
     ? `Good news on the price: you locked in our <strong>limited-time introductory rate</strong> for the ${escapeHtml(promoLabel)}, so that's what your card will be charged after the trial &mdash; not the standard rate.`
     : null;
 
-  // "Your subscription will begin at $X/month using the payment method ending
-  // in 1234" — the exact charge and last-4 come from Stripe (see
-  // resolveBillingDetails in the cron); we only format them here.
+  // "Your subscription will begin at $X/month using your Visa card ending in
+  // 1234" — the exact charge, brand, and last-4 come from Stripe (see
+  // resolveBillingDetails in the cron); we only format them here. When the
+  // brand is unknown (wallet / Link / an unmapped code) the caller passes null
+  // and we drop to the neutral "the payment method ending in 1234".
   const billing = opts.billing ?? null;
+  const cardTextPhrase = billing
+    ? billing.cardBrand
+      ? `your ${billing.cardBrand} card ending in ${billing.cardLast4}`
+      : `the payment method ending in ${billing.cardLast4}`
+    : null;
+  const cardHtmlPhrase = billing
+    ? billing.cardBrand
+      ? `your ${escapeHtml(billing.cardBrand)} card ending in <strong>${escapeHtml(billing.cardLast4)}</strong>`
+      : `the payment method ending in <strong>${escapeHtml(billing.cardLast4)}</strong>`
+    : null;
   const billingLineText = billing
-    ? `Your subscription will begin at ${billing.chargeLabel} using the payment method ending in ${billing.cardLast4}. Please make sure your payment method is ready, or update it from your account page (${accountUrl}).`
+    ? `Your subscription will begin at ${billing.chargeLabel} using ${cardTextPhrase}. Please make sure your payment method is ready, or update it from your account page (${accountUrl}).`
     : null;
   const billingLineHtml = billing
-    ? `Your subscription will begin at <strong>${escapeHtml(billing.chargeLabel)}</strong> using the payment method ending in <strong>${escapeHtml(billing.cardLast4)}</strong>. Please make sure your payment method is ready, or <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">update it here</a>.`
+    ? `Your subscription will begin at <strong>${escapeHtml(billing.chargeLabel)}</strong> using ${cardHtmlPhrase}. Please make sure your payment method is ready, or <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">update it here</a>.`
     : null;
 
   const text = [
