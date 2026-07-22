@@ -307,6 +307,8 @@ export async function sendPaidWelcomeEmail(
     'Michael',
     'Founder, ZeroGEX',
     '',
+    `P.S. Curious what we've shipped lately? See the latest product updates at ${getAppUrl()}/updates`,
+    '',
     ...renderFohFooterTextLines(),
   ].join('\n');
 
@@ -326,6 +328,7 @@ export async function sendPaidWelcomeEmail(
       <p>Please feel free to reply directly if you run into anything, have questions, or see something that could be improved. I read every message, and customer feedback is a huge part of how I'm shaping the product.</p>
       <p>Thanks again &mdash; I really appreciate your support.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+      <p style="font-size: 13px; color: #555;">P.S. Curious what we've shipped lately? See the latest product updates at <a href="${escapeHtml(`${getAppUrl()}/updates`)}" style="color: #f5b400; font-weight: 600;">${escapeHtml(`${getAppUrl()}/updates`)}</a>.</p>
       ${renderFohFooterHtml()}
     </div>
   `.trim();
