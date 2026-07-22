@@ -28,14 +28,18 @@ type SignupPoint = {
   disclaimer: number;
 };
 
-// Mirrors SignupFlowPoint in core/monitoring.ts. Paid adds are positive; paid
-// cancellations and payment-failure downgrades are negative (pre-negated
-// server-side); registrations is the daily count of new self-serve accounts
-// (any tier).
+// Mirrors SignupFlowPoint in core/monitoring.ts. Paid adds and reactivations are
+// positive; paid cancellations and payment-failure downgrades are negative
+// (pre-negated server-side); registrations is the daily count of new self-serve
+// accounts (any tier). Adds are first-time conversions; reactivations are subs
+// that recovered out of dunning (payment fixed) — split out so a brand-new
+// customer is distinguishable from a returning one.
 type SignupFlowPoint = {
   day: string;
   basicAdd: number;
   proAdd: number;
+  basicReactivate: number;
+  proReactivate: number;
   basicCancel: number;
   proCancel: number;
   basicPaymentFail: number;
@@ -1876,16 +1880,24 @@ type SubscriptionFlowChartCardProps = {
 };
 
 // Per-day paid-subscription flow with a net-onboards line overlaid. Basic/Pro
-// conversions stack above the x-axis; below it sit the two net-negative churn
-// causes — voluntary cancellations and involuntary payment-failure downgrades
-// (each user's own Stripe sub — no public tier). Adds are the signups brand
-// (blue) family, cancels a bear-red family, payment-failure downgrades a purple
-// family, tier the shade within. The net line (adds − cancels − payment fails
-// for the day) rides the same primary axis as the bars, sharing their zero
-// baseline so it reads directly against the columns it summarizes.
+// new conversions and reactivations stack above the x-axis; below it sit the two
+// net-negative churn causes — voluntary cancellations and involuntary
+// payment-failure downgrades (each user's own Stripe sub — no public tier). New
+// adds are the signups brand (blue) family, reactivations (subs recovered out of
+// dunning) a green family, cancels a bear-red family, payment-failure downgrades
+// a purple family, tier the shade within. The net line (adds + reactivations −
+// cancels − payment fails for the day) rides the same primary axis as the bars,
+// sharing their zero baseline so it reads directly against the columns it
+// summarizes.
 function SubscriptionFlowChartCard({ data, cardBg, axisStroke, mutedText, brandColor }: SubscriptionFlowChartCardProps) {
   const proAddColor = brandColor;
   const basicAddColor = lighten(brandColor, 0.45);
+  // Reactivations (payment recovered — a sub climbing back out of dunning) are
+  // net-positive like adds but a distinct source, so they get their own (green)
+  // family stacked above the new-add columns.
+  const reactivateBase = '#2a9d8f';
+  const proReactivateColor = reactivateBase;
+  const basicReactivateColor = lighten(reactivateBase, 0.4);
   const cancelBase = '#c1435b';
   const proCancelColor = cancelBase;
   const basicCancelColor = lighten(cancelBase, 0.35);
@@ -1901,6 +1913,8 @@ function SubscriptionFlowChartCard({ data, cardBg, axisStroke, mutedText, brandC
   const totals = useMemo(() => {
     let proAdd = 0;
     let basicAdd = 0;
+    let proReactivate = 0;
+    let basicReactivate = 0;
     let proCancel = 0;
     let basicCancel = 0;
     let proPaymentFail = 0;
@@ -1908,34 +1922,43 @@ function SubscriptionFlowChartCard({ data, cardBg, axisStroke, mutedText, brandC
     for (const p of data) {
       proAdd += p.proAdd;
       basicAdd += p.basicAdd;
+      proReactivate += p.proReactivate;
+      basicReactivate += p.basicReactivate;
       proCancel += p.proCancel;
       basicCancel += p.basicCancel;
       proPaymentFail += p.proPaymentFail;
       basicPaymentFail += p.basicPaymentFail;
     }
     // Cancels and payment-fails are stored negative, so net onboards is the
-    // straight algebraic sum of all six flows.
+    // straight algebraic sum of all eight flows (adds + reactivations are
+    // positive, cancels + payment-fails negative).
     return {
       proAdd,
       basicAdd,
+      proReactivate,
+      basicReactivate,
       proCancel,
       basicCancel,
       proPaymentFail,
       basicPaymentFail,
-      net: proAdd + basicAdd + proCancel + basicCancel + proPaymentFail + basicPaymentFail,
+      net:
+        proAdd + basicAdd + proReactivate + basicReactivate +
+        proCancel + basicCancel + proPaymentFail + basicPaymentFail,
     };
   }, [data]);
 
-  // Net onboards per day: adds minus cancels minus payment-failure downgrades.
-  // Cancels and payment-fails are stored negative, so it's the plain sum of the
-  // six flow fields, and it always lands within the bars' own domain (a day's
-  // net ≤ its adds and ≥ its combined negatives), so it shares the primary axis
-  // instead of needing one of its own.
+  // Net onboards per day: adds + reactivations minus cancels minus
+  // payment-failure downgrades. Cancels and payment-fails are stored negative, so
+  // it's the plain sum of the eight flow fields, and it always lands within the
+  // bars' own domain (a day's net ≤ its combined positives and ≥ its combined
+  // negatives), so it shares the primary axis instead of needing one of its own.
   const chartData = useMemo(
     () =>
       data.map((p) => ({
         ...p,
-        net: p.proAdd + p.basicAdd + p.proCancel + p.basicCancel + p.proPaymentFail + p.basicPaymentFail,
+        net:
+          p.proAdd + p.basicAdd + p.proReactivate + p.basicReactivate +
+          p.proCancel + p.basicCancel + p.proPaymentFail + p.basicPaymentFail,
       })),
     [data],
   );
@@ -1944,7 +1967,10 @@ function SubscriptionFlowChartCard({ data, cardBg, axisStroke, mutedText, brandC
   // paid add stack (above the zero baseline) and the combined cancel +
   // payment-failure stack (below it) so the columns stay legible.
   const barScale = useMemo(() => {
-    const barPosBound = data.reduce((m, p) => Math.max(m, p.proAdd + p.basicAdd), 0);
+    const barPosBound = data.reduce(
+      (m, p) => Math.max(m, p.proAdd + p.basicAdd + p.proReactivate + p.basicReactivate),
+      0,
+    );
     const barNegBound = data.reduce(
       (m, p) => Math.max(m, -(p.proCancel + p.basicCancel + p.proPaymentFail + p.basicPaymentFail)),
       0,
@@ -1978,6 +2004,8 @@ function SubscriptionFlowChartCard({ data, cardBg, axisStroke, mutedText, brandC
         (p) =>
           p.proAdd !== 0 ||
           p.basicAdd !== 0 ||
+          p.proReactivate !== 0 ||
+          p.basicReactivate !== 0 ||
           p.proCancel !== 0 ||
           p.basicCancel !== 0 ||
           p.proPaymentFail !== 0 ||
@@ -1996,6 +2024,8 @@ function SubscriptionFlowChartCard({ data, cardBg, axisStroke, mutedText, brandC
           <span><span style={{ color: netColor }}>▬</span> Net onboards: {signed(totals.net)}</span>
           <span><span style={{ color: proAddColor }}>●</span> Pro adds: {totals.proAdd.toLocaleString()}</span>
           <span><span style={{ color: basicAddColor }}>●</span> Basic adds: {totals.basicAdd.toLocaleString()}</span>
+          <span><span style={{ color: proReactivateColor }}>●</span> Pro reactivations: {totals.proReactivate.toLocaleString()}</span>
+          <span><span style={{ color: basicReactivateColor }}>●</span> Basic reactivations: {totals.basicReactivate.toLocaleString()}</span>
           <span><span style={{ color: proCancelColor }}>●</span> Pro cancels: {Math.abs(totals.proCancel).toLocaleString()}</span>
           <span><span style={{ color: basicCancelColor }}>●</span> Basic cancels: {Math.abs(totals.basicCancel).toLocaleString()}</span>
           <span><span style={{ color: proPaymentFailColor }}>●</span> Pro payment fails: {Math.abs(totals.proPaymentFail).toLocaleString()}</span>
@@ -2035,11 +2065,15 @@ function SubscriptionFlowChartCard({ data, cardBg, axisStroke, mutedText, brandC
                   const num = (key: string) => Number(payload.find((p) => p.dataKey === key)?.value ?? 0);
                   const proAdd = num('proAdd');
                   const basicAdd = num('basicAdd');
+                  const proReactivate = num('proReactivate');
+                  const basicReactivate = num('basicReactivate');
                   const proCancel = num('proCancel');
                   const basicCancel = num('basicCancel');
                   const proPaymentFail = num('proPaymentFail');
                   const basicPaymentFail = num('basicPaymentFail');
-                  const net = proAdd + basicAdd + proCancel + basicCancel + proPaymentFail + basicPaymentFail;
+                  const net =
+                    proAdd + basicAdd + proReactivate + basicReactivate +
+                    proCancel + basicCancel + proPaymentFail + basicPaymentFail;
                   return (
                     <div
                       className="rounded-lg border px-3 py-2 text-xs"
@@ -2047,9 +2081,12 @@ function SubscriptionFlowChartCard({ data, cardBg, axisStroke, mutedText, brandC
                     >
                       <div className="font-semibold mb-1">{dayLabel(String(label))}</div>
                       <div style={{ color: netColor }}>Net onboards: {signed(net)}</div>
-                      <div className="mt-1" style={{ color: proAddColor }}>Signups: {signed(proAdd + basicAdd)}</div>
+                      <div className="mt-1" style={{ color: proAddColor }}>New signups: {signed(proAdd + basicAdd)}</div>
                       <div className="pl-2">Pro: {signed(proAdd)}</div>
                       <div className="pl-2">Basic: {signed(basicAdd)}</div>
+                      <div className="mt-1" style={{ color: reactivateBase }}>Reactivations (payment recovered): {signed(proReactivate + basicReactivate)}</div>
+                      <div className="pl-2">Pro: {signed(proReactivate)}</div>
+                      <div className="pl-2">Basic: {signed(basicReactivate)}</div>
                       <div className="mt-1" style={{ color: cancelBase }}>Cancellations: {signed(proCancel + basicCancel)}</div>
                       <div className="pl-2">Pro: {signed(proCancel)}</div>
                       <div className="pl-2">Basic: {signed(basicCancel)}</div>
@@ -2062,6 +2099,8 @@ function SubscriptionFlowChartCard({ data, cardBg, axisStroke, mutedText, brandC
               />
               <Bar yAxisId="flow" dataKey="basicAdd" name="Basic adds" stackId="flow" fill={basicAddColor} maxBarSize={28} isAnimationActive={false} />
               <Bar yAxisId="flow" dataKey="proAdd" name="Pro adds" stackId="flow" fill={proAddColor} maxBarSize={28} isAnimationActive={false} />
+              <Bar yAxisId="flow" dataKey="basicReactivate" name="Basic reactivations" stackId="flow" fill={basicReactivateColor} maxBarSize={28} isAnimationActive={false} />
+              <Bar yAxisId="flow" dataKey="proReactivate" name="Pro reactivations" stackId="flow" fill={proReactivateColor} maxBarSize={28} isAnimationActive={false} />
               <Bar yAxisId="flow" dataKey="basicCancel" name="Basic cancellations" stackId="flow" fill={basicCancelColor} maxBarSize={28} isAnimationActive={false} />
               <Bar yAxisId="flow" dataKey="proCancel" name="Pro cancellations" stackId="flow" fill={proCancelColor} maxBarSize={28} isAnimationActive={false} />
               <Bar yAxisId="flow" dataKey="basicPaymentFail" name="Basic payment-failure downgrades" stackId="flow" fill={basicPaymentFailColor} maxBarSize={28} isAnimationActive={false} />

@@ -70,9 +70,16 @@ export type SignupPoint = {
 
 // Per-day paid-subscription flow plus account registrations, sourced from the
 // audit_events log. The paid flow counts each user's own Stripe signup/cancel:
-//   • basicAdd / proAdd     — a paid activation: a subscription's first paid
-//                             observation (conversion), OR a re-activation the day
-//                             a sub climbs back out of dunning (payment recovered)
+//   • basicAdd / proAdd     — a NEW paid activation: a subscription's first paid
+//                             observation (first conversion). Recovered subs are
+//                             counted separately as reactivations (below), so a
+//                             brand-new customer is distinguishable from a
+//                             returning one.
+//   • basicReactivate / proReactivate — a RE-activation: the day a sub climbs
+//                             back out of dunning into a paid tier (payment
+//                             recovered). Positive like an add, and offsets the
+//                             earlier payment-failure downgrade so the net line
+//                             stays honest, but kept in its own family.
 //   • basicPaymentFail / proPaymentFail — an INVOLUNTARY downgrade to public,
 //                               booked the day a failed payment pushes the sub
 //                               into dunning (past_due/unpaid): a failed renewal,
@@ -89,6 +96,8 @@ export type SignupFlowPoint = {
   day: string;
   basicAdd: number;
   proAdd: number;
+  basicReactivate: number;
+  proReactivate: number;
   basicCancel: number;
   proCancel: number;
   basicPaymentFail: number;
@@ -761,6 +770,8 @@ type PaidTier = 'basic' | 'pro';
 type FlowAcc = {
   basicAdd: number;
   proAdd: number;
+  basicReactivate: number;
+  proReactivate: number;
   basicCancel: number;
   proCancel: number;
   basicPaymentFail: number;
@@ -772,6 +783,8 @@ function emptyFlowAcc(): FlowAcc {
   return {
     basicAdd: 0,
     proAdd: 0,
+    basicReactivate: 0,
+    proReactivate: 0,
     basicCancel: 0,
     proCancel: 0,
     basicPaymentFail: 0,
@@ -832,6 +845,8 @@ function isFlowDayEmpty(p: SignupFlowPoint): boolean {
   return (
     p.proAdd === 0 &&
     p.basicAdd === 0 &&
+    p.proReactivate === 0 &&
+    p.basicReactivate === 0 &&
     p.proCancel === 0 &&
     p.basicCancel === 0 &&
     p.proPaymentFail === 0 &&
@@ -845,11 +860,13 @@ function isFlowDayEmpty(p: SignupFlowPoint): boolean {
 // earliest day with activity, floored at MAX_DAILY) since it recomputes from the
 // retained event log rather than a pruned bucket store.
 //
-//   • Paid adds        — a paid activation, from two sources (both positive): the
-//     FIRST `stripe_subscription_sync` that saw a subscription in a paid tier
-//     (pro/basic) — the day that user converted — AND a re-activation the day a
-//     sub climbs back out of dunning into a paid tier (payment recovered), which
-//     offsets its earlier payment-failure downgrade so the net line stays honest.
+//   • Paid adds        — a NEW paid conversion: the FIRST `stripe_subscription_sync`
+//     that saw a subscription in a paid tier (pro/basic) — the day that user
+//     converted. Positive.
+//   • Reactivations    — a sub climbing back out of dunning into a paid tier
+//     (payment recovered) on a later day. Positive, and offsets its earlier
+//     payment-failure downgrade so the net line stays honest, but booked in its
+//     own family so a genuine new conversion is never conflated with a recovery.
 //   • Payment-failure downgrades — booked the day a subscription first crosses
 //     INTO a dunning state (past_due/unpaid), i.e. the instant a failed payment
 //     downgrades it to public. Covers both a failed renewal and a trial whose
@@ -929,15 +946,17 @@ function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
           else acc[day].basicPaymentFail -= 1;
         }
       } else if (tier && wasDunning) {
-        // Recovery re-add: a sub climbing back OUT of dunning into a healthy paid
+        // Reactivation: a sub climbing back OUT of dunning into a healthy paid
         // tier (its payment recovered on a later retry) is re-promoted to
-        // pro/basic. Book a positive add on the recovery day so it offsets the
-        // earlier downgrade and the net line reflects that the customer is back.
-        // `tier` is non-null only for active/trialing syncs, so this fires just on
-        // a genuine return to a paying state — attributed to the recovered tier.
+        // pro/basic. Book a positive reactivation on the recovery day so it
+        // offsets the earlier downgrade and the net line reflects that the
+        // customer is back — kept in its own family (not proAdd/basicAdd) so a
+        // recovery is distinguishable from a brand-new conversion. `tier` is
+        // non-null only for active/trialing syncs, so this fires just on a genuine
+        // return to a paying state — attributed to the recovered tier.
         if (day && acc[day]) {
-          if (tier === 'pro') acc[day].proAdd += 1;
-          else acc[day].basicAdd += 1;
+          if (tier === 'pro') acc[day].proReactivate += 1;
+          else acc[day].basicReactivate += 1;
         }
       }
       if (status) lastStatus.set(subId, status);
