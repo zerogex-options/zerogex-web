@@ -387,6 +387,17 @@ function initDb(): DatabaseSync {
   // who returns and later churns a second time can receive a fresh win-back.
   ensureColumn('users', 'winback_email_sent_at', 'TEXT');
 
+  // Re-armable latch for the payment-recovered confirmation email — the bookend
+  // to the payment-failed nudge. 0 = nothing pending; the Stripe webhook sets it
+  // to 1 when a subscription enters `past_due` (a real renewal failure that drops
+  // the member to 'public'), and CAS-consumes it back to 0 (firing the email) on
+  // the next sync that lands back on `active`. Because the flag is the memory of
+  // "a failure happened," the email fires only on an actual recovery, never on an
+  // ordinary active→active renewal, and it re-arms for a future failure. Also
+  // cleared on customer.subscription.deleted so an exhausted-then-resubscribed
+  // account gets welcome-back, not a spurious recovery note.
+  ensureColumn('users', 'payment_recovery_pending', 'INTEGER NOT NULL DEFAULT 0');
+
   // Soft-delete marker for self-service account deletion (see
   // app/api/account/delete/route.ts + the /account danger zone). NULL = active;
   // set to the ISO timestamp when the member deletes their account. We keep the

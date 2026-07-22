@@ -9,6 +9,7 @@ import {
   sendFoundingWelcomeEmail,
   sendPaidWelcomeEmail,
   sendPaymentFailedEmail,
+  sendPaymentRecoveredEmail,
   sendWelcomeBackEmail,
 } from '@/core/mailer';
 import {
@@ -640,6 +641,14 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
     periodEndIso,
     subscriptionId: subscription.id,
   });
+
+  // Arm/fire the payment-recovered confirmation off the subscription's status:
+  // past_due arms it, a return to active fires it. Runs last so the tier sync
+  // (which already re-promoted the member on the recovery) is committed first.
+  await maybeHandlePaymentRecovery(user, {
+    newStatus: subscription.status,
+    subscriptionId: subscription.id,
+  });
 }
 
 // Fires the cancellation acknowledgement email on the 0→1 transition of
@@ -695,6 +704,72 @@ async function maybeHandleCancelAckTransition(
          WHERE id = ? AND cancel_ack_email_sent_at IS NOT NULL`,
       )
       .run(nowIso(), user.id);
+  }
+}
+
+// Fires the payment-recovered confirmation email — the bookend to the
+// payment-failed nudge — on the past_due → active recovery. The
+// payment_recovery_pending flag is the persistent memory of "a failure
+// happened," which makes this robust to WHICH event carries the recovery
+// (the auto-retry's invoice.paid-driven subscription.updated, or the member
+// updating their card) and, crucially, means it never fires on an ordinary
+// active → active renewal — only after a real dunning failure.
+//
+//   • Arm: entering `past_due` (the state the tier sync just used to drop the
+//     member to 'public') sets the flag 0 → 1. The `= 0` guard makes it a
+//     one-write transition, so repeated past_due syncs during Stripe's retry
+//     window don't churn the row.
+//   • Fire: the next sync that lands back on `active` CAS-claims the flag
+//     1 → 0 and sends. The atomic claim guarantees exactly one send even if
+//     concurrent/redelivered events race here.
+//
+// Best-effort like the other webhook emails: the flag is cleared before the
+// send, so a Resend failure is logged (for manual recovery) rather than left
+// to re-fire on a Stripe retry, and never 500s the webhook.
+async function maybeHandlePaymentRecovery(
+  user: UserRow,
+  opts: { newStatus: Stripe.Subscription.Status; subscriptionId: string },
+): Promise<void> {
+  if (opts.newStatus === 'past_due') {
+    getDb()
+      .prepare(
+        `UPDATE users SET payment_recovery_pending = 1, updated_at = ?
+         WHERE id = ? AND payment_recovery_pending = 0`,
+      )
+      .run(nowIso(), user.id);
+    return;
+  }
+
+  if (opts.newStatus === 'active') {
+    const claim = getDb()
+      .prepare(
+        `UPDATE users SET payment_recovery_pending = 0, updated_at = ?
+         WHERE id = ? AND payment_recovery_pending = 1`,
+      )
+      .run(nowIso(), user.id) as { changes: number | bigint };
+
+    if (Number(claim.changes) === 0) return;
+
+    try {
+      await sendPaymentRecoveredEmail(user.email);
+      logAudit({
+        type: 'payment_recovered_email_sent',
+        userId: user.id,
+        email: user.email,
+        message: `Sent payment-recovered email for sub ${opts.subscriptionId}`,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'payment-recovered email send failed';
+      logAudit({
+        type: 'payment_recovered_email_error',
+        userId: user.id,
+        email: user.email,
+        message: `Payment-recovered email send failed for sub ${opts.subscriptionId}: ${message}`,
+      });
+      // Swallow — the flag is already cleared (a retry would no-op, not
+      // re-send); the audit row records the miss. A transient Resend error
+      // must not 500 the webhook and make Stripe retry the whole event.
+    }
   }
 }
 
@@ -876,6 +951,11 @@ async function clearSubscriptionFromUser(subscription: Stripe.Subscription) {
   // subscription_lapsed = 1 is the signal maybeSendPaidWelcomeEmail consumes
   // (race-safely, via CAS) to fire a welcome-back if and when the customer
   // resubscribes. Cleared back to 0 atomically in that send path.
+  //
+  // payment_recovery_pending is disarmed here: if a past_due sub exhausts its
+  // retries and is deleted, any pending recovery email must NOT survive to
+  // fire on a later resubscribe — that return should read as a welcome-back,
+  // not a spurious "your payment went through."
   getDb()
     .prepare(
       `UPDATE users SET
@@ -886,6 +966,7 @@ async function clearSubscriptionFromUser(subscription: Stripe.Subscription) {
          current_period_end = NULL,
          cancel_at_period_end = 0,
          subscription_lapsed = 1,
+         payment_recovery_pending = 0,
          updated_at = ?
        WHERE id = ?`,
     )

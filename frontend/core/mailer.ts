@@ -38,10 +38,11 @@ function escapeHtml(value: string) {
 }
 
 // Folds of Honor Proud Supporter footer block — appended to subscriber-facing
-// emails (paid welcome, founding welcome, welcome back, referral reward) so
-// every recipient sees the pledge in every touchpoint. Deliberately compact so
-// it never dominates the message. The badge sits inside a white circular pad
-// so its red/white/navy palette doesn't clash with any parent background.
+// emails (paid welcome, founding welcome, welcome back, payment recovered,
+// referral reward) so every recipient sees the pledge in every touchpoint.
+// Deliberately compact so it never dominates the message. The badge sits inside
+// a white circular pad so its red/white/navy palette doesn't clash with any
+// parent background.
 //
 // Deliberately NOT included on transactional/auth emails (verify, password
 // reset, payment failed, checkout recovery) — those need to read urgent, not
@@ -917,6 +918,64 @@ export async function sendPaymentFailedEmail(
       </p>
       <p>If you have any questions, just reply to this email &mdash; I'm happy to help.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+    </div>
+  `.trim();
+
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject,
+    text,
+    html,
+  });
+
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
+// Sent on the past_due → active recovery — the bookend to
+// sendPaymentFailedEmail. Fires when a failed renewal is finally resolved
+// (Stripe's Smart Retry succeeds on a later attempt, or the member updates
+// their card), which re-promotes the account out of the dunning downgrade.
+// This is reassurance, not urgency, so unlike the payment-failed nudge it
+// carries the FOH footer like the other positive subscriber touchpoints.
+// Latched in the webhook (payment_recovery_pending) so it only fires after a
+// real failure, never on an ordinary renewal.
+export async function sendPaymentRecoveredEmail(to: string) {
+  const subject = "You're all set — your ZeroGEX payment went through";
+  const dashboardUrl = `${getAppUrl()}/dashboard`;
+  const safeDashboardUrl = escapeHtml(dashboardUrl);
+
+  const text = [
+    'Hello,',
+    '',
+    "Good news — the subscription payment we had trouble with earlier just went through, so your ZeroGEX account is fully active again. There's nothing more you need to do.",
+    '',
+    "If your access was interrupted while the charge sorted itself out, it's all restored now, and you can jump straight back into the data:",
+    dashboardUrl,
+    '',
+    "Sorry for the small bump. If you have any questions about the charge, just reply to this email — I'm happy to help.",
+    '',
+    'Best,',
+    'Michael',
+    'Founder, ZeroGEX',
+    '',
+    ...renderFohFooterTextLines(),
+  ].join('\n');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <p>Hello,</p>
+      <p>Good news &mdash; the subscription payment we had trouble with earlier just went through, so your ZeroGEX account is fully active again. There's nothing more you need to do.</p>
+      <p>If your access was interrupted while the charge sorted itself out, it's all restored now, and you can jump straight back into the data.</p>
+      <p style="margin: 24px 0;">
+        <a href="${safeDashboardUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Open the live dashboard</a>
+      </p>
+      <p>Sorry for the small bump. If you have any questions about the charge, just reply to this email &mdash; I'm happy to help.</p>
+      <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+      ${renderFohFooterHtml()}
     </div>
   `.trim();
 
