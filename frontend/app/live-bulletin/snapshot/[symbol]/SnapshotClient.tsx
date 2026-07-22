@@ -9,9 +9,10 @@
 // the paid page renders — no parallel implementation, no drift, one source of
 // truth.
 //
-// Data flow: all four upstream feeds (GEX summary, market quote, session
-// close, volatility gauge) are SSR-fetched in the page.tsx server component
-// using the ZEROGEX_API_TOKEN, so this client component is a pure renderer.
+// Data flow: all upstream feeds (GEX summary, market quote, session close,
+// volatility gauge, gex profile) are SSR-fetched in the page.tsx server
+// component using the ZEROGEX_API_TOKEN, so this client component is a pure
+// renderer.
 // It does NOT call the auth-gated /api/* endpoints from the browser — a
 // Playwright session has no user cookie and every hook-based fetch would
 // otherwise return 401 and never satisfy the ready selector.
@@ -50,6 +51,13 @@ interface SnapshotClientProps {
   priorClose: number | null;
   /** SSR-fetched VIX / VXN level for the expected-range band. */
   vix: number | null;
+  /**
+   * Net GEX resampled at the futures-implied open (SSR-computed off the
+   * gex-profile curve). Null in-session / when the profile is unavailable, in
+   * which case the summary's cash-spot `net_gex_at_spot` is used. See
+   * `bulletinHelpers.ReportInputs.impliedNetGex`.
+   */
+  impliedNetGex?: number | null;
   /** GEX summary's timestamp — drives the "as of" label. */
   timestamp: string | null;
 }
@@ -72,6 +80,7 @@ export default function SnapshotClient({
   spotSourceLabel = null,
   priorClose,
   vix,
+  impliedNetGex = null,
   timestamp,
 }: SnapshotClientProps) {
   const model = useMemo(
@@ -86,8 +95,20 @@ export default function SnapshotClient({
         horizon,
         spotIsProjected,
         spotSourceLabel,
+        impliedNetGex,
       }),
-    [symbol, spot, priorClose, summary, vix, volIndex, horizon, spotIsProjected, spotSourceLabel],
+    [
+      symbol,
+      spot,
+      priorClose,
+      summary,
+      vix,
+      volIndex,
+      horizon,
+      spotIsProjected,
+      spotSourceLabel,
+      impliedNetGex,
+    ],
   );
 
   const asOf = useMemo(() => {
