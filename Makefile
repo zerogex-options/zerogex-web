@@ -1,4 +1,4 @@
-.PHONY: help install dev build rebuild start stop restart logs status users referrals migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding activate-late-founder extend-trial quarterly-receipt set-cancellation clear-zombie-customers webhook-health trial-reminders verified-never-paid verify-reminders winback public-cohort cancellations diagnose-user reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth clean deploy logo blog-images
+.PHONY: help install dev build rebuild start stop restart logs status users x-handles referrals migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding activate-late-founder extend-trial quarterly-receipt set-cancellation clear-zombie-customers webhook-health trial-reminders verified-never-paid verify-reminders winback public-cohort cancellations diagnose-user reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth clean deploy logo blog-images
 
 # Default target
 help:
@@ -13,8 +13,9 @@ help:
 	@echo "  make restart    - Restart PM2 process"
 	@echo "  make logs       - View PM2 logs (live)"
 	@echo "  make status     - Check PM2 status"
-	@echo "  make users      - Print auth users + entitlements (TIER=Admin|Pro|Basic, AUTH=L|G|A, PAID=yes, TRIAL=yes, EMAIL_ONLY=yes)"
+	@echo "  make users      - Print auth users + entitlements (TIER=Admin|Pro|Basic, AUTH=L|G|A, PAID=yes, TRIAL=yes, X_ONLY=yes, EMAIL_ONLY=yes)"
 	@echo "                    Founder column: E=eligible, R=redeemed (intro 12mo), L=lifetime 25% off"
+	@echo "  make x-handles  - List only users who registered an X/Twitter handle (email + @handle). EMAIL_ONLY=yes for just emails"
 	@echo "  make referrals  - Print the referral ledger + per-referrer summary (signups, rewards, banked months)"
 	@echo "  make migrate    - Force the auth DB's lazy migration to run now (use after --start-from <step> deploys that add new columns)"
 	@echo "  make migrate-tiers - Migrate legacy starter/elite users to basic/pro (DRY_RUN=1 to preview)"
@@ -108,9 +109,16 @@ status:
 #   AUTH=L|G|A              Filter to users with that auth method (L=local, G=Google, A=Apple)
 #   PAID=yes                Filter to paying users (subscription_status='active' — excludes trialing)
 #   TRIAL=yes               Filter to users currently on a free trial (subscription_status='trialing')
+#   X_ONLY=yes              Filter to users who registered an X/Twitter handle
 #   EMAIL_ONLY=yes          Print only email addresses, one per line
 users:
-	@cd frontend && TIER='$(TIER)' AUTH='$(AUTH)' PAID='$(PAID)' TRIAL='$(TRIAL)' EMAIL_ONLY='$(EMAIL_ONLY)' bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/list-auth-users.mjs'
+	@cd frontend && TIER='$(TIER)' AUTH='$(AUTH)' PAID='$(PAID)' TRIAL='$(TRIAL)' X_ONLY='$(X_ONLY)' EMAIL_ONLY='$(EMAIL_ONLY)' bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/list-auth-users.mjs'
+
+# Print only the users who have registered an X/Twitter handle, alongside their
+# email + the handle. Thin wrapper over `make users` with X_ONLY=yes (same auth
+# DB, same X Handle column). EMAIL_ONLY=yes trims it to bare emails.
+x-handles:
+	@cd frontend && X_ONLY=yes EMAIL_ONLY='$(EMAIL_ONLY)' bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/list-auth-users.mjs'
 
 # Print the referral ledger from SQLite: every referrer->referee relationship
 # with its status (pending/rewarded) and dates, a per-referrer summary, and
