@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { serverApiGet } from '@/core/api/serverFetch';
+import { isIndexSymbol } from '@/core/utils';
 import type { SessionClosesData } from '@/hooks/useApiData';
 import type { PriceBar } from '@/hooks/useMarketHistorical';
 import type { StrikeProfileStrike } from '@/hooks/useStrikeProfileTimeseries';
@@ -100,10 +101,11 @@ export async function loadChartSnapshot(
   timeframe: ChartTimeframe = '5min',
 ): Promise<ChartSnapshot | null> {
   const q = symbolQ(symbol);
+  // ETFs opt into allow_futures for after-hours bars; cash indexes don't (they
+  // freeze at the 16:00 close), matching the live chart.
+  const futuresParam = isIndexSymbol(symbol) ? '' : '&allow_futures=1';
   const [barsRaw, profile, summary, quote, closes, technicals, buckets] = await Promise.all([
-    // allow_futures=1 so the delayed view keeps ticking after hours too (matches
-    // the live chart, which now also opts in).
-    serverApiGet<RawBar[]>(`/api/market/historical?${q}&timeframe=${encodeURIComponent(timeframe)}&window_units=${WINDOW_UNITS}&allow_futures=1`, DELAY_SECONDS),
+    serverApiGet<RawBar[]>(`/api/market/historical?${q}&timeframe=${encodeURIComponent(timeframe)}&window_units=${WINDOW_UNITS}${futuresParam}`, DELAY_SECONDS),
     serverApiGet<RawProfile>(`/api/gex/profile?${q}`, DELAY_SECONDS),
     serverApiGet<RawSummary>(`/api/gex/summary?${q}`, DELAY_SECONDS),
     serverApiGet<RawQuote>(`/api/market/quote?${q}`, DELAY_SECONDS),
