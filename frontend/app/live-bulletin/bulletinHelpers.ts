@@ -52,6 +52,17 @@ export interface ReportInputs {
    */
   spotIsProjected?: boolean;
   spotSourceLabel?: string | null;
+  /**
+   * Net GEX resampled at the futures-implied open, read off the
+   * `/api/gex/profile` spot-shift curve (see {@link sampleGexProfile}).
+   * Supplied ONLY when `spot` is a projection: the summary's
+   * `net_gex_at_spot` was evaluated at the frozen cash spot, which during an
+   * overnight gap sits on the OPPOSITE side of the flip from the implied open
+   * — so quoting it makes the auto-lead's "dealers are long/short gamma"
+   * posture contradict the spot-vs-flip regime. When null (in-session, or the
+   * profile is unavailable) the summary's `net_gex_at_spot` is used unchanged.
+   */
+  impliedNetGex?: number | null;
 }
 
 // The IV-derived expected-move band plus how the dealer-gamma walls sit
@@ -281,6 +292,44 @@ export function projectedIndexSpot(
   };
 }
 
+/**
+ * Sample the spot-shift dealer dollar-gamma curve (`/api/gex/profile`) at an
+ * arbitrary price — the frontend twin of the engine's `_net_gex_at_spot`.
+ *
+ * The curve is ascending by price and its value at the cash `spot_price` IS the
+ * summary's `net_gex_at_spot`; its zero crossing is the `gamma_flip`. Sampling
+ * it at the futures-implied open therefore yields the net GEX the book would
+ * carry AT THAT open — which, unlike the frozen cash-spot figure, sits on the
+ * same side of the flip as the projected spot (so the "long/short gamma"
+ * posture can't contradict the regime badge).
+ *
+ * Piecewise-linear between grid points and clamped to the endpoints outside the
+ * grid — identical to the engine, so the two agree exactly at the cash spot.
+ * Returns null when the curve or price is unusable, so the caller falls back to
+ * the summary's `net_gex_at_spot`.
+ */
+export function sampleGexProfile(
+  profile: ReadonlyArray<{ price: number; gex: number }> | null | undefined,
+  price: number | null | undefined,
+): number | null {
+  if (price == null || !Number.isFinite(price) || !profile) return null;
+  const pts = profile.filter((p) => p && Number.isFinite(p.price) && Number.isFinite(p.gex));
+  if (pts.length === 0) return null;
+  const first = pts[0];
+  const last = pts[pts.length - 1];
+  if (price <= first.price) return first.gex;
+  if (price >= last.price) return last.gex;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i];
+    const b = pts[i + 1];
+    if (a.price <= price && price <= b.price) {
+      if (b.price === a.price) return b.gex;
+      return a.gex + ((b.gex - a.gex) * (price - a.price)) / (b.price - a.price);
+    }
+  }
+  return last.gex;
+}
+
 export function buildReportModel(inputs: ReportInputs): ReportModel {
   const { symbol, summary } = inputs;
   const spot = pickNumber(inputs.spot, summary?.spot_price);
@@ -288,13 +337,19 @@ export function buildReportModel(inputs: ReportInputs): ReportModel {
   const callWall = pickNumber(summary?.call_wall);
   const putWall = pickNumber(summary?.put_wall);
   const maxPain = pickNumber(summary?.max_pain);
-  // Prefer net GEX evaluated AT SPOT (fall back to the chain-wide total only
-  // when at-spot is unavailable). This is the value every other Net-GEX surface
-  // on the site shows (dashboard, gamma-exposure, greeks-gex, the free
-  // gamma-levels cards), and its sign agrees with the spot-vs-flip regime — so
-  // the auto-lead's "dealers are long/short gamma" can never contradict the
-  // regime badge or the metric card the way the chain-wide total could.
-  const netGex = pickNumber(summary?.net_gex_at_spot, summary?.net_gex);
+  // Prefer net GEX evaluated AT THE DISPLAYED SPOT (fall back to the chain-wide
+  // total only when at-spot is unavailable). This is the value every other
+  // Net-GEX surface on the site shows (dashboard, gamma-exposure, greeks-gex,
+  // the free gamma-levels cards), and its sign agrees with the spot-vs-flip
+  // regime — so the auto-lead's "dealers are long/short gamma" can never
+  // contradict the regime badge or the metric card the way the chain-wide
+  // total could.
+  //
+  // When `spot` is a futures-implied open, `impliedNetGex` (resampled at that
+  // price off the gex-profile curve) takes precedence over the summary's
+  // `net_gex_at_spot`, which was frozen at the cash spot on the far side of the
+  // flip — see ReportInputs.impliedNetGex.
+  const netGex = pickNumber(inputs.impliedNetGex, summary?.net_gex_at_spot, summary?.net_gex);
   const putCallRatio = pickNumber(summary?.put_call_ratio);
 
   const priorClose = pickNumber(inputs.priorClose);

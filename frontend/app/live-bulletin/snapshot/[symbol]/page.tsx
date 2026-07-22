@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { serverApiGet } from '@/core/api/serverFetch';
 import { resolveSymbol } from '@/core/symbols';
-import { projectedIndexSpot, type HorizonKey } from '../../bulletinHelpers';
+import { projectedIndexSpot, sampleGexProfile, type HorizonKey } from '../../bulletinHelpers';
 import SnapshotClient from './SnapshotClient';
 
 // Public snapshot of the Live Bulletin card, sized for a headless-browser
@@ -37,7 +37,7 @@ function coerceHorizon(raw: string | undefined): HorizonKey {
     : 'daily';
 }
 
-// Minimal shape of the four upstream endpoints — just the fields the
+// Minimal shape of the upstream endpoints — just the fields the
 // GammaReportCard reads.  Kept in the page (server component) so the
 // client bundle doesn't ship the whole GEXSummary row typedef.
 interface GexSummaryResponse {
@@ -76,6 +76,12 @@ interface VolatilityGaugeResponse {
   index?: number | null;
 }
 
+// Spot-shift dealer-gamma curve — sampled at the implied open so the Net GEX /
+// posture reads on the same side of the flip as the projected spot.
+interface GexProfileResponse {
+  profile?: Array<{ price: number; gex: number }> | null;
+}
+
 export default async function SnapshotPage({
   params,
   searchParams,
@@ -103,14 +109,15 @@ export default async function SnapshotPage({
   // QQQ's implied-vol input is VXN (Nasdaq-100); everything else uses VIX.
   const volIndex: 'VIX' | 'VXN' = symbol === 'QQQ' ? 'VXN' : 'VIX';
 
-  // SSR the four data feeds in parallel.  Any individual failure
+  // SSR the five data feeds in parallel.  Any individual failure
   // returns null and the card gracefully hides that field (matches
   // the paid page's behavior when a hook returns undefined).
-  const [summary, quote, sessionCloses, volGauge] = await Promise.all([
+  const [summary, quote, sessionCloses, volGauge, gexProfile] = await Promise.all([
     serverApiGet<GexSummaryResponse>(`/api/gex/summary?symbol=${symbol}`, 0),
     serverApiGet<MarketQuoteResponse>(`/api/market/quote?symbol=${symbol}`, 0),
     serverApiGet<SessionClosesResponse>(`/api/market/session-closes?symbol=${symbol}`, 0),
     serverApiGet<VolatilityGaugeResponse>(`/api/market/volatility?ticker=${volIndex}`, 0),
+    serverApiGet<GexProfileResponse>(`/api/gex/profile?symbol=${symbol}`, 0),
   ]);
 
   const priorClose = sessionCloses?.current_session_close ?? null;
@@ -121,6 +128,11 @@ export default async function SnapshotPage({
   const projection = projectedIndexSpot(quote, priorClose);
   const spot = projection?.spot ?? quote?.close ?? summary?.spot_price ?? null;
   const vix = volGauge?.index ?? null;
+  // When the spot is a futures-implied open, re-evaluate net GEX at that price
+  // off the gex-profile curve so the posture matches the projected spot's side
+  // of the flip (the summary's net_gex_at_spot is frozen at the cash spot).
+  const impliedNetGex =
+    projection != null ? sampleGexProfile(gexProfile?.profile, spot) : null;
 
   return (
     <SnapshotClient
@@ -135,6 +147,7 @@ export default async function SnapshotPage({
       spotSourceLabel={projection?.sourceLabel ?? null}
       priorClose={priorClose}
       vix={vix}
+      impliedNetGex={impliedNetGex}
       timestamp={summary?.timestamp ?? null}
     />
   );
