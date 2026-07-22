@@ -56,7 +56,12 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 
-import { sendWinbackEmail } from '../core/mailer.ts';
+import {
+  renderWinbackEmail,
+  sendWinbackDigestEmail,
+  sendWinbackEmail,
+  type WinbackHighlight,
+} from '../core/mailer.ts';
 
 // Public limited-time promo deadline. Resolved at script-load from
 // PROMO_END_AT — kept local to this script so it doesn't import the
@@ -82,7 +87,13 @@ function getActivePromoDeadlineLabelLocal(): string | null {
 // so nobody slips through a tick) that also bounds the first-deploy blast to
 // only the last two months of churn instead of the entire back catalogue.
 const DEFAULT_LAG_DAYS = 30;
-const DEFAULT_LOOKBACK_DAYS = 60;
+// Effectively unbounded: the weekly job should "catch ALL users who cancelled
+// 30+ days ago and haven't been contacted yet", not just a rolling 30–60 day
+// slice. The winback_email_sent_at latch already prevents re-contacting anyone,
+// so a wide ceiling just lets the very first run sweep the whole backlog; steady
+// state is only ever the handful who newly cross the 30-day line each week. Pass
+// --lookback-days to narrow it (e.g. bounding a first-run blast).
+const DEFAULT_LOOKBACK_DAYS = 3650;
 
 type WinbackMode = 'auto' | 'promo' | 'manual';
 
@@ -94,6 +105,11 @@ type Args = {
   lookbackDays: number;
   previewTo: string | null;
   previewMode: WinbackMode | null;
+  // Review mode: email the eligible list + rendered draft to this address and
+  // send nothing to users. Falls back to WINBACK_DIGEST_TO env when the flag is
+  // passed with no value.
+  digest: boolean;
+  digestTo: string | null;
 };
 
 function parseEnvFile(filePath: string): Record<string, string> {
@@ -127,6 +143,8 @@ function parseArgs(argv: string[]): Args {
     lookbackDays: DEFAULT_LOOKBACK_DAYS,
     previewTo: null,
     previewMode: null,
+    digest: false,
+    digestTo: null,
   };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -154,6 +172,14 @@ function parseArgs(argv: string[]): Args {
         process.exit(1);
       }
       args.previewMode = value;
+    } else if (arg === '--digest') {
+      args.digest = true;
+      // Optional recipient right after the flag; otherwise WINBACK_DIGEST_TO env.
+      const next = argv[i + 1];
+      if (next && !next.startsWith('-')) {
+        args.digestTo = next;
+        i++;
+      }
     } else if (arg === '--help' || arg === '-h') args.help = true;
   }
   return args;
@@ -162,7 +188,7 @@ function parseArgs(argv: string[]): Args {
 function usage() {
   console.log(`Usage:
   node --experimental-strip-types scripts/send-winback.mts \\
-    [--dry-run | --yes] [--lag-days N] [--lookback-days N] \\
+    [--dry-run | --yes | --digest [email]] [--lag-days N] [--lookback-days N] \\
     [--preview-to <email>] [--preview-mode auto|promo|manual]
 
 Finds churned users (subscription actually lapsed) whose most-recent departure
@@ -182,12 +208,19 @@ Eligibility mirrors list-public-cohort.mjs's churned bucket:
   - users.email_verified_at IS NOT NULL
   - users.tier != 'admin'
   - users.winback_email_sent_at IS NULL
+  - users.deleted_at IS NULL          (self-deleted accounts opt out of all mail)
   - MAX(stripe_subscription_deleted audit event) in
-    [now - LOOKBACK_DAYS, now - LAG_DAYS] (defaults ${DEFAULT_LOOKBACK_DAYS}d / ${DEFAULT_LAG_DAYS}d)
+    [now - LOOKBACK_DAYS, now - LAG_DAYS] (defaults ${DEFAULT_LOOKBACK_DAYS}d / ${DEFAULT_LAG_DAYS}d).
+    The wide default lookback means the weekly job catches EVERY 30+-day churner
+    who hasn't been emailed, not just a rolling window.
 
 Options:
       --dry-run                Print eligible users; no email, no DB writes.
   -y, --yes                    Send emails and stamp users.
+      --digest [email]         Review mode: email the eligible list + rendered
+                               draft to <email> (or WINBACK_DIGEST_TO) and send
+                               NOTHING to users. This is the weekly cron default;
+                               approve by running with --yes. No DB writes.
       --lag-days N             Days to wait after churn before we'll email
                                (default ${DEFAULT_LAG_DAYS}).
       --lookback-days N        Oldest churn we'll act on (default ${DEFAULT_LOOKBACK_DAYS}).
@@ -248,9 +281,14 @@ if (cliArgs.help) {
   process.exit(0);
 }
 
-const exclusiveFlags = [cliArgs.dryRun, cliArgs.yes, !!cliArgs.previewTo].filter(Boolean).length;
+const exclusiveFlags = [
+  cliArgs.dryRun,
+  cliArgs.yes,
+  !!cliArgs.previewTo,
+  cliArgs.digest,
+].filter(Boolean).length;
 if (exclusiveFlags > 1) {
-  console.error('Error: --dry-run, --yes, and --preview-to are mutually exclusive.');
+  console.error('Error: --dry-run, --yes, --preview-to, and --digest are mutually exclusive.');
   process.exit(1);
 }
 
@@ -262,7 +300,10 @@ const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || envLocal.RESEND_FROM_
 const NEXT_PUBLIC_APP_URL =
   process.env.NEXT_PUBLIC_APP_URL || envLocal.NEXT_PUBLIC_APP_URL || '';
 
-if ((cliArgs.yes || cliArgs.previewTo) && (!RESEND_API_KEY || !RESEND_FROM_EMAIL)) {
+if (
+  (cliArgs.yes || cliArgs.previewTo || cliArgs.digest) &&
+  (!RESEND_API_KEY || !RESEND_FROM_EMAIL)
+) {
   console.error('Error: RESEND_API_KEY and RESEND_FROM_EMAIL must be set to send emails.');
   process.exit(1);
 }
@@ -282,6 +323,45 @@ const envValue = (key: string): string =>
 // Copy label for the discount, shown in the auto + manual email variants. MUST
 // match the actual STRIPE_COUPON_WINBACK_* value the checkout route applies.
 const WINBACK_DISCOUNT_LABEL = envValue('WINBACK_DISCOUNT_LABEL') || '25% off your first year';
+
+// Review-digest recipient (the founder). --digest <email> wins, else the
+// WINBACK_DIGEST_TO env. Validated at the digest branch below.
+const digestTo = cliArgs.digestTo || envValue('WINBACK_DIGEST_TO') || null;
+
+// Evergreen "what's new" bullets, read from content/winback-highlights.json so
+// the copy can be refreshed without a code change. Any problem (missing file,
+// bad JSON, wrong shape) logs a warning and returns null, and the mailer falls
+// back to its built-in DEFAULT_WINBACK_HIGHLIGHTS — the send never breaks over
+// editable content.
+function readHighlights(): WinbackHighlight[] | undefined {
+  const file = path.join(cwd, 'content', 'winback-highlights.json');
+  if (!fs.existsSync(file)) return undefined;
+  try {
+    const parsed = JSON.parse(fs.readFileSync(file, 'utf8')) as {
+      highlights?: Array<{ title?: unknown; body?: unknown }>;
+    };
+    const list = (parsed.highlights ?? [])
+      .filter(
+        (h): h is WinbackHighlight =>
+          typeof h?.title === 'string' &&
+          h.title.trim().length > 0 &&
+          typeof h?.body === 'string' &&
+          h.body.trim().length > 0,
+      )
+      .map((h) => ({ title: h.title.trim(), body: h.body.trim() }));
+    if (list.length === 0) {
+      console.warn('Warning: content/winback-highlights.json has no valid highlights; using defaults.');
+      return undefined;
+    }
+    return list;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn(`Warning: could not read content/winback-highlights.json (${message}); using defaults.`);
+    return undefined;
+  }
+}
+
+const winbackHighlights = readHighlights();
 
 // The automated one-click path is "available" only when ALL FOUR win-back
 // coupons are configured — the churner can pick any (tier, cadence), so the
@@ -310,12 +390,16 @@ const resolvedMode: WinbackMode = winbackAutoAvailable
 // degrades to the manual copy on its own.
 function optsForMode(mode: WinbackMode) {
   if (mode === 'auto') {
-    return { winbackAutoApply: true, discountLabel: WINBACK_DISCOUNT_LABEL };
+    return {
+      winbackAutoApply: true,
+      discountLabel: WINBACK_DISCOUNT_LABEL,
+      highlights: winbackHighlights,
+    };
   }
   if (mode === 'promo') {
-    return { promoDeadlineLabel, discountLabel: WINBACK_DISCOUNT_LABEL };
+    return { promoDeadlineLabel, discountLabel: WINBACK_DISCOUNT_LABEL, highlights: winbackHighlights };
   }
-  return { discountLabel: WINBACK_DISCOUNT_LABEL };
+  return { discountLabel: WINBACK_DISCOUNT_LABEL, highlights: winbackHighlights };
 }
 
 if (cliArgs.previewTo) {
@@ -373,6 +457,7 @@ const eligible = querySqlite<UserRow>(
      AND u.email_verified_at IS NOT NULL
      AND u.tier != 'admin'
      AND u.winback_email_sent_at IS NULL
+     AND u.deleted_at IS NULL
    GROUP BY u.id, u.email
    HAVING MAX(a.created_at) >= '${escapeSqlLiteral(lowIso)}'
       AND MAX(a.created_at) <= '${escapeSqlLiteral(highIso)}'
@@ -402,6 +487,30 @@ for (const u of sample) {
 }
 if (eligible.length > sample.length) {
   console.log(`  ... and ${eligible.length - sample.length} more`);
+}
+
+// Review digest: email the founder the full recipient list + the rendered draft
+// (in the mode the real send would use) and stop. Nothing goes to users, no DB
+// writes — the actual send is a separate, deliberate `make winback YES=1`.
+if (cliArgs.digest) {
+  if (!digestTo) {
+    console.error(
+      'Error: --digest needs a recipient. Pass --digest <email> or set WINBACK_DIGEST_TO in .env.local.',
+    );
+    process.exit(1);
+  }
+  const draft = renderWinbackEmail(optsForMode(resolvedMode));
+  const sendCommand = 'make winback YES=1';
+  await sendWinbackDigestEmail(digestTo, {
+    recipients: eligible.map((u) => u.email),
+    mode: resolvedMode,
+    sendCommand,
+    draft,
+  });
+  console.log(
+    `\n[digest] Review email sent to ${digestTo}: ${eligible.length} recipient(s) listed, draft embedded. No user emails sent — run \`${sendCommand}\` to deliver.`,
+  );
+  process.exit(0);
 }
 
 if (cliArgs.dryRun) {

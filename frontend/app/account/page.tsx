@@ -4,7 +4,7 @@ import { FormEvent, Suspense, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Bell, CreditCard, Copy, Fingerprint, Gift, KeyRound, Link2, Mail, Rocket, Settings, ShieldCheck } from 'lucide-react';
+import { Bell, CreditCard, Copy, Fingerprint, Gift, KeyRound, Link2, Mail, Rocket, Settings, ShieldCheck, Trash2 } from 'lucide-react';
 import { AUTH_TIERS, normalizeTier, TierId } from '@/core/auth';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import VerifyEmailBanner from '@/components/VerifyEmailBanner';
@@ -45,6 +45,10 @@ type BillingStatusPayload = {
 };
 
 const PASSWORD_MIN_LENGTH = 12;
+
+// Type-to-confirm guard word for account deletion. Kept as a fixed token (not
+// translated) so the confirmation is unambiguous regardless of UI language.
+const DELETE_CONFIRM_WORD = 'DELETE';
 
 const C = {
   card: 'var(--color-surface)',
@@ -101,6 +105,10 @@ function AccountPageContent() {
   const [xHandleLoading, setXHandleLoading] = useState(true);
   const [savingXHandle, setSavingXHandle] = useState(false);
   const [xHandleError, setXHandleError] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const refreshIdentities = async () => {
     setIdentitiesLoading(true);
@@ -378,6 +386,37 @@ function AccountPageContent() {
       setFeedback({ type: 'error', message: t('somethingWentWrong') });
     } finally {
       setOpening(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleteError(null);
+    setDeletingAccount(true);
+    try {
+      const csrfResponse = await fetch('/api/auth/csrf', { credentials: 'include' });
+      const csrf = (await csrfResponse.json()) as { csrfToken?: string };
+      if (!csrf.csrfToken) {
+        setDeleteError(t('csrfError'));
+        return;
+      }
+      const response = await fetch('/api/account/delete', {
+        method: 'POST',
+        headers: { 'x-csrf-token': csrf.csrfToken, 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+      const payload = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!response.ok) {
+        setDeleteError(payload.error ?? t('deleteAccountFailed'));
+        return;
+      }
+      // Full navigation (not router.push) so the cleared session cookie and the
+      // in-memory auth store both reset — a soft-routed transition would keep
+      // the stale "authenticated" state around.
+      window.location.href = '/?account_deleted=1';
+    } catch {
+      setDeleteError(t('somethingWentWrong'));
+    } finally {
+      setDeletingAccount(false);
     }
   };
 
@@ -988,9 +1027,111 @@ function AccountPageContent() {
             )}
           </section>
         )}
+
+        <section id="delete-account" style={{ marginTop: 24 }}>
+          <SectionHeading icon={<Trash2 size={18} />}>{t('dangerZoneTitle')}</SectionHeading>
+          <p style={{ margin: '6px 0 14px', color: C.muted, fontSize: 14 }}>
+            {t('deleteAccountDescription')}
+          </p>
+          {!showDeleteConfirm ? (
+            <button
+              type="button"
+              onClick={() => {
+                setShowDeleteConfirm(true);
+                setDeleteError(null);
+                setDeleteConfirmText('');
+              }}
+              style={destructiveButtonStyle(false)}
+            >
+              {t('deleteAccountButton')}
+            </button>
+          ) : (
+            <div
+              style={{
+                padding: '14px 16px',
+                borderRadius: 12,
+                border: '1px solid var(--color-bear)',
+                background: 'var(--color-bear-soft)',
+              }}
+            >
+              <p style={{ margin: '0 0 8px', color: C.light, fontSize: 14, fontWeight: 700 }}>
+                {t('deleteAccountConfirmTitle')}
+              </p>
+              <p style={{ margin: '0 0 12px', color: C.muted, fontSize: 13 }}>
+                {t('deleteAccountConfirmBody', { word: DELETE_CONFIRM_WORD })}
+              </p>
+              <input
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder={DELETE_CONFIRM_WORD}
+                aria-label={t('deleteAccountConfirmAria')}
+                autoComplete="off"
+                style={{
+                  width: '100%',
+                  maxWidth: 260,
+                  padding: '9px 12px',
+                  borderRadius: 10,
+                  border: `1px solid ${C.border}`,
+                  background: 'var(--color-surface)',
+                  color: C.light,
+                  fontSize: 14,
+                  fontWeight: 600,
+                  outline: 'none',
+                }}
+              />
+              <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  disabled={
+                    deletingAccount ||
+                    deleteConfirmText.trim().toUpperCase() !== DELETE_CONFIRM_WORD
+                  }
+                  onClick={handleDeleteAccount}
+                  style={destructiveButtonStyle(
+                    deletingAccount ||
+                      deleteConfirmText.trim().toUpperCase() !== DELETE_CONFIRM_WORD,
+                  )}
+                >
+                  {deletingAccount ? t('deletingAccount') : t('deleteAccountConfirmButton')}
+                </button>
+                <button
+                  type="button"
+                  disabled={deletingAccount}
+                  onClick={() => {
+                    setShowDeleteConfirm(false);
+                    setDeleteConfirmText('');
+                    setDeleteError(null);
+                  }}
+                  style={secondaryButtonStyle(deletingAccount)}
+                >
+                  {t('cancel')}
+                </button>
+              </div>
+              {deleteError && (
+                <p style={{ margin: '10px 0 0', color: 'var(--color-bear)', fontSize: 13 }}>
+                  {deleteError}
+                </p>
+              )}
+            </div>
+          )}
+        </section>
       </div>
     </main>
   );
+}
+
+function destructiveButtonStyle(disabled: boolean): React.CSSProperties {
+  return {
+    background: 'var(--color-bear)',
+    border: '1px solid var(--color-bear)',
+    color: 'var(--text-inverse, #ffffff)',
+    borderRadius: 10,
+    padding: '9px 16px',
+    fontWeight: 800,
+    fontSize: 13,
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    opacity: disabled ? 0.5 : 1,
+  };
 }
 
 function SectionHeading({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {

@@ -94,6 +94,16 @@ export const dict: PageDictionary = {
     xHandleSaved: 'X handle saved.',
     xHandleRemoved: 'X handle removed.',
     couldNotOpenBillingPortal: 'Could not open billing portal.',
+    dangerZoneTitle: 'Delete account',
+    deleteAccountDescription:
+      'Permanently delete your ZeroGEX account. Any active subscription is cancelled and you’ll be signed out. This also stops all emails from us. This cannot be undone from here — you’d need to contact support to restore access.',
+    deleteAccountButton: 'Delete my account',
+    deleteAccountConfirmTitle: 'Are you sure? This is permanent.',
+    deleteAccountConfirmBody: 'Type {word} to confirm. Your subscription will be cancelled and you’ll be signed out immediately.',
+    deleteAccountConfirmAria: 'Type DELETE to confirm account deletion',
+    deleteAccountConfirmButton: 'Permanently delete account',
+    deletingAccount: 'Deleting…',
+    deleteAccountFailed: 'Could not delete your account. Please try again.',
   },
   it: {
     loadingAccount: 'Caricamento account...',

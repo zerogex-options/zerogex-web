@@ -1,0 +1,17 @@
+{
+  "_note": "The 'what's new since you left' bullets in the ~1-month win-back email (scripts/send-winback.mts reads this; core/mailer.ts renders it). Edit freely to keep the email evergreen — no code change or redeploy of the app is needed, the next send picks it up. Keep it to 2-4 punchy items; 'title' is bolded, 'body' follows an em-dash. If this file is missing or invalid, the sender falls back to DEFAULT_WINBACK_HIGHLIGHTS in core/mailer.ts.",
+  "highlights": [
+    {
+      "title": "Backtesting",
+      "body": "test any options strategy against historical market data, with a full tearsheet, Monte Carlo cone, benchmark, and a shareable report you can send to anyone."
+    },
+    {
+      "title": "TradeWorkz™ automated bots",
+      "body": "a fleet of bots that post their entries and exits in real time, backed by a fully public trade audit that shows every win and loss, not just the highlights."
+    },
+    {
+      "title": "Sharper gamma levels & Live Bulletin",
+      "body": "a rebuilt net-GEX methodology so the levels, cards, and daily reads all agree, plus a faster dashboard across the board."
+    }
+  ]
+}
