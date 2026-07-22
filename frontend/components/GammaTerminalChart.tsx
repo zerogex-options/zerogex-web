@@ -272,7 +272,7 @@ export default function GammaTerminalChart({
   const [rewindActive, setRewindActive] = useState(false);
   const [rewindTime, setRewindTime] = useState<number | null>(null);
   const [playbackActive, setPlaybackActive] = useState(false);
-  const [playbackSpeed, setPlaybackSpeed] = useState<1 | 2 | 4>(1);
+  const [playbackSpeed, setPlaybackSpeed] = useState<1 | 4 | 16>(1);
   // Sticky preference: when on, playback wraps back to the earliest replayable
   // bar at the live edge instead of stopping (kept across enter/exit rewind).
   const [playbackLoop, setPlaybackLoop] = useState(false);
@@ -1033,7 +1033,14 @@ export default function GammaTerminalChart({
     const smooth = style === "candles" && subTf != null;
     const subMs = smooth && subTf ? tfMinutes(subTf) * 60 * 1000 : bucketMs;
     const stepsPerCandle = Math.max(1, Math.round(bucketMs / subMs));
-    const tickMs = Math.max(60, Math.round(700 / stepsPerCandle / playbackSpeed));
+    // Target one candle every ~700ms / speed, spread across its sub-steps. Past
+    // MIN_TICK the tick rate is capped and we advance MULTIPLE units per tick
+    // instead — so 4× and 16× stay genuinely 4×/16× (a plain tick-rate cut would
+    // floor them to the same speed) without flooding React with re-renders.
+    const MIN_TICK = 60;
+    const msPerUnit = 700 / stepsPerCandle / playbackSpeed;
+    const unitsPerTick = Math.max(1, Math.ceil(MIN_TICK / msPerUnit));
+    const tickMs = Math.max(MIN_TICK, Math.round(msPerUnit * unitsPerTick));
     const id = setInterval(() => {
       const arr = allBarsRef.current;
       const subs = subBarsRef.current;
@@ -1047,25 +1054,25 @@ export default function GammaTerminalChart({
       const liveEdge = barStartMs(arr, lastIdx) + bucketMs - 1;
       let next: number | null;
       if (smooth) {
-        // Advance to the next real sub-bar after the clock (skips closed-hours
+        // Advance unitsPerTick real sub-bars past the clock (skips closed-hours
         // gaps, since sub-bars are session-only).
-        next = null;
-        for (const s of subs) {
-          if (s.ms > prev) {
-            next = s.ms;
+        let startI = -1;
+        for (let i = 0; i < subs.length; i++) {
+          if (subs[i].ms > prev) {
+            startI = i;
             break;
           }
         }
+        next = startI < 0 ? null : subs[Math.min(subs.length - 1, startI + unitsPerTick - 1)].ms;
       } else {
-        // Per-candle: jump to the end of the next candle.
+        // Per-candle: jump unitsPerTick candles forward (to the candle's end).
         let idx = 0;
         for (let i = 0; i < arr.length; i++) {
           const t = barStartMs(arr, i);
           if (Number.isFinite(t) && t <= prev) idx = i;
           else break;
         }
-        const ni = idx + 1;
-        next = ni <= lastIdx ? barStartMs(arr, ni) + bucketMs - 1 : null;
+        next = idx >= lastIdx ? null : barStartMs(arr, Math.min(lastIdx, idx + unitsPerTick)) + bucketMs - 1;
       }
       if (next == null || next > liveEdge) {
         // Reached the live edge: loop back to the earliest replayable candle and
@@ -1783,7 +1790,7 @@ export default function GammaTerminalChart({
                 <Repeat size={13} />
               </button>
               <div className="zg-gc-seg" aria-label="Playback speed">
-                {([1, 2, 4] as const).map((s) => (
+                {([1, 4, 16] as const).map((s) => (
                   <button key={s} type="button" className="zg-gc-seg-btn" data-active={playbackSpeed === s} onClick={() => setPlaybackSpeed(s)}>
                     {s}×
                   </button>
