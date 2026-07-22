@@ -54,6 +54,7 @@ if (!fs.existsSync(dbPath)) {
 const emailOnly = isTruthy(process.env.EMAIL_ONLY);
 const paidOnly = isTruthy(process.env.PAID);
 const trialOnly = isTruthy(process.env.TRIAL);
+const xOnly = isTruthy(process.env.X_ONLY);
 const tierFilterRaw = (process.env.TIER || '').trim().toLowerCase();
 const authFilterRaw = (process.env.AUTH || '').trim().toUpperCase();
 
@@ -77,6 +78,7 @@ const hasFoundingLifetime = userCols.has('founding_lifetime_applied_at');
 const hasStripeSub = userCols.has('stripe_subscription_id');
 const hasSubStatus = userCols.has('subscription_status');
 const hasEmailVerified = userCols.has('email_verified_at');
+const hasXHandle = userCols.has('x_handle');
 
 const baseCols = ['id', 'email', 'tier', 'password_hash', 'created_at'];
 if (hasLegacyProvider) baseCols.push('provider', 'provider_id');
@@ -87,6 +89,7 @@ if (hasFoundingLifetime) baseCols.push('founding_lifetime_applied_at');
 if (hasStripeSub) baseCols.push('stripe_subscription_id');
 if (hasSubStatus) baseCols.push('subscription_status');
 if (hasEmailVerified) baseCols.push('email_verified_at');
+if (hasXHandle) baseCols.push('x_handle');
 const rows = db.prepare(`SELECT ${baseCols.join(', ')} FROM users ORDER BY created_at DESC`).all();
 
 // Most recent login_success per user. Single grouped query is cheaper than
@@ -224,11 +227,15 @@ const records = rows
       disclaimer: disclaimerAccepted(row),
       createdAt: formatDate(row.created_at),
       lastLoginAt: formatDate(lastLoginByUser.get(row.id) ?? null),
+      // Stored normalized without the leading '@' (see setUserXHandle in
+      // core/serverAuth); coerce '' to null so xOnly and the display agree.
+      xHandle: hasXHandle ? row.x_handle || null : null,
     };
   })
   .filter((rec) => {
     if (paidOnly && !rec.paid) return false;
     if (trialOnly && !rec.trial) return false;
+    if (xOnly && !rec.xHandle) return false;
     if (tierFilterRaw && rec.tier.toLowerCase() !== tierFilterRaw) return false;
     if (authFilterRaw && !rec.flags[authFilterRaw]) return false;
     return true;
@@ -251,7 +258,7 @@ if (emailOnly) {
   process.exit(0);
 }
 
-const headers = ['User ID', 'Email', 'Tier', 'Auth', 'Disclaimer', 'Created', 'Last login'];
+const headers = ['User ID', 'Email', 'X Handle', 'Tier', 'Auth', 'Disclaimer', 'Created', 'Last login'];
 const tierLabelFor = (t) => TIER_LABEL[t] ?? t.charAt(0).toUpperCase() + t.slice(1);
 
 function tierCell(rec) {
@@ -262,6 +269,7 @@ function tierCell(rec) {
 const tableRows = sortedRecords.map((rec) => [
   rec.id,
   rec.email,
+  rec.xHandle ? `@${rec.xHandle}` : '—',
   tierCell(rec),
   rec.authString,
   rec.disclaimer ? '✓' : '',
@@ -305,6 +313,8 @@ console.log(`              ${ICON_PAID} active paying Stripe subscription (subsc
 console.log(`              ${ICON_TRIAL} on free trial (subscription_status='trialing', card collected but not yet charged)`);
 console.log(`              ${ICON_FOUNDER} founding member (eligible, redeemed, or on lifetime discount)`);
 console.log(`              ${ICON_VERIFIED} email verified (link clicked, OAuth, or pre-cutover backfill)`);
+console.log('  X Handle    User-supplied X/Twitter handle (Account → Social Media); — if unset.');
+console.log('              Set X_ONLY=yes to list only users who registered one.');
 console.log('  Auth        L = local password, G = Google, A = Apple (- if absent)');
 console.log('  Disclaimer  ✓ = acknowledged the current disclaimer version');
 console.log('  Last login  Most recent /api/auth/login success; — for users');
