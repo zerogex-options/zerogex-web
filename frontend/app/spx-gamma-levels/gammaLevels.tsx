@@ -936,8 +936,8 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
                 <ArrowRight size={16} style={{ color: 'var(--color-text-secondary)' }} />
               </div>
               <div style={{ fontSize: 13, lineHeight: 1.55, color: 'var(--color-text-secondary)' }}>
-                Every morning at 7 AM ET we commit to a projected range, pin strike, and regime call —
-                hashed and immutable. Every afternoon we grade ourselves in public.
+                Every morning before the open we commit to a projected range, an expected-volatility
+                call, and key gamma levels — hashed and immutable. Every afternoon we grade ourselves in public.
               </div>
             </Link>
 

@@ -4,19 +4,24 @@ import { revalidatePath } from 'next/cache';
 
 // On-demand ISR revalidation for the Gamma Forecast surfaces.
 //
-// The /forecast landing page caches its available-dates fetch for an hour and
-// each /forecast/{symbol}/{date} permalink for 30 minutes, so after the 16:05
-// ET receipt writer grades the day the public cards can lag the DB by up to an
-// hour — the landing card keeps reading "Pending 4 PM" long after the receipt
-// has actually landed. The OA receipt cron POSTs here the moment it finishes
-// writing so every surface flips to receipt state within seconds instead of
-// waiting out the ISR window.
+// The /forecast landing page caches its available-dates fetch (5 min) and each
+// /forecast/{symbol}/{date} permalink (30 min), so absent an explicit ping the
+// public cards lag the DB by up to that window — the landing card keeps reading
+// "Pending 4 PM" after the receipt has landed, and a freshly-committed morning
+// row stays missing from the date list until its window rolls over. Two crons
+// should POST here so every surface updates within seconds instead:
+//   * the morning writer, right after committing the day's daily_forecast rows
+//     (pass {date, symbols}), so today appears in the landing list immediately
+//     — otherwise the constantly-re-cached default SPY list can serve a
+//     pre-commit snapshot that omits today for up to a full ISR window;
+//   * the 16:05 ET receipt cron, right after grading, so the cards flip to
+//     receipt state immediately.
 //
 // Auth is a shared bearer token (FORECAST_REVALIDATE_TOKEN) — the same
 // cross-box secret convention as BULLETIN_SNAPSHOT_TOKEN, with the OA host
 // carrying the identical value in its own .env. Best-effort by design: the
-// receipt is already durably in the DB, so a missing/failed ping only means
-// the pages self-heal on their normal ISR cadence instead of instantly.
+// rows are already durably in the DB, so a missing/failed ping only means the
+// pages self-heal on their normal ISR cadence instead of instantly.
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -78,8 +83,9 @@ export async function POST(request: NextRequest) {
 
   const revalidated: string[] = [];
 
-  // The landing page's date picker always needs today's card flipped out of
-  // "Pending 4 PM", regardless of which symbols were graded.
+  // The landing page's date list needs the just-committed/just-graded day to
+  // surface — a new morning row must appear in the list, and today's card must
+  // flip out of "Pending 4 PM" — regardless of which symbols were in the payload.
   revalidatePath('/forecast');
   revalidated.push('/forecast');
 

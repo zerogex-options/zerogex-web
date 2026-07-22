@@ -13,7 +13,7 @@ import { serverApiGet } from '@/core/api/serverFetch';
 // Public permalink for one trading day's Gamma Forecast Card.
 //
 // Dual state:
-//   * Morning (07:00 ET): projected range + expected-volatility call + key
+//   * Morning (pre-market): projected range + expected-volatility call + key
 //     levels with touch odds + flagship Playbook setup. Immutable until 4:01 PM.
 //   * Receipt (16:05 ET): same URL re-renders with actual L/H/C overlaid
 //     against the morning band, plus verdicts on each claim (range coverage,
@@ -171,7 +171,7 @@ export async function generateMetadata({
     ? hasReceipt
       ? `Receipt for ${sym} on ${human}. Range ${data.receipt!.range_respected ? '✓ held' : '✗ broken'} · Volatility ${data.receipt!.vol_state_correct ? '✓' : '✗'}.`
       : `${sym} morning forecast: range ${fmtPrice(data.morning.projected_low)}–${fmtPrice(data.morning.projected_high)}, ${humanize(data.morning.expected_vol_state)} volatility, key gamma levels with touch odds. No direction call.`
-    : 'Daily ZeroGEX Gamma Forecast Card — 7 AM commitment, 4 PM receipt.';
+    : 'Daily ZeroGEX Gamma Forecast Card — pre-market commitment, 4 PM receipt.';
   return {
     title,
     description,
@@ -266,7 +266,7 @@ export default async function ForecastPage({
           value={`${fmtPrice(morning.projected_low)} – ${fmtPrice(morning.projected_high)}`}
           accent="var(--color-accent)"
           icon={Ruler}
-          tooltip="The high–low band we commit at 7 AM, built from the GEX call/put walls plus a volatility-based expansion (event days stretch 1.5×). Graded on coverage — an 80–90% band should contain the day's full range, wicks included."
+          tooltip="The high–low band we commit each morning before the open, built from the GEX call/put walls plus a volatility-based expansion (event days stretch 1.5×). Graded on coverage — an 80–90% band should contain the day's full range, wicks included."
           verdict={receipt ? (receipt.range_respected ? 'held' : 'broken') : null}
           hint={(() => {
             const parts: string[] = [];
@@ -418,7 +418,7 @@ export default async function ForecastPage({
 
       <section className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5 text-xs text-[var(--color-text-secondary)] leading-relaxed">
         <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">About this forecast</div>
-        Daily commitment for {sym} written at 7:00 AM ET, hashed and immutable. The projected range is
+        Daily commitment for {sym} written each morning before the open, hashed and immutable. The projected range is
         anchored on the open spot and bounded by the GEX call/put walls with a safety expansion (event
         days get a 1.5× stretch); it&rsquo;s graded on <em>coverage</em> — an 80–90% band should contain
         the day that often. Expected volatility is realized daily range as a fraction of the VIX-implied
@@ -574,7 +574,7 @@ function LevelsLadder({
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
           <Layers size={11} /> Levels &amp; touch odds
-          <TooltipWrapper text="Each line's touch odds are our 7 AM probability that price reaches it at some point today (reflection-principle model). After the close, → shows whether it did — and if it didn't, how close it came.">
+          <TooltipWrapper text="Each line's touch odds are our morning probability that price reaches it at some point today (reflection-principle model). After the close, → shows whether it did — and if it didn't, how close it came.">
             <Info size={12} />
           </TooltipWrapper>
         </div>
