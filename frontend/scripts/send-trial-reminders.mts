@@ -170,13 +170,37 @@ function execSqlite(dbPath: string, sql: string) {
 
 // The exact post-trial charge and the card that will be charged, resolved live
 // from Stripe. Passed to the mailer so the reminder can spell out "your
-// subscription will begin at $X/month using the payment method ending in 4242"
-// — the amount and last-4 are never hardcoded, always this user's real plan and
-// card on file.
+// subscription will begin at $X/month using your Visa card ending in 4242" —
+// the amount, brand, and last-4 are never hardcoded, always this user's real
+// plan and card on file.
 type BillingDetails = {
   chargeLabel: string;
+  // Display-ready brand ("Visa") or null when unknown (wallet / Link / a brand
+  // code we don't map), in which case the mailer uses a neutral phrasing.
+  cardBrand: string | null;
   cardLast4: string;
 };
+
+// Stripe reports card brands as lowercase codes (visa, mastercard, amex, …).
+// Map the documented set to display-ready names for customer-facing copy.
+// Anything unmapped — including 'unknown' and the 'link' wallet — resolves to
+// null so the mailer falls back to "the payment method ending in ….", never a
+// mis-cased or code-y label.
+const CARD_BRAND_LABELS: Record<string, string> = {
+  amex: 'American Express',
+  diners: 'Diners Club',
+  discover: 'Discover',
+  eftpos_au: 'EFTPOS',
+  jcb: 'JCB',
+  mastercard: 'Mastercard',
+  unionpay: 'UnionPay',
+  visa: 'Visa',
+};
+
+function formatCardBrand(brand: string | null | undefined): string | null {
+  if (!brand) return null;
+  return CARD_BRAND_LABELS[brand.toLowerCase()] ?? null;
+}
 
 // Resolve a Stripe reference that may be either a bare id string or an expanded
 // object down to its id. Mirrors the idOf helper in dedupe-payment-methods.mjs.
@@ -204,22 +228,22 @@ function formatMoney(
   }
 }
 
-// Last four digits of the card Stripe will actually charge when the trial
+// The brand + last four of the card Stripe will actually charge when the trial
 // converts: the subscription's own default payment method if set, else the
 // customer's invoice-settings default (Stripe's fallback when the sub has
 // none). Mirrors the resolution order in scripts/dedupe-payment-methods.mjs.
 // Returns null when no card can be found (e.g. a Link/wallet method with no
-// card object).
-async function resolveCardLast4(
+// card object). brand is the raw Stripe code — the caller normalizes it.
+async function resolveCard(
   stripe: Stripe,
   sub: Stripe.Subscription,
   customerId: string | null,
-): Promise<string | null> {
+): Promise<{ brand: string | null; last4: string } | null> {
   // default_payment_method is expanded on the subscription retrieve below, so
   // when set it arrives as a full PaymentMethod object.
   const subPm = sub.default_payment_method;
-  if (subPm && typeof subPm === 'object' && 'card' in subPm && subPm.card) {
-    return subPm.card.last4 ?? null;
+  if (subPm && typeof subPm === 'object' && 'card' in subPm && subPm.card?.last4) {
+    return { brand: subPm.card.brand ?? null, last4: subPm.card.last4 };
   }
 
   let pmId = idOf(subPm);
@@ -232,7 +256,8 @@ async function resolveCardLast4(
   if (!pmId) return null;
 
   const pm = await stripe.paymentMethods.retrieve(pmId);
-  return pm.card?.last4 ?? null;
+  if (pm.card?.last4) return { brand: pm.card.brand ?? null, last4: pm.card.last4 };
+  return null;
 }
 
 // Live-from-Stripe charge + card for one user. Returns null (caller then omits
@@ -258,10 +283,10 @@ async function resolveBillingDetails(
   const interval = price?.recurring?.interval ?? null;
   const chargeLabel = interval ? `${money}/${interval}` : money;
 
-  const cardLast4 = await resolveCardLast4(stripe, sub, customerId);
-  if (!cardLast4) return null;
+  const card = await resolveCard(stripe, sub, customerId);
+  if (!card) return null;
 
-  return { chargeLabel, cardLast4 };
+  return { chargeLabel, cardBrand: formatCardBrand(card.brand), cardLast4: card.last4 };
 }
 
 const cliArgs = parseArgs(process.argv.slice(2));
@@ -307,7 +332,7 @@ if (cliArgs.previewTo) {
   // representative data for eyeballing the layout.
   await sendTrialReminderEmail(cliArgs.previewTo, {
     trialEndIso: sample,
-    billing: { chargeLabel: '$29.00/month', cardLast4: '4242' },
+    billing: { chargeLabel: '$29.00/month', cardBrand: 'Visa', cardLast4: '4242' },
   });
   console.log('Preview sent.');
   process.exit(0);
