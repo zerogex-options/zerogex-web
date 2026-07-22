@@ -88,12 +88,13 @@ const STYLE_STORAGE_KEY = "zg.gammaChart.style.v1";
 
 // ── Geometry (SVG viewBox coordinates; the SVG scales to its container) ──────
 const VW = 1360;
-const VH = 624;
+const VH = 636;
 const PAD_TOP = 46;
 const PRICE_BOTTOM = 486;
 const VOL_TOP = 508;
 const VOL_BOTTOM = 586;
-const TIME_AXIS_Y = 604;
+const TIME_AXIS_Y = 604; // clock-time row
+const DATE_AXIS_Y = 620; // grouped trading-date row, below the times
 const PLOT_LEFT = 16;
 const PLOT_RIGHT = 1092;
 const INNER_PAD_X = 12; // left inset before the first bar
@@ -808,6 +809,29 @@ export default function GammaTerminalChart({
       markers.push({ index, label: dt.toLocaleDateString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric" }) });
     });
     return markers;
+  }, [bars]);
+
+  // Contiguous runs of visible bars that share an ET trading date, so a single
+  // date label can be centered under each day's span (the row below the times).
+  const dateGroups = useMemo(() => {
+    const groups: Array<{ startIdx: number; endIdx: number; label: string }> = [];
+    const keyFmt = (ts: string) => new Date(ts).toLocaleDateString("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" });
+    const labelFmt = (ts: string) => new Date(ts).toLocaleDateString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric" });
+    let curKey = "";
+    let start = 0;
+    bars.forEach((b, i) => {
+      const key = keyFmt(b.timestamp);
+      if (i === 0) {
+        curKey = key;
+        start = 0;
+      } else if (key !== curKey) {
+        groups.push({ startIdx: start, endIdx: i - 1, label: labelFmt(bars[start].timestamp) });
+        curKey = key;
+        start = i;
+      }
+    });
+    if (bars.length > 0) groups.push({ startIdx: start, endIdx: bars.length - 1, label: labelFmt(bars[start].timestamp) });
+    return groups;
   }, [bars]);
 
   const handlePointerDown = (e: MouseEvent<SVGSVGElement>) => {
@@ -1623,6 +1647,24 @@ export default function GammaTerminalChart({
                 const x = xForIndex(m.index) - xStep / 2;
                 return <line key={`dm-${m.index}`} x1={x} x2={x} y1={PAD_TOP} y2={VOL_BOTTOM} stroke="var(--border-default)" strokeWidth={1} strokeDasharray="2 4" opacity={0.5} />;
               })}
+            {/* ── Grouped trading-date row (below the times) ─────────────── */}
+            {timeframe !== "1day" &&
+              (() => {
+                let lastRight = -Infinity;
+                return dateGroups.map((g) => {
+                  const labelW = g.label.length * 6 + 8;
+                  const cx = clamp((xForIndex(g.startIdx) + xForIndex(g.endIdx)) / 2, PLOT_LEFT + labelW / 2, PLOT_RIGHT - labelW / 2);
+                  // Skip a date that would collide with the previous one so a
+                  // cluster of short day-spans doesn't overprint.
+                  if (cx - labelW / 2 < lastRight + 6) return null;
+                  lastRight = cx + labelW / 2;
+                  return (
+                    <text key={`dg-${g.startIdx}`} x={cx} y={DATE_AXIS_Y} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={9.5} fontWeight={600} letterSpacing="0.04em" fill="var(--text-secondary)">
+                      {g.label}
+                    </text>
+                  );
+                });
+              })()}
 
             {/* ── Crosshair ─────────────────────────────────────────────── */}
             {hover && (() => {
