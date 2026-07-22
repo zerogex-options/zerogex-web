@@ -1,6 +1,6 @@
 # Why Market Makers Are Forced to Trade Stock
 
-*Market makers don't trade stock because they have a view. They trade it because the delta of the options they hold keeps moving on its own — and as it moves, they generally need to trade the underlying to stay near flat. That hedging flow is one of the more structurally estimable order flows in the market.*
+*When market makers trade stock, it often isn't because they have a directional view. It is because the delta of the options they hold keeps changing — and as it changes, they generally need to adjust the underlying hedge to stay near flat. That hedging flow is one of the more structurally estimable sources of order flow in the market.*
 
 > **Key takeaway**
 > Dealers generally do not hedge because they became bullish or bearish. They hedge because the risk of their options portfolio changed. Understanding what changes that risk helps explain where hedge pressure may appear in the market.
@@ -9,11 +9,11 @@
 
 ## The dealer's job is to stay neutral
 
-A market maker who sells you a call option does not want to be short the market. They want the spread — the few cents between the bid and the ask — and they want to go home flat. Selling the call left them short delta, so they buy stock against it until the position has no net directional exposure. That is delta-hedging, and it is the core economic model of an options dealer: warehouse the option, neutralize the direction, collect the edge.
+A market maker who sells you a call option is generally not trying to express a bearish view. They want the spread — the few cents between the bid and the ask — and generally want to keep their directional exposure near neutral. Selling the call leaves them short delta, so they buy stock against it until the position is approximately delta-neutral. That is delta-hedging, and it is a core part of the economic model of an options dealer: warehouse the option, neutralize the direction, collect the edge.
 
 The problem is that "flat" is not a place you arrive at once. It is a place a dealer keeps returning to, throughout the session, because the delta of an option book rarely sits still. And here is the part that matters for anyone reading flow: when that delta moves, the resulting hedge is generally driven by risk management rather than a directional view. No conviction, no market call — the book's risk changed, so the dealer generally needs to adjust. *When* and *how* they do it stays discretionary. *That* they will eventually need to trade to stay near their hedge is the part that is more estimable.
 
-That distinction — risk-driven versus discretionary — is why dealer hedging is readable at all. Discretionary flow is a guess about what a trader *wants* to do. Hedging flow is an estimate of what a dealer will likely *need* to do to stay near flat. One is closer to a coin flip. The other is closer to arithmetic.
+That distinction — risk-driven versus discretionary — is why dealer hedging is readable at all. Discretionary flow is a guess about what a trader *wants* to do. Hedging flow is an estimate of what a dealer will likely *need* to do to stay near flat. One depends on trader intent. The other is constrained by portfolio mechanics.
 
 ---
 
@@ -23,7 +23,7 @@ Delta is the hedge ratio: how many shares of stock offset one option contract. A
 
 But 0.40 is a snapshot, not a constant. That same call will have a different delta tomorrow even if the stock never moves, a different delta if implied volatility ticks down, and a very different delta if the stock rallies 1%. The dealer hedged to 0.40. Once delta drifts to 0.44, the book is short roughly 400 deltas it didn't sign up for, and the dealer will generally buy about 400 more shares to move back toward flat.
 
-So hedging is really two jobs, not one. First the dealer neutralizes the *current* level of the book's delta — the one-time trade that puts the position near flat. Then comes the ongoing job: as new options trade and as spot, time, and vol move that delta around, the dealer rebalances to stay near flat. The initial hedge you put on once. The flow that shows up on the tape is the endless stream of re-hedges that chase delta as it drifts. Understand what moves delta, and you understand where the hedging pressure comes from.
+So hedging is really two jobs, not one. First the dealer neutralizes the *current* level of the book's delta — the one-time trade that puts the position near flat. Then comes the ongoing job: as new options trade and as spot, time, and vol move that delta around, the dealer rebalances to stay near flat. The initial hedge is established when the position is put on. The flow that shows up on the tape is the endless stream of re-hedges that chase delta as it drifts. Understand what moves delta, and you understand where the hedging pressure comes from.
 
 ---
 
@@ -31,11 +31,11 @@ So hedging is really two jobs, not one. First the dealer neutralizes the *curren
 
 Here is a trap worth stepping around early, because it sinks a lot of naive dealer-positioning analysis.
 
-You might think the way to gauge dealer pressure is to add up all the delta in the book — every contract's delta times its open interest — and call that "dealer exposure." It feels right. It is the natural sibling of gamma exposure. But it leans on a hidden assumption, and it measures the wrong thing.
+You might think the way to gauge dealer pressure is to add up all the delta in the book — every contract's delta times its open interest — and call that "dealer exposure." It feels right. It is the natural sibling of gamma exposure. But it leans on a hidden assumption, and it often measures the wrong thing for estimating future hedge pressure.
 
-Start with the assumption. Open interest tells you a contract exists; it does not tell you whether a dealer is long or short it. Dealer inventories are not published anywhere, so any "dealer delta" figure has to be inferred from a model of who is likely holding what — a reasonable estimate, but an estimate. Now grant the estimate and look at what the *level* of delta even measures. The shares a dealer holds against their options have a delta of exactly 1.00 each, put on *specifically to cancel* the option delta. By construction, a well-hedged dealer's net delta sits near zero — the option delta and the stock delta roughly offset. So a figure that sums the level of option delta is describing the one exposure dealers work hardest to flatten, while ignoring the offsetting stock they hold against it.
+Start with the assumption. Open interest tells you a contract exists; it does not tell you whether a dealer is long or short it. Dealer inventories are not publicly disclosed in a complete, real-time form, so any "dealer delta" figure has to be inferred from a model of who is likely holding what — a reasonable estimate, but an estimate. Now grant the estimate and look at what the *level* of delta even measures. The shares a dealer holds against their options have a delta of exactly 1.00 each, put on *specifically to cancel* the option delta. By construction, a well-hedged dealer's net delta sits near zero — the option delta and the stock delta roughly offset. So a figure that sums the level of option delta is describing the one exposure dealers work hardest to flatten, while ignoring the offsetting stock they hold against it.
 
-What the level misses is how much that delta is about to *move*. Stock has a delta of 1 that doesn't change, so you can't use it to pre-neutralize a delta that shifts with spot, time, and vol. Future hedge pressure comes from the *change* in the dealer's estimated portfolio delta, not from summing the delta sitting in the book today. That drift — the part of the book's delta that can't be hedged in advance — is where the hedging flow is actually born. (We wrote a whole piece on why the level-of-delta number is a trap and why we refuse to publish it — see [Why We Don't Publish DEX](/education/why-we-dont-publish-dex).)
+What the level misses is how much that delta is about to *move*. Stock has a delta of 1 that doesn't change, so a static stock hedge cannot neutralize future changes in option delta. Future hedge pressure comes from changes in the dealer's estimated portfolio delta, not from summing the delta sitting in the book today. That drift — the part a static stock hedge cannot fully absorb in advance — is where much of the rehedging flow is born. (We wrote a whole piece on why the level-of-delta number is a trap and why we refuse to publish it — see [Why We Don't Publish DEX](/education/why-we-dont-publish-dex).)
 
 ---
 
@@ -43,11 +43,11 @@ What the level misses is how much that delta is about to *move*. Stock has a del
 
 Between now and expiry, three variables dominate how an option book's delta moves intraday, and a dealer has little control over any of them:
 
-- **Spot price.** When the stock moves, every option's delta moves with it. The sensitivity of delta to spot is **gamma**. This is the reactive flow — it only fires when price actually moves, and it is large and immediate.
+- **Spot price.** When the stock moves, every option's delta moves with it. The sensitivity of delta to spot is **gamma**. This is the reactive component — it responds when price moves, and its effect can be large and immediate.
 - **Time.** As expiry approaches, delta drifts even with spot pinned: out-of-the-money options bleed toward delta 0, in-the-money options climb toward delta 1. The sensitivity of delta to time is **charm**. It runs continuously, whether or not anything happens.
 - **Implied volatility.** When the market's priced fear rises or falls, delta shifts with spot perfectly still. The sensitivity of delta to vol is **vanna**. A vol reset can move the book's delta hard without a single tick in price.
 
-Price, the clock, and fear. Those are the three big levers, and the dealer is exposed to all three. When any of them moves, it drags the book's delta off its hedge and creates a stock trade to put it back. These aren't the *only* inputs — interest rates, dividends, shifts in the volatility surface, financing assumptions, and fresh option trades hitting the book all nudge delta too — but intraday they are usually second-order next to spot, time, and vol. That combined output is what we call **forced flow**: an estimate of the stock a dealer will generally need to buy or sell to stay hedged as spot, time, and vol evolve.
+Price, the clock, and fear. Those are the three big levers, and the dealer is exposed to all three. When any of them moves, it drags the book's delta off its hedge and creates pressure to adjust the stock hedge. These aren't the *only* inputs — interest rates, dividends, shifts in the volatility surface, financing assumptions, and fresh option trades hitting the book all nudge delta too — but intraday they are usually second-order next to spot, time, and vol. The combined effect is what we call **Forced Flow**: an estimate of the stock a dealer will generally need to buy or sell to stay hedged as spot, time, and vol evolve.
 
 ---
 
@@ -63,9 +63,9 @@ Charm and vanna carry their own dollar tags. On a heavy 0DTE day, time decay alo
 
 ## Why forced flow is the flow worth reading
 
-Most order flow is a fog of competing intentions. Someone is buying, someone is selling, and you are guessing at motive. Dealer hedging is different in kind: it is one large, persistent stream that is shaped by positioning and the three variables above rather than by anybody's opinion. That makes it generally more estimable than discretionary flow. If spot moves 1%, the gamma hedge tends to fire. As the clock runs toward the close, charm-driven hedging tends to build. If vol drops two points, the vanna hedge follows — in a direction set by the book's estimated positioning. The flow is a consequence of risk, not a discretionary decision.
+Most order flow is a fog of competing intentions. Someone is buying, someone is selling, and you are guessing at motive. Dealer hedging is different in kind: it is a persistent stream shaped by positioning and the three variables above rather than by anybody's opinion. That makes it generally more estimable than discretionary flow. If spot moves 1%, gamma-related hedging tends to respond. As the clock runs toward the close, charm-driven hedging tends to build. If vol drops two points, vanna-related hedge pressure can follow — in a direction set by the book's estimated positioning. The need to manage the risk is mechanical, even though the timing and execution remain discretionary.
 
-That is what the rest of this series unpacks. [Delta and Its Three Children](/education/delta-and-its-three-children) breaks down gamma, charm, and vanna as the three derivatives of delta. [Charm: The Clock Is a Trader](/education/charm-the-clock-is-a-trader) shows how time decay alone can drive an estimable into-close flow you can model hours in advance. [Vanna: When Fear Fades, Dealers Buy](/education/vanna-when-fear-fades) explains the vol-compression grind. And the live [Forced Flow](/forced-flow) page reprices the entire book under any spot/time/vol scenario, so you can see the estimated hedge before it prints.
+That is what the rest of this series unpacks. [Delta and Its Three Children](/education/delta-and-its-three-children) breaks down gamma, charm, and vanna as the three derivatives of delta. [Charm: The Clock Is a Trader](/education/charm-the-clock-is-a-trader) shows how time decay alone can drive an estimable into-close flow you can model hours in advance. [Vanna: When Fear Fades, Dealers Buy](/education/vanna-when-fear-fades) explains the vol-compression grind. And the live [Forced Flow](/forced-flow) page reprices the entire book under any spot/time/vol scenario, so you can see the estimated hedge pressure before it may reach the tape.
 
 Dealer hedging is not perfectly predictable. Inventories aren't public, positioning has to be inferred, and the timing and execution of any hedge stay at the dealer's discretion.
 

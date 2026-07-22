@@ -28,7 +28,10 @@ export default async function WhyMarketMakersTradeStockPage() {
 
       <RelatedArticles slug="why-market-makers-trade-stock" />
 
-      <LiveLevelsCTA concept="forced dealer flow" />
+      <LiveLevelsCTA
+        headline="See today's dealer positioning and hedge pressure"
+        intro="ZeroGEX recalculates dealer positioning and potential hedge pressure throughout the trading day as price, time, and implied volatility change."
+      />
     </div>
   );
 }

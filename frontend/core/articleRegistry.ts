@@ -401,7 +401,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     href: '/education/delta-and-its-three-children',
     title: 'Delta and Its Three Children: Gamma, Charm, and Vanna',
     blurb:
-      'Delta tells a dealer how much stock to hold, but it never sits still — and it can only move three ways: with price, with time, and with volatility. Those sensitivities are gamma, charm, and vanna, and together they are forced flow.',
+      'Delta tells a dealer how much stock to hold, but it never sits still. Intraday, its three dominant drivers are price, time, and volatility. Those sensitivities are gamma, charm, and vanna, and together they help shape Forced Flow.',
     description:
       'Delta and its three children — gamma (delta vs price), charm (delta vs time), and vanna (delta vs vol). Why a dealer hedges the change in delta, and why you reprice the book instead of summing the greeks.',
     datePublished: '2026-07-12',
