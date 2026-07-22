@@ -32,6 +32,22 @@ import { getCampaignCouponId, normalizeCampaignCode } from '@/core/campaigns';
 // trial is suppressed below — no farming a fresh free week on every cycle.
 const TRIAL_PERIOD_DAYS = 7;
 
+// Extended trial granted to a verified-never-paid signup who returns through the
+// ?reactivate=1 link in the second-touch reactivation email
+// (scripts/send-reactivation.mts). That email's whole job is to change the offer
+// this cohort already ignored — the standard 7-day trial — into a longer one, so
+// the default sits well above TRIAL_PERIOD_DAYS. Operator-overridable via
+// REACTIVATION_TRIAL_DAYS in .env.local; keep NEXT_PUBLIC_REACTIVATION_TRIAL_DAYS
+// on the pricing client (Client.tsx) in sync so the page shows the same number
+// the email promised. Clamped to [TRIAL_PERIOD_DAYS, 90] so a fat-fingered env
+// can neither give away a year nor shorten it below the standard trial.
+const REACTIVATION_TRIAL_DAYS_DEFAULT = 30;
+function getReactivationTrialDays(): number {
+  const raw = Number(process.env.REACTIVATION_TRIAL_DAYS);
+  if (!Number.isFinite(raw)) return REACTIVATION_TRIAL_DAYS_DEFAULT;
+  return Math.max(TRIAL_PERIOD_DAYS, Math.min(90, Math.floor(raw)));
+}
+
 // Stripe rejects a trial_end that's effectively now; require at least a
 // 48h cushion so timezone slop / clock skew can't push it past the cutoff
 // between this branch and the API call.
@@ -46,6 +62,7 @@ type UserBillingRow = {
   paid_welcome_email_sent_at: string | null;
   subscription_lapsed: number;
   winback_email_sent_at: string | null;
+  reactivation_email_sent_at: string | null;
 };
 
 export async function POST(request: NextRequest) {
@@ -74,6 +91,7 @@ export async function POST(request: NextRequest) {
     cadence?: unknown;
     foundingCode?: unknown;
     winback?: unknown;
+    reactivate?: unknown;
   };
 
   if (!isBillableTier(body.tier)) {
@@ -93,11 +111,17 @@ export async function POST(request: NextRequest) {
   // re-derived server-side below from the account's churn state, never trusted
   // from the client.
   const winbackRequested = body.winback === true || body.winback === '1';
+  // Intent flag from the ?reactivate=1 link in the second-touch reactivation
+  // email. Same discipline as winback: it only marks "came back through the
+  // reactivation offer"; the extended-trial entitlement is re-derived
+  // server-side below from reactivation_email_sent_at + trial eligibility, never
+  // trusted from the client.
+  const reactivationRequested = body.reactivate === true || body.reactivate === '1';
 
   const db = getDb();
   const row = db
     .prepare(
-      'SELECT stripe_customer_id, stripe_subscription_id, founding_eligible, email_verified_at, referred_by_code, paid_welcome_email_sent_at, subscription_lapsed, winback_email_sent_at FROM users WHERE id = ?',
+      'SELECT stripe_customer_id, stripe_subscription_id, founding_eligible, email_verified_at, referred_by_code, paid_welcome_email_sent_at, subscription_lapsed, winback_email_sent_at, reactivation_email_sent_at FROM users WHERE id = ?',
     )
     .get(actor.user.id) as UserBillingRow | undefined;
 
@@ -161,10 +185,28 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: discountResult.error }, { status: discountResult.status });
   }
 
+  // Reactivation entitlement is server-authoritative, exactly like win-back
+  // above: the extended trial only attaches to an account we actually sent the
+  // second-touch reactivation email (reactivation_email_sent_at set by
+  // scripts/send-reactivation.mts) AND that is still trial-eligible (no prior
+  // paid sub). Both together mean this is a genuine invited-back inactive
+  // signup — not someone who appended ?reactivate=1 to farm a longer trial. A
+  // returning ex-subscriber (hasPriorPaidSubscription) gets no trial at all, so
+  // the flag is inert for them.
+  const reactivationEligible =
+    reactivationRequested &&
+    !hasPriorPaidSubscription &&
+    row?.reactivation_email_sent_at != null;
+
   // Once-per-account trial gate. Anyone who has previously held a paid
   // sub on this account (computed above as hasPriorPaidSubscription) is
-  // ineligible for the 7-day trial.
-  const trialDays = hasPriorPaidSubscription ? null : TRIAL_PERIOD_DAYS;
+  // ineligible for any trial. First-timers get the standard 7-day trial —
+  // or, when they arrived through the reactivation offer, the extended one.
+  const trialDays = hasPriorPaidSubscription
+    ? null
+    : reactivationEligible
+      ? getReactivationTrialDays()
+      : TRIAL_PERIOD_DAYS;
 
   // Founding members get the deferral-to-July-1 trial instead of the 7-day
   // one. Absolute trial_end (not a day count) so every founding member
@@ -260,6 +302,9 @@ export async function POST(request: NextRequest) {
         ...(discountResult.foundingApplied ? { founding: '1' } : {}),
         ...(discountResult.partnerApplied ? { partner_referred: '1' } : {}),
         ...(discountResult.winbackApplied ? { winback: '1' } : {}),
+        // Marks a subscription that started from the extended reactivation trial
+        // (no discount — the longer trial IS the offer). Observability only.
+        ...(reactivationEligible ? { reactivation: '1' } : {}),
         // Second coupon to stack onto the subscription (referee bonus on top of
         // the promo). The webhook applies it while the sub is still trialing,
         // before the first invoice. Checkout can only carry one coupon itself.
@@ -302,7 +347,7 @@ export async function POST(request: NextRequest) {
     userId: actor.user.id,
     email: actor.user.email,
     ip: getClientIp(request),
-    message: `tier=${tier} cadence=${cadence} founding=${discountResult.foundingApplied ? '1' : '0'} referral=${discountResult.referralApplied ? '1' : '0'} partner=${discountResult.partnerApplied ? '1' : '0'} winback=${discountResult.winbackApplied ? '1' : '0'} campaign=${discountResult.campaignApplied && discountResult.campaignCode ? discountResult.campaignCode : '0'} trial=${foundingTrialEndUnix ? 'founding_july1' : trialDays ? '7d' : '0'} session=${session.id}`,
+    message: `tier=${tier} cadence=${cadence} founding=${discountResult.foundingApplied ? '1' : '0'} referral=${discountResult.referralApplied ? '1' : '0'} partner=${discountResult.partnerApplied ? '1' : '0'} winback=${discountResult.winbackApplied ? '1' : '0'} reactivate=${reactivationEligible ? '1' : '0'} campaign=${discountResult.campaignApplied && discountResult.campaignCode ? discountResult.campaignCode : '0'} trial=${foundingTrialEndUnix ? 'founding_july1' : trialDays ? `${trialDays}d` : '0'} session=${session.id}`,
   });
 
   return NextResponse.json({ url: session.url });
