@@ -26,7 +26,7 @@ import { useStrikeProfileTimeseries, type StrikeProfileStrike } from "@/hooks/us
 import { useTechnicals } from "@/hooks/useTechnicals";
 import { useTimeframe, type UnderlyingSymbol } from "@/core/TimeframeContext";
 import { getPrimaryPriceChangeSummary } from "@/core/priceChange";
-import { omitClosedMarketTimes } from "@/core/utils";
+import { omitClosedMarketTimes, isIndexSymbol, isWithinRegularMarketHours } from "@/core/utils";
 import { SYMBOLS } from "@/core/symbols";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import LoadingSpinner from "./LoadingSpinner";
@@ -324,12 +324,13 @@ export default function GammaTerminalChart({
 
   // ── Data ── Live mode polls the API; delayed mode renders a frozen server
   // snapshot and does zero client fetching (every hook disabled via `live`).
-  // allow_futures=true: outside the cash session the backend serves the cash
-  // index's FUTURE for this series so the chart keeps ticking after hours (and
-  // ETFs like SPY/QQQ, which trade extended hours natively, simply gain their
-  // after-hours bars). This mirrors the GEX Strike Profile chart, which is why
-  // that one shows live in after hours and the old candle chart did not.
-  const { rows: liveRows, loading: liveLoading, error: liveError } = useMarketHistorical(symbol, timeframe, true, live);
+  // allow_futures only for NON-index symbols. ETFs (SPY/QQQ) trade extended
+  // hours, so opting in returns their after-hours bars — the fix for "not live
+  // after hours". Cash indexes (SPX/NDX) don't trade past the cash close and we
+  // deliberately do NOT swap in their future: the chart just freezes at the
+  // 16:00 ET close until the next cash session opens.
+  const symbolIsIndex = isIndexSymbol(symbol);
+  const { rows: liveRows, loading: liveLoading, error: liveError } = useMarketHistorical(symbol, timeframe, !symbolIsIndex, live);
   const { data: quote } = useMarketQuote(symbol, 1000, live);
   const { data: liveSessionCloses } = useSessionCloses(symbol, 60000, quote?.session ?? null, live);
   const { data: gexProfile } = useGEXProfile(symbol, 10000, live);
@@ -351,17 +352,12 @@ export default function GammaTerminalChart({
   const session = snapshot ? snapshot.quote?.session ?? null : quote?.session ?? null;
   const quoteTs = snapshot ? snapshot.quote?.timestamp ?? null : quote?.timestamp ?? null;
   const sessionCloses = snapshot ? snapshot.sessionCloses : liveSessionCloses;
-  // Futures display: when the backend swaps in the index future outside the cash
-  // session, keep the overnight bars (don't clip to equity hours) and surface the
-  // future's ticker on the session badge.
-  const isFuturesMode = useMemo(() => (dataAll || []).some((b) => b.display_source === "futures"), [dataAll]);
-  const futuresTicker = useMemo(() => (dataAll || []).find((b) => b.display_source === "futures")?.data_symbol ?? null, [dataAll]);
 
   const data = useMemo(() => dataAll.slice(-POOL), [dataAll]);
 
   // Stage 1 — normalize + aggregate history (expensive; independent of the tick).
   const historicalBars = useMemo(() => {
-    const filtered = isFuturesMode ? (data || []) : omitClosedMarketTimes(data || [], (d) => d.timestamp);
+    const filtered = omitClosedMarketTimes(data || [], (d) => d.timestamp);
     const seed = filtered[0]?.close ?? filtered[0]?.price ?? 0;
     const normalized = filtered.reduce(
       (acc, d) => {
@@ -382,7 +378,7 @@ export default function GammaTerminalChart({
       { rows: [] as Bar[], prevClose: seed },
     );
     return aggregateBars(normalized.rows, intervalMinutes, POOL);
-  }, [data, intervalMinutes, isFuturesMode]);
+  }, [data, intervalMinutes]);
 
   // Stage 2 — overlay the live tick onto the tip bar (same bucket-scoped,
   // history-authoritative rules proven out in UnderlyingCandlesChart). This is
@@ -503,8 +499,32 @@ export default function GammaTerminalChart({
     return best;
   }, [rewindActive, rewindAnchorTs, gexBuckets, gexByTs]);
 
-  // ── Gamma levels ── Rewind takes flip/walls from the historical bucket;
-  // Max Pain / net-GEX / VWAP aren't in the timeseries, so they're hidden then.
+  // Session-anchored VWAP for the rewound moment, computed from the pool bars
+  // (Σ typical-price × volume ÷ Σ volume over the anchor bar's regular session,
+  // up to that bar). The timeseries doesn't carry VWAP, so rather than hide it
+  // during rewind we reconstruct it — it reads as the live VWAP would have at
+  // that time. Null when there's no volume to weight by.
+  const rewindVwap = useMemo(() => {
+    if (!rewindActive || rewindEdgeIdx == null) return null;
+    const anchor = allBars[rewindEdgeIdx];
+    if (!anchor) return null;
+    const day = etDayKey(anchor.timestamp);
+    let pv = 0;
+    let vol = 0;
+    for (let i = 0; i <= rewindEdgeIdx; i++) {
+      const b = allBars[i];
+      if (etDayKey(b.timestamp) !== day || !isWithinRegularMarketHours(b.timestamp)) continue;
+      const v = Number(b.volume) || 0;
+      if (v <= 0) continue;
+      pv += ((b.high + b.low + b.close) / 3) * v;
+      vol += v;
+    }
+    return vol > 0 ? pv / vol : null;
+  }, [rewindActive, rewindEdgeIdx, allBars]);
+
+  // ── Gamma levels ── Rewind takes flip/walls from the historical bucket, Max
+  // Pain from the bucket's per-strike OI and VWAP from the bars; net-GEX-at-spot
+  // isn't recoverable from the timeseries, so it's hidden while rewinding.
   const flip = rewindBucket
     ? coerceNum(rewindBucket.gamma_flip)
     : snapshot ? snapshot.gamma.flip : num(gexProfile?.gamma_flip ?? gexSummary?.gamma_flip);
@@ -524,7 +544,7 @@ export default function GammaTerminalChart({
       : null
     : snapshot ? snapshot.gamma.maxPain : num(gexSummary?.max_pain);
   const netGexAtSpot = rewindActive ? null : snapshot ? snapshot.gamma.netGexAtSpot : num(gexProfile?.net_gex_at_spot ?? gexSummary?.net_gex);
-  const vwap = rewindActive ? null : snapshot ? snapshot.vwap : num(technicals.latest?.vwap_deviation?.vwap);
+  const vwap = rewindActive ? rewindVwap : snapshot ? snapshot.vwap : num(technicals.latest?.vwap_deviation?.vwap);
 
   // The most-recent per-strike bucket that actually carries gamma — the live
   // rail's source. Walk back from the tip so an empty / all-zero after-hours
@@ -1063,9 +1083,7 @@ export default function GammaTerminalChart({
     ? { label: "◀ REWIND", color: "var(--color-accent-hot)" }
     : delayed
       ? { label: "◷ DELAYED ~15 MIN", color: "var(--color-warning)" }
-      : isFuturesMode
-        ? { label: `⧉ FUTURES${futuresTicker ? ` · ${futuresTicker}` : ""}`, color: "var(--color-warning)" }
-        : sessionLabel(session);
+      : sessionLabel(session);
 
   return (
     <div className={`zg-feature-shell zg-gc-rise ${className}`} style={{ overflow: "hidden" }}>
@@ -1446,6 +1464,10 @@ export default function GammaTerminalChart({
             <g>
               <text x={PLOT_LEFT + 4} y={VOL_TOP + 11} fontFamily="var(--font-mono)" fontSize={9.5} letterSpacing="0.12em" fill="var(--text-muted)">
                 VOLUME
+                {symbolIsIndex && <tspan fill="var(--color-warning)" fontSize={8.5}>{"   ·  PROXY (EST.)"}</tspan>}
+                {symbolIsIndex && (
+                  <title>{`${symbol} is a cash index — it doesn't trade, so this volume is a derived proxy, not native index volume.`}</title>
+                )}
               </text>
               {bars.map((b, i) => {
                 const x = xForIndex(i);
@@ -1776,6 +1798,14 @@ function rewindRailCurve(strikes: StrikeProfileStrike[] | undefined): ProfilePoi
 
 function clamp(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v));
+}
+
+// ET calendar-day key (YYYY-MM-DD in America/New_York) — used to anchor the
+// rewind VWAP to the correct trading day.
+const ET_DAY_FMT = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" });
+function etDayKey(ts: string): string {
+  const d = new Date(ts);
+  return Number.isFinite(d.getTime()) ? ET_DAY_FMT.format(d) : "";
 }
 
 function labelWidth(label: string): number {
