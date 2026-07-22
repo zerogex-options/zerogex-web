@@ -510,6 +510,20 @@ export async function sendTrialReminderEmail(
     // the cron job passes a short label like "first 6 months" so the reminder
     // mentions the introductory rate that will kick in after the trial ends.
     promoIntroLabel?: string | null;
+    // Post-trial billing specifics, resolved from Stripe by the caller (the
+    // send-trial-reminders cron) so this presenter stays free of Stripe/DB I/O.
+    // When present, the reminder spells out the exact amount and the card that
+    // will be charged when the trial converts, so a member whose card is stale
+    // or expiring can fix it before the attempt fails into past_due. Left off
+    // (or passed null when the Stripe lookup fails) so the email still sends
+    // cleanly without the line.
+    billing?: {
+      // Formatted recurring charge, e.g. "$29.00/month". Built by the caller
+      // from the subscription's price so the tier/cadence are always correct.
+      chargeLabel: string;
+      // Last four digits of the card on file, e.g. "4242".
+      cardLast4: string;
+    } | null;
   },
 ) {
   const trialEndDate = formatTrialEndDate(opts.trialEndIso);
@@ -526,11 +540,23 @@ export async function sendTrialReminderEmail(
     ? `Good news on the price: you locked in our <strong>limited-time introductory rate</strong> for the ${escapeHtml(promoLabel)}, so that's what your card will be charged after the trial &mdash; not the standard rate.`
     : null;
 
+  // "Your subscription will begin at $X/month using the payment method ending
+  // in 1234" — the exact charge and last-4 come from Stripe (see
+  // resolveBillingDetails in the cron); we only format them here.
+  const billing = opts.billing ?? null;
+  const billingLineText = billing
+    ? `Your subscription will begin at ${billing.chargeLabel} using the payment method ending in ${billing.cardLast4}. Please make sure your payment method is ready, or update it from your account page (${accountUrl}).`
+    : null;
+  const billingLineHtml = billing
+    ? `Your subscription will begin at <strong>${escapeHtml(billing.chargeLabel)}</strong> using the payment method ending in <strong>${escapeHtml(billing.cardLast4)}</strong>. Please make sure your payment method is ready, or <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">update it here</a>.`
+    : null;
+
   const text = [
     'Hello,',
     '',
     `A quick heads-up: your ZeroGEX free trial ends on ${trialEndDate}, and your first payment will be charged then unless you cancel before that.`,
     '',
+    ...(billingLineText ? [billingLineText, ''] : []),
     ...(promoLineText ? [promoLineText, ''] : []),
     "If ZeroGEX is working for you, there's nothing you need to do — you'll keep full access and the renewal will go through automatically.",
     '',
@@ -547,6 +573,7 @@ export async function sendTrialReminderEmail(
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
       <p>Hello,</p>
       <p>A quick heads-up: your ZeroGEX free trial ends on <strong>${escapeHtml(trialEndDate)}</strong>, and your first payment will be charged then unless you cancel before that.</p>
+      ${billingLineHtml ? `<p>${billingLineHtml}</p>` : ''}
       ${promoLineHtml ? `<p>${promoLineHtml}</p>` : ''}
       <p>If ZeroGEX is working for you, there's nothing you need to do &mdash; you'll keep full access and the renewal will go through automatically.</p>
       <p>If it isn't the right fit, you can cancel anytime from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> and you won't be charged a cent.</p>
