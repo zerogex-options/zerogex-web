@@ -4,15 +4,19 @@
 # Step 092: ~1-Month-After-Churn Win-Back Timer (systemd)
 # ==============================================
 #
-# Installs and enables the win-back email timer (see
-# deploy/systemd/zerogex-web-winback.{service,timer}). The timer fires daily on
-# :35 and triggers `make winback YES=1`, which sends a one-shot founder-voice
-# win-back to every churned user (subscription_lapsed=1, verified, no active
-# sub) whose subscription actually lapsed roughly a month ago — leading with
-# what's new since they left, then a discount offer (the live public promo when
-# one is running, otherwise the evergreen reply-'discount'-for-25%-off offer),
-# and a no-pressure closer. Idempotent via users.winback_email_sent_at, which
-# the Stripe webhook clears on re-subscribe so a future re-churn re-qualifies.
+# Installs and enables the win-back REVIEW-DIGEST timer (see
+# deploy/systemd/zerogex-web-winback.{service,timer}). The timer fires weekly
+# (Mon :35) and triggers `make winback DIGEST=1`, which emails the founder
+# (WINBACK_DIGEST_TO) the list of every eligible churned user (subscription_
+# lapsed=1, verified, no active sub, not deleted, 30+ days lapsed, never yet
+# contacted) plus the exact rendered draft — and sends NOTHING to those users.
+# The founder reviews and approves a batch by running `make winback YES=1`,
+# which sends the one-shot founder-voice win-back (what's new + a discount: the
+# automated one-click win-back coupon when configured, else the live public
+# promo, else the evergreen reply-'discount' offer) and a no-pressure closer.
+# Idempotent via users.winback_email_sent_at, which the Stripe webhook clears on
+# re-subscribe so a future re-churn re-qualifies. To auto-send weekly instead of
+# reviewing first, change the service ExecStart to `winback YES=1`.
 #
 # Idempotent — safe to re-run. The unit files are overwritten from the repo
 # (they're version-controlled, so this is the desired behavior), and
@@ -130,7 +134,7 @@ fi
 
 sudo systemctl daemon-reload
 
-log "  → Enabling ${UNIT}.timer (daily on :35, Persistent=true)..."
+log "  → Enabling ${UNIT}.timer (weekly Mon :35, Persistent=true)..."
 if sudo systemctl enable --now "${UNIT}.timer" 2>/dev/null; then
     NEXT=$(systemctl list-timers --no-pager --no-legend "${UNIT}.timer" 2>/dev/null | awk '{print $1, $2}')
     log "     ✓ ${UNIT}.timer enabled (next run: ${NEXT:-unknown})"
@@ -139,22 +143,31 @@ else
     exit 1
 fi
 
-# Deliberately NO test run: the service's ExecStart is the real YES=1 send path.
-# A dry-run smoke test would need a different ExecStart, so we let the first
-# scheduled tick be the validation. journalctl shows the result.
+# --- Env soft-check for the digest recipient -------------------------
+# The weekly job runs in DIGEST mode, which needs a founder address to send the
+# review email to. Warn (don't fail) if it's unset — the timer still installs.
+if [ -f "$ENV_FILE" ]; then
+    warn_missing_env WINBACK_DIGEST_TO
+fi
+
+# Deliberately NO test run: the service's ExecStart is the real DIGEST run (it
+# emails the founder). We let the first scheduled tick be the validation.
+# journalctl shows the result.
 
 log ""
-log "Win-back timer setup complete!"
+log "Win-back review-digest timer setup complete!"
 log ""
 log "Summary:"
-log "  ✓ ${UNIT}.timer enabled (daily 16:35 UTC, Persistent=true catches missed runs)"
-log "  ✓ Eligibility: subscription_lapsed=1 + verified email + no active sub + non-admin + churned 30-60d ago + no prior win-back"
+log "  ✓ ${UNIT}.timer enabled (weekly Mon 16:35 UTC, Persistent=true catches missed runs)"
+log "  ✓ REVIEW MODE: the weekly run emails WINBACK_DIGEST_TO the eligible list + draft and sends NOTHING to users"
+log "  ✓ Approve a batch with: make winback YES=1  (auto-send instead: set service ExecStart to 'winback YES=1')"
+log "  ✓ Eligibility: subscription_lapsed=1 + verified + no active sub + non-admin + not deleted + 30+d lapsed + no prior win-back"
 log "  ✓ Idempotent: users.winback_email_sent_at latches per send; the Stripe webhook clears it on re-subscribe so a re-churn re-qualifies"
 log ""
 log "Useful commands:"
 log "  • systemctl list-timers ${UNIT}.timer                          - next/last run"
-log "  • cd $APP_DIR && make winback DRY_RUN=1                        - preview eligible users (no send)"
-log "  • sudo systemctl start ${UNIT}.service                         - fire the send loop now"
-log "  • journalctl -u ${UNIT} -n 50                                  - recent send logs"
-log "  • cd $APP_DIR && make winback PREVIEW_TO=you@example.com       - render + send one sample"
+log "  • cd $APP_DIR && make winback DIGEST=1 DIGEST_TO=you@example.com - send yourself the review digest now"
+log "  • cd $APP_DIR && make winback DRY_RUN=1                        - preview eligible users (no email)"
+log "  • cd $APP_DIR && make winback YES=1                            - APPROVE + send to everyone eligible"
+log "  • journalctl -u ${UNIT} -n 50                                  - recent run logs"
 log "  • cd $APP_DIR && make winback PREVIEW_TO=you@example.com PREVIEW_MODE=auto - sample a specific variant (auto|promo|manual)"

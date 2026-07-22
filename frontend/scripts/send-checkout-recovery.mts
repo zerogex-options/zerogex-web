@@ -314,6 +314,7 @@ const eligible = querySqlite<UserRow>(
      AND u.checkout_recovery_email_sent_at IS NULL
      AND u.email_verified_at IS NOT NULL
      AND u.tier != 'admin'
+     AND u.deleted_at IS NULL
    GROUP BY u.id, u.email, u.founding_eligible
    ORDER BY last_started_at ASC;`,
 );

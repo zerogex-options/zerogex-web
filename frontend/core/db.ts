@@ -387,6 +387,16 @@ function initDb(): DatabaseSync {
   // who returns and later churns a second time can receive a fresh win-back.
   ensureColumn('users', 'winback_email_sent_at', 'TEXT');
 
+  // Soft-delete marker for self-service account deletion (see
+  // app/api/account/delete/route.ts + the /account danger zone). NULL = active;
+  // set to the ISO timestamp when the member deletes their account. We keep the
+  // row (not a hard DELETE) so churn/records stay intact, but a non-NULL value
+  // makes the account invisible to every auth path — getUserByEmail and the
+  // session JOIN in core/serverAuth.ts filter it out, so the member can no
+  // longer log in (local or OAuth) and all live sessions are severed. Also
+  // excluded from the win-back cohort and any other outbound email.
+  ensureColumn('users', 'deleted_at', 'TEXT');
+
   // Email verification gate. NULL = not yet verified; set to the ISO timestamp
   // at which the user proved ownership (either by clicking a verification
   // link or by completing OAuth, where the provider already attested it).

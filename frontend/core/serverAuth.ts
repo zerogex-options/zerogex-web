@@ -172,7 +172,12 @@ function ensureBootstrapAdmin() {
 function getUserByEmail(email: string) {
   ensureBootstrapAdmin();
   const db = getDb();
-  const row = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as Record<string, unknown> | undefined;
+  // `deleted_at IS NULL` locks soft-deleted accounts out of every path that
+  // resolves a user by email — local login, password reset, OAuth email
+  // adoption. A deleted account is treated as if it doesn't exist.
+  const row = db
+    .prepare('SELECT * FROM users WHERE email = ? AND deleted_at IS NULL')
+    .get(email) as Record<string, unknown> | undefined;
   return row ? rowToUser(row) : null;
 }
 
@@ -191,7 +196,7 @@ function getSessionByToken(token: string): SessionWithUser | null {
               u.founding_eligible, u.founding_lockin_dismissed_at, u.pro_welcome_seen_at
        FROM sessions s
        JOIN users u ON u.id = s.user_id
-       WHERE s.token_hash = ?`
+       WHERE s.token_hash = ? AND u.deleted_at IS NULL`
     )
     .get(tokenHash) as Record<string, unknown> | undefined;
 
@@ -412,6 +417,16 @@ export async function registerUser(
   if (getUserByEmail(normalizedEmail)) throw new Error('Email already registered');
 
   const db = getDb();
+  // getUserByEmail hides soft-deleted rows, but the email stays UNIQUE in the
+  // table — guard the "re-register into a deleted account" case with a clear
+  // message instead of letting the INSERT below trip the UNIQUE constraint.
+  const deletedExisting = db
+    .prepare('SELECT id FROM users WHERE email = ? AND deleted_at IS NOT NULL')
+    .get(normalizedEmail) as { id: string } | undefined;
+  if (deletedExisting) {
+    throw new Error('This account has been deleted. Contact support if you want it restored.');
+  }
+
   const user: AuthUser = {
     id: createId('user'),
     email: normalizedEmail,
@@ -859,11 +874,22 @@ export async function createOrLoginOAuthUser(request: NextRequest, input: { prov
   const db = getDb();
   const normalizedEmail = input.email.trim().toLowerCase();
 
+  // A soft-deleted account must not be revived by signing in with the provider
+  // again. Refuse up front (before identity/email resolution) with a clear
+  // message rather than letting the flow fall through to a fresh-signup INSERT
+  // that would collide on the still-present email row.
+  const deletedRow = db
+    .prepare('SELECT id FROM users WHERE email = ? AND deleted_at IS NOT NULL')
+    .get(normalizedEmail) as { id: string } | undefined;
+  if (deletedRow) {
+    throw new Error('This account has been deleted. Contact support if you want it restored.');
+  }
+
   const identityRow = db
     .prepare(
       `SELECT u.* FROM users u
        JOIN user_identities i ON i.user_id = u.id
-       WHERE i.provider = ? AND i.provider_id = ?`
+       WHERE i.provider = ? AND i.provider_id = ? AND u.deleted_at IS NULL`
     )
     .get(input.provider, input.providerId) as Record<string, unknown> | undefined;
   let user = identityRow ? rowToUser(identityRow) : null;
@@ -890,7 +916,7 @@ export async function createOrLoginOAuthUser(request: NextRequest, input: { prov
            AND user_id NOT IN (SELECT id FROM users)`
       ).run(input.provider, input.providerId);
 
-      const emailRow = db.prepare('SELECT * FROM users WHERE email = ?').get(normalizedEmail) as Record<string, unknown> | undefined;
+      const emailRow = db.prepare('SELECT * FROM users WHERE email = ? AND deleted_at IS NULL').get(normalizedEmail) as Record<string, unknown> | undefined;
       if (emailRow) {
         user = rowToUser(emailRow);
       } else {

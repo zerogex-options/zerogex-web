@@ -1,15 +1,15 @@
 [Unit]
-Description=ZeroGEX web ~1-month-after-churn win-back email timer (daily)
+Description=ZeroGEX web ~1-month-after-churn win-back review digest timer (weekly)
 
 [Timer]
-# Once a day at 16:35 UTC (~12:35 PM ET in summer / 11:35 AM ET in winter — a
-# reasonable US-daytime send). The :35 minute keeps it clear of the hourly auth
-# backup at :00, the trial-reminder timer at :15, the verify-reminder timer at
-# :20, the verified-never-paid timer at :30, and the checkout-recovery timer at
-# :45. A daily cadence is plenty for a cohort that only turns over on a ~monthly
-# clock: the script's 30-day floor and 60-day ceiling give a 30-day catch
-# window, so a once-a-day tick never misses a newly-eligible churner.
-OnCalendar=*-*-* 16:35:00
+# Weekly, Monday 16:35 UTC (~12:35 PM ET in summer / 11:35 AM ET in winter). The
+# win-back cohort only turns over on a ~monthly clock, so weekly is ample — and
+# because this fires the REVIEW DIGEST (not the send), a weekly cadence means at
+# most one review email per week to the founder. The :35 minute keeps it clear
+# of the hourly auth backup at :00, the trial-reminder timer at :15, the
+# verify-reminder timer at :20, the verified-never-paid timer at :30, and the
+# checkout-recovery timer at :45.
+OnCalendar=Mon *-*-* 16:35:00
 # Spread load across deploys / coalesce if the box wakes many timers at once.
 RandomizedDelaySec=5m
 # If the box was down at the scheduled time, run as soon as it is back up.
