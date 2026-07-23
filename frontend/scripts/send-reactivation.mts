@@ -58,7 +58,11 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 
-import { sendReactivationEmail } from '../core/mailer.ts';
+import {
+  renderReactivationEmail,
+  sendReactivationEmail,
+  sendReactivationDigestEmail,
+} from '../core/mailer.ts';
 import { buildUnsubUrl } from '../core/unsubToken.ts';
 import { isFoundingLockinOpen } from '../core/foundingLockin.ts';
 
@@ -89,6 +93,11 @@ type Args = {
   lookbackDays: number;
   limit: number;
   previewTo: string | null;
+  // Review mode: email the eligible list + rendered draft to this address and
+  // send nothing to users. Falls back to REACTIVATION_DIGEST_TO env when the
+  // flag is passed with no value.
+  digest: boolean;
+  digestTo: string | null;
 };
 
 function parseEnvFile(filePath: string): Record<string, string> {
@@ -122,6 +131,8 @@ function parseArgs(argv: string[]): Args {
     lookbackDays: DEFAULT_LOOKBACK_DAYS,
     limit: DEFAULT_LIMIT,
     previewTo: null,
+    digest: false,
+    digestTo: null,
   };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -149,7 +160,15 @@ function parseArgs(argv: string[]): Args {
       }
       args.limit = value;
     } else if (arg === '--preview-to') args.previewTo = argv[++i] ?? null;
-    else if (arg === '--help' || arg === '-h') args.help = true;
+    else if (arg === '--digest') {
+      args.digest = true;
+      // Optional recipient right after the flag; otherwise REACTIVATION_DIGEST_TO env.
+      const next = argv[i + 1];
+      if (next && !next.startsWith('-')) {
+        args.digestTo = next;
+        i++;
+      }
+    } else if (arg === '--help' || arg === '-h') args.help = true;
   }
   return args;
 }
@@ -157,8 +176,8 @@ function parseArgs(argv: string[]): Args {
 function usage() {
   console.log(`Usage:
   node --experimental-strip-types scripts/send-reactivation.mts \\
-    [--dry-run | --yes] [--lag-days N] [--lookback-days N] [--limit N] \\
-    [--preview-to <email>]
+    [--dry-run | --yes | --digest [email]] [--lag-days N] [--lookback-days N] \\
+    [--limit N] [--preview-to <email>]
 
 Sends the second-touch reactivation email to cold verified-never-paid signups
 (public tier, verified email, no subscription, not founding-eligible, not
@@ -182,12 +201,16 @@ Options:
       --limit N              Max recipients this run (default ${DEFAULT_LIMIT}; 0 = unlimited).
       --preview-to <email>   Render the email and send ONE copy to <email>.
                              No DB writes.
+      --digest [email]       Review mode: email the eligible list + the rendered
+                             draft to <email> (or REACTIVATION_DIGEST_TO) and send
+                             nothing to users. No DB writes. Respects --limit, so
+                             it previews exactly the batch the next real send goes to.
   -h, --help                 Show this help.
 
 Reads RESEND_API_KEY, RESEND_FROM_EMAIL, NEXT_PUBLIC_APP_URL,
 ZEROGEX_END_USER_TOKEN_SECRET (to sign the unsubscribe link) and the optional
-REACTIVATION_TRIAL_DAYS from env or .env.local. Set AUTH_DB_PATH to override the
-default DB path.`);
+REACTIVATION_TRIAL_DAYS / REACTIVATION_DIGEST_TO from env or .env.local. Set
+AUTH_DB_PATH to override the default DB path.`);
 }
 
 function ensureSqlite3Cli() {
@@ -236,9 +259,14 @@ if (cliArgs.help) {
   process.exit(0);
 }
 
-const exclusiveFlags = [cliArgs.dryRun, cliArgs.yes, !!cliArgs.previewTo].filter(Boolean).length;
+const exclusiveFlags = [
+  cliArgs.dryRun,
+  cliArgs.yes,
+  !!cliArgs.previewTo,
+  cliArgs.digest,
+].filter(Boolean).length;
 if (exclusiveFlags > 1) {
-  console.error('Error: --dry-run, --yes, and --preview-to are mutually exclusive.');
+  console.error('Error: --dry-run, --yes, --preview-to, and --digest are mutually exclusive.');
   process.exit(1);
 }
 
@@ -250,7 +278,10 @@ const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || envLocal.RESEND_FROM_
 const NEXT_PUBLIC_APP_URL =
   process.env.NEXT_PUBLIC_APP_URL || envLocal.NEXT_PUBLIC_APP_URL || '';
 
-if ((cliArgs.yes || cliArgs.previewTo) && (!RESEND_API_KEY || !RESEND_FROM_EMAIL)) {
+if (
+  (cliArgs.yes || cliArgs.previewTo || cliArgs.digest) &&
+  (!RESEND_API_KEY || !RESEND_FROM_EMAIL)
+) {
   console.error('Error: RESEND_API_KEY and RESEND_FROM_EMAIL must be set to send emails.');
   process.exit(1);
 }
@@ -281,6 +312,12 @@ if ((cliArgs.yes || cliArgs.previewTo) && !process.env.ZEROGEX_END_USER_TOKEN_SE
 
 const trialDays = getReactivationTrialDays();
 
+// Review-digest recipient (the founder). --digest <email> wins, else the
+// REACTIVATION_DIGEST_TO env. Validated at the digest branch below (after the
+// eligible list is built, so the digest can embed it).
+const digestTo =
+  cliArgs.digestTo || process.env.REACTIVATION_DIGEST_TO || envLocal.REACTIVATION_DIGEST_TO || null;
+
 if (cliArgs.previewTo) {
   // Preview uses a tokenless placeholder unsubscribe URL — no real user id to
   // sign, and we never want a sample to carry a working opt-out for someone
@@ -302,6 +339,36 @@ if (!fs.existsSync(dbPath)) {
 }
 
 ensureSqlite3Cli();
+
+// Pre-flight schema check. Every column the eligibility query reads is added by
+// the app's lazy migration in core/db.ts, which only runs when the Next.js app
+// boots and first calls getDb(). If this feature was merged but the app hasn't
+// been rebuilt/restarted, reactivation_email_sent_at (and friends) won't exist
+// yet, and the query below would die with a raw "no such column" SQL error.
+// Check explicitly and point at the one-line fix instead. Mirrors the guard in
+// scripts/list-public-cohort.mjs.
+const userCols = new Set(
+  querySqlite<{ name: string }>(dbPath, `PRAGMA table_info(users);`).map((c) => c.name),
+);
+const requiredCols = [
+  'reactivation_email_sent_at',
+  'verified_never_paid_email_sent_at',
+  'marketing_unsubscribed_at',
+  'subscription_lapsed',
+  'founding_eligible',
+  'founding_member_started_at',
+  'email_verified_at',
+  'stripe_subscription_id',
+];
+const missingCols = requiredCols.filter((c) => !userCols.has(c));
+if (missingCols.length > 0) {
+  console.error(`Auth DB at ${dbPath} is missing column(s): ${missingCols.join(', ')}.`);
+  console.error(
+    "These are added by the app's lazy migration (core/db.ts). Run `make migrate` (or",
+  );
+  console.error('rebuild/restart the app) so the migration lands, then re-run this.');
+  process.exit(1);
+}
 
 const nowMs = Date.now();
 const DAY_MS = 86_400_000;
@@ -370,6 +437,34 @@ for (const u of sample) {
 }
 if (eligible.length > sample.length) {
   console.log(`  ... and ${eligible.length - sample.length} more`);
+}
+
+// Review digest: email the founder the full recipient list + the rendered draft
+// (respecting --limit, so it shows exactly the batch the next real send would go
+// to) and stop. Nothing goes to users, no DB writes — the actual send is a
+// separate, deliberate `make reactivation YES=1`.
+if (cliArgs.digest) {
+  if (!digestTo) {
+    console.error(
+      'Error: --digest needs a recipient. Pass --digest <email> or set REACTIVATION_DIGEST_TO in .env.local.',
+    );
+    process.exit(1);
+  }
+  // The embedded draft uses a tokenless placeholder unsub — it's a preview to
+  // the founder, so it must never carry a working opt-out for a real user.
+  const previewUnsub = `${(NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/+$/, '')}/unsubscribe`;
+  const draft = renderReactivationEmail({ trialDays, unsubUrl: previewUnsub });
+  const sendCommand = `make reactivation YES=1 LIMIT=${cliArgs.limit}`;
+  await sendReactivationDigestEmail(digestTo, {
+    recipients: eligible.map((u) => u.email),
+    sendCommand,
+    trialDays,
+    draft,
+  });
+  console.log(
+    `\n[digest] Review email sent to ${digestTo}: ${eligible.length} recipient(s) listed, draft embedded. No user emails sent — run \`${sendCommand}\` to deliver.`,
+  );
+  process.exit(0);
 }
 
 if (cliArgs.dryRun) {
