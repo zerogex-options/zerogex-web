@@ -1,0 +1,127 @@
+#!/bin/bash
+
+# ==============================================
+# Step 094: Nightly Janitor Timer (systemd)
+# ==============================================
+#
+# Installs the nightly cleanup units (see deploy/systemd/) and enables the
+# timer. The janitor handles zerogex-web's own retention/regenerable data:
+#   1. Auth-DB backup retention — prune ~/zerogex-auth-backups/auth-*.db.gz*
+#      older than AUTH_BACKUP_RETENTION_DAYS, but ALWAYS keep the newest
+#      AUTH_BACKUP_KEEP (the keep floor that stops an unfloored prune from
+#      wiping every Tier-1 auth backup if backups ever stall).
+#   2. Next.js build CACHE — rm -rf frontend/.next/cache (never the built
+#      .next output).
+#   3. npm cache — `npm cache clean --force` as the app user.
+# Idempotent — safe to re-run; an existing janitor.env is left untouched.
+#
+# The actual cleanup logic lives in `make janitor-noconfirm`. The auth-backup
+# prune is the SAME shared target `make backup-auth` runs after each hourly
+# snapshot (see deploy/steps/080.backup) — one pruner, floored, on two cadences.
+
+set -e
+
+# Fallback log if this step is invoked directly (deploy.sh exports a log
+# function, but operators sometimes run a single step in isolation to rotate
+# units without re-running the whole pipeline).
+type log >/dev/null 2>&1 || log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
+
+log "Nightly Janitor Timer Setup"
+
+# Resolve the owning user even when deploy.sh is invoked via sudo (deploy.sh
+# re-points HOME to the SUDO_USER's home but not USER).
+OWNER="${SUDO_USER:-$USER}"
+
+APP_DIR="$HOME/zerogex-web"
+SYSTEMD_SOURCE="$APP_DIR/deploy/systemd"
+SYSTEMD_TARGET="/etc/systemd/system"
+UNIT="zerogex-web-janitor"
+AUTH_BACKUP_DIR="$HOME/zerogex-auth-backups"
+NPM_CACHE_DIR="$HOME/.npm"
+
+# --- Preconditions ---------------------------------------------------
+if [ ! -d "$SYSTEMD_SOURCE" ]; then
+    log "  ✗ systemd source dir not found: $SYSTEMD_SOURCE"
+    exit 1
+fi
+for f in "${UNIT}.service" "${UNIT}.timer" "janitor.env.example"; do
+    if [ ! -f "$SYSTEMD_SOURCE/$f" ]; then
+        log "  ✗ missing unit file: $SYSTEMD_SOURCE/$f"
+        exit 1
+    fi
+done
+
+# --- Pre-create the unit's ReadWritePaths ----------------------------
+# The service runs ProtectSystem=strict + ProtectHome=read-only with
+# ReadWritePaths punched through for exactly the dirs the janitor writes.
+# systemd cannot set up the unit's mount namespace if any RW path is missing,
+# so they must exist before the timer is enabled.
+#   - frontend/ (in the repo) already exists — the .next/cache lives under it.
+#   - ~/zerogex-auth-backups holds the auth backups the prune deletes from
+#     (mode 0700 — archives contain password hashes + PII; step 080 also
+#     creates this, re-created here so the janitor can install standalone).
+#   - ~/.npm is npm's cache dir (mode 0755 — npm's default).
+if [ ! -d "$APP_DIR/frontend" ]; then
+    log "  ✗ $APP_DIR/frontend not found (expected in the repo)"
+    exit 1
+fi
+log "  → Ensuring backup dir exists: $AUTH_BACKUP_DIR (mode 700)"
+sudo install -d -o "$OWNER" -g "$OWNER" -m 0700 "$AUTH_BACKUP_DIR"
+log "  → Ensuring npm cache dir exists: $NPM_CACHE_DIR (mode 755)"
+sudo install -d -o "$OWNER" -g "$OWNER" -m 0755 "$NPM_CACHE_DIR"
+
+# --- Optional config file --------------------------------------------
+# Copy the example to janitor.env on first run so the operator has a 600-mode
+# file to edit. Defaults are all-commented => Makefile defaults apply. Never
+# overwrite an existing one (may already tune N/K or paths).
+if [ -f "$SYSTEMD_SOURCE/janitor.env" ]; then
+    log "  ✓ janitor.env already present (left as-is)"
+else
+    sudo cp "$SYSTEMD_SOURCE/janitor.env.example" "$SYSTEMD_SOURCE/janitor.env"
+    sudo chown "$OWNER:$OWNER" "$SYSTEMD_SOURCE/janitor.env"
+    sudo chmod 600 "$SYSTEMD_SOURCE/janitor.env"
+    log "     ✓ created janitor.env (defaults: retention 30d, keep-newest 48)"
+fi
+
+# --- Install + enable the units --------------------------------------
+log "  → Installing ${UNIT}.{service,timer}..."
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.service" "$SYSTEMD_TARGET/"
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.timer"   "$SYSTEMD_TARGET/"
+sudo systemctl daemon-reload
+
+log "  → Enabling ${UNIT}.timer (nightly 04:50, Persistent=true)..."
+if sudo systemctl enable --now "${UNIT}.timer" 2>/dev/null; then
+    NEXT=$(systemctl list-timers --no-pager --no-legend "${UNIT}.timer" 2>/dev/null | awk '{print $1, $2}')
+    log "     ✓ ${UNIT}.timer enabled (next run: ${NEXT:-unknown})"
+else
+    log "     ✗ ${UNIT}.timer failed to enable"
+    exit 1
+fi
+
+# --- Verify with a one-off run ---------------------------------------
+# The janitor is idempotent and safe to run any time (prune skips cleanly with
+# nothing to delete, the .next/cache rm is a no-op if absent, npm cache clean is
+# harmless), so always run it once to confirm the unit works end-to-end
+# (sandbox paths, app-user npm via nvm).
+log "  → Verifying with a one-off janitor run..."
+if sudo systemctl start "${UNIT}.service"; then
+    log "     ✓ janitor ran (see: journalctl -u ${UNIT} -n 30)"
+else
+    log "     ✗ janitor run failed — see: journalctl -u ${UNIT}"
+fi
+
+log ""
+log "Nightly janitor timer setup complete!"
+log ""
+log "Summary:"
+log "  ✓ ${UNIT}.timer enabled (nightly 04:50, Persistent=true catches missed runs)"
+log "  ✓ Auth-backup prune: keep newest 48, drop >30d beyond that (tune in janitor.env)"
+log "  ✓ Also clears frontend/.next/cache + npm cache each night"
+log "  ✓ Config: $SYSTEMD_SOURCE/janitor.env"
+log ""
+log "Useful commands:"
+log "  • systemctl list-timers ${UNIT}.timer   - next/last run"
+log "  • sudo systemctl start ${UNIT}.service   - run cleanup now"
+log "  • journalctl -u ${UNIT} -n 50            - recent janitor logs"
+log "  • make -C $APP_DIR janitor               - interactive run (prompts before acting)"
+log "  • \$EDITOR $SYSTEMD_SOURCE/janitor.env   - tune retention/keep floor (no sudo; you own it)"
