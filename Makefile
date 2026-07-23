@@ -1,4 +1,4 @@
-.PHONY: help install dev build rebuild start stop restart logs status users x-handles referrals migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding activate-late-founder extend-trial quarterly-receipt set-cancellation clear-zombie-customers webhook-health trial-reminders verified-never-paid verify-reminders winback reactivation public-cohort cancellations diagnose-user reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo blog-images
+.PHONY: help install dev build rebuild start stop restart logs status users x-handles referrals migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding activate-late-founder extend-trial quarterly-receipt set-cancellation clear-zombie-customers webhook-health trial-reminders payment-failed-preview verified-never-paid verify-reminders winback reactivation public-cohort cancellations diagnose-user reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo blog-images
 
 # Default target
 help:
@@ -30,6 +30,7 @@ help:
 	@echo "  make clear-zombie-customers - NULL stripe_customer_id on rows with no subscription (APPLY=1 to write, dry-run by default)"
 	@echo "  make webhook-health - Stripe webhook health summary (errors/orphans/failed payments, last 24h + 7d)"
 	@echo "  make trial-reminders - Send ~48h-before-trial-end reminder emails (DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample)"
+	@echo "  make payment-failed-preview - Send yourself a sample of the payment-failed dunning email (PREVIEW_TO=<email>; FINAL=1 for the retries-exhausted variant, NO_CARD=1 for the neutral fallback)"
 	@echo "  make verified-never-paid - Send the founder-voice trial-nudge to users who signed up + verified but never opened checkout (DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, LAG_HOURS=<n> to override the 2h default)"
 	@echo "  make verify-reminders - Send the founder-voice 'finish verifying to unlock the trial' nudge to users who signed up but never confirmed their email (mints a fresh 24h verify link; DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, LAG_HOURS=<n> to override the 2h default)"
 	@echo "  make winback - Send the ~1-month-after-churn win-back email to lapsed subscribers (what's new + a discount, no pressure). DIGEST=1 [DIGEST_TO=<email>] emails you the recipient list + draft and sends nothing (weekly review); YES=1 delivers; DRY_RUN=1 previews; PREVIEW_TO=<email> sends one sample; PREVIEW_MODE=auto|promo|manual forces a variant; LAG_DAYS/LOOKBACK_DAYS override the window"
@@ -221,6 +222,14 @@ tradeworkz-notify:
 # and send a single sample copy to that address (no DB writes).
 trial-reminders:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-trial-reminders.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),)'
+
+# Preview-only sender for the payment-failed dunning email (core/mailer.ts
+# sendPaymentFailedEmail), which is otherwise webhook-only (fired from
+# invoice.payment_failed, attempt 1). Pass PREVIEW_TO=<email> to send one sample.
+# FINAL=1 previews the retries-exhausted variant; NO_CARD=1 the neutral
+# "declined by your card issuer" fallback; NO_AMOUNT=1 drops the dollar amount.
+payment-failed-preview:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-payment-failed-preview.mts $(if $(PREVIEW_TO),--to $(PREVIEW_TO),) $(if $(FINAL),--final,) $(if $(NO_CARD),--no-card,) $(if $(NO_AMOUNT),--no-amount,)'
 
 # Send the founder-voice trial-pitch nudge to every user in the verified-
 # never-paid cohort (public tier, verified email, no subscription, NOT
