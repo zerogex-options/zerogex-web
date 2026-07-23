@@ -35,6 +35,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 
 import Stripe from 'stripe';
 import { sendTrialReminderEmail } from '../core/mailer.ts';
+import { formatCardBrand } from '../core/stripeCard.ts';
 
 // 48h from now is the target; a 6h window on each side absorbs a daily cron
 // landing at an arbitrary clock time without ever double- or zero-counting.
@@ -181,26 +182,8 @@ type BillingDetails = {
   cardLast4: string;
 };
 
-// Stripe reports card brands as lowercase codes (visa, mastercard, amex, …).
-// Map the documented set to display-ready names for customer-facing copy.
-// Anything unmapped — including 'unknown' and the 'link' wallet — resolves to
-// null so the mailer falls back to "the payment method ending in ….", never a
-// mis-cased or code-y label.
-const CARD_BRAND_LABELS: Record<string, string> = {
-  amex: 'American Express',
-  diners: 'Diners Club',
-  discover: 'Discover',
-  eftpos_au: 'EFTPOS',
-  jcb: 'JCB',
-  mastercard: 'Mastercard',
-  unionpay: 'UnionPay',
-  visa: 'Visa',
-};
-
-function formatCardBrand(brand: string | null | undefined): string | null {
-  if (!brand) return null;
-  return CARD_BRAND_LABELS[brand.toLowerCase()] ?? null;
-}
+// Card-brand labels + formatCardBrand live in core/stripeCard.ts now, shared
+// with the payment-failed dunning email so both name a card identically.
 
 // Resolve a Stripe reference that may be either a bare id string or an expanded
 // object down to its id. Mirrors the idOf helper in dedupe-payment-methods.mjs.

@@ -4,6 +4,7 @@ import type Stripe from 'stripe';
 import { getDb } from '@/core/db';
 import { normalizeTier, TierId } from '@/core/auth';
 import { revokeApiKeysIfTierDropped } from '@/core/apiKeys';
+import { resolveSubscriptionCard } from '@/core/stripeCard';
 import {
   sendCancellationEmail,
   sendFoundingWelcomeEmail,
@@ -1252,8 +1253,27 @@ export async function POST(request: NextRequest) {
           // 2, 3, ... — re-sending on each would spam the customer.
           if (invoice.attempt_count === 1) {
             const amountFormatted = formatInvoiceAmount(invoice);
+            // Best-effort: name the exact card that just failed and give Stripe's
+            // next automatic-retry date so the nudge is specific. A Stripe hiccup
+            // resolving the card must never block the email, so fall back to
+            // neutral phrasing (null) on any error.
+            let card: { brand: string | null; last4: string } | null = null;
             try {
-              await sendPaymentFailedEmail(user.email, { amountFormatted });
+              card = await resolveSubscriptionCard(getStripe(), invoiceSub, customerId ?? null);
+            } catch {
+              // Non-fatal — the nudge still sends without naming the card.
+            }
+            const nextAttemptIso =
+              typeof invoice.next_payment_attempt === 'number'
+                ? new Date(invoice.next_payment_attempt * 1000).toISOString()
+                : null;
+            try {
+              await sendPaymentFailedEmail(user.email, {
+                amountFormatted,
+                cardBrand: card?.brand ?? null,
+                cardLast4: card?.last4 ?? null,
+                nextAttemptIso,
+              });
               logAudit({
                 type: 'payment_failed_email_sent',
                 userId: user.id,

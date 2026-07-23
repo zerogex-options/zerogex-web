@@ -879,29 +879,73 @@ export async function sendWelcomeBackEmail(to: string) {
 
 // Sent on the first failed renewal attempt for an invoice (gated by
 // invoice.attempt_count === 1 in the webhook so it does not re-fire on each
-// Stripe Smart Retry). Points the customer at the billing portal — logging
-// in is the access path, since the portal session is created server-side
-// against their authenticated account.
+// Stripe Smart Retry). Names the exact card that failed, states that access has
+// dropped to the free Public tier until payment clears, and gives Stripe's next
+// automatic-retry date — all resolved by the caller (the webhook) and passed in,
+// so this presenter stays free of Stripe/DB I/O. Each enrichment is best-effort:
+// the card phrase, amount, and retry date each degrade to neutral wording when
+// the caller can't resolve them, so the email always sends. Points the customer
+// at the billing portal — logging in is the access path, since the portal
+// session is created server-side against their authenticated account.
 export async function sendPaymentFailedEmail(
   to: string,
-  opts?: { amountFormatted?: string | null },
+  opts?: {
+    amountFormatted?: string | null;
+    // The card Stripe just tried and failed to charge, so the nudge can name it.
+    // Resolved from Stripe by the caller; brand is display-ready (or null for a
+    // wallet/Link/unmapped method → neutral phrasing), last4 like "6284".
+    cardBrand?: string | null;
+    cardLast4?: string | null;
+    // Stripe's next automatic retry (invoice.next_payment_attempt), ISO, so the
+    // email can give a concrete "we'll try again on …" date. Null when Stripe has
+    // exhausted its automatic retries (this was the final attempt).
+    nextAttemptIso?: string | null;
+  },
 ) {
   const subject = "We couldn't process your ZeroGEX payment";
   const accountUrl = `${getAppUrl()}/account`;
   const safeAccountUrl = escapeHtml(accountUrl);
+
+  // Name the exact card when the caller resolved it; otherwise stay neutral.
+  const cardPhrase = opts?.cardLast4
+    ? opts.cardBrand
+      ? `your ${opts.cardBrand} card ending in ${opts.cardLast4}`
+      : `the payment method ending in ${opts.cardLast4}`
+    : null;
+
   const amountSentence = opts?.amountFormatted
-    ? `Your subscription payment of ${opts.amountFormatted} was declined by your card issuer.`
-    : 'Your subscription payment was declined by your card issuer.';
+    ? cardPhrase
+      ? `Your subscription payment of ${opts.amountFormatted} was declined — ${cardPhrase} didn't go through.`
+      : `Your subscription payment of ${opts.amountFormatted} was declined by your card issuer.`
+    : cardPhrase
+      ? `Your subscription payment was declined — ${cardPhrase} didn't go through.`
+      : 'Your subscription payment was declined by your card issuer.';
+
+  // A failed renewal drops the account to the free Public tier immediately (the
+  // webhook downgrades on past_due) and flips it back the moment a charge
+  // succeeds. State it plainly so the stakes are clear without alarm.
+  const accessSentence =
+    'Your account has moved to the free Public tier for now — full Pro access switches back on automatically as soon as a payment goes through.';
+
+  // Concrete next-retry date when Stripe still has attempts left; a firmer note
+  // when this was the final automatic attempt and cancellation is imminent.
+  const retrySentence = opts?.nextAttemptIso
+    ? `Stripe will automatically try again on ${formatTrialEndDate(opts.nextAttemptIso)}. If the retries don't succeed, the subscription will be canceled and you'd need to resubscribe to get Pro back.`
+    : 'Stripe has made its final automatic attempt, so the subscription will be canceled shortly unless you update your payment method now.';
 
   const text = [
     'Hello,',
     '',
-    `${amountSentence} Stripe will automatically retry over the next few days, so if it was a temporary issue (insufficient funds, an expired card, etc.) it may go through on the next attempt with no action needed from you.`,
+    `${amountSentence} ${accessSentence}`,
     '',
-    "If you'd rather resolve it now, you can update your payment method anytime from the billing portal on your account page:",
+    retrySentence,
+    '',
+    "If you'd rather fix it now, you can update your payment method in a minute from the billing portal on your account page:",
     accountUrl,
     '',
-    "If you have any questions, just reply to this email — I'm happy to help.",
+    'If it was just a temporary hiccup (insufficient funds, an expired or replaced card), the next retry may clear it with nothing needed from you.',
+    '',
+    "And if you have any questions, just reply to this email — I'm happy to help.",
     '',
     'Best,',
     'Michael',
@@ -911,12 +955,14 @@ export async function sendPaymentFailedEmail(
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
       <p>Hello,</p>
-      <p>${escapeHtml(amountSentence)} Stripe will automatically retry over the next few days, so if it was a temporary issue (insufficient funds, an expired card, etc.) it may go through on the next attempt with no action needed from you.</p>
-      <p>If you'd rather resolve it now, you can update your payment method anytime from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a>.</p>
+      <p>${escapeHtml(amountSentence)} ${escapeHtml(accessSentence)}</p>
+      <p>${escapeHtml(retrySentence)}</p>
+      <p>If you'd rather fix it now, you can update your payment method in a minute from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a>.</p>
       <p style="margin: 24px 0;">
         <a href="${safeAccountUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Update payment method</a>
       </p>
-      <p>If you have any questions, just reply to this email &mdash; I'm happy to help.</p>
+      <p>If it was just a temporary hiccup (insufficient funds, an expired or replaced card), the next retry may clear it with nothing needed from you.</p>
+      <p>And if you have any questions, just reply to this email &mdash; I'm happy to help.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
     </div>
   `.trim();
