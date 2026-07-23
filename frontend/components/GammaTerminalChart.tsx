@@ -176,6 +176,30 @@ function fmtGex(v: number): string {
   return `${sign}$${abs.toFixed(0)}`;
 }
 
+// The exact instant a quote is "as of", rendered to the second in ET. Both the
+// live and the ~15-min-delayed views show this so it's unambiguous how fresh
+// the headline price is (the delayed view's headline is intentionally stale, so
+// the timestamp is what tells a visitor it's from ~15 min ago, not right now).
+// The timeZone + locale are pinned, so server and client format identically —
+// no hydration mismatch on the delayed (server-rendered) snapshot.
+function fmtEtStamp(ts: string | null | undefined): string | null {
+  if (!ts) return null;
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return null;
+  return (
+    d.toLocaleString("en-US", {
+      timeZone: "America/New_York",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    }) + " ET"
+  );
+}
+
 function aggregateBars(data: Bar[], bucketMinutes: number, maxPoints: number): Bar[] {
   if (data.length === 0) return [];
   const sorted = [...data].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
@@ -1227,6 +1251,11 @@ export default function GammaTerminalChart({
       ? { label: "◷ DELAYED ~15 MIN", color: "var(--color-warning)" }
       : sessionLabel(session);
 
+  // Exact ET instant behind the headline quote. Live: the real-time quote's
+  // timestamp; delayed: the snapshot's repaired "as of" (the delayed tape's
+  // freshest bar), so a visitor sees it's ~15 min old, not frozen at a close.
+  const quoteStamp = fmtEtStamp(quoteTs);
+
   return (
     <div className={`zg-feature-shell zg-gc-rise ${className}`} style={{ overflow: "hidden" }}>
       {/* ── Header ─────────────────────────────────────────────────────── */}
@@ -1276,6 +1305,18 @@ export default function GammaTerminalChart({
                   </span>
                 )}
               </div>
+              {/* Exact "as of" instant for the headline quote (to the second, ET).
+                  Shown live and delayed so freshness is never ambiguous; hidden
+                  during rewind, which prints its own scrub time above. */}
+              {!rewindActive && quoteStamp && (
+                <span
+                  className="mt-1"
+                  style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}
+                >
+                  {delayed ? "Delayed quote · as of " : "Quote as of "}
+                  {quoteStamp}
+                </span>
+              )}
             </div>
           </div>
 

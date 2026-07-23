@@ -1,7 +1,8 @@
 import 'server-only';
 
 import { serverApiGet } from '@/core/api/serverFetch';
-import { isIndexSymbol } from '@/core/utils';
+import { getMarketSession, isIndexSymbol } from '@/core/utils';
+import { resolveDelayedQuote } from '@/core/delayedQuote';
 import type { SessionClosesData } from '@/hooks/useApiData';
 import type { PriceBar } from '@/hooks/useMarketHistorical';
 import type { StrikeProfileStrike } from '@/hooks/useStrikeProfileTimeseries';
@@ -143,15 +144,29 @@ export async function loadChartSnapshot(
   const vwap =
     Array.isArray(vwapBars) && vwapBars.length > 0 ? num(vwapBars[vwapBars.length - 1]?.vwap_deviation?.vwap) : null;
 
+  // Repair a stale cached quote so the public headline can't freeze on the prior
+  // session's 4 PM close while the delayed candles show today's tape. During the
+  // cash session this anchors price + "as of" to the freshest delayed bar; nights
+  // / weekends / the futures swap keep the served quote (see resolveDelayedQuote).
+  const repairedQuote = resolveDelayedQuote({
+    quoteClose: num(quote?.close),
+    quoteSession: quote?.session ?? null,
+    quoteTimestamp: typeof quote?.timestamp === 'string' ? quote.timestamp : null,
+    displaySource: quote?.display_source ?? null,
+    lastBarClose: num(lastBar?.close) ?? num(lastBar?.price),
+    lastBarTimestamp: lastBar?.timestamp ?? null,
+    marketNow: getMarketSession(),
+  });
+
   return {
     symbol,
     timeframe,
     generatedAt: lastBar?.timestamp ?? null,
     bars,
     quote: {
-      close: num(quote?.close) ?? num(lastBar?.close) ?? num(lastBar?.price),
-      session: quote?.session ?? null,
-      timestamp: quote?.timestamp ?? lastBar?.timestamp ?? null,
+      close: repairedQuote.close,
+      session: repairedQuote.session,
+      timestamp: repairedQuote.timestamp,
       display_source: quote?.display_source ?? null,
       futures_close: num(quote?.futures_close),
       futures_reference_close: num(quote?.futures_reference_close),

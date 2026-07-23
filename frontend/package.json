@@ -24,7 +24,8 @@
     "test:symbol-persistence": "node --experimental-strip-types --test tests/symbolPersistence.test.ts",
     "test:api-keys": "node --experimental-strip-types --test tests/apiKeys.test.ts",
     "test:my-dashboard": "node --experimental-strip-types --test tests/myDashboardLayout.test.ts",
-    "test:pro-welcome": "node --experimental-strip-types --test tests/proWelcome.test.ts"
+    "test:pro-welcome": "node --experimental-strip-types --test tests/proWelcome.test.ts",
+    "test:delayed-quote": "node --experimental-strip-types --test tests/delayedQuote.test.ts"
   },
   "dependencies": {
     "jose": "^5.9.6",
