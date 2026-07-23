@@ -1,0 +1,17 @@
+[Unit]
+Description=Nightly ZeroGEX web janitor timer (backup retention floor + regenerable caches)
+
+[Timer]
+# 04:50 nightly. Deliberately at the tail of the maintenance window: after the
+# 02:00/02:30 cron jobs and the 03:30 partner-grant sweep, clear of the 04:20 /
+# 04:30 two-hourly jobs, and 10 min before the 05:00 hourly auth backup. Cleanup
+# is low-priority retention work, so it yields to everything else.
+OnCalendar=*-*-* 04:50:00
+# Spread load and keep clear of the 05:00 backup tick.
+RandomizedDelaySec=3m
+# If the box was down at 04:50, run once it is back — the cleanup is idempotent,
+# and catching up keeps backup retention from drifting after an outage.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

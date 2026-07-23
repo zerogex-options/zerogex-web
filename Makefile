@@ -1,4 +1,4 @@
-.PHONY: help install dev build rebuild start stop restart logs status users x-handles referrals migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding activate-late-founder extend-trial quarterly-receipt set-cancellation clear-zombie-customers webhook-health trial-reminders verified-never-paid verify-reminders winback reactivation public-cohort cancellations diagnose-user reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth clean deploy logo blog-images
+.PHONY: help install dev build rebuild start stop restart logs status users x-handles referrals migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding activate-late-founder extend-trial quarterly-receipt set-cancellation clear-zombie-customers webhook-health trial-reminders verified-never-paid verify-reminders winback reactivation public-cohort cancellations diagnose-user reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo blog-images
 
 # Default target
 help:
@@ -46,6 +46,9 @@ help:
 	@echo "  make dedupe-payment-methods (EMAIL=<email> | CUSTOMER=cus_... | ALL=1) - Detach duplicate same-card/same-Link payment methods from Stripe customers, keeping the default/subscription method (INSPECT=1 to just list, DRY by default, APPLY=1 to detach)"
 	@echo "  make backup-monitoring - Backup Admin->Monitoring JSON data (S3_BUCKET=s3://... optional)"
 	@echo "  make backup-auth - Online backup of the SQLite auth DB (S3_BUCKET=, BACKUP_GPG_RECIPIENT= optional)"
+	@echo "  make auth-backups-prune - Prune old auth-DB backups: delete auth-*.db.gz* older than AUTH_BACKUP_RETENTION_DAYS (default 30) but ALWAYS keep the newest AUTH_BACKUP_KEEP (default 48; 0 = raw mtime-only). Shared by backup-auth + janitor"
+	@echo "  make janitor     - Nightly cleanup (interactive): prune auth backups (keep-newest floor) + drop frontend/.next/cache + npm cache clean. Prints the plan and asks before acting"
+	@echo "  make janitor-noconfirm - Same as janitor but no prompt (what the zerogex-web-janitor systemd timer runs nightly)"
 	@echo "  make clean      - Remove build artifacts"
 	@echo "  make deploy     - Full deployment (pull, install, rebuild)"
 	@echo "  make logo       - Copy logos from assets to public"
@@ -476,6 +479,41 @@ backup-monitoring:
 AUTH_DB_PATH ?=
 AUTH_BACKUP_DIR ?= $(HOME)/zerogex-auth-backups
 AUTH_BACKUP_RETENTION_DAYS ?= 30
+# Floor: ALWAYS keep the newest AUTH_BACKUP_KEEP archives, even if older than
+# AUTH_BACKUP_RETENTION_DAYS. 48 = two days of hourly backups. The auth DB is
+# Tier-1 (only copy of every account, password hash, session, user->Stripe
+# mapping; RPO ~1h), so an unfloored `find -mtime +N -delete` is a footgun: if
+# backup-auth ever stalls (bad creds, full disk) it would keep deleting until
+# ZERO backups remain. Set AUTH_BACKUP_KEEP=0 for raw mtime-only behavior.
+AUTH_BACKUP_KEEP ?= 48
+
+# Prune local auth-DB backup archives with a keep-newest-K FLOOR. Deletes
+# auth-*.db.gz* older than AUTH_BACKUP_RETENTION_DAYS but ALWAYS keeps the newest
+# AUTH_BACKUP_KEEP regardless of age. This is the ONE auth-backup pruner in the
+# repo: `make backup-auth` calls it after each hourly snapshot AND the nightly
+# `make janitor` calls it — same logic, two schedules, never a divergent second
+# pruner. The floor is the safety net: even if EVERY archive is older than N
+# days (a stalled backup), the newest K survive. AUTH_BACKUP_KEEP=0 restores the
+# raw mtime-only behavior. Skips cleanly if the dir is absent; per-item rm errors
+# are swallowed so one bad file can't fail the run.
+auth-backups-prune:
+	@if [ ! -d "$(AUTH_BACKUP_DIR)" ]; then \
+		echo "auth-backups: $(AUTH_BACKUP_DIR) not present — skipping"; \
+	else \
+		total=$$(find "$(AUTH_BACKUP_DIR)" -maxdepth 1 -type f -name 'auth-*.db.gz*' 2>/dev/null | wc -l); \
+		if [ "$$total" -le "$(AUTH_BACKUP_KEEP)" ]; then \
+			echo "auth-backups: $$total archive(s) <= keep-floor $(AUTH_BACKUP_KEEP) — nothing pruned"; \
+		else \
+			ls -1t "$(AUTH_BACKUP_DIR)"/auth-*.db.gz* 2>/dev/null | tail -n +$$(( $(AUTH_BACKUP_KEEP) + 1 )) | \
+			while read -r f; do \
+				if [ -n "$$(find "$$f" -maxdepth 0 -mtime +$(AUTH_BACKUP_RETENTION_DAYS) -print 2>/dev/null)" ]; then \
+					rm -f "$$f" && echo "  pruned $$f" || true; \
+				fi; \
+			done; \
+			echo "auth-backups: kept newest $(AUTH_BACKUP_KEEP); pruned entries older than $(AUTH_BACKUP_RETENTION_DAYS)d beyond the floor ($(AUTH_BACKUP_DIR))"; \
+		fi; \
+	fi
+
 backup-auth:
 	@command -v sqlite3 >/dev/null 2>&1 || { \
 		echo "ERROR: sqlite3 CLI not found. Install it: sudo apt-get install -y sqlite3"; \
@@ -514,8 +552,50 @@ backup-auth:
 			echo "WARNING: S3_BUCKET set but aws CLI not found; skipped upload."; \
 		fi; \
 	fi; \
-	find "$(AUTH_BACKUP_DIR)" -name 'auth-*.db.gz*' -mtime +$(AUTH_BACKUP_RETENTION_DAYS) -delete; \
-	echo "Backup complete. Local dir: $(AUTH_BACKUP_DIR) (retention: $(AUTH_BACKUP_RETENTION_DAYS) days)."
+	echo "Backup complete. Local dir: $(AUTH_BACKUP_DIR)."
+	@# floored prune (the SAME target the nightly janitor runs — one pruner, not
+	@# two); leading '-' makes it non-fatal so a prune hiccup never fails a backup
+	-@$(MAKE) --no-print-directory auth-backups-prune
+
+# ---------------------------------------------------------------------------
+# Nightly janitor — retention + regenerable-cache cleanup (all zerogex-web's own)
+# ---------------------------------------------------------------------------
+# Three safe/regenerable jobs: (1) prune old auth-DB backups with the
+# keep-newest-K floor (the shared auth-backups-prune target), (2) delete ONLY
+# the Next.js build CACHE (frontend/.next/cache — never the built .next output),
+# and (3) clean the npm cache as the app user (never root). `make janitor`
+# prints the plan and waits for a typed 'yes'; `make janitor-noconfirm` is what
+# the systemd timer fires. Every external tool is `command -v` guarded and
+# per-item errors are swallowed so a missing tool/path can never fail the run.
+NEXT_CACHE_DIR ?= frontend/.next/cache
+APP_USER ?= ubuntu
+
+janitor:
+	@echo "Nightly janitor will:"
+	@echo "  1. Prune $(AUTH_BACKUP_DIR)/auth-*.db.gz* older than $(AUTH_BACKUP_RETENTION_DAYS)d, keeping the newest $(AUTH_BACKUP_KEEP)"
+	@echo "  2. Delete the Next.js build cache $(NEXT_CACHE_DIR) (regenerated on next build; the built .next output is left intact)"
+	@echo "  3. npm cache clean --force (as $(APP_USER), never root)"
+	@printf "Proceed? type 'yes': "; \
+	read -r ans; \
+	if [ "$$ans" != "yes" ]; then echo "aborted."; exit 1; fi
+	@$(MAKE) --no-print-directory janitor-noconfirm
+
+janitor-noconfirm:
+	@echo "janitor: pruning auth-DB backups (keep-newest-$(AUTH_BACKUP_KEEP) floor)..."
+	@$(MAKE) --no-print-directory auth-backups-prune
+	@echo "janitor: clearing Next.js build cache ($(NEXT_CACHE_DIR))..."
+	@if [ -d "$(NEXT_CACHE_DIR)" ]; then \
+		rm -rf "$(NEXT_CACHE_DIR)" && echo "  cleared $(NEXT_CACHE_DIR) (regenerated on next build)" || echo "  WARNING: could not remove $(NEXT_CACHE_DIR)"; \
+	else \
+		echo "  $(NEXT_CACHE_DIR) not present — skipping"; \
+	fi
+	@echo "janitor: cleaning npm cache (as $(APP_USER), never root)..."
+	@if [ "$$(id -un)" = "root" ] && [ "$(APP_USER)" != "root" ] && id -u "$(APP_USER)" >/dev/null 2>&1; then \
+		sudo -u "$(APP_USER)" -H bash -lc 'source "$$HOME/.nvm/nvm.sh" >/dev/null 2>&1; nvm use 22 >/dev/null 2>&1 || true; if command -v npm >/dev/null 2>&1; then npm cache clean --force >/dev/null 2>&1 && echo "  npm cache cleaned" || echo "  npm cache clean failed (ignored)"; else echo "  npm not found — skipping"; fi' || true; \
+	else \
+		bash -lc 'source "$$HOME/.nvm/nvm.sh" >/dev/null 2>&1; nvm use 22 >/dev/null 2>&1 || true; if command -v npm >/dev/null 2>&1; then npm cache clean --force >/dev/null 2>&1 && echo "  npm cache cleaned" || echo "  npm cache clean failed (ignored)"; else echo "  npm not found — skipping"; fi' || true; \
+	fi
+	@echo "janitor: done."
 
 # Clean build artifacts
 clean:
