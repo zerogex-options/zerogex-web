@@ -130,7 +130,15 @@ export async function loadChartSnapshot(
       volume: num(b.volume) ?? undefined,
       up_volume: num(b.up_volume),
       down_volume: num(b.down_volume),
-    }));
+    }))
+    // /api/market/historical does NOT guarantee chronological order (the live
+    // hook and the chart's aggregateBars both sort it defensively). Sort here
+    // too, because we read `bars[bars.length - 1]` as the freshest bar for the
+    // headline close + "as of" timestamp — without this, a newest-first feed
+    // made the delayed quote latch onto the OLDEST bar in the window (a full
+    // day stale, e.g. "as of yesterday 11:20") while the sorted chart looked
+    // fine.
+    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
   const profilePoints = Array.isArray(profile?.profile)
     ? profile.profile

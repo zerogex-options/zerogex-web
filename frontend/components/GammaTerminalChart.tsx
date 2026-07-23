@@ -200,6 +200,24 @@ function fmtEtStamp(ts: string | null | undefined): string | null {
   );
 }
 
+// Wall-clock time (to the second, ET) for the LIVE view's "updated …" line.
+// The streamed quote's own `timestamp` is minute-aligned (always :00), so
+// rendering it makes a real-time feed look like it only ticks once a minute.
+// Instead we stamp the instant each fresh tick lands on the client, which
+// advances every second the tape is moving — honestly conveying "live".
+function fmtEtClock(d: Date | null): string | null {
+  if (!d || Number.isNaN(d.getTime())) return null;
+  return (
+    d.toLocaleTimeString("en-US", {
+      timeZone: "America/New_York",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    }) + " ET"
+  );
+}
+
 function aggregateBars(data: Bar[], bucketMinutes: number, maxPoints: number): Bar[] {
   if (data.length === 0) return [];
   const sorted = [...data].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
@@ -289,6 +307,10 @@ export default function GammaTerminalChart({
   const [hydrated, setHydrated] = useState(false);
   const [view, setView] = useState<{ count: number; offset: number }>({ count: DEFAULT_COUNT, offset: 0 });
   const [priceView, setPriceView] = useState<{ zoom: number; center: number | null }>(DEFAULT_PRICE_VIEW);
+  // Client-stamped instant of the latest live quote tick — drives the realtime
+  // "updated HH:MM:SS ET" line (see fmtEtClock). Null until the first tick and
+  // in delayed mode; never used server-side, so no hydration mismatch.
+  const [liveUpdatedAt, setLiveUpdatedAt] = useState<Date | null>(null);
 
   // ── Rewind (session replay) ── Live-only. When active the chart freezes at
   // `rewindTime` and shows price + dealer gamma "as it looked" then; playback
@@ -389,6 +411,22 @@ export default function GammaTerminalChart({
   const session = snapshot ? snapshot.quote?.session ?? null : quote?.session ?? null;
   const quoteTs = snapshot ? snapshot.quote?.timestamp ?? null : quote?.timestamp ?? null;
   const sessionCloses = snapshot ? snapshot.sessionCloses : liveSessionCloses;
+
+  // Stamp the wall-clock instant each fresh live tick lands, so the header can
+  // show a realtime "updated HH:MM:SS ET" that advances with the tape instead of
+  // the streamed quote's minute-aligned (:00) timestamp. Keyed on the quote's
+  // mutable fields so it re-stamps only when price/volume actually moves (the
+  // poll fires ~every second in regular hours). Delayed mode renders a frozen
+  // snapshot and is never stamped. Deliberate, self-limited setState-in-effect:
+  // it fires at most at the ~1s tick cadence, not in a render cascade.
+  const liveQuoteKey =
+    live && quote ? `${quote.timestamp}|${quote.close}|${quote.high}|${quote.low}|${quote.volume ?? ""}` : null;
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (liveQuoteKey == null) return;
+    setLiveUpdatedAt(new Date());
+  }, [liveQuoteKey]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const data = useMemo(() => dataAll.slice(-POOL), [dataAll]);
 
@@ -1251,10 +1289,21 @@ export default function GammaTerminalChart({
       ? { label: "◷ DELAYED ~15 MIN", color: "var(--color-warning)" }
       : sessionLabel(session);
 
-  // Exact ET instant behind the headline quote. Live: the real-time quote's
-  // timestamp; delayed: the snapshot's repaired "as of" (the delayed tape's
-  // freshest bar), so a visitor sees it's ~15 min old, not frozen at a close.
-  const quoteStamp = fmtEtStamp(quoteTs);
+  // Freshness line under the headline price.
+  //  • Delayed: the snapshot's repaired "as of" (the delayed tape's freshest
+  //    bar, full date + time), so a visitor sees it's ~15 min old — not frozen.
+  //  • Live + trading session: the realtime instant the last tick landed, to the
+  //    second, so the stream doesn't look like it only refreshes once a minute.
+  //  • Live + market closed: nothing is streaming, so show the last print's data
+  //    time ("as of") rather than a bogus live clock.
+  const dataStamp = fmtEtStamp(quoteTs); // data time (minute-aligned)
+  const liveStamp = fmtEtClock(liveUpdatedAt); // realtime tick receipt, to the second
+  const liveSessionActive = !delayed && !rewindActive && !!session && !/closed/i.test(session);
+  const freshnessLabel = delayed
+    ? dataStamp && `Delayed quote · as of ${dataStamp}`
+    : liveSessionActive
+      ? liveStamp && `Updated ${liveStamp}`
+      : dataStamp && `As of ${dataStamp}`;
 
   return (
     <div className={`zg-feature-shell zg-gc-rise ${className}`} style={{ overflow: "hidden" }}>
@@ -1305,16 +1354,23 @@ export default function GammaTerminalChart({
                   </span>
                 )}
               </div>
-              {/* Exact "as of" instant for the headline quote (to the second, ET).
-                  Shown live and delayed so freshness is never ambiguous; hidden
+              {/* Freshness line (to the second, ET). Live shows the realtime
+                  instant the last tick landed; delayed shows the frozen "as of".
+                  Shown in both modes so freshness is never ambiguous; hidden
                   during rewind, which prints its own scrub time above. */}
-              {!rewindActive && quoteStamp && (
+              {!rewindActive && freshnessLabel && (
                 <span
-                  className="mt-1"
+                  className="mt-1 flex items-center gap-1.5"
                   style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}
                 >
-                  {delayed ? "Delayed quote · as of " : "Quote as of "}
-                  {quoteStamp}
+                  {liveSessionActive && (
+                    <span
+                      className="zg-gc-dot"
+                      style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--color-bull)", flex: "0 0 auto" }}
+                      aria-hidden
+                    />
+                  )}
+                  {freshnessLabel}
                 </span>
               )}
             </div>
