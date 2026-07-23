@@ -19,6 +19,7 @@ import {
   getCurrentPeriodEndUnix,
   getFoundingIntroCouponId,
   getFoundingLifetimeCouponId,
+  getAppUrl,
   getManagedCadenceCouponIds,
   getStripe,
   priceIdToSku,
@@ -37,6 +38,11 @@ import {
   maybeAccruePartnerCommission,
   reversePartnerCommissionsForInvoice,
 } from '@/core/creatorPartners';
+import {
+  maybeAccrueAmbassadorCommission,
+  notifyCommissionEarned,
+  reverseAmbassadorCommissionsForInvoice,
+} from '@/core/ambassadors';
 import { captureServer } from '@/core/telemetry/posthog-server';
 import { captureTwitterConversion } from '@/core/telemetry/twitter-server';
 import { TelemetryEvent } from '@/core/telemetry/events';
@@ -1174,6 +1180,38 @@ export async function POST(request: NextRequest) {
             message: `Invoice ${invoice.id}: accrued ${outcome.commissionAmount} on billed ${outcome.billedAmount} ${outcome.currency}`,
           });
         }
+
+        // Ambassador Program accrual (parallel to the creator path above). A
+        // referee is attributed to exactly one referrer, so at most one of the
+        // two accrues; the shared UNIQUE(stripe_invoice_id) keeps both idempotent
+        // against retries/out-of-order deliveries. Synchronous + Stripe-free.
+        const ambOutcome = maybeAccrueAmbassadorCommission(invoice);
+        if (ambOutcome.kind === 'accrued') {
+          logAudit({
+            type: 'ambassador_commission_accrued',
+            userId: ambOutcome.ambassadorUserId,
+            email: ambOutcome.ambassadorEmail,
+            message: `Invoice ${invoice.id}: accrued ${ambOutcome.rewardMinor} (${ambOutcome.rewardType}) on billed ${ambOutcome.billedMinor} ${ambOutcome.currency}`,
+          });
+          // Notify the ambassador on the FIRST commission for this referee only,
+          // so monthly renewals don't spam them. Best-effort.
+          if (ambOutcome.isFirstForReferee) {
+            let amountFormatted = `${(ambOutcome.rewardMinor / 100).toFixed(2)} ${ambOutcome.currency.toUpperCase()}`;
+            try {
+              amountFormatted = new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: ambOutcome.currency.toUpperCase(),
+              }).format(ambOutcome.rewardMinor / 100);
+            } catch {
+              /* keep the plain fallback */
+            }
+            await notifyCommissionEarned(ambOutcome.ambassadorEmail, {
+              rewardType: ambOutcome.rewardType,
+              amountFormatted,
+              appUrl: getAppUrl(),
+            });
+          }
+        }
         break;
       }
       case 'charge.refunded': {
@@ -1190,6 +1228,19 @@ export async function POST(request: NextRequest) {
             logAudit({
               type: 'partner_commission_reversed',
               message: `Charge ${charge.id} refunded on invoice ${invoiceId}; ${reversed} commission(s) reversed`,
+            });
+          }
+          // Ambassador reversal is PROPORTIONAL for a partial refund (creator is
+          // all-or-nothing above). amount_refunded / amount gives the fraction.
+          const ambReversed = await reverseAmbassadorCommissionsForInvoice(invoiceId, {
+            refundedMinor: charge.amount_refunded ?? null,
+            chargedMinor: charge.amount ?? null,
+            reason: (charge.amount_refunded ?? 0) >= (charge.amount ?? 0) ? 'refund (full)' : 'refund (partial)',
+          });
+          if (ambReversed > 0) {
+            logAudit({
+              type: 'ambassador_commission_reversed',
+              message: `Charge ${charge.id} refunded on invoice ${invoiceId}; ${ambReversed} ambassador commission(s) reversed`,
             });
           }
         }
@@ -1216,6 +1267,18 @@ export async function POST(request: NextRequest) {
                 logAudit({
                   type: 'partner_commission_reversed',
                   message: `Dispute ${dispute.id} opened on invoice ${invoiceId}; ${reversed} commission(s) reversed`,
+                });
+              }
+              // A chargeback pulls the FULL charge — reverse the whole ambassador
+              // commission and mark it disputed.
+              const ambReversed = await reverseAmbassadorCommissionsForInvoice(invoiceId, {
+                reason: `dispute ${dispute.id}`,
+                disputed: true,
+              });
+              if (ambReversed > 0) {
+                logAudit({
+                  type: 'ambassador_commission_reversed',
+                  message: `Dispute ${dispute.id} on invoice ${invoiceId}; ${ambReversed} ambassador commission(s) reversed`,
                 });
               }
             }

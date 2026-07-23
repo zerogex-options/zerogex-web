@@ -1,0 +1,146 @@
+#!/bin/bash
+
+# ==============================================
+# Step 090: Ambassador Reward Release Timer
+# ==============================================
+#
+# Installs and enables the daily Ambassador maintenance timer (see
+# deploy/systemd/zerogex-web-ambassador-release.{service,timer}). The timer
+# fires at 04:10 server-local and triggers `make ambassador-release YES=1`,
+# which:
+#   • releases commissions past their 30-day holding period — cash rewards
+#     move to 'payable' (operator marks them 'paid' after payout), and
+#     account-credit rewards are applied as Stripe customer-balance credits
+#     and move to 'credited'. Rewards >= AMBASSADOR_REVIEW_THRESHOLD_CENTS
+#     are left pending for admin approval in the admin console.
+#   • expires pilots: ACTIVE ambassadors past their pilot end date flip to
+#     'inactive' (no new referrals) while ALL previously earned rewards are
+#     preserved.
+#
+# Idempotent — safe to re-run. Unit files are overwritten from the repo
+# (version-controlled). No config is written — the script reads AUTH_DB_PATH,
+# AMBASSADOR_*, and STRIPE_SECRET_KEY from frontend/.env.local.
+
+set -e
+
+type log >/dev/null 2>&1 || log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
+
+log "Ambassador Reward Release Timer Setup"
+
+OWNER="${SUDO_USER:-$USER}"
+APP_DIR="$HOME/zerogex-web"
+SYSTEMD_SOURCE="$APP_DIR/deploy/systemd"
+SYSTEMD_TARGET="/etc/systemd/system"
+UNIT="zerogex-web-ambassador-release"
+ENV_FILE="$APP_DIR/frontend/.env.local"
+
+# --- Preconditions ---------------------------------------------------
+if [ ! -d "$SYSTEMD_SOURCE" ]; then
+    log "  ✗ systemd source dir not found: $SYSTEMD_SOURCE"
+    exit 1
+fi
+for f in "${UNIT}.service" "${UNIT}.timer"; do
+    if [ ! -f "$SYSTEMD_SOURCE/$f" ]; then
+        log "  ✗ missing unit file: $SYSTEMD_SOURCE/$f"
+        exit 1
+    fi
+done
+
+if [ -s "$HOME/.nvm/nvm.sh" ]; then
+    log "  ✓ nvm present at $HOME/.nvm/nvm.sh"
+else
+    log "  ✗ nvm not found at $HOME/.nvm/nvm.sh — run step 020.nodejs first"
+    exit 1
+fi
+
+# --- Env soft-check ---------------------------------------------------
+# The timer keeps installing even when the program is disabled (it's a no-op
+# when no ambassadors exist), but warn on a disabled master switch and on a
+# missing Stripe key (needed only for account-credit rewards).
+if [ -f "$ENV_FILE" ]; then
+    value=$(grep -E "^AMBASSADOR_PROGRAM_ENABLED=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+    if [ "$value" != "1" ]; then
+        log "  ⚠ AMBASSADOR_PROGRAM_ENABLED is not 1 in $ENV_FILE — timer installs but"
+        log "    finds nothing to release until the program is on and ambassadors exist."
+    else
+        log "  ✓ AMBASSADOR_PROGRAM_ENABLED=1"
+    fi
+    if ! grep -qE "^STRIPE_SECRET_KEY=.+" "$ENV_FILE" 2>/dev/null; then
+        log "  ⚠ STRIPE_SECRET_KEY not set — cash releases + pilot expiry still run,"
+        log "    but account-credit rewards can't be applied until it is configured."
+    fi
+else
+    log "  ⚠ $ENV_FILE not found — step 030 should have created it"
+fi
+
+# --- Force the lazy DB migration ----------------------------------------
+# The ambassador columns/tables (partner_status, partner_reward_preference,
+# partner_link_visits, the partner_commissions extension, ...) are added by the
+# App's lazy migration in frontend/core/db.ts (initDb). Force it here so a
+# `--start-from 090` run doesn't wait for the first /api touch. See step 087 for
+# the full rationale.
+log "  → Forcing the auth DB lazy migration to land the ambassador schema..."
+if sudo -u "$OWNER" -H bash -lc "cd '$APP_DIR' && make migrate" >/dev/null 2>&1; then
+    log "     ✓ schema migration applied"
+else
+    log "     ⚠ make migrate failed — ambassador columns may be missing"
+    log "       Re-run manually: cd $APP_DIR && make migrate"
+fi
+
+# --- Install + enable the units --------------------------------------
+log "  → Installing ${UNIT}.{service,timer}..."
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.service" "$SYSTEMD_TARGET/"
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.timer"   "$SYSTEMD_TARGET/"
+
+# --- Sandbox drop-in for AUTH_DB_PATH --------------------------------
+# Same rationale as step 087: ProtectSystem=strict would block the SQLite
+# writes when AUTH_DB_PATH lives outside the repo, so derive the writable dir
+# from .env.local and grant it via a drop-in.
+DROPIN_DIR="$SYSTEMD_TARGET/${UNIT}.service.d"
+DROPIN="$DROPIN_DIR/auth-db-path.conf"
+AUTH_DB_PATH=""
+if [ -f "$ENV_FILE" ]; then
+    AUTH_DB_PATH=$(grep -E "^AUTH_DB_PATH=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+fi
+if [ -n "$AUTH_DB_PATH" ] && [[ "$AUTH_DB_PATH" == /* ]]; then
+    AUTH_DB_DIR=$(dirname "$AUTH_DB_PATH")
+    log "  → Writing sandbox drop-in (ReadWritePaths=$AUTH_DB_DIR)..."
+    sudo mkdir -p "$DROPIN_DIR"
+    sudo tee "$DROPIN" >/dev/null <<EOF
+[Service]
+ReadWritePaths=$AUTH_DB_DIR
+EOF
+    log "     ✓ drop-in installed at $DROPIN"
+else
+    if [ -f "$DROPIN" ]; then
+        log "  → Removing stale drop-in (AUTH_DB_PATH unset or relative)..."
+        sudo rm -f "$DROPIN"
+        sudo rmdir "$DROPIN_DIR" 2>/dev/null || true
+    fi
+    log "  → AUTH_DB_PATH absolute path unset; using unit-default ReadWritePaths"
+fi
+
+sudo systemctl daemon-reload
+
+log "  → Enabling ${UNIT}.timer (daily 04:10, Persistent=true)..."
+if sudo systemctl enable --now "${UNIT}.timer" 2>/dev/null; then
+    NEXT=$(systemctl list-timers --no-pager --no-legend "${UNIT}.timer" 2>/dev/null | awk '{print $1, $2}')
+    log "     ✓ ${UNIT}.timer enabled (next run: ${NEXT:-unknown})"
+else
+    log "     ✗ ${UNIT}.timer failed to enable"
+    exit 1
+fi
+
+log ""
+log "Ambassador reward-release timer setup complete!"
+log ""
+log "Summary:"
+log "  ✓ ${UNIT}.timer enabled (daily 04:10, Persistent=true catches missed runs)"
+log "  ✓ Cash rewards past hold -> payable; credit rewards applied to Stripe balance"
+log "  ✓ Ended pilots flip active -> inactive; prior earned rewards preserved"
+log ""
+log "Useful commands:"
+log "  • systemctl list-timers ${UNIT}.timer                    - next/last run"
+log "  • cd $APP_DIR && make ambassador-release DRY_RUN=1        - preview what's due"
+log "  • sudo systemctl start ${UNIT}.service                   - run the release now"
+log "  • journalctl -u ${UNIT} -n 50                            - recent logs"

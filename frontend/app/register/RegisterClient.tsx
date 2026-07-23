@@ -69,6 +69,13 @@ function RegisterPageContent({
     if (refCode) {
       const maxAge = 60 * 60 * 24 * 30; // 30 days
       document.cookie = `zgx_ref=${encodeURIComponent(refCode)}; path=/; max-age=${maxAge}; SameSite=Lax`;
+      // Companion first-touch timestamp for the Ambassador Program's attribution
+      // window. Set ONLY IF ABSENT so it records the FIRST click, not the latest;
+      // given a 60-day-ish window, use a matching lifetime.
+      if (!/(?:^|;\s*)zgx_ref_ts=/.test(document.cookie)) {
+        const tsMaxAge = 60 * 60 * 24 * 60; // 60 days
+        document.cookie = `zgx_ref_ts=${encodeURIComponent(new Date().toISOString())}; path=/; max-age=${tsMaxAge}; SameSite=Lax`;
+      }
       setReferralPresent(true);
       return;
     }

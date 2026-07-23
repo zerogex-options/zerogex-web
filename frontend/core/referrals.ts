@@ -4,6 +4,8 @@ import { getDb } from '@/core/db';
 import { getAppUrl, getStripe } from '@/core/stripe';
 import type { BillingCadence } from '@/core/stripe';
 import { isCreatorPartnerProgramEnabled } from '@/core/creatorPartners';
+import { recordAmbassadorReferral } from '@/core/ambassadorLedger';
+import { isAmbassadorProgramEnabled } from '@/core/ambassadorConfig';
 import { sendReferralRewardEmail } from '@/core/mailer';
 
 // Master switch. The whole program is inert (no codes minted, no discounts, no
@@ -118,8 +120,20 @@ function findReferrerByCode(code: string): ReferrerLookup | null {
 // (via findReferrerByCode); whichever path resolves, the stable 8-char
 // `referral_code` is what gets stamped on the user row and the referrals
 // ledger so Phase 3 commission accrual has one stable join key.
-export function recordReferralSignup(refereeUserId: string, code: string): void {
-  if (!isReferralProgramEnabled()) return;
+//
+// `firstTouchAt` (the ISO instant the referral link was first clicked, from the
+// zgx_ref_ts cookie) is used ONLY by the Ambassador Program, which enforces a
+// click->registration attribution window; the Refer-a-Friend and Creator paths
+// keep today's behavior (attribution recorded regardless). The referrer's
+// partner_tier is snapshotted onto the referrals row as partner_type.
+export function recordReferralSignup(
+  refereeUserId: string,
+  code: string,
+  firstTouchAt: string | null = null,
+): void {
+  // Proceed when EITHER the referral program or the ambassador program is on, so
+  // ambassador attribution works even if Refer-a-Friend is disabled.
+  if (!isReferralProgramEnabled() && !isAmbassadorProgramEnabled()) return;
   const normalized = code.trim().toUpperCase();
   if (!normalized) return;
 
@@ -128,19 +142,36 @@ export function recordReferralSignup(refereeUserId: string, code: string): void 
   const canonicalCode = referrer.referral_code ?? normalized;
 
   const db = getDb();
+  const referrerTier = db
+    .prepare('SELECT partner_tier FROM users WHERE id = ?')
+    .get(referrer.id) as { partner_tier: string | null } | undefined;
+
+  // Ambassadors have their own attribution primitive (window enforcement +
+  // partner_type='ambassador' stamping + first-valid-attribution-wins).
+  if (referrerTier?.partner_tier === 'ambassador') {
+    recordAmbassadorReferral(refereeUserId, canonicalCode, firstTouchAt);
+    return;
+  }
+
+  // Refer-a-Friend + Creator paths are unchanged and still require Refer-a-Friend.
+  if (!isReferralProgramEnabled()) return;
+  const partnerType = referrerTier?.partner_tier === 'creator' ? 'creator' : 'referral';
   db.prepare('UPDATE users SET referred_by_code = ?, updated_at = ? WHERE id = ?').run(
     canonicalCode,
     nowIso(),
     refereeUserId,
   );
   db.prepare(
-    `INSERT OR IGNORE INTO referrals (id, referrer_user_id, referee_user_id, code, status, created_at)
-     VALUES (?, ?, ?, ?, 'pending', ?)`,
+    `INSERT OR IGNORE INTO referrals
+       (id, referrer_user_id, referee_user_id, code, status, partner_type, first_touch_at, created_at)
+     VALUES (?, ?, ?, ?, 'pending', ?, ?, ?)`,
   ).run(
     `ref_${randomBytes(12).toString('hex')}`,
     referrer.id,
     refereeUserId,
     canonicalCode,
+    partnerType,
+    firstTouchAt,
     nowIso(),
   );
 }
@@ -168,9 +199,12 @@ export function backAttributeReferral(
     .run(canonicalCode, nowIso(), refereeUserId) as { changes: number | bigint };
   if (Number(claimed.changes) === 0) return false;
 
+  // This path is invoked only for creator-partner promo-code back-attribution
+  // (see the Stripe webhook), so the partner_type is 'creator'.
   db.prepare(
-    `INSERT OR IGNORE INTO referrals (id, referrer_user_id, referee_user_id, code, status, created_at)
-     VALUES (?, ?, ?, ?, 'pending', ?)`,
+    `INSERT OR IGNORE INTO referrals
+       (id, referrer_user_id, referee_user_id, code, status, partner_type, created_at)
+     VALUES (?, ?, ?, ?, 'pending', 'creator', ?)`,
   ).run(
     `ref_${randomBytes(12).toString('hex')}`,
     referrerUserId,
@@ -277,7 +311,15 @@ export async function rewardReferrerForConvertedReferee(
   const referrerPartnerTier = db
     .prepare('SELECT partner_tier FROM users WHERE id = ?')
     .get(referral.referrer_user_id) as { partner_tier: string | null } | undefined;
-  if (referrerPartnerTier?.partner_tier === 'creator') return { kind: 'none' };
+  // Creator partners AND ambassadors are on a commission/credit model (accrued
+  // into partner_commissions), not the free-month reward. Skip BEFORE claiming
+  // the referral row so their accrual paths still see it.
+  if (
+    referrerPartnerTier?.partner_tier === 'creator' ||
+    referrerPartnerTier?.partner_tier === 'ambassador'
+  ) {
+    return { kind: 'none' };
+  }
 
   // Claim the row first so a concurrent/duplicate webhook can't also reward.
   const claimed = db

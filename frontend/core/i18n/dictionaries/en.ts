@@ -68,6 +68,7 @@ export const en = {
   'nav.platformGuide': 'Platform Guide',
   'nav.monitoring': 'Monitoring',
   'nav.pageAnalytics': 'Page Analytics',
+  'nav.ambassadors': 'Ambassadors',
   'nav.about': 'About',
   'nav.account': 'Account',
   'nav.collapse': 'Collapse {name}',

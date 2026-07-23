@@ -59,6 +59,7 @@ export const es: Dictionary = {
   'nav.platformGuide': 'Guía de la plataforma',
   'nav.monitoring': 'Monitorización',
   'nav.pageAnalytics': 'Analíticas de página',
+  'nav.ambassadors': 'Embajadores',
   'nav.about': 'Acerca de',
   'nav.account': 'Cuenta',
   'nav.collapse': 'Contraer {name}',

@@ -4,7 +4,7 @@ import { FormEvent, Suspense, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Bell, CreditCard, Copy, Fingerprint, Gift, KeyRound, Link2, Mail, Rocket, Settings, ShieldCheck, Trash2 } from 'lucide-react';
+import { Award, Bell, CreditCard, Copy, Fingerprint, Gift, KeyRound, Link2, Mail, Rocket, Settings, ShieldCheck, Trash2 } from 'lucide-react';
 import { AUTH_TIERS, normalizeTier, TierId } from '@/core/auth';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import VerifyEmailBanner from '@/components/VerifyEmailBanner';
@@ -96,6 +96,9 @@ function AccountPageContent() {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [referral, setReferral] = useState<ReferralPayload | null>(null);
   const [referralCopied, setReferralCopied] = useState(false);
+  // Ambassador entry point — shown ONLY to ambassadors so the normal subscriber
+  // dashboard isn't overloaded with program information they don't have.
+  const [ambassador, setAmbassador] = useState<{ isAmbassador: boolean; status?: string } | null>(null);
   const [billing, setBilling] = useState<BillingStatusPayload | null>(null);
   const [donation, setDonation] = useState<DonationPayload | null>(null);
   // X/Twitter handle. `xHandle` is the input value (without the leading @);
@@ -160,6 +163,30 @@ function AccountPageContent() {
         if (!cancelled) setBilling(data);
       } catch {
         /* billing-status banner is non-critical; silently skip on failure */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [authSession?.authenticated]);
+
+  useEffect(() => {
+    if (!authSession?.authenticated) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch('/api/account/ambassador', { credentials: 'include' });
+        if (!response.ok) return;
+        const data = (await response.json()) as {
+          enabled: boolean;
+          isAmbassador?: boolean;
+          dashboard?: { status?: string };
+        };
+        if (!cancelled && data.enabled && data.isAmbassador) {
+          setAmbassador({ isAmbassador: true, status: data.dashboard?.status });
+        }
+      } catch {
+        /* ambassador card is non-critical; silently skip on failure */
       }
     })();
     return () => {
@@ -1025,6 +1052,35 @@ function AccountPageContent() {
                 {t('bankedMonthsAutoApplied')}
               </p>
             )}
+          </section>
+        )}
+
+        {ambassador?.isAmbassador && (
+          <section style={{ marginTop: 24 }}>
+            <SectionHeading icon={<Award size={18} />}>ZeroGEX Ambassador</SectionHeading>
+            <p style={{ margin: '6px 0 14px', color: C.muted, fontSize: 14 }}>
+              {ambassador.status === 'invited'
+                ? "You've been invited to the ZeroGEX Ambassador Program. Review the terms and activate your account."
+                : 'Manage your referral link, reward preference, and earnings.'}
+            </p>
+            <Link
+              href="/account/ambassador"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '10px 18px',
+                borderRadius: 10,
+                background: `linear-gradient(135deg, ${C.amber} 0%, var(--heat-mid) 100%)`,
+                color: 'var(--text-inverse)',
+                fontWeight: 800,
+                fontSize: 13,
+                textDecoration: 'none',
+              }}
+            >
+              <Award size={14} />{' '}
+              {ambassador.status === 'invited' ? 'Review invitation' : 'Open ambassador dashboard'}
+            </Link>
           </section>
         )}
 

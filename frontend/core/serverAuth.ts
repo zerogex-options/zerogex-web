@@ -10,6 +10,11 @@ import { normalizeCampaignCode } from '@/core/campaigns';
 // First-party cookie that carries an inbound ?ref= code from the landing page
 // through to account creation (incl. the OAuth round-trip).
 export const REFERRAL_COOKIE_NAME = 'zgx_ref';
+// Companion cookie recording WHEN the referral link was first clicked (ISO
+// instant), set alongside zgx_ref by the register/pricing clients. Read at
+// signup to enforce the Ambassador Program's click->registration attribution
+// window. Absent for older cookies / non-ambassador flows (which don't window).
+export const REFERRAL_TS_COOKIE_NAME = 'zgx_ref_ts';
 
 export type AuthUser = {
   id: string;
@@ -442,10 +447,14 @@ export async function registerUser(
   ).run(user.id, user.email, user.passwordHash, user.tier, user.createdAt, user.updatedAt);
 
   // Best-effort referral attribution — an invalid/absent code just leaves the
-  // signup organic and must never block account creation.
+  // signup organic and must never block account creation. The zgx_ref_ts cookie
+  // (set alongside zgx_ref when the referral link was first clicked) is the
+  // first-touch instant the Ambassador Program uses to enforce its attribution
+  // window; absent for referral/creator codes, which don't window-check.
   if (referralCode) {
     try {
-      recordReferralSignup(user.id, referralCode);
+      const firstTouch = request.cookies.get(REFERRAL_TS_COOKIE_NAME)?.value ?? null;
+      recordReferralSignup(user.id, referralCode, firstTouch);
     } catch (err) {
       console.error('[register] referral attribution failed:', err);
     }
@@ -950,7 +959,8 @@ export async function createOrLoginOAuthUser(request: NextRequest, input: { prov
         const refCode = request.cookies.get(REFERRAL_COOKIE_NAME)?.value;
         if (refCode) {
           try {
-            recordReferralSignup(user.id, refCode);
+            const firstTouch = request.cookies.get(REFERRAL_TS_COOKIE_NAME)?.value ?? null;
+            recordReferralSignup(user.id, refCode, firstTouch);
           } catch (err) {
             console.error('[oauth] referral attribution failed:', err);
           }

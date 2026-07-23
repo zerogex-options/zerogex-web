@@ -1,0 +1,17 @@
+[Unit]
+Description=ZeroGEX web Ambassador reward-release timer (daily 04:10)
+
+[Timer]
+# Daily at 04:10 server-local. Picked to fall after the 03:30 Creator Partner
+# grant-expiry sweep and before the 04:50 nightly janitor, and well outside the
+# hourly auth backup (~:00). Holding periods are measured in days, so a
+# single-pass-per-day cadence is sufficient — the longest a reward could sit
+# past its 30-day hold before becoming payable/credited is <24h.
+OnCalendar=04:10:00
+# Spread load across deploys / coalesce simultaneous timers.
+RandomizedDelaySec=10m
+# If the box was down at the scheduled time, run as soon as it is back up.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

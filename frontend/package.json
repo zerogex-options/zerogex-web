@@ -25,7 +25,9 @@
     "test:api-keys": "node --experimental-strip-types --test tests/apiKeys.test.ts",
     "test:my-dashboard": "node --experimental-strip-types --test tests/myDashboardLayout.test.ts",
     "test:pro-welcome": "node --experimental-strip-types --test tests/proWelcome.test.ts",
-    "test:delayed-quote": "node --experimental-strip-types --test tests/delayedQuote.test.ts"
+    "test:delayed-quote": "node --experimental-strip-types --test tests/delayedQuote.test.ts",
+    "test:ambassador-config": "node --experimental-strip-types --test tests/ambassadorConfig.test.ts",
+    "test:ambassador-ledger": "node --experimental-strip-types --test tests/ambassadorLedger.test.ts"
   },
   "dependencies": {
     "jose": "^5.9.6",

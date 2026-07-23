@@ -28,6 +28,8 @@ const PUBLIC_ROUTE_PATTERNS = [
   '/founding',
   '/privacy',
   '/terms',
+  // Public, invite-only-messaging terms page for the Ambassador Program.
+  '/ambassador-terms',
   '/login',
   '/register',
   '/forgot-password',

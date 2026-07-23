@@ -220,6 +220,24 @@ function initDb(): DatabaseSync {
     'CREATE UNIQUE INDEX IF NOT EXISTS idx_users_referral_code ON users(referral_code) WHERE referral_code IS NOT NULL'
   );
 
+  // Referral-ledger attribution metadata, added for the Ambassador Program but
+  // populated for every row so the same ledger serves all three partner types.
+  //   partner_type          - the referrer's category AT attribution time
+  //                           ('referral' | 'ambassador' | 'creator'). Snapshotted
+  //                           so a later tier change doesn't rewrite history.
+  //   first_touch_at        - when the referral link was first clicked (from the
+  //                           zgx_ref_ts cookie); NULL for organic/legacy rows.
+  //   attribution_expires_at- first_touch_at + the partner's attribution window;
+  //                           the deterministic bound the ambassador path enforces.
+  //   subscription_id /     - Stripe identifiers stamped at conversion, so the
+  //   customer_id             admin attribution view can be reconciled to Stripe
+  //                           without exposing them to end users.
+  ensureColumn('referrals', 'partner_type', "TEXT NOT NULL DEFAULT 'referral'");
+  ensureColumn('referrals', 'first_touch_at', 'TEXT');
+  ensureColumn('referrals', 'attribution_expires_at', 'TEXT');
+  ensureColumn('referrals', 'subscription_id', 'TEXT');
+  ensureColumn('referrals', 'customer_id', 'TEXT');
+
   // Creator Partner Program. Layered ON TOP of the referral plumbing above —
   // every partner is still a user with a `referral_code`, and a referee whose
   // `referred_by_code` resolves to a creator gets the partner-audience coupon
@@ -256,6 +274,54 @@ function initDb(): DatabaseSync {
   ensureColumn('users', 'partner_activated_at', 'TEXT');
   ensureColumn('users', 'partner_pro_grant_expires_at', 'TEXT');
 
+  // ZeroGEX Ambassador Program. The THIRD partner category, layered onto the
+  // exact same plumbing as the creator program above — an ambassador is a user
+  // with partner_tier='ambassador' and a referral_code, whose referees accrue
+  // into the shared partner_commissions ledger. The columns below carry the
+  // ambassador-specific terms that the creator program doesn't need. All are
+  // per-user overridable; defaults come from core/ambassadorConfig.ts at invite
+  // time. Creators are unaffected: their partner_tier stays 'creator' and these
+  // columns stay at their defaults / NULL for them.
+  //
+  //   partner_status          - invited | active | paused | inactive | rejected.
+  //   partner_designation      - optional label, e.g. 'Founding Ambassador'.
+  //   partner_reward_preference- 'cash' (20%) or 'account_credit' (25%). Applied
+  //                              PROSPECTIVELY: accrual snapshots the rate, so a
+  //                              later change never rewrites earned rewards.
+  //   partner_credit_bps       - account-credit rate (2500 = 25%); the cash rate
+  //                              reuses the existing partner_commission_bps.
+  //   partner_attribution_window_days - click->registration attribution window.
+  //   partner_holding_period_days     - hold before a commission is payable.
+  //   partner_pilot_started_at/_ends_at - pilot window; expiry flips the account
+  //                              to 'inactive' for NEW referrals but preserves
+  //                              all prior earned rewards.
+  //   partner_early_access     - 0/1; gates early-feature access when enabled.
+  //   partner_notes            - internal admin notes (never shown to the user).
+  //   partner_invited_at / _accepted_at / _deactivated_at - lifecycle stamps.
+  //   partner_terms_version    - the terms revision the ambassador accepted.
+  if (ensureColumn('users', 'partner_status', 'TEXT')) {
+    // Backfill: existing creator partners are already live, so mark them active
+    // under the new status vocabulary. Ambassadors are always created with an
+    // explicit status by the invite flow, so this only touches legacy creators.
+    db.exec(
+      `UPDATE users SET partner_status = 'active'
+       WHERE partner_tier = 'creator' AND partner_activated_at IS NOT NULL`,
+    );
+  }
+  ensureColumn('users', 'partner_designation', 'TEXT');
+  ensureColumn('users', 'partner_reward_preference', "TEXT NOT NULL DEFAULT 'cash'");
+  ensureColumn('users', 'partner_credit_bps', 'INTEGER NOT NULL DEFAULT 2500');
+  ensureColumn('users', 'partner_attribution_window_days', 'INTEGER NOT NULL DEFAULT 60');
+  ensureColumn('users', 'partner_holding_period_days', 'INTEGER NOT NULL DEFAULT 30');
+  ensureColumn('users', 'partner_pilot_started_at', 'TEXT');
+  ensureColumn('users', 'partner_pilot_ends_at', 'TEXT');
+  ensureColumn('users', 'partner_early_access', 'INTEGER NOT NULL DEFAULT 0');
+  ensureColumn('users', 'partner_notes', 'TEXT');
+  ensureColumn('users', 'partner_invited_at', 'TEXT');
+  ensureColumn('users', 'partner_accepted_at', 'TEXT');
+  ensureColumn('users', 'partner_deactivated_at', 'TEXT');
+  ensureColumn('users', 'partner_terms_version', 'TEXT');
+
   // Partner commission ledger: one row per (creator, referee_invoice) where
   // the creator earns cash. UNIQUE(stripe_invoice_id) makes the webhook
   // accrual idempotent against redeliveries. Status walks
@@ -287,6 +353,54 @@ function initDb(): DatabaseSync {
   db.exec(
     'CREATE UNIQUE INDEX IF NOT EXISTS idx_users_partner_audience_promo_code ON users(partner_audience_promo_code) WHERE partner_audience_promo_code IS NOT NULL'
   );
+
+  // Ambassador Program extension of the shared partner_commissions ledger. The
+  // creator program writes rows with the original columns and status walks
+  // 'accrued' -> 'paid'/'reversed'; ambassador rows are tagged
+  // partner_type='ambassador' and carry the richer lifecycle below, so the two
+  // never collide. Every existing row is a creator row, which is exactly what
+  // the partner_type default backfills.
+  //   partner_type    - 'creator' | 'ambassador'. Default 'creator' backfills
+  //                     every pre-existing row correctly.
+  //   reward_type     - 'cash' | 'account_credit', snapshotted at accrual so a
+  //                     later reward-preference change never rewrites this row.
+  //   commission_bps  - the rate used to compute commission_amount, snapshotted.
+  //   excluded_amount - eligible revenue we deliberately did NOT pay on (tax,
+  //                     already-refunded slice, etc.); audit/reporting only.
+  //   hold_release_at - when the holding period elapses. NULL for creator rows
+  //                     (no hold), so their behavior is unchanged.
+  //   credited_at     - when an account-credit reward was applied to Stripe.
+  //   reversal_reason - free-text reason on a reversal/adjustment row.
+  //   updated_at      - last mutation, for the admin ledger + audit.
+  ensureColumn('partner_commissions', 'partner_type', "TEXT NOT NULL DEFAULT 'creator'");
+  ensureColumn('partner_commissions', 'reward_type', "TEXT NOT NULL DEFAULT 'cash'");
+  ensureColumn('partner_commissions', 'commission_bps', 'INTEGER');
+  ensureColumn('partner_commissions', 'excluded_amount', 'INTEGER NOT NULL DEFAULT 0');
+  ensureColumn('partner_commissions', 'hold_release_at', 'TEXT');
+  ensureColumn('partner_commissions', 'credited_at', 'TEXT');
+  ensureColumn('partner_commissions', 'reversal_reason', 'TEXT');
+  ensureColumn('partner_commissions', 'updated_at', 'TEXT');
+  db.exec(
+    'CREATE INDEX IF NOT EXISTS idx_partner_commissions_referee ON partner_commissions(referee_user_id);',
+  );
+  db.exec(
+    'CREATE INDEX IF NOT EXISTS idx_partner_commissions_type_status ON partner_commissions(partner_type, status);',
+  );
+
+  // Aggregate referral-link visit counter, keyed by the partner's referral_code.
+  // Bumped by the rate-limited public /api/ambassador/visit beacon (validated
+  // server-side so it can only ever increment a real ambassador's counter), read
+  // by the ambassador dashboard + admin analytics for the visit->registration
+  // funnel. Deliberately a single aggregate row per code (not one row per hit) —
+  // this is a coarse funnel metric for a pilot, not per-visitor analytics, so it
+  // stores no IP/device/user data.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS partner_link_visits (
+      code TEXT PRIMARY KEY,
+      visits INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT
+    );
+  `);
 
   // One-time stamp marking that the "first paid subscription" welcome email
   // was delivered. After it is set, subsequent paid checkouts (re-subscribes

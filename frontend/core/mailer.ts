@@ -1919,3 +1919,157 @@ export async function sendTradeworkzNotification(
     throw new Error(`Resend error: ${result.error.message}`);
   }
 }
+
+// ---------------------------------------------------------------------------
+// ZeroGEX Ambassador Program
+// ---------------------------------------------------------------------------
+
+// Sent when an admin invites an existing customer into the invite-only
+// Ambassador Program. Transactional (tied to an explicit admin action), links to
+// the acceptance flow where the user reviews + accepts the terms and picks their
+// reward preference. No enrollment happens until they accept.
+export async function sendAmbassadorInviteEmail(
+  to: string,
+  opts: { designation: string | null; acceptUrl: string },
+) {
+  const safeLink = escapeHtml(opts.acceptUrl);
+  const role = opts.designation && opts.designation.length > 0 ? opts.designation : 'ZeroGEX Ambassador';
+  const safeRole = escapeHtml(role);
+  const subject = `You're invited to the ${role} program`;
+
+  const text = [
+    'Hello,',
+    '',
+    `You have been invited to join the ZeroGEX Ambassador Program as a ${role} because of your support for ZeroGEX and the value you have brought to the community.`,
+    '',
+    'The program is designed for trusted customers who genuinely use and recommend the platform — there is no follower minimum.',
+    '',
+    'Review the program terms and accept your invitation here:',
+    opts.acceptUrl,
+    '',
+    "You'll choose how you'd like to be rewarded (cash commission or ZeroGEX account credit) and get your unique referral link.",
+    '',
+    'Best,',
+    'Michael',
+    'Founder, ZeroGEX',
+    '',
+    ...renderFohFooterTextLines(),
+  ].join('\n');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <h1 style="font-size: 20px; margin: 0 0 16px;">You're invited: ${safeRole}</h1>
+      <p>You have been invited to join the ZeroGEX Ambassador Program as a <strong>${safeRole}</strong> because of your support for ZeroGEX and the value you have brought to the community.</p>
+      <p>The program is designed for trusted customers who genuinely use and recommend the platform &mdash; there is <strong>no follower minimum</strong>.</p>
+      <p style="margin: 24px 0;">
+        <a href="${safeLink}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Review terms &amp; accept</a>
+      </p>
+      <p style="font-size: 13px; color: #555;">You'll choose how you'd like to be rewarded (cash commission or ZeroGEX account credit) and get your unique referral link.</p>
+      <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+      ${renderFohFooterHtml()}
+    </div>
+  `.trim();
+
+  const client = getClient();
+  const result = await client.emails.send({ from: getFromAddress(), to, subject, text, html });
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
+// Sent when an ambassador accepts their invitation and their account goes active.
+export async function sendAmbassadorActivatedEmail(to: string, opts: { dashboardUrl: string }) {
+  const safeLink = escapeHtml(opts.dashboardUrl);
+  const subject = "You're now a ZeroGEX Ambassador";
+
+  const text = [
+    'Welcome aboard!',
+    '',
+    'Your ZeroGEX Ambassador account is now active. Your unique referral link and live earnings are on your ambassador dashboard:',
+    opts.dashboardUrl,
+    '',
+    'A quick reminder on how rewards work: you earn only after a referred customer makes a successful payment, and each reward is subject to a holding period and to reversal if the payment is later refunded or disputed.',
+    '',
+    'Please make clear and conspicuous affiliate disclosures whenever you promote ZeroGEX — e.g. "I\'m a ZeroGEX affiliate and may earn a commission if you subscribe through my link."',
+    '',
+    'Best,',
+    'Michael',
+    'Founder, ZeroGEX',
+    '',
+    ...renderFohFooterTextLines(),
+  ].join('\n');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <h1 style="font-size: 20px; margin: 0 0 16px;">You're now a ZeroGEX Ambassador</h1>
+      <p>Your ambassador account is now active. Your unique referral link and live earnings are on your dashboard.</p>
+      <p style="margin: 24px 0;">
+        <a href="${safeLink}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Open your ambassador dashboard</a>
+      </p>
+      <p style="font-size: 13px; color: #555;">You earn only after a referred customer makes a successful payment, and each reward is subject to a holding period and to reversal if the payment is later refunded or disputed.</p>
+      <p style="font-size: 13px; color: #555;">Please make clear and conspicuous affiliate disclosures whenever you promote ZeroGEX &mdash; e.g. &ldquo;I'm a ZeroGEX affiliate and may earn a commission if you subscribe through my link.&rdquo;</p>
+      <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+      ${renderFohFooterHtml()}
+    </div>
+  `.trim();
+
+  const client = getClient();
+  const result = await client.emails.send({ from: getFromAddress(), to, subject, text, html });
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
+// Sent when an ambassador earns their first commission from a referred customer.
+export async function sendAmbassadorCommissionEmail(
+  to: string,
+  opts: { rewardType: 'cash' | 'account_credit'; amountFormatted: string; dashboardUrl: string },
+) {
+  const safeLink = escapeHtml(opts.dashboardUrl);
+  const rewardWord = opts.rewardType === 'account_credit' ? 'account credit' : 'commission';
+  const subject = `You earned a ZeroGEX ambassador ${rewardWord}`;
+
+  const text = [
+    'Nice work!',
+    '',
+    `A customer you referred just made a successful payment, so you've earned a ${opts.amountFormatted} ${rewardWord}.`,
+    '',
+    opts.rewardType === 'account_credit'
+      ? 'It will be applied as ZeroGEX account credit after the holding period.'
+      : 'It moves from pending to payable after the holding period.',
+    '',
+    'See your full earnings on your ambassador dashboard:',
+    opts.dashboardUrl,
+    '',
+    'Rewards remain subject to reversal if the payment is later refunded or disputed.',
+    '',
+    'Best,',
+    'Michael',
+    'Founder, ZeroGEX',
+    '',
+    ...renderFohFooterTextLines(),
+  ].join('\n');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <h1 style="font-size: 20px; margin: 0 0 16px;">You earned a ${escapeHtml(rewardWord)}</h1>
+      <p>A customer you referred just made a successful payment, so you've earned a <strong>${escapeHtml(opts.amountFormatted)}</strong> ${escapeHtml(rewardWord)}.</p>
+      <p style="font-size: 13px; color: #555;">${
+        opts.rewardType === 'account_credit'
+          ? 'It will be applied as ZeroGEX account credit after the holding period.'
+          : 'It moves from pending to payable after the holding period.'
+      } Rewards remain subject to reversal if the payment is later refunded or disputed.</p>
+      <p style="margin: 24px 0;">
+        <a href="${safeLink}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">View your earnings</a>
+      </p>
+      <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+      ${renderFohFooterHtml()}
+    </div>
+  `.trim();
+
+  const client = getClient();
+  const result = await client.emails.send({ from: getFromAddress(), to, subject, text, html });
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}

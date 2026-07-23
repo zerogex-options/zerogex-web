@@ -1,0 +1,38 @@
+[Unit]
+Description=ZeroGEX web Ambassador reward release + pilot expiry
+Documentation=https://github.com/zerogex-options/zerogex-web
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/zerogex-web
+
+# `make ambassador-release` shells through nvm to get Node 22 on PATH for the
+# .mts script. Same approach as the partner-grant-expiry unit.
+Environment="HOME=/home/ubuntu"
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+
+ExecStart=/usr/bin/make -C /home/ubuntu/zerogex-web ambassador-release YES=1
+
+# This job DOES make outbound Stripe calls (to apply account-credit rewards as
+# customer-balance transactions), so allow a longer timeout than the pure-SQLite
+# grant-expiry sweep.
+TimeoutStartSec=300
+
+# Security hardening (mirrors zerogex-web-partner-grant-expiry.service).
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+# RW exception: the auth DB dir. The script mutates partner_commissions +
+# users (pilot expiry) + audit_events on the same SQLite file as the live PM2
+# writer. Update this if AUTH_DB_PATH in frontend/.env.local moves.
+ReadWritePaths=/home/ubuntu/zerogex-web/frontend/data
+
+# Logging -> journald (view with: journalctl -u zerogex-web-ambassador-release)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=zerogex-web-ambassador-release
