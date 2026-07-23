@@ -448,7 +448,8 @@ test('pausing new attribution stops new signups but preserves accrual on existin
   try {
     // A NEW signup is not attributed while paused.
     const fresh = mkUser({});
-    assert.equal(ledger.recordAmbassadorReferral(fresh, code, null).reason, 'attribution_disabled');
+    const r = ledger.recordAmbassadorReferral(fresh, code, null);
+    assert.equal(r.recorded === false && r.reason, 'attribution_disabled');
     // But an ALREADY-attributed referee still accrues on their invoice.
     const out = ledger.maybeAccrueAmbassadorCommission(mkInvoice('in_pause', 'cus_pause', 3900));
     assert.equal(out.kind, 'accrued');

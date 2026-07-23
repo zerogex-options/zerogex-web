@@ -1569,7 +1569,7 @@ export function expirePilots(): Array<{ userId: string; email: string }> {
       message: 'Pilot window ended; status active -> inactive (prior rewards preserved)',
     });
   }
-  return due;
+  return due.map((u) => ({ userId: u.id, email: u.email }));
 }
 
 // -- Audit + helpers --------------------------------------------------------
