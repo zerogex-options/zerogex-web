@@ -1,0 +1,46 @@
+[Unit]
+Description=ZeroGEX web second-touch reactivation emails (extended-trial offer to cold verified-never-paid signups)
+Documentation=https://github.com/zerogex-options/zerogex-web
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/zerogex-web
+
+# `make reactivation` shells through nvm to get the correct Node 22 binary (the
+# script is a .mts that needs --experimental-strip-types). The Makefile target
+# sources $HOME/.nvm/nvm.sh internally, so all we need here is HOME pointing at
+# the user's home — the system PATH suffices for /usr/bin/make + /usr/bin/bash;
+# node lands on PATH via nvm.sh at runtime.
+Environment="HOME=/home/ubuntu"
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+
+# No LIMIT= override here, so the script's default cap (50/run) applies: the
+# daily timer DRIPS the backlog rather than blasting hundreds of re-engagement
+# emails in one shot, protecting the sending domain's reputation. Raise the cap
+# by running `make reactivation YES=1 LIMIT=<n>` by hand.
+ExecStart=/usr/bin/make -C /home/ubuntu/zerogex-web reactivation YES=1
+
+# Resend + SQLite are the only outbound legs; cap so a hung HTTPS connect can't
+# pile up overlapping timer fires.
+TimeoutStartSec=300
+
+# Security hardening (mirrors the winback unit).
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+# RW exception: the auth DB dir, because UPDATE users SET
+# reactivation_email_sent_at and the audit_events INSERT both write to the same
+# SQLite file as the live PM2 writer. Update this if you change AUTH_DB_PATH in
+# frontend/.env.local. Deploy step 093 also writes a drop-in that mirrors
+# ReadWritePaths onto whatever the operator sets there.
+ReadWritePaths=/home/ubuntu/zerogex-web/frontend/data
+
+# Logging -> journald (view with: journalctl -u zerogex-web-reactivation)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=zerogex-web-reactivation

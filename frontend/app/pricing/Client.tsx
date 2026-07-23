@@ -36,6 +36,19 @@ type BillableTier = 'basic' | 'pro';
 // the source of truth for what Stripe actually does.
 const TRIAL_DAYS = 7;
 
+// Display mirror of REACTIVATION_TRIAL_DAYS_DEFAULT in
+// frontend/app/api/billing/checkout/route.ts — the extended trial a
+// ?reactivate=1 visitor (arriving from the second-touch reactivation email) is
+// granted server-side. Shown in the hero + plan cards for that visitor so the
+// page matches the number the email promised. If an operator overrides
+// REACTIVATION_TRIAL_DAYS in .env.local, set NEXT_PUBLIC_REACTIVATION_TRIAL_DAYS
+// to the same value so this stays truthful; the raw default keeps the common
+// (unset) case correct with no config.
+const REACTIVATION_TRIAL_DAYS = (() => {
+  const raw = Number(process.env.NEXT_PUBLIC_REACTIVATION_TRIAL_DAYS);
+  return Number.isFinite(raw) ? Math.max(TRIAL_DAYS, Math.min(90, Math.floor(raw))) : 30;
+})();
+
 // Display-only pricing. Source of truth for what Stripe actually charges is
 // the price IDs + coupons configured in env; if those drift from these numbers
 // the UI will show stale prices until this constant is updated.
@@ -304,6 +317,7 @@ function TierCard({
   accent,
   highlighted,
   startsTrial,
+  trialDays,
   action,
   busy,
   onSubscribe,
@@ -320,6 +334,10 @@ function TierCard({
   // False for a returning member whose free trial is already spent — the card
   // then drops the "free trial" / "No charge today" copy (they're billed now).
   startsTrial: boolean;
+  // Trial length shown in the card note. Standard TRIAL_DAYS for everyone, the
+  // extended REACTIVATION_TRIAL_DAYS for a ?reactivate=1 visitor so the card
+  // agrees with the hero and the email.
+  trialDays: number;
   action: TierAction;
   busy: boolean;
   onSubscribe: (tier: BillableTier) => void;
@@ -355,7 +373,7 @@ function TierCard({
 
       {startsTrial && (
         <p style={{ margin: '8px 0 0', fontSize: 12, color: C.muted, lineHeight: 1.55 }}>
-          {t('trialDaysNote', { days: TRIAL_DAYS })}
+          {t('trialDaysNote', { days: trialDays })}
         </p>
       )}
 
@@ -611,6 +629,12 @@ function PricingClientInner({
   // actually a churned, emailed member before attaching it, so this flag alone
   // grants nothing.
   const cameFromWinback = searchParams.get('winback') === '1';
+  // ?reactivate=1 is the link in the second-touch reactivation email. Like
+  // winback it only signals intent; checkout re-derives the extended-trial
+  // entitlement server-side from reactivation_email_sent_at, so the flag alone
+  // grants nothing. Paired with trial=1 in the email link, so these visitors
+  // also get the trial-continuation hero below.
+  const cameFromReactivate = searchParams.get('reactivate') === '1';
   const checkoutCancelled =
     searchParams.get('checkout_cancelled') === '1' || searchParams.get('checkout') === 'cancelled';
   // Plan the visitor pre-picked upstream (e.g. "Start Pro Trial" on the unlock
@@ -651,6 +675,12 @@ function PricingClientInner({
   // trial: not existing subscribers (stale ?trial=1 link) and not returning
   // members whose trial is already spent.
   const showTrialHero = cameFromTrialCta && !hasActiveSubscription && !isResubscribe;
+  // Trial length to show this visitor. A ?reactivate=1 arrival was promised the
+  // extended trial in the email, so the hero + trial-eligible plan cards echo
+  // that number; everyone else sees the standard 7. The server is still the
+  // authority on what actually attaches (it re-checks reactivation eligibility),
+  // exactly like the win-back discount banner — display reflects intent.
+  const trialDaysDisplay = cameFromReactivate ? REACTIVATION_TRIAL_DAYS : TRIAL_DAYS;
   // Banner only shows when we have a definitive false. While the session is
   // loading, emailVerified is undefined; rendering the banner then would
   // flash it for everyone on every pricing-page visit.
@@ -670,7 +700,9 @@ function PricingClientInner({
   // lose the reactivation discount.
   const registerHref = cameFromWinback
     ? `/register?next=${encodeURIComponent('/pricing?winback=1')}`
-    : '/register?next=/pricing';
+    : cameFromReactivate
+      ? `/register?next=${encodeURIComponent('/pricing?trial=1&reactivate=1')}`
+      : '/register?next=/pricing';
 
   const callBilling = useCallback(
     async (path: '/api/billing/checkout' | '/api/billing/portal', body?: object) => {
@@ -732,8 +764,11 @@ function PricingClientInner({
             tier,
             cadence,
             // Carry the win-back intent through so the server attaches the
-            // reactivation coupon for eligible churners (verified server-side).
+            // win-back coupon for eligible churners (verified server-side).
             ...(cameFromWinback ? { winback: true } : {}),
+            // Carry the reactivation intent so the server grants the extended
+            // trial for an eligible inactive signup (verified server-side).
+            ...(cameFromReactivate ? { reactivate: true } : {}),
           });
         }
       } catch (err) {
@@ -749,7 +784,7 @@ function PricingClientInner({
         setBusyTier(null);
       }
     },
-    [authSession?.user?.id, callBilling, cadence, cameFromWinback, currentTier, hasActiveSubscription, isAuthed, refreshSession, router, t],
+    [authSession?.user?.id, callBilling, cadence, cameFromWinback, cameFromReactivate, currentTier, hasActiveSubscription, isAuthed, refreshSession, registerHref, router, t],
   );
 
   const handlePortal = useCallback(async () => {
@@ -772,7 +807,7 @@ function PricingClientInner({
       const trialLabel = t('startTrialLabel', { label });
       // Tier-specific register link so a logged-out plan click returns to the
       // trial hero with THIS plan preselected (register carries the plan through).
-      const registerTrialHref = `/register?next=${encodeURIComponent(`/pricing?trial=1&plan=${tier}`)}`;
+      const registerTrialHref = `/register?next=${encodeURIComponent(`/pricing?trial=1&plan=${tier}${cameFromReactivate ? '&reactivate=1' : ''}`)}`;
       if (authLoading) return { kind: 'link', href: registerTrialHref, label: trialLabel };
       if (!isAuthed) {
         return { kind: 'link', href: registerTrialHref, label: trialLabel };
@@ -791,7 +826,7 @@ function PricingClientInner({
       if (isResubscribe) return { kind: 'subscribe', tier, label: t('subscribeToLabel', { label }) };
       return { kind: 'subscribe', tier, label: trialLabel };
     },
-    [authLoading, currentTier, hasActiveSubscription, isAuthed, isResubscribe, t],
+    [authLoading, cameFromReactivate, currentTier, hasActiveSubscription, isAuthed, isResubscribe, t],
   );
 
   // "Limited Time" pill omitted from the per-card highlights when the global
@@ -854,10 +889,10 @@ function PricingClientInner({
                   {t('heroTrialTitle')}
                 </h1>
                 <p style={{ margin: '0 auto 12px', maxWidth: 760, color: C.light, fontSize: 20, lineHeight: 1.6, fontWeight: 600 }}>
-                  {t('heroTrialSubtitle', { days: TRIAL_DAYS })}
+                  {t('heroTrialSubtitle', { days: trialDaysDisplay })}
                 </p>
                 <p style={{ margin: '0 auto 14px', maxWidth: 760, color: C.amber, fontSize: 15, lineHeight: 1.7, fontWeight: 700 }}>
-                  {t('heroTrialNoCharge', { days: TRIAL_DAYS })}
+                  {t('heroTrialNoCharge', { days: trialDaysDisplay })}
                 </p>
                 <p style={{ margin: '0 auto', maxWidth: 760, color: C.muted, fontSize: 15, lineHeight: 1.7 }}>
                   {t('heroTrialBody')}
@@ -961,6 +996,25 @@ function PricingClientInner({
             </div>
           )}
 
+          {cameFromReactivate && showTrialHero && (
+            <div
+              role="status"
+              style={{
+                maxWidth: 720,
+                margin: '0 auto 24px',
+                padding: '12px 16px',
+                borderRadius: 'var(--radius-panel)',
+                border: '1px solid var(--color-brand-primary)',
+                color: 'var(--color-brand-primary)',
+                background: 'var(--color-brand-primary-soft, rgba(245,180,0,0.1))',
+                fontSize: 14,
+                fontWeight: 600,
+              }}
+            >
+              {t('reactivateWelcome', { days: trialDaysDisplay })}
+            </div>
+          )}
+
           {verifyNotice && (
             <div
               role="status"
@@ -1012,6 +1066,7 @@ function PricingClientInner({
               highlights={basicHighlights}
               highlighted={preselectedPlan === 'basic'}
               startsTrial={!isResubscribe}
+              trialDays={trialDaysDisplay}
               accent="var(--color-brand-primary)"
               features={[
                 t('basicFeature1'),
@@ -1031,6 +1086,7 @@ function PricingClientInner({
               highlights={proHighlights}
               highlighted={preselectedPlan === 'pro'}
               startsTrial={!isResubscribe}
+              trialDays={trialDaysDisplay}
               accent="var(--color-brand-accent)"
               features={[
                 t('proFeature1'),
@@ -1078,7 +1134,7 @@ function PricingClientInner({
               </p>
               <ul style={{ paddingLeft: 22, marginTop: 12 }}>
                 <li>
-                  <strong>{t('trialListLabel', { days: TRIAL_DAYS })}</strong> {t('trialListBody')}
+                  <strong>{t('trialListLabel', { days: trialDaysDisplay })}</strong> {t('trialListBody')}
                 </li>
                 <li>
                   <strong>{t('cancelAnytimeLabel')}</strong> {t('cancelAnytimeBody')}

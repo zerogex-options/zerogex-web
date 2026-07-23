@@ -1389,6 +1389,109 @@ export async function sendVerifiedNeverPaidEmail(to: string) {
   }
 }
 
+// Second-touch reactivation email for a verified-never-paid signup who ignored
+// the first ~2h nudge (sendVerifiedNeverPaidEmail). Fired ~3 weeks later by
+// scripts/send-reactivation.mts. One-shot per account (latch on
+// users.reactivation_email_sent_at). This is the inactive-signup analogue of the
+// churned win-back: the first touch pitched the standard 7-day trial and didn't
+// convert, so this one CHANGES the offer to an extended trial (`trialDays`,
+// granted server-side at checkout for the ?reactivate=1 arrival) — the longer
+// trial is the incentive, so there is deliberately no discount to muddy it.
+//
+// Unlike the transactional lifecycle nudges, this is a re-engagement send to
+// someone who already passed once, so it carries a real marketing-unsubscribe
+// affordance: a footer opt-out link plus the one-click List-Unsubscribe header
+// (RFC 8058). `unsubUrl` is the signed per-user link the caller builds via
+// core/unsubToken.ts buildUnsubUrl(); the sender excludes anyone already
+// opted out before we ever get here.
+export async function sendReactivationEmail(
+  to: string,
+  opts: { trialDays: number; unsubUrl: string },
+) {
+  const trialDays = Math.max(1, Math.floor(opts.trialDays));
+  const chargeDay = trialDays + 1;
+  const ctaHref = `${getAppUrl()}/pricing?trial=1&reactivate=1`;
+  const safeCtaHref = escapeHtml(ctaHref);
+  const safeUnsub = escapeHtml(opts.unsubUrl);
+
+  const subject = `I extended your ZeroGEX free trial to ${trialDays} days`;
+
+  const text = [
+    'Hello,',
+    '',
+    "It's Michael, the founder of ZeroGEX. A little while back you created an account but never started the trial — no worries, life gets busy. I'm reaching out one more time because I don't think 7 days was a fair test, and I'd rather fix that than lose you over it.",
+    '',
+    `So I've set your trial to a full ${trialDays} days.`,
+    '',
+    'Same full access — every gamma level, the daily Read that tells you in plain English whether SPX is pinned, squeezing, or set to break before the open, the live flow, the backtester, and the TradeWorkz bots with their fully public trade audit — just a lot more room to see whether it earns a place in your routine.',
+    '',
+    'How the trial works, so nothing catches you off guard:',
+    `  • ${trialDays} days of full access, starting the moment you activate.`,
+    `  • Your card is on file but is NOT charged until day ${chargeDay}.`,
+    '  • We email you 48 hours before that first charge — it is never a surprise.',
+    "  • If it's not for you, one click in the billing portal cancels it and you won't be charged a cent.",
+    '',
+    `Start your ${trialDays}-day trial: ${ctaHref}`,
+    '',
+    "And if something specific held you back — a missing feature, a question, price, or it just wasn't the right week — hit reply and tell me. I read every message myself, and it genuinely shapes what I build next.",
+    '',
+    'Either way, thanks for giving ZeroGEX a look.',
+    '',
+    'Best,',
+    'Michael',
+    'Founder, ZeroGEX',
+    '',
+    '---',
+    'You are receiving this because you created a ZeroGEX account.',
+    `Unsubscribe from these emails: ${opts.unsubUrl}`,
+  ].join('\n');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.55;">
+      <p>Hello,</p>
+      <p>It's Michael, the founder of ZeroGEX. A little while back you created an account but never started the trial &mdash; no worries, life gets busy. I'm reaching out one more time because I don't think 7 days was a fair test, and I'd rather fix that than lose you over it.</p>
+      <p style="background: #fff8e1; border-left: 3px solid #f5b400; padding: 12px 14px; margin: 20px 0; font-size: 17px;">So I've set your trial to a full <strong>${trialDays} days</strong>.</p>
+      <p>Same full access &mdash; every gamma level, the daily Read that tells you in plain English whether SPX is pinned, squeezing, or set to break before the open, the live flow, the backtester, and the TradeWorkz&trade; bots with their fully public trade audit &mdash; just a lot more room to see whether it earns a place in your routine.</p>
+      <p style="margin: 16px 0 4px;">How the trial works, so nothing catches you off guard:</p>
+      <ul style="padding-left: 20px; margin: 4px 0 16px;">
+        <li style="margin: 0 0 8px;"><strong>${trialDays} days</strong> of full access, starting the moment you activate.</li>
+        <li style="margin: 0 0 8px;">Your card is on file but is <strong>not charged until day ${chargeDay}</strong>.</li>
+        <li style="margin: 0 0 8px;">We email you <strong>48 hours before</strong> that first charge &mdash; it is never a surprise.</li>
+        <li style="margin: 0 0 8px;">If it's not for you, <strong>one click</strong> in the billing portal cancels it and you won't be charged a cent.</li>
+      </ul>
+      <p style="margin: 24px 0;">
+        <a href="${safeCtaHref}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Start my ${trialDays}-day trial</a>
+      </p>
+      <p>And if something specific held you back &mdash; a missing feature, a question, price, or it just wasn't the right week &mdash; hit reply and tell me. I read every message myself, and it genuinely shapes what I build next.</p>
+      <p>Either way, thanks for giving ZeroGEX a look.</p>
+      <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+      <p style="margin: 28px 0 0; padding-top: 14px; border-top: 1px solid #e8e8e8; font-size: 12px; color: #8a8a8a; line-height: 1.5;">
+        You're receiving this because you created a ZeroGEX account.
+        <a href="${safeUnsub}" style="color: #8a8a8a; text-decoration: underline;">Unsubscribe from these emails</a>.
+      </p>
+    </div>
+  `.trim();
+
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject,
+    text,
+    html,
+    // One-click unsubscribe (RFC 8058) — this is a re-engagement send, so make
+    // opting out a single tap for the recipient and the mailbox provider alike.
+    headers: {
+      'List-Unsubscribe': `<${opts.unsubUrl}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    },
+  });
+
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
 // Nudge for a user who registered but never clicked the verification link.
 // Copy is deliberately about VERIFICATION, not a discount or a hard trial
 // pitch: an unverified account is procedurally blocked from checkout (see

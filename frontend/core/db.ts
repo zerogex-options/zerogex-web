@@ -331,6 +331,18 @@ function initDb(): DatabaseSync {
   // welcome-mat email, and re-firing after any state churn would spam.
   ensureColumn('users', 'verified_never_paid_email_sent_at', 'TEXT');
 
+  // One-shot latch for the SECOND-touch reactivation email sent ~3 weeks after
+  // the verified-never-paid nudge above, to the same "signed up, never paid"
+  // cohort who ignored that first nudge (see scripts/send-reactivation.mts).
+  // This is the inactive-signup analogue of the churned win-back: the first
+  // touch pitched the standard 7-day trial and didn't land, so this one changes
+  // the offer — an EXTENDED free trial (REACTIVATION_TRIAL_DAYS, granted
+  // server-side at app/api/billing/checkout/route.ts for a ?reactivate=1
+  // arrival). NULL = eligible; set to the ISO timestamp on send. Never cleared:
+  // one extra founder touch is deliberate — a third would be nagging, and this
+  // send honors marketing_unsubscribed_at (below) so opt-outs are excluded.
+  ensureColumn('users', 'reactivation_email_sent_at', 'TEXT');
+
   // One-shot latch for the "finish verifying to unlock your free trial" nudge
   // sent ~2h after signup to users who registered but never clicked the
   // verification link (see scripts/send-verify-reminders.mts). NULL =
