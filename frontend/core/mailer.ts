@@ -1450,10 +1450,17 @@ export async function sendVerifiedNeverPaidEmail(to: string) {
 // (RFC 8058). `unsubUrl` is the signed per-user link the caller builds via
 // core/unsubToken.ts buildUnsubUrl(); the sender excludes anyone already
 // opted out before we ever get here.
-export async function sendReactivationEmail(
-  to: string,
-  opts: { trialDays: number; unsubUrl: string },
-) {
+export type ReactivationEmailOptions = { trialDays: number; unsubUrl: string };
+
+// Pure render — no network. Returns subject + text + html so the same content
+// can be delivered to a cold signup (sendReactivationEmail) or embedded in the
+// founder's pre-send review digest (sendReactivationDigestEmail) without drift.
+// Mirrors renderWinbackEmail.
+export function renderReactivationEmail(opts: ReactivationEmailOptions): {
+  subject: string;
+  text: string;
+  html: string;
+} {
   const trialDays = Math.max(1, Math.floor(opts.trialDays));
   const chargeDay = trialDays + 1;
   const ctaHref = `${getAppUrl()}/pricing?trial=1&reactivate=1`;
@@ -1518,6 +1525,12 @@ export async function sendReactivationEmail(
     </div>
   `.trim();
 
+  return { subject, text, html };
+}
+
+export async function sendReactivationEmail(to: string, opts: ReactivationEmailOptions) {
+  const { subject, text, html } = renderReactivationEmail(opts);
+
   const client = getClient();
   const result = await client.emails.send({
     from: getFromAddress(),
@@ -1531,6 +1544,80 @@ export async function sendReactivationEmail(
       'List-Unsubscribe': `<${opts.unsubUrl}>`,
       'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
     },
+  });
+
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
+// Pre-send review digest to the founder (scripts/send-reactivation.mts
+// --digest). Lists exactly who the reactivation email WOULD go to this run and
+// embeds the rendered draft, but sends nothing to those users — the real send is
+// a separate, deliberate `make reactivation YES=1`. Mirrors sendWinbackDigestEmail.
+export async function sendReactivationDigestEmail(
+  to: string,
+  opts: {
+    recipients: string[];
+    sendCommand: string;
+    trialDays: number;
+    draft: { subject: string; text: string; html: string };
+  },
+) {
+  const { recipients, sendCommand, trialDays, draft } = opts;
+  const count = recipients.length;
+  const subject = `[ZeroGEX] Reactivation review — ${count} cold signup${count === 1 ? '' : 's'} ready (${trialDays}-day trial)`;
+
+  const listText =
+    recipients.length > 0 ? recipients.map((e) => `  - ${e}`).join('\n') : '  (none)';
+  const text = [
+    `${count} cold verified-never-paid signup${count === 1 ? '' : 's'} are eligible for the reactivation email this run.`,
+    `Offer: extended ${trialDays}-day free trial.`,
+    '',
+    'Nothing has been sent yet. To send to everyone below, run:',
+    `  ${sendCommand}`,
+    '',
+    `Recipients (${count}):`,
+    listText,
+    '',
+    '======================================================',
+    'DRAFT that will be sent (subject + body):',
+    `Subject: ${draft.subject}`,
+    '======================================================',
+    '',
+    draft.text,
+  ].join('\n');
+
+  const safeList =
+    recipients.length > 0
+      ? recipients.map((e) => `<li style="margin:2px 0;">${escapeHtml(e)}</li>`).join('')
+      : '<li style="margin:2px 0; color:#999;">(none)</li>';
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 640px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <h1 style="font-size: 18px; margin: 0 0 6px;">Reactivation review &mdash; ${count} eligible</h1>
+      <p style="margin: 0 0 4px; color: #444;">Offer: extended <strong>${trialDays}-day</strong> free trial. Nothing has been sent yet.</p>
+      <p style="margin: 0 0 16px; color: #444;">To send to everyone listed, run:<br>
+        <code style="display:inline-block; margin-top:6px; background:#f5f5f5; padding:6px 10px; border-radius:6px; font-size:13px;">${escapeHtml(sendCommand)}</code>
+      </p>
+      <h2 style="font-size: 14px; margin: 18px 0 6px;">Recipients (${count})</h2>
+      <ul style="padding-left: 18px; margin: 0 0 20px; font-size: 13px; color: #333;">${safeList}</ul>
+      <div style="border: 1px solid #e5e5e5; border-radius: 10px; overflow: hidden;">
+        <div style="background: #f5b400; color: #000; font-weight: 700; font-size: 13px; padding: 8px 12px;">
+          DRAFT PREVIEW &mdash; Subject: ${escapeHtml(draft.subject)}
+        </div>
+        <div style="padding: 4px 8px;">${draft.html}</div>
+      </div>
+    </div>
+  `.trim();
+
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject,
+    text,
+    html,
   });
 
   if (result.error) {
