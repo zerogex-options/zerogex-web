@@ -12,7 +12,7 @@ import { TrialButton } from './TrialCtaButtons';
 // that matter" — no performance or profit claims.
 
 const FEATURES: { label: string; detail: string }[] = [
-  { label: 'Real-time SPY/SPX/QQQ gamma levels', detail: 'Sub-second refresh, not a 15-minute snapshot' },
+  { label: 'Real-time SPY/SPX/QQQ/NDX gamma levels', detail: 'Sub-second refresh, not a 15-minute snapshot' },
   { label: 'Gamma Flip', detail: 'The regime line, live as spot moves across it' },
   { label: 'Call Wall & Put Wall', detail: 'Where price may pin, reject, or accelerate' },
   { label: 'Max Pain', detail: 'The expiration magnet, tracked intraday' },

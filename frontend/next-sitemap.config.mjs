@@ -156,6 +156,7 @@ const config = {
       '/spx-gamma-levels',
       '/spy-gamma-levels',
       '/qqq-gamma-levels',
+      '/ndx-gamma-levels',
     ]);
 
     const seen = new Set();
@@ -180,9 +181,10 @@ const config = {
     if (
       urlPath === '/spx-gamma-levels' ||
       urlPath === '/spy-gamma-levels' ||
-      urlPath === '/qqq-gamma-levels'
+      urlPath === '/qqq-gamma-levels' ||
+      urlPath === '/ndx-gamma-levels'
     ) {
-      // Ticker-first lead-magnet pages — the SEO landings for "SPX/SPY/QQQ
+      // Ticker-first lead-magnet pages — the SEO landings for "SPX/SPY/QQQ/NDX
       // gamma levels" intent searches. Each is self-canonical and refreshed
       // every market day, so daily changefreq matches reality and the priority
       // sits just below the homepage.

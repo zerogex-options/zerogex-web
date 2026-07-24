@@ -41,7 +41,7 @@ export default function LiveReadConversion({ symbol }: { symbol: string }) {
       </h2>
 
       <p style={{ margin: 0, fontSize: 16, lineHeight: 1.7, color: 'var(--color-text-secondary)', maxWidth: 720 }}>
-        These are the delayed free preview levels. Inside ZeroGEX, SPY, SPX, and QQQ levels update in real time with
+        These are the delayed free preview levels. Inside ZeroGEX, SPY, SPX, QQQ, and NDX levels update in real time with
         the full GEX profile, strike-level heatmaps, options-flow classification, dealer positioning, and Market State
         signals &mdash; so you know the levels that matter before price gets there.
       </p>

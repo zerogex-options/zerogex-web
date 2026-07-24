@@ -52,7 +52,7 @@ const getProWelcomeGateClient = () => {
 };
 
 // Routes that render their own full-page layout (no app chrome)
-const STANDALONE_ROUTES = ['/', '/about', '/giving', '/pricing', '/founding', '/login', '/register', '/unauthorized', '/terms', '/privacy', '/real-time-gex-0dte', '/spx-gamma-levels', '/spy-gamma-levels', '/qqq-gamma-levels', '/trading-mistakes'];
+const STANDALONE_ROUTES = ['/', '/about', '/giving', '/pricing', '/founding', '/login', '/register', '/unauthorized', '/terms', '/privacy', '/real-time-gex-0dte', '/spx-gamma-levels', '/spy-gamma-levels', '/qqq-gamma-levels', '/ndx-gamma-levels', '/trading-mistakes'];
 
 // Routes where the disclaimer modal should not interrupt the user (the auth
 // flow itself, and the public terms/privacy pages which already contain the
