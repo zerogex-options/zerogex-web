@@ -1,6 +1,7 @@
 'use client';
 
 import { useTimeframe, type UnderlyingSymbol } from '@/core/TimeframeContext';
+import ForcedFlowRead from '@/components/ForcedFlowRead';
 import ForcedFlowRail from '@/components/ForcedFlowRail';
 import ForcedFlowCurveChart from '@/components/ForcedFlowCurveChart';
 import CharmIntoCloseChart from '@/components/CharmIntoCloseChart';
@@ -48,6 +49,21 @@ export default function ForcedFlowPage() {
         <strong>Forced Flow</strong> = the dollars of stock dealers are mechanically compelled to trade to stay
         delta-hedged under a scenario of spot, time, or implied vol. Positive = dealers must buy; negative = sell.
       </p>
+
+      {/* The Read: verdict-first hero. One plain-language call — regime,
+          into-close forced flow, and the magnet level — off the live
+          /forced-flow endpoints. Everything below it is the evidence. */}
+      <div className="mb-8">
+        <ForcedFlowRead symbol={symbol} />
+      </div>
+
+      {/* Evidence — the scenario views the read is built from. */}
+      <div className="flex items-baseline gap-3 mb-3">
+        <h2 className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
+          The evidence
+        </h2>
+        <span className="flex-1 h-px" style={{ background: 'var(--border-default)' }} />
+      </div>
 
       {/* Hero row: slim regime rail beside the flagship reprice curve. */}
       <div className="grid grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)] gap-6 mb-6">
