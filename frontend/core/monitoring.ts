@@ -23,6 +23,12 @@ import {
   generateDailyKeys,
   generateHourlyKeys,
 } from '@/core/monitoringBuckets';
+import {
+  accumulateSubscriptionFlow,
+  parseSyncTierStrict,
+  type FlowDeleteEvent,
+  type FlowSyncEvent,
+} from '@/core/subscriptionFlow';
 
 const STORE_PATH = process.env.MONITORING_STORE_PATH ?? path.join(process.cwd(), 'data', 'monitoring.json');
 const SIGNUP_STORE_PATH = process.env.SIGNUP_STORE_PATH ?? path.join(process.cwd(), 'data', 'signups.json');
@@ -75,17 +81,22 @@ export type SignupPoint = {
 //                             counted separately as reactivations (below), so a
 //                             brand-new customer is distinguishable from a
 //                             returning one.
-//   • basicReactivate / proReactivate — a RE-activation: the day a sub climbs
-//                             back out of dunning into a paid tier (payment
-//                             recovered). Positive like an add, and offsets the
-//                             earlier payment-failure downgrade so the net line
-//                             stays honest, but kept in its own family.
+//   • basicReactivate / proReactivate — a RE-activation: the day a previously
+//                             dropped sub climbs back to a paid tier (public ->
+//                             paid), e.g. a payment recovered AFTER the grace
+//                             window had already expired. Positive like an add but
+//                             kept in its own family. A payment that recovers
+//                             DURING grace is a non-event (the sub never dropped),
+//                             so it produces neither a reactivation nor a loss.
 //   • basicPaymentFail / proPaymentFail — an INVOLUNTARY downgrade to public,
-//                               booked the day a failed payment pushes the sub
-//                               into dunning (past_due/unpaid): a failed renewal,
-//                               or a failed first charge when a trial ends. Booked
-//                               at the downgrade, not at Stripe's later deletion.
-//                               Stored negative so it stacks below the x-axis.
+//                               booked the day access ACTUALLY drops (tier ->
+//                               public): a failed renewal after any grace window
+//                               ends, a trial whose first charge fails at trial
+//                               end, or a sub Stripe deletes out of dunning. A
+//                               member still in grace is NOT counted here — they
+//                               stay a subscriber until the real drop, keeping
+//                               this reconciled with Total Subscribers. Stored
+//                               negative so it stacks below the x-axis.
 //   • basicCancel / proCancel — a VOLUNTARY cancellation: the sub was deleted
 //                               without having been downgraded for payment failure
 //                               (also stored negative)
@@ -473,29 +484,36 @@ function currentTierCounts(): { basic: number; pro: number; public: number } {
   return counts;
 }
 
-// Headcount split by Stripe subscription state:
-//   active   — fully paying subscribers (matches `make users PAID=yes`).
-//   trialing — card on file, free-trial window still running (matches
-//              `make users TRIAL=yes`). Promoted to 'active' on first
-//              charge, demoted to 'public' if the user cancels mid-trial.
-// past_due is intentionally excluded — the webhook downgrades those users
-// to the public tier, so counting them as paying would overstate the bucket.
+// Headcount split by subscription state, for the Total Subscribers chart:
+//   active   — fully paying subscribers, PLUS members in the payment-recovery
+//              grace window (subscription `past_due` but tier still pro/basic:
+//              a failed renewal Stripe is still retrying, with access retained —
+//              see BILLING_PAYMENT_GRACE_DAYS). They remain paying customers
+//              until access actually drops, so counting them keeps this
+//              reconciled with the subscription-flow chart, which books the loss
+//              only at the real downgrade (tier -> public), not at past_due entry.
+//   trialing — card on file, free-trial window still running.
+// A past_due row whose tier has ALREADY gone 'public' (grace expired or disabled)
+// is a genuine downgrade and is excluded here, as are unpaid/canceled/public.
 function currentPayingCounts(): { active: number; trialing: number } {
   try {
     const rows = getDb()
       .prepare(
-        `SELECT subscription_status, COUNT(*) AS c
+        `SELECT
+           CASE WHEN subscription_status = 'trialing' THEN 'trialing' ELSE 'active' END AS bucket,
+           COUNT(*) AS c
          FROM users
          WHERE subscription_status IN ('active', 'trialing')
-         GROUP BY subscription_status`,
+            OR (subscription_status = 'past_due' AND tier IN ('pro', 'basic'))
+         GROUP BY bucket`,
       )
-      .all() as Array<{ subscription_status: string; c: number }>;
+      .all() as Array<{ bucket: string; c: number }>;
     let active = 0;
     let trialing = 0;
     for (const row of rows) {
       const c = Number(row.c) || 0;
-      if (row.subscription_status === 'active') active = c;
-      else if (row.subscription_status === 'trialing') trialing = c;
+      if (row.bucket === 'active') active = c;
+      else if (row.bucket === 'trialing') trialing = c;
     }
     return { active, trialing };
   } catch {
@@ -765,8 +783,6 @@ function buildSignupSeries(now: Date): SignupPoint[] {
   return series;
 }
 
-type PaidTier = 'basic' | 'pro';
-
 type FlowAcc = {
   basicAdd: number;
   proAdd: number;
@@ -803,13 +819,6 @@ function parseSubIdFromMessage(message: string): string | null {
 // stripe_subscription_sync messages read "... tier=<pro|basic|public> ...". Only
 // pro/basic count as a paid state; public (an inactive/lapsed sub) returns null
 // so it neither starts a paid signup nor overwrites the last-known paid tier.
-function parseSyncTier(message: string): PaidTier | null {
-  const m = message.match(/\btier=(\w+)/);
-  if (m?.[1] === 'pro') return 'pro';
-  if (m?.[1] === 'basic') return 'basic';
-  return null;
-}
-
 // stripe_subscription_sync messages read "... status=<stripe status> tier=...".
 // The Stripe status is what distinguishes an involuntary payment-failure
 // downgrade (past_due/unpaid) from a healthy sub, so a later deletion can be
@@ -818,12 +827,6 @@ function parseSyncStatus(message: string): string | null {
   const m = message.match(/\bstatus=([A-Za-z_]+)/);
   return m ? m[1] : null;
 }
-
-// Stripe statuses that mean the subscription is failing payment (in dunning).
-// The moment a sub crosses into one of these the webhook downgrades it to public
-// (ACTIVE_STATUSES excludes them), so this is the instant a failed payment costs
-// the user their tier — booked right then, not when Stripe later deletes the sub.
-const DUNNING_STATUSES = new Set(['past_due', 'unpaid']);
 
 // How far back the flow / registration charts DISPLAY. Unlike the traffic
 // buckets (pruned at 90 days), these recompute from the retained, append-only
@@ -860,25 +863,28 @@ function isFlowDayEmpty(p: SignupFlowPoint): boolean {
 // earliest day with activity, floored at MAX_DAILY) since it recomputes from the
 // retained event log rather than a pruned bucket store.
 //
-//   • Paid adds        — a NEW paid conversion: the FIRST `stripe_subscription_sync`
-//     that saw a subscription in a paid tier (pro/basic) — the day that user
-//     converted. Positive.
-//   • Reactivations    — a sub climbing back out of dunning into a paid tier
-//     (payment recovered) on a later day. Positive, and offsets its earlier
-//     payment-failure downgrade so the net line stays honest, but booked in its
-//     own family so a genuine new conversion is never conflated with a recovery.
-//   • Payment-failure downgrades — booked the day a subscription first crosses
-//     INTO a dunning state (past_due/unpaid), i.e. the instant a failed payment
-//     downgrades it to public. Covers both a failed renewal and a trial whose
-//     first charge fails when it ends (trialing → past_due). Counted immediately,
-//     NOT deferred to the eventual `stripe_subscription_deleted` that lands only
-//     after Stripe exhausts its retries. Tier is the one held just before the
-//     failure; stored negative.
-//   • Paid cancellations — one per `stripe_subscription_deleted` row whose sub
-//     did NOT end in dunning (those were already booked as a payment-failure
-//     downgrade above), i.e. a voluntary cancel; tier from its last paid sync,
-//     stored negative. The two churn causes partition each lost sub so the same
-//     loss is never counted twice.
+// The paid-flow bookings all derive from the tier the webhook synced (paid<->
+// public transitions) in accumulateSubscriptionFlow, so they reconcile with the
+// Total Subscribers headcount day by day — including grace: a member in the
+// payment-recovery window keeps a paid tier and is booked as neither a loss nor,
+// on recovery, a reactivation.
+//   • Paid adds        — a NEW paid conversion: the FIRST time a subscription is
+//     seen in a paid tier (pro/basic) — the day that user converted. Positive.
+//   • Reactivations    — a previously dropped sub climbing back to a paid tier
+//     (public -> paid), e.g. a payment recovered after grace had already expired.
+//     Positive, in its own family so a recovery isn't conflated with a brand-new
+//     conversion. A recovery DURING grace is a non-event (no prior drop).
+//   • Payment-failure downgrades — booked the day access ACTUALLY drops to public
+//     (tier -> public): a failed renewal after any grace window ends, a trial
+//     whose first charge fails at trial end, or a sub Stripe deletes straight out
+//     of dunning. A member still in grace is NOT booked here — that's the fix that
+//     keeps this line reconciled with Total Subscribers. Tier is the one held
+//     just before the drop; stored negative.
+//   • Paid cancellations — one per `stripe_subscription_deleted` row whose sub was
+//     still a subscriber and did NOT end in dunning (those are payment-failure
+//     downgrades), i.e. a voluntary cancel; tier from its last paid sync, stored
+//     negative. The two churn causes partition each lost sub so the same loss is
+//     never counted twice.
 //   • Registrations    — new rows in the `users` table, counted by `created_at`
 //     (one per account, matching `make users`). Deliberately NOT sourced from
 //     `register`/`oauth_login` audit events: before 2026-06-18, `oauth_login`
@@ -904,11 +910,17 @@ function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
   try {
     const db = getDb();
 
-    // Subscription tier history from sync events, oldest first so a single pass
-    // yields both the first paid observation (the conversion) and the latest paid
-    // tier (for cancellation attribution). Bounded to FLOW_SYNC_WINDOW_DAYS: a
-    // bit longer than the displayed window so attribution near the oldest shown
-    // day has prior sync history, and capped so the scan can't grow forever.
+    // Paid-subscription flow, driven off the tier the webhook synced on each
+    // event. Two audit streams:
+    //   • stripe_subscription_sync — the per-event tier/status history, scanned
+    //     oldest-first by accumulateSubscriptionFlow to track each sub's paid↔
+    //     public transitions (add / reactivation / payment-failure downgrade).
+    //     Bounded to FLOW_SYNC_WINDOW_DAYS — a bit longer than the display window
+    //     so a sub shown near the oldest day still has its prior history for
+    //     correct attribution — and capped so the scan can't grow forever.
+    //   • stripe_subscription_deleted — terminal removals, classified against the
+    //     sub's last synced state (dunning ⇒ terminal payment failure, else a
+    //     voluntary cancel) and skipped when the sub already dropped via a sync.
     const syncRows = db
       .prepare(
         `SELECT created_at, message FROM audit_events
@@ -916,87 +928,38 @@ function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
          ORDER BY created_at ASC`,
       )
       .all() as Array<{ created_at: string; message: string }>;
-    const firstPaid = new Map<string, { day: string; tier: PaidTier }>();
-    const lastPaidTier = new Map<string, PaidTier>();
-    // Most recent synced Stripe status per subscription. During the ascending
-    // scan it holds the PREVIOUS status, so a fresh crossing into dunning can be
-    // detected; after the scan it holds each sub's FINAL status, so a deletion
-    // out of dunning isn't double-counted below.
-    const lastStatus = new Map<string, string>();
-    for (const row of syncRows) {
-      const subId = parseSubIdFromMessage(row.message);
-      if (!subId) continue;
-      const status = parseSyncStatus(row.message);
-      const tier = parseSyncTier(row.message);
-      const day = etDay(row.created_at);
-      const wasDunning = DUNNING_STATUSES.has(lastStatus.get(subId) ?? '');
-
-      if (status && DUNNING_STATUSES.has(status) && !wasDunning) {
-        // Payment-failure downgrade, booked the moment it happens: a sub crossing
-        // from a healthy state into dunning (past_due/unpaid) is downgraded to
-        // public right then, so record it on THIS day rather than waiting for the
-        // deletion Stripe emits only after its retries are exhausted. Only the
-        // entry transition counts (Stripe re-emits past_due on every failed
-        // retry), and the tier is the one held just before the failure — which
-        // also captures a trial whose first charge fails at trial-end (trialing →
-        // past_due), attributed to the tier the trial was for.
-        if (day && acc[day]) {
-          const failTier = lastPaidTier.get(subId) ?? 'basic';
-          if (failTier === 'pro') acc[day].proPaymentFail -= 1;
-          else acc[day].basicPaymentFail -= 1;
-        }
-      } else if (tier && wasDunning) {
-        // Reactivation: a sub climbing back OUT of dunning into a healthy paid
-        // tier (its payment recovered on a later retry) is re-promoted to
-        // pro/basic. Book a positive reactivation on the recovery day so it
-        // offsets the earlier downgrade and the net line reflects that the
-        // customer is back — kept in its own family (not proAdd/basicAdd) so a
-        // recovery is distinguishable from a brand-new conversion. `tier` is
-        // non-null only for active/trialing syncs, so this fires just on a genuine
-        // return to a paying state — attributed to the recovered tier.
-        if (day && acc[day]) {
-          if (tier === 'pro') acc[day].proReactivate += 1;
-          else acc[day].basicReactivate += 1;
-        }
-      }
-      if (status) lastStatus.set(subId, status);
-
-      if (!tier) continue;
-      if (!day) continue;
-      if (!firstPaid.has(subId)) firstPaid.set(subId, { day, tier });
-      lastPaidTier.set(subId, tier);
-    }
-
-    // Paid adds (first conversion): one per subscription, on the day it first
-    // went paid. Re-activations out of dunning are booked inline in the scan above.
-    for (const { day, tier } of firstPaid.values()) {
-      const bucket = acc[day];
-      if (!bucket) continue; // conversion day predates the window
-      if (tier === 'pro') bucket.proAdd += 1;
-      else bucket.basicAdd += 1;
-    }
-
-    // Voluntary cancellations: one per deleted subscription that did NOT end in
-    // dunning. A sub deleted out of past_due/unpaid was already booked as a
-    // payment-failure downgrade at its dunning crossing above (when it lost
-    // access), so skip it here — its deletion is just Stripe's delayed cleanup,
-    // not a second, separate loss. Tier from its last paid sync (fall back to
-    // Basic if unrecoverable so a real cancel is never lost).
     const deletedRows = db
       .prepare(
         `SELECT created_at, message FROM audit_events
          WHERE type = 'stripe_subscription_deleted' AND created_at > datetime('now', '-${FLOW_WINDOW_DAYS} days')`,
       )
       .all() as Array<{ created_at: string; message: string }>;
-    for (const row of deletedRows) {
-      const day = etDay(row.created_at);
-      if (!day || !acc[day]) continue;
-      const subId = parseSubIdFromMessage(row.message);
-      // Already counted as a payment-failure downgrade when it entered dunning.
-      if (subId && DUNNING_STATUSES.has(lastStatus.get(subId) ?? '')) continue;
-      const tier = (subId ? lastPaidTier.get(subId) : null) ?? 'basic';
-      if (tier === 'pro') acc[day].proCancel -= 1;
-      else acc[day].basicCancel -= 1;
+
+    const syncEvents: FlowSyncEvent[] = syncRows.map((row) => ({
+      subId: parseSubIdFromMessage(row.message) ?? '',
+      status: parseSyncStatus(row.message),
+      tier: parseSyncTierStrict(row.message),
+      day: etDay(row.created_at),
+    }));
+    const deleteEvents: FlowDeleteEvent[] = deletedRows.map((row) => ({
+      subId: parseSubIdFromMessage(row.message),
+      day: etDay(row.created_at),
+    }));
+
+    // Merge the pure accumulator's per-day deltas into the display window. A day
+    // outside the seeded window (e.g. an attribution older than FLOW_WINDOW_DAYS)
+    // is dropped here, exactly as the direct bookings were before.
+    for (const [day, delta] of accumulateSubscriptionFlow(syncEvents, deleteEvents)) {
+      const bucket = acc[day];
+      if (!bucket) continue;
+      bucket.proAdd += delta.proAdd;
+      bucket.basicAdd += delta.basicAdd;
+      bucket.proReactivate += delta.proReactivate;
+      bucket.basicReactivate += delta.basicReactivate;
+      bucket.proPaymentFail += delta.proPaymentFail;
+      bucket.basicPaymentFail += delta.basicPaymentFail;
+      bucket.proCancel += delta.proCancel;
+      bucket.basicCancel += delta.basicCancel;
     }
 
     // Registrations: authoritative new-account count from the users table (one

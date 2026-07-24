@@ -25,7 +25,7 @@ import {
   priceIdToSku,
   priceIdToTier,
 } from '@/core/stripe';
-import { decidePaymentGrace } from '@/core/paymentGrace';
+import { decidePaymentGrace, graceWindowEndIso } from '@/core/paymentGrace';
 import {
   backAttributeReferral,
   getRefereeCouponId,
@@ -1311,12 +1311,25 @@ export async function POST(request: NextRequest) {
               typeof invoice.next_payment_attempt === 'number'
                 ? new Date(invoice.next_payment_attempt * 1000).toISOString()
                 : null;
+            // If a payment-recovery grace window is currently open for this
+            // account (set by the past_due subscription sync for an established
+            // renewal failure), tell the member their access is retained until it
+            // ends rather than implying an immediate downgrade. Null when no
+            // window is open — including the race where the subscription.updated
+            // sync hasn't landed yet, in which case the email falls back to
+            // tense-neutral wording (never a false downgrade claim).
+            const graceUntilIso = graceWindowEndIso(
+              user.payment_grace_started_at,
+              getPaymentGraceDays(),
+              Date.now(),
+            );
             try {
               await sendPaymentFailedEmail(user.email, {
                 amountFormatted,
                 cardBrand: card?.brand ?? null,
                 cardLast4: card?.last4 ?? null,
                 nextAttemptIso,
+                graceUntilIso,
               });
               logAudit({
                 type: 'payment_failed_email_sent',
