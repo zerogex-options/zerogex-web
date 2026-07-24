@@ -219,10 +219,13 @@ function formatMoney(
 
 // The brand + last four of the card Stripe will actually charge when the trial
 // converts: the subscription's own default payment method if set, else the
-// customer's invoice-settings default (Stripe's fallback when the sub has
-// none). Mirrors the resolution order in scripts/dedupe-payment-methods.mjs.
-// Returns null when no card can be found (e.g. a Link/wallet method with no
-// card object). brand is the raw Stripe code — the caller normalizes it.
+// customer's invoice-settings default (Stripe's fallback when the sub has none),
+// else — for a subscription created through Stripe Checkout with a trial, which
+// populates NEITHER default slot — the most recently attached card in the
+// customer's payment-method list. Mirrors the resolution order in
+// scripts/dedupe-payment-methods.mjs. Returns null when no card can be found
+// (e.g. a Link/wallet method with no card object). brand is the raw Stripe code
+// — the caller normalizes it.
 async function resolveCard(
   stripe: Stripe,
   sub: Stripe.Subscription,
@@ -242,10 +245,28 @@ async function resolveCard(
       pmId = idOf(customer.invoice_settings?.default_payment_method);
     }
   }
-  if (!pmId) return null;
 
-  const pm = await stripe.paymentMethods.retrieve(pmId);
-  if (pm.card?.last4) return { brand: pm.card.brand ?? null, last4: pm.card.last4 };
+  if (pmId) {
+    const pm = await stripe.paymentMethods.retrieve(pmId);
+    if (pm.card?.last4) return { brand: pm.card.brand ?? null, last4: pm.card.last4 };
+    return null;
+  }
+
+  // No default payment method on the subscription OR the customer. That is the
+  // normal shape for a Checkout-created trial: Checkout attaches the collected
+  // card to the customer but leaves both default slots empty, so the card lives
+  // only in the customer's payment-method list. Name the most recently attached
+  // card (Stripe lists newest first) — for a fresh trial that is the single card
+  // the member just entered at checkout. Without this the reminder silently
+  // dropped the charge/card line for essentially every Checkout trial.
+  if (!customerId) return null;
+  const cards = await stripe.paymentMethods.list({
+    customer: customerId,
+    type: 'card',
+    limit: 1,
+  });
+  const card = cards.data[0]?.card;
+  if (card?.last4) return { brand: card.brand ?? null, last4: card.last4 };
   return null;
 }
 

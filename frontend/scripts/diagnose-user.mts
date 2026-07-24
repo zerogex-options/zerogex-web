@@ -14,6 +14,7 @@ import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 
 import Stripe from 'stripe';
+import { formatCardBrand } from '../core/stripeCard.ts';
 
 // The July-1 founding deferral landed in commit 06b7128. founders whose
 // subscription started before this got charged immediately; founders after it
@@ -324,6 +325,56 @@ function formatMoney(amount: number | null | undefined, currency: string | null 
   }
 }
 
+// Resolve a Stripe reference that may be a bare id string or an expanded object
+// down to its id.
+function idOf(ref: unknown): string | null {
+  if (!ref) return null;
+  if (typeof ref === 'string') return ref;
+  if (typeof ref === 'object' && typeof (ref as { id?: unknown }).id === 'string') {
+    return (ref as { id: string }).id;
+  }
+  return null;
+}
+
+// The card the ~48h trial reminder will name at conversion, resolved the same
+// way resolveCard does in send-trial-reminders.mts — subscription default, then
+// customer invoice-settings default, then (for a Checkout-created trial that
+// leaves both slots empty) the most recently attached card in the customer's
+// PM list — plus which slot it came from. Read-only; mirrors the reminder so a
+// blank charge/card line in the email is explained right here.
+async function resolveCardOnFile(
+  sub: Stripe.Subscription,
+  customerId: string,
+): Promise<{ brand: string | null; last4: string; source: string } | null> {
+  const subPm = sub.default_payment_method;
+  if (subPm && typeof subPm === 'object' && 'card' in subPm && subPm.card?.last4) {
+    return { brand: subPm.card.brand ?? null, last4: subPm.card.last4, source: 'subscription default' };
+  }
+
+  let pmId = idOf(subPm);
+  let source = 'subscription default';
+  if (!pmId) {
+    const customer = await stripe.customers.retrieve(customerId);
+    if (!('deleted' in customer && customer.deleted)) {
+      pmId = idOf(customer.invoice_settings?.default_payment_method);
+      source = 'customer invoice-settings default';
+    }
+  }
+
+  if (pmId) {
+    const pm = await stripe.paymentMethods.retrieve(pmId);
+    if (pm.card?.last4) return { brand: pm.card.brand ?? null, last4: pm.card.last4, source };
+    return null;
+  }
+
+  const cards = await stripe.paymentMethods.list({ customer: customerId, type: 'card', limit: 1 });
+  const card = cards.data[0]?.card;
+  if (card?.last4) {
+    return { brand: card.brand ?? null, last4: card.last4, source: 'customer card list (no default set)' };
+  }
+  return null;
+}
+
 try {
   const customer = await stripe.customers.retrieve(user.stripe_customer_id);
   header('Stripe customer');
@@ -352,7 +403,7 @@ try {
 if (user.stripe_subscription_id) {
   try {
     const sub = await stripe.subscriptions.retrieve(user.stripe_subscription_id, {
-      expand: ['items.data.price', 'discounts'],
+      expand: ['items.data.price', 'discounts', 'default_payment_method'],
     });
     header('Stripe subscription');
     kv('ID', sub.id);
@@ -406,6 +457,23 @@ if (user.stripe_subscription_id) {
           : `unavailable (${upErr.message})`,
       );
     }
+
+    // The card the ~48h reminder will name (or why it can't) — same resolution
+    // the reminder uses, so a blank charge/card line in the email is explained
+    // here. "no default set" means the card lives only in the customer's PM list
+    // (typical for a Checkout trial); the reminder now falls back to it too.
+    try {
+      const cardOnFile = await resolveCardOnFile(sub, user.stripe_customer_id);
+      kv(
+        'Card on file',
+        cardOnFile
+          ? `${formatCardBrand(cardOnFile.brand) ?? cardOnFile.brand ?? 'card'} ending in ${cardOnFile.last4} — ${cardOnFile.source}`
+          : 'none resolvable — reminder omits the charge/card line',
+      );
+    } catch (e) {
+      kv('Card on file', `unavailable (${(e as StripeError).message})`);
+    }
+
     const metaPairs = Object.entries(sub.metadata ?? {});
     if (metaPairs.length > 0) {
       kv('Metadata', metaPairs.map(([k, v]) => `${k}=${v}`).join(', '));
