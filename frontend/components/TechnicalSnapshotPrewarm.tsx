@@ -25,7 +25,7 @@ import { useEffect } from 'react';
 import { prewarmTechnicals } from '@/hooks/useTechnicals';
 import { scheduleIdle } from '@/core/scheduleIdle';
 
-const PREWARM_SYMBOLS = ['SPY', 'SPX', 'QQQ'] as const;
+const PREWARM_SYMBOLS = ['SPY', 'SPX', 'QQQ', 'NDX'] as const;
 
 export default function TechnicalSnapshotPrewarm() {
   useEffect(() => scheduleIdle(() => {

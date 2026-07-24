@@ -21,7 +21,7 @@ import {
 } from './bulletinHelpers';
 import { nodeToPngBlob, nodeToPngDataUrl, rasterizeSvg } from './imageExport';
 
-const SYMBOLS = ['SPX', 'SPY', 'QQQ'] as const;
+const SYMBOLS = ['SPX', 'SPY', 'QQQ', 'NDX'] as const;
 type Symbol = (typeof SYMBOLS)[number];
 
 const HORIZON_KEYS = Object.keys(HORIZONS) as HorizonKey[];
@@ -55,8 +55,8 @@ export default function LiveBulletinClient({ watermark = true }: { watermark?: b
     };
   }, []);
 
-  // QQQ's correct implied-vol input is VXN (Nasdaq-100); SPX/SPY use VIX.
-  const volIndex: 'VIX' | 'VXN' = symbol === 'QQQ' ? 'VXN' : 'VIX';
+  // QQQ/NDX's correct implied-vol input is VXN (Nasdaq-100); SPX/SPY use VIX.
+  const volIndex: 'VIX' | 'VXN' = symbol === 'QQQ' || symbol === 'NDX' ? 'VXN' : 'VIX';
 
   const { data: summary } = useGEXSummary(symbol, 10000);
   const { data: quote } = useMarketQuote(symbol, 5000);

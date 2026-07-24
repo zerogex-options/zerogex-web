@@ -105,7 +105,7 @@ export function MyDashboardDataProvider({
     quote?.session ?? null,
   );
 
-  const volIndex: VolatilityIndex = symbol === 'QQQ' ? 'VXN' : 'VIX';
+  const volIndex: VolatilityIndex = symbol === 'QQQ' || symbol === 'NDX' ? 'VXN' : 'VIX';
   const { data: vol } = useVolatilityGauge(volOn ? 30000 : 0, volIndex);
   const { data: signalScore } = useSignalScore(symbol, scoreOn ? 10000 : 0);
 

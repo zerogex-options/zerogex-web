@@ -28,6 +28,7 @@ import { useLanguage } from "@/core/LanguageContext";
 import { Theme, MarketSession } from "@/core/types";
 import type { UnderlyingSymbol } from "@/core/TimeframeContext";
 import { useTimeframe } from "@/core/TimeframeContext";
+import { SYMBOLS } from "@/core/symbols";
 import { getMarketSession } from "@/core/utils";
 import { getPrimaryPriceChangeSummary } from "@/core/priceChange";
 import { colors } from "@/core/colors";
@@ -454,9 +455,11 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                         lineHeight: 1,
                       }}
                     >
-                      <option>SPY</option>
-                      <option>SPX</option>
-                      <option>QQQ</option>
+                      {SYMBOLS.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
                     </select>
                     <ChevronDown
                       size={14}
@@ -485,9 +488,11 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                         backdropFilter: "blur(8px)",
                       }}
                     >
-                      <option>SPY</option>
-                      <option>SPX</option>
-                      <option>QQQ</option>
+                      {SYMBOLS.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
                     </select>
                     <div onClick={() => setShowCountdown(!showCountdown)}>
                       <SessionBadge session={sessionForBadge} theme={theme} showCountdown={showCountdown} />
@@ -849,9 +854,11 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                     color: 'var(--text-primary)',
                   }}
                 >
-                  <option>SPY</option>
-                  <option>SPX</option>
-                  <option>QQQ</option>
+                  {SYMBOLS.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-2">

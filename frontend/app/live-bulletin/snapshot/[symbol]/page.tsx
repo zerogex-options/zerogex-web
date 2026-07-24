@@ -106,8 +106,8 @@ export default async function SnapshotPage({
   const symbol = resolveSymbol(rawSymbol);
   const horizon = coerceHorizon(sp.horizon);
   const watermark = sp.watermark !== '0'; // default on; ``?watermark=0`` disables
-  // QQQ's implied-vol input is VXN (Nasdaq-100); everything else uses VIX.
-  const volIndex: 'VIX' | 'VXN' = symbol === 'QQQ' ? 'VXN' : 'VIX';
+  // QQQ/NDX's implied-vol input is VXN (Nasdaq-100); everything else uses VIX.
+  const volIndex: 'VIX' | 'VXN' = symbol === 'QQQ' || symbol === 'NDX' ? 'VXN' : 'VIX';
 
   // SSR the five data feeds in parallel.  Any individual failure
   // returns null and the card gracefully hides that field (matches

@@ -183,8 +183,8 @@ export default function GammaExposurePage() {
     const value = Number(openInterestPayload.spot_price);
     return Number.isFinite(value) ? value : null;
   }, [openInterestPayload]);
-  // QQQ's correct implied-vol input is VXN (Nasdaq-100); SPX/SPY use VIX.
-  const volIndex: 'VIX' | 'VXN' = symbol === 'QQQ' ? 'VXN' : 'VIX';
+  // QQQ/NDX's correct implied-vol input is VXN (Nasdaq-100); SPX/SPY use VIX.
+  const volIndex: 'VIX' | 'VXN' = symbol === 'QQQ' || symbol === 'NDX' ? 'VXN' : 'VIX';
   const { data: volGauge } = useVolatilityGauge(30000, volIndex);
   const { data: volExpansion } = useApiData<VolExpansionSignalResponse>(
     `/api/signals/advanced/vol-expansion?symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}`,

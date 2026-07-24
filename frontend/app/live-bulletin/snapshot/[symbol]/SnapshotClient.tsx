@@ -34,7 +34,7 @@ import {
 import { rasterizeSvg } from '../../imageExport';
 
 interface SnapshotClientProps {
-  symbol: 'SPY' | 'SPX' | 'QQQ';
+  symbol: 'SPY' | 'SPX' | 'QQQ' | 'NDX';
   horizon: HorizonKey;
   dateLabel?: string;
   watermark?: boolean;

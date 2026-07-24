@@ -85,8 +85,8 @@ export default function DashboardPage() {
   // "Today's Read" — auto-generated regime headline + lead paragraph reusing
   // the live-bulletin model so the dashboard's at-a-glance summary stays in
   // sync with the operator-facing bulletin and any downstream surfaces.
-  // QQQ's correct implied-vol input is VXN; SPX/SPY use VIX.
-  const volIndex: 'VIX' | 'VXN' = symbol === 'QQQ' ? 'VXN' : 'VIX';
+  // QQQ/NDX's correct implied-vol input is VXN; SPX/SPY use VIX.
+  const volIndex: 'VIX' | 'VXN' = symbol === 'QQQ' || symbol === 'NDX' ? 'VXN' : 'VIX';
   const { data: volGauge } = useVolatilityGauge(30000, volIndex);
   const todaysReadModel = useMemo(
     () =>
