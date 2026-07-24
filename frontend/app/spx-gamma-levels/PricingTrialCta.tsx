@@ -1,5 +1,6 @@
 'use client';
 
+import { Rocket } from 'lucide-react';
 import { TrialButton, ComparePlansButton } from './TrialCtaButtons';
 
 // The pricing/trial CTA that sits after the product preview and before the
@@ -20,6 +21,25 @@ export default function PricingTrialCta({ symbol }: { symbol: string }) {
         marginBottom: 40,
       }}
     >
+      <div
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          alignSelf: 'flex-start',
+          gap: 8,
+          fontSize: 11,
+          fontWeight: 700,
+          letterSpacing: '0.16em',
+          textTransform: 'uppercase',
+          color: 'var(--color-brand-primary)',
+          border: '1px solid var(--color-brand-primary)44',
+          background: 'var(--color-brand-primary)14',
+          borderRadius: 999,
+          padding: '5px 14px',
+        }}
+      >
+        <Rocket size={12} /> Full access
+      </div>
       <h2
         id="pricing-trial-heading"
         style={{ margin: 0, fontSize: 24, fontWeight: 800, letterSpacing: '-0.3px' }}

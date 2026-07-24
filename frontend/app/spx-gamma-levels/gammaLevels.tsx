@@ -13,6 +13,8 @@ import LiveReadConversion from './LiveReadConversion';
 import DashboardPreview from './DashboardPreview';
 import PricingTrialCta from './PricingTrialCta';
 import StickyTrialBar from './StickyTrialBar';
+import GammaTerminalChart from '@/components/GammaTerminalChart';
+import { loadChartSnapshot } from '@/app/chart/snapshot';
 
 // Shared, ticker-first view behind the free gamma-levels pages. One component
 // renders four routes — /spx-gamma-levels, /spy-gamma-levels, /qqq-gamma-levels,
@@ -103,9 +105,9 @@ function gammaPath(symbol: Symbol): string {
   return SYMBOL_CONTENT[symbol].path;
 }
 
-// Primary symbol first, then the remaining two in their canonical order. Drives
-// both the share snippet and the on-page card order so the "first screen"
-// matches the URL.
+// Primary symbol first, then the remaining three in their canonical order.
+// Drives both the share snippet and the on-page card order so the "first
+// screen" matches the URL.
 function symbolOrder(primary: Symbol): Symbol[] {
   return [primary, ...SYMBOLS.filter((s) => s !== primary)];
 }
@@ -131,32 +133,33 @@ export function gammaMetadata(primary: Symbol): Metadata {
   };
 }
 
-// Ticker-specific FAQ. Rendered visibly (so answer engines can quote it) AND
-// mirrored into FAQPage JSON-LD below, both from this one source so they never
-// drift. The wording is deliberately plain and self-contained — each answer
-// stands alone as a quotable definition for question-style searches like
-// "what is the SPY gamma flip" or "what is a QQQ put wall".
-function faqItems(primary: Symbol): { q: string; a: string }[] {
+// Symbol-agnostic FAQ — identical across all four ticker pages so each answer
+// reads as a general definition of the concept. Rendered visibly (so answer
+// engines can quote it) AND mirrored into FAQPage JSON-LD below, both from this
+// one source so they never drift. The wording is deliberately plain and
+// self-contained — each answer stands alone as a quotable definition for
+// question-style searches like "what is a gamma flip" or "what is a put wall".
+function faqItems(): { q: string; a: string }[] {
   return [
     {
-      q: `What are ${primary} gamma levels?`,
-      a: `${primary} gamma levels are price zones where options dealer positioning may influence support, resistance, pinning, or volatility. Common levels include the gamma flip, call wall, put wall, and max pain.`,
+      q: 'What are gamma levels?',
+      a: 'Gamma levels are price zones where options dealer positioning may influence support, resistance, pinning, or volatility. Common levels include the gamma flip, call wall, put wall, and max pain.',
     },
     {
-      q: `What is the ${primary} gamma flip?`,
-      a: `The ${primary} gamma flip is the price level where dealer positioning may shift from positive gamma to negative gamma, or vice versa. Above or below this level, market behavior can change from more stable and mean-reverting to more volatile and directional.`,
+      q: 'What is the gamma flip?',
+      a: 'The gamma flip is the price level where dealer positioning may shift from positive gamma to negative gamma, or vice versa. Above or below this level, market behavior can change from more stable and mean-reverting to more volatile and directional.',
     },
     {
-      q: `What is the ${primary} call wall?`,
-      a: `The ${primary} call wall is a strike where call gamma exposure is concentrated. It can act as an upside magnet, resistance area, or pinning zone depending on broader positioning and price action.`,
+      q: 'What is a call wall?',
+      a: 'A call wall is a strike where call gamma exposure is concentrated. It can act as an upside magnet, resistance area, or pinning zone depending on broader positioning and price action.',
     },
     {
-      q: `What is the ${primary} put wall?`,
-      a: `The ${primary} put wall is a strike where put gamma exposure is concentrated. It can act as a downside support area, hedge-pressure zone, or acceleration level if price breaks through it.`,
+      q: 'What is a put wall?',
+      a: 'A put wall is a strike where put gamma exposure is concentrated. It can act as a downside support area, hedge-pressure zone, or acceleration level if price breaks through it.',
     },
     {
-      q: `How often are ZeroGEX ${primary} gamma levels updated?`,
-      a: `ZeroGEX provides delayed free ${primary} gamma levels on this page. Real-time levels are available inside the ZeroGEX dashboard.`,
+      q: 'How often are ZeroGEX gamma levels updated?',
+      a: 'ZeroGEX provides delayed free gamma levels on this page. Real-time levels are available inside the ZeroGEX dashboard.',
     },
   ];
 }
@@ -246,7 +249,6 @@ function buildShareSnippet(
 ): string {
   const order = symbolOrder(primary);
   return [
-    `${order.join(' / ')} gamma levels from ZeroGEX:`,
     ...order.map((s) => shareLine(s, snapshots[s], staleSymbols?.has(s) ?? false)),
     'Free delayed levels:',
     SYMBOL_CONTENT[primary].shareUrl,
@@ -395,8 +397,8 @@ function LevelRow({
 }
 
 // The primary ticker's card links deeper to its live dashboard (the conversion
-// path); the other two tickers link to their own dedicated gamma-levels pages so
-// the three pages cross-link into a cluster.
+// path); the other three tickers link to their own dedicated gamma-levels pages
+// so the four pages cross-link into a cluster.
 function SymbolCard({
   symbol,
   data,
@@ -518,7 +520,14 @@ function SymbolCard({
 export default async function GammaLevelsView({ primary }: { primary: Symbol }) {
   const content = SYMBOL_CONTENT[primary];
   const order = symbolOrder(primary);
-  const { snapshots, fromCache } = await loadSnapshots();
+  // Free-page data + the ~15-min-delayed chart snapshot for the page's symbol,
+  // fetched in parallel. Both go through the same ISR-cached serverApiGet at
+  // 900s (and the shared /api/gex/summary URL is deduped by the Next fetch
+  // cache), so the added chart costs no extra latency on a warm cache.
+  const [{ snapshots, fromCache }, chartSnapshot] = await Promise.all([
+    loadSnapshots(),
+    loadChartSnapshot(primary, '5min'),
+  ]);
   const primaryData = snapshots[primary];
   const anyData = SYMBOLS.some((s) => snapshots[s] !== null);
 
@@ -584,7 +593,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
     ],
   };
 
-  const faqs = faqItems(primary);
+  const faqs = faqItems();
   const faqJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
@@ -620,7 +629,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
         {/* Marks the top of the paid-traffic funnel (renders nothing). */}
         <PaidFunnelAnalytics symbol={primary} />
 
-        <header style={{ marginBottom: 36 }}>
+        <header style={{ marginBottom: 36, textAlign: 'center' }}>
           <div
             className="zg-eyebrow"
             style={{
@@ -649,7 +658,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
               fontSize: 17,
               lineHeight: 1.65,
               color: 'var(--color-text-secondary)',
-              margin: 0,
+              margin: '0 auto',
               maxWidth: 720,
             }}
           >
@@ -671,6 +680,17 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
               start a free trial
             </Link>{' '}
             for the live read.
+          </div>
+        )}
+
+        {/* Free, ~15-min-delayed Gamma Chart for the page's symbol — price with
+            the Gamma Flip, Call/Put Walls, Max Pain, and the dealer-gamma rail
+            drawn inline. Rendered from a frozen server snapshot in delayed mode
+            (zero client fetching), so it stays licensing-clean and static like
+            the rest of the page, and sits right above Today's Read. */}
+        {chartSnapshot && (
+          <div style={{ marginBottom: 24 }}>
+            <GammaTerminalChart snapshot={chartSnapshot} delayed />
           </div>
         )}
 
@@ -754,7 +774,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
         <section
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
             gap: 20,
             marginBottom: 40,
           }}
@@ -784,7 +804,6 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
             path, so it stays useful for organic/social visitors without
             distracting paid visitors from the signup step. */}
         <ShareBlock
-          symbol={primary}
           snippet={shareSnippet}
           shareUrl={content.shareUrl}
           hasData={shareHasData}

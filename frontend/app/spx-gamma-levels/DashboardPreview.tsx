@@ -62,7 +62,7 @@ export default function DashboardPreview({ symbol }: { symbol: string }) {
           id="dashboard-preview-heading"
           style={{ margin: '0 0 10px 0', fontSize: 24, fontWeight: 800, letterSpacing: '-0.3px' }}
         >
-          What you get with the live {symbol} dashboard
+          What you get with the live dashboard
         </h2>
         <p style={{ margin: 0, fontSize: 15, lineHeight: 1.65, color: 'var(--color-text-secondary)', maxWidth: 720 }}>
           The free levels above are the map. The live dashboard is the real-time terrain &mdash; the same levels that
