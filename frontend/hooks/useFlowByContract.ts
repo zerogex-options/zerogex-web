@@ -190,8 +190,8 @@ export function latestRowDateKey(rows: FlowByContractPoint[] | null | undefined)
  *   putVolume    = Σ raw_volume where option_type === 'P'
  *   callPremium  = Σ net_premium where option_type === 'C'
  *   putPremium   = Σ net_premium where option_type === 'P'
- *   netFlow      = Σ net_volume across all contracts
- *   netPremium   = Σ net_premium across all contracts
+ *   netFlow      = (Σ net_volume for calls) − (Σ net_volume for puts)   [directional]
+ *   netPremium   = callPremium − putPremium   [directional; buying puts is bearish]
  *   putCallRatio = putVolume / callVolume
  *   underlyingPrice = the most recent bar's underlying_price
  */
@@ -213,8 +213,8 @@ export function computeFlowSnapshot(
   let putVolume = 0;
   let callPremium = 0;
   let putPremium = 0;
-  let netFlow = 0;
-  let netPremium = 0;
+  let callFlow = 0;
+  let putFlow = 0;
   let latestTs: string | null = null;
   let latestMs = -Infinity;
   let latestUnderlying: number | null = null;
@@ -232,12 +232,12 @@ export function computeFlowSnapshot(
     if (row.option_type === 'C') {
       if (Number.isFinite(rv)) callVolume += rv;
       if (Number.isFinite(np)) callPremium += np;
+      if (Number.isFinite(nv)) callFlow += nv;
     } else if (row.option_type === 'P') {
       if (Number.isFinite(rv)) putVolume += rv;
       if (Number.isFinite(np)) putPremium += np;
+      if (Number.isFinite(nv)) putFlow += nv;
     }
-    if (Number.isFinite(nv)) netFlow += nv;
-    if (Number.isFinite(np)) netPremium += np;
 
     if (ms > latestMs) {
       latestMs = ms;
@@ -260,8 +260,8 @@ export function computeFlowSnapshot(
     putVolume,
     callPremium,
     putPremium,
-    netFlow,
-    netPremium,
+    netFlow: callFlow - putFlow,
+    netPremium: callPremium - putPremium,
     putCallRatio: callVolume > 0 ? putVolume / callVolume : 0,
     underlyingPrice: latestUnderlying,
   };

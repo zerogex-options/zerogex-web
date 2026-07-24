@@ -48,7 +48,7 @@ GET /api/flow/series
     "put_premium_cum":   9876543.2,
     "call_volume_cum":   150000,
     "put_volume_cum":    165000,
-    "net_volume_cum":    -15000,
+    "net_volume_cum":    24690,
     "raw_volume_cum":    315000,
     "call_position_cum": 23456,
     "put_position_cum":  -1234,
@@ -73,11 +73,11 @@ GET /api/flow/series
 | `put_premium_cum`   | number             | USD (dollars)     | Σ of `net_premium` for `option_type='P'` rows up to this bar. |
 | `call_volume_cum`   | integer            | contracts         | Σ of `raw_volume` for calls up to this bar. |
 | `put_volume_cum`    | integer            | contracts         | Σ of `raw_volume` for puts up to this bar. |
-| `net_volume_cum`    | integer            | contracts, signed | Σ of `net_volume` across all contracts up to this bar. Positive = net buying. |
+| `net_volume_cum`    | integer            | contracts, signed | Directional net volume: `call_position_cum − put_position_cum` (net call buying minus net put buying; buying puts is bearish, so the put leg subtracts). Positive = call-led (bullish). |
 | `raw_volume_cum`    | integer            | contracts         | Σ of `raw_volume` across all contracts up to this bar. Always ≥ 0. |
 | `call_position_cum` | integer            | contracts, signed | Σ of `net_volume` for calls up to this bar. |
 | `put_position_cum`  | integer            | contracts, signed | Σ of `net_volume` for puts up to this bar. |
-| `net_premium_cum`   | number             | USD (dollars)     | `call_premium_cum + put_premium_cum`. Included pre-computed so clients don't drift. |
+| `net_premium_cum`   | number             | USD (dollars)     | Directional net premium: `call_premium_cum − put_premium_cum` (buying puts is bearish, so the put leg subtracts). Positive = bullish. Pre-computed so clients don't drift. |
 | `put_call_ratio`    | number \| null     | ratio             | `put_volume_cum / call_volume_cum`. `null` if `call_volume_cum == 0` (avoid divide-by-zero; frontend renders as a break). |
 | `underlying_price`  | number \| null     | USD               | Last-observed underlying tick whose timestamp falls inside `[bar_start, bar_end)`. Must come from the tape / an underlying OHLC source — **never** from `flow_bar_contract.underlying_price`. Invariant under strike/expiration filters. See "Underlying price semantics" below. |
 | `contract_count`    | integer            | —                 | Distinct contracts contributing to this bar's *delta* (not cumulative). Used for diagnostics. |
@@ -236,11 +236,11 @@ SELECT
     SUM(put_premium_delta)   OVER w                                AS put_premium_cum,
     SUM(call_volume_delta)   OVER w                                AS call_volume_cum,
     SUM(put_volume_delta)    OVER w                                AS put_volume_cum,
-    SUM(net_volume_delta)    OVER w                                AS net_volume_cum,
+    (SUM(call_position_delta) OVER w - SUM(put_position_delta) OVER w) AS net_volume_cum,
     SUM(raw_volume_delta)    OVER w                                AS raw_volume_cum,
     SUM(call_position_delta) OVER w                                AS call_position_cum,
     SUM(put_position_delta)  OVER w                                AS put_position_cum,
-    SUM(call_premium_delta + put_premium_delta) OVER w             AS net_premium_cum,
+    SUM(call_premium_delta - put_premium_delta) OVER w             AS net_premium_cum,
     CASE
         WHEN SUM(call_volume_delta) OVER w > 0
         THEN (SUM(put_volume_delta) OVER w)::float8
@@ -402,10 +402,10 @@ Expected response (abbreviated to relevant fields):
     "put_premium_cum": -30000,
     "call_volume_cum": 100,
     "put_volume_cum": 80,
-    "net_volume_cum": 20,
+    "net_volume_cum": 60,
     "call_position_cum": 40,
     "put_position_cum": -20,
-    "net_premium_cum": 20000,
+    "net_premium_cum": 80000,
     "put_call_ratio": 0.80,
     "underlying_price": 710.00,
     "is_synthetic": false
@@ -416,10 +416,10 @@ Expected response (abbreviated to relevant fields):
     "put_premium_cum": 60000,
     "call_volume_cum": 150,
     "put_volume_cum": 200,
-    "net_volume_cum": 90,
+    "net_volume_cum": 10,
     "call_position_cum": 50,
     "put_position_cum": 40,
-    "net_premium_cum": 122000,
+    "net_premium_cum": 2000,
     "put_call_ratio": 1.333...,
     "underlying_price": 710.25,
     "is_synthetic": false
