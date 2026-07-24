@@ -410,6 +410,19 @@ function initDb(): DatabaseSync {
   // account gets welcome-back, not a spurious recovery note.
   ensureColumn('users', 'payment_recovery_pending', 'INTEGER NOT NULL DEFAULT 0');
 
+  // ISO timestamp anchoring a bounded payment-recovery grace window. Set by the
+  // Stripe webhook when an ESTABLISHED (previously `active`) subscription first
+  // enters `past_due` on a failed renewal; while set and within
+  // BILLING_PAYMENT_GRACE_DAYS the member keeps their paid tier instead of being
+  // dropped to 'public' on that first failure, so a recoverable decline
+  // (insufficient funds that day, a bank fraud hold, a card the member re-enters
+  // in the portal) doesn't instantly revoke access mid-cycle while Stripe's Smart
+  // Retries attempt the charge. Cleared the moment the subscription leaves
+  // `past_due` (recovery to `active`, or terminal cancel/delete). NULL = no window
+  // open. Trial-conversion failures (previous status `trialing`, never `active`)
+  // are deliberately excluded — an unvalidated trial card gets no grace.
+  ensureColumn('users', 'payment_grace_started_at', 'TEXT');
+
   // Soft-delete marker for self-service account deletion (see
   // app/api/account/delete/route.ts + the /account danger zone). NULL = active;
   // set to the ISO timestamp when the member deletes their account. We keep the

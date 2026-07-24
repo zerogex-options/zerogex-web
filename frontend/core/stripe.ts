@@ -233,6 +233,27 @@ export function isPaidSignupDisabled(): boolean {
   return process.env.BILLING_PAID_SIGNUP_DISABLED === '1';
 }
 
+// Payment-recovery grace window, in days, for an established (previously
+// `active`) subscription whose RENEWAL charge fails. Within this window the
+// webhook keeps the member on their paid tier while Stripe's Smart Retries work
+// the card, instead of dropping them to 'public' on the first `past_due` event.
+// This targets INVOLUNTARY churn: a good customer with a momentary decline
+// (insufficient funds, a bank fraud hold, an expired card they fix in the
+// portal) shouldn't be locked out instantly when the charge would very likely
+// recover on retry.
+//
+// Deliberately bounded and env-tunable so it can never become "weeks of free
+// premium": default 3 days, clamped to [0, 14]. Set BILLING_PAYMENT_GRACE_DAYS=0
+// to restore the old instant-downgrade behavior. Never applies to
+// trial-conversion failures (previous status `trialing`, never `active`) — an
+// unvalidated trial card gets no grace.
+const DEFAULT_PAYMENT_GRACE_DAYS = 3;
+export function getPaymentGraceDays(): number {
+  const raw = Number(process.env.BILLING_PAYMENT_GRACE_DAYS);
+  if (!Number.isFinite(raw)) return DEFAULT_PAYMENT_GRACE_DAYS;
+  return Math.max(0, Math.min(14, Math.floor(raw)));
+}
+
 // Billing portal configuration id (bpc_...). When set, the portal route
 // passes it explicitly as `configuration` so we use this exact configuration
 // regardless of Stripe's account-level default. When unset, the portal falls

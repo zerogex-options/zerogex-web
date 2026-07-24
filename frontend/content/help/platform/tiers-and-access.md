@@ -14,7 +14,7 @@ ZeroGEX has three account tiers. They map to what data and which signals you see
 | Basic | Active intraday traders | Dashboard, Live Bulletin, all Metrics, Strategy Builder, Live Options Quotes, all Basic Signals |
 | Pro | Serious operators | Everything in Basic + all Advanced Signals + Composite Score + Backtesting + API access |
 
-See the live breakdown — and a 14-day trial path — on the [Pricing](/pricing) page.
+See the live breakdown — and a 7-day trial path — on the [Pricing](/pricing) page.
 
 ## What's gated where
 

@@ -20,10 +20,12 @@ import {
   getFoundingIntroCouponId,
   getFoundingLifetimeCouponId,
   getManagedCadenceCouponIds,
+  getPaymentGraceDays,
   getStripe,
   priceIdToSku,
   priceIdToTier,
 } from '@/core/stripe';
+import { decidePaymentGrace } from '@/core/paymentGrace';
 import {
   backAttributeReferral,
   getRefereeCouponId,
@@ -65,6 +67,10 @@ type UserRow = {
   // Last-synced cancel_at_period_end flag (0/1). Read pre-UPDATE so the
   // 0→1 transition fires the cancellation acknowledgement email once.
   cancel_at_period_end: number;
+  // ISO timestamp anchoring an open payment-recovery grace window, or null.
+  // Read pre-UPDATE so each past_due sync can enforce the bounded window
+  // (see the grace block in syncSubscriptionToUser).
+  payment_grace_started_at: string | null;
 };
 
 // `past_due` is intentionally NOT active: once a payment fails Stripe moves
@@ -173,7 +179,7 @@ function findUserByCustomerId(customerId: string): UserRow | null {
     .prepare(
       `SELECT id, email, tier, founding_member_started_at, founding_lifetime_applied_at,
               referred_by_code, referral_credit_months, stripe_customer_id, stripe_subscription_id,
-              stripe_price_id, subscription_status, cancel_at_period_end
+              stripe_price_id, subscription_status, cancel_at_period_end, payment_grace_started_at
        FROM users WHERE stripe_customer_id = ?`,
     )
     .get(customerId) as UserRow | undefined;
@@ -504,7 +510,29 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
   const priceId = item?.price.id ?? null;
   const mappedTier = priceId ? priceIdToTier(priceId) : null;
   const isActive = ACTIVE_STATUSES.has(subscription.status);
-  const nextTier: TierId = isActive && mappedTier ? mappedTier : 'public';
+
+  // Bounded payment-recovery grace. When an ESTABLISHED (previously `active`)
+  // subscription's renewal charge fails, Stripe moves it to `past_due`. Instead
+  // of revoking access on that first failure, keep the member on their paid tier
+  // for a short, configurable window while Smart Retries work the card — this is
+  // the involuntary-churn fix. `payment_grace_started_at` anchors the window;
+  // decidePaymentGrace opens it on the first past_due sync of a previously-active
+  // sub, enforces the bound on subsequent past_due syncs, and closes it the
+  // moment the sub leaves past_due. A trial-conversion failure (previousStatus
+  // `trialing`, never `active`) opens no window, so an unvalidated trial card is
+  // downgraded immediately, exactly as before. Decision logic is unit-tested in
+  // tests/paymentGrace.test.ts.
+  const graceDays = getPaymentGraceDays();
+  const { graceStartedAt, inGrace } = decidePaymentGrace({
+    status: subscription.status,
+    previousStatus,
+    graceStartedAt: user.payment_grace_started_at,
+    graceDays,
+    nowMs: Date.now(),
+  });
+
+  const grantsTier = isActive || inGrace;
+  const nextTier: TierId = grantsTier && mappedTier ? mappedTier : 'public';
 
   const periodEndUnix = getCurrentPeriodEndUnix(subscription);
   const periodEndIso = periodEndUnix ? new Date(periodEndUnix * 1000).toISOString() : null;
@@ -526,6 +554,7 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
          subscription_status = ?,
          current_period_end = ?,
          cancel_at_period_end = ?,
+         payment_grace_started_at = ?,
          founding_member_started_at = COALESCE(founding_member_started_at, ?),
          updated_at = ?
        WHERE id = ?`,
@@ -537,6 +566,7 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
       subscription.status,
       periodEndIso,
       subscription.cancel_at_period_end ? 1 : 0,
+      graceStartedAt,
       newlyStampedAt,
       nowIso(),
       user.id,
@@ -558,6 +588,19 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
     email: user.email,
     message: `Subscription ${subscription.id} status=${subscription.status} tier=${nextTier} cancelAtPeriodEnd=${subscription.cancel_at_period_end}`,
   });
+
+  // Observability for the grace window: distinguishes "held through a recoverable
+  // decline" from "downgraded" so the involuntary-churn saves are auditable.
+  if (subscription.status === 'past_due') {
+    logAudit({
+      type: inGrace ? 'billing_payment_grace_active' : 'billing_payment_grace_ended',
+      userId: user.id,
+      email: user.email,
+      message: inGrace
+        ? `Renewal past_due on sub ${subscription.id}; holding tier=${nextTier} through grace (opened ${graceStartedAt}, ${graceDays}d window)`
+        : `past_due on sub ${subscription.id}; ${graceDays > 0 ? 'no grace window (trial-conversion failure or window elapsed)' : 'grace disabled'} → tier=${nextTier}`,
+    });
+  }
 
   // If this sync dropped the member out of Pro (e.g. downgrade to Basic, or a
   // lapse to public), deprovision their personal API keys at the backend.
@@ -968,6 +1011,7 @@ async function clearSubscriptionFromUser(subscription: Stripe.Subscription) {
          cancel_at_period_end = 0,
          subscription_lapsed = 1,
          payment_recovery_pending = 0,
+         payment_grace_started_at = NULL,
          updated_at = ?
        WHERE id = ?`,
     )
