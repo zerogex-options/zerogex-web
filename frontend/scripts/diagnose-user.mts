@@ -400,6 +400,29 @@ try {
   kv('Lookup error', e.code === 'resource_missing' ? 'resource_missing' : e.message);
 }
 
+// Every payment method attached to the customer, across all types. This makes a
+// "Card on file: none resolvable" above self-explanatory: the member may have
+// checked out with Link or a wallet (a non-card PM, so no brand/last4 to name),
+// or have no PM at all (a real conversion risk — the trial-end charge will fail).
+try {
+  const pms = await stripe.paymentMethods.list({ customer: user.stripe_customer_id, limit: 20 });
+  header('Stripe payment methods (all types)');
+  if (pms.data.length === 0) {
+    console.log('  (none attached — trial-end charge has nothing to bill)');
+  } else {
+    for (const pm of pms.data) {
+      const detail = pm.card
+        ? `${formatCardBrand(pm.card.brand) ?? pm.card.brand ?? 'card'} ····${pm.card.last4} exp ${pm.card.exp_month}/${pm.card.exp_year}`
+        : '(no card object — wallet/bank/Link)';
+      kv(pm.type, `${pm.id} — ${detail}`);
+    }
+  }
+} catch (err) {
+  const e = err as StripeError;
+  header('Stripe payment methods (all types)');
+  kv('Lookup error', e.message);
+}
+
 if (user.stripe_subscription_id) {
   try {
     const sub = await stripe.subscriptions.retrieve(user.stripe_subscription_id, {
