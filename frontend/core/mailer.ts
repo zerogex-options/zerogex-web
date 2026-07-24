@@ -630,11 +630,57 @@ export async function sendFoundingFinalCallEmail(
   opts: {
     deadlineLabel: string;
     foundingHref: string;
+    // First-charge date for the deferred founding trial, e.g. "July 1, 2026".
+    // Passed from FOUNDING_BILLING_START_LABEL so the "billed on" line tracks
+    // the single source of truth instead of a date hardcoded in the copy.
+    billingStartLabel: string;
+    // Live founding prices (first-year intro rate, standard rate it's discounted
+    // from, and the post-year-one lifetime percent), resolved from Stripe by the
+    // caller (see core/offerPricing.ts). Null or absent → the offer copy keeps
+    // its structure but drops the specific figures so it can never quote a stale
+    // price.
+    pricing?: {
+      basicMonthlyIntro: string;
+      proMonthlyIntro: string;
+      basicMonthlyList: string;
+      proMonthlyList: string;
+      lifetimePercentOff: number | null;
+    } | null;
   },
 ) {
   const subject = `Final reminder: ZeroGEX founding rate closes tomorrow, ${opts.deadlineLabel}`;
   const safeFoundingUrl = escapeHtml(opts.foundingHref);
   const safeDeadline = escapeHtml(opts.deadlineLabel);
+
+  // Offer bullets. With live pricing we quote the exact first-year / standard
+  // rates and lifetime discount straight from Stripe; without it (Stripe
+  // unavailable) we keep the same structure but drop the specific figures so
+  // the email can never advertise a stale price. The first-charge date always
+  // comes from billingStartLabel, never a date hardcoded here.
+  const pricing = opts.pricing ?? null;
+  const basicOfferText = pricing
+    ? `Basic: ${pricing.basicMonthlyIntro}/mo for the first year, normally ${pricing.basicMonthlyList}/mo`
+    : 'Basic: a locked founding rate for the first year, well below standard pricing';
+  const proOfferText = pricing
+    ? `Pro: ${pricing.proMonthlyIntro}/mo for the first year, normally ${pricing.proMonthlyList}/mo`
+    : 'Pro: a locked founding rate for the first year, well below standard pricing';
+  const lifetimeOfferText =
+    pricing?.lifetimePercentOff != null
+      ? `After the first year, you keep ${pricing.lifetimePercentOff}% off standard pricing for as long as your subscription stays active`
+      : 'After the first year, you keep a standing lifetime discount off standard pricing for as long as your subscription stays active';
+  const billedLineText = `No charge today. Your card will not be billed until ${opts.billingStartLabel}.`;
+
+  const basicOfferHtml = pricing
+    ? `<strong>Basic:</strong> ${escapeHtml(pricing.basicMonthlyIntro)}/mo for the first year, normally ${escapeHtml(pricing.basicMonthlyList)}/mo`
+    : `<strong>Basic:</strong> a locked founding rate for the first year, well below standard pricing`;
+  const proOfferHtml = pricing
+    ? `<strong>Pro:</strong> ${escapeHtml(pricing.proMonthlyIntro)}/mo for the first year, normally ${escapeHtml(pricing.proMonthlyList)}/mo`
+    : `<strong>Pro:</strong> a locked founding rate for the first year, well below standard pricing`;
+  const lifetimeOfferHtml =
+    pricing?.lifetimePercentOff != null
+      ? `After the first year, you keep <strong>${pricing.lifetimePercentOff}% off standard pricing</strong> for as long as your subscription stays active`
+      : `After the first year, you keep a <strong>standing lifetime discount</strong> off standard pricing for as long as your subscription stays active`;
+  const billedLineHtml = `<strong>No charge today.</strong> Your card will not be billed until ${escapeHtml(opts.billingStartLabel)}.`;
 
   const text = [
     'Hello,',
@@ -645,10 +691,10 @@ export async function sendFoundingFinalCallEmail(
     '',
     "Here's the offer:",
     '',
-    '  • Basic: $12/mo for the first year, normally $39/mo',
-    '  • Pro: $19/mo for the first year, normally $59/mo',
-    '  • After the first year, you keep 25% off standard pricing for as long as your subscription stays active',
-    '  • No charge today. Your card will not be billed until July 1.',
+    `  • ${basicOfferText}`,
+    `  • ${proOfferText}`,
+    `  • ${lifetimeOfferText}`,
+    `  • ${billedLineText}`,
     '',
     `After ${opts.deadlineLabel}, founding access ends and future access will be at standard pricing.`,
     '',
@@ -676,10 +722,10 @@ export async function sendFoundingFinalCallEmail(
 
       <p style="margin: 20px 0 8px;">Here&rsquo;s the offer:</p>
       <ul style="padding-left: 22px; margin: 0 0 18px;">
-        <li><strong>Basic:</strong> $12/mo for the first year, normally $39/mo</li>
-        <li><strong>Pro:</strong> $19/mo for the first year, normally $59/mo</li>
-        <li>After the first year, you keep <strong>25% off standard pricing</strong> for as long as your subscription stays active</li>
-        <li><strong>No charge today.</strong> Your card will not be billed until July 1.</li>
+        <li>${basicOfferHtml}</li>
+        <li>${proOfferHtml}</li>
+        <li>${lifetimeOfferHtml}</li>
+        <li>${billedLineHtml}</li>
       </ul>
 
       <p>After <strong>${safeDeadline}</strong>, founding access ends and future access will be at standard pricing.</p>
@@ -731,6 +777,12 @@ export async function sendCheckoutRecoveryEmail(
     // always wins precedence — eligible users get the founding-deadline
     // variant even if the promo is also live.
     promoDeadlineLabel?: string | null;
+    // Live discounted monthly rates for the promo pitch, resolved from Stripe
+    // by the caller (see core/offerPricing.ts) so the copy quotes the real
+    // current rate, never a hardcoded number that can drift. Null or absent →
+    // the promo copy drops the specific figures and just says the discounted
+    // intro rate applies at checkout.
+    promoPricing?: { basicMonthly: string; proMonthly: string } | null;
   },
 ) {
   const founding = opts.foundingDeadlineLabel;
@@ -738,6 +790,18 @@ export async function sendCheckoutRecoveryEmail(
   // the two offers are mutually exclusive at checkout (founding wins) so the
   // email should match what they'd actually get back to.
   const promo = !founding ? opts.promoDeadlineLabel ?? null : null;
+
+  // Promo pitch: quote the live Basic/Pro monthly rates when the caller
+  // resolved them from Stripe; otherwise stay specific-number-free so the copy
+  // can never advertise a stale price. Leading space so it appends cleanly
+  // after the "…closes {promo}." sentence.
+  const promoPricing = opts.promoPricing ?? null;
+  const promoRatesText = promoPricing
+    ? ` Basic starts at ${promoPricing.basicMonthly}/mo and Pro at ${promoPricing.proMonthly}/mo, with discounted annual plans too.`
+    : ' The discounted intro rate applies automatically at checkout, with discounted annual plans too.';
+  const promoRatesHtml = promoPricing
+    ? ` Basic starts at <strong>${escapeHtml(promoPricing.basicMonthly)}/mo</strong> and Pro at <strong>${escapeHtml(promoPricing.proMonthly)}/mo</strong>, with discounted annual plans too.`
+    : ' The discounted intro rate applies automatically at checkout, with discounted annual plans too.';
 
   const subject = founding
     ? `Your ZeroGEX founding rate is still available — only until ${founding}`
@@ -766,7 +830,7 @@ export async function sendCheckoutRecoveryEmail(
       ? [
           'Hello,',
           '',
-          `I noticed you started a ZeroGEX subscription recently but didn't finish. No pressure either way — but our limited-time introductory pricing is still live and closes ${promo}. Basic starts at $19/mo and Pro at $29/mo, with discounted annual plans too.`,
+          `I noticed you started a ZeroGEX subscription recently but didn't finish. No pressure either way — but our limited-time introductory pricing is still live and closes ${promo}.${promoRatesText}`,
           '',
           `If you'd like to pick it back up at the intro rate, the same plan is one click away here: ${pricingUrl}`,
           '',
@@ -798,7 +862,7 @@ export async function sendCheckoutRecoveryEmail(
   const intro = founding
     ? `I noticed you started a ZeroGEX subscription recently but didn't finish. No pressure either way &mdash; but as a founding member you're still eligible for the locked-in founding rate, and that offer closes <strong>${escapeHtml(founding)}</strong>.`
     : promo
-      ? `I noticed you started a ZeroGEX subscription recently but didn't finish. No pressure either way &mdash; but our <strong>limited-time introductory pricing</strong> is still live and closes <strong>${escapeHtml(promo)}</strong>. Basic starts at <strong>$19/mo</strong> and Pro at <strong>$29/mo</strong>, with discounted annual plans too.`
+      ? `I noticed you started a ZeroGEX subscription recently but didn't finish. No pressure either way &mdash; but our <strong>limited-time introductory pricing</strong> is still live and closes <strong>${escapeHtml(promo)}</strong>.${promoRatesHtml}`
       : `I noticed you started a ZeroGEX subscription recently but didn't finish. No pressure either way &mdash; sometimes a tab just gets closed.`;
   const closer = founding
     ? `After the deadline the founding rate is gone for good, so I wanted to give you a heads-up rather than let it lapse quietly. If ZeroGEX isn't the right fit, just ignore this &mdash; you won't hear from me again about it.`
