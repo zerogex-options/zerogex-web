@@ -21,8 +21,6 @@ interface ShareBlockProps {
   hasData: boolean;
   /** Human-readable freshness stamp, e.g. "Jul 6, 2026, 9:41 AM EDT". */
   asOf?: string | null;
-  /** Page's primary ticker (SPX / SPY / QQQ / NDX) — leads the heading + subtext. */
-  symbol: string;
 }
 
 const SHARE_TITLE = "Today's SPX / SPY / QQQ / NDX gamma levels — ZeroGEX";
@@ -98,7 +96,7 @@ const getCanNativeShareClient = () =>
   typeof navigator !== 'undefined' && typeof navigator.share === 'function';
 const getCanNativeShareServer = () => false;
 
-export default function ShareBlock({ snippet, shareUrl, hasData, asOf, symbol }: ShareBlockProps) {
+export default function ShareBlock({ snippet, shareUrl, hasData, asOf }: ShareBlockProps) {
   const [copied, setCopied] = useState<string | null>(null);
   const canNativeShare = useSyncExternalStore(
     subscribeNoop,
@@ -145,17 +143,33 @@ export default function ShareBlock({ snippet, shareUrl, hasData, asOf, symbol }:
 
   return (
     <section aria-labelledby="share-levels-heading" className="zg-panel" style={cardStyle}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <Share2 size={18} style={{ color: 'var(--color-brand-primary)' }} />
-        <h2
-          id="share-levels-heading"
-          style={{ margin: 0, fontSize: 20, fontWeight: 800, letterSpacing: '-0.3px', color: 'var(--color-text-primary)' }}
-        >
-          Share today&rsquo;s {symbol} gamma levels
-        </h2>
+      <div
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          alignSelf: 'flex-start',
+          gap: 8,
+          fontSize: 11,
+          fontWeight: 700,
+          letterSpacing: '0.16em',
+          textTransform: 'uppercase',
+          color: 'var(--color-brand-primary)',
+          border: '1px solid var(--color-brand-primary)44',
+          background: 'var(--color-brand-primary)14',
+          borderRadius: 999,
+          padding: '5px 14px',
+        }}
+      >
+        <Share2 size={12} /> Share
       </div>
+      <h2
+        id="share-levels-heading"
+        style={{ margin: 0, fontSize: 20, fontWeight: 800, letterSpacing: '-0.3px', color: 'var(--color-text-primary)' }}
+      >
+        Share today&rsquo;s gamma levels
+      </h2>
       <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: 'var(--color-text-secondary)', maxWidth: 660 }}>
-        Want to share this morning&rsquo;s {symbol} gamma map? Copy the snapshot below.
+        Want to share this morning&rsquo;s gamma map? Copy the snapshot below.
       </p>
 
       {hasData ? (
