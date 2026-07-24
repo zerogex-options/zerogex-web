@@ -382,6 +382,30 @@ if (user.stripe_subscription_id) {
     } else {
       kv('Discounts', 'none');
     }
+    // The exact amount Stripe will charge on the next cycle, AFTER every applied
+    // discount — i.e. what the ~48h trial reminder now quotes (both read it from
+    // the upcoming-invoice preview). Shown right under the list price + discounts
+    // so a discounted member's real charge is obvious at a glance ($59 list, a
+    // coupon, $29 upcoming). Best-effort: a sub with nothing upcoming (set to
+    // cancel at period end, etc.) has no preview, so we say so rather than crash.
+    try {
+      const upcoming = await stripe.invoices.retrieveUpcoming({
+        customer: user.stripe_customer_id,
+        subscription: sub.id,
+      });
+      kv(
+        'Upcoming invoice',
+        `${formatMoney(upcoming.amount_due, upcoming.currency)} (next charge, after all discounts)`,
+      );
+    } catch (e) {
+      const upErr = e as StripeError;
+      kv(
+        'Upcoming invoice',
+        upErr.code === 'invoice_upcoming_none'
+          ? 'none scheduled (e.g. cancels at period end)'
+          : `unavailable (${upErr.message})`,
+      );
+    }
     const metaPairs = Object.entries(sub.metadata ?? {});
     if (metaPairs.length > 0) {
       kv('Metadata', metaPairs.map(([k, v]) => `${k}=${v}`).join(', '));
