@@ -519,8 +519,10 @@ export async function sendTrialReminderEmail(
     // (or passed null when the Stripe lookup fails) so the email still sends
     // cleanly without the line.
     billing?: {
-      // Formatted recurring charge, e.g. "$29.00/month". Built by the caller
-      // from the subscription's price so the tier/cadence are always correct.
+      // Formatted post-trial charge, e.g. "$29.00/month". Built by the caller
+      // from Stripe's upcoming-invoice preview, so it reflects any discount on
+      // the subscription (the real amount that will be billed), paired with the
+      // plan's own billing cadence.
       chargeLabel: string;
       // Display-ready card brand, e.g. "Visa" — already normalized by the
       // caller (Stripe reports brands lowercased). Optional/null for wallet or

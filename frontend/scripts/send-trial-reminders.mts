@@ -11,9 +11,12 @@
 // Each reminder also spells out the exact post-trial charge and the last four
 // digits of the card on file, both read live from Stripe per user (never
 // hardcoded), so a member whose card is stale or expiring can fix it before
-// the trial-end charge fails into past_due. That enrichment is best-effort:
-// with STRIPE_SECRET_KEY unset, or on any per-user Stripe error, the reminder
-// still sends without that one line.
+// the trial-end charge fails into past_due. The charge is taken from Stripe's
+// upcoming-invoice preview, so it reflects any discount on the subscription
+// (promo, founding, referral, ...) — the real amount that will be billed, not
+// the plan's list price. That enrichment is best-effort: with STRIPE_SECRET_KEY
+// unset, or on any per-user Stripe error, the reminder still sends without that
+// one line.
 //
 // Eligibility:
 //   - users.subscription_status = 'trialing'
@@ -172,9 +175,12 @@ function execSqlite(dbPath: string, sql: string) {
 // The exact post-trial charge and the card that will be charged, resolved live
 // from Stripe. Passed to the mailer so the reminder can spell out "your
 // subscription will begin at $X/month using your Visa card ending in 4242" —
-// the amount, brand, and last-4 are never hardcoded, always this user's real
-// plan and card on file.
+// the amount, brand, and last-4 are never hardcoded. The amount is the real
+// discounted charge from the upcoming-invoice preview (see resolveBillingDetails),
+// always this user's actual plan, discounts, and card on file.
 type BillingDetails = {
+  // Formatted post-trial charge, e.g. "$29.00/month" — the upcoming invoice's
+  // discount-aware amount_due, paired with the plan's own billing interval.
   chargeLabel: string;
   // Display-ready brand ("Visa") or null when unknown (wallet / Link / a brand
   // code we don't map), in which case the mailer uses a neutral phrasing.
@@ -244,9 +250,10 @@ async function resolveCard(
 }
 
 // Live-from-Stripe charge + card for one user. Returns null (caller then omits
-// the billing line) when the data isn't available: no subscription on file, or
-// the price/card can't be read. Stripe errors propagate to the caller, which
-// treats them as non-fatal and sends the reminder without the line.
+// the billing line) when the data isn't available: no subscription on file, the
+// upcoming charge can't be previewed, or the card can't be read. Stripe errors
+// propagate to the caller, which treats them as non-fatal and sends the reminder
+// without the line.
 async function resolveBillingDetails(
   stripe: Stripe,
   customerId: string | null,
@@ -258,12 +265,33 @@ async function resolveBillingDetails(
     expand: ['items.data.price', 'default_payment_method'],
   });
 
-  // Charge = the subscription's own recurring price, so the tier (basic/pro)
-  // and cadence (monthly/annual) always match this user's real plan.
+  // The AMOUNT must be what Stripe will actually charge when the trial converts,
+  // NOT the plan's list price. Reading price.unit_amount (the rack rate) was the
+  // bug: a member on a promo/founding/referral discount was quoted the full
+  // standard rate — e.g. "$59.00/month" for someone whose real post-trial charge
+  // is $29.00. The upcoming invoice is Stripe's own preview of that first real
+  // invoice, so its amount_due already reflects every discount on the
+  // subscription (public promo, founding intro/lifetime, win-back, campaign, and
+  // stacked referee coupons) plus any account-credit balance — with no discount
+  // math on our side to drift out of sync with what Stripe bills. The cadence
+  // (monthly/annual) still comes from the plan's own recurring interval.
   const price = sub.items.data[0]?.price ?? null;
-  const money = formatMoney(price?.unit_amount, price?.currency);
-  if (!money) return null;
   const interval = price?.recurring?.interval ?? null;
+
+  const upcoming = await stripe.invoices.retrieveUpcoming(
+    customerId
+      ? { customer: customerId, subscription: subscriptionId }
+      : { subscription: subscriptionId },
+  );
+
+  // amount_due <= 0 means the first period is fully covered (e.g. a
+  // 100%-off-first-month referee coupon, or an account credit that zeroes the
+  // invoice). "Your subscription will begin at $0.00/month" would contradict the
+  // "your first payment will be charged then" framing, so drop the billing line
+  // rather than quote a $0 charge — the reminder still sends without it.
+  if (typeof upcoming.amount_due !== 'number' || upcoming.amount_due <= 0) return null;
+  const money = formatMoney(upcoming.amount_due, upcoming.currency);
+  if (!money) return null;
   const chargeLabel = interval ? `${money}/${interval}` : money;
 
   const card = await resolveCard(stripe, sub, customerId);
