@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { decidePaymentGrace, type PaymentGraceInput } from '../core/paymentGrace.ts';
+import {
+  decidePaymentGrace,
+  graceWindowEndIso,
+  type PaymentGraceInput,
+} from '../core/paymentGrace.ts';
 
 // The bounded payment-recovery grace window decides whether a member whose
 // renewal charge just failed keeps their paid tier while Stripe's Smart Retries
@@ -96,4 +100,27 @@ test('any non-past_due status closes the window and grants no grace', () => {
     assert.equal(d.inGrace, false, `status=${status} should not be in grace`);
     assert.equal(d.graceStartedAt, null, `status=${status} should clear the anchor`);
   }
+});
+
+// graceWindowEndIso feeds the payment-failed dunning email: it must return a
+// date ONLY while a window is genuinely open, so the email never promises
+// retained access that doesn't exist.
+
+test('graceWindowEndIso: returns the window end while the window is open', () => {
+  const opened = new Date(NOW - 1 * DAY_MS).toISOString(); // 1 day into a 3-day window
+  assert.equal(
+    graceWindowEndIso(opened, 3, NOW),
+    new Date(Date.parse(opened) + 3 * DAY_MS).toISOString(),
+  );
+});
+
+test('graceWindowEndIso: null once the window has elapsed', () => {
+  const opened = new Date(NOW - 4 * DAY_MS).toISOString(); // past a 3-day window
+  assert.equal(graceWindowEndIso(opened, 3, NOW), null);
+});
+
+test('graceWindowEndIso: null with no anchor, grace disabled, or a malformed anchor', () => {
+  assert.equal(graceWindowEndIso(null, 3, NOW), null);
+  assert.equal(graceWindowEndIso(new Date(NOW).toISOString(), 0, NOW), null);
+  assert.equal(graceWindowEndIso('not-a-date', 3, NOW), null);
 });

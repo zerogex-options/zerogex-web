@@ -66,3 +66,21 @@ export function decidePaymentGrace(input: PaymentGraceInput): PaymentGraceDecisi
 
   return { graceStartedAt: null, inGrace: false };
 }
+
+// The instant an open grace window runs through, or null when none is currently
+// open (no anchor, grace disabled, a malformed anchor, or the window already
+// elapsed at `nowMs`). Used by the payment-failed dunning email to tell a member
+// their access is retained THROUGH this date instead of implying an immediate
+// downgrade — a positive-only signal, safe to trust because the anchor is set by
+// the webhook only for an established renewal failure.
+export function graceWindowEndIso(
+  graceStartedAt: string | null,
+  graceDays: number,
+  nowMs: number,
+): string | null {
+  if (!graceStartedAt || graceDays <= 0) return null;
+  const startedMs = Date.parse(graceStartedAt);
+  if (!Number.isFinite(startedMs)) return null;
+  const untilMs = startedMs + graceDays * DAY_MS;
+  return untilMs > nowMs ? new Date(untilMs).toISOString() : null;
+}

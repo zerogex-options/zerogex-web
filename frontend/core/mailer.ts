@@ -900,6 +900,12 @@ export async function sendPaymentFailedEmail(
     // email can give a concrete "we'll try again on …" date. Null when Stripe has
     // exhausted its automatic retries (this was the final attempt).
     nextAttemptIso?: string | null;
+    // When an ACTIVE payment-recovery grace window is open for this account (an
+    // established renewal failure — see BILLING_PAYMENT_GRACE_DAYS), the ISO
+    // instant it runs through. Lets the email say access is retained until then
+    // instead of implying an immediate downgrade. Null/omitted when no window is
+    // open, its state isn't known yet, or grace is disabled.
+    graceUntilIso?: string | null;
   },
 ) {
   const subject = "We couldn't process your ZeroGEX payment";
@@ -921,11 +927,18 @@ export async function sendPaymentFailedEmail(
       ? `Your subscription payment was declined — ${cardPhrase} didn't go through.`
       : 'Your subscription payment was declined by your card issuer.';
 
-  // A failed renewal drops the account to the free Public tier immediately (the
-  // webhook downgrades on past_due) and flips it back the moment a charge
-  // succeeds. State it plainly so the stakes are clear without alarm.
-  const accessSentence =
-    'Your account has moved to the free Public tier for now — full Pro access switches back on automatically as soon as a payment goes through.';
+  // Access-state wording. An established (previously active) subscription that
+  // fails a renewal now keeps Pro through a short grace window (see
+  // BILLING_PAYMENT_GRACE_DAYS / core/paymentGrace.ts) while Stripe retries,
+  // rather than dropping to Public on the first failure — so this must NOT assert
+  // an immediate downgrade. When the caller confirmed an active grace window
+  // (graceUntilIso), say access is held through that date; otherwise stay
+  // tense-neutral so it's correct whether the account still has access (a race
+  // where the past_due sync hasn't landed) or has already dropped (the no-grace
+  // trial-conversion case). Retry timing is covered separately by retrySentence.
+  const accessSentence = opts?.graceUntilIso
+    ? `Your Pro access stays on through ${formatTrialEndDate(opts.graceUntilIso)}, so nothing changes right now. If the payment still can't be collected by then, your account moves to the free Public tier — and full Pro switches back on automatically the moment a charge succeeds.`
+    : 'Updating your payment method is the fastest way to keep your Pro access from lapsing — and if the account has already dropped to the free Public tier, full Pro switches back on automatically the moment a payment succeeds.';
 
   // Concrete next-retry date when Stripe still has attempts left; a firmer note
   // when this was the final automatic attempt and cancellation is imminent.
