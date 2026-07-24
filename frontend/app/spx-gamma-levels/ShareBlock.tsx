@@ -6,7 +6,7 @@ import { capture } from '@/core/telemetry/posthog-client';
 
 // The daily "copy/paste share block" that turns the free gamma-levels page from
 // a static SEO asset into a distribution asset. It renders the current-session
-// SPX/SPY/QQQ snapshot (pre-formatted server-side) as a plain-text snippet plus
+// SPX/SPY/QQQ/NDX snapshot (pre-formatted server-side) as a plain-text snippet plus
 // one-click actions to push it to X, Reddit, StockTwits, or the clipboard
 // (Discord/Slack/anywhere). This component is purely presentational +
 // interactive — all formatting lives in the server component so the snippet is
@@ -21,11 +21,11 @@ interface ShareBlockProps {
   hasData: boolean;
   /** Human-readable freshness stamp, e.g. "Jul 6, 2026, 9:41 AM EDT". */
   asOf?: string | null;
-  /** Page's primary ticker (SPX / SPY / QQQ) — leads the heading + subtext. */
+  /** Page's primary ticker (SPX / SPY / QQQ / NDX) — leads the heading + subtext. */
   symbol: string;
 }
 
-const SHARE_TITLE = "Today's SPX / SPY / QQQ gamma levels — ZeroGEX";
+const SHARE_TITLE = "Today's SPX / SPY / QQQ / NDX gamma levels — ZeroGEX";
 
 function XIcon({ size = 15 }: { size?: number }) {
   return (

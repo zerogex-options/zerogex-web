@@ -25,6 +25,7 @@ const TICKERS = [
   { href: '/spx-gamma-levels', label: 'SPX' },
   { href: '/spy-gamma-levels', label: 'SPY' },
   { href: '/qqq-gamma-levels', label: 'QQQ' },
+  { href: '/ndx-gamma-levels', label: 'NDX' },
 ] as const;
 
 const linkClass =
@@ -34,7 +35,7 @@ const linkClass =
  * Standardized "see it live" internal-linking block for the end of every
  * education article. It closes the definition → example → today's live level →
  * trial loop by pointing straight into the three free ticker gamma-levels
- * pages (SPX / SPY / QQQ), the live 0DTE dashboard, and the trial.
+ * pages (SPX / SPY / QQQ / NDX), the live 0DTE dashboard, and the trial.
  *
  * Kept in one component so the article → levels internal-link graph stays
  * consistent across every post and is edited in exactly one place.
@@ -55,7 +56,7 @@ export default function LiveLevelsCTA({ concept, headline, intro }: Props) {
         <p className="mb-3 text-sm leading-7 text-[var(--color-text-secondary)]">{intro}</p>
       ) : null}
       <p className="mb-5 text-sm leading-7 text-[var(--color-text-secondary)]">
-        Want to follow this throughout the trading day? View today&apos;s SPX, SPY, and QQQ gamma flip, call wall,
+        Want to follow this throughout the trading day? View today&apos;s SPX, SPY, QQQ, and NDX gamma flip, call wall,
         put wall, and Net GEX — free, delayed roughly 15 minutes, no signup required.
       </p>
       <div className="flex flex-wrap gap-3">

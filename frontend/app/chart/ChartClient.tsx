@@ -90,7 +90,7 @@ export default function ChartClient({
           )}
         </p>
         <div className="flex flex-wrap items-center gap-8 mt-5">
-          <Stat value="SPY · QQQ · SPX" label="Underlyings" />
+          <Stat value="SPY · QQQ · SPX · NDX" label="Underlyings" />
           <Stat value="1m → 1D" label="Timeframes" />
           <Stat value={delayed ? '~15 min' : 'Live'} label={delayed ? 'Delayed preview' : 'Dealer gamma overlay'} />
           <Stat value="12 themes" label="Fully re-skinnable" />

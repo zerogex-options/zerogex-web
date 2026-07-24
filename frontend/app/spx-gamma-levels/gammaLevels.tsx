@@ -15,11 +15,12 @@ import PricingTrialCta from './PricingTrialCta';
 import StickyTrialBar from './StickyTrialBar';
 
 // Shared, ticker-first view behind the free gamma-levels pages. One component
-// renders three routes — /spx-gamma-levels, /spy-gamma-levels, /qqq-gamma-levels
-// — each parameterized by its `primary` symbol so the title, H1, intro, Today's
-// Read, share block, first-screen card order, and canonical all match the URL.
-// The other two tickers still appear lower on every page and cross-link to their
-// own dedicated pages, so the trio forms a tight internal cluster.
+// renders four routes — /spx-gamma-levels, /spy-gamma-levels, /qqq-gamma-levels,
+// /ndx-gamma-levels — each parameterized by its `primary` symbol so the title,
+// H1, intro, Today's Read, share block, first-screen card order, and canonical
+// all match the URL. The other three tickers still appear lower on every page
+// and cross-link to their own dedicated pages, so they form a tight internal
+// cluster.
 //
 // Pure server component: ISR-cached at 900s (set on each route) so the page is
 // naturally delayed and SEO-friendly, with zero auth wiring required. It stays
@@ -36,7 +37,7 @@ const SITE = 'https://zerogex.io';
 // (never wall-clock), so it stays deterministic inside the ISR HTML.
 const STALE_THRESHOLD_MS = 90 * 60 * 1000;
 
-const SYMBOLS = ['SPX', 'SPY', 'QQQ'] as const;
+const SYMBOLS = ['SPX', 'SPY', 'QQQ', 'NDX'] as const;
 type Symbol = (typeof SYMBOLS)[number];
 
 interface GexSummary {
@@ -75,6 +76,7 @@ const SYMBOL_AUDIENCE: Record<Symbol, string> = {
   SPX: 'SPX and S&P 500 options traders',
   SPY: 'SPY and S&P 500 options traders',
   QQQ: 'QQQ and Nasdaq-100 options traders',
+  NDX: 'NDX and Nasdaq-100 options traders',
 };
 
 function buildSymbolContent(primary: Symbol): SymbolContent {
@@ -93,6 +95,7 @@ const SYMBOL_CONTENT: Record<Symbol, SymbolContent> = {
   SPX: buildSymbolContent('SPX'),
   SPY: buildSymbolContent('SPY'),
   QQQ: buildSymbolContent('QQQ'),
+  NDX: buildSymbolContent('NDX'),
 };
 
 // Individual dedicated page for a ticker — used to cross-link the sibling cards.
@@ -329,7 +332,7 @@ interface LoadedSnapshots {
   fromCache: Set<Symbol>;
 }
 
-// Pull all three symbols in parallel. Each call is cached in the Next.js fetch
+// Pull all four symbols in parallel. Each call is cached in the Next.js fetch
 // cache at 900s, so the page itself is effectively ISR'd at the same cadence.
 // A successful fetch refreshes the last-good cache; a null (missing token,
 // unreachable backend, non-2xx — see serverApiGet) falls back to the last-good
@@ -686,7 +689,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
                 priorClose: null,
                 summary: primaryData,
                 vix: null,
-                volIndex: primary === 'QQQ' ? 'VXN' : 'VIX',
+                volIndex: primary === 'QQQ' || primary === 'NDX' ? 'VXN' : 'VIX',
                 horizon: 'daily',
               })}
             />

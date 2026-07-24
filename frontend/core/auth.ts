@@ -34,10 +34,11 @@ const PUBLIC_ROUTE_PATTERNS = [
   '/reset-password',
   '/unauthorized',
   '/spx-gamma-levels',
-  // /spy-gamma-levels and /qqq-gamma-levels are content clones of
-  // /spx-gamma-levels (same public, delayed view; canonical → spx-gamma-levels).
+  // /spy-gamma-levels, /qqq-gamma-levels, and /ndx-gamma-levels are content
+  // clones of /spx-gamma-levels (same public, delayed view; each self-canonical).
   '/spy-gamma-levels',
   '/qqq-gamma-levels',
+  '/ndx-gamma-levels',
   // /chart is a dual-mode page: anonymous visitors get the same ~15-min-delayed
   // snapshot the gamma-levels pages serve (rendered as the full interactive
   // chart), while logged-in subscribers get the live, real-time version. The

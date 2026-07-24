@@ -114,8 +114,8 @@ const TRIAL_START_HERE: ReadonlyArray<{ title: string; body: string }> = [
     body: 'whether the broader options structure is more stabilizing or more unstable right now.',
   },
   {
-    title: 'SPY / SPX / QQQ',
-    body: 'the same read across all three, for intraday index context.',
+    title: 'SPY / SPX / QQQ / NDX',
+    body: 'the same read across all four, for intraday index context.',
   },
 ];
 

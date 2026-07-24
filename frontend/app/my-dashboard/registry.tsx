@@ -404,7 +404,7 @@ export const WIDGETS: WidgetDef[] = [
   {
     id: 'vix-level',
     title: 'Vol Index Level',
-    blurb: 'Current VIX (or VXN for QQQ) with regime label.',
+    blurb: 'Current VIX (or VXN for QQQ/NDX) with regime label.',
     category: 'volatility',
     tier: 'basic',
     icon: Activity,
