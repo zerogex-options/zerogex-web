@@ -93,7 +93,6 @@ export default function ChartClient({
           <Stat value="SPY · QQQ · SPX · NDX" label="Underlyings" />
           <Stat value="1m → 1D" label="Timeframes" />
           <Stat value={delayed ? '~15 min' : 'Live'} label={delayed ? 'Delayed preview' : 'Dealer gamma overlay'} />
-          <Stat value="12 themes" label="Fully re-skinnable" />
         </div>
       </header>
 
