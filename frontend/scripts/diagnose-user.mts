@@ -481,17 +481,55 @@ if (user.stripe_subscription_id) {
       );
     }
 
+    // The payment-method slots Stripe consults to auto-charge when the trial
+    // converts: the subscription's own default first, then the customer's
+    // invoice-settings default. This is the ground truth for "will the renewal
+    // actually charge?" — distinct from the "Card on file" line below, which for
+    // a Checkout trial falls back to the newest card in the PM list for DISPLAY
+    // even when neither default is wired. sub.default_payment_method is expanded
+    // on the retrieve above, so when it's set we decode its card inline.
+    const subDefaultPm = sub.default_payment_method;
+    const subDefaultId = idOf(subDefaultPm);
+    const subDefaultDesc =
+      subDefaultPm && typeof subDefaultPm === 'object'
+        ? subDefaultPm.card
+          ? `${subDefaultPm.id} — ${formatCardBrand(subDefaultPm.card.brand) ?? subDefaultPm.card.brand ?? 'card'} ····${subDefaultPm.card.last4}`
+          : `${subDefaultPm.id} — (no card object — wallet/bank/Link)`
+        : subDefaultId ?? 'not set';
+    kv('Sub default PM', subDefaultDesc);
+
+    let customerDefaultPmId: string | null = null;
+    try {
+      const cust = await stripe.customers.retrieve(user.stripe_customer_id);
+      if (!('deleted' in cust && cust.deleted)) {
+        customerDefaultPmId = idOf(cust.invoice_settings?.default_payment_method);
+      }
+    } catch {
+      // Non-fatal: the sub slot still prints; only the customer fallback is unknown.
+    }
+    kv('Customer default PM', customerDefaultPmId ?? 'not set');
+    if (!subDefaultId && !customerDefaultPmId) {
+      console.log(
+        '      note: neither default set — Stripe has no wired PM for the auto-charge;',
+      );
+      console.log(
+        '            conversion relies on Stripe finding a usable method at invoice time.',
+      );
+    }
+
     // The card the ~48h reminder will name (or why it can't) — same resolution
-    // the reminder uses, so a blank charge/card line in the email is explained
-    // here. "no default set" means the card lives only in the customer's PM list
-    // (typical for a Checkout trial); the reminder now falls back to it too.
+    // the reminder uses. When this says "none resolvable", the reminder still
+    // quotes the price but with neutral "payment method on file" wording rather
+    // than naming a card. "no default set" means the card lives only in the
+    // customer's PM list (typical for a Checkout trial); the reminder falls back
+    // to it too for display.
     try {
       const cardOnFile = await resolveCardOnFile(sub, user.stripe_customer_id);
       kv(
         'Card on file',
         cardOnFile
           ? `${formatCardBrand(cardOnFile.brand) ?? cardOnFile.brand ?? 'card'} ending in ${cardOnFile.last4} — ${cardOnFile.source}`
-          : 'none resolvable — reminder omits the charge/card line',
+          : 'none resolvable — reminder shows the price with neutral wording, no card named',
       );
     } catch (e) {
       kv('Card on file', `unavailable (${(e as StripeError).message})`);
