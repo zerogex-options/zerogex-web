@@ -45,6 +45,11 @@ const UPDATES: Update[] = [
         href: '/ndx-gamma-levels',
         body: 'The Nasdaq-100 joins SPY, SPX, and QQQ — the same gamma read, levels, and dealer positioning across every ZeroGEX tool, plus a free ~15-minute-delayed NDX gamma-levels page.',
       },
+      {
+        title: 'Self-service API keys',
+        href: '/account',
+        body: 'Generate and manage your own Pro API keys right from the Account page — no more requesting one by hand.',
+      },
     ],
     whatsComing: [
       {
@@ -60,8 +65,8 @@ const UPDATES: Update[] = [
         body: 'Additional TradeWorkz™ bots — each with the same public, no-cherry-picking track record.',
       },
       {
-        title: 'Self-service API keys',
-        body: 'Generate and manage your own Pro API keys right from the Account page — no more requesting one by hand.',
+        title: 'A more streamlined, simplified experience',
+        body: 'An ongoing pass to simplify the platform — fewer clicks to the read that matters, a cleaner layout, and less on-screen noise, so what you need is faster to find and act on.',
       },
       {
         title: 'A sharper mobile experience',
