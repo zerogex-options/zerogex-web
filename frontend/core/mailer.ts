@@ -503,36 +503,44 @@ export async function sendFoundingWelcomeEmail(
 // load and the chargeback risk that follow surprise auto-conversions. Sent
 // at most once per trial window (latched by users.trial_reminder_email_sent_at,
 // which the webhook clears whenever a new 'trialing' state begins).
-export async function sendTrialReminderEmail(
-  to: string,
-  opts: {
-    trialEndIso: string;
-    // When the underlying subscription is on the limited-time public promo,
-    // the cron job passes a short label like "first 6 months" so the reminder
-    // mentions the introductory rate that will kick in after the trial ends.
-    promoIntroLabel?: string | null;
-    // Post-trial billing specifics, resolved from Stripe by the caller (the
-    // send-trial-reminders cron) so this presenter stays free of Stripe/DB I/O.
-    // When present, the reminder spells out the exact amount and the card that
-    // will be charged when the trial converts, so a member whose card is stale
-    // or expiring can fix it before the attempt fails into past_due. Left off
-    // (or passed null when the Stripe lookup fails) so the email still sends
-    // cleanly without the line.
-    billing?: {
-      // Formatted post-trial charge, e.g. "$29.00/month". Built by the caller
-      // from Stripe's upcoming-invoice preview, so it reflects any discount on
-      // the subscription (the real amount that will be billed), paired with the
-      // plan's own billing cadence.
-      chargeLabel: string;
-      // Display-ready card brand, e.g. "Visa" — already normalized by the
-      // caller (Stripe reports brands lowercased). Optional/null for wallet or
-      // unrecognized methods, in which case a neutral phrasing is used.
-      cardBrand?: string | null;
-      // Last four digits of the card on file, e.g. "4242".
-      cardLast4: string;
-    } | null;
-  },
-) {
+export type TrialReminderEmailOptions = {
+  trialEndIso: string;
+  // When the underlying subscription is on the limited-time public promo,
+  // the cron job passes a short label like "first 6 months" so the reminder
+  // mentions the introductory rate that will kick in after the trial ends.
+  promoIntroLabel?: string | null;
+  // Post-trial billing specifics, resolved from Stripe by the caller (the
+  // send-trial-reminders cron) so this presenter stays free of Stripe/DB I/O.
+  // When present, the reminder spells out the exact amount and the card that
+  // will be charged when the trial converts, so a member whose card is stale
+  // or expiring can fix it before the attempt fails into past_due. Left off
+  // (or passed null when the Stripe lookup fails) so the email still sends
+  // cleanly without the line.
+  billing?: {
+    // Formatted post-trial charge, e.g. "$29.00/month". Built by the caller
+    // from Stripe's upcoming-invoice preview, so it reflects any discount on
+    // the subscription (the real amount that will be billed), paired with the
+    // plan's own billing cadence.
+    chargeLabel: string;
+    // Display-ready card brand, e.g. "Visa" — already normalized by the
+    // caller (Stripe reports brands lowercased). Optional/null for wallet or
+    // unrecognized methods, in which case a neutral phrasing is used.
+    cardBrand?: string | null;
+    // Last four digits of the card on file, e.g. "4242".
+    cardLast4: string;
+  } | null;
+};
+
+// Pure builder for the ~48h trial-end reminder: assembles subject + HTML + text
+// from already-resolved inputs, with no Resend/Stripe/DB I/O. Split out from the
+// sender so a caller can render the EXACT wire copy for preview/dry-run without
+// sending it (the cron's --render mode uses this), keeping preview and
+// production from ever drifting.
+export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
+  subject: string;
+  html: string;
+  text: string;
+} {
   const trialEndDate = formatTrialEndDate(opts.trialEndIso);
   const promoLabel = opts.promoIntroLabel ?? null;
   const subject = 'Your ZeroGEX free trial ends in 2 days';
@@ -603,6 +611,14 @@ export async function sendTrialReminderEmail(
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
     </div>
   `.trim();
+
+  return { subject, html, text };
+}
+
+// Sends the ~48h trial-end reminder. Thin wrapper over buildTrialReminderEmail
+// so the wire copy and any --render preview never drift.
+export async function sendTrialReminderEmail(to: string, opts: TrialReminderEmailOptions) {
+  const { subject, html, text } = buildTrialReminderEmail(opts);
 
   const client = getClient();
   const result = await client.emails.send({

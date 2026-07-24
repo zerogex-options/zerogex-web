@@ -32,12 +32,13 @@
 //   - Writes a `trial_reminder_email_sent` row into audit_events.
 
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 
 import Stripe from 'stripe';
-import { sendTrialReminderEmail } from '../core/mailer.ts';
+import { buildTrialReminderEmail, sendTrialReminderEmail } from '../core/mailer.ts';
 import { formatCardBrand } from '../core/stripeCard.ts';
 
 // 48h from now is the target; a 6h window on each side absorbs a daily cron
@@ -51,6 +52,12 @@ type Args = {
   help: boolean;
   windowHours: number;
   previewTo: string | null;
+  // Render one specific member's REAL reminder (resolved live from Stripe) to
+  // files without sending or writing to the DB — a dry-run preview of the exact
+  // copy that member would receive, regardless of the send window or the latch.
+  render: string | null;
+  // Optional output directory for --render (defaults to the OS temp dir).
+  out: string | null;
 };
 
 function parseEnvFile(filePath: string): Record<string, string> {
@@ -85,6 +92,8 @@ function parseArgs(argv: string[]): Args {
     help: false,
     windowHours: DEFAULT_WINDOW_HOURS,
     previewTo: null,
+    render: null,
+    out: null,
   };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -98,6 +107,8 @@ function parseArgs(argv: string[]): Args {
       }
       args.windowHours = value;
     } else if (arg === '--preview-to') args.previewTo = argv[++i] ?? null;
+    else if (arg === '--render') args.render = argv[++i] ?? null;
+    else if (arg === '--out') args.out = argv[++i] ?? null;
     else if (arg === '--help' || arg === '-h') args.help = true;
   }
   return args;
@@ -125,6 +136,11 @@ Options:
       --window-hours N      Override the +/- N/2 hour window (default ${DEFAULT_WINDOW_HOURS}).
       --preview-to <email>  Render the email and send ONE copy to <email>
                             with a sample trial-end date. No DB writes.
+      --render <email>      Render THIS member's real reminder (charge + card
+                            resolved live from Stripe) to .html/.txt files and
+                            print the text version. Never sends, never writes to
+                            the DB, ignores the send window and the sent-latch.
+      --out <dir>           Output directory for --render (default: OS temp dir).
   -h, --help                Show this help.
 
 Reads RESEND_API_KEY, RESEND_FROM_EMAIL, NEXT_PUBLIC_APP_URL from env or
@@ -328,9 +344,14 @@ if (cliArgs.help) {
   process.exit(0);
 }
 
-const exclusiveFlags = [cliArgs.dryRun, cliArgs.yes, !!cliArgs.previewTo].filter(Boolean).length;
+const exclusiveFlags = [
+  cliArgs.dryRun,
+  cliArgs.yes,
+  !!cliArgs.previewTo,
+  !!cliArgs.render,
+].filter(Boolean).length;
 if (exclusiveFlags > 1) {
-  console.error('Error: --dry-run, --yes, and --preview-to are mutually exclusive.');
+  console.error('Error: --dry-run, --yes, --preview-to, and --render are mutually exclusive.');
   process.exit(1);
 }
 
@@ -380,6 +401,83 @@ if (!fs.existsSync(dbPath)) {
 }
 
 ensureSqlite3Cli();
+
+// --render <email>: dry-run preview of one member's REAL reminder. Resolves the
+// same live-from-Stripe charge + card the send loop would, builds the exact wire
+// copy via buildTrialReminderEmail, and writes it to files — no send, no DB
+// writes, and it ignores both the send window and the sent-latch so any member
+// (already-nudged or not) can be previewed on demand.
+if (cliArgs.render) {
+  const email = cliArgs.render;
+  const rows = querySqlite<UserRow>(
+    dbPath,
+    `SELECT id, email, current_period_end, stripe_customer_id, stripe_subscription_id
+     FROM users
+     WHERE email = '${escapeSqlLiteral(email)}'
+     LIMIT 1;`,
+  );
+  const user = rows[0];
+  if (!user) {
+    console.error(`No user found with email ${email}.`);
+    process.exit(1);
+  }
+  if (!user.current_period_end) {
+    console.error(
+      `User ${email} has no current_period_end (not on a trial/subscription); nothing to render.`,
+    );
+    process.exit(1);
+  }
+
+  // Best-effort Stripe enrichment, identical to the send loop: no key or a
+  // per-user Stripe error just drops the charge/card line from the preview.
+  const stripeForRender: Stripe | null = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY) : null;
+  if (!stripeForRender) {
+    console.warn('Warning: STRIPE_SECRET_KEY not set — rendering WITHOUT the charge/card line.');
+  }
+  let billing: BillingDetails | null = null;
+  if (stripeForRender) {
+    try {
+      billing = await resolveBillingDetails(
+        stripeForRender,
+        user.stripe_customer_id,
+        user.stripe_subscription_id,
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'unknown error';
+      console.warn(
+        `Could not resolve Stripe billing details (${message}); rendering without the charge/card line.`,
+      );
+    }
+  }
+
+  const { subject, html, text } = buildTrialReminderEmail({
+    trialEndIso: user.current_period_end,
+    billing,
+  });
+
+  const outDir = cliArgs.out ?? os.tmpdir();
+  const safeName = email.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const htmlPath = path.join(outDir, `zerogex-trial-reminder-${safeName}.html`);
+  const textPath = path.join(outDir, `zerogex-trial-reminder-${safeName}.txt`);
+  fs.writeFileSync(htmlPath, html);
+  fs.writeFileSync(textPath, text);
+
+  console.log(`Rendered trial reminder for ${email} — NOT sent, no DB writes.`);
+  console.log(`Trial end:     ${user.current_period_end}`);
+  console.log(`Subject:       ${subject}`);
+  console.log(
+    `Billing line:  ${
+      billing
+        ? `included — ${billing.chargeLabel} on ${billing.cardBrand ?? 'card'} ending ${billing.cardLast4}`
+        : 'omitted (no resolvable charge + card on file)'
+    }`,
+  );
+  console.log(`HTML file:     ${htmlPath}`);
+  console.log(`Text file:     ${textPath}`);
+  console.log('\n----- text version -----\n');
+  console.log(text);
+  process.exit(0);
+}
 
 // Compute the inclusive [low, high] ISO bounds bracketing now+48h. SQLite
 // compares ISO strings lexicographically, which works because Stripe writes
