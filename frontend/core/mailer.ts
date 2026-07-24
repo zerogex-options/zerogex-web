@@ -526,8 +526,12 @@ export type TrialReminderEmailOptions = {
     // caller (Stripe reports brands lowercased). Optional/null for wallet or
     // unrecognized methods, in which case a neutral phrasing is used.
     cardBrand?: string | null;
-    // Last four digits of the card on file, e.g. "4242".
-    cardLast4: string;
+    // Last four digits of the card on file, e.g. "4242". Null/omitted when the
+    // member has no nameable card (a Link/wallet method): the reminder then
+    // still quotes the price but refers to "the payment method on file" instead
+    // of naming a card, so the price is never dropped just because the method
+    // isn't a card.
+    cardLast4?: string | null;
   } | null;
 };
 
@@ -557,19 +561,27 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
 
   // "Your subscription will begin at $X/month using your Visa card ending in
   // 1234" — the exact charge, brand, and last-4 come from Stripe (see
-  // resolveBillingDetails in the cron); we only format them here. When the
-  // brand is unknown (wallet / Link / an unmapped code) the caller passes null
-  // and we drop to the neutral "the payment method ending in 1234".
+  // resolveBillingDetails in the cron); we only format them here. The method
+  // phrase has three tiers, most specific first:
+  //   brand + last4 → "your Visa card ending in 1234"
+  //   last4 only    → "the payment method ending in 1234"  (brand unmapped)
+  //   neither       → "the payment method on file"         (Link/wallet: no card)
+  // The last tier keeps the price line for members who checked out with Link or
+  // a wallet, who have a chargeable method but no card brand/last4 to name.
   const billing = opts.billing ?? null;
   const cardTextPhrase = billing
-    ? billing.cardBrand
-      ? `your ${billing.cardBrand} card ending in ${billing.cardLast4}`
-      : `the payment method ending in ${billing.cardLast4}`
+    ? billing.cardLast4
+      ? billing.cardBrand
+        ? `your ${billing.cardBrand} card ending in ${billing.cardLast4}`
+        : `the payment method ending in ${billing.cardLast4}`
+      : 'the payment method on file'
     : null;
   const cardHtmlPhrase = billing
-    ? billing.cardBrand
-      ? `your ${escapeHtml(billing.cardBrand)} card ending in <strong>${escapeHtml(billing.cardLast4)}</strong>`
-      : `the payment method ending in <strong>${escapeHtml(billing.cardLast4)}</strong>`
+    ? billing.cardLast4
+      ? billing.cardBrand
+        ? `your ${escapeHtml(billing.cardBrand)} card ending in <strong>${escapeHtml(billing.cardLast4)}</strong>`
+        : `the payment method ending in <strong>${escapeHtml(billing.cardLast4)}</strong>`
+      : 'the payment method on file'
     : null;
   const billingLineText = billing
     ? `Your subscription will begin at ${billing.chargeLabel} using ${cardTextPhrase}. Please make sure your payment method is ready, or update it from your account page (${accountUrl}).`

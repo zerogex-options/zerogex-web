@@ -8,10 +8,12 @@
 // email so they have time to cancel cleanly if the service isn't a fit.
 // Intended to be scheduled (cron or systemd timer) every few hours.
 //
-// Each reminder also spells out the exact post-trial charge and the last four
-// digits of the card on file, both read live from Stripe per user (never
-// hardcoded), so a member whose card is stale or expiring can fix it before
-// the trial-end charge fails into past_due. The charge is taken from Stripe's
+// Each reminder also spells out the exact post-trial charge and — when a card
+// can be named — the last four digits of the card on file, both read live from
+// Stripe per user (never hardcoded), so a member whose card is stale or
+// expiring can fix it before the trial-end charge fails into past_due. A member
+// who checked out with Link or a wallet has no nameable card, so the reminder
+// still quotes the price but with neutral "payment method on file" wording. The charge is taken from Stripe's
 // upcoming-invoice preview, so it reflects any discount on the subscription
 // (promo, founding, referral, ...) — the real amount that will be billed, not
 // the plan's list price. That enrichment is best-effort: with STRIPE_SECRET_KEY
@@ -201,7 +203,11 @@ type BillingDetails = {
   // Display-ready brand ("Visa") or null when unknown (wallet / Link / a brand
   // code we don't map), in which case the mailer uses a neutral phrasing.
   cardBrand: string | null;
-  cardLast4: string;
+  // Last four of the card that will be charged, or null when no card can be
+  // named at all — a Link/wallet member has a chargeable method but no
+  // brand/last4 to show. The mailer then quotes the price with neutral
+  // "payment method on file" wording rather than dropping the line.
+  cardLast4: string | null;
 };
 
 // Card-brand labels + formatCardBrand live in core/stripeCard.ts now, shared
@@ -287,10 +293,12 @@ async function resolveCard(
 }
 
 // Live-from-Stripe charge + card for one user. Returns null (caller then omits
-// the billing line) when the data isn't available: no subscription on file, the
-// upcoming charge can't be previewed, or the card can't be read. Stripe errors
-// propagate to the caller, which treats them as non-fatal and sends the reminder
-// without the line.
+// the billing line) only when the CHARGE can't be established: no subscription
+// on file, or the upcoming charge can't be previewed / is <= 0. A missing card
+// no longer nulls the result — when the charge resolves but no card can be named
+// (a Link/wallet member), the card fields come back null and the mailer quotes
+// the price with neutral wording. Stripe errors propagate to the caller, which
+// treats them as non-fatal and sends the reminder without the line.
 async function resolveBillingDetails(
   stripe: Stripe,
   customerId: string | null,
@@ -331,10 +339,15 @@ async function resolveBillingDetails(
   if (!money) return null;
   const chargeLabel = interval ? `${money}/${interval}` : money;
 
+  // The card is best-effort: a resolvable charge with no nameable card (Link /
+  // wallet) still yields a billing line — the price with neutral wording — so we
+  // do NOT null the result here. Only a missing/zero charge (handled above) does.
   const card = await resolveCard(stripe, sub, customerId);
-  if (!card) return null;
-
-  return { chargeLabel, cardBrand: formatCardBrand(card.brand), cardLast4: card.last4 };
+  return {
+    chargeLabel,
+    cardBrand: card ? formatCardBrand(card.brand) : null,
+    cardLast4: card ? card.last4 : null,
+  };
 }
 
 const cliArgs = parseArgs(process.argv.slice(2));
@@ -468,8 +481,10 @@ if (cliArgs.render) {
   console.log(
     `Billing line:  ${
       billing
-        ? `included — ${billing.chargeLabel} on ${billing.cardBrand ?? 'card'} ending ${billing.cardLast4}`
-        : 'omitted (no resolvable charge + card on file)'
+        ? billing.cardLast4
+          ? `included — ${billing.chargeLabel} on ${billing.cardBrand ?? 'card'} ending ${billing.cardLast4}`
+          : `included — ${billing.chargeLabel}, neutral method (no nameable card on file)`
+        : 'omitted (no resolvable upcoming charge)'
     }`,
   );
   console.log(`HTML file:     ${htmlPath}`);
