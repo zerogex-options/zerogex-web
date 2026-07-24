@@ -2,16 +2,20 @@
   "_note": "The 'what's new since you left' bullets in the ~1-month win-back email (scripts/send-winback.mts reads this; core/mailer.ts renders it). Edit freely to keep the email evergreen — no code change or redeploy of the app is needed, the next send picks it up. Keep it to 2-4 punchy items; 'title' is bolded, 'body' follows an em-dash. If this file is missing or invalid, the sender falls back to DEFAULT_WINBACK_HIGHLIGHTS in core/mailer.ts.",
   "highlights": [
     {
-      "title": "Backtesting",
-      "body": "test options strategies and ZeroGEX signals against historical market data, with a full tearsheet, Monte Carlo cone, benchmark, and a shareable report you can send to anyone."
+      "title": "Gamma Chart",
+      "body": "a live price-and-dealer-gamma terminal with the Gamma Flip, Call/Put Walls, and Max Pain drawn right on SPY, QQQ, SPX, and NDX — plus session rewind to replay how a level held."
     },
     {
-      "title": "TradeWorkz™ automated bots",
-      "body": "a growing set of bots that post their entries and exits in real time, backed by a fully public trade audit that shows every win and loss, not just the highlights."
+      "title": "My Dashboard",
+      "body": "a customizable board you build from the pieces of ZeroGEX you use most — arrange the charts and cards how you like, and it saves your layout, settings, and symbols."
     },
     {
-      "title": "Sharper gamma levels & Live Bulletin",
-      "body": "a rebuilt net-GEX methodology so the levels, cards, and daily reads all agree, plus a faster dashboard across the board."
+      "title": "Trade Bias",
+      "body": "a single, signed directional call that fuses the gamma and volatility regime with live price action, flow, tape, and momentum — for a multi-day swing or a same-day 0DTE read."
+    },
+    {
+      "title": "NDX coverage",
+      "body": "the Nasdaq-100 now gets the same gamma read as SPY, SPX, and QQQ across every tool."
     }
   ]
 }

@@ -1257,19 +1257,24 @@ export type WinbackHighlight = { title: string; body: string };
 // or unreadable. Keep it current if you ever edit it directly.
 export const DEFAULT_WINBACK_HIGHLIGHTS: WinbackHighlight[] = [
   {
-    title: 'Backtesting',
+    title: 'Gamma Chart',
     body:
-      'test options strategies and ZeroGEX signals against historical market data, with a full tearsheet, Monte Carlo cone, benchmark, and a shareable report you can send to anyone.',
+      'a live price-and-dealer-gamma terminal with the Gamma Flip, Call/Put Walls, and Max Pain drawn right on SPY, QQQ, SPX, and NDX — plus session rewind to replay how a level held.',
   },
   {
-    title: 'TradeWorkz™ automated bots',
+    title: 'My Dashboard',
     body:
-      'a growing set of bots that post their entries and exits in real time, backed by a fully public trade audit that shows every win and loss, not just the highlights.',
+      'a customizable board you build from the pieces of ZeroGEX you use most — arrange the charts and cards how you like, and it saves your layout, settings, and symbols.',
   },
   {
-    title: 'Sharper gamma levels & Live Bulletin',
+    title: 'Trade Bias',
     body:
-      'a rebuilt net-GEX methodology so the levels, cards, and daily reads all agree, plus a faster dashboard across the board.',
+      'a single, signed directional call that fuses the gamma and volatility regime with live price action, flow, tape, and momentum — for a multi-day swing or a same-day 0DTE read.',
+  },
+  {
+    title: 'NDX coverage',
+    body:
+      'the Nasdaq-100 now gets the same gamma read as SPY, SPX, and QQQ across every tool.',
   },
 ];
 

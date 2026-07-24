@@ -4,7 +4,7 @@ import { Megaphone, Sparkles, Compass } from 'lucide-react';
 export const metadata = {
   title: 'Product Updates | ZeroGEX',
   description:
-    "What's new at ZeroGEX and what's coming next — backtesting, multi-expiration GEX, the Daily Forecast, TradeWorkz, and the road ahead. A running log of platform updates.",
+    "What's new at ZeroGEX and what's coming next — Trade Bias, the Gamma Chart, My Dashboard, NDX coverage, and the road ahead. A running log of platform updates.",
   alternates: { canonical: '/updates' },
 };
 
@@ -19,6 +19,56 @@ type Update = {
 
 // Newest first. Add a new object to the top of this array to publish an update.
 const UPDATES: Update[] = [
+  {
+    date: 'July 24, 2026',
+    title: 'Now live — plus what’s coming next',
+    intro:
+      'Since the last note, several of the most-requested pieces shipped — including a couple that were on the “coming next” list last time. Here’s what’s live now, and where the platform is headed.',
+    whatsNew: [
+      {
+        title: 'Trade Bias',
+        href: '/trade-bias',
+        body: 'A single, signed directional call — which way to lean, how convinced, and the regime it started from. It fuses the gamma and volatility regime (the structural baseline) with live price action, order flow, tape, and momentum, and it tells you when the live read overrides the structure. Read it for a multi-day swing or a same-day 0DTE horizon.',
+      },
+      {
+        title: 'Gamma Chart',
+        href: '/chart',
+        body: 'A proprietary price-and-dealer-gamma terminal — SPY, QQQ, SPX, and NDX price with the Gamma Flip, Call/Put Walls, and Max Pain drawn inline, a live dealer-gamma structure rail, and full session rewind/replay. Real-time for members; a ~15-minute-delayed version is free for everyone.',
+      },
+      {
+        title: 'My Dashboard',
+        href: '/my-dashboard',
+        body: 'The customizable, widget-based board from last update’s roadmap is here — pull your favorite charts and cards into one view, arrange them how you like, and save your layout, chart settings, and symbol selections. Start from a quick-start preset or add widgets one at a time.',
+      },
+      {
+        title: 'NDX',
+        href: '/ndx-gamma-levels',
+        body: 'The Nasdaq-100 joins SPY, SPX, and QQQ — the same gamma read, levels, and dealer positioning across every ZeroGEX tool, plus a free ~15-minute-delayed NDX gamma-levels page.',
+      },
+    ],
+    whatsComing: [
+      {
+        title: 'Enhanced backtesting',
+        body: 'More strategies, more control, deeper analytics, and a longer history window as we expand the dataset.',
+      },
+      {
+        title: 'More tickers',
+        body: 'Coverage keeps growing beyond SPY, SPX, QQQ, and NDX — the same gamma read on more of what you watch.',
+      },
+      {
+        title: 'More automated strategies',
+        body: 'Additional TradeWorkz™ bots — each with the same public, no-cherry-picking track record.',
+      },
+      {
+        title: 'Self-service API keys',
+        body: 'Generate and manage your own Pro API keys right from the Account page — no more requesting one by hand.',
+      },
+      {
+        title: 'A sharper mobile experience',
+        body: 'Continued work to make ZeroGEX feel great on the phone, not just the desktop.',
+      },
+    ],
+  },
   {
     date: 'July 22, 2026',
     title: "What's new — and what's coming next",
