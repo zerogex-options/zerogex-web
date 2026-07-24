@@ -393,11 +393,19 @@ export default function TradeBiasPage() {
               </div>
               <div className="text-center lg:text-right">
                 <div className="text-5xl font-black leading-none" style={{ color, fontVariantNumeric: 'tabular-nums' }}>
-                  {confidence == null ? '—' : Math.round(confidence)}
+                  {payload.biasScore == null
+                    ? '—'
+                    : `${payload.biasScore >= 0 ? '+' : ''}${payload.biasScore.toFixed(1)}`}
                 </div>
-                <div className="text-[11px] uppercase tracking-wide text-[var(--color-text-secondary)] mt-1">Confidence / 100</div>
-                <div className="mt-2 h-1.5 w-32 mx-auto lg:ml-auto lg:mr-0 rounded-full overflow-hidden" style={{ background: 'var(--color-border)' }}>
-                  <div className="h-full rounded-full transition-all duration-500" style={{ width: `${confidence ?? 0}%`, background: color }} />
+                <div className="text-[11px] uppercase tracking-wide text-[var(--color-text-secondary)] mt-1">Bias · −100 … +100</div>
+                <div className="mt-3 flex items-center gap-2 justify-center lg:justify-end">
+                  <span className="text-[11px] uppercase tracking-wide text-[var(--color-text-secondary)]">Conf</span>
+                  <span className="text-sm font-semibold font-mono" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                    {confidence == null ? '—' : Math.round(confidence)}
+                  </span>
+                  <div className="h-1.5 w-20 rounded-full overflow-hidden" style={{ background: 'var(--color-border)' }}>
+                    <div className="h-full rounded-full transition-all duration-500" style={{ width: `${confidence ?? 0}%`, background: color }} />
+                  </div>
                 </div>
               </div>
             </div>
