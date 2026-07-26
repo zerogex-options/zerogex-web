@@ -504,13 +504,19 @@ auth-backups-prune:
 		if [ "$$total" -le "$(AUTH_BACKUP_KEEP)" ]; then \
 			echo "auth-backups: $$total archive(s) <= keep-floor $(AUTH_BACKUP_KEEP) — nothing pruned"; \
 		else \
-			ls -1t "$(AUTH_BACKUP_DIR)"/auth-*.db.gz* 2>/dev/null | tail -n +$$(( $(AUTH_BACKUP_KEEP) + 1 )) | \
-			while read -r f; do \
-				if [ -n "$$(find "$$f" -maxdepth 0 -mtime +$(AUTH_BACKUP_RETENTION_DAYS) -print 2>/dev/null)" ]; then \
-					rm -f "$$f" && echo "  pruned $$f" || true; \
-				fi; \
-			done; \
-			echo "auth-backups: kept newest $(AUTH_BACKUP_KEEP); pruned entries older than $(AUTH_BACKUP_RETENTION_DAYS)d beyond the floor ($(AUTH_BACKUP_DIR))"; \
+			pruned_list=$$(ls -1t "$(AUTH_BACKUP_DIR)"/auth-*.db.gz* 2>/dev/null | tail -n +$$(( $(AUTH_BACKUP_KEEP) + 1 )) | \
+				while read -r f; do \
+					if [ -n "$$(find "$$f" -maxdepth 0 -mtime +$(AUTH_BACKUP_RETENTION_DAYS) -print 2>/dev/null)" ]; then \
+						rm -f "$$f" && echo "$$f"; \
+					fi; \
+				done); \
+			if [ -n "$$pruned_list" ]; then \
+				printf '%s\n' "$$pruned_list" | sed 's/^/  pruned /'; \
+				count=$$(printf '%s\n' "$$pruned_list" | wc -l | tr -d ' '); \
+				echo "auth-backups: pruned $$count archive(s) older than $(AUTH_BACKUP_RETENTION_DAYS)d beyond the newest-$(AUTH_BACKUP_KEEP) floor ($(AUTH_BACKUP_DIR))"; \
+			else \
+				echo "auth-backups: nothing older than $(AUTH_BACKUP_RETENTION_DAYS)d beyond the newest-$(AUTH_BACKUP_KEEP) floor — kept all $$total ($(AUTH_BACKUP_DIR))"; \
+			fi; \
 		fi; \
 	fi
 
