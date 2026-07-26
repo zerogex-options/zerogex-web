@@ -164,7 +164,7 @@ Der 2,0×-Verstärker an Quad-Witching-Tagen ist groß genug, um ein unverstärk
 
 EOD Pressure ist eine **gerichtete Lesart** — sie zeigt, wohin der Druck zeigt, ohne für sich genommen mitreiten-versus-faden vorzuschreiben. Die Fade-versus-Ride-Entscheidung kommt aus dem Regime:
 
-- **Positive-Gamma-Regime + positiver EOD-Pressure-Score:** Die Drift geht nach oben, das Dealer-Hedging dämpft — die Lesart spricht dafür, Rallys Richtung Magnet-Strike zu faden, um die Drift zum Pin mitzunehmen.
+- **Positive-Gamma-Regime + positiver EOD-Pressure-Score:** Die Drift geht nach oben, das Dealer-Hedging dämpft — die Lesart spricht dafür, sich *mit* der Drift zum Magnet-Strike zu positionieren (Schwäche kaufen, statt in sie hinein zu faden) und nur Überschüsse jenseits des Magneten zu faden.
 - **Negative-Gamma-Regime + positiver EOD-Pressure-Score:** Das Signal liest einen charm-getriebenen Aufwärts-Bias, aber in einem Short-Gamma-Regime verstärkt der Dealer-Reflex, statt zu dämpfen — eine Momentum-Fortsetzung ist wahrscheinlicher.
 
 Kombiniert mit anderen Signalen:

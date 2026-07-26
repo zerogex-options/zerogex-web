@@ -16,7 +16,7 @@ Son miroir sous le spot est le [put wall](/education/what-is-a-put-wall), le str
 
 ## Pourquoi le call wall agit comme une résistance
 
-Le mécanisme, c'est la couverture des dealers. Dans un régime de **gamma positif** — spot au-dessus du [gamma flip](/education/how-to-read-a-gamma-flip) — les dealers sont nets longs en gamma, et les desks qui détiennent les calls lourds au strike du call wall sont short sur ces calls. Pour rester delta-neutres, ils doivent **vendre** le sous-jacent à mesure que le prix monte vers le strike, car une position short call voit son delta devenir de plus en plus négatif à mesure que le marché grimpe.
+Le mécanisme, c'est la couverture des dealers. Dans un régime de **gamma positif** — spot au-dessus du [gamma flip](/education/how-to-read-a-gamma-flip) — les dealers sont nets longs en gamma, et les desks qui détiennent les calls lourds au strike du call wall sont longs sur ces calls (les clients les ont vendus en overwriting). Pour rester delta-neutres, ils doivent **vendre** le sous-jacent à mesure que le prix monte vers le strike, car une position long call voit son delta devenir de plus en plus positif à mesure que le marché grimpe.
 
 Cette vente, c'est la résistance. À mesure que le prix se rapproche d'un strike call dense, le réflexe de couverture s'intensifie — un petit mouvement à la hausse impose une vente de couverture relativement plus importante en sens inverse. Les envolées sont vendues, et l'avancée cale. Pas parce que le chiffre serait magique, mais parce que la couverture est mécanique.
 

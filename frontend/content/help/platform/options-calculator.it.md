@@ -35,7 +35,7 @@ Per ogni gamba e per l'aggregato:
 - **Vega** — sensibilità alla IV (per variazione dell'1%)
 - **Charm** — decadimento del delta (al giorno)
 
-Le greche aggregate ti permettono di leggere una struttura multi-gamba con un solo colpo d'occhio — ad esempio, un calendar lungo è net long vega, short theta sul mese anteriore, long theta su quello posteriore.
+Le greche aggregate ti permettono di leggere una struttura multi-gamba con un solo colpo d'occhio — ad esempio, un calendar lungo è net long vega e net long theta, poiché incassa il decadimento sulla gamba a scadenza più vicina più velocemente di quanto lo paghi sulla gamba a scadenza più lontana.
 
 ## La superficie di P&L
 

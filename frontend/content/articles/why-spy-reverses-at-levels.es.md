@@ -33,13 +33,13 @@ Ninguno de estos es un nivel psicológico. Surgen del open interest real y del g
 
 ### Call wall
 
-Cuando SPY sube hacia el strike con más gamma en calls, los dealers que están cortos en esas calls (la convención estándar es que los dealers están net-short frente a las calls largas de los clientes) deben vender acciones de SPY para mantenerse delta-neutral. La operación de hedging va exactamente en la misma dirección que un sell-stop — añade oferta en ese strike. En un régimen de gamma positivo, esa oferta es lo bastante significativa como para limitar el movimiento y producir la reversión que los traders más tarde llaman "aleatoria".
+Cuando SPY sube hacia el strike con más gamma en calls, los dealers que están largos en esas calls (la convención estándar deja a los dealers en posesión de las calls que los clientes venden en overwriting) deben vender acciones de SPY a medida que el precio sube para mantenerse delta-neutral, porque su delta de calls largas crece a medida que el mercado sube. La operación de hedging va exactamente en la misma dirección que un sell-stop — añade oferta en ese strike. En un régimen de gamma positivo, esa oferta es lo bastante significativa como para limitar el movimiento y producir la reversión que los traders más tarde llaman "aleatoria".
 
 El mecanismo completo de los walls está en [Gamma Walls Explained](/education/gamma-walls-explained).
 
 ### Put wall
 
-El espejo: SPY cayendo hacia el strike con más gamma en puts obliga a los dealers a comprar acciones de SPY (están cortos en las puts, así que su exposición delta aumenta a medida que el precio cae). La compra actúa como soporte estructural y produce el rebote.
+El espejo: a medida que SPY cae hacia el strike con más gamma en puts, el libro de dealers, neto long-gamma, compra acciones de SPY para mantenerse cubierto — y como la gamma en puts es más densa en ese strike, la compra se concentra ahí. Actúa como soporte estructural y produce el rebote.
 
 ### Gamma magnet
 

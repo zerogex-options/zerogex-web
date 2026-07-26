@@ -20,7 +20,7 @@ Vanna ist ein Greek zweiter Ordnung, der die **Sensitivität des Deltas einer Op
 
 In Symbolen: Vanna ≈ ∂Δ/∂σ = ∂²V/∂σ∂S. Es handelt sich um die gemischte Ableitung des Optionswerts nach Spot und impliziter Vol.
 
-Was das in der Praxis bedeutet: Wenn sich die implizite Volatilität bewegt, bewegt sich das Delta Ihrer Option — *auch wenn sich der Spot nicht bewegt*. Ein Rückgang der IV verringert das Delta von OTM-Calls und erhöht (betragsmäßig) das Delta von OTM-Puts. Ein Anstieg der IV bewirkt das Gegenteil. Wer ein Optionsbuch hält, dessen Delta sich bei Vol-Bewegungen verschiebt, muss diese Verschiebung absichern — und genau dort wird Vanna zu einem Flow im Tape.
+Was das in der Praxis bedeutet: Wenn sich die implizite Volatilität bewegt, bewegt sich das Delta Ihrer Option — *auch wenn sich der Spot nicht bewegt*. Ein Rückgang der IV verringert den Delta-Betrag von Out-of-the-money-Optionen auf beiden Seiten — OTM-Calls und OTM-Puts driften gleichermaßen Richtung null Delta. Ein Anstieg der IV bewirkt das Gegenteil. Wer ein Optionsbuch hält, dessen Delta sich bei Vol-Bewegungen verschiebt, muss diese Verschiebung absichern — und genau dort wird Vanna zu einem Flow im Tape.
 
 ### Wie Dealer Vanna erleben
 
@@ -28,15 +28,15 @@ Dealer führen deltaneutrale Bücher. Wenn die IV sinkt, verschiebt sich das Del
 
 Das klassische Szenario, das in Flow-Analysen diskutiert wird:
 
-- Dealer sind typischerweise short in Calls (Kunden sind netto long).
-- Wenn die IV sinkt, sinkt das Delta von OTM-Calls.
-- Ein Dealer, der short in einem OTM-Call mit Delta 0,30 war, ist nun vielleicht short im selben Call mit Delta 0,25.
-- Ihr Short-Delta-Exposure ist geschrumpft — sie sind mechanisch weniger short im Basiswert.
-- Um deltaneutral zu bleiben, müssen sie den Basiswert *verkaufen* — oder, falls sie den Basiswert als Hedge long gehalten hatten, einen Teil davon verkaufen.
+- Dealer sind typischerweise long Calls und short Puts — Kunden schreiben Calls (Overwriting) und kaufen Puts zur Absicherung.
+- Wenn die IV sinkt, schrumpfen diese Out-of-the-money-Deltas Richtung null.
+- Nehmen wir die Short Puts: Ein Dealer, der einen OTM-Put short ist, der aus dieser Position +0,30 Delta trägt, trägt nun vielleicht nur noch +0,25.
+- Dieser Long-Delta-Beitrag ist geschrumpft, sodass das Buch gegenüber dem Aktien-Hedge des Dealers nun leicht netto short ist.
+- Um deltaneutral zu bleiben, müssen sie den Basiswert *kaufen*.
 
-Isoliert betrachtet klingt das bärisch. Der interessante Fall ist der umgekehrte: In einem Markt, in dem die IV über Tage oder Wochen abgesackt ist (ein Regime mit Volatilitätskompression), rehedgen Dealer kontinuierlich den Vanna-Zerfall auf einer Chain, die stark in Richtung Kunden-Long-Call-Positionierung verschoben ist. Das Aggregat dieser Flows manifestiert sich tendenziell als anhaltendes, strukturelles Kaufinteresse — der "Vanna Grind", über den Flow-Desks seit Jahren schreiben.
+Die Long Calls ziehen in dieselbe Richtung: Während ihr Delta zerfällt, kippt das Buch erneut short gegenüber seinem Hedge, und die Dealer kaufen. In einem Markt, in dem die IV über Tage oder Wochen abgesackt ist (ein Regime mit Volatilitätskompression), rehedgen Dealer diesen Vanna-Zerfall kontinuierlich über ein Buch hinweg, das short Puts und long Calls ist — und das Aggregat dieser Flows manifestiert sich tendenziell als anhaltendes, strukturelles Kaufinteresse: der "Vanna Grind", über den Flow-Desks seit Jahren schreiben.
 
-Das genaue Vorzeichen hängt von der Zusammensetzung der Chain ab. Ein Buch, das von dealer-short OTM-Puts dominiert wird, verhält sich anders als eines, das von dealer-short OTM-Calls dominiert wird. Die Standardanalyse geht vom typischen Kunden-Long-Call/Kunden-Long-Put-Skew aus, der zum Ergebnis des Vanna-Grinds in der Volatilitätskompression führt. In weniger typischen Regimen kann sich das Vorzeichen umkehren.
+Das genaue Vorzeichen hängt von der Zusammensetzung der Chain ab. Ein Buch, das von dealer-short OTM-Puts dominiert wird, verhält sich anders als eines, in dem Kunden aggressiv Calls *gekauft* haben, sodass Dealer diese Calls short sind. Die Standardanalyse geht vom typischen Skew aus Absicherungskäufen und Call-Overwriting aus — Dealer short Puts und long Calls —, der zum Ergebnis des Vanna-Grinds in der Volatilitätskompression führt. In weniger typischen Regimen (etwa einem Call-Kaufrausch) kann sich das Vorzeichen umkehren.
 
 ---
 
@@ -52,10 +52,10 @@ Die Intuition dahinter: Das Delta einer Option ist grob gesagt die vom Markt imp
 
 Wie Vanna erzwingt auch Charm ein Rehedging, ohne dass sich der Spot bewegt. Ein Dealer, der ein deltaneutrales Buch führt, sieht sein effektives Delta-Exposure allein durch den Zeitablauf driften und muss den Basiswert handeln, um flach zu bleiben.
 
-Das direktionale Vorzeichen des charm-getriebenen Dealer-Flows hängt davon ab, welche Seite des Buches dominiert. Für ein typisches, short-call-lastiges Dealer-Buch, das bis zum Handelsschluss auf einer 0DTE-Chain gehalten wird:
+Das direktionale Vorzeichen des charm-getriebenen Dealer-Flows hängt davon ab, welche Seite des Buches dominiert. Für ein typisches Dealer-Buch — long Calls, short Puts —, das bis zum Handelsschluss auf einer 0DTE-Chain gehalten wird:
 
-- Die Deltas der OTM-Calls zerfallen Richtung 0.
-- Das Short-Call-Delta-Exposure des Dealers schrumpft betragsmäßig.
+- Die Deltas der OTM-Optionen zerfallen Richtung 0.
+- Das Netto-Options-Delta des Dealers schrumpft, während diese Deltas zerfallen.
 - Sie müssen den Basiswert handeln, um neutral zu bleiben.
 - Bei einer typischen Chain erzeugt die Nettorichtung dieses kontinuierlichen Hedgings über den Nachmittag oft eine messbare, vorzeichenstabile Drift.
 
@@ -87,7 +87,7 @@ Der Mechanismus:
 2. Das Risiko geht vorüber, ohne die eingepreiste realisierte Bewegung zu liefern.
 3. Die IV beginnt, über die gesamte Chain hinweg zu bluten.
 4. Die Chain (das Dealer-Buch) rehedgt Vanna kontinuierlich während dieses Zerfalls.
-5. Bei einer typischen, in Richtung Kunden-Long-Call verschobenen Chain ist das aggregierte Hedging ein anhaltendes Kaufinteresse im Basiswert.
+5. Bei einer typischen Chain — Kunden kaufen Puts und schreiben Calls (Overwriting), sodass Dealer short Puts und long Calls sind — ist das aggregierte Hedging ein anhaltendes Kaufinteresse im Basiswert.
 
 Der Flow ist pro Minute klein und für jemanden, der nur die Volumenbalken liest, oft unsichtbar. Am deutlichsten zeigt er sich auf Intraday-Charts als schleifender Aufwärtstrend in ruhigem Tape, der nicht zum Volumenbild passt — die klassischen "alles steigt bei keinem Volumen"-Sessions, die auf ereignislose CPI-Zahlen folgen.
 
@@ -182,7 +182,7 @@ Die zusammengesetzte Lesart: Long-Gamma-Regime, struktureller Magnet knapp unter
 
 Ein paar Fallstricke:
 
-- **"Vanna ist bullisch."** Ist es nicht. Es ist der Dealer-Reflex auf IV-Bewegungen. Das direktionale Vorzeichen dieses Reflexes hängt von der Zusammensetzung der Chain ab; bei einer typischen Kunden-Long-Call-Chain während Volatilitätskompression tendiert das *Aggregat* zu einem Kaufinteresse — aber das ist eine Regimeaussage, keine Eigenschaft des Greeks.
+- **"Vanna ist bullisch."** Ist es nicht. Es ist der Dealer-Reflex auf IV-Bewegungen. Das direktionale Vorzeichen dieses Reflexes hängt von der Zusammensetzung der Chain ab; bei einer typischen Chain, in der Kunden Puts kaufen und Calls schreiben (sodass Dealer short Puts und long Calls sind), tendiert das *Aggregat* während Volatilitätskompression zu einem Kaufinteresse — aber das ist eine Regimeaussage, keine Eigenschaft des Greeks.
 - **"Charm ist ein Signal."** Der charm-getriebene Flow ist eine strukturelle Kraft, kein Trade. Er erzeugt eine Tendenz zur Drift in der letzten Stunde; er sagt Ihnen nicht, wann Sie einsteigen sollen.
 - **"Vanna und Charm zählen nur in der OPEX-Woche."** Dort sind sie am lautesten, aber der Charm-Zerfall zählt an jedem Tag mit signifikantem 0DTE-Flow — was mittlerweile die meisten Tage betrifft.
 - **"Der Vanna Grind funktioniert immer bei Volatilitätskompression."** Nur wenn die Zusammensetzung der Chain das unterstützt und das Gamma-Regime nicht dagegenwirkt.

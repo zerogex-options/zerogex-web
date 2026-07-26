@@ -16,7 +16,7 @@ Dieser Artikel geht durch, was jede Wall ist, warum der Preis an ihnen tendenzie
 
 ## Was ist eine Call Wall?
 
-Die Call Wall ist der Strike oberhalb des Spots mit der stärksten Call-Gamma-Exponierung. In einem positiven Gamma-Regime müssen Dealer mit Short-Call-Bestand in Rallyes, die sich der Wall nähern, verkaufen — sie bauen dabei das Delta ab, das sie angehäuft haben, während der Preis darauf zustieg. Dieser Hedging-Reflex wirkt der Rally entgegen.
+Die Call Wall ist der Strike oberhalb des Spots mit der stärksten Call-Gamma-Exponierung. In einem positiven Gamma-Regime müssen Dealer mit Long-Call-Bestand in Rallyes, die sich der Wall nähern, verkaufen — sie bauen dabei das positive Delta ab, das sie ansammeln, während der Preis darauf zusteigt. Dieser Hedging-Reflex wirkt der Rally entgegen.
 
 In der Praxis wirkt die Call Wall in Long-Gamma-Regimen oft als **Widerstand** — nicht, weil das Level magisch wäre, sondern weil der Hedging-Flow, der sich um sie herum aktiviert, strukturell ist.
 
@@ -30,7 +30,7 @@ Wissenswertes:
 
 ## Was ist eine Put Wall?
 
-Die Put Wall ist der Strike unterhalb des Spots mit der stärksten Put-Gamma-Exponierung. In einem positiven Gamma-Regime müssen Dealer mit Short-Put-Bestand kaufen, während der Preis darauf zufällt — sie kaufen dabei das Delta zurück, das sie auf dem Weg nach unten abgebaut haben. Dieser Reflex wirkt dem Ausverkauf entgegen.
+Die Put Wall ist der Strike unterhalb des Spots mit der stärksten Put-Gamma-Exponierung. In einem positiven Gamma-Regime ist das Netto-Dealer-Buch long Gamma und kauft daher, während der Preis auf die Wall zufällt — das Spiegelbild des Call-Wall-Reflexes, wobei sich das Kaufen dort konzentriert, wo die Put-Gamma am dichtesten ist. Dieser Reflex wirkt dem Ausverkauf entgegen.
 
 In der Praxis wirkt die Put Wall in Long-Gamma-Regimen oft als **Unterstützung**. Wie bei der Call Wall ist der Mechanismus strukturell, nicht psychologisch.
 

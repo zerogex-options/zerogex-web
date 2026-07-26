@@ -30,7 +30,7 @@ Il GEX misura un'esposizione di cui i dealer *non possono* liberarsi. Il DEX mis
 
 Mettiamo da parte il problema della copertura e concediamo, per amor di discussione, di voler pesare la catena in base al delta. Guardiamo dove finisce quella massa di peso.
 
-Il delta va da 0 a 1. È vicino a 0 per le opzioni molto out-of-the-money, attraversa 0,5 vicino al prezzo di mercato, e si avvicina a 1 per le opzioni molto in-the-money. Confrontalo con il gamma, che raggiunge il picco bruscamente at-the-money e scende verso zero in entrambe le ali. Pesare la catena per delta invece che per gamma fa una cosa specifica: trascina il centro di massa della metrica **verso il lato in-the-money** — e assegna un peso reale alla **coda profondamente in-the-money**, strike che una metrica pesata per gamma ignora correttamente perché il loro gamma è nullo.
+Il delta delle call va da 0 a 1 (il delta delle put da 0 a −1). Prendendo i valori assoluti: |delta| è vicino a 0 per le opzioni molto out-of-the-money, attraversa 0,5 vicino al prezzo di mercato, e si avvicina a 1 per le opzioni molto in-the-money. Confrontalo con il gamma, che raggiunge il picco bruscamente at-the-money e scende verso zero in entrambe le ali. Pesare la catena per delta invece che per gamma fa una cosa specifica: trascina il centro di massa della metrica **verso il lato in-the-money** — e assegna un peso reale alla **coda profondamente in-the-money**, strike che una metrica pesata per gamma ignora correttamente perché il loro gamma è nullo.
 
 Quella coda in-the-money è la parte peggiore della catena su cui appoggiare una metrica:
 

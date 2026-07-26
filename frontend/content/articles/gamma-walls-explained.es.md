@@ -16,7 +16,7 @@ Este artículo recorre qué es cada wall, por qué el precio tiende a reaccionar
 
 ## ¿Qué es un call wall?
 
-El call wall es el strike por encima del spot que concentra la mayor exposición gamma en calls. En un régimen de gamma positiva, los dealers con inventario short-call deben vender en los rallies que se acercan al wall — desprendiéndose del delta que acumularon mientras el precio subía hacia él. Ese reflejo de cobertura se opone al rally.
+El call wall es el strike por encima del spot que concentra la mayor exposición gamma en calls. En un régimen de gamma positiva, los dealers con inventario long-call deben vender en los rallies que se acercan al wall — desprendiéndose del delta positivo que acumulan mientras el precio sube hacia él. Ese reflejo de cobertura se opone al rally.
 
 En la práctica, el call wall suele actuar como **resistencia** en regímenes de gamma larga — no porque el nivel sea mágico, sino porque el flujo de cobertura que se activa a su alrededor es estructural.
 
@@ -30,7 +30,7 @@ Cosas que conviene saber:
 
 ## ¿Qué es un put wall?
 
-El put wall es el strike por debajo del spot con la mayor exposición gamma en puts. En un régimen de gamma positiva, los dealers con inventario short-put deben comprar mientras el precio cae hacia él — recomprando el delta que habían soltado durante la caída. Ese reflejo contrarresta el selloff.
+El put wall es el strike por debajo del spot con la mayor exposición gamma en puts. En un régimen de gamma positiva, el libro neto de los dealers está largo de gamma, de modo que compra mientras el precio cae hacia el wall — el reflejo espejo del call wall, con las compras concentradas donde la gamma en puts es más densa. Ese reflejo contrarresta el selloff.
 
 En la práctica, el put wall suele actuar como **soporte** en regímenes de gamma larga. Al igual que el call wall, el mecanismo es estructural, no psicológico.
 

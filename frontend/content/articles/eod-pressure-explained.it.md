@@ -164,7 +164,7 @@ L'amplificatore 2.0× nei giorni di quad witching è abbastanza grande da spinge
 
 EOD Pressure è una **lettura direzionale** — indica da che parte punta la pressione senza prescrivere di per sé se cavalcare o fadare il movimento. La decisione tra fade e ride arriva dal regime:
 
-- **Regime a gamma positiva + punteggio EOD Pressure positivo:** la deriva è al rialzo, l'hedging dei dealer sta smorzando i movimenti, la lettura favorisce il fade dei rally verso lo strike magnete per intercettare la deriva verso il pin.
+- **Regime a gamma positiva + punteggio EOD Pressure positivo:** la deriva è al rialzo, l'hedging dei dealer sta smorzando i movimenti, la lettura favorisce il posizionamento *assecondando* la deriva verso lo strike magnete — comprando la debolezza anziché fadare verso di esso — e il fade si applica solo agli overshoot oltre il magnete.
 - **Regime a gamma negativa + punteggio EOD Pressure positivo:** il segnale sta leggendo un bias rialzista guidato dal charm, ma in un regime a gamma corta il riflesso dei dealer amplifica invece di assorbire — la continuazione del momentum è più probabile.
 
 Combinato con altri segnali:

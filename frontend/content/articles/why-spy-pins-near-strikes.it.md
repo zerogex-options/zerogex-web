@@ -18,10 +18,10 @@ Questo articolo ripercorre la meccanica reale del pinning, perché si intensific
 
 Il meccanismo è semplice una volta scritto per esteso:
 
-1. Uno strike specifico — diciamo SPY 583 — porta una grande concentrazione di gamma. I clienti hanno comprato molte call e put a 583; i dealer sono short sull'equivalente.
-2. Il book dei dealer è **long gamma** su quello strike. Questo accade quando, sul netto, i dealer sono *short* sulle opzioni che i clienti detengono long. (Convenzione standard.)
-3. Quando SPY sale attraverso 583, il delta delle opzioni dei dealer diventa più positivo (sono net short call; con lo spot in salita la loro esposizione delta da short-call cresce). Per rimanere neutrali, **vendono** SPY.
-4. Quando SPY scende attraverso 583, il delta delle opzioni dei dealer diventa più negativo (la loro esposizione delta da short-put cresce al ribasso). Per rimanere neutrali, **comprano** SPY.
+1. Uno strike specifico — diciamo SPY 583 — porta una grande concentrazione di gamma, e sul netto il book dei dealer è **long** su quella gamma.
+2. Un book long-gamma su quello strike si copre *contro* i movimenti che se ne allontanano — il riflesso stabilizzante che ancora il prezzo. (È il regime di gamma positiva che si manifesta su un singolo strike dominante.)
+3. Quando SPY sale attraverso 583, il delta di copertura dei dealer diventa più positivo, quindi per rimanere neutrali **vendono** SPY.
+4. Quando SPY scende attraverso 583, il loro delta di copertura diventa più negativo, quindi per rimanere neutrali **comprano** SPY.
 5. Ogni escursione lontano da 583 costringe un trade di copertura *di ritorno verso* 583. Lo strike agisce come un magnete — non perché qualcuno lo stia prendendo di mira, ma perché la matematica dell'hedging spinge meccanicamente il prezzo lì.
 
 Questo è ciò che accade strutturalmente quando vedi SPY oscillare in un range stretto. Non è "il mercato che decide di ancorarsi"; è il book aggregato dei dealer che si corregge verso la neutralità a ogni movimento.

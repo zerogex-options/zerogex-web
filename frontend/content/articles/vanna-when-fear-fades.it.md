@@ -28,12 +28,12 @@ Questo spostamento è vanna. Ogni opzione out-of-the-money della catena ri-prezz
 
 La direzione del flusso di vanna dipende da come è composto il book, ma lo schema da manuale — quello che produce la deriva riconoscibile — funziona così.
 
-I clienti sono, in aggregato, long di opzioni. Comprano call per l'upside e put per protezione, e i dealer sono short dall'altra parte. Considera i momenti *dopo* uno spavento: la vol implicita era stata spinta in alto in vista di un dato CPI, un meeting FOMC, un earnings. Il rischio passa. Il movimento temuto non si materializza. La vol implicita, che era ricca, comincia a scendere nelle ore e nei giorni successivi.
+I clienti, in aggregato, vendono call in overwriting per rendimento e comprano put per protezione — quindi i dealer sono long di quelle call e short di quelle put. Considera i momenti *dopo* uno spavento: la vol implicita era stata spinta in alto in vista di un dato CPI, un meeting FOMC, un earnings. Il rischio passa. Il movimento temuto non si materializza. La vol implicita, che era ricca, comincia a scendere nelle ore e nei giorni successivi.
 
 Man mano che la vol scende:
 
-1. I delta delle opzioni out-of-the-money su cui il dealer è short si spostano verso zero.
-2. La posizione netta short-delta del dealer si riduce — sono meccanicamente meno short sul mercato di quanto lo fossero.
+1. I delta delle opzioni out-of-the-money nel book del dealer si spostano verso zero.
+2. Il delta netto *long* delle opzioni del dealer si riduce, quindi il book si inclina short rispetto alla sua copertura in azioni.
 3. Per ripristinare l'hedge, comprano azioni.
 4. La vol continua a scendere, quindi lo spostamento continua, quindi gli acquisti continuano ad arrivare — piccoli, costanti, per tutta la giornata.
 

@@ -34,7 +34,7 @@ Die dominante strukturelle Ursache ist das **Long-Gamma-Hedging der Dealer an ko
 
 Hier ist die Kette:
 
-1. Kunden kaufen an einem bestimmten Strike stark Calls (sagen wir, dem SPX-5.850-Strike). Dealer verkaufen diese Calls.
+1. Kunden verkaufen an einem bestimmten Strike stark Calls (sagen wir, dem SPX-5.850-Strike) — Overwriting und Call-Verkäufe. Dealer kaufen diese Calls.
 2. Um delta-neutral zu bleiben, müssen Dealer eine entsprechende Menge an Short-Delta im Underlying halten — sie sind also short relativ zum Call-Exposure. Wenn der Spot in Richtung 5.850 steigt, entwickelt ihr Options-Exposure positives Delta, das sie durch *Verkauf* des Underlyings ausgleichen müssen.
 3. Je näher der Spot an 5.850 heranrückt, desto konzentrierter wird die Gamma — und desto mehr Underlying müssen die Dealer pro Tick Preisbewegung verkaufen, um neutral zu bleiben.
 4. Dieser Verkauf wirkt als strukturelles Angebot. Er muss nicht von einer einzigen Quelle kommen — er ist die Summe jedes Dealers, der auf die gleiche Weise hedgt.

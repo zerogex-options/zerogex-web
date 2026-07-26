@@ -16,7 +16,7 @@ Cet article passe en revue ce qu'est chaque wall, pourquoi le prix a tendance à
 
 ## Qu'est-ce qu'un call wall ?
 
-Le call wall est le strike au-dessus du spot qui porte la plus forte exposition gamma sur les calls. Dans un régime de gamma positif, les dealers détenant un inventaire short-call doivent vendre lors des rallyes qui s'approchent du wall — se délestant du delta accumulé pendant que le prix montait vers celui-ci. Ce réflexe de couverture s'oppose au rallye.
+Le call wall est le strike au-dessus du spot qui porte la plus forte exposition gamma sur les calls. Dans un régime de gamma positif, les dealers détenant un inventaire long-call doivent vendre lors des rallyes qui s'approchent du wall — se délestant du delta positif qu'ils accumulent à mesure que le prix monte vers celui-ci. Ce réflexe de couverture s'oppose au rallye.
 
 En pratique, le call wall agit souvent comme une **résistance** dans les régimes de gamma longue — non pas parce que le niveau serait magique, mais parce que le flux de couverture qui s'active autour de lui est structurel.
 
@@ -30,7 +30,7 @@ En pratique, le call wall agit souvent comme une **résistance** dans les régim
 
 ## Qu'est-ce qu'un put wall ?
 
-Le put wall est le strike en dessous du spot avec la plus forte exposition gamma sur les puts. Dans un régime de gamma positif, les dealers détenant un inventaire short-put doivent acheter à mesure que le prix chute vers ce niveau — rachetant le delta qu'ils avaient délesté pendant la baisse. Ce réflexe s'oppose au selloff.
+Le put wall est le strike en dessous du spot avec la plus forte exposition gamma sur les puts. Dans un régime de gamma positif, le book net des dealers est long gamma, il achète donc à mesure que le prix chute vers le wall — le miroir du réflexe du call wall, l'achat se concentrant là où la gamma des puts est la plus dense. Ce réflexe s'oppose au selloff.
 
 En pratique, le put wall agit souvent comme un **support** dans les régimes de gamma longue. Comme pour le call wall, le mécanisme est structurel, pas psychologique.
 

@@ -20,7 +20,7 @@ Vanna è una greca del secondo ordine che misura la **sensibilità del delta di 
 
 In simboli: vanna ≈ ∂Δ/∂σ = ∂²V/∂σ∂S. È la derivata incrociata del valore dell'opzione rispetto a spot e volatilità implicita.
 
-Cosa significa in pratica: quando la volatilità implicita si muove, il delta della vostra opzione si muove *anche se lo spot resta fermo*. Un calo della IV riduce il delta delle call OTM e aumenta (in valore assoluto) il delta delle put OTM. Un rialzo della IV fa l'opposto. Chiunque gestisca un book di opzioni il cui delta si sposta al muoversi della vol deve coprire quello spostamento — ed è qui che vanna diventa un flusso visibile sul tape.
+Cosa significa in pratica: quando la volatilità implicita si muove, il delta della vostra opzione si muove *anche se lo spot resta fermo*. Un calo della IV riduce la magnitudine del delta delle opzioni out-of-the-money su entrambi i lati — sia le call OTM sia le put OTM tendono verso un delta pari a zero. Un rialzo della IV fa l'opposto. Chiunque gestisca un book di opzioni il cui delta si sposta al muoversi della vol deve coprire quello spostamento — ed è qui che vanna diventa un flusso visibile sul tape.
 
 ### Come i dealer vivono vanna
 
@@ -28,15 +28,15 @@ I dealer gestiscono book delta-neutral. Quando la IV scende, il delta del loro i
 
 Lo schema canonico discusso nelle analisi di flusso:
 
-- I dealer sono tipicamente short di call (i clienti sono net long).
-- Quando la IV scende, il delta delle call OTM scende.
-- Un dealer che era short di una call OTM con delta 0,30 potrebbe ora essere short della stessa call con delta 0,25.
-- La loro esposizione short-delta si è ridotta — sono meccanicamente meno short sul sottostante.
-- Per restare delta-neutral, devono *vendere* il sottostante — oppure, se detenevano sottostante long come copertura, ne vendono una parte.
+- I dealer sono tipicamente long di call e short di put — i clienti vendono le call in overwriting e comprano le put per protezione.
+- Quando la IV scende, quei delta out-of-the-money si riducono verso zero.
+- Prendiamo le put short: un dealer short di una put OTM che porta +0,30 di delta da quella posizione potrebbe ora portarne solo +0,25.
+- Quel contributo long-delta si è ridotto, quindi rispetto alla copertura in azioni del dealer il book è ora leggermente net short.
+- Per restare delta-neutral, devono *comprare* il sottostante.
 
-Preso isolatamente, sembra ribassista. Il caso interessante è l'inverso: in un mercato dove la IV scende da giorni o settimane (un regime di compressione della volatilità), i dealer ri-coprono continuamente il decadimento di vanna su una chain fortemente sbilanciata verso posizioni di clienti long-call. L'aggregato di questi flussi tende a manifestarsi come un bid persistente e strutturale — il "vanna grind" di cui i desk di flusso scrivono da anni.
+Le call long tirano nella stessa direzione: man mano che il loro delta decade, il book torna a inclinarsi short rispetto alla sua copertura e i dealer comprano. In un mercato dove la IV scende da giorni o settimane (un regime di compressione della volatilità), i dealer ri-coprono continuamente quel decadimento di vanna su un book che è short di put e long di call — e l'aggregato di questi flussi tende a manifestarsi come un bid persistente e strutturale: il "vanna grind" di cui i desk di flusso scrivono da anni.
 
-Il segno esatto dipende dalla composizione della chain. Un book dominato da put OTM short dei dealer si comporta diversamente da uno dominato da call OTM short dei dealer. L'analisi standard assume lo skew tipico di clienti long-call/long-put, che produce il risultato del vanna grind in compressione di volatilità. In regimi meno tipici, il segno può invertirsi.
+Il segno esatto dipende dalla composizione della chain. Un book dominato da put OTM short dei dealer si comporta diversamente da uno in cui i clienti hanno *comprato* aggressivamente call, lasciando i dealer short di quelle call. L'analisi standard assume lo skew tipico di acquisto di protezione / call overwriting — dealer short di put e long di call — che produce il risultato del vanna grind in compressione di volatilità. In regimi meno tipici (per esempio una frenesia di acquisto di call), il segno può invertirsi.
 
 ---
 
@@ -52,10 +52,10 @@ L'intuizione: il delta di un'opzione è, grosso modo, la probabilità implicita 
 
 Come vanna, charm forza il ri-hedging senza alcun movimento dello spot. Un dealer che gestisce un book delta-neutral vede la propria esposizione delta effettiva spostarsi solo per il passare del tempo, e deve negoziare il sottostante per restare piatto.
 
-Il segno direzionale del flusso di hedging guidato da charm dipende da quale lato del book domina. Per un tipico book dei dealer pesante di short-call tenuto fino alla chiusura su una chain 0DTE:
+Il segno direzionale del flusso di hedging guidato da charm dipende da quale lato del book domina. Per un tipico book dei dealer — long di call, short di put — tenuto fino alla chiusura su una chain 0DTE:
 
-- I delta delle call OTM decadono verso 0.
-- L'esposizione delta short-call del dealer si riduce in valore assoluto.
+- I delta delle opzioni OTM decadono verso 0.
+- Il delta netto delle opzioni del dealer si riduce man mano che quei delta decadono.
 - Devono negoziare il sottostante per restare neutrali.
 - Per una chain tipica, la direzione netta di quell'hedging continuo durante il pomeriggio produce spesso una deriva misurabile e stabile nel segno.
 
@@ -87,7 +87,7 @@ Il meccanismo:
 2. Il rischio passa senza il movimento realizzato prezzato.
 3. La IV inizia a scendere lungo tutta la chain.
 4. La chain (il book dei dealer) ri-copre vanna continuamente durante il decadimento.
-5. Per una chain tipica sbilanciata verso i clienti long-call, l'hedging aggregato è un bid persistente sul sottostante.
+5. Per una chain tipica — i clienti comprano put e vendono call in overwriting, quindi i dealer sono short di put e long di call — l'hedging aggregato è un bid persistente sul sottostante.
 
 Il flusso è piccolo minuto per minuto e spesso invisibile a chi guarda le barre di volume. È più visibile sui grafici intraday come un trend rialzista lento in un tape tranquillo che non corrisponde al quadro dei volumi — le classiche sessioni "tutto sale senza volume" che seguono dati CPI privi di eventi.
 
@@ -182,7 +182,7 @@ La lettura composita: regime long-gamma, magnete strutturale appena sotto lo spo
 
 Alcune trappole:
 
-- **"Vanna è rialzista."** Non lo è. È il riflesso dei dealer ai movimenti della IV. Il segno direzionale di quel riflesso dipende dalla composizione della chain; in una chain tipica di clienti long-call durante la compressione della volatilità, l'*aggregato* tende a essere un bid — ma questa è un'affermazione di regime, non una proprietà della greca.
+- **"Vanna è rialzista."** Non lo è. È il riflesso dei dealer ai movimenti della IV. Il segno direzionale di quel riflesso dipende dalla composizione della chain; in una chain tipica in cui i clienti comprano put e vendono call in overwriting (lasciando i dealer short di put e long di call) durante la compressione della volatilità, l'*aggregato* tende a essere un bid — ma questa è un'affermazione di regime, non una proprietà della greca.
 - **"Charm è un segnale."** Il flusso guidato da charm è una forza strutturale, non un trade. Produce una tendenza alla deriva nell'ultima ora; non vi dice quando entrare.
 - **"Vanna e charm contano solo nella settimana OPEX."** Sono più rumorosi allora, ma il decadimento di charm conta ogni giorno con un flusso 0DTE significativo — che ormai è la maggior parte dei giorni.
 - **"Il vanna grind funziona sempre in compressione della volatilità."** Solo quando la composizione della chain lo supporta e il regime gamma non lo contrasta.

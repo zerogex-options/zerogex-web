@@ -16,7 +16,7 @@ El put wall tiene una imagen especular por encima del spot: el [call wall](/educ
 
 ## Por qué el put wall actúa como soporte
 
-El mecanismo es el hedging de los dealers, no el sentimiento. En un régimen de **gamma positivo** — spot por encima del [gamma flip](/education/how-to-read-a-gamma-flip) — los dealers están net long gamma, y los desks que emitieron las puts pesadas en el strike del put wall están short en esas puts. Para mantenerse delta-neutrales, tienen que **comprar** el subyacente a medida que el precio cae hacia el strike, porque una posición short put gana delta largo cuando el mercado baja.
+El mecanismo es el hedging de los dealers, no el sentimiento. En un régimen de **gamma positivo** — spot por encima del [gamma flip](/education/how-to-read-a-gamma-flip) — los dealers están net long gamma, así que a lo largo de todo el libro se cubren *en contra* del precio: comprando el subyacente cuando cae y vendiendo cuando sube. Esa compra en las caídas es más intensa donde la gamma en puts es más densa — el strike del put wall —, de modo que a medida que el precio cae hacia el wall, la cobertura long-gamma interviene para **comprar**.
 
 Esa compra es el soporte. A medida que el precio se desliza hacia un strike put denso, el reflejo de hedging se intensifica: un pequeño movimiento a la baja obliga a una compra de hedging relativamente mayor de vuelta hacia arriba. El resultado es un nivel donde la venta se absorbe y las caídas tienden a ser compradas — no porque nadie crea en ese número, sino porque el hedge es mecánico.
 

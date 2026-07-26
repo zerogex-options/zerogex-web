@@ -20,7 +20,7 @@ El delta agregado de los dealers. Un valor muy negativo significa que los dealer
 
 ### Net VEX (Vanna)
 
-La vanna agregada de los dealers — la sensibilidad del delta ante la IV. Positiva significa que una caída de la IV obliga a los dealers a vender; una subida de la IV los obliga a comprar. Este es el motor de las jornadas de "grind por compresión de volatilidad".
+La vanna agregada de los dealers — la sensibilidad del delta ante la IV. Positiva significa que una caída de la IV obliga a los dealers a comprar; una subida de la IV los obliga a vender. Este es el motor de las jornadas de "grind por compresión de volatilidad".
 
 ### Net Charm
 

@@ -34,7 +34,7 @@ La causa estructural dominante es **el hedging long-gamma de los dealers en stri
 
 Así es la cadena:
 
-1. Los clientes compran muchas calls en un strike determinado (digamos, el strike SPX 5.850). Los dealers venden esas calls.
+1. Los clientes venden muchas calls en un strike determinado (digamos, el strike SPX 5.850) — overwriting y venta de calls. Los dealers compran esas calls.
 2. Para mantenerse delta-neutrales, los dealers deben mantener una cantidad correspondiente de delta corto en el subyacente — es decir, están cortos en relación con la exposición a las calls. A medida que el spot sube hacia 5.850, su exposición en opciones acumula delta positivo que deben compensar *vendiendo* el subyacente.
 3. Cuanto más se acerca el spot a 5.850, más se concentra la gamma — y más subyacente deben vender los dealers por cada tick de movimiento del precio para mantenerse neutrales.
 4. Esa venta actúa como oferta estructural. No tiene que provenir de un solo lugar — es el agregado de cada dealer cubriéndose de la misma manera.

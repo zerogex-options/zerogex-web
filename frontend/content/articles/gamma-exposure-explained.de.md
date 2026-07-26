@@ -67,12 +67,12 @@ Die Dollar-Interpretation macht die Zahl nützlich: Sie beantwortet die Frage "W
 
 Um aus der reinen Größenordnung ein Regime-Signal zu machen, wird jeder Kontrakt danach vorzeichenversehen, wer ihn hält. Die Standardkonvention geht davon aus:
 
-- Kunden sind typischerweise netto long Calls und netto long Puts.
-- Dealer sind daher typischerweise netto short bei beiden — verkaufte Calls tragen positives Gamma zum Dealer-Buch bei, verkaufte Puts tragen negatives bei.
+- Kunden sind typischerweise netto Verkäufer von Calls (Call-Overwriting) und netto Käufer von Puts (Absicherung nach unten).
+- Dealer halten daher typischerweise die Gegenseite — long Calls und short Puts. Ein Long Call trägt positives Gamma und ein Short Put trägt negatives Gamma, sodass Calls positiv zum Dealer-Buch beitragen und Puts negativ.
 
 In der Praxis ergibt das ein vorzeichenbehaftetes Dealer-GEX pro Strike — positiv für Calls, negativ für Puts —, das in der Summe die Netto-Exposure der Dealer über die gesamte Optionskette ergibt.
 
-Dies ist eine Näherung. Die Positionierung der Dealer ist nicht direkt beobachtbar; sie wird aus dem Open Interest und der Standardkonvention "Kunde ist long" abgeleitet. Verschiedene Anbieter behandeln Grenzfälle unterschiedlich, und die Annahme kann bei ungewöhnlichen Flow-Bedingungen brechen. Als Schätzer des Regimes hat sie sich jedoch über Jahre gut genug bewährt, um zum Standard zu werden.
+Dies ist eine Näherung. Die Positionierung der Dealer ist nicht direkt beobachtbar; sie wird aus dem Open Interest und der Standardkonvention long Calls / short Puts abgeleitet. Verschiedene Anbieter behandeln Grenzfälle unterschiedlich, und die Annahme kann bei ungewöhnlichen Flow-Bedingungen brechen. Als Schätzer des Regimes hat sie sich jedoch über Jahre gut genug bewährt, um zum Standard zu werden.
 
 ### Net GEX versus Total GEX
 
@@ -201,8 +201,8 @@ Gamma ist nicht das gesamte Bild. Vanna (vola-getriebenes Hedging) erzeugt in Vo
 
 GEX ist die Schlagzeilen-Ablesung, aber nicht das gesamte Dealer-Buch. Zwei Greeks zweiter Ordnung prägen die Dealer-Hedging-Flows zusätzlich zum Gamma maßgeblich:
 
-- **Vanna** ist die Empfindlichkeit des Deltas gegenüber der impliziten Volatilität. Wenn sich die IV bewegt, bewegen sich die Options-Deltas der Dealer, auch wenn sich der Spot nicht bewegt — und sie müssen das hedgen. In einem Vol-Kompressionsregime manifestieren sich Vanna-Flows aus Dealer-Short-Calls oft als anhaltendes, allmählich steigendes Bid im Basiswert.
-- **Charm** ist die Empfindlichkeit des Deltas gegenüber der Zeit. Während Optionen sich dem Verfall nähern, driftet ihr Delta vorhersehbar — Out-of-the-money-Optionen verfallen Richtung 0, In-the-money-Optionen Richtung 1 —, und Dealer müssen diese Drift kontinuierlich neu hedgen. Der klarste Ort, um Charm im Markt zu beobachten, sind die letzten 90 Minuten der Cash-Session.
+- **Vanna** ist die Empfindlichkeit des Deltas gegenüber der impliziten Volatilität. Wenn sich die IV bewegt, bewegen sich die Options-Deltas der Dealer, auch wenn sich der Spot nicht bewegt — und sie müssen das hedgen. In einem Vol-Kompressionsregime manifestieren sich Vanna-Flows aus dem Short-Put-Bestand der Dealer oft als anhaltendes, allmählich steigendes Bid im Basiswert.
+- **Charm** ist die Empfindlichkeit des Deltas gegenüber der Zeit. Während Optionen sich dem Verfall nähern, driftet ihr Delta vorhersehbar — Out-of-the-money-Optionen verfallen Richtung 0, In-the-money-Optionen Richtung 1 bei Calls und −1 bei Puts —, und Dealer müssen diese Drift kontinuierlich neu hedgen. Der klarste Ort, um Charm im Markt zu beobachten, sind die letzten 90 Minuten der Cash-Session.
 
 Beide Effekte sind am größten, wenn auch das Gamma groß ist — also wenn 0DTE- und kurzlaufende Optionen die Optionskette dominieren. Lies sie gemeinsam mit GEX, nicht isoliert.
 
@@ -225,7 +225,7 @@ Ein paar Fallstricke:
 GEX ist ein Schätzer des Dealer-Hedging-Bedarfs, der aus dem Open Interest unter einer Standardannahme darüber, wer was hält, konstruiert wird. Das macht ihn nützlich, aber er liefert kein vollständiges Bild:
 
 - **Open Interest ist eine Momentaufnahme, kein Echtzeit-Inventar.** Die Positionierung der Dealer verändert sich innerhalb des Tages auf eine Weise, die das Open Interest nicht erfasst.
-- **Die Konvention "Kunde long Call/Kunde long Put" kann brechen.** Bei ungewöhnlichen Flow-Bedingungen kann die Annahme über das Dealer-Vorzeichen die Exposure falsch zuordnen.
+- **Die Konvention long Calls / short Puts kann brechen.** Bei ungewöhnlichen Flow-Bedingungen kann die Annahme über das Dealer-Vorzeichen die Exposure falsch zuordnen.
 - **Makroereignisse setzen die Struktur außer Kraft.** Eine CPI-Überraschung oder eine FOMC-Erklärung kann den Dealer-Reflex überschwemmen.
 - **Einzeltitel-Katalysatoren können das Index-GEX indirekt bewegen.** Gewinnausweise, M&A und Nachrichten zu Indexkomponenten können den SPX-Flow auf Weisen umformen, die sich im GEX mit Verzögerung zeigen.
 - **Sticky-Strike- versus Sticky-Delta**-Annahmen sind für Spot-Shift-Implementierungen relevant; verschiedene Anbieter handhaben dies unterschiedlich.
@@ -257,7 +257,7 @@ Die Gesamtablesung: Der Spot befindet sich komfortabel im Long-Gamma-Territorium
 
 ![ZeroGEX-Strike-Profil-Chart mit hervorgehobener Dealer-Gamma-Kurve, Flip-Linie und Walls](/blog/zerogex-strike-profile-overview.png)
 
-Stell dir nun dasselbe Dashboard 90 Minuten später vor: Das Net GEX ist auf +300 Mio. $ abgeklungen, und der Gamma-Flip ist auf 5.825 nach oben gewandert, während der Spot auf 5.818 zurückgefallen ist. Das Regime ist jetzt umstritten — der Spot liegt technisch unterhalb des Flips, aber nur um wenige Punkte, und die Größenordnung hat sich ausgedünnt. Genau das ist der strukturelle Zustand, in dem beide Regime teilweise aktiv sind, das Verhalten instabil wird, und die richtige Disziplin normalerweise darin besteht, auf eine klarere Ablesung zu warten, bevor man sich festlegt.
+Stell dir nun dasselbe Dashboard 90 Minuten später vor: Das Net GEX ist auf −150 Mio. $ abgeklungen, und der Gamma-Flip ist auf 5.825 nach oben gewandert, während der Spot auf 5.818 zurückgefallen ist. Das Regime ist jetzt umstritten — der Spot liegt technisch unterhalb des Flips, aber nur um wenige Punkte, und die Größenordnung hat sich ausgedünnt. Genau das ist der strukturelle Zustand, in dem beide Regime teilweise aktiv sind, das Verhalten instabil wird, und die richtige Disziplin normalerweise darin besteht, auf eine klarere Ablesung zu warten, bevor man sich festlegt.
 
 ---
 

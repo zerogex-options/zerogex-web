@@ -72,8 +72,8 @@ Même échelle numérique, questions très différentes. Voici ce que signifient
 | Signal | Score positif | Score négatif | Zéro |
 | --- | --- | --- | --- |
 | Dealer Delta Pressure | Dealers long delta — doivent vendre les rallyes (baissier) | Dealers short delta — doivent acheter les creux (haussier) | Book du dealer équilibré ou OI insuffisant |
-| GEX Gradient | Gamma empilé en dessous du spot (amplificateur baissier en short gamma ; amorti en long gamma) | Gamma empilé au-dessus du spot (biais baissier) | Gradient plat ou OI insuffisant |
-| Positioning Trap | Foule long mal positionnée — loading de short-cover squeeze haussier | Foule short mal positionnée — loading de flush baissier | Aucun extrême de foule détecté |
+| GEX Gradient | Gamma empilé en dessous du spot — support en dessous, stabilisant à la hausse (inclinaison haussière) | Gamma empilé au-dessus du spot — support faible en dessous, amplificateur à la baisse (inclinaison baissière) | Gradient plat ou OI insuffisant |
+| Positioning Trap | Foule long mal positionnée — loading de flush baissier | Foule short mal positionnée — loading de short-cover squeeze haussier | Aucun extrême de foule détecté |
 | Skew Delta | Skew des puts *en dessous* de la baseline — la peur se dissipe (inclinaison haussière) | Skew des puts élevé — la peur est pariée (inclinaison baissière) | Skew au niveau de la baseline, ou données manquantes |
 | Tape Flow Bias | L'achat agressif de calls domine le tape (conviction haussière) | L'achat agressif de puts domine le tape (conviction baissière) | Flow de premium équilibré ou volume insuffisant |
 | Vanna/Charm Flow | Le hedging du dealer est un vent arrière acheteur (vol-crush / decay) | Le hedging du dealer est un vent contraire vendeur (vol-up / unwind) | Exposition du dealer équilibrée ou lignes dealer manquantes |

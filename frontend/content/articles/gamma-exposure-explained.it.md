@@ -67,12 +67,12 @@ L'interpretazione in dollari è ciò che rende utile il numero: risponde a "quan
 
 Per trasformare la magnitudine grezza in un segnale di regime, ogni contratto viene segnato in base a chi lo detiene. La convenzione standard assume che:
 
-- I clienti siano tipicamente net long sulle call e net long sulle put.
-- I dealer siano quindi tipicamente net short su entrambe — le call vendute contribuiscono gamma positivo al book dei dealer, le put vendute contribuiscono gamma negativo.
+- I clienti siano tipicamente venditori netti di call (call overwriting) e compratori netti di put (protezione dal ribasso).
+- I dealer detengano quindi il lato opposto — long sulle call e short sulle put. Una call long comporta gamma positivo e una put short comporta gamma negativo, quindi le call contribuiscono positivamente al book dei dealer e le put contribuiscono negativamente.
 
 In pratica, ciò produce un GEX dei dealer con segno per ogni strike — positivo per le call, negativo per le put — che, sommato, dà l'esposizione netta del dealer sull'intera chain.
 
-Questa è un'approssimazione. Il posizionamento dei dealer non è direttamente osservabile; viene dedotto dall'open interest e dalla convenzione standard sui clienti long. Fornitori diversi gestiscono i casi limite in modo diverso, e l'ipotesi può fallire in condizioni di flusso insolite. Come stimatore di regime, tuttavia, ha retto abbastanza bene da diventare lo standard per anni.
+Questa è un'approssimazione. Il posizionamento dei dealer non è direttamente osservabile; viene dedotto dall'open interest e dalla convenzione standard long-call / short-put. Fornitori diversi gestiscono i casi limite in modo diverso, e l'ipotesi può fallire in condizioni di flusso insolite. Come stimatore di regime, tuttavia, ha retto abbastanza bene da diventare lo standard per anni.
 
 ### Net GEX contro total GEX
 
@@ -201,8 +201,8 @@ Il gamma non è l'intero quadro. Vanna (hedging guidato dalla vol) crea un bid p
 
 Il GEX è la lettura principale, ma non è l'intero book dei dealer. Due Greche di secondo ordine modellano in modo sostanziale i flussi di hedging dei dealer, oltre al gamma:
 
-- **Vanna** è la sensibilità del delta alla volatilità implicita. Quando la IV si muove, i delta delle opzioni dei dealer si muovono anche se lo spot non lo fa — e i dealer devono coprire quel movimento. In un regime di compressione della volatilità, i flussi di vanna derivanti dalle call short dei dealer spesso si manifestano come un bid persistente e graduale sul sottostante.
-- **Charm** è la sensibilità del delta al tempo. Man mano che le opzioni si avvicinano alla scadenza, il loro delta deriva in modo prevedibile — le opzioni out-of-the-money decadono verso 0, quelle in-the-money verso 1 — e i dealer devono continuamente ri-coprire quella deriva. Il punto più pulito per osservare il charm nel mercato sono gli ultimi 90 minuti della sessione cash.
+- **Vanna** è la sensibilità del delta alla volatilità implicita. Quando la IV si muove, i delta delle opzioni dei dealer si muovono anche se lo spot non lo fa — e i dealer devono coprire quel movimento. In un regime di compressione della volatilità, i flussi di vanna derivanti dall'inventario di put short dei dealer spesso si manifestano come un bid persistente e graduale sul sottostante.
+- **Charm** è la sensibilità del delta al tempo. Man mano che le opzioni si avvicinano alla scadenza, il loro delta deriva in modo prevedibile — le opzioni out-of-the-money decadono verso 0, quelle in-the-money verso 1 per le call e −1 per le put — e i dealer devono continuamente ri-coprire quella deriva. Il punto più pulito per osservare il charm nel mercato sono gli ultimi 90 minuti della sessione cash.
 
 Entrambi gli effetti sono massimi quando anche il gamma è alto — ovvero quando le opzioni 0DTE e a breve scadenza dominano la chain. Leggili insieme al GEX, non isolatamente.
 
@@ -225,7 +225,7 @@ Alcune trappole:
 Il GEX è uno stimatore del fabbisogno di hedging dei dealer costruito a partire dall'open interest sotto un'ipotesi standard su chi detiene cosa. Questo lo rende utile, ma non è un quadro completo:
 
 - **L'OI è una fotografia, non un inventario in tempo reale.** Il posizionamento dei dealer cambia durante la giornata in modi che l'OI non cattura.
-- **La convenzione cliente-long-call/cliente-long-put può rompersi.** Durante condizioni di flusso insolite, l'ipotesi sul segno dei dealer può attribuire male l'esposizione.
+- **La convenzione long-call / short-put può rompersi.** Durante condizioni di flusso insolite, l'ipotesi sul segno dei dealer può attribuire male l'esposizione.
 - **Gli eventi macro sovrastano la struttura.** Una sorpresa sul CPI o un comunicato del FOMC possono travolgere il riflesso dei dealer.
 - **I catalizzatori su singoli titoli possono muovere il GEX dell'indice indirettamente.** Utili, M&A e notizie sui componenti possono ridisegnare il flusso su SPX in modi che emergono nel GEX con un ritardo.
 - **Le ipotesi sticky-strike contro sticky-delta** contano per le implementazioni spot-shift; fornitori diversi le gestiscono in modo diverso.
@@ -257,7 +257,7 @@ La lettura composita: lo spot è comodamente in territorio long-gamma ($20 sopra
 
 ![Grafico del profilo per strike di ZeroGEX con la curva del gamma dei dealer, la linea del flip e i wall evidenziati](/blog/zerogex-strike-profile-overview.png)
 
-Ora immagina la stessa dashboard 90 minuti dopo: il Net GEX è decaduto a +$300 milioni e il gamma flip è derivato verso l'alto a 5.825 mentre lo spot è scivolato a 5.818. Il regime è ora contestato — lo spot è tecnicamente sotto il flip, ma solo di pochi punti, e la magnitudine si è assottigliata. Questo è esattamente lo stato strutturale in cui entrambi i regimi sono parzialmente attivi, il comportamento diventa instabile, e la disciplina corretta è di solito aspettare una lettura più pulita prima di impegnarsi.
+Ora immagina la stessa dashboard 90 minuti dopo: il Net GEX è decaduto a −$150 milioni e il gamma flip è derivato verso l'alto a 5.825 mentre lo spot è scivolato a 5.818. Il regime è ora contestato — lo spot è tecnicamente sotto il flip, ma solo di pochi punti, e la magnitudine si è assottigliata. Questo è esattamente lo stato strutturale in cui entrambi i regimi sono parzialmente attivi, il comportamento diventa instabile, e la disciplina corretta è di solito aspettare una lettura più pulita prima di impegnarsi.
 
 ---
 

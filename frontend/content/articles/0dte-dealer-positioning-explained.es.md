@@ -16,7 +16,7 @@ Este artículo es la lectura práctica de lo que realmente significan en tiempo 
 
 ## ¿Qué es el posicionamiento de dealers en 0DTE?
 
-El posicionamiento de dealers en 0DTE es la exposición gamma agregada que los dealers mantienen en opciones que vencen el mismo día. Mecánicamente, no es diferente de la gamma de dealers a vencimientos más largos — las calls mantenidas en corto por los dealers contribuyen positivamente a la gamma de los dealers, las puts mantenidas en corto contribuyen negativamente, y el reflejo de cobertura es el mismo: mantener el delta plano, operar el subyacente a medida que la gamma cambia.
+El posicionamiento de dealers en 0DTE es la exposición gamma agregada que los dealers mantienen en opciones que vencen el mismo día. Mecánicamente, no es diferente de la gamma de dealers a vencimientos más largos — bajo la convención estándar los dealers están largos de calls (los clientes hacen overwriting) y cortos de puts (los clientes las compran como protección), de modo que el inventario largo de calls contribuye positivamente a la gamma de los dealers mientras que el inventario corto de puts contribuye negativamente, y el reflejo de cobertura es el mismo: mantener el delta plano, operar el subyacente a medida que la gamma cambia.
 
 Lo que hace diferente a 0DTE es la **densidad de gamma**. Las opciones del mismo día llevan su mayor gamma justo en el precio de mercado, y la gamma por contrato escala aproximadamente con `1/√T`. Con `T` medido en fracciones de un día, ese denominador es pequeño — y la gamma por contrato se vuelve muy grande. Un strike 0DTE cerca del spot puede superar a un strike mensual en el mismo nivel por un orden de magnitud.
 
@@ -29,7 +29,7 @@ La implicación práctica: el bucket 0DTE dicta de forma desproporcionada la cob
 Tres factores se combinan en 0DTE de una forma que no ocurre igual en vencimientos más largos:
 
 1. **Concentración de gamma.** Las opciones del mismo día llevan una gamma muy alta en el precio de mercado. Las operaciones de cobertura contra esa gamma son grandes por unidad de movimiento, lo que hace que la acción del precio cerca del spot sea mecánicamente más ruidosa.
-2. **Decaimiento del charm.** A medida que las opciones 0DTE se acercan al vencimiento, su delta se desplaza de forma predecible hacia 0 o 1 según la moneyness. Los dealers que gestionan un libro delta-neutral tienen que recubrirse continuamente hasta el cierre. Ese flujo forzado tiene un signo — y es directamente legible.
+2. **Decaimiento del charm.** A medida que las opciones 0DTE se acercan al vencimiento, su delta se desplaza de forma predecible hacia 0 (fuera del dinero) o ±1 (dentro del dinero — +1 para las calls, −1 para las puts). Los dealers que gestionan un libro delta-neutral tienen que recubrirse continuamente hasta el cierre. Ese flujo forzado tiene un signo — y es directamente legible.
 3. **Física del pin.** La misma concentración de gamma que hace que los dealers de 0DTE se muevan mucho por cada tick también convierte al strike 0DTE más pesado en un imán en un régimen de gamma larga. El comportamiento de pin tiende a ser más marcado en 0DTE que en setups multi-día.
 
 Ninguno de estos mecanismos es exclusivo de 0DTE — se aplican a cualquier opción de corto plazo. Simplemente resultan inusualmente ruidosos en el bucket 0DTE por lo comprimida que se ha vuelto `T`.

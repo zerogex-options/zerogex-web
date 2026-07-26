@@ -35,7 +35,7 @@ Für jeden Schenkel und für die Aggregation:
 - **Vega** — IV-Sensitivität (pro 1 % Veränderung)
 - **Charm** — Delta-Verfall (pro Tag)
 
-Aggregierte Greeks lassen dich eine mehrschenklige Struktur auf einen Blick lesen — z. B. ist ein langer Calendar netto long vega, short theta im vorderen Monat, long theta im hinteren.
+Aggregierte Greeks lassen dich eine mehrschenklige Struktur auf einen Blick lesen — z. B. ist ein langer Calendar netto long vega und netto long theta und vereinnahmt den Zeitwertverfall auf dem kurzlaufenden Short-Schenkel schneller, als er ihn auf dem langlaufenden Long-Schenkel zahlt.
 
 ## Die P&L-Fläche
 

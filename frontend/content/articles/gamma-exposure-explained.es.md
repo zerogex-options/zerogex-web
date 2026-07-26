@@ -67,12 +67,12 @@ La interpretación en dólares es lo que hace útil la cifra: responde a "¿cuá
 
 Para convertir la magnitud bruta en una señal de régimen, cada contrato se asigna con signo según quién lo mantiene. La convención estándar asume que:
 
-- Los clientes suelen estar netos largos en calls y netos largos en puts.
-- Por lo tanto, los dealers suelen estar netos cortos en ambas: las calls vendidas aportan gamma positivo al libro de los dealers, las puts vendidas aportan gamma negativo.
+- Los clientes suelen ser vendedores netos de calls (call overwriting) y compradores netos de puts (protección a la baja).
+- Por lo tanto, los dealers suelen mantener el otro lado: largos en calls y cortos en puts. Una call larga aporta gamma positivo y una put corta aporta gamma negativo, de modo que las calls contribuyen positivamente al libro de los dealers y las puts contribuyen negativamente.
 
 En la práctica, esto produce un GEX de dealers con signo por strike —positivo para calls, negativo para puts— que, al sumarse, da la exposición neta del dealer en toda la cadena.
 
-Esto es una aproximación. El posicionamiento de los dealers no es directamente observable; se infiere a partir del open interest y de la convención estándar de "cliente largo". Distintos proveedores manejan los casos límite de forma diferente, y el supuesto puede fallar en condiciones de flujo inusuales. Aun así, como estimador de régimen, se ha mantenido lo suficientemente sólido como para ser el estándar durante años.
+Esto es una aproximación. El posicionamiento de los dealers no es directamente observable; se infiere a partir del open interest y de la convención estándar de calls largas / puts cortas. Distintos proveedores manejan los casos límite de forma diferente, y el supuesto puede fallar en condiciones de flujo inusuales. Aun así, como estimador de régimen, se ha mantenido lo suficientemente sólido como para ser el estándar durante años.
 
 ### Net GEX frente a Total GEX
 
@@ -201,8 +201,8 @@ El gamma no es todo el cuadro. La vanna (cobertura impulsada por la vol) crea un
 
 El GEX es la lectura principal, pero no es todo el libro de los dealers. Dos Griegas de segundo orden moldean de forma sustancial los flujos de cobertura de los dealers, además del gamma:
 
-- **Vanna** es la sensibilidad del delta a la volatilidad implícita. Cuando la IV se mueve, los deltas de las opciones de los dealers se mueven aunque el spot no lo haga, y tienen que cubrir eso. En un régimen de compresión de volatilidad, los flujos de vanna procedentes de las calls cortas de los dealers a menudo se manifiestan como un bid persistente y sostenido en el subyacente.
-- **Charm** es la sensibilidad del delta al tiempo. A medida que las opciones se acercan al vencimiento, su delta se desplaza de forma predecible —las opciones fuera del dinero decaen hacia 0, las que están dentro del dinero hacia 1—, y los dealers deben recubrir continuamente esa deriva. El lugar más limpio para ver el charm en el mercado son los últimos 90 minutos de la sesión en efectivo.
+- **Vanna** es la sensibilidad del delta a la volatilidad implícita. Cuando la IV se mueve, los deltas de las opciones de los dealers se mueven aunque el spot no lo haga, y tienen que cubrir eso. En un régimen de compresión de volatilidad, los flujos de vanna procedentes del inventario corto de puts de los dealers a menudo se manifiestan como un bid persistente y sostenido en el subyacente.
+- **Charm** es la sensibilidad del delta al tiempo. A medida que las opciones se acercan al vencimiento, su delta se desplaza de forma predecible —las opciones fuera del dinero decaen hacia 0, las que están dentro del dinero hacia 1 en las calls y −1 en las puts—, y los dealers deben recubrir continuamente esa deriva. El lugar más limpio para ver el charm en el mercado son los últimos 90 minutos de la sesión en efectivo.
 
 Ambos efectos son mayores cuando el gamma también es grande, es decir, cuando las opciones 0DTE y de vencimiento corto dominan la cadena. Léelos junto con el GEX, no de forma aislada.
 
@@ -225,7 +225,7 @@ Algunas trampas:
 El GEX es un estimador de los requisitos de cobertura de los dealers, construido a partir del open interest bajo un supuesto estándar sobre quién mantiene qué. Eso lo hace útil, pero no es un cuadro completo:
 
 - **El OI es una instantánea, no un inventario en tiempo real.** El posicionamiento de los dealers cambia dentro del día de formas que el OI no captura.
-- **La convención de cliente-largo-en-calls/cliente-largo-en-puts puede fallar.** Durante condiciones de flujo inusuales, el supuesto sobre el signo del dealer puede atribuir mal la exposición.
+- **La convención de calls largas / puts cortas puede fallar.** Durante condiciones de flujo inusuales, el supuesto sobre el signo del dealer puede atribuir mal la exposición.
 - **Los eventos macro anulan la estructura.** Una sorpresa en el CPI o un comunicado de la FOMC puede desbordar el reflejo de los dealers.
 - **Los catalizadores de acciones individuales pueden mover el GEX del índice de forma indirecta.** Los resultados empresariales, las fusiones y adquisiciones, y las noticias de componentes pueden remodelar el flujo del SPX de formas que se reflejan en el GEX con retraso.
 - **Los supuestos sticky-strike frente a sticky-delta** importan para las implementaciones de spot-shift; distintos proveedores los manejan de forma diferente.
@@ -257,7 +257,7 @@ La lectura compuesta: el spot está cómodamente en territorio de gamma largo (2
 
 ![Gráfico de perfil por strike de ZeroGEX con la curva de gamma de los dealers, la línea del flip y los walls resaltados](/blog/zerogex-strike-profile-overview.png)
 
-Imagina ahora el mismo panel 90 minutos después: el Net GEX ha decaído a +300 millones de dólares y el gamma flip se ha desplazado hacia arriba hasta 5.825 mientras el spot ha bajado a 5.818. El régimen está ahora en disputa: el spot está técnicamente por debajo del flip, pero solo por unos pocos puntos, y la magnitud se ha adelgazado. Ese es exactamente el estado estructural en el que ambos regímenes están parcialmente activos, el comportamiento se vuelve inestable, y la disciplina correcta suele ser esperar una lectura más limpia antes de comprometerse.
+Imagina ahora el mismo panel 90 minutos después: el Net GEX ha decaído a −150 millones de dólares y el gamma flip se ha desplazado hacia arriba hasta 5.825 mientras el spot ha bajado a 5.818. El régimen está ahora en disputa: el spot está técnicamente por debajo del flip, pero solo por unos pocos puntos, y la magnitud se ha adelgazado. Ese es exactamente el estado estructural en el que ambos regímenes están parcialmente activos, el comportamiento se vuelve inestable, y la disciplina correcta suele ser esperar una lectura más limpia antes de comprometerse.
 
 ---
 

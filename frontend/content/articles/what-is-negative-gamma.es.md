@@ -16,11 +16,11 @@ Lo contrario — el **gamma positivo** — es la configuración predeterminada m
 
 ## A qué se refiere realmente el "gamma negativo"
 
-El gamma es un Greek de opciones de segundo orden que mide cómo cambia el delta de una opción a medida que se mueve el subyacente. Un número de "gamma exposure" con signo es el gamma agregado en todo el libro de los dealers, donde las calls (típicamente mantenidas en short por los dealers) contribuyen positivamente y las puts (también típicamente mantenidas en short) contribuyen negativamente.
+El gamma es un Greek de opciones de segundo orden que mide cómo cambia el delta de una opción a medida que se mueve el subyacente. Un número de "gamma exposure" con signo es el gamma agregado en todo el libro de los dealers, donde las calls (típicamente mantenidas en long por los dealers) contribuyen positivamente y las puts (típicamente mantenidas en short por los dealers) contribuyen negativamente.
 
 Cuando el *neto* de esas contribuciones con signo es negativo, el libro de los dealers es short gamma en conjunto. La forma convencional en que esto aparece en las herramientas de flow: Net GEX < 0.
 
-La suposición estándar de cliente-long-call / cliente-long-put implica que los dealers son típicamente short en ambos — pero las *magnitudes* varían con el positioning. Cuando la demanda de los clientes se inclina fuertemente hacia las puts (por ejemplo, durante regímenes de miedo), el gamma neto del libro de los dealers puede volverse negativo; cuando se inclina hacia las calls (por ejemplo, en tendencias alcistas tranquilas), el libro es long gamma.
+La convención estándar — los clientes hacen overwriting de calls y compran puts como protección — implica que los dealers son típicamente largos de calls y cortos de puts, pero las *magnitudes* varían con el positioning. Cuando la demanda de los clientes se inclina fuertemente hacia las puts (por ejemplo, durante regímenes de miedo), el creciente inventario short-put del libro de los dealers puede empujar el gamma neto hacia el negativo; cuando dominan las calls (por ejemplo, en tendencias alcistas tranquilas donde el overwriting acumula gamma long-call del dealer), el libro es long gamma.
 
 La estadística resumen más útil de todas: el **gamma flip** — el precio en el que el perfil de gamma de los dealers cruza el cero. Por encima del flip, los dealers suelen estar long gamma (positivo). Por debajo del flip, short gamma (negativo). Leer el flip es esencialmente leer la línea del régimen. Consulta [Cómo Leer un Gamma Flip](/education/how-to-read-a-gamma-flip).
 

@@ -16,7 +16,7 @@ Sein Spiegelbild unterhalb des Spots ist der [Put Wall](/education/what-is-a-put
 
 ## Warum der Call Wall als Widerstand wirkt
 
-Der Mechanismus ist das Dealer-Hedging. In einem **Positiv-Gamma-Regime** — Spot oberhalb des [Gamma Flip](/education/how-to-read-a-gamma-flip) — sind Dealer netto long Gamma, und die Desks, die die schweren Calls am Call-Wall-Strike halten, sind short in diesen Calls. Um delta-neutral zu bleiben, müssen sie das Underlying **verkaufen**, wenn der Preis auf den Strike zusteigt, da eine Short-Call-Position beim Ansteigen des Marktes ein zunehmend negativeres Delta bekommt.
+Der Mechanismus ist das Dealer-Hedging. In einem **Positiv-Gamma-Regime** — Spot oberhalb des [Gamma Flip](/education/how-to-read-a-gamma-flip) — sind Dealer netto long Gamma, und die Desks, die die schweren Calls am Call-Wall-Strike halten, sind long in diesen Calls (Kunden haben sie geschrieben). Um delta-neutral zu bleiben, müssen sie das Underlying **verkaufen**, wenn der Preis auf den Strike zusteigt, da eine Long-Call-Position beim Ansteigen des Marktes ein zunehmend positiveres Delta bekommt.
 
 Dieser Verkaufsdruck ist der Widerstand. Steigt der Preis auf einen dichten Call-Strike zu, verstärkt sich der Hedging-Reflex — eine kleine Aufwärtsbewegung erzwingt einen relativ größeren Hedging-Verkauf zurück nach unten. Ausbrüche werden verkauft, und der Anstieg stockt. Nicht weil die Zahl magisch ist, sondern weil der Hedge mechanisch funktioniert.
 

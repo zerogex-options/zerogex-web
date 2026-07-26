@@ -16,7 +16,7 @@ Die Put Wall hat ein Spiegelbild oberhalb des Spot-Preises: die [Call Wall](/edu
 
 ## Warum die Put Wall als Support wirkt
 
-Der Mechanismus ist Dealer-Hedging, nicht Sentiment. In einem **positiven Gamma**-Regime — Spot oberhalb des [Gamma Flip](/education/how-to-read-a-gamma-flip) — sind Dealer netto long Gamma, und die Desks, die die schweren Puts am Put-Wall-Strike geschrieben haben, sind in diesen Puts short. Um delta-neutral zu bleiben, müssen sie das Underlying **kaufen**, wenn der Preis sich dem Strike nähert, denn eine Short-Put-Position gewinnt an Long-Delta, wenn der Markt fällt.
+Der Mechanismus ist Dealer-Hedging, nicht Sentiment. In einem **positiven Gamma**-Regime — Spot oberhalb des [Gamma Flip](/education/how-to-read-a-gamma-flip) — sind Dealer netto long Gamma und hedgen daher über das gesamte Buch hinweg gegen den Preis: Sie kaufen das Underlying, wenn es fällt, und verkaufen, wenn es steigt. Dieses Dip-Buying ist dort am stärksten, wo die Put-Gamma am dichtesten ist — am Put-Wall-Strike —, sodass der Long-Gamma-Hedge einspringt und **kauft**, während der Preis auf die Wall zufällt.
 
 Dieses Kaufen ist der Support. Nähert sich der Preis einem dichten Put-Strike, verstärkt sich der Hedging-Reflex: Eine kleine Abwärtsbewegung erzwingt einen relativ größeren Hedging-Kauf zurück nach oben. Das Ergebnis ist ein Niveau, an dem Verkaufsdruck absorbiert wird und Rücksetzer tendenziell gekauft werden — nicht weil jemand an die Zahl glaubt, sondern weil der Hedge mechanisch ist.
 

@@ -31,7 +31,7 @@ Trade-Bias: **Mean-Reversion**. Wenn Positioning Trap aktiv ist, deutet es auf d
 Drei Mechanismen treiben die These "überfüllte Trades brechen":
 
 1. **Reflexivität.** Starke einseitige Positionierung bedeutet, dass diejenigen, die *gekauft hätten* (in einem Crowded-Long-Setup), bereits gekauft haben. Der nächste marginale Käufer ist schwer zu finden. Der Weg des geringsten Widerstands beginnt sich in die andere Richtung zu neigen.
-2. **Dealer-Hedging.** In einem Regime, in dem Dealer Calls short sind, weil Kunden long sind, zwingt das Dealer-Hedging sie dazu, in Rallyes hinein zu *verkaufen*. Die strukturelle Kraft richtet sich gegen die Masse.
+2. **Dealer-Hedging.** In einem Long-Gamma-Regime — Dealer long Calls, short Puts — zwingt das Dealer-Hedging sie dazu, in Rallyes hinein zu *verkaufen* und in Dips hinein zu *kaufen*. Die strukturelle Kraft richtet sich gegen die Masse.
 3. **Katalysator-Asymmetrie.** Ein bullischer Katalysator trifft auf ein Crowded-Long-Setup und überrascht niemanden — das Aufwärtspotenzial ist größtenteils eingepreist. Ein bärischer Katalysator im selben Setup trifft auf einen Markt, der unvorbereitet und ungehedgt ist. Asymmetrische Reaktion.
 
 Das Positioning-Trap-Signal versucht nicht, den Katalysator vorherzusagen. Es macht das *Setup* sichtbar, sodass man, wenn der Funke kommt — woher auch immer —, bereits weiß, welche Seite gefährdet ist.
@@ -54,7 +54,7 @@ Die Ausgabe ist eine Zahl pro Aktualisierung, kontinuierlich über zwei Seiten (
 
 ## Wie der Score berechnet wird
 
-Für jede Seite (Squeeze und Flush — also die gefährdete Long-Masse gegenüber der gefährdeten Short-Masse) berechnet das Signal eine gewichtete Summe:
+Für jede Seite (die Long-Masse mit Flush-Risiko gegenüber der Short-Masse mit Squeeze-Risiko) berechnet das Signal eine gewichtete Summe:
 
 ```
 side_score = 0.45 × crowding
@@ -91,11 +91,11 @@ Praktische Konsequenz: Warte nicht darauf, dass Positioning Trap "auslöst". Beo
 
 | Score | Lesart |
 |---|---|
-| +0,5 bis +1,0 | Long-Masse in erheblicher Gefahr — Aufwärts-Short-Cover-Squeeze lädt sich auf |
+| +0,5 bis +1,0 | Long-Masse in erheblicher Gefahr — Abwärts-Flush lädt sich auf |
 | +0,2 bis +0,5 | Long-Masse leicht fehlpositioniert — informativ, noch nicht drängend |
 | -0,2 bis +0,2 | Kein klares Massenextrem |
-| -0,2 bis -0,5 | Short-Masse leicht fehlpositioniert — Abwärts-Flush lädt sich auf |
-| -0,5 bis -1,0 | Short-Masse in erheblicher Gefahr — Flush-Setup lädt sich auf |
+| -0,2 bis -0,5 | Short-Masse leicht fehlpositioniert — Aufwärts-Squeeze lädt sich auf |
+| -0,5 bis -1,0 | Short-Masse in erheblicher Gefahr — Aufwärts-Short-Cover-Squeeze lädt sich auf |
 
 Das `positioning_trap_squeeze`-Playbook schaltet frei bei **abs(score) ≥ 0,5** — höher als der typische Advanced-Trigger. Positioning Trap benötigt tiefere Überzeugung, um darauf zu handeln, weil gegen die Masse zu traden strukturell riskanter ist, als mit dem Momentum zu laufen.
 
@@ -158,12 +158,12 @@ Das Signal speist mehrere Panels:
 
 Ein durchgerechnetes Beispiel. SPX bewegt sich langsam abwärts, und ZeroGEX zeigt:
 
-- **Positioning Trap:** +0,62 (Long-Masse fehlpositioniert)
+- **Positioning Trap:** −0,62 (Short-Masse fehlpositioniert)
 - **Net GEX:** +$1,4 Mrd.
 - **Trap Detection:** 0
 - **Squeeze Setup:** +0,31
 
-Die strukturelle Lesart: Die Long-Masse ist geladen, das Regime ist Long-Gamma (Dealer werden einen Squeeze verstärken, falls einer kommt), Squeeze Setup neigt bullisch, und Trap Detection ist still (kein jüngster gescheiterter Abwärtsbruch, den man *noch* fadeln könnte). Praktische Tendenz: Der Aufwärts-Short-Cover-Squeeze ist der wahrscheinlichere Pfad; auf den Funken warten, dann in die Richtung traden, auf die Positioning Trap zeigt.
+Die strukturelle Lesart: Die Short-Masse ist geladen, das Regime ist Long-Gamma (Dealer werden einen Squeeze verstärken, falls einer kommt), Squeeze Setup neigt bullisch, und Trap Detection ist still (kein jüngster gescheiterter Abwärtsbruch, den man *noch* fadeln könnte). Praktische Tendenz: Der Aufwärts-Short-Cover-Squeeze ist der wahrscheinlichere Pfad; auf den Funken warten, dann in die Richtung traden, auf die Positioning Trap zeigt.
 
 ---
 

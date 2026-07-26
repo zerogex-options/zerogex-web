@@ -16,11 +16,11 @@ L'inverse — le **gamma positif** — est la configuration par défaut la plus 
 
 ## À quoi le "gamma négatif" se réfère réellement
 
-Le gamma est un Greek d'options du second ordre qui mesure comment le delta d'une option évolue lorsque le sous-jacent bouge. Un chiffre de "gamma exposure" signé est le gamma agrégé sur l'ensemble du book des dealers, où les calls (typiquement détenus short par les dealers) contribuent positivement et les puts (également typiquement détenus short) contribuent négativement.
+Le gamma est un Greek d'options du second ordre qui mesure comment le delta d'une option évolue lorsque le sous-jacent bouge. Un chiffre de "gamma exposure" signé est le gamma agrégé sur l'ensemble du book des dealers, où les calls (typiquement détenus long par les dealers) contribuent positivement et les puts (typiquement détenus short par les dealers) contribuent négativement.
 
 Lorsque le *net* de ces contributions signées est négatif, le book des dealers est short gamma dans l'ensemble. La façon conventionnelle dont cela apparaît dans les outils de flow : Net GEX < 0.
 
-L'hypothèse standard client-long-call / client-long-put implique que les dealers sont typiquement short sur les deux — mais les *magnitudes* varient selon le positioning. Lorsque la demande des clients penche fortement vers les puts (par exemple pendant les régimes de peur), le gamma net du book des dealers peut basculer en négatif ; lorsqu'elle penche vers les calls (par exemple lors de tendances haussières calmes), le book est long gamma.
+La convention standard — les clients vendent des calls en overwriting et achètent des puts pour se protéger — implique que les dealers sont typiquement longs de calls et short de puts, mais les *magnitudes* varient selon le positioning. Lorsque la demande des clients penche fortement vers les puts (par exemple pendant les régimes de peur), l'inventaire de puts short croissant du book des dealers peut pousser le gamma net en négatif ; lorsque les calls dominent (par exemple lors de tendances haussières calmes où l'overwriting construit du gamma long-call chez les dealers), le book est long gamma.
 
 La statistique récapitulative la plus utile de toutes : le **gamma flip** — le prix auquel le profil gamma des dealers croise zéro. Au-dessus du flip, les dealers sont typiquement long gamma (positif). En dessous du flip, short gamma (négatif). Lire le flip revient essentiellement à lire la ligne du régime. Voir [Comment Lire un Gamma Flip](/education/how-to-read-a-gamma-flip).
 

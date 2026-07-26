@@ -164,7 +164,7 @@ L'amplificateur 2,0× lors des jours de quad witching est assez important pour f
 
 EOD Pressure est une **lecture directionnelle** — elle indique dans quel sens penche la pression sans prescrire en soi de suivre ou de faire un fade. La décision fade-versus-suivi vient du régime :
 
-- **Régime à gamma positif + score EOD Pressure positif :** la dérive est haussière, la couverture des dealers amortit — la lecture favorise le fade des rallyes vers le strike aimant pour capter la dérive vers le pin.
+- **Régime à gamma positif + score EOD Pressure positif :** la dérive est haussière, la couverture des dealers amortit — la lecture favorise un positionnement *dans le sens* de la dérive vers le strike aimant (acheter les replis plutôt que de faire un fade à l'approche), et ne réserve le fade qu'aux débordements au-delà de l'aimant.
 - **Régime à gamma négatif + score EOD Pressure positif :** le signal traduit un biais haussier porté par le charm, mais dans un régime à gamma court, le réflexe des dealers amplifie au lieu d'absorber — une poursuite du momentum est plus probable.
 
 Combiné à d'autres signaux :

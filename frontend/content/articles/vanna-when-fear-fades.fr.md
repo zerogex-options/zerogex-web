@@ -28,12 +28,12 @@ Ce déplacement, c'est vanna. Chaque option hors de la monnaie de la chaîne rep
 
 Le sens du flux de vanna dépend de la composition du book, mais le scénario type — celui qui produit la dérive reconnaissable — se déroule ainsi.
 
-Les clients sont, en agrégat, longs en options. Ils achètent des calls pour profiter de la hausse et des puts pour se protéger, et les dealers sont short en face. Considérez les instants qui *suivent* une frayeur : la vol implicite a été poussée à la hausse en amont d'un chiffre de CPI, d'une réunion du FOMC, d'un earnings. Le risque passe. Le mouvement redouté ne se matérialise pas. La vol implicite, qui était chère, commence à se dégonfler au cours des heures et des jours suivants.
+Les clients, en agrégat, vendent des calls en overwriting pour générer du rendement et achètent des puts pour se protéger — de sorte que les dealers sont longs de ces calls et short de ces puts. Considérez les instants qui *suivent* une frayeur : la vol implicite a été poussée à la hausse en amont d'un chiffre de CPI, d'une réunion du FOMC, d'un earnings. Le risque passe. Le mouvement redouté ne se matérialise pas. La vol implicite, qui était chère, commence à se dégonfler au cours des heures et des jours suivants.
 
 Au fur et à mesure que la vol baisse :
 
-1. Les deltas des options hors de la monnaie sur lesquelles le dealer est short dérivent vers zéro.
-2. La position nette short-delta du dealer se réduit — il est mécaniquement moins short le marché qu'il ne l'était.
+1. Les deltas des options hors de la monnaie du book du dealer dérivent vers zéro.
+2. Le delta net *long* des options du dealer se réduit, de sorte que le book penche short face à sa couverture en actions.
 3. Pour rétablir le hedge, il achète des actions.
 4. La vol continue de se dégonfler, donc la dérive continue, donc les achats continuent d'affluer — petits, réguliers, toute la journée.
 

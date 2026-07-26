@@ -20,7 +20,7 @@ Questo articolo è il workflow pratico per identificare S/R basati sulle opzioni
 
 ### 1. Call wall (resistenza)
 
-Il **call wall** è lo strike sopra lo spot con la maggiore esposizione gamma sulle call. In un regime di gamma lunga, i dealer che coprono l'inventario short-call devono vendere durante i rally che si avvicinano al wall. Questa vendita agisce da resistenza strutturale.
+Il **call wall** è lo strike sopra lo spot con la maggiore esposizione gamma sulle call. In un regime di gamma lunga, i dealer che coprono l'inventario long-call devono vendere durante i rally che si avvicinano al wall. Questa vendita agisce da resistenza strutturale.
 
 Lettura pratica: il call wall è la forma più affidabile di resistenza basata sulle opzioni in un regime di gamma positiva. In un regime di gamma negativa, si inverte e diventa un target di breakout.
 

@@ -33,13 +33,13 @@ Keines davon sind psychologische Levels. Sie entstehen aus dem tatsächlichen Op
 
 ### Call Wall
 
-Wenn SPY zum schwersten Call-Gamma-Strike hin steigt, müssen Dealer, die diese Calls short sind (die übliche Konvention ist, dass Dealer net-short zu den Long-Calls der Kunden sind), SPY-Aktien verkaufen, um delta-neutral zu bleiben. Der Hedging-Trade läuft in exakt dieselbe Richtung wie ein Sell-Stop — er fügt dem Strike Angebot hinzu. In einem Long-Gamma-Regime ist dieses Angebot bedeutend genug, um die Bewegung zu deckeln und die Umkehr zu erzeugen, die Trader später "zufällig" nennen.
+Wenn SPY zum schwersten Call-Gamma-Strike hin steigt, müssen Dealer, die diese Calls long sind (die übliche Konvention lässt Dealer die Calls halten, die Kunden schreiben), SPY-Aktien verkaufen, während der Preis steigt, um delta-neutral zu bleiben, weil ihr Long-Call-Delta wächst, während der Markt klettert. Der Hedging-Trade läuft in exakt dieselbe Richtung wie ein Sell-Stop — er fügt dem Strike Angebot hinzu. In einem Long-Gamma-Regime ist dieses Angebot bedeutend genug, um die Bewegung zu deckeln und die Umkehr zu erzeugen, die Trader später "zufällig" nennen.
 
 Der vollständige Mechanismus zu Walls steht in [Gamma Walls Explained](/education/gamma-walls-explained).
 
 ### Put Wall
 
-Das Spiegelbild: Wenn SPY zum schwersten Put-Gamma-Strike hin fällt, zwingt das die Dealer, SPY-Aktien zu kaufen (sie sind die Puts short, sodass ihre Delta-Exposure steigt, während der Preis fällt). Das Kaufen wirkt als struktureller Support und erzeugt den Bounce.
+Das Spiegelbild: Wenn SPY zum schwersten Put-Gamma-Strike hin fällt, kauft das netto long-gamma Dealer-Buch SPY-Aktien, um abgesichert zu bleiben — und weil die Put-Gamma an diesem Strike am dichtesten ist, konzentriert sich das Kaufen dort. Es wirkt als struktureller Support und erzeugt den Bounce.
 
 ### Gamma Magnet
 

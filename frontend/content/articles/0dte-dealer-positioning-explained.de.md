@@ -16,7 +16,7 @@ Dieser Artikel ist die praktische Einordnung dessen, was "0DTE-Dealer-Positionie
 
 ## Was ist 0DTE-Dealer-Positionierung?
 
-0DTE-Dealer-Positionierung ist die aggregierte Gamma-Exposure, die Dealer bei Optionen mit Fälligkeit am selben Tag halten. Mechanisch unterscheidet sie sich nicht von längerfristiger Dealer-Gamma — Calls, die Dealer leerverkauft halten, tragen positiv zur Dealer-Gamma bei, leerverkaufte Puts tragen negativ bei, und der Hedging-Reflex ist derselbe: Delta neutral halten, den Basiswert handeln, während sich die Gamma ändert.
+0DTE-Dealer-Positionierung ist die aggregierte Gamma-Exposure, die Dealer bei Optionen mit Fälligkeit am selben Tag halten. Mechanisch unterscheidet sie sich nicht von längerfristiger Dealer-Gamma — nach der Standardkonvention sind Dealer long Calls (Kunden schreiben sie im Rahmen von Overwriting) und short Puts (Kunden kaufen sie zur Absicherung), sodass der Long-Call-Bestand positiv zur Dealer-Gamma beiträgt, während der Short-Put-Bestand negativ beiträgt, und der Hedging-Reflex ist derselbe: Delta neutral halten, den Basiswert handeln, während sich die Gamma ändert.
 
 Was 0DTE anders macht, ist die **Gamma-Dichte**. Optionen mit Fälligkeit am selben Tag tragen ihre größte Gamma genau am Geld, und die Gamma pro Kontrakt skaliert ungefähr mit `1/√T`. Da `T` in Bruchteilen eines Tages gemessen wird, ist dieser Nenner klein — und die Gamma pro Kontrakt wird sehr groß. Ein 0DTE-Strike nahe am Spot kann einen Monats-Strike auf demselben Niveau um eine Größenordnung übertreffen.
 
@@ -29,7 +29,7 @@ Die praktische Konsequenz: Der 0DTE-Bucket bestimmt überproportional das Intrad
 Drei Faktoren summieren sich bei 0DTE auf eine Weise, die bei längeren Laufzeiten nicht gleichermaßen auftritt:
 
 1. **Gamma-Konzentration.** Optionen mit Fälligkeit am selben Tag tragen am Geld eine sehr hohe Gamma. Hedging-Trades gegen diese Gamma sind pro Bewegungseinheit groß, was die Kursbewegung nahe am Spot mechanisch lauter macht.
-2. **Charm-Zerfall.** Wenn sich 0DTE-Optionen dem Verfall nähern, verschiebt sich ihr Delta vorhersehbar in Richtung 0 oder 1, je nach Moneyness. Dealer, die ein delta-neutrales Buch führen, müssen sich bis zum Handelsschluss kontinuierlich neu absichern. Dieser erzwungene Flow hat ein Vorzeichen — und ist direkt ablesbar.
+2. **Charm-Zerfall.** Wenn sich 0DTE-Optionen dem Verfall nähern, verschiebt sich ihr Delta vorhersehbar in Richtung 0 (aus dem Geld) oder ±1 (im Geld — +1 bei Calls, −1 bei Puts). Dealer, die ein delta-neutrales Buch führen, müssen sich bis zum Handelsschluss kontinuierlich neu absichern. Dieser erzwungene Flow hat ein Vorzeichen — und ist direkt ablesbar.
 3. **Pin-Physik.** Dieselbe Gamma-Konzentration, die 0DTE-Dealer pro Tick stark bewegt, macht auch den gewichtigsten 0DTE-Strike in einem Long-Gamma-Regime zu einem Magneten. Pin-Verhalten fällt bei 0DTE tendenziell schärfer aus als bei Mehrtages-Setups.
 
 Keiner dieser Mechanismen ist exklusiv für 0DTE — sie gelten für jede kurzlaufende Option. Sie sind im 0DTE-Bucket nur ungewöhnlich ausgeprägt, weil `T` so stark komprimiert ist.

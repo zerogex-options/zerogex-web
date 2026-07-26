@@ -72,8 +72,8 @@ Stessa linea numerica, domande molto diverse. Ecco cosa significano positivo, ne
 | Segnale | Punteggio positivo | Punteggio negativo | Zero |
 | --- | --- | --- | --- |
 | Dealer Delta Pressure | Dealer long delta — devono vendere i rally (ribassista) | Dealer short delta — devono comprare i dip (rialzista) | Book del dealer bilanciato o OI insufficiente |
-| GEX Gradient | Gamma accumulato sotto lo spot (amplificatore ribassista in short gamma; smorzato in long gamma) | Gamma accumulato sopra lo spot (bias ribassista) | Gradiente piatto o OI insufficiente |
-| Positioning Trap | Folla long fuori posizione — loading di short-cover squeeze al rialzo | Folla short fuori posizione — loading di flush al ribasso | Nessun estremo di folla rilevato |
+| GEX Gradient | Gamma accumulato sotto lo spot — supporto sotto, stabilizzante al rialzo (inclinazione rialzista) | Gamma accumulato sopra lo spot — supporto sotto scarso, amplificante al ribasso (inclinazione ribassista) | Gradiente piatto o OI insufficiente |
+| Positioning Trap | Folla long fuori posizione — loading di flush al ribasso | Folla short fuori posizione — loading di short-cover squeeze al rialzo | Nessun estremo di folla rilevato |
 | Skew Delta | Skew delle put *sotto* la baseline — la paura si sta sciogliendo (inclinazione rialzista) | Skew delle put elevato — la paura è scommessa (inclinazione ribassista) | Skew sulla baseline, o dati mancanti |
 | Tape Flow Bias | Domina l'acquisto aggressivo di call sul tape (convinzione rialzista) | Domina l'acquisto aggressivo di put sul tape (convinzione ribassista) | Flow di premium bilanciato o volume insufficiente |
 | Vanna/Charm Flow | L'hedging del dealer è un vento a favore in acquisto (vol-crush / decay) | L'hedging del dealer è un vento contrario in vendita (vol-up / unwind) | Esposizione del dealer bilanciata o righe dealer mancanti |

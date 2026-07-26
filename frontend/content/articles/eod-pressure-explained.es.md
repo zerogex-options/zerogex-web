@@ -164,7 +164,7 @@ El amplificador de 2.0× en los días de quad witching es lo bastante grande com
 
 EOD Pressure es una **lectura direccional** — indica hacia dónde apunta la presión sin prescribir por sí sola si conviene acompañar o fadear. La decisión de fadear versus acompañar viene del régimen:
 
-- **Régimen de gamma positiva + score de EOD Pressure positivo:** la deriva es alcista, la cobertura del dealer está amortiguando, la lectura favorece fadear los rallies hacia el strike imán para capturar la deriva hacia el pin.
+- **Régimen de gamma positiva + score de EOD Pressure positivo:** la deriva es alcista, la cobertura del dealer está amortiguando, la lectura favorece posicionarse *a favor* de la deriva hacia el strike imán — comprando la debilidad en lugar de fadearla — y fadear solo los sobreimpulsos más allá del imán.
 - **Régimen de gamma negativa + score de EOD Pressure positivo:** la señal está leyendo un sesgo alcista impulsado por charm, pero en un régimen de gamma corta el reflejo del dealer amplifica en lugar de absorber — la continuación del momentum es más probable.
 
 Combinado con otras señales:

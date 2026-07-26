@@ -16,7 +16,7 @@ Il suo speculare sotto lo spot è il [put wall](/education/what-is-a-put-wall), 
 
 ## Perché il call wall agisce da resistenza
 
-Il meccanismo è l'hedging dei dealer. In un regime di **gamma positivo** — spot sopra il [gamma flip](/education/how-to-read-a-gamma-flip) — i dealer sono net long gamma, e i desk che detengono le call pesanti allo strike del call wall sono short su quelle call. Per rimanere delta-neutrali devono **vendere** il sottostante quando il prezzo sale verso lo strike, perché una posizione short-call diventa più corta in delta man mano che il mercato sale.
+Il meccanismo è l'hedging dei dealer. In un regime di **gamma positivo** — spot sopra il [gamma flip](/education/how-to-read-a-gamma-flip) — i dealer sono net long gamma, e i desk che detengono le call pesanti allo strike del call wall sono long su quelle call (i clienti le hanno vendute in overwriting). Per rimanere delta-neutrali devono **vendere** il sottostante quando il prezzo sale verso lo strike, perché una posizione long-call diventa più lunga in delta man mano che il mercato sale.
 
 Quella vendita è la resistenza. Man mano che il prezzo sale verso uno strike call denso, il riflesso di hedging si intensifica — un piccolo movimento al rialzo forza una vendita di hedging relativamente più ampia in senso opposto. I rimbalzi vengono "svenduti", e l'avanzata si blocca. Non perché il numero abbia poteri magici, ma perché l'hedge è meccanico.
 

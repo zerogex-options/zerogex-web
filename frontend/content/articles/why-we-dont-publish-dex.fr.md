@@ -30,7 +30,7 @@ Le GEX mesure une exposition dont les dealers *ne peuvent pas* se débarrasser. 
 
 Mettons de côté le problème de la couverture et admettons, pour les besoins de l'argument, que l'on veuille pondérer la chaîne par le delta. Regardons où cette pondération place sa masse.
 
-Le delta va de 0 à 1. Il est proche de 0 pour les options très hors de la monnaie, franchit 0,5 près de la monnaie, et s'approche de 1 pour les options très dans la monnaie. Comparez cela au gamma, qui atteint un pic marqué à la monnaie et retombe vers zéro dans les deux ailes. Pondérer la chaîne par le delta plutôt que par le gamma fait une chose précise : cela entraîne le centre de masse de la métrique **vers le côté dans la monnaie** — et donne un poids réel à la **queue profondément dans la monnaie**, des strikes qu'une métrique pondérée par le gamma ignore à juste titre parce que leur gamma est nul.
+Le delta des calls va de 0 à 1 (celui des puts de 0 à −1). En valeur absolue : |delta| est proche de 0 pour les options très hors de la monnaie, franchit 0,5 près de la monnaie, et s'approche de 1 pour les options très dans la monnaie. Comparez cela au gamma, qui atteint un pic marqué à la monnaie et retombe vers zéro dans les deux ailes. Pondérer la chaîne par le delta plutôt que par le gamma fait une chose précise : cela entraîne le centre de masse de la métrique **vers le côté dans la monnaie** — et donne un poids réel à la **queue profondément dans la monnaie**, des strikes qu'une métrique pondérée par le gamma ignore à juste titre parce que leur gamma est nul.
 
 Cette queue dans la monnaie est la pire partie de la chaîne sur laquelle appuyer une métrique :
 

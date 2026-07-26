@@ -20,7 +20,7 @@ Cet article présente le workflow pratique pour identifier le S/R basé sur les 
 
 ### 1. Les call walls (résistance)
 
-Le **call wall** est le strike au-dessus du spot présentant l'exposition gamma call la plus lourde. Dans un régime de gamma longue, les dealers qui couvrent leur inventaire short-call doivent vendre lors des rallyes qui approchent du wall. Cette vente agit comme une résistance structurelle.
+Le **call wall** est le strike au-dessus du spot présentant l'exposition gamma call la plus lourde. Dans un régime de gamma longue, les dealers qui couvrent leur inventaire long-call doivent vendre lors des rallyes qui approchent du wall. Cette vente agit comme une résistance structurelle.
 
 Lecture pratique : le call wall est la forme de résistance basée sur les options la plus fiable dans un régime de gamma positive. Dans un régime de gamma négative, la dynamique s'inverse et il devient une cible de breakout.
 

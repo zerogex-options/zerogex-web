@@ -28,12 +28,12 @@ Diese Verschiebung ist vanna. Jede Out-of-the-Money-Option in der Kette bepreist
 
 Die Richtung des Vanna-Flows hängt davon ab, wie das Buch zusammengesetzt ist, aber das Lehrbuch-Setup — dasjenige, das das erkennbare Grinding erzeugt — läuft so ab.
 
-Kunden sind in Summe long Optionen. Sie kaufen Calls für Aufwärtspotenzial und Puts zur Absicherung, und Dealer sind auf der anderen Seite short. Betrachten Sie die Momente *nach* einem Schreckmoment: Die implizite Vol wurde im Vorfeld eines CPI-Prints, eines FOMC-Meetings, eines Earnings-Termins hochgetrieben. Das Risiko zieht vorbei. Die befürchtete Bewegung bleibt aus. Die implizite Vol, die reichhaltig war, beginnt in den folgenden Stunden und Tagen abzubluten.
+Kunden schreiben in Summe Calls für Rendite (Overwriting) und kaufen Puts zur Absicherung — Dealer sind daher long diese Calls und short diese Puts. Betrachten Sie die Momente *nach* einem Schreckmoment: Die implizite Vol wurde im Vorfeld eines CPI-Prints, eines FOMC-Meetings, eines Earnings-Termins hochgetrieben. Das Risiko zieht vorbei. Die befürchtete Bewegung bleibt aus. Die implizite Vol, die reichhaltig war, beginnt in den folgenden Stunden und Tagen abzubluten.
 
 Während die Vol fällt:
 
-1. Die Deltas der Out-of-the-Money-Optionen, in denen der Dealer short ist, driften Richtung null.
-2. Die Netto-Short-Delta-Position des Dealers schrumpft — er ist mechanisch weniger short im Markt, als er es war.
+1. Die Deltas der Out-of-the-Money-Optionen im Buch des Dealers driften Richtung null.
+2. Das Netto-*Long*-Options-Delta des Dealers schrumpft, sodass das Buch gegenüber seinem Aktien-Hedge short kippt.
 3. Um den Hedge wiederherzustellen, kauft er Aktien.
 4. Die Vol blutet weiter aus, also geht die Drift weiter, also kommt das Kaufen weiter — klein, stetig, den ganzen Tag über.
 

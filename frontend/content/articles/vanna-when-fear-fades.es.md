@@ -28,12 +28,12 @@ Ese cambio es vanna. Cada opción fuera del dinero de la cadena repreza su delta
 
 La dirección del flujo de vanna depende de cómo está compuesto el libro, pero el esquema de manual — el que produce el goteo reconocible — funciona así.
 
-Los clientes están, en conjunto, largos de opciones. Compran calls para el alza y puts como protección, y los dealers están cortos del otro lado. Considera los momentos *después* de un susto: la vol implícita se disparó al alza antes de un dato de CPI, una reunión del FOMC, un evento de earnings. El riesgo pasa. El movimiento temido no se materializa. La vol implícita, que estaba cara, empieza a desangrarse a la baja en las horas y días siguientes.
+Los clientes, en conjunto, hacen overwriting de calls para obtener rendimiento y compran puts como protección — de modo que los dealers están largos de esas calls y cortos de esas puts. Considera los momentos *después* de un susto: la vol implícita se disparó al alza antes de un dato de CPI, una reunión del FOMC, un evento de earnings. El riesgo pasa. El movimiento temido no se materializa. La vol implícita, que estaba cara, empieza a desangrarse a la baja en las horas y días siguientes.
 
 A medida que la vol cae:
 
-1. Los deltas de las opciones fuera del dinero en las que el dealer está corto se desplazan hacia cero.
-2. La posición neta de delta corto del dealer se encoge — mecánicamente están menos cortos del mercado de lo que estaban.
+1. Los deltas de las opciones fuera del dinero en el libro del dealer se desplazan hacia cero.
+2. El delta neto *largo* de opciones del dealer se encoge, de modo que el libro se inclina corto frente a su cobertura en acciones.
 3. Para restablecer el hedge, compran acciones.
 4. La vol sigue desangrándose, así que el desplazamiento continúa, así que las compras siguen llegando — pequeñas, constantes, durante todo el día.
 

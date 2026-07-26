@@ -18,10 +18,10 @@ Este artículo recorre la mecánica real del pinning, por qué se intensifica ce
 
 El mecanismo es sencillo una vez que se detalla:
 
-1. Un strike concreto — digamos SPY 583 — concentra una gran cantidad de gamma. Los clientes han comprado muchas calls y puts a 583; los dealers están cortos en el equivalente.
-2. El book del dealer está **long gamma** en ese strike. Eso ocurre cuando, en términos netos, los dealers están *cortos* en las opciones que los clientes mantienen largas. (Convención estándar.)
-3. Cuando SPY sube por encima de 583, el delta de opciones de los dealers se vuelve más positivo (están net short en calls; con el spot subiendo, su exposición delta de calls cortas crece). Para mantenerse neutrales, **venden** SPY.
-4. Cuando SPY cae por debajo de 583, el delta de opciones de los dealers se vuelve más negativo (su exposición delta de puts cortas crece a la baja). Para mantenerse neutrales, **compran** SPY.
+1. Un strike concreto — digamos SPY 583 — concentra una gran cantidad de gamma, y en términos netos el book del dealer está **long** en esa gamma.
+2. Un book long-gamma en el strike se cubre *en contra* de los movimientos que se alejan de él — el reflejo estabilizador que ancla el precio. (Es el régimen de gamma positiva manifestándose en un único strike dominante.)
+3. Cuando SPY sube por encima de 583, el delta de cobertura de los dealers se vuelve más positivo, así que para mantenerse neutrales **venden** SPY.
+4. Cuando SPY cae por debajo de 583, su delta de cobertura se vuelve más negativo, así que para mantenerse neutrales **compran** SPY.
 5. Cada excursión lejos de 583 obliga a una operación de cobertura *de vuelta hacia* 583. El strike actúa como un imán — no porque nadie lo esté buscando deliberadamente, sino porque la matemática de la cobertura empuja el precio hacia ahí de forma mecánica.
 
 Esto es lo que ocurre estructuralmente cuando ves a SPY oscilar en un rango estrecho. No es "el mercado decidiendo pinear"; es el book agregado de los dealers corrigiéndose de vuelta a la neutralidad con cada movimiento.

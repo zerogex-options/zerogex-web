@@ -94,7 +94,7 @@ SPX est à 5 810 à l'ouverture. ZeroGEX affiche :
 
 Lecture initiale : régime long-gamma, positionnement sain, range structurel 5 790-5 820. Playbook par défaut : fader les extrêmes (vendre les poussées vers 5 820, acheter les creux vers 5 790), éviter le milieu.
 
-Vers 13h00 ET, SPX a glissé à 5 800 — désormais 2 points en dessous du flip. Le Net GEX s'est réduit à +300 M$ et le flip a dérivé vers le haut jusqu'à 5 803. Le régime est disputé — le spot vient de franchir le flip, l'ampleur diminue, et le réflexe structurel s'affaiblit.
+Vers 13h00 ET, SPX a glissé à 5 806 et le flip a dérivé vers le haut jusqu'à 5 803 — les deux ont presque convergé. Le Net GEX s'est réduit à +300 M$. Le régime est disputé — le spot est à peine au-dessus du flip, l'ampleur diminue, et le réflexe structurel s'affaiblit.
 
 Le playbook change. Le setup fade-the-rally qui était actif à 14h30 n'est désormais plus soutenu structurellement ; une continuation à la hausse est possible si le Net GEX bascule en négatif. La taille de position devrait diminuer ; le trade par défaut est de ne pas trader jusqu'à ce que le régime se résolve.
 

@@ -20,7 +20,7 @@ Vanna est une grecque de second ordre qui mesure la **sensibilité du delta d'un
 
 En symboles : vanna ≈ ∂Δ/∂σ = ∂²V/∂σ∂S. C'est la dérivée croisée de la valeur de l'option par rapport au spot et à la volatilité implicite.
 
-Ce que cela signifie concrètement : lorsque la volatilité implicite bouge, le delta de votre option bouge *même si le spot ne bouge pas*. Une baisse de l'IV réduit le delta des calls OTM et augmente (en valeur absolue) le delta des puts OTM. Une hausse de l'IV produit l'effet inverse. Quiconque détient un book d'options dont le delta dérive lorsque la vol bouge doit couvrir cette dérive — et c'est précisément là que vanna devient un flux visible sur le tape.
+Ce que cela signifie concrètement : lorsque la volatilité implicite bouge, le delta de votre option bouge *même si le spot ne bouge pas*. Une baisse de l'IV réduit l'ampleur du delta des options OTM des deux côtés — les calls OTM comme les puts OTM voient leur delta dériver vers zéro. Une hausse de l'IV produit l'effet inverse. Quiconque détient un book d'options dont le delta dérive lorsque la vol bouge doit couvrir cette dérive — et c'est précisément là que vanna devient un flux visible sur le tape.
 
 ### Comment les dealers vivent vanna
 
@@ -28,15 +28,15 @@ Les dealers gèrent des books delta-neutres. Lorsque l'IV baisse, le delta de le
 
 Le schéma canonique évoqué dans les analyses de flux :
 
-- Les dealers sont typiquement short de calls (les clients sont net long).
-- Quand l'IV baisse, le delta des calls OTM baisse.
-- Un dealer short d'un call OTM avec un delta de 0,30 pourrait désormais être short du même call avec un delta de 0,25.
-- Son exposition short-delta s'est réduite — il est mécaniquement moins short sur le sous-jacent.
-- Pour rester delta-neutre, il doit *vendre* du sous-jacent — ou, s'il détenait du sous-jacent long en couverture, il en vend une partie.
+- Les dealers sont typiquement longs de calls et short de puts — les clients vendent des calls en overwriting et achètent des puts pour se protéger.
+- Quand l'IV baisse, ces deltas hors de la monnaie se réduisent vers zéro.
+- Prenons les puts short : un dealer short d'un put OTM portant un delta de +0,30 issu de cette position pourrait désormais n'en porter que +0,25.
+- Cette contribution long-delta s'est réduite, de sorte que, face à la couverture en actions du dealer, le book est désormais légèrement net short.
+- Pour rester delta-neutre, il doit *acheter* le sous-jacent.
 
-Pris isolément, cela paraît baissier. Le cas intéressant est le cas inverse : sur un marché où l'IV a baissé pendant des jours ou des semaines (un régime de compression de la volatilité), les dealers rehedgent en continu la décroissance de vanna sur une chaîne fortement orientée vers un positionnement client acheteur de calls. L'agrégat de ces flux tend à se manifester comme un bid persistant et structurel — le « vanna grind » dont les desks de flux parlent depuis des années.
+Les calls longs tirent dans le même sens : à mesure que leur delta décroît, le book penche de nouveau short face à sa couverture et les dealers achètent. Sur un marché où l'IV a baissé pendant des jours ou des semaines (un régime de compression de la volatilité), les dealers rehedgent en continu cette décroissance de vanna sur un book short de puts et long de calls — et l'agrégat de ces flux tend à se manifester comme un bid persistant et structurel : le « vanna grind » dont les desks de flux parlent depuis des années.
 
-Le signe exact dépend de la composition de la chaîne. Un book dominé par des puts OTM short côté dealer se comporte différemment d'un book dominé par des calls OTM short côté dealer. L'analyse standard suppose le skew typique client-long-call / client-long-put, qui produit le résultat du vanna grind en compression de volatilité. Dans des régimes moins typiques, le signe peut s'inverser.
+Le signe exact dépend de la composition de la chaîne. Un book dominé par des puts OTM short côté dealer se comporte différemment d'un book où les clients ont agressivement *acheté* des calls, laissant les dealers short de ces calls. L'analyse standard suppose le skew typique achat de protection / overwriting de calls — dealers short de puts et longs de calls — qui produit le résultat du vanna grind en compression de volatilité. Dans des régimes moins typiques (une frénésie d'achat de calls, par exemple), le signe peut s'inverser.
 
 ---
 
@@ -52,10 +52,10 @@ L'intuition : le delta d'une option est, grosso modo, la probabilité implicite 
 
 Comme vanna, charm force le rehedging sans aucun mouvement du spot. Un dealer qui gère un book delta-neutre voit son exposition delta effective dériver uniquement du fait du passage du temps, et doit négocier le sous-jacent pour rester à plat.
 
-Le signe directionnel du flux de couverture piloté par charm dépend de quel côté du book domine. Pour un book de dealer typique, fortement short de calls, maintenu jusqu'à la clôture sur une chaîne 0DTE :
+Le signe directionnel du flux de couverture piloté par charm dépend de quel côté du book domine. Pour un book de dealer typique — longs de calls, short de puts — maintenu jusqu'à la clôture sur une chaîne 0DTE :
 
-- Les deltas des calls OTM décroissent vers 0.
-- L'exposition delta short-call du dealer se réduit en valeur absolue.
+- Les deltas des options OTM décroissent vers 0.
+- Le delta net des options du dealer se réduit à mesure que ces deltas décroissent.
 - Il doit négocier le sous-jacent pour rester neutre.
 - Pour une chaîne typique, la direction nette de cette couverture continue tout au long de l'après-midi produit souvent une dérive mesurable et stable dans son signe.
 
@@ -87,7 +87,7 @@ Le mécanisme :
 2. Le risque passe sans produire le mouvement réalisé pricé.
 3. L'IV commence à se dégonfler sur toute la chaîne.
 4. La chaîne (le book des dealers) rehedge vanna en continu tout au long de cette décroissance.
-5. Pour une chaîne typique orientée vers les clients acheteurs de calls, la couverture agrégée constitue un bid persistant sur le sous-jacent.
+5. Pour une chaîne typique — les clients achetant des puts et vendant des calls en overwriting, de sorte que les dealers sont short de puts et longs de calls — la couverture agrégée constitue un bid persistant sur le sous-jacent.
 
 Le flux est faible minute par minute et souvent invisible pour qui ne regarde que les barres de volume. Il est le plus visible sur les graphiques intraday sous la forme d'une tendance haussière rampante dans un tape calme qui ne correspond pas au tableau des volumes — les classiques séances « tout monte sans volume » qui suivent des publications de CPI sans surprise.
 
@@ -182,7 +182,7 @@ La lecture composite : régime long-gamma, aimant structurel juste sous le spot,
 
 Quelques pièges :
 
-- **« Vanna est haussier. »** Ce n'est pas le cas. C'est le réflexe des dealers face aux mouvements de l'IV. Le signe directionnel de ce réflexe dépend de la composition de la chaîne ; sur une chaîne typique client-acheteur-de-calls durant une compression de volatilité, l'*agrégat* tend à être un bid — mais c'est une affirmation de régime, pas une propriété de la grecque.
+- **« Vanna est haussier. »** Ce n'est pas le cas. C'est le réflexe des dealers face aux mouvements de l'IV. Le signe directionnel de ce réflexe dépend de la composition de la chaîne ; sur une chaîne typique où les clients achètent des puts et vendent des calls en overwriting (laissant les dealers short de puts et longs de calls) durant une compression de volatilité, l'*agrégat* tend à être un bid — mais c'est une affirmation de régime, pas une propriété de la grecque.
 - **« Charm est un signal. »** Le flux piloté par charm est une force structurelle, pas un trade. Il produit une tendance à la dérive dans la dernière heure ; il ne vous dit pas quand entrer.
 - **« Vanna et charm ne comptent que pendant la semaine OPEX. »** Ils y sont les plus marqués, mais la décroissance de charm compte chaque jour comportant un flux 0DTE significatif — ce qui concerne désormais la plupart des jours.
 - **« Le vanna grind fonctionne toujours en compression de volatilité. »** Uniquement quand la composition de la chaîne le soutient et que le régime gamma ne s'y oppose pas.

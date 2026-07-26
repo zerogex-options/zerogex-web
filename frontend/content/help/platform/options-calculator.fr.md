@@ -35,7 +35,7 @@ Pour chaque jambe et pour l'agrégat :
 - **Vega** — sensibilité à l'IV (par variation de 1 %)
 - **Charm** — décroissance du delta (par jour)
 
-Les greeks agrégées vous permettent de lire une structure multi-jambes d'un seul coup d'œil — par exemple, un calendar long est net long vega, short theta sur le mois proche, long theta sur le mois lointain.
+Les greeks agrégées vous permettent de lire une structure multi-jambes d'un seul coup d'œil — par exemple, un calendar long est net long vega et net long theta, encaissant la décroissance temporelle sur la jambe vendue à échéance proche plus vite qu'il ne la paie sur la jambe achetée à échéance lointaine.
 
 ## La surface de P&L
 

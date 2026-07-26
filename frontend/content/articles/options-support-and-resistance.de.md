@@ -20,7 +20,7 @@ Dieser Artikel ist der praktische Workflow, um Options-basierte S/R zu identifiz
 
 ### 1. Call Walls (Resistance)
 
-Der **Call Wall** ist der Strike oberhalb des Spot mit der stärksten Call-Gamma-Exposure. In einem Long-Gamma-Regime müssen Dealer, die ihr Short-Call-Inventar hedgen, in Rallyes verkaufen, die sich dem Wall nähern. Dieses Verkaufen wirkt als struktureller Widerstand.
+Der **Call Wall** ist der Strike oberhalb des Spot mit der stärksten Call-Gamma-Exposure. In einem Long-Gamma-Regime müssen Dealer, die ihr Long-Call-Inventar hedgen, in Rallyes verkaufen, die sich dem Wall nähern. Dieses Verkaufen wirkt als struktureller Widerstand.
 
 Praktische Lesart: Der Call Wall ist die zuverlässigste Form von Options-basiertem Widerstand in einem positiven Gamma-Regime. In einem negativen Gamma-Regime kehrt sich das um, und er wird zum Breakout-Ziel.
 

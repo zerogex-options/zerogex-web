@@ -31,7 +31,7 @@ Bias di trading: **mean-reversion**. Quando Positioning Trap è attivo, indica i
 Tre meccanismi guidano la tesi "le operazioni affollate si rompono":
 
 1. **Riflessività.** Un posizionamento pesantemente unilaterale significa che chi *avrebbe comprato* (in un setup crowded-long) ha già comprato. Il prossimo acquirente marginale è difficile da trovare. Il percorso di minor resistenza inizia a inclinarsi nell'altra direzione.
-2. **Hedging dei dealer.** In un regime dove i dealer sono short di call perché i clienti sono long, l'hedging dei dealer li obbliga a *vendere* durante i rally. La forza strutturale si allinea contro la folla.
+2. **Hedging dei dealer.** In un regime long-gamma — dealer long di call, short di put — l'hedging dei dealer li obbliga a vendere durante i rally e comprare durante i dip. La forza strutturale si allinea contro la folla.
 3. **Asimmetria del catalizzatore.** Un catalizzatore rialzista arriva su un setup crowded-long e non sorprende nessuno — l'upside è in gran parte già prezzato. Un catalizzatore ribassista sullo stesso setup colpisce un mercato impreparato e non coperto. Reazione asimmetrica.
 
 Il segnale Positioning Trap non cerca di prevedere il catalizzatore. Porta in superficie il *setup*, così quando arriva la scintilla — da qualunque parte provenga — hai già identificato quale lato è a rischio.
@@ -54,7 +54,7 @@ L'output è un numero per refresh, calcolato in modo continuo su due lati (lato 
 
 ## Come viene calcolato lo score
 
-Per ciascun lato (squeeze e flush — cioè la folla long a rischio contro la folla short a rischio), il segnale calcola una somma ponderata:
+Per ciascun lato (la folla long a rischio di flush contro la folla short a rischio di squeeze), il segnale calcola una somma ponderata:
 
 ```
 side_score = 0.45 × crowding
@@ -91,11 +91,11 @@ Conseguenza pratica: non aspettare che Positioning Trap "scatti". Osserva lo sco
 
 | Score | Lettura |
 |---|---|
-| +0.5 a +1.0 | Folla long a rischio significativo — squeeze da short-cover al rialzo in caricamento |
+| +0.5 a +1.0 | Folla long a rischio significativo — flush al ribasso in caricamento |
 | +0.2 a +0.5 | Folla long lievemente fuori posizione — informativo, non ancora pressante |
 | -0.2 a +0.2 | Nessun estremo di folla chiaro |
-| -0.2 a -0.5 | Folla short lievemente fuori posizione — flush al ribasso in caricamento |
-| -0.5 a -1.0 | Folla short a rischio significativo — setup di flush in caricamento |
+| -0.2 a -0.5 | Folla short lievemente fuori posizione — squeeze al rialzo in caricamento |
+| -0.5 a -1.0 | Folla short a rischio significativo — squeeze da short-cover al rialzo in caricamento |
 
 Il playbook `positioning_trap_squeeze` sblocca a **abs(score) ≥ 0.5** — più alto del tipico trigger Advanced. Positioning Trap necessita di una convinzione più profonda per agire, perché fare trading contro la folla è strutturalmente più rischioso che seguire il momentum.
 
@@ -158,12 +158,12 @@ Il segnale alimenta più pannelli:
 
 Un esempio pratico. SPX sta scendendo lentamente e ZeroGEX mostra:
 
-- **Positioning Trap:** +0.62 (folla long fuori posizione)
+- **Positioning Trap:** −0.62 (folla short fuori posizione)
 - **Net GEX:** +$1.4B
 - **Trap Detection:** 0
 - **Squeeze Setup:** +0.31
 
-La lettura strutturale: la folla long è carica, il regime è long-gamma (i dealer amplificheranno uno squeeze se ne arriva uno), Squeeze Setup pende rialzista, e Trap Detection è silenzioso (nessuna rottura ribassista fallita recente da fadare *ancora*). Inclinazione pratica: lo squeeze da short-cover al rialzo è il percorso a più alta probabilità; attendi la scintilla, poi fai trading nella direzione in cui punta Positioning Trap.
+La lettura strutturale: la folla short è carica, il regime è long-gamma (i dealer amplificheranno uno squeeze se ne arriva uno), Squeeze Setup pende rialzista, e Trap Detection è silenzioso (nessuna rottura ribassista fallita recente da fadare *ancora*). Inclinazione pratica: lo squeeze da short-cover al rialzo è il percorso a più alta probabilità; attendi la scintilla, poi fai trading nella direzione in cui punta Positioning Trap.
 
 ---
 

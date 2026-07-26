@@ -35,7 +35,7 @@ Para cada pata y para el agregado:
 - **Vega** — sensibilidad a la IV (por cambio del 1%)
 - **Charm** — decaimiento del delta (por día)
 
-Las greeks agregadas te permiten leer una estructura multi-pata de un vistazo — por ejemplo, un calendar largo es net long vega, short theta en el mes cercano, long theta en el lejano.
+Las greeks agregadas te permiten leer una estructura multi-pata de un vistazo — por ejemplo, un calendar largo es net long vega y net long theta, cobrando el decaimiento en la pata corta de vencimiento cercano más rápido de lo que lo paga en la pata larga de vencimiento lejano.
 
 ## La superficie de P&L
 

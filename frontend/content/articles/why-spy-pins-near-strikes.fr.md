@@ -18,10 +18,10 @@ Cet article détaille la mécanique réelle du pinning, explique pourquoi elle s
 
 Le mécanisme est simple une fois détaillé :
 
-1. Un strike précis — disons SPY 583 — concentre un volume important de gamma. Les clients ont acheté beaucoup de calls et de puts à 583 ; les dealers sont vendeurs à découvert sur l'équivalent.
-2. Le book du dealer est **long gamma** sur ce strike. C'est le cas lorsque, au net, les dealers sont *short* sur les options que les clients détiennent en position longue. (Convention standard.)
-3. Quand SPY monte au-dessus de 583, le delta des options des dealers devient plus positif (ils sont net short calls ; une hausse du spot fait croître leur exposition delta liée aux calls vendus). Pour rester neutres, ils **vendent** SPY.
-4. Quand SPY passe sous 583, le delta des options des dealers devient plus négatif (leur exposition delta liée aux puts vendus croît à la baisse). Pour rester neutres, ils **achètent** SPY.
+1. Un strike précis — disons SPY 583 — concentre un volume important de gamma, et au net le book du dealer est **long** de ce gamma.
+2. Un book long gamma sur ce strike se couvre *à contre-sens* des mouvements qui s'en éloignent — le réflexe stabilisateur qui ancre le prix. (C'est le régime de gamma positif qui se joue sur un unique strike dominant.)
+3. Quand SPY monte au-dessus de 583, le delta de couverture des dealers devient plus positif, donc pour rester neutres ils **vendent** SPY.
+4. Quand SPY passe sous 583, leur delta de couverture devient plus négatif, donc pour rester neutres ils **achètent** SPY.
 5. Chaque écart par rapport à 583 impose une opération de couverture *de retour vers* 583. Le strike agit comme un aimant — non pas parce que quelqu'un le viserait, mais parce que la mathématique de la couverture ramène le prix mécaniquement à cet endroit.
 
 C'est ce qui se produit structurellement lorsqu'on observe SPY osciller dans une fourchette étroite. Ce n'est pas « le marché qui décide de s'ancrer » ; c'est le book agrégé des dealers qui se corrige vers la neutralité à chaque mouvement.

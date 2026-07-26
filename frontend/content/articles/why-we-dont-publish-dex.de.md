@@ -30,7 +30,7 @@ GEX misst eine Exposure, die Dealer *nicht* loswerden können. DEX misst genau d
 
 Lassen wir das Hedging-Problem einmal beiseite und nehmen wir der Argumentation halber an, wir wollten die Kette nach Delta gewichten. Schauen wir, wohin diese Gewichtung ihre Masse legt.
 
-Delta läuft von 0 bis 1. Es liegt nahe 0 für weit aus dem Geld liegende Optionen, kreuzt 0,5 nahe am Geld und nähert sich 1 für weit im Geld liegende Optionen. Vergleicht man das mit Gamma, das scharf am Geld seinen Höchststand erreicht und in beiden Flügeln gegen null fällt. Die Kette nach Delta statt nach Gamma zu gewichten bewirkt eine bestimmte Sache: Es zieht den Schwerpunkt der Kennzahl **zur Im-Geld-Seite** — und verleiht dem **tief im Geld liegenden Bereich** echtes Gewicht, jenen Strikes, die eine gammagewichtete Kennzahl zu Recht ignoriert, weil ihr Gamma null ist.
+Das Delta von Calls läuft von 0 bis 1 (das von Puts von 0 bis −1). Betragsmäßig betrachtet: |Delta| liegt nahe 0 für weit aus dem Geld liegende Optionen, kreuzt 0,5 nahe am Geld und nähert sich 1 für weit im Geld liegende Optionen. Vergleicht man das mit Gamma, das scharf am Geld seinen Höchststand erreicht und in beiden Flügeln gegen null fällt. Die Kette nach Delta statt nach Gamma zu gewichten bewirkt eine bestimmte Sache: Es zieht den Schwerpunkt der Kennzahl **zur Im-Geld-Seite** — und verleiht dem **tief im Geld liegenden Bereich** echtes Gewicht, jenen Strikes, die eine gammagewichtete Kennzahl zu Recht ignoriert, weil ihr Gamma null ist.
 
 Dieser Im-Geld-Bereich ist der schlechteste Teil der Kette, auf den man eine Kennzahl stützen kann:
 

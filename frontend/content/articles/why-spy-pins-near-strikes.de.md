@@ -18,10 +18,10 @@ Dieser Artikel geht die tatsächliche Mechanik des Pinnings durch, erklärt, war
 
 Der Mechanismus ist einfach, sobald man ihn ausschreibt:
 
-1. Ein bestimmter Strike — sagen wir SPY 583 — trägt eine große Gamma-Konzentration. Kunden haben viele Calls und Puts bei 583 gekauft; Dealer sind im entsprechenden Gegenwert short.
-2. Das Dealer-Buch ist an diesem Strike **long Gamma**. Das passiert, wenn Dealer per Saldo in den Optionen *short* sind, die Kunden long halten. (Standardkonvention.)
-3. Steigt SPY über 583, wird das Options-Delta der Dealer positiver (sie sind net short Calls; ein steigender Spot lässt ihr Short-Call-Delta-Exposure wachsen). Um neutral zu bleiben, **verkaufen** sie SPY.
-4. Fällt SPY unter 583, wird das Options-Delta der Dealer negativer (ihr Short-Put-Delta-Exposure wächst nach unten). Um neutral zu bleiben, **kaufen** sie SPY.
+1. Ein bestimmter Strike — sagen wir SPY 583 — trägt eine große Gamma-Konzentration, und per Saldo ist das Dealer-Buch **long** in dieser Gamma.
+2. Ein Long-Gamma-Buch am Strike hedgt *gegen* Bewegungen von ihm weg — der stabilisierende Reflex, der den Preis pinnt. (Es ist das Positiv-Gamma-Regime, das sich an einem einzelnen dominanten Strike abspielt.)
+3. Steigt SPY über 583, wird das Hedge-Delta der Dealer positiver, sodass sie zum Neutralbleiben SPY **verkaufen**.
+4. Fällt SPY unter 583, wird ihr Hedge-Delta negativer, sodass sie zum Neutralbleiben SPY **kaufen**.
 5. Jede Bewegung weg von 583 erzwingt einen Hedging-Trade *zurück* Richtung 583. Der Strike wirkt wie ein Magnet — nicht weil ihn jemand gezielt ansteuert, sondern weil die Hedging-Mathematik den Preis mechanisch dorthin lenkt.
 
 Genau das passiert strukturell, wenn man SPY in einer engen Spanne oszillieren sieht. Es ist nicht "der Markt, der sich entscheidet zu pinnen"; es ist das aggregierte Dealer-Buch, das sich bei jeder Bewegung zurück zur Neutralität korrigiert.

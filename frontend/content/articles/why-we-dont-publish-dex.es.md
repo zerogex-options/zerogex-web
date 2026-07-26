@@ -30,7 +30,7 @@ El GEX mide una exposición de la que los dealers *no pueden* deshacerse. El DEX
 
 Dejemos de lado el problema de la cobertura y concedamos, a efectos del argumento, que queremos ponderar la cadena por delta. Veamos dónde coloca esa ponderación su masa.
 
-El delta va de 0 a 1. Está cerca de 0 para las opciones muy fuera del dinero, cruza 0,5 cerca del dinero, y se aproxima a 1 para las opciones muy dentro del dinero. Compárese con el gamma, que alcanza su pico bruscamente en el dinero y cae hacia cero en ambas alas. Ponderar la cadena por delta en lugar de por gamma hace algo específico: arrastra el centro de masa de la métrica **hacia el lado dentro del dinero** — y otorga peso real a la **cola profundamente dentro del dinero**, strikes que una métrica ponderada por gamma ignora correctamente porque su gamma es nulo.
+El delta de las calls va de 0 a 1 (el delta de las puts de 0 a −1). Tomando magnitudes: |delta| está cerca de 0 para las opciones muy fuera del dinero, cruza 0,5 cerca del dinero, y se aproxima a 1 para las opciones muy dentro del dinero. Compárese con el gamma, que alcanza su pico bruscamente en el dinero y cae hacia cero en ambas alas. Ponderar la cadena por delta en lugar de por gamma hace algo específico: arrastra el centro de masa de la métrica **hacia el lado dentro del dinero** — y otorga peso real a la **cola profundamente dentro del dinero**, strikes que una métrica ponderada por gamma ignora correctamente porque su gamma es nulo.
 
 Esa cola dentro del dinero es la peor parte de la cadena en la que apoyar una métrica:
 

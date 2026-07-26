@@ -33,13 +33,13 @@ Aucun de ces niveaux n'est un niveau psychologique. Ils émergent de l'open inte
 
 ### Call wall
 
-Quand SPY monte vers le strike portant le plus de gamma sur les calls, les dealers qui sont short sur ces calls (la convention standard veut que les dealers soient net-short face aux calls longs des clients) doivent vendre des actions SPY pour rester delta-neutres. Le trade de hedging va exactement dans le même sens qu'un sell-stop — il ajoute de l'offre à ce strike. Dans un régime de gamma positif, cette offre est assez significative pour plafonner le mouvement et produire l'inversion que les traders qualifieront plus tard d'« aléatoire ».
+Quand SPY monte vers le strike portant le plus de gamma sur les calls, les dealers qui sont long sur ces calls (la convention standard laisse les dealers détenir les calls que les clients vendent en overwriting) doivent vendre des actions SPY à mesure que le prix monte pour rester delta-neutres, car leur delta long-call croît à mesure que le marché grimpe. Le trade de hedging va exactement dans le même sens qu'un sell-stop — il ajoute de l'offre à ce strike. Dans un régime de gamma positif, cette offre est assez significative pour plafonner le mouvement et produire l'inversion que les traders qualifieront plus tard d'« aléatoire ».
 
 Le mécanisme complet des walls est détaillé dans [Gamma Walls Explained](/education/gamma-walls-explained).
 
 ### Put wall
 
-Le miroir : SPY chutant vers le strike portant le plus de gamma sur les puts force les dealers à acheter des actions SPY (ils sont short sur les puts, donc leur exposition delta augmente à mesure que le prix baisse). Cet achat agit comme un support structurel et produit le rebond.
+Le miroir : à mesure que SPY chute vers le strike portant le plus de gamma sur les puts, le book des dealers, net long gamma, achète des actions SPY pour rester couvert — et comme le gamma des puts est le plus dense à ce strike, l'achat s'y concentre. Il agit comme un support structurel et produit le rebond.
 
 ### Gamma magnet
 

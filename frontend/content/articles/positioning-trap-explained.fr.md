@@ -31,7 +31,7 @@ Biais de trade : **retour à la moyenne (mean-reversion)**. Lorsque Positioning 
 Trois mécanismes alimentent la thèse selon laquelle « les trades surpeuplés se cassent » :
 
 1. **Réflexivité.** Un positionnement fortement unilatéral signifie que ceux qui *auraient acheté* (dans un setup crowded-long) ont déjà acheté. Le prochain acheteur marginal est difficile à trouver. Le chemin de moindre résistance commence à s'incliner dans l'autre sens.
-2. **Couverture des dealers.** Dans un régime où les dealers sont short en calls parce que les clients sont long, la couverture des dealers les oblige à *vendre* dans les rallyes. La force structurelle s'aligne contre la foule.
+2. **Couverture des dealers.** Dans un régime long-gamma — dealers longs de calls, short de puts — la couverture des dealers les oblige à vendre dans les rallyes et à acheter dans les creux. La force structurelle s'aligne contre la foule.
 3. **Asymétrie du catalyseur.** Un catalyseur haussier tombe sur un setup crowded-long et ne surprend personne — le potentiel haussier est déjà en grande partie intégré dans les prix. Un catalyseur baissier dans le même setup frappe un marché non préparé et non couvert. Réaction asymétrique.
 
 Le signal Positioning Trap n'essaie pas de prédire le catalyseur. Il fait ressortir le *setup*, de sorte que lorsque l'étincelle arrive — d'où qu'elle vienne — vous avez déjà identifié quel côté est à risque.
@@ -54,7 +54,7 @@ Le résultat est un nombre par rafraîchissement, calculé en continu sur deux c
 
 ## Comment le score est calculé
 
-Pour chaque côté (squeeze et flush — c'est-à-dire la foule long à risque contre la foule short à risque), le signal calcule une somme pondérée :
+Pour chaque côté (la foule long à risque de flush contre la foule short à risque de squeeze), le signal calcule une somme pondérée :
 
 ```
 side_score = 0.45 × crowding
@@ -91,11 +91,11 @@ Conséquence pratique : n'attendez pas que Positioning Trap « se déclenche ».
 
 | Score | Lecture |
 |---|---|
-| +0,5 à +1,0 | Foule long à risque significatif — squeeze haussier de short-cover en cours de chargement |
+| +0,5 à +1,0 | Foule long à risque significatif — flush baissier en cours de chargement |
 | +0,2 à +0,5 | Foule long légèrement mal positionnée — informatif, pas encore pressant |
 | -0,2 à +0,2 | Aucun extrême de foule clair |
-| -0,2 à -0,5 | Foule short légèrement mal positionnée — flush baissier en cours de chargement |
-| -0,5 à -1,0 | Foule short à risque significatif — setup de flush en cours de chargement |
+| -0,2 à -0,5 | Foule short légèrement mal positionnée — squeeze haussier en cours de chargement |
+| -0,5 à -1,0 | Foule short à risque significatif — squeeze haussier de short-cover en cours de chargement |
 
 Le playbook `positioning_trap_squeeze` se débloque à **abs(score) ≥ 0,5** — plus élevé que le déclenchement Advanced typique. Positioning Trap nécessite une conviction plus profonde pour agir, car trader contre la foule est structurellement plus risqué que suivre le momentum.
 
@@ -158,12 +158,12 @@ Le signal alimente plusieurs panneaux :
 
 Un exemple concret. Le SPX glisse lentement vers le bas et ZeroGEX affiche :
 
-- **Positioning Trap :** +0,62 (foule long mal positionnée)
+- **Positioning Trap :** −0,62 (foule short mal positionnée)
 - **Net GEX :** +1,4 Md$
 - **Trap Detection :** 0
 - **Squeeze Setup :** +0,31
 
-La lecture structurelle : la foule long est chargée, le régime est long-gamma (les dealers amplifieront un squeeze s'il en survient un), Squeeze Setup penche haussier, et Trap Detection est silencieux (pas de rupture baissière échouée récente à fader *pour l'instant*). Inclinaison pratique : le squeeze haussier de short-cover est le chemin le plus probable ; attendez l'étincelle, puis tradez dans la direction que pointe Positioning Trap.
+La lecture structurelle : la foule short est chargée, le régime est long-gamma (les dealers amplifieront un squeeze s'il en survient un), Squeeze Setup penche haussier, et Trap Detection est silencieux (pas de rupture baissière échouée récente à fader *pour l'instant*). Inclinaison pratique : le squeeze haussier de short-cover est le chemin le plus probable ; attendez l'étincelle, puis tradez dans la direction que pointe Positioning Trap.
 
 ---
 
