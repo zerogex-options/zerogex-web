@@ -20,7 +20,7 @@ Vanna is a second-order Greek that measures the **sensitivity of an option's del
 
 In symbols: vanna ≈ ∂Δ/∂σ = ∂²V/∂σ∂S. It is the cross-derivative of option value with respect to spot and implied vol.
 
-What this actually means in plain language: when implied volatility moves, your option's delta moves *even if spot does not*. A drop in IV reduces the delta of out-of-the-money calls and increases the delta of out-of-the-money puts (in magnitude). A rise in IV does the opposite. Anyone holding an options book whose delta drifts when vol moves has to hedge that drift — and that is where vanna becomes a flow in the tape.
+What this actually means in plain language: when implied volatility moves, your option's delta moves *even if spot does not*. A drop in IV shrinks the delta magnitude of out-of-the-money options on both sides — OTM calls and OTM puts alike drift toward zero delta. A rise in IV does the opposite. Anyone holding an options book whose delta drifts when vol moves has to hedge that drift — and that is where vanna becomes a flow in the tape.
 
 ### How dealers experience vanna
 
@@ -28,15 +28,15 @@ Dealers run delta-neutral books. When IV drops, the delta of their inventory shi
 
 The canonical setup that gets discussed in flow analysis:
 
-- Dealers are typically short calls (customers are net long).
-- When IV drops, OTM call delta drops.
-- A dealer who was short an OTM call with delta 0.30 might now be short the same call with delta 0.25.
-- Their short-delta exposure has shrunk — they are mechanically less short the underlying.
-- To stay delta-neutral, they have to *sell* underlying — or, if they had been holding long underlying as a hedge, they sell some of it.
+- Dealers are typically long calls and short puts — customers overwrite calls and buy puts for protection.
+- When IV drops, those out-of-the-money deltas shrink toward zero.
+- Take the short puts: a dealer short an OTM put carrying +0.30 delta from that position might now carry only +0.25.
+- That long-delta contribution has shrunk, so against the dealer's stock hedge the book is now slightly net short.
+- To stay delta-neutral, they have to *buy* the underlying.
 
-That sounds bearish in isolation. The interesting case is the inverse: in a market where IV has been drifting down for days or weeks (a vol-compression regime), dealers are continuously *re-hedging* the vanna decay on a chain that is heavily skewed toward customer-long-call positioning. The aggregate of those flows tends to manifest as a persistent, structural bid — the "vanna grind" that flow desks have written about for years.
+The long calls pull the same way: as their delta decays, the book again tips short against its hedge and dealers buy. In a market where IV has been drifting down for days or weeks (a vol-compression regime), dealers re-hedge that vanna decay continuously across a book that is short puts and long calls — and the aggregate of those flows tends to manifest as a persistent, structural bid: the "vanna grind" that flow desks have written about for years.
 
-The exact sign depends on the chain composition. A book dominated by dealer-short OTM puts behaves differently than one dominated by dealer-short OTM calls. The standard analysis assumes the typical customer-long-call/customer-long-put skew, which gives the vanna-grind-in-vol-compression result. In less typical regimes, the sign can flip.
+The exact sign depends on the chain composition. A book dominated by dealer-short OTM puts behaves differently than one where customers have aggressively *bought* calls, leaving dealers short those calls. The standard analysis assumes the typical protection-buying / call-overwriting skew — dealers short puts and long calls — which gives the vanna-grind-in-vol-compression result. In less typical regimes (a call-buying frenzy, say), the sign can flip.
 
 ---
 
@@ -52,10 +52,10 @@ The intuition: an option's delta is, loosely, the market-implied probability tha
 
 Like vanna, charm forces re-hedging without any move in spot. A dealer running a delta-neutral book sees their effective delta exposure drift purely because of time passing, and has to trade the underlying to stay flat.
 
-The directional sign of charm-driven dealer flow depends on which side of the book dominates. For a typical short-call-heavy dealer book held into the close on a 0DTE chain:
+The directional sign of charm-driven dealer flow depends on which side of the book dominates. For a typical dealer book — long calls, short puts — held into the close on a 0DTE chain:
 
-- OTM call deltas decay toward 0.
-- The dealer's short-call delta exposure shrinks in magnitude.
+- OTM option deltas decay toward 0.
+- The dealer's net option delta shrinks as those deltas decay.
 - They have to trade the underlying to stay neutral.
 - For a typical chain, the net direction of that continuous hedging through the afternoon often produces a measurable, sign-stable drift.
 
@@ -87,7 +87,7 @@ The mechanism:
 2. The risk passes without the priced realized move.
 3. IV starts bleeding lower across the chain.
 4. The chain (dealer book) re-hedges vanna continuously through the decay.
-5. For a typical customer-long-call-skewed chain, the aggregate hedging is a persistent bid in the underlying.
+5. For a typical chain — customers buying puts and overwriting calls, so dealers are short puts and long calls — the aggregate hedging is a persistent bid in the underlying.
 
 The flow is small per minute and frequently invisible to anyone reading volume bars. It is most visible on intraday charts as a grinding uptrend in quiet tape that does not match the volume picture — the classic "everything is up on no volume" sessions that follow uneventful CPI prints.
 
@@ -182,7 +182,7 @@ The composite read: long-gamma regime, structural magnet just below spot, charm 
 
 A few traps:
 
-- **"Vanna is bullish."** It is not. It is the dealer reflex to IV moves. The directional sign of that reflex depends on the chain composition; in a typical customer-long-call chain during vol compression, the *aggregate* tends to be a bid — but that is a regime statement, not a property of the Greek.
+- **"Vanna is bullish."** It is not. It is the dealer reflex to IV moves. The directional sign of that reflex depends on the chain composition; in a typical chain where customers buy puts and overwrite calls (leaving dealers short puts and long calls) during vol compression, the *aggregate* tends to be a bid — but that is a regime statement, not a property of the Greek.
 - **"Charm is a signal."** Charm-driven flow is a structural force, not a trade. It produces a tendency toward drift in the final hour; it does not tell you when to enter.
 - **"Vanna and charm only matter on OPEX week."** They are loudest then, but charm decay matters every day with significant 0DTE flow — which is now most days.
 - **"The vanna grind always works in vol compression."** Only when the chain composition supports it and the gamma regime does not fight it.

@@ -30,7 +30,7 @@ GEX measures an exposure dealers *can't* get rid of. DEX measures the one exposu
 
 Set aside the hedging problem and grant, for the sake of argument, that we want to weight the chain by delta. Look at where that weighting puts its mass.
 
-Delta runs from 0 to 1. It is near 0 for deep out-of-the-money options, crosses 0.5 near the money, and approaches 1 for deep in-the-money options. Compare that to gamma, which peaks sharply at-the-money and falls toward zero in both wings. Weighting the chain by delta instead of gamma does one specific thing: it drags the metric's center of mass **toward the in-the-money side** — and it hands real weight to the **deep in-the-money tail**, strikes that a gamma-weighted metric correctly ignores because their gamma is nil.
+Call delta runs from 0 to 1 (put delta from 0 to −1). Taking magnitudes: |delta| is near 0 for deep out-of-the-money options, crosses 0.5 near the money, and approaches 1 for deep in-the-money options. Compare that to gamma, which peaks sharply at-the-money and falls toward zero in both wings. Weighting the chain by delta instead of gamma does one specific thing: it drags the metric's center of mass **toward the in-the-money side** — and it hands real weight to the **deep in-the-money tail**, strikes that a gamma-weighted metric correctly ignores because their gamma is nil.
 
 That in-the-money tail is the worst part of the chain to lean a metric on:
 

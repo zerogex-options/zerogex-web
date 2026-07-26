@@ -16,11 +16,11 @@ The opposite — **positive gamma** — is the more common SPY default during mo
 
 ## What "negative gamma" actually refers to
 
-Gamma is a second-order option Greek that measures how an option's delta changes as the underlying moves. A signed "gamma exposure" number is the aggregate gamma across the dealer book, with calls (typically held short by dealers) contributing positively and puts (also typically held short) contributing negatively.
+Gamma is a second-order option Greek that measures how an option's delta changes as the underlying moves. A signed "gamma exposure" number is the aggregate gamma across the dealer book, with calls (typically held long by dealers) contributing positively and puts (typically held short by dealers) contributing negatively.
 
 When the *net* of those signed contributions is negative, the dealer book is short gamma overall. The conventional way this appears in flow tooling: Net GEX < 0.
 
-The standard customer-long-call / customer-long-put assumption means dealers are typically short both — but the *magnitudes* shift with positioning. When customer demand skews heavily toward puts (e.g., during fear regimes), the dealer book's net gamma can flip negative; when it skews toward calls (e.g., calm uptrends), the book is long gamma.
+The standard convention — customers overwrite calls and buy puts for protection — means dealers are typically long calls and short puts, but the *magnitudes* shift with positioning. When customer demand skews heavily toward puts (e.g., during fear regimes), the dealer book's growing short-put inventory can push net gamma negative; when calls dominate (e.g., calm uptrends where overwriting builds dealer long-call gamma), the book is long gamma.
 
 The single most useful summary stat: the **gamma flip** — the price at which the dealer gamma profile crosses zero. Above the flip, dealers are typically long gamma (positive). Below the flip, short gamma (negative). Reading the flip is essentially reading the regime line. See [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip).
 

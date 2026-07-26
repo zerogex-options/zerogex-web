@@ -16,7 +16,7 @@ This piece walks through what each wall is, why price tends to react at them, ho
 
 ## What is a call wall?
 
-The call wall is the strike above spot that carries the heaviest call gamma exposure. In a positive-gamma regime, dealers holding short-call inventory must sell into rallies that approach the wall — shedding delta they accumulated as price climbed toward it. That hedging reflex pushes against the rally.
+The call wall is the strike above spot that carries the heaviest call gamma exposure. In a positive-gamma regime, dealers holding long-call inventory must sell into rallies that approach the wall — shedding the positive delta they accumulate as price climbs toward it. That hedging reflex pushes against the rally.
 
 In practice, the call wall often acts as **resistance** in long-gamma regimes — not because the level is magic, but because the hedging flow that activates around it is structural.
 
@@ -30,7 +30,7 @@ Things to know:
 
 ## What is a put wall?
 
-The put wall is the strike below spot with the heaviest put gamma exposure. In a positive-gamma regime, dealers holding short-put inventory must buy as price drops toward it — buying delta they shed on the way down. That reflex pushes back against the selloff.
+The put wall is the strike below spot with the heaviest put gamma exposure. In a positive-gamma regime, the net dealer book is long gamma, so it buys as price drops toward the wall — the mirror of the call-wall reflex, with the buying concentrated where put gamma is densest. That reflex pushes back against the selloff.
 
 In practice, the put wall often acts as **support** in long-gamma regimes. Like the call wall, the mechanism is structural, not psychological.
 

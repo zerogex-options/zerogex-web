@@ -20,7 +20,7 @@ The number you see here is measured at spot, not summed across the chain — tha
 
 ### Gamma Flip
 
-The strike where the dealer gamma curve crosses zero. The flip is the regime line: above it, hedging is stabilizing; below it, hedging is amplifying. The tile shows both the absolute strike and the percent distance from spot.
+The price level where the dealer gamma curve crosses zero. The flip is the regime line: above it, hedging is stabilizing; below it, hedging is amplifying. The tile shows both the absolute level and the percent distance from spot.
 
 ### Call Wall / Put Wall
 

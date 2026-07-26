@@ -164,7 +164,7 @@ The 2.0× amplifier on quad-witching days is large enough to push a +0.4 unampli
 
 EOD Pressure is a **directional read** — it tells you which way pressure points without prescribing ride-versus-fade on its own. The fade-versus-ride decision comes from the regime:
 
-- **Positive-gamma regime + positive EOD Pressure score:** drift is up, dealer hedging is dampening, the read favors fading rallies into the magnet strike to catch the drift-toward-pin.
+- **Positive-gamma regime + positive EOD Pressure score:** drift is up, dealer hedging is dampening, the read favors positioning *with* the drift toward the magnet strike — buying weakness rather than fading into it — and fading only overshoots beyond the magnet.
 - **Negative-gamma regime + positive EOD Pressure score:** the signal is reading a charm-driven up-bias, but in a short-gamma regime the dealer reflex is amplifying rather than absorbing — momentum continuation is more likely.
 
 Combined with other signals:

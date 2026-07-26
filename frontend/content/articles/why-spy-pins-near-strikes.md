@@ -18,10 +18,10 @@ This piece walks through the actual mechanics of pinning, why it intensifies nea
 
 The mechanism is straightforward once you write it out:
 
-1. A specific strike — let's say SPY 583 — carries large gamma concentration. Customers have bought a lot of 583 calls and puts; dealers are short the equivalent.
-2. The dealer book is **long gamma** at the strike. That happens when, on net, dealers are *short* the options that customers hold long. (Standard convention.)
-3. When SPY rises through 583, dealers' option delta becomes more positive (they're net short calls; rising spot means their short-call delta exposure grows). To stay neutral, they **sell** SPY.
-4. When SPY drops through 583, dealers' option delta becomes more negative (their short-put delta exposure grows on the downside). To stay neutral, they **buy** SPY.
+1. A specific strike — let's say SPY 583 — carries large gamma concentration, and on net the dealer book is **long** that gamma.
+2. A long-gamma book at the strike hedges *against* moves away from it — the stabilizing reflex that pins price. (It is the positive-gamma regime playing out at a single dominant strike.)
+3. When SPY rises through 583, the dealers' hedge delta grows positive, so to stay neutral they **sell** SPY.
+4. When SPY drops through 583, their hedge delta grows negative, so to stay neutral they **buy** SPY.
 5. Every excursion away from 583 forces a hedge trade *back toward* 583. The strike acts as a magnet — not because anyone is targeting it, but because the hedging math points price there mechanically.
 
 This is what's happening structurally when you see SPY oscillating in a tight range. It's not "the market deciding to pin"; it's the aggregate dealer book correcting back to neutral on every move.

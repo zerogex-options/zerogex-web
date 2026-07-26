@@ -33,13 +33,13 @@ None of these are psychological levels. They emerge from actual open interest an
 
 ### Call wall
 
-When SPY rises toward the heaviest call gamma strike, dealers who are short those calls (the standard convention is dealers net-short customer-long-calls) must sell SPY shares to stay delta-neutral. The hedging trade is exactly the same direction as a sell-stop — it adds supply at the strike. In a long-gamma regime, that supply is meaningful enough to cap the move and produce the reversal traders later call "random."
+When SPY rises toward the heaviest call gamma strike, dealers who are long those calls (the standard convention leaves dealers holding the calls that customers overwrite) must sell SPY shares as price rises to stay delta-neutral, because their long-call delta grows as the market climbs. The hedging trade is exactly the same direction as a sell-stop — it adds supply at the strike. In a long-gamma regime, that supply is meaningful enough to cap the move and produce the reversal traders later call "random."
 
 The full mechanism on walls is in [Gamma Walls Explained](/education/gamma-walls-explained).
 
 ### Put wall
 
-The mirror: SPY falling toward the heaviest put gamma strike forces dealers to buy SPY shares (they're short the puts, so their delta exposure rises as price falls). The buying acts as structural support and produces the bounce.
+The mirror: as SPY falls toward the heaviest put gamma strike, the net long-gamma dealer book buys SPY shares to stay hedged — and because put gamma is densest at that strike, the buying concentrates there. It acts as structural support and produces the bounce.
 
 ### Gamma magnet
 

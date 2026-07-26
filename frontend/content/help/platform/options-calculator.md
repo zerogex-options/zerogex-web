@@ -35,7 +35,7 @@ For each leg and for the aggregate:
 - **Vega** — IV sensitivity (per 1% change)
 - **Charm** — delta decay (per day)
 
-Aggregate greeks let you read a multi-leg structure in one glance — e.g., a long calendar is net long vega, short theta in the front month, long theta in the back.
+Aggregate greeks let you read a multi-leg structure in one glance — e.g., a long calendar is net long vega and net long theta, collecting decay on the short near-dated leg faster than it pays it on the long far-dated leg.
 
 ## The P&L surface
 

@@ -16,7 +16,7 @@ Its mirror below spot is the [put wall](/education/what-is-a-put-wall), the heav
 
 ## Why the call wall acts as resistance
 
-The mechanism is dealer hedging. In a **positive-gamma** regime — spot above the [gamma flip](/education/how-to-read-a-gamma-flip) — dealers are net long gamma, and the desks holding the heavy calls at the call-wall strike are short those calls. To stay delta-neutral they must **sell** the underlying as price rises toward the strike, because a short-call position gets shorter delta as the market climbs.
+The mechanism is dealer hedging. In a **positive-gamma** regime — spot above the [gamma flip](/education/how-to-read-a-gamma-flip) — dealers are net long gamma, and the desks holding the heavy calls at the call-wall strike are long those calls (customers overwrote them). To stay delta-neutral they must **sell** the underlying as price rises toward the strike, because a long-call position gets longer delta as the market climbs.
 
 That selling is the resistance. As price rallies toward a dense call strike, the hedging reflex intensifies — a small move up forces a relatively larger hedging sell back down. Rips get faded, and the advance stalls. Not because the number is magic, but because the hedge is mechanical.
 

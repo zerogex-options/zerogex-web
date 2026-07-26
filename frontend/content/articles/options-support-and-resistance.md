@@ -20,7 +20,7 @@ This piece is the practical workflow for identifying options-based S/R, reading 
 
 ### 1. Call walls (resistance)
 
-The **call wall** is the strike above spot with the heaviest call gamma exposure. In a long-gamma regime, dealers hedging short-call inventory must sell into rallies that approach the wall. That selling acts as structural resistance.
+The **call wall** is the strike above spot with the heaviest call gamma exposure. In a long-gamma regime, dealers hedging long-call inventory must sell into rallies that approach the wall. That selling acts as structural resistance.
 
 Practical read: the call wall is the most reliable form of options-based resistance in a positive-gamma regime. In a negative-gamma regime, it inverts and becomes a breakout target.
 

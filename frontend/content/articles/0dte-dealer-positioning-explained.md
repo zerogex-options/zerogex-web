@@ -16,7 +16,7 @@ This piece is the practical read for what "0DTE dealer positioning" and "dealer 
 
 ## What is 0DTE dealer positioning?
 
-0DTE dealer positioning is the aggregate gamma exposure dealers carry on same-day-expiring options. Mechanically, it is no different from longer-dated dealer gamma — calls held short by dealers contribute positively to dealer gamma, puts held short contribute negatively, and the hedging reflex is the same: keep delta flat, trade the underlying as gamma changes.
+0DTE dealer positioning is the aggregate gamma exposure dealers carry on same-day-expiring options. Mechanically, it is no different from longer-dated dealer gamma — under the standard convention dealers are long calls (customers overwrite them) and short puts (customers buy them for protection), so long-call inventory contributes positively to dealer gamma while short-put inventory contributes negatively, and the hedging reflex is the same: keep delta flat, trade the underlying as gamma changes.
 
 What makes 0DTE different is the **gamma density**. Same-day options carry their largest gamma right at the money, and per-contract gamma scales roughly with `1/√T`. With `T` measured in fractions of a day, that denominator is small — and the gamma per contract becomes very large. A 0DTE strike near spot can outweigh a monthly strike at the same level by an order of magnitude.
 
@@ -29,7 +29,7 @@ The practical implication: the 0DTE bucket disproportionately dictates intraday 
 Three things compound for 0DTE that do not compound the same way for longer-dated:
 
 1. **Gamma concentration.** Same-day options carry very high gamma at the money. Hedging trades against that gamma are large per unit move, which makes near-spot price action mechanically louder.
-2. **Charm decay.** As 0DTE options approach expiry, their delta drifts predictably toward 0 or 1 depending on moneyness. Dealers running a delta-neutral book have to re-hedge continuously into the close. That forced flow has a sign — and it is directly readable.
+2. **Charm decay.** As 0DTE options approach expiry, their delta drifts predictably toward 0 (out-of-the-money) or ±1 (in-the-money — +1 for calls, −1 for puts). Dealers running a delta-neutral book have to re-hedge continuously into the close. That forced flow has a sign — and it is directly readable.
 3. **Pin physics.** The same gamma concentration that makes 0DTE move dealers a lot per tick also makes the heaviest 0DTE strike a magnet in a long-gamma regime. Pin behavior tends to be sharper on 0DTE than on multi-day setups.
 
 None of those mechanisms is unique to 0DTE — they apply to any short-dated option. They are just unusually loud in the 0DTE bucket because of how compressed `T` has become.

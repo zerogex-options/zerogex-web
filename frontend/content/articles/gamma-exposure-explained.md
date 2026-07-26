@@ -67,12 +67,12 @@ The dollar interpretation is what makes the number useful: it answers "how much 
 
 To turn raw magnitude into a regime signal, each contract is signed by who holds it. The standard convention assumes:
 
-- Customers are typically net long calls and net long puts.
-- Dealers are therefore typically net short both — short calls contribute positive gamma to the dealer book, short puts contribute negative.
+- Customers are typically net sellers of calls (call overwriting) and net buyers of puts (downside protection).
+- Dealers therefore typically hold the other side — long calls and short puts. A long call carries positive gamma and a short put carries negative gamma, so calls contribute positively to the dealer book and puts contribute negatively.
 
 In practice, that produces a signed dealer GEX per strike — positive for calls, negative for puts — that, when summed, gives you the dealer's net exposure across the chain.
 
-This is an approximation. Dealer positioning is not directly observable; it is inferred from open interest and the standard customer-long convention. Different vendors handle edge cases differently, and the assumption can break down in unusual flow conditions. As an estimator of regime, though, it has held up well enough to be the standard for years.
+This is an approximation. Dealer positioning is not directly observable; it is inferred from open interest and the standard long-call / short-put convention. Different vendors handle edge cases differently, and the assumption can break down in unusual flow conditions. As an estimator of regime, though, it has held up well enough to be the standard for years.
 
 ### Net GEX versus total GEX
 
@@ -201,8 +201,8 @@ Gamma is not the whole picture. Vanna (vol-driven hedging) creates a persistent 
 
 GEX is the headline read, but it is not the whole dealer book. Two second-order Greeks materially shape dealer hedging flows on top of gamma:
 
-- **Vanna** is the sensitivity of delta to implied vol. When IV moves, dealers' option deltas move even if spot does not — and they have to hedge that. In a vol-compression regime, vanna flows from dealer short calls often manifest as a persistent grinding bid in the underlying.
-- **Charm** is the sensitivity of delta to time. As options approach expiry, their delta drifts predictably — out-of-the-money options decay toward 0, in-the-money ones toward 1 — and dealers must continuously re-hedge that drift. The cleanest place to see charm in the tape is the final 90 minutes of the cash session.
+- **Vanna** is the sensitivity of delta to implied vol. When IV moves, dealers' option deltas move even if spot does not — and they have to hedge that. In a vol-compression regime, vanna flows from dealers' short-put inventory often manifest as a persistent grinding bid in the underlying.
+- **Charm** is the sensitivity of delta to time. As options approach expiry, their delta drifts predictably — out-of-the-money options decay toward 0, in-the-money ones toward 1 for calls and −1 for puts — and dealers must continuously re-hedge that drift. The cleanest place to see charm in the tape is the final 90 minutes of the cash session.
 
 Both effects are largest when gamma is also large — which is to say, when 0DTE and short-dated options dominate the chain. Read them together with GEX, not in isolation.
 
@@ -225,7 +225,7 @@ A few traps:
 GEX is an estimator of dealer hedging requirements built from open interest under a standard assumption about who holds what. That makes it useful, but it is not a complete picture:
 
 - **OI is a snapshot, not real-time inventory.** Dealer positioning shifts within the day in ways OI does not capture.
-- **The customer-long-call/customer-long-put convention can break.** During unusual flow conditions, the dealer-sign assumption can mis-attribute exposure.
+- **The long-call / short-put convention can break.** During unusual flow conditions, the dealer-sign assumption can mis-attribute exposure.
 - **Macro events override structure.** A CPI surprise or an FOMC statement can swamp the dealer reflex.
 - **Single-stock catalysts can move index GEX indirectly.** Earnings, M&A, and component news can reshape SPX flow in ways that show up in GEX with a lag.
 - **Sticky-strike vs. sticky-delta** assumptions matter for spot-shift implementations; different vendors handle this differently.
@@ -257,7 +257,7 @@ The composite read: spot is comfortably in long-gamma territory ($20 above the f
 
 ![ZeroGEX strike-profile chart with the dealer gamma curve, flip line, and walls highlighted](/blog/zerogex-strike-profile-overview.png)
 
-Now imagine the same dashboard 90 minutes later: Net GEX has decayed to +$300M and the gamma flip has drifted up to 5,825 while spot has slipped to 5,818. The regime is now contested — spot is technically below the flip, but only by a few points, and the magnitude has thinned out. That is exactly the structural state where both regimes are partially active, behavior gets unstable, and the right discipline is usually to wait for a cleaner read before committing.
+Now imagine the same dashboard 90 minutes later: Net GEX has decayed to −$150M and the gamma flip has drifted up to 5,825 while spot has slipped to 5,818. The regime is now contested — spot is technically below the flip, but only by a few points, and the magnitude has thinned out. That is exactly the structural state where both regimes are partially active, behavior gets unstable, and the right discipline is usually to wait for a cleaner read before committing.
 
 ---
 

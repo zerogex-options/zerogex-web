@@ -28,12 +28,12 @@ That shift is vanna. Every out-of-the-money option in the chain re-prices its de
 
 The direction of vanna flow depends on how the book is composed, but the textbook setup — and the one that produces the recognizable grind — runs like this.
 
-Customers are, in aggregate, long options. They buy calls for upside and puts for protection, and dealers are short the other side. Consider the moments *after* a scare: implied vol got bid up ahead of a CPI print, an FOMC meeting, an earnings event. The risk passes. The feared move does not materialize. Implied vol, which was rich, starts bleeding lower over the following hours and days.
+Customers, in aggregate, overwrite calls for yield and buy puts for protection — so dealers are long those calls and short those puts. Consider the moments *after* a scare: implied vol got bid up ahead of a CPI print, an FOMC meeting, an earnings event. The risk passes. The feared move does not materialize. Implied vol, which was rich, starts bleeding lower over the following hours and days.
 
 As vol falls:
 
-1. The deltas of the out-of-the-money options the dealer is short drift toward zero.
-2. The dealer's net short-delta position shrinks — they are mechanically less short the market than they were.
+1. The out-of-the-money option deltas in the dealer's book drift toward zero.
+2. The dealer's net *long* option delta shrinks, so the book tips short against its stock hedge.
 3. To restore the hedge, they buy stock.
 4. The vol keeps bleeding, so the drift keeps going, so the buying keeps coming — small, steady, all day.
 

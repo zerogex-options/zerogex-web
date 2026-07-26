@@ -94,7 +94,7 @@ SPX is at 5,810 at the open. ZeroGEX shows:
 
 Initial read: long-gamma regime, healthy positioning, structural range 5,790-5,820. Default playbook: fade the extremes (sell pushes toward 5,820, buy dips toward 5,790), skip the middle.
 
-By 13:00 ET, SPX has slipped to 5,800 — now 2 points below the flip. Net GEX has decayed to +$300M and the flip has drifted up to 5,803. The regime is contested — spot just crossed the flip, magnitude is shrinking, and the structural reflex is weakening.
+By 13:00 ET, SPX has slipped to 5,806 and the flip has drifted up to 5,803 — the two have nearly converged. Net GEX has decayed to +$300M. The regime is contested — spot is barely above the flip, magnitude is shrinking, and the structural reflex is weakening.
 
 The playbook shifts. The fade-the-rally setup that was on at 14:30 is now structurally unsupported; a continuation higher is possible if Net GEX flips negative. Position size should shrink; the default trade is no trade until the regime resolves.
 

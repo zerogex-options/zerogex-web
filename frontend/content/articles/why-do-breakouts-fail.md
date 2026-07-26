@@ -34,7 +34,7 @@ The dominant structural cause is **dealer long-gamma hedging at concentrated str
 
 Here's the chain:
 
-1. Customers buy calls heavily at a given strike (say, the SPX 5,850 strike). Dealers sell those calls.
+1. Customers sell calls heavily at a given strike (say, the SPX 5,850 strike) — overwriting and call-selling. Dealers buy those calls.
 2. To stay delta-neutral, dealers must hold a corresponding amount of underlying short delta — i.e., they're short relative to the call exposure. As spot rises toward 5,850, their option exposure picks up positive delta they have to offset by *selling* the underlying.
 3. The closer spot gets to 5,850, the more concentrated the gamma — and the more underlying dealers must sell per tick of price move to stay neutral.
 4. That selling acts as structural supply. It doesn't have to come from one place — it's the aggregate of every dealer hedging the same way.

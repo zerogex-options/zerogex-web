@@ -31,7 +31,7 @@ Trade bias: **mean-reversion**. When Positioning Trap is active, it points to th
 Three mechanisms drive the "crowded trades break" thesis:
 
 1. **Reflexivity.** Heavy one-sided positioning means the people who *would have bought* (in a crowded-long setup) have already bought. The marginal next buyer is hard to find. The path of least resistance starts to lean the other way.
-2. **Dealer hedging.** In a regime where dealers are short calls because customers are long, dealer hedging requires them to *sell* into rallies. The structural force lines up against the crowd.
+2. **Dealer hedging.** In a long-gamma regime — dealers long calls, short puts — dealer hedging requires them to sell into rallies and buy into dips. The structural force lines up against the crowd.
 3. **Catalyst asymmetry.** A bullish catalyst lands in a long-crowd setup and surprises nobody — the upside is largely priced. A bearish catalyst in the same setup hits a market that is unprepared and unhedged. Asymmetric reaction.
 
 The Positioning Trap signal does not try to predict the catalyst. It surfaces the *setup*, so when the spark comes — wherever it comes from — you have already identified which side is at risk.
@@ -54,7 +54,7 @@ The output is one number per refresh, computed continuously across two sides (sq
 
 ## How the score is computed
 
-For each side (squeeze and flush — i.e., the long crowd at risk versus the short crowd at risk), the signal computes a weighted sum:
+For each side (the long crowd at risk of a flush versus the short crowd at risk of a squeeze), the signal computes a weighted sum:
 
 ```
 side_score = 0.45 × crowding
@@ -91,11 +91,11 @@ Practical consequence: don't wait for Positioning Trap to "fire." Watch the scor
 
 | Score | Reading |
 |---|---|
-| +0.5 to +1.0 | Long crowd at meaningful risk — upside short-cover squeeze loading |
+| +0.5 to +1.0 | Long crowd at meaningful risk — downside flush loading |
 | +0.2 to +0.5 | Long crowd mildly offside — informational, not yet pressing |
 | -0.2 to +0.2 | No clear crowd extreme |
-| -0.2 to -0.5 | Short crowd mildly offside — downside flush loading |
-| -0.5 to -1.0 | Short crowd at meaningful risk — flush setup loading |
+| -0.2 to -0.5 | Short crowd mildly offside — upside squeeze loading |
+| -0.5 to -1.0 | Short crowd at meaningful risk — upside short-cover squeeze loading |
 
 The `positioning_trap_squeeze` playbook gates at **abs(score) ≥ 0.5** — higher than the typical Advanced trigger. Positioning Trap needs deeper conviction to act on, because trading against the crowd is structurally riskier than running with momentum.
 
@@ -158,12 +158,12 @@ The signal feeds multiple panels:
 
 A worked example. SPX is grinding lower and ZeroGEX shows:
 
-- **Positioning Trap:** +0.62 (long crowd offside)
+- **Positioning Trap:** −0.62 (short crowd offside)
 - **Net GEX:** +$1.4B
 - **Trap Detection:** 0
 - **Squeeze Setup:** +0.31
 
-The structural read: the long crowd is loaded, the regime is long-gamma (dealers will amplify a squeeze if one comes), Squeeze Setup is leaning bullish, and Trap Detection is silent (no recent failed downside break to fade *yet*). Practical lean: the upside short-cover squeeze is the higher-probability path; wait for the spark, then trade in the direction Positioning Trap is pointing.
+The structural read: the short crowd is loaded, the regime is long-gamma (dealers will amplify a squeeze if one comes), Squeeze Setup is leaning bullish, and Trap Detection is silent (no recent failed downside break to fade *yet*). Practical lean: the upside short-cover squeeze is the higher-probability path; wait for the spark, then trade in the direction Positioning Trap is pointing.
 
 ---
 

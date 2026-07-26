@@ -20,7 +20,7 @@ Aggregate dealer delta. Strong negative means dealers are short delta and struct
 
 ### Net VEX (Vanna)
 
-Aggregate dealer vanna — sensitivity of delta to IV. Positive means an IV drop forces dealers to sell; an IV rise forces them to buy. This is the engine of "vol-compression grind" days.
+Aggregate dealer vanna — sensitivity of delta to IV. Positive means an IV drop forces dealers to buy; an IV rise forces them to sell. This is the engine of "vol-compression grind" days.
 
 ### Net Charm
 
