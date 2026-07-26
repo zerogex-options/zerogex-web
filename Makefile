@@ -1,4 +1,4 @@
-.PHONY: help install dev build rebuild start stop restart logs status users x-handles referrals migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding activate-late-founder extend-trial quarterly-receipt set-cancellation clear-zombie-customers webhook-health trial-reminders payment-failed-preview verified-never-paid verify-reminders winback reactivation checkout-recovery founding-final-call public-cohort cancellations diagnose-user reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo blog-images
+.PHONY: help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding activate-late-founder extend-trial quarterly-receipt set-cancellation clear-zombie-customers webhook-health trial-reminders payment-failed-preview verified-never-paid verify-reminders winback reactivation checkout-recovery founding-final-call public-cohort cancellations diagnose-user reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo blog-images
 
 # Default target
 help:
@@ -17,6 +17,7 @@ help:
 	@echo "                    Founder column: E=eligible, R=redeemed (intro 12mo), L=lifetime 25% off"
 	@echo "  make x-handles  - List only users who registered an X/Twitter handle (email + @handle). EMAIL_ONLY=yes for just emails"
 	@echo "  make referrals  - Print the referral ledger + per-referrer summary (signups, rewards, banked months)"
+	@echo "  make attribute-referral EMAIL=<referee> REF=<code-or-email> - Manually tie an organic signup to a referrer (back-attribution). REWARD=1 also grants the referrer's free month if the referee already converted to paid (the webhook won't). DRY_RUN=1 to preview, YES=1 to apply"
 	@echo "  make migrate    - Force the auth DB's lazy migration to run now (use after --start-from <step> deploys that add new columns)"
 	@echo "  make migrate-tiers - Migrate legacy starter/elite users to basic/pro (DRY_RUN=1 to preview)"
 	@echo "  make all-to-pro - Promote every non-admin user to pro (DRY_RUN=1 to preview)"
@@ -132,6 +133,30 @@ x-handles:
 # banked free-month totals.
 referrals:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/list-referrals.mjs'
+
+# Manually attribute an organic signup to a referrer (back-attribution) — for
+# when someone was really referred but signed up without the ?ref= link or the
+# code at checkout. The script mirrors core/referrals.ts (backAttributeReferral +
+# rewardReferrerForConvertedReferee) statement-for-statement — it can't import
+# them because they resolve deps via the Next "@/" alias, which the standalone
+# node runner doesn't understand — so idempotency, the creator-partner carve-out,
+# and credit-vs-bank behave identically. Keep the two in sync by hand if that
+# core logic changes. Refuses self-referral and already-attributed referees.
+#
+# Timing: the referrer's free month is granted on the referee's paid conversion
+# (subscription active), so attributing a still-trialing / not-yet-subscribed
+# referee lets the reward fire automatically later. For a referee who is ALREADY
+# on a paid subscription, that webhook has already passed — add REWARD=1 to grant
+# the referrer's month now (credit if they have an active sub, else banked).
+#
+# Usage:
+#   make attribute-referral EMAIL=friend@example.com REF=ABCD2345 DRY_RUN=1
+#   make attribute-referral EMAIL=friend@example.com REF=referrer@example.com YES=1
+#   make attribute-referral EMAIL=friend@example.com REF=ABCD2345 REWARD=1 YES=1
+attribute-referral:
+	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (the referee; e.g. make attribute-referral EMAIL=friend@example.com REF=ABCD2345)"; exit 1; fi
+	@if [ -z "$(REF)" ]; then echo "Error: REF is required (the referrer's 8-char code or their email)"; exit 1; fi
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/attribute-referral.mts --referee $(EMAIL) --referrer "$(REF)" $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(REWARD),--reward,)'
 
 # Force the auth DB's lazy migration to run now. Used after a deploy that
 # adds new columns but skipped the app rebuild + PM2 restart (most often
