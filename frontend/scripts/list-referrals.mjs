@@ -56,6 +56,25 @@ if (userCols.has('referral_credit_months')) {
   }
 }
 
+// Referees whose subscription has lapsed (cancelled / trial ended without
+// converting). Used to derive a display-only `cancelled` status for rows that
+// are still stored as `pending`: the referee signed up under the code but their
+// trial/subscription ended before it ever converted, so the referrer never
+// earned the reward. The stored status is deliberately left `pending` — if such
+// a referee later resubscribes and pays, the standard reward path still credits
+// the referrer — this is purely a clearer label for the ledger view.
+const lapsedRefereeIds = new Set();
+if (userCols.has('subscription_lapsed')) {
+  for (const r of db.prepare(`SELECT id FROM users WHERE subscription_lapsed = 1`).all()) {
+    lapsedRefereeIds.add(r.id);
+  }
+}
+
+// A still-pending row whose referee has churned reads as `cancelled` in the
+// report; every other row shows its stored status verbatim.
+const displayStatus = (r) =>
+  r.status === 'pending' && lapsedRefereeIds.has(r.referee_user_id) ? 'cancelled' : r.status;
+
 const rows = db
   .prepare(
     `SELECT code, referrer_user_id, referee_user_id, status, created_at, converted_at, rewarded_at
@@ -76,7 +95,7 @@ const tableRows = rows.map((r) => [
   r.code,
   emailFor(r.referrer_user_id),
   emailFor(r.referee_user_id),
-  r.status,
+  displayStatus(r),
   formatDate(r.created_at),
   formatDate(r.rewarded_at),
 ]);
@@ -127,5 +146,6 @@ console.log(
   `Totals: ${rows.length} referral(s), ${totalRewarded} rewarded, ${totalBanked} month(s) banked across ${bankedById.size} referrer(s).`,
 );
 console.log('');
-console.log('Status legend: pending = referee signed up but not yet paid; rewarded = referee');
-console.log('subscribed and the referrer\'s free month was credited or banked.');
+console.log('Status legend: pending = referee signed up but not yet paid; cancelled = referee\'s');
+console.log('trial/subscription ended before converting, so no reward was earned; rewarded =');
+console.log('referee subscribed and the referrer\'s free month was credited or banked.');
