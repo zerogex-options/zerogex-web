@@ -8,7 +8,7 @@
 
 The Advanced Signal Dashboard is the **trigger grid** for all eight Advanced signals. Each card shows the score on [-1, +1], the trigger state (idle, hot, just fired), and a sparkline.
 
-Advanced signals are **event-driven**. Each produces a continuous score, but the interesting moment is when the score crosses the signal's trigger threshold.
+Advanced signals are **event-driven**. Each produces a continuous, modeled score — a derived read, not a guaranteed forecast — but the interesting moment is when the score crosses the signal's trigger threshold.
 
 ## The eight signals
 
@@ -27,7 +27,7 @@ Advanced signals are **event-driven**. Each produces a continuous score, but the
 
 ### EOD Pressure
 
-Active in the last 90 minutes. Ramps from 14:30 ET, peaks around 15:45 ET. Built from dealer charm at spot, pin gravity, realized vol, and witching flags. Reads "the close is being pinned to X" with a direction.
+Active in the last 90 minutes. Ramps from 14:30 ET, peaks around 15:45 ET. Built from dealer charm at spot, pin gravity, realized vol, and witching flags. Reads "the close *may* be pinned toward X" with a direction — a modeled lean, since pinning is probabilistic.
 
 ### Gamma/VWAP Confluence
 
@@ -43,7 +43,7 @@ The all-in "is the market loaded" read. Combines wall pinch, flip proximity, reg
 
 ### Squeeze Setup
 
-Multi-day setup detector. Flow z-score, 5/10-bar momentum, gamma readiness, flip distance, VIX regime. Continuation bias — reads "the market is coiled, the next leg is X".
+Multi-day setup detector. Flow z-score, 5/10-bar momentum, gamma readiness, flip distance, VIX regime. Continuation bias — a derived read that the market *may* be coiled toward X, not a guaranteed next leg.
 
 ### Trap Detection
 
@@ -80,7 +80,7 @@ Click any card and you get the individual signal page with the score sparkline, 
 
 ## Important: trade bias matters
 
-Some Advanced signals are continuation, some are mean-reversion. Trap Detection firing positive does **not** mean "go long" — it means "fade the failed breakout to the downside". Always check the trade bias chip on the card.
+Some Advanced signals are continuation, some are mean-reversion. Trap Detection fades a *failed price break*, not a breakout: a **positive** score means a downside break failed (the fade is up — buy the failed breakdown), a **negative** score means an upside break failed (the fade is down) — the mirror image of a continuation signal like Squeeze Setup. Always check the trade-bias chip on the card.
 
 ## See also
 

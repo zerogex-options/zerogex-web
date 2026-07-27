@@ -8,7 +8,7 @@
 
 The Composite Score — internally **MSI**, the Market Score Indicator — is the **single-number summary** of all ZeroGEX signals on the active symbol. It lives on the same **[-1, +1]** line as every other signal score.
 
-Positive composite ⇒ structural bullish lean. Negative ⇒ structural bearish lean. Magnitude is conviction.
+Positive composite ⇒ modeled structural bullish lean. Negative ⇒ modeled bearish lean. Magnitude reflects how strongly the inputs agree — a derived reading, not a guaranteed forecast.
 
 ## How it's built
 
@@ -50,7 +50,7 @@ Three patterns:
 
 1. **As a filter.** Don't put on long-direction trades when the composite is at -0.6 unless your edge is specifically counter-trend.
 2. **As a confluence check.** A high-confidence Advanced trigger backed by a composite in the same direction is a higher-confidence read than the trigger alone.
-3. **As a regime confirmer.** Composite reads tend to be stronger and more persistent in negative gamma sessions — they line up with the underlying market behavior.
+3. **As a regime confirmer.** Composite reads *tend to* be stronger and more persistent in negative-gamma sessions, which is consistent with the more directional behavior those regimes tend to show.
 
 ## What it isn't
 

@@ -17,7 +17,7 @@ That is the most important distinction. Internalize it before reading individual
 
 Every ZeroGEX signal — Advanced or Basic — lives on the same number line: **[-1, +1]**.
 
-- **Sign** tells you direction. Positive is bullish; negative is bearish. Some signals are mean-reversion (so a positive score means "fade higher"); those carry a clear "trade bias" chip on the page.
+- **Sign** tells you direction. For most signals positive is bullish and negative is bearish — but some are mean-reversion or otherwise sign-inverted, so a positive score doesn't always mean "go long." Each card carries a "trade bias" chip that spells out how to read that signal's sign.
 - **Magnitude** tells you conviction. The closer the score is to ±1, the stronger the read.
 - **A 0 score is almost never neutral.** For most signals it means the data is insufficient or this specific question has no answer right now. Read a 0 as "no read", not "no trade".
 
@@ -70,7 +70,7 @@ The order is consistent across pages.
 Every signal has a declared trade bias. It's on the card and on the signal page.
 
 - **Directional read** — score sign maps to expected price direction.
-- **Mean-reversion (vs. crowd)** — high positive score means "fade higher"; trades opposite of the crowd's positioning.
+- **Mean-reversion (vs. crowd)** — the score reflects fading the crowd, not price: a positive score flags a bearish-leaning crowd that can squeeze *higher*, a negative score a bullish-leaning crowd that can flush *lower*.
 - **Mean-reversion (long gamma)** — fade extension toward the mean when dealers are long gamma.
 - **Continuation** — score sign maps to the next leg's direction.
 - **Regime / playbook switch** — the signal tells you to change strategy, not to take a trade.

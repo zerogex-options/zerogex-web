@@ -17,10 +17,10 @@ For directional signals, the sign maps to expected price direction:
 - **Positive ⇒ bullish lean** (long-direction trade is the trade bias)
 - **Negative ⇒ bearish lean**
 
-For mean-reversion signals (Positioning Trap, Trap Detection in some configurations), the sign maps to the **direction of the move you should fade**:
+For mean-reversion signals (Positioning Trap, Trap Detection), the sign maps to the **resolved directional lean** — the trade runs *against* the offside crowd or the failed break, so the sign still points the same way as the directional signals above:
 
-- **Positive ⇒ the move higher is offside / failed** (fade up)
-- **Negative ⇒ the move lower is offside / failed** (fade down)
+- **Positive ⇒ bullish lean** — e.g. a short/bearish crowd at risk of squeezing higher, or a failed downside break you would buy
+- **Negative ⇒ bearish lean** — e.g. a long/bullish crowd at risk of flushing lower, or a failed upside break you would sell
 
 The signal card on every page declares which one applies. Read the trade-bias chip before reading the score.
 

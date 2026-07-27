@@ -16,7 +16,7 @@ There are five families of items:
 
 - **Signal triggers** — when an Advanced signal crosses its trigger threshold.
 - **Regime events** — gamma flip cross, regime transition (positive ↔ negative).
-- **Wall events** — call wall or put wall migrating by a meaningful amount.
+- **Wall events** — call wall or put wall migrating by a meaningful amount (the modeled max-exposure strike shifting as spot, gamma, time, and IV change — not necessarily new open interest).
 - **Flow notables** — premium spikes, smart-money runs, unusual blocks.
 - **Schedule events** — market open, EOD pressure window opening, close.
 

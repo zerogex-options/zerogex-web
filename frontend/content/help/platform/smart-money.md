@@ -39,7 +39,7 @@ Three patterns:
 
 1. **Smart-money strongly long calls + composite positive + GEX gradient supportive** ⇒ structural read aligns with smart-money flow. High-conviction directional.
 2. **Smart-money strongly long puts at the put wall** ⇒ defending or fading. Combined with a Positioning Trap reading, this can be tradeable counter-bias.
-3. **Smart-money flow neutral, headline flow strong** ⇒ the headline is retail-driven; treat with caution.
+3. **Smart-money flow neutral, headline flow strong** ⇒ the headline is likely broad, lower-conviction participation rather than informed positioning; treat with caution.
 
 ## What it isn't
 

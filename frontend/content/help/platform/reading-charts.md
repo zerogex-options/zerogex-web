@@ -31,11 +31,11 @@ For the deeper read, see [Reading the [-1, +1] Score Line](/help/platform/score-
 A staple of the Dealer Positioning page.
 
 - **X-axis** — strike price.
-- **Y-axis** — dealer gamma in dollars, signed.
+- **Y-axis** — modeled dealer gamma in dollars, signed by the call-positive / put-negative convention.
 - **Vertical line** — current spot.
 - **Where the curve crosses zero** — the gamma flip.
-- **Tall positive bars** — call wall candidates.
-- **Tall negative bars** — put wall candidates.
+- **Tall positive bars** — call-side gamma stacks (call wall candidates).
+- **Tall negative bars** — put-side gamma stacks (put wall candidates).
 
 The chart auto-centers on spot. The default range is roughly ±5% from spot — wide enough to see the structural walls, narrow enough to keep the relevant strikes legible.
 
