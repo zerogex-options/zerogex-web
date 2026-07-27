@@ -99,7 +99,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { id: '/greeks-gex', label: 'GEX Summary', requiredTier: 'basic' },
       { id: '/gex-strike-profile', label: 'GEX Strike Profile', requiredTier: 'basic' },
       { id: '/gex-heatmap', label: 'GEX Heatmap', requiredTier: 'basic' },
-      { id: '/pair-comparison', label: 'Pair Comparison', requiredTier: 'basic' },
+      { id: '/pair-comparison', label: 'Pair Comparison', requiredTier: 'basic', beta: true },
       { id: '/forced-flow', label: 'Forced Flow', requiredTier: 'basic', beta: true },
       { id: '/flow-analysis', label: 'Flow Analysis', requiredTier: 'basic' },
       { id: '/smart-money', label: 'Smart Money', requiredTier: 'basic' },
