@@ -1,6 +1,6 @@
 # Delta and Its Three Children
 
-*Delta tells a dealer how much stock to hold. But delta never sits still — and it can only move in three ways: with price, with time, and with volatility. Those three sensitivities are gamma, charm, and vanna. Every dollar of forced dealer flow is one of delta's three children coming to collect.*
+*Delta tells a dealer how much stock to hold. But delta never sits still — and its three biggest drivers are price, time, and volatility. Those three sensitivities are gamma, charm, and vanna. Most of the forced dealer flow that shows up in the tape is one of delta's three children coming to collect.*
 
 ---
 
@@ -10,21 +10,23 @@ Delta is the most important number in an option and the least interesting. It is
 
 If delta were a constant, the story would end there. You would hedge once and never touch it again. But delta is a derivative — the rate of change of the option's value with respect to spot — and derivatives are themselves functions of the world. Change the world and delta changes. The dealer's entire ongoing job, and the entire source of readable dealer flow, is chasing delta as it moves.
 
-So the question that actually matters is not "what is delta" but "what makes delta move." There are exactly three answers.
+So the question that actually matters is not "what is delta" but "what makes delta move." Three drivers do most of the work.
 
 ---
 
 ## The three ways a delta can move
 
-Between the moment a dealer puts on a hedge and the moment the option expires, three things in the world can change, and each one drags delta with it:
+Between the moment a dealer puts on a hedge and the moment the option expires, three market inputs move more or less continuously, and each one drags delta with it:
 
 1. **The stock price changes.** Delta's sensitivity to spot is **gamma** (∂Δ/∂S).
 2. **Time passes.** Delta's sensitivity to time is **charm** (∂Δ/∂t).
 3. **Implied volatility changes.** Delta's sensitivity to vol is **vanna** (∂Δ/∂σ).
 
-That is the whole family. Gamma, charm, and vanna are the three first-order derivatives of delta, one for each variable that can move underneath a hedged book. Traders memorize them as separate greeks with exotic names; they are better understood as a single idea — *how delta moves* — split three ways by *what moved it*.
+That is the core family. Gamma, charm, and vanna are the first-order derivatives of delta with respect to the three inputs that move most under a hedged book. Traders memorize them as separate greeks with exotic names; they are better understood as a single idea — *how delta moves* — split three ways by *what moved it*.
 
-This is the cleanest mental model for dealer flow: a dealer does not hedge delta, a dealer hedges the **change** in delta. And there are precisely three channels the change can arrive through. Name the channel and you have named the flow.
+They are not literally the only things that shift delta. Interest rates, dividends and borrow costs, changes in the shape of the vol surface, and the book itself turning over — new customer trades, closes, exercise and assignment, offsetting positions — all nudge delta too. But those are either slow, small, or discrete, while price, time, and vol move continuously all session. That is why these three generate the bulk of the steady, readable hedging flow, and why they are the children worth naming.
+
+This is the cleanest mental model for dealer flow: a dealer does not hedge delta, a dealer hedges the **change** in delta. And three channels carry most of that change. Name the channel and you have named the flow.
 
 ---
 
@@ -40,7 +42,7 @@ Gamma is the loudest child. It is also the only one that needs a spot move to sp
 
 ## Charm: delta moves because time passed
 
-Charm is delta's sensitivity to the passage of time. An out-of-the-money option is worth something today only because there is still time for spot to reach it; as that time drains away, its delta bleeds toward zero. An in-the-money option's delta, meanwhile, firms up toward 1. Delta is loosely the probability of finishing in the money, and as expiry nears that probability has to resolve to a clean yes or no. The drift as it resolves *is* charm.
+Charm is delta's sensitivity to the passage of time. An out-of-the-money option is worth something today only because there is still time for spot to reach it; as that time drains away, its delta bleeds toward zero. An in-the-money option's delta, meanwhile, firms up toward 1. Delta is closely related to — though not exactly — the probability of finishing in the money, and as expiry nears that implied probability has to resolve toward a clean yes or no. The drift as it resolves *is* charm.
 
 The unsettling part: charm forces hedging with spot perfectly pinned. The clock is a trader. A dealer can watch the tape do absolutely nothing for an hour and still be forced to sell stock the entire time, because the deltas in the book are quietly decaying and the hedge has to shrink to match. On a 0DTE-heavy chain, this flow concentrates violently into the final hour, when the rate of decay peaks. [Charm: The Clock Is a Trader](/education/charm-the-clock-is-a-trader) is the full treatment.
 
@@ -66,7 +68,7 @@ The honest way to compute forced flow is to **fully re-price the book** under th
 
 ## The one-sentence version
 
-Delta is a hedge ratio that will not hold still. It moves with price (gamma), with time (charm), and with volatility (vanna) — and nothing else. Every forced dealer trade in the market is one of those three sensitivities pulling the book off its hedge and demanding a stock trade to put it back.
+Delta is a hedge ratio that will not hold still. It moves with price (gamma), with time (charm), and with volatility (vanna) — the three inputs that move continuously and drive the bulk of the flow. Most forced dealer trades in the market are one of those three sensitivities pulling the book off its hedge and demanding a stock trade to put it back, with rates, dividends, and the book's own turnover filling in the edges.
 
 Learn the parent and the three children, and dealer flow stops being a mystery and starts being an accounting problem. For the foundation under this whole idea, see [Why Market Makers Are Forced to Trade Stock](/education/why-market-makers-trade-stock).
 

@@ -1,6 +1,6 @@
 # Why We Don't Publish DEX
 
-*Delta Exposure — DEX, the sum of every contract's delta times its open interest — looks like the natural sibling of gamma exposure. We refuse to publish it. It measures the one greek dealers have already hedged to zero, it puts all its weight in the strikes where the data is worst, and it is loudest exactly where forced flow is weakest. Here is the full case against a number a lot of tools will happily sell you.*
+*Delta Exposure — DEX, the sum of every contract's delta times its open interest — looks like the natural sibling of gamma exposure. We don't publish it as a headline tile. A naive Σ(Δ·OI) leans on the one greek dealers hedge away as a matter of course, puts most of its weight in the strikes where the data is worst, and is loudest right where forced flow is weakest. Here is the full case against a number a lot of tools will happily sell you.*
 
 ---
 
@@ -8,7 +8,7 @@
 
 If gamma exposure works, delta exposure should work too. That is the intuition, and it is why "DEX" shows up on dashboard after dashboard, sitting next to GEX like its twin. Take every option in the chain, multiply each contract's delta by its open interest, sum it up, and you have a single number that supposedly tells you how the dealer book leans directionally. Positive DEX, dealers are long; negative DEX, dealers are short. Clean, symmetric, marketable.
 
-It is also close to meaningless, and we made an early decision not to put it in front of anyone. Not because it is hard to compute — it is trivial to compute, which is part of the problem — but because the number is wrong in three independent and compounding ways. Any one of them would be disqualifying. Together they make DEX not merely uninformative but actively misleading, because it draws the eye to exactly the wrong part of the chain.
+As a standalone headline number it is close to meaningless, and we made an early decision not to put it in front of anyone that way. Not because it is hard to compute — it is trivial to compute, which is part of the problem — but because a naive Σ(Δ·OI) headline is weak in three independent and compounding ways. Any one of them would be disqualifying for a top-line signal. Together they make raw DEX not merely uninformative but easy to misread, because it draws the eye to exactly the wrong part of the chain.
 
 This is the article we most wanted to write in this series, because the discipline of *not* shipping a plausible-looking metric is worth more than most of the metrics people do ship.
 
@@ -16,13 +16,13 @@ This is the article we most wanted to write in this series, because the discipli
 
 ## Strike one: dealers have already hedged delta to zero
 
-Gamma exposure is meaningful because of a specific fact: **you cannot hedge gamma with stock.** Stock has a delta of 1 and a gamma of exactly zero. A dealer who is short gamma from selling options has no way to neutralize it with the underlying — they are stuck carrying it, and that trapped gamma is what forces them to chase price around. GEX measures a real, un-neutralized exposure. That is why it moves markets.
+Gamma exposure is meaningful because of a specific fact: **you cannot hedge gamma with stock.** Stock has a delta of 1 and a gamma of exactly zero. A dealer who is short gamma from selling options can only truly offset it with *other options* — and that just swaps one book of exposures and costs for another, so in aggregate the desk tends to carry residual gamma it then manages by trading the underlying. That carried gamma is what can push dealers to chase price around. GEX is a *modeled* read of that exposure — it uses the traditional call-positive/put-negative dealer-positioning convention, and actual dealer inventory is not directly observable from public option-chain data — but it is aimed at a real, hard-to-neutralize exposure. That is why it can move markets.
 
-Delta is the opposite case in every respect. Delta is *precisely* the greek dealers hedge with stock, because stock is a pure-delta instrument. That is the entire job. A dealer sells a 0.40-delta call, buys 40 shares against it, and the position's net delta is zero. Do that across the whole book and the dealer's *net* delta is, by construction, approximately nil. Delta-hedging is the definition of the business.
+Delta is the opposite case in every respect. Delta is *precisely* the greek dealers hedge with stock, because stock is a pure-delta instrument. That is the entire job. A dealer sells a 0.40-delta call, buys 40 shares against it, and the position's net delta is roughly zero. Do that across the whole book and the dealer's *net* delta is held close to flat — within hedging tolerances and rebalancing bands, not literally pinned to zero every second. Delta-hedging is the definition of the business.
 
 So what does a Σ(Δ·OI) aggregate actually measure? It measures the delta of the *options alone*, ignoring the mountain of offsetting stock the dealer is holding against them. It is one leg of a two-leg position, reported as if it were the whole thing. The other leg — the stock hedge that cancels it — is invisible to the formula. DEX is a number that is large and dramatic specifically because it omits the hedge whose entire purpose is to make it small.
 
-GEX measures an exposure dealers *can't* get rid of. DEX measures the one exposure they have already gotten rid of. That asymmetry is not a detail. It is the whole game, and it is why the two numbers are not siblings at all.
+GEX targets an exposure dealers can't shed with stock and typically carry in size. DEX targets the one exposure they hedge away as a matter of course. That asymmetry is not a detail. It is the whole game, and it is why the two numbers are not the symmetric siblings they look like.
 
 ---
 
@@ -46,11 +46,11 @@ Meanwhile, the three greeks that actually drive forced flow — gamma, charm, an
 
 This is the deepest problem, and it is the one that ties the series together. **Forced flow does not come from the level of delta. It comes from the change in delta.** A dealer does not trade stock because their book has delta; they trade stock because their book's delta *moved*. (That is the entire thesis of [Why Market Makers Are Forced to Trade Stock](/education/why-market-makers-trade-stock).)
 
-Now ask which strikes generate the change. Delta moves fastest where gamma, charm, and vanna are largest — near the money, near expiry. It barely moves at all in the deep wings. A deep-ITM call with delta 0.98 has a gamma near zero, a charm near zero, and a vanna near zero. Its delta is going to sit at roughly 0.98 no matter what spot, the clock, or vol does over the next few hours. It generates essentially **no hedging flow.**
+Now ask which strikes generate the change. Delta moves fastest where gamma, charm, and vanna are largest — near the money, near expiry. It barely moves in the deep wings. A deep-ITM call with delta 0.98 has a gamma near zero, a charm near zero, and a vanna near zero. Absent a large move, its delta is going to sit at roughly 0.98 whatever the clock or vol does over the next few hours. It generates very little hedging flow.
 
-And yet that same 0.98-delta contract, multiplied by its open interest, dumps almost its full weight into DEX. The metric assigns maximum importance to the strike that produces minimum flow. Run that logic across the chain and you find DEX is loudest exactly where forced flow is quietest, and quietest — near the money, where delta is a middling 0.5 — exactly where forced flow is loudest. DEX is not merely uncorrelated with the thing traders care about. It is close to *anti*-correlated with it. It systematically points away from the strikes that move the market.
+And yet that same 0.98-delta contract, multiplied by its open interest, dumps almost its full weight into DEX. The metric assigns heavy importance to the strike that produces little flow. Run that logic across the chain and a raw level of DEX tends to be loudest where forced flow is quietest, and quietest — near the money, where delta is a middling 0.5 — right where forced flow is loudest. So a naive DEX level is not just weakly correlated with the thing traders care about; it can point away from the strikes most likely to move the market.
 
-Three strikes. A metric that measures a hedged-flat exposure, weights it toward the dirtiest data in the chain, and concentrates its signal precisely where no flow is generated. There is no version of that number worth putting on a screen.
+Three strikes. A naive level that reflects a largely hedged-away exposure, weights it toward the dirtiest data in the chain, and concentrates its signal where little flow is generated. There is no version of *that* headline worth putting on a screen.
 
 ---
 
@@ -75,15 +75,15 @@ We then split that total into gamma, charm, and vanna attribution bands, so you 
 
 We are not claiming delta is fake or that dealers ignore it. Delta is the most important greek in any single option — it is the hedge ratio, and hedging it is the dealer's whole job. Nor are we claiming that no one, anywhere, can extract anything from delta data with enough care about liquidity and OI hygiene.
 
-The claim is narrower and, we think, airtight: a **Σ(Δ·OI) aggregate, published as a headline number next to GEX, is not a tradeable signal**, and presenting it as GEX's symmetric twin implies a parallel that does not exist. GEX earns its place because gamma can't be hedged with stock, concentrates near the money, and drives real flow. DEX fails all three tests. Putting them side by side doesn't give you two signals. It gives you one signal and one number that quietly poisons the read next to it.
+The claim is narrower and, we think, defensible: a **naive Σ(Δ·OI) aggregate, published as a headline number next to GEX, is not a tradeable signal**, and presenting it as GEX's symmetric twin implies a parallel that does not exist. GEX earns its place because gamma can't be neutralized with stock, concentrates near the money, and is consistent with real hedging flow. A raw DEX level fails all three tests. Putting them side by side doesn't give you two signals. It gives you one useful read and one number that can quietly poison it.
 
 ---
 
 ## Why the omission is the point
 
-It would be easy to add a DEX tile. It costs nothing to compute, it fills space, it matches what competitors show, and most users would never know it was hollow. That is exactly why leaving it off matters. A dashboard is a set of claims about what deserves your attention. Every number on it says "this is worth looking at." We are not willing to make that claim about a metric that measures a hedged-flat exposure, in the dirtiest data in the chain, precisely where no flow is born.
+It would be easy to add a DEX tile. It costs nothing to compute, it fills space, it matches what competitors show, and most users would never know it was hollow. That is exactly why leaving it off matters. A dashboard is a set of claims about what deserves your attention. Every number on it says "this is worth looking at." We are not willing to make that claim about a naive metric that reports a largely hedged-away exposure, weighted toward the dirtiest data in the chain, right where little flow is born.
 
-We would rather ship one number that survives scrutiny than two numbers where the second is decoration. DEX is decoration. Forced Flow is the trade.
+We would rather ship one number that survives scrutiny than two numbers where the second is decoration. A raw DEX headline is decoration. Forced Flow is the read.
 
 For the machinery behind the alternative, start with [Why Market Makers Are Forced to Trade Stock](/education/why-market-makers-trade-stock) and [Delta and Its Three Children](/education/delta-and-its-three-children), then open the live [Forced Flow](/forced-flow) page and watch the reprice curve do the thing DEX only pretends to.
 

@@ -14,7 +14,7 @@ This piece is the trader-facing read. We will cover what the flip level actually
 
 ## What is a gamma flip?
 
-The gamma flip is the price level at which aggregate dealer gamma exposure crosses zero. Above the flip, dealers are typically net long gamma; below it, they are typically net short. It is not a fixed strike. It is the price at which the dealer gamma profile changes sign — and as the chain reweights through the day, that price moves.
+The gamma flip is the price level at which the *modeled* aggregate dealer gamma exposure crosses zero. Above the flip, the model has dealers net long gamma; below it, net short. It is not a fixed strike — it is the spot level at which the modeled gamma profile changes sign, and as the chain reweights through the day, that price moves. Because it comes out of a model, it depends on the sign convention and the modeling choices behind it (which expirations, how they're weighted, the IV and open-interest inputs), and it can occasionally be non-unique, absent, or ambiguous.
 
 A few things worth being explicit about:
 
@@ -28,7 +28,7 @@ Treat it the way a meteorologist treats a weather front — knowing which side y
 
 ## What happens above the gamma flip?
 
-Above the flip, dealers are generally net long gamma. To stay delta-neutral, they sell into strength and buy into weakness. That hedging reflex pushes *against* directional moves rather than with them.
+Above the flip, dealers are modeled as net long gamma. To stay delta-neutral, they tend to sell into strength and buy into weakness. That hedging reflex pushes *against* directional moves rather than with them.
 
 Practical consequences traders see on the tape:
 
@@ -43,7 +43,7 @@ None of this is a guarantee. Macro shocks, OpEx mechanics, or a flip-cross down 
 
 ## What happens below the gamma flip?
 
-Below the flip, dealers are generally net short gamma. To stay delta-neutral, they now buy into strength and sell into weakness. That hedging reflex pushes *with* directional moves, not against them.
+Below the flip, dealers are modeled as net short gamma. To stay delta-neutral, they now tend to buy into strength and sell into weakness. That hedging reflex pushes *with* directional moves, not against them.
 
 Practical consequences:
 
@@ -85,11 +85,11 @@ A worked example. Suppose SPX is trading at 5,830 and the dashboard shows:
 - **Gamma Flip:** 5,815
 - **Distance:** +15 / +0.26%
 
-The read: spot is in long-gamma territory, comfortably above the flip. The headline Net GEX figure is consistent with the regime — positive, because it is the value of the same dealer gamma curve evaluated at spot, and that curve only turns positive once you have crossed above the flip. (That sign-consistency is structural to how ZeroGEX calculates the profile.) Practical lean: dampened vol, breakouts more likely to fade, pin behavior toward heavy-gamma strikes on the table into the close.
+The read: spot is in modeled long-gamma territory, comfortably above the flip. The headline Net GEX figure — estimated dealer gamma under the traditional call-positive/put-negative convention, not observed inventory — is consistent with the regime: positive, because it is the value of the same modeled gamma curve evaluated at spot, and in this book that curve turns positive above the flip. (That sign-consistency is structural to how ZeroGEX calculates the profile.) Practical lean: dampened vol, breakouts more likely to fade, pin behavior toward heavy-gamma strikes on the table into the close.
 
 ![ZeroGEX dealer gamma profile chart with the gamma flip line marked and spot above it](/blog/zerogex-strike-profile-flip.png)
 
-Now imagine the same dashboard 30 minutes later: SPX 5,810, gamma flip 5,818. Spot has crossed below, and the flip has actually drifted up toward where spot was. That is the structural inflection where intraday character changes — and a trader who was fading rallies above the flip should be much more cautious about fading the next selloff inside the new regime.
+Now imagine the same dashboard 30 minutes later: SPX 5,810, gamma flip 5,818. Spot has crossed below, and the flip has actually drifted up toward where spot was. Crossing the modeled flip suggests the aggregate hedging tendency has changed sign — a trader who was fading rallies above the flip should be much more cautious about fading the next selloff, though realized behavior still depends on flow, liquidity, vol, and catalysts, not the flip alone.
 
 ---
 
@@ -101,7 +101,7 @@ A few patterns that catch traders out:
 - **Ignoring how dynamic it is.** The flip can move several points in a few hours as positioning shifts. Reading yesterday's flip on today's tape is reading a stale book.
 - **Mistaking proximity for confirmation.** Spot sitting *at* the flip is the least informative state, not the most. Both regimes are partially active and the read is weak.
 - **Reading the flip without checking the Net GEX magnitude.** A flip with $2B of dealer gamma above it is a much sharper regime than a flip with $200M. Magnitude matters as much as sign.
-- **Confusing the flip with max pain.** Max pain is an expiry-pinning estimate based on option-holder payoff. The flip is a real-time hedging-regime line based on dealer gamma. They often disagree, and they answer different questions.
+- **Confusing the flip with max pain.** Max pain is a payoff-geometry strike — where option-holder payout is minimized at expiry — not a hedging force. The flip is a modeled hedging-regime line based on dealer gamma. They often disagree, and they answer different questions.
 
 ---
 

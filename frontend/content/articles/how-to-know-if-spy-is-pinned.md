@@ -16,15 +16,15 @@ This piece walks through the five structural signs SPY is pinned today, the play
 
 ## What a pin actually is
 
-A pin is what happens when dealer hedging produces structural attraction toward a heavy gamma strike. The mechanics:
+A pin is what tends to happen when modeled dealer hedging creates structural attraction toward a heavy gamma strike — with liquidity, positioning, and expiration mechanics contributing alongside it. The mechanics:
 
-1. A specific strike — usually the heaviest 0DTE call/put concentration — carries large dealer gamma.
-2. The regime is **long-gamma**: dealers hedge by selling strength and buying weakness.
-3. When spot rises above the strike, dealers sell — pulling price back down.
-4. When spot drops below the strike, dealers buy — pulling price back up.
-5. The net effect is price oscillating in a tight range *around* the strike. The strike acts as a magnet.
+1. A specific strike — usually the heaviest 0DTE call/put concentration — carries large modeled dealer gamma.
+2. The modeled regime is **long-gamma**: dealers are assumed to hedge by selling strength and buying weakness.
+3. When spot rises above the strike, that hedging tends to sell — pulling price back down.
+4. When spot drops below the strike, it tends to buy — pulling price back up.
+5. The net effect can be price oscillating in a tight range *around* the strike, with the strike acting as a magnet.
 
-Pins aren't psychological. They're the visible output of forced hedging at a strike concentration. They form most reliably on OPEX days, end-of-month, and into the cash close — anywhere same-day or near-dated options dominate the gamma profile.
+Pins aren't purely psychological — modeled dealer hedging at a strike concentration is a real part of the story, alongside liquidity and positioning. They tend to form most reliably on OPEX days, end-of-month, and into the cash close — anywhere same-day or near-dated options dominate the gamma profile.
 
 The fuller mechanism is in [Why Does SPY Pin Near a Strike?](/education/why-spy-pins-near-strikes).
 
@@ -34,19 +34,19 @@ The fuller mechanism is in [Why Does SPY Pin Near a Strike?](/education/why-spy-
 
 ### Sign 1: Net GEX is meaningfully positive (long-gamma regime)
 
-The pin only happens in a long-gamma regime. Spot must be above the gamma flip, and Net GEX must be substantial (the standard threshold most analysts watch is roughly $500M+ for SPY scale, though magnitude matters more than any specific number).
+Pinning is most consistent with a modeled long-gamma regime: spot above the gamma flip and Net GEX clearly positive. (Net GEX here is estimated dealer gamma under the traditional call-positive/put-negative open-interest convention — a model, not observed dealer inventory.) ZeroGEX treats roughly $500M+ on SPY scale as "substantial," but that's a house heuristic, not an industry standard — magnitude matters more than any specific number.
 
-If Net GEX is negative or near zero, the pin thesis is off the table. The dealer reflex isn't pulling — it's chasing or neutral. Skip the pin playbook entirely.
+If Net GEX is negative or near zero, the pin thesis is weak: the modeled hedging reflex isn't dampening moves so much as chasing or sitting neutral. Skip the pin playbook.
 
 ### Sign 2: Max pain and the gamma magnet agree near spot
 
-Two structural strikes worth checking: **max pain** (the strike where option-holder payout is minimized at expiry) and the **gamma magnet** (the heaviest absolute gamma strike). When they both point to the same level and that level is within 0.3% of current spot, the structural pull is at its sharpest.
+Two structural strikes worth checking: **max pain** (the strike where option-holder payout is minimized at expiry) and the **gamma magnet** (the heaviest modeled-gamma strike). When they both point to the same level and that level is within roughly 0.3% of spot — a ZeroGEX proximity heuristic — the structural pull tends to be at its sharpest.
 
-When they diverge, the gamma magnet usually wins — it's the actual hedging mechanism, while max pain is the payoff geometry. See [Max Pain Explained](/education/max-pain-explained) for the difference.
+When they diverge, ZeroGEX leans on the gamma magnet — it maps to the modeled hedging mechanism, while max pain is payoff geometry — but that's a lean, not a law. See [Max Pain Explained](/education/max-pain-explained) for the difference.
 
 ### Sign 3: Spot has been oscillating around the magnet for the last hour
 
-A live read: chart SPY against the gamma magnet strike on a 5-minute timeframe. If price has crossed the magnet line three or more times in the last 60 minutes with each excursion getting smaller, the pin is forming. The compression range tightens as the magnet pulls harder near expiry.
+A live read: chart SPY against the gamma magnet strike on a 5-minute timeframe. ZeroGEX treats three or more crossings of the magnet line in the last 60 minutes — each excursion getting smaller — as suggestive that a pin is forming. That crossing count is a heuristic, not proof: oscillation is consistent with pinning, but it can also just be chop. The read is stronger when the compression range is tightening near expiry.
 
 The opposite — price drifting consistently above or below the magnet without returning — argues against the pin. Price is in a direction, not a range.
 
@@ -58,7 +58,7 @@ If realized is *expanding* (price is moving more than expected), the pin isn't h
 
 ### Sign 5: EOD Pressure is near zero inside the active window
 
-After 14:30 ET, the EOD Pressure signal becomes informative. A reading near zero (between -0.20 and +0.20) during the active window is the structural signature of a pin — charm and pin-gravity terms are cancelling, which happens when price is sitting right at the magnet strike.
+After 14:30 ET, the EOD Pressure signal becomes informative. A reading near zero (ZeroGEX uses roughly -0.20 to +0.20) during the active window is a modeled signature of a pin — the signal's charm and pin-gravity terms roughly cancel, which the model associates with price sitting right at the magnet strike.
 
 A large positive or negative EOD Pressure reading is the opposite signal: price is *away* from the magnet, and forced hedging is pushing it back toward the magnet (or away, in a short-gamma regime). See [EOD Pressure Signal Explained](/education/eod-pressure-explained) for the full read.
 
@@ -91,10 +91,10 @@ Pinned tape ranges are tight. Stops are tighter. Position size should reflect th
 Pins don't last forever. The conditions that break them:
 
 - **A catalyst.** CPI, FOMC, NFP, geopolitical surprise. Macro flow overwhelms the structural pull.
-- **A gamma flip cross.** If spot crosses below the gamma flip, the regime inverts. The same magnet that was pulling price toward itself in long-gamma starts releasing price in short-gamma.
+- **A gamma flip cross.** If spot crosses below the modeled gamma flip, that suggests the aggregate hedging tendency has changed sign — so the same magnet that was attracting price in long-gamma may start releasing it. Realized behavior still depends on flow, vol, and catalysts.
 - **Net GEX decay.** As 0DTE positions roll off (especially after 15:30 ET), the dealer book thins. The magnet weakens.
 - **A single-name or sector shock.** Major component news (NVDA, AAPL, MSFT) can shift index flow enough to override the pin.
-- **The wall migrates.** If fresh open interest builds aggressively at a different strike, the magnet moves — and the old pin becomes irrelevant.
+- **The magnet migrates.** Official open interest is generally published for the next session rather than confirmed intraday, but the modeled magnet can still shift within the day as spot, gamma, time, and IV change — or as inferred intraday positioning builds at a different strike — and the old pin can become irrelevant.
 
 Watching for these breaks is part of the workflow. A pin that's been holding for two hours is more reliable than one that just formed — but a pin can also unwind quickly when the conditions stop supporting it.
 
@@ -124,7 +124,7 @@ Three traps:
 
 - **"It bounced once at 580.85, so it's pinned."** A single bounce isn't a pin. You need multiple oscillations *and* the structural conditions (positive Net GEX, magnet-spot agreement). One bounce is just a bounce.
 - **"It's been ranging all day, so it'll keep ranging."** Ranges break. The pin holds because of *current* structural conditions. When Net GEX decays into the close or a catalyst lands, the range breaks. The structural conditions update faster than the chart pattern does.
-- **"I should buy the breakout from the pin."** Sometimes — but the breakout from a real pin is statistically less likely than the continuation of the pin until structural conditions change. Treating every probe outside the range as a breakout signal gets you long at the top and short at the bottom, repeatedly.
+- **"I should buy the breakout from the pin."** Sometimes — but while the structural conditions hold, continuation of the pin is generally the higher-probability path and a clean breakout the lower-probability one. Treating every probe outside the range as a breakout signal gets you long at the top and short at the bottom, repeatedly.
 
 ---
 
