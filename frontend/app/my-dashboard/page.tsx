@@ -145,7 +145,7 @@ export default function MyDashboardPage() {
   const isEmpty = layout.widgets.length === 0;
 
   return (
-    <PageShell width="wide">
+    <PageShell width="bleed">
       <Header
         editing={editing}
         isEmpty={isEmpty}
