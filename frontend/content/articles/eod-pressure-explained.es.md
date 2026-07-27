@@ -1,4 +1,6 @@
 # Señal EOD Pressure explicada: cómo leer el cierre
+> **Nota metodológica actualizada — prevalece sobre cualquier formulación incompatible posterior.** ZeroGEX estima, pero no observa, el inventario de los dealers a partir de datos públicos. El modelo conserva la convención calls positivos/puts negativos (`Net GEX = Call GEX − Put GEX`) y supone dealers netos largos de calls y cortos de puts. Las calls y puts largas tienen gamma positiva; las calls y puts cortas tienen gamma negativa. El Put Wall es la mayor concentración de gamma de puts por debajo del spot y representa localmente gamma negativa modelada del dealer: puede coincidir con soporte, pero la cobertura de una put corta no crea mecánicamente un suelo. Los walls pueden migrar por spot, tiempo y volatilidad implícita aunque el open interest oficial no cambie intradía. Al acercarse el vencimiento, la gamma se concentra cerca del ATM: la gamma ATM puede aumentar, mientras la gamma claramente ITM u OTM tiende a cero. El Gamma Flip seleccionado es una transición local; el perfil puede tener varios cruces o ninguno significativo. Charm y vanna son cambios condicionales de delta, no órdenes programadas. Las puntuaciones son resultados heurísticos, no probabilidades calibradas. La gamma negativa amplifica la dirección ya iniciada; la distancia a un objetivo no implica repulsión. Por ello, la inversión del término pin de EOD Pressure sigue siendo una heurística de ZeroGEX. Max Pain minimiza el pago intrínseco agregado y no maximiza exactamente el nocional que vence sin valor. El DEX bruto mide delta solo de opciones, no flujo futuro de cobertura; la prima y el lado agresor no prueban información, apertura ni convicción.
+
 
 *El análisis práctico en profundidad sobre la señal EOD Pressure de ZeroGEX — qué pregunta responde, por qué el cierre tiene una deriva estructural, cómo combina el score charm y pin gravity, y cómo leerla dentro de los últimos 90 minutos.*
 
@@ -67,9 +69,9 @@ sign         = +1 if net_gex >= 0 else -1
 pin_score    = sign × normalized
 ```
 
-Un pin target 0.3% por encima del spot en un régimen de gamma positiva da un pin score de +1.0 — el imán está arriba y la gravedad está activa. En un régimen de gamma negativa, ese mismo pin por encima del spot produce un pin score *negativo*, porque la cobertura del dealer ahora amplifica los movimientos *alejándose* del strike.
+**Limitación metodológica:** la inversión con gamma negativa es una heurística de ZeroGEX, no una consecuencia mecánica. La gamma negativa amplifica una dirección ya iniciada; la distancia al objetivo no determina esa dirección.
 
-Ese cambio de signo es la clave. La pin gravity no es un nivel fijo. Es una fuerza dependiente del signo, cuya dirección depende del régimen de gamma.
+
 
 ### Componente 3: Rampa temporal (la puerta)
 
