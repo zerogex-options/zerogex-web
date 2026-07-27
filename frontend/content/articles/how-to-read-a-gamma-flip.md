@@ -99,7 +99,7 @@ A few patterns that catch traders out:
 
 - **Treating the flip as support or resistance.** It is a regime line, not a level to trade against. Buying weakness *into* the flip from above is a structurally different trade than buying weakness from below.
 - **Ignoring how dynamic it is.** The flip can move several points in a few hours as positioning shifts. Reading yesterday's flip on today's tape is reading a stale book.
-- **Mistaking proximity for confirmation.** Spot sitting *at* the flip is the least informative state, not the most. Both regimes are partially active and the read is weak.
+- **Mistaking proximity for confirmation.** Spot sitting *at* the flip is the least informative state, not the most. Positive and negative modeled gamma contributions are approximately offset; the net hedging tendency is weak and can change sign with small input changes.
 - **Reading the flip without checking the Net GEX magnitude.** A flip with $2B of dealer gamma above it is a much sharper regime than a flip with $200M. Magnitude matters as much as sign.
 - **Confusing the flip with max pain.** Max pain is a payoff-geometry strike — where option-holder payout is minimized at expiry — not a hedging force. The flip is a modeled hedging-regime line based on dealer gamma. They often disagree, and they answer different questions.
 

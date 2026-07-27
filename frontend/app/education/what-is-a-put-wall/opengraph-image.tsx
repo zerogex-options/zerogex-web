@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og';
 
 export const runtime = 'nodejs';
-export const alt = 'What Is a Put Wall? How Options Traders Use Put Walls as Dealer Support';
+export const alt = 'What Is a Put Wall? Put Gamma Concentration Explained';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -74,7 +74,7 @@ export default async function Image() {
             display: 'flex',
           }}
         >
-          The strike where put gamma concentrates — and how dealer hedging turns it into support.
+          Put gamma concentration, conditional support, and wall migration explained.
         </div>
         <div
           style={{

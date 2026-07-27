@@ -1,4 +1,4 @@
-# Vanna: When Fear Fades, Dealers Buy
+# Vanna: How Falling IV Can Change Dealer Hedging
 
 *Vanna is the rate at which an option's delta changes when implied volatility changes. When priced fear drains out of the market after an event that never delivered, vanna can push a typical dealer book to buy stock in a slow, steady drip — the "up on no news" grind whose hedge prints hide in plain sight on the tape while the motive behind them stays invisible.*
 
@@ -71,3 +71,6 @@ When the scare that never comes finally passes, the fear has to unwind somewhere
 For the clock-driven sibling see [Charm: The Clock Is a Trader](/education/charm-the-clock-is-a-trader), for the foundation see [Why Market Makers Are Forced to Trade Stock](/education/why-market-makers-trade-stock), and to watch the vanna ladder move with today's book, open the live [Forced Flow](/forced-flow) page.
 
 Educational content only — none of the above is a trade recommendation.
+
+
+> Under the traditional dealer-long-call/dealer-short-put convention, some chain configurations can generate modeled underlying-buying pressure as IV falls. The sign depends on ownership, option type, moneyness, expiry, skew, and how the volatility surface changes; buying is not an inherent property of vanna.

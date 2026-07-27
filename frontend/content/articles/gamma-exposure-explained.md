@@ -92,7 +92,7 @@ There are two ways to extract regime information from the chain:
 1. **Per-strike aggregation** sums signed gamma exposure at each strike at today's spot. It is fast and intuitive.
 2. **Spot-shift dealer gamma** re-prices every option's gamma at every hypothetical spot price on a grid, then sums to a *curve* of dealer gamma versus price. The zero crossing of that curve is the gamma flip; the value at today's spot is Net GEX-at-spot.
 
-The spot-shift approach has one structural advantage: because the headline Net GEX and the gamma flip are read from one curve, they cannot contradict each other. A positive Net GEX always corresponds to spot sitting above the flip; a negative one always sits below. The per-strike approach can produce inconsistent signs when the chain shifts, which is why the spot-shift approach is the industry-standard for serious regime work. The methodology behind the ZeroGEX implementation is documented in detail in [GEX and the Gamma Flip — How ZeroGEX calculates them](/guides/gamma-flip-calculation-before-vs-after).
+ZeroGEX prefers a spot-shift profile because it evaluates modeled gamma across hypothetical underlying prices. Deriving headline Net GEX and the selected flip from the same profile improves internal consistency, while the resolver still must handle multiple, weak, or missing crossings and differences in expiration universes. The methodology behind the ZeroGEX implementation is documented in detail in [GEX and the Gamma Flip — How ZeroGEX calculates them](/guides/gamma-flip-calculation-before-vs-after).
 
 ---
 
@@ -259,7 +259,7 @@ The composite read: spot is comfortably in long-gamma territory ($20 above the f
 
 ![ZeroGEX strike-profile chart with the dealer gamma curve, flip line, and walls highlighted](/blog/zerogex-strike-profile-overview.png)
 
-Now imagine the same dashboard 90 minutes later: Net GEX has decayed to −$150M and the gamma flip has drifted up to 5,825 while spot has slipped to 5,818. The regime is now contested — spot is technically below the flip, but only by a few points, and the magnitude has thinned out. That is exactly the structural state where both regimes are partially active, behavior gets unstable, and the right discipline is usually to wait for a cleaner read before committing.
+Now imagine the same dashboard 90 minutes later: Net GEX has decayed to −$150M and the gamma flip has drifted up to 5,825 while spot has slipped to 5,818. The regime is now contested — spot is technically below the flip, but only by a few points, and the magnitude has thinned out. That is exactly the structural state where positive and negative modeled contributions are approximately offset, the net tendency is weak, and the right discipline is usually to wait for a cleaner read before committing.
 
 ---
 

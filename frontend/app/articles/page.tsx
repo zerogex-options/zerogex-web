@@ -38,12 +38,12 @@ const ARTICLES: Article[] = [
     kind: 'Published • July 12, 2026 • 16:00 UTC',
     title: 'Charm: The Clock Is a Trader',
     blurb:
-      'Charm is the rate an option’s delta changes as time passes. It forces dealers to trade stock on a dead-flat tape — and because the clock is perfectly predictable, it’s the rare dealer flow you can forecast hours before it prints. A forecast with a deadline.',
+      'Charm measures delta’s sensitivity to time. It supports a conditional estimate of potential hedge pressure, not a scheduled order.',
   },
   {
     href: '/education/vanna-when-fear-fades',
     kind: 'Published • July 12, 2026 • 16:00 UTC',
-    title: 'Vanna: When Fear Fades, Dealers Buy',
+    title: 'Vanna: How Falling IV Can Change Dealer Hedging',
     blurb:
       'Vanna is the rate an option’s delta changes when implied vol changes. When priced fear drains out after an event that never delivered, vanna forces dealers into a steady bid — the “up on no news” grind that hides in the slope, not the volume.',
   },
@@ -57,7 +57,7 @@ const ARTICLES: Article[] = [
   {
     href: '/education/what-is-a-put-wall',
     kind: 'Published • July 7, 2026 • 16:00 UTC',
-    title: 'What Is a Put Wall? How Options Traders Use Put Walls as Dealer Support',
+    title: 'What Is a Put Wall? Put Gamma Concentration Explained',
     blurb:
       'The put wall is the strike where put-side dealer gamma piles up — usually the sturdiest dealer-hedged support on the board. What it is, why price reacts there, how it migrates intraday, when it holds versus breaks, and how to find today’s SPX, SPY, and QQQ put walls.',
   },

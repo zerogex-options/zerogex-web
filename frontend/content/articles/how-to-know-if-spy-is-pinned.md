@@ -92,7 +92,7 @@ Pins don't last forever. The conditions that break them:
 
 - **A catalyst.** CPI, FOMC, NFP, geopolitical surprise. Macro flow overwhelms the structural pull.
 - **A gamma flip cross.** If spot crosses below the modeled gamma flip, that suggests the aggregate hedging tendency has changed sign — so the same magnet that was attracting price in long-gamma may start releasing it. Realized behavior still depends on flow, vol, and catalysts.
-- **Net GEX decay.** As 0DTE positions roll off (especially after 15:30 ET), the dealer book thins. The magnet weakens.
+- **Net GEX decay.** As near-expiry gamma becomes more concentrated around ATM, the modeled profile and selected magnet can change. This does not prove positions closed intraday.
 - **A single-name or sector shock.** Major component news (NVDA, AAPL, MSFT) can shift index flow enough to override the pin.
 - **The magnet migrates.** Official open interest is generally published for the next session rather than confirmed intraday, but the modeled magnet can still shift within the day as spot, gamma, time, and IV change — or as inferred intraday positioning builds at a different strike — and the old pin can become irrelevant.
 
