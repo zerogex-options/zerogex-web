@@ -6,7 +6,7 @@
 
 ## What actually makes a "best GEX tool"
 
-Searching for the best GEX tool is more useful than it sounds, but the framing matters. Gamma exposure is a model output, not a primitive — every vendor that ships a GEX product is making choices about chain coverage, calculation methodology, latency, and how the output gets surfaced. The "best" tool for a 0DTE SPX trader is not the best tool for a swing trader sizing on monthly exposure, and a tool that looks clean on a homepage chart can mask methodology that breaks down in degraded chains.
+Searching for the best GEX tool is more useful than it sounds, but the framing matters. Gamma exposure is a model output, not a primitive — a chain's raw gamma magnitudes signed by a dealer-positioning convention (traditionally calls positive, puts negative), since actual dealer inventory isn't directly observable from public option data. Every vendor that ships a GEX product is making choices about chain coverage, calculation methodology, latency, and how the output gets surfaced. The "best" tool for a 0DTE SPX trader is not the best tool for a swing trader sizing on monthly exposure, and a tool that looks clean on a homepage chart can mask methodology that breaks down in degraded chains.
 
 This piece is the honest comparison. We will lay out the criteria that actually matter when picking a gamma exposure tracker, walk through the categories of tools in the market, and surface specific strengths and trade-offs. ZeroGEX is one of the options in this category — included here on equal footing with the others, not as the foregone conclusion. If you are still building your intuition for what GEX even is, the [Gamma Exposure pillar](/education/gamma-exposure-explained) is the place to start.
 
@@ -35,7 +35,7 @@ The spot-shift method is the better methodology for serious work. The per-strike
 
 ### 4. Gamma flip resolution quality
 
-The gamma flip is the regime line — the price where dealer gamma crosses zero. Naive implementations can produce flip values that drift unrealistically (grid-edge artifacts on degraded chains, hairline crossings far from spot, frozen flips when the feed gaps). Look for tools that publish their flip methodology and handle degraded-chain edge cases honestly — including reporting NULL when the data does not support a confident answer, rather than silently carrying forward a stale value. The detailed methodology behind this is in the [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) and the [Gamma Flip Calculation guide](/guides/gamma-flip-calculation-before-vs-after).
+The gamma flip is the modeled regime line — the price where the modeled dealer gamma curve crosses zero. Naive implementations can produce flip values that drift unrealistically (grid-edge artifacts on degraded chains, hairline crossings far from spot, frozen flips when the feed gaps). Look for tools that publish their flip methodology and handle degraded-chain edge cases honestly — including reporting NULL when the data does not support a confident answer, rather than silently carrying forward a stale value. The detailed methodology behind this is in the [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) and the [Gamma Flip Calculation guide](/guides/gamma-flip-calculation-before-vs-after).
 
 ### 5. Gamma walls and structural levels
 
@@ -47,7 +47,7 @@ Some tools stop at raw GEX numbers; others layer in composite signals (regime cl
 
 ### 7. Underlying coverage
 
-Most retail GEX tools focus on SPX/SPY (where flow is densest and most readable). If you trade QQQ, IWM, or single names heavily, check coverage explicitly — methodology that works on SPX can degrade on thinner chains.
+Most GEX tools aimed at individual traders focus on SPX/SPY (where flow is densest and most readable). If you trade QQQ, IWM, or single names heavily, check coverage explicitly — methodology that works on SPX can degrade on thinner chains.
 
 ### 8. Price and access model
 
@@ -61,7 +61,7 @@ The category roughly splits into four buckets. Specific feature claims about nam
 
 ### Bucket 1: Established gamma research vendors
 
-The vendors that pioneered the publicly-tracked GEX category. Generally use the spot-shift methodology, have deep historical archives, and serve a mix of retail and pro audiences. Cadence ranges from daily research products to fully real-time intraday tracking, with the real-time access typically gated behind higher-tier subscriptions. The methodology lineage is the strength; the trade-off is often closed-source calculations and limited 0DTE-specific tooling. Their published research is often the reference for the field.
+The vendors that pioneered the publicly-tracked GEX category. Generally use the spot-shift methodology, have deep historical archives, and serve a mix of individual and professional audiences. Cadence ranges from daily research products to fully real-time intraday tracking, with the real-time access typically gated behind higher-tier subscriptions. The methodology lineage is the strength; the trade-off is often closed-source calculations and limited 0DTE-specific tooling. Their published research is often the reference for the field.
 
 *Tools commonly cited in this bucket: SpotGamma, SqueezeMetrics. Verify current pricing and coverage on their sites.*
 
@@ -131,7 +131,7 @@ A short list of traps to avoid:
 
 - **"Real-time" claims on delayed feeds.** Some products advertise real-time and ship with 15-minute or 5-minute delays. Verify before subscribing.
 - **Pretty bar charts with no methodology page.** A vendor that will not explain how they calculate the gamma flip is a vendor whose calculation you cannot evaluate.
-- **Single-strike "max GEX" levels marketed as the flip.** The gamma flip is the zero-crossing of the dealer gamma curve, not the strike with the most absolute GEX. Confusing the two is a common retail mistake — and some tools surface "max GEX strike" labeled in ways that imply it is the flip.
+- **Single-strike "max GEX" levels marketed as the flip.** The gamma flip is the zero-crossing of the dealer gamma curve, not the strike with the most absolute GEX. Confusing the two is a common beginner mistake — and some tools surface "max GEX strike" labeled in ways that imply it is the flip.
 - **Static screenshots that imply the levels are fixed.** Walls, the flip, and the gamma magnet all migrate intraday. Tools that surface levels without their migration are giving you half the read.
 - **Signal layers with no methodology disclosure.** If a tool tells you "GEX score: 7" without explaining what produces the 7, you have no way to evaluate when it should and should not be trusted.
 

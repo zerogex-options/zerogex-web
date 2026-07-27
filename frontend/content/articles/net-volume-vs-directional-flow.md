@@ -40,7 +40,7 @@ This metric tries to answer the better question:
 
 > **Who was the aggressor?**
 
-When traders lift the ask, they are usually expressing urgency and directional intent. When they hit the bid, they are usually reducing risk, collecting premium, or fading.
+When traders lift the ask, they are often expressing urgency or directional intent. When they hit the bid, they are often reducing risk, collecting premium, or fading. Side alone still does not reveal *motivation*, though — a dealer hedging an existing book can lift the ask just as a speculator can, and that hedge trade prints to the tape the same way.
 
 In theory, this makes directional volume more informative than raw volume.
 

@@ -1,14 +1,14 @@
 # How to Avoid Chasing 0DTE Moves
 
-*Chasing 0DTE moves is the single biggest killer of retail same-day options accounts. Here's why the chase is structurally worse on 0DTE than on any other expiry — and the specific reads that tell you when to stand down before you click.*
+*Chasing 0DTE moves is the single biggest killer of same-day options accounts. Here's why the chase is structurally worse on 0DTE than on any other expiry — and the specific reads that tell you when to stand down before you click.*
 
 ---
 
-## The 0DTE chase is the most expensive bad habit in retail trading
+## The 0DTE chase is the most expensive bad habit in same-day options trading
 
 If you trade SPY or SPX zero-day options regularly, you've felt it: price runs hard in one direction, the call (or put) you wanted is suddenly 3x what it was twenty minutes ago, and you feel an urgent need to chase. You buy. Within ten minutes, the move has reversed, your contract is back to 1x, and you're holding a losing position with hours of theta decay still to chew through.
 
-That experience is so common it's essentially the defining retail 0DTE story. Every active 0DTE trader has lived it dozens of times. And every time, the structural read was actually telling you not to chase — *if* you knew where to look.
+That experience is so common it's essentially the defining 0DTE story. Every active 0DTE trader has lived it dozens of times. And every time, the structural read was actually telling you not to chase — *if* you knew where to look.
 
 This piece is the workflow for not chasing. The mechanics that make 0DTE specifically dangerous to chase, three concrete tells you're about to make the mistake, and the structural read that should override your instinct. For the deeper read on why 0DTE flow drives the dealer book the way it does, start with [0DTE Dealer Positioning Explained](/education/0dte-dealer-positioning-explained).
 
@@ -28,7 +28,7 @@ Same-day options carry enormous gamma at the money. That makes them feel like le
 
 ### 3. Dealer hedging is reactive, not directional
 
-Dealers don't care which way SPY moves; they care about staying delta-neutral. When you chase a move, you're paying the premium that exists *because* dealers had to hedge that move. By the time you're chasing, the structural flow that drove the rip has already happened. You're buying at the top of the dealer-forced move, not the start of it.
+Dealers are typically less concerned with direction than with managing the net delta of their book — and they hedge that book in aggregate, not necessarily continuously. When you chase a move, part of the premium you pay reflects the hedging that move likely triggered. By the time you're chasing, much of the structural flow that drove the rip has already happened. You're often buying near the top of a dealer-driven move, not the start of it.
 
 ---
 
@@ -44,22 +44,22 @@ The cleanest version of this trap: a 20-bar volatility envelope breakout where t
 
 ### Trigger 2: Flow is already obviously lopsided in the direction you want to chase
 
-Open the flow panel. If put/call premium is already 3:1 on the call side and the smart-money imbalance is already deeply positive, the consensus trade has already been put on. You're late. The fade is far more likely than the continuation at that point — which means the next thirty minutes will likely be the *reversal* trade, not the continuation.
+Open the flow panel. If put/call premium is already 3:1 on the call side and the smart-money imbalance is already deeply positive, much of the consensus trade has already been put on. You're late. A fade becomes more likely relative to continuation at that point — which raises the odds that the next thirty minutes bring the *reversal*, not more of the move.
 
 ### Trigger 3: It's late in the day and the move is into a key level
 
-After 14:00 ET, charm decay accelerates and the dealer reflex around the heaviest 0DTE strike intensifies. Chasing a late-day move that's heading into the call wall (or away from the put wall) is buying right where dealer hedging is structurally set up to fade you. The EOD Pressure signal exists specifically to flag this regime — see [EOD Pressure Signal Explained](/education/eod-pressure-explained).
+After 14:00 ET, modeled charm effects tend to build and the dealer reflex around the heaviest 0DTE strike can intensify. Chasing a late-day move that's heading into the call wall (or away from the put wall) can mean buying right where dealer hedging is more likely to fade you than fuel you. The EOD Pressure signal is designed to flag this regime — see [EOD Pressure Signal Explained](/education/eod-pressure-explained).
 
 ---
 
 ## The structural read before you click
 
-When the chase urge hits, run this checklist:
+One framing note first: the gamma flip, Net GEX, and walls below are *modeled* estimates of dealer positioning, built from the option chain using the traditional call-positive / put-negative convention. Actual dealer inventory isn't directly observable, so treat these as probabilities that tilt the odds, not switches that decide the outcome. With that caveat, when the chase urge hits, run this checklist:
 
-1. **What's the gamma regime?** Spot above the flip (long-gamma) → fades work, chases fail. Spot below the flip (short-gamma) → chases work, fades fail. If you don't know the regime, you're guessing.
+1. **What's the gamma regime?** Spot above the modeled flip (long-gamma) → fades tend to work, chases tend to struggle. Spot below the flip (short-gamma) → chases tend to work better, fades tend to struggle. If you don't know the regime, you're guessing.
 2. **Where is the nearest wall?** If you're chasing a call into the call wall in a long-gamma regime, the structural pull is *against* the chase. If you're chasing into open air with no wall between current spot and the chase target, the structural pull is neutral — better setup.
-3. **Is Net GEX strengthening or decaying?** Strengthening in a long-gamma regime means the absorbing reflex is intensifying — chase = fade trap. Decaying means the absorbing reflex is weakening — chase has more room.
-4. **What's the time of day?** Before noon ET, 0DTE charm is low and the dealer reflex is muted. After 14:00 ET, charm flows pile up. Late-day chases into structure are the worst version of the trap.
+3. **Is Net GEX strengthening or decaying?** Strengthening in a long-gamma regime suggests the absorbing reflex is intensifying — chases more often fade. Decaying suggests the absorbing reflex is weakening — chases have more room.
+4. **What's the time of day?** Before noon ET, modeled 0DTE charm is low and the dealer reflex tends to be muted. After 14:00 ET, modeled charm hedging tends to build. Late-day chases into structure are often the worst version of the trap.
 5. **Has the contract already 3x'd?** If yes, you're not catching a move — you're paying for the move that already happened. The expected next move includes a meaningful probability of mean-reversion.
 
 If most of these line up against the chase, the discipline is to skip. Not "wait for a better entry" — skip. The 0DTE chase that worked one time in ten is the survivorship bias keeping the habit alive.
@@ -70,9 +70,9 @@ If most of these line up against the chase, the discipline is to skip. Not "wait
 
 The chase isn't always wrong. The 0DTE momentum trade *can* work when:
 
-- Spot is in a **negative-gamma regime** (below the flip). Dealer reflex amplifies, not dampens. Momentum extends.
-- **Net GEX is small or negative.** The structural fade is weak or inverted.
-- There's a **real catalyst** active (CPI surprise, FOMC reaction, geopolitical headline). Catalyst-driven flow overwhelms structural reflex.
+- Spot is in a **negative-gamma regime** (below the flip). Dealer hedging tends to amplify rather than dampen. Momentum can extend.
+- **Net GEX is small or negative.** The structural fade tends to be weak or inverted.
+- There's a **real catalyst** active (CPI surprise, FOMC reaction, geopolitical headline). Catalyst-driven flow can overwhelm the structural reflex.
 - The move is **early in the session** (before charm pile-up).
 - The contract hasn't already done its full move — you're catching the first 30% of the day's range, not the last 30%.
 
@@ -88,7 +88,7 @@ The free `/spx-gamma-levels` view gives you the three filters you need:
 - **Call Wall / Put Wall** — where chases are structurally set up to fade.
 - **Net GEX** — magnitude of the dealer book.
 
-For the time-of-day filter, the live dashboards show the EOD Pressure signal during the active window (post-14:30 ET) — a directional read on which way forced hedging is pointing into the close.
+For the time-of-day filter, the live dashboards show the EOD Pressure signal during the active window (post-14:30 ET) — a modeled directional read on which way hedging pressure may point into the close.
 
 Worked example. It's 14:45 ET. SPX has just punched through the day's high to 5,810. The contract you want to chase is up 70% from open. ZeroGEX shows:
 
