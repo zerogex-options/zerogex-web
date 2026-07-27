@@ -48,7 +48,7 @@ SPY trades at roughly one-tenth of the S&P 500 index, so as a first approximatio
 Two caveats keep the mapping from being exact:
 
 - **Tracking drift.** SPY's price reflects accrued dividends and small tracking differences, so the ratio is never a clean 10.000. Convert for orientation, not to the penny.
-- **Strike granularity.** SPX strikes are spaced wider (commonly five index points) while SPY lists every dollar. An SPX wall lands on a round index number; the matching SPY wall can sit at finer resolution — SPY often shows you *where inside* an SPX five-point bucket the gamma actually concentrates.
+- **Strike granularity.** In raw dollars SPY lists finer strikes ($1, some $0.50) than SPX's five-point spacing — but apply the ~10× scale: one SPY dollar is ten index points, so SPY's $1 strikes are actually *coarser* than SPX's five-point strikes in index terms, and its $0.50 strikes merely match them. In index terms SPX resolves gamma at least as finely as SPY; SPY's real edge is round-dollar strikes attracting pins and its share liquidity, not finer index resolution.
 
 ---
 
@@ -98,6 +98,6 @@ Each page leads with its own ticker's gamma flip, call wall, put wall, max pain,
 
 ## Bottom line
 
-SPY and SPX track one index through two contracts and two separate dealer gamma books. Trade the levels that belong to your instrument, use the ~10× ratio to translate between them, lean on SPX as the heavier index-level map and SPY for granularity and pinning — and give the most respect to the levels where the two agree.
+SPY and SPX track one index through two contracts and two separate dealer gamma books. Trade the levels that belong to your instrument, use the ~10× ratio to translate between them, lean on SPX as the heavier index-level map and SPY for round-number pinning and share liquidity — and give the most respect to the levels where the two agree.
 
 *These are derived analytics for education, not investment advice. Options trading involves significant risk.*

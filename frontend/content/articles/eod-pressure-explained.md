@@ -30,7 +30,7 @@ Trade bias: **directional read**. The signal points which way pressure is leanin
 
 Three structural mechanisms compound in the final session window:
 
-1. **Charm decay accelerates.** As 0DTE options approach expiry, their delta drifts predictably toward 0 or 1. Dealers running a delta-neutral book have to re-hedge continuously, and the rate of that re-hedging *increases* as the close approaches.
+1. **Charm decay accelerates.** As 0DTE options approach expiry, their delta drifts predictably toward 0 (out-of-the-money) or ±1 (in-the-money). Dealers running a delta-neutral book have to re-hedge continuously, and the rate of that re-hedging *increases* as the close approaches.
 2. **Pin gravity intensifies.** Heavy gamma strikes pull harder on price as time-to-expiry shrinks. In a long-gamma regime, the magnetism toward the nearest heavy strike strengthens through the afternoon.
 3. **Liquidity thins.** Block flows, end-of-day rebalancing, and structural index orders shift the flow profile from continuous to bursty. Dealers have less room to absorb mistakes.
 

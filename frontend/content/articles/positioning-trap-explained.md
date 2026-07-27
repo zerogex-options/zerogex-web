@@ -163,7 +163,7 @@ A worked example. SPX is grinding lower and ZeroGEX shows:
 - **Trap Detection:** 0
 - **Squeeze Setup:** +0.31
 
-The structural read: the short crowd is loaded, the regime is long-gamma (dealers will amplify a squeeze if one comes), Squeeze Setup is leaning bullish, and Trap Detection is silent (no recent failed downside break to fade *yet*). Practical lean: the upside short-cover squeeze is the higher-probability path; wait for the spark, then trade in the direction Positioning Trap is pointing.
+The structural read: the short crowd is loaded, the regime is long-gamma (dealers lean against the crowd's push, supporting a reversal), Squeeze Setup is leaning bullish, and Trap Detection is silent (no recent failed downside break to fade *yet*). Practical lean: the upside short-cover squeeze is the higher-probability path; wait for the spark, then trade in the direction Positioning Trap is pointing.
 
 ---
 

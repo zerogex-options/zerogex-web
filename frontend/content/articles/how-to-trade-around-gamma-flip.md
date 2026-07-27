@@ -96,7 +96,7 @@ Initial read: long-gamma regime, healthy positioning, structural range 5,790-5,8
 
 By 13:00 ET, SPX has slipped to 5,806 and the flip has drifted up to 5,803 — the two have nearly converged. Net GEX has decayed to +$300M. The regime is contested — spot is barely above the flip, magnitude is shrinking, and the structural reflex is weakening.
 
-The playbook shifts. The fade-the-rally setup that was on at 14:30 is now structurally unsupported; a continuation higher is possible if Net GEX flips negative. Position size should shrink; the default trade is no trade until the regime resolves.
+The playbook shifts. The fade-the-rally setup that was on at the open is now structurally unsupported; a continuation higher is possible if Net GEX flips negative. Position size should shrink; the default trade is no trade until the regime resolves.
 
 At 14:30 ET, Net GEX has flipped to −$200M and SPX has pushed to 5,815. This is now a short-gamma regime — the dealer reflex is amplifying, and the 5,820 call wall is no longer structural resistance; it's a breakout target. The fade-the-breakout trade is *off*; if the setup is right, the chase becomes the play.
 

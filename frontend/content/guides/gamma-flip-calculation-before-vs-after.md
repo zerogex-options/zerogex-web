@@ -22,7 +22,7 @@ There are two regimes, separated by a single price level called the **gamma flip
 The core primitive is one curve: the **spot-shift dealer gamma profile**.
 
 1. Take today's option chain snapshot.
-2. Imagine the stock at every price on a grid spanning roughly ±20% of spot (in 0.25%-of-spot steps — a few hundred grid points).
+2. Imagine the stock at every price on a grid spanning roughly ±20% of spot (in 0.25%-of-spot steps — roughly 160 grid points).
 3. At each grid price, **re-price every option's gamma** with Black-Scholes (gamma is itself a function of spot, so you cannot use the static snapshot value).
 4. Multiply each contract's gamma by `OI × 100 × S² × 0.01` (the industry "dollar GEX per 1% move" convention used by SpotGamma / SqueezeMetrics / Cheddar Flow), and apply the dealer sign convention (calls +, puts −).
 5. Weight each contract by `min(1, DTE / 5 days)` — a horizon-occupancy ramp so a same-day 0DTE wall (which carries a colossal `1/√T` gamma spike) cannot pin a multi-day regime level.

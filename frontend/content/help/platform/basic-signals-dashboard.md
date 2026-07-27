@@ -31,7 +31,7 @@ Lee-Ready aggressor classification on the options tape. Net of call buy/sell pre
 
 ### Skew Delta
 
-The OTM put IV minus OTM call IV spread versus its baseline. Negative reads mean fear is bid; positive reads mean call premium is bid (greed). Useful as a sentiment temperature check more than a precision signal.
+The OTM put IV minus OTM call IV spread versus its baseline, sign-inverted so the score reads directionally: negative means fear is bid (put skew rich); positive means call premium is bid (greed). Useful as a sentiment temperature check more than a precision signal.
 
 ### Vanna/Charm Flow
 
@@ -43,7 +43,7 @@ The dealer net delta from the option chain (call_delta_oi + put_delta_oi). Stron
 
 ### GEX Gradient
 
-Above-spot gamma versus below-spot gamma, with an ATM-concentration check. Tells you which side of the spot has more gamma weight. Positive gradient ⇒ gamma stacked above spot ⇒ structural upside pin; negative ⇒ structural downside pin.
+Above-spot gamma versus below-spot gamma, with an ATM-concentration check. Tells you which side of the spot has more gamma weight. Positive gradient ⇒ more gamma below spot ⇒ a supportive floor, upside-stabilizing (bullish lean); negative ⇒ more gamma above spot ⇒ downside-amplifying (bearish lean).
 
 ### Positioning Trap
 

@@ -54,7 +54,7 @@ Three signals. Three theses. Same number line.
 - Gamma flip proximity
 - Net GEX regime (smoothed via tanh)
 
-**How it scores:** A weighted sum — 0.45 on crowding, 0.25 on imbalance skew, 0.15 on momentum, 0.10 on flip lean, 0.05 on negative-GEX regime — computed independently for the squeeze side (long crowd at risk) and flush side (short crowd at risk). The two are netted to a single score.
+**How it scores:** A weighted sum — 0.45 on crowding, 0.25 on imbalance skew, 0.15 on momentum, 0.10 on flip lean, 0.05 on negative-GEX regime — computed independently for the squeeze side (short crowd at risk) and flush side (long crowd at risk). The two are netted to a single score.
 
 Unlike the other two, Positioning Trap has no triggered flag — it feeds the MSI composite as a continuous component (weight 0.06) and gates the `positioning_trap_squeeze` playbook at abs(score) ≥ 0.5.
 
@@ -92,8 +92,8 @@ Here's the trap that traps traders: all three signals print a [-1, +1] score, an
 
 | Score Sign | Squeeze Setup | Positioning Trap | Trap Detection |
 |---|---|---|---|
-| Positive (+) | Buy the breakout up | Fade short crowd → upside squeeze | Buy the failed breakdown |
-| Negative (−) | Sell the breakout down | Fade long crowd → downside flush | Sell the failed breakout |
+| Positive (+) | Buy the breakout up | Fade long crowd → downside flush | Buy the failed breakdown |
+| Negative (−) | Sell the breakout down | Fade short crowd → upside squeeze | Sell the failed breakout |
 | Zero (0) | No coiled energy / no flow lean | No crowd extreme | No structural break failing |
 
 A 0 doesn't mean "neutral market." It means *this specific question has no answer right now*. Squeeze Setup at 0 doesn't tell you positioning is balanced — it tells you nothing is compressed. Trap Detection at 0 doesn't tell you the crowd is fine — it tells you no level is being rejected.

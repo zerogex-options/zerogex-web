@@ -159,9 +159,9 @@ The classic pattern: in a long-gamma regime with strengthening dealer positionin
 
 The signal looks for two symmetric setups:
 
-> **Bear trap on an upside fake.** Price pokes above a resistance level — `call_wall`, `max_gamma_strike`, `vwap`, or `gamma_flip` — but the structural conditions say the breakout will fail. Produces a *negative* score (`bearish_fade`).
+> **Bull trap on an upside fake.** Price pokes above a resistance level — `call_wall`, `max_gamma_strike`, `vwap`, or `gamma_flip` — but the structural conditions say the breakout will fail. Produces a *negative* score (`bearish_fade`).
 
-> **Bull trap on a downside fake.** Price pokes below support — `put_wall`, `max_gamma_strike`, `vwap`, or `gamma_flip` — but the breakdown looks fake. Produces a *positive* score (`bullish_fade`).
+> **Bear trap on a downside fake.** Price pokes below support — `put_wall`, `max_gamma_strike`, `vwap`, or `gamma_flip` — but the breakdown looks fake. Produces a *positive* score (`bullish_fade`).
 
 The output sign encodes which direction to *fade*, not which direction price just broke.
 
@@ -171,13 +171,13 @@ The output sign encodes which direction to *fade*, not which direction price jus
 
 | Score | Label | Trader interpretation |
 |-------|-------|----------------------|
-| +0.5 to +1.0 | `bullish_fade` | High-conviction bull-trap-fade. Downside break is fake — expect snap-back up. |
+| +0.5 to +1.0 | `bullish_fade` | High-conviction bear-trap-fade. Downside break is fake — expect snap-back up. |
 | +0.25 to +0.5 | `bullish_fade` (triggered) | Moderate. Consider mean-reversion long entries. |
 | 0 to +0.25 | sub-threshold | Weak conviction; not actionable alone. |
 | 0 | none | No trap forming. The default state. |
 | 0 to −0.25 | sub-threshold | Weak conviction. |
-| −0.25 to −0.5 | `bearish_fade` (triggered) | Moderate bear-trap-fade. Fade longs, expect reversal down. |
-| −0.5 to −1.0 | `bearish_fade` | High-conviction bear-trap-fade. Fade rallies into the breakout. |
+| −0.25 to −0.5 | `bearish_fade` (triggered) | Moderate bull-trap-fade. Fade longs, expect reversal down. |
+| −0.5 to −1.0 | `bearish_fade` | High-conviction bull-trap-fade. Fade rallies into the breakout. |
 
 The trigger threshold here is **0.25** — deliberately stricter than EOD Pressure's 0.20. Trap setups need higher conviction to actively fire because trading against an active breakout has higher tail risk than drifting with end-of-day flow.
 

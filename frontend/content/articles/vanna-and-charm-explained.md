@@ -71,7 +71,7 @@ A standard intraday timeline illustrates the difference:
 
 - A spot move of 0.2% forces gamma hedging — large and immediate.
 - A 1-vol-point drop in IV over the morning forces vanna hedging — small per minute but persistent.
-- Eight hours of time decay into the close forces charm hedging — small per minute but cumulatively significant.
+- A full session of time decay into the close forces charm hedging — small per minute but cumulatively significant.
 
 All three are happening at once. In quiet tape, gamma is largely silent (small moves), and vanna and charm become the dominant flow. In violent tape, gamma dominates and the second-order flows are noise. The relevance of vanna and charm depends on the volatility regime as much as the gamma regime.
 

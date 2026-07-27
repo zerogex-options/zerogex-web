@@ -102,7 +102,7 @@ Watching for these breaks is part of the workflow. A pin that's been holding for
 
 ## Worked example
 
-It's 13:30 ET on a Friday. SPY is at 581.10. ZeroGEX shows:
+It's 14:45 ET on a Friday. SPY is at 581.10. ZeroGEX shows:
 
 - **Net GEX:** +$1.3B (long-gamma)
 - **Gamma Flip:** 579.50 (spot well above)
