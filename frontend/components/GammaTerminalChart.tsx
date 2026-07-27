@@ -723,6 +723,14 @@ export default function GammaTerminalChart({
   }, [gexProfile, snapshot, rewindBucket, liveGexBucket, live]);
 
   // ── Price/change readout ─────────────────────────────────────────────────
+  // The chart draws the live pre-market / after-hours tape inline (ETFs opt
+  // into after-hours bars, and the tip candle is patched with the live quote),
+  // so the headline must track that tape rather than freeze on the regular
+  // 4 PM close — otherwise the price + change stall while the candles beside
+  // them keep moving. `preferLiveExtendedHours` routes the extended-hours
+  // headline to the live quote close (baseline unchanged, so the day-change
+  // stays continuous across the 16:00 flip). Applies to the delayed snapshot
+  // too: its quote already carries the served extended-hours close.
   const priceSummary = getPrimaryPriceChangeSummary({
     quoteClose: snapshot ? snapshot.quote?.close : quote?.close,
     quoteSession: session,
@@ -730,6 +738,7 @@ export default function GammaTerminalChart({
     displaySource: snapshot ? snapshot.quote?.display_source : quote?.display_source,
     futuresClose: snapshot ? snapshot.quote?.futures_close : quote?.futures_close,
     futuresReferenceClose: snapshot ? snapshot.quote?.futures_reference_close : quote?.futures_reference_close,
+    preferLiveExtendedHours: true,
   });
 
   // ── Crosshair state ──────────────────────────────────────────────────────
