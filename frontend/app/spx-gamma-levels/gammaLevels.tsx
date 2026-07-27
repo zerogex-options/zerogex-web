@@ -492,7 +492,7 @@ function SymbolCard({
         <LevelRow label="Put wall" value={fmtPrice(data?.put_wall)} hint="Strike that tends to floor downside" />
         <LevelRow label="Gamma flip" value={fmtPrice(data?.gamma_flip)} hint="Regime line — above = positive, below = negative" />
         <LevelRow label="Max pain" value={fmtPrice(data?.max_pain)} hint="Strike where the most contracts expire worthless" />
-        <LevelRow label="Net dealer GEX (at spot)" value={fmtNetGex(data?.net_gex_at_spot ?? data?.net_gex)} />
+        <LevelRow label="Net dealer GEX (at spot)" value={fmtNetGex(data?.net_gex_at_spot ?? data?.net_gex)} hint="Modeled (call-positive/put-negative convention); actual dealer inventory isn't directly observable" />
       </div>
 
       <footer style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 4 }}>
