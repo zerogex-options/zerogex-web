@@ -1,14 +1,14 @@
 # 0DTE Dealer Positioning Explained
 
-*Same-day expiries now dominate SPX flow. That changes how dealer gamma reads — and how the tape has to be read to keep up. 0DTE dealer positioning, explained for the practical intraday trader.*
+*0DTE options represent a large share of SPX activity and can dominate near-spot gamma sensitivity on some sessions. Their net dealer impact remains modeled, not observable from gross volume or OI.*
 
 ---
 
 ## Why 0DTE changes the read
 
-Dealer positioning has always mattered to options traders. What has changed in the last few years is the **dominance of 0DTE flow** in SPX and SPY. Same-day expiries now carry an outsized share of total gamma exposure, and because their gamma is concentrated near spot and decays into the close, the dealer hedging behavior they force is sharper, more reactive, and more regime-dependent than any prior chain structure.
+0DTE options account for a large share of SPX trading activity and can dominate near-spot gamma sensitivity on some sessions. As expiration approaches, ATM gamma can rise sharply while strikes that become decisively ITM or OTM tend toward zero. Actual net dealer impact depends on customer buying and selling that gross volume and OI do not reveal.
 
-If you trade SPX during the cash session and you are not reading dealer positioning through the 0DTE lens, you are reading a stale book.
+Isolating 0DTE can add useful intraday context because same-day options can carry very high near-spot gamma. Their actual net dealer-hedging impact depends on customer buying and selling that gross public volume and OI do not reveal.
 
 This piece is the practical read for what "0DTE dealer positioning" and "dealer gamma 0DTE" actually mean in real time. We will cover why the 0DTE bucket matters more than longer-dated bucketing, what changes between negative- and positive-gamma regimes specifically for 0DTE, and how to read the tape differently in each. Pair this with [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) for the regime line itself, [Gamma Walls Explained](/education/gamma-walls-explained) for the boundary levels, and the [Gamma Exposure pillar](/education/gamma-exposure-explained) for the full structural background.
 
@@ -26,7 +26,7 @@ The practical implication: the 0DTE bucket disproportionately dictates intraday 
 
 ---
 
-## Why dealer positioning matters most for 0DTE
+## Why 0DTE positioning can matter intraday
 
 Three things compound for 0DTE that do not compound the same way for longer-dated:
 

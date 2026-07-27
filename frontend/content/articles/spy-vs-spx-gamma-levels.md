@@ -6,7 +6,7 @@
 
 ## The short answer
 
-If you trade SPX, read SPX gamma levels. If you trade SPY, read SPY gamma levels. But because both contracts track the **same** underlying index while carrying **separate** pools of open interest, a sharper read can come from watching both — and treating the levels where they line up as the ones that tend to carry extra weight.
+If you trade SPX, read SPX gamma levels. If you trade SPY, read SPY gamma levels. But because both contracts track the **same** underlying index while carrying **separate** pools of open interest, watching both can provide additional context. ZeroGEX has not established that agreement guarantees greater reliability.
 
 The rest of this piece explains why the two books differ, how to convert a level between them, and which one deserves more weight when they disagree.
 
@@ -74,7 +74,7 @@ Match the map to the instrument you are actually trading:
 - **SPY shares or SPY options** → SPY gamma levels — your instrument's own walls and pin.
 - **QQQ** → QQQ levels (see below).
 
-Then look for **confluence**. When the SPX call wall at 6000 lines up with the SPY call wall at 600, that shared level can be sturdier than either alone — two separate modeled dealer books leaning on the same price. When they *disagree*, treat both as softer and let price tell you which book is in control.
+Then look for **confluence**. When an SPX level lines up with the converted SPY level, ZeroGEX treats that agreement as contextual confluence between two separate modeled books. It is a house heuristic, not evidence that the shared level has a higher hit rate. When they disagree, retain both as separate references rather than assuming either book controls price.
 
 > A level where SPX and SPY agree can matter more than the biggest wall on either chart alone.
 
@@ -82,7 +82,7 @@ Then look for **confluence**. When the SPX call wall at 6000 lines up with the S
 
 ## QQQ and NDX: the same logic on the Nasdaq
 
-The Nasdaq-100 has the same split: **QQQ** is the ETF, **NDX** is the cash index, and each carries its own gamma book at a different price scale. If you trade QQQ, read [QQQ gamma levels](/qqq-gamma-levels); if you trade NDX or /NQ, the index book is your reference. The confluence idea travels — QQQ walls that agree with the NDX book can be the ones worth extra attention.
+The Nasdaq-100 has the same split: **QQQ** is the ETF, **NDX** is the cash index, and each carries its own gamma book at a different price scale. If you trade QQQ, read [QQQ gamma levels](/qqq-gamma-levels); if you trade NDX or /NQ, the index book is your reference. The same comparison can provide context for QQQ and NDX, without guaranteeing that confluence improves reliability.
 
 ---
 
