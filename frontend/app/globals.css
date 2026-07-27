@@ -1784,3 +1784,50 @@ html {
   .zg-w-lg { grid-column: span 3; }
   .zg-w-xl { grid-column: span 4; }
 }
+
+/* Right-edge resize handle (edit mode). Drag it to widen/narrow a widget; it
+   snaps to the widget's allowed footprints. Shown only on the 4-column desktop
+   grid, where those footprints render at distinct widths — on the 2-/1-column
+   layouts the toolbar's size button is the resize control instead. */
+.zg-w-resize-handle {
+  position: absolute;
+  top: 50%;
+  right: 2px;
+  transform: translateY(-50%);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 46px;
+  border-radius: 8px;
+  cursor: col-resize;
+  touch-action: none;
+  z-index: 3;
+}
+@media (min-width: 1024px) {
+  .zg-w-resize-handle { display: flex; }
+}
+.zg-w-resize-grip {
+  width: 4px;
+  height: 26px;
+  border-radius: 999px;
+  background: var(--border-strong);
+  transition: background var(--dur-1) var(--ease-standard),
+    height var(--dur-1) var(--ease-standard);
+}
+.zg-w-resize-handle:hover .zg-w-resize-grip,
+.zg-w-resize-handle:focus-visible .zg-w-resize-grip,
+.zg-w-resize-handle[data-active='true'] .zg-w-resize-grip {
+  background: var(--color-accent-hot);
+  height: 34px;
+}
+.zg-w-resize-handle:focus-visible {
+  outline: 2px solid var(--color-accent-hot);
+  outline-offset: 2px;
+}
+/* Lock the cursor + kill text selection for the whole page during a drag. */
+body.zg-col-resizing,
+body.zg-col-resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
