@@ -5,6 +5,7 @@ import ArticleJsonLd from '@/components/ArticleJsonLd';
 import ArticleFaq from '@/components/ArticleFaq';
 import RelatedArticles from '@/components/RelatedArticles';
 import { articleMetadata } from '@/core/articleRegistry';
+import GexMethodologyNote from '@/components/GexMethodologyNote';
 import LiveLevelsCTA from '@/components/LiveLevelsCTA';
 import { loadLocalizedMarkdown } from '@/core/localizedContent';
 
@@ -31,6 +32,7 @@ export default async function GammaWallsExplainedPage() {
 
       <RelatedArticles slug="gamma-walls-explained" />
 
+      <GexMethodologyNote />
       <LiveLevelsCTA concept="call wall and put wall" />
     </div>
   );

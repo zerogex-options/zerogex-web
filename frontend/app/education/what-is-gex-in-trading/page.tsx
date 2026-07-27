@@ -4,6 +4,7 @@ import { renderMarkdown } from '@/components/MarkdownContent';
 import ArticleJsonLd from '@/components/ArticleJsonLd';
 import ArticleFaq from '@/components/ArticleFaq';
 import RelatedArticles from '@/components/RelatedArticles';
+import GexMethodologyNote from '@/components/GexMethodologyNote';
 import LiveLevelsCTA from '@/components/LiveLevelsCTA';
 import { articleMetadata } from '@/core/articleRegistry';
 import { loadLocalizedMarkdown } from '@/core/localizedContent';
@@ -31,6 +32,7 @@ export default async function GexInTradingPage() {
 
       <RelatedArticles slug="what-is-gex-in-trading" />
 
+      <GexMethodologyNote />
       <LiveLevelsCTA concept="gamma exposure" />
     </div>
   );

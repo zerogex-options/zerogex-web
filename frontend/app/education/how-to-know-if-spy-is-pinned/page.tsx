@@ -4,6 +4,7 @@ import { renderMarkdown } from '@/components/MarkdownContent';
 import ArticleJsonLd from '@/components/ArticleJsonLd';
 import RelatedArticles from '@/components/RelatedArticles';
 import { articleMetadata } from '@/core/articleRegistry';
+import GexMethodologyNote from '@/components/GexMethodologyNote';
 import LiveLevelsCTA from '@/components/LiveLevelsCTA';
 import { loadLocalizedMarkdown } from '@/core/localizedContent';
 
@@ -28,6 +29,7 @@ export default async function HowToKnowIfSpyIsPinnedPage() {
 
       <RelatedArticles slug="how-to-know-if-spy-is-pinned" />
 
+      <GexMethodologyNote />
       <LiveLevelsCTA concept="gamma pin" />
     </div>
   );
