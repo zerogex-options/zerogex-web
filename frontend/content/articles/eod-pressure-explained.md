@@ -6,11 +6,11 @@
 
 ## Why this signal exists
 
-The final 90 minutes of the cash session is structurally different from the rest of the day. Charm decay on 0DTE positions forces dealers to hedge continuously. Pin gravity around heavy gamma strikes intensifies. The dealer book is more constrained than at any other point in the session.
+The final 90 minutes of the cash session is structurally different from the rest of the day. Charm decay on 0DTE positions tends to push dealers to re-hedge more actively. Pin gravity around heavy gamma strikes can intensify. The modeled dealer book is more constrained than at almost any other point in the session.
 
-Those forces are not random. They are directional and readable — *if* you know what to look for. The EOD Pressure signal exists to surface that directional drift in real time, so traders can position with the closing flow rather than fighting it.
+Those forces are often directional and readable — *if* you know what to look for. The EOD Pressure signal is designed to surface that modeled directional drift in real time, so traders can position with the closing flow rather than fighting it.
 
-This piece is the trader-facing read on the EOD Pressure signal. It covers what it measures, why the close is different, how the score is built from charm and pin gravity, and how to read it inside the window. For the deeper combined methodology piece that pairs EOD Pressure with Trap Detection, see [Trading the Close](/education/eod-pressure-and-trap-detection); for the underlying mechanics, [Vanna and Charm Explained](/education/vanna-and-charm-explained) covers how charm drives forced hedging in detail.
+This piece is the trader-facing read on the EOD Pressure signal. It covers what it measures, why the close is different, how the score is built from charm and pin gravity, and how to read it inside the window. For the deeper combined methodology piece that pairs EOD Pressure with Trap Detection, see [Trading the Close](/education/eod-pressure-and-trap-detection); for the underlying mechanics, [Vanna and Charm Explained](/education/vanna-and-charm-explained) covers how charm drives modeled hedge flows in detail.
 
 ---
 
@@ -18,7 +18,7 @@ This piece is the trader-facing read on the EOD Pressure signal. It covers what 
 
 The EOD Pressure signal asks one question:
 
-> Given the current dealer book and the proximity of a magnet strike, which way does forced hedging push price into the close?
+> Given the modeled dealer book and the proximity of a magnet strike, which way does modeled hedging lean into the close?
 
 It is an **Advanced** signal in the ZeroGEX stack — it produces both a continuous score on the [-1, +1] number line and a discrete trigger when the absolute score crosses **0.20**. The threshold is deliberately lower than other Advanced signals because the structural context (the closing window) is itself a filter — when EOD Pressure reads 0.15+ inside the active window, it is already directionally informative.
 
@@ -30,8 +30,8 @@ Trade bias: **directional read**. The signal points which way pressure is leanin
 
 Three structural mechanisms compound in the final session window:
 
-1. **Charm decay accelerates.** As 0DTE options approach expiry, their delta drifts predictably toward 0 (out-of-the-money) or ±1 (in-the-money). Dealers running a delta-neutral book have to re-hedge continuously, and the rate of that re-hedging *increases* as the close approaches.
-2. **Pin gravity intensifies.** Heavy gamma strikes pull harder on price as time-to-expiry shrinks. In a long-gamma regime, the magnetism toward the nearest heavy strike strengthens through the afternoon.
+1. **Charm decay accelerates.** As 0DTE options approach expiry, their delta tends to drift toward 0 (out-of-the-money) or ±1 (in-the-money), holding other inputs constant. Dealers running a roughly delta-neutral book tend to re-hedge more often, and the modeled rate of that re-hedging *increases* as the close approaches.
+2. **Pin gravity intensifies.** Heavy gamma strikes can pull harder on price as time-to-expiry shrinks. In a modeled long-gamma regime, the modeled magnetism toward the nearest heavy strike tends to strengthen through the afternoon.
 3. **Liquidity thins.** Block flows, end-of-day rebalancing, and structural index orders shift the flow profile from continuous to bursty. Dealers have less room to absorb mistakes.
 
 EOD Pressure combines the first two into a directional read. The third is implicit in the score's calibration.
@@ -44,7 +44,7 @@ The signal aggregates four components — three contribute to magnitude, one act
 
 ### Component 1: Charm at spot
 
-The most direct measure of forced hedge flow. The signal sums dealer charm exposure across a vol-scaled at-the-money band, weighted by expiry bucket:
+The most direct modeled measure of hedge flow. The signal sums modeled dealer charm exposure across a vol-scaled at-the-money band, weighted by expiry bucket:
 
 | Bucket | Weight | Why |
 |---|---|---|
@@ -67,9 +67,9 @@ sign         = +1 if net_gex >= 0 else -1
 pin_score    = sign × normalized
 ```
 
-A pin target 0.3% above spot in a positive-gamma regime gives a pin score of +1.0 — the magnet is above and gravity is on. In a negative-gamma regime, the same pin above spot produces a *negative* pin score, because dealer hedging is now amplifying moves *away* from the strike.
+A pin target 0.3% above spot in a modeled positive-gamma regime gives a pin score of +1.0 — the magnet is above and gravity is on. In a modeled negative-gamma regime, the same pin above spot produces a *negative* pin score, because dealer hedging is now modeled to amplify moves *away* from the strike.
 
-That sign flip is the key insight. Pin gravity is not a fixed level. It is a sign-dependent force whose direction depends on the gamma regime.
+That sign flip is the key insight. Pin gravity is not a fixed level. It is a sign-dependent force whose direction depends on the modeled gamma regime.
 
 ### Component 3: Time ramp (the gate)
 
@@ -109,7 +109,7 @@ combined = (0.6 × charm_score + 0.4 × pin_score) × amp × ramp
 score    = clip(combined, [-1, +1])
 ```
 
-The 60/40 weighting reflects an opinionated view: **charm is the direct measure of forced hedge flow**, while **pin gravity is the indirect, regime-dependent pull**. Both matter. Charm leads.
+The 60/40 weighting is a hand-picked design choice, not a fitted one: it reflects the view that **charm is the more direct modeled measure of hedge flow**, while **pin gravity is the indirect, regime-dependent pull**. Both matter in the model. Charm leads.
 
 ---
 
@@ -117,11 +117,11 @@ The 60/40 weighting reflects an opinionated view: **charm is the direct measure 
 
 | Score | Reading |
 |---|---|
-| +0.6 to +1.0 | Strong upward drift expected into the close |
-| +0.2 to +0.6 | Mild upside drift — bias intraday holds long, but don't size aggressively |
+| +0.6 to +1.0 | Strong modeled upward drift into the close |
+| +0.2 to +0.6 | Mild modeled upside drift — bias intraday holds long, but don't size aggressively |
 | -0.2 to +0.2 | No edge — either too early in the window or terms cancelling |
-| -0.2 to -0.6 | Mild downside drift |
-| -0.6 to -1.0 | Strong downward drift expected into the close |
+| -0.2 to -0.6 | Mild modeled downside drift |
+| -0.6 to -1.0 | Strong modeled downward drift into the close |
 
 The trigger threshold is **0.20** — lower than the typical 0.25 — because the window itself is doing the filtering.
 
@@ -164,8 +164,8 @@ The 2.0× amplifier on quad-witching days is large enough to push a +0.4 unampli
 
 EOD Pressure is a **directional read** — it tells you which way pressure points without prescribing ride-versus-fade on its own. The fade-versus-ride decision comes from the regime:
 
-- **Positive-gamma regime + positive EOD Pressure score:** drift is up, dealer hedging is dampening, the read favors positioning *with* the drift toward the magnet strike — buying weakness rather than fading into it — and fading only overshoots beyond the magnet.
-- **Negative-gamma regime + positive EOD Pressure score:** the signal is reading a charm-driven up-bias, but in a short-gamma regime the dealer reflex is amplifying rather than absorbing — momentum continuation is more likely.
+- **Modeled positive-gamma regime + positive EOD Pressure score:** modeled drift is up, dealer hedging is modeled to dampen, the read favors positioning *with* the drift toward the magnet strike — buying weakness rather than fading into it — and fading only overshoots beyond the magnet.
+- **Modeled negative-gamma regime + positive EOD Pressure score:** the signal is reading a charm-driven up-bias, but in a short-gamma regime the dealer reflex is modeled to amplify rather than absorb — momentum continuation is more likely.
 
 Combined with other signals:
 
@@ -180,7 +180,7 @@ Combined with other signals:
 Three traps:
 
 - **Treating a pre-window zero as "no signal today."** The window has not opened yet. The signal is *structurally inactive*, not absent of information.
-- **Ignoring the regime sign flip in pin gravity.** A heavy strike above spot pulls *up* in a long-gamma regime and *repels down* in a short-gamma regime. The same chart level means opposite things across the two regimes.
+- **Ignoring the regime sign flip in pin gravity.** A heavy strike above spot is modeled to pull *up* in a long-gamma regime and *repel down* in a short-gamma regime. The same chart level means opposite things across the two modeled regimes.
 - **Trading the raw score without the ramp.** A +0.4 reading at 14:45 (ramp 0.20) is actually a +0.08 effective score. Read the ramp-adjusted magnitude, not the raw input score.
 
 ---
@@ -204,13 +204,13 @@ A worked example. SPX is at 5,825 at 15:15 ET on a monthly OPEX Friday and ZeroG
 - **Charm-at-spot:** modestly negative (sells loading)
 - **Calendar amp:** 1.5× (monthly OPEX)
 
-The structural read: positive-gamma regime with a heavy magnet 15 points below spot, charm-driven hedging is pointing down, and the OPEX amplifier is boosting conviction. Practical lean: drift toward 5,810 is the higher-probability path into the close. The trade isn't EOD Pressure itself — it's positioning consistent with the drift direction, with size calibrated to the high-conviction OPEX read.
+The structural read: modeled positive-gamma regime with a heavy magnet 15 points below spot, modeled charm-driven hedging is pointing down, and the OPEX amplifier is boosting the score. Practical lean: under the model's read, drift toward 5,810 is the higher-probability path into the close. The trade isn't EOD Pressure itself — it's positioning consistent with the drift direction, with size calibrated to the modeled OPEX read.
 
 ---
 
 ## Takeaway
 
-> EOD Pressure tells you which way forced hedging points in the closing window. It does not tell you anything about the rest of the day. That silence is the point.
+> EOD Pressure is designed to estimate which way modeled hedging leans in the closing window. It does not tell you anything about the rest of the day. That silence is the point.
 
 The discipline is to use it as a directional read for the last 90 minutes, cross-checked against the regime to decide ride-versus-fade, and validated against the other Advanced signals for confluence. Outside the window, look elsewhere.
 

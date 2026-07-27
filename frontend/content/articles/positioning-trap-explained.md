@@ -6,7 +6,7 @@
 
 ## Why this signal exists
 
-Crowded options trades break. That is true in single-name equities, true in index options, and true in 0DTE flow — but recognizing *when* a trade is crowded in real time is harder than it sounds.
+Crowded options trades tend to break. That pattern shows up in single-name equities, in index options, and in 0DTE flow — but recognizing *when* a trade is crowded in real time is harder than it sounds.
 
 The Positioning Trap signal exists to surface that read continuously. It tells you when the options crowd is lopsidedly positioned — heavily long or heavily short — and when the tape is starting to invalidate that bias. The classic short-cover squeeze setup. The classic long-side flush.
 
@@ -31,7 +31,7 @@ Trade bias: **mean-reversion**. When Positioning Trap is active, it points to th
 Three mechanisms drive the "crowded trades break" thesis:
 
 1. **Reflexivity.** Heavy one-sided positioning means the people who *would have bought* (in a crowded-long setup) have already bought. The marginal next buyer is hard to find. The path of least resistance starts to lean the other way.
-2. **Dealer hedging.** In a long-gamma regime — dealers long calls, short puts — dealer hedging requires them to sell into rallies and buy into dips. The structural force lines up against the crowd.
+2. **Dealer hedging.** In a modeled long-gamma regime — under the traditional convention that treats dealers as long calls and short puts — dealer hedging tends to sell into rallies and buy into dips. That modeled structural force can lean against the crowd.
 3. **Catalyst asymmetry.** A bullish catalyst lands in a long-crowd setup and surprises nobody — the upside is largely priced. A bearish catalyst in the same setup hits a market that is unprepared and unhedged. Asymmetric reaction.
 
 The Positioning Trap signal does not try to predict the catalyst. It surfaces the *setup*, so when the spark comes — wherever it comes from — you have already identified which side is at risk.
@@ -43,10 +43,10 @@ The Positioning Trap signal does not try to predict the catalyst. It surfaces th
 | Input | What it captures |
 |---|---|
 | Put/call ratio (PCR) | The classic crowding measure — high PCR means heavy put positioning, low PCR means heavy call positioning |
-| Smart-money imbalance | Signed: `(call_signed − put_signed) / (abs(call) + abs(put))`. Filters retail noise; surfaces the side institutional flow is actually leaning |
+| Smart-money imbalance | Signed: `(call_signed − put_signed) / (abs(call) + abs(put))`. A derived feature that down-weights smaller-lot noise and infers the side larger participants may be leaning |
 | 5-bar momentum | Tape direction — if momentum is starting to turn against the crowd, the trap thesis is live |
-| Gamma flip proximity | How close spot is to the flip — flip-region setups have more reflexivity than deep-regime setups |
-| Net GEX regime | Smoothed through tanh — long-gamma regimes dampen the trap thesis; short-gamma regimes amplify it |
+| Gamma flip proximity | How close spot is to the modeled flip — flip-region setups tend to carry more reflexivity than deep-regime setups |
+| Net GEX regime | Modeled net gamma smoothed through tanh — long-gamma regimes tend to dampen the trap thesis; short-gamma regimes tend to amplify it |
 
 The output is one number per refresh, computed continuously across two sides (squeeze side and flush side) and netted.
 
@@ -73,7 +73,7 @@ A few things to notice about the weights:
 - **Momentum at 0.15.** Tape direction matters but isn't the headline — Positioning Trap is asking about *positioning*, not direction.
 - **Flip lean at 0.10 + negative-GEX at 0.05.** Regime amplifiers — small individually, meaningful together when both line up.
 
-The score is continuous. It does not trigger. That brings us to the key wiring distinction.
+These weights are hand-picked design choices, not coefficients fitted to outcomes — the result is a derived signal, not a calibrated probability. The score is continuous. It does not trigger. That brings us to the key wiring distinction.
 
 ---
 
@@ -97,7 +97,7 @@ Practical consequence: don't wait for Positioning Trap to "fire." Watch the scor
 | -0.2 to -0.5 | Long crowd mildly offside — informational, not yet pressing |
 | -0.5 to -1.0 | Long crowd at meaningful risk — downside flush loading |
 
-The `positioning_trap_squeeze` playbook gates at **abs(score) ≥ 0.5** — higher than the typical Advanced trigger. Positioning Trap needs deeper conviction to act on, because trading against the crowd is structurally riskier than running with momentum.
+The `positioning_trap_squeeze` playbook gates at **abs(score) ≥ 0.5** — higher than the typical Advanced trigger. Positioning Trap needs deeper conviction to act on, because trading against the crowd can be riskier than running with momentum.
 
 ---
 
@@ -119,7 +119,7 @@ Positioning Trap is best read as a **gating condition**, not an entry signal. Th
 1. **Identify the crowded side** by reading the sign and magnitude.
 2. **Wait for the spark.** Positioning Trap tells you the fuel is there; the tape has to provide the ignition. Common sparks: Trap Detection firing in the opposite direction, a price-level break against the crowd, a catalyst (CPI, FOMC) hitting the unhedged side.
 3. **When the spark fires, the trade is the fade** — sell into the long crowd, buy into the short crowd.
-4. **Size with regime in mind.** A loaded Positioning Trap in a long-gamma regime is a sharper trade than the same trap in a short-gamma regime — long-gamma hedging amplifies the fade through structural dealer reflexes.
+4. **Size with regime in mind.** A loaded Positioning Trap in a modeled long-gamma regime can be a sharper trade than the same trap in a short-gamma regime — long-gamma hedging is modeled to amplify the fade through dealer hedging reflexes.
 
 ---
 
@@ -142,7 +142,7 @@ Three traps:
 
 - **Treating Positioning Trap as a trigger.** It isn't. The 0.5 threshold gates a playbook, but the signal itself does not "fire" — there's no event. Read the score continuously.
 - **Trading off Positioning Trap alone.** Crowded trades break, but they also persist. Without a spark from another signal or a level break, the fade is uncalibrated.
-- **Ignoring the regime.** A loaded trap in a deep short-gamma regime is a much riskier fade — dealer hedging is amplifying moves, so the crowd may not break the way structural reflexivity says they should.
+- **Ignoring the regime.** A loaded trap in a deep short-gamma regime can be a much riskier fade — dealer hedging is modeled to amplify moves, so the crowd may not break the way structural reflexivity suggests.
 
 ---
 
@@ -159,11 +159,11 @@ The signal feeds multiple panels:
 A worked example. SPX is grinding lower and ZeroGEX shows:
 
 - **Positioning Trap:** +0.62 (short crowd offside)
-- **Net GEX:** +$1.4B
+- **Net GEX:** +$1.4B (modeled)
 - **Trap Detection:** 0
 - **Squeeze Setup:** +0.31
 
-The structural read: the short crowd is loaded, the regime is long-gamma (dealers lean against the crowd's push, supporting a reversal), Squeeze Setup is leaning bullish, and Trap Detection is silent (no recent failed downside break to fade *yet*). Practical lean: the upside short-cover squeeze is the higher-probability path; wait for the spark, then trade in the direction Positioning Trap is pointing.
+The structural read: the short crowd is loaded, the modeled regime is long-gamma (dealers are modeled to lean against the crowd's push, which can support a reversal), Squeeze Setup is leaning bullish, and Trap Detection is silent (no recent failed downside break to fade *yet*). Practical lean: the modeled read favors the upside short-cover squeeze; wait for the spark, then trade in the direction Positioning Trap is pointing.
 
 ---
 
