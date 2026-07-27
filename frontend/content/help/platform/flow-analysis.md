@@ -47,7 +47,7 @@ Tags on individual trades flag them as smart-money — typically large blocks, s
 Three patterns:
 
 1. **Strong premium-weighted positive flow with a negative GEX gradient** ⇒ traders are paying for upside that dealers are structurally short. High-conviction continuation read.
-2. **Strong put buy with the Positioning Trap signal loaded on the short-crowd (negative) side** ⇒ the bearish crowd is offside; expect a snap back up.
+2. **Strong put buy with the Positioning Trap signal loaded on the short-crowd (positive) side** ⇒ the bearish crowd is offside; expect a snap back up.
 3. **Flow flat near a key level** ⇒ wait for the break. Flow without conviction is not a trade.
 
 ## Net Volume vs. Directional Flow

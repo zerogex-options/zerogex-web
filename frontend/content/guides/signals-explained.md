@@ -71,9 +71,9 @@ Same number line, very different questions. Here is what positive, negative, and
 
 | Signal | Positive score | Negative score | Zero |
 | --- | --- | --- | --- |
-| Dealer Delta Pressure | Dealers long delta — must sell rallies (bearish) | Dealers short delta — must buy dips (bullish) | Balanced dealer book or insufficient OI |
+| Dealer Delta Pressure | Dealers short delta — must buy dips (bullish) | Dealers long delta — must sell rallies (bearish) | Balanced dealer book or insufficient OI |
 | GEX Gradient | Gamma stacked below spot — support below, upside-stabilizing (bullish lean) | Gamma stacked above spot — thin support below, downside-amplifying (bearish lean) | Flat gradient or insufficient OI |
-| Positioning Trap | Long crowd offside — downside flush loading | Short crowd offside — upside short-cover squeeze loading | No crowd extreme detected |
+| Positioning Trap | Short crowd offside — upside short-cover squeeze loading | Long crowd offside — downside flush loading | No crowd extreme detected |
 | Skew Delta | Put skew *below* baseline — fear is unwinding (bullish lean) | Put skew elevated — fear is bid (bearish lean) | Skew sitting at baseline, or data missing |
 | Tape Flow Bias | Aggressive call buying dominates the tape (bullish conviction) | Aggressive put buying dominates the tape (bearish conviction) | Balanced premium flow or insufficient volume |
 | Vanna/Charm Flow | Dealer hedging is a buying tailwind (vol-crush / decay) | Dealer hedging is a selling headwind (vol-up / unwind) | Balanced dealer exposure or missing dealer rows |

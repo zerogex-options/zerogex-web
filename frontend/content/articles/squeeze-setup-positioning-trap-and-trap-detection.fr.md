@@ -92,8 +92,8 @@ Voici le piège qui piège les traders : les trois signaux affichent un score [-
 
 | Signe du Score | Squeeze Setup | Positioning Trap | Trap Detection |
 |---|---|---|---|
-| Positif (+) | Acheter le breakout haussier | Parier contre la foule long → flush baissier | Acheter le breakdown raté |
-| Négatif (−) | Vendre le breakout baissier | Parier contre la foule short → squeeze haussier | Vendre le breakout raté |
+| Positif (+) | Acheter le breakout haussier | Parier contre la foule short → squeeze haussier | Acheter le breakdown raté |
+| Négatif (−) | Vendre le breakout baissier | Parier contre la foule long → flush baissier | Vendre le breakout raté |
 | Zéro (0) | Pas d'énergie comprimée / pas d'inclinaison de flow | Pas d'extrême de foule | Aucun niveau structurel n'échoue |
 
 Un 0 ne signifie pas « marché neutre ». Cela signifie que *cette question précise n'a pas de réponse pour l'instant*. Squeeze Setup à 0 ne vous dit pas que le positionnement est équilibré — cela vous dit que rien n'est comprimé. Trap Detection à 0 ne vous dit pas que la foule va bien — cela vous dit qu'aucun niveau n'est en train d'être rejeté.
@@ -108,7 +108,7 @@ Quelques schémas à surveiller :
 
 **Confluence (forte conviction) :** Squeeze Setup +0,5 et Trap Detection +0,4 → le marché est comprimé à la hausse et une cassure baissière vient d'échouer. Les deux signaux pointent vers le même trade sous des angles différents.
 
-**Séquence (meilleures entrées) :** Positioning Trap signale une foule long à +0,7 → attendez. Trap Detection bascule ensuite en négatif (la cassure haussière échoue) → c'est l'étincelle. Tradez le fade avec la foule comme carburant.
+**Séquence (meilleures entrées) :** Positioning Trap signale une foule long à −0,7 → attendez. Trap Detection bascule ensuite en négatif (la cassure haussière échoue) → c'est l'étincelle. Tradez le fade avec la foule comme carburant.
 
 **Contradiction (restez à l'écart) :** Squeeze Setup indique +0,6 (aller long sur la cassure). Trap Detection indique −0,5 (la cassure haussière échoue). L'un des deux se trompe. Passez votre tour.
 

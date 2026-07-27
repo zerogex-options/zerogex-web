@@ -91,11 +91,11 @@ Praktische Konsequenz: Warte nicht darauf, dass Positioning Trap "auslöst". Beo
 
 | Score | Lesart |
 |---|---|
-| +0,5 bis +1,0 | Long-Masse in erheblicher Gefahr — Abwärts-Flush lädt sich auf |
-| +0,2 bis +0,5 | Long-Masse leicht fehlpositioniert — informativ, noch nicht drängend |
+| +0,5 bis +1,0 | Short-Masse in erheblicher Gefahr — Aufwärts-Short-Cover-Squeeze lädt sich auf |
+| +0,2 bis +0,5 | Short-Masse leicht fehlpositioniert — informativ, noch nicht drängend |
 | -0,2 bis +0,2 | Kein klares Massenextrem |
-| -0,2 bis -0,5 | Short-Masse leicht fehlpositioniert — Aufwärts-Squeeze lädt sich auf |
-| -0,5 bis -1,0 | Short-Masse in erheblicher Gefahr — Aufwärts-Short-Cover-Squeeze lädt sich auf |
+| -0,2 bis -0,5 | Long-Masse leicht fehlpositioniert — informativ, noch nicht drängend |
+| -0,5 bis -1,0 | Long-Masse in erheblicher Gefahr — Abwärts-Flush lädt sich auf |
 
 Das `positioning_trap_squeeze`-Playbook schaltet frei bei **abs(score) ≥ 0,5** — höher als der typische Advanced-Trigger. Positioning Trap benötigt tiefere Überzeugung, um darauf zu handeln, weil gegen die Masse zu traden strukturell riskanter ist, als mit dem Momentum zu laufen.
 
@@ -158,7 +158,7 @@ Das Signal speist mehrere Panels:
 
 Ein durchgerechnetes Beispiel. SPX bewegt sich langsam abwärts, und ZeroGEX zeigt:
 
-- **Positioning Trap:** −0,62 (Short-Masse fehlpositioniert)
+- **Positioning Trap:** +0,62 (Short-Masse fehlpositioniert)
 - **Net GEX:** +$1,4 Mrd.
 - **Trap Detection:** 0
 - **Squeeze Setup:** +0,31

@@ -92,8 +92,8 @@ Ecco la trappola che intrappola i trader: tutti e tre i segnali stampano un punt
 
 | Segno del Punteggio | Squeeze Setup | Positioning Trap | Trap Detection |
 |---|---|---|---|
-| Positivo (+) | Compra il breakout al rialzo | Fai da contrarian alla folla long → flush al ribasso | Compra il breakdown fallito |
-| Negativo (−) | Vendi il breakout al ribasso | Fai da contrarian alla folla short → squeeze al rialzo | Vendi il breakout fallito |
+| Positivo (+) | Compra il breakout al rialzo | Fai da contrarian alla folla short → squeeze al rialzo | Compra il breakdown fallito |
+| Negativo (−) | Vendi il breakout al ribasso | Fai da contrarian alla folla long → flush al ribasso | Vendi il breakout fallito |
 | Zero (0) | Nessuna energia compressa / nessuna inclinazione di flow | Nessun estremo della folla | Nessun livello strutturale in fase di rigetto |
 
 Uno 0 non significa "mercato neutrale". Significa che *questa specifica domanda non ha risposta in questo momento*. Squeeze Setup a 0 non ti dice che il positioning è bilanciato — ti dice che nulla è compresso. Trap Detection a 0 non ti dice che la folla sta bene — ti dice che nessun livello sta venendo respinto.
@@ -108,7 +108,7 @@ Alcuni pattern da cercare:
 
 **Confluenza (alta convinzione):** Squeeze Setup +0.5 e Trap Detection +0.4 → il mercato è compresso al rialzo e una rottura al ribasso è appena fallita. Entrambi i segnali puntano allo stesso trade da angolazioni diverse.
 
-**Sequenza (entrate migliori):** Positioning Trap segnala una folla long a +0.7 → aspetta. Trap Detection poi passa a negativo (la rottura al rialzo fallisce) → quella è la scintilla. Fai il fade con la folla come carburante.
+**Sequenza (entrate migliori):** Positioning Trap segnala una folla long a −0.7 → aspetta. Trap Detection poi passa a negativo (la rottura al rialzo fallisce) → quella è la scintilla. Fai il fade con la folla come carburante.
 
 **Contraddizione (fermati):** Squeeze Setup dice +0.6 (vai long con la rottura). Trap Detection dice −0.5 (la rottura al rialzo sta fallendo). Uno dei due ha torto. Salta il trade.
 

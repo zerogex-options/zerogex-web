@@ -91,11 +91,11 @@ Conséquence pratique : n'attendez pas que Positioning Trap « se déclenche ».
 
 | Score | Lecture |
 |---|---|
-| +0,5 à +1,0 | Foule long à risque significatif — flush baissier en cours de chargement |
-| +0,2 à +0,5 | Foule long légèrement mal positionnée — informatif, pas encore pressant |
+| +0,5 à +1,0 | Foule short à risque significatif — squeeze haussier de short-cover en cours de chargement |
+| +0,2 à +0,5 | Foule short légèrement mal positionnée — informatif, pas encore pressant |
 | -0,2 à +0,2 | Aucun extrême de foule clair |
-| -0,2 à -0,5 | Foule short légèrement mal positionnée — squeeze haussier en cours de chargement |
-| -0,5 à -1,0 | Foule short à risque significatif — squeeze haussier de short-cover en cours de chargement |
+| -0,2 à -0,5 | Foule long légèrement mal positionnée — informatif, pas encore pressant |
+| -0,5 à -1,0 | Foule long à risque significatif — flush baissier en cours de chargement |
 
 Le playbook `positioning_trap_squeeze` se débloque à **abs(score) ≥ 0,5** — plus élevé que le déclenchement Advanced typique. Positioning Trap nécessite une conviction plus profonde pour agir, car trader contre la foule est structurellement plus risqué que suivre le momentum.
 
@@ -158,7 +158,7 @@ Le signal alimente plusieurs panneaux :
 
 Un exemple concret. Le SPX glisse lentement vers le bas et ZeroGEX affiche :
 
-- **Positioning Trap :** −0,62 (foule short mal positionnée)
+- **Positioning Trap :** +0,62 (foule short mal positionnée)
 - **Net GEX :** +1,4 Md$
 - **Trap Detection :** 0
 - **Squeeze Setup :** +0,31

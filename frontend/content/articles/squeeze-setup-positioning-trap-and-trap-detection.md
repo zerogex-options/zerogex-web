@@ -92,8 +92,8 @@ Here's the trap that traps traders: all three signals print a [-1, +1] score, an
 
 | Score Sign | Squeeze Setup | Positioning Trap | Trap Detection |
 |---|---|---|---|
-| Positive (+) | Buy the breakout up | Fade long crowd → downside flush | Buy the failed breakdown |
-| Negative (−) | Sell the breakout down | Fade short crowd → upside squeeze | Sell the failed breakout |
+| Positive (+) | Buy the breakout up | Fade short crowd → upside squeeze | Buy the failed breakdown |
+| Negative (−) | Sell the breakout down | Fade long crowd → downside flush | Sell the failed breakout |
 | Zero (0) | No coiled energy / no flow lean | No crowd extreme | No structural break failing |
 
 A 0 doesn't mean "neutral market." It means *this specific question has no answer right now*. Squeeze Setup at 0 doesn't tell you positioning is balanced — it tells you nothing is compressed. Trap Detection at 0 doesn't tell you the crowd is fine — it tells you no level is being rejected.
@@ -108,7 +108,7 @@ A few patterns to look for:
 
 **Confluence (high conviction):** Squeeze Setup +0.5 and Trap Detection +0.4 → the market is coiled to the upside and a downside break just failed. Both signals are pointing at the same trade from different angles.
 
-**Sequence (better entries):** Positioning Trap flags a long crowd at +0.7 → wait. Trap Detection then flips negative (upside break fails) → that's the spark. Trade the fade with the crowd as fuel.
+**Sequence (better entries):** Positioning Trap flags a long crowd at −0.7 → wait. Trap Detection then flips negative (upside break fails) → that's the spark. Trade the fade with the crowd as fuel.
 
 **Contradiction (stand down):** Squeeze Setup says +0.6 (go long with the break). Trap Detection says −0.5 (the upside break is failing). One of them is wrong. Skip it.
 

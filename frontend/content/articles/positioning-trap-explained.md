@@ -91,11 +91,11 @@ Practical consequence: don't wait for Positioning Trap to "fire." Watch the scor
 
 | Score | Reading |
 |---|---|
-| +0.5 to +1.0 | Long crowd at meaningful risk — downside flush loading |
-| +0.2 to +0.5 | Long crowd mildly offside — informational, not yet pressing |
+| +0.5 to +1.0 | Short crowd at meaningful risk — upside short-cover squeeze loading |
+| +0.2 to +0.5 | Short crowd mildly offside — informational, not yet pressing |
 | -0.2 to +0.2 | No clear crowd extreme |
-| -0.2 to -0.5 | Short crowd mildly offside — upside squeeze loading |
-| -0.5 to -1.0 | Short crowd at meaningful risk — upside short-cover squeeze loading |
+| -0.2 to -0.5 | Long crowd mildly offside — informational, not yet pressing |
+| -0.5 to -1.0 | Long crowd at meaningful risk — downside flush loading |
 
 The `positioning_trap_squeeze` playbook gates at **abs(score) ≥ 0.5** — higher than the typical Advanced trigger. Positioning Trap needs deeper conviction to act on, because trading against the crowd is structurally riskier than running with momentum.
 
@@ -158,7 +158,7 @@ The signal feeds multiple panels:
 
 A worked example. SPX is grinding lower and ZeroGEX shows:
 
-- **Positioning Trap:** −0.62 (short crowd offside)
+- **Positioning Trap:** +0.62 (short crowd offside)
 - **Net GEX:** +$1.4B
 - **Trap Detection:** 0
 - **Squeeze Setup:** +0.31

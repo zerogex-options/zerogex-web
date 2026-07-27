@@ -91,11 +91,11 @@ Conseguenza pratica: non aspettare che Positioning Trap "scatti". Osserva lo sco
 
 | Score | Lettura |
 |---|---|
-| +0.5 a +1.0 | Folla long a rischio significativo — flush al ribasso in caricamento |
-| +0.2 a +0.5 | Folla long lievemente fuori posizione — informativo, non ancora pressante |
+| +0.5 a +1.0 | Folla short a rischio significativo — squeeze da short-cover al rialzo in caricamento |
+| +0.2 a +0.5 | Folla short lievemente fuori posizione — informativo, non ancora pressante |
 | -0.2 a +0.2 | Nessun estremo di folla chiaro |
-| -0.2 a -0.5 | Folla short lievemente fuori posizione — squeeze al rialzo in caricamento |
-| -0.5 a -1.0 | Folla short a rischio significativo — squeeze da short-cover al rialzo in caricamento |
+| -0.2 a -0.5 | Folla long lievemente fuori posizione — informativo, non ancora pressante |
+| -0.5 a -1.0 | Folla long a rischio significativo — flush al ribasso in caricamento |
 
 Il playbook `positioning_trap_squeeze` sblocca a **abs(score) ≥ 0.5** — più alto del tipico trigger Advanced. Positioning Trap necessita di una convinzione più profonda per agire, perché fare trading contro la folla è strutturalmente più rischioso che seguire il momentum.
 
@@ -158,7 +158,7 @@ Il segnale alimenta più pannelli:
 
 Un esempio pratico. SPX sta scendendo lentamente e ZeroGEX mostra:
 
-- **Positioning Trap:** −0.62 (folla short fuori posizione)
+- **Positioning Trap:** +0.62 (folla short fuori posizione)
 - **Net GEX:** +$1.4B
 - **Trap Detection:** 0
 - **Squeeze Setup:** +0.31

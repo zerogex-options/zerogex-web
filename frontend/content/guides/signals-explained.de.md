@@ -71,9 +71,9 @@ Gleiche Zahlenlinie, sehr unterschiedliche Fragen. Hier steht, was positiv, nega
 
 | Signal | Positiver Score | Negativer Score | Null |
 | --- | --- | --- | --- |
-| Dealer Delta Pressure | Dealer long delta — müssen Rallyes verkaufen (bärisch) | Dealer short delta — müssen Dips kaufen (bullisch) | Ausgewogenes Dealer-Buch oder unzureichendes OI |
+| Dealer Delta Pressure | Dealer short delta — müssen Dips kaufen (bullisch) | Dealer long delta — müssen Rallyes verkaufen (bärisch) | Ausgewogenes Dealer-Buch oder unzureichendes OI |
 | GEX Gradient | Gamma unter dem Spot gestapelt — Support darunter, aufwärtsstabilisierend (bullische Neigung) | Gamma über dem Spot gestapelt — dünner Support darunter, abwärtsverstärkend (bärische Neigung) | Flacher Gradient oder unzureichendes OI |
-| Positioning Trap | Long-Crowd falsch positioniert — Abwärts-Flush-Loading | Short-Crowd falsch positioniert — Aufwärts-Short-Cover-Squeeze-Loading | Kein Crowd-Extrem erkannt |
+| Positioning Trap | Short-Crowd falsch positioniert — Aufwärts-Short-Cover-Squeeze-Loading | Long-Crowd falsch positioniert — Abwärts-Flush-Loading | Kein Crowd-Extrem erkannt |
 | Skew Delta | Put-Skew *unter* Baseline — Angst löst sich auf (bullische Neigung) | Put-Skew erhöht — Angst ist eingepreist (bärische Neigung) | Skew auf Baseline, oder Daten fehlen |
 | Tape Flow Bias | Aggressives Call-Kaufen dominiert das Tape (bullische Überzeugung) | Aggressives Put-Kaufen dominiert das Tape (bärische Überzeugung) | Ausgewogener Premium-Flow oder unzureichendes Volumen |
 | Vanna/Charm Flow | Dealer-Hedging ist ein kaufender Rückenwind (Vol-Crush / Decay) | Dealer-Hedging ist ein verkaufender Gegenwind (Vol-Up / Unwind) | Ausgewogenes Dealer-Exposure oder fehlende Dealer-Zeilen |

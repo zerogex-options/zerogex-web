@@ -92,8 +92,8 @@ Aquí está la trampa que atrapa a los traders: las tres señales imprimen una p
 
 | Signo de la Puntuación | Squeeze Setup | Positioning Trap | Trap Detection |
 |---|---|---|---|
-| Positivo (+) | Comprar el breakout al alza | Ir contra la multitud long → flush bajista | Comprar el breakdown fallido |
-| Negativo (−) | Vender el breakout a la baja | Ir contra la multitud short → squeeze alcista | Vender el breakout fallido |
+| Positivo (+) | Comprar el breakout al alza | Ir contra la multitud short → squeeze alcista | Comprar el breakdown fallido |
+| Negativo (−) | Vender el breakout a la baja | Ir contra la multitud long → flush bajista | Vender el breakout fallido |
 | Cero (0) | Sin energía comprimida / sin inclinación de flow | Sin extremo de multitud | Ningún nivel estructural está fallando |
 
 Un 0 no significa "mercado neutral". Significa que *esta pregunta específica no tiene respuesta en este momento*. Squeeze Setup en 0 no te dice que el posicionamiento esté equilibrado — te dice que nada está comprimido. Trap Detection en 0 no te dice que la multitud esté bien — te dice que ningún nivel está siendo rechazado.
@@ -108,7 +108,7 @@ Algunos patrones a buscar:
 
 **Confluencia (alta convicción):** Squeeze Setup +0.5 y Trap Detection +0.4 → el mercado está comprimido al alza y una ruptura bajista acaba de fallar. Ambas señales apuntan al mismo trade desde ángulos diferentes.
 
-**Secuencia (mejores entradas):** Positioning Trap marca una multitud long en +0.7 → espera. Trap Detection luego pasa a negativo (la ruptura alcista falla) → esa es la chispa. Opera el fade con la multitud como combustible.
+**Secuencia (mejores entradas):** Positioning Trap marca una multitud long en −0.7 → espera. Trap Detection luego pasa a negativo (la ruptura alcista falla) → esa es la chispa. Opera el fade con la multitud como combustible.
 
 **Contradicción (mantente al margen):** Squeeze Setup dice +0.6 (ir long con la ruptura). Trap Detection dice −0.5 (la ruptura alcista está fallando). Una de las dos está equivocada. Sáltatelo.
 

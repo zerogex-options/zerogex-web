@@ -92,8 +92,8 @@ Hier ist die Falle, die Trader in die Falle lockt: Alle drei Signale geben einen
 
 | Score-Vorzeichen | Squeeze Setup | Positioning Trap | Trap Detection |
 |---|---|---|---|
-| Positiv (+) | Breakout nach oben kaufen | Gegen long Crowd setzen → Flush nach unten | Gescheiterten Breakdown kaufen |
-| Negativ (−) | Breakout nach unten verkaufen | Gegen short Crowd setzen → Squeeze nach oben | Gescheiterten Breakout verkaufen |
+| Positiv (+) | Breakout nach oben kaufen | Gegen short Crowd setzen → Squeeze nach oben | Gescheiterten Breakdown kaufen |
+| Negativ (−) | Breakout nach unten verkaufen | Gegen long Crowd setzen → Flush nach unten | Gescheiterten Breakout verkaufen |
 | Null (0) | Keine aufgestaute Energie / keine Flow-Neigung | Kein Crowd-Extrem | Kein strukturelles Level scheitert gerade |
 
 Eine 0 bedeutet nicht „neutraler Markt". Sie bedeutet, dass *diese spezifische Frage gerade keine Antwort hat*. Squeeze Setup bei 0 sagt einem nicht, dass das Positioning ausgeglichen ist — es sagt, dass nichts komprimiert ist. Trap Detection bei 0 sagt einem nicht, dass die Crowd in Ordnung ist — es sagt, dass kein Level gerade abgelehnt wird.
@@ -108,7 +108,7 @@ Ein paar Muster, auf die man achten sollte:
 
 **Konfluenz (hohe Überzeugung):** Squeeze Setup +0,5 und Trap Detection +0,4 → der Markt ist nach oben aufgestaut, und ein Bruch nach unten ist gerade gescheitert. Beide Signale zeigen aus unterschiedlichen Blickwinkeln auf denselben Trade.
 
-**Sequenz (bessere Einstiege):** Positioning Trap markiert eine long Crowd bei +0,7 → abwarten. Trap Detection dreht dann ins Negative (Ausbruch nach oben scheitert) → das ist der Funke. Den Fade mit der Crowd als Treibstoff handeln.
+**Sequenz (bessere Einstiege):** Positioning Trap markiert eine long Crowd bei −0,7 → abwarten. Trap Detection dreht dann ins Negative (Ausbruch nach oben scheitert) → das ist der Funke. Den Fade mit der Crowd als Treibstoff handeln.
 
 **Widerspruch (nicht handeln):** Squeeze Setup sagt +0,6 (long gehen mit dem Ausbruch). Trap Detection sagt −0,5 (der Ausbruch nach oben scheitert). Eines der beiden liegt falsch. Auslassen.
 

@@ -91,11 +91,11 @@ Consecuencia práctica: no esperes a que Positioning Trap "se dispare". Observa 
 
 | Score | Lectura |
 |---|---|
-| +0.5 a +1.0 | Masa long en riesgo significativo — flush bajista cargándose |
-| +0.2 a +0.5 | Masa long ligeramente mal posicionada — informativo, aún no apremiante |
+| +0.5 a +1.0 | Masa short en riesgo significativo — squeeze alcista de short-cover cargándose |
+| +0.2 a +0.5 | Masa short ligeramente mal posicionada — informativo, aún no apremiante |
 | -0.2 a +0.2 | Sin extremo de masa claro |
-| -0.2 a -0.5 | Masa short ligeramente mal posicionada — squeeze alcista cargándose |
-| -0.5 a -1.0 | Masa short en riesgo significativo — squeeze alcista de short-cover cargándose |
+| -0.2 a -0.5 | Masa long ligeramente mal posicionada — informativo, aún no apremiante |
+| -0.5 a -1.0 | Masa long en riesgo significativo — flush bajista cargándose |
 
 El playbook `positioning_trap_squeeze` habilita en **abs(score) ≥ 0.5** — más alto que el trigger Advanced típico. Positioning Trap necesita una convicción más profunda para actuar, porque operar contra la masa es estructuralmente más arriesgado que ir con el momentum.
 
@@ -158,7 +158,7 @@ La señal alimenta varios paneles:
 
 Un ejemplo desarrollado. El SPX está cayendo lentamente y ZeroGEX muestra:
 
-- **Positioning Trap:** -0.62 (masa short mal posicionada)
+- **Positioning Trap:** +0.62 (masa short mal posicionada)
 - **Net GEX:** +$1.4B
 - **Trap Detection:** 0
 - **Squeeze Setup:** +0.31

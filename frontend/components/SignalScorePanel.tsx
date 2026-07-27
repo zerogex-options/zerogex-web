@@ -270,9 +270,9 @@ const COMPONENT_DETAILS: Record<string, { bucket: string; weight: number; what: 
     why: 'Crowded consensus can reverse violently when price fails to confirm expected direction.',
     abstains: 'Generally always emits (available inputs default missing legs to 0).',
     spectrum: {
-      negative: 'Extreme negative: crowding skewed bearish with greater trap risk to downside chasers.',
+      negative: 'Extreme negative: bullishly-crowded positioning (heavy calls / long crowd) vulnerable to a downside flush — the long crowd is the trap, so it resolves bearish.',
       neutral: 'Net 0: limited crowding/trap signal.',
-      positive: 'Extreme positive: crowding skewed bullish with greater trap risk to upside chasers.',
+      positive: 'Extreme positive: bearishly-crowded positioning (heavy puts / short crowd) vulnerable to an upside short-cover squeeze — the short crowd is the trap, so it resolves bullish.',
     },
   },
   'Put/Call Ratio': {
