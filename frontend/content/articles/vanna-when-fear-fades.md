@@ -53,7 +53,7 @@ The live [Vanna Ladder](/forced-flow) chart does exactly this. At zero vol chang
 
 Say SPX is at 5,800 the morning after a calm inflation print, implied vol is starting to come in, and the dealer book is modeled with the typical customer-long skew. The engine reprices the book with spot held at 5,800 and vol down two points, and finds modeled dealer delta higher by the equivalent of $60 million of index exposure. That is roughly **$60 million** of estimated hedge buying, spread across the session as the vol actually bleeds — a persistent bid with no catalyst behind it that any headline would report.
 
-Reverse the vol move and the same machinery forces selling. Vanna, like charm, has no built-in direction; the sign comes from the book and the direction of the vol move. What is dependable is the *character* of the flow: slow, steady, invisible in volume, and tightly coupled to the vol trend rather than the price trend.
+Reverse the vol move and the same machinery tends to drive selling. Vanna, like charm, has no built-in direction; the sign comes from the book and the direction of the vol move. What tends to be dependable is the *character* of the flow: slow, steady, easy to miss in the volume (the hedge trades print, they just don't announce their motive), and tightly coupled to the vol trend rather than the price trend.
 
 ---
 

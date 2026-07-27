@@ -8,7 +8,7 @@
 
 If you trade SPY, SPX, or QQQ regularly, you've watched it happen dozens of times: price punches above a key resistance level on convincing volume, you (and a thousand other traders) buy the break, and within twenty minutes the move has unwound and you're underwater. Same setup, same outcome.
 
-The instinct is to call it "noise" or "fake-out" or "a stop-hunt." But the pattern is too consistent for those framings to be the real answer. Most failed breakouts in SPX-class index products are driven by a specific structural mechanism — dealer hedging reflexes that activate at the exact strikes traders try to break. When the regime supports those reflexes, breakouts fail more than they succeed.
+The instinct is to call it "noise" or "fake-out" or "a stop-hunt." But the pattern is often too consistent for those framings to be the whole answer. Many failed breakouts in SPX-class index products can be traced to a structural mechanism — dealer hedging reflexes that tend to activate around the strikes traders try to break. When the regime supports those reflexes, breakouts tend to fail more often than they succeed.
 
 This piece walks through why breakouts fail, the three structural conditions that predict a fail, and how to read those conditions before you take the chase. For the broader gamma-exposure context, see the [Gamma Exposure pillar](/education/gamma-exposure-explained); for the related fade-the-breakout playbook, see the [combined EOD Pressure & Trap Detection deep-dive](/education/eod-pressure-and-trap-detection).
 
@@ -30,31 +30,31 @@ That's a failed breakout. The mechanism behind it — in liquid index products �
 
 ## Why dealer hedging absorbs breakouts
 
-The dominant structural cause is **dealer long-gamma hedging at concentrated strikes**.
+A common structural cause is **dealer long-gamma hedging at concentrated strikes**.
 
-Here's the chain:
+Here's the chain, under the traditional dealer-positioning convention:
 
-1. Customers sell calls heavily at a given strike (say, the SPX 5,850 strike) — overwriting and call-selling. Dealers buy those calls.
-2. To stay delta-neutral, dealers must hold a corresponding amount of underlying short delta — i.e., they're short relative to the call exposure. As spot rises toward 5,850, their option exposure picks up positive delta they have to offset by *selling* the underlying.
-3. The closer spot gets to 5,850, the more concentrated the gamma — and the more underlying dealers must sell per tick of price move to stay neutral.
-4. That selling acts as structural supply. It doesn't have to come from one place — it's the aggregate of every dealer hedging the same way.
-5. When price tries to break 5,850, dealers are forced to sell at exactly the moment chasers are buying. The supply wins.
+1. Customers sell calls heavily at a given strike (say, the SPX 5,850 strike) — overwriting and call-selling. Dealers are modeled as buying those calls, leaving them long that gamma.
+2. To stay delta-neutral, dealers hold a corresponding amount of underlying short delta — i.e., they're short relative to the call exposure. As spot rises toward 5,850, their option exposure picks up positive delta they tend to offset by *selling* the underlying.
+3. The closer spot gets to 5,850, the more concentrated the gamma — and the more underlying dealers tend to sell per tick of price move to stay neutral.
+4. That selling can act as structural supply. It doesn't have to come from one place — it's the aggregate of dealers hedging the same modeled way.
+5. When price tries to break 5,850, dealers tend to sell into the same move chasers are buying — and that supply can win out.
 
-This is what people mean when they say "the call wall absorbed the breakout." The wall is real positioning; the absorption is a real hedging trade. Both are observable in real time.
+This is what people mean when they say "the call wall absorbed the breakout." The wall is real positioning; the absorbing hedge shows up as real trades in the tape — though the motivation behind any single print isn't directly observable, and the *modeled* dealer sign is an assumption, not a measurement.
 
 The deeper read on what a wall is and why it behaves this way is in [Gamma Walls Explained](/education/gamma-walls-explained).
 
 ---
 
-## The three structural conditions that predict a fail
+## The three structural conditions that make a fail more likely
 
 A breakout fails most often when *all three* of these line up. When fewer line up, the breakout is more likely to extend.
 
 ### 1. The regime is long-gamma
 
-The whole "dealers absorb breakouts" mechanism only works in a **positive-gamma** regime — typically when spot is above the gamma flip. In that regime, dealer hedging dampens directional moves; the reflex is to sell strength and buy weakness.
+The "dealers absorb breakouts" mechanism mainly applies in a **positive-gamma** regime — typically when spot is above the gamma flip. In that regime, dealer hedging tends to dampen directional moves; the reflex is to sell strength and buy weakness.
 
-In a **negative-gamma** regime — spot below the flip — the reflex inverts. Dealers must buy into rallies and sell into selloffs, which amplifies moves. Breakouts in a negative-gamma regime are much more likely to extend than fade.
+In a **negative-gamma** regime — spot below the flip — the reflex inverts. Dealers tend to buy into rallies and sell into selloffs, which amplifies moves. Breakouts in a negative-gamma regime are much more likely to extend than fade.
 
 Reading the gamma flip in real time is most of this filter. See [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) for the workflow.
 
@@ -66,7 +66,7 @@ A breakout into a wall with **strengthening** Net GEX is the classic fade setup.
 
 ### 3. The wall isn't migrating with price
 
-A wall that holds at the same strike while price probes it is one read. A wall that's drifting higher as price tests it — open interest building above as fresh hedging comes in — is a very different read. The migrating wall is *chasing* price; the trap thesis weakens because the structural pin is moving away.
+A wall that holds at the same strike while price probes it is one read. A wall that's drifting higher as price tests it — fresh volume concentrating above as new positioning is inferred (official open interest updates for the next session, not intraday) — is a very different read. The migrating wall is *chasing* price; the trap thesis weakens because the structural pin is moving away.
 
 The cleanest fade-the-breakout setups have a static wall and price testing it. Wall migration tells you the breakout has fuel.
 
@@ -94,7 +94,7 @@ The free `/spx-gamma-levels` view surfaces the three conditions side by side:
 - **Net GEX card** — tells you the magnitude and (over time) the trajectory of dealer positioning.
 - **Call Wall card** — tells you the current heaviest call strike with live distance from spot.
 
-Paid plans add the **Trap Detection** signal, which scores [-1, +1] for whether the current break is structurally likely to fail. A triggered bearish-fade read means *all three* of the conditions above are stacking on the failure side.
+Paid plans add the **Trap Detection** signal, a derived score in [-1, +1] designed to flag when the current break is structurally more likely to fail — a modeled read, not a guaranteed forecast. A bearish-fade reading represents *all three* of the conditions above stacking on the failure side.
 
 A worked example. SPY is at 583.20 and ZeroGEX shows:
 
@@ -103,7 +103,7 @@ A worked example. SPY is at 583.20 and ZeroGEX shows:
 - **Call Wall:** 584.00 (the level price is trying to break)
 - **Wall migration:** flat through the last hour
 
-A push to 584.10 happens on a volume spike. The structural read: long-gamma regime, healthy Net GEX, the wall hasn't moved, and price has just barely pierced it. Every condition aligns on the fade side. The probability that this break fails and snaps back into the prior range is materially higher than 50/50 — though, as always, never a guarantee.
+Net GEX here is a modeled estimate of dealer gamma using the traditional call-positive/put-negative open-interest convention, not observed dealer inventory. A push to 584.10 happens on a volume spike. The structural read: long-gamma regime, healthy Net GEX, the wall hasn't moved, and price has just barely pierced it. Every condition aligns on the fade side, so the odds tilt meaningfully toward the break failing and snapping back into the prior range — though, as always, never a guarantee.
 
 If a real catalyst lands or Net GEX starts to decay, that probability shifts. The structural read isn't a forecast; it's a base rate that updates as the conditions update.
 

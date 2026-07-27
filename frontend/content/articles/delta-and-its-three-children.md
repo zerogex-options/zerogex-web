@@ -52,7 +52,7 @@ The unsettling part: charm forces hedging with spot perfectly pinned. The clock 
 
 Vanna is delta's sensitivity to implied volatility. Raise the market's priced fear and the distribution of possible outcomes fattens, pulling out-of-the-money deltas up toward the middle; lower it and the distribution sharpens, pushing them back toward their intrinsic 0 or 1. So a change in vol re-prices every option's delta without spot moving a cent.
 
-Vanna is the quietest child and, in the right regime, the most persistent. After a scare that never delivers — an event where implied vol got bid up, then bleeds lower for days once the risk passes — the dealer book's delta drifts a little lower every hour, and the re-hedge is a steady, mechanical bid. That is the vol-compression grind: markets floating higher on no news and no volume. [Vanna: When Fear Fades, Dealers Buy](/education/vanna-when-fear-fades) walks through the mechanism.
+Vanna is the quietest child and, in the right regime, the most persistent. After a scare that never delivers — an event where implied vol got bid up, then bleeds lower for days once the risk passes — the dealer book's delta drifts a little lower every hour, and the re-hedge is a steady, mechanical bid. That is the vol-compression grind: markets floating higher on no news and no volume surge — a quiet, steady bid rather than a spike. [Vanna: When Fear Fades, Dealers Buy](/education/vanna-when-fear-fades) walks through the mechanism.
 
 ---
 

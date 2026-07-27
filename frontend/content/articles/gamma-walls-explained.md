@@ -6,9 +6,9 @@
 
 ## What is a gamma wall?
 
-A gamma wall is a strike on the option chain where dealer gamma exposure is concentrated heavily on one side of the book. The two most-watched walls are the **call wall** — the heaviest call gamma concentration above spot — and the **put wall** — the heaviest put gamma concentration below spot. Together they sketch the structural range that dealer-hedging mechanics tend to defend.
+A gamma wall is a strike on the option chain where modeled dealer gamma exposure is concentrated heavily on one side of the book. The two most-watched walls are the **call wall** — the heaviest call gamma concentration above spot — and the **put wall** — the heaviest put gamma concentration below spot. Each is a level where dealer hedging, liquidity, and positioning can cluster — but a wall is not automatically resistance or support. Whether it behaves as support, resistance, a magnet, or an accelerant depends on the modeled or actual dealer gamma *sign* and the surrounding flow, not on whether the contracts are calls or puts.
 
-Walls are not moving averages or psychological levels. They emerge from real positioning: open interest, contract-by-contract, weighted by the gamma each contract carries. When traders ask about the call wall put wall meaning, what they are really asking is: *where do dealer hedging flows concentrate, and how do those flows affect price?*
+Walls are not moving averages or psychological levels. They emerge from real open interest: contract-by-contract, weighted by the gamma each contract carries. When traders ask about the call wall put wall meaning, what they are really asking is: *where does option gamma concentrate, and how might dealer hedging around those strikes affect price?*
 
 This piece walks through what each wall is, why price tends to react at them, how they shift intraday, and when the wall thesis holds versus when it breaks. For the regime context that decides whether a gamma wall *dampens* or *amplifies* the move, pair this with [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) and the broader [Gamma Exposure pillar](/education/gamma-exposure-explained).
 
@@ -16,9 +16,9 @@ This piece walks through what each wall is, why price tends to react at them, ho
 
 ## What is a call wall?
 
-The call wall is the strike above spot that carries the heaviest call gamma exposure. In a positive-gamma regime, dealers holding long-call inventory must sell into rallies that approach the wall — shedding the positive delta they accumulate as price climbs toward it. That hedging reflex pushes against the rally.
+The call wall is the strike above spot that carries the heaviest call gamma exposure. Under the traditional convention, dealers are *modeled* as long those calls, so in a positive-gamma regime they tend to sell into rallies that approach the wall — shedding the positive delta they accumulate as price climbs toward it. That hedging reflex can push against the rally.
 
-In practice, the call wall often acts as **resistance** in long-gamma regimes — not because the level is magic, but because the hedging flow that activates around it is structural.
+In practice, the call wall often acts as **resistance** in positive-gamma conditions — not because the level is magic, and not simply because it is a call strike, but because the modeled hedging flow around it tends to lean against the move. Change the gamma sign and the same strike can behave very differently.
 
 Things to know:
 
@@ -30,9 +30,9 @@ Things to know:
 
 ## What is a put wall?
 
-The put wall is the strike below spot with the heaviest put gamma exposure. In a positive-gamma regime, the net dealer book is long gamma, so it buys as price drops toward the wall — the mirror of the call-wall reflex, with the buying concentrated where put gamma is densest. That reflex pushes back against the selloff.
+The put wall is the strike below spot with the heaviest put gamma exposure. When the net book is modeled as long gamma (a positive Net GEX regime), the aggregate dealer hedge tends to buy weakness and sell strength — so as price drops toward a dense put strike, that buy-the-dip reflex can lean against the selloff. That behavior comes from the *net* gamma sign, though, not from the strike being made of puts.
 
-In practice, the put wall often acts as **support** in long-gamma regimes. Like the call wall, the mechanism is structural, not psychological.
+In practice, the put wall often acts as **support** when net gamma is positive. Like the call wall, whether it supports, pins, or accelerates depends on the modeled dealer gamma sign and the surrounding flow — not on the option type.
 
 Things to know:
 
@@ -46,9 +46,9 @@ Things to know:
 
 The mechanism is dealer hedging, not psychology. The clearest way to see it:
 
-In a **positive-gamma** regime, dealers hedge *against* price movement. They sell as price rises and buy as it falls. Near a wall, that reflex intensifies because the gamma concentration is locally large — a small move toward the wall forces a relatively larger hedging trade away from it.
+In a **positive-gamma** regime, dealers tend to hedge *against* price movement. They sell as price rises and buy as it falls. Near a wall, that reflex can intensify because the gamma concentration is locally large — a small move toward the wall can call for a relatively larger hedging trade away from it. This assumes the modeled dealer gamma sign holds around that strike, which is why the same wall can behave differently when the surrounding flow or net sign shifts.
 
-In a **negative-gamma** regime, the reflex inverts. Dealers hedge *with* price movement. The same wall that pinned price in long-gamma can become a breakout vector — once price clears it, the hedging trade reinforces the move instead of fading it.
+In a **negative-gamma** regime, the reflex inverts. Dealers tend to hedge *with* price movement. The same wall that pinned price in long-gamma can become a breakout vector — once price clears it, the hedging trade reinforces the move instead of fading it.
 
 This is why walls feel like they "work" some days and not others. A gamma wall is not a fixed property of the chain. It is a fixed *level* whose behavioral effect depends on the **regime around it** — which is exactly the read the gamma flip provides.
 
@@ -59,10 +59,10 @@ This is why walls feel like they "work" some days and not others. A gamma wall i
 Walls do not get announced at the open and hold through the close. They migrate. Three common patterns:
 
 1. **OI rebalancing.** Fresh volume into a different strike can shift the heaviest concentration. By mid-session a new strike may be the wall.
-2. **Wall migration with price.** As price approaches the call wall, fresh hedging can build OI just above it, effectively pushing the wall higher. A wall that *tracks* price is structurally different from one that *holds* — the trap-fade thesis is much weaker when the wall is moving with the move.
+2. **Wall migration with price.** As price approaches the call wall, fresh volume can concentrate just above it, nudging the modeled wall higher. (Official open interest is published for the next session, so intraday migration reflects new volume and inferred positioning — not verified new OI.) A wall that *tracks* price is structurally different from one that *holds* — the trap-fade thesis is much weaker when the wall is moving with the move.
 3. **Expiry decay.** Near same-day expiries — especially in 0DTE-heavy chains — walls can disappear by mid-afternoon as the contracts that built them roll off. The wall you trusted at 10:30 ET may not be the wall at 14:30 ET.
 
-A gamma wall is the *current* heaviest gamma strike. Treat it as a live read, not a fixed line.
+A wall can also shift purely because spot, time, and implied vol move — the strike carrying the most modeled exposure changes even when positioning does not. A gamma wall is the *current* heaviest modeled-gamma strike. Treat it as a live read, not a fixed line.
 
 ---
 
@@ -106,7 +106,7 @@ A worked example. Suppose SPX is at 5,830. The dashboard shows:
 - **Net GEX:** +$1.5B
 - **Gamma Flip:** 5,810
 
-The structural read: spot is comfortably above the flip (long-gamma regime), the wall range is asymmetric — much closer to the call wall than the put wall — and Net GEX is healthy. Practical lean: drift toward the call wall is the higher-probability path, fades of rallies into it are the cleaner setup, and downside conviction would need either a flip-cross below 5,810 or a clear catalyst to override the structural pull from positive gamma above.
+Net GEX here is a modeled estimate of dealer gamma using the traditional call-positive/put-negative open-interest convention; actual dealer inventory is not directly observable from public option-chain data. The structural read: spot is comfortably above the flip (long-gamma regime), the wall range is asymmetric — much closer to the call wall than the put wall — and Net GEX is healthy. Practical lean: drift toward the call wall is the higher-probability path, fades of rallies into it are the cleaner setup, and downside conviction would need either a flip-cross below 5,810 or a clear catalyst to override the structural pull from positive gamma above.
 
 ![ZeroGEX GEX walls chart highlighting the call wall and put wall on the strike-by-strike gamma profile](/blog/zerogex-walls-chart.png)
 
@@ -122,7 +122,7 @@ A few traps:
 - **"The biggest open-interest strike is always the wall."** Walls are weighted by gamma exposure, not raw OI. A near-ATM strike can dominate a far-OTM strike with twice the open interest.
 - **"Walls are static for the session."** They migrate. A wall that hasn't moved in two hours is one read; a wall that has drifted with price three times is a very different read.
 - **"Walls work the same in any regime."** They do not. Positive-gamma walls absorb. Negative-gamma walls release.
-- **"The call wall is bullish, the put wall is bearish."** Neither is directional. They are concentration levels whose behavior depends on which side of the flip you are on.
+- **"The call wall is bullish, the put wall is bearish."** Neither is directional, and the option type alone does not set the behavior. They are gamma-concentration levels whose effect depends on the modeled dealer gamma sign and the surrounding flow — i.e., which side of the flip you are on.
 
 ---
 
