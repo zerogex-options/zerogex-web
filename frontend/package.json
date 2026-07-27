@@ -28,7 +28,8 @@
     "test:payment-grace": "node --experimental-strip-types --test tests/paymentGrace.test.ts",
     "test:subscription-flow": "node --experimental-strip-types --test tests/subscriptionFlow.test.ts",
     "test:offer-pricing": "node --experimental-strip-types --test tests/offerPricing.test.ts",
-    "test:delayed-quote": "node --experimental-strip-types --test tests/delayedQuote.test.ts"
+    "test:delayed-quote": "node --experimental-strip-types --test tests/delayedQuote.test.ts",
+    "test:price-change": "node --experimental-strip-types --test tests/priceChange.test.ts"
   },
   "dependencies": {
     "jose": "^5.9.6",
