@@ -6,9 +6,9 @@
 
 ## Was ist GEX im Trading?
 
-**GEX steht für Gamma Exposure.** Im Trading ist GEX ein Maß dafür, wie viel die Options-Dealer, die den Markt machen, vom Basiswert kaufen oder verkaufen müssen — rein mechanisch, um abgesichert (gehedgt) zu bleiben — während sich der Preis bewegt. Es ist ein Proxy für den *erzwungenen* Hedging-Flow, der jederzeit unter dem Markt liegt.
+**GEX steht für Gamma Exposure.** Im Trading ist GEX ein Maß dafür, wie viel die Options-Dealer, die den Markt machen, tendenziell vom Basiswert kaufen oder verkaufen — rein mechanisch, um abgesichert (gehedgt) zu bleiben — während sich der Preis bewegt. Es ist ein Proxy für den Hedging-Flow, der jederzeit unter dem Markt liegt.
 
-Das ist die gesamte Idee in einem Satz: GEX schätzt, in welche Richtung und wie stark die Dealer handeln müssen, um ihre Bücher neutral zu halten, wenn sich der Preis bewegt. Wenn dieser Hedging-Flow gegen Bewegungen läuft, ist der Markt klebriger und ruhiger. Wenn er *mit* den Bewegungen läuft, wird der Markt schneller und trendet stärker.
+Das ist die gesamte Idee in einem Satz: GEX schätzt, in welche Richtung und wie stark die Dealer wahrscheinlich handeln, um ihre Bücher neutral zu halten, wenn sich der Preis bewegt. Wenn dieser Hedging-Flow gegen Bewegungen läuft, ist der Markt klebriger und ruhiger. Wenn er *mit* den Bewegungen läuft, wird der Markt schneller und trendet stärker.
 
 Alles andere — der Gamma Flip, Call Walls, Put Walls, das Pinning — ist nur eine detailliertere Lesart derselben Kraft. Das ist die einfache Version. Für die vollständige, ausführliche Behandlung lies den umfassenden Leitfaden [Gamma Exposure (GEX) Explained: The Complete Guide](/education/gamma-exposure-explained).
 
@@ -16,9 +16,11 @@ Alles andere — der Gamma Flip, Call Walls, Put Walls, das Pinning — ist nur 
 
 ## Was misst GEX eigentlich?
 
-Market Maker, die dir Optionen verkaufen, wollen keine Richtungswette eingehen — sie wollen die Gebühr, nicht das Risiko. Also hedgen sie. **Gamma** ist die Griechische Kennzahl, die angibt, wie schnell sich das Richtungs-Exposure einer Option (Delta) verändert, wenn sich der Basiswert bewegt. Da Gamma die Dealer zwingt, sich kontinuierlich neu abzusichern, sagt dir das *aggregierte* Gamma über die gesamte Optionskette, wie viel Re-Hedging der Markt leisten muss.
+Market Maker, die dir Optionen verkaufen, wollen keine Richtungswette eingehen — sie wollen die Gebühr, nicht das Risiko. Also hedgen sie. **Gamma** ist die Griechische Kennzahl, die angibt, wie schnell sich das Richtungs-Exposure einer Option (Delta) verändert, wenn sich der Basiswert bewegt. Da Gamma die Dealer dazu treibt, sich neu abzusichern, während sich der Spot bewegt, sagt dir das *aggregierte* Gamma über die gesamte Optionskette ungefähr, wie viel Re-Hedging der Markt wahrscheinlich leisten wird.
 
-GEX fasst das in einer einzigen vorzeichenbehafteten Zahl zusammen — üblicherweise in Dollar-Gamma ausgedrückt, oder "Dollar Gamma" — für einen ganzen Index wie den S&P 500. Ein größerer Betrag bedeutet mehr erzwungenes Hedging unter dem Markt. Das **Vorzeichen** sagt dir, in welche Richtung dieses Hedging drückt.
+GEX fasst das in einer einzigen vorzeichenbehafteten Zahl zusammen — üblicherweise in Dollar-Gamma ausgedrückt, oder "Dollar Gamma" — für einen ganzen Index wie den S&P 500. Ein größerer Betrag bedeutet mehr potenzielles Hedging unter dem Markt. Das **Vorzeichen** sagt dir, in welche Richtung dieses Hedging drückt.
+
+Ein Vorbehalt, den man im Kopf behalten sollte: GEX ist eine *modellierte* Schätzung, keine Messung der Dealer-Bücher. Dealer veröffentlichen ihre Positionen nicht, daher stammt das Vorzeichen aus einer Standardannahme — Dealer werden als netto long die Calls, die Kunden verkaufen, und netto short die Puts, die Kunden kaufen, behandelt. Es ist eine gut etablierte Konvention, abgeleitet aus dem Open Interest, kein beobachteter Bestand.
 
 ---
 
@@ -26,8 +28,8 @@ GEX fasst das in einer einzigen vorzeichenbehafteten Zahl zusammen — üblicher
 
 Das ist der Teil, der verändert, wie du tradest:
 
-- **Positives GEX (Long-Gamma-Regime).** Die Dealer sind netto long Gamma. Um abzusichern, **verkaufen sie in Rallys und kaufen in Dips** — sie handeln *gegen* die Bewegung. Das dämpft die Volatilität. Erwarte engere Ranges, Mean Reversion und Pinning nahe stark gewichteter Strikes. Breakouts neigen dazu, ins Stocken zu geraten.
-- **Negatives GEX (Short-Gamma-Regime).** Die Dealer sind netto short Gamma. Jetzt **kaufen sie in Rallys und verkaufen in Dips** — sie handeln *mit* der Bewegung. Das verstärkt die Volatilität. Erwarte breitere Ranges, sich ausdehnende Breakouts und Trends, die durchlaufen. Das ist [was negatives Gamma bedeutet](/education/what-is-negative-gamma) in der Praxis.
+- **Positives GEX (Long-Gamma-Regime).** Die Dealer sind netto long Gamma. Um abzusichern, **verkaufen sie in Rallys und kaufen in Dips** — sie handeln *gegen* die Bewegung. Das dämpft tendenziell die Volatilität. Erwarte engere Ranges, Mean Reversion und Pinning nahe stark gewichteter Strikes. Breakouts neigen dazu, ins Stocken zu geraten.
+- **Negatives GEX (Short-Gamma-Regime).** Die Dealer sind netto short Gamma. Jetzt **kaufen sie in Rallys und verkaufen in Dips** — sie handeln *mit* der Bewegung. Das verstärkt tendenziell die Volatilität. Erwarte breitere Ranges, sich ausdehnende Breakouts und Trends, die durchlaufen. Das ist [was negatives Gamma bedeutet](/education/what-is-negative-gamma) in der Praxis.
 
 Gleicher Index, gleicher Chart — entgegengesetzter Marktcharakter je nach Vorzeichen des GEX. Zu wissen, in welchem Regime man sich befindet, ist das nützlichste, was GEX dir liefert.
 
@@ -39,7 +41,7 @@ GEX ist nicht nur eine Zahl; es bildet sich auf spezifische Preisniveaus ab, die
 
 - **Gamma Flip** — der Preis, an dem das gesamte Dealer-Gamma von positiv auf negativ wechselt. Darüber befindet sich der Markt meist im beruhigenden Long-Gamma-Regime; darunter im verstärkenden Short-Gamma-Regime. Es ist die Trennlinie zwischen den Regimen. Siehe [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip).
 - **Call Wall** — der Strike mit dem stärksten Call-Gamma oberhalb des Spotpreises, der dazu neigt, Rallys bei positivem Gamma zu deckeln.
-- **Put Wall** — der Strike mit dem stärksten Put-Gamma unterhalb des Spotpreises, der dazu neigt, Dips zu stützen.
+- **Put Wall** — der Strike mit dem stärksten Put-Gamma unterhalb des Spotpreises, der dazu neigt, Dips bei positivem Gamma zu stützen.
 
 Die Call und Put Wall skizzieren die Range, die die Dealer verteidigen; der Gamma Flip sagt dir, ob sie diese verteidigen oder durchbrechen werden. [Gamma Walls Explained](/education/gamma-walls-explained) behandelt beide Walls im Detail.
 

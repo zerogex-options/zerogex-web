@@ -16,7 +16,9 @@ Cet article est la lecture pratique de ce que signifient réellement, en temps r
 
 ## Qu'est-ce que le positionnement des dealers en 0DTE ?
 
-Le positionnement des dealers en 0DTE est l'exposition gamma agrégée que les dealers portent sur des options expirant le jour même. Mécaniquement, ce n'est pas différent de la gamma des dealers à échéances plus longues — selon la convention standard, les dealers sont longs de calls (que les clients leur vendent en overwriting) et short de puts (que les clients achètent pour se protéger), de sorte que l'inventaire de calls longs contribue positivement à la gamma des dealers tandis que l'inventaire de puts short y contribue négativement, et le réflexe de couverture est le même : maintenir un delta neutre, tradant le sous-jacent à mesure que la gamma évolue.
+Le positionnement des dealers en 0DTE est l'exposition gamma agrégée que les dealers portent sur des options expirant le jour même. Mécaniquement, ce n'est pas différent de la gamma des dealers à échéances plus longues — selon la convention standard, les dealers sont *modélisés* comme longs des calls que les clients leur vendent en overwriting et short des puts que les clients achètent pour se protéger, de sorte que leur inventaire de calls longs contribue un gamma positif tandis que leur inventaire de puts short contribue un gamma négatif (le signe négatif est la position short modélisée, non le fait que les puts seraient à gamma négatif en eux-mêmes). Le réflexe de couverture est le même : maintenir un delta neutre, tradant le sous-jacent à mesure que la gamma évolue.
+
+> Ce signe de dealer est une convention modélisée, non un inventaire observé — le positionnement réel n'est pas directement observable à partir de l'open interest public.
 
 Ce qui rend le 0DTE différent, c'est la **densité de gamma**. Les options du jour même portent leur gamma la plus élevée précisément à la monnaie, et la gamma par contrat évolue à peu près en `1/√T`. Avec `T` mesuré en fractions de jour, ce dénominateur est petit — et la gamma par contrat devient très élevée. Un strike 0DTE proche du spot peut dépasser d'un ordre de grandeur un strike mensuel au même niveau.
 
@@ -29,8 +31,8 @@ L'implication pratique : le bucket 0DTE dicte de façon disproportionnée la cou
 Trois facteurs se cumulent pour le 0DTE d'une manière qui ne se produit pas de la même façon pour les échéances plus longues :
 
 1. **Concentration de la gamma.** Les options du jour même portent une gamma très élevée à la monnaie. Les trades de couverture contre cette gamma sont importants par unité de mouvement, ce qui rend mécaniquement plus bruyante l'action du prix près du spot.
-2. **Décroissance du charm.** À mesure que les options 0DTE approchent de l'expiration, leur delta dérive de manière prévisible vers 0 (hors de la monnaie) ou ±1 (dans la monnaie — +1 pour les calls, −1 pour les puts). Les dealers gérant un carnet delta-neutre doivent se recouvrir en continu jusqu'à la clôture. Ce flux forcé a un signe — et il est directement lisible.
-3. **Physique du pin.** La même concentration de gamma qui fait beaucoup bouger les dealers 0DTE à chaque tick transforme aussi le strike 0DTE le plus lourd en aimant dans un régime de gamma longue. Le comportement de pin a tendance à être plus marqué sur le 0DTE que sur des setups pluri-journaliers.
+2. **Décroissance du charm.** À mesure que les options 0DTE approchent de l'expiration, leur delta dérive vers 0 (hors de la monnaie) ou ±1 (dans la monnaie — +1 pour les calls, −1 pour les puts), à spot et vol constants. Les dealers gérant un carnet delta-neutre ont tendance à recouvrir cette dérive jusqu'à la clôture. Ce flux a un signe modélisé — et il est estimable à l'avance.
+3. **Physique du pin.** La même concentration de gamma qui fait beaucoup bouger les dealers 0DTE à chaque tick permet aussi au strike 0DTE le plus lourd d'agir comme un aimant dans un régime de gamma longue. Le comportement de pin a tendance à être plus marqué sur le 0DTE que sur des setups pluri-journaliers.
 
 Aucun de ces mécanismes n'est propre au 0DTE — ils s'appliquent à toute option à courte échéance. Ils sont simplement inhabituellement bruyants dans le bucket 0DTE en raison de la compression extrême de `T`.
 
@@ -42,8 +44,8 @@ Lorsque les dealers sont nets short en gamma — typiquement lorsque le spot est
 
 Ce que fait le réflexe :
 
-- Un mouvement à la hausse force les dealers à *acheter*, amplifiant le mouvement.
-- Un mouvement à la baisse force les dealers à *vendre*, amplifiant le mouvement.
+- Un mouvement à la hausse tend à amener les dealers à *acheter*, amplifiant le mouvement.
+- Un mouvement à la baisse tend à amener les dealers à *vendre*, amplifiant le mouvement.
 - La volatilité intraday réalisée tend à s'accroître.
 - Les walls deviennent moins fiables en tant que résistance et support — ils peuvent s'inverser en objectifs de breakout.
 - Le comportement de pin près du strike 0DTE le plus lourd s'affaiblit ou s'inverse.
@@ -65,8 +67,8 @@ Lorsque les dealers sont nets long en gamma — typiquement lorsque le spot est 
 
 Ce que fait le réflexe :
 
-- Un mouvement à la hausse force les dealers à *vendre*, amortissant le mouvement.
-- Un mouvement à la baisse force les dealers à *acheter*, amortissant le mouvement.
+- Un mouvement à la hausse tend à amener les dealers à *vendre*, amortissant le mouvement.
+- Un mouvement à la baisse tend à amener les dealers à *acheter*, amortissant le mouvement.
 - La volatilité intraday réalisée tend à se comprimer.
 - Les walls se comportent davantage comme une véritable résistance et un véritable support.
 - Le comportement de pin près du strike 0DTE le plus lourd se renforce à l'approche de la clôture.

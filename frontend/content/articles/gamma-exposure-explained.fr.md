@@ -30,8 +30,8 @@ Le gamma est le plus élevé à la monnaie et décroît dans les deux directions
 
 Les dealers ne détiennent pas d'options pour spéculer. Ils les stockent comme un inventaire, en couvrant le delta aussi rapidement que possible. Leur gamma exposure détermine comment cette couverture doit évoluer à mesure que le prix bouge.
 
-- Un dealer **short gamma** doit négocier **dans le sens** du mouvement pour rester plat — acheter quand le prix monte, vendre quand il baisse. Cette couverture amplifie le mouvement.
-- Un dealer **long gamma** négocie **à contre-sens** du mouvement pour rester plat — vendre quand le prix monte, acheter quand il baisse. Cette couverture atténue le mouvement.
+- Un dealer **short gamma** a tendance à négocier **dans le sens** du mouvement pour rester plat — acheter quand le prix monte, vendre quand il baisse. Cette couverture a tendance à amplifier le mouvement.
+- Un dealer **long gamma** a tendance à négocier **à contre-sens** du mouvement pour rester plat — vendre quand le prix monte, acheter quand il baisse. Cette couverture a tendance à atténuer le mouvement.
 
 La gamma exposure agrégée des dealers sur l'ensemble de la chaîne est, en substance, une estimation du volume de flux sur le sous-jacent que les market makers devront faire passer lors d'un mouvement de prix donné, et dans quelle direction. C'est ce que capture le GEX.
 
@@ -65,14 +65,14 @@ L'interprétation en dollars est ce qui rend ce chiffre utile : elle répond à 
 
 ### La gamma exposure signée
 
-Pour transformer une magnitude brute en signal de régime, chaque contrat est signé selon qui le détient. La convention standard suppose que :
+La magnitude brute du gamma ne porte en soi aucun signe de dealer — une option *longue*, call ou put, a un gamma positif, et une option *short* a un gamma négatif. L'open interest vous indique qu'un contrat existe, pas si un dealer y est long ou short. Pour transformer la magnitude en signal de régime, il faut lui attribuer un signe, et cela nécessite un modèle de qui détient quoi. La convention standard suppose que :
 
 - Les clients sont généralement nets vendeurs de calls (call overwriting) et nets acheteurs de puts (protection à la baisse).
-- Les dealers détiennent donc généralement l'autre côté — longs de calls et short de puts. Un call long porte un gamma positif et un put short un gamma négatif, de sorte que les calls apportent une contribution positive au book des dealers et les puts une contribution négative.
+- Les dealers sont donc modélisés comme détenant l'autre côté — nets longs de calls et nets short de puts. Sous cette hypothèse, leur inventaire de calls (long) apporte un gamma positif et leur inventaire de puts (short) un gamma négatif. Le signe négatif du côté put provient de la position *short* modélisée, non du fait que les puts seraient « à gamma négatif » en eux-mêmes — un put long porte lui aussi un gamma positif.
 
-En pratique, cela produit un GEX de dealers signé par strike — positif pour les calls, négatif pour les puts — qui, une fois sommé, donne l'exposition nette du dealer sur l'ensemble de la chaîne.
+En pratique, cela produit un GEX de dealers signé par strike — positif du côté des calls, négatif du côté des puts selon la convention — qui, une fois sommé, donne l'exposition nette modélisée sur l'ensemble de la chaîne.
 
-Il s'agit d'une approximation. Le positionnement des dealers n'est pas directement observable ; il est déduit de l'open interest et de la convention standard « calls longs / puts short ». Les fournisseurs traitent les cas limites différemment, et cette hypothèse peut se révéler fausse dans des conditions de flux inhabituelles. Comme estimateur de régime, cependant, elle a fait ses preuves suffisamment longtemps pour devenir la norme.
+Il s'agit d'une estimation modélisée, non d'un inventaire observé. Le positionnement réel des dealers n'est pas directement divulgué ; il est déduit de l'open interest selon la convention traditionnelle « calls longs / puts short ». Les fournisseurs traitent les cas limites différemment, et cette hypothèse peut se révéler fausse dans des conditions de flux inhabituelles. Comme estimateur de régime, cependant, elle a fait ses preuves suffisamment longtemps pour devenir la norme.
 
 ### Net GEX contre Total GEX
 
@@ -80,6 +80,8 @@ Deux chiffres agrégés découlent de la même chaîne :
 
 - Le **Total GEX** est la somme de la contribution *absolue* à chaque strike — une lecture de magnitude, indifférente au signe. Il indique la quantité de gamma présente dans le système dans son ensemble.
 - Le **Net GEX** est la somme *signée* — calls moins puts. Il indique quel côté du book des dealers domine, et si le réflexe de couverture agrégé atténue ou amplifie.
+
+> Le Net GEX est une estimation modélisée du gamma des dealers, calculée selon la convention traditionnelle d'open interest call-positif / put-négatif — les dealers étant modélisés comme nets longs des calls que les clients vendent et nets short des puts que les clients achètent. Ce n'est pas un inventaire observé ; le positionnement réel des dealers n'est pas directement observable à partir des données publiques de la chaîne d'options.
 
 La plupart des analyses de régime utilisent le Net GEX. La magnitude compte aussi — un Net GEX de +2 Md$ constitue un régime bien plus marqué que +200 M$ — mais le signe est la première lecture.
 
@@ -201,8 +203,8 @@ Le gamma n'est pas toute l'histoire. La vanna (couverture pilotée par la vol) c
 
 Le GEX est la lecture principale, mais ce n'est pas tout le book des dealers. Deux Grecques de second ordre façonnent de manière substantielle les flux de couverture des dealers en plus du gamma :
 
-- **La vanna** est la sensibilité du delta à la volatilité implicite. Quand l'IV bouge, les deltas des options des dealers bougent même si le spot ne bouge pas — et ils doivent couvrir cela. Dans un régime de compression de la volatilité, les flux de vanna issus de l'inventaire de puts short des dealers se manifestent souvent par un flux acheteur persistant et progressif sur le sous-jacent.
-- **Le charm** est la sensibilité du delta au temps. À l'approche de l'échéance, le delta des options dérive de manière prévisible — les options hors de la monnaie décroissent vers 0, celles dans la monnaie vers 1 pour les calls et −1 pour les puts — et les dealers doivent continuellement recouvrir cette dérive. L'endroit le plus net pour observer le charm dans le marché sont les 90 dernières minutes de la séance cash.
+- **La vanna** est la sensibilité du delta à la volatilité implicite. Quand l'IV bouge, les deltas des options des dealers bougent même si le spot ne bouge pas — et ils couvrent généralement cela. Dans un régime de compression de la volatilité, la couverture pilotée par la vanna issue de l'inventaire de puts short modélisé des dealers peut ajouter un flux acheteur persistant et progressif sur le sous-jacent, même si sa direction dépend de la composition du book.
+- **Le charm** est la sensibilité du delta au temps. À l'approche de l'échéance, le delta des options dérive dans une direction prévisible — les options hors de la monnaie décroissent vers 0, celles dans la monnaie vers 1 pour les calls et −1 pour les puts — et les dealers ont tendance à recouvrir cette dérive en continu. L'endroit le plus net pour observer le charm dans le marché sont les 90 dernières minutes de la séance cash.
 
 Les deux effets sont les plus importants lorsque le gamma est également important — c'est-à-dire lorsque les options 0DTE et à échéance courte dominent la chaîne. Lisez-les conjointement avec le GEX, pas isolément.
 
@@ -224,7 +226,7 @@ Quelques pièges :
 
 Le GEX est un estimateur des besoins de couverture des dealers, construit à partir de l'open interest sous une hypothèse standard sur qui détient quoi. Cela le rend utile, mais ce n'est pas une image complète :
 
-- **L'OI est une photographie instantanée, pas un inventaire en temps réel.** Le positionnement des dealers évolue au cours de la journée de manières que l'OI ne capture pas.
+- **L'OI est une photographie instantanée, pas un inventaire en temps réel.** L'open interest officiel est calculé via la compensation (clearing) et publié pour la séance suivante, et non mis à jour en continu au cours de la séance — et il ne révèle jamais qui est long ou short. Le positionnement des dealers évolue au cours de la journée de manières que l'OI ne capture pas.
 - **La convention calls longs / puts short peut se rompre.** Dans des conditions de flux inhabituelles, l'hypothèse sur le signe du dealer peut mal attribuer l'exposition.
 - **Les événements macro l'emportent sur la structure.** Une surprise sur le CPI ou une annonce du FOMC peut submerger le réflexe des dealers.
 - **Les catalyseurs propres à une action peuvent déplacer le GEX de l'indice indirectement.** Les résultats d'entreprises, les fusions-acquisitions et l'actualité des composantes peuvent remodeler le flux du SPX de manières qui se traduisent dans le GEX avec un décalage.

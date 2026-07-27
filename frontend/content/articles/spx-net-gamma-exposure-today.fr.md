@@ -12,12 +12,14 @@ Si vous êtes ici pour le chiffre actuel, commencez ici : ZeroGEX publie le **ne
 
 ## Qu'est-ce que la net gamma exposure du SPX ?
 
-La **net gamma exposure (net GEX)** du SPX est la somme du gamma des dealers sur l'ensemble de la chaîne d'options du S&P 500, condensée en un seul chiffre signé en dollars — souvent appelé « dollar gamma ». Elle estime combien d'exposition à l'indice S&P les dealers d'options doivent, mécaniquement, acheter ou vendre pour rester couverts à mesure que le SPX évolue.
+La **net gamma exposure (net GEX)** du SPX est la somme du gamma des dealers sur l'ensemble de la chaîne d'options du S&P 500, condensée en un seul chiffre signé en dollars — souvent appelé « dollar gamma ». Elle estime combien d'exposition à l'indice S&P les dealers d'options devraient, mécaniquement, acheter ou vendre pour rester couverts à mesure que le SPX évolue.
 
-- Le **signe** indique le régime : positif signifie que les dealers atténuent les mouvements, négatif signifie qu'ils les amplifient.
-- L'**ampleur** (par ex. +$1.5B, −$800M) indique le niveau de hedging forcé sous-jacent au marché — avec quelle intensité le régime est susceptible de s'exprimer.
+- Le **signe** indique le régime : positif signifie que le hedging des dealers tend à atténuer les mouvements, négatif signifie qu'il tend à les amplifier.
+- L'**ampleur** (par ex. +$1.5B, −$800M) indique le niveau de hedging modélisé sous-jacent au marché — avec quelle intensité le régime est susceptible de s'exprimer.
 
 Le net GEX est le chiffre phare du cadre plus large de la [gamma exposure](/education/what-is-gex-in-trading). Il est calculé au prix spot actuel, donc il évolue à mesure que le SPX bouge et que la chaîne d'options se repricé au fil de la journée.
+
+> Le net GEX est une estimation *modélisée*. Il utilise la convention traditionnelle d'open interest call-positif / put-négatif — les dealers étant modélisés comme nets longs des calls que les clients vendent et nets short des puts que les clients achètent. L'inventaire réel des dealers n'est pas directement observable à partir des données publiques de la chaîne d'options.
 
 ---
 
@@ -25,8 +27,8 @@ Le net GEX est le chiffre phare du cadre plus large de la [gamma exposure](/educ
 
 Deux cas, deux playbooks opposés :
 
-- **Net GEX du SPX positif (régime long-gamma).** Les dealers sont net long gamma au spot. Ils vendent les rallyes et achètent les creux pour se couvrir, ce qui *comprime* la volatilité. Attendez-vous à des ranges plus serrés, à du mean reversion, à un pinning vers les strikes lourds, et à des tentatives de rally qui calent près du call wall. Une lecture fortement positive est le signe d'un marché « calme et sans tendance ».
-- **Net GEX du SPX négatif (régime short-gamma).** Les dealers sont net short gamma au spot. Ils achètent les rallyes et vendent les creux, ce qui *amplifie* la volatilité. Attendez-vous à des ranges plus larges, à des breakouts qui s'étendent, et à des tendances qui filent. Une lecture fortement négative est le signe d'un marché « rapide, en tendance, respectez vos stops ». C'est [ce que signifie un gamma négatif](/education/what-is-negative-gamma) pour le marché.
+- **Net GEX du SPX positif (régime long-gamma).** Les dealers sont net long gamma au spot. Ils vendent les rallyes et achètent les creux pour se couvrir, ce qui tend à *comprimer* la volatilité. Attendez-vous à des ranges plus serrés, à davantage de mean reversion, à un pinning vers les strikes lourds, et à des tentatives de rally qui calent souvent près du call wall. Une lecture fortement positive est le signe d'un marché « calme et sans tendance ».
+- **Net GEX du SPX négatif (régime short-gamma).** Les dealers sont net short gamma au spot. Ils achètent les rallyes et vendent les creux, ce qui tend à *amplifier* la volatilité. Attendez-vous à des ranges plus larges, à des breakouts qui s'étendent, et à des tendances qui filent. Une lecture fortement négative est le signe d'un marché « rapide, en tendance, respectez vos stops ». C'est [ce que signifie un gamma négatif](/education/what-is-negative-gamma) pour le marché.
 
 La lecture n'est pas une direction — c'est un *caractère*. Un net GEX positif ne dit pas « hausse », il dit « collant ». Un négatif ne dit pas « baisse », il dit « volatil ».
 
@@ -46,7 +48,7 @@ Quand les traders recherchent « SPX net gamma exposure zero cross », c'est exa
 
 ## Pourquoi le book 0DTE du SPX fait bouger le chiffre du jour
 
-Le SPX est désormais dominé par les échéances du jour même (0DTE), ce qui rend le net GEX particulièrement *vivant*. Les contrats du jour même portent un gamma énorme juste at-the-money, gamma qui décroît jusqu'à zéro à la clôture. La lecture actuelle du net GEX du SPX peut donc osciller de manière significative au cours d'une même séance, à mesure que le positionnement 0DTE se construit le matin et se résorbe dans l'après-midi.
+Le SPX est désormais dominé par les échéances du jour même (0DTE), ce qui rend le net GEX particulièrement *vivant*. Les contrats du jour même portent un gamma énorme juste at-the-money, gamma qui décroît jusqu'à zéro à la clôture. La lecture actuelle du net GEX du SPX peut donc osciller de manière significative au cours d'une même séance — en grande partie parce que le spot bouge, que le temps passe et que les variations de la volatilité implicite re-pricent ce gamma concentré au fil de la journée. (L'open interest officiel est compensé pour la séance suivante, de sorte que toute lecture d'un positionnement en train de *se construire* en intraday est déduite du flux, et non confirmée par l'OI.)
 
 Implication pratique : un chiffre de net GEX vieux de trois heures peut déjà être périmé. Pour le SPX en particulier, la lecture *actuelle* compte davantage que pour des books plus lents et à échéances plus longues — c'est justement pour cela qu'il vaut mieux consulter la valeur en direct plutôt que de se fier à un instantané du matin. Pour le contexte sur le positionnement des dealers derrière cette oscillation intraday, voir [le positionnement des dealers 0DTE expliqué](/education/0dte-dealer-positioning-explained).
 

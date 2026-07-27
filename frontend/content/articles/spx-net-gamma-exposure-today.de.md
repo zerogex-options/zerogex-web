@@ -12,12 +12,14 @@ Wenn du hier bist, um die aktuelle Zahl zu sehen: ZeroGEX veröffentlicht das he
 
 ## Was ist die SPX Net Gamma Exposure?
 
-Die **Net Gamma Exposure (Net GEX)** für SPX ist die Summe der Dealer-Gamma über die gesamte Optionskette des S&P 500, verdichtet auf eine einzige vorzeichenbehaftete Dollarzahl — oft auch "Dollar Gamma" genannt. Sie schätzt, wie viel S&P-Index-Exposure Options-Dealer mechanisch kaufen oder verkaufen müssen, um abgesichert zu bleiben, während sich SPX bewegt.
+Die **Net Gamma Exposure (Net GEX)** für SPX ist die Summe der Dealer-Gamma über die gesamte Optionskette des S&P 500, verdichtet auf eine einzige vorzeichenbehaftete Dollarzahl — oft auch "Dollar Gamma" genannt. Sie schätzt, wie viel S&P-Index-Exposure Options-Dealer mechanisch kaufen oder verkaufen müssten, um abgesichert zu bleiben, während sich SPX bewegt.
 
-- Das **Vorzeichen** verrät das Regime: positiv bedeutet, dass Dealer Bewegungen dämpfen, negativ bedeutet, dass sie sie verstärken.
-- Die **Größenordnung** (z. B. +$1.5B, −$800M) zeigt, wie viel erzwungenes Hedging im Markt steckt — wie stark sich das Regime voraussichtlich auswirken wird.
+- Das **Vorzeichen** verrät das Regime: positiv bedeutet, dass das Dealer-Hedging Bewegungen tendenziell dämpft, negativ bedeutet, dass es sie tendenziell verstärkt.
+- Die **Größenordnung** (z. B. +$1.5B, −$800M) zeigt, wie viel modelliertes Hedging im Markt steckt — wie stark sich das Regime voraussichtlich auswirken wird.
 
 Net GEX ist die zentrale Kennzahl im übergeordneten [Gamma-Exposure](/education/what-is-gex-in-trading)-Framework. Sie wird zum aktuellen Spotpreis berechnet, bewegt sich also mit SPX und mit der Neubewertung der Optionskette im Tagesverlauf.
+
+> Net GEX ist eine *modellierte* Schätzung. Sie verwendet die traditionelle Konvention Call-positiv / Put-negativ auf Basis des Open Interest — Dealer werden als netto long die Calls, die Kunden verkaufen, und netto short die Puts, die Kunden kaufen, modelliert. Der tatsächliche Dealer-Bestand ist aus öffentlichen Optionsketten-Daten nicht direkt beobachtbar.
 
 ---
 
@@ -25,8 +27,8 @@ Net GEX ist die zentrale Kennzahl im übergeordneten [Gamma-Exposure](/education
 
 Zwei Fälle, entgegengesetzte Spielpläne:
 
-- **Positives SPX Net GEX (Long-Gamma-Regime).** Dealer sind am Spot netto long Gamma. Sie verkaufen Rallyes und kaufen Dips zur Absicherung, was Volatilität *unterdrückt*. Erwarte engere Ranges, Mean Reversion, Pinning an schwer gewichtete Strikes und Rallyversuche, die nahe der Call Wall ins Stocken geraten. Eine stark positive Lesart signalisiert einen "ruhigen, seitwärts laufenden" Markt.
-- **Negatives SPX Net GEX (Short-Gamma-Regime).** Dealer sind am Spot netto short Gamma. Sie kaufen Rallyes und verkaufen Dips, was Volatilität *verstärkt*. Erwarte breitere Ranges, sich fortsetzende Ausbrüche und laufende Trends. Eine stark negative Lesart signalisiert einen "schnellen, trendstarken Markt, bei dem man seine Stops respektieren sollte." Das ist [was negatives Gamma bedeutet](/education/what-is-negative-gamma) für den Markt.
+- **Positives SPX Net GEX (Long-Gamma-Regime).** Dealer sind am Spot netto long Gamma. Sie verkaufen Rallyes und kaufen Dips zur Absicherung, was Volatilität tendenziell *unterdrückt*. Erwarte engere Ranges, mehr Mean Reversion, Pinning an schwer gewichtete Strikes und Rallyversuche, die nahe der Call Wall oft ins Stocken geraten. Eine stark positive Lesart signalisiert einen "ruhigen, seitwärts laufenden" Markt.
+- **Negatives SPX Net GEX (Short-Gamma-Regime).** Dealer sind am Spot netto short Gamma. Sie kaufen Rallyes und verkaufen Dips, was Volatilität tendenziell *verstärkt*. Erwarte breitere Ranges, sich fortsetzende Ausbrüche und laufende Trends. Eine stark negative Lesart signalisiert einen "schnellen, trendstarken Markt, bei dem man seine Stops respektieren sollte." Das ist [was negatives Gamma bedeutet](/education/what-is-negative-gamma) für den Markt.
 
 Die Lesart ist keine Richtung — sie ist ein *Charakter*. Positives Net GEX sagt nicht "aufwärts," sondern "klebrig." Negatives sagt nicht "abwärts," sondern "volatil."
 
@@ -46,7 +48,7 @@ Wenn Trader nach "SPX net gamma exposure zero cross" suchen, meinen sie genau da
 
 ## Warum das SPX-0DTE-Buch die heutige Zahl bewegt
 
-SPX wird inzwischen von taggleichen (0DTE) Verfallsterminen dominiert, was das Net GEX ungewöhnlich *lebendig* macht. Taggleiche Kontrakte tragen direkt am Geld enorme Gamma, die bis zum Handelsschluss auf null zerfällt. Die aktuelle SPX-Net-GEX-Lesart kann daher innerhalb einer einzigen Session deutlich schwanken, während sich 0DTE-Positionierung am Morgen aufbaut und im Laufe des Nachmittags abbaut.
+SPX wird inzwischen von taggleichen (0DTE) Verfallsterminen dominiert, was das Net GEX ungewöhnlich *lebendig* macht. Taggleiche Kontrakte tragen direkt am Geld enorme Gamma, die bis zum Handelsschluss auf null zerfällt. Die aktuelle SPX-Net-GEX-Lesart kann daher innerhalb einer einzigen Session deutlich schwanken — vor allem, weil Kursbewegungen, verstreichende Zeit und Verschiebungen der impliziten Volatilität diese konzentrierte Gamma im Tagesverlauf neu bewerten. (Das offizielle Open Interest wird für die nächste Session gecleart, sodass jede Lesart einer sich intraday *aufbauenden* Positionierung aus dem Flow abgeleitet und nicht durch OI bestätigt ist.)
 
 Praktische Konsequenz: Eine Net-GEX-Zahl von vor drei Stunden kann bereits veraltet sein. Bei SPX zählt die *aktuelle* Lesart mehr als bei langsameren Büchern mit längeren Laufzeiten — genau deshalb lohnt es sich, den Live-Wert abzurufen, statt sich auf einen Morgen-Snapshot zu verlassen. Für den Kontext zur Dealer-Positionierung hinter der Intraday-Schwankung siehe [0DTE-Dealer-Positionierung erklärt](/education/0dte-dealer-positioning-explained).
 
