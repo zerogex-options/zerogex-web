@@ -417,6 +417,12 @@ export type ReferralStats = {
   totalConverted: number;
   monthsEarned: number;
   bankedMonths: number;
+  // The referee emails behind the two headline counts, so the account card can
+  // reveal exactly who is in each tally on hover. `signedUpEmails` backs
+  // totalSignups (every referral); `subscribedEmails` backs totalConverted
+  // (status = 'rewarded'). Ordered oldest-first to match how the counts grow.
+  signedUpEmails: string[];
+  subscribedEmails: string[];
   // Formatted account credit currently sitting on the referrer's Stripe
   // balance that will auto-apply to their next invoice (undefined when none).
   creditOnNextBill?: string;
@@ -434,6 +440,28 @@ export async function getReferralStats(userId: string): Promise<ReferralStats> {
        FROM referrals WHERE referrer_user_id = ?`,
     )
     .get(userId) as { total: number | null; converted: number | null };
+
+  // The actual referees behind the counts, joined to their email. FK cascade
+  // guarantees every referral row has a live user, so this list tracks the
+  // counts above; a rare blank email is simply dropped from the popover rather
+  // than shown as an empty line. Ordered oldest-first for a stable display.
+  const referees = db
+    .prepare(
+      `SELECT u.email AS email, r.status AS status
+         FROM referrals r
+         JOIN users u ON u.id = r.referee_user_id
+        WHERE r.referrer_user_id = ?
+        ORDER BY r.created_at ASC, u.email ASC`,
+    )
+    .all(userId) as Array<{ email: string | null; status: string }>;
+
+  const signedUpEmails = referees
+    .map((r) => r.email)
+    .filter((email): email is string => !!email);
+  const subscribedEmails = referees
+    .filter((r) => r.status === 'rewarded')
+    .map((r) => r.email)
+    .filter((email): email is string => !!email);
 
   const userRow = db
     .prepare('SELECT referral_credit_months, stripe_customer_id FROM users WHERE id = ?')
@@ -465,6 +493,8 @@ export async function getReferralStats(userId: string): Promise<ReferralStats> {
     // Every converted referral earns exactly one free month.
     monthsEarned: totalConverted,
     bankedMonths: Number(userRow?.referral_credit_months ?? 0),
+    signedUpEmails,
+    subscribedEmails,
     creditOnNextBill,
   };
 }
