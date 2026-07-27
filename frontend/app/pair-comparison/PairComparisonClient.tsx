@@ -15,6 +15,7 @@ import PairCandleChart from "@/components/PairCandleChart";
 import PairGammaHeatmap, { type HeatmapColumnInput, type HeatmapCell } from "@/components/PairGammaHeatmap";
 import ChartTimeframeSelect, { type ChartTimeframe } from "@/components/ChartTimeframeSelect";
 import GexUnitToggle from "@/components/GexUnitToggle";
+import BetaBadge from "@/components/BetaBadge";
 import { useApiData, useGEXSummary } from "@/hooks/useApiData";
 import { useGexUnit } from "@/core/GexUnitContext";
 
@@ -56,14 +57,15 @@ export default function PairComparisonClient() {
   const [sym1, sym2] = PAIRS[pair];
 
   // Levels (spot / flip / walls / max pain) come from the summary endpoint;
-  // the per-strike Net GEX column comes from the heatmap endpoint.
-  const { data: sum1 } = useGEXSummary(sym1, 5000);
-  const { data: sum2 } = useGEXSummary(sym2, 5000);
+  // the per-strike Net GEX column comes from the heatmap endpoint. Both poll at
+  // ~1s so the arrows and cells update in realtime.
+  const { data: sum1 } = useGEXSummary(sym1, 1000);
+  const { data: sum2 } = useGEXSummary(sym2, 1000);
   const { data: hm1, loading: hm1Loading, error: hm1Error } = useApiData<HeatmapBucket[]>(heatmapUrl(sym1), {
-    refreshInterval: 5000,
+    refreshInterval: 1000,
   });
   const { data: hm2, loading: hm2Loading, error: hm2Error } = useApiData<HeatmapBucket[]>(heatmapUrl(sym2), {
-    refreshInterval: 5000,
+    refreshInterval: 1000,
   });
 
   const leftInput: HeatmapColumnInput = useMemo(
@@ -98,7 +100,10 @@ export default function PairComparisonClient() {
 
   return (
     <PageShell width="wide">
-      <h1 className="zg-h1 mb-2">Pair Comparison</h1>
+      <div className="flex items-center gap-3 mb-2">
+        <h1 className="zg-h1">Pair Comparison</h1>
+        <BetaBadge size="md" />
+      </div>
       <p className="mb-6" style={{ fontSize: 14, lineHeight: 1.6, color: "var(--text-secondary)", maxWidth: 760 }}>
         Compare the two &quot;like&quot; pairs — SPY↔SPX and QQQ↔NDX — on one screen. Candles for each
         ticker on the left; a Net-GEX-by-strike heatmap for each on the right, centered on spot and aligned
@@ -144,21 +149,21 @@ export default function PairComparisonClient() {
         </div>
       </div>
 
-      <div className="flex flex-col xl:flex-row gap-6">
-        {/* Left: two stacked candlestick charts */}
-        <div className="xl:w-[45%] flex flex-col gap-6 min-w-0">
-          <PairCandleChart symbol={sym1} timeframe={timeframe} />
-          <PairCandleChart symbol={sym2} timeframe={timeframe} />
-        </div>
-
-        {/* Right: two aligned single-column Net-GEX heatmaps */}
-        <div className="xl:flex-1 min-w-0">
+      <div className="flex flex-col xl:flex-row gap-6 items-start">
+        {/* Left: two aligned single-column Net-GEX heatmaps (shrunk to fit) */}
+        <div className="xl:flex-none min-w-0">
           <div
-            className="rounded-lg p-4 overflow-x-auto"
+            className="rounded-lg p-3 overflow-x-auto"
             style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border-default)" }}
           >
             <PairGammaHeatmap left={leftInput} right={rightInput} gexUnit={gexUnit} />
           </div>
+        </div>
+
+        {/* Right: two stacked candlestick charts (given the larger share) */}
+        <div className="xl:flex-1 flex flex-col gap-6 min-w-0 w-full">
+          <PairCandleChart symbol={sym1} timeframe={timeframe} />
+          <PairCandleChart symbol={sym2} timeframe={timeframe} />
         </div>
       </div>
 

@@ -239,13 +239,13 @@ export default function PairCandleChart({ symbol, timeframe, label }: PairCandle
   }, [bars]);
 
   const width = 1100;
-  const height = timeframe === "1day" ? 520 : 460;
+  const height = timeframe === "1day" ? 580 : 520;
   const padLeft = 66;
   const padRight = 28;
   const padTop = 24;
-  const priceAreaBottom = 320;
-  const volumeAreaTop = 344;
-  const volumeAreaBottom = 424;
+  const priceAreaBottom = 360;
+  const volumeAreaTop = 384;
+  const volumeAreaBottom = 476;
 
   const dateMarkersForLabels = useMemo(() => {
     if (dateMarkers.length <= 1) return dateMarkers;

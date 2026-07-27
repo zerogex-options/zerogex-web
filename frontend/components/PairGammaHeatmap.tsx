@@ -78,18 +78,18 @@ function textOn(c: RGB): string {
 
 // ---- Level arrow config -----------------------------------------------------
 type LevelKey = "spot" | "flip" | "call" | "put" | "pain";
-const LEVEL_META: Record<LevelKey, { label: string; color: string; text: string }> = {
-  spot: { label: "Spot", color: "#0EA5E9", text: "#FFFFFF" },
-  flip: { label: "Gamma Flip", color: "#8B5CF6", text: "#FFFFFF" },
-  call: { label: "Call Wall", color: "#16A34A", text: "#FFFFFF" },
-  put: { label: "Put Wall", color: "#DC2626", text: "#FFFFFF" },
-  pain: { label: "Max Pain", color: "#F59E0B", text: "#141B29" },
+const LEVEL_META: Record<LevelKey, { label: string; short: string; color: string; text: string }> = {
+  spot: { label: "Spot", short: "Spot", color: "#0EA5E9", text: "#FFFFFF" },
+  flip: { label: "Gamma Flip", short: "Flip", color: "#8B5CF6", text: "#FFFFFF" },
+  call: { label: "Call Wall", short: "Call", color: "#16A34A", text: "#FFFFFF" },
+  put: { label: "Put Wall", short: "Put", color: "#DC2626", text: "#FFFFFF" },
+  pain: { label: "Max Pain", short: "Pain", color: "#F59E0B", text: "#141B29" },
 };
 const LEVEL_ORDER: LevelKey[] = ["spot", "flip", "call", "put", "pain"];
 
 // ---- Layout constants -------------------------------------------------------
 const ROW_H = 22; // px per strike row — identical across both columns => aligned
-const GUTTER = 96; // left gutter (arrows) width
+const GUTTER = 110; // left gutter (labeled arrows) width
 const MAX_SIDE = 30; // strikes shown on each side of the spot-nearest center
 
 // ---- Number formatting ------------------------------------------------------
@@ -211,7 +211,9 @@ function buildModel(input: HeatmapColumnInput, gexUnit: GexUnit): ColumnModel {
 }
 
 // ---- Small presentational bits ---------------------------------------------
-function LevelArrow({ meta, value }: { meta: { label: string; color: string; text: string }; value: number }) {
+function LevelArrow({ meta, value }: { meta: { label: string; short: string; color: string; text: string }; value: number }) {
+  // Label sits inline with the value inside the arrow (there is no legend), so
+  // each marker reads e.g. "Spot 602.13" / "Call 6005".
   return (
     <span
       title={`${meta.label}: ${fmtLevel(value)}`}
@@ -219,17 +221,18 @@ function LevelArrow({ meta, value }: { meta: { label: string; color: string; tex
       style={{
         background: meta.color,
         color: meta.text,
-        fontSize: 9,
+        fontSize: 8,
         lineHeight: 1,
-        height: 15,
+        paddingTop: 1.5,
+        paddingBottom: 1.5,
         paddingLeft: 4,
         paddingRight: 8,
         borderRadius: 2,
         whiteSpace: "nowrap",
-        clipPath: "polygon(0 0, 82% 0, 100% 50%, 82% 100%, 0 100%)",
+        clipPath: "polygon(0 0, 90% 0, 100% 50%, 90% 100%, 0 100%)",
       }}
     >
-      {fmtLevel(value)}
+      {meta.short} {fmtLevel(value)}
     </span>
   );
 }
@@ -300,10 +303,11 @@ function HeatmapColumn({
 
             return (
               <div key={o} className="flex items-stretch" style={{ height: ROW_H }}>
-                {/* Left gutter: level arrows pointing into the cell */}
+                {/* Left gutter: labeled level arrows pointing into the cell.
+                    Stacked vertically so colliding levels never widen the column. */}
                 <div
-                  className="flex items-center justify-end gap-0.5 pr-1"
-                  style={{ width: GUTTER, flex: "0 0 auto" }}
+                  className="flex flex-col items-end justify-center pr-0.5"
+                  style={{ width: GUTTER, flex: "0 0 auto", gap: 1, overflow: "visible" }}
                 >
                   {arrows.map((key) => {
                     const value = model.levelValues[key];
@@ -363,48 +367,9 @@ export default function PairGammaHeatmap({
   }, [leftModel, rightModel]);
 
   return (
-    <div>
-      {/* Legend */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-4">
-        {LEVEL_ORDER.map((key) => (
-          <div key={key} className="flex items-center gap-1.5">
-            <span
-              className="inline-block"
-              style={{
-                width: 14,
-                height: 11,
-                background: LEVEL_META[key].color,
-                borderRadius: 2,
-                clipPath: "polygon(0 0, 78% 0, 100% 50%, 78% 100%, 0 100%)",
-              }}
-            />
-            <span className="text-[11px]" style={{ color: "var(--text-secondary)" }}>
-              {LEVEL_META[key].label}
-            </span>
-          </div>
-        ))}
-        <div className="flex items-center gap-1.5 ml-auto">
-          <span className="text-[11px]" style={{ color: "var(--text-secondary)" }}>
-            Net GEX
-          </span>
-          <span
-            className="inline-block rounded"
-            style={{
-              width: 120,
-              height: 11,
-              background: `linear-gradient(to right, ${cssRgb(BEARISH)}, ${cssRgb(NEUTRAL)}, ${cssRgb(BULLISH)})`,
-            }}
-          />
-          <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-            − / +
-          </span>
-        </div>
-      </div>
-
-      <div className="flex gap-4">
-        <HeatmapColumn model={leftModel} offsets={offsets} gexUnit={gexUnit} />
-        <HeatmapColumn model={rightModel} offsets={offsets} gexUnit={gexUnit} />
-      </div>
+    <div className="flex gap-4">
+      <HeatmapColumn model={leftModel} offsets={offsets} gexUnit={gexUnit} />
+      <HeatmapColumn model={rightModel} offsets={offsets} gexUnit={gexUnit} />
     </div>
   );
 }
