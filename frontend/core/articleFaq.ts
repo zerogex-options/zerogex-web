@@ -19,11 +19,11 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
   'what-is-a-put-wall': [
     {
       q: 'What is a put wall?',
-      a: 'The put wall is the strike below the current price that carries the heaviest concentration of put-side dealer gamma on the options chain. It is the level where dealer hedging is most likely to defend the downside, which is why traders treat it as the structural floor of the current positioning range.',
+      a: 'The put wall is the strike below the current price that carries the heaviest concentration of put-side gamma on the options chain. It is the level where dealer hedging can most readily defend the downside, which is why traders often treat it as the structural floor of the current positioning range.',
     },
     {
       q: 'Why does the put wall act as support?',
-      a: 'In a positive-gamma regime, the dealers who are short the heavy puts at that strike have to buy the underlying as price falls toward it to stay delta-neutral. That mechanical buying tends to slow or stall declines near the put wall.',
+      a: 'In a positive-gamma regime, aggregate dealer hedging leans against moves — tending to buy the underlying as price falls. Because the heaviest hedging clusters at the put wall, that buy-pressure can slow or stall declines as price approaches it.',
     },
     {
       q: 'Does the put wall always hold?',
@@ -37,11 +37,11 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
   'what-is-a-call-wall': [
     {
       q: 'What is a call wall?',
-      a: 'The call wall is the strike above the current price with the heaviest concentration of call-side dealer gamma. It is the level dealer hedging tends to defend on the way up, often acting as resistance or an upside magnet.',
+      a: 'The call wall is the strike above the current price with the heaviest concentration of call-side gamma. It is the level dealer hedging tends to defend on the way up, often acting as resistance or an upside magnet.',
     },
     {
       q: 'Why does price stall at the call wall?',
-      a: 'In a positive-gamma regime, dealers short the heavy calls at that strike sell the underlying as price rises toward it to stay hedged. That selling tends to cap rallies near the call wall.',
+      a: 'In a positive-gamma regime, aggregate dealer hedging leans against moves — tending to sell the underlying as price rises. Because the heaviest hedging clusters at the call wall, that sell-pressure can cap rallies as price approaches it.',
     },
     {
       q: 'What happens if the call wall breaks?',
@@ -59,7 +59,7 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
     },
     {
       q: 'Is GEX the same as net GEX?',
-      a: 'Net GEX is the market-wide, signed sum of dealer gamma across the whole chain — the aggregate that sets the regime. GEX is often used loosely for the same idea, but net GEX is the precise total.',
+      a: 'Net GEX is the market-wide, signed sum of modeled dealer gamma across the whole chain — the aggregate that sets the regime. GEX is often used loosely for the same idea, but net GEX is the precise total.',
     },
   ],
   'gamma-exposure-explained': [
@@ -73,13 +73,13 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
     },
     {
       q: 'What is the gamma flip?',
-      a: 'The gamma flip is the price where aggregate dealer gamma crosses between positive and negative. Above it, markets tend to be calmer and mean-reverting; below it, they tend to be more volatile and trend-prone.',
+      a: 'The gamma flip is the price where aggregate modeled dealer gamma crosses between positive and negative. Above it, markets tend to be calmer and mean-reverting; below it, they tend to be more volatile and trend-prone.',
     },
   ],
   'how-to-read-a-gamma-flip': [
     {
       q: 'What is a gamma flip?',
-      a: 'The gamma flip is the price level where net dealer gamma switches sign — from positive (stabilizing) to negative (amplifying), or vice versa. It is the dividing line between two different market regimes.',
+      a: 'The gamma flip is the price level where net modeled dealer gamma switches sign — from positive (stabilizing) to negative (amplifying), or vice versa. It marks the boundary between the model’s two hedging regimes.',
     },
     {
       q: 'What happens above versus below the gamma flip?',
@@ -93,15 +93,15 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
   'spx-net-gamma-exposure-today': [
     {
       q: 'What is SPX net gamma exposure?',
-      a: 'SPX net gamma exposure (net GEX) is the aggregate dealer gamma across SPX options. A positive reading points to a stabilizing, mean-reverting regime; a negative reading points to a more volatile, trending one.',
+      a: 'SPX net gamma exposure (net GEX) is the modeled aggregate dealer gamma across SPX options, using the standard call-positive/put-negative convention. A positive reading points to a stabilizing, mean-reverting regime; a negative reading points to a more volatile, trending one.',
     },
     {
       q: 'How do I read the current SPX net GEX?',
-      a: 'Look at the sign and the distance from the gamma-flip zero-cross. Deep positive means dealers are strongly dampening moves; near or below zero means that cushion is thinning and volatility can pick up.',
+      a: 'Look at the sign and the distance from the gamma-flip zero-cross. Deep positive suggests dealer hedging is strongly dampening moves; near or below zero suggests that cushion is thinning and volatility can pick up.',
     },
     {
       q: 'How often does net GEX change?',
-      a: 'It shifts every session as positions and price move, and large expirations can change it sharply. ZeroGEX refreshes free delayed SPX levels through the trading day.',
+      a: 'It moves through the day as price, time, and volatility shift the modeled exposure, and large expirations can change it sharply. ZeroGEX refreshes free delayed SPX levels through the trading day.',
     },
   ],
   'max-pain-explained': [
@@ -129,7 +129,7 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
     },
     {
       q: 'Do gamma walls move?',
-      a: 'Yes. They migrate through the session as positioning and price change, and can jump around large expirations. They are a live map, not fixed lines.',
+      a: 'Yes. They migrate through the session as price, time, and volatility change the modeled exposure, and can jump around large expirations. They are a live map, not fixed lines.',
     },
   ],
   'what-is-negative-gamma': [
@@ -167,7 +167,7 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
     },
     {
       q: 'What changes when price crosses the gamma flip intraday?',
-      a: 'Crossing the flip switches the dealer-hedging regime, so the tape can change character — from dip-buying and pinning above it to trend-extending, wider-range behavior below it. Many traders change playbooks and widen their range expectations when spot crosses the level.',
+      a: 'Crossing the flip flips the sign of the modeled hedging tendency, so the tape can change character — from dip-buying and pinning above it to trend-extending, wider-range behavior below it. It is a tendency, not a switch, so many traders change playbooks and widen their range expectations when spot crosses the level.',
     },
     {
       q: 'Why is the zone right at the gamma flip so choppy?',
@@ -185,13 +185,13 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
     },
     {
       q: 'Which matters more, SPY or SPX gamma?',
-      a: 'SPX is the heavier index-level book, so it usually sets the larger structural levels, while SPY adds granularity and pinning detail. The levels worth the most respect are the ones where both books agree.',
+      a: 'SPX is the heavier index-level book, so it usually sets the larger structural levels, while SPY adds granularity and pinning detail. Levels where both books line up can carry extra weight, though that confluence is a tendency, not a rule.',
     },
   ],
   'why-spy-pins-near-strikes': [
     {
       q: 'Why does SPY pin near certain strikes?',
-      a: 'Pinning is dealer hedging at a heavy-gamma strike, not superstition. When dealers are long gamma at a strike, they buy dips and sell rips around it to stay hedged, and that two-sided hedging mechanically pulls price toward the strike.',
+      a: 'Pinning tends to come from dealer hedging at a heavy-gamma strike, not superstition. When dealers are modeled as long gamma at a strike, they buy dips and sell rips around it to stay hedged, and that two-sided hedging can pull price toward the strike.',
     },
     {
       q: 'Why does pinning get stronger near expiration?',
@@ -265,11 +265,11 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
     },
     {
       q: 'How does vanna move the market?',
-      a: 'When priced-in fear drains out and implied volatility falls — often after an event that did not deliver — vanna pushes dealers into a steady bid. That produces the slow "up on no news" grind that shows up in the drift rather than the volume.',
+      a: 'When priced-in fear drains out and implied volatility falls — often after an event that did not deliver — vanna can push dealers toward a steady bid, depending on how the book is positioned. That can produce the slow "up on no news" grind, which shows up more in the drift than in obvious volume spikes.',
     },
     {
       q: 'How does charm affect the close?',
-      a: 'Charm bleeds delta as expiration nears, forcing dealers to hedge as the clock runs down. Because time passes predictably, charm flow is one of the few dealer flows you can anticipate, and it often shapes a directional drift into the final hours of the session.',
+      a: 'Charm bleeds delta as expiration nears, pressuring dealers to hedge as the clock runs down. Because time passes predictably, charm is one of the few dealer flows you can anticipate — though spot and volatility moves can still override it — and it often shapes a directional drift into the final hours of the session.',
     },
   ],
 };
