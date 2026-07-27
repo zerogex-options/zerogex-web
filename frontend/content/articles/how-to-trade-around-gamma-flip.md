@@ -58,7 +58,7 @@ If spot crosses the flip during the session, your default playbook flips. Crossi
 
 ### Step 3: Watch the distance, not just the side
 
-Spot sitting 0.05% above the flip is structurally contested — both regimes are partially active. Spot sitting 0.4% above is firmly long-gamma. The distance from the flip is part of the read. The contested zone (ZeroGEX flags roughly ±0.1% of the flip) is the highest-noise environment; tighten size or stand aside.
+Spot sitting 0.05% above the flip is structurally contested — positive and negative modeled contributions are nearly offset. Spot sitting 0.4% above is firmly long-gamma. The distance from the flip is part of the read. The contested zone (ZeroGEX flags roughly ±0.1% of the flip) is the highest-noise environment; tighten size or stand aside.
 
 ### Step 4: Watch flip migration
 
@@ -72,7 +72,7 @@ A flip with $1.5B of Net GEX above is a sharp regime; a flip with $200M is a wea
 
 ## When the flip is contested
 
-The most dangerous state is spot sitting *at* the flip. Both regimes' reflexes are partially active, neither dominates, and behavior is unstable. The trades that work above the flip don't work; the trades that work below don't work either. Practically:
+The most dangerous state is spot sitting *at* the flip. The net modeled hedging tendency is weak, and small changes in spot or model inputs can change its sign. The trades that work above the flip don't work; the trades that work below don't work either. Practically:
 
 - Tighten position size or stand aside.
 - Don't commit to a single regime playbook.

@@ -56,7 +56,7 @@ Three reasons:
 
 2. **It scales with positioning, not attention.** A trendline strengthens with more eyes on it; a wall reflects more open interest. The larger the modeled concentration, the larger the potential hedging flow when price approaches. The relationship is grounded in positioning, not sentiment.
 
-3. **It updates in real time.** Trendlines are historical artifacts that become stale as price moves. The modeled walls move with positioning — as fresh volume concentrates above the call wall, the modeled wall can shift higher, and the read updates with it. (Official open interest is published for the next session, so intraday shifts reflect volume, inferred positioning, and moves in spot, time, and IV — not verified new OI.) The level you see at 10:30 ET is the level that matters now.
+3. **It is recalculated.** Spot, time, and implied volatility reprice gamma at each strike, so a different fixed-OI strike can become the wall intraday. Official OI generally updates after clearing; a migrating wall is not evidence that fresh positions opened there.
 
 That said, options-based S/R isn't infallible. It's a probabilistic lean. Macro shocks, catalyst events, and regime flips override it regularly. The advantage is that the lean is *grounded* — when it works, it works for a reason you can verify.
 
@@ -92,7 +92,7 @@ The mechanism inverts or breaks down when:
 
 - Spot is in a **negative-gamma regime** — dealers chase, not fade.
 - Net GEX is **decaying** — positioning is unwinding.
-- The wall is **migrating** with price — fresh OI building above as price tests it.
+- The wall is **migrating** as spot, time, or volatility changes the strike ranking.
 - A catalyst lands during the test.
 - Flow is **accelerating** in the breakout direction.
 

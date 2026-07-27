@@ -1,6 +1,6 @@
 # Charm: The Clock Is a Trader
 
-*Charm is the rate at which an option's delta changes as time passes, holding everything else constant. It can push dealers to trade stock even when the market is dead flat — and because the clock is the one input you can predict perfectly, charm is the rare dealer flow you can anticipate hours before it prints. A conditional forecast with a deadline.*
+*Charm is delta’s sensitivity to time, holding other inputs constant. It estimates conditional potential hedge pressure—not a scheduled dealer order—when spot, IV, and assumed inventory remain near their current values.*
 
 ---
 
@@ -69,11 +69,11 @@ A short discipline:
 
 - **Read the sign at the open.** The charm-into-close figure tells you which way the clock is pushing today and roughly how hard. That is regime context, not an entry.
 - **Watch for confluence.** When charm points the same direction as the gamma magnet — the heavy strike price is drifting toward — the two forces stack and the into-close drift is at its cleanest. When they disagree, expect chop, not drift.
-- **Respect the "if spot holds" condition.** Charm is a conditional forecast. A 1% move mid-afternoon hands the wheel to gamma and can swamp the charm read entirely. The forecast is most reliable on quiet, range-bound days — which are also the days it matters most.
+- **Respect the "if spot holds" condition.** Charm is a conditional forecast. A 1% move mid-afternoon hands the wheel to gamma and can swamp the charm read entirely. The time-only estimate is easier to isolate on quiet days, but ZeroGEX has not presented that observation as a calibrated performance result.
 - **Discount it when vol is expanding.** On a genuinely volatile day, gamma reactions dominate and the tidy charm drift becomes noise.
 
-The clock is the most reliable pressure in the market. Holding other inputs fixed it points the same way every day and telegraphs its size in advance — and while expirations and settlement times vary across the SPX complex, the 0DTE decay that dominates today's chain concentrates into the cash close. Charm is how you read that pressure.
+Charm holds spot and IV constant by definition. Real portfolios contain offsets across strikes and expiries; dealers may use hedge bands, futures, or other options, and new trades can change inventory. The estimate therefore represents potential time-only hedge pressure, not proof of when or how much dealers will trade.
 
-For the parent concept, see [Delta and Its Three Children](/education/delta-and-its-three-children); for the vol-driven sibling, see [Vanna: When Fear Fades, Dealers Buy](/education/vanna-when-fear-fades); and to watch the into-close curve build in real time, open the live [Forced Flow](/forced-flow) page.
+For the parent concept, see [Delta and Its Three Children](/education/delta-and-its-three-children); for the vol-driven sibling, see [Vanna: How Falling IV Can Change Dealer Hedging](/education/vanna-when-fear-fades); and to watch the into-close curve build in real time, open the live [Forced Flow](/forced-flow) page.
 
 Educational content only — none of the above is a trade recommendation.

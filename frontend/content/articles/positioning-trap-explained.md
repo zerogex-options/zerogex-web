@@ -129,7 +129,7 @@ Positioning Trap is a Mean-reversion signal — same bucket as Trap Detection. W
 
 A few cross-reads:
 
-- **Positioning Trap loaded + Trap Detection firing same direction as the fade.** The structural setup and the timing signal both point to the same trade. Cleanest setup.
+- **Positioning Trap loaded + Trap Detection firing same direction as the fade.** The structural setup and the timing signal both point to the same trade. The model assigns greater weight to this agreement.
 - **Positioning Trap loaded + [Squeeze Setup](/education/squeeze-setup-explained) firing same direction as the trade.** Mean-reversion and Continuation aligning on the same side — the "coiled to fade" setup that happens when the crowd has set the stage for the squeeze.
 - **Positioning Trap at 0 + Trap Detection firing.** No structural crowd to fade — Trap Detection is reading a local break, not a crowd-flush. Smaller size, tighter stop.
 - **Positioning Trap loaded but nothing else firing.** The setup exists but the spark is missing. Wait.

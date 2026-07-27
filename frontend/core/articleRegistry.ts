@@ -329,9 +329,9 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     href: '/education/spy-vs-spx-gamma-levels',
     title: 'SPY vs SPX Options: Which Gamma Levels Matter?',
     blurb:
-      'SPY and SPX track the same index through two separate dealer gamma books. How their gamma levels differ, how to translate a level with the ~10x ratio, which book carries more weight, and why levels where both books agree can carry extra weight.',
+      'SPY and SPX track the same index through two separate dealer gamma books. How their gamma levels differ, how to translate a level with the ~10x ratio, which book carries more weight, and how agreement between the modeled books can be used as unvalidated contextual confluence.',
     description:
-      'SPY vs SPX options — which gamma levels matter? How the two dealer gamma books differ, translating levels with the ~10x ratio, which carries more weight, and why confluence between SPX and SPY often carries extra weight.',
+      'SPY vs SPX options — which gamma levels matter? How the two dealer gamma books differ, translating levels with the ~10x ratio, which carries more weight, and how ZeroGEX treats agreement as contextual confluence rather than guaranteed reliability.',
     datePublished: '2026-07-06',
     readMinutes: 9,
     kind: 'tier1',
@@ -339,11 +339,11 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
   'what-is-a-put-wall': {
     slug: 'what-is-a-put-wall',
     href: '/education/what-is-a-put-wall',
-    title: 'What Is a Put Wall? How Options Traders Use Put Walls as Dealer Support',
+    title: 'What Is a Put Wall? Put Gamma Concentration Explained',
     blurb:
-      'The put wall is the strike where put-side dealer gamma piles up — often a well-defended dealer-hedged support level. What it is, why price reacts there, how it migrates intraday, when it holds versus breaks, and how to find today’s SPX, SPY, and QQQ put walls.',
+      'The Put Wall is the largest below-spot put-gamma concentration. Learn why it may coincide with support, why modeled short-put hedging does not create a mechanical floor, and how repricing can move the wall intraday.',
     description:
-      'What is a put wall? The strike where put gamma concentrates and dealer hedging can defend the downside — why it often acts as support, how it shifts intraday, and when it breaks. See today’s SPX / SPY / QQQ put walls.',
+      'What is a Put Wall? Learn how ZeroGEX identifies below-spot put-gamma concentration, why support is conditional on the broader profile and flow, and how the modeled level can migrate.',
     datePublished: '2026-07-07',
     readMinutes: 8,
     kind: 'tier1',
@@ -353,7 +353,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     href: '/education/what-is-a-call-wall',
     title: 'What Is a Call Wall? How Dealers Defend the Upside in Options',
     blurb:
-      'The call wall is the strike where call-side dealer gamma concentrates — the level dealer hedging tends to defend on the way up. What it is, why it can cap rallies in long gamma, how it migrates, when a break signals a regime change, and where to see today’s live SPX, SPY, and QQQ call walls.',
+      'The call wall is the strike where call-side dealer gamma concentrates — the level dealer hedging tends to defend on the way up. What it is, why it can cap rallies in long gamma, how it migrates, what a break may indicate about the strength of the level, and where to see today’s live SPX, SPY, and QQQ call walls.',
     description:
       'What is a call wall? The strike where call gamma concentrates and dealer hedging can defend the upside — why it often acts as resistance, how it migrates, and when price breaks through. See today’s SPX / SPY / QQQ call walls.',
     datePublished: '2026-07-07',
@@ -413,9 +413,9 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     href: '/education/charm-the-clock-is-a-trader',
     title: 'Charm: The Clock Is a Trader',
     blurb:
-      'Charm is the rate an option’s delta changes as time passes. It pushes dealers to trade stock on a dead-flat tape — and because the clock is perfectly predictable, it’s the rare dealer flow you can anticipate hours before it prints.',
+      'Charm measures delta’s sensitivity to time, holding other inputs constant. ZeroGEX uses it to estimate conditional hedge pressure; it is not a scheduled dealer order.',
     description:
-      'Charm explained — how time decay alone forces dealer hedging into the close, why the flow accelerates in the final hour, and why charm is one of the few dealer flows you can anticipate ahead of time.',
+      'Charm explained — how time changes option delta and creates conditional modeled hedge pressure into expiration, subject to spot, volatility, inventory, and portfolio offsets.',
     datePublished: '2026-07-12',
     readMinutes: 8,
     kind: 'tier2',
@@ -423,11 +423,11 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
   'vanna-when-fear-fades': {
     slug: 'vanna-when-fear-fades',
     href: '/education/vanna-when-fear-fades',
-    title: 'Vanna: When Fear Fades, Dealers Buy',
+    title: 'Vanna: How Falling IV Can Change Dealer Hedging',
     blurb:
-      'Vanna is the rate an option’s delta changes when implied vol changes. When priced fear drains out after an event that never delivered, vanna can push dealers toward a steady bid — the “up on no news” grind that hides in the slope more than the volume.',
+      'Vanna measures delta’s sensitivity to implied volatility. Falling IV can create modeled hedge demand in some chain configurations, but its sign depends on ownership, option type, moneyness, expiry, and the volatility surface.',
     description:
-      'Vanna explained — why a falling IV print can push dealers to buy stock, how the vol-compression grind works, and why the flow shows up in price drift more than in the volume bars.',
+      'Vanna explained — how changes in implied volatility can alter modeled dealer delta and create conditional hedge pressure whose sign depends on the option chain.',
     datePublished: '2026-07-12',
     readMinutes: 8,
     kind: 'tier2',
@@ -437,9 +437,9 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     href: '/education/why-we-dont-publish-dex',
     title: 'Why We Don’t Publish DEX',
     blurb:
-      'Delta Exposure looks like the natural sibling of gamma exposure. We refuse to publish it: it measures the one greek dealers largely neutralize with stock, weights the dirtiest strikes in the chain, and is loudest exactly where forced flow is weakest.',
+      'Delta Exposure looks like the natural sibling of gamma exposure. ZeroGEX does not publish it as a headline flow estimate: raw options-only DEX excludes the offsetting underlying hedge and measures a delta level rather than its future change.',
     description:
-      'Why we don’t publish DEX (delta exposure = ΣΔ·OI) — dealers largely hedge delta out with stock, delta’s weight sits in the illiquid deep-ITM wings, and DEX is loudest where forced flow is weakest. What we publish instead: Forced Flow.',
+      'Why we don’t publish DEX (delta exposure = ΣΔ·OI) — raw options-only DEX excludes the offsetting underlying hedge and is not a standalone forecast of future hedge flow. Its valid inventory and scenario uses, and what ZeroGEX publishes instead.',
     datePublished: '2026-07-12',
     readMinutes: 9,
     kind: 'article',

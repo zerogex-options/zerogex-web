@@ -85,7 +85,7 @@ The pin unwinds when:
 
 - **The gamma flip cross happens.** Spot drops below the modeled flip; crossing it suggests the model's aggregate hedging tendency has changed sign, so the same magnet may start releasing price rather than attracting it.
 - **A catalyst lands.** CPI, FOMC, NFP, single-name shock. Macro flow overwhelms the dealer reflex.
-- **Net GEX decays meaningfully.** Positions roll off into expiry. By 15:30 ET on Friday the gamma is shrinking fast.
+- **Net GEX decays meaningfully.** Near-expiry gamma is repricing: ATM gamma can rise while decisively ITM or OTM gamma tends toward zero. The aggregate may strengthen or weaken.
 - **The magnet migrates.** Confirmed open interest is generally published for the next session, but the modeled magnet can still shift mid-session as spot, gamma, time, and IV change — or as inferred intraday positioning builds at a different strike — moving the target elsewhere.
 - **Skew shifts.** A heavy put bid (fear) can flip the chain's dealer-book sign even at the same strike.
 

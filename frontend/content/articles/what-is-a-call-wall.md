@@ -10,7 +10,7 @@ A **call wall** is the strike above spot that carries the heaviest concentration
 
 Call wall meaning, in one sentence: it is not a round number or a chart line — it is real positioning, open interest weighted by the gamma each contract carries. The single strike where that call gamma is densest above the current price is the call wall.
 
-Its mirror below spot is the [put wall](/education/what-is-a-put-wall), the heaviest put-gamma strike, which tends to floor the downside. Together the two walls sketch the range dealer hedging mechanics defend. This piece is about the call wall specifically — what it is, why it acts as resistance, how it moves, and when a break through it actually matters. For the full picture, pair it with [Gamma Walls Explained](/education/gamma-walls-explained) and the [Gamma Exposure pillar](/education/gamma-exposure-explained).
+The [Put Wall](/education/what-is-a-put-wall) is the largest below-spot put-gamma magnitude, but it is not a mechanical mirror: under the convention that local put inventory is modeled negative gamma. Both walls are structural references whose behavior depends on the full profile and flow. This piece is about the call wall specifically — what it is, why it acts as resistance, how it moves, and when a break through it actually matters. For the full picture, pair it with [Gamma Walls Explained](/education/gamma-walls-explained) and the [Gamma Exposure pillar](/education/gamma-exposure-explained).
 
 ---
 
@@ -35,7 +35,7 @@ The two walls are symmetric opposites:
 |Wall|Where|Modeled dealer hedge in positive gamma|Behavior in that regime|
 |---|---|---|---|
 |Call wall|Heaviest call gamma above spot|Tends to sell as price rises toward it|Can act as resistance / cap|
-|Put wall|Heaviest put gamma below spot|Net book tends to buy as price falls|Can act as support / floor|
+|Put wall|Largest put-gamma magnitude below spot|Locally negative modeled dealer gamma|May coincide with support or acceleration depending on the full profile and flow|
 
 Neither is directional by itself, and the option type alone does not set the behavior. The call wall is not a "sell signal" — it is a concentration level whose effect depends on which side of the gamma flip you are on. Above the flip, the call wall tends to cap. Below it, in negative gamma, the same strike can invert from a ceiling into a breakout accelerant.
 
@@ -47,7 +47,7 @@ The call wall is a live read that moves through the session for three reasons:
 
 1. **OI rebalancing.** Fresh call volume into a higher strike can shift the heaviest concentration up. The wall is always the *current* densest strike, not this morning's.
 2. **Migration with price.** As price probes the call wall, fresh call volume can concentrate just above it, nudging the modeled wall higher. (Official open interest updates for the next session, so this is inferred intraday positioning, not verified OI.) A wall that *tracks* price is structurally different from one that *holds*.
-3. **Expiry decay.** In 0DTE-heavy chains, the contracts that built the wall can roll off by mid-afternoon, thinning the ceiling.
+3. **Near-expiry repricing.** ATM gamma can increase while decisively ITM or OTM gamma tends toward zero, changing which fixed-OI strike ranks first.
 
 The migration is itself the signal. If the call wall keeps drifting up as price approaches, the fade-the-rip thesis is weak — the wall is chasing, and the breakout is more credible than a static wall would suggest.
 
