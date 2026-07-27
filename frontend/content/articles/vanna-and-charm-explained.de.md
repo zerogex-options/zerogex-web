@@ -71,7 +71,7 @@ Eine typische Intraday-Timeline verdeutlicht den Unterschied:
 
 - Eine Spot-Bewegung von 0,2 % erzwingt Gamma-Hedging — groß und sofort.
 - Ein Rückgang der IV um 1 Vol-Punkt im Laufe des Morgens erzwingt Vanna-Hedging — pro Minute klein, aber anhaltend.
-- Acht Stunden Zeitzerfall bis zum Handelsschluss erzwingen Charm-Hedging — pro Minute klein, aber kumulativ bedeutend.
+- Eine ganze Handelssession Zeitzerfall bis zum Handelsschluss erzwingt Charm-Hedging — pro Minute klein, aber kumulativ bedeutend.
 
 Alle drei laufen gleichzeitig ab. Bei ruhigem Tape ist Gamma weitgehend still (kleine Bewegungen), und Vanna und Charm werden zum dominierenden Flow. Bei heftigem Tape dominiert Gamma, und die Flows zweiter Ordnung sind Rauschen. Wie relevant Vanna und Charm sind, hängt ebenso vom Volatilitätsregime wie vom Gamma-Regime ab.
 

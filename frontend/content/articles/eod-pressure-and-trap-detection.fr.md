@@ -159,9 +159,9 @@ Le schéma classique : dans un régime long-gamma où le positionnement des deal
 
 Le signal recherche deux configurations symétriques :
 
-> **Bear trap sur un faux mouvement haussier.** Le prix pointe au-dessus d'un niveau de résistance — `call_wall`, `max_gamma_strike`, `vwap`, ou `gamma_flip` — mais les conditions structurelles indiquent que le breakout va échouer. Produit un score *négatif* (`bearish_fade`).
+> **Bull trap sur un faux mouvement haussier.** Le prix pointe au-dessus d'un niveau de résistance — `call_wall`, `max_gamma_strike`, `vwap`, ou `gamma_flip` — mais les conditions structurelles indiquent que le breakout va échouer. Produit un score *négatif* (`bearish_fade`).
 
-> **Bull trap sur un faux mouvement baissier.** Le prix pointe sous le support — `put_wall`, `max_gamma_strike`, `vwap`, ou `gamma_flip` — mais la cassure semble factice. Produit un score *positif* (`bullish_fade`).
+> **Bear trap sur un faux mouvement baissier.** Le prix pointe sous le support — `put_wall`, `max_gamma_strike`, `vwap`, ou `gamma_flip` — mais la cassure semble factice. Produit un score *positif* (`bullish_fade`).
 
 Le signe du résultat encode la direction dans laquelle *fader* le mouvement, et non la direction dans laquelle le prix vient de casser.
 
@@ -171,13 +171,13 @@ Le signe du résultat encode la direction dans laquelle *fader* le mouvement, et
 
 | Score | Étiquette | Interprétation pour le trader |
 |-------|-------|----------------------|
-| +0,5 à +1,0 | `bullish_fade` | Bull-trap-fade à forte conviction. La cassure baissière est factice — un retour brutal à la hausse est attendu. |
+| +0,5 à +1,0 | `bullish_fade` | Bear-trap-fade à forte conviction. La cassure baissière est factice — un retour brutal à la hausse est attendu. |
 | +0,25 à +0,5 | `bullish_fade` (déclenché) | Modéré. Envisager des entrées longues en mean-reversion. |
 | 0 à +0,25 | sous le seuil | Conviction faible ; non exploitable seul. |
 | 0 | aucun | Aucun piège en formation. L'état par défaut. |
 | 0 à −0,25 | sous le seuil | Conviction faible. |
-| −0,25 à −0,5 | `bearish_fade` (déclenché) | Bear-trap-fade modéré. Fader les longs, une inversion baissière est attendue. |
-| −0,5 à −1,0 | `bearish_fade` | Bear-trap-fade à forte conviction. Fader les rallyes à l'intérieur du breakout. |
+| −0,25 à −0,5 | `bearish_fade` (déclenché) | Bull-trap-fade modéré. Fader les longs, une inversion baissière est attendue. |
+| −0,5 à −1,0 | `bearish_fade` | Bull-trap-fade à forte conviction. Fader les rallyes à l'intérieur du breakout. |
 
 Le seuil de déclenchement ici est **0,25** — délibérément plus strict que le 0,20 d'EOD Pressure. Les configurations de trap exigent une conviction plus élevée pour se déclencher activement, car trader contre un breakout actif comporte un risque de queue plus élevé que suivre le flux de fin de journée.
 

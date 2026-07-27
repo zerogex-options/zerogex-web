@@ -30,7 +30,7 @@ Sesgo de trading: **lectura direccional**. La señal indica hacia dónde se incl
 
 Tres mecanismos estructurales se combinan en la ventana final de la sesión:
 
-1. **El decaimiento de charm se acelera.** A medida que las opciones 0DTE se acercan al vencimiento, su delta deriva de forma predecible hacia 0 o 1. Los dealers que gestionan un book delta-neutral tienen que recubrirse de forma continua, y el ritmo de esa recobertura *aumenta* a medida que se acerca el cierre.
+1. **El decaimiento de charm se acelera.** A medida que las opciones 0DTE se acercan al vencimiento, su delta deriva de forma predecible hacia 0 (out-of-the-money) o ±1 (in-the-money). Los dealers que gestionan un book delta-neutral tienen que recubrirse de forma continua, y el ritmo de esa recobertura *aumenta* a medida que se acerca el cierre.
 2. **La pin gravity se intensifica.** Los strikes con gamma elevado tiran del precio con más fuerza a medida que se reduce el tiempo hasta el vencimiento. En un régimen de gamma larga, el magnetismo hacia el strike pesado más cercano se refuerza a lo largo de la tarde.
 3. **La liquidez se adelgaza.** Los flujos en bloque, el rebalanceo de fin de día y las órdenes estructurales sobre índices desplazan el perfil del flujo de continuo a intermitente. Los dealers tienen menos margen para absorber errores.
 

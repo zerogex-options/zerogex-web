@@ -22,7 +22,7 @@ Il existe deux régimes, séparés par un unique niveau de prix appelé le **gam
 L'élément central est une courbe unique : le **profil de gamma des dealers à spot déplacé (spot-shift)**.
 
 1. Prenez l'instantané du jour de la chaîne d'options.
-2. Imaginez l'action à chaque prix d'une grille couvrant environ ±20% du spot (par pas de 0,25% du spot — quelques centaines de points de grille).
+2. Imaginez l'action à chaque prix d'une grille couvrant environ ±20% du spot (par pas de 0,25% du spot — environ 160 points de grille).
 3. À chaque prix de la grille, **recalculez le gamma de chaque option** avec Black-Scholes (le gamma est lui-même fonction du spot, donc on ne peut pas utiliser la valeur statique de l'instantané).
 4. Multipliez le gamma de chaque contrat par `OI × 100 × S² × 0.01` (la convention du secteur "dollar GEX par mouvement de 1%" utilisée par SpotGamma / SqueezeMetrics / Cheddar Flow), et appliquez la convention de signe des dealers (calls +, puts −).
 5. Pondérez chaque contrat par `min(1, DTE / 5 days)` — une rampe d'occupation d'horizon, pour qu'un mur 0DTE du jour même (qui porte un pic de gamma colossal en `1/√T`) ne puisse pas figer un niveau de régime pluri-journalier.

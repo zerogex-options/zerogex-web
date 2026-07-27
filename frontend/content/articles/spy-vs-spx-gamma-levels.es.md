@@ -48,7 +48,7 @@ SPY cotiza aproximadamente a una décima parte del índice S&P 500, así que com
 Dos advertencias impiden que la conversión sea exacta:
 
 - **Desviación de tracking.** El precio de SPY refleja dividendos acumulados y pequeñas diferencias de tracking, por lo que la proporción nunca es un 10.000 exacto. Convierte para orientarte, no al centavo.
-- **Granularidad de strikes.** Los strikes de SPX están espaciados más ampliamente (comúnmente cinco puntos de índice) mientras que SPY lista cada dólar. Un wall de SPX cae en un número de índice redondo; el wall de SPY correspondiente puede estar en una resolución más fina — SPY a menudo muestra *dónde dentro* de un bucket de cinco puntos de SPX se concentra realmente la gamma.
+- **Granularidad de strikes.** En dólares brutos SPY lista strikes más finos ($1, algunos $0.50) que el espaciado de cinco puntos de SPX — pero aplica la escala de ~10×: un dólar de SPY equivale a diez puntos de índice, así que los strikes de $1 de SPY son en realidad *más gruesos* que los strikes de cinco puntos de SPX en términos de índice, y sus strikes de $0.50 apenas los igualan. En términos de índice, SPX resuelve la gamma con al menos tanta finura como SPY; la verdadera ventaja de SPY son sus strikes en dólares redondos que atraen pins y su liquidez en acciones, no una resolución más fina en términos de índice.
 
 ---
 
@@ -98,6 +98,6 @@ Cada página comienza con el gamma flip, call wall, put wall, max pain y net dea
 
 ## Conclusión
 
-SPY y SPX siguen un mismo índice a través de dos contratos y dos libros de gamma de dealers separados. Opera los niveles que pertenecen a tu instrumento, usa la proporción de ~10× para convertir entre ellos, apóyate en SPX como el mapa más pesado a nivel de índice y en SPY para granularidad y pinning — y da el mayor respeto a los niveles en los que ambos coinciden.
+SPY y SPX siguen un mismo índice a través de dos contratos y dos libros de gamma de dealers separados. Opera los niveles que pertenecen a tu instrumento, usa la proporción de ~10× para convertir entre ellos, apóyate en SPX como el mapa más pesado a nivel de índice y en SPY para el pinning en números redondos y la liquidez en acciones — y da el mayor respeto a los niveles en los que ambos coinciden.
 
 *Estos son análisis derivados con fines educativos, no asesoría de inversión. Operar con opciones implica riesgos significativos.*

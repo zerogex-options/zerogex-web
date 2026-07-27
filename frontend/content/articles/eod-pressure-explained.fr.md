@@ -30,7 +30,7 @@ Biais de trading : **lecture directionnelle**. Le signal indique dans quel sens 
 
 Trois mécanismes structurels se cumulent dans la dernière fenêtre de la séance :
 
-1. **La décroissance du charm s'accélère.** À mesure que les options 0DTE approchent de l'expiration, leur delta dérive de façon prévisible vers 0 ou 1. Les dealers qui gèrent un book delta-neutre doivent se recouvrir en continu, et le rythme de cette recouverture *augmente* à l'approche de la clôture.
+1. **La décroissance du charm s'accélère.** À mesure que les options 0DTE approchent de l'expiration, leur delta dérive de façon prévisible vers 0 (hors de la monnaie) ou ±1 (dans la monnaie). Les dealers qui gèrent un book delta-neutre doivent se recouvrir en continu, et le rythme de cette recouverture *augmente* à l'approche de la clôture.
 2. **La pin gravity s'intensifie.** Les strikes à gamma élevé attirent davantage le prix à mesure que le temps avant expiration diminue. Dans un régime long gamma, le magnétisme vers le strike lourd le plus proche se renforce au fil de l'après-midi.
 3. **La liquidité s'amenuise.** Les flux en blocs, le rééquilibrage de fin de journée et les ordres structurels sur indices font passer le profil du flux de continu à saccadé. Les dealers disposent de moins de marge pour absorber les erreurs.
 

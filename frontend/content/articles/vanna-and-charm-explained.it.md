@@ -71,7 +71,7 @@ Una tipica timeline intraday illustra la differenza:
 
 - Un movimento dello spot dello 0,2% forza l'hedging gamma — ampio e immediato.
 - Un calo di 1 punto di volatilità nella IV durante la mattina forza l'hedging vanna — piccolo minuto per minuto ma persistente.
-- Otto ore di decadimento temporale verso la chiusura forzano l'hedging charm — piccolo minuto per minuto ma cumulativamente significativo.
+- Un'intera sessione di decadimento temporale verso la chiusura forza l'hedging charm — piccolo minuto per minuto ma cumulativamente significativo.
 
 Tutte e tre avvengono contemporaneamente. In un tape tranquillo, il gamma è in gran parte silenzioso (movimenti piccoli), e vanna e charm diventano il flusso dominante. In un tape violento, il gamma domina e i flussi di secondo ordine sono rumore. La rilevanza di vanna e charm dipende dal regime di volatilità tanto quanto dal regime gamma.
 

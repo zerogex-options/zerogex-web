@@ -47,7 +47,7 @@ Las etiquetas en operaciones individuales las marcan como smart money — típic
 Tres patrones:
 
 1. **Flujo positivo ponderado por prima fuerte con un gradiente de GEX negativo** ⇒ los traders están pagando por un alza en la que los dealers están estructuralmente cortos. Lectura de continuación con alta convicción.
-2. **Compra fuerte de puts con la señal Positioning Trap también alta** ⇒ la multitud está mal posicionada; espera un rebote brusco.
+2. **Compra fuerte de puts con la señal Positioning Trap cargada en el lado de la multitud short (negativo)** ⇒ la multitud bajista está mal posicionada; espera un rebote brusco al alza.
 3. **Flujo plano cerca de un nivel clave** ⇒ espera la ruptura. El flujo sin convicción no es una operación.
 
 ## Volumen neto vs. flujo direccional

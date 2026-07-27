@@ -54,7 +54,7 @@ Drei Signale. Drei Thesen. Dieselbe Zahlenlinie.
 - Nähe zum Gamma-Flip
 - Net-GEX-Regime (geglättet via tanh)
 
-**Wie es bewertet wird:** Eine gewichtete Summe — 0,45 auf Überfüllung, 0,25 auf Ungleichgewichts-Skew, 0,15 auf Momentum, 0,10 auf Flip-Neigung, 0,05 auf negatives-GEX-Regime — unabhängig berechnet für die Squeeze-Seite (long Crowd im Risiko) und die Flush-Seite (short Crowd im Risiko). Beide werden zu einem einzigen Score verrechnet.
+**Wie es bewertet wird:** Eine gewichtete Summe — 0,45 auf Überfüllung, 0,25 auf Ungleichgewichts-Skew, 0,15 auf Momentum, 0,10 auf Flip-Neigung, 0,05 auf negatives-GEX-Regime — unabhängig berechnet für die Squeeze-Seite (short Crowd im Risiko) und die Flush-Seite (long Crowd im Risiko). Beide werden zu einem einzigen Score verrechnet.
 
 Im Gegensatz zu den anderen beiden hat Positioning Trap kein Trigger-Flag — es fließt als kontinuierliche Komponente (Gewicht 0,06) in das MSI-Composite ein und öffnet das `positioning_trap_squeeze`-Playbook bei abs(score) ≥ 0,5.
 
@@ -92,8 +92,8 @@ Hier ist die Falle, die Trader in die Falle lockt: Alle drei Signale geben einen
 
 | Score-Vorzeichen | Squeeze Setup | Positioning Trap | Trap Detection |
 |---|---|---|---|
-| Positiv (+) | Breakout nach oben kaufen | Gegen short Crowd setzen → Squeeze nach oben | Gescheiterten Breakdown kaufen |
-| Negativ (−) | Breakout nach unten verkaufen | Gegen long Crowd setzen → Flush nach unten | Gescheiterten Breakout verkaufen |
+| Positiv (+) | Breakout nach oben kaufen | Gegen long Crowd setzen → Flush nach unten | Gescheiterten Breakdown kaufen |
+| Negativ (−) | Breakout nach unten verkaufen | Gegen short Crowd setzen → Squeeze nach oben | Gescheiterten Breakout verkaufen |
 | Null (0) | Keine aufgestaute Energie / keine Flow-Neigung | Kein Crowd-Extrem | Kein strukturelles Level scheitert gerade |
 
 Eine 0 bedeutet nicht „neutraler Markt". Sie bedeutet, dass *diese spezifische Frage gerade keine Antwort hat*. Squeeze Setup bei 0 sagt einem nicht, dass das Positioning ausgeglichen ist — es sagt, dass nichts komprimiert ist. Trap Detection bei 0 sagt einem nicht, dass die Crowd in Ordnung ist — es sagt, dass kein Level gerade abgelehnt wird.

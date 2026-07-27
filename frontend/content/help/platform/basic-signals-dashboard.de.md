@@ -31,7 +31,7 @@ Lee-Ready-Aggressor-Klassifizierung auf dem Options-Tape. Netto aus Call-Kauf-/V
 
 ### Skew Delta
 
-Der Spread aus OTM-Put-IV minus OTM-Call-IV gegenüber seiner Baseline. Negative Werte bedeuten, dass Angst eingepreist ist; positive Werte bedeuten, dass Call-Prämie eingepreist ist (Gier). Eher als Stimmungsthermometer nützlich denn als Präzisionssignal.
+Der Spread aus OTM-Put-IV minus OTM-Call-IV gegenüber seiner Baseline, vorzeicheninvertiert, damit der Score direktional lesbar ist: Negative Werte bedeuten, dass Angst eingepreist ist (Put-Skew teuer); positive Werte bedeuten, dass Call-Prämie eingepreist ist (Gier). Eher als Stimmungsthermometer nützlich denn als Präzisionssignal.
 
 ### Vanna/Charm Flow
 
@@ -43,7 +43,7 @@ Das Netto-Delta der Dealer aus der Optionskette (call_delta_oi + put_delta_oi). 
 
 ### GEX Gradient
 
-Gamma oberhalb des Spot im Vergleich zu Gamma unterhalb des Spot, mit einer ATM-Konzentrationsprüfung. Zeigt, auf welcher Seite des Spot mehr Gamma-Gewicht liegt. Positiver Gradient ⇒ Gamma oberhalb des Spot konzentriert ⇒ struktureller Aufwärts-Pin; negativ ⇒ struktureller Abwärts-Pin.
+Gamma oberhalb des Spot im Vergleich zu Gamma unterhalb des Spot, mit einer ATM-Konzentrationsprüfung. Zeigt, auf welcher Seite des Spot mehr Gamma-Gewicht liegt. Positiver Gradient ⇒ mehr Gamma unterhalb des Spot ⇒ ein stützender Boden, aufwärtsstabilisierend (bullische Tendenz); negativ ⇒ mehr Gamma oberhalb des Spot ⇒ abwärtsverstärkend (bärische Tendenz).
 
 ### Positioning Trap
 

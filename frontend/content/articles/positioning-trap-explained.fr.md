@@ -163,7 +163,7 @@ Un exemple concret. Le SPX glisse lentement vers le bas et ZeroGEX affiche :
 - **Trap Detection :** 0
 - **Squeeze Setup :** +0,31
 
-La lecture structurelle : la foule short est chargée, le régime est long-gamma (les dealers amplifieront un squeeze s'il en survient un), Squeeze Setup penche haussier, et Trap Detection est silencieux (pas de rupture baissière échouée récente à fader *pour l'instant*). Inclinaison pratique : le squeeze haussier de short-cover est le chemin le plus probable ; attendez l'étincelle, puis tradez dans la direction que pointe Positioning Trap.
+La lecture structurelle : la foule short est chargée, le régime est long-gamma (les dealers s'opposent à la poussée de la foule, soutenant un retournement), Squeeze Setup penche haussier, et Trap Detection est silencieux (pas de rupture baissière échouée récente à fader *pour l'instant*). Inclinaison pratique : le squeeze haussier de short-cover est le chemin le plus probable ; attendez l'étincelle, puis tradez dans la direction que pointe Positioning Trap.
 
 ---
 

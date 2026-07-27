@@ -54,7 +54,7 @@ Trois signaux. Trois thèses. Une même droite numérique.
 - Proximité du gamma flip
 - Régime de Net GEX (lissé via tanh)
 
-**Comment il est calculé :** Une somme pondérée — 0,45 sur l'encombrement, 0,25 sur le biais du déséquilibre, 0,15 sur le momentum, 0,10 sur l'inclinaison du flip, 0,05 sur le régime de GEX négatif — calculée indépendamment pour le côté squeeze (foule long à risque) et le côté flush (foule short à risque). Les deux sont compensés en un score unique.
+**Comment il est calculé :** Une somme pondérée — 0,45 sur l'encombrement, 0,25 sur le biais du déséquilibre, 0,15 sur le momentum, 0,10 sur l'inclinaison du flip, 0,05 sur le régime de GEX négatif — calculée indépendamment pour le côté squeeze (foule short à risque) et le côté flush (foule long à risque). Les deux sont compensés en un score unique.
 
 Contrairement aux deux autres, Positioning Trap n'a pas de flag de trigger — il alimente le composite MSI comme composante continue (poids 0,06) et ouvre le playbook `positioning_trap_squeeze` lorsque abs(score) ≥ 0,5.
 
@@ -92,8 +92,8 @@ Voici le piège qui piège les traders : les trois signaux affichent un score [-
 
 | Signe du Score | Squeeze Setup | Positioning Trap | Trap Detection |
 |---|---|---|---|
-| Positif (+) | Acheter le breakout haussier | Parier contre la foule short → squeeze haussier | Acheter le breakdown raté |
-| Négatif (−) | Vendre le breakout baissier | Parier contre la foule long → flush baissier | Vendre le breakout raté |
+| Positif (+) | Acheter le breakout haussier | Parier contre la foule long → flush baissier | Acheter le breakdown raté |
+| Négatif (−) | Vendre le breakout baissier | Parier contre la foule short → squeeze haussier | Vendre le breakout raté |
 | Zéro (0) | Pas d'énergie comprimée / pas d'inclinaison de flow | Pas d'extrême de foule | Aucun niveau structurel n'échoue |
 
 Un 0 ne signifie pas « marché neutre ». Cela signifie que *cette question précise n'a pas de réponse pour l'instant*. Squeeze Setup à 0 ne vous dit pas que le positionnement est équilibré — cela vous dit que rien n'est comprimé. Trap Detection à 0 ne vous dit pas que la foule va bien — cela vous dit qu'aucun niveau n'est en train d'être rejeté.

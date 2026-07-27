@@ -30,7 +30,7 @@ Trade-Bias: **gerichtete Lesart**. Das Signal zeigt an, in welche Richtung der D
 
 Drei strukturelle Mechanismen verstärken sich gegenseitig im letzten Fenster der Sitzung:
 
-1. **Der Charm-Zerfall beschleunigt sich.** Wenn sich 0DTE-Optionen dem Verfall nähern, driftet ihr Delta vorhersehbar in Richtung 0 oder 1. Dealer, die ein delta-neutrales Buch führen, müssen kontinuierlich nachhedgen, und die Geschwindigkeit dieses Nachhedgens *steigt*, je näher der Schluss rückt.
+1. **Der Charm-Zerfall beschleunigt sich.** Wenn sich 0DTE-Optionen dem Verfall nähern, driftet ihr Delta vorhersehbar in Richtung 0 (aus dem Geld) oder ±1 (im Geld). Dealer, die ein delta-neutrales Buch führen, müssen kontinuierlich nachhedgen, und die Geschwindigkeit dieses Nachhedgens *steigt*, je näher der Schluss rückt.
 2. **Die Pin Gravity verstärkt sich.** Strikes mit hohem Gamma ziehen den Preis stärker an, je kürzer die Restlaufzeit wird. In einem Long-Gamma-Regime verstärkt sich der Magnetismus zum nächstgelegenen schweren Strike im Laufe des Nachmittags.
 3. **Die Liquidität dünnt aus.** Blockflüsse, End-of-Day-Rebalancing und strukturelle Indexorders verschieben das Flow-Profil von kontinuierlich zu schubweise. Dealer haben weniger Spielraum, um Fehler abzufedern.
 

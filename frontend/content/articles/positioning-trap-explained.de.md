@@ -163,7 +163,7 @@ Ein durchgerechnetes Beispiel. SPX bewegt sich langsam abwärts, und ZeroGEX zei
 - **Trap Detection:** 0
 - **Squeeze Setup:** +0,31
 
-Die strukturelle Lesart: Die Short-Masse ist geladen, das Regime ist Long-Gamma (Dealer werden einen Squeeze verstärken, falls einer kommt), Squeeze Setup neigt bullisch, und Trap Detection ist still (kein jüngster gescheiterter Abwärtsbruch, den man *noch* fadeln könnte). Praktische Tendenz: Der Aufwärts-Short-Cover-Squeeze ist der wahrscheinlichere Pfad; auf den Funken warten, dann in die Richtung traden, auf die Positioning Trap zeigt.
+Die strukturelle Lesart: Die Short-Masse ist geladen, das Regime ist Long-Gamma (Dealer stemmen sich gegen den Druck der Masse und stützen eine Umkehr), Squeeze Setup neigt bullisch, und Trap Detection ist still (kein jüngster gescheiterter Abwärtsbruch, den man *noch* fadeln könnte). Praktische Tendenz: Der Aufwärts-Short-Cover-Squeeze ist der wahrscheinlichere Pfad; auf den Funken warten, dann in die Richtung traden, auf die Positioning Trap zeigt.
 
 ---
 

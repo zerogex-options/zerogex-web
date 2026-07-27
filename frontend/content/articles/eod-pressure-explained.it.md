@@ -30,7 +30,7 @@ Bias di trading: **lettura direzionale**. Il segnale indica da che parte si sta 
 
 Tre meccanismi strutturali si sommano nella finestra finale della sessione:
 
-1. **Il decadimento del charm accelera.** Man mano che le opzioni 0DTE si avvicinano alla scadenza, il loro delta si sposta in modo prevedibile verso 0 o 1. I dealer che gestiscono un book delta-neutrale devono ricoprirsi continuamente, e il ritmo di quella ricopertura *aumenta* man mano che si avvicina la chiusura.
+1. **Il decadimento del charm accelera.** Man mano che le opzioni 0DTE si avvicinano alla scadenza, il loro delta si sposta in modo prevedibile verso 0 (out-of-the-money) o ±1 (in-the-money). I dealer che gestiscono un book delta-neutrale devono ricoprirsi continuamente, e il ritmo di quella ricopertura *aumenta* man mano che si avvicina la chiusura.
 2. **La pin gravity si intensifica.** Gli strike con gamma elevato attraggono il prezzo con più forza man mano che il tempo alla scadenza si riduce. In un regime di long gamma, il magnetismo verso lo strike pesante più vicino si rafforza nel corso del pomeriggio.
 3. **La liquidità si assottiglia.** I flussi a blocchi, il ribilanciamento di fine giornata e gli ordini strutturali sugli indici spostano il profilo del flusso da continuo a intermittente. I dealer hanno meno margine per assorbire errori.
 

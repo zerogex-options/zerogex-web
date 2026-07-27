@@ -102,7 +102,7 @@ Surveiller ces ruptures fait partie du workflow. Un pin qui tient depuis deux he
 
 ## Exemple concret
 
-Il est 13h30 ET un vendredi. SPY est à 581,10. ZeroGEX affiche :
+Il est 14h45 ET un vendredi. SPY est à 581,10. ZeroGEX affiche :
 
 - **Net GEX :** +1,3 Md$ (long-gamma)
 - **Gamma Flip :** 579,50 (spot bien au-dessus)

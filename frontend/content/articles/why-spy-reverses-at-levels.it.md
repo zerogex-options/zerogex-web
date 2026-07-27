@@ -33,7 +33,7 @@ Nessuno di questi è un livello psicologico. Emergono dall'open interest effetti
 
 ### Call wall
 
-Quando SPY sale verso lo strike con il gamma sulle call più pesante, i dealer che sono long su quelle call (la convenzione standard lascia ai dealer le call che i clienti vendono in overwriting) devono vendere azioni SPY man mano che il prezzo sale per restare delta-neutral, perché il loro delta long-call cresce mentre il mercato sale. Il trade di hedging va esattamente nella stessa direzione di uno sell-stop — aggiunge offerta a quello strike. In un regime di gamma positivo, quell'offerta è abbastanza significativa da limitare il movimento e produrre l'inversione che i trader in seguito chiamano "casuale".
+Quando SPY sale verso lo strike con il gamma sulle call più pesante, i dealer che sono long su quelle call (la convenzione standard lascia ai dealer le call che i clienti vendono in overwriting) devono vendere azioni SPY man mano che il prezzo sale per restare delta-neutral, perché il loro delta long-call cresce mentre il mercato sale. Il trade di hedging aggiunge offerta proprio a quello strike — ordini di vendita in attesa che contrastano il rally. In un regime di gamma positivo, quell'offerta è abbastanza significativa da limitare il movimento e produrre l'inversione che i trader in seguito chiamano "casuale".
 
 Il meccanismo completo sui wall è spiegato in [Gamma Walls Explained](/education/gamma-walls-explained).
 

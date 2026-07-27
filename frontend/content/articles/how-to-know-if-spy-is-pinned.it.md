@@ -102,7 +102,7 @@ Monitorare queste rotture fa parte del workflow. Un pin che tiene da due ore è 
 
 ## Esempio pratico
 
-Sono le 13:30 ET di un venerdì. SPY è a 581,10. ZeroGEX mostra:
+Sono le 14:45 ET di un venerdì. SPY è a 581,10. ZeroGEX mostra:
 
 - **Net GEX:** +$1,3B (long-gamma)
 - **Gamma Flip:** 579,50 (spot ben sopra)

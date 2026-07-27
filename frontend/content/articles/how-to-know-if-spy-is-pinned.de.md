@@ -102,7 +102,7 @@ Diese Brüche im Blick zu behalten ist Teil des Workflows. Ein Pin, der seit zwe
 
 ## Durchgerechnetes Beispiel
 
-Es ist 13:30 ET an einem Freitag. SPY steht bei 581,10. ZeroGEX zeigt:
+Es ist 14:45 ET an einem Freitag. SPY steht bei 581,10. ZeroGEX zeigt:
 
 - **Net GEX:** +$1,3B (Long-Gamma)
 - **Gamma Flip:** 579,50 (Spot deutlich darüber)

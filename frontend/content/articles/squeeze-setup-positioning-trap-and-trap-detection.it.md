@@ -54,7 +54,7 @@ Tre segnali. Tre tesi. Stessa retta numerica.
 - Prossimità al gamma flip
 - Regime Net GEX (smussato via tanh)
 
-**Come viene calcolato:** Una somma pesata — 0.45 sull'affollamento, 0.25 sull'inclinazione dello squilibrio, 0.15 sul momentum, 0.10 sull'inclinazione del flip, 0.05 sul regime di GEX negativo — calcolata indipendentemente per il lato squeeze (folla long a rischio) e il lato flush (folla short a rischio). I due vengono nettati in un unico punteggio.
+**Come viene calcolato:** Una somma pesata — 0.45 sull'affollamento, 0.25 sull'inclinazione dello squilibrio, 0.15 sul momentum, 0.10 sull'inclinazione del flip, 0.05 sul regime di GEX negativo — calcolata indipendentemente per il lato squeeze (folla short a rischio) e il lato flush (folla long a rischio). I due vengono nettati in un unico punteggio.
 
 A differenza degli altri due, Positioning Trap non ha un flag di trigger — alimenta il composito MSI come componente continua (peso 0.06) e apre il playbook `positioning_trap_squeeze` ad abs(score) ≥ 0.5.
 
@@ -92,8 +92,8 @@ Ecco la trappola che intrappola i trader: tutti e tre i segnali stampano un punt
 
 | Segno del Punteggio | Squeeze Setup | Positioning Trap | Trap Detection |
 |---|---|---|---|
-| Positivo (+) | Compra il breakout al rialzo | Fai da contrarian alla folla short → squeeze al rialzo | Compra il breakdown fallito |
-| Negativo (−) | Vendi il breakout al ribasso | Fai da contrarian alla folla long → flush al ribasso | Vendi il breakout fallito |
+| Positivo (+) | Compra il breakout al rialzo | Fai da contrarian alla folla long → flush al ribasso | Compra il breakdown fallito |
+| Negativo (−) | Vendi il breakout al ribasso | Fai da contrarian alla folla short → squeeze al rialzo | Vendi il breakout fallito |
 | Zero (0) | Nessuna energia compressa / nessuna inclinazione di flow | Nessun estremo della folla | Nessun livello strutturale in fase di rigetto |
 
 Uno 0 non significa "mercato neutrale". Significa che *questa specifica domanda non ha risposta in questo momento*. Squeeze Setup a 0 non ti dice che il positioning è bilanciato — ti dice che nulla è compresso. Trap Detection a 0 non ti dice che la folla sta bene — ti dice che nessun livello sta venendo respinto.

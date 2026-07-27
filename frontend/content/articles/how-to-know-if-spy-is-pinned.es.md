@@ -102,7 +102,7 @@ Vigilar estas rupturas forma parte del flujo de trabajo. Un pin que ha aguantado
 
 ## Ejemplo resuelto
 
-Son las 13:30 ET de un viernes. SPY está en 581,10. ZeroGEX muestra:
+Son las 14:45 ET de un viernes. SPY está en 581,10. ZeroGEX muestra:
 
 - **Net GEX:** +$1,3B (long-gamma)
 - **Gamma Flip:** 579,50 (spot bien por encima)

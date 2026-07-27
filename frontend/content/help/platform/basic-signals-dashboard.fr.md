@@ -31,7 +31,7 @@ Classification de l'agresseur selon Lee-Ready sur le tape des options. Net entre
 
 ### Skew Delta
 
-Le spread entre l'IV des puts OTM et l'IV des calls OTM, comparé à sa baseline. Des lectures négatives signifient que la peur est intégrée dans les prix ; des lectures positives signifient que la prime des calls est intégrée (avidité). Utile davantage comme thermomètre de sentiment que comme signal de précision.
+Le spread entre l'IV des puts OTM et l'IV des calls OTM, comparé à sa baseline, dont le signe est inversé de sorte que le score se lise directionnellement : négatif signifie que la peur est intégrée dans les prix (skew des puts élevé) ; positif signifie que la prime des calls est intégrée (avidité). Utile davantage comme thermomètre de sentiment que comme signal de précision.
 
 ### Vanna/Charm Flow
 
@@ -43,7 +43,7 @@ Le delta net des dealers issu de la chaîne d'options (call_delta_oi + put_delta
 
 ### GEX Gradient
 
-Le gamma au-dessus du spot comparé au gamma en dessous du spot, avec un contrôle de concentration ATM. Indique de quel côté du spot se trouve le plus de poids gamma. Gradient positif ⇒ gamma concentré au-dessus du spot ⇒ pin structurel haussier ; négatif ⇒ pin structurel baissier.
+Le gamma au-dessus du spot comparé au gamma en dessous du spot, avec un contrôle de concentration ATM. Indique de quel côté du spot se trouve le plus de poids gamma. Gradient positif ⇒ davantage de gamma en dessous du spot ⇒ un plancher de soutien stabilisant à la hausse (biais haussier) ; négatif ⇒ davantage de gamma au-dessus du spot ⇒ une amplification à la baisse (biais baissier).
 
 ### Positioning Trap
 

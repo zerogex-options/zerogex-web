@@ -71,7 +71,7 @@ Una cronología intradía estándar ilustra la diferencia:
 
 - Un movimiento del spot del 0,2 % fuerza la cobertura de gamma — grande e inmediata.
 - Una caída de 1 punto de volatilidad en la IV durante la mañana fuerza la cobertura de vanna — pequeña por minuto pero persistente.
-- Ocho horas de decadencia temporal hacia el cierre fuerzan la cobertura de charm — pequeña por minuto pero acumulativamente significativa.
+- Una sesión completa de decadencia temporal hacia el cierre fuerza la cobertura de charm — pequeña por minuto pero acumulativamente significativa.
 
 Las tres ocurren a la vez. En un tape tranquilo, gamma está en gran medida silenciosa (movimientos pequeños), y vanna y charm se convierten en el flujo dominante. En un tape violento, gamma domina y los flujos de segundo orden son ruido. La relevancia de vanna y charm depende tanto del régimen de volatilidad como del régimen gamma.
 

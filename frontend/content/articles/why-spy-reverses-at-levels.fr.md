@@ -33,7 +33,7 @@ Aucun de ces niveaux n'est un niveau psychologique. Ils émergent de l'open inte
 
 ### Call wall
 
-Quand SPY monte vers le strike portant le plus de gamma sur les calls, les dealers qui sont long sur ces calls (la convention standard laisse les dealers détenir les calls que les clients vendent en overwriting) doivent vendre des actions SPY à mesure que le prix monte pour rester delta-neutres, car leur delta long-call croît à mesure que le marché grimpe. Le trade de hedging va exactement dans le même sens qu'un sell-stop — il ajoute de l'offre à ce strike. Dans un régime de gamma positif, cette offre est assez significative pour plafonner le mouvement et produire l'inversion que les traders qualifieront plus tard d'« aléatoire ».
+Quand SPY monte vers le strike portant le plus de gamma sur les calls, les dealers qui sont long sur ces calls (la convention standard laisse les dealers détenir les calls que les clients vendent en overwriting) doivent vendre des actions SPY à mesure que le prix monte pour rester delta-neutres, car leur delta long-call croît à mesure que le marché grimpe. Le trade de hedging ajoute de l'offre juste à ce strike — des offres passives qui s'opposent au rallye. Dans un régime de gamma positif, cette offre est assez significative pour plafonner le mouvement et produire l'inversion que les traders qualifieront plus tard d'« aléatoire ».
 
 Le mécanisme complet des walls est détaillé dans [Gamma Walls Explained](/education/gamma-walls-explained).
 

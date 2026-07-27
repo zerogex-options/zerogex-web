@@ -48,7 +48,7 @@ SPY handelt bei etwa einem Zehntel des S&P-500-Index, daher als erste Näherung:
 Zwei Vorbehalte verhindern, dass die Umrechnung exakt ist:
 
 - **Tracking-Abweichung.** Der Preis von SPY spiegelt aufgelaufene Dividenden und kleine Tracking-Unterschiede wider, sodass das Verhältnis nie ein sauberes 10.000 ist. Rechne zur Orientierung um, nicht auf den Cent genau.
-- **Strike-Granularität.** SPX-Strikes sind weiter gestaffelt (üblicherweise fünf Indexpunkte), während SPY jeden Dollar listet. Eine SPX-Wall liegt auf einer runden Indexzahl; die entsprechende SPY-Wall kann bei feinerer Auflösung liegen — SPY zeigt oft, *wo innerhalb* eines SPX-Fünf-Punkte-Bereichs sich die Gamma tatsächlich konzentriert.
+- **Strike-Granularität.** In absoluten Dollarbeträgen listet SPY feinere Strikes ($1, teils $0,50) als die Fünf-Punkte-Staffelung von SPX — doch rechnet man die ~10×-Skala ein: Ein SPY-Dollar entspricht zehn Indexpunkten, sodass SPYs $1-Strikes in Indexpunkten umgerechnet tatsächlich *gröber* sind als SPXs Fünf-Punkte-Strikes, während seine $0,50-Strikes ihnen lediglich gleichkommen. In Indexpunkten gerechnet löst SPX die Gamma mindestens so fein auf wie SPY; SPYs echter Vorteil sind runde Dollar-Strikes, die Pins anziehen, sowie seine Aktienliquidität — nicht eine feinere Index-Auflösung.
 
 ---
 
@@ -98,6 +98,6 @@ Jede Seite führt mit dem Gamma-Flip, der Call Wall, der Put Wall, dem Max Pain 
 
 ## Fazit
 
-SPY und SPX bilden einen Index über zwei Kontrakte und zwei getrennte Dealer-Gamma-Bücher ab. Handle die Levels, die zu deinem Instrument gehören, nutze das ~10×-Verhältnis zur Umrechnung zwischen ihnen, stütze dich auf SPX als die gewichtigere Index-Level-Karte und auf SPY für Granularität und Pinning — und schenke den Levels, bei denen beide übereinstimmen, den größten Respekt.
+SPY und SPX bilden einen Index über zwei Kontrakte und zwei getrennte Dealer-Gamma-Bücher ab. Handle die Levels, die zu deinem Instrument gehören, nutze das ~10×-Verhältnis zur Umrechnung zwischen ihnen, stütze dich auf SPX als die gewichtigere Index-Level-Karte und auf SPY für das Pinning an runden Zahlen und die Aktienliquidität — und schenke den Levels, bei denen beide übereinstimmen, den größten Respekt.
 
 *Dies sind abgeleitete Analysen zu Bildungszwecken, keine Anlageberatung. Optionshandel birgt erhebliche Risiken.*

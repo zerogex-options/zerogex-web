@@ -22,7 +22,7 @@ Es gibt zwei Regime, getrennt durch ein einzelnes Preislevel, den sogenannten **
 Der zentrale Baustein ist eine einzige Kurve: das **Spot-Shift-Dealer-Gamma-Profil**.
 
 1. Nimm den heutigen Snapshot der Optionskette.
-2. Stelle dir die Aktie auf jedem Preis eines Rasters vor, das etwa ±20 % des Spotpreises umfasst (in Schritten von 0,25 % des Spots — einige Hundert Rasterpunkte).
+2. Stelle dir die Aktie auf jedem Preis eines Rasters vor, das etwa ±20 % des Spotpreises umfasst (in Schritten von 0,25 % des Spots — rund 160 Rasterpunkte).
 3. Berechne an jedem Rasterpreis **das Gamma jeder einzelnen Option neu** mit Black-Scholes (Gamma ist selbst eine Funktion des Spots, daher kann man nicht den statischen Snapshot-Wert verwenden).
 4. Multipliziere das Gamma jedes Kontrakts mit `OI × 100 × S² × 0.01` (die branchenübliche Konvention "Dollar-GEX pro 1%-Bewegung", wie sie SpotGamma / SqueezeMetrics / Cheddar Flow verwenden), und wende die Dealer-Vorzeichenkonvention an (Calls +, Puts −).
 5. Gewichte jeden Kontrakt mit `min(1, DTE / 5 days)` — eine Horizont-Occupancy-Rampe, damit eine taggleiche 0DTE-Wand (die einen gewaltigen `1/√T`-Gamma-Spike mit sich bringt) kein mehrtägiges Regime-Level festnageln kann.

@@ -33,7 +33,7 @@ Keines davon sind psychologische Levels. Sie entstehen aus dem tatsächlichen Op
 
 ### Call Wall
 
-Wenn SPY zum schwersten Call-Gamma-Strike hin steigt, müssen Dealer, die diese Calls long sind (die übliche Konvention lässt Dealer die Calls halten, die Kunden schreiben), SPY-Aktien verkaufen, während der Preis steigt, um delta-neutral zu bleiben, weil ihr Long-Call-Delta wächst, während der Markt klettert. Der Hedging-Trade läuft in exakt dieselbe Richtung wie ein Sell-Stop — er fügt dem Strike Angebot hinzu. In einem Long-Gamma-Regime ist dieses Angebot bedeutend genug, um die Bewegung zu deckeln und die Umkehr zu erzeugen, die Trader später "zufällig" nennen.
+Wenn SPY zum schwersten Call-Gamma-Strike hin steigt, müssen Dealer, die diese Calls long sind (die übliche Konvention lässt Dealer die Calls halten, die Kunden schreiben), SPY-Aktien verkaufen, während der Preis steigt, um delta-neutral zu bleiben, weil ihr Long-Call-Delta wächst, während der Markt klettert. Der Hedging-Trade fügt direkt am Strike Angebot hinzu — ruhende Verkaufsorders, die sich gegen die Rally stemmen. In einem Long-Gamma-Regime ist dieses Angebot bedeutend genug, um die Bewegung zu deckeln und die Umkehr zu erzeugen, die Trader später "zufällig" nennen.
 
 Der vollständige Mechanismus zu Walls steht in [Gamma Walls Explained](/education/gamma-walls-explained).
 

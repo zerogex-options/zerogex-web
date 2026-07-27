@@ -71,7 +71,7 @@ Une chronologie intraday classique illustre la différence :
 
 - Un mouvement du spot de 0,2 % force la couverture gamma — importante et immédiate.
 - Une baisse d'un point de volatilité de l'IV au cours de la matinée force la couverture vanna — faible minute par minute mais persistante.
-- Huit heures de décroissance temporelle jusqu'à la clôture forcent la couverture charm — faible minute par minute mais cumulativement significative.
+- Une séance complète de décroissance temporelle jusqu'à la clôture force la couverture charm — faible minute par minute mais cumulativement significative.
 
 Les trois se produisent simultanément. Sur un tape calme, le gamma est largement silencieux (mouvements faibles), et vanna et charm deviennent le flux dominant. Sur un tape violent, le gamma domine et les flux de second ordre deviennent du bruit. La pertinence de vanna et charm dépend autant du régime de volatilité que du régime gamma.
 

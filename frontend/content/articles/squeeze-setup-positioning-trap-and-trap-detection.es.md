@@ -54,7 +54,7 @@ Tres señales. Tres tesis. La misma recta numérica.
 - Proximidad al gamma flip
 - Régimen de Net GEX (suavizado vía tanh)
 
-**Cómo se calcula:** Una suma ponderada — 0.45 en abarrotamiento, 0.25 en el sesgo del desequilibrio, 0.15 en momentum, 0.10 en la inclinación del flip, 0.05 en el régimen de GEX negativo — calculada de forma independiente para el lado squeeze (multitud long en riesgo) y el lado flush (multitud short en riesgo). Ambos se compensan en una única puntuación.
+**Cómo se calcula:** Una suma ponderada — 0.45 en abarrotamiento, 0.25 en el sesgo del desequilibrio, 0.15 en momentum, 0.10 en la inclinación del flip, 0.05 en el régimen de GEX negativo — calculada de forma independiente para el lado squeeze (multitud short en riesgo) y el lado flush (multitud long en riesgo). Ambos se compensan en una única puntuación.
 
 A diferencia de las otras dos, Positioning Trap no tiene un flag de trigger — alimenta el compuesto MSI como componente continuo (peso 0.06) y habilita el playbook `positioning_trap_squeeze` cuando abs(score) ≥ 0.5.
 
@@ -92,8 +92,8 @@ Aquí está la trampa que atrapa a los traders: las tres señales imprimen una p
 
 | Signo de la Puntuación | Squeeze Setup | Positioning Trap | Trap Detection |
 |---|---|---|---|
-| Positivo (+) | Comprar el breakout al alza | Ir contra la multitud short → squeeze alcista | Comprar el breakdown fallido |
-| Negativo (−) | Vender el breakout a la baja | Ir contra la multitud long → flush bajista | Vender el breakout fallido |
+| Positivo (+) | Comprar el breakout al alza | Ir contra la multitud long → flush bajista | Comprar el breakdown fallido |
+| Negativo (−) | Vender el breakout a la baja | Ir contra la multitud short → squeeze alcista | Vender el breakout fallido |
 | Cero (0) | Sin energía comprimida / sin inclinación de flow | Sin extremo de multitud | Ningún nivel estructural está fallando |
 
 Un 0 no significa "mercado neutral". Significa que *esta pregunta específica no tiene respuesta en este momento*. Squeeze Setup en 0 no te dice que el posicionamiento esté equilibrado — te dice que nada está comprimido. Trap Detection en 0 no te dice que la multitud esté bien — te dice que ningún nivel está siendo rechazado.

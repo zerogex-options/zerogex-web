@@ -47,7 +47,7 @@ I tag sulle singole operazioni le segnalano come smart money — tipicamente blo
 Tre pattern:
 
 1. **Forte flusso positivo ponderato per il premio con un gradiente GEX negativo** ⇒ i trader stanno pagando per il rialzo su cui i dealer sono strutturalmente short. Lettura di continuazione ad alta convinzione.
-2. **Forte acquisto di put con il segnale Positioning Trap anch'esso alto** ⇒ la folla è dalla parte sbagliata; aspettati un rimbalzo.
+2. **Forte acquisto di put con il segnale Positioning Trap caricato sul lato della folla short (negativo)** ⇒ la folla ribassista è fuori posizione; aspettati uno scatto indietro verso l'alto.
 3. **Flusso piatto vicino a un livello chiave** ⇒ aspetta la rottura. Il flusso senza convinzione non è un trade.
 
 ## Volume netto vs. flusso direzionale
