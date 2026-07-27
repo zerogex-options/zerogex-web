@@ -16,7 +16,9 @@ This piece is the practical read for what "0DTE dealer positioning" and "dealer 
 
 ## What is 0DTE dealer positioning?
 
-0DTE dealer positioning is the aggregate gamma exposure dealers carry on same-day-expiring options. Mechanically, it is no different from longer-dated dealer gamma — under the standard convention dealers are long calls (customers overwrite them) and short puts (customers buy them for protection), so long-call inventory contributes positively to dealer gamma while short-put inventory contributes negatively, and the hedging reflex is the same: keep delta flat, trade the underlying as gamma changes.
+0DTE dealer positioning is the aggregate gamma exposure dealers carry on same-day-expiring options. Mechanically, it is no different from longer-dated dealer gamma — under the standard convention dealers are *modeled* as long the calls customers overwrite and short the puts customers buy for protection, so their long-call inventory contributes positive gamma while their short-put inventory contributes negative gamma (the minus sign is the modeled short position, not puts being negative gamma in themselves). The hedging reflex is the same: keep delta flat, trade the underlying as gamma changes.
+
+> This dealer sign is a modeled convention, not observed inventory — actual positioning is not directly observable from public open interest.
 
 What makes 0DTE different is the **gamma density**. Same-day options carry their largest gamma right at the money, and per-contract gamma scales roughly with `1/√T`. With `T` measured in fractions of a day, that denominator is small — and the gamma per contract becomes very large. A 0DTE strike near spot can outweigh a monthly strike at the same level by an order of magnitude.
 
@@ -29,8 +31,8 @@ The practical implication: the 0DTE bucket disproportionately dictates intraday 
 Three things compound for 0DTE that do not compound the same way for longer-dated:
 
 1. **Gamma concentration.** Same-day options carry very high gamma at the money. Hedging trades against that gamma are large per unit move, which makes near-spot price action mechanically louder.
-2. **Charm decay.** As 0DTE options approach expiry, their delta drifts predictably toward 0 (out-of-the-money) or ±1 (in-the-money — +1 for calls, −1 for puts). Dealers running a delta-neutral book have to re-hedge continuously into the close. That forced flow has a sign — and it is directly readable.
-3. **Pin physics.** The same gamma concentration that makes 0DTE move dealers a lot per tick also makes the heaviest 0DTE strike a magnet in a long-gamma regime. Pin behavior tends to be sharper on 0DTE than on multi-day setups.
+2. **Charm decay.** As 0DTE options approach expiry, their delta drifts toward 0 (out-of-the-money) or ±1 (in-the-money — +1 for calls, −1 for puts), holding spot and vol constant. Dealers running a delta-neutral book tend to re-hedge that drift into the close. That flow has a modeled sign — and it is estimable in advance.
+3. **Pin physics.** The same gamma concentration that makes 0DTE move dealers a lot per tick also lets the heaviest 0DTE strike act as a magnet in a long-gamma regime. Pin behavior tends to be sharper on 0DTE than on multi-day setups.
 
 None of those mechanisms is unique to 0DTE — they apply to any short-dated option. They are just unusually loud in the 0DTE bucket because of how compressed `T` has become.
 
@@ -42,8 +44,8 @@ When dealers are net short gamma — typically when spot is below the gamma flip
 
 What the reflex does:
 
-- A move up forces dealers to *buy*, amplifying the move.
-- A move down forces dealers to *sell*, amplifying the move.
+- A move up tends to have dealers *buy*, amplifying the move.
+- A move down tends to have dealers *sell*, amplifying the move.
 - Realized intraday vol tends to expand.
 - Walls become less reliable as resistance and support — they can invert into breakout targets.
 - Pin behavior near the heaviest 0DTE strike weakens or reverses.
@@ -65,8 +67,8 @@ When dealers are net long gamma — typically when spot is above the gamma flip 
 
 What the reflex does:
 
-- A move up forces dealers to *sell*, dampening the move.
-- A move down forces dealers to *buy*, dampening the move.
+- A move up tends to have dealers *sell*, dampening the move.
+- A move down tends to have dealers *buy*, dampening the move.
 - Realized intraday vol tends to compress.
 - Walls behave more like genuine resistance and support.
 - Pin behavior near the heaviest 0DTE strike strengthens into the close.
