@@ -156,6 +156,16 @@ const STRIKE_W = 64;
 const GAP = 12;
 const MID_W = 280;
 
+// Numeric GEX value labels overlaid on the middle-panel gamma bars when the
+// "Show GEX values" display option is on. Drawn at each bar's tip in the bar's
+// own colour with a card-background halo (paint-order stroke) so they stay
+// legible over any bar or the panel background across every theme, and only
+// when each strike row has enough vertical room to hold one without colliding
+// with its neighbour (GEX_VALUE_MIN_SLOT).
+const GEX_VALUE_FONT = 9; // px
+const GEX_VALUE_PAD = 4; // px gap between a bar tip and its value label
+const GEX_VALUE_MIN_SLOT = 11; // min px of vertical room per strike to show labels
+
 const SPOT_LINE = '#06B6D4';
 const KEY_LEVEL = '#F5C24A';
 const FLIP_LINE = '#FFB44A';
@@ -170,6 +180,12 @@ const FLIP_LINE = '#FFB44A';
 const PM_LEVEL_LINE = '#C084FC';
 const PREV_LEVEL_LINE = '#F472B6';
 const SESSION_LEVEL_DASH = '2 3';
+
+// Purple overlay bar for the "combined" gamma view — the per-strike NET GEX
+// drawn on top of the call/put split, pointing right for net-positive and left
+// for net-negative. A distinct hue from the bull/bear split bars and the
+// violet/pink session-level lines so it reads unambiguously as the net.
+const NET_BAR_COLOR = '#A855F7';
 
 const ZOOM_MIN = 0.4;
 const ZOOM_MAX = 4.0;
@@ -190,7 +206,11 @@ const DEFAULTS = {
   selectedExpiries: [] as string[],
   zoomMul: 1.6,
   paused: false,
-  gexMode: 'split' as 'split' | 'net',
+  gexMode: 'split' as 'split' | 'net' | 'combined',
+  // Overlay the Call/Put/Net dollar-GEX values (same abbreviated style as the
+  // hover tooltip) directly on the middle-panel gamma bars. Opt-in — off by
+  // default so the dense per-strike panel stays uncluttered until asked for.
+  showGexValues: false,
   showOiDots: true,
   showGrid: true,
   showPmLevels: true,
@@ -208,7 +228,8 @@ const CHART_SETTINGS_ID = 'strike-profile';
 
 type PersistedSettings = {
   tf: ChartTf;
-  gexMode: 'split' | 'net';
+  gexMode: 'split' | 'net' | 'combined';
+  showGexValues: boolean;
   withPrev: boolean;
   showOiDots: boolean;
   showGrid: boolean;
@@ -219,6 +240,7 @@ type PersistedSettings = {
 const PERSISTED_DEFAULTS: PersistedSettings = {
   tf: DEFAULTS.tf,
   gexMode: DEFAULTS.gexMode,
+  showGexValues: DEFAULTS.showGexValues,
   withPrev: DEFAULTS.withPrev,
   showOiDots: DEFAULTS.showOiDots,
   showGrid: DEFAULTS.showGrid,
@@ -293,7 +315,8 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const [playbackActive, setPlaybackActive] = useState<boolean>(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<1 | 2 | 4>(1);
   const [playbackLoop, setPlaybackLoop] = useState<boolean>(false);
-  const [gexMode, setGexMode] = useState<'split' | 'net'>(savedSettings.gexMode);
+  const [gexMode, setGexMode] = useState<'split' | 'net' | 'combined'>(savedSettings.gexMode);
+  const [showGexValues, setShowGexValues] = useState<boolean>(savedSettings.showGexValues);
   const [showOiDots, setShowOiDots] = useState<boolean>(savedSettings.showOiDots);
   const [showGrid, setShowGrid] = useState<boolean>(savedSettings.showGrid);
   // Pre-market and previous-session high/low overlays (non-index symbols).
@@ -340,6 +363,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     setPlaybackSpeed(1);
     setPlaybackLoop(false);
     setGexMode(DEFAULTS.gexMode);
+    setShowGexValues(DEFAULTS.showGexValues);
     setShowOiDots(DEFAULTS.showOiDots);
     setShowGrid(DEFAULTS.showGrid);
     setShowPmLevels(DEFAULTS.showPmLevels);
@@ -363,13 +387,14 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     saveChartSettings<PersistedSettings>(CHART_SETTINGS_ID, {
       tf,
       gexMode,
+      showGexValues,
       withPrev,
       showOiDots,
       showGrid,
       showPmLevels,
       showPrevLevels,
     });
-  }, [tf, gexMode, withPrev, showOiDots, showGrid, showPmLevels, showPrevLevels]);
+  }, [tf, gexMode, showGexValues, withPrev, showOiDots, showGrid, showPmLevels, showPrevLevels]);
 
   const expiryRef = useRef<HTMLDivElement | null>(null);
   const settingsRef = useRef<HTMLDivElement | null>(null);
@@ -990,11 +1015,82 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     if (gexMode === 'net') {
       return Math.max(1, ...visibleStrikes.map((s) => Math.abs(s.netGex)));
     }
+    if (gexMode === 'combined') {
+      // Combined overlays the net bar on the call/put split, so the column has
+      // to fit whichever of the three is largest at any strike.
+      return Math.max(
+        1,
+        ...visibleStrikes.map((s) =>
+          Math.max(Math.abs(s.callGex), Math.abs(s.putGex), Math.abs(s.netGex)),
+        ),
+      );
+    }
     return Math.max(
       1,
       ...visibleStrikes.map((s) => Math.max(Math.abs(s.callGex), Math.abs(s.putGex))),
     );
   }, [visibleStrikes, gexMode]);
+
+  // Only render the numeric per-strike GEX values when each strike row has
+  // enough vertical room to hold a label without overlapping its neighbour;
+  // when the view is zoomed out to a dense strike ladder the labels are
+  // suppressed (zoom in to reveal them). Never in compact mode — the middle
+  // gamma panel it labels isn't drawn there.
+  const gammaRowSlot = PLOT_HEIGHT / Math.max(1, visibleStrikes.length);
+  const showGammaValues = !compact && showGexValues && gammaRowSlot >= GEX_VALUE_MIN_SLOT;
+
+  // Render one per-strike GEX value at a bar's tip. Grows outward from the tip
+  // (`dir` = 1 right, -1 left) and, when that would overflow the panel, pins to
+  // the panel edge instead. Bar-colour fill over a card-background halo keeps it
+  // legible over the bar or the panel background in any theme.
+  const gexValueLabel = (
+    value: number,
+    tipX: number,
+    yPos: number,
+    dir: number,
+    color: string,
+    key: string,
+  ) => {
+    const text = formatExposure(value);
+    const estW = text.length * (GEX_VALUE_FONT * 0.62);
+    const panelLeft = MID_X;
+    const panelRight = MID_X + MID_W;
+    let x: number;
+    let anchor: 'start' | 'end';
+    if (dir > 0) {
+      x = tipX + GEX_VALUE_PAD;
+      anchor = 'start';
+      if (x + estW > panelRight) {
+        x = panelRight;
+        anchor = 'end';
+      }
+    } else {
+      x = tipX - GEX_VALUE_PAD;
+      anchor = 'end';
+      if (x - estW < panelLeft) {
+        x = panelLeft;
+        anchor = 'start';
+      }
+    }
+    return (
+      <text
+        key={key}
+        x={x}
+        y={yPos}
+        textAnchor={anchor}
+        dominantBaseline="central"
+        fontSize={GEX_VALUE_FONT}
+        fontWeight={600}
+        fill={color}
+        stroke={cardBg}
+        strokeWidth={2.5}
+        strokeLinejoin="round"
+        style={{ paintOrder: 'stroke', fontVariantNumeric: 'tabular-nums', pointerEvents: 'none' }}
+      >
+        {text}
+      </text>
+    );
+  };
 
   const positionsXMax = useMemo(() => {
     if (visibleStrikes.length === 0) return 1;
@@ -1698,17 +1794,26 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
           <span>DTE {dteLabel}</span>
         </div>
 
-        {/* Gamma display mode toggle — hidden in compact mode (no middle panel to control) */}
+        {/* Gamma display mode cycle: Split → Net → Combined → Split. Hidden in
+            compact mode (no middle panel to control). */}
         {!compact && (
           <button
             type="button"
-            onClick={() => setGexMode((m) => (m === 'split' ? 'net' : 'split'))}
+            onClick={() =>
+              setGexMode((m) => (m === 'split' ? 'net' : m === 'net' ? 'combined' : 'split'))
+            }
             className={toolbarBtnClass}
-            style={toolbarBtnStyle(gexMode === 'net')}
-            title={`Gamma mode: ${gexMode === 'split' ? 'Call/Put split' : 'Net only'} (click to toggle)`}
+            style={toolbarBtnStyle(gexMode !== 'split')}
+            title={`Gamma mode: ${
+              gexMode === 'split'
+                ? 'Call/Put split'
+                : gexMode === 'net'
+                  ? 'Net only'
+                  : 'Combined (Call/Put split with the Net overlaid)'
+            } (click to cycle)`}
           >
             <BarChart3 size={12} />
-            <span>{gexMode === 'split' ? 'Split' : 'Net'}</span>
+            <span>{gexMode === 'split' ? 'Split' : gexMode === 'net' ? 'Net' : 'Combined'}</span>
           </button>
         )}
 
@@ -1845,6 +1950,16 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                     onChange={(e) => setShowOiDots(e.target.checked)}
                   />
                   <span>Show OI dots</span>
+                </label>
+              )}
+              {!compact && (
+                <label className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer hover:bg-[color:var(--color-info-soft)]" style={{ color: textPrimary }}>
+                  <input
+                    type="checkbox"
+                    checked={showGexValues}
+                    onChange={(e) => setShowGexValues(e.target.checked)}
+                  />
+                  <span>Show GEX values</span>
                 </label>
               )}
               <label className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer hover:bg-[color:var(--color-info-soft)]" style={{ color: textPrimary }}>
@@ -2179,37 +2294,55 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
             const barH = Math.max(2, Math.min(10, (PLOT_HEIGHT / Math.max(1, visibleStrikes.length)) * 0.55));
             const isHovered = hoveredStrike?.strike === s.strike && hover?.panel === 'middle';
             const barOpacity = isHovered ? 1 : hoveredStrike && hover?.panel === 'middle' ? 0.55 : 0.95;
+            const cx = MID_X + MID_W / 2;
+            const half = MID_W / 2;
+            const netPositive = s.netGex >= 0;
+            const netW = (Math.abs(s.netGex) / gammaXMax) * half;
+
             if (gexMode === 'net') {
-              const w = (Math.abs(s.netGex) / gammaXMax) * (MID_W / 2);
-              const positive = s.netGex >= 0;
               return (
                 <g key={`gex-${s.strike}`}>
                   {showOiDots && (
-                    <circle cx={MID_X + MID_W / 2} cy={y} r={1.4} fill={subtle} opacity={0.55} />
+                    <circle cx={cx} cy={y} r={1.4} fill={subtle} opacity={0.55} />
                   )}
                   {s.netGex !== 0 && (
                     <rect
-                      x={positive ? MID_X + MID_W / 2 : MID_X + MID_W / 2 - Math.max(0, w)}
+                      x={netPositive ? cx : cx - Math.max(0, netW)}
                       y={y - barH / 2}
-                      width={Math.max(0, w)}
+                      width={Math.max(0, netW)}
                       height={barH}
-                      fill={positive ? 'var(--color-bull)' : 'var(--color-bear)'}
+                      fill={netPositive ? 'var(--color-bull)' : 'var(--color-bear)'}
                       opacity={barOpacity}
                     />
                   )}
+                  {showGammaValues && s.netGex !== 0 &&
+                    gexValueLabel(
+                      s.netGex,
+                      netPositive ? cx + netW : cx - netW,
+                      y,
+                      netPositive ? 1 : -1,
+                      netPositive ? 'var(--color-bull)' : 'var(--color-bear)',
+                      `netval-${s.strike}`,
+                    )}
                 </g>
               );
             }
-            const callW = (Math.abs(s.callGex) / gammaXMax) * (MID_W / 2);
-            const putW = (Math.abs(s.putGex) / gammaXMax) * (MID_W / 2);
+
+            // Split and Combined both draw the call/put split bars. Combined
+            // adds a thinner NET bar overlaid on top, pointing right for
+            // net-positive and left for net-negative.
+            const callW = (Math.abs(s.callGex) / gammaXMax) * half;
+            const putW = (Math.abs(s.putGex) / gammaXMax) * half;
+            const isCombined = gexMode === 'combined';
+            const netBarH = Math.max(2, barH * 0.5);
             return (
               <g key={`gex-${s.strike}`}>
                 {showOiDots && (
-                  <circle cx={MID_X + MID_W / 2} cy={y} r={1.4} fill={subtle} opacity={0.55} />
+                  <circle cx={cx} cy={y} r={1.4} fill={subtle} opacity={0.55} />
                 )}
                 {s.callGex !== 0 && (
                   <rect
-                    x={MID_X + MID_W / 2}
+                    x={cx}
                     y={y - barH / 2}
                     width={Math.max(0, callW)}
                     height={barH}
@@ -2219,7 +2352,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                 )}
                 {s.putGex !== 0 && (
                   <rect
-                    x={MID_X + MID_W / 2 - Math.max(0, putW)}
+                    x={cx - Math.max(0, putW)}
                     y={y - barH / 2}
                     width={Math.max(0, putW)}
                     height={barH}
@@ -2227,6 +2360,25 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                     opacity={barOpacity}
                   />
                 )}
+                {isCombined && s.netGex !== 0 && (
+                  <rect
+                    x={netPositive ? cx : cx - Math.max(0, netW)}
+                    y={y - netBarH / 2}
+                    width={Math.max(0, netW)}
+                    height={netBarH}
+                    fill={NET_BAR_COLOR}
+                    opacity={barOpacity}
+                  />
+                )}
+                {/* Value labels: the call/put split values in both Split and
+                    Combined. In Combined the Net is the purple overlay bar (its
+                    value is on the hover tooltip and in Net mode) — a third
+                    label per row collides with the call/put labels at this bar
+                    density, so it's intentionally not drawn here. */}
+                {showGammaValues && s.callGex !== 0 &&
+                  gexValueLabel(s.callGex, cx + callW, y, 1, 'var(--color-bull)', `callval-${s.strike}`)}
+                {showGammaValues && s.putGex !== 0 &&
+                  gexValueLabel(s.putGex, cx - putW, y, -1, 'var(--color-bear)', `putval-${s.strike}`)}
               </g>
             );
           })}
@@ -2249,7 +2401,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                 textAnchor="middle"
                 fontWeight={600}
               >
-                Gamma {gexMode === 'split' ? '(Call / Put)' : '(Net)'}
+                Gamma {gexMode === 'split' ? '(Call / Put)' : gexMode === 'net' ? '(Net)' : '(Combined)'}
               </text>
             </>
           )}
@@ -2500,7 +2652,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
               {hover.panel === 'middle' && hoveredStrike && (
                 <>
                   <div className="font-semibold mb-1">Strike ${hoveredStrike.strike.toFixed(2)}</div>
-                  {gexMode === 'split' ? (
+                  {gexMode !== 'net' ? (
                     <>
                       <div className="font-mono tabular-nums" style={{ color: 'var(--color-bull)' }}>
                         Call GEX: {formatExposure(hoveredStrike.callGex)}
@@ -2508,7 +2660,10 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                       <div className="font-mono tabular-nums" style={{ color: 'var(--color-bear)' }}>
                         Put GEX: {formatExposure(hoveredStrike.putGex)}
                       </div>
-                      <div className="font-mono tabular-nums mt-1" style={{ color: subtle }}>
+                      <div
+                        className="font-mono tabular-nums mt-1"
+                        style={{ color: gexMode === 'combined' ? NET_BAR_COLOR : subtle }}
+                      >
                         Net: {formatExposure(hoveredStrike.netGex)}
                       </div>
                     </>
