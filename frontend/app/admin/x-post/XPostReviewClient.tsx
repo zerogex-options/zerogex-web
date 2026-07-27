@@ -115,25 +115,41 @@ export default function XPostReviewClient() {
     [applyEnvelope],
   );
 
-  // Initial load: configured symbols, then the latest for the default symbol.
+  // Initial load: configured symbols, then the latest for the current timing.
+  // We fetch /latest WITHOUT a symbol so the backend falls back to the most
+  // recent scheduled run for this timing (whatever symbol it featured), then
+  // sync the dropdown to what's shown.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch('/api/admin/x-post/symbols', {
+        const symRes = await fetch('/api/admin/x-post/symbols', {
           cache: 'no-store',
           credentials: 'same-origin',
         });
-        const data = (await res.json()) as { symbols?: string[]; default?: string; error?: string };
+        const symData = (await symRes.json()) as {
+          symbols?: string[];
+          default?: string;
+          error?: string;
+        };
+        if (!symRes.ok) throw new Error(symData?.error || `Request failed (${symRes.status})`);
+        const syms = symData.symbols && symData.symbols.length ? symData.symbols : ['SPY'];
+        const def = symData.default || syms[0];
+        if (cancelled) return;
+        setSymbols(syms);
+
+        const res = await fetch('/api/admin/x-post/latest', {
+          cache: 'no-store',
+          credentials: 'same-origin',
+        });
+        const data = (await res.json()) as Envelope & { error?: string };
         if (!res.ok) throw new Error(data?.error || `Request failed (${res.status})`);
         if (cancelled) return;
-        const syms = data.symbols && data.symbols.length ? data.symbols : ['SPY'];
-        const def = data.default || syms[0];
-        setSymbols(syms);
-        setSymbol(def);
-        await loadLatest(def);
+        setSymbol(data.symbol && syms.includes(data.symbol) ? data.symbol : def);
+        applyEnvelope(data);
+        setLoading(false);
       } catch (e) {
         if (!cancelled) {
           setError(e instanceof Error ? e.message : 'Failed to load');
@@ -144,7 +160,7 @@ export default function XPostReviewClient() {
     return () => {
       cancelled = true;
     };
-  }, [loadLatest]);
+  }, [applyEnvelope]);
 
   const onSymbolChange = useCallback(
     (e: React.ChangeEvent<HTMLSelectElement>) => {
