@@ -47,7 +47,7 @@ export const en = {
   'nav.group.education': 'Education',
   'nav.group.admin': 'Admin',
   'nav.group.more': 'More',
-  'nav.dashboard': 'Dashboard',
+  'nav.dashboard': 'Main Dashboard',
   'nav.myDashboard': 'My Dashboard',
   'nav.liveBulletin': 'Live Bulletin',
   'nav.compositeScore': 'Composite Score',

@@ -38,7 +38,7 @@ export const it: Dictionary = {
   'nav.group.education': 'Formazione',
   'nav.group.admin': 'Amministrazione',
   'nav.group.more': 'Altro',
-  'nav.dashboard': 'Dashboard',
+  'nav.dashboard': 'Dashboard principale',
   'nav.myDashboard': 'La mia dashboard',
   'nav.liveBulletin': 'Bollettino live',
   'nav.compositeScore': 'Punteggio composito',

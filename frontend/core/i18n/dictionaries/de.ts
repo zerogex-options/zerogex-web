@@ -38,7 +38,7 @@ export const de: Dictionary = {
   'nav.group.education': 'Wissen',
   'nav.group.admin': 'Admin',
   'nav.group.more': 'Mehr',
-  'nav.dashboard': 'Dashboard',
+  'nav.dashboard': 'Haupt-Dashboard',
   'nav.myDashboard': 'Mein Dashboard',
   'nav.liveBulletin': 'Live-Bulletin',
   'nav.compositeScore': 'Gesamtscore',
