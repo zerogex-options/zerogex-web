@@ -14,15 +14,57 @@
 // moment the symbol changes, not deferred to a passive effect that may still be
 // pending when the page is torn down.
 
-export type UnderlyingSymbol = 'SPY' | 'SPX' | 'QQQ' | 'NDX';
+// The active-symbol TYPE is registry-derived (all defined instruments), so
+// ES/NQ can be first-class selectable symbols. VALIDATION stays registry-aware:
+// the equity/index core is always valid (unchanged behavior); a future is only
+// valid when its runtime feature flags make it available — so a persisted ES
+// silently falls back to the default if futures are later disabled, and with
+// futures off (the default) this behaves EXACTLY like the original four-symbol
+// validator, case-sensitivity included.
+//
+// NOTE: this module is exercised directly under the Node test runner
+// (tests/symbolPersistence.test.ts), which strips types but cannot resolve a
+// runtime import of the registry (path alias / no `.ts` extension). So the
+// registry TYPE is imported as a type (erased at runtime), while the small
+// runtime availability gate is inlined here — mirroring the flags the registry
+// (core/instruments/registry.ts) reads. The registry remains the single source
+// of truth for instrument METADATA; only these two boolean flags are read here.
+import type { InstrumentSymbol } from './instruments/registry';
+
+export type UnderlyingSymbol = InstrumentSymbol;
 
 export const SYMBOL_STORAGE_KEY = 'zgx_symbol';
 export const DEFAULT_UNDERLYING_SYMBOL: UnderlyingSymbol = 'SPY';
 
+// Always-on equity/index core (unchanged product). Futures are gated below.
+const CORE_SYMBOLS = new Set<string>(['SPY', 'SPX', 'QQQ', 'NDX']);
+// Canonical cash-index reference source per future — null means "no source
+// wired" (NQ), which keeps its reference mode unavailable regardless of flags
+// (a naive QQQ→NQ mapping is disallowed). Mirrors the registry.
+const FUTURES_REFERENCE_SOURCE: Record<string, string | null> = { ES: 'SPX', NQ: null };
+
+function readFlag(name: string): boolean {
+  const raw = (typeof process !== 'undefined' ? process.env?.[name] : undefined) ?? '';
+  return ['1', 'true', 'yes', 'on'].includes(String(raw).toLowerCase());
+}
+
+function isFutureAvailable(symbol: 'ES' | 'NQ'): boolean {
+  const trueAnalytics =
+    readFlag('NEXT_PUBLIC_ENABLE_FUTURES_ANALYTICS') ||
+    readFlag(`NEXT_PUBLIC_ENABLE_${symbol}_ANALYTICS`);
+  const hasSource = FUTURES_REFERENCE_SOURCE[symbol] != null;
+  const referenceMode = readFlag(`NEXT_PUBLIC_ENABLE_${symbol}_REFERENCE_MODE`) && hasSource;
+  return trueAnalytics || referenceMode;
+}
+
 export function isUnderlyingSymbol(
   value: string | null | undefined,
 ): value is UnderlyingSymbol {
-  return value === 'SPY' || value === 'SPX' || value === 'QQQ' || value === 'NDX';
+  if (typeof value !== 'string') return false;
+  // Case-sensitive to the canonical upper-case tickers (unchanged contract).
+  if (CORE_SYMBOLS.has(value)) return true;
+  if (value === 'ES' || value === 'NQ') return isFutureAvailable(value);
+  return false;
 }
 
 // Best-effort write. localStorage can throw (Safari private mode, storage

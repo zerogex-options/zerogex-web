@@ -110,6 +110,24 @@ test('NDX is a valid underlying that persists and deep-links', () => {
   assert.equal(symbolFromSearch(location.search), 'NDX');
 });
 
+// Futures (ES/NQ) are registry-driven and feature-flag gated: rejected by
+// default (so the equity product is unchanged), accepted only when their
+// NEXT_PUBLIC_* flags make them available.
+test('ES is rejected by default and accepted only when its flag is enabled', () => {
+  assert.equal(isUnderlyingSymbol('ES'), false);
+  process.env.NEXT_PUBLIC_ENABLE_FUTURES_ANALYTICS = 'true';
+  try {
+    assert.equal(isUnderlyingSymbol('ES'), true);
+    persistSymbol('ES');
+    assert.equal(readStoredSymbol(), 'ES');
+  } finally {
+    delete process.env.NEXT_PUBLIC_ENABLE_FUTURES_ANALYTICS;
+  }
+  // Flag off again -> a persisted ES no longer validates, falls back to default.
+  assert.equal(readStoredSymbol(), null);
+  assert.equal(resolveInitialSymbol(), DEFAULT_UNDERLYING_SYMBOL);
+});
+
 // Private-mode Safari throws on localStorage access. Persistence is best-effort:
 // a throwing store must not bubble out of persistSymbol/readStoredSymbol.
 test('storage failures are swallowed (private mode / disabled storage)', () => {
