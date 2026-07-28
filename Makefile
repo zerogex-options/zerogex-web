@@ -403,9 +403,10 @@ quarterly-receipt:
 
 # Send the "time to make the FOH donation" reminder email to the admin.
 # Auto-detects the just-closed calendar quarter. Ships the actual four-step
-# instructions inside the email so the admin never has to look them up. Meant
-# to be crontab'd on the 5th of Jan/Apr/Jul/Oct — see
-# docs/quarterly-receipt-workflow.md for the cron install line.
+# instructions inside the email so the admin never has to look them up. Runs
+# four times a year via the systemd timer installed by deploy step 095 (see
+# deploy/systemd/zerogex-web-foh-donation-reminder.timer). Also runnable by
+# hand for testing or a manual re-send.
 #
 # Env: RESEND_API_KEY, RESEND_FROM_EMAIL required. Recipient comes from
 # --to flag OR the FOH_REMINDER_EMAIL env var (set in frontend/.env.local).

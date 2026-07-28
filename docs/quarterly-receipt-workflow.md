@@ -54,15 +54,22 @@ The 5-day gap after quarter-end lets Stripe's revenue for the closing quarter
 settle before you compute 3%. That's the moment the receipt is legitimate to
 send.
 
-### Option B — Server cron (email reminder — recommended)
+### Option B — Systemd timer (auto-installed, recommended)
 
-The repo ships a script that emails you the full four-step playbook
-whenever a quarter closes. The email is self-contained: it has the
-Stripe query with dates pre-filled, the donation URL, the exact
-`make quarterly-receipt` command, and the tweet-post reminder. Nothing
-to look up.
+The repo ships a systemd timer that emails you the full four-step
+playbook whenever a quarter closes. The email is self-contained: it
+has the Stripe query with dates pre-filled, the donation URL, the
+exact `make quarterly-receipt` command, and the tweet-post reminder.
+Nothing to look up.
 
-**One-time setup** — on the EC2 box:
+**Setup is idempotent — running `./deploy/deploy.sh` installs it every
+time, so a wipe-and-reinstall of the EC2 box brings it back for free.**
+Specifically, deploy step 095 (`deploy/steps/095.foh-donation-reminder`)
+copies the unit files from `deploy/systemd/` into `/etc/systemd/system/`
+and runs `systemctl enable --now` on the timer. Both operations are
+no-ops if the state already matches.
+
+**One-time config on the box:**
 
 1. Set `FOH_REMINDER_EMAIL` in `frontend/.env.local`:
 
@@ -70,7 +77,7 @@ to look up.
    FOH_REMINDER_EMAIL=you@example.com
    ```
 
-2. Preview the email once to make sure it renders correctly:
+2. Preview the email to check the rendering:
 
    ```bash
    make foh-donation-reminder DRY_RUN=1
@@ -82,23 +89,33 @@ to look up.
    make foh-donation-reminder
    ```
 
-4. Install the crontab entry. Run `crontab -e` on the EC2 box and add:
+4. Confirm the timer is scheduled:
 
+   ```bash
+   systemctl list-timers zerogex-web-foh-donation-reminder.timer
    ```
-   # 09:00 ET (14:00 UTC) on Jan 5 / Apr 5 / Jul 5 / Oct 5 — email the FOH donation playbook
-   0 14 5 1,4,7,10 * cd /home/ubuntu/zerogex-web && /usr/bin/make foh-donation-reminder >> /home/ubuntu/logs/foh-reminder.log 2>&1
-   ```
 
-   Adjust `/home/ubuntu/zerogex-web` and the log path if yours differ.
+Four times a year — 14:00 UTC (~09:00 ET summer / 10:00 ET winter) on
+the 5th of Jan/Apr/Jul/Oct — an email lands in your inbox with the
+full playbook. The 5-day gap after quarter-end lets Stripe's revenue
+for the closing quarter settle before you compute 3%. `Persistent=true`
+on the timer means a missed tick (e.g. box was down) fires as soon as
+the box is back up.
 
-Four times a year, on the 5th of Jan/Apr/Jul/Oct, an email lands in
-your inbox with the full playbook. The 5-day gap after quarter-end lets
-Stripe's revenue for the closing quarter settle before you compute 3%.
+**Useful commands:**
 
-We deliberately do NOT cron the `make quarterly-receipt` itself. A cron
-that moves money or updates a public ledger without human confirmation is
-one config bug away from being embarrassing — the reminder-plus-manual-run
-loop keeps the wire step consciously human.
+| Command | What |
+|---|---|
+| `systemctl list-timers zerogex-web-foh-donation-reminder.timer` | Next / last scheduled run |
+| `sudo systemctl start zerogex-web-foh-donation-reminder.service` | Fire it right now via the systemd unit path |
+| `journalctl -u zerogex-web-foh-donation-reminder -n 50` | Recent runs and their output |
+| `make foh-donation-reminder DRY_RUN=1` | Preview the email text without sending |
+| `make foh-donation-reminder QUARTER="Q3 2026"` | Send a reminder for a specific quarter |
+
+**We deliberately do NOT auto-run `make quarterly-receipt` itself.** A
+timer that moves money or updates a public ledger without human
+confirmation is one config bug away from being embarrassing — the
+reminder-plus-manual-run loop keeps the wire step consciously human.
 
 ## The (roughly) four-step run-through
 

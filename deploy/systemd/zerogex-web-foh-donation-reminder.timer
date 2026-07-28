@@ -1,0 +1,20 @@
+[Unit]
+Description=ZeroGEX web Folds of Honor quarterly donation reminder timer (5th of Jan/Apr/Jul/Oct at 09:00 ET)
+
+[Timer]
+# Fires four times a year — on the 5th of Jan/Apr/Jul/Oct at 14:00 UTC
+# (~09:00 ET in summer / 10:00 ET in winter). The 5-day post-quarter-end gap
+# lets Stripe's revenue for the just-closed quarter settle before the admin
+# computes 3%. The :00 minute is fine here — this timer fires four times a
+# year, no collision risk with the higher-frequency timers on :15/:20/:30/:45.
+OnCalendar=*-01,04,07,10-05 14:00:00
+# Spread load across deploys / coalesce if the box wakes many timers at once.
+# The window doesn't matter for a 4-per-year reminder.
+RandomizedDelaySec=10m
+# If the box was down at 14:00 UTC on the scheduled day, run as soon as it
+# is back up. Critical for a quarterly cadence — a missed tick means no
+# reminder for three months.
+Persistent=true
+
+[Install]
+WantedBy=timers.target
