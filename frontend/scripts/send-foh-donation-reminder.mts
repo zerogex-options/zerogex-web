@@ -6,10 +6,10 @@
 // Fires the "time to make the FOH donation" email to the admin. Designed to
 // be run four times a year via the systemd timer
 // deploy/systemd/zerogex-web-foh-donation-reminder.timer, which fires on the
-// 5th of Jan/Apr/Jul/Oct at 14:00 UTC — five days after each calendar
-// quarter ends so Stripe revenue for the closing quarter has settled.
-// The email is fully self-contained: the admin should be able to act on it
-// without opening any docs or grep-ing the repo.
+// 5th of Jan/Apr/Jul/Oct at 09:00 America/New_York — five days after each
+// calendar quarter ends so Stripe revenue for the closing quarter has
+// settled. The email is fully self-contained: the admin should be able to
+// act on it without opening any docs or grep-ing the repo.
 //
 // The email contains:
 //   1. Which quarter just closed (auto-detected from today, unless overridden)
@@ -188,7 +188,7 @@ function buildText(q: ClosingQuarter): string {
     `Full mechanics: ${APP_URL}/giving`,
     `Detailed walkthrough (if anything trips): docs/quarterly-receipt-workflow.md`,
     ``,
-    `— send-foh-donation-reminder.mts (systemd timer: 5th of Jan/Apr/Jul/Oct, 14:00 UTC)`,
+    `— send-foh-donation-reminder.mts (systemd timer: 5th of Jan/Apr/Jul/Oct, 09:00 ET)`,
   ].join('\n');
 }
 

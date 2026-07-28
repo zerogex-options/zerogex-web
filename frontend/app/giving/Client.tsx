@@ -50,14 +50,18 @@ function formatUsd(amount: number): string {
   }).format(amount);
 }
 
+// UTC-pinned so a date-only ISO like "2026-10-05" renders as "October 5, 2026"
+// for every viewer regardless of their local timezone. Without timeZone: 'UTC',
+// Date parses "2026-10-05" as midnight UTC and toLocaleDateString shifts back
+// a calendar day in Western Hemisphere zones ("Oct 4, 2026" in EDT).
 function formatDate(iso: string | null): string {
   if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
 }
 
 function formatShortDate(iso: string | null): string {
   if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
 }
 
 // ── Section heading ───────────────────────────────────────────────────────────

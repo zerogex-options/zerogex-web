@@ -7,9 +7,9 @@
 # Installs and enables the Folds of Honor quarterly donation reminder
 # timer (see deploy/systemd/zerogex-web-foh-donation-reminder.{service,timer}).
 # The timer fires four times a year — on the 5th of Jan/Apr/Jul/Oct at
-# 14:00 UTC — and triggers `make foh-donation-reminder`, which emails
-# FOH_REMINDER_EMAIL a fully self-contained four-step playbook for making
-# that quarter's donation.
+# 09:00 America/New_York — and triggers `make foh-donation-reminder`,
+# which emails FOH_REMINDER_EMAIL a fully self-contained four-step
+# playbook for making that quarter's donation.
 #
 # Idempotent — safe to re-run. The unit files are overwritten from the
 # repo (they're version-controlled, so this is the desired behavior), and
@@ -91,7 +91,7 @@ sudo cp "$SYSTEMD_SOURCE/${UNIT}.timer"   "$SYSTEMD_TARGET/"
 
 sudo systemctl daemon-reload
 
-log "  → Enabling ${UNIT}.timer (5th of Jan/Apr/Jul/Oct 14:00 UTC, Persistent=true)..."
+log "  → Enabling ${UNIT}.timer (5th of Jan/Apr/Jul/Oct 09:00 ET, Persistent=true)..."
 if sudo systemctl enable --now "${UNIT}.timer" 2>/dev/null; then
     NEXT=$(systemctl list-timers --no-pager --no-legend "${UNIT}.timer" 2>/dev/null | awk '{print $1, $2}')
     log "     ✓ ${UNIT}.timer enabled (next run: ${NEXT:-unknown})"
@@ -110,7 +110,7 @@ log "FOH quarterly donation reminder timer setup complete!"
 log ""
 log "Summary:"
 log "  ✓ ${UNIT}.timer enabled (fires 4× a year, Persistent=true catches missed runs)"
-log "  ✓ Schedule: 14:00 UTC on 5th of Jan/Apr/Jul/Oct — 5 days after each quarter closes"
+log "  ✓ Schedule: 09:00 ET on 5th of Jan/Apr/Jul/Oct — 5 days after each quarter closes"
 log "  ✓ Recipient: FOH_REMINDER_EMAIL (from frontend/.env.local)"
 log "  ✓ Idempotent: pure reminder — no DB writes, no latch, safe to re-run any time"
 log ""
