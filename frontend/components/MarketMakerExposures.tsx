@@ -184,8 +184,13 @@ const SESSION_LEVEL_DASH = '2 3';
 // Purple overlay bar for the "combined" gamma view — the per-strike NET GEX
 // drawn on top of the call/put split, pointing right for net-positive and left
 // for net-negative. A distinct hue from the bull/bear split bars and the
-// violet/pink session-level lines so it reads unambiguously as the net.
-const NET_BAR_COLOR = '#A855F7';
+// violet/pink session-level lines so it reads unambiguously as the net. The bar
+// uses a deep violet so it stands out against the bright call/put bars it
+// overlays; NET_TEXT_COLOR is a lighter violet for the tooltip's Net line,
+// which sits on the (light- or dark-theme) tooltip background rather than on a
+// bar and needs to stay legible in both.
+const NET_BAR_COLOR = '#7C3AED';
+const NET_TEXT_COLOR = '#A855F7';
 
 const ZOOM_MIN = 0.4;
 const ZOOM_MAX = 4.0;
@@ -2329,12 +2334,13 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
             }
 
             // Split and Combined both draw the call/put split bars. Combined
-            // adds a thinner NET bar overlaid on top, pointing right for
-            // net-positive and left for net-negative.
+            // adds a full-height NET bar (same thickness as the split bars)
+            // overlaid on top, pointing right for net-positive and left for
+            // net-negative. |net| ≤ max(|call|,|put|) on the side it points, so
+            // the split bar's tip still shows past the net overlay.
             const callW = (Math.abs(s.callGex) / gammaXMax) * half;
             const putW = (Math.abs(s.putGex) / gammaXMax) * half;
             const isCombined = gexMode === 'combined';
-            const netBarH = Math.max(2, barH * 0.5);
             return (
               <g key={`gex-${s.strike}`}>
                 {showOiDots && (
@@ -2363,9 +2369,9 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                 {isCombined && s.netGex !== 0 && (
                   <rect
                     x={netPositive ? cx : cx - Math.max(0, netW)}
-                    y={y - netBarH / 2}
+                    y={y - barH / 2}
                     width={Math.max(0, netW)}
-                    height={netBarH}
+                    height={barH}
                     fill={NET_BAR_COLOR}
                     opacity={barOpacity}
                   />
@@ -2662,7 +2668,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                       </div>
                       <div
                         className="font-mono tabular-nums mt-1"
-                        style={{ color: gexMode === 'combined' ? NET_BAR_COLOR : subtle }}
+                        style={{ color: gexMode === 'combined' ? NET_TEXT_COLOR : subtle }}
                       >
                         Net: {formatExposure(hoveredStrike.netGex)}
                       </div>
