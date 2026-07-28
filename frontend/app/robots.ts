@@ -6,22 +6,11 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: '*',
       allow: '/',
       disallow: [
-        // Auth & user chrome. /login and /register are intentionally
-        // crawlable: each carries a page-level noindex,follow tag so Google
-        // can see the directive and drop the URL from the index (the
-        // /login?next=... duplicates GSC was flagging, plus any externally-
-        // linked /register entry). Blocking either here would hide the meta
-        // tag and let Google index the URL anyway.
-        '/forgot-password',
-        '/reset-password',
-        '/unauthorized',
-        // User-scoped data routes that exist only behind auth.
-        '/account',
-        // Admin — belt-and-suspenders even though middleware 307s anonymous
-        // traffic with an X-Robots-Tag header.
-        '/admin',
-        // Replaced by 308 redirect to /
-        '/landing',
+        // Do not block HTML routes here. Auth utility pages carry a crawlable
+        // noindex directive, permanent redirects need to be crawlable so Google
+        // can consolidate them, and protected routes return X-Robots-Tag from
+        // proxy.ts. A robots.txt block would hide all three signals and can
+        // leave a URL indexed without a useful snippet.
         // NOTE on tier-gated tools (/dashboard, /gamma-exposure, /max-pain,
         // /signal-score, /trading-signals, /intraday-tools, /options-calculator,
         // and the rest of the basic/pro routes): these used to live here as
