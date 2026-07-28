@@ -627,11 +627,46 @@ export function articleMetadata(slug: string) {
   if (!article) {
     throw new Error(`articleMetadata: unknown slug "${slug}"`);
   }
+  const url = `${SITE_URL}${article.href}`;
+  const image = articleOgImage(article);
+
   return {
     title: article.title,
     description: article.description,
     alternates: { canonical: article.href },
+    openGraph: {
+      type: 'article' as const,
+      title: article.title,
+      description: article.description,
+      url,
+      siteName: SITE_NAME,
+      publishedTime: `${article.datePublished}T16:00:00.000Z`,
+      modifiedTime: `${article.dateModified ?? article.datePublished}T16:00:00.000Z`,
+      images: [{ url: image, alt: article.title }],
+    },
+    twitter: {
+      card: 'summary_large_image' as const,
+      title: article.title,
+      description: article.description,
+      images: [image],
+    },
   };
+}
+
+/** Returns the actual social-image route used by an article, or the site fallback. */
+export function articleOgImage(article: ArticleMeta): string {
+  const customOgSlugs = new Set([
+    'gamma-exposure-explained',
+    'best-gex-tools',
+    'real-time-gex-0dte',
+    'what-is-a-put-wall',
+    'what-is-a-call-wall',
+    'what-is-gex-in-trading',
+    'spx-net-gamma-exposure-today',
+  ]);
+  return customOgSlugs.has(article.slug)
+    ? `${SITE_URL}${article.href}/opengraph-image`
+    : SITE_DEFAULT_OG_IMAGE;
 }
 
 export function getRelatedArticles(slug: string): ArticleMeta[] {

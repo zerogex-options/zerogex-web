@@ -127,8 +127,8 @@ Now imagine the same setup with Net GEX at −$600M and the gamma flip at 583.50
 
 ## Common misconceptions
 
-- **"Pinning is psychology."** It's mostly mechanics. Modeled dealer hedging happens regardless of who's watching — the hedge flow doesn't care whether traders believe in it — though liquidity and positioning play a role too.
-- **"SPY always pins at round numbers."** It pins at strikes where positioning concentrates. Round numbers are common because OI clusters there — but the actual mechanism is the OI, not the roundness.
+- **"Pinning is only psychology."** Expiration payoff incentives, dealer hedging, liquidity, and trader behavior can all contribute. Public data cannot isolate how much a particular mechanism caused an observed pin.
+- **"SPY always pins at round numbers."** When pinning occurs, it often coincides with concentrated positioning. Round numbers are common because OI clusters there, but OI alone does not prove the cause.
 - **"If max pain is X, price will close at X."** Often wrong. Max pain is payoff geometry, not a hedging force; the modeled gamma magnet maps more directly to hedging flow. When they disagree, ZeroGEX leans on the magnet.
 - **"Pins are bullish/bearish."** Neither. They're vol-suppressive. Range-bound. The direction comes from elsewhere; the pin is about *character of price action*, not direction.
 - **"Pinning happens every Friday."** Often, but not always. Some Fridays have catalysts, short-gamma regimes, or migrating magnets that prevent the pin. Reading the conditions matters.
@@ -137,7 +137,7 @@ Now imagine the same setup with Net GEX at −$600M and the gamma flip at 583.50
 
 ## Takeaway
 
-> SPY tends to pin because modeled dealer hedging at heavy gamma strikes can pull price back toward the strike. The pull is real enough — and readable enough — to use, as long as the structural conditions support it and you treat it as a probability, not a certainty.
+> SPY tends to pin because modeled dealer hedging at heavy gamma strikes can pull price back toward the strike. The modeled pull can be used as context when the structural conditions support it and you treat it as a probability, not a certainty.
 
 The discipline is to verify the conditions before assuming today is a pin day. Long-gamma regime + heavy strike at spot + max-pain agreement + late session stacks the odds toward a sharp pin. Any one of those flipping weakens the read; all of them flipping effectively kills it.
 

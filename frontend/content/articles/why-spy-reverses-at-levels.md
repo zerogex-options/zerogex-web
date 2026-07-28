@@ -18,14 +18,14 @@ This piece walks through the four kinds of options-based levels SPY reverses at,
 
 ## What "the level" actually is
 
-When SPY reverses at a level that wasn't on the chart, it's almost always one of four options-positioning levels:
+When SPY reverses at a level that was not obvious on the price chart, one useful hypothesis is proximity to one of four modeled options-positioning levels:
 
 1. **The call wall** — the strike above spot with the heaviest call gamma exposure. In a long-gamma regime, modeled dealer hedging around this strike tends to absorb rallies.
 2. **The put wall** — the strike below spot with the heaviest put gamma exposure. In a long-gamma regime, the net dealer book tends to absorb selloffs near it (the effect comes from the positive net-gamma sign, not from the strike being puts).
 3. **The gamma magnet** — the strike with the largest absolute gamma concentration. It tends to pull price toward it in long-gamma and release price from it in short-gamma.
 4. **The gamma flip** — the price where the *modeled* dealer net gamma profile crosses zero. Marks the regime boundary; price often pauses or reverses momentarily as it crosses.
 
-None of these are psychological levels. They emerge from real open interest and the gamma each contract carries. Whether each behaves as support, resistance, a magnet, or an accelerant depends on the modeled dealer gamma sign and surrounding flow. The modeled levels shift intraday as spot, gamma, time, IV, and inferred positioning change; they're observable in real time.
+These are quantitative model levels rather than conventional chart levels. They are derived from reported open interest or inferred positioning and each contract's modeled gamma; neither source reveals dealer inventory directly. Whether each behaves as support, resistance, a magnet, or an accelerant depends on the modeled dealer gamma sign and surrounding flow. The modeled levels shift intraday as spot, gamma, time, IV, and inferred positioning change; their model outputs can be recalculated in real time.
 
 ---
 
@@ -115,7 +115,7 @@ Cross-checked against Net GEX and the regime, those four levels are the structur
 
 ## Takeaway
 
-> SPY reverses at "random" levels because the levels are real — they're on the option chain, not on the price chart. Once you can see them, they stop looking random and start looking actionable.
+> Some apparently random SPY reversals coincide with modeled option-chain levels. That map can supply useful context, but coincidence does not establish that dealer hedging caused a particular reversal.
 
 The discipline is to check the structural map *before* you commit to a directional view. When a level shows up unexpectedly on the chart, the first question is "is this near a wall, magnet, or flip?" — and the second is "does the regime support it?" Those two questions cover most of the apparent randomness.
 
