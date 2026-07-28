@@ -90,7 +90,7 @@ Multiply by `0.03`. That's your donation.
 
 ### Step 2 — Send it
 
-Wire (or donate via card at) **https://foldsofhonorpartners.donorsupport.co/page/ZeroGX**.
+Wire (or donate via card at) **https://foldsofhonorpartners.donorsupport.co/page/ZeroGEX**.
 This is the ZeroGEX partner-tracked URL — donations through it are credited
 to your ZeroGEX partner page inside FOH's donor system, which is what lets
 them (and you) see the impact over time.

@@ -39,7 +39,7 @@ const FOH_URL = 'https://foldsofhonor.org';
 // Folds of Honor partner-tracked donation URL — same URL the QR code
 // encodes. Donations through this link are attributed to the ZeroGEX
 // partner page inside FOH's donor system.
-const FOH_DONATION_URL = 'https://foldsofhonorpartners.donorsupport.co/page/ZeroGX';
+const FOH_DONATION_URL = 'https://foldsofhonorpartners.donorsupport.co/page/ZeroGEX';
 
 function formatUsd(amount: number): string {
   return new Intl.NumberFormat('en-US', {
@@ -476,7 +476,7 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
                   rel="noreferrer"
                   style={{ color: C.amber, fontWeight: 600, textDecoration: 'none' }}
                 >
-                  foldsofhonorpartners.donorsupport.co/page/ZeroGX
+                  foldsofhonorpartners.donorsupport.co/page/ZeroGEX
                 </a>
                 {t('faq4A2')}
               </>
