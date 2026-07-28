@@ -54,16 +54,46 @@ The 5-day gap after quarter-end lets Stripe's revenue for the closing quarter
 settle before you compute 3%. That's the moment the receipt is legitimate to
 send.
 
-### Option B — Server cron (email reminder only)
+### Option B — Server cron (email reminder — recommended)
 
-If you'd rather get a nudge in email than in your calendar, add this to
-`crontab -e` on the EC2 box (adjust the email delivery to whatever notification
-path you actually check):
+The repo ships a script that emails you the full four-step playbook
+whenever a quarter closes. The email is self-contained: it has the
+Stripe query with dates pre-filled, the donation URL, the exact
+`make quarterly-receipt` command, and the tweet-post reminder. Nothing
+to look up.
 
-```
-# 09:00 ET (14:00 UTC) on Jan 5 / Apr 5 / Jul 5 / Oct 5 — nudge to send the FOH donation
-0 14 5 1,4,7,10 * echo "Quarter closed. Send the FOH donation and run: cd ~/zerogex-web && make quarterly-receipt" | mail -s "[ZeroGEX] FOH quarterly donation due" you@example.com
-```
+**One-time setup** — on the EC2 box:
+
+1. Set `FOH_REMINDER_EMAIL` in `frontend/.env.local`:
+
+   ```
+   FOH_REMINDER_EMAIL=you@example.com
+   ```
+
+2. Preview the email once to make sure it renders correctly:
+
+   ```bash
+   make foh-donation-reminder DRY_RUN=1
+   ```
+
+3. Send one live test to yourself:
+
+   ```bash
+   make foh-donation-reminder
+   ```
+
+4. Install the crontab entry. Run `crontab -e` on the EC2 box and add:
+
+   ```
+   # 09:00 ET (14:00 UTC) on Jan 5 / Apr 5 / Jul 5 / Oct 5 — email the FOH donation playbook
+   0 14 5 1,4,7,10 * cd /home/ubuntu/zerogex-web && /usr/bin/make foh-donation-reminder >> /home/ubuntu/logs/foh-reminder.log 2>&1
+   ```
+
+   Adjust `/home/ubuntu/zerogex-web` and the log path if yours differ.
+
+Four times a year, on the 5th of Jan/Apr/Jul/Oct, an email lands in
+your inbox with the full playbook. The 5-day gap after quarter-end lets
+Stripe's revenue for the closing quarter settle before you compute 3%.
 
 We deliberately do NOT cron the `make quarterly-receipt` itself. A cron
 that moves money or updates a public ledger without human confirmation is
