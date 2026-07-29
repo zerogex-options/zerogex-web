@@ -229,9 +229,9 @@ export default function MonitoringClient() {
 
   const TABS: Array<{ id: TabId; label: string }> = [
     { id: 'frontend', label: 'Frontend' },
+    { id: 'backend', label: 'Backend' },
     { id: 'stripe', label: 'Stripe' },
     { id: 'revenue', label: 'Revenue Tracking' },
-    { id: 'backend', label: 'Backend' },
   ];
 
   return (
@@ -305,6 +305,7 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
   const topIpsMax = data.topIps[0]?.count ?? 0;
   const topUsersMax = data.topUsers[0]?.count ?? 0;
   const tierYScale = niceYScale(data.signups.reduce((m, p) => Math.max(m, p.basic + p.pro + p.public), 0));
+  const subscriberYScale = niceYScale(data.signups.reduce((m, p) => Math.max(m, p.paying + p.trialing), 0));
 
   return (
     <div>
@@ -313,6 +314,10 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
           <h2 className="text-lg font-semibold" style={{ color: textColor }}>User Signups</h2>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <GrowthRateCard rates={data.growthRates} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} />
+          <TotalSubscribersChartCard data={data.signups} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} yScale={subscriberYScale} />
+          <TierBreakdownChartCard data={data.signups} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} brandColor={ROW_COLORS.signups} yScale={tierYScale} />
+          <SubscriptionFlowChartCard data={data.signupFlow} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} brandColor={ROW_COLORS.signups} />
           <DailyRegistrationsChartCard
             data={data.signups}
             flow={data.signupFlow}
@@ -322,7 +327,6 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
             brandColor={ROW_COLORS.signups}
             yScale={tierYScale}
           />
-          <GrowthRateCard rates={data.growthRates} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} />
         </div>
       </section>
 
@@ -405,20 +409,7 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
 type DataTabProps = Omit<FrontendTabProps, 'loading' | 'error'> & { data: Snapshot };
 
 function StripeTab({ data, cardBg, borderColor, axisStroke, mutedText, textColor }: DataTabProps) {
-  const subscriberYScale = niceYScale(data.signups.reduce((m, p) => Math.max(m, p.paying + p.trialing), 0));
-  const tierYScale = niceYScale(data.signups.reduce((m, p) => Math.max(m, p.basic + p.pro + p.public), 0));
   return <div>
-    <section className="mb-8">
-      <h2 className="text-lg font-semibold mb-2" style={{ color: textColor }}>Subscribers</h2>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <TotalSubscribersChartCard data={data.signups} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} yScale={subscriberYScale} />
-        <TierBreakdownChartCard data={data.signups} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} brandColor={ROW_COLORS.signups} yScale={tierYScale} />
-      </div>
-    </section>
-    <section className="mb-8">
-      <h2 className="text-lg font-semibold mb-2" style={{ color: textColor }}>Subscription Flow</h2>
-      <SubscriptionFlowChartCard data={data.signupFlow} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} brandColor={ROW_COLORS.signups} />
-    </section>
     <section className="mb-8">
       <h2 className="text-lg font-semibold mb-2" style={{ color: textColor }}>Stripe Webhook Health</h2>
       <WebhookHealthCard health={data.webhookHealth} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} axisStroke={axisStroke} />
