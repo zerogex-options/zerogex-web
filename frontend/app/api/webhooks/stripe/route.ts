@@ -711,6 +711,12 @@ async function maybeHandleCancelAckTransition(
   },
 ): Promise<void> {
   if (opts.previous === 0 && opts.next === 1) {
+    logAudit({
+      type: 'stripe_cancellation_requested',
+      userId: user.id,
+      email: user.email,
+      message: `Cancellation requested for sub ${opts.subscriptionId}`,
+    });
     const stamp = nowIso();
     const claim = getDb()
       .prepare(

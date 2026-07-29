@@ -116,6 +116,15 @@ export type SignupFlowPoint = {
   registrations: number;
 };
 
+export type GrowthRatePoint = {
+  days: 1 | 7 | 14 | 30;
+  signups: number;
+  cancellations: number;
+  paymentFailures: number;
+  net: number;
+  dailyRate: number;
+};
+
 export type WebhookHealth = {
   // Counters of audit_events rows in two trailing windows. Errors are real
   // handler failures (5xx-returning); orphans are events for unknown
@@ -164,6 +173,7 @@ export type MonitoringSnapshot = {
   mrrTrend: MrrTrend | null;
   signups: SignupPoint[];
   signupFlow: SignupFlowPoint[];
+  growthRates: GrowthRatePoint[];
   hourly: MonitoringSnapshotPoint[];
   daily: MonitoringSnapshotPoint[];
   topIps: Array<{ ip: string; count: number }>;
@@ -990,6 +1000,77 @@ function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
   return points.slice(start);
 }
 
+// Trailing acquisition velocity, intentionally measured at the customer's
+// decision/failure moment rather than at the later access downgrade. A first
+// paid-tier sync includes `trialing`, so it represents a free-trial start.
+// Cancellation acknowledgements provide historical coverage; the dedicated
+// request audit is the durable source going forward. Grouping cancellation
+// rows by user/day prevents the acknowledgement and request rows emitted for
+// the same click from being counted twice.
+function buildGrowthRates(now: Date): GrowthRatePoint[] {
+  const horizons = [1, 7, 14, 30] as const;
+  const days = generateDailyKeys(now, 30);
+  const signups = new Set<string>();
+  const cancellations = new Set<string>();
+  const paymentFailures = new Set<string>();
+
+  try {
+    const rows = getDb().prepare(
+      `SELECT type, user_id, created_at, message FROM audit_events
+       WHERE type IN (
+         'stripe_subscription_sync',
+         'stripe_cancellation_requested',
+         'cancellation_ack_email_sent',
+         'stripe_payment_failed'
+       ) AND created_at > datetime('now', '-850 days')
+       ORDER BY created_at ASC`,
+    ).all() as Array<{ type: string; user_id: string | null; created_at: string; message: string }>;
+
+    const seenSubscriptions = new Set<string>();
+    for (const row of rows) {
+      const parsed = new Date(row.created_at);
+      if (Number.isNaN(parsed.getTime())) continue;
+      const day = etBucketKeys(parsed).day;
+      if (row.type === 'stripe_subscription_sync') {
+        const subId = parseSubIdFromMessage(row.message);
+        const tier = parseSyncTierStrict(row.message);
+        if (subId && tier && tier !== 'public' && !seenSubscriptions.has(subId)) {
+          seenSubscriptions.add(subId);
+          if (days.includes(day)) signups.add(`${day}:${subId}`);
+        }
+      } else if (!days.includes(day)) {
+        continue;
+      } else if (row.type === 'stripe_payment_failed' && /\(attempt 1\)/.test(row.message)) {
+        const invoice = row.message.match(/Invoice (in_[A-Za-z0-9]+)/)?.[1] ?? row.message;
+        paymentFailures.add(`${day}:${invoice}`);
+      } else if (row.type === 'stripe_cancellation_requested' || row.type === 'cancellation_ack_email_sent') {
+        cancellations.add(`${day}:${row.user_id ?? parseSubIdFromMessage(row.message) ?? row.message}`);
+      }
+    }
+  } catch {
+    // Keep the monitoring response available if audit history is unavailable.
+  }
+
+  const countSince = (values: Set<string>, windowDays: number) => {
+    const included = new Set(generateDailyKeys(now, windowDays));
+    return Array.from(values).filter((value) => included.has(value.slice(0, 10))).length;
+  };
+  return horizons.map((windowDays) => {
+    const signupCount = countSince(signups, windowDays);
+    const cancellationCount = countSince(cancellations, windowDays);
+    const failureCount = countSince(paymentFailures, windowDays);
+    const net = signupCount - cancellationCount - failureCount;
+    return {
+      days: windowDays,
+      signups: signupCount,
+      cancellations: cancellationCount,
+      paymentFailures: failureCount,
+      net,
+      dailyRate: net / windowDays,
+    };
+  });
+}
+
 // Counts audit_events rows of `type` whose created_at is newer than
 // `intervalSql` (e.g. '-1 day', '-7 days'). Empty/missing audit_events
 // table is treated as zero so this never throws back to the API route.
@@ -1140,6 +1221,7 @@ export function getSnapshot(): MonitoringSnapshot {
     mrrTrend: computeMrrTrend(mrrSeries.slice(-MAX_DAILY), mrr.targetMrr),
     signups: buildSignupSeries(now),
     signupFlow: buildSignupFlowSeries(now),
+    growthRates: buildGrowthRates(now),
     hourly: hourlyKeys.map((key) => bucketToPoint(key, live.hourly[key])),
     daily: dailyKeys.map((key) => bucketToPoint(key, live.daily[key])),
     topIps: aggregateTopIps(live.daily, 10),

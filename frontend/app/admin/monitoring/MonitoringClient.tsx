@@ -47,6 +47,15 @@ type SignupFlowPoint = {
   registrations: number;
 };
 
+type GrowthRatePoint = {
+  days: 1 | 7 | 14 | 30;
+  signups: number;
+  cancellations: number;
+  paymentFailures: number;
+  net: number;
+  dailyRate: number;
+};
+
 // Mirrors MrrSnapshot in core/pricing.ts (kept in sync by hand — this file
 // is a client component and can't import the server-only monitoring types).
 type MrrBreakdownRow = {
@@ -130,6 +139,7 @@ type Snapshot = {
   mrrTrend: MrrTrend | null;
   signups: SignupPoint[];
   signupFlow: SignupFlowPoint[];
+  growthRates: GrowthRatePoint[];
   hourly: SnapshotPoint[];
   daily: SnapshotPoint[];
   topIps: Array<{ ip: string; count: number }>;
@@ -169,7 +179,7 @@ const METRICS: Array<{ key: MetricKey; title: string; color: string; description
   { key: 'uniqueIps', title: 'Unique Source IPs', color: ROW_COLORS.uniqueIps, description: 'Distinct client IPs observed during the bucket.' },
 ];
 
-type TabId = 'frontend' | 'backend';
+type TabId = 'frontend' | 'backend' | 'stripe' | 'revenue';
 
 export default function MonitoringClient() {
   const cardBg = 'var(--color-surface)';
@@ -184,7 +194,7 @@ export default function MonitoringClient() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (tab !== 'frontend') return;
+    if (tab === 'backend') return;
     let cancelled = false;
     const load = async () => {
       try {
@@ -219,6 +229,8 @@ export default function MonitoringClient() {
 
   const TABS: Array<{ id: TabId; label: string }> = [
     { id: 'frontend', label: 'Frontend' },
+    { id: 'stripe', label: 'Stripe' },
+    { id: 'revenue', label: 'Revenue Tracking' },
     { id: 'backend', label: 'Backend' },
   ];
 
@@ -262,6 +274,14 @@ export default function MonitoringClient() {
         />
       )}
       {tab === 'backend' && <BackendMonitoring />}
+      {tab === 'stripe' && data && !loading && !error && (
+        <StripeTab data={data} cardBg={cardBg} borderColor={borderColor} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} />
+      )}
+      {tab === 'revenue' && data && !loading && !error && (
+        <RevenueTab data={data} cardBg={cardBg} borderColor={borderColor} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} />
+      )}
+      {tab !== 'backend' && loading && tab !== 'frontend' && <LoadingSpinner size="lg" />}
+      {tab !== 'backend' && error && tab !== 'frontend' && <ErrorMessage message={error} />}
     </PageShell>
   );
 }
@@ -284,43 +304,15 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
 
   const topIpsMax = data.topIps[0]?.count ?? 0;
   const topUsersMax = data.topUsers[0]?.count ?? 0;
-  const tierYScale = niceYScale(
-    data.signups.reduce((m, p) => Math.max(m, p.basic + p.pro + p.public), 0),
-  );
-  const subscriberYScale = niceYScale(
-    data.signups.reduce((m, p) => Math.max(m, p.paying + p.trialing), 0),
-  );
+  const tierYScale = niceYScale(data.signups.reduce((m, p) => Math.max(m, p.basic + p.pro + p.public), 0));
 
   return (
     <div>
       <section className="mb-8">
-        <div className="flex items-baseline justify-between mb-2">
+        <div className="mb-2">
           <h2 className="text-lg font-semibold" style={{ color: textColor }}>User Signups</h2>
-          <span className="text-xs" style={{ color: mutedText }}>Subscriber and tier-headcount snapshots (latest sample overwrites today&apos;s point). Subscription Flow charts each user&apos;s own Basic/Pro Stripe conversions (up) against cancellations and payment-failure downgrades (down) per day, with a net-onboards line (adds minus both) sharing the bars&apos; zero baseline. Daily Registrations areas total registered users with the disclaimer-accepted subset in front, plus daily new-account registration columns on a secondary axis.</span>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <TotalSubscribersChartCard
-            data={data.signups}
-            cardBg={cardBg}
-            axisStroke={axisStroke}
-            mutedText={mutedText}
-            yScale={subscriberYScale}
-          />
-          <TierBreakdownChartCard
-            data={data.signups}
-            cardBg={cardBg}
-            axisStroke={axisStroke}
-            mutedText={mutedText}
-            brandColor={ROW_COLORS.signups}
-            yScale={tierYScale}
-          />
-          <SubscriptionFlowChartCard
-            data={data.signupFlow}
-            cardBg={cardBg}
-            axisStroke={axisStroke}
-            mutedText={mutedText}
-            brandColor={ROW_COLORS.signups}
-          />
           <DailyRegistrationsChartCard
             data={data.signups}
             flow={data.signupFlow}
@@ -330,6 +322,7 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
             brandColor={ROW_COLORS.signups}
             yScale={tierYScale}
           />
+          <GrowthRateCard rates={data.growthRates} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} />
         </div>
       </section>
 
@@ -405,63 +398,72 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
         </div>
       </section>
 
-      <section className="mb-8">
-        <h2 className="text-lg font-semibold mb-2" style={{ color: textColor }}>Stripe Webhook Health</h2>
-        <WebhookHealthCard
-          health={data.webhookHealth}
-          cardBg={cardBg}
-          borderColor={borderColor}
-          mutedText={mutedText}
-          textColor={textColor}
-          axisStroke={axisStroke}
-        />
-      </section>
+    </div>
+  );
+}
 
-      <section className="mb-8">
-        <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
-          <h2 className="text-lg font-semibold" style={{ color: textColor }}>Income Replacement Tracker</h2>
-          <span className="text-xs" style={{ color: mutedText }}>Estimated MRR vs. the owner-earnings target needed to replace a day-job income. MRR is estimated locally from each subscriber&apos;s plan; promo-rate subs price at list, so treat it as a close estimate.</span>
-        </div>
-        <div className="grid grid-cols-1 gap-4">
-          <IncomeReplacementCard
-            mrr={data.mrr}
-            cardBg={cardBg}
-            borderColor={borderColor}
-            mutedText={mutedText}
-            textColor={textColor}
-            brandColor={ROW_COLORS.mrr}
-          />
-          <MrrTrendCard
-            series={data.mrrSeries}
-            trend={data.mrrTrend}
-            targetMrr={data.mrr.targetMrr}
-            cardBg={cardBg}
-            axisStroke={axisStroke}
-            mutedText={mutedText}
-            textColor={textColor}
-            brandColor={ROW_COLORS.mrr}
-          />
-        </div>
-      </section>
+type DataTabProps = Omit<FrontendTabProps, 'loading' | 'error'> & { data: Snapshot };
 
-      <section className="mb-8">
-        <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
-          <h2 className="text-lg font-semibold" style={{ color: textColor }}>Growth Projections</h2>
-          <span className="text-xs" style={{ color: mutedText }}>A what-if model, not a forecast: start from today&apos;s paying subs and tune acquisition, growth shape, churn, plan mix, and prices to see where subs, MRR, and ARR could land.</span>
-        </div>
-        <div className="grid grid-cols-1 gap-4">
-          <GrowthProjectionsCard
-            startingSubs={data.mrr.activeSubscribers}
-            targetMrr={data.mrr.targetMrr}
-            cardBg={cardBg}
-            borderColor={borderColor}
-            axisStroke={axisStroke}
-            mutedText={mutedText}
-            textColor={textColor}
-            brandColor={ROW_COLORS.signups}
-          />
-        </div>
-      </section>
+function StripeTab({ data, cardBg, borderColor, axisStroke, mutedText, textColor }: DataTabProps) {
+  const subscriberYScale = niceYScale(data.signups.reduce((m, p) => Math.max(m, p.paying + p.trialing), 0));
+  const tierYScale = niceYScale(data.signups.reduce((m, p) => Math.max(m, p.basic + p.pro + p.public), 0));
+  return <div>
+    <section className="mb-8">
+      <h2 className="text-lg font-semibold mb-2" style={{ color: textColor }}>Subscribers</h2>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <TotalSubscribersChartCard data={data.signups} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} yScale={subscriberYScale} />
+        <TierBreakdownChartCard data={data.signups} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} brandColor={ROW_COLORS.signups} yScale={tierYScale} />
+      </div>
+    </section>
+    <section className="mb-8">
+      <h2 className="text-lg font-semibold mb-2" style={{ color: textColor }}>Subscription Flow</h2>
+      <SubscriptionFlowChartCard data={data.signupFlow} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} brandColor={ROW_COLORS.signups} />
+    </section>
+    <section className="mb-8">
+      <h2 className="text-lg font-semibold mb-2" style={{ color: textColor }}>Stripe Webhook Health</h2>
+      <WebhookHealthCard health={data.webhookHealth} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} axisStroke={axisStroke} />
+    </section>
+  </div>;
+}
+
+function RevenueTab({ data, cardBg, borderColor, axisStroke, mutedText, textColor }: DataTabProps) {
+  return <div>
+    <section className="mb-8">
+      <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
+        <h2 className="text-lg font-semibold" style={{ color: textColor }}>Income Replacement Tracker</h2>
+        <span className="text-xs" style={{ color: mutedText }}>Estimated MRR vs. the owner-earnings target needed to replace a day-job income. MRR is estimated locally from each subscriber&apos;s plan; promo-rate subs price at list, so treat it as a close estimate.</span>
+      </div>
+      <div className="grid grid-cols-1 gap-4">
+        <IncomeReplacementCard mrr={data.mrr} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} brandColor={ROW_COLORS.mrr} />
+        <MrrTrendCard series={data.mrrSeries} trend={data.mrrTrend} targetMrr={data.mrr.targetMrr} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} brandColor={ROW_COLORS.mrr} />
+      </div>
+    </section>
+    <section className="mb-8">
+      <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
+        <h2 className="text-lg font-semibold" style={{ color: textColor }}>Growth Projections</h2>
+        <span className="text-xs" style={{ color: mutedText }}>A what-if model, not a forecast: start from today&apos;s paying subs and tune acquisition, growth shape, churn, plan mix, and prices to see where subs, MRR, and ARR could land.</span>
+      </div>
+      <GrowthProjectionsCard startingSubs={data.mrr.activeSubscribers} targetMrr={data.mrr.targetMrr} cardBg={cardBg} borderColor={borderColor} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} brandColor={ROW_COLORS.signups} />
+    </section>
+  </div>;
+}
+
+function GrowthRateCard({ rates, cardBg, borderColor, mutedText, textColor }: { rates: GrowthRatePoint[]; cardBg: string; borderColor: string; mutedText: string; textColor: string }) {
+  return (
+    <div className="rounded-lg p-4 lg:col-span-2" style={{ backgroundColor: cardBg }}>
+      <div className="mb-3">
+        <h3 className="zg-h3" style={{ color: textColor }}>Actual Growth Rate</h3>
+        <p className="text-xs" style={{ color: mutedText }}>Trial starts minus cancellation clicks and first payment failures. Rate is net growth per day over each trailing window.</p>
+      </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {rates.map((rate) => (
+          <div key={rate.days} className="rounded-lg p-3" style={{ border: `1px solid ${borderColor}55` }}>
+            <div className="text-xs uppercase tracking-wide" style={{ color: mutedText }}>{rate.days}-day</div>
+            <div className="text-2xl font-semibold tabular-nums" style={{ color: rate.net >= 0 ? '#2c8c6a' : '#c1435b' }}>{rate.dailyRate >= 0 ? '+' : ''}{rate.dailyRate.toFixed(2)}/day</div>
+            <div className="text-xs mt-1 tabular-nums" style={{ color: mutedText }}>{rate.signups} signups − {rate.cancellations} cancels − {rate.paymentFailures} failures = {rate.net >= 0 ? '+' : ''}{rate.net}</div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
