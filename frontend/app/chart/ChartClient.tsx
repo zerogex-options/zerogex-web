@@ -19,6 +19,7 @@ import Link from 'next/link';
 import { ArrowRight, Gauge, Layers, LineChart, Sparkles, Target, Waves } from 'lucide-react';
 import PageShell from '@/components/layout/PageShell';
 import GammaTerminalChart, { type ChartSnapshot } from '@/components/GammaTerminalChart';
+import GammaExpectationMatrix from '@/components/GammaExpectationMatrix';
 
 const EDGE_CARDS: Array<{ icon: React.ReactNode; accent: string; title: string; body: string }> = [
   {
@@ -128,6 +129,9 @@ export default function ChartClient({
           ))}
         </div>
       </section>
+
+      {/* Where do we expect the underlying to go — the regime × wall playbook */}
+      <GammaExpectationMatrix className="mb-10" />
 
       {/* Conversion (delayed) or cross-links to deeper tools (live) */}
       {delayed ? (
