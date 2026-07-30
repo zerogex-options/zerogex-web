@@ -7,7 +7,7 @@ import SearchClient from './SearchClient';
 // directive is visible, consistent with /login and /register.
 export const metadata = {
   title: 'Search — ZeroGEX',
-  description: 'Search ZeroGEX options gamma education, live SPX / SPY / QQQ gamma levels, and tools.',
+  description: 'Search ZeroGEX options gamma education, live SPX / SPY / QQQ / NDX gamma levels, and tools.',
   robots: { index: false, follow: true },
 };
 

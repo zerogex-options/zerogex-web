@@ -18,7 +18,7 @@ export const it: Dictionary = {
   'register.trialInfo':
     'Inizia la tua prova gratuita di 7 giorni dopo la creazione dell’account. Nessun addebito fino al 7° giorno. Disdici quando vuoi.',
   'register.valueProp':
-    'ZeroGEX aiuta i trader di SPY, SPX e QQQ a monitorare in tempo reale i livelli gamma, il posizionamento dei dealer, la pressione dei flussi e i segnali sullo stato del mercato prima che il prezzo li raggiunga.',
+    'ZeroGEX aiuta i trader di SPY, SPX, QQQ e NDX a monitorare in tempo reale i livelli gamma, il posizionamento dei dealer, la pressione dei flussi e i segnali sullo stato del mercato prima che il prezzo li raggiunga.',
   'register.languageLabel': 'Lingua',
   'register.emailLabel': 'Email',
   'register.passwordLabel': 'Password',

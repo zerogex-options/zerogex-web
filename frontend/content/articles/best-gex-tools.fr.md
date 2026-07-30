@@ -107,7 +107,7 @@ Par souci de transparence sur l'endroit où cette comparaison est hébergée : Z
 - **Résolveur de gamma flip renforcé** avec des garde-fous d'intériorité, de structure et de distance actionnable contre les artefacts de bord de grille, les croisements dans le bruit de fond et les niveaux éloignés du spot. Renvoie NULL lorsque la chaîne ne permet pas une réponse fiable, plutôt que de reporter une valeur obsolète.
 - **Répartition de la gamma par DTE**, de sorte que la concentration 0DTE soit directement visible et pondérée correctement pour les lectures intraday.
 - **Couche de signaux composite** au-dessus des lectures structurelles — Squeeze Setup, Positioning Trap, Trap Detection, EOD Pressure et d'autres — chacune avec une méthodologie publiée dans la [section Education](/articles), et non des résultats en boîte noire.
-- **Pages Gamma Levels gratuites** (SPX, SPY, QQQ), différées de 15 minutes, pour les lectures structurelles principales (Net GEX, Gamma Flip, Call Wall, Put Wall, Max Pain, profil de gamma dealer), sans inscription — les formules payantes (Basic, Pro) ajoutent le Dashboard temps réel, la couche de signaux, des données historiques plus approfondies et les Advanced Signals.
+- **Pages Gamma Levels gratuites** (SPX, SPY, QQQ, NDX), différées de 15 minutes, pour les lectures structurelles principales (Net GEX, Gamma Flip, Call Wall, Put Wall, Max Pain, profil de gamma dealer), sans inscription — les formules payantes (Basic, Pro) ajoutent le Dashboard temps réel, la couche de signaux, des données historiques plus approfondies et les Advanced Signals.
 
 Comme tout outil de la catégorie, ZeroGEX comporte des compromis. La profondeur de l'archive historique est plus courte que chez les fournisseurs établis du Groupe 1. La couverture est concentrée sur SPX/SPY et les principaux ETF indiciels, pas sur une couverture approfondie des actions individuelles. La couche de signaux est délibérément orientée par conception, ce qui est un atout pour les traders qui veulent un cadre défini et une limite pour ceux qui veulent uniquement des données brutes. Savoir si ces compromis correspondent à votre workflow est une question qui mérite d'être tranchée avant de s'engager avec n'importe quel outil, y compris celui-ci.
 
@@ -145,10 +145,10 @@ Une brève liste de pièges à éviter :
 
 La bonne discipline consiste à évaluer selon les huit critères ci-dessus (temps réel, couverture 0DTE, méthodologie, qualité du flip, walls, signaux, couverture, prix), à les confronter à votre workflow réel, et à vérifier toute allégation spécifique d'un fournisseur sur le propre site de ce fournisseur avant de vous engager — car les ensembles de fonctionnalités, les prix et les choix méthodologiques évoluent souvent dans cette catégorie.
 
-Si vous voulez voir la méthodologie spot-shift + flip renforcé sans vous engager sur une formule payante, les pages Gamma Levels de ZeroGEX, gratuites et différées de 15 minutes (SPX, SPY, QQQ), sont l'endroit le plus simple à consulter ; la pile temps réel + 0DTE se trouve dans le Dashboard payant.
+Si vous voulez voir la méthodologie spot-shift + flip renforcé sans vous engager sur une formule payante, les pages Gamma Levels de ZeroGEX, gratuites et différées de 15 minutes (SPX, SPY, QQQ, NDX), sont l'endroit le plus simple à consulter ; la pile temps réel + 0DTE se trouve dans le Dashboard payant.
 
 Contenu pédagogique uniquement — rien de ce qui précède ne constitue une recommandation de trading, et cette comparaison doit être vérifiée par rapport aux informations actuelles des fournisseurs avant toute décision d'achat.
 
 ---
 
-Si vous voulez voir la lecture ZeroGEX — Net GEX, le gamma flip, les call et put walls, le max pain et le profil de gamma dealer — les pages Gamma Levels gratuites, différées de 15 minutes (SPX, SPY, QQQ), sont ouvertes à tous, sans inscription requise ; le Dashboard temps réel et la couche de signaux sont inclus dans une formule payante.
+Si vous voulez voir la lecture ZeroGEX — Net GEX, le gamma flip, les call et put walls, le max pain et le profil de gamma dealer — les pages Gamma Levels gratuites, différées de 15 minutes (SPX, SPY, QQQ, NDX), sont ouvertes à tous, sans inscription requise ; le Dashboard temps réel et la couche de signaux sont inclus dans une formule payante.

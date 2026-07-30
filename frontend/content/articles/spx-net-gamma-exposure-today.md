@@ -6,7 +6,7 @@
 
 ## Where to see today's SPX net gamma exposure
 
-If you're here for the current number, start here: ZeroGEX publishes today's **SPX net GEX** — with the gamma flip, call wall, put wall, and max pain — free and delayed about 15 minutes on the [SPX gamma levels page](/spx-gamma-levels). The same read is available for [SPY](/spy-gamma-levels) and [QQQ](/qqq-gamma-levels). For the live, sub-second value, the [real-time 0DTE GEX dashboard](/real-time-gex-0dte) updates through the session. The rest of this page explains what that number means and how to use it.
+If you're here for the current number, start here: ZeroGEX publishes today's **SPX net GEX** — with the gamma flip, call wall, put wall, and max pain — free and delayed about 15 minutes on the [SPX gamma levels page](/spx-gamma-levels). The same read is available for [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels), and [NDX](/ndx-gamma-levels). For the live, sub-second value, the [real-time 0DTE GEX dashboard](/real-time-gex-0dte) updates through the session. The rest of this page explains what that number means and how to use it.
 
 ---
 
@@ -71,4 +71,4 @@ Educational content only — none of the above is a trade recommendation.
 
 ---
 
-Want to see this in real time? Check today's SPX net GEX on the free [SPX gamma levels page](/spx-gamma-levels) (also [SPY](/spy-gamma-levels) and [QQQ](/qqq-gamma-levels)), go deeper with [Gamma Exposure Explained](/education/gamma-exposure-explained), or open the [real-time 0DTE GEX dashboard](/real-time-gex-0dte) — [start a free trial](/register) for the live, sub-second read.
+Want to see this in real time? Check today's SPX net GEX on the free [SPX gamma levels page](/spx-gamma-levels) (also [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels), and [NDX](/ndx-gamma-levels)), go deeper with [Gamma Exposure Explained](/education/gamma-exposure-explained), or open the [real-time 0DTE GEX dashboard](/real-time-gex-0dte) — [start a free trial](/register) for the live, sub-second read.

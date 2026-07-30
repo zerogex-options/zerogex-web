@@ -107,7 +107,7 @@ Um von vornherein transparent zu sein, wo dieser Vergleich gehostet wird: ZeroGE
 - **Gehärteter Gamma-Flip-Resolver** mit Gates für Innenlage, Struktur und handlungsrelevante Distanz gegen Grid-Rand-Artefakte, Rauschgrenz-Kreuzungen und weit vom Spot entfernte Levels. Meldet NULL, wenn die Chain keine verlässliche Antwort zulässt, statt einen veralteten Wert fortzuschreiben.
 - **Gamma-Bucketing pro DTE**, sodass 0DTE-Konzentration direkt sichtbar und für Intraday-Lesarten angemessen gewichtet ist.
 - **Zusammengesetzte Signalebene** über den strukturellen Lesarten — Squeeze Setup, Positioning Trap, Trap Detection, EOD Pressure und weitere — jeweils mit veröffentlichter Methodik im [Education-Bereich](/articles), keine Black-Box-Outputs.
-- **Kostenlose Gamma-Levels-Seiten** (SPX, SPY, QQQ), 15 Minuten verzögert, für die zentralen strukturellen Lesarten (Net GEX, Gamma Flip, Call Wall, Put Wall, Max Pain, Dealer-Gamma-Profil), ohne Registrierung — bezahlte Pläne (Basic, Pro) ergänzen das Echtzeit-Dashboard, die Signalebene, tiefere historische Daten und Advanced Signals.
+- **Kostenlose Gamma-Levels-Seiten** (SPX, SPY, QQQ, NDX), 15 Minuten verzögert, für die zentralen strukturellen Lesarten (Net GEX, Gamma Flip, Call Wall, Put Wall, Max Pain, Dealer-Gamma-Profil), ohne Registrierung — bezahlte Pläne (Basic, Pro) ergänzen das Echtzeit-Dashboard, die Signalebene, tiefere historische Daten und Advanced Signals.
 
 Wie jedes Tool in dieser Kategorie hat ZeroGEX Kompromisse. Die Tiefe des historischen Archivs ist geringer als bei den etablierten Anbietern der Gruppe 1. Die Abdeckung konzentriert sich auf SPX/SPY und die großen Index-ETFs, nicht auf eine tiefe Einzelaktien-Abdeckung. Die Signalebene ist bewusst meinungsstark konzipiert, was für Trader, die ein definiertes Framework wollen, ein Vorteil ist, und für Trader, die nur Rohdaten wollen, eine Einschränkung. Ob diese Kompromisse zu deinem Workflow passen, ist eine Frage, die es wert ist, beantwortet zu werden, bevor man sich auf irgendein Tool festlegt — einschließlich dieses hier.
 
@@ -145,10 +145,10 @@ Eine kurze Liste von Fallen, die man vermeiden sollte:
 
 Die richtige Disziplin besteht darin, gegen die acht oben genannten Kriterien zu bewerten (Echtzeit, 0DTE-Abdeckung, Methodik, Flip-Qualität, Walls, Signale, Abdeckung, Preis), diese mit deinem tatsächlichen Workflow abzugleichen und jede konkrete Anbieterbehauptung auf der eigenen Website des Anbieters zu prüfen, bevor du dich festlegst — denn Feature-Sets, Preise und methodische Entscheidungen ändern sich in dieser Kategorie häufig.
 
-Wenn du die Spot-Shift- + gehärtete-Flip-Methodik sehen möchtest, ohne dich auf einen bezahlten Plan festzulegen, sind die kostenlosen, 15 Minuten verzögerten ZeroGEX-Gamma-Levels-Seiten (SPX, SPY, QQQ) der einfachste Ort dafür; der Echtzeit- + 0DTE-Stack befindet sich im bezahlten Dashboard.
+Wenn du die Spot-Shift- + gehärtete-Flip-Methodik sehen möchtest, ohne dich auf einen bezahlten Plan festzulegen, sind die kostenlosen, 15 Minuten verzögerten ZeroGEX-Gamma-Levels-Seiten (SPX, SPY, QQQ, NDX) der einfachste Ort dafür; der Echtzeit- + 0DTE-Stack befindet sich im bezahlten Dashboard.
 
 Nur Bildungsinhalte — nichts davon ist eine Handelsempfehlung, und dieser Vergleich sollte vor jeder Kaufentscheidung anhand aktueller Anbieterinformationen überprüft werden.
 
 ---
 
-Wenn du die ZeroGEX-Lesart sehen möchtest — Net GEX, den Gamma Flip, die Call- und Put-Walls, Max Pain und das Dealer-Gamma-Profil — stehen die kostenlosen, 15 Minuten verzögerten Gamma-Levels-Seiten (SPX, SPY, QQQ) jedem offen, ohne Registrierung; das Echtzeit-Dashboard und die Signalebene sind Teil eines bezahlten Plans.
+Wenn du die ZeroGEX-Lesart sehen möchtest — Net GEX, den Gamma Flip, die Call- und Put-Walls, Max Pain und das Dealer-Gamma-Profil — stehen die kostenlosen, 15 Minuten verzögerten Gamma-Levels-Seiten (SPX, SPY, QQQ, NDX) jedem offen, ohne Registrierung; das Echtzeit-Dashboard und die Signalebene sind Teil eines bezahlten Plans.

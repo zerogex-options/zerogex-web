@@ -95,7 +95,7 @@ Cambia una variabile — diciamo che il put wall migra da 5.790 a 5.782 mentre i
 
 ## Come trovare il put wall di oggi
 
-Non devi calcolare il gamma dei dealer a mano. ZeroGEX pubblica il put wall corrente — insieme a call wall, gamma flip, max pain e Net GEX — per i tre prodotti indice più scambiati, gratuitamente e con circa 15 minuti di ritardo: guarda il put wall di oggi su [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels) e [QQQ](/qqq-gamma-levels). Per la versione live, al di sotto del secondo, con il profilo gamma completo e la heatmap strike-per-DTE, la [dashboard GEX 0DTE in tempo reale](/real-time-gex-0dte) traccia il put wall mentre migra nel corso della sessione.
+Non devi calcolare il gamma dei dealer a mano. ZeroGEX pubblica il put wall corrente — insieme a call wall, gamma flip, max pain e Net GEX — per i quattro prodotti indice più scambiati, gratuitamente e con circa 15 minuti di ritardo: guarda il put wall di oggi su [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) e [NDX](/ndx-gamma-levels). Per la versione live, al di sotto del secondo, con il profilo gamma completo e la heatmap strike-per-DTE, la [dashboard GEX 0DTE in tempo reale](/real-time-gex-0dte) traccia il put wall mentre migra nel corso della sessione.
 
 ---
 
@@ -107,4 +107,4 @@ Solo contenuto educativo — nessuno di quanto sopra è una raccomandazione di t
 
 ---
 
-Vuoi vederlo in tempo reale? Guarda oggi i **put wall di SPX / SPY / QQQ** su ZeroGEX — le pagine gratuite dei livelli gamma di [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels) e [QQQ](/qqq-gamma-levels) tracciano il put wall accanto al [call wall](/education/what-is-a-call-wall), al gamma flip e al Net GEX. Per i livelli che contano di più come supporto e resistenza, vedi [supporto e resistenza basati sulle opzioni](/education/options-support-and-resistance), e per la lettura in tempo reale, apri la [dashboard GEX 0DTE in tempo reale](/real-time-gex-0dte).
+Vuoi vederlo in tempo reale? Guarda oggi i **put wall di SPX / SPY / QQQ / NDX** su ZeroGEX — le pagine gratuite dei livelli gamma di [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) e [NDX](/ndx-gamma-levels) tracciano il put wall accanto al [call wall](/education/what-is-a-call-wall), al gamma flip e al Net GEX. Per i livelli che contano di più come supporto e resistenza, vedi [supporto e resistenza basati sulle opzioni](/education/options-support-and-resistance), e per la lettura in tempo reale, apri la [dashboard GEX 0DTE in tempo reale](/real-time-gex-0dte).

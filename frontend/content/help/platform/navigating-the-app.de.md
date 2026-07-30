@@ -34,7 +34,7 @@ Du kannst die Kopfzeile einklappen, um vertikalen Platz zu gewinnen — die Eins
 
 ## Die Symbolauswahl
 
-ZeroGEX deckt **SPY**, **SPX** und **QQQ** ab. Die Symbolauswahl befindet sich in der Kopfzeile. Die Wahl eines Symbols aktualisiert jede Seite der Plattform — Dashboard-Kacheln, Signale, Charts — auf dieses Symbol.
+ZeroGEX deckt **SPY**, **SPX**, **QQQ** und **NDX** ab. Die Symbolauswahl befindet sich in der Kopfzeile. Die Wahl eines Symbols aktualisiert jede Seite der Plattform — Dashboard-Kacheln, Signale, Charts — auf dieses Symbol.
 
 ## Die Zeitrahmen-Auswahl
 

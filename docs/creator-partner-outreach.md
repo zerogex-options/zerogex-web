@@ -44,7 +44,7 @@ Hey — [saw your <specific SPX/SPY level> call from <day>, held clean] /
 [your SPY/SPX levels feed has been the cleanest actionable-levels
 source I've come across].
 
-I built ZeroGEX as a live options positioning map for SPY/SPX/QQQ:
+I built ZeroGEX as a live options positioning map for SPY/SPX/QQQ/NDX:
 gamma exposure, call/put walls, dealer positioning, and options flow
 that updates throughout the session. The goal is to help traders see
 where the market may pin, reject, squeeze, or break before price gets

@@ -131,4 +131,4 @@ Contenu éducatif uniquement — rien de ce qui précède ne constitue une recom
 
 ---
 
-Si vous voulez voir le gamma flip du jour, le Net GEX et le positionnement en direct du wall avant votre prochain trade de breakout, la vue gratuite gamma-levels de ZeroGEX affiche les trois pour SPY, SPX et QQQ.
+Si vous voulez voir le gamma flip du jour, le Net GEX et le positionnement en direct du wall avant votre prochain trade de breakout, la vue gratuite gamma-levels de ZeroGEX affiche les trois pour SPY, SPX, QQQ et NDX.

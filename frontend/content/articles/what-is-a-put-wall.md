@@ -51,6 +51,6 @@ A break can mean the reference failed, surrounding flow dominated, local gamma w
 
 > The Put Wall is a modeled put-gamma concentration and a useful structural reference. It may coincide with support, but support is not a direct consequence of the modeled dealer-short-put hedge at that strike.
 
-See today's modeled walls on [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), and [QQQ](/qqq-gamma-levels), or compare the broader framework in [Gamma Walls Explained](/education/gamma-walls-explained).
+See today's modeled walls on [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels), and [NDX](/ndx-gamma-levels), or compare the broader framework in [Gamma Walls Explained](/education/gamma-walls-explained).
 
 Educational content only — none of the above is a trade recommendation.

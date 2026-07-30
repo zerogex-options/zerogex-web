@@ -165,7 +165,7 @@ Treat these as planning inputs; your real numbers land after ~1 week.
 
 ## 6. Ad-copy library
 
-Hybrid voice: disciplined ZeroGEX body copy, `$SPX $SPY $QQQ` cashtags on a subset for
+Hybrid voice: disciplined ZeroGEX body copy, `$SPX $SPY $QQQ $NDX` cashtags on a subset for
 X discovery. All tweet copy is ≤280 chars; link-card headlines ≤70. Pair each with the
 creative noted (see §7).
 
@@ -179,11 +179,11 @@ creative noted (see §7).
 **COLD-1 · Blind→Zeroed (hero) · cashtags**
 > Stop trading SPY blind.
 >
-> Live call walls, put walls, and the gamma flip for $SPX $SPY $QQQ — refreshed every second.
+> Live call walls, put walls, and the gamma flip for $SPX $SPY $QQQ $NDX — refreshed every second.
 >
 > Today's levels, free. No signup.
 
-Card headline: `Free daily gamma levels — SPX, SPY, QQQ` · CTA: **See more** · Creative: C1
+Card headline: `Free daily gamma levels — SPX, SPY, QQQ, NDX` · CTA: **See more** · Creative: C1
 
 **COLD-2 · The regime · cashtag**
 > Same dip. Opposite outcome — depending on the gamma regime.
@@ -197,7 +197,7 @@ Card headline: `Where does dealer hedging flip today?` · Creative: C2
 **COLD-3 · Walls · disciplined (no cashtag)**
 > Call walls and put walls aren't psychological levels. They're where dealer gamma actually concentrates.
 >
-> ZeroGEX maps them live for SPY, SPX and QQQ.
+> ZeroGEX maps them live for SPY, SPX, QQQ and NDX.
 >
 > Today's walls, free.
 
@@ -206,7 +206,7 @@ Card headline: `Live call & put walls — no signup` · Creative: C3
 **COLD-4 · Market makers · cashtags**
 > The dealer book decides where price reacts intraday. Most traders never see it.
 >
-> ZeroGEX shows the gamma flip, walls and dealer positioning live for $SPX $SPY $QQQ.
+> ZeroGEX shows the gamma flip, walls and dealer positioning live for $SPX $SPY $QQQ $NDX.
 >
 > Free levels ↓
 
@@ -215,7 +215,7 @@ Card headline: `See what the market makers see` · Creative: C4
 **COLD-5 · 0DTE**
 > 0DTE lives and dies on dealer positioning.
 >
-> Gamma flip, call/put walls, max pain and flow — live for SPX, SPY and QQQ, refreshed every second.
+> Gamma flip, call/put walls, max pain and flow — live for SPX, SPY, QQQ and NDX, refreshed every second.
 >
 > Start with today's free levels.
 
@@ -226,7 +226,7 @@ Card headline: `Free gamma levels, built for 0DTE` · Creative: C1 / C5
 **WARM-1 · You've seen the free levels · cashtags**
 > You've seen the free levels. The live desk updates every second.
 >
-> Call walls, put walls, gamma flip, dealer flow and 13 signals for $SPX $SPY $QQQ.
+> Call walls, put walls, gamma flip, dealer flow and 13 signals for $SPX $SPY $QQQ $NDX.
 >
 > See it live — 7-day free trial.
 
@@ -235,7 +235,7 @@ Card headline: `See it live — 7-day free trial` · Creative: C4 (dashboard)
 **WARM-2 · Institutional**
 > Gamma exposure data used to live on six-figure Bloomberg terminals.
 >
-> ZeroGEX puts the same dealer-positioning map on your screen — real-time, for SPY / SPX / QQQ.
+> ZeroGEX puts the same dealer-positioning map on your screen — real-time, for SPY / SPX / QQQ / NDX.
 >
 > Start free for 7 days.
 
@@ -244,7 +244,7 @@ Card headline: `Institutional gamma, minus the terminal` · Creative: C4
 **WARM-3 · Eight modules**
 > Eight modules. One screen. One second.
 >
-> GEX by strike, gamma flip, call/put walls, max pain, options flow, Vanna/Charm, signals and playbooks — for SPY, SPX, QQQ.
+> GEX by strike, gamma flip, call/put walls, max pain, options flow, Vanna/Charm, signals and playbooks — for SPY, SPX, QQQ, and NDX.
 >
 > See the live desk.
 
@@ -330,10 +330,10 @@ Card headline: `Regime, bias & playbook. One screen.` · Creative: `convert-10-t
 - `0:00–0:02` Teal field; coral reticle spins up, crosshair locks. **Text: "You're trading SPY blind."**
 - `0:02–0:06` Bare candlestick chart. **Text: "This is what most traders see."**
 - `0:06–0:11` ZeroGEX overlay snaps on — teal gamma-flip line, red call wall, green put wall, Net GEX ticking. **Text: "This is the dealer book. Live."**
-- `0:11–0:14` Numbers tick (1-second refresh). **Text: "Gamma flip · walls · dealer flow — SPX SPY QQQ."**
+- `0:11–0:14` Numbers tick (1-second refresh). **Text: "Gamma flip · walls · dealer flow — SPX SPY QQQ NDX."**
 - `0:14–0:15` Logo + **"See what the market makers see. Free levels → zerogex.io"**
 
-Post copy: `Stop trading SPY blind. The dealer positioning that moves $SPX $SPY $QQQ — live, every second. Free levels ↓`
+Post copy: `Stop trading SPY blind. The dealer positioning that moves $SPX $SPY $QQQ $NDX — live, every second. Free levels ↓`
 
 **V2 · "The line that flips the market"**
 Single glowing gamma-flip line. Price crosses it; the regime flips green→red. **Text: "Above it, dealers calm the move. Below it, they accelerate it."** → free-levels CTA. Best for the WARM/education audience.
@@ -458,7 +458,7 @@ a ~87–98M interest/look-alike blob (the trap documented in §3 ②). Actions t
 ## 11. Appendix — copy bank (for ongoing creative)
 
 **Hooks:** Stop trading SPY blind. · See what the market makers see. · Trade with dealer
-positioning — not guesswork. · Know the levels that matter — before SPY/SPX/QQQ get there. ·
+positioning — not guesswork. · Know the levels that matter — before SPY/SPX/QQQ/NDX get there. ·
 Same dip, opposite outcome — depending on the regime. · The edge institutions keep secret.
 
 **Proof points (safe):** 1-second refresh · 8+ analytics modules · gamma flip + call/put

@@ -59,7 +59,7 @@ Il GEX non ti dirà *cosa* succederà dopo. Ti dice in che *tipo* di giornata ti
 
 ## Dove vedere il GEX di persona
 
-Non devi calcolare a mano il gamma dei dealer. ZeroGEX pubblica il Net GEX odierno, il gamma flip, il call wall e il put wall — gratis e con un ritardo di circa 15 minuti — per [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels) e [QQQ](/qqq-gamma-levels). Per la lettura in tempo reale, sub-secondo, con il profilo gamma completo, la heatmap strike-per-DTE e il composito a 13 segnali, apri la [dashboard GEX 0DTE in tempo reale](/real-time-gex-0dte).
+Non devi calcolare a mano il gamma dei dealer. ZeroGEX pubblica il Net GEX odierno, il gamma flip, il call wall e il put wall — gratis e con un ritardo di circa 15 minuti — per [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) e [NDX](/ndx-gamma-levels). Per la lettura in tempo reale, sub-secondo, con il profilo gamma completo, la heatmap strike-per-DTE e il composito a 13 segnali, apri la [dashboard GEX 0DTE in tempo reale](/real-time-gex-0dte).
 
 ---
 
@@ -71,4 +71,4 @@ Solo contenuto educativo — nulla di quanto sopra è una raccomandazione di tra
 
 ---
 
-Vuoi vederlo in tempo reale? Controlla la lettura GEX di oggi sulle pagine gratuite dei livelli gamma di [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels) e [QQQ](/qqq-gamma-levels), poi approfondisci con la [guida completa al GEX](/education/gamma-exposure-explained) oppure apri la [dashboard GEX 0DTE in tempo reale](/real-time-gex-0dte).
+Vuoi vederlo in tempo reale? Controlla la lettura GEX di oggi sulle pagine gratuite dei livelli gamma di [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) e [NDX](/ndx-gamma-levels), poi approfondisci con la [guida completa al GEX](/education/gamma-exposure-explained) oppure apri la [dashboard GEX 0DTE in tempo reale](/real-time-gex-0dte).

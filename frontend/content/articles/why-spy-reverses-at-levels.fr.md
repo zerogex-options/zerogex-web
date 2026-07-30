@@ -94,7 +94,7 @@ Imaginez maintenant le même scénario avec un Net GEX à −800 M$ et le gamma 
 
 ## Comment lire cela en temps réel
 
-La vue gratuite `/spx-gamma-levels` fait apparaître les quatre niveaux pour SPY, SPX et QQQ :
+La vue gratuite `/spx-gamma-levels` fait apparaître les quatre niveaux pour SPY, SPX, QQQ et NDX :
 
 - Call Wall (distance en direct par rapport au spot)
 - Put Wall (distance en direct par rapport au spot)
@@ -123,4 +123,4 @@ Contenu éducatif uniquement — rien de ce qui précède ne constitue une recom
 
 ---
 
-Si vous voulez voir le call wall, le put wall, le gamma flip et le max pain du jour pour SPY, SPX et QQQ — la carte structurelle à laquelle se rattachent la plupart des inversions — la vue gratuite des niveaux gamma de ZeroGEX les affiche tous.
+Si vous voulez voir le call wall, le put wall, le gamma flip et le max pain du jour pour SPY, SPX, QQQ et NDX — la carte structurelle à laquelle se rattachent la plupart des inversions — la vue gratuite des niveaux gamma de ZeroGEX les affiche tous.

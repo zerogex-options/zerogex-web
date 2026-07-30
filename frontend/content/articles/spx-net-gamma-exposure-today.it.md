@@ -8,7 +8,7 @@
 
 ## Dove vedere la net gamma exposure di SPX oggi
 
-Se sei qui per il numero attuale, parti da qui: ZeroGEX pubblica il **net GEX di SPX** di oggi — con gamma flip, call wall, put wall e max pain — gratis e con un ritardo di circa 15 minuti sulla [pagina dei livelli gamma SPX](/spx-gamma-levels). La stessa lettura è disponibile per [SPY](/spy-gamma-levels) e [QQQ](/qqq-gamma-levels). Per il valore live, aggiornato al sub-secondo, la [dashboard GEX 0DTE in tempo reale](/real-time-gex-0dte) si aggiorna durante tutta la sessione. Il resto di questa pagina spiega cosa significa quel numero e come usarlo.
+Se sei qui per il numero attuale, parti da qui: ZeroGEX pubblica il **net GEX di SPX** di oggi — con gamma flip, call wall, put wall e max pain — gratis e con un ritardo di circa 15 minuti sulla [pagina dei livelli gamma SPX](/spx-gamma-levels). La stessa lettura è disponibile per [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) e [NDX](/ndx-gamma-levels). Per il valore live, aggiornato al sub-secondo, la [dashboard GEX 0DTE in tempo reale](/real-time-gex-0dte) si aggiorna durante tutta la sessione. Il resto di questa pagina spiega cosa significa quel numero e come usarlo.
 
 ---
 
@@ -71,4 +71,4 @@ Solo a scopo educativo — nulla di quanto sopra costituisce una raccomandazione
 
 ---
 
-Vuoi vederlo in tempo reale? Controlla il net GEX di SPX di oggi sulla [pagina dei livelli gamma SPX](/spx-gamma-levels) gratuita (anche [SPY](/spy-gamma-levels) e [QQQ](/qqq-gamma-levels)), approfondisci con [Gamma Exposure Explained](/education/gamma-exposure-explained), oppure apri la [dashboard GEX 0DTE in tempo reale](/real-time-gex-0dte) — [avvia una prova gratuita](/register) per la lettura live, aggiornata al sub-secondo.
+Vuoi vederlo in tempo reale? Controlla il net GEX di SPX di oggi sulla [pagina dei livelli gamma SPX](/spx-gamma-levels) gratuita (anche [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) e [NDX](/ndx-gamma-levels)), approfondisci con [Gamma Exposure Explained](/education/gamma-exposure-explained), oppure apri la [dashboard GEX 0DTE in tempo reale](/real-time-gex-0dte) — [avvia una prova gratuita](/register) per la lettura live, aggiornata al sub-secondo.

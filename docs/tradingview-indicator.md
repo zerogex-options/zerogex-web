@@ -40,7 +40,7 @@ any chart. It is a **discovery funnel**, not a data integration:
 **Title**
 
 ```
-ZeroGEX Daily Gamma Levels — SPY/SPX/QQQ
+ZeroGEX Daily Gamma Levels — SPY/SPX/QQQ/NDX
 ```
 
 **Description**
@@ -49,7 +49,7 @@ ZeroGEX Daily Gamma Levels — SPY/SPX/QQQ
 ZeroGEX Daily Gamma Levels lets traders manually plot key options-positioning
 levels on their chart, including Gamma Flip, Call Wall, Put Wall, and Max Pain.
 
-These levels are commonly used by SPY, SPX, QQQ, ES, and NQ traders to identify
+These levels are commonly used by SPY, SPX, QQQ, NDX, ES, and NQ traders to identify
 potential support, resistance, pinning zones, and volatility-regime shifts.
 
 HOW TO USE
@@ -80,7 +80,7 @@ trading involves significant risk.
 
 ```
 GEX, gamma, gamma exposure, call wall, put wall, gamma flip, max pain,
-SPX, SPY, QQQ, ES, NQ, options, dealer positioning, support and resistance
+SPX, SPY, QQQ, NDX, ES, NQ, options, dealer positioning, support and resistance
 ```
 
 Publish as an **open-source** script so it is indexable/searchable and shows in
@@ -94,7 +94,7 @@ the public library.
 I built a free TradingView script to plot today's gamma levels on your chart 📈
 
 Gamma Flip · Call Wall · Put Wall · Max Pain
-Works on SPY, SPX, QQQ, ES, NQ.
+Works on SPY, SPX, QQQ, NDX, ES, NQ.
 
 Grab today's numbers free: https://zerogex.io/spx-gamma-levels
 Script: <published TradingView URL>

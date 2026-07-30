@@ -81,7 +81,7 @@ Der Spot liegt über dem Flip, es handelt sich also um eine Long-Gamma-Sitzung, 
 
 ## Wie man den heutigen Call Wall findet
 
-ZeroGEX veröffentlicht den aktuellen Call Wall — zusammen mit Put Wall, Gamma Flip, Max Pain und Net GEX — für die drei meistgehandelten Indexprodukte, kostenlos und mit rund 15 Minuten Verzögerung: den heutigen Call Wall gibt es für [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels) und [QQQ](/qqq-gamma-levels). Für die Live-Version, die den wandernden Wall in Echtzeit zeigt, öffne das [Echtzeit-0DTE-GEX-Dashboard](/real-time-gex-0dte).
+ZeroGEX veröffentlicht den aktuellen Call Wall — zusammen mit Put Wall, Gamma Flip, Max Pain und Net GEX — für die vier meistgehandelten Indexprodukte, kostenlos und mit rund 15 Minuten Verzögerung: den heutigen Call Wall gibt es für [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) und [NDX](/ndx-gamma-levels). Für die Live-Version, die den wandernden Wall in Echtzeit zeigt, öffne das [Echtzeit-0DTE-GEX-Dashboard](/real-time-gex-0dte).
 
 ---
 
@@ -93,4 +93,4 @@ Nur redaktioneller Bildungsinhalt — nichts davon ist eine Handelsempfehlung.
 
 ---
 
-Willst du das in Echtzeit sehen? Sieh dir noch heute die **SPX-/SPY-/QQQ-Call-Walls** auf ZeroGEX an — die kostenlosen Gamma-Levels-Seiten von [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels) und [QQQ](/qqq-gamma-levels) zeigen den Call Wall zusammen mit dem [Put Wall](/education/what-is-a-put-wall), dem [Gamma Flip](/education/how-to-read-a-gamma-flip) und dem Net GEX. Für die Live-Ansicht während der Wall wandert, öffne das [Echtzeit-0DTE-GEX-Dashboard](/real-time-gex-0dte).
+Willst du das in Echtzeit sehen? Sieh dir noch heute die **SPX-/SPY-/QQQ-/NDX-Call-Walls** auf ZeroGEX an — die kostenlosen Gamma-Levels-Seiten von [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) und [NDX](/ndx-gamma-levels) zeigen den Call Wall zusammen mit dem [Put Wall](/education/what-is-a-put-wall), dem [Gamma Flip](/education/how-to-read-a-gamma-flip) und dem Net GEX. Für die Live-Ansicht während der Wall wandert, öffne das [Echtzeit-0DTE-GEX-Dashboard](/real-time-gex-0dte).

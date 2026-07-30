@@ -6,13 +6,14 @@
 
 ## Symbols covered
 
-ZeroGEX provides full analytics coverage for three instruments:
+ZeroGEX provides full analytics coverage for four instruments:
 
 - **SPY** — S&P 500 ETF
 - **SPX** — S&P 500 Index (European-style options)
 - **QQQ** — Nasdaq 100 ETF
+- **NDX** — Nasdaq 100 Index (European-style options)
 
-These are the three most liquid, most gamma-rich underlyings in the U.S. options market — the instruments where dealer hedging activity has the greatest impact on intraday price.
+These are the four most liquid, most gamma-rich underlyings in the U.S. options market — the instruments where dealer hedging activity has the greatest impact on intraday price.
 
 We don't plan to support single-name equities. The signal model and the regime concept are designed around index-level dealer behavior.
 
@@ -79,12 +80,12 @@ We don't disclose specific vendor names publicly, but the quality bar is institu
 
 The end-to-end latency from a trade printing on the tape to it reaching your browser is typically under a second during regular hours. The bottleneck is rarely the data — it's your network and browser. See [Streaming & Performance](/help/platform/streaming-and-performance).
 
-## Why only SPY / SPX / QQQ
+## Why only SPY / SPX / QQQ / NDX
 
 Two reasons:
 
 1. The dealer-positioning model only works well where dealer flow is a meaningful fraction of total flow. That's the index complex.
-2. We'd rather get three instruments right than ten instruments half-right.
+2. We'd rather get four instruments right than ten instruments half-right.
 
 Single-name equities can drift on idiosyncratic news that makes the GEX read noisier. We're not in that game.
 

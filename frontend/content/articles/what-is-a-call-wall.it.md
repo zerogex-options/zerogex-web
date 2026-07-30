@@ -81,7 +81,7 @@ Lo spot è sopra il flip, quindi questa è una sessione a gamma lungo e 5.850 è
 
 ## Come trovare il call wall di oggi
 
-ZeroGEX pubblica il call wall attuale — insieme a put wall, gamma flip, max pain e Net GEX — per i tre prodotti indice più scambiati, gratis e con circa 15 minuti di ritardo: guarda il call wall di oggi su [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels) e [QQQ](/qqq-gamma-levels). Per la versione live che mostra il wall spostarsi in tempo reale, apri la [dashboard GEX 0DTE in tempo reale](/real-time-gex-0dte).
+ZeroGEX pubblica il call wall attuale — insieme a put wall, gamma flip, max pain e Net GEX — per i quattro prodotti indice più scambiati, gratis e con circa 15 minuti di ritardo: guarda il call wall di oggi su [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) e [NDX](/ndx-gamma-levels). Per la versione live che mostra il wall spostarsi in tempo reale, apri la [dashboard GEX 0DTE in tempo reale](/real-time-gex-0dte).
 
 ---
 
@@ -93,4 +93,4 @@ Solo contenuto educativo — nessuno di quanto sopra è una raccomandazione di t
 
 ---
 
-Vuoi vederlo in tempo reale? Guarda oggi i **call wall di SPX / SPY / QQQ** su ZeroGEX — le pagine gratuite dei livelli gamma di [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels) e [QQQ](/qqq-gamma-levels) tracciano il call wall accanto al [put wall](/education/what-is-a-put-wall), al [gamma flip](/education/how-to-read-a-gamma-flip) e al Net GEX. Per la lettura live mentre il wall migra, apri la [dashboard GEX 0DTE in tempo reale](/real-time-gex-0dte).
+Vuoi vederlo in tempo reale? Guarda oggi i **call wall di SPX / SPY / QQQ / NDX** su ZeroGEX — le pagine gratuite dei livelli gamma di [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) e [NDX](/ndx-gamma-levels) tracciano il call wall accanto al [put wall](/education/what-is-a-put-wall), al [gamma flip](/education/how-to-read-a-gamma-flip) e al Net GEX. Per la lettura live mentre il wall migra, apri la [dashboard GEX 0DTE in tempo reale](/real-time-gex-0dte).

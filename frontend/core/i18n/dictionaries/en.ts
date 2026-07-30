@@ -24,7 +24,7 @@ export const en = {
   'register.trialInfo':
     'Start your 7-day free trial after account creation. No charge until day 7. Cancel anytime.',
   'register.valueProp':
-    'ZeroGEX helps SPY, SPX, and QQQ traders track live gamma levels, dealer positioning, flow pressure, and market state signals before price gets there.',
+    'ZeroGEX helps SPY, SPX, QQQ, and NDX traders track live gamma levels, dealer positioning, flow pressure, and market state signals before price gets there.',
   'register.languageLabel': 'Language',
   'register.emailLabel': 'Email',
   'register.passwordLabel': 'Password',

@@ -142,7 +142,7 @@ export default function ChartClient({
             </h3>
             <p style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--text-secondary)', maxWidth: 620 }}>
               You&apos;re viewing a ~15-minute-delayed snapshot of SPY. Members get the live chart — real-time
-              dealer gamma, SPY/QQQ/SPX, all timeframes — plus the full dealer-positioning suite.
+              dealer gamma, SPY/QQQ/SPX/NDX, all timeframes — plus the full dealer-positioning suite.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">

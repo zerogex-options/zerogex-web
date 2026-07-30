@@ -45,7 +45,7 @@ En el caso de los triggers, las filas también muestran la **puntuación que dis
 
 La barra de filtros te permite acotar el feed por:
 
-- **Symbol** — SPY, SPX, QQQ (por defecto, el símbolo que tienes activo)
+- **Symbol** — SPY, SPX, QQQ, NDX (por defecto, el símbolo que tienes activo)
 - **Signal family** — Advanced, Basic, Regime, Flow, Schedule
 - **Direction** — bullish, bearish, neutral
 - **Time window** — última hora, hoy, últimas 24h, últimos 5 días de negociación

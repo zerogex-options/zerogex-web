@@ -79,7 +79,7 @@ Net GEX is a modeled estimate of dealer gamma from the traditional call-positive
 
 ## How to find today's call wall
 
-ZeroGEX publishes the current call wall — with the put wall, gamma flip, max pain, and Net GEX — for the three most-traded index products, free and delayed about 15 minutes: see today's call wall on [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), and [QQQ](/qqq-gamma-levels). For the live version that shows the wall migrating in real time, open the [real-time 0DTE GEX dashboard](/real-time-gex-0dte).
+ZeroGEX publishes the current call wall — with the put wall, gamma flip, max pain, and Net GEX — for the four most-traded index products, free and delayed about 15 minutes: see today's call wall on [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels), and [NDX](/ndx-gamma-levels). For the live version that shows the wall migrating in real time, open the [real-time 0DTE GEX dashboard](/real-time-gex-0dte).
 
 ---
 
@@ -91,4 +91,4 @@ Educational content only — none of the above is a trade recommendation.
 
 ---
 
-Want to see this in real time? View today's **SPX / SPY / QQQ call walls** on ZeroGEX — the free [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), and [QQQ](/qqq-gamma-levels) gamma-levels pages plot the call wall next to the [put wall](/education/what-is-a-put-wall), the [gamma flip](/education/how-to-read-a-gamma-flip), and Net GEX. For the live read as the wall migrates, open the [real-time 0DTE GEX dashboard](/real-time-gex-0dte).
+Want to see this in real time? View today's **SPX / SPY / QQQ / NDX call walls** on ZeroGEX — the free [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels), and [NDX](/ndx-gamma-levels) gamma-levels pages plot the call wall next to the [put wall](/education/what-is-a-put-wall), the [gamma flip](/education/how-to-read-a-gamma-flip), and Net GEX. For the live read as the wall migrates, open the [real-time 0DTE GEX dashboard](/real-time-gex-0dte).

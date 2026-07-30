@@ -16,7 +16,7 @@ La page Backtesting vous permet de tester comment une règle se serait comporté
 
 ## Les paramètres réglables
 
-- **Symbole** — SPY / SPX / QQQ
+- **Symbole** — SPY / SPX / QQQ / NDX
 - **Plage de dates** — jusqu'à la profondeur d'historique disponible (indiquée sur le formulaire)
 - **Entrée** — un panier de patterns, ou une règle conditionnelle personnalisée en ET
 - **Sortie** — objectifs/stops sur le niveau du sous-jacent, un overlay take-profit / stop-loss sur la prime de l'option, et un stop de durée maximale de détention (le premier déclenché l'emporte)

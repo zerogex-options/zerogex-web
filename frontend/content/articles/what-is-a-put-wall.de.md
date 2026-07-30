@@ -95,7 +95,7 @@ Der Spot liegt komfortabel oberhalb des Flip, es handelt sich also um eine Long-
 
 ## Wie man die heutige Put Wall findet
 
-Du musst das Dealer-Gamma nicht von Hand berechnen. ZeroGEX veröffentlicht die aktuelle Put Wall — zusammen mit Call Wall, Gamma Flip, Max Pain und Net GEX — für die drei meistgehandelten Indexprodukte, kostenlos und mit etwa 15 Minuten Verzögerung: sieh dir die heutige Put Wall für [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels) und [QQQ](/qqq-gamma-levels) an. Für die Live-Version im Sub-Sekundenbereich mit dem vollständigen Gamma-Profil und der Strike-nach-DTE-Heatmap zeichnet das [Echtzeit-0DTE-GEX-Dashboard](/real-time-gex-0dte) die Put Wall nach, während sie sich im Sitzungsverlauf verschiebt.
+Du musst das Dealer-Gamma nicht von Hand berechnen. ZeroGEX veröffentlicht die aktuelle Put Wall — zusammen mit Call Wall, Gamma Flip, Max Pain und Net GEX — für die vier meistgehandelten Indexprodukte, kostenlos und mit etwa 15 Minuten Verzögerung: sieh dir die heutige Put Wall für [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) und [NDX](/ndx-gamma-levels) an. Für die Live-Version im Sub-Sekundenbereich mit dem vollständigen Gamma-Profil und der Strike-nach-DTE-Heatmap zeichnet das [Echtzeit-0DTE-GEX-Dashboard](/real-time-gex-0dte) die Put Wall nach, während sie sich im Sitzungsverlauf verschiebt.
 
 ---
 
@@ -107,4 +107,4 @@ Nur zu Bildungszwecken — nichts davon ist eine Handelsempfehlung.
 
 ---
 
-Möchtest du das in Echtzeit sehen? Sieh dir die heutigen **SPX-/SPY-/QQQ-Put-Walls** auf ZeroGEX an — die kostenlosen Gamma-Levels-Seiten für [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels) und [QQQ](/qqq-gamma-levels) zeichnen die Put Wall neben der [Call Wall](/education/what-is-a-call-wall), dem Gamma Flip und dem Net GEX. Für die Levels, die als Support und Widerstand am wichtigsten sind, siehe [optionsbasierte Support- und Widerstandsniveaus](/education/options-support-and-resistance), und für die Live-Lesart öffne das [Echtzeit-0DTE-GEX-Dashboard](/real-time-gex-0dte).
+Möchtest du das in Echtzeit sehen? Sieh dir die heutigen **SPX-/SPY-/QQQ-/NDX-Put-Walls** auf ZeroGEX an — die kostenlosen Gamma-Levels-Seiten für [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) und [NDX](/ndx-gamma-levels) zeichnen die Put Wall neben der [Call Wall](/education/what-is-a-call-wall), dem Gamma Flip und dem Net GEX. Für die Levels, die als Support und Widerstand am wichtigsten sind, siehe [optionsbasierte Support- und Widerstandsniveaus](/education/options-support-and-resistance), und für die Live-Lesart öffne das [Echtzeit-0DTE-GEX-Dashboard](/real-time-gex-0dte).

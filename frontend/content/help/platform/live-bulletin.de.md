@@ -45,7 +45,7 @@ Bei Triggern zeigen die Zeilen zusätzlich den **auslösenden Score** und den **
 
 Über die Filterleiste kannst du den Feed eingrenzen nach:
 
-- **Symbol** — SPY, SPX, QQQ (standardmäßig das Symbol, das du gerade aktiv hast)
+- **Symbol** — SPY, SPX, QQQ, NDX (standardmäßig das Symbol, das du gerade aktiv hast)
 - **Signal family** — Advanced, Basic, Regime, Flow, Schedule
 - **Direction** — bullish, bearish, neutral
 - **Time window** — letzte Stunde, heute, letzte 24h, letzte 5 Handelstage

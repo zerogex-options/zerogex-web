@@ -45,7 +45,7 @@ For triggers, the rows also show the **score that fired** and the **trigger thre
 
 The filter bar lets you scope the feed by:
 
-- **Symbol** — SPY, SPX, QQQ (defaults to the symbol you've got active)
+- **Symbol** — SPY, SPX, QQQ, NDX (defaults to the symbol you've got active)
 - **Signal family** — Advanced, Basic, Regime, Flow, Schedule
 - **Direction** — bullish, bearish, neutral
 - **Time window** — last hour, today, last 24h, last 5 trading days

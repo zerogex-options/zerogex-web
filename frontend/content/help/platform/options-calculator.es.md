@@ -12,7 +12,7 @@ Es el lugar al que acudes después de que el dashboard te dice "la estructura es
 
 ## Construir una estrategia
 
-1. **Elige un símbolo** (SPY, SPX, QQQ).
+1. **Elige un símbolo** (SPY, SPX, QQQ, NDX).
 2. **Añade una pata** — compra o venta, call o put, strike, vencimiento. La cadena está en vivo.
 3. **Repite** para estructuras multi-pata (verticales, condors, calendars, ratios, straddles, strangles).
 4. **Establece el spot para el análisis** — por defecto es el spot en vivo, pero puedes probar cualquier precio como escenario.
@@ -23,7 +23,7 @@ El precio agregado, los breakevens y las greeks se actualizan con cada cambio.
 
 El Builder utiliza **Black-Scholes** con la superficie de volatilidad implícita en vivo para cada pata. La superficie de IV se extrae de nuestro pipeline de datos — la misma superficie que alimenta la cadena en la página de [Cotizaciones de Opciones en Vivo](/help/platform/option-contracts).
 
-Para las consideraciones de ejercicio de estilo americano (relevantes para ETFs como SPY y QQQ), el modelo aproxima con una prima de ejercicio anticipado en patas deep ITM cerca del vencimiento. SPX tiene ejercicio de estilo europeo, por lo que no se aplica ningún ajuste.
+Para las consideraciones de ejercicio de estilo americano (relevantes para ETFs como SPY y QQQ), el modelo aproxima con una prima de ejercicio anticipado en patas deep ITM cerca del vencimiento. Los índices liquidados en efectivo SPX y NDX tienen ejercicio de estilo europeo, por lo que no se aplica ningún ajuste.
 
 ## El panel de greeks
 

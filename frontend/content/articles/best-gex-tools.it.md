@@ -107,7 +107,7 @@ Per essere trasparenti su dove è ospitato questo confronto: ZeroGEX è uno stru
 - **Risolutore del gamma flip rafforzato** con controlli su interiorità, struttura e distanza azionabile contro artefatti ai bordi della griglia, attraversamenti nel rumore di fondo e livelli lontani dallo spot. Restituisce NULL quando la catena non supporta una risposta affidabile, invece di riportare in avanti un valore obsoleto.
 - **Suddivisione della gamma per DTE** così che la concentrazione 0DTE sia visibile direttamente e pesata correttamente per le letture intraday.
 - **Livello di segnale composto** sopra le letture strutturali — Squeeze Setup, Positioning Trap, Trap Detection, EOD Pressure e altri — ciascuno con metodologia pubblicata nella [sezione Education](/articles), non output a scatola nera.
-- **Pagine Gamma Levels gratuite** (SPX, SPY, QQQ), ritardate di 15 minuti, per le letture strutturali principali (Net GEX, Gamma Flip, Call Wall, Put Wall, Max Pain, profilo di gamma dealer), senza registrazione — i piani a pagamento (Basic, Pro) aggiungono la Dashboard in tempo reale, il livello di segnale, dati storici più approfonditi e gli Advanced Signals.
+- **Pagine Gamma Levels gratuite** (SPX, SPY, QQQ, NDX), ritardate di 15 minuti, per le letture strutturali principali (Net GEX, Gamma Flip, Call Wall, Put Wall, Max Pain, profilo di gamma dealer), senza registrazione — i piani a pagamento (Basic, Pro) aggiungono la Dashboard in tempo reale, il livello di segnale, dati storici più approfonditi e gli Advanced Signals.
 
 Come ogni strumento della categoria, ZeroGEX ha dei compromessi. La profondità dell'archivio storico è inferiore a quella dei fornitori consolidati del Gruppo 1. La copertura è concentrata su SPX/SPY e i principali ETF di indice, non su una copertura approfondita dei singoli titoli. Il livello di segnale è deliberatamente orientato per design, il che è un vantaggio per i trader che vogliono un framework definito e un limite per chi vuole solo dati grezzi. Se questi compromessi si adattano al tuo workflow è una domanda che vale la pena porsi prima di impegnarsi con qualsiasi strumento, incluso questo.
 
@@ -145,10 +145,10 @@ Un breve elenco di trappole da evitare:
 
 La disciplina corretta è valutare rispetto agli otto criteri sopra (tempo reale, copertura 0DTE, metodologia, qualità del flip, wall, segnali, copertura, prezzo), confrontarli con il tuo workflow reale e verificare qualsiasi affermazione specifica di un fornitore sul sito del fornitore stesso prima di impegnarsi — perché le funzionalità, i prezzi e le scelte metodologiche in questa categoria cambiano spesso.
 
-Se vuoi vedere la metodologia spot-shift + flip rafforzato senza impegnarti in un piano a pagamento, le pagine gratuite Gamma Levels di ZeroGEX, ritardate di 15 minuti (SPX, SPY, QQQ), sono il posto più semplice da guardare; lo stack in tempo reale + 0DTE si trova nella Dashboard a pagamento.
+Se vuoi vedere la metodologia spot-shift + flip rafforzato senza impegnarti in un piano a pagamento, le pagine gratuite Gamma Levels di ZeroGEX, ritardate di 15 minuti (SPX, SPY, QQQ, NDX), sono il posto più semplice da guardare; lo stack in tempo reale + 0DTE si trova nella Dashboard a pagamento.
 
 Solo contenuto educativo — nulla di quanto sopra è una raccomandazione di trading, e questo confronto dovrebbe essere verificato rispetto alle informazioni attuali dei fornitori prima di qualsiasi decisione d'acquisto.
 
 ---
 
-Se vuoi vedere la lettura di ZeroGEX — Net GEX, il gamma flip, i call e put wall, il max pain e il profilo di gamma dealer — le pagine gratuite Gamma Levels, ritardate di 15 minuti (SPX, SPY, QQQ), sono aperte a chiunque, senza bisogno di registrazione; la Dashboard in tempo reale e il livello di segnale sono inclusi in un piano a pagamento.
+Se vuoi vedere la lettura di ZeroGEX — Net GEX, il gamma flip, i call e put wall, il max pain e il profilo di gamma dealer — le pagine gratuite Gamma Levels, ritardate di 15 minuti (SPX, SPY, QQQ, NDX), sono aperte a chiunque, senza bisogno di registrazione; la Dashboard in tempo reale e il livello di segnale sono inclusi in un piano a pagamento.

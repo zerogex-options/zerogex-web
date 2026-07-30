@@ -107,7 +107,7 @@ Para ser transparentes sobre dónde se aloja esta comparación: ZeroGEX es una h
 - **Resolutor de gamma flip reforzado** con controles de interioridad, estructura y distancia accionable contra artefactos en los bordes de la grilla, cruces en el ruido de fondo y niveles muy alejados del spot. Reporta NULL cuando la cadena no respalda una respuesta confiable, en lugar de arrastrar un valor obsoleto.
 - **Segmentación de gamma por DTE**, de modo que la concentración de 0DTE sea directamente visible y esté ponderada adecuadamente para lecturas intradía.
 - **Capa de señales compuesta** sobre las lecturas estructurales — Squeeze Setup, Positioning Trap, Trap Detection, EOD Pressure y otras — cada una con metodología publicada en la [sección de Educación](/articles), no resultados de caja negra.
-- **Páginas gratuitas de Gamma Levels** (SPX, SPY, QQQ), retrasadas 15 minutos, para las lecturas estructurales principales (Net GEX, Gamma Flip, Call Wall, Put Wall, Max Pain, perfil de gamma del dealer), sin necesidad de registro — los planes de pago (Basic, Pro) añaden el Dashboard en tiempo real, la capa de señales, datos históricos más profundos y Advanced Signals.
+- **Páginas gratuitas de Gamma Levels** (SPX, SPY, QQQ, NDX), retrasadas 15 minutos, para las lecturas estructurales principales (Net GEX, Gamma Flip, Call Wall, Put Wall, Max Pain, perfil de gamma del dealer), sin necesidad de registro — los planes de pago (Basic, Pro) añaden el Dashboard en tiempo real, la capa de señales, datos históricos más profundos y Advanced Signals.
 
 Como cualquier herramienta de la categoría, ZeroGEX tiene compromisos. La profundidad de su archivo histórico es menor que la de los proveedores consolidados del Grupo 1. La cobertura se concentra en SPX/SPY y los principales ETF de índices, no en una cobertura profunda de acciones individuales. La capa de señales es deliberadamente marcada por su enfoque, lo cual es una ventaja para los traders que quieren un marco definido y una limitación para quienes quieren solo datos crudos. Si esos compromisos encajan con tu flujo de trabajo es una pregunta que vale la pena responder antes de comprometerte con cualquier herramienta, incluida esta.
 
@@ -145,10 +145,10 @@ Una breve lista de trampas que evitar:
 
 La disciplina correcta es evaluar frente a los ocho criterios anteriores (tiempo real, cobertura de 0DTE, metodología, calidad del flip, walls, señales, cobertura, precio), contrastarlos con tu flujo de trabajo real y verificar cualquier afirmación específica de un proveedor en su propio sitio antes de comprometerte — porque los conjuntos de funciones, los precios y las decisiones metodológicas en esta categoría cambian a menudo.
 
-Si quieres ver la metodología de spot-shift + flip reforzado sin comprometerte con un plan de pago, las páginas gratuitas de Gamma Levels de ZeroGEX, retrasadas 15 minutos (SPX, SPY, QQQ), son el lugar más sencillo para mirar; el stack de tiempo real + 0DTE está en el Dashboard de pago.
+Si quieres ver la metodología de spot-shift + flip reforzado sin comprometerte con un plan de pago, las páginas gratuitas de Gamma Levels de ZeroGEX, retrasadas 15 minutos (SPX, SPY, QQQ, NDX), son el lugar más sencillo para mirar; el stack de tiempo real + 0DTE está en el Dashboard de pago.
 
 Solo contenido educativo — nada de lo anterior es una recomendación de trading, y esta comparación debe verificarse frente a la información actual de los proveedores antes de cualquier decisión de compra.
 
 ---
 
-Si quieres ver la lectura de ZeroGEX — Net GEX, el gamma flip, los call y put walls, el max pain y el perfil de gamma del dealer — las páginas gratuitas de Gamma Levels, retrasadas 15 minutos (SPX, SPY, QQQ), están abiertas para cualquiera, sin necesidad de registro; el Dashboard en tiempo real y la capa de señales vienen incluidos en un plan de pago.
+Si quieres ver la lectura de ZeroGEX — Net GEX, el gamma flip, los call y put walls, el max pain y el perfil de gamma del dealer — las páginas gratuitas de Gamma Levels, retrasadas 15 minutos (SPX, SPY, QQQ, NDX), están abiertas para cualquiera, sin necesidad de registro; el Dashboard en tiempo real y la capa de señales vienen incluidos en un plan de pago.

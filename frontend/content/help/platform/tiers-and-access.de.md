@@ -10,7 +10,7 @@ ZeroGEX hat drei Konto-Tiers. Sie bestimmen, welche Daten und Signale du siehst.
 
 | Tier | Für wen | Was du bekommst |
 | --- | --- | --- |
-| Public | Stöbern, Weiterbildung | Die Landing-Site, Education, Guides, Artikel, kostenlose SPX-/SPY-/QQQ-Gamma-Level-Seiten (15 Minuten verzögert) |
+| Public | Stöbern, Weiterbildung | Die Landing-Site, Education, Guides, Artikel, kostenlose SPX-/SPY-/QQQ-/NDX-Gamma-Level-Seiten (15 Minuten verzögert) |
 | Basic | Aktive Intraday-Trader | Dashboard, Live Bulletin, alle Metrics, Strategy Builder, Live Options Quotes, alle Basic Signals |
 | Pro | Ernsthafte Operator | Alles aus Basic + alle Advanced Signals + Composite Score + Backtesting + API-Zugang |
 
@@ -21,7 +21,7 @@ Die aktuelle Aufschlüsselung — und ein 14-tägiger Testzugang — findest du 
 ### Public (kein Konto nötig)
 
 - Die Marketing-Site (Landing, About, Education Hub, Articles, Guides)
-- Kostenlose SPX-, SPY- und QQQ-Gamma-Level-Seiten — etwa 15 Minuten verzögert
+- Kostenlose SPX-, SPY-, QQQ- und NDX-Gamma-Level-Seiten — etwa 15 Minuten verzögert
 - Help Center, FAQs, Quick Starts
 - Datenschutz, AGB
 

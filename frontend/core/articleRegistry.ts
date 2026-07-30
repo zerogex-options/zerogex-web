@@ -32,7 +32,7 @@ export const SITE_DEFAULT_OG_IMAGE = `${SITE_URL}/og-image.png`;
 // separate from the per-page SITE_DESCRIPTION so the entity description stays
 // stable even if a page-level meta description is tuned.
 export const SITE_ORG_DESCRIPTION =
-  'ZeroGEX is an options analytics platform for real-time gamma exposure (GEX), dealer positioning, gamma walls, and live options flow — with free delayed SPX, SPY, and QQQ gamma levels.';
+  'ZeroGEX is an options analytics platform for real-time gamma exposure (GEX), dealer positioning, gamma walls, and live options flow — with free delayed SPX, SPY, QQQ, and NDX gamma levels.';
 
 // Support/contact address surfaced in Organization structured data.
 export const SITE_CONTACT_EMAIL = 'support@zerogex.io';
@@ -183,11 +183,11 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
   'real-time-gex-0dte': {
     slug: 'real-time-gex-0dte',
     href: '/real-time-gex-0dte',
-    title: 'Real-Time 0DTE GEX: SPX / SPY / QQQ Gamma Flip, Call Walls & Dealer Positioning',
+    title: 'Real-Time 0DTE GEX: SPX / SPY / QQQ / NDX Gamma Flip, Call Walls & Dealer Positioning',
     blurb:
       'Live gamma flip, call and put walls, dealer positioning, and composite signals — built for SPX/0DTE intraday flow. Free dashboard, no signup required.',
     description:
-      'Real-time 0DTE GEX for SPX, SPY and QQQ — live gamma flip, call and put walls, dealer positioning, and a 13-signal composite built for intraday 0DTE flow. Free dashboard, no signup required.',
+      'Real-time 0DTE GEX for SPX, SPY, QQQ and NDX — live gamma flip, call and put walls, dealer positioning, and a 13-signal composite built for intraday 0DTE flow. Free dashboard, no signup required.',
     datePublished: '2026-06-11',
     readMinutes: 0,
     kind: 'landing',
@@ -353,9 +353,9 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     href: '/education/what-is-a-call-wall',
     title: 'What Is a Call Wall? How Dealers Defend the Upside in Options',
     blurb:
-      'The call wall is the strike where call-side dealer gamma concentrates — the level dealer hedging tends to defend on the way up. What it is, why it can cap rallies in long gamma, how it migrates, what a break may indicate about the strength of the level, and where to see today’s live SPX, SPY, and QQQ call walls.',
+      'The call wall is the strike where call-side dealer gamma concentrates — the level dealer hedging tends to defend on the way up. What it is, why it can cap rallies in long gamma, how it migrates, what a break may indicate about the strength of the level, and where to see today’s live SPX, SPY, QQQ, and NDX call walls.',
     description:
-      'What is a call wall? The strike where call gamma concentrates and dealer hedging can defend the upside — why it often acts as resistance, how it migrates, and when price breaks through. See today’s SPX / SPY / QQQ call walls.',
+      'What is a call wall? The strike where call gamma concentrates and dealer hedging can defend the upside — why it often acts as resistance, how it migrates, and when price breaks through. See today’s SPX / SPY / QQQ / NDX call walls.',
     datePublished: '2026-07-07',
     readMinutes: 8,
     kind: 'tier1',

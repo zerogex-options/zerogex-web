@@ -10,7 +10,7 @@ ZeroGEX propose trois niveaux de compte. Ils déterminent quelles données et qu
 
 | Niveau | Pour qui | Ce que vous obtenez |
 | --- | --- | --- |
-| Public | Consultation, formation | Le site vitrine, l'espace éducatif, les guides, les articles, les pages gratuites de niveaux gamma SPX / SPY / QQQ (décalées de 15 minutes) |
+| Public | Consultation, formation | Le site vitrine, l'espace éducatif, les guides, les articles, les pages gratuites de niveaux gamma SPX / SPY / QQQ / NDX (décalées de 15 minutes) |
 | Basic | Traders intraday actifs | Dashboard, Live Bulletin, tous les Metrics, Strategy Builder, Live Options Quotes, tous les Basic Signals |
 | Pro | Opérateurs sérieux | Tout ce qui est inclus dans Basic + tous les Advanced Signals + Composite Score + Backtesting + accès API |
 
@@ -21,7 +21,7 @@ Consultez la répartition en direct — et un essai de 14 jours — sur la page 
 ### Public (aucun compte requis)
 
 - Le site marketing (landing, About, Education Hub, Articles, Guides)
-- Pages gratuites de niveaux gamma SPX, SPY et QQQ — décalées d'environ 15 minutes
+- Pages gratuites de niveaux gamma SPX, SPY, QQQ et NDX — décalées d'environ 15 minutes
 - Help Center, FAQ, Quick Starts
 - Confidentialité, Conditions
 

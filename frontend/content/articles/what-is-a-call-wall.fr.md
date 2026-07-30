@@ -81,7 +81,7 @@ Le spot est au-dessus du flip, il s'agit donc d'une séance en gamma long, et 5 
 
 ## Comment trouver le call wall du jour
 
-ZeroGEX publie le call wall actuel — avec le put wall, le gamma flip, le max pain et le Net GEX — pour les trois produits indiciels les plus échangés, gratuitement et avec environ 15 minutes de délai : consultez le call wall du jour sur [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels) et [QQQ](/qqq-gamma-levels). Pour la version en direct qui montre le wall migrer en temps réel, ouvrez le [tableau de bord GEX 0DTE en temps réel](/real-time-gex-0dte).
+ZeroGEX publie le call wall actuel — avec le put wall, le gamma flip, le max pain et le Net GEX — pour les quatre produits indiciels les plus échangés, gratuitement et avec environ 15 minutes de délai : consultez le call wall du jour sur [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) et [NDX](/ndx-gamma-levels). Pour la version en direct qui montre le wall migrer en temps réel, ouvrez le [tableau de bord GEX 0DTE en temps réel](/real-time-gex-0dte).
 
 ---
 
@@ -93,4 +93,4 @@ Contenu à visée uniquement éducative — rien de ce qui précède ne constitu
 
 ---
 
-Vous voulez le voir en temps réel ? Consultez dès aujourd'hui les **call walls SPX / SPY / QQQ** sur ZeroGEX — les pages gratuites de niveaux gamma de [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels) et [QQQ](/qqq-gamma-levels) tracent le call wall à côté du [put wall](/education/what-is-a-put-wall), du [gamma flip](/education/how-to-read-a-gamma-flip) et du Net GEX. Pour la lecture en direct pendant que le wall migre, ouvrez le [tableau de bord GEX 0DTE en temps réel](/real-time-gex-0dte).
+Vous voulez le voir en temps réel ? Consultez dès aujourd'hui les **call walls SPX / SPY / QQQ / NDX** sur ZeroGEX — les pages gratuites de niveaux gamma de [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) et [NDX](/ndx-gamma-levels) tracent le call wall à côté du [put wall](/education/what-is-a-put-wall), du [gamma flip](/education/how-to-read-a-gamma-flip) et du Net GEX. Pour la lecture en direct pendant que le wall migre, ouvrez le [tableau de bord GEX 0DTE en temps réel](/real-time-gex-0dte).

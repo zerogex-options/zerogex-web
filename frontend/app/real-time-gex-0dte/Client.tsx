@@ -406,7 +406,7 @@ export default function RealTimeGexLandingClient() {
             <FeatureCard
               icon={Sparkles}
               title="Free read on the structural stack"
-              body="Net GEX, gamma flip, call wall, put wall, max pain, and the dealer gamma profile across SPX, SPY, and QQQ — open to anyone, no signup required, refreshed every 15 minutes."
+              body="Net GEX, gamma flip, call wall, put wall, max pain, and the dealer gamma profile across SPX, SPY, QQQ, and NDX — open to anyone, no signup required, refreshed every 15 minutes."
             />
           </div>
         </div>
@@ -440,7 +440,7 @@ export default function RealTimeGexLandingClient() {
               See today&apos;s dealer book without paying for it.
             </h2>
             <p style={{ margin: 0, maxWidth: 680, color: C.muted, fontSize: 15, lineHeight: 1.7 }}>
-              The free gamma-levels page surfaces the structural reads for SPX, SPY, and QQQ — Net GEX, gamma flip with distance from spot, call and put walls, max pain, and the dealer gamma profile. Refreshed every 15 minutes. Anonymous access, no signup, no card.
+              The free gamma-levels page surfaces the structural reads for SPX, SPY, QQQ, and NDX — Net GEX, gamma flip with distance from spot, call and put walls, max pain, and the dealer gamma profile. Refreshed every 15 minutes. Anonymous access, no signup, no card.
             </p>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14, width: '100%', marginTop: 8 }}>

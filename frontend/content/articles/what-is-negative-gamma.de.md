@@ -128,4 +128,4 @@ Nur Bildungsinhalte — nichts davon ist eine Handelsempfehlung.
 
 ---
 
-Wenn du den heutigen Net GEX, den Gamma-Flip und die Live-Regime-Lesart für SPY, SPX und QQQ sehen möchtest — die drei Zahlen, die dir sagen, ob Dealer gerade long gamma oder short gamma sind — zeigt die kostenlose Gamma-Levels-Ansicht von ZeroGEX all das an.
+Wenn du den heutigen Net GEX, den Gamma-Flip und die Live-Regime-Lesart für SPY, SPX, QQQ und NDX sehen möchtest — die drei Zahlen, die dir sagen, ob Dealer gerade long gamma oder short gamma sind — zeigt die kostenlose Gamma-Levels-Ansicht von ZeroGEX all das an.

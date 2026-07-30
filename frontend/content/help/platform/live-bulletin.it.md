@@ -45,7 +45,7 @@ Per i trigger, le righe mostrano anche il **punteggio che ha attivato l'evento**
 
 La barra dei filtri ti permette di delimitare il feed per:
 
-- **Symbol** — SPY, SPX, QQQ (di default il simbolo che hai attualmente attivo)
+- **Symbol** — SPY, SPX, QQQ, NDX (di default il simbolo che hai attualmente attivo)
 - **Signal family** — Advanced, Basic, Regime, Flow, Schedule
 - **Direction** — bullish, bearish, neutral
 - **Time window** — ultima ora, oggi, ultime 24h, ultimi 5 giorni di negoziazione

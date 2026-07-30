@@ -61,7 +61,7 @@ GEX won't tell you *what* will happen next. It tells you which *kind* of day you
 
 ## Where to see GEX for yourself
 
-You don't have to compute dealer gamma by hand. ZeroGEX publishes today's Net GEX, gamma flip, call wall, and put wall — free and delayed about 15 minutes — for [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), and [QQQ](/qqq-gamma-levels). For the live, sub-second read with the full gamma profile, strike-by-DTE heatmap, and the 13-signal composite, open the [real-time 0DTE GEX dashboard](/real-time-gex-0dte).
+You don't have to compute dealer gamma by hand. ZeroGEX publishes today's Net GEX, gamma flip, call wall, and put wall — free and delayed about 15 minutes — for [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels), and [NDX](/ndx-gamma-levels). For the live, sub-second read with the full gamma profile, strike-by-DTE heatmap, and the 13-signal composite, open the [real-time 0DTE GEX dashboard](/real-time-gex-0dte).
 
 ---
 
@@ -73,4 +73,4 @@ Educational content only — none of the above is a trade recommendation.
 
 ---
 
-Want to see this in real time? Check today's GEX read on the free [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), and [QQQ](/qqq-gamma-levels) gamma-levels pages, then go deeper with the [complete GEX guide](/education/gamma-exposure-explained) or open the live [real-time 0DTE GEX dashboard](/real-time-gex-0dte).
+Want to see this in real time? Check today's GEX read on the free [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels), and [NDX](/ndx-gamma-levels) gamma-levels pages, then go deeper with the [complete GEX guide](/education/gamma-exposure-explained) or open the live [real-time 0DTE GEX dashboard](/real-time-gex-0dte).

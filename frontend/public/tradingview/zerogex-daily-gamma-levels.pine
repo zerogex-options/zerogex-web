@@ -1,6 +1,6 @@
 //@version=6
 // ============================================================================
-//  ZeroGEX Daily Gamma Levels — SPY / SPX / QQQ
+//  ZeroGEX Daily Gamma Levels — SPY / SPX / QQQ / NDX
 //  Manually plot today's dealer-positioning levels on any chart:
 //    • Gamma Flip   (regime line)
 //    • Call Wall    (upside cap)
@@ -18,7 +18,7 @@
 //  Informational and educational use only. Not financial advice. Options
 //  trading involves significant risk.
 // ============================================================================
-indicator("ZeroGEX Daily Gamma Levels — SPY/SPX/QQQ", shorttitle="ZeroGEX Levels", overlay = true, max_lines_count = 20, max_labels_count = 20)
+indicator("ZeroGEX Daily Gamma Levels — SPY/SPX/QQQ/NDX", shorttitle="ZeroGEX Levels", overlay = true, max_lines_count = 20, max_labels_count = 20)
 
 // ----------------------------------------------------------------------------
 //  Instrument / session  (labels only — this script does not read live data)

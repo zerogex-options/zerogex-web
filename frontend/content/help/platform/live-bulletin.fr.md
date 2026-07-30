@@ -45,7 +45,7 @@ Pour les triggers, les lignes affichent également le **score qui a déclenché 
 
 La barre de filtres vous permet de cibler le flux par :
 
-- **Symbol** — SPY, SPX, QQQ (par défaut, le symbole actuellement actif)
+- **Symbol** — SPY, SPX, QQQ, NDX (par défaut, le symbole actuellement actif)
 - **Signal family** — Advanced, Basic, Regime, Flow, Schedule
 - **Direction** — bullish, bearish, neutral
 - **Time window** — dernière heure, aujourd'hui, dernières 24h, 5 derniers jours de bourse

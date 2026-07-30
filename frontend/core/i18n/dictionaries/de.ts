@@ -18,7 +18,7 @@ export const de: Dictionary = {
   'register.trialInfo':
     'Starte nach der Kontoerstellung deine kostenlose 7-tägige Testphase. Keine Abbuchung bis Tag 7. Jederzeit kündbar.',
   'register.valueProp':
-    'ZeroGEX hilft SPY-, SPX- und QQQ-Tradern, Live-Gamma-Level, Dealer-Positionierung, Flow-Druck und Marktzustandssignale zu verfolgen, bevor der Kurs sie erreicht.',
+    'ZeroGEX hilft SPY-, SPX-, QQQ- und NDX-Tradern, Live-Gamma-Level, Dealer-Positionierung, Flow-Druck und Marktzustandssignale zu verfolgen, bevor der Kurs sie erreicht.',
   'register.languageLabel': 'Sprache',
   'register.emailLabel': 'E-Mail',
   'register.passwordLabel': 'Passwort',

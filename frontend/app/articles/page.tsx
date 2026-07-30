@@ -4,9 +4,9 @@ import ItemListJsonLd from '@/components/ItemListJsonLd';
 
 export const metadata = {
   title:
-    'Options Gamma Trading Articles: SPX / SPY / QQQ Pinning, Gamma Flip & Dealer Flow | ZeroGEX',
+    'Options Gamma Trading Articles: SPX / SPY / QQQ / NDX Pinning, Gamma Flip & Dealer Flow | ZeroGEX',
   description:
-    'ZeroGEX options gamma trading articles — SPX, SPY and QQQ pinning, the gamma flip, call walls, put walls, 0DTE dealer positioning, and dealer-flow deep dives. Definitions, worked examples, and today’s live levels.',
+    'ZeroGEX options gamma trading articles — SPX, SPY, QQQ and NDX pinning, the gamma flip, call walls, put walls, 0DTE dealer positioning, and dealer-flow deep dives. Definitions, worked examples, and today’s live levels.',
   alternates: { canonical: '/articles' },
 };
 
@@ -59,14 +59,14 @@ const ARTICLES: Article[] = [
     kind: 'Published • July 7, 2026 • 16:00 UTC',
     title: 'What Is a Put Wall? Put Gamma Concentration Explained',
     blurb:
-      'The put wall is the strike where put-side dealer gamma piles up — usually the sturdiest dealer-hedged support on the board. What it is, why price reacts there, how it migrates intraday, when it holds versus breaks, and how to find today’s SPX, SPY, and QQQ put walls.',
+      'The put wall is the strike where put-side dealer gamma piles up — usually the sturdiest dealer-hedged support on the board. What it is, why price reacts there, how it migrates intraday, when it holds versus breaks, and how to find today’s SPX, SPY, QQQ, and NDX put walls.',
   },
   {
     href: '/education/what-is-a-call-wall',
     kind: 'Published • July 7, 2026 • 16:00 UTC',
     title: 'What Is a Call Wall? How Dealers Defend the Upside in Options',
     blurb:
-      'The call wall is the strike where call-side dealer gamma concentrates — the level dealers defend on the way up. What it is, why it caps rallies in long gamma, how it migrates, when a break signals a regime change, and where to see today’s live SPX, SPY, and QQQ call walls.',
+      'The call wall is the strike where call-side dealer gamma concentrates — the level dealers defend on the way up. What it is, why it caps rallies in long gamma, how it migrates, when a break signals a regime change, and where to see today’s live SPX, SPY, QQQ, and NDX call walls.',
   },
   {
     href: '/education/what-is-gex-in-trading',
@@ -263,7 +263,7 @@ export default function ArticlesPage() {
           Options Gamma Trading Articles
         </h1>
         <p className="max-w-2xl text-sm leading-7 text-[var(--color-text-secondary)]">
-          Practical, flow-focused breakdowns of options market structure for SPX, SPY, and QQQ
+          Practical, flow-focused breakdowns of options market structure for SPX, SPY, QQQ, and NDX
           traders — gamma exposure (GEX), the gamma flip, call walls, put walls, pinning, and 0DTE
           dealer positioning. Every piece pairs the concept with a worked example and links straight
           to{' '}
@@ -271,7 +271,7 @@ export default function ArticlesPage() {
             href="/spx-gamma-levels"
             className="font-semibold text-[var(--color-warning)] underline-offset-2 hover:underline"
           >
-            today’s live SPX / SPY / QQQ gamma levels
+            today’s live SPX / SPY / QQQ / NDX gamma levels
           </Link>
           .
         </p>

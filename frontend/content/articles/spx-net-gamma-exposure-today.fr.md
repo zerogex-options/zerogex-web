@@ -8,7 +8,7 @@
 
 ## Où voir la net gamma exposure du SPX aujourd'hui
 
-Si vous êtes ici pour le chiffre actuel, commencez ici : ZeroGEX publie le **net GEX du SPX** du jour — avec le gamma flip, le call wall, le put wall et le max pain — gratuitement et avec un décalage d'environ 15 minutes sur la [page des niveaux gamma SPX](/spx-gamma-levels). La même lecture est disponible pour [SPY](/spy-gamma-levels) et [QQQ](/qqq-gamma-levels). Pour la valeur en direct, actualisée à la seconde près, le [tableau de bord GEX 0DTE en temps réel](/real-time-gex-0dte) se met à jour tout au long de la séance. Le reste de cette page explique ce que signifie ce chiffre et comment l'utiliser.
+Si vous êtes ici pour le chiffre actuel, commencez ici : ZeroGEX publie le **net GEX du SPX** du jour — avec le gamma flip, le call wall, le put wall et le max pain — gratuitement et avec un décalage d'environ 15 minutes sur la [page des niveaux gamma SPX](/spx-gamma-levels). La même lecture est disponible pour [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) et [NDX](/ndx-gamma-levels). Pour la valeur en direct, actualisée à la seconde près, le [tableau de bord GEX 0DTE en temps réel](/real-time-gex-0dte) se met à jour tout au long de la séance. Le reste de cette page explique ce que signifie ce chiffre et comment l'utiliser.
 
 ---
 
@@ -73,4 +73,4 @@ Contenu à visée éducative uniquement — rien de ce qui précède ne constitu
 
 ---
 
-Envie de le voir en temps réel ? Consultez le net GEX du SPX du jour sur la [page des niveaux gamma SPX](/spx-gamma-levels) gratuite (également [SPY](/spy-gamma-levels) et [QQQ](/qqq-gamma-levels)), approfondissez avec [Gamma Exposure Explained](/education/gamma-exposure-explained), ou ouvrez le [tableau de bord GEX 0DTE en temps réel](/real-time-gex-0dte) — [démarrez un essai gratuit](/register) pour la lecture en direct, actualisée à la seconde près.
+Envie de le voir en temps réel ? Consultez le net GEX du SPX du jour sur la [page des niveaux gamma SPX](/spx-gamma-levels) gratuite (également [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) et [NDX](/ndx-gamma-levels)), approfondissez avec [Gamma Exposure Explained](/education/gamma-exposure-explained), ou ouvrez le [tableau de bord GEX 0DTE en temps réel](/real-time-gex-0dte) — [démarrez un essai gratuit](/register) pour la lecture en direct, actualisée à la seconde près.

@@ -94,7 +94,7 @@ Stell dir nun dasselbe Setup vor, aber mit Net GEX bei −800 Mio. $ und dem Gam
 
 ## Wie man das in Echtzeit liest
 
-Die kostenlose `/spx-gamma-levels`-Ansicht zeigt alle vier Levels für SPY, SPX und QQQ:
+Die kostenlose `/spx-gamma-levels`-Ansicht zeigt alle vier Levels für SPY, SPX, QQQ und NDX:
 
 - Call Wall (Live-Abstand zum Spot)
 - Put Wall (Live-Abstand zum Spot)
@@ -123,4 +123,4 @@ Nur zu Bildungszwecken — nichts davon ist eine Handelsempfehlung.
 
 ---
 
-Wenn du die heutige Call Wall, Put Wall, den Gamma Flip und Max Pain für SPY, SPX und QQQ sehen willst — die strukturelle Karte, auf die sich die meisten Umkehrungen zurückführen lassen — zeigt die kostenlose ZeroGEX-Gamma-Levels-Ansicht sie alle an.
+Wenn du die heutige Call Wall, Put Wall, den Gamma Flip und Max Pain für SPY, SPX, QQQ und NDX sehen willst — die strukturelle Karte, auf die sich die meisten Umkehrungen zurückführen lassen — zeigt die kostenlose ZeroGEX-Gamma-Levels-Ansicht sie alle an.

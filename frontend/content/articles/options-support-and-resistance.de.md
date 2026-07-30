@@ -139,4 +139,4 @@ Nur Bildungsinhalte — nichts davon ist eine Handelsempfehlung.
 
 ---
 
-Wenn du den heutigen Call Wall, Put Wall, Gamma Flip und Gamma Magnet für SPY, SPX und QQQ sehen willst — die vier strukturellen Level, die die meiste Options-basierte S/R antreiben — zeigt sie dir die kostenlose Gamma-Levels-Ansicht von ZeroGEX.
+Wenn du den heutigen Call Wall, Put Wall, Gamma Flip und Gamma Magnet für SPY, SPX, QQQ und NDX sehen willst — die vier strukturellen Level, die die meiste Options-basierte S/R antreiben — zeigt sie dir die kostenlose Gamma-Levels-Ansicht von ZeroGEX.

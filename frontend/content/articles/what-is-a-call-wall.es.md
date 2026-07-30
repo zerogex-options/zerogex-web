@@ -81,7 +81,7 @@ El spot está por encima del flip, así que esta es una sesión de gamma largo y
 
 ## Cómo encontrar el call wall de hoy
 
-ZeroGEX publica el call wall actual — junto con el put wall, el gamma flip, el max pain y el Net GEX — para los tres productos de índice más negociados, gratis y con un retraso de unos 15 minutos: consulta el call wall de hoy en [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels) y [QQQ](/qqq-gamma-levels). Para la versión en vivo que muestra el wall migrando en tiempo real, abre el [panel GEX 0DTE en tiempo real](/real-time-gex-0dte).
+ZeroGEX publica el call wall actual — junto con el put wall, el gamma flip, el max pain y el Net GEX — para los cuatro productos de índice más negociados, gratis y con un retraso de unos 15 minutos: consulta el call wall de hoy en [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) y [NDX](/ndx-gamma-levels). Para la versión en vivo que muestra el wall migrando en tiempo real, abre el [panel GEX 0DTE en tiempo real](/real-time-gex-0dte).
 
 ---
 
@@ -93,4 +93,4 @@ Contenido solo educativo — nada de lo anterior es una recomendación de tradin
 
 ---
 
-¿Quieres verlo en tiempo real? Consulta hoy los **call walls de SPX / SPY / QQQ** en ZeroGEX — las páginas gratuitas de niveles gamma de [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels) y [QQQ](/qqq-gamma-levels) grafican el call wall junto al [put wall](/education/what-is-a-put-wall), el [gamma flip](/education/how-to-read-a-gamma-flip) y el Net GEX. Para la lectura en vivo mientras el wall migra, abre el [panel GEX 0DTE en tiempo real](/real-time-gex-0dte).
+¿Quieres verlo en tiempo real? Consulta hoy los **call walls de SPX / SPY / QQQ / NDX** en ZeroGEX — las páginas gratuitas de niveles gamma de [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) y [NDX](/ndx-gamma-levels) grafican el call wall junto al [put wall](/education/what-is-a-put-wall), el [gamma flip](/education/how-to-read-a-gamma-flip) y el Net GEX. Para la lectura en vivo mientras el wall migra, abre el [panel GEX 0DTE en tiempo real](/real-time-gex-0dte).
