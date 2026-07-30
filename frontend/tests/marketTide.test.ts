@@ -73,3 +73,43 @@ test("loading, retry, insufficient data, and stale disclosure are present", () =
   assert.match(page, /Stale or unavailable symbols/);
   assert.doesNotMatch(page, /score \?\? 0/);
 });
+
+test("every authoritative label maps to prominent Title Case copy", () => {
+  assert.equal(formatLabel("bullish"), "Bullish");
+  assert.equal(formatLabel("bearish"), "Bearish");
+  assert.equal(formatLabel("neutral"), "Neutral");
+  assert.equal(formatLabel("insufficient_data"), "Insufficient Data");
+  assert.equal(formatLabel("amplifying"), "Amplifying");
+  assert.equal(formatLabel("dampening"), "Dampening");
+});
+
+test("percentages clamp both ends and signed zero keeps a stable sign column", () => {
+  assert.equal(safePercent(-50), 0);
+  assert.equal(safePercent(150), 100);
+  assert.equal(safePercent(91.7), 91.7);
+  assert.equal(formatSigned(0), "0.000000");
+  assert.equal(formatSigned(0.088508), "+0.088508");
+});
+
+test("breadth widths renormalize when returned percentages do not sum to 100", () => {
+  const [bull, neutral, bear] = breadthWidths([60, 30, 30]); // sums to 120
+  assert.ok(Math.abs(bull + neutral + bear - 100) < 1e-9);
+  assert.ok(Math.abs(bull - 50) < 1e-9);
+  assert.deepEqual(breadthWidths([0, 0, 0]), [0, 0, 0]);
+});
+
+test("the header renders the last-updated time via the shared ET formatter", () => {
+  assert.match(page, /formatEtDate/);
+  assert.match(page, /formatEtTime/);
+  assert.match(page, /return "Unavailable";/);
+  assert.doesNotMatch(page, /toLocaleString/);
+});
+
+test("gauge, breadth, and window controls expose accessible names and states", () => {
+  assert.match(page, /role="meter"/);
+  assert.match(page, /aria-valuetext=/);
+  assert.match(page, /role: "img"/); // insufficient-state gauge accessible name
+  assert.match(page, /role="img"/); // breadth bar announces values, not color alone
+  assert.match(page, /minute window/); // per-window screen-reader labels
+  assert.match(page, /role="progressbar"/); // participation indicator
+});

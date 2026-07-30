@@ -5,11 +5,21 @@ import { Activity, Gauge, RefreshCw, Users, Waves } from "lucide-react";
 import PageShell from "@/components/layout/PageShell";
 import ErrorMessage from "@/components/ErrorMessage";
 import TooltipWrapper from "@/components/TooltipWrapper";
+import { formatEtDate, formatEtTime } from "@/core/signalHelpers";
 import { useApiData } from "@/hooks/useApiData";
 import {
-  breadthWidths, finite, formatLabel, formatNumber, formatSigned, formatTimestamp,
+  breadthWidths, finite, formatLabel, formatNumber, formatSigned,
   markerPosition, safePercent, type MarketTideComponent, type MarketTideResponse,
 } from "./data";
+
+// Compose the app's existing ET timestamp formatters (from core/signalHelpers)
+// for the "Last updated" line, matching the sibling signal pages, with a
+// defensive fallback when the backend timestamp is missing or unparseable.
+function formatUpdated(value: unknown): string {
+  const date = formatEtDate(value);
+  if (!date) return "Unavailable";
+  return `${date}, ${formatEtTime(value)} ET`;
+}
 
 const WINDOWS = [5, 15, 30, 60] as const;
 const card = "rounded-2xl border p-5 sm:p-6";
@@ -25,7 +35,7 @@ function GaugePanel({ data }: { data: MarketTideResponse }) {
   const score = finite(data.score);
   return <section className={`${card} overflow-hidden`} style={cardStyle} aria-labelledby="tide-gauge-title">
     <div className="flex items-center gap-2"><Waves aria-hidden="true" size={20} className="text-[var(--color-brand-primary)]"/><h2 id="tide-gauge-title" className="font-semibold">Market Tide</h2></div>
-    <div className="py-8 text-center">
+    <div className="py-8 text-center" {...(insufficient ? { role: "img", "aria-label": "Market Tide gauge: Insufficient Data. Score withheld until at least 60% of supported symbols have fresh gamma and flow data." } : {})}>
       <div className="text-sm font-semibold uppercase tracking-[.2em] text-[var(--text-secondary)]">{insufficient ? "Score withheld" : formatLabel(data.label)}</div>
       <div className="mt-2 text-5xl font-bold tabular-nums">{insufficient || score == null ? "Insufficient Data" : formatNumber(score, 1)}</div>
       {insufficient && <p className="mx-auto mt-4 max-w-2xl text-sm text-[var(--text-secondary)]">The Market Tide score is withheld until at least 60% of supported symbols have fresh gamma and flow data.</p>}
@@ -60,8 +70,8 @@ export default function MarketTidePage() {
   const gammaLabel = formatLabel(data?.gamma_label);
   const gammaCopy = data?.gamma_label === "amplifying" ? "Negative gamma can strengthen moves in the direction of options pressure." : data?.gamma_label === "dampening" ? "Positive gamma can absorb or moderate directional options pressure." : "Dealer gamma is not materially amplifying or dampening options pressure.";
   return <PageShell width="wide" className="space-y-6">
-    <header className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between"><div><div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[.2em] text-[var(--color-brand-primary)]"><Waves size={16}/> Metrics · Beta</div><h1 className="text-3xl font-bold sm:text-4xl">Market Tide</h1><p className="mt-2 text-[var(--text-secondary)]">Market-wide options pressure adjusted for the dealer gamma regime.</p><p className="mt-2 text-xs text-[var(--text-secondary)]">Last updated: {formatTimestamp(data?.timestamp)} {data && loading && <span className="ml-2 inline-flex items-center gap-1"><RefreshCw size={11} className="animate-spin motion-reduce:animate-none"/> Refreshing</span>}</p></div>
-      <fieldset><legend className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">Window</legend><div className="inline-flex rounded-xl border p-1" style={cardStyle}>{WINDOWS.map(value=><button key={value} type="button" aria-pressed={windowMinutes===value} onClick={()=>setWindowMinutes(value)} className="rounded-lg px-4 py-2 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 aria-pressed:bg-[var(--color-brand-primary)] aria-pressed:text-white">{value}m</button>)}</div></fieldset>
+    <header className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between"><div><div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[.2em] text-[var(--color-brand-primary)]"><Waves size={16}/> Metrics · Beta</div><h1 className="text-3xl font-bold sm:text-4xl">Market Tide</h1><p className="mt-2 text-[var(--text-secondary)]">Market-wide options pressure adjusted for the dealer gamma regime.</p><p className="mt-2 text-xs text-[var(--text-secondary)]">Last updated: {formatUpdated(data?.timestamp)} {data && loading && <span className="ml-2 inline-flex items-center gap-1"><RefreshCw size={11} className="animate-spin motion-reduce:animate-none"/> Refreshing</span>}</p></div>
+      <fieldset><legend className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">Window</legend><div className="inline-flex rounded-xl border p-1" style={cardStyle}>{WINDOWS.map(value=><button key={value} type="button" aria-label={`${value} minute window`} aria-pressed={windowMinutes===value} onClick={()=>setWindowMinutes(value)} className="rounded-lg px-4 py-2 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 aria-pressed:bg-[var(--color-brand-primary)] aria-pressed:text-white">{value}m</button>)}</div></fieldset>
     </header>
     {!data && loading ? <MarketTideSkeleton/> : !data && error ? <ErrorMessage message={error} onRetry={refetch}/> : data && <>
       {error && <div role="status" className="text-xs text-[var(--color-bear)]">Refresh failed. Showing the latest successful snapshot.</div>}
@@ -71,7 +81,7 @@ export default function MarketTidePage() {
         <section className={card} style={cardStyle}><MetricTitle tip="Gamma changes how strongly directional flow may move the market; it is not itself bullish or bearish."><Gauge size={15}/> Gamma Regime</MetricTitle><div className="mt-4 flex items-baseline gap-3"><span className="text-3xl font-bold tabular-nums">{formatNumber(gamma)}</span><span className="font-semibold">{gammaLabel}</span></div><p className="mt-3 text-sm text-[var(--text-secondary)]">{gammaCopy}</p></section>
         <section className={`${card} ${participation < 60 ? "border-[var(--color-bear)]" : ""}`} style={cardStyle}><MetricTitle tip="Share of configured symbols with fresh flow and gamma data."><Users size={15}/> Participation</MetricTitle><div className="mt-4 text-3xl font-bold">{formatNumber(data.eligible_symbols, 0)} <span className="text-lg text-[var(--text-secondary)]">of {formatNumber(data.configured_symbols, 0)}</span></div><div className="mt-4 h-2 overflow-hidden rounded-full bg-[var(--color-border)]" role="progressbar" aria-label="Market Tide participation" aria-valuemin={0} aria-valuemax={100} aria-valuenow={participation}><div className="h-full bg-[var(--color-brand-primary)]" style={{width:`${participation}%`}}/></div><p className="mt-2 text-sm font-semibold">{formatNumber(data.participation_pct, 1)}% {participation < 60 && "· Below 60% minimum"}</p></section>
       </div>
-      <section className={card} style={cardStyle}><h2 className="text-lg font-semibold">Market Breadth</h2><div className="mt-5 flex h-5 overflow-hidden rounded-full" aria-label="Bullish, neutral, and bearish market breadth"><div className="bg-[var(--color-bull)]" style={{width:`${breadth[0]}%`}}/><div className="bg-[var(--color-border)]" style={{width:`${breadth[1]}%`}}/><div className="bg-[var(--color-bear)]" style={{width:`${breadth[2]}%`}}/></div><div className="mt-4 grid gap-2 text-sm sm:grid-cols-3"><span>▲ Bullish breadth <strong>{formatNumber(data.bullish_breadth_pct,1)}%</strong></span><span className="sm:text-center">● Neutral breadth <strong>{formatNumber(data.neutral_breadth_pct,1)}%</strong></span><span className="sm:text-right">▼ Bearish breadth <strong>{formatNumber(data.bearish_breadth_pct,1)}%</strong></span></div></section>
+      <section className={card} style={cardStyle}><h2 className="text-lg font-semibold">Market Breadth</h2><div className="mt-5 flex h-5 overflow-hidden rounded-full" role="img" aria-label={`Market breadth — bullish ${formatNumber(data.bullish_breadth_pct, 1)}%, neutral ${formatNumber(data.neutral_breadth_pct, 1)}%, bearish ${formatNumber(data.bearish_breadth_pct, 1)}%`}><div className="bg-[var(--color-bull)]" style={{width:`${breadth[0]}%`}}/><div className="bg-[var(--color-border)]" style={{width:`${breadth[1]}%`}}/><div className="bg-[var(--color-bear)]" style={{width:`${breadth[2]}%`}}/></div><div className="mt-4 grid gap-2 text-sm sm:grid-cols-3"><span>▲ Bullish breadth <strong>{formatNumber(data.bullish_breadth_pct,1)}%</strong></span><span className="sm:text-center">● Neutral breadth <strong>{formatNumber(data.neutral_breadth_pct,1)}%</strong></span><span className="sm:text-right">▼ Bearish breadth <strong>{formatNumber(data.bearish_breadth_pct,1)}%</strong></span></div></section>
       <div><h2 className="mb-4 text-xl font-semibold">What is moving the tide?</h2><div className="grid gap-5 xl:grid-cols-2"><ContributorTable title="Leaders" rows={Array.isArray(data.leaders)?data.leaders:[]} empty="No positive contributors in this window."/><ContributorTable title="Laggards" rows={Array.isArray(data.laggards)?data.laggards:[]} empty="No negative contributors in this window."/></div></div>
       {Array.isArray(data.stale_symbols) && data.stale_symbols.length > 0 && <details className={`${card} ${participation < 60 ? "border-[var(--color-bear)]" : ""}`} style={cardStyle}><summary className="cursor-pointer font-semibold">Stale or unavailable symbols ({data.stale_symbols.length})</summary><div className="mt-4 flex flex-wrap gap-2">{data.stale_symbols.map((symbol,i)=><span key={`${symbol}-${i}`} className="rounded-full border px-3 py-1 text-xs font-mono" style={{borderColor:"var(--color-border)"}}>{symbol || "Unknown"}</span>)}</div></details>}
     </>}

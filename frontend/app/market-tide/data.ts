@@ -66,8 +66,3 @@ export function breadthWidths(values: unknown[]): number[] {
   const total = safe.reduce((sum, value) => sum + value, 0);
   return total > 0 ? safe.map((value) => (value / total) * 100) : safe.map(() => 0);
 }
-export function formatTimestamp(value: unknown): string {
-  if (typeof value !== "string") return "Unavailable";
-  const date = new Date(value);
-  return Number.isFinite(date.getTime()) ? date.toLocaleString() : "Unavailable";
-}
