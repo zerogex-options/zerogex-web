@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Activity, Gauge, RefreshCw, Users, Waves } from "lucide-react";
+import { Activity, Gauge, RefreshCw, Users } from "lucide-react";
 import PageShell from "@/components/layout/PageShell";
+import BetaBadge from "@/components/BetaBadge";
 import ErrorMessage from "@/components/ErrorMessage";
 import TooltipWrapper from "@/components/TooltipWrapper";
 import { formatEtDate, formatEtTime } from "@/core/signalHelpers";
@@ -34,7 +35,7 @@ function GaugePanel({ data }: { data: MarketTideResponse }) {
   const position = insufficient ? null : markerPosition(data.score);
   const score = finite(data.score);
   return <section className={`${card} overflow-hidden`} style={cardStyle} aria-labelledby="tide-gauge-title">
-    <div className="flex items-center gap-2"><Waves aria-hidden="true" size={20} className="text-[var(--color-brand-primary)]"/><h2 id="tide-gauge-title" className="font-semibold">Market Tide</h2></div>
+    <h2 id="tide-gauge-title" className="font-semibold">Tide Score</h2>
     <div className="py-8 text-center" {...(insufficient ? { role: "img", "aria-label": "Market Tide gauge: Insufficient Data. Score withheld until at least 60% of supported symbols have fresh gamma and flow data." } : {})}>
       <div className="text-sm font-semibold uppercase tracking-[.2em] text-[var(--text-secondary)]">{insufficient ? "Score withheld" : formatLabel(data.label)}</div>
       <div className="mt-2 text-5xl font-bold tabular-nums">{insufficient || score == null ? "Insufficient Data" : formatNumber(score, 1)}</div>
@@ -70,8 +71,19 @@ export default function MarketTidePage() {
   const gammaLabel = formatLabel(data?.gamma_label);
   const gammaCopy = data?.gamma_label === "amplifying" ? "Negative gamma can strengthen moves in the direction of options pressure." : data?.gamma_label === "dampening" ? "Positive gamma can absorb or moderate directional options pressure." : "Dealer gamma is not materially amplifying or dampening options pressure.";
   return <PageShell width="wide" className="space-y-6">
-    <header className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between"><div><div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[.2em] text-[var(--color-brand-primary)]"><Waves size={16}/> Metrics · Beta</div><h1 className="text-3xl font-bold sm:text-4xl">Market Tide</h1><p className="mt-2 text-[var(--text-secondary)]">Market-wide options pressure adjusted for the dealer gamma regime.</p><p className="mt-2 text-xs text-[var(--text-secondary)]">Last updated: {formatUpdated(data?.timestamp)} {data && loading && <span className="ml-2 inline-flex items-center gap-1"><RefreshCw size={11} className="animate-spin motion-reduce:animate-none"/> Refreshing</span>}</p></div>
-      <fieldset><legend className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">Window</legend><div className="inline-flex rounded-xl border p-1" style={cardStyle}>{WINDOWS.map(value=><button key={value} type="button" aria-label={`${value} minute window`} aria-pressed={windowMinutes===value} onClick={()=>setWindowMinutes(value)} className="rounded-lg px-4 py-2 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 aria-pressed:bg-[var(--color-brand-primary)] aria-pressed:text-white">{value}m</button>)}</div></fieldset>
+    <header>
+      <div className="flex items-center gap-3">
+        <h1 className="text-3xl font-bold">Market Tide</h1>
+        <BetaBadge size="md" />
+      </div>
+      <p className="mt-2 text-sm text-[var(--text-secondary)]" style={{ maxWidth: 760 }}>Market-wide options pressure adjusted for the dealer gamma regime.</p>
+      <div className="mt-4 flex flex-wrap items-center gap-4">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">Window</span>
+          <div role="group" aria-label="Market Tide window" className="inline-flex rounded-xl border p-1" style={cardStyle}>{WINDOWS.map(value=><button key={value} type="button" aria-label={`${value} minute window`} aria-pressed={windowMinutes===value} onClick={()=>setWindowMinutes(value)} className="rounded-lg px-4 py-2 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 aria-pressed:bg-[var(--color-brand-primary)] aria-pressed:text-white">{value}m</button>)}</div>
+        </div>
+        <p className="text-xs text-[var(--text-secondary)] sm:ml-auto">Last updated: {formatUpdated(data?.timestamp)}{data && loading && <span className="ml-2 inline-flex items-center gap-1"><RefreshCw size={11} className="animate-spin motion-reduce:animate-none"/> Refreshing</span>}</p>
+      </div>
     </header>
     {!data && loading ? <MarketTideSkeleton/> : !data && error ? <ErrorMessage message={error} onRetry={refetch}/> : data && <>
       {error && <div role="status" className="text-xs text-[var(--color-bear)]">Refresh failed. Showing the latest successful snapshot.</div>}
