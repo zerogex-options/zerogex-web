@@ -17,7 +17,7 @@ Companion visual mockups: [`twitter-ad-campaign-creative.html`](./twitter-ad-cam
 |---|---|
 | **Goal** | Full-funnel → **7-day free-trial starts** |
 | **Structure** | 3 stages: COLD (free-levels traffic) → WARM (retarget) → CONVERT (trial) |
-| **Voice** | Hybrid — disciplined ZeroGEX body copy + strategic `$SPX $SPY $QQQ` cashtags |
+| **Voice** | Hybrid — disciplined ZeroGEX body copy + strategic `$SPX $SPY $QQQ $NDX` cashtags |
 | **Budget** | Starter, **~$17–50/day** ($500–1,500/mo); validate cost-per-trial, then scale |
 | **Handle** | **@ZeroGEXOptions** |
 | **Primary CTA** | Start 7-Day Free Trial · No charge until day 7 · Cancel anytime |
@@ -264,7 +264,7 @@ Card headline: `A gamma flip you can actually trust` · Creative: C2
 **CONVERT-1 · Payoff + offer · cashtags**
 > See what the market makers see.
 >
-> Real-time gamma flip, call/put walls and dealer positioning for $SPX $SPY $QQQ.
+> Real-time gamma flip, call/put walls and dealer positioning for $SPX $SPY $QQQ $NDX.
 >
 > 7-day free trial. No charge until day 7. Cancel anytime. Basic from $19/mo.
 
@@ -273,7 +273,7 @@ Card headline: `Start your 7-day free trial` · CTA: **Get started** · Creative
 **CONVERT-2 · Not guesswork**
 > Trade with dealer positioning — not guesswork.
 >
-> 8 modules, 13 live signals, 1-second refresh. Built for 0DTE on SPY, SPX and QQQ.
+> 8 modules, 13 live signals, 1-second refresh. Built for 0DTE on SPY, SPX, QQQ and NDX.
 >
 > Start your 7-day free trial. No charge today.
 
@@ -282,7 +282,7 @@ Card headline: `Trade positioning, not guesswork` · Creative: C6
 **CONVERT-3 · Risk reversal**
 > 7 days free. No charge until day 7. Cancel anytime — no email, no support ticket.
 >
-> Real-time gamma flip, walls and dealer flow for SPY / SPX / QQQ.
+> Real-time gamma flip, walls and dealer flow for SPY / SPX / QQQ / NDX.
 >
 > See the live desk.
 
@@ -291,7 +291,7 @@ Card headline: `7 days free. No charge until day 7.` · Creative: C6
 **CONVERT-4 · Folds of Honor (trust + differentiator) · cashtags**
 > 3% of every ZeroGEX subscription funds Folds of Honor scholarships for the families of fallen and disabled service members.
 >
-> Real-time gamma intelligence for $SPX $SPY $QQQ, and a cause behind it.
+> Real-time gamma intelligence for $SPX $SPY $QQQ $NDX, and a cause behind it.
 >
 > 7-day free trial.
 
@@ -300,11 +300,29 @@ Card headline: `Institutional gamma. A cause behind it.` · Creative: C6 (trust 
 **CONVERT-5 · Pro value**
 > Basic from $19/mo. Pro from $29/mo — advanced signals, backtesting and API access.
 >
-> Real-time dealer positioning for SPY, SPX and QQQ, refreshed every second.
+> Real-time dealer positioning for SPY, SPX, QQQ and NDX, refreshed every second.
 >
 > 7-day free trial, no charge today.
 
 Card headline: `Pro from $29/mo — 7-day free trial` · Creative: C6
+
+**CONVERT-6 · Regime (MSI) · screenshot**
+> Know the regime before you trade it.
+>
+> ZeroGEX scores the live market regime — trend, chop or reversal — from dealer gamma, net GEX and order flow. Every second, for SPY · SPX · QQQ · NDX.
+>
+> 7-day free trial. No charge until day 7.
+
+Card headline: `Read the regime in real time` · Creative: `convert-9-msi-regime.png`
+
+**CONVERT-7 · Regime → bias → playbook · screenshot**
+> Regime, bias and playbook — on one screen.
+>
+> ZeroGEX reads the live regime, resolves a directional bias and maps it to a defined-risk playbook for 0DTE on SPY · SPX · QQQ · NDX.
+>
+> 7-day free trial. No charge until day 7.
+
+Card headline: `Regime, bias & playbook. One screen.` · Creative: `convert-10-trade-bias.png`
 
 ### Video scripts (≤15s, 16:9 / 1:1)
 
@@ -424,7 +442,7 @@ a ~87–98M interest/look-alike blob (the trap documented in §3 ②). Actions t
   current pattern hit-rates are unvalidated priors (`../zerogex-oa/docs/playbook_catalog.md`),
   so they are **off-limits** in public copy.
 - Keep claims to **substantiated features**: real-time gamma flip / walls / dealer
-  positioning / flow / signals / 1-second refresh, coverage **SPY · SPX · QQQ only**.
+  positioning / flow / signals / 1-second refresh, coverage **SPY · SPX · QQQ · NDX**.
 - **Disclaimer** ("not investment advice; past performance is not indicative of future
   results") lives on the landing pages (`components/Footer.tsx`) — keep destinations pointed
   at pages that carry it. Follow **X's financial-services ads policy** (some regions require
@@ -444,7 +462,7 @@ positioning — not guesswork. · Know the levels that matter — before SPY/SPX
 Same dip, opposite outcome — depending on the regime. · The edge institutions keep secret.
 
 **Proof points (safe):** 1-second refresh · 8+ analytics modules · gamma flip + call/put
-walls + max pain + options flow · 13 named signals · Vanna & Charm · SPY · SPX · QQQ · free
+walls + max pain + options flow · 13 named signals · Vanna & Charm · SPY · SPX · QQQ · NDX · free
 daily levels, no signup · 40+ endpoint API (Pro).
 
 **CTAs:** View free levels · See it live · Start 7-Day Free Trial · No charge until day 7 ·
