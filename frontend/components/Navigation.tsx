@@ -4,7 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { MarketSession, Theme } from "@/core/types";
 import { colors } from "@/core/colors";
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronLeft, ChevronRight, Waves } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { NAV_GROUPS, type NavGroup, type NavItem } from "@/core/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -263,7 +263,6 @@ export default function Navigation({ theme }: NavigationProps) {
                       className="flex w-full items-center gap-2 rounded-xl border border-solid px-3 py-3 text-left text-sm font-semibold"
                       style={commonStyle}
                     >
-                      {page.icon === 'waves' && <Waves size={15} aria-hidden="true" />}
                       <span>{navLabel(page)}</span>
                       {page.beta && <BetaBadge />}
                     </Link>
@@ -280,7 +279,6 @@ export default function Navigation({ theme }: NavigationProps) {
                     style={commonStyle}
                     type="button"
                   >
-                    {page.icon === 'waves' && <Waves size={15} aria-hidden="true" />}
                     <span>{navLabel(page)}</span>
                     {page.beta && <BetaBadge />}
                   </button>

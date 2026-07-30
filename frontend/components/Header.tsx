@@ -19,7 +19,6 @@ import {
   Rocket,
   User,
   Search,
-  Waves,
 } from "lucide-react";
 import { NAV_GROUPS, type NavGroup, type NavItem } from "@/core/navigation";
 import BetaBadge from "./BetaBadge";
@@ -745,7 +744,6 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                             color: 'var(--text-primary)',
                           }}
                         >
-                          {page.icon === 'waves' && <Waves size={14} aria-hidden="true" />}
                           <span>{navLabel(page)}</span>
                           {page.beta && <BetaBadge />}
                         </a>
@@ -766,7 +764,6 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                           color: active ? 'var(--color-brand-primary)' : 'var(--text-primary)',
                         }}
                       >
-                        {page.icon === 'waves' && <Waves size={14} aria-hidden="true" />}
                         <span>{page.label}</span>
                         {page.beta && <BetaBadge />}
                       </button>
