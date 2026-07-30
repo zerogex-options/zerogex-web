@@ -416,6 +416,24 @@ video (1280×720, ≤15s)**; optional **2–6 card carousel** ("the 4 levels tha
 
 ### Operations log
 
+**2026-07-30 — CONVERT migrated from Website Traffic → Sales (Conversions → `TrialStart`).**
+X's own "improve results" panel flagged that the Website-traffic CONVERT campaign was already
+driving purchases, so graduated it to the objective the plan specified from day 1 (§4 / §8).
+Actions taken:
+
+- **New Sales campaign** ("ZeroGEX — CONVERT — Trial (Sales)") optimizing to **`TrialStart`**
+  — *not* `Purchase` (day-7, too sparse/delayed to optimize on at this budget) — on **Autobid**
+  until ~15–20 trials, then switch to **target cost** (§9).
+- **Migrated, not duplicated:** reused the four product-screenshot creatives, the hot + broad
+  audiences, the Converters/Subscribers exclusion and the UTMs; **paused the Website-traffic
+  version** so it doesn't self-compete for the same pool (§4: don't starve learning).
+- **Precondition:** X Pixel + `TrialStart` firing (implied by the purchase signal X already
+  reads). Judge on **cost-per-`TrialStart`** after ~1 week; discounted X's "up to 2× return"
+  nudge — an "up to / often" claim, not a guarantee.
+- **Coverage:** added **NDX** as a fourth symbol across CONVERT copy + the gamma/regime
+  creatives — NDX is now first-class in `core/symbols.ts` with a `/ndx-gamma-levels` page, so
+  the old "SPY · SPX · QQQ only" line was stale.
+
 **2026-07-20 — WARM held; retargeting pools under X's floor.** Tools → Audiences
 (Jul-19 refresh) measured: **All-Visitors 381**, **Free-Levels 352**,
 **Subscribers/Converters "Audience too small."** All three sit below X's ~500
