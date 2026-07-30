@@ -1785,13 +1785,15 @@ export default function GammaTerminalChart({
                     const pw = railBars.wFor(s.putGex);
                     const netW = railBars.wFor(s.netGex);
                     const netPos = s.netGex >= 0;
-                    const netH = Math.max(1, h * 0.34);
                     return (
                       <g key={`bar-${s.price}`}>
                         <rect x={RAIL_CENTER} y={y - h / 2} width={Math.max(0, cw)} height={h} fill="var(--color-bull)" opacity={0.85} />
                         <rect x={RAIL_CENTER - pw} y={y - h / 2} width={Math.max(0, pw)} height={h} fill="var(--color-bear)" opacity={0.85} />
+                        {/* Net overlay: same thickness as the call/put bars (the
+                            split tip still shows past it), matching the GEX Strike
+                            Profile's Combined view. */}
                         {effectiveRailMode === "combined" && s.netGex !== 0 && (
-                          <rect x={netPos ? RAIL_CENTER : RAIL_CENTER - netW} y={y - netH / 2} width={Math.max(0, netW)} height={netH} fill={NET_BAR_COLOR} opacity={0.9} />
+                          <rect x={netPos ? RAIL_CENTER : RAIL_CENTER - netW} y={y - h / 2} width={Math.max(0, netW)} height={h} fill={NET_BAR_COLOR} opacity={0.85} />
                         )}
                         {railBars.showLabels && s.callGex !== 0 && (
                           <RailBarLabel x={clamp(RAIL_CENTER + cw + 3, RAIL_LEFT + 2, RAIL_RIGHT - 2)} y={y + 3} anchor="start" color="var(--color-bull)" text={fmtGex(s.callGex)} />
