@@ -65,7 +65,7 @@ function MarketTideSkeleton() { return <div data-testid="market-tide-skeleton" c
 
 export default function MarketTidePage() {
   const [windowMinutes, setWindowMinutes] = useState<(typeof WINDOWS)[number]>(15);
-  const { data, loading, error, refetch } = useApiData<MarketTideResponse>(`/api/market-tide?window=${windowMinutes}`, { refreshInterval: 30_000 });
+  const { data, loading, error, refetch } = useApiData<MarketTideResponse>(`/api/flow/market-tide?window=${windowMinutes}`, { refreshInterval: 30_000 });
   const flow = finite(data?.flow_direction); const gamma = finite(data?.gamma_regime); const participation = safePercent(data?.participation_pct);
   const breadth = breadthWidths([data?.bullish_breadth_pct, data?.neutral_breadth_pct, data?.bearish_breadth_pct]);
   const gammaLabel = formatLabel(data?.gamma_label);

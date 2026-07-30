@@ -22,7 +22,7 @@ test("Market Tide is a standalone Basic Metrics route with a Beta nav item", () 
 
 test("all supported window buttons feed the endpoint query", () => {
   assert.match(page, /const WINDOWS = \[5, 15, 30, 60\] as const/);
-  assert.match(page, /market-tide\?window=\$\{windowMinutes\}/);
+  assert.match(page, /\/api\/flow\/market-tide\?window=\$\{windowMinutes\}/);
   assert.match(page, /refreshInterval: 30_000/);
 });
 
