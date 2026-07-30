@@ -16,8 +16,15 @@
 
 import { useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
+import { sanitizeUtmSource } from '@/core/utils';
 
 const ENDPOINT = '/api/analytics/page-view';
+// First-touch acquisition cookie, mirrored server-side at signup into
+// users.signup_utm_source (see the register route + OAuth callback). Lasts 30
+// days and is NOT overwritten once set, so the campaign that first brought the
+// visitor wins even if they browse around before creating an account.
+const SOURCE_COOKIE = 'zgx_src';
+const SOURCE_COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
 
 type Visit = {
   visitId: string;
@@ -26,6 +33,8 @@ type Visit = {
   activeMs: number;
   /** Timestamp the current visible stretch began, or null while hidden. */
   lastVisibleAt: number | null;
+  /** Sanitized ?utm_source= from this visit's landing URL, or null. */
+  utmSource: string | null;
 };
 
 function makeVisitId(): string {
@@ -41,6 +50,29 @@ function makeVisitId(): string {
 
 function isVisible(): boolean {
   return typeof document === 'undefined' || document.visibilityState === 'visible';
+}
+
+// Read + sanitize ?utm_source= off the current URL (the value the beacon stamps
+// on this visit's landing row).
+function readUtmSource(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return sanitizeUtmSource(new URLSearchParams(window.location.search).get('utm_source'));
+  } catch {
+    return null;
+  }
+}
+
+// First-touch: drop the zgx_src cookie only if one isn't already set, so the
+// earliest attributed source is the one carried to signup. Best-effort.
+function rememberSource(source: string): void {
+  try {
+    if (typeof document === 'undefined') return;
+    if (new RegExp(`(?:^|;\\s*)${SOURCE_COOKIE}=`).test(document.cookie)) return;
+    document.cookie = `${SOURCE_COOKIE}=${encodeURIComponent(source)}; path=/; max-age=${SOURCE_COOKIE_MAX_AGE}; SameSite=Lax`;
+  } catch {
+    // Attribution cookie is best-effort; never break a page over it.
+  }
 }
 
 // Close out the current visible stretch, folding it into activeMs exactly once.
@@ -89,7 +121,7 @@ export default function PageAnalytics() {
   // current visit is via the ref, so they don't need to re-bind per route.
   useEffect(() => {
     const sendExit = (visit: Visit) => {
-      post({ phase: 'exit', visitId: visit.visitId, path: visit.path, durationMs: visit.activeMs });
+      post({ phase: 'exit', visitId: visit.visitId, path: visit.path, durationMs: visit.activeMs, utmSource: visit.utmSource ?? undefined });
     };
     const onVisibility = () => {
       const visit = visitRef.current;
@@ -119,18 +151,24 @@ export default function PageAnalytics() {
   // navigation triggers the cleanup, which finalizes and reports the duration).
   useEffect(() => {
     if (!pathname) return;
+    const utmSource = readUtmSource();
+    if (utmSource) rememberSource(utmSource);
     const visit: Visit = {
       visitId: makeVisitId(),
       path: pathname,
       activeMs: 0,
       lastVisibleAt: isVisible() ? Date.now() : null,
+      utmSource,
     };
     visitRef.current = visit;
-    post({ phase: 'enter', visitId: visit.visitId, path: visit.path });
+    // utmSource ?? undefined so JSON.stringify omits it entirely on the vast
+    // majority of (organic) page views — the beacon stays byte-for-byte what it
+    // was before for anything without a campaign string.
+    post({ phase: 'enter', visitId: visit.visitId, path: visit.path, utmSource: visit.utmSource ?? undefined });
 
     return () => {
       accumulate(visit);
-      post({ phase: 'exit', visitId: visit.visitId, path: visit.path, durationMs: visit.activeMs });
+      post({ phase: 'exit', visitId: visit.visitId, path: visit.path, durationMs: visit.activeMs, utmSource: visit.utmSource ?? undefined });
       if (visitRef.current === visit) visitRef.current = null;
     };
   }, [pathname]);

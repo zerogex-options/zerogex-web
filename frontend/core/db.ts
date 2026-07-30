@@ -501,6 +501,17 @@ function initDb(): DatabaseSync {
     'CREATE INDEX IF NOT EXISTS idx_page_view_events_created ON page_view_events(created_at);'
   );
 
+  // Acquisition source (utm_source) captured on the LANDING page view, so the
+  // admin "Conversion by Source" view can divide registrations-by-source by
+  // landing-visits-by-source. NULL for organic/direct arrivals. Added via
+  // ensureColumn so existing installs pick it up on the next boot. The partial
+  // index keeps the source aggregation cheap without bloating the dominant
+  // NULL (organic) cohort.
+  ensureColumn('page_view_events', 'utm_source', 'TEXT');
+  db.exec(
+    'CREATE INDEX IF NOT EXISTS idx_page_view_events_utm_source ON page_view_events(utm_source, created_at) WHERE utm_source IS NOT NULL;'
+  );
+
   // Optional, user-supplied X (formerly Twitter) handle, surfaced as a
   // contact/social field in Account settings. Deliberately NOT collected at
   // signup — a user opts in later from the Social Media section. Stored
@@ -508,6 +519,13 @@ function initDb(): DatabaseSync {
   // NULL when unset. Unverified — treat as a display/contact hint, never as an
   // identity or auth signal.
   ensureColumn('users', 'x_handle', 'TEXT');
+
+  // First-touch acquisition source (utm_source) captured at signup from the
+  // zgx_src cookie dropped on the landing page (see components/PageAnalytics).
+  // Powers the admin "Conversion by Source" funnel — registrations grouped by
+  // the campaign that first brought the user. NULL for organic/direct signups
+  // and for accounts created before this shipped.
+  ensureColumn('users', 'signup_utm_source', 'TEXT');
 
   return db;
 }

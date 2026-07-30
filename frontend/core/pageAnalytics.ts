@@ -145,6 +145,8 @@ export type VisitInput = {
   userId: string | null;
   tier: string | null;
   durationMs?: number;
+  /** Acquisition source from the landing URL's ?utm_source=, already sanitized. */
+  utmSource?: string | null;
 };
 
 function clampDuration(ms: number | undefined): number {
@@ -161,10 +163,10 @@ export function recordPageEnter(input: VisitInput): void {
   const now = new Date().toISOString();
   getDb()
     .prepare(
-      `INSERT OR IGNORE INTO page_view_events (visit_id, path, user_id, tier, duration_ms, created_at)
-       VALUES (?, ?, ?, ?, 0, ?)`,
+      `INSERT OR IGNORE INTO page_view_events (visit_id, path, user_id, tier, duration_ms, created_at, utm_source)
+       VALUES (?, ?, ?, ?, 0, ?, ?)`,
     )
-    .run(input.visitId, input.path, input.userId, input.tier, now);
+    .run(input.visitId, input.path, input.userId, input.tier, now, input.utmSource ?? null);
   maybePrune();
 }
 
@@ -179,12 +181,12 @@ export function recordPageExit(input: VisitInput): void {
   const duration = clampDuration(input.durationMs);
   getDb()
     .prepare(
-      `INSERT INTO page_view_events (visit_id, path, user_id, tier, duration_ms, created_at)
-       VALUES (?, ?, ?, ?, ?, ?)
+      `INSERT INTO page_view_events (visit_id, path, user_id, tier, duration_ms, created_at, utm_source)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(visit_id) DO UPDATE SET
          duration_ms = MAX(page_view_events.duration_ms, excluded.duration_ms)`,
     )
-    .run(input.visitId, input.path, input.userId, input.tier, duration, now);
+    .run(input.visitId, input.path, input.userId, input.tier, duration, now, input.utmSource ?? null);
   maybePrune();
 }
 
@@ -338,4 +340,107 @@ export function getPageAnalyticsSnapshot(opts: { windowDays?: number; limit?: nu
   }
 
   return { windowDays, generatedAt, retentionDays: RETENTION_DAYS, totals, pages };
+}
+
+// ---------------------------------------------------------------------------
+// Conversion by acquisition source. Divides registrations-by-source (users.
+// signup_utm_source, first-touch from the zgx_src cookie) by landing-visits-
+// by-source (page_view_events.utm_source, per-visit). Both are measured over
+// the same window; a signup can trace to a visit that predates the window, so
+// the ratio is an approximation, not a strict cohort — surfaced to catch a
+// campaign that draws clicks but no signups (the failure mode behind the
+// "zero registrations" scare), not for accounting.
+// ---------------------------------------------------------------------------
+
+export type ConversionSourceRow = {
+  /** utm_source, or the DIRECT_SOURCE_LABEL bucket for organic/direct. */
+  source: string;
+  /** Distinct landing visits attributed to this source in the window. */
+  visits: number;
+  /** Registrations first-touch-attributed to this source in the window. */
+  signups: number;
+  /** Of those signups, how many currently hold an active/trialing subscription. */
+  subscribers: number;
+  /** signups / visits (0 when there are no visits to divide by). */
+  signupConversion: number;
+};
+
+export type ConversionBySourceSnapshot = {
+  windowDays: number;
+  generatedAt: string;
+  totals: { visits: number; signups: number; subscribers: number };
+  sources: ConversionSourceRow[];
+};
+
+/** Label for the merged NULL bucket (arrivals/signups with no utm_source). */
+export const DIRECT_SOURCE_LABEL = '(direct / none)';
+
+export function getConversionBySource(opts: { windowDays?: number } = {}): ConversionBySourceSnapshot {
+  const windowDays = normalizeWindowDays(opts.windowDays ?? 30);
+  const generatedAt = new Date().toISOString();
+  const since = new Date(Date.now() - windowDays * DAY_MS).toISOString();
+
+  // Accumulate visits and signups into one row per source. NULLs from both
+  // sides fold into the same DIRECT_SOURCE_LABEL bucket.
+  const rows = new Map<string, ConversionSourceRow>();
+  const rowFor = (raw: string | null): ConversionSourceRow => {
+    const key = raw ?? DIRECT_SOURCE_LABEL;
+    let row = rows.get(key);
+    if (!row) {
+      row = { source: key, visits: 0, signups: 0, subscribers: 0, signupConversion: 0 };
+      rows.set(key, row);
+    }
+    return row;
+  };
+
+  try {
+    // utm_source lives on the landing page view only, so DISTINCT visit_id here
+    // is ~= the number of sessions that arrived from that source.
+    const visitRows = getDb()
+      .prepare(
+        `SELECT utm_source AS source, COUNT(DISTINCT visit_id) AS visits
+           FROM page_view_events
+          WHERE created_at > ?
+          GROUP BY utm_source`,
+      )
+      .all(since) as Array<{ source: string | null; visits: number }>;
+    for (const r of visitRows) rowFor(r.source).visits += Number(r.visits) || 0;
+  } catch {
+    // Partial data is fine — leave visits at whatever landed.
+  }
+
+  try {
+    const signupRows = getDb()
+      .prepare(
+        `SELECT signup_utm_source AS source,
+                COUNT(*) AS signups,
+                SUM(CASE WHEN subscription_status IN ('active', 'trialing') THEN 1 ELSE 0 END) AS subscribers
+           FROM users
+          WHERE created_at > ? AND deleted_at IS NULL
+          GROUP BY signup_utm_source`,
+      )
+      .all(since) as Array<{ source: string | null; signups: number; subscribers: number }>;
+    for (const r of signupRows) {
+      const row = rowFor(r.source);
+      row.signups += Number(r.signups) || 0;
+      row.subscribers += Number(r.subscribers) || 0;
+    }
+  } catch {
+    // Partial data is fine — leave signups at whatever landed.
+  }
+
+  const sources = Array.from(rows.values())
+    .map((r) => ({ ...r, signupConversion: r.visits > 0 ? r.signups / r.visits : 0 }))
+    .sort((a, b) => b.visits - a.visits || b.signups - a.signups || a.source.localeCompare(b.source));
+
+  const totals = sources.reduce(
+    (acc, r) => ({
+      visits: acc.visits + r.visits,
+      signups: acc.signups + r.signups,
+      subscribers: acc.subscribers + r.subscribers,
+    }),
+    { visits: 0, signups: 0, subscribers: 0 },
+  );
+
+  return { windowDays, generatedAt, totals, sources };
 }

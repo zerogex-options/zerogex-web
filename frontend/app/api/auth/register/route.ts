@@ -7,6 +7,7 @@ import {
   REFERRAL_COOKIE_NAME,
   registerAndStartSession,
   selfSignupTier,
+  SOURCE_COOKIE_NAME,
   validateCsrf,
 } from '@/core/serverAuth';
 
@@ -42,6 +43,10 @@ export async function POST(request: NextRequest) {
     (typeof body.ref === 'string' && body.ref.length > 0 ? body.ref : null) ??
     request.cookies.get(REFERRAL_COOKIE_NAME)?.value ??
     null;
+  // First-touch acquisition source dropped as zgx_src on the landing page. Read
+  // server-side (not from the form body — it survives navigation the URL's UTM
+  // doesn't) and sanitized in registerUser. Best-effort: absent = organic.
+  const signupSource = request.cookies.get(SOURCE_COOKIE_NAME)?.value ?? null;
 
   if (!email || !password || password.length < 12) {
     return NextResponse.json({ error: 'Email and password (12+ chars) are required' }, { status: 400 });
@@ -64,6 +69,7 @@ export async function POST(request: NextRequest) {
       password,
       selfSignupTier(),
       referralCode,
+      signupSource,
     );
     const response = NextResponse.json({
       ok: true,

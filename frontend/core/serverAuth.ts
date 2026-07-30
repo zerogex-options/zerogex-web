@@ -6,10 +6,15 @@ import { getDb } from '@/core/db';
 import { sendEmailVerification } from '@/core/mailer';
 import { recordReferralSignup } from '@/core/referrals';
 import { normalizeCampaignCode } from '@/core/campaigns';
+import { sanitizeUtmSource } from '@/core/utils';
 
 // First-party cookie that carries an inbound ?ref= code from the landing page
 // through to account creation (incl. the OAuth round-trip).
 export const REFERRAL_COOKIE_NAME = 'zgx_ref';
+// Companion cookie carrying the first-touch acquisition source (utm_source),
+// dropped by components/PageAnalytics on the landing page and read here to
+// stamp users.signup_utm_source for the admin "Conversion by Source" funnel.
+export const SOURCE_COOKIE_NAME = 'zgx_src';
 
 export type AuthUser = {
   id: string;
@@ -412,6 +417,7 @@ export async function registerUser(
   password: string,
   tier: TierId = 'public',
   referralCode?: string | null,
+  signupSource?: string | null,
 ) {
   const normalizedEmail = email.trim().toLowerCase();
   if (getUserByEmail(normalizedEmail)) throw new Error('Email already registered');
@@ -437,9 +443,9 @@ export async function registerUser(
   };
 
   db.prepare(
-    `INSERT INTO users (id, email, password_hash, tier, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?)`
-  ).run(user.id, user.email, user.passwordHash, user.tier, user.createdAt, user.updatedAt);
+    `INSERT INTO users (id, email, password_hash, tier, created_at, updated_at, signup_utm_source)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).run(user.id, user.email, user.passwordHash, user.tier, user.createdAt, user.updatedAt, sanitizeUtmSource(signupSource));
 
   // Best-effort referral attribution — an invalid/absent code just leaves the
   // signup organic and must never block account creation.
@@ -473,8 +479,9 @@ export async function registerAndStartSession(
   password: string,
   tier: TierId = 'public',
   referralCode?: string | null,
+  signupSource?: string | null,
 ) {
-  await registerUser(request, email, password, tier, referralCode);
+  await registerUser(request, email, password, tier, referralCode, signupSource);
   const fullUser = getUserByEmail(email.trim().toLowerCase());
   if (!fullUser) throw new Error('Registration succeeded but user lookup failed');
 
@@ -940,9 +947,17 @@ export async function createOrLoginOAuthUser(request: NextRequest, input: { prov
         // stamp email_verified_at immediately and skip the verification
         // round-trip the local-password flow goes through.
         db.prepare(
-          `INSERT INTO users (id, email, password_hash, tier, created_at, updated_at, email_verified_at)
-           VALUES (?, ?, NULL, ?, ?, ?, ?)`
-        ).run(user.id, user.email, user.tier, user.createdAt, user.updatedAt, oauthNow);
+          `INSERT INTO users (id, email, password_hash, tier, created_at, updated_at, email_verified_at, signup_utm_source)
+           VALUES (?, ?, NULL, ?, ?, ?, ?, ?)`
+        ).run(
+          user.id,
+          user.email,
+          user.tier,
+          user.createdAt,
+          user.updatedAt,
+          oauthNow,
+          sanitizeUtmSource(request.cookies.get(SOURCE_COOKIE_NAME)?.value),
+        );
 
         // Attribute the OAuth signup to any inbound referral the user carried
         // through the provider round-trip in the zgx_ref cookie. Best-effort:

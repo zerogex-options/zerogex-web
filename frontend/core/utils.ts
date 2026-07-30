@@ -1,5 +1,17 @@
 import { MarketSession } from './types';
 
+// UTM source normalization, shared by the page-view beacon and the signup
+// attribution path (zgx_src cookie -> users.signup_utm_source). Lowercased and
+// restricted to a small charset so "X", "x", and "X/promo" collapse to one
+// stable key, values stay index-friendly, and nothing hostile reaches SQL or
+// the admin table. Returns null for anything empty/absent so callers store
+// NULL (organic/direct), never "".
+export function sanitizeUtmSource(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const cleaned = raw.trim().toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 64);
+  return cleaned.length > 0 ? cleaned : null;
+}
+
 export const getMarketSession = (): MarketSession => {
   const now = new Date();
   const parts = new Intl.DateTimeFormat('en-US', {

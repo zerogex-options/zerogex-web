@@ -56,6 +56,24 @@ type GrowthRatePoint = {
   dailyRate: number;
 };
 
+// Mirrors ConversionSourceRow / ConversionBySourceSnapshot in
+// core/pageAnalytics.ts (hand-synced — this client component can't import the
+// server-only module). Registrations-by-source over landing-visits-by-source.
+type ConversionSourceRow = {
+  source: string;
+  visits: number;
+  signups: number;
+  subscribers: number;
+  signupConversion: number;
+};
+
+type ConversionBySourceSnapshot = {
+  windowDays: number;
+  generatedAt: string;
+  totals: { visits: number; signups: number; subscribers: number };
+  sources: ConversionSourceRow[];
+};
+
 // Mirrors MrrSnapshot in core/pricing.ts (kept in sync by hand — this file
 // is a client component and can't import the server-only monitoring types).
 type MrrBreakdownRow = {
@@ -140,6 +158,7 @@ type Snapshot = {
   signups: SignupPoint[];
   signupFlow: SignupFlowPoint[];
   growthRates: GrowthRatePoint[];
+  conversionBySource: ConversionBySourceSnapshot;
   hourly: SnapshotPoint[];
   daily: SnapshotPoint[];
   topIps: Array<{ ip: string; count: number }>;
@@ -330,6 +349,14 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
         </div>
       </section>
 
+      <ConversionBySourceSection
+        data={data.conversionBySource}
+        cardBg={cardBg}
+        borderColor={borderColor}
+        mutedText={mutedText}
+        textColor={textColor}
+      />
+
       {METRICS.map((metric) => (
         <section key={metric.key} className="mb-8">
           <div className="flex items-baseline justify-between mb-2">
@@ -403,6 +430,85 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
       </section>
 
     </div>
+  );
+}
+
+function ConversionBySourceSection({
+  data,
+  cardBg,
+  borderColor,
+  mutedText,
+  textColor,
+}: {
+  data: ConversionBySourceSnapshot;
+  cardBg: string;
+  borderColor: string;
+  mutedText: string;
+  textColor: string;
+}) {
+  const totalConv = data.totals.visits > 0 ? (data.totals.signups / data.totals.visits) * 100 : null;
+  return (
+    <section className="mb-8">
+      <div className="flex items-baseline justify-between mb-2">
+        <h2 className="text-lg font-semibold" style={{ color: textColor }}>Conversion by Source</h2>
+        <span className="text-xs" style={{ color: mutedText }}>
+          Landing visits → registrations by first-touch utm_source, last {data.windowDays}d
+        </span>
+      </div>
+      <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
+        {data.sources.length === 0 ? (
+          <div className="text-sm" style={{ color: mutedText }}>
+            No source data captured yet — utm_source is recorded on landing pages going forward.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm" style={{ color: textColor }}>
+              <thead>
+                <tr className="text-left" style={{ color: mutedText }}>
+                  <th className="py-1 pr-4 font-medium">Source</th>
+                  <th className="py-1 px-3 font-medium text-right">Visits</th>
+                  <th className="py-1 px-3 font-medium text-right">Signups</th>
+                  <th className="py-1 px-3 font-medium text-right">Conv.</th>
+                  <th className="py-1 pl-3 font-medium text-right">Subs</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.sources.map((row) => {
+                  const stalled = row.visits >= 10 && row.signups === 0;
+                  return (
+                    <tr key={row.source} style={{ borderTop: `1px solid ${borderColor}` }}>
+                      <td className="py-1.5 pr-4 font-mono text-xs">{row.source}</td>
+                      <td className="py-1.5 px-3 text-right tabular-nums">{row.visits.toLocaleString()}</td>
+                      <td className="py-1.5 px-3 text-right tabular-nums">{row.signups.toLocaleString()}</td>
+                      <td
+                        className="py-1.5 px-3 text-right tabular-nums font-semibold"
+                        style={{ color: stalled ? 'var(--color-warning)' : textColor }}
+                        title={stalled ? 'Traffic but no signups — check the landing/CTA or ad targeting' : undefined}
+                      >
+                        {row.visits > 0 ? `${(row.signupConversion * 100).toFixed(1)}%` : '—'}
+                      </td>
+                      <td className="py-1.5 pl-3 text-right tabular-nums" style={{ color: mutedText }}>{row.subscribers.toLocaleString()}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr style={{ borderTop: `2px solid ${borderColor}`, color: mutedText }}>
+                  <td className="py-1.5 pr-4 text-xs uppercase tracking-wide">Total</td>
+                  <td className="py-1.5 px-3 text-right tabular-nums">{data.totals.visits.toLocaleString()}</td>
+                  <td className="py-1.5 px-3 text-right tabular-nums">{data.totals.signups.toLocaleString()}</td>
+                  <td className="py-1.5 px-3 text-right tabular-nums">{totalConv != null ? `${totalConv.toFixed(1)}%` : '—'}</td>
+                  <td className="py-1.5 pl-3 text-right tabular-nums">{data.totals.subscribers.toLocaleString()}</td>
+                </tr>
+              </tfoot>
+            </table>
+            <p className="mt-3 text-xs" style={{ color: mutedText }}>
+              Visits and signups are both counted in the window; a signup can trace to an earlier visit, so read the rate as directional. A source with many visits and zero signups (highlighted) is the pattern to watch — clicks that aren&apos;t converting.
+            </p>
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 
