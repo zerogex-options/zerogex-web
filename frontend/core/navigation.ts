@@ -12,6 +12,8 @@ export type NavItem = {
   external?: boolean;
   /** Flags an in-development feature; renders a "Beta" pill next to the label. */
   beta?: boolean;
+  /** Optional icon name rendered by both desktop and mobile navigation. */
+  icon?: 'waves';
 };
 
 export type NavSubgroup = {
@@ -102,6 +104,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { id: '/pair-comparison', label: 'Pair Comparison', requiredTier: 'basic', beta: true },
       { id: '/forced-flow', label: 'Forced Flow', requiredTier: 'basic', beta: true },
       { id: '/flow-analysis', label: 'Flow Analysis', requiredTier: 'basic' },
+      { id: '/market-tide', label: 'Market Tide', requiredTier: 'basic', beta: true, icon: 'waves' },
       { id: '/smart-money', label: 'Smart Money', requiredTier: 'basic' },
       { id: '/max-pain', label: 'Max Pain', requiredTier: 'basic' },
       { id: '/intraday-tools', label: 'Technicals', requiredTier: 'basic' },

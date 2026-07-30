@@ -111,6 +111,7 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   { pattern: '/pair-comparison', minimumTier: 'basic' },
   { pattern: '/gex-strike-profile', minimumTier: 'basic' },
   { pattern: '/flow-analysis', minimumTier: 'basic' },
+  { pattern: '/market-tide', minimumTier: 'basic' },
   { pattern: '/smart-money', minimumTier: 'basic' },
   { pattern: '/max-pain', minimumTier: 'basic' },
   { pattern: '/intraday-tools', minimumTier: 'basic' },
