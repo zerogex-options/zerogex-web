@@ -3,12 +3,17 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   breadthWidths,
+  buildRead,
+  componentRegime,
   finite,
   formatLabel,
   formatNumber,
   formatSigned,
   markerPosition,
   safePercent,
+  tideComponents,
+  type MarketTideComponent,
+  type MarketTideResponse,
 } from "../app/market-tide/data.ts";
 
 const page = readFileSync(new URL("../app/market-tide/page.tsx", import.meta.url), "utf8");
@@ -57,12 +62,60 @@ test("breadth widths normalize visual rounding without changing text values", ()
   assert.ok(Math.abs(rounded.reduce((a, b) => a + b, 0) - 100) < 1e-9);
 });
 
-test("contributors use signed contributions and fractional percentage weights", () => {
+test("by-ticker strip uses signed contributions and per-symbol weights", () => {
   assert.equal(formatSigned(0.12474), "+0.124740");
   assert.equal(formatSigned(-0.021996), "-0.021996");
-  assert.match(page, /finite\(row\.weight\).*\* 100/);
-  assert.match(page, /No positive contributors in this window\./);
-  assert.match(page, /No negative contributors in this window\./);
+  assert.match(page, /formatSigned\(contrib, 2\)/);
+  assert.match(page, /weight \* 100/);
+  assert.match(page, /No eligible symbols in this window\./);
+});
+
+test("the page composes the Tide chart, Flow×Gamma map, and the history endpoint", () => {
+  assert.match(page, /import MarketTideChart from "\.\/MarketTideChart"/);
+  assert.match(page, /import FlowGammaMap from "\.\/FlowGammaMap"/);
+  assert.match(page, /\/api\/flow\/market-tide\/history\?window=/);
+});
+
+const comp = (
+  symbol: string,
+  flow: number,
+  gamma: number,
+  contribution: number,
+): MarketTideComponent => ({ symbol, flow_score: flow, gamma_score: gamma, amplifier: 1, weight: 0.25, contribution });
+
+test("buildRead surfaces the index-vs-ETF split and short-gamma amplification", () => {
+  const data = {
+    timestamp: "2026-07-29T16:00:00Z", score: 1.36, label: "bullish",
+    flow_direction: 0.01, gamma_regime: -0.79, gamma_label: "amplifying",
+    bullish_breadth_pct: 50, neutral_breadth_pct: 0, bearish_breadth_pct: 50,
+    participation_pct: 100, eligible_symbols: 4, configured_symbols: 4, stale_symbols: [],
+    components: [comp("NDX", 0.75, -0.8, 0.26), comp("SPX", 0.44, -0.74, 0.15), comp("QQQ", -0.5, -0.73, -0.17), comp("SPY", -0.63, -0.9, -0.23)],
+    leaders: [], laggards: [],
+  } as unknown as MarketTideResponse;
+  const read = buildRead(data);
+  assert.ok(read);
+  assert.match(read.headline, /mildly bullish/);
+  assert.match(read.headline, /short gamma/);
+  assert.equal(read.shortGamma, true);
+  assert.ok(read.items.some((it) => /Index-vs-ETF split/.test(it.label)));
+});
+
+test("buildRead withholds a read when the score is insufficient", () => {
+  const read = buildRead({ score: null, label: "insufficient_data", leaders: [], laggards: [] } as unknown as MarketTideResponse);
+  assert.ok(read);
+  assert.equal(read.items.length, 0);
+});
+
+test("tideComponents falls back to leaders+laggards when components is absent", () => {
+  const data = { leaders: [comp("AAA", 0.3, -0.2, 0.2)], laggards: [comp("BBB", -0.4, -0.3, -0.1)] } as unknown as MarketTideResponse;
+  assert.deepEqual(tideComponents(data).map((r) => r.symbol), ["AAA", "BBB"]);
+});
+
+test("componentRegime classifies the four flow×gamma quadrants", () => {
+  assert.equal(componentRegime(comp("X", 0.5, -0.5, 0)), "squeeze");
+  assert.equal(componentRegime(comp("X", -0.5, -0.5, 0)), "airpocket");
+  assert.equal(componentRegime(comp("X", 0.5, 0.5, 0)), "capped");
+  assert.equal(componentRegime(comp("X", -0.5, 0.5, 0)), "supported");
 });
 
 test("loading, retry, insufficient data, and stale disclosure are present", () => {
