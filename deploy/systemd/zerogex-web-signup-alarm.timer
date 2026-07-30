@@ -1,0 +1,21 @@
+[Unit]
+Description=ZeroGEX web signup-rate alarm timer (hourly; the script gates active hours)
+
+[Timer]
+# Hourly on :35 so it doesn't collide with the auth backup at :00, the
+# trial-reminder timer at :15, the verify-reminder timer at :20, the
+# verified-never-paid timer at :30, or the checkout-recovery timer at :45.
+# The alarm is only meaningful during the day, but the active-hours window is
+# enforced IN THE SCRIPT (ET, DST-correct) rather than here — that keeps the
+# schedule DST-proof and lets the window be tuned via SIGNUP_ALARM_ACTIVE_*
+# in frontend/.env.local without editing this unit.
+OnCalendar=*:35:00
+# Spread load across deploys / coalesce if the box wakes many timers at once.
+RandomizedDelaySec=3m
+# If the box was down at the scheduled minute, run once as soon as it is back
+# up. systemd coalesces multiple missed ticks into a single catch-up run, and
+# the cooldown latch prevents that catch-up from double-alerting.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

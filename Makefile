@@ -1,4 +1,4 @@
-.PHONY: help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding activate-late-founder extend-trial quarterly-receipt foh-donation-reminder set-cancellation clear-zombie-customers webhook-health trial-reminders payment-failed-preview verified-never-paid verify-reminders winback reactivation checkout-recovery founding-final-call public-cohort cancellations diagnose-user reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo blog-images
+.PHONY: help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation clear-zombie-customers webhook-health trial-reminders payment-failed-preview verified-never-paid verify-reminders winback reactivation checkout-recovery founding-final-call public-cohort cancellations diagnose-user reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo blog-images
 
 # Default target
 help:
@@ -31,6 +31,7 @@ help:
 	@echo "  make set-cancellation EMAIL=<email> (OFF=1 | ON=1) - Flip one customer's cancel_at_period_end: OFF=1 stops a scheduled cancel (renews, or converts a trial to paid); ON=1 schedules a cancel at period end (DRY_RUN=1 to preview, YES=1 to apply)"
 	@echo "  make clear-zombie-customers - NULL stripe_customer_id on rows with no subscription (APPLY=1 to write, dry-run by default)"
 	@echo "  make webhook-health - Stripe webhook health summary (errors/orphans/failed payments, last 24h + 7d)"
+	@echo "  make signup-alarm  - Check the trailing registration rate and email the operator if signups have flatlined. Runs hourly via systemd (step 096); FORCE=1 bypasses the active-hours/cooldown gates, DRY_RUN=1 previews without sending, WINDOW=<h>/MIN=<n> override thresholds"
 	@echo "  make trial-reminders - Send ~48h-before-trial-end reminder emails (DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, RENDER=<email> to dry-run one member's real copy to files without sending)"
 	@echo "  make payment-failed-preview - Send yourself a sample of the payment-failed dunning email (PREVIEW_TO=<email>; FINAL=1 for the retries-exhausted variant, NO_CARD=1 for the neutral fallback)"
 	@echo "  make verified-never-paid - Send the founder-voice trial-nudge to users who signed up + verified but never opened checkout (DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, LAG_HOURS=<n> to override the 2h default)"
@@ -417,6 +418,26 @@ quarterly-receipt:
 #   make foh-donation-reminder QUARTER="Q3 2026"                 # override auto-detected quarter
 foh-donation-reminder:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-foh-donation-reminder.mts $(if $(TO),--to $(TO),) $(if $(QUARTER),--quarter "$(QUARTER)",) $(if $(DRY_RUN),--dry-run,)'
+
+# Signup-rate alarm: emails the operator if NEW registrations flatline (fewer
+# than SIGNUP_ALARM_MIN accounts created in the trailing SIGNUP_ALARM_WINDOW_HOURS).
+# Reads the auth DB only. Runs hourly via the systemd timer installed by deploy
+# step 096 (deploy/systemd/zerogex-web-signup-alarm.timer); the active-hours
+# gate + cooldown latch are in the script, so an off-hours tick is a cheap
+# no-op. Also runnable by hand for testing.
+#
+# Env: RESEND_API_KEY, RESEND_FROM_EMAIL required. Recipient comes from --to,
+# then SIGNUP_ALARM_EMAIL, then FOH_REMINDER_EMAIL (frontend/.env.local).
+# Tunables (all optional, .env.local): SIGNUP_ALARM_WINDOW_HOURS (5),
+# SIGNUP_ALARM_MIN (1), SIGNUP_ALARM_ACTIVE_START_ET (10),
+# SIGNUP_ALARM_ACTIVE_END_ET (22), SIGNUP_ALARM_COOLDOWN_HOURS (12).
+#
+# Examples:
+#   make signup-alarm FORCE=1 DRY_RUN=1        # preview the decision, never sends
+#   make signup-alarm FORCE=1                  # force a real send now (test the email)
+#   make signup-alarm WINDOW=3 MIN=1           # ad-hoc check over a 3h window
+signup-alarm:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-signup-alarm.mts $(if $(TO),--to $(TO),) $(if $(WINDOW),--window $(WINDOW),) $(if $(MIN),--min $(MIN),) $(if $(FORCE),--force,) $(if $(DRY_RUN),--dry-run,)'
 
 # Flip ONE customer's cancel_at_period_end flag on their Stripe subscription.
 # OFF=1 stops a scheduled cancellation (the sub renews, or — on a trial —
