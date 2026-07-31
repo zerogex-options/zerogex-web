@@ -1007,12 +1007,24 @@ function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
 // request audit is the durable source going forward. Grouping cancellation
 // rows by user/day prevents the acknowledgement and request rows emitted for
 // the same click from being counted twice.
+//
+// Win-backs offset cancellations: an honor-winback-discount run that clears a
+// scheduled cancellation (billing_winback_discount_honored, "cleared
+// cancel_at_period_end") means the member was retained on the same
+// subscription — no re-subscribe, so no offsetting signup ever lands. We
+// subtract in-window win-backs from the in-window cancellation count (floored
+// at 0) so a cancelled-then-won-back member nets to zero rather than showing as
+// a loss. This is a count-level offset within the same window (simplest): a
+// win-back whose original cancel fell outside the window slightly under-counts
+// cancellations, and --keep-cancellation runs (which don't clear the cancel)
+// are excluded.
 function buildGrowthRates(now: Date): GrowthRatePoint[] {
   const horizons = [1, 7, 14, 30] as const;
   const days = generateDailyKeys(now, 30);
   const signups = new Set<string>();
   const cancellations = new Set<string>();
   const paymentFailures = new Set<string>();
+  const winbacks = new Set<string>();
 
   try {
     const rows = getDb().prepare(
@@ -1021,7 +1033,8 @@ function buildGrowthRates(now: Date): GrowthRatePoint[] {
          'stripe_subscription_sync',
          'stripe_cancellation_requested',
          'cancellation_ack_email_sent',
-         'stripe_payment_failed'
+         'stripe_payment_failed',
+         'billing_winback_discount_honored'
        ) AND created_at > datetime('now', '-850 days')
        ORDER BY created_at ASC`,
     ).all() as Array<{ type: string; user_id: string | null; created_at: string; message: string }>;
@@ -1043,6 +1056,14 @@ function buildGrowthRates(now: Date): GrowthRatePoint[] {
       } else if (row.type === 'stripe_payment_failed' && /\(attempt 1\)/.test(row.message)) {
         const invoice = row.message.match(/Invoice (in_[A-Za-z0-9]+)/)?.[1] ?? row.message;
         paymentFailures.add(`${day}:${invoice}`);
+      } else if (row.type === 'billing_winback_discount_honored') {
+        // Only a win-back that actually un-cancelled offsets a cancellation;
+        // the script stamps "cleared cancel_at_period_end" into the message
+        // exactly on that path, so --keep-cancellation runs (coupon pre-load
+        // only, member still cancelling) are skipped.
+        if (/cleared cancel_at_period_end/.test(row.message)) {
+          winbacks.add(`${day}:${row.user_id ?? parseSubIdFromMessage(row.message) ?? row.message}`);
+        }
       } else if (row.type === 'stripe_cancellation_requested' || row.type === 'cancellation_ack_email_sent') {
         cancellations.add(`${day}:${row.user_id ?? parseSubIdFromMessage(row.message) ?? row.message}`);
       }
@@ -1057,7 +1078,11 @@ function buildGrowthRates(now: Date): GrowthRatePoint[] {
   };
   return horizons.map((windowDays) => {
     const signupCount = countSince(signups, windowDays);
-    const cancellationCount = countSince(cancellations, windowDays);
+    const winbackCount = countSince(winbacks, windowDays);
+    // Net win-backs out of the cancellation count so a cancelled-then-won-back
+    // member doesn't read as a loss. Floored at 0 so more win-backs than
+    // in-window cancels can't invent phantom growth.
+    const cancellationCount = Math.max(0, countSince(cancellations, windowDays) - winbackCount);
     const failureCount = countSince(paymentFailures, windowDays);
     const net = signupCount - cancellationCount - failureCount;
     return {

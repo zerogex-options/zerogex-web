@@ -604,7 +604,7 @@ function GrowthRateCard({ rates, cardBg, borderColor, mutedText, textColor }: { 
     <div className="rounded-lg p-4 lg:col-span-2" style={{ backgroundColor: cardBg }}>
       <div className="mb-3">
         <h3 className="zg-h3" style={{ color: textColor }}>Forward-Looking Growth Rate</h3>
-        <p className="text-xs" style={{ color: mutedText }}>Trial starts minus cancellation clicks and first payment failures. Rate is net growth per day over each trailing window.</p>
+        <p className="text-xs" style={{ color: mutedText }}>Trial starts minus cancellation clicks (net of win-backs) and first payment failures. Rate is net growth per day over each trailing window.</p>
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {rates.map((rate) => (
