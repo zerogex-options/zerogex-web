@@ -167,7 +167,9 @@ const hasAuditEvents = !!db
 // churn audit message per user for the reason columns.
 const churnedAtByUser = new Map();
 const recoveredTierByUser = new Map();
+const lastStatusByUser = new Map();
 const reasonByUser = new Map();
+const paymentFailedUsers = new Set();
 if (hasAuditEvents) {
   for (const r of db
     .prepare(
@@ -179,7 +181,10 @@ if (hasAuditEvents) {
     if (r.user_id && r.churned_at) churnedAtByUser.set(r.user_id, r.churned_at);
   }
 
-  // Last paid tier seen per sub-owner (scan ascending, keep the newest paid tier).
+  // Last paid tier + last Stripe status seen per sub-owner (scan ascending, so
+  // the newest wins). The last status before a deletion is what distinguishes an
+  // involuntary loss (died in dunning: past_due/unpaid) from a voluntary/expiry
+  // one — the same rule core/subscriptionFlow.ts uses.
   for (const r of db
     .prepare(
       `SELECT user_id, message FROM audit_events
@@ -190,6 +195,20 @@ if (hasAuditEvents) {
     const t = r.message.match(/\btier=(\w+)/)?.[1];
     if (t === 'pro' || t === 'elite') recoveredTierByUser.set(r.user_id, 'pro');
     else if (t === 'basic' || t === 'starter') recoveredTierByUser.set(r.user_id, 'basic');
+    const st = r.message.match(/\bstatus=([a-z_]+)/)?.[1];
+    if (st) lastStatusByUser.set(r.user_id, st);
+  }
+
+  // Users who ever hit a payment failure — a secondary confirmation that a lapse
+  // was involuntary even if the last synced status didn't land on dunning.
+  for (const r of db
+    .prepare(
+      `SELECT DISTINCT user_id FROM audit_events
+       WHERE type = 'stripe_payment_failed' AND user_id IS NOT NULL
+         AND created_at > datetime('now', '-120 days')`,
+    )
+    .all()) {
+    if (r.user_id) paymentFailedUsers.add(r.user_id);
   }
 
   // Most recent reason-bearing churn message per user (a cancel-click or a
@@ -219,6 +238,7 @@ const rows = db
 
 const TRIAL_STATUSES = new Set(['trialing']);
 const PAID_STATUSES = new Set(['active', 'past_due', 'unpaid']);
+const DUNNING_STATUSES = new Set(['past_due', 'unpaid']);
 
 function classify(row) {
   // lapsed (terminal) wins if a row somehow carries both flags.
@@ -253,12 +273,26 @@ const records = rows
         : null;
     const source = (hasUtm ? row.signup_utm_source : null) || 'organic/direct';
     const reason = reasonByUser.get(row.id) ?? { feedback: null, comment: null };
+    // Why a lapsed sub died: involuntary (died in dunning / had a payment
+    // failure) vs voluntary/expired (cancelled or a trial that simply ran out).
+    // A pending cancel-click (trial-abandon / paid-cancel) is voluntary by
+    // definition. This split is the fork in the fix: billing/dunning vs the
+    // trial experience.
+    let cause;
+    if (type === 'lapsed') {
+      const involuntary =
+        DUNNING_STATUSES.has(lastStatusByUser.get(row.id)) || paymentFailedUsers.has(row.id);
+      cause = involuntary ? 'payment-failed' : 'voluntary/expired';
+    } else {
+      cause = 'voluntary';
+    }
     return {
       email: String(row.email ?? ''),
       type,
       tier,
       daysSinceSignup,
       source,
+      cause,
       feedback: reason.feedback,
       comment: reason.comment,
       cancelledAt,
@@ -278,10 +312,10 @@ if (args.csv) {
     const s = String(v ?? '');
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
-  console.log('email,type,tier,days_since_signup,source,feedback,comment,cancelled_at');
+  console.log('email,type,tier,cause,days_since_signup,source,feedback,comment,cancelled_at');
   for (const r of records) {
     console.log(
-      [r.email, r.type, r.tier, r.daysSinceSignup ?? '', r.source, r.feedback ?? '', r.comment ?? '', r.cancelledAt ?? '']
+      [r.email, r.type, r.tier, r.cause, r.daysSinceSignup ?? '', r.source, r.feedback ?? '', r.comment ?? '', r.cancelledAt ?? '']
         .map(esc)
         .join(','),
     );
@@ -328,8 +362,22 @@ if (records.length === 0) {
 const byType = tally(records, (r) => r.type);
 const trialAbandon = records.filter((r) => r.type === 'trial-abandon').length;
 const paidCancel = records.filter((r) => r.type === 'paid-cancel').length;
-const lapsed = records.filter((r) => r.type === 'lapsed').length;
+const lapsedRecords = records.filter((r) => r.type === 'lapsed');
+const lapsed = lapsedRecords.length;
 printTally('By type:', byType);
+
+// Of the terminal lapses, split billing-driven (recoverable) from voluntary/
+// expiry (a trial-experience problem). This is the fork in the fix.
+const lapsedInvoluntary = lapsedRecords.filter((r) => r.cause === 'payment-failed').length;
+const lapsedVoluntary = lapsed - lapsedInvoluntary;
+if (lapsed > 0) {
+  console.log(`\nWhy lapsed subs died (of ${lapsed}):`);
+  const max = Math.max(lapsedInvoluntary, lapsedVoluntary);
+  const line = (label, n) =>
+    console.log(`  ${label.padEnd(24)}  ${String(n).padStart(4)} ${(lapsed ? Math.round((n / lapsed) * 100) + '%' : '0%').padStart(4)}  ${bar(n, max)}`);
+  line('payment-failed', lapsedInvoluntary);
+  line('voluntary/expired', lapsedVoluntary);
+}
 
 printTally('By tier:', tally(records, (r) => r.tier), (t) => t.charAt(0).toUpperCase() + t.slice(1));
 
@@ -391,6 +439,16 @@ const cliff = records.filter((r) => r.daysSinceSignup !== null && r.daysSinceSig
 if (records.length >= 5 && cliff / records.length >= 0.4) {
   flags.push(
     `Trial-end cliff: ${cliff}/${records.length} cancels cluster at 3–9 days' tenure — consistent with a trial cohort hitting trial-end together. Check trial length + the ~48h pre-trial-end nudge.`,
+  );
+}
+if (lapsed >= 5 && lapsedVoluntary / lapsed >= 0.6) {
+  flags.push(
+    `Voluntary/expiry-driven: ${lapsedVoluntary}/${lapsed} lapses had NO payment failure — trials reaching end without converting (or clean cancels). Fix the TRIAL EXPERIENCE: card-on-file at trial start, the ~48h pre-trial-end nudge (make trial-reminders), and time-to-first-value. The cancel survey won't explain these (an expiring trial never opens the portal).`,
+  );
+}
+if (lapsed >= 5 && lapsedInvoluntary / lapsed >= 0.4) {
+  flags.push(
+    `Payment-driven: ${lapsedInvoluntary}/${lapsed} lapses followed a failed charge — a BILLING/dunning problem (recoverable revenue). Trial-conversion charges get NO grace window; consider extending grace to trial conversions or adding trial dunning + card-update nudges.`,
   );
 }
 const topSource = tally(records, (r) => r.source)[0];
