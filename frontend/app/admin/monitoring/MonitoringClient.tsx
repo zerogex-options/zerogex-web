@@ -8,7 +8,13 @@ import ErrorMessage from '@/components/ErrorMessage';
 import MobileScrollableChart from '@/components/MobileScrollableChart';
 import BackendMonitoring from './BackendMonitoring';
 import { formatDayLabel, formatHourLabel, lighten, makeDayLabelFormatter, niceYScale } from './monitoringHelpers';
-import { buildMrrProjection, buildGrowthProjection, MRR_PROJECTION_HORIZONS } from '@/core/pricing';
+import {
+  buildSignupImpliedMrrProjection,
+  blendedListMonthlyPrice,
+  projectionMonthsToTarget,
+  buildGrowthProjection,
+  MRR_PROJECTION_HORIZONS,
+} from '@/core/pricing';
 
 type SnapshotPoint = {
   bucket: string;
@@ -433,6 +439,48 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
   );
 }
 
+// Friendly labels for the raw, sanitized utm_source keys (see
+// core/utils.ts sanitizeUtmSource — lowercased, [a-z0-9._-]). Sources that map
+// to the SAME label are merged into one row: `twitter` and `x` both fold into
+// "Twitter/X" since they're the same channel. `(direct / none)` is the
+// DIRECT_SOURCE_LABEL bucket from core/pageAnalytics.ts. Any source not listed
+// here falls through to its raw key so nothing is silently dropped.
+const CONVERSION_SOURCE_LABELS: Record<string, string> = {
+  '(direct / none)': 'Direct/none',
+  twitter: 'Twitter/X',
+  x: 'Twitter/X',
+  reddit: 'Reddit',
+  chatgpt: 'ChatGPT',
+  copilot: 'Copilot',
+};
+
+function conversionSourceLabel(source: string): string {
+  return CONVERSION_SOURCE_LABELS[source] ?? source;
+}
+
+// Re-label each source and merge rows that share a display label (twitter + x →
+// Twitter/X), summing their visits/signups/subscribers. Conversion is
+// recomputed on the merged totals, then rows are re-sorted the same way the
+// server sorts (visits desc, then signups desc, then label) so the combined row
+// lands in the right place.
+function displayConversionSources(sources: ConversionSourceRow[]): ConversionSourceRow[] {
+  const merged = new Map<string, ConversionSourceRow>();
+  for (const row of sources) {
+    const label = conversionSourceLabel(row.source);
+    const existing = merged.get(label);
+    if (existing) {
+      existing.visits += row.visits;
+      existing.signups += row.signups;
+      existing.subscribers += row.subscribers;
+    } else {
+      merged.set(label, { ...row, source: label });
+    }
+  }
+  return Array.from(merged.values())
+    .map((r) => ({ ...r, signupConversion: r.visits > 0 ? r.signups / r.visits : 0 }))
+    .sort((a, b) => b.visits - a.visits || b.signups - a.signups || a.source.localeCompare(b.source));
+}
+
 function ConversionBySourceSection({
   data,
   cardBg,
@@ -447,6 +495,7 @@ function ConversionBySourceSection({
   textColor: string;
 }) {
   const totalConv = data.totals.visits > 0 ? (data.totals.signups / data.totals.visits) * 100 : null;
+  const displaySources = displayConversionSources(data.sources);
   return (
     <section className="mb-8">
       <div className="flex items-baseline justify-between mb-2">
@@ -456,7 +505,7 @@ function ConversionBySourceSection({
         </span>
       </div>
       <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
-        {data.sources.length === 0 ? (
+        {displaySources.length === 0 ? (
           <div className="text-sm" style={{ color: mutedText }}>
             No source data captured yet — utm_source is recorded on landing pages going forward.
           </div>
@@ -473,11 +522,11 @@ function ConversionBySourceSection({
                 </tr>
               </thead>
               <tbody>
-                {data.sources.map((row) => {
+                {displaySources.map((row) => {
                   const stalled = row.visits >= 10 && row.signups === 0;
                   return (
                     <tr key={row.source} style={{ borderTop: `1px solid ${borderColor}` }}>
-                      <td className="py-1.5 pr-4 font-mono text-xs">{row.source}</td>
+                      <td className="py-1.5 pr-4 text-xs">{row.source}</td>
                       <td className="py-1.5 px-3 text-right tabular-nums">{row.visits.toLocaleString()}</td>
                       <td className="py-1.5 px-3 text-right tabular-nums">{row.signups.toLocaleString()}</td>
                       <td
@@ -524,6 +573,11 @@ function StripeTab({ data, cardBg, borderColor, axisStroke, mutedText, textColor
 }
 
 function RevenueTab({ data, cardBg, borderColor, axisStroke, mutedText, textColor }: DataTabProps) {
+  // Pace for the MRR projection: the 30-day net daily rate off the
+  // Forward-Looking Growth Rate table, valued at the blended full (list) price
+  // of today's plan mix. See buildSignupImpliedMrrProjection.
+  const signupsPerDay = data.growthRates.find((r) => r.days === 30)?.dailyRate ?? 0;
+  const blendedListPrice = blendedListMonthlyPrice(data.mrr.breakdown);
   return <div>
     <section className="mb-8">
       <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
@@ -532,7 +586,7 @@ function RevenueTab({ data, cardBg, borderColor, axisStroke, mutedText, textColo
       </div>
       <div className="grid grid-cols-1 gap-4">
         <IncomeReplacementCard mrr={data.mrr} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} brandColor={ROW_COLORS.mrr} />
-        <MrrTrendCard series={data.mrrSeries} trend={data.mrrTrend} targetMrr={data.mrr.targetMrr} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} brandColor={ROW_COLORS.mrr} />
+        <MrrTrendCard series={data.mrrSeries} signupsPerDay={signupsPerDay} blendedListPrice={blendedListPrice} targetMrr={data.mrr.targetMrr} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} brandColor={ROW_COLORS.mrr} />
       </div>
     </section>
     <section className="mb-8">
@@ -549,7 +603,7 @@ function GrowthRateCard({ rates, cardBg, borderColor, mutedText, textColor }: { 
   return (
     <div className="rounded-lg p-4 lg:col-span-2" style={{ backgroundColor: cardBg }}>
       <div className="mb-3">
-        <h3 className="zg-h3" style={{ color: textColor }}>Actual Growth Rate</h3>
+        <h3 className="zg-h3" style={{ color: textColor }}>Forward-Looking Growth Rate</h3>
         <p className="text-xs" style={{ color: mutedText }}>Trial starts minus cancellation clicks and first payment failures. Rate is net growth per day over each trailing window.</p>
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -756,13 +810,6 @@ function formatMonths(months: number | null): string {
   return `~${months >= 24 ? Math.round(years) : years.toFixed(1)} yr`;
 }
 
-function formatGrowthPct(rate: number | null): string {
-  if (rate === null) return '—';
-  const pct = rate * 100;
-  const sign = pct > 0 ? '+' : '';
-  return `${sign}${pct.toFixed(1)}%`;
-}
-
 // One point on the combined historical + projected MRR line. Historical
 // points carry est/committed; projected points carry projMrr. The latest
 // historical point carries both (projMrr seeds the forward line so it
@@ -791,7 +838,8 @@ function formatProjTooltipLabel(day: string): string {
 
 function MrrTrendCard({
   series,
-  trend,
+  signupsPerDay,
+  blendedListPrice,
   targetMrr,
   cardBg,
   axisStroke,
@@ -800,7 +848,8 @@ function MrrTrendCard({
   brandColor,
 }: {
   series: MrrPoint[];
-  trend: MrrTrend | null;
+  signupsPerDay: number;
+  blendedListPrice: number;
   targetMrr: number;
   cardBg: string;
   axisStroke: string;
@@ -815,12 +864,23 @@ function MrrTrendCard({
   const horizonLabel =
     MRR_PROJECTION_HORIZONS.find((h) => h.months === horizonMonths)?.label ?? `${horizonMonths} mo`;
 
-  // Straight-line extrapolation off today's MRR and the last week's pace,
-  // extended to the selected horizon. Recomputed only when the series or the
-  // chosen horizon changes.
+  // Straight-line extrapolation off today's real MRR, grown at the 30-day net
+  // signup rate valued at the blended full (list) price of today's plan mix —
+  // not off the recent MRR slope, which reads steep early on while launch
+  // discounts still dominate. Recomputed only when its inputs change.
   const projection = useMemo(
-    () => buildMrrProjection(series, horizonMonths),
-    [series, horizonMonths],
+    () =>
+      buildSignupImpliedMrrProjection({
+        series,
+        signupsPerDay,
+        blendedMonthlyPrice: blendedListPrice,
+        horizonMonths,
+      }),
+    [series, signupsPerDay, blendedListPrice, horizonMonths],
+  );
+  const monthsToTarget = useMemo(
+    () => projectionMonthsToTarget(projection, targetMrr),
+    [projection, targetMrr],
   );
 
   // History plus the forward projection, plotted on one continuous daily axis.
@@ -887,20 +947,11 @@ function MrrTrendCard({
 
       <div className="flex flex-wrap gap-x-6 gap-y-1 mb-3 text-xs" style={{ color: mutedText }}>
         <span>
-          Growth:{' '}
-          <span className="font-semibold tabular-nums" style={{ color: textColor }}>
-            {trend ? formatGrowthPct(trend.monthlyGrowthRate) : '—'}/mo
-          </span>{' '}
-          <span style={{ color: mutedText }}>(compounded, full window)</span>
-        </span>
-        <span>
-          Last week&apos;s pace:{' '}
+          Projected pace:{' '}
           <span className="font-semibold tabular-nums" style={{ color: textColor }}>
             {slopeLabel}
           </span>{' '}
-          {projection && projection.windowDays < 7 && (
-            <span style={{ color: mutedText }}>(over {projection.windowDays}d)</span>
-          )}
+          <span style={{ color: mutedText }}>(30-day signup rate × blended list price)</span>
         </span>
         <span>
           Projected in {horizonLabel}:{' '}
@@ -911,7 +962,7 @@ function MrrTrendCard({
         <span>
           At this rate, target in:{' '}
           <span className="font-semibold tabular-nums" style={{ color: textColor }}>
-            {trend ? formatMonths(trend.monthsToTarget) : '—'}
+            {projection ? formatMonths(monthsToTarget) : '—'}
           </span>
         </span>
       </div>

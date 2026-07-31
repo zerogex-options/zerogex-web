@@ -4,6 +4,9 @@ import {
   computeMrr,
   computeMrrTrend,
   buildMrrProjection,
+  buildSignupImpliedMrrProjection,
+  blendedListMonthlyPrice,
+  projectionMonthsToTarget,
   buildGrowthProjection,
   deriveTargetMrr,
   parseAmountTable,
@@ -243,6 +246,140 @@ test('projection is null without enough real history or with no horizon', () => 
   assert.equal(buildMrrProjection(dailySeries('2026-07-01', [0, 0, 100]), 6), null);
   // Non-positive horizon.
   assert.equal(buildMrrProjection(dailySeries('2026-07-01', [100, 200]), 0), null);
+});
+
+test('blended list price weights each plan by its share, priced at list', () => {
+  // Single bucket -> that plan's list price.
+  assert.equal(blendedListMonthlyPrice([{ tier: 'pro', cadence: 'monthly', count: 10 }]), 59);
+  // Annual uses the /12-normalized list amount.
+  assert.ok(
+    Math.abs(blendedListMonthlyPrice([{ tier: 'basic', cadence: 'annual', count: 5 }]) - 199 / 12) < 1e-9,
+  );
+  // Even 4-way split: mean of the four list prices.
+  const even = blendedListMonthlyPrice([
+    { tier: 'pro', cadence: 'annual', count: 1 },
+    { tier: 'pro', cadence: 'monthly', count: 1 },
+    { tier: 'basic', cadence: 'annual', count: 1 },
+    { tier: 'basic', cadence: 'monthly', count: 1 },
+  ]);
+  assert.ok(Math.abs(even - (299 / 12 + 59 + 199 / 12 + 39) / 4) < 1e-9);
+});
+
+test('blended list price folds same-plan buckets and prices founding at list', () => {
+  // A founding row and a list row of the same plan combine by share, both at
+  // list — the projection assumes discounts roll off toward full price.
+  const blended = blendedListMonthlyPrice([
+    { tier: 'pro', cadence: 'monthly', count: 3 }, // would be founding
+    { tier: 'pro', cadence: 'monthly', count: 1 }, // list
+  ]);
+  assert.equal(blended, 59);
+});
+
+test('blended list price is zero for an empty or zero-count base', () => {
+  assert.equal(blendedListMonthlyPrice([]), 0);
+  assert.equal(blendedListMonthlyPrice([{ tier: 'pro', cadence: 'monthly', count: 0 }]), 0);
+});
+
+test('signup-implied projection grows origin at signups/day × blended price', () => {
+  // One real MRR day at $1000; 2 net signups/day at a $30 blended price -> the
+  // line rises $60/day off today's actual, out to the horizon.
+  const proj = buildSignupImpliedMrrProjection({
+    series: dailySeries('2026-07-01', [1000]),
+    signupsPerDay: 2,
+    blendedMonthlyPrice: 30,
+    horizonMonths: 6,
+  })!;
+  assert.equal(proj.slopePerDay, 60);
+  assert.equal(proj.originMrr, 1000);
+  assert.equal(proj.originDay, '2026-07-01');
+  assert.equal(proj.windowDays, 30);
+  assert.equal(proj.points[0].day, '2026-07-02');
+  assert.ok(Math.abs(proj.points[0].projMrr - 1060) < 1e-9);
+  // 6 calendar months from Jul 1 lands on Jan 1 -> 184 days.
+  assert.equal(proj.points.length, 184);
+  assert.ok(Math.abs(proj.horizonMrr - (1000 + 60 * 184)) < 1e-9);
+});
+
+test('signup-implied projection anchors off a single real day (no span needed)', () => {
+  // buildMrrProjection needs a multi-day span; the signup-implied one only
+  // needs one real sample to anchor the origin, since its pace is external.
+  const series = dailySeries('2026-07-01', [0, 0, 100]);
+  assert.equal(buildMrrProjection(series, 12), null);
+  const proj = buildSignupImpliedMrrProjection({
+    series,
+    signupsPerDay: 1,
+    blendedMonthlyPrice: 10,
+    horizonMonths: 12,
+  })!;
+  assert.equal(proj.originMrr, 100);
+  assert.equal(proj.originDay, '2026-07-03');
+  assert.equal(proj.slopePerDay, 10);
+});
+
+test('signup-implied projection is null with no real MRR sample or no horizon', () => {
+  const base = { signupsPerDay: 1, blendedMonthlyPrice: 10, horizonMonths: 6 };
+  assert.equal(buildSignupImpliedMrrProjection({ series: [], ...base }), null);
+  assert.equal(
+    buildSignupImpliedMrrProjection({ series: dailySeries('2026-07-01', [0, 0]), ...base }),
+    null,
+  );
+  assert.equal(
+    buildSignupImpliedMrrProjection({
+      series: dailySeries('2026-07-01', [100, 200]),
+      signupsPerDay: 1,
+      blendedMonthlyPrice: 10,
+      horizonMonths: 0,
+    }),
+    null,
+  );
+});
+
+test('signup-implied projection: negative rate declines and clamps at zero, zero rate stays flat', () => {
+  const declining = buildSignupImpliedMrrProjection({
+    series: dailySeries('2026-07-01', [500]),
+    signupsPerDay: -5,
+    blendedMonthlyPrice: 30,
+    horizonMonths: 12,
+  })!;
+  assert.ok(declining.slopePerDay < 0);
+  assert.equal(declining.horizonMrr, 0);
+  assert.ok(declining.points.every((p) => p.projMrr >= 0));
+
+  const flat = buildSignupImpliedMrrProjection({
+    series: dailySeries('2026-07-01', [750]),
+    signupsPerDay: 0,
+    blendedMonthlyPrice: 30,
+    horizonMonths: 6,
+  })!;
+  assert.equal(flat.slopePerDay, 0);
+  assert.equal(flat.horizonMrr, 750);
+  assert.ok(flat.points.every((p) => p.projMrr === 750));
+});
+
+test('projection ETA: reached at/over target, null when flat/declining or absent', () => {
+  assert.equal(projectionMonthsToTarget({ originMrr: 25_000, slopePerDay: 10 }, 20_000), 0);
+  assert.equal(projectionMonthsToTarget(null, 20_000), null);
+  assert.equal(projectionMonthsToTarget({ originMrr: 1000, slopePerDay: 0 }, 20_000), null);
+  assert.equal(projectionMonthsToTarget({ originMrr: 1000, slopePerDay: -5 }, 20_000), null);
+});
+
+test('projection ETA is linear and agrees with the plotted projection line', () => {
+  // $1000 origin, +$100/day: (20000-1000)/100 = 190 days -> 190/(365/12) months.
+  const months = projectionMonthsToTarget({ originMrr: 1000, slopePerDay: 100 }, 20_000)!;
+  assert.ok(Math.abs(months - 190 / (365 / 12)) < 1e-9);
+
+  // The ETA and the line come from the same slope, so projecting forward by the
+  // ETA lands exactly on the target — the whole point of switching off the
+  // compounded trend ETA.
+  const proj = buildSignupImpliedMrrProjection({
+    series: dailySeries('2026-07-01', [1000]),
+    signupsPerDay: 5,
+    blendedMonthlyPrice: 20, // slope = 100/day
+    horizonMonths: 36,
+  })!;
+  const eta = projectionMonthsToTarget(proj, 20_000)!;
+  const days = eta * (365 / 12);
+  assert.ok(Math.abs(proj.originMrr + proj.slopePerDay * days - 20_000) < 1e-6);
 });
 
 test('growth projection: linear adds with no churn grow subs by a fixed step', () => {
