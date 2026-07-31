@@ -26,6 +26,7 @@ import {
   priceIdToTier,
 } from '@/core/stripe';
 import { decidePaymentGrace, graceWindowEndIso } from '@/core/paymentGrace';
+import { formatCancellationReasonSuffix, type CancellationDetails } from '@/core/cancellationReason';
 import {
   backAttributeReferral,
   getRefereeCouponId,
@@ -684,6 +685,9 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
     next: nextCancelAtPeriodEnd,
     periodEndIso,
     subscriptionId: subscription.id,
+    // Stripe attaches the portal cancellation survey (feedback + free-text
+    // comment) here; captured into the audit message so the "why" is queryable.
+    cancellationDetails: subscription.cancellation_details,
   });
 
   // Arm/fire the payment-recovered confirmation off the subscription's status:
@@ -708,14 +712,20 @@ async function maybeHandleCancelAckTransition(
     next: number;
     periodEndIso: string | null;
     subscriptionId: string;
+    // Typed with our own structurally-compatible shape (Stripe's enum fields
+    // widen to string) so this doesn't depend on the Stripe nested type path.
+    cancellationDetails?: CancellationDetails;
   },
 ): Promise<void> {
   if (opts.previous === 0 && opts.next === 1) {
+    // Fold the portal cancellation survey into the audit message (empty suffix
+    // when nothing was collected, so a silent cancel keeps a clean message).
+    const reasonSuffix = formatCancellationReasonSuffix(opts.cancellationDetails);
     logAudit({
       type: 'stripe_cancellation_requested',
       userId: user.id,
       email: user.email,
-      message: `Cancellation requested for sub ${opts.subscriptionId}`,
+      message: `Cancellation requested for sub ${opts.subscriptionId}${reasonSuffix}`,
     });
     const stamp = nowIso();
     const claim = getDb()
@@ -1023,11 +1033,14 @@ async function clearSubscriptionFromUser(subscription: Stripe.Subscription) {
     )
     .run(subscription.status, nowIso(), user.id);
 
+  // Carry the cancellation survey (if any) onto the terminal churn row too, so a
+  // sub that lapses without a preceding cancel-click still records its "why".
+  const reasonSuffix = formatCancellationReasonSuffix(subscription.cancellation_details);
   logAudit({
     type: 'stripe_subscription_deleted',
     userId: user.id,
     email: user.email,
-    message: `Subscription ${subscription.id} ended; tier reset to public`,
+    message: `Subscription ${subscription.id} ended; tier reset to public${reasonSuffix}`,
   });
 
   // The member just churned to public — deprovision any personal API keys.

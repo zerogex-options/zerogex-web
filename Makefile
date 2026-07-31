@@ -48,6 +48,8 @@ help:
 	@echo "  make partner-commissions [EMAIL=<partner>] [FULL=1] [STATUS=accrued|paid|reversed] - Print the Creator Partner commission ledger: per-partner totals and (with --full) full row-by-row view. Use at month-end to figure out payouts."
 	@echo "  make public-cohort - Break the tier='public' cohort into reactivation segments (EMAILS=1 for paste-ready lists, COHORT=<key> to filter, SHOW_LAST_LOGIN=1 to split warm/cold/never, WARM_DAYS=<n> to tune, SINCE=<YYYY-MM-DD> to filter to signups on/after a date)"
 	@echo "  make cancellations - List customers who cancelled and when (pending = clicked Cancel, still has access; lapsed = subscription ended). STATUS=pending|lapsed to filter, EMAILS=1 for a recipient list, CSV=1 to export, SINCE=<YYYY-MM-DD> for cancellations on/after a date"
+	@echo "  make churn-breakdown - Diagnose a cancellation spike: split recent cancels into trial-abandon vs paid-cancel vs lapsed, by tier, tenure (trial-cliff detector), signup source, daily timeline, and captured cancel reasons. WINDOW=<days> (default 14) or SINCE=<YYYY-MM-DD> to set the window, CSV=1 for per-user rows"
+	@echo "  make enable-portal-cancel-reasons - Turn on the Stripe billing-portal cancellation survey (feedback + free-text) so future cancels record a WHY. DRY_RUN=1 to preview, YES=1 to apply. CHANGES THE LIVE CUSTOMER PORTAL"
 	@echo "  make diagnose-user EMAIL=<email> - Read-only dump of one user: DB row, last 20 audit events, live Stripe customer/subscription/invoices, and notes on whether the July-1 founding deferral applied"
 	@echo "  make reset-user-for-testing EMAIL=<email> - TESTING: reset one account to a clean pre-signup state (tier=public, subscription/trial latches cleared) so you can re-run signup + plan switching. DRY by default, APPLY=1 to write, KEEP_FOUNDING=1 / KEEP_CUSTOMER=1 to preserve those"
 	@echo "  make dedupe-payment-methods (EMAIL=<email> | CUSTOMER=cus_... | ALL=1) - Detach duplicate same-card/same-Link payment methods from Stripe customers, keeping the default/subscription method (INSPECT=1 to just list, DRY by default, APPLY=1 to detach)"
@@ -554,6 +556,29 @@ public-cohort:
 # to cancellations on/after a cutoff.
 cancellations:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/list-cancellations.mjs $(if $(STATUS),--status $(STATUS),) $(if $(EMAILS),--emails,) $(if $(CSV),--csv,) $(if $(SINCE),--since $(SINCE),)'
+
+# Decompose a recent cancellation spike into its actionable parts. Trial users
+# bailing before the first charge (a conversion problem) and established paid
+# members leaving (a value/positioning problem) both show up as one "cancel" bar
+# on the dashboard but need opposite fixes; this splits them, and adds tenure
+# (trial-cliff detector), signup source, a daily timeline, and any captured
+# Stripe cancel reasons. Read-only. WINDOW defaults to 14 days.
+#   make churn-breakdown
+#   make churn-breakdown WINDOW=7
+#   make churn-breakdown SINCE=2026-07-24 CSV=1 > churn.csv
+churn-breakdown:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/churn-breakdown.mjs $(if $(WINDOW),--window $(WINDOW),) $(if $(SINCE),--since $(SINCE),) $(if $(CSV),--csv,)'
+
+# Enable the Stripe billing-portal cancellation survey so every future cancel
+# records WHY (a feedback enum + optional free-text comment). Without this the
+# webhook's new reason-capture has nothing to capture — Stripe only sends
+# cancellation_details when the portal's cancellation flow collects a reason.
+# Updates the portal configuration named by STRIPE_PORTAL_CONFIG_ID (or the
+# account's default). CHANGES THE LIVE CUSTOMER-FACING PORTAL.
+#   make enable-portal-cancel-reasons DRY_RUN=1
+#   make enable-portal-cancel-reasons YES=1
+enable-portal-cancel-reasons:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/enable-portal-cancel-reasons.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
 
 # Backup Admin->Monitoring data files (frontend/data/monitoring.json,
 # signups.json, and mrr.json) into a timestamped tar.gz. signups.json and

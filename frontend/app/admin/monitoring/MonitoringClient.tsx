@@ -156,6 +156,22 @@ type WebhookHealth = {
 // warrant attention (linked-to-payment-failed, or large Δ) stand out.
 const STALE_NOISE_DELTA_SECONDS = 5;
 
+// Mirrors CancellationReasonsSummary in core/monitoring.ts. The "why" behind
+// recent cancellations, parsed from the Stripe cancellation survey: a per-reason
+// tally (with a `none` bucket for silent cancels) and the free-text verbatims.
+type CancellationReasonsSummary = {
+  windowDays: number;
+  total: number;
+  captured: number;
+  byFeedback: Array<{ feedback: string; label: string; count: number }>;
+  recentComments: Array<{
+    createdAt: string;
+    email: string | null;
+    feedback: string | null;
+    comment: string;
+  }>;
+};
+
 type Snapshot = {
   ok: boolean;
   mrr: Mrr;
@@ -164,6 +180,7 @@ type Snapshot = {
   signups: SignupPoint[];
   signupFlow: SignupFlowPoint[];
   growthRates: GrowthRatePoint[];
+  cancellationReasons: CancellationReasonsSummary;
   conversionBySource: ConversionBySourceSnapshot;
   hourly: SnapshotPoint[];
   daily: SnapshotPoint[];
@@ -568,6 +585,10 @@ function StripeTab({ data, cardBg, borderColor, axisStroke, mutedText, textColor
     <section className="mb-8">
       <h2 className="text-lg font-semibold mb-2" style={{ color: textColor }}>Stripe Webhook Health</h2>
       <WebhookHealthCard health={data.webhookHealth} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} axisStroke={axisStroke} />
+    </section>
+    <section className="mb-8">
+      <h2 className="text-lg font-semibold mb-2" style={{ color: textColor }}>Why Members Cancel</h2>
+      <CancellationReasonsCard reasons={data.cancellationReasons} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} />
     </section>
   </div>;
 }
@@ -1446,6 +1467,108 @@ function StatusPill({ tone, label }: { tone: StatusTone; label: string }) {
     >
       {label}
     </span>
+  );
+}
+
+// The "why" behind recent cancellations. A per-reason tally with proportional
+// bars plus the free-text verbatims — the qualitative companion to the growth-
+// rate "how many". Silent cancels (no survey answer) sink to a muted row, and a
+// zero-capture state points at the enablement command so the panel is
+// self-explaining when reason collection hasn't been turned on yet.
+function CancellationReasonsCard({
+  reasons,
+  cardBg,
+  borderColor,
+  mutedText,
+  textColor,
+}: {
+  reasons: CancellationReasonsSummary;
+  cardBg: string;
+  borderColor: string;
+  mutedText: string;
+  textColor: string;
+}) {
+  const maxCount = reasons.byFeedback.reduce((m, r) => Math.max(m, r.count), 0);
+  const coverage = reasons.total > 0 ? Math.round((reasons.captured / reasons.total) * 100) : 0;
+  return (
+    <div className="rounded-lg p-4" style={{ background: cardBg, border: `1px solid ${borderColor}` }}>
+      <div className="flex items-baseline justify-between flex-wrap gap-2">
+        <span className="text-sm" style={{ color: textColor }}>
+          {reasons.total > 0 ? (
+            <>
+              <span className="font-semibold tabular-nums">{reasons.captured}</span> of{' '}
+              <span className="font-semibold tabular-nums">{reasons.total}</span> cancellations gave a reason
+            </>
+          ) : (
+            'No cancellations in the window'
+          )}
+        </span>
+        <span className="text-xs" style={{ color: mutedText }}>
+          last {reasons.windowDays} days · {coverage}% coverage
+        </span>
+      </div>
+
+      {reasons.total > 0 && reasons.captured === 0 && (
+        <p className="mt-3 text-xs" style={{ color: mutedText }}>
+          No reasons captured yet — the Stripe billing-portal cancellation survey is likely off. Enable it with{' '}
+          <code style={{ color: textColor }}>make enable-portal-cancel-reasons</code> so future cancels record a why.
+        </p>
+      )}
+
+      {reasons.byFeedback.length > 0 && (
+        <ul className="mt-3 space-y-1.5">
+          {reasons.byFeedback.map((row) => {
+            const isNone = row.feedback === 'none';
+            const width = maxCount > 0 ? Math.max(2, Math.round((row.count / maxCount) * 100)) : 0;
+            return (
+              <li key={row.feedback} className="flex items-center gap-3" style={{ opacity: isNone ? 0.55 : 1 }}>
+                <span className="text-xs w-40 shrink-0 truncate" style={{ color: textColor }} title={row.label}>
+                  {row.label}
+                </span>
+                <span className="flex-1 h-3 rounded" style={{ background: `${borderColor}33` }}>
+                  <span
+                    className="block h-3 rounded"
+                    style={{ width: `${width}%`, background: isNone ? `${borderColor}88` : ROW_COLORS.webhookHealth }}
+                  />
+                </span>
+                <span className="text-xs tabular-nums w-8 text-right" style={{ color: mutedText }}>
+                  {row.count}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {reasons.recentComments.length > 0 && (
+        <div className="mt-4">
+          <h3 className="text-sm font-semibold mb-2" style={{ color: textColor }}>
+            Recent comments
+          </h3>
+          <ul className="space-y-2">
+            {reasons.recentComments.map((c, idx) => (
+              <li
+                key={`${c.createdAt}-${idx}`}
+                className="rounded p-2 text-xs"
+                style={{
+                  border: `1px solid ${borderColor}55`,
+                  fontFamily: 'var(--font-mono, ui-monospace, SFMono-Regular, monospace)',
+                }}
+              >
+                <div style={{ color: mutedText }}>
+                  {c.createdAt.slice(0, 10)}
+                  {c.feedback ? ` · ${c.feedback}` : ''}
+                  {c.email ? ` · ${c.email}` : ''}
+                </div>
+                <div className="mt-1 whitespace-pre-wrap break-words" style={{ color: textColor }}>
+                  {c.comment}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
   );
 }
 

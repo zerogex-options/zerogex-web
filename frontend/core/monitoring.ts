@@ -29,6 +29,11 @@ import {
   type FlowDeleteEvent,
   type FlowSyncEvent,
 } from '@/core/subscriptionFlow';
+import {
+  cancellationFeedbackLabel,
+  parseCancellationReasonFromMessage,
+  NO_FEEDBACK,
+} from '@/core/cancellationReason';
 
 const STORE_PATH = process.env.MONITORING_STORE_PATH ?? path.join(process.cwd(), 'data', 'monitoring.json');
 const SIGNUP_STORE_PATH = process.env.SIGNUP_STORE_PATH ?? path.join(process.cwd(), 'data', 'signups.json');
@@ -125,6 +130,26 @@ export type GrowthRatePoint = {
   dailyRate: number;
 };
 
+// The "why" behind recent cancellations, parsed from the Stripe cancellation
+// survey folded into the audit log (see core/cancellationReason.ts + the Stripe
+// webhook). `total` is the number of cancel-click events in the window;
+// `captured` is how many carried a reason (a feedback enum or a comment) —
+// their ratio is the survey's coverage. `byFeedback` tallies the fixed enum
+// (with a `none` bucket for silent cancels); `recentComments` surfaces the
+// free-text verbatims, the richest churn signal.
+export type CancellationReasonsSummary = {
+  windowDays: number;
+  total: number;
+  captured: number;
+  byFeedback: Array<{ feedback: string; label: string; count: number }>;
+  recentComments: Array<{
+    createdAt: string;
+    email: string | null;
+    feedback: string | null;
+    comment: string;
+  }>;
+};
+
 export type WebhookHealth = {
   // Counters of audit_events rows in two trailing windows. Errors are real
   // handler failures (5xx-returning); orphans are events for unknown
@@ -174,6 +199,7 @@ export type MonitoringSnapshot = {
   signups: SignupPoint[];
   signupFlow: SignupFlowPoint[];
   growthRates: GrowthRatePoint[];
+  cancellationReasons: CancellationReasonsSummary;
   hourly: MonitoringSnapshotPoint[];
   daily: MonitoringSnapshotPoint[];
   topIps: Array<{ ip: string; count: number }>;
@@ -1096,6 +1122,67 @@ function buildGrowthRates(now: Date): GrowthRatePoint[] {
   });
 }
 
+// How far back the cancellation-reasons summary looks. Matches the widest
+// growth-rate window so the "why" lines up with the "how many".
+const CANCEL_REASONS_WINDOW_DAYS = 30;
+
+// The "why" behind recent cancellations. Reads the cancel-click audit rows in a
+// trailing window, parses the Stripe survey folded into each message, and rolls
+// them up: a per-feedback tally (with a `none` bucket for silent cancels) plus
+// the recent free-text verbatims. Empty/missing audit history returns a zeroed
+// summary so it never throws back to the API route.
+function buildCancellationReasons(): CancellationReasonsSummary {
+  const empty: CancellationReasonsSummary = {
+    windowDays: CANCEL_REASONS_WINDOW_DAYS,
+    total: 0,
+    captured: 0,
+    byFeedback: [],
+    recentComments: [],
+  };
+  try {
+    const rows = getDb()
+      .prepare(
+        `SELECT created_at, email, message FROM audit_events
+         WHERE type = 'stripe_cancellation_requested'
+           AND created_at > datetime('now', '-${CANCEL_REASONS_WINDOW_DAYS} days')
+         ORDER BY created_at DESC`,
+      )
+      .all() as Array<{ created_at: string; email: string | null; message: string }>;
+
+    const counts = new Map<string, number>();
+    const recentComments: CancellationReasonsSummary['recentComments'] = [];
+    let captured = 0;
+    for (const row of rows) {
+      const { feedback, comment } = parseCancellationReasonFromMessage(row.message);
+      if (feedback || comment) captured += 1;
+      const key = feedback ?? NO_FEEDBACK;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+      if (comment && recentComments.length < 10) {
+        recentComments.push({ createdAt: row.created_at, email: row.email, feedback, comment });
+      }
+    }
+
+    const byFeedback = Array.from(counts.entries())
+      .map(([feedback, count]) => ({ feedback, label: cancellationFeedbackLabel(feedback), count }))
+      // Real reasons first (desc by count); the `none` bucket always sinks last.
+      .sort((a, b) => {
+        if (a.feedback === NO_FEEDBACK) return 1;
+        if (b.feedback === NO_FEEDBACK) return -1;
+        return b.count - a.count;
+      });
+
+    return {
+      windowDays: CANCEL_REASONS_WINDOW_DAYS,
+      total: rows.length,
+      captured,
+      byFeedback,
+      recentComments,
+    };
+  } catch {
+    return empty;
+  }
+}
+
 // Counts audit_events rows of `type` whose created_at is newer than
 // `intervalSql` (e.g. '-1 day', '-7 days'). Empty/missing audit_events
 // table is treated as zero so this never throws back to the API route.
@@ -1247,6 +1334,7 @@ export function getSnapshot(): MonitoringSnapshot {
     signups: buildSignupSeries(now),
     signupFlow: buildSignupFlowSeries(now),
     growthRates: buildGrowthRates(now),
+    cancellationReasons: buildCancellationReasons(),
     hourly: hourlyKeys.map((key) => bucketToPoint(key, live.hourly[key])),
     daily: dailyKeys.map((key) => bucketToPoint(key, live.daily[key])),
     topIps: aggregateTopIps(live.daily, 10),
