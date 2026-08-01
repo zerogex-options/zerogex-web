@@ -97,3 +97,38 @@ export function getPrimaryPriceChangeSummary({
     isPositive: change !== null ? change >= 0 : false,
   };
 }
+
+export interface ExtendedHoursRow {
+  price: number | null;
+  change: number | null;
+  changePercent: number | null;
+  isPositive: boolean;
+}
+
+/**
+ * The secondary "extended-hours" readout shown BELOW the regular quote for
+ * ETFs/stocks during pre-market and after-hours: the live extended-hours price
+ * and its change measured against the MOST-RECENT cash-session close
+ * (`current_session_close`). This is TradingView's pre/post-market change basis
+ * — always the previous regular-session close, never the day-before.
+ *
+ * Shared by the header row-2 and the Gamma Chart's extended-hours line so the
+ * two read identically. Returns nulls when either input is missing (the caller
+ * hides the row); indexes never get an extended row (they don't trade the ETH
+ * tape — outside the cash session they fall back to futures or "closed").
+ */
+export function getExtendedHoursRow(
+  quoteClose: number | null | undefined,
+  currentSessionClose: number | null | undefined,
+): ExtendedHoursRow {
+  const price = quoteClose ?? null;
+  const base = currentSessionClose ?? null;
+  const change = price !== null && base !== null ? price - base : null;
+  const changePercent = change !== null && base ? (change / base) * 100 : null;
+  return {
+    price,
+    change,
+    changePercent,
+    isPositive: change !== null ? change >= 0 : false,
+  };
+}

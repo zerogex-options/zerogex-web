@@ -19,13 +19,13 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
-import { Activity, ChevronsRight, Crosshair, Info, Pause, Play, Repeat, Rewind } from "lucide-react";
+import { Activity, ChevronsRight, Crosshair, Info, Moon, Pause, Play, Repeat, Rewind, Sun } from "lucide-react";
 import { useApiData, useMarketQuote, useGEXProfile, useGEXSummary, useSessionCloses, type SessionClosesData } from "@/hooks/useApiData";
 import { useMarketHistorical, type PriceBar } from "@/hooks/useMarketHistorical";
 import { useStrikeProfileTimeseries, type StrikeProfileStrike } from "@/hooks/useStrikeProfileTimeseries";
 import { useTechnicals } from "@/hooks/useTechnicals";
 import { useTimeframe, type UnderlyingSymbol } from "@/core/TimeframeContext";
-import { getPrimaryPriceChangeSummary } from "@/core/priceChange";
+import { getPrimaryPriceChangeSummary, getExtendedHoursRow } from "@/core/priceChange";
 import { omitClosedMarketTimes, isIndexSymbol, isWithinRegularMarketHours } from "@/core/utils";
 import { SYMBOLS } from "@/core/symbols";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -289,6 +289,7 @@ export interface ChartSnapshot {
     session: string | null;
     timestamp: string | null;
     display_source?: string | null;
+    data_symbol?: string | null;
     futures_close?: number | null;
     futures_reference_close?: number | null;
   } | null;
@@ -482,6 +483,15 @@ export default function GammaTerminalChart({
   const session = snapshot ? snapshot.quote?.session ?? null : quote?.session ?? null;
   const quoteTs = snapshot ? snapshot.quote?.timestamp ?? null : quote?.timestamp ?? null;
   const sessionCloses = snapshot ? snapshot.sessionCloses : liveSessionCloses;
+  // Overnight index→future display swap (see priceChange.ts / SessionBadge).
+  // When active, the headline shows the FUTURE's price/change and the session
+  // badge reads FUTURES — the "same spot" a cash-closed index would read CLOSED.
+  // The chart candles + price marker deliberately stay on the cash tape.
+  const displaySource = snapshot ? snapshot.quote?.display_source ?? null : quote?.display_source ?? null;
+  const futuresSwap = displaySource === "futures";
+  const futuresTicker = futuresSwap
+    ? (snapshot ? snapshot.quote?.data_symbol : quote?.data_symbol) ?? null
+    : null;
 
   // Stamp the wall-clock instant each fresh live tick lands, so the header can
   // show a realtime "updated HH:MM:SS ET" that advances with the tape instead of
@@ -801,23 +811,43 @@ export default function GammaTerminalChart({
   }, [gexProfile, snapshot, rewindBucket, liveGexBucket, live]);
 
   // ── Price/change readout ─────────────────────────────────────────────────
-  // The chart draws the live pre-market / after-hours tape inline (ETFs opt
-  // into after-hours bars, and the tip candle is patched with the live quote),
-  // so the headline must track that tape rather than freeze on the regular
-  // 4 PM close — otherwise the price + change stall while the candles beside
-  // them keep moving. `preferLiveExtendedHours` routes the extended-hours
-  // headline to the live quote close (baseline unchanged, so the day-change
-  // stays continuous across the 16:00 flip). Applies to the delayed snapshot
-  // too: its quote already carries the served extended-hours close.
-  const priceSummary = getPrimaryPriceChangeSummary({
-    quoteClose: snapshot ? snapshot.quote?.close : quote?.close,
+  // Three readings, TradingView-style (see priceChange.ts):
+  //
+  //  • headline — the big number + change in the header. The change is always
+  //    vs the PREVIOUS cash-session close: live during the cash session; the
+  //    frozen 4 PM close + that session's day-change in pre/after-hours and when
+  //    closed. When the index→future swap is active it becomes the FUTURE's
+  //    price vs the future's own 4 PM print. (Default preferLiveExtendedHours.)
+  //
+  //  • extRow — the ETF-only second line in pre-market / after-hours: the live
+  //    extended-hours price vs the MOST-RECENT cash close (current_session_close).
+  //
+  //  • tape — the price the chart MARKER + regime sit on. It tracks the live
+  //    tape drawn beside it (ETFs draw live extended bars → live quote close);
+  //    indexes freeze at the 16:00 cash close, and we show futures headline-only
+  //    — so the futures fields are OMITTED here and the marker never jumps to
+  //    the future, falling back to current_session_close outside the cash session.
+  const quoteClose = snapshot ? snapshot.quote?.close : quote?.close;
+  const headline = getPrimaryPriceChangeSummary({
+    quoteClose,
     quoteSession: session,
     sessionCloses,
-    displaySource: snapshot ? snapshot.quote?.display_source : quote?.display_source,
+    displaySource,
     futuresClose: snapshot ? snapshot.quote?.futures_close : quote?.futures_close,
     futuresReferenceClose: snapshot ? snapshot.quote?.futures_reference_close : quote?.futures_reference_close,
+  });
+  const tape = getPrimaryPriceChangeSummary({
+    quoteClose,
+    quoteSession: session,
+    sessionCloses,
     preferLiveExtendedHours: true,
   });
+  const isExtendedHours = session === "pre-market" || session === "after-hours";
+  // ETFs/stocks only — indexes have no extended-hours tape (they show futures or
+  // "closed" outside the cash session), and the futures swap owns the headline.
+  const showExtendedRow = isExtendedHours && !symbolIsIndex && !futuresSwap;
+  const extRow = getExtendedHoursRow(quoteClose, sessionCloses?.current_session_close);
+  const extIcon = session === "pre-market" ? "sun" : "moon";
 
   // ── Crosshair state ──────────────────────────────────────────────────────
   const [hover, setHover] = useState<{ idx: number; price: number; px: number; py: number; w: number; h: number } | null>(null);
@@ -1347,7 +1377,7 @@ export default function GammaTerminalChart({
   const activePrevClose = activeIdx > 0 ? bars[activeIdx - 1].close : activeBar.open;
   // During rewind, "spot" is the rewound bar's close (so the regime read
   // reflects that moment); otherwise it's the live price.
-  const spot = rewindActive ? lastBar.close : priceSummary.displayPrice ?? liveTip.close;
+  const spot = rewindActive ? lastBar.close : tape.displayPrice ?? liveTip.close;
 
   const inDomain = (v: number | null): v is number => v != null && v >= layout.dMin && v <= layout.dMax;
   const regimeUnknown = flip == null;
@@ -1414,11 +1444,16 @@ export default function GammaTerminalChart({
         .sort((a, b) => a.dist - b.dist)[0] ?? null
     : null;
 
+  // Session chip. The futures swap takes over the "same spot" a cash-closed
+  // index would read CLOSED: FUTURES when the future is trading, CLOSED only
+  // when the index is outside the cash session AND no future is available.
   const sessionBadge = rewindActive
     ? { label: "◀ REWIND", color: "var(--color-accent-hot)" }
     : delayed
       ? { label: "◷ DELAYED ~15 MIN", color: "var(--color-warning)" }
-      : sessionLabel(session);
+      : futuresSwap
+        ? { label: "◆ FUTURES", color: "var(--color-brand-coral)" }
+        : sessionLabel(session);
 
   // Freshness line under the headline price.
   //  • Delayed: the snapshot's repaired "as of" (the delayed tape's freshest
@@ -1429,12 +1464,19 @@ export default function GammaTerminalChart({
   //    time ("as of") rather than a bogus live clock.
   const dataStamp = fmtEtStamp(quoteTs); // data time (minute-aligned)
   const liveStamp = fmtEtClock(liveUpdatedAt); // realtime tick receipt, to the second
-  const liveSessionActive = !delayed && !rewindActive && !!session && !/closed/i.test(session);
+  // The overnight future is actively trading even though the cash index reports
+  // session='closed', so treat the futures swap as a live session for freshness.
+  const liveSessionActive = !delayed && !rewindActive && (futuresSwap || (!!session && !/closed/i.test(session)));
   const freshnessLabel = delayed
     ? dataStamp && `Delayed quote · as of ${dataStamp}`
     : liveSessionActive
       ? liveStamp && `Updated ${liveStamp}`
       : dataStamp && `As of ${dataStamp}`;
+
+  // Header big number: the headline reading (live during the cash session; the
+  // frozen 4 PM close in pre/after-hours; the future when swapped) — or the
+  // scrub bar's close while rewinding. Change/percent come from `headline` too.
+  const headlinePrice = rewindActive ? spot : headline.displayPrice ?? spot;
 
   return (
     <div className={`zg-feature-shell zg-gc-rise ${className}`} style={{ overflow: "hidden" }}>
@@ -1462,21 +1504,29 @@ export default function GammaTerminalChart({
                   {symbol}
                 </span>
                 <span style={{ fontFamily: "var(--font-mono)", fontSize: 28, fontWeight: 600, color: "var(--text-primary)", lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>
-                  {spot != null ? fmtPrice(spot) : "--"}
+                  {headlinePrice != null ? fmtPrice(headlinePrice) : "--"}
                 </span>
-                {!rewindActive && priceSummary.change != null && (
+                {!rewindActive && futuresTicker && (
+                  <span
+                    title={`Outside the cash session — showing ${futuresTicker} futures for ${symbol}`}
+                    style={{ fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 700, letterSpacing: "0.04em", color: "var(--color-brand-coral)", border: "1px solid var(--color-brand-coral)", borderRadius: 3, padding: "1px 5px", lineHeight: 1.4 }}
+                  >
+                    ◆ {futuresTicker} FUT
+                  </span>
+                )}
+                {!rewindActive && headline.change != null && (
                   <span
                     style={{
                       fontFamily: "var(--font-mono)",
                       fontSize: 15,
                       fontWeight: 600,
-                      color: priceSummary.isPositive ? "var(--color-bull)" : "var(--color-bear)",
+                      color: headline.isPositive ? "var(--color-bull)" : "var(--color-bear)",
                       fontVariantNumeric: "tabular-nums",
                     }}
                   >
-                    {priceSummary.isPositive ? "+" : ""}
-                    {priceSummary.change.toFixed(2)}
-                    {priceSummary.changePercent != null && ` (${priceSummary.isPositive ? "+" : ""}${priceSummary.changePercent.toFixed(2)}%)`}
+                    {headline.isPositive ? "+" : ""}
+                    {headline.change.toFixed(2)}
+                    {headline.changePercent != null && ` (${headline.isPositive ? "+" : ""}${headline.changePercent.toFixed(2)}%)`}
                   </span>
                 )}
                 {rewindActive && rewindTime != null && (
@@ -1485,6 +1535,25 @@ export default function GammaTerminalChart({
                   </span>
                 )}
               </div>
+              {/* ETF pre-market / after-hours: the live extended-hours price and
+                  its change vs the MOST-RECENT cash close, on a second line
+                  under the regular quote (mirrors the header row-2). */}
+              {!rewindActive && showExtendedRow && extRow.price != null && extRow.change != null && extRow.changePercent != null && (
+                <div
+                  className="flex items-center gap-1.5 mt-1"
+                  title={`${session === "pre-market" ? "Pre-market" : "After-hours"} price vs most-recent cash close`}
+                >
+                  {extIcon === "moon"
+                    ? <Moon size={11} style={{ color: "var(--text-secondary)" }} />
+                    : <Sun size={11} style={{ color: "var(--text-secondary)" }} />}
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 600, color: "var(--text-primary)", opacity: 0.85, fontVariantNumeric: "tabular-nums" }}>
+                    {fmtPrice(extRow.price)}
+                  </span>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 600, color: extRow.isPositive ? "var(--color-bull)" : "var(--color-bear)", fontVariantNumeric: "tabular-nums" }}>
+                    {extRow.isPositive ? "+" : ""}{extRow.change.toFixed(2)} ({extRow.isPositive ? "+" : ""}{extRow.changePercent.toFixed(2)}%)
+                  </span>
+                </div>
+              )}
               {/* Freshness line (to the second, ET). Live shows the realtime
                   instant the last tick landed; delayed shows the frozen "as of".
                   Shown in both modes so freshness is never ambiguous; hidden

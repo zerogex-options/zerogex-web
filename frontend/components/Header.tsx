@@ -30,7 +30,7 @@ import type { UnderlyingSymbol } from "@/core/TimeframeContext";
 import { useTimeframe } from "@/core/TimeframeContext";
 import { SYMBOLS } from "@/core/symbols";
 import { getMarketSession } from "@/core/utils";
-import { getPrimaryPriceChangeSummary } from "@/core/priceChange";
+import { getPrimaryPriceChangeSummary, getExtendedHoursRow } from "@/core/priceChange";
 import { colors } from "@/core/colors";
 import SessionBadge from "./SessionBadge";
 import WorldClocks from "./WorldClocks";
@@ -272,13 +272,14 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
   // pre/ah → icon + live quote close  vs  current_session_close
   const showExtendedRow = isExtendedHours && !!quoteData && !!sessionClosesData;
 
-  const row2Price = quoteData?.close ?? null;
-  const row2BaseClose = sessionClosesData?.current_session_close ?? null;
-  const row2Change =
-    row2Price !== null && row2BaseClose !== null ? row2Price - row2BaseClose : null;
-  const row2ChangePercent =
-    row2Change !== null && row2BaseClose ? (row2Change / row2BaseClose) * 100 : null;
-  const row2Positive = row2Change !== null ? row2Change >= 0 : false;
+  // Extended price vs the most-recent cash close (current_session_close),
+  // shared with the Gamma Chart's extended-hours line via getExtendedHoursRow.
+  const {
+    price: row2Price,
+    change: row2Change,
+    changePercent: row2ChangePercent,
+    isPositive: row2Positive,
+  } = getExtendedHoursRow(quoteData?.close, sessionClosesData?.current_session_close);
 
   // ── Labels / tooltips ────────────────────────────────────────────────────
   const formatEtDateTime = (ts: string) => {

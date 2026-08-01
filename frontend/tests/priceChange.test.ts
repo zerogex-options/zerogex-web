@@ -14,7 +14,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { getPrimaryPriceChangeSummary } from "../core/priceChange.ts";
+import { getPrimaryPriceChangeSummary, getExtendedHoursRow } from "../core/priceChange.ts";
 import type { SessionClosesData } from "../hooks/useApiData.ts";
 
 // Build a SessionClosesData with the two closes the calc reads. `current` and
@@ -168,4 +168,44 @@ test("after-hours, FLAG ON but no live quote → graceful fallback to regular cl
   });
   assert.equal(r.displayPrice, 749.0); // falls back, no crash
   assert.equal(r.change, 2.0);
+});
+
+// ── getExtendedHoursRow ─────────────────────────────────────────────────────
+// The second line under the ETF quote in pre-market / after-hours: the live
+// extended price vs the MOST-RECENT cash close (current_session_close), which
+// is TradingView's pre/post-market change basis.
+
+test("extended row: after-hours up vs most-recent (today's) close", () => {
+  // Today closed at 749.00; after-hours trading at 750.50 → +1.50 vs the close.
+  const r = getExtendedHoursRow(750.5, 749.0);
+  assert.equal(r.price, 750.5);
+  approx(r.change as number, 1.5);
+  approx(r.changePercent as number, (1.5 / 749.0) * 100);
+  assert.equal(r.isPositive, true);
+});
+
+test("extended row: pre-market down vs most-recent (yesterday's) close", () => {
+  // In pre-market the most-recent cash close is yesterday's 4 PM (746.00);
+  // pre-market at 744.00 → −2.00, NOT measured against the day-before.
+  const r = getExtendedHoursRow(744.0, 746.0);
+  assert.equal(r.price, 744.0);
+  approx(r.change as number, -2.0);
+  approx(r.changePercent as number, (-2.0 / 746.0) * 100);
+  assert.equal(r.isPositive, false);
+});
+
+test("extended row: missing inputs → all null, isPositive false (caller hides row)", () => {
+  for (const [q, c] of [[null, 749.0], [750.5, null], [null, null], [undefined, undefined]] as const) {
+    const r = getExtendedHoursRow(q, c);
+    assert.equal(r.change, null);
+    assert.equal(r.changePercent, null);
+    assert.equal(r.isPositive, false);
+  }
+});
+
+test("extended row: exactly flat → zero change counts as positive (green)", () => {
+  const r = getExtendedHoursRow(749.0, 749.0);
+  assert.equal(r.change, 0);
+  assert.equal(r.changePercent, 0);
+  assert.equal(r.isPositive, true);
 });

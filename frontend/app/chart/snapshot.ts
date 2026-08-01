@@ -55,6 +55,7 @@ interface RawQuote {
   session?: string | null;
   timestamp?: string | null;
   display_source?: string | null;
+  data_symbol?: string | null;
   futures_close?: unknown;
   futures_reference_close?: unknown;
 }
@@ -176,6 +177,7 @@ export async function loadChartSnapshot(
       session: repairedQuote.session,
       timestamp: repairedQuote.timestamp,
       display_source: quote?.display_source ?? null,
+      data_symbol: quote?.data_symbol ?? null,
       futures_close: num(quote?.futures_close),
       futures_reference_close: num(quote?.futures_reference_close),
     },
