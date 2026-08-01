@@ -188,16 +188,33 @@ if (exclusive > 1) {
 
 const cwd = process.cwd();
 const envLocal = parseEnvFile(path.join(cwd, '.env.local'));
-function envOrLocal(key: string): string | undefined {
-  return process.env[key] || envLocal[key] || undefined;
-}
 
-const NEXT_PUBLIC_APP_URL = envOrLocal('NEXT_PUBLIC_APP_URL');
+const RESEND_API_KEY = process.env.RESEND_API_KEY || envLocal.RESEND_API_KEY;
+const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || envLocal.RESEND_FROM_EMAIL;
+const NEXT_PUBLIC_APP_URL = process.env.NEXT_PUBLIC_APP_URL || envLocal.NEXT_PUBLIC_APP_URL || '';
 const appUrl = (NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/+$/, '');
 
-// The unsubscribe link must be signable before we send anything real, or every
-// email would ship a dead link. Preview is exempt (tokenless placeholder).
-if (!cliArgs.previewTo && !envOrLocal('ZEROGEX_END_USER_TOKEN_SECRET')) {
+// The mailer (statically imported) and unsubToken() both read straight from
+// process.env, but a standalone node script doesn't auto-load .env.local — so
+// stuff the resolved values in before any send. Mirrors send-trial-reminders.mts
+// / send-reactivation.mts; without this the timer's real YES=1 send throws
+// "Missing required env var: RESEND_API_KEY".
+if (RESEND_API_KEY) process.env.RESEND_API_KEY = RESEND_API_KEY;
+if (RESEND_FROM_EMAIL) process.env.RESEND_FROM_EMAIL = RESEND_FROM_EMAIL;
+if (NEXT_PUBLIC_APP_URL) process.env.NEXT_PUBLIC_APP_URL = NEXT_PUBLIC_APP_URL;
+if (!process.env.ZEROGEX_END_USER_TOKEN_SECRET && envLocal.ZEROGEX_END_USER_TOKEN_SECRET) {
+  process.env.ZEROGEX_END_USER_TOKEN_SECRET = envLocal.ZEROGEX_END_USER_TOKEN_SECRET;
+}
+
+// Sending (real or preview) needs Resend creds.
+if ((cliArgs.yes || cliArgs.previewTo) && (!RESEND_API_KEY || !RESEND_FROM_EMAIL)) {
+  console.error('Error: RESEND_API_KEY and RESEND_FROM_EMAIL must be set to send emails.');
+  process.exit(1);
+}
+// A real send signs a per-user unsubscribe link (buildUnsubUrl -> unsubToken);
+// require the secret for --yes. Preview uses a tokenless placeholder, so it's
+// exempt, and a dry-run neither sends nor signs.
+if (cliArgs.yes && !process.env.ZEROGEX_END_USER_TOKEN_SECRET) {
   console.error('Error: ZEROGEX_END_USER_TOKEN_SECRET must be set to sign the unsubscribe link.');
   process.exit(1);
 }
