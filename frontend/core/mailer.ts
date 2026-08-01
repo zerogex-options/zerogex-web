@@ -646,6 +646,94 @@ export async function sendTrialReminderEmail(to: string, opts: TrialReminderEmai
   }
 }
 
+export type TrialValueEmailOptions = {
+  // ISO trial-end instant, used only to name the date the member has until —
+  // this email is about getting value NOW, never about the charge.
+  trialEndIso: string;
+  // Footer unsubscribe URL (this is an engagement email, so it honors opt-out
+  // and must carry a one-click unsubscribe link, unlike the transactional
+  // 48h billing reminder).
+  unsubUrl: string;
+};
+
+// Pure builder for the mid-trial VALUE nudge (~day 2 of a 7-day trial): a
+// founder-voice activation email that steers a new trialer to the two or three
+// actions that make ZeroGEX "click", sent EARLY — before the day 3–7 cancel
+// wave and well before the 48h billing reminder. Deliberately carries NO charge
+// or cancel language: its whole job is time-to-value, not billing. Split from
+// the sender (no Resend/DB I/O) so a preview renders the exact wire copy.
+export function buildTrialValueEmail(opts: TrialValueEmailOptions): {
+  subject: string;
+  html: string;
+  text: string;
+} {
+  const trialEndDate = formatTrialEndDate(opts.trialEndIso);
+  const subject = 'Getting the most out of your ZeroGEX trial';
+  const dashboardUrl = `${getAppUrl()}/dashboard`;
+  const safeDashboardUrl = escapeHtml(dashboardUrl);
+  const safeUnsubUrl = escapeHtml(opts.unsubUrl);
+
+  const text = [
+    'Hello,',
+    '',
+    "You're a couple of days into your ZeroGEX trial, and I wanted to reach out while you've still got plenty of runway (your trial runs through " +
+      `${trialEndDate}). The members who stick around almost always got one clear, useful read in their first few days — so here's how to get there fast:`,
+    '',
+    '  1. Before the open, pull up the SPX/SPY GEX levels on your dashboard. Those gamma walls are the support/resistance map most members build their day around.',
+    '  2. Check the Signal Score for a quick, one-glance directional read instead of piecing it together yourself.',
+    '  3. Add the tickers you actually trade so the dashboard shows your setups, not the defaults.',
+    '',
+    `Open your dashboard: ${dashboardUrl}`,
+    '',
+    "If anything's confusing, not what you expected, or just not clicking yet — reply to this email and tell me. I read every message and I'll personally help you get a useful read out of it before your trial is up.",
+    '',
+    'Best,',
+    'Michael',
+    'Founder, ZeroGEX',
+    '',
+    `Prefer fewer emails like this? Unsubscribe: ${opts.unsubUrl}`,
+  ].join('\n');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <p>Hello,</p>
+      <p>You're a couple of days into your ZeroGEX trial, and I wanted to reach out while you've still got plenty of runway (your trial runs through <strong>${escapeHtml(trialEndDate)}</strong>). The members who stick around almost always got one clear, useful read in their first few days &mdash; so here's how to get there fast:</p>
+      <ol style="padding-left: 20px; margin: 12px 0;">
+        <li style="margin: 0 0 8px;">Before the open, pull up the <strong>SPX/SPY GEX levels</strong> on your dashboard. Those gamma walls are the support/resistance map most members build their day around.</li>
+        <li style="margin: 0 0 8px;">Check the <strong>Signal Score</strong> for a quick, one-glance directional read instead of piecing it together yourself.</li>
+        <li style="margin: 0 0 8px;">Add the <strong>tickers you actually trade</strong> so the dashboard shows your setups, not the defaults.</li>
+      </ol>
+      <p style="margin: 24px 0;">
+        <a href="${safeDashboardUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Open your dashboard</a>
+      </p>
+      <p>If anything's confusing, not what you expected, or just not clicking yet &mdash; reply to this email and tell me. I read every message and I'll personally help you get a useful read out of it before your trial is up.</p>
+      <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+      <p style="margin-top: 24px; font-size: 12px; color: #888;">Prefer fewer emails like this? <a href="${safeUnsubUrl}" style="color: #888;">Unsubscribe</a>.</p>
+    </div>
+  `.trim();
+
+  return { subject, html, text };
+}
+
+// Sends the mid-trial value nudge. Thin wrapper over buildTrialValueEmail so the
+// wire copy and any preview never drift.
+export async function sendTrialValueEmail(to: string, opts: TrialValueEmailOptions) {
+  const { subject, html, text } = buildTrialValueEmail(opts);
+
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject,
+    text,
+    html,
+  });
+
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
 // Final-call email to a founding-eligible user who has not yet converted,
 // fired by scripts/send-founding-final-call.mts in the last ~36 hours before
 // FOUNDING_LOCKIN_DEADLINE_ISO. One-shot per account (idempotency latch on

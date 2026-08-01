@@ -1,0 +1,16 @@
+[Unit]
+Description=ZeroGEX web mid-trial value-nudge email timer (~every 6h)
+
+[Timer]
+# Every 6 hours at :45 — offset from the trial-reminders timer at :15 (and the
+# hourly auth backup at :00) so the two trial emails never fire in the same
+# minute. The script's default +/-3h window matches this cadence so each
+# trialing user lands in exactly one run around the ~day-2 mark.
+OnCalendar=00/6:45:00
+# Spread load across deploys / coalesce if many users hit the same minute.
+RandomizedDelaySec=5m
+# If the box was down at the scheduled time, run as soon as it is back up.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

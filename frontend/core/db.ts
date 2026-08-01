@@ -316,6 +316,17 @@ function initDb(): DatabaseSync {
   // second trial after a cancellation) so the nudge fires once per trial.
   ensureColumn('users', 'trial_reminder_email_sent_at', 'TEXT');
 
+  // Idempotency latch for the mid-trial VALUE nudge (scripts/send-trial-value-
+  // nudge.mts) — a day-~2 activation email sent EARLIER than the 48h reminder
+  // above, to reach trialing members before the mid-trial cancel wave (most
+  // trial cancels land at 3–7 days' tenure, before the 48h reminder ever fires).
+  // Unlike that reminder this is an engagement email, so its sender honors
+  // marketing_unsubscribed_at and skips already-cancelled trials. NULL =
+  // eligible; set to the ISO timestamp on send. Cleared back to NULL on each
+  // fresh 'trialing' transition (same re-arm as the reminder latch) so a second
+  // trial gets one fresh nudge.
+  ensureColumn('users', 'trial_midpoint_email_sent_at', 'TEXT');
+
   // One-shot latch for the abandoned-checkout recovery email sent by
   // scripts/send-checkout-recovery.mts. NULL = eligible, set to the ISO
   // timestamp of the send once delivered. Deliberately never cleared: a

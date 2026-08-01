@@ -1,0 +1,42 @@
+[Unit]
+Description=ZeroGEX web mid-trial value/activation nudge emails
+Documentation=https://github.com/zerogex-options/zerogex-web
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/zerogex-web
+
+# `make trial-value-nudge` shells through nvm to get the correct Node 22
+# binary (the script is a .mts that needs --experimental-strip-types). The
+# Makefile target sources $HOME/.nvm/nvm.sh internally, so all we need
+# here is HOME pointing at the user's home — the system PATH suffices for
+# /usr/bin/make + /usr/bin/bash; node lands on PATH via nvm.sh at runtime.
+Environment="HOME=/home/ubuntu"
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+
+ExecStart=/usr/bin/make -C /home/ubuntu/zerogex-web trial-value-nudge YES=1
+
+# Resend is the only outbound leg; cap so a hung HTTPS connect can't pile
+# up overlapping timer fires.
+TimeoutStartSec=300
+
+# Security hardening (mirrors the trial-reminders unit).
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+# RW exception: the auth DB dir, because UPDATE users SET
+# trial_midpoint_email_sent_at and the audit_events INSERT both write to
+# the same SQLite file as the live PM2 writer. The deploy step adds an
+# AUTH_DB_PATH-derived drop-in when the DB lives outside the repo (e.g.
+# /var/lib/zerogex); this default covers the in-repo case.
+ReadWritePaths=/home/ubuntu/zerogex-web/frontend/data
+
+# Logging -> journald (view with: journalctl -u zerogex-web-trial-value-nudge)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=zerogex-web-trial-value-nudge
