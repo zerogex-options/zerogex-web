@@ -244,14 +244,27 @@ export function isPaidSignupDisabled(): boolean {
 //
 // Deliberately bounded and env-tunable so it can never become "weeks of free
 // premium": default 3 days, clamped to [0, 14]. Set BILLING_PAYMENT_GRACE_DAYS=0
-// to restore the old instant-downgrade behavior. Never applies to
-// trial-conversion failures (previous status `trialing`, never `active`) — an
-// unvalidated trial card gets no grace.
+// to restore the old instant-downgrade behavior. The SAME window length is used
+// for trial-conversion failures when trial grace is enabled (see
+// getTrialGraceEnabled) — a trial requires a card at checkout, so its first
+// charge declining is the same recoverable case as a renewal decline.
 const DEFAULT_PAYMENT_GRACE_DAYS = 3;
 export function getPaymentGraceDays(): number {
   const raw = Number(process.env.BILLING_PAYMENT_GRACE_DAYS);
   if (!Number.isFinite(raw)) return DEFAULT_PAYMENT_GRACE_DAYS;
   return Math.max(0, Math.min(14, Math.floor(raw)));
+}
+
+// Whether a trial-conversion failure (trialing → past_due at trial end) also
+// gets the bounded payment-recovery grace window above, instead of dropping to
+// 'public' the instant the first charge fails. Trials already require a card at
+// checkout, so a declined first charge is usually a recoverable decline
+// (insufficient funds that day, a bank hold), not a bogus card — grace lets
+// Stripe's Smart Retries recover the conversion. Defaults ON; set
+// BILLING_TRIAL_GRACE_ENABLED=0 to restore the hard trial-end downgrade. Has no
+// effect when grace is globally disabled (BILLING_PAYMENT_GRACE_DAYS=0).
+export function getTrialGraceEnabled(): boolean {
+  return process.env.BILLING_TRIAL_GRACE_ENABLED !== '0';
 }
 
 // Billing portal configuration id (bpc_...). When set, the portal route

@@ -19,14 +19,17 @@ import {
   getCurrentPeriodEndUnix,
   getFoundingIntroCouponId,
   getFoundingLifetimeCouponId,
+  getAppUrl,
   getManagedCadenceCouponIds,
   getPaymentGraceDays,
+  getTrialGraceEnabled,
   getStripe,
   priceIdToSku,
   priceIdToTier,
 } from '@/core/stripe';
 import { decidePaymentGrace, graceWindowEndIso } from '@/core/paymentGrace';
 import { formatCancellationReasonSuffix, type CancellationDetails } from '@/core/cancellationReason';
+import { buildSaveUrl } from '@/core/retentionToken';
 import {
   backAttributeReferral,
   getRefereeCouponId,
@@ -519,10 +522,12 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
   // the involuntary-churn fix. `payment_grace_started_at` anchors the window;
   // decidePaymentGrace opens it on the first past_due sync of a previously-active
   // sub, enforces the bound on subsequent past_due syncs, and closes it the
-  // moment the sub leaves past_due. A trial-conversion failure (previousStatus
-  // `trialing`, never `active`) opens no window, so an unvalidated trial card is
-  // downgraded immediately, exactly as before. Decision logic is unit-tested in
-  // tests/paymentGrace.test.ts.
+  // moment the sub leaves past_due. When trial grace is enabled
+  // (getTrialGraceEnabled), a trial-conversion failure (previousStatus
+  // `trialing`) also opens a window with the same bounded length, so a
+  // recoverable first-charge decline doesn't drop the member the instant the
+  // trial ends; with it disabled, trials downgrade immediately as before.
+  // Decision logic is unit-tested in tests/paymentGrace.test.ts.
   const graceDays = getPaymentGraceDays();
   const { graceStartedAt, inGrace } = decidePaymentGrace({
     status: subscription.status,
@@ -530,6 +535,7 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
     graceStartedAt: user.payment_grace_started_at,
     graceDays,
     nowMs: Date.now(),
+    trialGrace: getTrialGraceEnabled(),
   });
 
   const grantsTier = isActive || inGrace;
@@ -739,7 +745,16 @@ async function maybeHandleCancelAckTransition(
     if (Number(claim.changes) === 0) return;
 
     try {
-      await sendCancellationEmail(user.email, { periodEndIso: opts.periodEndIso });
+      // One-click self-serve save link (25% off + un-cancel via app/save).
+      // Best-effort: if the token secret is unset, buildSaveUrl throws and the
+      // email degrades to the evergreen reply-'discount' offer only.
+      let saveUrl: string | null = null;
+      try {
+        saveUrl = buildSaveUrl(getAppUrl(), user.id);
+      } catch {
+        saveUrl = null;
+      }
+      await sendCancellationEmail(user.email, { periodEndIso: opts.periodEndIso, saveUrl });
       logAudit({
         type: 'cancellation_ack_email_sent',
         userId: user.id,
