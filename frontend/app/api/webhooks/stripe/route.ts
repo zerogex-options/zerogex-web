@@ -627,12 +627,13 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
       conversionId: subscription.id,
       email: user.email,
     });
-    // Re-arm the ~48h reminder for this new trial window. Without this,
-    // a user who cancels mid-trial and resubscribes never gets the nudge
-    // because the latch stays set from their first trial.
+    // Re-arm the trial nudges (both the day-~2 value nudge and the ~48h
+    // reminder) for this new trial window. Without this, a user who cancels
+    // mid-trial and resubscribes never gets them because the latches stay set
+    // from their first trial.
     getDb()
       .prepare(
-        'UPDATE users SET trial_reminder_email_sent_at = NULL, updated_at = ? WHERE id = ?',
+        'UPDATE users SET trial_reminder_email_sent_at = NULL, trial_midpoint_email_sent_at = NULL, updated_at = ? WHERE id = ?',
       )
       .run(nowIso(), user.id);
   }

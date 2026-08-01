@@ -517,6 +517,10 @@ const eligible = querySqlite<UserRow>(
    FROM users
    WHERE subscription_status = 'trialing'
      AND trial_reminder_email_sent_at IS NULL
+     -- Never remind a member who already clicked Cancel: their trial won't
+     -- convert (no upcoming invoice — the billing lookup can't even resolve),
+     -- so a "you'll be charged in 2 days" note is wrong and confusing.
+     AND COALESCE(cancel_at_period_end, 0) = 0
      AND current_period_end IS NOT NULL
      AND current_period_end >= '${escapeSqlLiteral(lowIso)}'
      AND current_period_end <= '${escapeSqlLiteral(highIso)}'
