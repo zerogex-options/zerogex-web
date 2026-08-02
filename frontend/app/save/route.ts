@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import type Stripe from 'stripe';
 import { getDb } from '@/core/db';
-import { getStripe, getWinbackCouponId, priceIdToSku } from '@/core/stripe';
+import { getStripe, getWinbackCouponId, priceIdToSku, type Sku } from '@/core/stripe';
 import { verifySaveToken } from '@/core/retentionToken';
 
 // Self-serve retention SAVE. The cancellation email carries a one-click
@@ -32,6 +32,44 @@ type UserRow = {
 };
 
 const LIVE_STATUSES = new Set(['trialing', 'active']);
+
+// The self-serve save discount: 25% off for a year. Prefer the operator's
+// configured win-back coupon for the plan; if none is set, create-or-reuse a
+// deterministic coupon using the SAME id scheme as
+// scripts/honor-winback-discount.mts, so the manual and automated paths share
+// one Stripe object. This keeps the one-click save working without requiring the
+// STRIPE_COUPON_WINBACK_* envs. Create is idempotent (fixed id → at most one
+// coupon per cadence, reused thereafter), and the whole flow is latched one
+// claim per account, so this can't be used to farm coupons.
+const SAVE_PERCENT = 25;
+async function resolveSaveCoupon(stripe: ReturnType<typeof getStripe>, sku: Sku): Promise<string> {
+  const configured = getWinbackCouponId(sku);
+  if (configured) return configured;
+  const id = `winback-${SAVE_PERCENT}pct-1yr-${sku.cadence}`;
+  try {
+    const existing = await stripe.coupons.retrieve(id);
+    if (existing?.id) return existing.id;
+  } catch {
+    // Not found (or a transient read error) — fall through to create.
+  }
+  try {
+    const params: Stripe.CouponCreateParams = {
+      id,
+      percent_off: SAVE_PERCENT,
+      name: `Win-back ${SAVE_PERCENT}% off (1 year)`,
+      metadata: { source: 'self-serve-save', cadence: sku.cadence },
+      ...(sku.cadence === 'annual'
+        ? { duration: 'once' }
+        : { duration: 'repeating', duration_in_months: 12 }),
+    };
+    const created = await stripe.coupons.create(params);
+    return created.id ?? id;
+  } catch (err) {
+    // Race / prior partial create: the id already exists — reuse it.
+    if ((err as { code?: string } | undefined)?.code === 'resource_already_exists') return id;
+    throw err;
+  }
+}
 
 function loadUser(userId: string): UserRow | null {
   try {
@@ -167,12 +205,11 @@ export async function POST(request: NextRequest) {
 
   const user = evalResult.user;
   const sku = user.stripe_price_id ? priceIdToSku(user.stripe_price_id) : null;
-  const winbackCoupon = sku ? getWinbackCouponId(sku) : null;
 
-  // No configured win-back coupon for this plan → we can't auto-apply the
-  // discount. Do NOT silently un-cancel (that would be a surprise charge at full
-  // price); fall back to the reply-'discount' path the email already offers.
-  if (!winbackCoupon) {
+  // A price that doesn't map to a known SKU (a misconfigured STRIPE_PRICE_* env)
+  // leaves us unable to pick a coupon cadence — don't silently un-cancel at full
+  // price; fall back to the reply-'discount' path the email already offers.
+  if (!sku) {
     return htmlResponse(
       shell(
         'Reply and I&rsquo;ll set it up',
@@ -183,6 +220,23 @@ export async function POST(request: NextRequest) {
   }
 
   const stripe = getStripe();
+
+  // Resolve the 25%/yr save coupon — operator-configured if present, else
+  // create-or-reuse a deterministic one — so the one-click save works out of the
+  // box even when the STRIPE_COUPON_WINBACK_* envs aren't set.
+  let winbackCoupon: string;
+  try {
+    winbackCoupon = await resolveSaveCoupon(stripe, sku);
+  } catch {
+    return htmlResponse(
+      shell(
+        'Something went wrong',
+        `<p style="font-size:15px; line-height:1.6; color:#3a4650; margin:0;">I couldn&rsquo;t set up the offer just now. Please try again in a minute, or reply to your cancellation email and I&rsquo;ll take care of it.</p>`,
+      ),
+      502,
+    );
+  }
+
   let subscription: Stripe.Subscription;
   try {
     subscription = await stripe.subscriptions.retrieve(user.stripe_subscription_id!, {
