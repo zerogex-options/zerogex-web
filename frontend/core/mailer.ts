@@ -1241,12 +1241,13 @@ export async function sendPaymentRecoveredEmail(to: string) {
 // the reply is worth more than automating the coupon.
 export async function sendCancellationEmail(
   to: string,
-  opts: { periodEndIso: string | null },
+  opts: { periodEndIso: string | null; saveUrl?: string | null },
 ) {
   const subject = 'Sorry to see you go — mind sharing why?';
   const periodEndDate = opts.periodEndIso
     ? formatTrialEndDate(opts.periodEndIso)
     : 'the end of your current billing period';
+  const saveUrl = opts.saveUrl ?? null;
 
   const text = [
     'Hello,',
@@ -1255,6 +1256,13 @@ export async function sendCancellationEmail(
     '',
     `You still have full access until ${periodEndDate}, so nothing changes yet on your end. I just wanted to reach out personally before that day comes.`,
     '',
+    ...(saveUrl
+      ? [
+          'If it comes down to price, here\'s the one-click version: claim 25% off for a full year and keep your access — no re-subscribe, no re-entering a card:',
+          saveUrl,
+          '',
+        ]
+      : []),
     "If you have a minute, I'd love to know what made you cancel. Even one sentence back on this email helps me a lot — I read every reply. Common ones I hear:",
     '',
     "  - The data wasn't what I expected",
@@ -1279,6 +1287,12 @@ export async function sendCancellationEmail(
       <p>Hello,</p>
       <p>I saw you just cancelled your ZeroGEX subscription &mdash; first, thank you. You've been a real part of what I've been building here, and I don't take that lightly.</p>
       <p>You still have full access until <strong>${escapeHtml(periodEndDate)}</strong>, so nothing changes yet on your end. I just wanted to reach out personally before that day comes.</p>
+      ${saveUrl
+        ? `<div style="background: #f4fbf6; border: 1px solid #bfe6cf; border-radius: 10px; padding: 16px 18px; margin: 20px 0; text-align: center;">
+        <p style="margin: 0 0 12px; font-size: 15px; color: #1a1a1a;">If it comes down to price &mdash; keep your access at <strong>25% off for a full year</strong>, in one click. No re-subscribe, no re-entering a card.</p>
+        <a href="${escapeHtml(saveUrl)}" style="display: inline-block; padding: 12px 22px; background: #f5b400; color: #000; font-weight: 700; text-decoration: none; border-radius: 8px;">Keep my access &amp; claim 25% off</a>
+      </div>`
+        : ''}
       <p>If you have a minute, I'd love to know what made you cancel. Even one sentence back on this email helps me a lot &mdash; I read every reply. Common ones I hear:</p>
       <ul style="padding-left: 20px; margin: 12px 0;">
         <li>The data wasn't what I expected</li>

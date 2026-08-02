@@ -410,6 +410,16 @@ function initDb(): DatabaseSync {
   // who returns and later churns a second time can receive a fresh win-back.
   ensureColumn('users', 'winback_email_sent_at', 'TEXT');
 
+  // One-shot latch for the self-serve retention SAVE (app/save/route.ts): the
+  // automated "keep my access + claim the discount" one-click flow linked from
+  // the cancellation email. NULL = never claimed; set to the ISO timestamp when
+  // the member claims (a win-back coupon is stacked on their subscription and
+  // cancel_at_period_end is cleared, all self-serve — no operator, no reply).
+  // Deliberately PERMANENT and never re-armed: one automated save per account so
+  // the signed link can't be replayed to farm discounts; a repeat retention
+  // still has the manual `make honor-winback-discount` path.
+  ensureColumn('users', 'retention_offer_claimed_at', 'TEXT');
+
   // Re-armable latch for the payment-recovered confirmation email — the bookend
   // to the payment-failed nudge. 0 = nothing pending; the Stripe webhook sets it
   // to 1 when a subscription enters `past_due` (a real renewal failure that drops

@@ -25,6 +25,13 @@ export type PaymentGraceInput = {
   graceDays: number;
   // Injected clock (Date.now()) so the decision is deterministic under test.
   nowMs: number;
+  // When true, a trial-conversion failure (previousStatus `trialing`) ALSO opens
+  // a grace window, using the same bounded graceDays. Defaults to false, which
+  // preserves the original renewal-only behavior. The Stripe webhook passes
+  // getTrialGraceEnabled(). A trial already requires a card at checkout, so its
+  // first-charge decline is the same recoverable case a renewal decline is — this
+  // gives Stripe's Smart Retries the same short window before access drops.
+  trialGrace?: boolean;
 };
 
 export type PaymentGraceDecision = {
@@ -37,7 +44,7 @@ export type PaymentGraceDecision = {
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function decidePaymentGrace(input: PaymentGraceInput): PaymentGraceDecision {
-  const { status, previousStatus, graceStartedAt, graceDays, nowMs } = input;
+  const { status, previousStatus, graceStartedAt, graceDays, nowMs, trialGrace = false } = input;
 
   // Any non-past_due status closes the window: recovery to `active`, a switch
   // back to `trialing`, cancel, etc. The tier grant is then driven by the normal
@@ -56,11 +63,14 @@ export function decidePaymentGrace(input: PaymentGraceInput): PaymentGraceDecisi
     return { graceStartedAt, inGrace };
   }
 
-  // First `past_due` sync. Open a window ONLY for an established (previously
-  // `active`) subscription. A trial-conversion failure (previousStatus
-  // `trialing`, never `active`) opens no window, so an unvalidated trial card is
-  // downgraded immediately — preserving the hard trial-end behavior.
-  if (graceDays > 0 && previousStatus === 'active') {
+  // First `past_due` sync. Open a window for an established (previously `active`)
+  // subscription, and — when trialGrace is enabled — for a trial-conversion
+  // failure (previously `trialing`) too. Both use the same bounded graceDays, so
+  // the "already inside a window" branch above enforces the bound identically on
+  // subsequent past_due syncs regardless of which case opened it. With trialGrace
+  // off, a trialing→past_due opens no window (the original hard trial-end).
+  const qualifies = previousStatus === 'active' || (trialGrace && previousStatus === 'trialing');
+  if (graceDays > 0 && qualifies) {
     return { graceStartedAt: new Date(nowMs).toISOString(), inGrace: true };
   }
 
