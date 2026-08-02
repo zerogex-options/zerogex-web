@@ -668,24 +668,34 @@ export function buildTrialValueEmail(opts: TrialValueEmailOptions): {
   text: string;
 } {
   const trialEndDate = formatTrialEndDate(opts.trialEndIso);
-  const subject = 'Getting the most out of your ZeroGEX trial';
-  const dashboardUrl = `${getAppUrl()}/dashboard`;
+  const subject = 'Getting a real read out of your ZeroGEX trial';
+  const appUrl = getAppUrl();
+  const dashboardUrl = `${appUrl}/dashboard`;
+  const bulletinUrl = `${appUrl}/live-bulletin`;
+  const scoreUrl = `${appUrl}/signal-score`;
+  const gexUrl = `${appUrl}/education/gamma-exposure-explained`;
   const safeDashboardUrl = escapeHtml(dashboardUrl);
+  const safeBulletinUrl = escapeHtml(bulletinUrl);
+  const safeScoreUrl = escapeHtml(scoreUrl);
+  const safeGexUrl = escapeHtml(gexUrl);
   const safeUnsubUrl = escapeHtml(opts.unsubUrl);
+  const linkStyle = 'color: #f5b400; font-weight: 600;';
 
   const text = [
     'Hello,',
     '',
-    "You're a couple of days into your ZeroGEX trial, and I wanted to reach out while you've still got plenty of runway (your trial runs through " +
-      `${trialEndDate}). The members who stick around almost always got one clear, useful read in their first few days — so here's how to get there fast:`,
+    "You're a couple of days into your ZeroGEX trial, and I wanted to reach out while you've still got runway (your trial runs through " +
+      `${trialEndDate}). Almost everyone who sticks around got one clear read early — so here's the fastest path to it:`,
     '',
-    '  1. Before the open, pull up the SPX/SPY GEX levels on your dashboard. Those gamma walls are the support/resistance map most members build their day around.',
-    '  2. Check the Signal Score for a quick, one-glance directional read instead of piecing it together yourself.',
-    '  3. Add the tickers you actually trade so the dashboard shows your setups, not the defaults.',
+    "  1. Open the Dashboard before the bell and find where price is trading relative to today's gamma flip. Above the flip, expect mean-reversion and grind; below it, trend and amplification. That one relationship reframes the whole session.",
+    '  2. Keep the Live Bulletin open in a second tab. It streams you the moment a signal fires or the regime flips, so the read comes to you instead of you hunting for it.',
+    '  3. Glance at the Composite Score — one number from -1 to +1. The sign is direction, the size is conviction: your quickest gut-check on the tape.',
     '',
     `Open your dashboard: ${dashboardUrl}`,
     '',
-    "If anything's confusing, not what you expected, or just not clicking yet — reply to this email and tell me. I read every message and I'll personally help you get a useful read out of it before your trial is up.",
+    `Want the model behind it? The 5-minute read is Gamma Exposure Explained: ${gexUrl}`,
+    '',
+    "If anything's confusing, not what you expected, or just not clicking yet — reply to this email and tell me. I read every message and I'll personally help you get a useful read before your trial is up.",
     '',
     'Best,',
     'Michael',
@@ -697,16 +707,17 @@ export function buildTrialValueEmail(opts: TrialValueEmailOptions): {
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
       <p>Hello,</p>
-      <p>You're a couple of days into your ZeroGEX trial, and I wanted to reach out while you've still got plenty of runway (your trial runs through <strong>${escapeHtml(trialEndDate)}</strong>). The members who stick around almost always got one clear, useful read in their first few days &mdash; so here's how to get there fast:</p>
+      <p>You're a couple of days into your ZeroGEX trial, and I wanted to reach out while you've still got runway (your trial runs through <strong>${escapeHtml(trialEndDate)}</strong>). Almost everyone who sticks around got one clear read early &mdash; so here's the fastest path to it:</p>
       <ol style="padding-left: 20px; margin: 12px 0;">
-        <li style="margin: 0 0 8px;">Before the open, pull up the <strong>SPX/SPY GEX levels</strong> on your dashboard. Those gamma walls are the support/resistance map most members build their day around.</li>
-        <li style="margin: 0 0 8px;">Check the <strong>Signal Score</strong> for a quick, one-glance directional read instead of piecing it together yourself.</li>
-        <li style="margin: 0 0 8px;">Add the <strong>tickers you actually trade</strong> so the dashboard shows your setups, not the defaults.</li>
+        <li style="margin: 0 0 10px;">Open the <a href="${safeDashboardUrl}" style="${linkStyle}">Dashboard</a> before the bell and find where price is trading relative to <strong>today's gamma flip</strong>. Above the flip, expect mean-reversion and grind; below it, trend and amplification &mdash; that one relationship reframes the whole session.</li>
+        <li style="margin: 0 0 10px;">Keep the <a href="${safeBulletinUrl}" style="${linkStyle}">Live Bulletin</a> open in a second tab. It streams you the moment a signal fires or the regime flips, so the read comes to you.</li>
+        <li style="margin: 0 0 10px;">Glance at the <a href="${safeScoreUrl}" style="${linkStyle}">Composite Score</a> &mdash; one number from &minus;1 to +1: the sign is direction, the size is conviction.</li>
       </ol>
       <p style="margin: 24px 0;">
         <a href="${safeDashboardUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Open your dashboard</a>
       </p>
-      <p>If anything's confusing, not what you expected, or just not clicking yet &mdash; reply to this email and tell me. I read every message and I'll personally help you get a useful read out of it before your trial is up.</p>
+      <p style="font-size: 14px; color: #3a4650;">Want the model behind it? The 5-minute read is <a href="${safeGexUrl}" style="${linkStyle}">Gamma Exposure Explained</a>.</p>
+      <p>If anything's confusing, not what you expected, or just not clicking yet &mdash; reply to this email and tell me. I read every message and I'll personally help you get a useful read before your trial is up.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
       <p style="margin-top: 24px; font-size: 12px; color: #888;">Prefer fewer emails like this? <a href="${safeUnsubUrl}" style="color: #888;">Unsubscribe</a>.</p>
     </div>
