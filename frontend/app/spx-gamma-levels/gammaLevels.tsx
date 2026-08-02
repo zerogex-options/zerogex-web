@@ -4,6 +4,7 @@ import { ArrowRight, CheckCircle2, Clock, History, Minus, TrendingDown, Trending
 import { serverApiGet } from '@/core/api/serverFetch';
 import { buildReportModel, detectRegime, type RegimeKey } from '../live-bulletin/bulletinHelpers';
 import TodaysReadCard from '@/components/TodaysReadCard';
+import BreadcrumbJsonLd from '@/components/BreadcrumbJsonLd';
 import LandingHeader from '@/components/LandingHeader';
 import PlotOnTradingView from '@/components/PlotOnTradingView';
 import Footer from './Footer';
@@ -621,6 +622,12 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+      />
+      <BreadcrumbJsonLd
+        items={[
+          { name: 'Home', url: '/' },
+          { name: content.h1, url: content.path },
+        ]}
       />
 
       <LandingHeader />
