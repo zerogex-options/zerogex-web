@@ -73,7 +73,7 @@ Una semplice regola pratica che ha retto alla prova dei fatti:
 
 > Agisci sulla **confluenza**, non sui punteggi individuali.
 
-Un singolo +0.7 su un segnale è interessante. Un +0.5 su tre segnali provenienti da dimensioni indipendenti (un segnale Basic, un segnale Advanced, il composito) è un trade.
+Un singolo +0.7 su un segnale è interessante. Un +0.5 su tre segnali provenienti da dimensioni indipendenti (ad esempio, due segnali Basic e un segnale Advanced) è un trade. Il composito non fa parte di quel conteggio di ±0.5 — è un gauge di regime 0–100, non un punteggio direzionale [-1, +1], quindi non leggere il suo livello come rialzo/ribasso.
 
 ## Cosa cambia se cambia il regime
 
