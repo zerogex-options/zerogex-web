@@ -4,9 +4,9 @@ import ItemListJsonLd from '@/components/ItemListJsonLd';
 
 export const metadata = {
   title:
-    'Options Gamma Trading Articles: SPX / SPY / QQQ / NDX Pinning, Gamma Flip & Dealer Flow | ZeroGEX',
+    'Latest Options Gamma Analysis: SPX / SPY / QQQ / NDX Pinning, Gamma Flip & Dealer Flow | ZeroGEX',
   description:
-    'ZeroGEX options gamma trading articles — SPX, SPY, QQQ and NDX pinning, the gamma flip, call walls, put walls, 0DTE dealer positioning, and dealer-flow deep dives. Definitions, worked examples, and today’s live levels.',
+    'The latest ZeroGEX options gamma analysis, newest first — SPX, SPY, QQQ and NDX pinning, the gamma flip, call walls, put walls, 0DTE dealer positioning, and dealer-flow deep dives. New breakdowns added regularly, each with a worked example and today’s live levels. Browse everything by topic in the Education hub.',
   alternates: { canonical: '/articles' },
 };
 
@@ -257,21 +257,28 @@ export default function ArticlesPage() {
       <div className="zg-feature-shell mb-10 p-8">
         <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-warning)]">
           <Newspaper size={14} />
-          Articles
+          Latest analysis
         </div>
         <h1 className="mb-3 text-3xl font-bold text-[var(--color-text-primary)]">
-          Options Gamma Trading Articles
+          Latest Options Gamma Articles &amp; Analysis
         </h1>
         <p className="max-w-2xl text-sm leading-7 text-[var(--color-text-secondary)]">
-          Practical, flow-focused breakdowns of options market structure for SPX, SPY, QQQ, and NDX
+          Flow-focused breakdowns of options market structure for SPX, SPY, QQQ, and NDX
           traders — gamma exposure (GEX), the gamma flip, call walls, put walls, pinning, and 0DTE
-          dealer positioning. Every piece pairs the concept with a worked example and links straight
-          to{' '}
+          dealer positioning. Newest first, with new pieces added regularly; each pairs the concept
+          with a worked example and links straight to{' '}
           <Link
             href="/spx-gamma-levels"
             className="font-semibold text-[var(--color-warning)] underline-offset-2 hover:underline"
           >
             today’s live SPX / SPY / QQQ / NDX gamma levels
+          </Link>
+          . Prefer to browse by topic? Start in the{' '}
+          <Link
+            href="/education"
+            className="font-semibold text-[var(--color-warning)] underline-offset-2 hover:underline"
+          >
+            Education hub
           </Link>
           .
         </p>

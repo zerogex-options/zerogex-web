@@ -457,6 +457,7 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'how-to-read-a-gamma-flip',
     'gamma-walls-explained',
     'what-is-gex-in-trading',
+    'best-gex-tools',
   ],
   'how-to-read-a-gamma-flip': [
     'gamma-exposure-explained',
