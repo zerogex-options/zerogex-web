@@ -10,7 +10,7 @@ Das Dashboard ist der **Überblick auf einem Bildschirm** über den aktuellen Ma
 
 1. **Wie sind die Dealer positioniert?** (das GEX-Regime)
 2. **Was sagt das Tape?** (Flow + Technik)
-3. **Wie lautet die Gesamteinschätzung?** (Signale, zu einer Richtung verdichtet)
+3. **Wie lautet die Composite-Lesart?** (die zusammengeführte Regime-Lesart — Trend vs. Chop)
 
 Auf dem Dashboard triffst du keine Entscheidungen. Du orientierst dich. Von dort aus gehst du auf die passende Seite, um tiefer einzusteigen.
 

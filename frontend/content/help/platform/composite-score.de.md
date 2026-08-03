@@ -1,82 +1,102 @@
 # Composite Score
 
-*Die zusammengeführte Sicht über alle ZeroGEX-Signale hinweg — wie sie entsteht, wie man sie liest und wie man sie als Filter statt als Prognose nutzt.*
+*Die zusammengeführte Sicht auf das aktuelle Markt-**Regime** — wie sie entsteht, warum sie keine Richtungsaussage ist und wie man sie als Filter statt als Prognose nutzt.*
 
 ---
 
 ## Was der Composite Score ist
 
-Der Composite Score — intern **MSI**, der Market Score Indicator — ist die **Zusammenfassung in einer einzigen Zahl** aller ZeroGEX-Signale für das aktive Symbol. Er liegt auf derselben **[-1, +1]**-Linie wie jeder andere Signal-Score.
+Der Composite Score — intern **MSI**, der Market State Index — ist die **Zusammenfassung des aktuellen Optionsstruktur-Regimes in einer einzigen Zahl** für das aktive Symbol. Er beantwortet eine einzige Frage: *Wird das Tape wahrscheinlich trenden oder seitwärts choppen?*
 
-Positiver Composite ⇒ strukturelle bullische Tendenz. Negativer ⇒ strukturelle bärische Tendenz. Die Stärke zeigt die Überzeugung.
+Er liegt auf einer **0–100-Skala, wobei 50 neutral ist.** Er ist **kein** Richtungs-Score — er sagt dir nicht bullisch vs. bärisch. Ein hoher MSI bedeutet, dass Trends wahrscheinlich *laufen*; ein niedriger MSI bedeutet, dass das Tape *gepinnt, choppy oder fragil* ist. Für die Richtung liest du den [Trade Bias](/help/platform/trade-bias) — das ist die vorzeichenbehaftete Aussage bullisch vs. bärisch.
+
+> **Ein hoher MSI bedeutet nicht „bullisch". Er bedeutet, dass Trends laufen können.**
+> **Ein niedriger MSI bedeutet nicht „bärisch". Er bedeutet, dass Trends wahrscheinlich nicht funktionieren.**
+
+## Die Regime-Bänder
+
+| Score | Regime | Bedeutung |
+| --- | --- | --- |
+| ≥ 70 | **Trend / Expansion** | Starkes direktionales Regime — Trades im vorherrschenden Bias bevorzugen |
+| 40 – 70 | **Kontrollierter Trend** | Moderater direktionaler Edge — mit reduzierter Größe handeln |
+| 20 – 40 | **Chop / Range** | Seitwärts — Extreme faden, Trend-Trades vermeiden |
+| < 20 | **Hochriskantes Reversal** | Nur Mean-Reversion — erhöhtes Risiko extremer Bewegungen, fragiles Tape |
+
+Beachte: Die Bänder beziehen sich auf das *Regime*, nicht auf die *Richtung*. Ein choppy Tape liest sich als **20–40, egal ob der Markt nach oben oder unten driftet.** Das ist Absicht — ein niedriger Score in einem steigenden Markt ist kein Widerspruch, sondern der Gauge, der dir sagt, dass die Bewegung wahrscheinlich nicht sauber trendet.
 
 ## Wie er aufgebaut ist
 
-Drei fortlaufende Inputs verschmelzen zu einer Zahl:
+Der MSI verschmilzt **sechs unabhängige Komponenten**, jede auf einer −1…+1-Linie bewertet und zu einem Punktbudget gewichtet, das sich auf 100 summiert:
 
-1. **Basic-Signale** — jedes Basic-Signal trägt mit einem kleinen festen Gewicht bei (4–8 % des Composite). Auch wenn sie nicht auslösen, verschieben sie den Composite kontinuierlich im Hintergrund.
-2. **Advanced-Signal-Trigger** — wenn ein Advanced-Signal-Trigger aktiv ist, trägt er mit seinem vorzeichenbehafteten Score und einem höheren Gewicht bei.
-3. **Regime-Kontext** — das aktive Gamma-Regime wirkt als Multiplikator auf die direktionalen Inputs.
+| Komponente | Punkte | Was sie liest |
+| --- | --- | --- |
+| Gamma Anchor | 30 | Nähe zum Gamma Flip, lokale Gamma-Dichte, Max-Gamma-Strike — gepinnt vs. frei |
+| Order Flow Imbalance | 19 | Smart-Money-Call- vs. -Put-Prämie — *der eine direktionale Input* |
+| Dealer Delta Pressure | 17 | Richtung des erzwungenen Dealer-Hedges |
+| Net GEX Sign | 16 | Dealer long Gamma (dämpft Bewegungen) vs. short Gamma (verstärkt) |
+| Put/Call Ratio | 12 | Proxy für strukturelle Fragilität |
+| Volatility Regime | 6 | Live-Vol vs. der 20er-Vol-Pivot |
 
-Die Gewichte sind so austariert, dass kein einzelnes Signal dominiert. Ein Composite-Wert nahe ±0,4–0,6 setzt typischerweise voraus, dass sich mehrere Inputs ausrichten.
+Die Komponenten werden über eine sanft sättigende (tanh) Mischung auf die neutrale 50er-Baseline aufsummiert, sodass kein einzelner Input den Gauge im Alleingang festsetzen kann. **Rund zwei Drittel des Gewichts sind richtungslose Struktur** (Gamma Anchor, Net GEX Sign, Put/Call, Vol) — diese drängen Richtung *Trend* oder *Chop*, nicht nach oben oder unten. Nur Order Flow Imbalance und Dealer Delta sind wirklich direktional, weshalb ein stark einseitiges Tape den Score verschieben kann, obwohl der Gauge eine Regime-Aussage ist.
+
+Für jede Komponente gilt: **+1 spricht für ein handelbares / trendendes Regime; −1 spricht für Chop / Pinning / Reversal.**
 
 ## Der MSI-Gauge
 
 Die Composite-Score-Seite zeigt:
 
-- Den **MSI-Gauge** — Score auf der [-1, +1]-Linie, mit Farbcodierung von tiefrot bis tiefgrün.
-- Den **Trigger-Status** — ob der Composite eine Aufmerksamkeitsschwelle überschritten hat.
-- Das Panel der **beitragenden Signale** — jeder Input mit seinem aktuellen Beitrag zum Composite, sortiert nach Größe.
-- Den **Regime-Header** — Positive Gamma, Negative Gamma oder Transitioning.
-- Eine **Sparkline** des Composite über die letzte Session.
+- Den **MSI-Gauge** — Score auf dem 0–100-Bogen, eingefärbt nach *Regime-Band* (nicht nach bullisch/bärisch).
+- Das **Regime-Label** — Trend / Expansion, Kontrollierter Trend, Chop / Range oder Hochriskantes Reversal.
+- Das Panel der **beitragenden Komponenten** — der aktuelle Schub jedes Inputs, rechts für „trendend", links für „Chop / Reversal", sortiert nach Größe.
+- Das **Δ seit Eröffnung** und **Δ letzte 5 Min** — wie weit sich der Regime-Score bewegt hat (Richtung Trend, wenn positiv; Richtung Chop, wenn negativ). Das ist Regime-Momentum, keine Richtung.
+- Eine **Sparkline** des Scores über die Session.
 
 ## Den Composite lesen
 
-Eine einfache Faustregel:
+Eine einfache Faustregel — lies ihn als *wie sehr man einem Trend trauen kann*, und nimm die Richtung vom Trade Bias:
 
 | Composite | Lesart |
 | --- | --- |
-| ≥ +0,6 | Stark bullisch — mehrere Signale long ausgerichtet, das Regime stützt es |
-| +0,3 bis +0,6 | Tendenz bullisch — der Bias ist real, aber nicht überwältigend |
-| -0,3 bis +0,3 | Keine Lesart — der Composite ist wenig hilfreich, einzelne Signale betrachten |
-| -0,6 bis -0,3 | Tendenz bärisch |
-| ≤ -0,6 | Stark bärisch |
+| ≥ 70 | Trendendes Regime — Trends im vorherrschenden Bias können laufen; mit dem Trend nachlegen |
+| 40 – 70 | Kontrollierter Trend — ein echter, aber moderater Edge; Größe reduzieren |
+| 20 – 40 | Chop / Range — die Extreme faden, Breakouts nicht hinterherjagen, definiertes Risiko bevorzugen |
+| < 20 | Fragil / hohes Reversal-Risiko — nur Mean-Reversion, mit gescheiterten Breakouts rechnen |
 
-Der nützlichste Bereich sind die Extreme. Die Mitte ist bewusst eine „die Daten sagen dir nichts"-Zone — erzwinge daraus keine Trades.
+Am nützlichsten sind die Extreme oben und unten. Die Mitte (~40–60) ist eine „kein starkes Regime"-Zone — erzwinge daraus keinen Trend-Trade.
 
 ## Wie man ihn nutzt
 
 Drei Anwendungsmuster:
 
-1. **Als Filter.** Gehe keine Long-Trades ein, wenn der Composite bei -0,6 liegt, es sei denn, dein Edge ist explizit konträr zum Trend.
-2. **Als Konfluenz-Check.** Ein High-Confidence-Advanced-Trigger, der von einem Composite in dieselbe Richtung gestützt wird, ist eine verlässlichere Lesart als der Trigger allein.
-3. **Als Regime-Bestätigung.** Composite-Lesarten sind in Negative-Gamma-Sessions tendenziell stärker und beständiger — sie decken sich mit dem zugrunde liegenden Marktverhalten.
+1. **Als Überzeugungsregler für die Richtung.** Der Trade Bias gibt dir die Seite; der MSI sagt dir, wie stark du sie ausreizen sollst. Long-Bias + MSI 75 → nachlegen. Long-Bias + MSI 25 → den Dip klein kaufen, die Extreme faden, nicht hinterherjagen.
+2. **Als Chop-Filter.** Gehe keine Trend-/Breakout-Trades ein, wenn der MSI niedrig ist (< 40) — das Tape ist choppy oder mean-reverting *unabhängig von der Richtung*. Ein niedriger Score ist kein Signal, short zu gehen.
+3. **Als Regime-Bestätigung.** MSI-Lesarten sind in Negative-Gamma-Sessions tendenziell stärker und beständiger, im Einklang mit dem stärker direktionalen Verhalten, das diese Regime tendenziell zeigen.
 
 ## Was er nicht ist
 
-Der Composite ist **kein Handelssignal**. Er zeigt, ob das strukturelle Bild in eine Richtung tendiert; er sagt dir nicht, einen Trade einzugehen, welchen Zeitrahmen du verwenden sollst oder wo dein Stop liegen soll.
+Der Composite ist **kein Handelssignal** und **keine Richtungsaussage.** Er sagt dir, in welcher *Art* von Tape du dich befindest — Trend vs. Chop; er sagt dir nicht, in welche Richtung, welchen Zeitrahmen du verwenden sollst oder wo dein Stop liegen soll. Kombiniere ihn mit dem Trade Bias (Richtung) und den einzelnen Signalen (Trigger).
 
 ## Warum der Composite schnell kippen kann
 
 Zwei Gründe:
 
-- Ein hoch gewichtetes Advanced-Signal kann auslösen und die Lesart dominieren.
-- Der Regime-Kontext (Überschreiten des Gamma-Flip) kann den Multiplikator für alles andere verschieben.
+- Ein Überschreiten des Gamma Flip kann die strukturellen Komponenten (Gamma Anchor, Net GEX Sign) heftig ausschlagen lassen und die Regime-Lesart schnell verschieben.
+- Eine scharfe Verschiebung im Smart-Money-Flow bewegt die eine direktionale Komponente genug, um die Mischung zu verschieben.
 
-Die Sparkline macht diese Sprünge sichtbar — achte auf die Unstetigkeiten.
+Die Sparkline macht diese sprunghaften Änderungen sichtbar — achte auf die Unstetigkeiten.
 
 ## Trader-Gewohnheiten, die sich bewährt haben
 
-- Lies den Composite bei Handelsbeginn sowie um 11:00 / 12:30 / 14:30 ET als Check-ins.
-- Handle nicht gegen den Composite während des EOD-Pressure-Fensters.
-- Behandle Composite-Werte zwischen -0,3 und +0,3 als „abwarten", nicht als „neutral".
+- Lies den MSI bei Handelsbeginn sowie um 11:00 / 12:30 / 14:30 ET als deine Check-ins.
+- Behandle den MSI als Positions-**Größe** und den Trade Bias als Positions-**Richtung**.
+- Behandle Scores zwischen ~40 und ~60 als „kein starkes Regime — abwarten" statt als Richtung.
 
 ## Hinweis zur Stufe
 
-Die Composite-Score-Seite ist nur für Pro verfügbar. Der Composite-Gauge erscheint zusätzlich im Dashboard für alle kostenpflichtigen Stufen.
+Die Composite-Score-Seite ist nur für Pro verfügbar. Der MSI-Gauge erscheint zusätzlich im Dashboard für alle kostenpflichtigen Stufen.
 
 ## Siehe auch
 
+- [Trade Bias](/help/platform/trade-bias) — die vorzeichenbehaftete, direktionale Lesart
 - [Wie Signale End-to-End funktionieren](/help/platform/signals-overview)
-- [Die [-1, +1]-Score-Linie lesen](/help/platform/score-line)
-- [Signale: Erklärt](/guides/signals-explained)
+- [Signale: erklärt](/guides/signals-explained)

@@ -16,7 +16,7 @@ Es gibt fünf Kategorien von Einträgen:
 
 - **Signal triggers** — wenn ein Advanced-Signal seinen Auslöseschwellenwert überschreitet.
 - **Regime events** — Gamma-Flip-Durchgang, Regimewechsel (positiv ↔ negativ).
-- **Wall events** — Call Wall oder Put Wall verschiebt sich um einen relevanten Betrag.
+- **Wall events** — Call Wall oder Put Wall verschiebt sich um einen relevanten Betrag (der modellierte Strike mit dem größten Exposure verschiebt sich, wenn sich Spot, Gamma, Zeit und IV ändern — nicht zwingend durch neues Open Interest).
 - **Flow notables** — Prämienspitzen, Smart-Money-Läufe, ungewöhnliche Blöcke.
 - **Schedule events** — Marktöffnung, Öffnung des EOD-Pressure-Fensters, Handelsschluss.
 
@@ -61,7 +61,7 @@ Filter lassen sich kombinieren. Du kannst symbol = SPX mit signal family = Advan
 
 ## Was es nicht ist
 
-Das Live Bulletin ist **kein Handelssignal-Feed**. Die Einträge sind Ereignisse, die deine Aufmerksamkeit verdienen; ob sie zu Trades werden, hängt von deiner Strategie ab. Das Composite-Score-Panel kommt einer Aussage über "was bedeutet das für die Richtung" am nächsten, und selbst das ist ein Filter, keine Prognose.
+Das Live Bulletin ist **kein Handelssignal-Feed**. Die Einträge sind Ereignisse, die deine Aufmerksamkeit verdienen; ob sie zu Trades werden, hängt von deiner Strategie ab. Das Composite-Score-Panel kommt einer Aussage über "in welchem Regime wir uns befinden" (Trend vs. Chop) am nächsten — und selbst das ist ein Filter, keine Prognose. Für die Richtung liest du den Trade Bias.
 
 ## Sichtbarkeit nach Stufe
 
