@@ -73,7 +73,7 @@ Una regla práctica sencilla que se ha sostenido en el tiempo:
 
 > Actúa por **confluencia**, no por puntuaciones individuales.
 
-Un solo +0.7 en una señal es interesante. Un +0.5 en tres señales de dimensiones independientes (una señal Basic, una señal Advanced, el composite) es un trade.
+Un solo +0.7 en una señal es interesante. Un +0.5 en tres señales de dimensiones independientes (por ejemplo, dos señales Basic y una señal Advanced) es un trade. El composite no forma parte de ese recuento de ±0.5 — es un gauge de régimen de 0 a 100, no un puntaje direccional [-1, +1], así que no leas su nivel como alcista/bajista.
 
 ## Qué cambia si cambia el régimen
 

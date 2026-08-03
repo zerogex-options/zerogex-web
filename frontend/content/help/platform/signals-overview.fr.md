@@ -9,7 +9,7 @@
 ZeroGEX fait tourner **deux familles** de signals. Elles se comportent différemment, et c'est voulu.
 
 - Les **signals Advanced** posent une question précise et situationnelle — *"la clôture est-elle en train de se figer sur un niveau ?"*, *"ce breakout vient-il d'échouer ?"*. Chacun produit un score sur une ligne **[-1, +1]** **et** un **trigger** discret : dès que le score franchit le seuil du signal, il déclenche une alerte et peut activer un playbook. Ils sont event-driven.
-- Les **signals Basic** sont continus. Ils ne se déclenchent pas — ils alimentent plutôt le **composite MSI** avec un poids fixe, poussant la lecture combinée vers le haut ou vers le bas à chaque rafraîchissement. On les voit comme des intrants de la vue d'ensemble, pas comme des alertes autonomes.
+- Les **signals Basic** sont continus. Ils ne se déclenchent pas — ils alimentent plutôt le **composite MSI** avec un poids fixe, poussant la lecture de régime combinée vers le haut (vers la tendance) ou vers le bas (vers le chop) à chaque rafraîchissement. On les voit comme des intrants de la vue d'ensemble, pas comme des alertes autonomes.
 
 C'est la distinction la plus importante. Assimilez-la avant de lire les pages de chaque signal.
 
@@ -46,9 +46,9 @@ Quand le trigger d'un signal se déclenche, trois choses se produisent :
 
 ## Le composite (MSI)
 
-Le Composite Score (Market Score Indicator, MSI) est la **lecture combinée de l'ensemble des signals**. Chaque signal Basic contribue avec un poids fixe ; les signals Advanced contribuent lorsque leur trigger est actif.
+Le Composite Score (Market State Index, MSI) est la **lecture combinée de l'ensemble des signals**. Chaque signal Basic contribue avec un poids fixe ; les signals Advanced contribuent lorsque leur trigger est actif.
 
-Le composite se situe sur la même ligne [-1, +1]. Une lecture du composite supérieure à +0.4, avec plusieurs signals contribuant dans la même direction, constitue une lecture à forte confluence. Un composite oscillant près de 0 avec des contributions mixtes est, intentionnellement, "sans lecture".
+Le composite est un **score de régime 0–100**, où 50 est neutre — pas un point sur la ligne [-1, +1]. Une lecture élevée (≥ 70) signale un régime de tendance / expansion où les tendances peuvent se prolonger ; une lecture basse (< 20) signale un tape fragile et haché où les breakouts ont tendance à échouer. Il vous indique le régime, pas la direction — pour le sens, consultez le Trade Bias.
 
 Voir [Composite Score](/help/platform/composite-score) pour le détail complet.
 
@@ -81,7 +81,7 @@ Faites correspondre le trade bias à votre stratégie. Un signal de continuation
 
 Trois schémas d'usage :
 
-1. **Comme filtre.** Ne prenez pas de trades acheteurs quand le composite est à -0.6. Ne fadez pas les rallyes en gamma négatif.
+1. **Comme filtre.** Ne prenez pas de trades de tendance / breakout quand le MSI est bas (régime de chop). Ne fadez pas les rallyes en gamma négatif.
 2. **Comme trigger.** Utilisez le trigger d'un signal Advanced comme signal d'entrée, avec votre propre stop et votre propre objectif.
 3. **Comme confluence.** Combinez deux ou trois signals indépendants (une lecture de régime Basic + un trigger Advanced + le chip trade bias du dashboard).
 

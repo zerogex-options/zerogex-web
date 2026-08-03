@@ -61,7 +61,7 @@ Los filtros se combinan entre sí. Puedes apilar symbol = SPX con signal family 
 
 ## Qué no es
 
-El Live Bulletin **no es un feed de señales de trading**. Los elementos son eventos que merecen tu atención; que se traduzcan en operaciones depende de tu estrategia. El panel Composite Score es lo más parecido a una lectura de "qué significa esto para la dirección", y aun así es un filtro, no una predicción.
+El Live Bulletin **no es un feed de señales de trading**. Los elementos son eventos que merecen tu atención; que se traduzcan en operaciones depende de tu estrategia. El panel Composite Score es lo más parecido a una lectura de "en qué régimen estamos" (tendencia vs. lateralización), y aun así es un filtro, no una predicción. Para la dirección, consulta Trade Bias.
 
 ## Visibilidad por nivel
 

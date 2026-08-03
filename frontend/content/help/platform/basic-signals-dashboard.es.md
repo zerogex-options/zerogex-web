@@ -8,7 +8,7 @@
 
 El Basic Signal Dashboard es la **cuadrícula de un vistazo** de las seis señales Basic. Cada tarjeta muestra el puntaje actual en la línea [-1, +1], la contribución que aporta al composite y un sparkline.
 
-Las señales Basic son **continuas**. No disparan alertas discretas — empujan el composite hacia arriba o hacia abajo en cada actualización.
+Las señales Basic son **continuas**. No disparan alertas discretas — empujan el composite hacia arriba (hacia tendencia) o hacia abajo (hacia lateralización) en cada actualización.
 
 ## Las seis señales
 
@@ -53,7 +53,7 @@ PCR + desequilibrio con signo del smart money + momentum de 5 barras + inclinaci
 
 Tres patrones:
 
-1. **Buscar confluencia.** Si tres o cuatro de las seis señales apuntan en la misma dirección con magnitudes no triviales, el composite lo reflejará.
+1. **Buscar confluencia.** Si tres o cuatro de las seis señales apuntan en la misma dirección con magnitudes no triviales, el composite se moverá hacia un régimen de tendencia o de lateralización en consecuencia.
 2. **Buscar divergencia.** Cuando el Tape Flow Bias es fuertemente positivo pero el GEX Gradient es marcadamente negativo, los dealers desvanecerán las compras — el tape se equivoca sobre dónde está el pin estructural.
 3. **Observar el Positioning Trap por separado.** Es la única señal Basic con sesgo de reversión a la media. Trate una lectura de Trap muy positiva junto con un Tape fuertemente long como una advertencia, no como una confirmación.
 

@@ -73,7 +73,7 @@ Une règle simple qui a fait ses preuves :
 
 > Agissez sur la **confluence**, pas sur des scores individuels.
 
-Un seul +0.7 sur un signal est intéressant. Un +0.5 sur trois signaux issus de dimensions indépendantes (un signal Basic, un signal Advanced, le composite) est un trade.
+Un seul +0.7 sur un signal est intéressant. Un +0.5 sur trois signaux issus de dimensions indépendantes (par exemple, deux signaux Basic et un signal Advanced) est un trade. Le composite ne fait pas partie de ce décompte de ±0.5 — c'est une jauge de régime 0–100, pas un score directionnel [-1, +1], donc ne lisez pas son niveau comme haussier/baissier.
 
 ## Ce qui change si le régime change
 

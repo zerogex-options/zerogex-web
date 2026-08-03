@@ -10,7 +10,7 @@ Le Dashboard est la **lecture en un seul écran** du marché actuel. Il répond,
 
 1. **Comment les dealers sont-ils positionnés ?** (le régime GEX)
 2. **Que dit le tape ?** (flow + technique)
-3. **Quelle est la lecture composite ?** (les signaux combinés en une seule direction)
+3. **Quelle est la lecture composite ?** (la lecture de régime combinée — tendance vs chop)
 
 Tu ne prends pas de décisions sur le Dashboard. Tu t'orientes. À partir de là, tu vas creuser dans la page appropriée.
 
