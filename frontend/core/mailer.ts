@@ -671,12 +671,12 @@ export function buildTrialValueEmail(opts: TrialValueEmailOptions): {
   const subject = 'Getting a real read out of your ZeroGEX trial';
   const appUrl = getAppUrl();
   const dashboardUrl = `${appUrl}/dashboard`;
-  const bulletinUrl = `${appUrl}/live-bulletin`;
-  const scoreUrl = `${appUrl}/signal-score`;
+  const chartUrl = `${appUrl}/chart`;
+  const biasUrl = `${appUrl}/trade-bias`;
   const gexUrl = `${appUrl}/education/gamma-exposure-explained`;
   const safeDashboardUrl = escapeHtml(dashboardUrl);
-  const safeBulletinUrl = escapeHtml(bulletinUrl);
-  const safeScoreUrl = escapeHtml(scoreUrl);
+  const safeChartUrl = escapeHtml(chartUrl);
+  const safeBiasUrl = escapeHtml(biasUrl);
   const safeGexUrl = escapeHtml(gexUrl);
   const safeUnsubUrl = escapeHtml(opts.unsubUrl);
   const linkStyle = 'color: #f5b400; font-weight: 600;';
@@ -687,9 +687,9 @@ export function buildTrialValueEmail(opts: TrialValueEmailOptions): {
     "You're a couple of days into your ZeroGEX trial, and I wanted to reach out while you've still got runway (your trial runs through " +
       `${trialEndDate}). Almost everyone who sticks around got one clear read early — so here's the fastest path to it:`,
     '',
-    "  1. Open the Dashboard before the bell and find where price is trading relative to today's gamma flip. Above the flip, expect mean-reversion and grind; below it, trend and amplification. That one relationship reframes the whole session.",
-    '  2. Keep the Live Bulletin open in a second tab. It streams you the moment a signal fires or the regime flips, so the read comes to you instead of you hunting for it.',
-    '  3. Glance at the Composite Score — one number from -1 to +1. The sign is direction, the size is conviction: your quickest gut-check on the tape.',
+    "  1. Start on the Main Dashboard — it's the page to open every morning: your at-a-glance read of the regime, the key levels, and where price sits inside them.",
+    '  2. Pull up the Gamma Chart — SPY/QQQ/SPX/NDX price with the Gamma Flip, Call/Put Walls, and Max Pain drawn right on it: the support/resistance map dealers actually defend. Use session rewind to replay how a level held.',
+    '  3. Check Trade Bias for a single, signed directional call — it fuses the gamma and volatility regime with live flow, tape, and momentum into one read, for a multi-day swing or a same-day 0DTE.',
     '',
     `Open your dashboard: ${dashboardUrl}`,
     '',
@@ -709,9 +709,9 @@ export function buildTrialValueEmail(opts: TrialValueEmailOptions): {
       <p>Hello,</p>
       <p>You're a couple of days into your ZeroGEX trial, and I wanted to reach out while you've still got runway (your trial runs through <strong>${escapeHtml(trialEndDate)}</strong>). Almost everyone who sticks around got one clear read early &mdash; so here's the fastest path to it:</p>
       <ol style="padding-left: 20px; margin: 12px 0;">
-        <li style="margin: 0 0 10px;">Open the <a href="${safeDashboardUrl}" style="${linkStyle}">Dashboard</a> before the bell and find where price is trading relative to <strong>today's gamma flip</strong>. Above the flip, expect mean-reversion and grind; below it, trend and amplification &mdash; that one relationship reframes the whole session.</li>
-        <li style="margin: 0 0 10px;">Keep the <a href="${safeBulletinUrl}" style="${linkStyle}">Live Bulletin</a> open in a second tab. It streams you the moment a signal fires or the regime flips, so the read comes to you.</li>
-        <li style="margin: 0 0 10px;">Glance at the <a href="${safeScoreUrl}" style="${linkStyle}">Composite Score</a> &mdash; one number from &minus;1 to +1: the sign is direction, the size is conviction.</li>
+        <li style="margin: 0 0 10px;">Start on the <a href="${safeDashboardUrl}" style="${linkStyle}">Main Dashboard</a> &mdash; the page to open every morning: your at-a-glance read of the regime, the key levels, and where price sits inside them.</li>
+        <li style="margin: 0 0 10px;">Pull up the <a href="${safeChartUrl}" style="${linkStyle}">Gamma Chart</a> &mdash; SPY/QQQ/SPX/NDX price with the <strong>Gamma Flip</strong>, <strong>Call/Put Walls</strong>, and <strong>Max Pain</strong> drawn right on it: the support/resistance map dealers actually defend. Session rewind lets you replay how a level held.</li>
+        <li style="margin: 0 0 10px;">Check <a href="${safeBiasUrl}" style="${linkStyle}">Trade Bias</a> for a single, signed directional call &mdash; it fuses the gamma and volatility regime with live flow, tape, and momentum into one read, for a multi-day swing or a same-day 0DTE.</li>
       </ol>
       <p style="margin: 24px 0;">
         <a href="${safeDashboardUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Open your dashboard</a>
