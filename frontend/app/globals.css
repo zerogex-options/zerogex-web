@@ -45,6 +45,14 @@
   --color-info: #003F5C;
   --color-info-soft: rgba(0, 63, 92, 0.08);
 
+  /* MSI regime bands — deliberately NOT bull/bear. The Composite Score is a
+     regime gauge (chop vs trend), so its ramp is blue→cyan→amber→violet, not
+     green→red, to stop a low score reading as "bearish". */
+  --regime-trend: #2563EB;
+  --regime-controlled: #3E92CC;
+  --regime-chop: #C77A08;
+  --regime-reversal: #8B5CF6;
+
   --heat-low: #FFD380;
   --heat-mid: #FF8531;
   --heat-high: #FF6361;
@@ -148,6 +156,12 @@
   --color-warning-soft: rgba(255, 166, 0, 0.18);
   --color-info: #2C4875;
   --color-info-soft: rgba(44, 72, 117, 0.18);
+
+  /* MSI regime bands (dark) — see the light-theme note. Not bull/bear. */
+  --regime-trend: #6AA0FF;
+  --regime-controlled: #4FB0E0;
+  --regime-chop: #FFB020;
+  --regime-reversal: #B98BF0;
 
   --color-grid-line: rgba(255, 211, 128, 0.16);
   --color-grid-overlay: rgba(0, 32, 46, 0.42);

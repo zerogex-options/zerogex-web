@@ -141,7 +141,7 @@ export function computeBias(inp: BiasInput): BiasResult {
     case 'TRAP_REVERSAL':
       trend = 'bearish';
       bias = 'FADE_STRENGTH';
-      biasLabel = 'Fade Strength';
+      biasLabel = 'Sell Strength';
       regimeLabel = 'Trap / Reversal Regime';
       regimeDesc = 'Short gamma + bullish flow + crowded structure = reversal setup.';
       setup = 'Trap / Reversal';
@@ -168,7 +168,7 @@ export function computeBias(inp: BiasInput): BiasResult {
     case 'TRAP_SQUEEZE':
       trend = 'bullish';
       bias = 'FADE_WEAKNESS';
-      biasLabel = 'Fade Weakness';
+      biasLabel = 'Buy Weakness';
       regimeLabel = 'Trap / Squeeze Regime';
       regimeDesc = 'Short gamma + bearish flow + trapped shorts = squeeze setup.';
       setup = 'Trap / Squeeze';
@@ -247,7 +247,7 @@ export function computeBias(inp: BiasInput): BiasResult {
     case 'CHOP': {
       trend = 'neutral';
       bias = 'RANGE_FADE';
-      biasLabel = 'Range Fade';
+      biasLabel = 'Range-Bound';
       regimeLabel = 'Chop / Range Regime';
       regimeDesc = 'Mixed signals — no dominant directional thesis.';
       setup = 'Mean Reversion';
