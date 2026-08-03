@@ -1,8 +1,31 @@
-import { articleOgImage, getArticle, SITE_NAME, SITE_URL, SITE_DEFAULT_OG_IMAGE } from '@/core/articleRegistry';
+import { articleOgImage, getArticle, SITE_NAME, SITE_URL, SITE_DEFAULT_OG_IMAGE, type ArticleMeta } from '@/core/articleRegistry';
+import BreadcrumbJsonLd, { type Crumb } from '@/components/BreadcrumbJsonLd';
 
 type Props = {
   slug: string;
 };
+
+// Human-readable labels for the intermediate URL segments an article can sit
+// under. Anything not listed falls back to the raw segment, so a new hub path
+// still produces a sensible (if unstyled) crumb.
+const SECTION_LABELS: Record<string, string> = {
+  education: 'Education',
+  guides: 'Guides',
+};
+
+// Builds the breadcrumb trail (Home › Section › Title) from an article's own
+// href, so the JSON-LD hierarchy always matches the canonical URL path.
+function articleCrumbs(article: ArticleMeta): Crumb[] {
+  const segments = article.href.split('/').filter(Boolean);
+  const crumbs: Crumb[] = [{ name: 'Home', url: '/' }];
+  let acc = '';
+  segments.forEach((seg, idx) => {
+    acc += `/${seg}`;
+    const isLast = idx === segments.length - 1;
+    crumbs.push({ name: isLast ? article.title : (SECTION_LABELS[seg] ?? seg), url: acc });
+  });
+  return crumbs;
+}
 
 /**
  * Renders a schema.org Article JSON-LD block for a registered article.
@@ -50,11 +73,14 @@ export default function ArticleJsonLd({ slug }: Props) {
   };
 
   return (
-    <script
-      type="application/ld+json"
-      // The payload is built from a typed object with no user input —
-      // dangerouslySetInnerHTML is correct here and standard for JSON-LD.
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(ld) }}
-    />
+    <>
+      <script
+        type="application/ld+json"
+        // The payload is built from a typed object with no user input —
+        // dangerouslySetInnerHTML is correct here and standard for JSON-LD.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(ld) }}
+      />
+      <BreadcrumbJsonLd items={articleCrumbs(article)} />
+    </>
   );
 }
