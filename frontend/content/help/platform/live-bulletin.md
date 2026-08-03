@@ -61,7 +61,7 @@ Filters compose. You can stack symbol = SPX with signal family = Advanced with d
 
 ## What it isn't
 
-The Live Bulletin is **not a trade signal feed**. Items are events worth your attention; whether they are trades depends on your strategy. The Composite Score panel is the closer thing to a "what does this mean for direction" read, and even that is a filter, not a forecast.
+The Live Bulletin is **not a trade signal feed**. Items are events worth your attention; whether they are trades depends on your strategy. The Composite Score panel is the closest thing to a "what regime are we in" read (trend vs chop) — and even that is a filter, not a forecast. For direction, read Trade Bias.
 
 ## Visibility by tier
 

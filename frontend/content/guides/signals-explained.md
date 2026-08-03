@@ -10,7 +10,7 @@ ZeroGEX runs two families of signals, and they behave differently by design.
 
 **Advanced signals** answer a sharp, situational question ("is the close getting pinned?", "did this breakout just fail?"). Each one produces a score on a **[-1, +1]** number line *and* a discrete **trigger**: once the score crosses the signal's threshold, it fires an alert and can gate a playbook. They are event-driven.
 
-**Basic signals** are continuous. They don't "fire" — instead they feed the **MSI composite** with a fixed weight, nudging the blended read up or down on every refresh. You see them as inputs to the bigger picture, not as standalone alerts.
+**Basic signals** are continuous. They don't "fire" — instead they feed the **MSI composite** with a fixed weight, nudging the blended regime read higher (toward trend) or lower (toward chop) on every refresh. You see them as inputs to the bigger picture, not as standalone alerts.
 
 Three things are worth internalizing before the tables:
 

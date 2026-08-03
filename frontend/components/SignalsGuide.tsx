@@ -173,7 +173,7 @@ export default function SignalsGuide({ current, defaultOpen = false }: Props) {
               </li>
               <li>
                 <span className="font-semibold">Trade Bias</span> takes the MSI plus the key flow signals and turns them
-                into a single instruction (Buy Dips, Sell Rips, Fade Strength, Range Fade, Wait).
+                into a single instruction (Buy Dips, Sell Rips, Sell Strength, Range-Bound, Wait).
               </li>
               <li>
                 <span className="font-semibold">Basic Signals</span> are advisory — they don&apos;t move the MSI but
