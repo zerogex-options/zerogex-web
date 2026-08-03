@@ -56,7 +56,7 @@ export const dict: PageDictionary = {
       'Manage or cancel your plan yourself through the billing portal — no email or support request required.',
     planSwitchLabel: 'Plan switches during trial.',
     planSwitchBody:
-      'Changing plans while on the free trial ends the trial early and charges you for the new plan immediately. To keep the trial, wait until it ends before switching plans.',
+      "Switching plans during your free trial keeps the trial — you won't be charged today. You're billed at your new plan's rate when the trial ends, never before.",
     upgradesLabel: 'Upgrades & downgrades on paid plans.',
     upgradesBody: 'After the trial, switching tiers is pro-rated automatically through the Stripe-hosted billing portal.',
     noRefundsLabel: 'No prorated refunds.',
@@ -144,7 +144,7 @@ export const dict: PageDictionary = {
       'Gestisci o annulla il tuo piano autonomamente tramite il portale di fatturazione, senza email o richieste di assistenza.',
     planSwitchLabel: 'Cambio piano durante la prova.',
     planSwitchBody:
-      'Cambiare piano durante la prova gratuita termina anticipatamente la prova e ti addebita subito il nuovo piano. Per mantenere la prova, attendi che finisca prima di cambiare piano.',
+      'Cambiare piano durante la prova gratuita mantiene la prova: oggi non ti viene addebitato nulla. Verrai addebitato alla tariffa del nuovo piano solo al termine della prova, mai prima.',
     upgradesLabel: 'Upgrade e downgrade sui piani a pagamento.',
     upgradesBody:
       'Dopo la prova, il cambio di livello viene calcolato automaticamente in proporzione tramite il portale di fatturazione ospitato da Stripe.',
@@ -233,7 +233,7 @@ export const dict: PageDictionary = {
       'Verwalte oder kündige deinen Plan selbst über das Kundenportal — ohne E-Mail oder Support-Anfrage.',
     planSwitchLabel: 'Planwechsel während der Testphase.',
     planSwitchBody:
-      'Ein Planwechsel während der kostenlosen Testphase beendet die Testphase vorzeitig und belastet dich sofort für den neuen Plan. Um die Testphase zu behalten, warte mit dem Wechsel, bis sie endet.',
+      'Ein Planwechsel während der kostenlosen Testphase behält die Testphase bei – heute wird dir nichts berechnet. Zum Tarif des neuen Plans wirst du erst belastet, wenn die Testphase endet, niemals vorher.',
     upgradesLabel: 'Up- und Downgrades bei bezahlten Plänen.',
     upgradesBody: 'Nach der Testphase wird ein Tarifwechsel automatisch anteilig über das von Stripe gehostete Kundenportal berechnet.',
     noRefundsLabel: 'Keine anteiligen Rückerstattungen.',
@@ -321,7 +321,7 @@ export const dict: PageDictionary = {
       'Gestiona o cancela tu plan tú mismo desde el portal de facturación, sin correo ni solicitudes de soporte.',
     planSwitchLabel: 'Cambios de plan durante la prueba.',
     planSwitchBody:
-      'Cambiar de plan durante la prueba gratuita finaliza la prueba antes de tiempo y te cobra el nuevo plan de inmediato. Para conservar la prueba, espera a que termine antes de cambiar de plan.',
+      'Cambiar de plan durante la prueba gratuita conserva la prueba: hoy no se te cobra nada. Se te cobrará la tarifa del nuevo plan solo cuando termine la prueba, nunca antes.',
     upgradesLabel: 'Mejoras y reducciones en planes pagos.',
     upgradesBody: 'Después de la prueba, el cambio de nivel se prorratea automáticamente a través del portal de facturación alojado por Stripe.',
     noRefundsLabel: 'Sin reembolsos prorrateados.',
@@ -409,7 +409,7 @@ export const dict: PageDictionary = {
       "Gérez ou annulez votre offre vous-même depuis le portail de facturation — sans e-mail ni demande d'assistance.",
     planSwitchLabel: "Changement d'offre pendant l'essai.",
     planSwitchBody:
-      "Changer d'offre pendant l'essai gratuit met fin à l'essai de façon anticipée et vous facture immédiatement la nouvelle offre. Pour conserver l'essai, attendez qu'il se termine avant de changer d'offre.",
+      "Changer d'offre pendant l'essai gratuit conserve l'essai : rien ne vous est facturé aujourd'hui. Vous êtes facturé au tarif de la nouvelle offre uniquement à la fin de l'essai, jamais avant.",
     upgradesLabel: "Montées et descentes de gamme sur les offres payantes.",
     upgradesBody: "Après l'essai, le changement de niveau est calculé automatiquement au prorata via le portail de facturation hébergé par Stripe.",
     noRefundsLabel: 'Aucun remboursement au prorata.',

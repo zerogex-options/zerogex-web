@@ -282,6 +282,24 @@ export function getAppUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
 }
 
+// Create a Stripe billing-portal session for a customer, pinning
+// STRIPE_PORTAL_CONFIG_ID when set (else Stripe's account-default config). Shared
+// by the portal route and the change-plan route so both open the SAME configured
+// portal — the one setup-billing-portal.mts provisions with plan switching +
+// continue-trial. Keeping it in one place means a portal-config change can't apply
+// to one entry point and not the other.
+export function createBillingPortalSession(
+  customerId: string,
+  returnUrl: string,
+): Promise<Stripe.BillingPortal.Session> {
+  const portalConfigId = getPortalConfigId();
+  return getStripe().billingPortal.sessions.create({
+    customer: customerId,
+    return_url: returnUrl,
+    ...(portalConfigId ? { configuration: portalConfigId } : {}),
+  });
+}
+
 export function getCurrentPeriodEndUnix(subscription: Stripe.Subscription): number | null {
   // API versions from 2024-onwards expose current_period_end on the subscription item.
   // Older versions had it on the subscription itself. Read both for compatibility.
