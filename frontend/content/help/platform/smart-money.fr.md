@@ -39,7 +39,7 @@ Trois schémas :
 
 1. **Smart-money fortement acheteur de calls + MSI dans un régime de tendance (≥ 70) + gradient GEX favorable** ⇒ la lecture structurelle s'aligne avec le flux smart-money. Directionnel à forte conviction.
 2. **Smart-money fortement acheteur de puts au put wall** ⇒ défense ou fading. Combiné à une lecture Positioning Trap, cela peut constituer un counter-bias exploitable.
-3. **Flux smart-money neutre, flux principal fort** ⇒ le flux principal est porté par le retail ; à traiter avec prudence.
+3. **Flux smart-money neutre, flux principal fort** ⇒ le flux principal traduit probablement une participation large et peu convaincue plutôt qu'un positionnement informé ; à traiter avec prudence.
 
 ## Ce que ce n'est pas
 

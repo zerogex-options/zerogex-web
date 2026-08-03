@@ -17,10 +17,10 @@ Para las señales direccionales, el signo indica la dirección de precio esperad
 - **Positivo ⇒ sesgo alcista** (el sesgo de trade es a largo)
 - **Negativo ⇒ sesgo bajista**
 
-Para las señales de mean-reversion (Positioning Trap, y Trap Detection en algunas configuraciones), el signo indica la **dirección del movimiento que conviene fadear**:
+Para las señales de mean-reversion (Positioning Trap, Trap Detection), el signo indica el **sesgo direccional resuelto** — el trade va *en contra* de la multitud mal posicionada o de la ruptura fallida, así que el signo sigue apuntando en la misma dirección que las señales direccionales de arriba:
 
-- **Positivo ⇒ el movimiento al alza está fuera de lugar / ha fallado** (fade a la baja)
-- **Negativo ⇒ el movimiento a la baja está fuera de lugar / ha fallado** (fade al alza)
+- **Positivo ⇒ sesgo alcista** — p. ej. una multitud short/bajista en riesgo de ser exprimida al alza, o una ruptura bajista fallida que comprarías
+- **Negativo ⇒ sesgo bajista** — p. ej. una multitud long/alcista en riesgo de ser barrida a la baja, o una ruptura alcista fallida que venderías
 
 La tarjeta de la señal en cada página indica cuál de las dos aplica. Lee el chip de sesgo de trade antes de leer la puntuación.
 

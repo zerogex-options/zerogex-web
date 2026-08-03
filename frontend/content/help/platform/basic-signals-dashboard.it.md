@@ -35,19 +35,19 @@ Lo spread tra IV dei put OTM e IV delle call OTM rispetto al proprio baseline, c
 
 ### Vanna/Charm Flow
 
-Vanna e charm aggregati dei dealer. Il vanna è ciò che i dealer copriranno se la volatilità si muove; il charm è ciò che copriranno con il passare del tempo. Letture positive significano che il flusso strutturale supporta prezzi più alti; negative, il contrario. Il charm accelera verso la chiusura.
+Vanna e charm aggregati dei dealer. Il vanna modella ciò che i dealer *potrebbero* coprire se la volatilità si muove; il charm modella la deriva del delta con il passare del tempo (a spot e IV costanti). Una lettura positiva modella un flusso di copertura che *può* sostenere prezzi più alti; una negativa il contrario — direzione e ampiezza dipendono comunque dalla composizione del book e da chi detiene le opzioni. La pressione del charm tende a crescere verso la chiusura.
 
 ### Dealer Delta Pressure
 
-Il delta netto dei dealer ricavato dalla catena di opzioni (call_delta_oi + put_delta_oi). Un valore fortemente negativo significa che i dealer sono short delta e compreranno se il prezzo sale; un valore fortemente positivo significa che sono long e venderanno se il prezzo sale. Il segnale chiede "i dealer sono costretti a inseguire?".
+Il delta netto dei dealer ricavato dalla catena di opzioni (call_delta_oi + put_delta_oi) — una lettura modellata a sé, distinta dal gamma. Un valore fortemente negativo modella dealer short delta, che *tenderebbero* a comprare più in alto per restare coperti; un valore fortemente positivo li modella long, con tendenza a vendere più in alto. Il segnale chiede "è probabile che i dealer inseguano questo movimento?".
 
 ### GEX Gradient
 
-Gamma sopra lo spot rispetto al gamma sotto lo spot, con un controllo di concentrazione ATM. Indica su quale lato dello spot si concentra più peso gamma. Gradiente positivo ⇒ più gamma sotto lo spot ⇒ un pavimento di sostegno che stabilizza al rialzo (inclinazione rialzista); negativo ⇒ più gamma sopra lo spot ⇒ amplificazione al ribasso (inclinazione ribassista).
+Gamma sopra lo spot rispetto al gamma sotto lo spot, con un controllo di concentrazione ATM. Indica su quale lato dello spot si concentra più peso gamma modellato. Gradiente positivo ⇒ più gamma sotto lo spot ⇒ un pavimento di sostegno modellato (inclinazione rialzista, ammesso che lì i dealer siano long gamma); negativo ⇒ più gamma sopra lo spot ⇒ inclinazione che amplifica al ribasso. L'inclinazione presuppone che valga il segno modellato del gamma dei dealer.
 
 ### Positioning Trap
 
-PCR + squilibrio segnato dello smart money + momentum a 5 barre + inclinazione al flip + contesto di regime. Chiede se la folla è posizionata nel verso sbagliato. **Questo è un segnale di mean-reversion** — un punteggio positivo elevato è un segnale di "vendi il rialzo", non di "vai long".
+PCR + squilibrio segnato dello smart money + momentum a 5 barre + inclinazione al flip + contesto di regime. Chiede se la folla è posizionata nel verso sbagliato — e fa fade della folla, non del prezzo. Un punteggio **positivo** elevato segnala una folla inclinata short (molte put) che può essere spinta **al rialzo** in uno squeeze — uno short-cover squeeze al rialzo; un punteggio **negativo** elevato segnala una folla inclinata long (molte call) vulnerabile a un flush **al ribasso**. Leggi il segno come direzione dello squeeze/flush, non come un semplice invito a "andare long/short".
 
 ## Come leggere il dashboard
 
@@ -55,7 +55,7 @@ Tre pattern:
 
 1. **Cerca la confluenza.** Se tre o quattro dei sei segnali puntano nella stessa direzione con magnitudini non trascurabili, il composite si sposterà di conseguenza verso un regime di trend o di chop.
 2. **Cerca la divergenza.** Quando il Tape Flow Bias è fortemente positivo ma il GEX Gradient è nettamente negativo, i dealer faderanno gli acquisti — il tape si sbaglia su dove si trova il pin strutturale.
-3. **Guarda il Positioning Trap separatamente.** È l'unico segnale Basic con bias di mean-reversion. Tratta una lettura di Trap fortemente positiva insieme a un Tape fortemente long come un avvertimento, non come una conferma.
+3. **Guarda il Positioning Trap separatamente.** È l'unico segnale Basic con bias di mean-reversion. Una lettura di Trap fortemente **negativa** (una folla inclinata long a rischio di un flush al ribasso) insieme a un Tape fortemente long è un avvertimento, non una conferma — la folla a cui il tape si sta unendo è proprio quella che la Trap segnala come fuori posizione.
 
 ## Cosa non c'è nel dashboard Basic
 

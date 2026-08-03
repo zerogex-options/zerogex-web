@@ -17,7 +17,7 @@ Questa è la distinzione più importante. Interiorizzala prima di leggere le pag
 
 Ogni signal di ZeroGEX — Advanced o Basic — vive sulla stessa linea numerica: **[-1, +1]**.
 
-- Il **segno** indica la direzione. Positivo è rialzista; negativo è ribassista. Alcuni signal sono di mean-reversion (quindi un punteggio positivo significa "fai fade dei rialzi"); questi riportano un chip "trade bias" ben visibile sulla pagina.
+- Il **segno** indica la direzione. Per la maggior parte dei signal positivo è rialzista e negativo è ribassista — ma alcuni sono di mean-reversion o comunque con segno invertito, quindi un punteggio positivo non significa sempre "vai long". Ogni card riporta un chip "trade bias" che specifica esattamente come leggere il segno di quel signal.
 - La **magnitudine** indica la convinzione. Più il punteggio si avvicina a ±1, più forte è la lettura.
 - **Un punteggio 0 quasi non è mai neutro.** Per la maggior parte dei signal significa che i dati sono insufficienti o che questa domanda specifica non ha risposta al momento. Leggi uno 0 come "nessuna lettura", non come "nessun trade".
 
@@ -70,7 +70,7 @@ L'ordine è coerente in tutte le pagine.
 Ogni signal ha un trade bias dichiarato. È visibile sulla card e sulla pagina del signal.
 
 - **Lettura direzionale** — il segno del punteggio corrisponde alla direzione di prezzo attesa.
-- **Mean-reversion (vs. crowd)** — un punteggio positivo elevato significa "fai fade dei rialzi"; opera in direzione opposta al posizionamento della folla.
+- **Mean-reversion (vs. crowd)** — il punteggio riflette il fade della folla, non del prezzo: un punteggio positivo segnala una folla inclinata ribassista che può squeezare *al rialzo*, un punteggio negativo una folla inclinata rialzista che può essere spazzata *al ribasso*.
 - **Mean-reversion (long gamma)** — fai fade dell'estensione verso la media quando i dealer sono long gamma.
 - **Continuation** — il segno del punteggio corrisponde alla direzione della gamba successiva.
 - **Cambio di regime / playbook** — il signal ti dice di cambiare strategia, non di aprire un trade.

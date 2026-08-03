@@ -39,7 +39,7 @@ Tre pattern:
 
 1. **Smart-money fortemente long su call + MSI in regime di trend (≥ 70) + gradiente GEX di supporto** ⇒ la lettura strutturale si allinea con il flusso smart-money. Direzionale ad alta convinzione.
 2. **Smart-money fortemente long su put al put wall** ⇒ difesa o fading. Combinato con una lettura di Positioning Trap, può essere un counter-bias tradabile.
-3. **Flusso smart-money neutrale, flusso principale forte** ⇒ il flusso principale è guidato dal retail; trattare con cautela.
+3. **Flusso smart-money neutrale, flusso principale forte** ⇒ il flusso principale è probabilmente partecipazione ampia e a bassa convinzione più che posizionamento informato; trattare con cautela.
 
 ## Cosa non è
 

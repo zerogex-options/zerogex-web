@@ -16,7 +16,7 @@ Hay cinco familias de elementos:
 
 - **Signal triggers** — cuando una señal Advanced cruza su umbral de disparo.
 - **Regime events** — cruce del gamma flip, transición de régimen (positivo ↔ negativo).
-- **Wall events** — el call wall o el put wall se desplaza una cantidad significativa.
+- **Wall events** — el call wall o el put wall se desplaza una cantidad significativa (el strike modelado de máxima exposición se desplaza a medida que cambian el spot, el gamma, el tiempo y la IV — no necesariamente por nuevo open interest).
 - **Flow notables** — picos de prima, rachas de smart money, bloques inusuales.
 - **Schedule events** — apertura del mercado, apertura de la ventana de presión EOD, cierre.
 

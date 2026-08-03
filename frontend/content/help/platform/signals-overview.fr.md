@@ -17,7 +17,7 @@ C'est la distinction la plus importante. Assimilez-la avant de lire les pages de
 
 Chaque signal ZeroGEX — Advanced ou Basic — vit sur la même ligne numérique : **[-1, +1]**.
 
-- Le **signe** indique la direction. Positif est haussier ; négatif est baissier. Certains signals sont de mean-reversion (un score positif signifie alors "fader la hausse") ; ils affichent un chip "trade bias" bien visible sur la page.
+- Le **signe** indique la direction. Pour la plupart des signals, positif est haussier et négatif est baissier — mais certains sont de mean-reversion ou autrement à signe inversé, de sorte qu'un score positif ne signifie pas toujours "passer long". Chaque carte porte un chip "trade bias" qui précise exactement comment lire le signe de ce signal.
 - La **magnitude** indique la conviction. Plus le score se rapproche de ±1, plus la lecture est forte.
 - **Un score de 0 n'est presque jamais neutre.** Pour la plupart des signals, cela signifie que les données sont insuffisantes ou que cette question précise n'a pas de réponse pour le moment. Lisez un 0 comme "pas de lecture", pas comme "pas de trade".
 
@@ -70,7 +70,7 @@ L'ordre est cohérent d'une page à l'autre.
 Chaque signal a un trade bias déclaré. Il figure sur la carte et sur la page du signal.
 
 - **Lecture directionnelle** — le signe du score correspond à la direction de prix attendue.
-- **Mean-reversion (vs. crowd)** — un score positif élevé signifie "fader la hausse" ; on trade à l'opposé du positionnement de la foule.
+- **Mean-reversion (vs. crowd)** — le score reflète le fait de fader la foule, pas le prix : un score positif signale une foule penchée du côté baissier qui peut squeezer *vers le haut*, un score négatif une foule penchée du côté haussier qui peut être flushée *vers le bas*.
 - **Mean-reversion (long gamma)** — fader l'extension vers la moyenne lorsque les dealers sont long gamma.
 - **Continuation** — le signe du score correspond à la direction de la prochaine jambe.
 - **Changement de régime / playbook** — le signal indique de changer de stratégie, pas de prendre un trade.

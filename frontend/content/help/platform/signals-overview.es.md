@@ -17,7 +17,7 @@ Esa es la distinción más importante. Interiorízala antes de leer las páginas
 
 Todo signal de ZeroGEX — Advanced o Basic — vive en la misma línea numérica: **[-1, +1]**.
 
-- El **signo** indica la dirección. Positivo es alcista; negativo es bajista. Algunos signals son de mean-reversion (así que un puntaje positivo significa "hacer fade de la subida"); esos llevan un chip de "trade bias" bien visible en la página.
+- El **signo** indica la dirección. En la mayoría de los signals, positivo es alcista y negativo es bajista — pero algunos son de mean-reversion o están invertidos de signo por otra razón, así que un puntaje positivo no siempre significa "ponerse largo". Cada tarjeta lleva un chip de "trade bias" que detalla cómo leer el signo de ese signal.
 - La **magnitud** indica la convicción. Cuanto más cerca esté el puntaje de ±1, más fuerte es la lectura.
 - **Un puntaje de 0 casi nunca es neutral.** En la mayoría de los signals significa que los datos son insuficientes o que esta pregunta específica no tiene respuesta en este momento. Interpreta un 0 como "sin lectura", no como "sin trade".
 
@@ -70,7 +70,7 @@ El orden es coherente en todas las páginas.
 Todo signal tiene un trade bias declarado. Aparece en la tarjeta y en la página del signal.
 
 - **Lectura direccional** — el signo del puntaje corresponde a la dirección de precio esperada.
-- **Mean-reversion (vs. crowd)** — un puntaje positivo alto significa "hacer fade de la subida"; opera en contra del posicionamiento de la mayoría.
+- **Mean-reversion (vs. crowd)** — el puntaje refleja hacer fade de la multitud, no del precio: un puntaje positivo señala una multitud de sesgo bajista que puede ser exprimida *al alza*, un puntaje negativo una multitud de sesgo alcista que puede ser barrida *a la baja*.
 - **Mean-reversion (long gamma)** — hacer fade de la extensión hacia la media cuando los dealers están long gamma.
 - **Continuation** — el signo del puntaje corresponde a la dirección del siguiente tramo.
 - **Cambio de régimen / playbook** — el signal indica cambiar de estrategia, no entrar en un trade.
