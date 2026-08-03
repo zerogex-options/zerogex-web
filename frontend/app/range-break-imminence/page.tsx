@@ -33,7 +33,7 @@ function bandFromImminence(imminence: number | null): { name: string; threshold:
   if (imminence >= 80) return { name: 'Breakout Mode', threshold: 80 };
   if (imminence >= 65) return { name: 'Break Watch', threshold: 65 };
   if (imminence >= 40) return { name: 'Weak Range', threshold: 40 };
-  return { name: 'Range Fade', threshold: 0 };
+  return { name: 'Range-Bound', threshold: 0 };
 }
 
 export default function RangeBreakImminencePage() {
@@ -236,7 +236,7 @@ export default function RangeBreakImminencePage() {
       <SignalHowItsBuilt
         caveat={
           <>
-            <strong>Bands:</strong> 0–39 Range Fade · 40–64 Weak Range · 65–79 Break Watch · 80–100 Breakout Mode.
+            <strong>Bands:</strong> 0–39 Range-Bound · 40–64 Weak Range · 65–79 Break Watch · 80–100 Breakout Mode.
             Triggers at imminence ≥ 65 — stop blindly fading and prepare retest trades.
           </>
         }
