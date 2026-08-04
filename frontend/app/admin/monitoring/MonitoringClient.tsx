@@ -15,6 +15,7 @@ import {
   buildGrowthProjection,
   MRR_PROJECTION_HORIZONS,
 } from '@/core/pricing';
+import { accumulateFlowByWeekday } from '@/core/subscriptionFlow';
 
 type SnapshotPoint = {
   bucket: string;
@@ -360,6 +361,7 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
           <TotalSubscribersChartCard data={data.signups} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} yScale={subscriberYScale} />
           <TierBreakdownChartCard data={data.signups} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} brandColor={ROW_COLORS.signups} yScale={tierYScale} />
           <SubscriptionFlowChartCard data={data.signupFlow} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} brandColor={ROW_COLORS.signups} />
+          <SubscriptionFlowByWeekdayCard data={data.signupFlow} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} brandColor={ROW_COLORS.signups} />
           <DailyRegistrationsChartCard
             data={data.signups}
             flow={data.signupFlow}
@@ -2391,6 +2393,354 @@ function SubscriptionFlowChartCard({ data, cardBg, axisStroke, mutedText, brandC
             </ComposedChart>
           </ResponsiveContainer>
         </MobileScrollableChart>
+      )}
+    </div>
+  );
+}
+
+type SubscriptionFlowByWeekdayCardProps = {
+  data: SignupFlowPoint[];
+  cardBg: string;
+  axisStroke: string;
+  mutedText: string;
+  brandColor: string;
+};
+
+// The per-day Subscription Flow folded onto the seven weekdays, to surface a
+// weekly rhythm the daily columns bury — e.g. a Monday signup peak that fades
+// across the week. Same eight flow families, colors, and net line as the daily
+// chart, but one column per weekday (Mon→Sun). The Avg/Total toggle switches
+// between the mean per occurrence of that weekday — the fair comparison, since a
+// window doesn't hold each weekday an equal number of times — and the raw sums.
+function SubscriptionFlowByWeekdayCard({ data, cardBg, axisStroke, mutedText, brandColor }: SubscriptionFlowByWeekdayCardProps) {
+  // Colors identical to SubscriptionFlowChartCard so the two read as one system.
+  const proAddColor = brandColor;
+  const basicAddColor = lighten(brandColor, 0.45);
+  const reactivateBase = '#2a9d8f';
+  const proReactivateColor = reactivateBase;
+  const basicReactivateColor = lighten(reactivateBase, 0.4);
+  const cancelBase = '#c1435b';
+  const proCancelColor = cancelBase;
+  const basicCancelColor = lighten(cancelBase, 0.35);
+  const paymentFailBase = '#7a5195';
+  const proPaymentFailColor = paymentFailBase;
+  const basicPaymentFailColor = lighten(paymentFailBase, 0.4);
+  const netColor = '#ffa600';
+
+  const [mode, setMode] = useState<'avg' | 'total'>('avg');
+
+  const buckets = useMemo(() => accumulateFlowByWeekday(data), [data]);
+  const totalDays = useMemo(() => buckets.reduce((m, b) => m + b.days, 0), [buckets]);
+  const hasData = useMemo(
+    () =>
+      buckets.some(
+        (b) =>
+          b.proAdd !== 0 ||
+          b.basicAdd !== 0 ||
+          b.proReactivate !== 0 ||
+          b.basicReactivate !== 0 ||
+          b.proCancel !== 0 ||
+          b.basicCancel !== 0 ||
+          b.proPaymentFail !== 0 ||
+          b.basicPaymentFail !== 0,
+      ),
+    [buckets],
+  );
+
+  // In avg mode every count is divided by how many of that weekday the window
+  // holds (b.days); totals mode plots the raw sums. Cancels and payment-fails are
+  // stored negative, so they keep stacking below the zero baseline either way.
+  const chartData = useMemo(
+    () =>
+      buckets.map((b) => {
+        const denom = mode === 'avg' ? b.days || 1 : 1;
+        const v = (n: number) => n / denom;
+        const proAdd = v(b.proAdd);
+        const basicAdd = v(b.basicAdd);
+        const proReactivate = v(b.proReactivate);
+        const basicReactivate = v(b.basicReactivate);
+        const proCancel = v(b.proCancel);
+        const basicCancel = v(b.basicCancel);
+        const proPaymentFail = v(b.proPaymentFail);
+        const basicPaymentFail = v(b.basicPaymentFail);
+        return {
+          label: b.label,
+          days: b.days,
+          proAdd,
+          basicAdd,
+          proReactivate,
+          basicReactivate,
+          proCancel,
+          basicCancel,
+          proPaymentFail,
+          basicPaymentFail,
+          net:
+            proAdd + basicAdd + proReactivate + basicReactivate +
+            proCancel + basicCancel + proPaymentFail + basicPaymentFail,
+        };
+      }),
+    [buckets, mode],
+  );
+
+  // One diverging axis for both the stacked bars and the net line: the positive
+  // half spans the add + reactivation stack, the negative half the cancel +
+  // payment-fail stack, sharing a single tick step so both sides step evenly.
+  const barScale = useMemo(() => {
+    const posBound = chartData.reduce(
+      (m, p) => Math.max(m, p.proAdd + p.basicAdd + p.proReactivate + p.basicReactivate),
+      0,
+    );
+    const negBound = chartData.reduce(
+      (m, p) => Math.max(m, -(p.proCancel + p.basicCancel + p.proPaymentFail + p.basicPaymentFail)),
+      0,
+    );
+    const nice = niceYScale(Math.max(posBound, negBound, 1));
+    const step = nice.ticks.length > 1 ? nice.ticks[1] - nice.ticks[0] : nice.max || 1;
+    const posTicks = nice.ticks.filter((t) => t > 0);
+    const negMax = negBound > 0 ? Math.ceil(negBound / step) * step : 0;
+    const negTicks: number[] = [];
+    for (let t = step; t <= negMax + 1e-9; t += step) negTicks.push(t);
+    const ticks = [...negTicks.map((t) => -t).reverse(), 0, ...posTicks];
+    return { min: -negMax, max: nice.max, ticks };
+  }, [chartData]);
+
+  // Number formatting: averages read to one decimal (a weekday can average 2.4
+  // signups/day); totals are whole counts.
+  const fmt = (n: number) => (mode === 'avg' ? n.toFixed(1) : Math.round(n).toLocaleString());
+  const fmtSigned = (n: number) => `${n > 0 ? '+' : ''}${fmt(n)}`;
+
+  // Per-weekday breakdown rows for the table: adds/reactivations positive, churn
+  // shown as its positive magnitude in its own column, net carrying the sign.
+  const tableRows = useMemo(
+    () =>
+      buckets.map((b) => {
+        const denom = mode === 'avg' ? b.days || 1 : 1;
+        const v = (n: number) => n / denom;
+        const newAdds = v(b.proAdd + b.basicAdd);
+        const reactivations = v(b.proReactivate + b.basicReactivate);
+        const cancels = v(-(b.proCancel + b.basicCancel));
+        const paymentFails = v(-(b.proPaymentFail + b.basicPaymentFail));
+        const net = v(
+          b.proAdd + b.basicAdd + b.proReactivate + b.basicReactivate +
+            b.proCancel + b.basicCancel + b.proPaymentFail + b.basicPaymentFail,
+        );
+        return { label: b.label, weekday: b.weekday, days: b.days, newAdds, reactivations, cancels, paymentFails, net };
+      }),
+    [buckets, mode],
+  );
+
+  // Data-driven read on the user's hypothesis (Monday peak, easing across the
+  // week), ranked on average NEW paid signups/day so weekdays compare fairly.
+  const insight = useMemo(() => {
+    const avgAdds = (b: (typeof buckets)[number]) => (b.days ? (b.proAdd + b.basicAdd) / b.days : 0);
+    const active = buckets.filter((b) => b.days > 0);
+    if (active.length === 0) return null;
+    const ranked = [...active].sort((a, b) => avgAdds(b) - avgAdds(a));
+    const top = ranked[0];
+    const bottom = ranked[ranked.length - 1];
+    const workweek = [0, 1, 2, 3, 4].map((i) => buckets[i]);
+    const haveWorkweek = workweek.every((b) => b.days > 0);
+    let steps = 0;
+    let downSteps = 0;
+    for (let i = 1; i < workweek.length; i++) {
+      if (workweek[i - 1].days > 0 && workweek[i].days > 0) {
+        steps += 1;
+        if (avgAdds(workweek[i]) <= avgAdds(workweek[i - 1]) + 1e-9) downSteps += 1;
+      }
+    }
+    let trend: string;
+    if (haveWorkweek && steps === 4 && downSteps === 4) {
+      trend = 'New paid signups ease off at every step from Monday to Friday — the weekly slowdown you spotted.';
+    } else if (steps > 0 && downSteps / steps >= 0.75) {
+      trend = 'New paid signups broadly taper from Monday toward Friday, with the odd bump.';
+    } else if (steps > 0) {
+      trend = 'New paid signups don’t show a clean Monday→Friday decline in this window.';
+    } else {
+      trend = 'Not enough weekday coverage yet to read a Monday→Friday trend.';
+    }
+    return { top, bottom, topAvg: avgAdds(top), bottomAvg: avgAdds(bottom), trend };
+  }, [buckets]);
+  const topWeekday = insight?.top.weekday ?? -1;
+
+  const WEEKDAY_FULL: Record<string, string> = {
+    Mon: 'Monday',
+    Tue: 'Tuesday',
+    Wed: 'Wednesday',
+    Thu: 'Thursday',
+    Fri: 'Friday',
+    Sat: 'Saturday',
+    Sun: 'Sunday',
+  };
+
+  return (
+    <div className="rounded-lg p-4 lg:col-span-2" style={{ backgroundColor: cardBg }}>
+      <div className="flex items-baseline justify-between mb-1 flex-wrap gap-2">
+        <h3 className="zg-h3" style={{ color: axisStroke }}>Subscription Flow by Weekday</h3>
+        <div className="flex items-center gap-2">
+          <span className="text-xs" style={{ color: mutedText }}>
+            {mode === 'avg' ? 'Average per day-of-week' : 'Total over window'}
+            {totalDays > 0 ? ` · ${totalDays.toLocaleString()} days` : ''}
+          </span>
+          <div className="inline-flex rounded-md overflow-hidden border" style={{ borderColor: 'var(--color-border)' }}>
+            {(['avg', 'total'] as const).map((m) => {
+              const active = mode === m;
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMode(m)}
+                  className="px-2 py-1 text-xs font-semibold"
+                  style={{
+                    backgroundColor: active ? brandColor : 'transparent',
+                    color: active ? '#fff' : 'var(--color-text-secondary)',
+                  }}
+                >
+                  {m === 'avg' ? 'Avg/day' : 'Total'}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {!hasData ? (
+        <div className="text-sm py-12 text-center" style={{ color: mutedText }}>No subscription activity captured yet.</div>
+      ) : (
+        <>
+          {insight && (
+            <p className="text-xs mb-3" style={{ color: mutedText }}>
+              Busiest for new paid signups:{' '}
+              <span style={{ color: axisStroke, fontWeight: 600 }}>{WEEKDAY_FULL[insight.top.label]}</span>{' '}
+              (avg {insight.topAvg.toFixed(1)}/day) · Quietest:{' '}
+              <span style={{ color: axisStroke, fontWeight: 600 }}>{WEEKDAY_FULL[insight.bottom.label]}</span>{' '}
+              (avg {insight.bottomAvg.toFixed(1)}/day). {insight.trend}
+            </p>
+          )}
+          <div className="flex flex-col lg:flex-row gap-4">
+            <div className="flex-1 min-w-0">
+              <MobileScrollableChart>
+                <ResponsiveContainer width="100%" height={280}>
+                  <ComposedChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 8 }} stackOffset="sign">
+                    <CartesianGrid strokeOpacity={0.1} vertical={false} />
+                    <XAxis
+                      dataKey="label"
+                      stroke={axisStroke}
+                      tick={{ fill: axisStroke, fontSize: 11 }}
+                      tickLine={false}
+                      interval={0}
+                    />
+                    <YAxis
+                      yAxisId="flow"
+                      stroke={axisStroke}
+                      tick={{ fill: axisStroke, fontSize: 10 }}
+                      tickLine={false}
+                      allowDecimals={mode === 'avg'}
+                      domain={[barScale.min, barScale.max]}
+                      ticks={barScale.ticks}
+                      interval={0}
+                    />
+                    <ReferenceLine yAxisId="flow" y={0} stroke={axisStroke} strokeOpacity={0.35} />
+                    <Tooltip
+                      cursor={{ fill: 'var(--color-text-primary)', fillOpacity: 0.08 }}
+                      content={({ active, label, payload }) => {
+                        if (!active || !payload?.length) return null;
+                        const num = (key: string) => Number(payload.find((p) => p.dataKey === key)?.value ?? 0);
+                        const proAdd = num('proAdd');
+                        const basicAdd = num('basicAdd');
+                        const proReactivate = num('proReactivate');
+                        const basicReactivate = num('basicReactivate');
+                        const proCancel = num('proCancel');
+                        const basicCancel = num('basicCancel');
+                        const proPaymentFail = num('proPaymentFail');
+                        const basicPaymentFail = num('basicPaymentFail');
+                        const net =
+                          proAdd + basicAdd + proReactivate + basicReactivate +
+                          proCancel + basicCancel + proPaymentFail + basicPaymentFail;
+                        const row = chartData.find((r) => r.label === label);
+                        return (
+                          <div
+                            className="rounded-lg border px-3 py-2 text-xs"
+                            style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', color: 'var(--color-chart-tooltip-text)' }}
+                          >
+                            <div className="font-semibold mb-1">
+                              {WEEKDAY_FULL[String(label)] ?? label}
+                              <span style={{ color: mutedText, fontWeight: 400 }}>
+                                {' '}· {mode === 'avg' ? `avg/day over ${row?.days ?? 0}` : `total over ${row?.days ?? 0}`} {(row?.days ?? 0) === 1 ? 'day' : 'days'}
+                              </span>
+                            </div>
+                            <div style={{ color: netColor }}>Net onboards: {fmtSigned(net)}</div>
+                            <div className="mt-1" style={{ color: proAddColor }}>New signups: {fmtSigned(proAdd + basicAdd)}</div>
+                            <div className="pl-2">Pro: {fmtSigned(proAdd)}</div>
+                            <div className="pl-2">Basic: {fmtSigned(basicAdd)}</div>
+                            <div className="mt-1" style={{ color: reactivateBase }}>Reactivations: {fmtSigned(proReactivate + basicReactivate)}</div>
+                            <div className="mt-1" style={{ color: cancelBase }}>Cancellations: {fmtSigned(proCancel + basicCancel)}</div>
+                            <div className="mt-1" style={{ color: paymentFailBase }}>Payment-failure downgrades: {fmtSigned(proPaymentFail + basicPaymentFail)}</div>
+                          </div>
+                        );
+                      }}
+                    />
+                    <Bar yAxisId="flow" dataKey="basicAdd" name="Basic adds" stackId="flow" fill={basicAddColor} maxBarSize={44} isAnimationActive={false} />
+                    <Bar yAxisId="flow" dataKey="proAdd" name="Pro adds" stackId="flow" fill={proAddColor} maxBarSize={44} isAnimationActive={false} />
+                    <Bar yAxisId="flow" dataKey="basicReactivate" name="Basic reactivations" stackId="flow" fill={basicReactivateColor} maxBarSize={44} isAnimationActive={false} />
+                    <Bar yAxisId="flow" dataKey="proReactivate" name="Pro reactivations" stackId="flow" fill={proReactivateColor} maxBarSize={44} isAnimationActive={false} />
+                    <Bar yAxisId="flow" dataKey="basicCancel" name="Basic cancellations" stackId="flow" fill={basicCancelColor} maxBarSize={44} isAnimationActive={false} />
+                    <Bar yAxisId="flow" dataKey="proCancel" name="Pro cancellations" stackId="flow" fill={proCancelColor} maxBarSize={44} isAnimationActive={false} />
+                    <Bar yAxisId="flow" dataKey="basicPaymentFail" name="Basic payment-failure downgrades" stackId="flow" fill={basicPaymentFailColor} maxBarSize={44} isAnimationActive={false} />
+                    <Bar yAxisId="flow" dataKey="proPaymentFail" name="Pro payment-failure downgrades" stackId="flow" fill={proPaymentFailColor} maxBarSize={44} isAnimationActive={false} />
+                    <Line
+                      yAxisId="flow"
+                      type="monotone"
+                      dataKey="net"
+                      name="Net onboards"
+                      stroke={netColor}
+                      strokeWidth={2.5}
+                      dot={{ r: 3, fill: netColor }}
+                      isAnimationActive={false}
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </MobileScrollableChart>
+            </div>
+
+            <div className="lg:w-[22rem] lg:shrink-0 overflow-x-auto">
+              <table className="w-full text-xs border-collapse">
+                <thead>
+                  <tr style={{ color: mutedText }}>
+                    <th className="text-left font-semibold py-1 pr-2">Day</th>
+                    <th className="text-right font-semibold py-1 px-1" style={{ color: proAddColor }}>Adds</th>
+                    <th className="text-right font-semibold py-1 px-1" style={{ color: reactivateBase }}>React.</th>
+                    <th className="text-right font-semibold py-1 px-1" style={{ color: cancelBase }}>Cancel</th>
+                    <th className="text-right font-semibold py-1 px-1" style={{ color: paymentFailBase }}>Pay-fail</th>
+                    <th className="text-right font-semibold py-1 px-1" style={{ color: netColor }}>Net</th>
+                    <th className="text-right font-semibold py-1 pl-1">n</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tableRows.map((r) => {
+                    const isTop = r.weekday === topWeekday;
+                    return (
+                      <tr key={r.label} style={{ borderTop: '1px solid var(--color-border)', color: axisStroke }}>
+                        <td className="text-left py-1 pr-2" style={{ fontWeight: isTop ? 700 : 400 }}>
+                          {r.label}
+                        </td>
+                        <td className="text-right py-1 px-1" style={{ fontWeight: isTop ? 700 : 400 }}>{r.newAdds > 0 ? fmt(r.newAdds) : '—'}</td>
+                        <td className="text-right py-1 px-1">{r.reactivations > 0 ? fmt(r.reactivations) : '—'}</td>
+                        <td className="text-right py-1 px-1">{r.cancels > 0 ? fmt(r.cancels) : '—'}</td>
+                        <td className="text-right py-1 px-1">{r.paymentFails > 0 ? fmt(r.paymentFails) : '—'}</td>
+                        <td className="text-right py-1 px-1" style={{ color: netColor }}>{fmtSigned(r.net)}</td>
+                        <td className="text-right py-1 pl-1" style={{ color: mutedText }}>{r.days.toLocaleString()}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              <p className="text-[11px] mt-2" style={{ color: mutedText }}>
+                {mode === 'avg' ? 'Per-day average of each weekday. ' : 'Total over the window. '}
+                “n” is how many of that weekday the window covers. Cancels and pay-fails shown as positive magnitudes; Net carries the sign.
+              </p>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

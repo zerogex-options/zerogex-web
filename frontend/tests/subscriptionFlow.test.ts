@@ -2,11 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   accumulateSubscriptionFlow,
+  accumulateFlowByWeekday,
+  weekdayFromDayKey,
   emptyFlowDelta,
   parseSyncTierStrict,
+  WEEKDAY_LABELS,
   type FlowDelta,
   type FlowSyncEvent,
   type FlowDeleteEvent,
+  type FlowCounts,
 } from '../core/subscriptionFlow.ts';
 
 // The subscription-flow accumulator is the source of the admin "Subscription
@@ -185,4 +189,114 @@ test('RECONCILIATION: summed flow equals the net change in subscriber headcount'
 
   // Independent oracle: subs whose final tier is paid and not deleted (s1, s2, s5).
   assert.equal(net, 3);
+});
+
+// --- Weekday breakdown -----------------------------------------------------
+// accumulateFlowByWeekday folds the per-day flow onto the seven weekdays for the
+// admin "Subscription Flow by Weekday" card. Its contract: correct weekday from
+// an ET date key (timezone-independent), fair `days` denominator, and sums that
+// stay reconciled with the input.
+
+function emptyCounts(): FlowCounts {
+  return {
+    proAdd: 0,
+    basicAdd: 0,
+    proReactivate: 0,
+    basicReactivate: 0,
+    proCancel: 0,
+    basicCancel: 0,
+    proPaymentFail: 0,
+    basicPaymentFail: 0,
+    registrations: 0,
+  };
+}
+function fp(day: string, partial: Partial<FlowCounts>): { day: string } & FlowCounts {
+  return { day, ...emptyCounts(), ...partial };
+}
+
+test('weekdayFromDayKey: Mon→Sun index, timezone-independent, bad keys → null', () => {
+  // 2024-01-01 was a Monday; the week runs to Sunday 2024-01-07.
+  assert.equal(weekdayFromDayKey('2024-01-01'), 0); // Mon
+  assert.equal(weekdayFromDayKey('2024-01-02'), 1); // Tue
+  assert.equal(weekdayFromDayKey('2024-01-05'), 4); // Fri
+  assert.equal(weekdayFromDayKey('2024-01-06'), 5); // Sat
+  assert.equal(weekdayFromDayKey('2024-01-07'), 6); // Sun
+  assert.equal(weekdayFromDayKey('2024-01-08'), 0); // back to Mon
+  // Malformed or impossible dates are rejected, not guessed onto a weekday.
+  assert.equal(weekdayFromDayKey('2026-02-31'), null); // rolls into March
+  assert.equal(weekdayFromDayKey('2026-13-01'), null); // no 13th month
+  assert.equal(weekdayFromDayKey('2026-08'), null); // wrong shape
+  assert.equal(weekdayFromDayKey('not-a-date'), null);
+});
+
+test('accumulateFlowByWeekday: always 7 buckets in Mon→Sun order', () => {
+  const out = accumulateFlowByWeekday([]);
+  assert.equal(out.length, 7);
+  assert.deepEqual(out.map((b) => b.label), [...WEEKDAY_LABELS]);
+  assert.deepEqual(out.map((b) => b.weekday), [0, 1, 2, 3, 4, 5, 6]);
+  // Empty input → every bucket zeroed with a zero denominator.
+  assert.ok(out.every((b) => b.days === 0 && b.proAdd === 0 && b.registrations === 0));
+});
+
+test('accumulateFlowByWeekday: sums land on the right weekday and count occurrences', () => {
+  const out = accumulateFlowByWeekday([
+    fp('2024-01-01', { proAdd: 2, basicAdd: 1, registrations: 5 }), // Mon
+    fp('2024-01-08', { proAdd: 3, proCancel: -1 }), // Mon (next week)
+    fp('2024-01-02', { basicAdd: 4 }), // Tue
+    fp('2024-01-07', { proPaymentFail: -2, registrations: 1 }), // Sun
+  ]);
+  const mon = out[0];
+  assert.equal(mon.days, 2); // two Mondays present
+  assert.equal(mon.proAdd, 5); // 2 + 3
+  assert.equal(mon.basicAdd, 1);
+  assert.equal(mon.proCancel, -1);
+  assert.equal(mon.registrations, 5);
+
+  const tue = out[1];
+  assert.equal(tue.days, 1);
+  assert.equal(tue.basicAdd, 4);
+
+  const sun = out[6];
+  assert.equal(sun.days, 1);
+  assert.equal(sun.proPaymentFail, -2);
+  assert.equal(sun.registrations, 1);
+
+  // Untouched weekdays stay empty.
+  for (const wd of [2, 3, 4, 5]) {
+    assert.equal(out[wd].days, 0);
+    assert.equal(out[wd].proAdd, 0);
+  }
+});
+
+test('accumulateFlowByWeekday: totals reconcile with the input and skip bad keys', () => {
+  const points = [
+    fp('2024-01-01', { proAdd: 1, basicAdd: 2 }),
+    fp('2024-01-02', { proReactivate: 1, basicCancel: -3 }),
+    fp('2024-01-03', { proPaymentFail: -1 }),
+    fp('bad-key', { proAdd: 99, basicAdd: 99 }), // dropped, not bucketed
+  ];
+  const out = accumulateFlowByWeekday(points);
+  const sum = (k: keyof FlowCounts) => out.reduce((m, b) => m + b[k], 0);
+  // The three valid rows are fully represented; the bad key contributes nothing.
+  assert.equal(sum('proAdd'), 1);
+  assert.equal(sum('basicAdd'), 2);
+  assert.equal(sum('proReactivate'), 1);
+  assert.equal(sum('basicCancel'), -3);
+  assert.equal(sum('proPaymentFail'), -1);
+  assert.equal(out.reduce((m, b) => m + b.days, 0), 3); // only the valid rows counted
+});
+
+test('accumulateFlowByWeekday: per-weekday average uses the days denominator', () => {
+  // Two Mondays of new adds (4 and 2) average to 3/day; a lone Tuesday (10)
+  // averages to 10/day — so totals alone (Mon 6 vs Tue 10) and averages (Mon 3
+  // vs Tue 10) can rank weekdays differently, which is exactly why `days` exists.
+  const out = accumulateFlowByWeekday([
+    fp('2024-01-01', { proAdd: 4 }), // Mon
+    fp('2024-01-08', { proAdd: 2 }), // Mon
+    fp('2024-01-02', { proAdd: 10 }), // Tue
+  ]);
+  const mon = out[0];
+  const tue = out[1];
+  assert.equal(mon.proAdd / mon.days, 3);
+  assert.equal(tue.proAdd / tue.days, 10);
 });
