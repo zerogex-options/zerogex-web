@@ -197,6 +197,7 @@ export default function PairReplayScrubber({
           onChange={(e) => onScrub(Number(e.target.value))}
           disabled={atStart}
           aria-label="Scrub replay timeline"
+          aria-valuetext={`${fmtTime(cursorTime)} ET`}
           className="flex-1 min-w-0"
           style={{ accentColor: "var(--color-accent-hot)" }}
         />
@@ -208,6 +209,11 @@ export default function PairReplayScrubber({
       {loading && (
         <div className="font-mono" style={{ fontSize: 11, color: "var(--text-muted)" }}>
           Loading session…
+        </div>
+      )}
+      {atStart && !loading && !error && (
+        <div className="font-mono" style={{ fontSize: 11, color: "var(--text-muted)" }}>
+          No replay session available for this pair yet.
         </div>
       )}
       {error && (

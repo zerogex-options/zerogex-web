@@ -264,13 +264,12 @@ export default function PairComparisonClient() {
     setIsPlaying(false);
   };
   const togglePlay = () => {
-    setIsPlaying((p) => {
-      const next = !p;
-      // Pressing Play from the end (or while following the latest) replays from
-      // the session open rather than sitting parked on the final frame.
-      if (next) setCursor((c) => (c < 0 || c >= lastIdx ? 0 : c));
-      return next;
-    });
+    // Pressing Play from the end (or while following the latest) replays from
+    // the session open rather than sitting parked on the final frame. Two plain
+    // sequential setStates (not a setState nested in another updater) so a
+    // StrictMode double-invoke can't double-queue the cursor reset.
+    if (!isPlaying && (cursor < 0 || cursor >= lastIdx)) setCursor(0);
+    setIsPlaying((p) => !p);
   };
   const step = (delta: number) => {
     setIsPlaying(false);
@@ -281,18 +280,32 @@ export default function PairComparisonClient() {
     setCursor(i);
   };
 
+  // Keep the two columns distinct: picking the other column's current symbol
+  // swaps them rather than showing a symbol compared against itself. Column 1's
+  // dropdown drives the global header symbol, so its swap moves the header too.
+  const changeSym1 = (s: UnderlyingSymbol) => {
+    if (s === sym2) setSym2(sym1);
+    setSymbol(s);
+  };
+  const changeSym2 = (s: UnderlyingSymbol) => {
+    if (s === sym1) setSymbol(sym2);
+    setSym2(s);
+  };
+
   const cursorTs = timeline[effCursor] ?? null;
 
+  // The React Compiler auto-memoizes these granularly (replayColumn only
+  // re-scans when its inputs actually change), so we keep the code plain.
   const leftData = mode === "live" ? live1 : replayColumn(sym1, replay1, cursorTs);
   const rightData = mode === "live" ? live2 : replayColumn(sym2, replay2, cursorTs);
 
   const leftInput: HeatmapColumnInput = {
     ...leftData,
-    control: <SymbolSelect value={sym1} onChange={setSymbol} ariaLabel="Column 1 symbol (follows the header)" />,
+    control: <SymbolSelect value={sym1} onChange={changeSym1} ariaLabel="Column 1 symbol (follows the header)" />,
   };
   const rightInput: HeatmapColumnInput = {
     ...rightData,
-    control: <SymbolSelect value={sym2} onChange={setSym2} ariaLabel="Column 2 symbol to compare" />,
+    control: <SymbolSelect value={sym2} onChange={changeSym2} ariaLabel="Column 2 symbol to compare" />,
   };
 
   return (
@@ -365,7 +378,8 @@ export default function PairComparisonClient() {
       <p className="mt-6" style={{ fontSize: 11.5, lineHeight: 1.6, color: "var(--text-muted)", maxWidth: 820 }}>
         Net GEX is a modeled estimate of dealer gamma by strike derived from the options chain; the two columns
         are aligned by strike offset from each symbol&apos;s spot-nearest strike, not by absolute price. Replay shows
-        the most-recent session&apos;s per-minute frames; spot during replay is the underlying close for that minute.
+        the most-recent session&apos;s per-minute frames; spot during replay is the underlying close for that minute and
+        the change is measured from that session&apos;s open (live shows the day change from the prior close).
         Decision-support context only — not a guarantee of price behavior, and not investment advice.
       </p>
     </PageShell>

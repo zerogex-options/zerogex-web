@@ -108,7 +108,11 @@ function fmtStrike(v: number): string {
 
 function fmtSpot(v: number | null): string {
   if (v == null || !Number.isFinite(v)) return "--";
-  return v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  // Drop the cents on index-scale prices (SPX ~6,000 / NDX ~20,000) so the
+  // header spot doesn't get truncated in a narrow phone column; keep 2dp for
+  // ETF-scale prices where the cents matter.
+  const opts = Math.abs(v) >= 1000 ? { maximumFractionDigits: 0 } : { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+  return v.toLocaleString(undefined, opts);
 }
 
 // ---- Per-column derivation --------------------------------------------------
@@ -254,7 +258,9 @@ function LevelChip({ meta, value }: { meta: (typeof LEVEL_META)[LevelKey]; value
   );
 }
 
-// One-letter rail tag drawn at the left edge of a level row.
+// One-letter rail tag drawn at the left edge of a level row. Colored glyph on a
+// faint same-color fill (like LevelChip) so it stays legible in every theme —
+// a solid fill with --text-inverse went white-on-amber in light palettes.
 function RailTag({ meta }: { meta: (typeof LEVEL_META)[LevelKey] }) {
   return (
     <span
@@ -262,13 +268,14 @@ function RailTag({ meta }: { meta: (typeof LEVEL_META)[LevelKey] }) {
       title={meta.label}
       className="inline-flex items-center justify-center font-mono"
       style={{
-        width: 12,
-        height: 12,
+        width: 13,
+        height: 13,
         fontSize: 8,
         fontWeight: 800,
         borderRadius: 2,
-        color: "var(--text-inverse)",
-        background: meta.color,
+        color: meta.color,
+        background: `color-mix(in srgb, ${meta.color} 18%, transparent)`,
+        border: `1px solid color-mix(in srgb, ${meta.color} 55%, transparent)`,
         flex: "0 0 auto",
       }}
     >
@@ -326,7 +333,7 @@ function HeatmapColumn({
   const lv = model.levelValues;
 
   return (
-    <div className="flex-1 min-w-0 flex flex-col" style={{ minWidth: 140 }}>
+    <div className="min-w-0 flex flex-col">
       {/* Column header — dropdown + regime, then spot + change, then level legend */}
       <div
         className="px-2 pt-2 pb-2 flex flex-col gap-1.5"
@@ -428,7 +435,9 @@ function HeatmapColumn({
                       <span className="whitespace-nowrap flex items-center gap-0.5">
                         {fmtGex((cell.net_gex || 0) * gexScale)}
                         {isPeak && (
-                          <span title="Heaviest dealer gamma in view" style={{ color: "var(--color-warning)" }}>
+                          // currentColor (== the cell's text) so the star stays
+                          // as readable as the number beside it on any tint.
+                          <span title="Heaviest dealer gamma in view" style={{ color: "currentColor" }}>
                             ★
                           </span>
                         )}
@@ -468,15 +477,15 @@ export default function PairGammaHeatmap({
   }, [leftModel, rightModel]);
 
   return (
-    // overflow-x-auto is a safety net: the two 140px-min columns fit any phone
-    // ≥ ~320px, and only the very narrowest viewports scroll the ladder instead
-    // of clipping it.
+    // Each column holds a 140px floor and grows to share the width; the two fit
+    // any phone ≥ ~300px. On anything narrower the columns keep their floor and
+    // this container scrolls the ladder horizontally instead of clipping it.
     <div className="overflow-x-auto">
       <div className="flex" style={{ gap: 1, background: "var(--border-default)" }}>
-        <div className="flex-1 min-w-0" style={{ background: "var(--bg-card)" }}>
+        <div style={{ flex: "1 1 140px", minWidth: 140, background: "var(--bg-card)" }}>
           <HeatmapColumn model={leftModel} offsets={offsets} gexUnit={gexUnit} />
         </div>
-        <div className="flex-1 min-w-0" style={{ background: "var(--bg-card)" }}>
+        <div style={{ flex: "1 1 140px", minWidth: 140, background: "var(--bg-card)" }}>
           <HeatmapColumn model={rightModel} offsets={offsets} gexUnit={gexUnit} />
         </div>
       </div>
