@@ -26,7 +26,7 @@ import { useStrikeProfileTimeseries, type StrikeProfileStrike } from "@/hooks/us
 import { useTechnicals } from "@/hooks/useTechnicals";
 import { useTimeframe, type UnderlyingSymbol } from "@/core/TimeframeContext";
 import { getPrimaryPriceChangeSummary, getExtendedHoursRow } from "@/core/priceChange";
-import { omitClosedMarketTimes, isIndexSymbol, isWithinRegularMarketHours, etTradingDateLabel } from "@/core/utils";
+import { omitClosedMarketTimes, shouldOmitClosedMarketTimes, isIndexSymbol, isWithinRegularMarketHours, etTradingDateLabel } from "@/core/utils";
 import { SYMBOLS } from "@/core/symbols";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import LoadingSpinner from "./LoadingSpinner";
@@ -543,7 +543,12 @@ export default function GammaTerminalChart({
 
   // Stage 1 — normalize + aggregate history (expensive; independent of the tick).
   const historicalBars = useMemo(() => {
-    const filtered = omitClosedMarketTimes(data || [], (d) => d.timestamp);
+    // Daily bars are whole-session markers stamped at UTC midnight; filtering
+    // them by intraday ET hours would drop every Monday (see
+    // shouldOmitClosedMarketTimes). Only intraday series need the filter.
+    const filtered = shouldOmitClosedMarketTimes(intervalMinutes)
+      ? omitClosedMarketTimes(data || [], (d) => d.timestamp)
+      : data || [];
     const seed = filtered[0]?.close ?? filtered[0]?.price ?? 0;
     const normalized = filtered.reduce(
       (acc, d) => {

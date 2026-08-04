@@ -35,7 +35,7 @@
     "test:delayed-quote": "node --experimental-strip-types --test tests/delayedQuote.test.ts",
     "test:price-change": "node --experimental-strip-types --test tests/priceChange.test.ts",
     "test:market-tide": "node --experimental-strip-types --test tests/marketTide.test.ts",
-    "test:et-trading-date": "node --experimental-strip-types --test tests/etTradingDate.test.ts"
+    "test:daily-bars": "node --experimental-strip-types --test tests/dailyBars.test.ts"
   },
   "dependencies": {
     "jose": "^5.9.6",

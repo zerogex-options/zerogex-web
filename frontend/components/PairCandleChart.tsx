@@ -19,7 +19,7 @@ import { useMarketQuote } from "@/hooks/useApiData";
 import { useMarketHistorical } from "@/hooks/useMarketHistorical";
 import LoadingSpinner from "./LoadingSpinner";
 import ErrorMessage from "./ErrorMessage";
-import { omitClosedMarketTimes, etTradingDateLabel } from "@/core/utils";
+import { omitClosedMarketTimes, shouldOmitClosedMarketTimes, etTradingDateLabel } from "@/core/utils";
 import { type ChartTimeframe } from "./ChartTimeframeSelect";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import MobileScrollableChart from "./MobileScrollableChart";
@@ -146,7 +146,12 @@ export default function PairCandleChart({ symbol, timeframe, label }: PairCandle
 
   // Stage 1 — aggregate the historical rows (independent of the live tick).
   const historicalBars = useMemo(() => {
-    const filtered = omitClosedMarketTimes(data || [], (d) => d.timestamp);
+    // Daily bars are whole-session markers stamped at UTC midnight; filtering
+    // them by intraday ET hours would drop every Monday (see
+    // shouldOmitClosedMarketTimes). Only intraday series need the filter.
+    const filtered = shouldOmitClosedMarketTimes(intervalMinutes)
+      ? omitClosedMarketTimes(data || [], (d) => d.timestamp)
+      : data || [];
     const seed = filtered[0]?.close ?? filtered[0]?.price ?? 0;
 
     const normalized = filtered.reduce(
