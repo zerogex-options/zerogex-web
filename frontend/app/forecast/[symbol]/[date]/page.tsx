@@ -86,7 +86,13 @@ interface RollingStats {
   window: number;
   n_scored: number;
   range_respected_rate: number | null;
+  range_respected_ci: [number, number] | null;
+  range_baseline: number | null;
   vol_state_correct_rate: number | null;
+  vol_state_correct_ci: [number, number] | null;
+  vol_baseline: number | null;
+  vol_baseline_label: string | null;
+  vol_stats_from: string | null;
   vol_n_scored: number;
   levels_brier_avg: number | null;
   levels_n_scored: number;
@@ -130,11 +136,15 @@ function fmtPct(rate: number | null): string {
   return `${(rate * 100).toFixed(0)}%`;
 }
 
-// Expected-vol ratio → "≈65% of implied" (the realized range the model expects
-// relative to the VIX-implied 1-day move).
-function fmtRatioOfImplied(ratio: number | null): string {
+// Vol ratio → "1.00× normal" — realized (or predicted) daily range as a
+// multiple of a statistically normal day's range (√(8/π)·implied, per-symbol
+// calibrated). 1.0 == an ordinary day; below is compression, above is expansion.
+// (An intraday range averages ~1.6× the 1-σ implied move, so grading against
+// the bare implied move — as the card once did — read every normal day as
+// "expansion"; this denominator is what makes the buckets mean anything.)
+function fmtRatioOfNormal(ratio: number | null): string {
   if (ratio == null || !Number.isFinite(ratio)) return '—';
-  return `≈${(ratio * 100).toFixed(0)}% of implied`;
+  return `${ratio.toFixed(2)}× normal`;
 }
 
 async function loadForecast(day: string, symbol: string): Promise<ForecastPayload | null> {
@@ -211,7 +221,7 @@ export default async function ForecastPage({
   const permalink = `${SITE_URL}/forecast/${sym}/${date}`;
   const pickerHrefs = buildSymbolHrefs((s) => `/forecast/${s}/${date}`);
   const tweetBody = receipt
-    ? `${sym} ${date} receipt — range ${receipt.range_respected ? 'held' : 'broken'}, volatility ${receipt.vol_state_correct ? 'called' : 'missed'} (${fmtRatioOfImplied(receipt.realized_vol_ratio)}).`
+    ? `${sym} ${date} receipt — range ${receipt.range_respected ? 'held' : 'broken'}, volatility ${receipt.vol_state_correct ? 'called' : 'missed'} (${fmtRatioOfNormal(receipt.realized_vol_ratio)}).`
     : `${sym} ${date} forecast — range ${fmtPrice(morning.projected_low)}–${fmtPrice(morning.projected_high)}, ${volLabel.toLowerCase()} volatility, key levels with touch odds. No direction call.`;
 
   return (
@@ -296,7 +306,7 @@ export default async function ForecastPage({
           value={volLabel}
           accent="var(--color-accent)"
           icon={Gauge}
-          tooltip="How much the day actually moved vs. what options implied: realized daily range ÷ the VIX-implied 1-day move. Long gamma damps it (compression), short gamma amplifies it (expansion). Graded on realized ÷ implied, so a round-trip day that closes flat still reads as expansion."
+          tooltip="How much the day actually moved vs. a statistically normal day: realized daily range ÷ a normal day's range — where a normal day's range is √(8/π)× (≈1.6×) the VIX-implied 1-day move, calibrated per symbol so 1.0 means an ordinary day. Long gamma damps it (compression), short gamma amplifies it (expansion). Path-agnostic, so a round-trip day that closes flat still reads as expansion when the range was large."
           verdict={
             receipt && receipt.vol_state_correct != null
               ? receipt.vol_state_correct ? 'held' : 'broken'
@@ -306,13 +316,13 @@ export default async function ForecastPage({
             if (receipt) {
               if (receipt.realized_vol_ratio == null) return 'Not graded — no implied move on file';
               const verb = receipt.vol_state_correct ? 'as called' : 'off the call';
-              return `Realized ${fmtRatioOfImplied(receipt.realized_vol_ratio)} — ${verb}`;
+              return `Realized ${fmtRatioOfNormal(receipt.realized_vol_ratio)} — ${verb}`;
             }
-            const parts: string[] = [fmtRatioOfImplied(morning.expected_vol_ratio)];
+            const parts: string[] = [`expect ${fmtRatioOfNormal(morning.expected_vol_ratio)}`];
             if (morning.flip_cross_prob != null) {
               parts.push(`flip-cross ${fmtPct(morning.flip_cross_prob)}`);
             }
-            parts.push('graded on realized ÷ implied');
+            parts.push('graded vs a normal day');
             return parts.join(' · ');
           })()}
         />
@@ -396,15 +406,45 @@ export default async function ForecastPage({
               : `Rolling ${stats.window}-day track record`}
           </div>
           {stats.n_scored >= MIN_SCORED_FOR_RATES ? (
-            <div className="grid grid-cols-3 gap-3 text-center">
-              <HitRate label="Range respected" rate={stats.range_respected_rate} />
-              <HitRate label="Volatility called" rate={stats.vol_state_correct_rate} />
-              <BrierStat
-                label="Levels Brier"
-                value={stats.levels_brier_avg}
-                tooltip="How well-calibrated the touch-odds were: the average of (committed probability − outcome)² across the levels. 0 = perfect, 0.25 = a coin flip. Lower is better."
-              />
-            </div>
+            <>
+              <div className="grid grid-cols-1 gap-3 text-center sm:grid-cols-3">
+                <TrackRecord
+                  label="Range coverage"
+                  rate={stats.range_respected_rate}
+                  ci={stats.range_respected_ci}
+                  n={stats.n_scored}
+                  baseline={stats.range_baseline}
+                  baselineLabel="target"
+                  tooltip="Share of graded days whose full high–low range stayed inside the morning band. The 95% Wilson interval shows how firm the number is on this many days; the baseline is the published coverage target it should clear."
+                />
+                <TrackRecord
+                  label="Vol call"
+                  rate={stats.vol_state_correct_rate}
+                  ci={stats.vol_state_correct_ci}
+                  n={stats.vol_n_scored}
+                  baseline={stats.vol_baseline}
+                  baselineLabel={
+                    stats.vol_baseline_label
+                      ? `${humanize(stats.vol_baseline_label)} base rate`
+                      : 'majority bucket'
+                  }
+                  tooltip="Share of graded days whose realized compression/normal/expansion bucket matched the morning call. The baseline is the strawman of always guessing the most common realized bucket — a skilled call must beat that, not just 50%. Corrected-scale receipts only."
+                />
+                <BrierStat
+                  label="Levels Brier"
+                  value={stats.levels_brier_avg}
+                  tooltip="How well-calibrated the touch-odds were: the average of (committed probability − outcome)² across the levels. 0 = perfect, 0.25 = a coin flip. Lower is better."
+                />
+              </div>
+              {stats.vol_n_scored < MIN_SCORED_FOR_RATES && (
+                <div className="mt-3 text-[11px] text-[var(--color-text-secondary)] leading-relaxed">
+                  The vol call counts only receipts graded on the corrected
+                  range-vs-implied scale
+                  {stats.vol_stats_from ? ` (from ${stats.vol_stats_from})` : ''}, so its sample
+                  is still building even where range coverage has more history.
+                </div>
+              )}
+            </>
           ) : (
             <div className="text-xs text-[var(--color-text-secondary)] leading-relaxed">
               Building history — {stats.n_scored} graded{' '}
@@ -421,12 +461,17 @@ export default async function ForecastPage({
         Daily commitment for {sym} written each morning before the open, hashed and immutable. The projected range is
         anchored on the open spot and bounded by the GEX call/put walls with a safety expansion (event
         days get a 1.5× stretch); it&rsquo;s graded on <em>coverage</em> — an 80–90% band should contain
-        the day that often. Expected volatility is realized daily range as a fraction of the VIX-implied
-        move — long gamma damps it (compression), short gamma amplifies it (expansion) — and is graded on
-        realized ÷ implied, so a round-trip trend day that closes flat still reads as expansion. Key
-        levels carry the reflection-principle odds that price reaches each wall and crosses the gamma flip
-        today, graded by Brier score. The receipt is written once at 4:05 PM ET from the day&rsquo;s
-        actual cash-session OHLC and is immutable thereafter.
+        the day that often. Expected volatility is the realized daily range as a multiple of a
+        <em> normal</em> day&rsquo;s range — a normal day&rsquo;s range being √(8/π) (≈1.6×) the
+        VIX-implied 1-day move, calibrated per symbol so 1.0 is an ordinary day. Long gamma damps it
+        (compression), short gamma amplifies it (expansion); it&rsquo;s path-agnostic, so a round-trip
+        trend day that closes flat still reads as expansion when the range was large. (Grading the range
+        against the bare 1-σ implied move — as an earlier version did — read every ordinary day as
+        &ldquo;expansion&rdquo;; this denominator is the fix.) Key levels carry the reflection-principle
+        odds that price reaches each wall and crosses the gamma flip today, graded by Brier score. Range
+        coverage and the vol call are shown as two independent track records — they&rsquo;re different
+        bets — each with a 95% confidence interval and a baseline to beat. The receipt is written once at
+        4:05 PM ET from the day&rsquo;s actual cash-session OHLC and is immutable thereafter.
         <br />
         <br />
         Model: <span className="font-mono">{morning.range_model ?? 'heuristic_v1'}</span>
@@ -682,20 +727,62 @@ function LadderRowView({
   );
 }
 
-function HitRate({ label, rate }: { label: string; rate: number | null }) {
+// One claim's rolling track record: the hit rate, a 95% Wilson CI so a short
+// sample can't pose as precision, and a baseline it has to beat (the coverage
+// target for range; the majority-bucket strawman for the vol call).
+function TrackRecord({
+  label,
+  rate,
+  ci,
+  n,
+  baseline,
+  baselineLabel,
+  tooltip,
+}: {
+  label: string;
+  rate: number | null;
+  ci: [number, number] | null;
+  n: number;
+  baseline: number | null;
+  baselineLabel: string;
+  tooltip?: string;
+}) {
   const color =
     rate == null ? 'var(--color-text-secondary)' :
     rate >= 0.7 ? 'var(--color-bull)' :
     rate >= 0.5 ? 'var(--color-warning)' :
     'var(--color-bear)';
+  const beatsBaseline = rate != null && baseline != null ? rate >= baseline : null;
+  const baselineColor =
+    beatsBaseline == null
+      ? 'var(--color-text-secondary)'
+      : beatsBaseline
+        ? 'var(--color-bull)'
+        : 'var(--color-bear)';
   return (
     <div>
-      <div className="text-[10px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
+      <div className="flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
         {label}
+        {n > 0 ? ` · n=${n}` : ''}
+        {tooltip && (
+          <TooltipWrapper text={tooltip}>
+            <Info size={12} />
+          </TooltipWrapper>
+        )}
       </div>
       <div className="mt-1 font-mono text-xl font-bold" style={{ color }}>
         {fmtPct(rate)}
       </div>
+      {ci && (
+        <div className="text-[10px] text-[var(--color-text-secondary)]">
+          95% CI {fmtPct(ci[0])}–{fmtPct(ci[1])}
+        </div>
+      )}
+      {baseline != null && (
+        <div className="text-[10px]" style={{ color: baselineColor }}>
+          {beatsBaseline == null ? '' : beatsBaseline ? '▲ ' : '▼ '}vs {baselineLabel} {fmtPct(baseline)}
+        </div>
+      )}
     </div>
   );
 }

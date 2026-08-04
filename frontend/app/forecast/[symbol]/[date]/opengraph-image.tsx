@@ -289,8 +289,8 @@ export default async function Image({ params }: { params: { symbol: string; date
                 </div>
                 <div style={{ fontSize: 20, color: '#C8D8DF', marginTop: 2, display: 'flex' }}>
                   {morning?.expected_vol_ratio != null
-                    ? `≈${Math.round(morning.expected_vol_ratio * 100)}% of implied`
-                    : 'realized vs. implied'}
+                    ? `${morning.expected_vol_ratio.toFixed(2)}× a normal day`
+                    : 'realized vs. a normal day'}
                 </div>
               </div>
               <div
