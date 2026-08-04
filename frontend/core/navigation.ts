@@ -36,7 +36,11 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: '/dashboard', label: 'Main Dashboard', labelKey: 'nav.dashboard', requiredTier: 'basic' },
       { id: '/my-dashboard', label: 'My Dashboard', labelKey: 'nav.myDashboard', requiredTier: 'basic' },
-      { id: '/chart', label: 'Gamma Chart', requiredTier: 'basic' },
+      // /chart is a public dual-mode route (delayed snapshot for anonymous
+      // visitors, live for subscribers), so it carries no requiredTier — the
+      // route table in core/auth.ts keeps it public and the page branches on
+      // the session. Marking it 'basic' here would wrongly hide it from guests.
+      { id: '/chart', label: 'Gamma Chart' },
       { id: '/live-bulletin', label: 'Live Bulletin', labelKey: 'nav.liveBulletin', requiredTier: 'basic' },
     ],
   },
