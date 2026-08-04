@@ -3,9 +3,9 @@ import type { Metadata } from "next";
 import PairComparisonClient from "./PairComparisonClient";
 
 export const metadata: Metadata = {
-  title: "Pair Comparison — SPY/SPX & QQQ/NDX Net GEX | ZeroGEX",
+  title: "Pair Comparison — Side-by-side Net GEX | ZeroGEX",
   description:
-    "Compare the like pairs SPY↔SPX and QQQ↔NDX side by side: candles for each ticker plus strike-aligned Net GEX heatmaps with Spot, Gamma Flip, Call/Put Walls and Max Pain marked.",
+    "Compare the dealer-gamma structure of any two of SPY, QQQ, SPX and NDX side by side: strike-aligned Net GEX ladders centered on spot with Gamma Flip, Call/Put Walls and Max Pain marked — plus a replay scrubber to watch the levels migrate through the most-recent session.",
 };
 
 export default function PairComparisonPage() {
