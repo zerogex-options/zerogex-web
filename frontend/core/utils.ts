@@ -166,6 +166,17 @@ export const omitClosedMarketTimes = <T>(
   getTimestamp: (item: T) => string | Date
 ): T[] => data.filter((item) => isWithinExtendedMarketHours(getTimestamp(item)));
 
+// Whether a bar series at this bucket size should have the intraday
+// market-hours filter (omitClosedMarketTimes / omitOutOfHoursForSymbol)
+// applied. Daily (and coarser) bars are whole-session markers stamped at UTC
+// midnight, which reads as the PRIOR evening in ET; filtering them by intraday
+// ET hours wrongly drops any session whose previous ET day is a weekend or
+// holiday — most visibly every Monday, whose UTC-midnight stamp lands on
+// Sunday 20:00 ET. Only sub-daily series carry overnight/weekend gaps that need
+// trimming, so the filter applies to those alone.
+export const shouldOmitClosedMarketTimes = (bucketMinutes: number): boolean =>
+  bucketMinutes < 1440;
+
 export const omitOutOfHoursForSymbol = <T>(
   data: T[],
   getTimestamp: (item: T) => string | Date,

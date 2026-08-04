@@ -10,7 +10,7 @@ import TooltipWrapper from "./TooltipWrapper";
 import ExpandableCard from "./ExpandableCard";
 import { colors } from "@/core/colors";
 import { useTheme } from "@/core/ThemeContext";
-import { omitClosedMarketTimes, etTradingDateLabel } from "@/core/utils";
+import { omitClosedMarketTimes, shouldOmitClosedMarketTimes, etTradingDateLabel } from "@/core/utils";
 import { useTimeframe } from "@/core/TimeframeContext";
 import ChartTimeframeSelect, { type ChartTimeframe } from "./ChartTimeframeSelect";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -137,7 +137,12 @@ export default function UnderlyingCandlesChart() {
   // means a 1Hz WS push doesn't re-sort N minutes of history every
   // second.
   const historicalBars = useMemo(() => {
-    const filtered = omitClosedMarketTimes(data || [], (d) => d.timestamp);
+    // Daily bars are whole-session markers stamped at UTC midnight; filtering
+    // them by intraday ET hours would drop every Monday (see
+    // shouldOmitClosedMarketTimes). Only intraday series need the filter.
+    const filtered = shouldOmitClosedMarketTimes(intervalMinutes)
+      ? omitClosedMarketTimes(data || [], (d) => d.timestamp)
+      : data || [];
     const seed = filtered[0]?.close ?? filtered[0]?.price ?? 0;
 
     const normalized = filtered.reduce(
