@@ -358,10 +358,10 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <GrowthRateCard rates={data.growthRates} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} />
+          <SubscriptionFlowByWeekdayCard data={data.signupFlow} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} brandColor={ROW_COLORS.signups} />
           <TotalSubscribersChartCard data={data.signups} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} yScale={subscriberYScale} />
           <TierBreakdownChartCard data={data.signups} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} brandColor={ROW_COLORS.signups} yScale={tierYScale} />
           <SubscriptionFlowChartCard data={data.signupFlow} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} brandColor={ROW_COLORS.signups} />
-          <SubscriptionFlowByWeekdayCard data={data.signupFlow} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} brandColor={ROW_COLORS.signups} />
           <DailyRegistrationsChartCard
             data={data.signups}
             flow={data.signupFlow}
