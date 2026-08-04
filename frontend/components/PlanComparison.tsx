@@ -23,6 +23,8 @@ const SECTIONS: Section[] = [
     heading: 'Dashboard & Live Feed',
     rows: [
       { feature: 'Real-time Dashboard', basic: true, pro: true },
+      { feature: 'My Dashboard (customizable widgets)', basic: true, pro: true },
+      { feature: 'Gamma Chart', basic: true, pro: true },
       { feature: 'Live Bulletin (streaming signal events)', basic: true, pro: true },
     ],
   },
@@ -40,6 +42,7 @@ const SECTIONS: Section[] = [
   {
     heading: 'Advanced Signals',
     rows: [
+      { feature: 'Trade Bias', basic: false, pro: true },
       { feature: 'Composite Score (blended read across signals)', basic: false, pro: true },
       { feature: 'Volatility Expansion', basic: false, pro: true },
       { feature: 'EOD Pressure', basic: false, pro: true },
