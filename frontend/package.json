@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "test:auth": "bash scripts/test-auth.sh",
+    "test:nav-access": "node --experimental-strip-types --test tests/navigationAccess.test.ts",
     "test:trade-bias": "bash scripts/test-trade-bias.sh",
     "test:end-user-token": "node --experimental-strip-types --test tests/endUserToken.test.ts",
     "test:smart-money": "node --experimental-strip-types --test tests/smartMoneyFilters.test.ts",

@@ -12,9 +12,10 @@ import { useLanguage } from "@/core/LanguageContext";
 import { useTimeframe } from "@/core/TimeframeContext";
 import { useMarketQuote, useSessionCloses } from "@/hooks/useApiData";
 import { getMarketSession } from "@/core/utils";
-import { hasRequiredTier, hasTierAccess, normalizeTier, requiredTierForRoute } from "@/core/auth";
+import { hasTierAccess, navItemRequiredTier, normalizeTier, type TierId } from "@/core/auth";
 import SessionBadge from "./SessionBadge";
 import BetaBadge from "./BetaBadge";
+import TierBadge from "./TierBadge";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import { useAuthSession } from "@/hooks/useAuthSession";
 
@@ -55,17 +56,33 @@ export default function Navigation({ theme }: NavigationProps) {
   const currentTier = authSession?.user?.tier ?? "public";
   const isAuthenticated = !!authSession?.authenticated;
   const isPublicUser = normalizeTier(currentTier) === "public";
-  const shouldForcePricing = (id: string) => {
+  const normalizedTier = normalizeTier(currentTier);
+  // Effective required tier for a nav entry — the stricter of its declared tier
+  // and its enforced route rule (navItemRequiredTier); null means public.
+  const entryRequiredTier = (entry: { id?: string; requiredTier?: NavItem["requiredTier"] }): TierId | null =>
+    navItemRequiredTier(entry.id, entry.requiredTier ?? null);
+  const canAccessEntry = (entry: { id?: string; requiredTier?: NavItem["requiredTier"] }) =>
+    hasTierAccess(normalizedTier, entryRequiredTier(entry));
+  // Badge to show on an entry the current member can see but not open yet, or
+  // null when it's accessible (or an admin-only tool, which is hidden entirely
+  // rather than surfaced as an upsell).
+  const lockedTier = (entry: { id?: string; requiredTier?: NavItem["requiredTier"] }): TierId | null => {
+    const needed = entryRequiredTier(entry);
+    if (!needed || needed === "admin") return null;
+    return hasTierAccess(normalizedTier, needed) ? null : needed;
+  };
+  const shouldForcePricing = (entry: { id: string; requiredTier?: NavItem["requiredTier"] }) => {
     // API Specs is a Pro-tier entitlement per the pricing page, so anyone
     // below Pro (public + basic) is routed to /pricing instead of the docs.
-    if (id === "https://api.zerogex.io/docs") {
-      return !hasTierAccess(normalizeTier(currentTier), "pro");
+    if (entry.id === "https://api.zerogex.io/docs") {
+      return !hasTierAccess(normalizedTier, "pro");
     }
-    if (!isPublicUser) return false;
-    const required = requiredTierForRoute(id);
-    return !hasRequiredTier(id, currentTier) && (required === "basic" || required === "pro");
+    // Locked items (shown to signed-in members with a TierBadge) route to the
+    // pricing page instead of bouncing off the middleware to /unauthorized.
+    return !canAccessEntry(entry);
   };
-  const resolveNavTarget = (id: string) => (shouldForcePricing(id) ? "/pricing" : id);
+  const resolveNavTarget = (entry: { id: string; requiredTier?: NavItem["requiredTier"] }) =>
+    shouldForcePricing(entry) ? "/pricing" : entry.id;
 
   const navGroups = useMemo<NavGroup[]>(
     () => [
@@ -86,28 +103,31 @@ export default function Navigation({ theme }: NavigationProps) {
     [isAuthenticated],
   );
   const filteredNavGroups = useMemo(
-    () =>
-      navGroups
+    () => {
+      // Self-contained access check (mirrors canAccessEntry) so this hook does
+      // not close over component-scope helpers.
+      const canAccess = (entry: { id?: string; requiredTier?: NavItem["requiredTier"] }) =>
+        hasTierAccess(normalizeTier(currentTier), navItemRequiredTier(entry.id, entry.requiredTier ?? null));
+      return navGroups
         .map((group) => {
-          // "Signals" stays as a marketing surface for signed-in Basic users
-          // (unentitled clicks route to /pricing), but drops entirely for
-          // public/unauthenticated visitors. Admin-only items are always gated.
-          const bypassTierCheck = group.label === "Signals" && !isPublicUser;
           const keepItem = (item: NavItem) => {
             if (item.external) return true;
-            // Premium Surface is a Basic entitlement — hide it from public.
-            if (isPublicUser && item.id === "/premium-heatmap") return false;
-            if (item.requiredTier === "admin") return hasRequiredTier(item.id, currentTier);
-            if (bypassTierCheck) return true;
-            return hasRequiredTier(item.id, currentTier);
+            // Admin tools are never advertised to non-admins.
+            if (item.requiredTier === "admin") return canAccess(item);
+            // Signed-in members also see higher-tier items — they render locked,
+            // with a TierBadge that routes to /pricing on click. Logged-out and
+            // unpaid visitors only see what their tier can actually open.
+            if (isPublicUser) return canAccess(item);
+            return true;
           };
           const items = (group.items ?? []).filter(keepItem);
           const subgroups = (group.subgroups ?? [])
             .map((sg) => ({ ...sg, items: sg.items.filter(keepItem) }))
-            .filter((sg) => sg.items.length > 0 || (sg.id != null && (bypassTierCheck || hasRequiredTier(sg.id, currentTier))));
+            .filter((sg) => sg.items.length > 0 || (sg.id != null && (!isPublicUser || canAccess(sg))));
           return { ...group, items, subgroups };
         })
-        .filter((group) => group.items.length + group.subgroups.length > 0),
+        .filter((group) => group.items.length + group.subgroups.length > 0);
+    },
     [navGroups, currentTier, isPublicUser],
   );
 
@@ -231,6 +251,7 @@ export default function Navigation({ theme }: NavigationProps) {
                 const isExternal = page.external === true;
                 const isActive = pathname === page.id;
                 const isHovered = hoveredPage === page.id;
+                const lock = lockedTier(page);
                 const accent = theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)';
                 // Only animate paint-only properties. Animating the `border`/
                 // `background` shorthands (or using `transition-all`) let the
@@ -251,7 +272,7 @@ export default function Navigation({ theme }: NavigationProps) {
                 };
 
                 if (isExternal) {
-                  const targetHref = resolveNavTarget(page.id);
+                  const targetHref = resolveNavTarget(page);
                   return (
                     <Link
                       key={page.id}
@@ -264,6 +285,7 @@ export default function Navigation({ theme }: NavigationProps) {
                       style={commonStyle}
                     >
                       <span>{navLabel(page)}</span>
+                      {lock && <TierBadge tier={lock} />}
                       {page.beta && <BetaBadge />}
                     </Link>
                   );
@@ -272,7 +294,7 @@ export default function Navigation({ theme }: NavigationProps) {
                 return (
                   <button
                     key={page.id}
-                    onClick={() => router.push(resolveNavTarget(page.id))}
+                    onClick={() => router.push(resolveNavTarget(page))}
                     onMouseEnter={() => setHoveredPage(page.id)}
                     onMouseLeave={() => setHoveredPage(null)}
                     className="flex w-full items-center gap-2 rounded-xl border border-solid px-3 py-3 text-left text-sm font-semibold"
@@ -280,6 +302,7 @@ export default function Navigation({ theme }: NavigationProps) {
                     type="button"
                   >
                     <span>{navLabel(page)}</span>
+                    {lock && <TierBadge tier={lock} />}
                     {page.beta && <BetaBadge />}
                   </button>
                 );
@@ -309,6 +332,7 @@ export default function Navigation({ theme }: NavigationProps) {
                         const subKey = `${group.label}::${subgroup.label}`;
                         const isSubExpanded = expandedGroups[subKey] ?? false;
                         const subgroupId = subgroup.id;
+                        const subgroupLock = lockedTier(subgroup);
                         const subgroupActive = subgroupId != null && pathname === subgroupId;
                         const subgroupHovered = subgroupId != null && hoveredPage === subgroupId;
                         const subgroupAccent = theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)';
@@ -347,17 +371,19 @@ export default function Navigation({ theme }: NavigationProps) {
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    router.push(resolveNavTarget(subgroupId));
+                                    router.push(resolveNavTarget({ id: subgroupId, requiredTier: subgroup.requiredTier }));
                                     setExpandedGroups((prev) => ({ ...prev, [subKey]: true }));
                                   }}
-                                  className="flex-1 px-3 py-3 text-left bg-transparent"
+                                  className="flex-1 px-3 py-3 text-left bg-transparent flex items-center gap-2"
                                   style={{ color: "inherit" }}
                                 >
                                   {navLabel(subgroup)}
+                                  {subgroupLock && <TierBadge tier={subgroupLock} />}
                                 </button>
                               ) : (
-                                <span className="flex-1 px-3 py-3" style={{ color: "inherit" }}>
+                                <span className="flex-1 px-3 py-3 flex items-center gap-2" style={{ color: "inherit" }}>
                                   {navLabel(subgroup)}
+                                  {subgroupLock && <TierBadge tier={subgroupLock} />}
                                 </span>
                               )}
                               <button
