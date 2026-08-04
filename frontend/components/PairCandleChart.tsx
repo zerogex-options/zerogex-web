@@ -19,7 +19,7 @@ import { useMarketQuote } from "@/hooks/useApiData";
 import { useMarketHistorical } from "@/hooks/useMarketHistorical";
 import LoadingSpinner from "./LoadingSpinner";
 import ErrorMessage from "./ErrorMessage";
-import { omitClosedMarketTimes } from "@/core/utils";
+import { omitClosedMarketTimes, etTradingDateLabel } from "@/core/utils";
 import { type ChartTimeframe } from "./ChartTimeframeSelect";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import MobileScrollableChart from "./MobileScrollableChart";
@@ -228,15 +228,21 @@ export default function PairCandleChart({ symbol, timeframe, label }: PairCandle
       markers.push({
         index,
         key: bar.timestamp,
-        label: dt.toLocaleDateString("en-US", {
-          timeZone: "America/New_York",
-          month: "short",
-          day: "numeric",
-        }),
+        // Daily buckets are UTC-midnight date markers whose UTC date is the ET
+        // trading date; rendering them in ET rolls them back a day (see
+        // etTradingDateLabel). Intraday bars are real instants → keep ET.
+        label:
+          timeframe === "1day"
+            ? etTradingDateLabel(bar.timestamp)
+            : dt.toLocaleDateString("en-US", {
+                timeZone: "America/New_York",
+                month: "short",
+                day: "numeric",
+              }),
       });
     });
     return markers;
-  }, [bars]);
+  }, [bars, timeframe]);
 
   const width = 1100;
   const height = timeframe === "1day" ? 580 : 520;

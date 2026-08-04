@@ -1,4 +1,4 @@
-import { MarketSession } from './types';
+import type { MarketSession } from './types';
 
 // UTM source normalization, shared by the page-view beacon and the signup
 // attribution path (zgx_src cookie -> users.signup_utm_source). Lowercased and
@@ -55,6 +55,29 @@ export const formatTime = (timezone: string): string => {
 // calendar date) — anything strictly less than this is a past session.
 export const etTodayDateKey = (): string => {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date());
+};
+
+// Label a daily ("1day") candle by its ET trading date.
+//
+// A daily bucket's timestamp is a DATE marker, not a wall-clock instant: the
+// chart aggregators floor each bucket to UTC midnight and stamp it as that
+// midnight (e.g. 2026-08-04T00:00:00Z). Because a US cash session
+// (13:30–21:00 UTC) sits wholly inside one UTC calendar day, that day's UTC
+// date IS the ET trading date. Rendering the marker in America/New_York would
+// convert 00:00Z back 4–5h into the previous evening — 2026-08-04T00:00:00Z
+// prints as "Aug 3, 20:00 ET" — labelling every daily candle a day early.
+// Formatting in UTC returns the correct trading date and is DST-proof (it never
+// touches the ET offset). Use this for daily bars ONLY; intraday bars are true
+// instants and must still render in ET.
+const ET_TRADING_DATE_FMT = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'UTC',
+  month: 'short',
+  day: 'numeric',
+});
+export const etTradingDateLabel = (timestamp: string | Date): string => {
+  const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return '';
+  return ET_TRADING_DATE_FMT.format(date);
 };
 
 const etFormatter = new Intl.DateTimeFormat('en-US', {
