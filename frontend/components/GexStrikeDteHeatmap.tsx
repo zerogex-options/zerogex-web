@@ -1,10 +1,9 @@
 'use client';
 
-import { Info } from 'lucide-react';
+import { Crown, Info } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTheme } from '@/core/ThemeContext';
 import { GEX_UNIT_LABEL, gexScaleFactor, useGexUnit } from '@/core/GexUnitContext';
-import { colors } from '@/core/colors';
 import TooltipWrapper from './TooltipWrapper';
 import ExpandableCard from './ExpandableCard';
 
@@ -74,9 +73,9 @@ export default function GexStrikeDteHeatmap({ byStrikeData, spotPrice }: GexStri
   // Per-1% (stored) → active unit. Applied only to displayed labels.
   const gexFactor = gexScaleFactor(gexUnit, spotPrice);
 
-  const { strikes, grid, maxAbs, dteColumns } = useMemo(() => {
+  const { strikes, grid, maxAbs, dteColumns, kingStrike } = useMemo(() => {
     const rows = byStrikeData || [];
-    if (rows.length === 0) return { strikes: [] as number[], grid: new Map<string, number>(), maxAbs: 0, dteColumns: [] as number[] };
+    if (rows.length === 0) return { strikes: [] as number[], grid: new Map<string, number>(), maxAbs: 0, dteColumns: [] as number[], kingStrike: null as number | null };
 
     // Aggregate by (strike, DTE exact)
     const agg = new Map<string, number>();
@@ -110,7 +109,21 @@ export default function GexStrikeDteHeatmap({ byStrikeData, spotPrice }: GexStri
       .filter((dte) => sortedStrikes.some((strike) => Math.abs(agg.get(`${strike}_${dte}`) || 0) > visibilityThreshold))
       .sort((a, b) => a - b);
 
-    return { strikes: sortedStrikes, grid: agg, maxAbs: maxAbsVal, dteColumns: nonEmptyDtes };
+    // GEX King — the strike carrying the largest total |GEX| across the DTE
+    // window (the same "heaviest dealer gamma" notion as the Pair Comparison
+    // crown, aggregated to the strike level). It is always one of the shown
+    // strikes, since those are the top strikes by this very total.
+    let kingStrike: number | null = null;
+    let kingTotal = -1;
+    strikeTotal.forEach((total, strike) => {
+      if (total > kingTotal) {
+        kingTotal = total;
+        kingStrike = strike;
+      }
+    });
+    if (kingTotal <= 0) kingStrike = null;
+
+    return { strikes: sortedStrikes, grid: agg, maxAbs: maxAbsVal, dteColumns: nonEmptyDtes, kingStrike };
   }, [byStrikeData]);
 
   if (strikes.length === 0 || dteColumns.length === 0) {
@@ -142,7 +155,7 @@ export default function GexStrikeDteHeatmap({ byStrikeData, spotPrice }: GexStri
         >
           GEX Heatmap · Strike &times; DTE
         </h3>
-        <TooltipWrapper text="Matrix view of aggregated net GEX by strike (rows) and time-to-expiration buckets (columns). Color intensity reflects magnitude; green is positive GEX and red is negative GEX. Cell values follow the GEX unit toggle; colors are unaffected.">
+        <TooltipWrapper text="Matrix view of aggregated net GEX by strike (rows) and time-to-expiration buckets (columns). Color intensity reflects magnitude; green is positive GEX and red is negative GEX. The crowned strike is the GEX King — the one carrying the largest total dealer gamma across expirations. Cell values follow the GEX unit toggle; colors are unaffected.">
           <Info size={14} />
         </TooltipWrapper>
         <span
@@ -166,10 +179,31 @@ export default function GexStrikeDteHeatmap({ byStrikeData, spotPrice }: GexStri
             </tr>
           </thead>
           <tbody>
-            {strikes.map((strike) => (
+            {strikes.map((strike) => {
+              const isKing = kingStrike != null && strike === kingStrike;
+              return (
               <tr key={strike}>
-                <td className="py-1.5 px-2 font-mono font-semibold" style={{ color: textColor }}>
-                  {strike.toFixed(0)}
+                <td
+                  className="py-1.5 px-2 font-mono font-semibold"
+                  style={{
+                    color: isKing ? 'var(--color-king)' : textColor,
+                    background: isKing ? 'var(--color-king-soft)' : undefined,
+                    boxShadow: isKing ? 'inset 3px 0 0 var(--color-king)' : undefined,
+                  }}
+                >
+                  <span className="inline-flex items-center gap-1">
+                    {isKing && (
+                      <TooltipWrapper text="GEX King — the strike carrying the largest total dealer gamma across expirations, the dominant node price tends to gravitate toward.">
+                        <Crown
+                          size={13}
+                          strokeWidth={2.25}
+                          aria-label="GEX King — dominant gamma node"
+                          style={{ color: 'var(--color-king)', flex: '0 0 auto' }}
+                        />
+                      </TooltipWrapper>
+                    )}
+                    {strike.toFixed(0)}
+                  </span>
                 </td>
                 {dteColumns.map((dte) => {
                   const value = grid.get(`${strike}_${dte}`) || 0;
@@ -190,7 +224,8 @@ export default function GexStrikeDteHeatmap({ byStrikeData, spotPrice }: GexStri
                   );
                 })}
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -212,6 +247,10 @@ export default function GexStrikeDteHeatmap({ byStrikeData, spotPrice }: GexStri
         <div className="flex items-center gap-1.5">
           <span className="inline-block h-3 w-5 rounded" style={{ backgroundColor: isDark ? 'var(--border-subtle)' : 'var(--border-subtle)' }} />
           Neutral
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Crown size={13} strokeWidth={2.25} style={{ color: 'var(--color-king)' }} />
+          GEX King
         </div>
       </div>
       </div>

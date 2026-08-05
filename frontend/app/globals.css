@@ -45,6 +45,14 @@
   --color-info: #003F5C;
   --color-info-soft: rgba(0, 63, 92, 0.08);
 
+  /* GEX King — the dominant gamma node marker. A royal violet placed
+     deliberately outside the green/red heatmap ramp and the gold Max-Pain
+     line so the "king" node reads at a glance. Matches the design system's
+     violet (see --regime-reversal). Defined once here; every named palette
+     inherits it, so the King stays consistently violet across themes. */
+  --color-king: #8B5CF6;
+  --color-king-soft: rgba(139, 92, 246, 0.16);
+
   /* MSI regime bands — deliberately NOT bull/bear. The Composite Score is a
      regime gauge (chop vs trend), so its ramp is blue→cyan→amber→violet, not
      green→red, to stop a low score reading as "bearish". */
