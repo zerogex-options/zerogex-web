@@ -12,7 +12,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, Sparkles } from "lucide-react";
+import { ChevronDown, Info, Sparkles } from "lucide-react";
 import PageShell from "@/components/layout/PageShell";
 import PairGammaHeatmap, { type HeatmapCell, type HeatmapColumnInput } from "@/components/PairGammaHeatmap";
 import PairReplayScrubber from "@/components/PairReplayScrubber";
@@ -36,13 +36,20 @@ const TIMEFRAME_OPTIONS: Array<{ value: ChartTimeframe; label: string }> = [
   { value: "1day", label: "1D" },
 ];
 
+const STRIKE_FILTER_OPTIONS: Array<{ value: boolean; label: string }> = [
+  { value: true, label: "Active" },
+  { value: false, label: "All" },
+];
+
 const INFO_TEXT =
   "Compare two symbols' dealer-gamma structure side by side. The left ladder follows your header symbol; " +
   "pick any of SPY / QQQ / SPX / NDX to compare on the right. Both stay centered on spot and strike-aligned, " +
   "with the Gamma Flip, Call/Put Walls and Max Pain marked. Enter Replay to scrub the most-recent session " +
   "minute by minute (spot in replay is the underlying close for that minute; the change is vs the session open, " +
-  "while live shows the day change from the prior close). Net GEX is a modeled estimate of dealer gamma by " +
-  "strike — decision-support context only, not investment advice.";
+  "while live shows the day change from the prior close). The Strikes toggle shows only strikes carrying " +
+  "dealer gamma (Active) or every listed strike near spot (All) — Active keeps high-priced chains like NDX, " +
+  "which list a fine grid but concentrate open interest on the round strikes, from reading as sparse. " +
+  "Net GEX is a modeled estimate of dealer gamma by strike — decision-support context only, not investment advice.";
 
 // Default "compare against" symbol for each header symbol — its like-pair, so a
 // fresh visit opens on a meaningful comparison (SPY↔QQQ, SPX↔NDX).
@@ -176,6 +183,29 @@ function TimeframeSeg({ value, onChange }: { value: ChartTimeframe; onChange: (v
   );
 }
 
+// Strike-filter segmented control for the ladders. "Active" hides strikes with
+// no dealer gamma so the fixed-height window fills with real levels — the fix
+// for high-priced chains (NDX) that list a fine grid but only accrue OI on the
+// round strikes; "All" restores every listed strike near spot.
+function StrikeFilterSeg({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div className="zg-gc-seg" role="tablist" aria-label="Strike filter">
+      {STRIKE_FILTER_OPTIONS.map((t) => (
+        <button
+          key={String(t.value)}
+          type="button"
+          className="zg-gc-seg-btn"
+          data-active={t.value === value}
+          onClick={() => onChange(t.value)}
+          aria-pressed={t.value === value}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // Build the live-mode input for one column from the polling hooks.
 function useLiveColumn(symbol: UnderlyingSymbol, enabled: boolean): Omit<HeatmapColumnInput, "control"> {
   const { data: summary } = useGEXSummary(symbol, 1000, enabled);
@@ -251,6 +281,10 @@ export default function PairComparisonClient() {
   const [speed, setSpeed] = useState(4);
   const [loop, setLoop] = useState(true);
   const [timeframe, setTimeframe] = useState<ChartTimeframe>("5min");
+  // Ladder strike filter — default to active-only so NDX (and any high-priced
+  // chain with a fine listed grid) fills the window with real levels instead of
+  // listed-but-empty strikes. Users can switch to "All" to see every strike.
+  const [activeOnly, setActiveOnly] = useState(true);
 
   const liveEnabled = mode === "live";
   const live1 = useLiveColumn(sym1, liveEnabled);
@@ -374,10 +408,17 @@ export default function PairComparisonClient() {
         </div>
       </header>
 
-      {/* Global controls: candle timeframe (left) · GEX unit (right) */}
+      {/* Global controls: candle timeframe · ladder strike filter (left) · GEX unit (right) */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <span className="zg-eyebrow" style={{ fontSize: 10 }}>Candles</span>
         <TimeframeSeg value={timeframe} onChange={setTimeframe} />
+        <span className="zg-eyebrow" style={{ fontSize: 10 }}>Strikes</span>
+        <div className="inline-flex items-center gap-1.5">
+          <StrikeFilterSeg value={activeOnly} onChange={setActiveOnly} />
+          <TooltipWrapper text="Active hides strikes with no dealer gamma (net GEX 0), so the ladder fills with real levels — high-priced chains like NDX list a fine strike grid but only accrue open interest on the round 25-pt strikes. All shows every listed strike near spot.">
+            <Info size={13} style={{ color: "var(--text-muted)" }} />
+          </TooltipWrapper>
+        </div>
         <div className="flex items-center gap-2 ml-auto">
           <span className="zg-eyebrow" style={{ fontSize: 10 }}>GEX unit</span>
           <GexUnitToggle showHint={false} />
@@ -391,7 +432,7 @@ export default function PairComparisonClient() {
         <div className="flex flex-col lg:flex-row">
           {/* Left: the two gamma ladders (narrowed) */}
           <div className="w-full lg:w-[340px] lg:flex-none border-b lg:border-b-0 lg:border-r border-[var(--border-default)]">
-            <PairGammaHeatmap left={leftInput} right={rightInput} gexUnit={gexUnit} />
+            <PairGammaHeatmap left={leftInput} right={rightInput} gexUnit={gexUnit} activeOnly={activeOnly} />
           </div>
 
           {/* Right: stacked candles — top = header symbol, bottom = compare
