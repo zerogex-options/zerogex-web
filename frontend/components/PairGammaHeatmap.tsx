@@ -1,25 +1,30 @@
 "use client";
 
 /**
- * PairGammaHeatmap — two center-pinned, row-aligned single-column GEX heatmaps.
+ * PairGammaHeatmap — two center-pinned, strike-aligned Net-GEX ladders that
+ * read like a pro trading terminal (the Gamma Chart's design language).
  *
- * Each column lists a ticker's available strikes in DESCENDING order with the
- * Net GEX at each strike, color-coded with the exact scheme the /gex-heatmap
- * chart uses (orange = positive, warm white = neutral, dark blue = negative,
- * brightness = magnitude). The two columns are aligned on "like" price levels:
- * the strike nearest each ticker's spot is the shared center row, and both
- * columns fan out by strike from there — so SPY 600 lines up with SPX 6000,
- * SPY 601 with SPX 6005, and so on, regardless of the absolute price gap.
+ * Each column lists a symbol's strikes in DESCENDING order with the Net GEX at
+ * each strike, tinted by sign + magnitude (orange = positive/pinning, navy =
+ * negative/trending; stronger tint = larger magnitude). Both columns are
+ * aligned on "like" price levels: the strike nearest each symbol's spot is the
+ * shared center row and both fan out by strike-step from there — so the SHAPE
+ * of dealer positioning around spot can be read across two symbols regardless
+ * of the absolute price gap (SPY ~600 beside QQQ ~500, SPX ~6000, …).
  *
- * Tiny colored arrows in the left gutter of each cell mark where Spot, the
- * Gamma Flip, the Call/Put Walls and Max Pain fall, with the actual level
- * value printed inside the arrow.
+ * The centered spot strike is highlighted as a pill; the heaviest-|GEX| strike
+ * in view is starred; and the dealer-gamma levels (Gamma Flip, Call/Put Walls,
+ * Max Pain) mark their rows with a colored inset rail + a one-letter tag, with
+ * the live values echoed as chips in each column header. All chrome is bound to
+ * theme tokens so it tracks light/dark and every palette; only the semantic
+ * sign tint (orange/navy) is fixed, exactly like the Gamma Chart's heatmap.
  *
- * The color math (anchor RGBs + signed-sqrt intensity curve + 98th-percentile
- * clip) is copied verbatim from GammaHeatmapCanvas so the two surfaces match.
+ * Layout is fully fluid: the two columns flex to share the available width and
+ * shrink to 0 (min-w-0), so the pair fits a phone instead of forcing a wide
+ * fixed-gutter horizontal scroll the way the previous version did.
  */
 
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { gexScaleFactor, GEX_UNIT_LABEL, type GexUnit } from "@/core/GexUnitContext";
 import LoadingSpinner from "./LoadingSpinner";
 import ErrorMessage from "./ErrorMessage";
@@ -37,28 +42,42 @@ export interface HeatmapColumnInput {
   callWall: number | null;
   putWall: number | null;
   maxPain: number | null;
+  /** Day change % for the header badge (optional — omitted in some modes). */
+  changePercent?: number | null;
+  isPositive?: boolean;
   loading: boolean;
   error: string | null;
+  /** The symbol dropdown, injected by the page so the ladder stays presentational. */
+  control?: ReactNode;
 }
 
-// ---- Color scheme (verbatim from GammaHeatmapCanvas.tsx) --------------------
-type RGB = { r: number; g: number; b: number };
-const BEARISH: RGB = { r: 44, g: 72, b: 117 }; // negative GEX -> dark blue
-const NEUTRAL: RGB = { r: 255, g: 246, b: 237 }; // zero -> warm white
-const BULLISH: RGB = { r: 255, g: 133, b: 49 }; // positive GEX -> orange
+// ---- Signed sign colors (semantic, fixed like the Gamma Chart heatmap) ------
+// Positive Net GEX = dealer long gamma (pinning) → warm; negative = short
+// gamma (trending) → cool. Bound to theme tokens so the hue tracks the palette
+// while the sign meaning stays constant.
+const POS_COLOR = "var(--heat-mid)"; // orange/coral
+const NEG_COLOR = "var(--color-info)"; // navy blue
+// Peak translucency cap — kept moderate so the header text stays legible over
+// the tint in every theme (the tint is layered over --bg-card).
+const MAX_TINT = 55;
 
-const blend = (a: RGB, b: RGB, t: number): RGB => ({
-  r: Math.round(a.r + (b.r - a.r) * t),
-  g: Math.round(a.g + (b.g - a.g) * t),
-  b: Math.round(a.b + (b.b - a.b) * t),
-});
+// ---- Level marker config (tokenized chrome) --------------------------------
+type LevelKey = "spot" | "flip" | "call" | "put" | "pain";
+const LEVEL_META: Record<LevelKey, { label: string; short: string; code: string; color: string }> = {
+  spot: { label: "Spot", short: "Spot", code: "S", color: "var(--color-accent-hot)" },
+  flip: { label: "Gamma Flip", short: "Flip", code: "F", color: "var(--color-warning)" },
+  call: { label: "Call Wall", short: "Call", code: "C", color: "var(--color-bear)" },
+  put: { label: "Put Wall", short: "Put", code: "P", color: "var(--color-bull)" },
+  pain: { label: "Max Pain", short: "Pain", code: "M", color: "var(--color-accent-hot)" },
+};
+// Order the rail draws in when levels collide on one row.
+const LEVEL_ORDER: LevelKey[] = ["flip", "call", "put", "pain"];
 
-// ratio in [-1, 1]
-function colorForRatio(ratio: number): RGB {
-  if (ratio >= 0) return blend(NEUTRAL, BULLISH, Math.min(1, ratio));
-  return blend(BEARISH, NEUTRAL, Math.min(1, 1 + ratio));
-}
+// ---- Layout constants -------------------------------------------------------
+const ROW_H = 20; // px per strike row — identical across both columns => aligned
+const MAX_SIDE = 22; // strikes shown on each side of the spot-nearest center
 
+// ---- Number formatting ------------------------------------------------------
 function percentile(values: number[], p: number): number {
   if (values.length === 0) return 0;
   const sorted = [...values].sort((a, b) => a - b);
@@ -66,33 +85,6 @@ function percentile(values: number[], p: number): number {
   return sorted[idx];
 }
 
-function cssRgb(c: RGB): string {
-  return `rgb(${c.r}, ${c.g}, ${c.b})`;
-}
-
-// Pick a legible text color for a given cell fill.
-function textOn(c: RGB): string {
-  const lum = 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
-  return lum > 150 ? "#141B29" : "#FFF3E9";
-}
-
-// ---- Level arrow config -----------------------------------------------------
-type LevelKey = "spot" | "flip" | "call" | "put" | "pain";
-const LEVEL_META: Record<LevelKey, { label: string; short: string; color: string; text: string }> = {
-  spot: { label: "Spot", short: "Spot", color: "#0EA5E9", text: "#FFFFFF" },
-  flip: { label: "Gamma Flip", short: "Flip", color: "#8B5CF6", text: "#FFFFFF" },
-  call: { label: "Call Wall", short: "Call", color: "#16A34A", text: "#FFFFFF" },
-  put: { label: "Put Wall", short: "Put", color: "#DC2626", text: "#FFFFFF" },
-  pain: { label: "Max Pain", short: "Pain", color: "#F59E0B", text: "#141B29" },
-};
-const LEVEL_ORDER: LevelKey[] = ["spot", "flip", "call", "put", "pain"];
-
-// ---- Layout constants -------------------------------------------------------
-const ROW_H = 22; // px per strike row — identical across both columns => aligned
-const GUTTER = 110; // left gutter (labeled arrows) width
-const MAX_SIDE = 30; // strikes shown on each side of the spot-nearest center
-
-// ---- Number formatting ------------------------------------------------------
 function fmtGex(scaledDollars: number): string {
   const m = scaledDollars / 1_000_000;
   const a = Math.abs(m);
@@ -112,6 +104,15 @@ function fmtLevel(v: number): string {
 
 function fmtStrike(v: number): string {
   return Number.isInteger(v) ? v.toFixed(0) : v.toFixed(1);
+}
+
+function fmtSpot(v: number | null): string {
+  if (v == null || !Number.isFinite(v)) return "--";
+  // Drop the cents on index-scale prices (SPX ~6,000 / NDX ~20,000) so the
+  // header spot doesn't get truncated in a narrow phone column; keep 2dp for
+  // ETF-scale prices where the cents matter.
+  const opts = Math.abs(v) >= 1000 ? { maximumFractionDigits: 0 } : { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+  return v.toLocaleString(undefined, opts);
 }
 
 // ---- Per-column derivation --------------------------------------------------
@@ -172,6 +173,7 @@ interface ColumnModel {
   levelValues: Record<LevelKey, number | null>;
   clip: number;
   gexScale: number;
+  peakOffset: number | null;
 }
 
 function buildModel(input: HeatmapColumnInput, gexUnit: GexUnit): ColumnModel {
@@ -187,12 +189,21 @@ function buildModel(input: HeatmapColumnInput, gexUnit: GexUnit): ColumnModel {
   };
 
   const absVals: number[] = [];
+  let peakOffset: number | null = null;
+  let peakAbs = -1;
   if (built) {
     for (let o = -built.down; o <= built.up; o++) {
       const cell = built.sorted[built.centerIdx - o];
       if (cell) {
         cellByOffset.set(o, cell);
-        if (Number.isFinite(cell.net_gex)) absVals.push(Math.abs(cell.net_gex));
+        if (Number.isFinite(cell.net_gex)) {
+          const abs = Math.abs(cell.net_gex);
+          absVals.push(abs);
+          if (abs > peakAbs) {
+            peakAbs = abs;
+            peakOffset = o;
+          }
+        }
       }
     }
     for (const key of LEVEL_ORDER) {
@@ -205,34 +216,105 @@ function buildModel(input: HeatmapColumnInput, gexUnit: GexUnit): ColumnModel {
   }
 
   const clip = Math.max(1, percentile(absVals, 0.98));
-  // Unit scaling is applied per-column with that ticker's own spot.
   const gexScale = gexScaleFactor(gexUnit, input.spot);
-  return { input, built, cellByOffset, arrowsByOffset, levelValues, clip, gexScale };
+  return { input, built, cellByOffset, arrowsByOffset, levelValues, clip, gexScale, peakOffset };
+}
+
+// Signed translucent tint for a cell, layered over --bg-card. Signed-sqrt curve
+// (matches the Gamma Chart heatmap) so mid magnitudes stay visible; capped so
+// text-primary reads over it in every theme. Empty/near-zero → transparent, so
+// the row recedes into the card (dark-low → tinted-high, like the reference).
+function cellTint(netGex: number, clip: number): string {
+  if (!Number.isFinite(netGex) || netGex === 0) return "transparent";
+  const norm = Math.min(Math.abs(netGex) / clip, 1);
+  const t = Math.sqrt(norm);
+  const pct = Math.round(t * MAX_TINT);
+  if (pct <= 0) return "transparent";
+  const color = netGex >= 0 ? POS_COLOR : NEG_COLOR;
+  return `color-mix(in srgb, ${color} ${pct}%, transparent)`;
 }
 
 // ---- Small presentational bits ---------------------------------------------
-function LevelArrow({ meta, value }: { meta: { label: string; short: string; color: string; text: string }; value: number }) {
-  // Label sits inline with the value inside the arrow (there is no legend), so
-  // each marker reads e.g. "Spot 602.13" / "Call 6005".
+function LevelChip({ meta, value }: { meta: (typeof LEVEL_META)[LevelKey]; value: number }) {
   return (
     <span
+      className="inline-flex items-center gap-1 font-mono"
       title={`${meta.label}: ${fmtLevel(value)}`}
-      className="inline-flex items-center font-mono font-semibold"
       style={{
-        background: meta.color,
-        color: meta.text,
-        fontSize: 8,
-        lineHeight: 1,
-        paddingTop: 1.5,
-        paddingBottom: 1.5,
-        paddingLeft: 4,
-        paddingRight: 8,
-        borderRadius: 2,
+        fontSize: 9.5,
+        fontWeight: 700,
+        letterSpacing: "0.02em",
+        padding: "1px 5px",
+        borderRadius: "var(--radius-control)",
+        border: `1px solid color-mix(in srgb, ${meta.color} 55%, transparent)`,
+        color: meta.color,
+        background: `color-mix(in srgb, ${meta.color} 12%, transparent)`,
         whiteSpace: "nowrap",
-        clipPath: "polygon(0 0, 90% 0, 100% 50%, 90% 100%, 0 100%)",
       }}
     >
-      {meta.short} {fmtLevel(value)}
+      <span style={{ opacity: 0.85 }}>{meta.short}</span>
+      <span style={{ color: "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}>{fmtLevel(value)}</span>
+    </span>
+  );
+}
+
+// One-letter rail tag drawn at the left edge of a level row. Colored glyph on a
+// faint same-color fill (like LevelChip) so it stays legible in every theme —
+// a solid fill with --text-inverse went white-on-amber in light palettes.
+function RailTag({ meta }: { meta: (typeof LEVEL_META)[LevelKey] }) {
+  return (
+    <span
+      aria-hidden
+      title={meta.label}
+      className="inline-flex items-center justify-center font-mono"
+      style={{
+        width: 13,
+        height: 13,
+        fontSize: 8,
+        fontWeight: 800,
+        borderRadius: 2,
+        color: meta.color,
+        background: `color-mix(in srgb, ${meta.color} 18%, transparent)`,
+        border: `1px solid color-mix(in srgb, ${meta.color} 55%, transparent)`,
+        flex: "0 0 auto",
+      }}
+    >
+      {meta.code}
+    </span>
+  );
+}
+
+function ChangeBadge({ changePercent, isPositive }: { changePercent?: number | null; isPositive?: boolean }) {
+  if (changePercent == null || !Number.isFinite(changePercent)) return null;
+  const pos = isPositive ?? changePercent >= 0;
+  const color = pos ? "var(--color-bull)" : "var(--color-bear)";
+  return (
+    <span
+      className="font-mono"
+      style={{
+        fontSize: 11,
+        fontWeight: 700,
+        padding: "1px 6px",
+        borderRadius: "var(--radius-control)",
+        color,
+        background: `color-mix(in srgb, ${color} 14%, transparent)`,
+        fontVariantNumeric: "tabular-nums",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {pos ? "+" : ""}
+      {changePercent.toFixed(2)}%
+    </span>
+  );
+}
+
+function RegimeChip({ spot, flip }: { spot: number | null; flip: number | null }) {
+  if (spot == null || flip == null || !Number.isFinite(spot) || !Number.isFinite(flip)) return null;
+  const long = spot >= flip;
+  const color = long ? "var(--color-bull)" : "var(--color-bear)";
+  return (
+    <span className="zg-chip" style={{ ["--chip-color" as string]: color, fontSize: 9.5, padding: "1px 6px" }}>
+      {long ? "Long Γ" : "Short Γ"}
     </span>
   );
 }
@@ -246,42 +328,57 @@ function HeatmapColumn({
   offsets: number[];
   gexUnit: GexUnit;
 }) {
-  const { input, cellByOffset, arrowsByOffset, clip, gexScale } = model;
+  const { input, cellByOffset, arrowsByOffset, clip, gexScale, peakOffset } = model;
   const unitLabel = GEX_UNIT_LABEL[gexUnit];
+  const lv = model.levelValues;
 
   return (
-    <div className="flex flex-col" style={{ minWidth: GUTTER + 138 }}>
-      {/* Column header */}
-      <div className="flex items-baseline justify-between px-1 mb-1" style={{ paddingLeft: GUTTER }}>
-        <span className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
-          {input.symbol}
-        </span>
-        <span className="text-[11px] font-mono" style={{ color: "var(--text-secondary)" }}>
-          {input.spot != null ? `$${input.spot.toFixed(2)}` : "--"}
-        </span>
-      </div>
-      {/* Sub-header: strike / net gex labels over the cell area */}
+    <div className="min-w-0 flex flex-col">
+      {/* Column header — dropdown + regime, then spot + change, then level legend */}
       <div
-        className="flex items-center justify-between px-1.5 mb-0.5 text-[9px] uppercase tracking-wider"
-        style={{ marginLeft: GUTTER, color: "var(--text-muted)" }}
+        className="px-2 pt-2 pb-2 flex flex-col gap-1.5"
+        style={{ borderBottom: "1px solid var(--border-default)", background: "var(--bg-subtle)" }}
       >
+        <div className="flex items-center justify-between gap-2 min-w-0">
+          <div className="min-w-0">{input.control}</div>
+          <RegimeChip spot={input.spot} flip={input.gammaFlip} />
+        </div>
+        <div className="flex items-baseline justify-between gap-2 min-w-0">
+          <span
+            className="font-mono truncate"
+            style={{ fontSize: 18, fontWeight: 700, color: "var(--text-primary)", fontVariantNumeric: "tabular-nums", lineHeight: 1 }}
+          >
+            {input.spot != null ? `$${fmtSpot(input.spot)}` : "--"}
+          </span>
+          <ChangeBadge changePercent={input.changePercent} isPositive={input.isPositive} />
+        </div>
+        {/* Live level legend — echoes the marker rail so exact values are always
+            readable even though the rows only carry a one-letter tag. */}
+        <div className="flex flex-wrap gap-1">
+          {(["flip", "call", "put", "pain"] as LevelKey[]).map((k) =>
+            lv[k] != null && Number.isFinite(lv[k] as number) ? (
+              <LevelChip key={k} meta={LEVEL_META[k]} value={lv[k] as number} />
+            ) : null,
+          )}
+        </div>
+      </div>
+
+      {/* Sub-header: strike / net gex labels */}
+      <div className="flex items-center justify-between px-2 py-1 text-[9px] uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
         <span>Strike</span>
         <span>Net GEX ({unitLabel})</span>
       </div>
 
       {input.error ? (
-        <div style={{ marginLeft: GUTTER }}>
+        <div className="px-2">
           <ErrorMessage message={input.error} />
         </div>
       ) : input.loading && cellByOffset.size === 0 ? (
-        <div style={{ marginLeft: GUTTER }} className="py-6">
+        <div className="py-8">
           <LoadingSpinner />
         </div>
       ) : cellByOffset.size === 0 ? (
-        <div
-          style={{ marginLeft: GUTTER, color: "var(--text-secondary)" }}
-          className="text-center text-xs py-6"
-        >
+        <div className="text-center text-xs py-8" style={{ color: "var(--text-secondary)" }}>
           No strike data
         </div>
       ) : (
@@ -290,46 +387,61 @@ function HeatmapColumn({
             const cell = cellByOffset.get(o);
             const arrows = arrowsByOffset.get(o) ?? [];
             const isCenter = o === 0;
+            const isPeak = o === peakOffset;
 
-            let bg = "transparent";
-            let color = "var(--text-muted)";
-            if (cell && Number.isFinite(cell.net_gex)) {
-              const norm = Math.min(Math.abs(cell.net_gex) / clip, 1);
-              const ratio = Math.sign(cell.net_gex) * Math.sqrt(norm);
-              const rgb = colorForRatio(ratio);
-              bg = cssRgb(rgb);
-              color = textOn(rgb);
-            }
+            const bg = cell ? cellTint(cell.net_gex, clip) : "transparent";
+            // The leading level for this row drives the inset rail color.
+            const railColor = arrows.length > 0 ? LEVEL_META[arrows[0]].color : null;
 
             return (
               <div key={o} className="flex items-stretch" style={{ height: ROW_H }}>
-                {/* Left gutter: labeled level arrows pointing into the cell.
-                    Stacked vertically so colliding levels never widen the column. */}
                 <div
-                  className="flex flex-col items-end justify-center pr-0.5"
-                  style={{ width: GUTTER, flex: "0 0 auto", gap: 1, overflow: "visible" }}
-                >
-                  {arrows.map((key) => {
-                    const value = model.levelValues[key];
-                    if (value == null) return null;
-                    return <LevelArrow key={key} meta={LEVEL_META[key]} value={value} />;
-                  })}
-                </div>
-                {/* Strike cell */}
-                <div
-                  className="flex-1 flex items-center justify-between px-1.5 font-mono text-[11px]"
+                  className="flex-1 min-w-0 flex items-center justify-between gap-1 px-1.5 font-mono"
                   style={{
+                    fontSize: 11,
                     background: bg,
-                    color,
+                    color: "var(--text-primary)",
                     borderTop: "1px solid var(--bg-card)",
-                    outline: isCenter ? "1px solid rgba(148,163,184,0.55)" : "none",
-                    outlineOffset: -1,
+                    boxShadow: railColor ? `inset 3px 0 0 ${railColor}` : undefined,
+                    outline: isCenter ? "1.5px solid var(--color-accent-hot)" : "none",
+                    outlineOffset: -1.5,
+                    fontVariantNumeric: "tabular-nums",
                   }}
                 >
                   {cell ? (
                     <>
-                      <span className="font-semibold">{fmtStrike(cell.strike)}</span>
-                      <span>{fmtGex((cell.net_gex || 0) * gexScale)}</span>
+                      <span className="flex items-center gap-1 min-w-0">
+                        {arrows.map((k) => (
+                          <RailTag key={k} meta={LEVEL_META[k]} />
+                        ))}
+                        {isCenter ? (
+                          <span
+                            className="inline-flex items-center gap-0.5"
+                            style={{
+                              fontWeight: 700,
+                              padding: "0.5px 5px",
+                              borderRadius: "var(--radius-pill)",
+                              background: "var(--text-primary)",
+                              color: "var(--bg-card)",
+                            }}
+                          >
+                            {fmtStrike(cell.strike)}
+                            <span style={{ fontSize: 8, opacity: 0.8 }}>▸</span>
+                          </span>
+                        ) : (
+                          <span className="font-semibold truncate">{fmtStrike(cell.strike)}</span>
+                        )}
+                      </span>
+                      <span className="whitespace-nowrap flex items-center gap-0.5">
+                        {fmtGex((cell.net_gex || 0) * gexScale)}
+                        {isPeak && (
+                          // currentColor (== the cell's text) so the star stays
+                          // as readable as the number beside it on any tint.
+                          <span title="Heaviest dealer gamma in view" style={{ color: "currentColor" }}>
+                            ★
+                          </span>
+                        )}
+                      </span>
                     </>
                   ) : (
                     <span className="opacity-30">·</span>
@@ -353,8 +465,6 @@ export default function PairGammaHeatmap({
   right: HeatmapColumnInput;
   gexUnit: GexUnit;
 }) {
-  // Re-derive the models whenever inputs or the unit change (gexScale depends
-  // on the unit + each ticker's spot).
   const leftModel = useMemo(() => buildModel(left, gexUnit), [left, gexUnit]);
   const rightModel = useMemo(() => buildModel(right, gexUnit), [right, gexUnit]);
 
@@ -367,9 +477,18 @@ export default function PairGammaHeatmap({
   }, [leftModel, rightModel]);
 
   return (
-    <div className="flex gap-4">
-      <HeatmapColumn model={leftModel} offsets={offsets} gexUnit={gexUnit} />
-      <HeatmapColumn model={rightModel} offsets={offsets} gexUnit={gexUnit} />
+    // Each column holds a 140px floor and grows to share the width; the two fit
+    // any phone ≥ ~300px. On anything narrower the columns keep their floor and
+    // this container scrolls the ladder horizontally instead of clipping it.
+    <div className="overflow-x-auto">
+      <div className="flex" style={{ gap: 1, background: "var(--border-default)" }}>
+        <div style={{ flex: "1 1 140px", minWidth: 140, background: "var(--bg-card)" }}>
+          <HeatmapColumn model={leftModel} offsets={offsets} gexUnit={gexUnit} />
+        </div>
+        <div style={{ flex: "1 1 140px", minWidth: 140, background: "var(--bg-card)" }}>
+          <HeatmapColumn model={rightModel} offsets={offsets} gexUnit={gexUnit} />
+        </div>
+      </div>
     </div>
   );
 }
