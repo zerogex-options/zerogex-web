@@ -25,6 +25,7 @@
  */
 
 import { useMemo, type ReactNode } from "react";
+import { Crown } from "lucide-react";
 import { gexScaleFactor, GEX_UNIT_LABEL, type GexUnit } from "@/core/GexUnitContext";
 import LoadingSpinner from "./LoadingSpinner";
 import ErrorMessage from "./ErrorMessage";
@@ -431,15 +432,13 @@ function HeatmapColumn({
                           <span className="font-semibold truncate">{fmtStrike(cell.strike)}</span>
                         )}
                       </span>
-                      <span className="whitespace-nowrap flex items-center gap-0.5">
-                        {fmtGex((cell.net_gex || 0) * gexScale)}
+                      <span className="whitespace-nowrap flex items-center gap-1">
                         {isPeak && (
-                          // currentColor (== the cell's text) so the star stays
-                          // as readable as the number beside it on any tint.
-                          <span title="Heaviest dealer gamma in view" style={{ color: "currentColor" }}>
-                            ★
-                          </span>
+                          // King node — the heaviest dealer gamma in view. Crown
+                          // in currentColor so it stays readable on any cell tint.
+                          <Crown size={12} strokeWidth={2.25} aria-label="King node — heaviest dealer gamma" style={{ color: "currentColor", flex: "0 0 auto" }} />
                         )}
+                        {fmtGex((cell.net_gex || 0) * gexScale)}
                       </span>
                     </>
                   ) : (
