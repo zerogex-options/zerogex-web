@@ -20,6 +20,7 @@ import PairCandleChart from "@/components/PairCandleChart";
 import GexUnitToggle from "@/components/GexUnitToggle";
 import BetaBadge from "@/components/BetaBadge";
 import TooltipWrapper from "@/components/TooltipWrapper";
+import ChartCaption from "@/components/ChartCaption";
 import { type ChartTimeframe } from "@/components/ChartTimeframeSelect";
 import { useApiData, useGEXSummary, useMarketQuote, useSessionCloses } from "@/hooks/useApiData";
 import { usePairReplay, type PairReplayData, type ReplayFrame, type ReplayCandle } from "@/hooks/usePairReplay";
@@ -491,6 +492,7 @@ export default function PairComparisonClient() {
           loading={replayLoading}
           error={replayError}
         />
+        <ChartCaption variant="strip" right="Pair / Gamma" />
       </div>
     </PageShell>
   );

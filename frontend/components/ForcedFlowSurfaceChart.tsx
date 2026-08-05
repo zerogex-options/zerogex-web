@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTheme } from '@/core/ThemeContext';
 import { useChartTheme } from '@/hooks/useChartTheme';
 import { useForcedFlowSurface } from '@/hooks/useApiData';
+import ChartCaption from "./ChartCaption";
 
 interface ForcedFlowSurfaceChartProps {
   symbol?: string;
@@ -440,6 +441,7 @@ export default function ForcedFlowSurfaceChart({
           Snapshot {new Date(surface.timestamp).toLocaleTimeString()}
         </div>
       )}
+      <ChartCaption />
     </div>
   );
 }

@@ -15,6 +15,7 @@ import {
 } from 'recharts';
 import { useChartTheme } from '@/hooks/useChartTheme';
 import { useForcedFlowCharmDecay } from '@/hooks/useApiData';
+import ChartCaption from "./ChartCaption";
 
 interface CharmIntoCloseChartProps {
   symbol?: string;
@@ -219,6 +220,7 @@ export default function CharmIntoCloseChart({ symbol = 'SPY' }: CharmIntoCloseCh
           )}
         </>
       )}
+      <ChartCaption />
     </div>
   );
 }

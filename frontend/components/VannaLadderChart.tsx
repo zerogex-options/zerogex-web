@@ -17,6 +17,7 @@ import {
 } from 'recharts';
 import { useChartTheme } from '@/hooks/useChartTheme';
 import { useForcedFlowVannaLadder } from '@/hooks/useApiData';
+import ChartCaption from "./ChartCaption";
 
 interface VannaLadderChartProps {
   symbol?: string;
@@ -226,6 +227,7 @@ export default function VannaLadderChart({ symbol = 'SPY' }: VannaLadderChartPro
           )}
         </>
       )}
+      <ChartCaption />
     </div>
   );
 }

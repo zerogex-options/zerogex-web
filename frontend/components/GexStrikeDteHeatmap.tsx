@@ -7,6 +7,7 @@ import { GEX_UNIT_LABEL, gexScaleFactor, useGexUnit } from '@/core/GexUnitContex
 import { colors } from '@/core/colors';
 import TooltipWrapper from './TooltipWrapper';
 import ExpandableCard from './ExpandableCard';
+import ChartCaption from "./ChartCaption";
 
 interface ByStrikeRow {
   strike: number;
@@ -214,6 +215,7 @@ export default function GexStrikeDteHeatmap({ byStrikeData, spotPrice }: GexStri
           Neutral
         </div>
       </div>
+      <ChartCaption />
       </div>
     </ExpandableCard>
   );

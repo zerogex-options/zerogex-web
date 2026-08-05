@@ -11,6 +11,7 @@ import MobileScrollableChart from './MobileScrollableChart';
 import StrikeRangeScrollbar from './StrikeRangeScrollbar';
 import ExpirationMultiSelect from './ExpirationMultiSelect';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import ChartCaption from "./ChartCaption";
 
 // Each zoom click narrows / widens the visible strike range by this factor.
 // 1.4 is roughly the geometric mean of 1 and 2, giving comfortable single-
@@ -477,6 +478,7 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
             />
           </div>
         )}
+        <ChartCaption />
       </div>
     </ExpandableCard>
   );
