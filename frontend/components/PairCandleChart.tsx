@@ -256,7 +256,7 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
   // to re-subscribe and never reads stale closures).
   const ctxRef = useRef({
     total: 0, startIdx: 0, xStep: 1, effLo: 0, effHi: 1, fitCenter: 0, fitHalf: 1,
-    width: 1100, height: 440, padLeft: 60, padTop: 18, plotW: 1, plotH: 1, minBars: 6,
+    width: 1100, height: 440, padLeft: 60, padTop: 18, plotW: 1, plotH: 1, plotX0: 67, innerW: 1, minBars: 6,
   });
   const clipId = `pcc-clip-${useId().replace(/[^a-zA-Z0-9-]/g, "")}`;
 
@@ -367,9 +367,15 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
   const startIdx = Math.max(0, endIdx - visibleCount);
   const visibleBars = bars.slice(startIdx, endIdx);
   const vLen = visibleBars.length;
-  const xStep = plotW / Math.max(1, vLen - 1);
+  // Inset the candle plotting area by a half-candle margin on each side so the
+  // first and last candle bodies render fully instead of being clipped in half
+  // at the plot edges. Grid/level lines still span the full [padLeft, width-padRight].
+  const edgeInset = 7;
+  const plotX0 = padLeft + edgeInset;
+  const innerW = Math.max(1, plotW - 2 * edgeInset);
+  const xStep = innerW / Math.max(1, vLen - 1);
   const candleWidth = Math.max(2, Math.min(12, xStep * 0.6));
-  const xForVis = (i: number) => padLeft + i * xStep;
+  const xForVis = (i: number) => plotX0 + i * xStep;
 
   // ── Price band (auto-fit the visible bars, then apply Y zoom/pan) ──
   let priceLo = Number.POSITIVE_INFINITY;
@@ -408,7 +414,7 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
   // Keep the wheel handler's geometry snapshot fresh (post-commit; wheel events
   // are user-driven, so there's no lag).
   useEffect(() => {
-    ctxRef.current = { total, startIdx, xStep, effLo, effHi, fitCenter, fitHalf, width, height, padLeft, padTop, plotW, plotH, minBars: MIN_BARS };
+    ctxRef.current = { total, startIdx, xStep, effLo, effHi, fitCenter, fitHalf, width, height, padLeft, padTop, plotW, plotH, plotX0, innerW, minBars: MIN_BARS };
   });
 
   // Wheel zoom via a callback ref so it attaches when the SVG actually mounts
@@ -444,9 +450,9 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
           const minZoom = c.total > 0 ? Math.min(1, c.minBars / c.total) : 1;
           const newXZoom = clamp(prev.xZoom * factor, minZoom, 1);
           const newVisible = Math.max(c.minBars, Math.min(c.total, Math.round(c.total * newXZoom)));
-          const idxAtCursor = c.startIdx + (px - c.padLeft) / Math.max(1e-9, c.xStep);
-          const newXStep = c.plotW / Math.max(1, newVisible - 1);
-          const newStart = idxAtCursor - (px - c.padLeft) / Math.max(1e-9, newXStep);
+          const idxAtCursor = c.startIdx + (px - c.plotX0) / Math.max(1e-9, c.xStep);
+          const newXStep = c.innerW / Math.max(1, newVisible - 1);
+          const newStart = idxAtCursor - (px - c.plotX0) / Math.max(1e-9, newXStep);
           const newPan = c.total - (newStart + newVisible);
           const maxPan2 = Math.max(0, c.total - newVisible);
           return { ...prev, xZoom: newXZoom, xPan: clamp(newPan, 0, maxPan2) };
@@ -479,7 +485,7 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
       return;
     }
     const xView = ((e.clientX - rect.left) / Math.max(1, rect.width)) * width;
-    const iVis = Math.round((xView - padLeft) / Math.max(1e-9, xStep));
+    const iVis = Math.round((xView - plotX0) / Math.max(1e-9, xStep));
     setHoveredIdx(startIdx + clamp(iVis, 0, Math.max(0, vLen - 1)));
   };
   const endDrag = () => {
