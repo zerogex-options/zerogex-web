@@ -20,7 +20,7 @@ import { useMarketHistorical } from "@/hooks/useMarketHistorical";
 import { type ReplayCandle } from "@/hooks/usePairReplay";
 import LoadingSpinner from "./LoadingSpinner";
 import ErrorMessage from "./ErrorMessage";
-import { omitClosedMarketTimes, shouldOmitClosedMarketTimes, etTradingDateLabel } from "@/core/utils";
+import { omitClosedMarketTimes } from "@/core/utils";
 import { type ChartTimeframe } from "./ChartTimeframeSelect";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import MobileScrollableChart from "./MobileScrollableChart";
@@ -149,23 +149,66 @@ function aggregateBars(
 const EMPTY_BARS: CandleBar[] = [];
 const EMPTY_REPLAY_CANDLES: ReplayCandle[] = [];
 
-// Reveal only the 1-min replay candles up to the playhead, then bucket to the
-// timeframe. Because we cut at the cursor FIRST, the bucket containing the
-// cursor holds only its reached members, so it grows minute-by-minute (open
-// pinned; close/high/low widening) — the daily-replay "1-min on a 5-min bar,
-// one tick at a time" behavior. Kept a module function (not a useMemo) so the
-// React Compiler memoizes it on its actual args.
+interface RawRow {
+  timestamp: string;
+  open?: number | null;
+  high?: number | null;
+  low?: number | null;
+  close?: number | null;
+  price?: number | null;
+  volume?: number | null;
+  up_volume?: number | null;
+  down_volume?: number | null;
+}
+
+// Normalize raw historical rows into gap-filled CandleBars (closed-market times
+// dropped, missing fields carried forward from the prior close, up/down volume
+// split). Shared by the live path and the replay pre-session fill.
+function normalizeRows(rows: RawRow[]): CandleBar[] {
+  const filtered = omitClosedMarketTimes(rows || [], (d) => d.timestamp);
+  let prevClose = filtered[0]?.close ?? filtered[0]?.price ?? 0;
+  const out: CandleBar[] = [];
+  for (const d of filtered) {
+    const close = d.close ?? d.price ?? prevClose;
+    const open = d.open ?? prevClose;
+    const high = d.high ?? Math.max(open, close);
+    const low = d.low ?? Math.min(open, close);
+    const volume = d.volume ?? 0;
+    const apiUp = d.up_volume ?? null;
+    const apiDown = d.down_volume ?? null;
+    const up = close >= open;
+    const upVolume = apiUp !== null && apiDown !== null ? apiUp : up ? volume : 0;
+    const downVolume = apiUp !== null && apiDown !== null ? apiDown : up ? 0 : volume;
+    out.push({ timestamp: d.timestamp, open, high, low, close, volume: upVolume + downVolume, upVolume, downVolume });
+    prevClose = close;
+  }
+  return out;
+}
+
+// Build the replay tape as a FIXED-width window ending at the playhead. The
+// session's 1-min candles are revealed up to the cursor (so the cursor's bucket
+// grows minute-by-minute — 1-min imposed on a 5-min bar, one tick at a time),
+// and complete pre-session history is prepended so a constant `windowCount`
+// bars always show: at the session open the window reaches back into prior
+// sessions instead of starting nearly empty, with the playhead pinned to the
+// right edge like a rewound live chart. Kept a module function so the React
+// Compiler memoizes it on its args.
 function buildReplayBars(
-  candles: ReplayCandle[],
+  sessionCandles: ReplayCandle[],
+  histBars: CandleBar[],
   cursorTs: string | null,
   bucketMinutes: number,
+  windowCount: number,
 ): CandleBar[] {
   const cursorMs = cursorTs ? Date.parse(cursorTs) : Number.POSITIVE_INFINITY;
   const reached: CandleBar[] = [];
-  for (const c of candles) {
+  let sessionStartMs = Number.POSITIVE_INFINITY;
+  for (const c of sessionCandles) {
     if (c.open == null || c.high == null || c.low == null || c.close == null) continue;
     const t = Date.parse(c.timestamp);
-    if (!Number.isFinite(t) || t > cursorMs) continue;
+    if (!Number.isFinite(t)) continue;
+    if (t < sessionStartMs) sessionStartMs = t;
+    if (t > cursorMs) continue;
     const up = c.close >= c.open;
     const vol = c.volume ?? 0;
     const hasSplit = c.up_volume != null && c.down_volume != null;
@@ -182,7 +225,15 @@ function buildReplayBars(
       downVolume,
     });
   }
-  return aggregateBars(reached, bucketMinutes, MAX_POINTS);
+  if (reached.length === 0) return EMPTY_BARS;
+  // Complete history strictly before the session open — the fill-back that keeps
+  // the bar count constant. Filtered here so the session comes only from the
+  // authoritative replay candles (no double-count at the seam).
+  const fill = histBars.filter((b) => {
+    const t = Date.parse(b.timestamp);
+    return Number.isFinite(t) && t < sessionStartMs;
+  });
+  return aggregateBars([...fill, ...reached], bucketMinutes, windowCount);
 }
 
 interface PairCandleChartProps {
@@ -209,46 +260,10 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
   const data = useMemo(() => dataAll.slice(-MAX_POINTS), [dataAll]);
 
   // Stage 1 — aggregate the historical rows (independent of the live tick).
-  const historicalBars = useMemo(() => {
-    // Daily bars are whole-session markers stamped at UTC midnight; filtering
-    // them by intraday ET hours would drop every Monday (see
-    // shouldOmitClosedMarketTimes). Only intraday series need the filter.
-    const filtered = shouldOmitClosedMarketTimes(intervalMinutes)
-      ? omitClosedMarketTimes(data || [], (d) => d.timestamp)
-      : data || [];
-    const seed = filtered[0]?.close ?? filtered[0]?.price ?? 0;
-
-    const normalized = filtered.reduce(
-      (acc, d) => {
-        const close = d.close ?? d.price ?? acc.prevClose;
-        const open = d.open ?? acc.prevClose;
-        const high = d.high ?? Math.max(open, close);
-        const low = d.low ?? Math.min(open, close);
-        const volume = d.volume ?? 0;
-        const apiUp = d.up_volume ?? null;
-        const apiDown = d.down_volume ?? null;
-        const up = close >= open;
-        const upVolume = apiUp !== null && apiDown !== null ? apiUp : up ? volume : 0;
-        const downVolume = apiUp !== null && apiDown !== null ? apiDown : up ? 0 : volume;
-
-        acc.rows.push({
-          timestamp: d.timestamp,
-          open,
-          high,
-          low,
-          close,
-          volume: upVolume + downVolume,
-          upVolume,
-          downVolume,
-        });
-        acc.prevClose = close;
-        return acc;
-      },
-      { rows: [] as CandleBar[], prevClose: seed },
-    );
-
-    return aggregateBars(normalized.rows, intervalMinutes, MAX_POINTS);
-  }, [data, intervalMinutes]);
+  const historicalBars = useMemo(
+    () => aggregateBars(normalizeRows(data), intervalMinutes, MAX_POINTS),
+    [data, intervalMinutes],
+  );
 
   // Stage 2 — reconcile the live quote with the historical tip bar. Same
   // bucket-scoped, monotonic-widening, history-authoritative rules as
@@ -281,10 +296,12 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
     return patched;
   }, [historicalBars, quote, intervalMinutes]);
 
-  // Replay reveals the session up to the playhead (see buildReplayBars); live
-  // uses the reconciled live bars.
+  // Replay reveals the session up to the playhead and prepends the full
+  // historical cache (~hundreds of bars) as pre-session fill so a constant
+  // window always shows; live uses the reconciled live bars.
+  const fullHistBars = replayActive ? normalizeRows(dataAll) : EMPTY_BARS;
   const replayBars = replayActive
-    ? buildReplayBars(replay?.candles ?? EMPTY_REPLAY_CANDLES, replay?.cursorTs ?? null, intervalMinutes)
+    ? buildReplayBars(replay?.candles ?? EMPTY_REPLAY_CANDLES, fullHistBars, replay?.cursorTs ?? null, intervalMinutes, MAX_POINTS)
     : EMPTY_BARS;
   const bars = replayActive ? replayBars : liveBars;
 
@@ -304,21 +321,15 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
       markers.push({
         index,
         key: bar.timestamp,
-        // Daily buckets are UTC-midnight date markers whose UTC date is the ET
-        // trading date; rendering them in ET rolls them back a day (see
-        // etTradingDateLabel). Intraday bars are real instants → keep ET.
-        label:
-          timeframe === "1day"
-            ? etTradingDateLabel(bar.timestamp)
-            : dt.toLocaleDateString("en-US", {
-                timeZone: "America/New_York",
-                month: "short",
-                day: "numeric",
-              }),
+        label: dt.toLocaleDateString("en-US", {
+          timeZone: "America/New_York",
+          month: "short",
+          day: "numeric",
+        }),
       });
     });
     return markers;
-  }, [bars, timeframe]);
+  }, [bars]);
 
   const width = 1100;
   const height = timeframe === "1day" ? 580 : 520;

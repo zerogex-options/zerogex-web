@@ -237,28 +237,19 @@ function cellTint(netGex: number, clip: number): string {
 }
 
 // ---- Small presentational bits ---------------------------------------------
-// Header legend row — the key for the on-row rail tags: same colored glyph,
-// then the level's full name and current value. Reads e.g. "[GF] Gamma Flip 585".
+// Header legend entry — the key for the on-row rail tags. Just the colored code
+// tag + value (no outer box, no repeated word); the full name is in the title.
 function LevelChip({ meta, value }: { meta: (typeof LEVEL_META)[LevelKey]; value: number }) {
   return (
     <span
       className="inline-flex items-center gap-1 font-mono"
       title={`${meta.label}: ${fmtLevel(value)}`}
-      style={{
-        fontSize: 9.5,
-        fontWeight: 700,
-        letterSpacing: "0.02em",
-        padding: "1px 5px 1px 3px",
-        borderRadius: "var(--radius-control)",
-        border: `1px solid color-mix(in srgb, ${meta.color} 45%, transparent)`,
-        color: meta.color,
-        background: `color-mix(in srgb, ${meta.color} 10%, transparent)`,
-        whiteSpace: "nowrap",
-      }}
+      style={{ whiteSpace: "nowrap" }}
     >
       <RailTag meta={meta} />
-      <span>{meta.short}</span>
-      <span style={{ color: "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}>{fmtLevel(value)}</span>
+      <span style={{ fontSize: 10, fontWeight: 600, color: "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}>
+        {fmtLevel(value)}
+      </span>
     </span>
   );
 }
@@ -358,9 +349,9 @@ function HeatmapColumn({
           </span>
           <ChangeBadge changePercent={input.changePercent} isPositive={input.isPositive} />
         </div>
-        {/* Live level legend — echoes the marker rail so exact values are always
-            readable even though the rows only carry a one-letter tag. */}
-        <div className="flex flex-wrap gap-1">
+        {/* Live level legend — the key for the on-row rail tags (GF/CW/PW/MP),
+            each with its current value. */}
+        <div className="flex flex-wrap gap-x-2.5 gap-y-1">
           {(["flip", "call", "put", "pain"] as LevelKey[]).map((k) =>
             lv[k] != null && Number.isFinite(lv[k] as number) ? (
               <LevelChip key={k} meta={LEVEL_META[k]} value={lv[k] as number} />
