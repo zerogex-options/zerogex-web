@@ -12,6 +12,13 @@
  * of dealer positioning around spot can be read across two symbols regardless
  * of the absolute price gap (SPY ~600 beside QQQ ~500, SPX ~6000, …).
  *
+ * By default the ladder shows only ACTIVE strikes (those carrying dealer
+ * gamma). The listed-but-empty strikes that make a high-priced chain like NDX
+ * read as sparse — it lists a fine ~10-pt grid but only accrues OI on the round
+ * 25-pt strikes — are hidden so the fixed ±MAX_SIDE window fills with real
+ * levels. The page's Strikes toggle (`activeOnly`) switches back to every
+ * listed strike near spot.
+ *
  * The centered spot strike is highlighted as a pill; the heaviest-|GEX| strike
  * in view is starred; and the dealer-gamma levels (Gamma Flip, Call/Put Walls,
  * Max Pain) mark their rows with a colored inset rail + a one-letter tag, with
@@ -27,6 +34,7 @@
 import { useMemo, type ReactNode } from "react";
 import { Crown } from "lucide-react";
 import { gexScaleFactor, GEX_UNIT_LABEL, type GexUnit } from "@/core/GexUnitContext";
+import { selectActiveCells } from "./pairGammaHeatmap.helpers";
 import LoadingSpinner from "./LoadingSpinner";
 import ErrorMessage from "./ErrorMessage";
 
@@ -126,12 +134,14 @@ interface BuiltColumn {
   down: number; // rows below center that exist (capped to MAX_SIDE)
 }
 
-function buildColumn(cells: HeatmapCell[], spot: number | null): BuiltColumn | null {
+function buildColumn(cells: HeatmapCell[], spot: number | null, activeOnly: boolean): BuiltColumn | null {
   const clean = cells
     .map((c) => ({ strike: Number(c.strike), net_gex: Number(c.net_gex) }))
     .filter((c) => Number.isFinite(c.strike));
   if (clean.length === 0) return null;
-  const sorted = clean.sort((a, b) => b.strike - a.strike);
+  // Drop no-positioning strikes (net GEX 0) BEFORE centering/windowing so the
+  // fixed ±MAX_SIDE window fills with real levels — see selectActiveCells.
+  const sorted = selectActiveCells(clean, activeOnly).sort((a, b) => b.strike - a.strike);
 
   // Center on the strike nearest spot; if spot is missing, use the median strike.
   let centerIdx = Math.floor(sorted.length / 2);
@@ -179,8 +189,8 @@ interface ColumnModel {
   peakOffset: number | null;
 }
 
-function buildModel(input: HeatmapColumnInput, gexUnit: GexUnit): ColumnModel {
-  const built = buildColumn(input.cells, input.spot);
+function buildModel(input: HeatmapColumnInput, gexUnit: GexUnit, activeOnly: boolean): ColumnModel {
+  const built = buildColumn(input.cells, input.spot, activeOnly);
   const cellByOffset = new Map<number, HeatmapCell>();
   const arrowsByOffset = new Map<number, LevelKey[]>();
   const levelValues: Record<LevelKey, number | null> = {
@@ -458,13 +468,18 @@ export default function PairGammaHeatmap({
   left,
   right,
   gexUnit,
+  activeOnly = true,
 }: {
   left: HeatmapColumnInput;
   right: HeatmapColumnInput;
   gexUnit: GexUnit;
+  /** Hide strikes with no dealer gamma (net GEX 0) so the ladder fills with
+   *  real levels. Defaults on — high-priced chains (NDX) list many empty
+   *  fine-grid strikes that otherwise crowd out the active 25-pt levels. */
+  activeOnly?: boolean;
 }) {
-  const leftModel = useMemo(() => buildModel(left, gexUnit), [left, gexUnit]);
-  const rightModel = useMemo(() => buildModel(right, gexUnit), [right, gexUnit]);
+  const leftModel = useMemo(() => buildModel(left, gexUnit, activeOnly), [left, gexUnit, activeOnly]);
+  const rightModel = useMemo(() => buildModel(right, gexUnit, activeOnly), [right, gexUnit, activeOnly]);
 
   const { offsets } = useMemo(() => {
     const up = Math.max(leftModel.built?.up ?? 0, rightModel.built?.up ?? 0);
