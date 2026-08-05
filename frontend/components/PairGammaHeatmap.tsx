@@ -63,19 +63,21 @@ const MAX_TINT = 55;
 
 // ---- Level marker config (tokenized chrome) --------------------------------
 type LevelKey = "spot" | "flip" | "call" | "put" | "pain";
+// Two-letter codes (GF / CW / PW / MP) read far clearer on the row rail than a
+// single cryptic letter, and the column-header legend spells each one out.
 const LEVEL_META: Record<LevelKey, { label: string; short: string; code: string; color: string }> = {
-  spot: { label: "Spot", short: "Spot", code: "S", color: "var(--color-accent-hot)" },
-  flip: { label: "Gamma Flip", short: "Flip", code: "F", color: "var(--color-warning)" },
-  call: { label: "Call Wall", short: "Call", code: "C", color: "var(--color-bear)" },
-  put: { label: "Put Wall", short: "Put", code: "P", color: "var(--color-bull)" },
-  pain: { label: "Max Pain", short: "Pain", code: "M", color: "var(--color-accent-hot)" },
+  spot: { label: "Spot", short: "Spot", code: "SP", color: "var(--color-accent-hot)" },
+  flip: { label: "Gamma Flip", short: "Flip", code: "GF", color: "var(--color-warning)" },
+  call: { label: "Call Wall", short: "Call", code: "CW", color: "var(--color-bear)" },
+  put: { label: "Put Wall", short: "Put", code: "PW", color: "var(--color-bull)" },
+  pain: { label: "Max Pain", short: "Pain", code: "MP", color: "var(--color-accent-hot)" },
 };
 // Order the rail draws in when levels collide on one row.
 const LEVEL_ORDER: LevelKey[] = ["flip", "call", "put", "pain"];
 
 // ---- Layout constants -------------------------------------------------------
 const ROW_H = 20; // px per strike row — identical across both columns => aligned
-const MAX_SIDE = 22; // strikes shown on each side of the spot-nearest center
+const MAX_SIDE = 20; // strikes shown on each side of the spot-nearest center
 
 // ---- Number formatting ------------------------------------------------------
 function percentile(values: number[], p: number): number {
@@ -235,6 +237,8 @@ function cellTint(netGex: number, clip: number): string {
 }
 
 // ---- Small presentational bits ---------------------------------------------
+// Header legend row — the key for the on-row rail tags: same colored glyph,
+// then the level's full name and current value. Reads e.g. "[GF] Gamma Flip 585".
 function LevelChip({ meta, value }: { meta: (typeof LEVEL_META)[LevelKey]; value: number }) {
   return (
     <span
@@ -244,34 +248,36 @@ function LevelChip({ meta, value }: { meta: (typeof LEVEL_META)[LevelKey]; value
         fontSize: 9.5,
         fontWeight: 700,
         letterSpacing: "0.02em",
-        padding: "1px 5px",
+        padding: "1px 5px 1px 3px",
         borderRadius: "var(--radius-control)",
-        border: `1px solid color-mix(in srgb, ${meta.color} 55%, transparent)`,
+        border: `1px solid color-mix(in srgb, ${meta.color} 45%, transparent)`,
         color: meta.color,
-        background: `color-mix(in srgb, ${meta.color} 12%, transparent)`,
+        background: `color-mix(in srgb, ${meta.color} 10%, transparent)`,
         whiteSpace: "nowrap",
       }}
     >
-      <span style={{ opacity: 0.85 }}>{meta.short}</span>
+      <RailTag meta={meta} />
+      <span>{meta.short}</span>
       <span style={{ color: "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}>{fmtLevel(value)}</span>
     </span>
   );
 }
 
-// One-letter rail tag drawn at the left edge of a level row. Colored glyph on a
+// Two-letter rail tag drawn at the left edge of a level row. Colored glyph on a
 // faint same-color fill (like LevelChip) so it stays legible in every theme —
 // a solid fill with --text-inverse went white-on-amber in light palettes.
 function RailTag({ meta }: { meta: (typeof LEVEL_META)[LevelKey] }) {
   return (
     <span
-      aria-hidden
       title={meta.label}
       className="inline-flex items-center justify-center font-mono"
       style={{
-        width: 13,
-        height: 13,
+        minWidth: 15,
+        height: 12,
+        padding: "0 2px",
         fontSize: 8,
         fontWeight: 800,
+        letterSpacing: "0.02em",
         borderRadius: 2,
         color: meta.color,
         background: `color-mix(in srgb, ${meta.color} 18%, transparent)`,

@@ -370,7 +370,7 @@ export default function PairComparisonClient() {
         <div className="flex items-center gap-2.5">
           <h1 className="zg-h1" style={{ margin: 0 }}>Pair Comparison</h1>
           <BetaBadge size="md" />
-          <TooltipWrapper text={INFO_TEXT} />
+          <TooltipWrapper text={INFO_TEXT} placement="bottom" />
         </div>
       </header>
 
@@ -384,47 +384,72 @@ export default function PairComparisonClient() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-4">
-        {/* Top candle — the header/left symbol */}
-        <div className="mx-auto w-full" style={{ maxWidth: 1024 }}>
-          <PairCandleChart symbol={sym1} timeframe={timeframe} />
-        </div>
-
-        {/* The gamma terminal — narrower, centered (~half width): two strike-
-            aligned ladders (each with its own symbol dropdown) + the replay
-            transport that drives both in lockstep. */}
-        <div className="mx-auto w-full" style={{ maxWidth: 760 }}>
-          <div className="zg-feature-shell zg-gc-rise" style={{ overflow: "hidden" }}>
+      {/* One rectangular instrument: narrow strike-aligned ladders on the left,
+          the two candle charts stacked on the right to fill the space, and the
+          replay transport spanning the bottom — one playhead drives all four. */}
+      <div className="zg-feature-shell zg-gc-rise" style={{ overflow: "hidden" }}>
+        <div className="flex flex-col lg:flex-row">
+          {/* Left: the two gamma ladders (narrowed) */}
+          <div className="w-full lg:w-[340px] lg:flex-none border-b lg:border-b-0 lg:border-r border-[var(--border-default)]">
             <PairGammaHeatmap left={leftInput} right={rightInput} gexUnit={gexUnit} />
-            <PairReplayScrubber
-              mode={mode}
-              onEnterReplay={enterReplay}
-              onExitReplay={exitReplay}
-              frameCount={timeline.length}
-              cursor={effCursor}
-              onScrub={scrub}
-              isPlaying={isPlaying}
-              onPlayToggle={togglePlay}
-              onStep={step}
-              loop={loop}
-              onLoopToggle={() => setLoop((l) => !l)}
-              speed={speed}
-              onSpeedChange={setSpeed}
-              cursorTime={cursorTs}
-              startTime={timeline[0] ?? null}
-              endTime={timeline[timeline.length - 1] ?? null}
-              sessionDate={sessionDate}
-              isToday={isToday}
-              loading={replayLoading}
-              error={replayError}
+          </div>
+
+          {/* Right: stacked candles — top = header symbol, bottom = compare
+              symbol — scrubbing in lockstep with the ladders during Replay. */}
+          <div className="flex-1 min-w-0 flex flex-col">
+            <div className="border-b border-[var(--border-default)]">
+              <PairCandleChart
+                symbol={sym1}
+                timeframe={timeframe}
+                embedded
+                replay={{
+                  active: mode === "replay",
+                  candles: replay1.candles,
+                  cursorTs,
+                  loading: replay1.loading,
+                  levels: { flip: leftData.gammaFlip, call: leftData.callWall, put: leftData.putWall, pain: leftData.maxPain },
+                }}
+              />
+            </div>
+            <PairCandleChart
+              symbol={sym2}
+              timeframe={timeframe}
+              embedded
+              replay={{
+                active: mode === "replay",
+                candles: replay2.candles,
+                cursorTs,
+                loading: replay2.loading,
+                levels: { flip: rightData.gammaFlip, call: rightData.callWall, put: rightData.putWall, pain: rightData.maxPain },
+              }}
             />
           </div>
         </div>
 
-        {/* Bottom candle — the compare/right symbol */}
-        <div className="mx-auto w-full" style={{ maxWidth: 1024 }}>
-          <PairCandleChart symbol={sym2} timeframe={timeframe} />
-        </div>
+        {/* Replay transport — spans the full width; drives both ladders and both
+            candle charts together. */}
+        <PairReplayScrubber
+          mode={mode}
+          onEnterReplay={enterReplay}
+          onExitReplay={exitReplay}
+          frameCount={timeline.length}
+          cursor={effCursor}
+          onScrub={scrub}
+          isPlaying={isPlaying}
+          onPlayToggle={togglePlay}
+          onStep={step}
+          loop={loop}
+          onLoopToggle={() => setLoop((l) => !l)}
+          speed={speed}
+          onSpeedChange={setSpeed}
+          cursorTime={cursorTs}
+          startTime={timeline[0] ?? null}
+          endTime={timeline[timeline.length - 1] ?? null}
+          sessionDate={sessionDate}
+          isToday={isToday}
+          loading={replayLoading}
+          error={replayError}
+        />
       </div>
     </PageShell>
   );
