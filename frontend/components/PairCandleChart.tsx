@@ -624,7 +624,10 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
                 const bodyH = Math.max(1, Math.abs(openY - closeY));
                 return (
                   <g key={b.timestamp}>
-                    <line x1={x} x2={x} y1={highY} y2={lowY} stroke={col} strokeWidth={1} />
+                    {/* Upper + lower wicks only — no segment across the body, so a
+                        hollow (up) candle doesn't show a line through its middle. */}
+                    <line x1={x} x2={x} y1={highY} y2={bodyY} stroke={col} strokeWidth={1} />
+                    <line x1={x} x2={x} y1={bodyY + bodyH} y2={lowY} stroke={col} strokeWidth={1} />
                     <rect
                       x={x - candleWidth / 2}
                       y={bodyY}
