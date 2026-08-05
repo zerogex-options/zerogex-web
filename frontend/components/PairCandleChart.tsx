@@ -17,12 +17,32 @@
 import { useMemo, useState, type MouseEvent } from "react";
 import { useMarketQuote } from "@/hooks/useApiData";
 import { useMarketHistorical } from "@/hooks/useMarketHistorical";
+import { type ReplayCandle } from "@/hooks/usePairReplay";
 import LoadingSpinner from "./LoadingSpinner";
 import ErrorMessage from "./ErrorMessage";
 import { omitClosedMarketTimes, shouldOmitClosedMarketTimes, etTradingDateLabel } from "@/core/utils";
 import { type ChartTimeframe } from "./ChartTimeframeSelect";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import MobileScrollableChart from "./MobileScrollableChart";
+
+export interface CandleReplay {
+  /** When true the chart renders the replay session up to `cursorTs` instead of live. */
+  active: boolean;
+  /** Per-minute session candles (1-min); aggregated to the timeframe here. */
+  candles: ReplayCandle[];
+  /** The shared playhead timestamp — the chart reveals candles up to it. */
+  cursorTs: string | null;
+  loading: boolean;
+  /** Dealer-gamma levels for the cursor minute, drawn as price lines. */
+  levels: { flip: number | null; call: number | null; put: number | null; pain: number | null };
+}
+
+const LEVEL_LINES: Array<{ key: "flip" | "call" | "put" | "pain"; label: string; color: string }> = [
+  { key: "flip", label: "Flip", color: "var(--color-warning)" },
+  { key: "call", label: "Call", color: "var(--color-bear)" },
+  { key: "put", label: "Put", color: "var(--color-bull)" },
+  { key: "pain", label: "Pain", color: "var(--color-accent-hot)" },
+];
 
 interface CandleBar {
   timestamp: string;
@@ -126,17 +146,61 @@ function aggregateBars(
     });
 }
 
+const EMPTY_BARS: CandleBar[] = [];
+const EMPTY_REPLAY_CANDLES: ReplayCandle[] = [];
+
+// Reveal only the 1-min replay candles up to the playhead, then bucket to the
+// timeframe. Because we cut at the cursor FIRST, the bucket containing the
+// cursor holds only its reached members, so it grows minute-by-minute (open
+// pinned; close/high/low widening) — the daily-replay "1-min on a 5-min bar,
+// one tick at a time" behavior. Kept a module function (not a useMemo) so the
+// React Compiler memoizes it on its actual args.
+function buildReplayBars(
+  candles: ReplayCandle[],
+  cursorTs: string | null,
+  bucketMinutes: number,
+): CandleBar[] {
+  const cursorMs = cursorTs ? Date.parse(cursorTs) : Number.POSITIVE_INFINITY;
+  const reached: CandleBar[] = [];
+  for (const c of candles) {
+    if (c.open == null || c.high == null || c.low == null || c.close == null) continue;
+    const t = Date.parse(c.timestamp);
+    if (!Number.isFinite(t) || t > cursorMs) continue;
+    const up = c.close >= c.open;
+    const vol = c.volume ?? 0;
+    const hasSplit = c.up_volume != null && c.down_volume != null;
+    const upVolume = hasSplit ? (c.up_volume as number) : up ? vol : 0;
+    const downVolume = hasSplit ? (c.down_volume as number) : up ? 0 : vol;
+    reached.push({
+      timestamp: c.timestamp,
+      open: c.open,
+      high: c.high,
+      low: c.low,
+      close: c.close,
+      volume: upVolume + downVolume,
+      upVolume,
+      downVolume,
+    });
+  }
+  return aggregateBars(reached, bucketMinutes, MAX_POINTS);
+}
+
 interface PairCandleChartProps {
   symbol: string;
   timeframe: ChartTimeframe;
   /** Optional label override for the chart heading (defaults to the symbol). */
   label?: string;
+  /** Render flush (no card border/background) so it can sit inside a shell. */
+  embedded?: boolean;
+  /** When provided + active, the chart scrubs the replay session in lockstep. */
+  replay?: CandleReplay;
 }
 
-export default function PairCandleChart({ symbol, timeframe, label }: PairCandleChartProps) {
+export default function PairCandleChart({ symbol, timeframe, label, embedded = false, replay }: PairCandleChartProps) {
   const isMobile = useIsMobile();
   const { data: quote } = useMarketQuote(symbol, 1000);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  const replayActive = replay?.active ?? false;
 
   const intervalMinutes =
     timeframe === "1min" ? 1 : timeframe === "5min" ? 5 : timeframe === "15min" ? 15 : timeframe === "1hr" ? 60 : 1440;
@@ -189,7 +253,7 @@ export default function PairCandleChart({ symbol, timeframe, label }: PairCandle
   // Stage 2 — reconcile the live quote with the historical tip bar. Same
   // bucket-scoped, monotonic-widening, history-authoritative rules as
   // UnderlyingCandlesChart (see that file for the full rationale).
-  const bars = useMemo(() => {
+  const liveBars = useMemo(() => {
     if (historicalBars.length === 0) return historicalBars;
     const liveClose = quote?.close ?? null;
     if (liveClose == null || !quote?.session || quote.session === "closed") {
@@ -216,6 +280,13 @@ export default function PairCandleChart({ symbol, timeframe, label }: PairCandle
     };
     return patched;
   }, [historicalBars, quote, intervalMinutes]);
+
+  // Replay reveals the session up to the playhead (see buildReplayBars); live
+  // uses the reconciled live bars.
+  const replayBars = replayActive
+    ? buildReplayBars(replay?.candles ?? EMPTY_REPLAY_CANDLES, replay?.cursorTs ?? null, intervalMinutes)
+    : EMPTY_BARS;
+  const bars = replayActive ? replayBars : liveBars;
 
   const dateMarkers = useMemo(() => {
     const markers: Array<{ index: number; label: string; key: string }> = [];
@@ -280,28 +351,32 @@ export default function PairCandleChart({ symbol, timeframe, label }: PairCandle
   );
 
   const heading = label ?? quote?.symbol ?? symbol;
+  // Embedded charts sit inside a shell, so they drop their own card chrome and
+  // render flush; standalone charts keep the bordered card.
+  const cardStyle = embedded
+    ? {}
+    : { backgroundColor: "var(--bg-card)", border: "1px solid var(--border-default)" };
+  const cardClass = embedded ? "" : "rounded-lg";
+  const showLoading = (replayActive ? replay?.loading : loading) && bars.length === 0;
 
-  if (loading && bars.length === 0) {
+  if (showLoading) {
     return (
-      <div className="rounded-lg p-6" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border-default)" }}>
+      <div className={`${cardClass} p-6`} style={cardStyle}>
         <LoadingSpinner />
       </div>
     );
   }
-  if (error) {
+  if (!replayActive && error) {
     return (
-      <div className="rounded-lg p-6" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border-default)" }}>
+      <div className={`${cardClass} p-6`} style={cardStyle}>
         <ErrorMessage message={error} />
       </div>
     );
   }
   if (bars.length === 0) {
     return (
-      <div
-        className="rounded-lg p-6 text-center"
-        style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border-default)", color: "var(--text-secondary)" }}
-      >
-        No {symbol} timeseries data available
+      <div className={`${cardClass} p-6 text-center`} style={{ ...cardStyle, color: "var(--text-secondary)" }}>
+        {replayActive ? `No replay data for ${symbol}` : `No ${symbol} timeseries data available`}
       </div>
     );
   }
@@ -336,24 +411,27 @@ export default function PairCandleChart({ symbol, timeframe, label }: PairCandle
   };
 
   const isLive = quote?.session && quote.session !== "closed";
+  const headerClose = replayActive ? bars[bars.length - 1]?.close ?? null : quote?.close ?? null;
+  const badge = replayActive
+    ? { text: "REPLAY", color: "var(--color-accent-hot)", bg: "color-mix(in srgb, var(--color-accent-hot) 16%, transparent)" }
+    : isLive
+      ? { text: "LIVE", color: "var(--color-bull)", bg: "var(--color-bull-soft)" }
+      : { text: "CLOSED", color: "var(--text-muted)", bg: "var(--color-surface-subtle)" };
 
   return (
-    <div className="rounded-lg p-4" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border-default)" }}>
+    <div className={`${cardClass} p-4`} style={cardStyle}>
       <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
         <div className="flex items-baseline gap-2">
           <h3 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{heading}</h3>
           <span
             className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
-            style={{
-              color: isLive ? "var(--color-bull)" : "var(--text-muted)",
-              backgroundColor: isLive ? "var(--color-bull-soft)" : "var(--color-surface-subtle)",
-            }}
+            style={{ color: badge.color, backgroundColor: badge.bg }}
           >
-            {isLive ? "LIVE" : "CLOSED"}
+            {badge.text}
           </span>
-          {quote?.close != null && (
+          {headerClose != null && (
             <span className="text-sm font-mono" style={{ color: "var(--text-secondary)" }}>
-              ${quote.close.toFixed(2)}
+              ${headerClose.toFixed(2)}
             </span>
           )}
         </div>
@@ -532,6 +610,24 @@ export default function PairCandleChart({ symbol, timeframe, label }: PairCandle
                 </g>
               );
             })}
+
+            {/* Dealer-gamma level lines, in lockstep with the replayed ladders:
+                the Flip / Call & Put walls / Max Pain for the cursor minute,
+                drawn on the shared price axis and clipped to the visible band. */}
+            {replayActive &&
+              LEVEL_LINES.map(({ key, label: lvlLabel, color }) => {
+                const v = replay?.levels?.[key];
+                if (v == null || !Number.isFinite(v) || v < priceAxis.niceMin || v > priceAxis.niceMax) return null;
+                const y = yPrice(v);
+                return (
+                  <g key={`lvl-${key}`}>
+                    <line x1={padLeft} x2={width - padRight} y1={y} y2={y} stroke={color} strokeWidth={1} strokeDasharray="5 3" opacity={0.85} />
+                    <text x={width - padRight - 4} y={y - 3} textAnchor="end" fontSize="10" fontWeight={700} fill={color}>
+                      {lvlLabel} {v.toFixed(Math.abs(v) >= 1000 ? 0 : 2)}
+                    </text>
+                  </g>
+                );
+              })}
 
             {hovered && (
               <line

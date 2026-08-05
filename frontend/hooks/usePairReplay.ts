@@ -32,6 +32,9 @@ export interface ReplayCandle {
   high: number | null;
   low: number | null;
   close: number | null;
+  up_volume?: number | null;
+  down_volume?: number | null;
+  volume?: number | null;
 }
 
 interface ReplaySessionList {
