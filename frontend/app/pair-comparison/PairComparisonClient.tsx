@@ -299,7 +299,7 @@ export default function PairComparisonClient() {
       } else {
         setCursor(cur + 1);
       }
-    }, Math.max(120, Math.round(700 / speed)));
+    }, Math.max(40, Math.round(1000 / speed)));
     return () => clearInterval(id);
   }, [mode, isPlaying, speed, timeline.length]);
 

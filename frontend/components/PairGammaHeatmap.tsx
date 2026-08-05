@@ -239,16 +239,19 @@ function cellTint(netGex: number, clip: number): string {
 // ---- Small presentational bits ---------------------------------------------
 // Header legend entry — the key for the on-row rail tags. Just the colored code
 // tag + value (no outer box, no repeated word); the full name is in the title.
-function LevelChip({ meta, value }: { meta: (typeof LEVEL_META)[LevelKey]; value: number }) {
+// Always rendered for every level (GF/CW/PW/MP) so the legend is the same size
+// in both columns; an unavailable level shows a muted "NA".
+function LevelChip({ meta, value }: { meta: (typeof LEVEL_META)[LevelKey]; value: number | null }) {
+  const has = value != null && Number.isFinite(value);
   return (
     <span
       className="inline-flex items-center gap-1 font-mono"
-      title={`${meta.label}: ${fmtLevel(value)}`}
+      title={has ? `${meta.label}: ${fmtLevel(value as number)}` : `${meta.label}: not available`}
       style={{ whiteSpace: "nowrap" }}
     >
       <RailTag meta={meta} />
-      <span style={{ fontSize: 10, fontWeight: 600, color: "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}>
-        {fmtLevel(value)}
+      <span style={{ fontSize: 10, fontWeight: 600, color: has ? "var(--text-primary)" : "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}>
+        {has ? fmtLevel(value as number) : "NA"}
       </span>
     </span>
   );
@@ -349,14 +352,13 @@ function HeatmapColumn({
           </span>
           <ChangeBadge changePercent={input.changePercent} isPositive={input.isPositive} />
         </div>
-        {/* Live level legend — the key for the on-row rail tags (GF/CW/PW/MP),
-            each with its current value. */}
+        {/* Live level legend — the key for the on-row rail tags (GF/CW/PW/MP).
+            All four always render (missing → "NA") so both columns stay the
+            same size. */}
         <div className="flex flex-wrap gap-x-2.5 gap-y-1">
-          {(["flip", "call", "put", "pain"] as LevelKey[]).map((k) =>
-            lv[k] != null && Number.isFinite(lv[k] as number) ? (
-              <LevelChip key={k} meta={LEVEL_META[k]} value={lv[k] as number} />
-            ) : null,
-          )}
+          {(["flip", "call", "put", "pain"] as LevelKey[]).map((k) => (
+            <LevelChip key={k} meta={LEVEL_META[k]} value={lv[k]} />
+          ))}
         </div>
       </div>
 

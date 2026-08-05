@@ -14,7 +14,8 @@
  * component renders just the instrument.
  */
 
-import { useMemo, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
 import { useMarketQuote } from "@/hooks/useApiData";
 import { useMarketHistorical } from "@/hooks/useMarketHistorical";
 import { type ReplayCandle } from "@/hooks/usePairReplay";
@@ -94,18 +95,8 @@ function priceLabel(p: number, step: number): string {
   return `$${p.toFixed(decimals)}`;
 }
 
-function volumeLabel(v: number): string {
-  if (v === 0) return "0";
-  const abs = Math.abs(v);
-  if (abs >= 1_000_000) {
-    const m = v / 1_000_000;
-    return Number.isInteger(m) ? `${m.toFixed(0)}M` : `${m.toFixed(1)}M`;
-  }
-  if (abs >= 1_000) {
-    const k = v / 1_000;
-    return Number.isInteger(k) ? `${k.toFixed(0)}K` : `${k.toFixed(1)}K`;
-  }
-  return `${Math.round(v)}`;
+function clamp(v: number, lo: number, hi: number): number {
+  return Math.min(hi, Math.max(lo, v));
 }
 
 function aggregateBars(
@@ -253,6 +244,21 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const replayActive = replay?.active ?? false;
 
+  // Both-axis zoom/pan view: xZoom = fraction of bars visible (1 = all), xPan =
+  // bars hidden on the right, yZoom = price-band multiplier (1 = auto-fit), yPan
+  // = fractional vertical shift. Wheel zooms time (Shift = price) toward the
+  // cursor; drag pans both.
+  const [view, setView] = useState({ xZoom: 1, xPan: 0, yZoom: 1, yPan: 0 });
+  const dragRef = useRef<{ startPx: number; startPy: number; startXPan: number; startYPan: number; moved: boolean } | null>(null);
+  const wheelCleanupRef = useRef<null | (() => void)>(null);
+  // Live geometry snapshot for the imperative wheel handler (so it never needs
+  // to re-subscribe and never reads stale closures).
+  const ctxRef = useRef({
+    total: 0, startIdx: 0, xStep: 1, effLo: 0, effHi: 1, fitCenter: 0, fitHalf: 1,
+    width: 1100, height: 440, padLeft: 60, padTop: 18, plotW: 1, plotH: 1, minBars: 6,
+  });
+  const clipId = `pcc-clip-${useId().replace(/[^a-zA-Z0-9-]/g, "")}`;
+
   const intervalMinutes =
     timeframe === "1min" ? 1 : timeframe === "5min" ? 5 : timeframe === "15min" ? 15 : timeframe === "1hr" ? 60 : 1440;
 
@@ -331,35 +337,155 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
     return markers;
   }, [bars]);
 
+  // ── Layout (price only; the volume panel was removed) ──
   const width = 1100;
-  const height = timeframe === "1day" ? 580 : 520;
-  const padLeft = 66;
-  const padRight = 28;
-  const padTop = 24;
-  const priceAreaBottom = 360;
-  const volumeAreaTop = 384;
-  const volumeAreaBottom = 476;
+  const height = timeframe === "1day" ? 480 : 440;
+  const padLeft = 60;
+  const padRight = 16;
+  const padTop = 18;
+  const priceAreaBottom = height - 42;
+  const plotW = width - padLeft - padRight;
+  const plotH = priceAreaBottom - padTop;
+  const MIN_BARS = 6;
 
-  const dateMarkersForLabels = useMemo(() => {
-    if (dateMarkers.length <= 1) return dateMarkers;
-    const minGap = isMobile ? 80 : 52;
-    const filtered: Array<{ index: number; label: string; key: string }> = [];
-    let lastLabeledX = Number.NEGATIVE_INFINITY;
-    dateMarkers.forEach((marker) => {
-      const x =
-        padLeft +
-        marker.index * ((width - padLeft - padRight) / Math.max(1, bars.length - 1));
-      if (x - lastLabeledX < minGap) return;
-      filtered.push(marker);
-      lastLabeledX = x;
+  // ── Visible window (time zoom + pan) ──
+  const total = bars.length;
+  const visibleCount = Math.max(Math.min(MIN_BARS, total), Math.min(total, Math.round(total * view.xZoom)));
+  const maxPanBars = Math.max(0, total - visibleCount);
+  const panBars = clamp(Math.round(view.xPan), 0, maxPanBars);
+  const endIdx = total - panBars;
+  const startIdx = Math.max(0, endIdx - visibleCount);
+  const visibleBars = bars.slice(startIdx, endIdx);
+  const vLen = visibleBars.length;
+  const xStep = plotW / Math.max(1, vLen - 1);
+  const candleWidth = Math.max(2, Math.min(12, xStep * 0.6));
+  const xForVis = (i: number) => padLeft + i * xStep;
+
+  // ── Price band (auto-fit the visible bars, then apply Y zoom/pan) ──
+  let priceLo = Number.POSITIVE_INFINITY;
+  let priceHi = Number.NEGATIVE_INFINITY;
+  for (const b of visibleBars) {
+    if (b.low < priceLo) priceLo = b.low;
+    if (b.high > priceHi) priceHi = b.high;
+  }
+  if (!Number.isFinite(priceLo) || !Number.isFinite(priceHi) || priceHi <= priceLo) {
+    const midp = Number.isFinite(priceLo) ? priceLo : 0;
+    priceLo = midp - 1;
+    priceHi = midp + 1;
+  }
+  const basePad = (priceHi - priceLo) * 0.06 || 1;
+  const fitLo = priceLo - basePad;
+  const fitHi = priceHi + basePad;
+  const fitCenter = (fitLo + fitHi) / 2;
+  const fitHalf = (fitHi - fitLo) / 2;
+  const bandCenter = fitCenter + view.yPan * (fitHi - fitLo);
+  const bandHalf = Math.max(1e-6, fitHalf * view.yZoom);
+  const effLo = bandCenter - bandHalf;
+  const effHi = bandCenter + bandHalf;
+  const yPrice = (p: number) => padTop + (1 - (p - effLo) / Math.max(1e-9, effHi - effLo)) * plotH;
+  const priceAxis = niceAxis(effLo, effHi, 5);
+
+  // Hover target stored as a GLOBAL bar index so it survives zoom/pan.
+  const fallbackIdx = Math.max(0, total - 1);
+  const resolvedIdx = hoveredIdx !== null ? clamp(hoveredIdx, 0, fallbackIdx) : fallbackIdx;
+  const hovered = bars[resolvedIdx] ?? null;
+  const hoverVis = resolvedIdx - startIdx;
+  const showHoverLine = hoveredIdx !== null && hoverVis >= 0 && hoverVis < vLen;
+
+  const isZoomed =
+    view.xZoom < 0.999 || view.xPan > 0.001 || Math.abs(view.yZoom - 1) > 0.001 || Math.abs(view.yPan) > 0.001;
+
+  // Keep the wheel handler's geometry snapshot fresh (post-commit; wheel events
+  // are user-driven, so there's no lag).
+  useEffect(() => {
+    ctxRef.current = { total, startIdx, xStep, effLo, effHi, fitCenter, fitHalf, width, height, padLeft, padTop, plotW, plotH, minBars: MIN_BARS };
+  });
+
+  // Wheel zoom via a callback ref so it attaches when the SVG actually mounts
+  // (after the loading/empty states); { passive: false } lets us stop page scroll.
+  const attachSvg = useCallback((node: SVGSVGElement | null) => {
+    if (wheelCleanupRef.current) {
+      wheelCleanupRef.current();
+      wheelCleanupRef.current = null;
+    }
+    if (!node) return;
+    const onWheel = (e: WheelEvent) => {
+      if (e.deltaY === 0) return;
+      e.preventDefault();
+      const c = ctxRef.current;
+      const rect = node.getBoundingClientRect();
+      const px = ((e.clientX - rect.left) / Math.max(1, rect.width)) * c.width;
+      const py = ((e.clientY - rect.top) / Math.max(1, rect.height)) * c.height;
+      const zoomIn = e.deltaY < 0;
+      if (e.shiftKey) {
+        setView((prev) => {
+          const factor = zoomIn ? 0.85 : 1 / 0.85;
+          const newYZoom = clamp(prev.yZoom * factor, 0.05, 5);
+          const frac = clamp((py - c.padTop) / Math.max(1e-9, c.plotH), 0, 1);
+          const priceAtCursor = c.effHi - frac * (c.effHi - c.effLo);
+          const half2 = c.fitHalf * newYZoom;
+          const center2 = priceAtCursor + half2 * (2 * frac - 1);
+          const newYPan = c.fitHalf > 0 ? (center2 - c.fitCenter) / (c.fitHalf * 2) : 0;
+          return { ...prev, yZoom: newYZoom, yPan: clamp(newYPan, -6, 6) };
+        });
+      } else {
+        setView((prev) => {
+          const factor = zoomIn ? 0.82 : 1 / 0.82;
+          const minZoom = c.total > 0 ? Math.min(1, c.minBars / c.total) : 1;
+          const newXZoom = clamp(prev.xZoom * factor, minZoom, 1);
+          const newVisible = Math.max(c.minBars, Math.min(c.total, Math.round(c.total * newXZoom)));
+          const idxAtCursor = c.startIdx + (px - c.padLeft) / Math.max(1e-9, c.xStep);
+          const newXStep = c.plotW / Math.max(1, newVisible - 1);
+          const newStart = idxAtCursor - (px - c.padLeft) / Math.max(1e-9, newXStep);
+          const newPan = c.total - (newStart + newVisible);
+          const maxPan2 = Math.max(0, c.total - newVisible);
+          return { ...prev, xZoom: newXZoom, xPan: clamp(newPan, 0, maxPan2) };
+        });
+      }
+    };
+    node.addEventListener("wheel", onWheel, { passive: false });
+    wheelCleanupRef.current = () => node.removeEventListener("wheel", onWheel);
+  }, []);
+
+  const beginDrag = (e: MouseEvent<SVGSVGElement>) => {
+    dragRef.current = { startPx: e.clientX, startPy: e.clientY, startXPan: panBars, startYPan: view.yPan, moved: false };
+  };
+  const handleMove = (e: MouseEvent<SVGSVGElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const d = dragRef.current;
+    if (d) {
+      const dxPx = e.clientX - d.startPx;
+      const dyPx = e.clientY - d.startPy;
+      if (Math.abs(dxPx) > 2 || Math.abs(dyPx) > 2) d.moved = true;
+      const dxView = (dxPx / Math.max(1, rect.width)) * width;
+      const dyView = (dyPx / Math.max(1, rect.height)) * height;
+      const barsDelta = dxView / Math.max(1e-9, xStep);
+      setView((prev) => {
+        const vc = Math.max(Math.min(MIN_BARS, total), Math.min(total, Math.round(total * prev.xZoom)));
+        const maxPan2 = Math.max(0, total - vc);
+        const yPanDelta = (dyView / Math.max(1e-9, plotH)) * prev.yZoom;
+        return { ...prev, xPan: clamp(d.startXPan + barsDelta, 0, maxPan2), yPan: clamp(d.startYPan + yPanDelta, -6, 6) };
+      });
+      return;
+    }
+    const xView = ((e.clientX - rect.left) / Math.max(1, rect.width)) * width;
+    const iVis = Math.round((xView - padLeft) / Math.max(1e-9, xStep));
+    setHoveredIdx(startIdx + clamp(iVis, 0, Math.max(0, vLen - 1)));
+  };
+  const endDrag = () => {
+    dragRef.current = null;
+  };
+  const handleLeave = () => {
+    dragRef.current = null;
+    setHoveredIdx(null);
+  };
+  const resetView = () => setView({ xZoom: 1, xPan: 0, yZoom: 1, yPan: 0 });
+  const zoomTime = (dir: 1 | -1) =>
+    setView((prev) => {
+      const factor = dir > 0 ? 0.7 : 1 / 0.7;
+      const minZoom = total > 0 ? Math.min(1, MIN_BARS / total) : 1;
+      return { ...prev, xZoom: clamp(prev.xZoom * factor, minZoom, 1) };
     });
-    return filtered;
-  }, [bars.length, dateMarkers, isMobile]);
-
-  const labeledDateMarkerKeys = useMemo(
-    () => new Set(dateMarkersForLabels.map((marker) => marker.key)),
-    [dateMarkersForLabels],
-  );
 
   const heading = label ?? quote?.symbol ?? symbol;
   // Embedded charts sit inside a shell, so they drop their own card chrome and
@@ -392,35 +518,6 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
     );
   }
 
-  const minPrice = Math.min(...bars.map((b) => b.low));
-  const maxPrice = Math.max(...bars.map((b) => b.high));
-  const maxVol = Math.max(...bars.map((b) => b.volume), 0);
-  const priceAxis = niceAxis(minPrice, maxPrice, 5);
-  const volumeAxis = niceAxis(0, maxVol, 4);
-  const xStep = (width - padLeft - padRight) / Math.max(1, bars.length - 1);
-  const candleWidth = Math.max(3, Math.min(10, xStep * 0.6));
-
-  const yPrice = (p: number) =>
-    padTop +
-    (1 - (p - priceAxis.niceMin) / Math.max(1e-9, priceAxis.niceMax - priceAxis.niceMin)) *
-      (priceAreaBottom - padTop);
-  const yVol = (v: number) =>
-    volumeAreaBottom - (v / Math.max(1, volumeAxis.niceMax)) * (volumeAreaBottom - volumeAreaTop);
-
-  const fallbackIdx = Math.max(0, bars.length - 1);
-  const resolvedIdx = hoveredIdx !== null ? Math.max(0, Math.min(fallbackIdx, hoveredIdx)) : fallbackIdx;
-  const hovered = bars[resolvedIdx] ?? null;
-
-  const handleChartMouseMove = (event: MouseEvent<SVGSVGElement>) => {
-    if (bars.length === 0) return;
-    const rect = event.currentTarget.getBoundingClientRect();
-    const xPx = event.clientX - rect.left;
-    const xView = (xPx / Math.max(1, rect.width)) * width;
-    const idx = Math.round((xView - padLeft) / Math.max(1e-9, xStep));
-    const clamped = Math.max(0, Math.min(bars.length - 1, idx));
-    setHoveredIdx(clamped);
-  };
-
   const isLive = quote?.session && quote.session !== "closed";
   const headerClose = replayActive ? bars[bars.length - 1]?.close ?? null : quote?.close ?? null;
   const badge = replayActive
@@ -446,38 +543,54 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
             </span>
           )}
         </div>
-        {hovered && (
-          <div
-            className="text-[11px] rounded px-2 py-1 font-mono pointer-events-none whitespace-nowrap"
-            style={{
-              backgroundColor: "var(--color-chart-tooltip-bg)",
-              border: "1px solid var(--color-border)",
-              color: "var(--color-chart-tooltip-text)",
-            }}
-          >
-            O {hovered.open.toFixed(2)} · H {hovered.high.toFixed(2)} · L {hovered.low.toFixed(2)} · C {hovered.close.toFixed(2)}
+        <div className="flex items-center gap-2">
+          {hovered && (
+            <div
+              className="text-[11px] rounded px-2 py-1 font-mono pointer-events-none whitespace-nowrap"
+              style={{
+                backgroundColor: "var(--color-chart-tooltip-bg)",
+                border: "1px solid var(--color-border)",
+                color: "var(--color-chart-tooltip-text)",
+              }}
+            >
+              O {hovered.open.toFixed(2)} · H {hovered.high.toFixed(2)} · L {hovered.low.toFixed(2)} · C {hovered.close.toFixed(2)}
+            </div>
+          )}
+          <div className="inline-flex overflow-hidden rounded-md" style={{ border: "1px solid var(--border-default)" }} role="group" aria-label="Zoom controls">
+            <button type="button" onClick={() => zoomTime(-1)} title="Zoom out (time)" aria-label="Zoom out" className="px-2 py-1 transition-colors hover:bg-[var(--bg-hover)]" style={{ color: "var(--text-secondary)" }}>
+              <ZoomOut size={13} />
+            </button>
+            <button type="button" onClick={() => zoomTime(1)} title="Zoom in (time)" aria-label="Zoom in" className="px-2 py-1 transition-colors hover:bg-[var(--bg-hover)]" style={{ color: "var(--text-secondary)", borderLeft: "1px solid var(--border-default)" }}>
+              <ZoomIn size={13} />
+            </button>
+            <button type="button" onClick={resetView} disabled={!isZoomed} title="Reset zoom" aria-label="Reset zoom" className="px-2 py-1 transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-40 disabled:cursor-not-allowed" style={{ color: "var(--text-secondary)", borderLeft: "1px solid var(--border-default)" }}>
+              <RotateCcw size={13} />
+            </button>
           </div>
-        )}
+        </div>
       </div>
       <MobileScrollableChart>
         <div className="relative w-full">
           <svg
+            ref={attachSvg}
             width="100%"
             height="100%"
             viewBox={`0 0 ${width} ${height}`}
             preserveAspectRatio="xMinYMin meet"
-            style={{ aspectRatio: `${width} / ${height}` }}
-            className="block w-full"
-            onMouseMove={handleChartMouseMove}
-            onMouseLeave={() => setHoveredIdx(null)}
+            style={{ aspectRatio: `${width} / ${height}`, cursor: "crosshair" }}
+            className="block w-full select-none"
+            onMouseDown={beginDrag}
+            onMouseMove={handleMove}
+            onMouseUp={endDrag}
+            onMouseLeave={handleLeave}
           >
-            <text
-              x="16"
-              y={(padTop + priceAreaBottom) / 2}
-              transform={`rotate(-90, 16, ${(padTop + priceAreaBottom) / 2})`}
-              fontSize="11"
-              fill={"var(--text-secondary)"}
-            >
+            <defs>
+              <clipPath id={clipId}>
+                <rect x={padLeft} y={padTop} width={plotW} height={plotH} />
+              </clipPath>
+            </defs>
+
+            <text x="13" y={(padTop + priceAreaBottom) / 2} transform={`rotate(-90, 13, ${(padTop + priceAreaBottom) / 2})`} fontSize="11" fill="var(--text-secondary)">
               Price
             </text>
 
@@ -486,175 +599,106 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
               if (y < padTop - 0.5 || y > priceAreaBottom + 0.5) return null;
               return (
                 <g key={`p-${price}`}>
-                  <line x1={padLeft} x2={width - padRight} y1={y} y2={y} stroke={"var(--text-secondary)"} opacity={0.2} />
-                  <text x={padLeft - 8} y={y + 4} textAnchor="end" fontSize="10" fill={"var(--text-secondary)"}>
+                  <line x1={padLeft} x2={width - padRight} y1={y} y2={y} stroke="var(--text-secondary)" opacity={0.18} />
+                  <text x={padLeft - 8} y={y + 4} textAnchor="end" fontSize="10" fill="var(--text-secondary)">
                     {priceLabel(price, priceAxis.step)}
                   </text>
                 </g>
               );
             })}
 
-            <text
-              x="16"
-              y={(volumeAreaTop + volumeAreaBottom) / 2}
-              transform={`rotate(-90, 16, ${(volumeAreaTop + volumeAreaBottom) / 2})`}
-              fontSize="11"
-              fill={"var(--text-secondary)"}
-            >
-              Volume
-            </text>
-
-            {volumeAxis.ticks.map((vol) => {
-              const y = yVol(vol);
-              if (y < volumeAreaTop - 0.5 || y > volumeAreaBottom + 0.5) return null;
-              return (
-                <g key={`v-${vol}`}>
-                  <line x1={padLeft} x2={width - padRight} y1={y} y2={y} stroke={"var(--text-secondary)"} opacity={0.12} />
-                  <text x={padLeft - 8} y={y + 4} textAnchor="end" fontSize="10" fill={"var(--text-secondary)"}>
-                    {volumeLabel(vol)}
-                  </text>
-                </g>
-              );
-            })}
-
-            {bars.map((b, i) => {
-              const x = padLeft + i * xStep;
-              const prevClose = i > 0 ? bars[i - 1].close : b.open;
-              const isUp = b.close > prevClose;
-              const isHollow = b.close > b.open;
-              const c = isUp ? "var(--color-bull)" : "var(--color-bear)";
-              const openY = yPrice(b.open);
-              const closeY = yPrice(b.close);
-              const highY = yPrice(b.high);
-              const lowY = yPrice(b.low);
-              const bodyY = Math.min(openY, closeY);
-              const bodyH = Math.max(1, Math.abs(openY - closeY));
-
-              const upTopY = yVol(b.upVolume + b.downVolume);
-              const upBottomY = yVol(b.downVolume);
-              const downTopY = yVol(b.downVolume);
-              const downBottomY = volumeAreaBottom;
-
-              return (
-                <g key={b.timestamp}>
-                  <rect
-                    x={x - Math.max(candleWidth, xStep * 1.4) / 2}
-                    y={padTop}
-                    width={Math.max(candleWidth, xStep * 1.4)}
-                    height={volumeAreaBottom - padTop}
-                    fill="transparent"
-                  />
-                  <line x1={x} x2={x} y1={highY} y2={Math.min(openY, closeY)} stroke={c} strokeWidth={1} />
-                  <line x1={x} x2={x} y1={Math.max(openY, closeY)} y2={lowY} stroke={c} strokeWidth={1} />
-                  <rect
-                    x={x - candleWidth / 2}
-                    y={bodyY}
-                    width={candleWidth}
-                    height={bodyH}
-                    fill={isHollow ? "transparent" : c}
-                    stroke={c}
-                    strokeWidth={1}
-                  />
-                  {b.downVolume > 0 && (
-                    <rect
-                      x={x - candleWidth / 2}
-                      y={downTopY}
-                      width={candleWidth}
-                      height={Math.max(1, downBottomY - downTopY)}
-                      fill={"var(--color-bear)"}
-                      opacity={0.75}
-                    />
-                  )}
-                  {b.upVolume > 0 && (
-                    <rect
-                      x={x - candleWidth / 2}
-                      y={upTopY}
-                      width={candleWidth}
-                      height={Math.max(1, upBottomY - upTopY)}
-                      fill={"var(--color-bull)"}
-                      opacity={0.75}
-                    />
-                  )}
-                  {timeframe !== "1day" && i % Math.ceil(bars.length / (isMobile ? 4 : 8)) === 0 && (
-                    <text
-                      x={x}
-                      y={volumeAreaBottom + 16}
-                      fontSize={isMobile ? "8" : "10"}
-                      textAnchor="middle"
-                      fill={"var(--text-primary)"}
-                    >
-                      {new Date(b.timestamp).toLocaleTimeString("en-US", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        hour12: false,
-                      })}
-                    </text>
-                  )}
-                </g>
-              );
-            })}
-
-            {dateMarkers.map((marker) => {
-              const x = padLeft + marker.index * xStep;
-              const showLabel = labeledDateMarkerKeys.has(marker.key);
-              return (
-                <g key={`date-marker-${marker.key}`}>
-                  <line x1={x} x2={x} y1={padTop} y2={volumeAreaBottom} stroke={"var(--text-secondary)"} opacity={0.22} />
-                  {showLabel ? (
-                    timeframe === "1day" ? (
-                      <text
-                        x={x + 6}
-                        y={volumeAreaBottom + 40}
-                        fontSize="10"
-                        textAnchor="start"
-                        fill={"var(--text-secondary)"}
-                        transform={`rotate(-90, ${x + 6}, ${volumeAreaBottom + 40})`}
-                      >
-                        {marker.label}
-                      </text>
-                    ) : (
-                      <text x={x + 4} y={volumeAreaBottom + 28} fontSize="10" textAnchor="start" fill={"var(--text-secondary)"}>
-                        {marker.label}
-                      </text>
-                    )
-                  ) : null}
-                </g>
-              );
-            })}
-
-            {/* Dealer-gamma level lines, in lockstep with the replayed ladders:
-                the Flip / Call & Put walls / Max Pain for the cursor minute,
-                drawn on the shared price axis and clipped to the visible band. */}
-            {replayActive &&
-              LEVEL_LINES.map(({ key, label: lvlLabel, color }) => {
-                const v = replay?.levels?.[key];
-                if (v == null || !Number.isFinite(v) || v < priceAxis.niceMin || v > priceAxis.niceMax) return null;
-                const y = yPrice(v);
+            {/* Price-dependent marks are clipped to the plot box so a Y-zoom never
+                spills past the axes. */}
+            <g clipPath={`url(#${clipId})`}>
+              {visibleBars.map((b, i) => {
+                const x = xForVis(i);
+                const prevClose = i > 0 ? visibleBars[i - 1].close : startIdx > 0 ? bars[startIdx - 1].close : b.open;
+                const isUp = b.close > prevClose;
+                const isHollow = b.close > b.open;
+                const col = isUp ? "var(--color-bull)" : "var(--color-bear)";
+                const openY = yPrice(b.open);
+                const closeY = yPrice(b.close);
+                const highY = yPrice(b.high);
+                const lowY = yPrice(b.low);
+                const bodyY = Math.min(openY, closeY);
+                const bodyH = Math.max(1, Math.abs(openY - closeY));
                 return (
-                  <g key={`lvl-${key}`}>
-                    <line x1={padLeft} x2={width - padRight} y1={y} y2={y} stroke={color} strokeWidth={1} strokeDasharray="5 3" opacity={0.85} />
-                    <text x={width - padRight - 4} y={y - 3} textAnchor="end" fontSize="10" fontWeight={700} fill={color}>
-                      {lvlLabel} {v.toFixed(Math.abs(v) >= 1000 ? 0 : 2)}
-                    </text>
+                  <g key={b.timestamp}>
+                    <line x1={x} x2={x} y1={highY} y2={lowY} stroke={col} strokeWidth={1} />
+                    <rect
+                      x={x - candleWidth / 2}
+                      y={bodyY}
+                      width={candleWidth}
+                      height={bodyH}
+                      fill={isHollow ? "transparent" : col}
+                      stroke={col}
+                      strokeWidth={1}
+                    />
                   </g>
                 );
               })}
 
-            {hovered && (
-              <line
-                x1={padLeft + resolvedIdx * xStep}
-                x2={padLeft + resolvedIdx * xStep}
-                y1={padTop}
-                y2={volumeAreaBottom}
-                stroke={"var(--text-secondary)"}
-                opacity={0.5}
-                strokeDasharray="3,3"
-                pointerEvents="none"
-              />
-            )}
+              {/* Dealer-gamma level lines during replay — Flip / Call & Put walls /
+                  Max Pain for the cursor minute, on the shared price axis. */}
+              {replayActive &&
+                LEVEL_LINES.map(({ key, label: lvlLabel, color }) => {
+                  const v = replay?.levels?.[key];
+                  if (v == null || !Number.isFinite(v) || v < effLo || v > effHi) return null;
+                  const y = yPrice(v);
+                  return (
+                    <g key={`lvl-${key}`}>
+                      <line x1={padLeft} x2={width - padRight} y1={y} y2={y} stroke={color} strokeWidth={1} strokeDasharray="5 3" opacity={0.85} />
+                      <text x={width - padRight - 4} y={y - 3} textAnchor="end" fontSize="10" fontWeight={700} fill={color}>
+                        {lvlLabel} {v.toFixed(Math.abs(v) >= 1000 ? 0 : 2)}
+                      </text>
+                    </g>
+                  );
+                })}
 
-            <line x1={padLeft} x2={width - padRight} y1={priceAreaBottom} y2={priceAreaBottom} stroke={"var(--text-secondary)"} opacity={0.35} />
-            <line x1={padLeft} x2={width - padRight} y1={volumeAreaBottom} y2={volumeAreaBottom} stroke={"var(--text-secondary)"} opacity={0.6} />
+              {showHoverLine && (
+                <line
+                  x1={xForVis(hoverVis)}
+                  x2={xForVis(hoverVis)}
+                  y1={padTop}
+                  y2={priceAreaBottom}
+                  stroke="var(--text-secondary)"
+                  opacity={0.5}
+                  strokeDasharray="3,3"
+                  pointerEvents="none"
+                />
+              )}
+            </g>
+
+            {/* Time axis — day separators for visible bars + spaced time/date labels. */}
+            {(() => {
+              const els: ReactNode[] = [];
+              for (const marker of dateMarkers) {
+                const vi = marker.index - startIdx;
+                if (vi < 0 || vi >= vLen) continue;
+                const x = xForVis(vi);
+                els.push(<line key={`dsep-${marker.key}`} x1={x} x2={x} y1={padTop} y2={priceAreaBottom} stroke="var(--text-secondary)" opacity={0.2} />);
+              }
+              let lastLabeledX = Number.NEGATIVE_INFINITY;
+              const minGap = isMobile ? 64 : 46;
+              visibleBars.forEach((b, i) => {
+                const x = xForVis(i);
+                if (x - lastLabeledX < minGap) return;
+                lastLabeledX = x;
+                const dt = new Date(b.timestamp);
+                const lbl =
+                  timeframe === "1day"
+                    ? dt.toLocaleDateString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric" })
+                    : dt.toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit", hour12: false });
+                els.push(
+                  <text key={`xl-${b.timestamp}`} x={x} y={priceAreaBottom + 16} fontSize={isMobile ? "8" : "10"} textAnchor="middle" fill="var(--text-secondary)">
+                    {lbl}
+                  </text>,
+                );
+              });
+              return els;
+            })()}
+
+            <line x1={padLeft} x2={width - padRight} y1={priceAreaBottom} y2={priceAreaBottom} stroke="var(--text-secondary)" opacity={0.4} />
           </svg>
         </div>
       </MobileScrollableChart>

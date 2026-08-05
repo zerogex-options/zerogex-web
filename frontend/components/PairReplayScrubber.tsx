@@ -11,7 +11,7 @@
 
 import { History, Pause, Play, Repeat, SkipBack, SkipForward } from "lucide-react";
 
-const SPEEDS = [1, 2, 4, 8] as const;
+const SPEEDS = [1, 2, 4, 8, 16] as const;
 
 function fmtTime(iso: string | null): string {
   if (!iso) return "--:--";
