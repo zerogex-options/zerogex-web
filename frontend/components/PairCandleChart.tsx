@@ -34,11 +34,12 @@ export interface CandleReplay {
   /** The shared playhead timestamp — the chart reveals candles up to it. */
   cursorTs: string | null;
   loading: boolean;
-  /** Dealer-gamma levels for the cursor minute, drawn as price lines. */
-  levels: { flip: number | null; call: number | null; put: number | null; pain: number | null };
+  /** Dealer-gamma levels drawn as price lines (spot, flip, walls, max pain). */
+  levels: { spot: number | null; flip: number | null; call: number | null; put: number | null; pain: number | null };
 }
 
-const LEVEL_LINES: Array<{ key: "flip" | "call" | "put" | "pain"; code: string; color: string }> = [
+const LEVEL_LINES: Array<{ key: "spot" | "flip" | "call" | "put" | "pain"; code: string; color: string }> = [
+  { key: "spot", code: "SP", color: "var(--color-navy)" },
   { key: "flip", code: "GF", color: "var(--color-warning)" },
   { key: "call", code: "CW", color: "var(--color-bear)" },
   { key: "put", code: "PW", color: "var(--color-bull)" },
@@ -341,9 +342,16 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
   const width = 1100;
   const height = timeframe === "1day" ? 480 : 440;
   const padLeft = 60;
-  // Reserve a right gutter for the replay level tags so their labels sit beside
-  // the candles instead of over them; live mode keeps the candles full-width.
-  const padRight = replayActive ? 64 : 16;
+  // Show dealer-gamma levels on the candles in BOTH live and replay; reserve a
+  // right gutter for their value tags so the labels sit beside the candles, not
+  // over them. If no level is available the gutter collapses.
+  const hasLevels =
+    !!replay?.levels &&
+    LEVEL_LINES.some((l) => {
+      const v = replay.levels[l.key];
+      return v != null && Number.isFinite(v);
+    });
+  const padRight = hasLevels ? 64 : 16;
   const padTop = 18;
   const priceAreaBottom = height - 42;
   const plotW = width - padLeft - padRight;
@@ -657,11 +665,11 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
               )}
             </g>
 
-            {/* Dealer-gamma level lines during replay — the line spans the candle
-                area; the value tag lives in the right margin (outside the clip),
-                so labels never overlap the candles. */}
-            {replayActive &&
-              LEVEL_LINES.map(({ key, code, color }) => {
+            {/* Dealer-gamma levels (spot / flip / walls / max pain) on the
+                candles, live and replay — the line spans the candle area; the
+                value tag lives in the right margin (outside the clip) so labels
+                never overlap the candles. */}
+            {LEVEL_LINES.map(({ key, code, color }) => {
                 const v = replay?.levels?.[key];
                 if (v == null || !Number.isFinite(v) || v < effLo || v > effHi) return null;
                 const y = yPrice(v);

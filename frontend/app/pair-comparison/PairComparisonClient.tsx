@@ -407,7 +407,7 @@ export default function PairComparisonClient() {
                   candles: replay1.candles,
                   cursorTs,
                   loading: replay1.loading,
-                  levels: { flip: leftData.gammaFlip, call: leftData.callWall, put: leftData.putWall, pain: leftData.maxPain },
+                  levels: { spot: leftData.spot, flip: leftData.gammaFlip, call: leftData.callWall, put: leftData.putWall, pain: leftData.maxPain },
                 }}
               />
             </div>
@@ -420,7 +420,7 @@ export default function PairComparisonClient() {
                 candles: replay2.candles,
                 cursorTs,
                 loading: replay2.loading,
-                levels: { flip: rightData.gammaFlip, call: rightData.callWall, put: rightData.putWall, pain: rightData.maxPain },
+                levels: { spot: rightData.spot, flip: rightData.gammaFlip, call: rightData.callWall, put: rightData.putWall, pain: rightData.maxPain },
               }}
             />
           </div>
