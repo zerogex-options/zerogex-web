@@ -38,11 +38,11 @@ export interface CandleReplay {
   levels: { flip: number | null; call: number | null; put: number | null; pain: number | null };
 }
 
-const LEVEL_LINES: Array<{ key: "flip" | "call" | "put" | "pain"; label: string; color: string }> = [
-  { key: "flip", label: "Flip", color: "var(--color-warning)" },
-  { key: "call", label: "Call", color: "var(--color-bear)" },
-  { key: "put", label: "Put", color: "var(--color-bull)" },
-  { key: "pain", label: "Pain", color: "var(--color-accent-hot)" },
+const LEVEL_LINES: Array<{ key: "flip" | "call" | "put" | "pain"; code: string; color: string }> = [
+  { key: "flip", code: "GF", color: "var(--color-warning)" },
+  { key: "call", code: "CW", color: "var(--color-bear)" },
+  { key: "put", code: "PW", color: "var(--color-bull)" },
+  { key: "pain", code: "MP", color: "var(--color-accent-hot)" },
 ];
 
 interface CandleBar {
@@ -341,7 +341,9 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
   const width = 1100;
   const height = timeframe === "1day" ? 480 : 440;
   const padLeft = 60;
-  const padRight = 16;
+  // Reserve a right gutter for the replay level tags so their labels sit beside
+  // the candles instead of over them; live mode keeps the candles full-width.
+  const padRight = replayActive ? 64 : 16;
   const padTop = 18;
   const priceAreaBottom = height - 42;
   const plotW = width - padLeft - padRight;
@@ -641,23 +643,6 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
                 );
               })}
 
-              {/* Dealer-gamma level lines during replay — Flip / Call & Put walls /
-                  Max Pain for the cursor minute, on the shared price axis. */}
-              {replayActive &&
-                LEVEL_LINES.map(({ key, label: lvlLabel, color }) => {
-                  const v = replay?.levels?.[key];
-                  if (v == null || !Number.isFinite(v) || v < effLo || v > effHi) return null;
-                  const y = yPrice(v);
-                  return (
-                    <g key={`lvl-${key}`}>
-                      <line x1={padLeft} x2={width - padRight} y1={y} y2={y} stroke={color} strokeWidth={1} strokeDasharray="5 3" opacity={0.85} />
-                      <text x={width - padRight - 4} y={y - 3} textAnchor="end" fontSize="10" fontWeight={700} fill={color}>
-                        {lvlLabel} {v.toFixed(Math.abs(v) >= 1000 ? 0 : 2)}
-                      </text>
-                    </g>
-                  );
-                })}
-
               {showHoverLine && (
                 <line
                   x1={xForVis(hoverVis)}
@@ -671,6 +656,27 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
                 />
               )}
             </g>
+
+            {/* Dealer-gamma level lines during replay — the line spans the candle
+                area; the value tag lives in the right margin (outside the clip),
+                so labels never overlap the candles. */}
+            {replayActive &&
+              LEVEL_LINES.map(({ key, code, color }) => {
+                const v = replay?.levels?.[key];
+                if (v == null || !Number.isFinite(v) || v < effLo || v > effHi) return null;
+                const y = yPrice(v);
+                const tagX = width - padRight + 3;
+                const tagW = padRight - 6;
+                return (
+                  <g key={`lvl-${key}`}>
+                    <line x1={padLeft} x2={width - padRight} y1={y} y2={y} stroke={color} strokeWidth={1} strokeDasharray="5 3" opacity={0.85} />
+                    <rect x={tagX} y={y - 7} width={tagW} height={14} rx={2} fill={`color-mix(in srgb, ${color} 16%, var(--bg-card))`} stroke={color} strokeWidth={0.75} />
+                    <text x={tagX + tagW / 2} y={y + 3.5} textAnchor="middle" fontSize="9" fontWeight={700} fontFamily="var(--font-mono)" fill={color}>
+                      {code} {v.toFixed(Math.abs(v) >= 1000 ? 0 : 2)}
+                    </text>
+                  </g>
+                );
+              })}
 
             {/* Time axis — day separators for visible bars + spaced time/date labels. */}
             {(() => {
