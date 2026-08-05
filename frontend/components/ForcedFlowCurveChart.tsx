@@ -17,6 +17,7 @@ import {
 } from 'recharts';
 import { useChartTheme } from '@/hooks/useChartTheme';
 import { useForcedFlowCurve } from '@/hooks/useApiData';
+import ChartCaption from "./ChartCaption";
 
 interface ForcedFlowCurveChartProps {
   symbol?: string;
@@ -384,6 +385,7 @@ export default function ForcedFlowCurveChart({
           )}
         </>
       )}
+      <ChartCaption />
     </div>
   );
 }

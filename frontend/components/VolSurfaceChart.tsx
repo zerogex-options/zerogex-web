@@ -18,6 +18,7 @@ import { colors } from '@/core/colors';
 import TooltipWrapper from './TooltipWrapper';
 import ExpandableCard from './ExpandableCard';
 import MobileScrollableChart from './MobileScrollableChart';
+import ChartCaption from "./ChartCaption";
 
 type Scalar = number | string | null | undefined;
 type VolSurfaceRawPoint = Record<string, Scalar>;
@@ -374,6 +375,7 @@ export default function VolSurfaceChart({ symbol }: VolSurfaceChartProps) {
         </ResponsiveContainer>
         </MobileScrollableChart>
       )}
+      <ChartCaption />
       </div>
     </ExpandableCard>
   );

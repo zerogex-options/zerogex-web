@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { useGEXProfile } from '@/hooks/useApiData';
 import RegistrationCorners from './RegistrationCorners';
+import ChartCaption from '../ChartCaption';
 
 /**
  * The landing hero visual IS the product output: the live net-GEX-by-price
@@ -254,6 +255,7 @@ export default function GammaProfileHero({ symbol = 'SPY' }: { symbol?: string }
           </div>
         ))}
       </div>
+      <ChartCaption variant="strip" />
     </div>
   );
 }

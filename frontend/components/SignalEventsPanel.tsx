@@ -23,6 +23,7 @@ import {
 } from '@/core/signalHelpers';
 import ChartTimeAxisTick from './ChartTimeAxisTick';
 import MobileScrollableChart from './MobileScrollableChart';
+import ChartCaption from "./ChartCaption";
 
 interface SignalEventsPanelProps {
   signalName: SignalEventName;
@@ -441,6 +442,7 @@ export default function SignalEventsPanel({ signalName, symbol, title = 'Event T
           <div className="flex items-center justify-center h-full text-sm text-[var(--color-text-secondary)]">No event history yet.</div>
         )}
       </div>
+      <ChartCaption />
     </section>
   );
 }

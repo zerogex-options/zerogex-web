@@ -10,6 +10,7 @@ import type {
 import { colors } from '@/core/colors';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
+import ChartCaption from '@/components/ChartCaption';
 
 /**
  * Gamma Pulse panel — historical-context view for the headline
@@ -382,6 +383,7 @@ export default function GammaPulsePanel({ symbol, refreshInterval = 15000 }: Gam
           in <code>gex_summary</code>.
         </div>
       )}
+      <ChartCaption />
     </div>
   );
 }

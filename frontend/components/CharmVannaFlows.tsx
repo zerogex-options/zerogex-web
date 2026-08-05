@@ -5,6 +5,7 @@ import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
 import TooltipWrapper from './TooltipWrapper';
 import ExpandableCard from './ExpandableCard';
+import ChartCaption from "./ChartCaption";
 
 interface ByStrikeRow {
   vanna_exposure?: number | null;
@@ -198,6 +199,7 @@ export default function CharmVannaFlows({ byStrikeData, volExpansion }: CharmVan
           </div>
         </div>
       </div>
+      <ChartCaption />
       </div>
     </ExpandableCard>
   );

@@ -22,6 +22,7 @@
 
 import { useState } from 'react';
 import { ArrowUp, ArrowDown, Magnet, Zap } from 'lucide-react';
+import ChartCaption from "./ChartCaption";
 
 type Regime = 'positive' | 'negative';
 type Approach = 'up' | 'down'; // 'up' → toward Call Wall, 'down' → toward Put Wall
@@ -262,6 +263,7 @@ export default function GammaExpectationMatrix({
         drawn on the chart. This is a simplified dealer-hedging heuristic and decision-support context, not a
         guarantee of price behavior or investment advice.
       </p>
+      <ChartCaption />
     </section>
   );
 }

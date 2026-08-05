@@ -10,6 +10,7 @@ import {
   useForcedFlowBacktest,
   type ForcedFlowCharmDecayPoint,
 } from '@/hooks/useApiData';
+import ChartCaption from "./ChartCaption";
 
 interface ForcedFlowReadProps {
   symbol?: string;
@@ -336,6 +337,7 @@ export default function ForcedFlowRead({ symbol = 'SPY' }: ForcedFlowReadProps) 
           Snapshot {new Date(levels.timestamp).toLocaleTimeString()}
         </div>
       )}
+      <ChartCaption />
     </div>
   );
 }

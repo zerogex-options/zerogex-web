@@ -30,6 +30,7 @@ import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
 import { etTodayDateKey, getMarketSession, isIndexSymbol, omitClosedMarketTimes } from '@/core/utils';
 import { loadChartSettings, saveChartSettings } from '@/core/chartSettings';
+import ChartCaption from './ChartCaption';
 
 interface StrikeAggregation {
   strike: number;
@@ -2856,13 +2857,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
 
       {/* Bottom strip — hidden in compact mode to reclaim vertical space. */}
       {!compact && (
-      <div
-        className="flex items-center justify-between px-5 py-2 text-xs"
-        style={{ borderTop: `1px solid ${border}`, color: subtle }}
-      >
-        <span>Powered by ZeroGEX</span>
-        <span>Gamma / Positions</span>
-      </div>
+        <ChartCaption variant="strip" right="Gamma / Positions" />
       )}
     </div>
   );
