@@ -171,6 +171,12 @@
   --regime-chop: #FFB020;
   --regime-reversal: #B98BF0;
 
+  /* GEX King — brighter violet in dark mode (mirrors the dark regime-reversal)
+     so the crowned node keeps its pop against dark heatmap surfaces. Applies to
+     every palette's dark variant via :root.dark. */
+  --color-king: #B98BF0;
+  --color-king-soft: rgba(185, 139, 240, 0.24);
+
   --color-grid-line: rgba(255, 211, 128, 0.16);
   --color-grid-overlay: rgba(0, 32, 46, 0.42);
 

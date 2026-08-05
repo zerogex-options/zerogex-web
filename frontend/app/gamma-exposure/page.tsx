@@ -22,6 +22,7 @@ import ErrorMessage from '@/components/ErrorMessage';
 import GexRegimeHeader from '@/components/GexRegimeHeader';
 import GexProfileChart from '@/components/GexProfileChart';
 import GexStrikeDteHeatmap from '@/components/GexStrikeDteHeatmap';
+import GammaHeatmapCanvas from '@/components/GammaHeatmapCanvas';
 import GexUnitToggle from '@/components/GexUnitToggle';
 import GexWallsChart from '@/components/GexWallsChart';
 import CharmVannaFlows from '@/components/CharmVannaFlows';
@@ -594,6 +595,16 @@ export default function GammaExposurePage() {
             }
             byStrikeFallback={gexByStrike || []}
           />
+        </div>
+      </section>
+
+      {/* GEX Heatmap · Strike × Time — SpotGamma-style candle-overlay surface,
+          the price-context view (candles can be zoomed/expanded from its
+          toolbar). Complements the Strike × DTE snapshot matrix below; reuses
+          the same component as the standalone /gex-heatmap page. */}
+      <section className="mb-8">
+        <div className="grid grid-cols-1 gap-4">
+          <GammaHeatmapCanvas />
         </div>
       </section>
 

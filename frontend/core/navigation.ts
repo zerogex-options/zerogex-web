@@ -110,6 +110,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { id: '/smart-money', label: 'Smart Money', requiredTier: 'basic' },
       { id: '/max-pain', label: 'Max Pain', requiredTier: 'basic' },
       { id: '/intraday-tools', label: 'Technicals', requiredTier: 'basic' },
+      { id: '/volatility', label: 'Volatility', requiredTier: 'basic', beta: true },
     ],
   },
   {

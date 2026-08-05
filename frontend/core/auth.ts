@@ -129,6 +129,7 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   { pattern: '/smart-money', minimumTier: 'basic' },
   { pattern: '/max-pain', minimumTier: 'basic' },
   { pattern: '/intraday-tools', minimumTier: 'basic' },
+  { pattern: '/volatility', minimumTier: 'basic' },
   // Strategy tools — included with Basic.
   { pattern: '/options-calculator', minimumTier: 'basic' },
   { pattern: '/option-contracts', minimumTier: 'basic' },

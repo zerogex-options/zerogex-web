@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import {
   Activity,
   ChevronDown,
@@ -69,21 +70,27 @@ export default function SignalsGuide({ current, defaultOpen = false }: Props) {
 
   return (
     <section className="zg-feature-shell p-4 mb-6" aria-label="How to read the signals">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between gap-3 text-left"
-        aria-expanded={open}
-      >
-        <div className="flex items-center gap-2">
-          <Activity size={16} className="text-[var(--color-info)]" />
+      <div className="flex items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="flex items-center gap-2 text-left min-w-0 flex-1"
+          aria-expanded={open}
+        >
+          <Activity size={16} className="text-[var(--color-info)] flex-shrink-0" />
           <span className="text-sm font-semibold">How to read these signals</span>
-          <span className="text-[11px] text-[var(--color-text-secondary)] hidden sm:inline">
+          <span className="text-[11px] text-[var(--color-text-secondary)] hidden sm:inline truncate">
             · Trade Bias, MSI, Basic, Advanced — what each one tells you and when to use it
           </span>
-        </div>
-        {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-      </button>
+          {open ? <ChevronUp size={16} className="flex-shrink-0" /> : <ChevronDown size={16} className="flex-shrink-0" />}
+        </button>
+        <Link
+          href="/guides/signals-explained"
+          className="text-[12px] font-semibold text-[var(--color-info)] whitespace-nowrap hover:underline flex-shrink-0"
+        >
+          Full guide →
+        </Link>
+      </div>
 
       {open && (
         <div className="mt-4 flex flex-col gap-5">
