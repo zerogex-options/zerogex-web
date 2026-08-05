@@ -11,19 +11,38 @@
  * minute, a single playhead driving both columns in lockstep.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, Sparkles } from "lucide-react";
 import PageShell from "@/components/layout/PageShell";
 import PairGammaHeatmap, { type HeatmapCell, type HeatmapColumnInput } from "@/components/PairGammaHeatmap";
 import PairReplayScrubber from "@/components/PairReplayScrubber";
+import PairCandleChart from "@/components/PairCandleChart";
 import GexUnitToggle from "@/components/GexUnitToggle";
 import BetaBadge from "@/components/BetaBadge";
+import TooltipWrapper from "@/components/TooltipWrapper";
+import { type ChartTimeframe } from "@/components/ChartTimeframeSelect";
 import { useApiData, useGEXSummary, useMarketQuote, useSessionCloses } from "@/hooks/useApiData";
 import { usePairReplay, type PairReplayData, type ReplayFrame, type ReplayCandle } from "@/hooks/usePairReplay";
 import { useGexUnit } from "@/core/GexUnitContext";
 import { useTimeframe, type UnderlyingSymbol } from "@/core/TimeframeContext";
 import { SYMBOLS } from "@/core/symbols";
 import { getPrimaryPriceChangeSummary } from "@/core/priceChange";
+
+const TIMEFRAME_OPTIONS: Array<{ value: ChartTimeframe; label: string }> = [
+  { value: "1min", label: "1m" },
+  { value: "5min", label: "5m" },
+  { value: "15min", label: "15m" },
+  { value: "1hr", label: "1h" },
+  { value: "1day", label: "1D" },
+];
+
+const INFO_TEXT =
+  "Compare two symbols' dealer-gamma structure side by side. The left ladder follows your header symbol; " +
+  "pick any of SPY / QQQ / SPX / NDX to compare on the right. Both stay centered on spot and strike-aligned, " +
+  "with the Gamma Flip, Call/Put Walls and Max Pain marked. Enter Replay to scrub the most-recent session " +
+  "minute by minute (spot in replay is the underlying close for that minute; the change is vs the session open, " +
+  "while live shows the day change from the prior close). Net GEX is a modeled estimate of dealer gamma by " +
+  "strike — decision-support context only, not investment advice.";
 
 // Default "compare against" symbol for each header symbol — its like-pair, so a
 // fresh visit opens on a meaningful comparison (SPY↔QQQ, SPX↔NDX).
@@ -136,11 +155,23 @@ function SymbolSelect({
   );
 }
 
-function Stat({ value, label }: { value: string; label: string }) {
+// Compact timeframe segmented control for the candle charts — the zg-gc-seg
+// idiom the Gamma Chart's toolbar uses.
+function TimeframeSeg({ value, onChange }: { value: ChartTimeframe; onChange: (v: ChartTimeframe) => void }) {
   return (
-    <div className="flex flex-col">
-      <span style={{ fontFamily: "var(--font-mono)", fontSize: 20, fontWeight: 700, color: "var(--text-primary)", lineHeight: 1.1 }}>{value}</span>
-      <span className="zg-eyebrow" style={{ fontSize: 10, marginTop: 2 }}>{label}</span>
+    <div className="zg-gc-seg" role="tablist" aria-label="Candle timeframe">
+      {TIMEFRAME_OPTIONS.map((t) => (
+        <button
+          key={t.value}
+          type="button"
+          className="zg-gc-seg-btn"
+          data-active={t.value === value}
+          onClick={() => onChange(t.value)}
+          aria-pressed={t.value === value}
+        >
+          {t.label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -218,6 +249,8 @@ export default function PairComparisonClient() {
   const [cursor, setCursor] = useState(-1);
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState(4);
+  const [loop, setLoop] = useState(true);
+  const [timeframe, setTimeframe] = useState<ChartTimeframe>("5min");
 
   const liveEnabled = mode === "live";
   const live1 = useLiveColumn(sym1, liveEnabled);
@@ -240,16 +273,32 @@ export default function PairComparisonClient() {
   const lastIdx = Math.max(0, timeline.length - 1);
   const effCursor = cursor < 0 ? lastIdx : Math.min(cursor, lastIdx);
 
+  // Refs so the interval reads the latest cursor/loop without re-subscribing on
+  // every scrub (which would reset the timer). Updated in passive effects.
+  const cursorRef = useRef(cursor);
+  const loopRef = useRef(loop);
+  useEffect(() => {
+    cursorRef.current = cursor;
+  }, [cursor]);
+  useEffect(() => {
+    loopRef.current = loop;
+  }, [loop]);
+
   // Auto-advance loop — the page owns it so one playhead drives both columns.
-  // setState lives in the interval callback (not the effect body), so it never
-  // triggers the cascading-render pattern.
+  // All setState lives in the interval callback body (not the effect body and
+  // not inside another updater), so it never triggers the cascading-render or
+  // impure-updater patterns. At the end it wraps to the open when Loop is on,
+  // otherwise it stops.
   useEffect(() => {
     if (mode !== "replay" || !isPlaying || timeline.length === 0) return;
     const id = setInterval(() => {
-      setCursor((c) => {
-        const cur = c < 0 ? timeline.length - 1 : c;
-        return cur + 1 >= timeline.length ? 0 : cur + 1;
-      });
+      const cur = cursorRef.current < 0 ? timeline.length - 1 : cursorRef.current;
+      if (cur + 1 >= timeline.length) {
+        if (loopRef.current) setCursor(0);
+        else setIsPlaying(false);
+      } else {
+        setCursor(cur + 1);
+      }
     }, Math.max(120, Math.round(700 / speed)));
     return () => clearInterval(id);
   }, [mode, isPlaying, speed, timeline.length]);
@@ -310,78 +359,73 @@ export default function PairComparisonClient() {
 
   return (
     <PageShell width="wide">
-      {/* Hero */}
-      <header className="mb-6">
+      {/* Hero — compact: the descriptive subtext now lives in the info tooltip. */}
+      <header className="mb-5">
         <div className="flex items-center gap-2 mb-3">
           <Sparkles size={14} style={{ color: "var(--color-brand-primary)" }} />
           <span className="zg-eyebrow" style={{ color: "var(--color-brand-primary)" }}>
             Dealer gamma · side by side
           </span>
         </div>
-        <div className="flex items-center gap-3 mb-3">
+        <div className="flex items-center gap-2.5">
           <h1 className="zg-h1" style={{ margin: 0 }}>Pair Comparison</h1>
           <BetaBadge size="md" />
-        </div>
-        <p style={{ fontSize: 15, lineHeight: 1.65, color: "var(--text-secondary)", maxWidth: 760 }}>
-          Read the dealer-gamma structure of two symbols against each other. The left column tracks the
-          symbol in your header; pick anything to compare on the right. Both stay centered on spot and
-          strike-aligned, with the Gamma Flip, Call/Put Walls and Max&nbsp;Pain marked — or drop into
-          Replay to scrub the most-recent session and watch the levels migrate minute by minute.
-        </p>
-        <div className="flex flex-wrap items-center gap-x-8 gap-y-3 mt-5">
-          <Stat value="SPY · QQQ · SPX · NDX" label="Underlyings" />
-          <Stat value="Live + Replay" label="Two modes" />
-          <Stat value="Centered on spot" label="Strike-aligned" />
+          <TooltipWrapper text={INFO_TEXT} />
         </div>
       </header>
 
-      {/* The instrument */}
-      <div className="zg-feature-shell zg-gc-rise" style={{ overflow: "hidden" }}>
-        {/* Toolbar band */}
-        <div
-          className="flex flex-wrap items-center justify-between gap-3 p-3 sm:p-4"
-          style={{ borderBottom: "1px solid var(--border-default)", background: "var(--bg-subtle)" }}
-        >
-          <span className="zg-eyebrow">Net GEX by strike · centered on spot</span>
-          <div className="flex items-center gap-2 ml-auto">
-            <span className="zg-eyebrow" style={{ fontSize: 10 }}>GEX unit</span>
-            <GexUnitToggle showHint={false} />
+      {/* Global controls: candle timeframe (left) · GEX unit (right) */}
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <span className="zg-eyebrow" style={{ fontSize: 10 }}>Candles</span>
+        <TimeframeSeg value={timeframe} onChange={setTimeframe} />
+        <div className="flex items-center gap-2 ml-auto">
+          <span className="zg-eyebrow" style={{ fontSize: 10 }}>GEX unit</span>
+          <GexUnitToggle showHint={false} />
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-4">
+        {/* Top candle — the header/left symbol */}
+        <div className="mx-auto w-full" style={{ maxWidth: 1024 }}>
+          <PairCandleChart symbol={sym1} timeframe={timeframe} />
+        </div>
+
+        {/* The gamma terminal — narrower, centered (~half width): two strike-
+            aligned ladders (each with its own symbol dropdown) + the replay
+            transport that drives both in lockstep. */}
+        <div className="mx-auto w-full" style={{ maxWidth: 760 }}>
+          <div className="zg-feature-shell zg-gc-rise" style={{ overflow: "hidden" }}>
+            <PairGammaHeatmap left={leftInput} right={rightInput} gexUnit={gexUnit} />
+            <PairReplayScrubber
+              mode={mode}
+              onEnterReplay={enterReplay}
+              onExitReplay={exitReplay}
+              frameCount={timeline.length}
+              cursor={effCursor}
+              onScrub={scrub}
+              isPlaying={isPlaying}
+              onPlayToggle={togglePlay}
+              onStep={step}
+              loop={loop}
+              onLoopToggle={() => setLoop((l) => !l)}
+              speed={speed}
+              onSpeedChange={setSpeed}
+              cursorTime={cursorTs}
+              startTime={timeline[0] ?? null}
+              endTime={timeline[timeline.length - 1] ?? null}
+              sessionDate={sessionDate}
+              isToday={isToday}
+              loading={replayLoading}
+              error={replayError}
+            />
           </div>
         </div>
 
-        {/* Two strike-aligned ladders (each carries its own symbol dropdown header) */}
-        <PairGammaHeatmap left={leftInput} right={rightInput} gexUnit={gexUnit} />
-
-        {/* Replay transport */}
-        <PairReplayScrubber
-          mode={mode}
-          onEnterReplay={enterReplay}
-          onExitReplay={exitReplay}
-          frameCount={timeline.length}
-          cursor={effCursor}
-          onScrub={scrub}
-          isPlaying={isPlaying}
-          onPlayToggle={togglePlay}
-          onStep={step}
-          speed={speed}
-          onSpeedChange={setSpeed}
-          cursorTime={cursorTs}
-          startTime={timeline[0] ?? null}
-          endTime={timeline[timeline.length - 1] ?? null}
-          sessionDate={sessionDate}
-          isToday={isToday}
-          loading={replayLoading}
-          error={replayError}
-        />
+        {/* Bottom candle — the compare/right symbol */}
+        <div className="mx-auto w-full" style={{ maxWidth: 1024 }}>
+          <PairCandleChart symbol={sym2} timeframe={timeframe} />
+        </div>
       </div>
-
-      <p className="mt-6" style={{ fontSize: 11.5, lineHeight: 1.6, color: "var(--text-muted)", maxWidth: 820 }}>
-        Net GEX is a modeled estimate of dealer gamma by strike derived from the options chain; the two columns
-        are aligned by strike offset from each symbol&apos;s spot-nearest strike, not by absolute price. Replay shows
-        the most-recent session&apos;s per-minute frames; spot during replay is the underlying close for that minute and
-        the change is measured from that session&apos;s open (live shows the day change from the prior close).
-        Decision-support context only — not a guarantee of price behavior, and not investment advice.
-      </p>
     </PageShell>
   );
 }

@@ -9,7 +9,7 @@
  * columns in lockstep.
  */
 
-import { History, Pause, Play, SkipBack, SkipForward } from "lucide-react";
+import { History, Pause, Play, Repeat, SkipBack, SkipForward } from "lucide-react";
 
 const SPEEDS = [1, 2, 4, 8] as const;
 
@@ -51,6 +51,8 @@ interface Props {
   isPlaying: boolean;
   onPlayToggle: () => void;
   onStep: (delta: number) => void;
+  loop: boolean;
+  onLoopToggle: () => void;
   speed: number;
   onSpeedChange: (s: number) => void;
   cursorTime: string | null;
@@ -72,6 +74,8 @@ export default function PairReplayScrubber({
   isPlaying,
   onPlayToggle,
   onStep,
+  loop,
+  onLoopToggle,
   speed,
   onSpeedChange,
   cursorTime,
@@ -183,6 +187,18 @@ export default function PairReplayScrubber({
           </button>
           <button type="button" onClick={() => onStep(1)} disabled={atStart} className="zg-gc-pill" style={{ padding: 6 }} aria-label="Step forward one minute">
             <SkipForward size={14} />
+          </button>
+          <button
+            type="button"
+            onClick={onLoopToggle}
+            className="zg-gc-pill"
+            data-active={loop}
+            style={{ ["--pill-color" as string]: "var(--color-bull)", padding: 6 }}
+            aria-label="Loop playback"
+            aria-pressed={loop}
+            title={loop ? "Looping — restarts at the session open" : "Play once — stops at the last frame"}
+          >
+            <Repeat size={14} />
           </button>
         </div>
 
