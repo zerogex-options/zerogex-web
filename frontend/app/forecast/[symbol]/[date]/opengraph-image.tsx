@@ -268,11 +268,10 @@ export default async function Image({ params }: { params: { symbol: string; date
                     display: 'flex',
                   }}
                 >
-                  Expected volatility {hasReceipt && receipt?.vol_state_correct != null && (
-                    <span style={{ marginLeft: 10, color: receipt?.vol_state_correct ? '#10B981' : '#F45854' }}>
-                      {receipt?.vol_state_correct ? '✓' : '✗'}
-                    </span>
-                  )}
+                  Expected volatility
+                  <span style={{ marginLeft: 8, opacity: 0.6, textTransform: 'none', letterSpacing: 0 }}>
+                    (informational)
+                  </span>
                 </div>
                 <div
                   style={{

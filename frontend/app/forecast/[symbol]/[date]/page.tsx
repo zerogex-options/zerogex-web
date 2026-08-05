@@ -179,7 +179,7 @@ export async function generateMetadata({
     : `${sym} · ${human} Forecast — ZeroGEX`;
   const description = data
     ? hasReceipt
-      ? `Receipt for ${sym} on ${human}. Range ${data.receipt!.range_respected ? '✓ held' : '✗ broken'} · Volatility ${data.receipt!.vol_state_correct ? '✓' : '✗'}.`
+      ? `Receipt for ${sym} on ${human}. Range ${data.receipt!.range_respected ? '✓ held' : '✗ broken'} (the graded claim).`
       : `${sym} morning forecast: range ${fmtPrice(data.morning.projected_low)}–${fmtPrice(data.morning.projected_high)}, ${humanize(data.morning.expected_vol_state)} volatility, key gamma levels with touch odds. No direction call.`
     : 'Daily ZeroGEX Gamma Forecast Card — pre-market commitment, 4 PM receipt.';
   return {
@@ -221,7 +221,7 @@ export default async function ForecastPage({
   const permalink = `${SITE_URL}/forecast/${sym}/${date}`;
   const pickerHrefs = buildSymbolHrefs((s) => `/forecast/${s}/${date}`);
   const tweetBody = receipt
-    ? `${sym} ${date} receipt — range ${receipt.range_respected ? 'held' : 'broken'}, volatility ${receipt.vol_state_correct ? 'called' : 'missed'} (${fmtRatioOfNormal(receipt.realized_vol_ratio)}).`
+    ? `${sym} ${date} receipt — range ${receipt.range_respected ? 'held' : 'broken'}. Realized vol ${fmtRatioOfNormal(receipt.realized_vol_ratio)} (context).`
     : `${sym} ${date} forecast — range ${fmtPrice(morning.projected_low)}–${fmtPrice(morning.projected_high)}, ${volLabel.toLowerCase()} volatility, key levels with touch odds. No direction call.`;
 
   return (
@@ -306,23 +306,18 @@ export default async function ForecastPage({
           value={volLabel}
           accent="var(--color-accent)"
           icon={Gauge}
-          tooltip="How much the day actually moved vs. a statistically normal day: realized daily range ÷ a normal day's range — where a normal day's range is √(8/π)× (≈1.6×) the VIX-implied 1-day move, calibrated per symbol so 1.0 means an ordinary day. Long gamma damps it (compression), short gamma amplifies it (expansion). Path-agnostic, so a round-trip day that closes flat still reads as expansion when the range was large."
-          verdict={
-            receipt && receipt.vol_state_correct != null
-              ? receipt.vol_state_correct ? 'held' : 'broken'
-              : null
-          }
+          tooltip="How much the day actually moved vs. a statistically normal day: realized daily range ÷ a normal day's range (√(8/π)× ≈1.6× the implied 1-day move, calibrated per symbol so 1.0 = an ordinary day). Long gamma damps it (compression), short gamma amplifies it (expansion). Shown for CONTEXT — not part of the graded scorecard: over our history this call doesn't beat a majority-bucket baseline, so we publish it but don't score it."
+          verdict={null}
           hint={(() => {
             if (receipt) {
-              if (receipt.realized_vol_ratio == null) return 'Not graded — no implied move on file';
-              const verb = receipt.vol_state_correct ? 'as called' : 'off the call';
-              return `Realized ${fmtRatioOfNormal(receipt.realized_vol_ratio)} — ${verb}`;
+              if (receipt.realized_vol_ratio == null) return 'Realized — no implied move on file · informational';
+              return `Realized ${fmtRatioOfNormal(receipt.realized_vol_ratio)} · informational, not scored`;
             }
             const parts: string[] = [`expect ${fmtRatioOfNormal(morning.expected_vol_ratio)}`];
             if (morning.flip_cross_prob != null) {
               parts.push(`flip-cross ${fmtPct(morning.flip_cross_prob)}`);
             }
-            parts.push('graded vs a normal day');
+            parts.push('informational — not graded');
             return parts.join(' · ');
           })()}
         />
@@ -407,7 +402,7 @@ export default async function ForecastPage({
           </div>
           {stats.n_scored >= MIN_SCORED_FOR_RATES ? (
             <>
-              <div className="grid grid-cols-1 gap-3 text-center sm:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 text-center sm:grid-cols-2">
                 <TrackRecord
                   label="Range coverage"
                   rate={stats.range_respected_rate}
@@ -417,31 +412,20 @@ export default async function ForecastPage({
                   baselineLabel="target"
                   tooltip="Share of graded days whose full high–low range stayed inside the morning band. The 95% Wilson interval shows how firm the number is on this many days; the baseline is the published coverage target it should clear."
                 />
-                <TrackRecord
-                  label="Vol call"
-                  rate={stats.vol_state_correct_rate}
-                  ci={stats.vol_state_correct_ci}
-                  n={stats.vol_n_scored}
-                  baseline={stats.vol_baseline}
-                  baselineLabel={
-                    stats.vol_baseline_label
-                      ? `${humanize(stats.vol_baseline_label)} base rate`
-                      : 'majority bucket'
-                  }
-                  tooltip="Share of graded days whose realized compression/normal/expansion bucket matched the morning call. The baseline is the strawman of always guessing the most common realized bucket — a skilled call must beat that, not just 50%. Corrected-scale receipts only."
-                />
                 <BrierStat
                   label="Levels Brier"
                   value={stats.levels_brier_avg}
                   tooltip="How well-calibrated the touch-odds were: the average of (committed probability − outcome)² across the levels. 0 = perfect, 0.25 = a coin flip. Lower is better."
                 />
               </div>
-              {stats.vol_n_scored < MIN_SCORED_FOR_RATES && (
+              {stats.vol_state_correct_rate != null && stats.vol_baseline != null && (
                 <div className="mt-3 text-[11px] text-[var(--color-text-secondary)] leading-relaxed">
-                  The vol call counts only receipts graded on the corrected
-                  range-vs-implied scale
-                  {stats.vol_stats_from ? ` (from ${stats.vol_stats_from})` : ''}, so its sample
-                  is still building even where range coverage has more history.
+                  Expected‑volatility is <em>informational, not graded</em>: over the last{' '}
+                  {stats.vol_n_scored} corrected‑scale receipts it called{' '}
+                  {fmtPct(stats.vol_state_correct_rate)} vs a{' '}
+                  {fmtPct(stats.vol_baseline)} majority‑bucket baseline — no edge yet, so we
+                  publish the call for transparency but don&rsquo;t score it. Range coverage and
+                  levels calibration are the graded claims.
                 </div>
               )}
             </>
@@ -461,17 +445,16 @@ export default async function ForecastPage({
         Daily commitment for {sym} written each morning before the open, hashed and immutable. The projected range is
         anchored on the open spot and bounded by the GEX call/put walls with a safety expansion (event
         days get a 1.5× stretch); it&rsquo;s graded on <em>coverage</em> — an 80–90% band should contain
-        the day that often. Expected volatility is the realized daily range as a multiple of a
-        <em> normal</em> day&rsquo;s range — a normal day&rsquo;s range being √(8/π) (≈1.6×) the
-        VIX-implied 1-day move, calibrated per symbol so 1.0 is an ordinary day. Long gamma damps it
-        (compression), short gamma amplifies it (expansion); it&rsquo;s path-agnostic, so a round-trip
-        trend day that closes flat still reads as expansion when the range was large. (Grading the range
-        against the bare 1-σ implied move — as an earlier version did — read every ordinary day as
-        &ldquo;expansion&rdquo;; this denominator is the fix.) Key levels carry the reflection-principle
-        odds that price reaches each wall and crosses the gamma flip today, graded by Brier score. Range
-        coverage and the vol call are shown as two independent track records — they&rsquo;re different
-        bets — each with a 95% confidence interval and a baseline to beat. The receipt is written once at
-        4:05 PM ET from the day&rsquo;s actual cash-session OHLC and is immutable thereafter.
+        the day that often. Key levels carry the reflection-principle odds that price reaches each wall
+        and crosses the gamma flip today (scaled to the calibrated intraday move), graded by Brier score.
+        These two — <strong>range coverage</strong> and <strong>levels calibration</strong> — are the
+        graded claims, each shown with a 95% confidence interval and a baseline to beat. Expected
+        volatility (realized daily range as a multiple of a <em>normal</em> day&rsquo;s range, √(8/π)≈1.6×
+        the implied 1-day move, calibrated per symbol so 1.0 is an ordinary day) is published for
+        transparency but is <strong>informational, not graded</strong>: on our history it doesn&rsquo;t
+        beat a majority-bucket baseline, so we won&rsquo;t score a call we can&rsquo;t back up. The
+        receipt is written once at 4:05 PM ET from the day&rsquo;s actual cash-session OHLC and is
+        immutable thereafter.
         <br />
         <br />
         Model: <span className="font-mono">{morning.range_model ?? 'heuristic_v1'}</span>

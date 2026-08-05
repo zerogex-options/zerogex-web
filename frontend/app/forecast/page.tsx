@@ -149,9 +149,6 @@ export default async function ForecastLanding({
                         <span style={{ color: flagTone(entry.range_respected) }}>
                           Range {flagMark(entry.range_respected)}
                         </span>
-                        <span style={{ color: flagTone(entry.vol_state_correct) }}>
-                          Vol {flagMark(entry.vol_state_correct)}
-                        </span>
                       </div>
                     ) : (
                       <div className="text-[10px] uppercase tracking-[0.18em] font-bold text-[var(--color-text-secondary)]">
