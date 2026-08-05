@@ -49,10 +49,15 @@ interface SmartMoneyBlockMeta {
   notionalM: number;
   optionType: string;
 }
-type SmartMoneySortKey = 'timestamp' | 'contract' | 'strike' | 'expiration' | 'dte' | 'option_type' | 'flow' | 'notional' | 'notional_class';
+type SmartMoneySortKey = 'timestamp' | 'contract' | 'strike' | 'expiration' | 'dte' | 'option_type' | 'trade_side' | 'delta' | 'flow' | 'notional' | 'notional_class';
 type SortLevel = { key: SmartMoneySortKey; dir: 'asc' | 'desc' };
 const MAX_SORT_LEVELS = 3;
 type MinClassFilter = '500k' | '250k' | '100k' | '50k' | 'under50k';
+// Directional-read filters: aggressor side + minimum |delta|. Both fields
+// already come back from /api/flow/smart-money (see get_smart_money_flow in the
+// backend) — they were just never surfaced. No new data required.
+type SideFilter = 'all' | 'BUY' | 'SELL' | 'NEUTRAL';
+type DeltaFilter = 'all' | '0.10' | '0.25' | '0.40';
 type FilterableKey = 'strike' | 'expiration' | 'option_type';
 const FILTERABLE_KEYS: readonly FilterableKey[] = ['strike', 'expiration', 'option_type'] as const;
 
@@ -64,6 +69,8 @@ const smartMoneyColumns: SmartMoneyColumn[] = [
   { key: 'expiration', label: 'Expiration', align: 'left', filterable: true },
   { key: 'dte', label: 'DTE', align: 'left' },
   { key: 'option_type', label: 'Type', align: 'left', filterable: true },
+  { key: 'trade_side', label: 'Side', align: 'left' },
+  { key: 'delta', label: 'Δ', align: 'right' },
   { key: 'flow', label: 'Contracts', align: 'right' },
   { key: 'notional', label: 'Notional', align: 'right' },
   { key: 'notional_class', label: 'Class', align: 'left' },
@@ -86,6 +93,11 @@ function getCellDisplayValue(row: SmartMoneyRow, key: SmartMoneySortKey): string
     case 'flow': return Number(row.flow || 0).toLocaleString();
     case 'notional': return `$${(Number(row.notional || 0) / 1_000_000).toFixed(2)}M`;
     case 'notional_class': return row.notional_class || '';
+    case 'trade_side': {
+      const s = String(row.trade_side || '').toUpperCase();
+      return s === 'BUY' ? 'Buy' : s === 'SELL' ? 'Sell' : s === 'NEUTRAL' ? 'Neutral' : (row.trade_side || '');
+    }
+    case 'delta': return row.delta != null && Number.isFinite(Number(row.delta)) ? Number(row.delta).toFixed(2) : '';
     default: return '';
   }
 }
@@ -216,6 +228,36 @@ function matchesMinClass(absNotional: number, minClass: MinClassFilter): boolean
   return absNotional >= 0;
 }
 
+const sideOptions: Array<{ value: SideFilter; label: string }> = [
+  { value: 'all', label: 'All sides' },
+  { value: 'BUY', label: '🟢 Buy' },
+  { value: 'SELL', label: '🔴 Sell' },
+  { value: 'NEUTRAL', label: '⚪ Neutral' },
+];
+
+const deltaOptions: Array<{ value: DeltaFilter; label: string }> = [
+  { value: 'all', label: 'Any |Δ|' },
+  { value: '0.10', label: '|Δ| ≥ 0.10' },
+  { value: '0.25', label: '|Δ| ≥ 0.25' },
+  { value: '0.40', label: '|Δ| ≥ 0.40' },
+];
+
+// Aggressor side: BUY when buy-premium dominated the print, SELL when sell did.
+// 'all' passes everything.
+function matchesSide(tradeSide: string | null | undefined, side: SideFilter): boolean {
+  if (side === 'all') return true;
+  return String(tradeSide || '').toUpperCase() === side;
+}
+
+// Minimum absolute delta — trims far-OTM lottery/tail noise so the tape leans
+// toward meaningful directional exposure. A row with no delta can't clear a
+// threshold, so it's excluded once one is set.
+function matchesDelta(delta: number | null | undefined, minDelta: DeltaFilter): boolean {
+  if (minDelta === 'all') return true;
+  const d = Math.abs(Number(delta));
+  return Number.isFinite(d) && d >= Number(minDelta);
+}
+
 // Row props are all primitives so default shallow `memo` comparison skips
 // re-renders for existing rows on every data tick / sort change. Hover is
 // handled by a single delegated listener on the section — rows don't need
@@ -228,6 +270,9 @@ type SmartMoneyTableRowProps = {
   expiration: string;
   dte: string;
   optionLabel: string;
+  side: string;
+  sideColor: string;
+  delta: string;
   contracts: string;
   notional: string;
   notionalClass: string;
@@ -235,7 +280,7 @@ type SmartMoneyTableRowProps = {
 };
 
 const SmartMoneyTableRow = memo(function SmartMoneyTableRow({
-  rowKey, time, contract, strike, expiration, dte, optionLabel, contracts, notional, notionalClass, borderColor,
+  rowKey, time, contract, strike, expiration, dte, optionLabel, side, sideColor, delta, contracts, notional, notionalClass, borderColor,
 }: SmartMoneyTableRowProps) {
   return (
     <tr data-smart-row-key={rowKey} className="border-b" style={{ borderColor }}>
@@ -245,6 +290,8 @@ const SmartMoneyTableRow = memo(function SmartMoneyTableRow({
       <td className="py-2 px-2">{expiration}</td>
       <td className="py-2 px-2">{dte}</td>
       <td className="py-2 px-2 uppercase">{optionLabel}</td>
+      <td className="py-2 px-2 font-semibold" style={{ color: sideColor }}>{side}</td>
+      <td className="py-2 px-2 text-right font-mono">{delta}</td>
       <td className="py-2 px-2 text-right">{contracts}</td>
       <td className="py-2 px-2 text-right font-semibold">{notional}</td>
       <td className="py-2 px-2">{notionalClass}</td>
@@ -268,6 +315,8 @@ export default function SmartMoneyPage() {
   const [columnFilters, setColumnFilters] = useState<Record<FilterableKey, string>>({ strike: '', expiration: '', option_type: '' });
   const [openFilter, setOpenFilter] = useState<FilterableKey | null>(null);
   const [minClass, setMinClass] = useState<MinClassFilter>('500k');
+  const [sideFilter, setSideFilter] = useState<SideFilter>('all');
+  const [minDelta, setMinDelta] = useState<DeltaFilter>('all');
 
   useEffect(() => {
     if (!openFilter) return;
@@ -381,7 +430,12 @@ export default function SmartMoneyPage() {
     };
   }), [effectiveSmartMoneyRows]);
 
-  const filteredSmartMoneyData = useMemo<NormalizedSmartMoneyRow[]>(() => normalizedSmartMoneyRows.filter((row) => matchesMinClass(row.absNotional, minClass)), [normalizedSmartMoneyRows, minClass]);
+  const filteredSmartMoneyData = useMemo<NormalizedSmartMoneyRow[]>(
+    () => normalizedSmartMoneyRows.filter(
+      (row) => matchesMinClass(row.absNotional, minClass) && matchesSide(row.trade_side, sideFilter) && matchesDelta(row.delta, minDelta),
+    ),
+    [normalizedSmartMoneyRows, minClass, sideFilter, minDelta],
+  );
 
   const sessionDateKey = useMemo(() => {
     if (sessionDateLabel) return sessionDateLabel;
@@ -667,12 +721,22 @@ export default function SmartMoneyPage() {
                 {minClassOptions.map((option) => (<option key={option.value} value={option.value}>{option.label}</option>))}
               </select>
             </label>
+            <label className="text-sm" style={{ color: mutedText }}>Side
+              <select className="ml-2 rounded px-2 py-1" style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor, border: `1px solid ${inputBorder}` }} value={sideFilter} onChange={(e) => setSideFilter(e.target.value as SideFilter)}>
+                {sideOptions.map((option) => (<option key={option.value} value={option.value}>{option.label}</option>))}
+              </select>
+            </label>
+            <label className="text-sm" style={{ color: mutedText }}>Min |Δ|
+              <select className="ml-2 rounded px-2 py-1" style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor, border: `1px solid ${inputBorder}` }} value={minDelta} onChange={(e) => setMinDelta(e.target.value as DeltaFilter)}>
+                {deltaOptions.map((option) => (<option key={option.value} value={option.value}>{option.label}</option>))}
+              </select>
+            </label>
         </div>
         <div className="text-sm mb-3" style={{ color: mutedText }}>
           Daily Totals as of: {dailyTotalsTimestamp ? new Date(dailyTotalsTimestamp).toLocaleString() : '--'}
         </div>
         <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
-          {effectiveSmartMoneyError ? <ErrorMessage message={effectiveSmartMoneyError} /> : !filteredSmartMoneyData.length ? <div className="text-center py-6" style={{ color: mutedText }}>{!smartMoneyData && !smartMoneyError ? 'Loading...' : `No smart money flow data available for ${sessionView} session at the ${minClass} filter. Try a different session or Min Class.`}</div> : (
+          {effectiveSmartMoneyError ? <ErrorMessage message={effectiveSmartMoneyError} /> : !filteredSmartMoneyData.length ? <div className="text-center py-6" style={{ color: mutedText }}>{!smartMoneyData && !smartMoneyError ? 'Loading...' : `No smart money flow matches the current filters for the ${sessionView} session. Try a different session, Min Class, Side, or Δ.`}</div> : (
             <>
               <div className="mb-5">
                 <div className="flex items-center gap-2 mb-2">
@@ -803,6 +867,10 @@ export default function SmartMoneyPage() {
                       const t = ts ? new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' }) : '--';
                       const optionType = String(row.option_type || '').toUpperCase();
                       const optionLabel = optionType === 'P' ? 'Put' : optionType === 'C' ? 'Call' : row.option_type || '--';
+                      const sideRaw = String(row.trade_side || '').toUpperCase();
+                      const sideLabel = sideRaw === 'BUY' ? 'Buy' : sideRaw === 'SELL' ? 'Sell' : sideRaw === 'NEUTRAL' ? 'Neutral' : (row.trade_side || '--');
+                      const sideColor = sideRaw === 'BUY' ? 'var(--color-bull)' : sideRaw === 'SELL' ? 'var(--color-bear)' : mutedText;
+                      const deltaLabel = row.delta != null && Number.isFinite(Number(row.delta)) ? Number(row.delta).toFixed(2) : '--';
                       return (
                         <SmartMoneyTableRow
                           key={row.rowKey}
@@ -813,6 +881,9 @@ export default function SmartMoneyPage() {
                           expiration={row.expiration || '--'}
                           dte={row.dte != null ? String(row.dte) : '--'}
                           optionLabel={optionLabel}
+                          side={sideLabel}
+                          sideColor={sideColor}
+                          delta={deltaLabel}
                           contracts={Number(row.flow || 0).toLocaleString()}
                           notional={`$${(Number(row.notional || 0) / 1_000_000).toFixed(2)}M`}
                           notionalClass={row.notional_class || '--'}
