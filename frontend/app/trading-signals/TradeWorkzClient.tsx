@@ -21,6 +21,7 @@ import BotDetailPanel from './BotDetailPanel';
 import BotRosterCard from './BotRosterCard';
 import EmptyState from './EmptyState';
 import FleetOverviewChart from './FleetOverviewChart';
+import PerformanceTrendChart from './PerformanceTrendChart';
 import LeaderboardTable from './LeaderboardTable';
 import NotificationBell from './NotificationBell';
 import TradesAuditPanel from './TradesAuditPanel';
@@ -33,6 +34,7 @@ import type {
   BotListResponse,
   EquityBundlesResponse,
   FleetSummary,
+  PerformanceTrend,
   PeriodKey,
 } from './types';
 
@@ -66,6 +68,10 @@ export default function TradeWorkzClient() {
   });
   const equityBundlesRes = useApiData<EquityBundlesResponse>(
     '/api/tradeworkz/equity-curves?days=90',
+    { refreshInterval: 60_000 },
+  );
+  const trendRes = useApiData<PerformanceTrend>(
+    '/api/tradeworkz/performance-trend?days=60&windows=5,10,20',
     { refreshInterval: 60_000 },
   );
 
@@ -440,10 +446,42 @@ export default function TradeWorkzClient() {
           <div className="flex items-center justify-between mb-3 gap-3">
             <div>
               <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
-                Fleet Performance
+                Performance Trend
               </h2>
               <p className="text-xs text-[var(--color-text-secondary)]">
-                90-day cumulative return, indexed to 100 at the start of each bot's window.
+                Is the fleet getting better? Rolling win rate / profit factor / expectancy plus
+                cumulative return vs a SPY buy-hold, rebased to the window start — not the
+                since-inception NAV, which stays anchored to the pre-fix drawdown.
+              </p>
+            </div>
+          </div>
+          <div
+            className="rounded-2xl p-4"
+            style={{
+              backgroundColor: 'var(--color-surface)',
+              border: '1px solid var(--color-border)',
+            }}
+          >
+            {trendRes.error && !trendRes.data ? (
+              <EmptyState title="Trend unavailable" description={trendRes.error} />
+            ) : trendRes.data ? (
+              <PerformanceTrendChart data={trendRes.data} />
+            ) : (
+              <div className="h-52 flex items-center justify-center text-xs text-[var(--color-text-secondary)]">
+                Loading performance trend…
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="mb-8">
+          <div className="flex items-center justify-between mb-3 gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
+                Per-Bot Equity Curves
+              </h2>
+              <p className="text-xs text-[var(--color-text-secondary)]">
+                Per-bot cumulative return, each indexed to 100 at the start of its 90-day window.
               </p>
             </div>
           </div>
