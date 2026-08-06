@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { Eye, EyeOff, Link2, Pause, Play, RotateCcw, Twitter, ZoomIn, ZoomOut } from 'lucide-react';
+import { BarChart3, Eye, EyeOff, Link2, Pause, Play, RotateCcw, Twitter, ZoomIn, ZoomOut } from 'lucide-react';
 import {
   Bar,
   BarChart,
@@ -35,8 +35,37 @@ interface Frame {
   gamma_flip: number | null;
   call_wall: number | null;
   put_wall: number | null;
-  strikes: Array<{ strike: number | null; net_gex: number | null }>;
+  // net_gex is always present; call_gex / put_gex are the same per-strike
+  // dealer-gamma columns (from gex_by_strike) and are optional so the
+  // Split / Combined gamma views activate only when the payload carries them.
+  strikes: Array<{
+    strike: number | null;
+    net_gex: number | null;
+    call_gex?: number | null;
+    put_gex?: number | null;
+  }>;
 }
+
+// Gamma display mode for the strike-profile panel, mirroring the Strike
+// Profile chart (MarketMakerExposures): Split = call bars right / put bars
+// left, Net = a single signed net bar, Combined = the call/put split with the
+// per-strike Net overlaid on top.
+type GexMode = 'split' | 'net' | 'combined';
+
+// Per-strike dealer gamma for one minute: signed net plus the call/put split
+// (call/put default to 0 when the payload is net-only).
+interface StrikeGex {
+  net: number;
+  call: number;
+  put: number;
+}
+
+// Purple overlay bar for the Combined view — the per-strike NET GEX drawn on
+// top of the call/put split, pointing right for net-positive and left for
+// net-negative. Matches the Strike Profile chart's net overlay exactly (a deep
+// violet distinct from the bull/bear split bars) so the two charts read the
+// same way.
+const NET_BAR_COLOR = '#7C3AED';
 
 interface Candle {
   timestamp: string;
@@ -293,6 +322,11 @@ export default function ReplayScrubber({
   const [pinA, setPinA] = useState<number | null>(null);
   const [pinB, setPinB] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
+  // Gamma display mode for the strike-profile panel. Defaults to 'net' so the
+  // replay opens on the same single-net-bar ladder it always has; the toggle
+  // (shown only when the payload carries call/put gamma) cycles into Split and
+  // Combined, matching the Strike Profile chart.
+  const [gexMode, setGexMode] = useState<GexMode>('net');
   const playRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const currentFrame = frames[cursor] ?? frames[0];
@@ -311,16 +345,43 @@ export default function ReplayScrubber({
     return Array.from(set).sort((a, b) => a - b);
   }, [frames]);
 
-  // Strike → net GEX map for the cursor's minute. Zero-fill any union
-  // strike missing from this frame so every strike-row on the ladder
-  // renders (even if just as an empty rung).
+  // Strike → {net, call, put} GEX map for the cursor's minute. call/put are
+  // zero-filled when the payload omits them (net-only sessions), which keeps
+  // the Net view identical to before and lets Split/Combined render whatever
+  // call/put data is present.
   const strikeGexByStrike = useMemo(() => {
-    const byStrike = new Map<number, number>();
+    const byStrike = new Map<number, StrikeGex>();
     for (const s of currentFrame?.strikes ?? []) {
-      if (s.strike != null && s.net_gex != null) byStrike.set(s.strike, s.net_gex);
+      if (s.strike == null || s.net_gex == null) continue;
+      byStrike.set(s.strike, {
+        net: s.net_gex,
+        call: s.call_gex != null && Number.isFinite(s.call_gex) ? s.call_gex : 0,
+        put: s.put_gex != null && Number.isFinite(s.put_gex) ? s.put_gex : 0,
+      });
     }
     return byStrike;
   }, [currentFrame]);
+
+  // Whether any frame in the session carries per-strike call/put gamma. When
+  // false the payload is Net-only, so the Split/Combined toggle is hidden and
+  // the chart behaves exactly as it always has.
+  const hasSplitData = useMemo(() => {
+    for (const f of frames) {
+      for (const s of f.strikes ?? []) {
+        if (
+          (s.call_gex != null && Number.isFinite(s.call_gex) && s.call_gex !== 0) ||
+          (s.put_gex != null && Number.isFinite(s.put_gex) && s.put_gex !== 0)
+        ) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }, [frames]);
+
+  // The Net toggle can never be reached without call/put data, but clamp
+  // defensively so a stray 'split'/'combined' never renders empty bars.
+  const effGexMode: GexMode = hasSplitData ? gexMode : 'net';
 
   const gammaFlip = currentFrame?.gamma_flip ?? null;
   // Call/put walls for the cursor's minute. They migrate through the
@@ -329,22 +390,43 @@ export default function ReplayScrubber({
   const callWall = currentFrame?.call_wall ?? null;
   const putWall = currentFrame?.put_wall ?? null;
 
-  // Session-wide GEX peak so the horizontal-bar magnitude axis stays
-  // pinned as the user scrubs (otherwise the widest bar this minute
-  // would drift with playback and every strike's bar would visually
-  // resize even when its own value hadn't changed).
-  const gexPeak = useMemo(() => {
-    let peak = 0;
+  // Session-wide GEX peak — per mode — so the horizontal-bar magnitude axis
+  // stays pinned as the user scrubs (otherwise the widest bar this minute
+  // would drift with playback and every strike's bar would visually resize
+  // even when its own value hadn't changed). One peak per mode, scaled the
+  // same way the Strike Profile chart scales gammaXMax: Net → max |net|,
+  // Split → max(|call|, |put|), Combined → max(|call|, |put|, |net|). The peak
+  // is pinned across the whole session (not just the visible frame) so bars
+  // never resize during scrubbing.
+  const gexPeaks = useMemo(() => {
+    let net = 0;
+    let split = 0;
+    let combined = 0;
     for (const f of frames) {
       for (const s of f.strikes ?? []) {
-        const v = s.net_gex;
-        if (v == null || !Number.isFinite(v)) continue;
-        const abs = Math.abs(v);
-        if (abs > peak) peak = abs;
+        const n = s.net_gex != null && Number.isFinite(s.net_gex) ? Math.abs(s.net_gex) : 0;
+        const c = s.call_gex != null && Number.isFinite(s.call_gex) ? Math.abs(s.call_gex) : 0;
+        const p = s.put_gex != null && Number.isFinite(s.put_gex) ? Math.abs(s.put_gex) : 0;
+        if (n > net) net = n;
+        const sp = Math.max(c, p);
+        if (sp > split) split = sp;
+        const cm = Math.max(c, p, n);
+        if (cm > combined) combined = cm;
       }
     }
-    return peak * 1.05 || 1;
+    return {
+      net: net * 1.05 || 1,
+      split: split * 1.05 || 1,
+      combined: combined * 1.05 || 1,
+    };
   }, [frames]);
+
+  const gexPeak =
+    effGexMode === 'net'
+      ? gexPeaks.net
+      : effGexMode === 'split'
+        ? gexPeaks.split
+        : gexPeaks.combined;
 
   // Union price range so candles and strikes share a Y-axis without
   // clipping. Candles set the tape's high/low; strikes contribute the
@@ -590,6 +672,11 @@ export default function ReplayScrubber({
         strikes={allStrikes}
         strikeGex={strikeGexByStrike}
         gexPeak={gexPeak}
+        gexMode={effGexMode}
+        canSplit={hasSplitData}
+        onCycleGexMode={() =>
+          setGexMode((m) => (m === 'split' ? 'net' : m === 'net' ? 'combined' : 'split'))
+        }
         yLo={yBounds.lo}
         yHi={yBounds.hi}
         gammaFlip={gammaFlip}
@@ -663,8 +750,13 @@ interface ReplayOverlayChartProps {
   symbol: string;
   candles: Candle[];
   strikes: number[];
-  strikeGex: Map<number, number>;
+  strikeGex: Map<number, StrikeGex>;
   gexPeak: number;
+  gexMode: GexMode;
+  // Whether the payload carries call/put gamma. Drives whether the
+  // Split/Combined cycle toggle is offered at all.
+  canSplit: boolean;
+  onCycleGexMode: () => void;
   yLo: number;
   yHi: number;
   gammaFlip: number | null;
@@ -686,6 +778,9 @@ function ReplayOverlayChart({
   strikes,
   strikeGex,
   gexPeak,
+  gexMode,
+  canSplit,
+  onCycleGexMode,
   yLo,
   yHi,
   gammaFlip,
@@ -930,7 +1025,7 @@ function ReplayOverlayChart({
     <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="text-[10px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
-          {symbol} price · dealer net GEX · strike profile
+          {symbol} price · dealer {gexMode === 'net' ? 'net ' : ''}GEX · strike profile
         </div>
         <div className="flex items-center gap-3">
           {currentBar && (
@@ -942,6 +1037,32 @@ function ReplayOverlayChart({
               </span>
             </div>
           )}
+          {/* Gamma display mode cycle: Split → Net → Combined → Split. Shown
+              only when the payload carries call/put gamma; otherwise the
+              panel is Net-only and there's nothing to cycle. Mirrors the
+              Strike Profile chart's toggle. */}
+          {canSplit && (
+            <button
+              type="button"
+              onClick={onCycleGexMode}
+              title={`Gamma mode: ${
+                gexMode === 'split'
+                  ? 'Call/Put split'
+                  : gexMode === 'net'
+                    ? 'Net only'
+                    : 'Combined (Call/Put split with the Net overlaid)'
+              } (click to cycle)`}
+              className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] transition-colors hover:bg-[var(--color-surface-subtle)]"
+              style={{
+                color: gexMode !== 'net' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+                background: gexMode !== 'net' ? 'var(--color-surface-subtle)' : 'var(--color-surface)',
+              }}
+            >
+              <BarChart3 size={13} />
+              {gexMode === 'split' ? 'Split' : gexMode === 'net' ? 'Net' : 'Combined'}
+            </button>
+          )}
+
           {/* Hide-future-bars toggle — opt into an as-it-happened tape with
               no candles drawn ahead of the playhead. */}
           <button
@@ -1268,25 +1389,81 @@ function ReplayOverlayChart({
           />
           <g clipPath={`url(#${clipId})`}>
           {strikes.map((strike) => {
-            const net = strikeGex.get(strike) ?? 0;
-            if (net === 0) return null;
+            const agg = strikeGex.get(strike);
+            if (!agg) return null;
             const y = yForPrice(strike);
-            const w = (Math.abs(net) / gexPeak) * (MID_W / 2);
-            const positive = net >= 0;
+            const half = MID_W / 2;
+            // Same bar thickness across all three modes — the Combined net
+            // overlay is exactly as thick as the call/put split bars it sits
+            // on, matching the Strike Profile chart.
             const barH = Math.max(
               2,
               Math.min(9, (PLOT_HEIGHT / Math.max(1, visibleStrikeCount)) * 0.6),
             );
+            const netPositive = agg.net >= 0;
+            const netW = (Math.abs(agg.net) / gexPeak) * half;
+
+            // Net view: a single signed bar (bull right / bear left) — the
+            // ladder the replay has always shown.
+            if (gexMode === 'net') {
+              if (agg.net === 0) return null;
+              return (
+                <rect
+                  key={`gex-${strike}`}
+                  x={netPositive ? MID_CENTER : MID_CENTER - Math.max(0, netW)}
+                  y={y - barH / 2}
+                  width={Math.max(0, netW)}
+                  height={barH}
+                  fill={netPositive ? 'var(--color-bull)' : 'var(--color-bear)'}
+                  opacity={0.9}
+                />
+              );
+            }
+
+            // Split and Combined both draw the call/put split (calls push
+            // right, puts push left). Combined adds the purple Net bar on top,
+            // same thickness, pointing right for net-positive and left for
+            // net-negative — |net| ≤ max(|call|,|put|) on the side it points,
+            // so the split bar's tip still shows past the overlay.
+            const callW = (Math.abs(agg.call) / gexPeak) * half;
+            const putW = (Math.abs(agg.put) / gexPeak) * half;
+            const isCombined = gexMode === 'combined';
+            if (agg.call === 0 && agg.put === 0 && !(isCombined && agg.net !== 0)) {
+              return null;
+            }
             return (
-              <rect
-                key={`gex-${strike}`}
-                x={positive ? MID_CENTER : MID_CENTER - Math.max(0, w)}
-                y={y - barH / 2}
-                width={Math.max(0, w)}
-                height={barH}
-                fill={positive ? 'var(--color-bull)' : 'var(--color-bear)'}
-                opacity={0.9}
-              />
+              <g key={`gex-${strike}`}>
+                {agg.call !== 0 && (
+                  <rect
+                    x={MID_CENTER}
+                    y={y - barH / 2}
+                    width={Math.max(0, callW)}
+                    height={barH}
+                    fill="var(--color-bull)"
+                    opacity={0.9}
+                  />
+                )}
+                {agg.put !== 0 && (
+                  <rect
+                    x={MID_CENTER - Math.max(0, putW)}
+                    y={y - barH / 2}
+                    width={Math.max(0, putW)}
+                    height={barH}
+                    fill="var(--color-bear)"
+                    opacity={0.9}
+                  />
+                )}
+                {isCombined && agg.net !== 0 && (
+                  <rect
+                    x={netPositive ? MID_CENTER : MID_CENTER - Math.max(0, netW)}
+                    y={y - barH / 2}
+                    width={Math.max(0, netW)}
+                    height={barH}
+                    fill={NET_BAR_COLOR}
+                    opacity={0.9}
+                  />
+                )}
+              </g>
             );
           })}
           </g>
@@ -1332,8 +1509,48 @@ function ReplayOverlayChart({
             fill="var(--color-text-secondary)"
             fontWeight={700}
           >
-            Dealer net GEX
+            {gexMode === 'net'
+              ? 'Dealer net GEX'
+              : gexMode === 'split'
+                ? 'Dealer GEX · call / put'
+                : 'Dealer GEX · combined'}
           </text>
+
+          {/* Colour legend for the split/combined views — anchored to the
+              right edge of the gamma panel so the purple Net overlay in
+              particular reads unambiguously. Net view needs no legend (the
+              bull/bear sign is self-explanatory). */}
+          {gexMode !== 'net' && (
+            <g>
+              {[
+                { label: 'Call', color: 'var(--color-bull)' },
+                { label: 'Put', color: 'var(--color-bear)' },
+                ...(gexMode === 'combined'
+                  ? [{ label: 'Net', color: NET_BAR_COLOR }]
+                  : []),
+              ].map((item, i, arr) => {
+                // Lay the entries out right-to-left from the panel's right
+                // edge so the group never collides with the panel title.
+                const slot = 46;
+                const rightX = MID_X + MID_W;
+                const x = rightX - (arr.length - i) * slot;
+                return (
+                  <g key={item.label}>
+                    <rect x={x} y={PLOT_TOP - 15} width={9} height={9} fill={item.color} rx={1.5} />
+                    <text
+                      x={x + 12}
+                      y={PLOT_TOP - 8}
+                      fontSize={10}
+                      fill="var(--color-text-secondary)"
+                      fontWeight={700}
+                    >
+                      {item.label}
+                    </text>
+                  </g>
+                );
+              })}
+            </g>
+          )}
 
           {/* Overlays: pins first (they're context markers), cursor on
               top so it always wins the visual competition. Anchoring to
