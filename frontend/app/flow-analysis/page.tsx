@@ -34,6 +34,7 @@ import { useTheme } from "@/core/ThemeContext";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { getSessionTimestamps } from "@/core/utils";
 import { loadChartSettings, saveChartSettings } from "@/core/chartSettings";
+import { useSharedExpirations } from "@/hooks/useSharedExpirations";
 
 // ── Chart row shape ───────────────────────────────────────────────────────────
 
@@ -1096,7 +1097,11 @@ export default function FlowAnalysisPage() {
   );
 
   const [selectedStrikes, setSelectedStrikes] = useState<Set<string>>(new Set());
-  const [selectedExpirations, setSelectedExpirations] = useState<Set<string>>(new Set());
+  // Expirations are backed by the tab-wide shared selection (empty = no filter /
+  // All), so a pick here follows over to the GEX/gamma charts and back. Strikes
+  // stay page-local. See useSharedExpirations.
+  const { selection: sharedExpirations, setSelection: setSharedExpirations } = useSharedExpirations();
+  const selectedExpirations = useMemo(() => new Set(sharedExpirations), [sharedExpirations]);
 
   // Drop any previously-selected values that no longer appear in the current options
   const effectiveSelectedStrikes = useMemo(
@@ -1191,7 +1196,17 @@ export default function FlowAnalysisPage() {
     [],
   );
   const toggleStrikes = useMemo(() => makeToggler(setSelectedStrikes), [makeToggler]);
-  const toggleExpirations = useMemo(() => makeToggler(setSelectedExpirations), [makeToggler]);
+  // Expirations toggle the shared selection instead of local state, so the
+  // change broadcasts to every other expiration-filtering chart.
+  const toggleExpirations = useCallback(
+    (value: string) => {
+      const next = new Set(sharedExpirations);
+      if (next.has(value)) next.delete(value);
+      else next.add(value);
+      setSharedExpirations(Array.from(next));
+    },
+    [sharedExpirations, setSharedExpirations],
+  );
 
   return (
     <PageShell>
@@ -1212,8 +1227,11 @@ export default function FlowAnalysisPage() {
             value={flowSession}
             onChange={(e) => {
               setFlowSession(e.target.value as "current" | "prior");
+              // Strikes are page-local, so reset them on a session switch.
+              // Expirations are the shared, persisted selection — leave it be;
+              // it reconciles to the new session's options on its own, and any
+              // expiries the two sessions share stay selected.
               setSelectedStrikes(new Set());
-              setSelectedExpirations(new Set());
             }}
             className="px-3 py-1.5 text-sm rounded-md border focus:outline-none cursor-pointer"
             style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor }}
@@ -1317,9 +1335,9 @@ export default function FlowAnalysisPage() {
           onToggleStrike={toggleStrikes}
           onToggleExpiration={toggleExpirations}
           onClearStrikes={() => setSelectedStrikes(new Set())}
-          onClearExpirations={() => setSelectedExpirations(new Set())}
+          onClearExpirations={() => setSharedExpirations([])}
           onSelectAllStrikes={() => setSelectedStrikes(new Set(strikeOptions))}
-          onSelectAllExpirations={() => setSelectedExpirations(new Set(expirationOptions))}
+          onSelectAllExpirations={() => setSharedExpirations(expirationOptions)}
           loading={contractOptionsLoading}
           error={contractOptionsError}
         />

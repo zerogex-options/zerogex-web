@@ -33,6 +33,8 @@ import LoadingSpinner from "./LoadingSpinner";
 import ErrorMessage from "./ErrorMessage";
 import MobileScrollableChart from "./MobileScrollableChart";
 import ExpirationMultiSelect from "./ExpirationMultiSelect";
+import { useSharedExpirations } from "@/hooks/useSharedExpirations";
+import { reconcileExpirations } from "@/core/expirationPersistence";
 
 type ChartTimeframe = "1min" | "5min" | "15min" | "1hr" | "1day";
 type PriceStyle = "candles" | "line" | "area";
@@ -355,7 +357,11 @@ export default function GammaTerminalChart({
   // refetch, so bar modes + the expiry filter are live-only (see effectiveRailMode).
   const [railMode, setRailMode] = useState<RailMode>("silhouette");
   const [railLabels, setRailLabels] = useState(false);
-  const [railExpiries, setRailExpiries] = useState<string[]>([]);
+  // Expiration filter for the gamma-by-strike rail. Shared + persisted across
+  // every expiration-filtering chart in the tab (see useSharedExpirations);
+  // empty = all (aggregate the whole chain). Reconciled to this chart's live
+  // expirations below so a foreign/stale pick can't request a missing expiry.
+  const { selection: railExpiries, setSelection: setRailExpiries } = useSharedExpirations();
   const effectiveRailMode: RailMode = live ? railMode : "silhouette";
 
   // Snap the view back to the live default whenever the instrument or timeframe
@@ -459,12 +465,6 @@ export default function GammaTerminalChart({
   // stays fresh. Never enabled in delayed mode (the snapshot supplies strikes).
   // Pinned to 5-min buckets; anchors resolve by timestamp so they align with
   // candles of any timeframe. Seeding here also makes entering rewind instant.
-  // Expiration filter for the gamma-by-strike surface: empty = all (aggregate
-  // the whole chain), else the sorted, comma-joined set. Drives the rail bars
-  // and — when a subset is chosen — the flip/walls, so the lines match the bars.
-  const railExpParam = railExpiries.length === 0 ? "all" : [...railExpiries].sort().join(",");
-  const filteredExp = railExpiries.length > 0;
-  const { buckets: gexBuckets } = useStrikeProfileTimeseries(symbol, "5min", railExpParam, rewindActive, live);
   // Available expirations (future-dated, ascending) for the multi-select.
   const { data: expirationsData } = useApiData<string[] | null>(
     `/api/gex/expirations?symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}&lookback_hours=168`,
@@ -475,6 +475,19 @@ export default function GammaTerminalChart({
     const todayKey = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
     return Array.from(new Set(list.filter((e): e is string => typeof e === "string" && e >= todayKey))).sort();
   }, [expirationsData]);
+  // Reconcile the shared selection to what this chart can actually show, so a
+  // pick made on another chart (with a different expiry universe) never leaks a
+  // missing expiration into the param and an expired pick collapses to "All".
+  const effectiveRailExpiries = useMemo(
+    () => reconcileExpirations(railExpiries, availableExpiries),
+    [railExpiries, availableExpiries],
+  );
+  // Expiration filter for the gamma-by-strike surface: empty = all (aggregate
+  // the whole chain), else the sorted, comma-joined set. Drives the rail bars
+  // and — when a subset is chosen — the flip/walls, so the lines match the bars.
+  const railExpParam = effectiveRailExpiries.length === 0 ? "all" : [...effectiveRailExpiries].sort().join(",");
+  const filteredExp = effectiveRailExpiries.length > 0;
+  const { buckets: gexBuckets } = useStrikeProfileTimeseries(symbol, "5min", railExpParam, rewindActive, live);
 
   const dataAll = snapshot ? snapshot.bars : liveRows;
   const loading = snapshot ? false : liveLoading;
@@ -1693,7 +1706,7 @@ export default function GammaTerminalChart({
               )}
               <ExpirationMultiSelect
                 options={availableExpiries}
-                selected={railExpiries.filter((e) => availableExpiries.includes(e))}
+                selected={effectiveRailExpiries}
                 onChange={setRailExpiries}
                 label="Expiry"
                 disabled={availableExpiries.length === 0}
