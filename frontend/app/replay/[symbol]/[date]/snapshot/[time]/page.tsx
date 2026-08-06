@@ -32,7 +32,15 @@ interface FramePayload {
     max_pain: number | null;
     net_gex: number | null;
   } | null;
-  strikes: Array<{ strike: number | null; net_gex: number | null }>;
+  // call_gex / put_gex are the same per-strike gamma columns net_gex is
+  // sourced from (gex_by_strike); optional so the snapshot's Split / Combined
+  // views light up when the payload carries them and fall back to Net when not.
+  strikes: Array<{
+    strike: number | null;
+    net_gex: number | null;
+    call_gex?: number | null;
+    put_gex?: number | null;
+  }>;
 }
 
 function hhmmToIsoUtc(date: string, hhmm: string): string | null {

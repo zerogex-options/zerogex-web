@@ -322,11 +322,11 @@ export default function ReplayScrubber({
   const [pinA, setPinA] = useState<number | null>(null);
   const [pinB, setPinB] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
-  // Gamma display mode for the strike-profile panel. Defaults to 'net' so the
-  // replay opens on the same single-net-bar ladder it always has; the toggle
-  // (shown only when the payload carries call/put gamma) cycles into Split and
-  // Combined, matching the Strike Profile chart.
-  const [gexMode, setGexMode] = useState<GexMode>('net');
+  // Gamma display mode for the strike-profile panel. Defaults to 'split' to
+  // match the Strike Profile chart; when the payload is net-only it's clamped
+  // to 'net' below (and the toggle is hidden), so a net-only session still
+  // opens on the single-net-bar ladder it always has.
+  const [gexMode, setGexMode] = useState<GexMode>('split');
   const playRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const currentFrame = frames[cursor] ?? frames[0];
