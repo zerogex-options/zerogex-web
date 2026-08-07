@@ -61,6 +61,35 @@ const COMPARE_DEFAULT: Record<UnderlyingSymbol, UnderlyingSymbol> = {
   NDX: "SPX",
 };
 
+// ── Live-poll cadences ───────────────────────────────────────────────────────
+// Pair Comparison is the app's heaviest page: it runs TWO live columns, each
+// polling the GEX heatmap and summary, so its per-viewer request rate is ~2× a
+// single-symbol dashboard. The website's BFF proxies straight to the API
+// (ZEROGEX_API_BASE_URL, default 127.0.0.1:8000), bypassing the nginx response
+// cache / request coalescing that fronts direct API traffic — so every poll from
+// every viewer lands on a uvicorn worker. That is why the site-wide overload
+// surfaced as 503s here first, on the gamma heatmap.
+//
+// The heatmap and summary go through useApiData as independent per-URL fetch
+// loops (and the two columns are different symbols), so their cadence directly
+// sets how many requests this page emits. The heatmap only changes on the
+// analytics cycle (~60s) and is cached ~5s server-side (ANALYTICS_CACHE_TTL_
+// SECONDS), so polling it every second just re-fetched byte-identical data;
+// aligning the poll with that cache cuts the heaviest request type ~5× per
+// column with no visible change to the surface. The summary (flip / walls /
+// max-pain, also 60s-cycle) is kept a touch faster so its spot_price — the
+// ladder marker and the candles' horizontal spot line — stays live-ish.
+//
+// Quotes are deliberately NOT rate-limited here: useMarketQuote already shares
+// one deduplicated subscription per symbol (min interval across subscribers) and
+// drops to a heartbeat once the WebSocket is serving that symbol, so the live
+// candle tip keeps its 1 Hz feel without adding per-column HTTP load.
+//
+// NOTE: useApiData halves the nominal interval (REFRESH_ACCELERATION_FACTOR) with
+// a 1s floor, so 10_000 → ~5s and 5_000 → ~2.5s effective.
+const HEATMAP_REFRESH_MS = 10_000; // ~5s effective — matches the server GEX cache
+const SUMMARY_REFRESH_MS = 5_000; // ~2.5s effective — keeps the spot marker live-ish
+
 interface HeatmapBucket {
   timestamp: string;
   heatmap?: HeatmapCell[];
@@ -209,8 +238,8 @@ function StrikeFilterSeg({ value, onChange }: { value: boolean; onChange: (v: bo
 
 // Build the live-mode input for one column from the polling hooks.
 function useLiveColumn(symbol: UnderlyingSymbol, enabled: boolean): Omit<HeatmapColumnInput, "control"> {
-  const { data: summary } = useGEXSummary(symbol, 1000, enabled);
-  const { data: hm, loading, error } = useApiData<HeatmapBucket[]>(heatmapUrl(symbol), { refreshInterval: 1000, enabled });
+  const { data: summary } = useGEXSummary(symbol, SUMMARY_REFRESH_MS, enabled);
+  const { data: hm, loading, error } = useApiData<HeatmapBucket[]>(heatmapUrl(symbol), { refreshInterval: HEATMAP_REFRESH_MS, enabled });
   const { data: quote } = useMarketQuote(symbol, 1000, enabled);
   const { data: closes } = useSessionCloses(symbol, 60000, quote?.session ?? null, enabled);
 
