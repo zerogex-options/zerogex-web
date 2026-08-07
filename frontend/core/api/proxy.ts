@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { hasTierAccess, normalizeTier } from '@/core/auth';
 import { requireSession } from '@/core/serverAuth';
 import { mintEndUserToken } from './endUserToken';
+import { requiredApiAccess } from './apiTierGate';
 
 /**
  * Server-side BFF proxy for /api/* routes that reach the FastAPI
@@ -11,13 +13,17 @@ import { mintEndUserToken } from './endUserToken';
  * place, with an `Authorization: Bearer …` header sourced from
  * server-only env.
  *
- * Auth model: the BFF does NOT gate by tier. Upstream FastAPI is
- * authenticated by the server-only API key carried below — any caller
- * hitting the upstream directly needs their own key. Routes/pages are
- * still tier-gated at the middleware layer (proxy.ts → core/auth.ts),
- * so a Pro-only page like /signal-score still redirects an anonymous
- * visitor to /login; what changes here is that same-origin /api/*
- * responses are open via the BFF, which is the intentional model.
+ * Auth model: the BFF enforces the END-USER's consumer subscription tier
+ * on premium data endpoints (see apiTierGate.ts + the gate below), because
+ * nginx routes every browser /api/* call through here and the upstream
+ * FastAPI authenticates only the shared BFF key, not the consumer's tier.
+ * Upstream is still authenticated by the server-only API key carried below —
+ * any caller hitting the upstream directly needs their own key. Page routes
+ * remain tier-gated at the middleware layer (proxy.ts → core/auth.ts); this
+ * gate closes the gap where a caller could reach the same-origin /api/* data
+ * directly, bypassing that page gate. The gate is a denylist (unmapped paths
+ * pass through) and never sees server-side serverApiGet calls, so the
+ * SSR/delayed public surfaces are unaffected.
  *
  * Two env vars drive it:
  *   ZEROGEX_API_TOKEN     — required. The per-user key minted for
@@ -124,9 +130,9 @@ export async function proxyToApi(request: NextRequest): Promise<NextResponse> {
 
   const pathname = request.nextUrl.pathname;
 
-  // Resolve the session opportunistically — used only for end-user-token
-  // attribution upstream, never for gating. Anonymous callers are fine;
-  // they just don't carry an X-End-User-Token.
+  // Resolve the session: used both to gate premium data by consumer tier
+  // (below) and to mint the X-End-User-Token for upstream attribution.
+  // Anonymous callers are fine on ungated paths; they just carry no token.
   const authEnabled = process.env.NEXT_PUBLIC_AUTH_ENABLED === '1';
   let session: Awaited<ReturnType<typeof requireSession>> = null;
   if (authEnabled) {
@@ -135,6 +141,32 @@ export async function proxyToApi(request: NextRequest): Promise<NextResponse> {
     } catch (err) {
       console.warn('[bff-proxy] session resolution failed; proceeding anonymous', err);
       session = null;
+    }
+  }
+
+  // Consumer-tier gate — the paywall-bypass fix. This BFF is the single
+  // chokepoint for browser /api/* calls, so enforce the end-user's subscription
+  // tier on premium data here (the upstream authenticates only the shared BFF
+  // key; the page middleware skips /api/*). requiredApiAccess is a denylist:
+  // unmapped paths fall through unchanged, and server-side serverApiGet calls
+  // never reach this proxy, so SSR/delayed public content is unaffected. No-op
+  // when auth is disabled (dev/CI), mirroring hasTierAccess.
+  if (authEnabled) {
+    const access = requiredApiAccess(pathname);
+    if (access && access !== 'public') {
+      const tier = session ? normalizeTier(session.user.tier) : null;
+      if (!tier) {
+        return NextResponse.json(
+          { error: 'Authentication required' },
+          { status: 401, headers: { 'Cache-Control': 'no-store, private' } },
+        );
+      }
+      if (!hasTierAccess(tier, access)) {
+        return NextResponse.json(
+          { error: 'This data requires a higher plan tier.', required: access, current: tier },
+          { status: 403, headers: { 'Cache-Control': 'no-store, private' } },
+        );
+      }
     }
   }
 
