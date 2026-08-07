@@ -62,8 +62,24 @@ fi
 # size shared memory zone". Idempotent by design — writing the same
 # content is a no-op after nginx reload.
 sudo tee /etc/nginx/conf.d/zerogex-rate-limit.conf > /dev/null <<'LIMITEOF'
-# Per-IP rate limiting for app/API endpoints
-limit_req_zone $binary_remote_addr zone=zerogex_api_per_ip:10m rate=20r/s;
+# Per-IP rate limiting for app/API endpoints.
+#
+# rate=500r/s matches the API tier (zerogex-oa/deploy/steps/120.nginx_api),
+# which writes this SAME /etc/nginx/conf.d/zerogex-rate-limit.conf — keeping the
+# two in lockstep also avoids a co-hosted last-writer-wins mismatch. It is
+# deliberately generous. The app polls live gamma/quote data at ~1 Hz across
+# several charts, so a single open page is already several req/s and heavy views
+# (e.g. Pair Comparison) run two live columns at once. Because limit_req keys on
+# $binary_remote_addr, everyone behind a shared egress — corporate/VPN NAT,
+# mobile CGNAT, or a CDN edge when real-IP isn't restored — collapses onto ONE
+# bucket, so the previous rate=20r/s rejected ordinary multi-viewer traffic. Once
+# the burst bucket drained, limit_req returned 503 (its default status), and
+# because limit_req runs BEFORE proxy_cache those 503s bypass the
+# use_stale/background_update masking and reach the browser — surfacing on the
+# most frequent request, the gamma heatmap. The per-session response cache (5s) +
+# proxy_cache_lock bound real upstream load regardless, and fail2ban handles true
+# abuse, so this stays a guardrail against runaway loops, not a capacity throttle.
+limit_req_zone $binary_remote_addr zone=zerogex_api_per_ip:10m rate=500r/s;
 # Per-IP concurrent-connection cap for /ws. limit_req caps handshake
 # rate but WS is long-lived; without limit_conn a single IP could open
 # thousands of persistent sockets. 10m holds ~160k IPs.
