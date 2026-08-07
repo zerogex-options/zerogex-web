@@ -491,7 +491,74 @@ async function maybeStackReferralCoupon(
   }
 }
 
-async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
+// Wire the card the customer set up at checkout as the EXPLICIT default payment
+// method on both the subscription and the customer's invoice settings. Stripe's
+// trial-end charge (and every renewal) consults subscription.default_payment_method,
+// then customer.invoice_settings.default_payment_method, then falls back to "any
+// PM on the customer" — leaving the first two empty is the "neither default set"
+// gap (see scripts/diagnose-user.mts) where the auto-charge relied on Stripe
+// guessing a method at invoice time. `pmId` is the payment method a succeeded
+// SetupIntent authorized (supplied by the checkout.session.completed /
+// setup_intent.succeeded handlers). Only fills a slot that is currently EMPTY, so
+// it never overrides a default the member later chose in the portal, and it's
+// idempotent across redeliveries and the self-triggered subscription.updated our
+// own update emits. Best-effort: a failure is logged and never unwinds the sync.
+async function maybeWireDefaultPaymentMethod(
+  subscription: Stripe.Subscription,
+  pmId: string | null,
+  user: UserRow,
+): Promise<void> {
+  if (!pmId) return;
+  const customerId =
+    typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id;
+  try {
+    const subDefault =
+      typeof subscription.default_payment_method === 'string'
+        ? subscription.default_payment_method
+        : subscription.default_payment_method?.id ?? null;
+    let wroteSub = false;
+    if (!subDefault) {
+      await getStripe().subscriptions.update(subscription.id, { default_payment_method: pmId });
+      wroteSub = true;
+    }
+
+    let wroteCustomer = false;
+    const customer = await getStripe().customers.retrieve(customerId);
+    if (!('deleted' in customer && customer.deleted)) {
+      const cid = (customer as Stripe.Customer).invoice_settings?.default_payment_method;
+      const custDefault = typeof cid === 'string' ? cid : cid?.id ?? null;
+      if (!custDefault) {
+        await getStripe().customers.update(customerId, {
+          invoice_settings: { default_payment_method: pmId },
+        });
+        wroteCustomer = true;
+      }
+    }
+
+    if (wroteSub || wroteCustomer) {
+      logAudit({
+        type: 'billing_default_pm_wired',
+        userId: user.id,
+        email: user.email,
+        message: `Wired default PM ${pmId} on sub ${subscription.id}${wroteSub ? ' [subscription]' : ''}${wroteCustomer ? ' [customer]' : ''}`,
+      });
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'wire default PM failed';
+    logAudit({
+      type: 'stripe_webhook_error',
+      userId: user.id,
+      email: user.email,
+      message: `Wire default PM ${pmId} on sub ${subscription.id} failed: ${message}`,
+    });
+    // Swallow — tier sync already succeeded; a later sub/setup event can retry.
+  }
+}
+
+async function syncSubscriptionToUser(
+  subscription: Stripe.Subscription,
+  opts: { setupPaymentMethodId?: string | null } = {},
+) {
   const customerId =
     typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id;
   const user = findUserByCustomerId(customerId);
@@ -722,6 +789,12 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
   await maybeStackReferralCoupon(subscription, user);
 
   await maybeApplyFoundingLifetime(subscription.id, user);
+
+  // Wire the collected card as the explicit default PM when a succeeded
+  // SetupIntent handed us one (from checkout.session.completed or
+  // setup_intent.succeeded). Fills only empty slots, so it closes the
+  // "neither default set" gap without overriding a portal-chosen default.
+  await maybeWireDefaultPaymentMethod(subscription, opts.setupPaymentMethodId ?? null, user);
 
   // Gate the welcome on the ACTUAL grant, not raw isActive: a `trialing` sub
   // whose setup isn't ready is withheld (grantsTier false), so it must not get a
@@ -1284,10 +1357,29 @@ export async function POST(request: NextRequest) {
           const subscription = await getStripe().subscriptions.retrieve(subscriptionId, {
             expand: ['pending_setup_intent'],
           });
+          // Resolve the card the trial's SetupIntent authorized so the sync can
+          // wire it as the explicit default PM. Only trials carry a session-level
+          // setup_intent; a no-trial checkout has a payment_intent instead and
+          // Stripe sets the default from the payment, so this is null there.
+          // Best-effort: on any lookup failure fall back to Stripe's native wiring.
+          let setupPaymentMethodId: string | null = null;
+          const siRef = session.setup_intent;
+          const siId = typeof siRef === 'string' ? siRef : siRef?.id ?? null;
+          if (siId) {
+            try {
+              const si = await getStripe().setupIntents.retrieve(siId);
+              setupPaymentMethodId =
+                typeof si.payment_method === 'string'
+                  ? si.payment_method
+                  : si.payment_method?.id ?? null;
+            } catch {
+              // Non-fatal — the sync still runs; the default just isn't force-wired.
+            }
+          }
           // syncSubscriptionToUser drives the welcome internally via the
           // CAS-based maybeSendPaidWelcomeEmail, so this handler no longer
           // needs to pre-snapshot any state.
-          await syncSubscriptionToUser(subscription);
+          await syncSubscriptionToUser(subscription, { setupPaymentMethodId });
         }
         break;
       }
@@ -1470,7 +1562,11 @@ export async function POST(request: NextRequest) {
             user.stripe_subscription_id,
             { expand: ['pending_setup_intent'] },
           );
-          await syncSubscriptionToUser(subscription);
+          const pmId =
+            typeof si.payment_method === 'string'
+              ? si.payment_method
+              : si.payment_method?.id ?? null;
+          await syncSubscriptionToUser(subscription, { setupPaymentMethodId: pmId });
         }
         break;
       }
