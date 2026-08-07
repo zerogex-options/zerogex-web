@@ -58,6 +58,7 @@ type MinClassFilter = '500k' | '250k' | '100k' | '50k' | 'under50k';
 // backend) — they were just never surfaced. No new data required.
 type SideFilter = 'all' | 'BUY' | 'SELL' | 'NEUTRAL';
 type DeltaFilter = 'all' | '0.10' | '0.25' | '0.40';
+type DteFilter = 'all' | '0dte' | 'weekly' | 'longer';
 type FilterableKey = 'strike' | 'expiration' | 'option_type';
 const FILTERABLE_KEYS: readonly FilterableKey[] = ['strike', 'expiration', 'option_type'] as const;
 
@@ -258,6 +259,24 @@ function matchesDelta(delta: number | null | undefined, minDelta: DeltaFilter): 
   return Number.isFinite(d) && d >= Number(minDelta);
 }
 
+const dteOptions: Array<{ value: DteFilter; label: string }> = [
+  { value: 'all', label: 'All expiries' },
+  { value: '0dte', label: '0DTE' },
+  { value: 'weekly', label: '1–7 DTE' },
+  { value: 'longer', label: '8+ DTE' },
+];
+
+// Days-to-expiry bucket. A row with no dte can't be bucketed, so it's excluded
+// once a specific bucket is chosen.
+function matchesDte(dte: number | null | undefined, filter: DteFilter): boolean {
+  if (filter === 'all') return true;
+  const d = Number(dte);
+  if (!Number.isFinite(d)) return false;
+  if (filter === '0dte') return d === 0;
+  if (filter === 'weekly') return d >= 1 && d <= 7;
+  return d > 7; // 'longer'
+}
+
 // Row props are all primitives so default shallow `memo` comparison skips
 // re-renders for existing rows on every data tick / sort change. Hover is
 // handled by a single delegated listener on the section — rows don't need
@@ -317,6 +336,7 @@ export default function SmartMoneyPage() {
   const [minClass, setMinClass] = useState<MinClassFilter>('500k');
   const [sideFilter, setSideFilter] = useState<SideFilter>('all');
   const [minDelta, setMinDelta] = useState<DeltaFilter>('all');
+  const [dteFilter, setDteFilter] = useState<DteFilter>('all');
 
   useEffect(() => {
     if (!openFilter) return;
@@ -432,9 +452,9 @@ export default function SmartMoneyPage() {
 
   const filteredSmartMoneyData = useMemo<NormalizedSmartMoneyRow[]>(
     () => normalizedSmartMoneyRows.filter(
-      (row) => matchesMinClass(row.absNotional, minClass) && matchesSide(row.trade_side, sideFilter) && matchesDelta(row.delta, minDelta),
+      (row) => matchesMinClass(row.absNotional, minClass) && matchesSide(row.trade_side, sideFilter) && matchesDelta(row.delta, minDelta) && matchesDte(row.dte, dteFilter),
     ),
-    [normalizedSmartMoneyRows, minClass, sideFilter, minDelta],
+    [normalizedSmartMoneyRows, minClass, sideFilter, minDelta, dteFilter],
   );
 
   const sessionDateKey = useMemo(() => {
@@ -731,12 +751,17 @@ export default function SmartMoneyPage() {
                 {deltaOptions.map((option) => (<option key={option.value} value={option.value}>{option.label}</option>))}
               </select>
             </label>
+            <label className="text-sm" style={{ color: mutedText }}>Expiry
+              <select className="ml-2 rounded px-2 py-1" style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor, border: `1px solid ${inputBorder}` }} value={dteFilter} onChange={(e) => setDteFilter(e.target.value as DteFilter)}>
+                {dteOptions.map((option) => (<option key={option.value} value={option.value}>{option.label}</option>))}
+              </select>
+            </label>
         </div>
         <div className="text-sm mb-3" style={{ color: mutedText }}>
           Daily Totals as of: {dailyTotalsTimestamp ? new Date(dailyTotalsTimestamp).toLocaleString() : '--'}
         </div>
         <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
-          {effectiveSmartMoneyError ? <ErrorMessage message={effectiveSmartMoneyError} /> : !filteredSmartMoneyData.length ? <div className="text-center py-6" style={{ color: mutedText }}>{!smartMoneyData && !smartMoneyError ? 'Loading...' : `No smart money flow matches the current filters for the ${sessionView} session. Try a different session, Min Class, Side, or Δ.`}</div> : (
+          {effectiveSmartMoneyError ? <ErrorMessage message={effectiveSmartMoneyError} /> : !filteredSmartMoneyData.length ? <div className="text-center py-6" style={{ color: mutedText }}>{!smartMoneyData && !smartMoneyError ? 'Loading...' : `No smart money flow matches the current filters for the ${sessionView} session. Try a different session, Min Class, Side, Δ, or Expiry.`}</div> : (
             <>
               <div className="mb-5">
                 <div className="flex items-center gap-2 mb-2">
