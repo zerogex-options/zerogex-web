@@ -189,7 +189,7 @@ server {
         proxy_cache_background_update on;
         add_header X-Cache-Status \$upstream_cache_status always;
 
-        limit_req zone=zerogex_api_per_ip burst=1000 nodelay;
+        limit_req zone=zerogex_web_per_ip burst=1000 nodelay;
     }
 
     # WebSocket reverse proxy. Direct to FastAPI. Auth is ticket-based
@@ -223,7 +223,7 @@ server {
 
         # Handshake-rate cap. Per-connection limit prevents a single
         # IP from opening thousands of concurrent sockets.
-        limit_req zone=zerogex_api_per_ip burst=100 nodelay;
+        limit_req zone=zerogex_web_per_ip burst=100 nodelay;
         limit_conn zerogex_ws_per_ip 32;
     }
 
