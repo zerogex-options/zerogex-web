@@ -21,6 +21,32 @@ interface FramePayload {
     max_pain: number | null;
     net_gex: number | null;
   } | null;
+  strikes?: Array<{ strike: number | null; net_gex: number | null }>;
+}
+
+// Green above / red below by sign — the universal gamma-profile convention.
+// (Kept net here rather than the call/put split so the strip doesn't clash
+// with the wall cells' green=put / red=call colours in the same image.)
+const OG_POS = '#10B981';
+const OG_NEG = '#F45854';
+const STRIP_H = 120;
+
+interface ProfileCol {
+  strike: number;
+  net: number;
+}
+
+// Down-sample to at most `max` evenly-spaced columns so a wide strike band
+// stays legible (and the PNG stays light) instead of rendering 100+ hairline
+// bars.
+function evenSample<T>(arr: T[], max: number): T[] {
+  if (arr.length <= max) return arr;
+  const out: T[] = [];
+  const denom = Math.max(1, max - 1);
+  for (let i = 0; i < max; i += 1) {
+    out.push(arr[Math.round((i * (arr.length - 1)) / denom)]);
+  }
+  return out;
 }
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -79,6 +105,23 @@ export default async function Image({ params }: { params: { symbol: string; date
     ? `${params.time.slice(0, 2)}:${params.time.slice(2, 4)} ET`
     : '—';
   const summary = payload?.summary;
+
+  // Per-strike net-gamma profile for the mini strip below the stats.
+  const profile: ProfileCol[] = evenSample(
+    (payload?.strikes ?? [])
+      .filter(
+        (s): s is { strike: number; net_gex: number } =>
+          s.strike != null &&
+          Number.isFinite(s.strike) &&
+          s.net_gex != null &&
+          Number.isFinite(s.net_gex),
+      )
+      .map((s) => ({ strike: s.strike, net: s.net_gex }))
+      .sort((a, b) => a.strike - b.strike),
+    64,
+  );
+  const profilePeak =
+    profile.reduce((acc, c) => Math.max(acc, Math.abs(c.net)), 0) || 1;
 
   await captureServer(`og:replay:${params.date}:${params.time}`, TelemetryEvent.OgPreviewed, {
     surface: 'replay_snapshot',
@@ -237,6 +280,83 @@ export default async function Image({ params }: { params: { symbol: string; date
                 </div>
               ))}
             </div>
+
+            {/* Net-gamma-by-strike mini profile: bars rise (green) for
+                net-positive strikes and fall (red) for net-negative, low →
+                high strike left → right. Pure flexbox so it renders reliably
+                under satori. */}
+            {profile.length > 1 && (
+              <div style={{ display: 'flex', flexDirection: 'column', marginTop: 22 }}>
+                <div
+                  style={{
+                    fontSize: 15,
+                    fontWeight: 800,
+                    letterSpacing: '0.18em',
+                    color: '#7E96A0',
+                    textTransform: 'uppercase',
+                    marginBottom: 10,
+                    display: 'flex',
+                  }}
+                >
+                  Net gamma by strike
+                </div>
+                <div style={{ display: 'flex', alignItems: 'stretch', height: STRIP_H, gap: 3 }}>
+                  {profile.map((c) => {
+                    const positive = c.net >= 0;
+                    const h = Math.round((Math.abs(c.net) / profilePeak) * (STRIP_H / 2 - 2));
+                    return (
+                      <div
+                        key={c.strike}
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          flex: 1,
+                          height: STRIP_H,
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: 'flex',
+                            height: STRIP_H / 2,
+                            alignItems: 'flex-end',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: '72%',
+                              height: positive ? h : 0,
+                              background: OG_POS,
+                              borderRadius: '2px 2px 0 0',
+                              display: 'flex',
+                            }}
+                          />
+                        </div>
+                        <div
+                          style={{
+                            display: 'flex',
+                            height: STRIP_H / 2,
+                            alignItems: 'flex-start',
+                            justifyContent: 'center',
+                            borderTop: '1px solid #FFFFFF22',
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: '72%',
+                              height: positive ? 0 : h,
+                              background: OG_NEG,
+                              borderRadius: '0 0 2px 2px',
+                              display: 'flex',
+                            }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </>
         )}
 
