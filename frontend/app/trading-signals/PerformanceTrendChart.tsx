@@ -24,11 +24,10 @@
 import { useMemo, useState } from 'react';
 import {
   Bar,
-  BarChart,
   CartesianGrid,
   Cell,
+  ComposedChart,
   Line,
-  LineChart,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -69,6 +68,12 @@ export default function PerformanceTrendChart({ data }: Props) {
     );
   }
 
+  // Bar (right) axis gets generous top headroom so per-session P&L bars occupy
+  // the lower band and stay clear of the cumulative-return lines above them.
+  const pnlAbsSpan = Math.max(1, ...series.map((p) => Math.abs(p.realized_pnl)));
+  const pnlFloor = Math.min(0, ...series.map((p) => p.realized_pnl));
+  const pnlDomain: [number, number] = [pnlFloor - pnlAbsSpan * 0.12, pnlAbsSpan * 2.6];
+
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -76,38 +81,60 @@ export default function PerformanceTrendChart({ data }: Props) {
         <WindowToggle windows={windows} current={win} onChange={setWin} />
       </div>
 
-      {/* Top pane: cumulative return, fleet vs SPY (one %-axis). */}
-      <div style={{ width: '100%', height: 220 }}>
+      {/* Single plot: cumulative return lines (left %-axis) + per-session P&L
+          bars (right $-axis) share one x-axis, so the change markers line up
+          across both. */}
+      <div style={{ width: '100%', height: 300 }}>
         <ResponsiveContainer>
-          <LineChart data={series} margin={MARGIN}>
+          <ComposedChart data={series} margin={{ ...MARGIN, top: 20, right: 8 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.5} />
-            <XAxis dataKey="session_date" hide />
+            <XAxis
+              dataKey="session_date"
+              tick={{ fontSize: 10, fill: 'var(--color-text-secondary)' }}
+              tickFormatter={fmtDate}
+              interval="preserveStartEnd"
+              minTickGap={40}
+              stroke="var(--color-border)"
+            />
             <YAxis
+              yAxisId="pct"
+              orientation="left"
+              width={Y_WIDTH}
               tick={{ fontSize: 10, fill: 'var(--color-text-secondary)' }}
               tickFormatter={(v: number) => `${v > 0 ? '+' : ''}${(v * 100).toFixed(0)}%`}
               stroke="var(--color-border)"
-              width={Y_WIDTH}
             />
-            <ReferenceLine y={0} stroke="var(--color-border)" strokeDasharray="3 3" />
-            {markers.map((m) => (
-              <ReferenceLine
-                key={`c-${m.date}`}
-                x={m.snapped}
-                stroke="var(--color-info)"
-                strokeDasharray="4 3"
-                opacity={0.7}
-                label={{
-                  value: m.label,
-                  position: 'insideTopLeft',
-                  fontSize: 9,
-                  fill: 'var(--color-info)',
-                  angle: -90,
-                  offset: 8,
-                }}
-              />
-            ))}
-            <Tooltip content={<TrendTooltip />} />
+            <YAxis
+              yAxisId="pnl"
+              orientation="right"
+              width={Y_WIDTH}
+              domain={pnlDomain}
+              tick={{ fontSize: 10, fill: 'var(--color-text-secondary)' }}
+              tickFormatter={(v: number) => fmtSignedMoney(v)}
+              stroke="var(--color-border)"
+            />
+            <ReferenceLine yAxisId="pct" y={0} stroke="var(--color-border)" strokeDasharray="3 3" />
+            <Tooltip
+              cursor={{ stroke: 'var(--color-info)', strokeWidth: 1, strokeDasharray: '3 3' }}
+              content={<TrendTooltip />}
+            />
+            <Bar
+              yAxisId="pnl"
+              dataKey="realized_pnl"
+              name="Session P&L"
+              maxBarSize={22}
+              isAnimationActive={false}
+            >
+              {series.map((p) => (
+                <Cell
+                  key={p.session_date}
+                  fill={p.realized_pnl >= 0 ? 'var(--color-bull)' : 'var(--color-bear)'}
+                  fillOpacity={0.7}
+                />
+              ))}
+            </Bar>
             <Line
+              yAxisId="pct"
               dataKey="spy_cum_return_pct"
               name="SPY buy-hold"
               type="monotone"
@@ -119,6 +146,7 @@ export default function PerformanceTrendChart({ data }: Props) {
               connectNulls
             />
             <Line
+              yAxisId="pct"
               dataKey="fleet_cum_return_pct"
               name="Fleet"
               type="monotone"
@@ -128,58 +156,55 @@ export default function PerformanceTrendChart({ data }: Props) {
               isAnimationActive={false}
               connectNulls
             />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* Bottom pane: per-session realized P&L bars ($). */}
-      <div style={{ width: '100%', height: 110 }}>
-        <ResponsiveContainer>
-          <BarChart data={series} margin={{ ...MARGIN, top: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.35} vertical={false} />
-            <XAxis
-              dataKey="session_date"
-              tick={{ fontSize: 10, fill: 'var(--color-text-secondary)' }}
-              tickFormatter={fmtDate}
-              interval="preserveStartEnd"
-              minTickGap={40}
-              stroke="var(--color-border)"
-            />
-            <YAxis
-              tick={{ fontSize: 10, fill: 'var(--color-text-secondary)' }}
-              tickFormatter={(v: number) => fmtSignedMoney(v)}
-              stroke="var(--color-border)"
-              width={Y_WIDTH}
-            />
-            <ReferenceLine y={0} stroke="var(--color-border)" />
-            {markers.map((m) => (
+            {markers.map((m, i) => (
               <ReferenceLine
-                key={`cb-${m.date}`}
+                key={m.date}
+                yAxisId="pct"
                 x={m.snapped}
                 stroke="var(--color-info)"
                 strokeDasharray="4 3"
-                opacity={0.7}
+                strokeOpacity={0.85}
+                label={{
+                  value: String(i + 1),
+                  position: 'top',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  fill: 'var(--color-info)',
+                }}
               />
             ))}
-            <Tooltip cursor={{ fill: 'var(--color-info)', opacity: 0.06 }} content={<TrendTooltip />} />
-            <Bar dataKey="realized_pnl" name="Session P&L" isAnimationActive={false}>
-              {series.map((p) => (
-                <Cell
-                  key={p.session_date}
-                  fill={p.realized_pnl >= 0 ? 'var(--color-bull)' : 'var(--color-bear)'}
-                />
-              ))}
-            </Bar>
-          </BarChart>
+          </ComposedChart>
         </ResponsiveContainer>
       </div>
 
+      {markers.length > 0 ? (
+        <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5">
+          {markers.map((m, i) => (
+            <span key={m.date} className="inline-flex items-center gap-1.5 text-[11px]">
+              <span
+                className="inline-flex items-center justify-center rounded-full text-[9px] font-bold flex-shrink-0"
+                style={{
+                  width: 15,
+                  height: 15,
+                  border: '1px solid var(--color-info)',
+                  color: 'var(--color-info)',
+                }}
+              >
+                {i + 1}
+              </span>
+              <span className="text-[var(--color-text-primary)] font-medium">{fmtDate(m.date)}</span>
+              <span className="text-[var(--color-text-secondary)]">{m.label}</span>
+            </span>
+          ))}
+        </div>
+      ) : null}
+
       <p className="mt-3 text-[11px] text-[var(--color-text-secondary)] leading-relaxed">
-        Top: cumulative realized return since the window start —{' '}
+        Lines = cumulative realized return since the window start (left axis):{' '}
         <span style={{ color: 'var(--color-info)' }}>fleet</span> vs{' '}
-        <span className="text-[var(--color-text-primary)]">SPY buy-hold</span> (dashed). Bottom:
-        per-session realized P&amp;L. Dashed verticals mark engine/strategy changes. Rebased to the
-        window start, so the pre-fix drawdown does not anchor the view.
+        <span className="text-[var(--color-text-primary)]">SPY buy-hold</span> (dashed). Bars =
+        per-session realized P&amp;L (right axis). Numbered markers are engine / strategy changes,
+        keyed above. Rebased to the window start, so the pre-fix drawdown does not anchor the view.
       </p>
     </div>
   );
