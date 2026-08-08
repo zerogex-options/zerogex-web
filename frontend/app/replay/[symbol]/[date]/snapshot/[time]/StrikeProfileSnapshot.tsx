@@ -91,17 +91,29 @@ export default function StrikeProfileSnapshot({
   const clipId = `snap-clip-${useId().replace(/[^a-zA-Z0-9-]/g, '')}`;
 
   const rows = useMemo<Row[]>(() => {
-    return strikes
-      .filter((s) => s.strike != null && s.net_gex != null)
-      .map((s) => ({
-        strike: s.strike as number,
-        net: s.net_gex as number,
-        call: s.call_gex != null && Number.isFinite(s.call_gex) ? s.call_gex : 0,
-        put: s.put_gex != null && Number.isFinite(s.put_gex) ? s.put_gex : 0,
-      }))
-      // Ascending so yForPrice (higher price = higher on chart) lays them out
-      // like an option chain, highest strike at the top.
-      .sort((a, b) => a.strike - b.strike);
+    // /replay/frame returns one row per (strike, expiration), so a strike can
+    // appear more than once; sum call/put/net across expirations into a single
+    // per-strike row (call + put stays consistent with net since each source
+    // row already satisfies call + put = net). This keeps the profile one bar
+    // per strike instead of overlapping bars for multi-expiration strikes.
+    const byStrike = new Map<number, Row>();
+    for (const s of strikes) {
+      if (s.strike == null || s.net_gex == null) continue;
+      const strike = s.strike;
+      const call = s.call_gex != null && Number.isFinite(s.call_gex) ? s.call_gex : 0;
+      const put = s.put_gex != null && Number.isFinite(s.put_gex) ? s.put_gex : 0;
+      const existing = byStrike.get(strike);
+      if (existing) {
+        existing.net += s.net_gex;
+        existing.call += call;
+        existing.put += put;
+      } else {
+        byStrike.set(strike, { strike, net: s.net_gex, call, put });
+      }
+    }
+    // Ascending so yForPrice (higher price = higher on chart) lays them out
+    // like an option chain, highest strike at the top.
+    return Array.from(byStrike.values()).sort((a, b) => a.strike - b.strike);
   }, [strikes]);
 
   // Whether the payload carries per-strike call/put gamma. Drives whether the
