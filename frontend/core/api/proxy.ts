@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { hasTierAccess, normalizeTier } from '@/core/auth';
 import { requireSession } from '@/core/serverAuth';
 import { mintEndUserToken } from './endUserToken';
-import { requiredApiAccess } from './apiTierGate';
+import { isApiTierGateEnabled, requiredApiAccess } from './apiTierGate';
 
 /**
  * Server-side BFF proxy for /api/* routes that reach the FastAPI
@@ -150,8 +150,10 @@ export async function proxyToApi(request: NextRequest): Promise<NextResponse> {
   // key; the page middleware skips /api/*). requiredApiAccess is a denylist:
   // unmapped paths fall through unchanged, and server-side serverApiGet calls
   // never reach this proxy, so SSR/delayed public content is unaffected. No-op
-  // when auth is disabled (dev/CI), mirroring hasTierAccess.
-  if (authEnabled) {
+  // when auth is disabled (dev/CI), mirroring hasTierAccess. Guarded by the
+  // BILLING_API_TIER_GATE_ENABLED kill-switch so a mis-map can be rolled back
+  // by flipping the env to 0 and restarting — no rebuild.
+  if (authEnabled && isApiTierGateEnabled(process.env.BILLING_API_TIER_GATE_ENABLED)) {
     const access = requiredApiAccess(pathname);
     if (access && access !== 'public') {
       const tier = session ? normalizeTier(session.user.tier) : null;

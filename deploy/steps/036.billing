@@ -69,6 +69,10 @@ ensure_env_key "FOUNDING_PROMO_CODE" ""
 ensure_env_key "PROMO_END_AT" ""
 ensure_env_key "BILLING_PAID_SIGNUP_DISABLED" ""
 ensure_env_key "STRIPE_PORTAL_CONFIG_ID" ""
+# Consumer-tier gate on BFF-proxied /api/* data endpoints. Empty/unset = ON
+# (the default). Set to 0 to disable the gate instantly (restart, no rebuild)
+# if a mis-mapped endpoint 403s a paying page. See core/api/apiTierGate.ts.
+ensure_env_key "BILLING_API_TIER_GATE_ENABLED" ""
 chmod 600 "$ENV_FILE"
 
 log ""

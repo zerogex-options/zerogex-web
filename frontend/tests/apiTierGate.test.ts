@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { requiredApiAccess, type ApiAccess } from '../core/api/apiTierGate.ts';
+import {
+  isApiTierGateEnabled,
+  requiredApiAccess,
+  type ApiAccess,
+} from '../core/api/apiTierGate.ts';
 
 // The BFF tier gate is the paywall-bypass fix: it decides the consumer tier
 // required for each browser /api/* data path. Lock the map down — a wrong
@@ -80,4 +84,15 @@ test('segment-safe matching: a prefix never matches a longer sibling segment', (
   eq('/api/gexfoo/bar', null);
   eq('/api/signals-extra', null); // not /api/signals
   eq('/api/optionality', null); // not /api/option
+});
+
+test('kill-switch: gate is ON by default and only OFF for the exact value "0"', () => {
+  // On by default — unset, empty, or anything that is not "0".
+  assert.equal(isApiTierGateEnabled(undefined), true);
+  assert.equal(isApiTierGateEnabled(''), true);
+  assert.equal(isApiTierGateEnabled('1'), true);
+  assert.equal(isApiTierGateEnabled('true'), true);
+  assert.equal(isApiTierGateEnabled('on'), true);
+  // Off only for the exact opt-out value.
+  assert.equal(isApiTierGateEnabled('0'), false);
 });
