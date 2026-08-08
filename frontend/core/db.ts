@@ -432,16 +432,20 @@ function initDb(): DatabaseSync {
   ensureColumn('users', 'payment_recovery_pending', 'INTEGER NOT NULL DEFAULT 0');
 
   // ISO timestamp anchoring a bounded payment-recovery grace window. Set by the
-  // Stripe webhook when an ESTABLISHED (previously `active`) subscription first
-  // enters `past_due` on a failed renewal; while set and within
+  // Stripe webhook when a subscription first enters `past_due`: an ESTABLISHED
+  // (previously `active`) subscription on a failed renewal, and — when
+  // BILLING_TRIAL_GRACE_ENABLED is on (the default) — a trial-conversion failure
+  // whose trial had ALREADY been granted access (its SetupIntent succeeded; see
+  // the payment-setup gate in the webhook). While set and within
   // BILLING_PAYMENT_GRACE_DAYS the member keeps their paid tier instead of being
   // dropped to 'public' on that first failure, so a recoverable decline
   // (insufficient funds that day, a bank fraud hold, a card the member re-enters
-  // in the portal) doesn't instantly revoke access mid-cycle while Stripe's Smart
-  // Retries attempt the charge. Cleared the moment the subscription leaves
-  // `past_due` (recovery to `active`, or terminal cancel/delete). NULL = no window
-  // open. Trial-conversion failures (previous status `trialing`, never `active`)
-  // are deliberately excluded — an unvalidated trial card gets no grace.
+  // in the portal) doesn't instantly revoke access while Stripe's Smart Retries
+  // attempt the charge. Cleared the moment the subscription leaves `past_due`
+  // (recovery to `active`, or terminal cancel/delete). NULL = no window open. A
+  // trial we WITHHELD (unvalidated card — setup never succeeded, so tier stayed
+  // `public`) is excluded by decidePaymentGrace's previousTierGranted guard: an
+  // unvalidated card never gets grace.
   ensureColumn('users', 'payment_grace_started_at', 'TEXT');
 
   // Soft-delete marker for self-service account deletion (see

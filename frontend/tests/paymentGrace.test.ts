@@ -84,6 +84,46 @@ test('trialGrace does not change the established-renewal path', () => {
   }
 });
 
+// previousTierGranted guard (trial-access fix): a trial whose payment setup
+// never succeeded is withheld access (previous synced tier stayed `public`), so
+// its first-charge failure must NOT open a recovery window — otherwise the fix
+// that withholds premium during the trial hands it right back at trial-end.
+test('trialGrace on but the trial was withheld (previousTierGranted=false): no window', () => {
+  const d = decidePaymentGrace(
+    input({
+      previousStatus: 'trialing',
+      trialGrace: true,
+      previousTierGranted: false,
+      graceStartedAt: null,
+    }),
+  );
+  assert.equal(d.inGrace, false);
+  assert.equal(d.graceStartedAt, null);
+});
+
+test('trialGrace on and the trial was granted (previousTierGranted=true): opens a window', () => {
+  const d = decidePaymentGrace(
+    input({
+      previousStatus: 'trialing',
+      trialGrace: true,
+      previousTierGranted: true,
+      graceStartedAt: null,
+    }),
+  );
+  assert.equal(d.inGrace, true);
+  assert.equal(d.graceStartedAt, new Date(NOW).toISOString());
+});
+
+test('previousTierGranted guard is trial-only: an established renewal still opens', () => {
+  // The guard must never touch the renewal branch — an established payer whose
+  // card fails always had a paid tier, and previousTierGranted=false here would
+  // be nonsensical, but even so `active` must keep its recovery window.
+  const d = decidePaymentGrace(
+    input({ previousStatus: 'active', previousTierGranted: false, graceStartedAt: null }),
+  );
+  assert.equal(d.inGrace, true);
+});
+
 test('a trial-opened window enforces the same bound on later past_due syncs', () => {
   // Opened by a trial failure, then a later sync 2 days into a 3-day window: the
   // "already open" branch keys off the anchor + graceDays, not previousStatus.
