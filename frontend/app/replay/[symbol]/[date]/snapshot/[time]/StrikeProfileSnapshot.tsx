@@ -30,6 +30,7 @@ interface StrikeProfileSnapshotProps {
   gammaFlip?: number | null;
   callWall?: number | null;
   putWall?: number | null;
+  maxPain?: number | null;
 }
 
 interface Row {
@@ -87,6 +88,7 @@ export default function StrikeProfileSnapshot({
   gammaFlip,
   callWall,
   putWall,
+  maxPain,
 }: StrikeProfileSnapshotProps) {
   const clipId = `snap-clip-${useId().replace(/[^a-zA-Z0-9-]/g, '')}`;
 
@@ -197,6 +199,9 @@ export default function StrikeProfileSnapshot({
     refLines.push({ level: callWall, label: `Call Wall ${callWall.toFixed(2)}`, color: 'var(--color-bear)' });
   if (putWall != null && Number.isFinite(putWall))
     refLines.push({ level: putWall, label: `Put Wall ${putWall.toFixed(2)}`, color: 'var(--color-bull)' });
+  // Max pain uses gold, matching the Gamma Terminal chart's convention.
+  if (maxPain != null && Number.isFinite(maxPain))
+    refLines.push({ level: maxPain, label: `Max Pain ${maxPain.toFixed(2)}`, color: 'var(--color-gold)' });
 
   const legend =
     effMode === 'net'

@@ -219,6 +219,7 @@ export default async function ReplaySnapshotPage({
           gammaFlip={summary?.gamma_flip ?? null}
           callWall={summary?.call_wall ?? null}
           putWall={summary?.put_wall ?? null}
+          maxPain={summary?.max_pain ?? null}
         />
       </section>
 
