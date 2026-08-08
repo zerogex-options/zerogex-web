@@ -251,8 +251,8 @@ export default function VolatilityPage() {
                     label={{ value: `Implied ~${impliedAtm.dte}D`, position: 'insideTopRight', fill: 'var(--color-gold)', fontSize: 10 }}
                   />
                 )}
-                <Line type="monotone" dataKey="rv10" name="Realized 10D" stroke="var(--color-info)" strokeWidth={2} dot={false} connectNulls />
-                <Line type="monotone" dataKey="rv20" name="Realized 20D" stroke="var(--color-brand-accent)" strokeWidth={2.5} dot={false} connectNulls />
+                <Line type="monotone" dataKey="rv10" name="Realized 10D" stroke="var(--regime-trend)" strokeWidth={2} dot={false} connectNulls />
+                <Line type="monotone" dataKey="rv20" name="Realized 20D" stroke="var(--regime-reversal)" strokeWidth={2.5} dot={false} connectNulls />
               </LineChart>
             </ResponsiveContainer>
           </MobileScrollableChart>

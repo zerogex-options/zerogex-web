@@ -81,6 +81,7 @@ export default function GexStrikeDteHeatmap({ byStrikeData, spotPrice }: GexStri
     // Aggregate by (strike, DTE exact)
     const agg = new Map<string, number>();
     const strikeTotal = new Map<number, number>();
+    const strikeNet = new Map<number, number>();
     const seenDtes = new Set<number>();
 
     rows.forEach((row) => {
@@ -92,6 +93,7 @@ export default function GexStrikeDteHeatmap({ byStrikeData, spotPrice }: GexStri
       const key = `${strike}_${dte}`;
       agg.set(key, (agg.get(key) || 0) + Number(row.net_gex || 0));
       strikeTotal.set(strike, (strikeTotal.get(strike) || 0) + Math.abs(Number(row.net_gex || 0)));
+      strikeNet.set(strike, (strikeNet.get(strike) || 0) + Number(row.net_gex || 0));
     });
 
     // Select top strikes by total absolute GEX, then display highest → lowest
@@ -110,19 +112,24 @@ export default function GexStrikeDteHeatmap({ byStrikeData, spotPrice }: GexStri
       .filter((dte) => sortedStrikes.some((strike) => Math.abs(agg.get(`${strike}_${dte}`) || 0) > visibilityThreshold))
       .sort((a, b) => a - b);
 
-    // GEX King — the strike carrying the largest total |GEX| across the DTE
-    // window (the same "heaviest dealer gamma" notion as the Pair Comparison
-    // crown, aggregated to the strike level). It is always one of the shown
-    // strikes, since those are the top strikes by this very total.
+    // GEX King — the shown strike with the largest NET dealer gamma summed
+    // across the near-term (0–7 DTE) expirations on this heatmap. Using the
+    // signed net (then its magnitude) — rather than a sum of absolute values —
+    // keeps "King" consistent with call/put-wall semantics and with the Pair
+    // Comparison crown (|net GEX| per strike across ALL expirations). The two
+    // can still differ by expiration scope: this heatmap is near-term only, so
+    // a 0DTE-heavy node can outrank the full-chain structural node. Restricted
+    // to sortedStrikes so the crown always lands on a visible row.
     let kingStrike: number | null = null;
-    let kingTotal = -1;
-    strikeTotal.forEach((total, strike) => {
-      if (total > kingTotal) {
-        kingTotal = total;
-        kingStrike = strike;
+    let kingMag = -1;
+    for (const s of sortedStrikes) {
+      const mag = Math.abs(strikeNet.get(s) || 0);
+      if (mag > kingMag) {
+        kingMag = mag;
+        kingStrike = s;
       }
-    });
-    if (kingTotal <= 0) kingStrike = null;
+    }
+    if (kingMag <= 0) kingStrike = null;
 
     return { strikes: sortedStrikes, grid: agg, maxAbs: maxAbsVal, dteColumns: nonEmptyDtes, kingStrike };
   }, [byStrikeData]);
@@ -156,7 +163,7 @@ export default function GexStrikeDteHeatmap({ byStrikeData, spotPrice }: GexStri
         >
           GEX Heatmap · Strike &times; DTE
         </h3>
-        <TooltipWrapper text="Matrix view of aggregated net GEX by strike (rows) and time-to-expiration buckets (columns). Color intensity reflects magnitude; green is positive GEX and red is negative GEX. The crowned strike is the GEX King — the one carrying the largest total dealer gamma across expirations. Cell values follow the GEX unit toggle; colors are unaffected.">
+        <TooltipWrapper text="Matrix view of aggregated net GEX by strike (rows) and time-to-expiration buckets (columns). Color intensity reflects magnitude; green is positive GEX and red is negative GEX. The crowned strike is the GEX King — the strike with the largest net dealer gamma across the near-term (0–7 DTE) expirations shown here. (Pair Comparison's crown spans ALL expirations, so the two can point to different strikes.) Cell values follow the GEX unit toggle; colors are unaffected.">
           <Info size={14} />
         </TooltipWrapper>
         <span
@@ -194,7 +201,7 @@ export default function GexStrikeDteHeatmap({ byStrikeData, spotPrice }: GexStri
                 >
                   <span className="inline-flex items-center gap-1">
                     {isKing && (
-                      <TooltipWrapper text="GEX King — the strike carrying the largest total dealer gamma across expirations, the dominant node price tends to gravitate toward.">
+                      <TooltipWrapper text="GEX King — the strike with the largest net dealer gamma across the near-term (0–7 DTE) expirations shown here; the dominant node price tends to gravitate toward. (Spans only these expirations — Pair Comparison's crown spans the whole chain.)">
                         <Crown
                           size={13}
                           strokeWidth={2.25}
