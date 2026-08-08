@@ -97,3 +97,15 @@ export function requiredApiAccess(pathname: string): ApiAccess | null {
   }
   return null;
 }
+
+// Kill-switch. The gate is ON by default (unset / empty / any value other than
+// '0'); an operator disables it instantly by setting BILLING_API_TIER_GATE_ENABLED=0
+// and restarting the service (an env reload, NOT a rebuild — this is a server-only
+// var read from process.env at request time). Provided as a pure function taking
+// the raw env value so the semantics are unit-testable; proxy.ts passes
+// process.env.BILLING_API_TIER_GATE_ENABLED. Rationale: this gate can 403 a paying
+// page if a premium endpoint is ever mis-mapped, so a no-rebuild rollback must
+// exist alongside it.
+export function isApiTierGateEnabled(rawEnvValue: string | undefined): boolean {
+  return rawEnvValue !== '0';
+}
