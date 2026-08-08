@@ -516,29 +516,57 @@ export default function ReplayScrubber({
 
   // Diff between the two pins, when both are dropped. Computed inline
   // since the per-frame strike payload is small (~60 rows × 2 frames).
+  // Carries the call/put/net deltas so the diff can follow the same
+  // Split / Net / Combined mode as the main panel; call/put deltas are 0
+  // for a net-only payload (the diff then renders exactly as before).
+  interface DiffAcc {
+    aNet: number;
+    bNet: number;
+    aCall: number;
+    bCall: number;
+    aPut: number;
+    bPut: number;
+  }
   const diffRows = useMemo(() => {
     if (pinA == null || pinB == null) return null;
     const a = frames[pinA];
     const b = frames[pinB];
     if (!a || !b) return null;
-    const byStrike = new Map<number, { a: number; b: number }>();
+    const byStrike = new Map<number, DiffAcc>();
+    const blank = (): DiffAcc => ({
+      aNet: 0,
+      bNet: 0,
+      aCall: 0,
+      bCall: 0,
+      aPut: 0,
+      bPut: 0,
+    });
+    const num = (v: number | null | undefined) =>
+      v != null && Number.isFinite(v) ? v : 0;
     for (const s of a.strikes) {
-      if (s.strike != null && s.net_gex != null) {
-        byStrike.set(s.strike, { a: s.net_gex, b: 0 });
-      }
+      if (s.strike == null || s.net_gex == null) continue;
+      const e = byStrike.get(s.strike) ?? blank();
+      e.aNet = s.net_gex;
+      e.aCall = num(s.call_gex);
+      e.aPut = num(s.put_gex);
+      byStrike.set(s.strike, e);
     }
     for (const s of b.strikes) {
-      if (s.strike != null && s.net_gex != null) {
-        const entry = byStrike.get(s.strike);
-        if (entry) entry.b = s.net_gex;
-        else byStrike.set(s.strike, { a: 0, b: s.net_gex });
-      }
+      if (s.strike == null || s.net_gex == null) continue;
+      const e = byStrike.get(s.strike) ?? blank();
+      e.bNet = s.net_gex;
+      e.bCall = num(s.call_gex);
+      e.bPut = num(s.put_gex);
+      byStrike.set(s.strike, e);
     }
     return Array.from(byStrike.entries())
-      .map(([strike, { a, b }]) => ({
+      .map(([strike, e]) => ({
         strike,
-        delta: b - a,
-        fill: b - a >= 0 ? 'var(--color-bull)' : 'var(--color-bear)',
+        deltaNet: e.bNet - e.aNet,
+        deltaCall: e.bCall - e.aCall,
+        deltaPut: e.bPut - e.aPut,
+        // Per-cell fill for the Net-mode single bar (sign-coloured, as before).
+        fill: e.bNet - e.aNet >= 0 ? 'var(--color-bull)' : 'var(--color-bear)',
       }))
       .sort((x, y) => y.strike - x.strike);
   }, [pinA, pinB, frames]);
@@ -693,7 +721,12 @@ export default function ReplayScrubber({
         <div className="rounded-xl border-2 px-5 py-4" style={{ borderColor: 'var(--color-warning)', background: 'var(--color-surface)' }}>
           <div className="flex items-baseline justify-between gap-3">
             <div className="text-[10px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
-              Pin diff · A→B
+              Pin diff · A→B ·{' '}
+              {effGexMode === 'net'
+                ? 'Δ Net'
+                : effGexMode === 'split'
+                  ? 'Δ Call / Put'
+                  : 'Δ Combined'}
             </div>
             {pinA != null && pinB != null && (
               <div className="font-mono text-xs text-[var(--color-text-secondary)]">
@@ -729,14 +762,46 @@ export default function ReplayScrubber({
                     borderRadius: 6,
                     fontSize: 12,
                   }}
-                  formatter={(value) => [
+                  formatter={(value, name) => [
                     typeof value === 'number' ? formatMagnitude(value) : '—',
-                    'Δ Net GEX',
+                    typeof name === 'string' ? name : 'Δ GEX',
                   ]}
                   labelFormatter={(label) => `Strike $${label}`}
                 />
                 <ReferenceLine x={0} stroke="var(--color-border)" />
-                <Bar dataKey="delta" isAnimationActive={false} />
+                {/* Grouped signed bars — a diff needs the direction of change
+                    (right = grew, left = shrank), so unlike the strike-profile
+                    panel each series keeps its sign here rather than pinning
+                    calls right / puts left. Net mode keeps the sign-coloured
+                    single bar; Split adds call/put; Combined adds the purple
+                    net delta. */}
+                {effGexMode === 'net' && (
+                  <Bar dataKey="deltaNet" name="Δ Net GEX" isAnimationActive={false} />
+                )}
+                {effGexMode !== 'net' && (
+                  <>
+                    <Bar
+                      dataKey="deltaCall"
+                      name="Δ Call GEX"
+                      fill="var(--color-bull)"
+                      isAnimationActive={false}
+                    />
+                    <Bar
+                      dataKey="deltaPut"
+                      name="Δ Put GEX"
+                      fill="var(--color-bear)"
+                      isAnimationActive={false}
+                    />
+                    {effGexMode === 'combined' && (
+                      <Bar
+                        dataKey="deltaNet"
+                        name="Δ Net GEX"
+                        fill={NET_BAR_COLOR}
+                        isAnimationActive={false}
+                      />
+                    )}
+                  </>
+                )}
               </BarChart>
             </ResponsiveContainer>
           </div>
