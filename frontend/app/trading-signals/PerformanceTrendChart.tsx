@@ -34,7 +34,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { fmtDate, fmtPct, fmtRatio, fmtSignedMoney, fmtSignedPct, toneVar } from './format';
+import { fmtPct, fmtRatio, fmtSignedMoney, fmtSignedPct, toneVar } from './format';
 import type { PerformanceTrend, TrendChange, TrendPoint, TrendRolling } from './types';
 
 const Y_WIDTH = 56;
@@ -91,7 +91,7 @@ export default function PerformanceTrendChart({ data }: Props) {
             <XAxis
               dataKey="session_date"
               tick={{ fontSize: 10, fill: 'var(--color-text-secondary)' }}
-              tickFormatter={fmtDate}
+              tickFormatter={fmtDay}
               interval="preserveStartEnd"
               minTickGap={40}
               stroke="var(--color-border)"
@@ -177,10 +177,52 @@ export default function PerformanceTrendChart({ data }: Props) {
         </ResponsiveContainer>
       </div>
 
+      {/* Visual key — swatch + short label, no prose. The "what/why" detail
+          lives in the section header's (i) tooltip. */}
+      <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px] text-[var(--color-text-secondary)]">
+        <span className="inline-flex items-center gap-1.5">
+          <span
+            className="inline-block rounded"
+            style={{ width: 16, height: 3, backgroundColor: 'var(--color-info)' }}
+          />
+          Fleet return
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <svg width="16" height="4" aria-hidden="true">
+            <line
+              x1="0"
+              y1="2"
+              x2="16"
+              y2="2"
+              stroke="var(--color-text-secondary)"
+              strokeWidth="2"
+              strokeDasharray="4 3"
+            />
+          </svg>
+          SPY return
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-flex gap-0.5">
+            <span
+              className="inline-block rounded-sm"
+              style={{ width: 5, height: 11, backgroundColor: 'var(--color-bull)' }}
+            />
+            <span
+              className="inline-block rounded-sm"
+              style={{ width: 5, height: 11, backgroundColor: 'var(--color-bear)' }}
+            />
+          </span>
+          Daily P&amp;L
+        </span>
+      </div>
+
       {markers.length > 0 ? (
-        <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5">
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px]">
+          <span className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)]">
+            Changes
+          </span>
           {markers.map((m, i) => (
-            <span key={m.date} className="inline-flex items-center gap-1.5 text-[11px]">
+            <span key={m.date} className="inline-flex items-center gap-1.5">
               <span
                 className="inline-flex items-center justify-center rounded-full text-[9px] font-bold flex-shrink-0"
                 style={{
@@ -192,20 +234,12 @@ export default function PerformanceTrendChart({ data }: Props) {
               >
                 {i + 1}
               </span>
-              <span className="text-[var(--color-text-primary)] font-medium">{fmtDate(m.date)}</span>
+              <span className="text-[var(--color-text-primary)] font-medium">{fmtDay(m.date)}</span>
               <span className="text-[var(--color-text-secondary)]">{m.label}</span>
             </span>
           ))}
         </div>
       ) : null}
-
-      <p className="mt-3 text-[11px] text-[var(--color-text-secondary)] leading-relaxed">
-        Lines = cumulative realized return since the window start (left axis):{' '}
-        <span style={{ color: 'var(--color-info)' }}>fleet</span> vs{' '}
-        <span className="text-[var(--color-text-primary)]">SPY buy-hold</span> (dashed). Bars =
-        per-session realized P&amp;L (right axis). Numbered markers are engine / strategy changes,
-        keyed above. Rebased to the window start, so the pre-fix drawdown does not anchor the view.
-      </p>
     </div>
   );
 }
@@ -295,7 +329,7 @@ function TrendTooltip({ active, label, payload }: TooltipProps) {
       }}
     >
       <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">
-        {fmtDate(String(label))} · {p.trades} trade{p.trades === 1 ? '' : 's'}
+        {fmtDay(String(label))} · {p.trades} trade{p.trades === 1 ? '' : 's'}
       </div>
       <Row label="Session P&L" value={fmtSignedMoney(p.realized_pnl)} tone={toneVar(p.realized_pnl)} />
       <Row label="Fleet (cum.)" value={fmtSignedPct(p.fleet_cum_return_pct)} tone={toneVar(p.fleet_cum_return_pct)} />
@@ -321,6 +355,19 @@ function pfTone(pf: number | null): string {
   if (pf > 1) return 'var(--color-bull)';
   if (pf < 1) return 'var(--color-bear)';
   return 'var(--color-text-secondary)';
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** Format a date-only ISO string (YYYY-MM-DD) as "Mon D" WITHOUT going through
+ *  Date/UTC. `new Date('2026-08-04')` is UTC midnight, which renders as the
+ *  previous day in ET — that shifted every session label (and marker) back a
+ *  day. Parsing the parts directly keeps the calendar date intact. */
+function fmtDay(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!m) return iso;
+  const month = MONTHS[Number(m[2]) - 1] ?? '';
+  return `${month} ${Number(m[3])}`;
 }
 
 interface Marker {
