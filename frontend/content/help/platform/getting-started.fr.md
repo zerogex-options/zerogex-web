@@ -12,7 +12,7 @@ ZeroGEX transforme le marché des options en une vue en temps réel du **positio
 
 1. **Créez un compte.** Un compte public gratuit suffit pour explorer — les offres Basic et Pro débloquent les vues en direct de la plateforme. Voir [Niveaux, Accès et Ce Qui Se Débloque Où](/help/platform/tiers-and-access).
 2. **Ouvrez le Dashboard.** C'est la page que vous ouvrirez chaque matin. Passez deux minutes à survoler chaque tuile. Voir [Lire le Dashboard](/help/platform/dashboard).
-3. **Ouvrez le Live Bulletin dans un second onglet.** C'est le flux en streaming qui vous signale quand un signal se déclenche ou que le régime bascule. Voir [Utiliser le Live Bulletin](/help/platform/live-bulletin).
+3. **Ouvrez le Live Bulletin dans un second onglet.** C'est un instantané en direct et prêt à partager du positionnement gamma des dealers — le régime, les niveaux clés et la fourchette attendue sur une seule carte. Voir [Utiliser le Live Bulletin](/help/platform/live-bulletin).
 4. **Ouvrez une page de signal** — le Composite Score est un bon premier choix. Observez comment le score évolue en temps réel et lisez le panneau "Comment il est construit" sous le graphique. Voir [Comment Fonctionnent les Signaux de Bout en Bout](/help/platform/signals-overview).
 5. **Visitez l'Education Hub.** L'article [Gamma Exposure Explained](/education/gamma-exposure-explained) est la lecture centrale pour tout ce qui alimente la plateforme.
 
@@ -28,7 +28,7 @@ Si vous pouvez répondre aux deux d'un seul coup d'œil sur une page, c'est que 
 ## Trois choses à intérioriser dès le début
 
 - **Les scores évoluent sur une ligne fixe [-1, +1].** Le signe indique la direction ; l'amplitude indique la conviction. Un score de 0 n'est presque jamais "neutre" — cela signifie généralement que les données sont insuffisantes. Voir [Lire la Ligne de Score [-1, +1]](/help/platform/score-line).
-- **Les signaux Advanced se déclenchent ; les signaux Basic pondèrent.** Le Live Bulletin vous montre les triggers. Les signaux Basic font évoluer le composite en continu en arrière-plan.
+- **Les signaux Advanced se déclenchent ; les signaux Basic pondèrent.** Le dashboard Advanced Signals et les Signal Alerts vous montrent les triggers. Les signaux Basic font évoluer le composite en continu en arrière-plan.
 - **Être au-dessus du gamma flip par rapport à en dessous change tout.** Au-dessus, c'est "mean-revert et grind" ; en dessous, c'est "trend et amplification." Vérifiez toujours la relation avec le flip avant de lire quoi que ce soit d'autre.
 
 ## Où aller ensuite

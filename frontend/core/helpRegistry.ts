@@ -34,7 +34,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
   {
     slug: 'live-bulletin',
     title: 'Using the Live Bulletin',
-    description: 'The streaming feed of signal events, regime shifts, and notable flow.',
+    description: 'A live, share-ready snapshot of dealer gamma positioning — the regime, key levels, and expected range on one card.',
     section: 'Core Pages',
   },
   {
