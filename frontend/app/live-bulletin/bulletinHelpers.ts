@@ -419,7 +419,9 @@ export function buildReportModel(inputs: ReportInputs): ReportModel {
 // brackets roughly 68% of outcomes under the usual lognormal approximation.
 // `context` describes how the dealer call/put walls sit relative to that band —
 // the gamma-aware half of the prediction.
-function buildExpectedRange(args: {
+// Exported so the Gamma Chart's on-chart Expected Range overlay is drawn from
+// the exact same math as the Live Bulletin card — the two never disagree.
+export function buildExpectedRange(args: {
   spot: number | null;
   vix: number | null;
   volIndex: 'VIX' | 'VXN';
