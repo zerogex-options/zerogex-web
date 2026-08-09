@@ -2,6 +2,7 @@
 
 import { forwardRef, useMemo } from 'react';
 import { useChartTheme } from '@/hooks/useChartTheme';
+import { PIN_STRIKE_COLOR_HEX } from '@/core/pinStrike';
 import {
   fmtNetGex,
   fmtPrice,
@@ -353,6 +354,7 @@ const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(functio
           <Metric label="Call Wall" value={fmtPrice(model.callWall)} accent={C.bear} C={C} />
           <Metric label="Put Wall" value={fmtPrice(model.putWall)} accent={C.bull} C={C} />
           <Metric label="Max Pain" value={fmtPrice(model.maxPain)} accent={C.blue} C={C} />
+          <Metric label="Pin Strike" value={fmtPrice(model.pinStrike)} accent={PIN_STRIKE_COLOR_HEX} C={C} />
         </div>
 
         {/* Probability-bounded expected range */}

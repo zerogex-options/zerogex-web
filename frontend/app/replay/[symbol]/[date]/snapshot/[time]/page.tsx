@@ -30,6 +30,7 @@ interface FramePayload {
     put_wall: number | null;
     gamma_flip: number | null;
     max_pain: number | null;
+    pin_strike: number | null;
     net_gex: number | null;
   } | null;
   // call_gex / put_gex are the same per-strike gamma columns net_gex is
@@ -220,6 +221,7 @@ export default async function ReplaySnapshotPage({
           callWall={summary?.call_wall ?? null}
           putWall={summary?.put_wall ?? null}
           maxPain={summary?.max_pain ?? null}
+          pinStrike={summary?.pin_strike ?? null}
         />
       </section>
 

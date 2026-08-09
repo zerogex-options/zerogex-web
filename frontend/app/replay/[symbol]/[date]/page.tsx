@@ -19,6 +19,10 @@ interface ReplayFrame {
   call_wall: number | null;
   put_wall: number | null;
   max_pain: number | null;
+  // Pin Strike (+ confidence) ride along per minute so the scrubber can draw
+  // the pin line; null on rows written before pin_strike shipped.
+  pin_strike: number | null;
+  pin_confidence: number | null;
   // call_gex / put_gex are the same per-strike dealer gamma columns net_gex is
   // sourced from (gex_by_strike); optional so the scrubber's Split / Combined
   // views light up when the payload carries them and cleanly fall back to the

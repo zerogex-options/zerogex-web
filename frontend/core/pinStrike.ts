@@ -20,6 +20,16 @@
 export const PIN_STRENGTH_STRONG_MIN_CONFIDENCE = 0.5;
 export const PIN_STRENGTH_MODERATE_MIN_CONFIDENCE = 0.33;
 
+// Single source of truth for the Pin Strike line/marker color across every
+// surface. The teal is defined once as `--color-pin` in globals.css (theme-
+// consistent, deliberately distinct from the green/red walls, amber flip, gold
+// max-pain and violet King). Contexts that resolve CSS vars use
+// PIN_STRIKE_COLOR_VAR; contexts that need a literal color string — hex-only
+// module constants (MarketMakerExposures) and the rasterized-to-PNG bulletin,
+// whose serializer does not resolve `var(--…)` — use PIN_STRIKE_COLOR_HEX.
+export const PIN_STRIKE_COLOR_VAR = 'var(--color-pin)';
+export const PIN_STRIKE_COLOR_HEX = '#14B8A6';
+
 export type PinStrength = 'none' | 'weak' | 'moderate' | 'strong';
 
 /** The em-dash empty state used across the level tiles (never render 0/NaN). */

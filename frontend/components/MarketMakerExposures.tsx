@@ -30,6 +30,7 @@ import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
 import { etTodayDateKey, getMarketSession, isIndexSymbol, omitClosedMarketTimes } from '@/core/utils';
 import { loadChartSettings, saveChartSettings } from '@/core/chartSettings';
+import { PIN_STRIKE_COLOR_HEX } from '@/core/pinStrike';
 import { useSharedExpirations } from '@/hooks/useSharedExpirations';
 import { reconcileExpirations } from '@/core/expirationPersistence';
 import ChartCaption from './ChartCaption';
@@ -172,6 +173,11 @@ const GEX_VALUE_MIN_SLOT = 11; // min px of vertical room per strike to show lab
 const SPOT_LINE = '#06B6D4';
 const KEY_LEVEL = '#F5C24A';
 const FLIP_LINE = '#FFB44A';
+// Pin Strike — reachable 0DTE positive-gamma pin. Teal, the app-wide pin hue
+// (--color-pin); a literal hex here because this file's level colors are
+// module constants, not CSS vars. Dashed + labeled so it reads distinctly from
+// the solid cyan spot line.
+const PIN_LINE = PIN_STRIKE_COLOR_HEX;
 
 // Session level lines (pre-market + previous-session high/low) — non-index
 // symbols only (SPY/QQQ etc.; cash indexes have no pre-market session).
@@ -1312,6 +1318,9 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const effFlip = toNumber(levelSourceBucket?.gamma_flip) ?? toNumber(gexSummary?.gamma_flip);
   const effCallWall = toNumber(levelSourceBucket?.call_wall) ?? toNumber(gexSummary?.call_wall);
   const effPutWall = toNumber(levelSourceBucket?.put_wall) ?? toNumber(gexSummary?.put_wall);
+  // Pin Strike is a summary-only level (not carried on the strike-profile
+  // timeseries buckets), so it reads straight from the served summary.
+  const effPin = toNumber(gexSummary?.pin_strike);
 
   const keyLevels = useMemo(() => {
     if (!yBounds) return [] as Array<{ y: number; price: number; color: string; label: string; emphasized?: boolean; dash?: string }>;
@@ -1329,6 +1338,9 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     }
     if (effPutWall != null && Number.isFinite(effPutWall)) {
       items.push({ y: yFor(effPutWall), price: effPutWall, color: KEY_LEVEL, label: 'Put Wall' });
+    }
+    if (effPin != null && Number.isFinite(effPin)) {
+      items.push({ y: yFor(effPin), price: effPin, color: PIN_LINE, label: 'Pin Strike', dash: '2 3' });
     }
     // Session context levels — pre-market + previous-session high/low.
     // Non-index symbols only; each pushes independently so partial data
@@ -1352,7 +1364,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
       }
     }
     return items;
-  }, [effFlip, effCallWall, effPutWall, chartSpot, symbolIsIndex, sessionLevels, yBounds, PLOT_HEIGHT, showPmLevels, showPrevLevels]);
+  }, [effFlip, effCallWall, effPutWall, effPin, chartSpot, symbolIsIndex, sessionLevels, yBounds, PLOT_HEIGHT, showPmLevels, showPrevLevels]);
 
   // ── Hover tracking for tooltips/crosshair ──
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -2851,6 +2863,12 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
             <line x1="0" x2="22" y1="3" y2="3" stroke={KEY_LEVEL} strokeDasharray="4 4" strokeWidth="1.2" />
           </svg>
           <span style={{ color: textPrimary }}>Put Wall</span>
+        </span>
+        <span className="flex items-center gap-1.5" title="Pin Strike — reachable 0DTE strike with the strongest modeled positive dealer-gamma stabilization into expiration; a modeled pinning level, not a target">
+          <svg width="22" height="6" aria-hidden="true">
+            <line x1="0" x2="22" y1="3" y2="3" stroke={PIN_LINE} strokeDasharray="2 3" strokeWidth="1.2" />
+          </svg>
+          <span style={{ color: textPrimary }}>Pin Strike</span>
         </span>
         {!symbolIsIndex && showPmLevels && (
           <span className="flex items-center gap-1.5" title="High and low of today's pre-market session (04:00–09:30 ET) — live while the pre-market is in progress">
