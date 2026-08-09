@@ -21,6 +21,7 @@ import {
   useSignalScore,
 } from '@/hooks/useApiData';
 import { useTimeframe } from '@/core/TimeframeContext';
+import { useHasTierAccess } from '@/hooks/useAuthSession';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 import { asObject, getNumber, trendColor } from '@/core/signalHelpers';
 import { computeBias, type BiasResult, type MarketState } from '@/core/tradeBias';
@@ -90,15 +91,23 @@ const PLAYBOOK_TOOLTIP =
 export default function TradeBiasSection({ compact = false }: { compact?: boolean } = {}) {
   const { symbol } = useTimeframe();
 
+  // 0DTE imbalance, trap detection and gamma-VWAP confluence are Pro-only. This
+  // card is embedded on the (Basic-tier) dashboard, so for non-Pro viewers those
+  // three used to poll on a loop and 403 every time — pure wasted load. Gate them
+  // behind Pro access: the bias already degrades gracefully when they're absent
+  // (computeBias treats a missing signal as null), so a Basic viewer sees exactly
+  // the same result, just without the doomed requests. Pro viewers are unchanged.
+  const hasPro = useHasTierAccess('pro');
+
   const gex = useGEXSummary(symbol, 5000);
   const msi = useSignalScore(symbol, PROPRIETARY_SIGNALS_REFRESH.compositeScoreMs);
   const tape = useTapeFlowBiasSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.tapeFlowBiasMs);
   const vc = useVannaCharmFlowSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.vannaCharmFlowMs);
-  const odte = useZeroDtePositionImbalanceSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.zeroDteImbalanceMs);
+  const odte = useZeroDtePositionImbalanceSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.zeroDteImbalanceMs, hasPro);
   const gexGrad = useGexGradientSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.gexGradientMs);
   const posTrap = usePositioningTrapSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.positioningTrapMs);
-  const trap = useTrapDetectionSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.trapDetectionMs);
-  const gVwap = useGammaVwapConfluenceSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.gammaVwapConfluenceMs);
+  const trap = useTrapDetectionSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.trapDetectionMs, hasPro);
+  const gVwap = useGammaVwapConfluenceSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.gammaVwapConfluenceMs, hasPro);
 
   const biasInputs = useMemo(() => {
     const get = (raw: unknown): number | null => getNumber((asObject(raw) ?? {}).score);
