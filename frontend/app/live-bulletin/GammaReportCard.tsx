@@ -591,6 +591,12 @@ function GammaMap({ model, C }: { model: ReportModel; C: CardColors }) {
     { key: 'flip', label: 'Flip', value: model.gammaFlip!, color: C.amber, side: 'above' as const, priority: 2 },
     { key: 'spot', label: 'Spot', value: model.spot!, color: C.textPrimary, side: 'above' as const, priority: 3 },
     { key: 'call', label: 'Call Wall', value: model.callWall!, color: C.bear, side: 'below' as const, priority: 1 },
+    // Max Pain (OI settlement magnet) groups with the structural walls below;
+    // Pin Strike (gamma-stabilization pin) groups with the flip above. Both use
+    // their tile colors (blue / teal) and only render when present — the filter
+    // drops any null level.
+    { key: 'pain', label: 'Max Pain', value: model.maxPain!, color: C.blue, side: 'below' as const, priority: 2 },
+    { key: 'pin', label: 'Pin Strike', value: model.pinStrike!, color: PIN_STRIKE_COLOR_HEX, side: 'above' as const, priority: 2 },
   ].filter((p) => p.value != null && Number.isFinite(p.value));
 
   if (points.length < 2) return null;

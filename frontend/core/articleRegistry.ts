@@ -144,6 +144,18 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     readMinutes: 16,
     kind: 'pillar',
   },
+  'pin-strike-explained': {
+    slug: 'pin-strike-explained',
+    href: '/education/pin-strike-explained',
+    title: 'Pin Strike Explained: The Reachable 0DTE Gamma Pin',
+    blurb:
+      'The reachable 0DTE strike with the strongest modeled positive dealer-gamma stabilization into expiration — built by re-pricing the book as if spot were at each strike, weighted by whether price can actually get there. Why it is not the biggest-gamma strike, how it differs from max pain and the walls, and why it is allowed to return no active pin.',
+    description:
+      'Pin Strike explained — the reachable 0DTE strike with the strongest modeled positive dealer-gamma stabilization into expiration. How it is computed, how it differs from the walls, gamma flip, max pain and the King Node, and when it returns no active pin.',
+    datePublished: '2026-08-09',
+    readMinutes: 14,
+    kind: 'tier2',
+  },
   'max-pain-explained': {
     slug: 'max-pain-explained',
     href: '/education/max-pain-explained',
@@ -474,10 +486,16 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'vanna-and-charm-explained',
     'charm-the-clock-is-a-trader',
   ],
+  'pin-strike-explained': [
+    'max-pain-explained',
+    'how-to-know-if-spy-is-pinned',
+    'how-to-read-a-gamma-flip',
+  ],
   'max-pain-explained': [
     'gamma-exposure-explained',
     'gamma-walls-explained',
     'how-to-read-a-gamma-flip',
+    'pin-strike-explained',
   ],
   'vanna-and-charm-explained': [
     'charm-the-clock-is-a-trader',
@@ -541,6 +559,7 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
   ],
   'how-to-know-if-spy-is-pinned': [
     'why-spy-pins-near-strikes',
+    'pin-strike-explained',
     'max-pain-explained',
     'eod-pressure-explained',
   ],
@@ -551,6 +570,7 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
   ],
   'why-spy-pins-near-strikes': [
     'how-to-know-if-spy-is-pinned',
+    'pin-strike-explained',
     'max-pain-explained',
     'eod-pressure-explained',
   ],
