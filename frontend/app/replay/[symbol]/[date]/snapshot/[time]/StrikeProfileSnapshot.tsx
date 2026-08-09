@@ -3,6 +3,8 @@
 import { useId, useMemo, useState } from 'react';
 import { BarChart3 } from 'lucide-react';
 
+import { staggerLabelYs } from '../../levelStagger';
+
 // Horizontal-strike-profile card for the shareable moment page. Mirrors the
 // ReplayScrubber's right-hand strike panel so the snapshot reads the same way
 // as the live scrubber a user just came from — including the Split / Net /
@@ -203,6 +205,22 @@ export default function StrikeProfileSnapshot({
   if (maxPain != null && Number.isFinite(maxPain))
     refLines.push({ level: maxPain, label: `Max Pain ${maxPain.toFixed(2)}`, color: 'var(--color-gold)' });
 
+  // Stagger the reference-level labels vertically so close-together levels
+  // (spot / flip / max pain often cluster near spot) don't overlap. The lines
+  // stay at their true price; only the labels are nudged apart.
+  const refMarkers = (() => {
+    const items = refLines
+      .map((rl) => ({ ...rl, lineY: yForPrice(rl.level) }))
+      .filter((rl) => rl.lineY >= PLOT_TOP - 1 && rl.lineY <= PLOT_BOTTOM + 1)
+      .sort((a, b) => a.lineY - b.lineY);
+    const labelYs = staggerLabelYs(items.map((r) => r.lineY), {
+      gap: 13,
+      minY: PLOT_TOP + 9,
+      maxY: PLOT_BOTTOM - 3,
+    });
+    return items.map((r, i) => ({ ...r, labelY: labelYs[i] }));
+  })();
+
   const legend =
     effMode === 'net'
       ? []
@@ -367,25 +385,38 @@ export default function StrikeProfileSnapshot({
             })}
           </g>
 
-          {/* Reference levels: spot, flip, call wall, put wall — horizontal
-              lines with right-anchored labels, clipped to the plot box. */}
+          {/* Reference levels: spot, flip, call/put walls, max pain — lines at
+              their true price with right-anchored labels staggered vertically
+              so they never overlap. A faint leader ties a nudged label back to
+              its line. Clipped to the plot box. */}
           <g clipPath={`url(#${clipId})`}>
-            {refLines.map((rl) => {
-              const y = yForPrice(rl.level);
+            {refMarkers.map((rl) => {
+              const nudged = Math.abs(rl.labelY - (rl.lineY - 4)) > 2;
               return (
                 <g key={rl.label}>
                   <line
                     x1={PLOT_X0}
                     x2={PLOT_X1}
-                    y1={y}
-                    y2={y}
+                    y1={rl.lineY}
+                    y2={rl.lineY}
                     stroke={rl.color}
                     strokeDasharray="5 3"
                     opacity={0.75}
                   />
+                  {nudged && (
+                    <line
+                      x1={PLOT_X1 - 2}
+                      x2={PLOT_X1 - 2}
+                      y1={Math.min(rl.lineY, rl.labelY - 3)}
+                      y2={Math.max(rl.lineY, rl.labelY - 3)}
+                      stroke={rl.color}
+                      strokeWidth={0.75}
+                      opacity={0.4}
+                    />
+                  )}
                   <text
                     x={PLOT_X1 - 4}
-                    y={y - 4}
+                    y={rl.labelY}
                     textAnchor="end"
                     fontSize={10}
                     fontWeight={700}
