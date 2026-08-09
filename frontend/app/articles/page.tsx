@@ -189,6 +189,13 @@ const ARTICLES: Article[] = [
       'What vanna and charm are, why they drive a meaningful share of dealer hedging flows, how vanna produces the persistent vol-compression grind, how charm shapes the predictable into-close flow, and how both interact with the gamma regime to either reinforce or invert the structural drift.',
   },
   {
+    href: '/education/pin-strike-explained',
+    kind: 'Published • August 9, 2026 • 16:00 UTC',
+    title: 'Pin Strike Explained: The Reachable 0DTE Gamma Pin',
+    blurb:
+      'The reachable 0DTE strike with the strongest modeled positive dealer-gamma stabilization into expiration — built by re-pricing the book as if spot were at each strike, then weighting by whether price can actually get there. Why it is deliberately not the biggest-gamma strike, how it differs from the walls, the gamma flip, max pain and the King Node, and why it is allowed to return no active pin.',
+  },
+  {
     href: '/education/max-pain-explained',
     kind: 'Published • June 11, 2026 • 16:00 UTC',
     title: 'Max Pain Explained — and Does It Actually Work?',
