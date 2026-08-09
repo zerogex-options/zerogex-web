@@ -28,7 +28,7 @@ Consulta il confronto in tempo reale — e un percorso di prova gratuita di 14 g
 ### Livello Basic
 
 - **Dashboard** — metriche complete in tempo reale
-- **Live Bulletin** — feed in streaming degli eventi di segnale
+- **Live Bulletin** — un'istantanea dealer-gamma in tempo reale e pronta da condividere
 - **Tutte le pagine Metrics** — Dealer Positioning, GEX Summary & Greeks, Flow Analysis, Smart Money, Max Pain, Technicals
 - **Basic Signals** — Tape Flow Bias, Skew Delta, Vanna/Charm Flow, Dealer Delta Pressure, GEX Gradient, Positioning Trap
 - **Strategy Builder** — pricing completo delle opzioni e P&L
@@ -48,7 +48,6 @@ Alcune pagine esistono per tutti i livelli ma si comportano diversamente a secon
 
 - La **Dashboard** è completamente popolata per Basic e Pro. Gli utenti Public vedono una vista teaser che rimanda alla pagina live dopo l'accesso.
 - La sezione **Signals** nella sidebar è sempre visibile — chiunque può cliccare sul nome di un segnale. Se non hai accesso, il clic ti reindirizza alla pagina [Pricing](/pricing) così puoi vedere cosa lo sblocca.
-- I badge e i chip di **Live Bulletin** sono sensibili al livello: gli elementi riservati a Pro mostrano un piccolo chip di blocco per gli utenti Basic.
 
 ## Come effettuare l'upgrade o cambiare livello
 
