@@ -105,84 +105,41 @@ LIMITEOF
 log "  → Installing Cloudflare real-IP refresher (script + weekly timer)..."
 sudo tee /usr/local/bin/zerogex-web-refresh-cf-ranges.sh > /dev/null <<'CFSCRIPT'
 #!/usr/bin/env bash
-# Regenerate the two Cloudflare-derived nginx snippets from CF's published ranges
-# and reload nginx if either changed. Safe to run repeatedly.
-#
-#   /etc/nginx/conf.d/zerogex-realip.conf  — real-IP restoration (CF-Connecting-IP)
-#   /etc/nginx/conf.d/zerogex-cf-geo.conf  — $zgx_from_cloudflare origin-gate map
-#
-# Fail-safe on every axis, because a bad map here can take the site down:
-#   * a failed or SHORT fetch (fewer than MIN_RANGES CIDRs) keeps the existing
-#     files — an empty gate map would 403 every visitor;
-#   * only well-formed CIDR lines are emitted (non-CIDR junk is filtered);
-#   * after install, `nginx -t` must pass or the previous files are restored.
-# Set ZEROGEX_CF_SKIP_RELOAD=1 to write without reloading (deploy path, where the
-# step's own nginx -t + restart validates the whole config).
+# Regenerate /etc/nginx/conf.d/zerogex-realip.conf from Cloudflare's published IP
+# ranges, then reload nginx if the set changed. Safe to run repeatedly.
+# Fail-safe: a failed fetch or a failed `nginx -t` never clobbers a good config.
+# Set ZEROGEX_CF_SKIP_RELOAD=1 to write the file without reloading (used during
+# the deploy, where the step's own `nginx -t` + restart validates everything).
 set -euo pipefail
-REALIP="/etc/nginx/conf.d/zerogex-realip.conf"
-GEO="/etc/nginx/conf.d/zerogex-cf-geo.conf"
-MIN_RANGES=10   # CF publishes ~22; far fewer means a bad/partial fetch
+CONF="/etc/nginx/conf.d/zerogex-realip.conf"
 V4="$(curl -fsS --max-time 10 https://www.cloudflare.com/ips-v4 || true)"
 V6="$(curl -fsS --max-time 10 https://www.cloudflare.com/ips-v6 || true)"
-RANGES="$(printf '%s\n%s\n' "$V4" "$V6" | grep -E '^[0-9a-fA-F.:]+/[0-9]+$' || true)"
-COUNT="$(printf '%s\n' "$RANGES" | grep -c . || true)"
-if [ "$COUNT" -lt "$MIN_RANGES" ]; then
-  echo "zerogex-cf-ranges: only $COUNT ranges fetched (<$MIN_RANGES); keeping existing config" >&2
-  # Never leave the gate variable undefined (that would fail nginx -t) and never
-  # write an empty default-0 map (that would 403 everyone). If no real map exists
-  # yet, install a fail-OPEN stub so the site config loads with the gate simply
-  # disabled until a good fetch replaces it. An already-good map is left as-is.
-  if [ ! -f "$GEO" ]; then
-    printf '%s\n' \
-      '# Cloudflare origin gate — fail-open stub (CF ranges unavailable at write time).' \
-      '# Gate disabled until zerogex-web-refresh-cf-ranges.sh installs the real map.' \
-      'geo $realip_remote_addr $zgx_from_cloudflare { default 1; }' > "$GEO"
-    echo "zerogex-cf-ranges: wrote fail-open gate stub (gate disabled for now)" >&2
-  fi
+if [ -z "$V4" ] || [ -z "$V6" ]; then
+  echo "zerogex-cf-ranges: fetch failed; keeping existing $CONF" >&2
   exit 0
 fi
-TMPR="$(mktemp)"; TMPG="$(mktemp)"; trap 'rm -f "$TMPR" "$TMPG"' EXIT
+TMP="$(mktemp)"
+trap 'rm -f "$TMP"' EXIT
 {
   echo "# Cloudflare real-IP restoration — managed by zerogex-web-refresh-cf-ranges.sh."
   echo "# Do not edit by hand; regenerated from cloudflare.com/ips-v4 + ips-v6."
-  while IFS= read -r c; do [ -n "$c" ] && echo "set_real_ip_from $c;"; done <<< "$RANGES"
+  for cidr in $V4 $V6; do echo "set_real_ip_from $cidr;"; done
   echo "real_ip_header CF-Connecting-IP;"
   echo "real_ip_recursive on;"
-} > "$TMPR"
-{
-  echo "# Cloudflare origin gate — managed by zerogex-web-refresh-cf-ranges.sh."
-  echo "# \$zgx_from_cloudflare = 1 when the real TCP peer (\$realip_remote_addr,"
-  echo "# i.e. BEFORE real-IP restoration) is a Cloudflare edge or localhost; 0 = a"
-  echo "# direct-to-origin connection. The website server block 403s when it is 0."
-  echo "geo \$realip_remote_addr \$zgx_from_cloudflare {"
-  echo "    default 0;"
-  echo "    127.0.0.1 1;"
-  echo "    ::1 1;"
-  while IFS= read -r c; do [ -n "$c" ] && echo "    $c 1;"; done <<< "$RANGES"
-  echo "}"
-} > "$TMPG"
-changed=0
-cmp -s "$TMPR" "$REALIP" 2>/dev/null || changed=1
-cmp -s "$TMPG" "$GEO" 2>/dev/null || changed=1
-[ "$changed" -eq 0 ] && exit 0
-BR="$(mktemp)"; BG="$(mktemp)"
-[ -f "$REALIP" ] && cp "$REALIP" "$BR" || true
-[ -f "$GEO" ] && cp "$GEO" "$BG" || true
-install -m 644 "$TMPR" "$REALIP"
-install -m 644 "$TMPG" "$GEO"
+} > "$TMP"
+if [ -f "$CONF" ] && cmp -s "$TMP" "$CONF"; then
+  exit 0
+fi
+install -m 644 "$TMP" "$CONF"
 if [ -n "${ZEROGEX_CF_SKIP_RELOAD:-}" ]; then
-  echo "zerogex-cf-ranges: wrote realip + gate ($COUNT ranges; reload skipped)"
-  rm -f "$BR" "$BG"; exit 0
+  echo "zerogex-cf-ranges: wrote $CONF (reload skipped)"
+  exit 0
 fi
 if nginx -t >/dev/null 2>&1; then
   systemctl reload nginx
-  echo "zerogex-cf-ranges: updated realip + gate ($COUNT ranges); reloaded nginx"
-  rm -f "$BR" "$BG"
+  echo "zerogex-cf-ranges: updated $CONF; reloaded nginx"
 else
-  echo "zerogex-cf-ranges: nginx -t failed; restoring previous snippets" >&2
-  if [ -s "$BR" ]; then cp "$BR" "$REALIP"; else rm -f "$REALIP"; fi
-  if [ -s "$BG" ]; then cp "$BG" "$GEO"; else rm -f "$GEO"; fi
-  rm -f "$BR" "$BG"
+  echo "zerogex-cf-ranges: nginx -t failed after writing $CONF; left for review" >&2
   exit 1
 fi
 CFSCRIPT
@@ -191,13 +148,11 @@ sudo chmod 755 /usr/local/bin/zerogex-web-refresh-cf-ranges.sh
 # Generate the snippet now, without reloading — the step's own nginx -t + restart
 # below validates the full config once every zone/site file is in place.
 if sudo env ZEROGEX_CF_SKIP_RELOAD=1 /usr/local/bin/zerogex-web-refresh-cf-ranges.sh; then
-  log "     ✓ Wrote zerogex-realip.conf + zerogex-cf-geo.conf"
+  log "     ✓ Wrote /etc/nginx/conf.d/zerogex-realip.conf"
 else
-  log "  ⚠ Could not generate the Cloudflare snippets now (fetch failed or too few"
-  log "    ranges). If the site is NOT behind Cloudflare they are unnecessary;"
-  log "    otherwise the weekly timer will retry. NOTE: the origin gate in the"
-  log "    site config needs zerogex-cf-geo.conf to exist, so nginx -t will fail"
-  log "    until a successful fetch — re-run this step once connectivity is back."
+  log "  ⚠ Could not generate the Cloudflare real-IP snippet now (fetch failed)."
+  log "    If the site is NOT behind Cloudflare it is unnecessary; otherwise the"
+  log "    weekly timer will retry."
 fi
 
 # Weekly refresh so a Cloudflare range addition can't silently break real-IP.
