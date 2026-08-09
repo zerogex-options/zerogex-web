@@ -13,6 +13,7 @@ import {
   YAxis,
 } from 'recharts';
 import { capture } from '@/core/telemetry/posthog-client';
+import { staggerLabelYs } from './levelStagger';
 
 // Interactive replay of one trading day's per-minute GEX frames. Pure
 // client-side once the initial range payload is hydrated — scrubbing
@@ -1093,6 +1094,37 @@ function ReplayOverlayChart({
   }, [buckets.length, timelineStartMs, timelineEndMs, LEFT_W]);
   const candleWidth = Math.max(2, Math.min(9, bucketSpacingPx * 0.65));
 
+  // ── Level markers with de-collided labels ──
+  // Each level's line sits at its true price (yForPrice); its label sits just
+  // above the line. When two levels are close in price (e.g. flip and max pain
+  // near spot) their labels would overlap, so we stagger the label Ys apart
+  // vertically — keeping them inside the plot and in price order — while the
+  // lines stay put. Only levels whose line is on-screen get a label (the lines
+  // are clipped to the plot box, so an off-screen level shouldn't show a label).
+  const levelMarkers = (() => {
+    const defs: Array<{ value: number | null; label: string; color: string; dash: string }> = [
+      { value: callWall, label: 'Call Wall', color: 'var(--color-bear)', dash: '5 3' },
+      { value: gammaFlip, label: 'Flip', color: 'var(--color-warning)', dash: '4 3' },
+      { value: maxPain, label: 'Max Pain', color: 'var(--color-gold)', dash: '1 5' },
+      { value: putWall, label: 'Put Wall', color: 'var(--color-bull)', dash: '5 3' },
+    ];
+    const items = defs
+      .flatMap((d) =>
+        d.value != null && Number.isFinite(d.value)
+          ? [{ label: d.label, color: d.color, dash: d.dash, value: d.value, lineY: yForPrice(d.value) }]
+          : [],
+      )
+      // Only on-screen levels get a label — the lines are clipped to the plot box.
+      .filter((d) => d.lineY >= PLOT_TOP - 1 && d.lineY <= PLOT_BOTTOM + 1)
+      .sort((a, b) => a.lineY - b.lineY);
+    const labelYs = staggerLabelYs(items.map((d) => d.lineY), {
+      gap: 13,
+      minY: PLOT_TOP + 9,
+      maxY: PLOT_BOTTOM - 3,
+    });
+    return items.map((d, i) => ({ ...d, labelY: labelYs[i] }));
+  })();
+
   return (
     <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1548,35 +1580,41 @@ function ReplayOverlayChart({
               flip and max pain near it. Colours match the rest of the app
               (call = bear/resistance, put = bull/support, flip = warning,
               max pain = gold, as on the Gamma Terminal chart). */}
-          {[
-            { value: callWall, label: 'Call Wall', color: 'var(--color-bear)', dash: '5 3' },
-            { value: gammaFlip, label: 'Flip', color: 'var(--color-warning)', dash: '4 3' },
-            { value: maxPain, label: 'Max Pain', color: 'var(--color-gold)', dash: '1 5' },
-            { value: putWall, label: 'Put Wall', color: 'var(--color-bull)', dash: '5 3' },
-          ].map((lvl) => {
-            const v = lvl.value;
-            if (v == null || !Number.isFinite(v)) return null;
-            const y = yForPrice(v);
+          {levelMarkers.map((lvl) => {
+            // A label nudged more than a couple px off its line gets a faint
+            // vertical leader back to the line so the tie stays legible.
+            const nudged = Math.abs(lvl.labelY - (lvl.lineY - 4)) > 2;
             return (
               <g key={lvl.label} clipPath={`url(#${clipId})`}>
                 <line
                   x1={LEFT_X}
                   x2={MID_X + MID_W}
-                  y1={y}
-                  y2={y}
+                  y1={lvl.lineY}
+                  y2={lvl.lineY}
                   stroke={lvl.color}
                   strokeDasharray={lvl.dash}
                   opacity={0.85}
                 />
+                {nudged && (
+                  <line
+                    x1={MID_X + MID_W - 2}
+                    x2={MID_X + MID_W - 2}
+                    y1={Math.min(lvl.lineY, lvl.labelY - 3)}
+                    y2={Math.max(lvl.lineY, lvl.labelY - 3)}
+                    stroke={lvl.color}
+                    strokeWidth={0.75}
+                    opacity={0.4}
+                  />
+                )}
                 <text
                   x={MID_X + MID_W - 4}
-                  y={y - 4}
+                  y={lvl.labelY}
                   textAnchor="end"
                   fontSize={10}
                   fontWeight={700}
                   fill={lvl.color}
                 >
-                  {lvl.label} {v.toFixed(2)}
+                  {lvl.label} {lvl.value.toFixed(2)}
                 </text>
               </g>
             );
