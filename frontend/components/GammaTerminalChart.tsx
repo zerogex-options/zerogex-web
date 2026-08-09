@@ -73,6 +73,7 @@ interface Bar {
 interface OverlayState {
   levels: boolean; // gamma flip + call/put walls
   maxPain: boolean;
+  pin: boolean; // pin strike (reachable 0DTE positive-gamma pin)
   vwap: boolean;
   rail: boolean; // gamma structure rail
   regime: boolean; // long/short gamma background zones
@@ -81,6 +82,7 @@ interface OverlayState {
 const DEFAULT_OVERLAYS: OverlayState = {
   levels: true,
   maxPain: true,
+  pin: true,
   vwap: true,
   rail: true,
   regime: true,
@@ -806,6 +808,10 @@ export default function GammaTerminalChart({
       ? computeMaxPain(liveGexBucket.strikes)
       : snapshot ? snapshot.gamma.maxPain : num(gexSummary?.max_pain);
   const netGexAtSpot = rewindActive ? null : snapshot ? snapshot.gamma.netGexAtSpot : num(gexProfile?.net_gex_at_spot ?? gexSummary?.net_gex);
+  // Pin Strike — reachable 0DTE positive-gamma pin. Not stored on the
+  // timeseries rewind buckets, so it's hidden during rewind (same as
+  // netGexAtSpot); live/delayed reads the served summary value.
+  const pinStrike = rewindActive ? null : num(gexSummary?.pin_strike);
   const vwap = rewindActive ? rewindVwap : snapshot ? snapshot.vwap : num(technicals.latest?.vwap_deviation?.vwap);
 
   const profilePoints = useMemo<ProfilePoint[]>(() => {
@@ -1408,6 +1414,7 @@ export default function GammaTerminalChart({
     { key: "call", label: "CALL WALL", value: callWall, color: "var(--color-bull)", dash: "3 4", show: overlays.levels },
     { key: "put", label: "PUT WALL", value: putWall, color: "var(--color-bear)", dash: "3 4", show: overlays.levels },
     { key: "pain", label: "MAX PAIN", value: maxPain, color: "var(--color-gold)", dash: "1 5", show: overlays.maxPain },
+    { key: "pin", label: "PIN", value: pinStrike, color: "var(--color-pin)", dash: "2 3", show: overlays.pin },
     { key: "vwap", label: "VWAP", value: vwap, color: "var(--color-hazy)", dash: "6 5", show: overlays.vwap },
   ];
 
@@ -1678,6 +1685,7 @@ export default function GammaTerminalChart({
           <OverlayPill label="Regime" color="var(--color-accent-hot)" active={overlays.regime} onClick={() => setOverlays((o) => ({ ...o, regime: !o.regime }))} />
           <OverlayPill label="VWAP" color="var(--color-hazy)" active={overlays.vwap} onClick={() => setOverlays((o) => ({ ...o, vwap: !o.vwap }))} />
           <OverlayPill label="Max Pain" color="var(--color-gold)" active={overlays.maxPain} onClick={() => setOverlays((o) => ({ ...o, maxPain: !o.maxPain }))} />
+          <OverlayPill label="Pin Strike" color="var(--color-pin)" active={overlays.pin} onClick={() => setOverlays((o) => ({ ...o, pin: !o.pin }))} />
 
           {/* Gamma-by-strike rail view: silhouette vs per-strike bars, on-bar
               labels, and an expiration filter — live only (the delayed snapshot
@@ -2266,6 +2274,7 @@ export default function GammaTerminalChart({
         <LegendDot color="var(--color-bull)" label="Call Wall" />
         <LegendDot color="var(--color-bear)" label="Put Wall" />
         <LegendDot color="var(--color-gold)" label="Max Pain" />
+        <LegendDot color="var(--color-pin)" label="Pin Strike" />
         <LegendDot color="var(--color-hazy)" label="VWAP" />
         <LegendDot color="var(--color-accent-hot)" label="Last" />
         <div className="ml-auto flex items-center gap-1.5" style={{ color: "var(--text-muted)" }}>

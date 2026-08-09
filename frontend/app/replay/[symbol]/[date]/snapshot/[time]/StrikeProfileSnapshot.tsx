@@ -33,6 +33,7 @@ interface StrikeProfileSnapshotProps {
   callWall?: number | null;
   putWall?: number | null;
   maxPain?: number | null;
+  pinStrike?: number | null;
 }
 
 interface Row {
@@ -91,6 +92,7 @@ export default function StrikeProfileSnapshot({
   callWall,
   putWall,
   maxPain,
+  pinStrike,
 }: StrikeProfileSnapshotProps) {
   const clipId = `snap-clip-${useId().replace(/[^a-zA-Z0-9-]/g, '')}`;
 
@@ -204,6 +206,10 @@ export default function StrikeProfileSnapshot({
   // Max pain uses gold, matching the Gamma Terminal chart's convention.
   if (maxPain != null && Number.isFinite(maxPain))
     refLines.push({ level: maxPain, label: `Max Pain ${maxPain.toFixed(2)}`, color: 'var(--color-gold)' });
+  // Pin Strike — reachable 0DTE positive-gamma pin. Teal (--color-pin), the
+  // app-wide pin hue, matching the Gamma Terminal chart and the daily replay.
+  if (pinStrike != null && Number.isFinite(pinStrike))
+    refLines.push({ level: pinStrike, label: `Pin ${pinStrike.toFixed(2)}`, color: 'var(--color-pin)' });
 
   // Stagger the reference-level labels vertically so close-together levels
   // (spot / flip / max pain often cluster near spot) don't overlap. The lines

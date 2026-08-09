@@ -53,6 +53,15 @@
   --color-king: #8B5CF6;
   --color-king-soft: rgba(139, 92, 246, 0.16);
 
+  /* Pin Strike — the reachable 0DTE strike with the strongest modeled
+     positive (restoring) dealer-gamma pin. A teal placed deliberately outside
+     the green/red walls, the amber gamma-flip, the gold Max-Pain and the
+     violet King so the pin reads as its own distinct level. Defined once here;
+     every named palette inherits it, so the pin stays consistently teal across
+     themes. */
+  --color-pin: #14B8A6;
+  --color-pin-soft: rgba(20, 184, 166, 0.16);
+
   /* MSI regime bands — deliberately NOT bull/bear. The Composite Score is a
      regime gauge (chop vs trend), so its ramp is blue→cyan→amber→violet, not
      green→red, to stop a low score reading as "bearish". */

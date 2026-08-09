@@ -37,6 +37,8 @@ interface Frame {
   call_wall: number | null;
   put_wall: number | null;
   max_pain: number | null;
+  pin_strike: number | null;
+  pin_confidence: number | null;
   // net_gex is always present; call_gex / put_gex are the same per-strike
   // dealer-gamma columns (from gex_by_strike) and are optional so the
   // Split / Combined gamma views activate only when the payload carries them.
@@ -394,6 +396,9 @@ export default function ReplayScrubber({
   // Max pain migrates through the session too; the release replay payload
   // carries it per frame (null on older rows, then the line simply isn't drawn).
   const maxPain = currentFrame?.max_pain ?? null;
+  // Pin Strike rides along per frame too (null on rows written before it
+  // shipped, then the line simply isn't drawn).
+  const pinStrike = currentFrame?.pin_strike ?? null;
 
   // Session-wide GEX peak — per mode — so the horizontal-bar magnitude axis
   // stays pinned as the user scrubs (otherwise the widest bar this minute
@@ -716,6 +721,7 @@ export default function ReplayScrubber({
         callWall={callWall}
         putWall={putWall}
         maxPain={maxPain}
+        pinStrike={pinStrike}
         cursorTimestamp={cursorTimestamp}
         pinATimestamp={pinA != null ? frames[pinA]?.timestamp ?? null : null}
         pinBTimestamp={pinB != null ? frames[pinB]?.timestamp ?? null : null}
@@ -834,6 +840,7 @@ interface ReplayOverlayChartProps {
   callWall: number | null;
   putWall: number | null;
   maxPain: number | null;
+  pinStrike: number | null;
   cursorTimestamp: string | null;
   pinATimestamp: string | null;
   pinBTimestamp: string | null;
@@ -859,6 +866,7 @@ function ReplayOverlayChart({
   callWall,
   putWall,
   maxPain,
+  pinStrike,
   cursorTimestamp,
   pinATimestamp,
   pinBTimestamp,
@@ -1107,6 +1115,7 @@ function ReplayOverlayChart({
       { value: gammaFlip, label: 'Flip', color: 'var(--color-warning)', dash: '4 3' },
       { value: maxPain, label: 'Max Pain', color: 'var(--color-gold)', dash: '1 5' },
       { value: putWall, label: 'Put Wall', color: 'var(--color-bull)', dash: '5 3' },
+      { value: pinStrike, label: 'Pin', color: 'var(--color-pin)', dash: '2 3' },
     ];
     const items = defs
       .flatMap((d) =>
