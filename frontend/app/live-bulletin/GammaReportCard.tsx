@@ -6,7 +6,6 @@ import { PIN_STRIKE_COLOR_HEX } from '@/core/pinStrike';
 import {
   fmtNetGex,
   fmtPrice,
-  fmtRatio,
   fmtSignedPct,
   fmtSignedPts,
   regimeCopy,
@@ -350,11 +349,10 @@ const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(functio
             accent={model.netGex == null ? C.textPrimary : model.netGex >= 0 ? C.bull : C.bear}
             C={C}
           />
-          <Metric label="Put / Call" value={fmtRatio(model.putCallRatio)} accent={C.textPrimary} C={C} />
+          <Metric label="Pin Strike" value={fmtPrice(model.pinStrike)} accent={PIN_STRIKE_COLOR_HEX} C={C} />
           <Metric label="Call Wall" value={fmtPrice(model.callWall)} accent={C.bear} C={C} />
           <Metric label="Put Wall" value={fmtPrice(model.putWall)} accent={C.bull} C={C} />
           <Metric label="Max Pain" value={fmtPrice(model.maxPain)} accent={C.blue} C={C} />
-          <Metric label="Pin Strike" value={fmtPrice(model.pinStrike)} accent={PIN_STRIKE_COLOR_HEX} C={C} />
         </div>
 
         {/* Probability-bounded expected range */}
