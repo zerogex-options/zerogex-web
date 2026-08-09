@@ -35,6 +35,7 @@ interface Frame {
   gamma_flip: number | null;
   call_wall: number | null;
   put_wall: number | null;
+  max_pain: number | null;
   // net_gex is always present; call_gex / put_gex are the same per-strike
   // dealer-gamma columns (from gex_by_strike) and are optional so the
   // Split / Combined gamma views activate only when the payload carries them.
@@ -389,6 +390,9 @@ export default function ReplayScrubber({
   // shareable snapshot shows for a given moment.
   const callWall = currentFrame?.call_wall ?? null;
   const putWall = currentFrame?.put_wall ?? null;
+  // Max pain migrates through the session too; the release replay payload
+  // carries it per frame (null on older rows, then the line simply isn't drawn).
+  const maxPain = currentFrame?.max_pain ?? null;
 
   // Session-wide GEX peak — per mode — so the horizontal-bar magnitude axis
   // stays pinned as the user scrubs (otherwise the widest bar this minute
@@ -710,6 +714,7 @@ export default function ReplayScrubber({
         gammaFlip={gammaFlip}
         callWall={callWall}
         putWall={putWall}
+        maxPain={maxPain}
         cursorTimestamp={cursorTimestamp}
         pinATimestamp={pinA != null ? frames[pinA]?.timestamp ?? null : null}
         pinBTimestamp={pinB != null ? frames[pinB]?.timestamp ?? null : null}
@@ -827,6 +832,7 @@ interface ReplayOverlayChartProps {
   gammaFlip: number | null;
   callWall: number | null;
   putWall: number | null;
+  maxPain: number | null;
   cursorTimestamp: string | null;
   pinATimestamp: string | null;
   pinBTimestamp: string | null;
@@ -851,6 +857,7 @@ function ReplayOverlayChart({
   gammaFlip,
   callWall,
   putWall,
+  maxPain,
   cursorTimestamp,
   pinATimestamp,
   pinBTimestamp,
@@ -1248,95 +1255,10 @@ function ReplayOverlayChart({
             );
           })}
 
-          {/* Gamma flip line stretches across BOTH panels so it reads as
-              a single regime marker regardless of which panel you're
-              looking at. */}
-          {gammaFlip != null && (() => {
-            const y = yForPrice(gammaFlip);
-            return (
-              <g clipPath={`url(#${clipId})`}>
-                <line
-                  x1={LEFT_X}
-                  x2={MID_X + MID_W}
-                  y1={y}
-                  y2={y}
-                  stroke="var(--color-warning)"
-                  strokeDasharray="4 3"
-                  opacity={0.75}
-                />
-                <text
-                  x={MID_X + MID_W - 4}
-                  y={y - 4}
-                  textAnchor="end"
-                  fontSize={10}
-                  fontWeight={700}
-                  fill="var(--color-warning)"
-                >
-                  Flip {gammaFlip.toFixed(2)}
-                </text>
-              </g>
-            );
-          })()}
-
-          {/* Call wall (resistance) + put wall (support) as horizontal
-              levels across both panels — same canonical gex_summary levels
-              the snapshot view draws, and the same color language (call =
-              bear/resistance, put = bull/support). Labels are right-edge
-              anchored to sit in one vertical column with the Flip label:
-              call wall is above spot, flip near it, put wall below, so the
-              three stack top-to-bottom as a level legend without reordering. */}
-          {callWall != null && Number.isFinite(callWall) && (() => {
-            const y = yForPrice(callWall);
-            return (
-              <g clipPath={`url(#${clipId})`}>
-                <line
-                  x1={LEFT_X}
-                  x2={MID_X + MID_W}
-                  y1={y}
-                  y2={y}
-                  stroke="var(--color-bear)"
-                  strokeDasharray="5 3"
-                  opacity={0.7}
-                />
-                <text
-                  x={MID_X + MID_W - 4}
-                  y={y - 4}
-                  textAnchor="end"
-                  fontSize={10}
-                  fontWeight={700}
-                  fill="var(--color-bear)"
-                >
-                  Call Wall {callWall.toFixed(2)}
-                </text>
-              </g>
-            );
-          })()}
-          {putWall != null && Number.isFinite(putWall) && (() => {
-            const y = yForPrice(putWall);
-            return (
-              <g clipPath={`url(#${clipId})`}>
-                <line
-                  x1={LEFT_X}
-                  x2={MID_X + MID_W}
-                  y1={y}
-                  y2={y}
-                  stroke="var(--color-bull)"
-                  strokeDasharray="5 3"
-                  opacity={0.7}
-                />
-                <text
-                  x={MID_X + MID_W - 4}
-                  y={y - 4}
-                  textAnchor="end"
-                  fontSize={10}
-                  fontWeight={700}
-                  fill="var(--color-bull)"
-                >
-                  Put Wall {putWall.toFixed(2)}
-                </text>
-              </g>
-            );
-          })()}
+          {/* Level lines (call/put walls, gamma flip, max pain) are drawn
+              LATER — after the candles and strike bars — so their lines and
+              labels read on top instead of being obscured. See the
+              "Level lines" block below the right panel. */}
 
           {/* ── LEFT PANEL: 5-min candles ── */}
           {renderedBuckets.length === 0 ? (
@@ -1616,6 +1538,49 @@ function ReplayOverlayChart({
               })}
             </g>
           )}
+
+          {/* ── Level lines: call/put walls, gamma flip, max pain ──
+              Drawn here — AFTER the candles and strike bars — so the lines
+              and their labels paint on top instead of being obscured by the
+              bars/candles. Each spans both panels as a single regime marker,
+              clipped to the plot box. Labels are right-edge anchored so they
+              stack into one column; call wall sits above spot, put wall below,
+              flip and max pain near it. Colours match the rest of the app
+              (call = bear/resistance, put = bull/support, flip = warning,
+              max pain = gold, as on the Gamma Terminal chart). */}
+          {[
+            { value: callWall, label: 'Call Wall', color: 'var(--color-bear)', dash: '5 3' },
+            { value: gammaFlip, label: 'Flip', color: 'var(--color-warning)', dash: '4 3' },
+            { value: maxPain, label: 'Max Pain', color: 'var(--color-gold)', dash: '1 5' },
+            { value: putWall, label: 'Put Wall', color: 'var(--color-bull)', dash: '5 3' },
+          ].map((lvl) => {
+            const v = lvl.value;
+            if (v == null || !Number.isFinite(v)) return null;
+            const y = yForPrice(v);
+            return (
+              <g key={lvl.label} clipPath={`url(#${clipId})`}>
+                <line
+                  x1={LEFT_X}
+                  x2={MID_X + MID_W}
+                  y1={y}
+                  y2={y}
+                  stroke={lvl.color}
+                  strokeDasharray={lvl.dash}
+                  opacity={0.85}
+                />
+                <text
+                  x={MID_X + MID_W - 4}
+                  y={y - 4}
+                  textAnchor="end"
+                  fontSize={10}
+                  fontWeight={700}
+                  fill={lvl.color}
+                >
+                  {lvl.label} {v.toFixed(2)}
+                </text>
+              </g>
+            );
+          })}
 
           {/* Overlays: pins first (they're context markers), cursor on
               top so it always wins the visual competition. Anchoring to
