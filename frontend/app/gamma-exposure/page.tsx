@@ -12,6 +12,7 @@ import {
   useApiData,
 } from '@/hooks/useApiData';
 import type { VolExpansionSignalResponse } from '@/hooks/useApiData';
+import { useHasTierAccess } from '@/hooks/useAuthSession';
 import { useStrikeProfileTimeseries } from '@/hooks/useStrikeProfileTimeseries';
 import MetricCard from '@/components/MetricCard';
 import HistoricalContextBadge from '@/components/HistoricalContextBadge';
@@ -189,9 +190,14 @@ export default function GammaExposurePage() {
   // QQQ/NDX's correct implied-vol input is VXN (Nasdaq-100); SPX/SPY use VIX.
   const volIndex: 'VIX' | 'VXN' = symbol === 'QQQ' || symbol === 'NDX' ? 'VXN' : 'VIX';
   const { data: volGauge } = useVolatilityGauge(30000, volIndex);
+  // vol-expansion is a Pro-only endpoint; this page is Basic-tier, so gate the
+  // poll behind Pro access instead of 403-looping for non-Pro viewers. The
+  // consumer (CharmVannaFlows) already handles a null volExpansion, so a Basic
+  // viewer sees the same output minus the wasted requests.
+  const hasProAccess = useHasTierAccess('pro');
   const { data: volExpansion } = useApiData<VolExpansionSignalResponse>(
     `/api/signals/advanced/vol-expansion?symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}`,
-    { refreshInterval: 30000 },
+    { refreshInterval: 30000, enabled: hasProAccess },
   );
 
   // Expiration filter state for strike table
