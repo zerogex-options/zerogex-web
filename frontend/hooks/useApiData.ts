@@ -56,6 +56,14 @@ interface GEXSummaryRow {
   call_wall?: number | null;
   put_wall?: number | null;
   put_call_ratio?: number | null;
+  // Pin Strike — reachable 0DTE strike with the strongest modeled positive
+  // (restoring) dealer gamma into expiration (distinct from wall/flip/max-pain).
+  // Null when no meaningful pin exists; pin_strike_reason then holds a
+  // REASON_* code. pin_score / pin_confidence let a client classify strength.
+  pin_strike?: number | null;
+  pin_score?: number | null;
+  pin_confidence?: number | null;
+  pin_strike_reason?: string | null;
 }
 
 export interface GEXWallNode {
