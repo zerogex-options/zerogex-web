@@ -40,7 +40,8 @@
     "test:price-change": "node --experimental-strip-types --test tests/priceChange.test.ts",
     "test:market-tide": "node --experimental-strip-types --test tests/marketTide.test.ts",
     "test:daily-bars": "node --experimental-strip-types --test tests/dailyBars.test.ts",
-    "test:pair-gamma": "node --experimental-strip-types --test tests/pairGammaHeatmap.test.ts"
+    "test:pair-gamma": "node --experimental-strip-types --test tests/pairGammaHeatmap.test.ts",
+    "test:pin-strike": "node --experimental-strip-types --test tests/pinStrike.test.ts"
   },
   "dependencies": {
     "jose": "^5.9.6",

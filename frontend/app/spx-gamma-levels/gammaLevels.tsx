@@ -56,6 +56,12 @@ interface GexSummary {
   call_wall?: number | null;
   put_wall?: number | null;
   put_call_ratio?: number | null;
+  // Pin Strike — reachable 0DTE strike with the strongest modeled positive
+  // (restoring) dealer gamma into expiration. Null when no meaningful pin.
+  pin_strike?: number | null;
+  pin_score?: number | null;
+  pin_confidence?: number | null;
+  pin_strike_reason?: string | null;
 }
 
 // Per-ticker copy. Each page leads with its own symbol so it reads as the best
@@ -502,6 +508,7 @@ function SymbolCard({
         <LevelRow label="Put wall" value={fmtPrice(data?.put_wall)} hint="Strike that tends to floor downside" />
         <LevelRow label="Gamma flip" value={fmtPrice(data?.gamma_flip)} hint="Regime line — above = positive, below = negative" />
         <LevelRow label="Max pain" value={fmtPrice(data?.max_pain)} hint="Strike where the most contracts expire worthless" />
+        <LevelRow label="Pin strike" value={fmtPrice(data?.pin_strike)} hint="Reachable 0DTE strike with the strongest modeled positive dealer-gamma stabilization into expiration — a modeled pinning level, not a target" />
         <LevelRow label="Net dealer GEX (at spot)" value={fmtNetGex(data?.net_gex_at_spot ?? data?.net_gex)} hint="Modeled (call-positive/put-negative convention); actual dealer inventory isn't directly observable" />
       </div>
 
