@@ -10,7 +10,7 @@ If you trade SPY weekly options regularly, you've watched it happen: SPY drifts 
 
 A lot of traders treat pinning as a vibes-based phenomenon — "the market knows where it wants to settle" — or chalk it up to chart patterns. There's a more concrete story underneath: modeled dealer hedging at heavy gamma strikes can generate flows that tend to pull price back toward the strike, alongside other contributors like liquidity, positioning, and expiration mechanics. Once you can see the mechanism, you can also gauge when it's more likely to be operating today and when it isn't.
 
-This piece walks through the actual mechanics of pinning, why it intensifies near expiry, the two pin types most traders confuse, and the structural conditions that make today a pin day. For the trader-facing "is SPY pinned right now" checklist, see [How to Know If SPY Is Pinned](/education/how-to-know-if-spy-is-pinned). For the related max-pain discussion, see [Max Pain Explained](/education/max-pain-explained).
+This piece walks through the actual mechanics of pinning, why it intensifies near expiry, the two pin types most traders confuse, the structural conditions that make today a pin day, the five signs a pin is on right now, and the playbook that pinned tape rewards. For the related max-pain discussion, see [Max Pain Explained](/education/max-pain-explained).
 
 ---
 
@@ -103,7 +103,32 @@ A short workflow:
 4. **Cross-check max pain.** Same strike or within ~0.3% of the magnet (a ZeroGEX heuristic) → sharper pin thesis. Materially different → weaker thesis; ZeroGEX leans on the magnet, since it maps to the modeled hedging flow.
 5. **Read the time of day.** Before noon ET, charm hasn't piled up enough to drive the pin hard. After 14:00 ET, the pull intensifies. After 15:30 ET, the closing-window dynamics dominate.
 
-Once you've identified the pin, the trading playbook is in [How to Know If SPY Is Pinned](/education/how-to-know-if-spy-is-pinned) — short version: fade extremes, skip middle, small size.
+---
+
+## How to know if SPY is pinned: the five signs
+
+Recognizing a pin in real time comes down to five structural signs. The more that line up, the sharper the pin.
+
+**1. Net GEX is meaningfully positive (long-gamma regime).** Spot above the gamma flip and Net GEX clearly positive. (Net GEX is estimated dealer gamma under the traditional call-positive/put-negative open-interest convention — a model, not observed inventory.) ZeroGEX treats roughly $500M+ on SPY scale as "substantial," but that's a house heuristic — magnitude matters more than any specific number. Negative or near-zero Net GEX argues against the pin.
+
+**2. Max pain and the gamma magnet agree near spot.** When both point to the same level and it sits within roughly 0.3% of spot, the structural pull is at its sharpest. When they diverge, ZeroGEX leans on the gamma magnet — it maps to the modeled hedging mechanism, while max pain is payoff geometry.
+
+**3. Spot has been oscillating around the magnet for the last hour.** Chart SPY against the gamma-magnet strike on a 5-minute timeframe. Three or more crossings in the last 60 minutes, each excursion smaller, is suggestive of a forming pin. Consistent drift away from the magnet argues against it — that's a direction, not a range.
+
+**4. Realized volatility has compressed below implied.** Long-gamma hedging dampens realized vol, so a working pin shows up as realized below implied. If realized is expanding, the pin isn't holding — the book is being run over by other flow.
+
+**5. EOD Pressure is near zero inside the active window.** After 14:30 ET, an EOD Pressure reading near zero (roughly −0.20 to +0.20) is a modeled pin signature — the charm and pin-gravity terms roughly cancel because price is sitting at the magnet. A large reading means price is *away* from the magnet. See [EOD Pressure Signal Explained](/education/eod-pressure-explained).
+
+---
+
+## The pinned-tape playbook
+
+When most of the five signs line up, the playbook is contrarian and simple:
+
+- **Do: fade the extremes of the compression range.** The structural pull is back toward the magnet, so selling pushes near the top of the range and buying dips near the bottom is the one setup where the dealer reflex is on your side. Size small — pins are probabilistic, not guaranteed.
+- **Don't: chase the middle.** The middle is where the magnet sits; buying or selling there fights the level price is structurally trying to return to. This is where most pinned-tape losses come from.
+- **Don't: take momentum setups.** Breakout, vol-expansion, and squeeze playbooks assume the move extends — the opposite of a pinned tape. Running the wrong playbook is most of the mistake.
+- **Do: shrink position size.** Pinned ranges are tight and stops are tighter; a normal-day size invites premature stop-outs.
 
 ---
 

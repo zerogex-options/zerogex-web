@@ -224,7 +224,7 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
       a: 'No. Pinning needs concentrated dealer gamma and a positive-gamma regime. In a negative-gamma regime, or when no single strike carries dominant gamma, hedging pushes price away from strikes instead of toward them, and the pin breaks.',
     },
   ],
-  'why-spy-reverses-at-levels': [
+  'options-support-and-resistance': [
     {
       q: 'Why does SPY reverse at certain levels?',
       a: 'Many SPY reversals happen at options-positioning levels rather than chart lines. Dealer hedging concentrates at specific strikes, and as price reaches them that hedging flow can absorb and turn the move.',
