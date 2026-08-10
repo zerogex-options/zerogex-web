@@ -52,6 +52,7 @@ const popularExplainers = [
   { href: '/education/spx-net-gamma-exposure-today', label: 'SPX Net Gamma Exposure Today' },
   { href: '/education/best-gex-tools', label: 'Best GEX Tools, Fairly Compared' },
   { href: '/education/max-pain-explained', label: 'Max Pain Explained' },
+  { href: '/education/pin-strike-explained', label: 'Pin Strike Explained' },
 ];
 
 export default function EducationHubPage() {
