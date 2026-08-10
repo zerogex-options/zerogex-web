@@ -24,6 +24,7 @@ import TooltipWrapper from './TooltipWrapper';
 import MobileScrollableChart from './MobileScrollableChart';
 import StrikeRangeScrollbar from './StrikeRangeScrollbar';
 import ExpirationMultiSelect from './ExpirationMultiSelect';
+import ChartCaption from "./ChartCaption";
 
 // Each zoom click narrows / widens the visible strike range by this factor.
 // 1.4 is roughly the geometric mean of 1 and 2, giving comfortable single-
@@ -886,6 +887,7 @@ export default function GexProfileChart({
             />
           </div>
         )}
+        <ChartCaption />
       </div>
     </ExpandableCard>
   );

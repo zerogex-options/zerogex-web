@@ -20,6 +20,7 @@ import { useIsMobile } from '@/hooks/useIsMobile';
 import ExpandableCard from './ExpandableCard';
 import TooltipWrapper from './TooltipWrapper';
 import MobileScrollableChart from './MobileScrollableChart';
+import ChartCaption from "./ChartCaption";
 
 interface FlipTermStructureChartProps {
   symbol: string;
@@ -635,6 +636,7 @@ export default function FlipTermStructureChart({ symbol }: FlipTermStructureChar
             Snapshot: {new Date(data.timestamp).toLocaleTimeString()}
           </div>
         )}
+        <ChartCaption />
       </div>
     </ExpandableCard>
   );

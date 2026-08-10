@@ -9,6 +9,7 @@ import { useIsMobile } from '@/hooks/useIsMobile';
 import ExpandableCard from './ExpandableCard';
 import MobileScrollableChart from './MobileScrollableChart';
 import TooltipWrapper from './TooltipWrapper';
+import ChartCaption from "./ChartCaption";
 
 interface FlipSurfaceChartProps {
   symbol: string;
@@ -662,6 +663,7 @@ export default function FlipSurfaceChart({
             Snapshot: {new Date(surface.timestamp).toLocaleTimeString()}
           </div>
         )}
+        <ChartCaption />
       </div>
     </ExpandableCard>
   );

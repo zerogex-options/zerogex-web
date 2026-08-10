@@ -20,6 +20,13 @@ type Article = {
 
 const ARTICLES: Article[] = [
   {
+    href: '/education/pin-strike-explained',
+    kind: 'Published • August 9, 2026 • 16:00 UTC',
+    title: 'Pin Strike Explained: The Reachable 0DTE Gamma Pin',
+    blurb:
+      'The reachable 0DTE strike with the strongest modeled positive dealer-gamma stabilization into expiration — built by re-pricing the book as if spot were at each strike, then weighting by whether price can actually get there. Why it is deliberately not the biggest-gamma strike, how it differs from the walls, the gamma flip, max pain and the King Node, and why it is allowed to return no active pin.',
+  },
+  {
     href: '/education/why-market-makers-trade-stock',
     kind: 'Published • July 12, 2026 • 16:00 UTC',
     title: 'Why Market Makers Are Forced to Trade Stock',
@@ -105,13 +112,6 @@ const ARTICLES: Article[] = [
       "Failed breakouts aren't random — they're driven by dealer hedging at concentrated strikes. The three structural conditions (long-gamma regime, strengthening Net GEX, static wall) that predict the fail before you chase, and how to read them on the live tape.",
   },
   {
-    href: '/education/why-spy-reverses-at-levels',
-    kind: 'Published • June 15, 2026 • 14:00 UTC',
-    title: 'Why Does SPY Reverse at Certain Levels?',
-    blurb:
-      'SPY reversals that look random on the chart are tied to options positioning. The four kinds of options-based levels SPY actually reverses at — call wall, put wall, gamma magnet, gamma flip — and how the regime decides whether the level holds or breaks.',
-  },
-  {
     href: '/education/options-support-and-resistance',
     kind: 'Published • June 15, 2026 • 14:00 UTC',
     title: 'How to Identify Support and Resistance from Options Positioning',
@@ -124,13 +124,6 @@ const ARTICLES: Article[] = [
     title: 'How to Avoid Chasing 0DTE Moves',
     blurb:
       "The 0DTE chase is the most expensive bad habit in retail trading. Three signs you're about to chase, the five-point structural read that overrides the instinct, and the conditions when 0DTE momentum is actually real and the chase isn't the trap.",
-  },
-  {
-    href: '/education/how-to-know-if-spy-is-pinned',
-    kind: 'Published • June 15, 2026 • 14:00 UTC',
-    title: 'How to Know If SPY Is Pinned: The Five Signs',
-    blurb:
-      'Pin recognition is the cleanest day-trade filter. The five structural signs SPY is pinned today, the playbook that works in a pinned tape (fade extremes, skip middle, small size), and the conditions that break the pin.',
   },
   {
     href: '/education/what-is-negative-gamma',

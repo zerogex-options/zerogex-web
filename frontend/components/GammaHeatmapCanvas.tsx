@@ -25,6 +25,7 @@ import LoadingSpinner from './LoadingSpinner';
 import ErrorMessage from './ErrorMessage';
 import TooltipWrapper from './TooltipWrapper';
 import MobileScrollableChart from './MobileScrollableChart';
+import ChartCaption from './ChartCaption';
 import { isWithinTradingHoursForSymbol, getMarketSession, isSessionLive } from '@/core/utils';
 
 interface HeatmapCell { strike: number; net_gex: number; }
@@ -1320,13 +1321,7 @@ export default function GammaHeatmapCanvas() {
       )}
 
       {/* Bottom strip */}
-      <div
-        className="flex items-center justify-between px-5 py-2 text-xs"
-        style={{ borderTop: `1px solid ${border}`, color: subtle }}
-      >
-        <span>Powered by ZeroGEX</span>
-        <span>Gamma / Heatmap</span>
-      </div>
+      <ChartCaption variant="strip" right="Gamma / Heatmap" />
     </div>
   );
 }

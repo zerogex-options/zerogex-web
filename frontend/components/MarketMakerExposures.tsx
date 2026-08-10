@@ -30,6 +30,10 @@ import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
 import { etTodayDateKey, getMarketSession, isIndexSymbol, omitClosedMarketTimes } from '@/core/utils';
 import { loadChartSettings, saveChartSettings } from '@/core/chartSettings';
+import { PIN_STRIKE_COLOR_HEX } from '@/core/pinStrike';
+import { useSharedExpirations } from '@/hooks/useSharedExpirations';
+import { reconcileExpirations } from '@/core/expirationPersistence';
+import ChartCaption from './ChartCaption';
 
 interface StrikeAggregation {
   strike: number;
@@ -169,6 +173,11 @@ const GEX_VALUE_MIN_SLOT = 11; // min px of vertical room per strike to show lab
 const SPOT_LINE = '#06B6D4';
 const KEY_LEVEL = '#F5C24A';
 const FLIP_LINE = '#FFB44A';
+// Pin Strike — reachable 0DTE positive-gamma pin. Teal, the app-wide pin hue
+// (--color-pin); a literal hex here because this file's level colors are
+// module constants, not CSS vars. Dashed + labeled so it reads distinctly from
+// the solid cyan spot line.
+const PIN_LINE = PIN_STRIKE_COLOR_HEX;
 
 // Session level lines (pre-market + previous-session high/low) — non-index
 // symbols only (SPY/QQQ etc.; cash indexes have no pre-market session).
@@ -226,9 +235,11 @@ const DEFAULTS = {
 // The durable display *preferences* a user can save so they auto-load on every
 // visit to this chart (the Strike Profile — dashboard tile + /gex-strike-profile).
 // Deliberately a subset of DEFAULTS: transient view state (paused / rewind /
-// zoom / pan / fullscreen) is never persisted, and `selectedExpiries` is
-// excluded because it holds concrete expiry dates that roll off and would
-// restore stale.
+// zoom / pan / fullscreen) is never persisted here, and `selectedExpiries` is
+// excluded from THIS blob because it is persisted separately — via the tab-wide
+// shared expiration selection (useSharedExpirations), which reconciles concrete
+// expiry dates against the live chain on load so a rolled-off date can't restore
+// stale (it simply drops back to "All").
 const CHART_SETTINGS_ID = 'strike-profile';
 
 type PersistedSettings = {
@@ -299,10 +310,15 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // ── User-controlled view state ──
   const [tf, setTf] = useState<ChartTf>(savedSettings.tf);
   const [withPrev, setWithPrev] = useState<boolean>(savedSettings.withPrev);
-  // Multi-expiration selection. Empty = All (aggregate across every
-  // expiration). A non-empty set aggregates the gamma surface / walls / flip
-  // across exactly those expirations (see expirationsParam below).
-  const [selectedExpiries, setSelectedExpiries] = useState<string[]>(DEFAULTS.selectedExpiries);
+  // Multi-expiration selection sourced from the tab-wide shared selection
+  // (empty = All) so it persists across reloads and stays in sync with every
+  // other expiration-filtering chart. `rawExpiries` is the stored intent; the
+  // reconciled `selectedExpiries` the dropdown and labels use is derived once
+  // the live expiration universe is known (see availableExpirations below).
+  const { selection: rawExpiries, setSelection: setSelectedExpiries } = useSharedExpirations();
+  // Today's ET calendar date, hoisted here so the fetch param can drop any
+  // rolled-off (past) expiration before it hits the timeseries cache key.
+  const todayKey = etTodayDateKey();
   const [zoomMul, setZoomMul] = useState<number>(defaultZoomMul);
   const [paused, setPaused] = useState<boolean>(DEFAULTS.paused);
   // ── Rewind state ──
@@ -359,7 +375,9 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const resetAll = () => {
     setTf(DEFAULTS.tf);
     setWithPrev(DEFAULTS.withPrev);
-    setSelectedExpiries(DEFAULTS.selectedExpiries);
+    // The expiration selection is intentionally NOT reset here: it's a
+    // persisted, cross-chart preference, so a per-chart "reset view" shouldn't
+    // wipe it. The "All expirations" item in the Expiry menu clears it.
     setZoomMul(defaultZoomMul);
     setPaused(DEFAULTS.paused);
     setRewindActive(false);
@@ -486,9 +504,14 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // "18th,17th" share the one module-scoped timeseries cache entry the
   // hook keys on this string.  The backend sums the gamma surface + walls
   // and recomputes the flip across exactly this set.
-  const expirationsParam = selectedExpiries.length === 0
+  // Reconcile the shared selection down to still-live (today-or-later) dates for
+  // the cache key + backend filter, so an overnight-rolled pick never fetches an
+  // expired contract. The dropdown reconciles against the full live universe
+  // below; here we only have `todayKey`, which covers the staleness case.
+  const paramExpiries = rawExpiries.filter((exp) => exp >= todayKey);
+  const expirationsParam = paramExpiries.length === 0
     ? 'all'
-    : [...selectedExpiries].sort().join(',');
+    : [...paramExpiries].sort().join(',');
   const { buckets: strikeProfileBuckets } = useStrikeProfileTimeseries(
     symbol, tfToApi(tf), expirationsParam, paused,
   );
@@ -579,7 +602,6 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const [latchedRawExpirations, setLatchedRawExpirations] = useState<string[]>([]);
   const [latchSymbol, setLatchSymbol] = useState(symbol);
   const [latchGex, setLatchGex] = useState(gexExpirations);
-  const todayKey = etTodayDateKey();
   if (latchSymbol !== symbol) {
     setLatchSymbol(symbol);
     setLatchGex(gexExpirations);
@@ -611,15 +633,15 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     [latchedRawExpirations, todayKey],
   );
 
-  // If the user previously selected expirations that are now past (page
-  // stayed open across midnight ET, or a refresh dropped their date), drop
-  // just those so the chart stops filtering by an expired contract and the
-  // dropdown's "Expiry" chip matches the visible universe.  Pruning to a
-  // shorter list only (never re-adding) keeps this render-time state
-  // adjustment convergent — no update fires once every entry is current.
-  if (selectedExpiries.some((exp) => exp < todayKey)) {
-    setSelectedExpiries((cur) => cur.filter((exp) => exp >= todayKey));
-  }
+  // The reconciled selection the dropdown and "Expiry" chip use: the shared
+  // intent projected onto the live expiration universe, so a rolled-off or
+  // foreign date (one picked on another symbol's chart) simply drops out and
+  // reads as "All". Derived — not stored — so it needs no render-phase prune;
+  // the shared store keeps the user's literal pick and each chart reconciles.
+  const selectedExpiries = useMemo(
+    () => reconcileExpirations(rawExpiries, availableExpirations),
+    [rawExpiries, availableExpirations],
+  );
 
   // Map one bucket's strikes payload into the existing StrikeAggregation
   // shape the Gamma / Positions panels render.  ``call_gamma`` /
@@ -1296,6 +1318,9 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const effFlip = toNumber(levelSourceBucket?.gamma_flip) ?? toNumber(gexSummary?.gamma_flip);
   const effCallWall = toNumber(levelSourceBucket?.call_wall) ?? toNumber(gexSummary?.call_wall);
   const effPutWall = toNumber(levelSourceBucket?.put_wall) ?? toNumber(gexSummary?.put_wall);
+  // Pin Strike is a summary-only level (not carried on the strike-profile
+  // timeseries buckets), so it reads straight from the served summary.
+  const effPin = toNumber(gexSummary?.pin_strike);
 
   const keyLevels = useMemo(() => {
     if (!yBounds) return [] as Array<{ y: number; price: number; color: string; label: string; emphasized?: boolean; dash?: string }>;
@@ -1313,6 +1338,9 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     }
     if (effPutWall != null && Number.isFinite(effPutWall)) {
       items.push({ y: yFor(effPutWall), price: effPutWall, color: KEY_LEVEL, label: 'Put Wall' });
+    }
+    if (effPin != null && Number.isFinite(effPin)) {
+      items.push({ y: yFor(effPin), price: effPin, color: PIN_LINE, label: 'Pin Strike', dash: '2 3' });
     }
     // Session context levels — pre-market + previous-session high/low.
     // Non-index symbols only; each pushes independently so partial data
@@ -1336,7 +1364,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
       }
     }
     return items;
-  }, [effFlip, effCallWall, effPutWall, chartSpot, symbolIsIndex, sessionLevels, yBounds, PLOT_HEIGHT, showPmLevels, showPrevLevels]);
+  }, [effFlip, effCallWall, effPutWall, effPin, chartSpot, symbolIsIndex, sessionLevels, yBounds, PLOT_HEIGHT, showPmLevels, showPrevLevels]);
 
   // ── Hover tracking for tooltips/crosshair ──
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -1775,8 +1803,10 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                     key={exp}
                     type="button"
                     onClick={() =>
-                      setSelectedExpiries((cur) =>
-                        cur.includes(exp) ? cur.filter((v) => v !== exp) : [...cur, exp],
+                      setSelectedExpiries(
+                        selectedExpiries.includes(exp)
+                          ? selectedExpiries.filter((v) => v !== exp)
+                          : [...selectedExpiries, exp],
                       )
                     }
                     className="w-full text-left px-3 py-1.5 text-xs hover:bg-[color:var(--color-info-soft)] flex items-center gap-2"
@@ -2834,6 +2864,12 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
           </svg>
           <span style={{ color: textPrimary }}>Put Wall</span>
         </span>
+        <span className="flex items-center gap-1.5" title="Pin Strike — reachable 0DTE strike with the strongest modeled positive dealer-gamma stabilization into expiration; a modeled pinning level, not a target">
+          <svg width="22" height="6" aria-hidden="true">
+            <line x1="0" x2="22" y1="3" y2="3" stroke={PIN_LINE} strokeDasharray="2 3" strokeWidth="1.2" />
+          </svg>
+          <span style={{ color: textPrimary }}>Pin Strike</span>
+        </span>
         {!symbolIsIndex && showPmLevels && (
           <span className="flex items-center gap-1.5" title="High and low of today's pre-market session (04:00–09:30 ET) — live while the pre-market is in progress">
             <svg width="22" height="6" aria-hidden="true">
@@ -2856,13 +2892,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
 
       {/* Bottom strip — hidden in compact mode to reclaim vertical space. */}
       {!compact && (
-      <div
-        className="flex items-center justify-between px-5 py-2 text-xs"
-        style={{ borderTop: `1px solid ${border}`, color: subtle }}
-      >
-        <span>Powered by ZeroGEX</span>
-        <span>Gamma / Positions</span>
-      </div>
+        <ChartCaption variant="strip" right="Gamma / Positions" />
       )}
     </div>
   );

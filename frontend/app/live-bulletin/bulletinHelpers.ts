@@ -32,6 +32,11 @@ export interface GexSummaryInput {
   call_wall?: number | null;
   put_wall?: number | null;
   put_call_ratio?: number | null;
+  // Pin Strike — reachable 0DTE positive-gamma pin (distinct from wall/flip/max-pain).
+  pin_strike?: number | null;
+  pin_score?: number | null;
+  pin_confidence?: number | null;
+  pin_strike_reason?: string | null;
 }
 
 export interface ReportInputs {
@@ -92,6 +97,7 @@ export interface ReportModel {
   callWall: number | null;
   putWall: number | null;
   maxPain: number | null;
+  pinStrike: number | null;
   netGex: number | null;
   putCallRatio: number | null;
   headline: string;
@@ -337,6 +343,7 @@ export function buildReportModel(inputs: ReportInputs): ReportModel {
   const callWall = pickNumber(summary?.call_wall);
   const putWall = pickNumber(summary?.put_wall);
   const maxPain = pickNumber(summary?.max_pain);
+  const pinStrike = pickNumber(summary?.pin_strike);
   // Prefer net GEX evaluated AT THE DISPLAYED SPOT (fall back to the chain-wide
   // total only when at-spot is unavailable). This is the value every other
   // Net-GEX surface on the site shows (dashboard, gamma-exposure, greeks-gex,
@@ -395,6 +402,7 @@ export function buildReportModel(inputs: ReportInputs): ReportModel {
     callWall,
     putWall,
     maxPain,
+    pinStrike,
     netGex,
     putCallRatio,
     headline,
@@ -411,7 +419,9 @@ export function buildReportModel(inputs: ReportInputs): ReportModel {
 // brackets roughly 68% of outcomes under the usual lognormal approximation.
 // `context` describes how the dealer call/put walls sit relative to that band —
 // the gamma-aware half of the prediction.
-function buildExpectedRange(args: {
+// Exported so the Gamma Chart's on-chart Expected Range overlay is drawn from
+// the exact same math as the Live Bulletin card — the two never disagree.
+export function buildExpectedRange(args: {
   spot: number | null;
   vix: number | null;
   volIndex: 'VIX' | 'VXN';

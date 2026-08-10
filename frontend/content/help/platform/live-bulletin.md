@@ -1,81 +1,55 @@
 # Using the Live Bulletin
 
-*The streaming feed of signal events, regime shifts, and notable flow.*
+*A live, share-ready snapshot of dealer gamma positioning for the symbol you're watching.*
 
 ---
 
 ## What the Live Bulletin is
 
-The Live Bulletin is your **timeline of the trading day**. Every time a signal fires, the GEX regime shifts, a wall migrates by a meaningful amount, or smart-money flow shows up in size, an entry lands in the bulletin.
+The Live Bulletin is a **live dealer-gamma report card** for one underlying at a time. Pick a symbol and it pulls the current positioning snapshot straight from the backend and lays it out on a single card: the gamma regime, the key levels (gamma flip, call wall, put wall, max pain), net GEX, the put/call ratio, an expected-range band, and a positioning map that places spot against those levels.
 
-Think of it as the "newsfeed view" of everything ZeroGEX detects, ranked by importance and time.
+It's built to be read at a glance — and to be shared. You can tweak the headline and summary copy, then download or copy a clean PNG of the card for your notes, a trading chat, or social.
 
-## What lands in the bulletin
+## What's on the card
 
-There are five families of items:
+- **Gamma Regime badge** — positive (dealers long gamma; pinned, lower vol), negative (dealers short gamma; trending, higher vol), at-the-flip (transition), or unresolved when the chain is too thin to resolve a flip cleanly.
+- **Headline + summary** — a plain-English read auto-generated from the live numbers: dealer posture, where spot sits relative to the flip, the wall corridor, and what the regime implies for the tape. Editable — see below.
+- **Spot** — the underlying's price and change on the day. When a cash index is outside its session (e.g. SPX overnight), spot is **futures-implied** from ES/NQ and clearly flagged as such — never shown as a live cash print.
+- **Metric grid** — Gamma Flip, Net GEX, Put/Call ratio, Call Wall, Put Wall, and Max Pain.
+- **Expected Range** — a 1σ (~68%) implied-move band for the chosen horizon, derived from VIX (SPX/SPY) or VXN (QQQ/NDX), plus a note on where the dealer walls sit relative to that band.
+- **Positioning Map** — put wall, gamma flip, spot, and call wall laid on one price axis, with the expected-range band shaded, so you can see at a glance where price sits among the magnets.
 
-- **Signal triggers** — when an Advanced signal crosses its trigger threshold.
-- **Regime events** — gamma flip cross, regime transition (positive ↔ negative).
-- **Wall events** — call wall or put wall migrating by a meaningful amount (the modeled max-exposure strike shifting as spot, gamma, time, and IV change — not necessarily new open interest).
-- **Flow notables** — premium spikes, smart-money runs, unusual blocks.
-- **Schedule events** — market open, EOD pressure window opening, close.
+## Controls
 
-## How items are scored and ordered
+- **Underlying** — SPX, SPY, QQQ, or NDX.
+- **Expected-range horizon** — Daily, Weekly, or Monthly. "Daily" is one trading session of implied vol (the Expected Daily Range), not a calendar day; Weekly is 5 sessions, Monthly ~21. If the implied-vol index is unavailable, the band is hidden rather than guessed.
+- **Headline / Summary** — the auto-generated copy is a starting point; edit either field and the card updates live. "Reset to auto" restores the generated text.
+- **Download PNG / Copy to clipboard** — export the card as a share-ready image (the card carries a zerogex.io watermark).
 
-Each item has:
+## How it updates
 
-- A **timestamp** — when it occurred (and a "fresh" badge for the most recent items)
-- A **direction chip** — bullish, bearish, or neutral
-- A **conviction score** — how strong the signal/event was
+The card is **live**. It polls the backend throughout the session — spot every few seconds, the gamma summary and profile every ~10 seconds, the volatility gauge every ~30 seconds — so the levels, the regime, the expected-range band, and the auto-generated read all refresh as conditions change. The dealer-gamma levels themselves are recomputed by the analytics engine on roughly a one-minute cycle during the regular session, so the walls, flip, and max pain can move intraday as spot and positioning evolve. An "as of" timestamp (ET) on the card tells you how fresh the snapshot is.
 
-Items are time-ordered top-to-bottom by default. You can switch to importance-ordered using the sort dropdown.
+## When it's most useful
 
-## Reading an item
-
-Each row has:
-
-1. **Title** — the event name ("EOD Pressure fired", "Trap Detection bearish", "Gamma flip crossed").
-2. **Subtitle** — the key context (symbol, score, level).
-3. **Time** — relative ("4m ago") and absolute on hover.
-4. **Action** — click "Open" to jump to the relevant signal or metric page.
-
-For triggers, the rows also show the **score that fired** and the **trigger threshold** so you can see whether it was a borderline event or a strong one.
-
-## Filtering
-
-The filter bar lets you scope the feed by:
-
-- **Symbol** — SPY, SPX, QQQ, NDX (defaults to the symbol you've got active)
-- **Signal family** — Advanced, Basic, Regime, Flow, Schedule
-- **Direction** — bullish, bearish, neutral
-- **Time window** — last hour, today, last 24h, last 5 trading days
-
-Filters compose. You can stack symbol = SPX with signal family = Advanced with direction = bearish to surface only Advanced bearish triggers on SPX.
-
-## When the bulletin is most useful
-
-- **In the morning** — scroll back over the last few sessions to see what fired overnight and pre-market.
-- **Around major levels** — when price is approaching the gamma flip, the call wall, or the put wall, expect events to land.
-- **In the final hour** — the EOD Pressure signal often delivers actionable reads from 14:30 ET onward.
-- **As a journaling tool** — every fired signal is logged, so the bulletin is the audit trail for what your day looked like.
+- **Pre-open** — a fast read of where the walls, flip, and expected range sit going into the session, with the futures-implied spot while the cash index is still closed.
+- **Around major levels** — glance at the positioning map when price approaches the flip, the call wall, or the put wall.
+- **Sharing a read** — export the card when you want to hand someone the day's dealer-gamma picture without screenshotting the whole app.
 
 ## What it isn't
 
-The Live Bulletin is **not a trade signal feed**. Items are events worth your attention; whether they are trades depends on your strategy. The Composite Score panel is the closest thing to a "what regime are we in" read (trend vs chop) — and even that is a filter, not a forecast. For direction, read Trade Bias.
+The Live Bulletin is **not a trade-signal feed**. It's a positioning/context snapshot — it shows you *where* dealer gamma sits and what regime that implies, not *when* to act. For firing signals and triggers, use the Basic and Advanced Signal dashboards and [Signal Alerts](/help/platform/alerts); for a directional read, see Trade Bias and the [Composite Score](/help/platform/composite-score).
 
 ## Visibility by tier
 
-- Basic tier sees Basic signal events, regime events, wall events, and flow notables.
-- Pro tier additionally sees Advanced signal triggers.
-
-Locked items (for tier upgrade prompts) show a lock chip rather than disappearing.
+The Live Bulletin is a **Basic** feature — included in Basic and Pro. The Advanced signals it points you toward are gated separately to Pro.
 
 ## The admin mirror
 
-There's a watermark-free admin version of the bulletin used for screenshots and demos. That's an internal-only path.
+There's a watermark-free admin version of the same card, used for screenshots and demos. That's an internal-only path.
 
 ## See also
 
-- [How Signals Work End-to-End](/help/platform/signals-overview)
-- [Composite Score](/help/platform/composite-score)
-- [Signal Alerts](/help/platform/alerts)
+- [Reading the Dashboard](/help/platform/dashboard)
+- [Dealer Positioning](/help/platform/dealer-positioning)
+- [Max Pain](/help/platform/max-pain)

@@ -421,9 +421,6 @@ function HeatmapColumn({
                   {cell ? (
                     <>
                       <span className="flex items-center gap-1 min-w-0">
-                        {arrows.map((k) => (
-                          <RailTag key={k} meta={LEVEL_META[k]} />
-                        ))}
                         {isCenter ? (
                           <span
                             className="inline-flex items-center gap-0.5"
@@ -441,6 +438,9 @@ function HeatmapColumn({
                         ) : (
                           <span className="font-semibold truncate">{fmtStrike(cell.strike)}</span>
                         )}
+                        {arrows.map((k) => (
+                          <RailTag key={k} meta={LEVEL_META[k]} />
+                        ))}
                       </span>
                       <span className="whitespace-nowrap flex items-center gap-1">
                         {isPeak && (

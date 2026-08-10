@@ -25,7 +25,7 @@ const SECTIONS: Section[] = [
       { feature: 'Real-time Dashboard', basic: true, pro: true },
       { feature: 'My Dashboard (customizable widgets)', basic: true, pro: true },
       { feature: 'Gamma Chart', basic: true, pro: true },
-      { feature: 'Live Bulletin (streaming signal events)', basic: true, pro: true },
+      { feature: 'Live Bulletin (live dealer-gamma snapshot)', basic: true, pro: true },
     ],
   },
   {

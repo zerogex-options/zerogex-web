@@ -37,13 +37,25 @@ const PRICE_ID_BY_SKU: Map<string, string> = (() => {
 
 let cachedClient: Stripe | null = null;
 
+// The Stripe API version this code is written against, pinned EXPLICITLY rather
+// than inheriting stripe-node's built-in default. A future SDK bump must not
+// silently change the API version and with it the shape of objects we depend on
+// — e.g. subscription.current_period_end moved from the subscription to the
+// subscription item in a 2024 version (see getCurrentPeriodEndUnix), and
+// pending_setup_intent gating (webhook) assumes the current shapes. stripe-node
+// types `apiVersion` as its LATEST known version, so when a newer SDK drops this
+// literal from that type, tsc fails HERE — turning an otherwise-silent
+// API-version drift into a deliberate, reviewed upgrade. This value is the one
+// stripe@17.7.0 already sends by default, so pinning it is a no-op today.
+const STRIPE_API_VERSION = '2025-02-24.acacia';
+
 export function getStripe(): Stripe {
   if (cachedClient) return cachedClient;
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) {
     throw new Error('STRIPE_SECRET_KEY is not set');
   }
-  cachedClient = new Stripe(key);
+  cachedClient = new Stripe(key, { apiVersion: STRIPE_API_VERSION });
   return cachedClient;
 }
 

@@ -18,6 +18,7 @@ import { useTheme } from '@/core/ThemeContext';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { GexUnit, GEX_UNIT_LABEL, gexScaleFactor, useGexUnit } from '@/core/GexUnitContext';
 import { isIndexSymbol } from '@/core/utils';
+import { formatPinStrike, pinStrikeSubtitle, PIN_STRIKE_TOOLTIP } from '@/core/pinStrike';
 
 function formatGexValue(value: number): string {
   const abs = Math.abs(value);
@@ -103,9 +104,9 @@ export default function GreeksGEXPage() {
         <GexUnitToggle />
       </div>
 
-      {/* Top row: 4 cards */}
+      {/* Top row: 5 cards */}
       <section className="mb-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <MetricCard
             title={`${symbol} Price`}
             value={quoteData && quoteDisplayPrice != null ? `$${quoteDisplayPrice.toFixed(2)}` : '--'}
@@ -150,6 +151,13 @@ export default function GreeksGEXPage() {
             value={gexData?.max_pain != null ? `$${gexData.max_pain.toFixed(2)}` : 'N/A'}
             subtitle="Options expiry target"
             tooltip="Estimated strike where option-holder payout is minimized at expiry. Acts as a magnetic level into expiration."
+            theme={theme}
+          />
+          <MetricCard
+            title="Pin Strike"
+            value={formatPinStrike(gexData?.pin_strike)}
+            subtitle={pinStrikeSubtitle(gexData?.pin_strike, gexData?.pin_confidence)}
+            tooltip={PIN_STRIKE_TOOLTIP}
             theme={theme}
           />
         </div>

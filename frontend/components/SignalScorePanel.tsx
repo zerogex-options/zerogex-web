@@ -10,6 +10,7 @@ import MobileScrollableChart from '@/components/MobileScrollableChart';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 import { spectrumIndicatorLeft } from '@/core/spectrumIndicator';
+import ChartCaption from "./ChartCaption";
 
 type SignalComponentRow = {
   key?: string;
@@ -662,6 +663,7 @@ export default function SignalScorePanel({ symbol }: SignalScorePanelProps) {
             </div>
           </div>
         </div>
+        <ChartCaption />
       </div>
 
 

@@ -4,7 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { MarketSession, Theme } from "@/core/types";
 import { colors } from "@/core/colors";
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Star } from "lucide-react";
 import { NAV_GROUPS, type NavGroup, type NavItem } from "@/core/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -24,6 +24,9 @@ interface NavigationProps {
 }
 
 const SIDEBAR_WIDTH = 272;
+
+// Per-browser pinned-pages list for the sidebar "Favorites" group.
+const FAVORITES_STORAGE_KEY = "zg.nav.favorites.v1";
 
 export default function Navigation({ theme }: NavigationProps) {
   const { symbol } = useTimeframe();
@@ -131,6 +134,68 @@ export default function Navigation({ theme }: NavigationProps) {
     [navGroups, currentTier, isPublicUser],
   );
 
+  // ── Favorites ── Members pin the pages they use most; the pinned set floats to
+  // a "Favorites" group at the top of the sidebar so they never have to hunt for
+  // a page again. Persisted per-browser. Hydrated after mount so the server and
+  // the first client render agree (no favorites-dependent markup during SSR).
+  const [favorites, setFavorites] = useState<string[]>([]);
+  const [favHydrated, setFavHydrated] = useState(false);
+  // One-time hydration from localStorage after mount. Server and the first
+  // client render intentionally start with no favorites (so there's no SSR
+  // mismatch); this reconciles from storage exactly once — the same deliberate
+  // hydration pattern (and eslint carve-out) GammaTerminalChart uses.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(FAVORITES_STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (Array.isArray(parsed)) {
+        setFavorites(parsed.filter((x): x is string => typeof x === "string"));
+      }
+    } catch {
+      /* ignore malformed prefs */
+    }
+    setFavHydrated(true);
+  }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (!favHydrated) return;
+    try {
+      localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(favorites));
+    } catch {
+      /* storage unavailable */
+    }
+  }, [favorites, favHydrated]);
+  const toggleFavorite = (id: string) => {
+    setFavorites((prev) => (prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id]));
+  };
+
+  // Flat id -> item lookup across every group/subgroup, so a pinned id resolves
+  // back to the item the sidebar already knows how to render.
+  const itemById = useMemo(() => {
+    const m = new Map<string, NavItem>();
+    for (const group of navGroups) {
+      for (const item of group.items ?? []) m.set(item.id, item);
+      for (const sg of group.subgroups ?? []) for (const item of sg.items) m.set(item.id, item);
+    }
+    return m;
+  }, [navGroups]);
+  // Pinned items the current member can actually see — the same visibility rule
+  // the main menu applies, so a favorite is never a back door to a gated page.
+  const favoriteItems = useMemo(() => {
+    const canAccess = (entry: { id?: string; requiredTier?: NavItem["requiredTier"] }) =>
+      hasTierAccess(normalizeTier(currentTier), navItemRequiredTier(entry.id, entry.requiredTier ?? null));
+    return favorites
+      .map((id) => itemById.get(id))
+      .filter((it): it is NavItem => !!it)
+      .filter((it) => {
+        if (it.external) return true;
+        if (it.requiredTier === "admin") return canAccess(it);
+        if (isPublicUser) return canAccess(it);
+        return true;
+      });
+  }, [favorites, itemById, currentTier, isPublicUser]);
+
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
     navGroups.forEach((group) => {
@@ -202,6 +267,106 @@ export default function Navigation({ theme }: NavigationProps) {
 
   const border = "var(--color-border)";
 
+  // A single nav row: label + optional lock/beta badges + a pin (star) toggle.
+  // Defined at component scope so the Favorites group and the normal groups
+  // render identical rows. The star is a role="button" span, not a real
+  // <button>, because the row itself is a <button>/<a> and nesting interactive
+  // buttons is invalid HTML — the span still gets a keyboard handler + aria.
+  const renderItem = (page: NavItem) => {
+    const isExternal = page.external === true;
+    const isActive = pathname === page.id;
+    const isHovered = hoveredPage === page.id;
+    const lock = lockedTier(page);
+    const isFav = favorites.includes(page.id);
+    const accent = theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)';
+    // Only animate paint-only properties (see the note that used to live here):
+    // animating the `border`/`background` shorthands re-evaluates the whole box
+    // each frame and made rows jitter on hover.
+    const commonStyle = {
+      color: isActive || isHovered ? accent : "var(--text-primary)",
+      opacity: isActive || isHovered ? 1 : 0.72,
+      backgroundColor: isHovered && !isActive
+        ? `${accent}18`
+        : isActive
+          ? `${accent}14`
+          : "transparent",
+      borderColor: isActive || isHovered ? `${accent}40` : "transparent",
+      transitionProperty: "color, background-color, border-color, opacity",
+      transitionDuration: "200ms",
+    };
+    const favLabel = isFav
+      ? t('nav.removeFavorite', { name: navLabel(page) })
+      : t('nav.addFavorite', { name: navLabel(page) });
+    const favStar = (
+      <span
+        role="button"
+        tabIndex={0}
+        aria-label={favLabel}
+        aria-pressed={isFav}
+        title={favLabel}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          toggleFavorite(page.id);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleFavorite(page.id);
+          }
+        }}
+        className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
+        style={{
+          color: isFav ? 'var(--color-gold)' : 'var(--text-secondary)',
+          opacity: isFav ? 1 : isHovered ? 0.75 : 0.35,
+          cursor: "pointer",
+          transition: "opacity 200ms",
+        }}
+      >
+        <Star size={14} fill={isFav ? 'var(--color-gold)' : 'none'} strokeWidth={2} />
+      </span>
+    );
+
+    if (isExternal) {
+      const targetHref = resolveNavTarget(page);
+      return (
+        <Link
+          key={page.id}
+          href={targetHref}
+          target={targetHref.startsWith("http") ? "_blank" : undefined}
+          rel={targetHref.startsWith("http") ? "noreferrer" : undefined}
+          onMouseEnter={() => setHoveredPage(page.id)}
+          onMouseLeave={() => setHoveredPage(null)}
+          className="flex w-full items-center gap-2 rounded-xl border border-solid px-3 py-3 text-left text-sm font-semibold"
+          style={commonStyle}
+        >
+          <span>{navLabel(page)}</span>
+          {lock && <TierBadge tier={lock} />}
+          {page.beta && <BetaBadge />}
+          {favStar}
+        </Link>
+      );
+    }
+
+    return (
+      <button
+        key={page.id}
+        onClick={() => router.push(resolveNavTarget(page))}
+        onMouseEnter={() => setHoveredPage(page.id)}
+        onMouseLeave={() => setHoveredPage(null)}
+        className="flex w-full items-center gap-2 rounded-xl border border-solid px-3 py-3 text-left text-sm font-semibold"
+        style={commonStyle}
+        type="button"
+      >
+        <span>{navLabel(page)}</span>
+        {lock && <TierBadge tier={lock} />}
+        {page.beta && <BetaBadge />}
+        {favStar}
+      </button>
+    );
+  };
+
   return (
     <>
       {sidebarVisible ? (
@@ -245,68 +410,37 @@ export default function Navigation({ theme }: NavigationProps) {
                 )}
               </div>
             )}
+            {favoriteItems.length > 0 && (() => {
+              const favExpanded = expandedGroups["__favorites__"] ?? true;
+              const headAccent = theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)';
+              return (
+                <div className="mb-4">
+                  <button
+                    type="button"
+                    onClick={() => setExpandedGroups((prev) => ({ ...prev, __favorites__: !favExpanded }))}
+                    className="mb-2 flex w-full items-center justify-between rounded-lg px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em]"
+                    style={{
+                      color: headAccent,
+                      background: `${headAccent}0f`,
+                    }}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Star size={12} fill="var(--color-gold)" stroke="var(--color-gold)" />
+                      {t('nav.group.favorites')}
+                    </span>
+                    <ChevronDown
+                      size={14}
+                      style={{ transform: favExpanded ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 0.2s" }}
+                    />
+                  </button>
+                  {favExpanded ? (
+                    <div className="space-y-1">{favoriteItems.map(renderItem)}</div>
+                  ) : null}
+                </div>
+              );
+            })()}
             {filteredNavGroups.map((group) => {
               const isExpanded = expandedGroups[group.label] ?? false;
-              const renderItem = (page: NavItem) => {
-                const isExternal = page.external === true;
-                const isActive = pathname === page.id;
-                const isHovered = hoveredPage === page.id;
-                const lock = lockedTier(page);
-                const accent = theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)';
-                // Only animate paint-only properties. Animating the `border`/
-                // `background` shorthands (or using `transition-all`) let the
-                // browser re-evaluate the whole box each frame, which shifted
-                // rows a couple of pixels on hover and made the mouse bounce
-                // in and out of the wrapper — the flicker in the recording.
-                const commonStyle = {
-                  color: isActive || isHovered ? accent : "var(--text-primary)",
-                  opacity: isActive || isHovered ? 1 : 0.72,
-                  backgroundColor: isHovered && !isActive
-                    ? `${accent}18`
-                    : isActive
-                      ? `${accent}14`
-                      : "transparent",
-                  borderColor: isActive || isHovered ? `${accent}40` : "transparent",
-                  transitionProperty: "color, background-color, border-color, opacity",
-                  transitionDuration: "200ms",
-                };
-
-                if (isExternal) {
-                  const targetHref = resolveNavTarget(page);
-                  return (
-                    <Link
-                      key={page.id}
-                      href={targetHref}
-                      target={targetHref.startsWith("http") ? "_blank" : undefined}
-                      rel={targetHref.startsWith("http") ? "noreferrer" : undefined}
-                      onMouseEnter={() => setHoveredPage(page.id)}
-                      onMouseLeave={() => setHoveredPage(null)}
-                      className="flex w-full items-center gap-2 rounded-xl border border-solid px-3 py-3 text-left text-sm font-semibold"
-                      style={commonStyle}
-                    >
-                      <span>{navLabel(page)}</span>
-                      {lock && <TierBadge tier={lock} />}
-                      {page.beta && <BetaBadge />}
-                    </Link>
-                  );
-                }
-
-                return (
-                  <button
-                    key={page.id}
-                    onClick={() => router.push(resolveNavTarget(page))}
-                    onMouseEnter={() => setHoveredPage(page.id)}
-                    onMouseLeave={() => setHoveredPage(null)}
-                    className="flex w-full items-center gap-2 rounded-xl border border-solid px-3 py-3 text-left text-sm font-semibold"
-                    style={commonStyle}
-                    type="button"
-                  >
-                    <span>{navLabel(page)}</span>
-                    {lock && <TierBadge tier={lock} />}
-                    {page.beta && <BetaBadge />}
-                  </button>
-                );
-              };
 
               return (
                 <div key={group.label} className="mb-4 last:mb-0">

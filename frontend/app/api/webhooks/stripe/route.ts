@@ -28,6 +28,7 @@ import {
   priceIdToTier,
 } from '@/core/stripe';
 import { decidePaymentGrace, graceWindowEndIso } from '@/core/paymentGrace';
+import { classifyPaymentSetup } from '@/core/paymentSetup';
 import { formatCancellationReasonSuffix, type CancellationDetails } from '@/core/cancellationReason';
 import { buildSaveUrl } from '@/core/retentionToken';
 import {
@@ -490,7 +491,74 @@ async function maybeStackReferralCoupon(
   }
 }
 
-async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
+// Wire the card the customer set up at checkout as the EXPLICIT default payment
+// method on both the subscription and the customer's invoice settings. Stripe's
+// trial-end charge (and every renewal) consults subscription.default_payment_method,
+// then customer.invoice_settings.default_payment_method, then falls back to "any
+// PM on the customer" — leaving the first two empty is the "neither default set"
+// gap (see scripts/diagnose-user.mts) where the auto-charge relied on Stripe
+// guessing a method at invoice time. `pmId` is the payment method a succeeded
+// SetupIntent authorized (supplied by the checkout.session.completed /
+// setup_intent.succeeded handlers). Only fills a slot that is currently EMPTY, so
+// it never overrides a default the member later chose in the portal, and it's
+// idempotent across redeliveries and the self-triggered subscription.updated our
+// own update emits. Best-effort: a failure is logged and never unwinds the sync.
+async function maybeWireDefaultPaymentMethod(
+  subscription: Stripe.Subscription,
+  pmId: string | null,
+  user: UserRow,
+): Promise<void> {
+  if (!pmId) return;
+  const customerId =
+    typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id;
+  try {
+    const subDefault =
+      typeof subscription.default_payment_method === 'string'
+        ? subscription.default_payment_method
+        : subscription.default_payment_method?.id ?? null;
+    let wroteSub = false;
+    if (!subDefault) {
+      await getStripe().subscriptions.update(subscription.id, { default_payment_method: pmId });
+      wroteSub = true;
+    }
+
+    let wroteCustomer = false;
+    const customer = await getStripe().customers.retrieve(customerId);
+    if (!('deleted' in customer && customer.deleted)) {
+      const cid = (customer as Stripe.Customer).invoice_settings?.default_payment_method;
+      const custDefault = typeof cid === 'string' ? cid : cid?.id ?? null;
+      if (!custDefault) {
+        await getStripe().customers.update(customerId, {
+          invoice_settings: { default_payment_method: pmId },
+        });
+        wroteCustomer = true;
+      }
+    }
+
+    if (wroteSub || wroteCustomer) {
+      logAudit({
+        type: 'billing_default_pm_wired',
+        userId: user.id,
+        email: user.email,
+        message: `Wired default PM ${pmId} on sub ${subscription.id}${wroteSub ? ' [subscription]' : ''}${wroteCustomer ? ' [customer]' : ''}`,
+      });
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'wire default PM failed';
+    logAudit({
+      type: 'stripe_webhook_error',
+      userId: user.id,
+      email: user.email,
+      message: `Wire default PM ${pmId} on sub ${subscription.id} failed: ${message}`,
+    });
+    // Swallow — tier sync already succeeded; a later sub/setup event can retry.
+  }
+}
+
+async function syncSubscriptionToUser(
+  subscription: Stripe.Subscription,
+  opts: { setupPaymentMethodId?: string | null } = {},
+) {
   const customerId =
     typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id;
   const user = findUserByCustomerId(customerId);
@@ -515,6 +583,34 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
   const mappedTier = priceId ? priceIdToTier(priceId) : null;
   const isActive = ACTIVE_STATUSES.has(subscription.status);
 
+  // Payment-setup gate — the trial-access correctness fix. A $0-due trial is
+  // created `trialing` with a pending SetupIntent that authorizes the card for
+  // the future off-session (post-trial) charge. Until that SetupIntent is
+  // `succeeded` the card is not confirmed usable, so we must NOT grant the trial
+  // tier on `trialing` alone — an abandoned-3DS or failed-at-setup card would
+  // otherwise get premium on an unusable payment method. Only trials carry a
+  // pending SetupIntent; an `active` sub has already been charged, so it is
+  // always ready. classifyPaymentSetup reads the (possibly unexpanded) field;
+  // when it's a bare id we resolve it against Stripe and treat any lookup failure
+  // as not-ready, so access is never granted on an unknown — a later
+  // setup_intent.succeeded (or the checkout.session.completed retrieve, which
+  // expands pending_setup_intent) re-syncs and grants once setup is confirmed.
+  let setupReady = true;
+  if (subscription.status === 'trialing') {
+    const readiness = classifyPaymentSetup(subscription);
+    if (readiness === 'unresolved-id') {
+      const psiId = subscription.pending_setup_intent as string;
+      try {
+        const si = await getStripe().setupIntents.retrieve(psiId);
+        setupReady = si.status === 'succeeded';
+      } catch {
+        setupReady = false;
+      }
+    } else {
+      setupReady = readiness === 'ready';
+    }
+  }
+
   // Bounded payment-recovery grace. When an ESTABLISHED (previously `active`)
   // subscription's renewal charge fails, Stripe moves it to `past_due`. Instead
   // of revoking access on that first failure, keep the member on their paid tier
@@ -536,9 +632,18 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
     graceDays,
     nowMs: Date.now(),
     trialGrace: getTrialGraceEnabled(),
+    // A trial we withheld access from (its setup never succeeded, so the
+    // previous synced tier stayed `public`) must not be handed the recovery
+    // window when its first charge fails — that would grant premium to exactly
+    // the unvalidated-card cohort. previousTier is the pre-UPDATE snapshot.
+    previousTierGranted: previousTier !== 'public',
   });
 
-  const grantsTier = isActive || inGrace;
+  // `trialing` grants the tier only once the payment setup is confirmed ready
+  // (the setupReady gate above); `active` always grants (setupReady defaults
+  // true and is untouched for non-trials); a bounded grace window keeps an
+  // established payer through a recoverable renewal decline.
+  const grantsTier = (isActive && setupReady) || inGrace;
   const nextTier: TierId = grantsTier && mappedTier ? mappedTier : 'public';
 
   const periodEndUnix = getCurrentPeriodEndUnix(subscription);
@@ -595,6 +700,19 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
     email: user.email,
     message: `Subscription ${subscription.id} status=${subscription.status} tier=${nextTier} cancelAtPeriodEnd=${subscription.cancel_at_period_end}`,
   });
+
+  // Observability for the payment-setup gate: a trial held at `public` because
+  // its SetupIntent hasn't succeeded yet. Distinguishes "withheld pending setup"
+  // from a normal grant so the trial-access fix is auditable (and so a spike in
+  // these — e.g. widespread 3DS abandonment — is visible in webhook-health).
+  if (subscription.status === 'trialing' && !setupReady) {
+    logAudit({
+      type: 'billing_trial_setup_pending',
+      userId: user.id,
+      email: user.email,
+      message: `Trial sub ${subscription.id} access withheld: payment setup not yet succeeded → tier=${nextTier}`,
+    });
+  }
 
   // Observability for the grace window: distinguishes "held through a recoverable
   // decline" from "downgraded" so the involuntary-churn saves are auditable.
@@ -672,7 +790,18 @@ async function syncSubscriptionToUser(subscription: Stripe.Subscription) {
 
   await maybeApplyFoundingLifetime(subscription.id, user);
 
-  if (isActive) {
+  // Wire the collected card as the explicit default PM when a succeeded
+  // SetupIntent handed us one (from checkout.session.completed or
+  // setup_intent.succeeded). Fills only empty slots, so it closes the
+  // "neither default set" gap without overriding a portal-chosen default.
+  await maybeWireDefaultPaymentMethod(subscription, opts.setupPaymentMethodId ?? null, user);
+
+  // Gate the welcome on the ACTUAL grant, not raw isActive: a `trialing` sub
+  // whose setup isn't ready is withheld (grantsTier false), so it must not get a
+  // welcome until setup succeeds and a re-sync grants it. maybeSendPaidWelcomeEmail
+  // still guards on ACTIVE_STATUSES internally, so a past_due-in-grace grant
+  // (grantsTier true, status past_due) no-ops there as before.
+  if (grantsTier) {
     await maybeSendPaidWelcomeEmail(user, subscription);
   }
 
@@ -1221,11 +1350,36 @@ export async function POST(request: NextRequest) {
         const subscriptionId =
           typeof session.subscription === 'string' ? session.subscription : session.subscription?.id;
         if (subscriptionId) {
-          const subscription = await getStripe().subscriptions.retrieve(subscriptionId);
+          // Expand pending_setup_intent so syncSubscriptionToUser can decide the
+          // payment-setup gate without a second Stripe call. By the time this
+          // event fires, hosted Checkout has confirmed the SetupIntent, so it is
+          // typically cleared to null (→ ready) here.
+          const subscription = await getStripe().subscriptions.retrieve(subscriptionId, {
+            expand: ['pending_setup_intent'],
+          });
+          // Resolve the card the trial's SetupIntent authorized so the sync can
+          // wire it as the explicit default PM. Only trials carry a session-level
+          // setup_intent; a no-trial checkout has a payment_intent instead and
+          // Stripe sets the default from the payment, so this is null there.
+          // Best-effort: on any lookup failure fall back to Stripe's native wiring.
+          let setupPaymentMethodId: string | null = null;
+          const siRef = session.setup_intent;
+          const siId = typeof siRef === 'string' ? siRef : siRef?.id ?? null;
+          if (siId) {
+            try {
+              const si = await getStripe().setupIntents.retrieve(siId);
+              setupPaymentMethodId =
+                typeof si.payment_method === 'string'
+                  ? si.payment_method
+                  : si.payment_method?.id ?? null;
+            } catch {
+              // Non-fatal — the sync still runs; the default just isn't force-wired.
+            }
+          }
           // syncSubscriptionToUser drives the welcome internally via the
           // CAS-based maybeSendPaidWelcomeEmail, so this handler no longer
           // needs to pre-snapshot any state.
-          await syncSubscriptionToUser(subscription);
+          await syncSubscriptionToUser(subscription, { setupPaymentMethodId });
         }
         break;
       }
@@ -1387,6 +1541,52 @@ export async function POST(request: NextRequest) {
             }
           }
         }
+        break;
+      }
+      case 'setup_intent.succeeded': {
+        // A trial's future-payment setup just completed — including a 3DS step-up
+        // the customer finished after leaving Checkout, or an async confirmation.
+        // Re-sync the subscription so the payment-setup gate re-evaluates and
+        // grants the tier now that the card is authorized. We re-read the LIVE
+        // subscription (with pending_setup_intent expanded), so this is correct
+        // regardless of event ordering: if the sub is meanwhile past_due/canceled
+        // it grants nothing. If we haven't recorded the subscription yet, the
+        // forthcoming customer.subscription.* event will grant it (setup is now
+        // succeeded, so its pending_setup_intent is cleared → ready).
+        const si = event.data.object as Stripe.SetupIntent;
+        const customerId =
+          typeof si.customer === 'string' ? si.customer : si.customer?.id ?? null;
+        const user = customerId ? findUserByCustomerId(customerId) : null;
+        if (user?.stripe_subscription_id) {
+          const subscription = await getStripe().subscriptions.retrieve(
+            user.stripe_subscription_id,
+            { expand: ['pending_setup_intent'] },
+          );
+          const pmId =
+            typeof si.payment_method === 'string'
+              ? si.payment_method
+              : si.payment_method?.id ?? null;
+          await syncSubscriptionToUser(subscription, { setupPaymentMethodId: pmId });
+        }
+        break;
+      }
+      case 'setup_intent.setup_failed': {
+        // The future-payment setup failed (bad card, failed 3DS, Radar block).
+        // There's nothing to revoke — an unready trial was never granted access —
+        // so this is observability only; Stripe's own dunning/customer emails
+        // prompt the card fix, and a later setup_intent.succeeded re-syncs.
+        const si = event.data.object as Stripe.SetupIntent;
+        const customerId =
+          typeof si.customer === 'string' ? si.customer : si.customer?.id ?? null;
+        const user = customerId ? findUserByCustomerId(customerId) : null;
+        const reason =
+          si.last_setup_error?.decline_code || si.last_setup_error?.code || 'unknown';
+        logAudit({
+          type: 'stripe_setup_intent_failed',
+          userId: user?.id,
+          email: user?.email,
+          message: `SetupIntent ${si.id} failed for customer ${customerId ?? 'unknown'} (${reason})`,
+        });
         break;
       }
       default:

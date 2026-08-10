@@ -12,7 +12,7 @@
  *   6. Drilldown modal on bot click (portal).
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Sparkles, Zap } from 'lucide-react';
 import { useApiData } from '@/hooks/useApiData';
 import { useAuthSession } from '@/hooks/useAuthSession';
@@ -21,18 +21,21 @@ import BotDetailPanel from './BotDetailPanel';
 import BotRosterCard from './BotRosterCard';
 import EmptyState from './EmptyState';
 import FleetOverviewChart from './FleetOverviewChart';
+import PerformanceTrendChart from './PerformanceTrendChart';
+import Sparkline from './Sparkline';
 import LeaderboardTable from './LeaderboardTable';
 import NotificationBell from './NotificationBell';
 import TradesAuditPanel from './TradesAuditPanel';
 import { RosterSkeleton, SummarySkeleton } from './Skeleton';
 import { botColor } from './palette';
-import { fmtMoney, fmtSignedMoney, fmtSignedPct, toneVar } from './format';
+import { fmtMoney, fmtPct, fmtRatio, fmtSignedMoney, fmtSignedPct, toneVar } from './format';
 import { PERIOD_OPTIONS } from './types';
 import type {
   BotEquityBundle,
   BotListResponse,
   EquityBundlesResponse,
   FleetSummary,
+  PerformanceTrend,
   PeriodKey,
 } from './types';
 
@@ -66,6 +69,10 @@ export default function TradeWorkzClient() {
   });
   const equityBundlesRes = useApiData<EquityBundlesResponse>(
     '/api/tradeworkz/equity-curves?days=90',
+    { refreshInterval: 60_000 },
+  );
+  const trendRes = useApiData<PerformanceTrend>(
+    '/api/tradeworkz/performance-trend?days=60&windows=5,10,20',
     { refreshInterval: 60_000 },
   );
 
@@ -282,6 +289,18 @@ export default function TradeWorkzClient() {
     }
   }, [simBusy, summary, botsData, leaderboard]);
 
+  // Performance-trend-derived hero metrics (null-safe until the trend loads).
+  const trend = trendRes.data ?? null;
+  const trendWindows = trend?.windows ?? [];
+  const primaryWindow = trendWindows.length
+    ? trendWindows[Math.min(1, trendWindows.length - 1)]
+    : 10;
+  const rolling = trend?.headline?.windows?.[String(primaryWindow)] ?? null;
+  const fleetCumPct = trend?.headline?.fleet_cum_return_pct ?? null;
+  const spyCumPct = trend?.headline?.spy_cum_return_pct ?? null;
+  const cumSeries = (trend?.series ?? []).map((p) => p.cumulative_pnl);
+  const trendDays = trend?.days ?? 60;
+
   return (
     <div className="min-h-screen">
       <div className="container mx-auto max-w-7xl px-4 py-8">
@@ -297,12 +316,8 @@ export default function TradeWorkzClient() {
               >
                 Beta
               </span>
+              <TooltipWrapper text="A competing fleet of autonomous trading bots. Each bot owns a capital sleeve, an entry / exit rule set, and a per-bot online-ML calibrator. Leaderboard ranks by realized P&L over the selected window." />
             </div>
-            <p className="text-sm text-[var(--color-text-secondary)] max-w-3xl leading-relaxed">
-              A competing fleet of autonomous trading bots. Each bot owns a capital sleeve, an
-              entry / exit rule set, and a per-bot online-ML calibrator. Leaderboard ranks by
-              realized P&amp;L over the selected window.
-            </p>
           </div>
           <div className="flex flex-col items-start md:items-end gap-2">
             <div className="flex items-center gap-2">
@@ -375,36 +390,92 @@ export default function TradeWorkzClient() {
           ) : summaryLoading ? (
             <SummarySkeleton />
           ) : summary.data ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <StatTile
-                label="Fleet NAV"
-                value={fmtMoney(summary.data.fleet_capital_current)}
-                subline={`Start ${fmtMoney(summary.data.fleet_capital_starting)}`}
-                tone={toneVar(summary.data.fleet_return_pct)}
-                delta={
-                  summary.data.fleet_return_pct !== null
-                    ? fmtSignedPct(summary.data.fleet_return_pct, 2)
-                    : null
-                }
-              />
-              <StatTile
-                label="Realized P&L Today"
-                value={fmtSignedMoney(summary.data.realized_pnl_today)}
-                subline={`${summary.data.trades_today} trades · ${summary.data.wins_today} wins`}
-                tone={toneVar(summary.data.realized_pnl_today)}
-              />
-              <StatTile
-                label="Live Positions"
-                value={String(summary.data.live_positions)}
-                subline={`Unrealized ${fmtSignedMoney(summary.data.unrealized_pnl)}`}
-                tone={toneVar(summary.data.unrealized_pnl)}
-              />
-              <StatTile
-                label="Bots in Fleet"
-                value={String(summary.data.n_bots)}
-                subline="Slice: fleet capital / bots"
-                tone="var(--color-text-secondary)"
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <HeroTile tone={toneVar(summary.data.fleet_return_pct)}>
+                <HeroLabel>Fleet NAV</HeroLabel>
+                <div className="flex items-end justify-between gap-3">
+                  <div>
+                    <div className="text-3xl font-semibold tabular-nums text-[var(--color-text-primary)]">
+                      {fmtMoney(summary.data.fleet_capital_current)}
+                    </div>
+                    <div className="text-[11px] text-[var(--color-text-secondary)] mt-1">
+                      <span style={{ color: toneVar(summary.data.fleet_return_pct) }}>
+                        {summary.data.fleet_return_pct !== null
+                          ? fmtSignedPct(summary.data.fleet_return_pct, 1)
+                          : '—'}
+                      </span>{' '}
+                      lifetime · Start {fmtMoney(summary.data.fleet_capital_starting)} ·{' '}
+                      {summary.data.n_bots} bots
+                    </div>
+                  </div>
+                  {cumSeries.length >= 2 ? (
+                    <Sparkline
+                      values={cumSeries}
+                      color={toneVar(cumSeries[cumSeries.length - 1] - cumSeries[0])}
+                      baseline={0}
+                      width={92}
+                      height={40}
+                      ariaLabel="cumulative realized P&L since the window start"
+                    />
+                  ) : null}
+                </div>
+              </HeroTile>
+
+              <HeroTile tone={pfToneVar(rolling?.profit_factor)}>
+                <HeroLabel>Edge · Trailing {primaryWindow}</HeroLabel>
+                <div className="text-3xl font-semibold tabular-nums text-[var(--color-text-primary)]">
+                  {rolling ? fmtPct(rolling.win_rate, 0) : '—'}
+                </div>
+                <div className="text-[11px] text-[var(--color-text-secondary)] mt-1">
+                  win rate · PF{' '}
+                  <span style={{ color: pfToneVar(rolling?.profit_factor) }}>
+                    {fmtRatio(rolling?.profit_factor)}
+                  </span>{' '}
+                  ·{' '}
+                  {rolling && rolling.expectancy !== null
+                    ? `${fmtSignedMoney(rolling.expectancy)}/trade`
+                    : '—'}
+                </div>
+              </HeroTile>
+
+              <HeroTile tone={toneVar(fleetCumPct)}>
+                <HeroLabel>Fleet vs SPY · {trendDays}d</HeroLabel>
+                <div
+                  className="text-3xl font-semibold tabular-nums"
+                  style={{ color: toneVar(fleetCumPct) }}
+                >
+                  {fleetCumPct !== null ? fmtSignedPct(fleetCumPct, 1) : '—'}
+                </div>
+                <div className="text-[11px] text-[var(--color-text-secondary)] mt-1">
+                  SPY {spyCumPct !== null ? fmtSignedPct(spyCumPct, 1) : '—'}
+                  {fleetCumPct !== null && spyCumPct !== null ? (
+                    <>
+                      {' '}
+                      · gap{' '}
+                      <span style={{ color: toneVar(fleetCumPct - spyCumPct) }}>
+                        {fmtSignedPct(fleetCumPct - spyCumPct, 1)}
+                      </span>
+                    </>
+                  ) : null}
+                </div>
+              </HeroTile>
+
+              <HeroTile tone={toneVar(summary.data.realized_pnl_today)}>
+                <HeroLabel>Today</HeroLabel>
+                <div
+                  className="text-3xl font-semibold tabular-nums"
+                  style={{ color: toneVar(summary.data.realized_pnl_today) }}
+                >
+                  {fmtSignedMoney(summary.data.realized_pnl_today)}
+                </div>
+                <div className="text-[11px] text-[var(--color-text-secondary)] mt-1">
+                  {summary.data.trades_today} trades · {summary.data.wins_today} wins ·{' '}
+                  {summary.data.live_positions} live
+                  {summary.data.live_positions > 0
+                    ? ` (${fmtSignedMoney(summary.data.unrealized_pnl)})`
+                    : ''}
+                </div>
+              </HeroTile>
             </div>
           ) : null}
         </section>
@@ -437,16 +508,34 @@ export default function TradeWorkzClient() {
         ) : null}
 
         <section className="mb-8">
-          <div className="flex items-center justify-between mb-3 gap-3">
-            <div>
-              <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
-                Fleet Performance
-              </h2>
-              <p className="text-xs text-[var(--color-text-secondary)]">
-                90-day cumulative return, indexed to 100 at the start of each bot's window.
-              </p>
-            </div>
+          <SectionHeading
+            title="Performance Trend"
+            tip="Is the fleet getting better? Rolling win rate / profit factor / expectancy plus cumulative return vs a SPY buy-hold, rebased to the window start — not the since-inception NAV, which stays anchored to the pre-fix drawdown."
+          />
+          <div
+            className="rounded-2xl p-4"
+            style={{
+              backgroundColor: 'var(--color-surface)',
+              border: '1px solid var(--color-border)',
+            }}
+          >
+            {trendRes.error && !trendRes.data ? (
+              <EmptyState title="Trend unavailable" description={trendRes.error} />
+            ) : trendRes.data ? (
+              <PerformanceTrendChart data={trendRes.data} />
+            ) : (
+              <div className="h-52 flex items-center justify-center text-xs text-[var(--color-text-secondary)]">
+                Loading performance trend…
+              </div>
+            )}
           </div>
+        </section>
+
+        <section className="mb-8">
+          <SectionHeading
+            title="Per-Bot Equity Curves"
+            tip="Per-bot cumulative return, each indexed to 100 at the start of its 90-day window."
+          />
           <div
             className="rounded-2xl p-4"
             style={{
@@ -476,17 +565,11 @@ export default function TradeWorkzClient() {
         </section>
 
         <section className="mb-8">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-3 gap-3">
-            <div>
-              <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
-                Leaderboard
-              </h2>
-              <p className="text-xs text-[var(--color-text-secondary)]">
-                Ranked by realized P&amp;L over the selected window. Row click opens the drilldown.
-              </p>
-            </div>
-            <PeriodToggle current={period} onChange={setPeriod} />
-          </div>
+          <SectionHeading
+            title="Leaderboard"
+            tip="Ranked by realized P&L over the selected window. Row click opens the drilldown."
+            right={<PeriodToggle current={period} onChange={setPeriod} />}
+          />
           <LeaderboardTable
             data={leaderboard.data ?? null}
             loading={leaderboard.loading}
@@ -502,16 +585,10 @@ export default function TradeWorkzClient() {
         </section>
 
         <section className="mb-10">
-          <div className="flex items-center justify-between mb-3 gap-3">
-            <div>
-              <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
-                The Fleet
-              </h2>
-              <p className="text-xs text-[var(--color-text-secondary)]">
-                Every bot: identity color, 30-day equity curve, and rolling P&amp;L windows.
-              </p>
-            </div>
-          </div>
+          <SectionHeading
+            title="The Fleet"
+            tip="Every bot: identity color, 30-day equity curve, and rolling P&L windows."
+          />
           {botsData.loading && !botsData.data ? (
             <RosterSkeleton />
           ) : botsData.error && !botsData.data ? (
@@ -588,42 +665,62 @@ function PeriodToggle({
   );
 }
 
-function StatTile({
-  label,
-  value,
-  subline,
-  tone,
-  delta,
-}: {
-  label: string;
-  value: string;
-  subline: string;
-  tone: string;
-  delta?: string | null;
-}) {
+function HeroTile({ tone, children }: { tone?: string; children: ReactNode }) {
   return (
     <div
-      className="p-5 rounded-2xl"
+      className="relative overflow-hidden rounded-2xl p-5 transition-transform duration-200 hover:-translate-y-0.5"
       style={{
         backgroundColor: 'var(--color-surface)',
         border: '1px solid var(--color-border)',
-        boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
       }}
     >
-      <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">
-        {label}
+      {tone ? (
+        <span
+          aria-hidden
+          className="absolute inset-x-0 top-0 h-[3px]"
+          style={{ background: `linear-gradient(90deg, ${tone}, transparent)` }}
+        />
+      ) : null}
+      {children}
+    </div>
+  );
+}
+
+function HeroLabel({ children }: { children: ReactNode }) {
+  return (
+    <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">
+      {children}
+    </div>
+  );
+}
+
+/** Profit factor > 1 is a bull tone, < 1 bear, n/a neutral. */
+function pfToneVar(pf: number | null | undefined): string {
+  if (pf === null || pf === undefined || !Number.isFinite(pf)) {
+    return 'var(--color-text-secondary)';
+  }
+  if (pf > 1) return 'var(--color-bull)';
+  if (pf < 1) return 'var(--color-bear)';
+  return 'var(--color-text-secondary)';
+}
+
+function SectionHeading({
+  title,
+  tip,
+  right,
+}: {
+  title: string;
+  tip: string;
+  right?: ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between mb-3 gap-3">
+      <div className="flex items-center gap-1.5">
+        <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">{title}</h2>
+        <TooltipWrapper text={tip} />
       </div>
-      <div className="flex items-baseline gap-2 flex-wrap">
-        <div className="text-2xl font-semibold tabular-nums" style={{ color: tone }}>
-          {value}
-        </div>
-        {delta ? (
-          <div className="text-xs font-medium tabular-nums" style={{ color: tone }}>
-            {delta}
-          </div>
-        ) : null}
-      </div>
-      <div className="text-[11px] text-[var(--color-text-secondary)] mt-1">{subline}</div>
+      {right ?? null}
     </div>
   );
 }

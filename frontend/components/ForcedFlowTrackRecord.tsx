@@ -7,6 +7,7 @@ import {
   type ForcedFlowBacktestVariant,
 } from '@/hooks/useApiData';
 import TooltipWrapper from './TooltipWrapper';
+import ChartCaption from "./ChartCaption";
 
 interface ForcedFlowTrackRecordProps {
   symbol?: string;
@@ -158,6 +159,7 @@ export default function ForcedFlowTrackRecord({
           </p>
         </>
       )}
+      <ChartCaption />
     </div>
   );
 }

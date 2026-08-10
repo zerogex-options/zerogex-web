@@ -15,6 +15,7 @@ import { useTimeframe } from "@/core/TimeframeContext";
 import ChartTimeframeSelect, { type ChartTimeframe } from "./ChartTimeframeSelect";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import MobileScrollableChart from "./MobileScrollableChart";
+import ChartCaption from "./ChartCaption";
 
 interface CandleBar {
   timestamp: string;
@@ -598,6 +599,7 @@ export default function UnderlyingCandlesChart() {
           </svg>
         </div>
         </MobileScrollableChart>
+        <ChartCaption />
       </div>
     </ExpandableCard>
   );

@@ -10,7 +10,10 @@ import TooltipWrapper from './TooltipWrapper';
 import MobileScrollableChart from './MobileScrollableChart';
 import StrikeRangeScrollbar from './StrikeRangeScrollbar';
 import ExpirationMultiSelect from './ExpirationMultiSelect';
+import { useSharedExpirations } from '@/hooks/useSharedExpirations';
+import { reconcileExpirations } from '@/core/expirationPersistence';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import ChartCaption from "./ChartCaption";
 
 // Each zoom click narrows / widens the visible strike range by this factor.
 // 1.4 is roughly the geometric mean of 1 and 2, giving comfortable single-
@@ -146,8 +149,15 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
   }, [openInterestData]);
 
   // Empty set = All (aggregate every expiration); a non-empty set sums the
-  // per-strike call/put values across exactly those expirations.
-  const [selectedExpirations, setSelectedExpirations] = useState<string[]>([]);
+  // per-strike call/put values across exactly those expirations. The selection
+  // is shared and persisted across every expiration-filtering chart in the tab
+  // (see useSharedExpirations), reconciled here to the expirations this chart
+  // actually has so a stale/foreign pick drops out and simply reads as "All".
+  const { selection, setSelection } = useSharedExpirations();
+  const selectedExpirations = useMemo(
+    () => reconcileExpirations(selection, expirationOptions),
+    [selection, expirationOptions],
+  );
   const [displayMode, setDisplayMode] = useState<DisplayMode>('oi');
 
   const chartData = useMemo<ChartRow[]>(() => {
@@ -383,7 +393,7 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
             <ExpirationMultiSelect
               options={expirationOptions}
               selected={selectedExpirations}
-              onChange={setSelectedExpirations}
+              onChange={setSelection}
             />
             <div className="inline-flex rounded border" style={{ borderColor: inputBorder, backgroundColor: inputBg }}>
               <button
@@ -477,6 +487,7 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
             />
           </div>
         )}
+        <ChartCaption />
       </div>
     </ExpandableCard>
   );

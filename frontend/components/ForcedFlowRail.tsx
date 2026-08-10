@@ -6,6 +6,7 @@ import TooltipWrapper from './TooltipWrapper';
 import { useMemo } from 'react';
 import { useChartTheme } from '@/hooks/useChartTheme';
 import { useForcedFlowLevels } from '@/hooks/useApiData';
+import ChartCaption from "./ChartCaption";
 
 interface ForcedFlowRailProps {
   symbol?: string;
@@ -188,6 +189,7 @@ export default function ForcedFlowRail({ symbol = 'SPY' }: ForcedFlowRailProps) 
           {new Date(data.timestamp).toLocaleTimeString()}
         </div>
       )}
+      <ChartCaption />
     </div>
   );
 }

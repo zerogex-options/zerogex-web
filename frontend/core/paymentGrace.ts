@@ -32,6 +32,15 @@ export type PaymentGraceInput = {
   // first-charge decline is the same recoverable case a renewal decline is — this
   // gives Stripe's Smart Retries the same short window before access drops.
   trialGrace?: boolean;
+  // Whether the member actually held a paid tier on the PREVIOUS sync. Guards the
+  // trial-conversion branch only: a trial whose payment setup never succeeded is
+  // withheld access at checkout (tier stays `public`), so previousTierGranted is
+  // false for it — and its first-charge failure must NOT open a grace window,
+  // which would hand premium to exactly the unvalidated-card cohort grace exists
+  // to exclude. A normally-activated trial (setup succeeded → tier granted) has
+  // previousTierGranted true and keeps the recovery window. Defaults true so the
+  // renewal branch and every existing caller are unchanged.
+  previousTierGranted?: boolean;
 };
 
 export type PaymentGraceDecision = {
@@ -44,7 +53,15 @@ export type PaymentGraceDecision = {
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function decidePaymentGrace(input: PaymentGraceInput): PaymentGraceDecision {
-  const { status, previousStatus, graceStartedAt, graceDays, nowMs, trialGrace = false } = input;
+  const {
+    status,
+    previousStatus,
+    graceStartedAt,
+    graceDays,
+    nowMs,
+    trialGrace = false,
+    previousTierGranted = true,
+  } = input;
 
   // Any non-past_due status closes the window: recovery to `active`, a switch
   // back to `trialing`, cancel, etc. The tier grant is then driven by the normal
@@ -69,7 +86,9 @@ export function decidePaymentGrace(input: PaymentGraceInput): PaymentGraceDecisi
   // the "already inside a window" branch above enforces the bound identically on
   // subsequent past_due syncs regardless of which case opened it. With trialGrace
   // off, a trialing→past_due opens no window (the original hard trial-end).
-  const qualifies = previousStatus === 'active' || (trialGrace && previousStatus === 'trialing');
+  const qualifies =
+    previousStatus === 'active' ||
+    (trialGrace && previousStatus === 'trialing' && previousTierGranted);
   if (graceDays > 0 && qualifies) {
     return { graceStartedAt: new Date(nowMs).toISOString(), inGrace: true };
   }

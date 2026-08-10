@@ -34,11 +34,12 @@ export interface CandleReplay {
   /** The shared playhead timestamp — the chart reveals candles up to it. */
   cursorTs: string | null;
   loading: boolean;
-  /** Dealer-gamma levels for the cursor minute, drawn as price lines. */
-  levels: { flip: number | null; call: number | null; put: number | null; pain: number | null };
+  /** Dealer-gamma levels drawn as price lines (spot, flip, walls, max pain). */
+  levels: { spot: number | null; flip: number | null; call: number | null; put: number | null; pain: number | null };
 }
 
-const LEVEL_LINES: Array<{ key: "flip" | "call" | "put" | "pain"; code: string; color: string }> = [
+const LEVEL_LINES: Array<{ key: "spot" | "flip" | "call" | "put" | "pain"; code: string; color: string }> = [
+  { key: "spot", code: "SP", color: "var(--color-navy)" },
   { key: "flip", code: "GF", color: "var(--color-warning)" },
   { key: "call", code: "CW", color: "var(--color-bear)" },
   { key: "put", code: "PW", color: "var(--color-bull)" },
@@ -255,7 +256,7 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
   // to re-subscribe and never reads stale closures).
   const ctxRef = useRef({
     total: 0, startIdx: 0, xStep: 1, effLo: 0, effHi: 1, fitCenter: 0, fitHalf: 1,
-    width: 1100, height: 440, padLeft: 60, padTop: 18, plotW: 1, plotH: 1, minBars: 6,
+    width: 1100, height: 440, padLeft: 60, padTop: 18, plotW: 1, plotH: 1, plotX0: 67, innerW: 1, minBars: 6,
   });
   const clipId = `pcc-clip-${useId().replace(/[^a-zA-Z0-9-]/g, "")}`;
 
@@ -341,9 +342,16 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
   const width = 1100;
   const height = timeframe === "1day" ? 480 : 440;
   const padLeft = 60;
-  // Reserve a right gutter for the replay level tags so their labels sit beside
-  // the candles instead of over them; live mode keeps the candles full-width.
-  const padRight = replayActive ? 64 : 16;
+  // Show dealer-gamma levels on the candles in BOTH live and replay; reserve a
+  // right gutter for their value tags so the labels sit beside the candles, not
+  // over them. If no level is available the gutter collapses.
+  const hasLevels =
+    !!replay?.levels &&
+    LEVEL_LINES.some((l) => {
+      const v = replay.levels[l.key];
+      return v != null && Number.isFinite(v);
+    });
+  const padRight = hasLevels ? 64 : 16;
   const padTop = 18;
   const priceAreaBottom = height - 42;
   const plotW = width - padLeft - padRight;
@@ -359,9 +367,15 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
   const startIdx = Math.max(0, endIdx - visibleCount);
   const visibleBars = bars.slice(startIdx, endIdx);
   const vLen = visibleBars.length;
-  const xStep = plotW / Math.max(1, vLen - 1);
+  // Inset the candle plotting area by a half-candle margin on each side so the
+  // first and last candle bodies render fully instead of being clipped in half
+  // at the plot edges. Grid/level lines still span the full [padLeft, width-padRight].
+  const edgeInset = 7;
+  const plotX0 = padLeft + edgeInset;
+  const innerW = Math.max(1, plotW - 2 * edgeInset);
+  const xStep = innerW / Math.max(1, vLen - 1);
   const candleWidth = Math.max(2, Math.min(12, xStep * 0.6));
-  const xForVis = (i: number) => padLeft + i * xStep;
+  const xForVis = (i: number) => plotX0 + i * xStep;
 
   // ── Price band (auto-fit the visible bars, then apply Y zoom/pan) ──
   let priceLo = Number.POSITIVE_INFINITY;
@@ -400,7 +414,7 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
   // Keep the wheel handler's geometry snapshot fresh (post-commit; wheel events
   // are user-driven, so there's no lag).
   useEffect(() => {
-    ctxRef.current = { total, startIdx, xStep, effLo, effHi, fitCenter, fitHalf, width, height, padLeft, padTop, plotW, plotH, minBars: MIN_BARS };
+    ctxRef.current = { total, startIdx, xStep, effLo, effHi, fitCenter, fitHalf, width, height, padLeft, padTop, plotW, plotH, plotX0, innerW, minBars: MIN_BARS };
   });
 
   // Wheel zoom via a callback ref so it attaches when the SVG actually mounts
@@ -436,9 +450,9 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
           const minZoom = c.total > 0 ? Math.min(1, c.minBars / c.total) : 1;
           const newXZoom = clamp(prev.xZoom * factor, minZoom, 1);
           const newVisible = Math.max(c.minBars, Math.min(c.total, Math.round(c.total * newXZoom)));
-          const idxAtCursor = c.startIdx + (px - c.padLeft) / Math.max(1e-9, c.xStep);
-          const newXStep = c.plotW / Math.max(1, newVisible - 1);
-          const newStart = idxAtCursor - (px - c.padLeft) / Math.max(1e-9, newXStep);
+          const idxAtCursor = c.startIdx + (px - c.plotX0) / Math.max(1e-9, c.xStep);
+          const newXStep = c.innerW / Math.max(1, newVisible - 1);
+          const newStart = idxAtCursor - (px - c.plotX0) / Math.max(1e-9, newXStep);
           const newPan = c.total - (newStart + newVisible);
           const maxPan2 = Math.max(0, c.total - newVisible);
           return { ...prev, xZoom: newXZoom, xPan: clamp(newPan, 0, maxPan2) };
@@ -471,7 +485,7 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
       return;
     }
     const xView = ((e.clientX - rect.left) / Math.max(1, rect.width)) * width;
-    const iVis = Math.round((xView - padLeft) / Math.max(1e-9, xStep));
+    const iVis = Math.round((xView - plotX0) / Math.max(1e-9, xStep));
     setHoveredIdx(startIdx + clamp(iVis, 0, Math.max(0, vLen - 1)));
   };
   const endDrag = () => {
@@ -657,11 +671,11 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
               )}
             </g>
 
-            {/* Dealer-gamma level lines during replay — the line spans the candle
-                area; the value tag lives in the right margin (outside the clip),
-                so labels never overlap the candles. */}
-            {replayActive &&
-              LEVEL_LINES.map(({ key, code, color }) => {
+            {/* Dealer-gamma levels (spot / flip / walls / max pain) on the
+                candles, live and replay — the line spans the candle area; the
+                value tag lives in the right margin (outside the clip) so labels
+                never overlap the candles. */}
+            {LEVEL_LINES.map(({ key, code, color }) => {
                 const v = replay?.levels?.[key];
                 if (v == null || !Number.isFinite(v) || v < effLo || v > effHi) return null;
                 const y = yPrice(v);

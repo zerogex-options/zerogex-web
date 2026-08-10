@@ -28,7 +28,7 @@ Die aktuelle Aufschlüsselung — und ein 14-tägiger Testzugang — findest du 
 ### Basic-Tier
 
 - **Dashboard** — vollständige Echtzeit-Metriken
-- **Live Bulletin** — Streaming-Feed der Signalereignisse
+- **Live Bulletin** — ein teilbereiter Live-Snapshot der Dealer-Gamma-Positionierung
 - **Alle Metrics-Seiten** — Dealer Positioning, GEX Summary & Greeks, Flow Analysis, Smart Money, Max Pain, Technicals
 - **Basic Signals** — Tape Flow Bias, Skew Delta, Vanna/Charm Flow, Dealer Delta Pressure, GEX Gradient, Positioning Trap
 - **Strategy Builder** — vollständiges Options-Pricing und P&L
@@ -48,7 +48,6 @@ Einige Seiten existieren für alle Tiers, verhalten sich aber unterschiedlich je
 
 - Das **Dashboard** ist für Basic und Pro vollständig befüllt. Public-Nutzer sehen eine Teaser-Ansicht, die nach der Anmeldung zur Live-Seite verlinkt.
 - Der Bereich **Signals** in der Seitenleiste ist immer sichtbar — jeder kann auf einen Signalnamen klicken. Ohne Zugang führt der Klick zur Seite [Pricing](/pricing), damit du siehst, was ihn freischaltet.
-- Badges und Chips im **Live Bulletin** sind tier-abhängig: Elemente, die nur für Pro freigeschaltet sind, zeigen Basic-Nutzern einen kleinen Lock-Chip.
 
 ## So upgradest du oder wechselst den Tier
 

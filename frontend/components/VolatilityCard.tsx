@@ -7,6 +7,7 @@ import { useVolatilityGauge } from "@/hooks/useApiData";
 import { useTheme } from "@/core/ThemeContext";
 import { useTimeframe } from "@/core/TimeframeContext";
 import { interpolateGaugeColor, SingleGauge } from "./VolatilityGauges";
+import ChartCaption from "./ChartCaption";
 
 // ── Zone data ─────────────────────────────────────────────────────────────────
 
@@ -265,6 +266,8 @@ function GaugeCard({ type, value, zoneLabel, isDark, vix, vixTimestamp, indexLab
           sizePx={160}
         />
       </div>
+
+      <ChartCaption />
 
       {/* Hover popup — portal-rendered so it can escape the card's clipping ancestor */}
       {hoverOpen && typeof document !== "undefined" &&

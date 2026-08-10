@@ -268,6 +268,43 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Race guard against duplicate subscriptions. The stripe_subscription_id check
+  // at the top of this route only catches a sub we've already SYNCED locally;
+  // between a completed Checkout and its webhook landing that column is still
+  // null, so a fast second checkout could mint a SECOND live subscription on the
+  // same customer (the zombie/duplicate artifacts scripts/clear-zombie-customers
+  // and scripts/dedupe-payment-methods exist to clean up). Stripe is the source
+  // of truth, so probe it directly and refuse if the customer already has a
+  // non-terminal subscription. Canceled / incomplete_expired subs are NOT
+  // blocking — a churned member must be able to resubscribe. Runs only when no
+  // sub is synced locally (else the top guard already 409'd), so it adds one
+  // list call to genuine first-time / race-window checkouts only.
+  const BLOCKING_SUB_STATUSES = new Set<Stripe.Subscription.Status>([
+    'trialing',
+    'active',
+    'past_due',
+    'unpaid',
+    'paused',
+  ]);
+  const existingSubs = await stripe.subscriptions.list({
+    customer: customerId,
+    status: 'all',
+    limit: 100,
+  });
+  if (existingSubs.data.some((s) => BLOCKING_SUB_STATUSES.has(s.status))) {
+    appendAuditEvent({
+      type: 'billing_checkout_duplicate_blocked',
+      userId: actor.user.id,
+      email: actor.user.email,
+      ip: getClientIp(request),
+      message: `Refused new checkout for customer ${customerId}: a non-terminal subscription already exists`,
+    });
+    return NextResponse.json(
+      { error: 'You already have an active subscription. Use the billing portal to change plans.' },
+      { status: 409 },
+    );
+  }
+
   const sessionParams: Stripe.Checkout.SessionCreateParams = {
     mode: 'subscription',
     customer: customerId,
