@@ -4,7 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { MarketSession, Theme } from "@/core/types";
 import { colors } from "@/core/colors";
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronLeft, ChevronRight, Star } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { NAV_GROUPS, type NavGroup, type NavItem } from "@/core/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -318,13 +318,16 @@ export default function Navigation({ theme }: NavigationProps) {
         }}
         className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
         style={{
-          color: isFav ? 'var(--color-gold)' : 'var(--text-secondary)',
+          // The target mark carries its own brand colours; a favourited page shows
+          // it in full colour, an unfavourited one is dimmed + desaturated so the
+          // toggle still reads as a clear on/off affordance.
           opacity: isFav ? 1 : isHovered ? 0.75 : 0.35,
+          filter: isFav ? "none" : "grayscale(1)",
           cursor: "pointer",
-          transition: "opacity 200ms",
+          transition: "opacity 200ms, filter 200ms",
         }}
       >
-        <Star size={14} fill={isFav ? 'var(--color-gold)' : 'none'} strokeWidth={2} />
+        <Image src="/target.svg" alt="" width={14} height={14} style={{ width: 14, height: 14 }} />
       </span>
     );
 
@@ -425,7 +428,7 @@ export default function Navigation({ theme }: NavigationProps) {
                     }}
                   >
                     <span className="flex items-center gap-1.5">
-                      <Star size={12} fill="var(--color-gold)" stroke="var(--color-gold)" />
+                      <Image src="/target.svg" alt="" width={12} height={12} style={{ width: 12, height: 12 }} />
                       {t('nav.group.favorites')}
                     </span>
                     <ChevronDown
