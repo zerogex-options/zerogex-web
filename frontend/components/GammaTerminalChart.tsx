@@ -728,9 +728,10 @@ export default function GammaTerminalChart({
   // so the headline must track that tape rather than freeze on the regular
   // 4 PM close — otherwise the price + change stall while the candles beside
   // them keep moving. `preferLiveExtendedHours` routes the extended-hours
-  // headline to the live quote close (baseline unchanged, so the day-change
-  // stays continuous across the 16:00 flip). Applies to the delayed snapshot
-  // too: its quote already carries the served extended-hours close.
+  // headline to the live quote close, measured against the most recent regular
+  // close so the day-change stays continuous across the 09:30 and 16:00 flips.
+  // Applies to the delayed snapshot too: its quote already carries the served
+  // extended-hours close.
   const priceSummary = getPrimaryPriceChangeSummary({
     quoteClose: snapshot ? snapshot.quote?.close : quote?.close,
     quoteSession: session,
