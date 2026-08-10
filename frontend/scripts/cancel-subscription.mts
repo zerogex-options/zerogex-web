@@ -11,15 +11,20 @@
 // and is sitting in the payment-recovery grace / Stripe dunning cycle.
 //
 // What it does, in order:
-//   1. (--void-invoice) Void every still-OPEN invoice on the subscription. This
-//      is the step that actually STOPS Stripe's Smart-Retries — canceling a
-//      subscription does not itself void an already-finalized open invoice, so a
-//      declined renewal invoice can otherwise keep retrying. Voiding is final and
+//   1. Cancel the subscription immediately (stripe.subscriptions.cancel). This
+//      takes it out of 'past_due' and ends billing; Stripe emits
+//      customer.subscription.deleted. Done FIRST on purpose: canceling a
+//      past_due sub transitions it straight to 'canceled', whereas voiding its
+//      open invoice first would remove the only unpaid invoice and flip the sub
+//      back to 'active' — tripping the webhook's "payment recovered" email
+//      (maybeHandlePaymentRecovery fires on past_due -> active) to a customer we
+//      are about to downgrade. The deleted path disarms that latch silently.
+//   2. (--void-invoice) Void every still-OPEN invoice on the subscription. This
+//      stops any lingering collection on the failed charge (canceling does not
+//      itself void an already-finalized open invoice). Safe after the cancel: a
+//      void on a canceled sub can no longer reactivate it. Voiding is final and
 //      un-collectible by design; use it when you never intend to collect (a trial
 //      that never converted). Omit the flag to leave invoices as-is.
-//   2. Cancel the subscription immediately (stripe.subscriptions.cancel). This
-//      takes it out of 'past_due' and ends billing. Stripe emits
-//      customer.subscription.deleted.
 //   3. Mirror the downgrade onto the users row for immediacy — tier='public',
 //      subscription mirror + grace/recovery latches cleared, subscription_lapsed=1
 //      — the SAME columns clearSubscriptionFromUser writes in the webhook
@@ -351,9 +356,29 @@ if (!cliArgs.yes) {
 
 // --- Apply -----------------------------------------------------------------
 
-// 1. Void open invoices first (while everything is intact). A void failure does
-//    not block the cancel below, but we surface it loudly and exit non-zero so
-//    the operator knows a charge attempt may still be live.
+// 1. Cancel the subscription FIRST (unless it is already terminal). Order is
+//    deliberate: canceling a past_due sub moves it past_due -> canceled via
+//    customer.subscription.deleted, whose handler disarms the payment-recovery
+//    latch WITHOUT emailing. Voiding the open invoice first would instead remove
+//    the only unpaid invoice and flip the sub past_due -> active, tripping the
+//    webhook's "payment recovered" email to a customer we're about to cancel.
+let finalStatus = status;
+if (!alreadyTerminal) {
+  try {
+    const canceled = await stripe.subscriptions.cancel(subscription.id);
+    finalStatus = canceled.status;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'unknown error';
+    console.error(`\nError: Stripe subscription cancel failed: ${message}`);
+    console.error('No DB changes were made.');
+    process.exit(1);
+  }
+}
+
+// 2. Void the open invoices (still voidable on a canceled sub, and now unable to
+//    reactivate it). This stops any lingering collection on the failed charge. A
+//    void failure does not undo the cancel above; we surface it and exit non-zero
+//    so the operator knows a charge attempt may still be live.
 const voided: string[] = [];
 const voidFailures: string[] = [];
 if (cliArgs.voidInvoice) {
@@ -367,24 +392,6 @@ if (cliArgs.voidInvoice) {
       console.error(`Warning: failed to void invoice ${inv.id}: ${message}`);
       voidFailures.push(inv.id);
     }
-  }
-}
-
-// 2. Cancel the subscription immediately (unless it is already terminal).
-let finalStatus = status;
-if (!alreadyTerminal) {
-  try {
-    const canceled = await stripe.subscriptions.cancel(subscription.id);
-    finalStatus = canceled.status;
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'unknown error';
-    console.error(`\nError: Stripe subscription cancel failed: ${message}`);
-    console.error(
-      voided.length
-        ? `Voided invoices: ${voided.join(', ')}. No DB changes were made.`
-        : 'No DB changes were made.',
-    );
-    process.exit(1);
   }
 }
 
