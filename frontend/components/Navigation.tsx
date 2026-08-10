@@ -9,6 +9,7 @@ import { NAV_GROUPS, type NavGroup, type NavItem } from "@/core/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { useLanguage } from "@/core/LanguageContext";
+import { localeHref, stripLocalePrefix } from "@/core/i18n/routing";
 import { useTimeframe } from "@/core/TimeframeContext";
 import { useMarketQuote, useSessionCloses } from "@/hooks/useApiData";
 import { getMarketSession } from "@/core/utils";
@@ -30,12 +31,14 @@ const FAVORITES_STORAGE_KEY = "zg.nav.favorites.v1";
 
 export default function Navigation({ theme }: NavigationProps) {
   const { symbol } = useTimeframe();
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   // Resolve a nav entry's display text: translated when it carries a labelKey,
   // otherwise the English label (trading feature names stay English on purpose).
   const navLabel = (entry: { label: string; labelKey?: NavItem['labelKey'] }) =>
     entry.labelKey ? t(entry.labelKey) : entry.label;
-  const pathname = usePathname();
+  // Active-state compares against un-prefixed nav ids, so strip any locale
+  // prefix from the URL first (/it/dashboard -> /dashboard).
+  const pathname = stripLocalePrefix(usePathname());
   const router = useRouter();
   const [session, setSession] = useState(getMarketSession());
   const [hoveredPage, setHoveredPage] = useState<string | null>(null);
@@ -84,8 +87,9 @@ export default function Navigation({ theme }: NavigationProps) {
     // pricing page instead of bouncing off the middleware to /unauthorized.
     return !canAccessEntry(entry);
   };
+  // Keep navigation inside the active locale (localeHref no-ops external URLs).
   const resolveNavTarget = (entry: { id: string; requiredTier?: NavItem["requiredTier"] }) =>
-    shouldForcePricing(entry) ? "/pricing" : entry.id;
+    localeHref(locale, shouldForcePricing(entry) ? "/pricing" : entry.id);
 
   const navGroups = useMemo<NavGroup[]>(
     () => [
@@ -385,7 +389,7 @@ export default function Navigation({ theme }: NavigationProps) {
           <div className="h-full overflow-y-auto px-4 py-5">
             {headerCollapsed && (
               <div className="mb-5 rounded-xl border p-3" style={{ borderColor: border, backgroundColor: 'color-mix(in srgb, var(--bg-card) 79%, transparent)' }}>
-                <Link href="/" className="flex w-full items-center overflow-hidden">
+                <Link href={localeHref(locale, "/")} className="flex w-full items-center overflow-hidden">
                   <Image
                     src={theme === "dark" ? "/logo-dark.svg" : "/logo-light.svg"}
                     alt="ZeroGEX"

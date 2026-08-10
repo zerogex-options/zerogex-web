@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
 import { ArrowRight, Moon, Search, Sun } from 'lucide-react';
+import LocalizedLink from './LocalizedLink';
 import { useTheme } from '@/core/ThemeContext';
 import { normalizeTier } from '@/core/auth';
 import { useAuthSession } from '@/hooks/useAuthSession';
@@ -68,7 +68,7 @@ export default function LandingHeader({ hidePricingButton = false }: LandingHead
         transition: 'all 0.3s ease',
       }}
     >
-      <Link
+      <LocalizedLink
         href="/"
         className="h-full flex items-center overflow-hidden flex-shrink-0"
         style={{ textDecoration: 'none', margin: 0, padding: 0, lineHeight: 0 }}
@@ -92,7 +92,7 @@ export default function LandingHeader({ hidePricingButton = false }: LandingHead
             padding: 0,
           }}
         />
-      </Link>
+      </LocalizedLink>
 
       <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
         <button
@@ -113,16 +113,16 @@ export default function LandingHeader({ hidePricingButton = false }: LandingHead
           <ThemeDropdown />
         </div>
 
-        <Link
+        <LocalizedLink
           href="/search"
           aria-label="Search"
           className="w-8 h-8 sm:w-[38px] sm:h-[38px] flex items-center justify-center rounded-[10px]"
           style={{ background: 'var(--bg-hover)', border: `1px solid ${C.border}`, color: C.muted }}
         >
           <Search size={15} />
-        </Link>
+        </LocalizedLink>
 
-        <Link href="/education" className="hidden sm:block" style={{ textDecoration: 'none' }}>
+        <LocalizedLink href="/education" className="hidden sm:block" style={{ textDecoration: 'none' }}>
           <button
             className="zg-small"
             style={{
@@ -137,10 +137,10 @@ export default function LandingHeader({ hidePricingButton = false }: LandingHead
           >
             Education
           </button>
-        </Link>
+        </LocalizedLink>
 
         {showPricing && (
-          <Link href="/pricing" className="hidden sm:block" style={{ textDecoration: 'none' }}>
+          <LocalizedLink href="/pricing" className="hidden sm:block" style={{ textDecoration: 'none' }}>
             <button
               className="zg-small"
               style={{
@@ -155,10 +155,10 @@ export default function LandingHeader({ hidePricingButton = false }: LandingHead
             >
               Pricing
             </button>
-          </Link>
+          </LocalizedLink>
         )}
 
-        <Link href={isAuthed ? '/account' : '/login'} style={{ textDecoration: 'none' }}>
+        <LocalizedLink href={isAuthed ? '/account' : '/login'} style={{ textDecoration: 'none' }}>
           <button
             className="zg-small px-2.5 py-1.5 sm:px-[14px] sm:py-2 whitespace-nowrap"
             style={{
@@ -172,9 +172,9 @@ export default function LandingHeader({ hidePricingButton = false }: LandingHead
           >
             {isAuthed ? 'Account' : 'Login'}
           </button>
-        </Link>
+        </LocalizedLink>
 
-        <Link
+        <LocalizedLink
           href={canLaunchApp ? '/dashboard' : trialHref}
           style={{ textDecoration: 'none' }}
           onClick={
@@ -196,7 +196,7 @@ export default function LandingHeader({ hidePricingButton = false }: LandingHead
             )}{' '}
             <ArrowRight size={14} />
           </button>
-        </Link>
+        </LocalizedLink>
       </div>
     </nav>
   );

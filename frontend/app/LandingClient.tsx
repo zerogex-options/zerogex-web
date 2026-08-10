@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
-import Link from 'next/link';
+import LocalizedLink from '@/components/LocalizedLink';
 import Footer from '@/components/Footer';
 import LandingHeader from '@/components/LandingHeader';
 import GammaProfileHero from '@/components/marketing/GammaProfileHero';
@@ -161,7 +161,7 @@ function ToolPill({ href, icon: Icon, label, color = C.amber, isDark = true }: {
 }) {
   const [hovered, setHovered] = useState(false);
   return (
-    <Link href={href} style={{ textDecoration: 'none' }}>
+    <LocalizedLink href={href} style={{ textDecoration: 'none' }}>
       <div
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
@@ -179,7 +179,7 @@ function ToolPill({ href, icon: Icon, label, color = C.amber, isDark = true }: {
         <span className="zg-small" style={{ fontWeight: 600, color: hovered ? C.light : C.muted }}>{label}</span>
         <ArrowRight size={12} style={{ color: hovered ? color : 'transparent', marginLeft: 'auto', transition: 'all 0.2s' }} />
       </div>
-    </Link>
+    </LocalizedLink>
   );
 }
 
@@ -382,7 +382,7 @@ export default function LandingPage() {
           {/* CTAs (requirement #7): primary = trial for cold visitors (dashboard
               for existing subscribers); secondary = the free levels page. */}
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Link
+            <LocalizedLink
               href={canLaunchApp ? '/dashboard' : heroTrialHref}
               style={{ textDecoration: 'none' }}
               onClick={
@@ -394,12 +394,12 @@ export default function LandingPage() {
               <button className="zg-btn zg-btn--primary" style={{ fontSize: 15, padding: '13px 22px' }}>
                 {canLaunchApp ? t('ctaViewDashboard') : t('ctaStartTrial')} <ArrowRight size={18} />
               </button>
-            </Link>
-            <Link href="/spx-gamma-levels" style={{ textDecoration: 'none' }}>
+            </LocalizedLink>
+            <LocalizedLink href="/spx-gamma-levels" style={{ textDecoration: 'none' }}>
               <button className="zg-btn zg-btn--secondary" style={{ fontSize: 15, padding: '13px 22px' }}>
                 {t('ctaViewFreeLevels')} <ArrowRight size={16} />
               </button>
-            </Link>
+            </LocalizedLink>
           </div>
 
           {/* The hero visual IS the live product output — the gamma profile,
@@ -541,16 +541,16 @@ export default function LandingPage() {
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 36, gap: 12, flexWrap: 'wrap' }}>
-          <Link href="/spx-gamma-levels" style={{ textDecoration: 'none' }}>
+          <LocalizedLink href="/spx-gamma-levels" style={{ textDecoration: 'none' }}>
             <button className="zg-btn zg-btn--primary" style={{ fontSize: 15, padding: '13px 24px' }}>
               {t('ctaSeeFreeLevels')} <ArrowRight size={16} />
             </button>
-          </Link>
-          <Link href="/trading-mistakes" style={{ textDecoration: 'none' }}>
+          </LocalizedLink>
+          <LocalizedLink href="/trading-mistakes" style={{ textDecoration: 'none' }}>
             <button className="zg-btn zg-btn--secondary" style={{ fontSize: 15, padding: '13px 24px' }}>
               {t('ctaTradingMistakes')} <ArrowRight size={16} />
             </button>
-          </Link>
+          </LocalizedLink>
         </div>
       </section>
 
@@ -606,7 +606,7 @@ export default function LandingPage() {
             <p className="zg-body" style={{ color: subtext, margin: '0 0 28px' }}>
               {t('whatIsBody2')}
             </p>
-            <Link
+            <LocalizedLink
               href={exploreDashboardHref}
               onClick={
                 canLaunchApp
@@ -618,7 +618,7 @@ export default function LandingPage() {
               <button className="zg-btn zg-btn--secondary" style={{ fontSize: 14, padding: '12px 24px' }}>
                 {t('ctaExploreDashboard')} <ArrowRight size={15} />
               </button>
-            </Link>
+            </LocalizedLink>
           </div>
 
           {/* Visual explanation */}
@@ -818,11 +818,11 @@ export default function LandingPage() {
               {t('eduTitle')}
             </div>
           </div>
-          <Link href="/articles" style={{ textDecoration: 'none' }}>
+          <LocalizedLink href="/articles" style={{ textDecoration: 'none' }}>
             <button className="zg-btn zg-btn--secondary" style={{ fontSize: 13, padding: '10px 16px' }}>
               {t('ctaSeeAllArticles')} <ArrowRight size={14} />
             </button>
-          </Link>
+          </LocalizedLink>
         </div>
 
         <div
@@ -852,7 +852,7 @@ export default function LandingPage() {
               body: t('edu3Body'),
             },
           ].map((item) => (
-            <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
+            <LocalizedLink key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
               <div
                 className="zg-panel"
                 style={{
@@ -878,7 +878,7 @@ export default function LandingPage() {
                   {t('ctaRead')} <ArrowRight size={14} />
                 </div>
               </div>
-            </Link>
+            </LocalizedLink>
           ))}
         </div>
       </section>
@@ -905,7 +905,7 @@ export default function LandingPage() {
               ? t('finalCtaSubAuthed')
               : t('finalCtaSubTrial')}
           </p>
-          <Link
+          <LocalizedLink
             href={exploreDashboardHref}
             onClick={
               canLaunchApp
@@ -917,7 +917,7 @@ export default function LandingPage() {
             <button className="zg-btn zg-btn--primary" style={{ fontSize: 17, padding: '16px 40px' }}>
               {canLaunchApp ? t('ctaLaunchDashboard') : t('ctaStartTrial')} <ArrowRight size={20} />
             </button>
-          </Link>
+          </LocalizedLink>
           {!canLaunchApp && (
             <p className="zg-small" style={{ color: subtext, margin: '16px 0 0', fontWeight: 600 }}>
               {t('finalCtaTrialNote')}

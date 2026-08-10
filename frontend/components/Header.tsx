@@ -26,6 +26,7 @@ import TierBadge from "./TierBadge";
 import ThemeDropdown from "./ThemeDropdown";
 import LanguageDropdown from "./LanguageDropdown";
 import { useLanguage } from "@/core/LanguageContext";
+import { localeHref, stripLocalePrefix } from "@/core/i18n/routing";
 import { Theme, MarketSession } from "@/core/types";
 import type { UnderlyingSymbol } from "@/core/TimeframeContext";
 import { useTimeframe } from "@/core/TimeframeContext";
@@ -47,7 +48,7 @@ interface HeaderProps {
 }
 
 export default function Header({ theme, onToggleTheme }: HeaderProps) {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const [session, setSession] = useState(getMarketSession());
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { symbol, setSymbol } = useTimeframe();
@@ -65,7 +66,9 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
   const mobileTopBarRef = useRef<HTMLDivElement | null>(null);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const router = useRouter();
-  const pathname = usePathname();
+  // Active-state compares against un-prefixed nav ids, so strip any locale
+  // prefix from the URL first (/it/dashboard -> /dashboard).
+  const pathname = stripLocalePrefix(usePathname());
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
 
@@ -134,8 +137,9 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
     // pricing page instead of bouncing off the middleware to /unauthorized.
     return !canAccessEntry(entry);
   };
+  // Keep navigation inside the active locale (localeHref no-ops external URLs).
   const resolveNavTarget = (entry: { id: string; requiredTier?: NavItem["requiredTier"] }) =>
-    shouldForcePricing(entry) ? "/pricing" : entry.id;
+    localeHref(locale, shouldForcePricing(entry) ? "/pricing" : entry.id);
   const filteredMobileNavGroups = useMemo(
     () => {
       // Self-contained access check (mirrors canAccessEntry) so this hook does
@@ -198,7 +202,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
     });
     localStorage.removeItem("zgx_symbol");
     await refreshAuth();
-    router.push("/login");
+    router.push(localeHref(locale, "/login"));
   };
 
   useEffect(() => {
@@ -410,7 +414,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                             type="button"
                             onClick={() => {
                               setProfileMenuOpen(false);
-                              router.push("/account");
+                              router.push(localeHref(locale, "/account"));
                             }}
                             className="w-full rounded-md px-3 py-2.5 text-left text-sm font-semibold"
                             style={{ color: 'var(--text-primary)' }}
@@ -423,7 +427,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                             type="button"
                             onClick={() => {
                               setProfileMenuOpen(false);
-                              router.push("/pricing");
+                              router.push(localeHref(locale, "/pricing"));
                             }}
                             className="w-full rounded-md px-3 py-2.5 text-left text-sm font-semibold"
                             style={{ color: 'var(--text-primary)' }}
@@ -439,7 +443,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                               void handleLogout();
                               return;
                             }
-                            router.push("/login");
+                            router.push(localeHref(locale, "/login"));
                           }}
                           className="w-full rounded-md px-3 py-2.5 text-left text-sm font-semibold"
                           style={{ color: 'var(--text-primary)' }}
@@ -556,7 +560,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
 
             {!isCollapsed && (
             <div className="absolute left-1/2 top-1/2 pointer-events-none" style={{ transform: "translate(-50%, -50%)" }}>
-              <Link href="/" style={{ pointerEvents: "auto", display: "flex", alignItems: "center", height: "100px", overflow: "hidden", padding: 0, margin: 0, lineHeight: 0 }}>
+              <Link href={localeHref(locale, "/")} style={{ pointerEvents: "auto", display: "flex", alignItems: "center", height: "100px", overflow: "hidden", padding: 0, margin: 0, lineHeight: 0 }}>
                 <Image
                   src="/title.svg"
                   alt="ZeroGEX"
@@ -578,7 +582,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                 <NewsHeadlinesBadge theme={theme} />
                 <LanguageDropdown />
                 <Link
-                  href="/search"
+                  href={localeHref(locale, "/search")}
                   aria-label="Search"
                   className="rounded-full border transition-colors flex items-center justify-center"
                   style={{ borderColor: border, color: 'var(--text-secondary)', backgroundColor: "transparent", padding: "9px", cursor: "pointer" }}
@@ -618,7 +622,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                           type="button"
                           onClick={() => {
                             setProfileMenuOpen(false);
-                            router.push("/account");
+                            router.push(localeHref(locale, "/account"));
                           }}
                           className="w-full rounded-md px-3 py-2.5 text-left text-sm font-semibold"
                           style={{ color: 'var(--text-primary)' }}
@@ -631,7 +635,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                           type="button"
                           onClick={() => {
                             setProfileMenuOpen(false);
-                            router.push("/pricing");
+                            router.push(localeHref(locale, "/pricing"));
                           }}
                           className="w-full rounded-md px-3 py-2.5 text-left text-sm font-semibold"
                           style={{ color: 'var(--text-primary)' }}
@@ -647,7 +651,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                             void handleLogout();
                             return;
                           }
-                          router.push("/login");
+                          router.push(localeHref(locale, "/login"));
                         }}
                         className="w-full rounded-md px-3 py-2.5 text-left text-sm font-semibold"
                         style={{ color: 'var(--text-primary)' }}
@@ -679,7 +683,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
         {/* Mobile Layout - Always Collapsed */}
         <div className="md:hidden">
           <div ref={mobileTopBarRef} className="flex items-center justify-between mb-1 min-w-0 w-full" style={{ minHeight: "36px" }}>
-            <Link href="/" className="flex items-center overflow-hidden min-w-0" style={{ height: "36px", maxWidth: "min(56vw, 210px)", padding: 0, margin: 0, lineHeight: 0 }}>
+            <Link href={localeHref(locale, "/")} className="flex items-center overflow-hidden min-w-0" style={{ height: "36px", maxWidth: "min(56vw, 210px)", padding: 0, margin: 0, lineHeight: 0 }}>
               <Image
                 src="/title.svg"
                 alt="ZeroGEX"
@@ -705,7 +709,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
             </Link>
             <div className="flex items-center gap-2 flex-shrink-0">
               <Link
-                href="/search"
+                href={localeHref(locale, "/search")}
                 aria-label="Search"
                 className="rounded-full border transition-colors flex items-center justify-center"
                 style={{ borderColor: border, color: 'var(--text-secondary)', backgroundColor: "transparent", padding: "6px", cursor: "pointer" }}
@@ -894,7 +898,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                   <button
                     type="button"
                     onClick={() => {
-                      router.push("/account");
+                      router.push(localeHref(locale, "/account"));
                       setMobileMenuOpen(false);
                     }}
                     className="rounded-lg border px-3 py-2 text-sm font-semibold col-span-2"
@@ -907,7 +911,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                   <button
                     type="button"
                     onClick={() => {
-                      router.push("/pricing");
+                      router.push(localeHref(locale, "/pricing"));
                       setMobileMenuOpen(false);
                     }}
                     className="rounded-lg border px-3 py-2 text-sm font-semibold"
@@ -923,7 +927,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                       void handleLogout();
                       return;
                     }
-                    router.push("/login");
+                    router.push(localeHref(locale, "/login"));
                     setMobileMenuOpen(false);
                   }}
                   className="rounded-lg border px-3 py-2 text-sm font-semibold"

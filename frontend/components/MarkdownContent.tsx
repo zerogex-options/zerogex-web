@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import Link from 'next/link';
+import LocalizedLink from './LocalizedLink';
 
 function parseInline(text: string): ReactNode[] {
   const nodes: ReactNode[] = [];
@@ -19,7 +19,7 @@ function parseInline(text: string): ReactNode[] {
         const isInternal = href.startsWith('/');
         const linkClass = 'font-medium text-[var(--color-warning)] underline-offset-2 hover:underline';
         if (isInternal) {
-          nodes.push(<Link key={`${match.index}-a`} href={href} className={linkClass}>{label}</Link>);
+          nodes.push(<LocalizedLink key={`${match.index}-a`} href={href} className={linkClass}>{label}</LocalizedLink>);
         } else {
           nodes.push(
             <a key={`${match.index}-a`} href={href} target="_blank" rel="noopener noreferrer" className={linkClass}>

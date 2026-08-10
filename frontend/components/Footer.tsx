@@ -1,8 +1,8 @@
 'use client';
 
 import Image from 'next/image';
-import Link from 'next/link';
 import { Mail, Youtube } from 'lucide-react';
+import LocalizedLink from './LocalizedLink';
 import { Theme } from '@/core/types';
 import { colors } from '@/core/colors';
 import { useLanguage } from '@/core/LanguageContext';
@@ -195,7 +195,7 @@ export default function Footer({ theme }: FooterProps) {
                       {t(item.labelKey)}
                     </a>
                   ) : (
-                    <Link
+                    <LocalizedLink
                       href={item.href}
                       className="zg-small"
                       style={{ color: subtext, textDecoration: 'none' }}
@@ -203,7 +203,7 @@ export default function Footer({ theme }: FooterProps) {
                       onMouseLeave={(e) => { e.currentTarget.style.color = subtext; }}
                     >
                       {t(item.labelKey)}
-                    </Link>
+                    </LocalizedLink>
                   )}
                 </div>
               ))}
@@ -222,7 +222,7 @@ export default function Footer({ theme }: FooterProps) {
 
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
             <SocialLinks align="end" />
-            <Link
+            <LocalizedLink
               href="/giving"
               aria-label={VETERANS_BADGE_TEXT}
               title={VETERANS_BADGE_TEXT}
@@ -248,7 +248,7 @@ export default function Footer({ theme }: FooterProps) {
                 }}
               />
               {t('footer.veteransBadge')}
-            </Link>
+            </LocalizedLink>
             <p className="zg-caption" style={{ color: subtext, margin: 0, textAlign: 'right' }}>
               {t('footer.rights')}
             </p>
@@ -270,9 +270,9 @@ export default function Footer({ theme }: FooterProps) {
                     {t(item.labelKey)}
                   </a>
                 ) : (
-                  <Link href={item.href} className="zg-small" style={{ color: subtext, textDecoration: 'none', whiteSpace: 'nowrap', display: 'inline-block' }}>
+                  <LocalizedLink href={item.href} className="zg-small" style={{ color: subtext, textDecoration: 'none', whiteSpace: 'nowrap', display: 'inline-block' }}>
                     {t(item.labelKey)}
-                  </Link>
+                  </LocalizedLink>
                 )}
               </div>
             ))}
@@ -280,7 +280,7 @@ export default function Footer({ theme }: FooterProps) {
             <div style={{ marginTop: 10 }}>
               <SocialLinks size={34} iconSize={16} />
             </div>
-            <Link
+            <LocalizedLink
               href="/giving"
               aria-label={VETERANS_BADGE_TEXT}
               title={VETERANS_BADGE_TEXT}
@@ -307,7 +307,7 @@ export default function Footer({ theme }: FooterProps) {
                 }}
               />
               {t('footer.veteransBadge')}
-            </Link>
+            </LocalizedLink>
             <p className="zg-caption" style={{ color: subtext, margin: '10px 0 0 0' }}>
               {t('footer.disclaimer')}
             </p>

@@ -1,6 +1,6 @@
-import Link from 'next/link';
 import { ArrowRight, BookOpen } from 'lucide-react';
 import { getRelatedArticles } from '@/core/articleRegistry';
+import LocalizedLink from './LocalizedLink';
 
 type Props = {
   slug: string;
@@ -33,7 +33,7 @@ export default function RelatedArticles({ slug }: Props) {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {related.map((article) => (
-          <Link
+          <LocalizedLink
             key={article.slug}
             href={article.href}
             className="zg-feature-shell group flex h-full flex-col p-5 transition hover:border-[var(--color-warning-soft)]"
@@ -51,7 +51,7 @@ export default function RelatedArticles({ slug }: Props) {
             <span className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-warning)] transition group-hover:text-[var(--heat-low)]">
               Read <ArrowRight size={14} />
             </span>
-          </Link>
+          </LocalizedLink>
         ))}
       </div>
     </section>

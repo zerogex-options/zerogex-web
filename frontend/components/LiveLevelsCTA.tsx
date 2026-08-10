@@ -1,5 +1,5 @@
-import Link from 'next/link';
 import { ArrowRight, BarChart2 } from 'lucide-react';
+import LocalizedLink from './LocalizedLink';
 
 type Props = {
   /**
@@ -61,25 +61,25 @@ export default function LiveLevelsCTA({ concept, headline, intro }: Props) {
       </p>
       <div className="flex flex-wrap gap-3">
         {TICKERS.map((t) => (
-          <Link
+          <LocalizedLink
             key={t.href}
             href={t.href}
             className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-warning-soft)] bg-[var(--color-warning-soft)] px-4 py-2 text-sm font-semibold text-[var(--heat-low)] transition hover:bg-[var(--color-warning-soft)]"
           >
             {t.label} gamma levels
             <ArrowRight size={16} />
-          </Link>
+          </LocalizedLink>
         ))}
       </div>
       <p className="mt-5 text-sm leading-7 text-[var(--color-text-secondary)]">
         Or open the live{' '}
-        <Link href="/real-time-gex-0dte" className={linkClass}>
+        <LocalizedLink href="/real-time-gex-0dte" className={linkClass}>
           real-time 0DTE GEX dashboard
-        </Link>{' '}
+        </LocalizedLink>{' '}
         — the full gamma flip, call and put walls, dealer positioning, and the 13-signal composite.{' '}
-        <Link href="/register" className={linkClass}>
+        <LocalizedLink href="/register" className={linkClass}>
           Start a free trial
-        </Link>{' '}
+        </LocalizedLink>{' '}
         for the live read.
       </p>
     </div>
