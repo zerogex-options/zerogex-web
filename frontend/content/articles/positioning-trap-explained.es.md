@@ -1,4 +1,6 @@
 # La señal Positioning Trap explicada: operar contra la masa
+> **Nota metodológica actualizada — prevalece sobre cualquier formulación incompatible posterior.** ZeroGEX estima, pero no observa, el inventario de los dealers a partir de datos públicos. El modelo conserva la convención calls positivos/puts negativos (`Net GEX = Call GEX − Put GEX`) y supone dealers netos largos de calls y cortos de puts. Las calls y puts largas tienen gamma positiva; las calls y puts cortas tienen gamma negativa. El Put Wall es la mayor concentración de gamma de puts por debajo del spot y representa localmente gamma negativa modelada del dealer: puede coincidir con soporte, pero la cobertura de una put corta no crea mecánicamente un suelo. Los walls pueden migrar por spot, tiempo y volatilidad implícita aunque el open interest oficial no cambie intradía. Al acercarse el vencimiento, la gamma se concentra cerca del ATM: la gamma ATM puede aumentar, mientras la gamma claramente ITM u OTM tiende a cero. El Gamma Flip seleccionado es una transición local; el perfil puede tener varios cruces o ninguno significativo. Charm y vanna son cambios condicionales de delta, no órdenes programadas. Las puntuaciones son resultados heurísticos, no probabilidades calibradas. La gamma negativa amplifica la dirección ya iniciada; la distancia a un objetivo no implica repulsión. Por ello, la inversión del término pin de EOD Pressure sigue siendo una heurística de ZeroGEX. Max Pain minimiza el pago intrínseco agregado y no maximiza exactamente el nocional que vence sin valor. El DEX bruto mide delta solo de opciones, no flujo futuro de cobertura; la prima y el lado agresor no prueban información, apertura ni convicción.
+
 
 *El análisis práctico en profundidad de la señal Positioning Trap de ZeroGEX — qué mide, por qué las operaciones de opciones masificadas se rompen, cómo se construye el score y cómo usarla para operar contra la masa en lugar de quedar atrapado con ella.*
 
@@ -31,7 +33,7 @@ Sesgo de la operación: **reversión a la media**. Cuando Positioning Trap está
 Tres mecanismos impulsan la tesis de que "las operaciones masificadas se rompen":
 
 1. **Reflexividad.** Un posicionamiento fuertemente unilateral significa que quienes *habrían comprado* (en un setup crowded-long) ya han comprado. El próximo comprador marginal es difícil de encontrar. El camino de menor resistencia empieza a inclinarse hacia el otro lado.
-2. **Cobertura de los dealers.** En un régimen donde los dealers están cortos de calls porque los clientes están largos, la cobertura de los dealers los obliga a *vender* en los rallies. La fuerza estructural se alinea contra la masa.
+2. **Cobertura de los dealers.** En un régimen de gamma larga — dealers largos de calls, cortos de puts —, la cobertura de los dealers los obliga a vender en los rallies y comprar en las caídas. La fuerza estructural se alinea contra la masa.
 3. **Asimetría de catalizadores.** Un catalizador alcista llega a un setup crowded-long y no sorprende a nadie — el potencial alcista ya está en gran parte descontado. Un catalizador bajista en el mismo setup golpea a un mercado desprevenido y sin cobertura. Reacción asimétrica.
 
 La señal Positioning Trap no intenta predecir el catalizador. Pone en la superficie el *setup*, de modo que cuando llega la chispa — venga de donde venga — ya has identificado qué lado está en riesgo.
@@ -54,7 +56,7 @@ La salida es un número por actualización, calculado de forma continua a travé
 
 ## Cómo se calcula el score
 
-Para cada lado (squeeze y flush — es decir, la masa long en riesgo frente a la masa short en riesgo), la señal calcula una suma ponderada:
+Para cada lado (la masa long en riesgo de un flush frente a la masa short en riesgo de un squeeze), la señal calcula una suma ponderada:
 
 ```
 side_score = 0.45 × crowding
@@ -91,11 +93,11 @@ Consecuencia práctica: no esperes a que Positioning Trap "se dispare". Observa 
 
 | Score | Lectura |
 |---|---|
-| +0.5 a +1.0 | Masa long en riesgo significativo — squeeze alcista de short-cover cargándose |
-| +0.2 a +0.5 | Masa long ligeramente mal posicionada — informativo, aún no apremiante |
+| +0.5 a +1.0 | Masa short en riesgo significativo — squeeze alcista de short-cover cargándose |
+| +0.2 a +0.5 | Masa short ligeramente mal posicionada — informativo, aún no apremiante |
 | -0.2 a +0.2 | Sin extremo de masa claro |
-| -0.2 a -0.5 | Masa short ligeramente mal posicionada — flush bajista cargándose |
-| -0.5 a -1.0 | Masa short en riesgo significativo — setup de flush cargándose |
+| -0.2 a -0.5 | Masa long ligeramente mal posicionada — informativo, aún no apremiante |
+| -0.5 a -1.0 | Masa long en riesgo significativo — flush bajista cargándose |
 
 El playbook `positioning_trap_squeeze` habilita en **abs(score) ≥ 0.5** — más alto que el trigger Advanced típico. Positioning Trap necesita una convicción más profunda para actuar, porque operar contra la masa es estructuralmente más arriesgado que ir con el momentum.
 
@@ -158,12 +160,12 @@ La señal alimenta varios paneles:
 
 Un ejemplo desarrollado. El SPX está cayendo lentamente y ZeroGEX muestra:
 
-- **Positioning Trap:** +0.62 (masa long mal posicionada)
+- **Positioning Trap:** +0.62 (masa short mal posicionada)
 - **Net GEX:** +$1.4B
 - **Trap Detection:** 0
 - **Squeeze Setup:** +0.31
 
-La lectura estructural: la masa long está cargada, el régimen es long-gamma (los dealers amplificarán un squeeze si llega uno), Squeeze Setup se inclina alcista, y Trap Detection está en silencio (sin ruptura bajista fallida reciente que fadear *todavía*). Inclinación práctica: el squeeze alcista de short-cover es el camino de mayor probabilidad; espera la chispa y luego opera en la dirección hacia la que apunta Positioning Trap.
+La lectura estructural: la masa short está cargada, el régimen es long-gamma (los dealers contrarrestan el empuje de la masa, favoreciendo una reversión), Squeeze Setup se inclina alcista, y Trap Detection está en silencio (sin ruptura bajista fallida reciente que fadear *todavía*). Inclinación práctica: el squeeze alcista de short-cover es el camino de mayor probabilidad; espera la chispa y luego opera en la dirección hacia la que apunta Positioning Trap.
 
 ---
 

@@ -17,10 +17,10 @@ Para las señales direccionales, el signo indica la dirección de precio esperad
 - **Positivo ⇒ sesgo alcista** (el sesgo de trade es a largo)
 - **Negativo ⇒ sesgo bajista**
 
-Para las señales de mean-reversion (Positioning Trap, y Trap Detection en algunas configuraciones), el signo indica la **dirección del movimiento que conviene fadear**:
+Para las señales de mean-reversion (Positioning Trap, Trap Detection), el signo indica el **sesgo direccional resuelto** — el trade va *en contra* de la multitud mal posicionada o de la ruptura fallida, así que el signo sigue apuntando en la misma dirección que las señales direccionales de arriba:
 
-- **Positivo ⇒ el movimiento al alza está fuera de lugar / ha fallado** (fade a la baja)
-- **Negativo ⇒ el movimiento a la baja está fuera de lugar / ha fallado** (fade al alza)
+- **Positivo ⇒ sesgo alcista** — p. ej. una multitud short/bajista en riesgo de ser exprimida al alza, o una ruptura bajista fallida que comprarías
+- **Negativo ⇒ sesgo bajista** — p. ej. una multitud long/alcista en riesgo de ser barrida a la baja, o una ruptura alcista fallida que venderías
 
 La tarjeta de la señal en cada página indica cuál de las dos aplica. Lee el chip de sesgo de trade antes de leer la puntuación.
 
@@ -73,7 +73,7 @@ Una regla práctica sencilla que se ha sostenido en el tiempo:
 
 > Actúa por **confluencia**, no por puntuaciones individuales.
 
-Un solo +0.7 en una señal es interesante. Un +0.5 en tres señales de dimensiones independientes (una señal Basic, una señal Advanced, el composite) es un trade.
+Un solo +0.7 en una señal es interesante. Un +0.5 en tres señales de dimensiones independientes (por ejemplo, dos señales Basic y una señal Advanced) es un trade. El composite no forma parte de ese recuento de ±0.5 — es un gauge de régimen de 0 a 100, no un puntaje direccional [-1, +1], así que no leas su nivel como alcista/bajista.
 
 ## Qué cambia si cambia el régimen
 

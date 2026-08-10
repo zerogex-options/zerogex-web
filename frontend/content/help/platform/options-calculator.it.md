@@ -12,7 +12,7 @@ Lo Strategy Builder è lo **strumento di modellazione per singola operazione**. 
 
 ## Costruire una strategia
 
-1. **Scegli un simbolo** (SPY, SPX, QQQ).
+1. **Scegli un simbolo** (SPY, SPX, QQQ, NDX).
 2. **Aggiungi una gamba** — acquisto o vendita, call o put, strike, scadenza. La catena è live.
 3. **Ripeti** per strutture multi-gamba (verticali, condor, calendar, ratio, straddle, strangle).
 4. **Imposta lo spot per l'analisi** — di default è lo spot live, ma puoi testare qualsiasi prezzo come scenario.
@@ -23,7 +23,7 @@ Il prezzo aggregato, i breakeven e le greche si aggiornano a ogni modifica.
 
 Il Builder utilizza **Black-Scholes** con la superficie di volatilità implicita live per ogni gamba. La superficie IV viene estratta dalla nostra pipeline dati — la stessa superficie che alimenta la catena nella pagina [Quotazioni Opzioni Live](/help/platform/option-contracts).
 
-Per le considerazioni relative all'esercizio di tipo americano (rilevanti per ETF come SPY e QQQ), il modello approssima con un premio da esercizio anticipato sulle gambe deep ITM vicine alla scadenza. SPX ha esercizio di tipo europeo, quindi non viene applicato alcun aggiustamento.
+Per le considerazioni relative all'esercizio di tipo americano (rilevanti per ETF come SPY e QQQ), il modello approssima con un premio da esercizio anticipato sulle gambe deep ITM vicine alla scadenza. Gli indici regolati in contanti SPX e NDX hanno esercizio di tipo europeo, quindi non viene applicato alcun aggiustamento.
 
 ## Il pannello delle greche
 
@@ -35,7 +35,7 @@ Per ogni gamba e per l'aggregato:
 - **Vega** — sensibilità alla IV (per variazione dell'1%)
 - **Charm** — decadimento del delta (al giorno)
 
-Le greche aggregate ti permettono di leggere una struttura multi-gamba con un solo colpo d'occhio — ad esempio, un calendar lungo è net long vega, short theta sul mese anteriore, long theta su quello posteriore.
+Le greche aggregate ti permettono di leggere una struttura multi-gamba con un solo colpo d'occhio — ad esempio, un calendar lungo è net long vega e net long theta, poiché incassa il decadimento sulla gamba a scadenza più vicina più velocemente di quanto lo paghi sulla gamba a scadenza più lontana.
 
 ## La superficie di P&L
 

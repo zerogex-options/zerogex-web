@@ -10,7 +10,7 @@ ZeroGEX gestisce due famiglie di segnali, e per progettazione si comportano in m
 
 I **segnali Advanced** rispondono a una domanda precisa e situazionale ("la chiusura si sta impuntando?", "questo breakout è appena fallito?"). Ciascuno produce un punteggio su una linea numerica **[-1, +1]** *e* un **trigger** discreto: quando il punteggio supera la soglia del segnale, scatta un alert e può abilitare un playbook. Sono guidati dagli eventi.
 
-I **segnali Basic** sono continui. Non "scattano" — al contrario alimentano il **composito MSI** con un peso fisso, spingendo la lettura combinata verso l'alto o il basso a ogni aggiornamento. Li vedi come input per il quadro d'insieme, non come alert autonomi.
+I **segnali Basic** sono continui. Non "scattano" — al contrario alimentano il **composito MSI** con un peso fisso, spingendo la lettura combinata del regime più in alto (verso il trend) o più in basso (verso il chop) a ogni aggiornamento. Li vedi come input per il quadro d'insieme, non come alert autonomi.
 
 Prima di passare alle tabelle, tre cose vale la pena interiorizzarle:
 
@@ -71,9 +71,9 @@ Stessa linea numerica, domande molto diverse. Ecco cosa significano positivo, ne
 
 | Segnale | Punteggio positivo | Punteggio negativo | Zero |
 | --- | --- | --- | --- |
-| Dealer Delta Pressure | Dealer long delta — devono vendere i rally (ribassista) | Dealer short delta — devono comprare i dip (rialzista) | Book del dealer bilanciato o OI insufficiente |
-| GEX Gradient | Gamma accumulato sotto lo spot (amplificatore ribassista in short gamma; smorzato in long gamma) | Gamma accumulato sopra lo spot (bias ribassista) | Gradiente piatto o OI insufficiente |
-| Positioning Trap | Folla long fuori posizione — loading di short-cover squeeze al rialzo | Folla short fuori posizione — loading di flush al ribasso | Nessun estremo di folla rilevato |
+| Dealer Delta Pressure | Dealer short delta — devono comprare i dip (rialzista) | Dealer long delta — devono vendere i rally (ribassista) | Book del dealer bilanciato o OI insufficiente |
+| GEX Gradient | Gamma accumulato sotto lo spot — supporto sotto, stabilizzante al rialzo (inclinazione rialzista) | Gamma accumulato sopra lo spot — supporto sotto scarso, amplificante al ribasso (inclinazione ribassista) | Gradiente piatto o OI insufficiente |
+| Positioning Trap | Folla short fuori posizione — loading di short-cover squeeze al rialzo | Folla long fuori posizione — loading di flush al ribasso | Nessun estremo di folla rilevato |
 | Skew Delta | Skew delle put *sotto* la baseline — la paura si sta sciogliendo (inclinazione rialzista) | Skew delle put elevato — la paura è scommessa (inclinazione ribassista) | Skew sulla baseline, o dati mancanti |
 | Tape Flow Bias | Domina l'acquisto aggressivo di call sul tape (convinzione rialzista) | Domina l'acquisto aggressivo di put sul tape (convinzione ribassista) | Flow di premium bilanciato o volume insufficiente |
 | Vanna/Charm Flow | L'hedging del dealer è un vento a favore in acquisto (vol-crush / decay) | L'hedging del dealer è un vento contrario in vendita (vol-up / unwind) | Esposizione del dealer bilanciata o righe dealer mancanti |

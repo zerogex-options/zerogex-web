@@ -14,17 +14,19 @@ It is the most important page for understanding context — even if the trade it
 
 ### Net GEX at spot
 
-The dollar-gamma value of all open options, signed by dealer position, evaluated **at the current spot price**. Positive ⇒ dealers are net long gamma; negative ⇒ dealers are net short.
+The dollar-gamma value of all open options, signed by ZeroGEX's modeled dealer-positioning convention (calls +, puts −), evaluated **at the current spot price**. Positive ⇒ dealers are *modeled* net long gamma; negative ⇒ *modeled* net short.
 
-The number you see here is measured at spot, not summed across the chain — that's important because the sign at spot determines dealer behavior right now, regardless of what the cumulative curve does at other prices.
+> This is an estimate: dealer gamma is modeled from the traditional call-positive / put-negative open-interest convention. Actual dealer inventory is not directly observable from public option-chain data.
+
+The number you see here is measured at spot, not summed across the chain — that's important because the sign at spot shapes the modeled dealer hedging tendency right now, regardless of what the cumulative curve does at other prices.
 
 ### Gamma Flip
 
-The strike where the dealer gamma curve crosses zero. The flip is the regime line: above it, hedging is stabilizing; below it, hedging is amplifying. The tile shows both the absolute strike and the percent distance from spot.
+The price level where the modeled dealer gamma curve crosses zero. It's the regime line: above it, modeled hedging *tends* to be stabilizing; below it, amplifying. Because it's a zero-crossing of a modeled profile, it can shift with the sign convention, expirations, and IV — treat a cross as a change in the model's aggregate hedging tendency, not a guaranteed switch from mean-reverting to trending. The tile shows both the absolute level and the percent distance from spot.
 
 ### Call Wall / Put Wall
 
-The strikes with the largest call gamma and put gamma. These tend to act as intraday resistance and support. The wall acting as a "wall" is more reliable in positive gamma.
+The strikes with the largest call-side and put-side gamma. They often act as intraday friction — but option type alone doesn't fix the direction; whether a wall behaves as resistance, support, a magnet, or an accelerant depends on the modeled dealer-gamma sign and surrounding flow. Wall behavior is most "wall-like" when dealers are modeled long gamma.
 
 ### Max Pain
 
@@ -61,9 +63,9 @@ The very top of the page repeats the GEX regime label (Positive / Negative / Tra
 
 ## Reading dealer positioning in three steps
 
-1. **Where is spot relative to the flip?** Above ⇒ structural stabilization; below ⇒ structural amplification.
+1. **Where is spot relative to the flip?** Above ⇒ modeled stabilization tendency; below ⇒ modeled amplification tendency.
 2. **Where are the walls?** The call wall is your upside friction; the put wall is your downside friction.
-3. **How is the heatmap migrating?** If the call wall is moving up, dealers are being forced to roll higher — bullish structural read.
+3. **How is the heatmap migrating?** If the call wall is drifting up, the modeled call-wall strike (where call-side gamma peaks) is climbing as spot, gamma, time, and IV shift — a bullish structural lean. The wall can move without new open interest: it tracks where modeled exposure peaks, not verified intraday OI.
 
 ## Why ZeroGEX's gamma flip calculation is different
 

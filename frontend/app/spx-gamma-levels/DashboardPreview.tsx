@@ -13,6 +13,18 @@ import { dict } from './DashboardPreview.i18n';
 // feature list is the concrete inventory of live tools, framed as "the levels
 // that matter" — no performance or profit claims.
 
+const FEATURES: { label: string; detail: string }[] = [
+  { label: 'Real-time SPY/SPX/QQQ/NDX gamma levels', detail: 'Sub-second refresh, not a 15-minute snapshot' },
+  { label: 'Gamma Flip', detail: 'The regime line, live as spot moves across it' },
+  { label: 'Call Wall & Put Wall', detail: 'Where price may pin, reject, or accelerate' },
+  { label: 'Max Pain', detail: 'The expiration magnet, tracked intraday' },
+  { label: 'Net GEX / Dealer Positioning', detail: 'Whether hedging is dampening or amplifying moves' },
+  { label: 'Strike-level GEX profile', detail: 'The full dealer-gamma curve, strike by strike' },
+  { label: 'GEX heatmaps', detail: 'Strike-by-DTE gamma, visualized' },
+  { label: 'Options flow classification', detail: 'Live tape sorted into directional pressure' },
+  { label: 'Market State / signal tools', detail: 'The 13-signal composite regime read' },
+];
+
 export default function DashboardPreview({ symbol }: { symbol: string }) {
   const t = usePageT(dict);
 
@@ -66,7 +78,7 @@ export default function DashboardPreview({ symbol }: { symbol: string }) {
           id="dashboard-preview-heading"
           style={{ margin: '0 0 10px 0', fontSize: 24, fontWeight: 800, letterSpacing: '-0.3px' }}
         >
-          {t('heading', { symbol })}
+          What you get with the live dashboard
         </h2>
         <p style={{ margin: 0, fontSize: 15, lineHeight: 1.65, color: 'var(--color-text-secondary)', maxWidth: 720 }}>
           {t('description')}

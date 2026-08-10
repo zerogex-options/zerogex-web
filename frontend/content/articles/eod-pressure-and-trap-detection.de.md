@@ -159,9 +159,9 @@ Das klassische Muster: In einem Long-Gamma-Regime mit sich verstärkender Dealer
 
 Das Signal sucht nach zwei symmetrischen Setups:
 
-> **Bear Trap bei einem Fake nach oben.** Der Kurs stößt über ein Widerstandslevel — `call_wall`, `max_gamma_strike`, `vwap` oder `gamma_flip` —, aber die strukturellen Bedingungen deuten darauf hin, dass der Breakout scheitern wird. Erzeugt einen *negativen* Score (`bearish_fade`).
+> **Bull Trap bei einem Fake nach oben.** Der Kurs stößt über ein Widerstandslevel — `call_wall`, `max_gamma_strike`, `vwap` oder `gamma_flip` —, aber die strukturellen Bedingungen deuten darauf hin, dass der Breakout scheitern wird. Erzeugt einen *negativen* Score (`bearish_fade`).
 
-> **Bull Trap bei einem Fake nach unten.** Der Kurs stößt unter den Support — `put_wall`, `max_gamma_strike`, `vwap` oder `gamma_flip` —, aber der Zusammenbruch wirkt vorgetäuscht. Erzeugt einen *positiven* Score (`bullish_fade`).
+> **Bear Trap bei einem Fake nach unten.** Der Kurs stößt unter den Support — `put_wall`, `max_gamma_strike`, `vwap` oder `gamma_flip` —, aber der Zusammenbruch wirkt vorgetäuscht. Erzeugt einen *positiven* Score (`bullish_fade`).
 
 Das Vorzeichen des Outputs kodiert, in welche Richtung man *faden* sollte — nicht, in welche Richtung der Kurs gerade ausgebrochen ist.
 
@@ -171,13 +171,13 @@ Das Vorzeichen des Outputs kodiert, in welche Richtung man *faden* sollte — ni
 
 | Score | Label | Interpretation für den Trader |
 |-------|-------|----------------------|
-| +0,5 bis +1,0 | `bullish_fade` | Hochüberzeugter Bull-Trap-Fade. Der Abwärtsbruch ist fake — Rückschnappen nach oben erwartet. |
+| +0,5 bis +1,0 | `bullish_fade` | Hochüberzeugter Bear-Trap-Fade. Der Abwärtsbruch ist fake — Rückschnappen nach oben erwartet. |
 | +0,25 bis +0,5 | `bullish_fade` (ausgelöst) | Moderat. Mean-Reversion-Long-Einstiege erwägen. |
 | 0 bis +0,25 | unter Schwelle | Schwache Überzeugung; allein nicht handelbar. |
 | 0 | keine | Keine Falle im Entstehen. Der Standardzustand. |
 | 0 bis −0,25 | unter Schwelle | Schwache Überzeugung. |
-| −0,25 bis −0,5 | `bearish_fade` (ausgelöst) | Moderater Bear-Trap-Fade. Longs faden, Abwärtsumkehr erwarten. |
-| −0,5 bis −1,0 | `bearish_fade` | Hochüberzeugter Bear-Trap-Fade. Rallyes in den Breakout hinein faden. |
+| −0,25 bis −0,5 | `bearish_fade` (ausgelöst) | Moderater Bull-Trap-Fade. Longs faden, Abwärtsumkehr erwarten. |
+| −0,5 bis −1,0 | `bearish_fade` | Hochüberzeugter Bull-Trap-Fade. Rallyes in den Breakout hinein faden. |
 
 Die Auslöseschwelle liegt hier bei **0,25** — bewusst strenger als die 0,20 von EOD Pressure. Trap-Setups brauchen eine höhere Überzeugung, um aktiv auszulösen, weil das Traden gegen einen aktiven Breakout ein höheres Tail-Risk birgt als das Mitziehen mit dem Flow am Handelsschluss.
 

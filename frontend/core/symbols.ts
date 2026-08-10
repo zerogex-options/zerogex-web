@@ -3,7 +3,7 @@
 // and the client-side SymbolPicker can import from the same source of truth
 // without dragging server code across the RSC boundary.
 
-export const SYMBOLS = ['SPY', 'QQQ', 'SPX'] as const;
+export const SYMBOLS = ['SPY', 'QQQ', 'SPX', 'NDX'] as const;
 export type PickerSymbol = (typeof SYMBOLS)[number];
 export const DEFAULT_SYMBOL: PickerSymbol = 'SPY';
 

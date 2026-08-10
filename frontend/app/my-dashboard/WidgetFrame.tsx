@@ -1,6 +1,14 @@
 'use client';
 
-import { Component, type ReactNode } from 'react';
+import {
+  Component,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+  type PointerEvent as ReactPointerEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react';
 import Link from 'next/link';
 import {
   AlertTriangle,
@@ -14,7 +22,7 @@ import {
 } from 'lucide-react';
 
 import type { WidgetSize } from '@/core/myDashboardLayout';
-import { WIDGET_SIZE_LABEL } from '@/core/myDashboardLayout';
+import { WIDGET_COLSPAN, WIDGET_SIZE_LABEL } from '@/core/myDashboardLayout';
 import type { WidgetDef } from './registry';
 import { usePageT } from '@/core/LanguageContext';
 import { dict } from './WidgetFrame.i18n';
@@ -120,7 +128,13 @@ export type WidgetFrameProps = {
   isDragging: boolean;
   isDropTarget: boolean;
   resetKey: string | number;
+  /** The widget-grid container, read for live column geometry while resizing. */
+  gridRef: RefObject<HTMLDivElement | null>;
   onResize: (size: WidgetSize) => void;
+  /** Fired when an edge-drag resize begins/ends, so the grid can suspend its
+   *  native drag-to-reorder for the duration of the gesture. */
+  onResizeStart: () => void;
+  onResizeEnd: () => void;
   onRemove: () => void;
   onMovePrev: () => void;
   onMoveNext: () => void;
@@ -136,7 +150,10 @@ export default function WidgetFrame({
   isDragging,
   isDropTarget,
   resetKey,
+  gridRef,
   onResize,
+  onResizeStart,
+  onResizeEnd,
   onRemove,
   onMovePrev,
   onMoveNext,
@@ -145,11 +162,103 @@ export default function WidgetFrame({
 }: WidgetFrameProps) {
   const t = usePageT(dict);
   const tw = usePageT(widgetsDict);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [resizing, setResizing] = useState(false);
+
+  const allowedSizes = widget.allowedSizes.length ? widget.allowedSizes : [size];
+  const canResize = allowedSizes.length > 1;
+  // Ascending by grid footprint — used for both drag-snap and keyboard stepping.
+  const sortedSizes = [...allowedSizes].sort((a, b) => WIDGET_COLSPAN[a] - WIDGET_COLSPAN[b]);
+
   const cycleSize = () => {
-    const sizes = widget.allowedSizes.length ? widget.allowedSizes : [size];
-    const idx = sizes.indexOf(size);
-    const next = sizes[(idx + 1) % sizes.length];
+    const idx = allowedSizes.indexOf(size);
+    const next = allowedSizes[(idx + 1) % allowedSizes.length];
     onResize(next);
+  };
+
+  // Drag the right-edge handle to resize width. Column geometry is read live
+  // from the grid (so it's correct at any breakpoint / container width), the
+  // pointer's x maps to a fractional column span, and we snap to the nearest
+  // *allowed* footprint and apply it live as the pointer moves.
+  const beginPointerResize = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const grid = gridRef.current;
+    const root = rootRef.current;
+    if (!canResize || !grid || !root) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const gs = getComputedStyle(grid);
+    const cols = gs.gridTemplateColumns.split(' ').filter(Boolean).length || 1;
+    const gap = parseFloat(gs.columnGap) || 16;
+    const colWidth = (grid.getBoundingClientRect().width - gap * (cols - 1)) / cols;
+    const startLeft = root.getBoundingClientRect().left;
+
+    // Capture the node + pointer id synchronously: React nulls the synthetic
+    // event's currentTarget once this handler returns, but the deferred
+    // pointerup cleanup below still needs both.
+    const handleEl = e.currentTarget;
+    const pointerId = e.pointerId;
+    try {
+      handleEl.setPointerCapture(pointerId);
+    } catch {
+      /* pointer capture unsupported — the window listeners still track the drag */
+    }
+    document.body.classList.add('zg-col-resizing');
+    onResizeStart();
+    setResizing(true);
+
+    let lastSize = size;
+    const snap = (clientX: number): WidgetSize => {
+      const rawSpan = (clientX - startLeft + gap) / (colWidth + gap);
+      let best = sortedSizes[0];
+      let bestDist = Infinity;
+      for (const s of sortedSizes) {
+        const d = Math.abs(WIDGET_COLSPAN[s] - rawSpan);
+        if (d < bestDist) {
+          bestDist = d;
+          best = s;
+        }
+      }
+      return best;
+    };
+    const onMove = (ev: PointerEvent) => {
+      const next = snap(ev.clientX);
+      if (next !== lastSize) {
+        lastSize = next;
+        onResize(next);
+      }
+    };
+    const end = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', end);
+      window.removeEventListener('pointercancel', end);
+      document.body.classList.remove('zg-col-resizing');
+      try {
+        handleEl.releasePointerCapture(pointerId);
+      } catch {
+        /* nothing to release */
+      }
+      setResizing(false);
+      onResizeEnd();
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
+  };
+
+  // Keyboard parity for the handle: arrows step through the allowed footprints.
+  const stepSizeByKey = (e: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (!canResize) return;
+    const idx = sortedSizes.indexOf(size);
+    if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      const next = sortedSizes[Math.min(sortedSizes.length - 1, idx + 1)];
+      if (next !== size) onResize(next);
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      const next = sortedSizes[Math.max(0, idx - 1)];
+      if (next !== size) onResize(next);
+    }
   };
 
   const body = locked ? (
@@ -160,12 +269,13 @@ export default function WidgetFrame({
 
   return (
     <div
+      ref={rootRef}
       className="relative h-full transition-[box-shadow,opacity] duration-200"
       style={{
         opacity: isDragging ? 0.4 : 1,
         borderRadius: 'var(--radius-panel)',
         boxShadow: editing
-          ? isDropTarget
+          ? isDropTarget || resizing
             ? '0 0 0 2px var(--color-accent-hot)'
             : '0 0 0 1.5px var(--border-strong)'
           : 'none',
@@ -222,6 +332,33 @@ export default function WidgetFrame({
           >
             <X size={14} />
           </FrameIconButton>
+        </div>
+      )}
+
+      {editing && canResize && (
+        // Right-edge width handle. Drag to resize (snaps to this widget's
+        // allowed footprints); arrow keys step through them for keyboard users.
+        // Desktop-only (see globals.css) — the 4-column grid is where the
+        // footprints render at distinct widths; the toolbar's size button
+        // remains the control on narrower/touch layouts.
+        <div
+          role="slider"
+          tabIndex={0}
+          aria-label={t('resizeDragHandle')}
+          aria-orientation="horizontal"
+          aria-valuemin={WIDGET_COLSPAN[sortedSizes[0]]}
+          aria-valuemax={WIDGET_COLSPAN[sortedSizes[sortedSizes.length - 1]]}
+          aria-valuenow={WIDGET_COLSPAN[size]}
+          aria-valuetext={WIDGET_SIZE_LABEL[size]}
+          title={t('resizeDragHandle')}
+          className="zg-w-resize-handle pointer-events-auto"
+          draggable={false}
+          data-active={resizing ? 'true' : undefined}
+          onDragStart={(e) => e.preventDefault()}
+          onPointerDown={beginPointerResize}
+          onKeyDown={stepSizeByKey}
+        >
+          <span className="zg-w-resize-grip" aria-hidden />
         </div>
       )}
     </div>

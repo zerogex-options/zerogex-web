@@ -6,10 +6,15 @@ import { getDb } from '@/core/db';
 import { sendEmailVerification } from '@/core/mailer';
 import { recordReferralSignup } from '@/core/referrals';
 import { normalizeCampaignCode } from '@/core/campaigns';
+import { sanitizeUtmSource } from '@/core/utils';
 
 // First-party cookie that carries an inbound ?ref= code from the landing page
 // through to account creation (incl. the OAuth round-trip).
 export const REFERRAL_COOKIE_NAME = 'zgx_ref';
+// Companion cookie carrying the first-touch acquisition source (utm_source),
+// dropped by components/PageAnalytics on the landing page and read here to
+// stamp users.signup_utm_source for the admin "Conversion by Source" funnel.
+export const SOURCE_COOKIE_NAME = 'zgx_src';
 
 export type AuthUser = {
   id: string;
@@ -45,6 +50,10 @@ type SessionWithUser = {
     disclaimerVersionAcknowledged: string | null;
     foundingEligible: boolean;
     foundingLockinDismissedAt: string | null;
+    // ISO timestamp the one-time "Welcome to Pro" onboarding modal was shown/
+    // dismissed. NULL = the member has never seen it, so a new Pro subscriber
+    // is greeted once on their first landing back from Stripe checkout.
+    proWelcomeSeenAt: string | null;
   };
   session: SessionRecord;
 };
@@ -168,7 +177,12 @@ function ensureBootstrapAdmin() {
 function getUserByEmail(email: string) {
   ensureBootstrapAdmin();
   const db = getDb();
-  const row = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as Record<string, unknown> | undefined;
+  // `deleted_at IS NULL` locks soft-deleted accounts out of every path that
+  // resolves a user by email — local login, password reset, OAuth email
+  // adoption. A deleted account is treated as if it doesn't exist.
+  const row = db
+    .prepare('SELECT * FROM users WHERE email = ? AND deleted_at IS NULL')
+    .get(email) as Record<string, unknown> | undefined;
   return row ? rowToUser(row) : null;
 }
 
@@ -184,10 +198,10 @@ function getSessionByToken(token: string): SessionWithUser | null {
               u.id as user_id2, u.email, u.tier, u.stripe_subscription_id,
               u.email_verified_at, u.paid_welcome_email_sent_at, u.subscription_lapsed,
               u.disclaimer_acknowledged_at, u.disclaimer_version_acknowledged,
-              u.founding_eligible, u.founding_lockin_dismissed_at
+              u.founding_eligible, u.founding_lockin_dismissed_at, u.pro_welcome_seen_at
        FROM sessions s
        JOIN users u ON u.id = s.user_id
-       WHERE s.token_hash = ?`
+       WHERE s.token_hash = ? AND u.deleted_at IS NULL`
     )
     .get(tokenHash) as Record<string, unknown> | undefined;
 
@@ -217,6 +231,7 @@ function getSessionByToken(token: string): SessionWithUser | null {
       disclaimerVersionAcknowledged: (row.disclaimer_version_acknowledged as string | null) ?? null,
       foundingEligible: !!row.founding_eligible,
       foundingLockinDismissedAt: (row.founding_lockin_dismissed_at as string | null) ?? null,
+      proWelcomeSeenAt: (row.pro_welcome_seen_at as string | null) ?? null,
     },
     session: {
       id: row.session_id as string,
@@ -247,7 +262,7 @@ function createSessionForUser(user: AuthUser) {
     .prepare(
       `SELECT disclaimer_acknowledged_at, disclaimer_version_acknowledged,
               stripe_subscription_id, email_verified_at,
-              founding_eligible, founding_lockin_dismissed_at
+              founding_eligible, founding_lockin_dismissed_at, pro_welcome_seen_at
        FROM users WHERE id = ?`
     )
     .get(user.id) as
@@ -258,6 +273,7 @@ function createSessionForUser(user: AuthUser) {
         email_verified_at: string | null;
         founding_eligible: number | null;
         founding_lockin_dismissed_at: string | null;
+        pro_welcome_seen_at: string | null;
       }
     | undefined;
 
@@ -275,6 +291,7 @@ function createSessionForUser(user: AuthUser) {
       disclaimerVersionAcknowledged: ackRow?.disclaimer_version_acknowledged ?? null,
       foundingEligible: !!ackRow?.founding_eligible,
       foundingLockinDismissedAt: ackRow?.founding_lockin_dismissed_at ?? null,
+      proWelcomeSeenAt: ackRow?.pro_welcome_seen_at ?? null,
     },
   };
 }
@@ -400,11 +417,22 @@ export async function registerUser(
   password: string,
   tier: TierId = 'public',
   referralCode?: string | null,
+  signupSource?: string | null,
 ) {
   const normalizedEmail = email.trim().toLowerCase();
   if (getUserByEmail(normalizedEmail)) throw new Error('Email already registered');
 
   const db = getDb();
+  // getUserByEmail hides soft-deleted rows, but the email stays UNIQUE in the
+  // table — guard the "re-register into a deleted account" case with a clear
+  // message instead of letting the INSERT below trip the UNIQUE constraint.
+  const deletedExisting = db
+    .prepare('SELECT id FROM users WHERE email = ? AND deleted_at IS NOT NULL')
+    .get(normalizedEmail) as { id: string } | undefined;
+  if (deletedExisting) {
+    throw new Error('This account has been deleted. Contact support if you want it restored.');
+  }
+
   const user: AuthUser = {
     id: createId('user'),
     email: normalizedEmail,
@@ -415,9 +443,9 @@ export async function registerUser(
   };
 
   db.prepare(
-    `INSERT INTO users (id, email, password_hash, tier, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?)`
-  ).run(user.id, user.email, user.passwordHash, user.tier, user.createdAt, user.updatedAt);
+    `INSERT INTO users (id, email, password_hash, tier, created_at, updated_at, signup_utm_source)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).run(user.id, user.email, user.passwordHash, user.tier, user.createdAt, user.updatedAt, sanitizeUtmSource(signupSource));
 
   // Best-effort referral attribution — an invalid/absent code just leaves the
   // signup organic and must never block account creation.
@@ -451,8 +479,9 @@ export async function registerAndStartSession(
   password: string,
   tier: TierId = 'public',
   referralCode?: string | null,
+  signupSource?: string | null,
 ) {
-  await registerUser(request, email, password, tier, referralCode);
+  await registerUser(request, email, password, tier, referralCode, signupSource);
   const fullUser = getUserByEmail(email.trim().toLowerCase());
   if (!fullUser) throw new Error('Registration succeeded but user lookup failed');
 
@@ -852,11 +881,22 @@ export async function createOrLoginOAuthUser(request: NextRequest, input: { prov
   const db = getDb();
   const normalizedEmail = input.email.trim().toLowerCase();
 
+  // A soft-deleted account must not be revived by signing in with the provider
+  // again. Refuse up front (before identity/email resolution) with a clear
+  // message rather than letting the flow fall through to a fresh-signup INSERT
+  // that would collide on the still-present email row.
+  const deletedRow = db
+    .prepare('SELECT id FROM users WHERE email = ? AND deleted_at IS NOT NULL')
+    .get(normalizedEmail) as { id: string } | undefined;
+  if (deletedRow) {
+    throw new Error('This account has been deleted. Contact support if you want it restored.');
+  }
+
   const identityRow = db
     .prepare(
       `SELECT u.* FROM users u
        JOIN user_identities i ON i.user_id = u.id
-       WHERE i.provider = ? AND i.provider_id = ?`
+       WHERE i.provider = ? AND i.provider_id = ? AND u.deleted_at IS NULL`
     )
     .get(input.provider, input.providerId) as Record<string, unknown> | undefined;
   let user = identityRow ? rowToUser(identityRow) : null;
@@ -883,7 +923,7 @@ export async function createOrLoginOAuthUser(request: NextRequest, input: { prov
            AND user_id NOT IN (SELECT id FROM users)`
       ).run(input.provider, input.providerId);
 
-      const emailRow = db.prepare('SELECT * FROM users WHERE email = ?').get(normalizedEmail) as Record<string, unknown> | undefined;
+      const emailRow = db.prepare('SELECT * FROM users WHERE email = ? AND deleted_at IS NULL').get(normalizedEmail) as Record<string, unknown> | undefined;
       if (emailRow) {
         user = rowToUser(emailRow);
       } else {
@@ -907,9 +947,17 @@ export async function createOrLoginOAuthUser(request: NextRequest, input: { prov
         // stamp email_verified_at immediately and skip the verification
         // round-trip the local-password flow goes through.
         db.prepare(
-          `INSERT INTO users (id, email, password_hash, tier, created_at, updated_at, email_verified_at)
-           VALUES (?, ?, NULL, ?, ?, ?, ?)`
-        ).run(user.id, user.email, user.tier, user.createdAt, user.updatedAt, oauthNow);
+          `INSERT INTO users (id, email, password_hash, tier, created_at, updated_at, email_verified_at, signup_utm_source)
+           VALUES (?, ?, NULL, ?, ?, ?, ?, ?)`
+        ).run(
+          user.id,
+          user.email,
+          user.tier,
+          user.createdAt,
+          user.updatedAt,
+          oauthNow,
+          sanitizeUtmSource(request.cookies.get(SOURCE_COOKIE_NAME)?.value),
+        );
 
         // Attribute the OAuth signup to any inbound referral the user carried
         // through the provider round-trip in the zgx_ref cookie. Best-effort:
@@ -1221,6 +1269,35 @@ export async function dismissFoundingLockinForRequest(request: NextRequest) {
 
   return {
     dismissedAt: now,
+    rotatedToken: data.rotatedToken,
+    csrfToken: data.csrfToken,
+  };
+}
+
+// Stamp that the caller has seen the one-time "Welcome to Pro" onboarding
+// modal, so it never greets them again (across devices — the flag lives on the
+// user row, not just sessionStorage). Idempotent: writing the same latch twice
+// is harmless; the first non-null value is what "seen" means.
+export async function markProWelcomeSeenForRequest(request: NextRequest) {
+  const data = await getSessionFromRequest(request);
+  if (!data) return null;
+
+  const db = getDb();
+  const now = nowIso();
+  db.prepare(
+    'UPDATE users SET pro_welcome_seen_at = ?, updated_at = ? WHERE id = ? AND pro_welcome_seen_at IS NULL'
+  ).run(now, now, data.user.id);
+
+  appendAuditEvent({
+    type: 'pro_welcome_seen',
+    userId: data.user.id,
+    email: data.user.email,
+    ip: getClientIp(request),
+    message: 'User acknowledged the Pro welcome / API-key onboarding modal',
+  });
+
+  return {
+    seenAt: now,
     rotatedToken: data.rotatedToken,
     csrfToken: data.csrfToken,
   };

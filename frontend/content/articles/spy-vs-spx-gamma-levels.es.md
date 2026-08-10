@@ -1,4 +1,6 @@
 # Opciones SPY vs SPX: ¿Qué Niveles de Gamma Importan?
+> **Nota metodológica actualizada — prevalece sobre cualquier formulación incompatible posterior.** ZeroGEX estima, pero no observa, el inventario de los dealers a partir de datos públicos. El modelo conserva la convención calls positivos/puts negativos (`Net GEX = Call GEX − Put GEX`) y supone dealers netos largos de calls y cortos de puts. Las calls y puts largas tienen gamma positiva; las calls y puts cortas tienen gamma negativa. El Put Wall es la mayor concentración de gamma de puts por debajo del spot y representa localmente gamma negativa modelada del dealer: puede coincidir con soporte, pero la cobertura de una put corta no crea mecánicamente un suelo. Los walls pueden migrar por spot, tiempo y volatilidad implícita aunque el open interest oficial no cambie intradía. Al acercarse el vencimiento, la gamma se concentra cerca del ATM: la gamma ATM puede aumentar, mientras la gamma claramente ITM u OTM tiende a cero. El Gamma Flip seleccionado es una transición local; el perfil puede tener varios cruces o ninguno significativo. Charm y vanna son cambios condicionales de delta, no órdenes programadas. Las puntuaciones son resultados heurísticos, no probabilidades calibradas. La gamma negativa amplifica la dirección ya iniciada; la distancia a un objetivo no implica repulsión. Por ello, la inversión del término pin de EOD Pressure sigue siendo una heurística de ZeroGEX. Max Pain minimiza el pago intrínseco agregado y no maximiza exactamente el nocional que vence sin valor. El DEX bruto mide delta solo de opciones, no flujo futuro de cobertura; la prima y el lado agresor no prueban información, apertura ni convicción.
+
 
 *SPY y SPX siguen el mismo índice a través de dos contratos diferentes — y dos libros de gamma de dealers separados. Aquí te explicamos en qué se diferencian sus niveles de gamma, cómo convertir un nivel de uno a otro, cuál libro pesa más y por qué el nivel que más importa es aquel en el que ambos coinciden.*
 
@@ -48,7 +50,7 @@ SPY cotiza aproximadamente a una décima parte del índice S&P 500, así que com
 Dos advertencias impiden que la conversión sea exacta:
 
 - **Desviación de tracking.** El precio de SPY refleja dividendos acumulados y pequeñas diferencias de tracking, por lo que la proporción nunca es un 10.000 exacto. Convierte para orientarte, no al centavo.
-- **Granularidad de strikes.** Los strikes de SPX están espaciados más ampliamente (comúnmente cinco puntos de índice) mientras que SPY lista cada dólar. Un wall de SPX cae en un número de índice redondo; el wall de SPY correspondiente puede estar en una resolución más fina — SPY a menudo muestra *dónde dentro* de un bucket de cinco puntos de SPX se concentra realmente la gamma.
+- **Granularidad de strikes.** En dólares brutos SPY lista strikes más finos ($1, algunos $0.50) que el espaciado de cinco puntos de SPX — pero aplica la escala de ~10×: un dólar de SPY equivale a diez puntos de índice, así que los strikes de $1 de SPY son en realidad *más gruesos* que los strikes de cinco puntos de SPX en términos de índice, y sus strikes de $0.50 apenas los igualan. En términos de índice, SPX resuelve la gamma con al menos tanta finura como SPY; la verdadera ventaja de SPY son sus strikes en dólares redondos que atraen pins y su liquidez en acciones, no una resolución más fina en términos de índice.
 
 ---
 
@@ -98,6 +100,6 @@ Cada página comienza con el gamma flip, call wall, put wall, max pain y net dea
 
 ## Conclusión
 
-SPY y SPX siguen un mismo índice a través de dos contratos y dos libros de gamma de dealers separados. Opera los niveles que pertenecen a tu instrumento, usa la proporción de ~10× para convertir entre ellos, apóyate en SPX como el mapa más pesado a nivel de índice y en SPY para granularidad y pinning — y da el mayor respeto a los niveles en los que ambos coinciden.
+SPY y SPX siguen un mismo índice a través de dos contratos y dos libros de gamma de dealers separados. Opera los niveles que pertenecen a tu instrumento, usa la proporción de ~10× para convertir entre ellos, apóyate en SPX como el mapa más pesado a nivel de índice y en SPY para el pinning en números redondos y la liquidez en acciones — y da el mayor respeto a los niveles en los que ambos coinciden.
 
 *Estos son análisis derivados con fines educativos, no asesoría de inversión. Operar con opciones implica riesgos significativos.*

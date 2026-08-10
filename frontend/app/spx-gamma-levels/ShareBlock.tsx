@@ -3,12 +3,10 @@
 import { useState, useSyncExternalStore, type CSSProperties } from 'react';
 import { Check, Copy, MessageSquare, Share2 } from 'lucide-react';
 import { capture } from '@/core/telemetry/posthog-client';
-import { usePageT } from '@/core/LanguageContext';
-import { dict } from './ShareBlock.i18n';
 
 // The daily "copy/paste share block" that turns the free gamma-levels page from
 // a static SEO asset into a distribution asset. It renders the current-session
-// SPX/SPY/QQQ snapshot (pre-formatted server-side) as a plain-text snippet plus
+// SPX/SPY/QQQ/NDX snapshot (pre-formatted server-side) as a plain-text snippet plus
 // one-click actions to push it to X, Reddit, StockTwits, or the clipboard
 // (Discord/Slack/anywhere). This component is purely presentational +
 // interactive — all formatting lives in the server component so the snippet is
@@ -23,11 +21,9 @@ interface ShareBlockProps {
   hasData: boolean;
   /** Human-readable freshness stamp, e.g. "Jul 6, 2026, 9:41 AM EDT". */
   asOf?: string | null;
-  /** Page's primary ticker (SPX / SPY / QQQ) — leads the heading + subtext. */
-  symbol: string;
 }
 
-const SHARE_TITLE = "Today's SPX / SPY / QQQ gamma levels — ZeroGEX";
+const SHARE_TITLE = "Today's SPX / SPY / QQQ / NDX gamma levels — ZeroGEX";
 
 function XIcon({ size = 15 }: { size?: number }) {
   return (
@@ -100,8 +96,7 @@ const getCanNativeShareClient = () =>
   typeof navigator !== 'undefined' && typeof navigator.share === 'function';
 const getCanNativeShareServer = () => false;
 
-export default function ShareBlock({ snippet, shareUrl, hasData, asOf, symbol }: ShareBlockProps) {
-  const t = usePageT(dict);
+export default function ShareBlock({ snippet, shareUrl, hasData, asOf }: ShareBlockProps) {
   const [copied, setCopied] = useState<string | null>(null);
   const canNativeShare = useSyncExternalStore(
     subscribeNoop,
@@ -148,17 +143,33 @@ export default function ShareBlock({ snippet, shareUrl, hasData, asOf, symbol }:
 
   return (
     <section aria-labelledby="share-levels-heading" className="zg-panel" style={cardStyle}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <Share2 size={18} style={{ color: 'var(--color-brand-primary)' }} />
-        <h2
-          id="share-levels-heading"
-          style={{ margin: 0, fontSize: 20, fontWeight: 800, letterSpacing: '-0.3px', color: 'var(--color-text-primary)' }}
-        >
-          {t('heading', { symbol })}
-        </h2>
+      <div
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          alignSelf: 'flex-start',
+          gap: 8,
+          fontSize: 11,
+          fontWeight: 700,
+          letterSpacing: '0.16em',
+          textTransform: 'uppercase',
+          color: 'var(--color-brand-primary)',
+          border: '1px solid var(--color-brand-primary)44',
+          background: 'var(--color-brand-primary)14',
+          borderRadius: 999,
+          padding: '5px 14px',
+        }}
+      >
+        <Share2 size={12} /> Share
       </div>
+      <h2
+        id="share-levels-heading"
+        style={{ margin: 0, fontSize: 20, fontWeight: 800, letterSpacing: '-0.3px', color: 'var(--color-text-primary)' }}
+      >
+        Share today&rsquo;s gamma levels
+      </h2>
       <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: 'var(--color-text-secondary)', maxWidth: 660 }}>
-        {t('subtext', { symbol })}
+        Want to share this morning&rsquo;s gamma map? Copy the snapshot below.
       </p>
 
       {hasData ? (
@@ -184,14 +195,14 @@ export default function ShareBlock({ snippet, shareUrl, hasData, asOf, symbol }:
 
           {asOf && (
             <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', opacity: 0.7, marginTop: -6 }}>
-              {t('asOf', { asOf })}
+              As of {asOf} · delayed ~15 minutes
             </div>
           )}
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
             <button type="button" onClick={handleCopy} style={primaryBtn} className="zg-btn zg-btn--primary">
               {copied === 'copy' ? <Check size={16} /> : <Copy size={16} />}
-              {copied === 'copy' ? t('copied') : t('copySnapshot')}
+              {copied === 'copy' ? 'Copied!' : 'Copy snapshot'}
             </button>
             <a
               href={xHref}
@@ -201,7 +212,7 @@ export default function ShareBlock({ snippet, shareUrl, hasData, asOf, symbol }:
               style={outlineBtn}
               className={`zg-btn zg-btn--secondary ${outlineHover}`}
             >
-              <XIcon /> {t('postToX')}
+              <XIcon /> Post to X
             </a>
             <a
               href={redditHref}
@@ -211,7 +222,7 @@ export default function ShareBlock({ snippet, shareUrl, hasData, asOf, symbol }:
               style={outlineBtn}
               className={`zg-btn zg-btn--secondary ${outlineHover}`}
             >
-              <RedditIcon /> {t('postToReddit')}
+              <RedditIcon /> Post to Reddit
             </a>
             <a
               href="https://stocktwits.com/"
@@ -221,22 +232,23 @@ export default function ShareBlock({ snippet, shareUrl, hasData, asOf, symbol }:
               style={outlineBtn}
               className={`zg-btn zg-btn--secondary ${outlineHover}`}
             >
-              <MessageSquare size={16} /> {copied === 'stocktwits' ? t('copiedPasteIn') : t('stockTwits')}
+              <MessageSquare size={16} /> {copied === 'stocktwits' ? 'Copied — paste in' : 'StockTwits'}
             </a>
             {canNativeShare && (
               <button type="button" onClick={handleNativeShare} style={outlineBtn} className={`zg-btn zg-btn--secondary ${outlineHover}`}>
-                <Share2 size={16} /> {t('shareEllipsis')}
+                <Share2 size={16} /> Share&hellip;
               </button>
             )}
           </div>
 
           <p style={{ margin: 0, fontSize: 12, color: 'var(--color-text-secondary)', opacity: 0.8 }}>
-            {t('copyAnywhere')}
+            Copy works anywhere &mdash; paste it straight into Discord, Slack, WhatsApp, or a group chat.
           </p>
         </>
       ) : (
         <div style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--color-text-secondary)' }}>
-          {t('loadingLevels')}
+          Today&rsquo;s levels are still loading &mdash; the shareable snapshot will appear here as soon as the
+          snapshot refreshes. Check back in a minute.
         </div>
       )}
     </section>

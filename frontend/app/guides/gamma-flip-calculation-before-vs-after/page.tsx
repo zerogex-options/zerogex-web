@@ -1,6 +1,7 @@
 import path from 'node:path';
 import Link from 'next/link';
 import { renderMarkdown } from '@/components/MarkdownContent';
+import BreadcrumbJsonLd from '@/components/BreadcrumbJsonLd';
 import { getServerT, loadLocalizedMarkdown } from '@/core/localizedContent';
 import { dict as metaDict } from './meta.i18n';
 import type { Metadata } from 'next';
@@ -21,6 +22,13 @@ export default async function GammaFlipBeforeVsAfterGuidePage() {
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-12">
+      <BreadcrumbJsonLd
+        items={[
+          { name: 'Home', url: '/' },
+          { name: 'Guides', url: '/guides' },
+          { name: 'Gamma Flip Calculation: Before vs After', url: '/guides/gamma-flip-calculation-before-vs-after' },
+        ]}
+      />
       <Link href="/guides" className="mb-8 inline-block text-sm font-semibold text-[var(--color-warning)] hover:text-[var(--heat-low)]">
         ← Back to Guides
       </Link>

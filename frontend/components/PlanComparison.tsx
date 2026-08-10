@@ -23,7 +23,9 @@ const SECTIONS: Section[] = [
     heading: 'Dashboard & Live Feed',
     rows: [
       { feature: 'Real-time Dashboard', basic: true, pro: true },
-      { feature: 'Live Bulletin (streaming signal events)', basic: true, pro: true },
+      { feature: 'My Dashboard (customizable widgets)', basic: true, pro: true },
+      { feature: 'Gamma Chart', basic: true, pro: true },
+      { feature: 'Live Bulletin (live dealer-gamma snapshot)', basic: true, pro: true },
     ],
   },
   {
@@ -40,6 +42,7 @@ const SECTIONS: Section[] = [
   {
     heading: 'Advanced Signals',
     rows: [
+      { feature: 'Trade Bias', basic: false, pro: true },
       { feature: 'Composite Score (blended read across signals)', basic: false, pro: true },
       { feature: 'Volatility Expansion', basic: false, pro: true },
       { feature: 'EOD Pressure', basic: false, pro: true },
@@ -58,7 +61,10 @@ const SECTIONS: Section[] = [
       { feature: 'GEX Summary', basic: true, pro: true },
       { feature: 'GEX Strike Profile', basic: true, pro: true },
       { feature: 'GEX Heatmap', basic: true, pro: true },
+      { feature: 'Pair Comparison (beta)', basic: true, pro: true },
+      { feature: 'Forced Flow (beta)', basic: true, pro: true },
       { feature: 'Flow Analysis', basic: true, pro: true },
+      { feature: 'Market Tide (beta)', basic: true, pro: true },
       { feature: 'Smart Money', basic: true, pro: true },
       { feature: 'Max Pain', basic: true, pro: true },
       { feature: 'Technicals', basic: true, pro: true },

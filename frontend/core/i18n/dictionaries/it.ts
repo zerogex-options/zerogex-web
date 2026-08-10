@@ -18,7 +18,7 @@ export const it: Dictionary = {
   'register.trialInfo':
     'Inizia la tua prova gratuita di 7 giorni dopo la creazione dell’account. Nessun addebito fino al 7° giorno. Disdici quando vuoi.',
   'register.valueProp':
-    'ZeroGEX aiuta i trader di SPY, SPX e QQQ a monitorare in tempo reale i livelli gamma, il posizionamento dei dealer, la pressione dei flussi e i segnali sullo stato del mercato prima che il prezzo li raggiunga.',
+    'ZeroGEX aiuta i trader di SPY, SPX, QQQ e NDX a monitorare in tempo reale i livelli gamma, il posizionamento dei dealer, la pressione dei flussi e i segnali sullo stato del mercato prima che il prezzo li raggiunga.',
   'register.languageLabel': 'Lingua',
   'register.emailLabel': 'Email',
   'register.passwordLabel': 'Password',
@@ -38,7 +38,10 @@ export const it: Dictionary = {
   'nav.group.education': 'Formazione',
   'nav.group.admin': 'Amministrazione',
   'nav.group.more': 'Altro',
-  'nav.dashboard': 'Dashboard',
+  'nav.group.favorites': 'Preferiti',
+  'nav.addFavorite': 'Aggiungi {name} ai preferiti',
+  'nav.removeFavorite': 'Rimuovi {name} dai preferiti',
+  'nav.dashboard': 'Dashboard principale',
   'nav.myDashboard': 'La mia dashboard',
   'nav.liveBulletin': 'Bollettino live',
   'nav.compositeScore': 'Punteggio composito',
@@ -70,6 +73,7 @@ export const it: Dictionary = {
   'footer.navigation': 'Navigazione',
   'footer.platform': 'Piattaforma',
   'footer.freeGammaLevels': 'Livelli Gamma gratuiti',
+  'footer.updates': 'Novità',
   'footer.givingBack': 'Beneficenza',
   'footer.apiDocs': 'Documentazione API',
   'footer.privacy': 'Privacy',

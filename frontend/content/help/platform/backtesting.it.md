@@ -16,7 +16,7 @@ La pagina Backtesting ti permette di verificare come si sarebbe comportata una r
 
 ## Le manopole dei parametri
 
-- **Simbolo** — SPY / SPX / QQQ
+- **Simbolo** — SPY / SPX / QQQ / NDX
 - **Intervallo di date** — fino alla profondità di storico disponibile (indicata nel form)
 - **Entrata** — un basket di pattern, oppure una regola condizionale personalizzata in AND
 - **Uscita** — target/stop sul livello del sottostante, un overlay take-profit / stop-loss sul premio dell'opzione, e uno stop temporale di durata massima della posizione (scatta il primo che si verifica)

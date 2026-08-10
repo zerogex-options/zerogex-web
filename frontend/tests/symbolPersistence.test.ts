@@ -93,9 +93,21 @@ test('an invalid ?symbol= value is ignored', () => {
 
 test('symbol matching is case-sensitive to the canonical upper-case tickers', () => {
   assert.equal(isUnderlyingSymbol('SPY'), true);
+  assert.equal(isUnderlyingSymbol('NDX'), true);
   assert.equal(isUnderlyingSymbol('spy'), false);
   assert.equal(isUnderlyingSymbol(null), false);
   assert.equal(isUnderlyingSymbol(undefined), false);
+});
+
+// NDX (Nasdaq-100 cash index) is a first-class underlying: it must validate,
+// persist, and survive a reload exactly like the original three tickers.
+test('NDX is a valid underlying that persists and deep-links', () => {
+  persistSymbol('NDX');
+  assert.equal(readStoredSymbol(), 'NDX');
+  assert.equal(resolveInitialSymbol(), 'NDX');
+
+  location.search = '?symbol=NDX';
+  assert.equal(symbolFromSearch(location.search), 'NDX');
 });
 
 // Private-mode Safari throws on localStorage access. Persistence is best-effort:

@@ -4,7 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { MarketSession, Theme } from "@/core/types";
 import { colors } from "@/core/colors";
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Star } from "lucide-react";
 import { NAV_GROUPS, type NavGroup, type NavItem } from "@/core/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -12,9 +12,10 @@ import { useLanguage } from "@/core/LanguageContext";
 import { useTimeframe } from "@/core/TimeframeContext";
 import { useMarketQuote, useSessionCloses } from "@/hooks/useApiData";
 import { getMarketSession } from "@/core/utils";
-import { hasRequiredTier, hasTierAccess, normalizeTier, requiredTierForRoute } from "@/core/auth";
+import { hasTierAccess, navItemRequiredTier, normalizeTier, type TierId } from "@/core/auth";
 import SessionBadge from "./SessionBadge";
 import BetaBadge from "./BetaBadge";
+import TierBadge from "./TierBadge";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import { useAuthSession } from "@/hooks/useAuthSession";
 
@@ -23,6 +24,9 @@ interface NavigationProps {
 }
 
 const SIDEBAR_WIDTH = 272;
+
+// Per-browser pinned-pages list for the sidebar "Favorites" group.
+const FAVORITES_STORAGE_KEY = "zg.nav.favorites.v1";
 
 export default function Navigation({ theme }: NavigationProps) {
   const { symbol } = useTimeframe();
@@ -55,17 +59,33 @@ export default function Navigation({ theme }: NavigationProps) {
   const currentTier = authSession?.user?.tier ?? "public";
   const isAuthenticated = !!authSession?.authenticated;
   const isPublicUser = normalizeTier(currentTier) === "public";
-  const shouldForcePricing = (id: string) => {
+  const normalizedTier = normalizeTier(currentTier);
+  // Effective required tier for a nav entry — the stricter of its declared tier
+  // and its enforced route rule (navItemRequiredTier); null means public.
+  const entryRequiredTier = (entry: { id?: string; requiredTier?: NavItem["requiredTier"] }): TierId | null =>
+    navItemRequiredTier(entry.id, entry.requiredTier ?? null);
+  const canAccessEntry = (entry: { id?: string; requiredTier?: NavItem["requiredTier"] }) =>
+    hasTierAccess(normalizedTier, entryRequiredTier(entry));
+  // Badge to show on an entry the current member can see but not open yet, or
+  // null when it's accessible (or an admin-only tool, which is hidden entirely
+  // rather than surfaced as an upsell).
+  const lockedTier = (entry: { id?: string; requiredTier?: NavItem["requiredTier"] }): TierId | null => {
+    const needed = entryRequiredTier(entry);
+    if (!needed || needed === "admin") return null;
+    return hasTierAccess(normalizedTier, needed) ? null : needed;
+  };
+  const shouldForcePricing = (entry: { id: string; requiredTier?: NavItem["requiredTier"] }) => {
     // API Specs is a Pro-tier entitlement per the pricing page, so anyone
     // below Pro (public + basic) is routed to /pricing instead of the docs.
-    if (id === "https://api.zerogex.io/docs") {
-      return !hasTierAccess(normalizeTier(currentTier), "pro");
+    if (entry.id === "https://api.zerogex.io/docs") {
+      return !hasTierAccess(normalizedTier, "pro");
     }
-    if (!isPublicUser) return false;
-    const required = requiredTierForRoute(id);
-    return !hasRequiredTier(id, currentTier) && (required === "basic" || required === "pro");
+    // Locked items (shown to signed-in members with a TierBadge) route to the
+    // pricing page instead of bouncing off the middleware to /unauthorized.
+    return !canAccessEntry(entry);
   };
-  const resolveNavTarget = (id: string) => (shouldForcePricing(id) ? "/pricing" : id);
+  const resolveNavTarget = (entry: { id: string; requiredTier?: NavItem["requiredTier"] }) =>
+    shouldForcePricing(entry) ? "/pricing" : entry.id;
 
   const navGroups = useMemo<NavGroup[]>(
     () => [
@@ -86,30 +106,95 @@ export default function Navigation({ theme }: NavigationProps) {
     [isAuthenticated],
   );
   const filteredNavGroups = useMemo(
-    () =>
-      navGroups
+    () => {
+      // Self-contained access check (mirrors canAccessEntry) so this hook does
+      // not close over component-scope helpers.
+      const canAccess = (entry: { id?: string; requiredTier?: NavItem["requiredTier"] }) =>
+        hasTierAccess(normalizeTier(currentTier), navItemRequiredTier(entry.id, entry.requiredTier ?? null));
+      return navGroups
         .map((group) => {
-          // "Signals" stays as a marketing surface for signed-in Basic users
-          // (unentitled clicks route to /pricing), but drops entirely for
-          // public/unauthenticated visitors. Admin-only items are always gated.
-          const bypassTierCheck = group.label === "Signals" && !isPublicUser;
           const keepItem = (item: NavItem) => {
             if (item.external) return true;
-            // Premium Surface is a Basic entitlement — hide it from public.
-            if (isPublicUser && item.id === "/premium-heatmap") return false;
-            if (item.requiredTier === "admin") return hasRequiredTier(item.id, currentTier);
-            if (bypassTierCheck) return true;
-            return hasRequiredTier(item.id, currentTier);
+            // Admin tools are never advertised to non-admins.
+            if (item.requiredTier === "admin") return canAccess(item);
+            // Signed-in members also see higher-tier items — they render locked,
+            // with a TierBadge that routes to /pricing on click. Logged-out and
+            // unpaid visitors only see what their tier can actually open.
+            if (isPublicUser) return canAccess(item);
+            return true;
           };
           const items = (group.items ?? []).filter(keepItem);
           const subgroups = (group.subgroups ?? [])
             .map((sg) => ({ ...sg, items: sg.items.filter(keepItem) }))
-            .filter((sg) => sg.items.length > 0 || (sg.id != null && (bypassTierCheck || hasRequiredTier(sg.id, currentTier))));
+            .filter((sg) => sg.items.length > 0 || (sg.id != null && (!isPublicUser || canAccess(sg))));
           return { ...group, items, subgroups };
         })
-        .filter((group) => group.items.length + group.subgroups.length > 0),
+        .filter((group) => group.items.length + group.subgroups.length > 0);
+    },
     [navGroups, currentTier, isPublicUser],
   );
+
+  // ── Favorites ── Members pin the pages they use most; the pinned set floats to
+  // a "Favorites" group at the top of the sidebar so they never have to hunt for
+  // a page again. Persisted per-browser. Hydrated after mount so the server and
+  // the first client render agree (no favorites-dependent markup during SSR).
+  const [favorites, setFavorites] = useState<string[]>([]);
+  const [favHydrated, setFavHydrated] = useState(false);
+  // One-time hydration from localStorage after mount. Server and the first
+  // client render intentionally start with no favorites (so there's no SSR
+  // mismatch); this reconciles from storage exactly once — the same deliberate
+  // hydration pattern (and eslint carve-out) GammaTerminalChart uses.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(FAVORITES_STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (Array.isArray(parsed)) {
+        setFavorites(parsed.filter((x): x is string => typeof x === "string"));
+      }
+    } catch {
+      /* ignore malformed prefs */
+    }
+    setFavHydrated(true);
+  }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (!favHydrated) return;
+    try {
+      localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(favorites));
+    } catch {
+      /* storage unavailable */
+    }
+  }, [favorites, favHydrated]);
+  const toggleFavorite = (id: string) => {
+    setFavorites((prev) => (prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id]));
+  };
+
+  // Flat id -> item lookup across every group/subgroup, so a pinned id resolves
+  // back to the item the sidebar already knows how to render.
+  const itemById = useMemo(() => {
+    const m = new Map<string, NavItem>();
+    for (const group of navGroups) {
+      for (const item of group.items ?? []) m.set(item.id, item);
+      for (const sg of group.subgroups ?? []) for (const item of sg.items) m.set(item.id, item);
+    }
+    return m;
+  }, [navGroups]);
+  // Pinned items the current member can actually see — the same visibility rule
+  // the main menu applies, so a favorite is never a back door to a gated page.
+  const favoriteItems = useMemo(() => {
+    const canAccess = (entry: { id?: string; requiredTier?: NavItem["requiredTier"] }) =>
+      hasTierAccess(normalizeTier(currentTier), navItemRequiredTier(entry.id, entry.requiredTier ?? null));
+    return favorites
+      .map((id) => itemById.get(id))
+      .filter((it): it is NavItem => !!it)
+      .filter((it) => {
+        if (it.external) return true;
+        if (it.requiredTier === "admin") return canAccess(it);
+        if (isPublicUser) return canAccess(it);
+        return true;
+      });
+  }, [favorites, itemById, currentTier, isPublicUser]);
 
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
@@ -182,6 +267,106 @@ export default function Navigation({ theme }: NavigationProps) {
 
   const border = "var(--color-border)";
 
+  // A single nav row: label + optional lock/beta badges + a pin (star) toggle.
+  // Defined at component scope so the Favorites group and the normal groups
+  // render identical rows. The star is a role="button" span, not a real
+  // <button>, because the row itself is a <button>/<a> and nesting interactive
+  // buttons is invalid HTML — the span still gets a keyboard handler + aria.
+  const renderItem = (page: NavItem) => {
+    const isExternal = page.external === true;
+    const isActive = pathname === page.id;
+    const isHovered = hoveredPage === page.id;
+    const lock = lockedTier(page);
+    const isFav = favorites.includes(page.id);
+    const accent = theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)';
+    // Only animate paint-only properties (see the note that used to live here):
+    // animating the `border`/`background` shorthands re-evaluates the whole box
+    // each frame and made rows jitter on hover.
+    const commonStyle = {
+      color: isActive || isHovered ? accent : "var(--text-primary)",
+      opacity: isActive || isHovered ? 1 : 0.72,
+      backgroundColor: isHovered && !isActive
+        ? `${accent}18`
+        : isActive
+          ? `${accent}14`
+          : "transparent",
+      borderColor: isActive || isHovered ? `${accent}40` : "transparent",
+      transitionProperty: "color, background-color, border-color, opacity",
+      transitionDuration: "200ms",
+    };
+    const favLabel = isFav
+      ? t('nav.removeFavorite', { name: navLabel(page) })
+      : t('nav.addFavorite', { name: navLabel(page) });
+    const favStar = (
+      <span
+        role="button"
+        tabIndex={0}
+        aria-label={favLabel}
+        aria-pressed={isFav}
+        title={favLabel}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          toggleFavorite(page.id);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleFavorite(page.id);
+          }
+        }}
+        className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
+        style={{
+          color: isFav ? 'var(--color-gold)' : 'var(--text-secondary)',
+          opacity: isFav ? 1 : isHovered ? 0.75 : 0.35,
+          cursor: "pointer",
+          transition: "opacity 200ms",
+        }}
+      >
+        <Star size={14} fill={isFav ? 'var(--color-gold)' : 'none'} strokeWidth={2} />
+      </span>
+    );
+
+    if (isExternal) {
+      const targetHref = resolveNavTarget(page);
+      return (
+        <Link
+          key={page.id}
+          href={targetHref}
+          target={targetHref.startsWith("http") ? "_blank" : undefined}
+          rel={targetHref.startsWith("http") ? "noreferrer" : undefined}
+          onMouseEnter={() => setHoveredPage(page.id)}
+          onMouseLeave={() => setHoveredPage(null)}
+          className="flex w-full items-center gap-2 rounded-xl border border-solid px-3 py-3 text-left text-sm font-semibold"
+          style={commonStyle}
+        >
+          <span>{navLabel(page)}</span>
+          {lock && <TierBadge tier={lock} />}
+          {page.beta && <BetaBadge />}
+          {favStar}
+        </Link>
+      );
+    }
+
+    return (
+      <button
+        key={page.id}
+        onClick={() => router.push(resolveNavTarget(page))}
+        onMouseEnter={() => setHoveredPage(page.id)}
+        onMouseLeave={() => setHoveredPage(null)}
+        className="flex w-full items-center gap-2 rounded-xl border border-solid px-3 py-3 text-left text-sm font-semibold"
+        style={commonStyle}
+        type="button"
+      >
+        <span>{navLabel(page)}</span>
+        {lock && <TierBadge tier={lock} />}
+        {page.beta && <BetaBadge />}
+        {favStar}
+      </button>
+    );
+  };
+
   return (
     <>
       {sidebarVisible ? (
@@ -225,65 +410,37 @@ export default function Navigation({ theme }: NavigationProps) {
                 )}
               </div>
             )}
+            {favoriteItems.length > 0 && (() => {
+              const favExpanded = expandedGroups["__favorites__"] ?? true;
+              const headAccent = theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)';
+              return (
+                <div className="mb-4">
+                  <button
+                    type="button"
+                    onClick={() => setExpandedGroups((prev) => ({ ...prev, __favorites__: !favExpanded }))}
+                    className="mb-2 flex w-full items-center justify-between rounded-lg px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em]"
+                    style={{
+                      color: headAccent,
+                      background: `${headAccent}0f`,
+                    }}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Star size={12} fill="var(--color-gold)" stroke="var(--color-gold)" />
+                      {t('nav.group.favorites')}
+                    </span>
+                    <ChevronDown
+                      size={14}
+                      style={{ transform: favExpanded ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 0.2s" }}
+                    />
+                  </button>
+                  {favExpanded ? (
+                    <div className="space-y-1">{favoriteItems.map(renderItem)}</div>
+                  ) : null}
+                </div>
+              );
+            })()}
             {filteredNavGroups.map((group) => {
               const isExpanded = expandedGroups[group.label] ?? false;
-              const renderItem = (page: NavItem) => {
-                const isExternal = page.external === true;
-                const isActive = pathname === page.id;
-                const isHovered = hoveredPage === page.id;
-                const accent = theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)';
-                // Only animate paint-only properties. Animating the `border`/
-                // `background` shorthands (or using `transition-all`) let the
-                // browser re-evaluate the whole box each frame, which shifted
-                // rows a couple of pixels on hover and made the mouse bounce
-                // in and out of the wrapper — the flicker in the recording.
-                const commonStyle = {
-                  color: isActive || isHovered ? accent : "var(--text-primary)",
-                  opacity: isActive || isHovered ? 1 : 0.72,
-                  backgroundColor: isHovered && !isActive
-                    ? `${accent}18`
-                    : isActive
-                      ? `${accent}14`
-                      : "transparent",
-                  borderColor: isActive || isHovered ? `${accent}40` : "transparent",
-                  transitionProperty: "color, background-color, border-color, opacity",
-                  transitionDuration: "200ms",
-                };
-
-                if (isExternal) {
-                  const targetHref = resolveNavTarget(page.id);
-                  return (
-                    <Link
-                      key={page.id}
-                      href={targetHref}
-                      target={targetHref.startsWith("http") ? "_blank" : undefined}
-                      rel={targetHref.startsWith("http") ? "noreferrer" : undefined}
-                      onMouseEnter={() => setHoveredPage(page.id)}
-                      onMouseLeave={() => setHoveredPage(null)}
-                      className="flex w-full items-center gap-2 rounded-xl border border-solid px-3 py-3 text-left text-sm font-semibold"
-                      style={commonStyle}
-                    >
-                      <span>{navLabel(page)}</span>
-                      {page.beta && <BetaBadge />}
-                    </Link>
-                  );
-                }
-
-                return (
-                  <button
-                    key={page.id}
-                    onClick={() => router.push(resolveNavTarget(page.id))}
-                    onMouseEnter={() => setHoveredPage(page.id)}
-                    onMouseLeave={() => setHoveredPage(null)}
-                    className="flex w-full items-center gap-2 rounded-xl border border-solid px-3 py-3 text-left text-sm font-semibold"
-                    style={commonStyle}
-                    type="button"
-                  >
-                    <span>{navLabel(page)}</span>
-                    {page.beta && <BetaBadge />}
-                  </button>
-                );
-              };
 
               return (
                 <div key={group.label} className="mb-4 last:mb-0">
@@ -309,6 +466,7 @@ export default function Navigation({ theme }: NavigationProps) {
                         const subKey = `${group.label}::${subgroup.label}`;
                         const isSubExpanded = expandedGroups[subKey] ?? false;
                         const subgroupId = subgroup.id;
+                        const subgroupLock = lockedTier(subgroup);
                         const subgroupActive = subgroupId != null && pathname === subgroupId;
                         const subgroupHovered = subgroupId != null && hoveredPage === subgroupId;
                         const subgroupAccent = theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)';
@@ -347,17 +505,19 @@ export default function Navigation({ theme }: NavigationProps) {
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    router.push(resolveNavTarget(subgroupId));
+                                    router.push(resolveNavTarget({ id: subgroupId, requiredTier: subgroup.requiredTier }));
                                     setExpandedGroups((prev) => ({ ...prev, [subKey]: true }));
                                   }}
-                                  className="flex-1 px-3 py-3 text-left bg-transparent"
+                                  className="flex-1 px-3 py-3 text-left bg-transparent flex items-center gap-2"
                                   style={{ color: "inherit" }}
                                 >
                                   {navLabel(subgroup)}
+                                  {subgroupLock && <TierBadge tier={subgroupLock} />}
                                 </button>
                               ) : (
-                                <span className="flex-1 px-3 py-3" style={{ color: "inherit" }}>
+                                <span className="flex-1 px-3 py-3 flex items-center gap-2" style={{ color: "inherit" }}>
                                   {navLabel(subgroup)}
+                                  {subgroupLock && <TierBadge tier={subgroupLock} />}
                                 </span>
                               )}
                               <button

@@ -1,6 +1,8 @@
-# Vanna : quand la peur s'estompe, les dealers achètent
+# Vanna : comment la baisse de la volatilité implicite peut modifier la couverture des dealers
+> **Note méthodologique mise à jour — elle prévaut sur toute formulation incompatible plus bas.** ZeroGEX estime l’inventaire des dealers à partir de données publiques sans l’observer directement. Le modèle conserve la convention calls positifs/puts négatifs (`Net GEX = Call GEX − Put GEX`) et suppose les dealers nets longs calls et nets shorts puts. Les calls et puts longs ont un gamma positif ; les calls et puts shorts ont un gamma négatif. Le Put Wall est la plus grande concentration de gamma put sous le spot et représente localement un gamma dealer négatif : il peut coïncider avec un support, mais la couverture du put short ne crée pas mécaniquement un plancher. Les walls peuvent migrer avec le spot, le temps et la volatilité implicite alors que l’open interest officiel ne change pas en séance. À l’approche de l’échéance, le gamma se concentre près de l’ATM : le gamma ATM peut augmenter, tandis que le gamma nettement ITM ou OTM tend vers zéro. Le Gamma Flip sélectionné est une transition locale ; le profil peut avoir plusieurs croisements ou aucun croisement significatif. Charm et vanna sont des variations conditionnelles du delta, pas des ordres programmés. Les scores sont des résultats heuristiques du modèle, pas des probabilités calibrées. Un gamma négatif amplifie la direction déjà engagée ; la distance à une cible n’implique pas une répulsion. L’inversion du terme de pin d’EOD Pressure reste donc une heuristique ZeroGEX. Max Pain minimise le paiement intrinsèque agrégé et ne maximise pas exactement le notionnel expirant sans valeur. Le DEX brut mesure le delta des seules options, pas le futur flux de couverture ; prime et côté agresseur ne prouvent ni information, ni ouverture, ni conviction.
 
-*Vanna est la vitesse à laquelle le delta d'une option change lorsque la volatilité implicite change. Quand la peur intégrée dans les prix se dissipe après un événement qui n'a finalement rien produit, vanna oblige les dealers à acheter des actions selon un flux lent et régulier — cette hausse "sans nouvelles" qui apparaît sur le graphique mais jamais dans les volumes.*
+
+*Vanna mesure la sensibilité du delta à la volatilité implicite. La pression de couverture dépend de la chaîne et ne constitue pas un achat automatique.*
 
 ---
 
@@ -28,12 +30,12 @@ Ce déplacement, c'est vanna. Chaque option hors de la monnaie de la chaîne rep
 
 Le sens du flux de vanna dépend de la composition du book, mais le scénario type — celui qui produit la dérive reconnaissable — se déroule ainsi.
 
-Les clients sont, en agrégat, longs en options. Ils achètent des calls pour profiter de la hausse et des puts pour se protéger, et les dealers sont short en face. Considérez les instants qui *suivent* une frayeur : la vol implicite a été poussée à la hausse en amont d'un chiffre de CPI, d'une réunion du FOMC, d'un earnings. Le risque passe. Le mouvement redouté ne se matérialise pas. La vol implicite, qui était chère, commence à se dégonfler au cours des heures et des jours suivants.
+Les clients, en agrégat, vendent des calls en overwriting pour générer du rendement et achètent des puts pour se protéger — de sorte que les dealers sont longs de ces calls et short de ces puts. Considérez les instants qui *suivent* une frayeur : la vol implicite a été poussée à la hausse en amont d'un chiffre de CPI, d'une réunion du FOMC, d'un earnings. Le risque passe. Le mouvement redouté ne se matérialise pas. La vol implicite, qui était chère, commence à se dégonfler au cours des heures et des jours suivants.
 
 Au fur et à mesure que la vol baisse :
 
-1. Les deltas des options hors de la monnaie sur lesquelles le dealer est short dérivent vers zéro.
-2. La position nette short-delta du dealer se réduit — il est mécaniquement moins short le marché qu'il ne l'était.
+1. Les deltas des options hors de la monnaie du book du dealer dérivent vers zéro.
+2. Le delta net *long* des options du dealer se réduit, de sorte que le book penche short face à sa couverture en actions.
 3. Pour rétablir le hedge, il achète des actions.
 4. La vol continue de se dégonfler, donc la dérive continue, donc les achats continuent d'affluer — petits, réguliers, toute la journée.
 

@@ -294,12 +294,38 @@ function initDb(): DatabaseSync {
   // (basic → premium with no intervening cancel) trigger nothing.
   ensureColumn('users', 'paid_welcome_email_sent_at', 'TEXT');
 
+  // One-time in-app "Welcome to Pro" onboarding modal (announces self-service
+  // API-key generation). NULL = not yet shown; set to the ISO timestamp the
+  // first time the member sees/dismisses it, so it greets a new Pro subscriber
+  // exactly once — on their first landing back after the Stripe checkout
+  // redirect. Backfilled to "already seen" for everyone who ALREADY holds a
+  // subscription the boot this column is born, so the popup only reaches
+  // members who subscribe to Pro *after* this ships, never the existing paid
+  // base on their next visit. Gated on ensureColumn's "just added" return so
+  // the backfill runs exactly once (same pattern as email_verified_at above).
+  if (ensureColumn('users', 'pro_welcome_seen_at', 'TEXT')) {
+    db.prepare(
+      `UPDATE users SET pro_welcome_seen_at = ? WHERE stripe_subscription_id IS NOT NULL`,
+    ).run(new Date().toISOString());
+  }
+
   // Idempotency latch for the ~48h-before-trial-end reminder nudge sent by
   // scripts/send-trial-reminders.mts. NULL = eligible, set to the ISO
   // timestamp of the send once delivered. Cleared back to NULL the next
   // time the user enters a fresh 'trialing' window (i.e. signs up for a
   // second trial after a cancellation) so the nudge fires once per trial.
   ensureColumn('users', 'trial_reminder_email_sent_at', 'TEXT');
+
+  // Idempotency latch for the mid-trial VALUE nudge (scripts/send-trial-value-
+  // nudge.mts) — a day-~2 activation email sent EARLIER than the 48h reminder
+  // above, to reach trialing members before the mid-trial cancel wave (most
+  // trial cancels land at 3–7 days' tenure, before the 48h reminder ever fires).
+  // Unlike that reminder this is an engagement email, so its sender honors
+  // marketing_unsubscribed_at and skips already-cancelled trials. NULL =
+  // eligible; set to the ISO timestamp on send. Cleared back to NULL on each
+  // fresh 'trialing' transition (same re-arm as the reminder latch) so a second
+  // trial gets one fresh nudge.
+  ensureColumn('users', 'trial_midpoint_email_sent_at', 'TEXT');
 
   // One-shot latch for the abandoned-checkout recovery email sent by
   // scripts/send-checkout-recovery.mts. NULL = eligible, set to the ISO
@@ -315,6 +341,18 @@ function initDb(): DatabaseSync {
   // timestamp on send. Never cleared: this is the "hey, try the free trial"
   // welcome-mat email, and re-firing after any state churn would spam.
   ensureColumn('users', 'verified_never_paid_email_sent_at', 'TEXT');
+
+  // One-shot latch for the SECOND-touch reactivation email sent ~3 weeks after
+  // the verified-never-paid nudge above, to the same "signed up, never paid"
+  // cohort who ignored that first nudge (see scripts/send-reactivation.mts).
+  // This is the inactive-signup analogue of the churned win-back: the first
+  // touch pitched the standard 7-day trial and didn't land, so this one changes
+  // the offer — an EXTENDED free trial (REACTIVATION_TRIAL_DAYS, granted
+  // server-side at app/api/billing/checkout/route.ts for a ?reactivate=1
+  // arrival). NULL = eligible; set to the ISO timestamp on send. Never cleared:
+  // one extra founder touch is deliberate — a third would be nagging, and this
+  // send honors marketing_unsubscribed_at (below) so opt-outs are excluded.
+  ensureColumn('users', 'reactivation_email_sent_at', 'TEXT');
 
   // One-shot latch for the "finish verifying to unlock your free trial" nudge
   // sent ~2h after signup to users who registered but never clicked the
@@ -371,6 +409,54 @@ function initDb(): DatabaseSync {
   // transition (subscription_lapsed 1 → 0) in the Stripe webhook so a customer
   // who returns and later churns a second time can receive a fresh win-back.
   ensureColumn('users', 'winback_email_sent_at', 'TEXT');
+
+  // One-shot latch for the self-serve retention SAVE (app/save/route.ts): the
+  // automated "keep my access + claim the discount" one-click flow linked from
+  // the cancellation email. NULL = never claimed; set to the ISO timestamp when
+  // the member claims (a win-back coupon is stacked on their subscription and
+  // cancel_at_period_end is cleared, all self-serve — no operator, no reply).
+  // Deliberately PERMANENT and never re-armed: one automated save per account so
+  // the signed link can't be replayed to farm discounts; a repeat retention
+  // still has the manual `make honor-winback-discount` path.
+  ensureColumn('users', 'retention_offer_claimed_at', 'TEXT');
+
+  // Re-armable latch for the payment-recovered confirmation email — the bookend
+  // to the payment-failed nudge. 0 = nothing pending; the Stripe webhook sets it
+  // to 1 when a subscription enters `past_due` (a real renewal failure that drops
+  // the member to 'public'), and CAS-consumes it back to 0 (firing the email) on
+  // the next sync that lands back on `active`. Because the flag is the memory of
+  // "a failure happened," the email fires only on an actual recovery, never on an
+  // ordinary active→active renewal, and it re-arms for a future failure. Also
+  // cleared on customer.subscription.deleted so an exhausted-then-resubscribed
+  // account gets welcome-back, not a spurious recovery note.
+  ensureColumn('users', 'payment_recovery_pending', 'INTEGER NOT NULL DEFAULT 0');
+
+  // ISO timestamp anchoring a bounded payment-recovery grace window. Set by the
+  // Stripe webhook when a subscription first enters `past_due`: an ESTABLISHED
+  // (previously `active`) subscription on a failed renewal, and — when
+  // BILLING_TRIAL_GRACE_ENABLED is on (the default) — a trial-conversion failure
+  // whose trial had ALREADY been granted access (its SetupIntent succeeded; see
+  // the payment-setup gate in the webhook). While set and within
+  // BILLING_PAYMENT_GRACE_DAYS the member keeps their paid tier instead of being
+  // dropped to 'public' on that first failure, so a recoverable decline
+  // (insufficient funds that day, a bank fraud hold, a card the member re-enters
+  // in the portal) doesn't instantly revoke access while Stripe's Smart Retries
+  // attempt the charge. Cleared the moment the subscription leaves `past_due`
+  // (recovery to `active`, or terminal cancel/delete). NULL = no window open. A
+  // trial we WITHHELD (unvalidated card — setup never succeeded, so tier stayed
+  // `public`) is excluded by decidePaymentGrace's previousTierGranted guard: an
+  // unvalidated card never gets grace.
+  ensureColumn('users', 'payment_grace_started_at', 'TEXT');
+
+  // Soft-delete marker for self-service account deletion (see
+  // app/api/account/delete/route.ts + the /account danger zone). NULL = active;
+  // set to the ISO timestamp when the member deletes their account. We keep the
+  // row (not a hard DELETE) so churn/records stay intact, but a non-NULL value
+  // makes the account invisible to every auth path — getUserByEmail and the
+  // session JOIN in core/serverAuth.ts filter it out, so the member can no
+  // longer log in (local or OAuth) and all live sessions are severed. Also
+  // excluded from the win-back cohort and any other outbound email.
+  ensureColumn('users', 'deleted_at', 'TEXT');
 
   // Email verification gate. NULL = not yet verified; set to the ISO timestamp
   // at which the user proved ownership (either by clicking a verification
@@ -440,6 +526,17 @@ function initDb(): DatabaseSync {
     'CREATE INDEX IF NOT EXISTS idx_page_view_events_created ON page_view_events(created_at);'
   );
 
+  // Acquisition source (utm_source) captured on the LANDING page view, so the
+  // admin "Conversion by Source" view can divide registrations-by-source by
+  // landing-visits-by-source. NULL for organic/direct arrivals. Added via
+  // ensureColumn so existing installs pick it up on the next boot. The partial
+  // index keeps the source aggregation cheap without bloating the dominant
+  // NULL (organic) cohort.
+  ensureColumn('page_view_events', 'utm_source', 'TEXT');
+  db.exec(
+    'CREATE INDEX IF NOT EXISTS idx_page_view_events_utm_source ON page_view_events(utm_source, created_at) WHERE utm_source IS NOT NULL;'
+  );
+
   // Optional, user-supplied X (formerly Twitter) handle, surfaced as a
   // contact/social field in Account settings. Deliberately NOT collected at
   // signup — a user opts in later from the Social Media section. Stored
@@ -447,6 +544,13 @@ function initDb(): DatabaseSync {
   // NULL when unset. Unverified — treat as a display/contact hint, never as an
   // identity or auth signal.
   ensureColumn('users', 'x_handle', 'TEXT');
+
+  // First-touch acquisition source (utm_source) captured at signup from the
+  // zgx_src cookie dropped on the landing page (see components/PageAnalytics).
+  // Powers the admin "Conversion by Source" funnel — registrations grouped by
+  // the campaign that first brought the user. NULL for organic/direct signups
+  // and for accounts created before this shipped.
+  ensureColumn('users', 'signup_utm_source', 'TEXT');
 
   return db;
 }

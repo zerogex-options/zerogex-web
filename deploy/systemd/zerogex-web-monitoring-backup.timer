@@ -1,0 +1,17 @@
+[Unit]
+Description=ZeroGEX web Admin->Monitoring data backup timer (every 6h)
+
+[Timer]
+# Every 6 hours at :15. The subscriber/MRR daily samples change at most a few
+# times a day (and the in-process sampler writes them at most every 6h), so
+# there's nothing to gain from backing up more often. Offset from :00 and :30
+# to dodge the hourly auth backup (top of hour) and the 02:00/02:30 crons.
+OnCalendar=*-*-* 00,06,12,18:15:00
+# Spread load / avoid a thundering herd if several boxes share a bucket.
+RandomizedDelaySec=3m
+# If the box was down at the scheduled time, run as soon as it is back —
+# the main reason to prefer a timer over cron for backups.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

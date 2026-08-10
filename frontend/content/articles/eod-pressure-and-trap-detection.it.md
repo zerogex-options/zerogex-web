@@ -159,9 +159,9 @@ Il pattern classico: in un regime long-gamma con posizionamento dei dealer in ra
 
 Il segnale cerca due setup simmetrici:
 
-> **Bear trap su un fake al rialzo.** Il prezzo sbuca sopra un livello di resistenza — `call_wall`, `max_gamma_strike`, `vwap`, o `gamma_flip` — ma le condizioni strutturali indicano che il breakout fallirà. Produce un punteggio *negativo* (`bearish_fade`).
+> **Bull trap su un fake al rialzo.** Il prezzo sbuca sopra un livello di resistenza — `call_wall`, `max_gamma_strike`, `vwap`, o `gamma_flip` — ma le condizioni strutturali indicano che il breakout fallirà. Produce un punteggio *negativo* (`bearish_fade`).
 
-> **Bull trap su un fake al ribasso.** Il prezzo sbuca sotto il supporto — `put_wall`, `max_gamma_strike`, `vwap`, o `gamma_flip` — ma il breakdown sembra falso. Produce un punteggio *positivo* (`bullish_fade`).
+> **Bear trap su un fake al ribasso.** Il prezzo sbuca sotto il supporto — `put_wall`, `max_gamma_strike`, `vwap`, o `gamma_flip` — ma il breakdown sembra falso. Produce un punteggio *positivo* (`bullish_fade`).
 
 Il segno dell'output codifica la direzione da *fadare*, non la direzione in cui il prezzo ha appena rotto.
 
@@ -171,13 +171,13 @@ Il segno dell'output codifica la direzione da *fadare*, non la direzione in cui 
 
 | Punteggio | Etichetta | Interpretazione per il trader |
 |-------|-------|----------------------|
-| +0.5 – +1.0 | `bullish_fade` | Bull-trap-fade ad alta convinzione. La rottura al ribasso è falsa — attesa uno scatto indietro verso l'alto. |
+| +0.5 – +1.0 | `bullish_fade` | Bear-trap-fade ad alta convinzione. La rottura al ribasso è falsa — attesa uno scatto indietro verso l'alto. |
 | +0.25 – +0.5 | `bullish_fade` (attivato) | Moderato. Considerare entrate long in mean-reversion. |
 | 0 – +0.25 | sotto soglia | Convinzione debole; non azionabile da sola. |
 | 0 | nessuno | Nessuna trappola in formazione. Lo stato di default. |
 | 0 – −0.25 | sotto soglia | Convinzione debole. |
-| −0.25 – −0.5 | `bearish_fade` (attivato) | Bear-trap-fade moderato. Fadare i long, attesa un'inversione al ribasso. |
-| −0.5 – −1.0 | `bearish_fade` | Bear-trap-fade ad alta convinzione. Fadare i rally dentro il breakout. |
+| −0.25 – −0.5 | `bearish_fade` (attivato) | Bull-trap-fade moderato. Fadare i long, attesa un'inversione al ribasso. |
+| −0.5 – −1.0 | `bearish_fade` | Bull-trap-fade ad alta convinzione. Fadare i rally dentro il breakout. |
 
 La soglia di attivazione qui è **0.25** — deliberatamente più severa dello 0.20 di EOD Pressure. I setup trap richiedono una convinzione più alta per attivarsi attivamente perché fare trading contro un breakout attivo comporta un rischio di coda più alto rispetto a seguire il flusso di fine giornata.
 

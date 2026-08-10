@@ -1,4 +1,6 @@
 # Squeeze Setup, Positioning Trap & Trap Detection: Drei Signale, Drei Geschichten
+> **Aktualisierter Methodikhinweis — er hat Vorrang vor abweichenden Formulierungen weiter unten.** ZeroGEX schätzt Dealerbestände aus öffentlichen Daten; es beobachtet sie nicht. Das Modell behält die Call-positiv/Put-negativ-Konvention bei (`Net GEX = Call GEX − Put GEX`) und unterstellt Dealer netto long Calls und netto short Puts. Long Calls und Long Puts haben positives Gamma; Short Calls und Short Puts negatives Gamma. Die Put Wall ist die größte Put-Gamma-Konzentration unter Spot und lokal modelliertes negatives Dealer-Gamma: Sie kann mit Unterstützung zusammenfallen, doch das Hedging eines Short Puts erzeugt keinen mechanischen Boden. Walls können sich durch Spot, Zeit und implizite Volatilität verschieben, obwohl das offizielle Open Interest intraday unverändert bleibt. Nahe Verfall konzentriert sich Gamma am Geld; ATM-Gamma kann steigen, während deutlich ITM- oder OTM-Gamma gegen null geht. Der ausgewählte Gamma Flip ist ein lokaler Übergang; ein Profil kann mehrere oder keine aussagekräftige Kreuzung haben. Charm und Vanna sind bedingte Deltaänderungen, keine geplanten Orders. Signalwerte sind heuristische Modellergebnisse, keine kalibrierten Wahrscheinlichkeiten. Negatives Gamma verstärkt die bereits laufende Richtung; die Entfernung zu einem Ziel impliziert keine Abstoßung. Die Vorzeichenumkehr des EOD-Pressure-Pin-Terms bleibt daher eine ZeroGEX-Heuristik. Max Pain minimiert die aggregierte intrinsische Auszahlung und maximiert nicht exakt den wertlos verfallenden Nominalwert. Rohes DEX misst Optionsdelta, nicht künftigen Hedge-Flow; Prämie und Aggressorseite beweisen weder Information noch Eröffnung oder Überzeugung.
+
 
 Wer sich schon einmal etwas länger im Signals-Tab aufgehalten hat, dem sind wahrscheinlich drei Namen aufgefallen, die klingen, als würden sie dasselbe messen: Squeeze Setup, Positioning Trap und Trap Detection. Alle drei liefern eine übersichtliche Zahl zwischen −1 und +1. Alle drei wechseln je nach Richtung das Vorzeichen. Und alle drei leuchten rund um dieselben Arten von Wendepunkten auf.
 
@@ -54,7 +56,7 @@ Drei Signale. Drei Thesen. Dieselbe Zahlenlinie.
 - Nähe zum Gamma-Flip
 - Net-GEX-Regime (geglättet via tanh)
 
-**Wie es bewertet wird:** Eine gewichtete Summe — 0,45 auf Überfüllung, 0,25 auf Ungleichgewichts-Skew, 0,15 auf Momentum, 0,10 auf Flip-Neigung, 0,05 auf negatives-GEX-Regime — unabhängig berechnet für die Squeeze-Seite (long Crowd im Risiko) und die Flush-Seite (short Crowd im Risiko). Beide werden zu einem einzigen Score verrechnet.
+**Wie es bewertet wird:** Eine gewichtete Summe — 0,45 auf Überfüllung, 0,25 auf Ungleichgewichts-Skew, 0,15 auf Momentum, 0,10 auf Flip-Neigung, 0,05 auf negatives-GEX-Regime — unabhängig berechnet für die Squeeze-Seite (short Crowd im Risiko) und die Flush-Seite (long Crowd im Risiko). Beide werden zu einem einzigen Score verrechnet.
 
 Im Gegensatz zu den anderen beiden hat Positioning Trap kein Trigger-Flag — es fließt als kontinuierliche Komponente (Gewicht 0,06) in das MSI-Composite ein und öffnet das `positioning_trap_squeeze`-Playbook bei abs(score) ≥ 0,5.
 
@@ -108,7 +110,7 @@ Ein paar Muster, auf die man achten sollte:
 
 **Konfluenz (hohe Überzeugung):** Squeeze Setup +0,5 und Trap Detection +0,4 → der Markt ist nach oben aufgestaut, und ein Bruch nach unten ist gerade gescheitert. Beide Signale zeigen aus unterschiedlichen Blickwinkeln auf denselben Trade.
 
-**Sequenz (bessere Einstiege):** Positioning Trap markiert eine long Crowd bei +0,7 → abwarten. Trap Detection dreht dann ins Negative (Ausbruch nach oben scheitert) → das ist der Funke. Den Fade mit der Crowd als Treibstoff handeln.
+**Sequenz (bessere Einstiege):** Positioning Trap markiert eine long Crowd bei −0,7 → abwarten. Trap Detection dreht dann ins Negative (Ausbruch nach oben scheitert) → das ist der Funke. Den Fade mit der Crowd als Treibstoff handeln.
 
 **Widerspruch (nicht handeln):** Squeeze Setup sagt +0,6 (long gehen mit dem Ausbruch). Trap Detection sagt −0,5 (der Ausbruch nach oben scheitert). Eines der beiden liegt falsch. Auslassen.
 

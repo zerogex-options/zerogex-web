@@ -1,4 +1,6 @@
 # Le signal EOD Pressure expliqué : lire la clôture
+> **Note méthodologique mise à jour — elle prévaut sur toute formulation incompatible plus bas.** ZeroGEX estime l’inventaire des dealers à partir de données publiques sans l’observer directement. Le modèle conserve la convention calls positifs/puts négatifs (`Net GEX = Call GEX − Put GEX`) et suppose les dealers nets longs calls et nets shorts puts. Les calls et puts longs ont un gamma positif ; les calls et puts shorts ont un gamma négatif. Le Put Wall est la plus grande concentration de gamma put sous le spot et représente localement un gamma dealer négatif : il peut coïncider avec un support, mais la couverture du put short ne crée pas mécaniquement un plancher. Les walls peuvent migrer avec le spot, le temps et la volatilité implicite alors que l’open interest officiel ne change pas en séance. À l’approche de l’échéance, le gamma se concentre près de l’ATM : le gamma ATM peut augmenter, tandis que le gamma nettement ITM ou OTM tend vers zéro. Le Gamma Flip sélectionné est une transition locale ; le profil peut avoir plusieurs croisements ou aucun croisement significatif. Charm et vanna sont des variations conditionnelles du delta, pas des ordres programmés. Les scores sont des résultats heuristiques du modèle, pas des probabilités calibrées. Un gamma négatif amplifie la direction déjà engagée ; la distance à une cible n’implique pas une répulsion. L’inversion du terme de pin d’EOD Pressure reste donc une heuristique ZeroGEX. Max Pain minimise le paiement intrinsèque agrégé et ne maximise pas exactement le notionnel expirant sans valeur. Le DEX brut mesure le delta des seules options, pas le futur flux de couverture ; prime et côté agresseur ne prouvent ni information, ni ouverture, ni conviction.
+
 
 *L'analyse approfondie et pratique du signal ZeroGEX EOD Pressure — ce qu'il mesure, pourquoi la clôture connaît une dérive structurelle, comment le score combine charm et pin gravity, et comment le lire au cours des 90 dernières minutes.*
 
@@ -30,7 +32,7 @@ Biais de trading : **lecture directionnelle**. Le signal indique dans quel sens 
 
 Trois mécanismes structurels se cumulent dans la dernière fenêtre de la séance :
 
-1. **La décroissance du charm s'accélère.** À mesure que les options 0DTE approchent de l'expiration, leur delta dérive de façon prévisible vers 0 ou 1. Les dealers qui gèrent un book delta-neutre doivent se recouvrir en continu, et le rythme de cette recouverture *augmente* à l'approche de la clôture.
+1. **La décroissance du charm s'accélère.** À mesure que les options 0DTE approchent de l'expiration, leur delta dérive de façon prévisible vers 0 (hors de la monnaie) ou ±1 (dans la monnaie). Les dealers qui gèrent un book delta-neutre doivent se recouvrir en continu, et le rythme de cette recouverture *augmente* à l'approche de la clôture.
 2. **La pin gravity s'intensifie.** Les strikes à gamma élevé attirent davantage le prix à mesure que le temps avant expiration diminue. Dans un régime long gamma, le magnétisme vers le strike lourd le plus proche se renforce au fil de l'après-midi.
 3. **La liquidité s'amenuise.** Les flux en blocs, le rééquilibrage de fin de journée et les ordres structurels sur indices font passer le profil du flux de continu à saccadé. Les dealers disposent de moins de marge pour absorber les erreurs.
 
@@ -67,9 +69,9 @@ sign         = +1 if net_gex >= 0 else -1
 pin_score    = sign × normalized
 ```
 
-Un pin target situé 0,3 % au-dessus du spot, dans un régime à gamma positif, donne un pin score de +1,0 — l'aimant est au-dessus et la gravité agit. Dans un régime à gamma négatif, ce même pin au-dessus du spot produit un pin score *négatif*, car la couverture des dealers amplifie désormais les mouvements *s'éloignant* du strike.
+**Limite méthodologique :** l’inversion en gamma négatif est une heuristique ZeroGEX, non une conséquence mécanique. Le gamma négatif amplifie une direction déjà engagée ; la distance à la cible ne détermine pas cette direction.
 
-Ce renversement de signe est l'idée clé. La pin gravity n'est pas un niveau fixe. C'est une force dont le signe — et donc la direction — dépend du régime de gamma.
+
 
 ### Composante 3 : la rampe temporelle (le verrou)
 
@@ -164,7 +166,7 @@ L'amplificateur 2,0× lors des jours de quad witching est assez important pour f
 
 EOD Pressure est une **lecture directionnelle** — elle indique dans quel sens penche la pression sans prescrire en soi de suivre ou de faire un fade. La décision fade-versus-suivi vient du régime :
 
-- **Régime à gamma positif + score EOD Pressure positif :** la dérive est haussière, la couverture des dealers amortit — la lecture favorise le fade des rallyes vers le strike aimant pour capter la dérive vers le pin.
+- **Régime à gamma positif + score EOD Pressure positif :** la dérive est haussière, la couverture des dealers amortit — la lecture favorise un positionnement *dans le sens* de la dérive vers le strike aimant (acheter les replis plutôt que de faire un fade à l'approche), et ne réserve le fade qu'aux débordements au-delà de l'aimant.
 - **Régime à gamma négatif + score EOD Pressure positif :** le signal traduit un biais haussier porté par le charm, mais dans un régime à gamma court, le réflexe des dealers amplifie au lieu d'absorber — une poursuite du momentum est plus probable.
 
 Combiné à d'autres signaux :

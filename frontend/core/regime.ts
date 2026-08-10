@@ -6,7 +6,7 @@ export interface RegimeInfo {
   color: string;
   softColor: string;
   copy: string;
-  glyph: '▲' | '▼' | '●' | '■';
+  glyph: '◆' | '●' | '■' | '◇';
   rangeLabel: string;
 }
 
@@ -24,17 +24,17 @@ export const REGIMES: Record<RegimeKey, RegimeInfo> = {
   trend_expansion: {
     key: 'trend_expansion',
     label: 'Trend / Expansion',
-    color: 'var(--color-bull)',
-    softColor: 'var(--color-bull-soft)',
+    color: 'var(--regime-trend)',
+    softColor: 'color-mix(in srgb, var(--regime-trend) 16%, transparent)',
     copy: 'Strong directional regime — favor trades in the prevailing bias.',
-    glyph: '▲',
+    glyph: '◆',
     rangeLabel: '≥ 70',
   },
   controlled_trend: {
     key: 'controlled_trend',
     label: 'Controlled Trend',
-    color: 'var(--color-bull)',
-    softColor: 'var(--color-bull-soft)',
+    color: 'var(--regime-controlled)',
+    softColor: 'color-mix(in srgb, var(--regime-controlled) 16%, transparent)',
     copy: 'Moderate directional edge — trade with reduced size.',
     glyph: '●',
     rangeLabel: '40 – 70',
@@ -42,8 +42,8 @@ export const REGIMES: Record<RegimeKey, RegimeInfo> = {
   chop_range: {
     key: 'chop_range',
     label: 'Chop / Range',
-    color: 'var(--color-warning)',
-    softColor: 'var(--color-warning-soft)',
+    color: 'var(--regime-chop)',
+    softColor: 'color-mix(in srgb, var(--regime-chop) 16%, transparent)',
     copy: 'Range-bound — fade extremes, avoid trend trades.',
     glyph: '■',
     rangeLabel: '20 – 40',
@@ -51,10 +51,10 @@ export const REGIMES: Record<RegimeKey, RegimeInfo> = {
   high_risk_reversal: {
     key: 'high_risk_reversal',
     label: 'High-Risk Reversal',
-    color: 'var(--color-bear)',
-    softColor: 'var(--color-bear-soft)',
+    color: 'var(--regime-reversal)',
+    softColor: 'color-mix(in srgb, var(--regime-reversal) 16%, transparent)',
     copy: 'Mean-reversion only — extreme move risk elevated.',
-    glyph: '▼',
+    glyph: '◇',
     rangeLabel: '< 20',
   },
 };

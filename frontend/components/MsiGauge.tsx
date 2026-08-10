@@ -13,10 +13,10 @@ function regimeBand(score: number | null): { label: string; color: string; descr
   if (score == null || !Number.isFinite(score)) {
     return { label: 'No data', color: 'var(--color-text-secondary)', description: 'No reading available.' };
   }
-  if (score >= 70) return { label: 'Trend / Expansion', color: 'var(--color-bull)', description: 'Directional trades in prevailing bias.' };
-  if (score >= 40) return { label: 'Controlled Trend', color: '#75cfa1', description: 'Moderate directional edge; size down.' };
-  if (score >= 20) return { label: 'Chop / Range', color: 'var(--color-warning)', description: 'Fade extremes; avoid trend trades.' };
-  return { label: 'High-Risk Reversal', color: 'var(--color-bear)', description: 'Broken or dislocated; mean-reversion only.' };
+  if (score >= 70) return { label: 'Trend / Expansion', color: 'var(--regime-trend)', description: 'Directional trades in prevailing bias.' };
+  if (score >= 40) return { label: 'Controlled Trend', color: 'var(--regime-controlled)', description: 'Moderate directional edge; size down.' };
+  if (score >= 20) return { label: 'Chop / Range', color: 'var(--regime-chop)', description: 'Fade extremes; avoid trend trades.' };
+  return { label: 'High-Risk Reversal', color: 'var(--regime-reversal)', description: 'Broken or dislocated; mean-reversion only.' };
 }
 
 export default function MsiGauge({ score, size = 260, label = 'Composite Score', subLabel }: MsiGaugeProps) {
@@ -36,10 +36,10 @@ export default function MsiGauge({ score, size = 260, label = 'Composite Score',
 
   const segments = useMemo(() => {
     const arcs = [
-      { from: 0, to: 20, color: 'var(--color-bear)' },
-      { from: 20, to: 40, color: 'var(--color-warning)' },
-      { from: 40, to: 70, color: '#75cfa1' },
-      { from: 70, to: 100, color: 'var(--color-bull)' },
+      { from: 0, to: 20, color: 'var(--regime-reversal)' },
+      { from: 20, to: 40, color: 'var(--regime-chop)' },
+      { from: 40, to: 70, color: 'var(--regime-controlled)' },
+      { from: 70, to: 100, color: 'var(--regime-trend)' },
     ];
     return arcs.map((a) => arcPath(cx, cy, radius, startAngle + (a.from / 100) * angleRange, startAngle + (a.to / 100) * angleRange));
   }, [cx, cy, radius, angleRange]);
@@ -66,10 +66,10 @@ export default function MsiGauge({ score, size = 260, label = 'Composite Score',
         />
         {/* colored segments */}
         {[
-          { from: 0, to: 20, color: 'var(--color-bear)' },
-          { from: 20, to: 40, color: 'var(--color-warning)' },
-          { from: 40, to: 70, color: '#75cfa1' },
-          { from: 70, to: 100, color: 'var(--color-bull)' },
+          { from: 0, to: 20, color: 'var(--regime-reversal)' },
+          { from: 20, to: 40, color: 'var(--regime-chop)' },
+          { from: 40, to: 70, color: 'var(--regime-controlled)' },
+          { from: 70, to: 100, color: 'var(--regime-trend)' },
         ].map((seg, i) => (
           <path
             key={i}

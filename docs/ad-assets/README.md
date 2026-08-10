@@ -14,6 +14,10 @@ charity-partner badge (`assets/branding/folds-of-honor-logo.svg`). Exported at 2
 | `warm-5-vanna-charm.png` | `#warm5` | WARM | 1:1 | Even the second-order Greeks. | `/pricing` |
 | `convert-5-offer.png` | `#convert6` | CONVERT | 1:1 | Trade positioning, not guesswork. | `/pricing` |
 | `convert-6-folds-of-honor.png` | `#convert7` | CONVERT | 1:1 | Institutional gamma. A cause behind it. | `/pricing` |
+| `convert-7-gamma-chart.png` | `#convert-gamma` | CONVERT | 1:1 | See what the market makers see. | `/pricing` |
+| `convert-8-strike-profile.png` | `#convert-profile` | CONVERT | 1:1 | Trade positioning, not guesswork. | `/pricing` |
+| `convert-9-msi-regime.png` | `#convert-msi` | CONVERT | 1:1 | Read the regime in real time. | `/pricing` |
+| `convert-10-trade-bias.png` | `#convert-bias` | CONVERT | 1:1 | Regime, bias & playbook. One screen. | `/pricing` |
 
 Post copy + UTMs: [`../twitter-ad-campaign.md`](../twitter-ad-campaign.md) §6.
 

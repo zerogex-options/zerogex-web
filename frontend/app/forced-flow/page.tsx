@@ -3,6 +3,7 @@
 import { useTimeframe, type UnderlyingSymbol } from '@/core/TimeframeContext';
 import { usePageT } from '@/core/LanguageContext';
 import { dict } from './page.i18n';
+import ForcedFlowRead from '@/components/ForcedFlowRead';
 import ForcedFlowRail from '@/components/ForcedFlowRail';
 import ForcedFlowCurveChart from '@/components/ForcedFlowCurveChart';
 import CharmIntoCloseChart from '@/components/CharmIntoCloseChart';
@@ -13,7 +14,7 @@ import ForcedFlowTrackRecord from '@/components/ForcedFlowTrackRecord';
 // The on-page selector drives the shared TimeframeContext symbol (same source
 // of truth as the global header picker), so switching here stays in lockstep
 // with the rest of the app.
-const SYMBOLS: UnderlyingSymbol[] = ['SPY', 'SPX', 'QQQ'];
+const SYMBOLS: UnderlyingSymbol[] = ['SPY', 'SPX', 'QQQ', 'NDX'];
 
 export default function ForcedFlowPage() {
   const { symbol, setSymbol } = useTimeframe();
@@ -50,6 +51,21 @@ export default function ForcedFlowPage() {
       <p className="text-sm mb-6" style={{ color: 'var(--text-secondary)' }}>
         <strong>{t('heading')}</strong> {t('descriptionBody')}
       </p>
+
+      {/* The Read: verdict-first hero. One plain-language call — regime,
+          into-close forced flow, and the magnet level — off the live
+          /forced-flow endpoints. Everything below it is the evidence. */}
+      <div className="mb-8">
+        <ForcedFlowRead symbol={symbol} />
+      </div>
+
+      {/* Evidence — the scenario views the read is built from. */}
+      <div className="flex items-baseline gap-3 mb-3">
+        <h2 className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
+          The evidence
+        </h2>
+        <span className="flex-1 h-px" style={{ background: 'var(--border-default)' }} />
+      </div>
 
       {/* Hero row: slim regime rail beside the flagship reprice curve. */}
       <div className="grid grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)] gap-6 mb-6">

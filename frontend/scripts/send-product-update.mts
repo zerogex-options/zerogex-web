@@ -317,6 +317,18 @@ if (audience === 'subscribers') {
     )[0]?.n ?? 0;
 }
 
+// Idempotency: which cohort members already received this campaign. Computed
+// up front so the dry-run / preview and the actual send all report the same
+// "to send" set — and we only ever list the recipients that will get an email.
+const alreadySent = new Set(
+  querySqlite<{ user_id: string }>(
+    dbPath,
+    `SELECT user_id FROM audit_events WHERE type = '${CAMPAIGN}_sent';`,
+  ).map((r) => r.user_id),
+);
+const toSend = rows.filter((r) => !alreadySent.has(r.id));
+const alreadyCount = rows.length - toSend.length;
+
 console.log(`Auth DB:        ${dbPath}`);
 console.log(`Audience:       ${audience}`);
 console.log(`Email:          ${FILES[audience].html} / ${FILES[audience].text}`);
@@ -326,13 +338,22 @@ if (audience === 'registrants') {
   console.log(`Excluded:       ${excludedNudged} already got the verified-never-paid nudge`);
 }
 console.log(`Cohort size:    ${rows.length}`);
+if (alreadyCount > 0) console.log(`Already emailed: ${alreadyCount} (skipped)`);
+console.log(`To send:        ${toSend.length}`);
 
-if (rows.length === 0) {
-  console.log('\nNothing to do.');
+if (toSend.length === 0) {
+  console.log(
+    rows.length > 0
+      ? '\nEveryone in this cohort has already received this update. Nothing to do.'
+      : '\nNothing to do.',
+  );
   process.exit(0);
 }
-for (const r of rows.slice(0, 10)) console.log(`  - ${r.email} (signed up ${r.created_at})`);
-if (rows.length > 10) console.log(`  ... and ${rows.length - 10} more`);
+
+// Only list the recipients that will actually get an email.
+const SAMPLE = 30;
+for (const r of toSend.slice(0, SAMPLE)) console.log(`  - ${r.email} (signed up ${r.created_at})`);
+if (toSend.length > SAMPLE) console.log(`  ... and ${toSend.length - SAMPLE} more`);
 
 // ---- CSV export ------------------------------------------------------------
 
@@ -399,21 +420,14 @@ if (cli.send) {
     process.exit(1);
   }
 
-  // Idempotency: skip anyone already stamped for this campaign.
-  const alreadySent = new Set(
-    querySqlite<{ user_id: string }>(
-      dbPath,
-      `SELECT user_id FROM audit_events WHERE type = '${CAMPAIGN}_sent';`,
-    ).map((r) => r.user_id),
-  );
-  let todo = rows.filter((r) => !alreadySent.has(r.id));
-  const skipped = rows.length - todo.length;
-  if (cli.limit) todo = todo.slice(0, cli.limit);
+  // `toSend` was computed up front (cohort minus already-emailed). Apply --limit.
+  const batch = cli.limit ? toSend.slice(0, cli.limit) : toSend;
 
   console.log(
-    `\nWill send to ${todo.length} recipient(s)` +
-      (skipped ? ` (skipping ${skipped} already sent)` : '') +
-      (cli.limit ? ` [--limit ${cli.limit}]` : '') +
+    `\nWill send to ${batch.length} recipient(s)` +
+      (cli.limit && toSend.length > cli.limit
+        ? ` (of ${toSend.length} to send; --limit ${cli.limit})`
+        : '') +
       `.\nList-Unsubscribe header: ${cli.listUnsub ? 'ON' : 'OFF'}`,
   );
 
@@ -421,15 +435,11 @@ if (cli.send) {
     console.log('\nRefusing to send without --yes. Add --yes to deliver for real.');
     process.exit(1);
   }
-  if (todo.length === 0) {
-    console.log('Nothing left to send.');
-    process.exit(0);
-  }
 
   let ok = 0;
   let fail = 0;
-  for (let i = 0; i < todo.length; i++) {
-    const user = todo[i];
+  for (let i = 0; i < batch.length; i++) {
+    const user = batch[i];
     const res = await sendOne(
       RESEND_API_KEY,
       buildPayload(user.email, subject, buildUnsubUrl(APP_URL, user.id)),
@@ -450,8 +460,8 @@ if (cli.send) {
       fail++;
       if (fail <= 10) console.error(`  FAIL ${user.email}: ${res.status} ${res.body}`);
     }
-    if ((i + 1) % 25 === 0) console.log(`  ...${i + 1}/${todo.length} (${ok} ok, ${fail} fail)`);
-    if (i < todo.length - 1 && cli.throttleMs > 0) await sleep(cli.throttleMs);
+    if ((i + 1) % 25 === 0) console.log(`  ...${i + 1}/${batch.length} (${ok} ok, ${fail} fail)`);
+    if (i < batch.length - 1 && cli.throttleMs > 0) await sleep(cli.throttleMs);
   }
 
   console.log(`\nDone. ${ok} sent, ${fail} failed.`);

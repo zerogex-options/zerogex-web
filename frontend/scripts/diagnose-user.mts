@@ -14,6 +14,7 @@ import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 
 import Stripe from 'stripe';
+import { formatCardBrand } from '../core/stripeCard.ts';
 
 // The July-1 founding deferral landed in commit 06b7128. founders whose
 // subscription started before this got charged immediately; founders after it
@@ -324,6 +325,56 @@ function formatMoney(amount: number | null | undefined, currency: string | null 
   }
 }
 
+// Resolve a Stripe reference that may be a bare id string or an expanded object
+// down to its id.
+function idOf(ref: unknown): string | null {
+  if (!ref) return null;
+  if (typeof ref === 'string') return ref;
+  if (typeof ref === 'object' && typeof (ref as { id?: unknown }).id === 'string') {
+    return (ref as { id: string }).id;
+  }
+  return null;
+}
+
+// The card the ~48h trial reminder will name at conversion, resolved the same
+// way resolveCard does in send-trial-reminders.mts — subscription default, then
+// customer invoice-settings default, then (for a Checkout-created trial that
+// leaves both slots empty) the most recently attached card in the customer's
+// PM list — plus which slot it came from. Read-only; mirrors the reminder so a
+// blank charge/card line in the email is explained right here.
+async function resolveCardOnFile(
+  sub: Stripe.Subscription,
+  customerId: string,
+): Promise<{ brand: string | null; last4: string; source: string } | null> {
+  const subPm = sub.default_payment_method;
+  if (subPm && typeof subPm === 'object' && 'card' in subPm && subPm.card?.last4) {
+    return { brand: subPm.card.brand ?? null, last4: subPm.card.last4, source: 'subscription default' };
+  }
+
+  let pmId = idOf(subPm);
+  let source = 'subscription default';
+  if (!pmId) {
+    const customer = await stripe.customers.retrieve(customerId);
+    if (!('deleted' in customer && customer.deleted)) {
+      pmId = idOf(customer.invoice_settings?.default_payment_method);
+      source = 'customer invoice-settings default';
+    }
+  }
+
+  if (pmId) {
+    const pm = await stripe.paymentMethods.retrieve(pmId);
+    if (pm.card?.last4) return { brand: pm.card.brand ?? null, last4: pm.card.last4, source };
+    return null;
+  }
+
+  const cards = await stripe.paymentMethods.list({ customer: customerId, type: 'card', limit: 1 });
+  const card = cards.data[0]?.card;
+  if (card?.last4) {
+    return { brand: card.brand ?? null, last4: card.last4, source: 'customer card list (no default set)' };
+  }
+  return null;
+}
+
 try {
   const customer = await stripe.customers.retrieve(user.stripe_customer_id);
   header('Stripe customer');
@@ -349,10 +400,33 @@ try {
   kv('Lookup error', e.code === 'resource_missing' ? 'resource_missing' : e.message);
 }
 
+// Every payment method attached to the customer, across all types. This makes a
+// "Card on file: none resolvable" above self-explanatory: the member may have
+// checked out with Link or a wallet (a non-card PM, so no brand/last4 to name),
+// or have no PM at all (a real conversion risk — the trial-end charge will fail).
+try {
+  const pms = await stripe.paymentMethods.list({ customer: user.stripe_customer_id, limit: 20 });
+  header('Stripe payment methods (all types)');
+  if (pms.data.length === 0) {
+    console.log('  (none attached — trial-end charge has nothing to bill)');
+  } else {
+    for (const pm of pms.data) {
+      const detail = pm.card
+        ? `${formatCardBrand(pm.card.brand) ?? pm.card.brand ?? 'card'} ····${pm.card.last4} exp ${pm.card.exp_month}/${pm.card.exp_year}`
+        : '(no card object — wallet/bank/Link)';
+      kv(pm.type, `${pm.id} — ${detail}`);
+    }
+  }
+} catch (err) {
+  const e = err as StripeError;
+  header('Stripe payment methods (all types)');
+  kv('Lookup error', e.message);
+}
+
 if (user.stripe_subscription_id) {
   try {
     const sub = await stripe.subscriptions.retrieve(user.stripe_subscription_id, {
-      expand: ['items.data.price', 'discounts'],
+      expand: ['items.data.price', 'discounts', 'default_payment_method'],
     });
     header('Stripe subscription');
     kv('ID', sub.id);
@@ -382,6 +456,85 @@ if (user.stripe_subscription_id) {
     } else {
       kv('Discounts', 'none');
     }
+    // The exact amount Stripe will charge on the next cycle, AFTER every applied
+    // discount — i.e. what the ~48h trial reminder now quotes (both read it from
+    // the upcoming-invoice preview). Shown right under the list price + discounts
+    // so a discounted member's real charge is obvious at a glance ($59 list, a
+    // coupon, $29 upcoming). Best-effort: a sub with nothing upcoming (set to
+    // cancel at period end, etc.) has no preview, so we say so rather than crash.
+    try {
+      const upcoming = await stripe.invoices.retrieveUpcoming({
+        customer: user.stripe_customer_id,
+        subscription: sub.id,
+      });
+      kv(
+        'Upcoming invoice',
+        `${formatMoney(upcoming.amount_due, upcoming.currency)} (next charge, after all discounts)`,
+      );
+    } catch (e) {
+      const upErr = e as StripeError;
+      kv(
+        'Upcoming invoice',
+        upErr.code === 'invoice_upcoming_none'
+          ? 'none scheduled (e.g. cancels at period end)'
+          : `unavailable (${upErr.message})`,
+      );
+    }
+
+    // The payment-method slots Stripe consults to auto-charge when the trial
+    // converts: the subscription's own default first, then the customer's
+    // invoice-settings default. This is the ground truth for "will the renewal
+    // actually charge?" — distinct from the "Card on file" line below, which for
+    // a Checkout trial falls back to the newest card in the PM list for DISPLAY
+    // even when neither default is wired. sub.default_payment_method is expanded
+    // on the retrieve above, so when it's set we decode its card inline.
+    const subDefaultPm = sub.default_payment_method;
+    const subDefaultId = idOf(subDefaultPm);
+    const subDefaultDesc =
+      subDefaultPm && typeof subDefaultPm === 'object'
+        ? subDefaultPm.card
+          ? `${subDefaultPm.id} — ${formatCardBrand(subDefaultPm.card.brand) ?? subDefaultPm.card.brand ?? 'card'} ····${subDefaultPm.card.last4}`
+          : `${subDefaultPm.id} — (no card object — wallet/bank/Link)`
+        : subDefaultId ?? 'not set';
+    kv('Sub default PM', subDefaultDesc);
+
+    let customerDefaultPmId: string | null = null;
+    try {
+      const cust = await stripe.customers.retrieve(user.stripe_customer_id);
+      if (!('deleted' in cust && cust.deleted)) {
+        customerDefaultPmId = idOf(cust.invoice_settings?.default_payment_method);
+      }
+    } catch {
+      // Non-fatal: the sub slot still prints; only the customer fallback is unknown.
+    }
+    kv('Customer default PM', customerDefaultPmId ?? 'not set');
+    if (!subDefaultId && !customerDefaultPmId) {
+      console.log(
+        '      note: neither default set — Stripe has no wired PM for the auto-charge;',
+      );
+      console.log(
+        '            conversion relies on Stripe finding a usable method at invoice time.',
+      );
+    }
+
+    // The card the ~48h reminder will name (or why it can't) — same resolution
+    // the reminder uses. When this says "none resolvable", the reminder still
+    // quotes the price but with neutral "payment method on file" wording rather
+    // than naming a card. "no default set" means the card lives only in the
+    // customer's PM list (typical for a Checkout trial); the reminder falls back
+    // to it too for display.
+    try {
+      const cardOnFile = await resolveCardOnFile(sub, user.stripe_customer_id);
+      kv(
+        'Card on file',
+        cardOnFile
+          ? `${formatCardBrand(cardOnFile.brand) ?? cardOnFile.brand ?? 'card'} ending in ${cardOnFile.last4} — ${cardOnFile.source}`
+          : 'none resolvable — reminder shows the price with neutral wording, no card named',
+      );
+    } catch (e) {
+      kv('Card on file', `unavailable (${(e as StripeError).message})`);
+    }
+
     const metaPairs = Object.entries(sub.metadata ?? {});
     if (metaPairs.length > 0) {
       kv('Metadata', metaPairs.map(([k, v]) => `${k}=${v}`).join(', '));

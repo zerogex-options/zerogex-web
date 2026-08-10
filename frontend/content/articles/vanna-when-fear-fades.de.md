@@ -1,6 +1,8 @@
-# Vanna: Wenn die Angst schwindet, kaufen die Dealer
+# Vanna: Wie fallende IV das Dealer-Hedging verändern kann
+> **Aktualisierter Methodikhinweis — er hat Vorrang vor abweichenden Formulierungen weiter unten.** ZeroGEX schätzt Dealerbestände aus öffentlichen Daten; es beobachtet sie nicht. Das Modell behält die Call-positiv/Put-negativ-Konvention bei (`Net GEX = Call GEX − Put GEX`) und unterstellt Dealer netto long Calls und netto short Puts. Long Calls und Long Puts haben positives Gamma; Short Calls und Short Puts negatives Gamma. Die Put Wall ist die größte Put-Gamma-Konzentration unter Spot und lokal modelliertes negatives Dealer-Gamma: Sie kann mit Unterstützung zusammenfallen, doch das Hedging eines Short Puts erzeugt keinen mechanischen Boden. Walls können sich durch Spot, Zeit und implizite Volatilität verschieben, obwohl das offizielle Open Interest intraday unverändert bleibt. Nahe Verfall konzentriert sich Gamma am Geld; ATM-Gamma kann steigen, während deutlich ITM- oder OTM-Gamma gegen null geht. Der ausgewählte Gamma Flip ist ein lokaler Übergang; ein Profil kann mehrere oder keine aussagekräftige Kreuzung haben. Charm und Vanna sind bedingte Deltaänderungen, keine geplanten Orders. Signalwerte sind heuristische Modellergebnisse, keine kalibrierten Wahrscheinlichkeiten. Negatives Gamma verstärkt die bereits laufende Richtung; die Entfernung zu einem Ziel impliziert keine Abstoßung. Die Vorzeichenumkehr des EOD-Pressure-Pin-Terms bleibt daher eine ZeroGEX-Heuristik. Max Pain minimiert die aggregierte intrinsische Auszahlung und maximiert nicht exakt den wertlos verfallenden Nominalwert. Rohes DEX misst Optionsdelta, nicht künftigen Hedge-Flow; Prämie und Aggressorseite beweisen weder Information noch Eröffnung oder Überzeugung.
 
-*Vanna ist die Rate, mit der sich das Delta einer Option ändert, wenn sich die implizite Volatilität ändert. Wenn eingepreiste Angst nach einem Ereignis abfließt, das nie eingetreten ist, zwingt vanna Dealer dazu, Aktien in einem langsamen, stetigen Rinnsal zu kaufen — jenes "steigt ohne Nachrichten"-Muster, das im Chart auftaucht, aber nie im Volumen.*
+
+*Vanna misst die Sensitivität des Deltas gegenüber impliziter Volatilität. Der Hedge-Druck hängt von der Kettenstruktur ab und ist kein automatischer Kauf.*
 
 ---
 
@@ -28,12 +30,12 @@ Diese Verschiebung ist vanna. Jede Out-of-the-Money-Option in der Kette bepreist
 
 Die Richtung des Vanna-Flows hängt davon ab, wie das Buch zusammengesetzt ist, aber das Lehrbuch-Setup — dasjenige, das das erkennbare Grinding erzeugt — läuft so ab.
 
-Kunden sind in Summe long Optionen. Sie kaufen Calls für Aufwärtspotenzial und Puts zur Absicherung, und Dealer sind auf der anderen Seite short. Betrachten Sie die Momente *nach* einem Schreckmoment: Die implizite Vol wurde im Vorfeld eines CPI-Prints, eines FOMC-Meetings, eines Earnings-Termins hochgetrieben. Das Risiko zieht vorbei. Die befürchtete Bewegung bleibt aus. Die implizite Vol, die reichhaltig war, beginnt in den folgenden Stunden und Tagen abzubluten.
+Kunden schreiben in Summe Calls für Rendite (Overwriting) und kaufen Puts zur Absicherung — Dealer sind daher long diese Calls und short diese Puts. Betrachten Sie die Momente *nach* einem Schreckmoment: Die implizite Vol wurde im Vorfeld eines CPI-Prints, eines FOMC-Meetings, eines Earnings-Termins hochgetrieben. Das Risiko zieht vorbei. Die befürchtete Bewegung bleibt aus. Die implizite Vol, die reichhaltig war, beginnt in den folgenden Stunden und Tagen abzubluten.
 
 Während die Vol fällt:
 
-1. Die Deltas der Out-of-the-Money-Optionen, in denen der Dealer short ist, driften Richtung null.
-2. Die Netto-Short-Delta-Position des Dealers schrumpft — er ist mechanisch weniger short im Markt, als er es war.
+1. Die Deltas der Out-of-the-Money-Optionen im Buch des Dealers driften Richtung null.
+2. Das Netto-*Long*-Options-Delta des Dealers schrumpft, sodass das Buch gegenüber seinem Aktien-Hedge short kippt.
 3. Um den Hedge wiederherzustellen, kauft er Aktien.
 4. Die Vol blutet weiter aus, also geht die Drift weiter, also kommt das Kaufen weiter — klein, stetig, den ganzen Tag über.
 

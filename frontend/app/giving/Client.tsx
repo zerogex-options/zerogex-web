@@ -39,7 +39,7 @@ const FOH_URL = 'https://foldsofhonor.org';
 // Folds of Honor partner-tracked donation URL — same URL the QR code
 // encodes. Donations through this link are attributed to the ZeroGEX
 // partner page inside FOH's donor system.
-const FOH_DONATION_URL = 'https://foldsofhonorpartners.donorsupport.co/page/ZeroGX';
+const FOH_DONATION_URL = 'https://foldsofhonorpartners.donorsupport.co/page/ZeroGEX';
 
 function formatUsd(amount: number): string {
   return new Intl.NumberFormat('en-US', {
@@ -50,14 +50,18 @@ function formatUsd(amount: number): string {
   }).format(amount);
 }
 
+// UTC-pinned so a date-only ISO like "2026-10-05" renders as "October 5, 2026"
+// for every viewer regardless of their local timezone. Without timeZone: 'UTC',
+// Date parses "2026-10-05" as midnight UTC and toLocaleDateString shifts back
+// a calendar day in Western Hemisphere zones ("Oct 4, 2026" in EDT).
 function formatDate(iso: string | null): string {
   if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
 }
 
 function formatShortDate(iso: string | null): string {
   if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
 }
 
 // ── Section heading ───────────────────────────────────────────────────────────
@@ -476,7 +480,7 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
                   rel="noreferrer"
                   style={{ color: C.amber, fontWeight: 600, textDecoration: 'none' }}
                 >
-                  foldsofhonorpartners.donorsupport.co/page/ZeroGX
+                  foldsofhonorpartners.donorsupport.co/page/ZeroGEX
                 </a>
                 {t('faq4A2')}
               </>

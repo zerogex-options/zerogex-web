@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Copy, Download, ImageDown, RotateCcw } from 'lucide-react';
 import {
+  useGEXProfile,
   useGEXSummary,
   useMarketQuote,
   useSessionCloses,
@@ -15,13 +16,14 @@ import {
   fmtTimeET,
   HORIZONS,
   projectedIndexSpot,
+  sampleGexProfile,
   type HorizonKey,
 } from './bulletinHelpers';
 import { nodeToPngBlob, nodeToPngDataUrl, rasterizeSvg } from './imageExport';
 import { usePageT } from '@/core/LanguageContext';
 import { dict } from './LiveBulletinClient.i18n';
 
-const SYMBOLS = ['SPX', 'SPY', 'QQQ'] as const;
+const SYMBOLS = ['SPX', 'SPY', 'QQQ', 'NDX'] as const;
 type Symbol = (typeof SYMBOLS)[number];
 
 const HORIZON_KEYS = Object.keys(HORIZONS) as HorizonKey[];
@@ -56,13 +58,16 @@ export default function LiveBulletinClient({ watermark = true }: { watermark?: b
     };
   }, []);
 
-  // QQQ's correct implied-vol input is VXN (Nasdaq-100); SPX/SPY use VIX.
-  const volIndex: 'VIX' | 'VXN' = symbol === 'QQQ' ? 'VXN' : 'VIX';
+  // QQQ/NDX's correct implied-vol input is VXN (Nasdaq-100); SPX/SPY use VIX.
+  const volIndex: 'VIX' | 'VXN' = symbol === 'QQQ' || symbol === 'NDX' ? 'VXN' : 'VIX';
 
   const { data: summary } = useGEXSummary(symbol, 10000);
   const { data: quote } = useMarketQuote(symbol, 5000);
   const { data: sessionCloses } = useSessionCloses(symbol, 60000, quote?.session ?? null);
   const { data: volGauge } = useVolatilityGauge(30000, volIndex);
+  // Spot-shift dealer-gamma curve — sampled at the implied open below so the
+  // Net GEX / posture reads on the same side of the flip as the projected spot.
+  const { data: gexProfile } = useGEXProfile(symbol, 10000);
 
   // During RTH the most recent *completed* close is the prior session, so spot
   // vs current_session_close yields today's intraday change; after the close it
@@ -76,6 +81,10 @@ export default function LiveBulletinClient({ watermark = true }: { watermark?: b
   const spotIsProjected = projection != null;
   const spotSourceLabel = projection?.sourceLabel ?? null;
   const vix = volGauge?.index ?? null;
+  // Only re-evaluate net GEX when the spot is a futures-implied open; in-session
+  // the summary's cash-spot net_gex_at_spot already matches the live spot.
+  const impliedNetGex =
+    spotIsProjected && spot != null ? sampleGexProfile(gexProfile?.profile, spot) : null;
 
   const model = useMemo(
     () =>
@@ -89,8 +98,20 @@ export default function LiveBulletinClient({ watermark = true }: { watermark?: b
         horizon,
         spotIsProjected,
         spotSourceLabel,
+        impliedNetGex,
       }),
-    [symbol, spot, priorClose, summary, vix, volIndex, horizon, spotIsProjected, spotSourceLabel],
+    [
+      symbol,
+      spot,
+      priorClose,
+      summary,
+      vix,
+      volIndex,
+      horizon,
+      spotIsProjected,
+      spotSourceLabel,
+      impliedNetGex,
+    ],
   );
 
   const headline = edited.headline ?? model.headline;

@@ -20,7 +20,7 @@ Il numero che vedi qui è misurato allo spot, non sommato lungo tutta la catena 
 
 ### Gamma Flip
 
-Lo strike in cui la curva del gamma dei dealer attraversa lo zero. Il flip è la linea di regime: sopra, l'hedging è stabilizzante; sotto, l'hedging è amplificante. Il tile mostra sia lo strike assoluto sia la distanza percentuale dallo spot.
+Il livello di prezzo in cui la curva del gamma dei dealer attraversa lo zero. Il flip è la linea di regime: sopra, l'hedging è stabilizzante; sotto, l'hedging è amplificante. Il tile mostra sia il livello assoluto sia la distanza percentuale dallo spot.
 
 ### Call Wall / Put Wall
 

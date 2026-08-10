@@ -136,13 +136,34 @@ const config = {
   // included; each is run through the same transform() below for a consistent
   // lastmod/priority/changefreq. Excluded/redirected slugs are filtered out.
   additionalPaths: async (cfg) => {
-    const routes = ['/', '/pricing', '/articles', '/education', '/guides', '/help'];
+    const routes = [
+      '/',
+      '/about',
+      '/articles',
+      '/education',
+      '/giving',
+      '/guides',
+      '/help',
+      '/help/faqs',
+      '/help/quickstarts',
+      '/pricing',
+      '/privacy',
+      '/real-time-gex-0dte',
+      '/terms',
+      '/trading-mistakes',
+      '/updates',
+    ];
 
     const addDir = (dir, toRoute) => {
       const abs = path.join(PROJECT_ROOT, dir);
       if (!fs.existsSync(abs)) return;
       for (const file of fs.readdirSync(abs)) {
-        if (file.endsWith('.md')) routes.push(toRoute(file.replace(/\.md$/, '')));
+        // Localizations are cookie-selected variants of the canonical route,
+        // not standalone URLs. Emitting `slug.de` etc. created sitemap-only
+        // 404s and wasted Googlebot's crawl budget.
+        if (file.endsWith('.md') && !/\.(de|es|fr|it)\.md$/.test(file)) {
+          routes.push(toRoute(file.replace(/\.md$/, '')));
+        }
       }
     };
     addDir('content/articles', (slug) => `/education/${slug}`);
@@ -156,6 +177,7 @@ const config = {
       '/spx-gamma-levels',
       '/spy-gamma-levels',
       '/qqq-gamma-levels',
+      '/ndx-gamma-levels',
     ]);
 
     const seen = new Set();
@@ -180,9 +202,10 @@ const config = {
     if (
       urlPath === '/spx-gamma-levels' ||
       urlPath === '/spy-gamma-levels' ||
-      urlPath === '/qqq-gamma-levels'
+      urlPath === '/qqq-gamma-levels' ||
+      urlPath === '/ndx-gamma-levels'
     ) {
-      // Ticker-first lead-magnet pages — the SEO landings for "SPX/SPY/QQQ
+      // Ticker-first lead-magnet pages — the SEO landings for "SPX/SPY/QQQ/NDX
       // gamma levels" intent searches. Each is self-canonical and refreshed
       // every market day, so daily changefreq matches reality and the priority
       // sits just below the homepage.

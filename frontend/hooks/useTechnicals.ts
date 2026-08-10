@@ -309,7 +309,20 @@ function snapshot(entry: CacheEntry): UseTechnicalsResult {
   };
 }
 
-export function useTechnicals(symbol: string): UseTechnicalsResult {
+const FROZEN_TECHNICALS: UseTechnicalsResult = {
+  bars: [],
+  latest: null,
+  symbol: null,
+  assetType: null,
+  sessionDate: null,
+  sessionStartEt: null,
+  sessionEndEt: null,
+  fetchedAt: null,
+  loading: false,
+  error: null,
+};
+
+export function useTechnicals(symbol: string, enabled = true): UseTechnicalsResult {
   const [state, setState] = useState<UseTechnicalsResult>(() => snapshot(getOrCreateCache(symbol)));
   const [trackedSymbol, setTrackedSymbol] = useState(symbol);
 
@@ -319,6 +332,8 @@ export function useTechnicals(symbol: string): UseTechnicalsResult {
   }
 
   useEffect(() => {
+    // Disabled: caller supplies its own data (delayed snapshot). Do no network.
+    if (!enabled) return;
     const entry = getOrCreateCache(symbol);
     ensureSeed(symbol);
     ensureBackgroundReload(symbol);
@@ -338,9 +353,9 @@ export function useTechnicals(symbol: string): UseTechnicalsResult {
         entry.pollTimer = null;
       }
     };
-  }, [symbol]);
+  }, [symbol, enabled]);
 
-  return state;
+  return enabled ? state : FROZEN_TECHNICALS;
 }
 
 /**

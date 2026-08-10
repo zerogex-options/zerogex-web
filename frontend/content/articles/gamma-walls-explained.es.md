@@ -1,4 +1,6 @@
 # Gamma Walls explicados: Call Wall, Put Wall y cómo reacciona el precio
+> **Nota metodológica actualizada — prevalece sobre cualquier formulación incompatible posterior.** ZeroGEX estima, pero no observa, el inventario de los dealers a partir de datos públicos. El modelo conserva la convención calls positivos/puts negativos (`Net GEX = Call GEX − Put GEX`) y supone dealers netos largos de calls y cortos de puts. Las calls y puts largas tienen gamma positiva; las calls y puts cortas tienen gamma negativa. El Put Wall es la mayor concentración de gamma de puts por debajo del spot y representa localmente gamma negativa modelada del dealer: puede coincidir con soporte, pero la cobertura de una put corta no crea mecánicamente un suelo. Los walls pueden migrar por spot, tiempo y volatilidad implícita aunque el open interest oficial no cambie intradía. Al acercarse el vencimiento, la gamma se concentra cerca del ATM: la gamma ATM puede aumentar, mientras la gamma claramente ITM u OTM tiende a cero. El Gamma Flip seleccionado es una transición local; el perfil puede tener varios cruces o ninguno significativo. Charm y vanna son cambios condicionales de delta, no órdenes programadas. Las puntuaciones son resultados heurísticos, no probabilidades calibradas. La gamma negativa amplifica la dirección ya iniciada; la distancia a un objetivo no implica repulsión. Por ello, la inversión del término pin de EOD Pressure sigue siendo una heurística de ZeroGEX. Max Pain minimiza el pago intrínseco agregado y no maximiza exactamente el nocional que vence sin valor. El DEX bruto mide delta solo de opciones, no flujo futuro de cobertura; la prima y el lado agresor no prueban información, apertura ni convicción.
+
 
 *Los gamma walls son los niveles más observados en el análisis de posicionamiento de los dealers. Esto es lo que realmente es un gamma wall, el significado de call wall y put wall, por qué el precio reacciona en ellos, cómo se desplazan durante la jornada y cuándo aguantan frente a cuándo se rompen.*
 
@@ -16,7 +18,7 @@ Este artículo recorre qué es cada wall, por qué el precio tiende a reaccionar
 
 ## ¿Qué es un call wall?
 
-El call wall es el strike por encima del spot que concentra la mayor exposición gamma en calls. En un régimen de gamma positiva, los dealers con inventario short-call deben vender en los rallies que se acercan al wall — desprendiéndose del delta que acumularon mientras el precio subía hacia él. Ese reflejo de cobertura se opone al rally.
+El call wall es el strike por encima del spot que concentra la mayor exposición gamma en calls. En un régimen de gamma positiva, los dealers con inventario long-call deben vender en los rallies que se acercan al wall — desprendiéndose del delta positivo que acumulan mientras el precio sube hacia él. Ese reflejo de cobertura se opone al rally.
 
 En la práctica, el call wall suele actuar como **resistencia** en regímenes de gamma larga — no porque el nivel sea mágico, sino porque el flujo de cobertura que se activa a su alrededor es estructural.
 
@@ -30,7 +32,7 @@ Cosas que conviene saber:
 
 ## ¿Qué es un put wall?
 
-El put wall es el strike por debajo del spot con la mayor exposición gamma en puts. En un régimen de gamma positiva, los dealers con inventario short-put deben comprar mientras el precio cae hacia él — recomprando el delta que habían soltado durante la caída. Ese reflejo contrarresta el selloff.
+El put wall es el strike por debajo del spot con la mayor exposición gamma en puts. En un régimen de gamma positiva, el libro neto de los dealers está largo de gamma, de modo que compra mientras el precio cae hacia el wall — el reflejo espejo del call wall, con las compras concentradas donde la gamma en puts es más densa. Ese reflejo contrarresta el selloff.
 
 En la práctica, el put wall suele actuar como **soporte** en regímenes de gamma larga. Al igual que el call wall, el mecanismo es estructural, no psicológico.
 

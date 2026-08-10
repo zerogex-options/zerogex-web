@@ -10,7 +10,7 @@ ZeroGEX hat drei Konto-Tiers. Sie bestimmen, welche Daten und Signale du siehst.
 
 | Tier | Für wen | Was du bekommst |
 | --- | --- | --- |
-| Public | Stöbern, Weiterbildung | Die Landing-Site, Education, Guides, Artikel, kostenlose SPX-/SPY-/QQQ-Gamma-Level-Seiten (15 Minuten verzögert) |
+| Public | Stöbern, Weiterbildung | Die Landing-Site, Education, Guides, Artikel, kostenlose SPX-/SPY-/QQQ-/NDX-Gamma-Level-Seiten (15 Minuten verzögert) |
 | Basic | Aktive Intraday-Trader | Dashboard, Live Bulletin, alle Metrics, Strategy Builder, Live Options Quotes, alle Basic Signals |
 | Pro | Ernsthafte Operator | Alles aus Basic + alle Advanced Signals + Composite Score + Backtesting + API-Zugang |
 
@@ -21,14 +21,14 @@ Die aktuelle Aufschlüsselung — und ein 14-tägiger Testzugang — findest du 
 ### Public (kein Konto nötig)
 
 - Die Marketing-Site (Landing, About, Education Hub, Articles, Guides)
-- Kostenlose SPX-, SPY- und QQQ-Gamma-Level-Seiten — etwa 15 Minuten verzögert
+- Kostenlose SPX-, SPY-, QQQ- und NDX-Gamma-Level-Seiten — etwa 15 Minuten verzögert
 - Help Center, FAQs, Quick Starts
 - Datenschutz, AGB
 
 ### Basic-Tier
 
 - **Dashboard** — vollständige Echtzeit-Metriken
-- **Live Bulletin** — Streaming-Feed der Signalereignisse
+- **Live Bulletin** — ein teilbereiter Live-Snapshot der Dealer-Gamma-Positionierung
 - **Alle Metrics-Seiten** — Dealer Positioning, GEX Summary & Greeks, Flow Analysis, Smart Money, Max Pain, Technicals
 - **Basic Signals** — Tape Flow Bias, Skew Delta, Vanna/Charm Flow, Dealer Delta Pressure, GEX Gradient, Positioning Trap
 - **Strategy Builder** — vollständiges Options-Pricing und P&L
@@ -48,7 +48,6 @@ Einige Seiten existieren für alle Tiers, verhalten sich aber unterschiedlich je
 
 - Das **Dashboard** ist für Basic und Pro vollständig befüllt. Public-Nutzer sehen eine Teaser-Ansicht, die nach der Anmeldung zur Live-Seite verlinkt.
 - Der Bereich **Signals** in der Seitenleiste ist immer sichtbar — jeder kann auf einen Signalnamen klicken. Ohne Zugang führt der Klick zur Seite [Pricing](/pricing), damit du siehst, was ihn freischaltet.
-- Badges und Chips im **Live Bulletin** sind tier-abhängig: Elemente, die nur für Pro freigeschaltet sind, zeigen Basic-Nutzern einen kleinen Lock-Chip.
 
 ## So upgradest du oder wechselst den Tier
 

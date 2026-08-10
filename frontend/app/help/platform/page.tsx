@@ -77,7 +77,7 @@ const sections: Section[] = [
         href: '/help/platform/live-bulletin',
         title: 'Using the Live Bulletin',
         blurb:
-          'The streaming feed of signal events, regime shifts, and notable flow. How items are scored, ordered, and what each row actually means.',
+          'A live, share-ready snapshot of dealer gamma positioning: the regime, the key levels (flip, walls, max pain), net GEX, and the expected-range band on one card you can export.',
       },
     ],
   },

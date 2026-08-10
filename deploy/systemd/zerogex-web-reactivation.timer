@@ -1,0 +1,19 @@
+[Unit]
+Description=ZeroGEX web second-touch reactivation email timer (daily)
+
+[Timer]
+# Once a day at 16:40 UTC (~12:40 PM ET in summer / 11:40 AM ET in winter — a
+# reasonable US-daytime send). The :40 minute keeps it clear of the hourly auth
+# backup at :00, the trial-reminder timer at :15, the verify-reminder timer at
+# :20, the verified-never-paid timer at :30, the win-back timer at :35, and the
+# checkout-recovery timer at :45. A daily cadence pairs with the script's 50/run
+# drip cap: the backlog drains ~50/day while new signups age past the 21-day lag
+# into eligibility a few at a time, so a once-daily tick is plenty.
+OnCalendar=*-*-* 16:40:00
+# Spread load across deploys / coalesce if the box wakes many timers at once.
+RandomizedDelaySec=5m
+# If the box was down at the scheduled time, run as soon as it is back up.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

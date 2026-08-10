@@ -309,11 +309,14 @@ function snapshot(entry: CacheEntry): UseStrikeProfileTimeseriesResult {
  * seed and background reload still run so re-subscribing later /
  * resuming gets fresh data without a full reload.
  */
+const FROZEN_TIMESERIES: UseStrikeProfileTimeseriesResult = { buckets: [], loading: false, error: null };
+
 export function useStrikeProfileTimeseries(
   symbol: string,
   timeframe: string,
   expirations: string,
   paused: boolean = false,
+  enabled: boolean = true,
 ): UseStrikeProfileTimeseriesResult {
   const cacheKey = getCacheKey(symbol, timeframe, expirations);
   const [state, setState] = useState<UseStrikeProfileTimeseriesResult>(
@@ -330,6 +333,8 @@ export function useStrikeProfileTimeseries(
   }
 
   useEffect(() => {
+    // Disabled (e.g. the public delayed chart): do no network at all.
+    if (!enabled) return;
     const entry = getOrCreateCache(symbol, timeframe, expirations);
 
     ensureSeed(symbol, timeframe, expirations, entry);
@@ -342,7 +347,7 @@ export function useStrikeProfileTimeseries(
     return () => {
       entry.subscribers.delete(listener);
     };
-  }, [symbol, timeframe, expirations]);
+  }, [symbol, timeframe, expirations, enabled]);
 
   // Tip poll runs in a separate effect so toggling ``paused`` flips it on
   // and off without re-running the seed.  The poll is module-shared via the
@@ -350,7 +355,7 @@ export function useStrikeProfileTimeseries(
   // it running so a paused subscriber doesn't stop the timer for a
   // concurrent unpaused one.
   useEffect(() => {
-    if (paused) return;
+    if (!enabled || paused) return;
     const entry = getOrCreateCache(symbol, timeframe, expirations);
     entry.activePollers += 1;
     if (entry.pollTimer === null) {
@@ -366,7 +371,7 @@ export function useStrikeProfileTimeseries(
         entry.pollTimer = null;
       }
     };
-  }, [symbol, timeframe, expirations, paused]);
+  }, [symbol, timeframe, expirations, paused, enabled]);
 
-  return state;
+  return enabled ? state : FROZEN_TIMESERIES;
 }

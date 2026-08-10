@@ -34,7 +34,7 @@ Puoi comprimere l'intestazione per recuperare spazio verticale — la preferenza
 
 ## Il selettore di simboli
 
-ZeroGEX copre **SPY**, **SPX** e **QQQ**. Il selettore di simboli si trova nell'intestazione. Scegliere un simbolo aggiorna ogni pagina della piattaforma — riquadri della dashboard, segnali, grafici — con quel simbolo.
+ZeroGEX copre **SPY**, **SPX**, **QQQ** e **NDX**. Il selettore di simboli si trova nell'intestazione. Scegliere un simbolo aggiorna ogni pagina della piattaforma — riquadri della dashboard, segnali, grafici — con quel simbolo.
 
 ## Il selettore del timeframe
 

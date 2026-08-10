@@ -30,8 +30,8 @@ Gamma is highest at the money and decays in both directions away from spot. It a
 
 Dealers do not hold options to speculate. They warehouse them as inventory, hedging out the delta as quickly as they can. Their gamma exposure determines how that hedge has to change as price moves.
 
-- A dealer who is **short gamma** must trade **with** the move to stay flat — buying as price rises, selling as it falls. That hedging amplifies the move.
-- A dealer who is **long gamma** trades **against** the move to stay flat — selling as price rises, buying as it falls. That hedging dampens the move.
+- A dealer who is **short gamma** tends to trade **with** the move to stay flat — buying as price rises, selling as it falls. That hedging tends to amplify the move.
+- A dealer who is **long gamma** tends to trade **against** the move to stay flat — selling as price rises, buying as it falls. That hedging tends to dampen the move.
 
 The aggregate dealer gamma exposure across the chain is, in effect, an estimate of how much underlying flow the market makers will have to push through during a given price move, and in which direction. That is what GEX captures.
 
@@ -65,14 +65,14 @@ The dollar interpretation is what makes the number useful: it answers "how much 
 
 ### Signed gamma exposure
 
-To turn raw magnitude into a regime signal, each contract is signed by who holds it. The standard convention assumes:
+Raw gamma magnitude carries no dealer sign on its own — a *long* option, call or put, has positive gamma, and a *short* option has negative gamma. Open interest tells you a contract exists, not whether a dealer is long or short it. To turn magnitude into a regime signal you have to assign a sign, and that takes a model of who holds what. The standard convention assumes:
 
-- Customers are typically net long calls and net long puts.
-- Dealers are therefore typically net short both — short calls contribute positive gamma to the dealer book, short puts contribute negative.
+- Customers are typically net sellers of calls (call overwriting) and net buyers of puts (downside protection).
+- Dealers are therefore modeled as holding the other side — net long the calls and net short the puts. Under that assumption their call inventory (long) contributes positive gamma and their put inventory (short) contributes negative gamma. The minus sign on the put side comes from the modeled *short* position, not from puts being "negative gamma" in themselves — a long put has positive gamma too.
 
-In practice, that produces a signed dealer GEX per strike — positive for calls, negative for puts — that, when summed, gives you the dealer's net exposure across the chain.
+In practice, that produces a signed dealer GEX per strike — positive on the call side, negative on the put side under the convention — that, when summed, gives you the modeled net exposure across the chain.
 
-This is an approximation. Dealer positioning is not directly observable; it is inferred from open interest and the standard customer-long convention. Different vendors handle edge cases differently, and the assumption can break down in unusual flow conditions. As an estimator of regime, though, it has held up well enough to be the standard for years.
+This is a modeled estimate, not observed inventory. Actual dealer positioning is not directly disclosed; it is inferred from open interest under the traditional long-call / short-put convention. Different vendors handle edge cases differently, and the assumption can break down in unusual flow conditions. As an estimator of regime, though, it has held up well enough to be the standard for years.
 
 ### Net GEX versus total GEX
 
@@ -80,6 +80,8 @@ Two aggregate numbers come from the same chain:
 
 - **Total GEX** is the sum of the *absolute* contribution at each strike — a magnitude reading, indifferent to sign. It tells you how much gamma is in the system overall.
 - **Net GEX** is the *signed* sum — calls minus puts. It tells you which side of the dealer book dominates, and whether the aggregate hedging reflex is dampening or amplifying.
+
+> Net GEX is estimated/modeled dealer gamma computed under the traditional call-positive / put-negative open-interest convention — dealers modeled as net long the calls customers sell and net short the puts customers buy. It is not observed inventory; actual dealer positioning is not directly observable from public option-chain data.
 
 Most regime work uses Net GEX. Magnitude matters too — a Net GEX of +$2B is a much sharper regime than +$200M — but the sign is the first read.
 
@@ -90,7 +92,7 @@ There are two ways to extract regime information from the chain:
 1. **Per-strike aggregation** sums signed gamma exposure at each strike at today's spot. It is fast and intuitive.
 2. **Spot-shift dealer gamma** re-prices every option's gamma at every hypothetical spot price on a grid, then sums to a *curve* of dealer gamma versus price. The zero crossing of that curve is the gamma flip; the value at today's spot is Net GEX-at-spot.
 
-The spot-shift approach has one structural advantage: because the headline Net GEX and the gamma flip are read from one curve, they cannot contradict each other. A positive Net GEX always corresponds to spot sitting above the flip; a negative one always sits below. The per-strike approach can produce inconsistent signs when the chain shifts, which is why the spot-shift approach is the industry-standard for serious regime work. The methodology behind the ZeroGEX implementation is documented in detail in [GEX and the Gamma Flip — How ZeroGEX calculates them](/guides/gamma-flip-calculation-before-vs-after).
+ZeroGEX prefers a spot-shift profile because it evaluates modeled gamma across hypothetical underlying prices. Deriving headline Net GEX and the selected flip from the same profile improves internal consistency, while the resolver still must handle multiple, weak, or missing crossings and differences in expiration universes. The methodology behind the ZeroGEX implementation is documented in detail in [GEX and the Gamma Flip — How ZeroGEX calculates them](/guides/gamma-flip-calculation-before-vs-after).
 
 ---
 
@@ -201,8 +203,8 @@ Gamma is not the whole picture. Vanna (vol-driven hedging) creates a persistent 
 
 GEX is the headline read, but it is not the whole dealer book. Two second-order Greeks materially shape dealer hedging flows on top of gamma:
 
-- **Vanna** is the sensitivity of delta to implied vol. When IV moves, dealers' option deltas move even if spot does not — and they have to hedge that. In a vol-compression regime, vanna flows from dealer short calls often manifest as a persistent grinding bid in the underlying.
-- **Charm** is the sensitivity of delta to time. As options approach expiry, their delta drifts predictably — out-of-the-money options decay toward 0, in-the-money ones toward 1 — and dealers must continuously re-hedge that drift. The cleanest place to see charm in the tape is the final 90 minutes of the cash session.
+- **Vanna** is the sensitivity of delta to implied vol. When IV moves, dealers' option deltas move even if spot does not — and they generally hedge that. In a vol-compression regime, vanna-driven hedging from dealers' modeled short-put inventory can add a persistent grinding bid in the underlying, though its direction depends on the book's composition.
+- **Charm** is the sensitivity of delta to time. As options approach expiry, their delta drifts in a predictable direction — out-of-the-money options decay toward 0, in-the-money ones toward 1 for calls and −1 for puts — and dealers tend to re-hedge that drift continuously. The cleanest place to see charm in the tape is the final 90 minutes of the cash session.
 
 Both effects are largest when gamma is also large — which is to say, when 0DTE and short-dated options dominate the chain. Read them together with GEX, not in isolation.
 
@@ -224,8 +226,8 @@ A few traps:
 
 GEX is an estimator of dealer hedging requirements built from open interest under a standard assumption about who holds what. That makes it useful, but it is not a complete picture:
 
-- **OI is a snapshot, not real-time inventory.** Dealer positioning shifts within the day in ways OI does not capture.
-- **The customer-long-call/customer-long-put convention can break.** During unusual flow conditions, the dealer-sign assumption can mis-attribute exposure.
+- **OI is a snapshot, not real-time inventory.** Official open interest is computed through clearing and published for the next session, not updated continuously intraday — and it never reveals who is long or short. Dealer positioning shifts within the day in ways OI does not capture.
+- **The long-call / short-put convention can break.** During unusual flow conditions, the dealer-sign assumption can mis-attribute exposure.
 - **Macro events override structure.** A CPI surprise or an FOMC statement can swamp the dealer reflex.
 - **Single-stock catalysts can move index GEX indirectly.** Earnings, M&A, and component news can reshape SPX flow in ways that show up in GEX with a lag.
 - **Sticky-strike vs. sticky-delta** assumptions matter for spot-shift implementations; different vendors handle this differently.
@@ -257,7 +259,7 @@ The composite read: spot is comfortably in long-gamma territory ($20 above the f
 
 ![ZeroGEX strike-profile chart with the dealer gamma curve, flip line, and walls highlighted](/blog/zerogex-strike-profile-overview.png)
 
-Now imagine the same dashboard 90 minutes later: Net GEX has decayed to +$300M and the gamma flip has drifted up to 5,825 while spot has slipped to 5,818. The regime is now contested — spot is technically below the flip, but only by a few points, and the magnitude has thinned out. That is exactly the structural state where both regimes are partially active, behavior gets unstable, and the right discipline is usually to wait for a cleaner read before committing.
+Now imagine the same dashboard 90 minutes later: Net GEX has decayed to −$150M and the gamma flip has drifted up to 5,825 while spot has slipped to 5,818. The regime is now contested — spot is technically below the flip, but only by a few points, and the magnitude has thinned out. That is exactly the structural state where positive and negative modeled contributions are approximately offset, the net tendency is weak, and the right discipline is usually to wait for a cleaner read before committing.
 
 ---
 

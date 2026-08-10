@@ -10,7 +10,7 @@ ZeroGEX fait tourner deux familles de signaux, et elles se comportent différemm
 
 Les **signaux Advanced** répondent à une question précise et situationnelle ("la clôture est-elle en train de se figer sur un niveau ?", "ce breakout vient-il d'échouer ?"). Chacun produit un score sur une échelle **[-1, +1]** *et* un **trigger** discret : dès que le score franchit le seuil du signal, il déclenche une alerte et peut activer un playbook. Ils sont pilotés par des événements.
 
-Les **signaux Basic** sont continus. Ils ne "se déclenchent" pas — ils alimentent plutôt le **composite MSI** avec un poids fixe, poussant la lecture combinée vers le haut ou vers le bas à chaque rafraîchissement. On les voit comme des inputs pour la vue d'ensemble, pas comme des alertes autonomes.
+Les **signaux Basic** sont continus. Ils ne "se déclenchent" pas — ils alimentent plutôt le **composite MSI** avec un poids fixe, poussant la lecture de régime combinée vers le haut (vers la tendance) ou vers le bas (vers le chop) à chaque rafraîchissement. On les voit comme des inputs pour la vue d'ensemble, pas comme des alertes autonomes.
 
 Trois points valent la peine d'être intériorisés avant les tableaux :
 
@@ -71,9 +71,9 @@ Même échelle numérique, questions très différentes. Voici ce que signifient
 
 | Signal | Score positif | Score négatif | Zéro |
 | --- | --- | --- | --- |
-| Dealer Delta Pressure | Dealers long delta — doivent vendre les rallyes (baissier) | Dealers short delta — doivent acheter les creux (haussier) | Book du dealer équilibré ou OI insuffisant |
-| GEX Gradient | Gamma empilé en dessous du spot (amplificateur baissier en short gamma ; amorti en long gamma) | Gamma empilé au-dessus du spot (biais baissier) | Gradient plat ou OI insuffisant |
-| Positioning Trap | Foule long mal positionnée — loading de short-cover squeeze haussier | Foule short mal positionnée — loading de flush baissier | Aucun extrême de foule détecté |
+| Dealer Delta Pressure | Dealers short delta — doivent acheter les creux (haussier) | Dealers long delta — doivent vendre les rallyes (baissier) | Book du dealer équilibré ou OI insuffisant |
+| GEX Gradient | Gamma empilé en dessous du spot — support en dessous, stabilisant à la hausse (inclinaison haussière) | Gamma empilé au-dessus du spot — support faible en dessous, amplificateur à la baisse (inclinaison baissière) | Gradient plat ou OI insuffisant |
+| Positioning Trap | Foule short mal positionnée — loading de short-cover squeeze haussier | Foule long mal positionnée — loading de flush baissier | Aucun extrême de foule détecté |
 | Skew Delta | Skew des puts *en dessous* de la baseline — la peur se dissipe (inclinaison haussière) | Skew des puts élevé — la peur est pariée (inclinaison baissière) | Skew au niveau de la baseline, ou données manquantes |
 | Tape Flow Bias | L'achat agressif de calls domine le tape (conviction haussière) | L'achat agressif de puts domine le tape (conviction baissière) | Flow de premium équilibré ou volume insuffisant |
 | Vanna/Charm Flow | Le hedging du dealer est un vent arrière acheteur (vol-crush / decay) | Le hedging du dealer est un vent contraire vendeur (vol-up / unwind) | Exposition du dealer équilibrée ou lignes dealer manquantes |

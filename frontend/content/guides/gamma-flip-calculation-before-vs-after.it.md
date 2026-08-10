@@ -22,7 +22,7 @@ Esistono due regimi, separati da un singolo livello di prezzo chiamato **gamma f
 Il primitivo centrale è un'unica curva: il **profilo di gamma dei dealer a spot variabile (spot-shift)**.
 
 1. Prendi lo snapshot odierno della catena di opzioni.
-2. Immagina il titolo a ogni prezzo su una griglia che copre circa ±20% dello spot (in passi dello 0,25% dello spot — qualche centinaio di punti griglia).
+2. Immagina il titolo a ogni prezzo su una griglia che copre circa ±20% dello spot (in passi dello 0,25% dello spot — circa 160 punti griglia).
 3. A ogni prezzo della griglia, **ricalcola il gamma di ogni opzione** con Black-Scholes (il gamma è a sua volta funzione dello spot, quindi non si può usare il valore statico dello snapshot).
 4. Moltiplica il gamma di ogni contratto per `OI × 100 × S² × 0.01` (la convenzione di settore "dollar GEX per movimento dell'1%" usata da SpotGamma / SqueezeMetrics / Cheddar Flow) e applica la convenzione di segno dei dealer (call +, put −).
 5. Pesa ogni contratto con `min(1, DTE / 5 days)` — una rampa di occupazione dell'orizzonte temporale, così un muro 0DTE dello stesso giorno (che porta con sé un picco di gamma colossale in `1/√T`) non può bloccare un livello di regime multi-giornaliero.

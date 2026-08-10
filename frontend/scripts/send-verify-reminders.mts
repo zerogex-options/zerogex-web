@@ -277,6 +277,7 @@ const eligible = querySqlite<UserRow>(
      AND email_verified_at IS NULL
      AND stripe_subscription_id IS NULL
      AND verify_reminder_email_sent_at IS NULL
+     AND deleted_at IS NULL
      AND created_at >= '${escapeSqlLiteral(lowIso)}'
      AND created_at <= '${escapeSqlLiteral(highIso)}'
    ORDER BY created_at ASC;`,

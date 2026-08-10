@@ -42,34 +42,16 @@ const PALETTES: PaletteMeta[] = [
     swatch: ['#171B16', '#A5B875', '#C94B3F', '#E0A7A0'],
   },
   {
-    id: 'miami',
-    name: 'Miami Beach',
-    subtitle: 'Hot pink, neon cyan, cabana yellow',
-    swatch: ['#0B1026', '#FF3CAC', '#00E5FF', '#FFE156'],
-  },
-  {
     id: 'london',
     name: 'London Fog',
     subtitle: 'Racing green, polished brass, weathered stone',
     swatch: ['#14171A', '#D6A94E', '#4FA080', '#D66A5E'],
   },
   {
-    id: 'monaco',
-    name: 'Monaco Riviera',
-    subtitle: 'Riviera navy, Mediterranean blue, roulette gold',
-    swatch: ['#0C1622', '#E0BE5A', '#4F92D8', '#E0685E'],
-  },
-  {
     id: 'zurich',
     name: 'Zürich Vault',
     subtitle: 'Graphite steel, vault gold, alpine snow',
     swatch: ['#131518', '#DCC066', '#7E8B98', '#E0574C'],
-  },
-  {
-    id: 'amalfi',
-    name: 'Amalfi Lemon',
-    subtitle: 'Mediterranean blue, citrus yellow, limewash',
-    swatch: ['#0C1620', '#F0D24E', '#4F9BD8', '#E85C7E'],
   },
   {
     id: 'maldives',
@@ -82,6 +64,24 @@ const PALETTES: PaletteMeta[] = [
     name: 'Tulum Jungle',
     subtitle: 'Cenote jade, terracotta, Caribbean turquoise',
     swatch: ['#0C1512', '#E89A5E', '#35C4A0', '#E0B85A'],
+  },
+  {
+    id: 'vinyl-topanga',
+    name: 'Vinyl Topanga',
+    subtitle: '70s rust-orange, avocado, harvest gold, cream',
+    swatch: ['#2A1A10', '#E86A34', '#9CB84A', '#E0A93B'],
+  },
+  {
+    id: 'monochrome-madison',
+    name: 'Monochrome Madison',
+    subtitle: 'Graphite black-and-white, steel blue, signal red',
+    swatch: ['#0C0D10', '#C2C8D0', '#9FB8D8', '#C6403A'],
+  },
+  {
+    id: 'palm-springs',
+    name: 'Palm Springs',
+    subtitle: 'Cactus green, living coral, turquoise, sand',
+    swatch: ['#14201E', '#F0846A', '#35C0B0', '#E0B36A'],
   },
 ];
 

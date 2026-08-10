@@ -37,9 +37,9 @@ Wo sich der Smart-Money-Flow nach Strike konzentriert hat, farbcodiert nach Rich
 
 Drei Muster:
 
-1. **Smart Money stark long bei Calls + Composite positiv + unterstützender GEX-Gradient** ⇒ die strukturelle Lesart deckt sich mit dem Smart-Money-Flow. Richtungsstark mit hoher Überzeugung.
+1. **Smart Money stark long bei Calls + MSI in einem Trend-Regime (≥ 70) + unterstützender GEX-Gradient** ⇒ die strukturelle Lesart deckt sich mit dem Smart-Money-Flow. Richtungsstark mit hoher Überzeugung.
 2. **Smart Money stark long bei Puts am Put Wall** ⇒ Verteidigung oder Fading. In Kombination mit einer Positioning-Trap-Lesart kann dies ein handelbarer Counter-Bias sein.
-3. **Smart-Money-Flow neutral, Headline-Flow stark** ⇒ die Headline ist retail-getrieben; mit Vorsicht behandeln.
+3. **Smart-Money-Flow neutral, Headline-Flow stark** ⇒ die Headline ist wahrscheinlich breite, wenig überzeugte Beteiligung und kein informiertes Positioning; mit Vorsicht behandeln.
 
 ## Was sie nicht ist
 

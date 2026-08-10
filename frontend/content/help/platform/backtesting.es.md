@@ -16,7 +16,7 @@ La página de Backtesting te permite comprobar cómo se habría comportado una r
 
 ## Los parámetros ajustables
 
-- **Símbolo** — SPY / SPX / QQQ
+- **Símbolo** — SPY / SPX / QQQ / NDX
 - **Rango de fechas** — hasta la profundidad de histórico disponible (indicada en el formulario)
 - **Entrada** — una cesta de patrones, o una regla condicional personalizada con AND
 - **Salida** — objetivos/stops sobre el nivel del subyacente, un overlay de take-profit / stop-loss sobre la prima de la opción, y un stop por tiempo máximo de permanencia (lo que se active primero)

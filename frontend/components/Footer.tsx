@@ -17,6 +17,7 @@ const border = 'var(--border-default)';
 const footerLinks: { href: string; label: string; labelKey: TranslationKey; external: boolean }[] = [
   { href: '/dashboard', label: 'Platform', labelKey: 'footer.platform', external: false },
   { href: '/spx-gamma-levels', label: 'Free Gamma Levels', labelKey: 'footer.freeGammaLevels', external: false },
+  { href: '/updates', label: 'Updates', labelKey: 'footer.updates', external: false },
   { href: '/about', label: 'About', labelKey: 'nav.about', external: false },
   { href: '/giving', label: 'Giving Back', labelKey: 'footer.givingBack', external: false },
   { href: 'https://api.zerogex.io/docs', label: 'API Docs', labelKey: 'footer.apiDocs', external: true },

@@ -2,20 +2,23 @@ import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import {
   Archivo,
+  Bagel_Fat_One,
   Chakra_Petch,
   Cormorant_Garamond,
-  DM_Serif_Display,
   Fraunces,
+  Gloock,
+  Hanken_Grotesk,
   Inter,
   JetBrains_Mono,
+  Jost,
   Libre_Baskerville,
   Newsreader,
   Noto_Sans,
   Outfit,
   Playfair_Display,
-  Poppins,
-  Prata,
+  Rubik,
   Space_Grotesk,
+  Spectral,
 } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/core/ThemeContext';
@@ -29,6 +32,7 @@ import ClientLayout from '@/components/ClientLayout';
 import TelemetryProvider from '@/components/TelemetryProvider';
 import PageAnalytics from '@/components/PageAnalytics';
 import TwitterPixelProvider from '@/components/TwitterPixelProvider';
+import SiteJsonLd from '@/components/SiteJsonLd';
 
 // Site body sans — Inter is the shared body font across every palette.
 const inter = Inter({
@@ -87,14 +91,6 @@ const notoSans = Noto_Sans({
   display: 'swap',
 });
 
-// Miami Beach — display sans, wide geometric 80s marquee.
-const poppins = Poppins({
-  subsets: ['latin'],
-  weight: ['500', '600', '700', '800', '900'],
-  variable: '--font-poppins',
-  display: 'swap',
-});
-
 // London Fog — English editorial serif, foggy and financial.
 const newsreader = Newsreader({
   subsets: ['latin'],
@@ -103,27 +99,11 @@ const newsreader = Newsreader({
   display: 'swap',
 });
 
-// Monaco Riviera — high-fashion didone serif, Riviera glamour.
-const prata = Prata({
-  subsets: ['latin'],
-  weight: ['400'],
-  variable: '--font-prata',
-  display: 'swap',
-});
-
 // Zürich Vault — Swiss grotesque, precise and quiet.
 const archivo = Archivo({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
   variable: '--font-archivo',
-  display: 'swap',
-});
-
-// Amalfi Lemon — elegant Italian display serif.
-const dmSerifDisplay = DM_Serif_Display({
-  subsets: ['latin'],
-  weight: ['400'],
-  variable: '--font-dm-serif',
   display: 'swap',
 });
 
@@ -151,6 +131,56 @@ const chakraPetch = Chakra_Petch({
   display: 'swap',
 });
 
+// Vinyl Topanga — chunky rounded 70s display (Cooper-Black lineage). Ships a
+// single 400 weight, so Vinyl's headings are pinned to 400 in globals.css to
+// avoid a synthesized faux-bold on this already-heavy face.
+const bagelFatOne = Bagel_Fat_One({
+  subsets: ['latin'],
+  weight: ['400'],
+  variable: '--font-bagel-fat-one',
+  display: 'swap',
+});
+
+// Vinyl Topanga — warm rounded body sans.
+const rubik = Rubik({
+  subsets: ['latin'],
+  weight: ['400', '500', '700'],
+  variable: '--font-rubik',
+  display: 'swap',
+});
+
+// Monochrome Madison — Futura-style geometric display, mid-century modernist.
+const jost = Jost({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-jost',
+  display: 'swap',
+});
+
+// Monochrome Madison — serious editorial reading serif.
+const spectral = Spectral({
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  variable: '--font-spectral',
+  display: 'swap',
+});
+
+// Palm Springs — warm boutique serif display.
+const gloock = Gloock({
+  subsets: ['latin'],
+  weight: ['400'],
+  variable: '--font-gloock',
+  display: 'swap',
+});
+
+// Palm Springs — clean modern body sans.
+const hankenGrotesk = Hanken_Grotesk({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-hanken-grotesk',
+  display: 'swap',
+});
+
 const FONT_VARIABLES = [
   inter.variable,
   jetbrainsMono.variable,
@@ -159,23 +189,31 @@ const FONT_VARIABLES = [
   playfair.variable,
   cormorant.variable,
   notoSans.variable,
-  poppins.variable,
   newsreader.variable,
-  prata.variable,
   archivo.variable,
-  dmSerifDisplay.variable,
   outfit.variable,
   fraunces.variable,
   chakraPetch.variable,
+  bagelFatOne.variable,
+  rubik.variable,
+  jost.variable,
+  spectral.variable,
+  gloock.variable,
+  hankenGrotesk.variable,
 ].join(' ');
 
-type PaletteId = 'zerogex-og' | 'mars' | 'california' | 'wallstreet' | 'kyoto' | 'miami' | 'london' | 'monaco' | 'zurich' | 'amalfi' | 'maldives' | 'tulum';
-const PALETTES: PaletteId[] = ['zerogex-og', 'mars', 'california', 'wallstreet', 'kyoto', 'miami', 'london', 'monaco', 'zurich', 'amalfi', 'maldives', 'tulum'];
+type PaletteId = 'zerogex-og' | 'mars' | 'california' | 'wallstreet' | 'kyoto' | 'london' | 'zurich' | 'maldives' | 'tulum' | 'vinyl-topanga' | 'monochrome-madison' | 'palm-springs';
+const PALETTES: PaletteId[] = ['zerogex-og', 'mars', 'california', 'wallstreet', 'kyoto', 'london', 'zurich', 'maldives', 'tulum', 'vinyl-topanga', 'monochrome-madison', 'palm-springs'];
 const DEFAULT_PALETTE: PaletteId = 'zerogex-og';
+// Retired palettes migrate to their nearest successor so a saved preference
+// never resolves to nothing (walnut/pacific/deluxe were earlier renames).
 const LEGACY_PALETTE_MAP: Record<string, PaletteId> = {
   walnut: 'kyoto',
-  pacific: 'miami',
   deluxe: 'wallstreet',
+  pacific: 'palm-springs',
+  miami: 'palm-springs',
+  monaco: 'monochrome-madison',
+  amalfi: 'palm-springs',
 };
 
 // Shared site-wide description, sized for both Google SERP snippets and
@@ -281,6 +319,8 @@ export default async function RootLayout({
     <html lang={locale} className={htmlClass}>
       <head>
         <link rel="icon" href="/favicon.ico" />
+        {/* Site-wide Organization + WebSite structured data (brand entity). */}
+        <SiteJsonLd />
       </head>
       <body style={{ margin: 0, padding: 0 }}>
         <ThemeProvider>

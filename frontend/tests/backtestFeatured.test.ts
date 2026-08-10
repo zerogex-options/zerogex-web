@@ -99,7 +99,7 @@ function featuredToForm(s: FeaturedStrategy, meta: BacktestMeta) {
 
 function makeMeta(overrides: Partial<BacktestMeta> = {}): BacktestMeta {
   return {
-    underlyings: ['SPY', 'SPX', 'QQQ'],
+    underlyings: ['SPY', 'SPX', 'QQQ', 'NDX'],
     data_window: { earliest: '2026-03-20', latest: '2026-06-18' },
     defaults: {
       capital: 25000,

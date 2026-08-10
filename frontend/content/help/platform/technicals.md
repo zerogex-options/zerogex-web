@@ -43,9 +43,9 @@ A small strip showing:
 
 Three patterns:
 
-1. **Price stuck between the call wall and put wall** in positive gamma ⇒ mean-revert intra-range. The technicals confirm the range; the dealer page tells you why.
-2. **Price breaking below the put wall** in negative gamma with IV expanding ⇒ trend continuation. The technicals show the break; the dealer page explains the amplification.
-3. **VWAP and the gamma flip stacking at the same level** ⇒ structural pivot. Reactions at that level are higher-conviction than at either alone.
+1. **Price stuck between the call wall and put wall** in positive gamma ⇒ *tends toward* mean-reversion intra-range. The technicals confirm the range; the dealer page suggests why.
+2. **Price breaking below the put wall** in negative gamma with IV expanding ⇒ trend continuation *becomes more likely*. The technicals show the break; the dealer page explains the modeled amplification.
+3. **VWAP and the gamma flip stacking at the same level** ⇒ a structural pivot worth watching. Reactions there *can* be higher-conviction than at either alone.
 
 ## The intraday-tools view
 

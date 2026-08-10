@@ -32,8 +32,11 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 
+import Stripe from 'stripe';
 import { sendFoundingFinalCallEmail } from '../core/mailer.ts';
+import { resolveFoundingDisplayPricing, type FoundingDisplayPricing } from '../core/offerPricing.ts';
 import {
+  FOUNDING_BILLING_START_LABEL,
   FOUNDING_LOCKIN_DEADLINE_ISO,
   FOUNDING_LOCKIN_DEADLINE_LABEL,
   isFoundingLockinOpen,
@@ -159,6 +162,14 @@ if (exclusiveFlags > 1) {
 const cwd = process.cwd();
 const envLocal = parseEnvFile(path.join(cwd, '.env.local'));
 
+// Hydrate .env.local into process.env (without overriding the live shell env)
+// so core modules that read process.env directly — e.g. core/offerPricing.ts's
+// STRIPE_PRICE_*/STRIPE_COUPON_* lookups — see the app config under systemd,
+// where only HOME/PATH are set. Mirrors how Next.js loads .env.local server-side.
+for (const [key, value] of Object.entries(envLocal)) {
+  if (process.env[key] === undefined) process.env[key] = value;
+}
+
 const RESEND_API_KEY = process.env.RESEND_API_KEY || envLocal.RESEND_API_KEY;
 const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || envLocal.RESEND_FROM_EMAIL;
 const NEXT_PUBLIC_APP_URL =
@@ -185,11 +196,34 @@ if (!isFoundingLockinOpen()) {
   process.exit(0);
 }
 
+// Optional Stripe client — used only to resolve the live founding prices the
+// email quotes (first-year intro rate, the standard rate it's discounted from,
+// and the lifetime %). Best-effort: without STRIPE_SECRET_KEY, or on a Stripe
+// error, foundingPricing stays null and the offer copy falls back to price-free
+// wording, so the email still sends. Prices are the same for everyone, so
+// resolve once up front rather than per user.
+const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || envLocal.STRIPE_SECRET_KEY;
+const stripe: Stripe | null = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY) : null;
+
+let foundingPricing: FoundingDisplayPricing | null = null;
+if (stripe) {
+  try {
+    foundingPricing = await resolveFoundingDisplayPricing(stripe);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'unknown error';
+    console.warn(
+      `Warning: could not resolve live founding pricing (${message}); emails will use price-free copy.`,
+    );
+  }
+}
+
 if (cliArgs.previewTo) {
   console.log(`Sending preview to ${cliArgs.previewTo}...`);
   await sendFoundingFinalCallEmail(cliArgs.previewTo, {
     deadlineLabel: FOUNDING_LOCKIN_DEADLINE_LABEL,
     foundingHref,
+    billingStartLabel: FOUNDING_BILLING_START_LABEL,
+    pricing: foundingPricing,
   });
   console.log('Preview sent.');
   process.exit(0);
@@ -275,6 +309,8 @@ for (let i = 0; i < eligible.length; i++) {
     await sendFoundingFinalCallEmail(user.email, {
       deadlineLabel: FOUNDING_LOCKIN_DEADLINE_LABEL,
       foundingHref,
+      billingStartLabel: FOUNDING_BILLING_START_LABEL,
+      pricing: foundingPricing,
     });
     const nowIso = new Date().toISOString();
     // Stamp the latch FIRST so a partial run that crashes after some sends

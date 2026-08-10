@@ -7,6 +7,7 @@ import { useVolatilityGauge } from "@/hooks/useApiData";
 import { useTheme } from "@/core/ThemeContext";
 import { useTimeframe } from "@/core/TimeframeContext";
 import { interpolateGaugeColor, SingleGauge } from "./VolatilityGauges";
+import ChartCaption from "./ChartCaption";
 
 // ── Zone data ─────────────────────────────────────────────────────────────────
 
@@ -266,6 +267,8 @@ function GaugeCard({ type, value, zoneLabel, isDark, vix, vixTimestamp, indexLab
         />
       </div>
 
+      <ChartCaption />
+
       {/* Hover popup — portal-rendered so it can escape the card's clipping ancestor */}
       {hoverOpen && typeof document !== "undefined" &&
         createPortal(
@@ -308,8 +311,8 @@ interface VolatilityCardProps {
 export default function VolatilityCard({ stacked = false }: VolatilityCardProps = {}) {
   const { theme } = useTheme();
   const { symbol } = useTimeframe();
-  // QQQ's correct implied-vol input is VXN (Nasdaq-100); SPX/SPY use VIX.
-  const volIndex: "VIX" | "VXN" = symbol === "QQQ" ? "VXN" : "VIX";
+  // QQQ/NDX's correct implied-vol input is VXN (Nasdaq-100); SPX/SPY use VIX.
+  const volIndex: "VIX" | "VXN" = symbol === "QQQ" || symbol === "NDX" ? "VXN" : "VIX";
   const { data } = useVolatilityGauge(30000, volIndex);
   const isDark = theme === "dark";
   const fetchedAt = useMemo(() => data?.timestamp ?? "", [data]);

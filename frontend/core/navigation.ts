@@ -34,8 +34,13 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Main',
     labelKey: 'nav.group.main',
     items: [
-      { id: '/dashboard', label: 'Dashboard', labelKey: 'nav.dashboard', requiredTier: 'basic' },
+      { id: '/dashboard', label: 'Main Dashboard', labelKey: 'nav.dashboard', requiredTier: 'basic' },
       { id: '/my-dashboard', label: 'My Dashboard', labelKey: 'nav.myDashboard', requiredTier: 'basic' },
+      // /chart is a public dual-mode route (delayed snapshot for anonymous
+      // visitors, live for subscribers), so it carries no requiredTier — the
+      // route table in core/auth.ts keeps it public and the page branches on
+      // the session. Marking it 'basic' here would wrongly hide it from guests.
+      { id: '/chart', label: 'Gamma Chart' },
       { id: '/live-bulletin', label: 'Live Bulletin', labelKey: 'nav.liveBulletin', requiredTier: 'basic' },
     ],
   },
@@ -98,11 +103,14 @@ export const NAV_GROUPS: NavGroup[] = [
       { id: '/greeks-gex', label: 'GEX Summary', requiredTier: 'basic' },
       { id: '/gex-strike-profile', label: 'GEX Strike Profile', requiredTier: 'basic' },
       { id: '/gex-heatmap', label: 'GEX Heatmap', requiredTier: 'basic' },
+      { id: '/pair-comparison', label: 'Pair Comparison', requiredTier: 'basic', beta: true },
       { id: '/forced-flow', label: 'Forced Flow', requiredTier: 'basic', beta: true },
       { id: '/flow-analysis', label: 'Flow Analysis', requiredTier: 'basic' },
+      { id: '/market-tide', label: 'Market Tide', requiredTier: 'basic', beta: true },
       { id: '/smart-money', label: 'Smart Money', requiredTier: 'basic' },
       { id: '/max-pain', label: 'Max Pain', requiredTier: 'basic' },
       { id: '/intraday-tools', label: 'Technicals', requiredTier: 'basic' },
+      { id: '/volatility', label: 'Volatility', requiredTier: 'basic', beta: true },
     ],
   },
   {
@@ -162,6 +170,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: '/admin/monitoring', label: 'Monitoring', labelKey: 'nav.monitoring', requiredTier: 'admin' },
       { id: '/admin/analytics', label: 'Page Analytics', labelKey: 'nav.pageAnalytics', requiredTier: 'admin' },
+      { id: '/admin/x-post', label: 'X Post Review', requiredTier: 'admin' },
     ],
   },
 ];

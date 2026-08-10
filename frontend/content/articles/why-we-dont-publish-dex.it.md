@@ -1,6 +1,8 @@
-# Perché non pubblichiamo il DEX
+# Perché non pubblichiamo il DEX grezzo come segnale di flusso
+> **Nota metodologica aggiornata — prevale su eventuali formulazioni incompatibili più avanti nella pagina.** ZeroGEX stima, ma non osserva, l’inventario dei dealer dai dati pubblici. Il modello conserva la convenzione call-positive/put-negative (`Net GEX = Call GEX − Put GEX`): i dealer sono ipotizzati net long call e net short put. Call e put long hanno gamma positivo; call e put short hanno gamma negativo. Il Put Wall è la maggiore concentrazione di gamma put sotto lo spot e rappresenta localmente gamma dealer negativo: può coincidere con supporto, ma la copertura della put short non crea meccanicamente un pavimento. I wall possono migrare con spot, tempo e volatilità implicita anche quando l’open interest ufficiale non cambia intraday. Verso la scadenza il gamma si concentra vicino all’ATM: il gamma ATM può aumentare, mentre quello decisamente ITM o OTM tende a zero. Il Gamma Flip selezionato è un passaggio locale; il profilo può avere più passaggi o nessun passaggio significativo. Charm e vanna descrivono variazioni condizionali del delta, non ordini programmati. I punteggi sono output euristici, non probabilità calibrate. Il gamma negativo amplifica la direzione già in corso: la distanza da un target non implica repulsione, quindi l’inversione del termine pin di EOD Pressure resta un’euristica ZeroGEX. Max Pain minimizza il payout intrinseco aggregato, non massimizza esattamente il nozionale che scade senza valore. Il DEX grezzo misura delta delle sole opzioni, non il futuro flusso di copertura; premio e lato aggressore non provano informazione, apertura o convinzione.
 
-*Il Delta Exposure — DEX, la somma del delta di ogni contratto moltiplicato per il suo open interest — sembra il naturale gemello del gamma exposure. Noi ci rifiutiamo di pubblicarlo. Misura l'unico greek che i dealer hanno già coperto fino ad azzerarlo, concentra tutto il suo peso sugli strike dove i dati sono peggiori, ed è più rumoroso proprio dove il flusso forzato è più debole. Ecco il caso completo contro un numero che molti strumenti sono ben felici di venderti.*
+
+*Cosa misura il Delta Exposure delle sole opzioni, cosa omette e dove può ancora essere utile.*
 
 ---
 
@@ -30,7 +32,7 @@ Il GEX misura un'esposizione di cui i dealer *non possono* liberarsi. Il DEX mis
 
 Mettiamo da parte il problema della copertura e concediamo, per amor di discussione, di voler pesare la catena in base al delta. Guardiamo dove finisce quella massa di peso.
 
-Il delta va da 0 a 1. È vicino a 0 per le opzioni molto out-of-the-money, attraversa 0,5 vicino al prezzo di mercato, e si avvicina a 1 per le opzioni molto in-the-money. Confrontalo con il gamma, che raggiunge il picco bruscamente at-the-money e scende verso zero in entrambe le ali. Pesare la catena per delta invece che per gamma fa una cosa specifica: trascina il centro di massa della metrica **verso il lato in-the-money** — e assegna un peso reale alla **coda profondamente in-the-money**, strike che una metrica pesata per gamma ignora correttamente perché il loro gamma è nullo.
+Il delta delle call va da 0 a 1 (il delta delle put da 0 a −1). Prendendo i valori assoluti: |delta| è vicino a 0 per le opzioni molto out-of-the-money, attraversa 0,5 vicino al prezzo di mercato, e si avvicina a 1 per le opzioni molto in-the-money. Confrontalo con il gamma, che raggiunge il picco bruscamente at-the-money e scende verso zero in entrambe le ali. Pesare la catena per delta invece che per gamma fa una cosa specifica: trascina il centro di massa della metrica **verso il lato in-the-money** — e assegna un peso reale alla **coda profondamente in-the-money**, strike che una metrica pesata per gamma ignora correttamente perché il loro gamma è nullo.
 
 Quella coda in-the-money è la parte peggiore della catena su cui appoggiare una metrica:
 

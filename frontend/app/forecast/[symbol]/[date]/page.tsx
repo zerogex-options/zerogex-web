@@ -9,13 +9,11 @@ import SymbolPicker from '@/components/SymbolPicker';
 import TooltipWrapper from '@/components/TooltipWrapper';
 import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
 import { serverApiGet } from '@/core/api/serverFetch';
-import { getServerT } from '@/core/localizedContent';
-import { dict } from './page.i18n';
 
 // Public permalink for one trading day's Gamma Forecast Card.
 //
 // Dual state:
-//   * Morning (07:00 ET): projected range + expected-volatility call + key
+//   * Morning (pre-market): projected range + expected-volatility call + key
 //     levels with touch odds + flagship Playbook setup. Immutable until 4:01 PM.
 //   * Receipt (16:05 ET): same URL re-renders with actual L/H/C overlaid
 //     against the morning band, plus verdicts on each claim (range coverage,
@@ -88,7 +86,13 @@ interface RollingStats {
   window: number;
   n_scored: number;
   range_respected_rate: number | null;
+  range_respected_ci: [number, number] | null;
+  range_baseline: number | null;
   vol_state_correct_rate: number | null;
+  vol_state_correct_ci: [number, number] | null;
+  vol_baseline: number | null;
+  vol_baseline_label: string | null;
+  vol_stats_from: string | null;
   vol_n_scored: number;
   levels_brier_avg: number | null;
   levels_n_scored: number;
@@ -132,11 +136,15 @@ function fmtPct(rate: number | null): string {
   return `${(rate * 100).toFixed(0)}%`;
 }
 
-// Expected-vol ratio → "≈65% of implied" (the realized range the model expects
-// relative to the VIX-implied 1-day move).
-function fmtRatioOfImplied(ratio: number | null): string {
+// Vol ratio → "1.00× normal" — realized (or predicted) daily range as a
+// multiple of a statistically normal day's range (√(8/π)·implied, per-symbol
+// calibrated). 1.0 == an ordinary day; below is compression, above is expansion.
+// (An intraday range averages ~1.6× the 1-σ implied move, so grading against
+// the bare implied move — as the card once did — read every normal day as
+// "expansion"; this denominator is what makes the buckets mean anything.)
+function fmtRatioOfNormal(ratio: number | null): string {
   if (ratio == null || !Number.isFinite(ratio)) return '—';
-  return `≈${(ratio * 100).toFixed(0)}% of implied`;
+  return `${ratio.toFixed(2)}× normal`;
 }
 
 async function loadForecast(day: string, symbol: string): Promise<ForecastPayload | null> {
@@ -171,9 +179,9 @@ export async function generateMetadata({
     : `${sym} · ${human} Forecast — ZeroGEX`;
   const description = data
     ? hasReceipt
-      ? `Receipt for ${sym} on ${human}. Range ${data.receipt!.range_respected ? '✓ held' : '✗ broken'} · Volatility ${data.receipt!.vol_state_correct ? '✓' : '✗'}.`
+      ? `Receipt for ${sym} on ${human}. Range ${data.receipt!.range_respected ? '✓ held' : '✗ broken'} (the graded claim).`
       : `${sym} morning forecast: range ${fmtPrice(data.morning.projected_low)}–${fmtPrice(data.morning.projected_high)}, ${humanize(data.morning.expected_vol_state)} volatility, key gamma levels with touch odds. No direction call.`
-    : 'Daily ZeroGEX Gamma Forecast Card — 7 AM commitment, 4 PM receipt.';
+    : 'Daily ZeroGEX Gamma Forecast Card — pre-market commitment, 4 PM receipt.';
   return {
     title,
     description,
@@ -205,7 +213,6 @@ export default async function ForecastPage({
   if (!isValidDate(date)) notFound();
   const [data, stats] = await Promise.all([loadForecast(date, sym), loadStats(sym)]);
   if (!data) notFound();
-  const t = await getServerT(dict);
 
   const morning = data.morning;
   const receipt = data.receipt;
@@ -214,7 +221,7 @@ export default async function ForecastPage({
   const permalink = `${SITE_URL}/forecast/${sym}/${date}`;
   const pickerHrefs = buildSymbolHrefs((s) => `/forecast/${s}/${date}`);
   const tweetBody = receipt
-    ? `${sym} ${date} receipt — range ${receipt.range_respected ? 'held' : 'broken'}, volatility ${receipt.vol_state_correct ? 'called' : 'missed'} (${fmtRatioOfImplied(receipt.realized_vol_ratio)}).`
+    ? `${sym} ${date} receipt — range ${receipt.range_respected ? 'held' : 'broken'}. Realized vol ${fmtRatioOfNormal(receipt.realized_vol_ratio)} (context).`
     : `${sym} ${date} forecast — range ${fmtPrice(morning.projected_low)}–${fmtPrice(morning.projected_high)}, ${volLabel.toLowerCase()} volatility, key levels with touch odds. No direction call.`;
 
   return (
@@ -225,14 +232,14 @@ export default async function ForecastPage({
             href={sym === 'SPY' ? '/forecast' : `/forecast?symbol=${sym}`}
             className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)]"
           >
-            <ChevronLeft size={14} /> {t('navForecasts')}
+            <ChevronLeft size={14} /> Forecasts
           </Link>
           <span className="text-[var(--color-border)]" aria-hidden="true">·</span>
           <Link
             href="/spx-gamma-levels"
             className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)]"
           >
-            {t('navGammaLevels')}
+            Gamma Levels
           </Link>
         </div>
         <ShareCardButton
@@ -247,15 +254,15 @@ export default async function ForecastPage({
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="text-[11px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
-              ZeroGEX · {receipt ? t('headerReceipt') : t('headerMorning')}
+              ZeroGEX · {receipt ? 'Forecast Receipt' : 'Morning Forecast'}
             </div>
             <h1 className="mt-1 text-2xl font-bold tracking-tight">
               {sym} · {human}
             </h1>
             <p className="mt-1 font-mono text-xs text-[var(--color-text-secondary)]">
               {receipt
-                ? t('committedReceipt', { morningTs: morning.ts ?? '', receiptTs: receipt.ts ?? '' })
-                : t('committedPending', { morningTs: morning.ts ?? '' })}
+                ? `Committed ${morning.ts} · Receipt ${receipt.ts}`
+                : `Committed ${morning.ts} · receipt at 4:05 PM ET`}
             </p>
           </div>
           <SymbolPicker current={sym} hrefs={pickerHrefs} />
@@ -265,11 +272,11 @@ export default async function ForecastPage({
       <section className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
         {/* 1 — Expected range (kept). Containment: how far price can travel. */}
         <Stat
-          label={t('statRangeLabel')}
+          label="Expected range"
           value={`${fmtPrice(morning.projected_low)} – ${fmtPrice(morning.projected_high)}`}
           accent="var(--color-accent)"
           icon={Ruler}
-          tooltip={t('statRangeTooltip')}
+          tooltip="The high–low band we commit each morning before the open, built from the GEX call/put walls plus a volatility-based expansion (event days stretch 1.5×). Graded on coverage — an 80–90% band should contain the day's full range, wicks included."
           verdict={receipt ? (receipt.range_respected ? 'held' : 'broken') : null}
           hint={(() => {
             const parts: string[] = [];
@@ -285,12 +292,9 @@ export default async function ForecastPage({
               parts.push(`−${downPct.toFixed(2)}% / +${upPct.toFixed(2)}%`);
             }
             if (receipt) {
-              parts.push(t('statRangeHintActual', {
-                low: fmtPrice(receipt.actual_low),
-                high: fmtPrice(receipt.actual_high),
-              }));
+              parts.push(`Actual: ${fmtPrice(receipt.actual_low)} – ${fmtPrice(receipt.actual_high)}`);
             } else {
-              parts.push(t('statRangeHintTarget'));
+              parts.push('Walls · VIX/VXN · ATR blend · 90% coverage target');
             }
             return parts.join(' · ');
           })()}
@@ -298,53 +302,48 @@ export default async function ForecastPage({
 
         {/* 2 — Expected volatility (replaces Regime). Energy: how much it moves. */}
         <Stat
-          label={t('statVolLabel')}
+          label="Expected volatility"
           value={volLabel}
           accent="var(--color-accent)"
           icon={Gauge}
-          tooltip={t('statVolTooltip')}
-          verdict={
-            receipt && receipt.vol_state_correct != null
-              ? receipt.vol_state_correct ? 'held' : 'broken'
-              : null
-          }
+          tooltip="How much the day actually moved vs. a statistically normal day: realized daily range ÷ a normal day's range (√(8/π)× ≈1.6× the implied 1-day move, calibrated per symbol so 1.0 = an ordinary day). Long gamma damps it (compression), short gamma amplifies it (expansion). Shown for CONTEXT — not part of the graded scorecard: over our history this call doesn't beat a majority-bucket baseline, so we publish it but don't score it."
+          verdict={null}
           hint={(() => {
             if (receipt) {
-              if (receipt.realized_vol_ratio == null) return t('statVolNotGraded');
-              const verb = receipt.vol_state_correct ? t('statVolAsCalled') : t('statVolOffCall');
-              return t('statVolRealized', { ratio: fmtRatioOfImplied(receipt.realized_vol_ratio), verb });
+              if (receipt.realized_vol_ratio == null) return 'Realized — no implied move on file · informational';
+              return `Realized ${fmtRatioOfNormal(receipt.realized_vol_ratio)} · informational, not scored`;
             }
-            const parts: string[] = [fmtRatioOfImplied(morning.expected_vol_ratio)];
+            const parts: string[] = [`expect ${fmtRatioOfNormal(morning.expected_vol_ratio)}`];
             if (morning.flip_cross_prob != null) {
-              parts.push(t('statVolFlipCross', { pct: fmtPct(morning.flip_cross_prob) }));
+              parts.push(`flip-cross ${fmtPct(morning.flip_cross_prob)}`);
             }
-            parts.push(t('statVolGradedNote'));
+            parts.push('informational — not graded');
             return parts.join(' · ');
           })()}
         />
 
         {/* 3 — Key levels (replaces Pin). Geography: which lines it reaches. */}
         <Stat
-          label={t('statLevelsLabel')}
+          label="Key levels"
           value={(() => {
             const n =
               Object.keys(morning.level_touch_probs ?? {}).length
               + (morning.flip_cross_prob != null ? 1 : 0);
-            return n > 0 ? t('statLevelsValue', { n }) : '—';
+            return n > 0 ? `${n} in play` : '—';
           })()}
           accent="var(--color-accent)"
           icon={Layers}
-          tooltip={t('statLevelsTooltip')}
+          tooltip="The dealer lines in play and how well we called which ones price would reach today — scored by Brier on the ladder below. No direction call."
           verdict={null}
           hint={(() => {
             if (receipt) {
               return receipt.levels_brier != null
-                ? t('statLevelsBrierHint', { value: receipt.levels_brier.toFixed(2) })
-                : t('statLevelsOutcomesHint');
+                ? `Brier ${receipt.levels_brier.toFixed(2)} · outcomes on the ladder below`
+                : 'Outcomes on the ladder below';
             }
-            const parts: string[] = [t('statLevelsTouchHint')];
+            const parts: string[] = ['Touch odds on the ladder below'];
             if (morning.gravity_center != null) {
-              parts.push(t('statLevelsGravityHint', { price: fmtPrice(morning.gravity_center) }));
+              parts.push(`gravity ${fmtPrice(morning.gravity_center)} while long-γ`);
             }
             return parts.join(' · ');
           })()}
@@ -353,7 +352,7 @@ export default async function ForecastPage({
 
       {/* Levels ladder — the geography claim, made visual. Upgrades the old
           plain anchors row into per-line touch odds (morning) / outcomes (receipt). */}
-      <LevelsLadder morning={morning} receipt={receipt} t={t} />
+      <LevelsLadder morning={morning} receipt={receipt} />
 
       {/* The thesis, stated on the card itself. */}
       <section
@@ -361,17 +360,19 @@ export default async function ForecastPage({
         style={{ borderColor: 'var(--color-accent)', background: 'var(--color-accent-soft)' }}
       >
         <div className="text-sm font-bold">
-          {t('thesisPre')}<span style={{ color: 'var(--color-accent)' }}>{t('thesisNot')}</span>{t('thesisPost', { sym })}
+          We do <span style={{ color: 'var(--color-accent)' }}>not</span> forecast which way {sym} goes.
         </div>
         <div className="mt-1 text-xs text-[var(--color-text-secondary)] leading-relaxed">
-          {t('thesisBody')}
+          Three claims — how far price can travel (range), how much it actually moves versus what&rsquo;s
+          priced in (volatility), and which dealer lines it reaches (levels). Gamma structure conditions
+          all three. Direction it does not.
         </div>
       </section>
 
       {morning.flagship_setup && (
         <section className="mb-8 rounded-xl border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-4">
           <div className="text-[10px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
-            {t('flagshipLabel')}
+            Flagship Playbook setup
           </div>
           <div className="mt-1 text-xl font-black tracking-tight">
             {humanize(String(morning.flagship_setup.action ?? '—'))}
@@ -386,7 +387,7 @@ export default async function ForecastPage({
               href={`/cards/${(morning.flagship_setup as { id: number }).id}`}
               className="mt-2 inline-block text-xs underline text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
             >
-              {t('flagshipLink')}
+              View full Action Card permalink ↗
             </Link>
           )}
         </section>
@@ -396,37 +397,67 @@ export default async function ForecastPage({
         <section className="mb-8 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5">
           <div className="text-[10px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)] mb-3">
             {stats.n_scored >= MIN_SCORED_FOR_RATES
-              ? t('trackRecordWithN', { window: stats.window, n: stats.n_scored })
-              : t('trackRecordNoN', { window: stats.window })}
+              ? `Rolling ${stats.window}-day track record (n=${stats.n_scored})`
+              : `Rolling ${stats.window}-day track record`}
           </div>
           {stats.n_scored >= MIN_SCORED_FOR_RATES ? (
-            <div className="grid grid-cols-3 gap-3 text-center">
-              <HitRate label={t('hitRateRange')} rate={stats.range_respected_rate} />
-              <HitRate label={t('hitRateVol')} rate={stats.vol_state_correct_rate} />
-              <BrierStat
-                label={t('brierLabel')}
-                value={stats.levels_brier_avg}
-                tooltip={t('brierTooltip')}
-              />
-            </div>
+            <>
+              <div className="grid grid-cols-1 gap-3 text-center sm:grid-cols-2">
+                <TrackRecord
+                  label="Range coverage"
+                  rate={stats.range_respected_rate}
+                  ci={stats.range_respected_ci}
+                  n={stats.n_scored}
+                  baseline={stats.range_baseline}
+                  baselineLabel="target"
+                  tooltip="Share of graded days whose full high–low range stayed inside the morning band. The 95% Wilson interval shows how firm the number is on this many days; the baseline is the published coverage target it should clear."
+                />
+                <BrierStat
+                  label="Levels Brier"
+                  value={stats.levels_brier_avg}
+                  tooltip="How well-calibrated the touch-odds were: the average of (committed probability − outcome)² across the levels. 0 = perfect, 0.25 = a coin flip. Lower is better."
+                />
+              </div>
+              {stats.vol_state_correct_rate != null && stats.vol_baseline != null && (
+                <div className="mt-3 text-[11px] text-[var(--color-text-secondary)] leading-relaxed">
+                  Expected‑volatility is <em>informational, not graded</em>: over the last{' '}
+                  {stats.vol_n_scored} corrected‑scale receipts it called{' '}
+                  {fmtPct(stats.vol_state_correct_rate)} vs a{' '}
+                  {fmtPct(stats.vol_baseline)} majority‑bucket baseline — no edge yet, so we
+                  publish the call for transparency but don&rsquo;t score it. Range coverage and
+                  levels calibration are the graded claims.
+                </div>
+              )}
+            </>
           ) : (
             <div className="text-xs text-[var(--color-text-secondary)] leading-relaxed">
-              {t('buildingHistory', {
-                n: stats.n_scored,
-                receiptWord: stats.n_scored === 1 ? t('receiptSingular') : t('receiptPlural'),
-                min: MIN_SCORED_FOR_RATES,
-              })}
+              Building history — {stats.n_scored} graded{' '}
+              {stats.n_scored === 1 ? 'receipt' : 'receipts'} so far. A rolling hit rate needs at
+              least {MIN_SCORED_FOR_RATES} graded days to mean anything, so we hold it back until
+              then rather than show a rate a single session could swing to 0% or 100%.
             </div>
           )}
         </section>
       )}
 
       <section className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5 text-xs text-[var(--color-text-secondary)] leading-relaxed">
-        <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">{t('aboutHeading')}</div>
-        {t('aboutBodyPre', { sym })}<em>{t('aboutBodyEm')}</em>{t('aboutBodyPost')}
+        <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">About this forecast</div>
+        Daily commitment for {sym} written each morning before the open, hashed and immutable. The projected range is
+        anchored on the open spot and bounded by the GEX call/put walls with a safety expansion (event
+        days get a 1.5× stretch); it&rsquo;s graded on <em>coverage</em> — an 80–90% band should contain
+        the day that often. Key levels carry the reflection-principle odds that price reaches each wall
+        and crosses the gamma flip today (scaled to the calibrated intraday move), graded by Brier score.
+        These two — <strong>range coverage</strong> and <strong>levels calibration</strong> — are the
+        graded claims, each shown with a 95% confidence interval and a baseline to beat. Expected
+        volatility (realized daily range as a multiple of a <em>normal</em> day&rsquo;s range, √(8/π)≈1.6×
+        the implied 1-day move, calibrated per symbol so 1.0 is an ordinary day) is published for
+        transparency but is <strong>informational, not graded</strong>: on our history it doesn&rsquo;t
+        beat a majority-bucket baseline, so we won&rsquo;t score a call we can&rsquo;t back up. The
+        receipt is written once at 4:05 PM ET from the day&rsquo;s actual cash-session OHLC and is
+        immutable thereafter.
         <br />
         <br />
-        {t('modelLabel')} <span className="font-mono">{morning.range_model ?? 'heuristic_v1'}</span>
+        Model: <span className="font-mono">{morning.range_model ?? 'heuristic_v1'}</span>
         {morning.content_hash && (
           <>
             {' '}· hash <span className="font-mono">{morning.content_hash.slice(0, 12)}</span>
@@ -494,19 +525,15 @@ interface LadderRow {
   missAbs: number | null;
 }
 
-type PageT = Awaited<ReturnType<typeof getServerT>>;
-
 // The levels ladder: every dealer line ordered by price (high → low), each with
 // its committed touch/flip odds (morning) or realized outcome (receipt). The
 // max-gamma gravity line and the open-spot marker carry no probability.
 function LevelsLadder({
   morning,
   receipt,
-  t,
 }: {
   morning: ForecastMorning;
   receipt: ForecastReceipt | null;
-  t: PageT;
 }) {
   const probs = morning.level_touch_probs ?? {};
   const outcomes = receipt?.level_touch_outcomes ?? {};
@@ -533,7 +560,7 @@ function LevelsLadder({
   const rows: LadderRow[] = [];
   if (morning.call_wall != null) {
     rows.push({
-      key: 'call_wall', name: 'Call wall', tag: t('tagResistance'), tagColor: 'var(--color-bear)',
+      key: 'call_wall', name: 'Call wall', tag: 'resistance', tagColor: 'var(--color-bear)',
       price: morning.call_wall, kind: 'wall',
       prob: probs.call_wall ?? null, outcome: outcomes.call_wall ?? null,
       missAbs: missBy('call_wall', morning.call_wall, outcomes.call_wall ?? null),
@@ -547,13 +574,13 @@ function LevelsLadder({
   }
   if (morning.gravity_center != null) {
     rows.push({
-      key: 'gravity', name: 'Max-gamma', tag: t('tagGravity'), tagColor: 'var(--color-accent)',
+      key: 'gravity', name: 'Max-gamma', tag: 'gravity', tagColor: 'var(--color-accent)',
       price: morning.gravity_center, kind: 'gravity', prob: null, outcome: null, missAbs: null,
     });
   }
   if (morning.gamma_flip != null) {
     rows.push({
-      key: 'gamma_flip', name: 'Gamma flip', tag: t('tagRegimeLine'), tagColor: 'var(--color-text-secondary)',
+      key: 'gamma_flip', name: 'Gamma flip', tag: 'regime line', tagColor: 'var(--color-text-secondary)',
       price: morning.gamma_flip, kind: 'flip',
       prob: morning.flip_cross_prob, outcome: outcomes.gamma_flip ?? null,
       missAbs: missBy('gamma_flip', morning.gamma_flip, outcomes.gamma_flip ?? null),
@@ -561,7 +588,7 @@ function LevelsLadder({
   }
   if (morning.put_wall != null) {
     rows.push({
-      key: 'put_wall', name: 'Put wall', tag: t('tagSupport'), tagColor: 'var(--color-bull)',
+      key: 'put_wall', name: 'Put wall', tag: 'support', tagColor: 'var(--color-bull)',
       price: morning.put_wall, kind: 'wall',
       prob: probs.put_wall ?? null, outcome: outcomes.put_wall ?? null,
       missAbs: missBy('put_wall', morning.put_wall, outcomes.put_wall ?? null),
@@ -574,18 +601,18 @@ function LevelsLadder({
     <section className="mb-8 rounded-xl border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-4">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
-          <Layers size={11} /> {t('ladderHeading')}
-          <TooltipWrapper text={t('ladderTooltip')}>
+          <Layers size={11} /> Levels &amp; touch odds
+          <TooltipWrapper text="Each line's touch odds are our morning probability that price reaches it at some point today (reflection-principle model). After the close, → shows whether it did — and if it didn't, how close it came.">
             <Info size={12} />
           </TooltipWrapper>
         </div>
         <div className="text-[10px] text-[var(--color-text-secondary)]">
-          {receipt ? t('ladderReceiptNote') : t('ladderMorningNote')}
+          {receipt ? 'forecast vs. what happened' : 'P(price reaches this line today)'}
         </div>
       </div>
       <div className="flex flex-col">
         {rows.map((row) => (
-          <LadderRowView key={row.key} row={row} hasReceipt={receipt != null} close={receipt?.actual_close ?? null} t={t} />
+          <LadderRowView key={row.key} row={row} hasReceipt={receipt != null} close={receipt?.actual_close ?? null} />
         ))}
       </div>
     </section>
@@ -596,12 +623,10 @@ function LadderRowView({
   row,
   hasReceipt,
   close,
-  t,
 }: {
   row: LadderRow;
   hasReceipt: boolean;
   close: number | null;
-  t: PageT;
 }) {
   const isSpot = row.kind === 'spot';
   // "Called well" = the committed probability leaned the right way (≥50% and it
@@ -612,8 +637,8 @@ function LadderRowView({
     calledWell == null ? 'var(--color-text-secondary)' : calledWell ? 'var(--color-bull)' : 'var(--color-bear)';
   const outcomeText = (() => {
     if (row.outcome == null) return null;
-    if (row.kind === 'flip') return row.outcome ? t('outcomeCrossed') : t('outcomeNoCross');
-    return row.outcome ? t('outcomeReached') : t('outcomeNotReached');
+    if (row.kind === 'flip') return row.outcome ? 'crossed' : 'no cross';
+    return row.outcome ? 'reached' : 'not reached';
   })();
 
   return (
@@ -639,30 +664,29 @@ function LadderRowView({
         {hasReceipt ? (
           isSpot ? (
             <span className="font-mono text-[11px] text-[var(--color-text-secondary)] tabular-nums">
-              {t('closedAt', { price: fmtPrice(close) })}
+              closed {fmtPrice(close)}
             </span>
           ) : outcomeText ? (
             <span className="text-[12px] font-bold" style={{ color: outcomeColor }}>
               {row.prob != null ? `${fmtPct(row.prob)} → ` : ''}{outcomeText}
               {row.missAbs != null && (
                 <span className="ml-1 text-[11px] font-normal text-[var(--color-text-secondary)]">
-                  · {t('withinDist', {
-                    dist: `${fmtPrice(row.missAbs)}${row.price > 0 ? ` (${((row.missAbs / row.price) * 100).toFixed(2)}%)` : ''}`,
-                  })}
+                  · within {fmtPrice(row.missAbs)}
+                  {row.price > 0 ? ` (${((row.missAbs / row.price) * 100).toFixed(2)}%)` : ''}
                 </span>
               )}
             </span>
           ) : row.kind === 'gravity' ? (
-            <span className="text-[11px] text-[var(--color-text-secondary)]">{t('pullCenterParen')}</span>
+            <span className="text-[11px] text-[var(--color-text-secondary)]">pull center (long-γ)</span>
           ) : (
             <span className="text-[11px] text-[var(--color-text-secondary)]">—</span>
           )
         ) : isSpot ? (
           <span className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: 'var(--color-accent)' }}>
-            {t('youAreHere')}
+            — you are here —
           </span>
         ) : row.kind === 'gravity' ? (
-          <span className="text-[11px] text-[var(--color-text-secondary)]">{t('pullCenterWhile')}</span>
+          <span className="text-[11px] text-[var(--color-text-secondary)]">pull center while long-γ</span>
         ) : row.prob != null ? (
           <>
             <div className="h-1.5 w-full max-w-[140px] overflow-hidden rounded-full" style={{ background: 'var(--color-surface-subtle)' }}>
@@ -686,20 +710,62 @@ function LadderRowView({
   );
 }
 
-function HitRate({ label, rate }: { label: string; rate: number | null }) {
+// One claim's rolling track record: the hit rate, a 95% Wilson CI so a short
+// sample can't pose as precision, and a baseline it has to beat (the coverage
+// target for range; the majority-bucket strawman for the vol call).
+function TrackRecord({
+  label,
+  rate,
+  ci,
+  n,
+  baseline,
+  baselineLabel,
+  tooltip,
+}: {
+  label: string;
+  rate: number | null;
+  ci: [number, number] | null;
+  n: number;
+  baseline: number | null;
+  baselineLabel: string;
+  tooltip?: string;
+}) {
   const color =
     rate == null ? 'var(--color-text-secondary)' :
     rate >= 0.7 ? 'var(--color-bull)' :
     rate >= 0.5 ? 'var(--color-warning)' :
     'var(--color-bear)';
+  const beatsBaseline = rate != null && baseline != null ? rate >= baseline : null;
+  const baselineColor =
+    beatsBaseline == null
+      ? 'var(--color-text-secondary)'
+      : beatsBaseline
+        ? 'var(--color-bull)'
+        : 'var(--color-bear)';
   return (
     <div>
-      <div className="text-[10px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
+      <div className="flex items-center justify-center gap-1.5 text-[10px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
         {label}
+        {n > 0 ? ` · n=${n}` : ''}
+        {tooltip && (
+          <TooltipWrapper text={tooltip}>
+            <Info size={12} />
+          </TooltipWrapper>
+        )}
       </div>
       <div className="mt-1 font-mono text-xl font-bold" style={{ color }}>
         {fmtPct(rate)}
       </div>
+      {ci && (
+        <div className="text-[10px] text-[var(--color-text-secondary)]">
+          95% CI {fmtPct(ci[0])}–{fmtPct(ci[1])}
+        </div>
+      )}
+      {baseline != null && (
+        <div className="text-[10px]" style={{ color: baselineColor }}>
+          {beatsBaseline == null ? '' : beatsBaseline ? '▲ ' : '▼ '}vs {baselineLabel} {fmtPct(baseline)}
+        </div>
+      )}
     </div>
   );
 }

@@ -6,9 +6,9 @@
 
 ## Why this signal exists
 
-Most options-flow tools tell you something is happening *right now*. Almost nothing tells you the tape has quietly **stored** the energy to move — that flow, momentum, gamma, and volatility are all aligning before the actual move fires.
+Most options-flow tools tell you something is happening *right now*. Almost nothing tells you the tape may have quietly *coiled* to move — that flow, momentum, gamma, and volatility are aligning before any actual move fires.
 
-That is the gap the Squeeze Setup signal is built to fill. It does not predict direction outright. It tells you when the conditions for a directional move have stacked up across multiple structural inputs, so when the catalyst arrives, the move has fuel behind it.
+That is the gap the Squeeze Setup signal is built to fill. It does not predict direction. It is designed to flag when the conditions for a directional move have stacked up across multiple structural inputs, so if a catalyst arrives, the move may have fuel behind it.
 
 This piece is the trader-facing read on the Squeeze Setup signal. It covers what it asks, how it is scored, when it fires versus stays silent, and how to act inside a session. The full ZeroGEX signal reference lives in the [Signals: Explained guide](/guides/signals-explained), and the structural mechanics that drive most of its inputs are covered in the [Gamma Exposure pillar](/education/gamma-exposure-explained).
 
@@ -33,7 +33,7 @@ Markets don't always coil before they move — but when they do, certain measura
 1. **Flow has started leaning directionally.** Call premium is consistently dominating put premium, or the reverse — and the lean is large enough relative to the symbol's typical flow volatility that it stands out.
 2. **Short-term momentum is accelerating.** 5-bar momentum is outpacing 10-bar. The slope is steepening, not just trending.
 3. **Net gamma is dense enough that hedging matters.** A flat dealer book doesn't propagate moves; a loaded one does.
-4. **Spot is positioned relative to the gamma flip in a way that opens upside.** If spot is just below the flip and flow is bullish, the structural setup for a flip-cross-and-extend is on.
+4. **Spot is positioned relative to the modeled gamma flip in a way that opens upside.** If spot is just below the flip and flow is bullish, the structural setup for a flip-cross-and-extend is in place.
 5. **Vol regime is right.** A panic VIX regime dampens setups (everything is already moving); a dead VIX regime can produce false coils.
 
 Squeeze Setup combines all five into a single continuous score per side (bull and bear), then nets them.
@@ -46,8 +46,8 @@ Squeeze Setup combines all five into a single continuous score per side (bull an
 |---|---|
 | Flow z-score | Call/put flow deltas z-scored by per-symbol flow volatility — a "big" flow on a quiet symbol is treated as meaningful; a "big" flow on a noisy symbol has to clear a higher bar |
 | 5/10-bar momentum | Two horizons compared, looking for acceleration (5-bar outpacing 10-bar) rather than just direction |
-| Gamma readiness | Net gamma run through a smooth tanh, giving "is the book loaded enough to matter?" as a continuous 0-1 multiplier |
-| Flip distance | How close spot is to the gamma flip, with the side multiplied in so a bull setup near the flip from below scores higher |
+| Gamma readiness | Modeled net gamma run through a smooth tanh, giving "is the modeled book loaded enough to matter?" as a continuous 0-1 multiplier |
+| Flip distance | How close spot is to the modeled gamma flip, with the side multiplied in so a bull setup near the flip from below scores higher |
 | VIX regime | Dead / normal / elevated / panic — used to dampen or amplify the score depending on context |
 
 The output is one number, but it carries the joint structure of all five.
@@ -63,7 +63,7 @@ side_score = normalized_flow × directional_momentum_strength
            × gamma_readiness × acceleration_multiplier × flip_side_multiplier
 ```
 
-The net score is `bull_score − bear_score`, clamped to [-1, +1]. The trigger fires at absolute score ≥ **0.25**.
+The net score is `bull_score − bear_score`, clamped to [-1, +1]. The trigger fires at absolute score ≥ **0.25** — a hand-picked ZeroGEX threshold, not an empirically fitted one. The formula's structure and weights are design choices, so the output is a derived signal rather than a calibrated probability.
 
 Two structural facts about that formula matter for reading:
 
@@ -92,7 +92,7 @@ The dominant state is **silent**. Squeeze Setup is designed to be quiet most of 
 
 The signal will trigger only when:
 
-- Flow is large enough to be statistically meaningful relative to the symbol's history (z-score component is non-trivial).
+- Flow is large enough to stand out relative to the symbol's own history (z-score component is non-trivial).
 - Momentum is accelerating, not just trending.
 - Gamma is loaded enough that hedging flows can propagate moves.
 - Spot is positioned relative to the flip in a way that opens directional asymmetry.
@@ -122,7 +122,7 @@ A few practical notes:
 
 Squeeze Setup is one signal among many — and confluence is where the real edge lives. A few common cross-reads:
 
-- **Squeeze Setup + Vol Expansion same direction.** Two Continuation signals agreeing — the move has both *coil* and *capacity*. The cleanest setup.
+- **Squeeze Setup + Vol Expansion same direction.** Two Continuation signals agreeing — the move has both *coil* and *capacity*. The model assigns greater weight when these components agree.
 - **Squeeze Setup + Trap Detection opposing.** Coiled to the upside per Squeeze, but Trap Detection says the most recent upside break is failing. One of them is wrong about the current break; usually the right move is to skip and wait.
 - **Squeeze Setup + Positioning Trap aligning.** Coiled with the crowd offside on the same side — a short-cover squeeze if the crowd is short, a flush if they're long. Both signals point to the same trade. The companion piece on the [Positioning Trap signal](/education/positioning-trap-explained) covers that read in depth.
 - **Squeeze Setup at 0 with every other signal active.** Probably nothing structural is coiled; the move you're seeing is reactive, not loaded.
@@ -154,20 +154,20 @@ The dashboard surfaces it in a few places:
 A worked example. Suppose SPX is grinding sideways into Wednesday's session and ZeroGEX shows:
 
 - **Squeeze Setup:** +0.42 (triggered bullish)
-- **Net GEX:** +$800M
+- **Net GEX:** +$800M (modeled)
 - **Gamma Flip:** spot is 0.2% above
 - **Tape Flow Bias:** +0.6
 - **Trap Detection:** 0
 
-The structural read: coiled-upside setup with confirming flow lean, no countervailing failed-breakout signal, and a long-gamma regime that will dampen the move if it tries to extend too far. Practical lean: stay alert for an upside volatility-envelope break; when it comes, the structural conditions for follow-through are in place. None of this is a trade — it is the regime read that should reshape which entries you take seriously.
+The structural read: coiled-upside setup with confirming flow lean, no countervailing failed-breakout signal, and a modeled long-gamma regime that tends to dampen the move if it tries to extend too far. Practical lean: stay alert for an upside volatility-envelope break; if it comes, the structural conditions for follow-through are in place. None of this is a trade — it is the regime read that should reshape which entries you take seriously.
 
 ---
 
 ## Takeaway
 
-> Squeeze Setup tells you when the market has *stored* the energy to move, not when it has moved. It's a precondition signal, not a timing signal.
+> Squeeze Setup is designed to flag when the market may have *coiled* to move, not when it has moved. It's a precondition signal, not a timing signal.
 
-The discipline is to use it as a filter on which directional breakouts you take seriously, rather than as the trigger itself. When the score is triggered, the breakout setup is real; when it's at zero, the breakouts you're seeing are noise. That distinction is most of the edge.
+The discipline is to use it as a filter on which directional breakouts you take seriously, rather than as the trigger itself. When the score is triggered, the breakout setup is more likely to be genuine; when it's at zero, the breakouts you're seeing are more likely noise. That distinction is most of the edge.
 
 Educational content only — none of the above is a trade recommendation.
 

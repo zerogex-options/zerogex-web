@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import {
   Activity,
   AlertTriangle,
@@ -21,9 +22,48 @@ import { humanize, SignalTrend, trendColor } from '@/core/signalHelpers';
 import { usePageT } from '@/core/LanguageContext';
 import { dict } from './page.i18n';
 import BiasTape from './BiasTape';
-import BiasSparkline from './BiasSparkline';
 import { useTradeBiasData } from './useTradeBiasData';
 import { BIAS_INPUT_KEYS, BIAS_INPUT_META, TACTICAL_PILLAR_META, TradeBiasPayload } from './data';
+
+// Recharts is heavy and the chart is the last section on the page — code-split
+// it (ssr:false) so the hero + cards paint without waiting on the chart bundle.
+const IntradayBiasChart = dynamic(() => import('./IntradayBiasChart'), {
+  ssr: false,
+  loading: () => (
+    <div className="animate-pulse h-80 rounded-lg" style={{ background: 'var(--color-surface-subtle)' }} />
+  ),
+});
+
+const TITLE_TOOLTIP =
+  'Trade Bias is a single, signed directional call — which way to lean, how convinced, and the regime it started from. ' +
+  'It fuses the gamma regime and volatility (the structural baseline) with price action, order flow, tape, and momentum (the live read). ' +
+  'Most of the time the live read confirms the structure; when it disagrees loudly enough it overrides it — and the card says so. ' +
+  'Unlike the Composite Score (a directionless 0–100 regime-strength gauge), Trade Bias tells you which direction the read favors. ' +
+  'Computed by the Signals Engine every cycle, not in your browser.';
+
+const TENOR_TOOLTIP =
+  'Which horizon this read is for. Swing is the multi-day, structural bias led by the gamma and volatility regime. ' +
+  'Intraday is the same-day (0DTE), faster read led by flow, tape, and momentum. They can — and often do — disagree.';
+
+const INPUTS_TOOLTIP =
+  'The nine signals behind the structural baseline. ' +
+  'Each is shown on its −100…+100 scale; green leans bullish, red bearish.';
+
+const LIVE_READ_TOOLTIP =
+  'The tactical layer — price action (bounce/reject), order flow, tape, and momentum — fused into one signed direction and a conviction. ' +
+  'When it agrees with the structural baseline it confirms; when it leans against it, it diverges (caution); when it is loud and broad enough, it overrides — flipping the bias to a reversal/squeeze playbook.';
+
+const STATE_VERB: Record<string, string> = {
+  confirmed: 'confirms',
+  divergent: 'diverges from',
+  override: 'overrode',
+  baseline: 'sits on',
+};
+
+const TENOR_OPTIONS: { value: string; label: string }[] = [
+  { value: 'swing', label: 'Swing · Multi-day' },
+  { value: 'intraday', label: 'Intraday · 0DTE' },
+];
 
 type ConnectionState = 'idle' | 'live' | 'stale' | 'disconnected';
 
@@ -369,11 +409,19 @@ export default function TradeBiasPage() {
               </div>
               <div className="text-center lg:text-right">
                 <div className="text-5xl font-black leading-none" style={{ color, fontVariantNumeric: 'tabular-nums' }}>
-                  {confidence == null ? '—' : Math.round(confidence)}
+                  {payload.biasScore == null
+                    ? '—'
+                    : `${payload.biasScore >= 0 ? '+' : ''}${payload.biasScore.toFixed(1)}`}
                 </div>
-                <div className="text-[11px] uppercase tracking-wide text-[var(--color-text-secondary)] mt-1">{t('confidenceLabel')}</div>
-                <div className="mt-2 h-1.5 w-32 mx-auto lg:ml-auto lg:mr-0 rounded-full overflow-hidden" style={{ background: 'var(--color-border)' }}>
-                  <div className="h-full rounded-full transition-all duration-500" style={{ width: `${confidence ?? 0}%`, background: color }} />
+                <div className="text-[11px] uppercase tracking-wide text-[var(--color-text-secondary)] mt-1">Bias · −100 … +100</div>
+                <div className="mt-3 flex items-center gap-2 justify-center lg:justify-end">
+                  <span className="text-[11px] uppercase tracking-wide text-[var(--color-text-secondary)]">Conf</span>
+                  <span className="text-sm font-semibold font-mono" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                    {confidence == null ? '—' : Math.round(confidence)}
+                  </span>
+                  <div className="h-1.5 w-20 rounded-full overflow-hidden" style={{ background: 'var(--color-border)' }}>
+                    <div className="h-full rounded-full transition-all duration-500" style={{ width: `${confidence ?? 0}%`, background: color }} />
+                  </div>
                 </div>
               </div>
             </div>
@@ -481,9 +529,9 @@ export default function TradeBiasPage() {
             {t('intradayBiasHeading')}
           </h2>
           {!historyLoaded ? (
-            <div className="animate-pulse h-40 rounded-lg" style={{ background: 'var(--color-surface-subtle)' }} />
+            <div className="animate-pulse h-80 rounded-lg" style={{ background: 'var(--color-surface-subtle)' }} />
           ) : (
-            <BiasSparkline history={history} />
+            <IntradayBiasChart history={history} currentBias={payload.biasScore} />
           )}
         </section>
       )}

@@ -20,7 +20,7 @@ Die hier angezeigte Zahl wird am Spot gemessen, nicht über die gesamte Kette su
 
 ### Gamma Flip
 
-Der Strike, an dem die Dealer-Gamma-Kurve die Nulllinie kreuzt. Der Flip ist die Regime-Grenze: darüber wirkt Hedging stabilisierend, darunter verstärkend. Die Kachel zeigt sowohl den absoluten Strike als auch den prozentualen Abstand zum Spot.
+Das Preisniveau, an dem die Dealer-Gamma-Kurve die Nulllinie kreuzt. Der Flip ist die Regime-Grenze: darüber wirkt Hedging stabilisierend, darunter verstärkend. Die Kachel zeigt sowohl das absolute Niveau als auch den prozentualen Abstand zum Spot.
 
 ### Call Wall / Put Wall
 

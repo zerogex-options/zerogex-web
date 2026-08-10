@@ -10,7 +10,7 @@ ZeroGEX opera con dos familias de señales, y por diseño se comportan de forma 
 
 Las **señales Advanced** responden a una pregunta concreta y situacional ("¿se está fijando el cierre?", "¿acaba de fallar este breakout?"). Cada una produce una puntuación en una línea numérica **[-1, +1]** *y* un **trigger** discreto: en cuanto la puntuación cruza el umbral de la señal, dispara una alerta y puede habilitar un playbook. Son señales impulsadas por eventos.
 
-Las **señales Basic** son continuas. No "se disparan" — en su lugar alimentan el **compuesto MSI** con un peso fijo, empujando la lectura combinada hacia arriba o hacia abajo en cada actualización. Se ven como inputs para el panorama general, no como alertas independientes.
+Las **señales Basic** son continuas. No "se disparan" — en su lugar alimentan el **compuesto MSI** con un peso fijo, empujando la lectura de régimen combinada hacia arriba (hacia tendencia) o hacia abajo (hacia lateralización) en cada actualización. Se ven como inputs para el panorama general, no como alertas independientes.
 
 Antes de pasar a las tablas, conviene interiorizar tres cosas:
 
@@ -71,9 +71,9 @@ Misma línea numérica, preguntas muy distintas. Aquí está lo que significan p
 
 | Señal | Puntuación positiva | Puntuación negativa | Cero |
 | --- | --- | --- | --- |
-| Dealer Delta Pressure | Dealers long delta — deben vender los rallies (bajista) | Dealers short delta — deben comprar los dips (alcista) | Book del dealer equilibrado u OI insuficiente |
-| GEX Gradient | Gamma apilado por debajo del spot (amplificador bajista en short gamma; amortiguado en long gamma) | Gamma apilado por encima del spot (sesgo bajista) | Gradiente plano u OI insuficiente |
-| Positioning Trap | Multitud long mal posicionada — loading de short-cover squeeze alcista | Multitud short mal posicionada — loading de flush bajista | No se detecta ningún extremo de multitud |
+| Dealer Delta Pressure | Dealers short delta — deben comprar los dips (alcista) | Dealers long delta — deben vender los rallies (bajista) | Book del dealer equilibrado u OI insuficiente |
+| GEX Gradient | Gamma apilado por debajo del spot — soporte por debajo, estabilizador al alza (sesgo alcista) | Gamma apilado por encima del spot — poco soporte por debajo, amplificador a la baja (sesgo bajista) | Gradiente plano u OI insuficiente |
+| Positioning Trap | Multitud short mal posicionada — loading de short-cover squeeze alcista | Multitud long mal posicionada — loading de flush bajista | No se detecta ningún extremo de multitud |
 | Skew Delta | Skew de puts *por debajo* de la baseline — el miedo se está deshaciendo (inclinación alcista) | Skew de puts elevado — el miedo está apostado (inclinación bajista) | Skew en la baseline, o datos faltantes |
 | Tape Flow Bias | Domina la compra agresiva de calls en el tape (convicción alcista) | Domina la compra agresiva de puts en el tape (convicción bajista) | Flow de premium equilibrado o volumen insuficiente |
 | Vanna/Charm Flow | El hedging del dealer es un viento de cola comprador (vol-crush / decay) | El hedging del dealer es un viento en contra vendedor (vol-up / unwind) | Exposición del dealer equilibrada o filas de dealer faltantes |

@@ -192,6 +192,31 @@ The deployment process runs these steps in order:
 - Runs one verification backup if the auth DB already exists
 - See "Auth Database Backups" below for restore + the S3/encryption knobs
 
+### Step 081: Admin->Monitoring Data Backup Timer (idempotent)
+- Pre-creates the `~/zerogex-monitoring-backups` output dir (mode 700) so the
+  hardened service's `ReadWritePaths` resolves
+- Installs and enables `zerogex-web-monitoring-backup.{service,timer}` (every
+  6h, `Persistent=true`) from `deploy/systemd/`, running `make backup-monitoring`
+- Seeds `deploy/systemd/monitoring-backup.env` (mode 600) from the example on
+  first run — backups are local-only until you set `S3_BUCKET` there
+- Runs one verification backup if the JSON stores already exist
+- Backs up `signups.json` + `mrr.json` (the append-only daily subscriber/MRR
+  history — their only off-box copy) plus `monitoring.json`; see "Monitoring
+  Data Backup" below for restore
+
+### Step 094: Nightly Janitor Timer (idempotent)
+- Pre-creates the janitor's `ReadWritePaths` (`~/zerogex-auth-backups` mode 700,
+  `~/.npm` mode 755) so the hardened service's mount namespace resolves
+- Installs and enables `zerogex-web-janitor.{service,timer}` (nightly 04:50,
+  `Persistent=true`) from `deploy/systemd/`, running `make janitor-noconfirm`
+- Seeds `deploy/systemd/janitor.env` (mode 600) from the example on first run —
+  Makefile defaults apply (retention 30d, keep-newest 48) until you tune it there
+- Runs one verification cleanup (the janitor is idempotent and safe to run any
+  time)
+- Prunes old auth backups with a keep-newest-K floor (the same shared pruner
+  `make backup-auth` runs hourly), clears `frontend/.next/cache`, and cleans the
+  npm cache; see "Nightly Janitor" below
+
 ### Step 100: Deployment Validation
 - Comprehensive deployment validation
 - Checks Node.js installation
@@ -658,16 +683,23 @@ This backs up daily at 2 AM and keeps 7 days of backups.
 
 ### Monitoring Data Backup
 
-The Admin -> Monitoring charts read two JSON files that live only on the
+The Admin -> Monitoring charts read three JSON files that live only on the
 server. They are gitignored, so they are **not** in the application code
 backup unless you tar the whole directory:
 
 - `frontend/data/monitoring.json` - API calls, page accesses, unique users/IPs
-- `frontend/data/signups.json` - daily Basic/Pro signup totals
+- `frontend/data/signups.json` - daily Basic/Pro/paying subscriber totals
+- `frontend/data/mrr.json` - daily MRR + active/trialing subscriber history
 
-Back them up with the bundled make target. The app writes these files
-atomically (temp file + rename), so it is safe to run against the live
-process without stopping PM2:
+`signups.json` and `mrr.json` are **append-only, never pruned, and the only
+copy** of the daily subscriber/MRR history — losing the instance volume loses
+it, so keeping them backed up off-box is what makes those daily numbers durable.
+
+Deploy step 081 installs a systemd timer that runs the backup automatically
+every 6h (see "Step 081" above); it is local-only until you set `S3_BUCKET` in
+`deploy/systemd/monitoring-backup.env`. You can also run it on demand with the
+bundled make target. The app writes these files atomically (temp file +
+rename), so it is safe to run against the live process without stopping PM2:
 
 ```bash
 cd ~/zerogex-web
@@ -681,12 +713,9 @@ Options (all optional):
 - `BACKUP_RETENTION_DAYS` - prune local archives older than N days (default 30)
 - `S3_BUCKET` - if set, also `aws s3 cp` the archive there
 
-Automated daily backup at 02:30 (offset from the 02:00 application
-backup) via `crontab -e`:
-
-```
-30 2 * * * cd ~/zerogex-web && make backup-monitoring S3_BUCKET=s3://your-bucket/zerogex >> ~/zerogex-monitoring-backup.log 2>&1
-```
+To back up on a different schedule, edit the timer's `OnCalendar` in
+`deploy/systemd/zerogex-web-monitoring-backup.timer`. (A `crontab -e` line
+calling `make backup-monitoring` works too if you prefer cron over the timer.)
 
 Restore by extracting an archive back into place:
 
@@ -722,6 +751,7 @@ Options (all optional):
 - `AUTH_DB_PATH` — source DB; defaults to the value in `frontend/.env.local`, then `frontend/data/auth.db`.
 - `AUTH_BACKUP_DIR` — where archives are written (default `~/zerogex-auth-backups`).
 - `AUTH_BACKUP_RETENTION_DAYS` — prune local archives older than N days (default 30).
+- `AUTH_BACKUP_KEEP` — keep-newest floor: the prune ALWAYS keeps the newest K archives regardless of age (default 48 = 2 days of hourly backups), so a stalled backup can never leave you with zero copies. `AUTH_BACKUP_KEEP=0` restores raw mtime-only behavior. The prune is a shared target (`make auth-backups-prune`) that both `backup-auth` (hourly) and the nightly janitor run — see "Nightly Janitor" below.
 - `S3_BUCKET` — if set, also `aws s3 cp` the archive there.
 - `BACKUP_GPG_RECIPIENT` — encrypt the archive with GPG before it leaves the box. **Strongly recommended:** the archive contains password hashes and PII. If this is unset, the destination S3 bucket MUST be private with server-side encryption (see `zerogex-oa/deploy/BACKUP_RESILIENCE.md`).
 
@@ -781,6 +811,42 @@ make start
 > AWS-side hardening for these backups (S3 versioning + Object Lock,
 > cross-region copy, EBS snapshots, RDS retention/PITR/Multi-AZ) is
 > tracked as a checklist in `zerogex-oa/deploy/BACKUP_RESILIENCE.md`.
+
+### Nightly Janitor
+
+A single nightly timer (`zerogex-web-janitor.timer`, 04:50) runs
+`make janitor-noconfirm` as `ubuntu` to keep zerogex-web's own
+retention/regenerable data in check. Installed by deploy step 094. It does three
+things, all safe/regenerable:
+
+1. **Auth-backup retention (keep-newest-K floor).** Prunes
+   `~/zerogex-auth-backups/auth-*.db.gz*` older than `AUTH_BACKUP_RETENTION_DAYS`
+   (default 30) but ALWAYS keeps the newest `AUTH_BACKUP_KEEP` (default 48)
+   regardless of age. The auth DB is Tier-1 (RPO ~1h), so the floor is a safety
+   net: a bare `find -mtime +N -delete` would, if backups ever stall (bad creds,
+   full disk), keep deleting until zero backups remain — the floor guarantees the
+   newest K survive even then. This is the **same** shared target
+   (`make auth-backups-prune`) that `make backup-auth` runs after each hourly
+   snapshot, so there is exactly one pruner, floored, on two cadences.
+   `AUTH_BACKUP_KEEP=0` is the escape hatch for raw mtime-only behavior.
+2. **Next.js build cache.** `rm -rf frontend/.next/cache` — only the cache subdir
+   (documented-safe to delete), never the built `.next` output.
+3. **npm cache.** `npm cache clean --force`, run as the app user (never root).
+
+Every external tool is guarded (`command -v`) and per-item errors are swallowed,
+so a missing tool/path can never fail the run. Tune it per box in
+`deploy/systemd/janitor.env` (retention, keep floor, cache path); nothing there
+is secret. It is scheduled at the tail of the maintenance window (after the
+02:00/02:30 crons and 03:30 partner-grant sweep, 10 min before the 05:00 hourly
+auth backup).
+
+```bash
+make janitor                                   # interactive: prints the plan, asks before acting
+make janitor-noconfirm                         # what the timer runs (no prompt)
+make janitor-noconfirm AUTH_BACKUP_KEEP=72 AUTH_BACKUP_RETENTION_DAYS=14   # override the floor / retention
+systemctl list-timers zerogex-web-janitor.timer   # next/last run
+journalctl -u zerogex-web-janitor -n 30           # recent janitor logs
+```
 
 ## Logs
 

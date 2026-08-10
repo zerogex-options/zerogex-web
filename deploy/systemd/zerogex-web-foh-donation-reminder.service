@@ -1,0 +1,40 @@
+[Unit]
+Description=ZeroGEX web Folds of Honor quarterly donation reminder email
+Documentation=https://github.com/zerogex-options/zerogex-web
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/zerogex-web
+
+# `make foh-donation-reminder` shells through nvm to get the correct Node 22
+# binary (the script is a .mts that needs --experimental-strip-types). The
+# Makefile target sources $HOME/.nvm/nvm.sh internally, so all we need here
+# is HOME pointing at the user's home — the system PATH suffices for
+# /usr/bin/make + /usr/bin/bash; node lands on PATH via nvm.sh at runtime.
+Environment="HOME=/home/ubuntu"
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+
+# Sends ONE email to the admin (FOH_REMINDER_EMAIL in frontend/.env.local)
+# with the four-step quarterly donation playbook. No DB reads or writes —
+# purely a reminder. No latch is touched, so re-running by hand is safe.
+ExecStart=/usr/bin/make -C /home/ubuntu/zerogex-web foh-donation-reminder
+
+# Resend HTTPS is the only outbound leg; cap so a hung connect can't wedge
+# the timer.
+TimeoutStartSec=120
+
+# Security hardening — same shape as the other outbound-email units, minus
+# the DB writable dir since this script never writes.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+
+# Logging -> journald (view with: journalctl -u zerogex-web-foh-donation-reminder)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=zerogex-web-foh-donation-reminder

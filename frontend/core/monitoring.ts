@@ -23,12 +23,29 @@ import {
   generateDailyKeys,
   generateHourlyKeys,
 } from '@/core/monitoringBuckets';
+import {
+  accumulateSubscriptionFlow,
+  parseSyncTierStrict,
+  type FlowDeleteEvent,
+  type FlowSyncEvent,
+} from '@/core/subscriptionFlow';
+import {
+  cancellationFeedbackLabel,
+  parseCancellationReasonFromMessage,
+  NO_FEEDBACK,
+} from '@/core/cancellationReason';
 
 const STORE_PATH = process.env.MONITORING_STORE_PATH ?? path.join(process.cwd(), 'data', 'monitoring.json');
 const SIGNUP_STORE_PATH = process.env.SIGNUP_STORE_PATH ?? path.join(process.cwd(), 'data', 'signups.json');
 const MRR_STORE_PATH = process.env.MRR_STORE_PATH ?? path.join(process.cwd(), 'data', 'mrr.json');
 const FLUSH_INTERVAL_MS = 60_000;
 const PRUNE_INTERVAL_MS = 60 * 60_000;
+// How often the background sampler captures a daily MRR/subscriber point so the
+// series don't depend on an admin opening the page (see initMonitoring).
+const SAMPLE_INTERVAL_MS = 6 * 60 * 60_000;
+// First sample shortly after boot, so a day that only sees process restarts
+// (e.g. a deploy, which resets the interval timer) still records a point.
+const INITIAL_SAMPLE_DELAY_MS = 30_000;
 const TOKEN_CACHE_TTL_MS = 60_000;
 const TOKEN_CACHE_MAX = 10_000;
 
@@ -64,18 +81,73 @@ export type SignupPoint = {
 
 // Per-day paid-subscription flow plus account registrations, sourced from the
 // audit_events log. The paid flow counts each user's own Stripe signup/cancel:
-//   • basicAdd / proAdd     — a subscription's first paid observation (conversion)
-//   • basicCancel / proCancel — a subscription cancellation (stored negative so it
-//                               stacks straight below the x-axis)
+//   • basicAdd / proAdd     — a NEW paid activation: a subscription's first paid
+//                             observation (first conversion). Recovered subs are
+//                             counted separately as reactivations (below), so a
+//                             brand-new customer is distinguishable from a
+//                             returning one.
+//   • basicReactivate / proReactivate — a RE-activation: the day a previously
+//                             dropped sub climbs back to a paid tier (public ->
+//                             paid), e.g. a payment recovered AFTER the grace
+//                             window had already expired. Positive like an add but
+//                             kept in its own family. A payment that recovers
+//                             DURING grace is a non-event (the sub never dropped),
+//                             so it produces neither a reactivation nor a loss.
+//   • basicPaymentFail / proPaymentFail — an INVOLUNTARY downgrade to public,
+//                               booked the day access ACTUALLY drops (tier ->
+//                               public): a failed renewal after any grace window
+//                               ends, a trial whose first charge fails at trial
+//                               end, or a sub Stripe deletes out of dunning. A
+//                               member still in grace is NOT counted here — they
+//                               stay a subscriber until the real drop, keeping
+//                               this reconciled with Total Subscribers. Stored
+//                               negative so it stacks below the x-axis.
+//   • basicCancel / proCancel — a VOLUNTARY cancellation: the sub was deleted
+//                               without having been downgraded for payment failure
+//                               (also stored negative)
+// The two churn causes partition each lost sub, so they never double-count.
 // `registrations` is the number of new self-serve accounts that day (any tier —
 // everyone starts on Public at email registration), for the separate line chart.
 export type SignupFlowPoint = {
   day: string;
   basicAdd: number;
   proAdd: number;
+  basicReactivate: number;
+  proReactivate: number;
   basicCancel: number;
   proCancel: number;
+  basicPaymentFail: number;
+  proPaymentFail: number;
   registrations: number;
+};
+
+export type GrowthRatePoint = {
+  days: 1 | 7 | 14 | 30;
+  signups: number;
+  cancellations: number;
+  paymentFailures: number;
+  net: number;
+  dailyRate: number;
+};
+
+// The "why" behind recent cancellations, parsed from the Stripe cancellation
+// survey folded into the audit log (see core/cancellationReason.ts + the Stripe
+// webhook). `total` is the number of cancel-click events in the window;
+// `captured` is how many carried a reason (a feedback enum or a comment) —
+// their ratio is the survey's coverage. `byFeedback` tallies the fixed enum
+// (with a `none` bucket for silent cancels); `recentComments` surfaces the
+// free-text verbatims, the richest churn signal.
+export type CancellationReasonsSummary = {
+  windowDays: number;
+  total: number;
+  captured: number;
+  byFeedback: Array<{ feedback: string; label: string; count: number }>;
+  recentComments: Array<{
+    createdAt: string;
+    email: string | null;
+    feedback: string | null;
+    comment: string;
+  }>;
 };
 
 export type WebhookHealth = {
@@ -126,6 +198,8 @@ export type MonitoringSnapshot = {
   mrrTrend: MrrTrend | null;
   signups: SignupPoint[];
   signupFlow: SignupFlowPoint[];
+  growthRates: GrowthRatePoint[];
+  cancellationReasons: CancellationReasonsSummary;
   hourly: MonitoringSnapshotPoint[];
   daily: MonitoringSnapshotPoint[];
   topIps: Array<{ ip: string; count: number }>;
@@ -147,6 +221,7 @@ let dirty = false;
 let initialized = false;
 let flushTimer: NodeJS.Timeout | null = null;
 let pruneTimer: NodeJS.Timeout | null = null;
+let sampleTimer: NodeJS.Timeout | null = null;
 
 const tokenCache = new Map<string, { userId: string | null; expiresAt: number }>();
 
@@ -287,6 +362,27 @@ export function initMonitoring() {
     }, PRUNE_INTERVAL_MS);
     if (typeof pruneTimer.unref === 'function') pruneTimer.unref();
   }
+  if (sampleTimer === null) {
+    // Capture a daily MRR/subscriber sample even on days no admin opens the
+    // Monitoring page. getSnapshot() writes today's point as a side effect and
+    // is idempotent — it only writes when the day's value is new or changed, so
+    // an unchanged tick is a couple of cheap COUNT queries and no disk write.
+    // Without this, buildMrrSeries/buildSignupSeries only sampled on an admin
+    // view, leaving permanent gaps in the daily history on quiet days.
+    const sample = () => {
+      try {
+        getSnapshot();
+      } catch {
+        /* transient DB/FS error — the next tick (or an admin view) retries */
+      }
+    };
+    sampleTimer = setInterval(sample, SAMPLE_INTERVAL_MS);
+    if (typeof sampleTimer.unref === 'function') sampleTimer.unref();
+    // Defer the first sample slightly so it lands after the app/DB have settled
+    // rather than mid-boot; unref'd so it never holds the process open.
+    const initialSample = setTimeout(sample, INITIAL_SAMPLE_DELAY_MS);
+    if (typeof initialSample.unref === 'function') initialSample.unref();
+  }
   const flushOnExit = () => {
     try { persist(); } catch { /* ignore */ }
   };
@@ -424,29 +520,36 @@ function currentTierCounts(): { basic: number; pro: number; public: number } {
   return counts;
 }
 
-// Headcount split by Stripe subscription state:
-//   active   — fully paying subscribers (matches `make users PAID=yes`).
-//   trialing — card on file, free-trial window still running (matches
-//              `make users TRIAL=yes`). Promoted to 'active' on first
-//              charge, demoted to 'public' if the user cancels mid-trial.
-// past_due is intentionally excluded — the webhook downgrades those users
-// to the public tier, so counting them as paying would overstate the bucket.
+// Headcount split by subscription state, for the Total Subscribers chart:
+//   active   — fully paying subscribers, PLUS members in the payment-recovery
+//              grace window (subscription `past_due` but tier still pro/basic:
+//              a failed renewal Stripe is still retrying, with access retained —
+//              see BILLING_PAYMENT_GRACE_DAYS). They remain paying customers
+//              until access actually drops, so counting them keeps this
+//              reconciled with the subscription-flow chart, which books the loss
+//              only at the real downgrade (tier -> public), not at past_due entry.
+//   trialing — card on file, free-trial window still running.
+// A past_due row whose tier has ALREADY gone 'public' (grace expired or disabled)
+// is a genuine downgrade and is excluded here, as are unpaid/canceled/public.
 function currentPayingCounts(): { active: number; trialing: number } {
   try {
     const rows = getDb()
       .prepare(
-        `SELECT subscription_status, COUNT(*) AS c
+        `SELECT
+           CASE WHEN subscription_status = 'trialing' THEN 'trialing' ELSE 'active' END AS bucket,
+           COUNT(*) AS c
          FROM users
          WHERE subscription_status IN ('active', 'trialing')
-         GROUP BY subscription_status`,
+            OR (subscription_status = 'past_due' AND tier IN ('pro', 'basic'))
+         GROUP BY bucket`,
       )
-      .all() as Array<{ subscription_status: string; c: number }>;
+      .all() as Array<{ bucket: string; c: number }>;
     let active = 0;
     let trialing = 0;
     for (const row of rows) {
       const c = Number(row.c) || 0;
-      if (row.subscription_status === 'active') active = c;
-      else if (row.subscription_status === 'trialing') trialing = c;
+      if (row.bucket === 'active') active = c;
+      else if (row.bucket === 'trialing') trialing = c;
     }
     return { active, trialing };
   } catch {
@@ -574,11 +677,35 @@ function writeMrrStore(s: MrrStoreShape) {
   }
 }
 
+// Daily x-axis keys for a series whose samples are RETAINED FOREVER (the MRR
+// and subscriber stores are append-only and never pruned). Defaults to the
+// usual MAX_DAILY window, but once history reaches past that window it widens
+// the axis to start at the earliest stored sample so the full retained history
+// renders instead of being truncated at 90 days. The floor case returns the
+// exact MAX_DAILY window (unchanged behavior); only genuinely older stores
+// extend. Derived series that are recomputed from bounded event-log windows
+// (signup flow / registrations) deliberately keep the fixed MAX_DAILY window.
+function retainedDailyKeys(now: Date, storedDays: string[]): string[] {
+  const base = generateDailyKeys(now);
+  if (storedDays.length === 0) return base;
+  const earliest = storedDays.reduce((a, b) => (a < b ? a : b));
+  // Earliest sample already inside the default window → nothing to widen.
+  if (earliest >= base[0]) return base;
+  const todayKey = etBucketKeys(now).day;
+  const start = Date.parse(`${earliest}T00:00:00Z`);
+  const end = Date.parse(`${todayKey}T00:00:00Z`);
+  if (Number.isNaN(start) || Number.isNaN(end) || end < start) return base;
+  const span = Math.round((end - start) / 86400_000) + 1;
+  // +2 buffer absorbs DST drift in the fixed-24h walk; trim any keys that land
+  // before the first sample so no empty pre-history day is prepended.
+  return generateDailyKeys(now, span + 2).filter((k) => k >= earliest);
+}
+
 // One MRR plot point per ET day, mirroring buildSignupSeries: re-sampling the
 // same day overwrites that day's point with the latest estimate; a new point
 // is only created once the day rolls over. Days with no sample carry the prior
-// day forward so the line stays continuous, and the x-axis spans MAX_DAILY
-// days back to align with the signup and traffic charts.
+// day forward so the line stays continuous. The x-axis spans MAX_DAILY days by
+// default and widens to the earliest retained sample once history exceeds it.
 function buildMrrSeries(now: Date, current: MrrSnapshot): MrrPoint[] {
   const today = etBucketKeys(now).day;
   const store = readMrrStore();
@@ -600,7 +727,7 @@ function buildMrrSeries(now: Date, current: MrrSnapshot): MrrPoint[] {
     writeMrrStore(store);
   }
 
-  const dailyKeys = generateDailyKeys(now);
+  const dailyKeys = retainedDailyKeys(now, Object.keys(store.days));
   const series: MrrPoint[] = [];
   let last: MrrDaySample = {
     estMrr: 0,
@@ -636,8 +763,9 @@ function currentDisclaimerCount(): number {
 // One plot point per ET day. Re-sampling the same day overwrites that
 // day's point with the latest counts; a new point is only created once
 // the day rolls over. Days with no sample carry the prior day forward so
-// the area stays continuous. The x-axis spans MAX_DAILY days back to match
-// the other daily charts on the page.
+// the area stays continuous. The x-axis spans MAX_DAILY days by default and
+// widens to the earliest retained sample once history exceeds that window
+// (these counts are stored forever, so the chart shows all of them).
 function buildSignupSeries(now: Date): SignupPoint[] {
   const today = etBucketKeys(now).day;
   const store = readSignupStore();
@@ -666,7 +794,7 @@ function buildSignupSeries(now: Date): SignupPoint[] {
     writeSignupStore(store);
   }
 
-  const dailyKeys = generateDailyKeys(now);
+  const dailyKeys = retainedDailyKeys(now, Object.keys(store.days));
   const series: SignupPoint[] = [];
   let last: SignupDay = {
     basic: 0,
@@ -691,18 +819,30 @@ function buildSignupSeries(now: Date): SignupPoint[] {
   return series;
 }
 
-type PaidTier = 'basic' | 'pro';
-
 type FlowAcc = {
   basicAdd: number;
   proAdd: number;
+  basicReactivate: number;
+  proReactivate: number;
   basicCancel: number;
   proCancel: number;
+  basicPaymentFail: number;
+  proPaymentFail: number;
   registrations: number;
 };
 
 function emptyFlowAcc(): FlowAcc {
-  return { basicAdd: 0, proAdd: 0, basicCancel: 0, proCancel: 0, registrations: 0 };
+  return {
+    basicAdd: 0,
+    proAdd: 0,
+    basicReactivate: 0,
+    proReactivate: 0,
+    basicCancel: 0,
+    proCancel: 0,
+    basicPaymentFail: 0,
+    proPaymentFail: 0,
+    registrations: 0,
+  };
 }
 
 // Stripe subscription ids are always `sub_...`; the audit messages embed exactly
@@ -715,21 +855,72 @@ function parseSubIdFromMessage(message: string): string | null {
 // stripe_subscription_sync messages read "... tier=<pro|basic|public> ...". Only
 // pro/basic count as a paid state; public (an inactive/lapsed sub) returns null
 // so it neither starts a paid signup nor overwrites the last-known paid tier.
-function parseSyncTier(message: string): PaidTier | null {
-  const m = message.match(/\btier=(\w+)/);
-  if (m?.[1] === 'pro') return 'pro';
-  if (m?.[1] === 'basic') return 'basic';
-  return null;
+// stripe_subscription_sync messages read "... status=<stripe status> tier=...".
+// The Stripe status is what distinguishes an involuntary payment-failure
+// downgrade (past_due/unpaid) from a healthy sub, so a later deletion can be
+// attributed to dunning vs. a voluntary cancel.
+function parseSyncStatus(message: string): string | null {
+  const m = message.match(/\bstatus=([A-Za-z_]+)/);
+  return m ? m[1] : null;
+}
+
+// How far back the flow / registration charts DISPLAY. Unlike the traffic
+// buckets (pruned at 90 days), these recompute from the retained, append-only
+// audit_events + users logs every request, so they can show far more history.
+// ~2 years; the axis then trims to the earliest day with real activity (floored
+// at MAX_DAILY), so a young product still shows the usual 90-day window.
+const FLOW_WINDOW_DAYS = 730;
+// The sync scan reaches a bit further than the displayed window: attributing a
+// cancel/payment-fail near the oldest displayed day to the right tier needs
+// that subscription's earlier sync history as context. Bookings still only land
+// inside the FLOW_WINDOW_DAYS display window.
+const FLOW_SYNC_WINDOW_DAYS = 850;
+
+// A flow day on which nothing happened — no adds, cancels, payment-failure
+// downgrades, or registrations. Leading (oldest) empty days are trimmed off the
+// display so the chart starts at the first real activity instead of a long flat
+// lead-in for products younger than FLOW_WINDOW_DAYS.
+function isFlowDayEmpty(p: SignupFlowPoint): boolean {
+  return (
+    p.proAdd === 0 &&
+    p.basicAdd === 0 &&
+    p.proReactivate === 0 &&
+    p.basicReactivate === 0 &&
+    p.proCancel === 0 &&
+    p.basicCancel === 0 &&
+    p.proPaymentFail === 0 &&
+    p.basicPaymentFail === 0 &&
+    p.registrations === 0
+  );
 }
 
 // Per-day paid-subscription flow and account registrations, sourced from the
-// audit_events log, spanning the same MAX_DAILY window as the other daily charts.
+// audit_events log. Displays up to FLOW_WINDOW_DAYS of history (trimmed to the
+// earliest day with activity, floored at MAX_DAILY) since it recomputes from the
+// retained event log rather than a pruned bucket store.
 //
-//   • Paid adds        — the FIRST `stripe_subscription_sync` that saw a given
-//     subscription in a paid tier (pro/basic): the day that user converted.
-//   • Paid cancellations — `stripe_subscription_deleted` rows (the sub actually
-//     ended), tier recovered from that subscription's most recent paid sync,
-//     stored negative so they stack below the axis.
+// The paid-flow bookings all derive from the tier the webhook synced (paid<->
+// public transitions) in accumulateSubscriptionFlow, so they reconcile with the
+// Total Subscribers headcount day by day — including grace: a member in the
+// payment-recovery window keeps a paid tier and is booked as neither a loss nor,
+// on recovery, a reactivation.
+//   • Paid adds        — a NEW paid conversion: the FIRST time a subscription is
+//     seen in a paid tier (pro/basic) — the day that user converted. Positive.
+//   • Reactivations    — a previously dropped sub climbing back to a paid tier
+//     (public -> paid), e.g. a payment recovered after grace had already expired.
+//     Positive, in its own family so a recovery isn't conflated with a brand-new
+//     conversion. A recovery DURING grace is a non-event (no prior drop).
+//   • Payment-failure downgrades — booked the day access ACTUALLY drops to public
+//     (tier -> public): a failed renewal after any grace window ends, a trial
+//     whose first charge fails at trial end, or a sub Stripe deletes straight out
+//     of dunning. A member still in grace is NOT booked here — that's the fix that
+//     keeps this line reconciled with Total Subscribers. Tier is the one held
+//     just before the drop; stored negative.
+//   • Paid cancellations — one per `stripe_subscription_deleted` row whose sub was
+//     still a subscriber and did NOT end in dunning (those are payment-failure
+//     downgrades), i.e. a voluntary cancel; tier from its last paid sync, stored
+//     negative. The two churn causes partition each lost sub so the same loss is
+//     never counted twice.
 //   • Registrations    — new rows in the `users` table, counted by `created_at`
 //     (one per account, matching `make users`). Deliberately NOT sourced from
 //     `register`/`oauth_login` audit events: before 2026-06-18, `oauth_login`
@@ -742,7 +933,7 @@ function parseSyncTier(message: string): PaidTier | null {
 // upgrades/downgrades (basic↔pro) aren't a first-conversion, so they don't count
 // as an add.
 function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
-  const dailyKeys = generateDailyKeys(now);
+  const dailyKeys = generateDailyKeys(now, FLOW_WINDOW_DAYS);
   const acc: Record<string, FlowAcc> = {};
   for (const day of dailyKeys) acc[day] = emptyFlowAcc();
 
@@ -755,53 +946,56 @@ function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
   try {
     const db = getDb();
 
-    // Subscription tier history from sync events, oldest first so a single pass
-    // yields both the first paid observation (the conversion) and the latest paid
-    // tier (for cancellation attribution). Bounded to ~2.2y: long enough to
-    // cover a cancelling sub's lifetime, capped so the scan can't grow forever.
+    // Paid-subscription flow, driven off the tier the webhook synced on each
+    // event. Two audit streams:
+    //   • stripe_subscription_sync — the per-event tier/status history, scanned
+    //     oldest-first by accumulateSubscriptionFlow to track each sub's paid↔
+    //     public transitions (add / reactivation / payment-failure downgrade).
+    //     Bounded to FLOW_SYNC_WINDOW_DAYS — a bit longer than the display window
+    //     so a sub shown near the oldest day still has its prior history for
+    //     correct attribution — and capped so the scan can't grow forever.
+    //   • stripe_subscription_deleted — terminal removals, classified against the
+    //     sub's last synced state (dunning ⇒ terminal payment failure, else a
+    //     voluntary cancel) and skipped when the sub already dropped via a sync.
     const syncRows = db
       .prepare(
         `SELECT created_at, message FROM audit_events
-         WHERE type = 'stripe_subscription_sync' AND created_at > datetime('now', '-800 days')
+         WHERE type = 'stripe_subscription_sync' AND created_at > datetime('now', '-${FLOW_SYNC_WINDOW_DAYS} days')
          ORDER BY created_at ASC`,
       )
       .all() as Array<{ created_at: string; message: string }>;
-    const firstPaid = new Map<string, { day: string; tier: PaidTier }>();
-    const lastPaidTier = new Map<string, PaidTier>();
-    for (const row of syncRows) {
-      const tier = parseSyncTier(row.message);
-      if (!tier) continue;
-      const subId = parseSubIdFromMessage(row.message);
-      if (!subId) continue;
-      const day = etDay(row.created_at);
-      if (!day) continue;
-      if (!firstPaid.has(subId)) firstPaid.set(subId, { day, tier });
-      lastPaidTier.set(subId, tier);
-    }
-
-    // Paid adds: one per subscription, on the day it first went paid.
-    for (const { day, tier } of firstPaid.values()) {
-      const bucket = acc[day];
-      if (!bucket) continue; // conversion day predates the window
-      if (tier === 'pro') bucket.proAdd += 1;
-      else bucket.basicAdd += 1;
-    }
-
-    // Paid cancellations: one per deleted subscription, tier from its last paid
-    // sync (fall back to Basic if unrecoverable so a real cancel is never lost).
     const deletedRows = db
       .prepare(
         `SELECT created_at, message FROM audit_events
-         WHERE type = 'stripe_subscription_deleted' AND created_at > datetime('now', '-100 days')`,
+         WHERE type = 'stripe_subscription_deleted' AND created_at > datetime('now', '-${FLOW_WINDOW_DAYS} days')`,
       )
       .all() as Array<{ created_at: string; message: string }>;
-    for (const row of deletedRows) {
-      const day = etDay(row.created_at);
-      if (!day || !acc[day]) continue;
-      const subId = parseSubIdFromMessage(row.message);
-      const tier = (subId ? lastPaidTier.get(subId) : null) ?? 'basic';
-      if (tier === 'pro') acc[day].proCancel -= 1;
-      else acc[day].basicCancel -= 1;
+
+    const syncEvents: FlowSyncEvent[] = syncRows.map((row) => ({
+      subId: parseSubIdFromMessage(row.message) ?? '',
+      status: parseSyncStatus(row.message),
+      tier: parseSyncTierStrict(row.message),
+      day: etDay(row.created_at),
+    }));
+    const deleteEvents: FlowDeleteEvent[] = deletedRows.map((row) => ({
+      subId: parseSubIdFromMessage(row.message),
+      day: etDay(row.created_at),
+    }));
+
+    // Merge the pure accumulator's per-day deltas into the display window. A day
+    // outside the seeded window (e.g. an attribution older than FLOW_WINDOW_DAYS)
+    // is dropped here, exactly as the direct bookings were before.
+    for (const [day, delta] of accumulateSubscriptionFlow(syncEvents, deleteEvents)) {
+      const bucket = acc[day];
+      if (!bucket) continue;
+      bucket.proAdd += delta.proAdd;
+      bucket.basicAdd += delta.basicAdd;
+      bucket.proReactivate += delta.proReactivate;
+      bucket.basicReactivate += delta.basicReactivate;
+      bucket.proPaymentFail += delta.proPaymentFail;
+      bucket.basicPaymentFail += delta.basicPaymentFail;
+      bucket.proCancel += delta.proCancel;
+      bucket.basicCancel += delta.basicCancel;
     }
 
     // Registrations: authoritative new-account count from the users table (one
@@ -809,7 +1003,7 @@ function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
     const userRows = db
       .prepare(
         `SELECT created_at FROM users
-         WHERE created_at > datetime('now', '-100 days')`,
+         WHERE created_at > datetime('now', '-${FLOW_WINDOW_DAYS} days')`,
       )
       .all() as Array<{ created_at: string }>;
     for (const row of userRows) {
@@ -821,7 +1015,172 @@ function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
     // the charts render empty rather than 500-ing the admin page.
   }
 
-  return dailyKeys.map((day) => ({ day, ...acc[day] }));
+  const points = dailyKeys.map((day) => ({ day, ...acc[day] }));
+  // Trim the leading run of all-empty days (before the product's first activity)
+  // so the axis starts at real data, but never trim into the most recent
+  // MAX_DAILY days — a quiet or brand-new product keeps its familiar 90-day
+  // window instead of collapsing to a couple of points.
+  const floorStart = Math.max(0, points.length - MAX_DAILY);
+  const firstActive = points.findIndex((p) => !isFlowDayEmpty(p));
+  const start = firstActive < 0 ? floorStart : Math.min(firstActive, floorStart);
+  return points.slice(start);
+}
+
+// Trailing acquisition velocity, intentionally measured at the customer's
+// decision/failure moment rather than at the later access downgrade. A first
+// paid-tier sync includes `trialing`, so it represents a free-trial start.
+// Cancellation acknowledgements provide historical coverage; the dedicated
+// request audit is the durable source going forward. Grouping cancellation
+// rows by user/day prevents the acknowledgement and request rows emitted for
+// the same click from being counted twice.
+//
+// Win-backs offset cancellations: an honor-winback-discount run that clears a
+// scheduled cancellation (billing_winback_discount_honored, "cleared
+// cancel_at_period_end") means the member was retained on the same
+// subscription — no re-subscribe, so no offsetting signup ever lands. We
+// subtract in-window win-backs from the in-window cancellation count (floored
+// at 0) so a cancelled-then-won-back member nets to zero rather than showing as
+// a loss. This is a count-level offset within the same window (simplest): a
+// win-back whose original cancel fell outside the window slightly under-counts
+// cancellations, and --keep-cancellation runs (which don't clear the cancel)
+// are excluded.
+function buildGrowthRates(now: Date): GrowthRatePoint[] {
+  const horizons = [1, 7, 14, 30] as const;
+  const days = generateDailyKeys(now, 30);
+  const signups = new Set<string>();
+  const cancellations = new Set<string>();
+  const paymentFailures = new Set<string>();
+  const winbacks = new Set<string>();
+
+  try {
+    const rows = getDb().prepare(
+      `SELECT type, user_id, created_at, message FROM audit_events
+       WHERE type IN (
+         'stripe_subscription_sync',
+         'stripe_cancellation_requested',
+         'cancellation_ack_email_sent',
+         'stripe_payment_failed',
+         'billing_winback_discount_honored'
+       ) AND created_at > datetime('now', '-850 days')
+       ORDER BY created_at ASC`,
+    ).all() as Array<{ type: string; user_id: string | null; created_at: string; message: string }>;
+
+    const seenSubscriptions = new Set<string>();
+    for (const row of rows) {
+      const parsed = new Date(row.created_at);
+      if (Number.isNaN(parsed.getTime())) continue;
+      const day = etBucketKeys(parsed).day;
+      if (row.type === 'stripe_subscription_sync') {
+        const subId = parseSubIdFromMessage(row.message);
+        const tier = parseSyncTierStrict(row.message);
+        if (subId && tier && tier !== 'public' && !seenSubscriptions.has(subId)) {
+          seenSubscriptions.add(subId);
+          if (days.includes(day)) signups.add(`${day}:${subId}`);
+        }
+      } else if (!days.includes(day)) {
+        continue;
+      } else if (row.type === 'stripe_payment_failed' && /\(attempt 1\)/.test(row.message)) {
+        const invoice = row.message.match(/Invoice (in_[A-Za-z0-9]+)/)?.[1] ?? row.message;
+        paymentFailures.add(`${day}:${invoice}`);
+      } else if (row.type === 'billing_winback_discount_honored') {
+        // Only a win-back that actually un-cancelled offsets a cancellation;
+        // the script stamps "cleared cancel_at_period_end" into the message
+        // exactly on that path, so --keep-cancellation runs (coupon pre-load
+        // only, member still cancelling) are skipped.
+        if (/cleared cancel_at_period_end/.test(row.message)) {
+          winbacks.add(`${day}:${row.user_id ?? parseSubIdFromMessage(row.message) ?? row.message}`);
+        }
+      } else if (row.type === 'stripe_cancellation_requested' || row.type === 'cancellation_ack_email_sent') {
+        cancellations.add(`${day}:${row.user_id ?? parseSubIdFromMessage(row.message) ?? row.message}`);
+      }
+    }
+  } catch {
+    // Keep the monitoring response available if audit history is unavailable.
+  }
+
+  const countSince = (values: Set<string>, windowDays: number) => {
+    const included = new Set(generateDailyKeys(now, windowDays));
+    return Array.from(values).filter((value) => included.has(value.slice(0, 10))).length;
+  };
+  return horizons.map((windowDays) => {
+    const signupCount = countSince(signups, windowDays);
+    const winbackCount = countSince(winbacks, windowDays);
+    // Net win-backs out of the cancellation count so a cancelled-then-won-back
+    // member doesn't read as a loss. Floored at 0 so more win-backs than
+    // in-window cancels can't invent phantom growth.
+    const cancellationCount = Math.max(0, countSince(cancellations, windowDays) - winbackCount);
+    const failureCount = countSince(paymentFailures, windowDays);
+    const net = signupCount - cancellationCount - failureCount;
+    return {
+      days: windowDays,
+      signups: signupCount,
+      cancellations: cancellationCount,
+      paymentFailures: failureCount,
+      net,
+      dailyRate: net / windowDays,
+    };
+  });
+}
+
+// How far back the cancellation-reasons summary looks. Matches the widest
+// growth-rate window so the "why" lines up with the "how many".
+const CANCEL_REASONS_WINDOW_DAYS = 30;
+
+// The "why" behind recent cancellations. Reads the cancel-click audit rows in a
+// trailing window, parses the Stripe survey folded into each message, and rolls
+// them up: a per-feedback tally (with a `none` bucket for silent cancels) plus
+// the recent free-text verbatims. Empty/missing audit history returns a zeroed
+// summary so it never throws back to the API route.
+function buildCancellationReasons(): CancellationReasonsSummary {
+  const empty: CancellationReasonsSummary = {
+    windowDays: CANCEL_REASONS_WINDOW_DAYS,
+    total: 0,
+    captured: 0,
+    byFeedback: [],
+    recentComments: [],
+  };
+  try {
+    const rows = getDb()
+      .prepare(
+        `SELECT created_at, email, message FROM audit_events
+         WHERE type = 'stripe_cancellation_requested'
+           AND created_at > datetime('now', '-${CANCEL_REASONS_WINDOW_DAYS} days')
+         ORDER BY created_at DESC`,
+      )
+      .all() as Array<{ created_at: string; email: string | null; message: string }>;
+
+    const counts = new Map<string, number>();
+    const recentComments: CancellationReasonsSummary['recentComments'] = [];
+    let captured = 0;
+    for (const row of rows) {
+      const { feedback, comment } = parseCancellationReasonFromMessage(row.message);
+      if (feedback || comment) captured += 1;
+      const key = feedback ?? NO_FEEDBACK;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+      if (comment && recentComments.length < 10) {
+        recentComments.push({ createdAt: row.created_at, email: row.email, feedback, comment });
+      }
+    }
+
+    const byFeedback = Array.from(counts.entries())
+      .map(([feedback, count]) => ({ feedback, label: cancellationFeedbackLabel(feedback), count }))
+      // Real reasons first (desc by count); the `none` bucket always sinks last.
+      .sort((a, b) => {
+        if (a.feedback === NO_FEEDBACK) return 1;
+        if (b.feedback === NO_FEEDBACK) return -1;
+        return b.count - a.count;
+      });
+
+    return {
+      windowDays: CANCEL_REASONS_WINDOW_DAYS,
+      total: rows.length,
+      captured,
+      byFeedback,
+      recentComments,
+    };
+  } catch {
+    return empty;
+  }
 }
 
 // Counts audit_events rows of `type` whose created_at is newer than
@@ -966,9 +1325,16 @@ export function getSnapshot(): MonitoringSnapshot {
   return {
     mrr,
     mrrSeries,
-    mrrTrend: computeMrrTrend(mrrSeries, mrr.targetMrr),
+    // The chart shows all retained history, but the headline growth-rate /
+    // months-to-target stat stays on the trailing MAX_DAILY window it has
+    // always used — otherwise widening the series would silently redefine the
+    // rate as a long-run average. (The forward projection line is computed
+    // client-side from a shorter trailing window and is unaffected either way.)
+    mrrTrend: computeMrrTrend(mrrSeries.slice(-MAX_DAILY), mrr.targetMrr),
     signups: buildSignupSeries(now),
     signupFlow: buildSignupFlowSeries(now),
+    growthRates: buildGrowthRates(now),
+    cancellationReasons: buildCancellationReasons(),
     hourly: hourlyKeys.map((key) => bucketToPoint(key, live.hourly[key])),
     daily: dailyKeys.map((key) => bucketToPoint(key, live.daily[key])),
     topIps: aggregateTopIps(live.daily, 10),

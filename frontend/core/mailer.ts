@@ -38,10 +38,11 @@ function escapeHtml(value: string) {
 }
 
 // Folds of Honor Proud Supporter footer block — appended to subscriber-facing
-// emails (paid welcome, founding welcome, welcome back, referral reward) so
-// every recipient sees the pledge in every touchpoint. Deliberately compact so
-// it never dominates the message. The badge sits inside a white circular pad
-// so its red/white/navy palette doesn't clash with any parent background.
+// emails (paid welcome, founding welcome, welcome back, payment recovered,
+// referral reward) so every recipient sees the pledge in every touchpoint.
+// Deliberately compact so it never dominates the message. The badge sits inside
+// a white circular pad so its red/white/navy palette doesn't clash with any
+// parent background.
 //
 // Deliberately NOT included on transactional/auth emails (verify, password
 // reset, payment failed, checkout recovery) — those need to read urgent, not
@@ -113,8 +114,8 @@ const TRIAL_START_HERE: ReadonlyArray<{ title: string; body: string }> = [
     body: 'whether the broader options structure is more stabilizing or more unstable right now.',
   },
   {
-    title: 'SPY / SPX / QQQ',
-    body: 'the same read across all three, for intraday index context.',
+    title: 'SPY / SPX / QQQ / NDX',
+    body: 'the same read across all four, for intraday index context.',
   },
 ];
 
@@ -307,6 +308,8 @@ export async function sendPaidWelcomeEmail(
     'Michael',
     'Founder, ZeroGEX',
     '',
+    `P.S. Curious what we've shipped lately? See the latest product updates at ${getAppUrl()}/updates`,
+    '',
     ...renderFohFooterTextLines(),
   ].join('\n');
 
@@ -326,6 +329,7 @@ export async function sendPaidWelcomeEmail(
       <p>Please feel free to reply directly if you run into anything, have questions, or see something that could be improved. I read every message, and customer feedback is a huge part of how I'm shaping the product.</p>
       <p>Thanks again &mdash; I really appreciate your support.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+      <p style="font-size: 13px; color: #555;">P.S. Curious what we've shipped lately? See the latest product updates at <a href="${escapeHtml(`${getAppUrl()}/updates`)}" style="color: #f5b400; font-weight: 600;">${escapeHtml(`${getAppUrl()}/updates`)}</a>.</p>
       ${renderFohFooterHtml()}
     </div>
   `.trim();
@@ -499,16 +503,48 @@ export async function sendFoundingWelcomeEmail(
 // load and the chargeback risk that follow surprise auto-conversions. Sent
 // at most once per trial window (latched by users.trial_reminder_email_sent_at,
 // which the webhook clears whenever a new 'trialing' state begins).
-export async function sendTrialReminderEmail(
-  to: string,
-  opts: {
-    trialEndIso: string;
-    // When the underlying subscription is on the limited-time public promo,
-    // the cron job passes a short label like "first 6 months" so the reminder
-    // mentions the introductory rate that will kick in after the trial ends.
-    promoIntroLabel?: string | null;
-  },
-) {
+export type TrialReminderEmailOptions = {
+  trialEndIso: string;
+  // When the underlying subscription is on the limited-time public promo,
+  // the cron job passes a short label like "first 6 months" so the reminder
+  // mentions the introductory rate that will kick in after the trial ends.
+  promoIntroLabel?: string | null;
+  // Post-trial billing specifics, resolved from Stripe by the caller (the
+  // send-trial-reminders cron) so this presenter stays free of Stripe/DB I/O.
+  // When present, the reminder spells out the exact amount and the card that
+  // will be charged when the trial converts, so a member whose card is stale
+  // or expiring can fix it before the attempt fails into past_due. Left off
+  // (or passed null when the Stripe lookup fails) so the email still sends
+  // cleanly without the line.
+  billing?: {
+    // Formatted post-trial charge, e.g. "$29.00/month". Built by the caller
+    // from Stripe's upcoming-invoice preview, so it reflects any discount on
+    // the subscription (the real amount that will be billed), paired with the
+    // plan's own billing cadence.
+    chargeLabel: string;
+    // Display-ready card brand, e.g. "Visa" — already normalized by the
+    // caller (Stripe reports brands lowercased). Optional/null for wallet or
+    // unrecognized methods, in which case a neutral phrasing is used.
+    cardBrand?: string | null;
+    // Last four digits of the card on file, e.g. "4242". Null/omitted when the
+    // member has no nameable card (a Link/wallet method): the reminder then
+    // still quotes the price but refers to "the payment method on file" instead
+    // of naming a card, so the price is never dropped just because the method
+    // isn't a card.
+    cardLast4?: string | null;
+  } | null;
+};
+
+// Pure builder for the ~48h trial-end reminder: assembles subject + HTML + text
+// from already-resolved inputs, with no Resend/Stripe/DB I/O. Split out from the
+// sender so a caller can render the EXACT wire copy for preview/dry-run without
+// sending it (the cron's --render mode uses this), keeping preview and
+// production from ever drifting.
+export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
+  subject: string;
+  html: string;
+  text: string;
+} {
   const trialEndDate = formatTrialEndDate(opts.trialEndIso);
   const promoLabel = opts.promoIntroLabel ?? null;
   const subject = 'Your ZeroGEX free trial ends in 2 days';
@@ -523,11 +559,43 @@ export async function sendTrialReminderEmail(
     ? `Good news on the price: you locked in our <strong>limited-time introductory rate</strong> for the ${escapeHtml(promoLabel)}, so that's what your card will be charged after the trial &mdash; not the standard rate.`
     : null;
 
+  // "Your subscription will begin at $X/month using your Visa card ending in
+  // 1234" — the exact charge, brand, and last-4 come from Stripe (see
+  // resolveBillingDetails in the cron); we only format them here. The method
+  // phrase has three tiers, most specific first:
+  //   brand + last4 → "your Visa card ending in 1234"
+  //   last4 only    → "the payment method ending in 1234"  (brand unmapped)
+  //   neither       → "the payment method on file"         (Link/wallet: no card)
+  // The last tier keeps the price line for members who checked out with Link or
+  // a wallet, who have a chargeable method but no card brand/last4 to name.
+  const billing = opts.billing ?? null;
+  const cardTextPhrase = billing
+    ? billing.cardLast4
+      ? billing.cardBrand
+        ? `your ${billing.cardBrand} card ending in ${billing.cardLast4}`
+        : `the payment method ending in ${billing.cardLast4}`
+      : 'the payment method on file'
+    : null;
+  const cardHtmlPhrase = billing
+    ? billing.cardLast4
+      ? billing.cardBrand
+        ? `your ${escapeHtml(billing.cardBrand)} card ending in <strong>${escapeHtml(billing.cardLast4)}</strong>`
+        : `the payment method ending in <strong>${escapeHtml(billing.cardLast4)}</strong>`
+      : 'the payment method on file'
+    : null;
+  const billingLineText = billing
+    ? `Your subscription will begin at ${billing.chargeLabel} using ${cardTextPhrase}. Please make sure your payment method is ready, or update it from your account page (${accountUrl}).`
+    : null;
+  const billingLineHtml = billing
+    ? `Your subscription will begin at <strong>${escapeHtml(billing.chargeLabel)}</strong> using ${cardHtmlPhrase}. Please make sure your payment method is ready, or <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">update it here</a>.`
+    : null;
+
   const text = [
     'Hello,',
     '',
     `A quick heads-up: your ZeroGEX free trial ends on ${trialEndDate}, and your first payment will be charged then unless you cancel before that.`,
     '',
+    ...(billingLineText ? [billingLineText, ''] : []),
     ...(promoLineText ? [promoLineText, ''] : []),
     "If ZeroGEX is working for you, there's nothing you need to do — you'll keep full access and the renewal will go through automatically.",
     '',
@@ -544,6 +612,7 @@ export async function sendTrialReminderEmail(
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
       <p>Hello,</p>
       <p>A quick heads-up: your ZeroGEX free trial ends on <strong>${escapeHtml(trialEndDate)}</strong>, and your first payment will be charged then unless you cancel before that.</p>
+      ${billingLineHtml ? `<p>${billingLineHtml}</p>` : ''}
       ${promoLineHtml ? `<p>${promoLineHtml}</p>` : ''}
       <p>If ZeroGEX is working for you, there's nothing you need to do &mdash; you'll keep full access and the renewal will go through automatically.</p>
       <p>If it isn't the right fit, you can cancel anytime from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> and you won't be charged a cent.</p>
@@ -554,6 +623,113 @@ export async function sendTrialReminderEmail(
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
     </div>
   `.trim();
+
+  return { subject, html, text };
+}
+
+// Sends the ~48h trial-end reminder. Thin wrapper over buildTrialReminderEmail
+// so the wire copy and any --render preview never drift.
+export async function sendTrialReminderEmail(to: string, opts: TrialReminderEmailOptions) {
+  const { subject, html, text } = buildTrialReminderEmail(opts);
+
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject,
+    text,
+    html,
+  });
+
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
+export type TrialValueEmailOptions = {
+  // ISO trial-end instant, used only to name the date the member has until —
+  // this email is about getting value NOW, never about the charge.
+  trialEndIso: string;
+  // Footer unsubscribe URL (this is an engagement email, so it honors opt-out
+  // and must carry a one-click unsubscribe link, unlike the transactional
+  // 48h billing reminder).
+  unsubUrl: string;
+};
+
+// Pure builder for the mid-trial VALUE nudge (~day 2 of a 7-day trial): a
+// founder-voice activation email that steers a new trialer to the two or three
+// actions that make ZeroGEX "click", sent EARLY — before the day 3–7 cancel
+// wave and well before the 48h billing reminder. Deliberately carries NO charge
+// or cancel language: its whole job is time-to-value, not billing. Split from
+// the sender (no Resend/DB I/O) so a preview renders the exact wire copy.
+export function buildTrialValueEmail(opts: TrialValueEmailOptions): {
+  subject: string;
+  html: string;
+  text: string;
+} {
+  const trialEndDate = formatTrialEndDate(opts.trialEndIso);
+  const subject = 'Getting a real read out of your ZeroGEX trial';
+  const appUrl = getAppUrl();
+  const dashboardUrl = `${appUrl}/dashboard`;
+  const chartUrl = `${appUrl}/chart`;
+  const biasUrl = `${appUrl}/trade-bias`;
+  const gexUrl = `${appUrl}/education/gamma-exposure-explained`;
+  const safeDashboardUrl = escapeHtml(dashboardUrl);
+  const safeChartUrl = escapeHtml(chartUrl);
+  const safeBiasUrl = escapeHtml(biasUrl);
+  const safeGexUrl = escapeHtml(gexUrl);
+  const safeUnsubUrl = escapeHtml(opts.unsubUrl);
+  const linkStyle = 'color: #f5b400; font-weight: 600;';
+
+  const text = [
+    'Hello,',
+    '',
+    "You're a couple of days into your ZeroGEX trial, and I wanted to reach out while you've still got runway (your trial runs through " +
+      `${trialEndDate}). Almost everyone who sticks around got one clear read early — so here's the fastest path to it:`,
+    '',
+    "  1. Start on the Main Dashboard — it's the page to open every morning: your at-a-glance read of the regime, the key levels, and where price sits inside them.",
+    '  2. Pull up the Gamma Chart — SPY/QQQ/SPX/NDX price with the Gamma Flip, Call/Put Walls, and Max Pain drawn right on it: the support/resistance map dealers actually defend. Use session rewind to replay how a level held.',
+    '  3. Check Trade Bias for a single, signed directional call — it fuses the gamma and volatility regime with live flow, tape, and momentum into one read, for a multi-day swing or a same-day 0DTE.',
+    '',
+    `Open your dashboard: ${dashboardUrl}`,
+    '',
+    `Want the model behind it? The 5-minute read is Gamma Exposure Explained: ${gexUrl}`,
+    '',
+    "If anything's confusing, not what you expected, or just not clicking yet — reply to this email and tell me. I read every message and I'll personally help you get a useful read before your trial is up.",
+    '',
+    'Best,',
+    'Michael',
+    'Founder, ZeroGEX',
+    '',
+    `Prefer fewer emails like this? Unsubscribe: ${opts.unsubUrl}`,
+  ].join('\n');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <p>Hello,</p>
+      <p>You're a couple of days into your ZeroGEX trial, and I wanted to reach out while you've still got runway (your trial runs through <strong>${escapeHtml(trialEndDate)}</strong>). Almost everyone who sticks around got one clear read early &mdash; so here's the fastest path to it:</p>
+      <ol style="padding-left: 20px; margin: 12px 0;">
+        <li style="margin: 0 0 10px;">Start on the <a href="${safeDashboardUrl}" style="${linkStyle}">Main Dashboard</a> &mdash; the page to open every morning: your at-a-glance read of the regime, the key levels, and where price sits inside them.</li>
+        <li style="margin: 0 0 10px;">Pull up the <a href="${safeChartUrl}" style="${linkStyle}">Gamma Chart</a> &mdash; SPY/QQQ/SPX/NDX price with the <strong>Gamma Flip</strong>, <strong>Call/Put Walls</strong>, and <strong>Max Pain</strong> drawn right on it: the support/resistance map dealers actually defend. Session rewind lets you replay how a level held.</li>
+        <li style="margin: 0 0 10px;">Check <a href="${safeBiasUrl}" style="${linkStyle}">Trade Bias</a> for a single, signed directional call &mdash; it fuses the gamma and volatility regime with live flow, tape, and momentum into one read, for a multi-day swing or a same-day 0DTE.</li>
+      </ol>
+      <p style="margin: 24px 0;">
+        <a href="${safeDashboardUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Open your dashboard</a>
+      </p>
+      <p style="font-size: 14px; color: #3a4650;">Want the model behind it? The 5-minute read is <a href="${safeGexUrl}" style="${linkStyle}">Gamma Exposure Explained</a>.</p>
+      <p>If anything's confusing, not what you expected, or just not clicking yet &mdash; reply to this email and tell me. I read every message and I'll personally help you get a useful read before your trial is up.</p>
+      <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+      <p style="margin-top: 24px; font-size: 12px; color: #888;">Prefer fewer emails like this? <a href="${safeUnsubUrl}" style="color: #888;">Unsubscribe</a>.</p>
+    </div>
+  `.trim();
+
+  return { subject, html, text };
+}
+
+// Sends the mid-trial value nudge. Thin wrapper over buildTrialValueEmail so the
+// wire copy and any preview never drift.
+export async function sendTrialValueEmail(to: string, opts: TrialValueEmailOptions) {
+  const { subject, html, text } = buildTrialValueEmail(opts);
 
   const client = getClient();
   const result = await client.emails.send({
@@ -581,11 +757,57 @@ export async function sendFoundingFinalCallEmail(
   opts: {
     deadlineLabel: string;
     foundingHref: string;
+    // First-charge date for the deferred founding trial, e.g. "July 1, 2026".
+    // Passed from FOUNDING_BILLING_START_LABEL so the "billed on" line tracks
+    // the single source of truth instead of a date hardcoded in the copy.
+    billingStartLabel: string;
+    // Live founding prices (first-year intro rate, standard rate it's discounted
+    // from, and the post-year-one lifetime percent), resolved from Stripe by the
+    // caller (see core/offerPricing.ts). Null or absent → the offer copy keeps
+    // its structure but drops the specific figures so it can never quote a stale
+    // price.
+    pricing?: {
+      basicMonthlyIntro: string;
+      proMonthlyIntro: string;
+      basicMonthlyList: string;
+      proMonthlyList: string;
+      lifetimePercentOff: number | null;
+    } | null;
   },
 ) {
   const subject = `Final reminder: ZeroGEX founding rate closes tomorrow, ${opts.deadlineLabel}`;
   const safeFoundingUrl = escapeHtml(opts.foundingHref);
   const safeDeadline = escapeHtml(opts.deadlineLabel);
+
+  // Offer bullets. With live pricing we quote the exact first-year / standard
+  // rates and lifetime discount straight from Stripe; without it (Stripe
+  // unavailable) we keep the same structure but drop the specific figures so
+  // the email can never advertise a stale price. The first-charge date always
+  // comes from billingStartLabel, never a date hardcoded here.
+  const pricing = opts.pricing ?? null;
+  const basicOfferText = pricing
+    ? `Basic: ${pricing.basicMonthlyIntro}/mo for the first year, normally ${pricing.basicMonthlyList}/mo`
+    : 'Basic: a locked founding rate for the first year, well below standard pricing';
+  const proOfferText = pricing
+    ? `Pro: ${pricing.proMonthlyIntro}/mo for the first year, normally ${pricing.proMonthlyList}/mo`
+    : 'Pro: a locked founding rate for the first year, well below standard pricing';
+  const lifetimeOfferText =
+    pricing?.lifetimePercentOff != null
+      ? `After the first year, you keep ${pricing.lifetimePercentOff}% off standard pricing for as long as your subscription stays active`
+      : 'After the first year, you keep a standing lifetime discount off standard pricing for as long as your subscription stays active';
+  const billedLineText = `No charge today. Your card will not be billed until ${opts.billingStartLabel}.`;
+
+  const basicOfferHtml = pricing
+    ? `<strong>Basic:</strong> ${escapeHtml(pricing.basicMonthlyIntro)}/mo for the first year, normally ${escapeHtml(pricing.basicMonthlyList)}/mo`
+    : `<strong>Basic:</strong> a locked founding rate for the first year, well below standard pricing`;
+  const proOfferHtml = pricing
+    ? `<strong>Pro:</strong> ${escapeHtml(pricing.proMonthlyIntro)}/mo for the first year, normally ${escapeHtml(pricing.proMonthlyList)}/mo`
+    : `<strong>Pro:</strong> a locked founding rate for the first year, well below standard pricing`;
+  const lifetimeOfferHtml =
+    pricing?.lifetimePercentOff != null
+      ? `After the first year, you keep <strong>${pricing.lifetimePercentOff}% off standard pricing</strong> for as long as your subscription stays active`
+      : `After the first year, you keep a <strong>standing lifetime discount</strong> off standard pricing for as long as your subscription stays active`;
+  const billedLineHtml = `<strong>No charge today.</strong> Your card will not be billed until ${escapeHtml(opts.billingStartLabel)}.`;
 
   const text = [
     'Hello,',
@@ -596,10 +818,10 @@ export async function sendFoundingFinalCallEmail(
     '',
     "Here's the offer:",
     '',
-    '  • Basic: $12/mo for the first year, normally $39/mo',
-    '  • Pro: $19/mo for the first year, normally $59/mo',
-    '  • After the first year, you keep 25% off standard pricing for as long as your subscription stays active',
-    '  • No charge today. Your card will not be billed until July 1.',
+    `  • ${basicOfferText}`,
+    `  • ${proOfferText}`,
+    `  • ${lifetimeOfferText}`,
+    `  • ${billedLineText}`,
     '',
     `After ${opts.deadlineLabel}, founding access ends and future access will be at standard pricing.`,
     '',
@@ -627,10 +849,10 @@ export async function sendFoundingFinalCallEmail(
 
       <p style="margin: 20px 0 8px;">Here&rsquo;s the offer:</p>
       <ul style="padding-left: 22px; margin: 0 0 18px;">
-        <li><strong>Basic:</strong> $12/mo for the first year, normally $39/mo</li>
-        <li><strong>Pro:</strong> $19/mo for the first year, normally $59/mo</li>
-        <li>After the first year, you keep <strong>25% off standard pricing</strong> for as long as your subscription stays active</li>
-        <li><strong>No charge today.</strong> Your card will not be billed until July 1.</li>
+        <li>${basicOfferHtml}</li>
+        <li>${proOfferHtml}</li>
+        <li>${lifetimeOfferHtml}</li>
+        <li>${billedLineHtml}</li>
       </ul>
 
       <p>After <strong>${safeDeadline}</strong>, founding access ends and future access will be at standard pricing.</p>
@@ -682,6 +904,12 @@ export async function sendCheckoutRecoveryEmail(
     // always wins precedence — eligible users get the founding-deadline
     // variant even if the promo is also live.
     promoDeadlineLabel?: string | null;
+    // Live discounted monthly rates for the promo pitch, resolved from Stripe
+    // by the caller (see core/offerPricing.ts) so the copy quotes the real
+    // current rate, never a hardcoded number that can drift. Null or absent →
+    // the promo copy drops the specific figures and just says the discounted
+    // intro rate applies at checkout.
+    promoPricing?: { basicMonthly: string; proMonthly: string } | null;
   },
 ) {
   const founding = opts.foundingDeadlineLabel;
@@ -689,6 +917,18 @@ export async function sendCheckoutRecoveryEmail(
   // the two offers are mutually exclusive at checkout (founding wins) so the
   // email should match what they'd actually get back to.
   const promo = !founding ? opts.promoDeadlineLabel ?? null : null;
+
+  // Promo pitch: quote the live Basic/Pro monthly rates when the caller
+  // resolved them from Stripe; otherwise stay specific-number-free so the copy
+  // can never advertise a stale price. Leading space so it appends cleanly
+  // after the "…closes {promo}." sentence.
+  const promoPricing = opts.promoPricing ?? null;
+  const promoRatesText = promoPricing
+    ? ` Basic starts at ${promoPricing.basicMonthly}/mo and Pro at ${promoPricing.proMonthly}/mo, with discounted annual plans too.`
+    : ' The discounted intro rate applies automatically at checkout, with discounted annual plans too.';
+  const promoRatesHtml = promoPricing
+    ? ` Basic starts at <strong>${escapeHtml(promoPricing.basicMonthly)}/mo</strong> and Pro at <strong>${escapeHtml(promoPricing.proMonthly)}/mo</strong>, with discounted annual plans too.`
+    : ' The discounted intro rate applies automatically at checkout, with discounted annual plans too.';
 
   const subject = founding
     ? `Your ZeroGEX founding rate is still available — only until ${founding}`
@@ -717,7 +957,7 @@ export async function sendCheckoutRecoveryEmail(
       ? [
           'Hello,',
           '',
-          `I noticed you started a ZeroGEX subscription recently but didn't finish. No pressure either way — but our limited-time introductory pricing is still live and closes ${promo}. Basic starts at $19/mo and Pro at $29/mo, with discounted annual plans too.`,
+          `I noticed you started a ZeroGEX subscription recently but didn't finish. No pressure either way — but our limited-time introductory pricing is still live and closes ${promo}.${promoRatesText}`,
           '',
           `If you'd like to pick it back up at the intro rate, the same plan is one click away here: ${pricingUrl}`,
           '',
@@ -749,7 +989,7 @@ export async function sendCheckoutRecoveryEmail(
   const intro = founding
     ? `I noticed you started a ZeroGEX subscription recently but didn't finish. No pressure either way &mdash; but as a founding member you're still eligible for the locked-in founding rate, and that offer closes <strong>${escapeHtml(founding)}</strong>.`
     : promo
-      ? `I noticed you started a ZeroGEX subscription recently but didn't finish. No pressure either way &mdash; but our <strong>limited-time introductory pricing</strong> is still live and closes <strong>${escapeHtml(promo)}</strong>. Basic starts at <strong>$19/mo</strong> and Pro at <strong>$29/mo</strong>, with discounted annual plans too.`
+      ? `I noticed you started a ZeroGEX subscription recently but didn't finish. No pressure either way &mdash; but our <strong>limited-time introductory pricing</strong> is still live and closes <strong>${escapeHtml(promo)}</strong>.${promoRatesHtml}`
       : `I noticed you started a ZeroGEX subscription recently but didn't finish. No pressure either way &mdash; sometimes a tab just gets closed.`;
   const closer = founding
     ? `After the deadline the founding rate is gone for good, so I wanted to give you a heads-up rather than let it lapse quietly. If ZeroGEX isn't the right fit, just ignore this &mdash; you won't hear from me again about it.`
@@ -832,29 +1072,86 @@ export async function sendWelcomeBackEmail(to: string) {
 
 // Sent on the first failed renewal attempt for an invoice (gated by
 // invoice.attempt_count === 1 in the webhook so it does not re-fire on each
-// Stripe Smart Retry). Points the customer at the billing portal — logging
-// in is the access path, since the portal session is created server-side
-// against their authenticated account.
+// Stripe Smart Retry). Names the exact card that failed, states that access has
+// dropped to the free Public tier until payment clears, and gives Stripe's next
+// automatic-retry date — all resolved by the caller (the webhook) and passed in,
+// so this presenter stays free of Stripe/DB I/O. Each enrichment is best-effort:
+// the card phrase, amount, and retry date each degrade to neutral wording when
+// the caller can't resolve them, so the email always sends. Points the customer
+// at the billing portal — logging in is the access path, since the portal
+// session is created server-side against their authenticated account.
 export async function sendPaymentFailedEmail(
   to: string,
-  opts?: { amountFormatted?: string | null },
+  opts?: {
+    amountFormatted?: string | null;
+    // The card Stripe just tried and failed to charge, so the nudge can name it.
+    // Resolved from Stripe by the caller; brand is display-ready (or null for a
+    // wallet/Link/unmapped method → neutral phrasing), last4 like "6284".
+    cardBrand?: string | null;
+    cardLast4?: string | null;
+    // Stripe's next automatic retry (invoice.next_payment_attempt), ISO, so the
+    // email can give a concrete "we'll try again on …" date. Null when Stripe has
+    // exhausted its automatic retries (this was the final attempt).
+    nextAttemptIso?: string | null;
+    // When an ACTIVE payment-recovery grace window is open for this account (an
+    // established renewal failure — see BILLING_PAYMENT_GRACE_DAYS), the ISO
+    // instant it runs through. Lets the email say access is retained until then
+    // instead of implying an immediate downgrade. Null/omitted when no window is
+    // open, its state isn't known yet, or grace is disabled.
+    graceUntilIso?: string | null;
+  },
 ) {
   const subject = "We couldn't process your ZeroGEX payment";
   const accountUrl = `${getAppUrl()}/account`;
   const safeAccountUrl = escapeHtml(accountUrl);
+
+  // Name the exact card when the caller resolved it; otherwise stay neutral.
+  const cardPhrase = opts?.cardLast4
+    ? opts.cardBrand
+      ? `your ${opts.cardBrand} card ending in ${opts.cardLast4}`
+      : `the payment method ending in ${opts.cardLast4}`
+    : null;
+
   const amountSentence = opts?.amountFormatted
-    ? `Your subscription payment of ${opts.amountFormatted} was declined by your card issuer.`
-    : 'Your subscription payment was declined by your card issuer.';
+    ? cardPhrase
+      ? `Your subscription payment of ${opts.amountFormatted} was declined — ${cardPhrase} didn't go through.`
+      : `Your subscription payment of ${opts.amountFormatted} was declined by your card issuer.`
+    : cardPhrase
+      ? `Your subscription payment was declined — ${cardPhrase} didn't go through.`
+      : 'Your subscription payment was declined by your card issuer.';
+
+  // Access-state wording. An established (previously active) subscription that
+  // fails a renewal now keeps Pro through a short grace window (see
+  // BILLING_PAYMENT_GRACE_DAYS / core/paymentGrace.ts) while Stripe retries,
+  // rather than dropping to Public on the first failure — so this must NOT assert
+  // an immediate downgrade. When the caller confirmed an active grace window
+  // (graceUntilIso), say access is held through that date; otherwise stay
+  // tense-neutral so it's correct whether the account still has access (a race
+  // where the past_due sync hasn't landed) or has already dropped (the no-grace
+  // trial-conversion case). Retry timing is covered separately by retrySentence.
+  const accessSentence = opts?.graceUntilIso
+    ? `Your Pro access stays on through ${formatTrialEndDate(opts.graceUntilIso)}, so nothing changes right now. If the payment still can't be collected by then, your account moves to the free Public tier — and full Pro switches back on automatically the moment a charge succeeds.`
+    : 'Updating your payment method is the fastest way to keep your Pro access from lapsing — and if the account has already dropped to the free Public tier, full Pro switches back on automatically the moment a payment succeeds.';
+
+  // Concrete next-retry date when Stripe still has attempts left; a firmer note
+  // when this was the final automatic attempt and cancellation is imminent.
+  const retrySentence = opts?.nextAttemptIso
+    ? `Stripe will automatically try again on ${formatTrialEndDate(opts.nextAttemptIso)}. If the retries don't succeed, the subscription will be canceled and you'd need to resubscribe to get Pro back.`
+    : 'Stripe has made its final automatic attempt, so the subscription will be canceled shortly unless you update your payment method now.';
 
   const text = [
     'Hello,',
     '',
-    `${amountSentence} Stripe will automatically retry over the next few days, so if it was a temporary issue (insufficient funds, an expired card, etc.) it may go through on the next attempt with no action needed from you.`,
+    `${amountSentence} ${accessSentence}`,
     '',
-    "If you'd rather resolve it now, you can update your payment method anytime from the billing portal on your account page:",
+    retrySentence,
+    '',
+    "If you'd rather fix it now, you can update your payment method in a minute from the billing portal on your account page:",
     accountUrl,
     '',
-    "If you have any questions, just reply to this email — I'm happy to help.",
+    'If it was just a temporary hiccup (insufficient funds, an expired or replaced card), the next retry may clear it with nothing needed from you.',
+    '',
+    "And if you have any questions, just reply to this email — I'm happy to help.",
     '',
     'Best,',
     'Michael',
@@ -864,13 +1161,73 @@ export async function sendPaymentFailedEmail(
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
       <p>Hello,</p>
-      <p>${escapeHtml(amountSentence)} Stripe will automatically retry over the next few days, so if it was a temporary issue (insufficient funds, an expired card, etc.) it may go through on the next attempt with no action needed from you.</p>
-      <p>If you'd rather resolve it now, you can update your payment method anytime from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a>.</p>
+      <p>${escapeHtml(amountSentence)} ${escapeHtml(accessSentence)}</p>
+      <p>${escapeHtml(retrySentence)}</p>
+      <p>If you'd rather fix it now, you can update your payment method in a minute from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a>.</p>
       <p style="margin: 24px 0;">
         <a href="${safeAccountUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Update payment method</a>
       </p>
-      <p>If you have any questions, just reply to this email &mdash; I'm happy to help.</p>
+      <p>If it was just a temporary hiccup (insufficient funds, an expired or replaced card), the next retry may clear it with nothing needed from you.</p>
+      <p>And if you have any questions, just reply to this email &mdash; I'm happy to help.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+    </div>
+  `.trim();
+
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject,
+    text,
+    html,
+  });
+
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
+// Sent on the past_due → active recovery — the bookend to
+// sendPaymentFailedEmail. Fires when a failed renewal is finally resolved
+// (Stripe's Smart Retry succeeds on a later attempt, or the member updates
+// their card), which re-promotes the account out of the dunning downgrade.
+// This is reassurance, not urgency, so unlike the payment-failed nudge it
+// carries the FOH footer like the other positive subscriber touchpoints.
+// Latched in the webhook (payment_recovery_pending) so it only fires after a
+// real failure, never on an ordinary renewal.
+export async function sendPaymentRecoveredEmail(to: string) {
+  const subject = "You're all set — your ZeroGEX payment went through";
+  const dashboardUrl = `${getAppUrl()}/dashboard`;
+  const safeDashboardUrl = escapeHtml(dashboardUrl);
+
+  const text = [
+    'Hello,',
+    '',
+    "Good news — the subscription payment we had trouble with earlier just went through, so your ZeroGEX account is fully active again. There's nothing more you need to do.",
+    '',
+    "If your access was interrupted while the charge sorted itself out, it's all restored now, and you can jump straight back into the data:",
+    dashboardUrl,
+    '',
+    "Sorry for the small bump. If you have any questions about the charge, just reply to this email — I'm happy to help.",
+    '',
+    'Best,',
+    'Michael',
+    'Founder, ZeroGEX',
+    '',
+    ...renderFohFooterTextLines(),
+  ].join('\n');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <p>Hello,</p>
+      <p>Good news &mdash; the subscription payment we had trouble with earlier just went through, so your ZeroGEX account is fully active again. There's nothing more you need to do.</p>
+      <p>If your access was interrupted while the charge sorted itself out, it's all restored now, and you can jump straight back into the data.</p>
+      <p style="margin: 24px 0;">
+        <a href="${safeDashboardUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Open the live dashboard</a>
+      </p>
+      <p>Sorry for the small bump. If you have any questions about the charge, just reply to this email &mdash; I'm happy to help.</p>
+      <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+      ${renderFohFooterHtml()}
     </div>
   `.trim();
 
@@ -895,12 +1252,13 @@ export async function sendPaymentFailedEmail(
 // the reply is worth more than automating the coupon.
 export async function sendCancellationEmail(
   to: string,
-  opts: { periodEndIso: string | null },
+  opts: { periodEndIso: string | null; saveUrl?: string | null },
 ) {
   const subject = 'Sorry to see you go — mind sharing why?';
   const periodEndDate = opts.periodEndIso
     ? formatTrialEndDate(opts.periodEndIso)
     : 'the end of your current billing period';
+  const saveUrl = opts.saveUrl ?? null;
 
   const text = [
     'Hello,',
@@ -909,6 +1267,13 @@ export async function sendCancellationEmail(
     '',
     `You still have full access until ${periodEndDate}, so nothing changes yet on your end. I just wanted to reach out personally before that day comes.`,
     '',
+    ...(saveUrl
+      ? [
+          'If it comes down to price, here\'s the one-click version: claim 25% off for a full year and keep your access — no re-subscribe, no re-entering a card:',
+          saveUrl,
+          '',
+        ]
+      : []),
     "If you have a minute, I'd love to know what made you cancel. Even one sentence back on this email helps me a lot — I read every reply. Common ones I hear:",
     '',
     "  - The data wasn't what I expected",
@@ -933,6 +1298,12 @@ export async function sendCancellationEmail(
       <p>Hello,</p>
       <p>I saw you just cancelled your ZeroGEX subscription &mdash; first, thank you. You've been a real part of what I've been building here, and I don't take that lightly.</p>
       <p>You still have full access until <strong>${escapeHtml(periodEndDate)}</strong>, so nothing changes yet on your end. I just wanted to reach out personally before that day comes.</p>
+      ${saveUrl
+        ? `<div style="background: #f4fbf6; border: 1px solid #bfe6cf; border-radius: 10px; padding: 16px 18px; margin: 20px 0; text-align: center;">
+        <p style="margin: 0 0 12px; font-size: 15px; color: #1a1a1a;">If it comes down to price &mdash; keep your access at <strong>25% off for a full year</strong>, in one click. No re-subscribe, no re-entering a card.</p>
+        <a href="${escapeHtml(saveUrl)}" style="display: inline-block; padding: 12px 22px; background: #f5b400; color: #000; font-weight: 700; text-decoration: none; border-radius: 8px;">Keep my access &amp; claim 25% off</a>
+      </div>`
+        : ''}
       <p>If you have a minute, I'd love to know what made you cancel. Even one sentence back on this email helps me a lot &mdash; I read every reply. Common ones I hear:</p>
       <ul style="padding-left: 20px; margin: 12px 0;">
         <li>The data wasn't what I expected</li>
@@ -986,51 +1357,78 @@ export async function sendCancellationEmail(
 //     with no coupon plumbing configured at all.
 // discountLabel (e.g. "25% off your first year") is shown in the auto + manual
 // copy and MUST match the actual STRIPE_COUPON_WINBACK_* value.
-export async function sendWinbackEmail(
-  to: string,
-  opts?: {
-    winbackAutoApply?: boolean;
-    discountLabel?: string;
-    promoDeadlineLabel?: string | null;
+//
+// Every send carries a plain-language opt-out footer ("you're receiving this
+// because you created a ZeroGEX account… delete your account here"), where the
+// opt-out mechanism is self-service account deletion (/account#delete-account).
+
+export type WinbackHighlight = { title: string; body: string };
+
+// "What's new since you left" — the default marquee list. scripts/send-winback.mts
+// overrides this from content/winback-highlights.json so the copy stays evergreen
+// without a code change; this constant is the fallback when that file is absent
+// or unreadable. Keep it current if you ever edit it directly.
+export const DEFAULT_WINBACK_HIGHLIGHTS: WinbackHighlight[] = [
+  {
+    title: 'Gamma Chart',
+    body:
+      'a live price-and-dealer-gamma terminal with the Gamma Flip, Call/Put Walls, and Max Pain drawn right on SPY, QQQ, SPX, and NDX — plus session rewind to replay how a level held.',
   },
-) {
+  {
+    title: 'My Dashboard',
+    body:
+      'a customizable board you build from the pieces of ZeroGEX you use most — arrange the charts and cards how you like, and it saves your layout, settings, and symbols.',
+  },
+  {
+    title: 'Trade Bias',
+    body:
+      'a single, signed directional call that fuses the gamma and volatility regime with live price action, flow, tape, and momentum — for a multi-day swing or a same-day 0DTE read.',
+  },
+  {
+    title: 'NDX coverage',
+    body:
+      'the Nasdaq-100 now gets the same gamma read as SPY, SPX, and QQQ across every tool.',
+  },
+];
+
+export type WinbackEmailOptions = {
+  winbackAutoApply?: boolean;
+  discountLabel?: string;
+  promoDeadlineLabel?: string | null;
+  // Override the "what's new" bullets (evergreen list from the caller).
+  highlights?: WinbackHighlight[];
+};
+
+// Pure render — no network. Returns the subject + text + html so the same
+// content can be sent to a churner (sendWinbackEmail) or embedded in the
+// founder's weekly review digest (sendWinbackDigestEmail) without drift.
+export function renderWinbackEmail(opts?: WinbackEmailOptions): {
+  subject: string;
+  text: string;
+  html: string;
+} {
   const auto = opts?.winbackAutoApply === true;
   // Promo copy is a fallback only — the automated win-back coupon always wins
   // when it's configured, since it's the targeted per-user offer.
   const promo = !auto ? opts?.promoDeadlineLabel ?? null : null;
   const label = opts?.discountLabel?.trim() || '25% off your first year';
+  const highlights =
+    opts?.highlights && opts.highlights.length > 0 ? opts.highlights : DEFAULT_WINBACK_HIGHLIGHTS;
 
   // Auto variant sends them through the ?winback=1 link so the coupon attaches
   // at checkout; the other variants land on plain /pricing.
   const ctaHref = auto ? `${getAppUrl()}/pricing?winback=1` : `${getAppUrl()}/pricing`;
   const safeCtaHref = escapeHtml(ctaHref);
 
+  // Opt-out target: self-service account deletion is the unsubscribe mechanism.
+  const accountUrl = `${getAppUrl()}/account#delete-account`;
+  const safeAccountUrl = escapeHtml(accountUrl);
+
   const subject = auto
     ? `A lot has changed at ZeroGEX — and your discount's ready`
     : promo
       ? `Your ZeroGEX intro rate is open again — through ${promo}`
       : 'A lot has changed at ZeroGEX since you left';
-
-  // "What's new since you left." Kept concrete and current — these are the
-  // marquee additions shipped since the launch cohort churned. Refresh this
-  // list when the headline features change so the email never goes stale.
-  const highlights: Array<{ title: string; body: string }> = [
-    {
-      title: 'Backtesting',
-      body:
-        'test any options strategy against historical market data, with a full tearsheet, Monte Carlo cone, benchmark, and a shareable report you can send to anyone.',
-    },
-    {
-      title: 'TradeWorkz™ automated bots',
-      body:
-        'a fleet of bots that post their entries and exits in real time, backed by a fully public trade audit that shows every win and loss, not just the highlights.',
-    },
-    {
-      title: 'Sharper gamma levels & Live Bulletin',
-      body:
-        'a rebuilt net-GEX methodology so the levels, cards, and daily reads all agree, plus a faster dashboard across the board.',
-    },
-  ];
 
   const discountLineText = auto
     ? `And to make coming back easy, I've set aside ${label} for you — it's already on your account, so when you tap the button below you'll see the lower price before you confirm anything. No code to type, nothing to reply to.`
@@ -1049,6 +1447,9 @@ export async function sendWinbackEmail(
     : promo
       ? 'Come back — see the new pricing'
       : 'See what you\'ve missed';
+
+  const footerText =
+    "You're receiving this because you created a ZeroGEX account. If you'd rather not hear from us, you can delete your account here (this cancels any subscription and closes your account):";
 
   const text = [
     'Hello,',
@@ -1072,6 +1473,10 @@ export async function sendWinbackEmail(
     'Best,',
     'Michael',
     'Founder, ZeroGEX',
+    '',
+    '—',
+    footerText,
+    accountUrl,
   ].join('\n');
 
   const highlightsHtml = highlights
@@ -1095,6 +1500,89 @@ export async function sendWinbackEmail(
       <p>No pressure at all, though. If the timing isn't right, just ignore this and I won't keep nudging you. But your account is still here exactly as you left it, the door's open, and I'd love to have you back.</p>
       <p>If anything specific pushed you away &mdash; a missing feature, a bug, a pricing thing &mdash; just hit reply and tell me. I read every message myself, and it genuinely shapes what I build next.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+      <p style="font-size: 12px; color: #999; margin-top: 28px; border-top: 1px solid #eee; padding-top: 14px; line-height: 1.5;">
+        You're receiving this because you created a ZeroGEX account. If you'd rather not hear from us, you can <a href="${safeAccountUrl}" style="color: #999; text-decoration: underline;">delete your account</a> &mdash; that cancels any subscription and closes the account.
+      </p>
+    </div>
+  `.trim();
+
+  return { subject, text, html };
+}
+
+export async function sendWinbackEmail(to: string, opts?: WinbackEmailOptions) {
+  const { subject, text, html } = renderWinbackEmail(opts);
+
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject,
+    text,
+    html,
+  });
+
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
+// Weekly review digest to the founder (scripts/send-winback.mts --digest). It
+// lists exactly who the win-back WOULD go to this run and embeds the rendered
+// draft, but sends nothing to those users — the actual send is a separate,
+// deliberate `make winback YES=1`. This is the "email me the draft + the list
+// it will be sent to before it goes" step.
+export async function sendWinbackDigestEmail(
+  to: string,
+  opts: {
+    recipients: string[];
+    mode: 'auto' | 'promo' | 'manual';
+    sendCommand: string;
+    draft: { subject: string; text: string; html: string };
+  },
+) {
+  const { recipients, mode, sendCommand, draft } = opts;
+  const count = recipients.length;
+  const subject = `[ZeroGEX] Win-back review — ${count} churned member${count === 1 ? '' : 's'} ready (${mode})`;
+
+  const listText = recipients.length > 0 ? recipients.map((e) => `  - ${e}`).join('\n') : '  (none)';
+  const text = [
+    `${count} churned member${count === 1 ? '' : 's'} are eligible for the win-back email this week.`,
+    `Discount variant: ${mode}.`,
+    '',
+    'Nothing has been sent yet. To send to everyone below, run:',
+    `  ${sendCommand}`,
+    '',
+    `Recipients (${count}):`,
+    listText,
+    '',
+    '======================================================',
+    'DRAFT that will be sent (subject + body):',
+    `Subject: ${draft.subject}`,
+    '======================================================',
+    '',
+    draft.text,
+  ].join('\n');
+
+  const safeList =
+    recipients.length > 0
+      ? recipients.map((e) => `<li style="margin:2px 0;">${escapeHtml(e)}</li>`).join('')
+      : '<li style="margin:2px 0; color:#999;">(none)</li>';
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 640px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <h1 style="font-size: 18px; margin: 0 0 6px;">Win-back review — ${count} eligible</h1>
+      <p style="margin: 0 0 4px; color: #444;">Discount variant: <strong>${escapeHtml(mode)}</strong>. Nothing has been sent yet.</p>
+      <p style="margin: 0 0 16px; color: #444;">To send to everyone listed, run:<br>
+        <code style="display:inline-block; margin-top:6px; background:#f5f5f5; padding:6px 10px; border-radius:6px; font-size:13px;">${escapeHtml(sendCommand)}</code>
+      </p>
+      <h2 style="font-size: 14px; margin: 18px 0 6px;">Recipients (${count})</h2>
+      <ul style="padding-left: 18px; margin: 0 0 20px; font-size: 13px; color: #333;">${safeList}</ul>
+      <div style="border: 1px solid #e5e5e5; border-radius: 10px; overflow: hidden;">
+        <div style="background: #f5b400; color: #000; font-weight: 700; font-size: 13px; padding: 8px 12px;">
+          DRAFT PREVIEW &mdash; Subject: ${escapeHtml(draft.subject)}
+        </div>
+        <div style="padding: 4px 8px;">${draft.html}</div>
+      </div>
     </div>
   `.trim();
 
@@ -1155,6 +1643,196 @@ export async function sendVerifiedNeverPaidEmail(to: string) {
       </p>
       <p>Either way, thanks for giving ZeroGEX a look.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+    </div>
+  `.trim();
+
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject,
+    text,
+    html,
+  });
+
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
+// Second-touch reactivation email for a verified-never-paid signup who ignored
+// the first ~2h nudge (sendVerifiedNeverPaidEmail). Fired ~3 weeks later by
+// scripts/send-reactivation.mts. One-shot per account (latch on
+// users.reactivation_email_sent_at). This is the inactive-signup analogue of the
+// churned win-back: the first touch pitched the standard 7-day trial and didn't
+// convert, so this one CHANGES the offer to an extended trial (`trialDays`,
+// granted server-side at checkout for the ?reactivate=1 arrival) — the longer
+// trial is the incentive, so there is deliberately no discount to muddy it.
+//
+// Unlike the transactional lifecycle nudges, this is a re-engagement send to
+// someone who already passed once, so it carries a real marketing-unsubscribe
+// affordance: a footer opt-out link plus the one-click List-Unsubscribe header
+// (RFC 8058). `unsubUrl` is the signed per-user link the caller builds via
+// core/unsubToken.ts buildUnsubUrl(); the sender excludes anyone already
+// opted out before we ever get here.
+export type ReactivationEmailOptions = { trialDays: number; unsubUrl: string };
+
+// Pure render — no network. Returns subject + text + html so the same content
+// can be delivered to a cold signup (sendReactivationEmail) or embedded in the
+// founder's pre-send review digest (sendReactivationDigestEmail) without drift.
+// Mirrors renderWinbackEmail.
+export function renderReactivationEmail(opts: ReactivationEmailOptions): {
+  subject: string;
+  text: string;
+  html: string;
+} {
+  const trialDays = Math.max(1, Math.floor(opts.trialDays));
+  const chargeDay = trialDays + 1;
+  const ctaHref = `${getAppUrl()}/pricing?trial=1&reactivate=1`;
+  const safeCtaHref = escapeHtml(ctaHref);
+  const safeUnsub = escapeHtml(opts.unsubUrl);
+
+  const subject = `I extended your ZeroGEX free trial to ${trialDays} days`;
+
+  const text = [
+    'Hello,',
+    '',
+    "It's Michael, the founder of ZeroGEX. A little while back you created an account but never started the trial — no worries, life gets busy. I'm reaching out one more time because I don't think 7 days was a fair test, and I'd rather fix that than lose you over it.",
+    '',
+    `So I've set your trial to a full ${trialDays} days.`,
+    '',
+    'Same full access — every gamma level, the daily Read that tells you in plain English whether SPX is pinned, squeezing, or set to break before the open, the live flow, the backtester, and the TradeWorkz bots with their fully public trade audit — just a lot more room to see whether it earns a place in your routine.',
+    '',
+    'How the trial works, so nothing catches you off guard:',
+    `  • ${trialDays} days of full access, starting the moment you activate.`,
+    `  • Your card is on file but is NOT charged until day ${chargeDay}.`,
+    '  • We email you 48 hours before that first charge — it is never a surprise.',
+    "  • If it's not for you, one click in the billing portal cancels it and you won't be charged a cent.",
+    '',
+    `Start your ${trialDays}-day trial: ${ctaHref}`,
+    '',
+    "And if something specific held you back — a missing feature, a question, price, or it just wasn't the right week — hit reply and tell me. I read every message myself, and it genuinely shapes what I build next.",
+    '',
+    'Either way, thanks for giving ZeroGEX a look.',
+    '',
+    'Best,',
+    'Michael',
+    'Founder, ZeroGEX',
+    '',
+    '---',
+    'You are receiving this because you created a ZeroGEX account.',
+    `Unsubscribe from these emails: ${opts.unsubUrl}`,
+  ].join('\n');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.55;">
+      <p>Hello,</p>
+      <p>It's Michael, the founder of ZeroGEX. A little while back you created an account but never started the trial &mdash; no worries, life gets busy. I'm reaching out one more time because I don't think 7 days was a fair test, and I'd rather fix that than lose you over it.</p>
+      <p style="background: #fff8e1; border-left: 3px solid #f5b400; padding: 12px 14px; margin: 20px 0; font-size: 17px;">So I've set your trial to a full <strong>${trialDays} days</strong>.</p>
+      <p>Same full access &mdash; every gamma level, the daily Read that tells you in plain English whether SPX is pinned, squeezing, or set to break before the open, the live flow, the backtester, and the TradeWorkz&trade; bots with their fully public trade audit &mdash; just a lot more room to see whether it earns a place in your routine.</p>
+      <p style="margin: 16px 0 4px;">How the trial works, so nothing catches you off guard:</p>
+      <ul style="padding-left: 20px; margin: 4px 0 16px;">
+        <li style="margin: 0 0 8px;"><strong>${trialDays} days</strong> of full access, starting the moment you activate.</li>
+        <li style="margin: 0 0 8px;">Your card is on file but is <strong>not charged until day ${chargeDay}</strong>.</li>
+        <li style="margin: 0 0 8px;">We email you <strong>48 hours before</strong> that first charge &mdash; it is never a surprise.</li>
+        <li style="margin: 0 0 8px;">If it's not for you, <strong>one click</strong> in the billing portal cancels it and you won't be charged a cent.</li>
+      </ul>
+      <p style="margin: 24px 0;">
+        <a href="${safeCtaHref}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Start my ${trialDays}-day trial</a>
+      </p>
+      <p>And if something specific held you back &mdash; a missing feature, a question, price, or it just wasn't the right week &mdash; hit reply and tell me. I read every message myself, and it genuinely shapes what I build next.</p>
+      <p>Either way, thanks for giving ZeroGEX a look.</p>
+      <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+      <p style="margin: 28px 0 0; padding-top: 14px; border-top: 1px solid #e8e8e8; font-size: 12px; color: #8a8a8a; line-height: 1.5;">
+        You're receiving this because you created a ZeroGEX account.
+        <a href="${safeUnsub}" style="color: #8a8a8a; text-decoration: underline;">Unsubscribe from these emails</a>.
+      </p>
+    </div>
+  `.trim();
+
+  return { subject, text, html };
+}
+
+export async function sendReactivationEmail(to: string, opts: ReactivationEmailOptions) {
+  const { subject, text, html } = renderReactivationEmail(opts);
+
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject,
+    text,
+    html,
+    // One-click unsubscribe (RFC 8058) — this is a re-engagement send, so make
+    // opting out a single tap for the recipient and the mailbox provider alike.
+    headers: {
+      'List-Unsubscribe': `<${opts.unsubUrl}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    },
+  });
+
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
+// Pre-send review digest to the founder (scripts/send-reactivation.mts
+// --digest). Lists exactly who the reactivation email WOULD go to this run and
+// embeds the rendered draft, but sends nothing to those users — the real send is
+// a separate, deliberate `make reactivation YES=1`. Mirrors sendWinbackDigestEmail.
+export async function sendReactivationDigestEmail(
+  to: string,
+  opts: {
+    recipients: string[];
+    sendCommand: string;
+    trialDays: number;
+    draft: { subject: string; text: string; html: string };
+  },
+) {
+  const { recipients, sendCommand, trialDays, draft } = opts;
+  const count = recipients.length;
+  const subject = `[ZeroGEX] Reactivation review — ${count} cold signup${count === 1 ? '' : 's'} ready (${trialDays}-day trial)`;
+
+  const listText =
+    recipients.length > 0 ? recipients.map((e) => `  - ${e}`).join('\n') : '  (none)';
+  const text = [
+    `${count} cold verified-never-paid signup${count === 1 ? '' : 's'} are eligible for the reactivation email this run.`,
+    `Offer: extended ${trialDays}-day free trial.`,
+    '',
+    'Nothing has been sent yet. To send to everyone below, run:',
+    `  ${sendCommand}`,
+    '',
+    `Recipients (${count}):`,
+    listText,
+    '',
+    '======================================================',
+    'DRAFT that will be sent (subject + body):',
+    `Subject: ${draft.subject}`,
+    '======================================================',
+    '',
+    draft.text,
+  ].join('\n');
+
+  const safeList =
+    recipients.length > 0
+      ? recipients.map((e) => `<li style="margin:2px 0;">${escapeHtml(e)}</li>`).join('')
+      : '<li style="margin:2px 0; color:#999;">(none)</li>';
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 640px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <h1 style="font-size: 18px; margin: 0 0 6px;">Reactivation review &mdash; ${count} eligible</h1>
+      <p style="margin: 0 0 4px; color: #444;">Offer: extended <strong>${trialDays}-day</strong> free trial. Nothing has been sent yet.</p>
+      <p style="margin: 0 0 16px; color: #444;">To send to everyone listed, run:<br>
+        <code style="display:inline-block; margin-top:6px; background:#f5f5f5; padding:6px 10px; border-radius:6px; font-size:13px;">${escapeHtml(sendCommand)}</code>
+      </p>
+      <h2 style="font-size: 14px; margin: 18px 0 6px;">Recipients (${count})</h2>
+      <ul style="padding-left: 18px; margin: 0 0 20px; font-size: 13px; color: #333;">${safeList}</ul>
+      <div style="border: 1px solid #e5e5e5; border-radius: 10px; overflow: hidden;">
+        <div style="background: #f5b400; color: #000; font-weight: 700; font-size: 13px; padding: 8px 12px;">
+          DRAFT PREVIEW &mdash; Subject: ${escapeHtml(draft.subject)}
+        </div>
+        <div style="padding: 4px 8px;">${draft.html}</div>
+      </div>
     </div>
   `.trim();
 

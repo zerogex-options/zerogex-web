@@ -1,9 +1,11 @@
 import 'server-only';
 
-// Fixed windowing for the admin monitoring charts. The hourly/daily series
-// pad to these sizes so the chart x-axes always span the same range
-// regardless of how much data has been collected. Callers (e.g. the backend
-// metrics feed) may pass a smaller hourly count to generateHourlyKeys.
+// Default windowing for the admin monitoring charts. The hourly/daily series
+// pad to these sizes so the chart x-axes span a consistent range regardless of
+// how much data has been collected. Both are defaults, not hard caps: callers
+// may pass a custom count to either generator — the backend metrics feed uses a
+// smaller hourly window, and the retained MRR/subscriber series pass a larger
+// daily count to show all accumulated history beyond MAX_DAILY.
 export const MAX_HOURLY = 720;
 export const MAX_DAILY = 90;
 
@@ -42,10 +44,10 @@ export function generateHourlyKeys(now: Date, count: number = MAX_HOURLY): strin
   return keys;
 }
 
-export function generateDailyKeys(now: Date): string[] {
+export function generateDailyKeys(now: Date, count: number = MAX_DAILY): string[] {
   const seen = new Set<string>();
   const keys: string[] = [];
-  for (let i = MAX_DAILY - 1; i >= 0; i--) {
+  for (let i = count - 1; i >= 0; i--) {
     const d = new Date(now.getTime() - i * 86400_000);
     const { day } = etBucketKeys(d);
     if (!seen.has(day)) {

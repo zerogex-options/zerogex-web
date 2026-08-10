@@ -10,7 +10,7 @@ ZeroGEX propose trois niveaux de compte. Ils déterminent quelles données et qu
 
 | Niveau | Pour qui | Ce que vous obtenez |
 | --- | --- | --- |
-| Public | Consultation, formation | Le site vitrine, l'espace éducatif, les guides, les articles, les pages gratuites de niveaux gamma SPX / SPY / QQQ (décalées de 15 minutes) |
+| Public | Consultation, formation | Le site vitrine, l'espace éducatif, les guides, les articles, les pages gratuites de niveaux gamma SPX / SPY / QQQ / NDX (décalées de 15 minutes) |
 | Basic | Traders intraday actifs | Dashboard, Live Bulletin, tous les Metrics, Strategy Builder, Live Options Quotes, tous les Basic Signals |
 | Pro | Opérateurs sérieux | Tout ce qui est inclus dans Basic + tous les Advanced Signals + Composite Score + Backtesting + accès API |
 
@@ -21,14 +21,14 @@ Consultez la répartition en direct — et un essai de 14 jours — sur la page 
 ### Public (aucun compte requis)
 
 - Le site marketing (landing, About, Education Hub, Articles, Guides)
-- Pages gratuites de niveaux gamma SPX, SPY et QQQ — décalées d'environ 15 minutes
+- Pages gratuites de niveaux gamma SPX, SPY, QQQ et NDX — décalées d'environ 15 minutes
 - Help Center, FAQ, Quick Starts
 - Confidentialité, Conditions
 
 ### Niveau Basic
 
 - **Dashboard** — métriques complètes en temps réel
-- **Live Bulletin** — flux en streaming des événements de signaux
+- **Live Bulletin** — un instantané dealer-gamma en direct et prêt à partager
 - **Toutes les pages Metrics** — Dealer Positioning, GEX Summary & Greeks, Flow Analysis, Smart Money, Max Pain, Technicals
 - **Basic Signals** — Tape Flow Bias, Skew Delta, Vanna/Charm Flow, Dealer Delta Pressure, GEX Gradient, Positioning Trap
 - **Strategy Builder** — pricing d'options complet et P&L
@@ -48,7 +48,6 @@ Certaines pages existent pour tous les niveaux mais se comportent différemment 
 
 - Le **Dashboard** est entièrement renseigné pour Basic et Pro. Les utilisateurs Public voient un aperçu qui renvoie vers la page en direct après connexion.
 - La section **Signals** de la barre latérale est toujours visible — n'importe qui peut cliquer sur le nom d'un signal. Sans accès, le clic redirige vers la page [Pricing](/pricing) afin que vous voyiez ce qui le débloque.
-- Les badges et puces du **Live Bulletin** sont adaptés au niveau : les éléments réservés à Pro affichent une petite puce de verrouillage pour les utilisateurs Basic.
 
 ## Comment passer à un niveau supérieur ou en changer
 

@@ -36,7 +36,9 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 
+import Stripe from 'stripe';
 import { sendCheckoutRecoveryEmail } from '../core/mailer.ts';
+import { resolvePromoDisplayPricing, type PromoDisplayPricing } from '../core/offerPricing.ts';
 import {
   FOUNDING_LOCKIN_DEADLINE_ISO,
   FOUNDING_LOCKIN_DEADLINE_LABEL,
@@ -225,6 +227,14 @@ if (exclusiveFlags > 1) {
 const cwd = process.cwd();
 const envLocal = parseEnvFile(path.join(cwd, '.env.local'));
 
+// Hydrate .env.local into process.env (without overriding the live shell env)
+// so core modules that read process.env directly — e.g. core/offerPricing.ts's
+// STRIPE_PRICE_*/STRIPE_COUPON_* lookups — see the app config under systemd,
+// where only HOME/PATH are set. Mirrors how Next.js loads .env.local server-side.
+for (const [key, value] of Object.entries(envLocal)) {
+  if (process.env[key] === undefined) process.env[key] = value;
+}
+
 const RESEND_API_KEY = process.env.RESEND_API_KEY || envLocal.RESEND_API_KEY;
 const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || envLocal.RESEND_FROM_EMAIL;
 const NEXT_PUBLIC_APP_URL =
@@ -255,6 +265,26 @@ const foundingStillOpen =
 // the email uses the promo-deadline copy instead of the generic nudge.
 const promoDeadlineLabel = getActivePromoDeadlineLabelLocal();
 
+// Optional Stripe client — used only to resolve the live promo prices the email
+// quotes ("Basic starts at $X/mo…"). Best-effort: without STRIPE_SECRET_KEY, or
+// on a Stripe error, promoPricing stays null and the promo copy falls back to
+// price-free wording, so the nudge still sends. The prices are the same for
+// everyone, so resolve once up front rather than per user.
+const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || envLocal.STRIPE_SECRET_KEY;
+const stripe: Stripe | null = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY) : null;
+
+let promoPricing: PromoDisplayPricing | null = null;
+if (promoDeadlineLabel && stripe) {
+  try {
+    promoPricing = await resolvePromoDisplayPricing(stripe);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'unknown error';
+    console.warn(
+      `Warning: could not resolve live promo pricing (${message}); promo emails will use price-free copy.`,
+    );
+  }
+}
+
 if (cliArgs.previewTo) {
   const useFounding = cliArgs.previewFounding && foundingStillOpen;
   const variantLabel = useFounding
@@ -268,6 +298,7 @@ if (cliArgs.previewTo) {
   await sendCheckoutRecoveryEmail(cliArgs.previewTo, {
     foundingDeadlineLabel: useFounding ? FOUNDING_LOCKIN_DEADLINE_LABEL : null,
     promoDeadlineLabel: useFounding ? null : promoDeadlineLabel,
+    promoPricing: useFounding ? null : promoPricing,
   });
   console.log('Preview sent.');
   process.exit(0);
@@ -314,6 +345,7 @@ const eligible = querySqlite<UserRow>(
      AND u.checkout_recovery_email_sent_at IS NULL
      AND u.email_verified_at IS NOT NULL
      AND u.tier != 'admin'
+     AND u.deleted_at IS NULL
    GROUP BY u.id, u.email, u.founding_eligible
    ORDER BY last_started_at ASC;`,
 );
@@ -363,6 +395,7 @@ for (const user of eligible) {
     await sendCheckoutRecoveryEmail(user.email, {
       foundingDeadlineLabel: useFounding ? FOUNDING_LOCKIN_DEADLINE_LABEL : null,
       promoDeadlineLabel: usePromo ? promoDeadlineLabel : null,
+      promoPricing: usePromo ? promoPricing : null,
     });
     const nowIso = new Date().toISOString();
     // Stamp the latch FIRST so a partial run that crashes after some sends

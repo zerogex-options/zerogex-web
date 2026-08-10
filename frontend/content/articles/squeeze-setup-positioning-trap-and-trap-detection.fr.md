@@ -1,4 +1,6 @@
 # Squeeze Setup, Positioning Trap et Trap Detection : Trois Signaux, Trois Histoires
+> **Note méthodologique mise à jour — elle prévaut sur toute formulation incompatible plus bas.** ZeroGEX estime l’inventaire des dealers à partir de données publiques sans l’observer directement. Le modèle conserve la convention calls positifs/puts négatifs (`Net GEX = Call GEX − Put GEX`) et suppose les dealers nets longs calls et nets shorts puts. Les calls et puts longs ont un gamma positif ; les calls et puts shorts ont un gamma négatif. Le Put Wall est la plus grande concentration de gamma put sous le spot et représente localement un gamma dealer négatif : il peut coïncider avec un support, mais la couverture du put short ne crée pas mécaniquement un plancher. Les walls peuvent migrer avec le spot, le temps et la volatilité implicite alors que l’open interest officiel ne change pas en séance. À l’approche de l’échéance, le gamma se concentre près de l’ATM : le gamma ATM peut augmenter, tandis que le gamma nettement ITM ou OTM tend vers zéro. Le Gamma Flip sélectionné est une transition locale ; le profil peut avoir plusieurs croisements ou aucun croisement significatif. Charm et vanna sont des variations conditionnelles du delta, pas des ordres programmés. Les scores sont des résultats heuristiques du modèle, pas des probabilités calibrées. Un gamma négatif amplifie la direction déjà engagée ; la distance à une cible n’implique pas une répulsion. L’inversion du terme de pin d’EOD Pressure reste donc une heuristique ZeroGEX. Max Pain minimise le paiement intrinsèque agrégé et ne maximise pas exactement le notionnel expirant sans valeur. Le DEX brut mesure le delta des seules options, pas le futur flux de couverture ; prime et côté agresseur ne prouvent ni information, ni ouverture, ni conviction.
+
 
 Si vous avez passé du temps dans l'onglet Signals, vous avez sans doute remarqué trois noms qui semblent mesurer la même chose : Squeeze Setup, Positioning Trap et Trap Detection. Tous les trois produisent un nombre bien ordonné entre −1 et +1. Tous les trois changent de signe selon la direction. Et tous les trois s'activent autour des mêmes types de points de bascule.
 
@@ -54,7 +56,7 @@ Trois signaux. Trois thèses. Une même droite numérique.
 - Proximité du gamma flip
 - Régime de Net GEX (lissé via tanh)
 
-**Comment il est calculé :** Une somme pondérée — 0,45 sur l'encombrement, 0,25 sur le biais du déséquilibre, 0,15 sur le momentum, 0,10 sur l'inclinaison du flip, 0,05 sur le régime de GEX négatif — calculée indépendamment pour le côté squeeze (foule long à risque) et le côté flush (foule short à risque). Les deux sont compensés en un score unique.
+**Comment il est calculé :** Une somme pondérée — 0,45 sur l'encombrement, 0,25 sur le biais du déséquilibre, 0,15 sur le momentum, 0,10 sur l'inclinaison du flip, 0,05 sur le régime de GEX négatif — calculée indépendamment pour le côté squeeze (foule short à risque) et le côté flush (foule long à risque). Les deux sont compensés en un score unique.
 
 Contrairement aux deux autres, Positioning Trap n'a pas de flag de trigger — il alimente le composite MSI comme composante continue (poids 0,06) et ouvre le playbook `positioning_trap_squeeze` lorsque abs(score) ≥ 0,5.
 
@@ -108,7 +110,7 @@ Quelques schémas à surveiller :
 
 **Confluence (forte conviction) :** Squeeze Setup +0,5 et Trap Detection +0,4 → le marché est comprimé à la hausse et une cassure baissière vient d'échouer. Les deux signaux pointent vers le même trade sous des angles différents.
 
-**Séquence (meilleures entrées) :** Positioning Trap signale une foule long à +0,7 → attendez. Trap Detection bascule ensuite en négatif (la cassure haussière échoue) → c'est l'étincelle. Tradez le fade avec la foule comme carburant.
+**Séquence (meilleures entrées) :** Positioning Trap signale une foule long à −0,7 → attendez. Trap Detection bascule ensuite en négatif (la cassure haussière échoue) → c'est l'étincelle. Tradez le fade avec la foule comme carburant.
 
 **Contradiction (restez à l'écart) :** Squeeze Setup indique +0,6 (aller long sur la cassure). Trap Detection indique −0,5 (la cassure haussière échoue). L'un des deux se trompe. Passez votre tour.
 

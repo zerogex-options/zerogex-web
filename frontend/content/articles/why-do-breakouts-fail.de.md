@@ -1,4 +1,6 @@
 # Warum scheitern Breakouts? Der strukturelle Grund hinter fehlgeschlagenen Breakouts
+> **Aktualisierter Methodikhinweis — er hat Vorrang vor abweichenden Formulierungen weiter unten.** ZeroGEX schätzt Dealerbestände aus öffentlichen Daten; es beobachtet sie nicht. Das Modell behält die Call-positiv/Put-negativ-Konvention bei (`Net GEX = Call GEX − Put GEX`) und unterstellt Dealer netto long Calls und netto short Puts. Long Calls und Long Puts haben positives Gamma; Short Calls und Short Puts negatives Gamma. Die Put Wall ist die größte Put-Gamma-Konzentration unter Spot und lokal modelliertes negatives Dealer-Gamma: Sie kann mit Unterstützung zusammenfallen, doch das Hedging eines Short Puts erzeugt keinen mechanischen Boden. Walls können sich durch Spot, Zeit und implizite Volatilität verschieben, obwohl das offizielle Open Interest intraday unverändert bleibt. Nahe Verfall konzentriert sich Gamma am Geld; ATM-Gamma kann steigen, während deutlich ITM- oder OTM-Gamma gegen null geht. Der ausgewählte Gamma Flip ist ein lokaler Übergang; ein Profil kann mehrere oder keine aussagekräftige Kreuzung haben. Charm und Vanna sind bedingte Deltaänderungen, keine geplanten Orders. Signalwerte sind heuristische Modellergebnisse, keine kalibrierten Wahrscheinlichkeiten. Negatives Gamma verstärkt die bereits laufende Richtung; die Entfernung zu einem Ziel impliziert keine Abstoßung. Die Vorzeichenumkehr des EOD-Pressure-Pin-Terms bleibt daher eine ZeroGEX-Heuristik. Max Pain minimiert die aggregierte intrinsische Auszahlung und maximiert nicht exakt den wertlos verfallenden Nominalwert. Rohes DEX misst Optionsdelta, nicht künftigen Hedge-Flow; Prämie und Aggressorseite beweisen weder Information noch Eröffnung oder Überzeugung.
+
 
 *Warum scheitern Breakouts so oft? Das Muster ist kein Zufall — gescheiterte Breakouts haben eine strukturelle Ursache, die im Dealer-Hedging, im Gamma-Regime und darin verwurzelt ist, wie sich Positionierung genau an dem Level konzentriert, das der Preis zu durchbrechen versucht. Darauf solltest du achten, bevor du dem Move hinterherjagst.*
 
@@ -34,7 +36,7 @@ Die dominante strukturelle Ursache ist das **Long-Gamma-Hedging der Dealer an ko
 
 Hier ist die Kette:
 
-1. Kunden kaufen an einem bestimmten Strike stark Calls (sagen wir, dem SPX-5.850-Strike). Dealer verkaufen diese Calls.
+1. Kunden verkaufen an einem bestimmten Strike stark Calls (sagen wir, dem SPX-5.850-Strike) — Overwriting und Call-Verkäufe. Dealer kaufen diese Calls.
 2. Um delta-neutral zu bleiben, müssen Dealer eine entsprechende Menge an Short-Delta im Underlying halten — sie sind also short relativ zum Call-Exposure. Wenn der Spot in Richtung 5.850 steigt, entwickelt ihr Options-Exposure positives Delta, das sie durch *Verkauf* des Underlyings ausgleichen müssen.
 3. Je näher der Spot an 5.850 heranrückt, desto konzentrierter wird die Gamma — und desto mehr Underlying müssen die Dealer pro Tick Preisbewegung verkaufen, um neutral zu bleiben.
 4. Dieser Verkauf wirkt als strukturelles Angebot. Er muss nicht von einer einzigen Quelle kommen — er ist die Summe jedes Dealers, der auf die gleiche Weise hedgt.
@@ -129,4 +131,4 @@ Nur Bildungsinhalte — nichts davon ist eine Handelsempfehlung.
 
 ---
 
-Wenn du den heutigen Gamma Flip, das Net GEX und die Live-Positionierung der Wall sehen möchtest, bevor du deinen nächsten Breakout-Trade eingehst, zeigt dir die kostenlose ZeroGEX-Gamma-Levels-Ansicht alle drei für SPY, SPX und QQQ.
+Wenn du den heutigen Gamma Flip, das Net GEX und die Live-Positionierung der Wall sehen möchtest, bevor du deinen nächsten Breakout-Trade eingehst, zeigt dir die kostenlose ZeroGEX-Gamma-Levels-Ansicht alle drei für SPY, SPX, QQQ und NDX.

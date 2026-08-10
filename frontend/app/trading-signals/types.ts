@@ -151,6 +151,56 @@ export interface BotDetailResponse {
   open_positions: Array<Record<string, unknown>>;
 }
 
+// --- Performance trend (GET /api/tradeworkz/performance-trend) ---------------
+// The slope, not the since-inception level: per-session P&L, a cumulative line
+// rebased to the window start, rolling win rate / profit factor / expectancy,
+// and a SPY buy-hold benchmark over the same sessions.
+
+export interface TrendRolling {
+  sessions: number;
+  realized_pnl: number;
+  trades: number;
+  win_rate: number | null;
+  profit_factor: number | null;
+  expectancy: number | null;
+}
+
+export interface TrendPoint {
+  session_date: string;
+  realized_pnl: number;
+  trades: number;
+  wins: number;
+  losses: number;
+  cumulative_pnl: number;
+  fleet_cum_return_pct: number | null;
+  spy_close: number | null;
+  spy_cum_return_pct: number | null;
+  rolling: Record<string, TrendRolling>;
+}
+
+export interface TrendChange {
+  date: string;
+  label: string;
+  detail: string | null;
+}
+
+export interface TrendHeadline {
+  as_of?: string;
+  cumulative_pnl?: number;
+  fleet_cum_return_pct?: number | null;
+  spy_cum_return_pct?: number | null;
+  windows?: Record<string, TrendRolling>;
+}
+
+export interface PerformanceTrend {
+  series: TrendPoint[];
+  headline: TrendHeadline;
+  changes: TrendChange[];
+  windows: number[];
+  days: number;
+  fleet_start_capital: number;
+}
+
 export type PeriodKey = '1d' | '7d' | '30d' | '365d' | 'all';
 
 export const PERIOD_OPTIONS: Array<{ key: PeriodKey; label: string }> = [

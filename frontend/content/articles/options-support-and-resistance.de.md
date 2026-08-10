@@ -1,4 +1,6 @@
 # Wie man Support und Resistance aus dem Options-Positioning ableitet
+> **Aktualisierter Methodikhinweis — er hat Vorrang vor abweichenden Formulierungen weiter unten.** ZeroGEX schätzt Dealerbestände aus öffentlichen Daten; es beobachtet sie nicht. Das Modell behält die Call-positiv/Put-negativ-Konvention bei (`Net GEX = Call GEX − Put GEX`) und unterstellt Dealer netto long Calls und netto short Puts. Long Calls und Long Puts haben positives Gamma; Short Calls und Short Puts negatives Gamma. Die Put Wall ist die größte Put-Gamma-Konzentration unter Spot und lokal modelliertes negatives Dealer-Gamma: Sie kann mit Unterstützung zusammenfallen, doch das Hedging eines Short Puts erzeugt keinen mechanischen Boden. Walls können sich durch Spot, Zeit und implizite Volatilität verschieben, obwohl das offizielle Open Interest intraday unverändert bleibt. Nahe Verfall konzentriert sich Gamma am Geld; ATM-Gamma kann steigen, während deutlich ITM- oder OTM-Gamma gegen null geht. Der ausgewählte Gamma Flip ist ein lokaler Übergang; ein Profil kann mehrere oder keine aussagekräftige Kreuzung haben. Charm und Vanna sind bedingte Deltaänderungen, keine geplanten Orders. Signalwerte sind heuristische Modellergebnisse, keine kalibrierten Wahrscheinlichkeiten. Negatives Gamma verstärkt die bereits laufende Richtung; die Entfernung zu einem Ziel impliziert keine Abstoßung. Die Vorzeichenumkehr des EOD-Pressure-Pin-Terms bleibt daher eine ZeroGEX-Heuristik. Max Pain minimiert die aggregierte intrinsische Auszahlung und maximiert nicht exakt den wertlos verfallenden Nominalwert. Rohes DEX misst Optionsdelta, nicht künftigen Hedge-Flow; Prämie und Aggressorseite beweisen weder Information noch Eröffnung oder Überzeugung.
+
 
 *Klassische Support- und Resistance-Level sind vor allem Psychologie — gezeichnete Linien, frühere Swings, runde Zahlen. Options-basierte Support- und Resistance-Level sind Mechanik — reales Positioning, das reale Hedging-Flüsse antreibt. So identifiziert man sie und liest sie in Echtzeit.*
 
@@ -20,7 +22,7 @@ Dieser Artikel ist der praktische Workflow, um Options-basierte S/R zu identifiz
 
 ### 1. Call Walls (Resistance)
 
-Der **Call Wall** ist der Strike oberhalb des Spot mit der stärksten Call-Gamma-Exposure. In einem Long-Gamma-Regime müssen Dealer, die ihr Short-Call-Inventar hedgen, in Rallyes verkaufen, die sich dem Wall nähern. Dieses Verkaufen wirkt als struktureller Widerstand.
+Der **Call Wall** ist der Strike oberhalb des Spot mit der stärksten Call-Gamma-Exposure. In einem Long-Gamma-Regime müssen Dealer, die ihr Long-Call-Inventar hedgen, in Rallyes verkaufen, die sich dem Wall nähern. Dieses Verkaufen wirkt als struktureller Widerstand.
 
 Praktische Lesart: Der Call Wall ist die zuverlässigste Form von Options-basiertem Widerstand in einem positiven Gamma-Regime. In einem negativen Gamma-Regime kehrt sich das um, und er wird zum Breakout-Ziel.
 
@@ -137,4 +139,4 @@ Nur Bildungsinhalte — nichts davon ist eine Handelsempfehlung.
 
 ---
 
-Wenn du den heutigen Call Wall, Put Wall, Gamma Flip und Gamma Magnet für SPY, SPX und QQQ sehen willst — die vier strukturellen Level, die die meiste Options-basierte S/R antreiben — zeigt sie dir die kostenlose Gamma-Levels-Ansicht von ZeroGEX.
+Wenn du den heutigen Call Wall, Put Wall, Gamma Flip und Gamma Magnet für SPY, SPX, QQQ und NDX sehen willst — die vier strukturellen Level, die die meiste Options-basierte S/R antreiben — zeigt sie dir die kostenlose Gamma-Levels-Ansicht von ZeroGEX.

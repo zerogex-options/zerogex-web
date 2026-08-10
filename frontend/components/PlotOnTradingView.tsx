@@ -52,7 +52,7 @@ export default function PlotOnTradingView() {
         Trade off your own chart? Add our free{' '}
         <strong style={{ color: 'var(--color-text-primary)' }}>{SCRIPT_NAME}</strong> indicator, then enter today&apos;s
         numbers from the cards above. It draws the Gamma Flip, Call Wall, Put Wall, and Max Pain as horizontal
-        lines on SPY, SPX, QQQ, ES, or NQ — with optional cross-alerts.
+        lines on SPY, SPX, QQQ, NDX, ES or NQ — with optional cross-alerts.
       </p>
       <p style={{ margin: '0 0 20px 0', fontSize: 13, lineHeight: 1.6, color: 'var(--color-text-secondary)', opacity: 0.85, maxWidth: 720 }}>
         Manual-entry only — the script doesn&apos;t pull data. For real-time, auto-updating levels, live dealer

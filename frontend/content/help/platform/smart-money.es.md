@@ -37,9 +37,9 @@ Dónde se ha concentrado el flujo smart-money por strike, codificado por color s
 
 Tres patrones:
 
-1. **Smart-money fuertemente largo en calls + composite positivo + gradiente GEX de apoyo** ⇒ la lectura estructural se alinea con el flujo smart-money. Direccional de alta convicción.
+1. **Smart-money fuertemente largo en calls + MSI en régimen de tendencia (≥ 70) + gradiente GEX de apoyo** ⇒ la lectura estructural se alinea con el flujo smart-money. Direccional de alta convicción.
 2. **Smart-money fuertemente largo en puts en el put wall** ⇒ defensa o fading. Combinado con una lectura de Positioning Trap, esto puede ser un counter-bias operable.
-3. **Flujo smart-money neutral, flujo principal fuerte** ⇒ el flujo principal está impulsado por el retail; tratar con cautela.
+3. **Flujo smart-money neutral, flujo principal fuerte** ⇒ es probable que el flujo principal sea participación amplia y de baja convicción, y no un posicionamiento informado; tratar con cautela.
 
 ## Qué no es
 

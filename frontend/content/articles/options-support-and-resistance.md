@@ -8,9 +8,9 @@
 
 The retail trader's S/R toolkit is mostly chart-derived: prior swing highs and lows, trendlines, round numbers, moving averages. These work — sometimes — because enough traders watch them that they become self-fulfilling. The mechanism is psychological convergence.
 
-Options-based support and resistance is different. It's not derived from price history; it's derived from current options positioning. The mechanism is structural: dealer hedging flows that fire automatically as price approaches concentrated strikes. There's no convergence required — dealers must hedge regardless of who's watching, and their hedge flows act as supply at resistance and bid at support.
+Options-based support and resistance is different. It's not derived from price history; it's derived from current options positioning. The mechanism is structural: modeled dealer hedging flows that tend to fire as price approaches concentrated strikes. Much of this hedging is systematic rather than discretionary — so when the modeled dealer gamma sign lines up, those flows can act as supply near resistance and bid near support.
 
-When chart-S/R and options-S/R agree, the level is meaningfully more reliable. When they disagree, the options-based read tends to win — because the chart level is opinion and the options level is forced flow.
+When chart-S/R and options-S/R agree, the level tends to be more reliable. When they disagree, the options-based read often carries more weight — because the chart level is opinion and the options level is grounded in positioning-driven hedging flow.
 
 This piece is the practical workflow for identifying options-based S/R, reading it in real time, and knowing when it holds versus breaks. For the broader gamma framework, see the [Gamma Exposure pillar](/education/gamma-exposure-explained).
 
@@ -18,31 +18,39 @@ This piece is the practical workflow for identifying options-based S/R, reading 
 
 ## The four kinds of options-based S/R
 
+The labels below — call wall as resistance, put wall as support — describe the *typical positive-gamma* behavior. They are not fixed properties of the strike: option type alone does not set the direction, and each can invert when the modeled dealer gamma sign or the surrounding flow changes.
+
 ### 1. Call walls (resistance)
 
-The **call wall** is the strike above spot with the heaviest call gamma exposure. In a long-gamma regime, dealers hedging short-call inventory must sell into rallies that approach the wall. That selling acts as structural resistance.
+The **call wall** is the strike above spot with the heaviest call gamma exposure. Under the traditional convention dealers are modeled long that inventory, so in a long-gamma regime they tend to sell into rallies that approach the wall. That selling can act as structural resistance.
 
-Practical read: the call wall is the most reliable form of options-based resistance in a positive-gamma regime. In a negative-gamma regime, it inverts and becomes a breakout target.
+Practical read: the call wall is one of the more reliable forms of options-based resistance in a positive-gamma regime. In a negative-gamma regime, it can invert and become a breakout target.
 
 ### 2. Put walls (support)
 
-The **put wall** is the strike below spot with the heaviest put gamma exposure. In a long-gamma regime, dealers must buy into selloffs that approach the wall to stay neutral. That buying acts as structural support.
+The **put wall** is the strike below spot with the heaviest put gamma exposure. When net gamma is modeled positive, the aggregate dealer book tends to buy into selloffs that approach the wall. That net buying can act as structural support — note the support comes from the positive net-gamma sign, not from the strike being made of puts (under the convention, dealers are modeled short those puts).
 
-Same regime dependency as the call wall — in negative gamma, the put wall becomes a slippage point on the way down.
+Same regime dependency as the call wall — in negative gamma, the put wall can become a slippage point on the way down.
 
 The mechanics of walls in both regimes is in [Gamma Walls Explained](/education/gamma-walls-explained).
 
 ### 3. The gamma magnet (pin attraction)
 
-The **gamma magnet** is the strike with the largest absolute gamma concentration. It's not directional — it pulls price toward itself in a long-gamma regime and releases price from itself in short-gamma. Functionally, it acts as both support and resistance simultaneously: price above it gets pulled down toward it; price below it gets pulled up.
+The **gamma magnet** is the strike with the largest absolute gamma concentration. It's not directional — in a long-gamma regime it tends to pull price toward itself, and in short-gamma it tends to release price from itself. When the pull is active, it can act as both support and resistance at once: price above it can get drawn down toward it; price below it can get drawn up.
 
-The magnet is strongest near expiry, when same-day-expiring options dominate the gamma profile. End-of-day pin behavior usually comes from this strike.
+The magnet tends to matter most near expiry, when same-day-expiring options dominate the gamma profile. End-of-day pin behavior can come from this strike, though pinning is probabilistic — liquidity, trader behavior, and expiration mechanics contribute too, and a large concentration is not by itself proof dealers are long gamma there.
 
 ### 4. The gamma flip (regime line)
 
-The **gamma flip** isn't S/R in the traditional sense — it's the regime boundary. But it functions like a soft support/resistance line because price tends to pause or briefly reverse as it crosses (the dealer reflex changes sign at exactly that price). Above the flip, the reflex is to fade; below, to chase.
+The **gamma flip** isn't S/R in the traditional sense — it's the regime boundary, a zero-crossing of the *modeled* dealer gamma profile. But it can function like a soft support/resistance line because price often pauses or briefly reverses around it (the modeled dealer reflex changes sign near that price). Above the flip, the modeled reflex is to fade; below, to chase — though the crossing is a modeling estimate, and realized behavior still depends on flow, liquidity, and vol.
 
 See [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) for the workflow.
+
+---
+
+## Why does SPY reverse at these levels?
+
+The reversals that look random on a SPY chart — price runs to some level that wasn't a prior swing or a round number, stops dead, and unwinds — are usually one of these four levels doing its job. At the **call wall**, dealers modeled long the strike sell into the rally to stay hedged, adding supply that caps the move. At the **put wall**, a net-long-gamma book buys the selloff, adding support. At the **gamma magnet**, the modeled hedging reflex pulls price back toward the strike. At the **gamma flip**, that reflex changes sign and price often pauses as it crosses. None of these is on the price chart — they're on the option chain — which is why the reversal looks like it came from nowhere until you map it to positioning. Whether each level absorbs the move or gets run over depends on the regime, so read the flip first: the same call wall that caps a rally in long gamma becomes a breakout target in short gamma.
 
 ---
 
@@ -50,11 +58,11 @@ See [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) for the work
 
 Three reasons:
 
-1. **It's forced, not chosen.** A trader can decide whether or not to defend a trendline. A dealer must hedge gamma exposure to stay neutral — there's no opting out. The hedging flow happens whether the dealer believes in it or not.
+1. **It's systematic, not chosen.** A trader can decide whether or not to defend a trendline. Dealer gamma hedging is largely systematic — desks manage aggregate exposure rather than acting on a view — so the flow tends to happen whether the dealer believes in it or not. (Desks hedge portfolios and may use hedge bands, so it is a tendency, not a continuously guaranteed order.)
 
-2. **It scales with positioning, not attention.** A trendline strengthens with more eyes on it; a wall strengthens with more open interest. The bigger the wall, the bigger the structural flow when price approaches. The relationship is mechanical.
+2. **It scales with positioning, not attention.** A trendline strengthens with more eyes on it; a wall reflects more open interest. The larger the modeled concentration, the larger the potential hedging flow when price approaches. The relationship is grounded in positioning, not sentiment.
 
-3. **It updates in real time.** Trendlines are historical artifacts that become stale as price moves. Walls move with positioning — fresh OI building above the call wall pushes the wall higher, and the structural read updates with it. The level you see at 10:30 ET is the level that matters now.
+3. **It is recalculated.** Spot, time, and implied volatility reprice gamma at each strike, so a different fixed-OI strike can become the wall intraday. Official OI generally updates after clearing; a migrating wall is not evidence that fresh positions opened there.
 
 That said, options-based S/R isn't infallible. It's a probabilistic lean. Macro shocks, catalyst events, and regime flips override it regularly. The advantage is that the lean is *grounded* — when it works, it works for a reason you can verify.
 
@@ -68,7 +76,7 @@ A short workflow:
 2. **Identify the call wall and put wall.** These give you the structural range — the boundaries dealer hedging is set up to defend (in a long-gamma regime) or release (in a short-gamma regime).
 3. **Identify the gamma magnet.** Often the heaviest 0DTE strike. The magnet tells you where price gets pulled inside the wall range.
 4. **Check the migration.** A wall that's been stable for hours is a stronger level than one that just jumped. A migrating wall is chasing price.
-5. **Cross-check with chart S/R.** Where the structural level aligns with a chart-based level (round number, prior swing, key moving average), the convergence makes the level meaningfully sharper.
+5. **Cross-check with chart S/R.** Where the structural level aligns with a chart-based level (round number, prior swing, key moving average), the convergence can make the level sharper.
 
 ---
 
@@ -90,7 +98,7 @@ The mechanism inverts or breaks down when:
 
 - Spot is in a **negative-gamma regime** — dealers chase, not fade.
 - Net GEX is **decaying** — positioning is unwinding.
-- The wall is **migrating** with price — fresh OI building above as price tests it.
+- The wall is **migrating** as spot, time, or volatility changes the strike ranking.
 - A catalyst lands during the test.
 - Flow is **accelerating** in the breakout direction.
 
@@ -106,14 +114,14 @@ SPY is at 581.50. Standard charting shows resistance around 583 (prior swing hig
 - **Put Wall:** 580.00 (right at the chart support)
 - **Gamma Flip:** 580.80 (between current spot and the put wall)
 - **Gamma magnet:** 581.00 (basically at spot)
-- **Net GEX:** +$1.1B, stable
+- **Net GEX:** +$1.1B, stable (a modeled estimate of dealer gamma from the traditional call-positive/put-negative open-interest convention, not observed dealer inventory)
 
 The composite structural read:
 
-- The call wall and chart resistance agree near 583 — the high-confidence resistance zone is right where chart traders see it, but the *real* resistance is 583.50 (the wall), not the round 583.
-- The put wall and chart support also agree at 580 — high-confidence support there.
-- The gamma magnet at 581.00 means price has a structural pull toward exactly where it is right now. Compression is likely.
-- The flip at 580.80 means a drop below 580.80 would flip the regime; the put wall at 580 might not absorb cleanly if the flip cross happens first.
+- The call wall and chart resistance agree near 583 — the higher-confidence resistance zone is right where chart traders see it, but the modeled positioning puts the wall at 583.50, not the round 583.
+- The put wall and chart support also agree near 580 — a stronger support read there.
+- The gamma magnet at 581.00 means price can have a structural pull toward roughly where it is right now. Compression is more likely than not while positive gamma holds.
+- The flip at 580.80 means a drop below 580.80 would flip the modeled regime; the put wall at 580 might not absorb cleanly if the flip cross happens first.
 
 The practical lean: tight 581–583.50 range is probable; fade extremes, skip the middle. The structural read sharpens the chart read materially.
 
@@ -129,7 +137,7 @@ The practical lean: tight 581–583.50 range is probable; fade extremes, skip th
 
 ## Takeaway
 
-> Options-based support and resistance is mechanics, not psychology. It identifies the levels where dealer hedging will actually fire — and the regime tells you whether that firing absorbs the move or amplifies it.
+> Options-based support and resistance is mechanics, not psychology. It identifies the levels where dealer hedging is most likely to fire — and the modeled regime tells you whether that flow tends to absorb the move or amplify it.
 
 The discipline is to read the structural map first, cross-check against chart-based levels for convergence, and verify the regime before deciding what to do with the level. Most of the apparent "noise" in retail chart S/R is the gap between where charts say the level is and where positioning actually puts it.
 
@@ -137,4 +145,4 @@ Educational content only — none of the above is a trade recommendation.
 
 ---
 
-If you want to see today's call wall, put wall, gamma flip, and gamma magnet for SPY, SPX, and QQQ — the four structural levels that drive most options-based S/R — the free ZeroGEX gamma-levels view surfaces them.
+If you want to see today's call wall, put wall, gamma flip, and gamma magnet for SPY, SPX, QQQ, and NDX — the four structural levels that drive most options-based S/R — the free ZeroGEX gamma-levels view surfaces them.

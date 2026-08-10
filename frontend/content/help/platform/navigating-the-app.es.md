@@ -34,7 +34,7 @@ Puedes contraer la cabecera para recuperar espacio vertical — la preferencia s
 
 ## El selector de símbolos
 
-ZeroGEX cubre **SPY**, **SPX** y **QQQ**. El selector de símbolos está en la cabecera. Al elegir un símbolo se actualiza cada página de la plataforma — tiles del dashboard, señales, gráficos — con ese símbolo.
+ZeroGEX cubre **SPY**, **SPX**, **QQQ** y **NDX**. El selector de símbolos está en la cabecera. Al elegir un símbolo se actualiza cada página de la plataforma — tiles del dashboard, señales, gráficos — con ese símbolo.
 
 ## El selector de intervalo temporal
 

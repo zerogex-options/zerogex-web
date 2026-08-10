@@ -24,14 +24,14 @@ Three signals. Three theses. Same number line.
 
 ## Squeeze Setup — "The Coiled Spring"
 
-**What it measures:** Whether implied vol has compressed, gamma is dense, and flow is starting to lean directionally — i.e., whether the market has charged potential energy for a breakout.
+**What it measures:** Whether implied vol has compressed, modeled gamma is dense, and flow is starting to lean directionally — i.e., whether the market may have coiled for a breakout.
 
 **Inputs:**
 
 - Call and put flow deltas, z-scored by per-symbol flow volatility
 - 5-bar vs. 10-bar momentum (to detect acceleration, not just direction)
-- Net gamma exposure, run through a smooth tanh for "gamma readiness"
-- Distance from the gamma flip strike
+- Modeled net gamma exposure, run through a smooth tanh for "gamma readiness"
+- Distance from the modeled gamma flip strike
 - VIX regime (dead / normal / elevated / panic)
 
 **How it scores:** For each side (bull and bear), the signal multiplies normalized flow × directional momentum strength × gamma readiness × acceleration multiplier × flip-side multiplier. The net score is bull minus bear, clamped to [-1, +1]. Triggers fire at abs(score) ≥ 0.25.
@@ -52,13 +52,13 @@ Three signals. Three theses. Same number line.
 - Put/call ratio (the crowding measure)
 - Signed smart-money imbalance: (call_signed − put_signed) / (abs(call) + abs(put))
 - Gamma flip proximity
-- Net GEX regime (smoothed via tanh)
+- Modeled Net GEX regime (smoothed via tanh)
 
-**How it scores:** A weighted sum — 0.45 on crowding, 0.25 on imbalance skew, 0.15 on momentum, 0.10 on flip lean, 0.05 on negative-GEX regime — computed independently for the squeeze side (long crowd at risk) and flush side (short crowd at risk). The two are netted to a single score.
+**How it scores:** A weighted sum — 0.45 on crowding, 0.25 on imbalance skew, 0.15 on momentum, 0.10 on flip lean, 0.05 on negative-GEX regime — computed independently for the squeeze side (short crowd at risk) and flush side (long crowd at risk). The two are netted to a single score.
 
 Unlike the other two, Positioning Trap has no triggered flag — it feeds the MSI composite as a continuous component (weight 0.06) and gates the `positioning_trap_squeeze` playbook at abs(score) ≥ 0.5.
 
-**What a trader does with it:** Identify the crowded side, then wait for the tape to turn against it. A long crowd doesn't get squeezed until sellers show up. The signal tells you the fuel is there; the tape has to provide the spark.
+**What a trader does with it:** Identify the crowded side, then wait for the tape to turn against it. A crowded long doesn't get flushed until sellers show up. The signal tells you the fuel is there; the tape has to provide the spark.
 
 > **Key intuition:** Positioning Trap fades the crowd's bet.
 
@@ -66,7 +66,7 @@ Unlike the other two, Positioning Trap has no triggered flag — it feeds the MS
 
 ## Trap Detection — "The Failed Breakout"
 
-**What it measures:** Whether price has poked through a key structural level — call wall, put wall, VWAP, max gamma strike, or gamma flip — but is failing to sustain the move, signaling dealers will fade it back.
+**What it measures:** Whether price has poked through a key structural level — call wall, put wall, VWAP, max gamma strike, or gamma flip — but is failing to sustain the move, suggesting dealers may fade it back under the model's assumptions.
 
 **Inputs:**
 
@@ -78,9 +78,9 @@ Unlike the other two, Positioning Trap has no triggered flag — it feeds the MS
 
 **How it scores:** First, the signal identifies the nearest broken level above and below the close, and applies a vol-scaled buffer (~0.15% × σ × √5) to confirm a real break. Then for each side it multiplies breakout strength × continuous long-gamma factor × GEX-strengthening factor × wall-migration penalty × magnitude × flow multiplier.
 
-The wall-migration check is what makes this signal different: if the wall has moved *away* from price, the breakout is real, not a trap, and the score is heavily penalized.
+The wall-migration check is what makes this signal different: if the modeled wall has moved *away* from price, the breakout is more likely real rather than a trap, and the score is heavily penalized.
 
-**What a trader does with it:** A triggered bearish fade (price broke up, but dealers are long gamma and flow is decelerating) is the gate for the Overnight Trap Continuation playbook — a 1DTE debit positioned against the false breakout, held into the next session. Bullish fades mirror this on the downside.
+**What a trader does with it:** A triggered bearish fade (price broke up, but dealers are modeled long gamma and flow is decelerating) is the gate for the Overnight Trap Continuation playbook — a 1DTE debit positioned against the suspected false breakout, held into the next session. Bullish fades mirror this on the downside.
 
 > **Key intuition:** Trap Detection fades the price's break of a structural level.
 
@@ -106,10 +106,13 @@ Three signals are reading the same tape through three different lenses. Treat th
 
 A few patterns to look for:
 
-**Confluence (high conviction):** Squeeze Setup +0.5 and Trap Detection +0.4 → the market is coiled to the upside and a downside break just failed. Both signals are pointing at the same trade from different angles.
+**Confluence (strong positive model output):** Squeeze Setup +0.5 and Trap Detection +0.4 → the market is coiled to the upside and a downside break just failed. Both signals are pointing at the same trade from different angles.
 
-**Sequence (better entries):** Positioning Trap flags a long crowd at +0.7 → wait. Trap Detection then flips negative (upside break fails) → that's the spark. Trade the fade with the crowd as fuel.
+**Sequence (better entries):** Positioning Trap flags a long crowd at −0.7 → wait. Trap Detection then flips negative (upside break fails) → that's the spark. Trade the fade with the crowd as fuel.
 
 **Contradiction (stand down):** Squeeze Setup says +0.6 (go long with the break). Trap Detection says −0.5 (the upside break is failing). One of them is wrong. Skip it.
 
 The signals are independent for a reason — when they agree, listen. When they fight, the smartest trade is usually no trade.
+
+
+> ZeroGEX signal scores are derived outputs using hand-selected inputs, weights, and thresholds unless otherwise stated. They are not calibrated probabilities or guarantees; historical validation is required before interpreting them as a performance edge.

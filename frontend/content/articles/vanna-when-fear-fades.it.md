@@ -1,6 +1,8 @@
-# Vanna: quando la paura svanisce, i dealer comprano
+# Vanna: come il calo della IV può cambiare la copertura dei dealer
+> **Nota metodologica aggiornata — prevale su eventuali formulazioni incompatibili più avanti nella pagina.** ZeroGEX stima, ma non osserva, l’inventario dei dealer dai dati pubblici. Il modello conserva la convenzione call-positive/put-negative (`Net GEX = Call GEX − Put GEX`): i dealer sono ipotizzati net long call e net short put. Call e put long hanno gamma positivo; call e put short hanno gamma negativo. Il Put Wall è la maggiore concentrazione di gamma put sotto lo spot e rappresenta localmente gamma dealer negativo: può coincidere con supporto, ma la copertura della put short non crea meccanicamente un pavimento. I wall possono migrare con spot, tempo e volatilità implicita anche quando l’open interest ufficiale non cambia intraday. Verso la scadenza il gamma si concentra vicino all’ATM: il gamma ATM può aumentare, mentre quello decisamente ITM o OTM tende a zero. Il Gamma Flip selezionato è un passaggio locale; il profilo può avere più passaggi o nessun passaggio significativo. Charm e vanna descrivono variazioni condizionali del delta, non ordini programmati. I punteggi sono output euristici, non probabilità calibrate. Il gamma negativo amplifica la direzione già in corso: la distanza da un target non implica repulsione, quindi l’inversione del termine pin di EOD Pressure resta un’euristica ZeroGEX. Max Pain minimizza il payout intrinseco aggregato, non massimizza esattamente il nozionale che scade senza valore. Il DEX grezzo misura delta delle sole opzioni, non il futuro flusso di copertura; premio e lato aggressore non provano informazione, apertura o convinzione.
 
-*Vanna è la velocità con cui il delta di un'opzione cambia al variare della volatilità implicita. Quando la paura prezzata nel mercato si dissolve dopo un evento che non ha prodotto nulla, vanna costringe i dealer a comprare azioni con un flusso lento e costante — quel "sale senza notizie" che si vede sul grafico ma mai nei volumi.*
+
+*Vanna misura la sensibilità del delta alla volatilità implicita. La pressione di copertura è condizionale alla composizione della catena, non un acquisto automatico.*
 
 ---
 
@@ -28,12 +30,12 @@ Questo spostamento è vanna. Ogni opzione out-of-the-money della catena ri-prezz
 
 La direzione del flusso di vanna dipende da come è composto il book, ma lo schema da manuale — quello che produce la deriva riconoscibile — funziona così.
 
-I clienti sono, in aggregato, long di opzioni. Comprano call per l'upside e put per protezione, e i dealer sono short dall'altra parte. Considera i momenti *dopo* uno spavento: la vol implicita era stata spinta in alto in vista di un dato CPI, un meeting FOMC, un earnings. Il rischio passa. Il movimento temuto non si materializza. La vol implicita, che era ricca, comincia a scendere nelle ore e nei giorni successivi.
+I clienti, in aggregato, vendono call in overwriting per rendimento e comprano put per protezione — quindi i dealer sono long di quelle call e short di quelle put. Considera i momenti *dopo* uno spavento: la vol implicita era stata spinta in alto in vista di un dato CPI, un meeting FOMC, un earnings. Il rischio passa. Il movimento temuto non si materializza. La vol implicita, che era ricca, comincia a scendere nelle ore e nei giorni successivi.
 
 Man mano che la vol scende:
 
-1. I delta delle opzioni out-of-the-money su cui il dealer è short si spostano verso zero.
-2. La posizione netta short-delta del dealer si riduce — sono meccanicamente meno short sul mercato di quanto lo fossero.
+1. I delta delle opzioni out-of-the-money nel book del dealer si spostano verso zero.
+2. Il delta netto *long* delle opzioni del dealer si riduce, quindi il book si inclina short rispetto alla sua copertura in azioni.
 3. Per ripristinare l'hedge, comprano azioni.
 4. La vol continua a scendere, quindi lo spostamento continua, quindi gli acquisti continuano ad arrivare — piccoli, costanti, per tutta la giornata.
 

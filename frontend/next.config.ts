@@ -31,6 +31,22 @@ const nextConfig: NextConfig = {
         destination: '/spx-gamma-levels',
         permanent: true,
       },
+      {
+        // SEO consolidation. GSC reported >half the education library as
+        // "Discovered/Crawled - currently not indexed"; two SPY articles were
+        // near-duplicates of a stronger sibling. Their unique content (the
+        // reversal framing; the five-signs checklist + pinned-tape playbook)
+        // was folded into the survivor, then the thin duplicate is 301'd so
+        // Google consolidates the signal onto one indexable page per intent.
+        source: '/education/why-spy-reverses-at-levels',
+        destination: '/education/options-support-and-resistance',
+        permanent: true,
+      },
+      {
+        source: '/education/how-to-know-if-spy-is-pinned',
+        destination: '/education/why-spy-pins-near-strikes',
+        permanent: true,
+      },
     ];
   },
 };

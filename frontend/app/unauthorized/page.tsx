@@ -1,7 +1,12 @@
 import Link from 'next/link';
+import type { Metadata } from 'next';
 import { ArrowRight, BarChart2, BookOpen, Sparkles } from 'lucide-react';
 import { getServerT } from '@/core/localizedContent';
 import { dict } from './page.i18n';
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: true },
+};
 
 type UnauthorizedPageProps = {
   searchParams: Promise<{

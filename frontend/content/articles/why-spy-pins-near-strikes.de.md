@@ -1,4 +1,6 @@
 # Warum pinnt SPY nahe an einem Strike? Options-Pinning erklärt
+> **Aktualisierter Methodikhinweis — er hat Vorrang vor abweichenden Formulierungen weiter unten.** ZeroGEX schätzt Dealerbestände aus öffentlichen Daten; es beobachtet sie nicht. Das Modell behält die Call-positiv/Put-negativ-Konvention bei (`Net GEX = Call GEX − Put GEX`) und unterstellt Dealer netto long Calls und netto short Puts. Long Calls und Long Puts haben positives Gamma; Short Calls und Short Puts negatives Gamma. Die Put Wall ist die größte Put-Gamma-Konzentration unter Spot und lokal modelliertes negatives Dealer-Gamma: Sie kann mit Unterstützung zusammenfallen, doch das Hedging eines Short Puts erzeugt keinen mechanischen Boden. Walls können sich durch Spot, Zeit und implizite Volatilität verschieben, obwohl das offizielle Open Interest intraday unverändert bleibt. Nahe Verfall konzentriert sich Gamma am Geld; ATM-Gamma kann steigen, während deutlich ITM- oder OTM-Gamma gegen null geht. Der ausgewählte Gamma Flip ist ein lokaler Übergang; ein Profil kann mehrere oder keine aussagekräftige Kreuzung haben. Charm und Vanna sind bedingte Deltaänderungen, keine geplanten Orders. Signalwerte sind heuristische Modellergebnisse, keine kalibrierten Wahrscheinlichkeiten. Negatives Gamma verstärkt die bereits laufende Richtung; die Entfernung zu einem Ziel impliziert keine Abstoßung. Die Vorzeichenumkehr des EOD-Pressure-Pin-Terms bleibt daher eine ZeroGEX-Heuristik. Max Pain minimiert die aggregierte intrinsische Auszahlung und maximiert nicht exakt den wertlos verfallenden Nominalwert. Rohes DEX misst Optionsdelta, nicht künftigen Hedge-Flow; Prämie und Aggressorseite beweisen weder Information noch Eröffnung oder Überzeugung.
+
 
 *Warum pinnt SPY in der Nähe bestimmter Strikes — besonders freitags und zum Handelsschluss? Das ist kein Zufall. Options-Pinning erklärt: der Dealer-Hedging-Mechanismus hinter diesem Sog, warum er am OPEX und am Ende des Handelstages am stärksten ist, und wie man erkennt, ob der heutige Handel pinnen wird.*
 
@@ -18,10 +20,10 @@ Dieser Artikel geht die tatsächliche Mechanik des Pinnings durch, erklärt, war
 
 Der Mechanismus ist einfach, sobald man ihn ausschreibt:
 
-1. Ein bestimmter Strike — sagen wir SPY 583 — trägt eine große Gamma-Konzentration. Kunden haben viele Calls und Puts bei 583 gekauft; Dealer sind im entsprechenden Gegenwert short.
-2. Das Dealer-Buch ist an diesem Strike **long Gamma**. Das passiert, wenn Dealer per Saldo in den Optionen *short* sind, die Kunden long halten. (Standardkonvention.)
-3. Steigt SPY über 583, wird das Options-Delta der Dealer positiver (sie sind net short Calls; ein steigender Spot lässt ihr Short-Call-Delta-Exposure wachsen). Um neutral zu bleiben, **verkaufen** sie SPY.
-4. Fällt SPY unter 583, wird das Options-Delta der Dealer negativer (ihr Short-Put-Delta-Exposure wächst nach unten). Um neutral zu bleiben, **kaufen** sie SPY.
+1. Ein bestimmter Strike — sagen wir SPY 583 — trägt eine große Gamma-Konzentration, und per Saldo ist das Dealer-Buch **long** in dieser Gamma.
+2. Ein Long-Gamma-Buch am Strike hedgt *gegen* Bewegungen von ihm weg — der stabilisierende Reflex, der den Preis pinnt. (Es ist das Positiv-Gamma-Regime, das sich an einem einzelnen dominanten Strike abspielt.)
+3. Steigt SPY über 583, wird das Hedge-Delta der Dealer positiver, sodass sie zum Neutralbleiben SPY **verkaufen**.
+4. Fällt SPY unter 583, wird ihr Hedge-Delta negativer, sodass sie zum Neutralbleiben SPY **kaufen**.
 5. Jede Bewegung weg von 583 erzwingt einen Hedging-Trade *zurück* Richtung 583. Der Strike wirkt wie ein Magnet — nicht weil ihn jemand gezielt ansteuert, sondern weil die Hedging-Mathematik den Preis mechanisch dorthin lenkt.
 
 Genau das passiert strukturell, wenn man SPY in einer engen Spanne oszillieren sieht. Es ist nicht "der Markt, der sich entscheidet zu pinnen"; es ist das aggregierte Dealer-Buch, das sich bei jeder Bewegung zurück zur Neutralität korrigiert.

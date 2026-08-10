@@ -1,0 +1,121 @@
+#!/bin/bash
+
+# ==============================================
+# Step 081: Admin->Monitoring Data Backup Timer (systemd)
+# ==============================================
+#
+# Installs the Admin->Monitoring data backup units (see deploy/systemd/) and
+# enables the timer. frontend/data/signups.json and mrr.json hold the
+# append-only daily subscriber/MRR history and are the ONLY copy of it — the
+# hourly auth-DB backup (step 080) covers auth.db but NOT these JSON files, so
+# losing the instance volume would lose the daily history. Idempotent — safe to
+# re-run; an existing monitoring-backup.env is left untouched.
+#
+# The actual backup logic lives in `make backup-monitoring` (tar.gz of the
+# three data files -> optional S3 upload -> local prune). Configure the S3
+# bucket by editing deploy/systemd/monitoring-backup.env.
+
+set -e
+
+# Fallback log if this step is invoked directly (deploy.sh exports a log
+# function, but operators sometimes run a single step in isolation to rotate
+# units without re-running the whole pipeline).
+type log >/dev/null 2>&1 || log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
+
+log "Admin->Monitoring Data Backup Timer Setup"
+
+# Resolve the owning user even when deploy.sh is invoked via sudo (deploy.sh
+# re-points HOME to the SUDO_USER's home but not USER).
+OWNER="${SUDO_USER:-$USER}"
+
+APP_DIR="$HOME/zerogex-web"
+SYSTEMD_SOURCE="$APP_DIR/deploy/systemd"
+SYSTEMD_TARGET="/etc/systemd/system"
+UNIT="zerogex-web-monitoring-backup"
+BACKUP_DIR="$HOME/zerogex-monitoring-backups"
+
+# --- Preconditions ---------------------------------------------------
+if [ ! -d "$SYSTEMD_SOURCE" ]; then
+    log "  ✗ systemd source dir not found: $SYSTEMD_SOURCE"
+    exit 1
+fi
+for f in "${UNIT}.service" "${UNIT}.timer" "monitoring-backup.env.example"; do
+    if [ ! -f "$SYSTEMD_SOURCE/$f" ]; then
+        log "  ✗ missing unit file: $SYSTEMD_SOURCE/$f"
+        exit 1
+    fi
+done
+
+# --- Pre-create the backup output dir --------------------------------
+# The service runs ProtectSystem=strict with ReadWritePaths pointing here, so
+# systemd cannot set up the unit's mount namespace if the path is missing — it
+# must exist before the timer is enabled. Mode 0700 — monitoring.json contains
+# client IPs and user identifiers.
+log "  → Creating backup output dir: $BACKUP_DIR"
+sudo install -d -o "$OWNER" -g "$OWNER" -m 0700 "$BACKUP_DIR"
+
+# --- Optional config file --------------------------------------------
+# Copy the example to monitoring-backup.env on first run so the operator has a
+# 600-mode file to edit. Defaults are all-commented => local-only backup.
+# Never overwrite an existing one (may already name a bucket).
+if [ -f "$SYSTEMD_SOURCE/monitoring-backup.env" ]; then
+    log "  ✓ monitoring-backup.env already present (left as-is)"
+else
+    sudo cp "$SYSTEMD_SOURCE/monitoring-backup.env.example" "$SYSTEMD_SOURCE/monitoring-backup.env"
+    sudo chown "$OWNER:$OWNER" "$SYSTEMD_SOURCE/monitoring-backup.env"
+    sudo chmod 600 "$SYSTEMD_SOURCE/monitoring-backup.env"
+    log "     ✓ created monitoring-backup.env"
+    log "       Backups are LOCAL-ONLY until you set S3_BUCKET there."
+fi
+
+# --- Install + enable the units --------------------------------------
+log "  → Installing ${UNIT}.{service,timer}..."
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.service" "$SYSTEMD_TARGET/"
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.timer"   "$SYSTEMD_TARGET/"
+sudo systemctl daemon-reload
+
+log "  → Enabling ${UNIT}.timer (every 6h, Persistent=true)..."
+if sudo systemctl enable --now "${UNIT}.timer" 2>/dev/null; then
+    NEXT=$(systemctl list-timers --no-pager --no-legend "${UNIT}.timer" 2>/dev/null | awk '{print $1, $2}')
+    log "     ✓ ${UNIT}.timer enabled (next run: ${NEXT:-unknown})"
+else
+    log "     ✗ ${UNIT}.timer failed to enable"
+    exit 1
+fi
+
+# --- Verify with a one-off run (only if data exists yet) -------------
+# The JSON stores are created lazily the first time an admin opens the
+# Monitoring page (or the in-process sampler first fires), so at deploy time
+# they may not exist. Only trigger a test backup if at least one is present —
+# otherwise the first real backup just fires on the next tick.
+if [ -f "$APP_DIR/frontend/data/signups.json" ] || \
+   [ -f "$APP_DIR/frontend/data/mrr.json" ] || \
+   [ -f "$APP_DIR/frontend/data/monitoring.json" ]; then
+    log "  → Verifying with a one-off backup run..."
+    if sudo systemctl start "${UNIT}.service"; then
+        LATEST=$(ls -t "$BACKUP_DIR"/monitoring-data-*.tar.gz 2>/dev/null | head -1)
+        log "     ✓ test backup produced: ${LATEST:-<none found, check journal>}"
+    else
+        log "     ✗ test backup run failed — see: journalctl -u ${UNIT}"
+    fi
+else
+    log "  ℹ Monitoring JSON not present yet; created on first admin view / sample."
+    log "     The first backup will run on the next 6-hourly tick once it exists."
+fi
+
+log ""
+log "Admin->Monitoring data backup timer setup complete!"
+log ""
+log "Summary:"
+log "  ✓ ${UNIT}.timer enabled (every 6h, Persistent=true catches missed runs)"
+log "  ✓ Output dir: $BACKUP_DIR (mode 700)"
+log "  ✓ Config: $SYSTEMD_SOURCE/monitoring-backup.env"
+log ""
+log "Useful commands:"
+log "  • systemctl list-timers ${UNIT}.timer         - next/last run"
+log "  • sudo systemctl start ${UNIT}.service         - back up now"
+log "  • journalctl -u ${UNIT} -n 50                  - recent backup logs"
+log "  • \$EDITOR $SYSTEMD_SOURCE/monitoring-backup.env - set S3_BUCKET (no sudo; you own it)"
+log ""
+log "Off-box hardening (S3 versioning/Object Lock, cross-region):"
+log "  see zerogex-oa/deploy/BACKUP_RESILIENCE.md"

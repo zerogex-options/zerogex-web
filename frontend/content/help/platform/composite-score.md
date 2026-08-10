@@ -1,82 +1,102 @@
 # Composite Score
 
-*The blended read across all ZeroGEX signals — how it's built, how to read it, and how to use it as a filter rather than a forecast.*
+*The blended read of the current market **regime** — how it's built, why it is not a direction call, and how to use it as a filter rather than a forecast.*
 
 ---
 
 ## What the Composite Score is
 
-The Composite Score — internally **MSI**, the Market Score Indicator — is the **single-number summary** of all ZeroGEX signals on the active symbol. It lives on the same **[-1, +1]** line as every other signal score.
+The Composite Score — internally **MSI**, the Market State Index — is the **single-number summary of the current option-structure regime** on the active symbol. It answers one question: *is the tape likely to trend, or to chop?*
 
-Positive composite ⇒ structural bullish lean. Negative ⇒ structural bearish lean. Magnitude is conviction.
+It lives on a **0–100 scale, where 50 is neutral.** It is **not** a directional score — it does not tell you bull vs. bear. A high MSI means trends are likely to *run*; a low MSI means the tape is *pinned, choppy, or fragile*. For direction, read [Trade Bias](/help/platform/trade-bias) — that is the signed, bull-vs-bear read.
+
+> **A high MSI does not mean "bullish." It means trends can run.**
+> **A low MSI does not mean "bearish." It means trends are unlikely to work.**
+
+## The regime bands
+
+| Score | Regime | What it means |
+| --- | --- | --- |
+| ≥ 70 | **Trend / Expansion** | Strong directional regime — favor trades in the prevailing bias |
+| 40 – 70 | **Controlled Trend** | Moderate directional edge — trade with reduced size |
+| 20 – 40 | **Chop / Range** | Range-bound — fade extremes, avoid trend trades |
+| < 20 | **High-Risk Reversal** | Mean-reversion only — extreme-move risk elevated, fragile tape |
+
+Note the bands are about *regime*, not *direction*. A choppy tape reads **20–40 whether the market is drifting up or down.** That is by design — a low score in a rising market is not a contradiction, it is the gauge telling you the move is unlikely to trend cleanly.
 
 ## How it's built
 
-Three rolling inputs blend into one number:
+The MSI blends **six independent components**, each scored on a −1…+1 line and weighted into a point budget that sums to 100:
 
-1. **Basic signals** — each Basic signal contributes a small fixed weight (4–8% of the composite). Even when they don't fire, they nudge the composite continuously in the background.
-2. **Advanced signal triggers** — when an Advanced signal trigger is hot, it contributes its signed score with a higher weight.
-3. **Regime context** — the active gamma regime acts as a multiplier on the directional inputs.
+| Component | Points | Reads |
+| --- | --- | --- |
+| Gamma Anchor | 30 | Proximity to gamma flip, local gamma density, max-gamma strike — pinned vs. free |
+| Order Flow Imbalance | 19 | Smart-money call vs. put premium — *the one directional input* |
+| Dealer Delta Pressure | 17 | Dealer forced-hedge direction |
+| Net GEX Sign | 16 | Dealers long gamma (damps moves) vs. short gamma (amplifies) |
+| Put/Call Ratio | 12 | Structural-fragility proxy |
+| Volatility Regime | 6 | Live vol vs. the 20-vol pivot |
 
-The weights are tuned to keep no single signal from dominating. A composite reading near ±0.4–0.6 typically requires several inputs aligning.
+The components are summed onto the neutral-50 baseline through a soft-saturating (tanh) blend, so no single input can pin the gauge on its own. **Roughly two-thirds of the weight is directionless structure** (Gamma Anchor, Net GEX Sign, Put/Call, Vol) — these push toward *trend* or *chop*, not up or down. Only Order Flow Imbalance and Dealer Delta are genuinely directional, which is why a strongly one-sided tape can nudge the score even though the gauge is a regime read.
+
+For each component, **+1 argues for a tradable / trending regime; −1 argues for chop / pinning / reversal.**
 
 ## The MSI gauge
 
 The Composite Score page shows:
 
-- The **MSI gauge** — score on the [-1, +1] line, with color coding from deep red to deep green.
-- The **trigger state** — whether the composite has crossed an attention threshold.
-- The **contributing signals** panel — each input with its current contribution to the composite, sorted by magnitude.
-- The **regime header** — Positive Gamma, Negative Gamma, or Transitioning.
-- A **sparkline** of the composite over the last session.
+- The **MSI gauge** — score on the 0–100 arc, colored by *regime band* (not by bull/bear).
+- The **regime label** — Trend / Expansion, Controlled Trend, Chop / Range, or High-Risk Reversal.
+- The **contributing components** panel — each input's current push, right for "trending," left for "chop / reversal," sorted by magnitude.
+- The **Δ since open** and **Δ last 5 min** — how far the regime score has moved (toward trend if positive, toward chop if negative). These are regime momentum, not direction.
+- A **sparkline** of the score over the session.
 
 ## Reading the composite
 
-A simple rubric:
+A simple rubric — read it as *how much to trust a trend*, and take direction from Trade Bias:
 
 | Composite | Read |
 | --- | --- |
-| ≥ +0.6 | Strong bullish — multiple signals aligned long, regime supports it |
-| +0.3 to +0.6 | Lean bullish — bias is real but not overwhelming |
-| -0.3 to +0.3 | No read — composite is unhelpful, look at individual signals |
-| -0.6 to -0.3 | Lean bearish |
-| ≤ -0.6 | Strong bearish |
+| ≥ 70 | Trending regime — trends in the prevailing bias can run; press with the trend |
+| 40 – 70 | Controlled trend — a real but moderate edge; size down |
+| 20 – 40 | Chop / range — fade the extremes, don't chase breakouts, favor defined-risk |
+| < 20 | Fragile / high-reversal-risk — mean-reversion only, expect failed breakouts |
 
-The most useful range is the extremes. The middle is intentionally a "the data isn't telling you anything" zone — don't force trades out of it.
+The most useful extremes are the top and the bottom. The middle (~40–60) is a "no strong regime" zone — don't force a trend trade out of it.
 
 ## How to use it
 
 Three patterns:
 
-1. **As a filter.** Don't put on long-direction trades when the composite is at -0.6 unless your edge is specifically counter-trend.
-2. **As a confluence check.** A high-confidence Advanced trigger backed by a composite in the same direction is a higher-confidence read than the trigger alone.
-3. **As a regime confirmer.** Composite reads tend to be stronger and more persistent in negative gamma sessions — they line up with the underlying market behavior.
+1. **As a conviction dial on direction.** Trade Bias gives you the side; the MSI tells you how hard to press it. Long bias + MSI 75 → press it. Long bias + MSI 25 → buy the dip small, fade the extremes, don't chase.
+2. **As a chop filter.** Don't put on trend/breakout trades when the MSI is low (< 40) — the tape is choppy or mean-reverting *regardless of direction*. A low score is not a signal to go short.
+3. **As a regime confirmer.** MSI reads *tend to* be stronger and more persistent in negative-gamma sessions, consistent with the more directional behavior those regimes tend to show.
 
 ## What it isn't
 
-The composite is **not a trade signal**. It tells you whether the structural picture leans one way; it does not tell you to take a trade, what timeframe to use, or where to put your stop.
+The composite is **not a trade signal**, and it is **not a direction call.** It tells you what *kind* of tape you're in — trend vs. chop; it does not tell you which way, what timeframe to use, or where to put your stop. Pair it with Trade Bias (direction) and the individual signals (triggers).
 
 ## Why the composite can flip fast
 
 Two reasons:
 
-- A high-weight Advanced signal can trigger and dominate the read.
-- The regime context (gamma flip cross) can shift the multiplier on everything else.
+- A gamma-flip cross can swing the structural components (Gamma Anchor, Net GEX Sign) hard, moving the regime read quickly.
+- A sharp shift in smart-money flow moves the one directional component enough to nudge the blend.
 
 The sparkline makes these step-changes visible — look for the discontinuities.
 
 ## Trader habits we've seen work
 
-- Read the composite at the open and at 11:00 / 12:30 / 14:30 ET as your check-ins.
-- Don't trade against the composite during the EOD Pressure window.
-- Treat composite scores between -0.3 and +0.3 as "wait" rather than "neutral".
+- Read the MSI at the open and at 11:00 / 12:30 / 14:30 ET as your check-ins.
+- Treat the MSI as position **sizing**, and Trade Bias as position **direction**.
+- Treat scores between ~40 and ~60 as "no strong regime — wait" rather than a direction.
 
 ## Tier note
 
-The Composite Score page is Pro-only. The composite gauge also appears on the Dashboard for all paid tiers.
+The Composite Score page is Pro-only. The MSI gauge also appears on the Dashboard for all paid tiers.
 
 ## See also
 
+- [Trade Bias](/help/platform/trade-bias) — the signed, directional read
 - [How Signals Work End-to-End](/help/platform/signals-overview)
-- [Reading the [-1, +1] Score Line](/help/platform/score-line)
 - [Signals: Explained](/guides/signals-explained)

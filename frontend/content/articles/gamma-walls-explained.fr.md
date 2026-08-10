@@ -1,4 +1,6 @@
 # Les Gamma Walls expliqués : Call Wall, Put Wall et la réaction du prix
+> **Note méthodologique mise à jour — elle prévaut sur toute formulation incompatible plus bas.** ZeroGEX estime l’inventaire des dealers à partir de données publiques sans l’observer directement. Le modèle conserve la convention calls positifs/puts négatifs (`Net GEX = Call GEX − Put GEX`) et suppose les dealers nets longs calls et nets shorts puts. Les calls et puts longs ont un gamma positif ; les calls et puts shorts ont un gamma négatif. Le Put Wall est la plus grande concentration de gamma put sous le spot et représente localement un gamma dealer négatif : il peut coïncider avec un support, mais la couverture du put short ne crée pas mécaniquement un plancher. Les walls peuvent migrer avec le spot, le temps et la volatilité implicite alors que l’open interest officiel ne change pas en séance. À l’approche de l’échéance, le gamma se concentre près de l’ATM : le gamma ATM peut augmenter, tandis que le gamma nettement ITM ou OTM tend vers zéro. Le Gamma Flip sélectionné est une transition locale ; le profil peut avoir plusieurs croisements ou aucun croisement significatif. Charm et vanna sont des variations conditionnelles du delta, pas des ordres programmés. Les scores sont des résultats heuristiques du modèle, pas des probabilités calibrées. Un gamma négatif amplifie la direction déjà engagée ; la distance à une cible n’implique pas une répulsion. L’inversion du terme de pin d’EOD Pressure reste donc une heuristique ZeroGEX. Max Pain minimise le paiement intrinsèque agrégé et ne maximise pas exactement le notionnel expirant sans valeur. Le DEX brut mesure le delta des seules options, pas le futur flux de couverture ; prime et côté agresseur ne prouvent ni information, ni ouverture, ni conviction.
+
 
 *Les gamma walls sont les niveaux les plus surveillés dans l'analyse du positionnement des dealers. Voici ce qu'est réellement un gamma wall, ce que signifient call wall et put wall, pourquoi le prix y réagit, comment ils se déplacent en cours de séance, et quand ils tiennent ou cèdent.*
 
@@ -16,7 +18,7 @@ Cet article passe en revue ce qu'est chaque wall, pourquoi le prix a tendance à
 
 ## Qu'est-ce qu'un call wall ?
 
-Le call wall est le strike au-dessus du spot qui porte la plus forte exposition gamma sur les calls. Dans un régime de gamma positif, les dealers détenant un inventaire short-call doivent vendre lors des rallyes qui s'approchent du wall — se délestant du delta accumulé pendant que le prix montait vers celui-ci. Ce réflexe de couverture s'oppose au rallye.
+Le call wall est le strike au-dessus du spot qui porte la plus forte exposition gamma sur les calls. Dans un régime de gamma positif, les dealers détenant un inventaire long-call doivent vendre lors des rallyes qui s'approchent du wall — se délestant du delta positif qu'ils accumulent à mesure que le prix monte vers celui-ci. Ce réflexe de couverture s'oppose au rallye.
 
 En pratique, le call wall agit souvent comme une **résistance** dans les régimes de gamma longue — non pas parce que le niveau serait magique, mais parce que le flux de couverture qui s'active autour de lui est structurel.
 
@@ -30,7 +32,7 @@ En pratique, le call wall agit souvent comme une **résistance** dans les régim
 
 ## Qu'est-ce qu'un put wall ?
 
-Le put wall est le strike en dessous du spot avec la plus forte exposition gamma sur les puts. Dans un régime de gamma positif, les dealers détenant un inventaire short-put doivent acheter à mesure que le prix chute vers ce niveau — rachetant le delta qu'ils avaient délesté pendant la baisse. Ce réflexe s'oppose au selloff.
+Le put wall est le strike en dessous du spot avec la plus forte exposition gamma sur les puts. Dans un régime de gamma positif, le book net des dealers est long gamma, il achète donc à mesure que le prix chute vers le wall — le miroir du réflexe du call wall, l'achat se concentrant là où la gamma des puts est la plus dense. Ce réflexe s'oppose au selloff.
 
 En pratique, le put wall agit souvent comme un **support** dans les régimes de gamma longue. Comme pour le call wall, le mécanisme est structurel, pas psychologique.
 

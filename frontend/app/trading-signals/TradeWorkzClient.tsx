@@ -12,29 +12,30 @@
  *   6. Drilldown modal on bot click (portal).
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Sparkles, Zap } from 'lucide-react';
 import { useApiData } from '@/hooks/useApiData';
 import { useAuthSession } from '@/hooks/useAuthSession';
-import { usePageT } from '@/core/LanguageContext';
 import TooltipWrapper from '@/components/TooltipWrapper';
 import BotDetailPanel from './BotDetailPanel';
 import BotRosterCard from './BotRosterCard';
 import EmptyState from './EmptyState';
 import FleetOverviewChart from './FleetOverviewChart';
+import PerformanceTrendChart from './PerformanceTrendChart';
+import Sparkline from './Sparkline';
 import LeaderboardTable from './LeaderboardTable';
 import NotificationBell from './NotificationBell';
 import TradesAuditPanel from './TradesAuditPanel';
 import { RosterSkeleton, SummarySkeleton } from './Skeleton';
 import { botColor } from './palette';
-import { fmtMoney, fmtSignedMoney, fmtSignedPct, toneVar } from './format';
+import { fmtMoney, fmtPct, fmtRatio, fmtSignedMoney, fmtSignedPct, toneVar } from './format';
 import { PERIOD_OPTIONS } from './types';
-import { dict } from './TradeWorkzClient.i18n';
 import type {
   BotEquityBundle,
   BotListResponse,
   EquityBundlesResponse,
   FleetSummary,
+  PerformanceTrend,
   PeriodKey,
 } from './types';
 
@@ -45,10 +46,9 @@ interface FollowResponse {
 const AUTO_REFRESH_MS = 15_000;
 
 export default function TradeWorkzClient() {
-  const t = usePageT(dict);
   const [period, setPeriod] = useState<PeriodKey>('30d');
   const [selectedBotId, setSelectedBotId] = useState<string | null>(null);
-  const [simMessage, setSimMessage] = useState<{ text: string; ok: boolean } | null>(null);
+  const [simMessage, setSimMessage] = useState<string | null>(null);
   const [simBusy, setSimBusy] = useState(false);
 
   const session = useAuthSession();
@@ -69,6 +69,10 @@ export default function TradeWorkzClient() {
   });
   const equityBundlesRes = useApiData<EquityBundlesResponse>(
     '/api/tradeworkz/equity-curves?days=90',
+    { refreshInterval: 60_000 },
+  );
+  const trendRes = useApiData<PerformanceTrend>(
+    '/api/tradeworkz/performance-trend?days=60&windows=5,10,20',
     { refreshInterval: 60_000 },
   );
 
@@ -176,24 +180,21 @@ export default function TradeWorkzClient() {
         throw new Error(`HTTP ${res.status}: ${body.slice(0, 200)}`);
       }
       const data = await res.json();
-      setSimMessage({
-        text: t('seededMessage', {
-          count: data.total_trades ?? 0,
-          bots: data.bots_simulated?.length ?? 0,
-          days: data.days_simulated ?? 0,
-        }),
-        ok: true,
-      });
+      setSimMessage(
+        `Seeded ${data.total_trades ?? 0} synthetic trades across ${
+          data.bots_simulated?.length ?? 0
+        } bots (${data.days_simulated ?? 0} sessions).`,
+      );
       summary.refetch();
       botsData.refetch();
       leaderboard.refetch();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setSimMessage({ text: t('simulateFailed', { message }), ok: false });
+      setSimMessage(`Simulate failed: ${message}`);
     } finally {
       setSimBusy(false);
     }
-  }, [simBusy, summary, botsData, leaderboard, t]);
+  }, [simBusy, summary, botsData, leaderboard]);
 
   const runInjectTest = useCallback(async () => {
     if (simBusy) return;
@@ -207,7 +208,7 @@ export default function TradeWorkzClient() {
       bots[0]?.id ??
       null;
     if (!targetBotId) {
-      setSimMessage({ text: t('noBotAvailable'), ok: false });
+      setSimMessage('No bot available to inject a test event against.');
       return;
     }
     setSimBusy(true);
@@ -226,29 +227,32 @@ export default function TradeWorkzClient() {
       const data = await res.json();
       const entry = data.notifications_written?.entry ?? 0;
       const exit = data.notifications_written?.exit ?? 0;
-      setSimMessage({
-        text: t('injectedMessage', {
-          bot: data.bot_display_name ?? targetBotId,
-          total: entry + exit,
-          entry,
-          exit,
-        }),
-        ok: true,
-      });
+      setSimMessage(
+        `Injected test entry + exit against ${data.bot_display_name ?? targetBotId}. ` +
+          `Notifications queued: ${entry + exit} (entry=${entry}, exit=${exit}). ` +
+          `Email rows deliver on the next minute-cadence timer fire.`,
+      );
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setSimMessage({ text: t('injectFailed', { message }), ok: false });
+      setSimMessage(`Inject failed: ${message}`);
     } finally {
       setSimBusy(false);
     }
-  }, [simBusy, selectedBotId, followedIds, leaderboard.data, bots, t]);
+  }, [simBusy, selectedBotId, followedIds, leaderboard.data, bots]);
 
   const runClear = useCallback(async () => {
     if (simBusy) return;
     // Explicit confirm — the button says "Reset fleet" but the operator
     // needs to know this wipes REAL live trades too, not just seeded
     // history. Cheap safety on a destructive-and-irreversible action.
-    if (!window.confirm(t('resetConfirm'))) {
+    if (
+      !window.confirm(
+        'Reset the entire fleet? This wipes every trade, position, ' +
+          'notification, equity row, and ML state — for BOTH simulated ' +
+          'and real live-engine data — and resets every bot to its ' +
+          'starting capital. This cannot be undone.',
+      )
+    ) {
       return;
     }
     setSimBusy(true);
@@ -269,24 +273,33 @@ export default function TradeWorkzClient() {
         (a, b) => a + (b ?? 0),
         0,
       );
-      setSimMessage({
-        text: t('fleetResetMessage', {
-          rows: totalRows.toLocaleString(),
-          tables: Object.keys(body.deleted_rows ?? {}).length,
-          sleeves: body.sleeves_reset ?? 0,
-        }),
-        ok: true,
-      });
+      setSimMessage(
+        `Fleet reset: ${totalRows.toLocaleString()} rows deleted across ` +
+          `${Object.keys(body.deleted_rows ?? {}).length} tables, ` +
+          `${body.sleeves_reset ?? 0} sleeves reset to starting capital.`,
+      );
       summary.refetch();
       botsData.refetch();
       leaderboard.refetch();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
-      setSimMessage({ text: t('resetFailed', { message }), ok: false });
+      setSimMessage(`Reset failed: ${message}`);
     } finally {
       setSimBusy(false);
     }
-  }, [simBusy, summary, botsData, leaderboard, t]);
+  }, [simBusy, summary, botsData, leaderboard]);
+
+  // Performance-trend-derived hero metrics (null-safe until the trend loads).
+  const trend = trendRes.data ?? null;
+  const trendWindows = trend?.windows ?? [];
+  const primaryWindow = trendWindows.length
+    ? trendWindows[Math.min(1, trendWindows.length - 1)]
+    : 10;
+  const rolling = trend?.headline?.windows?.[String(primaryWindow)] ?? null;
+  const fleetCumPct = trend?.headline?.fleet_cum_return_pct ?? null;
+  const spyCumPct = trend?.headline?.spy_cum_return_pct ?? null;
+  const cumSeries = (trend?.series ?? []).map((p) => p.cumulative_pnl);
+  const trendDays = trend?.days ?? 60;
 
   return (
     <div className="min-h-screen">
@@ -301,19 +314,17 @@ export default function TradeWorkzClient() {
                 className="text-[10px] uppercase tracking-widest px-2 py-1 rounded"
                 style={{ backgroundColor: 'var(--color-info-soft)', color: 'var(--color-info)' }}
               >
-                {t('betaBadge')}
+                Beta
               </span>
+              <TooltipWrapper text="A competing fleet of autonomous trading bots. Each bot owns a capital sleeve, an entry / exit rule set, and a per-bot online-ML calibrator. Leaderboard ranks by realized P&L over the selected window." />
             </div>
-            <p className="text-sm text-[var(--color-text-secondary)] max-w-3xl leading-relaxed">
-              {t('headerDescription')}
-            </p>
           </div>
           <div className="flex flex-col items-start md:items-end gap-2">
             <div className="flex items-center gap-2">
               <NotificationBell />
               {isAdmin ? (
                 <>
-                  <TooltipWrapper text={t('seedTooltip')}>
+                  <TooltipWrapper text="Wipe existing history and seed 60 sessions of deterministic synthetic trades per bot. Admin only.">
                     <button
                       onClick={runSimulate}
                       disabled={simBusy}
@@ -325,10 +336,10 @@ export default function TradeWorkzClient() {
                       }}
                     >
                       <Sparkles className="w-3.5 h-3.5" />
-                      {t('seedButton')}
+                      Seed demo data
                     </button>
                   </TooltipWrapper>
-                  <TooltipWrapper text={t('testEventTooltip')}>
+                  <TooltipWrapper text="Inject a fake entry + exit notification against the focused / followed bot. Notifications fan out to every follower on all their enabled channels — in-app appears in the bell immediately, email lands on the next timer fire (≤60s). Admin only.">
                     <button
                       onClick={runInjectTest}
                       disabled={simBusy}
@@ -341,10 +352,10 @@ export default function TradeWorkzClient() {
                       }}
                     >
                       <Zap className="w-3.5 h-3.5" />
-                      {t('testEventButton')}
+                      Test event
                     </button>
                   </TooltipWrapper>
-                  <TooltipWrapper text={t('resetTooltip')}>
+                  <TooltipWrapper text="Wipe EVERY bot's trades (sim + live), positions, notifications, equity, metrics, and ML state, then reset each sleeve to starting capital. Cannot be undone. Admin only.">
                     <button
                       onClick={runClear}
                       disabled={simBusy}
@@ -356,7 +367,7 @@ export default function TradeWorkzClient() {
                         opacity: simBusy ? 0.6 : 1,
                       }}
                     >
-                      {t('resetButton')}
+                      Reset fleet
                     </button>
                   </TooltipWrapper>
                 </>
@@ -365,9 +376,9 @@ export default function TradeWorkzClient() {
             {simMessage ? (
               <div
                 className="text-[11px] max-w-xs md:text-right"
-                style={{ color: simMessage.ok ? 'var(--color-bull)' : 'var(--color-bear)' }}
+                style={{ color: simMessage.startsWith('Cleared') || simMessage.startsWith('Seeded') || simMessage.startsWith('Fleet reset') ? 'var(--color-bull)' : 'var(--color-bear)' }}
               >
-                {simMessage.text}
+                {simMessage}
               </div>
             ) : null}
           </div>
@@ -375,43 +386,96 @@ export default function TradeWorkzClient() {
 
         <section className="mb-6">
           {summaryError ? (
-            <EmptyState title={t('summaryUnavailable')} description={summary.error ?? t('failedToLoadSummary')} />
+            <EmptyState title="Summary unavailable" description={summary.error ?? 'Failed to load fleet summary'} />
           ) : summaryLoading ? (
             <SummarySkeleton />
           ) : summary.data ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <StatTile
-                label={t('fleetNav')}
-                value={fmtMoney(summary.data.fleet_capital_current)}
-                subline={t('startSubline', { value: fmtMoney(summary.data.fleet_capital_starting) })}
-                tone={toneVar(summary.data.fleet_return_pct)}
-                delta={
-                  summary.data.fleet_return_pct !== null
-                    ? fmtSignedPct(summary.data.fleet_return_pct, 2)
-                    : null
-                }
-              />
-              <StatTile
-                label={t('realizedPnlToday')}
-                value={fmtSignedMoney(summary.data.realized_pnl_today)}
-                subline={t('tradesWinsSubline', {
-                  trades: summary.data.trades_today,
-                  wins: summary.data.wins_today,
-                })}
-                tone={toneVar(summary.data.realized_pnl_today)}
-              />
-              <StatTile
-                label={t('livePositions')}
-                value={String(summary.data.live_positions)}
-                subline={t('unrealizedSubline', { value: fmtSignedMoney(summary.data.unrealized_pnl) })}
-                tone={toneVar(summary.data.unrealized_pnl)}
-              />
-              <StatTile
-                label={t('botsInFleet')}
-                value={String(summary.data.n_bots)}
-                subline={t('sliceSubline')}
-                tone="var(--color-text-secondary)"
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <HeroTile tone={toneVar(summary.data.fleet_return_pct)}>
+                <HeroLabel>Fleet NAV</HeroLabel>
+                <div className="flex items-end justify-between gap-3">
+                  <div>
+                    <div className="text-3xl font-semibold tabular-nums text-[var(--color-text-primary)]">
+                      {fmtMoney(summary.data.fleet_capital_current)}
+                    </div>
+                    <div className="text-[11px] text-[var(--color-text-secondary)] mt-1">
+                      <span style={{ color: toneVar(summary.data.fleet_return_pct) }}>
+                        {summary.data.fleet_return_pct !== null
+                          ? fmtSignedPct(summary.data.fleet_return_pct, 1)
+                          : '—'}
+                      </span>{' '}
+                      lifetime · Start {fmtMoney(summary.data.fleet_capital_starting)} ·{' '}
+                      {summary.data.n_bots} bots
+                    </div>
+                  </div>
+                  {cumSeries.length >= 2 ? (
+                    <Sparkline
+                      values={cumSeries}
+                      color={toneVar(cumSeries[cumSeries.length - 1] - cumSeries[0])}
+                      baseline={0}
+                      width={92}
+                      height={40}
+                      ariaLabel="cumulative realized P&L since the window start"
+                    />
+                  ) : null}
+                </div>
+              </HeroTile>
+
+              <HeroTile tone={pfToneVar(rolling?.profit_factor)}>
+                <HeroLabel>Edge · Trailing {primaryWindow}</HeroLabel>
+                <div className="text-3xl font-semibold tabular-nums text-[var(--color-text-primary)]">
+                  {rolling ? fmtPct(rolling.win_rate, 0) : '—'}
+                </div>
+                <div className="text-[11px] text-[var(--color-text-secondary)] mt-1">
+                  win rate · PF{' '}
+                  <span style={{ color: pfToneVar(rolling?.profit_factor) }}>
+                    {fmtRatio(rolling?.profit_factor)}
+                  </span>{' '}
+                  ·{' '}
+                  {rolling && rolling.expectancy !== null
+                    ? `${fmtSignedMoney(rolling.expectancy)}/trade`
+                    : '—'}
+                </div>
+              </HeroTile>
+
+              <HeroTile tone={toneVar(fleetCumPct)}>
+                <HeroLabel>Fleet vs SPY · {trendDays}d</HeroLabel>
+                <div
+                  className="text-3xl font-semibold tabular-nums"
+                  style={{ color: toneVar(fleetCumPct) }}
+                >
+                  {fleetCumPct !== null ? fmtSignedPct(fleetCumPct, 1) : '—'}
+                </div>
+                <div className="text-[11px] text-[var(--color-text-secondary)] mt-1">
+                  SPY {spyCumPct !== null ? fmtSignedPct(spyCumPct, 1) : '—'}
+                  {fleetCumPct !== null && spyCumPct !== null ? (
+                    <>
+                      {' '}
+                      · gap{' '}
+                      <span style={{ color: toneVar(fleetCumPct - spyCumPct) }}>
+                        {fmtSignedPct(fleetCumPct - spyCumPct, 1)}
+                      </span>
+                    </>
+                  ) : null}
+                </div>
+              </HeroTile>
+
+              <HeroTile tone={toneVar(summary.data.realized_pnl_today)}>
+                <HeroLabel>Today</HeroLabel>
+                <div
+                  className="text-3xl font-semibold tabular-nums"
+                  style={{ color: toneVar(summary.data.realized_pnl_today) }}
+                >
+                  {fmtSignedMoney(summary.data.realized_pnl_today)}
+                </div>
+                <div className="text-[11px] text-[var(--color-text-secondary)] mt-1">
+                  {summary.data.trades_today} trades · {summary.data.wins_today} wins ·{' '}
+                  {summary.data.live_positions} live
+                  {summary.data.live_positions > 0
+                    ? ` (${fmtSignedMoney(summary.data.unrealized_pnl)})`
+                    : ''}
+                </div>
+              </HeroTile>
             </div>
           ) : null}
         </section>
@@ -420,7 +484,7 @@ export default function TradeWorkzClient() {
           <section className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
             {bestBot ? (
               <Callout
-                label={t('best24h')}
+                label="Best 24h"
                 bot={bestBot.display_name}
                 botId={bestBot.id}
                 paletteIndex={paletteIndex(bestBot.id)}
@@ -431,7 +495,7 @@ export default function TradeWorkzClient() {
             ) : null}
             {worstBot ? (
               <Callout
-                label={t('worst24h')}
+                label="Worst 24h"
                 bot={worstBot.display_name}
                 botId={worstBot.id}
                 paletteIndex={paletteIndex(worstBot.id)}
@@ -444,16 +508,34 @@ export default function TradeWorkzClient() {
         ) : null}
 
         <section className="mb-8">
-          <div className="flex items-center justify-between mb-3 gap-3">
-            <div>
-              <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
-                {t('fleetPerformance')}
-              </h2>
-              <p className="text-xs text-[var(--color-text-secondary)]">
-                {t('fleetPerformanceDesc')}
-              </p>
-            </div>
+          <SectionHeading
+            title="Performance Trend"
+            tip="Is the fleet getting better? Rolling win rate / profit factor / expectancy plus cumulative return vs a SPY buy-hold, rebased to the window start — not the since-inception NAV, which stays anchored to the pre-fix drawdown."
+          />
+          <div
+            className="rounded-2xl p-4"
+            style={{
+              backgroundColor: 'var(--color-surface)',
+              border: '1px solid var(--color-border)',
+            }}
+          >
+            {trendRes.error && !trendRes.data ? (
+              <EmptyState title="Trend unavailable" description={trendRes.error} />
+            ) : trendRes.data ? (
+              <PerformanceTrendChart data={trendRes.data} />
+            ) : (
+              <div className="h-52 flex items-center justify-center text-xs text-[var(--color-text-secondary)]">
+                Loading performance trend…
+              </div>
+            )}
           </div>
+        </section>
+
+        <section className="mb-8">
+          <SectionHeading
+            title="Per-Bot Equity Curves"
+            tip="Per-bot cumulative return, each indexed to 100 at the start of its 90-day window."
+          />
           <div
             className="rounded-2xl p-4"
             style={{
@@ -463,7 +545,7 @@ export default function TradeWorkzClient() {
           >
             {equityBundles.length === 0 || equityBundles.every((b) => b.points.length < 2) ? (
               <div className="h-52 flex items-center justify-center text-xs text-[var(--color-text-secondary)]">
-                {t('equityCurvesEmpty')}
+                Fleet equity curves appear here once bots have at least two closed sessions.
               </div>
             ) : (
               <>
@@ -483,17 +565,11 @@ export default function TradeWorkzClient() {
         </section>
 
         <section className="mb-8">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-3 gap-3">
-            <div>
-              <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
-                {t('leaderboard')}
-              </h2>
-              <p className="text-xs text-[var(--color-text-secondary)]">
-                {t('leaderboardDesc')}
-              </p>
-            </div>
-            <PeriodToggle current={period} onChange={setPeriod} />
-          </div>
+          <SectionHeading
+            title="Leaderboard"
+            tip="Ranked by realized P&L over the selected window. Row click opens the drilldown."
+            right={<PeriodToggle current={period} onChange={setPeriod} />}
+          />
           <LeaderboardTable
             data={leaderboard.data ?? null}
             loading={leaderboard.loading}
@@ -509,24 +585,18 @@ export default function TradeWorkzClient() {
         </section>
 
         <section className="mb-10">
-          <div className="flex items-center justify-between mb-3 gap-3">
-            <div>
-              <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
-                {t('theFleet')}
-              </h2>
-              <p className="text-xs text-[var(--color-text-secondary)]">
-                {t('theFleetDesc')}
-              </p>
-            </div>
-          </div>
+          <SectionHeading
+            title="The Fleet"
+            tip="Every bot: identity color, 30-day equity curve, and rolling P&L windows."
+          />
           {botsData.loading && !botsData.data ? (
             <RosterSkeleton />
           ) : botsData.error && !botsData.data ? (
-            <EmptyState title={t('rosterUnavailable')} description={botsData.error} />
+            <EmptyState title="Roster unavailable" description={botsData.error} />
           ) : sortedBots.length === 0 ? (
             <EmptyState
-              title={t('noBotsProvisionedTitle')}
-              description={t('noBotsProvisionedDesc')}
+              title="No bots provisioned"
+              description="On first API boot the default roster is auto-seeded. If you're seeing this and the API is up, hit POST /api/tradeworkz/admin/provision to re-run seeding."
             />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
@@ -595,42 +665,62 @@ function PeriodToggle({
   );
 }
 
-function StatTile({
-  label,
-  value,
-  subline,
-  tone,
-  delta,
-}: {
-  label: string;
-  value: string;
-  subline: string;
-  tone: string;
-  delta?: string | null;
-}) {
+function HeroTile({ tone, children }: { tone?: string; children: ReactNode }) {
   return (
     <div
-      className="p-5 rounded-2xl"
+      className="relative overflow-hidden rounded-2xl p-5 transition-transform duration-200 hover:-translate-y-0.5"
       style={{
         backgroundColor: 'var(--color-surface)',
         border: '1px solid var(--color-border)',
-        boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
       }}
     >
-      <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">
-        {label}
+      {tone ? (
+        <span
+          aria-hidden
+          className="absolute inset-x-0 top-0 h-[3px]"
+          style={{ background: `linear-gradient(90deg, ${tone}, transparent)` }}
+        />
+      ) : null}
+      {children}
+    </div>
+  );
+}
+
+function HeroLabel({ children }: { children: ReactNode }) {
+  return (
+    <div className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)] mb-2">
+      {children}
+    </div>
+  );
+}
+
+/** Profit factor > 1 is a bull tone, < 1 bear, n/a neutral. */
+function pfToneVar(pf: number | null | undefined): string {
+  if (pf === null || pf === undefined || !Number.isFinite(pf)) {
+    return 'var(--color-text-secondary)';
+  }
+  if (pf > 1) return 'var(--color-bull)';
+  if (pf < 1) return 'var(--color-bear)';
+  return 'var(--color-text-secondary)';
+}
+
+function SectionHeading({
+  title,
+  tip,
+  right,
+}: {
+  title: string;
+  tip: string;
+  right?: ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between mb-3 gap-3">
+      <div className="flex items-center gap-1.5">
+        <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">{title}</h2>
+        <TooltipWrapper text={tip} />
       </div>
-      <div className="flex items-baseline gap-2 flex-wrap">
-        <div className="text-2xl font-semibold tabular-nums" style={{ color: tone }}>
-          {value}
-        </div>
-        {delta ? (
-          <div className="text-xs font-medium tabular-nums" style={{ color: tone }}>
-            {delta}
-          </div>
-        ) : null}
-      </div>
-      <div className="text-[11px] text-[var(--color-text-secondary)] mt-1">{subline}</div>
+      {right ?? null}
     </div>
   );
 }

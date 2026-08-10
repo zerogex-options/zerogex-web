@@ -47,7 +47,7 @@ Tags an einzelnen Trades kennzeichnen sie als Smart Money — typischerweise gro
 Drei Muster:
 
 1. **Starker prämiengewichteter positiver Flow bei negativem GEX-Gradienten** ⇒ Trader zahlen für Aufwärtsbewegung, bei der Dealer strukturell short sind. Signal für Fortsetzung mit hoher Überzeugung.
-2. **Starker Put-Kauf, während auch das Positioning-Trap-Signal hoch ist** ⇒ die Menge liegt falsch; ein Rückschlag ist zu erwarten.
+2. **Starker Put-Kauf, während das Positioning-Trap-Signal auf der Short-Seite der Menge (positiv) geladen ist** ⇒ die bärische Menge liegt falsch; ein Rückschlag nach oben ist zu erwarten.
 3. **Flacher Flow nahe einem Schlüssellevel** ⇒ auf den Ausbruch warten. Flow ohne Überzeugung ist kein Trade.
 
 ## Netto-Volumen vs. direktionaler Flow

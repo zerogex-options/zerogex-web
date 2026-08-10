@@ -20,6 +20,7 @@ import { GexUnit, GEX_UNIT_LABEL, gexScaleFactor, useGexUnit } from '@/core/GexU
 import { isIndexSymbol } from '@/core/utils';
 import { usePageT } from '@/core/LanguageContext';
 import { dict } from './page.i18n';
+import { formatPinStrike, pinStrikeSubtitle, PIN_STRIKE_TOOLTIP } from '@/core/pinStrike';
 
 function formatGexValue(value: number): string {
   const abs = Math.abs(value);
@@ -106,9 +107,9 @@ export default function GreeksGEXPage() {
         <GexUnitToggle />
       </div>
 
-      {/* Top row: 4 cards */}
+      {/* Top row: 5 cards */}
       <section className="mb-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <MetricCard
             title={t('priceTitle', { symbol })}
             value={quoteData && quoteDisplayPrice != null ? `$${quoteDisplayPrice.toFixed(2)}` : '--'}
@@ -153,6 +154,13 @@ export default function GreeksGEXPage() {
             value={gexData?.max_pain != null ? `$${gexData.max_pain.toFixed(2)}` : 'N/A'}
             subtitle={t('maxPainSubtitle')}
             tooltip={t('maxPainTooltip')}
+            theme={theme}
+          />
+          <MetricCard
+            title="Pin Strike"
+            value={formatPinStrike(gexData?.pin_strike)}
+            subtitle={pinStrikeSubtitle(gexData?.pin_strike, gexData?.pin_confidence)}
+            tooltip={PIN_STRIKE_TOOLTIP}
             theme={theme}
           />
         </div>

@@ -7,6 +7,7 @@ import {
   resolveVisitor,
   MAX_VISIT_MS,
 } from '@/core/pageAnalytics';
+import { sanitizeUtmSource } from '@/core/utils';
 
 // First-party page-view beacon. The client tracker (components/PageAnalytics.tsx)
 // posts a tiny JSON payload on page enter and on exit; we resolve the logged-in
@@ -86,7 +87,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   if (!body || typeof body !== 'object') return noContent();
-  const { phase, visitId, path: rawPath, durationMs } = body as Record<string, unknown>;
+  const { phase, visitId, path: rawPath, durationMs, utmSource: rawUtmSource } = body as Record<string, unknown>;
 
   if (phase !== 'enter' && phase !== 'exit') return noContent();
   if (typeof visitId !== 'string' || !VISIT_ID_RE.test(visitId)) return noContent();
@@ -94,17 +95,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const path = normalizeToTemplate(rawPath);
   if (!path) return noContent();
 
+  // Landing-page acquisition source. Sanitized server-side (never trust the
+  // body's raw value); NULL for organic/direct arrivals.
+  const utmSource = sanitizeUtmSource(rawUtmSource);
+
   const { userId, tier } = resolveVisitor(request.cookies.get(SESSION_COOKIE_NAME)?.value);
 
   try {
     if (phase === 'enter') {
-      recordPageEnter({ visitId, path, userId, tier });
+      recordPageEnter({ visitId, path, userId, tier, utmSource });
     } else {
       const ms =
         typeof durationMs === 'number' && Number.isFinite(durationMs)
           ? Math.max(0, Math.min(durationMs, MAX_VISIT_MS))
           : 0;
-      recordPageExit({ visitId, path, userId, tier, durationMs: ms });
+      recordPageExit({ visitId, path, userId, tier, durationMs: ms, utmSource });
     }
   } catch {
     // Analytics must never turn into a visible client error.

@@ -1,0 +1,122 @@
+#!/bin/bash
+
+# ==============================================
+# Step 095: FOH Quarterly Donation Reminder Timer (systemd)
+# ==============================================
+#
+# Installs and enables the Folds of Honor quarterly donation reminder
+# timer (see deploy/systemd/zerogex-web-foh-donation-reminder.{service,timer}).
+# The timer fires four times a year — on the 5th of Jan/Apr/Jul/Oct at
+# 09:00 America/New_York — and triggers `make foh-donation-reminder`,
+# which emails FOH_REMINDER_EMAIL a fully self-contained four-step
+# playbook for making that quarter's donation.
+#
+# Idempotent — safe to re-run. The unit files are overwritten from the
+# repo (they're version-controlled, so this is the desired behavior), and
+# `systemctl enable --now` is a no-op for an already-enabled timer. No
+# config file is written (the script reads FOH_REMINDER_EMAIL,
+# RESEND_API_KEY, RESEND_FROM_EMAIL, NEXT_PUBLIC_APP_URL from
+# frontend/.env.local, which step 030 / 036 already manage).
+#
+# No sandbox drop-in for AUTH_DB_PATH: this script sends one email and
+# doesn't touch the SQLite DB, so the base unit's ProtectSystem=strict is
+# sufficient. Contrast with 088.checkout-recovery which needs the DB dir
+# writable for the sent-latch UPDATE.
+
+set -e
+
+# Fallback log if this step is invoked directly (deploy.sh exports a log
+# function, but operators sometimes run a single step in isolation).
+type log >/dev/null 2>&1 || log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
+
+log "FOH Quarterly Donation Reminder Timer Setup"
+
+# Resolve the owning user even when deploy.sh is invoked via sudo.
+OWNER="${SUDO_USER:-$USER}"
+
+APP_DIR="$HOME/zerogex-web"
+SYSTEMD_SOURCE="$APP_DIR/deploy/systemd"
+SYSTEMD_TARGET="/etc/systemd/system"
+UNIT="zerogex-web-foh-donation-reminder"
+ENV_FILE="$APP_DIR/frontend/.env.local"
+
+# --- Preconditions ---------------------------------------------------
+if [ ! -d "$SYSTEMD_SOURCE" ]; then
+    log "  ✗ systemd source dir not found: $SYSTEMD_SOURCE"
+    exit 1
+fi
+for f in "${UNIT}.service" "${UNIT}.timer"; do
+    if [ ! -f "$SYSTEMD_SOURCE/$f" ]; then
+        log "  ✗ missing unit file: $SYSTEMD_SOURCE/$f"
+        exit 1
+    fi
+done
+
+# nvm + Node 22 are installed by step 020.nodejs. The Makefile target
+# sources $HOME/.nvm/nvm.sh at runtime, so presence here is enough.
+if [ -s "$HOME/.nvm/nvm.sh" ]; then
+    log "  ✓ nvm present at $HOME/.nvm/nvm.sh"
+else
+    log "  ✗ nvm not found at $HOME/.nvm/nvm.sh — run step 020.nodejs first"
+    exit 1
+fi
+
+# --- Env soft-check --------------------------------------------------
+# The script needs Resend creds to actually send mail AND a recipient.
+# Warn (don't fail) if any are empty — the timer still installs, and if
+# the keys land later, the next scheduled tick just works.
+warn_missing_env() {
+    local key="$1"
+    local value
+    value=$(grep -E "^${key}=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+    if [ -z "$value" ]; then
+        log "  ⚠ $key is unset in $ENV_FILE — timer will install but reminder will error until set"
+    else
+        log "  ✓ $key is set"
+    fi
+}
+if [ -f "$ENV_FILE" ]; then
+    warn_missing_env RESEND_API_KEY
+    warn_missing_env RESEND_FROM_EMAIL
+    warn_missing_env FOH_REMINDER_EMAIL
+    warn_missing_env NEXT_PUBLIC_APP_URL
+else
+    log "  ⚠ $ENV_FILE not found — step 030 should have created it"
+fi
+
+# --- Install + enable the units --------------------------------------
+log "  → Installing ${UNIT}.{service,timer}..."
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.service" "$SYSTEMD_TARGET/"
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.timer"   "$SYSTEMD_TARGET/"
+
+sudo systemctl daemon-reload
+
+log "  → Enabling ${UNIT}.timer (5th of Jan/Apr/Jul/Oct 09:00 ET, Persistent=true)..."
+if sudo systemctl enable --now "${UNIT}.timer" 2>/dev/null; then
+    NEXT=$(systemctl list-timers --no-pager --no-legend "${UNIT}.timer" 2>/dev/null | awk '{print $1, $2}')
+    log "     ✓ ${UNIT}.timer enabled (next run: ${NEXT:-unknown})"
+else
+    log "     ✗ ${UNIT}.timer failed to enable"
+    exit 1
+fi
+
+# Deliberately NO test run: the service's ExecStart sends a real email
+# to the configured admin. Operators who want to smoke-test after install
+# should run `make foh-donation-reminder DRY_RUN=1` (prints, doesn't send)
+# or `sudo systemctl start ${UNIT}.service` to fire the actual send once.
+
+log ""
+log "FOH quarterly donation reminder timer setup complete!"
+log ""
+log "Summary:"
+log "  ✓ ${UNIT}.timer enabled (fires 4× a year, Persistent=true catches missed runs)"
+log "  ✓ Schedule: 09:00 ET on 5th of Jan/Apr/Jul/Oct — 5 days after each quarter closes"
+log "  ✓ Recipient: FOH_REMINDER_EMAIL (from frontend/.env.local)"
+log "  ✓ Idempotent: pure reminder — no DB writes, no latch, safe to re-run any time"
+log ""
+log "Useful commands:"
+log "  • systemctl list-timers ${UNIT}.timer                  - next/last run"
+log "  • cd $APP_DIR && make foh-donation-reminder DRY_RUN=1  - preview email text (no send)"
+log "  • cd $APP_DIR && make foh-donation-reminder            - send once now (adhoc)"
+log "  • sudo systemctl start ${UNIT}.service                 - fire via systemd unit path"
+log "  • journalctl -u ${UNIT} -n 50                           - recent run logs"

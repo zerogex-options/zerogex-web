@@ -6,13 +6,14 @@
 
 ## Symbols covered
 
-ZeroGEX provides full analytics coverage for three instruments:
+ZeroGEX provides full analytics coverage for four instruments:
 
 - **SPY** — S&P 500 ETF
 - **SPX** — S&P 500 Index (European-style options)
 - **QQQ** — Nasdaq 100 ETF
+- **NDX** — Nasdaq 100 Index (European-style options)
 
-These are the three most liquid, most gamma-rich underlyings in the U.S. options market — the instruments where dealer hedging activity has the greatest impact on intraday price.
+These are the four most liquid, most gamma-rich underlyings in the U.S. options market — the instruments where dealer hedging activity has the greatest impact on intraday price.
 
 We don't plan to support single-name equities. The signal model and the regime concept are designed around index-level dealer behavior.
 
@@ -41,13 +42,15 @@ The session badge in the header confirms which window you're in.
 
 The page does not need to be refreshed. Everything streams.
 
+A note on the GEX surfaces: "refresh" means the exposure is **recomputed**, not that open interest is re-polled tick-by-tick. Standard listed-options open interest is tallied by the clearinghouse after the session and published for the *next* trading day — it does not build live intraday. So intraday changes to the GEX summary and heatmap come from re-pricing the chain as spot, time, and implied vol move, plus positioning *inferred* from live volume and trade classification — not from newly confirmed OI. Treat intraday positioning shifts as inferred, not verified open interest.
+
 ## Pre-market and after-hours
 
 During extended hours:
 
 - The price tile shows the extended-hours quote alongside the prior regular-session close.
 - Signal scores continue to update where the data is sufficient. Some signals (EOD Pressure, 0DTE Position Imbalance) intentionally only compute during the regular session.
-- The GEX surface reflects the regular-session-close state plus any overnight chain updates.
+- The GEX surface reflects the regular-session-close state plus any overnight chain updates — including the next session's cleared open interest once it publishes.
 
 ## When the market is closed
 
@@ -69,7 +72,7 @@ The Backtesting page exposes the historical horizon for whatever signal you sele
 
 ## Data sources
 
-ZeroGEX uses **OPRA-feed options data** (the consolidated tape for U.S. options) plus the underlying equity quote feed. Both are professional-grade, real-time data sources.
+ZeroGEX uses **OPRA-feed options data** (the consolidated tape for U.S. options — real-time trades and quotes, used to infer intraday positioning) plus the underlying equity quote feed. Official open interest is a separate, end-of-session figure from clearing rather than a real-time value. All are professional-grade sources.
 
 We don't disclose specific vendor names publicly, but the quality bar is institutional — same data feeds used by quant desks.
 
@@ -77,12 +80,12 @@ We don't disclose specific vendor names publicly, but the quality bar is institu
 
 The end-to-end latency from a trade printing on the tape to it reaching your browser is typically under a second during regular hours. The bottleneck is rarely the data — it's your network and browser. See [Streaming & Performance](/help/platform/streaming-and-performance).
 
-## Why only SPY / SPX / QQQ
+## Why only SPY / SPX / QQQ / NDX
 
 Two reasons:
 
 1. The dealer-positioning model only works well where dealer flow is a meaningful fraction of total flow. That's the index complex.
-2. We'd rather get three instruments right than ten instruments half-right.
+2. We'd rather get four instruments right than ten instruments half-right.
 
 Single-name equities can drift on idiosyncratic news that makes the GEX read noisier. We're not in that game.
 

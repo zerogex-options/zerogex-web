@@ -4,6 +4,7 @@ import { renderMarkdown } from '@/components/MarkdownContent';
 import ArticleJsonLd from '@/components/ArticleJsonLd';
 import RelatedArticles from '@/components/RelatedArticles';
 import { articleMetadata } from '@/core/articleRegistry';
+import GexMethodologyNote from '@/components/GexMethodologyNote';
 import LiveLevelsCTA from '@/components/LiveLevelsCTA';
 import { getServerT, loadLocalizedMarkdown } from '@/core/localizedContent';
 import { dict as metaDict } from './meta.i18n';
@@ -44,7 +45,11 @@ export default async function WhyMarketMakersTradeStockPage() {
 
       <RelatedArticles slug="why-market-makers-trade-stock" />
 
-      <LiveLevelsCTA concept="forced dealer flow" />
+      <GexMethodologyNote />
+      <LiveLevelsCTA
+        headline="See today's dealer positioning and hedge pressure"
+        intro="ZeroGEX recalculates dealer positioning and potential hedge pressure throughout the trading day as price, time, and implied volatility change."
+      />
     </div>
   );
 }

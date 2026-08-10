@@ -47,7 +47,7 @@ Des étiquettes sur des transactions individuelles les signalent comme smart mon
 Trois schémas :
 
 1. **Flux positif pondéré par la prime fort avec un gradient de GEX négatif** ⇒ les traders paient pour une hausse sur laquelle les dealers sont structurellement short. Lecture de continuation à forte conviction.
-2. **Achat de puts fort avec le signal Positioning Trap également élevé** ⇒ la foule est mal positionnée ; attendez-vous à un retour brutal.
+2. **Achat de puts fort avec le signal Positioning Trap chargé du côté de la foule short (positif)** ⇒ la foule baissière est mal positionnée ; attendez-vous à un retour brutal à la hausse.
 3. **Flux plat près d'un niveau clé** ⇒ attendez la cassure. Un flux sans conviction n'est pas un trade.
 
 ## Volume net vs flux directionnel

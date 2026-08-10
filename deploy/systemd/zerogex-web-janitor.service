@@ -1,0 +1,44 @@
+[Unit]
+Description=ZeroGEX web nightly janitor (auth-backup retention floor + Next.js/npm cache cleanup)
+Documentation=https://github.com/zerogex-options/zerogex-web
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/zerogex-web
+
+# Tools used by `make janitor-noconfirm`: make, find, ls, rm, id, bash + npm
+# (npm is resolved via nvm inside a `bash -lc` login shell, so it need not be on
+# this PATH). No sqlite3/gpg/aws needed.
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+# Optional config: AUTH_BACKUP_DIR, AUTH_BACKUP_RETENTION_DAYS, AUTH_BACKUP_KEEP,
+# NEXT_CACHE_DIR, APP_USER. The leading '-' makes the file optional so the unit
+# still runs on defaults if it is absent.
+EnvironmentFile=-/home/ubuntu/zerogex-web/deploy/systemd/janitor.env
+
+ExecStart=/usr/bin/make -C /home/ubuntu/zerogex-web janitor-noconfirm
+
+# The job is tiny; cap it so a wedged npm/login-shell can't run forever.
+TimeoutStartSec=300
+
+# Security hardening (mirrors the zerogex-web-auth-backup unit).
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+# RW exceptions, all owned by the app user:
+#   - frontend/        : `rm -rf frontend/.next/cache` unlinks under here
+#   - zerogex-auth-backups : the keep-newest-K prune deletes aged archives
+#   - ~/.npm           : `npm cache clean --force` rewrites the npm cache
+# These must exist before the timer is enabled (systemd can't build the unit's
+# mount namespace otherwise); deploy step 094 pre-creates them. If you change
+# NEXT_CACHE_DIR or AUTH_BACKUP_DIR in janitor.env, update these to match.
+ReadWritePaths=/home/ubuntu/zerogex-web/frontend /home/ubuntu/zerogex-auth-backups /home/ubuntu/.npm
+
+# Logging -> journald (view with: journalctl -u zerogex-web-janitor)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=zerogex-web-janitor

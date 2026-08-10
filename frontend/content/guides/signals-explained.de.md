@@ -10,7 +10,7 @@ ZeroGEX betreibt zwei Signalfamilien, und sie verhalten sich absichtlich untersc
 
 **Advanced-Signale** beantworten eine scharfe, situative Frage ("wird der Schlusskurs gerade gepinnt?", "ist dieser Breakout gerade gescheitert?"). Jedes erzeugt einen Score auf einer **[-1, +1]**-Zahlenlinie *und* einen diskreten **Trigger**: Sobald der Score die Schwelle des Signals überschreitet, löst es einen Alert aus und kann ein Playbook freischalten. Sie sind ereignisgesteuert.
 
-**Basic-Signale** sind kontinuierlich. Sie "lösen" nicht aus — stattdessen speisen sie den **MSI-Composite** mit einem festen Gewicht und schieben die gemischte Lesart bei jedem Refresh nach oben oder unten. Du siehst sie als Inputs für das Gesamtbild, nicht als eigenständige Alerts.
+**Basic-Signale** sind kontinuierlich. Sie "lösen" nicht aus — stattdessen speisen sie den **MSI-Composite** mit einem festen Gewicht und schieben die gemischte Regime-Lesart bei jedem Refresh nach oben (Richtung Trend) oder nach unten (Richtung Chop). Du siehst sie als Inputs für das Gesamtbild, nicht als eigenständige Alerts.
 
 Drei Dinge lohnt es sich, vor den Tabellen zu verinnerlichen:
 
@@ -71,9 +71,9 @@ Gleiche Zahlenlinie, sehr unterschiedliche Fragen. Hier steht, was positiv, nega
 
 | Signal | Positiver Score | Negativer Score | Null |
 | --- | --- | --- | --- |
-| Dealer Delta Pressure | Dealer long delta — müssen Rallyes verkaufen (bärisch) | Dealer short delta — müssen Dips kaufen (bullisch) | Ausgewogenes Dealer-Buch oder unzureichendes OI |
-| GEX Gradient | Gamma unter dem Spot gestapelt (bärischer Verstärker in short gamma; gedämpft in long gamma) | Gamma über dem Spot gestapelt (bärischer Bias) | Flacher Gradient oder unzureichendes OI |
-| Positioning Trap | Long-Crowd falsch positioniert — Aufwärts-Short-Cover-Squeeze-Loading | Short-Crowd falsch positioniert — Abwärts-Flush-Loading | Kein Crowd-Extrem erkannt |
+| Dealer Delta Pressure | Dealer short delta — müssen Dips kaufen (bullisch) | Dealer long delta — müssen Rallyes verkaufen (bärisch) | Ausgewogenes Dealer-Buch oder unzureichendes OI |
+| GEX Gradient | Gamma unter dem Spot gestapelt — Support darunter, aufwärtsstabilisierend (bullische Neigung) | Gamma über dem Spot gestapelt — dünner Support darunter, abwärtsverstärkend (bärische Neigung) | Flacher Gradient oder unzureichendes OI |
+| Positioning Trap | Short-Crowd falsch positioniert — Aufwärts-Short-Cover-Squeeze-Loading | Long-Crowd falsch positioniert — Abwärts-Flush-Loading | Kein Crowd-Extrem erkannt |
 | Skew Delta | Put-Skew *unter* Baseline — Angst löst sich auf (bullische Neigung) | Put-Skew erhöht — Angst ist eingepreist (bärische Neigung) | Skew auf Baseline, oder Daten fehlen |
 | Tape Flow Bias | Aggressives Call-Kaufen dominiert das Tape (bullische Überzeugung) | Aggressives Put-Kaufen dominiert das Tape (bärische Überzeugung) | Ausgewogener Premium-Flow oder unzureichendes Volumen |
 | Vanna/Charm Flow | Dealer-Hedging ist ein kaufender Rückenwind (Vol-Crush / Decay) | Dealer-Hedging ist ein verkaufender Gegenwind (Vol-Up / Unwind) | Ausgewogenes Dealer-Exposure oder fehlende Dealer-Zeilen |

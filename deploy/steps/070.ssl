@@ -74,6 +74,48 @@ else
   exit 1
 fi
 
+# Optional: Cloudflare Authenticated Origin Pulls (mTLS) for the WEBSITE vhost.
+# When enabled, nginx requires the peer (Cloudflare) to present CF's origin-pull
+# client certificate on :443 for ${DOMAIN_NAME}, so the origin is reachable only
+# THROUGH Cloudflare — closing the direct-to-origin bypass with no IP allow-list
+# to keep fresh. The API vhost (api.zerogex.io, served direct-to-origin) is a
+# SEPARATE server block and is intentionally NOT affected.
+#
+# WEB_ORIGIN_MTLS:
+#   unset|off|0  → disabled (default; no change)
+#   optional     → dry-run: request the cert and surface $ssl_client_verify via
+#                  the X-Origin-mTLS response header, but DO NOT reject. Confirm
+#                  CF presents a valid cert (SUCCESS) before enforcing.
+#   on|1|enforce → enforce: a connection without a valid CF cert is refused.
+#
+# SAFE ORDER (see deploy/CLOUDFLARE_MTLS.md): enable Authenticated Origin Pulls
+# in Cloudflare FIRST, deploy with =optional and verify SUCCESS, only THEN =on.
+ORIGIN_MTLS="$(printf '%s' "${WEB_ORIGIN_MTLS:-off}" | tr '[:upper:]' '[:lower:]')"
+MTLS_DIRECTIVES=""
+if [ -n "$ORIGIN_MTLS" ] && [ "$ORIGIN_MTLS" != "off" ] && [ "$ORIGIN_MTLS" != "0" ]; then
+  CF_AOP_CA="/etc/nginx/cloudflare/authenticated_origin_pull_ca.pem"
+  log "  → Cloudflare Authenticated Origin Pulls: mode=${ORIGIN_MTLS}"
+  sudo mkdir -p /etc/nginx/cloudflare
+  if [ ! -s "$CF_AOP_CA" ]; then
+    log "     • Fetching Cloudflare origin-pull CA..."
+    if ! sudo curl -fsS --max-time 20 -o "$CF_AOP_CA" \
+        https://developers.cloudflare.com/ssl/static/authenticated_origin_pull_ca.pem; then
+      log "     ✗ Could not fetch the Cloudflare origin-pull CA; refusing to enable mTLS."
+      log "       Fix connectivity or pre-place the CA at $CF_AOP_CA, then re-run."
+      exit 1
+    fi
+  fi
+  case "$ORIGIN_MTLS" in
+    on|1|enforce) VERIFY_MODE="on" ;;
+    *)            VERIFY_MODE="optional" ;;
+  esac
+  MTLS_DIRECTIVES="
+    # Cloudflare Authenticated Origin Pulls (mTLS) — WEB_ORIGIN_MTLS=${ORIGIN_MTLS}.
+    ssl_client_certificate ${CF_AOP_CA};
+    ssl_verify_client ${VERIFY_MODE};
+    add_header X-Origin-mTLS \$ssl_client_verify always;"
+fi
+
 log "  → Installing hardened HTTPS nginx config..."
 sudo tee "$SITE_CONF" > /dev/null <<EOF_CONF
 server {
@@ -98,6 +140,7 @@ server {
 
     ssl_certificate /etc/letsencrypt/live/${DOMAIN_NAME}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/${DOMAIN_NAME}/privkey.pem;
+${MTLS_DIRECTIVES}
 
     ssl_session_timeout 1d;
     ssl_session_cache shared:MozSSL:10m;
@@ -189,7 +232,7 @@ server {
         proxy_cache_background_update on;
         add_header X-Cache-Status \$upstream_cache_status always;
 
-        limit_req zone=zerogex_api_per_ip burst=1000 nodelay;
+        limit_req zone=zerogex_web_per_ip burst=1000 nodelay;
     }
 
     # WebSocket reverse proxy. Direct to FastAPI. Auth is ticket-based
@@ -223,7 +266,7 @@ server {
 
         # Handshake-rate cap. Per-connection limit prevents a single
         # IP from opening thousands of concurrent sockets.
-        limit_req zone=zerogex_api_per_ip burst=100 nodelay;
+        limit_req zone=zerogex_web_per_ip burst=100 nodelay;
         limit_conn zerogex_ws_per_ip 32;
     }
 

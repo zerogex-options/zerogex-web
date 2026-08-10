@@ -232,3 +232,7 @@ frontend/data/
 # auth backup config (may name an S3 bucket / GPG recipient) — keep the
 # .example tracked, never the real file the deploy step writes on the box
 deploy/systemd/backup-auth.env
+
+# janitor config (retention/keep-floor + cache paths, box-local) — keep the
+# .example tracked, never the real file the deploy step writes on the box
+deploy/systemd/janitor.env

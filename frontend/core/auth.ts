@@ -28,16 +28,29 @@ const PUBLIC_ROUTE_PATTERNS = [
   '/founding',
   '/privacy',
   '/terms',
+  // Static/marketing content and the SEO article pages carry no member data —
+  // they must stay open (and crawlable) for everyone. Listed explicitly so
+  // every route has a definitive tier rather than relying on "no rule = open".
+  '/giving',
+  '/updates',
+  '/search',
+  '/real-time-gex-0dte',
   '/login',
   '/register',
   '/forgot-password',
   '/reset-password',
   '/unauthorized',
   '/spx-gamma-levels',
-  // /spy-gamma-levels and /qqq-gamma-levels are content clones of
-  // /spx-gamma-levels (same public, delayed view; canonical → spx-gamma-levels).
+  // /spy-gamma-levels, /qqq-gamma-levels, and /ndx-gamma-levels are content
+  // clones of /spx-gamma-levels (same public, delayed view; each self-canonical).
   '/spy-gamma-levels',
   '/qqq-gamma-levels',
+  '/ndx-gamma-levels',
+  // /chart is a dual-mode page: anonymous visitors get the same ~15-min-delayed
+  // snapshot the gamma-levels pages serve (rendered as the full interactive
+  // chart), while logged-in subscribers get the live, real-time version. The
+  // page itself branches on the session, so the route stays public here.
+  '/chart',
   '/trading-mistakes',
   // Action Card permalinks (/cards/{id}) are the public viral artifact for
   // every emitted Playbook Card — must stay anonymous-accessible so X/LinkedIn/
@@ -62,6 +75,12 @@ const PUBLIC_ROUTE_PATTERNS = [
   // link is the receipt (net-of-cost result + equity curve), not a paywall,
   // while the rest of /backtesting/* stays Pro-gated (public check wins first).
   '/backtesting/shared/*',
+  // Shareable Live Bulletin snapshot cards (/live-bulletin/snapshot/{symbol})
+  // are the public artifact for a streamed signal event — anonymous-accessible
+  // for the same crawler + non-member reasons, while the live /live-bulletin
+  // board itself stays Basic-gated (the exact-match rule below doesn't cover
+  // this subpath, and the public check wins first).
+  '/live-bulletin/snapshot/*',
 ] as const;
 
 export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
@@ -102,16 +121,28 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   { pattern: '/gamma-exposure', minimumTier: 'basic' },
   { pattern: '/greeks-gex', minimumTier: 'basic' },
   { pattern: '/gex-heatmap', minimumTier: 'basic' },
+  { pattern: '/pair-comparison', minimumTier: 'basic' },
   { pattern: '/gex-strike-profile', minimumTier: 'basic' },
   { pattern: '/flow-analysis', minimumTier: 'basic' },
+  { pattern: '/forced-flow', minimumTier: 'basic' },
+  { pattern: '/market-tide', minimumTier: 'basic' },
   { pattern: '/smart-money', minimumTier: 'basic' },
   { pattern: '/max-pain', minimumTier: 'basic' },
   { pattern: '/intraday-tools', minimumTier: 'basic' },
+  { pattern: '/volatility', minimumTier: 'basic' },
   // Strategy tools — included with Basic.
   { pattern: '/options-calculator', minimumTier: 'basic' },
   { pattern: '/option-contracts', minimumTier: 'basic' },
-  // Account self-service — any logged-in tier (incl. public/unpaid) can manage their own account.
-  { pattern: '/account', minimumTier: 'public' },
+  // Premium Surface (beta) — a Basic entitlement per the pricing page. Without
+  // this rule the page had no gate at all: the middleware treats "no matching
+  // rule" as open, so it leaked to anonymous visitors while the nav hid it
+  // only via a hard-coded special case.
+  { pattern: '/premium-heatmap', minimumTier: 'basic' },
+  // Account self-service — any logged-in tier (incl. public/unpaid) can manage
+  // their own account. Pattern covers every /account/* subpage (notifications,
+  // etc.) so the middleware login gate applies uniformly, not just the page's
+  // own requireSession() guard.
+  { pattern: '/account/*', minimumTier: 'public' },
 ];
 
 const TIER_RANKS: Record<TierId, number> = AUTH_TIERS.reduce(
@@ -171,6 +202,24 @@ export function hasTierAccess(currentTier: TierId, requiredTier: TierId | null) 
 
 export function hasRequiredTier(pathname: string, currentTier?: string | null) {
   return hasTierAccess(normalizeTier(currentTier), requiredTierForRoute(pathname));
+}
+
+// The tier a nav entry should gate on. Nav items carry a declarative
+// `requiredTier`, and routes carry an enforced rule (ROUTE_ACCESS_RULES); this
+// returns the STRICTER of the two so the sidebar/header can never advertise a
+// page below its real gate. If a route rule is ever missing, the declared tier
+// still holds (fail-closed); if only the route rule exists, that wins. `null`
+// means no gate (public). Keeping this rule-driven is why the nav and the
+// middleware always agree — see the consistency test in
+// tests/navigationAccess.test.ts.
+export function navItemRequiredTier(
+  id: string | undefined,
+  declaredTier?: TierId | null,
+): TierId | null {
+  const routeTier = id ? requiredTierForRoute(id) : null;
+  if (!declaredTier) return routeTier;
+  if (!routeTier) return declaredTier;
+  return TIER_RANKS[declaredTier] >= TIER_RANKS[routeTier] ? declaredTier : routeTier;
 }
 
 // Whether a tier is entitled to a personal API key. Self-service key

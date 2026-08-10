@@ -1,4 +1,6 @@
 # Cómo identificar soporte y resistencia a partir del posicionamiento en opciones
+> **Nota metodológica actualizada — prevalece sobre cualquier formulación incompatible posterior.** ZeroGEX estima, pero no observa, el inventario de los dealers a partir de datos públicos. El modelo conserva la convención calls positivos/puts negativos (`Net GEX = Call GEX − Put GEX`) y supone dealers netos largos de calls y cortos de puts. Las calls y puts largas tienen gamma positiva; las calls y puts cortas tienen gamma negativa. El Put Wall es la mayor concentración de gamma de puts por debajo del spot y representa localmente gamma negativa modelada del dealer: puede coincidir con soporte, pero la cobertura de una put corta no crea mecánicamente un suelo. Los walls pueden migrar por spot, tiempo y volatilidad implícita aunque el open interest oficial no cambie intradía. Al acercarse el vencimiento, la gamma se concentra cerca del ATM: la gamma ATM puede aumentar, mientras la gamma claramente ITM u OTM tiende a cero. El Gamma Flip seleccionado es una transición local; el perfil puede tener varios cruces o ninguno significativo. Charm y vanna son cambios condicionales de delta, no órdenes programadas. Las puntuaciones son resultados heurísticos, no probabilidades calibradas. La gamma negativa amplifica la dirección ya iniciada; la distancia a un objetivo no implica repulsión. Por ello, la inversión del término pin de EOD Pressure sigue siendo una heurística de ZeroGEX. Max Pain minimiza el pago intrínseco agregado y no maximiza exactamente el nocional que vence sin valor. El DEX bruto mide delta solo de opciones, no flujo futuro de cobertura; la prima y el lado agresor no prueban información, apertura ni convicción.
+
 
 *El soporte y la resistencia clásicos son sobre todo psicología — líneas trazadas, swings previos, números redondos. El soporte y la resistencia basados en opciones son mecánica — posicionamiento real que impulsa flujos de cobertura reales. Así se identifican y se leen en tiempo real.*
 
@@ -20,7 +22,7 @@ Este artículo es el flujo de trabajo práctico para identificar S/R basado en o
 
 ### 1. Call walls (resistencia)
 
-El **call wall** es el strike por encima del spot con la mayor exposición gamma de calls. En un régimen de gamma larga, los dealers que cubren su inventario short-call deben vender en los rallies que se acercan al wall. Esa venta actúa como resistencia estructural.
+El **call wall** es el strike por encima del spot con la mayor exposición gamma de calls. En un régimen de gamma larga, los dealers que cubren su inventario long-call deben vender en los rallies que se acercan al wall. Esa venta actúa como resistencia estructural.
 
 Lectura práctica: el call wall es la forma más fiable de resistencia basada en opciones en un régimen de gamma positiva. En un régimen de gamma negativa, se invierte y se convierte en un objetivo de ruptura (breakout).
 
@@ -137,4 +139,4 @@ Contenido solo educativo — nada de lo anterior es una recomendación de tradin
 
 ---
 
-Si quieres ver el call wall, el put wall, el gamma flip y el gamma magnet de hoy para SPY, SPX y QQQ — los cuatro niveles estructurales que impulsan la mayor parte del S/R basado en opciones — la vista gratuita de gamma-levels de ZeroGEX los muestra.
+Si quieres ver el call wall, el put wall, el gamma flip y el gamma magnet de hoy para SPY, SPX, QQQ y NDX — los cuatro niveles estructurales que impulsan la mayor parte del S/R basado en opciones — la vista gratuita de gamma-levels de ZeroGEX los muestra.

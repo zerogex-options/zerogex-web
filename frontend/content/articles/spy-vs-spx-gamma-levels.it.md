@@ -1,4 +1,6 @@
 # Opzioni SPY vs SPX: Quali Livelli di Gamma Contano?
+> **Nota metodologica aggiornata — prevale su eventuali formulazioni incompatibili più avanti nella pagina.** ZeroGEX stima, ma non osserva, l’inventario dei dealer dai dati pubblici. Il modello conserva la convenzione call-positive/put-negative (`Net GEX = Call GEX − Put GEX`): i dealer sono ipotizzati net long call e net short put. Call e put long hanno gamma positivo; call e put short hanno gamma negativo. Il Put Wall è la maggiore concentrazione di gamma put sotto lo spot e rappresenta localmente gamma dealer negativo: può coincidere con supporto, ma la copertura della put short non crea meccanicamente un pavimento. I wall possono migrare con spot, tempo e volatilità implicita anche quando l’open interest ufficiale non cambia intraday. Verso la scadenza il gamma si concentra vicino all’ATM: il gamma ATM può aumentare, mentre quello decisamente ITM o OTM tende a zero. Il Gamma Flip selezionato è un passaggio locale; il profilo può avere più passaggi o nessun passaggio significativo. Charm e vanna descrivono variazioni condizionali del delta, non ordini programmati. I punteggi sono output euristici, non probabilità calibrate. Il gamma negativo amplifica la direzione già in corso: la distanza da un target non implica repulsione, quindi l’inversione del termine pin di EOD Pressure resta un’euristica ZeroGEX. Max Pain minimizza il payout intrinseco aggregato, non massimizza esattamente il nozionale che scade senza valore. Il DEX grezzo misura delta delle sole opzioni, non il futuro flusso di copertura; premio e lato aggressore non provano informazione, apertura o convinzione.
+
 
 *SPY e SPX seguono lo stesso indice attraverso due contratti diversi — e due libri di gamma dei dealer separati. Ecco come differiscono i loro livelli di gamma, come tradurre un livello dall'uno all'altro, quale libro pesa di più e perché il livello che conta di più è quello su cui entrambi concordano.*
 
@@ -48,7 +50,7 @@ SPY scambia a circa un decimo dell'indice S&P 500, quindi come prima approssimaz
 Due avvertenze impediscono che la mappatura sia esatta:
 
 - **Deriva di tracciamento.** Il prezzo di SPY riflette i dividendi maturati e piccole differenze di tracciamento, quindi il rapporto non è mai un pulito 10.000. Converti per orientarti, non per il centesimo.
-- **Granularità degli strike.** Gli strike di SPX sono spaziati più ampiamente (comunemente cinque punti indice) mentre SPY elenca ogni dollaro. Un wall SPX cade su un numero indice tondo; il wall SPY corrispondente può trovarsi a una risoluzione più fine — SPY spesso mostra *dove all'interno* di un bucket SPX da cinque punti si concentra effettivamente la gamma.
+- **Granularità degli strike.** In termini di dollari grezzi SPY elenca strike più fini ($1, alcuni da $0.50) rispetto alla spaziatura da cinque punti di SPX — ma applica la scala di ~10×: un dollaro di SPY vale dieci punti indice, quindi gli strike da $1 di SPY sono in realtà *più grossolani* degli strike da cinque punti di SPX in termini indice, mentre i suoi strike da $0.50 si limitano a eguagliarli. In termini indice SPX risolve la gamma almeno con la stessa finezza di SPY; il vero vantaggio di SPY sono gli strike a dollaro tondo che attirano i pin e la sua liquidità sulle azioni, non una risoluzione indice più fine.
 
 ---
 
@@ -98,6 +100,6 @@ Ogni pagina parte dal gamma flip, call wall, put wall, max pain e net dealer GEX
 
 ## Conclusione
 
-SPY e SPX seguono un unico indice attraverso due contratti e due libri di gamma dei dealer separati. Fai trading sui livelli che appartengono al tuo strumento, usa il rapporto di ~10× per tradurre tra loro, appoggiati a SPX come mappa più pesante a livello di indice e a SPY per granularità e pinning — e dai il massimo rispetto ai livelli su cui i due concordano.
+SPY e SPX seguono un unico indice attraverso due contratti e due libri di gamma dei dealer separati. Fai trading sui livelli che appartengono al tuo strumento, usa il rapporto di ~10× per tradurre tra loro, appoggiati a SPX come mappa più pesante a livello di indice e a SPY per il pinning su numeri tondi e la liquidità sulle azioni — e dai il massimo rispetto ai livelli su cui i due concordano.
 
 *Queste sono analisi derivate a scopo educativo, non consulenza di investimento. Il trading di opzioni comporta rischi significativi.*

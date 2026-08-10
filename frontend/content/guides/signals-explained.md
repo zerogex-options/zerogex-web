@@ -10,7 +10,7 @@ ZeroGEX runs two families of signals, and they behave differently by design.
 
 **Advanced signals** answer a sharp, situational question ("is the close getting pinned?", "did this breakout just fail?"). Each one produces a score on a **[-1, +1]** number line *and* a discrete **trigger**: once the score crosses the signal's threshold, it fires an alert and can gate a playbook. They are event-driven.
 
-**Basic signals** are continuous. They don't "fire" — instead they feed the **MSI composite** with a fixed weight, nudging the blended read up or down on every refresh. You see them as inputs to the bigger picture, not as standalone alerts.
+**Basic signals** are continuous. They don't "fire" — instead they feed the **MSI composite** with a fixed weight, nudging the blended regime read higher (toward trend) or lower (toward chop) on every refresh. You see them as inputs to the bigger picture, not as standalone alerts.
 
 Three things are worth internalizing before the tables:
 
@@ -71,9 +71,9 @@ Same number line, very different questions. Here is what positive, negative, and
 
 | Signal | Positive score | Negative score | Zero |
 | --- | --- | --- | --- |
-| Dealer Delta Pressure | Dealers long delta — must sell rallies (bearish) | Dealers short delta — must buy dips (bullish) | Balanced dealer book or insufficient OI |
-| GEX Gradient | Gamma stacked below spot (bearish amplifier in short gamma; damped in long gamma) | Gamma stacked above spot (bearish bias) | Flat gradient or insufficient OI |
-| Positioning Trap | Long crowd offside — upside short-cover squeeze loading | Short crowd offside — downside flush loading | No crowd extreme detected |
+| Dealer Delta Pressure | Dealers short delta — must buy dips (bullish) | Dealers long delta — must sell rallies (bearish) | Balanced dealer book or insufficient OI |
+| GEX Gradient | Gamma stacked below spot — support below, upside-stabilizing (bullish lean) | Gamma stacked above spot — thin support below, downside-amplifying (bearish lean) | Flat gradient or insufficient OI |
+| Positioning Trap | Short crowd offside — upside short-cover squeeze loading | Long crowd offside — downside flush loading | No crowd extreme detected |
 | Skew Delta | Put skew *below* baseline — fear is unwinding (bullish lean) | Put skew elevated — fear is bid (bearish lean) | Skew sitting at baseline, or data missing |
 | Tape Flow Bias | Aggressive call buying dominates the tape (bullish conviction) | Aggressive put buying dominates the tape (bearish conviction) | Balanced premium flow or insufficient volume |
 | Vanna/Charm Flow | Dealer hedging is a buying tailwind (vol-crush / decay) | Dealer hedging is a selling headwind (vol-up / unwind) | Balanced dealer exposure or missing dealer rows |

@@ -324,10 +324,13 @@ function snapshot(entry: CacheEntry): UseMarketHistoricalResult {
   };
 }
 
+const FROZEN_HISTORICAL: UseMarketHistoricalResult = { rows: [], loading: false, error: null };
+
 export function useMarketHistorical(
   symbol: string,
   timeframe: string,
   allowFutures = false,
+  enabled = true,
 ): UseMarketHistoricalResult {
   const cacheKey = getCacheKey(symbol, timeframe, allowFutures);
   const [state, setState] = useState<UseMarketHistoricalResult>(() => snapshot(getOrCreateCache(symbol, timeframe, allowFutures)));
@@ -342,6 +345,10 @@ export function useMarketHistorical(
   }
 
   useEffect(() => {
+    // Disabled: the caller supplies its own data (e.g. the delayed public
+    // snapshot). Never seed, reload, poll or subscribe — do zero network.
+    if (!enabled) return;
+
     const entry = getOrCreateCache(symbol, timeframe, allowFutures);
 
     ensureSeed(symbol, timeframe, entry, allowFutures);
@@ -362,7 +369,7 @@ export function useMarketHistorical(
         entry.pollTimer = null;
       }
     };
-  }, [symbol, timeframe, allowFutures]);
+  }, [symbol, timeframe, allowFutures, enabled]);
 
-  return state;
+  return enabled ? state : FROZEN_HISTORICAL;
 }

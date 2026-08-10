@@ -6,13 +6,14 @@
 
 ## Abgedeckte Symbole
 
-ZeroGEX bietet vollständige analytische Abdeckung für drei Instrumente:
+ZeroGEX bietet vollständige analytische Abdeckung für vier Instrumente:
 
 - **SPY** — S&P 500 ETF
 - **SPX** — S&P 500 Index (Optionen europäischen Stils)
 - **QQQ** — Nasdaq 100 ETF
+- **NDX** — Nasdaq 100 Index (Optionen europäischen Stils)
 
-Dies sind die drei liquidesten und gamma-reichsten Basiswerte im US-Optionsmarkt — die Instrumente, bei denen die Hedging-Aktivität der Dealer den größten Einfluss auf den Intraday-Preis hat.
+Dies sind die vier liquidesten und gamma-reichsten Basiswerte im US-Optionsmarkt — die Instrumente, bei denen die Hedging-Aktivität der Dealer den größten Einfluss auf den Intraday-Preis hat.
 
 Wir planen nicht, einzelne Aktien zu unterstützen. Das Signalmodell und das Regime-Konzept sind auf das Dealer-Verhalten auf Indexebene ausgelegt.
 
@@ -77,12 +78,12 @@ Wir geben die konkreten Anbieternamen nicht öffentlich bekannt, aber der Qualit
 
 Die End-to-End-Latenz vom Drucken eines Trades auf dem Tape bis zum Erreichen deines Browsers liegt während der regulären Handelszeiten typischerweise unter einer Sekunde. Der Engpass sind selten die Daten — meist sind es dein Netzwerk und dein Browser. Siehe [Streaming & Performance](/help/platform/streaming-and-performance).
 
-## Warum nur SPY / SPX / QQQ
+## Warum nur SPY / SPX / QQQ / NDX
 
 Zwei Gründe:
 
 1. Das Dealer-Positionierungsmodell funktioniert nur dort gut, wo der Dealer-Flow einen bedeutenden Anteil am Gesamt-Flow ausmacht. Das ist der Index-Komplex.
-2. Wir setzen lieber auf drei Instrumente, die wir richtig beherrschen, statt auf zehn Instrumente, die wir nur halb beherrschen.
+2. Wir setzen lieber auf vier Instrumente, die wir richtig beherrschen, statt auf zehn Instrumente, die wir nur halb beherrschen.
 
 Einzelaktien können durch idiosynkratische Nachrichten driften, was die GEX-Lesart verrauscht. Auf dieses Spiel lassen wir uns nicht ein.
 

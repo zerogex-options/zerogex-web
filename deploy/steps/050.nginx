@@ -62,13 +62,143 @@ fi
 # size shared memory zone". Idempotent by design — writing the same
 # content is a no-op after nginx reload.
 sudo tee /etc/nginx/conf.d/zerogex-rate-limit.conf > /dev/null <<'LIMITEOF'
-# Per-IP rate limiting for app/API endpoints
-limit_req_zone $binary_remote_addr zone=zerogex_api_per_ip:10m rate=20r/s;
+# Per-IP rate limiting for app/API endpoints.
+#
+# rate=500r/s matches the API tier (zerogex-oa/deploy/steps/120.nginx_api),
+# which writes this SAME /etc/nginx/conf.d/zerogex-rate-limit.conf — keeping the
+# two in lockstep also avoids a co-hosted last-writer-wins mismatch. It is
+# deliberately generous. The app polls live gamma/quote data at ~1 Hz across
+# several charts, so a single open page is already several req/s and heavy views
+# (e.g. Pair Comparison) run two live columns at once. Because limit_req keys on
+# $binary_remote_addr, everyone behind a shared egress — corporate/VPN NAT,
+# mobile CGNAT, or a CDN edge when real-IP isn't restored — collapses onto ONE
+# bucket, so the previous rate=20r/s rejected ordinary multi-viewer traffic. Once
+# the burst bucket drained, limit_req returned 503 (its default status), and
+# because limit_req runs BEFORE proxy_cache those 503s bypass the
+# use_stale/background_update masking and reach the browser — surfacing on the
+# most frequent request, the gamma heatmap. The per-session response cache (5s) +
+# proxy_cache_lock bound real upstream load regardless, and fail2ban handles true
+# abuse, so this stays a guardrail against runaway loops, not a capacity throttle.
+limit_req_zone $binary_remote_addr zone=zerogex_api_per_ip:10m rate=500r/s;
 # Per-IP concurrent-connection cap for /ws. limit_req caps handshake
 # rate but WS is long-lived; without limit_conn a single IP could open
 # thousands of persistent sockets. 10m holds ~160k IPs.
 limit_conn_zone $binary_remote_addr zone=zerogex_ws_per_ip:10m;
 LIMITEOF
+
+# Restore the real client IP when Cloudflare fronts the site.
+#
+# zerogex.io sits behind Cloudflare, so without this every request arrives with
+# a Cloudflare edge address as $remote_addr. That collapses the entire visitor
+# base onto a handful of CF IPs, which turned the per-IP limit_req above into a
+# de-facto GLOBAL throttle — the direct cause of the site-wide 503 storm (tens of
+# thousands of "limiting requests ..." rejections all keyed to CF ranges like
+# 104.23.x / 172.69.x). It also hid the true client from fail2ban, the audit log,
+# and the BFF's own request monitoring.
+#
+# Trusting CF-Connecting-IP from Cloudflare's published ranges makes $remote_addr
+# / $binary_remote_addr the real client again — so the rate limit (and any abuse
+# tooling) applies per actual user as intended. Cloudflare adds ranges from time
+# to time, and a STALE allow-list would silently send those users' traffic back
+# to a shared CF-edge bucket (re-creating the outage), so the list is installed
+# and refreshed by a small script + weekly timer rather than baked in once.
+log "  → Installing Cloudflare real-IP refresher (script + weekly timer)..."
+sudo tee /usr/local/bin/zerogex-web-refresh-cf-ranges.sh > /dev/null <<'CFSCRIPT'
+#!/usr/bin/env bash
+# Regenerate /etc/nginx/conf.d/zerogex-realip.conf from Cloudflare's published IP
+# ranges, then reload nginx if the set changed. Safe to run repeatedly.
+# Fail-safe: a failed fetch or a failed `nginx -t` never clobbers a good config.
+# Set ZEROGEX_CF_SKIP_RELOAD=1 to write the file without reloading (used during
+# the deploy, where the step's own `nginx -t` + restart validates everything).
+set -euo pipefail
+CONF="/etc/nginx/conf.d/zerogex-realip.conf"
+V4="$(curl -fsS --max-time 10 https://www.cloudflare.com/ips-v4 || true)"
+V6="$(curl -fsS --max-time 10 https://www.cloudflare.com/ips-v6 || true)"
+if [ -z "$V4" ] || [ -z "$V6" ]; then
+  echo "zerogex-cf-ranges: fetch failed; keeping existing $CONF" >&2
+  exit 0
+fi
+TMP="$(mktemp)"
+trap 'rm -f "$TMP"' EXIT
+{
+  echo "# Cloudflare real-IP restoration — managed by zerogex-web-refresh-cf-ranges.sh."
+  echo "# Do not edit by hand; regenerated from cloudflare.com/ips-v4 + ips-v6."
+  for cidr in $V4 $V6; do echo "set_real_ip_from $cidr;"; done
+  echo "real_ip_header CF-Connecting-IP;"
+  echo "real_ip_recursive on;"
+} > "$TMP"
+if [ -f "$CONF" ] && cmp -s "$TMP" "$CONF"; then
+  exit 0
+fi
+install -m 644 "$TMP" "$CONF"
+if [ -n "${ZEROGEX_CF_SKIP_RELOAD:-}" ]; then
+  echo "zerogex-cf-ranges: wrote $CONF (reload skipped)"
+  exit 0
+fi
+if nginx -t >/dev/null 2>&1; then
+  systemctl reload nginx
+  echo "zerogex-cf-ranges: updated $CONF; reloaded nginx"
+else
+  echo "zerogex-cf-ranges: nginx -t failed after writing $CONF; left for review" >&2
+  exit 1
+fi
+CFSCRIPT
+sudo chmod 755 /usr/local/bin/zerogex-web-refresh-cf-ranges.sh
+
+# Generate the snippet now, without reloading — the step's own nginx -t + restart
+# below validates the full config once every zone/site file is in place.
+if sudo env ZEROGEX_CF_SKIP_RELOAD=1 /usr/local/bin/zerogex-web-refresh-cf-ranges.sh; then
+  log "     ✓ Wrote /etc/nginx/conf.d/zerogex-realip.conf"
+else
+  log "  ⚠ Could not generate the Cloudflare real-IP snippet now (fetch failed)."
+  log "    If the site is NOT behind Cloudflare it is unnecessary; otherwise the"
+  log "    weekly timer will retry."
+fi
+
+# Weekly refresh so a Cloudflare range addition can't silently break real-IP.
+sudo tee /etc/systemd/system/zerogex-web-refresh-cf-ranges.service > /dev/null <<'CFSVC'
+[Unit]
+Description=Refresh Cloudflare IP ranges for nginx real-IP restoration
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/zerogex-web-refresh-cf-ranges.sh
+CFSVC
+
+sudo tee /etc/systemd/system/zerogex-web-refresh-cf-ranges.timer > /dev/null <<'CFTIMER'
+[Unit]
+Description=Weekly refresh of Cloudflare IP ranges for nginx real-IP
+
+[Timer]
+OnCalendar=Sun *-*-* 04:30:00
+RandomizedDelaySec=1h
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+CFTIMER
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now zerogex-web-refresh-cf-ranges.timer
+
+# Website-scoped per-user rate limit — a separate zone from the shared
+# zerogex_api_per_ip that the direct-to-origin API tier keys on. Now that real-IP
+# restoration keys limit_req on the true client, browser traffic can be tuned
+# independently of the API, and a co-hosted API deploy can't clobber it.
+#
+# 200r/s (vs the API's 500) leans on Cloudflare — which fronts the website and
+# absorbs volumetric abuse at its own edge — so this origin limit is a secondary
+# guardrail. It still keys on $binary_remote_addr, which is ONE address per NAT
+# egress even after real-IP restoration (a large office/VPN behind a single
+# public IP shares this bucket), so it is kept deliberately generous; burst stays
+# high so a dashboard's dozens-of-requests page-load fan-out is never clipped. If
+# a big shared-IP customer ever gets throttled, raise this or switch to
+# per-session limiting (key on $cookie_zgx_session) instead of per-IP.
+sudo tee /etc/nginx/conf.d/zerogex-web-rate-limit.conf > /dev/null <<'WEBLIMIT'
+limit_req_zone $binary_remote_addr zone=zerogex_web_per_ip:10m rate=200r/s;
+WEBLIMIT
 
 # Proxy response cache. The same zone is also defined by zerogex-oa
 # (deploy/steps/120.nginx_api). Whichever repo deploys first writes the
@@ -173,7 +303,7 @@ server {
         proxy_cache_background_update on;
         add_header X-Cache-Status \$upstream_cache_status always;
 
-        limit_req zone=zerogex_api_per_ip burst=1000 nodelay;
+        limit_req zone=zerogex_web_per_ip burst=1000 nodelay;
     }
 
     # WebSocket reverse proxy. Direct to FastAPI. Auth is ticket-based
@@ -208,7 +338,7 @@ server {
 
         # Handshake-rate cap. Per-connection limit prevents a single
         # IP from opening thousands of concurrent sockets.
-        limit_req zone=zerogex_api_per_ip burst=100 nodelay;
+        limit_req zone=zerogex_web_per_ip burst=100 nodelay;
         limit_conn zerogex_ws_per_ip 32;
     }
 

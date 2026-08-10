@@ -20,7 +20,7 @@ Das aggregierte Dealer-Delta. Stark negativ bedeutet, dass Dealer im Delta short
 
 ### Net VEX (Vanna)
 
-Das aggregierte Dealer-Vanna — die Sensitivität des Deltas gegenüber der IV. Positiv bedeutet, dass ein Rückgang der IV die Dealer zum Verkaufen zwingt; ein Anstieg der IV zwingt sie zum Kaufen. Das ist der Motor hinter Tagen mit "Vol-Compression-Grind".
+Das aggregierte Dealer-Vanna — die Sensitivität des Deltas gegenüber der IV. Positiv bedeutet, dass ein Rückgang der IV die Dealer zum Kaufen zwingt; ein Anstieg der IV zwingt sie zum Verkaufen. Das ist der Motor hinter Tagen mit "Vol-Compression-Grind".
 
 ### Net Charm
 

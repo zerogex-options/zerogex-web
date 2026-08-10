@@ -4,17 +4,22 @@ import Link from 'next/link';
 import { serverApiGet } from '@/core/api/serverFetch';
 import SymbolPicker from '@/components/SymbolPicker';
 import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
-import { getServerT } from '@/core/localizedContent';
-import { dict } from './page.i18n';
-
-type ServerT = (key: string, vars?: Record<string, string | number>) => string;
 
 // Landing page for /forecast — lists every trading day the writer has
 // committed a daily_forecast row for, links to /forecast/[date]. Mirrors
-// the /replay landing page pattern.  ISR-cached hourly; new dates only
-// arrive after the 07:00 writer + 16:05 receipt cycle each trading day.
-
-const REVALIDATE_SECONDS = 3600;
+// the /replay landing page pattern.  New dates arrive after the morning
+// writer + 16:05 receipt cycle each trading day.
+//
+// Cache window: the morning writer commits the row but does NOT ping the
+// on-demand revalidation hook — only the 16:05 receipt cron does (see
+// app/api/revalidate/forecast/route.ts). So before 4 PM the ISR window is
+// the ONLY thing that surfaces a just-committed forecast in this list. We
+// keep it short (5 min, not an hour) because this fetch is keyed per symbol
+// and the default SPY variant is re-cached constantly through the morning:
+// an hour-long window let it serve a pre-commit snapshot that omitted today
+// for up to a full hour after the ~08:30 ET write, while the low-traffic
+// QQQ/SPX variants happened to re-cache after the write and looked fine.
+const REVALIDATE_SECONDS = 300;
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://zerogex.io').replace(/\/+$/, '');
 
 interface ForecastDateEntry {
@@ -43,7 +48,7 @@ export const metadata: Metadata = {
     type: 'website',
     url: `${SITE_URL}/forecast`,
     title: 'Gamma Forecast — ZeroGEX',
-    description: 'Daily 7 AM commitments graded against realized 4 PM close.',
+    description: 'Daily pre-market commitments graded against realized 4 PM close.',
     siteName: 'ZeroGEX',
   },
 };
@@ -63,27 +68,25 @@ function formatHumanDate(raw: string): string {
   }
 }
 
-function humanizeRegime(raw: string | null, t: ServerT): string {
-  if (!raw) return t('unknownRegime');
+function humanizeRegime(raw: string | null): string {
+  if (!raw) return 'Unknown';
   return raw.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
 }
 
-// The receipt landed but at least one verdict came back false — flag it
-// so the picker can lead with the days we called wrong (they're the most
-// interesting).
-function verdictSummary(entry: ForecastDateEntry, t: ServerT): { label: string; tone: string } {
-  if (!entry.has_receipt) return { label: t('pendingLabel'), tone: 'var(--color-text-secondary)' };
-  const flags = [entry.range_respected, entry.vol_state_correct];
-  const graded = flags.filter((f) => f != null);
-  const wins = graded.filter((f) => f === true).length;
-  if (graded.length === 0) return { label: t('ungradedLabel'), tone: 'var(--color-text-secondary)' };
-  if (wins === graded.length) {
-    return { label: t('cleanLabel', { wins, graded: graded.length }), tone: 'var(--color-bull)' };
-  }
-  if (wins === 0) {
-    return { label: t('missedLabel', { wins: 0, graded: graded.length }), tone: 'var(--color-bear)' };
-  }
-  return { label: t('mixedLabel', { wins, graded: graded.length }), tone: 'var(--color-warning)' };
+// Range coverage and the vol call are two DIFFERENT bets that both grow more
+// likely to fail as the day's range grows — so collapsing them into one N/2
+// score (the old "1/2 · mixed") just measured that correlation, not skill. We
+// show them as two independent pills instead: each claim stands on its own.
+function flagTone(v: boolean | null): string {
+  if (v === true) return 'var(--color-bull)';
+  if (v === false) return 'var(--color-bear)';
+  return 'var(--color-text-secondary)';
+}
+
+function flagMark(v: boolean | null): string {
+  if (v === true) return '✓';
+  if (v === false) return '✗';
+  return '—';
 }
 
 async function loadDates(symbol: string): Promise<ForecastDateList | null> {
@@ -98,7 +101,6 @@ export default async function ForecastLanding({
 }: {
   searchParams: Promise<{ symbol?: string }>;
 }) {
-  const t = await getServerT(dict);
   const symbol = resolveSymbol((await searchParams)?.symbol);
   const data = await loadDates(symbol);
   const entries = data?.dates ?? [];
@@ -110,61 +112,71 @@ export default async function ForecastLanding({
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="text-[11px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
-              {t('kicker')}
+              ZeroGEX · Gamma Forecast
             </div>
             <h1 className="mt-1 text-3xl font-bold tracking-tight">
-              {t('heading')}
+              Yesterday&rsquo;s promise, today&rsquo;s receipt
             </h1>
           </div>
           <SymbolPicker current={symbol} hrefs={pickerHrefs} />
         </div>
         <p className="mt-2 max-w-2xl text-sm text-[var(--color-text-secondary)] leading-relaxed">
-          {t('intro', { symbol })}
+          Every morning before the open we commit {symbol} to a projected range, an expected-volatility
+          call, and the key gamma levels with touch odds — hashed and immutable. We never forecast
+          direction. Every afternoon at 4:05 PM we grade ourselves against the actual low, high, and
+          close. Pick a date to see the promise, the receipt, and the verdict pills.
         </p>
       </header>
 
       <section>
         {entries.length === 0 ? (
           <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-8 text-center text-sm text-[var(--color-text-secondary)]">
-            {t('emptyState', { symbol })}
+            No forecasts committed for {symbol} yet. The morning writer runs Mon-Fri; check back
+            after the next trading day.
           </div>
         ) : (
           <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {entries.map((entry) => {
-              const verdict = verdictSummary(entry, t);
-              return (
-                <li key={entry.date}>
-                  <Link
-                    href={`/forecast/${symbol}/${entry.date}`}
-                    className="block rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 transition-colors hover:bg-[var(--color-surface-subtle)]"
-                  >
-                    <div className="flex items-baseline justify-between gap-3">
-                      <div className="font-semibold">{formatHumanDate(entry.date)}</div>
-                      <div
-                        className="text-[10px] uppercase tracking-[0.18em] font-bold"
-                        style={{ color: verdict.tone }}
-                      >
-                        {verdict.label}
+            {entries.map((entry) => (
+              <li key={entry.date}>
+                <Link
+                  href={`/forecast/${symbol}/${entry.date}`}
+                  className="block rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 transition-colors hover:bg-[var(--color-surface-subtle)]"
+                >
+                  <div className="flex items-baseline justify-between gap-3">
+                    <div className="font-semibold">{formatHumanDate(entry.date)}</div>
+                    {entry.has_receipt ? (
+                      <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.14em] font-bold">
+                        <span style={{ color: flagTone(entry.range_respected) }}>
+                          Range {flagMark(entry.range_respected)}
+                        </span>
                       </div>
-                    </div>
-                    <div
-                      className="mt-1 font-mono text-[11px]"
-                      style={{ color: 'var(--color-accent)' }}
-                    >
-                      {humanizeRegime(entry.expected_vol_state, t)} {t('volSuffix')}
-                    </div>
-                  </Link>
-                </li>
-              );
-            })}
+                    ) : (
+                      <div className="text-[10px] uppercase tracking-[0.18em] font-bold text-[var(--color-text-secondary)]">
+                        Pending 4 PM
+                      </div>
+                    )}
+                  </div>
+                  <div
+                    className="mt-1 font-mono text-[11px]"
+                    style={{ color: 'var(--color-accent)' }}
+                  >
+                    {humanizeRegime(entry.expected_vol_state)} vol
+                  </div>
+                </Link>
+              </li>
+            ))}
           </ul>
         )}
       </section>
 
       <section className="mt-10 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5 text-xs text-[var(--color-text-secondary)] leading-relaxed">
-        <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">{t('aboutHeading')}</div>
-        {t('aboutPart1')} <span className="font-mono">daily_forecast</span> {t('aboutPart2')}{' '}
-        <span className="font-mono">underlying_quotes</span> {t('aboutPart3')}
+        <div className="mb-1 text-[10px] uppercase tracking-[0.22em] font-bold">About the receipts</div>
+        The commitment is written to <span className="font-mono">daily_forecast</span> each morning
+        before the open with a SHA-256 content hash and a database-level immutability trigger — nothing about the
+        morning row can change once it lands. The 16:05 ET receipt writer joins realized L/H/C from{' '}
+        <span className="font-mono">underlying_quotes</span> and flips the verdict pills. If a
+        forecast was later proven wrong, the receipt page shows it — the whole point is to grade
+        ourselves in public, not hide misses.
       </section>
     </main>
   );

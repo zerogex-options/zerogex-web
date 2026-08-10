@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireSession } from '@/core/serverAuth';
 import { getSnapshot } from '@/core/monitoring';
+import { getConversionBySource } from '@/core/pageAnalytics';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +12,9 @@ export async function GET() {
     forbidden.headers.set('Cache-Control', 'no-store, private');
     return forbidden;
   }
-  const response = NextResponse.json({ ok: true, ...getSnapshot() });
+  // Conversion-by-source is composed here (not inside getSnapshot) to avoid a
+  // monitoring <-> pageAnalytics import cycle; it reads the same auth DB.
+  const response = NextResponse.json({ ok: true, ...getSnapshot(), conversionBySource: getConversionBySource() });
   // Admin-only data; nginx's /api/ cache slot isn't partitioned by session.
   response.headers.set('Cache-Control', 'no-store, private');
   return response;

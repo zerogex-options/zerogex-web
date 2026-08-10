@@ -2,7 +2,9 @@ import path from 'node:path';
 import Link from 'next/link';
 import { renderMarkdown } from '@/components/MarkdownContent';
 import ArticleJsonLd from '@/components/ArticleJsonLd';
+import ArticleFaq from '@/components/ArticleFaq';
 import RelatedArticles from '@/components/RelatedArticles';
+import GexMethodologyNote from '@/components/GexMethodologyNote';
 import LiveLevelsCTA from '@/components/LiveLevelsCTA';
 import { articleMetadata } from '@/core/articleRegistry';
 import { getServerT, loadLocalizedMarkdown } from '@/core/localizedContent';
@@ -38,8 +40,11 @@ export default async function SpxNetGammaExposureTodayPage() {
         <div className="blog-medium-style">{renderMarkdown(markdown)}</div>
       </article>
 
+      <ArticleFaq slug="spx-net-gamma-exposure-today" />
+
       <RelatedArticles slug="spx-net-gamma-exposure-today" />
 
+      <GexMethodologyNote />
       <LiveLevelsCTA concept="SPX net GEX" />
     </div>
   );

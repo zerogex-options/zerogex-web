@@ -10,7 +10,7 @@ ZeroGEX ha tre livelli di account. Corrispondono ai dati e ai segnali che puoi v
 
 | Livello | Per chi è pensato | Cosa ottieni |
 | --- | --- | --- |
-| Public | Navigazione, formazione | Il sito principale, contenuti educativi, guide, articoli, pagine gratuite dei livelli gamma di SPX / SPY / QQQ (ritardo di 15 minuti) |
+| Public | Navigazione, formazione | Il sito principale, contenuti educativi, guide, articoli, pagine gratuite dei livelli gamma di SPX / SPY / QQQ / NDX (ritardo di 15 minuti) |
 | Basic | Trader intraday attivi | Dashboard, Live Bulletin, tutti i Metrics, Strategy Builder, Live Options Quotes, tutti i Basic Signals |
 | Pro | Operatori seri | Tutto ciò che è incluso in Basic + tutti gli Advanced Signals + Composite Score + Backtesting + accesso API |
 
@@ -21,14 +21,14 @@ Consulta il confronto in tempo reale — e un percorso di prova gratuita di 14 g
 ### Public (nessun account necessario)
 
 - Il sito marketing (landing, About, Education Hub, Articles, Guides)
-- Pagine gratuite dei livelli gamma di SPX, SPY e QQQ — ritardate di circa 15 minuti
+- Pagine gratuite dei livelli gamma di SPX, SPY, QQQ e NDX — ritardate di circa 15 minuti
 - Help Center, FAQ, Quick Starts
 - Privacy, Termini
 
 ### Livello Basic
 
 - **Dashboard** — metriche complete in tempo reale
-- **Live Bulletin** — feed in streaming degli eventi di segnale
+- **Live Bulletin** — un'istantanea dealer-gamma in tempo reale e pronta da condividere
 - **Tutte le pagine Metrics** — Dealer Positioning, GEX Summary & Greeks, Flow Analysis, Smart Money, Max Pain, Technicals
 - **Basic Signals** — Tape Flow Bias, Skew Delta, Vanna/Charm Flow, Dealer Delta Pressure, GEX Gradient, Positioning Trap
 - **Strategy Builder** — pricing completo delle opzioni e P&L
@@ -48,7 +48,6 @@ Alcune pagine esistono per tutti i livelli ma si comportano diversamente a secon
 
 - La **Dashboard** è completamente popolata per Basic e Pro. Gli utenti Public vedono una vista teaser che rimanda alla pagina live dopo l'accesso.
 - La sezione **Signals** nella sidebar è sempre visibile — chiunque può cliccare sul nome di un segnale. Se non hai accesso, il clic ti reindirizza alla pagina [Pricing](/pricing) così puoi vedere cosa lo sblocca.
-- I badge e i chip di **Live Bulletin** sono sensibili al livello: gli elementi riservati a Pro mostrano un piccolo chip di blocco per gli utenti Basic.
 
 ## Come effettuare l'upgrade o cambiare livello
 

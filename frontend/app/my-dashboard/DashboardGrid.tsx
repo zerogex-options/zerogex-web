@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import WidgetFrame from './WidgetFrame';
 import { getWidget } from './registry';
 import type { PlacedWidget, WidgetSize } from '@/core/myDashboardLayout';
@@ -28,11 +28,16 @@ export default function DashboardGrid({
   onRemove: (widgetId: string) => void;
   onResize: (widgetId: string, size: WidgetSize) => void;
 }) {
+  const gridRef = useRef<HTMLDivElement>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
+  // While an edge-drag resize is in progress the grid's native HTML5
+  // drag-to-reorder is suspended, so a horizontal resize can't be misread as a
+  // reorder gesture.
+  const [resizeIndex, setResizeIndex] = useState<number | null>(null);
 
   return (
-    <div className="zg-mydash-grid">
+    <div ref={gridRef} className="zg-mydash-grid">
       {items.map((item, index) => {
         const widget = getWidget(item.widgetId);
         if (!widget) return null;
@@ -42,9 +47,9 @@ export default function DashboardGrid({
           <div
             key={item.widgetId}
             className={`zg-w-${item.size}`}
-            draggable={editing}
+            draggable={editing && resizeIndex === null}
             onDragStart={(e) => {
-              if (!editing) {
+              if (!editing || resizeIndex !== null) {
                 e.preventDefault();
                 return;
               }
@@ -83,7 +88,10 @@ export default function DashboardGrid({
               isDragging={dragIndex === index}
               isDropTarget={overIndex === index && dragIndex !== index}
               resetKey={resetKey}
+              gridRef={gridRef}
               onResize={(s) => onResize(item.widgetId, s)}
+              onResizeStart={() => setResizeIndex(index)}
+              onResizeEnd={() => setResizeIndex(null)}
               onRemove={() => onRemove(item.widgetId)}
               onMovePrev={() => onReorder(index, Math.max(0, index - 1))}
               onMoveNext={() => onReorder(index, Math.min(items.length - 1, index + 1))}

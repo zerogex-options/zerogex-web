@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { renderMarkdown } from '@/components/MarkdownContent';
+import BreadcrumbJsonLd from '@/components/BreadcrumbJsonLd';
 import { HELP_ARTICLES, getHelpArticleBySlug, getHelpNeighbors } from '@/core/helpRegistry';
 import { loadLocalizedMarkdown } from '@/core/localizedContent';
 
@@ -39,6 +40,15 @@ export default async function HelpPlatformArticlePage({ params }: { params: Prom
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-12">
+      {/* Mirrors the visible Help Center › Platform Guide › Article trail below. */}
+      <BreadcrumbJsonLd
+        items={[
+          { name: 'Home', url: '/' },
+          { name: 'Help Center', url: '/help' },
+          { name: 'Platform Guide', url: '/help/platform' },
+          { name: article.title, url: `/help/platform/${article.slug}` },
+        ]}
+      />
       <Link
         href="/help/platform"
         className="mb-6 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--color-warning)] hover:text-[var(--heat-low)]"

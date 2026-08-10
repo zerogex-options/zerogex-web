@@ -571,7 +571,7 @@ export default function LandingPage() {
           <StatCard isDark={isDark} label={t('statAnalyticsModules')} value={<AnimatedNumber target={8} suffix="+" />} sub={t('statAnalyticsModulesSub')} />
           <StatCard isDark={isDark} label={t('statDataRefresh')} value={<AnimatedNumber target={1} suffix="s" />} sub={t('statDataRefreshSub')} />
           <StatCard isDark={isDark} label={t('statOptionsGreeks')} value={<AnimatedNumber target={4} />} sub={t('statOptionsGreeksSub')} />
-          <StatCard isDark={isDark} label={t('statSupportedSymbols')} value={<AnimatedNumber target={3} suffix="+" />} sub={t('statSupportedSymbolsSub')} />
+          <StatCard isDark={isDark} label={t('statSupportedSymbols')} value={<AnimatedNumber target={4} suffix="+" />} sub={t('statSupportedSymbolsSub')} />
         </div>
       </section>
 

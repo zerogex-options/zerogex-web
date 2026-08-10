@@ -1,4 +1,6 @@
 # Pourquoi SPY s'ancre-t-il près d'un strike ? Le pinning des options expliqué
+> **Note méthodologique mise à jour — elle prévaut sur toute formulation incompatible plus bas.** ZeroGEX estime l’inventaire des dealers à partir de données publiques sans l’observer directement. Le modèle conserve la convention calls positifs/puts négatifs (`Net GEX = Call GEX − Put GEX`) et suppose les dealers nets longs calls et nets shorts puts. Les calls et puts longs ont un gamma positif ; les calls et puts shorts ont un gamma négatif. Le Put Wall est la plus grande concentration de gamma put sous le spot et représente localement un gamma dealer négatif : il peut coïncider avec un support, mais la couverture du put short ne crée pas mécaniquement un plancher. Les walls peuvent migrer avec le spot, le temps et la volatilité implicite alors que l’open interest officiel ne change pas en séance. À l’approche de l’échéance, le gamma se concentre près de l’ATM : le gamma ATM peut augmenter, tandis que le gamma nettement ITM ou OTM tend vers zéro. Le Gamma Flip sélectionné est une transition locale ; le profil peut avoir plusieurs croisements ou aucun croisement significatif. Charm et vanna sont des variations conditionnelles du delta, pas des ordres programmés. Les scores sont des résultats heuristiques du modèle, pas des probabilités calibrées. Un gamma négatif amplifie la direction déjà engagée ; la distance à une cible n’implique pas une répulsion. L’inversion du terme de pin d’EOD Pressure reste donc une heuristique ZeroGEX. Max Pain minimise le paiement intrinsèque agrégé et ne maximise pas exactement le notionnel expirant sans valeur. Le DEX brut mesure le delta des seules options, pas le futur flux de couverture ; prime et côté agresseur ne prouvent ni information, ni ouverture, ni conviction.
+
 
 *Pourquoi SPY s'ancre-t-il près de strikes spécifiques — surtout le vendredi et vers la clôture ? Ce n'est pas une coïncidence. Le pinning des options expliqué : le mécanisme de couverture des dealers derrière cette attraction, pourquoi il est le plus fort lors de l'OPEX et en fin de journée, et comment savoir si la séance du jour va s'ancrer.*
 
@@ -18,10 +20,10 @@ Cet article détaille la mécanique réelle du pinning, explique pourquoi elle s
 
 Le mécanisme est simple une fois détaillé :
 
-1. Un strike précis — disons SPY 583 — concentre un volume important de gamma. Les clients ont acheté beaucoup de calls et de puts à 583 ; les dealers sont vendeurs à découvert sur l'équivalent.
-2. Le book du dealer est **long gamma** sur ce strike. C'est le cas lorsque, au net, les dealers sont *short* sur les options que les clients détiennent en position longue. (Convention standard.)
-3. Quand SPY monte au-dessus de 583, le delta des options des dealers devient plus positif (ils sont net short calls ; une hausse du spot fait croître leur exposition delta liée aux calls vendus). Pour rester neutres, ils **vendent** SPY.
-4. Quand SPY passe sous 583, le delta des options des dealers devient plus négatif (leur exposition delta liée aux puts vendus croît à la baisse). Pour rester neutres, ils **achètent** SPY.
+1. Un strike précis — disons SPY 583 — concentre un volume important de gamma, et au net le book du dealer est **long** de ce gamma.
+2. Un book long gamma sur ce strike se couvre *à contre-sens* des mouvements qui s'en éloignent — le réflexe stabilisateur qui ancre le prix. (C'est le régime de gamma positif qui se joue sur un unique strike dominant.)
+3. Quand SPY monte au-dessus de 583, le delta de couverture des dealers devient plus positif, donc pour rester neutres ils **vendent** SPY.
+4. Quand SPY passe sous 583, leur delta de couverture devient plus négatif, donc pour rester neutres ils **achètent** SPY.
 5. Chaque écart par rapport à 583 impose une opération de couverture *de retour vers* 583. Le strike agit comme un aimant — non pas parce que quelqu'un le viserait, mais parce que la mathématique de la couverture ramène le prix mécaniquement à cet endroit.
 
 C'est ce qui se produit structurellement lorsqu'on observe SPY osciller dans une fourchette étroite. Ce n'est pas « le marché qui décide de s'ancrer » ; c'est le book agrégé des dealers qui se corrige vers la neutralité à chaque mouvement.

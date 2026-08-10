@@ -54,11 +54,11 @@
   .offer .price{margin-top:36px;font-family:var(--mono);font-size:31px;color:var(--tan);}
   .offer .price b{color:var(--cream);}
 
-  /* folds of honor */
-  .foh .body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;text-align:center;}
-  .foh .pct{font-family:var(--sans);font-weight:800;font-size:96px;line-height:.9;letter-spacing:-.02em;color:var(--gold);}
-  .foh .lead{font-family:var(--mono);font-size:24px;letter-spacing:.12em;text-transform:uppercase;color:var(--cream);}
-  .foh .badge{width:min(74%,540px);border-radius:18px;display:block;box-shadow:0 30px 60px -28px rgba(0,0,0,.75);}
+  /* folds of honor — official Proud Supporter seal (do not alter/crop/recolor) */
+  .foh .body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:32px;text-align:center;}
+  .foh .seal{width:min(54%,420px);height:auto;display:block;}
+  .foh .pledge{font-family:var(--mono);font-size:24px;letter-spacing:.05em;color:var(--tan);max-width:84%;line-height:1.5;}
+  .foh .pledge b{color:var(--gold);font-weight:800;font-size:30px;}
 </style>
 </head>
 <body>
@@ -69,7 +69,7 @@
   <div class="top lyr"><img class="logo" src="../../assets/branding/Dark_Full.svg" alt="ZeroGEX"><span class="pill">Free &middot; no signup</span></div>
   <div class="chart lyr"><img src="../../assets/blog/zerogex-dashboard-overview.png" alt=""></div>
   <h3 class="headline lyr">Stop trading <span class="hl">SPY blind.</span></h3>
-  <div class="chip lyr"><span class="cash">$SPX $SPY $QQQ</span><span class="cta">View free levels &rarr;</span></div>
+  <div class="chip lyr"><span class="cash">$SPX $SPY $QQQ $NDX</span><span class="cta">View free levels &rarr;</span></div>
 </section>
 
 <!-- COLD 2 : heatmap -->
@@ -78,7 +78,7 @@
   <div class="top lyr"><img class="logo" src="../../assets/branding/Dark_Full.svg" alt="ZeroGEX"><span class="pill">Free &middot; no signup</span></div>
   <div class="chart lyr"><img src="../../assets/blog/zerogex-strike-dte-heatmap.png" alt=""></div>
   <h3 class="headline lyr">Know the levels <span class="hl">that matter.</span></h3>
-  <div class="chip lyr"><span class="cash">SPY &middot; SPX &middot; QQQ</span><span class="cta">See today's levels &rarr;</span></div>
+  <div class="chip lyr"><span class="cash">SPY &middot; SPX &middot; QQQ &middot; NDX</span><span class="cta">See today's levels &rarr;</span></div>
 </section>
 
 <!-- COLD 3 : strike profile -->
@@ -87,7 +87,7 @@
   <div class="top lyr"><img class="logo" src="../../assets/branding/Dark_Full.svg" alt="ZeroGEX"><span class="pill">Free &middot; no signup</span></div>
   <div class="chart lyr"><img src="../../assets/blog/zerogex-strike-profile-flip.png" alt=""></div>
   <h3 class="headline lyr">Support &amp; resistance <span class="hl">that aren't guesses.</span></h3>
-  <div class="chip lyr"><span class="cash">$SPX $SPY $QQQ</span><span class="cta">Free walls &rarr;</span></div>
+  <div class="chip lyr"><span class="cash">$SPX $SPY $QQQ $NDX</span><span class="cta">Free walls &rarr;</span></div>
 </section>
 
 <!-- WARM 4 : market makers (wide) -->
@@ -126,14 +126,49 @@
 <!-- CONVERT 7 : Folds of Honor (redesigned) -->
 <section class="frame sq foh" id="convert7">
   <span class="stripe"></span><div class="grid"></div>
-  <div class="top lyr"><img class="logo" src="../../assets/branding/Dark_Full.svg" alt="ZeroGEX"><span class="pill">Supporting veterans</span></div>
+  <div class="top lyr"><img class="logo" src="../../assets/branding/Dark_Full.svg" alt="ZeroGEX"><span class="pill">Proud Supporter</span></div>
   <div class="body lyr">
-    <div class="pct">3%</div>
-    <div class="lead">of every subscription funds</div>
-    <img class="badge" src="../../assets/branding/folds-of-honor-logo.svg" alt="Folds of Honor — ZeroGEX charity partner">
+    <img class="seal" src="../../assets/branding/folds-of-honor-proud-supporter.png" alt="Folds of Honor — Proud Supporter">
+    <div class="pledge"><b>3%</b> of every subscription funds their scholarships for military families</div>
   </div>
   <h3 class="headline lyr">Institutional gamma. <span class="hl">A cause behind it.</span></h3>
   <div class="chip lyr"><span class="cash">Receipts &middot; /giving</span><span class="cta">7-day free trial &rarr;</span></div>
+</section>
+
+<!-- CONVERT 8 : gamma chart (hero) -->
+<section class="frame sq" id="convert-gamma">
+  <span class="stripe"></span><div class="grid"></div>
+  <div class="top lyr"><img class="logo" src="../../assets/branding/Dark_Full.svg" alt="ZeroGEX"><span class="pill">7-day free trial</span></div>
+  <div class="chart lyr"><img src="../../assets/blog/zerogex-gamma-chart-live.png" alt=""></div>
+  <h3 class="headline lyr">See what the <span class="hl">market makers</span> see.</h3>
+  <div class="chip lyr"><span class="cash">$SPX $SPY $QQQ $NDX</span><span class="cta">Start 7-day trial &rarr;</span></div>
+</section>
+
+<!-- CONVERT 9 : strike profile -->
+<section class="frame sq" id="convert-profile">
+  <span class="stripe"></span><div class="grid"></div>
+  <div class="top lyr"><img class="logo" src="../../assets/branding/Dark_Full.svg" alt="ZeroGEX"><span class="pill">7-day free trial</span></div>
+  <div class="chart lyr"><img src="../../assets/blog/zerogex-strike-profile-live.png" alt=""></div>
+  <h3 class="headline lyr">Trade positioning, <span class="hl">not guesswork.</span></h3>
+  <div class="chip lyr"><span class="cash">Live &middot; 1s refresh</span><span class="cta">Start 7-day trial &rarr;</span></div>
+</section>
+
+<!-- CONVERT 10 : MSI regime gauge -->
+<section class="frame sq" id="convert-msi">
+  <span class="stripe"></span><div class="grid"></div>
+  <div class="top lyr"><img class="logo" src="../../assets/branding/Dark_Full.svg" alt="ZeroGEX"><span class="pill">7-day free trial</span></div>
+  <div class="chart lyr"><img src="../../assets/blog/zerogex-msi-regime.png" alt=""></div>
+  <h3 class="headline lyr">Read the regime <span class="hl">in real time.</span></h3>
+  <div class="chip lyr"><span class="cash">SPY &middot; SPX &middot; QQQ &middot; NDX</span><span class="cta">Start 7-day trial &rarr;</span></div>
+</section>
+
+<!-- CONVERT 11 : trade bias -->
+<section class="frame sq" id="convert-bias">
+  <span class="stripe"></span><div class="grid"></div>
+  <div class="top lyr"><img class="logo" src="../../assets/branding/Dark_Full.svg" alt="ZeroGEX"><span class="pill">7-day free trial</span></div>
+  <div class="chart lyr"><img src="../../assets/blog/zerogex-trade-bias.png" alt=""></div>
+  <h3 class="headline lyr">Regime, bias &amp; playbook. <span class="hl">One screen.</span></h3>
+  <div class="chip lyr"><span class="cash">Live &middot; 1s refresh</span><span class="cta">Start 7-day trial &rarr;</span></div>
 </section>
 
 <script>

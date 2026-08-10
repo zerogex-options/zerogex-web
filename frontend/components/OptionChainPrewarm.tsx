@@ -21,7 +21,7 @@ import { useEffect } from 'react';
 import { prewarmOptionChain } from '@/core/optionChainCache';
 import { scheduleIdle } from '@/core/scheduleIdle';
 
-const PREWARM_SYMBOLS = ['SPY', 'SPX', 'QQQ'] as const;
+const PREWARM_SYMBOLS = ['SPY', 'SPX', 'QQQ', 'NDX'] as const;
 
 export default function OptionChainPrewarm() {
   useEffect(() => scheduleIdle(() => {

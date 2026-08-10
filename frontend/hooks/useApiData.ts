@@ -56,6 +56,14 @@ interface GEXSummaryRow {
   call_wall?: number | null;
   put_wall?: number | null;
   put_call_ratio?: number | null;
+  // Pin Strike — reachable 0DTE strike with the strongest modeled positive
+  // (restoring) dealer gamma into expiration (distinct from wall/flip/max-pain).
+  // Null when no meaningful pin exists; pin_strike_reason then holds a
+  // REASON_* code. pin_score / pin_confidence let a client classify strength.
+  pin_strike?: number | null;
+  pin_score?: number | null;
+  pin_confidence?: number | null;
+  pin_strike_reason?: string | null;
 }
 
 export interface GEXWallNode {
@@ -513,8 +521,8 @@ function shouldAcceptSignalScoreSnapshot(next: SignalScoreResponse, prev: Signal
   return nextCount >= minimumExpected;
 }
 
-export function useGEXSummary(symbol = 'SPY', refreshInterval = 5000) {
-  return useApiData<GEXSummaryRow>(`/api/gex/summary?${symbolQuery(symbol)}`, { refreshInterval });
+export function useGEXSummary(symbol = 'SPY', refreshInterval = 5000, enabled = true) {
+  return useApiData<GEXSummaryRow>(`/api/gex/summary?${symbolQuery(symbol)}`, { refreshInterval, enabled });
 }
 
 export function useGEXByStrike(
@@ -536,8 +544,8 @@ export function useGEXWalls(symbol = 'SPY', refreshInterval = 10000) {
   return useApiData<GEXWallsRow>(`/api/gex/walls?${symbolQuery(symbol)}`, { refreshInterval });
 }
 
-export function useGEXProfile(symbol = 'SPY', refreshInterval = 10000) {
-  return useApiData<GEXProfileRow>(`/api/gex/profile?${symbolQuery(symbol)}`, { refreshInterval });
+export function useGEXProfile(symbol = 'SPY', refreshInterval = 10000, enabled = true) {
+  return useApiData<GEXProfileRow>(`/api/gex/profile?${symbolQuery(symbol)}`, { refreshInterval, enabled });
 }
 
 // Historical-context endpoint is read-cached server-side (10s TTL) and the
@@ -998,7 +1006,7 @@ function syncMarketQuotePoll(symbol: string): void {
   }
 }
 
-export function useMarketQuote(symbol = 'SPY', refreshInterval = 1000) {
+export function useMarketQuote(symbol = 'SPY', refreshInterval = 1000, enabled = true) {
   const [state, setState] = useState(() => snapshotMarketQuote(getOrCreateMarketQuoteEntry(symbol)));
 
   // Synchronously swap snapshots when the symbol changes so stale data
@@ -1017,6 +1025,8 @@ export function useMarketQuote(symbol = 'SPY', refreshInterval = 1000) {
   const id = idRef.current;
 
   useEffect(() => {
+    // Disabled: caller supplies its own data (delayed snapshot). Do no network.
+    if (!enabled) return;
     const entry = getOrCreateMarketQuoteEntry(symbol);
     ensureInitialMarketQuoteFetch(symbol);
 
@@ -1063,7 +1073,7 @@ export function useMarketQuote(symbol = 'SPY', refreshInterval = 1000) {
       entry.liveIntervals.delete(id);
       syncMarketQuotePoll(symbol);
     };
-  }, [symbol, refreshInterval, id]);
+  }, [symbol, refreshInterval, id, enabled]);
 
   const refetch = useCallback(() => {
     void fetchMarketQuote(symbol);
@@ -1093,10 +1103,11 @@ export function useSessionCloses(
   symbol = 'SPY',
   refreshInterval = 60000,
   sessionTrigger?: string | null,
+  enabled = true,
 ) {
   const result = useApiData<SessionClosesData>(
     `/api/market/session-closes?${symbolQuery(symbol)}`,
-    { refreshInterval }
+    { refreshInterval, enabled }
   );
 
   // The session-closes endpoint advances `current_session_close` from yesterday
@@ -1313,59 +1324,68 @@ export interface ProprietarySignalSnapshot {
   [key: string]: unknown;
 }
 
-export function useEodPressureSignal(symbol = 'SPY', refreshInterval = 15000) {
+// All /api/signals/advanced/* hooks accept an `enabled` flag (default true) so a
+// caller embedding them on a lower-tier page can skip the fetch for non-Pro
+// viewers instead of 403-looping. The dedicated Pro-gated pages pass nothing and
+// keep fetching as before.
+export function useEodPressureSignal(symbol = 'SPY', refreshInterval = 15000, enabled = true) {
   return useApiData<EodPressureSignalResponse>(
     `/api/signals/advanced/eod-pressure?${symbolQuery(symbol)}`,
-    { refreshInterval },
+    { refreshInterval, enabled },
   );
 }
 
-export function useVolExpansionSignal(symbol = 'SPY', refreshInterval = 15000) {
+export function useVolExpansionSignal(symbol = 'SPY', refreshInterval = 15000, enabled = true) {
   return useApiData<VolExpansionSignalResponse>(
     `/api/signals/advanced/vol-expansion?${symbolQuery(symbol)}`,
-    { refreshInterval },
+    { refreshInterval, enabled },
   );
 }
 
-export function useSqueezeSetupSignal(symbol = 'SPY', refreshInterval = 15000) {
+export function useSqueezeSetupSignal(symbol = 'SPY', refreshInterval = 15000, enabled = true) {
   return useApiData<ProprietarySignalSnapshot>(
     `/api/signals/advanced/squeeze-setup?${symbolQuery(symbol)}`,
-    { refreshInterval },
+    { refreshInterval, enabled },
   );
 }
 
-export function useTrapDetectionSignal(symbol = 'SPY', refreshInterval = 15000) {
+// `enabled` lets a caller skip the fetch entirely — used to avoid polling these
+// Pro-only endpoints for non-Pro viewers when the signal is embedded on a
+// lower-tier page (e.g. TradeBiasSection on the dashboard), which otherwise
+// just 403s on a loop. Defaults true so the dedicated Pro-gated pages are
+// unaffected.
+export function useTrapDetectionSignal(symbol = 'SPY', refreshInterval = 15000, enabled = true) {
   return useApiData<ProprietarySignalSnapshot>(
     `/api/signals/advanced/trap-detection?${symbolQuery(symbol)}`,
-    { refreshInterval },
+    { refreshInterval, enabled },
   );
 }
 
-export function useZeroDtePositionImbalanceSignal(symbol = 'SPY', refreshInterval = 15000) {
+export function useZeroDtePositionImbalanceSignal(symbol = 'SPY', refreshInterval = 15000, enabled = true) {
   return useApiData<ProprietarySignalSnapshot>(
     `/api/signals/advanced/0dte-position-imbalance?${symbolQuery(symbol)}`,
-    { refreshInterval },
+    { refreshInterval, enabled },
   );
 }
 
-export function useGammaVwapConfluenceSignal(symbol = 'SPY', refreshInterval = 15000) {
+export function useGammaVwapConfluenceSignal(symbol = 'SPY', refreshInterval = 15000, enabled = true) {
   return useApiData<ProprietarySignalSnapshot>(
     `/api/signals/advanced/gamma-vwap-confluence?${symbolQuery(symbol)}`,
-    { refreshInterval },
+    { refreshInterval, enabled },
   );
 }
 
-export function useRangeBreakImminenceSignal(symbol = 'SPY', refreshInterval = 15000) {
+export function useRangeBreakImminenceSignal(symbol = 'SPY', refreshInterval = 15000, enabled = true) {
   return useApiData<ProprietarySignalSnapshot>(
     `/api/signals/advanced/range-break-imminence?${symbolQuery(symbol)}`,
-    { refreshInterval },
+    { refreshInterval, enabled },
   );
 }
 
-export function useMarketPressureSignal(symbol = 'SPY', refreshInterval = 15000) {
+export function useMarketPressureSignal(symbol = 'SPY', refreshInterval = 15000, enabled = true) {
   return useApiData<ProprietarySignalSnapshot>(
     `/api/signals/advanced/market-pressure?${symbolQuery(symbol)}`,
-    { refreshInterval },
+    { refreshInterval, enabled },
   );
 }
 

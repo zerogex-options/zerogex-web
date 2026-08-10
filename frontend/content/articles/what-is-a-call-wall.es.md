@@ -1,4 +1,6 @@
 # ¿Qué es un Call Wall? Cómo los Dealers Defienden el Lado Alcista
+> **Nota metodológica actualizada — prevalece sobre cualquier formulación incompatible posterior.** ZeroGEX estima, pero no observa, el inventario de los dealers a partir de datos públicos. El modelo conserva la convención calls positivos/puts negativos (`Net GEX = Call GEX − Put GEX`) y supone dealers netos largos de calls y cortos de puts. Las calls y puts largas tienen gamma positiva; las calls y puts cortas tienen gamma negativa. El Put Wall es la mayor concentración de gamma de puts por debajo del spot y representa localmente gamma negativa modelada del dealer: puede coincidir con soporte, pero la cobertura de una put corta no crea mecánicamente un suelo. Los walls pueden migrar por spot, tiempo y volatilidad implícita aunque el open interest oficial no cambie intradía. Al acercarse el vencimiento, la gamma se concentra cerca del ATM: la gamma ATM puede aumentar, mientras la gamma claramente ITM u OTM tiende a cero. El Gamma Flip seleccionado es una transición local; el perfil puede tener varios cruces o ninguno significativo. Charm y vanna son cambios condicionales de delta, no órdenes programadas. Las puntuaciones son resultados heurísticos, no probabilidades calibradas. La gamma negativa amplifica la dirección ya iniciada; la distancia a un objetivo no implica repulsión. Por ello, la inversión del término pin de EOD Pressure sigue siendo una heurística de ZeroGEX. Max Pain minimiza el pago intrínseco agregado y no maximiza exactamente el nocional que vence sin valor. El DEX bruto mide delta solo de opciones, no flujo futuro de cobertura; la prima y el lado agresor no prueban información, apertura ni convicción.
+
 
 *El call wall es el strike donde se concentra el gamma de los dealers en el lado call — el nivel que los dealers tienden a defender en la subida. Esto es qué es un call wall, por qué limita los rallies, cómo migra, y por qué una ruptura clara por encima suele señalar que el propio régimen está cambiando.*
 
@@ -16,7 +18,7 @@ Su espejo por debajo del spot es el [put wall](/education/what-is-a-put-wall), e
 
 ## Por qué el call wall actúa como resistencia
 
-El mecanismo es la cobertura de los dealers. En un régimen de **gamma positivo** — spot por encima del [gamma flip](/education/how-to-read-a-gamma-flip) — los dealers están netos largos en gamma, y los desks que mantienen las calls pesadas en el strike del call wall están cortos en esas calls. Para mantenerse delta-neutrales deben **vender** el subyacente a medida que el precio sube hacia el strike, porque una posición corta en calls adquiere un delta cada vez más negativo a medida que el mercado sube.
+El mecanismo es la cobertura de los dealers. En un régimen de **gamma positivo** — spot por encima del [gamma flip](/education/how-to-read-a-gamma-flip) — los dealers están netos largos en gamma, y los desks que mantienen las calls pesadas en el strike del call wall están largos en esas calls (los clientes hicieron overwriting de ellas). Para mantenerse delta-neutrales deben **vender** el subyacente a medida que el precio sube hacia el strike, porque una posición larga en calls adquiere un delta cada vez más positivo a medida que el mercado sube.
 
 Esa venta es la resistencia. A medida que el precio sube hacia un strike call denso, el reflejo de cobertura se intensifica — un pequeño movimiento al alza obliga a una venta de cobertura relativamente mayor de vuelta hacia abajo. Los repuntes se venden, y el avance se estanca. No porque el número sea mágico, sino porque la cobertura es mecánica.
 
@@ -79,7 +81,7 @@ El spot está por encima del flip, así que esta es una sesión de gamma largo y
 
 ## Cómo encontrar el call wall de hoy
 
-ZeroGEX publica el call wall actual — junto con el put wall, el gamma flip, el max pain y el Net GEX — para los tres productos de índice más negociados, gratis y con un retraso de unos 15 minutos: consulta el call wall de hoy en [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels) y [QQQ](/qqq-gamma-levels). Para la versión en vivo que muestra el wall migrando en tiempo real, abre el [panel GEX 0DTE en tiempo real](/real-time-gex-0dte).
+ZeroGEX publica el call wall actual — junto con el put wall, el gamma flip, el max pain y el Net GEX — para los cuatro productos de índice más negociados, gratis y con un retraso de unos 15 minutos: consulta el call wall de hoy en [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) y [NDX](/ndx-gamma-levels). Para la versión en vivo que muestra el wall migrando en tiempo real, abre el [panel GEX 0DTE en tiempo real](/real-time-gex-0dte).
 
 ---
 
@@ -91,4 +93,4 @@ Contenido solo educativo — nada de lo anterior es una recomendación de tradin
 
 ---
 
-¿Quieres verlo en tiempo real? Consulta hoy los **call walls de SPX / SPY / QQQ** en ZeroGEX — las páginas gratuitas de niveles gamma de [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels) y [QQQ](/qqq-gamma-levels) grafican el call wall junto al [put wall](/education/what-is-a-put-wall), el [gamma flip](/education/how-to-read-a-gamma-flip) y el Net GEX. Para la lectura en vivo mientras el wall migra, abre el [panel GEX 0DTE en tiempo real](/real-time-gex-0dte).
+¿Quieres verlo en tiempo real? Consulta hoy los **call walls de SPX / SPY / QQQ / NDX** en ZeroGEX — las páginas gratuitas de niveles gamma de [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) y [NDX](/ndx-gamma-levels) grafican el call wall junto al [put wall](/education/what-is-a-put-wall), el [gamma flip](/education/how-to-read-a-gamma-flip) y el Net GEX. Para la lectura en vivo mientras el wall migra, abre el [panel GEX 0DTE en tiempo real](/real-time-gex-0dte).

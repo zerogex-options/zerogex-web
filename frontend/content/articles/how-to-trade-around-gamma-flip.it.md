@@ -1,4 +1,6 @@
 # Come tradare intorno ai livelli di Gamma Flip
+> **Nota metodologica aggiornata — prevale su eventuali formulazioni incompatibili più avanti nella pagina.** ZeroGEX stima, ma non osserva, l’inventario dei dealer dai dati pubblici. Il modello conserva la convenzione call-positive/put-negative (`Net GEX = Call GEX − Put GEX`): i dealer sono ipotizzati net long call e net short put. Call e put long hanno gamma positivo; call e put short hanno gamma negativo. Il Put Wall è la maggiore concentrazione di gamma put sotto lo spot e rappresenta localmente gamma dealer negativo: può coincidere con supporto, ma la copertura della put short non crea meccanicamente un pavimento. I wall possono migrare con spot, tempo e volatilità implicita anche quando l’open interest ufficiale non cambia intraday. Verso la scadenza il gamma si concentra vicino all’ATM: il gamma ATM può aumentare, mentre quello decisamente ITM o OTM tende a zero. Il Gamma Flip selezionato è un passaggio locale; il profilo può avere più passaggi o nessun passaggio significativo. Charm e vanna descrivono variazioni condizionali del delta, non ordini programmati. I punteggi sono output euristici, non probabilità calibrate. Il gamma negativo amplifica la direzione già in corso: la distanza da un target non implica repulsione, quindi l’inversione del termine pin di EOD Pressure resta un’euristica ZeroGEX. Max Pain minimizza il payout intrinseco aggregato, non massimizza esattamente il nozionale che scade senza valore. Il DEX grezzo misura delta delle sole opzioni, non il futuro flusso di copertura; premio e lato aggressore non provano informazione, apertura o convinzione.
+
 
 *Il gamma flip è la linea di regime più netta nell'analisi del posizionamento dei dealer. Ecco come tradare intorno a esso — cosa cambia quando lo spot lo attraversa, i tre tipi di setup che ogni regime supporta, e il workflow per usare il flip come cambio di playbook piuttosto che come segnale direzionale.*
 
@@ -94,9 +96,9 @@ SPX è a 5.810 all'apertura. ZeroGEX mostra:
 
 Lettura iniziale: regime long-gamma, posizionamento sano, range strutturale 5.790-5.820. Playbook di default: fadare gli estremi (vendere sui push verso 5.820, comprare i ritracciamenti verso 5.790), evitare la parte centrale.
 
-Alle 13:00 ET, SPX è scivolato a 5.800 — ora 2 punti sotto il flip. Il Net GEX si è ridotto a +300 milioni di dollari e il flip è salito a 5.803. Il regime è conteso — lo spot ha appena attraversato il flip, la magnitudine si sta riducendo, e il riflesso strutturale si sta indebolendo.
+Alle 13:00 ET, SPX è scivolato a 5.806 e il flip è salito a 5.803 — i due sono quasi convergiti. Il Net GEX si è ridotto a +300 milioni di dollari. Il regime è conteso — lo spot è appena sopra il flip, la magnitudine si sta riducendo, e il riflesso strutturale si sta indebolendo.
 
-Il playbook cambia. Il setup di fade-the-rally che era attivo alle 14:30 non è più supportato strutturalmente; una continuazione al rialzo è possibile se il Net GEX diventa negativo. La size della posizione dovrebbe ridursi; il trade di default è nessun trade finché il regime non si risolve.
+Il playbook cambia. Il setup di fade-the-rally che era attivo all'apertura non è più supportato strutturalmente; una continuazione al rialzo è possibile se il Net GEX diventa negativo. La size della posizione dovrebbe ridursi; il trade di default è nessun trade finché il regime non si risolve.
 
 Alle 14:30 ET, il Net GEX è passato a −200 milioni di dollari e SPX è salito a 5.815. Questo è ora un regime short-gamma — il riflesso del dealer sta amplificando, e il call wall a 5.820 non è più resistenza strutturale; è un target di breakout. Il trade fade-the-breakout è *fuori gioco*; se il setup è corretto, l'inseguimento diventa la giocata.
 

@@ -39,6 +39,7 @@ export const dict: PageDictionary = {
     putCallRatioLabel: 'Put/Call Ratio',
     metricPutCallRatioTooltip: 'Cumulative put volume divided by cumulative call volume across the selected date.',
     optionsFlowTitle: 'Options Flow',
+    showUnderlyingPrice: 'Show underlying price',
     optionsFlowTooltip:
       'Primary axis: net call premium (green) and net put premium (red). Bottom axis: net volume area, green above zero and red below zero. Aggregates every contract returned by the by-contract endpoint in 5-minute intervals. Use the filters below to narrow by strike or expiration.',
     filterStrikeLabel: 'Strike',
@@ -104,6 +105,7 @@ export const dict: PageDictionary = {
     putCallRatioLabel: 'Rapporto Put/Call',
     metricPutCallRatioTooltip: 'Volume put cumulativo diviso per volume call cumulativo nella data selezionata.',
     optionsFlowTitle: 'Flusso Opzioni',
+    showUnderlyingPrice: 'Mostra prezzo del sottostante',
     optionsFlowTooltip:
       'Asse principale: premio netto call (verde) e premio netto put (rosso). Asse inferiore: area del volume netto, verde sopra lo zero e rosso sotto lo zero. Aggrega ogni contratto restituito dall\'endpoint per contratto in intervalli di 5 minuti. Usa i filtri sotto per restringere per strike o scadenza.',
     filterStrikeLabel: 'Strike',
@@ -169,6 +171,7 @@ export const dict: PageDictionary = {
     putCallRatioLabel: 'Put/Call-Verhältnis',
     metricPutCallRatioTooltip: 'Kumulatives Put-Volumen geteilt durch kumulatives Call-Volumen im ausgewählten Datum.',
     optionsFlowTitle: 'Optionsfluss',
+    showUnderlyingPrice: 'Basiswert-Kurs anzeigen',
     optionsFlowTooltip:
       'Primärachse: Netto-Call-Prämie (grün) und Netto-Put-Prämie (rot). Untere Achse: Nettovolumen-Fläche, grün über null und rot unter null. Aggregiert jeden Kontrakt, der vom Per-Kontrakt-Endpunkt in 5-Minuten-Intervallen zurückgegeben wird. Verwenden Sie die Filter unten, um nach Strike oder Verfall einzuschränken.',
     filterStrikeLabel: 'Strike',
@@ -234,6 +237,7 @@ export const dict: PageDictionary = {
     putCallRatioLabel: 'Ratio Put/Call',
     metricPutCallRatioTooltip: 'Volumen put acumulado dividido por volumen call acumulado en la fecha seleccionada.',
     optionsFlowTitle: 'Flujo de Opciones',
+    showUnderlyingPrice: 'Mostrar precio del subyacente',
     optionsFlowTooltip:
       'Eje principal: prima neta de call (verde) y prima neta de put (rojo). Eje inferior: área de volumen neto, verde sobre cero y rojo bajo cero. Agrega cada contrato devuelto por el endpoint por contrato en intervalos de 5 minutos. Use los filtros de abajo para acotar por strike o vencimiento.',
     filterStrikeLabel: 'Strike',
@@ -299,6 +303,7 @@ export const dict: PageDictionary = {
     putCallRatioLabel: 'Ratio Put/Call',
     metricPutCallRatioTooltip: 'Volume put cumulatif divisé par le volume call cumulatif sur la date sélectionnée.',
     optionsFlowTitle: 'Flux d\'Options',
+    showUnderlyingPrice: 'Afficher le prix du sous-jacent',
     optionsFlowTooltip:
       'Axe principal : prime nette call (vert) et prime nette put (rouge). Axe inférieur : zone de volume net, vert au-dessus de zéro et rouge en dessous. Agrège chaque contrat renvoyé par l\'endpoint par contrat en intervalles de 5 minutes. Utilisez les filtres ci-dessous pour restreindre par strike ou échéance.',
     filterStrikeLabel: 'Strike',

@@ -8,14 +8,14 @@ export type Palette =
   | 'mars'
   | 'california'
   | 'kyoto'
-  | 'miami'
   | 'wallstreet'
   | 'london'
-  | 'monaco'
   | 'zurich'
-  | 'amalfi'
   | 'maldives'
-  | 'tulum';
+  | 'tulum'
+  | 'vinyl-topanga'
+  | 'monochrome-madison'
+  | 'palm-springs';
 
 const PALETTES: Palette[] = [
   'zerogex-og',
@@ -23,13 +23,13 @@ const PALETTES: Palette[] = [
   'california',
   'wallstreet',
   'kyoto',
-  'miami',
   'london',
-  'monaco',
   'zurich',
-  'amalfi',
   'maldives',
   'tulum',
+  'vinyl-topanga',
+  'monochrome-madison',
+  'palm-springs',
 ];
 const DEFAULT_PALETTE: Palette = 'zerogex-og';
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365; // 1 year
@@ -66,11 +66,16 @@ function getInitialTheme(): Theme {
 function getInitialPalette(): Palette {
   if (typeof document === 'undefined') return DEFAULT_PALETTE;
   const saved = readCookie('palette') ?? localStorage.getItem('palette');
-  // Migrate legacy IDs to the new naming.
+  // Migrate legacy/retired IDs to a valid palette so an old saved preference
+  // never resolves to nothing (walnut/pacific/deluxe were earlier renames;
+  // miami/monaco/amalfi were retired in favor of the three newer themes).
   const legacyMap: Record<string, Palette> = {
     walnut: 'kyoto',
-    pacific: 'miami',
     deluxe: 'wallstreet',
+    pacific: 'palm-springs',
+    miami: 'palm-springs',
+    monaco: 'monochrome-madison',
+    amalfi: 'palm-springs',
   };
   const normalized = saved && legacyMap[saved] ? legacyMap[saved] : saved;
   return PALETTES.includes(normalized as Palette) ? (normalized as Palette) : DEFAULT_PALETTE;

@@ -20,7 +20,7 @@ Le chiffre affiché ici est mesuré au spot, et non additionné sur toute la cha
 
 ### Gamma Flip
 
-Le strike auquel la courbe de gamma des dealers croise zéro. Le flip est la ligne de régime : au-dessus, le hedging est stabilisant ; en dessous, il est amplificateur. La tuile affiche à la fois le strike absolu et la distance en pourcentage par rapport au spot.
+Le niveau de prix auquel la courbe de gamma des dealers croise zéro. Le flip est la ligne de régime : au-dessus, le hedging est stabilisant ; en dessous, il est amplificateur. La tuile affiche à la fois le niveau absolu et la distance en pourcentage par rapport au spot.
 
 ### Call Wall / Put Wall
 

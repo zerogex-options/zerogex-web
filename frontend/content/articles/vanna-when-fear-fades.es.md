@@ -1,6 +1,8 @@
-# Vanna: cuando el miedo se desvanece, los dealers compran
+# Vanna: cómo la caída de la IV puede cambiar la cobertura de los dealers
+> **Nota metodológica actualizada — prevalece sobre cualquier formulación incompatible posterior.** ZeroGEX estima, pero no observa, el inventario de los dealers a partir de datos públicos. El modelo conserva la convención calls positivos/puts negativos (`Net GEX = Call GEX − Put GEX`) y supone dealers netos largos de calls y cortos de puts. Las calls y puts largas tienen gamma positiva; las calls y puts cortas tienen gamma negativa. El Put Wall es la mayor concentración de gamma de puts por debajo del spot y representa localmente gamma negativa modelada del dealer: puede coincidir con soporte, pero la cobertura de una put corta no crea mecánicamente un suelo. Los walls pueden migrar por spot, tiempo y volatilidad implícita aunque el open interest oficial no cambie intradía. Al acercarse el vencimiento, la gamma se concentra cerca del ATM: la gamma ATM puede aumentar, mientras la gamma claramente ITM u OTM tiende a cero. El Gamma Flip seleccionado es una transición local; el perfil puede tener varios cruces o ninguno significativo. Charm y vanna son cambios condicionales de delta, no órdenes programadas. Las puntuaciones son resultados heurísticos, no probabilidades calibradas. La gamma negativa amplifica la dirección ya iniciada; la distancia a un objetivo no implica repulsión. Por ello, la inversión del término pin de EOD Pressure sigue siendo una heurística de ZeroGEX. Max Pain minimiza el pago intrínseco agregado y no maximiza exactamente el nocional que vence sin valor. El DEX bruto mide delta solo de opciones, no flujo futuro de cobertura; la prima y el lado agresor no prueban información, apertura ni convicción.
 
-*Vanna es la tasa a la que cambia el delta de una opción cuando cambia la volatilidad implícita. Cuando el miedo que estaba puesto en precio se drena del mercado tras un evento que nunca llegó a materializarse, vanna obliga a los dealers a comprar acciones en un goteo lento y constante — ese "sube sin noticias" que aparece en el gráfico pero nunca en el volumen.*
+
+*Vanna mide la sensibilidad de delta a la volatilidad implícita. La presión de cobertura depende de la cadena y no es una compra automática.*
 
 ---
 
@@ -28,12 +30,12 @@ Ese cambio es vanna. Cada opción fuera del dinero de la cadena repreza su delta
 
 La dirección del flujo de vanna depende de cómo está compuesto el libro, pero el esquema de manual — el que produce el goteo reconocible — funciona así.
 
-Los clientes están, en conjunto, largos de opciones. Compran calls para el alza y puts como protección, y los dealers están cortos del otro lado. Considera los momentos *después* de un susto: la vol implícita se disparó al alza antes de un dato de CPI, una reunión del FOMC, un evento de earnings. El riesgo pasa. El movimiento temido no se materializa. La vol implícita, que estaba cara, empieza a desangrarse a la baja en las horas y días siguientes.
+Los clientes, en conjunto, hacen overwriting de calls para obtener rendimiento y compran puts como protección — de modo que los dealers están largos de esas calls y cortos de esas puts. Considera los momentos *después* de un susto: la vol implícita se disparó al alza antes de un dato de CPI, una reunión del FOMC, un evento de earnings. El riesgo pasa. El movimiento temido no se materializa. La vol implícita, que estaba cara, empieza a desangrarse a la baja en las horas y días siguientes.
 
 A medida que la vol cae:
 
-1. Los deltas de las opciones fuera del dinero en las que el dealer está corto se desplazan hacia cero.
-2. La posición neta de delta corto del dealer se encoge — mecánicamente están menos cortos del mercado de lo que estaban.
+1. Los deltas de las opciones fuera del dinero en el libro del dealer se desplazan hacia cero.
+2. El delta neto *largo* de opciones del dealer se encoge, de modo que el libro se inclina corto frente a su cobertura en acciones.
 3. Para restablecer el hedge, compran acciones.
 4. La vol sigue desangrándose, así que el desplazamiento continúa, así que las compras siguen llegando — pequeñas, constantes, durante todo el día.
 

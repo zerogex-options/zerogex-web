@@ -16,7 +16,7 @@ The Backtesting page lets you test how a rule would have performed on history an
 
 ## The parameter knobs
 
-- **Symbol** — SPY / SPX / QQQ
+- **Symbol** — SPY / SPX / QQQ / NDX
 - **Date range** — up to the available history depth (shown on the form)
 - **Entry** — a pattern basket, or a custom AND-ed condition rule
 - **Exit** — underlying level targets/stops, an option-premium take-profit / stop-loss overlay, and a max-hold time stop (whichever triggers first)

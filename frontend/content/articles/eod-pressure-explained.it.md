@@ -1,4 +1,6 @@
 # Segnale EOD Pressure spiegato: leggere la chiusura
+> **Nota metodologica aggiornata — prevale su eventuali formulazioni incompatibili più avanti nella pagina.** ZeroGEX stima, ma non osserva, l’inventario dei dealer dai dati pubblici. Il modello conserva la convenzione call-positive/put-negative (`Net GEX = Call GEX − Put GEX`): i dealer sono ipotizzati net long call e net short put. Call e put long hanno gamma positivo; call e put short hanno gamma negativo. Il Put Wall è la maggiore concentrazione di gamma put sotto lo spot e rappresenta localmente gamma dealer negativo: può coincidere con supporto, ma la copertura della put short non crea meccanicamente un pavimento. I wall possono migrare con spot, tempo e volatilità implicita anche quando l’open interest ufficiale non cambia intraday. Verso la scadenza il gamma si concentra vicino all’ATM: il gamma ATM può aumentare, mentre quello decisamente ITM o OTM tende a zero. Il Gamma Flip selezionato è un passaggio locale; il profilo può avere più passaggi o nessun passaggio significativo. Charm e vanna descrivono variazioni condizionali del delta, non ordini programmati. I punteggi sono output euristici, non probabilità calibrate. Il gamma negativo amplifica la direzione già in corso: la distanza da un target non implica repulsione, quindi l’inversione del termine pin di EOD Pressure resta un’euristica ZeroGEX. Max Pain minimizza il payout intrinseco aggregato, non massimizza esattamente il nozionale che scade senza valore. Il DEX grezzo misura delta delle sole opzioni, non il futuro flusso di copertura; premio e lato aggressore non provano informazione, apertura o convinzione.
+
 
 *L'approfondimento pratico sul segnale ZeroGEX EOD Pressure — cosa chiede, perché la chiusura ha una deriva strutturale, come il punteggio combina charm e pin gravity, e come leggerlo negli ultimi 90 minuti.*
 
@@ -30,7 +32,7 @@ Bias di trading: **lettura direzionale**. Il segnale indica da che parte si sta 
 
 Tre meccanismi strutturali si sommano nella finestra finale della sessione:
 
-1. **Il decadimento del charm accelera.** Man mano che le opzioni 0DTE si avvicinano alla scadenza, il loro delta si sposta in modo prevedibile verso 0 o 1. I dealer che gestiscono un book delta-neutrale devono ricoprirsi continuamente, e il ritmo di quella ricopertura *aumenta* man mano che si avvicina la chiusura.
+1. **Il decadimento del charm accelera.** Man mano che le opzioni 0DTE si avvicinano alla scadenza, il loro delta si sposta in modo prevedibile verso 0 (out-of-the-money) o ±1 (in-the-money). I dealer che gestiscono un book delta-neutrale devono ricoprirsi continuamente, e il ritmo di quella ricopertura *aumenta* man mano che si avvicina la chiusura.
 2. **La pin gravity si intensifica.** Gli strike con gamma elevato attraggono il prezzo con più forza man mano che il tempo alla scadenza si riduce. In un regime di long gamma, il magnetismo verso lo strike pesante più vicino si rafforza nel corso del pomeriggio.
 3. **La liquidità si assottiglia.** I flussi a blocchi, il ribilanciamento di fine giornata e gli ordini strutturali sugli indici spostano il profilo del flusso da continuo a intermittente. I dealer hanno meno margine per assorbire errori.
 
@@ -67,9 +69,9 @@ sign         = +1 if net_gex >= 0 else -1
 pin_score    = sign × normalized
 ```
 
-Uno strike pin dello 0.3% sopra lo spot in un regime a gamma positiva dà un pin score di +1.0 — il magnete è sopra e la gravità è attiva. In un regime a gamma negativa, lo stesso pin sopra lo spot produce un pin score *negativo*, perché l'hedging dei dealer ora amplifica i movimenti *in allontanamento* dallo strike.
+**Limite metodologico:** l’inversione in gamma negativo è un’euristica ZeroGEX, non una conseguenza meccanica. Il gamma negativo amplifica una direzione già in corso; la sola distanza dal target non determina tale direzione.
 
-Quel ribaltamento di segno è l'intuizione chiave. La pin gravity non è un livello fisso. È una forza il cui segno dipende dalla direzione del regime gamma.
+
 
 ### Componente 3: Rampa temporale (il gate)
 
@@ -164,7 +166,7 @@ L'amplificatore 2.0× nei giorni di quad witching è abbastanza grande da spinge
 
 EOD Pressure è una **lettura direzionale** — indica da che parte punta la pressione senza prescrivere di per sé se cavalcare o fadare il movimento. La decisione tra fade e ride arriva dal regime:
 
-- **Regime a gamma positiva + punteggio EOD Pressure positivo:** la deriva è al rialzo, l'hedging dei dealer sta smorzando i movimenti, la lettura favorisce il fade dei rally verso lo strike magnete per intercettare la deriva verso il pin.
+- **Regime a gamma positiva + punteggio EOD Pressure positivo:** la deriva è al rialzo, l'hedging dei dealer sta smorzando i movimenti, la lettura favorisce il posizionamento *assecondando* la deriva verso lo strike magnete — comprando la debolezza anziché fadare verso di esso — e il fade si applica solo agli overshoot oltre il magnete.
 - **Regime a gamma negativa + punteggio EOD Pressure positivo:** il segnale sta leggendo un bias rialzista guidato dal charm, ma in un regime a gamma corta il riflesso dei dealer amplifica invece di assorbire — la continuazione del momentum è più probabile.
 
 Combinato con altri segnali:

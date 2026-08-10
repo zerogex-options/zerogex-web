@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useSyncExternalStore } from 'react';
-import { TierId } from '@/core/auth';
+import { hasTierAccess, TierId } from '@/core/auth';
 
 type SessionUser = {
   id: string;
@@ -24,6 +24,10 @@ type SessionUser = {
   disclaimerVersionAcknowledged?: string | null;
   foundingEligible?: boolean;
   foundingLockinDismissedAt?: string | null;
+  // ISO timestamp the one-time "Welcome to Pro" onboarding modal was seen/
+  // dismissed. NULL/absent = never shown, so a freshly-subscribed Pro member is
+  // greeted once on their first landing back from Stripe checkout.
+  proWelcomeSeenAt?: string | null;
 };
 
 type SessionResponse = {
@@ -122,4 +126,20 @@ export function useAuthSession() {
   const current = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const refresh = useCallback(() => forceRefresh(), []);
   return { data: current.data, loading: current.loading, refresh };
+}
+
+/**
+ * True only when the signed-in user's tier meets `minimumTier`. Returns false
+ * while the session is still resolving and for anonymous / lower-tier users, so
+ * it's safe as an `enabled` guard on tier-gated fetches: a non-entitled viewer
+ * never fires the request (which the API would 403 anyway — pure wasted load),
+ * and an entitled viewer starts fetching as soon as the session lands. Mirrors
+ * hasTierAccess's dev behavior — when auth is disabled everything is allowed, so
+ * local/CI without sessions keeps fetching exactly as before.
+ */
+export function useHasTierAccess(minimumTier: TierId): boolean {
+  const { data } = useAuthSession();
+  if (process.env.NEXT_PUBLIC_AUTH_ENABLED !== '1') return true;
+  const tier = data?.user?.tier;
+  return tier ? hasTierAccess(tier, minimumTier) : false;
 }

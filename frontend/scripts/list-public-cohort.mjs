@@ -50,7 +50,7 @@ const COHORTS = [
     id: 'verified-never-paid',
     label: 'Verified, never subscribed',
     hint:
-      'The bulk. Pitch: "your 7-day free trial is one click away — cancel anytime, you won\'t be billed." No discount needed; the trial removes the financial risk.',
+      'The bulk. Two automated founder touches own this cohort: the ~2h trial nudge (scripts/send-verified-never-paid.mts) and, ~3 weeks after signup for anyone still cold, a second-touch reactivation offering an EXTENDED free trial (scripts/send-reactivation.mts, latched via users.reactivation_email_sent_at, honors marketing_unsubscribed_at). No discount either time — the longer trial is the escalation.',
   },
 ];
 const COHORT_IDS = new Set(COHORTS.map((c) => c.id));

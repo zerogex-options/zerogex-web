@@ -4,6 +4,7 @@ import { renderMarkdown } from '@/components/MarkdownContent';
 import ArticleJsonLd from '@/components/ArticleJsonLd';
 import RelatedArticles from '@/components/RelatedArticles';
 import { articleMetadata } from '@/core/articleRegistry';
+import GexMethodologyNote from '@/components/GexMethodologyNote';
 import LiveLevelsCTA from '@/components/LiveLevelsCTA';
 import { getServerT, loadLocalizedMarkdown } from '@/core/localizedContent';
 import { dict as metaDict } from './meta.i18n';
@@ -44,6 +45,7 @@ export default async function OptionsSupportAndResistancePage() {
 
       <RelatedArticles slug="options-support-and-resistance" />
 
+      <GexMethodologyNote />
       <LiveLevelsCTA concept="options support and resistance" />
     </div>
   );

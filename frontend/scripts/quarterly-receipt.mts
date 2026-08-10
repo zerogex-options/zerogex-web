@@ -126,14 +126,19 @@ function previousQuarterLabel(now: Date): string {
   return `Q${quarter} ${y}`;
 }
 
-function nextQuarterEndIso(date: Date): string {
+// Returns the target date of the NEXT donation after `date`. Matches the
+// systemd reminder timer's schedule: the 5th of the first month of each
+// quarter (Jan 5 / Apr 5 / Jul 5 / Oct 5). Used to populate totals.json's
+// nextDonationAtIso so what the site says lines up with when the reminder
+// actually fires and when the founder actually pays.
+function nextDonationDateIso(date: Date): string {
   const y = date.getUTCFullYear();
   const m = date.getUTCMonth();
   const nextQuarterFirstMonth = Math.floor(m / 3) * 3 + 3;
   const yearAdj = nextQuarterFirstMonth >= 12 ? y + 1 : y;
   const monthAdj = nextQuarterFirstMonth % 12;
-  const lastDayOfQuarterEndMonth = new Date(Date.UTC(yearAdj, monthAdj + 3, 0));
-  return lastDayOfQuarterEndMonth.toISOString().slice(0, 10);
+  const target = new Date(Date.UTC(yearAdj, monthAdj, 5));
+  return target.toISOString().slice(0, 10);
 }
 
 function formatUsd(n: number): string {
@@ -165,7 +170,7 @@ function buildUpdatedTotals(current: Totals, donation: Donation): Totals {
     totalDonatedUsd: Number((current.totalDonatedUsd + donation.amountUsd).toFixed(2)),
     donationsCount: current.donationsCount + 1,
     lastDonation: donation,
-    nextDonationAtIso: nextQuarterEndIso(new Date(donation.donatedAtIso)),
+    nextDonationAtIso: nextDonationDateIso(new Date(donation.donatedAtIso)),
     history: [donation, ...current.history],
   };
 }

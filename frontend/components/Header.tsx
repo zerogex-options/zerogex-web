@@ -18,24 +18,27 @@ import {
   LogOut,
   Rocket,
   User,
+  Search,
 } from "lucide-react";
 import { NAV_GROUPS, type NavGroup, type NavItem } from "@/core/navigation";
 import BetaBadge from "./BetaBadge";
+import TierBadge from "./TierBadge";
 import ThemeDropdown from "./ThemeDropdown";
 import LanguageDropdown from "./LanguageDropdown";
 import { useLanguage } from "@/core/LanguageContext";
 import { Theme, MarketSession } from "@/core/types";
 import type { UnderlyingSymbol } from "@/core/TimeframeContext";
 import { useTimeframe } from "@/core/TimeframeContext";
+import { SYMBOLS } from "@/core/symbols";
 import { getMarketSession } from "@/core/utils";
-import { getPrimaryPriceChangeSummary } from "@/core/priceChange";
+import { getPrimaryPriceChangeSummary, getExtendedHoursRow } from "@/core/priceChange";
 import { colors } from "@/core/colors";
 import SessionBadge from "./SessionBadge";
 import WorldClocks from "./WorldClocks";
 import OptionsCalendarBadge from "./OptionsCalendarBadge";
 import NewsHeadlinesBadge from "./NewsHeadlinesBadge";
 import { useMarketQuote, useSessionCloses } from "@/hooks/useApiData";
-import { hasRequiredTier, hasTierAccess, normalizeTier, requiredTierForRoute } from "@/core/auth";
+import { hasTierAccess, navItemRequiredTier, normalizeTier, type TierId } from "@/core/auth";
 import { useAuthSession } from "@/hooks/useAuthSession";
 
 interface HeaderProps {
@@ -107,38 +110,58 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
     const t = normalizeTier(currentTier);
     return t !== "pro" && t !== "admin";
   })();
-  const shouldForcePricing = (id: string) => {
+  const normalizedTier = normalizeTier(currentTier);
+  // Effective required tier for a nav entry — the stricter of its declared tier
+  // and its enforced route rule (navItemRequiredTier); null means public.
+  const entryRequiredTier = (entry: { id?: string; requiredTier?: NavItem["requiredTier"] }): TierId | null =>
+    navItemRequiredTier(entry.id, entry.requiredTier ?? null);
+  const canAccessEntry = (entry: { id?: string; requiredTier?: NavItem["requiredTier"] }) =>
+    hasTierAccess(normalizedTier, entryRequiredTier(entry));
+  // Badge to show on an entry the current member can see but not open yet, or
+  // null when it's accessible (or an admin-only tool, which is hidden entirely).
+  const lockedTier = (entry: { id?: string; requiredTier?: NavItem["requiredTier"] }): TierId | null => {
+    const needed = entryRequiredTier(entry);
+    if (!needed || needed === "admin") return null;
+    return hasTierAccess(normalizedTier, needed) ? null : needed;
+  };
+  const shouldForcePricing = (entry: { id: string; requiredTier?: NavItem["requiredTier"] }) => {
     // API Specs is a Pro-tier entitlement per the pricing page, so anyone
     // below Pro (public + basic) is routed to /pricing instead of the docs.
-    if (id === "https://api.zerogex.io/docs") {
-      return !hasTierAccess(normalizeTier(currentTier), "pro");
+    if (entry.id === "https://api.zerogex.io/docs") {
+      return !hasTierAccess(normalizedTier, "pro");
     }
-    if (!isPublicUser) return false;
-    return !hasRequiredTier(id, currentTier) && requiredTierForRoute(id) === "pro";
+    // Locked items (shown to signed-in members with a TierBadge) route to the
+    // pricing page instead of bouncing off the middleware to /unauthorized.
+    return !canAccessEntry(entry);
   };
-  const resolveNavTarget = (id: string) => (shouldForcePricing(id) ? "/pricing" : id);
+  const resolveNavTarget = (entry: { id: string; requiredTier?: NavItem["requiredTier"] }) =>
+    shouldForcePricing(entry) ? "/pricing" : entry.id;
   const filteredMobileNavGroups = useMemo(
-    () =>
-      mobileNavGroups
+    () => {
+      // Self-contained access check (mirrors canAccessEntry) so this hook does
+      // not close over component-scope helpers.
+      const canAccess = (entry: { id?: string; requiredTier?: NavItem["requiredTier"] }) =>
+        hasTierAccess(normalizeTier(currentTier), navItemRequiredTier(entry.id, entry.requiredTier ?? null));
+      return mobileNavGroups
         .map((group) => {
-          // "Signals" stays visible for signed-in Basic users (marketing surface,
-          // unentitled clicks route to /pricing) but drops entirely for
-          // public/unauthenticated visitors.
-          const bypassTierCheck = group.label === "Signals" && !isPublicUser;
           const keepItem = (item: NavItem) => {
             if (item.external) return true;
-            // Premium Surface is a Basic entitlement — hide it from public.
-            if (isPublicUser && item.id === "/premium-heatmap") return false;
-            if (bypassTierCheck) return true;
-            return hasRequiredTier(item.id, currentTier);
+            // Admin tools are never advertised to non-admins.
+            if (item.requiredTier === "admin") return canAccess(item);
+            // Signed-in members also see higher-tier items — they render locked,
+            // with a TierBadge that routes to /pricing on click. Logged-out and
+            // unpaid visitors only see what their tier can actually open.
+            if (isPublicUser) return canAccess(item);
+            return true;
           };
           const items = (group.items ?? []).filter(keepItem);
           const subgroups = (group.subgroups ?? [])
             .map((sg) => ({ ...sg, items: sg.items.filter(keepItem) }))
-            .filter((sg) => sg.items.length > 0);
+            .filter((sg) => sg.items.length > 0 || (sg.id != null && (!isPublicUser || canAccess(sg))));
           return { ...group, items, subgroups };
         })
-        .filter((group) => group.items.length + group.subgroups.length > 0),
+        .filter((group) => group.items.length + group.subgroups.length > 0);
+    },
     [mobileNavGroups, currentTier, isPublicUser],
   );
 
@@ -270,13 +293,14 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
   // pre/ah → icon + live quote close  vs  current_session_close
   const showExtendedRow = isExtendedHours && !!quoteData && !!sessionClosesData;
 
-  const row2Price = quoteData?.close ?? null;
-  const row2BaseClose = sessionClosesData?.current_session_close ?? null;
-  const row2Change =
-    row2Price !== null && row2BaseClose !== null ? row2Price - row2BaseClose : null;
-  const row2ChangePercent =
-    row2Change !== null && row2BaseClose ? (row2Change / row2BaseClose) * 100 : null;
-  const row2Positive = row2Change !== null ? row2Change >= 0 : false;
+  // Extended price vs the most-recent cash close (current_session_close),
+  // shared with the Gamma Chart's extended-hours line via getExtendedHoursRow.
+  const {
+    price: row2Price,
+    change: row2Change,
+    changePercent: row2ChangePercent,
+    isPositive: row2Positive,
+  } = getExtendedHoursRow(quoteData?.close, sessionClosesData?.current_session_close);
 
   // ── Labels / tooltips ────────────────────────────────────────────────────
   const formatEtDateTime = (ts: string) => {
@@ -453,9 +477,11 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                         lineHeight: 1,
                       }}
                     >
-                      <option>SPY</option>
-                      <option>SPX</option>
-                      <option>QQQ</option>
+                      {SYMBOLS.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
                     </select>
                     <ChevronDown
                       size={14}
@@ -484,9 +510,11 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                         backdropFilter: "blur(8px)",
                       }}
                     >
-                      <option>SPY</option>
-                      <option>SPX</option>
-                      <option>QQQ</option>
+                      {SYMBOLS.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
                     </select>
                     <div onClick={() => setShowCountdown(!showCountdown)}>
                       <SessionBadge session={sessionForBadge} theme={theme} showCountdown={showCountdown} />
@@ -549,6 +577,16 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                 <OptionsCalendarBadge theme={theme} />
                 <NewsHeadlinesBadge theme={theme} />
                 <LanguageDropdown />
+                <Link
+                  href="/search"
+                  aria-label="Search"
+                  className="rounded-full border transition-colors flex items-center justify-center"
+                  style={{ borderColor: border, color: 'var(--text-secondary)', backgroundColor: "transparent", padding: "9px", cursor: "pointer" }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${'var(--color-brand-accent)'}26`; e.currentTarget.style.color = 'var(--color-brand-accent)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+                >
+                  <Search size={20} />
+                </Link>
                 <div ref={profileMenuRef} style={{ position: "relative" }}>
                   <button
                     type="button"
@@ -666,6 +704,14 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
               />
             </Link>
             <div className="flex items-center gap-2 flex-shrink-0">
+              <Link
+                href="/search"
+                aria-label="Search"
+                className="rounded-full border transition-colors flex items-center justify-center"
+                style={{ borderColor: border, color: 'var(--text-secondary)', backgroundColor: "transparent", padding: "6px", cursor: "pointer" }}
+              >
+                <Search size={18} />
+              </Link>
               <OptionsCalendarBadge theme={theme} compact mobile />
               <NewsHeadlinesBadge theme={theme} compact mobile />
               <button
@@ -704,9 +750,10 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                   const renderItem = (page: NavItem) => {
                     const active = pathname === page.id;
                     const isExternal = page.external === true;
+                    const lock = lockedTier(page);
 
                     if (isExternal) {
-                      const targetHref = resolveNavTarget(page.id);
+                      const targetHref = resolveNavTarget(page);
                       return (
                         <a
                           key={page.id}
@@ -721,6 +768,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                           }}
                         >
                           <span>{navLabel(page)}</span>
+                          {lock && <TierBadge tier={lock} />}
                           {page.beta && <BetaBadge />}
                         </a>
                       );
@@ -730,7 +778,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                       <button
                         key={page.id}
                         onClick={() => {
-                          router.push(resolveNavTarget(page.id));
+                          router.push(resolveNavTarget(page));
                           setMobileMenuOpen(false);
                         }}
                         className="flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-semibold text-left"
@@ -741,6 +789,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                         }}
                       >
                         <span>{page.label}</span>
+                        {lock && <TierBadge tier={lock} />}
                         {page.beta && <BetaBadge />}
                       </button>
                     );
@@ -764,6 +813,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                             const subKey = `${group.label}::${subgroup.label}`;
                             const isSubExpanded = mobileExpandedGroups[subKey] ?? false;
                             const subgroupId = subgroup.id;
+                            const subgroupLock = lockedTier(subgroup);
                             const subgroupActive = subgroupId != null && pathname === subgroupId;
                             const subgroupLabelStyle = {
                               color: subgroupActive
@@ -778,17 +828,19 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                                     <button
                                       type="button"
                                       onClick={() => {
-                                        router.push(resolveNavTarget(subgroupId));
+                                        router.push(resolveNavTarget({ id: subgroupId, requiredTier: subgroup.requiredTier }));
                                         setMobileMenuOpen(false);
                                       }}
-                                      className="flex-1 text-left bg-transparent"
+                                      className="flex-1 text-left bg-transparent flex items-center gap-1.5"
                                       style={subgroupLabelStyle}
                                     >
                                       {navLabel(subgroup)}
+                                      {subgroupLock && <TierBadge tier={subgroupLock} />}
                                     </button>
                                   ) : (
-                                    <span className="flex-1" style={subgroupLabelStyle}>
+                                    <span className="flex-1 flex items-center gap-1.5" style={subgroupLabelStyle}>
                                       {navLabel(subgroup)}
+                                      {subgroupLock && <TierBadge tier={subgroupLock} />}
                                     </span>
                                   )}
                                   <button
@@ -830,9 +882,11 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                     color: 'var(--text-primary)',
                   }}
                 >
-                  <option>SPY</option>
-                  <option>SPX</option>
-                  <option>QQQ</option>
+                  {SYMBOLS.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-2">

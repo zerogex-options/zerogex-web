@@ -12,7 +12,7 @@ C'est l'endroit où vous allez après que le dashboard vous dit « la structure 
 
 ## Construire une stratégie
 
-1. **Choisissez un symbole** (SPY, SPX, QQQ).
+1. **Choisissez un symbole** (SPY, SPX, QQQ, NDX).
 2. **Ajoutez une jambe** — achat ou vente, call ou put, strike, échéance. La chaîne est en direct.
 3. **Répétez** pour les structures multi-jambes (verticales, condors, calendars, ratios, straddles, strangles).
 4. **Définissez le spot pour l'analyse** — par défaut le spot en direct, mais vous pouvez tester n'importe quel prix en scénario.
@@ -23,7 +23,7 @@ Le prix agrégé, les breakevens et les greeks se mettent à jour à chaque modi
 
 Le Builder utilise **Black-Scholes** avec la surface de volatilité implicite en direct pour chaque jambe. La surface d'IV est extraite de notre pipeline de données — la même surface qui alimente la chaîne sur la page [Cotations d'Options en Direct](/help/platform/option-contracts).
 
-Pour les considérations d'exercice de type américain (pertinentes pour les ETF comme SPY et QQQ), le modèle approxime avec une prime d'exercice anticipé sur les jambes deep ITM proches de l'échéance. SPX est à exercice de type européen, donc aucun ajustement n'est appliqué.
+Pour les considérations d'exercice de type américain (pertinentes pour les ETF comme SPY et QQQ), le modèle approxime avec une prime d'exercice anticipé sur les jambes deep ITM proches de l'échéance. Les indices réglés en espèces SPX et NDX sont à exercice de type européen, donc aucun ajustement n'est appliqué.
 
 ## Le panneau des greeks
 
@@ -35,7 +35,7 @@ Pour chaque jambe et pour l'agrégat :
 - **Vega** — sensibilité à l'IV (par variation de 1 %)
 - **Charm** — décroissance du delta (par jour)
 
-Les greeks agrégées vous permettent de lire une structure multi-jambes d'un seul coup d'œil — par exemple, un calendar long est net long vega, short theta sur le mois proche, long theta sur le mois lointain.
+Les greeks agrégées vous permettent de lire une structure multi-jambes d'un seul coup d'œil — par exemple, un calendar long est net long vega et net long theta, encaissant la décroissance temporelle sur la jambe vendue à échéance proche plus vite qu'il ne la paie sur la jambe achetée à échéance lointaine.
 
 ## La surface de P&L
 

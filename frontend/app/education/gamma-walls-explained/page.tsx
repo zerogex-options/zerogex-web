@@ -2,8 +2,10 @@ import path from 'node:path';
 import Link from 'next/link';
 import { renderMarkdown } from '@/components/MarkdownContent';
 import ArticleJsonLd from '@/components/ArticleJsonLd';
+import ArticleFaq from '@/components/ArticleFaq';
 import RelatedArticles from '@/components/RelatedArticles';
 import { articleMetadata } from '@/core/articleRegistry';
+import GexMethodologyNote from '@/components/GexMethodologyNote';
 import LiveLevelsCTA from '@/components/LiveLevelsCTA';
 import { getServerT, loadLocalizedMarkdown } from '@/core/localizedContent';
 import { dict as metaDict } from './meta.i18n';
@@ -38,8 +40,11 @@ export default async function GammaWallsExplainedPage() {
         <div className="blog-medium-style">{renderMarkdown(markdown)}</div>
       </article>
 
+      <ArticleFaq slug="gamma-walls-explained" />
+
       <RelatedArticles slug="gamma-walls-explained" />
 
+      <GexMethodologyNote />
       <LiveLevelsCTA concept="call wall and put wall" />
     </div>
   );

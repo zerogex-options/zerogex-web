@@ -1,4 +1,6 @@
 # Squeeze Setup, Positioning Trap y Trap Detection: Tres Señales, Tres Historias
+> **Nota metodológica actualizada — prevalece sobre cualquier formulación incompatible posterior.** ZeroGEX estima, pero no observa, el inventario de los dealers a partir de datos públicos. El modelo conserva la convención calls positivos/puts negativos (`Net GEX = Call GEX − Put GEX`) y supone dealers netos largos de calls y cortos de puts. Las calls y puts largas tienen gamma positiva; las calls y puts cortas tienen gamma negativa. El Put Wall es la mayor concentración de gamma de puts por debajo del spot y representa localmente gamma negativa modelada del dealer: puede coincidir con soporte, pero la cobertura de una put corta no crea mecánicamente un suelo. Los walls pueden migrar por spot, tiempo y volatilidad implícita aunque el open interest oficial no cambie intradía. Al acercarse el vencimiento, la gamma se concentra cerca del ATM: la gamma ATM puede aumentar, mientras la gamma claramente ITM u OTM tiende a cero. El Gamma Flip seleccionado es una transición local; el perfil puede tener varios cruces o ninguno significativo. Charm y vanna son cambios condicionales de delta, no órdenes programadas. Las puntuaciones son resultados heurísticos, no probabilidades calibradas. La gamma negativa amplifica la dirección ya iniciada; la distancia a un objetivo no implica repulsión. Por ello, la inversión del término pin de EOD Pressure sigue siendo una heurística de ZeroGEX. Max Pain minimiza el pago intrínseco agregado y no maximiza exactamente el nocional que vence sin valor. El DEX bruto mide delta solo de opciones, no flujo futuro de cobertura; la prima y el lado agresor no prueban información, apertura ni convicción.
+
 
 Si has pasado tiempo en la pestaña Signals, probablemente hayas notado tres nombres que suenan como si midieran lo mismo: Squeeze Setup, Positioning Trap y Trap Detection. Los tres arrojan un número ordenado entre −1 y +1. Los tres cambian de signo según la dirección. Y los tres se activan alrededor de los mismos tipos de pivotes.
 
@@ -54,7 +56,7 @@ Tres señales. Tres tesis. La misma recta numérica.
 - Proximidad al gamma flip
 - Régimen de Net GEX (suavizado vía tanh)
 
-**Cómo se calcula:** Una suma ponderada — 0.45 en abarrotamiento, 0.25 en el sesgo del desequilibrio, 0.15 en momentum, 0.10 en la inclinación del flip, 0.05 en el régimen de GEX negativo — calculada de forma independiente para el lado squeeze (multitud long en riesgo) y el lado flush (multitud short en riesgo). Ambos se compensan en una única puntuación.
+**Cómo se calcula:** Una suma ponderada — 0.45 en abarrotamiento, 0.25 en el sesgo del desequilibrio, 0.15 en momentum, 0.10 en la inclinación del flip, 0.05 en el régimen de GEX negativo — calculada de forma independiente para el lado squeeze (multitud short en riesgo) y el lado flush (multitud long en riesgo). Ambos se compensan en una única puntuación.
 
 A diferencia de las otras dos, Positioning Trap no tiene un flag de trigger — alimenta el compuesto MSI como componente continuo (peso 0.06) y habilita el playbook `positioning_trap_squeeze` cuando abs(score) ≥ 0.5.
 
@@ -108,7 +110,7 @@ Algunos patrones a buscar:
 
 **Confluencia (alta convicción):** Squeeze Setup +0.5 y Trap Detection +0.4 → el mercado está comprimido al alza y una ruptura bajista acaba de fallar. Ambas señales apuntan al mismo trade desde ángulos diferentes.
 
-**Secuencia (mejores entradas):** Positioning Trap marca una multitud long en +0.7 → espera. Trap Detection luego pasa a negativo (la ruptura alcista falla) → esa es la chispa. Opera el fade con la multitud como combustible.
+**Secuencia (mejores entradas):** Positioning Trap marca una multitud long en −0.7 → espera. Trap Detection luego pasa a negativo (la ruptura alcista falla) → esa es la chispa. Opera el fade con la multitud como combustible.
 
 **Contradicción (mantente al margen):** Squeeze Setup dice +0.6 (ir long con la ruptura). Trap Detection dice −0.5 (la ruptura alcista está fallando). Una de las dos está equivocada. Sáltatelo.
 
