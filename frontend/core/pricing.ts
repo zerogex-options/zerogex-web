@@ -392,6 +392,107 @@ export function buildMrrProjection(
   return { windowDays, slopePerDay, originMrr, originDay, horizonMonths, horizonMrr, points };
 }
 
+// Blended full (LIST) monthly price per subscriber implied by a plan mix. Each
+// (tier, cadence) bucket's share of the counted base times that plan's list
+// monthly-normalized price (annual list already divided by 12), i.e.
+//   Σ  share(tier,cadence) · amounts[tier][cadence].list
+// Buckets are grouped by tier+cadence regardless of their current rate: a
+// founding/discounted sub still counts toward the mix but is priced at LIST,
+// because this feeds a projection that assumes the effective price drifts to
+// full list as time-boxed launch discounts roll off. Returns 0 for an empty
+// base. Pure — the caller passes today's classified counts (e.g. the MRR
+// breakdown rows), so it can be unit-tested directly.
+export function blendedListMonthlyPrice(
+  buckets: ReadonlyArray<{ tier: BillableTier; cadence: BillingCadence; count: number }>,
+  amounts: AmountTable = DEFAULT_AMOUNTS,
+): number {
+  let total = 0;
+  for (const b of buckets) {
+    if (b.count > 0) total += b.count;
+  }
+  if (total <= 0) return 0;
+  let blended = 0;
+  for (const b of buckets) {
+    if (b.count <= 0) continue;
+    blended += (b.count / total) * amounts[b.tier][b.cadence].list;
+  }
+  return blended;
+}
+
+// The trailing acquisition window (days) the signup-implied projection reads its
+// pace from — the "30-day rate" off the Forward-Looking Growth Rate table.
+export const SIGNUP_PROJECTION_WINDOW_DAYS = 30;
+
+// Forward MRR projection whose pace comes from acquisition, not from the recent
+// MRR line. Slope = net new subscribers/day (the trailing growth-rate window —
+// the 30-day net daily rate) times the blended LIST price a subscriber pays
+// (blendedListMonthlyPrice). This is the projection to prefer once launch
+// discounts make the live MRR curve — and its compounded growth rate — read far
+// steeper than the business can sustain "since we just started up": it anchors
+// on today's real MRR but grows it at the full-price value of each future
+// signup. Straight line (constant $/day), so the plotted line and the
+// months-to-target ETA agree. Returns null when there's no real (estMrr > 0)
+// sample to anchor the origin, or the horizon is non-positive. Unlike
+// buildMrrProjection it does NOT require a multi-day span — the pace is external
+// to the MRR line, so a single real day is enough to anchor and project.
+export function buildSignupImpliedMrrProjection(input: {
+  series: ReadonlyArray<{ day: string; estMrr: number }>;
+  signupsPerDay: number;
+  blendedMonthlyPrice: number;
+  horizonMonths: number;
+}): MrrProjection | null {
+  const { series, signupsPerDay, blendedMonthlyPrice, horizonMonths } = input;
+  if (horizonMonths <= 0) return null;
+  const firstIdx = series.findIndex((p) => p.estMrr > 0);
+  if (firstIdx < 0) return null;
+
+  const lastIdx = series.length - 1;
+  const originDay = series[lastIdx].day;
+  const originMrr = series[lastIdx].estMrr;
+  const slopePerDay = signupsPerDay * blendedMonthlyPrice;
+
+  const horizonEnd = addMonthsToDayKey(originDay, horizonMonths);
+  const totalDays = diffDayKeys(originDay, horizonEnd);
+  const points: MrrProjectionPoint[] = [];
+  for (let d = 1; d <= totalDays; d++) {
+    points.push({
+      day: addDaysToDayKey(originDay, d),
+      projMrr: Math.max(0, originMrr + slopePerDay * d),
+    });
+  }
+  const horizonMrr = points.length ? points[points.length - 1].projMrr : originMrr;
+
+  return {
+    windowDays: SIGNUP_PROJECTION_WINDOW_DAYS,
+    slopePerDay,
+    originMrr,
+    originDay,
+    horizonMonths,
+    horizonMrr,
+    points,
+  };
+}
+
+// Average days per calendar month, for turning a linear day-pace runway into a
+// month count.
+const DAYS_PER_MONTH = 365 / 12;
+
+// Months until a straight-line projection reaches `targetMrr`: 0 once the origin
+// is already at/over target, null when the slope is flat or negative (it never
+// arrives). Linear, so it matches the projection's own constant $/day pace —
+// this is the ETA to show alongside a buildSignupImpliedMrrProjection line, in
+// place of the compounded computeMrrTrend ETA that runs hot early on.
+export function projectionMonthsToTarget(
+  projection: Pick<MrrProjection, 'originMrr' | 'slopePerDay'> | null,
+  targetMrr: number,
+): number | null {
+  if (!projection) return null;
+  if (projection.originMrr >= targetMrr) return 0;
+  if (projection.slopePerDay <= 0) return null;
+  const days = (targetMrr - projection.originMrr) / projection.slopePerDay;
+  return days / DAYS_PER_MONTH;
+}
+
 // Tunable inputs for the interactive Growth Projections model. All rates are
 // already normalized to per-month before they reach here (the UI converts the
 // per-day/week/month acquisition dropdown), so this stays pure arithmetic.

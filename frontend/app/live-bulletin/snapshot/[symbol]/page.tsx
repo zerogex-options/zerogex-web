@@ -53,6 +53,7 @@ interface GexSummaryResponse {
   put_call_ratio?: number | null;
   total_call_gex?: number | null;
   total_put_gex?: number | null;
+  pin_strike?: number | null;
 }
 
 interface MarketQuoteResponse {

@@ -29,6 +29,11 @@ import {
   type FlowDeleteEvent,
   type FlowSyncEvent,
 } from '@/core/subscriptionFlow';
+import {
+  cancellationFeedbackLabel,
+  parseCancellationReasonFromMessage,
+  NO_FEEDBACK,
+} from '@/core/cancellationReason';
 
 const STORE_PATH = process.env.MONITORING_STORE_PATH ?? path.join(process.cwd(), 'data', 'monitoring.json');
 const SIGNUP_STORE_PATH = process.env.SIGNUP_STORE_PATH ?? path.join(process.cwd(), 'data', 'signups.json');
@@ -116,6 +121,35 @@ export type SignupFlowPoint = {
   registrations: number;
 };
 
+export type GrowthRatePoint = {
+  days: 1 | 7 | 14 | 30;
+  signups: number;
+  cancellations: number;
+  paymentFailures: number;
+  net: number;
+  dailyRate: number;
+};
+
+// The "why" behind recent cancellations, parsed from the Stripe cancellation
+// survey folded into the audit log (see core/cancellationReason.ts + the Stripe
+// webhook). `total` is the number of cancel-click events in the window;
+// `captured` is how many carried a reason (a feedback enum or a comment) —
+// their ratio is the survey's coverage. `byFeedback` tallies the fixed enum
+// (with a `none` bucket for silent cancels); `recentComments` surfaces the
+// free-text verbatims, the richest churn signal.
+export type CancellationReasonsSummary = {
+  windowDays: number;
+  total: number;
+  captured: number;
+  byFeedback: Array<{ feedback: string; label: string; count: number }>;
+  recentComments: Array<{
+    createdAt: string;
+    email: string | null;
+    feedback: string | null;
+    comment: string;
+  }>;
+};
+
 export type WebhookHealth = {
   // Counters of audit_events rows in two trailing windows. Errors are real
   // handler failures (5xx-returning); orphans are events for unknown
@@ -164,6 +198,8 @@ export type MonitoringSnapshot = {
   mrrTrend: MrrTrend | null;
   signups: SignupPoint[];
   signupFlow: SignupFlowPoint[];
+  growthRates: GrowthRatePoint[];
+  cancellationReasons: CancellationReasonsSummary;
   hourly: MonitoringSnapshotPoint[];
   daily: MonitoringSnapshotPoint[];
   topIps: Array<{ ip: string; count: number }>;
@@ -990,6 +1026,163 @@ function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
   return points.slice(start);
 }
 
+// Trailing acquisition velocity, intentionally measured at the customer's
+// decision/failure moment rather than at the later access downgrade. A first
+// paid-tier sync includes `trialing`, so it represents a free-trial start.
+// Cancellation acknowledgements provide historical coverage; the dedicated
+// request audit is the durable source going forward. Grouping cancellation
+// rows by user/day prevents the acknowledgement and request rows emitted for
+// the same click from being counted twice.
+//
+// Win-backs offset cancellations: an honor-winback-discount run that clears a
+// scheduled cancellation (billing_winback_discount_honored, "cleared
+// cancel_at_period_end") means the member was retained on the same
+// subscription — no re-subscribe, so no offsetting signup ever lands. We
+// subtract in-window win-backs from the in-window cancellation count (floored
+// at 0) so a cancelled-then-won-back member nets to zero rather than showing as
+// a loss. This is a count-level offset within the same window (simplest): a
+// win-back whose original cancel fell outside the window slightly under-counts
+// cancellations, and --keep-cancellation runs (which don't clear the cancel)
+// are excluded.
+function buildGrowthRates(now: Date): GrowthRatePoint[] {
+  const horizons = [1, 7, 14, 30] as const;
+  const days = generateDailyKeys(now, 30);
+  const signups = new Set<string>();
+  const cancellations = new Set<string>();
+  const paymentFailures = new Set<string>();
+  const winbacks = new Set<string>();
+
+  try {
+    const rows = getDb().prepare(
+      `SELECT type, user_id, created_at, message FROM audit_events
+       WHERE type IN (
+         'stripe_subscription_sync',
+         'stripe_cancellation_requested',
+         'cancellation_ack_email_sent',
+         'stripe_payment_failed',
+         'billing_winback_discount_honored'
+       ) AND created_at > datetime('now', '-850 days')
+       ORDER BY created_at ASC`,
+    ).all() as Array<{ type: string; user_id: string | null; created_at: string; message: string }>;
+
+    const seenSubscriptions = new Set<string>();
+    for (const row of rows) {
+      const parsed = new Date(row.created_at);
+      if (Number.isNaN(parsed.getTime())) continue;
+      const day = etBucketKeys(parsed).day;
+      if (row.type === 'stripe_subscription_sync') {
+        const subId = parseSubIdFromMessage(row.message);
+        const tier = parseSyncTierStrict(row.message);
+        if (subId && tier && tier !== 'public' && !seenSubscriptions.has(subId)) {
+          seenSubscriptions.add(subId);
+          if (days.includes(day)) signups.add(`${day}:${subId}`);
+        }
+      } else if (!days.includes(day)) {
+        continue;
+      } else if (row.type === 'stripe_payment_failed' && /\(attempt 1\)/.test(row.message)) {
+        const invoice = row.message.match(/Invoice (in_[A-Za-z0-9]+)/)?.[1] ?? row.message;
+        paymentFailures.add(`${day}:${invoice}`);
+      } else if (row.type === 'billing_winback_discount_honored') {
+        // Only a win-back that actually un-cancelled offsets a cancellation;
+        // the script stamps "cleared cancel_at_period_end" into the message
+        // exactly on that path, so --keep-cancellation runs (coupon pre-load
+        // only, member still cancelling) are skipped.
+        if (/cleared cancel_at_period_end/.test(row.message)) {
+          winbacks.add(`${day}:${row.user_id ?? parseSubIdFromMessage(row.message) ?? row.message}`);
+        }
+      } else if (row.type === 'stripe_cancellation_requested' || row.type === 'cancellation_ack_email_sent') {
+        cancellations.add(`${day}:${row.user_id ?? parseSubIdFromMessage(row.message) ?? row.message}`);
+      }
+    }
+  } catch {
+    // Keep the monitoring response available if audit history is unavailable.
+  }
+
+  const countSince = (values: Set<string>, windowDays: number) => {
+    const included = new Set(generateDailyKeys(now, windowDays));
+    return Array.from(values).filter((value) => included.has(value.slice(0, 10))).length;
+  };
+  return horizons.map((windowDays) => {
+    const signupCount = countSince(signups, windowDays);
+    const winbackCount = countSince(winbacks, windowDays);
+    // Net win-backs out of the cancellation count so a cancelled-then-won-back
+    // member doesn't read as a loss. Floored at 0 so more win-backs than
+    // in-window cancels can't invent phantom growth.
+    const cancellationCount = Math.max(0, countSince(cancellations, windowDays) - winbackCount);
+    const failureCount = countSince(paymentFailures, windowDays);
+    const net = signupCount - cancellationCount - failureCount;
+    return {
+      days: windowDays,
+      signups: signupCount,
+      cancellations: cancellationCount,
+      paymentFailures: failureCount,
+      net,
+      dailyRate: net / windowDays,
+    };
+  });
+}
+
+// How far back the cancellation-reasons summary looks. Matches the widest
+// growth-rate window so the "why" lines up with the "how many".
+const CANCEL_REASONS_WINDOW_DAYS = 30;
+
+// The "why" behind recent cancellations. Reads the cancel-click audit rows in a
+// trailing window, parses the Stripe survey folded into each message, and rolls
+// them up: a per-feedback tally (with a `none` bucket for silent cancels) plus
+// the recent free-text verbatims. Empty/missing audit history returns a zeroed
+// summary so it never throws back to the API route.
+function buildCancellationReasons(): CancellationReasonsSummary {
+  const empty: CancellationReasonsSummary = {
+    windowDays: CANCEL_REASONS_WINDOW_DAYS,
+    total: 0,
+    captured: 0,
+    byFeedback: [],
+    recentComments: [],
+  };
+  try {
+    const rows = getDb()
+      .prepare(
+        `SELECT created_at, email, message FROM audit_events
+         WHERE type = 'stripe_cancellation_requested'
+           AND created_at > datetime('now', '-${CANCEL_REASONS_WINDOW_DAYS} days')
+         ORDER BY created_at DESC`,
+      )
+      .all() as Array<{ created_at: string; email: string | null; message: string }>;
+
+    const counts = new Map<string, number>();
+    const recentComments: CancellationReasonsSummary['recentComments'] = [];
+    let captured = 0;
+    for (const row of rows) {
+      const { feedback, comment } = parseCancellationReasonFromMessage(row.message);
+      if (feedback || comment) captured += 1;
+      const key = feedback ?? NO_FEEDBACK;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+      if (comment && recentComments.length < 10) {
+        recentComments.push({ createdAt: row.created_at, email: row.email, feedback, comment });
+      }
+    }
+
+    const byFeedback = Array.from(counts.entries())
+      .map(([feedback, count]) => ({ feedback, label: cancellationFeedbackLabel(feedback), count }))
+      // Real reasons first (desc by count); the `none` bucket always sinks last.
+      .sort((a, b) => {
+        if (a.feedback === NO_FEEDBACK) return 1;
+        if (b.feedback === NO_FEEDBACK) return -1;
+        return b.count - a.count;
+      });
+
+    return {
+      windowDays: CANCEL_REASONS_WINDOW_DAYS,
+      total: rows.length,
+      captured,
+      byFeedback,
+      recentComments,
+    };
+  } catch {
+    return empty;
+  }
+}
+
 // Counts audit_events rows of `type` whose created_at is newer than
 // `intervalSql` (e.g. '-1 day', '-7 days'). Empty/missing audit_events
 // table is treated as zero so this never throws back to the API route.
@@ -1140,6 +1333,8 @@ export function getSnapshot(): MonitoringSnapshot {
     mrrTrend: computeMrrTrend(mrrSeries.slice(-MAX_DAILY), mrr.targetMrr),
     signups: buildSignupSeries(now),
     signupFlow: buildSignupFlowSeries(now),
+    growthRates: buildGrowthRates(now),
+    cancellationReasons: buildCancellationReasons(),
     hourly: hourlyKeys.map((key) => bucketToPoint(key, live.hourly[key])),
     daily: dailyKeys.map((key) => bucketToPoint(key, live.daily[key])),
     topIps: aggregateTopIps(live.daily, 10),

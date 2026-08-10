@@ -22,16 +22,16 @@ The single biggest differentiator. A GEX read on 15-minute-delayed chain data is
 
 ### 2. 0DTE and same-day expiry coverage
 
-Same-day expiries now dominate intraday SPX flow. A tool that under-weights or omits 0DTE bucketing produces a stale intraday read — the chain it is showing you is not the chain that is moving the tape. Look for tools that surface per-expiry GEX bucketing and weight 0DTE appropriately. The deeper read on why this matters is in [0DTE Dealer Positioning Explained](/education/0dte-dealer-positioning-explained).
+0DTE options account for a large share of SPX activity and can dominate near-spot gamma sensitivity on some sessions. Per-expiry bucketing helps users isolate that sensitivity, while gross volume and OI do not reveal net dealer ownership. The deeper read on why this matters is in [0DTE Dealer Positioning Explained](/education/0dte-dealer-positioning-explained).
 
 ### 3. Calculation methodology
 
 The two main approaches:
 
-- **Spot-shift dealer gamma profile** (re-price every option's gamma across a grid of hypothetical spots, sum to a curve). This is the industry-standard methodology pioneered by the original GEX research; both the headline Net GEX figure and the gamma flip come from one curve, so they cannot contradict each other.
+- **Spot-shift dealer gamma profile** (re-price every option's gamma across a grid of hypothetical spots, sum to a curve). ZeroGEX prefers this method because it evaluates modeled gamma over hypothetical underlying prices and lets the headline Net GEX reading and selected crossing come from a common profile.
 - **Per-strike GEX aggregation** (multiply gamma × OI at each strike at today's spot, sum). Faster and cheaper to compute; intuitive per-strike bar chart. Can produce inconsistent sign behavior between the headline number and the flip level, especially when the chain shifts.
 
-The spot-shift method is the better methodology for serious work. The per-strike method is fine for surface-level visualization but breaks down in regime-flip moments.
+The approaches answer different questions. Per-strike aggregation is intuitive for locating current concentrations; spot-shift adds a scenario curve and zero-crossing resolver at greater computational and modeling cost.
 
 ### 4. Gamma flip resolution quality
 
@@ -61,19 +61,19 @@ The category roughly splits into four buckets. Specific feature claims about nam
 
 ### Bucket 1: Established gamma research vendors
 
-The vendors that pioneered the publicly-tracked GEX category. Generally use the spot-shift methodology, have deep historical archives, and serve a mix of individual and professional audiences. Cadence ranges from daily research products to fully real-time intraday tracking, with the real-time access typically gated behind higher-tier subscriptions. The methodology lineage is the strength; the trade-off is often closed-source calculations and limited 0DTE-specific tooling. Their published research is often the reference for the field.
+The vendors that pioneered the publicly-tracked GEX category. May offer scenario profiles, historical archives, and products for different audiences; current methodology and coverage should be verified from each vendor’s official materials. Cadence ranges from daily research products to fully real-time intraday tracking, with the real-time access typically gated behind higher-tier subscriptions. The methodology lineage is the strength; the trade-off is often closed-source calculations and limited 0DTE-specific tooling. Their published research is often the reference for the field.
 
 *Tools commonly cited in this bucket: SpotGamma, SqueezeMetrics. Verify current pricing and coverage on their sites.*
 
 ### Bucket 2: Flow-aggregator platforms with GEX surfaces
 
-Broader options-flow platforms (unusual options activity, dark pool prints, flow scanners) that include a GEX module as one feature among many. Often use the per-strike aggregation method, which is fast and visually clean but less methodologically rigorous than spot-shift. The strength is the breadth of complementary data; the trade-off is that the GEX surface is rarely the deepest in the product.
+Broader options-flow platforms (unusual options activity, dark pool prints, flow scanners) that include a GEX module as one feature among many. May include per-strike aggregation, which is fast and intuitive; methodology should be verified rather than inferred from the display. The strength is the breadth of complementary data; the trade-off is that the GEX surface is rarely the deepest in the product.
 
 *Tools commonly cited in this bucket: Unusual Whales, Cheddar Flow. Verify current pricing and coverage on their sites.*
 
 ### Bucket 3: Real-time, dealer-positioning-focused tools
 
-A newer category of products built specifically around real-time dealer positioning for intraday traders, with 0DTE-aware bucketing and composite signal layers. The spot-shift methodology is increasingly standard here. The strength is intraday depth; the trade-off is that the historical research archives are typically shallower than the established vendors.
+A newer category of products built specifically around real-time dealer positioning for intraday traders, with 0DTE-aware bucketing and composite signal layers. Some products use spot-shift profiles, while others use different or undisclosed methods. The strength is intraday depth; the trade-off is that the historical research archives are typically shallower than the established vendors.
 
 ZeroGEX sits in this bucket — built around real-time dealer gamma, the spot-shift methodology with a hardened flip resolver, per-expiry-bucket gamma tracking, and a composite signal layer on top of the structural reads.
 
@@ -87,7 +87,7 @@ Free websites that publish daily or near-daily GEX snapshots, often calculated f
 
 A short decision tree:
 
-**If you trade SPX 0DTE:** Real-time and 0DTE-aware bucketing are non-negotiable. Look hard at the calculation methodology — a per-strike-only approach will give you sign-inconsistent reads in regime-flip moments. Bucket 3 tools are built for this use case; some Bucket 1 vendors also offer real-time at their higher tiers.
+**If you trade SPX 0DTE:** Real-time and 0DTE-aware bucketing are non-negotiable. Look hard at the calculation methodology — understand whether the displayed concentrations and selected flip come from compatible universes and assumptions. Bucket 3 tools are built for this use case; some Bucket 1 vendors also offer real-time at their higher tiers.
 
 **If you trade SPX swing / multi-day exposure:** Real-time is nice but not essential; methodology depth and historical archives matter more. Bucket 1 vendors are strong here.
 
@@ -101,11 +101,11 @@ A short decision tree:
 
 In the interest of being upfront about where this comparison is hosted: ZeroGEX is a Bucket 3 tool, built specifically for real-time, intraday SPX/0DTE-focused dealer-positioning analysis. The decisions that went into the product:
 
-- **Spot-shift dealer gamma profile** as the core primitive. Headline Net GEX and the gamma flip are read from one curve so they cannot contradict each other — a structural invariant of the calculation.
+- **Spot-shift dealer gamma profile** as the core primitive. Headline Net GEX and the selected flip are derived from a common curve, improving consistency while the resolver still handles multiple, weak, or missing crossings.
 - **Hardened gamma flip resolver** with interior, structural, and actionable-distance gates against grid-edge artifacts, noise-floor crossings, and far-from-spot levels. Reports NULL when the chain does not support a confident answer rather than carrying forward a stale value.
 - **Per-DTE gamma bucketing** so 0DTE concentration is visible directly and weighted appropriately for intraday reads.
 - **Composite signal layer** on top of the structural reads — Squeeze Setup, Positioning Trap, Trap Detection, EOD Pressure, and others — each with published methodology in the [Education section](/articles), not black-box outputs.
-- **Free Gamma Levels pages** (SPX, SPY, QQQ), 15-minute-delayed, for the core structural reads (Net GEX, Gamma Flip, Call Wall, Put Wall, Max Pain, dealer gamma profile), no signup — paid plans (Basic, Pro) add the real-time Dashboard, the signal layer, deeper historical data, and Advanced Signals.
+- **Free Gamma Levels pages** (SPX, SPY, QQQ, NDX), 15-minute-delayed, for the core structural reads (Net GEX, Gamma Flip, Call Wall, Put Wall, Max Pain, dealer gamma profile), no signup — paid plans (Basic, Pro) add the real-time Dashboard, the signal layer, deeper historical data, and Advanced Signals.
 
 Like every tool in the category, ZeroGEX has trade-offs. Historical archive depth is shorter than the established Bucket 1 vendors. Coverage is concentrated on SPX/SPY and the major index ETFs, not deep single-name coverage. The signal layer is opinionated by design, which is a feature for traders who want a defined framework and a limitation for traders who want raw data only. Whether those trade-offs fit your workflow is a question worth answering before committing to any tool, including this one.
 
@@ -117,7 +117,7 @@ The honest answer is that "best" is conditional on workflow, but a few criteria 
 
 - **Real-time chain data**, not 15-minute-delayed.
 - **0DTE / per-expiry bucketing** that lets you isolate the same-day book.
-- **Spot-shift methodology** or equivalent rigor in the calculation, so the headline regime read and the flip level cannot contradict.
+- **Spot-shift methodology** or equivalent rigor in the calculation, so the headline regime read and selected crossing use a clearly documented and internally consistent universe.
 - **A live gamma flip with honest degraded-data handling** — a flip that silently freezes when the feed gaps is worse than a flip that reports NULL.
 - **A signal layer you can read** — composite scores whose methodology is published, not black-box alerts.
 
@@ -143,10 +143,10 @@ A short list of traps to avoid:
 
 The right discipline is to evaluate against the eight criteria above (real-time, 0DTE coverage, methodology, flip quality, walls, signals, coverage, price), match those against your actual workflow, and verify any specific vendor claim on the vendor's own site before committing — because feature sets, pricing, and methodology choices in this category change often.
 
-If you want to see the spot-shift + hardened-flip methodology without committing to a paid plan, the free, 15-minute-delayed ZeroGEX Gamma Levels pages (SPX, SPY, QQQ) are the easiest place to look; the real-time + 0DTE stack lives in the paid Dashboard.
+If you want to see the spot-shift + hardened-flip methodology without committing to a paid plan, the free, 15-minute-delayed ZeroGEX Gamma Levels pages (SPX, SPY, QQQ, NDX) are the easiest place to look; the real-time + 0DTE stack lives in the paid Dashboard.
 
 Educational content only — none of the above is a trade recommendation, and this comparison should be verified against current vendor information before any purchase decision.
 
 ---
 
-If you want to see the ZeroGEX read — Net GEX, the gamma flip, the call and put walls, max pain, and the dealer gamma profile — the free, 15-minute-delayed Gamma Levels pages (SPX, SPY, QQQ) are open to anyone, no signup required; the real-time Dashboard and signal layer come with a paid plan.
+If you want to see the ZeroGEX read — Net GEX, the gamma flip, the call and put walls, max pain, and the dealer gamma profile — the free, 15-minute-delayed Gamma Levels pages (SPX, SPY, QQQ, NDX) are open to anyone, no signup required; the real-time Dashboard and signal layer come with a paid plan.

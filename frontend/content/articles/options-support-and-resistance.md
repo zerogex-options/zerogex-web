@@ -48,6 +48,12 @@ See [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) for the work
 
 ---
 
+## Why does SPY reverse at these levels?
+
+The reversals that look random on a SPY chart — price runs to some level that wasn't a prior swing or a round number, stops dead, and unwinds — are usually one of these four levels doing its job. At the **call wall**, dealers modeled long the strike sell into the rally to stay hedged, adding supply that caps the move. At the **put wall**, a net-long-gamma book buys the selloff, adding support. At the **gamma magnet**, the modeled hedging reflex pulls price back toward the strike. At the **gamma flip**, that reflex changes sign and price often pauses as it crosses. None of these is on the price chart — they're on the option chain — which is why the reversal looks like it came from nowhere until you map it to positioning. Whether each level absorbs the move or gets run over depends on the regime, so read the flip first: the same call wall that caps a rally in long gamma becomes a breakout target in short gamma.
+
+---
+
 ## Why options-based S/R is sturdier than chart-based S/R
 
 Three reasons:
@@ -56,7 +62,7 @@ Three reasons:
 
 2. **It scales with positioning, not attention.** A trendline strengthens with more eyes on it; a wall reflects more open interest. The larger the modeled concentration, the larger the potential hedging flow when price approaches. The relationship is grounded in positioning, not sentiment.
 
-3. **It updates in real time.** Trendlines are historical artifacts that become stale as price moves. The modeled walls move with positioning — as fresh volume concentrates above the call wall, the modeled wall can shift higher, and the read updates with it. (Official open interest is published for the next session, so intraday shifts reflect volume, inferred positioning, and moves in spot, time, and IV — not verified new OI.) The level you see at 10:30 ET is the level that matters now.
+3. **It is recalculated.** Spot, time, and implied volatility reprice gamma at each strike, so a different fixed-OI strike can become the wall intraday. Official OI generally updates after clearing; a migrating wall is not evidence that fresh positions opened there.
 
 That said, options-based S/R isn't infallible. It's a probabilistic lean. Macro shocks, catalyst events, and regime flips override it regularly. The advantage is that the lean is *grounded* — when it works, it works for a reason you can verify.
 
@@ -92,7 +98,7 @@ The mechanism inverts or breaks down when:
 
 - Spot is in a **negative-gamma regime** — dealers chase, not fade.
 - Net GEX is **decaying** — positioning is unwinding.
-- The wall is **migrating** with price — fresh OI building above as price tests it.
+- The wall is **migrating** as spot, time, or volatility changes the strike ranking.
 - A catalyst lands during the test.
 - Flow is **accelerating** in the breakout direction.
 
@@ -139,4 +145,4 @@ Educational content only — none of the above is a trade recommendation.
 
 ---
 
-If you want to see today's call wall, put wall, gamma flip, and gamma magnet for SPY, SPX, and QQQ — the four structural levels that drive most options-based S/R — the free ZeroGEX gamma-levels view surfaces them.
+If you want to see today's call wall, put wall, gamma flip, and gamma magnet for SPY, SPX, QQQ, and NDX — the four structural levels that drive most options-based S/R — the free ZeroGEX gamma-levels view surfaces them.

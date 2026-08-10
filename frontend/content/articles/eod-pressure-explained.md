@@ -67,9 +67,9 @@ sign         = +1 if net_gex >= 0 else -1
 pin_score    = sign × normalized
 ```
 
-A pin target 0.3% above spot in a modeled positive-gamma regime gives a pin score of +1.0 — the magnet is above and gravity is on. In a modeled negative-gamma regime, the same pin above spot produces a *negative* pin score, because dealer hedging is now modeled to amplify moves *away* from the strike.
+A pin target 0.3% above spot in a modeled positive-gamma regime gives a pin score of +1.0 — the magnet is above and gravity is on. In a modeled negative-gamma regime, the same pin above spot produces a *negative* pin score, because the current implementation reverses target distance when Net GEX is negative.
 
-That sign flip is the key insight. Pin gravity is not a fixed level. It is a sign-dependent force whose direction depends on the modeled gamma regime.
+**Methodology limitation:** the negative-gamma sign reversal is a ZeroGEX house heuristic, not a direct consequence of negative-gamma mechanics. Negative gamma amplifies the direction already underway; target distance alone cannot determine that direction. The analytics repository was not available in this workspace for a safe implementation-and-test change, so this documentation identifies rather than disguises the limitation.
 
 ### Component 3: Time ramp (the gate)
 
@@ -118,12 +118,12 @@ The 60/40 weighting is a hand-picked design choice, not a fitted one: it reflect
 | Score | Reading |
 |---|---|
 | +0.6 to +1.0 | Strong modeled upward drift into the close |
-| +0.2 to +0.6 | Mild modeled upside drift — bias intraday holds long, but don't size aggressively |
-| -0.2 to +0.2 | No edge — either too early in the window or terms cancelling |
-| -0.2 to -0.6 | Mild modeled downside drift |
+| +0.2 to +0.6 | Positive model lean |
+| -0.2 to +0.2 | Weak or offsetting model components |
+| -0.2 to -0.6 | Negative model lean |
 | -0.6 to -1.0 | Strong modeled downward drift into the close |
 
-The trigger threshold is **0.20** — lower than the typical 0.25 — because the window itself is doing the filtering.
+The **0.20** trigger is a hand-selected model threshold, not a calibrated probability or expected win rate. Historical validation is required before treating it as a performance edge.
 
 ---
 
@@ -152,7 +152,7 @@ Before 14:30 ET, EOD Pressure is zero by construction. Use the pre-window time t
 
 ### 2. The 15:30 inflection
 
-EOD Pressure crosses 0.8× ramp at 15:30 ET. If the charm and pin terms have been agreeing through the early ramp window (14:45–15:30), conviction tends to consolidate around 15:30. Pre-position before; not after.
+EOD Pressure crosses 0.8× ramp at 15:30 ET. If the charm and pin terms have been agreeing through the early ramp window (14:45–15:30), conviction tends to consolidate around 15:30. Treat that ramp as model timing, not an instruction to pre-position or evidence that dealer orders are scheduled.
 
 ### 3. Quad witching is structural context
 
@@ -180,7 +180,7 @@ Combined with other signals:
 Three traps:
 
 - **Treating a pre-window zero as "no signal today."** The window has not opened yet. The signal is *structurally inactive*, not absent of information.
-- **Ignoring the regime sign flip in pin gravity.** A heavy strike above spot is modeled to pull *up* in a long-gamma regime and *repel down* in a short-gamma regime. The same chart level means opposite things across the two modeled regimes.
+- **Ignoring the regime sign flip in pin gravity.** Positive-gamma attraction toward the target is a model heuristic. In negative gamma, the implemented distance-sign reversal is a house heuristic; do not interpret it as mechanically necessary repulsion.
 - **Trading the raw score without the ramp.** A +0.4 reading at 14:45 (ramp 0.20) is actually a +0.08 effective score. Read the ramp-adjusted magnitude, not the raw input score.
 
 ---
@@ -204,7 +204,7 @@ A worked example. SPX is at 5,825 at 15:15 ET on a monthly OPEX Friday and ZeroG
 - **Charm-at-spot:** modestly negative (sells loading)
 - **Calendar amp:** 1.5× (monthly OPEX)
 
-The structural read: modeled positive-gamma regime with a heavy magnet 15 points below spot, modeled charm-driven hedging is pointing down, and the OPEX amplifier is boosting the score. Practical lean: under the model's read, drift toward 5,810 is the higher-probability path into the close. The trade isn't EOD Pressure itself — it's positioning consistent with the drift direction, with size calibrated to the modeled OPEX read.
+The structural read: modeled positive-gamma regime with a heavy magnet 15 points below spot, modeled charm-driven hedging is pointing down, and the OPEX amplifier is boosting the score. Practical lean: under the model's read, drift toward 5,810 is the path favored by the model into the close. The trade isn't EOD Pressure itself — it's positioning consistent with the drift direction, with size calibrated to the modeled OPEX read.
 
 ---
 

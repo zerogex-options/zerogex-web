@@ -30,6 +30,10 @@ import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
 import { etTodayDateKey, getMarketSession, isIndexSymbol, omitClosedMarketTimes } from '@/core/utils';
 import { loadChartSettings, saveChartSettings } from '@/core/chartSettings';
+import { PIN_STRIKE_COLOR_HEX } from '@/core/pinStrike';
+import { useSharedExpirations } from '@/hooks/useSharedExpirations';
+import { reconcileExpirations } from '@/core/expirationPersistence';
+import ChartCaption from './ChartCaption';
 
 interface StrikeAggregation {
   strike: number;
@@ -156,9 +160,24 @@ const STRIKE_W = 64;
 const GAP = 12;
 const MID_W = 280;
 
+// Numeric GEX value labels overlaid on the middle-panel gamma bars when the
+// "Show GEX values" display option is on. Drawn at each bar's tip in the bar's
+// own colour with a card-background halo (paint-order stroke) so they stay
+// legible over any bar or the panel background across every theme, and only
+// when each strike row has enough vertical room to hold one without colliding
+// with its neighbour (GEX_VALUE_MIN_SLOT).
+const GEX_VALUE_FONT = 9; // px
+const GEX_VALUE_PAD = 4; // px gap between a bar tip and its value label
+const GEX_VALUE_MIN_SLOT = 11; // min px of vertical room per strike to show labels
+
 const SPOT_LINE = '#06B6D4';
 const KEY_LEVEL = '#F5C24A';
 const FLIP_LINE = '#FFB44A';
+// Pin Strike — reachable 0DTE positive-gamma pin. Teal, the app-wide pin hue
+// (--color-pin); a literal hex here because this file's level colors are
+// module constants, not CSS vars. Dashed + labeled so it reads distinctly from
+// the solid cyan spot line.
+const PIN_LINE = PIN_STRIKE_COLOR_HEX;
 
 // Session level lines (pre-market + previous-session high/low) — non-index
 // symbols only (SPY/QQQ etc.; cash indexes have no pre-market session).
@@ -170,6 +189,17 @@ const FLIP_LINE = '#FFB44A';
 const PM_LEVEL_LINE = '#C084FC';
 const PREV_LEVEL_LINE = '#F472B6';
 const SESSION_LEVEL_DASH = '2 3';
+
+// Purple overlay bar for the "combined" gamma view — the per-strike NET GEX
+// drawn on top of the call/put split, pointing right for net-positive and left
+// for net-negative. A distinct hue from the bull/bear split bars and the
+// violet/pink session-level lines so it reads unambiguously as the net. The bar
+// uses a deep violet so it stands out against the bright call/put bars it
+// overlays; NET_TEXT_COLOR is a lighter violet for the tooltip's Net line,
+// which sits on the (light- or dark-theme) tooltip background rather than on a
+// bar and needs to stay legible in both.
+const NET_BAR_COLOR = '#7C3AED';
+const NET_TEXT_COLOR = '#A855F7';
 
 const ZOOM_MIN = 0.4;
 const ZOOM_MAX = 4.0;
@@ -190,7 +220,11 @@ const DEFAULTS = {
   selectedExpiries: [] as string[],
   zoomMul: 1.6,
   paused: false,
-  gexMode: 'split' as 'split' | 'net',
+  gexMode: 'split' as 'split' | 'net' | 'combined',
+  // Overlay the Call/Put/Net dollar-GEX values (same abbreviated style as the
+  // hover tooltip) directly on the middle-panel gamma bars. Opt-in — off by
+  // default so the dense per-strike panel stays uncluttered until asked for.
+  showGexValues: false,
   showOiDots: true,
   showGrid: true,
   showPmLevels: true,
@@ -201,14 +235,17 @@ const DEFAULTS = {
 // The durable display *preferences* a user can save so they auto-load on every
 // visit to this chart (the Strike Profile — dashboard tile + /gex-strike-profile).
 // Deliberately a subset of DEFAULTS: transient view state (paused / rewind /
-// zoom / pan / fullscreen) is never persisted, and `selectedExpiries` is
-// excluded because it holds concrete expiry dates that roll off and would
-// restore stale.
+// zoom / pan / fullscreen) is never persisted here, and `selectedExpiries` is
+// excluded from THIS blob because it is persisted separately — via the tab-wide
+// shared expiration selection (useSharedExpirations), which reconciles concrete
+// expiry dates against the live chain on load so a rolled-off date can't restore
+// stale (it simply drops back to "All").
 const CHART_SETTINGS_ID = 'strike-profile';
 
 type PersistedSettings = {
   tf: ChartTf;
-  gexMode: 'split' | 'net';
+  gexMode: 'split' | 'net' | 'combined';
+  showGexValues: boolean;
   withPrev: boolean;
   showOiDots: boolean;
   showGrid: boolean;
@@ -219,6 +256,7 @@ type PersistedSettings = {
 const PERSISTED_DEFAULTS: PersistedSettings = {
   tf: DEFAULTS.tf,
   gexMode: DEFAULTS.gexMode,
+  showGexValues: DEFAULTS.showGexValues,
   withPrev: DEFAULTS.withPrev,
   showOiDots: DEFAULTS.showOiDots,
   showGrid: DEFAULTS.showGrid,
@@ -272,10 +310,15 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // ── User-controlled view state ──
   const [tf, setTf] = useState<ChartTf>(savedSettings.tf);
   const [withPrev, setWithPrev] = useState<boolean>(savedSettings.withPrev);
-  // Multi-expiration selection. Empty = All (aggregate across every
-  // expiration). A non-empty set aggregates the gamma surface / walls / flip
-  // across exactly those expirations (see expirationsParam below).
-  const [selectedExpiries, setSelectedExpiries] = useState<string[]>(DEFAULTS.selectedExpiries);
+  // Multi-expiration selection sourced from the tab-wide shared selection
+  // (empty = All) so it persists across reloads and stays in sync with every
+  // other expiration-filtering chart. `rawExpiries` is the stored intent; the
+  // reconciled `selectedExpiries` the dropdown and labels use is derived once
+  // the live expiration universe is known (see availableExpirations below).
+  const { selection: rawExpiries, setSelection: setSelectedExpiries } = useSharedExpirations();
+  // Today's ET calendar date, hoisted here so the fetch param can drop any
+  // rolled-off (past) expiration before it hits the timeseries cache key.
+  const todayKey = etTodayDateKey();
   const [zoomMul, setZoomMul] = useState<number>(defaultZoomMul);
   const [paused, setPaused] = useState<boolean>(DEFAULTS.paused);
   // ── Rewind state ──
@@ -293,7 +336,8 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const [playbackActive, setPlaybackActive] = useState<boolean>(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<1 | 2 | 4>(1);
   const [playbackLoop, setPlaybackLoop] = useState<boolean>(false);
-  const [gexMode, setGexMode] = useState<'split' | 'net'>(savedSettings.gexMode);
+  const [gexMode, setGexMode] = useState<'split' | 'net' | 'combined'>(savedSettings.gexMode);
+  const [showGexValues, setShowGexValues] = useState<boolean>(savedSettings.showGexValues);
   const [showOiDots, setShowOiDots] = useState<boolean>(savedSettings.showOiDots);
   const [showGrid, setShowGrid] = useState<boolean>(savedSettings.showGrid);
   // Pre-market and previous-session high/low overlays (non-index symbols).
@@ -331,7 +375,9 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const resetAll = () => {
     setTf(DEFAULTS.tf);
     setWithPrev(DEFAULTS.withPrev);
-    setSelectedExpiries(DEFAULTS.selectedExpiries);
+    // The expiration selection is intentionally NOT reset here: it's a
+    // persisted, cross-chart preference, so a per-chart "reset view" shouldn't
+    // wipe it. The "All expirations" item in the Expiry menu clears it.
     setZoomMul(defaultZoomMul);
     setPaused(DEFAULTS.paused);
     setRewindActive(false);
@@ -340,6 +386,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     setPlaybackSpeed(1);
     setPlaybackLoop(false);
     setGexMode(DEFAULTS.gexMode);
+    setShowGexValues(DEFAULTS.showGexValues);
     setShowOiDots(DEFAULTS.showOiDots);
     setShowGrid(DEFAULTS.showGrid);
     setShowPmLevels(DEFAULTS.showPmLevels);
@@ -363,13 +410,14 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     saveChartSettings<PersistedSettings>(CHART_SETTINGS_ID, {
       tf,
       gexMode,
+      showGexValues,
       withPrev,
       showOiDots,
       showGrid,
       showPmLevels,
       showPrevLevels,
     });
-  }, [tf, gexMode, withPrev, showOiDots, showGrid, showPmLevels, showPrevLevels]);
+  }, [tf, gexMode, showGexValues, withPrev, showOiDots, showGrid, showPmLevels, showPrevLevels]);
 
   const expiryRef = useRef<HTMLDivElement | null>(null);
   const settingsRef = useRef<HTMLDivElement | null>(null);
@@ -456,9 +504,14 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // "18th,17th" share the one module-scoped timeseries cache entry the
   // hook keys on this string.  The backend sums the gamma surface + walls
   // and recomputes the flip across exactly this set.
-  const expirationsParam = selectedExpiries.length === 0
+  // Reconcile the shared selection down to still-live (today-or-later) dates for
+  // the cache key + backend filter, so an overnight-rolled pick never fetches an
+  // expired contract. The dropdown reconciles against the full live universe
+  // below; here we only have `todayKey`, which covers the staleness case.
+  const paramExpiries = rawExpiries.filter((exp) => exp >= todayKey);
+  const expirationsParam = paramExpiries.length === 0
     ? 'all'
-    : [...selectedExpiries].sort().join(',');
+    : [...paramExpiries].sort().join(',');
   const { buckets: strikeProfileBuckets } = useStrikeProfileTimeseries(
     symbol, tfToApi(tf), expirationsParam, paused,
   );
@@ -549,7 +602,6 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const [latchedRawExpirations, setLatchedRawExpirations] = useState<string[]>([]);
   const [latchSymbol, setLatchSymbol] = useState(symbol);
   const [latchGex, setLatchGex] = useState(gexExpirations);
-  const todayKey = etTodayDateKey();
   if (latchSymbol !== symbol) {
     setLatchSymbol(symbol);
     setLatchGex(gexExpirations);
@@ -581,15 +633,15 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     [latchedRawExpirations, todayKey],
   );
 
-  // If the user previously selected expirations that are now past (page
-  // stayed open across midnight ET, or a refresh dropped their date), drop
-  // just those so the chart stops filtering by an expired contract and the
-  // dropdown's "Expiry" chip matches the visible universe.  Pruning to a
-  // shorter list only (never re-adding) keeps this render-time state
-  // adjustment convergent — no update fires once every entry is current.
-  if (selectedExpiries.some((exp) => exp < todayKey)) {
-    setSelectedExpiries((cur) => cur.filter((exp) => exp >= todayKey));
-  }
+  // The reconciled selection the dropdown and "Expiry" chip use: the shared
+  // intent projected onto the live expiration universe, so a rolled-off or
+  // foreign date (one picked on another symbol's chart) simply drops out and
+  // reads as "All". Derived — not stored — so it needs no render-phase prune;
+  // the shared store keeps the user's literal pick and each chart reconciles.
+  const selectedExpiries = useMemo(
+    () => reconcileExpirations(rawExpiries, availableExpirations),
+    [rawExpiries, availableExpirations],
+  );
 
   // Map one bucket's strikes payload into the existing StrikeAggregation
   // shape the Gamma / Positions panels render.  ``call_gamma`` /
@@ -990,11 +1042,82 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     if (gexMode === 'net') {
       return Math.max(1, ...visibleStrikes.map((s) => Math.abs(s.netGex)));
     }
+    if (gexMode === 'combined') {
+      // Combined overlays the net bar on the call/put split, so the column has
+      // to fit whichever of the three is largest at any strike.
+      return Math.max(
+        1,
+        ...visibleStrikes.map((s) =>
+          Math.max(Math.abs(s.callGex), Math.abs(s.putGex), Math.abs(s.netGex)),
+        ),
+      );
+    }
     return Math.max(
       1,
       ...visibleStrikes.map((s) => Math.max(Math.abs(s.callGex), Math.abs(s.putGex))),
     );
   }, [visibleStrikes, gexMode]);
+
+  // Only render the numeric per-strike GEX values when each strike row has
+  // enough vertical room to hold a label without overlapping its neighbour;
+  // when the view is zoomed out to a dense strike ladder the labels are
+  // suppressed (zoom in to reveal them). Never in compact mode — the middle
+  // gamma panel it labels isn't drawn there.
+  const gammaRowSlot = PLOT_HEIGHT / Math.max(1, visibleStrikes.length);
+  const showGammaValues = !compact && showGexValues && gammaRowSlot >= GEX_VALUE_MIN_SLOT;
+
+  // Render one per-strike GEX value at a bar's tip. Grows outward from the tip
+  // (`dir` = 1 right, -1 left) and, when that would overflow the panel, pins to
+  // the panel edge instead. Bar-colour fill over a card-background halo keeps it
+  // legible over the bar or the panel background in any theme.
+  const gexValueLabel = (
+    value: number,
+    tipX: number,
+    yPos: number,
+    dir: number,
+    color: string,
+    key: string,
+  ) => {
+    const text = formatExposure(value);
+    const estW = text.length * (GEX_VALUE_FONT * 0.62);
+    const panelLeft = MID_X;
+    const panelRight = MID_X + MID_W;
+    let x: number;
+    let anchor: 'start' | 'end';
+    if (dir > 0) {
+      x = tipX + GEX_VALUE_PAD;
+      anchor = 'start';
+      if (x + estW > panelRight) {
+        x = panelRight;
+        anchor = 'end';
+      }
+    } else {
+      x = tipX - GEX_VALUE_PAD;
+      anchor = 'end';
+      if (x - estW < panelLeft) {
+        x = panelLeft;
+        anchor = 'start';
+      }
+    }
+    return (
+      <text
+        key={key}
+        x={x}
+        y={yPos}
+        textAnchor={anchor}
+        dominantBaseline="central"
+        fontSize={GEX_VALUE_FONT}
+        fontWeight={600}
+        fill={color}
+        stroke={cardBg}
+        strokeWidth={2.5}
+        strokeLinejoin="round"
+        style={{ paintOrder: 'stroke', fontVariantNumeric: 'tabular-nums', pointerEvents: 'none' }}
+      >
+        {text}
+      </text>
+    );
+  };
 
   const positionsXMax = useMemo(() => {
     if (visibleStrikes.length === 0) return 1;
@@ -1195,6 +1318,9 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const effFlip = toNumber(levelSourceBucket?.gamma_flip) ?? toNumber(gexSummary?.gamma_flip);
   const effCallWall = toNumber(levelSourceBucket?.call_wall) ?? toNumber(gexSummary?.call_wall);
   const effPutWall = toNumber(levelSourceBucket?.put_wall) ?? toNumber(gexSummary?.put_wall);
+  // Pin Strike is a summary-only level (not carried on the strike-profile
+  // timeseries buckets), so it reads straight from the served summary.
+  const effPin = toNumber(gexSummary?.pin_strike);
 
   const keyLevels = useMemo(() => {
     if (!yBounds) return [] as Array<{ y: number; price: number; color: string; label: string; emphasized?: boolean; dash?: string }>;
@@ -1212,6 +1338,9 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     }
     if (effPutWall != null && Number.isFinite(effPutWall)) {
       items.push({ y: yFor(effPutWall), price: effPutWall, color: KEY_LEVEL, label: 'Put Wall' });
+    }
+    if (effPin != null && Number.isFinite(effPin)) {
+      items.push({ y: yFor(effPin), price: effPin, color: PIN_LINE, label: 'Pin Strike', dash: '2 3' });
     }
     // Session context levels — pre-market + previous-session high/low.
     // Non-index symbols only; each pushes independently so partial data
@@ -1235,7 +1364,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
       }
     }
     return items;
-  }, [effFlip, effCallWall, effPutWall, chartSpot, symbolIsIndex, sessionLevels, yBounds, PLOT_HEIGHT, showPmLevels, showPrevLevels]);
+  }, [effFlip, effCallWall, effPutWall, effPin, chartSpot, symbolIsIndex, sessionLevels, yBounds, PLOT_HEIGHT, showPmLevels, showPrevLevels]);
 
   // ── Hover tracking for tooltips/crosshair ──
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -1674,8 +1803,10 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                     key={exp}
                     type="button"
                     onClick={() =>
-                      setSelectedExpiries((cur) =>
-                        cur.includes(exp) ? cur.filter((v) => v !== exp) : [...cur, exp],
+                      setSelectedExpiries(
+                        selectedExpiries.includes(exp)
+                          ? selectedExpiries.filter((v) => v !== exp)
+                          : [...selectedExpiries, exp],
                       )
                     }
                     className="w-full text-left px-3 py-1.5 text-xs hover:bg-[color:var(--color-info-soft)] flex items-center gap-2"
@@ -1698,17 +1829,26 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
           <span>DTE {dteLabel}</span>
         </div>
 
-        {/* Gamma display mode toggle — hidden in compact mode (no middle panel to control) */}
+        {/* Gamma display mode cycle: Split → Net → Combined → Split. Hidden in
+            compact mode (no middle panel to control). */}
         {!compact && (
           <button
             type="button"
-            onClick={() => setGexMode((m) => (m === 'split' ? 'net' : 'split'))}
+            onClick={() =>
+              setGexMode((m) => (m === 'split' ? 'net' : m === 'net' ? 'combined' : 'split'))
+            }
             className={toolbarBtnClass}
-            style={toolbarBtnStyle(gexMode === 'net')}
-            title={`Gamma mode: ${gexMode === 'split' ? 'Call/Put split' : 'Net only'} (click to toggle)`}
+            style={toolbarBtnStyle(gexMode !== 'split')}
+            title={`Gamma mode: ${
+              gexMode === 'split'
+                ? 'Call/Put split'
+                : gexMode === 'net'
+                  ? 'Net only'
+                  : 'Combined (Call/Put split with the Net overlaid)'
+            } (click to cycle)`}
           >
             <BarChart3 size={12} />
-            <span>{gexMode === 'split' ? 'Split' : 'Net'}</span>
+            <span>{gexMode === 'split' ? 'Split' : gexMode === 'net' ? 'Net' : 'Combined'}</span>
           </button>
         )}
 
@@ -1845,6 +1985,16 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                     onChange={(e) => setShowOiDots(e.target.checked)}
                   />
                   <span>Show OI dots</span>
+                </label>
+              )}
+              {!compact && (
+                <label className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer hover:bg-[color:var(--color-info-soft)]" style={{ color: textPrimary }}>
+                  <input
+                    type="checkbox"
+                    checked={showGexValues}
+                    onChange={(e) => setShowGexValues(e.target.checked)}
+                  />
+                  <span>Show GEX values</span>
                 </label>
               )}
               <label className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer hover:bg-[color:var(--color-info-soft)]" style={{ color: textPrimary }}>
@@ -2179,37 +2329,56 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
             const barH = Math.max(2, Math.min(10, (PLOT_HEIGHT / Math.max(1, visibleStrikes.length)) * 0.55));
             const isHovered = hoveredStrike?.strike === s.strike && hover?.panel === 'middle';
             const barOpacity = isHovered ? 1 : hoveredStrike && hover?.panel === 'middle' ? 0.55 : 0.95;
+            const cx = MID_X + MID_W / 2;
+            const half = MID_W / 2;
+            const netPositive = s.netGex >= 0;
+            const netW = (Math.abs(s.netGex) / gammaXMax) * half;
+
             if (gexMode === 'net') {
-              const w = (Math.abs(s.netGex) / gammaXMax) * (MID_W / 2);
-              const positive = s.netGex >= 0;
               return (
                 <g key={`gex-${s.strike}`}>
                   {showOiDots && (
-                    <circle cx={MID_X + MID_W / 2} cy={y} r={1.4} fill={subtle} opacity={0.55} />
+                    <circle cx={cx} cy={y} r={1.4} fill={subtle} opacity={0.55} />
                   )}
                   {s.netGex !== 0 && (
                     <rect
-                      x={positive ? MID_X + MID_W / 2 : MID_X + MID_W / 2 - Math.max(0, w)}
+                      x={netPositive ? cx : cx - Math.max(0, netW)}
                       y={y - barH / 2}
-                      width={Math.max(0, w)}
+                      width={Math.max(0, netW)}
                       height={barH}
-                      fill={positive ? 'var(--color-bull)' : 'var(--color-bear)'}
+                      fill={netPositive ? 'var(--color-bull)' : 'var(--color-bear)'}
                       opacity={barOpacity}
                     />
                   )}
+                  {showGammaValues && s.netGex !== 0 &&
+                    gexValueLabel(
+                      s.netGex,
+                      netPositive ? cx + netW : cx - netW,
+                      y,
+                      netPositive ? 1 : -1,
+                      netPositive ? 'var(--color-bull)' : 'var(--color-bear)',
+                      `netval-${s.strike}`,
+                    )}
                 </g>
               );
             }
-            const callW = (Math.abs(s.callGex) / gammaXMax) * (MID_W / 2);
-            const putW = (Math.abs(s.putGex) / gammaXMax) * (MID_W / 2);
+
+            // Split and Combined both draw the call/put split bars. Combined
+            // adds a full-height NET bar (same thickness as the split bars)
+            // overlaid on top, pointing right for net-positive and left for
+            // net-negative. |net| ≤ max(|call|,|put|) on the side it points, so
+            // the split bar's tip still shows past the net overlay.
+            const callW = (Math.abs(s.callGex) / gammaXMax) * half;
+            const putW = (Math.abs(s.putGex) / gammaXMax) * half;
+            const isCombined = gexMode === 'combined';
             return (
               <g key={`gex-${s.strike}`}>
                 {showOiDots && (
-                  <circle cx={MID_X + MID_W / 2} cy={y} r={1.4} fill={subtle} opacity={0.55} />
+                  <circle cx={cx} cy={y} r={1.4} fill={subtle} opacity={0.55} />
                 )}
                 {s.callGex !== 0 && (
                   <rect
-                    x={MID_X + MID_W / 2}
+                    x={cx}
                     y={y - barH / 2}
                     width={Math.max(0, callW)}
                     height={barH}
@@ -2219,7 +2388,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                 )}
                 {s.putGex !== 0 && (
                   <rect
-                    x={MID_X + MID_W / 2 - Math.max(0, putW)}
+                    x={cx - Math.max(0, putW)}
                     y={y - barH / 2}
                     width={Math.max(0, putW)}
                     height={barH}
@@ -2227,6 +2396,25 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                     opacity={barOpacity}
                   />
                 )}
+                {isCombined && s.netGex !== 0 && (
+                  <rect
+                    x={netPositive ? cx : cx - Math.max(0, netW)}
+                    y={y - barH / 2}
+                    width={Math.max(0, netW)}
+                    height={barH}
+                    fill={NET_BAR_COLOR}
+                    opacity={barOpacity}
+                  />
+                )}
+                {/* Value labels: the call/put split values in both Split and
+                    Combined. In Combined the Net is the purple overlay bar (its
+                    value is on the hover tooltip and in Net mode) — a third
+                    label per row collides with the call/put labels at this bar
+                    density, so it's intentionally not drawn here. */}
+                {showGammaValues && s.callGex !== 0 &&
+                  gexValueLabel(s.callGex, cx + callW, y, 1, 'var(--color-bull)', `callval-${s.strike}`)}
+                {showGammaValues && s.putGex !== 0 &&
+                  gexValueLabel(s.putGex, cx - putW, y, -1, 'var(--color-bear)', `putval-${s.strike}`)}
               </g>
             );
           })}
@@ -2249,7 +2437,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                 textAnchor="middle"
                 fontWeight={600}
               >
-                Gamma {gexMode === 'split' ? '(Call / Put)' : '(Net)'}
+                Gamma {gexMode === 'split' ? '(Call / Put)' : gexMode === 'net' ? '(Net)' : '(Combined)'}
               </text>
             </>
           )}
@@ -2500,7 +2688,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
               {hover.panel === 'middle' && hoveredStrike && (
                 <>
                   <div className="font-semibold mb-1">Strike ${hoveredStrike.strike.toFixed(2)}</div>
-                  {gexMode === 'split' ? (
+                  {gexMode !== 'net' ? (
                     <>
                       <div className="font-mono tabular-nums" style={{ color: 'var(--color-bull)' }}>
                         Call GEX: {formatExposure(hoveredStrike.callGex)}
@@ -2508,7 +2696,10 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                       <div className="font-mono tabular-nums" style={{ color: 'var(--color-bear)' }}>
                         Put GEX: {formatExposure(hoveredStrike.putGex)}
                       </div>
-                      <div className="font-mono tabular-nums mt-1" style={{ color: subtle }}>
+                      <div
+                        className="font-mono tabular-nums mt-1"
+                        style={{ color: gexMode === 'combined' ? NET_TEXT_COLOR : subtle }}
+                      >
                         Net: {formatExposure(hoveredStrike.netGex)}
                       </div>
                     </>
@@ -2673,6 +2864,12 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
           </svg>
           <span style={{ color: textPrimary }}>Put Wall</span>
         </span>
+        <span className="flex items-center gap-1.5" title="Pin Strike — reachable 0DTE strike with the strongest modeled positive dealer-gamma stabilization into expiration; a modeled pinning level, not a target">
+          <svg width="22" height="6" aria-hidden="true">
+            <line x1="0" x2="22" y1="3" y2="3" stroke={PIN_LINE} strokeDasharray="2 3" strokeWidth="1.2" />
+          </svg>
+          <span style={{ color: textPrimary }}>Pin Strike</span>
+        </span>
         {!symbolIsIndex && showPmLevels && (
           <span className="flex items-center gap-1.5" title="High and low of today's pre-market session (04:00–09:30 ET) — live while the pre-market is in progress">
             <svg width="22" height="6" aria-hidden="true">
@@ -2695,13 +2892,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
 
       {/* Bottom strip — hidden in compact mode to reclaim vertical space. */}
       {!compact && (
-      <div
-        className="flex items-center justify-between px-5 py-2 text-xs"
-        style={{ borderTop: `1px solid ${border}`, color: subtle }}
-      >
-        <span>Powered by ZeroGEX</span>
-        <span>Gamma / Positions</span>
-      </div>
+        <ChartCaption variant="strip" right="Gamma / Positions" />
       )}
     </div>
   );

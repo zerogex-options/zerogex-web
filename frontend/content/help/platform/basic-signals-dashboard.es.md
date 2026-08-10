@@ -8,7 +8,7 @@
 
 El Basic Signal Dashboard es la **cuadrícula de un vistazo** de las seis señales Basic. Cada tarjeta muestra el puntaje actual en la línea [-1, +1], la contribución que aporta al composite y un sparkline.
 
-Las señales Basic son **continuas**. No disparan alertas discretas — empujan el composite hacia arriba o hacia abajo en cada actualización.
+Las señales Basic son **continuas**. No disparan alertas discretas — empujan el composite hacia arriba (hacia tendencia) o hacia abajo (hacia lateralización) en cada actualización.
 
 ## Las seis señales
 
@@ -35,27 +35,27 @@ El spread entre la IV de puts OTM menos la IV de calls OTM frente a su línea ba
 
 ### Vanna/Charm Flow
 
-Vanna y charm agregados de los dealers. El vanna es lo que los dealers cubrirán si la vol se mueve; el charm es lo que cubrirán a medida que pasa el tiempo. Lecturas positivas significan que el flujo estructural respalda precios más altos; negativas, lo contrario. El charm se acelera hacia el cierre.
+Vanna y charm agregados de los dealers. El vanna modela lo que los dealers *podrían* cubrir si la vol se mueve; el charm modela la deriva de delta a medida que pasa el tiempo (manteniendo constantes el spot y la IV). Una lectura positiva modela un flujo de cobertura que *puede* respaldar precios más altos; una negativa, lo contrario — la dirección y la magnitud siguen dependiendo de la composición del libro y de quién posee las opciones. La presión del charm tiende a acumularse hacia el cierre.
 
 ### Dealer Delta Pressure
 
-El delta neto de los dealers a partir de la cadena de opciones (call_delta_oi + put_delta_oi). Un valor fuertemente negativo significa que los dealers están short delta y comprarán si el precio sube; un valor fuertemente positivo significa que están long y venderán si el precio sube. La señal pregunta "¿están los dealers obligados a perseguir?".
+El delta neto de los dealers a partir de la cadena de opciones (call_delta_oi + put_delta_oi) — una lectura modelada aparte del gamma. Un valor fuertemente negativo modela dealers short delta, que *tenderían* a comprar más arriba para mantenerse cubiertos; un valor fuertemente positivo los modela long, tendiendo a vender más arriba. La señal pregunta "¿es probable que los dealers persigan este movimiento?".
 
 ### GEX Gradient
 
-Gamma por encima del spot frente al gamma por debajo del spot, con una verificación de concentración ATM. Indica en qué lado del spot hay más peso de gamma. Gradiente positivo ⇒ más gamma por debajo del spot ⇒ un suelo de soporte que estabiliza al alza (sesgo alcista); negativo ⇒ más gamma por encima del spot ⇒ amplifica a la baja (sesgo bajista).
+Gamma por encima del spot frente al gamma por debajo del spot, con una verificación de concentración ATM. Indica en qué lado del spot hay más peso de gamma modelado. Gradiente positivo ⇒ más gamma por debajo del spot ⇒ un suelo de soporte modelado (sesgo alcista, suponiendo que los dealers estén long gamma ahí); negativo ⇒ más gamma por encima del spot ⇒ sesgo que amplifica a la baja. El sesgo supone que se mantiene el signo modelado del gamma de los dealers.
 
 ### Positioning Trap
 
-PCR + desequilibrio con signo del smart money + momentum de 5 barras + inclinación de flip + contexto de régimen. Pregunta si la multitud está posicionada en el sentido equivocado. **Esta es una señal de reversión a la media** — un puntaje positivo alto es una señal de "vender la subida", no de "ponerse largo".
+PCR + desequilibrio con signo del smart money + momentum de 5 barras + inclinación de flip + contexto de régimen. Pregunta si la multitud está posicionada en el sentido equivocado — y desvanece a la multitud, no al precio. Un puntaje **positivo** alto señala una multitud inclinada a short (muchos puts) que puede ser exprimida **al alza** — un short-cover squeeze alcista; un puntaje **negativo** alto señala una multitud inclinada a long (muchos calls) vulnerable a un flush **a la baja**. El signo debe leerse como la dirección del squeeze/flush, no como una simple indicación de "ponerse largo/corto".
 
 ## Cómo leer el dashboard
 
 Tres patrones:
 
-1. **Buscar confluencia.** Si tres o cuatro de las seis señales apuntan en la misma dirección con magnitudes no triviales, el composite lo reflejará.
+1. **Buscar confluencia.** Si tres o cuatro de las seis señales apuntan en la misma dirección con magnitudes no triviales, el composite se moverá hacia un régimen de tendencia o de lateralización en consecuencia.
 2. **Buscar divergencia.** Cuando el Tape Flow Bias es fuertemente positivo pero el GEX Gradient es marcadamente negativo, los dealers desvanecerán las compras — el tape se equivoca sobre dónde está el pin estructural.
-3. **Observar el Positioning Trap por separado.** Es la única señal Basic con sesgo de reversión a la media. Trate una lectura de Trap muy positiva junto con un Tape fuertemente long como una advertencia, no como una confirmación.
+3. **Observar el Positioning Trap por separado.** Es la única señal Basic con sesgo de reversión a la media. Una lectura de Trap muy **negativa** (una multitud inclinada a long en riesgo de un flush a la baja) junto con un Tape fuertemente long es una advertencia, no una confirmación — la multitud a la que se suma el tape es justo la que el Trap marca como mal posicionada.
 
 ## Qué no aparece en el dashboard Basic
 

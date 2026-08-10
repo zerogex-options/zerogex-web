@@ -128,4 +128,4 @@ Educational content only — none of the above is a trade recommendation.
 
 ---
 
-If you want to see today's Net GEX, gamma flip, and live regime read for SPY, SPX, and QQQ — the three numbers that tell you whether dealers are long gamma or short gamma right now — the free ZeroGEX gamma-levels view surfaces all of them.
+If you want to see today's Net GEX, gamma flip, and live regime read for SPY, SPX, QQQ, and NDX — the three numbers that tell you whether dealers are long gamma or short gamma right now — the free ZeroGEX gamma-levels view surfaces all of them.

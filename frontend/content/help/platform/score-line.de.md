@@ -17,10 +17,10 @@ Bei Richtungssignalen bildet das Vorzeichen die erwartete Preisrichtung ab:
 - **Positiv ⇒ bullische Tendenz** (Long-Richtung ist der Trade-Bias)
 - **Negativ ⇒ bearische Tendenz**
 
-Bei Mean-Reversion-Signalen (Positioning Trap, in manchen Konfigurationen auch Trap Detection) bildet das Vorzeichen die **Richtung der Bewegung ab, gegen die man faden sollte**:
+Bei Mean-Reversion-Signalen (Positioning Trap, Trap Detection) bildet das Vorzeichen die **aufgelöste direktionale Tendenz** ab — der Trade läuft *gegen* die falsch positionierte Crowd oder den gescheiterten Ausbruch, sodass das Vorzeichen in dieselbe Richtung zeigt wie bei den Richtungssignalen oben:
 
-- **Positiv ⇒ die Aufwärtsbewegung ist offside / gescheitert** (Fade nach unten)
-- **Negativ ⇒ die Abwärtsbewegung ist offside / gescheitert** (Fade nach oben)
+- **Positiv ⇒ bullische Tendenz** — z. B. eine short/bärische Crowd, die Gefahr läuft, nach oben herausgesqueezt zu werden, oder ein gescheiterter Abwärtsausbruch, den du kaufen würdest
+- **Negativ ⇒ bearische Tendenz** — z. B. eine long/bullische Crowd, die Gefahr läuft, nach unten gespült zu werden, oder ein gescheiterter Aufwärtsausbruch, den du verkaufen würdest
 
 Die Signal-Karte auf jeder Seite gibt an, welche Variante gilt. Lies den Trade-Bias-Chip, bevor du den Score liest.
 
@@ -73,7 +73,7 @@ Eine einfache Faustregel, die sich bewährt hat:
 
 > Handle nach **Konfluenz**, nicht nach einzelnen Scores.
 
-Ein einzelnes +0.7 bei einem Signal ist interessant. Ein +0.5 bei drei Signalen aus unabhängigen Dimensionen (ein Basic-Signal, ein Advanced-Signal, das Composite) ist ein Trade.
+Ein einzelnes +0.7 bei einem Signal ist interessant. Ein +0.5 bei drei Signalen aus unabhängigen Dimensionen (etwa zwei Basic-Signale und ein Advanced-Signal) ist ein Trade. Der Composite gehört nicht zu dieser ±0.5-Zählung — er ist ein 0–100-Regime-Gauge, kein [-1, +1]-Richtungs-Score, also lies seinen Wert nicht als bullisch/bärisch.
 
 ## Was sich ändert, wenn sich das Regime ändert
 

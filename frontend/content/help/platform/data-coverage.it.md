@@ -6,13 +6,14 @@
 
 ## Simboli coperti
 
-ZeroGEX offre una copertura analitica completa per tre strumenti:
+ZeroGEX offre una copertura analitica completa per quattro strumenti:
 
 - **SPY** — ETF sull'S&P 500
 - **SPX** — Indice S&P 500 (opzioni di tipo europeo)
 - **QQQ** — ETF sul Nasdaq 100
+- **NDX** — Indice Nasdaq 100 (opzioni di tipo europeo)
 
-Questi sono i tre sottostanti più liquidi e più ricchi di gamma del mercato delle opzioni USA — gli strumenti in cui l'attività di copertura dei dealer ha il maggiore impatto sul prezzo intraday.
+Questi sono i quattro sottostanti più liquidi e più ricchi di gamma del mercato delle opzioni USA — gli strumenti in cui l'attività di copertura dei dealer ha il maggiore impatto sul prezzo intraday.
 
 Non prevediamo di supportare azioni su singoli titoli. Il modello dei segnali e il concetto di regime sono progettati attorno al comportamento dei dealer a livello di indice.
 
@@ -77,12 +78,12 @@ Non divulghiamo pubblicamente i nomi specifici dei fornitori, ma lo standard qua
 
 La latenza end-to-end dalla stampa di un'operazione sul tape fino al suo arrivo nel tuo browser è tipicamente inferiore a un secondo durante gli orari regolari. Il collo di bottiglia raramente sono i dati — sono piuttosto la tua rete e il tuo browser. Vedi [Streaming e prestazioni](/help/platform/streaming-and-performance).
 
-## Perché solo SPY / SPX / QQQ
+## Perché solo SPY / SPX / QQQ / NDX
 
 Due motivi:
 
 1. Il modello di posizionamento dei dealer funziona bene solo dove il flow dei dealer rappresenta una frazione significativa del flow totale. Questo è il complesso degli indici.
-2. Preferiamo fare bene tre strumenti piuttosto che fare a metà dieci strumenti.
+2. Preferiamo fare bene quattro strumenti piuttosto che fare a metà dieci strumenti.
 
 Le azioni su singoli titoli possono muoversi per notizie idiosincratiche che rendono la lettura del GEX più rumorosa. Non è il nostro campo.
 

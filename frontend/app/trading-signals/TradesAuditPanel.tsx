@@ -20,7 +20,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Download, FileSpreadsheet, TrendingDown, TrendingUp } from 'lucide-react';
+import { Download, FileSpreadsheet, Minus, TrendingDown, TrendingUp } from 'lucide-react';
 import { fmtMoney, fmtSignedMoney, fmtSignedPct } from './format';
 import type { BotRow } from './types';
 
@@ -836,41 +836,45 @@ function ContractCell({
 /**
  * Direction rendered as a badge rather than a word: a white trending-up arrow
  * on a green disc for a bullish trade, a trending-down arrow on a red disc for
- * a bearish one. The disc fill uses the --color-bull / --color-bear theme
- * tokens (so it tracks the active theme); the word is preserved for hover
- * (title) and assistive tech (aria-label), and any value that isn't
- * bullish/bearish (e.g. a neutral/market-neutral structure) falls back to its
- * raw text so nothing silently vanishes.
+ * a bearish one, and a flat dash on a muted disc for a neutral / market-neutral
+ * structure (e.g. an iron condor). The disc fill uses the --color-bull /
+ * --color-bear / --color-text-secondary theme tokens (so it tracks the active
+ * theme); the word is preserved for hover (title) and assistive tech
+ * (aria-label). Anything that isn't bullish/bearish/neutral still falls back to
+ * its raw text so nothing silently vanishes.
  */
 function DirectionCell({ direction }: { direction: string }) {
   const dir = (direction ?? '').toLowerCase();
   const isBull = dir === 'bullish';
   const isBear = dir === 'bearish';
-  if (!isBull && !isBear) {
+  const isNeutral = dir === 'neutral' || dir === 'market-neutral' || dir === 'market_neutral';
+  if (!isBull && !isBear && !isNeutral) {
     return (
       <span className="text-[var(--color-text-secondary)] capitalize">
         {direction || '—'}
       </span>
     );
   }
-  const label = isBull ? 'Bullish' : 'Bearish';
+  const label = isBull ? 'Bullish' : isBear ? 'Bearish' : 'Neutral';
+  const bg = isBull
+    ? 'var(--color-bull)'
+    : isBear
+      ? 'var(--color-bear)'
+      : 'var(--color-text-secondary)';
   return (
     <span
       className="inline-flex items-center justify-center rounded-full"
-      style={{
-        width: 24,
-        height: 24,
-        backgroundColor: isBull ? 'var(--color-bull)' : 'var(--color-bear)',
-        color: '#ffffff',
-      }}
+      style={{ width: 24, height: 24, backgroundColor: bg, color: '#ffffff' }}
       role="img"
       aria-label={label}
       title={label}
     >
       {isBull ? (
         <TrendingUp size={15} strokeWidth={2.5} aria-hidden="true" />
-      ) : (
+      ) : isBear ? (
         <TrendingDown size={15} strokeWidth={2.5} aria-hidden="true" />
+      ) : (
+        <Minus size={15} strokeWidth={2.5} aria-hidden="true" />
       )}
     </span>
   );

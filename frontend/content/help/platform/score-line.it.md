@@ -17,10 +17,10 @@ Per i segnali direzionali, il segno mappa la direzione di prezzo attesa:
 - **Positivo ⇒ inclinazione rialzista** (il bias di trade è long)
 - **Negativo ⇒ inclinazione ribassista**
 
-Per i segnali mean-reversion (Positioning Trap, Trap Detection in alcune configurazioni), il segno indica la **direzione del movimento da fadare**:
+Per i segnali mean-reversion (Positioning Trap, Trap Detection), il segno indica l'**inclinazione direzionale risolta** — il trade opera *contro* la folla fuori posizione o la rottura fallita, quindi il segno punta nello stesso verso dei segnali direzionali qui sopra:
 
-- **Positivo ⇒ il movimento al rialzo è fuori posizione / fallito** (fade al ribasso)
-- **Negativo ⇒ il movimento al ribasso è fuori posizione / fallito** (fade al rialzo)
+- **Positivo ⇒ inclinazione rialzista** — ad es. una folla short/ribassista a rischio di essere spinta al rialzo in uno squeeze, o una rottura al ribasso fallita che compreresti
+- **Negativo ⇒ inclinazione ribassista** — ad es. una folla long/rialzista a rischio di essere spazzata al ribasso, o una rottura al rialzo fallita che venderesti
 
 La scheda del segnale su ogni pagina dichiara quale interpretazione si applica. Leggi il chip del bias di trade prima di leggere il punteggio.
 
@@ -73,7 +73,7 @@ Una semplice regola pratica che ha retto alla prova dei fatti:
 
 > Agisci sulla **confluenza**, non sui punteggi individuali.
 
-Un singolo +0.7 su un segnale è interessante. Un +0.5 su tre segnali provenienti da dimensioni indipendenti (un segnale Basic, un segnale Advanced, il composito) è un trade.
+Un singolo +0.7 su un segnale è interessante. Un +0.5 su tre segnali provenienti da dimensioni indipendenti (ad esempio, due segnali Basic e un segnale Advanced) è un trade. Il composito non fa parte di quel conteggio di ±0.5 — è un gauge di regime 0–100, non un punteggio direzionale [-1, +1], quindi non leggere il suo livello come rialzo/ribasso.
 
 ## Cosa cambia se cambia il regime
 

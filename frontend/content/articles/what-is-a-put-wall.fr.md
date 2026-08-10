@@ -1,6 +1,8 @@
-# Qu'est-ce qu'un put wall ? Comment les traders d'options utilisent les put walls comme support des dealers
+# Qu’est-ce qu’un Put Wall ? La concentration de gamma put expliquée
+> **Note méthodologique mise à jour — elle prévaut sur toute formulation incompatible plus bas.** ZeroGEX estime l’inventaire des dealers à partir de données publiques sans l’observer directement. Le modèle conserve la convention calls positifs/puts négatifs (`Net GEX = Call GEX − Put GEX`) et suppose les dealers nets longs calls et nets shorts puts. Les calls et puts longs ont un gamma positif ; les calls et puts shorts ont un gamma négatif. Le Put Wall est la plus grande concentration de gamma put sous le spot et représente localement un gamma dealer négatif : il peut coïncider avec un support, mais la couverture du put short ne crée pas mécaniquement un plancher. Les walls peuvent migrer avec le spot, le temps et la volatilité implicite alors que l’open interest officiel ne change pas en séance. À l’approche de l’échéance, le gamma se concentre près de l’ATM : le gamma ATM peut augmenter, tandis que le gamma nettement ITM ou OTM tend vers zéro. Le Gamma Flip sélectionné est une transition locale ; le profil peut avoir plusieurs croisements ou aucun croisement significatif. Charm et vanna sont des variations conditionnelles du delta, pas des ordres programmés. Les scores sont des résultats heuristiques du modèle, pas des probabilités calibrées. Un gamma négatif amplifie la direction déjà engagée ; la distance à une cible n’implique pas une répulsion. L’inversion du terme de pin d’EOD Pressure reste donc une heuristique ZeroGEX. Max Pain minimise le paiement intrinsèque agrégé et ne maximise pas exactement le notionnel expirant sans valeur. Le DEX brut mesure le delta des seules options, pas le futur flux de couverture ; prime et côté agresseur ne prouvent ni information, ni ouverture, ni conviction.
 
-*Le put wall est le strike où se concentre le gamma des dealers côté put — généralement le support le plus solide, adossé au hedging des dealers, sur le tableau. Voici ce qu'est réellement un put wall, pourquoi le prix y réagit, comment il se déplace en intraday, et quand il tient ou cède.*
+
+*Comment interpréter les fortes concentrations de gamma put, pourquoi elles peuvent coïncider avec un support et quand le niveau peut céder.*
 
 ---
 
@@ -93,7 +95,7 @@ Changez une variable — disons que le put wall migre de 5 790 à 5 782 pendant 
 
 ## Comment trouver le put wall du jour
 
-Vous n'avez pas besoin de calculer le gamma des dealers à la main. ZeroGEX publie le put wall actuel — aux côtés du call wall, du gamma flip, du max pain et du Net GEX — pour les trois produits indiciels les plus échangés, gratuitement et avec environ 15 minutes de retard : consultez le put wall du jour sur [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels) et [QQQ](/qqq-gamma-levels). Pour la version en direct, à la sous-seconde, avec le profil gamma complet et la heatmap strike par DTE, le [dashboard GEX 0DTE en temps réel](/real-time-gex-0dte) trace le put wall à mesure qu'il migre au fil de la séance.
+Vous n'avez pas besoin de calculer le gamma des dealers à la main. ZeroGEX publie le put wall actuel — aux côtés du call wall, du gamma flip, du max pain et du Net GEX — pour les quatre produits indiciels les plus échangés, gratuitement et avec environ 15 minutes de retard : consultez le put wall du jour sur [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) et [NDX](/ndx-gamma-levels). Pour la version en direct, à la sous-seconde, avec le profil gamma complet et la heatmap strike par DTE, le [dashboard GEX 0DTE en temps réel](/real-time-gex-0dte) trace le put wall à mesure qu'il migre au fil de la séance.
 
 ---
 
@@ -105,4 +107,4 @@ Contenu à visée éducative uniquement — rien de ce qui précède ne constitu
 
 ---
 
-Envie de le voir en temps réel ? Consultez dès aujourd'hui les **put walls SPX / SPY / QQQ** sur ZeroGEX — les pages gratuites de niveaux gamma [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels) et [QQQ](/qqq-gamma-levels) tracent le put wall aux côtés du [call wall](/education/what-is-a-call-wall), du gamma flip et du Net GEX. Pour les niveaux qui comptent le plus comme support et résistance, voir [support et résistance basés sur les options](/education/options-support-and-resistance), et pour la lecture en direct, ouvrez le [dashboard GEX 0DTE en temps réel](/real-time-gex-0dte).
+Envie de le voir en temps réel ? Consultez dès aujourd'hui les **put walls SPX / SPY / QQQ / NDX** sur ZeroGEX — les pages gratuites de niveaux gamma [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) et [NDX](/ndx-gamma-levels) tracent le put wall aux côtés du [call wall](/education/what-is-a-call-wall), du gamma flip et du Net GEX. Pour les niveaux qui comptent le plus comme support et résistance, voir [support et résistance basés sur les options](/education/options-support-and-resistance), et pour la lecture en direct, ouvrez le [dashboard GEX 0DTE en temps réel](/real-time-gex-0dte).

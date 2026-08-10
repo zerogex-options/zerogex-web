@@ -9,7 +9,7 @@
 ZeroGEX gestisce **due famiglie** di signal. Il loro comportamento è diverso, ed è voluto.
 
 - I **signal Advanced** pongono una domanda precisa e situazionale — *"la chiusura si sta bloccando su un livello?"*, *"questo breakout è appena fallito?"*. Ognuno produce un punteggio sulla linea **[-1, +1]** **e** un **trigger** discreto: quando il punteggio supera la soglia del signal, scatta un alert e può abilitare un playbook. Sono event-driven.
-- I **signal Basic** sono continui. Non scattano — alimentano invece il **composito MSI** con un peso fisso, spostando la lettura combinata verso l'alto o verso il basso a ogni aggiornamento. Li vedi come input al quadro d'insieme, non come alert autonomi.
+- I **signal Basic** sono continui. Non scattano — alimentano invece il **composito MSI** con un peso fisso, spostando la lettura combinata del regime più in alto (verso il trend) o più in basso (verso il chop) a ogni aggiornamento. Li vedi come input al quadro d'insieme, non come alert autonomi.
 
 Questa è la distinzione più importante. Interiorizzala prima di leggere le pagine dei singoli signal.
 
@@ -17,7 +17,7 @@ Questa è la distinzione più importante. Interiorizzala prima di leggere le pag
 
 Ogni signal di ZeroGEX — Advanced o Basic — vive sulla stessa linea numerica: **[-1, +1]**.
 
-- Il **segno** indica la direzione. Positivo è rialzista; negativo è ribassista. Alcuni signal sono di mean-reversion (quindi un punteggio positivo significa "fai fade dei rialzi"); questi riportano un chip "trade bias" ben visibile sulla pagina.
+- Il **segno** indica la direzione. Per la maggior parte dei signal positivo è rialzista e negativo è ribassista — ma alcuni sono di mean-reversion o comunque con segno invertito, quindi un punteggio positivo non significa sempre "vai long". Ogni card riporta un chip "trade bias" che specifica esattamente come leggere il segno di quel signal.
 - La **magnitudine** indica la convinzione. Più il punteggio si avvicina a ±1, più forte è la lettura.
 - **Un punteggio 0 quasi non è mai neutro.** Per la maggior parte dei signal significa che i dati sono insufficienti o che questa domanda specifica non ha risposta al momento. Leggi uno 0 come "nessuna lettura", non come "nessun trade".
 
@@ -46,9 +46,9 @@ Quando il trigger di un signal scatta, succedono tre cose:
 
 ## Il composito (MSI)
 
-Il Composite Score (Market Score Indicator, MSI) è la **lettura combinata di tutti i signal**. Ogni signal Basic contribuisce con un peso fisso; i signal Advanced contribuiscono quando il loro trigger è attivo.
+Il Composite Score (Market State Index, MSI) è la **lettura combinata di tutti i signal**. Ogni signal Basic contribuisce con un peso fisso; i signal Advanced contribuiscono quando il loro trigger è attivo.
 
-Il composito si colloca sulla stessa linea [-1, +1]. Una lettura del composito sopra +0.4 con più signal che contribuiscono nella stessa direzione è una lettura ad alta confluenza. Un composito che oscilla vicino allo 0 con contributi contrastanti è, intenzionalmente, "nessuna lettura".
+Il composito è un **punteggio di regime 0–100**, dove 50 è neutro — non un punto sulla linea [-1, +1]. Una lettura alta (≥ 70) indica un regime di trend / espansione in cui i trend possono correre; una lettura bassa (< 20) indica un tape fragile e laterale in cui i breakout tendono a fallire. Ti dice il regime, non la direzione — per capire in che verso, leggi il Trade Bias.
 
 Vedi [Composite Score](/help/platform/composite-score) per l'analisi completa.
 
@@ -70,7 +70,7 @@ L'ordine è coerente in tutte le pagine.
 Ogni signal ha un trade bias dichiarato. È visibile sulla card e sulla pagina del signal.
 
 - **Lettura direzionale** — il segno del punteggio corrisponde alla direzione di prezzo attesa.
-- **Mean-reversion (vs. crowd)** — un punteggio positivo elevato significa "fai fade dei rialzi"; opera in direzione opposta al posizionamento della folla.
+- **Mean-reversion (vs. crowd)** — il punteggio riflette il fade della folla, non del prezzo: un punteggio positivo segnala una folla inclinata ribassista che può squeezare *al rialzo*, un punteggio negativo una folla inclinata rialzista che può essere spazzata *al ribasso*.
 - **Mean-reversion (long gamma)** — fai fade dell'estensione verso la media quando i dealer sono long gamma.
 - **Continuation** — il segno del punteggio corrisponde alla direzione della gamba successiva.
 - **Cambio di regime / playbook** — il signal ti dice di cambiare strategia, non di aprire un trade.
@@ -81,7 +81,7 @@ Fai corrispondere il trade bias alla tua strategia. Un signal di continuation no
 
 Tre schemi d'uso:
 
-1. **Come filtro.** Non aprire posizioni long quando il composito è a -0.6. Non fare fade dei rally in gamma negativa.
+1. **Come filtro.** Non aprire trade di trend/breakout quando l'MSI è basso (regime laterale). Non fare fade dei rally in gamma negativa.
 2. **Come trigger.** Usa il trigger di un signal Advanced come segnale d'ingresso, con il tuo stop e il tuo target.
 3. **Come confluenza.** Combina due o tre signal indipendenti (una lettura di regime Basic + un trigger Advanced + il chip trade bias della dashboard).
 

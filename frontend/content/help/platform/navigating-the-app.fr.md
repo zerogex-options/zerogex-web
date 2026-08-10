@@ -34,7 +34,7 @@ Vous pouvez réduire l'en-tête pour récupérer de l'espace vertical — la pr�
 
 ## Le sélecteur de symboles
 
-ZeroGEX couvre **SPY**, **SPX** et **QQQ**. Le sélecteur de symboles se trouve dans l'en-tête. Choisir un symbole met à jour chaque page de la plateforme — tuiles du tableau de bord, signaux, graphiques — avec ce symbole.
+ZeroGEX couvre **SPY**, **SPX**, **QQQ** et **NDX**. Le sélecteur de symboles se trouve dans l'en-tête. Choisir un symbole met à jour chaque page de la plateforme — tuiles du tableau de bord, signaux, graphiques — avec ce symbole.
 
 ## Le sélecteur de période
 

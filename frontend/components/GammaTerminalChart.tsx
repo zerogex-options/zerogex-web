@@ -19,19 +19,23 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
-import { Activity, ChevronsRight, Crosshair, Info, Pause, Play, Repeat, Rewind } from "lucide-react";
-import { useMarketQuote, useGEXProfile, useGEXSummary, useSessionCloses, type SessionClosesData } from "@/hooks/useApiData";
+import { Activity, ChevronsRight, Crosshair, Info, Moon, Pause, Play, Repeat, Rewind, Sun } from "lucide-react";
+import { useApiData, useMarketQuote, useGEXProfile, useGEXSummary, useSessionCloses, type SessionClosesData, type VolatilityGaugeData } from "@/hooks/useApiData";
 import { useMarketHistorical, type PriceBar } from "@/hooks/useMarketHistorical";
 import { useStrikeProfileTimeseries, type StrikeProfileStrike } from "@/hooks/useStrikeProfileTimeseries";
 import { useTechnicals } from "@/hooks/useTechnicals";
 import { useTimeframe, type UnderlyingSymbol } from "@/core/TimeframeContext";
-import { getPrimaryPriceChangeSummary } from "@/core/priceChange";
-import { omitClosedMarketTimes, isIndexSymbol, isWithinRegularMarketHours } from "@/core/utils";
+import { getPrimaryPriceChangeSummary, getExtendedHoursRow } from "@/core/priceChange";
+import { omitClosedMarketTimes, shouldOmitClosedMarketTimes, isIndexSymbol, isWithinRegularMarketHours, etTradingDateLabel } from "@/core/utils";
 import { SYMBOLS } from "@/core/symbols";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import LoadingSpinner from "./LoadingSpinner";
 import ErrorMessage from "./ErrorMessage";
 import MobileScrollableChart from "./MobileScrollableChart";
+import ExpirationMultiSelect from "./ExpirationMultiSelect";
+import { useSharedExpirations } from "@/hooks/useSharedExpirations";
+import { reconcileExpirations } from "@/core/expirationPersistence";
+import { buildExpectedRange, type HorizonKey } from "@/app/live-bulletin/bulletinHelpers";
 
 type ChartTimeframe = "1min" | "5min" | "15min" | "1hr" | "1day";
 type PriceStyle = "candles" | "line" | "area";
@@ -70,21 +74,29 @@ interface Bar {
 interface OverlayState {
   levels: boolean; // gamma flip + call/put walls
   maxPain: boolean;
+  pin: boolean; // pin strike (reachable 0DTE positive-gamma pin)
   vwap: boolean;
   rail: boolean; // gamma structure rail
   regime: boolean; // long/short gamma background zones
+  expectedRange: boolean; // IV-derived ±1σ expected-range band (Daily/Weekly/Monthly)
 }
 
 const DEFAULT_OVERLAYS: OverlayState = {
   levels: true,
   maxPain: true,
+  pin: true,
   vwap: true,
   rail: true,
   regime: true,
+  // Off by default: a new overlay shouldn't reshape every existing user's chart
+  // unasked. The stored-prefs merge leaves it false for returning users too.
+  expectedRange: false,
 };
 
 const OVERLAY_STORAGE_KEY = "zg.gammaChart.overlays.v1";
 const STYLE_STORAGE_KEY = "zg.gammaChart.style.v1";
+// Persisted Expected-range horizon (Daily / Weekly / Monthly) for the overlay.
+const ER_HORIZON_STORAGE_KEY = "zg.gammaChart.erHorizon.v1";
 
 // ── Geometry (SVG viewBox coordinates; the SVG scales to its container) ──────
 const VW = 1360;
@@ -118,10 +130,28 @@ const ZOOM_FACTOR = 1.2;
 const PRICE_ZOOM_MIN = 0.15;
 const PRICE_ZOOM_MAX = 8;
 const DEFAULT_PRICE_VIEW: { zoom: number; center: number | null } = { zoom: 1, center: null };
-const RAIL_LEFT = 1190;
-const RAIL_RIGHT = 1348;
+const RAIL_LEFT = 1172;
+const RAIL_RIGHT = 1352;
 const RAIL_CENTER = (RAIL_LEFT + RAIL_RIGHT) / 2;
 const RAIL_HALF = (RAIL_RIGHT - RAIL_LEFT) / 2 - 10;
+
+// ── Gamma-by-strike rail view ── the rail draws either the smoothed net
+// silhouette (default, existing behaviour) or discrete per-strike bars: NET
+// (one signed bar), SPLIT (separate call + put bars) or COMBINED (split bars
+// plus a net overlay), mirroring the GEX Strike Profile chart.
+type RailMode = "silhouette" | "net" | "split" | "combined";
+interface RailStrike {
+  price: number;
+  callGex: number;
+  putGex: number;
+  netGex: number;
+}
+const RAIL_STORAGE_KEY = "zg.gammaChart.rail.v1";
+// Net-overlay bar colour for "combined" mode — violet, distinct from bull/bear.
+const NET_BAR_COLOR = "#7C3AED";
+// Below this per-strike vertical slot (px) the on-bar $ labels are suppressed;
+// zoom the price axis to spread the strikes apart and they reappear.
+const RAIL_LABEL_MIN_SLOT = 12;
 
 // ── Numeric helpers (shared shape with UnderlyingCandlesChart) ───────────────
 function niceStep(value: number): number {
@@ -270,6 +300,7 @@ export interface ChartSnapshot {
     session: string | null;
     timestamp: string | null;
     display_source?: string | null;
+    data_symbol?: string | null;
     futures_close?: number | null;
     futures_reference_close?: number | null;
   } | null;
@@ -304,6 +335,7 @@ export default function GammaTerminalChart({
   const timeframe = snapshot ? snapshot.timeframe : timeframeState;
   const [style, setStyle] = useState<PriceStyle>("candles");
   const [overlays, setOverlays] = useState<OverlayState>(DEFAULT_OVERLAYS);
+  const [erHorizon, setErHorizon] = useState<HorizonKey>("daily");
   const [hydrated, setHydrated] = useState(false);
   const [view, setView] = useState<{ count: number; offset: number }>({ count: DEFAULT_COUNT, offset: 0 });
   const [priceView, setPriceView] = useState<{ zoom: number; center: number | null }>(DEFAULT_PRICE_VIEW);
@@ -319,7 +351,7 @@ export default function GammaTerminalChart({
   const [rewindActive, setRewindActive] = useState(false);
   const [rewindTime, setRewindTime] = useState<number | null>(null);
   const [playbackActive, setPlaybackActive] = useState(false);
-  const [playbackSpeed, setPlaybackSpeed] = useState<1 | 4 | 16>(1);
+  const [playbackSpeed, setPlaybackSpeed] = useState<1 | 4 | 8 | 16>(1);
   // Sticky preference: when on, playback wraps back to the earliest replayable
   // bar at the live edge instead of stopping (kept across enter/exit rewind).
   const [playbackLoop, setPlaybackLoop] = useState(false);
@@ -327,6 +359,20 @@ export default function GammaTerminalChart({
   // the y-axis to this instead of re-fitting to the scrubbed bars, so the price
   // scale never jumps as you scrub — the user still zooms/pans it by hand.
   const [frozenAxis, setFrozenAxis] = useState<{ mid: number; half: number } | null>(null);
+
+  // ── Gamma-by-strike rail view ── mode (smoothed silhouette vs per-strike
+  // bars), the on-bar $ labels toggle, and an expiration filter — an inline
+  // GEX-by-strike profile matching the GEX Strike Profile chart. The delayed
+  // snapshot ships the net silhouette but no per-strike call/put split and can't
+  // refetch, so bar modes + the expiry filter are live-only (see effectiveRailMode).
+  const [railMode, setRailMode] = useState<RailMode>("silhouette");
+  const [railLabels, setRailLabels] = useState(false);
+  // Expiration filter for the gamma-by-strike rail. Shared + persisted across
+  // every expiration-filtering chart in the tab (see useSharedExpirations);
+  // empty = all (aggregate the whole chain). Reconciled to this chart's live
+  // expirations below so a foreign/stale pick can't request a missing expiry.
+  const { selection: railExpiries, setSelection: setRailExpiries } = useSharedExpirations();
+  const effectiveRailMode: RailMode = live ? railMode : "silhouette";
 
   // Snap the view back to the live default whenever the instrument or timeframe
   // changes. This is the React-sanctioned "adjust state during render on a prop
@@ -342,6 +388,14 @@ export default function GammaTerminalChart({
     setFrozenAxis(null);
   }
 
+  // Clear the expiration filter when the instrument changes (a QQQ expiry is
+  // meaningless for SPY); timeframe changes keep it (same option chain).
+  const [railExpSym, setRailExpSym] = useState(symbol);
+  if (railExpSym !== symbol) {
+    setRailExpSym(symbol);
+    setRailExpiries([]);
+  }
+
   // Restore persisted view preferences once on mount. Server and the first
   // client render intentionally use the defaults; we only reconcile from
   // localStorage after mount so there is no hydration mismatch. The rule below
@@ -354,6 +408,18 @@ export default function GammaTerminalChart({
       if (rawO) setOverlays((cur) => ({ ...cur, ...JSON.parse(rawO) }));
       const rawS = localStorage.getItem(STYLE_STORAGE_KEY);
       if (rawS === "candles" || rawS === "line" || rawS === "area") setStyle(rawS);
+      const rawH = localStorage.getItem(ER_HORIZON_STORAGE_KEY);
+      if (rawH === "daily" || rawH === "weekly" || rawH === "monthly") setErHorizon(rawH);
+      const rawR = localStorage.getItem(RAIL_STORAGE_KEY);
+      if (rawR) {
+        const parsed = JSON.parse(rawR);
+        if (parsed && typeof parsed === "object") {
+          if (parsed.mode === "silhouette" || parsed.mode === "net" || parsed.mode === "split" || parsed.mode === "combined") {
+            setRailMode(parsed.mode);
+          }
+          if (typeof parsed.labels === "boolean") setRailLabels(parsed.labels);
+        }
+      }
     } catch {
       /* ignore malformed prefs */
     }
@@ -379,6 +445,24 @@ export default function GammaTerminalChart({
     }
   }, [style, hydrated]);
 
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      localStorage.setItem(ER_HORIZON_STORAGE_KEY, erHorizon);
+    } catch {
+      /* storage unavailable */
+    }
+  }, [erHorizon, hydrated]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      localStorage.setItem(RAIL_STORAGE_KEY, JSON.stringify({ mode: railMode, labels: railLabels }));
+    } catch {
+      /* storage unavailable */
+    }
+  }, [railMode, railLabels, hydrated]);
+
   const intervalMinutes = TIMEFRAMES.find((t) => t.value === timeframe)?.minutes ?? 5;
 
   // ── Data ── Live mode polls the API; delayed mode renders a frozen server
@@ -395,6 +479,16 @@ export default function GammaTerminalChart({
   const { data: gexProfile } = useGEXProfile(symbol, 10000, live);
   const { data: gexSummary } = useGEXSummary(symbol, 5000, live);
   const technicals = useTechnicals(symbol, live);
+  // Expected-range band inputs. QQQ/NDX take VXN, SPX/SPY take VIX — the same
+  // implied-vol mapping the Live Bulletin uses. Live-only: the delayed public
+  // snapshot does zero client fetching, so the band simply hides there (exactly
+  // as the Bulletin hides it when the vol index is unavailable).
+  const volIndex: "VIX" | "VXN" = symbol === "QQQ" || symbol === "NDX" ? "VXN" : "VIX";
+  const { data: volGauge } = useApiData<VolatilityGaugeData>(
+    `/api/market/volatility?ticker=${volIndex}`,
+    { refreshInterval: live ? 30000 : 0, enabled: live },
+  );
+  const vix = live ? volGauge?.index ?? null : null;
   // Per-strike dealer gamma over time. Enabled for the whole live session (not
   // just rewind) so the live rail is drawn from the SAME per-strike source the
   // rewind rail uses — the two now read identically. Paused (no 1s tip poll)
@@ -402,7 +496,29 @@ export default function GammaTerminalChart({
   // stays fresh. Never enabled in delayed mode (the snapshot supplies strikes).
   // Pinned to 5-min buckets; anchors resolve by timestamp so they align with
   // candles of any timeframe. Seeding here also makes entering rewind instant.
-  const { buckets: gexBuckets } = useStrikeProfileTimeseries(symbol, "5min", "all", rewindActive, live);
+  // Available expirations (future-dated, ascending) for the multi-select.
+  const { data: expirationsData } = useApiData<string[] | null>(
+    `/api/gex/expirations?symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}&lookback_hours=168`,
+    { refreshInterval: live ? 60000 : 0, enabled: live },
+  );
+  const availableExpiries = useMemo(() => {
+    const list = Array.isArray(expirationsData) ? expirationsData : [];
+    const todayKey = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+    return Array.from(new Set(list.filter((e): e is string => typeof e === "string" && e >= todayKey))).sort();
+  }, [expirationsData]);
+  // Reconcile the shared selection to what this chart can actually show, so a
+  // pick made on another chart (with a different expiry universe) never leaks a
+  // missing expiration into the param and an expired pick collapses to "All".
+  const effectiveRailExpiries = useMemo(
+    () => reconcileExpirations(railExpiries, availableExpiries),
+    [railExpiries, availableExpiries],
+  );
+  // Expiration filter for the gamma-by-strike surface: empty = all (aggregate
+  // the whole chain), else the sorted, comma-joined set. Drives the rail bars
+  // and — when a subset is chosen — the flip/walls, so the lines match the bars.
+  const railExpParam = effectiveRailExpiries.length === 0 ? "all" : [...effectiveRailExpiries].sort().join(",");
+  const filteredExp = effectiveRailExpiries.length > 0;
+  const { buckets: gexBuckets } = useStrikeProfileTimeseries(symbol, "5min", railExpParam, rewindActive, live);
 
   const dataAll = snapshot ? snapshot.bars : liveRows;
   const loading = snapshot ? false : liveLoading;
@@ -411,6 +527,15 @@ export default function GammaTerminalChart({
   const session = snapshot ? snapshot.quote?.session ?? null : quote?.session ?? null;
   const quoteTs = snapshot ? snapshot.quote?.timestamp ?? null : quote?.timestamp ?? null;
   const sessionCloses = snapshot ? snapshot.sessionCloses : liveSessionCloses;
+  // Overnight index→future display swap (see priceChange.ts / SessionBadge).
+  // When active, the headline shows the FUTURE's price/change and the session
+  // badge reads FUTURES — the "same spot" a cash-closed index would read CLOSED.
+  // The chart candles + price marker deliberately stay on the cash tape.
+  const displaySource = snapshot ? snapshot.quote?.display_source ?? null : quote?.display_source ?? null;
+  const futuresSwap = displaySource === "futures";
+  const futuresTicker = futuresSwap
+    ? (snapshot ? snapshot.quote?.data_symbol : quote?.data_symbol) ?? null
+    : null;
 
   // Stamp the wall-clock instant each fresh live tick lands, so the header can
   // show a realtime "updated HH:MM:SS ET" that advances with the tape instead of
@@ -462,7 +587,12 @@ export default function GammaTerminalChart({
 
   // Stage 1 — normalize + aggregate history (expensive; independent of the tick).
   const historicalBars = useMemo(() => {
-    const filtered = omitClosedMarketTimes(data || [], (d) => d.timestamp);
+    // Daily bars are whole-session markers stamped at UTC midnight; filtering
+    // them by intraday ET hours would drop every Monday (see
+    // shouldOmitClosedMarketTimes). Only intraday series need the filter.
+    const filtered = shouldOmitClosedMarketTimes(intervalMinutes)
+      ? omitClosedMarketTimes(data || [], (d) => d.timestamp)
+      : data || [];
     const seed = filtered[0]?.close ?? filtered[0]?.price ?? 0;
     const normalized = filtered.reduce(
       (acc, d) => {
@@ -667,30 +797,6 @@ export default function GammaTerminalChart({
     return vol > 0 ? pv / vol : null;
   }, [rewindActive, rewindEdgeIdx, allBars]);
 
-  // ── Gamma levels ── Rewind takes flip/walls from the historical bucket, Max
-  // Pain from the bucket's per-strike OI and VWAP from the bars; net-GEX-at-spot
-  // isn't recoverable from the timeseries, so it's hidden while rewinding.
-  const flip = rewindBucket
-    ? coerceNum(rewindBucket.gamma_flip)
-    : snapshot ? snapshot.gamma.flip : num(gexProfile?.gamma_flip ?? gexSummary?.gamma_flip);
-  const callWall = rewindBucket
-    ? coerceNum(rewindBucket.call_wall)
-    : snapshot ? snapshot.gamma.callWall : num(gexProfile?.call_wall ?? gexSummary?.call_wall);
-  const putWall = rewindBucket
-    ? coerceNum(rewindBucket.put_wall)
-    : snapshot ? snapshot.gamma.putWall : num(gexProfile?.put_wall ?? gexSummary?.put_wall);
-  // Max Pain isn't a stored field on the timeseries buckets, but their
-  // per-strike open interest is — so during rewind we recover the historical
-  // Max Pain from that OI (textbook min-writer-payout strike) instead of
-  // dropping it. Live/delayed paths use the served value.
-  const maxPain = rewindActive
-    ? rewindBucket
-      ? computeMaxPain(rewindBucket.strikes)
-      : null
-    : snapshot ? snapshot.gamma.maxPain : num(gexSummary?.max_pain);
-  const netGexAtSpot = rewindActive ? null : snapshot ? snapshot.gamma.netGexAtSpot : num(gexProfile?.net_gex_at_spot ?? gexSummary?.net_gex);
-  const vwap = rewindActive ? rewindVwap : snapshot ? snapshot.vwap : num(technicals.latest?.vwap_deviation?.vwap);
-
   // The most-recent per-strike bucket that actually carries gamma — the live
   // rail's source. Walk back from the tip so an empty / all-zero after-hours
   // bucket doesn't blank the rail (the last real surface stays drawn).
@@ -701,6 +807,41 @@ export default function GammaTerminalChart({
     }
     return null;
   }, [gexBuckets]);
+
+  // ── Gamma levels ── Rewind takes flip/walls from the historical bucket, Max
+  // Pain from the bucket's per-strike OI and VWAP from the bars; net-GEX-at-spot
+  // isn't recoverable from the timeseries, so it's hidden while rewinding. When
+  // an expiration filter is active the LIVE flip/walls also come from the
+  // filtered timeseries bucket (the endpoint aggregates to the selected
+  // expirations), so the level lines track the filtered bars — not the
+  // all-expiration summary.
+  const levelBucket = rewindBucket ?? (filteredExp && live ? liveGexBucket : null);
+  const flip = levelBucket
+    ? coerceNum(levelBucket.gamma_flip)
+    : snapshot ? snapshot.gamma.flip : num(gexProfile?.gamma_flip ?? gexSummary?.gamma_flip);
+  const callWall = levelBucket
+    ? coerceNum(levelBucket.call_wall)
+    : snapshot ? snapshot.gamma.callWall : num(gexProfile?.call_wall ?? gexSummary?.call_wall);
+  const putWall = levelBucket
+    ? coerceNum(levelBucket.put_wall)
+    : snapshot ? snapshot.gamma.putWall : num(gexProfile?.put_wall ?? gexSummary?.put_wall);
+  // Max Pain isn't a stored field on the timeseries buckets, but their
+  // per-strike open interest is — so during rewind we recover the historical
+  // Max Pain from that OI (textbook min-writer-payout strike) instead of
+  // dropping it. Live/delayed paths use the served value.
+  const maxPain = rewindActive
+    ? rewindBucket
+      ? computeMaxPain(rewindBucket.strikes)
+      : null
+    : filteredExp && live && liveGexBucket
+      ? computeMaxPain(liveGexBucket.strikes)
+      : snapshot ? snapshot.gamma.maxPain : num(gexSummary?.max_pain);
+  const netGexAtSpot = rewindActive ? null : snapshot ? snapshot.gamma.netGexAtSpot : num(gexProfile?.net_gex_at_spot ?? gexSummary?.net_gex);
+  // Pin Strike — reachable 0DTE positive-gamma pin. Not stored on the
+  // timeseries rewind buckets, so it's hidden during rewind (same as
+  // netGexAtSpot); live/delayed reads the served summary value.
+  const pinStrike = rewindActive ? null : num(gexSummary?.pin_strike);
+  const vwap = rewindActive ? rewindVwap : snapshot ? snapshot.vwap : num(technicals.latest?.vwap_deviation?.vwap);
 
   const profilePoints = useMemo<ProfilePoint[]>(() => {
     // The rail is a Gaussian-smoothed net-gamma-by-strike density (two lobes at
@@ -723,24 +864,43 @@ export default function GammaTerminalChart({
   }, [gexProfile, snapshot, rewindBucket, liveGexBucket, live]);
 
   // ── Price/change readout ─────────────────────────────────────────────────
-  // The chart draws the live pre-market / after-hours tape inline (ETFs opt
-  // into after-hours bars, and the tip candle is patched with the live quote),
-  // so the headline must track that tape rather than freeze on the regular
-  // 4 PM close — otherwise the price + change stall while the candles beside
-  // them keep moving. `preferLiveExtendedHours` routes the extended-hours
-  // headline to the live quote close, measured against the most recent regular
-  // close so the day-change stays continuous across the 09:30 and 16:00 flips.
-  // Applies to the delayed snapshot too: its quote already carries the served
-  // extended-hours close.
-  const priceSummary = getPrimaryPriceChangeSummary({
-    quoteClose: snapshot ? snapshot.quote?.close : quote?.close,
+  // Three readings, TradingView-style (see priceChange.ts):
+  //
+  //  • headline — the big number + change in the header. The change is always
+  //    vs the PREVIOUS cash-session close: live during the cash session; the
+  //    frozen 4 PM close + that session's day-change in pre/after-hours and when
+  //    closed. When the index→future swap is active it becomes the FUTURE's
+  //    price vs the future's own 4 PM print. (Default preferLiveExtendedHours.)
+  //
+  //  • extRow — the ETF-only second line in pre-market / after-hours: the live
+  //    extended-hours price vs the MOST-RECENT cash close (current_session_close).
+  //
+  //  • tape — the price the chart MARKER + regime sit on. It tracks the live
+  //    tape drawn beside it (ETFs draw live extended bars → live quote close);
+  //    indexes freeze at the 16:00 cash close, and we show futures headline-only
+  //    — so the futures fields are OMITTED here and the marker never jumps to
+  //    the future, falling back to current_session_close outside the cash session.
+  const quoteClose = snapshot ? snapshot.quote?.close : quote?.close;
+  const headline = getPrimaryPriceChangeSummary({
+    quoteClose,
     quoteSession: session,
     sessionCloses,
-    displaySource: snapshot ? snapshot.quote?.display_source : quote?.display_source,
+    displaySource,
     futuresClose: snapshot ? snapshot.quote?.futures_close : quote?.futures_close,
     futuresReferenceClose: snapshot ? snapshot.quote?.futures_reference_close : quote?.futures_reference_close,
+  });
+  const tape = getPrimaryPriceChangeSummary({
+    quoteClose,
+    quoteSession: session,
+    sessionCloses,
     preferLiveExtendedHours: true,
   });
+  const isExtendedHours = session === "pre-market" || session === "after-hours";
+  // ETFs/stocks only — indexes have no extended-hours tape (they show futures or
+  // "closed" outside the cash session), and the futures swap owns the headline.
+  const showExtendedRow = isExtendedHours && !symbolIsIndex && !futuresSwap;
+  const extRow = getExtendedHoursRow(quoteClose, sessionCloses?.current_session_close);
+  const extIcon = session === "pre-market" ? "sun" : "moon";
 
   // ── Crosshair state ──────────────────────────────────────────────────────
   const [hover, setHover] = useState<{ idx: number; price: number; px: number; py: number; w: number; h: number } | null>(null);
@@ -868,6 +1028,50 @@ export default function GammaTerminalChart({
     },
     [profilePoints],
   );
+
+  // ── Per-strike gamma bars (net / split / combined) ── the discrete
+  // gamma-by-strike profile drawn inline in the rail column when the rail is
+  // switched off its smoothed silhouette. call_gamma/put_gamma/net_gamma are the
+  // signed dollar-gamma quantities the timeseries carries (call ≥ 0, put ≤ 0,
+  // net = call + put). Live/rewind only; the delayed snapshot ships net but no
+  // per-strike call/put split, so effectiveRailMode is pinned to silhouette there.
+  const railStrikes = useMemo<RailStrike[]>(() => {
+    const bucket = rewindBucket ?? (live ? liveGexBucket : null);
+    const src = bucket?.strikes ?? null;
+    if (!Array.isArray(src)) return [];
+    return src
+      .map((s) => ({
+        price: coerceNum(s.strike) ?? NaN,
+        callGex: coerceNum(s.call_gamma) ?? 0,
+        putGex: coerceNum(s.put_gamma) ?? 0,
+        netGex: coerceNum(s.net_gamma) ?? 0,
+      }))
+      .filter((s) => Number.isFinite(s.price))
+      .sort((a, b) => a.price - b.price);
+  }, [rewindBucket, liveGexBucket, live]);
+
+  // Bar geometry: an x-scale max per mode, a bar thickness from the median
+  // vertical strike spacing, and a density gate for the on-bar $ labels.
+  const railBars = useMemo(() => {
+    if (!layout || effectiveRailMode === "silhouette") return null;
+    const inView = railStrikes.filter((s) => s.price >= layout.dMin && s.price <= layout.dMax);
+    if (inView.length === 0) return null;
+    const maxAbs =
+      effectiveRailMode === "net"
+        ? Math.max(...inView.map((s) => Math.abs(s.netGex)), 1)
+        : effectiveRailMode === "split"
+          ? Math.max(...inView.flatMap((s) => [Math.abs(s.callGex), Math.abs(s.putGex)]), 1)
+          : Math.max(...inView.flatMap((s) => [Math.abs(s.callGex), Math.abs(s.putGex), Math.abs(s.netGex)]), 1);
+    const wFor = (v: number) => (Math.abs(v) / maxAbs) * RAIL_HALF;
+    const ys = inView.map((s) => layout.yPrice(s.price)).sort((a, b) => a - b);
+    const gaps: number[] = [];
+    for (let i = 1; i < ys.length; i++) gaps.push(ys[i] - ys[i - 1]);
+    gaps.sort((a, b) => a - b);
+    const slot = gaps.length ? gaps[Math.floor(gaps.length / 2)] : PRICE_BOTTOM - PAD_TOP;
+    const barH = Math.max(1.5, Math.min(11, slot * 0.6));
+    const showLabels = railLabels && slot >= RAIL_LABEL_MIN_SLOT;
+    return { inView, maxAbs, wFor, barH, showLabels };
+  }, [layout, railStrikes, effectiveRailMode, railLabels]);
 
   // Day-boundary separators for the time axis.
   const dateMarkers = useMemo(() => {
@@ -1226,7 +1430,16 @@ export default function GammaTerminalChart({
   const activePrevClose = activeIdx > 0 ? bars[activeIdx - 1].close : activeBar.open;
   // During rewind, "spot" is the rewound bar's close (so the regime read
   // reflects that moment); otherwise it's the live price.
-  const spot = rewindActive ? lastBar.close : priceSummary.displayPrice ?? liveTip.close;
+  const spot = rewindActive ? lastBar.close : tape.displayPrice ?? liveTip.close;
+
+  // Expected-range band (±1σ implied move) built from the same helper the Live
+  // Bulletin uses, so the on-chart upper/lower levels match the Bulletin card
+  // exactly. Live-only, and hidden during rewind (the vol index is a live "now"
+  // read, not the rewound moment). Returns null when spot or vix is missing.
+  const erModel =
+    overlays.expectedRange && !rewindActive && vix != null && spot != null
+      ? buildExpectedRange({ spot, vix, volIndex, horizon: erHorizon, callWall, putWall })
+      : null;
 
   const inDomain = (v: number | null): v is number => v != null && v >= layout.dMin && v <= layout.dMax;
   const regimeUnknown = flip == null;
@@ -1239,7 +1452,10 @@ export default function GammaTerminalChart({
     { key: "call", label: "CALL WALL", value: callWall, color: "var(--color-bull)", dash: "3 4", show: overlays.levels },
     { key: "put", label: "PUT WALL", value: putWall, color: "var(--color-bear)", dash: "3 4", show: overlays.levels },
     { key: "pain", label: "MAX PAIN", value: maxPain, color: "var(--color-gold)", dash: "1 5", show: overlays.maxPain },
+    { key: "pin", label: "PIN", value: pinStrike, color: "var(--color-pin)", dash: "2 3", show: overlays.pin },
     { key: "vwap", label: "VWAP", value: vwap, color: "var(--color-hazy)", dash: "6 5", show: overlays.vwap },
+    { key: "er-high", label: "ER HIGH", value: erModel?.high ?? null, color: "var(--color-info)", dash: "2 5", show: overlays.expectedRange && erModel != null },
+    { key: "er-low", label: "ER LOW", value: erModel?.low ?? null, color: "var(--color-info)", dash: "2 5", show: overlays.expectedRange && erModel != null },
   ];
 
   // Confluence: is spot pinned to a level (within 0.12%)? Emphasize if so.
@@ -1293,11 +1509,16 @@ export default function GammaTerminalChart({
         .sort((a, b) => a.dist - b.dist)[0] ?? null
     : null;
 
+  // Session chip. The futures swap takes over the "same spot" a cash-closed
+  // index would read CLOSED: FUTURES when the future is trading, CLOSED only
+  // when the index is outside the cash session AND no future is available.
   const sessionBadge = rewindActive
     ? { label: "◀ REWIND", color: "var(--color-accent-hot)" }
     : delayed
       ? { label: "◷ DELAYED ~15 MIN", color: "var(--color-warning)" }
-      : sessionLabel(session);
+      : futuresSwap
+        ? { label: "◆ FUTURES", color: "var(--color-brand-coral)" }
+        : sessionLabel(session);
 
   // Freshness line under the headline price.
   //  • Delayed: the snapshot's repaired "as of" (the delayed tape's freshest
@@ -1308,12 +1529,19 @@ export default function GammaTerminalChart({
   //    time ("as of") rather than a bogus live clock.
   const dataStamp = fmtEtStamp(quoteTs); // data time (minute-aligned)
   const liveStamp = fmtEtClock(liveUpdatedAt); // realtime tick receipt, to the second
-  const liveSessionActive = !delayed && !rewindActive && !!session && !/closed/i.test(session);
+  // The overnight future is actively trading even though the cash index reports
+  // session='closed', so treat the futures swap as a live session for freshness.
+  const liveSessionActive = !delayed && !rewindActive && (futuresSwap || (!!session && !/closed/i.test(session)));
   const freshnessLabel = delayed
     ? dataStamp && `Delayed quote · as of ${dataStamp}`
     : liveSessionActive
       ? liveStamp && `Updated ${liveStamp}`
       : dataStamp && `As of ${dataStamp}`;
+
+  // Header big number: the headline reading (live during the cash session; the
+  // frozen 4 PM close in pre/after-hours; the future when swapped) — or the
+  // scrub bar's close while rewinding. Change/percent come from `headline` too.
+  const headlinePrice = rewindActive ? spot : headline.displayPrice ?? spot;
 
   return (
     <div className={`zg-feature-shell zg-gc-rise ${className}`} style={{ overflow: "hidden" }}>
@@ -1341,21 +1569,29 @@ export default function GammaTerminalChart({
                   {symbol}
                 </span>
                 <span style={{ fontFamily: "var(--font-mono)", fontSize: 28, fontWeight: 600, color: "var(--text-primary)", lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>
-                  {spot != null ? fmtPrice(spot) : "--"}
+                  {headlinePrice != null ? fmtPrice(headlinePrice) : "--"}
                 </span>
-                {!rewindActive && priceSummary.change != null && (
+                {!rewindActive && futuresTicker && (
+                  <span
+                    title={`Outside the cash session — showing ${futuresTicker} futures for ${symbol}`}
+                    style={{ fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 700, letterSpacing: "0.04em", color: "var(--color-brand-coral)", border: "1px solid var(--color-brand-coral)", borderRadius: 3, padding: "1px 5px", lineHeight: 1.4 }}
+                  >
+                    ◆ {futuresTicker} FUT
+                  </span>
+                )}
+                {!rewindActive && headline.change != null && (
                   <span
                     style={{
                       fontFamily: "var(--font-mono)",
                       fontSize: 15,
                       fontWeight: 600,
-                      color: priceSummary.isPositive ? "var(--color-bull)" : "var(--color-bear)",
+                      color: headline.isPositive ? "var(--color-bull)" : "var(--color-bear)",
                       fontVariantNumeric: "tabular-nums",
                     }}
                   >
-                    {priceSummary.isPositive ? "+" : ""}
-                    {priceSummary.change.toFixed(2)}
-                    {priceSummary.changePercent != null && ` (${priceSummary.isPositive ? "+" : ""}${priceSummary.changePercent.toFixed(2)}%)`}
+                    {headline.isPositive ? "+" : ""}
+                    {headline.change.toFixed(2)}
+                    {headline.changePercent != null && ` (${headline.isPositive ? "+" : ""}${headline.changePercent.toFixed(2)}%)`}
                   </span>
                 )}
                 {rewindActive && rewindTime != null && (
@@ -1364,6 +1600,25 @@ export default function GammaTerminalChart({
                   </span>
                 )}
               </div>
+              {/* ETF pre-market / after-hours: the live extended-hours price and
+                  its change vs the MOST-RECENT cash close, on a second line
+                  under the regular quote (mirrors the header row-2). */}
+              {!rewindActive && showExtendedRow && extRow.price != null && extRow.change != null && extRow.changePercent != null && (
+                <div
+                  className="flex items-center gap-1.5 mt-1"
+                  title={`${session === "pre-market" ? "Pre-market" : "After-hours"} price vs most-recent cash close`}
+                >
+                  {extIcon === "moon"
+                    ? <Moon size={11} style={{ color: "var(--text-secondary)" }} />
+                    : <Sun size={11} style={{ color: "var(--text-secondary)" }} />}
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 600, color: "var(--text-primary)", opacity: 0.85, fontVariantNumeric: "tabular-nums" }}>
+                    {fmtPrice(extRow.price)}
+                  </span>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 600, color: extRow.isPositive ? "var(--color-bull)" : "var(--color-bear)", fontVariantNumeric: "tabular-nums" }}>
+                    {extRow.isPositive ? "+" : ""}{extRow.change.toFixed(2)} ({extRow.isPositive ? "+" : ""}{extRow.changePercent.toFixed(2)}%)
+                  </span>
+                </div>
+              )}
               {/* Freshness line (to the second, ET). Live shows the realtime
                   instant the last tick landed; delayed shows the frozen "as of".
                   Shown in both modes so freshness is never ambiguous; hidden
@@ -1470,6 +1725,60 @@ export default function GammaTerminalChart({
           <OverlayPill label="Regime" color="var(--color-accent-hot)" active={overlays.regime} onClick={() => setOverlays((o) => ({ ...o, regime: !o.regime }))} />
           <OverlayPill label="VWAP" color="var(--color-hazy)" active={overlays.vwap} onClick={() => setOverlays((o) => ({ ...o, vwap: !o.vwap }))} />
           <OverlayPill label="Max Pain" color="var(--color-gold)" active={overlays.maxPain} onClick={() => setOverlays((o) => ({ ...o, maxPain: !o.maxPain }))} />
+          <OverlayPill label="Pin Strike" color="var(--color-pin)" active={overlays.pin} onClick={() => setOverlays((o) => ({ ...o, pin: !o.pin }))} />
+          {/* Expected Range — live-only (the delayed public snapshot carries no
+              vol index). The Daily/Weekly/Monthly selector appears once it's on. */}
+          {live && (
+            <OverlayPill label="Expected Range" color="var(--color-info)" active={overlays.expectedRange} onClick={() => setOverlays((o) => ({ ...o, expectedRange: !o.expectedRange }))} />
+          )}
+          {live && overlays.expectedRange && (
+            <div className="zg-gc-seg" role="tablist" aria-label="Expected range horizon">
+              {([
+                ["daily", "Daily"],
+                ["weekly", "Weekly"],
+                ["monthly", "Monthly"],
+              ] as Array<[HorizonKey, string]>).map(([h, lbl]) => (
+                <button key={h} type="button" className="zg-gc-seg-btn" data-active={erHorizon === h} onClick={() => setErHorizon(h)} aria-pressed={erHorizon === h}>
+                  {lbl}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Gamma-by-strike rail view: silhouette vs per-strike bars, on-bar
+              labels, and an expiration filter — live only (the delayed snapshot
+              lacks the per-strike call/put split and can't refetch). */}
+          {live && (
+            <>
+              <div className="hidden sm:block" style={{ width: 1, height: 22, background: "var(--border-default)" }} />
+              {overlays.rail && (
+                <>
+                  <div className="zg-gc-seg" role="tablist" aria-label="Gamma rail view">
+                    {([
+                      ["silhouette", "Silhouette"],
+                      ["net", "Net"],
+                      ["split", "Split"],
+                      ["combined", "Combined"],
+                    ] as Array<[RailMode, string]>).map(([m, lbl]) => (
+                      <button key={m} type="button" className="zg-gc-seg-btn" data-active={railMode === m} onClick={() => setRailMode(m)} aria-pressed={railMode === m}>
+                        {lbl}
+                      </button>
+                    ))}
+                  </div>
+                  {railMode !== "silhouette" && (
+                    <OverlayPill label="Labels" color="var(--text-secondary)" active={railLabels} onClick={() => setRailLabels((v) => !v)} />
+                  )}
+                </>
+              )}
+              <ExpirationMultiSelect
+                options={availableExpiries}
+                selected={effectiveRailExpiries}
+                onChange={setRailExpiries}
+                label="Expiry"
+                disabled={availableExpiries.length === 0}
+              />
+            </>
+          )}
 
           <div className="ml-auto flex items-center gap-2">
             {isCustomView && (
@@ -1580,29 +1889,79 @@ export default function GammaTerminalChart({
               );
             })}
 
-            {/* ── Gamma structure rail ──────────────────────────────────── */}
-            {overlays.rail && rail && (
+            {/* ── Gamma structure rail (net silhouette or per-strike bars) ── */}
+            {overlays.rail && (effectiveRailMode === "silhouette" ? rail : railBars) && (
               <g>
                 <rect x={RAIL_LEFT - 6} y={PAD_TOP} width={RAIL_RIGHT - RAIL_LEFT + 12} height={PRICE_BOTTOM - PAD_TOP} fill="color-mix(in srgb, var(--text-primary) 3%, transparent)" />
                 <text x={(RAIL_LEFT + RAIL_RIGHT) / 2} y={PAD_TOP - 6} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={10} letterSpacing="0.12em" fill="var(--text-muted)">
                   DEALER GAMMA BY STRIKE
+                  {effectiveRailMode !== "silhouette" && (
+                    <tspan fill="var(--text-secondary)">{`  ·  ${effectiveRailMode === "net" ? "NET" : effectiveRailMode === "split" ? "CALL / PUT" : "COMBINED"}`}</tspan>
+                  )}
+                  {filteredExp && <tspan fill="var(--color-warning)">{"  ·  FILTERED"}</tspan>}
                 </text>
                 {/* zero baseline */}
                 <line x1={RAIL_CENTER} x2={RAIL_CENTER} y1={PAD_TOP} y2={PRICE_BOTTOM} stroke="var(--border-strong)" strokeWidth={1} opacity={0.5} />
-                {/* silhouette */}
-                <path d={rail.posPath} fill="url(#zg-gc-rail-pos)" />
-                <path d={rail.negPath} fill="url(#zg-gc-rail-neg)" />
-                <path d={rail.edge} fill="none" stroke="var(--text-secondary)" strokeWidth={1} opacity={0.35} />
+
+                {/* smoothed net silhouette */}
+                {effectiveRailMode === "silhouette" && rail && (
+                  <>
+                    <path d={rail.posPath} fill="url(#zg-gc-rail-pos)" />
+                    <path d={rail.negPath} fill="url(#zg-gc-rail-neg)" />
+                    <path d={rail.edge} fill="none" stroke="var(--text-secondary)" strokeWidth={1} opacity={0.35} />
+                    {[{ p: rail.callPeak, c: "var(--color-bull)" }, { p: rail.putPeak, c: "var(--color-bear)" }].map(({ p, c }, i) => (
+                      <circle key={`peak-${i}`} cx={rail.xFor(p.gex)} cy={rail.yFor(p.price)} r={2.6} fill={c} />
+                    ))}
+                  </>
+                )}
+
+                {/* discrete per-strike bars */}
+                {effectiveRailMode !== "silhouette" &&
+                  railBars &&
+                  railBars.inView.map((s) => {
+                    const y = yPrice(s.price);
+                    const h = railBars.barH;
+                    if (effectiveRailMode === "net") {
+                      const w = railBars.wFor(s.netGex);
+                      const pos = s.netGex >= 0;
+                      const c = pos ? "var(--color-bull)" : "var(--color-bear)";
+                      return (
+                        <g key={`bar-${s.price}`}>
+                          <rect x={pos ? RAIL_CENTER : RAIL_CENTER - w} y={y - h / 2} width={Math.max(0, w)} height={h} fill={c} opacity={0.85} />
+                          {railBars.showLabels && s.netGex !== 0 && (
+                            <RailBarLabel x={clamp((pos ? RAIL_CENTER + w : RAIL_CENTER - w) + (pos ? 3 : -3), RAIL_LEFT + 2, RAIL_RIGHT - 2)} y={y + 3} anchor={pos ? "start" : "end"} color={c} text={fmtGex(s.netGex)} />
+                          )}
+                        </g>
+                      );
+                    }
+                    const cw = railBars.wFor(s.callGex);
+                    const pw = railBars.wFor(s.putGex);
+                    const netW = railBars.wFor(s.netGex);
+                    const netPos = s.netGex >= 0;
+                    return (
+                      <g key={`bar-${s.price}`}>
+                        <rect x={RAIL_CENTER} y={y - h / 2} width={Math.max(0, cw)} height={h} fill="var(--color-bull)" opacity={0.85} />
+                        <rect x={RAIL_CENTER - pw} y={y - h / 2} width={Math.max(0, pw)} height={h} fill="var(--color-bear)" opacity={0.85} />
+                        {/* Net overlay: same thickness as the call/put bars (the
+                            split tip still shows past it), matching the GEX Strike
+                            Profile's Combined view. */}
+                        {effectiveRailMode === "combined" && s.netGex !== 0 && (
+                          <rect x={netPos ? RAIL_CENTER : RAIL_CENTER - netW} y={y - h / 2} width={Math.max(0, netW)} height={h} fill={NET_BAR_COLOR} opacity={0.85} />
+                        )}
+                        {railBars.showLabels && s.callGex !== 0 && (
+                          <RailBarLabel x={clamp(RAIL_CENTER + cw + 3, RAIL_LEFT + 2, RAIL_RIGHT - 2)} y={y + 3} anchor="start" color="var(--color-bull)" text={fmtGex(s.callGex)} />
+                        )}
+                        {railBars.showLabels && s.putGex !== 0 && (
+                          <RailBarLabel x={clamp(RAIL_CENTER - pw - 3, RAIL_LEFT + 2, RAIL_RIGHT - 2)} y={y + 3} anchor="end" color="var(--color-bear)" text={fmtGex(s.putGex)} />
+                        )}
+                      </g>
+                    );
+                  })}
+
                 {/* flip zero-crossing tie-line to the plot */}
                 {inDomain(flip) && (
                   <line x1={RAIL_LEFT - 6} x2={RAIL_RIGHT} y1={yPrice(flip)} y2={yPrice(flip)} stroke="var(--heat-mid)" strokeWidth={1} strokeDasharray="2 3" opacity={0.6} />
                 )}
-                {/* peak markers */}
-                {[{ p: rail.callPeak, c: "var(--color-bull)", side: 1 }, { p: rail.putPeak, c: "var(--color-bear)", side: -1 }].map(({ p, c }, i) => (
-                  <g key={`peak-${i}`}>
-                    <circle cx={rail.xFor(p.gex)} cy={rail.yFor(p.price)} r={2.6} fill={c} />
-                  </g>
-                ))}
               </g>
             )}
 
@@ -1643,6 +2002,15 @@ export default function GammaTerminalChart({
                   );
                 })}
             </g>
+
+            {/* ── Expected-range band: a subtle wash between the ER lines ── */}
+            {overlays.expectedRange && erModel && (() => {
+              const yHi = clamp(yPrice(erModel.high), PAD_TOP, PRICE_BOTTOM);
+              const yLo = clamp(yPrice(erModel.low), PAD_TOP, PRICE_BOTTOM);
+              const h = yLo - yHi;
+              if (!(h > 0)) return null;
+              return <rect x={PLOT_LEFT} y={yHi} width={PLOT_RIGHT - PLOT_LEFT} height={h} fill="var(--color-info)" opacity={0.06} pointerEvents="none" />;
+            })()}
 
             {/* ── Gamma level reference lines (in-domain only) ──────────── */}
             {levelDefs.map((l) => {
@@ -1740,7 +2108,7 @@ export default function GammaTerminalChart({
               const x = xForIndex(i);
               const label =
                 timeframe === "1day"
-                  ? new Date(b.timestamp).toLocaleDateString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric" })
+                  ? etTradingDateLabel(b.timestamp)
                   : new Date(b.timestamp).toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit", hour12: false });
               return (
                 <text key={`t-${b.timestamp}`} x={x} y={TIME_AXIS_Y} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={10} fill="var(--text-muted)" style={{ fontVariantNumeric: "tabular-nums" }}>
@@ -1819,7 +2187,9 @@ export default function GammaTerminalChart({
           >
             <div style={{ background: "var(--color-chart-tooltip-bg)", border: "1px solid var(--color-chart-tooltip-border)", borderRadius: "var(--radius-control)", boxShadow: "var(--shadow-pop)", padding: "9px 11px" }}>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-muted)", marginBottom: 5 }}>
-                {new Date(activeBar.timestamp).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })} ET
+                {timeframe === "1day"
+                  ? etTradingDateLabel(activeBar.timestamp)
+                  : `${new Date(activeBar.timestamp).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })} ET`}
               </div>
               <div className="grid grid-cols-2 gap-x-3 gap-y-0.5" style={{ fontFamily: "var(--font-mono)", fontSize: 11, fontVariantNumeric: "tabular-nums" }}>
                 <Row k="O" v={fmtPrice(activeBar.open)} />
@@ -1939,7 +2309,7 @@ export default function GammaTerminalChart({
                 <Repeat size={13} />
               </button>
               <div className="zg-gc-seg" aria-label="Playback speed">
-                {([1, 4, 16] as const).map((s) => (
+                {([1, 4, 8, 16] as const).map((s) => (
                   <button key={s} type="button" className="zg-gc-seg-btn" data-active={playbackSpeed === s} onClick={() => setPlaybackSpeed(s)}>
                     {s}×
                   </button>
@@ -1971,6 +2341,7 @@ export default function GammaTerminalChart({
         <LegendDot color="var(--color-bull)" label="Call Wall" />
         <LegendDot color="var(--color-bear)" label="Put Wall" />
         <LegendDot color="var(--color-gold)" label="Max Pain" />
+        <LegendDot color="var(--color-pin)" label="Pin Strike" />
         <LegendDot color="var(--color-hazy)" label="VWAP" />
         <LegendDot color="var(--color-accent-hot)" label="Last" />
         <div className="ml-auto flex items-center gap-1.5" style={{ color: "var(--text-muted)" }}>
@@ -2114,6 +2485,25 @@ function sessionLabel(session: string | null | undefined): { label: string; colo
   if (s === "ah" || s === "afterhours" || s === "post") return { label: "AFTER-HRS", color: "var(--color-warning)" };
   if (s === "closed") return { label: "CLOSED", color: "var(--text-muted)" };
   return { label: session.toUpperCase(), color: "var(--text-secondary)" };
+}
+
+// On-bar $ gamma label for the per-strike rail bars. A halo (stroke painted
+// under the fill) keeps it legible over the bars and the plot grid alike.
+function RailBarLabel({ x, y, anchor, color, text }: { x: number; y: number; anchor: "start" | "end"; color: string; text: string }) {
+  return (
+    <text
+      x={x}
+      y={y}
+      textAnchor={anchor}
+      fontFamily="var(--font-mono)"
+      fontSize={8.5}
+      fontWeight={600}
+      fill={color}
+      style={{ paintOrder: "stroke", stroke: "var(--bg-card)", strokeWidth: 2.5, fontVariantNumeric: "tabular-nums" } as CSSProperties}
+    >
+      {text}
+    </text>
+  );
 }
 
 function PriceTag({ x, y, value, bg, strong = false, arrow = null }: { x: number; y: number; value: string; bg: string; strong?: boolean; arrow?: "up" | "down" | null }) {

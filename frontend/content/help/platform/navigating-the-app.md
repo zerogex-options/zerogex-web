@@ -34,7 +34,7 @@ You can collapse the header to recover vertical room — the preference syncs to
 
 ## The symbol picker
 
-ZeroGEX covers **SPY**, **SPX**, and **QQQ**. The symbol picker is in the header. Choosing a symbol updates every page on the platform — dashboard tiles, signals, charts — to that symbol.
+ZeroGEX covers **SPY**, **SPX**, **QQQ**, and **NDX**. The symbol picker is in the header. Choosing a symbol updates every page on the platform — dashboard tiles, signals, charts — to that symbol.
 
 ## The timeframe selector
 

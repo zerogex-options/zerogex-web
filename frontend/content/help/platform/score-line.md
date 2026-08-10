@@ -73,7 +73,7 @@ A simple rule of thumb that has held up:
 
 > Act on **confluence**, not on individual scores.
 
-A single +0.7 on one signal is interesting. A +0.5 on three signals from independent dimensions (a Basic signal, an Advanced signal, the composite) is a trade.
+A single +0.7 on one signal is interesting. A +0.5 on three signals from independent dimensions (say, two Basic signals and an Advanced signal) is a trade. The composite isn't part of that ±0.5 tally — it's a 0–100 regime gauge, not a [-1, +1] directional score, so don't read its level as bull/bear.
 
 ## What changes if the regime changes
 

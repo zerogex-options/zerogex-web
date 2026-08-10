@@ -19,7 +19,7 @@ const PRIMARY_PAGES: Entry[] = [
   { title: 'Real-Time GEX for 0DTE', href: '/real-time-gex-0dte', kind: 'Tool', blurb: 'Live gamma flip, call and put walls, dealer positioning, and composite signals built for SPX/0DTE intraday flow.' },
   { title: 'Pricing', href: '/pricing', kind: 'Page', blurb: 'ZeroGEX plans and pricing — free delayed levels plus real-time dashboard tiers.' },
   { title: 'Options Gamma Education Hub', href: '/education', kind: 'Hub', blurb: 'Plain-English explainers on GEX, the gamma flip, call walls, put walls, and 0DTE dealer positioning.' },
-  { title: 'Options Gamma Trading Articles', href: '/articles', kind: 'Hub', blurb: 'Flow-focused breakdowns of options market structure for SPX, SPY, and QQQ traders.' },
+  { title: 'Options Gamma Trading Articles', href: '/articles', kind: 'Hub', blurb: 'Flow-focused breakdowns of options market structure for SPX, SPY, QQQ, and NDX traders.' },
   { title: 'About ZeroGEX', href: '/about', kind: 'Page', blurb: 'The open options analytics platform — what ZeroGEX is and how it is built.' },
 ];
 
@@ -84,7 +84,7 @@ export default function SearchClient() {
 
       {trimmed === '' ? (
         <p className="text-sm text-[var(--color-text-secondary)]">
-          Start typing to search across explainers, live SPX / SPY / QQQ gamma levels, and tools.
+          Start typing to search across explainers, live SPX / SPY / QQQ / NDX gamma levels, and tools.
         </p>
       ) : results.length === 0 ? (
         <p className="text-sm text-[var(--color-text-secondary)]">

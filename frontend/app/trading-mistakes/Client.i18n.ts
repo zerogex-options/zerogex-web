@@ -20,7 +20,7 @@ export const dict: PageDictionary = {
     ctaTitleLine1: 'See the structural map',
     ctaTitleHighlight: 'before your next trade.',
     ctaSubtitle:
-      "The free ZeroGEX Gamma Levels pages surface today's gamma flip, call and put walls, max pain, and dealer gamma profile for SPY, SPX, and QQQ, delayed about 15 minutes. No signup, no card.",
+      "The free ZeroGEX Gamma Levels pages surface today's gamma flip, call and put walls, max pain, and dealer gamma profile for SPY, SPX, QQQ, and NDX, delayed about 15 minutes. No signup, no card.",
     ctaPrimaryBtn: 'Open the free gamma levels',
     ctaSecondaryBtn: 'See pricing',
     ctaDisclaimer:
@@ -45,7 +45,7 @@ export const dict: PageDictionary = {
     ctaTitleLine1: 'Guarda la mappa strutturale',
     ctaTitleHighlight: 'prima del tuo prossimo trade.',
     ctaSubtitle:
-      "Le pagine gratuite ZeroGEX Gamma Levels mostrano il gamma flip odierno, i call e put wall, il max pain e il profilo gamma dei dealer per SPY, SPX e QQQ, con un ritardo di circa 15 minuti. Nessuna registrazione, nessuna carta.",
+      "Le pagine gratuite ZeroGEX Gamma Levels mostrano il gamma flip odierno, i call e put wall, il max pain e il profilo gamma dei dealer per SPY, SPX, QQQ e NDX, con un ritardo di circa 15 minuti. Nessuna registrazione, nessuna carta.",
     ctaPrimaryBtn: 'Apri i livelli gamma gratuiti',
     ctaSecondaryBtn: 'Vedi i prezzi',
     ctaDisclaimer:
@@ -70,7 +70,7 @@ export const dict: PageDictionary = {
     ctaTitleLine1: 'Sieh dir die strukturelle Karte an,',
     ctaTitleHighlight: 'bevor du deinen nächsten Trade eingehst.',
     ctaSubtitle:
-      'Die kostenlosen ZeroGEX-Gamma-Levels-Seiten zeigen den heutigen Gamma Flip, Call- und Put-Wall, Max Pain und das Dealer-Gamma-Profil für SPY, SPX und QQQ, mit etwa 15 Minuten Verzögerung. Keine Anmeldung, keine Karte nötig.',
+      'Die kostenlosen ZeroGEX-Gamma-Levels-Seiten zeigen den heutigen Gamma Flip, Call- und Put-Wall, Max Pain und das Dealer-Gamma-Profil für SPY, SPX, QQQ und NDX, mit etwa 15 Minuten Verzögerung. Keine Anmeldung, keine Karte nötig.',
     ctaPrimaryBtn: 'Kostenlose Gamma-Levels öffnen',
     ctaSecondaryBtn: 'Preise ansehen',
     ctaDisclaimer:
@@ -95,7 +95,7 @@ export const dict: PageDictionary = {
     ctaTitleLine1: 'Mira el mapa estructural',
     ctaTitleHighlight: 'antes de tu próximo trade.',
     ctaSubtitle:
-      'Las páginas gratuitas de ZeroGEX Gamma Levels muestran el gamma flip de hoy, los call y put wall, el max pain y el perfil de gamma de los dealers para SPY, SPX y QQQ, con un retraso de unos 15 minutos. Sin registro, sin tarjeta.',
+      'Las páginas gratuitas de ZeroGEX Gamma Levels muestran el gamma flip de hoy, los call y put wall, el max pain y el perfil de gamma de los dealers para SPY, SPX, QQQ y NDX, con un retraso de unos 15 minutos. Sin registro, sin tarjeta.',
     ctaPrimaryBtn: 'Abrir los niveles gamma gratuitos',
     ctaSecondaryBtn: 'Ver precios',
     ctaDisclaimer:
@@ -120,7 +120,7 @@ export const dict: PageDictionary = {
     ctaTitleLine1: 'Voyez la carte structurelle',
     ctaTitleHighlight: 'avant votre prochain trade.',
     ctaSubtitle:
-      "Les pages gratuites ZeroGEX Gamma Levels affichent le gamma flip du jour, les call et put wall, le max pain et le profil gamma des dealers pour SPY, SPX et QQQ, avec un délai d'environ 15 minutes. Sans inscription, sans carte.",
+      "Les pages gratuites ZeroGEX Gamma Levels affichent le gamma flip du jour, les call et put wall, le max pain et le profil gamma des dealers pour SPY, SPX, QQQ et NDX, avec un délai d'environ 15 minutes. Sans inscription, sans carte.",
     ctaPrimaryBtn: 'Ouvrir les niveaux gamma gratuits',
     ctaSecondaryBtn: 'Voir les tarifs',
     ctaDisclaimer:

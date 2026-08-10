@@ -22,7 +22,7 @@ No paid link schemes, PBNs, group-buy sites, or mass-submission blasts (see the 
    (≤10% of your activity self-promotional). Lead with value; disclose you built it.
 
 **Two hooks to lead with everywhere:**
-- **Free, no-signup value:** 15-minute-delayed SPX / SPY / QQQ gamma levels (gamma flip, call
+- **Free, no-signup value:** 15-minute-delayed SPX / SPY / QQQ / NDX gamma levels (gamma flip, call
   wall, put wall, net GEX). Most listing readers will click a free tool.
 - **Cause angle:** ZeroGEX donates **3% of revenue to Folds of Honor** (scholarships for
   families of fallen/disabled U.S. service members) — 3× the standard 1% pledge.
@@ -44,18 +44,18 @@ land because you're not asking for a puff piece, you're offering balanced catego
 > Real-time gamma exposure & dealer positioning for options traders
 
 **Short description (≤160 chars — Google/most directories):**
-> Real-time gamma exposure (GEX), dealer positioning, and gamma walls for SPX/SPY/QQQ traders — plus free 15-min-delayed gamma levels, no signup.
+> Real-time gamma exposure (GEX), dealer positioning, and gamma walls for SPX/SPY/QQQ/NDX traders — plus free 15-min-delayed gamma levels, no signup.
 
 **Medium (~50 words):**
 > ZeroGEX is an options analytics platform that turns the options chain into real-time dealer
 > positioning: gamma exposure (GEX), the gamma flip, call and put walls, and 0DTE flow for SPX,
-> SPY, and QQQ. It publishes free 15-minute-delayed gamma levels with no signup, with real-time
+> SPY, QQQ, and NDX. It publishes free 15-minute-delayed gamma levels with no signup, with real-time
 > data and signals on paid tiers.
 
 **Long (~100 words):**
 > ZeroGEX is an options analytics platform for retail and prosumer traders. It reads the options
 > chain and estimates what dealers must hedge — surfacing real-time gamma exposure (GEX), the
-> gamma flip, call and put walls, net GEX, and 0DTE dealer positioning for SPX, SPY, and QQQ.
+> gamma flip, call and put walls, net GEX, and 0DTE dealer positioning for SPX, SPY, QQQ, and NDX.
 > The free tier publishes 15-minute-delayed gamma levels with no signup; real-time data,
 > intraday signals, and deeper analytics are on paid plans. ZeroGEX also publishes plain-English
 > education on market structure and donates 3% of revenue to Folds of Honor.
@@ -168,7 +168,7 @@ approved logo/assets.
 >
 > Hi {name} — I'm the founder of ZeroGEX (zerogex.io). Your piece on {article} is one of the
 > better roundups in this space, so I wanted to put us on your radar rather than ask for
-> anything. ZeroGEX publishes free 15-minute-delayed SPX/SPY/QQQ gamma levels (gamma flip, call
+> anything. ZeroGEX publishes free 15-minute-delayed SPX/SPY/QQQ/NDX gamma levels (gamma flip, call
 > wall, put wall, net GEX) with no signup, and real-time data on paid tiers. Happy to set you up
 > with full access to evaluate. We also publish a deliberately even-handed comparison of the
 > category (including our competitors) here: zerogex.io/education/best-gex-tools — reuse anything
@@ -178,7 +178,7 @@ approved logo/assets.
 > Subject: Live-data reference for your Gamma Exposure page
 >
 > Hi {name} — your explainer on gamma exposure at {url} is a great primer. If it's ever useful
-> for readers who want to *see* current levels, ZeroGEX publishes free delayed SPX/SPY/QQQ gamma
+> for readers who want to *see* current levels, ZeroGEX publishes free delayed SPX/SPY/QQQ/NDX gamma
 > levels (no signup): zerogex.io/spx-gamma-levels. Offered purely as a "further reading / live
 > data" reference — no strings.
 

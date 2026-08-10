@@ -4,6 +4,7 @@ import { ArrowRight, CheckCircle2, Clock, History, Minus, TrendingDown, Trending
 import { serverApiGet } from '@/core/api/serverFetch';
 import { buildReportModel, detectRegime, type RegimeKey } from '../live-bulletin/bulletinHelpers';
 import TodaysReadCard from '@/components/TodaysReadCard';
+import BreadcrumbJsonLd from '@/components/BreadcrumbJsonLd';
 import LandingHeader from '@/components/LandingHeader';
 import PlotOnTradingView from '@/components/PlotOnTradingView';
 import Footer from './Footer';
@@ -55,6 +56,12 @@ interface GexSummary {
   call_wall?: number | null;
   put_wall?: number | null;
   put_call_ratio?: number | null;
+  // Pin Strike — reachable 0DTE strike with the strongest modeled positive
+  // (restoring) dealer gamma into expiration. Null when no meaningful pin.
+  pin_strike?: number | null;
+  pin_score?: number | null;
+  pin_confidence?: number | null;
+  pin_strike_reason?: string | null;
 }
 
 // Per-ticker copy. Each page leads with its own symbol so it reads as the best
@@ -133,17 +140,24 @@ export function gammaMetadata(primary: Symbol): Metadata {
   };
 }
 
-// Symbol-agnostic FAQ — identical across all four ticker pages so each answer
-// reads as a general definition of the concept. Rendered visibly (so answer
-// engines can quote it) AND mirrored into FAQPage JSON-LD below, both from this
-// one source so they never drift. The wording is deliberately plain and
-// self-contained — each answer stands alone as a quotable definition for
-// question-style searches like "what is a gamma flip" or "what is a put wall".
-function faqItems(): { q: string; a: string }[] {
+// Mostly symbol-agnostic FAQ — each concept answer reads as a general
+// definition, identical across all four ticker pages. The one exception is the
+// net-GEX item, which is intentionally symbol-specific (e.g. "SPX net gamma
+// exposure") so each page answers the exact "<ticker> net GEX today / current
+// value" query it ranks for. Rendered visibly (so answer engines can quote it)
+// AND mirrored into FAQPage JSON-LD below, both from this one source so they
+// never drift. The wording is deliberately plain and self-contained — each
+// answer stands alone as a quotable definition for question-style searches like
+// "what is a gamma flip" or "what is SPX net gamma exposure right now".
+function faqItems(primary: Symbol): { q: string; a: string }[] {
   return [
     {
       q: 'What are gamma levels?',
       a: 'Gamma levels are price zones where options dealer positioning may influence support, resistance, pinning, or volatility. Common levels include the gamma flip, call wall, put wall, and max pain.',
+    },
+    {
+      q: `What is ${primary}'s net gamma exposure (net GEX) right now?`,
+      a: `Today's ${primary} net GEX — the net dealer gamma across the ${primary} options chain, evaluated at spot and expressed as a signed dollar "gamma" figure — is shown at the top of this page and refreshed on a roughly 15-minute delay. A positive value means ${primary} is trading above its gamma flip, where dealer hedging tends to suppress volatility; a negative value means it is below the flip, where hedging tends to amplify it. The price where net GEX crosses zero is the gamma flip, also called the zero-gamma level. Net GEX is a modeled estimate, not directly observed dealer inventory.`,
     },
     {
       q: 'What is the gamma flip?',
@@ -171,9 +185,11 @@ const LEARN_MORE_LINKS: { href: string; label: string }[] = [
   { href: '/education/how-to-read-a-gamma-flip', label: 'What Is a Gamma Flip?' },
   { href: '/education/what-is-a-call-wall', label: 'What Is a Call Wall?' },
   { href: '/education/what-is-a-put-wall', label: 'What Is a Put Wall?' },
+  { href: '/education/gamma-walls-explained', label: 'Gamma Walls Explained: Call Wall & Put Wall' },
   { href: '/education/what-is-gex-in-trading', label: 'What Is GEX in Trading?' },
   { href: '/education/spx-net-gamma-exposure-today', label: 'SPX Net Gamma Exposure Today: Reading Net GEX' },
   { href: '/education/how-to-trade-around-gamma-flip', label: 'How Traders Use Gamma Levels' },
+  { href: '/education/best-gex-tools', label: 'Best GEX Tools & Platforms: A Fair Comparison' },
   { href: '/education/spy-vs-spx-gamma-levels', label: 'SPY vs SPX Options: Which Gamma Levels Matter?' },
 ];
 
@@ -492,6 +508,7 @@ function SymbolCard({
         <LevelRow label="Put wall" value={fmtPrice(data?.put_wall)} hint="Strike that tends to floor downside" />
         <LevelRow label="Gamma flip" value={fmtPrice(data?.gamma_flip)} hint="Regime line — above = positive, below = negative" />
         <LevelRow label="Max pain" value={fmtPrice(data?.max_pain)} hint="Strike where the most contracts expire worthless" />
+        <LevelRow label="Pin strike" value={fmtPrice(data?.pin_strike)} hint="Reachable 0DTE strike with the strongest modeled positive dealer-gamma stabilization into expiration — a modeled pinning level, not a target" />
         <LevelRow label="Net dealer GEX (at spot)" value={fmtNetGex(data?.net_gex_at_spot ?? data?.net_gex)} hint="Modeled (call-positive/put-negative convention); actual dealer inventory isn't directly observable" />
       </div>
 
@@ -575,6 +592,14 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
     .sort()
     .at(-1);
 
+  // Primary-symbol current reading — surfaced as an evergreen "Today's <ticker>
+  // net GEX" answer block in the content zone below. Targets the "<ticker> net
+  // gamma exposure current / today / value / zero-cross" query cluster with the
+  // same delayed number already shown in the cards above (never a live claim).
+  const primaryNetGex = primaryData?.net_gex_at_spot ?? primaryData?.net_gex ?? null;
+  const primaryFlip = primaryData?.gamma_flip ?? null;
+  const primarySpotPrice = primaryData?.spot_price ?? null;
+
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'WebPage',
@@ -593,7 +618,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
     ],
   };
 
-  const faqs = faqItems();
+  const faqs = faqItems(primary);
   const faqJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
@@ -621,6 +646,12 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+      />
+      <BreadcrumbJsonLd
+        items={[
+          { name: 'Home', url: '/' },
+          { name: content.h1, url: content.path },
+        ]}
       />
 
       <LandingHeader />
@@ -819,6 +850,36 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
             on their own chart, then route them to the live dashboard. Shared by
             all three ticker pages via this GammaLevelsView. */}
         <PlotOnTradingView />
+
+        {/* "Today's <ticker> net GEX" — a plain-language answer for the
+            "<ticker> net gamma exposure current / today / value / zero-cross"
+            searches this page ranks for. Leads the evergreen content with the
+            same delayed reading shown in the cards above, quotable as a
+            featured snippet. Guarded on primaryData so an outage never renders a
+            half-empty sentence. */}
+        {primaryData && primaryNetGex != null && (
+          <section style={{ marginBottom: 40 }}>
+            <h2 style={{ fontSize: 24, fontWeight: 800, margin: '0 0 12px 0', letterSpacing: '-0.3px' }}>
+              Today&apos;s {primary} net GEX
+            </h2>
+            <p style={{ margin: 0, fontSize: 15, lineHeight: 1.7, color: 'var(--color-text-secondary)' }}>
+              As of {fmtTimestampET(primaryData.timestamp)}, {primary} net gamma exposure at spot is{' '}
+              <strong style={{ color: 'var(--color-text-primary)' }}>{fmtNetGex(primaryNetGex)}</strong> — a{' '}
+              {primaryNetGex >= 0 ? 'positive' : 'negative'}-gamma regime.{' '}
+              {primaryNetGex >= 0
+                ? 'Dealers are modeled net long gamma above the flip, which tends to suppress volatility — tighter ranges, more pinning, and rallies that stall near the call wall.'
+                : 'Dealers are modeled net short gamma below the flip, which tends to amplify volatility — wider ranges, extending breakouts, and trends that run.'}
+              {primaryFlip != null && (
+                <>
+                  {' '}The zero-cross — the gamma flip, or zero-gamma level — sits at {fmtPrice(primaryFlip)}
+                  {primarySpotPrice != null ? <>, with {primary} spot at {fmtPrice(primarySpotPrice)}</> : null}.
+                </>
+              )}
+              {' '}This free reading is delayed roughly 15 minutes; for the live, session-long value, open the{' '}
+              <Link href="/register" style={{ color: 'var(--color-brand-primary)' }}>ZeroGEX dashboard</Link>.
+            </p>
+          </section>
+        )}
 
         <section style={{ marginBottom: 40 }}>
           <h2 style={{ fontSize: 24, fontWeight: 800, margin: '0 0 16px 0', letterSpacing: '-0.3px' }}>

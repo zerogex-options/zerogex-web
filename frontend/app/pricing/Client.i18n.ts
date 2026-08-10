@@ -8,10 +8,10 @@ export const dict: PageDictionary = {
     heroTrialSubtitle: 'Choose your plan to start your {days}-day free trial.',
     heroTrialNoCharge: 'No charge until day {days}. Cancel anytime.',
     heroTrialBody:
-      'Your ZeroGEX account is ready. Pick Basic or Pro to unlock live SPY, SPX, and QQQ gamma levels, dealer positioning, flow pressure, and market state signals.',
+      'Your ZeroGEX account is ready. Pick Basic or Pro to unlock live SPY, SPX, QQQ, and NDX gamma levels, dealer positioning, flow pressure, and market state signals.',
     heroTitle: 'Trade with a live map of the options levels that matter.',
     heroSubtitle:
-      'ZeroGEX helps SPY/SPX/QQQ traders track gamma exposure, call/put walls, gamma flip, dealer positioning, and flow pressure in real time.',
+      'ZeroGEX helps SPY/SPX/QQQ/NDX traders track gamma exposure, call/put walls, gamma flip, dealer positioning, and flow pressure in real time.',
     heroBody:
       '{days}-day free trial. Full access now. No charge until day {days}. Cancel anytime — no email or support request required.',
     checkoutCancelledNotice: "No problem — your trial has not started yet. Choose a plan whenever you're ready.",
@@ -56,7 +56,7 @@ export const dict: PageDictionary = {
       'Manage or cancel your plan yourself through the billing portal — no email or support request required.',
     planSwitchLabel: 'Plan switches during trial.',
     planSwitchBody:
-      'Changing plans while on the free trial ends the trial early and charges you for the new plan immediately. To keep the trial, wait until it ends before switching plans.',
+      "Switching plans during your free trial keeps the trial — you won't be charged today. You're billed at your new plan's rate when the trial ends, never before.",
     upgradesLabel: 'Upgrades & downgrades on paid plans.',
     upgradesBody: 'After the trial, switching tiers is pro-rated automatically through the Stripe-hosted billing portal.',
     noRefundsLabel: 'No prorated refunds.',
@@ -96,10 +96,10 @@ export const dict: PageDictionary = {
     heroTrialSubtitle: 'Scegli il tuo piano per iniziare la prova gratuita di {days} giorni.',
     heroTrialNoCharge: 'Nessun addebito fino al giorno {days}. Annulla quando vuoi.',
     heroTrialBody:
-      'Il tuo account ZeroGEX è pronto. Scegli Basic o Pro per sbloccare i livelli gamma in tempo reale di SPY, SPX e QQQ, il posizionamento dei dealer, la pressione dei flussi e i segnali di stato del mercato.',
+      'Il tuo account ZeroGEX è pronto. Scegli Basic o Pro per sbloccare i livelli gamma in tempo reale di SPY, SPX, QQQ e NDX, il posizionamento dei dealer, la pressione dei flussi e i segnali di stato del mercato.',
     heroTitle: 'Fai trading con una mappa in tempo reale dei livelli delle opzioni che contano.',
     heroSubtitle:
-      'ZeroGEX aiuta i trader di SPY/SPX/QQQ a monitorare l’esposizione gamma, i call/put wall, il gamma flip, il posizionamento dei dealer e la pressione dei flussi in tempo reale.',
+      'ZeroGEX aiuta i trader di SPY/SPX/QQQ/NDX a monitorare l’esposizione gamma, i call/put wall, il gamma flip, il posizionamento dei dealer e la pressione dei flussi in tempo reale.',
     heroBody:
       'Prova gratuita di {days} giorni. Accesso completo da subito. Nessun addebito fino al giorno {days}. Annulla quando vuoi, senza email o richieste di assistenza.',
     checkoutCancelledNotice: 'Nessun problema: la tua prova non è ancora iniziata. Scegli un piano quando sei pronto.',
@@ -144,7 +144,7 @@ export const dict: PageDictionary = {
       'Gestisci o annulla il tuo piano autonomamente tramite il portale di fatturazione, senza email o richieste di assistenza.',
     planSwitchLabel: 'Cambio piano durante la prova.',
     planSwitchBody:
-      'Cambiare piano durante la prova gratuita termina anticipatamente la prova e ti addebita subito il nuovo piano. Per mantenere la prova, attendi che finisca prima di cambiare piano.',
+      'Cambiare piano durante la prova gratuita mantiene la prova: oggi non ti viene addebitato nulla. Verrai addebitato alla tariffa del nuovo piano solo al termine della prova, mai prima.',
     upgradesLabel: 'Upgrade e downgrade sui piani a pagamento.',
     upgradesBody:
       'Dopo la prova, il cambio di livello viene calcolato automaticamente in proporzione tramite il portale di fatturazione ospitato da Stripe.',
@@ -185,10 +185,10 @@ export const dict: PageDictionary = {
     heroTrialSubtitle: 'Wähle deinen Plan, um deine {days}-tägige kostenlose Testphase zu starten.',
     heroTrialNoCharge: 'Keine Abbuchung bis Tag {days}. Jederzeit kündbar.',
     heroTrialBody:
-      'Dein ZeroGEX-Konto ist bereit. Wähle Basic oder Pro, um Live-Gamma-Level für SPY, SPX und QQQ, Dealer-Positionierung, Flow-Druck und Marktzustandssignale freizuschalten.',
+      'Dein ZeroGEX-Konto ist bereit. Wähle Basic oder Pro, um Live-Gamma-Level für SPY, SPX, QQQ und NDX, Dealer-Positionierung, Flow-Druck und Marktzustandssignale freizuschalten.',
     heroTitle: 'Handle mit einer Live-Karte der Optionslevel, die wirklich zählen.',
     heroSubtitle:
-      'ZeroGEX hilft SPY/SPX/QQQ-Tradern, Gamma-Exposure, Call-/Put-Walls, Gamma-Flip, Dealer-Positionierung und Flow-Druck in Echtzeit zu verfolgen.',
+      'ZeroGEX hilft SPY/SPX/QQQ/NDX-Tradern, Gamma-Exposure, Call-/Put-Walls, Gamma-Flip, Dealer-Positionierung und Flow-Druck in Echtzeit zu verfolgen.',
     heroBody:
       '{days}-tägige kostenlose Testphase. Sofort voller Zugriff. Keine Abbuchung bis Tag {days}. Jederzeit kündbar — ohne E-Mail oder Support-Anfrage.',
     checkoutCancelledNotice: 'Kein Problem — deine Testphase hat noch nicht begonnen. Wähle einen Plan, wann immer du bereit bist.',
@@ -233,7 +233,7 @@ export const dict: PageDictionary = {
       'Verwalte oder kündige deinen Plan selbst über das Kundenportal — ohne E-Mail oder Support-Anfrage.',
     planSwitchLabel: 'Planwechsel während der Testphase.',
     planSwitchBody:
-      'Ein Planwechsel während der kostenlosen Testphase beendet die Testphase vorzeitig und belastet dich sofort für den neuen Plan. Um die Testphase zu behalten, warte mit dem Wechsel, bis sie endet.',
+      'Ein Planwechsel während der kostenlosen Testphase behält die Testphase bei – heute wird dir nichts berechnet. Zum Tarif des neuen Plans wirst du erst belastet, wenn die Testphase endet, niemals vorher.',
     upgradesLabel: 'Up- und Downgrades bei bezahlten Plänen.',
     upgradesBody: 'Nach der Testphase wird ein Tarifwechsel automatisch anteilig über das von Stripe gehostete Kundenportal berechnet.',
     noRefundsLabel: 'Keine anteiligen Rückerstattungen.',
@@ -273,10 +273,10 @@ export const dict: PageDictionary = {
     heroTrialSubtitle: 'Elige tu plan para comenzar tu prueba gratuita de {days} días.',
     heroTrialNoCharge: 'Sin cargos hasta el día {days}. Cancela cuando quieras.',
     heroTrialBody:
-      'Tu cuenta de ZeroGEX está lista. Elige Basic o Pro para desbloquear los niveles de gamma en tiempo real de SPY, SPX y QQQ, el posicionamiento de los dealers, la presión de flujo y las señales de estado del mercado.',
+      'Tu cuenta de ZeroGEX está lista. Elige Basic o Pro para desbloquear los niveles de gamma en tiempo real de SPY, SPX, QQQ y NDX, el posicionamiento de los dealers, la presión de flujo y las señales de estado del mercado.',
     heroTitle: 'Opera con un mapa en tiempo real de los niveles de opciones que importan.',
     heroSubtitle:
-      'ZeroGEX ayuda a los traders de SPY/SPX/QQQ a seguir la exposición gamma, los call/put walls, el gamma flip, el posicionamiento de los dealers y la presión de flujo en tiempo real.',
+      'ZeroGEX ayuda a los traders de SPY/SPX/QQQ/NDX a seguir la exposición gamma, los call/put walls, el gamma flip, el posicionamiento de los dealers y la presión de flujo en tiempo real.',
     heroBody:
       'Prueba gratuita de {days} días. Acceso completo desde ya. Sin cargos hasta el día {days}. Cancela cuando quieras, sin correo ni solicitudes de soporte.',
     checkoutCancelledNotice: 'No hay problema: tu prueba aún no ha comenzado. Elige un plan cuando estés listo.',
@@ -321,7 +321,7 @@ export const dict: PageDictionary = {
       'Gestiona o cancela tu plan tú mismo desde el portal de facturación, sin correo ni solicitudes de soporte.',
     planSwitchLabel: 'Cambios de plan durante la prueba.',
     planSwitchBody:
-      'Cambiar de plan durante la prueba gratuita finaliza la prueba antes de tiempo y te cobra el nuevo plan de inmediato. Para conservar la prueba, espera a que termine antes de cambiar de plan.',
+      'Cambiar de plan durante la prueba gratuita conserva la prueba: hoy no se te cobra nada. Se te cobrará la tarifa del nuevo plan solo cuando termine la prueba, nunca antes.',
     upgradesLabel: 'Mejoras y reducciones en planes pagos.',
     upgradesBody: 'Después de la prueba, el cambio de nivel se prorratea automáticamente a través del portal de facturación alojado por Stripe.',
     noRefundsLabel: 'Sin reembolsos prorrateados.',
@@ -361,10 +361,10 @@ export const dict: PageDictionary = {
     heroTrialSubtitle: 'Choisissez votre offre pour démarrer votre essai gratuit de {days} jours.',
     heroTrialNoCharge: "Aucun prélèvement avant le jour {days}. Annulez à tout moment.",
     heroTrialBody:
-      "Votre compte ZeroGEX est prêt. Choisissez Basic ou Pro pour débloquer les niveaux gamma en temps réel de SPY, SPX et QQQ, le positionnement des dealers, la pression de flux et les signaux d'état du marché.",
+      "Votre compte ZeroGEX est prêt. Choisissez Basic ou Pro pour débloquer les niveaux gamma en temps réel de SPY, SPX, QQQ et NDX, le positionnement des dealers, la pression de flux et les signaux d'état du marché.",
     heroTitle: 'Tradez avec une carte en temps réel des niveaux d’options qui comptent.',
     heroSubtitle:
-      'ZeroGEX aide les traders SPY/SPX/QQQ à suivre l’exposition gamma, les call/put walls, le gamma flip, le positionnement des dealers et la pression de flux en temps réel.',
+      'ZeroGEX aide les traders SPY/SPX/QQQ/NDX à suivre l’exposition gamma, les call/put walls, le gamma flip, le positionnement des dealers et la pression de flux en temps réel.',
     heroBody:
       "Essai gratuit de {days} jours. Accès complet immédiat. Aucun prélèvement avant le jour {days}. Annulez à tout moment, sans e-mail ni demande d'assistance.",
     checkoutCancelledNotice: "Pas de problème — votre essai n'a pas encore commencé. Choisissez une offre quand vous serez prêt.",
@@ -409,7 +409,7 @@ export const dict: PageDictionary = {
       "Gérez ou annulez votre offre vous-même depuis le portail de facturation — sans e-mail ni demande d'assistance.",
     planSwitchLabel: "Changement d'offre pendant l'essai.",
     planSwitchBody:
-      "Changer d'offre pendant l'essai gratuit met fin à l'essai de façon anticipée et vous facture immédiatement la nouvelle offre. Pour conserver l'essai, attendez qu'il se termine avant de changer d'offre.",
+      "Changer d'offre pendant l'essai gratuit conserve l'essai : rien ne vous est facturé aujourd'hui. Vous êtes facturé au tarif de la nouvelle offre uniquement à la fin de l'essai, jamais avant.",
     upgradesLabel: "Montées et descentes de gamme sur les offres payantes.",
     upgradesBody: "Après l'essai, le changement de niveau est calculé automatiquement au prorata via le portail de facturation hébergé par Stripe.",
     noRefundsLabel: 'Aucun remboursement au prorata.',

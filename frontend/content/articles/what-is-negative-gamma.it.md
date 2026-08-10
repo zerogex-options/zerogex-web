@@ -126,4 +126,4 @@ Solo contenuto educativo — nulla di quanto sopra è una raccomandazione di tra
 
 ---
 
-Se vuoi vedere il Net GEX di oggi, il gamma flip e la lettura del regime in tempo reale per SPY, SPX e QQQ — i tre numeri che ti dicono se i dealer sono long gamma o short gamma in questo momento — la vista gratuita sui gamma-levels di ZeroGEX li mostra tutti.
+Se vuoi vedere il Net GEX di oggi, il gamma flip e la lettura del regime in tempo reale per SPY, SPX, QQQ e NDX — i tre numeri che ti dicono se i dealer sono long gamma o short gamma in questo momento — la vista gratuita sui gamma-levels di ZeroGEX li mostra tutti.

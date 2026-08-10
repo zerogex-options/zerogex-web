@@ -162,3 +162,107 @@ export function accumulateSubscriptionFlow(
 
   return out;
 }
+
+// --- Weekday breakdown of the per-day subscription flow --------------------
+// The admin "Subscription Flow" chart plots one column per calendar day. Folding
+// that per-day series onto the seven weekdays surfaces a weekly rhythm the daily
+// columns bury — e.g. a Monday signup peak that fades across the week. Kept here,
+// pure and DB-free, so it's unit-tested next to the accumulator that feeds it and
+// can be imported by the client chart (this module has no `server-only` import).
+
+// The nine per-day flow counts — exactly the numeric fields of a SignupFlowPoint
+// (core/monitoring.ts) minus its `day`. Adds and reactivations are positive;
+// cancellations and payment-failure downgrades arrive pre-negated.
+export type FlowCounts = {
+  proAdd: number;
+  basicAdd: number;
+  proReactivate: number;
+  basicReactivate: number;
+  proCancel: number;
+  basicCancel: number;
+  proPaymentFail: number;
+  basicPaymentFail: number;
+  registrations: number;
+};
+
+const FLOW_COUNT_KEYS: readonly (keyof FlowCounts)[] = [
+  'proAdd',
+  'basicAdd',
+  'proReactivate',
+  'basicReactivate',
+  'proCancel',
+  'basicCancel',
+  'proPaymentFail',
+  'basicPaymentFail',
+  'registrations',
+];
+
+// Weekday labels in the Mon→Sun order the breakdown reads.
+export const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
+
+// Monday-first weekday index (0=Mon … 6=Sun) for a 'YYYY-MM-DD' day key, or null
+// when the key isn't a real date. Flow day keys are ET calendar dates
+// (etBucketKeys in core/monitoringBuckets.ts), so the weekday is derived from the
+// date parts through UTC — never the host timezone, which could otherwise shift a
+// bare date across a day boundary and onto the wrong weekday. An impossible date
+// (e.g. 2026-02-31, which would roll forward into March) is rejected rather than
+// silently bucketed.
+export function weekdayFromDayKey(day: string): number | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day);
+  if (!m) return null;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  const dt = new Date(Date.UTC(y, mo - 1, d));
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) {
+    return null;
+  }
+  return (dt.getUTCDay() + 6) % 7; // JS 0=Sun…6=Sat → 0=Mon…6=Sun
+}
+
+export type FlowWeekdayBucket = FlowCounts & {
+  weekday: number; // 0=Mon … 6=Sun
+  label: string; // 'Mon' … 'Sun'
+  days: number; // how many of that weekday the input holds — the averaging denominator
+};
+
+function emptyFlowCounts(): FlowCounts {
+  return {
+    proAdd: 0,
+    basicAdd: 0,
+    proReactivate: 0,
+    basicReactivate: 0,
+    proCancel: 0,
+    basicCancel: 0,
+    proPaymentFail: 0,
+    basicPaymentFail: 0,
+    registrations: 0,
+  };
+}
+
+// Fold a per-day flow series onto the seven weekdays. Returns exactly 7 buckets
+// in Mon→Sun order; each sums that weekday's flow counts and tracks `days`, the
+// number of that weekday present in the input, so callers can render either raw
+// totals or a fair per-day average. Averaging matters because a window doesn't
+// hold each weekday an equal number of times — a 2-year span has ~104 of each,
+// and a trimmed one can carry an extra Monday or two — so dividing by `days`
+// removes that head-start bias before weekdays are compared. Rows whose key
+// doesn't parse to a real date are skipped (never bucketed onto a guessed day).
+export function accumulateFlowByWeekday(
+  points: ReadonlyArray<{ day: string } & FlowCounts>,
+): FlowWeekdayBucket[] {
+  const buckets: FlowWeekdayBucket[] = WEEKDAY_LABELS.map((label, i) => ({
+    ...emptyFlowCounts(),
+    weekday: i,
+    label,
+    days: 0,
+  }));
+  for (const p of points) {
+    const wd = weekdayFromDayKey(p.day);
+    if (wd === null) continue;
+    const b = buckets[wd];
+    b.days += 1;
+    for (const k of FLOW_COUNT_KEYS) b[k] += p[k];
+  }
+  return buckets;
+}

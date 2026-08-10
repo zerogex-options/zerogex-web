@@ -10,7 +10,7 @@ ZeroGEX gestisce due famiglie di segnali, e per progettazione si comportano in m
 
 I **segnali Advanced** rispondono a una domanda precisa e situazionale ("la chiusura si sta impuntando?", "questo breakout è appena fallito?"). Ciascuno produce un punteggio su una linea numerica **[-1, +1]** *e* un **trigger** discreto: quando il punteggio supera la soglia del segnale, scatta un alert e può abilitare un playbook. Sono guidati dagli eventi.
 
-I **segnali Basic** sono continui. Non "scattano" — al contrario alimentano il **composito MSI** con un peso fisso, spingendo la lettura combinata verso l'alto o il basso a ogni aggiornamento. Li vedi come input per il quadro d'insieme, non come alert autonomi.
+I **segnali Basic** sono continui. Non "scattano" — al contrario alimentano il **composito MSI** con un peso fisso, spingendo la lettura combinata del regime più in alto (verso il trend) o più in basso (verso il chop) a ogni aggiornamento. Li vedi come input per il quadro d'insieme, non come alert autonomi.
 
 Prima di passare alle tabelle, tre cose vale la pena interiorizzarle:
 

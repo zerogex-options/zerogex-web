@@ -268,11 +268,10 @@ export default async function Image({ params }: { params: { symbol: string; date
                     display: 'flex',
                   }}
                 >
-                  Expected volatility {hasReceipt && receipt?.vol_state_correct != null && (
-                    <span style={{ marginLeft: 10, color: receipt?.vol_state_correct ? '#10B981' : '#F45854' }}>
-                      {receipt?.vol_state_correct ? '✓' : '✗'}
-                    </span>
-                  )}
+                  Expected volatility
+                  <span style={{ marginLeft: 8, opacity: 0.6, textTransform: 'none', letterSpacing: 0 }}>
+                    (informational)
+                  </span>
                 </div>
                 <div
                   style={{
@@ -289,8 +288,8 @@ export default async function Image({ params }: { params: { symbol: string; date
                 </div>
                 <div style={{ fontSize: 20, color: '#C8D8DF', marginTop: 2, display: 'flex' }}>
                   {morning?.expected_vol_ratio != null
-                    ? `≈${Math.round(morning.expected_vol_ratio * 100)}% of implied`
-                    : 'realized vs. implied'}
+                    ? `${morning.expected_vol_ratio.toFixed(2)}× a normal day`
+                    : 'realized vs. a normal day'}
                 </div>
               </div>
               <div

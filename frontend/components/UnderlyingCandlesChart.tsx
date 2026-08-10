@@ -10,11 +10,12 @@ import TooltipWrapper from "./TooltipWrapper";
 import ExpandableCard from "./ExpandableCard";
 import { colors } from "@/core/colors";
 import { useTheme } from "@/core/ThemeContext";
-import { omitClosedMarketTimes } from "@/core/utils";
+import { omitClosedMarketTimes, shouldOmitClosedMarketTimes, etTradingDateLabel } from "@/core/utils";
 import { useTimeframe } from "@/core/TimeframeContext";
 import ChartTimeframeSelect, { type ChartTimeframe } from "./ChartTimeframeSelect";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import MobileScrollableChart from "./MobileScrollableChart";
+import ChartCaption from "./ChartCaption";
 
 interface CandleBar {
   timestamp: string;
@@ -137,7 +138,12 @@ export default function UnderlyingCandlesChart() {
   // means a 1Hz WS push doesn't re-sort N minutes of history every
   // second.
   const historicalBars = useMemo(() => {
-    const filtered = omitClosedMarketTimes(data || [], (d) => d.timestamp);
+    // Daily bars are whole-session markers stamped at UTC midnight; filtering
+    // them by intraday ET hours would drop every Monday (see
+    // shouldOmitClosedMarketTimes). Only intraday series need the filter.
+    const filtered = shouldOmitClosedMarketTimes(intervalMinutes)
+      ? omitClosedMarketTimes(data || [], (d) => d.timestamp)
+      : data || [];
     const seed = filtered[0]?.close ?? filtered[0]?.price ?? 0;
 
     const normalized = filtered.reduce(
@@ -274,15 +280,21 @@ export default function UnderlyingCandlesChart() {
       markers.push({
         index,
         key: bar.timestamp,
-        label: dt.toLocaleDateString("en-US", {
-          timeZone: "America/New_York",
-          month: "short",
-          day: "numeric",
-        }),
+        // Daily buckets are UTC-midnight date markers whose UTC date is the ET
+        // trading date; rendering them in ET rolls them back a day (see
+        // etTradingDateLabel). Intraday bars are real instants → keep ET.
+        label:
+          timeframe === "1day"
+            ? etTradingDateLabel(bar.timestamp)
+            : dt.toLocaleDateString("en-US", {
+                timeZone: "America/New_York",
+                month: "short",
+                day: "numeric",
+              }),
       });
     });
     return markers;
-  }, [bars]);
+  }, [bars, timeframe]);
 
   const dateMarkersForLabels = useMemo(() => {
     if (dateMarkers.length <= 1) return dateMarkers;
@@ -373,7 +385,7 @@ export default function UnderlyingCandlesChart() {
           <ChartTimeframeSelect value={timeframe} onChange={setTimeframe} className="mb-0 flex justify-end" />
           {hovered && (
             <div className="text-xs rounded-lg px-3 py-2 font-mono pointer-events-none whitespace-nowrap" style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', border: '1px solid var(--color-border)', color: 'var(--color-chart-tooltip-text)', boxShadow: '0 8px 24px var(--color-info-soft)' }}>
-              <div>{new Date(hovered.timestamp).toLocaleString()}</div>
+              <div>{timeframe === "1day" ? etTradingDateLabel(hovered.timestamp) : new Date(hovered.timestamp).toLocaleString()}</div>
               <div>
                 O: {hovered.open.toFixed(2)} H: {hovered.high.toFixed(2)} L:{" "}
                 {hovered.low.toFixed(2)} C: {hovered.close.toFixed(2)}
@@ -587,6 +599,7 @@ export default function UnderlyingCandlesChart() {
           </svg>
         </div>
         </MobileScrollableChart>
+        <ChartCaption />
       </div>
     </ExpandableCard>
   );

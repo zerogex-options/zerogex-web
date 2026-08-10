@@ -28,14 +28,19 @@ interface PriceChangeParams {
    * cards show it on its own as the last-regular-close reading. Either way the
    * frozen close is what those surfaces want.
    *
-   * Surfaces that draw the live extended-hours tape inline (the Gamma Chart)
-   * have no second row, so a frozen headline visibly diverges from the candles
-   * moving beside it. Set this true there and the headline follows the live
-   * quote close, measured against the most recent COMPLETED regular close so the
-   * day-change is continuous across both the 09:30 and 16:00 session flips. That
-   * close lives in a different field on each side of 16:00: `current_session_close`
-   * during pre-market (today hasn't closed yet), `prior_session_close` during
-   * after-hours (today's close has already rolled into current) — see baseClose.
+   * Surfaces that anchor a live price MARKER to the extended-hours tape (the
+   * Gamma Chart's `tape` reading — the candle marker + regime line) instead need
+   * the displayPrice to follow the live quote close, or the marker sits away from
+   * the candles moving beside it. Set this true there. The user-facing live
+   * extended-hours delta is a SEPARATE row (getExtendedHoursRow, always vs
+   * current_session_close); this flag is about the price the marker rides.
+   *
+   * When a caller also reads this reading's change, the baseline is the most
+   * recent COMPLETED regular close so the day-change is continuous across both
+   * the 09:30 and 16:00 flips — and that close lives in a different field on each
+   * side of 16:00: `current_session_close` during pre-market (today hasn't closed
+   * yet), `prior_session_close` during after-hours (today's close has already
+   * rolled into current). See baseClose.
    */
   preferLiveExtendedHours?: boolean;
 }
@@ -117,6 +122,41 @@ export function getPrimaryPriceChangeSummary({
 
   return {
     displayPrice,
+    change,
+    changePercent,
+    isPositive: change !== null ? change >= 0 : false,
+  };
+}
+
+export interface ExtendedHoursRow {
+  price: number | null;
+  change: number | null;
+  changePercent: number | null;
+  isPositive: boolean;
+}
+
+/**
+ * The secondary "extended-hours" readout shown BELOW the regular quote for
+ * ETFs/stocks during pre-market and after-hours: the live extended-hours price
+ * and its change measured against the MOST-RECENT cash-session close
+ * (`current_session_close`). This is TradingView's pre/post-market change basis
+ * — always the previous regular-session close, never the day-before.
+ *
+ * Shared by the header row-2 and the Gamma Chart's extended-hours line so the
+ * two read identically. Returns nulls when either input is missing (the caller
+ * hides the row); indexes never get an extended row (they don't trade the ETH
+ * tape — outside the cash session they fall back to futures or "closed").
+ */
+export function getExtendedHoursRow(
+  quoteClose: number | null | undefined,
+  currentSessionClose: number | null | undefined,
+): ExtendedHoursRow {
+  const price = quoteClose ?? null;
+  const base = currentSessionClose ?? null;
+  const change = price !== null && base !== null ? price - base : null;
+  const changePercent = change !== null && base ? (change / base) * 100 : null;
+  return {
+    price,
     change,
     changePercent,
     isPositive: change !== null ? change >= 0 : false,

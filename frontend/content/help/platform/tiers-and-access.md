@@ -10,7 +10,7 @@ ZeroGEX has three account tiers. They map to what data and which signals you see
 
 | Tier | Who it's for | What you get |
 | --- | --- | --- |
-| Public | Browsing, education | The landing site, education, guides, articles, free SPX / SPY / QQQ gamma levels pages (15-min delayed) |
+| Public | Browsing, education | The landing site, education, guides, articles, free SPX / SPY / QQQ / NDX gamma levels pages (15-min delayed) |
 | Basic | Active intraday traders | Dashboard, Live Bulletin, all Metrics, Strategy Builder, Live Options Quotes, all Basic Signals |
 | Pro | Serious operators | Everything in Basic + all Advanced Signals + Composite Score + Backtesting + API access |
 
@@ -21,14 +21,14 @@ See the live breakdown — and a 7-day trial path — on the [Pricing](/pricing)
 ### Public (no account needed)
 
 - The marketing site (landing, About, Education Hub, Articles, Guides)
-- Free SPX, SPY, and QQQ gamma levels pages — delayed about 15 minutes
+- Free SPX, SPY, QQQ, and NDX gamma levels pages — delayed about 15 minutes
 - Help Center, FAQs, Quick Starts
 - Privacy, Terms
 
 ### Basic tier
 
 - **Dashboard** — full real-time metrics
-- **Live Bulletin** — streaming feed of signal events
+- **Live Bulletin** — a live, share-ready dealer-gamma snapshot
 - **All Metrics pages** — Dealer Positioning, GEX Summary & Greeks, Flow Analysis, Smart Money, Max Pain, Technicals
 - **Basic Signals** — Tape Flow Bias, Skew Delta, Vanna/Charm Flow, Dealer Delta Pressure, GEX Gradient, Positioning Trap
 - **Strategy Builder** — full options pricing and P&L
@@ -48,7 +48,6 @@ A few pages exist for all tiers but behave differently depending on what you've 
 
 - The **Dashboard** is fully populated for Basic and Pro. Public users see a teaser view that links to the live page after sign-in.
 - The **Signals** sidebar section is always visible — anyone can click a signal name. If you don't have access, the click routes to the [Pricing](/pricing) page so you can see what unlocks it.
-- **Live Bulletin** badges and chips are tier-aware: items locked to Pro show a small lock chip for Basic users.
 
 ## How to upgrade or change tier
 

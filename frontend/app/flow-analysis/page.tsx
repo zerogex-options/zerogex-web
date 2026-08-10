@@ -33,6 +33,8 @@ import { useTimeframe } from "@/core/TimeframeContext";
 import { useTheme } from "@/core/ThemeContext";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { getSessionTimestamps } from "@/core/utils";
+import { loadChartSettings, saveChartSettings } from "@/core/chartSettings";
+import { useSharedExpirations } from "@/hooks/useSharedExpirations";
 
 // ── Chart row shape ───────────────────────────────────────────────────────────
 
@@ -695,7 +697,17 @@ function FlowFilters({
   );
 }
 
-function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[]; isDark: boolean; isMobile: boolean }) {
+function FullWidthFlowChart({
+  rows,
+  isDark,
+  isMobile,
+  showUnderlyingPrice,
+}: {
+  rows: TimeseriesRow[];
+  isDark: boolean;
+  isMobile: boolean;
+  showUnderlyingPrice: boolean;
+}) {
   const axisStroke = isDark ? "var(--color-text-primary)" : "var(--color-text-primary)";
 
   if (rows.length === 0) {
@@ -733,7 +745,12 @@ function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[];
       : undefined;
 
   const dateMarkerMeta = getDateMarkerMeta(rows.map((r) => r.timestamp));
-  const leftChartMargin = isMobile ? 8 : getDynamicLeftMargin(rows);
+  // When the underlying price line is hidden we drop the left price axis
+  // entirely and reclaim its gutter so the premium/volume plots use the full
+  // width. The top (price/premium) and bottom (volume) charts must keep an
+  // identical left inset — margin + left-axis width — to stay vertically
+  // aligned, so both switch together off this single flag.
+  const leftChartMargin = isMobile ? 8 : showUnderlyingPrice ? getDynamicLeftMargin(rows) : 16;
   const rightChartMargin = isMobile ? 8 : 70;
   const yAxisWidth = isMobile ? 40 : 72;
   const yAxisWidthRight = isMobile ? 38 : 62;
@@ -751,19 +768,21 @@ function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[];
             padding={{ left: 0, right: 0 }}
             hide
           />
-          <YAxis
-            yAxisId="price"
-            stroke={axisStroke}
-            orientation="left"
-            domain={underlyingDomain}
-            ticks={priceTicks}
-            tickFormatter={(v) => `$${Number(v).toFixed(priceDecimals)}`}
-            tick={{ fontSize: isMobile ? 9 : 10, fill: axisStroke }}
-            tickMargin={isMobile ? 2 : 8}
-            width={yAxisWidth}
-            padding={{ top: 14, bottom: 8 }}
-            label={isMobile ? undefined : { value: "Underlying Price", angle: -90, position: "left", fill: axisStroke, fontSize: 10, offset: 10 }}
-          />
+          {showUnderlyingPrice ? (
+            <YAxis
+              yAxisId="price"
+              stroke={axisStroke}
+              orientation="left"
+              domain={underlyingDomain}
+              ticks={priceTicks}
+              tickFormatter={(v) => `$${Number(v).toFixed(priceDecimals)}`}
+              tick={{ fontSize: isMobile ? 9 : 10, fill: axisStroke }}
+              tickMargin={isMobile ? 2 : 8}
+              width={yAxisWidth}
+              padding={{ top: 14, bottom: 8 }}
+              label={isMobile ? undefined : { value: "Underlying Price", angle: -90, position: "left", fill: axisStroke, fontSize: 10, offset: 10 }}
+            />
+          ) : null}
           <YAxis
             yAxisId="premium"
             stroke={axisStroke}
@@ -798,16 +817,18 @@ function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[];
           <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: 11, paddingBottom: 6, color: isDark ? "var(--color-border)" : "var(--color-text-primary)" }} />
           {buildThirtyMinGridlines(rows, axisStroke, "flow-top", "premium")}
           <ReferenceLine yAxisId="premium" y={0} stroke={axisStroke} opacity={0.6} />
-          <Line
-            yAxisId="price"
-            type="monotone"
-            dataKey="underlyingPrice"
-            name="Underlying"
-            stroke="var(--color-warning)"
-            strokeWidth={2}
-            dot={false}
-            connectNulls
-          />
+          {showUnderlyingPrice ? (
+            <Line
+              yAxisId="price"
+              type="monotone"
+              dataKey="underlyingPrice"
+              name="Underlying"
+              stroke="var(--color-warning)"
+              strokeWidth={2}
+              dot={false}
+              connectNulls
+            />
+          ) : null}
           <Line
             yAxisId="premium"
             type="monotone"
@@ -872,15 +893,17 @@ function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[];
               );
             }}
           />
-          <YAxis
-            yAxisId="volumeSpacer"
-            orientation="left"
-            domain={[0, 1]}
-            width={yAxisWidth}
-            axisLine={false}
-            tickLine={false}
-            tick={false}
-          />
+          {showUnderlyingPrice ? (
+            <YAxis
+              yAxisId="volumeSpacer"
+              orientation="left"
+              domain={[0, 1]}
+              width={yAxisWidth}
+              axisLine={false}
+              tickLine={false}
+              tick={false}
+            />
+          ) : null}
           <YAxis
             yAxisId="volume"
             orientation="right"
@@ -943,6 +966,22 @@ function FullWidthFlowChart({ rows, isDark, isMobile }: { rows: TimeseriesRow[];
   );
 }
 
+// ── Persistent Options Flow chart preferences ────────────────────────────────
+//
+// Backed by the shared per-chart settings store (localStorage via
+// core/chartSettings), so a user's choice to hide the underlying price line on
+// the Options Flow chart auto-loads the next time they open the page. Keyed by
+// a stable chart id that sits alongside the app's other `zgx_` prefs.
+const OPTIONS_FLOW_CHART_ID = "options-flow";
+
+type OptionsFlowSettings = {
+  showUnderlyingPrice: boolean;
+};
+
+const OPTIONS_FLOW_DEFAULTS: OptionsFlowSettings = {
+  showUnderlyingPrice: true,
+};
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function FlowAnalysisPage() {
@@ -960,6 +999,24 @@ export default function FlowAnalysisPage() {
   // ── Session selector (current = most recent session, prior = previous full session)
   const [flowSession, setFlowSession] = useState<"current" | "prior">("current");
   const [netVolumeMode, setNetVolumeMode] = useState<NetVolumeMode>("directional");
+
+  // ── Options Flow display prefs (persisted) ────────────────────────────────
+  // Restored once on mount from localStorage; the SSR / first-visit case falls
+  // back to defaults. Read in a lazy initializer — mirroring how symbol / GEX
+  // unit hydrate — so restore costs no extra render pass. Saved on every change
+  // so the chart reopens exactly as the user left it, with no explicit "save".
+  const [savedOptionsFlow] = useState(() =>
+    loadChartSettings(OPTIONS_FLOW_CHART_ID, OPTIONS_FLOW_DEFAULTS),
+  );
+  const [showUnderlyingPrice, setShowUnderlyingPrice] = useState<boolean>(
+    savedOptionsFlow.showUnderlyingPrice,
+  );
+  const toggleUnderlyingPrice = useCallback((next: boolean) => {
+    setShowUnderlyingPrice(next);
+    saveChartSettings<OptionsFlowSettings>(OPTIONS_FLOW_CHART_ID, {
+      showUnderlyingPrice: next,
+    });
+  }, []);
 
   // ── Server-computed session cumulatives (unfiltered) ─────────────────────
   // Drives the Put/Call Ratio, Net Directional Premium, Net Position charts
@@ -1040,7 +1097,11 @@ export default function FlowAnalysisPage() {
   );
 
   const [selectedStrikes, setSelectedStrikes] = useState<Set<string>>(new Set());
-  const [selectedExpirations, setSelectedExpirations] = useState<Set<string>>(new Set());
+  // Expirations are backed by the tab-wide shared selection (empty = no filter /
+  // All), so a pick here follows over to the GEX/gamma charts and back. Strikes
+  // stay page-local. See useSharedExpirations.
+  const { selection: sharedExpirations, setSelection: setSharedExpirations } = useSharedExpirations();
+  const selectedExpirations = useMemo(() => new Set(sharedExpirations), [sharedExpirations]);
 
   // Drop any previously-selected values that no longer appear in the current options
   const effectiveSelectedStrikes = useMemo(
@@ -1135,7 +1196,17 @@ export default function FlowAnalysisPage() {
     [],
   );
   const toggleStrikes = useMemo(() => makeToggler(setSelectedStrikes), [makeToggler]);
-  const toggleExpirations = useMemo(() => makeToggler(setSelectedExpirations), [makeToggler]);
+  // Expirations toggle the shared selection instead of local state, so the
+  // change broadcasts to every other expiration-filtering chart.
+  const toggleExpirations = useCallback(
+    (value: string) => {
+      const next = new Set(sharedExpirations);
+      if (next.has(value)) next.delete(value);
+      else next.add(value);
+      setSharedExpirations(Array.from(next));
+    },
+    [sharedExpirations, setSharedExpirations],
+  );
 
   return (
     <PageShell>
@@ -1156,8 +1227,11 @@ export default function FlowAnalysisPage() {
             value={flowSession}
             onChange={(e) => {
               setFlowSession(e.target.value as "current" | "prior");
+              // Strikes are page-local, so reset them on a session switch.
+              // Expirations are the shared, persisted selection — leave it be;
+              // it reconciles to the new session's options on its own, and any
+              // expiries the two sessions share stay selected.
               setSelectedStrikes(new Set());
-              setSelectedExpirations(new Set());
             }}
             className="px-3 py-1.5 text-sm rounded-md border focus:outline-none cursor-pointer"
             style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor }}
@@ -1237,6 +1311,21 @@ export default function FlowAnalysisPage() {
         <SectionHead
           title="Options Flow"
           tooltip="Primary axis: net call premium (green) and net put premium (red). Bottom axis: net volume area, green above zero and red below zero. Aggregates every contract returned by the by-contract endpoint in 5-minute intervals. Use the filters below to narrow by strike or expiration."
+          actions={
+            <label
+              className="flex items-center gap-2 text-xs cursor-pointer select-none whitespace-nowrap"
+              style={{ color: mutedText }}
+            >
+              <input
+                type="checkbox"
+                checked={showUnderlyingPrice}
+                onChange={(e) => toggleUnderlyingPrice(e.target.checked)}
+                className="cursor-pointer"
+                style={{ accentColor: "var(--color-warning)" }}
+              />
+              <span>Show underlying price</span>
+            </label>
+          }
         />
         <FlowFilters
           strikeOptions={strikeOptions}
@@ -1246,13 +1335,18 @@ export default function FlowAnalysisPage() {
           onToggleStrike={toggleStrikes}
           onToggleExpiration={toggleExpirations}
           onClearStrikes={() => setSelectedStrikes(new Set())}
-          onClearExpirations={() => setSelectedExpirations(new Set())}
+          onClearExpirations={() => setSharedExpirations([])}
           onSelectAllStrikes={() => setSelectedStrikes(new Set(strikeOptions))}
-          onSelectAllExpirations={() => setSelectedExpirations(new Set(expirationOptions))}
+          onSelectAllExpirations={() => setSharedExpirations(expirationOptions)}
           loading={contractOptionsLoading}
           error={contractOptionsError}
         />
-        <FullWidthFlowChart rows={mainSeries} isDark={isDark} isMobile={isMobile} />
+        <FullWidthFlowChart
+          rows={mainSeries}
+          isDark={isDark}
+          isMobile={isMobile}
+          showUnderlyingPrice={showUnderlyingPrice}
+        />
       </section>
 
       {/* ── Compact charts row (Net Directional Premium · Put/Call Ratio · Net Position) ── */}

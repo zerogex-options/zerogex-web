@@ -1,4 +1,6 @@
 # Was ist ein Call Wall? Wie Dealer die Aufwärtsseite verteidigen
+> **Aktualisierter Methodikhinweis — er hat Vorrang vor abweichenden Formulierungen weiter unten.** ZeroGEX schätzt Dealerbestände aus öffentlichen Daten; es beobachtet sie nicht. Das Modell behält die Call-positiv/Put-negativ-Konvention bei (`Net GEX = Call GEX − Put GEX`) und unterstellt Dealer netto long Calls und netto short Puts. Long Calls und Long Puts haben positives Gamma; Short Calls und Short Puts negatives Gamma. Die Put Wall ist die größte Put-Gamma-Konzentration unter Spot und lokal modelliertes negatives Dealer-Gamma: Sie kann mit Unterstützung zusammenfallen, doch das Hedging eines Short Puts erzeugt keinen mechanischen Boden. Walls können sich durch Spot, Zeit und implizite Volatilität verschieben, obwohl das offizielle Open Interest intraday unverändert bleibt. Nahe Verfall konzentriert sich Gamma am Geld; ATM-Gamma kann steigen, während deutlich ITM- oder OTM-Gamma gegen null geht. Der ausgewählte Gamma Flip ist ein lokaler Übergang; ein Profil kann mehrere oder keine aussagekräftige Kreuzung haben. Charm und Vanna sind bedingte Deltaänderungen, keine geplanten Orders. Signalwerte sind heuristische Modellergebnisse, keine kalibrierten Wahrscheinlichkeiten. Negatives Gamma verstärkt die bereits laufende Richtung; die Entfernung zu einem Ziel impliziert keine Abstoßung. Die Vorzeichenumkehr des EOD-Pressure-Pin-Terms bleibt daher eine ZeroGEX-Heuristik. Max Pain minimiert die aggregierte intrinsische Auszahlung und maximiert nicht exakt den wertlos verfallenden Nominalwert. Rohes DEX misst Optionsdelta, nicht künftigen Hedge-Flow; Prämie und Aggressorseite beweisen weder Information noch Eröffnung oder Überzeugung.
+
 
 *Der Call Wall ist der Strike, an dem sich das Dealer-Gamma auf der Call-Seite konzentriert — das Niveau, das Dealer beim Aufwärtstrend tendenziell verteidigen. Dieser Beitrag erklärt, was ein Call Wall ist, warum er Rallyes deckelt, wie er wandert, und warum ein sauberer Ausbruch darüber oft signalisiert, dass sich das Regime selbst dreht.*
 
@@ -79,7 +81,7 @@ Der Spot liegt über dem Flip, es handelt sich also um eine Long-Gamma-Sitzung, 
 
 ## Wie man den heutigen Call Wall findet
 
-ZeroGEX veröffentlicht den aktuellen Call Wall — zusammen mit Put Wall, Gamma Flip, Max Pain und Net GEX — für die drei meistgehandelten Indexprodukte, kostenlos und mit rund 15 Minuten Verzögerung: den heutigen Call Wall gibt es für [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels) und [QQQ](/qqq-gamma-levels). Für die Live-Version, die den wandernden Wall in Echtzeit zeigt, öffne das [Echtzeit-0DTE-GEX-Dashboard](/real-time-gex-0dte).
+ZeroGEX veröffentlicht den aktuellen Call Wall — zusammen mit Put Wall, Gamma Flip, Max Pain und Net GEX — für die vier meistgehandelten Indexprodukte, kostenlos und mit rund 15 Minuten Verzögerung: den heutigen Call Wall gibt es für [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) und [NDX](/ndx-gamma-levels). Für die Live-Version, die den wandernden Wall in Echtzeit zeigt, öffne das [Echtzeit-0DTE-GEX-Dashboard](/real-time-gex-0dte).
 
 ---
 
@@ -91,4 +93,4 @@ Nur redaktioneller Bildungsinhalt — nichts davon ist eine Handelsempfehlung.
 
 ---
 
-Willst du das in Echtzeit sehen? Sieh dir noch heute die **SPX-/SPY-/QQQ-Call-Walls** auf ZeroGEX an — die kostenlosen Gamma-Levels-Seiten von [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels) und [QQQ](/qqq-gamma-levels) zeigen den Call Wall zusammen mit dem [Put Wall](/education/what-is-a-put-wall), dem [Gamma Flip](/education/how-to-read-a-gamma-flip) und dem Net GEX. Für die Live-Ansicht während der Wall wandert, öffne das [Echtzeit-0DTE-GEX-Dashboard](/real-time-gex-0dte).
+Willst du das in Echtzeit sehen? Sieh dir noch heute die **SPX-/SPY-/QQQ-/NDX-Call-Walls** auf ZeroGEX an — die kostenlosen Gamma-Levels-Seiten von [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) und [NDX](/ndx-gamma-levels) zeigen den Call Wall zusammen mit dem [Put Wall](/education/what-is-a-put-wall), dem [Gamma Flip](/education/how-to-read-a-gamma-flip) und dem Net GEX. Für die Live-Ansicht während der Wall wandert, öffne das [Echtzeit-0DTE-GEX-Dashboard](/real-time-gex-0dte).

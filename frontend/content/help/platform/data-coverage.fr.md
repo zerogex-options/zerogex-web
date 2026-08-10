@@ -6,13 +6,14 @@
 
 ## Symboles couverts
 
-ZeroGEX offre une couverture analytique complète pour trois instruments :
+ZeroGEX offre une couverture analytique complète pour quatre instruments :
 
 - **SPY** — ETF S&P 500
 - **SPX** — Indice S&P 500 (options de style européen)
 - **QQQ** — ETF Nasdaq 100
+- **NDX** — Indice Nasdaq 100 (options de style européen)
 
-Ce sont les trois sous-jacents les plus liquides et les plus riches en gamma du marché des options américain — les instruments où l'activité de couverture des dealers a l'impact le plus important sur le prix intrajournalier.
+Ce sont les quatre sous-jacents les plus liquides et les plus riches en gamma du marché des options américain — les instruments où l'activité de couverture des dealers a l'impact le plus important sur le prix intrajournalier.
 
 Nous ne prévoyons pas de prendre en charge les actions individuelles. Le modèle de signaux et le concept de régime sont conçus autour du comportement des dealers à l'échelle de l'indice.
 
@@ -77,12 +78,12 @@ Nous ne communiquons pas publiquement le nom précis de nos fournisseurs, mais l
 
 La latence de bout en bout entre l'impression d'une transaction sur le tape et son arrivée dans votre navigateur est généralement inférieure à une seconde pendant les heures régulières. Le goulot d'étranglement, ce sont rarement les données — ce sont plutôt votre réseau et votre navigateur. Voir [Streaming et performance](/help/platform/streaming-and-performance).
 
-## Pourquoi seulement SPY / SPX / QQQ
+## Pourquoi seulement SPY / SPX / QQQ / NDX
 
 Deux raisons :
 
 1. Le modèle de positionnement des dealers ne fonctionne bien que là où le flow des dealers représente une fraction significative du flow total. C'est le cas du complexe des indices.
-2. Nous préférons bien maîtriser trois instruments plutôt que de maîtriser à moitié dix instruments.
+2. Nous préférons bien maîtriser quatre instruments plutôt que de maîtriser à moitié dix instruments.
 
 Les actions individuelles peuvent dériver sous l'effet de nouvelles idiosyncrasiques, ce qui rend la lecture du GEX plus bruitée. Ce n'est pas notre terrain de jeu.
 

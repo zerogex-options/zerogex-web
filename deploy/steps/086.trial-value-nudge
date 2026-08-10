@@ -1,0 +1,143 @@
+#!/bin/bash
+
+# ==============================================
+# Step 086: Mid-trial Value Nudge Timer (systemd)
+# ==============================================
+#
+# Installs and enables the mid-trial value/activation nudge timer (see
+# deploy/systemd/zerogex-web-trial-value-nudge.{service,timer}). The timer
+# fires every 6h (at :45, offset from the trial-reminders timer at :15) and
+# triggers `make trial-value-nudge YES=1`, which sends a founder-voice
+# activation email to trialing users around the ~day-2 mark — BEFORE the day
+# 3-7 cancel wave and well before the 48h billing reminder. Idempotent via
+# users.trial_midpoint_email_sent_at; the send honors marketing opt-out and
+# skips already-cancelled trials.
+#
+# Idempotent — safe to re-run. The unit files are overwritten from the repo
+# (version-controlled, so this is the desired behavior), and
+# `systemctl enable --now` is a no-op for an already-enabled timer.
+
+set -e
+
+# Fallback log if this step is invoked directly.
+type log >/dev/null 2>&1 || log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
+
+log "Mid-trial Value Nudge Timer Setup"
+
+# Resolve the owning user even when deploy.sh is invoked via sudo.
+OWNER="${SUDO_USER:-$USER}"
+
+APP_DIR="$HOME/zerogex-web"
+SYSTEMD_SOURCE="$APP_DIR/deploy/systemd"
+SYSTEMD_TARGET="/etc/systemd/system"
+UNIT="zerogex-web-trial-value-nudge"
+ENV_FILE="$APP_DIR/frontend/.env.local"
+
+# --- Preconditions ---------------------------------------------------
+if [ ! -d "$SYSTEMD_SOURCE" ]; then
+    log "  ✗ systemd source dir not found: $SYSTEMD_SOURCE"
+    exit 1
+fi
+for f in "${UNIT}.service" "${UNIT}.timer"; do
+    if [ ! -f "$SYSTEMD_SOURCE/$f" ]; then
+        log "  ✗ missing unit file: $SYSTEMD_SOURCE/$f"
+        exit 1
+    fi
+done
+
+# nvm + Node 22 are installed by step 020.nodejs. The Makefile target
+# sources $HOME/.nvm/nvm.sh at runtime, so presence here is enough.
+if [ -s "$HOME/.nvm/nvm.sh" ]; then
+    log "  ✓ nvm present at $HOME/.nvm/nvm.sh"
+else
+    log "  ✗ nvm not found at $HOME/.nvm/nvm.sh — run step 020.nodejs first"
+    exit 1
+fi
+
+# --- Env soft-check ---------------------------------------------------
+# The script needs Resend creds to send and ZEROGEX_END_USER_TOKEN_SECRET to
+# sign the one-click unsubscribe link (this is an engagement email). Warn
+# (don't fail) if any are empty — the timer still installs and the next tick
+# just works once the keys land.
+warn_missing_env() {
+    local key="$1"
+    local value
+    value=$(grep -E "^${key}=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+    if [ -z "$value" ]; then
+        log "  ⚠ $key is unset in $ENV_FILE — timer will install but sends will error until set"
+    else
+        log "  ✓ $key is set"
+    fi
+}
+if [ -f "$ENV_FILE" ]; then
+    warn_missing_env RESEND_API_KEY
+    warn_missing_env RESEND_FROM_EMAIL
+    warn_missing_env NEXT_PUBLIC_APP_URL
+    warn_missing_env ZEROGEX_END_USER_TOKEN_SECRET
+else
+    log "  ⚠ $ENV_FILE not found — step 030 should have created it"
+fi
+
+# --- Install + enable the units --------------------------------------
+log "  → Installing ${UNIT}.{service,timer}..."
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.service" "$SYSTEMD_TARGET/"
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.timer"   "$SYSTEMD_TARGET/"
+
+# --- Sandbox drop-in for AUTH_DB_PATH --------------------------------
+# Derive the writable DB dir from .env.local so ProtectSystem=strict doesn't
+# silently block the latch UPDATE when AUTH_DB_PATH lives outside the repo
+# (e.g. /var/lib/zerogex). Mirrors step 085.
+DROPIN_DIR="$SYSTEMD_TARGET/${UNIT}.service.d"
+DROPIN="$DROPIN_DIR/auth-db-path.conf"
+AUTH_DB_PATH=""
+if [ -f "$ENV_FILE" ]; then
+    AUTH_DB_PATH=$(grep -E "^AUTH_DB_PATH=" "$ENV_FILE" 2>/dev/null \
+        | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+fi
+if [ -n "$AUTH_DB_PATH" ] && [[ "$AUTH_DB_PATH" == /* ]]; then
+    AUTH_DB_DIR=$(dirname "$AUTH_DB_PATH")
+    log "  → Writing sandbox drop-in (ReadWritePaths=$AUTH_DB_DIR)..."
+    sudo mkdir -p "$DROPIN_DIR"
+    sudo tee "$DROPIN" >/dev/null <<EOF
+[Service]
+ReadWritePaths=$AUTH_DB_DIR
+EOF
+    log "     ✓ drop-in installed at $DROPIN"
+else
+    if [ -f "$DROPIN" ]; then
+        log "  → Removing stale drop-in (AUTH_DB_PATH unset or relative)..."
+        sudo rm -f "$DROPIN"
+        sudo rmdir "$DROPIN_DIR" 2>/dev/null || true
+    fi
+    log "  → AUTH_DB_PATH absolute path unset; using unit-default ReadWritePaths"
+fi
+
+sudo systemctl daemon-reload
+
+log "  → Enabling ${UNIT}.timer (every 6h, Persistent=true)..."
+if sudo systemctl enable --now "${UNIT}.timer" 2>/dev/null; then
+    NEXT=$(systemctl list-timers --no-pager --no-legend "${UNIT}.timer" 2>/dev/null | awk '{print $1, $2}')
+    log "     ✓ ${UNIT}.timer enabled (next run: ${NEXT:-unknown})"
+else
+    log "     ✗ ${UNIT}.timer failed to enable"
+    exit 1
+fi
+
+# Deliberately NO test run: the service's ExecStart is the real YES=1 send
+# path. Preview with `make trial-value-nudge DRY_RUN=1` or PREVIEW_TO=<email>.
+
+log ""
+log "Mid-trial value nudge timer setup complete!"
+log ""
+log "Summary:"
+log "  ✓ ${UNIT}.timer enabled (every 6h on 00/6:45, offset from trial-reminders at :15)"
+log "  ✓ Eligibility windowed +/-3h around now+120h (~day 2 of a 7-day trial)"
+log "  ✓ Skips already-cancelled trials; honors marketing_unsubscribed_at"
+log "  ✓ Idempotent: users.trial_midpoint_email_sent_at latches per trial; webhook re-arms on new trialing transitions"
+log ""
+log "Useful commands:"
+log "  • systemctl list-timers ${UNIT}.timer                                 - next/last run"
+log "  • cd $APP_DIR && make trial-value-nudge DRY_RUN=1                      - preview eligible users (no send)"
+log "  • sudo systemctl start ${UNIT}.service                                 - fire the send loop now"
+log "  • journalctl -u ${UNIT} -n 50                                          - recent send logs"
+log "  • cd $APP_DIR && make trial-value-nudge PREVIEW_TO=you@example.com     - send one sample email"

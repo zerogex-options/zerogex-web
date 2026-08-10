@@ -12,7 +12,7 @@ It's where you go after the dashboard tells you "the structure is bullish" and y
 
 ## Building a strategy
 
-1. **Pick a symbol** (SPY, SPX, QQQ).
+1. **Pick a symbol** (SPY, SPX, QQQ, NDX).
 2. **Add a leg** — buy or sell, call or put, strike, expiration. The chain is live.
 3. **Repeat** for multi-leg structures (verticals, condors, calendars, ratios, straddles, strangles).
 4. **Set the spot for analysis** — defaults to live spot but you can scenario-test any price.
@@ -23,7 +23,7 @@ The aggregate price, the breakevens, and the greeks update on every change.
 
 The Builder uses **Black-Scholes** with the live implied volatility surface for each leg. The IV surface is pulled from our data pipeline — same surface that powers the chain on the [Live Options Quotes](/help/platform/option-contracts) page.
 
-For American-style exercise considerations (relevant for ETFs like SPY and QQQ), the model approximates with an early-exercise premium on deep ITM legs near expiry. SPX is European-exercise so no adjustment is applied.
+For American-style exercise considerations (relevant for ETFs like SPY and QQQ), the model approximates with an early-exercise premium on deep ITM legs near expiry. The cash-settled indices SPX and NDX are European-exercise so no adjustment is applied.
 
 ## The greeks panel
 

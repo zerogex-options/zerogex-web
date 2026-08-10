@@ -6,9 +6,9 @@
 
 ## Die kurze Antwort
 
-**Negatives Gamma** bedeutet im Kontext des Options-Flows, dass die Dealer, die auf der anderen Seite der Kundenoptionsgeschäfte stehen, ein netto-short-gamma-Buch haben. Die praktische Konsequenz: Wenn SPY steigt, müssen sie SPY *kaufen*, um gehedgt zu bleiben, und wenn SPY fällt, müssen sie SPY *verkaufen*. Ihre Hedging-Trades laufen **mit** der Richtung des Preises — nicht dagegen.
+**Negatives Gamma** beschreibt im Kontext des Options-Flows ein Regime: Die Dealer, die auf der anderen Seite der Kundenoptionsgeschäfte stehen, werden so modelliert, dass sie ein netto-short-gamma-Buch haben. Die praktische Konsequenz: Wenn SPY steigt, tendieren sie dazu, SPY zu *kaufen*, um gehedgt zu bleiben, und wenn SPY fällt, tendieren sie dazu, SPY zu *verkaufen*. Ihre Hedging-Trades laufen **mit** der Richtung des Preises — nicht dagegen.
 
-Dieser mechanische Reflex verwandelt das Dealer-Buch in einen Verstärker. Ausverkäufe beschleunigen sich. Rallyes verlängern sich. Die realisierte Intraday-Volatilität tendiert dazu, höher zu sein als die implizite. Das Pin-Verhalten bricht zusammen. Dasselbe Chartsetup, das gestern funktionierte (als die Dealer long gamma waren und Bewegungen absorbierten), wird heute zerschlagen (wenn sie short gamma sind und der Bewegung hinterherjagen).
+Dieser mechanische Reflex verwandelt das Dealer-Buch in einen Verstärker. Ausverkäufe tendieren dazu, sich zu beschleunigen. Rallyes tendieren dazu, sich zu verlängern. Die realisierte Intraday-Volatilität tendiert dazu, höher zu laufen als die implizite. Das Pin-Verhalten tendiert dazu, zusammenzubrechen. Dasselbe Chartsetup, das gestern funktionierte (als die Dealer long gamma waren und Bewegungen absorbierten), wird heute zerschlagen (wenn sie short gamma sind und der Bewegung hinterherjagen).
 
 Das Gegenteil — **positives Gamma** — ist der häufigere Standardfall bei SPY in den meisten ruhigen Sessions. Die Dealer sind long gamma, hedgen gegen die Bewegung und dämpfen die Volatilität. Das Gesamtbild wird im [Gamma-Exposure-Pillar](/education/gamma-exposure-explained) behandelt; dieser Artikel konzentriert sich speziell darauf, was "negatives Gamma" bedeutet und wie man es erkennt.
 
@@ -16,11 +16,13 @@ Das Gegenteil — **positives Gamma** — ist der häufigere Standardfall bei SP
 
 ## Worauf sich "negatives Gamma" tatsächlich bezieht
 
-Gamma ist ein Options-Greek zweiter Ordnung, der misst, wie sich das Delta einer Option verändert, wenn sich der Basiswert bewegt. Eine vorzeichenbehaftete "Gamma-Exposure"-Zahl ist das aggregierte Gamma über das gesamte Dealer-Buch, wobei Calls (typischerweise von den Dealern long gehalten) positiv beitragen und Puts (typischerweise von den Dealern short gehalten) negativ beitragen.
+Gamma ist ein Options-Greek zweiter Ordnung, der misst, wie sich das Delta einer Option verändert, wenn sich der Basiswert bewegt. Eine vorzeichenbehaftete "Gamma-Exposure"-Zahl ist das aggregierte Gamma über das *modellierte* Dealer-Buch. Rohes Gamma ist für jede *long* gehaltene Option positiv — ob Call oder Put —, sodass das Vorzeichen aus einer Annahme darüber stammen muss, was die Dealer halten: Calls werden als long gehalten modelliert (tragen positives Gamma bei) und Puts als short gehalten (tragen negatives Gamma bei). Das Minuszeichen auf der Put-Seite ist die modellierte *Short*-Position, nicht etwa, dass Puts von Natur aus "negatives Gamma" hätten.
 
-Wenn das *Netto* dieser vorzeichenbehafteten Beiträge negativ ist, ist das Dealer-Buch insgesamt short gamma. Die übliche Darstellung in Flow-Tools: Net GEX < 0.
+Wenn das *Netto* dieser vorzeichenbehafteten Beiträge negativ ist, wird das Buch insgesamt als short gamma modelliert. Die übliche Darstellung in Flow-Tools: Net GEX < 0.
 
-Die Standardkonvention — Kunden schreiben Calls (Overwriting) und kaufen Puts zur Absicherung — bedeutet, dass Dealer typischerweise long Calls und short Puts sind, aber die *Größenordnungen* verschieben sich mit dem Positioning. Wenn die Kundennachfrage stark in Richtung Puts tendiert (z. B. während Angstregimen), kann der wachsende Short-Put-Bestand des Dealer-Buchs das Netto-Gamma ins Negative drücken; wenn Calls dominieren (z. B. bei ruhigen Aufwärtstrends, in denen Overwriting das Long-Call-Gamma der Dealer aufbaut), ist das Buch long gamma.
+> Dies ist eine modellierte Konvention, kein beobachteter Bestand. Sie verwendet die traditionelle Annahme Call-positiv / Put-negativ auf Basis des Open Interest; die tatsächliche Positionierung der Dealer ist aus öffentlichen Optionsketten-Daten nicht direkt beobachtbar.
+
+Die Standardkonvention — Kunden schreiben Calls (Overwriting) und kaufen Puts zur Absicherung — bedeutet, dass Dealer typischerweise long Calls und short Puts sind, aber die *Größenordnungen* verschieben sich mit dem Positioning. Wenn die Kundennachfrage stark in Richtung Puts tendiert (z. B. während Angstregimen), kann der wachsende Short-Put-Bestand des Dealer-Buchs das Netto-Gamma ins Negative drücken; wenn Calls dominieren (z. B. bei ruhigen Aufwärtstrends, in denen Overwriting das Long-Call-Gamma der Dealer aufbaut), wird das Buch als long gamma modelliert.
 
 Die nützlichste zusammenfassende Kennzahl überhaupt: der **Gamma-Flip** — der Preis, an dem das Dealer-Gamma-Profil die Nulllinie kreuzt. Oberhalb des Flips sind Dealer typischerweise long gamma (positiv). Unterhalb des Flips short gamma (negativ). Den Flip zu lesen bedeutet im Grunde, die Regime-Linie zu lesen. Siehe [Wie man einen Gamma-Flip liest](/education/how-to-read-a-gamma-flip).
 
@@ -31,7 +33,7 @@ Die nützlichste zusammenfassende Kennzahl überhaupt: der **Gamma-Flip** — de
 Die mechanische Kette:
 
 1. Die Netto-Delta-Exposure der Dealer ist short-gamma. Wenn der Spot steigt, sinkt das Delta ihres Optionsportfolios (sie werden relativ zur Neutralität stärker short).
-2. Um delta-neutral zu bleiben, müssen sie den Basiswert **kaufen**, um den Rückgang auszugleichen.
+2. Um delta-neutral zu bleiben, **kaufen** sie im Allgemeinen den Basiswert, um den Rückgang auszugleichen.
 3. Diese Käufe geschehen genau in dem Moment, in dem die Kunden den Markt nach oben treiben. Das verstärkt die Dynamik.
 4. Wenn der Spot fällt, passiert das Gegenteil: Das Options-Delta der Dealer steigt (sie werden relativ zur Neutralität stärker long); um zu neutralisieren, **verkaufen** sie den Basiswert. Dieser Verkauf verstärkt die Abwärtsbewegung.
 
@@ -49,7 +51,7 @@ Zum Vergleich **positives Gamma**, bei dem sich dieselbe Flow-Kette umkehrt: Dea
 | Realisierte Vol vs. implizite | Tendiert **niedriger** zu sein | Tendiert **höher** zu sein |
 | Ausbrüche | Verpuffen oft und schnappen zurück | Verlängern sich oft |
 | Ausverkäufe | Werden oft in der Nähe von Walls absorbiert | Beschleunigen sich oft |
-| Pin-Verhalten | Magnete ziehen den Preis zu stark gewichteten Strikes | Magnete lassen den Preis los; kein Pin |
+| Pin-Verhalten | Der Preis wird tendenziell zu stark gewichteten Strikes gezogen | Pinning tendiert dazu, sich abzuschwächen oder zu lösen |
 | Bestes Playbook | Mean-Reversion, Fading von Extremen, Prämienverkauf | Trendfortsetzung, Momentum, Breakout |
 | Schlechtestes Playbook | Ausbrüchen hinterherjagen, Momentum | Rallyes faden, Dip-Buying in die Struktur hinein |
 | Typisch wenn | SPY über dem Gamma-Flip, Net GEX > 0 | SPY unter dem Gamma-Flip, Net GEX < 0 |
@@ -62,7 +64,7 @@ Dies sind allgemeine Regime-Tendenzen, keine Garantien. Katalysatoren und Schock
 
 Ein kurzer Workflow:
 
-1. **Zuerst den Gamma-Flip prüfen.** Liegt SPY unter dem Flip, befindest du dich per Definition in einem Short-Gamma-Regime.
+1. **Zuerst den Gamma-Flip prüfen.** Liegt SPY unter dem Flip, verortet dich das Modell in einem Short-Gamma-Regime.
 2. **Mit Net GEX bestätigen.** Ein negativer Net-GEX-Wert liefert die Größenordnung — je negativer, desto ausgeprägter das Regime. Net GEX nahe null ist ein umkämpftes Regime; beide Reflexe sind teilweise aktiv.
 3. **Das Bild der realisierten Vol gegenprüfen.** Short-Gamma-Regime zeigen sich in breiteren Intraday-Spannen, als die implizite Vol beim Tagesauftakt nahelegte. Wenn sich die realisierte Vol ausweitet, während die implizite flach bleibt, ist das die Signatur des Regimes.
 4. **Das Wall-Verhalten beobachten.** In Short-Gamma-Regimen schwächen sich Walls ab oder kehren sich um. Die Call-Wall, die gestern Rallyes gedeckelt hat, kann heute zum Breakout-Ziel werden.
@@ -76,7 +78,7 @@ Konkret Dinge, die man in einem Negativ-Gamma-Regime *lassen* sollte:
 
 - **Rallyes nicht faden.** Der Dealer-Reflex verstärkt. Deine "Mean-Reversion-Short"-Position kämpft gegen den strukturellen Kauf-Flow.
 - **Dips in der Struktur nicht kaufen.** Dasselbe Problem umgekehrt. Die Put-Wall, die den Markt im Long-Gamma-Regime gestützt hat, kann im Short-Gamma-Regime zum Slippage-Punkt werden.
-- **Kein Pinning erwarten.** Der strukturelle Sog zu stark gewichteten Strikes ist ausgeschaltet. Die Magnet-These greift nicht.
+- **Kein Pinning erwarten.** Der strukturelle Sog zu stark gewichteten Strikes tendiert dazu, sich abzuschwächen, sodass die Magnet-These hier deutlich weniger verlässlich ist.
 - **Nicht für eine normale Spanne dimensionieren.** Die realisierte Vol ist strukturell höher. Positionsgröße unter der Annahme wählen, dass breitere Stops nötig sind.
 
 Dinge, die man *anfangen* sollte zu tun:
@@ -103,7 +105,7 @@ Die strukturelle Lesart sagt hier das Gegenteil. SPX befindet sich in Short-Gamm
 
 Die praktische Tendenz: den Fade auslassen. Entweder mit dem Momentum handeln oder beiseite stehen. Das Playbook gegenüber einem typischen Long-Gamma-Tag umkehren.
 
-Stell dir nun denselben Chart mit Net GEX bei +1,2 Mrd. $ und dem Gamma-Flip bei 5.760 (Spot 40 Punkte darüber) vor. Die strukturelle Lesart kehrt sich um: 5.820 wirkt wahrscheinlich als Widerstand, der Long-Gamma-Reflex absorbiert Rallyes, das Fade-Setup ist gegeben. Derselbe Markt, gegensätzliche Lesart — abhängig von einer einzigen Regime-Variablen.
+Stell dir nun denselben Chart mit Net GEX bei +1,2 Mrd. $ und dem Gamma-Flip bei 5.760 (Spot 40 Punkte darüber) vor. Die strukturelle Lesart kehrt sich um: 5.820 wirkt eher als Widerstand, der Long-Gamma-Reflex tendiert dazu, Rallyes zu absorbieren, und das Fade-Setup ist gegeben. Derselbe Markt, gegensätzliche Lesart — abhängig von einer einzigen Regime-Variablen.
 
 ---
 
@@ -111,7 +113,7 @@ Stell dir nun denselben Chart mit Net GEX bei +1,2 Mrd. $ und dem Gamma-Flip bei
 
 - **"Negatives Gamma ist bärisch."** Das stimmt nicht. Es ist **volatilitätsverstärkend**. Der Markt kann in einem Negativ-Gamma-Regime stark rallyen — und die Rally tendiert dazu, sich weiter fortzusetzen, als sie es in Long-Gamma tun würde. Bei negativem Gamma geht es um den *Charakter der Bewegungen*, nicht um die Richtung.
 - **"Positives Gamma ist bullisch."** Auch falsch. Positives Gamma ist **volatilitätsdämpfend**. Der Markt kann in einem Positiv-Gamma-Regime nach unten driften; er tendiert nur dazu, das langsam mit mean-reversion-artigen Rückprallern entlang des Wegs zu tun.
-- **"Man kann Negativ-Gamma-Signale genauso handeln wie Positiv-Gamma-Signale."** Der Großteil der Retail-Verluste kommt daher. Die Signale und die strukturellen Lesarten kehren sich zwischen den Regimen um. Eine "Buy the Dip"-These, die oberhalb des Flips funktioniert, kann unterhalb davon Verluste vergrößern.
+- **"Man kann Negativ-Gamma-Signale genauso handeln wie Positiv-Gamma-Signale."** Der Großteil des Schadens hier kommt daher. Die Signale und die strukturellen Lesarten kehren sich zwischen den Regimen um. Eine "Buy the Dip"-These, die oberhalb des Flips funktioniert, kann unterhalb davon Verluste vergrößern.
 - **"Negatives Gamma ist selten."** Es passiert regelmäßig — insbesondere nach Vol-Spikes, während makroökonomischem Stress und wenn die Chain stark put-lastig ist. Das Regime in Echtzeit zu kennen, sagt dir, wann.
 
 ---
@@ -126,4 +128,4 @@ Nur Bildungsinhalte — nichts davon ist eine Handelsempfehlung.
 
 ---
 
-Wenn du den heutigen Net GEX, den Gamma-Flip und die Live-Regime-Lesart für SPY, SPX und QQQ sehen möchtest — die drei Zahlen, die dir sagen, ob Dealer gerade long gamma oder short gamma sind — zeigt die kostenlose Gamma-Levels-Ansicht von ZeroGEX all das an.
+Wenn du den heutigen Net GEX, den Gamma-Flip und die Live-Regime-Lesart für SPY, SPX, QQQ und NDX sehen möchtest — die drei Zahlen, die dir sagen, ob Dealer gerade long gamma oder short gamma sind — zeigt die kostenlose Gamma-Levels-Ansicht von ZeroGEX all das an.

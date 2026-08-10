@@ -16,7 +16,7 @@ Die Backtesting-Seite lässt Sie testen, wie sich eine Regel historisch geschlag
 
 ## Die Parameter-Regler
 
-- **Symbol** — SPY / SPX / QQQ
+- **Symbol** — SPY / SPX / QQQ / NDX
 - **Datumsbereich** — bis zur verfügbaren Historientiefe (im Formular angezeigt)
 - **Einstieg** — ein Muster-Basket oder eine benutzerdefinierte UND-verknüpfte Bedingungsregel
 - **Ausstieg** — Kursziele/Stops im Basiswert, ein Take-Profit-/Stop-Loss-Overlay auf der Optionsprämie und ein Zeitstop für die maximale Haltedauer (was zuerst greift)

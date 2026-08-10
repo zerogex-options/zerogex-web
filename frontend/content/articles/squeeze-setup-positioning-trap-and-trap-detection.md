@@ -106,10 +106,13 @@ Three signals are reading the same tape through three different lenses. Treat th
 
 A few patterns to look for:
 
-**Confluence (high conviction):** Squeeze Setup +0.5 and Trap Detection +0.4 → the market is coiled to the upside and a downside break just failed. Both signals are pointing at the same trade from different angles.
+**Confluence (strong positive model output):** Squeeze Setup +0.5 and Trap Detection +0.4 → the market is coiled to the upside and a downside break just failed. Both signals are pointing at the same trade from different angles.
 
 **Sequence (better entries):** Positioning Trap flags a long crowd at −0.7 → wait. Trap Detection then flips negative (upside break fails) → that's the spark. Trade the fade with the crowd as fuel.
 
 **Contradiction (stand down):** Squeeze Setup says +0.6 (go long with the break). Trap Detection says −0.5 (the upside break is failing). One of them is wrong. Skip it.
 
 The signals are independent for a reason — when they agree, listen. When they fight, the smartest trade is usually no trade.
+
+
+> ZeroGEX signal scores are derived outputs using hand-selected inputs, weights, and thresholds unless otherwise stated. They are not calibrated probabilities or guarantees; historical validation is required before interpreting them as a performance edge.

@@ -69,7 +69,7 @@ Your field:
 
 `= (calls bought premium − calls sold premium) − (puts bought premium − puts sold premium)`
 
-is generally a stronger single read on where informed money is leaning, because it reflects dollars actually committed.
+measures dollars transacted and can add context beyond contract count. It does not establish whether a trade is informed, directional, opening, or speculative.
 
 ---
 
@@ -96,4 +96,4 @@ A practical sequence traders can apply intraday:
 - Validate with **net directional premium** before committing risk.
 - If volume and premium disagree, trust the dollars before the contracts.
 
-No single panel should drive your entire decision tree. But premium-weighted directional flow will usually keep you closer to the “informed money” signal and farther from noisy headline prints.
+No single panel should drive your entire decision tree. But ZeroGEX uses premium-weighted aggressor classification as one workflow input, not a universal ranking of flow metrics. Aggressor side estimates who crossed the spread; it does not reveal opening versus closing, the complete strategy, ultimate owner, or information advantage.

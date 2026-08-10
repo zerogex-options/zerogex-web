@@ -12,6 +12,7 @@ import {
   useApiData,
 } from '@/hooks/useApiData';
 import type { VolExpansionSignalResponse } from '@/hooks/useApiData';
+import { useHasTierAccess } from '@/hooks/useAuthSession';
 import { useStrikeProfileTimeseries } from '@/hooks/useStrikeProfileTimeseries';
 import MetricCard from '@/components/MetricCard';
 import HistoricalContextBadge from '@/components/HistoricalContextBadge';
@@ -22,6 +23,7 @@ import ErrorMessage from '@/components/ErrorMessage';
 import GexRegimeHeader from '@/components/GexRegimeHeader';
 import GexProfileChart from '@/components/GexProfileChart';
 import GexStrikeDteHeatmap from '@/components/GexStrikeDteHeatmap';
+import GammaHeatmapCanvas from '@/components/GammaHeatmapCanvas';
 import GexUnitToggle from '@/components/GexUnitToggle';
 import GexWallsChart from '@/components/GexWallsChart';
 import CharmVannaFlows from '@/components/CharmVannaFlows';
@@ -30,6 +32,8 @@ import ExpandableCard, { useExpandedCard } from '@/components/ExpandableCard';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
 import { etTodayDateKey } from '@/core/utils';
+import { useSharedExpirations } from '@/hooks/useSharedExpirations';
+import { reconcileExpirations } from '@/core/expirationPersistence';
 
 // Wraps the GEX Metrics Snapshot table scroller so its max height tracks the
 // expanded-card state — collapsed view fits ~20 rows, expanded view fills the
@@ -186,9 +190,14 @@ export default function GammaExposurePage() {
   // QQQ/NDX's correct implied-vol input is VXN (Nasdaq-100); SPX/SPY use VIX.
   const volIndex: 'VIX' | 'VXN' = symbol === 'QQQ' || symbol === 'NDX' ? 'VXN' : 'VIX';
   const { data: volGauge } = useVolatilityGauge(30000, volIndex);
+  // vol-expansion is a Pro-only endpoint; this page is Basic-tier, so gate the
+  // poll behind Pro access instead of 403-looping for non-Pro viewers. The
+  // consumer (CharmVannaFlows) already handles a null volExpansion, so a Basic
+  // viewer sees the same output minus the wasted requests.
+  const hasProAccess = useHasTierAccess('pro');
   const { data: volExpansion } = useApiData<VolExpansionSignalResponse>(
     `/api/signals/advanced/vol-expansion?symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}`,
-    { refreshInterval: 30000 },
+    { refreshInterval: 30000, enabled: hasProAccess },
   );
 
   // Expiration filter state for strike table
@@ -197,11 +206,19 @@ export default function GammaExposurePage() {
     return Array.from(unique).sort((a, b) => a.localeCompare(b));
   }, [gexByStrike]);
 
-  const [selectedExpirations, setSelectedExpirations] = useState<string[] | null>(null);
-  // Charts' expiration selection (Gamma-Exposure-by-Strike bars/walls/flip).
-  // Empty = All (aggregate the whole chain); a non-empty set aggregates the
-  // bars and scopes the walls + flip to exactly those expirations.
-  const [chartSelectedExpirations, setChartSelectedExpirations] = useState<string[]>([]);
+  // Shared, persisted expiration selection (empty = All) used by every
+  // expiration-filtering chart in the tab. Both charts on this page follow it,
+  // so they move together, and the pick carries over to the Gamma Terminal,
+  // Flow Analysis, etc. — and back on the next reload. See useSharedExpirations.
+  const { selection: sharedExpirations, setSelection: setSharedExpirations } = useSharedExpirations();
+
+  // The strike TABLE mostly follows the shared selection, but keeps one
+  // table-local affordance the shared "empty = All" model can't represent:
+  // "Clear to an empty table" (none). We store only the shared value it was
+  // cleared against — the derived `selectedExpirations` below turns that into
+  // the table's tri-state — so the clear is released automatically the moment
+  // the shared selection moves, with no state-syncing effect.
+  const [clearedAgainst, setClearedAgainst] = useState<string[] | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>('strike');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
@@ -217,12 +234,29 @@ export default function GammaExposurePage() {
     () => expirationOptions.filter((exp) => exp >= todayKey),
     [expirationOptions, todayKey],
   );
-  // Drop any now-past expirations from the chart selection (page left open
-  // across midnight ET, or a refresh rolled the date).  Pruning to a shorter
-  // list only keeps this render-time adjustment convergent.
-  if (chartSelectedExpirations.some((exp) => exp < todayKey)) {
-    setChartSelectedExpirations((cur) => cur.filter((exp) => exp >= todayKey));
-  }
+  // The GEX Profile chart follows the shared selection directly (empty = All),
+  // reconciled to the current/future expirations it can plot — which also drops
+  // any now-past pick after the date rolls, so no separate pruning is needed.
+  const chartSelectedExpirations = useMemo(
+    () => reconcileExpirations(sharedExpirations, chartExpirationOptions),
+    [sharedExpirations, chartExpirationOptions],
+  );
+
+  // The table's tri-state selection (null = All, [] = none / empty table,
+  // [dates] = subset), derived — not stored — so it tracks the shared selection
+  // live (the chart above, another tab, a restored reload) with no effect. A
+  // local "Clear" holds only while the shared value it was made against is
+  // unchanged; once shared moves, `clearedAgainst` no longer matches (the store
+  // hands back a stable reference until the value actually changes) and the
+  // table follows shared again. Reconciled to the table's own expiration
+  // universe, and memoised so the strike-table aggregation below keeps its
+  // referential-stability fast path.
+  const tableCleared = clearedAgainst !== null && clearedAgainst === sharedExpirations;
+  const selectedExpirations = useMemo<string[] | null>(() => {
+    if (tableCleared) return [];
+    const reconciled = reconcileExpirations(sharedExpirations, expirationOptions);
+    return reconciled.length > 0 ? reconciled : null;
+  }, [tableCleared, sharedExpirations, expirationOptions]);
 
   // Aggregate by-strike data for the table (respects table's multi-select).
   const strikeData = useMemo(() => {
@@ -564,7 +598,7 @@ export default function GammaExposurePage() {
             putWall={chartPutWall}
             expirationOptions={chartExpirationOptions}
             selectedExpirations={chartSelectedExpirations}
-            onSelectedExpirationsChange={setChartSelectedExpirations}
+            onSelectedExpirationsChange={setSharedExpirations}
           />
         </div>
       </section>
@@ -594,6 +628,16 @@ export default function GammaExposurePage() {
             }
             byStrikeFallback={gexByStrike || []}
           />
+        </div>
+      </section>
+
+      {/* GEX Heatmap · Strike × Time — SpotGamma-style candle-overlay surface,
+          the price-context view (candles can be zoomed/expanded from its
+          toolbar). Complements the Strike × DTE snapshot matrix below; reuses
+          the same component as the standalone /gex-heatmap page. */}
+      <section className="mb-8">
+        <div className="grid grid-cols-1 gap-4">
+          <GammaHeatmapCanvas />
         </div>
       </section>
 
@@ -633,7 +677,9 @@ export default function GammaExposurePage() {
                       (expirationOptions.length > 0 && selectedExpirations.length === expirationOptions.length);
                     return (
                       <button
-                        onClick={() => setSelectedExpirations(null)}
+                        // "All" is the shared empty selection — release any
+                        // local clear and broadcast it so every chart resets too.
+                        onClick={() => { setClearedAgainst(null); setSharedExpirations([]); }}
                         disabled={allSelected}
                         style={
                           allSelected
@@ -652,7 +698,10 @@ export default function GammaExposurePage() {
                     return (
                       <button
                         type="button"
-                        onClick={() => setSelectedExpirations([])}
+                        // Table-local "none" (empty table): not shared. Marked
+                        // against the current shared value so it releases as soon
+                        // as the shared selection changes.
+                        onClick={() => setClearedAgainst(sharedExpirations)}
                         disabled={!canClear}
                         style={{
                           backgroundColor: inputBg,
@@ -673,15 +722,23 @@ export default function GammaExposurePage() {
                     return (
                       <button
                         key={exp}
-                        onClick={() => setSelectedExpirations((current) => {
-                          if (current === null) {
-                            return expirationOptions.filter((v) => v !== exp);
+                        onClick={() => {
+                          // Toggle from the current view (null = All → every
+                          // other expiration once one is switched off).
+                          const base = selectedExpirations === null ? expirationOptions : selectedExpirations;
+                          const next = base.includes(exp)
+                            ? base.filter((v) => v !== exp)
+                            : [...base, exp];
+                          if (next.length > 0) {
+                            // A real subset — release any local clear and share
+                            // it so every chart tracks the change.
+                            setClearedAgainst(null);
+                            setSharedExpirations(next);
+                          } else {
+                            // Switched the last one off → table-local "none".
+                            setClearedAgainst(sharedExpirations);
                           }
-                          if (current.includes(exp)) {
-                            return current.filter((v) => v !== exp);
-                          }
-                          return [...current, exp];
-                        })}
+                        }}
                         style={active ? undefined : { backgroundColor: inputBg, borderColor: borderColor, color: mutedText }}
                         className={`px-3 py-1 text-xs rounded border ${active ? 'bg-[var(--color-info-soft)] border-[var(--color-info)] text-[var(--text-primary)]' : ''}`}
                       >

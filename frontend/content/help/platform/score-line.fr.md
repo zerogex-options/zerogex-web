@@ -17,10 +17,10 @@ Pour les signaux directionnels, le signe correspond à la direction de prix atte
 - **Positif ⇒ biais haussier** (le biais de trade est long)
 - **Négatif ⇒ biais baissier**
 
-Pour les signaux de mean-reversion (Positioning Trap, Trap Detection dans certaines configurations), le signe indique la **direction du mouvement à fader** :
+Pour les signaux de mean-reversion (Positioning Trap, Trap Detection), le signe indique le **biais directionnel résolu** — le trade se joue *contre* la foule mal positionnée ou la cassure avortée, de sorte que le signe pointe dans le même sens que pour les signaux directionnels ci-dessus :
 
-- **Positif ⇒ le mouvement à la hausse est hors de propos / a échoué** (fade à la baisse)
-- **Négatif ⇒ le mouvement à la baisse est hors de propos / a échoué** (fade à la hausse)
+- **Positif ⇒ biais haussier** — p. ex. une foule short/baissière menacée d'un squeeze vers le haut, ou une cassure baissière avortée que vous achèteriez
+- **Négatif ⇒ biais baissier** — p. ex. une foule long/haussière menacée d'un flush vers le bas, ou une cassure haussière avortée que vous vendriez
 
 La carte du signal sur chaque page précise laquelle des deux lectures s'applique. Lisez le badge de biais de trade avant de lire le score.
 
@@ -73,7 +73,7 @@ Une règle simple qui a fait ses preuves :
 
 > Agissez sur la **confluence**, pas sur des scores individuels.
 
-Un seul +0.7 sur un signal est intéressant. Un +0.5 sur trois signaux issus de dimensions indépendantes (un signal Basic, un signal Advanced, le composite) est un trade.
+Un seul +0.7 sur un signal est intéressant. Un +0.5 sur trois signaux issus de dimensions indépendantes (par exemple, deux signaux Basic et un signal Advanced) est un trade. Le composite ne fait pas partie de ce décompte de ±0.5 — c'est une jauge de régime 0–100, pas un score directionnel [-1, +1], donc ne lisez pas son niveau comme haussier/baissier.
 
 ## Ce qui change si le régime change
 

@@ -66,7 +66,7 @@ A breakout into a wall with **strengthening** Net GEX is the classic fade setup.
 
 ### 3. The wall isn't migrating with price
 
-A wall that holds at the same strike while price probes it is one read. A wall that's drifting higher as price tests it — fresh volume concentrating above as new positioning is inferred (official open interest updates for the next session, not intraday) — is a very different read. The migrating wall is *chasing* price; the trap thesis weakens because the structural pin is moving away.
+A wall that remains at one strike while price probes it differs from a wall that migrates. Spot, time, and implied volatility can change the gamma ranking even with fixed official OI; migration alone does not establish fresh opening activity. It indicates that the modeled structural reference has changed.
 
 The cleanest fade-the-breakout setups have a static wall and price testing it. Wall migration tells you the breakout has fuel.
 
@@ -129,4 +129,4 @@ Educational content only — none of the above is a trade recommendation.
 
 ---
 
-If you want to see today's gamma flip, Net GEX, and the live wall positioning before you take your next breakout trade, the free ZeroGEX gamma-levels view surfaces all three for SPY, SPX, and QQQ.
+If you want to see today's gamma flip, Net GEX, and the live wall positioning before you take your next breakout trade, the free ZeroGEX gamma-levels view surfaces all three for SPY, SPX, QQQ, and NDX.

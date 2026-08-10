@@ -10,7 +10,7 @@ El Dashboard es la **lectura en una sola pantalla** del mercado actual. Responde
 
 1. **¿Cómo están posicionados los dealers?** (el régimen GEX)
 2. **¿Qué dice el tape?** (flow + técnica)
-3. **¿Cuál es la lectura compuesta?** (señales combinadas en una única dirección)
+3. **¿Cuál es la lectura compuesta?** (la lectura de régimen combinada — tendencia vs. lateralización)
 
 En el Dashboard no tomas decisiones. Te orientas. A partir de ahí, entras en la página adecuada.
 

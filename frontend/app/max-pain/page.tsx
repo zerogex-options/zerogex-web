@@ -26,7 +26,7 @@ import { useTimeframe } from "@/core/TimeframeContext";
 import ChartTimeframeSelect, { type ChartTimeframe } from "@/components/ChartTimeframeSelect";
 import { useTheme } from "@/core/ThemeContext";
 import { colors } from "@/core/colors";
-import { etTodayDateKey, omitOutOfHoursForSymbol } from "@/core/utils";
+import { etTodayDateKey, omitOutOfHoursForSymbol, shouldOmitClosedMarketTimes } from "@/core/utils";
 import MobileScrollableChart from "@/components/MobileScrollableChart";
 import { useIsMobile } from "@/hooks/useIsMobile";
 
@@ -214,8 +214,17 @@ export default function MaxPainPage() {
   const maxPainLabelDy = 4;
   const underlyingLabelDy = 26;
 
-  const filteredMaxPainRows = omitOutOfHoursForSymbol(maxPainSeries || [], (row) => row.timestamp || "", symbol);
-  const filteredPriceRows = omitOutOfHoursForSymbol(priceSeries || [], (row) => row.timestamp, symbol);
+  // Daily bars are whole-session markers stamped at UTC midnight; the intraday
+  // market-hours filter would drop them — every Monday for stocks, and (since
+  // indexes are gated to RTH-only hours) every daily bar for SPX/NDX. Skip the
+  // filter for daily; only intraday series need it. See shouldOmitClosedMarketTimes.
+  const applyHoursFilter = shouldOmitClosedMarketTimes(TIMEFRAME_DURATION_MS[timeseriesTimeframe] / 60_000);
+  const filteredMaxPainRows = applyHoursFilter
+    ? omitOutOfHoursForSymbol(maxPainSeries || [], (row) => row.timestamp || "", symbol)
+    : maxPainSeries || [];
+  const filteredPriceRows = applyHoursFilter
+    ? omitOutOfHoursForSymbol(priceSeries || [], (row) => row.timestamp, symbol)
+    : priceSeries || [];
 
   const candleMatchToleranceMs = TIMEFRAME_DURATION_MS[timeseriesTimeframe] ?? 5 * 60_000;
   // Sort ascending by timestamp so the x-axis renders oldest → newest. The API

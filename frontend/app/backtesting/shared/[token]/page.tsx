@@ -251,7 +251,7 @@ export default function SharedBacktestReport() {
       >
         <h2 className="text-xl font-bold">Backtest your own dealer-positioning strategy</h2>
         <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-          Realized 0DTE option P&amp;L on SPX/SPY/QQQ — net of slippage &amp; commission, by gamma regime, with
+          Realized 0DTE option P&amp;L on SPX/SPY/QQQ/NDX — net of slippage &amp; commission, by gamma regime, with
           a Monte-Carlo range. We show the losers too.
         </p>
         <Link

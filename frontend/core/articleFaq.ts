@@ -104,6 +104,28 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
       a: 'It moves through the day as price, time, and volatility shift the modeled exposure, and large expirations can change it sharply. ZeroGEX refreshes free delayed SPX levels through the trading day.',
     },
   ],
+  'pin-strike-explained': [
+    {
+      q: 'What is the Pin Strike?',
+      a: 'The Pin Strike is the reachable 0DTE strike with the strongest modeled positive (restoring) dealer gamma into expiration. It is estimated by re-pricing the options book as if spot were sitting at each candidate strike, keeping only the locally-concentrated net-positive gamma, and weighting that by the probability price can reach the strike before the close. It reads as a modeled center of gravity for an into-the-close pinning range, not a price target.',
+    },
+    {
+      q: 'How is the Pin Strike different from the largest-gamma strike (King Node)?',
+      a: 'The King Node is simply the strike with the biggest current dollar gamma. The Pin Strike deliberately does not select it. It adds two things the raw size measure ignores: it only counts net-positive (stabilizing) local gamma, and it multiplies by a reachability weight so a huge but unreachable node is demoted in favor of a reachable positive-gamma node. When the two coincide it is because the dominant gamma also happens to be near spot and stabilizing.',
+    },
+    {
+      q: 'How is the Pin Strike different from max pain?',
+      a: 'Max pain uses only open interest and strikes to find the settlement price that minimizes option-holder payout — no Greeks, no volatility, no dealer-hedging model, and no notion of reachability. The Pin Strike is a hedging-mechanics level: it models where net-positive dealer gamma is concentrated and reachable. They frequently disagree, and when they agree it is usually because heavy gamma and heavy open interest happen to sit at the same strike.',
+    },
+    {
+      q: 'Why is the Pin Strike sometimes blank?',
+      a: 'Because it is allowed to report no active pin rather than force a level. It returns nothing when there is no same-day (0DTE) expiration, when that expiration has already settled, when no reachable strike has net-positive local gamma (a short-gamma, destabilizing regime), or when there is not enough valid option or implied-volatility data to model. In those states there genuinely is no gamma pin, so the honest output is a dash — with the specific reason recorded — not the nearest strike dressed up as a magnet.',
+    },
+    {
+      q: 'When is the Pin Strike most useful?',
+      a: 'Late in a 0DTE session and in a positive-gamma regime — when spot is above the gamma flip and a reachable positive-gamma node exists. There, stabilizing dealer hedging tends to concentrate around the Pin Strike and price often mean-reverts around it into the close. It is best read alongside its confidence score and the call/put walls, as context rather than a standalone signal.',
+    },
+  ],
   'max-pain-explained': [
     {
       q: 'What is max pain?',
@@ -202,7 +224,7 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
       a: 'No. Pinning needs concentrated dealer gamma and a positive-gamma regime. In a negative-gamma regime, or when no single strike carries dominant gamma, hedging pushes price away from strikes instead of toward them, and the pin breaks.',
     },
   ],
-  'why-spy-reverses-at-levels': [
+  'options-support-and-resistance': [
     {
       q: 'Why does SPY reverse at certain levels?',
       a: 'Many SPY reversals happen at options-positioning levels rather than chart lines. Dealer hedging concentrates at specific strikes, and as price reaches them that hedging flow can absorb and turn the move.',

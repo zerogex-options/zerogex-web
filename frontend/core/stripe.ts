@@ -37,13 +37,25 @@ const PRICE_ID_BY_SKU: Map<string, string> = (() => {
 
 let cachedClient: Stripe | null = null;
 
+// The Stripe API version this code is written against, pinned EXPLICITLY rather
+// than inheriting stripe-node's built-in default. A future SDK bump must not
+// silently change the API version and with it the shape of objects we depend on
+// — e.g. subscription.current_period_end moved from the subscription to the
+// subscription item in a 2024 version (see getCurrentPeriodEndUnix), and
+// pending_setup_intent gating (webhook) assumes the current shapes. stripe-node
+// types `apiVersion` as its LATEST known version, so when a newer SDK drops this
+// literal from that type, tsc fails HERE — turning an otherwise-silent
+// API-version drift into a deliberate, reviewed upgrade. This value is the one
+// stripe@17.7.0 already sends by default, so pinning it is a no-op today.
+const STRIPE_API_VERSION = '2025-02-24.acacia';
+
 export function getStripe(): Stripe {
   if (cachedClient) return cachedClient;
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) {
     throw new Error('STRIPE_SECRET_KEY is not set');
   }
-  cachedClient = new Stripe(key);
+  cachedClient = new Stripe(key, { apiVersion: STRIPE_API_VERSION });
   return cachedClient;
 }
 
@@ -244,14 +256,27 @@ export function isPaidSignupDisabled(): boolean {
 //
 // Deliberately bounded and env-tunable so it can never become "weeks of free
 // premium": default 3 days, clamped to [0, 14]. Set BILLING_PAYMENT_GRACE_DAYS=0
-// to restore the old instant-downgrade behavior. Never applies to
-// trial-conversion failures (previous status `trialing`, never `active`) — an
-// unvalidated trial card gets no grace.
+// to restore the old instant-downgrade behavior. The SAME window length is used
+// for trial-conversion failures when trial grace is enabled (see
+// getTrialGraceEnabled) — a trial requires a card at checkout, so its first
+// charge declining is the same recoverable case as a renewal decline.
 const DEFAULT_PAYMENT_GRACE_DAYS = 3;
 export function getPaymentGraceDays(): number {
   const raw = Number(process.env.BILLING_PAYMENT_GRACE_DAYS);
   if (!Number.isFinite(raw)) return DEFAULT_PAYMENT_GRACE_DAYS;
   return Math.max(0, Math.min(14, Math.floor(raw)));
+}
+
+// Whether a trial-conversion failure (trialing → past_due at trial end) also
+// gets the bounded payment-recovery grace window above, instead of dropping to
+// 'public' the instant the first charge fails. Trials already require a card at
+// checkout, so a declined first charge is usually a recoverable decline
+// (insufficient funds that day, a bank hold), not a bogus card — grace lets
+// Stripe's Smart Retries recover the conversion. Defaults ON; set
+// BILLING_TRIAL_GRACE_ENABLED=0 to restore the hard trial-end downgrade. Has no
+// effect when grace is globally disabled (BILLING_PAYMENT_GRACE_DAYS=0).
+export function getTrialGraceEnabled(): boolean {
+  return process.env.BILLING_TRIAL_GRACE_ENABLED !== '0';
 }
 
 // Billing portal configuration id (bpc_...). When set, the portal route
@@ -267,6 +292,24 @@ export function getPortalConfigId(): string | null {
 
 export function getAppUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+}
+
+// Create a Stripe billing-portal session for a customer, pinning
+// STRIPE_PORTAL_CONFIG_ID when set (else Stripe's account-default config). Shared
+// by the portal route and the change-plan route so both open the SAME configured
+// portal — the one setup-billing-portal.mts provisions with plan switching +
+// continue-trial. Keeping it in one place means a portal-config change can't apply
+// to one entry point and not the other.
+export function createBillingPortalSession(
+  customerId: string,
+  returnUrl: string,
+): Promise<Stripe.BillingPortal.Session> {
+  const portalConfigId = getPortalConfigId();
+  return getStripe().billingPortal.sessions.create({
+    customer: customerId,
+    return_url: returnUrl,
+    ...(portalConfigId ? { configuration: portalConfigId } : {}),
+  });
 }
 
 export function getCurrentPeriodEndUnix(subscription: Stripe.Subscription): number | null {

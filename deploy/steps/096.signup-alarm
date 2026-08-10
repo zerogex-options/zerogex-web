@@ -1,0 +1,144 @@
+#!/bin/bash
+
+# ==============================================
+# Step 096: Signup-Rate Alarm Timer (systemd)
+# ==============================================
+#
+# Installs and enables the signup-rate alarm timer (see
+# deploy/systemd/zerogex-web-signup-alarm.{service,timer}). The timer fires
+# hourly and triggers `make signup-alarm`, which reads the auth DB and — only
+# during active ET hours, and throttled by a cooldown latch — emails the
+# operator if new registrations have flatlined (fewer than SIGNUP_ALARM_MIN
+# accounts created in the trailing SIGNUP_ALARM_WINDOW_HOURS).
+#
+# Idempotent — safe to re-run. Unit files are overwritten from the repo
+# (they're version-controlled). No config file is written; the script reads
+# SIGNUP_ALARM_EMAIL (or FOH_REMINDER_EMAIL), RESEND_API_KEY,
+# RESEND_FROM_EMAIL, AUTH_DB_PATH, NEXT_PUBLIC_APP_URL from
+# frontend/.env.local, which steps 030/036 already manage.
+#
+# DB-dir RW: the base unit lists the two known DB locations
+# (/var/lib/zerogex and frontend/data) with a leading '-'. If AUTH_DB_PATH
+# points somewhere else, this step writes a drop-in adding that directory to
+# ReadWritePaths so opening the WAL DB + writing the latch file both succeed
+# under ProtectSystem=strict.
+
+set -e
+
+# Fallback log if this step is invoked directly (deploy.sh exports a log
+# function, but operators sometimes run a single step in isolation).
+type log >/dev/null 2>&1 || log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
+
+log "Signup-Rate Alarm Timer Setup"
+
+APP_DIR="$HOME/zerogex-web"
+SYSTEMD_SOURCE="$APP_DIR/deploy/systemd"
+SYSTEMD_TARGET="/etc/systemd/system"
+UNIT="zerogex-web-signup-alarm"
+ENV_FILE="$APP_DIR/frontend/.env.local"
+
+# --- Preconditions ---------------------------------------------------
+if [ ! -d "$SYSTEMD_SOURCE" ]; then
+    log "  ✗ systemd source dir not found: $SYSTEMD_SOURCE"
+    exit 1
+fi
+for f in "${UNIT}.service" "${UNIT}.timer"; do
+    if [ ! -f "$SYSTEMD_SOURCE/$f" ]; then
+        log "  ✗ missing unit file: $SYSTEMD_SOURCE/$f"
+        exit 1
+    fi
+done
+
+# nvm + Node 22 are installed by step 020.nodejs. The Makefile target sources
+# $HOME/.nvm/nvm.sh at runtime, so presence here is enough.
+if [ -s "$HOME/.nvm/nvm.sh" ]; then
+    log "  ✓ nvm present at $HOME/.nvm/nvm.sh"
+else
+    log "  ✗ nvm not found at $HOME/.nvm/nvm.sh — run step 020.nodejs first"
+    exit 1
+fi
+
+# --- Env soft-check --------------------------------------------------
+# The script needs Resend creds to send AND a recipient. Warn (don't fail) if
+# any are empty — the timer still installs, and if the keys land later, the
+# next scheduled tick just works. The recipient falls back to
+# FOH_REMINDER_EMAIL, so only warn about SIGNUP_ALARM_EMAIL when BOTH are unset.
+read_env() {
+    grep -E "^$1=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'"
+}
+warn_missing_env() {
+    if [ -z "$(read_env "$1")" ]; then
+        log "  ⚠ $1 is unset in $ENV_FILE — timer will install but the alarm errors until set"
+    else
+        log "  ✓ $1 is set"
+    fi
+}
+if [ -f "$ENV_FILE" ]; then
+    warn_missing_env RESEND_API_KEY
+    warn_missing_env RESEND_FROM_EMAIL
+    if [ -z "$(read_env SIGNUP_ALARM_EMAIL)" ] && [ -z "$(read_env FOH_REMINDER_EMAIL)" ]; then
+        log "  ⚠ neither SIGNUP_ALARM_EMAIL nor FOH_REMINDER_EMAIL set in $ENV_FILE — no recipient"
+    else
+        log "  ✓ alarm recipient resolvable (SIGNUP_ALARM_EMAIL or FOH_REMINDER_EMAIL)"
+    fi
+else
+    log "  ⚠ $ENV_FILE not found — step 030 should have created it"
+fi
+
+# --- Install the units -----------------------------------------------
+log "  → Installing ${UNIT}.{service,timer}..."
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.service" "$SYSTEMD_TARGET/"
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.timer"   "$SYSTEMD_TARGET/"
+
+# --- DB-dir RW drop-in for a custom AUTH_DB_PATH ---------------------
+# The base unit already grants RW to /var/lib/zerogex and frontend/data. If
+# AUTH_DB_PATH lives elsewhere, add its directory so the WAL sidecars + the
+# latch file are writable under ProtectSystem=strict.
+DROPIN_DIR="$SYSTEMD_TARGET/${UNIT}.service.d"
+AUTH_DB_PATH_VALUE="$(read_env AUTH_DB_PATH)"
+if [ -n "$AUTH_DB_PATH_VALUE" ]; then
+    DB_DIR="$(dirname "$AUTH_DB_PATH_VALUE")"
+    case "$DB_DIR" in
+        /var/lib/zerogex|"$APP_DIR/frontend/data")
+            log "  ✓ AUTH_DB_PATH dir ($DB_DIR) already covered by the base unit"
+            sudo rm -f "$DROPIN_DIR/10-db-readwrite.conf" 2>/dev/null || true
+            ;;
+        *)
+            log "  → AUTH_DB_PATH dir ($DB_DIR) is custom — writing ReadWritePaths drop-in"
+            sudo mkdir -p "$DROPIN_DIR"
+            printf '[Service]\nReadWritePaths=%s\n' "$DB_DIR" | sudo tee "$DROPIN_DIR/10-db-readwrite.conf" >/dev/null
+            ;;
+    esac
+else
+    log "  ℹ AUTH_DB_PATH not set — script defaults to frontend/data/auth.db (covered by base unit)"
+fi
+
+sudo systemctl daemon-reload
+
+log "  → Enabling ${UNIT}.timer (hourly on :35, Persistent=true; active-hours gate is in-script)..."
+if sudo systemctl enable --now "${UNIT}.timer" 2>/dev/null; then
+    NEXT=$(systemctl list-timers --no-pager --no-legend "${UNIT}.timer" 2>/dev/null | awk '{print $1, $2}')
+    log "     ✓ ${UNIT}.timer enabled (next run: ${NEXT:-unknown})"
+else
+    log "     ✗ ${UNIT}.timer failed to enable"
+    exit 1
+fi
+
+# Deliberately NO real test send here (it would email the operator). Smoke-test
+# after install with the dry-run, which prints the decision without sending:
+#   cd ~/zerogex-web && make signup-alarm FORCE=1 DRY_RUN=1
+
+log ""
+log "Signup-rate alarm timer setup complete!"
+log ""
+log "Summary:"
+log "  ✓ ${UNIT}.timer enabled (hourly; the script gates active ET hours + throttles)"
+log "  ✓ Fires: emails when < SIGNUP_ALARM_MIN registrations in SIGNUP_ALARM_WINDOW_HOURS"
+log "  ✓ Recipient: SIGNUP_ALARM_EMAIL (falls back to FOH_REMINDER_EMAIL)"
+log "  ✓ Defaults: window 5h, floor 1, active 10:00-22:00 ET, 12h cooldown (tune SIGNUP_ALARM_* in .env.local)"
+log ""
+log "Useful commands:"
+log "  • cd $APP_DIR && make signup-alarm FORCE=1 DRY_RUN=1   - preview decision (no send)"
+log "  • cd $APP_DIR && make signup-alarm FORCE=1             - force a real send now (test the email)"
+log "  • systemctl list-timers ${UNIT}.timer                  - next/last run"
+log "  • journalctl -u ${UNIT} -n 50                          - recent run logs"

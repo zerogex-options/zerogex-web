@@ -16,11 +16,11 @@ For context, max pain interacts directly with the broader dealer-positioning fra
 
 ## What is max pain?
 
-Max pain is the strike price at which the total payout to option holders at expiry would be minimized — equivalently, the strike at which the largest aggregate notional of options expires worthless.
+Max Pain is the hypothetical settlement price that minimizes the aggregate intrinsic-value payout across the selected option chain. This is not mathematically identical to maximizing the notional of options expiring worthless.
 
 When traders ask "what is max pain," they are usually asking one of two related questions: *what strike is the chain structured to favor at expiry*, or *what strike does the option-market structure suggest price might gravitate toward*. Both are reasonable framings. The first is a definitional fact; the second is a hypothesis about whether that structural fact has a behavioral effect on price.
 
-The intuition: at any given strike, every in-the-money call and every in-the-money put represents a payout owed to its holder at expiry. Summed across the chain, those payouts are a function of where spot lands. There is some price — the max pain strike — that minimizes that total payout. If price expires there, the largest dollar amount of long-option positions ends up worthless.
+The intuition: at any given strike, every in-the-money call and every in-the-money put represents a payout owed to its holder at expiry. Summed across the chain, those payouts are a function of where spot lands. There is some price — the max pain strike — that minimizes that total payout. It is a payout-minimization calculation, not a guarantee about settlement or an exact count of worthless contracts.
 
 The folk theory then makes a leap: if option *writers* (often dealers, market makers, or institutional sellers) collectively benefit from price expiring at max pain, perhaps the structural flows in the market push price toward it. That leap is the part worth examining honestly.
 

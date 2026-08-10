@@ -2,7 +2,14 @@
  * Base API Client for ZeroGEX Backend
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// Use ?? (not ||) so an intentionally-EMPTY NEXT_PUBLIC_API_URL is preserved as
+// '' → relative, same-origin /api/* URLs that flow through the Next BFF, exactly
+// like the useApiData hooks. With ||, an empty string collapsed to
+// 'http://localhost:8000', which is unreachable from the browser in prod (where
+// NEXT_PUBLIC_API_URL is deliberately empty) — that broke the public
+// /backtesting/shared/[token] client fetch and routed it around the BFF tier
+// gate. Only an UNSET var now falls back to localhost (dev default).
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
 export class APIError extends Error {
   constructor(

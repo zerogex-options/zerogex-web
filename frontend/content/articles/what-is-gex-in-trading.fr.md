@@ -6,9 +6,9 @@
 
 ## Qu'est-ce que le GEX en trading ?
 
-**GEX signifie gamma exposure (exposition gamma).** En trading, le GEX mesure combien les dealers d'options qui font le marché doivent acheter ou vendre du sous-jacent — mécaniquement, pour rester couverts (hedgés) — à mesure que le prix évolue. C'est un indicateur du flux de couverture *forcé* qui se trouve sous le marché à chaque instant.
+**GEX signifie gamma exposure (exposition gamma).** En trading, le GEX mesure combien les dealers d'options qui font le marché ont tendance à acheter ou vendre du sous-jacent — mécaniquement, pour rester couverts (hedgés) — à mesure que le prix évolue. C'est un indicateur du flux de couverture qui se trouve sous le marché à chaque instant.
 
-C'est toute l'idée en une phrase : le GEX estime dans quelle direction, et avec quelle intensité, les dealers doivent trader pour garder leurs positions neutres lorsque le prix bouge. Quand ce flux de couverture s'oppose aux mouvements, le marché est plus collant et plus calme. Quand il va *dans le sens* des mouvements, le marché devient plus rapide et les tendances se renforcent.
+C'est toute l'idée en une phrase : le GEX estime dans quelle direction, et avec quelle intensité, les dealers sont susceptibles de trader pour garder leurs positions neutres lorsque le prix bouge. Quand ce flux de couverture s'oppose aux mouvements, le marché est plus collant et plus calme. Quand il va *dans le sens* des mouvements, le marché devient plus rapide et les tendances se renforcent.
 
 Tout le reste — le gamma flip, les call walls, les put walls, le pinning — n'est qu'une lecture plus détaillée de cette même force. Voici la version simple. Pour un traitement complet et approfondi, lisez le guide [Gamma Exposure (GEX) Explained: The Complete Guide](/education/gamma-exposure-explained).
 
@@ -16,9 +16,11 @@ Tout le reste — le gamma flip, les call walls, les put walls, le pinning — n
 
 ## Que mesure réellement le GEX ?
 
-Les market makers qui vous vendent des options ne veulent pas d'un pari directionnel — ils veulent la commission, pas le risque. Ils se couvrent donc. Le **gamma** est la grecque qui indique à quelle vitesse l'exposition directionnelle d'une option (delta) évolue lorsque le sous-jacent bouge. Comme le gamma oblige les dealers à se re-couvrir en permanence, le gamma *agrégé* sur l'ensemble de la chaîne d'options indique combien de re-couverture le marché doit effectuer.
+Les market makers qui vous vendent des options ne veulent pas d'un pari directionnel — ils veulent la commission, pas le risque. Ils se couvrent donc. Le **gamma** est la grecque qui indique à quelle vitesse l'exposition directionnelle d'une option (delta) évolue lorsque le sous-jacent bouge. Comme le gamma pousse les dealers à se re-couvrir à mesure que le spot bouge, le gamma *agrégé* sur l'ensemble de la chaîne d'options indique approximativement combien de re-couverture le marché est susceptible d'effectuer.
 
-Le GEX résume tout cela en un seul chiffre signé — généralement exprimé en dollars de gamma, ou « dollar gamma » — pour tout un indice comme le S&P 500. Une magnitude plus élevée signifie plus de couverture forcée sous le marché. Le **signe** indique dans quelle direction cette couverture pousse.
+Le GEX résume tout cela en un seul chiffre signé — généralement exprimé en dollars de gamma, ou « dollar gamma » — pour tout un indice comme le S&P 500. Une magnitude plus élevée signifie plus de couverture potentielle sous le marché. Le **signe** indique dans quelle direction cette couverture pousse.
+
+Une réserve à garder à l'esprit : le GEX est une estimation *modélisée*, pas une mesure des books des dealers. Les dealers ne publient pas leurs positions, donc le signe provient d'une hypothèse standard — les dealers sont traités comme nets longs des calls que les clients vendent et nets short des puts que les clients achètent. C'est une convention bien établie, déduite de l'open interest, et non un inventaire observé.
 
 ---
 
@@ -26,8 +28,8 @@ Le GEX résume tout cela en un seul chiffre signé — généralement exprimé e
 
 C'est la partie qui change votre façon de trader :
 
-- **GEX positif (régime long-gamma).** Les dealers sont nets longs en gamma. Pour se couvrir, ils **vendent lors des rallyes et achètent lors des baisses** — en tradant *contre* le mouvement. Cela amortit la volatilité. Attendez-vous à des ranges plus étroits, à un retour à la moyenne (mean reversion) et à du pinning près des strikes les plus lourds. Les breakouts ont tendance à caler.
-- **GEX négatif (régime short-gamma).** Les dealers sont nets courts en gamma. Ils **achètent désormais lors des rallyes et vendent lors des baisses** — en tradant *avec* le mouvement. Cela amplifie la volatilité. Attendez-vous à des ranges plus larges, à des breakouts qui s'étendent, et à des tendances qui filent. C'est [ce que signifie le gamma négatif](/education/what-is-negative-gamma) en pratique.
+- **GEX positif (régime long-gamma).** Les dealers sont nets longs en gamma. Pour se couvrir, ils **vendent lors des rallyes et achètent lors des baisses** — en tradant *contre* le mouvement. Cela a tendance à amortir la volatilité. Attendez-vous à des ranges plus étroits, à un retour à la moyenne (mean reversion) et à du pinning près des strikes les plus lourds. Les breakouts ont tendance à caler.
+- **GEX négatif (régime short-gamma).** Les dealers sont nets courts en gamma. Ils **achètent désormais lors des rallyes et vendent lors des baisses** — en tradant *avec* le mouvement. Cela a tendance à amplifier la volatilité. Attendez-vous à des ranges plus larges, à des breakouts qui s'étendent, et à des tendances qui filent. C'est [ce que signifie le gamma négatif](/education/what-is-negative-gamma) en pratique.
 
 Même indice, même graphique — un caractère de marché opposé selon le signe du GEX. Savoir dans quel régime vous vous trouvez est l'élément le plus utile que le GEX puisse vous fournir.
 
@@ -39,7 +41,7 @@ Le GEX n'est pas qu'un simple chiffre ; il se traduit par des niveaux de prix pr
 
 - **Gamma flip** — le prix auquel le gamma total des dealers passe de positif à négatif. Au-dessus, le marché est généralement dans le régime apaisant du long-gamma ; en dessous, dans le régime amplificateur du short-gamma. C'est la ligne de démarcation entre les régimes. Voir [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip).
 - **Call wall** — le strike affichant le plus fort gamma d'achat (call) au-dessus du spot, qui tend à plafonner les rallyes en gamma positif.
-- **Put wall** — le strike affichant le plus fort gamma de vente (put) en dessous du spot, qui tend à soutenir les baisses.
+- **Put wall** — le strike affichant le plus fort gamma de vente (put) en dessous du spot, qui tend à soutenir les baisses en gamma positif.
 
 Le call wall et le put wall dessinent le range que les dealers défendent ; le gamma flip vous indique s'ils vont le défendre ou le faire sauter. [Gamma Walls Explained](/education/gamma-walls-explained) traite en détail ces deux walls.
 
@@ -59,7 +61,7 @@ Le GEX ne vous dira pas *ce qui* va se passer ensuite. Il vous indique dans quel
 
 ## Où consulter le GEX par vous-même
 
-Vous n'avez pas besoin de calculer le gamma des dealers à la main. ZeroGEX publie le Net GEX du jour, le gamma flip, le call wall et le put wall — gratuitement et avec environ 15 minutes de décalage — pour [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels) et [QQQ](/qqq-gamma-levels). Pour une lecture en direct, à la sous-seconde, avec le profil gamma complet, une heatmap strike par DTE et le composite à 13 signaux, ouvrez le [tableau de bord GEX 0DTE en temps réel](/real-time-gex-0dte).
+Vous n'avez pas besoin de calculer le gamma des dealers à la main. ZeroGEX publie le Net GEX du jour, le gamma flip, le call wall et le put wall — gratuitement et avec environ 15 minutes de décalage — pour [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) et [NDX](/ndx-gamma-levels). Pour une lecture en direct, à la sous-seconde, avec le profil gamma complet, une heatmap strike par DTE et le composite à 13 signaux, ouvrez le [tableau de bord GEX 0DTE en temps réel](/real-time-gex-0dte).
 
 ---
 
@@ -71,4 +73,4 @@ Contenu éducatif uniquement — rien de ce qui précède ne constitue une recom
 
 ---
 
-Vous voulez le voir en temps réel ? Consultez la lecture GEX du jour sur les pages gratuites de niveaux gamma de [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels) et [QQQ](/qqq-gamma-levels), puis approfondissez avec le [guide complet du GEX](/education/gamma-exposure-explained) ou ouvrez le [tableau de bord GEX 0DTE en temps réel](/real-time-gex-0dte).
+Vous voulez le voir en temps réel ? Consultez la lecture GEX du jour sur les pages gratuites de niveaux gamma de [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) et [NDX](/ndx-gamma-levels), puis approfondissez avec le [guide complet du GEX](/education/gamma-exposure-explained) ou ouvrez le [tableau de bord GEX 0DTE en temps réel](/real-time-gex-0dte).

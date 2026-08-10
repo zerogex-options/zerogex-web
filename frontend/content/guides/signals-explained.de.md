@@ -10,7 +10,7 @@ ZeroGEX betreibt zwei Signalfamilien, und sie verhalten sich absichtlich untersc
 
 **Advanced-Signale** beantworten eine scharfe, situative Frage ("wird der Schlusskurs gerade gepinnt?", "ist dieser Breakout gerade gescheitert?"). Jedes erzeugt einen Score auf einer **[-1, +1]**-Zahlenlinie *und* einen diskreten **Trigger**: Sobald der Score die Schwelle des Signals überschreitet, löst es einen Alert aus und kann ein Playbook freischalten. Sie sind ereignisgesteuert.
 
-**Basic-Signale** sind kontinuierlich. Sie "lösen" nicht aus — stattdessen speisen sie den **MSI-Composite** mit einem festen Gewicht und schieben die gemischte Lesart bei jedem Refresh nach oben oder unten. Du siehst sie als Inputs für das Gesamtbild, nicht als eigenständige Alerts.
+**Basic-Signale** sind kontinuierlich. Sie "lösen" nicht aus — stattdessen speisen sie den **MSI-Composite** mit einem festen Gewicht und schieben die gemischte Regime-Lesart bei jedem Refresh nach oben (Richtung Trend) oder nach unten (Richtung Chop). Du siehst sie als Inputs für das Gesamtbild, nicht als eigenständige Alerts.
 
 Drei Dinge lohnt es sich, vor den Tabellen zu verinnerlichen:
 

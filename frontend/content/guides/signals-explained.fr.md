@@ -10,7 +10,7 @@ ZeroGEX fait tourner deux familles de signaux, et elles se comportent différemm
 
 Les **signaux Advanced** répondent à une question précise et situationnelle ("la clôture est-elle en train de se figer sur un niveau ?", "ce breakout vient-il d'échouer ?"). Chacun produit un score sur une échelle **[-1, +1]** *et* un **trigger** discret : dès que le score franchit le seuil du signal, il déclenche une alerte et peut activer un playbook. Ils sont pilotés par des événements.
 
-Les **signaux Basic** sont continus. Ils ne "se déclenchent" pas — ils alimentent plutôt le **composite MSI** avec un poids fixe, poussant la lecture combinée vers le haut ou vers le bas à chaque rafraîchissement. On les voit comme des inputs pour la vue d'ensemble, pas comme des alertes autonomes.
+Les **signaux Basic** sont continus. Ils ne "se déclenchent" pas — ils alimentent plutôt le **composite MSI** avec un poids fixe, poussant la lecture de régime combinée vers le haut (vers la tendance) ou vers le bas (vers le chop) à chaque rafraîchissement. On les voit comme des inputs pour la vue d'ensemble, pas comme des alertes autonomes.
 
 Trois points valent la peine d'être intériorisés avant les tableaux :
 

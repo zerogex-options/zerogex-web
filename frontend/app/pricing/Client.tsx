@@ -100,7 +100,10 @@ type Props = {
 type TierAction =
   | { kind: 'link'; href: string; label: string }
   | { kind: 'subscribe'; tier: BillableTier; label: string }
-  | { kind: 'portal'; label: string }
+  // Existing subscriber switching to a different tier. Carries the target tier so
+  // the server-side change-plan route can upgrade a trialing member in-app (at the
+  // promo rate) or hand off to the billing portal for paid/downgrade/cadence moves.
+  | { kind: 'portal'; tier: BillableTier; label: string }
   | { kind: 'current'; label: string };
 
 function formatMoney(amount: number): string {
@@ -112,13 +115,13 @@ function CtaButton({
   busy,
   tier,
   onSubscribe,
-  onPortal,
+  onChangePlan,
 }: {
   action: TierAction;
   busy: boolean;
   tier: BillableTier;
   onSubscribe: (tier: BillableTier) => void;
-  onPortal: () => void;
+  onChangePlan: (tier: BillableTier) => void;
 }) {
   const baseStyle = {
     marginTop: 22,
@@ -163,7 +166,7 @@ function CtaButton({
       // Funnel: plan trial CTA clicked, just before checkout is created.
       capture(TelemetryEvent.PlanTrialCtaClick, { selected_plan: action.tier, ...readUtmParams() });
       onSubscribe(action.tier);
-    } else onPortal();
+    } else onChangePlan(action.tier);
   };
 
   return (
@@ -321,7 +324,7 @@ function TierCard({
   action,
   busy,
   onSubscribe,
-  onPortal,
+  onChangePlan,
 }: {
   title: string;
   tier: BillableTier;
@@ -341,7 +344,7 @@ function TierCard({
   action: TierAction;
   busy: boolean;
   onSubscribe: (tier: BillableTier) => void;
-  onPortal: () => void;
+  onChangePlan: (tier: BillableTier) => void;
 }) {
   const t = usePageT(dict);
   return (
@@ -410,7 +413,7 @@ function TierCard({
         ))}
       </ul>
 
-      <CtaButton action={action} busy={busy} tier={tier} onSubscribe={onSubscribe} onPortal={onPortal} />
+      <CtaButton action={action} busy={busy} tier={tier} onSubscribe={onSubscribe} onChangePlan={onChangePlan} />
       {startsTrial && (action.kind === 'subscribe' || action.kind === 'link') && (
         <p style={{ margin: '10px 0 0', fontSize: 12, color: C.muted, textAlign: 'center', fontWeight: 600 }}>
           {t('noChargeToday')}
@@ -561,7 +564,7 @@ function PricingClientInner({
   const searchParams = useSearchParams();
   const { data: authSession, loading: authLoading, refresh: refreshSession } = useAuthSession();
   const [cadence, setCadence] = useState<Cadence>('monthly');
-  const [busyTier, setBusyTier] = useState<'basic' | 'pro' | 'portal' | null>(null);
+  const [busyTier, setBusyTier] = useState<'basic' | 'pro' | null>(null);
   const [error, setError] = useState<string | null>(null);
   // A referred visitor carries the zgx_ref cookie set when they landed on the
   // ?ref= link; surface a reminder that their discount applies at checkout.
@@ -705,7 +708,10 @@ function PricingClientInner({
       : '/register?next=/pricing';
 
   const callBilling = useCallback(
-    async (path: '/api/billing/checkout' | '/api/billing/portal', body?: object) => {
+    async (
+      path: '/api/billing/checkout' | '/api/billing/portal' | '/api/billing/change-plan',
+      body?: object,
+    ) => {
       const csrfResponse = await fetch('/api/auth/csrf', { credentials: 'include' });
       const csrf = (await csrfResponse.json()) as { csrfToken?: string };
       if (!csrf.csrfToken) {
@@ -787,16 +793,23 @@ function PricingClientInner({
     [authSession?.user?.id, callBilling, cadence, cameFromWinback, cameFromReactivate, currentTier, hasActiveSubscription, isAuthed, refreshSession, registerHref, router, t],
   );
 
-  const handlePortal = useCallback(async () => {
-    setError(null);
-    setBusyTier('portal');
-    try {
-      await callBilling('/api/billing/portal');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('errorSomethingWrong'));
-      setBusyTier(null);
-    }
-  }, [callBilling, t]);
+  // Existing subscriber switching tier from a plan card. The server decides
+  // whether to upgrade a trialing member in-app (at the promo rate, trial
+  // preserved) or hand off to the billing portal; either way it returns a `url`
+  // for us to follow (the app dashboard on an in-app upgrade, or Stripe's portal).
+  const handleChangePlan = useCallback(
+    async (tier: BillableTier) => {
+      setError(null);
+      setBusyTier(tier);
+      try {
+        await callBilling('/api/billing/change-plan', { tier, cadence });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : t('errorSomethingWrong'));
+        setBusyTier(null);
+      }
+    },
+    [callBilling, cadence, t],
+  );
 
   const actionFor = useCallback(
     (tier: BillableTier): TierAction => {
@@ -817,7 +830,7 @@ function PricingClientInner({
       if (hasActiveSubscription) {
         // Real subscriber: the tier truly reflects which plan they're on.
         if (currentTier === tier) return { kind: 'current', label: t('currentPlanLabel') };
-        return { kind: 'portal', label: t('switchToLabel', { label }) };
+        return { kind: 'portal', tier, label: t('switchToLabel', { label }) };
       }
 
       // No active Stripe sub. First-timers get the free trial; a returning
@@ -1074,9 +1087,9 @@ function PricingClientInner({
                 t('basicFeature3'),
               ]}
               action={actionFor('basic')}
-              busy={busyTier === 'basic' || busyTier === 'portal'}
+              busy={busyTier === 'basic'}
               onSubscribe={handleSubscribe}
-              onPortal={handlePortal}
+              onChangePlan={handleChangePlan}
             />
             <TierCard
               title={t('proTitle')}
@@ -1095,9 +1108,9 @@ function PricingClientInner({
                 t('proFeature4'),
               ]}
               action={actionFor('pro')}
-              busy={busyTier === 'pro' || busyTier === 'portal'}
+              busy={busyTier === 'pro'}
               onSubscribe={handleSubscribe}
-              onPortal={handlePortal}
+              onChangePlan={handleChangePlan}
             />
           </div>
 

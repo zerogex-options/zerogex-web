@@ -9,7 +9,7 @@
 ZeroGEX runs **two families** of signals. They behave differently, on purpose.
 
 - **Advanced signals** ask a sharp, situational question — *"is the close getting pinned?"*, *"did this breakout just fail?"*. Each produces a score on a **[-1, +1]** line **and** a discrete **trigger**: once the score crosses the signal's threshold, it fires an alert and can gate a playbook. They are event-driven.
-- **Basic signals** are continuous. They don't fire — instead they feed the **MSI composite** with a fixed weight, nudging the blended read up or down on every refresh. You see them as inputs to the bigger picture, not as standalone alerts.
+- **Basic signals** are continuous. They don't fire — instead they feed the **MSI composite** with a fixed weight, nudging the blended regime read higher (toward trend) or lower (toward chop) on every refresh. You see them as inputs to the bigger picture, not as standalone alerts.
 
 That is the most important distinction. Internalize it before reading individual signal pages.
 
@@ -46,9 +46,9 @@ When a signal trigger crosses, three things happen:
 
 ## The composite (MSI)
 
-The Composite Score (Market Score Indicator, MSI) is the **blended read across all signals**. Each Basic signal contributes a fixed weight; Advanced signals contribute when their trigger is hot.
+The Composite Score (Market State Index, MSI) is the **blended read across all signals**. Each Basic signal contributes a fixed weight; Advanced signals contribute when their trigger is hot.
 
-The composite sits on the same [-1, +1] line. A composite reading above +0.4 with multiple signals contributing in the same direction is a high-confluence read. A composite hovering near 0 with mixed contributions is intentionally "no read".
+The composite is a **0–100 regime score**, where 50 is neutral — not a point on the [-1, +1] line. A high reading (≥ 70) means a trend / expansion regime where trends can run; a low reading (< 20) means a fragile, choppy tape where breakouts tend to fail. It tells you the regime, not the direction — for which way, read Trade Bias.
 
 See [Composite Score](/help/platform/composite-score) for the full breakdown.
 
@@ -81,7 +81,7 @@ Match the trade bias to your strategy. A continuation signal is not a fade.
 
 Three patterns:
 
-1. **As a filter.** Don't take long trades when the composite is at -0.6. Don't fade rallies in negative gamma.
+1. **As a filter.** Don't take trend/breakout trades when MSI is low (choppy regime). Don't fade rallies in negative gamma.
 2. **As a trigger.** Use an Advanced signal trigger as the entry cue, with your own stop and target.
 3. **As confluence.** Stack two or three independent signals (a Basic regime read + an Advanced trigger + the dashboard's trade bias chip).
 

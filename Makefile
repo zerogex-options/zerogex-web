@@ -1,4 +1,4 @@
-.PHONY: help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding activate-late-founder extend-trial quarterly-receipt set-cancellation clear-zombie-customers webhook-health trial-reminders payment-failed-preview verified-never-paid verify-reminders winback reactivation checkout-recovery founding-final-call public-cohort cancellations diagnose-user reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo blog-images
+.PHONY: help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation honor-winback-discount clear-zombie-customers webhook-health trial-reminders trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback reactivation checkout-recovery founding-final-call public-cohort cancellations churn-breakdown enable-portal-cancel-reasons save-url reset-save-latch diagnose-user reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo blog-images
 
 # Default target
 help:
@@ -27,10 +27,14 @@ help:
 	@echo "  make activate-late-founder EMAIL=<email> [TIER=basic|pro] [CADENCE=monthly|annual] [TRIAL_DAYS=N|TRIAL_END=<iso>] - Mint a founding-rate Stripe Checkout link for a member who missed the July-1 deadline (DRY_RUN=1 to preview, YES=1 to mint)"
 	@echo "  make extend-trial EMAIL=<email> (EXTEND_DAYS=N | TRIAL_END=<iso>) - Manually lengthen one customer's free trial by pushing out Stripe trial_end; re-arms the ~48h reminder so the reminder + trial->paid cutover still run automatically (DRY_RUN=1 to preview, YES=1 to apply)"
 	@echo "  make quarterly-receipt - Interactive end-to-end quarterly FOH receipt: prompts for amount/quarter/date, updates content/giving/totals.json, commits, pushes, and rebuilds. Never posts to X — prints the tweet for you to paste. Optional flags: AMOUNT=<usd> QUARTER=<label> DATE=<YYYY-MM-DD> EMAIL=<addr> NO_PUSH=1 NO_REBUILD=1 YES=1 DRY_RUN=1"
+	@echo "  make foh-donation-reminder - Send the quarterly FOH reminder email to the admin (fully self-contained instructions inside). Meant for cron on the 5th of Jan/Apr/Jul/Oct; TO=<addr> overrides the FOH_REMINDER_EMAIL env; QUARTER=<label> overrides the auto-detected closing quarter; DRY_RUN=1 to preview"
 	@echo "  make set-cancellation EMAIL=<email> (OFF=1 | ON=1) - Flip one customer's cancel_at_period_end: OFF=1 stops a scheduled cancel (renews, or converts a trial to paid); ON=1 schedules a cancel at period end (DRY_RUN=1 to preview, YES=1 to apply)"
+	@echo "  make honor-winback-discount EMAIL=<email> - Honor the manual 'reply discount' win-back offer: STACK a 25%-off-1-year coupon on top of any existing discounts and (default) stop a scheduled cancel so the sub converts/renews on the card on file. COUPON=<id> pins a coupon; CREATE_COUPON=1 [PERCENT=25] mints one; KEEP_CANCELLATION=1 leaves the cancel intact. DRY_RUN=1 to preview, YES=1 to apply"
 	@echo "  make clear-zombie-customers - NULL stripe_customer_id on rows with no subscription (APPLY=1 to write, dry-run by default)"
 	@echo "  make webhook-health - Stripe webhook health summary (errors/orphans/failed payments, last 24h + 7d)"
+	@echo "  make signup-alarm  - Check the trailing registration rate and email the operator if signups have flatlined. Runs hourly via systemd (step 096); FORCE=1 bypasses the active-hours/cooldown gates, DRY_RUN=1 previews without sending, WINDOW=<h>/MIN=<n> override thresholds"
 	@echo "  make trial-reminders - Send ~48h-before-trial-end reminder emails (DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, RENDER=<email> to dry-run one member's real copy to files without sending)"
+	@echo "  make trial-value-nudge - Send the mid-trial (~day 2) value/activation nudge to current trialers, ahead of the day 3-7 cancel wave (DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, WINDOW_HOURS=N to tune the window)"
 	@echo "  make payment-failed-preview - Send yourself a sample of the payment-failed dunning email (PREVIEW_TO=<email>; FINAL=1 for the retries-exhausted variant, NO_CARD=1 for the neutral fallback)"
 	@echo "  make verified-never-paid - Send the founder-voice trial-nudge to users who signed up + verified but never opened checkout (DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, LAG_HOURS=<n> to override the 2h default)"
 	@echo "  make verify-reminders - Send the founder-voice 'finish verifying to unlock the trial' nudge to users who signed up but never confirmed their email (mints a fresh 24h verify link; DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, LAG_HOURS=<n> to override the 2h default)"
@@ -45,7 +49,11 @@ help:
 	@echo "  make partner-commissions [EMAIL=<partner>] [FULL=1] [STATUS=accrued|paid|reversed] - Print the Creator Partner commission ledger: per-partner totals and (with --full) full row-by-row view. Use at month-end to figure out payouts."
 	@echo "  make public-cohort - Break the tier='public' cohort into reactivation segments (EMAILS=1 for paste-ready lists, COHORT=<key> to filter, SHOW_LAST_LOGIN=1 to split warm/cold/never, WARM_DAYS=<n> to tune, SINCE=<YYYY-MM-DD> to filter to signups on/after a date)"
 	@echo "  make cancellations - List customers who cancelled and when (pending = clicked Cancel, still has access; lapsed = subscription ended). STATUS=pending|lapsed to filter, EMAILS=1 for a recipient list, CSV=1 to export, SINCE=<YYYY-MM-DD> for cancellations on/after a date"
+	@echo "  make churn-breakdown - Diagnose a cancellation spike: split recent cancels into trial-abandon vs paid-cancel vs lapsed (and lapses into payment-failed vs voluntary/expired), by tier, tenure (trial-cliff detector), signup source, daily timeline, and captured cancel reasons. WINDOW=<days> (default 14) or SINCE=<YYYY-MM-DD> to set the window, CSV=1 for per-user rows"
+	@echo "  make enable-portal-cancel-reasons - Turn on the Stripe billing-portal cancellation survey (feedback + free-text) so future cancels record a WHY. DRY_RUN=1 to preview, YES=1 to apply. CHANGES THE LIVE CUSTOMER PORTAL"
 	@echo "  make diagnose-user EMAIL=<email> - Read-only dump of one user: DB row, last 20 audit events, live Stripe customer/subscription/invoices, and notes on whether the July-1 founding deferral applied"
+	@echo "  make save-url EMAIL=<email> - Print the signed one-click self-serve SAVE url (app/save) for a member + their eligibility, to test the retention flow without a real cancellation email (read-only)"
+	@echo "  make reset-save-latch EMAIL=<email> - TESTING: clear a member's one-shot save latch (retention_offer_claimed_at) so the /save flow can be claimed again"
 	@echo "  make reset-user-for-testing EMAIL=<email> - TESTING: reset one account to a clean pre-signup state (tier=public, subscription/trial latches cleared) so you can re-run signup + plan switching. DRY by default, APPLY=1 to write, KEEP_FOUNDING=1 / KEEP_CUSTOMER=1 to preserve those"
 	@echo "  make dedupe-payment-methods (EMAIL=<email> | CUSTOMER=cus_... | ALL=1) - Detach duplicate same-card/same-Link payment methods from Stripe customers, keeping the default/subscription method (INSPECT=1 to just list, DRY by default, APPLY=1 to detach)"
 	@echo "  make backup-monitoring - Backup Admin->Monitoring JSON data (S3_BUCKET=s3://... optional)"
@@ -253,6 +261,15 @@ tradeworkz-notify:
 trial-reminders:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-trial-reminders.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),) $(if $(RENDER),--render $(RENDER),) $(if $(OUT),--out $(OUT),)'
 
+# Send the mid-trial value/activation nudge (~day 2 of a 7-day trial) to
+# currently-trialing members, BEFORE the day 3-7 cancel wave and well before the
+# 48h billing reminder above. Idempotent via users.trial_midpoint_email_sent_at;
+# honors marketing opt-out and skips already-cancelled trials. DRY_RUN=1
+# previews, YES=1 sends, PREVIEW_TO=<email> sends one sample, WINDOW_HOURS=N
+# tunes the +/- window.
+trial-value-nudge:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-trial-value-nudge.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),) $(if $(WINDOW_HOURS),--window-hours $(WINDOW_HOURS),)'
+
 # Preview-only sender for the payment-failed dunning email (core/mailer.ts
 # sendPaymentFailedEmail), which is otherwise webhook-only (fired from
 # invoice.payment_failed, attempt 1). Pass PREVIEW_TO=<email> to send one sample.
@@ -350,6 +367,23 @@ diagnose-user:
 	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make diagnose-user EMAIL=foo@example.com)"; exit 1; fi
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/diagnose-user.mts --email $(EMAIL)'
 
+# Print the signed one-click self-serve SAVE url (app/save/route.ts) for a member
+# plus their current eligibility, so you can test the retention flow in a browser
+# without waiting for a real cancellation email. Read-only.
+#   make save-url EMAIL=foo@example.com
+save-url:
+	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make save-url EMAIL=foo@example.com)"; exit 1; fi
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/print-save-url.mjs --email $(EMAIL)'
+
+# TESTING: clear a member's one-shot self-serve SAVE latch
+# (users.retention_offer_claimed_at) so the /save one-click flow can be claimed
+# again. Local DB write only; never touches Stripe. Pair with set-cancellation
+# ON=1 to re-arm the full flow.
+#   make reset-save-latch EMAIL=foo@example.com
+reset-save-latch:
+	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make reset-save-latch EMAIL=foo@example.com)"; exit 1; fi
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/reset-save-latch.mjs --email $(EMAIL)'
+
 # Reset ONE account to a clean pre-signup state (tier=public, subscription mirror
 # and trial/lifecycle latches cleared) so you can re-run signup + plan switching.
 # TESTING TOOL — wipes local subscription history; never calls Stripe. Dry-run by
@@ -400,6 +434,43 @@ extend-trial:
 quarterly-receipt:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/quarterly-receipt.mts $(if $(AMOUNT),--amount $(AMOUNT),) $(if $(QUARTER),--quarter "$(QUARTER)",) $(if $(DATE),--date $(DATE),) $(if $(EMAIL),--email $(EMAIL),) $(if $(NO_PUSH),--no-push,) $(if $(NO_REBUILD),--no-rebuild,) $(if $(YES),--yes,) $(if $(DRY_RUN),--dry-run,)'
 
+# Send the "time to make the FOH donation" reminder email to the admin.
+# Auto-detects the just-closed calendar quarter. Ships the actual four-step
+# instructions inside the email so the admin never has to look them up. Runs
+# four times a year via the systemd timer installed by deploy step 095 (see
+# deploy/systemd/zerogex-web-foh-donation-reminder.timer). Also runnable by
+# hand for testing or a manual re-send.
+#
+# Env: RESEND_API_KEY, RESEND_FROM_EMAIL required. Recipient comes from
+# --to flag OR the FOH_REMINDER_EMAIL env var (set in frontend/.env.local).
+#
+# Examples:
+#   make foh-donation-reminder DRY_RUN=1                         # preview text of the email
+#   make foh-donation-reminder TO=founder@zerogex.io             # send to a specific address
+#   make foh-donation-reminder QUARTER="Q3 2026"                 # override auto-detected quarter
+foh-donation-reminder:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-foh-donation-reminder.mts $(if $(TO),--to $(TO),) $(if $(QUARTER),--quarter "$(QUARTER)",) $(if $(DRY_RUN),--dry-run,)'
+
+# Signup-rate alarm: emails the operator if NEW registrations flatline (fewer
+# than SIGNUP_ALARM_MIN accounts created in the trailing SIGNUP_ALARM_WINDOW_HOURS).
+# Reads the auth DB only. Runs hourly via the systemd timer installed by deploy
+# step 096 (deploy/systemd/zerogex-web-signup-alarm.timer); the active-hours
+# gate + cooldown latch are in the script, so an off-hours tick is a cheap
+# no-op. Also runnable by hand for testing.
+#
+# Env: RESEND_API_KEY, RESEND_FROM_EMAIL required. Recipient comes from --to,
+# then SIGNUP_ALARM_EMAIL, then FOH_REMINDER_EMAIL (frontend/.env.local).
+# Tunables (all optional, .env.local): SIGNUP_ALARM_WINDOW_HOURS (5),
+# SIGNUP_ALARM_MIN (1), SIGNUP_ALARM_ACTIVE_START_ET (10),
+# SIGNUP_ALARM_ACTIVE_END_ET (22), SIGNUP_ALARM_COOLDOWN_HOURS (12).
+#
+# Examples:
+#   make signup-alarm FORCE=1 DRY_RUN=1        # preview the decision, never sends
+#   make signup-alarm FORCE=1                  # force a real send now (test the email)
+#   make signup-alarm WINDOW=3 MIN=1           # ad-hoc check over a 3h window
+signup-alarm:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-signup-alarm.mts $(if $(TO),--to $(TO),) $(if $(WINDOW),--window $(WINDOW),) $(if $(MIN),--min $(MIN),) $(if $(FORCE),--force,) $(if $(DRY_RUN),--dry-run,)'
+
 # Flip ONE customer's cancel_at_period_end flag on their Stripe subscription.
 # OFF=1 stops a scheduled cancellation (the sub renews, or — on a trial —
 # converts to paid and charges at trial_end); ON=1 schedules a cancel at period
@@ -416,6 +487,25 @@ set-cancellation:
 	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make set-cancellation EMAIL=foo@example.com OFF=1 DRY_RUN=1)"; exit 1; fi
 	@if [ -z "$(ON)" ] && [ -z "$(OFF)" ]; then echo "Error: pass ON=1 or OFF=1"; exit 1; fi
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/set-cancellation.mts --email $(EMAIL) $(if $(OFF),--off,) $(if $(ON),--on,) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
+
+# Honor the evergreen win-back "reply 'discount'" offer for ONE member by hand:
+# STACK a "25% off for one year" coupon on top of any discounts already on their
+# subscription (existing coupons are preserved, never stripped), and — unless
+# KEEP_CANCELLATION=1 — clear cancel_at_period_end so a trialing sub converts to
+# paid at trial_end (an active one renews) on the card already on file. No
+# re-subscribe. The manual twin of the automated ?winback=1 checkout path.
+# Coupon resolution: COUPON=<id> pins an exact coupon; otherwise the standing
+# STRIPE_COUPON_WINBACK_<TIER>_<CADENCE> env for the member's plan; otherwise
+# CREATE_COUPON=1 mints a deterministic PERCENT%-off (default 25) 1-year coupon
+# (annual: duration=once; monthly: repeating 12 months). Sends NO email — reply
+# to the member yourself. Run `make diagnose-user EMAIL=...` first to confirm
+# status/plan/discounts. Examples:
+#   make honor-winback-discount EMAIL=foo@example.com DRY_RUN=1
+#   make honor-winback-discount EMAIL=foo@example.com CREATE_COUPON=1 YES=1
+#   make honor-winback-discount EMAIL=foo@example.com COUPON=winback25 YES=1
+honor-winback-discount:
+	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make honor-winback-discount EMAIL=foo@example.com DRY_RUN=1)"; exit 1; fi
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/honor-winback-discount.mts --email $(EMAIL) $(if $(COUPON),--coupon $(COUPON),) $(if $(CREATE_COUPON),--create-coupon,) $(if $(PERCENT),--percent $(PERCENT),) $(if $(KEEP_CANCELLATION),--keep-cancellation,) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
 
 # Activate a Creator Partner end-to-end: flip partner_tier='creator', grant
 # them DAYS days of Pro access (no Stripe sub), pre-mint a referral_code,
@@ -495,6 +585,29 @@ public-cohort:
 # to cancellations on/after a cutoff.
 cancellations:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/list-cancellations.mjs $(if $(STATUS),--status $(STATUS),) $(if $(EMAILS),--emails,) $(if $(CSV),--csv,) $(if $(SINCE),--since $(SINCE),)'
+
+# Decompose a recent cancellation spike into its actionable parts. Trial users
+# bailing before the first charge (a conversion problem) and established paid
+# members leaving (a value/positioning problem) both show up as one "cancel" bar
+# on the dashboard but need opposite fixes; this splits them, and adds tenure
+# (trial-cliff detector), signup source, a daily timeline, and any captured
+# Stripe cancel reasons. Read-only. WINDOW defaults to 14 days.
+#   make churn-breakdown
+#   make churn-breakdown WINDOW=7
+#   make churn-breakdown SINCE=2026-07-24 CSV=1 > churn.csv
+churn-breakdown:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/churn-breakdown.mjs $(if $(WINDOW),--window $(WINDOW),) $(if $(SINCE),--since $(SINCE),) $(if $(CSV),--csv,)'
+
+# Enable the Stripe billing-portal cancellation survey so every future cancel
+# records WHY (a feedback enum + optional free-text comment). Without this the
+# webhook's new reason-capture has nothing to capture — Stripe only sends
+# cancellation_details when the portal's cancellation flow collects a reason.
+# Updates the portal configuration named by STRIPE_PORTAL_CONFIG_ID (or the
+# account's default). CHANGES THE LIVE CUSTOMER-FACING PORTAL.
+#   make enable-portal-cancel-reasons DRY_RUN=1
+#   make enable-portal-cancel-reasons YES=1
+enable-portal-cancel-reasons:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/enable-portal-cancel-reasons.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
 
 # Backup Admin->Monitoring data files (frontend/data/monitoring.json,
 # signups.json, and mrr.json) into a timestamped tar.gz. signups.json and

@@ -17,6 +17,7 @@ import {
 } from '@/hooks/useApiData';
 import { useTheme } from '@/core/ThemeContext';
 import { useTimeframe } from '@/core/TimeframeContext';
+import { useHasTierAccess } from '@/hooks/useAuthSession';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 import { REGIME_BANDS, classifyRegime } from '@/core/regime';
 import { asObject, getNumber } from '@/core/signalHelpers';
@@ -443,16 +444,23 @@ function RegimeTriggersCard({ triggers }: RegimeTriggersCardProps) {
 export default function ProprietarySignalsSynthesis() {
   const { symbol } = useTimeframe();
 
+  // The advanced signals below are Pro-only. This panel is embedded on the
+  // (Basic-tier) dashboard, so for non-Pro viewers they otherwise poll and 403
+  // on a loop. Gate them behind Pro access — the synthesis already renders the
+  // basic-signal side and treats absent advanced signals as null, so a Basic
+  // viewer sees the same thing minus the wasted requests.
+  const hasPro = useHasTierAccess('pro');
+
   const { data: scoreData } = useSignalScore(symbol, PROPRIETARY_SIGNALS_REFRESH.compositeScoreMs);
   const { data: basicBundleData } = useBasicSignalsBundle(symbol, PROPRIETARY_SIGNALS_REFRESH.basicBundleMs);
-  const volExpansion = useVolExpansionSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.volExpansionMs);
-  const eodPressure = useEodPressureSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.eodPressureMs);
-  const squeeze = useSqueezeSetupSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.squeezeSetupMs);
-  const trapDetection = useTrapDetectionSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.trapDetectionMs);
-  const zeroDte = useZeroDtePositionImbalanceSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.zeroDteImbalanceMs);
-  const gammaVwap = useGammaVwapConfluenceSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.gammaVwapConfluenceMs);
-  const rangeBreak = useRangeBreakImminenceSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.rangeBreakImminenceMs);
-  const marketPressure = useMarketPressureSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.marketPressureMs);
+  const volExpansion = useVolExpansionSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.volExpansionMs, hasPro);
+  const eodPressure = useEodPressureSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.eodPressureMs, hasPro);
+  const squeeze = useSqueezeSetupSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.squeezeSetupMs, hasPro);
+  const trapDetection = useTrapDetectionSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.trapDetectionMs, hasPro);
+  const zeroDte = useZeroDtePositionImbalanceSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.zeroDteImbalanceMs, hasPro);
+  const gammaVwap = useGammaVwapConfluenceSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.gammaVwapConfluenceMs, hasPro);
+  const rangeBreak = useRangeBreakImminenceSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.rangeBreakImminenceMs, hasPro);
+  const marketPressure = useMarketPressureSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.marketPressureMs, hasPro);
 
   const compositeScore = useMemo(() => {
     const raw = scoreData?.composite_score ?? scoreData?.score;

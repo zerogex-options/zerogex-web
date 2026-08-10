@@ -145,7 +145,7 @@ A short workflow:
 
 1. **Identify the gamma regime first.** Positive-gamma supports the structural-drift reads; negative-gamma inverts them.
 2. **Check whether vol has been compressing.** A multi-day IV decay through the morning is the setup that vanna flows tend to feed. A vol spike inverts the flow direction.
-3. **Watch the charm window.** The final 90 minutes is where charm is loudest. Look for sign agreement between the charm direction and the gamma magnet — both pointing the same way is the cleanest setup.
+3. **Watch the charm window.** The final 90 minutes is where charm is loudest. Look for sign agreement between the charm direction and the gamma magnet — agreement produces a stronger model output, not a calibrated probability.
 4. **Cross-check against OPEX dates.** Monthly OPEX and quarterly OPEX concentrate both flows. Treat them as regime amplifiers.
 5. **Discount in vol-spike days.** When realized vol expands, both vanna and charm flows are dominated by gamma reactions. The second-order read becomes noise.
 
@@ -203,3 +203,6 @@ Educational content only — none of the above is a trade recommendation.
 ---
 
 If you want to see today's vanna and charm flows in real time, alongside the gamma regime that determines whether they produce drift or get overrun, the free ZeroGEX dashboard surfaces all of it.
+
+
+> ZeroGEX signal scores are derived outputs using hand-selected inputs, weights, and thresholds unless otherwise stated. They are not calibrated probabilities or guarantees; historical validation is required before interpreting them as a performance edge.

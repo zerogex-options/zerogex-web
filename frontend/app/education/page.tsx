@@ -5,7 +5,7 @@ import ItemListJsonLd from '@/components/ItemListJsonLd';
 export const metadata = {
   title: 'Options Gamma Education: GEX, Gamma Flip, Call Walls & 0DTE Dealer Positioning',
   description:
-    'ZeroGEX options gamma education — GEX, the gamma flip, call walls, put walls, 0DTE dealer positioning, vanna and charm, and max pain. Plain-English explainers plus today’s live SPX / SPY / QQQ levels.',
+    'ZeroGEX options gamma education — GEX, the gamma flip, call walls, put walls, 0DTE dealer positioning, vanna and charm, and max pain. Plain-English explainers plus today’s live SPX / SPY / QQQ / NDX levels.',
   alternates: { canonical: '/education' },
 };
 
@@ -52,6 +52,7 @@ const popularExplainers = [
   { href: '/education/spx-net-gamma-exposure-today', label: 'SPX Net Gamma Exposure Today' },
   { href: '/education/best-gex-tools', label: 'Best GEX Tools, Fairly Compared' },
   { href: '/education/max-pain-explained', label: 'Max Pain Explained' },
+  { href: '/education/pin-strike-explained', label: 'Pin Strike Explained' },
 ];
 
 export default function EducationHubPage() {
@@ -78,7 +79,7 @@ export default function EducationHubPage() {
             href="/spx-gamma-levels"
             className="font-semibold text-[var(--color-warning)] underline-offset-2 hover:underline"
           >
-            today’s live SPX / SPY / QQQ gamma levels
+            today’s live SPX / SPY / QQQ / NDX gamma levels
           </Link>
           .
         </p>
@@ -127,7 +128,7 @@ export default function EducationHubPage() {
             href="/spx-gamma-levels"
             className="font-semibold text-[var(--color-warning)] underline-offset-2 hover:underline"
           >
-            today’s live SPX / SPY / QQQ gamma levels
+            today’s live SPX / SPY / QQQ / NDX gamma levels
           </Link>
           .
         </p>

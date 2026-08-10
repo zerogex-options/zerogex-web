@@ -8,7 +8,14 @@ import ErrorMessage from '@/components/ErrorMessage';
 import MobileScrollableChart from '@/components/MobileScrollableChart';
 import BackendMonitoring from './BackendMonitoring';
 import { formatDayLabel, formatHourLabel, lighten, makeDayLabelFormatter, niceYScale } from './monitoringHelpers';
-import { buildMrrProjection, buildGrowthProjection, MRR_PROJECTION_HORIZONS } from '@/core/pricing';
+import {
+  buildSignupImpliedMrrProjection,
+  blendedListMonthlyPrice,
+  projectionMonthsToTarget,
+  buildGrowthProjection,
+  MRR_PROJECTION_HORIZONS,
+} from '@/core/pricing';
+import { accumulateFlowByWeekday } from '@/core/subscriptionFlow';
 
 type SnapshotPoint = {
   bucket: string;
@@ -45,6 +52,33 @@ type SignupFlowPoint = {
   basicPaymentFail: number;
   proPaymentFail: number;
   registrations: number;
+};
+
+type GrowthRatePoint = {
+  days: 1 | 7 | 14 | 30;
+  signups: number;
+  cancellations: number;
+  paymentFailures: number;
+  net: number;
+  dailyRate: number;
+};
+
+// Mirrors ConversionSourceRow / ConversionBySourceSnapshot in
+// core/pageAnalytics.ts (hand-synced — this client component can't import the
+// server-only module). Registrations-by-source over landing-visits-by-source.
+type ConversionSourceRow = {
+  source: string;
+  visits: number;
+  signups: number;
+  subscribers: number;
+  signupConversion: number;
+};
+
+type ConversionBySourceSnapshot = {
+  windowDays: number;
+  generatedAt: string;
+  totals: { visits: number; signups: number; subscribers: number };
+  sources: ConversionSourceRow[];
 };
 
 // Mirrors MrrSnapshot in core/pricing.ts (kept in sync by hand — this file
@@ -123,6 +157,22 @@ type WebhookHealth = {
 // warrant attention (linked-to-payment-failed, or large Δ) stand out.
 const STALE_NOISE_DELTA_SECONDS = 5;
 
+// Mirrors CancellationReasonsSummary in core/monitoring.ts. The "why" behind
+// recent cancellations, parsed from the Stripe cancellation survey: a per-reason
+// tally (with a `none` bucket for silent cancels) and the free-text verbatims.
+type CancellationReasonsSummary = {
+  windowDays: number;
+  total: number;
+  captured: number;
+  byFeedback: Array<{ feedback: string; label: string; count: number }>;
+  recentComments: Array<{
+    createdAt: string;
+    email: string | null;
+    feedback: string | null;
+    comment: string;
+  }>;
+};
+
 type Snapshot = {
   ok: boolean;
   mrr: Mrr;
@@ -130,6 +180,9 @@ type Snapshot = {
   mrrTrend: MrrTrend | null;
   signups: SignupPoint[];
   signupFlow: SignupFlowPoint[];
+  growthRates: GrowthRatePoint[];
+  cancellationReasons: CancellationReasonsSummary;
+  conversionBySource: ConversionBySourceSnapshot;
   hourly: SnapshotPoint[];
   daily: SnapshotPoint[];
   topIps: Array<{ ip: string; count: number }>;
@@ -169,7 +222,7 @@ const METRICS: Array<{ key: MetricKey; title: string; color: string; description
   { key: 'uniqueIps', title: 'Unique Source IPs', color: ROW_COLORS.uniqueIps, description: 'Distinct client IPs observed during the bucket.' },
 ];
 
-type TabId = 'frontend' | 'backend';
+type TabId = 'frontend' | 'backend' | 'stripe' | 'revenue';
 
 export default function MonitoringClient() {
   const cardBg = 'var(--color-surface)';
@@ -184,7 +237,7 @@ export default function MonitoringClient() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (tab !== 'frontend') return;
+    if (tab === 'backend') return;
     let cancelled = false;
     const load = async () => {
       try {
@@ -220,6 +273,8 @@ export default function MonitoringClient() {
   const TABS: Array<{ id: TabId; label: string }> = [
     { id: 'frontend', label: 'Frontend' },
     { id: 'backend', label: 'Backend' },
+    { id: 'stripe', label: 'Stripe' },
+    { id: 'revenue', label: 'Revenue Tracking' },
   ];
 
   return (
@@ -262,6 +317,14 @@ export default function MonitoringClient() {
         />
       )}
       {tab === 'backend' && <BackendMonitoring />}
+      {tab === 'stripe' && data && !loading && !error && (
+        <StripeTab data={data} cardBg={cardBg} borderColor={borderColor} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} />
+      )}
+      {tab === 'revenue' && data && !loading && !error && (
+        <RevenueTab data={data} cardBg={cardBg} borderColor={borderColor} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} />
+      )}
+      {tab !== 'backend' && loading && tab !== 'frontend' && <LoadingSpinner size="lg" />}
+      {tab !== 'backend' && error && tab !== 'frontend' && <ErrorMessage message={error} />}
     </PageShell>
   );
 }
@@ -284,43 +347,21 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
 
   const topIpsMax = data.topIps[0]?.count ?? 0;
   const topUsersMax = data.topUsers[0]?.count ?? 0;
-  const tierYScale = niceYScale(
-    data.signups.reduce((m, p) => Math.max(m, p.basic + p.pro + p.public), 0),
-  );
-  const subscriberYScale = niceYScale(
-    data.signups.reduce((m, p) => Math.max(m, p.paying + p.trialing), 0),
-  );
+  const tierYScale = niceYScale(data.signups.reduce((m, p) => Math.max(m, p.basic + p.pro + p.public), 0));
+  const subscriberYScale = niceYScale(data.signups.reduce((m, p) => Math.max(m, p.paying + p.trialing), 0));
 
   return (
     <div>
       <section className="mb-8">
-        <div className="flex items-baseline justify-between mb-2">
+        <div className="mb-2">
           <h2 className="text-lg font-semibold" style={{ color: textColor }}>User Signups</h2>
-          <span className="text-xs" style={{ color: mutedText }}>Subscriber and tier-headcount snapshots (latest sample overwrites today&apos;s point). Subscription Flow charts each user&apos;s own Basic/Pro Stripe conversions (up) against cancellations and payment-failure downgrades (down) per day, with a net-onboards line (adds minus both) sharing the bars&apos; zero baseline. Daily Registrations areas total registered users with the disclaimer-accepted subset in front, plus daily new-account registration columns on a secondary axis.</span>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <TotalSubscribersChartCard
-            data={data.signups}
-            cardBg={cardBg}
-            axisStroke={axisStroke}
-            mutedText={mutedText}
-            yScale={subscriberYScale}
-          />
-          <TierBreakdownChartCard
-            data={data.signups}
-            cardBg={cardBg}
-            axisStroke={axisStroke}
-            mutedText={mutedText}
-            brandColor={ROW_COLORS.signups}
-            yScale={tierYScale}
-          />
-          <SubscriptionFlowChartCard
-            data={data.signupFlow}
-            cardBg={cardBg}
-            axisStroke={axisStroke}
-            mutedText={mutedText}
-            brandColor={ROW_COLORS.signups}
-          />
+          <GrowthRateCard rates={data.growthRates} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} />
+          <SubscriptionFlowByWeekdayCard data={data.signupFlow} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} brandColor={ROW_COLORS.signups} />
+          <TotalSubscribersChartCard data={data.signups} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} yScale={subscriberYScale} />
+          <TierBreakdownChartCard data={data.signups} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} brandColor={ROW_COLORS.signups} yScale={tierYScale} />
+          <SubscriptionFlowChartCard data={data.signupFlow} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} brandColor={ROW_COLORS.signups} />
           <DailyRegistrationsChartCard
             data={data.signups}
             flow={data.signupFlow}
@@ -332,6 +373,14 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
           />
         </div>
       </section>
+
+      <ConversionBySourceSection
+        data={data.conversionBySource}
+        cardBg={cardBg}
+        borderColor={borderColor}
+        mutedText={mutedText}
+        textColor={textColor}
+      />
 
       {METRICS.map((metric) => (
         <section key={metric.key} className="mb-8">
@@ -405,63 +454,226 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
         </div>
       </section>
 
-      <section className="mb-8">
-        <h2 className="text-lg font-semibold mb-2" style={{ color: textColor }}>Stripe Webhook Health</h2>
-        <WebhookHealthCard
-          health={data.webhookHealth}
-          cardBg={cardBg}
-          borderColor={borderColor}
-          mutedText={mutedText}
-          textColor={textColor}
-          axisStroke={axisStroke}
-        />
-      </section>
+    </div>
+  );
+}
 
-      <section className="mb-8">
-        <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
-          <h2 className="text-lg font-semibold" style={{ color: textColor }}>Income Replacement Tracker</h2>
-          <span className="text-xs" style={{ color: mutedText }}>Estimated MRR vs. the owner-earnings target needed to replace a day-job income. MRR is estimated locally from each subscriber&apos;s plan; promo-rate subs price at list, so treat it as a close estimate.</span>
-        </div>
-        <div className="grid grid-cols-1 gap-4">
-          <IncomeReplacementCard
-            mrr={data.mrr}
-            cardBg={cardBg}
-            borderColor={borderColor}
-            mutedText={mutedText}
-            textColor={textColor}
-            brandColor={ROW_COLORS.mrr}
-          />
-          <MrrTrendCard
-            series={data.mrrSeries}
-            trend={data.mrrTrend}
-            targetMrr={data.mrr.targetMrr}
-            cardBg={cardBg}
-            axisStroke={axisStroke}
-            mutedText={mutedText}
-            textColor={textColor}
-            brandColor={ROW_COLORS.mrr}
-          />
-        </div>
-      </section>
+// Friendly labels for the raw, sanitized utm_source keys (see
+// core/utils.ts sanitizeUtmSource — lowercased, [a-z0-9._-]). Sources that map
+// to the SAME label are merged into one row: `twitter` and `x` both fold into
+// "Twitter/X" since they're the same channel. `(direct / none)` is the
+// DIRECT_SOURCE_LABEL bucket from core/pageAnalytics.ts. Any source not listed
+// here falls through to its raw key so nothing is silently dropped.
+const CONVERSION_SOURCE_LABELS: Record<string, string> = {
+  '(direct / none)': 'Direct/none',
+  twitter: 'Twitter/X',
+  x: 'Twitter/X',
+  reddit: 'Reddit',
+  chatgpt: 'ChatGPT',
+  copilot: 'Copilot',
+};
 
-      <section className="mb-8">
-        <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
-          <h2 className="text-lg font-semibold" style={{ color: textColor }}>Growth Projections</h2>
-          <span className="text-xs" style={{ color: mutedText }}>A what-if model, not a forecast: start from today&apos;s paying subs and tune acquisition, growth shape, churn, plan mix, and prices to see where subs, MRR, and ARR could land.</span>
-        </div>
-        <div className="grid grid-cols-1 gap-4">
-          <GrowthProjectionsCard
-            startingSubs={data.mrr.activeSubscribers}
-            targetMrr={data.mrr.targetMrr}
-            cardBg={cardBg}
-            borderColor={borderColor}
-            axisStroke={axisStroke}
-            mutedText={mutedText}
-            textColor={textColor}
-            brandColor={ROW_COLORS.signups}
-          />
-        </div>
-      </section>
+function conversionSourceLabel(source: string): string {
+  return CONVERSION_SOURCE_LABELS[source] ?? source;
+}
+
+// A display source is FLAGGED (warning color) when it pulls meaningful traffic
+// but isn't converting — either outright zero signups at low volume, or a very
+// low rate at higher volume (the Reddit case: hundreds of visits, ~0 signups,
+// which the old "exactly zero" rule missed).
+const CONV_FLAG_ZERO_MIN_VISITS = 10; // ≥ this many visits with exactly 0 signups
+const CONV_FLAG_LOW_MIN_VISITS = 100; // ≥ this many visits …
+const CONV_FLAG_LOW_RATE = 0.003; //      … while converting below 0.3%
+
+function isUnderperformingSource(row: ConversionSourceRow): boolean {
+  if (row.visits >= CONV_FLAG_LOW_MIN_VISITS && row.signupConversion < CONV_FLAG_LOW_RATE) return true;
+  return row.visits >= CONV_FLAG_ZERO_MIN_VISITS && row.signups === 0;
+}
+
+// A display row, plus the raw sanitized sources it folded together — kept only
+// when >1 so the Source column can show the split (e.g. paid `x` vs organic
+// `twitter` under one "Twitter/X" headline).
+type DisplaySourceRow = ConversionSourceRow & { components?: ConversionSourceRow[] };
+
+// Re-label each source and merge rows that share a display label (twitter + x →
+// Twitter/X), summing their visits/signups/subscribers and remembering the
+// per-tag components. Conversion is recomputed on the merged totals, then rows
+// are re-sorted the way the server sorts (visits desc, then signups desc, then
+// label) so a combined row lands in the right place.
+function displayConversionSources(sources: ConversionSourceRow[]): DisplaySourceRow[] {
+  const merged = new Map<string, DisplaySourceRow & { components: ConversionSourceRow[] }>();
+  for (const row of sources) {
+    const label = conversionSourceLabel(row.source);
+    const existing = merged.get(label);
+    if (existing) {
+      existing.visits += row.visits;
+      existing.signups += row.signups;
+      existing.subscribers += row.subscribers;
+      existing.components.push(row);
+    } else {
+      merged.set(label, { ...row, source: label, components: [row] });
+    }
+  }
+  return Array.from(merged.values())
+    .map((r) => ({
+      ...r,
+      signupConversion: r.visits > 0 ? r.signups / r.visits : 0,
+      // Only surface a breakdown when the label actually combined ≥2 tags.
+      components: r.components.length > 1 ? [...r.components].sort((a, b) => b.visits - a.visits) : undefined,
+    }))
+    .sort((a, b) => b.visits - a.visits || b.signups - a.signups || a.source.localeCompare(b.source));
+}
+
+function ConversionBySourceSection({
+  data,
+  cardBg,
+  borderColor,
+  mutedText,
+  textColor,
+}: {
+  data: ConversionBySourceSnapshot;
+  cardBg: string;
+  borderColor: string;
+  mutedText: string;
+  textColor: string;
+}) {
+  const totalConv = data.totals.visits > 0 ? (data.totals.signups / data.totals.visits) * 100 : null;
+  const displaySources = displayConversionSources(data.sources);
+  return (
+    <section className="mb-8">
+      <div className="flex items-baseline justify-between mb-2">
+        <h2 className="text-lg font-semibold" style={{ color: textColor }}>Conversion by Source</h2>
+        <span className="text-xs" style={{ color: mutedText }}>
+          Landing visits → registrations by first-touch utm_source, last {data.windowDays}d
+        </span>
+      </div>
+      <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
+        {displaySources.length === 0 ? (
+          <div className="text-sm" style={{ color: mutedText }}>
+            No source data captured yet — utm_source is recorded on landing pages going forward.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm" style={{ color: textColor }}>
+              <thead>
+                <tr className="text-left" style={{ color: mutedText }}>
+                  <th className="py-1 pr-4 font-medium">Source</th>
+                  <th className="py-1 px-3 font-medium text-right">Visits</th>
+                  <th className="py-1 px-3 font-medium text-right">Signups</th>
+                  <th className="py-1 px-3 font-medium text-right">Conv.</th>
+                  <th className="py-1 pl-3 font-medium text-right">Subs</th>
+                </tr>
+              </thead>
+              <tbody>
+                {displaySources.map((row) => {
+                  const flagged = isUnderperformingSource(row);
+                  return (
+                    <tr key={row.source} style={{ borderTop: `1px solid ${borderColor}` }}>
+                      <td className="py-1.5 pr-4 text-xs align-top">
+                        <div>{row.source}</div>
+                        {row.components && (
+                          <div className="mt-0.5 space-y-0.5 font-mono" style={{ color: mutedText }}>
+                            {row.components.map((c) => (
+                              <div key={c.source}>
+                                {c.source}: {c.visits.toLocaleString()} visits · {c.signups.toLocaleString()} signups
+                                {c.subscribers > 0 ? ` · ${c.subscribers.toLocaleString()} subs` : ''}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-1.5 px-3 text-right tabular-nums align-top">{row.visits.toLocaleString()}</td>
+                      <td className="py-1.5 px-3 text-right tabular-nums align-top">{row.signups.toLocaleString()}</td>
+                      <td
+                        className="py-1.5 px-3 text-right tabular-nums font-semibold align-top"
+                        style={{ color: flagged ? 'var(--color-warning)' : textColor }}
+                        title={flagged ? 'Meaningful traffic but little or no conversion — check the landing/CTA or ad targeting' : undefined}
+                      >
+                        {row.visits > 0 ? `${(row.signupConversion * 100).toFixed(1)}%` : '—'}
+                      </td>
+                      <td className="py-1.5 pl-3 text-right tabular-nums align-top" style={{ color: mutedText }}>{row.subscribers.toLocaleString()}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr style={{ borderTop: `2px solid ${borderColor}`, color: mutedText }}>
+                  <td className="py-1.5 pr-4 text-xs uppercase tracking-wide">Total</td>
+                  <td className="py-1.5 px-3 text-right tabular-nums">{data.totals.visits.toLocaleString()}</td>
+                  <td className="py-1.5 px-3 text-right tabular-nums">{data.totals.signups.toLocaleString()}</td>
+                  <td className="py-1.5 px-3 text-right tabular-nums">{totalConv != null ? `${totalConv.toFixed(1)}%` : '—'}</td>
+                  <td className="py-1.5 pl-3 text-right tabular-nums">{data.totals.subscribers.toLocaleString()}</td>
+                </tr>
+              </tfoot>
+            </table>
+            <p className="mt-3 text-xs" style={{ color: mutedText }}>
+              Visits and signups are both counted in the window; a signup can trace to an earlier visit, so read the rate as directional. A source with many visits but little or no conversion (highlighted) is the pattern to watch — clicks that aren&apos;t converting. Combined rows (e.g. Twitter/X) show their per-tag split beneath the label, so paid and organic are separable.
+            </p>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+type DataTabProps = Omit<FrontendTabProps, 'loading' | 'error'> & { data: Snapshot };
+
+function StripeTab({ data, cardBg, borderColor, axisStroke, mutedText, textColor }: DataTabProps) {
+  return <div>
+    <section className="mb-8">
+      <h2 className="text-lg font-semibold mb-2" style={{ color: textColor }}>Stripe Webhook Health</h2>
+      <WebhookHealthCard health={data.webhookHealth} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} axisStroke={axisStroke} />
+    </section>
+    <section className="mb-8">
+      <h2 className="text-lg font-semibold mb-2" style={{ color: textColor }}>Why Members Cancel</h2>
+      <CancellationReasonsCard reasons={data.cancellationReasons} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} />
+    </section>
+  </div>;
+}
+
+function RevenueTab({ data, cardBg, borderColor, axisStroke, mutedText, textColor }: DataTabProps) {
+  // Pace for the MRR projection: the 30-day net daily rate off the
+  // Forward-Looking Growth Rate table, valued at the blended full (list) price
+  // of today's plan mix. See buildSignupImpliedMrrProjection.
+  const signupsPerDay = data.growthRates.find((r) => r.days === 30)?.dailyRate ?? 0;
+  const blendedListPrice = blendedListMonthlyPrice(data.mrr.breakdown);
+  return <div>
+    <section className="mb-8">
+      <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
+        <h2 className="text-lg font-semibold" style={{ color: textColor }}>Income Replacement Tracker</h2>
+        <span className="text-xs" style={{ color: mutedText }}>Estimated MRR vs. the owner-earnings target needed to replace a day-job income. MRR is estimated locally from each subscriber&apos;s plan; promo-rate subs price at list, so treat it as a close estimate.</span>
+      </div>
+      <div className="grid grid-cols-1 gap-4">
+        <IncomeReplacementCard mrr={data.mrr} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} brandColor={ROW_COLORS.mrr} />
+        <MrrTrendCard series={data.mrrSeries} signupsPerDay={signupsPerDay} blendedListPrice={blendedListPrice} targetMrr={data.mrr.targetMrr} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} brandColor={ROW_COLORS.mrr} />
+      </div>
+    </section>
+    <section className="mb-8">
+      <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
+        <h2 className="text-lg font-semibold" style={{ color: textColor }}>Growth Projections</h2>
+        <span className="text-xs" style={{ color: mutedText }}>A what-if model, not a forecast: start from today&apos;s paying subs and tune acquisition, growth shape, churn, plan mix, and prices to see where subs, MRR, and ARR could land.</span>
+      </div>
+      <GrowthProjectionsCard startingSubs={data.mrr.activeSubscribers} targetMrr={data.mrr.targetMrr} cardBg={cardBg} borderColor={borderColor} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} brandColor={ROW_COLORS.signups} />
+    </section>
+  </div>;
+}
+
+function GrowthRateCard({ rates, cardBg, borderColor, mutedText, textColor }: { rates: GrowthRatePoint[]; cardBg: string; borderColor: string; mutedText: string; textColor: string }) {
+  return (
+    <div className="rounded-lg p-4 lg:col-span-2" style={{ backgroundColor: cardBg }}>
+      <div className="mb-3">
+        <h3 className="zg-h3" style={{ color: textColor }}>Forward-Looking Growth Rate</h3>
+        <p className="text-xs" style={{ color: mutedText }}>Trial starts minus cancellation clicks (net of win-backs) and first payment failures. Rate is net growth per day over each trailing window.</p>
+      </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {rates.map((rate) => (
+          <div key={rate.days} className="rounded-lg p-3" style={{ border: `1px solid ${borderColor}55` }}>
+            <div className="text-xs uppercase tracking-wide" style={{ color: mutedText }}>{rate.days}-day</div>
+            <div className="text-2xl font-semibold tabular-nums" style={{ color: rate.net >= 0 ? '#2c8c6a' : '#c1435b' }}>{rate.dailyRate >= 0 ? '+' : ''}{rate.dailyRate.toFixed(2)}/day</div>
+            <div className="text-xs mt-1 tabular-nums" style={{ color: mutedText }}>{rate.signups} signups − {rate.cancellations} cancels − {rate.paymentFailures} failures = {rate.net >= 0 ? '+' : ''}{rate.net}</div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -657,13 +869,6 @@ function formatMonths(months: number | null): string {
   return `~${months >= 24 ? Math.round(years) : years.toFixed(1)} yr`;
 }
 
-function formatGrowthPct(rate: number | null): string {
-  if (rate === null) return '—';
-  const pct = rate * 100;
-  const sign = pct > 0 ? '+' : '';
-  return `${sign}${pct.toFixed(1)}%`;
-}
-
 // One point on the combined historical + projected MRR line. Historical
 // points carry est/committed; projected points carry projMrr. The latest
 // historical point carries both (projMrr seeds the forward line so it
@@ -692,7 +897,8 @@ function formatProjTooltipLabel(day: string): string {
 
 function MrrTrendCard({
   series,
-  trend,
+  signupsPerDay,
+  blendedListPrice,
   targetMrr,
   cardBg,
   axisStroke,
@@ -701,7 +907,8 @@ function MrrTrendCard({
   brandColor,
 }: {
   series: MrrPoint[];
-  trend: MrrTrend | null;
+  signupsPerDay: number;
+  blendedListPrice: number;
   targetMrr: number;
   cardBg: string;
   axisStroke: string;
@@ -716,12 +923,23 @@ function MrrTrendCard({
   const horizonLabel =
     MRR_PROJECTION_HORIZONS.find((h) => h.months === horizonMonths)?.label ?? `${horizonMonths} mo`;
 
-  // Straight-line extrapolation off today's MRR and the last week's pace,
-  // extended to the selected horizon. Recomputed only when the series or the
-  // chosen horizon changes.
+  // Straight-line extrapolation off today's real MRR, grown at the 30-day net
+  // signup rate valued at the blended full (list) price of today's plan mix —
+  // not off the recent MRR slope, which reads steep early on while launch
+  // discounts still dominate. Recomputed only when its inputs change.
   const projection = useMemo(
-    () => buildMrrProjection(series, horizonMonths),
-    [series, horizonMonths],
+    () =>
+      buildSignupImpliedMrrProjection({
+        series,
+        signupsPerDay,
+        blendedMonthlyPrice: blendedListPrice,
+        horizonMonths,
+      }),
+    [series, signupsPerDay, blendedListPrice, horizonMonths],
+  );
+  const monthsToTarget = useMemo(
+    () => projectionMonthsToTarget(projection, targetMrr),
+    [projection, targetMrr],
   );
 
   // History plus the forward projection, plotted on one continuous daily axis.
@@ -788,20 +1006,11 @@ function MrrTrendCard({
 
       <div className="flex flex-wrap gap-x-6 gap-y-1 mb-3 text-xs" style={{ color: mutedText }}>
         <span>
-          Growth:{' '}
-          <span className="font-semibold tabular-nums" style={{ color: textColor }}>
-            {trend ? formatGrowthPct(trend.monthlyGrowthRate) : '—'}/mo
-          </span>{' '}
-          <span style={{ color: mutedText }}>(compounded, full window)</span>
-        </span>
-        <span>
-          Last week&apos;s pace:{' '}
+          Projected pace:{' '}
           <span className="font-semibold tabular-nums" style={{ color: textColor }}>
             {slopeLabel}
           </span>{' '}
-          {projection && projection.windowDays < 7 && (
-            <span style={{ color: mutedText }}>(over {projection.windowDays}d)</span>
-          )}
+          <span style={{ color: mutedText }}>(30-day signup rate × blended list price)</span>
         </span>
         <span>
           Projected in {horizonLabel}:{' '}
@@ -812,7 +1021,7 @@ function MrrTrendCard({
         <span>
           At this rate, target in:{' '}
           <span className="font-semibold tabular-nums" style={{ color: textColor }}>
-            {trend ? formatMonths(trend.monthsToTarget) : '—'}
+            {projection ? formatMonths(monthsToTarget) : '—'}
           </span>
         </span>
       </div>
@@ -1296,6 +1505,108 @@ function StatusPill({ tone, label }: { tone: StatusTone; label: string }) {
     >
       {label}
     </span>
+  );
+}
+
+// The "why" behind recent cancellations. A per-reason tally with proportional
+// bars plus the free-text verbatims — the qualitative companion to the growth-
+// rate "how many". Silent cancels (no survey answer) sink to a muted row, and a
+// zero-capture state points at the enablement command so the panel is
+// self-explaining when reason collection hasn't been turned on yet.
+function CancellationReasonsCard({
+  reasons,
+  cardBg,
+  borderColor,
+  mutedText,
+  textColor,
+}: {
+  reasons: CancellationReasonsSummary;
+  cardBg: string;
+  borderColor: string;
+  mutedText: string;
+  textColor: string;
+}) {
+  const maxCount = reasons.byFeedback.reduce((m, r) => Math.max(m, r.count), 0);
+  const coverage = reasons.total > 0 ? Math.round((reasons.captured / reasons.total) * 100) : 0;
+  return (
+    <div className="rounded-lg p-4" style={{ background: cardBg, border: `1px solid ${borderColor}` }}>
+      <div className="flex items-baseline justify-between flex-wrap gap-2">
+        <span className="text-sm" style={{ color: textColor }}>
+          {reasons.total > 0 ? (
+            <>
+              <span className="font-semibold tabular-nums">{reasons.captured}</span> of{' '}
+              <span className="font-semibold tabular-nums">{reasons.total}</span> cancellations gave a reason
+            </>
+          ) : (
+            'No cancellations in the window'
+          )}
+        </span>
+        <span className="text-xs" style={{ color: mutedText }}>
+          last {reasons.windowDays} days · {coverage}% coverage
+        </span>
+      </div>
+
+      {reasons.total > 0 && reasons.captured === 0 && (
+        <p className="mt-3 text-xs" style={{ color: mutedText }}>
+          No reasons captured yet — the Stripe billing-portal cancellation survey is likely off. Enable it with{' '}
+          <code style={{ color: textColor }}>make enable-portal-cancel-reasons</code> so future cancels record a why.
+        </p>
+      )}
+
+      {reasons.byFeedback.length > 0 && (
+        <ul className="mt-3 space-y-1.5">
+          {reasons.byFeedback.map((row) => {
+            const isNone = row.feedback === 'none';
+            const width = maxCount > 0 ? Math.max(2, Math.round((row.count / maxCount) * 100)) : 0;
+            return (
+              <li key={row.feedback} className="flex items-center gap-3" style={{ opacity: isNone ? 0.55 : 1 }}>
+                <span className="text-xs w-40 shrink-0 truncate" style={{ color: textColor }} title={row.label}>
+                  {row.label}
+                </span>
+                <span className="flex-1 h-3 rounded" style={{ background: `${borderColor}33` }}>
+                  <span
+                    className="block h-3 rounded"
+                    style={{ width: `${width}%`, background: isNone ? `${borderColor}88` : ROW_COLORS.webhookHealth }}
+                  />
+                </span>
+                <span className="text-xs tabular-nums w-8 text-right" style={{ color: mutedText }}>
+                  {row.count}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {reasons.recentComments.length > 0 && (
+        <div className="mt-4">
+          <h3 className="text-sm font-semibold mb-2" style={{ color: textColor }}>
+            Recent comments
+          </h3>
+          <ul className="space-y-2">
+            {reasons.recentComments.map((c, idx) => (
+              <li
+                key={`${c.createdAt}-${idx}`}
+                className="rounded p-2 text-xs"
+                style={{
+                  border: `1px solid ${borderColor}55`,
+                  fontFamily: 'var(--font-mono, ui-monospace, SFMono-Regular, monospace)',
+                }}
+              >
+                <div style={{ color: mutedText }}>
+                  {c.createdAt.slice(0, 10)}
+                  {c.feedback ? ` · ${c.feedback}` : ''}
+                  {c.email ? ` · ${c.email}` : ''}
+                </div>
+                <div className="mt-1 whitespace-pre-wrap break-words" style={{ color: textColor }}>
+                  {c.comment}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -2118,6 +2429,354 @@ function SubscriptionFlowChartCard({ data, cardBg, axisStroke, mutedText, brandC
             </ComposedChart>
           </ResponsiveContainer>
         </MobileScrollableChart>
+      )}
+    </div>
+  );
+}
+
+type SubscriptionFlowByWeekdayCardProps = {
+  data: SignupFlowPoint[];
+  cardBg: string;
+  axisStroke: string;
+  mutedText: string;
+  brandColor: string;
+};
+
+// The per-day Subscription Flow folded onto the seven weekdays, to surface a
+// weekly rhythm the daily columns bury — e.g. a Monday signup peak that fades
+// across the week. Same eight flow families, colors, and net line as the daily
+// chart, but one column per weekday (Mon→Sun). The Avg/Total toggle switches
+// between the mean per occurrence of that weekday — the fair comparison, since a
+// window doesn't hold each weekday an equal number of times — and the raw sums.
+function SubscriptionFlowByWeekdayCard({ data, cardBg, axisStroke, mutedText, brandColor }: SubscriptionFlowByWeekdayCardProps) {
+  // Colors identical to SubscriptionFlowChartCard so the two read as one system.
+  const proAddColor = brandColor;
+  const basicAddColor = lighten(brandColor, 0.45);
+  const reactivateBase = '#2a9d8f';
+  const proReactivateColor = reactivateBase;
+  const basicReactivateColor = lighten(reactivateBase, 0.4);
+  const cancelBase = '#c1435b';
+  const proCancelColor = cancelBase;
+  const basicCancelColor = lighten(cancelBase, 0.35);
+  const paymentFailBase = '#7a5195';
+  const proPaymentFailColor = paymentFailBase;
+  const basicPaymentFailColor = lighten(paymentFailBase, 0.4);
+  const netColor = '#ffa600';
+
+  const [mode, setMode] = useState<'avg' | 'total'>('avg');
+
+  const buckets = useMemo(() => accumulateFlowByWeekday(data), [data]);
+  const totalDays = useMemo(() => buckets.reduce((m, b) => m + b.days, 0), [buckets]);
+  const hasData = useMemo(
+    () =>
+      buckets.some(
+        (b) =>
+          b.proAdd !== 0 ||
+          b.basicAdd !== 0 ||
+          b.proReactivate !== 0 ||
+          b.basicReactivate !== 0 ||
+          b.proCancel !== 0 ||
+          b.basicCancel !== 0 ||
+          b.proPaymentFail !== 0 ||
+          b.basicPaymentFail !== 0,
+      ),
+    [buckets],
+  );
+
+  // In avg mode every count is divided by how many of that weekday the window
+  // holds (b.days); totals mode plots the raw sums. Cancels and payment-fails are
+  // stored negative, so they keep stacking below the zero baseline either way.
+  const chartData = useMemo(
+    () =>
+      buckets.map((b) => {
+        const denom = mode === 'avg' ? b.days || 1 : 1;
+        const v = (n: number) => n / denom;
+        const proAdd = v(b.proAdd);
+        const basicAdd = v(b.basicAdd);
+        const proReactivate = v(b.proReactivate);
+        const basicReactivate = v(b.basicReactivate);
+        const proCancel = v(b.proCancel);
+        const basicCancel = v(b.basicCancel);
+        const proPaymentFail = v(b.proPaymentFail);
+        const basicPaymentFail = v(b.basicPaymentFail);
+        return {
+          label: b.label,
+          days: b.days,
+          proAdd,
+          basicAdd,
+          proReactivate,
+          basicReactivate,
+          proCancel,
+          basicCancel,
+          proPaymentFail,
+          basicPaymentFail,
+          net:
+            proAdd + basicAdd + proReactivate + basicReactivate +
+            proCancel + basicCancel + proPaymentFail + basicPaymentFail,
+        };
+      }),
+    [buckets, mode],
+  );
+
+  // One diverging axis for both the stacked bars and the net line: the positive
+  // half spans the add + reactivation stack, the negative half the cancel +
+  // payment-fail stack, sharing a single tick step so both sides step evenly.
+  const barScale = useMemo(() => {
+    const posBound = chartData.reduce(
+      (m, p) => Math.max(m, p.proAdd + p.basicAdd + p.proReactivate + p.basicReactivate),
+      0,
+    );
+    const negBound = chartData.reduce(
+      (m, p) => Math.max(m, -(p.proCancel + p.basicCancel + p.proPaymentFail + p.basicPaymentFail)),
+      0,
+    );
+    const nice = niceYScale(Math.max(posBound, negBound, 1));
+    const step = nice.ticks.length > 1 ? nice.ticks[1] - nice.ticks[0] : nice.max || 1;
+    const posTicks = nice.ticks.filter((t) => t > 0);
+    const negMax = negBound > 0 ? Math.ceil(negBound / step) * step : 0;
+    const negTicks: number[] = [];
+    for (let t = step; t <= negMax + 1e-9; t += step) negTicks.push(t);
+    const ticks = [...negTicks.map((t) => -t).reverse(), 0, ...posTicks];
+    return { min: -negMax, max: nice.max, ticks };
+  }, [chartData]);
+
+  // Number formatting: averages read to one decimal (a weekday can average 2.4
+  // signups/day); totals are whole counts.
+  const fmt = (n: number) => (mode === 'avg' ? n.toFixed(1) : Math.round(n).toLocaleString());
+  const fmtSigned = (n: number) => `${n > 0 ? '+' : ''}${fmt(n)}`;
+
+  // Per-weekday breakdown rows for the table: adds/reactivations positive, churn
+  // shown as its positive magnitude in its own column, net carrying the sign.
+  const tableRows = useMemo(
+    () =>
+      buckets.map((b) => {
+        const denom = mode === 'avg' ? b.days || 1 : 1;
+        const v = (n: number) => n / denom;
+        const newAdds = v(b.proAdd + b.basicAdd);
+        const reactivations = v(b.proReactivate + b.basicReactivate);
+        const cancels = v(-(b.proCancel + b.basicCancel));
+        const paymentFails = v(-(b.proPaymentFail + b.basicPaymentFail));
+        const net = v(
+          b.proAdd + b.basicAdd + b.proReactivate + b.basicReactivate +
+            b.proCancel + b.basicCancel + b.proPaymentFail + b.basicPaymentFail,
+        );
+        return { label: b.label, weekday: b.weekday, days: b.days, newAdds, reactivations, cancels, paymentFails, net };
+      }),
+    [buckets, mode],
+  );
+
+  // Data-driven read on the user's hypothesis (Monday peak, easing across the
+  // week), ranked on average NEW paid signups/day so weekdays compare fairly.
+  const insight = useMemo(() => {
+    const avgAdds = (b: (typeof buckets)[number]) => (b.days ? (b.proAdd + b.basicAdd) / b.days : 0);
+    const active = buckets.filter((b) => b.days > 0);
+    if (active.length === 0) return null;
+    const ranked = [...active].sort((a, b) => avgAdds(b) - avgAdds(a));
+    const top = ranked[0];
+    const bottom = ranked[ranked.length - 1];
+    const workweek = [0, 1, 2, 3, 4].map((i) => buckets[i]);
+    const haveWorkweek = workweek.every((b) => b.days > 0);
+    let steps = 0;
+    let downSteps = 0;
+    for (let i = 1; i < workweek.length; i++) {
+      if (workweek[i - 1].days > 0 && workweek[i].days > 0) {
+        steps += 1;
+        if (avgAdds(workweek[i]) <= avgAdds(workweek[i - 1]) + 1e-9) downSteps += 1;
+      }
+    }
+    let trend: string;
+    if (haveWorkweek && steps === 4 && downSteps === 4) {
+      trend = 'New paid signups ease off at every step from Monday to Friday — the weekly slowdown you spotted.';
+    } else if (steps > 0 && downSteps / steps >= 0.75) {
+      trend = 'New paid signups broadly taper from Monday toward Friday, with the odd bump.';
+    } else if (steps > 0) {
+      trend = 'New paid signups don’t show a clean Monday→Friday decline in this window.';
+    } else {
+      trend = 'Not enough weekday coverage yet to read a Monday→Friday trend.';
+    }
+    return { top, bottom, topAvg: avgAdds(top), bottomAvg: avgAdds(bottom), trend };
+  }, [buckets]);
+  const topWeekday = insight?.top.weekday ?? -1;
+
+  const WEEKDAY_FULL: Record<string, string> = {
+    Mon: 'Monday',
+    Tue: 'Tuesday',
+    Wed: 'Wednesday',
+    Thu: 'Thursday',
+    Fri: 'Friday',
+    Sat: 'Saturday',
+    Sun: 'Sunday',
+  };
+
+  return (
+    <div className="rounded-lg p-4 lg:col-span-2" style={{ backgroundColor: cardBg }}>
+      <div className="flex items-baseline justify-between mb-1 flex-wrap gap-2">
+        <h3 className="zg-h3" style={{ color: axisStroke }}>Subscription Flow by Weekday</h3>
+        <div className="flex items-center gap-2">
+          <span className="text-xs" style={{ color: mutedText }}>
+            {mode === 'avg' ? 'Average per day-of-week' : 'Total over window'}
+            {totalDays > 0 ? ` · ${totalDays.toLocaleString()} days` : ''}
+          </span>
+          <div className="inline-flex rounded-md overflow-hidden border" style={{ borderColor: 'var(--color-border)' }}>
+            {(['avg', 'total'] as const).map((m) => {
+              const active = mode === m;
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMode(m)}
+                  className="px-2 py-1 text-xs font-semibold"
+                  style={{
+                    backgroundColor: active ? brandColor : 'transparent',
+                    color: active ? '#fff' : 'var(--color-text-secondary)',
+                  }}
+                >
+                  {m === 'avg' ? 'Avg/day' : 'Total'}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {!hasData ? (
+        <div className="text-sm py-12 text-center" style={{ color: mutedText }}>No subscription activity captured yet.</div>
+      ) : (
+        <>
+          {insight && (
+            <p className="text-xs mb-3" style={{ color: mutedText }}>
+              Busiest for new paid signups:{' '}
+              <span style={{ color: axisStroke, fontWeight: 600 }}>{WEEKDAY_FULL[insight.top.label]}</span>{' '}
+              (avg {insight.topAvg.toFixed(1)}/day) · Quietest:{' '}
+              <span style={{ color: axisStroke, fontWeight: 600 }}>{WEEKDAY_FULL[insight.bottom.label]}</span>{' '}
+              (avg {insight.bottomAvg.toFixed(1)}/day). {insight.trend}
+            </p>
+          )}
+          <div className="flex flex-col lg:flex-row gap-4">
+            <div className="flex-1 min-w-0">
+              <MobileScrollableChart>
+                <ResponsiveContainer width="100%" height={280}>
+                  <ComposedChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 8 }} stackOffset="sign">
+                    <CartesianGrid strokeOpacity={0.1} vertical={false} />
+                    <XAxis
+                      dataKey="label"
+                      stroke={axisStroke}
+                      tick={{ fill: axisStroke, fontSize: 11 }}
+                      tickLine={false}
+                      interval={0}
+                    />
+                    <YAxis
+                      yAxisId="flow"
+                      stroke={axisStroke}
+                      tick={{ fill: axisStroke, fontSize: 10 }}
+                      tickLine={false}
+                      allowDecimals={mode === 'avg'}
+                      domain={[barScale.min, barScale.max]}
+                      ticks={barScale.ticks}
+                      interval={0}
+                    />
+                    <ReferenceLine yAxisId="flow" y={0} stroke={axisStroke} strokeOpacity={0.35} />
+                    <Tooltip
+                      cursor={{ fill: 'var(--color-text-primary)', fillOpacity: 0.08 }}
+                      content={({ active, label, payload }) => {
+                        if (!active || !payload?.length) return null;
+                        const num = (key: string) => Number(payload.find((p) => p.dataKey === key)?.value ?? 0);
+                        const proAdd = num('proAdd');
+                        const basicAdd = num('basicAdd');
+                        const proReactivate = num('proReactivate');
+                        const basicReactivate = num('basicReactivate');
+                        const proCancel = num('proCancel');
+                        const basicCancel = num('basicCancel');
+                        const proPaymentFail = num('proPaymentFail');
+                        const basicPaymentFail = num('basicPaymentFail');
+                        const net =
+                          proAdd + basicAdd + proReactivate + basicReactivate +
+                          proCancel + basicCancel + proPaymentFail + basicPaymentFail;
+                        const row = chartData.find((r) => r.label === label);
+                        return (
+                          <div
+                            className="rounded-lg border px-3 py-2 text-xs"
+                            style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', color: 'var(--color-chart-tooltip-text)' }}
+                          >
+                            <div className="font-semibold mb-1">
+                              {WEEKDAY_FULL[String(label)] ?? label}
+                              <span style={{ color: mutedText, fontWeight: 400 }}>
+                                {' '}· {mode === 'avg' ? `avg/day over ${row?.days ?? 0}` : `total over ${row?.days ?? 0}`} {(row?.days ?? 0) === 1 ? 'day' : 'days'}
+                              </span>
+                            </div>
+                            <div style={{ color: netColor }}>Net onboards: {fmtSigned(net)}</div>
+                            <div className="mt-1" style={{ color: proAddColor }}>New signups: {fmtSigned(proAdd + basicAdd)}</div>
+                            <div className="pl-2">Pro: {fmtSigned(proAdd)}</div>
+                            <div className="pl-2">Basic: {fmtSigned(basicAdd)}</div>
+                            <div className="mt-1" style={{ color: reactivateBase }}>Reactivations: {fmtSigned(proReactivate + basicReactivate)}</div>
+                            <div className="mt-1" style={{ color: cancelBase }}>Cancellations: {fmtSigned(proCancel + basicCancel)}</div>
+                            <div className="mt-1" style={{ color: paymentFailBase }}>Payment-failure downgrades: {fmtSigned(proPaymentFail + basicPaymentFail)}</div>
+                          </div>
+                        );
+                      }}
+                    />
+                    <Bar yAxisId="flow" dataKey="basicAdd" name="Basic adds" stackId="flow" fill={basicAddColor} maxBarSize={44} isAnimationActive={false} />
+                    <Bar yAxisId="flow" dataKey="proAdd" name="Pro adds" stackId="flow" fill={proAddColor} maxBarSize={44} isAnimationActive={false} />
+                    <Bar yAxisId="flow" dataKey="basicReactivate" name="Basic reactivations" stackId="flow" fill={basicReactivateColor} maxBarSize={44} isAnimationActive={false} />
+                    <Bar yAxisId="flow" dataKey="proReactivate" name="Pro reactivations" stackId="flow" fill={proReactivateColor} maxBarSize={44} isAnimationActive={false} />
+                    <Bar yAxisId="flow" dataKey="basicCancel" name="Basic cancellations" stackId="flow" fill={basicCancelColor} maxBarSize={44} isAnimationActive={false} />
+                    <Bar yAxisId="flow" dataKey="proCancel" name="Pro cancellations" stackId="flow" fill={proCancelColor} maxBarSize={44} isAnimationActive={false} />
+                    <Bar yAxisId="flow" dataKey="basicPaymentFail" name="Basic payment-failure downgrades" stackId="flow" fill={basicPaymentFailColor} maxBarSize={44} isAnimationActive={false} />
+                    <Bar yAxisId="flow" dataKey="proPaymentFail" name="Pro payment-failure downgrades" stackId="flow" fill={proPaymentFailColor} maxBarSize={44} isAnimationActive={false} />
+                    <Line
+                      yAxisId="flow"
+                      type="monotone"
+                      dataKey="net"
+                      name="Net onboards"
+                      stroke={netColor}
+                      strokeWidth={2.5}
+                      dot={{ r: 3, fill: netColor }}
+                      isAnimationActive={false}
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </MobileScrollableChart>
+            </div>
+
+            <div className="lg:w-[22rem] lg:shrink-0 overflow-x-auto">
+              <table className="w-full text-xs border-collapse">
+                <thead>
+                  <tr style={{ color: mutedText }}>
+                    <th className="text-left font-semibold py-1 pr-2">Day</th>
+                    <th className="text-right font-semibold py-1 px-1" style={{ color: proAddColor }}>Adds</th>
+                    <th className="text-right font-semibold py-1 px-1" style={{ color: reactivateBase }}>React.</th>
+                    <th className="text-right font-semibold py-1 px-1" style={{ color: cancelBase }}>Cancel</th>
+                    <th className="text-right font-semibold py-1 px-1" style={{ color: paymentFailBase }}>Pay-fail</th>
+                    <th className="text-right font-semibold py-1 px-1" style={{ color: netColor }}>Net</th>
+                    <th className="text-right font-semibold py-1 pl-1">n</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tableRows.map((r) => {
+                    const isTop = r.weekday === topWeekday;
+                    return (
+                      <tr key={r.label} style={{ borderTop: '1px solid var(--color-border)', color: axisStroke }}>
+                        <td className="text-left py-1 pr-2" style={{ fontWeight: isTop ? 700 : 400 }}>
+                          {r.label}
+                        </td>
+                        <td className="text-right py-1 px-1" style={{ fontWeight: isTop ? 700 : 400 }}>{r.newAdds > 0 ? fmt(r.newAdds) : '—'}</td>
+                        <td className="text-right py-1 px-1">{r.reactivations > 0 ? fmt(r.reactivations) : '—'}</td>
+                        <td className="text-right py-1 px-1">{r.cancels > 0 ? fmt(r.cancels) : '—'}</td>
+                        <td className="text-right py-1 px-1">{r.paymentFails > 0 ? fmt(r.paymentFails) : '—'}</td>
+                        <td className="text-right py-1 px-1" style={{ color: netColor }}>{fmtSigned(r.net)}</td>
+                        <td className="text-right py-1 pl-1" style={{ color: mutedText }}>{r.days.toLocaleString()}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              <p className="text-[11px] mt-2" style={{ color: mutedText }}>
+                {mode === 'avg' ? 'Per-day average of each weekday. ' : 'Total over the window. '}
+                “n” is how many of that weekday the window covers. Cancels and pay-fails shown as positive magnitudes; Net carries the sign.
+              </p>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

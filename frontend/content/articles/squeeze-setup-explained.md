@@ -122,7 +122,7 @@ A few practical notes:
 
 Squeeze Setup is one signal among many — and confluence is where the real edge lives. A few common cross-reads:
 
-- **Squeeze Setup + Vol Expansion same direction.** Two Continuation signals agreeing — the move has both *coil* and *capacity*. The cleanest setup.
+- **Squeeze Setup + Vol Expansion same direction.** Two Continuation signals agreeing — the move has both *coil* and *capacity*. The model assigns greater weight when these components agree.
 - **Squeeze Setup + Trap Detection opposing.** Coiled to the upside per Squeeze, but Trap Detection says the most recent upside break is failing. One of them is wrong about the current break; usually the right move is to skip and wait.
 - **Squeeze Setup + Positioning Trap aligning.** Coiled with the crowd offside on the same side — a short-cover squeeze if the crowd is short, a flush if they're long. Both signals point to the same trade. The companion piece on the [Positioning Trap signal](/education/positioning-trap-explained) covers that read in depth.
 - **Squeeze Setup at 0 with every other signal active.** Probably nothing structural is coiled; the move you're seeing is reactive, not loaded.

@@ -50,6 +50,95 @@ test('graceDays=0 disables the window (old instant-downgrade behavior preserved)
   assert.equal(d.graceStartedAt, null);
 });
 
+// Trial grace (#2): with trialGrace on, a trial-conversion failure gets the same
+// bounded window as a renewal failure; with it off (the default), it does not.
+test('trialGrace on: a trialing->past_due failure opens a window', () => {
+  const d = decidePaymentGrace(
+    input({ previousStatus: 'trialing', trialGrace: true, graceStartedAt: null }),
+  );
+  assert.equal(d.inGrace, true);
+  assert.equal(d.graceStartedAt, new Date(NOW).toISOString());
+});
+
+test('trialGrace off (default): a trialing->past_due failure opens no window', () => {
+  const d = decidePaymentGrace(
+    input({ previousStatus: 'trialing', trialGrace: false, graceStartedAt: null }),
+  );
+  assert.equal(d.inGrace, false);
+  assert.equal(d.graceStartedAt, null);
+});
+
+test('trialGrace has no effect when grace is globally disabled (graceDays=0)', () => {
+  const d = decidePaymentGrace(
+    input({ previousStatus: 'trialing', trialGrace: true, graceDays: 0, graceStartedAt: null }),
+  );
+  assert.equal(d.inGrace, false);
+  assert.equal(d.graceStartedAt, null);
+});
+
+test('trialGrace does not change the established-renewal path', () => {
+  // active still opens regardless of the trialGrace flag.
+  for (const trialGrace of [true, false]) {
+    const d = decidePaymentGrace(input({ previousStatus: 'active', trialGrace, graceStartedAt: null }));
+    assert.equal(d.inGrace, true, `active should open a window (trialGrace=${trialGrace})`);
+  }
+});
+
+// previousTierGranted guard (trial-access fix): a trial whose payment setup
+// never succeeded is withheld access (previous synced tier stayed `public`), so
+// its first-charge failure must NOT open a recovery window — otherwise the fix
+// that withholds premium during the trial hands it right back at trial-end.
+test('trialGrace on but the trial was withheld (previousTierGranted=false): no window', () => {
+  const d = decidePaymentGrace(
+    input({
+      previousStatus: 'trialing',
+      trialGrace: true,
+      previousTierGranted: false,
+      graceStartedAt: null,
+    }),
+  );
+  assert.equal(d.inGrace, false);
+  assert.equal(d.graceStartedAt, null);
+});
+
+test('trialGrace on and the trial was granted (previousTierGranted=true): opens a window', () => {
+  const d = decidePaymentGrace(
+    input({
+      previousStatus: 'trialing',
+      trialGrace: true,
+      previousTierGranted: true,
+      graceStartedAt: null,
+    }),
+  );
+  assert.equal(d.inGrace, true);
+  assert.equal(d.graceStartedAt, new Date(NOW).toISOString());
+});
+
+test('previousTierGranted guard is trial-only: an established renewal still opens', () => {
+  // The guard must never touch the renewal branch — an established payer whose
+  // card fails always had a paid tier, and previousTierGranted=false here would
+  // be nonsensical, but even so `active` must keep its recovery window.
+  const d = decidePaymentGrace(
+    input({ previousStatus: 'active', previousTierGranted: false, graceStartedAt: null }),
+  );
+  assert.equal(d.inGrace, true);
+});
+
+test('a trial-opened window enforces the same bound on later past_due syncs', () => {
+  // Opened by a trial failure, then a later sync 2 days into a 3-day window: the
+  // "already open" branch keys off the anchor + graceDays, not previousStatus.
+  const opened = new Date(NOW - 2 * DAY_MS).toISOString();
+  const inWindow = decidePaymentGrace(
+    input({ previousStatus: 'past_due', graceStartedAt: opened, trialGrace: true }),
+  );
+  assert.equal(inWindow.inGrace, true);
+  const opened4 = new Date(NOW - 4 * DAY_MS).toISOString();
+  const expired = decidePaymentGrace(
+    input({ previousStatus: 'past_due', graceStartedAt: opened4, trialGrace: true }),
+  );
+  assert.equal(expired.inGrace, false);
+});
+
 test('stays in grace while within the window, preserving the original anchor', () => {
   const opened = new Date(NOW - 2 * DAY_MS).toISOString(); // 2 days into a 3-day window
   const d = decidePaymentGrace(input({ graceStartedAt: opened, previousStatus: 'past_due' }));

@@ -42,7 +42,7 @@ export async function generateMetadata(): Promise<Metadata> {
     return {
       title: 'Gamma Chart — Live SPY Dealer Positioning | ZeroGEX',
       description:
-        'The live ZeroGEX gamma chart: SPY, QQQ and SPX price with the Gamma Flip, Call/Put Walls, Max Pain and a real-time dealer-gamma structure rail drawn inline.',
+        'The live ZeroGEX gamma chart: SPY, QQQ, SPX and NDX price with the Gamma Flip, Call/Put Walls, Max Pain and a real-time dealer-gamma structure rail drawn inline.',
     };
   }
   return {

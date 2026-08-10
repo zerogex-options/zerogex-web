@@ -646,6 +646,105 @@ export async function sendTrialReminderEmail(to: string, opts: TrialReminderEmai
   }
 }
 
+export type TrialValueEmailOptions = {
+  // ISO trial-end instant, used only to name the date the member has until —
+  // this email is about getting value NOW, never about the charge.
+  trialEndIso: string;
+  // Footer unsubscribe URL (this is an engagement email, so it honors opt-out
+  // and must carry a one-click unsubscribe link, unlike the transactional
+  // 48h billing reminder).
+  unsubUrl: string;
+};
+
+// Pure builder for the mid-trial VALUE nudge (~day 2 of a 7-day trial): a
+// founder-voice activation email that steers a new trialer to the two or three
+// actions that make ZeroGEX "click", sent EARLY — before the day 3–7 cancel
+// wave and well before the 48h billing reminder. Deliberately carries NO charge
+// or cancel language: its whole job is time-to-value, not billing. Split from
+// the sender (no Resend/DB I/O) so a preview renders the exact wire copy.
+export function buildTrialValueEmail(opts: TrialValueEmailOptions): {
+  subject: string;
+  html: string;
+  text: string;
+} {
+  const trialEndDate = formatTrialEndDate(opts.trialEndIso);
+  const subject = 'Getting a real read out of your ZeroGEX trial';
+  const appUrl = getAppUrl();
+  const dashboardUrl = `${appUrl}/dashboard`;
+  const chartUrl = `${appUrl}/chart`;
+  const biasUrl = `${appUrl}/trade-bias`;
+  const gexUrl = `${appUrl}/education/gamma-exposure-explained`;
+  const safeDashboardUrl = escapeHtml(dashboardUrl);
+  const safeChartUrl = escapeHtml(chartUrl);
+  const safeBiasUrl = escapeHtml(biasUrl);
+  const safeGexUrl = escapeHtml(gexUrl);
+  const safeUnsubUrl = escapeHtml(opts.unsubUrl);
+  const linkStyle = 'color: #f5b400; font-weight: 600;';
+
+  const text = [
+    'Hello,',
+    '',
+    "You're a couple of days into your ZeroGEX trial, and I wanted to reach out while you've still got runway (your trial runs through " +
+      `${trialEndDate}). Almost everyone who sticks around got one clear read early — so here's the fastest path to it:`,
+    '',
+    "  1. Start on the Main Dashboard — it's the page to open every morning: your at-a-glance read of the regime, the key levels, and where price sits inside them.",
+    '  2. Pull up the Gamma Chart — SPY/QQQ/SPX/NDX price with the Gamma Flip, Call/Put Walls, and Max Pain drawn right on it: the support/resistance map dealers actually defend. Use session rewind to replay how a level held.',
+    '  3. Check Trade Bias for a single, signed directional call — it fuses the gamma and volatility regime with live flow, tape, and momentum into one read, for a multi-day swing or a same-day 0DTE.',
+    '',
+    `Open your dashboard: ${dashboardUrl}`,
+    '',
+    `Want the model behind it? The 5-minute read is Gamma Exposure Explained: ${gexUrl}`,
+    '',
+    "If anything's confusing, not what you expected, or just not clicking yet — reply to this email and tell me. I read every message and I'll personally help you get a useful read before your trial is up.",
+    '',
+    'Best,',
+    'Michael',
+    'Founder, ZeroGEX',
+    '',
+    `Prefer fewer emails like this? Unsubscribe: ${opts.unsubUrl}`,
+  ].join('\n');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <p>Hello,</p>
+      <p>You're a couple of days into your ZeroGEX trial, and I wanted to reach out while you've still got runway (your trial runs through <strong>${escapeHtml(trialEndDate)}</strong>). Almost everyone who sticks around got one clear read early &mdash; so here's the fastest path to it:</p>
+      <ol style="padding-left: 20px; margin: 12px 0;">
+        <li style="margin: 0 0 10px;">Start on the <a href="${safeDashboardUrl}" style="${linkStyle}">Main Dashboard</a> &mdash; the page to open every morning: your at-a-glance read of the regime, the key levels, and where price sits inside them.</li>
+        <li style="margin: 0 0 10px;">Pull up the <a href="${safeChartUrl}" style="${linkStyle}">Gamma Chart</a> &mdash; SPY/QQQ/SPX/NDX price with the <strong>Gamma Flip</strong>, <strong>Call/Put Walls</strong>, and <strong>Max Pain</strong> drawn right on it: the support/resistance map dealers actually defend. Session rewind lets you replay how a level held.</li>
+        <li style="margin: 0 0 10px;">Check <a href="${safeBiasUrl}" style="${linkStyle}">Trade Bias</a> for a single, signed directional call &mdash; it fuses the gamma and volatility regime with live flow, tape, and momentum into one read, for a multi-day swing or a same-day 0DTE.</li>
+      </ol>
+      <p style="margin: 24px 0;">
+        <a href="${safeDashboardUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Open your dashboard</a>
+      </p>
+      <p style="font-size: 14px; color: #3a4650;">Want the model behind it? The 5-minute read is <a href="${safeGexUrl}" style="${linkStyle}">Gamma Exposure Explained</a>.</p>
+      <p>If anything's confusing, not what you expected, or just not clicking yet &mdash; reply to this email and tell me. I read every message and I'll personally help you get a useful read before your trial is up.</p>
+      <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+      <p style="margin-top: 24px; font-size: 12px; color: #888;">Prefer fewer emails like this? <a href="${safeUnsubUrl}" style="color: #888;">Unsubscribe</a>.</p>
+    </div>
+  `.trim();
+
+  return { subject, html, text };
+}
+
+// Sends the mid-trial value nudge. Thin wrapper over buildTrialValueEmail so the
+// wire copy and any preview never drift.
+export async function sendTrialValueEmail(to: string, opts: TrialValueEmailOptions) {
+  const { subject, html, text } = buildTrialValueEmail(opts);
+
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject,
+    text,
+    html,
+  });
+
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
 // Final-call email to a founding-eligible user who has not yet converted,
 // fired by scripts/send-founding-final-call.mts in the last ~36 hours before
 // FOUNDING_LOCKIN_DEADLINE_ISO. One-shot per account (idempotency latch on
@@ -1153,12 +1252,13 @@ export async function sendPaymentRecoveredEmail(to: string) {
 // the reply is worth more than automating the coupon.
 export async function sendCancellationEmail(
   to: string,
-  opts: { periodEndIso: string | null },
+  opts: { periodEndIso: string | null; saveUrl?: string | null },
 ) {
   const subject = 'Sorry to see you go — mind sharing why?';
   const periodEndDate = opts.periodEndIso
     ? formatTrialEndDate(opts.periodEndIso)
     : 'the end of your current billing period';
+  const saveUrl = opts.saveUrl ?? null;
 
   const text = [
     'Hello,',
@@ -1167,6 +1267,13 @@ export async function sendCancellationEmail(
     '',
     `You still have full access until ${periodEndDate}, so nothing changes yet on your end. I just wanted to reach out personally before that day comes.`,
     '',
+    ...(saveUrl
+      ? [
+          'If it comes down to price, here\'s the one-click version: claim 25% off for a full year and keep your access — no re-subscribe, no re-entering a card:',
+          saveUrl,
+          '',
+        ]
+      : []),
     "If you have a minute, I'd love to know what made you cancel. Even one sentence back on this email helps me a lot — I read every reply. Common ones I hear:",
     '',
     "  - The data wasn't what I expected",
@@ -1191,6 +1298,12 @@ export async function sendCancellationEmail(
       <p>Hello,</p>
       <p>I saw you just cancelled your ZeroGEX subscription &mdash; first, thank you. You've been a real part of what I've been building here, and I don't take that lightly.</p>
       <p>You still have full access until <strong>${escapeHtml(periodEndDate)}</strong>, so nothing changes yet on your end. I just wanted to reach out personally before that day comes.</p>
+      ${saveUrl
+        ? `<div style="background: #f4fbf6; border: 1px solid #bfe6cf; border-radius: 10px; padding: 16px 18px; margin: 20px 0; text-align: center;">
+        <p style="margin: 0 0 12px; font-size: 15px; color: #1a1a1a;">If it comes down to price &mdash; keep your access at <strong>25% off for a full year</strong>, in one click. No re-subscribe, no re-entering a card.</p>
+        <a href="${escapeHtml(saveUrl)}" style="display: inline-block; padding: 12px 22px; background: #f5b400; color: #000; font-weight: 700; text-decoration: none; border-radius: 8px;">Keep my access &amp; claim 25% off</a>
+      </div>`
+        : ''}
       <p>If you have a minute, I'd love to know what made you cancel. Even one sentence back on this email helps me a lot &mdash; I read every reply. Common ones I hear:</p>
       <ul style="padding-left: 20px; margin: 12px 0;">
         <li>The data wasn't what I expected</li>

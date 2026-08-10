@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import type { ConfluenceMatrixResponse, ConfluenceMatrixCell } from '@/hooks/useApiData';
 import { getNumber } from '@/core/signalHelpers';
+import ChartCaption from "./ChartCaption";
 
 interface ConfluenceMatrixProps {
   data: ConfluenceMatrixResponse | null;
@@ -126,6 +127,7 @@ export default function ConfluenceMatrix({ data }: ConfluenceMatrixProps) {
           </div>
         </div>
       )}
+      <ChartCaption />
     </div>
   );
 }

@@ -10,7 +10,7 @@ The Dashboard is the **single-screen read** of the current market. It answers, i
 
 1. **Where are dealers positioned?** (the GEX regime)
 2. **What is the tape saying?** (flow + technicals)
-3. **What is the composite read?** (signals blended into one direction)
+3. **What is the composite read?** (the blended regime read — trend vs chop)
 
 You're not making decisions on the Dashboard. You're orienting. From there you drill into the right page.
 

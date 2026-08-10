@@ -18,7 +18,7 @@ export const fr: Dictionary = {
   'register.trialInfo':
     'Commencez votre essai gratuit de 7 jours après la création du compte. Aucun débit avant le 7e jour. Annulez à tout moment.',
   'register.valueProp':
-    'ZeroGEX aide les traders de SPY, SPX et QQQ à suivre en temps réel les niveaux gamma, le positionnement des dealers, la pression des flux et les signaux sur l’état du marché avant que le prix ne les atteigne.',
+    'ZeroGEX aide les traders de SPY, SPX, QQQ et NDX à suivre en temps réel les niveaux gamma, le positionnement des dealers, la pression des flux et les signaux sur l’état du marché avant que le prix ne les atteigne.',
   'register.languageLabel': 'Langue',
   'register.emailLabel': 'E-mail',
   'register.passwordLabel': 'Mot de passe',
@@ -38,7 +38,10 @@ export const fr: Dictionary = {
   'nav.group.education': 'Formation',
   'nav.group.admin': 'Admin',
   'nav.group.more': 'Plus',
-  'nav.dashboard': 'Tableau de bord',
+  'nav.group.favorites': 'Favoris',
+  'nav.addFavorite': 'Épingler {name} aux favoris',
+  'nav.removeFavorite': 'Retirer {name} des favoris',
+  'nav.dashboard': 'Tableau de bord principal',
   'nav.myDashboard': 'Mon tableau de bord',
   'nav.liveBulletin': 'Bulletin en direct',
   'nav.compositeScore': 'Score composite',

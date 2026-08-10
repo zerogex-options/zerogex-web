@@ -31,12 +31,12 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'who-its-for',
         q: 'Who is ZeroGEX built for?',
-        a: 'Active intraday traders who trade SPY, SPX, or QQQ and want a structural read of the options market. Day traders, swing traders with intraday timing, quants who want signal data via API, and option-selling strategists for whom dealer positioning is the daily input. We are not a single-name equity research tool.',
+        a: 'Active intraday traders who trade SPY, SPX, QQQ, or NDX and want a structural read of the options market. Day traders, swing traders with intraday timing, quants who want signal data via API, and option-selling strategists for whom dealer positioning is the daily input. We are not a single-name equity research tool.',
       },
       {
         id: 'do-i-need-to-sign-up',
         q: 'Do I need to sign up to use ZeroGEX?',
-        a: 'The free Gamma Levels pages — SPX, SPY, and QQQ — are open to anyone with no account: the gamma flip, call and put walls, max pain, and dealer gamma profile, delayed about 15 minutes. The marketing site, Education Hub, articles, and guides are open too. The full real-time Dashboard, signals, metrics, strategy tools, and Live Bulletin require a paid plan (Basic or Pro). See the Pricing page for the live tier breakdown.',
+        a: 'The free Gamma Levels pages — SPX, SPY, QQQ, and NDX — are open to anyone with no account: the gamma flip, call and put walls, max pain, and dealer gamma profile, delayed about 15 minutes. The marketing site, Education Hub, articles, and guides are open too. The full real-time Dashboard, signals, metrics, strategy tools, and Live Bulletin require a paid plan (Basic or Pro). See the Pricing page for the live tier breakdown.',
       },
       {
         id: 'free-trial',
@@ -58,7 +58,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'symbols',
         q: 'What symbols are currently supported?',
-        a: 'ZeroGEX provides full analytics coverage for SPY (S&P 500 ETF), SPX (S&P 500 Index), and QQQ (Nasdaq 100 ETF). These are the three most liquid, most gamma-rich underlyings in the U.S. options market — the instruments where dealer hedging activity has the greatest intraday impact.',
+        a: 'ZeroGEX provides full analytics coverage for SPY (S&P 500 ETF), SPX (S&P 500 Index), QQQ (Nasdaq 100 ETF), and NDX (Nasdaq 100 Index). These are the four most liquid, most gamma-rich underlyings in the U.S. options market — the instruments where dealer hedging activity has the greatest intraday impact.',
       },
       {
         id: 'single-names',
@@ -68,7 +68,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'futures',
         q: 'Can I use ZeroGEX to trade futures like ES, MES, NQ, or MNQ?',
-        a: 'Yes — you map the future to its index book. /ES and /MES trade off the SPX (and SPY) gamma levels; /NQ and /MNQ off QQQ today, with NDX coming. The structural levels are identical; only the price scale differs. When the cash index is closed, the Live Bulletin already shows the ES/NQ futures-implied price for context. Translating the levels directly into futures prices is on the roadmap.',
+        a: 'Yes — you map the future to its index book. /ES and /MES trade off the SPX (and SPY) gamma levels; /NQ and /MNQ off QQQ or NDX. The structural levels are identical; only the price scale differs. When the cash index is closed, the Live Bulletin already shows the ES/NQ futures-implied price for context. Translating the levels directly into futures prices is on the roadmap.',
       },
       {
         id: 'refresh-cadence',
@@ -189,7 +189,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'multiple-symbols',
         q: 'Can I view multiple symbols at once?',
-        a: 'Each browser tab can show one symbol. To view SPY, SPX, and QQQ side-by-side, open three tabs. The symbol picker is in the header.',
+        a: 'Each browser tab can show one symbol. To view SPY, SPX, QQQ, and NDX side-by-side, open four tabs. The symbol picker is in the header.',
       },
       {
         id: 'mobile-support',
@@ -315,7 +315,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'pricing-model',
         q: 'What pricing model does the Strategy Builder use?',
-        a: 'Black-Scholes with the live implied volatility surface. For SPX (European exercise) no adjustment is applied. For SPY and QQQ (American exercise) we add an early-exercise premium on deep-ITM legs near expiry.',
+        a: 'Black-Scholes with the live implied volatility surface. For SPX and NDX (European exercise) no adjustment is applied. For SPY and QQQ (American exercise) we add an early-exercise premium on deep-ITM legs near expiry.',
       },
     ],
   },

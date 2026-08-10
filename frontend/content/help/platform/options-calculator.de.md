@@ -12,7 +12,7 @@ Hierher gehst du, nachdem dir das Dashboard sagt "die Struktur ist bullish" und 
 
 ## Eine Strategie aufbauen
 
-1. **Wähle ein Symbol** (SPY, SPX, QQQ).
+1. **Wähle ein Symbol** (SPY, SPX, QQQ, NDX).
 2. **Füge einen Schenkel hinzu** — Kauf oder Verkauf, Call oder Put, Strike, Verfall. Die Kette ist live.
 3. **Wiederhole** für mehrschenklige Strukturen (Verticals, Condors, Calendars, Ratios, Straddles, Strangles).
 4. **Lege den Spot für die Analyse fest** — standardmäßig der Live-Spot, aber du kannst jeden beliebigen Preis als Szenario testen.
@@ -23,7 +23,7 @@ Der Gesamtpreis, die Breakevens und die Greeks aktualisieren sich bei jeder Änd
 
 Der Builder nutzt **Black-Scholes** mit der live impliziten Volatilitätsfläche für jeden Schenkel. Die IV-Fläche wird aus unserer Datenpipeline bezogen — dieselbe Fläche, die die Kette auf der Seite [Live-Optionsnotierungen](/help/platform/option-contracts) speist.
 
-Für amerikanische Ausübungsbedingungen (relevant für ETFs wie SPY und QQQ) approximiert das Modell mit einer Vorzeitausübungsprämie bei tief im Geld liegenden Schenkeln nahe dem Verfall. SPX hat europäische Ausübung, daher wird keine Anpassung vorgenommen.
+Für amerikanische Ausübungsbedingungen (relevant für ETFs wie SPY und QQQ) approximiert das Modell mit einer Vorzeitausübungsprämie bei tief im Geld liegenden Schenkeln nahe dem Verfall. Die bar abgerechneten Indizes SPX und NDX haben europäische Ausübung, daher wird keine Anpassung vorgenommen.
 
 ## Das Greeks-Panel
 

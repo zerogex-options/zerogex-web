@@ -12,7 +12,7 @@ ZeroGEX turns the options market into a real-time view of **dealer positioning**
 
 1. **Create an account.** A free public account works for browsing — Basic and Pro unlock the platform's live surfaces. See [Tiers, Access & What Unlocks Where](/help/platform/tiers-and-access).
 2. **Open the Dashboard.** This is the page you'll open every morning. Spend two minutes hovering each tile. See [Reading the Dashboard](/help/platform/dashboard).
-3. **Open the Live Bulletin in a second tab.** It's the streaming feed that tells you when a signal fires or the regime flips. See [Using the Live Bulletin](/help/platform/live-bulletin).
+3. **Open the Live Bulletin in a second tab.** It's a live, share-ready snapshot of dealer gamma positioning — the regime, the key levels, and the expected range on one card. See [Using the Live Bulletin](/help/platform/live-bulletin).
 4. **Open one signal page** — Composite Score is a good first one. Watch how the score moves in real time and read the "How it's built" panel underneath the chart. See [How Signals Work End-to-End](/help/platform/signals-overview).
 5. **Visit the Education Hub.** The [Gamma Exposure Explained](/education/gamma-exposure-explained) article is the central read for everything that powers the platform.
 
@@ -28,7 +28,7 @@ If you can answer both from a single glance at a page, you're reading it correct
 ## Three things to internalize early
 
 - **Scores live on a fixed [-1, +1] line.** Sign tells you direction; magnitude tells you conviction. A score of 0 is almost never "neutral" — it usually means the data is insufficient. See [Reading the [-1, +1] Score Line](/help/platform/score-line).
-- **Advanced signals trigger; Basic signals weight.** The Live Bulletin shows you triggers. Basic signals nudge the composite continuously in the background.
+- **Advanced signals trigger; Basic signals weight.** The Advanced Signal dashboard and Signal Alerts show you triggers. Basic signals nudge the composite continuously in the background.
 - **Above the gamma flip vs. below it changes everything.** Above is "mean-revert and grind"; below is "trend and amplify." Always check the flip relationship before reading anything else.
 
 ## Where to go next

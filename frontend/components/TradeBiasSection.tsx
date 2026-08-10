@@ -21,8 +21,9 @@ import {
   useSignalScore,
 } from '@/hooks/useApiData';
 import { useTimeframe } from '@/core/TimeframeContext';
+import { useHasTierAccess } from '@/hooks/useAuthSession';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
-import { asObject, getNumber, humanize, trendColor } from '@/core/signalHelpers';
+import { asObject, getNumber, trendColor } from '@/core/signalHelpers';
 import { computeBias, type BiasResult, type MarketState } from '@/core/tradeBias';
 import TooltipWrapper from './TooltipWrapper';
 
@@ -79,10 +80,10 @@ function BiasCard({
 }
 
 const REGIME_TOOLTIP =
-  'Market State derived from the confluence of net GEX, gradient, tape flow, vanna/charm, 0DTE positioning, and trap signals. Possible regimes: Trend Up (long gamma + bullish flow), Trend Down (long gamma + bearish flow), Trap / Reversal (short gamma + bullish flow into crowded structure → fade strength), Trap / Squeeze (short gamma + bearish flow into trapped shorts → fade weakness), Chop / Range (mixed signals → mean reversion), or Awaiting confluence (insufficient data). The checklist below shows which key conditions are currently met.';
+  'Market State derived from the confluence of net GEX, gradient, tape flow, vanna/charm, 0DTE positioning, and trap signals. Possible regimes: Trend Up (long gamma + bullish flow), Trend Down (long gamma + bearish flow), Trap / Reversal (short gamma + bullish flow into crowded structure → sell into strength), Trap / Squeeze (short gamma + bearish flow into trapped shorts → buy into weakness), Chop / Range (mixed signals → mean reversion), or Awaiting confluence (insufficient data). The checklist below shows which key conditions are currently met.';
 
 const BIAS_TOOLTIP =
-  'Directional bias suggested by the active regime. Possible values: Buy Dips (Trend Up), Sell Rips (Trend Down), Fade Strength (Trap / Reversal), Fade Weakness (Trap / Squeeze), Range Fade (Chop), or Neutral / Wait (low confluence). Confidence is scored 0–10 based on how aligned the underlying signals are with the active regime — higher = more signals agree, lower = more mixed. The bar shows confidence as a percentage of the maximum. A “Conviction” badge appears when a regime was triggered by a single dominant signal rather than broad consensus. While in Chop, “Watching: …” chips appear for any individual signal at conviction levels — early warning that a regime swap may be brewing.';
+  'Directional bias suggested by the active regime. Possible values: Buy Dips (Trend Up), Sell Rips (Trend Down), Sell Strength (Trap / Reversal), Buy Weakness (Trap / Squeeze), Range-Bound (Chop), or Neutral / Wait (low confluence). Confidence is scored 0–10 based on how aligned the underlying signals are with the active regime — higher = more signals agree, lower = more mixed. The bar shows confidence as a percentage of the maximum. A “Conviction” badge appears when a regime was triggered by a single dominant signal rather than broad consensus. While in Chop, “Watching: …” chips appear for any individual signal at conviction levels — early warning that a regime swap may be brewing.';
 
 const PLAYBOOK_TOOLTIP =
   'Suggested setup and step-by-step plan tailored to the active regime. The Setup name (e.g. Trend Continuation (Up), Trap / Squeeze, Mean Reversion) summarizes the trade thesis; the numbered steps describe how to execute it — entry trigger, level to watch, target, and risk management. Use this as a checklist, not a guarantee: confirm with the regime checklist and confidence score before sizing in.';
@@ -90,15 +91,23 @@ const PLAYBOOK_TOOLTIP =
 export default function TradeBiasSection({ compact = false }: { compact?: boolean } = {}) {
   const { symbol } = useTimeframe();
 
+  // 0DTE imbalance, trap detection and gamma-VWAP confluence are Pro-only. This
+  // card is embedded on the (Basic-tier) dashboard, so for non-Pro viewers those
+  // three used to poll on a loop and 403 every time — pure wasted load. Gate them
+  // behind Pro access: the bias already degrades gracefully when they're absent
+  // (computeBias treats a missing signal as null), so a Basic viewer sees exactly
+  // the same result, just without the doomed requests. Pro viewers are unchanged.
+  const hasPro = useHasTierAccess('pro');
+
   const gex = useGEXSummary(symbol, 5000);
   const msi = useSignalScore(symbol, PROPRIETARY_SIGNALS_REFRESH.compositeScoreMs);
   const tape = useTapeFlowBiasSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.tapeFlowBiasMs);
   const vc = useVannaCharmFlowSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.vannaCharmFlowMs);
-  const odte = useZeroDtePositionImbalanceSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.zeroDteImbalanceMs);
+  const odte = useZeroDtePositionImbalanceSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.zeroDteImbalanceMs, hasPro);
   const gexGrad = useGexGradientSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.gexGradientMs);
   const posTrap = usePositioningTrapSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.positioningTrapMs);
-  const trap = useTrapDetectionSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.trapDetectionMs);
-  const gVwap = useGammaVwapConfluenceSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.gammaVwapConfluenceMs);
+  const trap = useTrapDetectionSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.trapDetectionMs, hasPro);
+  const gVwap = useGammaVwapConfluenceSignal(symbol, PROPRIETARY_SIGNALS_REFRESH.gammaVwapConfluenceMs, hasPro);
 
   const biasInputs = useMemo(() => {
     const get = (raw: unknown): number | null => getNumber((asObject(raw) ?? {}).score);
@@ -305,7 +314,7 @@ export default function TradeBiasSection({ compact = false }: { compact?: boolea
                 {bias.biasLabel}
               </div>
               <div className="text-[11px] text-[var(--color-text-secondary)] mt-1 uppercase tracking-wide flex items-center gap-1.5 flex-wrap">
-                <span>{humanize(bias.bias)}</span>
+                <span>{bias.setup}</span>
                 {bias.convictionDriven ? (
                   <span
                     className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full border"

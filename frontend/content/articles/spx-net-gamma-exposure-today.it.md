@@ -1,4 +1,6 @@
 # SPX Net Gamma Exposure oggi: come leggere il Net GEX attuale
+> **Nota metodologica aggiornata — prevale su eventuali formulazioni incompatibili più avanti nella pagina.** ZeroGEX stima, ma non osserva, l’inventario dei dealer dai dati pubblici. Il modello conserva la convenzione call-positive/put-negative (`Net GEX = Call GEX − Put GEX`): i dealer sono ipotizzati net long call e net short put. Call e put long hanno gamma positivo; call e put short hanno gamma negativo. Il Put Wall è la maggiore concentrazione di gamma put sotto lo spot e rappresenta localmente gamma dealer negativo: può coincidere con supporto, ma la copertura della put short non crea meccanicamente un pavimento. I wall possono migrare con spot, tempo e volatilità implicita anche quando l’open interest ufficiale non cambia intraday. Verso la scadenza il gamma si concentra vicino all’ATM: il gamma ATM può aumentare, mentre quello decisamente ITM o OTM tende a zero. Il Gamma Flip selezionato è un passaggio locale; il profilo può avere più passaggi o nessun passaggio significativo. Charm e vanna descrivono variazioni condizionali del delta, non ordini programmati. I punteggi sono output euristici, non probabilità calibrate. Il gamma negativo amplifica la direzione già in corso: la distanza da un target non implica repulsione, quindi l’inversione del termine pin di EOD Pressure resta un’euristica ZeroGEX. Max Pain minimizza il payout intrinseco aggregato, non massimizza esattamente il nozionale che scade senza valore. Il DEX grezzo misura delta delle sole opzioni, non il futuro flusso di copertura; premio e lato aggressore non provano informazione, apertura o convinzione.
+
 
 *"Qual è l'attuale net gamma exposure di SPX?" Il numero cambia a ogni sessione — ma il modo di leggerlo no. Qui trovi cos'è il net GEX di SPX, come distinguere una lettura positiva da una negativa, dove si trova lo zero-cross e come consultare il valore live di oggi.*
 
@@ -6,7 +8,7 @@
 
 ## Dove vedere la net gamma exposure di SPX oggi
 
-Se sei qui per il numero attuale, parti da qui: ZeroGEX pubblica il **net GEX di SPX** di oggi — con gamma flip, call wall, put wall e max pain — gratis e con un ritardo di circa 15 minuti sulla [pagina dei livelli gamma SPX](/spx-gamma-levels). La stessa lettura è disponibile per [SPY](/spy-gamma-levels) e [QQQ](/qqq-gamma-levels). Per il valore live, aggiornato al sub-secondo, la [dashboard GEX 0DTE in tempo reale](/real-time-gex-0dte) si aggiorna durante tutta la sessione. Il resto di questa pagina spiega cosa significa quel numero e come usarlo.
+Se sei qui per il numero attuale, parti da qui: ZeroGEX pubblica il **net GEX di SPX** di oggi — con gamma flip, call wall, put wall e max pain — gratis e con un ritardo di circa 15 minuti sulla [pagina dei livelli gamma SPX](/spx-gamma-levels). La stessa lettura è disponibile per [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) e [NDX](/ndx-gamma-levels). Per il valore live, aggiornato al sub-secondo, la [dashboard GEX 0DTE in tempo reale](/real-time-gex-0dte) si aggiorna durante tutta la sessione. Il resto di questa pagina spiega cosa significa quel numero e come usarlo.
 
 ---
 
@@ -69,4 +71,4 @@ Solo a scopo educativo — nulla di quanto sopra costituisce una raccomandazione
 
 ---
 
-Vuoi vederlo in tempo reale? Controlla il net GEX di SPX di oggi sulla [pagina dei livelli gamma SPX](/spx-gamma-levels) gratuita (anche [SPY](/spy-gamma-levels) e [QQQ](/qqq-gamma-levels)), approfondisci con [Gamma Exposure Explained](/education/gamma-exposure-explained), oppure apri la [dashboard GEX 0DTE in tempo reale](/real-time-gex-0dte) — [avvia una prova gratuita](/register) per la lettura live, aggiornata al sub-secondo.
+Vuoi vederlo in tempo reale? Controlla il net GEX di SPX di oggi sulla [pagina dei livelli gamma SPX](/spx-gamma-levels) gratuita (anche [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) e [NDX](/ndx-gamma-levels)), approfondisci con [Gamma Exposure Explained](/education/gamma-exposure-explained), oppure apri la [dashboard GEX 0DTE in tempo reale](/real-time-gex-0dte) — [avvia una prova gratuita](/register) per la lettura live, aggiornata al sub-secondo.

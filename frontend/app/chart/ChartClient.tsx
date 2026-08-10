@@ -19,6 +19,7 @@ import Link from 'next/link';
 import { ArrowRight, Gauge, Layers, LineChart, Sparkles, Target, Waves } from 'lucide-react';
 import PageShell from '@/components/layout/PageShell';
 import GammaTerminalChart, { type ChartSnapshot } from '@/components/GammaTerminalChart';
+import GammaExpectationMatrix from '@/components/GammaExpectationMatrix';
 
 const EDGE_CARDS: Array<{ icon: React.ReactNode; accent: string; title: string; body: string }> = [
   {
@@ -129,6 +130,9 @@ export default function ChartClient({
         </div>
       </section>
 
+      {/* Where do we expect the underlying to go — the regime × wall playbook */}
+      <GammaExpectationMatrix className="mb-10" />
+
       {/* Conversion (delayed) or cross-links to deeper tools (live) */}
       {delayed ? (
         <section
@@ -142,7 +146,7 @@ export default function ChartClient({
             </h3>
             <p style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--text-secondary)', maxWidth: 620 }}>
               You&apos;re viewing a ~15-minute-delayed snapshot of SPY. Members get the live chart — real-time
-              dealer gamma, SPY/QQQ/SPX, all timeframes — plus the full dealer-positioning suite.
+              dealer gamma, SPY/QQQ/SPX/NDX, all timeframes — plus the full dealer-positioning suite.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">

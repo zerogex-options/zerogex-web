@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/core/db';
 import { requireSession, validateCsrf } from '@/core/serverAuth';
-import { getAppUrl, getPortalConfigId, getStripe } from '@/core/stripe';
+import { createBillingPortalSession, getAppUrl } from '@/core/stripe';
 
 export async function POST(request: NextRequest) {
   if (!validateCsrf(request)) {
@@ -25,12 +25,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const portalConfigId = getPortalConfigId();
-  const session = await getStripe().billingPortal.sessions.create({
-    customer: row.stripe_customer_id,
-    return_url: `${getAppUrl()}/account`,
-    ...(portalConfigId ? { configuration: portalConfigId } : {}),
-  });
+  const session = await createBillingPortalSession(
+    row.stripe_customer_id,
+    `${getAppUrl()}/account`,
+  );
 
   return NextResponse.json({ url: session.url });
 }

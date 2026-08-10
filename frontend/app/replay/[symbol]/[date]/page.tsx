@@ -18,7 +18,21 @@ interface ReplayFrame {
   gamma_flip: number | null;
   call_wall: number | null;
   put_wall: number | null;
-  strikes: Array<{ strike: number | null; net_gex: number | null }>;
+  max_pain: number | null;
+  // Pin Strike (+ confidence) ride along per minute so the scrubber can draw
+  // the pin line; null on rows written before pin_strike shipped.
+  pin_strike: number | null;
+  pin_confidence: number | null;
+  // call_gex / put_gex are the same per-strike dealer gamma columns net_gex is
+  // sourced from (gex_by_strike); optional so the scrubber's Split / Combined
+  // views light up when the payload carries them and cleanly fall back to the
+  // Net-only view when it doesn't.
+  strikes: Array<{
+    strike: number | null;
+    net_gex: number | null;
+    call_gex?: number | null;
+    put_gex?: number | null;
+  }>;
 }
 
 interface ReplayCandle {
@@ -172,6 +186,9 @@ export default async function ReplayDatePage({
         the same price axis so a wick and a strike bar at the same level line up horizontally ·
         the call wall (resistance), put wall (support), and gamma flip draw as horizontal levels
         that migrate minute-by-minute as you scrub ·
+        toggle the strike profile between <em>Split</em> (call vs. put gamma), <em>Net</em>, and
+        <em>Combined</em> (the split with the purple net bar overlaid) — same views as the Strike
+        Profile chart ·
         candles past the cursor ghost out and light back to full opacity as the playhead sweeps
         through them — or hit <em>Future</em> to hide everything ahead of the playhead for an
         as-it-happened tape · drop pin A then pin B to see the strike-by-strike delta between two moments ·

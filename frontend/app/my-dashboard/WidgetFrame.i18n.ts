@@ -8,6 +8,7 @@ export const dict: PageDictionary = {
     moveEarlier: 'Move earlier',
     moveLater: 'Move later',
     resizeTitle: 'Resize (now: {label})',
+    resizeDragHandle: 'Drag to resize width (or use arrow keys)',
     removeWidget: 'Remove {title}',
   },
   it: {
@@ -17,6 +18,7 @@ export const dict: PageDictionary = {
     moveEarlier: 'Sposta prima',
     moveLater: 'Sposta dopo',
     resizeTitle: 'Ridimensiona (attuale: {label})',
+    resizeDragHandle: 'Trascina per ridimensionare la larghezza (o usa le frecce)',
     removeWidget: 'Rimuovi {title}',
   },
   de: {
@@ -26,6 +28,7 @@ export const dict: PageDictionary = {
     moveEarlier: 'Nach vorne verschieben',
     moveLater: 'Nach hinten verschieben',
     resizeTitle: 'Größe ändern (aktuell: {label})',
+    resizeDragHandle: 'Zum Ändern der Breite ziehen (oder Pfeiltasten)',
     removeWidget: '{title} entfernen',
   },
   es: {
@@ -35,6 +38,7 @@ export const dict: PageDictionary = {
     moveEarlier: 'Mover antes',
     moveLater: 'Mover después',
     resizeTitle: 'Redimensionar (actual: {label})',
+    resizeDragHandle: 'Arrastra para redimensionar el ancho (o usa las flechas)',
     removeWidget: 'Eliminar {title}',
   },
   fr: {
@@ -44,6 +48,7 @@ export const dict: PageDictionary = {
     moveEarlier: 'Déplacer plus tôt',
     moveLater: 'Déplacer plus tard',
     resizeTitle: 'Redimensionner (actuel : {label})',
+    resizeDragHandle: 'Faire glisser pour redimensionner la largeur (ou flèches)',
     removeWidget: 'Supprimer {title}',
   },
 };

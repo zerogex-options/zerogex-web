@@ -4,7 +4,7 @@ import { FormEvent, Suspense, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Bell, CreditCard, Copy, Fingerprint, Gift, KeyRound, Link2, Mail, Rocket, Settings, ShieldCheck, Trash2 } from 'lucide-react';
+import { Bell, CreditCard, Copy, Fingerprint, Gift, KeyRound, Link2, Mail, Rocket, Settings, ShieldCheck, Trash2, Users } from 'lucide-react';
 import { AUTH_TIERS, normalizeTier, TierId } from '@/core/auth';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import VerifyEmailBanner from '@/components/VerifyEmailBanner';
@@ -34,6 +34,10 @@ type ReferralPayload = {
   totalConverted?: number;
   monthsEarned?: number;
   bankedMonths?: number;
+  // Emails of the referees behind the signup/subscribed counts, surfaced in a
+  // hover popover on those two stat cards.
+  signedUpEmails?: string[];
+  subscribedEmails?: string[];
   creditOnNextBill?: string;
 };
 
@@ -997,8 +1001,18 @@ function AccountPageContent() {
             </div>
 
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 14 }}>
-              <ReferralStat label={t('signedUp')} value={referral.totalSignups ?? 0} />
-              <ReferralStat label={t('subscribed')} value={referral.totalConverted ?? 0} />
+              <ReferralStat
+                label={t('signedUp')}
+                value={referral.totalSignups ?? 0}
+                emails={referral.signedUpEmails ?? []}
+                emptyLabel={t('referralNoSignups')}
+              />
+              <ReferralStat
+                label={t('subscribed')}
+                value={referral.totalConverted ?? 0}
+                emails={referral.subscribedEmails ?? []}
+                emptyLabel={t('referralNoSubscribers')}
+              />
               <ReferralStat label={t('freeMonthsEarned')} value={referral.monthsEarned ?? 0} />
               {(referral.bankedMonths ?? 0) > 0 && (
                 <ReferralStat label={t('monthsBanked')} value={referral.bankedMonths ?? 0} />
@@ -1171,20 +1185,127 @@ function XLogo({ size = 18 }: { size?: number }) {
   );
 }
 
-function ReferralStat({ label, value }: { label: string; value: number }) {
+function ReferralStat({
+  label,
+  value,
+  emails,
+  emptyLabel,
+}: {
+  label: string;
+  value: number;
+  // When provided (even if empty), the card becomes hoverable/focusable and
+  // reveals a popover listing the referee emails behind this count.
+  emails?: string[];
+  emptyLabel?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const hasPopover = emails !== undefined;
+  const list = emails ?? [];
+
   return (
     <div
-      style={{
-        flex: '1 1 120px',
-        minWidth: 120,
-        padding: '14px 16px',
-        borderRadius: 12,
-        border: `1px solid ${C.border}`,
-        background: 'var(--bg-active)',
-      }}
+      style={{ flex: '1 1 120px', minWidth: 120, position: 'relative' }}
+      onMouseEnter={hasPopover ? () => setOpen(true) : undefined}
+      onMouseLeave={hasPopover ? () => setOpen(false) : undefined}
+      onFocus={hasPopover ? () => setOpen(true) : undefined}
+      onBlur={hasPopover ? () => setOpen(false) : undefined}
+      tabIndex={hasPopover ? 0 : undefined}
+      aria-label={
+        hasPopover
+          ? `${value} ${label}: ${list.length ? list.join(', ') : emptyLabel ?? ''}`
+          : undefined
+      }
     >
-      <div style={{ fontSize: 24, fontWeight: 800, color: C.light }}>{value}</div>
-      <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{label}</div>
+      <div
+        style={{
+          padding: '14px 16px',
+          borderRadius: 12,
+          border: `1px solid ${open ? C.amber : C.border}`,
+          background: 'var(--bg-active)',
+          cursor: hasPopover ? 'help' : 'default',
+          transition: 'border-color 120ms ease',
+        }}
+      >
+        <div style={{ fontSize: 24, fontWeight: 800, color: C.light }}>{value}</div>
+        <div
+          style={{
+            fontSize: 12,
+            color: C.muted,
+            marginTop: 2,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 5,
+          }}
+        >
+          {label}
+          {hasPopover && <Users size={11} style={{ opacity: 0.65, flexShrink: 0 }} />}
+        </div>
+      </div>
+
+      {hasPopover && open && (
+        <div
+          role="tooltip"
+          style={{
+            position: 'absolute',
+            bottom: '100%',
+            left: 0,
+            // Padding (not margin) so the visible gap above the card stays part
+            // of the hover target — the mouse can travel into the box without
+            // crossing a dead zone that would dismiss it.
+            paddingBottom: 8,
+            zIndex: 30,
+            minWidth: 200,
+            maxWidth: 'min(300px, 78vw)',
+          }}
+        >
+          <div
+            style={{
+              borderRadius: 12,
+              border: `1px solid ${C.border}`,
+              background: 'var(--color-surface)',
+              boxShadow: '0 14px 36px rgba(0,0,0,0.30)',
+              padding: '10px 12px',
+              maxHeight: 220,
+              overflowY: 'auto',
+            }}
+          >
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                color: C.muted,
+                marginBottom: list.length ? 8 : 0,
+              }}
+            >
+              {label}
+            </div>
+            {list.length === 0 ? (
+              <div style={{ fontSize: 13, color: C.muted }}>{emptyLabel}</div>
+            ) : (
+              <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 7 }}>
+                {list.map((mail, i) => (
+                  <li
+                    key={`${mail}-${i}`}
+                    style={{
+                      fontSize: 13,
+                      color: C.light,
+                      wordBreak: 'break-all',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                    }}
+                  >
+                    <Mail size={12} style={{ color: C.amber, flexShrink: 0 }} />
+                    {mail}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -58,9 +58,9 @@ This is why walls feel like they "work" some days and not others. A gamma wall i
 
 Walls do not get announced at the open and hold through the close. They migrate. Three common patterns:
 
-1. **OI rebalancing.** Fresh volume into a different strike can shift the heaviest concentration. By mid-session a new strike may be the wall.
-2. **Wall migration with price.** As price approaches the call wall, fresh volume can concentrate just above it, nudging the modeled wall higher. (Official open interest is published for the next session, so intraday migration reflects new volume and inferred positioning — not verified new OI.) A wall that *tracks* price is structurally different from one that *holds* — the trap-fade thesis is much weaker when the wall is moving with the move.
-3. **Expiry decay.** Near same-day expiries — especially in 0DTE-heavy chains — walls can disappear by mid-afternoon as the contracts that built them roll off. The wall you trusted at 10:30 ET may not be the wall at 14:30 ET.
+1. **Gamma repricing.** Spot, time to expiry, and implied volatility change each strike’s modeled gamma and can change the ranking even while official OI is fixed.
+2. **Spot-side eligibility.** A strike can move from one side of spot to the other, while another fixed-OI strike becomes the largest eligible concentration. Official OI generally updates after clearing; intraday wall migration does not establish that customers opened positions at the new strike.
+3. **Near-expiry concentration.** ATM gamma can rise sharply while decisively ITM or OTM strikes tend toward zero, changing the ranking. That repricing is distinct from positions closing and from official OI updating after clearing.
 
 A wall can also shift purely because spot, time, and implied vol move — the strike carrying the most modeled exposure changes even when positioning does not. A gamma wall is the *current* heaviest modeled-gamma strike. Treat it as a live read, not a fixed line.
 
