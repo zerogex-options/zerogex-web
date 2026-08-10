@@ -23,6 +23,7 @@ import ExpandableCard from './ExpandableCard';
 import TooltipWrapper from './TooltipWrapper';
 import MobileScrollableChart from './MobileScrollableChart';
 import StrikeRangeScrollbar from './StrikeRangeScrollbar';
+import ValueRangeScrollbar from './ValueRangeScrollbar';
 import ExpirationMultiSelect from './ExpirationMultiSelect';
 import ChartCaption from "./ChartCaption";
 
@@ -31,12 +32,16 @@ import ChartCaption from "./ChartCaption";
 // click steps without bouncing across the whole chain.
 const X_ZOOM_STEP = 1.4;
 
-// Vertical (value-axis) zoom: each click magnifies the y-scale by this factor
-// (the visible y-domain shrinks, so bars/curve grow and out-of-range values
-// clip). yZoom = 1 is the default fit-all view; capped so a single tall bar
-// can be zoomed past without the axis collapsing to noise.
+// Vertical (value-axis) zoom + scroll. The visible y-extent is a normalized
+// window within the fit-all range [-1, 1]; zoom narrows/widens the window
+// (each click by this factor) and the scrollbar shifts it. Both value axes
+// (bars + profile) share the one window, so out-of-range values clip and the
+// two axes' zeros stay aligned. Y_ZOOM_MAX caps how far a single tall bar can
+// be zoomed past before the window collapses to noise.
 const Y_ZOOM_STEP = 1.5;
 const Y_ZOOM_MAX = 32;
+// Full normalized value window (fit-all view).
+const Y_FULL_VIEW: [number, number] = [-1, 1];
 
 interface StrikeRow {
   strike: number;
@@ -230,21 +235,30 @@ function niceStep(halfRange: number, targetCount: number): number {
   return 10 * magnitude;
 }
 
-// Symmetric ticks anchored at zero: [-N*step, ..., -step, 0, step, ..., N*step].
-// Caller picks `step` via niceStep so the labels read $1B, $2B, $3B etc.
-function symmetricTicks(maxAbs: number, step: number): { ticks: number[]; domainMax: number } {
-  if (!Number.isFinite(maxAbs) || maxAbs <= 0 || step <= 0) {
-    return { ticks: [0], domainMax: 1 };
-  }
-  const upper = Math.ceil(maxAbs / step) * step;
+// Fit-all half-extent for a value axis: the smallest nice-stepped multiple
+// that covers the data's max magnitude. This is the reference the normalized
+// y-window ([-1, 1]) maps onto — a window of [nLo, nHi] shows the value band
+// [nLo × fullMax, nHi × fullMax].
+function roundedMax(maxAbs: number): number {
+  if (!Number.isFinite(maxAbs) || maxAbs <= 0) return 1;
+  const step = niceStep(maxAbs, 4);
+  return Math.ceil(maxAbs / step) * step;
+}
+
+// Nice-stepped ticks across an arbitrary [lo, hi] range (not necessarily
+// symmetric — the y-window can be scrolled off-center). Mirrors the strike
+// x-axis tick helper: pick a 1/2/5 × 10^k step for ~targetCount ticks, start
+// at the first multiple ≥ lo, and count rungs to avoid float drift. A symmetric
+// range still yields a tick exactly at 0.
+function ticksInRange(lo: number, hi: number, targetCount: number): number[] {
+  if (!Number.isFinite(lo) || !Number.isFinite(hi) || hi <= lo) return [0];
+  const step = niceStep(hi - lo, targetCount);
+  if (!(step > 0)) return [0];
+  const start = Math.ceil(lo / step) * step;
+  const rungs = Math.max(0, Math.round((hi - start) / step));
   const ticks: number[] = [];
-  // Floating-point safety: count rungs then multiply, instead of repeated
-  // additions that drift (e.g. step=0.1 sums to 0.30000000000000004).
-  const rungs = Math.round(upper / step);
-  for (let i = -rungs; i <= rungs; i += 1) {
-    ticks.push(i * step);
-  }
-  return { ticks, domainMax: upper };
+  for (let i = 0; i <= rungs; i += 1) ticks.push(start + i * step);
+  return ticks;
 }
 
 // Spot-shift GEX profile points are sampled at the resolver's grid step
@@ -703,15 +717,32 @@ export default function GexProfileChart({
     setVisibleDomain([newStart, newEnd]);
   };
 
-  // Vertical zoom factor for the value axes (both the bar axis and the profile
-  // axis scale together so they stay proportional). 1 = fit-all default.
-  const [yZoom, setYZoom] = useState(1);
-  const handleYZoomIn = () => setYZoom((z) => Math.min(Y_ZOOM_MAX, z * Y_ZOOM_STEP));
-  const handleYZoomOut = () => setYZoom((z) => Math.max(1, z / Y_ZOOM_STEP));
+  // Visible value window in normalized units within the fit-all range [-1, 1].
+  // Zoom narrows/widens it (both value axes scale together); the y-scrollbar
+  // shifts it. [-1, 1] = fit-all default.
+  const [yView, setYView] = useState<[number, number]>(Y_FULL_VIEW);
+  const Y_MIN_HALF = 1 / Y_ZOOM_MAX; // narrowest half-window => deepest zoom
+  const handleYZoomIn = () => {
+    const [lo, hi] = yView;
+    const center = (lo + hi) / 2;
+    const newHalf = ((hi - lo) / 2) / Y_ZOOM_STEP;
+    if (newHalf < Y_MIN_HALF) return;
+    setYView([center - newHalf, center + newHalf]);
+  };
+  const handleYZoomOut = () => {
+    const [lo, hi] = yView;
+    const center = (lo + hi) / 2;
+    const span = Math.min(2, (hi - lo) * Y_ZOOM_STEP);
+    let newLo = center - span / 2;
+    let newHi = center + span / 2;
+    if (newLo < -1) { newLo = -1; newHi = newLo + span; }
+    if (newHi > 1) { newHi = 1; newLo = newHi - span; }
+    setYView([newLo, newHi]);
+  };
 
   const handleResetView = () => {
     if (fullStrikeDomain) setVisibleDomain(fullStrikeDomain);
-    setYZoom(1);
+    setYView(Y_FULL_VIEW);
   };
 
   const isFullyZoomedOut =
@@ -720,8 +751,11 @@ export default function GexProfileChart({
     visibleDomain[0] <= fullStrikeDomain[0] + 1e-6 &&
     visibleDomain[1] >= fullStrikeDomain[1] - 1e-6;
 
-  // The reset control is meaningful when EITHER axis is zoomed.
-  const isDefaultView = isFullyZoomedOut && yZoom === 1;
+  // Value-window state: full (can't zoom out further) and max zoom (can't zoom
+  // in further). The reset control is meaningful when EITHER axis is off default.
+  const isYFull = yView[0] <= -1 + 1e-6 && yView[1] >= 1 - 1e-6;
+  const isYMaxZoom = (yView[1] - yView[0]) / 2 <= Y_MIN_HALF + 1e-9;
+  const isDefaultView = isFullyZoomedOut && isYFull;
 
   // Explicit ticks at uniform-step strikes (1, 2, 5, 10… depending on the
   // visible range) so every tick lands on a clean integer and recharts'
@@ -738,9 +772,11 @@ export default function GexProfileChart({
   // spot).  Mixing them on a single axis squishes the bars into a flat
   // line at zero — matches the screenshot reference's two-axis layout.
   //
-  // Both axes use symmetric nice-stepped ticks (1/2/5 × 10^k) so the
-  // labels read $1B, $2B, $3B etc. instead of the data-driven extremes
-  // recharts would otherwise pick (e.g. $884.1M, -$1.1B).
+  // Both axes use nice-stepped ticks (1/2/5 × 10^k) so the labels read $1B,
+  // $2B, $3B etc. instead of the data-driven extremes recharts would otherwise
+  // pick (e.g. $884.1M, -$1.1B). The normalized y-window (`yView`) then carves
+  // the visible band out of each axis's fit-all extent — the same window on
+  // both, so their zeros stay aligned as you zoom/scroll vertically.
   const { strikeTicks, strikeDomain, profileTicks, profileDomain, denom } = useMemo(() => {
     let strikeAbs = 0;
     let profileAbs = 0;
@@ -756,28 +792,26 @@ export default function GexProfileChart({
       if (row.netGex != null) strikeAbs = Math.max(strikeAbs, Math.abs(row.netGex));
       if (row.profileGex != null) profileAbs = Math.max(profileAbs, Math.abs(row.profileGex));
     });
-    // Vertical zoom shrinks the visible y-extent (both axes together), so the
-    // bars and profile curve magnify and anything past the domain clips via
-    // allowDataOverflow. yZoom = 1 leaves the fit-all extent untouched.
-    const zStrikeAbs = strikeAbs / yZoom;
-    const zProfileAbs = profileAbs / yZoom;
-    // ~4 ticks per side keeps the y-axis legible without crowding labels
-    // at smaller chart heights.
-    const strikeStep = niceStep(zStrikeAbs, 4);
-    const profileStep = niceStep(zProfileAbs, 4);
-    const strike = symmetricTicks(zStrikeAbs, strikeStep);
-    const profile = symmetricTicks(zProfileAbs, profileStep);
-    // Single denomination shared across both axes so the smaller scale
-    // (bars) renders as e.g. "$0.5B" instead of "$500.0M" when the
-    // larger scale (profile) is in billions.
-    return {
-      strikeTicks: strike.ticks,
-      strikeDomain: [-strike.domainMax, strike.domainMax] as [number, number],
-      profileTicks: profile.ticks,
-      profileDomain: [-profile.domainMax, profile.domainMax] as [number, number],
-      denom: pickSharedDenomination(Math.max(strike.domainMax, profile.domainMax)),
-    };
-  }, [merged, yZoom]);
+    // Fit-all half-extents, then the visible band = window × extent. A window
+    // of [-1, 1] recovers the full symmetric axis; a narrower/off-center window
+    // zooms/scrolls, with out-of-range bars and curve clipped via
+    // allowDataOverflow.
+    const strikeFullMax = roundedMax(strikeAbs);
+    const profileFullMax = roundedMax(profileAbs);
+    const [nLo, nHi] = yView;
+    const strikeDomain: [number, number] = [nLo * strikeFullMax, nHi * strikeFullMax];
+    const profileDomain: [number, number] = [nLo * profileFullMax, nHi * profileFullMax];
+    // ~8 ticks across the visible band keeps ~4 per side at the full view.
+    const strikeTicks = ticksInRange(strikeDomain[0], strikeDomain[1], 8);
+    const profileTicks = ticksInRange(profileDomain[0], profileDomain[1], 8);
+    // Single denomination shared across both axes so the smaller scale (bars)
+    // renders as e.g. "$0.5B" instead of "$500.0M" when the larger scale
+    // (profile) is in billions.
+    const denom = pickSharedDenomination(
+      Math.max(Math.abs(strikeDomain[0]), Math.abs(strikeDomain[1]), Math.abs(profileDomain[0]), Math.abs(profileDomain[1])),
+    );
+    return { strikeTicks, strikeDomain, profileTicks, profileDomain, denom };
+  }, [merged, yView]);
 
   const hasData = merged.length > 0;
 
@@ -845,7 +879,7 @@ export default function GexProfileChart({
               <button
                 type="button"
                 onClick={handleYZoomOut}
-                disabled={yZoom <= 1}
+                disabled={isYFull}
                 title="Zoom out the value axis"
                 className="px-2 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{ color: 'var(--color-text-secondary)', borderLeft: `1px solid var(--color-border)` }}
@@ -855,7 +889,7 @@ export default function GexProfileChart({
               <button
                 type="button"
                 onClick={handleYZoomIn}
-                disabled={yZoom >= Y_ZOOM_MAX}
+                disabled={isYMaxZoom}
                 title="Zoom in the value axis (magnify the gamma scale to inspect small bars)"
                 className="px-2 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{ color: 'var(--color-text-secondary)', borderLeft: `1px solid var(--color-border)` }}
@@ -957,8 +991,20 @@ export default function GexProfileChart({
             No GEX profile data available.
           </div>
         ) : (
-          <MobileScrollableChart>
-            <ResponsiveContainer width="100%" height={isMobile ? 320 : 420}>
+          <div className="flex items-start gap-1.5">
+            {/* Vertical value scrollbar — pans the shared y-window when zoomed,
+                mirroring the strike scrollbar under the plot. Top/bottom padding
+                lines it up with the plot band (below the reference-label margin,
+                above the x-axis). */}
+            <div
+              className="shrink-0"
+              style={{ height: isMobile ? 320 : 420, paddingTop: REF_LABEL_TOP_MARGIN, paddingBottom: 34 }}
+            >
+              <ValueRangeScrollbar visibleNorm={yView} onChange={setYView} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <MobileScrollableChart>
+                <ResponsiveContainer width="100%" height={isMobile ? 320 : 420}>
               {/* Each YAxis track (width=84 below) reserves room for the
                   rotated axis title AND the tick labels with ~25px of
                   clear separation between them.  Outer margin is small
@@ -1071,11 +1117,20 @@ export default function GexProfileChart({
 
                 {/* Per-strike bars, stacked by expiration on one signed stack
                     so calls push up and puts push down aligned on the strike
-                    (stackOffset="sign"). Nearest expiration renders first =
-                    at the base (boldest); the faint remainder cap renders last
-                    = at the outer edge, so the solid selection reads as a
-                    share of the full all-expiration total. When no expiration
-                    universe is available, fall back to the plain aggregate. */}
+                    (stackOffset="sign").
+
+                    ORDER INVARIANT: `stackExpirations` is sorted ascending
+                    (nearest expiration first), and recharts stacks in child
+                    order from the zero baseline outward (offsetSign puts
+                    series[0] against the axis). So the shortest DTE always sits
+                    closest to the x-axis and each later expiration stacks
+                    chronologically outward to the furthest DTE — which also
+                    lines up with the opacity ramp (nearest boldest). Keep the
+                    nearest-first order if you touch this. The faint remainder
+                    cap renders LAST = at the outer edge, so the solid selection
+                    reads as a share of the full all-expiration total. When no
+                    expiration universe is available, fall back to the plain
+                    aggregate. */}
                 {stackExpirations.map((exp) => (
                   <Bar
                     key={`call-${exp}`}
@@ -1223,16 +1278,18 @@ export default function GexProfileChart({
                   />
                 )}
               </ComposedChart>
-            </ResponsiveContainer>
-          </MobileScrollableChart>
-        )}
-        {hasData && visibleDomain && fullStrikeDomain && (
-          <div className="mt-2 px-2">
-            <StrikeRangeScrollbar
-              visibleDomain={visibleDomain}
-              fullDomain={fullStrikeDomain}
-              onChange={setVisibleDomain}
-            />
+                </ResponsiveContainer>
+              </MobileScrollableChart>
+              {visibleDomain && fullStrikeDomain && (
+                <div className="mt-2 px-2">
+                  <StrikeRangeScrollbar
+                    visibleDomain={visibleDomain}
+                    fullDomain={fullStrikeDomain}
+                    onChange={setVisibleDomain}
+                  />
+                </div>
+              )}
+            </div>
           </div>
         )}
         <ChartCaption />
