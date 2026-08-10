@@ -8,6 +8,7 @@ import {
   LOCALE_HEADER,
   localeFromPathname,
   localeHref,
+  preferredLocaleFromAcceptLanguage,
   stripLocalePrefix,
 } from '@/core/i18n/routing';
 
@@ -85,15 +86,20 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url, 308);
   }
 
-  // Returning visitors: honor a saved non-English `lang` cookie on the bare
-  // homepage by sending them to their localized home. 307 (temporary) so the
-  // unprefixed `/` stays the canonical English URL — crawlers send no cookie
-  // and so never trip this, keeping the English home indexable at `/`.
+  // Returning/new visitors: on the bare homepage only, pick a localized home
+  // from an explicit `lang` cookie first, then the browser's Accept-Language.
+  // 307 (temporary) so the unprefixed `/` stays the canonical English URL —
+  // Googlebot sends no cookie and requests en, so it keeps seeing English at
+  // `/` (x-default), while deep links are never auto-redirected.
   if (pathname === '/' && request.method === 'GET') {
     const cookieLocale = normalizeLocale(request.cookies.get('lang')?.value);
-    if (cookieLocale !== DEFAULT_LOCALE) {
+    const target =
+      cookieLocale !== DEFAULT_LOCALE
+        ? cookieLocale
+        : preferredLocaleFromAcceptLanguage(request.headers.get('accept-language'));
+    if (target && target !== DEFAULT_LOCALE) {
       const url = request.nextUrl.clone();
-      url.pathname = `/${cookieLocale}`;
+      url.pathname = `/${target}`;
       return NextResponse.redirect(url, 307);
     }
   }

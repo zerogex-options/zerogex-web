@@ -55,6 +55,31 @@ export function stripLocalePrefix(pathname: string): string {
   return rest.startsWith('/') ? rest : `/${rest}`;
 }
 
+// Parse an Accept-Language header and return the visitor's top-preference
+// SUPPORTED locale, or null when English (the default) ranks first or nothing
+// matches. Used only as the last fallback when choosing where to redirect the
+// bare homepage (URL prefix -> `lang` cookie -> Accept-Language), never to
+// override an explicit choice and never on a deep link.
+export function preferredLocaleFromAcceptLanguage(
+  header: string | null | undefined,
+): Locale | null {
+  if (!header) return null;
+  const ranked = header
+    .split(',')
+    .map((part) => {
+      const [tag, ...params] = part.trim().split(';');
+      const qParam = params.find((p) => p.trim().startsWith('q='));
+      const q = qParam ? Number.parseFloat(qParam.split('=')[1]) : 1;
+      return { code: tag.split('-')[0].toLowerCase(), q: Number.isFinite(q) ? q : 0 };
+    })
+    .sort((a, b) => b.q - a.q);
+  for (const { code } of ranked) {
+    if (!isLocale(code)) continue; // skip unsupported languages, keep scanning
+    return code === DEFAULT_LOCALE ? null : code; // first supported wins
+  }
+  return null;
+}
+
 // Build the public URL for an invariant path in a given locale. English returns
 // the path unchanged (unprefixed); other locales get a `/xx` prefix. Only
 // root-relative internal paths are rewritten — external URLs, protocol-relative

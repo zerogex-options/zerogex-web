@@ -63,22 +63,20 @@ function lastmodFor(urlPath) {
 // sitemap never advertises a localized URL that would serve duplicate English.
 const SITE_URL = 'https://zerogex.io';
 const SITEMAP_LOCALES = ['en', 'it', 'de', 'es', 'fr'];
-const SITEMAP_PREFIXED_LOCALES = ['it', 'de', 'es', 'fr'];
 
-function localizedPath(urlPath, locale) {
-  if (locale === 'en') return urlPath;
-  return urlPath === '/' ? `/${locale}` : `/${locale}${urlPath}`;
+// next-sitemap appends each entry's loc PATH onto the alternateRef href, so the
+// href must be the locale's ROOT (unprefixed for English, /it for Italian, …),
+// NOT the full localized URL. Emitting one English <loc> per route carrying the
+// whole reciprocal hreflang set is Google's single-entry form and yields correct
+// per-language URLs (base + path) without duplicating <loc>s per language.
+function localeBase(locale) {
+  return locale === 'en' ? SITE_URL : `${SITE_URL}/${locale}`;
 }
 
-// Reciprocal hreflang set for a route: every language + x-default -> English.
-function alternateRefsFor(urlPath) {
-  const refs = SITEMAP_LOCALES.map((l) => ({
-    href: `${SITE_URL}${localizedPath(urlPath, l)}`,
-    hreflang: l,
-  }));
-  refs.push({ href: `${SITE_URL}${localizedPath(urlPath, 'en')}`, hreflang: 'x-default' });
-  return refs;
-}
+const TRANSLATED_ALTERNATE_REFS = [
+  ...SITEMAP_LOCALES.map((l) => ({ href: localeBase(l), hreflang: l })),
+  { href: localeBase('en'), hreflang: 'x-default' },
+];
 
 // A route ships per-locale content (co-located *.i18n.ts dict or *.<locale>.md)
 // exactly when it's one of the translated static pages or an article/guide/help
@@ -233,17 +231,10 @@ const config = {
       seen.add(route);
       const base = await cfg.transform(cfg, route);
       if (!base) continue;
-      if (isTranslatedRoute(route)) {
-        // One <url> per language, each carrying the full reciprocal hreflang set
-        // so Google can pair the translations and rank each independently.
-        const alternateRefs = alternateRefsFor(route);
-        out.push({ ...base, alternateRefs });
-        for (const locale of SITEMAP_PREFIXED_LOCALES) {
-          out.push({ ...base, loc: localizedPath(route, locale), alternateRefs });
-        }
-      } else {
-        out.push(base);
-      }
+      // Translated routes carry the reciprocal hreflang set (English <loc> +
+      // per-language xhtml:link alternates) so Google pairs the translations and
+      // ranks each independently; English-only routes stay single-URL.
+      out.push(isTranslatedRoute(route) ? { ...base, alternateRefs: TRANSLATED_ALTERNATE_REFS } : base);
     }
     return out;
   },
