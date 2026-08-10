@@ -121,6 +121,7 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   { pattern: '/gamma-exposure', minimumTier: 'basic' },
   { pattern: '/greeks-gex', minimumTier: 'basic' },
   { pattern: '/gex-heatmap', minimumTier: 'basic' },
+  { pattern: '/gamma-shift', minimumTier: 'basic' },
   { pattern: '/pair-comparison', minimumTier: 'basic' },
   { pattern: '/gex-strike-profile', minimumTier: 'basic' },
   { pattern: '/flow-analysis', minimumTier: 'basic' },
