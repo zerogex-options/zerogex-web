@@ -477,13 +477,31 @@ function conversionSourceLabel(source: string): string {
   return CONVERSION_SOURCE_LABELS[source] ?? source;
 }
 
+// A display source is FLAGGED (warning color) when it pulls meaningful traffic
+// but isn't converting — either outright zero signups at low volume, or a very
+// low rate at higher volume (the Reddit case: hundreds of visits, ~0 signups,
+// which the old "exactly zero" rule missed).
+const CONV_FLAG_ZERO_MIN_VISITS = 10; // ≥ this many visits with exactly 0 signups
+const CONV_FLAG_LOW_MIN_VISITS = 100; // ≥ this many visits …
+const CONV_FLAG_LOW_RATE = 0.003; //      … while converting below 0.3%
+
+function isUnderperformingSource(row: ConversionSourceRow): boolean {
+  if (row.visits >= CONV_FLAG_LOW_MIN_VISITS && row.signupConversion < CONV_FLAG_LOW_RATE) return true;
+  return row.visits >= CONV_FLAG_ZERO_MIN_VISITS && row.signups === 0;
+}
+
+// A display row, plus the raw sanitized sources it folded together — kept only
+// when >1 so the Source column can show the split (e.g. paid `x` vs organic
+// `twitter` under one "Twitter/X" headline).
+type DisplaySourceRow = ConversionSourceRow & { components?: ConversionSourceRow[] };
+
 // Re-label each source and merge rows that share a display label (twitter + x →
-// Twitter/X), summing their visits/signups/subscribers. Conversion is
-// recomputed on the merged totals, then rows are re-sorted the same way the
-// server sorts (visits desc, then signups desc, then label) so the combined row
-// lands in the right place.
-function displayConversionSources(sources: ConversionSourceRow[]): ConversionSourceRow[] {
-  const merged = new Map<string, ConversionSourceRow>();
+// Twitter/X), summing their visits/signups/subscribers and remembering the
+// per-tag components. Conversion is recomputed on the merged totals, then rows
+// are re-sorted the way the server sorts (visits desc, then signups desc, then
+// label) so a combined row lands in the right place.
+function displayConversionSources(sources: ConversionSourceRow[]): DisplaySourceRow[] {
+  const merged = new Map<string, DisplaySourceRow & { components: ConversionSourceRow[] }>();
   for (const row of sources) {
     const label = conversionSourceLabel(row.source);
     const existing = merged.get(label);
@@ -491,12 +509,18 @@ function displayConversionSources(sources: ConversionSourceRow[]): ConversionSou
       existing.visits += row.visits;
       existing.signups += row.signups;
       existing.subscribers += row.subscribers;
+      existing.components.push(row);
     } else {
-      merged.set(label, { ...row, source: label });
+      merged.set(label, { ...row, source: label, components: [row] });
     }
   }
   return Array.from(merged.values())
-    .map((r) => ({ ...r, signupConversion: r.visits > 0 ? r.signups / r.visits : 0 }))
+    .map((r) => ({
+      ...r,
+      signupConversion: r.visits > 0 ? r.signups / r.visits : 0,
+      // Only surface a breakdown when the label actually combined ≥2 tags.
+      components: r.components.length > 1 ? [...r.components].sort((a, b) => b.visits - a.visits) : undefined,
+    }))
     .sort((a, b) => b.visits - a.visits || b.signups - a.signups || a.source.localeCompare(b.source));
 }
 
@@ -542,20 +566,32 @@ function ConversionBySourceSection({
               </thead>
               <tbody>
                 {displaySources.map((row) => {
-                  const stalled = row.visits >= 10 && row.signups === 0;
+                  const flagged = isUnderperformingSource(row);
                   return (
                     <tr key={row.source} style={{ borderTop: `1px solid ${borderColor}` }}>
-                      <td className="py-1.5 pr-4 text-xs">{row.source}</td>
-                      <td className="py-1.5 px-3 text-right tabular-nums">{row.visits.toLocaleString()}</td>
-                      <td className="py-1.5 px-3 text-right tabular-nums">{row.signups.toLocaleString()}</td>
+                      <td className="py-1.5 pr-4 text-xs align-top">
+                        <div>{row.source}</div>
+                        {row.components && (
+                          <div className="mt-0.5 space-y-0.5 font-mono" style={{ color: mutedText }}>
+                            {row.components.map((c) => (
+                              <div key={c.source}>
+                                {c.source}: {c.visits.toLocaleString()} visits · {c.signups.toLocaleString()} signups
+                                {c.subscribers > 0 ? ` · ${c.subscribers.toLocaleString()} subs` : ''}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-1.5 px-3 text-right tabular-nums align-top">{row.visits.toLocaleString()}</td>
+                      <td className="py-1.5 px-3 text-right tabular-nums align-top">{row.signups.toLocaleString()}</td>
                       <td
-                        className="py-1.5 px-3 text-right tabular-nums font-semibold"
-                        style={{ color: stalled ? 'var(--color-warning)' : textColor }}
-                        title={stalled ? 'Traffic but no signups — check the landing/CTA or ad targeting' : undefined}
+                        className="py-1.5 px-3 text-right tabular-nums font-semibold align-top"
+                        style={{ color: flagged ? 'var(--color-warning)' : textColor }}
+                        title={flagged ? 'Meaningful traffic but little or no conversion — check the landing/CTA or ad targeting' : undefined}
                       >
                         {row.visits > 0 ? `${(row.signupConversion * 100).toFixed(1)}%` : '—'}
                       </td>
-                      <td className="py-1.5 pl-3 text-right tabular-nums" style={{ color: mutedText }}>{row.subscribers.toLocaleString()}</td>
+                      <td className="py-1.5 pl-3 text-right tabular-nums align-top" style={{ color: mutedText }}>{row.subscribers.toLocaleString()}</td>
                     </tr>
                   );
                 })}
@@ -571,7 +607,7 @@ function ConversionBySourceSection({
               </tfoot>
             </table>
             <p className="mt-3 text-xs" style={{ color: mutedText }}>
-              Visits and signups are both counted in the window; a signup can trace to an earlier visit, so read the rate as directional. A source with many visits and zero signups (highlighted) is the pattern to watch — clicks that aren&apos;t converting.
+              Visits and signups are both counted in the window; a signup can trace to an earlier visit, so read the rate as directional. A source with many visits but little or no conversion (highlighted) is the pattern to watch — clicks that aren&apos;t converting. Combined rows (e.g. Twitter/X) show their per-tag split beneath the label, so paid and organic are separable.
             </p>
           </div>
         )}
