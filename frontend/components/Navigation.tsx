@@ -4,7 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { MarketSession, Theme } from "@/core/types";
 import { colors } from "@/core/colors";
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronLeft, ChevronRight, Star } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Pin } from "lucide-react";
 import { NAV_GROUPS, type NavGroup, type NavItem } from "@/core/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -318,13 +318,16 @@ export default function Navigation({ theme }: NavigationProps) {
         }}
         className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
         style={{
-          color: isFav ? 'var(--color-gold)' : 'var(--text-secondary)',
-          opacity: isFav ? 1 : isHovered ? 0.75 : 0.35,
+          // Brand-coral pin (these are "pinned" pages), not a gold star: solid
+          // when the page is pinned, a dim outline that brightens on hover as the
+          // affordance to pin it.
+          color: isFav ? accent : "var(--text-secondary)",
+          opacity: isFav ? 1 : isHovered ? 0.8 : 0.32,
           cursor: "pointer",
-          transition: "opacity 200ms",
+          transition: "opacity 200ms, color 200ms",
         }}
       >
-        <Star size={14} fill={isFav ? 'var(--color-gold)' : 'none'} strokeWidth={2} />
+        <Pin size={15} fill={isFav ? "currentColor" : "none"} strokeWidth={isFav ? 1.75 : 2} />
       </span>
     );
 
@@ -425,7 +428,7 @@ export default function Navigation({ theme }: NavigationProps) {
                     }}
                   >
                     <span className="flex items-center gap-1.5">
-                      <Star size={12} fill="var(--color-gold)" stroke="var(--color-gold)" />
+                      <Pin size={12} fill="currentColor" strokeWidth={1.75} />
                       {t('nav.group.favorites')}
                     </span>
                     <ChevronDown
