@@ -3,11 +3,11 @@ import Link from 'next/link';
 import { renderMarkdown } from '@/components/MarkdownContent';
 import ArticleJsonLd from '@/components/ArticleJsonLd';
 import RelatedArticles from '@/components/RelatedArticles';
-import { articleMetadata } from '@/core/articleRegistry';
+import { articleMetadataLocalized } from '@/core/localizedMetadata';
 import LiveLevelsCTA from '@/components/LiveLevelsCTA';
 import { loadLocalizedMarkdown } from '@/core/localizedContent';
 
-export const metadata = articleMetadata('positioning-trap-explained');
+export const generateMetadata = () => articleMetadataLocalized('positioning-trap-explained');
 
 const articlePath = path.join(process.cwd(), 'content/articles/positioning-trap-explained.md');
 

@@ -4,10 +4,10 @@ import Link from 'next/link';
 import { ArrowRight, Heart } from 'lucide-react';
 import { renderMarkdown } from '@/components/MarkdownContent';
 import ArticleJsonLd from '@/components/ArticleJsonLd';
-import { articleMetadata } from '@/core/articleRegistry';
+import { articleMetadataLocalized } from '@/core/localizedMetadata';
 import { loadLocalizedMarkdown } from '@/core/localizedContent';
 
-export const metadata = articleMetadata('announcing-folds-of-honor-pledge');
+export const generateMetadata = () => articleMetadataLocalized('announcing-folds-of-honor-pledge');
 
 const articlePath = path.join(
   process.cwd(),

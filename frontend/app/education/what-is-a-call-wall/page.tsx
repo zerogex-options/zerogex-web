@@ -6,10 +6,10 @@ import ArticleFaq from '@/components/ArticleFaq';
 import RelatedArticles from '@/components/RelatedArticles';
 import GexMethodologyNote from '@/components/GexMethodologyNote';
 import LiveLevelsCTA from '@/components/LiveLevelsCTA';
-import { articleMetadata } from '@/core/articleRegistry';
+import { articleMetadataLocalized } from '@/core/localizedMetadata';
 import { loadLocalizedMarkdown } from '@/core/localizedContent';
 
-export const metadata = articleMetadata('what-is-a-call-wall');
+export const generateMetadata = () => articleMetadataLocalized('what-is-a-call-wall');
 
 const articlePath = path.join(process.cwd(), 'content/articles/what-is-a-call-wall.md');
 

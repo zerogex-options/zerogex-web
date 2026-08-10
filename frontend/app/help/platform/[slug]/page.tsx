@@ -7,6 +7,7 @@ import { renderMarkdown } from '@/components/MarkdownContent';
 import BreadcrumbJsonLd from '@/components/BreadcrumbJsonLd';
 import { HELP_ARTICLES, getHelpArticleBySlug, getHelpNeighbors } from '@/core/helpRegistry';
 import { loadLocalizedMarkdown } from '@/core/localizedContent';
+import { buildAlternates, getRequestLocale } from '@/core/localizedMetadata';
 
 type Params = { slug: string };
 
@@ -21,7 +22,7 @@ export async function generateMetadata({ params }: { params: Promise<Params> }) 
   return {
     title: `${article.title} — ZeroGEX Help`,
     description: article.description,
-    alternates: { canonical: `/help/platform/${article.slug}` },
+    alternates: buildAlternates(`/help/platform/${article.slug}`, await getRequestLocale()),
   };
 }
 

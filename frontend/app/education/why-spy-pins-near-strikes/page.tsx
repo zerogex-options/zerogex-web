@@ -4,12 +4,12 @@ import { renderMarkdown } from '@/components/MarkdownContent';
 import ArticleJsonLd from '@/components/ArticleJsonLd';
 import ArticleFaq from '@/components/ArticleFaq';
 import RelatedArticles from '@/components/RelatedArticles';
-import { articleMetadata } from '@/core/articleRegistry';
+import { articleMetadataLocalized } from '@/core/localizedMetadata';
 import GexMethodologyNote from '@/components/GexMethodologyNote';
 import LiveLevelsCTA from '@/components/LiveLevelsCTA';
 import { loadLocalizedMarkdown } from '@/core/localizedContent';
 
-export const metadata = articleMetadata('why-spy-pins-near-strikes');
+export const generateMetadata = () => articleMetadataLocalized('why-spy-pins-near-strikes');
 
 const articlePath = path.join(process.cwd(), 'content/articles/why-spy-pins-near-strikes.md');
 

@@ -10,6 +10,9 @@
  * the JSON-LD will fall back to site defaults and the related block
  * won't render until the entry is added.
  */
+import { DEFAULT_LOCALE, type Locale } from '@/core/i18n/locales';
+import { buildAlternates, localeHref } from '@/core/i18n/routing';
+
 export type ArticleKind = 'pillar' | 'tier1' | 'tier2' | 'article' | 'landing';
 
 export type ArticleMeta = {
@@ -607,18 +610,32 @@ export function getArticle(slug: string): ArticleMeta | null {
  * missed entries surface at build time rather than silently shipping a
  * blank metadata block.
  */
-export function articleMetadata(slug: string) {
+export function articleMetadata(
+  slug: string,
+  locale: Locale = DEFAULT_LOCALE,
+  opts: { hreflang?: boolean } = {},
+) {
   const article = ARTICLE_REGISTRY[slug];
   if (!article) {
     throw new Error(`articleMetadata: unknown slug "${slug}"`);
   }
-  const url = `${SITE_URL}${article.href}`;
+  // hreflang defaults on — every registered article ships per-locale markdown.
+  // Pass `hreflang: false` for a registry entry whose body is English-only (e.g.
+  // an untranslated landing page), so it stays English self-canonical and
+  // doesn't advertise localized URLs that would serve duplicate English content.
+  const { hreflang = true } = opts;
+  const url = `${SITE_URL}${localeHref(locale, article.href)}`;
   const image = articleOgImage(article);
 
   return {
     title: article.title,
     description: article.description,
-    alternates: { canonical: article.href },
+    // Self-referencing canonical for the current locale + reciprocal hreflang
+    // for every language (x-default -> English), so Google indexes each
+    // language's URL independently instead of collapsing them onto English.
+    alternates: hreflang
+      ? buildAlternates(article.href, locale)
+      : { canonical: localeHref(locale, article.href) },
     openGraph: {
       type: 'article' as const,
       title: article.title,

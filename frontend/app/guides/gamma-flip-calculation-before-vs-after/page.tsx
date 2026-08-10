@@ -4,12 +4,17 @@ import { renderMarkdown } from '@/components/MarkdownContent';
 import BreadcrumbJsonLd from '@/components/BreadcrumbJsonLd';
 import { loadLocalizedMarkdown } from '@/core/localizedContent';
 
-export const metadata = {
-  title: 'Gamma Flip Calculation: Before vs After (ZeroGEX Guide)',
-  description:
-    'How ZeroGEX locates the zero-gamma level — the move from a cumulative net-GEX approximation to the spot-shift dealer gamma profile, and what you see on the platform.',
-  alternates: { canonical: '/guides/gamma-flip-calculation-before-vs-after' },
-};
+import type { Metadata } from 'next';
+import { alternatesForPath } from '@/core/localizedMetadata';
+
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: 'Gamma Flip Calculation: Before vs After (ZeroGEX Guide)',
+    description:
+      'How ZeroGEX locates the zero-gamma level — the move from a cumulative net-GEX approximation to the spot-shift dealer gamma profile, and what you see on the platform.',
+    alternates: await alternatesForPath('/guides/gamma-flip-calculation-before-vs-after'),
+  };
+}
 
 const guidePath = path.join(process.cwd(), 'content/guides/gamma-flip-calculation-before-vs-after.md');
 

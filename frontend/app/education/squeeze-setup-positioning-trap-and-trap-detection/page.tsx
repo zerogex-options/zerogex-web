@@ -4,11 +4,11 @@ import { ArrowRight, Sparkles } from 'lucide-react';
 import { renderMarkdown } from '@/components/MarkdownContent';
 import ArticleJsonLd from '@/components/ArticleJsonLd';
 import RelatedArticles from '@/components/RelatedArticles';
-import { articleMetadata } from '@/core/articleRegistry';
+import { articleMetadataLocalized } from '@/core/localizedMetadata';
 import LiveLevelsCTA from '@/components/LiveLevelsCTA';
 import { loadLocalizedMarkdown } from '@/core/localizedContent';
 
-export const metadata = articleMetadata('squeeze-setup-positioning-trap-and-trap-detection');
+export const generateMetadata = () => articleMetadataLocalized('squeeze-setup-positioning-trap-and-trap-detection');
 
 const articlePath = path.join(process.cwd(), 'content/articles/squeeze-setup-positioning-trap-and-trap-detection.md');
 

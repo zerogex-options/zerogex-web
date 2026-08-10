@@ -3,12 +3,12 @@ import Link from 'next/link';
 import { renderMarkdown } from '@/components/MarkdownContent';
 import ArticleJsonLd from '@/components/ArticleJsonLd';
 import RelatedArticles from '@/components/RelatedArticles';
-import { articleMetadata } from '@/core/articleRegistry';
+import { articleMetadataLocalized } from '@/core/localizedMetadata';
 import GexMethodologyNote from '@/components/GexMethodologyNote';
 import LiveLevelsCTA from '@/components/LiveLevelsCTA';
 import { loadLocalizedMarkdown } from '@/core/localizedContent';
 
-export const metadata = articleMetadata('options-support-and-resistance');
+export const generateMetadata = () => articleMetadataLocalized('options-support-and-resistance');
 
 const articlePath = path.join(process.cwd(), 'content/articles/options-support-and-resistance.md');
 

@@ -3,11 +3,11 @@ import Link from 'next/link';
 import { renderMarkdown } from '@/components/MarkdownContent';
 import ArticleJsonLd from '@/components/ArticleJsonLd';
 import RelatedArticles from '@/components/RelatedArticles';
-import { articleMetadata } from '@/core/articleRegistry';
+import { articleMetadataLocalized } from '@/core/localizedMetadata';
 import LiveLevelsCTA from '@/components/LiveLevelsCTA';
 import { loadLocalizedMarkdown } from '@/core/localizedContent';
 
-export const metadata = articleMetadata('vanna-when-fear-fades');
+export const generateMetadata = () => articleMetadataLocalized('vanna-when-fear-fades');
 
 const articlePath = path.join(process.cwd(), 'content/articles/vanna-when-fear-fades.md');
 

@@ -55,6 +55,52 @@ function lastmodFor(urlPath) {
   return new Date().toISOString();
 }
 
+// ── Localized URLs + hreflang ───────────────────────────────────────────────
+// English is served on the unprefixed URLs; it/de/es/fr live under a locale
+// path prefix. Only routes that actually ship per-locale content get localized
+// <url> entries + reciprocal hreflang; English-only pages (the hub/index pages,
+// the gamma-levels lead magnets, real-time-gex-0dte) stay single-URL so the
+// sitemap never advertises a localized URL that would serve duplicate English.
+const SITE_URL = 'https://zerogex.io';
+const SITEMAP_LOCALES = ['en', 'it', 'de', 'es', 'fr'];
+const SITEMAP_PREFIXED_LOCALES = ['it', 'de', 'es', 'fr'];
+
+function localizedPath(urlPath, locale) {
+  if (locale === 'en') return urlPath;
+  return urlPath === '/' ? `/${locale}` : `/${locale}${urlPath}`;
+}
+
+// Reciprocal hreflang set for a route: every language + x-default -> English.
+function alternateRefsFor(urlPath) {
+  const refs = SITEMAP_LOCALES.map((l) => ({
+    href: `${SITE_URL}${localizedPath(urlPath, l)}`,
+    hreflang: l,
+  }));
+  refs.push({ href: `${SITE_URL}${localizedPath(urlPath, 'en')}`, hreflang: 'x-default' });
+  return refs;
+}
+
+// A route ships per-locale content (co-located *.i18n.ts dict or *.<locale>.md)
+// exactly when it's one of the translated static pages or an article/guide/help
+// LEAF (not the English-only hub index at /education, /guides, /help/platform).
+function isTranslatedRoute(urlPath) {
+  const translatedExact = new Set([
+    '/',
+    '/about',
+    '/pricing',
+    '/privacy',
+    '/terms',
+    '/trading-mistakes',
+    '/giving',
+  ]);
+  if (translatedExact.has(urlPath)) return true;
+  return (
+    urlPath.startsWith('/education/') ||
+    urlPath.startsWith('/guides/') ||
+    urlPath.startsWith('/help/platform/')
+  );
+}
+
 /** @type {import('next-sitemap').IConfig} */
 const config = {
   siteUrl: 'https://zerogex.io',
@@ -185,7 +231,19 @@ const config = {
     for (const route of routes) {
       if (skip.has(route) || seen.has(route)) continue;
       seen.add(route);
-      out.push(await cfg.transform(cfg, route));
+      const base = await cfg.transform(cfg, route);
+      if (!base) continue;
+      if (isTranslatedRoute(route)) {
+        // One <url> per language, each carrying the full reciprocal hreflang set
+        // so Google can pair the translations and rank each independently.
+        const alternateRefs = alternateRefsFor(route);
+        out.push({ ...base, alternateRefs });
+        for (const locale of SITEMAP_PREFIXED_LOCALES) {
+          out.push({ ...base, loc: localizedPath(route, locale), alternateRefs });
+        }
+      } else {
+        out.push(base);
+      }
     }
     return out;
   },
