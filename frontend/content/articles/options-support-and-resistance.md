@@ -48,6 +48,12 @@ See [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) for the work
 
 ---
 
+## Why does SPY reverse at these levels?
+
+The reversals that look random on a SPY chart — price runs to some level that wasn't a prior swing or a round number, stops dead, and unwinds — are usually one of these four levels doing its job. At the **call wall**, dealers modeled long the strike sell into the rally to stay hedged, adding supply that caps the move. At the **put wall**, a net-long-gamma book buys the selloff, adding support. At the **gamma magnet**, the modeled hedging reflex pulls price back toward the strike. At the **gamma flip**, that reflex changes sign and price often pauses as it crosses. None of these is on the price chart — they're on the option chain — which is why the reversal looks like it came from nowhere until you map it to positioning. Whether each level absorbs the move or gets run over depends on the regime, so read the flip first: the same call wall that caps a rally in long gamma becomes a breakout target in short gamma.
+
+---
+
 ## Why options-based S/R is sturdier than chart-based S/R
 
 Three reasons:

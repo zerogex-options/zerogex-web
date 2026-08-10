@@ -252,18 +252,6 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     readMinutes: 10,
     kind: 'tier1',
   },
-  'why-spy-reverses-at-levels': {
-    slug: 'why-spy-reverses-at-levels',
-    href: '/education/why-spy-reverses-at-levels',
-    title: 'Why Does SPY Reverse at Certain Levels?',
-    blurb:
-      'SPY reversals that look random on the chart are tied to options positioning. Here\'s the four kinds of options-based levels SPY actually reverses at, and how to read them in real time.',
-    description:
-      'Why does SPY reverse at certain levels? The hidden options-positioning map — call walls, put walls, gamma magnet, and the gamma flip — that drives most "random" reversals.',
-    datePublished: '2026-06-15',
-    readMinutes: 10,
-    kind: 'tier1',
-  },
   'options-support-and-resistance': {
     slug: 'options-support-and-resistance',
     href: '/education/options-support-and-resistance',
@@ -286,18 +274,6 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
       'How to avoid chasing 0DTE moves — why same-day chases are structurally dangerous, three signs you\'re about to chase, and the regime read that tells you when to stand down.',
     datePublished: '2026-06-15',
     readMinutes: 11,
-    kind: 'tier1',
-  },
-  'how-to-know-if-spy-is-pinned': {
-    slug: 'how-to-know-if-spy-is-pinned',
-    href: '/education/how-to-know-if-spy-is-pinned',
-    title: 'How to Know If SPY Is Pinned: The Five Signs',
-    blurb:
-      'Pin recognition is the cleanest day-trade filter. The five structural signs SPY is pinned today, the playbook that fits a pinned tape (fade extremes, skip middle), and when the pin breaks.',
-    description:
-      'How to know if SPY is pinned today — the five structural signs, the fade-extremes playbook that works in a pinned tape, and the conditions that break the pin.',
-    datePublished: '2026-06-15',
-    readMinutes: 10,
     kind: 'tier1',
   },
   'what-is-negative-gamma': {
@@ -488,7 +464,7 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
   ],
   'pin-strike-explained': [
     'max-pain-explained',
-    'how-to-know-if-spy-is-pinned',
+    'why-spy-pins-near-strikes',
     'how-to-read-a-gamma-flip',
   ],
   'max-pain-explained': [
@@ -542,25 +518,14 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'how-to-read-a-gamma-flip',
     'eod-pressure-and-trap-detection',
   ],
-  'why-spy-reverses-at-levels': [
-    'gamma-walls-explained',
-    'options-support-and-resistance',
-    'how-to-read-a-gamma-flip',
-  ],
   'options-support-and-resistance': [
     'gamma-walls-explained',
     'what-is-a-put-wall',
-    'why-spy-reverses-at-levels',
+    'why-spy-pins-near-strikes',
   ],
   'how-to-avoid-chasing-0dte': [
     '0dte-dealer-positioning-explained',
     'how-to-trade-around-gamma-flip',
-    'eod-pressure-explained',
-  ],
-  'how-to-know-if-spy-is-pinned': [
-    'why-spy-pins-near-strikes',
-    'pin-strike-explained',
-    'max-pain-explained',
     'eod-pressure-explained',
   ],
   'what-is-negative-gamma': [
@@ -569,10 +534,9 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'spx-net-gamma-exposure-today',
   ],
   'why-spy-pins-near-strikes': [
-    'how-to-know-if-spy-is-pinned',
+    'options-support-and-resistance',
     'pin-strike-explained',
     'max-pain-explained',
-    'eod-pressure-explained',
   ],
   'how-to-trade-around-gamma-flip': [
     'how-to-read-a-gamma-flip',
