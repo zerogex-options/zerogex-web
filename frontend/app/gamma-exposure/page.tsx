@@ -275,12 +275,41 @@ export default function GammaExposurePage() {
   // Empty set = All: sum every expiration per strike, same as the table's
   // "All".  A non-empty set sums only the chosen expirations per strike.
   const chartStrikeData = useMemo(() => {
+    // "All" is the current/future universe (matching the chart's expiration
+    // selector and the per-expiration feed below), not literally every row —
+    // so the aggregate bars/net line stay consistent with the stacked
+    // segments, which only cover current/future expirations.
+    const universe = new Set(chartExpirationOptions);
     const selectedSet = new Set(chartSelectedExpirations);
     const filteredSource = chartSelectedExpirations.length === 0
-      ? (gexByStrike || [])
+      ? (gexByStrike || []).filter((row) => universe.has(String(row.expiration)))
       : (gexByStrike || []).filter((row) => selectedSet.has(String(row.expiration)));
     return aggregateStrikes(filteredSource as GexByStrikeRow[]);
-  }, [gexByStrike, chartSelectedExpirations]);
+  }, [gexByStrike, chartSelectedExpirations, chartExpirationOptions]);
+
+  // Per-(strike, expiration) GEX for the Gamma Exposure by Strike chart's
+  // stacked bars and its "% of total at this strike" readout. Raw dollars
+  // (per 1% move) over the chart's current/future expiration universe, so the
+  // stacked segments and the all-expiration total share one coherent set.
+  // Deliberately NOT filtered by the selection — the chart needs the whole
+  // breakdown to render each expiration segment and to compute each pick's
+  // share of the strike total.
+  const perExpirationStrikeData = useMemo(() => {
+    const universe = new Set(chartExpirationOptions);
+    const grouped = new Map<string, { strike: number; expiration: string; callGex: number; putGex: number }>();
+    (gexByStrike || []).forEach((row) => {
+      const expiration = String(row.expiration);
+      if (!universe.has(expiration)) return;
+      const strike = Number(row.strike);
+      if (!Number.isFinite(strike)) return;
+      const key = `${strike.toFixed(2)}|${expiration}`;
+      const current = grouped.get(key) ?? { strike, expiration, callGex: 0, putGex: 0 };
+      current.callGex += Number(row.call_gex || 0);
+      current.putGex += Number(row.put_gex || 0);
+      grouped.set(key, current);
+    });
+    return Array.from(grouped.values());
+  }, [gexByStrike, chartExpirationOptions]);
 
   // 'all' (empty set) or a sorted, comma-joined list of the chosen
   // expirations — the canonical value the timeseries hook keys its cache on
@@ -608,6 +637,8 @@ export default function GammaExposurePage() {
             expirationOptions={chartExpirationOptions}
             selectedExpirations={chartSelectedExpirations}
             onSelectedExpirationsChange={setSharedExpirations}
+            perExpirationData={perExpirationStrikeData}
+            todayKey={todayKey}
           />
         </div>
       </section>

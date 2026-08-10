@@ -7,7 +7,7 @@
 // core/chartSettings.ts.
 //
 // Why a shared, persisted selection: several charts across the site
-// (GEX Profile, OI & Exposure by Strike, the Gamma Terminal rail, the strike
+// (GEX Profile, OI by Strike, the Gamma Terminal rail, the strike
 // table, the Flow-Analysis contract filter) each let the user pick one or more
 // expirations to filter by. Historically every one kept its own in-memory
 // selection that reset on reload and never agreed with its neighbours. This

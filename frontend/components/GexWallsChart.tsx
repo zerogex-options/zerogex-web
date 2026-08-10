@@ -67,7 +67,7 @@ interface GexWallsChartProps {
   byStrikeFallback?: Array<{ strike?: number | string; call_oi?: number | string | null; put_oi?: number | string | null }> | null;
 }
 
-type DisplayMode = 'oi' | 'gamma' | 'notional';
+type DisplayMode = 'oi' | 'notional';
 
 type ChartRow = {
   strike: number;
@@ -83,7 +83,7 @@ function asNum(value: unknown): number {
 
 function formatAxisValue(value: number, mode: DisplayMode): string {
   const abs = Math.abs(value);
-  const isDollar = mode === 'gamma' || mode === 'notional';
+  const isDollar = mode === 'notional';
   const prefix = isDollar ? '$' : '';
   if (abs >= 1e9) return `${prefix}${(value / 1e9).toFixed(1)}B`;
   if (abs >= 1e6) return `${prefix}${(value / 1e6).toFixed(1)}M`;
@@ -92,7 +92,7 @@ function formatAxisValue(value: number, mode: DisplayMode): string {
 }
 
 function formatTooltipValue(value: number, mode: DisplayMode): string {
-  if (mode === 'gamma' || mode === 'notional') {
+  if (mode === 'notional') {
     return `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
   return value.toLocaleString();
@@ -100,7 +100,6 @@ function formatTooltipValue(value: number, mode: DisplayMode): string {
 
 function modeLabel(mode: DisplayMode): string {
   if (mode === 'oi') return 'OI';
-  if (mode === 'gamma') return '$ Gamma';
   return 'Notional';
 }
 
@@ -121,11 +120,13 @@ function WallMapTooltip({
     <div style={{ background: 'var(--color-chart-tooltip-bg)', border: '1px solid var(--color-border)', borderRadius: 8, padding: '8px 12px', color: 'var(--color-chart-tooltip-text)' }}>
       <div style={{ fontWeight: 600, marginBottom: 4 }}>Strike {label}</div>
       {payload.map((entry, i) => {
+        // Puts are stored negative so they render below the axis; the tooltip
+        // shows the magnitude (open interest / notional are positive quantities).
         if (entry.dataKey === 'callValue') {
-          return <div key={i} style={{ color: 'var(--color-bull)' }}>Call {unitLabel}: {formatTooltipValue(Number(entry.value), mode)}</div>;
+          return <div key={i} style={{ color: 'var(--color-bull)' }}>Call {unitLabel}: {formatTooltipValue(Math.abs(Number(entry.value)), mode)}</div>;
         }
         if (entry.dataKey === 'putValue') {
-          return <div key={i} style={{ color: 'var(--color-bear)' }}>Put {unitLabel}: {formatTooltipValue(Number(entry.value), mode)}</div>;
+          return <div key={i} style={{ color: 'var(--color-bear)' }}>Put {unitLabel}: {formatTooltipValue(Math.abs(Number(entry.value)), mode)}</div>;
         }
         return null;
       })}
@@ -179,12 +180,7 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
       // controlled if exercised at this strike, the standard derivative-
       // industry definition of position size.
       const oi = asNum(row.open_interest);
-      const value =
-        displayMode === 'oi'
-          ? oi
-          : displayMode === 'notional'
-            ? oi * 100 * strike
-            : asNum(row.exposure);
+      const value = displayMode === 'oi' ? oi : oi * 100 * strike;
 
       if (optionType.startsWith('C')) {
         existing.callValue += value;
@@ -196,12 +192,9 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
         if (displayMode === 'oi') {
           existing.callValue += callOi;
           existing.putValue += putOi;
-        } else if (displayMode === 'notional') {
+        } else {
           existing.callValue += callOi * 100 * strike;
           existing.putValue += putOi * 100 * strike;
-        } else {
-          existing.callValue += asNum(row.call_exposure);
-          existing.putValue += asNum(row.put_exposure);
         }
       }
       grouped.set(strike, existing);
@@ -209,7 +202,7 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
 
     let rows = Array.from(grouped.values());
 
-    if (rows.length === 0 && displayMode !== 'gamma' && byStrikeFallback?.length) {
+    if (rows.length === 0 && byStrikeFallback?.length) {
       byStrikeFallback.forEach((row) => {
         const strike = asNum(row.strike);
         if (!Number.isFinite(strike) || strike <= 0) return;
@@ -228,7 +221,12 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
       rows = Array.from(grouped.values());
     }
 
-    return rows.sort((a, b) => a.strike - b.strike);
+    // Puts render below the x-axis (calls up, puts down) — the mirror layout
+    // matching the Gamma Exposure by Strike chart above. Negating here lets a
+    // single stacked series center call-up / put-down on each strike.
+    return rows
+      .map((row) => ({ ...row, putValue: -Math.abs(row.putValue) }))
+      .sort((a, b) => a.strike - b.strike);
   }, [openInterestData, selectedExpirations, displayMode, byStrikeFallback]);
 
   const spot = asNum(spotPrice);
@@ -349,9 +347,9 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
         <div className="flex items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-2">
             <h3 className="zg-h3" style={{ color: textColor }}>
-              Open Interest &amp; Exposure by Strike
+              Open Interest by Strike
             </h3>
-            <TooltipWrapper text="Strike-level view by call/put with three toggleable units. OI = open contracts outstanding (raw count). $ Gamma = dealer dollar gamma exposure (sign × γ × OI × 100 × spot) — the same fundamental quantity as the Gamma Exposure by Strike chart above, just measured per $1 spot move instead of per 1% spot move (differ by a factor of spot × 0.01); puts negative, calls positive. Notional = strike × 100 × OI — the dollar value of underlying that would change hands if every contract at this strike were exercised (industry-standard option position notional). The yellow dotted line marks spot at the nearest strike.">
+            <TooltipWrapper text="Strike-level open interest by call/put. OI = open contracts outstanding (raw count). Notional = strike × 100 × OI — the dollar value of underlying that would change hands if every contract at this strike were exercised (industry-standard option position notional). Calls plot above the axis, puts below, aligned on each strike. The yellow dotted line marks spot at the nearest strike.">
               <Info size={14} />
             </TooltipWrapper>
             <div
@@ -412,19 +410,6 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
                 type="button"
                 className="px-2.5 py-1 text-xs font-semibold"
                 style={{
-                  color: displayMode === 'gamma' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
-                  backgroundColor: displayMode === 'gamma' ? 'var(--color-info-soft)' : 'transparent',
-                  borderLeft: `1px solid ${inputBorder}`,
-                }}
-                onClick={() => setDisplayMode('gamma')}
-                title="Dealer dollar gamma exposure per $1 spot move (sign × γ × OI × 100 × spot)"
-              >
-                $ Gamma
-              </button>
-              <button
-                type="button"
-                className="px-2.5 py-1 text-xs font-semibold"
-                style={{
                   color: displayMode === 'notional' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
                   backgroundColor: displayMode === 'notional' ? 'var(--color-info-soft)' : 'transparent',
                   borderLeft: `1px solid ${inputBorder}`,
@@ -445,21 +430,21 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
         ) : (
           <MobileScrollableChart>
             <ResponsiveContainer width="100%" height={isMobile ? 290 : 340}>
-              <ComposedChart data={chartData} margin={{ top: 8, right: 12, left: 24, bottom: 8 }}>
+              <ComposedChart data={chartData} stackOffset="sign" margin={{ top: 8, right: 12, left: 24, bottom: 8 }}>
                 <CartesianGrid vertical={false} stroke="var(--color-grid-line)" strokeWidth={1} />
                 <XAxis dataKey="strike" type="number" domain={visibleDomain ?? ['dataMin', 'dataMax']} allowDataOverflow ticks={xTicks} padding={{ left: 20, right: 20 }} stroke={axisStroke} tick={{ fontSize: 11, fill: axisStroke }} tickFormatter={(v) => Math.round(Number(v)).toString()} minTickGap={22} />
                 <YAxis
                   yAxisId="value"
                   stroke={axisStroke}
                   tick={{ fontSize: 11, fill: axisStroke }}
-                  tickFormatter={(v) => formatAxisValue(Number(v), displayMode)}
+                  // Puts are stored negative (below the axis); show magnitudes on
+                  // both sides so the mirror reads "500k … 0 … 500k".
+                  tickFormatter={(v) => formatAxisValue(Math.abs(Number(v)), displayMode)}
                   label={{
                     value:
                       displayMode === 'oi'
                         ? 'Open Interest (contracts)'
-                        : displayMode === 'gamma'
-                          ? '$ Gamma (per $1 move)'
-                          : 'Notional ($ at exercise)',
+                        : 'Notional ($ at exercise)',
                     angle: -90,
                     position: 'insideLeft',
                     offset: 8,
@@ -468,8 +453,12 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
                 />
                 <Tooltip content={<WallMapTooltip mode={displayMode} />} />
                 <Legend verticalAlign="top" align="right" content={renderLegend} wrapperStyle={{ top: 0, right: 0 }} />
-                <Bar yAxisId="value" dataKey="callValue" name={`Call ${modeLabel(displayMode)}`} fill={'var(--color-bull)'} opacity={1} barSize={14} />
-                <Bar yAxisId="value" dataKey="putValue" name={`Put ${modeLabel(displayMode)}`} fill={'var(--color-bear)'} opacity={1} barSize={14} />
+                {/* Zero baseline for the mirror layout (calls up, puts down). */}
+                <ReferenceLine yAxisId="value" y={0} stroke={axisStroke} opacity={0.4} />
+                {/* Shared stackId centers the call-up / put-down pair on each
+                    strike (aligned, not staggered side-by-side). */}
+                <Bar yAxisId="value" stackId="oi" dataKey="callValue" name={`Call ${modeLabel(displayMode)}`} fill={'var(--color-bull)'} barSize={14} isAnimationActive={false} />
+                <Bar yAxisId="value" stackId="oi" dataKey="putValue" name={`Put ${modeLabel(displayMode)}`} fill={'var(--color-bear)'} barSize={14} isAnimationActive={false} />
 
                 {closestStrike != null && (
                   <ReferenceLine yAxisId="value" x={closestStrike} stroke="var(--color-gold)" strokeDasharray="4 4" label={{ value: `Spot ${spot.toFixed(2)}`, fill: 'var(--color-gold)', position: 'top', fontSize: 11 }} />

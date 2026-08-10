@@ -22,7 +22,7 @@ interface ExpirationMultiSelectProps {
 
 /**
  * Compact multi-select for expirations, shared by the "Gamma Exposure by
- * Strike" and "Open Interest & Exposure by Strike" charts.  Replaces the
+ * Strike" and "Open Interest by Strike" charts.  Replaces the
  * single-select ``<select>`` those charts used so the user can aggregate
  * several expirations at once.  "All expirations" clears the set; each row
  * toggles one expiration in/out, and the popover stays open across toggles

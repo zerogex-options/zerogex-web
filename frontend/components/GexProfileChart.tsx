@@ -38,6 +38,18 @@ interface StrikeRow {
   putGex: number;
 }
 
+/**
+ * Per-(strike, expiration) dealer GEX in raw dollars per 1% move, used to
+ * stack the bars by expiration and to compute each selection's share of the
+ * all-expiration total at a strike. `callGex` is >= 0, `putGex` is <= 0.
+ */
+interface PerExpirationStrikeRow {
+  strike: number;
+  expiration: string;
+  callGex: number;
+  putGex: number;
+}
+
 interface GexProfileChartProps {
   symbol: string;
   strikeData: StrikeRow[];
@@ -49,6 +61,15 @@ interface GexProfileChartProps {
   /** Selected expirations; empty array = All (aggregate across the chain). */
   selectedExpirations?: string[];
   onSelectedExpirationsChange?: (value: string[]) => void;
+  /**
+   * Full per-(strike, expiration) GEX breakdown across ALL of
+   * `expirationOptions` (never pre-filtered by the selection) — the stacked
+   * bar segments and the "% of total at this strike" baseline are both built
+   * from it.
+   */
+  perExpirationData?: PerExpirationStrikeRow[];
+  /** Today's ET date key (YYYY-MM-DD) for labelling expirations by DTE. */
+  todayKey?: string;
 }
 
 interface MergedRow {
@@ -57,6 +78,15 @@ interface MergedRow {
   putGex?: number;
   netGex?: number;
   profileGex?: number;
+  // Stacked-by-expiration additions (populated once perExpirationData is wired).
+  callSelected?: number; // selected-expiration call GEX total at this strike (>= 0)
+  putSelected?: number; // selected-expiration put GEX total (<= 0)
+  callTotalAll?: number; // all-expiration call GEX total — the % baseline (>= 0)
+  putTotalAll?: number; // all-expiration put GEX total (<= 0)
+  callRemainder?: number; // faint cap = all − selected (calls, >= 0), when filtering
+  putRemainder?: number; // faint cap = all − selected (puts, <= 0), when filtering
+  // Dynamic per-expiration segments: `call__<exp>` (>= 0), `put__<exp>` (<= 0).
+  [key: string]: number | undefined;
 }
 
 // Palette-aware — resolved from CSS variables per the active theme.
@@ -64,9 +94,29 @@ const PROFILE_LINE_COLOR = 'var(--color-gold)';
 const PROFILE_FILL_COLOR = 'var(--color-gold-soft)';
 const NET_LINE_COLOR = 'var(--text-muted)';
 
-// Match the bar width used by GexWallsChart (OPEN INTEREST & EXPOSURE BY
-// STRIKE) so the two stacked charts read as a cohesive pair.
+// Match the bar width used by GexWallsChart (OPEN INTEREST BY STRIKE) so the
+// two stacked charts read as a cohesive pair.
 const BAR_SIZE = 14;
+
+// Expiration-gradient opacity: the nearest expiration (0DTE) renders at full
+// strength, the furthest at FAR_OPACITY, interpolated by DTE rank so a bar's
+// shading reads as a time-to-expiry ramp (bold = rolls off soonest).
+const NEAR_OPACITY = 1;
+const FAR_OPACITY = 0.4;
+// The faint "everything else" cap shown above the solid selection when a
+// subset is filtered — always fainter than the faintest real segment so it
+// reads as "the remaining total", not another expiration.
+const REMAINDER_OPACITY = 0.13;
+
+// Whole-day DTE between two YYYY-MM-DD keys, parsed at UTC midnight so the
+// difference is a clean calendar-day count independent of the local offset.
+function dteBetweenKeys(todayKey: string | undefined, expKey: string): number | null {
+  if (!todayKey) return null;
+  const today = Date.parse(`${todayKey}T00:00:00Z`);
+  const exp = Date.parse(`${expKey}T00:00:00Z`);
+  if (Number.isNaN(today) || Number.isNaN(exp)) return null;
+  return Math.round((exp - today) / 86_400_000);
+}
 
 // Vertical stagger (`dy`, in px, relative to the natural `position: 'top'`
 // anchor) for the reference-line labels.  All four lines (Spot, Flip,
@@ -323,24 +373,39 @@ function ProfileTooltip({
   payload,
   label,
   spotPrice,
+  stackExpirations,
+  isSubset,
+  dteLabel,
 }: {
   active?: boolean;
-  payload?: Array<{ dataKey?: string; value?: number; color?: string }>;
+  payload?: Array<{ payload?: MergedRow }>;
   label?: number | string;
   spotPrice?: number | null;
+  stackExpirations: string[];
+  isSubset: boolean;
+  dteLabel: (exp: string) => string;
 }) {
   if (!active || !payload?.length) return null;
+  const row = payload[0]?.payload;
+  if (!row) return null;
   const strike = typeof label === 'number' ? label : Number(label);
   const distance =
     Number.isFinite(strike) && spotPrice != null && Number.isFinite(spotPrice)
       ? strike - spotPrice
       : null;
-  const findValue = (key: string) =>
-    payload.find((entry) => entry.dataKey === key)?.value;
-  const call = findValue('callGex');
-  const put = findValue('putGex');
-  const net = findValue('netGex');
-  const profile = findValue('profileGex');
+
+  // Selected-expiration totals (fall back to the plain aggregate if the
+  // per-expiration breakdown hasn't been wired), and the all-expiration
+  // baseline the selection is a percentage of.
+  const callSel = row.callSelected ?? row.callGex ?? 0;
+  const putSel = row.putSelected ?? row.putGex ?? 0;
+  const callAll = row.callTotalAll ?? callSel;
+  const putAll = row.putTotalAll ?? putSel;
+  const net = row.netGex;
+  const profile = row.profileGex;
+  const callPct = isSubset && Math.abs(callAll) > 0 ? (callSel / callAll) * 100 : null;
+  const putPct = isSubset && Math.abs(putAll) > 0 ? (putSel / putAll) * 100 : null;
+
   return (
     <div
       style={{
@@ -361,18 +426,44 @@ function ProfileTooltip({
           </span>
         )}
       </div>
-      {call != null && (
-        <div style={{ color: 'var(--color-bull)' }}>Call GEX: {formatExposure(Number(call))}</div>
-      )}
-      {put != null && (
-        <div style={{ color: 'var(--color-bear)' }}>Put GEX: {formatExposure(Number(put))}</div>
-      )}
+      <div style={{ color: 'var(--color-bull)' }}>
+        Call GEX: {formatExposure(callSel)}
+        {callPct != null && (
+          <span style={{ opacity: 0.75 }}> · {callPct.toFixed(0)}% of {formatExposure(callAll)}</span>
+        )}
+      </div>
+      <div style={{ color: 'var(--color-bear)' }}>
+        Put GEX: {formatExposure(putSel)}
+        {putPct != null && (
+          <span style={{ opacity: 0.75 }}> · {putPct.toFixed(0)}% of {formatExposure(putAll)}</span>
+        )}
+      </div>
       {net != null && (
         <div style={{ color: 'var(--color-text-primary)' }}>Net GEX: {formatExposure(Number(net))}</div>
       )}
       {profile != null && (
         <div style={{ color: PROFILE_LINE_COLOR }}>
           GEX Profile: {formatExposure(Number(profile))}
+        </div>
+      )}
+      {stackExpirations.length > 1 && (
+        <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid var(--color-border)' }}>
+          <div style={{ opacity: 0.7, marginBottom: 2 }}>By expiration (roll-off)</div>
+          {stackExpirations.map((exp) => {
+            const c = Number(row[`call__${exp}`] ?? 0);
+            const p = Number(row[`put__${exp}`] ?? 0);
+            if (c === 0 && p === 0) return null;
+            return (
+              <div key={exp} style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}>
+                <span style={{ opacity: 0.85 }}>{dteLabel(exp)}</span>
+                <span>
+                  <span style={{ color: 'var(--color-bull)' }}>{formatExposure(c)}</span>
+                  <span style={{ opacity: 0.5 }}> / </span>
+                  <span style={{ color: 'var(--color-bear)' }}>{formatExposure(p)}</span>
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -389,6 +480,8 @@ export default function GexProfileChart({
   expirationOptions,
   selectedExpirations,
   onSelectedExpirationsChange,
+  perExpirationData,
+  todayKey,
 }: GexProfileChartProps) {
   const { theme } = useTheme();
   const { gexUnit } = useGexUnit();
@@ -407,6 +500,59 @@ export default function GexProfileChart({
   // A non-empty selection scopes the whole chart to those expirations.
   const isSubsetSelection = (selectedExpirations?.length ?? 0) > 0;
 
+  // Expiration universe (ascending = nearest first) and the subset actually
+  // stacked: the whole universe when "All", else just the picked expirations.
+  const allExpirationsSorted = useMemo(
+    () => [...(expirationOptions ?? [])].sort((a, b) => a.localeCompare(b)),
+    [expirationOptions],
+  );
+  const stackExpirations = useMemo(() => {
+    const sel = selectedExpirations ?? [];
+    if (sel.length === 0) return allExpirationsSorted;
+    const selSet = new Set(sel);
+    return allExpirationsSorted.filter((exp) => selSet.has(exp));
+  }, [allExpirationsSorted, selectedExpirations]);
+
+  // DTE-ranked opacity, keyed on the FULL universe so a segment's shade is
+  // stable regardless of which expirations are filtered in.
+  const expirationOpacity = useMemo(() => {
+    const m = new Map<string, number>();
+    const n = allExpirationsSorted.length;
+    allExpirationsSorted.forEach((exp, i) => {
+      const t = n <= 1 ? 0 : i / (n - 1);
+      m.set(exp, NEAR_OPACITY - t * (NEAR_OPACITY - FAR_OPACITY));
+    });
+    return m;
+  }, [allExpirationsSorted]);
+
+  const dteLabel = useMemo(() => {
+    return (exp: string): string => {
+      const dte = dteBetweenKeys(todayKey, exp);
+      if (dte == null) return exp;
+      return dte <= 0 ? '0DTE' : `${dte}DTE`;
+    };
+  }, [todayKey]);
+
+  // strike -> expiration -> {callGex, putGex} lookup for the bar segments and
+  // the all-expiration % baseline. Built from the unfiltered per-expiration
+  // feed so the baseline is the true total even while a subset is displayed.
+  const perStrikeExp = useMemo(() => {
+    const m = new Map<number, Map<string, { callGex: number; putGex: number }>>();
+    (perExpirationData ?? []).forEach((r) => {
+      if (!Number.isFinite(r.strike)) return;
+      let inner = m.get(r.strike);
+      if (!inner) {
+        inner = new Map();
+        m.set(r.strike, inner);
+      }
+      const cur = inner.get(r.expiration) ?? { callGex: 0, putGex: 0 };
+      cur.callGex += r.callGex;
+      cur.putGex += r.putGex;
+      inner.set(r.expiration, cur);
+    });
+    return m;
+  }, [perExpirationData]);
+
   // Stored GEX is "per 1% move"; the unit toggle scales every dollar value
   // (bars + profile) by one factor (×100/spot for per-point).  Applying it
   // here, at the single data source the axes/bars/tooltip all read from,
@@ -421,18 +567,54 @@ export default function GexProfileChart({
     //     own bars, since the spot-shift profile can't be rebuilt for a
     //     subset (no per-strike IV persisted).  Keeps the curve, flip and
     //     bars mutually consistent for the selection.
-    const rows = isSubsetSelection
+    const base = isSubsetSelection
       ? cumulativeNetGexProfile(strikeData)
       : mergeProfileWithStrikes(strikeData, profileData?.profile ?? []);
-    if (gexFactor === 1) return rows;
-    return rows.map((r) => ({
-      ...r,
-      callGex: r.callGex != null ? r.callGex * gexFactor : r.callGex,
-      putGex: r.putGex != null ? r.putGex * gexFactor : r.putGex,
-      netGex: r.netGex != null ? r.netGex * gexFactor : r.netGex,
-      profileGex: r.profileGex != null ? r.profileGex * gexFactor : r.profileGex,
-    }));
-  }, [strikeData, profileData?.profile, gexFactor, isSubsetSelection]);
+
+    return base.map((row) => {
+      const out: MergedRow = {
+        strike: row.strike,
+        callGex: row.callGex != null ? row.callGex * gexFactor : row.callGex,
+        putGex: row.putGex != null ? row.putGex * gexFactor : row.putGex,
+        netGex: row.netGex != null ? row.netGex * gexFactor : row.netGex,
+        profileGex: row.profileGex != null ? row.profileGex * gexFactor : row.profileGex,
+      };
+
+      // Per-expiration segments + the selected / all-expiration totals used
+      // for stacking and the "% of total at this strike" readout. Puts are
+      // forced negative so they stack downward regardless of source sign.
+      const inner = perStrikeExp.get(row.strike);
+      let callSel = 0;
+      let putSelMag = 0;
+      let callAll = 0;
+      let putAllMag = 0;
+      if (inner) {
+        inner.forEach((v) => {
+          callAll += v.callGex;
+          putAllMag += Math.abs(v.putGex);
+        });
+      }
+      stackExpirations.forEach((exp) => {
+        const v = inner?.get(exp);
+        const c = v ? v.callGex : 0;
+        const pMag = v ? Math.abs(v.putGex) : 0;
+        out[`call__${exp}`] = c * gexFactor;
+        out[`put__${exp}`] = -pMag * gexFactor;
+        callSel += c;
+        putSelMag += pMag;
+      });
+      out.callSelected = callSel * gexFactor;
+      out.putSelected = -putSelMag * gexFactor;
+      out.callTotalAll = callAll * gexFactor;
+      out.putTotalAll = -putAllMag * gexFactor;
+      // Faint cap = the un-selected remainder, so the solid selection reads as
+      // a fraction of the full all-expiration bar. Only meaningful when a real
+      // subset is filtered; "All" leaves it at zero (nothing to cap).
+      out.callRemainder = isSubsetSelection ? Math.max(0, callAll - callSel) * gexFactor : 0;
+      out.putRemainder = isSubsetSelection ? -Math.max(0, putAllMag - putSelMag) * gexFactor : 0;
+      return out;
+    });
+  }, [strikeData, profileData?.profile, gexFactor, isSubsetSelection, perStrikeExp, stackExpirations]);
 
   // Flip drawn on the chart = zero crossing of the GEX Profile curve above,
   // so the flip line always sits exactly where the curve crosses zero.
@@ -547,6 +729,12 @@ export default function GexProfileChart({
     let strikeAbs = 0;
     let profileAbs = 0;
     merged.forEach((row) => {
+      // Bars now stack to the full all-expiration total at each strike (the
+      // solid selection plus the faint remainder cap), so the bar axis is
+      // scaled to callTotalAll / putTotalAll — stable across filtering, which
+      // is what lets the selection read as a fraction of the whole.
+      if (row.callTotalAll != null) strikeAbs = Math.max(strikeAbs, Math.abs(row.callTotalAll));
+      if (row.putTotalAll != null) strikeAbs = Math.max(strikeAbs, Math.abs(row.putTotalAll));
       if (row.callGex != null) strikeAbs = Math.max(strikeAbs, Math.abs(row.callGex));
       if (row.putGex != null) strikeAbs = Math.max(strikeAbs, Math.abs(row.putGex));
       if (row.netGex != null) strikeAbs = Math.max(strikeAbs, Math.abs(row.netGex));
@@ -588,7 +776,7 @@ export default function GexProfileChart({
             <h3 className="zg-h3" style={{ color: textColor }}>
               Gamma Exposure by Strike
             </h3>
-            <TooltipWrapper text="Per-strike dealer GEX bars (left axis) overlaid with the GEX Profile curve (right axis). GEX here is dollar gamma per 1% spot move (γ × 100 × spot² × 0.01), the industry-standard normalization — used here because it compares cleanly across underlyings of different price levels. This is the same fundamental quantity shown as '$ Gamma' in the Open Interest & Exposure by Strike chart below, just measured per 1% spot move instead of per $1 spot move (they differ by a factor of spot × 0.01). The profile curve is the shared primitive whose zero crossing is the gamma flip and whose value at spot is the Net GEX at Spot. With All expirations selected the curve is the full-chain spot-shift profile (and the flip matches the headline metric); when you select specific expirations the bars, curve, walls and flip all scope to that set — the curve becomes the cumulative net-GEX of the selected expirations, so its zero crossing is still the flip. Reference lines mark spot, the gamma flip, and the call/put walls.">
+            <TooltipWrapper text="Per-strike dealer GEX bars (left axis) overlaid with the GEX Profile curve (right axis). Calls plot up, puts down, aligned on each strike. Each bar is stacked by expiration and shaded by time-to-expiry — the nearest expiration (0DTE) is boldest and the furthest is faintest — so you can read how much gamma rolls off in N days. GEX here is dollar gamma per 1% spot move (γ × 100 × spot² × 0.01), the industry-standard normalization that compares cleanly across underlyings. When you filter to specific expirations, the solid bar is the selected expirations' gamma and a faint cap shows the rest, so the bar reads as a share of the all-expiration total at that strike — hover for the exact % (e.g. 0DTE = $900M, 90% of the $1B at that strike). The profile curve is the shared primitive whose zero crossing is the gamma flip and whose value at spot is the Net GEX at Spot. With All expirations the curve is the full-chain spot-shift profile (flip matches the headline metric); with a subset the bars, curve, walls and flip all scope to that set (the curve becomes the selected expirations' cumulative net-GEX, so its zero crossing is still the flip). Reference lines mark spot, the gamma flip, and the call/put walls.">
               <Info size={14} />
             </TooltipWrapper>
             <span
@@ -647,14 +835,43 @@ export default function GexProfileChart({
                 onChange={onSelectedExpirationsChange}
               />
             )}
-            <div className="flex items-center gap-1.5">
-              <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: 'var(--color-bull)' }} />
+            <div
+              className="flex items-center gap-1.5"
+              title="Stacked by expiration — nearest (0DTE) boldest, furthest faintest"
+            >
+              <span
+                className="inline-block h-3 w-5 rounded-sm"
+                style={{ background: 'linear-gradient(90deg, var(--color-bull) 0%, color-mix(in srgb, var(--color-bull) 40%, transparent) 100%)' }}
+              />
               Call GEX
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: 'var(--color-bear)' }} />
+            <div
+              className="flex items-center gap-1.5"
+              title="Stacked by expiration — nearest (0DTE) boldest, furthest faintest"
+            >
+              <span
+                className="inline-block h-3 w-5 rounded-sm"
+                style={{ background: 'linear-gradient(90deg, var(--color-bear) 0%, color-mix(in srgb, var(--color-bear) 40%, transparent) 100%)' }}
+              />
               Put GEX
             </div>
+            <div className="flex items-center gap-1.5" title="0DTE (near) → highest DTE (far)">
+              <span style={{ opacity: 0.7 }}>near</span>
+              <span
+                className="inline-block h-2 w-8 rounded-sm"
+                style={{ background: 'linear-gradient(90deg, var(--text-muted) 0%, color-mix(in srgb, var(--text-muted) 25%, transparent) 100%)' }}
+              />
+              <span style={{ opacity: 0.7 }}>far</span>
+            </div>
+            {isSubsetSelection && (
+              <div className="flex items-center gap-1.5" title="Faint cap = the other (unselected) expirations at that strike — the selected bar is a share of the full total">
+                <span
+                  className="inline-block h-3 w-3 rounded-sm"
+                  style={{ backgroundColor: 'color-mix(in srgb, var(--text-muted) 22%, transparent)', border: '1px solid var(--color-border)' }}
+                />
+                Other exp
+              </div>
+            )}
             <div className="flex items-center gap-1.5">
               <span className="inline-block h-0.5 w-4" style={{ backgroundColor: NET_LINE_COLOR }} />
               Net GEX
@@ -695,6 +912,7 @@ export default function GexProfileChart({
                   reference-line labels (see REF_LABEL_STAGGER). */}
               <ComposedChart
                 data={merged}
+                stackOffset="sign"
                 margin={{ top: REF_LABEL_TOP_MARGIN, right: 16, left: 16, bottom: 8 }}
               >
                 <CartesianGrid vertical={false} stroke="var(--color-grid-line)" strokeWidth={1} />
@@ -758,7 +976,16 @@ export default function GexProfileChart({
                     style: { fill: axisStroke, fontSize: 11, textAnchor: 'middle' },
                   }}
                 />
-                <Tooltip content={<ProfileTooltip spotPrice={spotPrice ?? null} />} />
+                <Tooltip
+                  content={
+                    <ProfileTooltip
+                      spotPrice={spotPrice ?? null}
+                      stackExpirations={stackExpirations}
+                      isSubset={isSubsetSelection}
+                      dteLabel={dteLabel}
+                    />
+                  }
+                />
 
                 {/* Zero line for the bar axis, drawn first so bars/lines paint over it. */}
                 <ReferenceLine yAxisId="strike" y={0} stroke={axisStroke} opacity={0.4} />
@@ -783,23 +1010,85 @@ export default function GexProfileChart({
                   dot={false}
                 />
 
-                {/* Per-strike bars: calls push up (positive), puts push down. */}
-                <Bar
-                  yAxisId="strike"
-                  dataKey="callGex"
-                  name="Call GEX"
-                  fill={'var(--color-bull)'}
-                  barSize={BAR_SIZE}
-                  isAnimationActive={false}
-                />
-                <Bar
-                  yAxisId="strike"
-                  dataKey="putGex"
-                  name="Put GEX"
-                  fill={'var(--color-bear)'}
-                  barSize={BAR_SIZE}
-                  isAnimationActive={false}
-                />
+                {/* Per-strike bars, stacked by expiration on one signed stack
+                    so calls push up and puts push down aligned on the strike
+                    (stackOffset="sign"). Nearest expiration renders first =
+                    at the base (boldest); the faint remainder cap renders last
+                    = at the outer edge, so the solid selection reads as a
+                    share of the full all-expiration total. When no expiration
+                    universe is available, fall back to the plain aggregate. */}
+                {stackExpirations.map((exp) => (
+                  <Bar
+                    key={`call-${exp}`}
+                    yAxisId="strike"
+                    stackId="gex"
+                    dataKey={`call__${exp}`}
+                    name={`Call GEX ${dteLabel(exp)}`}
+                    fill={'var(--color-bull)'}
+                    fillOpacity={expirationOpacity.get(exp) ?? 1}
+                    barSize={BAR_SIZE}
+                    isAnimationActive={false}
+                  />
+                ))}
+                {stackExpirations.map((exp) => (
+                  <Bar
+                    key={`put-${exp}`}
+                    yAxisId="strike"
+                    stackId="gex"
+                    dataKey={`put__${exp}`}
+                    name={`Put GEX ${dteLabel(exp)}`}
+                    fill={'var(--color-bear)'}
+                    fillOpacity={expirationOpacity.get(exp) ?? 1}
+                    barSize={BAR_SIZE}
+                    isAnimationActive={false}
+                  />
+                ))}
+                {isSubsetSelection && (
+                  <Bar
+                    yAxisId="strike"
+                    stackId="gex"
+                    dataKey="callRemainder"
+                    name="Other expirations"
+                    fill={'var(--color-bull)'}
+                    fillOpacity={REMAINDER_OPACITY}
+                    barSize={BAR_SIZE}
+                    isAnimationActive={false}
+                  />
+                )}
+                {isSubsetSelection && (
+                  <Bar
+                    yAxisId="strike"
+                    stackId="gex"
+                    dataKey="putRemainder"
+                    name="Other expirations"
+                    fill={'var(--color-bear)'}
+                    fillOpacity={REMAINDER_OPACITY}
+                    barSize={BAR_SIZE}
+                    isAnimationActive={false}
+                  />
+                )}
+                {stackExpirations.length === 0 && (
+                  <Bar
+                    yAxisId="strike"
+                    stackId="gex"
+                    dataKey="callGex"
+                    name="Call GEX"
+                    fill={'var(--color-bull)'}
+                    barSize={BAR_SIZE}
+                    isAnimationActive={false}
+                  />
+                )}
+                {stackExpirations.length === 0 && (
+                  <Bar
+                    yAxisId="strike"
+                    stackId="gex"
+                    dataKey="putGex"
+                    name="Put GEX"
+                    fill={'var(--color-bear)'}
+                    barSize={BAR_SIZE}
+                    isAnimationActive={false}
+                  />
+                )}
 
                 {/* Net GEX per strike as a thin line — same axis as the bars
                     so it tracks the bar magnitudes, not the profile. */}
