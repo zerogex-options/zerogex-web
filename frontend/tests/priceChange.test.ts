@@ -1,16 +1,17 @@
-// Fixtures for the shared headline price/change calc (getPrimaryPriceChangeSummary).
+// Fixtures for the shared price/change calcs in core/priceChange.ts.
 //
-// The bug this guards against: on the Gamma Chart, which draws the live
-// pre-market / after-hours tape inline, the headline price + change froze on
-// the regular-session 4 PM close while the candles beside it kept moving — so
-// the quote looked stuck relative to the chart in extended-hours sessions.
+// getPrimaryPriceChangeSummary — the default reading is the "official close":
+// in pre-market / after-hours it shows current_session_close (the header pairs
+// that with a separate live row; the metric cards show it alone). Opting in
+// with preferLiveExtendedHours makes displayPrice follow the live quote close,
+// so a price marker riding it (the Gamma Chart's tape/marker) stays on the live
+// extended tape. When that reading's change is read, the baseline is the most
+// recent COMPLETED regular close — current_session_close in pre-market,
+// prior_session_close in after-hours — so it's continuous across both the 09:30
+// and 16:00 session flips.
 //
-// The default reading (used by the header row-1 and the metric cards, which
-// pair it with a SEPARATE live extended-hours row) must be unchanged: in
-// extended hours it still shows current_session_close. Opting in with
-// preferLiveExtendedHours routes the extended-hours headline to the live quote
-// close so it tracks the tape; the change baseline stays prior_session_close,
-// so the value is continuous across the 16:00 flip.
+// getExtendedHoursRow — the ETF-only second line: live extended price vs the
+// most-recent cash close (current_session_close), TradingView's pre/post basis.
 import test from "node:test";
 import assert from "node:assert/strict";
 
@@ -92,16 +93,32 @@ test("after-hours, FLAG ON, price below prior close → negative change", () => 
   assert.equal(r.isPositive, false);
 });
 
-test("pre-market, FLAG ON → live pre-market quote vs prior close", () => {
+test("pre-market, DEFAULT → frozen regular close (symmetry with after-hours default)", () => {
   const r = getPrimaryPriceChangeSummary({
-    quoteClose: 746.0, // live pre-market
+    quoteClose: 746.0, // live pre-market — ignored by default
     quoteSession: "pre-market",
     sessionCloses: closes(747.0, 745.0),
+  });
+  assert.equal(r.displayPrice, 747.0); // current_session_close (last regular close)
+  assert.equal(r.change, 2.0); // 747.00 − 745.00, the row-1 last-session change
+  assert.equal(r.isPositive, true);
+});
+
+test("pre-market, FLAG ON → live quote vs current_session_close (most recent close)", () => {
+  // Pre-market's most recent COMPLETED regular close is current_session_close
+  // (today hasn't closed yet); prior_session_close is two sessions back. The
+  // baseline must be current — using prior is an off-by-one session that can
+  // render a down tape as green. Here the tape is BELOW yesterday's close.
+  const r = getPrimaryPriceChangeSummary({
+    quoteClose: 746.0, // live pre-market, under yesterday's 747.00 close
+    quoteSession: "pre-market",
+    sessionCloses: closes(747.0 /* yesterday's close */, 745.0 /* two sessions back */),
     preferLiveExtendedHours: true,
   });
   assert.equal(r.displayPrice, 746.0);
-  assert.equal(r.change, 1.0); // 746.00 − 745.00 (prior_session_close)
-  assert.equal(r.isPositive, true);
+  assert.equal(r.change, -1.0); // 746.00 − 747.00, NOT 746.00 − 745.00 (+1.0)
+  approx(r.changePercent, (-1.0 / 747.0) * 100);
+  assert.equal(r.isPositive, false); // down on the tape → red, not green
 });
 
 test("FLAG ON → change is continuous across the 16:00 open→after-hours flip", () => {
@@ -126,6 +143,28 @@ test("FLAG ON → change is continuous across the 16:00 open→after-hours flip"
   assert.equal(open.change, 2.0);
 });
 
+test("FLAG ON → change is continuous across the 09:30 pre-market→open flip", () => {
+  // current_session_close (the most recent close) is unchanged from pre-market
+  // into the cash session, so the same live price P must yield the same change
+  // on both sides of 09:30 — no jump when the label flips to open.
+  const P = 746.0;
+  const preMarket = getPrimaryPriceChangeSummary({
+    quoteClose: P,
+    quoteSession: "pre-market",
+    sessionCloses: closes(747.0 /* current = yesterday's close */, 745.0),
+    preferLiveExtendedHours: true,
+  });
+  const open = getPrimaryPriceChangeSummary({
+    quoteClose: P,
+    quoteSession: "open",
+    sessionCloses: closes(747.0 /* current = yesterday's close, unchanged */, 745.0),
+    preferLiveExtendedHours: true,
+  });
+  assert.equal(preMarket.displayPrice, open.displayPrice);
+  assert.equal(preMarket.change, open.change);
+  assert.equal(open.change, -1.0);
+});
+
 test("futures display swap wins even with the flag on", () => {
   // The overnight index→future swap is resolved first and is unaffected by the
   // extended-hours preference.
@@ -147,7 +186,7 @@ test("closed session, FLAG ON → still the regular close (nothing is trading)",
   // The flag only unfreezes extended hours. When the market is fully closed the
   // headline stays on the last regular-session close, matching the candles,
   // which freeze at that print too.
-  for (const quoteSession of ["closed", "closed-weekend"]) {
+  for (const quoteSession of ["closed", "closed-weekend", "closed-holiday"]) {
     const r = getPrimaryPriceChangeSummary({
       quoteClose: 750.5, // stale last print
       quoteSession,

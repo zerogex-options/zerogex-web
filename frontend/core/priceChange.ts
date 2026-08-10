@@ -23,14 +23,24 @@ interface PriceChangeParams {
    * the headline on the regular-session close.
    *
    * The default (false) is the "official close" reading: in extended hours the
-   * displayPrice is `current_session_close` — a stable 4 PM print that the
-   * header row-1 and the metric cards pair with a SEPARATE live extended-hours
-   * row. Surfaces that draw the live extended-hours tape inline (the Gamma
-   * Chart) have no such second row, so a frozen headline visibly diverges from
-   * the candles moving beside it. Set this true there and the headline follows
-   * the live quote close. The change baseline stays `prior_session_close`, so
-   * the value is continuous with the regular-session day-change across 16:00 —
-   * it doesn't jump when the session flips.
+   * displayPrice is `current_session_close`, the stable last 4 PM print. The
+   * header pairs that row-1 with a SEPARATE live extended-hours row; the metric
+   * cards show it on its own as the last-regular-close reading. Either way the
+   * frozen close is what those surfaces want.
+   *
+   * Surfaces that anchor a live price MARKER to the extended-hours tape (the
+   * Gamma Chart's `tape` reading — the candle marker + regime line) instead need
+   * the displayPrice to follow the live quote close, or the marker sits away from
+   * the candles moving beside it. Set this true there. The user-facing live
+   * extended-hours delta is a SEPARATE row (getExtendedHoursRow, always vs
+   * current_session_close); this flag is about the price the marker rides.
+   *
+   * When a caller also reads this reading's change, the baseline is the most
+   * recent COMPLETED regular close so the day-change is continuous across both
+   * the 09:30 and 16:00 flips — and that close lives in a different field on each
+   * side of 16:00: `current_session_close` during pre-market (today hasn't closed
+   * yet), `prior_session_close` during after-hours (today's close has already
+   * rolled into current). See baseClose.
    */
   preferLiveExtendedHours?: boolean;
 }
@@ -69,13 +79,21 @@ export function getPrimaryPriceChangeSummary({
   const typedSession = quoteSession as MarketSession | null;
   const isExtendedHours = typedSession === 'pre-market' || typedSession === 'after-hours';
 
-  const isClosed = typedSession === 'closed' || typedSession === 'closed-weekend';
+  // Every fully-closed state (overnight, weekend, holiday) shows the last
+  // regular close, matching the frozen candles on those days.
+  const isClosed =
+    typedSession === 'closed' ||
+    typedSession === 'closed-weekend' ||
+    typedSession === 'closed-holiday';
 
   // In extended hours, opt-in surfaces (the Gamma Chart) track the live quote
   // close so the headline stays in step with the tape drawn beside it; every
-  // other caller keeps the stable regular-session close. `closed` is never
-  // "live" — nothing is trading, so it always falls back to the 4 PM close.
-  const trackLiveExtended = preferLiveExtendedHours && isExtendedHours && quoteClose != null;
+  // other caller keeps the stable regular-session close. Guarded on a FINITE
+  // quote so a missing / NaN tick falls back to the close instead of rendering
+  // NaN. Closed / weekend / holiday are never "live" — nothing is trading — so
+  // they always fall back to the last 4 PM close.
+  const trackLiveExtended =
+    preferLiveExtendedHours && isExtendedHours && quoteClose != null && Number.isFinite(quoteClose);
 
   const displayPrice = trackLiveExtended
     ? quoteClose
@@ -83,7 +101,19 @@ export function getPrimaryPriceChangeSummary({
       ? (sessionCloses?.current_session_close ?? null)
       : (quoteClose ?? null);
 
-  const baseClose = typedSession === 'open'
+  // Change baseline — the most recent COMPLETED regular-session close.
+  //   • open (default) → current_session_close (yesterday's close intraday)
+  //   • otherwise      → prior_session_close (header row-1 / card convention)
+  // The live extended-hours headline must sit against that same "most recent
+  // completed close", but which field holds it flips at 16:00: during pre-market
+  // today hasn't closed, so current_session_close IS it (prior is two sessions
+  // back — the off-by-one that flipped the pre-market change sign); during
+  // after-hours today's close has already rolled into current, so the one before
+  // it, prior_session_close, is the right baseline (and keeps 16:00 continuous).
+  const useCurrentAsBase = trackLiveExtended
+    ? typedSession === 'pre-market'
+    : typedSession === 'open';
+  const baseClose = useCurrentAsBase
     ? (sessionCloses?.current_session_close ?? null)
     : (sessionCloses?.prior_session_close ?? null);
 
