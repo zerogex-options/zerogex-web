@@ -26,6 +26,7 @@ import { LanguageProvider } from '@/core/LanguageContext';
 import { normalizeLocale } from '@/core/i18n/locales';
 import { TimeframeProvider } from '@/core/TimeframeContext';
 import { GexUnitProvider } from '@/core/GexUnitContext';
+import { StrikeFilterProvider } from '@/core/StrikeFilterContext';
 import { DensityProvider } from '@/core/DensityContext';
 import ClientLayout from '@/components/ClientLayout';
 import TelemetryProvider from '@/components/TelemetryProvider';
@@ -286,14 +287,16 @@ export default async function RootLayout({
           <LanguageProvider initialLocale={locale}>
             <TimeframeProvider>
               <GexUnitProvider>
-                <DensityProvider>
-                  <TelemetryProvider />
-                  <TwitterPixelProvider />
-                  <PageAnalytics />
-                  <ClientLayout>
-                    {children}
-                  </ClientLayout>
-                </DensityProvider>
+                <StrikeFilterProvider>
+                  <DensityProvider>
+                    <TelemetryProvider />
+                    <TwitterPixelProvider />
+                    <PageAnalytics />
+                    <ClientLayout>
+                      {children}
+                    </ClientLayout>
+                  </DensityProvider>
+                </StrikeFilterProvider>
               </GexUnitProvider>
             </TimeframeProvider>
           </LanguageProvider>

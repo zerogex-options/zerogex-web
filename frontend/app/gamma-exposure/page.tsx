@@ -23,11 +23,14 @@ import GexRegimeHeader from '@/components/GexRegimeHeader';
 import GexProfileChart from '@/components/GexProfileChart';
 import GexStrikeDteHeatmap from '@/components/GexStrikeDteHeatmap';
 import GexUnitToggle from '@/components/GexUnitToggle';
+import StrikeFilterToggle from '@/components/StrikeFilterToggle';
 import GexWallsChart from '@/components/GexWallsChart';
 import CharmVannaFlows from '@/components/CharmVannaFlows';
 import VolSurfaceChart from '@/components/VolSurfaceChart';
 import ExpandableCard, { useExpandedCard } from '@/components/ExpandableCard';
 import { useTimeframe } from '@/core/TimeframeContext';
+import { useStrikeFilter } from '@/core/StrikeFilterContext';
+import { selectActive } from '@/core/strikeFilter';
 import { useTheme } from '@/core/ThemeContext';
 import { etTodayDateKey } from '@/core/utils';
 
@@ -129,6 +132,7 @@ function aggregateStrikes(rows: GexByStrikeRow[] | null | undefined): StrikeAggr
 
 export default function GammaExposurePage() {
   const { symbol, timeframe, setTimeframe } = useTimeframe();
+  const { activeOnly } = useStrikeFilter();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const cardBg = isDark ? 'var(--color-surface)' : 'var(--color-surface)';
@@ -276,7 +280,12 @@ export default function GammaExposurePage() {
   }, [strikeProfileBuckets]);
 
   const sortedRows = useMemo(() => {
-    const cloned = [...strikeData];
+    // Hide strikes with no open interest when the shared "Active" filter is on,
+    // so a fine-grid chain like NDX surfaces real levels instead of the many
+    // listed-but-empty strikes; falls back to the full set when nothing has OI
+    // yet (e.g. a degraded pre-market snapshot). See selectActive.
+    const base = selectActive(strikeData, activeOnly, (r) => r.callOi + r.putOi > 0);
+    const cloned = [...base];
     cloned.sort((a, b) => {
       const av = a[sortKey];
       const bv = b[sortKey];
@@ -284,7 +293,7 @@ export default function GammaExposurePage() {
       return sortDir === 'asc' ? comparison : -comparison;
     });
     return cloned;
-  }, [strikeData, sortKey, sortDir]);
+  }, [strikeData, activeOnly, sortKey, sortDir]);
 
   // Raw-dollar strike rows for the GEX Profile chart.  The /api/gex/profile
   // endpoint returns the spot-shift curve in raw dollars per 1% move, so
@@ -620,7 +629,7 @@ export default function GammaExposurePage() {
       <section className="mb-8">
         <ExpandableCard expandTrigger="button" expandButtonLabel="Expand card">
           <div className="rounded-lg p-6" style={{ backgroundColor: cardBg, border: `1px solid ${borderColor}` }}>
-            <SectionHead title="GEX Metrics Snapshot" tooltip="Filter expirations and inspect strike-level net GEX, vanna, charm, OI, and volume from /api/gex/by-strike." />
+            <SectionHead title="GEX Metrics Snapshot" tooltip="Filter expirations and inspect strike-level net GEX, vanna, charm, OI, and volume from /api/gex/by-strike. The Strikes toggle hides strikes with no open interest (Active) or shows every listed strike (All)." />
             {byStrikeError ? <ErrorMessage message={byStrikeError} /> : expirationOptions.length === 0 ? (
               <div className="text-center py-8" style={{ color: mutedText }}>No strike-level gamma data available</div>
             ) : (
@@ -689,6 +698,10 @@ export default function GammaExposurePage() {
                       </button>
                     );
                   })}
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    <span className="text-sm" style={{ color: mutedText }}>Strikes:</span>
+                    <StrikeFilterToggle showHint={false} />
+                  </div>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-2 zg-eyebrow" style={{ color: 'var(--text-secondary)' }}>

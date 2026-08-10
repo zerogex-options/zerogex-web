@@ -12,9 +12,10 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, Info, Sparkles } from "lucide-react";
+import { ChevronDown, Sparkles } from "lucide-react";
 import PageShell from "@/components/layout/PageShell";
 import PairGammaHeatmap, { type HeatmapCell, type HeatmapColumnInput } from "@/components/PairGammaHeatmap";
+import StrikeFilterToggle from "@/components/StrikeFilterToggle";
 import PairReplayScrubber from "@/components/PairReplayScrubber";
 import PairCandleChart from "@/components/PairCandleChart";
 import GexUnitToggle from "@/components/GexUnitToggle";
@@ -24,6 +25,7 @@ import { type ChartTimeframe } from "@/components/ChartTimeframeSelect";
 import { useApiData, useGEXSummary, useMarketQuote, useSessionCloses } from "@/hooks/useApiData";
 import { usePairReplay, type PairReplayData, type ReplayFrame, type ReplayCandle } from "@/hooks/usePairReplay";
 import { useGexUnit } from "@/core/GexUnitContext";
+import { useStrikeFilter } from "@/core/StrikeFilterContext";
 import { useTimeframe, type UnderlyingSymbol } from "@/core/TimeframeContext";
 import { SYMBOLS } from "@/core/symbols";
 import { getPrimaryPriceChangeSummary } from "@/core/priceChange";
@@ -34,11 +36,6 @@ const TIMEFRAME_OPTIONS: Array<{ value: ChartTimeframe; label: string }> = [
   { value: "15min", label: "15m" },
   { value: "1hr", label: "1h" },
   { value: "1day", label: "1D" },
-];
-
-const STRIKE_FILTER_OPTIONS: Array<{ value: boolean; label: string }> = [
-  { value: true, label: "Active" },
-  { value: false, label: "All" },
 ];
 
 const INFO_TEXT =
@@ -183,29 +180,6 @@ function TimeframeSeg({ value, onChange }: { value: ChartTimeframe; onChange: (v
   );
 }
 
-// Strike-filter segmented control for the ladders. "Active" hides strikes with
-// no dealer gamma so the fixed-height window fills with real levels — the fix
-// for high-priced chains (NDX) that list a fine grid but only accrue OI on the
-// round strikes; "All" restores every listed strike near spot.
-function StrikeFilterSeg({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <div className="zg-gc-seg" role="tablist" aria-label="Strike filter">
-      {STRIKE_FILTER_OPTIONS.map((t) => (
-        <button
-          key={String(t.value)}
-          type="button"
-          className="zg-gc-seg-btn"
-          data-active={t.value === value}
-          onClick={() => onChange(t.value)}
-          aria-pressed={t.value === value}
-        >
-          {t.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 // Build the live-mode input for one column from the polling hooks.
 function useLiveColumn(symbol: UnderlyingSymbol, enabled: boolean): Omit<HeatmapColumnInput, "control"> {
   const { data: summary } = useGEXSummary(symbol, 1000, enabled);
@@ -281,10 +255,10 @@ export default function PairComparisonClient() {
   const [speed, setSpeed] = useState(4);
   const [loop, setLoop] = useState(true);
   const [timeframe, setTimeframe] = useState<ChartTimeframe>("5min");
-  // Ladder strike filter — default to active-only so NDX (and any high-priced
-  // chain with a fine listed grid) fills the window with real levels instead of
-  // listed-but-empty strikes. Users can switch to "All" to see every strike.
-  const [activeOnly, setActiveOnly] = useState(true);
+  // Ladder strike filter — a shared, persisted preference (see
+  // StrikeFilterContext) so it stays in sync with the Gamma Exposure table and
+  // survives reloads. The toggle UI lives in <StrikeFilterToggle/>.
+  const { activeOnly } = useStrikeFilter();
 
   const liveEnabled = mode === "live";
   const live1 = useLiveColumn(sym1, liveEnabled);
@@ -413,12 +387,7 @@ export default function PairComparisonClient() {
         <span className="zg-eyebrow" style={{ fontSize: 10 }}>Candles</span>
         <TimeframeSeg value={timeframe} onChange={setTimeframe} />
         <span className="zg-eyebrow" style={{ fontSize: 10 }}>Strikes</span>
-        <div className="inline-flex items-center gap-1.5">
-          <StrikeFilterSeg value={activeOnly} onChange={setActiveOnly} />
-          <TooltipWrapper text="Active hides strikes with no dealer gamma (net GEX 0), so the ladder fills with real levels — high-priced chains like NDX list a fine strike grid but only accrue open interest on the round 25-pt strikes. All shows every listed strike near spot.">
-            <Info size={13} style={{ color: "var(--text-muted)" }} />
-          </TooltipWrapper>
-        </div>
+        <StrikeFilterToggle />
         <div className="flex items-center gap-2 ml-auto">
           <span className="zg-eyebrow" style={{ fontSize: 10 }}>GEX unit</span>
           <GexUnitToggle showHint={false} />

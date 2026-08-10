@@ -34,7 +34,7 @@
 import { useMemo, type ReactNode } from "react";
 import { Crown } from "lucide-react";
 import { gexScaleFactor, GEX_UNIT_LABEL, type GexUnit } from "@/core/GexUnitContext";
-import { selectActiveCells } from "./pairGammaHeatmap.helpers";
+import { selectActiveCells } from "@/core/strikeFilter";
 import LoadingSpinner from "./LoadingSpinner";
 import ErrorMessage from "./ErrorMessage";
 
