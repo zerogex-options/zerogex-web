@@ -31,6 +31,13 @@ import ChartCaption from "./ChartCaption";
 // click steps without bouncing across the whole chain.
 const X_ZOOM_STEP = 1.4;
 
+// Vertical (value-axis) zoom: each click magnifies the y-scale by this factor
+// (the visible y-domain shrinks, so bars/curve grow and out-of-range values
+// clip). yZoom = 1 is the default fit-all view; capped so a single tall bar
+// can be zoomed past without the axis collapsing to noise.
+const Y_ZOOM_STEP = 1.5;
+const Y_ZOOM_MAX = 32;
+
 interface StrikeRow {
   strike: number;
   netGex: number;
@@ -696,9 +703,15 @@ export default function GexProfileChart({
     setVisibleDomain([newStart, newEnd]);
   };
 
+  // Vertical zoom factor for the value axes (both the bar axis and the profile
+  // axis scale together so they stay proportional). 1 = fit-all default.
+  const [yZoom, setYZoom] = useState(1);
+  const handleYZoomIn = () => setYZoom((z) => Math.min(Y_ZOOM_MAX, z * Y_ZOOM_STEP));
+  const handleYZoomOut = () => setYZoom((z) => Math.max(1, z / Y_ZOOM_STEP));
+
   const handleResetView = () => {
-    if (!fullStrikeDomain) return;
-    setVisibleDomain(fullStrikeDomain);
+    if (fullStrikeDomain) setVisibleDomain(fullStrikeDomain);
+    setYZoom(1);
   };
 
   const isFullyZoomedOut =
@@ -706,6 +719,9 @@ export default function GexProfileChart({
     fullStrikeDomain != null &&
     visibleDomain[0] <= fullStrikeDomain[0] + 1e-6 &&
     visibleDomain[1] >= fullStrikeDomain[1] - 1e-6;
+
+  // The reset control is meaningful when EITHER axis is zoomed.
+  const isDefaultView = isFullyZoomedOut && yZoom === 1;
 
   // Explicit ticks at uniform-step strikes (1, 2, 5, 10… depending on the
   // visible range) so every tick lands on a clean integer and recharts'
@@ -740,12 +756,17 @@ export default function GexProfileChart({
       if (row.netGex != null) strikeAbs = Math.max(strikeAbs, Math.abs(row.netGex));
       if (row.profileGex != null) profileAbs = Math.max(profileAbs, Math.abs(row.profileGex));
     });
+    // Vertical zoom shrinks the visible y-extent (both axes together), so the
+    // bars and profile curve magnify and anything past the domain clips via
+    // allowDataOverflow. yZoom = 1 leaves the fit-all extent untouched.
+    const zStrikeAbs = strikeAbs / yZoom;
+    const zProfileAbs = profileAbs / yZoom;
     // ~4 ticks per side keeps the y-axis legible without crowding labels
     // at smaller chart heights.
-    const strikeStep = niceStep(strikeAbs, 4);
-    const profileStep = niceStep(profileAbs, 4);
-    const strike = symmetricTicks(strikeAbs, strikeStep);
-    const profile = symmetricTicks(profileAbs, profileStep);
+    const strikeStep = niceStep(zStrikeAbs, 4);
+    const profileStep = niceStep(zProfileAbs, 4);
+    const strike = symmetricTicks(zStrikeAbs, strikeStep);
+    const profile = symmetricTicks(zProfileAbs, profileStep);
     // Single denomination shared across both axes so the smaller scale
     // (bars) renders as e.g. "$0.5B" instead of "$500.0M" when the
     // larger scale (profile) is in billions.
@@ -756,7 +777,7 @@ export default function GexProfileChart({
       profileDomain: [-profile.domainMax, profile.domainMax] as [number, number],
       denom: pickSharedDenomination(Math.max(strike.domainMax, profile.domainMax)),
     };
-  }, [merged]);
+  }, [merged, yZoom]);
 
   const hasData = merged.length > 0;
 
@@ -769,9 +790,12 @@ export default function GexProfileChart({
           border: `1px solid var(--border-default)`,
         }}
       >
-        {/* Header: title on the left, legend top-right above the plot area so
-            it never collides with reference-line labels or profile peaks. */}
-        <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
+        {/* Header: a controls row (title, unit badge, strike/value zoom, and the
+            expiration selector) with a dedicated legend row beneath it — so the
+            legend never reflows onto a second line when the expiration selection
+            changes, and the value-axis zoom controls have somewhere to sit. */}
+        <div className="mb-4">
+          <div className="flex items-start justify-between gap-3 flex-wrap gap-y-2">
           <div className="flex items-center gap-2">
             <h3 className="zg-h3" style={{ color: textColor }}>
               Gamma Exposure by Strike
@@ -786,48 +810,73 @@ export default function GexProfileChart({
             >
               {GEX_UNIT_LABEL[gexUnit]}
             </span>
+            {/* Strike (X) and value (Y) zoom, plus a shared reset. Same
+                magnifier per axis; the X / Y prefix says which one it drives. */}
             <div
-              className="ml-1 inline-flex rounded border"
+              className="ml-1 inline-flex items-center rounded border"
               style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)' }}
             >
+              <span className="px-1.5 text-[10px] font-semibold select-none" style={{ color: 'var(--text-muted)' }}>X</span>
               <button
                 type="button"
                 onClick={handleZoomOut}
                 disabled={isFullyZoomedOut}
-                title="Zoom out (widen visible strike range)"
+                title="Zoom out strikes (widen visible range)"
                 className="px-2 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
-                style={{ color: 'var(--color-text-secondary)' }}
+                style={{ color: 'var(--color-text-secondary)', borderLeft: `1px solid var(--color-border)` }}
               >
                 <ZoomOut size={12} />
               </button>
               <button
                 type="button"
                 onClick={handleZoomIn}
-                title="Zoom in (narrow visible strike range)"
+                title="Zoom in strikes (narrow visible range)"
                 className="px-2 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{ color: 'var(--color-text-secondary)', borderLeft: `1px solid var(--color-border)` }}
               >
                 <ZoomIn size={12} />
               </button>
+            </div>
+            <div
+              className="inline-flex items-center rounded border"
+              style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)' }}
+            >
+              <span className="px-1.5 text-[10px] font-semibold select-none" style={{ color: 'var(--text-muted)' }}>Y</span>
               <button
                 type="button"
-                onClick={handleResetView}
-                disabled={isFullyZoomedOut}
-                title="Reset to full strike range"
+                onClick={handleYZoomOut}
+                disabled={yZoom <= 1}
+                title="Zoom out the value axis"
                 className="px-2 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{ color: 'var(--color-text-secondary)', borderLeft: `1px solid var(--color-border)` }}
               >
-                <RotateCcw size={12} />
+                <ZoomOut size={12} />
+              </button>
+              <button
+                type="button"
+                onClick={handleYZoomIn}
+                disabled={yZoom >= Y_ZOOM_MAX}
+                title="Zoom in the value axis (magnify the gamma scale to inspect small bars)"
+                className="px-2 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{ color: 'var(--color-text-secondary)', borderLeft: `1px solid var(--color-border)` }}
+              >
+                <ZoomIn size={12} />
               </button>
             </div>
+            <button
+              type="button"
+              onClick={handleResetView}
+              disabled={isDefaultView}
+              title="Reset zoom (both axes)"
+              className="inline-flex items-center rounded border px-2 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-secondary)' }}
+            >
+              <RotateCcw size={12} />
+            </button>
           </div>
-          <div
-            // pr-14 reserves room for the absolutely-positioned Expand
-            // button (right-3, ~36px wide) in the card's top-right corner,
-            // so the rightmost legend entry never tucks under it.
-            className="flex flex-wrap items-center gap-4 text-xs pr-14"
-            style={{ color: textColor }}
-          >
+          {/* pr-14 keeps the expiration selector clear of the absolutely-
+              positioned Expand button in the card's top-right corner. */}
+          <div className="flex items-center gap-2 pr-14" style={{ color: textColor }}>
             {expirationOptions && onSelectedExpirationsChange && (
               <ExpirationMultiSelect
                 options={expirationOptions}
@@ -835,6 +884,12 @@ export default function GexProfileChart({
                 onChange={onSelectedExpirationsChange}
               />
             )}
+          </div>
+          </div>
+          {/* Legend row — on its own line so toggling the expiration selection
+              (which shows/hides the "Other exp" chip) never bumps it onto a
+              second line the way it did when it shared the title row. */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs mt-2.5" style={{ color: textColor }}>
             <div
               className="flex items-center gap-1.5"
               title="Stacked by expiration — nearest (0DTE) boldest, furthest faintest"
@@ -943,6 +998,9 @@ export default function GexProfileChart({
                   // between the title and the tick labels.
                   width={84}
                   domain={strikeDomain}
+                  // Clip bars/line to the (possibly y-zoomed) domain instead of
+                  // letting recharts expand it back to fit the data.
+                  allowDataOverflow
                   ticks={strikeTicks}
                   stroke={axisStroke}
                   tick={{ fontSize: 11, fill: axisStroke }}
@@ -964,6 +1022,7 @@ export default function GexProfileChart({
                   orientation="right"
                   width={84}
                   domain={profileDomain}
+                  allowDataOverflow
                   ticks={profileTicks}
                   stroke={axisStroke}
                   tick={{ fontSize: 11, fill: axisStroke }}
