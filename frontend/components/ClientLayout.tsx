@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { usePathname } from 'next/navigation';
+import { stripLocalePrefix } from '@/core/i18n/routing';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
 import { useAuthSession } from '@/hooks/useAuthSession';
@@ -74,7 +75,9 @@ const PRO_WELCOME_SUPPRESSED_ROUTES = new Set(['/login', '/register', '/unauthor
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const { theme, setTheme } = useTheme();
-  const pathname = usePathname();
+  // The URL may carry a locale prefix (/it/about); chrome selection and modal
+  // suppression key off the un-prefixed route so every language behaves the same.
+  const routePath = stripLocalePrefix(usePathname());
   const { data: authSession, refresh: refreshAuth } = useAuthSession();
   const [acknowledgedLocally, setAcknowledgedLocally] = useState(false);
   const [foundingLockinClosed, setFoundingLockinClosed] = useState(false);
@@ -122,7 +125,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   // refresh updates every consumer. Bounded and self-cleaning; the dashboard's
   // data hooks fetch the tier-gated API independently, so they self-heal too.
   useEffect(() => {
-    if (pathname !== '/dashboard') return;
+    if (routePath !== '/dashboard') return;
     let trialStarted = false;
     try {
       trialStarted = new URLSearchParams(window.location.search).get('trial_started') === '1';
@@ -137,10 +140,10 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       if (tries >= 3) window.clearInterval(id);
     }, 3000);
     return () => window.clearInterval(id);
-  }, [pathname, refreshAuth]);
+  }, [routePath, refreshAuth]);
 
   const shouldShowDisclaimer =
-    !DISCLAIMER_SUPPRESSED_ROUTES.has(pathname) &&
+    !DISCLAIMER_SUPPRESSED_ROUTES.has(routePath) &&
     authSession?.authenticated === true &&
     authSession.user?.disclaimerVersionAcknowledged !== DISCLAIMER_VERSION &&
     !acknowledgedLocally;
@@ -161,7 +164,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     !shouldShowDisclaimer &&
     foundingLockinGatePassed &&
     !foundingLockinClosed &&
-    !FOUNDING_LOCKIN_SUPPRESSED_ROUTES.has(pathname) &&
+    !FOUNDING_LOCKIN_SUPPRESSED_ROUTES.has(routePath) &&
     authSession?.authenticated === true &&
     authSession.user?.foundingEligible === true &&
     authSession.user?.hasActiveSubscription === false &&
@@ -198,7 +201,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     !shouldShowFoundingLockin &&
     proWelcomeGatePassed &&
     !proWelcomeClosed &&
-    !PRO_WELCOME_SUPPRESSED_ROUTES.has(pathname) &&
+    !PRO_WELCOME_SUPPRESSED_ROUTES.has(routePath) &&
     authSession?.authenticated === true &&
     isProWelcomeEligible(authSession.user);
 
@@ -222,7 +225,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     />
   ) : null;
 
-  if (STANDALONE_ROUTES.includes(pathname)) {
+  if (STANDALONE_ROUTES.includes(routePath)) {
     return (
       <>
         {children}

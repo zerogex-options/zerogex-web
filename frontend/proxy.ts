@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { SESSION_COOKIE_NAME, hasTierAccess, isPublicRoute, requiredTierForRoute } from '@/core/auth';
 import { getSessionFromRequest } from '@/core/serverAuth';
 import { recordRequest, resolveUserIdFromCookie } from '@/core/monitoring';
+import { DEFAULT_LOCALE, normalizeLocale } from '@/core/i18n/locales';
+import {
+  INVARIANT_PATH_HEADER,
+  LOCALE_HEADER,
+  localeFromPathname,
+  localeHref,
+  stripLocalePrefix,
+} from '@/core/i18n/routing';
 
 function readPositiveInt(name: string, fallback: number) {
   const raw = process.env[name];
@@ -45,32 +53,94 @@ export async function proxy(request: NextRequest) {
   recordRequestForMonitoring(request);
   const authEnabled = process.env.NEXT_PUBLIC_AUTH_ENABLED === '1';
 
-  if (!authEnabled) {
-    if (pathname.startsWith('/api/auth/')) {
+  // The locale is carried in the URL path prefix (/it, /de, /es, /fr); English
+  // is the default and stays unprefixed. `invariantPath` is the un-prefixed
+  // path the physical route tree serves, and is what every auth/access check
+  // below runs against so gating is identical regardless of language.
+  const locale = localeFromPathname(pathname);
+  const invariantPath = stripLocalePrefix(pathname);
+  const hasLocalePrefix = locale !== DEFAULT_LOCALE;
+
+  // Assets, Next internals, and API routes are never localized — pass them
+  // through untouched (matching the original behavior). `invariantPath` is
+  // checked too so a stray /it/api/* can't slip into the page pipeline.
+  if (
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/api') ||
+    invariantPath.startsWith('/api') ||
+    pathname.includes('.')
+  ) {
+    if (!authEnabled && pathname.startsWith('/api/auth/')) {
       return new NextResponse(null, { status: 404 });
     }
+    return NextResponse.next();
+  }
 
-    if (pathname === '/login' || pathname === '/register') {
+  // An explicit /en/... prefix is redundant with the canonical unprefixed URL —
+  // 308 it away so there is exactly one English URL per page (no duplicate).
+  const enPrefix = pathname.match(/^\/en(\/.*)?$/i);
+  if (enPrefix) {
+    const url = request.nextUrl.clone();
+    url.pathname = enPrefix[1] || '/';
+    return NextResponse.redirect(url, 308);
+  }
+
+  // Returning visitors: honor a saved non-English `lang` cookie on the bare
+  // homepage by sending them to their localized home. 307 (temporary) so the
+  // unprefixed `/` stays the canonical English URL — crawlers send no cookie
+  // and so never trip this, keeping the English home indexable at `/`.
+  if (pathname === '/' && request.method === 'GET') {
+    const cookieLocale = normalizeLocale(request.cookies.get('lang')?.value);
+    if (cookieLocale !== DEFAULT_LOCALE) {
       const url = request.nextUrl.clone();
-      url.pathname = '/';
-      url.search = '';
-      return NextResponse.redirect(url);
+      url.pathname = `/${cookieLocale}`;
+      return NextResponse.redirect(url, 307);
     }
-
-    return NextResponse.next();
   }
 
-  if (pathname.startsWith('/_next') || pathname.startsWith('/api') || pathname.includes('.')) {
-    return NextResponse.next();
+  // Request headers the downstream render reads (via core/localizedMetadata.ts)
+  // to recover the locale and the un-prefixed path — for <html lang>, the
+  // content dictionaries/markdown, and canonical + hreflang alternates.
+  const buildHeaders = () => {
+    const headers = new Headers(request.headers);
+    headers.set(LOCALE_HEADER, locale);
+    headers.set(INVARIANT_PATH_HEADER, invariantPath);
+    return headers;
+  };
+
+  // Let the request through: a /xx-prefixed URL is REWRITTEN onto the physical
+  // (un-prefixed) route so the browser URL keeps its locale prefix while the
+  // route tree stays English-shaped. English passes straight through, still
+  // stamped with the headers so the server has one uniform locale source.
+  const allow = (): NextResponse => {
+    if (hasLocalePrefix) {
+      const url = request.nextUrl.clone();
+      url.pathname = invariantPath;
+      return NextResponse.rewrite(url, { request: { headers: buildHeaders() } });
+    }
+    return NextResponse.next({ request: { headers: buildHeaders() } });
+  };
+
+  // A redirect that keeps the visitor inside their current locale (so a gated
+  // /it/dashboard bounces to /it/login, not /login).
+  const localizedRedirect = (targetPath: string): NextResponse => {
+    return NextResponse.redirect(new URL(localeHref(locale, targetPath), request.url));
+  };
+
+  if (!authEnabled) {
+    if (invariantPath === '/login' || invariantPath === '/register') {
+      return localizedRedirect('/');
+    }
+    return allow();
   }
 
-  if (isPublicRoute(pathname)) {
-    return NextResponse.next();
+  if (isPublicRoute(invariantPath)) {
+    return allow();
   }
 
-  const requiredTier = requiredTierForRoute(pathname);
+  const requiredTier = requiredTierForRoute(invariantPath);
   if (!requiredTier) {
-    return NextResponse.next();
+    return allow();
   }
 
   const session = await getSessionFromRequest(request);
@@ -79,12 +149,12 @@ export async function proxy(request: NextRequest) {
     // a /login wall — the 15-min-delayed gamma-levels page is the SEO-target
     // teaser that replaces the previously-open /dashboard preview. Subscribers
     // still land on the full live dashboard because they bypass this branch.
-    if (pathname === '/dashboard') {
-      const response = NextResponse.redirect(new URL('/spx-gamma-levels', request.url));
+    if (invariantPath === '/dashboard') {
+      const response = localizedRedirect('/spx-gamma-levels');
       response.headers.set('X-Robots-Tag', 'noindex, follow');
       return response;
     }
-    const loginUrl = new URL('/login', request.url);
+    const loginUrl = new URL(localeHref(locale, '/login'), request.url);
     loginUrl.searchParams.set('next', `${pathname}${search}`);
     // X-Robots-Tag attaches to the redirect itself, so Googlebot reads
     // "the source URL is noindex" before following. Without this, gated
@@ -105,10 +175,10 @@ export async function proxy(request: NextRequest) {
   // stay tier-gated server-side, so no paid data leaks while the tier settles;
   // once the webhook lands the normal gate applies again on the next navigation.
   const justStartedTrial =
-    pathname === '/dashboard' && request.nextUrl.searchParams.get('trial_started') === '1';
+    invariantPath === '/dashboard' && request.nextUrl.searchParams.get('trial_started') === '1';
 
   if (!justStartedTrial && !hasTierAccess(session.user.tier, requiredTier)) {
-    const unauthorizedUrl = new URL('/unauthorized', request.url);
+    const unauthorizedUrl = new URL(localeHref(locale, '/unauthorized'), request.url);
     unauthorizedUrl.searchParams.set('required', requiredTier ?? 'basic');
     unauthorizedUrl.searchParams.set('current', session.user.tier);
     unauthorizedUrl.searchParams.set('path', pathname);
@@ -117,7 +187,7 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
-  const response = NextResponse.next();
+  const response = allow();
   if (session.rotatedToken) {
     response.cookies.set({
       name: 'zgx_session',

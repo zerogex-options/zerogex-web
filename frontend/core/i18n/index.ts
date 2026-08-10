@@ -16,6 +16,14 @@ export {
   type Locale,
   type LocaleMeta,
 } from './locales';
+export {
+  PREFIXED_LOCALES,
+  LOCALE_HEADER,
+  INVARIANT_PATH_HEADER,
+  localeFromPathname,
+  stripLocalePrefix,
+  localeHref,
+} from './routing';
 
 const DICTIONARIES: Record<Locale, Dictionary> = { en, it, de, es, fr };
 

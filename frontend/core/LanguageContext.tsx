@@ -5,26 +5,22 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
   type ReactNode,
 } from 'react';
-import { DEFAULT_LOCALE, normalizeLocale, type Locale } from '@/core/i18n/locales';
+import { usePathname, useRouter } from 'next/navigation';
+import { DEFAULT_LOCALE, type Locale } from '@/core/i18n/locales';
+import { localeFromPathname, localeHref, stripLocalePrefix } from '@/core/i18n/routing';
 import { translate, type TranslationKey } from '@/core/i18n';
 
-// The persisted-language cookie. Read server-side in app/layout.tsx so the
-// first HTML paint is already in the user's language (and matches this
-// provider's first client render — no hydration mismatch on translated text).
+// The language now lives in the URL path prefix (/it, /de, …); English is the
+// unprefixed default. This provider derives the active locale from the URL so
+// every translated client page (usePageT) tracks the page it's actually on,
+// which is what makes a cookieless crawler see the right language. The `lang`
+// cookie survives only as a hint the proxy uses to redirect the bare homepage.
 const COOKIE_NAME = 'lang';
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365; // 1 year
-
-function readCookie(name: string): string | null {
-  if (typeof document === 'undefined') return null;
-  const match = document.cookie
-    .split(';')
-    .map((c) => c.trim())
-    .find((c) => c.startsWith(`${name}=`));
-  return match ? decodeURIComponent(match.slice(name.length + 1)) : null;
-}
 
 function writeCookie(name: string, value: string) {
   if (typeof document === 'undefined') return;
@@ -33,6 +29,7 @@ function writeCookie(name: string, value: string) {
 
 interface LanguageContextType {
   locale: Locale;
+  /** Switch language by NAVIGATING to the same page on the target locale's URL. */
   setLocale: (locale: Locale) => void;
   /** Translate a key in the active locale (with optional {name} interpolation). */
   t: (key: TranslationKey, vars?: Record<string, string | number>) => string;
@@ -45,66 +42,61 @@ export function LanguageProvider({
   initialLocale = DEFAULT_LOCALE,
 }: {
   children: ReactNode;
-  // Seeded from the server-read cookie so SSR and the first client render agree.
+  // Server-seeded from the URL (the proxy's locale header) so SSR and the first
+  // client render agree — used as the authoritative first-paint value.
   initialLocale?: Locale;
 }) {
+  const pathname = usePathname();
+  const router = useRouter();
+
+  // The URL is the source of truth. We seed from `initialLocale` (which the
+  // server derived from the same URL) so the first client render matches SSR
+  // exactly — no hydration flip on translated text — then reconcile to the
+  // URL-derived locale on mount and on every client-side navigation.
   const [locale, setLocaleState] = useState<Locale>(initialLocale);
 
-  const setLocale = useCallback((next: Locale) => {
-    setLocaleState(next);
-    writeCookie(COOKIE_NAME, next);
-    try {
-      localStorage.setItem(COOKIE_NAME, next);
-    } catch {
-      // localStorage can throw in private mode; the cookie is the source of
-      // truth for SSR, so a failure here is non-fatal.
-    }
-    if (typeof document !== 'undefined') {
-      document.documentElement.lang = next;
-    }
-  }, []);
+  useEffect(() => {
+    const fromPath = localeFromPathname(pathname ?? '/');
+    if (fromPath !== locale) setLocaleState(fromPath);
+  }, [pathname, locale]);
 
-  // Keep <html lang> in sync on client-side navigation / initial mount. The
-  // server already set the correct value from the cookie, so this is a no-op
-  // on the common path and only matters after setLocale or a soft nav.
+  // Keep <html lang> in sync (server already set the correct value; this only
+  // matters after a client-side language switch or soft navigation).
   useEffect(() => {
     if (typeof document !== 'undefined') {
       document.documentElement.lang = locale;
     }
   }, [locale]);
 
-  // Self-heal: if the SSR cookie was absent/expired but the user previously
-  // chose a language (mirrored to localStorage), adopt it now and restore the
-  // cookie so future paints match. Guarded on a missing cookie, so the common
-  // case (cookie present) never triggers a post-hydration text flip.
-  useEffect(() => {
-    try {
-      if (readCookie(COOKIE_NAME)) return;
-      const stored = localStorage.getItem(COOKIE_NAME);
-      if (!stored) return;
-      const normalized = normalizeLocale(stored);
-      if (normalized !== locale) {
-        setLocale(normalized);
-      } else {
-        writeCookie(COOKIE_NAME, normalized);
+  const setLocale = useCallback(
+    (next: Locale) => {
+      // Persist the explicit choice as a hint (used only to redirect the bare
+      // homepage to the localized one) and navigate to the current page on the
+      // target locale's URL. The URL is authoritative, so `locale` updates when
+      // the navigation lands.
+      writeCookie(COOKIE_NAME, next);
+      try {
+        localStorage.setItem(COOKIE_NAME, next);
+      } catch {
+        // localStorage can throw in private mode; the cookie is the hint of
+        // record, so a failure here is non-fatal.
       }
-    } catch {
-      // No storage access — nothing to reconcile.
-    }
-    // Run once on mount; setLocale is stable and locale is only the seed here.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+      const basePath = stripLocalePrefix(pathname ?? '/');
+      const suffix =
+        typeof window !== 'undefined' ? window.location.search + window.location.hash : '';
+      router.push(`${localeHref(next, basePath)}${suffix}`);
+    },
+    [pathname, router],
+  );
 
   const t = useCallback(
     (key: TranslationKey, vars?: Record<string, string | number>) => translate(locale, key, vars),
     [locale],
   );
 
-  return (
-    <LanguageContext.Provider value={{ locale, setLocale, t }}>
-      {children}
-    </LanguageContext.Provider>
-  );
+  const value = useMemo<LanguageContextType>(() => ({ locale, setLocale, t }), [locale, setLocale, t]);
+
+  return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
 }
 
 export function useLanguage() {
@@ -125,7 +117,8 @@ export type PageDictionary = { en: Record<string, string> } & Partial<
 // co-located dictionary and calls usePageT(dict) — nothing is registered in a
 // shared file, so any number of pages (and the agents that build them) can be
 // worked on in parallel without ever touching the same module. Missing keys
-// fall back to English, then to the raw key.
+// fall back to English, then to the raw key. Reads the active locale from the
+// provider (URL-derived), so a localized URL renders the matching translation.
 export function usePageT(dict: PageDictionary) {
   const { locale } = useLanguage();
   return useCallback(

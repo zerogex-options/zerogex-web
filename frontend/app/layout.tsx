@@ -23,7 +23,7 @@ import {
 import './globals.css';
 import { ThemeProvider } from '@/core/ThemeContext';
 import { LanguageProvider } from '@/core/LanguageContext';
-import { normalizeLocale } from '@/core/i18n/locales';
+import { getRequestLocale } from '@/core/localizedMetadata';
 import { TimeframeProvider } from '@/core/TimeframeContext';
 import { GexUnitProvider } from '@/core/GexUnitContext';
 import { StrikeFilterProvider } from '@/core/StrikeFilterContext';
@@ -268,10 +268,11 @@ export default async function RootLayout({
     : DEFAULT_PALETTE;
   const theme = cookieStore.get('theme')?.value === 'light' ? 'light' : 'dark';
 
-  // Persisted UI language — seeds both <html lang> (for a11y/SEO and correct
-  // initial paint) and the LanguageProvider so SSR and the first client render
-  // agree. Defaults to English when the cookie is absent.
-  const locale = normalizeLocale(cookieStore.get('lang')?.value);
+  // UI language resolved from the URL (the proxy's locale header, cookie
+  // fallback) — seeds both <html lang> (for a11y/SEO and correct initial paint)
+  // and the LanguageProvider so SSR and the first client render agree, and so a
+  // localized URL like /it/education/foo paints Italian for a cookieless crawler.
+  const locale = await getRequestLocale();
 
   const htmlClass = `${FONT_VARIABLES} palette-${palette}${theme === 'dark' ? ' dark' : ''}`;
 
