@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Area,
   Bar,
@@ -17,13 +17,13 @@ import { Info, Move, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
 import { useGEXProfile } from '@/hooks/useApiData';
-import { useIsMobile } from '@/hooks/useIsMobile';
 import { GEX_UNIT_LABEL, gexScaleFactor, useGexUnit } from '@/core/GexUnitContext';
-import ExpandableCard, { useExpandedCard } from './ExpandableCard';
+import ExpandableCard from './ExpandableCard';
 import TooltipWrapper from './TooltipWrapper';
 import MobileScrollableChart from './MobileScrollableChart';
 import StrikeRangeScrollbar from './StrikeRangeScrollbar';
 import ValueRangeScrollbar from './ValueRangeScrollbar';
+import ResponsiveChartArea from './ResponsiveChartArea';
 import ExpirationMultiSelect from './ExpirationMultiSelect';
 import ChartCaption from "./ChartCaption";
 
@@ -497,34 +497,6 @@ function ProfileTooltip({
       )}
     </div>
   );
-}
-
-// Supplies the plot height via a render prop, sized from the expanded state.
-// It must read `useExpandedCard()` from INSIDE the card subtree (ExpandableCard
-// renders its children twice — once inline, once in the modal — each with its
-// own context value), so the modal copy fills most of the viewport while the
-// inline copy keeps its compact height.
-function ResponsiveChartArea({ children }: { children: (height: number) => ReactNode }) {
-  const expanded = useExpandedCard();
-  const isMobile = useIsMobile();
-  const [viewportH, setViewportH] = useState(() =>
-    typeof window !== 'undefined' ? window.innerHeight : 0,
-  );
-  useEffect(() => {
-    if (!expanded) return;
-    const update = () => setViewportH(window.innerHeight);
-    update();
-    window.addEventListener('resize', update);
-    return () => window.removeEventListener('resize', update);
-  }, [expanded]);
-  // Expanded: fill most of the modal (it scrolls if the header crowds it).
-  // Collapsed: the compact inline height.
-  const height = expanded
-    ? Math.max(480, (viewportH || 900) - 300)
-    : isMobile
-      ? 320
-      : 420;
-  return <>{children(height)}</>;
 }
 
 export default function GexProfileChart({

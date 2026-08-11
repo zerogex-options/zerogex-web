@@ -30,6 +30,11 @@ export default function ValueRangeScrollbar({
   // Drag-anchor snapshot taken on mousedown — deltas from this snapshot (rather
   // than the live window) keep the drag rigid across re-renders.
   const dragRef = useRef<{ startClientY: number; startLo: number } | null>(null);
+  // Coalesce pointer moves to one window update per animation frame — the
+  // consumer re-renders a heavy chart on every onChange, so firing once per
+  // frame instead of once per raw event keeps the drag from backing up.
+  const frameRef = useRef<number | null>(null);
+  const latestRef = useRef<number | null>(null);
 
   const [visLo, visHi] = visibleNorm;
   const visSpan = Math.max(0, visHi - visLo);
@@ -68,14 +73,29 @@ export default function ValueRangeScrollbar({
   );
 
   useEffect(() => {
+    const schedule = () => {
+      if (frameRef.current != null) return;
+      frameRef.current = requestAnimationFrame(() => {
+        frameRef.current = null;
+        if (dragRef.current && latestRef.current != null) applyDelta(latestRef.current);
+      });
+    };
     const handleMove = (e: MouseEvent) => {
-      if (dragRef.current) applyDelta(e.clientY);
+      if (!dragRef.current) return;
+      latestRef.current = e.clientY;
+      schedule();
     };
     const handleTouch = (e: TouchEvent) => {
-      if (dragRef.current && e.touches.length > 0) applyDelta(e.touches[0].clientY);
+      if (!dragRef.current || e.touches.length === 0) return;
+      latestRef.current = e.touches[0].clientY;
+      schedule();
     };
     const handleEnd = () => {
       dragRef.current = null;
+      if (frameRef.current != null) {
+        cancelAnimationFrame(frameRef.current);
+        frameRef.current = null;
+      }
     };
     window.addEventListener('mousemove', handleMove);
     window.addEventListener('mouseup', handleEnd);
@@ -86,6 +106,7 @@ export default function ValueRangeScrollbar({
       window.removeEventListener('mouseup', handleEnd);
       window.removeEventListener('touchmove', handleTouch);
       window.removeEventListener('touchend', handleEnd);
+      if (frameRef.current != null) cancelAnimationFrame(frameRef.current);
     };
   }, [applyDelta]);
 
