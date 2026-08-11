@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Area,
   Bar,
@@ -19,7 +19,7 @@ import { colors } from '@/core/colors';
 import { useGEXProfile } from '@/hooks/useApiData';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { GEX_UNIT_LABEL, gexScaleFactor, useGexUnit } from '@/core/GexUnitContext';
-import ExpandableCard from './ExpandableCard';
+import ExpandableCard, { useExpandedCard } from './ExpandableCard';
 import TooltipWrapper from './TooltipWrapper';
 import MobileScrollableChart from './MobileScrollableChart';
 import ExpirationMultiSelect from './ExpirationMultiSelect';
@@ -497,6 +497,34 @@ function ProfileTooltip({
   );
 }
 
+// Supplies the plot height via a render prop, sized from the expanded state.
+// It must read `useExpandedCard()` from INSIDE the card subtree (ExpandableCard
+// renders its children twice — once inline, once in the modal — each with its
+// own context value), so the modal copy fills most of the viewport while the
+// inline copy keeps its compact height.
+function ResponsiveChartArea({ children }: { children: (height: number) => ReactNode }) {
+  const expanded = useExpandedCard();
+  const isMobile = useIsMobile();
+  const [viewportH, setViewportH] = useState(() =>
+    typeof window !== 'undefined' ? window.innerHeight : 0,
+  );
+  useEffect(() => {
+    if (!expanded) return;
+    const update = () => setViewportH(window.innerHeight);
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, [expanded]);
+  // Expanded: fill most of the modal (it scrolls if the header crowds it).
+  // Collapsed: the compact inline height.
+  const height = expanded
+    ? Math.max(480, (viewportH || 900) - 300)
+    : isMobile
+      ? 320
+      : 420;
+  return <>{children(height)}</>;
+}
+
 export default function GexProfileChart({
   symbol,
   strikeData,
@@ -512,7 +540,6 @@ export default function GexProfileChart({
 }: GexProfileChartProps) {
   const { theme } = useTheme();
   const { gexUnit } = useGexUnit();
-  const isMobile = useIsMobile();
   const isDark = theme === 'dark';
   const textColor = 'var(--text-primary)';
   const axisStroke = 'var(--color-text-primary)';
@@ -779,13 +806,20 @@ export default function GexProfileChart({
     plotWidth: number;
     plotHeight: number;
   } | null>(null);
+  // Latest pointer position + the pending animation frame, so a burst of
+  // mousemove events (a high-polling mouse fires several per frame) collapses
+  // into ONE domain update per frame — repainting a ~1k-node SVG once per
+  // frame instead of once per event is what keeps the drag smooth.
+  const panPosRef = useRef<{ x: number; y: number } | null>(null);
+  const panFrameRef = useRef<number | null>(null);
   const [panning, setPanning] = useState(false);
 
-  const applyPan = useCallback((clientX: number, clientY: number) => {
+  const applyPan = useCallback(() => {
     const st = panRef.current;
-    if (!st) return;
-    const dx = clientX - st.startClientX;
-    const dy = clientY - st.startClientY;
+    const pos = panPosRef.current;
+    if (!st || !pos) return;
+    const dx = pos.x - st.startClientX;
+    const dy = pos.y - st.startClientY;
     // X: strikes. Dragging right reveals lower strikes (content follows cursor).
     const [s0, e0] = st.startVis;
     const xSpan = e0 - s0;
@@ -810,9 +844,20 @@ export default function GexProfileChart({
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
-      if (panRef.current) applyPan(e.clientX, e.clientY);
+      if (!panRef.current) return;
+      panPosRef.current = { x: e.clientX, y: e.clientY };
+      if (panFrameRef.current == null) {
+        panFrameRef.current = requestAnimationFrame(() => {
+          panFrameRef.current = null;
+          applyPan();
+        });
+      }
     };
     const onUp = () => {
+      if (panFrameRef.current != null) {
+        cancelAnimationFrame(panFrameRef.current);
+        panFrameRef.current = null;
+      }
       if (panRef.current) {
         panRef.current = null;
         setPanning(false);
@@ -823,6 +868,7 @@ export default function GexProfileChart({
     return () => {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
+      if (panFrameRef.current != null) cancelAnimationFrame(panFrameRef.current);
     };
   }, [applyPan]);
 
@@ -838,6 +884,7 @@ export default function GexProfileChart({
       plotWidth: Math.max(1, rect.width - PLOT_INSET_X),
       plotHeight: Math.max(1, rect.height - REF_LABEL_TOP_MARGIN - PLOT_INSET_BOTTOM),
     };
+    panPosRef.current = { x: e.clientX, y: e.clientY };
     setPanning(true);
   };
 
@@ -1075,13 +1122,15 @@ export default function GexProfileChart({
             No GEX profile data available.
           </div>
         ) : (
-          <div
-            onMouseDown={beginPan}
-            className="select-none"
-            style={{ cursor: pannable ? (panning ? 'grabbing' : 'grab') : 'default' }}
-          >
+          <ResponsiveChartArea>
+            {(chartHeight) => (
+            <div
+              onMouseDown={beginPan}
+              className="select-none"
+              style={{ cursor: pannable ? (panning ? 'grabbing' : 'grab') : 'default' }}
+            >
             <MobileScrollableChart>
-              <ResponsiveContainer width="100%" height={isMobile ? 320 : 420}>
+              <ResponsiveContainer width="100%" height={chartHeight}>
               {/* Each YAxis track (width=84 below) reserves room for the
                   rotated axis title AND the tick labels with ~25px of
                   clear separation between them.  Outer margin is small
@@ -1158,16 +1207,21 @@ export default function GexProfileChart({
                     style: { fill: axisStroke, fontSize: 11, textAnchor: 'middle' },
                   }}
                 />
-                <Tooltip
-                  content={
-                    <ProfileTooltip
-                      spotPrice={spotPrice ?? null}
-                      stackExpirations={stackExpirations}
-                      isSubset={isSubsetSelection}
-                      dteLabel={dteLabel}
-                    />
-                  }
-                />
+                {/* Hidden while dragging: recharts otherwise re-tracks the
+                    hovered point on every mousemove (extra work per frame) and
+                    the tooltip flickers across the plot as it pans. */}
+                {!panning && (
+                  <Tooltip
+                    content={
+                      <ProfileTooltip
+                        spotPrice={spotPrice ?? null}
+                        stackExpirations={stackExpirations}
+                        isSubset={isSubsetSelection}
+                        dteLabel={dteLabel}
+                      />
+                    }
+                  />
+                )}
 
                 {/* Zero line for the bar axis, drawn first so bars/lines paint over it. */}
                 <ReferenceLine yAxisId="strike" y={0} stroke={axisStroke} opacity={0.4} />
@@ -1357,7 +1411,9 @@ export default function GexProfileChart({
               </ComposedChart>
               </ResponsiveContainer>
             </MobileScrollableChart>
-          </div>
+            </div>
+            )}
+          </ResponsiveChartArea>
         )}
         <ChartCaption />
       </div>
