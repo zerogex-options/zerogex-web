@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   BarChart3,
   ChevronDown,
@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import {
   useApiData,
+  useGEXByStrike,
   useGEXSummary,
   useMarketQuote,
   useSessionLevels,
@@ -27,7 +28,6 @@ import { useStrikeProfileTimeseries } from '@/hooks/useStrikeProfileTimeseries';
 import type { StrikeProfileBucket as StrikeProfileBucketRow } from '@/hooks/useStrikeProfileTimeseries';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
-import { colors } from '@/core/colors';
 import { etTodayDateKey, getMarketSession, isIndexSymbol, omitClosedMarketTimes } from '@/core/utils';
 import { loadChartSettings, saveChartSettings } from '@/core/chartSettings';
 import { PIN_STRIKE_COLOR_HEX } from '@/core/pinStrike';
@@ -116,6 +116,23 @@ function computeDte(expiryStr: string | null | undefined): number | null {
   const todayUtcNoon = Date.UTC(Number(tm[1]), Number(tm[2]) - 1, Number(tm[3]), 12);
   return Math.max(0, Math.round((expUtcNoon - todayUtcNoon) / 86400000));
 }
+
+// Short DTE chip ("0DTE" / "5DTE") for the per-expiration tooltip breakdown and
+// legend — the roll-off ramp reads by days-to-expiry, not raw dates.
+function dteChip(expiryStr: string): string {
+  const dte = computeDte(expiryStr);
+  if (dte == null) return expiryStr;
+  return dte <= 0 ? '0DTE' : `${dte}DTE`;
+}
+
+// Expiration-gradient opacity for the per-strike stacked bars: the nearest
+// expiration (0DTE) renders at full strength, the furthest at FAR_OPACITY,
+// interpolated by DTE rank so a bar's shading reads as a time-to-expiry ramp
+// (bold = rolls off soonest). REMAINDER_OPACITY is the faint "everything else"
+// cap shown beyond the solid selection when a subset is filtered.
+const NEAR_OPACITY = 1;
+const FAR_OPACITY = 0.4;
+const REMAINDER_OPACITY = 0.14;
 
 // Lookback window for /api/gex/expirations.  During the regular cash session
 // (with a ~5-minute grace period after the open for the analytics engine to
@@ -516,6 +533,18 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     symbol, tfToApi(tf), expirationsParam, paused,
   );
 
+  // ── Per-(strike, expiration) live snapshot ──
+  // The strike-profile timeseries sums gamma/OI server-side across the selected
+  // expirations, so its buckets carry no per-expiration dimension. To stack the
+  // gamma / positions bars by expiration (0DTE boldest → furthest faintest) and
+  // to show each side as a share of the all-expiration total, we pull the
+  // current /api/gex/by-strike snapshot, which IS broken out per expiration.
+  // This only exists for "now" — while the user scrubs back through rewind the
+  // stacked view falls back to the bucket's aggregate bars (see stackingActive).
+  // Compact (dashboard tile) hides the middle / right panels, so it never needs
+  // the per-expiration breakdown — don't poll it there.
+  const { data: gexByStrikeRows } = useGEXByStrike(symbol, 400, compact || paused ? 0 : 10000, 'impact');
+
   // ── Candles: /api/market/historical ──
   // Single source of truth for OHLC.  useMarketHistorical's pollLatestBar
   // updates the live tip bar's close on every 1s tick while pinning the
@@ -730,6 +759,78 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     () => bucketToStrikeAggregations(frozenGexBucket),
     [frozenGexBucket],
   );
+
+  // ── Per-expiration stacking model (live snapshot) ──
+  // Universe = the current/future expirations, nearest-first (availableExpirations
+  // is already ASC-sorted), so DTE rank = array index and the gradient runs
+  // 0DTE (boldest) → furthest (faintest).
+  const isSubsetSel = selectedExpiries.length > 0;
+  const stackExpiries = useMemo(
+    () => (isSubsetSel ? availableExpirations.filter((e) => selectedExpiries.includes(e)) : availableExpirations),
+    [availableExpirations, selectedExpiries, isSubsetSel],
+  );
+  // DTE-ranked opacity keyed on the FULL universe so a segment's shade stays
+  // stable regardless of which expirations are filtered in.
+  const expirationOpacity = useMemo(() => {
+    const m = new Map<string, number>();
+    const n = availableExpirations.length;
+    availableExpirations.forEach((exp, i) => {
+      const t = n <= 1 ? 0 : i / (n - 1);
+      m.set(exp, NEAR_OPACITY - t * (NEAR_OPACITY - FAR_OPACITY));
+    });
+    return m;
+  }, [availableExpirations]);
+
+  // strike(cents) → expiration → {call, put, callOi, putOi} magnitudes, from the
+  // by-strike snapshot, restricted to the current/future universe. Cents-keyed so
+  // the lookup from the timeseries strike grid can't miss on float drift.
+  type ExpCell = { call: number; put: number; callOi: number; putOi: number };
+  const perStrikeExpLive = useMemo(() => {
+    const universe = new Set(availableExpirations);
+    const m = new Map<number, Map<string, ExpCell>>();
+    (gexByStrikeRows ?? []).forEach((row) => {
+      const strike = Number(row.strike);
+      const exp = String(row.expiration ?? '');
+      if (!Number.isFinite(strike) || !universe.has(exp)) return;
+      const key = Math.round(strike * 100);
+      let inner = m.get(key);
+      if (!inner) { inner = new Map(); m.set(key, inner); }
+      const cur = inner.get(exp) ?? { call: 0, put: 0, callOi: 0, putOi: 0 };
+      cur.call += Math.abs(Number(row.call_gex) || 0);
+      cur.put += Math.abs(Number(row.put_gex) || 0);
+      cur.callOi += Math.max(0, Number(row.call_oi) || 0);
+      cur.putOi += Math.max(0, Number(row.put_oi) || 0);
+      inner.set(exp, cur);
+    });
+    return m;
+  }, [gexByStrikeRows, availableExpirations]);
+
+  // Per-strike stacking totals: the shown (selected) segments plus the
+  // all-expiration totals the selection is a share of. `null`-safe lookups keep
+  // strikes the snapshot doesn't cover falling back to the aggregate bars.
+  type StackedCell = {
+    perExp: Map<string, ExpCell>;
+    callSel: number; putSel: number; callAll: number; putAll: number;
+    callOiSel: number; putOiSel: number; callOiAll: number; putOiAll: number;
+  };
+  const stackedByStrike = useMemo(() => {
+    const shown = new Set(stackExpiries);
+    const m = new Map<number, StackedCell>();
+    perStrikeExpLive.forEach((inner, key) => {
+      let callSel = 0, putSel = 0, callAll = 0, putAll = 0;
+      let callOiSel = 0, putOiSel = 0, callOiAll = 0, putOiAll = 0;
+      inner.forEach((cell, exp) => {
+        callAll += cell.call; putAll += cell.put;
+        callOiAll += cell.callOi; putOiAll += cell.putOi;
+        if (shown.has(exp)) {
+          callSel += cell.call; putSel += cell.put;
+          callOiSel += cell.callOi; putOiSel += cell.putOi;
+        }
+      });
+      m.set(key, { perExp: inner, callSel, putSel, callAll, putAll, callOiSel, putOiSel, callOiAll, putOiAll });
+    });
+    return m;
+  }, [perStrikeExpLive, stackExpiries]);
 
   // Y-axis anchor fallback for the brief moment before any candle has loaded.
   // Normal path reads from visibleCandles[last].close (which is the live tip
@@ -1033,6 +1134,12 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     return effStrikeAggregations.filter((s) => s.strike >= yBounds.yMin && s.strike <= yBounds.yMax);
   }, [effStrikeAggregations, yBounds]);
 
+  // Per-expiration stacking is only possible at the live edge — the by-strike
+  // snapshot is "now", so while scrubbing back through rewind we show the
+  // bucket's aggregate bars instead. Also gated on !compact (compact hides the
+  // middle / right panels entirely) and on the snapshot actually carrying data.
+  const stackingActive = !compact && atRewindRightEdge && stackedByStrike.size > 0;
+
   const gammaXMax = useMemo(() => {
     if (visibleStrikes.length === 0) return 1;
     // Scale to the active gamma mode so Net bars fill the column the same way
@@ -1041,6 +1148,21 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     // leave the Net view's bars stranded in the middle of the panel.
     if (gexMode === 'net') {
       return Math.max(1, ...visibleStrikes.map((s) => Math.abs(s.netGex)));
+    }
+    // Stacked bars extend to the ALL-expiration total (solid selection + faint
+    // remainder cap), so the column has to fit that total, not just the selected
+    // aggregate; strikes the snapshot doesn't cover fall back to the aggregate.
+    if (stackingActive) {
+      return Math.max(
+        1,
+        ...visibleStrikes.map((s) => {
+          const st = stackedByStrike.get(Math.round(s.strike * 100));
+          const call = st ? st.callAll : Math.abs(s.callGex);
+          const put = st ? st.putAll : Math.abs(s.putGex);
+          const net = gexMode === 'combined' ? Math.abs(s.netGex) : 0;
+          return Math.max(call, put, net);
+        }),
+      );
     }
     if (gexMode === 'combined') {
       // Combined overlays the net bar on the call/put split, so the column has
@@ -1056,7 +1178,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
       1,
       ...visibleStrikes.map((s) => Math.max(Math.abs(s.callGex), Math.abs(s.putGex))),
     );
-  }, [visibleStrikes, gexMode]);
+  }, [visibleStrikes, gexMode, stackingActive, stackedByStrike]);
 
   // Only render the numeric per-strike GEX values when each strike row has
   // enough vertical room to hold a label without overlapping its neighbour;
@@ -1119,10 +1241,99 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     );
   };
 
+  // Render the per-expiration stacked segments for ONE side of one strike's bar,
+  // growing outward from the center line, plus the faint all-expiration
+  // remainder cap. dir = +1 grows right (calls), -1 grows left (puts). The
+  // nearest DTE sits at the baseline (boldest), the furthest at the tip; the
+  // remainder cap is the fainter "everything else" band beyond the solid
+  // selection, so the bar reads as a share of the all-expiration total. Shared
+  // by the middle Gamma panel and the right Positions panel.
+  const stackedSegments = (
+    keyPrefix: string,
+    cell: StackedCell,
+    side: 'call' | 'put',
+    metric: 'gamma' | 'oi',
+    cx: number,
+    half: number,
+    y: number,
+    barH: number,
+    xMax: number,
+    dimFactor: number,
+  ): ReactNode[] => {
+    const dir = side === 'call' ? 1 : -1;
+    const fill = side === 'call' ? 'var(--color-bull)' : 'var(--color-bear)';
+    const pick = (c: ExpCell) =>
+      metric === 'gamma' ? (side === 'call' ? c.call : c.put) : side === 'call' ? c.callOi : c.putOi;
+    const selTotal =
+      metric === 'gamma'
+        ? side === 'call' ? cell.callSel : cell.putSel
+        : side === 'call' ? cell.callOiSel : cell.putOiSel;
+    const allTotal =
+      metric === 'gamma'
+        ? side === 'call' ? cell.callAll : cell.putAll
+        : side === 'call' ? cell.callOiAll : cell.putOiAll;
+    const rects: ReactNode[] = [];
+    const yTop = y - barH / 2;
+    let cursor = cx;
+    // Solid selected segments, nearest → furthest DTE.
+    stackExpiries.forEach((exp) => {
+      const c = cell.perExp.get(exp);
+      if (!c) return;
+      const v = pick(c);
+      if (!(v > 0)) return;
+      const w = (v / xMax) * half;
+      if (!(w > 0)) return;
+      rects.push(
+        <rect
+          key={`${keyPrefix}-${exp}`}
+          x={dir > 0 ? cursor : cursor - w}
+          y={yTop}
+          width={w}
+          height={barH}
+          fill={fill}
+          opacity={(expirationOpacity.get(exp) ?? 1) * dimFactor}
+        />,
+      );
+      cursor += dir * w;
+    });
+    // Faint remainder cap = all − selected (zero when "All" is selected).
+    const remainder = Math.max(0, allTotal - selTotal);
+    if (remainder > 0) {
+      const w = (remainder / xMax) * half;
+      if (w > 0) {
+        rects.push(
+          <rect
+            key={`${keyPrefix}-rem`}
+            x={dir > 0 ? cursor : cursor - w}
+            y={yTop}
+            width={w}
+            height={barH}
+            fill={fill}
+            opacity={REMAINDER_OPACITY * dimFactor}
+          />,
+        );
+      }
+    }
+    return rects;
+  };
+
   const positionsXMax = useMemo(() => {
     if (visibleStrikes.length === 0) return 1;
+    // When stacking OI by expiration the bars extend to the all-expiration total
+    // (solid selection + faint remainder), so scale the column to that.
+    if (stackingActive) {
+      return Math.max(
+        1,
+        ...visibleStrikes.map((s) => {
+          const st = stackedByStrike.get(Math.round(s.strike * 100));
+          const call = st ? st.callOiAll : Math.abs(s.callOi);
+          const put = st ? st.putOiAll : Math.abs(s.putOi);
+          return Math.max(call, put);
+        }),
+      );
+    }
     return Math.max(1, ...visibleStrikes.map((s) => Math.max(Math.abs(s.callOi), Math.abs(s.putOi))));
-  }, [visibleStrikes]);
+  }, [visibleStrikes, stackingActive, stackedByStrike]);
 
   const timeBounds = useMemo(() => {
     if (visibleCandles.length === 0) return null;
@@ -2371,30 +2582,43 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
             const callW = (Math.abs(s.callGex) / gammaXMax) * half;
             const putW = (Math.abs(s.putGex) / gammaXMax) * half;
             const isCombined = gexMode === 'combined';
+            // Live edge → stack the call/put split by expiration; otherwise
+            // (rewind, or a strike the snapshot doesn't cover) draw the single
+            // aggregate bars.
+            const st = stackingActive ? stackedByStrike.get(Math.round(s.strike * 100)) : undefined;
             return (
               <g key={`gex-${s.strike}`}>
                 {showOiDots && (
                   <circle cx={cx} cy={y} r={1.4} fill={subtle} opacity={0.55} />
                 )}
-                {s.callGex !== 0 && (
-                  <rect
-                    x={cx}
-                    y={y - barH / 2}
-                    width={Math.max(0, callW)}
-                    height={barH}
-                    fill={'var(--color-bull)'}
-                    opacity={barOpacity}
-                  />
-                )}
-                {s.putGex !== 0 && (
-                  <rect
-                    x={cx - Math.max(0, putW)}
-                    y={y - barH / 2}
-                    width={Math.max(0, putW)}
-                    height={barH}
-                    fill={'var(--color-bear)'}
-                    opacity={barOpacity}
-                  />
+                {st ? (
+                  <>
+                    {stackedSegments(`callseg-${s.strike}`, st, 'call', 'gamma', cx, half, y, barH, gammaXMax, barOpacity)}
+                    {stackedSegments(`putseg-${s.strike}`, st, 'put', 'gamma', cx, half, y, barH, gammaXMax, barOpacity)}
+                  </>
+                ) : (
+                  <>
+                    {s.callGex !== 0 && (
+                      <rect
+                        x={cx}
+                        y={y - barH / 2}
+                        width={Math.max(0, callW)}
+                        height={barH}
+                        fill={'var(--color-bull)'}
+                        opacity={barOpacity}
+                      />
+                    )}
+                    {s.putGex !== 0 && (
+                      <rect
+                        x={cx - Math.max(0, putW)}
+                        y={y - barH / 2}
+                        width={Math.max(0, putW)}
+                        height={barH}
+                        fill={'var(--color-bear)'}
+                        opacity={barOpacity}
+                      />
+                    )}
+                  </>
                 )}
                 {isCombined && s.netGex !== 0 && (
                   <rect
@@ -2460,27 +2684,40 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
             const putW = (s.putOi / positionsXMax) * (RIGHT_W / 2);
             const isHovered = hoveredStrike?.strike === s.strike && hover?.panel === 'right';
             const barOpacity = isHovered ? 1 : hoveredStrike && hover?.panel === 'right' ? 0.55 : 0.95;
+            const rcx = RIGHT_X + RIGHT_W / 2;
+            const rhalf = RIGHT_W / 2;
+            // Live edge → stack OI by expiration; otherwise draw single bars.
+            const st = stackingActive ? stackedByStrike.get(Math.round(s.strike * 100)) : undefined;
             return (
               <g key={`pos-${s.strike}`}>
-                {s.callOi > 0 && (
-                  <rect
-                    x={RIGHT_X + RIGHT_W / 2}
-                    y={y - barH / 2}
-                    width={Math.max(0, callW)}
-                    height={barH}
-                    fill={'var(--color-bull)'}
-                    opacity={barOpacity}
-                  />
-                )}
-                {s.putOi > 0 && (
-                  <rect
-                    x={RIGHT_X + RIGHT_W / 2 - Math.max(0, putW)}
-                    y={y - barH / 2}
-                    width={Math.max(0, putW)}
-                    height={barH}
-                    fill={'var(--color-bear)'}
-                    opacity={barOpacity}
-                  />
+                {st ? (
+                  <>
+                    {stackedSegments(`coiseg-${s.strike}`, st, 'call', 'oi', rcx, rhalf, y, barH, positionsXMax, barOpacity)}
+                    {stackedSegments(`poiseg-${s.strike}`, st, 'put', 'oi', rcx, rhalf, y, barH, positionsXMax, barOpacity)}
+                  </>
+                ) : (
+                  <>
+                    {s.callOi > 0 && (
+                      <rect
+                        x={rcx}
+                        y={y - barH / 2}
+                        width={Math.max(0, callW)}
+                        height={barH}
+                        fill={'var(--color-bull)'}
+                        opacity={barOpacity}
+                      />
+                    )}
+                    {s.putOi > 0 && (
+                      <rect
+                        x={rcx - Math.max(0, putW)}
+                        y={y - barH / 2}
+                        width={Math.max(0, putW)}
+                        height={barH}
+                        fill={'var(--color-bear)'}
+                        opacity={barOpacity}
+                      />
+                    )}
+                  </>
                 )}
               </g>
             );
@@ -2685,48 +2922,112 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                   )}
                 </>
               )}
-              {hover.panel === 'middle' && hoveredStrike && (
-                <>
-                  <div className="font-semibold mb-1">Strike ${hoveredStrike.strike.toFixed(2)}</div>
-                  {gexMode !== 'net' ? (
-                    <>
-                      <div className="font-mono tabular-nums" style={{ color: 'var(--color-bull)' }}>
-                        Call GEX: {formatExposure(hoveredStrike.callGex)}
-                      </div>
-                      <div className="font-mono tabular-nums" style={{ color: 'var(--color-bear)' }}>
-                        Put GEX: {formatExposure(hoveredStrike.putGex)}
-                      </div>
+              {hover.panel === 'middle' && hoveredStrike && (() => {
+                // At the live edge, augment the aggregate with the per-expiration
+                // breakdown + each side's share of the all-expiration total.
+                const st = stackingActive ? stackedByStrike.get(Math.round(hoveredStrike.strike * 100)) : undefined;
+                const callPct = isSubsetSel && st && st.callAll > 0 ? (st.callSel / st.callAll) * 100 : null;
+                const putPct = isSubsetSel && st && st.putAll > 0 ? (st.putSel / st.putAll) * 100 : null;
+                return (
+                  <>
+                    <div className="font-semibold mb-1">Strike ${hoveredStrike.strike.toFixed(2)}</div>
+                    {gexMode !== 'net' ? (
+                      <>
+                        <div className="font-mono tabular-nums" style={{ color: 'var(--color-bull)' }}>
+                          Call GEX: {formatExposure(st ? st.callSel : hoveredStrike.callGex)}
+                          {callPct != null && (
+                            <span style={{ opacity: 0.7 }}> · {callPct.toFixed(0)}% of {formatExposure(st!.callAll)}</span>
+                          )}
+                        </div>
+                        <div className="font-mono tabular-nums" style={{ color: 'var(--color-bear)' }}>
+                          Put GEX: {formatExposure(st ? st.putSel : hoveredStrike.putGex)}
+                          {putPct != null && (
+                            <span style={{ opacity: 0.7 }}> · {putPct.toFixed(0)}% of {formatExposure(st!.putAll)}</span>
+                          )}
+                        </div>
+                        <div
+                          className="font-mono tabular-nums mt-1"
+                          style={{ color: gexMode === 'combined' ? NET_TEXT_COLOR : subtle }}
+                        >
+                          Net: {formatExposure(hoveredStrike.netGex)}
+                        </div>
+                      </>
+                    ) : (
                       <div
-                        className="font-mono tabular-nums mt-1"
-                        style={{ color: gexMode === 'combined' ? NET_TEXT_COLOR : subtle }}
+                        className="font-mono tabular-nums"
+                        style={{ color: hoveredStrike.netGex >= 0 ? 'var(--color-bull)' : 'var(--color-bear)' }}
                       >
-                        Net: {formatExposure(hoveredStrike.netGex)}
+                        Net GEX: {formatExposure(hoveredStrike.netGex)}
                       </div>
-                    </>
-                  ) : (
-                    <div
-                      className="font-mono tabular-nums"
-                      style={{ color: hoveredStrike.netGex >= 0 ? 'var(--color-bull)' : 'var(--color-bear)' }}
-                    >
-                      Net GEX: {formatExposure(hoveredStrike.netGex)}
+                    )}
+                    {st && gexMode !== 'net' && stackExpiries.length > 1 && (
+                      <div className="mt-1 pt-1" style={{ borderTop: `1px solid ${border}` }}>
+                        <div className="mb-0.5" style={{ opacity: 0.7 }}>By expiration (roll-off)</div>
+                        {stackExpiries.map((exp) => {
+                          const c = st.perExp.get(exp);
+                          if (!c || (c.call === 0 && c.put === 0)) return null;
+                          return (
+                            <div key={exp} className="flex justify-between gap-3 font-mono tabular-nums">
+                              <span style={{ opacity: 0.85 }}>{dteChip(exp)}</span>
+                              <span>
+                                <span style={{ color: 'var(--color-bull)' }}>{formatExposure(c.call)}</span>
+                                <span style={{ opacity: 0.5 }}> / </span>
+                                <span style={{ color: 'var(--color-bear)' }}>{formatExposure(c.put)}</span>
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+              {hover.panel === 'right' && hoveredStrike && (() => {
+                const st = stackingActive ? stackedByStrike.get(Math.round(hoveredStrike.strike * 100)) : undefined;
+                const callSel = st ? st.callOiSel : hoveredStrike.callOi;
+                const putSel = st ? st.putOiSel : hoveredStrike.putOi;
+                const callPct = isSubsetSel && st && st.callOiAll > 0 ? (st.callOiSel / st.callOiAll) * 100 : null;
+                const putPct = isSubsetSel && st && st.putOiAll > 0 ? (st.putOiSel / st.putOiAll) * 100 : null;
+                return (
+                  <>
+                    <div className="font-semibold mb-1">Strike ${hoveredStrike.strike.toFixed(2)}</div>
+                    <div className="font-mono tabular-nums" style={{ color: 'var(--color-bull)' }}>
+                      Call OI: {Math.round(callSel).toLocaleString()}
+                      {callPct != null && (
+                        <span style={{ opacity: 0.7 }}> · {callPct.toFixed(0)}% of {formatVolume(st!.callOiAll)}</span>
+                      )}
                     </div>
-                  )}
-                </>
-              )}
-              {hover.panel === 'right' && hoveredStrike && (
-                <>
-                  <div className="font-semibold mb-1">Strike ${hoveredStrike.strike.toFixed(2)}</div>
-                  <div className="font-mono tabular-nums" style={{ color: 'var(--color-bull)' }}>
-                    Call OI: {hoveredStrike.callOi.toLocaleString()}
-                  </div>
-                  <div className="font-mono tabular-nums" style={{ color: 'var(--color-bear)' }}>
-                    Put OI: {hoveredStrike.putOi.toLocaleString()}
-                  </div>
-                  <div className="font-mono tabular-nums mt-1" style={{ color: subtle }}>
-                    Net: {(hoveredStrike.callOi - hoveredStrike.putOi).toLocaleString()}
-                  </div>
-                </>
-              )}
+                    <div className="font-mono tabular-nums" style={{ color: 'var(--color-bear)' }}>
+                      Put OI: {Math.round(putSel).toLocaleString()}
+                      {putPct != null && (
+                        <span style={{ opacity: 0.7 }}> · {putPct.toFixed(0)}% of {formatVolume(st!.putOiAll)}</span>
+                      )}
+                    </div>
+                    <div className="font-mono tabular-nums mt-1" style={{ color: subtle }}>
+                      Net: {Math.round(callSel - putSel).toLocaleString()}
+                    </div>
+                    {st && stackExpiries.length > 1 && (
+                      <div className="mt-1 pt-1" style={{ borderTop: `1px solid ${border}` }}>
+                        <div className="mb-0.5" style={{ opacity: 0.7 }}>By expiration (roll-off)</div>
+                        {stackExpiries.map((exp) => {
+                          const c = st.perExp.get(exp);
+                          if (!c || (c.callOi === 0 && c.putOi === 0)) return null;
+                          return (
+                            <div key={exp} className="flex justify-between gap-3 font-mono tabular-nums">
+                              <span style={{ opacity: 0.85 }}>{dteChip(exp)}</span>
+                              <span>
+                                <span style={{ color: 'var(--color-bull)' }}>{formatVolume(c.callOi)}</span>
+                                <span style={{ opacity: 0.5 }}> / </span>
+                                <span style={{ color: 'var(--color-bear)' }}>{formatVolume(c.putOi)}</span>
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           );
         })()}
@@ -2840,6 +3141,41 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
         className="flex flex-wrap items-center gap-x-5 gap-y-1 px-5 py-2 text-xs"
         style={{ borderTop: `1px solid ${border}`, color: subtle }}
       >
+        {/* Gamma / Positions bars: colour by side, shaded by expiration (0DTE
+            boldest → furthest faintest) when the live snapshot is stacked. */}
+        <span className="flex items-center gap-1.5" title="Call gamma / OI bars, stacked by expiration (0DTE boldest → furthest faintest)">
+          <span
+            className="inline-block rounded-sm"
+            style={{ width: 20, height: 10, background: 'linear-gradient(90deg, var(--color-bull) 0%, color-mix(in srgb, var(--color-bull) 40%, transparent) 100%)' }}
+          />
+          <span style={{ color: textPrimary }}>Call</span>
+        </span>
+        <span className="flex items-center gap-1.5" title="Put gamma / OI bars, stacked by expiration (0DTE boldest → furthest faintest)">
+          <span
+            className="inline-block rounded-sm"
+            style={{ width: 20, height: 10, background: 'linear-gradient(90deg, var(--color-bear) 0%, color-mix(in srgb, var(--color-bear) 40%, transparent) 100%)' }}
+          />
+          <span style={{ color: textPrimary }}>Put</span>
+        </span>
+        {stackingActive && (
+          <span className="flex items-center gap-1.5" title="Segment shade runs from the nearest expiration (0DTE) to the furthest">
+            <span style={{ opacity: 0.7 }}>near</span>
+            <span
+              className="inline-block rounded-sm"
+              style={{ width: 28, height: 8, background: 'linear-gradient(90deg, var(--text-primary) 0%, color-mix(in srgb, var(--text-primary) 25%, transparent) 100%)' }}
+            />
+            <span style={{ opacity: 0.7 }}>far</span>
+          </span>
+        )}
+        {stackingActive && isSubsetSel && (
+          <span className="flex items-center gap-1.5" title="Faint cap = the other (unselected) expirations at that strike — the bar reads as a share of the all-expiration total">
+            <span
+              className="inline-block rounded-sm"
+              style={{ width: 12, height: 10, backgroundColor: 'color-mix(in srgb, var(--text-primary) 22%, transparent)', border: `1px solid ${border}` }}
+            />
+            <span style={{ color: textPrimary }}>Other exp</span>
+          </span>
+        )}
         <span className="flex items-center gap-1.5" title="Current spot price for the underlying">
           <svg width="22" height="6" aria-hidden="true">
             <line x1="0" x2="22" y1="3" y2="3" stroke={SPOT_LINE} strokeDasharray="5 3" strokeWidth="1.6" />
