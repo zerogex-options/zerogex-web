@@ -349,7 +349,7 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
             <h3 className="zg-h3" style={{ color: textColor }}>
               Open Interest by Strike
             </h3>
-            <TooltipWrapper text="Strike-level open interest by call/put. OI = open contracts outstanding (raw count). Notional = strike × 100 × OI — the dollar value of underlying that would change hands if every contract at this strike were exercised (industry-standard option position notional). Calls plot above the axis, puts below, aligned on each strike. The yellow dotted line marks spot at the nearest strike.">
+            <TooltipWrapper inlineInExpanded={false} text="Strike-level open interest by call/put. OI = open contracts outstanding (raw count). Notional = strike × 100 × OI — the dollar value of underlying that would change hands if every contract at this strike were exercised (industry-standard option position notional). Calls plot above the axis, puts below, aligned on each strike. The yellow dotted line marks spot at the nearest strike.">
               <Info size={14} />
             </TooltipWrapper>
             <div

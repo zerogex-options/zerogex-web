@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Area,
   Bar,
@@ -22,8 +22,6 @@ import { GEX_UNIT_LABEL, gexScaleFactor, useGexUnit } from '@/core/GexUnitContex
 import ExpandableCard from './ExpandableCard';
 import TooltipWrapper from './TooltipWrapper';
 import MobileScrollableChart from './MobileScrollableChart';
-import StrikeRangeScrollbar from './StrikeRangeScrollbar';
-import ValueRangeScrollbar from './ValueRangeScrollbar';
 import ExpirationMultiSelect from './ExpirationMultiSelect';
 import ChartCaption from "./ChartCaption";
 
@@ -42,6 +40,14 @@ const Y_ZOOM_STEP = 1.5;
 const Y_ZOOM_MAX = 32;
 // Full normalized value window (fit-all view).
 const Y_FULL_VIEW: [number, number] = [-1, 1];
+
+// Fixed pixel insets between the chart container and the plot area, used to
+// convert a drag in screen pixels into a domain shift. These come from the
+// chart's fixed layout props (two YAxis width=84, horizontal margin 16 each →
+// 200; top margin = REF_LABEL_TOP_MARGIN; bottom margin 8 + ~30 x-axis → 38)
+// and are container-size-independent, so they hold in the expanded view too.
+const PLOT_INSET_X = 200;
+const PLOT_INSET_BOTTOM = 38;
 
 interface StrikeRow {
   strike: number;
@@ -718,8 +724,8 @@ export default function GexProfileChart({
   };
 
   // Visible value window in normalized units within the fit-all range [-1, 1].
-  // Zoom narrows/widens it (both value axes scale together); the y-scrollbar
-  // shifts it. [-1, 1] = fit-all default.
+  // Zoom narrows/widens it (both value axes scale together); dragging the plot
+  // up/down shifts it. [-1, 1] = fit-all default.
   const [yView, setYView] = useState<[number, number]>(Y_FULL_VIEW);
   const Y_MIN_HALF = 1 / Y_ZOOM_MAX; // narrowest half-window => deepest zoom
   const handleYZoomIn = () => {
@@ -756,6 +762,84 @@ export default function GexProfileChart({
   const isYFull = yView[0] <= -1 + 1e-6 && yView[1] >= 1 - 1e-6;
   const isYMaxZoom = (yView[1] - yView[0]) / 2 <= Y_MIN_HALF + 1e-9;
   const isDefaultView = isFullyZoomedOut && isYFull;
+
+  // Grab-and-drag panning (replaces the scrollbars): drag the plot left/right to
+  // pan the strike window, up/down to pan the value window — the data under the
+  // cursor tracks the cursor. Only meaningful once an axis is zoomed in.
+  // (Plot dimensions are read from the mousedown target rather than a ref, so
+  // it works for both the base card and the ExpandableCard modal copy, which
+  // render the same JSX in two places.)
+  const pannable = !isFullyZoomedOut || !isYFull;
+  const panRef = useRef<{
+    startClientX: number;
+    startClientY: number;
+    startVis: [number, number];
+    startYView: [number, number];
+    fullDomain: [number, number];
+    plotWidth: number;
+    plotHeight: number;
+  } | null>(null);
+  const [panning, setPanning] = useState(false);
+
+  const applyPan = useCallback((clientX: number, clientY: number) => {
+    const st = panRef.current;
+    if (!st) return;
+    const dx = clientX - st.startClientX;
+    const dy = clientY - st.startClientY;
+    // X: strikes. Dragging right reveals lower strikes (content follows cursor).
+    const [s0, e0] = st.startVis;
+    const xSpan = e0 - s0;
+    const xShift = -(dx / st.plotWidth) * xSpan;
+    let ns = s0 + xShift;
+    let ne = e0 + xShift;
+    const [fLo, fHi] = st.fullDomain;
+    if (ns < fLo) { ns = fLo; ne = ns + xSpan; }
+    if (ne > fHi) { ne = fHi; ns = ne - xSpan; }
+    setVisibleDomain([ns, ne]);
+    // Y: normalized value window. Screen-y is inverted vs value, so dragging
+    // down reveals higher values.
+    const [lo0, hi0] = st.startYView;
+    const ySpan = hi0 - lo0;
+    const yShift = (dy / st.plotHeight) * ySpan;
+    let nlo = lo0 + yShift;
+    let nhi = hi0 + yShift;
+    if (nlo < -1) { nlo = -1; nhi = nlo + ySpan; }
+    if (nhi > 1) { nhi = 1; nlo = nhi - ySpan; }
+    setYView([nlo, nhi]);
+  }, []);
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (panRef.current) applyPan(e.clientX, e.clientY);
+    };
+    const onUp = () => {
+      if (panRef.current) {
+        panRef.current = null;
+        setPanning(false);
+      }
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+  }, [applyPan]);
+
+  const beginPan = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!pannable || !visibleDomain || !fullStrikeDomain) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    panRef.current = {
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      startVis: visibleDomain,
+      startYView: yView,
+      fullDomain: fullStrikeDomain,
+      plotWidth: Math.max(1, rect.width - PLOT_INSET_X),
+      plotHeight: Math.max(1, rect.height - REF_LABEL_TOP_MARGIN - PLOT_INSET_BOTTOM),
+    };
+    setPanning(true);
+  };
 
   // Explicit ticks at uniform-step strikes (1, 2, 5, 10… depending on the
   // visible range) so every tick lands on a clean integer and recharts'
@@ -834,7 +918,7 @@ export default function GexProfileChart({
             <h3 className="zg-h3" style={{ color: textColor }}>
               Gamma Exposure by Strike
             </h3>
-            <TooltipWrapper text="Per-strike dealer GEX bars (left axis) overlaid with the GEX Profile curve (right axis). Calls plot up, puts down, aligned on each strike. Each bar is stacked by expiration and shaded by time-to-expiry — the nearest expiration (0DTE) is boldest and the furthest is faintest — so you can read how much gamma rolls off in N days. GEX here is dollar gamma per 1% spot move (γ × 100 × spot² × 0.01), the industry-standard normalization that compares cleanly across underlyings. When you filter to specific expirations, the solid bar is the selected expirations' gamma and a faint cap shows the rest, so the bar reads as a share of the all-expiration total at that strike — hover for the exact % (e.g. 0DTE = $900M, 90% of the $1B at that strike). The profile curve is the shared primitive whose zero crossing is the gamma flip and whose value at spot is the Net GEX at Spot. With All expirations the curve is the full-chain spot-shift profile (flip matches the headline metric); with a subset the bars, curve, walls and flip all scope to that set (the curve becomes the selected expirations' cumulative net-GEX, so its zero crossing is still the flip). Reference lines mark spot, the gamma flip, and the call/put walls.">
+            <TooltipWrapper inlineInExpanded={false} text="Per-strike dealer GEX bars (left axis) overlaid with the GEX Profile curve (right axis). Calls plot up, puts down, aligned on each strike. Each bar is stacked by expiration and shaded by time-to-expiry — the nearest expiration (0DTE) is boldest and the furthest is faintest — so you can read how much gamma rolls off in N days. GEX here is dollar gamma per 1% spot move (γ × 100 × spot² × 0.01), the industry-standard normalization that compares cleanly across underlyings. When you filter to specific expirations, the solid bar is the selected expirations' gamma and a faint cap shows the rest, so the bar reads as a share of the all-expiration total at that strike — hover for the exact % (e.g. 0DTE = $900M, 90% of the $1B at that strike). The profile curve is the shared primitive whose zero crossing is the gamma flip and whose value at spot is the Net GEX at Spot. With All expirations the curve is the full-chain spot-shift profile (flip matches the headline metric); with a subset the bars, curve, walls and flip all scope to that set (the curve becomes the selected expirations' cumulative net-GEX, so its zero crossing is still the flip). Reference lines mark spot, the gamma flip, and the call/put walls.">
               <Info size={14} />
             </TooltipWrapper>
             <span
@@ -991,20 +1075,13 @@ export default function GexProfileChart({
             No GEX profile data available.
           </div>
         ) : (
-          <div className="flex items-start gap-1.5">
-            {/* Vertical value scrollbar — pans the shared y-window when zoomed,
-                mirroring the strike scrollbar under the plot. Top/bottom padding
-                lines it up with the plot band (below the reference-label margin,
-                above the x-axis). */}
-            <div
-              className="shrink-0"
-              style={{ height: isMobile ? 320 : 420, paddingTop: REF_LABEL_TOP_MARGIN, paddingBottom: 34 }}
-            >
-              <ValueRangeScrollbar visibleNorm={yView} onChange={setYView} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <MobileScrollableChart>
-                <ResponsiveContainer width="100%" height={isMobile ? 320 : 420}>
+          <div
+            onMouseDown={beginPan}
+            className="select-none"
+            style={{ cursor: pannable ? (panning ? 'grabbing' : 'grab') : 'default' }}
+          >
+            <MobileScrollableChart>
+              <ResponsiveContainer width="100%" height={isMobile ? 320 : 420}>
               {/* Each YAxis track (width=84 below) reserves room for the
                   rotated axis title AND the tick labels with ~25px of
                   clear separation between them.  Outer margin is small
@@ -1278,18 +1355,8 @@ export default function GexProfileChart({
                   />
                 )}
               </ComposedChart>
-                </ResponsiveContainer>
-              </MobileScrollableChart>
-              {visibleDomain && fullStrikeDomain && (
-                <div className="mt-2 px-2">
-                  <StrikeRangeScrollbar
-                    visibleDomain={visibleDomain}
-                    fullDomain={fullStrikeDomain}
-                    onChange={setVisibleDomain}
-                  />
-                </div>
-              )}
-            </div>
+              </ResponsiveContainer>
+            </MobileScrollableChart>
           </div>
         )}
         <ChartCaption />
