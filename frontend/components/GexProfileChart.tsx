@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Area,
   Bar,
@@ -22,7 +22,6 @@ import { GEX_UNIT_LABEL, gexScaleFactor, useGexUnit } from '@/core/GexUnitContex
 import ExpandableCard from './ExpandableCard';
 import TooltipWrapper from './TooltipWrapper';
 import MobileScrollableChart from './MobileScrollableChart';
-import StrikeRangeScrollbar from './StrikeRangeScrollbar';
 import ExpirationMultiSelect from './ExpirationMultiSelect';
 import ChartCaption from "./ChartCaption";
 
@@ -30,6 +29,25 @@ import ChartCaption from "./ChartCaption";
 // 1.4 is roughly the geometric mean of 1 and 2, giving comfortable single-
 // click steps without bouncing across the whole chain.
 const X_ZOOM_STEP = 1.4;
+
+// Vertical (value-axis) zoom + scroll. The visible y-extent is a normalized
+// window within the fit-all range [-1, 1]; zoom narrows/widens the window
+// (each click by this factor) and the scrollbar shifts it. Both value axes
+// (bars + profile) share the one window, so out-of-range values clip and the
+// two axes' zeros stay aligned. Y_ZOOM_MAX caps how far a single tall bar can
+// be zoomed past before the window collapses to noise.
+const Y_ZOOM_STEP = 1.5;
+const Y_ZOOM_MAX = 32;
+// Full normalized value window (fit-all view).
+const Y_FULL_VIEW: [number, number] = [-1, 1];
+
+// Fixed pixel insets between the chart container and the plot area, used to
+// convert a drag in screen pixels into a domain shift. These come from the
+// chart's fixed layout props (two YAxis width=84, horizontal margin 16 each →
+// 200; top margin = REF_LABEL_TOP_MARGIN; bottom margin 8 + ~30 x-axis → 38)
+// and are container-size-independent, so they hold in the expanded view too.
+const PLOT_INSET_X = 200;
+const PLOT_INSET_BOTTOM = 38;
 
 interface StrikeRow {
   strike: number;
@@ -223,21 +241,30 @@ function niceStep(halfRange: number, targetCount: number): number {
   return 10 * magnitude;
 }
 
-// Symmetric ticks anchored at zero: [-N*step, ..., -step, 0, step, ..., N*step].
-// Caller picks `step` via niceStep so the labels read $1B, $2B, $3B etc.
-function symmetricTicks(maxAbs: number, step: number): { ticks: number[]; domainMax: number } {
-  if (!Number.isFinite(maxAbs) || maxAbs <= 0 || step <= 0) {
-    return { ticks: [0], domainMax: 1 };
-  }
-  const upper = Math.ceil(maxAbs / step) * step;
+// Fit-all half-extent for a value axis: the smallest nice-stepped multiple
+// that covers the data's max magnitude. This is the reference the normalized
+// y-window ([-1, 1]) maps onto — a window of [nLo, nHi] shows the value band
+// [nLo × fullMax, nHi × fullMax].
+function roundedMax(maxAbs: number): number {
+  if (!Number.isFinite(maxAbs) || maxAbs <= 0) return 1;
+  const step = niceStep(maxAbs, 4);
+  return Math.ceil(maxAbs / step) * step;
+}
+
+// Nice-stepped ticks across an arbitrary [lo, hi] range (not necessarily
+// symmetric — the y-window can be scrolled off-center). Mirrors the strike
+// x-axis tick helper: pick a 1/2/5 × 10^k step for ~targetCount ticks, start
+// at the first multiple ≥ lo, and count rungs to avoid float drift. A symmetric
+// range still yields a tick exactly at 0.
+function ticksInRange(lo: number, hi: number, targetCount: number): number[] {
+  if (!Number.isFinite(lo) || !Number.isFinite(hi) || hi <= lo) return [0];
+  const step = niceStep(hi - lo, targetCount);
+  if (!(step > 0)) return [0];
+  const start = Math.ceil(lo / step) * step;
+  const rungs = Math.max(0, Math.round((hi - start) / step));
   const ticks: number[] = [];
-  // Floating-point safety: count rungs then multiply, instead of repeated
-  // additions that drift (e.g. step=0.1 sums to 0.30000000000000004).
-  const rungs = Math.round(upper / step);
-  for (let i = -rungs; i <= rungs; i += 1) {
-    ticks.push(i * step);
-  }
-  return { ticks, domainMax: upper };
+  for (let i = 0; i <= rungs; i += 1) ticks.push(start + i * step);
+  return ticks;
 }
 
 // Spot-shift GEX profile points are sampled at the resolver's grid step
@@ -696,9 +723,32 @@ export default function GexProfileChart({
     setVisibleDomain([newStart, newEnd]);
   };
 
+  // Visible value window in normalized units within the fit-all range [-1, 1].
+  // Zoom narrows/widens it (both value axes scale together); dragging the plot
+  // up/down shifts it. [-1, 1] = fit-all default.
+  const [yView, setYView] = useState<[number, number]>(Y_FULL_VIEW);
+  const Y_MIN_HALF = 1 / Y_ZOOM_MAX; // narrowest half-window => deepest zoom
+  const handleYZoomIn = () => {
+    const [lo, hi] = yView;
+    const center = (lo + hi) / 2;
+    const newHalf = ((hi - lo) / 2) / Y_ZOOM_STEP;
+    if (newHalf < Y_MIN_HALF) return;
+    setYView([center - newHalf, center + newHalf]);
+  };
+  const handleYZoomOut = () => {
+    const [lo, hi] = yView;
+    const center = (lo + hi) / 2;
+    const span = Math.min(2, (hi - lo) * Y_ZOOM_STEP);
+    let newLo = center - span / 2;
+    let newHi = center + span / 2;
+    if (newLo < -1) { newLo = -1; newHi = newLo + span; }
+    if (newHi > 1) { newHi = 1; newLo = newHi - span; }
+    setYView([newLo, newHi]);
+  };
+
   const handleResetView = () => {
-    if (!fullStrikeDomain) return;
-    setVisibleDomain(fullStrikeDomain);
+    if (fullStrikeDomain) setVisibleDomain(fullStrikeDomain);
+    setYView(Y_FULL_VIEW);
   };
 
   const isFullyZoomedOut =
@@ -706,6 +756,90 @@ export default function GexProfileChart({
     fullStrikeDomain != null &&
     visibleDomain[0] <= fullStrikeDomain[0] + 1e-6 &&
     visibleDomain[1] >= fullStrikeDomain[1] - 1e-6;
+
+  // Value-window state: full (can't zoom out further) and max zoom (can't zoom
+  // in further). The reset control is meaningful when EITHER axis is off default.
+  const isYFull = yView[0] <= -1 + 1e-6 && yView[1] >= 1 - 1e-6;
+  const isYMaxZoom = (yView[1] - yView[0]) / 2 <= Y_MIN_HALF + 1e-9;
+  const isDefaultView = isFullyZoomedOut && isYFull;
+
+  // Grab-and-drag panning (replaces the scrollbars): drag the plot left/right to
+  // pan the strike window, up/down to pan the value window — the data under the
+  // cursor tracks the cursor. Only meaningful once an axis is zoomed in.
+  // (Plot dimensions are read from the mousedown target rather than a ref, so
+  // it works for both the base card and the ExpandableCard modal copy, which
+  // render the same JSX in two places.)
+  const pannable = !isFullyZoomedOut || !isYFull;
+  const panRef = useRef<{
+    startClientX: number;
+    startClientY: number;
+    startVis: [number, number];
+    startYView: [number, number];
+    fullDomain: [number, number];
+    plotWidth: number;
+    plotHeight: number;
+  } | null>(null);
+  const [panning, setPanning] = useState(false);
+
+  const applyPan = useCallback((clientX: number, clientY: number) => {
+    const st = panRef.current;
+    if (!st) return;
+    const dx = clientX - st.startClientX;
+    const dy = clientY - st.startClientY;
+    // X: strikes. Dragging right reveals lower strikes (content follows cursor).
+    const [s0, e0] = st.startVis;
+    const xSpan = e0 - s0;
+    const xShift = -(dx / st.plotWidth) * xSpan;
+    let ns = s0 + xShift;
+    let ne = e0 + xShift;
+    const [fLo, fHi] = st.fullDomain;
+    if (ns < fLo) { ns = fLo; ne = ns + xSpan; }
+    if (ne > fHi) { ne = fHi; ns = ne - xSpan; }
+    setVisibleDomain([ns, ne]);
+    // Y: normalized value window. Screen-y is inverted vs value, so dragging
+    // down reveals higher values.
+    const [lo0, hi0] = st.startYView;
+    const ySpan = hi0 - lo0;
+    const yShift = (dy / st.plotHeight) * ySpan;
+    let nlo = lo0 + yShift;
+    let nhi = hi0 + yShift;
+    if (nlo < -1) { nlo = -1; nhi = nlo + ySpan; }
+    if (nhi > 1) { nhi = 1; nlo = nhi - ySpan; }
+    setYView([nlo, nhi]);
+  }, []);
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (panRef.current) applyPan(e.clientX, e.clientY);
+    };
+    const onUp = () => {
+      if (panRef.current) {
+        panRef.current = null;
+        setPanning(false);
+      }
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+  }, [applyPan]);
+
+  const beginPan = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!pannable || !visibleDomain || !fullStrikeDomain) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    panRef.current = {
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      startVis: visibleDomain,
+      startYView: yView,
+      fullDomain: fullStrikeDomain,
+      plotWidth: Math.max(1, rect.width - PLOT_INSET_X),
+      plotHeight: Math.max(1, rect.height - REF_LABEL_TOP_MARGIN - PLOT_INSET_BOTTOM),
+    };
+    setPanning(true);
+  };
 
   // Explicit ticks at uniform-step strikes (1, 2, 5, 10… depending on the
   // visible range) so every tick lands on a clean integer and recharts'
@@ -722,9 +856,11 @@ export default function GexProfileChart({
   // spot).  Mixing them on a single axis squishes the bars into a flat
   // line at zero — matches the screenshot reference's two-axis layout.
   //
-  // Both axes use symmetric nice-stepped ticks (1/2/5 × 10^k) so the
-  // labels read $1B, $2B, $3B etc. instead of the data-driven extremes
-  // recharts would otherwise pick (e.g. $884.1M, -$1.1B).
+  // Both axes use nice-stepped ticks (1/2/5 × 10^k) so the labels read $1B,
+  // $2B, $3B etc. instead of the data-driven extremes recharts would otherwise
+  // pick (e.g. $884.1M, -$1.1B). The normalized y-window (`yView`) then carves
+  // the visible band out of each axis's fit-all extent — the same window on
+  // both, so their zeros stay aligned as you zoom/scroll vertically.
   const { strikeTicks, strikeDomain, profileTicks, profileDomain, denom } = useMemo(() => {
     let strikeAbs = 0;
     let profileAbs = 0;
@@ -740,23 +876,26 @@ export default function GexProfileChart({
       if (row.netGex != null) strikeAbs = Math.max(strikeAbs, Math.abs(row.netGex));
       if (row.profileGex != null) profileAbs = Math.max(profileAbs, Math.abs(row.profileGex));
     });
-    // ~4 ticks per side keeps the y-axis legible without crowding labels
-    // at smaller chart heights.
-    const strikeStep = niceStep(strikeAbs, 4);
-    const profileStep = niceStep(profileAbs, 4);
-    const strike = symmetricTicks(strikeAbs, strikeStep);
-    const profile = symmetricTicks(profileAbs, profileStep);
-    // Single denomination shared across both axes so the smaller scale
-    // (bars) renders as e.g. "$0.5B" instead of "$500.0M" when the
-    // larger scale (profile) is in billions.
-    return {
-      strikeTicks: strike.ticks,
-      strikeDomain: [-strike.domainMax, strike.domainMax] as [number, number],
-      profileTicks: profile.ticks,
-      profileDomain: [-profile.domainMax, profile.domainMax] as [number, number],
-      denom: pickSharedDenomination(Math.max(strike.domainMax, profile.domainMax)),
-    };
-  }, [merged]);
+    // Fit-all half-extents, then the visible band = window × extent. A window
+    // of [-1, 1] recovers the full symmetric axis; a narrower/off-center window
+    // zooms/scrolls, with out-of-range bars and curve clipped via
+    // allowDataOverflow.
+    const strikeFullMax = roundedMax(strikeAbs);
+    const profileFullMax = roundedMax(profileAbs);
+    const [nLo, nHi] = yView;
+    const strikeDomain: [number, number] = [nLo * strikeFullMax, nHi * strikeFullMax];
+    const profileDomain: [number, number] = [nLo * profileFullMax, nHi * profileFullMax];
+    // ~8 ticks across the visible band keeps ~4 per side at the full view.
+    const strikeTicks = ticksInRange(strikeDomain[0], strikeDomain[1], 8);
+    const profileTicks = ticksInRange(profileDomain[0], profileDomain[1], 8);
+    // Single denomination shared across both axes so the smaller scale (bars)
+    // renders as e.g. "$0.5B" instead of "$500.0M" when the larger scale
+    // (profile) is in billions.
+    const denom = pickSharedDenomination(
+      Math.max(Math.abs(strikeDomain[0]), Math.abs(strikeDomain[1]), Math.abs(profileDomain[0]), Math.abs(profileDomain[1])),
+    );
+    return { strikeTicks, strikeDomain, profileTicks, profileDomain, denom };
+  }, [merged, yView]);
 
   const hasData = merged.length > 0;
 
@@ -769,14 +908,17 @@ export default function GexProfileChart({
           border: `1px solid var(--border-default)`,
         }}
       >
-        {/* Header: title on the left, legend top-right above the plot area so
-            it never collides with reference-line labels or profile peaks. */}
-        <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
+        {/* Header: a controls row (title, unit badge, strike/value zoom, and the
+            expiration selector) with a dedicated legend row beneath it — so the
+            legend never reflows onto a second line when the expiration selection
+            changes, and the value-axis zoom controls have somewhere to sit. */}
+        <div className="mb-4">
+          <div className="flex items-start justify-between gap-3 flex-wrap gap-y-2">
           <div className="flex items-center gap-2">
             <h3 className="zg-h3" style={{ color: textColor }}>
               Gamma Exposure by Strike
             </h3>
-            <TooltipWrapper text="Per-strike dealer GEX bars (left axis) overlaid with the GEX Profile curve (right axis). Calls plot up, puts down, aligned on each strike. Each bar is stacked by expiration and shaded by time-to-expiry — the nearest expiration (0DTE) is boldest and the furthest is faintest — so you can read how much gamma rolls off in N days. GEX here is dollar gamma per 1% spot move (γ × 100 × spot² × 0.01), the industry-standard normalization that compares cleanly across underlyings. When you filter to specific expirations, the solid bar is the selected expirations' gamma and a faint cap shows the rest, so the bar reads as a share of the all-expiration total at that strike — hover for the exact % (e.g. 0DTE = $900M, 90% of the $1B at that strike). The profile curve is the shared primitive whose zero crossing is the gamma flip and whose value at spot is the Net GEX at Spot. With All expirations the curve is the full-chain spot-shift profile (flip matches the headline metric); with a subset the bars, curve, walls and flip all scope to that set (the curve becomes the selected expirations' cumulative net-GEX, so its zero crossing is still the flip). Reference lines mark spot, the gamma flip, and the call/put walls.">
+            <TooltipWrapper inlineInExpanded={false} text="Per-strike dealer GEX bars (left axis) overlaid with the GEX Profile curve (right axis). Calls plot up, puts down, aligned on each strike. Each bar is stacked by expiration and shaded by time-to-expiry — the nearest expiration (0DTE) is boldest and the furthest is faintest — so you can read how much gamma rolls off in N days. GEX here is dollar gamma per 1% spot move (γ × 100 × spot² × 0.01), the industry-standard normalization that compares cleanly across underlyings. When you filter to specific expirations, the solid bar is the selected expirations' gamma and a faint cap shows the rest, so the bar reads as a share of the all-expiration total at that strike — hover for the exact % (e.g. 0DTE = $900M, 90% of the $1B at that strike). The profile curve is the shared primitive whose zero crossing is the gamma flip and whose value at spot is the Net GEX at Spot. With All expirations the curve is the full-chain spot-shift profile (flip matches the headline metric); with a subset the bars, curve, walls and flip all scope to that set (the curve becomes the selected expirations' cumulative net-GEX, so its zero crossing is still the flip). Reference lines mark spot, the gamma flip, and the call/put walls.">
               <Info size={14} />
             </TooltipWrapper>
             <span
@@ -786,48 +928,73 @@ export default function GexProfileChart({
             >
               {GEX_UNIT_LABEL[gexUnit]}
             </span>
+            {/* Strike (X) and value (Y) zoom, plus a shared reset. Same
+                magnifier per axis; the X / Y prefix says which one it drives. */}
             <div
-              className="ml-1 inline-flex rounded border"
+              className="ml-1 inline-flex items-center rounded border"
               style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)' }}
             >
+              <span className="px-1.5 text-[10px] font-semibold select-none" style={{ color: 'var(--text-muted)' }}>X</span>
               <button
                 type="button"
                 onClick={handleZoomOut}
                 disabled={isFullyZoomedOut}
-                title="Zoom out (widen visible strike range)"
+                title="Zoom out strikes (widen visible range)"
                 className="px-2 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
-                style={{ color: 'var(--color-text-secondary)' }}
+                style={{ color: 'var(--color-text-secondary)', borderLeft: `1px solid var(--color-border)` }}
               >
                 <ZoomOut size={12} />
               </button>
               <button
                 type="button"
                 onClick={handleZoomIn}
-                title="Zoom in (narrow visible strike range)"
+                title="Zoom in strikes (narrow visible range)"
                 className="px-2 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{ color: 'var(--color-text-secondary)', borderLeft: `1px solid var(--color-border)` }}
               >
                 <ZoomIn size={12} />
               </button>
+            </div>
+            <div
+              className="inline-flex items-center rounded border"
+              style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)' }}
+            >
+              <span className="px-1.5 text-[10px] font-semibold select-none" style={{ color: 'var(--text-muted)' }}>Y</span>
               <button
                 type="button"
-                onClick={handleResetView}
-                disabled={isFullyZoomedOut}
-                title="Reset to full strike range"
+                onClick={handleYZoomOut}
+                disabled={isYFull}
+                title="Zoom out the value axis"
                 className="px-2 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{ color: 'var(--color-text-secondary)', borderLeft: `1px solid var(--color-border)` }}
               >
-                <RotateCcw size={12} />
+                <ZoomOut size={12} />
+              </button>
+              <button
+                type="button"
+                onClick={handleYZoomIn}
+                disabled={isYMaxZoom}
+                title="Zoom in the value axis (magnify the gamma scale to inspect small bars)"
+                className="px-2 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{ color: 'var(--color-text-secondary)', borderLeft: `1px solid var(--color-border)` }}
+              >
+                <ZoomIn size={12} />
               </button>
             </div>
+            <button
+              type="button"
+              onClick={handleResetView}
+              disabled={isDefaultView}
+              title="Reset zoom (both axes)"
+              className="inline-flex items-center rounded border px-2 py-1 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-subtle)', color: 'var(--color-text-secondary)' }}
+            >
+              <RotateCcw size={12} />
+            </button>
           </div>
-          <div
-            // pr-14 reserves room for the absolutely-positioned Expand
-            // button (right-3, ~36px wide) in the card's top-right corner,
-            // so the rightmost legend entry never tucks under it.
-            className="flex flex-wrap items-center gap-4 text-xs pr-14"
-            style={{ color: textColor }}
-          >
+          {/* pr-14 keeps the expiration selector clear of the absolutely-
+              positioned Expand button in the card's top-right corner. */}
+          <div className="flex items-center gap-2 pr-14" style={{ color: textColor }}>
             {expirationOptions && onSelectedExpirationsChange && (
               <ExpirationMultiSelect
                 options={expirationOptions}
@@ -835,6 +1002,12 @@ export default function GexProfileChart({
                 onChange={onSelectedExpirationsChange}
               />
             )}
+          </div>
+          </div>
+          {/* Legend row — on its own line so toggling the expiration selection
+              (which shows/hides the "Other exp" chip) never bumps it onto a
+              second line the way it did when it shared the title row. */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs mt-2.5" style={{ color: textColor }}>
             <div
               className="flex items-center gap-1.5"
               title="Stacked by expiration — nearest (0DTE) boldest, furthest faintest"
@@ -902,8 +1075,13 @@ export default function GexProfileChart({
             No GEX profile data available.
           </div>
         ) : (
-          <MobileScrollableChart>
-            <ResponsiveContainer width="100%" height={isMobile ? 320 : 420}>
+          <div
+            onMouseDown={beginPan}
+            className="select-none"
+            style={{ cursor: pannable ? (panning ? 'grabbing' : 'grab') : 'default' }}
+          >
+            <MobileScrollableChart>
+              <ResponsiveContainer width="100%" height={isMobile ? 320 : 420}>
               {/* Each YAxis track (width=84 below) reserves room for the
                   rotated axis title AND the tick labels with ~25px of
                   clear separation between them.  Outer margin is small
@@ -943,6 +1121,9 @@ export default function GexProfileChart({
                   // between the title and the tick labels.
                   width={84}
                   domain={strikeDomain}
+                  // Clip bars/line to the (possibly y-zoomed) domain instead of
+                  // letting recharts expand it back to fit the data.
+                  allowDataOverflow
                   ticks={strikeTicks}
                   stroke={axisStroke}
                   tick={{ fontSize: 11, fill: axisStroke }}
@@ -964,6 +1145,7 @@ export default function GexProfileChart({
                   orientation="right"
                   width={84}
                   domain={profileDomain}
+                  allowDataOverflow
                   ticks={profileTicks}
                   stroke={axisStroke}
                   tick={{ fontSize: 11, fill: axisStroke }}
@@ -1012,11 +1194,20 @@ export default function GexProfileChart({
 
                 {/* Per-strike bars, stacked by expiration on one signed stack
                     so calls push up and puts push down aligned on the strike
-                    (stackOffset="sign"). Nearest expiration renders first =
-                    at the base (boldest); the faint remainder cap renders last
-                    = at the outer edge, so the solid selection reads as a
-                    share of the full all-expiration total. When no expiration
-                    universe is available, fall back to the plain aggregate. */}
+                    (stackOffset="sign").
+
+                    ORDER INVARIANT: `stackExpirations` is sorted ascending
+                    (nearest expiration first), and recharts stacks in child
+                    order from the zero baseline outward (offsetSign puts
+                    series[0] against the axis). So the shortest DTE always sits
+                    closest to the x-axis and each later expiration stacks
+                    chronologically outward to the furthest DTE — which also
+                    lines up with the opacity ramp (nearest boldest). Keep the
+                    nearest-first order if you touch this. The faint remainder
+                    cap renders LAST = at the outer edge, so the solid selection
+                    reads as a share of the full all-expiration total. When no
+                    expiration universe is available, fall back to the plain
+                    aggregate. */}
                 {stackExpirations.map((exp) => (
                   <Bar
                     key={`call-${exp}`}
@@ -1164,16 +1355,8 @@ export default function GexProfileChart({
                   />
                 )}
               </ComposedChart>
-            </ResponsiveContainer>
-          </MobileScrollableChart>
-        )}
-        {hasData && visibleDomain && fullStrikeDomain && (
-          <div className="mt-2 px-2">
-            <StrikeRangeScrollbar
-              visibleDomain={visibleDomain}
-              fullDomain={fullStrikeDomain}
-              onChange={setVisibleDomain}
-            />
+              </ResponsiveContainer>
+            </MobileScrollableChart>
           </div>
         )}
         <ChartCaption />

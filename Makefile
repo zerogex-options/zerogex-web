@@ -1,4 +1,4 @@
-.PHONY: help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation honor-winback-discount clear-zombie-customers webhook-health trial-reminders trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback reactivation checkout-recovery founding-final-call public-cohort cancellations churn-breakdown enable-portal-cancel-reasons save-url reset-save-latch diagnose-user reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo blog-images
+.PHONY: help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription honor-winback-discount clear-zombie-customers webhook-health trial-reminders trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback reactivation checkout-recovery founding-final-call public-cohort cancellations churn-breakdown enable-portal-cancel-reasons save-url reset-save-latch diagnose-user reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo blog-images
 
 # Default target
 help:
@@ -487,6 +487,26 @@ set-cancellation:
 	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make set-cancellation EMAIL=foo@example.com OFF=1 DRY_RUN=1)"; exit 1; fi
 	@if [ -z "$(ON)" ] && [ -z "$(OFF)" ]; then echo "Error: pass ON=1 or OFF=1"; exit 1; fi
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/set-cancellation.mts --email $(EMAIL) $(if $(OFF),--off,) $(if $(ON),--on,) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
+
+# Immediately cancel ONE customer's Stripe subscription and downgrade them to
+# 'public' — the path set-cancellation can't take (it only flips
+# cancel_at_period_end on a trialing/active sub and refuses past_due/unpaid).
+# Use for a trial that failed to convert and is stuck in past_due / the payment-
+# recovery grace + Stripe dunning cycle. VOID_INVOICE=1 also voids every still-
+# open invoice on the sub, which is what actually stops Stripe's retry attempts
+# on the failed charge (canceling alone does not void an open invoice). The
+# webhook mirrors the downgrade (tier=public, sub mirror cleared, API keys
+# revoked); this writes it directly too for immediacy. Keeps the account (use
+# make delete-user to remove it). Sends NO email. Refuses an active/trialing sub
+# unless FORCE=1 (that ends paid access immediately, no refund — prefer
+# set-cancellation ON=1 for those). Run `make diagnose-user EMAIL=...` first.
+# Examples:
+#   make cancel-subscription EMAIL=foo@example.com DRY_RUN=1
+#   make cancel-subscription EMAIL=foo@example.com VOID_INVOICE=1 YES=1
+#   make cancel-subscription EMAIL=foo@example.com FORCE=1 VOID_INVOICE=1 YES=1
+cancel-subscription:
+	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make cancel-subscription EMAIL=foo@example.com VOID_INVOICE=1 DRY_RUN=1)"; exit 1; fi
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/cancel-subscription.mts --email $(EMAIL) $(if $(VOID_INVOICE),--void-invoice,) $(if $(FORCE),--force,) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
 
 # Honor the evergreen win-back "reply 'discount'" offer for ONE member by hand:
 # STACK a "25% off for one year" coupon on top of any discounts already on their
