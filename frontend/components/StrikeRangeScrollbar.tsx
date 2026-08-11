@@ -28,6 +28,11 @@ export default function StrikeRangeScrollbar({
   // pointer move of 100px always shifts the domain by the same amount, no
   // matter how many re-renders happened in between.
   const dragRef = useRef<{ startClientX: number; startDomainStart: number } | null>(null);
+  // Coalesce pointer moves to one domain update per animation frame — the
+  // consumer re-renders a heavy chart on every onChange, so firing once per
+  // frame instead of once per raw event keeps the drag from backing up.
+  const frameRef = useRef<number | null>(null);
+  const latestRef = useRef<number | null>(null);
 
   const [fullStart, fullEnd] = fullDomain;
   const [visStart, visEnd] = visibleDomain;
@@ -65,16 +70,29 @@ export default function StrikeRangeScrollbar({
   );
 
   useEffect(() => {
+    const schedule = () => {
+      if (frameRef.current != null) return;
+      frameRef.current = requestAnimationFrame(() => {
+        frameRef.current = null;
+        if (dragRef.current && latestRef.current != null) applyDelta(latestRef.current);
+      });
+    };
     const handleMove = (e: MouseEvent) => {
       if (!dragRef.current) return;
-      applyDelta(e.clientX);
+      latestRef.current = e.clientX;
+      schedule();
     };
     const handleTouch = (e: TouchEvent) => {
       if (!dragRef.current || e.touches.length === 0) return;
-      applyDelta(e.touches[0].clientX);
+      latestRef.current = e.touches[0].clientX;
+      schedule();
     };
     const handleEnd = () => {
       dragRef.current = null;
+      if (frameRef.current != null) {
+        cancelAnimationFrame(frameRef.current);
+        frameRef.current = null;
+      }
     };
     window.addEventListener('mousemove', handleMove);
     window.addEventListener('mouseup', handleEnd);
@@ -85,6 +103,7 @@ export default function StrikeRangeScrollbar({
       window.removeEventListener('mouseup', handleEnd);
       window.removeEventListener('touchmove', handleTouch);
       window.removeEventListener('touchend', handleEnd);
+      if (frameRef.current != null) cancelAnimationFrame(frameRef.current);
     };
   }, [applyDelta]);
 
