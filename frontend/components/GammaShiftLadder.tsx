@@ -256,10 +256,6 @@ function RangeSelector({
 
   return (
     <div className="select-none">
-      <div className="mb-1 flex justify-between text-[11px]" style={{ color: 'var(--text-muted)' }}>
-        <span>{fmtTime(buckets[0]?.timestamp)}</span>
-        <span>{fmtTime(buckets[last]?.timestamp)} · latest</span>
-      </div>
       <div ref={trackRef} className="relative h-6">
         {/* base track */}
         <div
@@ -273,6 +269,17 @@ function RangeSelector({
         />
         {handle('a', aIdx, fmtTime(buckets[aIdx]?.timestamp))}
         {handle('b', bIdx, fmtTime(buckets[bIdx]?.timestamp))}
+      </div>
+      <div className="mt-1.5 flex justify-between text-[11px]" style={{ color: 'var(--text-muted)' }}>
+        <span>
+          <span style={{ color: accent, fontWeight: 700 }}>A</span> from ·{' '}
+          <span className="font-mono">{fmtTime(buckets[aIdx]?.timestamp)}</span>
+        </span>
+        <span>
+          <span style={{ color: accent, fontWeight: 700 }}>B</span> to ·{' '}
+          <span className="font-mono">{fmtTime(buckets[bIdx]?.timestamp)}</span>
+          {bIdx === last ? ' (now)' : ''}
+        </span>
       </div>
     </div>
   );
@@ -308,10 +315,10 @@ interface WallMove {
 }
 
 const PRESETS: { key: string; label: string; buckets: number | 'session' }[] = [
-  { key: '15m', label: '15m', buckets: 3 },
-  { key: '30m', label: '30m', buckets: 6 },
-  { key: '1h', label: '1h', buckets: 12 },
-  { key: 'session', label: 'Session', buckets: 'session' },
+  { key: '15m', label: 'Last 15m', buckets: 3 },
+  { key: '30m', label: 'Last 30m', buckets: 6 },
+  { key: '1h', label: 'Last 1h', buckets: 12 },
+  { key: 'session', label: 'Since open', buckets: 'session' },
 ];
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -564,11 +571,28 @@ export default function GammaShiftLadder({ symbol: symbolProp }: { symbol?: stri
       <Heading symbol={symbol} />
 
       {/* ── time selection ─────────────────────────────────────────────── */}
-      <div className="mb-4 mt-4">
-        <div className="mb-3 flex flex-wrap items-center gap-2">
+      <div className="mb-4 mt-5">
+        <div className="mb-2 flex items-baseline justify-between gap-2">
           <span className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
-            Compare
+            Time window
           </span>
+          <span
+            className="rounded-md px-2 py-1 font-mono text-sm font-semibold"
+            style={{
+              color: 'var(--text-primary)',
+              background: 'var(--bg-subtle)',
+              border: '1px solid var(--border-default)',
+            }}
+          >
+            {fmtTime(bucketA?.timestamp)} <span style={{ color: 'var(--text-muted)' }}>→</span>{' '}
+            {fmtTime(bucketB?.timestamp)} <span style={{ color: 'var(--text-muted)' }}>ET</span>
+          </span>
+        </div>
+        <p className="mb-3 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+          Compare an earlier moment against the latest data. Choose how far back to look — or drag the
+          handles for any two times.
+        </p>
+        <div className="mb-3 flex flex-wrap items-center gap-2">
           {PRESETS.map((p) => {
             const activeP = preset === p.key;
             return (
@@ -590,13 +614,14 @@ export default function GammaShiftLadder({ symbol: symbolProp }: { symbol?: stri
               </button>
             );
           })}
-          <span
-            className="ml-auto font-mono text-sm font-semibold"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            {fmtTime(bucketA?.timestamp)} <span style={{ color: 'var(--text-muted)' }}>→</span>{' '}
-            {fmtTime(bucketB?.timestamp)} <span style={{ color: 'var(--text-muted)' }}>ET</span>
-          </span>
+          {preset === 'custom' && (
+            <span
+              className="rounded-full px-3 py-1 text-xs font-medium"
+              style={{ background: accent, color: '#fff', border: `1px solid ${accent}` }}
+            >
+              Custom
+            </span>
+          )}
         </div>
         <RangeSelector
           buckets={buckets}
@@ -628,17 +653,46 @@ export default function GammaShiftLadder({ symbol: symbolProp }: { symbol?: stri
         </p>
       )}
 
-      {/* ── the ladder ─────────────────────────────────────────────────── */}
-      <div className="mb-2 flex items-center justify-between">
+      {/* ── how to read ────────────────────────────────────────────────── */}
+      <div
+        className="mb-3 rounded-lg px-3 py-2 text-[11px] leading-relaxed"
+        style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}
+      >
+        <strong style={{ color: 'var(--text-primary)' }}>How to read:</strong> each row is a strike.
+        A bar grows{' '}
+        <span style={{ color: bull, fontWeight: 700 }}>right (green)</span> where dealers{' '}
+        <strong>added</strong> gamma and{' '}
+        <span style={{ color: bear, fontWeight: 700 }}>left (red)</span> where they{' '}
+        <strong>removed</strong> it between your two times. Longer bar = bigger change. The dashed line
+        marks the current price.
+      </div>
+
+      {/* ── legend + lens ──────────────────────────────────────────────── */}
+      <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-3 text-[11px]" style={{ color: 'var(--text-muted)' }}>
           <span className="flex items-center gap-1">
-            <span className="inline-block h-2 w-4 rounded-sm" style={{ background: bear }} /> shed / more short-γ
+            <span className="inline-block h-2 w-4 rounded-sm" style={{ background: bear }} /> removed / more short-γ
           </span>
           <span className="flex items-center gap-1">
             <span className="inline-block h-2 w-4 rounded-sm" style={{ background: bull }} /> added / more long-γ
           </span>
         </div>
         <LensToggle lens={lens} setLens={setLens} accent={accent} />
+      </div>
+      <p className="mb-2 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+        {lens === 'net'
+          ? 'Total change — every reason gamma moved between the two times (dealers repositioning, plus the existing book re-pricing as spot moved).'
+          : 'Repositioning — only the part from dealers actually opening or closing contracts; strips out price-driven re-pricing.'}
+      </p>
+
+      {/* column headers */}
+      <div
+        className="mb-1 flex items-center gap-2 px-2 text-[10px] font-semibold uppercase tracking-wide"
+        style={{ color: 'var(--text-muted)' }}
+      >
+        <div className="w-16 shrink-0 text-right">Strike</div>
+        <div className="flex-1 text-center">← removed · added →</div>
+        <div className="w-20 shrink-0 text-right">Change</div>
       </div>
 
       <Ladder
@@ -688,8 +742,8 @@ export default function GammaShiftLadder({ symbol: symbolProp }: { symbol?: stri
         Modeled dealer gamma (calls positive, puts negative open-interest convention); actual dealer
         inventory is not directly observable from public option-chain data. Values shown {GEX_UNIT_LABEL[gexUnit]}.{' '}
         {lens === 'net'
-          ? 'Net change includes both repositioning and re-pricing of the existing book as spot and implied vol moved.'
-          : 'Positioning isolates the open-interest–driven part of the change (contracts added or removed), separating genuine repositioning from re-pricing — a first-order estimate.'}
+          ? '“Total change” is the full change in dealer gamma at each strike between your two times — both genuine repositioning and re-pricing of the existing book as spot and implied vol moved.'
+          : '“Repositioning” isolates the part of the change driven by open interest — contracts actually opened or closed — separating real dealer repositioning from price-driven re-pricing (a first-order estimate).'}
       </p>
 
       <ChartCaption />
@@ -703,16 +757,23 @@ export default function GammaShiftLadder({ symbol: symbolProp }: { symbol?: stri
 
 function Heading({ symbol }: { symbol: string }) {
   return (
-    <div className="flex items-baseline gap-2">
-      <h3 className="zg-h3" style={{ color: 'var(--text-primary)' }}>
-        Gamma Shift
-      </h3>
-      <TooltipWrapper text="How dealer gamma at each strike has CHANGED between two points in time — not just where it sits now. Green means net gamma rose at that strike (more long-gamma / pinning force); red means it fell (more short-gamma / accelerant). Pick the two times with the presets or by dragging the A and B handles.">
-        <Info size={14} />
-      </TooltipWrapper>
-      <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
-        {symbol}
-      </span>
+    <div>
+      <div className="flex items-baseline gap-2">
+        <h3 className="zg-h3" style={{ color: 'var(--text-primary)' }}>
+          Gamma Shift
+        </h3>
+        <TooltipWrapper text="How dealer gamma at each strike has CHANGED between two points in time — not just where it sits now. Green means gamma rose at that strike (more long-gamma / pinning force); red means it fell (more short-gamma / accelerant). Set the two times with the presets, or drag the From and To handles.">
+          <Info size={14} />
+        </TooltipWrapper>
+        <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+          {symbol}
+        </span>
+      </div>
+      <p className="mt-1 text-sm leading-snug" style={{ color: 'var(--text-secondary)' }}>
+        See how dealer gamma at each strike{' '}
+        <strong style={{ color: 'var(--text-primary)' }}>changed</strong> from an earlier moment to
+        now — which walls are building, and which are eroding.
+      </p>
     </div>
   );
 }
@@ -748,8 +809,8 @@ function LensToggle({
       className="inline-flex rounded-lg p-0.5"
       style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}
     >
-      {opt('net', 'Net change')}
-      {opt('positioning', 'Positioning')}
+      {opt('net', 'Total change')}
+      {opt('positioning', 'Repositioning')}
     </div>
   );
 }

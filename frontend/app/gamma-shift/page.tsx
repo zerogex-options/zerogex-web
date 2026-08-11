@@ -14,8 +14,8 @@ export default function GammaShiftPage() {
           Everyone else shows where dealer gamma sits <em>right now</em>. Gamma Shift shows how it{' '}
           <strong>changed</strong> between two points in time at every strike — so you can see which
           walls are <span style={{ color: 'var(--color-bull)' }}>building</span> and which are{' '}
-          <span style={{ color: 'var(--color-bear)' }}>eroding</span> before price confirms it. Pick
-          the two moments with the presets, or drag the A and B handles across the session.
+          <span style={{ color: 'var(--color-bear)' }}>eroding</span> before price confirms it. Choose
+          how far back to look with the presets, or drag the From and To handles for any two times.
         </p>
       </div>
 
