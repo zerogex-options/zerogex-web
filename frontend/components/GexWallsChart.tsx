@@ -1,10 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Bar, CartesianGrid, ComposedChart, Legend, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { Info, Move, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
-import { useTheme } from '@/core/ThemeContext';
-import { colors } from '@/core/colors';
+import { Info, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
 import ExpandableCard from './ExpandableCard';
 import TooltipWrapper from './TooltipWrapper';
 import MobileScrollableChart from './MobileScrollableChart';
@@ -14,6 +12,7 @@ import ResponsiveChartArea from './ResponsiveChartArea';
 import ExpirationMultiSelect from './ExpirationMultiSelect';
 import { useSharedExpirations } from '@/hooks/useSharedExpirations';
 import { reconcileExpirations } from '@/core/expirationPersistence';
+import { etTodayDateKey } from '@/core/utils';
 import ChartCaption from "./ChartCaption";
 
 // Each zoom click narrows / widens the visible strike range by this factor.
@@ -52,17 +51,28 @@ function selectStrikeTicks(visibleDomain: [number, number]): number[] {
 
 // Vertical (value-axis) zoom + scroll, mirroring the Gamma chart: the visible
 // y-extent is a normalized window within the fit-all range [-1, 1]; zoom
-// narrows/widens it and the value scrollbar / pan tool shift it.
+// narrows/widens it and the value scrollbar shifts it.
 const Y_ZOOM_STEP = 1.5;
 const Y_ZOOM_MAX = 32;
 const Y_FULL_VIEW: [number, number] = [-1, 1];
-// Fixed pixel insets between the chart container and the plot area, for
-// converting a drag in screen pixels into a domain shift. From the chart's
-// layout: left margin 24 + YAxis width ~60 + right margin 12 → 96; top margin
-// 8; bottom margin 8 + ~24 x-axis → 32.
-const PLOT_INSET_X = 96;
+// Insets (top margin 8; bottom margin 8 + ~24 x-axis) to line the value
+// scrollbar up with the plot band.
 const PLOT_INSET_TOP = 8;
 const PLOT_INSET_BOTTOM = 32;
+
+// Expiration-gradient opacity (0DTE boldest → furthest faintest) + the faint
+// "everything else" remainder cap. Mirrors the Gamma chart.
+const NEAR_OPACITY = 1;
+const FAR_OPACITY = 0.4;
+const REMAINDER_OPACITY = 0.13;
+
+// Whole-day DTE between two YYYY-MM-DD keys (parsed at UTC midnight).
+function dteBetweenKeys(todayKey: string, expKey: string): number | null {
+  const today = Date.parse(`${todayKey}T00:00:00Z`);
+  const exp = Date.parse(`${expKey}T00:00:00Z`);
+  if (Number.isNaN(today) || Number.isNaN(exp)) return null;
+  return Math.round((exp - today) / 86_400_000);
+}
 
 // Fit-all half-extent: smallest nice-stepped multiple covering the max
 // magnitude — the reference the normalized y-window maps onto.
@@ -107,8 +117,15 @@ type DisplayMode = 'oi' | 'notional';
 type ChartRow = {
   strike: number;
   strikeLabel: string;
-  callValue: number;
-  putValue: number;
+  callValue: number; // selected-expiration aggregate (>= 0) — also the fallback bar
+  putValue: number; // selected-expiration aggregate (<= 0)
+  // Stacked-by-expiration additions:
+  callTotalAll?: number; // all-expiration total — the % baseline (>= 0)
+  putTotalAll?: number; // all-expiration total (<= 0)
+  callRemainder?: number; // faint cap = all − selected (calls, >= 0), when filtering
+  putRemainder?: number; // faint cap = all − selected (puts, <= 0), when filtering
+  // Dynamic per-expiration segments: `call__<exp>` (>= 0), `put__<exp>` (<= 0).
+  [key: string]: number | string | undefined;
 };
 
 function asNum(value: unknown): number {
@@ -143,38 +160,72 @@ function WallMapTooltip({
   payload,
   label,
   mode,
+  stackExpirations,
+  isSubset,
+  dteLabel,
 }: {
   active?: boolean;
-  payload?: Array<{ dataKey?: string; value?: number }>;
-  label?: string;
+  payload?: Array<{ payload?: ChartRow }>;
+  label?: string | number;
   mode: DisplayMode;
+  stackExpirations: string[];
+  isSubset: boolean;
+  dteLabel: (exp: string) => string;
 }) {
   if (!active || !payload?.length) return null;
+  const row = payload[0]?.payload;
+  if (!row) return null;
   const unitLabel = modeLabel(mode);
+  // Puts are stored negative (below the axis); OI / notional are positive
+  // quantities, so the tooltip shows magnitudes.
+  const callSel = Math.abs(Number(row.callValue ?? 0));
+  const putSel = Math.abs(Number(row.putValue ?? 0));
+  const callAll = Math.abs(Number(row.callTotalAll ?? row.callValue ?? 0));
+  const putAll = Math.abs(Number(row.putTotalAll ?? row.putValue ?? 0));
+  const callPct = isSubset && callAll > 0 ? (callSel / callAll) * 100 : null;
+  const putPct = isSubset && putAll > 0 ? (putSel / putAll) * 100 : null;
   return (
-    <div style={{ background: 'var(--color-chart-tooltip-bg)', border: '1px solid var(--color-border)', borderRadius: 8, padding: '8px 12px', color: 'var(--color-chart-tooltip-text)' }}>
+    <div style={{ background: 'var(--color-chart-tooltip-bg)', border: '1px solid var(--color-border)', borderRadius: 8, padding: '8px 12px', color: 'var(--color-chart-tooltip-text)', fontSize: 12 }}>
       <div style={{ fontWeight: 600, marginBottom: 4 }}>Strike {label}</div>
-      {payload.map((entry, i) => {
-        // Puts are stored negative so they render below the axis; the tooltip
-        // shows the magnitude (open interest / notional are positive quantities).
-        if (entry.dataKey === 'callValue') {
-          return <div key={i} style={{ color: 'var(--color-bull)' }}>Call {unitLabel}: {formatTooltipValue(Math.abs(Number(entry.value)), mode)}</div>;
-        }
-        if (entry.dataKey === 'putValue') {
-          return <div key={i} style={{ color: 'var(--color-bear)' }}>Put {unitLabel}: {formatTooltipValue(Math.abs(Number(entry.value)), mode)}</div>;
-        }
-        return null;
-      })}
+      <div style={{ color: 'var(--color-bull)' }}>
+        Call {unitLabel}: {formatTooltipValue(callSel, mode)}
+        {callPct != null && (
+          <span style={{ opacity: 0.75 }}> · {callPct.toFixed(0)}% of {formatAxisValue(callAll, mode)}</span>
+        )}
+      </div>
+      <div style={{ color: 'var(--color-bear)' }}>
+        Put {unitLabel}: {formatTooltipValue(putSel, mode)}
+        {putPct != null && (
+          <span style={{ opacity: 0.75 }}> · {putPct.toFixed(0)}% of {formatAxisValue(putAll, mode)}</span>
+        )}
+      </div>
+      {stackExpirations.length > 1 && (
+        <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid var(--color-border)' }}>
+          <div style={{ opacity: 0.7, marginBottom: 2 }}>By expiration (roll-off)</div>
+          {stackExpirations.map((exp) => {
+            const c = Number(row[`call__${exp}`] ?? 0);
+            const p = Math.abs(Number(row[`put__${exp}`] ?? 0));
+            if (c === 0 && p === 0) return null;
+            return (
+              <div key={exp} style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}>
+                <span style={{ opacity: 0.85 }}>{dteLabel(exp)}</span>
+                <span>
+                  <span style={{ color: 'var(--color-bull)' }}>{formatAxisValue(c, mode)}</span>
+                  <span style={{ opacity: 0.5 }}> / </span>
+                  <span style={{ color: 'var(--color-bear)' }}>{formatAxisValue(p, mode)}</span>
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
 
 export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFallback }: GexWallsChartProps) {
-  const { theme } = useTheme();
-  const isDark = theme === 'dark';
   const textColor = 'var(--text-primary)';
   const axisStroke = 'var(--color-text-primary)';
-  const gridStroke = isDark ? 'var(--color-text-secondary)' : 'var(--color-border)';
   const inputBg = 'var(--color-surface-subtle)';
   const inputBorder = 'var(--color-border)';
 
@@ -195,48 +246,100 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
   );
   const [displayMode, setDisplayMode] = useState<DisplayMode>('oi');
 
-  const chartData = useMemo<ChartRow[]>(() => {
-    const source = openInterestData || [];
-    const selectedSet = new Set(selectedExpirations);
-    const filtered =
-      selectedExpirations.length === 0
-        ? source
-        : source.filter((row) => selectedSet.has(String(row.expiration || '')));
-    const grouped = new Map<number, ChartRow>();
+  // Universe (ascending = nearest first) and the shown subset (empty = All).
+  const allExpirationsSorted = expirationOptions;
+  const isSubset = selectedExpirations.length > 0;
+  const stackExpirations = useMemo(() => {
+    if (!isSubset) return allExpirationsSorted;
+    const sel = new Set(selectedExpirations);
+    return allExpirationsSorted.filter((exp) => sel.has(exp));
+  }, [allExpirationsSorted, selectedExpirations, isSubset]);
 
-    filtered.forEach((row) => {
+  const todayKey = etTodayDateKey();
+  const dteLabel = (exp: string): string => {
+    const dte = dteBetweenKeys(todayKey, exp);
+    if (dte == null) return exp;
+    return dte <= 0 ? '0DTE' : `${dte}DTE`;
+  };
+
+  // DTE-ranked opacity keyed on the FULL universe so a segment's shade is
+  // stable regardless of which expirations are filtered in.
+  const expirationOpacity = useMemo(() => {
+    const m = new Map<string, number>();
+    const n = allExpirationsSorted.length;
+    allExpirationsSorted.forEach((exp, i) => {
+      const t = n <= 1 ? 0 : i / (n - 1);
+      m.set(exp, NEAR_OPACITY - t * (NEAR_OPACITY - FAR_OPACITY));
+    });
+    return m;
+  }, [allExpirationsSorted]);
+
+  // strike -> expiration -> {call, put} in the active display unit.
+  const perStrikeExp = useMemo(() => {
+    const m = new Map<number, Map<string, { call: number; put: number }>>();
+    (openInterestData || []).forEach((row) => {
       const strike = asNum(row.strike);
       if (!Number.isFinite(strike) || strike <= 0) return;
-      const existing = grouped.get(strike) ?? { strike, strikeLabel: strike.toFixed(0), callValue: 0, putValue: 0 };
+      const exp = String(row.expiration || '');
+      if (!exp) return;
+      let inner = m.get(strike);
+      if (!inner) { inner = new Map(); m.set(strike, inner); }
+      const cur = inner.get(exp) ?? { call: 0, put: 0 };
       const optionType = String(row.option_type || '').toUpperCase();
-      // Per-contract value for this row's display mode.  Notional is
-      // strike × multiplier × OI — the dollar value of underlying
-      // controlled if exercised at this strike, the standard derivative-
-      // industry definition of position size.
+      // Notional = strike × 100 × OI, the standard position-size definition.
       const oi = asNum(row.open_interest);
       const value = displayMode === 'oi' ? oi : oi * 100 * strike;
-
       if (optionType.startsWith('C')) {
-        existing.callValue += value;
+        cur.call += value;
       } else if (optionType.startsWith('P')) {
-        existing.putValue += value;
+        cur.put += value;
       } else {
         const callOi = asNum(row.call_oi);
         const putOi = asNum(row.put_oi);
-        if (displayMode === 'oi') {
-          existing.callValue += callOi;
-          existing.putValue += putOi;
-        } else {
-          existing.callValue += callOi * 100 * strike;
-          existing.putValue += putOi * 100 * strike;
-        }
+        if (displayMode === 'oi') { cur.call += callOi; cur.put += putOi; }
+        else { cur.call += callOi * 100 * strike; cur.put += putOi * 100 * strike; }
       }
-      grouped.set(strike, existing);
+      inner.set(exp, cur);
+    });
+    return m;
+  }, [openInterestData, displayMode]);
+
+  const chartData = useMemo<ChartRow[]>(() => {
+    const shownSet = new Set(stackExpirations);
+    const rows: ChartRow[] = [];
+
+    // A segment field for EVERY expiration (0 when not shown) so the <Bar> set
+    // is constant across selection changes — recharts v3 stacks in mount order,
+    // so a changing set scrambles the DTE order (see GexProfileChart).
+    perStrikeExp.forEach((inner, strike) => {
+      const row: ChartRow = { strike, strikeLabel: strike.toFixed(0), callValue: 0, putValue: 0 };
+      let callSel = 0;
+      let putSel = 0;
+      let callAll = 0;
+      let putAll = 0;
+      inner.forEach((v) => { callAll += v.call; putAll += v.put; });
+      allExpirationsSorted.forEach((exp) => {
+        const v = shownSet.has(exp) ? inner.get(exp) : undefined;
+        const c = v ? v.call : 0;
+        const p = v ? v.put : 0;
+        row[`call__${exp}`] = c;
+        row[`put__${exp}`] = -Math.abs(p);
+        callSel += c;
+        putSel += Math.abs(p);
+      });
+      row.callValue = callSel;
+      row.putValue = -putSel;
+      row.callTotalAll = callAll;
+      row.putTotalAll = -Math.abs(putAll);
+      row.callRemainder = isSubset ? Math.max(0, callAll - callSel) : 0;
+      row.putRemainder = isSubset ? -Math.max(0, Math.abs(putAll) - putSel) : 0;
+      rows.push(row);
     });
 
-    let rows = Array.from(grouped.values());
-
+    // Fallback: only the aggregate by-strike snapshot is available (no
+    // per-expiration OI rows) — render plain call/put bars, no stacking.
     if (rows.length === 0 && byStrikeFallback?.length) {
+      const grouped = new Map<number, ChartRow>();
       byStrikeFallback.forEach((row) => {
         const strike = asNum(row.strike);
         if (!Number.isFinite(strike) || strike <= 0) return;
@@ -252,16 +355,13 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
         }
         grouped.set(strike, existing);
       });
-      rows = Array.from(grouped.values());
+      return Array.from(grouped.values())
+        .map((row) => ({ ...row, putValue: -Math.abs(row.putValue) }))
+        .sort((a, b) => a.strike - b.strike);
     }
 
-    // Puts render below the x-axis (calls up, puts down) — the mirror layout
-    // matching the Gamma Exposure by Strike chart above. Negating here lets a
-    // single stacked series center call-up / put-down on each strike.
-    return rows
-      .map((row) => ({ ...row, putValue: -Math.abs(row.putValue) }))
-      .sort((a, b) => a.strike - b.strike);
-  }, [openInterestData, selectedExpirations, displayMode, byStrikeFallback]);
+    return rows.sort((a, b) => a.strike - b.strike);
+  }, [perStrikeExp, stackExpirations, allExpirationsSorted, isSubset, byStrikeFallback, displayMode]);
 
   const spot = asNum(spotPrice);
 
@@ -334,7 +434,7 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
   };
 
   // Vertical value window in normalized units within the fit-all range [-1, 1].
-  // Zoom narrows/widens it; the value scrollbar and pan tool shift it.
+  // Zoom narrows/widens it; the value scrollbar shifts it.
   const [yView, setYView] = useState<[number, number]>(Y_FULL_VIEW);
   const Y_MIN_HALF = 1 / Y_ZOOM_MAX;
   const handleYZoomIn = () => {
@@ -377,12 +477,18 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
     return selectStrikeTicks(visibleDomain);
   }, [visibleDomain]);
 
-  // Symmetric value axis carved by the normalized y-window, so zoom/scroll/pan
+  // Symmetric value axis carved by the normalized y-window, so zoom + scroll
   // magnify the mirror bars. allowDataOverflow clips out-of-window bars.
   const { yDomain, yTicks } = useMemo(() => {
     let maxAbs = 0;
     chartData.forEach((row) => {
-      maxAbs = Math.max(maxAbs, Math.abs(row.callValue), Math.abs(row.putValue));
+      // Bars stack to the full all-expiration total (solid selection + faint
+      // remainder), so scale to that — stable across filtering.
+      maxAbs = Math.max(
+        maxAbs,
+        Math.abs(row.callTotalAll ?? row.callValue),
+        Math.abs(row.putTotalAll ?? row.putValue),
+      );
     });
     const fullMax = roundedMax(maxAbs);
     const [nLo, nHi] = yView;
@@ -390,125 +496,42 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
     return { yDomain: domain, yTicks: ticksInRange(domain[0], domain[1], 6) };
   }, [chartData, yView]);
 
-  // Grab-and-drag pan tool (transform-based — GPU-composited during the drag,
-  // committed to the strike + value window on release), mirroring the Gamma
-  // chart. Toggled by the Move button; the scrollbars are the precise option.
-  const [panMode, setPanMode] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-  const dragRef = useRef<{
-    wrap: HTMLElement;
-    startX: number;
-    startY: number;
-    startVis: [number, number];
-    startYView: [number, number];
-    fullDomain: [number, number];
-    plotWidth: number;
-    plotHeight: number;
-    minDx: number;
-    maxDx: number;
-    minDy: number;
-    maxDy: number;
-  } | null>(null);
-  const dragPosRef = useRef<{ dx: number; dy: number }>({ dx: 0, dy: 0 });
-  const dragFrameRef = useRef<number | null>(null);
-
-  const beginDrag = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!panMode || !visibleDomain || !fullStrikeDomain) return;
-    const container = e.currentTarget;
-    const wrap = container.querySelector('[data-pan-transform]');
-    if (!(wrap instanceof HTMLElement)) return;
-    const rect = container.getBoundingClientRect();
-    const plotWidth = Math.max(1, rect.width - PLOT_INSET_X);
-    const plotHeight = Math.max(1, rect.height - PLOT_INSET_TOP - PLOT_INSET_BOTTOM);
-    const [s, e0] = visibleDomain;
-    const xSpan = Math.max(1e-9, e0 - s);
-    const [fLo, fHi] = fullStrikeDomain;
-    const [lo, hi] = yView;
-    const ySpan = Math.max(1e-9, hi - lo);
-    dragRef.current = {
-      wrap,
-      startX: e.clientX,
-      startY: e.clientY,
-      startVis: visibleDomain,
-      startYView: yView,
-      fullDomain: fullStrikeDomain,
-      plotWidth,
-      plotHeight,
-      maxDx: ((s - fLo) / xSpan) * plotWidth,
-      minDx: -(((fHi - e0) / xSpan) * plotWidth),
-      maxDy: ((1 - hi) / ySpan) * plotHeight,
-      minDy: -(((1 + lo) / ySpan) * plotHeight),
-    };
-    dragPosRef.current = { dx: 0, dy: 0 };
-    setIsDragging(true);
-  };
-
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      const st = dragRef.current;
-      if (!st) return;
-      const dx = Math.max(st.minDx, Math.min(st.maxDx, e.clientX - st.startX));
-      const dy = Math.max(st.minDy, Math.min(st.maxDy, e.clientY - st.startY));
-      dragPosRef.current = { dx, dy };
-      if (dragFrameRef.current == null) {
-        dragFrameRef.current = requestAnimationFrame(() => {
-          dragFrameRef.current = null;
-          const cur = dragRef.current;
-          if (cur) cur.wrap.style.transform = `translate(${dragPosRef.current.dx}px, ${dragPosRef.current.dy}px)`;
-        });
-      }
-    };
-    const onUp = () => {
-      const st = dragRef.current;
-      if (!st) return;
-      if (dragFrameRef.current != null) {
-        cancelAnimationFrame(dragFrameRef.current);
-        dragFrameRef.current = null;
-      }
-      const { dx, dy } = dragPosRef.current;
-      const [s0, e0] = st.startVis;
-      const xSpan = e0 - s0;
-      const xShift = -(dx / st.plotWidth) * xSpan;
-      let ns = s0 + xShift;
-      let ne = e0 + xShift;
-      const [fLo, fHi] = st.fullDomain;
-      if (ns < fLo) { ns = fLo; ne = ns + xSpan; }
-      if (ne > fHi) { ne = fHi; ns = ne - xSpan; }
-      const [lo0, hi0] = st.startYView;
-      const ySpan = hi0 - lo0;
-      const yShift = (dy / st.plotHeight) * ySpan;
-      let nlo = lo0 + yShift;
-      let nhi = hi0 + yShift;
-      if (nlo < -1) { nlo = -1; nhi = nlo + ySpan; }
-      if (nhi > 1) { nhi = 1; nlo = nhi - ySpan; }
-      st.wrap.style.transform = '';
-      dragRef.current = null;
-      setVisibleDomain([ns, ne]);
-      setYView([nlo, nhi]);
-      setIsDragging(false);
-    };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-    return () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-      if (dragFrameRef.current != null) cancelAnimationFrame(dragFrameRef.current);
-    };
-  }, []);
-
   const renderLegend = () => (
-    <div className="w-full flex flex-wrap justify-end items-center gap-4 text-xs" style={{ color: textColor }}>
-      <div className="flex items-center gap-1.5">
-        <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: 'var(--color-bull)' }} />
+    <div className="w-full flex flex-wrap justify-end items-center gap-x-4 gap-y-1 text-xs" style={{ color: textColor }}>
+      <div className="flex items-center gap-1.5" title="Stacked by expiration — nearest (0DTE) boldest, furthest faintest">
+        <span
+          className="inline-block h-3 w-5 rounded-sm"
+          style={{ background: 'linear-gradient(90deg, var(--color-bull) 0%, color-mix(in srgb, var(--color-bull) 40%, transparent) 100%)' }}
+        />
         Call {modeLabel(displayMode)}
       </div>
-      <div className="flex items-center gap-1.5">
-        <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: 'var(--color-bear)' }} />
+      <div className="flex items-center gap-1.5" title="Stacked by expiration — nearest (0DTE) boldest, furthest faintest">
+        <span
+          className="inline-block h-3 w-5 rounded-sm"
+          style={{ background: 'linear-gradient(90deg, var(--color-bear) 0%, color-mix(in srgb, var(--color-bear) 40%, transparent) 100%)' }}
+        />
         Put {modeLabel(displayMode)}
       </div>
+      <div className="flex items-center gap-1.5" title="0DTE (near) → highest DTE (far)">
+        <span style={{ opacity: 0.7 }}>near</span>
+        <span
+          className="inline-block h-2 w-7 rounded-sm"
+          style={{ background: 'linear-gradient(90deg, var(--text-muted) 0%, color-mix(in srgb, var(--text-muted) 25%, transparent) 100%)' }}
+        />
+        <span style={{ opacity: 0.7 }}>far</span>
+      </div>
+      {isSubset && (
+        <div className="flex items-center gap-1.5" title="Faint cap = the other (unselected) expirations at that strike">
+          <span
+            className="inline-block h-3 w-3 rounded-sm"
+            style={{ backgroundColor: 'color-mix(in srgb, var(--text-muted) 22%, transparent)', border: '1px solid var(--color-border)' }}
+          />
+          Other exp
+        </div>
+      )}
       <div className="flex items-center gap-1.5">
         <span className="inline-block h-0.5 w-4" style={{ backgroundColor: 'var(--color-gold)' }} />
-        Spot (nearest strike)
+        Spot
       </div>
     </div>
   );
@@ -527,11 +550,11 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
             <h3 className="zg-h3" style={{ color: textColor }}>
               Open Interest by Strike
             </h3>
-            <TooltipWrapper inlineInExpanded={false} text="Strike-level open interest by call/put. OI = open contracts outstanding (raw count). Notional = strike × 100 × OI — the dollar value of underlying that would change hands if every contract at this strike were exercised (industry-standard option position notional). Calls plot above the axis, puts below, aligned on each strike. The yellow dotted line marks spot at the nearest strike.">
+            <TooltipWrapper inlineInExpanded={false} text="Strike-level open interest by call/put. Calls plot above the axis, puts below, aligned on each strike. Each bar is stacked by expiration and shaded by time-to-expiry — the nearest expiration (0DTE) is boldest and the furthest is faintest — so you can read how much OI rolls off in N days. OI = open contracts outstanding (raw count); Notional = strike × 100 × OI (the dollar value of underlying that would change hands at exercise). When you filter to specific expirations, the solid bar is the selected expirations and a faint cap shows the rest, so the bar reads as a share of the all-expiration total at that strike — hover for the exact % and the per-expiration breakdown. The yellow dotted line marks spot at the nearest strike.">
               <Info size={14} />
             </TooltipWrapper>
-            {/* Strike (X) and value (Y) zoom, a shared reset, and the pan tool
-                — same set the Gamma chart carries. */}
+            {/* Strike (X) and value (Y) zoom with a shared reset — same set
+                the Gamma chart carries. */}
             <div
               className="ml-1 inline-flex items-center rounded border"
               style={{ borderColor: inputBorder, backgroundColor: inputBg }}
@@ -593,20 +616,6 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
             >
               <RotateCcw size={12} />
             </button>
-            <button
-              type="button"
-              onClick={() => setPanMode((v) => !v)}
-              aria-pressed={panMode}
-              title={panMode ? 'Pan tool on — drag the chart to move it; click to turn off' : 'Pan tool — drag the chart to move it in any direction'}
-              className="inline-flex items-center rounded border px-2 py-1 text-xs"
-              style={{
-                borderColor: panMode ? 'var(--color-info)' : inputBorder,
-                backgroundColor: panMode ? 'var(--color-info-soft)' : inputBg,
-                color: panMode ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
-              }}
-            >
-              <Move size={12} />
-            </button>
           </div>
           <div className="flex items-center gap-3 mr-8">
             <ExpirationMultiSelect
@@ -660,18 +669,6 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
                 <ValueRangeScrollbar visibleNorm={yView} onChange={setYView} />
               </div>
               <div className="flex-1 min-w-0">
-                {/* Clip + drag surface for the pan tool. The inner
-                    data-pan-transform layer is translated directly on the DOM
-                    during a drag, then reset when the window shift commits. */}
-                <div
-                  className="select-none"
-                  onMouseDown={panMode ? beginDrag : undefined}
-                  style={{
-                    overflow: isDragging ? 'hidden' : undefined,
-                    cursor: panMode ? (isDragging ? 'grabbing' : 'grab') : undefined,
-                  }}
-                >
-                  <div data-pan-transform style={{ willChange: isDragging ? 'transform' : undefined }}>
             <MobileScrollableChart>
               <ResponsiveContainer width="100%" height={chartHeight}>
               <ComposedChart data={chartData} stackOffset="sign" margin={{ top: 8, right: 12, left: 24, bottom: 8 }}>
@@ -698,16 +695,51 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
                     style: { fill: axisStroke, fontSize: 11, textAnchor: 'middle' },
                   }}
                 />
-                {/* Hidden while dragging so a stale tooltip doesn't ride along
-                    with the transform. */}
-                {!isDragging && <Tooltip content={<WallMapTooltip mode={displayMode} />} />}
+                <Tooltip content={<WallMapTooltip mode={displayMode} stackExpirations={stackExpirations} isSubset={isSubset} dteLabel={dteLabel} />} />
                 <Legend verticalAlign="top" align="right" content={renderLegend} wrapperStyle={{ top: 0, right: 0 }} />
                 {/* Zero baseline for the mirror layout (calls up, puts down). */}
                 <ReferenceLine yAxisId="value" y={0} stroke={axisStroke} opacity={0.4} />
-                {/* Shared stackId centers the call-up / put-down pair on each
-                    strike (aligned, not staggered side-by-side). */}
-                <Bar yAxisId="value" stackId="oi" dataKey="callValue" name={`Call ${modeLabel(displayMode)}`} fill={'var(--color-bull)'} barSize={14} isAnimationActive={false} />
-                <Bar yAxisId="value" stackId="oi" dataKey="putValue" name={`Put ${modeLabel(displayMode)}`} fill={'var(--color-bear)'} barSize={14} isAnimationActive={false} />
+                {/* Per-strike bars, stacked by expiration on one signed stack
+                    (calls up, puts down). A <Bar> is emitted for EVERY
+                    expiration (0 when not shown) so the set is constant and the
+                    DTE order stays pinned nearest-at-baseline — see the note in
+                    GexProfileChart. Remainder caps (always present, 0 when not
+                    filtering) render last = outer edge. Falls back to a plain
+                    aggregate bar when there's no per-expiration OI. */}
+                {allExpirationsSorted.map((exp) => (
+                  <Bar
+                    key={`call-${exp}`}
+                    yAxisId="value"
+                    stackId="oi"
+                    dataKey={`call__${exp}`}
+                    name={`Call ${modeLabel(displayMode)} ${dteLabel(exp)}`}
+                    fill={'var(--color-bull)'}
+                    fillOpacity={expirationOpacity.get(exp) ?? 1}
+                    barSize={14}
+                    isAnimationActive={false}
+                  />
+                ))}
+                {allExpirationsSorted.map((exp) => (
+                  <Bar
+                    key={`put-${exp}`}
+                    yAxisId="value"
+                    stackId="oi"
+                    dataKey={`put__${exp}`}
+                    name={`Put ${modeLabel(displayMode)} ${dteLabel(exp)}`}
+                    fill={'var(--color-bear)'}
+                    fillOpacity={expirationOpacity.get(exp) ?? 1}
+                    barSize={14}
+                    isAnimationActive={false}
+                  />
+                ))}
+                <Bar yAxisId="value" stackId="oi" dataKey="callRemainder" name="Other expirations" fill={'var(--color-bull)'} fillOpacity={REMAINDER_OPACITY} barSize={14} isAnimationActive={false} />
+                <Bar yAxisId="value" stackId="oi" dataKey="putRemainder" name="Other expirations" fill={'var(--color-bear)'} fillOpacity={REMAINDER_OPACITY} barSize={14} isAnimationActive={false} />
+                {allExpirationsSorted.length === 0 && (
+                  <Bar yAxisId="value" stackId="oi" dataKey="callValue" name={`Call ${modeLabel(displayMode)}`} fill={'var(--color-bull)'} barSize={14} isAnimationActive={false} />
+                )}
+                {allExpirationsSorted.length === 0 && (
+                  <Bar yAxisId="value" stackId="oi" dataKey="putValue" name={`Put ${modeLabel(displayMode)}`} fill={'var(--color-bear)'} barSize={14} isAnimationActive={false} />
+                )}
 
                 {closestStrike != null && (
                   <ReferenceLine yAxisId="value" x={closestStrike} stroke="var(--color-gold)" strokeDasharray="4 4" label={{ value: `Spot ${spot.toFixed(2)}`, fill: 'var(--color-gold)', position: 'top', fontSize: 11 }} />
@@ -715,8 +747,6 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
               </ComposedChart>
             </ResponsiveContainer>
           </MobileScrollableChart>
-                  </div>
-                </div>
                 {visibleDomain && fullStrikeDomain && (
                   <div className="mt-2 px-2">
                     <StrikeRangeScrollbar
