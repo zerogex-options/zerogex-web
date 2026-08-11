@@ -63,12 +63,12 @@ Most endpoints set sensible HTTP cache headers — respect them. The signal endp
 
 ### Backfill
 
-Historical endpoints support multi-day windows. For deep backfills, paginate using the `meta.cursor` field.
+The derived history endpoints — GEX (`/api/gex/historical`), max pain, and signal history — support multi-day windows. Options data is the exception: per-contract quotes are served as the latest quote or a single intraday session (`/api/option/contract`), **not** a multi-day historical series — and the raw option and underlying endpoints aren't part of the standard tier anyway (see *What's gated*). If you need a longer options-quote history, contact support with the specifics.
 
 ## What's gated
 
 - API access requires a **Pro** account. Basic and Public accounts cannot generate keys.
-- Raw upstream market data — per-contract option quotes and underlying price bars — isn't part of the standard API tier. The API serves the derived analytics (GEX, flow, max pain, technicals, signals) and their history. Need raw bars for a specific use case? Email support and we'll talk through the options.
+- Raw upstream market data — per-contract option quotes (both the latest quote and intraday contract history) and underlying price bars — isn't part of the standard API tier. The API serves the derived analytics (GEX, flow, max pain, technicals, signals) and their history. Need raw options or underlying data for a specific use case? Email support and we'll talk through the options.
 
 ## Best practices
 
