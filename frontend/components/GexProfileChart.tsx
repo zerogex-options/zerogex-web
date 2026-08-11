@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Area,
   Bar,
@@ -13,7 +13,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { Info, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
+import { Info, Move, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
 import { useGEXProfile } from '@/hooks/useApiData';
@@ -22,6 +22,8 @@ import { GEX_UNIT_LABEL, gexScaleFactor, useGexUnit } from '@/core/GexUnitContex
 import ExpandableCard, { useExpandedCard } from './ExpandableCard';
 import TooltipWrapper from './TooltipWrapper';
 import MobileScrollableChart from './MobileScrollableChart';
+import StrikeRangeScrollbar from './StrikeRangeScrollbar';
+import ValueRangeScrollbar from './ValueRangeScrollbar';
 import ExpirationMultiSelect from './ExpirationMultiSelect';
 import ChartCaption from "./ChartCaption";
 
@@ -790,103 +792,122 @@ export default function GexProfileChart({
   const isYMaxZoom = (yView[1] - yView[0]) / 2 <= Y_MIN_HALF + 1e-9;
   const isDefaultView = isFullyZoomedOut && isYFull;
 
-  // Grab-and-drag panning (replaces the scrollbars): drag the plot left/right to
-  // pan the strike window, up/down to pan the value window — the data under the
-  // cursor tracks the cursor. Only meaningful once an axis is zoomed in.
-  // (Plot dimensions are read from the mousedown target rather than a ref, so
-  // it works for both the base card and the ExpandableCard modal copy, which
-  // render the same JSX in two places.)
-  const pannable = !isFullyZoomedOut || !isYFull;
-  const panRef = useRef<{
-    startClientX: number;
-    startClientY: number;
+  // Pan tool: a toggle that turns the plot into a grab surface. While a drag is
+  // in progress the whole chart is translated with a CSS transform written
+  // straight to the DOM (GPU-composited, NO React/recharts re-render) so the
+  // motion is fluid; the equivalent strike + value window shift is committed
+  // only on release. The scrollbars stay as the precise, incremental option.
+  const [panMode, setPanMode] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragRef = useRef<{
+    wrap: HTMLElement; // the transform layer of the copy being dragged
+    startX: number;
+    startY: number;
     startVis: [number, number];
     startYView: [number, number];
     fullDomain: [number, number];
     plotWidth: number;
     plotHeight: number;
+    minDx: number;
+    maxDx: number;
+    minDy: number;
+    maxDy: number;
   } | null>(null);
-  // Latest pointer position + the pending animation frame, so a burst of
-  // mousemove events (a high-polling mouse fires several per frame) collapses
-  // into ONE domain update per frame — repainting a ~1k-node SVG once per
-  // frame instead of once per event is what keeps the drag smooth.
-  const panPosRef = useRef<{ x: number; y: number } | null>(null);
-  const panFrameRef = useRef<number | null>(null);
-  const [panning, setPanning] = useState(false);
+  const dragPosRef = useRef<{ dx: number; dy: number }>({ dx: 0, dy: 0 });
+  const dragFrameRef = useRef<number | null>(null);
 
-  const applyPan = useCallback(() => {
-    const st = panRef.current;
-    const pos = panPosRef.current;
-    if (!st || !pos) return;
-    const dx = pos.x - st.startClientX;
-    const dy = pos.y - st.startClientY;
-    // X: strikes. Dragging right reveals lower strikes (content follows cursor).
-    const [s0, e0] = st.startVis;
-    const xSpan = e0 - s0;
-    const xShift = -(dx / st.plotWidth) * xSpan;
-    let ns = s0 + xShift;
-    let ne = e0 + xShift;
-    const [fLo, fHi] = st.fullDomain;
-    if (ns < fLo) { ns = fLo; ne = ns + xSpan; }
-    if (ne > fHi) { ne = fHi; ns = ne - xSpan; }
-    setVisibleDomain([ns, ne]);
-    // Y: normalized value window. Screen-y is inverted vs value, so dragging
-    // down reveals higher values.
-    const [lo0, hi0] = st.startYView;
-    const ySpan = hi0 - lo0;
-    const yShift = (dy / st.plotHeight) * ySpan;
-    let nlo = lo0 + yShift;
-    let nhi = hi0 + yShift;
-    if (nlo < -1) { nlo = -1; nhi = nlo + ySpan; }
-    if (nhi > 1) { nhi = 1; nlo = nhi - ySpan; }
-    setYView([nlo, nhi]);
-  }, []);
+  const beginDrag = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!panMode || !visibleDomain || !fullStrikeDomain) return;
+    const container = e.currentTarget;
+    // The transform layer of THIS copy (base vs modal) — captured per-drag so a
+    // shared ref can't point at the wrong / unmounted copy.
+    const wrap = container.querySelector('[data-pan-transform]');
+    if (!(wrap instanceof HTMLElement)) return;
+    const rect = container.getBoundingClientRect();
+    const plotWidth = Math.max(1, rect.width - PLOT_INSET_X);
+    const plotHeight = Math.max(1, rect.height - REF_LABEL_TOP_MARGIN - PLOT_INSET_BOTTOM);
+    const [s, e0] = visibleDomain;
+    const xSpan = Math.max(1e-9, e0 - s);
+    const [fLo, fHi] = fullStrikeDomain;
+    const [lo, hi] = yView;
+    const ySpan = Math.max(1e-9, hi - lo);
+    dragRef.current = {
+      wrap,
+      startX: e.clientX,
+      startY: e.clientY,
+      startVis: visibleDomain,
+      startYView: yView,
+      fullDomain: fullStrikeDomain,
+      plotWidth,
+      plotHeight,
+      // How far the chart may slide before a domain edge is reached (px), so
+      // the drag can't run off past the available data.
+      maxDx: ((s - fLo) / xSpan) * plotWidth,
+      minDx: -(((fHi - e0) / xSpan) * plotWidth),
+      maxDy: ((1 - hi) / ySpan) * plotHeight,
+      minDy: -(((1 + lo) / ySpan) * plotHeight),
+    };
+    dragPosRef.current = { dx: 0, dy: 0 };
+    setIsDragging(true);
+  };
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
-      if (!panRef.current) return;
-      panPosRef.current = { x: e.clientX, y: e.clientY };
-      if (panFrameRef.current == null) {
-        panFrameRef.current = requestAnimationFrame(() => {
-          panFrameRef.current = null;
-          applyPan();
+      const st = dragRef.current;
+      if (!st) return;
+      const dx = Math.max(st.minDx, Math.min(st.maxDx, e.clientX - st.startX));
+      const dy = Math.max(st.minDy, Math.min(st.maxDy, e.clientY - st.startY));
+      dragPosRef.current = { dx, dy };
+      // Coalesce to one transform write per frame; a transform is compositor-
+      // only (no layout/paint), so the drag stays at refresh rate.
+      if (dragFrameRef.current == null) {
+        dragFrameRef.current = requestAnimationFrame(() => {
+          dragFrameRef.current = null;
+          const cur = dragRef.current;
+          if (cur) cur.wrap.style.transform = `translate(${dragPosRef.current.dx}px, ${dragPosRef.current.dy}px)`;
         });
       }
     };
     const onUp = () => {
-      if (panFrameRef.current != null) {
-        cancelAnimationFrame(panFrameRef.current);
-        panFrameRef.current = null;
+      const st = dragRef.current;
+      if (!st) return;
+      if (dragFrameRef.current != null) {
+        cancelAnimationFrame(dragFrameRef.current);
+        dragFrameRef.current = null;
       }
-      if (panRef.current) {
-        panRef.current = null;
-        setPanning(false);
-      }
+      const { dx, dy } = dragPosRef.current;
+      // Convert the final translation into a strike + value window shift.
+      const [s0, e0] = st.startVis;
+      const xSpan = e0 - s0;
+      const xShift = -(dx / st.plotWidth) * xSpan;
+      let ns = s0 + xShift;
+      let ne = e0 + xShift;
+      const [fLo, fHi] = st.fullDomain;
+      if (ns < fLo) { ns = fLo; ne = ns + xSpan; }
+      if (ne > fHi) { ne = fHi; ns = ne - xSpan; }
+      const [lo0, hi0] = st.startYView;
+      const ySpan = hi0 - lo0;
+      const yShift = (dy / st.plotHeight) * ySpan;
+      let nlo = lo0 + yShift;
+      let nhi = hi0 + yShift;
+      if (nlo < -1) { nlo = -1; nhi = nlo + ySpan; }
+      if (nhi > 1) { nhi = 1; nlo = nhi - ySpan; }
+      // Clear the transform in the same tick we commit the new window, so the
+      // re-render lands the content exactly where the drag left it (no snap).
+      st.wrap.style.transform = '';
+      dragRef.current = null;
+      setVisibleDomain([ns, ne]);
+      setYView([nlo, nhi]);
+      setIsDragging(false);
     };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
     return () => {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
-      if (panFrameRef.current != null) cancelAnimationFrame(panFrameRef.current);
+      if (dragFrameRef.current != null) cancelAnimationFrame(dragFrameRef.current);
     };
-  }, [applyPan]);
-
-  const beginPan = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!pannable || !visibleDomain || !fullStrikeDomain) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    panRef.current = {
-      startClientX: e.clientX,
-      startClientY: e.clientY,
-      startVis: visibleDomain,
-      startYView: yView,
-      fullDomain: fullStrikeDomain,
-      plotWidth: Math.max(1, rect.width - PLOT_INSET_X),
-      plotHeight: Math.max(1, rect.height - REF_LABEL_TOP_MARGIN - PLOT_INSET_BOTTOM),
-    };
-    panPosRef.current = { x: e.clientX, y: e.clientY };
-    setPanning(true);
-  };
+  }, []);
 
   // Explicit ticks at uniform-step strikes (1, 2, 5, 10… depending on the
   // visible range) so every tick lands on a clean integer and recharts'
@@ -1038,6 +1059,22 @@ export default function GexProfileChart({
             >
               <RotateCcw size={12} />
             </button>
+            {/* Pan tool — toggle, then drag the plot to slide it fluidly in any
+                direction. The scrollbars stay available either way. */}
+            <button
+              type="button"
+              onClick={() => setPanMode((v) => !v)}
+              aria-pressed={panMode}
+              title={panMode ? 'Pan tool on — drag the chart to move it; click to turn off' : 'Pan tool — drag the chart to move it in any direction'}
+              className="inline-flex items-center rounded border px-2 py-1 text-xs"
+              style={{
+                borderColor: panMode ? 'var(--color-info)' : 'var(--color-border)',
+                backgroundColor: panMode ? 'var(--color-info-soft)' : 'var(--color-surface-subtle)',
+                color: panMode ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+              }}
+            >
+              <Move size={12} />
+            </button>
           </div>
           {/* pr-14 keeps the expiration selector clear of the absolutely-
               positioned Expand button in the card's top-right corner. */}
@@ -1124,11 +1161,30 @@ export default function GexProfileChart({
         ) : (
           <ResponsiveChartArea>
             {(chartHeight) => (
-            <div
-              onMouseDown={beginPan}
-              className="select-none"
-              style={{ cursor: pannable ? (panning ? 'grabbing' : 'grab') : 'default' }}
-            >
+            <div className="flex items-start gap-1.5">
+              {/* Value (Y) scrollbar — padded to line up with the plot band. */}
+              <div
+                className="shrink-0"
+                style={{ height: chartHeight, paddingTop: REF_LABEL_TOP_MARGIN, paddingBottom: PLOT_INSET_BOTTOM }}
+              >
+                <ValueRangeScrollbar visibleNorm={yView} onChange={setYView} />
+              </div>
+              <div className="flex-1 min-w-0">
+                {/* Clip + drag surface for the pan tool. The inner
+                    data-pan-transform layer is translated directly on the DOM
+                    during a drag, then reset when the window shift commits. */}
+                <div
+                  className="select-none"
+                  onMouseDown={panMode ? beginDrag : undefined}
+                  style={{
+                    // Clip only while dragging (so the sliding chart doesn't
+                    // spill over neighbours); left visible otherwise so edge
+                    // tooltips aren't cut off.
+                    overflow: isDragging ? 'hidden' : undefined,
+                    cursor: panMode ? (isDragging ? 'grabbing' : 'grab') : undefined,
+                  }}
+                >
+                  <div data-pan-transform style={{ willChange: isDragging ? 'transform' : undefined }}>
             <MobileScrollableChart>
               <ResponsiveContainer width="100%" height={chartHeight}>
               {/* Each YAxis track (width=84 below) reserves room for the
@@ -1207,10 +1263,9 @@ export default function GexProfileChart({
                     style: { fill: axisStroke, fontSize: 11, textAnchor: 'middle' },
                   }}
                 />
-                {/* Hidden while dragging: recharts otherwise re-tracks the
-                    hovered point on every mousemove (extra work per frame) and
-                    the tooltip flickers across the plot as it pans. */}
-                {!panning && (
+                {/* Hidden while dragging so a stale tooltip doesn't ride along
+                    with the transform. */}
+                {!isDragging && (
                   <Tooltip
                     content={
                       <ProfileTooltip
@@ -1411,6 +1466,18 @@ export default function GexProfileChart({
               </ComposedChart>
               </ResponsiveContainer>
             </MobileScrollableChart>
+                  </div>
+                </div>
+                {visibleDomain && fullStrikeDomain && (
+                  <div className="mt-2 px-2">
+                    <StrikeRangeScrollbar
+                      visibleDomain={visibleDomain}
+                      fullDomain={fullStrikeDomain}
+                      onChange={setVisibleDomain}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
             )}
           </ResponsiveChartArea>
