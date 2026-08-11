@@ -1,4 +1,4 @@
-.PHONY: help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription honor-winback-discount clear-zombie-customers webhook-health trial-reminders trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback reactivation checkout-recovery founding-final-call public-cohort cancellations churn-breakdown enable-portal-cancel-reasons save-url reset-save-latch diagnose-user reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo blog-images
+.PHONY: help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription honor-winback-discount clear-zombie-customers webhook-health trial-reminders trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback reactivation checkout-recovery founding-final-call public-cohort cancellations churn-breakdown enable-portal-cancel-reasons save-url reset-save-latch diagnose-user reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo blog-images
 
 # Default target
 help:
@@ -26,6 +26,7 @@ help:
 	@echo "  make grant-founding EMAIL=<email> [GRANT_FOUNDING_TIER=pro] - Manual founding comp: set tier + founding_eligible=1 in one shot (DRY_RUN=1 to preview)"
 	@echo "  make activate-late-founder EMAIL=<email> [TIER=basic|pro] [CADENCE=monthly|annual] [TRIAL_DAYS=N|TRIAL_END=<iso>] - Mint a founding-rate Stripe Checkout link for a member who missed the July-1 deadline (DRY_RUN=1 to preview, YES=1 to mint)"
 	@echo "  make grant-founding-on-existing-sub EMAIL=<email> [TIER=pro] [CADENCE=annual] [PRORATION=always_invoice|create_prorations|none] - Convert an EXISTING paying member's live subscription to the founding rate in place (swap plan + founding coupon + metadata.founding=1, so the webhook grants founding + schedules the lifetime 25%-off). The has-a-sub twin of activate-late-founder. DRY_RUN=1 to preview, YES=1 to apply"
+	@echo "  make apply-founding-lifetime - One-time batch: apply the founding lifetime 25%-off coupon to founders past month 11 that the event-driven webhook misses (annual founders emit no mid-year events). Idempotent; run once the cohort's intro year ends (~mid-2027). EMAIL=<addr> for one member, FORCE=1 to ignore the 11-month gate, DRY_RUN=1 to preview, YES=1 to apply"
 	@echo "  make extend-trial EMAIL=<email> (EXTEND_DAYS=N | TRIAL_END=<iso>) - Manually lengthen one customer's free trial by pushing out Stripe trial_end; re-arms the ~48h reminder so the reminder + trial->paid cutover still run automatically (DRY_RUN=1 to preview, YES=1 to apply)"
 	@echo "  make quarterly-receipt - Interactive end-to-end quarterly FOH receipt: prompts for amount/quarter/date, updates content/giving/totals.json, commits, pushes, and rebuilds. Never posts to X — prints the tweet for you to paste. Optional flags: AMOUNT=<usd> QUARTER=<label> DATE=<YYYY-MM-DD> EMAIL=<addr> NO_PUSH=1 NO_REBUILD=1 YES=1 DRY_RUN=1"
 	@echo "  make foh-donation-reminder - Send the quarterly FOH reminder email to the admin (fully self-contained instructions inside). Meant for cron on the 5th of Jan/Apr/Jul/Oct; TO=<addr> overrides the FOH_REMINDER_EMAIL env; QUARTER=<label> overrides the auto-detected closing quarter; DRY_RUN=1 to preview"
@@ -243,6 +244,23 @@ activate-late-founder:
 grant-founding-on-existing-sub:
 	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make grant-founding-on-existing-sub EMAIL=foo@example.com DRY_RUN=1)"; exit 1; fi
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/grant-founding-on-existing-sub.mts --email $(EMAIL) $(if $(TIER),--tier $(TIER),) $(if $(CADENCE),--cadence $(CADENCE),) $(if $(PRORATION),--proration $(PRORATION),) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
+
+# Apply the founding LIFETIME 25%-off coupon to founders who are due for it — the
+# on-demand twin of the webhook's maybeApplyFoundingLifetime. The webhook reaches
+# MONTHLY founders (a monthly invoice event hits the month-11 window) but NOT
+# ANNUAL founders (an annual sub emits no events between signup and renewal), so
+# their renewal would bill full rack rate before the 25% ever lands. Run this once
+# the founding cohort's intro year is ending (~May/June 2027 for a June-2026
+# go-live) so every founder gets the coupon before renewal. Idempotent
+# (founding_lifetime_applied_at guards re-runs), so re-run it for late stragglers.
+# FORCE=1 ignores the 11-month gate (annual stragglers only — never a monthly
+# founder still inside their 12-invoice intro); EMAIL=<addr> limits to one member.
+# Usage:
+#   make apply-founding-lifetime DRY_RUN=1
+#   make apply-founding-lifetime YES=1
+#   make apply-founding-lifetime EMAIL=foo@example.com FORCE=1 YES=1
+apply-founding-lifetime:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/apply-founding-lifetime.mts $(if $(EMAIL),--email $(EMAIL),) $(if $(FORCE),--force,) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
 
 # Clear stripe_customer_id on rows that never produced a subscription —
 # pre-cutover beta artifacts that would cause "No such customer" 400s the
