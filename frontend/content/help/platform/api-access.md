@@ -8,11 +8,11 @@
 
 Everything the web platform shows you is computed from the same backend that powers the API. Pro subscribers get programmatic access to:
 
-- GEX summaries and per-strike breakdowns
-- Real-time quotes
+- GEX summaries and per-strike breakdowns (including the consolidated dealer-levels + gamma-profile endpoint)
 - Flow data (premium, volume, smart-money buckets)
+- Max pain and intraday technicals (VWAP, opening range, volume, momentum)
 - Trading signals (scores and trigger states)
-- Historical bars and signal history
+- Historical GEX and signal history
 
 ## The docs
 
@@ -25,13 +25,13 @@ The docs require a Pro account. Public users are routed to the Pricing page on c
 
 ## Authentication
 
-Authentication uses **bearer tokens**. Self-serve key generation from your Account page is on the way; until it ships, keys are issued by hand:
+Authentication uses **bearer tokens**. Generate your key yourself from your account — there's nothing to wait for:
 
-1. Email [support@zerogex.io](mailto:support@zerogex.io) from your account address (Pro accounts only).
-2. We send you a key and setup notes.
-3. Include it as `Authorization: Bearer <key>` on every request.
+1. Sign in and go to **Account → API Access** (`/account#api-access`).
+2. Click **Generate API Key** and copy the key from the one-time reveal — it's shown once, for a few minutes, and can't be retrieved again. Store it in a password manager or secret store.
+3. Send it as `Authorization: Bearer <key>` on every request.
 
-Need a key rotated or revoked? Email support and we'll turn it around quickly.
+Personal API keys are a Pro feature; Basic and Public accounts are routed to Pricing. Generating a new key immediately revokes your previous one (you hold at most one active key at a time), so rotating is just a matter of regenerating. Need help or a key revoked? Email [support@zerogex.io](mailto:support@zerogex.io).
 
 ## Rate limits
 
@@ -63,12 +63,12 @@ Most endpoints set sensible HTTP cache headers — respect them. The signal endp
 
 ### Backfill
 
-Historical endpoints support multi-day windows. For deep backfills, paginate using the `meta.cursor` field.
+The derived history endpoints — GEX (`/api/gex/historical`), max pain, and signal history — support multi-day windows. Options data is the exception: per-contract quotes are served as the latest quote or a single intraday session (`/api/option/contract`), **not** a multi-day historical series — and the raw option and underlying endpoints aren't part of the standard tier anyway (see *What's gated*). If you need a longer options-quote history, contact support with the specifics.
 
 ## What's gated
 
 - API access requires a **Pro** account. Basic and Public accounts cannot generate keys.
-- Some endpoints have additional Pro-only flags (e.g., raw chain dumps) — the docs label them.
+- Raw upstream market data — per-contract option quotes (both the latest quote and intraday contract history) and underlying price bars — isn't part of the standard API tier. The API serves the derived analytics (GEX, flow, max pain, technicals, signals) and their history. Need raw options or underlying data for a specific use case? Email support and we'll talk through the options.
 
 ## Best practices
 
