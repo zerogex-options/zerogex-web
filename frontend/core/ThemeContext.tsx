@@ -48,6 +48,22 @@ function writeCookie(name: string, value: string) {
   document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${COOKIE_MAX_AGE}; SameSite=Lax`;
 }
 
+// Guarded localStorage read. Accessing `localStorage` can THROW (not just on
+// write) — Safari with "Block all cookies" enabled, some privacy/lockdown
+// modes, and partitioned third-party contexts raise SecurityError on the
+// property access itself. Theme and palette are already persisted to cookies
+// (the SSR source of truth), so a storage failure safely falls back to the
+// cookie value / default. This must never throw: ThemeProvider is the
+// outermost provider in the root layout, so an unguarded throw here escapes
+// hydration with no error boundary above it and white-screens every page.
+function readStoredValue(name: string): string | null {
+  try {
+    return localStorage.getItem(name);
+  } catch {
+    return null;
+  }
+}
+
 interface ThemeContextType {
   theme: Theme;
   setTheme: (theme: Theme) => void;
@@ -59,13 +75,13 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 function getInitialTheme(): Theme {
   if (typeof document === 'undefined') return 'dark';
-  const saved = readCookie('theme') ?? localStorage.getItem('theme');
+  const saved = readCookie('theme') ?? readStoredValue('theme');
   return saved === 'light' || saved === 'dark' ? saved : 'dark';
 }
 
 function getInitialPalette(): Palette {
   if (typeof document === 'undefined') return DEFAULT_PALETTE;
-  const saved = readCookie('palette') ?? localStorage.getItem('palette');
+  const saved = readCookie('palette') ?? readStoredValue('palette');
   // Migrate legacy/retired IDs to a valid palette so an old saved preference
   // never resolves to nothing (walnut/pacific/deluxe were earlier renames;
   // miami/monaco/amalfi were retired in favor of the three newer themes).
