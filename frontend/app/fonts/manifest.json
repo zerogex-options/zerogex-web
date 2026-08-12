@@ -1,0 +1,279 @@
+[
+  {
+    "slug": "inter",
+    "family": "Inter",
+    "variable": "--font-inter",
+    "serif": false,
+    "kind": "variable",
+    "src": [
+      {
+        "path": "./fonts/inter/inter-variable.woff2",
+        "weight": "400 700",
+        "style": "normal"
+      }
+    ]
+  },
+  {
+    "slug": "jetbrains-mono",
+    "family": "JetBrains Mono",
+    "variable": "--font-jetbrains-mono",
+    "serif": false,
+    "kind": "variable",
+    "src": [
+      {
+        "path": "./fonts/jetbrains-mono/jetbrains-mono-variable.woff2",
+        "weight": "400 700",
+        "style": "normal"
+      }
+    ]
+  },
+  {
+    "slug": "space-grotesk",
+    "family": "Space Grotesk",
+    "variable": "--font-space-grotesk",
+    "serif": false,
+    "kind": "variable",
+    "src": [
+      {
+        "path": "./fonts/space-grotesk/space-grotesk-variable.woff2",
+        "weight": "400 700",
+        "style": "normal"
+      }
+    ]
+  },
+  {
+    "slug": "libre-baskerville",
+    "family": "Libre Baskerville",
+    "variable": "--font-libre-baskerville",
+    "serif": true,
+    "kind": "variable",
+    "src": [
+      {
+        "path": "./fonts/libre-baskerville/libre-baskerville-variable.woff2",
+        "weight": "400 700",
+        "style": "normal"
+      }
+    ]
+  },
+  {
+    "slug": "playfair",
+    "family": "Playfair Display",
+    "variable": "--font-playfair",
+    "serif": true,
+    "kind": "variable",
+    "src": [
+      {
+        "path": "./fonts/playfair/playfair-variable.woff2",
+        "weight": "400 800",
+        "style": "normal"
+      }
+    ]
+  },
+  {
+    "slug": "cormorant",
+    "family": "Cormorant Garamond",
+    "variable": "--font-cormorant",
+    "serif": true,
+    "kind": "variable",
+    "src": [
+      {
+        "path": "./fonts/cormorant/cormorant-variable.woff2",
+        "weight": "300 700",
+        "style": "normal"
+      }
+    ]
+  },
+  {
+    "slug": "noto-sans",
+    "family": "Noto Sans",
+    "variable": "--font-noto-sans",
+    "serif": false,
+    "kind": "variable",
+    "src": [
+      {
+        "path": "./fonts/noto-sans/noto-sans-variable.woff2",
+        "weight": "400 700",
+        "style": "normal"
+      }
+    ]
+  },
+  {
+    "slug": "newsreader",
+    "family": "Newsreader",
+    "variable": "--font-newsreader",
+    "serif": true,
+    "kind": "variable",
+    "src": [
+      {
+        "path": "./fonts/newsreader/newsreader-variable.woff2",
+        "weight": "400 600",
+        "style": "normal"
+      }
+    ]
+  },
+  {
+    "slug": "archivo",
+    "family": "Archivo",
+    "variable": "--font-archivo",
+    "serif": false,
+    "kind": "variable",
+    "src": [
+      {
+        "path": "./fonts/archivo/archivo-variable.woff2",
+        "weight": "400 700",
+        "style": "normal"
+      }
+    ]
+  },
+  {
+    "slug": "outfit",
+    "family": "Outfit",
+    "variable": "--font-outfit",
+    "serif": false,
+    "kind": "variable",
+    "src": [
+      {
+        "path": "./fonts/outfit/outfit-variable.woff2",
+        "weight": "400 700",
+        "style": "normal"
+      }
+    ]
+  },
+  {
+    "slug": "fraunces",
+    "family": "Fraunces",
+    "variable": "--font-fraunces",
+    "serif": true,
+    "kind": "variable",
+    "src": [
+      {
+        "path": "./fonts/fraunces/fraunces-variable.woff2",
+        "weight": "400 700",
+        "style": "normal"
+      }
+    ]
+  },
+  {
+    "slug": "chakra-petch",
+    "family": "Chakra Petch",
+    "variable": "--font-chakra-petch",
+    "serif": false,
+    "kind": "static",
+    "src": [
+      {
+        "path": "./fonts/chakra-petch/chakra-petch-400.woff2",
+        "weight": "400",
+        "style": "normal"
+      },
+      {
+        "path": "./fonts/chakra-petch/chakra-petch-500.woff2",
+        "weight": "500",
+        "style": "normal"
+      },
+      {
+        "path": "./fonts/chakra-petch/chakra-petch-600.woff2",
+        "weight": "600",
+        "style": "normal"
+      },
+      {
+        "path": "./fonts/chakra-petch/chakra-petch-700.woff2",
+        "weight": "700",
+        "style": "normal"
+      }
+    ]
+  },
+  {
+    "slug": "bagel-fat-one",
+    "family": "Bagel Fat One",
+    "variable": "--font-bagel-fat-one",
+    "serif": false,
+    "kind": "variable",
+    "src": [
+      {
+        "path": "./fonts/bagel-fat-one/bagel-fat-one-variable.woff2",
+        "weight": "400",
+        "style": "normal"
+      }
+    ]
+  },
+  {
+    "slug": "rubik",
+    "family": "Rubik",
+    "variable": "--font-rubik",
+    "serif": false,
+    "kind": "variable",
+    "src": [
+      {
+        "path": "./fonts/rubik/rubik-variable.woff2",
+        "weight": "400 700",
+        "style": "normal"
+      }
+    ]
+  },
+  {
+    "slug": "jost",
+    "family": "Jost",
+    "variable": "--font-jost",
+    "serif": false,
+    "kind": "variable",
+    "src": [
+      {
+        "path": "./fonts/jost/jost-variable.woff2",
+        "weight": "400 700",
+        "style": "normal"
+      }
+    ]
+  },
+  {
+    "slug": "spectral",
+    "family": "Spectral",
+    "variable": "--font-spectral",
+    "serif": true,
+    "kind": "static",
+    "src": [
+      {
+        "path": "./fonts/spectral/spectral-400.woff2",
+        "weight": "400",
+        "style": "normal"
+      },
+      {
+        "path": "./fonts/spectral/spectral-500.woff2",
+        "weight": "500",
+        "style": "normal"
+      },
+      {
+        "path": "./fonts/spectral/spectral-600.woff2",
+        "weight": "600",
+        "style": "normal"
+      }
+    ]
+  },
+  {
+    "slug": "gloock",
+    "family": "Gloock",
+    "variable": "--font-gloock",
+    "serif": true,
+    "kind": "variable",
+    "src": [
+      {
+        "path": "./fonts/gloock/gloock-variable.woff2",
+        "weight": "400",
+        "style": "normal"
+      }
+    ]
+  },
+  {
+    "slug": "hanken-grotesk",
+    "family": "Hanken Grotesk",
+    "variable": "--font-hanken-grotesk",
+    "serif": false,
+    "kind": "variable",
+    "src": [
+      {
+        "path": "./fonts/hanken-grotesk/hanken-grotesk-variable.woff2",
+        "weight": "400 700",
+        "style": "normal"
+      }
+    ]
+  }
+]
