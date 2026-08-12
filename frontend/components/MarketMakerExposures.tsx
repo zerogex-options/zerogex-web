@@ -550,8 +550,9 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // This only exists for "now" — while the user scrubs back through rewind the
   // stacked view falls back to the bucket's aggregate bars (see stackingActive).
   // Compact (dashboard tile) hides the middle / right panels, so it never needs
-  // the per-expiration breakdown — don't poll it there.
-  const { data: gexByStrikeRows } = useGEXByStrike(symbol, 400, compact || paused ? 0 : 10000, 'impact');
+  // the per-expiration breakdown — don't poll it there. limit/sort match the
+  // Gamma Exposure page's call so the module-level by-strike cache is shared.
+  const { data: gexByStrikeRows } = useGEXByStrike(symbol, 200, compact || paused ? 0 : 10000, 'impact');
 
   // ── Candles: /api/market/historical ──
   // Single source of truth for OHLC.  useMarketHistorical's pollLatestBar
@@ -1159,6 +1160,14 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // bucket's aggregate bars instead. Also gated on !compact (compact hides the
   // middle / right panels entirely) and on the snapshot actually carrying data.
   const stackingActive = !compact && atRewindRightEdge && stackedByStrike.size > 0;
+
+  // TEMP DIAGNOSTIC — how many of the visible strikes actually match a by-strike
+  // stack cell (a mismatch here means the timeseries strike grid and the
+  // by-strike snapshot don't line up). Remove once stacking is confirmed.
+  const _dbgHit = useMemo(
+    () => visibleStrikes.reduce((n, s) => n + (stackedByStrike.has(Math.round(s.strike * 100)) ? 1 : 0), 0),
+    [visibleStrikes, stackedByStrike],
+  );
 
   const gammaXMax = useMemo(() => {
     if (visibleStrikes.length === 0) return 1;
@@ -3242,7 +3251,10 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
             <span style={{ color: textPrimary }}>Prev High/Low</span>
           </span>
         )}
-        <span className="ml-auto">Hover any panel for details</span>
+        {/* TEMP DIAGNOSTIC — remove once stacking is confirmed. */}
+        <span className="ml-auto font-mono" style={{ color: 'var(--color-accent-hot)' }}>
+          dbg rows:{gexByStrikeRows == null ? 'null' : gexByStrikeRows.length} exps:{byStrikeExps.length} cells:{stackedByStrike.size} vis:{visibleStrikes.length} hit:{_dbgHit} active:{stackingActive ? 1 : 0}
+        </span>
       </div>
       )}
 
