@@ -1,25 +1,6 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
-import {
-  Archivo,
-  Bagel_Fat_One,
-  Chakra_Petch,
-  Cormorant_Garamond,
-  Fraunces,
-  Gloock,
-  Hanken_Grotesk,
-  Inter,
-  JetBrains_Mono,
-  Jost,
-  Libre_Baskerville,
-  Newsreader,
-  Noto_Sans,
-  Outfit,
-  Playfair_Display,
-  Rubik,
-  Space_Grotesk,
-  Spectral,
-} from 'next/font/google';
+import localFont from 'next/font/local';
 import './globals.css';
 import { ThemeProvider } from '@/core/ThemeContext';
 import { LanguageProvider } from '@/core/LanguageContext';
@@ -35,98 +16,96 @@ import TwitterPixelProvider from '@/components/TwitterPixelProvider';
 import SiteJsonLd from '@/components/SiteJsonLd';
 
 // Site body sans — Inter is the shared body font across every palette.
-const inter = Inter({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
+const inter = localFont({
+  src: [{ path: './fonts/inter/inter-variable.woff2', weight: '400 700', style: 'normal' }],
   variable: '--font-inter',
   display: 'swap',
 });
 
 // Shared mono — data, labels, code, ticker rows, tabular numerals.
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ['latin'],
-  weight: ['400', '500', '700'],
+const jetbrainsMono = localFont({
+  src: [{ path: './fonts/jetbrains-mono/jetbrains-mono-variable.woff2', weight: '400 700', style: 'normal' }],
   variable: '--font-jetbrains-mono',
   display: 'swap',
 });
 
 // ZeroGEX OG — the house grotesque. The face on the brand business card;
 // used for both display and body in the flagship "ZeroGEX OG" palette.
-const spaceGrotesk = Space_Grotesk({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
+const spaceGrotesk = localFont({
+  src: [{ path: './fonts/space-grotesk/space-grotesk-variable.woff2', weight: '400 700', style: 'normal' }],
   variable: '--font-space-grotesk',
   display: 'swap',
 });
 
 // Wall Street — editorial serif, tailored, ivory-and-navy.
-const libreBaskerville = Libre_Baskerville({
-  subsets: ['latin'],
-  weight: ['400', '700'],
+const libreBaskerville = localFont({
+  src: [{ path: './fonts/libre-baskerville/libre-baskerville-variable.woff2', weight: '400 700', style: 'normal' }],
   variable: '--font-libre-baskerville',
   display: 'swap',
+  adjustFontFallback: 'Times New Roman',
 });
 
 // California Sunset — display serif, Hollywood editorial.
-const playfair = Playfair_Display({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700', '800'],
+const playfair = localFont({
+  src: [{ path: './fonts/playfair/playfair-variable.woff2', weight: '400 800', style: 'normal' }],
   variable: '--font-playfair',
   display: 'swap',
+  adjustFontFallback: 'Times New Roman',
 });
 
 // Kyoto Zen — display serif, calm classical elegance.
-const cormorant = Cormorant_Garamond({
-  subsets: ['latin'],
-  weight: ['300', '400', '500', '600', '700'],
+const cormorant = localFont({
+  src: [{ path: './fonts/cormorant/cormorant-variable.woff2', weight: '300 700', style: 'normal' }],
   variable: '--font-cormorant',
   display: 'swap',
+  adjustFontFallback: 'Times New Roman',
 });
 
 // Kyoto Zen — body sans, humanist and humble.
-const notoSans = Noto_Sans({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
+const notoSans = localFont({
+  src: [{ path: './fonts/noto-sans/noto-sans-variable.woff2', weight: '400 700', style: 'normal' }],
   variable: '--font-noto-sans',
   display: 'swap',
 });
 
 // London Fog — English editorial serif, foggy and financial.
-const newsreader = Newsreader({
-  subsets: ['latin'],
-  weight: ['400', '500', '600'],
+const newsreader = localFont({
+  src: [{ path: './fonts/newsreader/newsreader-variable.woff2', weight: '400 600', style: 'normal' }],
   variable: '--font-newsreader',
   display: 'swap',
+  adjustFontFallback: 'Times New Roman',
 });
 
 // Zürich Vault — Swiss grotesque, precise and quiet.
-const archivo = Archivo({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
+const archivo = localFont({
+  src: [{ path: './fonts/archivo/archivo-variable.woff2', weight: '400 700', style: 'normal' }],
   variable: '--font-archivo',
   display: 'swap',
 });
 
 // Maldives Lagoon — airy geometric sans, resort-modern.
-const outfit = Outfit({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
+const outfit = localFont({
+  src: [{ path: './fonts/outfit/outfit-variable.woff2', weight: '400 700', style: 'normal' }],
   variable: '--font-outfit',
   display: 'swap',
 });
 
 // Tulum Jungle — soft organic serif, boho-editorial.
-const fraunces = Fraunces({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
+const fraunces = localFont({
+  src: [{ path: './fonts/fraunces/fraunces-variable.woff2', weight: '400 700', style: 'normal' }],
   variable: '--font-fraunces',
   display: 'swap',
+  adjustFontFallback: 'Times New Roman',
 });
 
 // Mars · Olympus — technical instrument-panel sans, planetary telemetry.
-const chakraPetch = Chakra_Petch({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
+const chakraPetch = localFont({
+  src: [
+    { path: './fonts/chakra-petch/chakra-petch-400.woff2', weight: '400', style: 'normal' },
+    { path: './fonts/chakra-petch/chakra-petch-500.woff2', weight: '500', style: 'normal' },
+    { path: './fonts/chakra-petch/chakra-petch-600.woff2', weight: '600', style: 'normal' },
+    { path: './fonts/chakra-petch/chakra-petch-700.woff2', weight: '700', style: 'normal' },
+  ],
   variable: '--font-chakra-petch',
   display: 'swap',
 });
@@ -134,49 +113,49 @@ const chakraPetch = Chakra_Petch({
 // Vinyl Topanga — chunky rounded 70s display (Cooper-Black lineage). Ships a
 // single 400 weight, so Vinyl's headings are pinned to 400 in globals.css to
 // avoid a synthesized faux-bold on this already-heavy face.
-const bagelFatOne = Bagel_Fat_One({
-  subsets: ['latin'],
-  weight: ['400'],
+const bagelFatOne = localFont({
+  src: [{ path: './fonts/bagel-fat-one/bagel-fat-one-variable.woff2', weight: '400', style: 'normal' }],
   variable: '--font-bagel-fat-one',
   display: 'swap',
 });
 
 // Vinyl Topanga — warm rounded body sans.
-const rubik = Rubik({
-  subsets: ['latin'],
-  weight: ['400', '500', '700'],
+const rubik = localFont({
+  src: [{ path: './fonts/rubik/rubik-variable.woff2', weight: '400 700', style: 'normal' }],
   variable: '--font-rubik',
   display: 'swap',
 });
 
 // Monochrome Madison — Futura-style geometric display, mid-century modernist.
-const jost = Jost({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
+const jost = localFont({
+  src: [{ path: './fonts/jost/jost-variable.woff2', weight: '400 700', style: 'normal' }],
   variable: '--font-jost',
   display: 'swap',
 });
 
 // Monochrome Madison — serious editorial reading serif.
-const spectral = Spectral({
-  subsets: ['latin'],
-  weight: ['400', '500', '600'],
+const spectral = localFont({
+  src: [
+    { path: './fonts/spectral/spectral-400.woff2', weight: '400', style: 'normal' },
+    { path: './fonts/spectral/spectral-500.woff2', weight: '500', style: 'normal' },
+    { path: './fonts/spectral/spectral-600.woff2', weight: '600', style: 'normal' },
+  ],
   variable: '--font-spectral',
   display: 'swap',
+  adjustFontFallback: 'Times New Roman',
 });
 
 // Palm Springs — warm boutique serif display.
-const gloock = Gloock({
-  subsets: ['latin'],
-  weight: ['400'],
+const gloock = localFont({
+  src: [{ path: './fonts/gloock/gloock-variable.woff2', weight: '400', style: 'normal' }],
   variable: '--font-gloock',
   display: 'swap',
+  adjustFontFallback: 'Times New Roman',
 });
 
 // Palm Springs — clean modern body sans.
-const hankenGrotesk = Hanken_Grotesk({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
+const hankenGrotesk = localFont({
+  src: [{ path: './fonts/hanken-grotesk/hanken-grotesk-variable.woff2', weight: '400 700', style: 'normal' }],
   variable: '--font-hanken-grotesk',
   display: 'swap',
 });
