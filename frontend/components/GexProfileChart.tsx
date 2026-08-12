@@ -95,10 +95,8 @@ interface MergedRow {
   // Stacked-by-expiration additions (populated once perExpirationData is wired).
   callSelected?: number; // selected-expiration call GEX total at this strike (>= 0)
   putSelected?: number; // selected-expiration put GEX total (<= 0)
-  callTotalAll?: number; // all-expiration call GEX total — the % baseline (>= 0)
-  putTotalAll?: number; // all-expiration put GEX total (<= 0)
-  callRemainder?: number; // faint cap = all − selected (calls, >= 0), when filtering
-  putRemainder?: number; // faint cap = all − selected (puts, <= 0), when filtering
+  callTotalAll?: number; // all-expiration call GEX total — tooltip % baseline (>= 0)
+  putTotalAll?: number; // all-expiration put GEX total — tooltip % baseline (<= 0)
   // Dynamic per-expiration segments: `call__<exp>` (>= 0), `put__<exp>` (<= 0).
   [key: string]: number | undefined;
 }
@@ -117,10 +115,6 @@ const BAR_SIZE = 14;
 // shading reads as a time-to-expiry ramp (bold = rolls off soonest).
 const NEAR_OPACITY = 1;
 const FAR_OPACITY = 0.4;
-// The faint "everything else" cap shown above the solid selection when a
-// subset is filtered — always fainter than the faintest real segment so it
-// reads as "the remaining total", not another expiration.
-const REMAINDER_OPACITY = 0.13;
 
 // Whole-day DTE between two YYYY-MM-DD keys, parsed at UTC midnight so the
 // difference is a clean calendar-day count independent of the local offset.
@@ -615,10 +609,10 @@ export default function GexProfileChart({
       }
       // Emit a segment field for EVERY expiration in the universe (0 when not
       // shown), not just the selected ones — so the set of <Bar> elements never
-      // changes as the selection toggles. recharts v3 stacks bars in mount
-      // order (new bars append to the end = top of stack), so a changing bar
-      // set scrambles the DTE order; a constant, nearest-first set keeps the
-      // shortest DTE pinned to the baseline.
+      // changes as the selection toggles. Recharts stacks with offsetSign
+      // (series[0] at the baseline) in graphical-item registration = mount = JSX
+      // order, which is never re-sorted; a constant, nearest-first bar set keeps
+      // the shortest DTE pinned to the baseline (boldest) and stacks outward.
       const shownSet = new Set(stackExpirations);
       allExpirationsSorted.forEach((exp) => {
         const v = shownSet.has(exp) ? inner?.get(exp) : undefined;
@@ -631,13 +625,10 @@ export default function GexProfileChart({
       });
       out.callSelected = callSel * gexFactor;
       out.putSelected = -putSelMag * gexFactor;
+      // All-expiration totals are kept only for the tooltip's "% of total"
+      // readout — the bars and axis use the selected aggregate, not these.
       out.callTotalAll = callAll * gexFactor;
       out.putTotalAll = -putAllMag * gexFactor;
-      // Faint cap = the un-selected remainder, so the solid selection reads as
-      // a fraction of the full all-expiration bar. Only meaningful when a real
-      // subset is filtered; "All" leaves it at zero (nothing to cap).
-      out.callRemainder = isSubsetSelection ? Math.max(0, callAll - callSel) * gexFactor : 0;
-      out.putRemainder = isSubsetSelection ? -Math.max(0, putAllMag - putSelMag) * gexFactor : 0;
       return out;
     });
   }, [strikeData, profileData?.profile, gexFactor, isSubsetSelection, perStrikeExp, stackExpirations, allExpirationsSorted]);
@@ -786,12 +777,10 @@ export default function GexProfileChart({
     let strikeAbs = 0;
     let profileAbs = 0;
     merged.forEach((row) => {
-      // Bars now stack to the full all-expiration total at each strike (the
-      // solid selection plus the faint remainder cap), so the bar axis is
-      // scaled to callTotalAll / putTotalAll — stable across filtering, which
-      // is what lets the selection read as a fraction of the whole.
-      if (row.callTotalAll != null) strikeAbs = Math.max(strikeAbs, Math.abs(row.callTotalAll));
-      if (row.putTotalAll != null) strikeAbs = Math.max(strikeAbs, Math.abs(row.putTotalAll));
+      // Scale the bar axis to the SELECTED aggregate (the stacked segments sum
+      // to callGex / putGex), so a filtered subset fills the panel the same way
+      // the full view does — no all-expiration rescaling that would shrink a
+      // subset to a sliver.
       if (row.callGex != null) strikeAbs = Math.max(strikeAbs, Math.abs(row.callGex));
       if (row.putGex != null) strikeAbs = Math.max(strikeAbs, Math.abs(row.putGex));
       if (row.netGex != null) strikeAbs = Math.max(strikeAbs, Math.abs(row.netGex));
@@ -925,9 +914,8 @@ export default function GexProfileChart({
             )}
           </div>
           </div>
-          {/* Legend row — on its own line so toggling the expiration selection
-              (which shows/hides the "Other exp" chip) never bumps it onto a
-              second line the way it did when it shared the title row. */}
+          {/* Legend row — on its own line so it never reflows onto a second
+              line the way it did when it shared the title row. */}
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs mt-2.5" style={{ color: textColor }}>
             <div
               className="flex items-center gap-1.5"
@@ -957,15 +945,6 @@ export default function GexProfileChart({
               />
               <span style={{ opacity: 0.7 }}>far</span>
             </div>
-            {isSubsetSelection && (
-              <div className="flex items-center gap-1.5" title="Faint cap = the other (unselected) expirations at that strike — the selected bar is a share of the full total">
-                <span
-                  className="inline-block h-3 w-3 rounded-sm"
-                  style={{ backgroundColor: 'color-mix(in srgb, var(--text-muted) 22%, transparent)', border: '1px solid var(--color-border)' }}
-                />
-                Other exp
-              </div>
-            )}
             <div className="flex items-center gap-1.5">
               <span className="inline-block h-0.5 w-4" style={{ backgroundColor: NET_LINE_COLOR }} />
               Net GEX
@@ -1125,15 +1104,15 @@ export default function GexProfileChart({
 
                     ORDER INVARIANT: a <Bar> is emitted for EVERY expiration in
                     the universe (nearest first), always — unselected ones just
-                    carry 0. recharts v3 stacks bars in mount order, not JSX
-                    order (a newly-mounted bar appends to the end = top of the
-                    stack), so a bar set that changed with the selection would
-                    scramble the DTE order. Keeping the set constant pins the
-                    shortest DTE to the baseline and stacks outward to the
-                    furthest DTE, matching the opacity ramp (nearest boldest).
-                    The remainder caps (also always present, 0 when not
-                    filtering) render LAST = outer edge, so the solid selection
-                    reads as a share of the all-expiration total. */}
+                    carry 0. Recharts stacks with offsetSign, which places
+                    series[0] (the first dataKey) AT the zero baseline; dataKeys
+                    follow the graphical items' registration order, which is the
+                    mount = JSX order and is never re-sorted. Keeping the bar set
+                    constant (all expirations, 0 when unselected) therefore pins
+                    the nearest DTE to the baseline and stacks outward to the
+                    furthest, matching the opacity ramp (nearest boldest → far
+                    faintest). The axis scales to the SELECTED aggregate so a
+                    filtered subset fills the panel like the full view. */}
                 {allExpirationsSorted.map((exp) => (
                   <Bar
                     key={`call-${exp}`}
@@ -1160,26 +1139,6 @@ export default function GexProfileChart({
                     isAnimationActive={false}
                   />
                 ))}
-                <Bar
-                  yAxisId="strike"
-                  stackId="gex"
-                  dataKey="callRemainder"
-                  name="Other expirations"
-                  fill={'var(--color-bull)'}
-                  fillOpacity={REMAINDER_OPACITY}
-                  barSize={BAR_SIZE}
-                  isAnimationActive={false}
-                />
-                <Bar
-                  yAxisId="strike"
-                  stackId="gex"
-                  dataKey="putRemainder"
-                  name="Other expirations"
-                  fill={'var(--color-bear)'}
-                  fillOpacity={REMAINDER_OPACITY}
-                  barSize={BAR_SIZE}
-                  isAnimationActive={false}
-                />
                 {allExpirationsSorted.length === 0 && (
                   <Bar
                     yAxisId="strike"
