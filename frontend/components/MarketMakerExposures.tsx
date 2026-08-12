@@ -125,6 +125,14 @@ function dteChip(expiryStr: string): string {
   return dte <= 0 ? '0DTE' : `${dte}DTE`;
 }
 
+// Canonical YYYY-MM-DD key for an expiration, tolerant of a trailing time
+// component ("2026-08-15T00:00:00" → "2026-08-15"). Used to match the by-strike
+// snapshot's expirations against the (separately-sourced) selection.
+function expDateKey(value: string | null | undefined): string {
+  const m = String(value ?? '').match(/^(\d{4}-\d{2}-\d{2})/);
+  return m ? m[1] : String(value ?? '');
+}
+
 // Expiration-gradient opacity for the per-strike stacked bars: the nearest
 // expiration (0DTE) renders at full strength, the furthest at FAR_OPACITY,
 // interpolated by DTE rank so a bar's shading reads as a time-to-expiry ramp
@@ -761,37 +769,29 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   );
 
   // ── Per-expiration stacking model (live snapshot) ──
-  // Universe = the current/future expirations, nearest-first (availableExpirations
-  // is already ASC-sorted), so DTE rank = array index and the gradient runs
-  // 0DTE (boldest) → furthest (faintest).
+  // Sourced ENTIRELY from the by-strike snapshot so it stays self-consistent:
+  // the expiration universe, the DTE gradient ranking and the per-strike
+  // segments all come from the SAME feed. (The Expiry dropdown's list is a
+  // separate endpoint — /api/gex/expirations — that can lag or return empty;
+  // keying the stack off it would blank the gradient whenever that endpoint is
+  // behind, even though the by-strike data is right there.) Expirations are
+  // normalised to their YYYY-MM-DD date and restricted to today-or-later.
   const isSubsetSel = selectedExpiries.length > 0;
-  const stackExpiries = useMemo(
-    () => (isSubsetSel ? availableExpirations.filter((e) => selectedExpiries.includes(e)) : availableExpirations),
-    [availableExpirations, selectedExpiries, isSubsetSel],
-  );
-  // DTE-ranked opacity keyed on the FULL universe so a segment's shade stays
-  // stable regardless of which expirations are filtered in.
-  const expirationOpacity = useMemo(() => {
-    const m = new Map<string, number>();
-    const n = availableExpirations.length;
-    availableExpirations.forEach((exp, i) => {
-      const t = n <= 1 ? 0 : i / (n - 1);
-      m.set(exp, NEAR_OPACITY - t * (NEAR_OPACITY - FAR_OPACITY));
-    });
-    return m;
-  }, [availableExpirations]);
 
-  // strike(cents) → expiration → {call, put, callOi, putOi} magnitudes, from the
-  // by-strike snapshot, restricted to the current/future universe. Cents-keyed so
-  // the lookup from the timeseries strike grid can't miss on float drift.
   type ExpCell = { call: number; put: number; callOi: number; putOi: number };
-  const perStrikeExpLive = useMemo(() => {
-    const universe = new Set(availableExpirations);
+  // strike(cents) → normalised expiration → magnitudes, plus the sorted list of
+  // expirations actually present in the snapshot (nearest-first = DTE rank).
+  // Cents-keyed so the lookup from the timeseries strike grid can't miss on
+  // float drift.
+  const { perStrikeExpLive, byStrikeExps } = useMemo(() => {
     const m = new Map<number, Map<string, ExpCell>>();
+    const exps = new Set<string>();
     (gexByStrikeRows ?? []).forEach((row) => {
       const strike = Number(row.strike);
-      const exp = String(row.expiration ?? '');
-      if (!Number.isFinite(strike) || !universe.has(exp)) return;
+      if (!Number.isFinite(strike)) return;
+      const exp = expDateKey(row.expiration);
+      if (!exp || exp < todayKey) return; // current / future only
+      exps.add(exp);
       const key = Math.round(strike * 100);
       let inner = m.get(key);
       if (!inner) { inner = new Map(); m.set(key, inner); }
@@ -802,8 +802,28 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
       cur.putOi += Math.max(0, Number(row.put_oi) || 0);
       inner.set(exp, cur);
     });
+    return { perStrikeExpLive: m, byStrikeExps: Array.from(exps).sort((a, b) => a.localeCompare(b)) };
+  }, [gexByStrikeRows, todayKey]);
+
+  // DTE-ranked opacity keyed on the FULL snapshot universe so a segment's shade
+  // stays stable regardless of which expirations are filtered in.
+  const expirationOpacity = useMemo(() => {
+    const m = new Map<string, number>();
+    const n = byStrikeExps.length;
+    byStrikeExps.forEach((exp, i) => {
+      const t = n <= 1 ? 0 : i / (n - 1);
+      m.set(exp, NEAR_OPACITY - t * (NEAR_OPACITY - FAR_OPACITY));
+    });
     return m;
-  }, [gexByStrikeRows, availableExpirations]);
+  }, [byStrikeExps]);
+
+  // The shown subset (nearest-first), normalised to match the snapshot keys.
+  // Empty selection = All → the whole snapshot universe.
+  const stackExpiries = useMemo(() => {
+    if (!isSubsetSel) return byStrikeExps;
+    const sel = new Set(selectedExpiries.map(expDateKey));
+    return byStrikeExps.filter((e) => sel.has(e));
+  }, [byStrikeExps, selectedExpiries, isSubsetSel]);
 
   // Per-strike stacking totals: the shown (selected) segments plus the
   // all-expiration totals the selection is a share of. `null`-safe lookups keep
