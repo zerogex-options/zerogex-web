@@ -60,11 +60,10 @@ const Y_FULL_VIEW: [number, number] = [-1, 1];
 const PLOT_INSET_TOP = 8;
 const PLOT_INSET_BOTTOM = 32;
 
-// Expiration-gradient opacity (0DTE boldest → furthest faintest) + the faint
-// "everything else" remainder cap. Mirrors the Gamma chart.
+// Expiration-gradient opacity (0DTE boldest → furthest faintest). Mirrors the
+// Gamma chart.
 const NEAR_OPACITY = 1;
 const FAR_OPACITY = 0.4;
-const REMAINDER_OPACITY = 0.13;
 
 // Whole-day DTE between two YYYY-MM-DD keys (parsed at UTC midnight).
 function dteBetweenKeys(todayKey: string, expKey: string): number | null {
@@ -120,10 +119,8 @@ type ChartRow = {
   callValue: number; // selected-expiration aggregate (>= 0) — also the fallback bar
   putValue: number; // selected-expiration aggregate (<= 0)
   // Stacked-by-expiration additions:
-  callTotalAll?: number; // all-expiration total — the % baseline (>= 0)
-  putTotalAll?: number; // all-expiration total (<= 0)
-  callRemainder?: number; // faint cap = all − selected (calls, >= 0), when filtering
-  putRemainder?: number; // faint cap = all − selected (puts, <= 0), when filtering
+  callTotalAll?: number; // all-expiration total — tooltip % baseline (>= 0)
+  putTotalAll?: number; // all-expiration total — tooltip % baseline (<= 0)
   // Dynamic per-expiration segments: `call__<exp>` (>= 0), `put__<exp>` (<= 0).
   [key: string]: number | string | undefined;
 };
@@ -329,10 +326,10 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
       });
       row.callValue = callSel;
       row.putValue = -putSel;
+      // All-expiration totals kept only for the tooltip "% of total" readout;
+      // the bars and axis use the selected aggregate.
       row.callTotalAll = callAll;
       row.putTotalAll = -Math.abs(putAll);
-      row.callRemainder = isSubset ? Math.max(0, callAll - callSel) : 0;
-      row.putRemainder = isSubset ? -Math.max(0, Math.abs(putAll) - putSel) : 0;
       rows.push(row);
     });
 
@@ -361,7 +358,7 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
     }
 
     return rows.sort((a, b) => a.strike - b.strike);
-  }, [perStrikeExp, stackExpirations, allExpirationsSorted, isSubset, byStrikeFallback, displayMode]);
+  }, [perStrikeExp, stackExpirations, allExpirationsSorted, byStrikeFallback, displayMode]);
 
   const spot = asNum(spotPrice);
 
@@ -482,12 +479,13 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
   const { yDomain, yTicks } = useMemo(() => {
     let maxAbs = 0;
     chartData.forEach((row) => {
-      // Bars stack to the full all-expiration total (solid selection + faint
-      // remainder), so scale to that — stable across filtering.
+      // Scale to the SELECTED aggregate (the stacked segments sum to
+      // callValue / putValue), so a filtered subset fills the panel the same
+      // way the full view does — no all-expiration rescaling.
       maxAbs = Math.max(
         maxAbs,
-        Math.abs(row.callTotalAll ?? row.callValue),
-        Math.abs(row.putTotalAll ?? row.putValue),
+        Math.abs(row.callValue),
+        Math.abs(row.putValue),
       );
     });
     const fullMax = roundedMax(maxAbs);
@@ -520,15 +518,6 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
         />
         <span style={{ opacity: 0.7 }}>far</span>
       </div>
-      {isSubset && (
-        <div className="flex items-center gap-1.5" title="Faint cap = the other (unselected) expirations at that strike">
-          <span
-            className="inline-block h-3 w-3 rounded-sm"
-            style={{ backgroundColor: 'color-mix(in srgb, var(--text-muted) 22%, transparent)', border: '1px solid var(--color-border)' }}
-          />
-          Other exp
-        </div>
-      )}
       <div className="flex items-center gap-1.5">
         <span className="inline-block h-0.5 w-4" style={{ backgroundColor: 'var(--color-gold)' }} />
         Spot
@@ -702,9 +691,10 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
                 {/* Per-strike bars, stacked by expiration on one signed stack
                     (calls up, puts down). A <Bar> is emitted for EVERY
                     expiration (0 when not shown) so the set is constant and the
-                    DTE order stays pinned nearest-at-baseline — see the note in
-                    GexProfileChart. Remainder caps (always present, 0 when not
-                    filtering) render last = outer edge. Falls back to a plain
+                    DTE order stays pinned nearest-at-baseline (Recharts stacks
+                    series[0] at the baseline in registration = mount = JSX
+                    order, never re-sorted). The axis scales to the SELECTED
+                    aggregate so a subset fills the panel. Falls back to a plain
                     aggregate bar when there's no per-expiration OI. */}
                 {allExpirationsSorted.map((exp) => (
                   <Bar
@@ -732,8 +722,6 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
                     isAnimationActive={false}
                   />
                 ))}
-                <Bar yAxisId="value" stackId="oi" dataKey="callRemainder" name="Other expirations" fill={'var(--color-bull)'} fillOpacity={REMAINDER_OPACITY} barSize={14} isAnimationActive={false} />
-                <Bar yAxisId="value" stackId="oi" dataKey="putRemainder" name="Other expirations" fill={'var(--color-bear)'} fillOpacity={REMAINDER_OPACITY} barSize={14} isAnimationActive={false} />
                 {allExpirationsSorted.length === 0 && (
                   <Bar yAxisId="value" stackId="oi" dataKey="callValue" name={`Call ${modeLabel(displayMode)}`} fill={'var(--color-bull)'} barSize={14} isAnimationActive={false} />
                 )}

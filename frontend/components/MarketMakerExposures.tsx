@@ -747,20 +747,26 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // cash-session close here keeps the levels frozen in place; when cash
   // reopens and fresh gamma arrives, ``liveGexBucket`` becomes non-null again
   // and the panels pick right back up.  Held in state (safe to read during
-  // render), tagged with the symbol so a previous underlying's frozen surface
-  // can never flash while the new symbol's first fetch is in flight.
+  // render), tagged with the data SCOPE (symbol + expiration selection) so
+  // neither a previous underlying's nor a previous expiration selection's
+  // frozen surface can flash while the new scope's first fetch is in flight.
+  // Keying on symbol alone used to carry the prior selection's gamma across an
+  // expiration change — holding the isolated-0DTE surface for a beat after a
+  // second expiration was added, which read as the numbers "dropping" once the
+  // real multi-expiration bucket arrived. A scope change now clears to loading.
+  const gexScopeKey = `${symbol}:${expirationsParam}`;
   const [lastGoodGexBucket, setLastGoodGexBucket] =
-    useState<{ symbol: string; bucket: StrikeProfileBucketRow } | null>(null);
+    useState<{ scope: string; bucket: StrikeProfileBucketRow } | null>(null);
   // Adjust-state-during-render — React's recommended alternative to a
   // set-state-in-effect (the same pattern the expiration latch below uses).
   // The reference guard makes it converge: once the current live bucket is
   // captured, no further update fires until ``liveGexBucket`` changes again.
   if (liveGexBucket && lastGoodGexBucket?.bucket !== liveGexBucket) {
-    setLastGoodGexBucket({ symbol, bucket: liveGexBucket });
+    setLastGoodGexBucket({ scope: gexScopeKey, bucket: liveGexBucket });
   }
   const frozenGexBucket =
     liveGexBucket ??
-    (lastGoodGexBucket?.symbol === symbol ? lastGoodGexBucket.bucket : null);
+    (lastGoodGexBucket?.scope === gexScopeKey ? lastGoodGexBucket.bucket : null);
 
   const strikeAggregations = useMemo<StrikeAggregation[]>(
     () => bucketToStrikeAggregations(frozenGexBucket),
