@@ -3,6 +3,7 @@ import 'server-only';
 import { serverApiGet } from '@/core/api/serverFetch';
 import { getMarketSession, isIndexSymbol } from '@/core/utils';
 import { resolveDelayedQuote } from '@/core/delayedQuote';
+import { netGexAtSpotOrNull } from '@/core/gammaRegime';
 import type { SessionClosesData } from '@/hooks/useApiData';
 import type { PriceBar } from '@/hooks/useMarketHistorical';
 import type { StrikeProfileStrike } from '@/hooks/useStrikeProfileTimeseries';
@@ -187,7 +188,10 @@ export async function loadChartSnapshot(
       callWall: num(profile?.call_wall) ?? num(summary?.call_wall),
       putWall: num(profile?.put_wall) ?? num(summary?.put_wall),
       maxPain: num(summary?.max_pain),
-      netGexAtSpot: num(profile?.net_gex_at_spot) ?? num(summary?.net_gex),
+      // Sign-consistent with the flip: the spot-shift profile's value AT spot
+      // only. Never the summary's net_gex (the whole-chain total), which can
+      // carry the opposite sign and would desync the badge from the flip.
+      netGexAtSpot: netGexAtSpotOrNull(profile?.net_gex_at_spot),
     },
     profile: profilePoints,
     strikes: pickStrikeSurface(buckets),

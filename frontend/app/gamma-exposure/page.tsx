@@ -37,6 +37,7 @@ import { useTheme } from '@/core/ThemeContext';
 import { etTodayDateKey } from '@/core/utils';
 import { useSharedExpirations } from '@/hooks/useSharedExpirations';
 import { reconcileExpirations } from '@/core/expirationPersistence';
+import { netGexAtSpotOrNull, longGammaAtSpot } from '@/core/gammaRegime';
 import {
   aggregateStrikes,
   chartExpirationOptions as deriveChartExpirationOptions,
@@ -269,10 +270,11 @@ export default function GammaExposurePage() {
   // Dealer-gamma readings are taken AT SPOT — the cumulative-curve value at
   // the current price, which is sign-consistent with the gamma flip — not
   // the chain-wide total (which can carry the opposite sign when far-OTM
-  // strikes dominate the tail). Fall back to the chain total only until the
-  // backend has written net_gex_at_spot for the latest snapshot.
-  const netGexAtSpot = gexData?.net_gex_at_spot ?? gexData?.net_gex ?? null;
-  const netGexPositive = (netGexAtSpot ?? 0) >= 0;
+  // strikes dominate the tail). When the at-spot value is unavailable the
+  // regime sign degrades to the geometric spot-vs-flip read (never the chain
+  // total), so the Net GEX trend can't contradict the Gamma Flip card.
+  const netGexAtSpot = netGexAtSpotOrNull(gexData?.net_gex_at_spot);
+  const netGexLong = longGammaAtSpot(netGexAtSpot, quoteData?.close ?? gexData?.spot_price ?? null, gexData?.gamma_flip ?? null);
   const ivRankPct = volGauge ? Math.round(volGauge.level * 10) : null;
 
   const totalVanna = useMemo(
@@ -485,7 +487,7 @@ export default function GammaExposurePage() {
           <MetricCard
             title="Net GEX"
             value={netGexAtSpot != null ? formatGexValue(netGexAtSpot) : '--'}
-            trend={netGexPositive ? 'bullish' : 'bearish'}
+            trend={netGexLong == null ? 'neutral' : netGexLong ? 'bullish' : 'bearish'}
             tooltip="Cumulative dealer gamma at the current spot price — the value of the same low→high cumulative curve whose zero crossing is the gamma flip, so it is always sign-consistent with the flip. Positive = dealers net long gamma here (pinning, mean-reversion); negative = net short gamma here (trending, vol amplification). The regime flips at the gamma flip level above. (Not the chain-wide total, which can carry the opposite sign when far-OTM strikes dominate the tail.)"
             contextBadge={
               <HistoricalContextBadge

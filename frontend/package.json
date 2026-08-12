@@ -42,7 +42,8 @@
     "test:daily-bars": "node --experimental-strip-types --test tests/dailyBars.test.ts",
     "test:strike-filter": "node --experimental-strip-types --test tests/strikeFilter.test.ts",
     "test:pin-strike": "node --experimental-strip-types --test tests/pinStrike.test.ts",
-    "test:gex-strike-charts": "node --experimental-strip-types --test tests/gexStrikeCharts.test.ts"
+    "test:gex-strike-charts": "node --experimental-strip-types --test tests/gexStrikeCharts.test.ts",
+    "test:gamma-regime": "node --experimental-strip-types --test tests/gammaRegime.test.ts"
   },
   "dependencies": {
     "jose": "^5.9.6",

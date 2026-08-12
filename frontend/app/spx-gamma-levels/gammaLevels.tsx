@@ -16,6 +16,7 @@ import PricingTrialCta from './PricingTrialCta';
 import StickyTrialBar from './StickyTrialBar';
 import GammaTerminalChart from '@/components/GammaTerminalChart';
 import { loadChartSnapshot } from '@/app/chart/snapshot';
+import { netGexAtSpotOrNull } from '@/core/gammaRegime';
 
 // Shared, ticker-first view behind the free gamma-levels pages. One component
 // renders four routes — /spx-gamma-levels, /spy-gamma-levels, /qqq-gamma-levels,
@@ -249,7 +250,7 @@ function shareLine(symbol: Symbol, data: GexSummary | null, delayed = false): st
     `Call Wall ${fmtShareStrike(data?.call_wall)} | ` +
     `Put Wall ${fmtShareStrike(data?.put_wall)} | ` +
     `Gamma Flip ${fmtShareLevel(data?.gamma_flip)} | ` +
-    `Net GEX ${fmtShareGex(data?.net_gex_at_spot ?? data?.net_gex)}` +
+    `Net GEX ${fmtShareGex(netGexAtSpotOrNull(data?.net_gex_at_spot))}` +
     (delayed ? ' (delayed)' : '')
   );
 }
@@ -509,7 +510,7 @@ function SymbolCard({
         <LevelRow label="Gamma flip" value={fmtPrice(data?.gamma_flip)} hint="Regime line — above = positive, below = negative" />
         <LevelRow label="Max pain" value={fmtPrice(data?.max_pain)} hint="Strike where the most contracts expire worthless" />
         <LevelRow label="Pin strike" value={fmtPrice(data?.pin_strike)} hint="Reachable 0DTE strike with the strongest modeled positive dealer-gamma stabilization into expiration — a modeled pinning level, not a target" />
-        <LevelRow label="Net dealer GEX (at spot)" value={fmtNetGex(data?.net_gex_at_spot ?? data?.net_gex)} hint="Modeled (call-positive/put-negative convention); actual dealer inventory isn't directly observable" />
+        <LevelRow label="Net dealer GEX (at spot)" value={fmtNetGex(netGexAtSpotOrNull(data?.net_gex_at_spot))} hint="Modeled (call-positive/put-negative convention); actual dealer inventory isn't directly observable" />
       </div>
 
       <footer style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 4 }}>
@@ -596,7 +597,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
   // net GEX" answer block in the content zone below. Targets the "<ticker> net
   // gamma exposure current / today / value / zero-cross" query cluster with the
   // same delayed number already shown in the cards above (never a live claim).
-  const primaryNetGex = primaryData?.net_gex_at_spot ?? primaryData?.net_gex ?? null;
+  const primaryNetGex = netGexAtSpotOrNull(primaryData?.net_gex_at_spot);
   const primaryFlip = primaryData?.gamma_flip ?? null;
   const primarySpotPrice = primaryData?.spot_price ?? null;
 
