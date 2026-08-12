@@ -17,6 +17,8 @@ import TradeBiasSection from '@/components/TradeBiasSection';
 import UnderlyingCandlesChart from '@/components/UnderlyingCandlesChart';
 import GammaTerminalChart from '@/components/GammaTerminalChart';
 import GammaPulsePanel from '@/components/GammaPulsePanel';
+import GexProfileChart from '@/components/GexProfileChart';
+import GexWallsChart from '@/components/GexWallsChart';
 import SignalScorePanel from '@/components/SignalScorePanel';
 import SignalEventsPanel from '@/components/SignalEventsPanel';
 import ConfluenceMatrix from '@/components/ConfluenceMatrix';
@@ -25,10 +27,32 @@ import TodaysReadCard from '@/components/TodaysReadCard';
 import WorldClocks from '@/components/WorldClocks';
 
 import { useTimeframe } from '@/core/TimeframeContext';
-import { getMarketSession } from '@/core/utils';
-import { useBasicConfluenceMatrix, type SignalEventName } from '@/hooks/useApiData';
+import { getMarketSession, etTodayDateKey } from '@/core/utils';
+import {
+  useApiData,
+  useBasicConfluenceMatrix,
+  useGEXByStrike,
+  useGEXSummary,
+  useMarketQuote,
+  type SignalEventName,
+} from '@/hooks/useApiData';
+import { useStrikeProfileTimeseries } from '@/hooks/useStrikeProfileTimeseries';
+import { useSharedExpirations } from '@/hooks/useSharedExpirations';
+import { reconcileExpirations } from '@/core/expirationPersistence';
 import { buildReportModel } from '@/app/live-bulletin/bulletinHelpers';
 import { usePageT } from '@/core/LanguageContext';
+import {
+  chartExpirationOptions as deriveChartExpirationOptions,
+  chartStrikeData as deriveChartStrikeData,
+  expirationsParam,
+  normalizeOpenInterestPayload,
+  openInterestRows,
+  openInterestSpotPrice,
+  perExpirationStrikeData as derivePerExpirationStrikeData,
+  strikeExpirationOptions,
+  toProfileStrikeData,
+  type OpenInterestApiResponse,
+} from '@/core/gexStrikeCharts';
 
 import { WidgetCard } from './primitives';
 import { useMyDashboardData } from './DashboardData';
@@ -92,6 +116,130 @@ export function GammaPulseWidget() {
     <WidgetCard href="/gamma-exposure" pad>
       <GammaPulsePanel symbol={symbol} />
     </WidgetCard>
+  );
+}
+
+// The "Gamma Exposure by Strike" chart from /gamma-exposure. It feeds
+// GexProfileChart the exact same inputs the page does — the shared derivations
+// in core/gexStrikeCharts keep the widget and the page chart in lockstep — and
+// follows the tab-wide shared expiration selection so it moves together with any
+// other expiration-filtering chart on the board. GexProfileChart carries its own
+// card + header + expand control, so it renders bare (no WidgetCard chrome).
+export function GammaByStrikePanel() {
+  const { symbol } = useTimeframe();
+  const { data: gexData } = useGEXSummary(symbol, 5000);
+  const { data: gexByStrike } = useGEXByStrike(symbol, 200, 10000, 'impact');
+  const { data: quoteData } = useMarketQuote(symbol, 1000);
+  const { selection: sharedExpirations, setSelection: setSharedExpirations } = useSharedExpirations();
+
+  const todayKey = etTodayDateKey();
+  const expirationOptions = useMemo(() => strikeExpirationOptions(gexByStrike), [gexByStrike]);
+  const chartExpirationOptions = useMemo(
+    () => deriveChartExpirationOptions(expirationOptions, todayKey),
+    [expirationOptions, todayKey],
+  );
+  const chartSelectedExpirations = useMemo(
+    () => reconcileExpirations(sharedExpirations, chartExpirationOptions),
+    [sharedExpirations, chartExpirationOptions],
+  );
+  const profileStrikeData = useMemo(
+    () =>
+      toProfileStrikeData(
+        deriveChartStrikeData(gexByStrike, chartSelectedExpirations, chartExpirationOptions),
+      ),
+    [gexByStrike, chartSelectedExpirations, chartExpirationOptions],
+  );
+  const perExpirationData = useMemo(
+    () => derivePerExpirationStrikeData(gexByStrike, chartExpirationOptions),
+    [gexByStrike, chartExpirationOptions],
+  );
+
+  // Call/Put Wall reference lines come from the latest strike-profile bucket,
+  // scoped to the chart's expiration selection (pinned to '5min' to share the
+  // cache MarketMakerExposures populates by default — wall values are snapshots,
+  // so the bucket cadence doesn't affect them, only cache reuse).
+  const { buckets } = useStrikeProfileTimeseries(
+    symbol,
+    '5min',
+    expirationsParam(chartSelectedExpirations),
+  );
+  const { chartCallWall, chartPutWall } = useMemo(() => {
+    if (buckets.length === 0) {
+      return { chartCallWall: undefined, chartPutWall: undefined };
+    }
+    const latest = buckets[buckets.length - 1];
+    const cw = Number(latest?.call_wall);
+    const pw = Number(latest?.put_wall);
+    return {
+      chartCallWall: Number.isFinite(cw) ? cw : undefined,
+      chartPutWall: Number.isFinite(pw) ? pw : undefined,
+    };
+  }, [buckets]);
+
+  return (
+    <div className="h-full">
+      <GexProfileChart
+        symbol={symbol}
+        strikeData={profileStrikeData}
+        spotPrice={quoteData?.close}
+        gammaFlip={gexData?.gamma_flip}
+        callWall={chartCallWall}
+        putWall={chartPutWall}
+        expirationOptions={chartExpirationOptions}
+        selectedExpirations={chartSelectedExpirations}
+        onSelectedExpirationsChange={setSharedExpirations}
+        perExpirationData={perExpirationData}
+        todayKey={todayKey}
+      />
+    </div>
+  );
+}
+
+// The "Open Interest by Strike" chart from /gamma-exposure. GexWallsChart owns
+// its own expiration multiselect (via the shared store) and card chrome, so the
+// wrapper only has to hand it the open-interest snapshot, a live spot price, and
+// the by-strike aggregate fallback — then render bare.
+export function OpenInterestByStrikePanel() {
+  const { symbol } = useTimeframe();
+  const { data: quoteData } = useMarketQuote(symbol, 1000);
+  const { data: gexByStrike } = useGEXByStrike(symbol, 200, 10000, 'impact');
+  const { data: openInterestData } = useApiData<
+    OpenInterestApiResponse | Record<string, unknown>[] | null
+  >(`/api/market/open-interest?symbol=${symbol}&underlying=${symbol}`, { refreshInterval: 30000 });
+
+  const openInterestPayload = useMemo(
+    () => normalizeOpenInterestPayload(openInterestData),
+    [openInterestData],
+  );
+  const normalizedOpenInterest = useMemo(
+    () => openInterestRows(openInterestPayload),
+    [openInterestPayload],
+  );
+  const spotFromOi = useMemo(
+    () => openInterestSpotPrice(openInterestPayload),
+    [openInterestPayload],
+  );
+
+  // Prefer the live WS quote while the session is open (it ticks every second);
+  // fall back to the open-interest snapshot's spot off-hours, when quote.close
+  // would sit flat and the OI snapshot is the more meaningful reference.
+  const spotPrice =
+    quoteData?.close != null &&
+    Number.isFinite(quoteData.close) &&
+    quoteData.close > 0 &&
+    quoteData.session != null &&
+    quoteData.session !== 'closed'
+      ? quoteData.close
+      : spotFromOi;
+
+  return (
+    <div className="h-full">
+      <GexWallsChart
+        openInterestData={normalizedOpenInterest}
+        spotPrice={spotPrice}
+        byStrikeFallback={gexByStrike || []}
+      />
+    </div>
   );
 }
 

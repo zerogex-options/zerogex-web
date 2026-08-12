@@ -37,6 +37,21 @@ import { useTheme } from '@/core/ThemeContext';
 import { etTodayDateKey } from '@/core/utils';
 import { useSharedExpirations } from '@/hooks/useSharedExpirations';
 import { reconcileExpirations } from '@/core/expirationPersistence';
+import {
+  aggregateStrikes,
+  chartExpirationOptions as deriveChartExpirationOptions,
+  chartStrikeData as deriveChartStrikeData,
+  expirationsParam,
+  normalizeOpenInterestPayload,
+  openInterestRows,
+  openInterestSpotPrice as deriveOpenInterestSpotPrice,
+  perExpirationStrikeData as derivePerExpirationStrikeData,
+  strikeExpirationOptions,
+  toProfileStrikeData,
+  type GexByStrikeRow,
+  type OpenInterestApiResponse,
+  type StrikeAggregate,
+} from '@/core/gexStrikeCharts';
 
 // Wraps the GEX Metrics Snapshot table scroller so its max height tracks the
 // expanded-card state — collapsed view fits ~20 rows, expanded view fills the
@@ -56,83 +71,7 @@ const StrikeTableScroll = React.forwardRef<HTMLDivElement, { children: React.Rea
   },
 );
 
-type StrikeAggregate = {
-  strike: number;
-  distanceFromSpot: number;
-  netGexM: number;
-  callGexM: number;
-  putGexM: number;
-  callOi: number;
-  putOi: number;
-  callVolume: number;
-  putVolume: number;
-  vannaM: number;
-  charmM: number;
-};
-
 type SortKey = keyof StrikeAggregate;
-
-type OpenInterestApiResponse = {
-  spot_price?: number | string;
-  contracts?: Record<string, unknown>[];
-  rows?: Record<string, unknown>[];
-  data?: Record<string, unknown>[];
-  items?: Record<string, unknown>[];
-  results?: Record<string, unknown>[];
-};
-
-type GexByStrikeRow = {
-  strike?: number | string;
-  expiration?: string;
-  distance_from_spot?: number | string | null;
-  net_gex?: number | string | null;
-  call_gex?: number | string | null;
-  put_gex?: number | string | null;
-  call_oi?: number | string | null;
-  put_oi?: number | string | null;
-  call_volume?: number | string | null;
-  put_volume?: number | string | null;
-  vanna_exposure?: number | string | null;
-  charm_exposure?: number | string | null;
-};
-
-// Aggregate raw by-strike rows into per-strike totals. Shared by the chart
-// (single-select expiration filter) and the snapshot table (multi-select
-// expiration filter) — each caller passes a different pre-filtered slice.
-function aggregateStrikes(rows: GexByStrikeRow[] | null | undefined): StrikeAggregate[] {
-  const grouped = new Map<string, StrikeAggregate>();
-  (rows || []).forEach((row) => {
-    const strike = Number(row.strike);
-    const key = strike.toFixed(2);
-    if (!grouped.has(key)) {
-      grouped.set(key, {
-        strike,
-        distanceFromSpot: Number(row.distance_from_spot || 0),
-        netGexM: 0,
-        callGexM: 0,
-        putGexM: 0,
-        callOi: 0,
-        putOi: 0,
-        callVolume: 0,
-        putVolume: 0,
-        vannaM: 0,
-        charmM: 0,
-      });
-    }
-    const current = grouped.get(key)!;
-    current.netGexM += Number(row.net_gex || 0) / 1000000;
-    current.callGexM += Number(row.call_gex || 0) / 1000000;
-    current.putGexM += Number(row.put_gex || 0) / 1000000;
-    current.callOi += Number(row.call_oi || 0);
-    current.putOi += Number(row.put_oi || 0);
-    current.callVolume += Number(row.call_volume || 0);
-    current.putVolume += Number(row.put_volume || 0);
-    current.vannaM += Number(row.vanna_exposure || 0) / 1000000;
-    current.charmM += Number(row.charm_exposure || 0) / 1000000;
-    current.distanceFromSpot = Number(row.distance_from_spot || current.distanceFromSpot);
-  });
-  return Array.from(grouped.values()).sort((a, b) => a.strike - b.strike);
-}
 
 export default function GammaExposurePage() {
   const { symbol, timeframe, setTimeframe } = useTimeframe();
@@ -165,32 +104,18 @@ export default function GammaExposurePage() {
     `/api/market/open-interest?symbol=${symbol}&underlying=${symbol}`,
     { refreshInterval: 30000 },
   );
-  const openInterestPayload = useMemo<OpenInterestApiResponse | null>(() => {
-    if (!openInterestData) return null;
-    if (Array.isArray(openInterestData)) {
-      return { contracts: openInterestData };
-    }
-    if (openInterestData && typeof openInterestData === 'object') {
-      return openInterestData as OpenInterestApiResponse;
-    }
-    return null;
-  }, [openInterestData]);
-  const normalizedOpenInterest = useMemo(() => {
-    if (openInterestPayload && typeof openInterestPayload === 'object') {
-      const payload = openInterestPayload as Record<string, unknown>;
-      if (Array.isArray(payload.contracts)) return payload.contracts as Record<string, unknown>[];
-      if (Array.isArray(payload.rows)) return payload.rows as Record<string, unknown>[];
-      if (Array.isArray(payload.data)) return payload.data as Record<string, unknown>[];
-      if (Array.isArray(payload.items)) return payload.items as Record<string, unknown>[];
-      if (Array.isArray(payload.results)) return payload.results as Record<string, unknown>[];
-    }
-    return [];
-  }, [openInterestPayload]);
-  const openInterestSpotPrice = useMemo(() => {
-    if (!openInterestPayload) return null;
-    const value = Number(openInterestPayload.spot_price);
-    return Number.isFinite(value) ? value : null;
-  }, [openInterestPayload]);
+  const openInterestPayload = useMemo(
+    () => normalizeOpenInterestPayload(openInterestData),
+    [openInterestData],
+  );
+  const normalizedOpenInterest = useMemo(
+    () => openInterestRows(openInterestPayload),
+    [openInterestPayload],
+  );
+  const openInterestSpotPrice = useMemo(
+    () => deriveOpenInterestSpotPrice(openInterestPayload),
+    [openInterestPayload],
+  );
   // QQQ/NDX's correct implied-vol input is VXN (Nasdaq-100); SPX/SPY use VIX.
   const volIndex: 'VIX' | 'VXN' = symbol === 'QQQ' || symbol === 'NDX' ? 'VXN' : 'VIX';
   const { data: volGauge } = useVolatilityGauge(30000, volIndex);
@@ -205,10 +130,7 @@ export default function GammaExposurePage() {
   );
 
   // Expiration filter state for strike table
-  const expirationOptions = useMemo(() => {
-    const unique = new Set((gexByStrike || []).map((row) => String(row.expiration)));
-    return Array.from(unique).sort((a, b) => a.localeCompare(b));
-  }, [gexByStrike]);
+  const expirationOptions = useMemo(() => strikeExpirationOptions(gexByStrike), [gexByStrike]);
 
   // Shared, persisted expiration selection (empty = All) used by every
   // expiration-filtering chart in the tab. Both charts on this page follow it,
@@ -235,7 +157,7 @@ export default function GammaExposurePage() {
   // inspect those rows for diagnostic purposes.
   const todayKey = etTodayDateKey();
   const chartExpirationOptions = useMemo(
-    () => expirationOptions.filter((exp) => exp >= todayKey),
+    () => deriveChartExpirationOptions(expirationOptions, todayKey),
     [expirationOptions, todayKey],
   );
   // The GEX Profile chart follows the shared selection directly (empty = All),
@@ -274,18 +196,10 @@ export default function GammaExposurePage() {
   // multi-select expiration filter, independent of the table's filter).
   // Empty set = All: sum every expiration per strike, same as the table's
   // "All".  A non-empty set sums only the chosen expirations per strike.
-  const chartStrikeData = useMemo(() => {
-    // "All" is the current/future universe (matching the chart's expiration
-    // selector and the per-expiration feed below), not literally every row —
-    // so the aggregate bars/net line stay consistent with the stacked
-    // segments, which only cover current/future expirations.
-    const universe = new Set(chartExpirationOptions);
-    const selectedSet = new Set(chartSelectedExpirations);
-    const filteredSource = chartSelectedExpirations.length === 0
-      ? (gexByStrike || []).filter((row) => universe.has(String(row.expiration)))
-      : (gexByStrike || []).filter((row) => selectedSet.has(String(row.expiration)));
-    return aggregateStrikes(filteredSource as GexByStrikeRow[]);
-  }, [gexByStrike, chartSelectedExpirations, chartExpirationOptions]);
+  const chartStrikeData = useMemo(
+    () => deriveChartStrikeData(gexByStrike, chartSelectedExpirations, chartExpirationOptions),
+    [gexByStrike, chartSelectedExpirations, chartExpirationOptions],
+  );
 
   // Per-(strike, expiration) GEX for the Gamma Exposure by Strike chart's
   // stacked bars and its "% of total at this strike" readout. Raw dollars
@@ -294,29 +208,15 @@ export default function GammaExposurePage() {
   // Deliberately NOT filtered by the selection — the chart needs the whole
   // breakdown to render each expiration segment and to compute each pick's
   // share of the strike total.
-  const perExpirationStrikeData = useMemo(() => {
-    const universe = new Set(chartExpirationOptions);
-    const grouped = new Map<string, { strike: number; expiration: string; callGex: number; putGex: number }>();
-    (gexByStrike || []).forEach((row) => {
-      const expiration = String(row.expiration);
-      if (!universe.has(expiration)) return;
-      const strike = Number(row.strike);
-      if (!Number.isFinite(strike)) return;
-      const key = `${strike.toFixed(2)}|${expiration}`;
-      const current = grouped.get(key) ?? { strike, expiration, callGex: 0, putGex: 0 };
-      current.callGex += Number(row.call_gex || 0);
-      current.putGex += Number(row.put_gex || 0);
-      grouped.set(key, current);
-    });
-    return Array.from(grouped.values());
-  }, [gexByStrike, chartExpirationOptions]);
+  const perExpirationStrikeData = useMemo(
+    () => derivePerExpirationStrikeData(gexByStrike, chartExpirationOptions),
+    [gexByStrike, chartExpirationOptions],
+  );
 
   // 'all' (empty set) or a sorted, comma-joined list of the chosen
   // expirations — the canonical value the timeseries hook keys its cache on
   // and the backend sums the walls across.
-  const chartExpirationsParam = chartSelectedExpirations.length === 0
-    ? 'all'
-    : [...chartSelectedExpirations].sort().join(',');
+  const chartExpirationsParam = expirationsParam(chartSelectedExpirations);
 
   // Strike-profile timeseries drives the chart's Call/Put Wall reference
   // lines from the latest bucket, scoped to the chart's expiration selection.
@@ -363,16 +263,7 @@ export default function GammaExposurePage() {
   // matching the per-strike bars to the same unit is what keeps the two
   // y-axes commensurable (the profile axis is just an order-of-magnitude
   // expansion of the bar axis — see GexProfileChart).
-  const profileStrikeData = useMemo(
-    () =>
-      chartStrikeData.map((row) => ({
-        strike: row.strike,
-        netGex: row.netGexM * 1_000_000,
-        callGex: row.callGexM * 1_000_000,
-        putGex: row.putGexM * 1_000_000,
-      })),
-    [chartStrikeData],
-  );
+  const profileStrikeData = useMemo(() => toProfileStrikeData(chartStrikeData), [chartStrikeData]);
 
   // Metric computations
   // Dealer-gamma readings are taken AT SPOT — the cumulative-curve value at
