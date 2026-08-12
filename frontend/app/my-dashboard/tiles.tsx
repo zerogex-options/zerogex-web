@@ -15,6 +15,7 @@ import { isIndexSymbol } from '@/core/utils';
 import { usePageT } from '@/core/LanguageContext';
 import { useMyDashboardData } from './DashboardData';
 import { dict } from './tiles.i18n';
+import { netGexAtSpotOrNull, longGammaAtSpot } from '@/core/gammaRegime';
 
 function formatCompactUsd(value: number | null | undefined, showPositiveSign = false): string {
   if (value == null || !Number.isFinite(value)) return '--';
@@ -80,13 +81,16 @@ export function PriceTile() {
 
 export function NetGexTile() {
   const t = usePageT(dict);
-  const { theme, gex, historical } = useMyDashboardData();
-  const netGex = gex?.net_gex_at_spot ?? gex?.net_gex;
+  const { theme, gex, historical, quote } = useMyDashboardData();
+  // At-spot dealer gamma only (never the chain-wide total); regime sign
+  // degrades to the geometric spot-vs-flip read, matching the Gamma Flip tile.
+  const netGex = netGexAtSpotOrNull(gex?.net_gex_at_spot);
+  const netGexLong = longGammaAtSpot(netGex, quote?.close ?? null, gex?.gamma_flip ?? null);
   return (
     <MetricCard
       title={t('netGexTitle')}
       value={formatCompactUsd(netGex, true)}
-      trend={(netGex ?? 0) > 0 ? 'bullish' : 'bearish'}
+      trend={netGexLong == null ? 'neutral' : netGexLong ? 'bullish' : 'bearish'}
       tooltip={t('netGexTooltip')}
       theme={theme}
       contextBadge={

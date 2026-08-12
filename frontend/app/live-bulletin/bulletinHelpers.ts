@@ -344,19 +344,18 @@ export function buildReportModel(inputs: ReportInputs): ReportModel {
   const putWall = pickNumber(summary?.put_wall);
   const maxPain = pickNumber(summary?.max_pain);
   const pinStrike = pickNumber(summary?.pin_strike);
-  // Prefer net GEX evaluated AT THE DISPLAYED SPOT (fall back to the chain-wide
-  // total only when at-spot is unavailable). This is the value every other
-  // Net-GEX surface on the site shows (dashboard, gamma-exposure, greeks-gex,
-  // the free gamma-levels cards), and its sign agrees with the spot-vs-flip
-  // regime — so the auto-lead's "dealers are long/short gamma" can never
-  // contradict the regime badge or the metric card the way the chain-wide
-  // total could.
+  // Net GEX evaluated AT THE DISPLAYED SPOT — never the chain-wide total (which
+  // can carry the opposite sign when far-OTM strikes dominate the tail). This is
+  // the value every other Net-GEX surface on the site shows (dashboard,
+  // gamma-exposure, greeks-gex, the free gamma-levels cards), and its sign
+  // agrees with the spot-vs-flip regime — so the auto-lead's "dealers are
+  // long/short gamma" can never contradict the regime badge or the metric card.
   //
   // When `spot` is a futures-implied open, `impliedNetGex` (resampled at that
   // price off the gex-profile curve) takes precedence over the summary's
   // `net_gex_at_spot`, which was frozen at the cash spot on the far side of the
   // flip — see ReportInputs.impliedNetGex.
-  const netGex = pickNumber(inputs.impliedNetGex, summary?.net_gex_at_spot, summary?.net_gex);
+  const netGex = pickNumber(inputs.impliedNetGex, summary?.net_gex_at_spot);
   const putCallRatio = pickNumber(summary?.put_call_ratio);
 
   const priorClose = pickNumber(inputs.priorClose);

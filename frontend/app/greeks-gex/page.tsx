@@ -19,6 +19,7 @@ import { useTimeframe } from '@/core/TimeframeContext';
 import { GexUnit, GEX_UNIT_LABEL, gexScaleFactor, useGexUnit } from '@/core/GexUnitContext';
 import { isIndexSymbol } from '@/core/utils';
 import { formatPinStrike, pinStrikeSubtitle, PIN_STRIKE_TOOLTIP } from '@/core/pinStrike';
+import { netGexAtSpotOrNull, longGammaAtSpot } from '@/core/gammaRegime';
 
 function formatGexValue(value: number): string {
   const abs = Math.abs(value);
@@ -43,8 +44,12 @@ export default function GreeksGEXPage() {
   // Fetch data with different refresh intervals
   const { data: gexData, loading: gexLoading, error: gexError, refetch: refetchGex } = useGEXSummary(symbol, 5000);
   const { data: quoteData } = useMarketQuote(symbol, 1000);
-  const netGexAtSpot = gexData?.net_gex_at_spot ?? gexData?.net_gex ?? null;
-  const netGexPositive = (netGexAtSpot ?? 0) >= 0;
+  // Sign-consistent dealer gamma at spot (never the chain-wide total, which can
+  // carry the opposite sign). Regime sign degrades to the geometric spot-vs-flip
+  // read when the at-spot value is absent, so the trend can't contradict the
+  // Gamma Flip card beside it; 'neutral' when the regime is genuinely unknown.
+  const netGexAtSpot = netGexAtSpotOrNull(gexData?.net_gex_at_spot);
+  const netGexLong = longGammaAtSpot(netGexAtSpot, quoteData?.close ?? gexData?.spot_price ?? null, gexData?.gamma_flip ?? null);
 
   // Net/Call/Put GEX unit toggle (shared across all GEX views via
   // GexUnitContext). Stored values are "per 1% move"; the toggle
@@ -131,7 +136,7 @@ export default function GreeksGEXPage() {
             title="Net GEX"
             value={formatGexInUnit(netGexAtSpot, gexUnit, gexSpot)}
             subtitle={unitLabel}
-            trend={netGexPositive ? 'bullish' : 'bearish'}
+            trend={netGexLong == null ? 'neutral' : netGexLong ? 'bullish' : 'bearish'}
             tooltip="Cumulative dealer gamma at the current spot price (sign-consistent with the gamma flip). Positive = dealer long gamma (pinning, mean-reversion). Negative = dealer short gamma (trending, vol amplification). Shown per 1% move by default; toggle to per 1 point above."
             theme={theme}
           />

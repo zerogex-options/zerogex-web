@@ -14,6 +14,7 @@ import { TelemetryEvent } from '@/core/telemetry/events';
 import { readUtmParams } from '@/core/telemetry/utm';
 import { usePageT } from '@/core/LanguageContext';
 import { dict } from './LandingClient.i18n';
+import { netGexAtSpotOrNull, longGammaAtSpot } from '@/core/gammaRegime';
 import {
   TrendingUp,
   TrendingDown,
@@ -252,9 +253,9 @@ export default function LandingPage() {
   const { data: spxQuote } = useMarketQuote('SPX', 60000);
   const { data: qqqQuote } = useMarketQuote('QQQ', 60000);
   const { data: spyGex } = useGEXSummary('SPY', 60000);
-  // Dealer gamma AT SPOT (sign-consistent with the gamma flip), not the
-  // chain-wide total. Falls back to the total until the backend writes it.
-  const spyNetGexAtSpot = spyGex?.net_gex_at_spot ?? spyGex?.net_gex ?? null;
+  // Dealer gamma AT SPOT (sign-consistent with the gamma flip), never the
+  // chain-wide total (which can carry the opposite sign).
+  const spyNetGexAtSpot = netGexAtSpotOrNull(spyGex?.net_gex_at_spot);
 
   const formatPrice = (value?: number | null, decimals = 2) => (value != null ? value.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) : '--');
   const formatSigned = (value: number) => `${value >= 0 ? '+' : ''}${value.toFixed(2)}`;
@@ -284,7 +285,9 @@ export default function LandingPage() {
       };
     };
 
-    const gexPositive = (spyNetGexAtSpot ?? 0) >= 0;
+    // Geometric spot-vs-flip fallback when the at-spot value is absent (never
+    // the chain total); only truly-unknown regimes default positive.
+    const gexPositive = longGammaAtSpot(spyNetGexAtSpot, spyQuote?.close ?? null, spyGex?.gamma_flip ?? null) ?? true;
     const pcr = spyGex?.put_call_ratio;
     const pcrBias = pcr == null ? 'Neutral' : pcr >= 1.2 ? 'Bearish' : pcr <= 0.8 ? 'Bullish' : 'Neutral';
 

@@ -8,7 +8,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { netGexAtSpotOrNull, aboveFlipBandIsLong } from '../core/gammaRegime.ts';
+import { netGexAtSpotOrNull, aboveFlipBandIsLong, longGammaAtSpot } from '../core/gammaRegime.ts';
 
 test('netGexAtSpotOrNull keeps a finite point value (both signs)', () => {
   assert.equal(netGexAtSpotOrNull(5.45e9), 5.45e9);
@@ -51,6 +51,26 @@ test('aboveFlipBandIsLong: inverted book keeps the band under spot on the badge'
 test('aboveFlipBandIsLong: unresolved flip → whole view is the badge regime', () => {
   assert.equal(aboveFlipBandIsLong(6000, null, true), true);
   assert.equal(aboveFlipBandIsLong(6000, null, false), false);
+});
+
+test('longGammaAtSpot: prefers the at-spot sign when present', () => {
+  // Sign comes from net_gex_at_spot regardless of where spot sits vs the flip.
+  assert.equal(longGammaAtSpot(5.45e9, 5900, 6000), true); // long at spot, below flip
+  assert.equal(longGammaAtSpot(-2.1e9, 6100, 6000), false); // short at spot, above flip
+  assert.equal(longGammaAtSpot(0, 5900, 6000), true); // exactly flat reads long (>= 0)
+});
+
+test('longGammaAtSpot: degrades to geometric spot-vs-flip when the point value is absent', () => {
+  assert.equal(longGammaAtSpot(null, 6100, 6000), true); // above flip
+  assert.equal(longGammaAtSpot(null, 5900, 6000), false); // below flip
+  assert.equal(longGammaAtSpot(null, 6000, 6000), true); // at the flip reads long (>=)
+});
+
+test('longGammaAtSpot: unknown (null) when neither the point value nor the flip is available', () => {
+  assert.equal(longGammaAtSpot(null, 6000, null), null);
+  assert.equal(longGammaAtSpot(null, null, null), null);
+  // Never substitutes a chain total: the only inputs are the at-spot value and
+  // the flip, so an opposite-signed total can't influence the result.
 });
 
 test('invariant: the band containing spot always equals the badge (longGammaNow)', () => {

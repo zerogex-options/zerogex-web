@@ -28,6 +28,34 @@ export function netGexAtSpotOrNull(value: unknown): number | null {
 }
 
 /**
+ * The modeled long-gamma regime at spot, as a sign — the shared resolver behind
+ * every LONG/SHORT badge, trend colour, and posture line on the site.
+ *
+ * Returns `true` (modeled long gamma), `false` (short), or `null` when the
+ * regime is genuinely unknown. It prefers the sign of `netGexAtSpot` (the
+ * spot-shift profile's value at spot); when that is absent it degrades to the
+ * geometric spot-vs-flip read — the same fallback GammaTerminalChart's
+ * `longGammaNow` uses — so a surface never contradicts the flip it draws. It
+ * NEVER derives the sign from the whole-chain total: callers pass only
+ * `netGexAtSpot` (see {@link netGexAtSpotOrNull}), so an opposite-signed chain
+ * total can't leak in. Map `null` to a neutral / unknown presentation rather
+ * than a default direction.
+ *
+ * @param netGexAtSpot sign-consistent dealer gamma at spot, or null
+ * @param spot current underlying price, or null
+ * @param flip gamma-flip level, or null
+ */
+export function longGammaAtSpot(
+  netGexAtSpot: number | null,
+  spot: number | null,
+  flip: number | null,
+): boolean | null {
+  if (netGexAtSpot != null) return netGexAtSpot >= 0;
+  if (flip != null && spot != null) return spot >= flip;
+  return null;
+}
+
+/**
  * Orientation of the chart's shaded regime bands.
  *
  * Returns whether the band ABOVE the flip represents the long-gamma
