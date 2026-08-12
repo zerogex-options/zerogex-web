@@ -35,6 +35,7 @@ import MobileScrollableChart from "./MobileScrollableChart";
 import ExpirationMultiSelect from "./ExpirationMultiSelect";
 import { useSharedExpirations } from "@/hooks/useSharedExpirations";
 import { reconcileExpirations } from "@/core/expirationPersistence";
+import { netGexAtSpotOrNull, aboveFlipBandIsLong } from "@/core/gammaRegime";
 import { buildExpectedRange, type HorizonKey } from "@/app/live-bulletin/bulletinHelpers";
 
 type ChartTimeframe = "1min" | "5min" | "15min" | "1hr" | "1day";
@@ -836,7 +837,13 @@ export default function GammaTerminalChart({
     : filteredExp && live && liveGexBucket
       ? computeMaxPain(liveGexBucket.strikes)
       : snapshot ? snapshot.gamma.maxPain : num(gexSummary?.max_pain);
-  const netGexAtSpot = rewindActive ? null : snapshot ? snapshot.gamma.netGexAtSpot : num(gexProfile?.net_gex_at_spot ?? gexSummary?.net_gex);
+  // Sign-consistent at-spot dealer gamma (drives the LONG/SHORT badge). Only
+  // the spot-shift profile's net_gex_at_spot is used; we deliberately DON'T
+  // fall back to gexSummary.net_gex (the whole-chain total), which can carry
+  // the opposite sign and would let the badge contradict the gamma flip. When
+  // the point value is absent the badge falls back to the geometric
+  // spot-vs-flip read (see longGammaNow), not an opposite-signed total.
+  const netGexAtSpot = rewindActive ? null : snapshot ? snapshot.gamma.netGexAtSpot : netGexAtSpotOrNull(gexProfile?.net_gex_at_spot);
   // Pin Strike — reachable 0DTE positive-gamma pin. Not stored on the
   // timeseries rewind buckets, so it's hidden during rewind (same as
   // netGexAtSpot); live/delayed reads the served summary value.
@@ -1444,6 +1451,12 @@ export default function GammaTerminalChart({
   const inDomain = (v: number | null): v is number => v != null && v >= layout.dMin && v <= layout.dMax;
   const regimeUnknown = flip == null;
   const longGammaNow = netGexAtSpot != null ? netGexAtSpot >= 0 : flip != null && spot >= flip;
+  // Shaded regime bands take their orientation from the badge, not from raw
+  // geometry: the band that CONTAINS spot always matches longGammaNow, so the
+  // shading can't contradict the "Dealer Gamma @ Spot" badge on a lumpy /
+  // non-monotonic book (see core/gammaRegime). Reduces to "long above the flip,
+  // short below" on a monotonic book.
+  const aboveBandIsLong = aboveFlipBandIsLong(spot, flip, longGammaNow);
 
   // Level definitions rendered as reference lines + right-axis tags.
   type LevelDef = { key: string; label: string; value: number | null; color: string; dash: string; show: boolean };
@@ -1856,16 +1869,18 @@ export default function GammaTerminalChart({
               </clipPath>
             </defs>
 
-            {/* Regime zones */}
+            {/* Regime zones — the band containing spot matches the "Dealer
+                Gamma @ Spot" badge (aboveBandIsLong), so the shading never
+                contradicts the badge on a lumpy / non-monotonic book. */}
             {overlays.regime && !regimeUnknown && inDomain(flip) && (
               <g>
-                <rect x={PLOT_LEFT} y={PAD_TOP} width={PLOT_RIGHT - PLOT_LEFT} height={Math.max(0, yPrice(flip) - PAD_TOP)} fill="color-mix(in srgb, var(--color-bull) 7%, transparent)" />
-                <rect x={PLOT_LEFT} y={yPrice(flip)} width={PLOT_RIGHT - PLOT_LEFT} height={Math.max(0, PRICE_BOTTOM - yPrice(flip))} fill="color-mix(in srgb, var(--color-bear) 7%, transparent)" />
-                <text x={(PLOT_LEFT + PLOT_RIGHT) / 2} y={PAD_TOP + 15} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={10} letterSpacing="0.16em" fill="var(--color-bull)" opacity={0.65}>
-                  LONG &#915; · PINNING
+                <rect x={PLOT_LEFT} y={PAD_TOP} width={PLOT_RIGHT - PLOT_LEFT} height={Math.max(0, yPrice(flip) - PAD_TOP)} fill={`color-mix(in srgb, ${aboveBandIsLong ? "var(--color-bull)" : "var(--color-bear)"} 7%, transparent)`} />
+                <rect x={PLOT_LEFT} y={yPrice(flip)} width={PLOT_RIGHT - PLOT_LEFT} height={Math.max(0, PRICE_BOTTOM - yPrice(flip))} fill={`color-mix(in srgb, ${aboveBandIsLong ? "var(--color-bear)" : "var(--color-bull)"} 7%, transparent)`} />
+                <text x={(PLOT_LEFT + PLOT_RIGHT) / 2} y={PAD_TOP + 15} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={10} letterSpacing="0.16em" fill={aboveBandIsLong ? "var(--color-bull)" : "var(--color-bear)"} opacity={0.65}>
+                  {aboveBandIsLong ? "LONG Γ · PINNING" : "SHORT Γ · TRENDING"}
                 </text>
-                <text x={(PLOT_LEFT + PLOT_RIGHT) / 2} y={PRICE_BOTTOM - 9} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={10} letterSpacing="0.16em" fill="var(--color-bear)" opacity={0.65}>
-                  SHORT &#915; · TRENDING
+                <text x={(PLOT_LEFT + PLOT_RIGHT) / 2} y={PRICE_BOTTOM - 9} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={10} letterSpacing="0.16em" fill={aboveBandIsLong ? "var(--color-bear)" : "var(--color-bull)"} opacity={0.65}>
+                  {aboveBandIsLong ? "SHORT Γ · TRENDING" : "LONG Γ · PINNING"}
                 </text>
               </g>
             )}
