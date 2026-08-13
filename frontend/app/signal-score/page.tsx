@@ -14,6 +14,8 @@ import { REGIME_BANDS, classifyRegime } from '@/core/regime';
 import { COMPONENT_KEYS, ComponentEntry } from './data';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { getMarketSession } from '@/core/utils';
+import { useFlowSeries } from '@/hooks/useFlowSeries';
+import { impliedDirection, underlyingTrendPct, type ImpliedDirection } from '@/core/impliedDirection';
 
 // Recharts is ~200KB minzipped and the intraday chart is the last section
 // on the page. Split it out so the gauge above the fold can paint without
@@ -156,6 +158,29 @@ function DeltaBadge({ label, value }: { label: string; value: number | null }) {
   );
 }
 
+const IMPLIED_BIAS_TOOLTIP =
+  'A directional read layered on top of the (directionless) regime score — it drives the gauge color only. ' +
+  "It combines the underlying's recent intraday trend with the regime: a high score implies the current move continues, a low score implies a reversal. " +
+  'So an uptrend + low score reads bearish (reversal), an uptrend + high score reads bullish (continuation), and vice-versa for downtrends. ' +
+  'Green = implied bullish, red = implied bearish; neutral when the underlying is flat or the score sits near 50. The number itself is still a regime gauge, not a direction.';
+
+function ImpliedBiasLine({ implied }: { implied: ImpliedDirection }) {
+  const glyph = implied.tone === 'bull' ? '▲' : implied.tone === 'bear' ? '▼' : '●';
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+      <span className="inline-flex items-center gap-1 text-[11px] uppercase tracking-[0.16em] text-[var(--color-text-secondary)]">
+        Implied bias
+        <TooltipWrapper text={IMPLIED_BIAS_TOOLTIP} placement="bottom">
+          <Info size={12} className="text-[var(--color-text-secondary)] cursor-help" />
+        </TooltipWrapper>
+      </span>
+      <span aria-hidden style={{ color: implied.color, fontSize: 12 }}>{glyph}</span>
+      <span className="font-semibold" style={{ color: implied.color }}>{implied.label}</span>
+      <span className="text-[var(--color-text-secondary)]">— {implied.detail}</span>
+    </div>
+  );
+}
+
 function ScoreRangeLegend({ activeKey, orientation = 'horizontal' }: { activeKey: string | null; orientation?: 'horizontal' | 'vertical' }) {
   const gridClass = orientation === 'vertical'
     ? 'grid grid-cols-1 gap-1.5'
@@ -266,6 +291,14 @@ export default function CompositeScorePage() {
   const regime = classifyRegime(composite);
   const noData = !loading && composite == null && history.length === 0;
 
+  // The MSI payload is deliberately directionless, so read the underlying's
+  // recent move from the flow-series feed and fold it into the regime to tint
+  // the gauge by implied direction. Polls slower than the score — the trend is
+  // slow-moving and this is color only.
+  const { rows: flowRows } = useFlowSeries(symbol, 'current', { incrementalMs: 15000 });
+  const trendPct = useMemo(() => underlyingTrendPct(flowRows), [flowRows]);
+  const implied = useMemo(() => impliedDirection(composite, trendPct), [composite, trendPct]);
+
   return (
     <PageShell>
       <div className="flex flex-wrap items-center gap-2 mb-6">
@@ -319,7 +352,7 @@ export default function CompositeScorePage() {
             style={{ opacity: connection === 'disconnected' ? 0.6 : 1, transition: 'opacity 200ms' }}
           >
             <div className="flex justify-center lg:justify-start">
-              <CompositeGauge score={composite} size={320} />
+              <CompositeGauge score={composite} size={320} accentColor={implied.color} />
             </div>
             <div className="min-w-0 flex flex-col gap-3">
               <div
@@ -337,6 +370,7 @@ export default function CompositeScorePage() {
                 <span>{regime.label}</span>
                 <span className="text-[var(--color-text-secondary)] font-normal opacity-80">· {regime.rangeLabel}</span>
               </div>
+              <ImpliedBiasLine implied={implied} />
               <p className="text-sm leading-relaxed text-[var(--color-text-primary)]">
                 {regime.copy}
               </p>
