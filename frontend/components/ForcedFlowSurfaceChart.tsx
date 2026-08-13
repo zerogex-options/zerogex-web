@@ -87,6 +87,32 @@ function formatPrice(value: number): string {
   return value.toFixed(value >= 1000 ? 0 : 2);
 }
 
+// Robust colour-scale ceiling: the Pth percentile of |value| across the grid,
+// so the handful of 0DTE-settlement cells that saturate near the close can't
+// wash out the near-spot detail the way a raw max does.
+const CLIP_PERCENTILE = 0.9;
+
+function percentileAbs(values: number[], p: number): number {
+  const abs = values
+    .filter((v) => Number.isFinite(v))
+    .map((v) => Math.abs(v))
+    .sort((a, b) => a - b);
+  if (!abs.length) return 1;
+  const idx = Math.min(abs.length - 1, Math.max(0, Math.round(p * (abs.length - 1))));
+  return abs[idx];
+}
+
+// A "nice" axis step (1 / 2 / 5 x 10^n) near `raw`, so price ticks land on round
+// numbers and always fit inside the view span. (The old code hard-coded a 2.5%
+// step, which exceeded the ±2% span and produced a single tick.)
+function niceStep(raw: number): number {
+  if (!(raw > 0)) return 1;
+  const pow = Math.pow(10, Math.floor(Math.log10(raw)));
+  const n = raw / pow;
+  const nice = n < 1.5 ? 1 : n < 3 ? 2 : n < 7 ? 5 : 10;
+  return nice * pow;
+}
+
 export default function ForcedFlowSurfaceChart({
   symbol = 'SPY',
   spotRangePct = 0.02,
@@ -138,17 +164,27 @@ export default function ForcedFlowSurfaceChart({
     return () => ro.disconnect();
   }, [containerMounted]);
 
-  // Normalise the diverging map by the max |z| across the grid.
-  const clip = useMemo(() => {
-    if (!surface) return 1;
-    let maxAbs = 0;
-    surface.z.forEach((row) =>
-      row.forEach((v) => {
-        if (Number.isFinite(v)) maxAbs = Math.max(maxAbs, Math.abs(v));
-      }),
-    );
-    return Math.max(1, maxAbs);
+  // Incremental ("charm") surface: subtract the now-row baseline from every row
+  // so the flat, time-invariant gamma ramp cancels out and what remains is the
+  // EXTRA forced flow the passing of time creates — the whole point of the y
+  // axis. zInc[i][j] = z[i][j] − z[i][0]; the top row (now) is exactly zero
+  // (nothing forced yet) and colour builds toward the close.
+  const zInc = useMemo<number[][]>(() => {
+    if (!surface || !Array.isArray(surface.z)) return [];
+    return surface.z.map((row) => {
+      const base = Number(row?.[0]);
+      const b = Number.isFinite(base) ? base : 0;
+      return row.map((v) => (Number.isFinite(v) ? v - b : NaN));
+    });
   }, [surface]);
+
+  // Normalise the diverging map by a robust percentile of |zInc| (not the max),
+  // so 0DTE-settlement spikes into the close don't crush the near-spot detail.
+  const clip = useMemo(() => {
+    const flat: number[] = [];
+    zInc.forEach((row) => row.forEach((v) => flat.push(v)));
+    return Math.max(1, percentileAbs(flat, CLIP_PERCENTILE));
+  }, [zInc]);
 
   useEffect(() => {
     const cv = canvasRef.current;
@@ -178,7 +214,8 @@ export default function ForcedFlowSurfaceChart({
 
     const spots = surface.spots;
     const times = surface.times_days;
-    const z = surface.z;
+    const z = surface.z; // raw total flow — used for the magnet ridge
+    const zi = zInc; // incremental (charm) flow — what the colour shows
     const T = spots.length; // X (spot) — rows of z
     const S = times.length; // Y (time)  — columns of z
     if (T < 2 || S < 1) return;
@@ -199,8 +236,8 @@ export default function ForcedFlowSurfaceChart({
     const img = offCtx.createImageData(T, S);
     for (let s = 0; s < S; s++) {
       for (let x = 0; x < T; x++) {
-        // z is indexed [spotIndex][timeIndex] = [x][s].
-        const v = Number(z[x]?.[s]);
+        // zi is indexed [spotIndex][timeIndex] = [x][s]; row 0 (now) is zero.
+        const v = Number(zi[x]?.[s]);
         const idx = (s * T + x) * 4;
         if (!Number.isFinite(v)) {
           img.data[idx + 3] = 0;
@@ -225,15 +262,18 @@ export default function ForcedFlowSurfaceChart({
     if (Number.isFinite(spot) && spot >= xMin && spot <= xMax) {
       const sx = xForPrice(spot);
       ctx.save();
-      ctx.strokeStyle = chart.info || '#06B6D4';
+      // Neutral dashed reference — the magnet ridge (solid, blue) peels off it.
+      ctx.strokeStyle = axisColor;
+      ctx.globalAlpha = 0.7;
       ctx.setLineDash([4, 4]);
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.moveTo(sx, PAD_T);
       ctx.lineTo(sx, PAD_T + plotH);
       ctx.stroke();
       ctx.setLineDash([]);
-      ctx.fillStyle = chart.info || '#06B6D4';
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = axisColor;
       ctx.font = 'bold 12px ui-sans-serif, system-ui, -apple-system, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'bottom';
@@ -263,9 +303,10 @@ export default function ForcedFlowSurfaceChart({
       }
     });
 
-    // X axis — price ticks every ~2.5% of the spot span.
+    // X axis — ~6 round-number price ticks across the view, each annotated with
+    // its distance from spot in %, so the axis is readable at any span.
     const spotForTicks = Number.isFinite(spot) ? spot : (xMin + xMax) / 2;
-    const xStep = Math.max(1e-6, spotForTicks * 0.025);
+    const xStep = niceStep((xMax - xMin) / 6);
     let tickPrice = Math.ceil(xMin / xStep) * xStep;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
@@ -278,8 +319,74 @@ export default function ForcedFlowSurfaceChart({
       ctx.lineTo(tx, PAD_T + plotH);
       ctx.stroke();
       ctx.fillStyle = axisColor;
+      ctx.font = '11px ui-sans-serif, system-ui, -apple-system, sans-serif';
       ctx.fillText(formatPrice(tickPrice), tx, PAD_T + plotH + 6);
+      if (spotForTicks > 0) {
+        const pct = (tickPrice / spotForTicks - 1) * 100;
+        ctx.save();
+        ctx.globalAlpha = 0.6;
+        ctx.font = '9px ui-sans-serif, system-ui, -apple-system, sans-serif';
+        ctx.fillText(`${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`, tx, PAD_T + plotH + 19);
+        ctx.restore();
+      }
       tickPrice += xStep;
+    }
+    ctx.restore();
+
+    // Magnet ridge — the zero-flow price traced across each time row. It is the
+    // sign flip of the RAW total surface (z), not the incremental colour: at
+    // "now" (top) it sits at spot, and if it drifts as the rows descend, that is
+    // the clock pulling the magnet toward the close. Solid blue, matching how
+    // "The Read" colours the magnet.
+    const ridge: Array<{ x: number; y: number } | null> = times.map((_, j) => {
+      let best: number | null = null;
+      let bestDist = Infinity;
+      for (let i = 0; i < T - 1; i++) {
+        const y1 = Number(z[i]?.[j]);
+        const y2 = Number(z[i + 1]?.[j]);
+        if (!Number.isFinite(y1) || !Number.isFinite(y2)) continue;
+        let cx: number | null = null;
+        if (y1 === 0) cx = spots[i];
+        else if (y1 * y2 < 0) cx = spots[i] + (spots[i + 1] - spots[i]) * (-y1) / (y2 - y1);
+        if (cx != null) {
+          const d = Math.abs(cx - spot);
+          if (d < bestDist) {
+            bestDist = d;
+            best = cx;
+          }
+        }
+      }
+      if (best == null || best < xMin || best > xMax) return null;
+      return { x: xForPrice(best), y: PAD_T + bandH * j + bandH / 2 };
+    });
+    ctx.save();
+    ctx.strokeStyle = chart.info || '#06B6D4';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    let penDown = false;
+    ridge.forEach((pt) => {
+      if (!pt) {
+        penDown = false;
+        return;
+      }
+      if (!penDown) {
+        ctx.moveTo(pt.x, pt.y);
+        penDown = true;
+      } else {
+        ctx.lineTo(pt.x, pt.y);
+      }
+    });
+    ctx.stroke();
+    const magnetEnd = [...ridge].reverse().find((p) => p != null) as
+      | { x: number; y: number }
+      | undefined;
+    if (magnetEnd) {
+      const rightHalf = magnetEnd.x > PAD_L + plotW / 2;
+      ctx.fillStyle = chart.info || '#06B6D4';
+      ctx.font = 'bold 10px ui-sans-serif, system-ui, -apple-system, sans-serif';
+      ctx.textAlign = rightHalf ? 'right' : 'left';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText('magnet', magnetEnd.x + (rightHalf ? -4 : 4), magnetEnd.y - 3);
     }
     ctx.restore();
 
@@ -321,7 +428,7 @@ export default function ForcedFlowSurfaceChart({
     ctx.font = '9px ui-sans-serif, system-ui, -apple-system, sans-serif';
     ctx.fillText('buy', legendX + legendW + 4, legendY + 18);
     ctx.fillText('sell', legendX + legendW + 4, legendY + legendH - 18);
-  }, [surface, size, isDark, clip, hasData, posHue, negHue, zeroHue, chart.axisText, chart.gridLine, chart.bgCard, chart.info]);
+  }, [surface, zInc, size, isDark, clip, hasData, posHue, negHue, zeroHue, chart.axisText, chart.gridLine, chart.bgCard, chart.info]);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!surface || !hasData) return;
@@ -350,8 +457,12 @@ export default function ForcedFlowSurfaceChart({
       times.length - 1,
       Math.max(0, Math.floor(((y - PAD_T) / plotH) * times.length)),
     );
-    const value = surface.z[nearest]?.[bandIdx];
-    if (value == null || !Number.isFinite(value)) {
+    // Match the displayed colour: the incremental (charm) flow — raw total at
+    // this cell minus the now-row baseline.
+    const raw = surface.z[nearest]?.[bandIdx];
+    const base = surface.z[nearest]?.[0];
+    const value = Number.isFinite(raw) && Number.isFinite(base) ? (raw as number) - (base as number) : NaN;
+    if (!Number.isFinite(value)) {
       setHover(null);
       return;
     }
@@ -370,7 +481,7 @@ export default function ForcedFlowSurfaceChart({
         <h3 className="zg-h3" style={{ color: textColor }}>
           Forced-Flow Surface · Spot × Time
         </h3>
-        <TooltipWrapper text="A heatmap of net forced dealer flow across every combination of hypothetical spot (x-axis) and time from now into the close (y-axis). Green = dealers must buy, red = must sell; the pale band is the zero-flow ridge where they have nothing to do. Read down a column to see how flow at one price evolves through the session; read across a row to see flow across prices at a fixed time.">
+        <TooltipWrapper text="Colour is the EXTRA forced dealer flow the passing of time creates — charm — at each hypothetical spot (columns) from now (top row) to the 4pm close (bottom row), over and above any spot move. It necessarily starts at zero now and builds into the close: green = the clock forces buying, red = forces selling. Read DOWN a column to watch time-pressure at one price grow into the bell; read ACROSS a row to compare prices at the same moment. The solid blue line is the magnet — the zero-flow price dealers have nothing to do at — and its drift shows where the clock is pulling the tape.">
           <Info size={14} />
         </TooltipWrapper>
         <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
@@ -378,9 +489,11 @@ export default function ForcedFlowSurfaceChart({
         </span>
       </div>
       <p className="mb-4 text-xs" style={{ color: 'var(--text-secondary)' }}>
-        Net dealer forced flow across hypothetical spot (x) and time from now into the close (y).{' '}
-        <span style={{ color: chart.bull, fontWeight: 600 }}>Green = dealers must BUY</span>,{' '}
-        <span style={{ color: chart.bear, fontWeight: 600 }}>red = SELL</span>; the neutral band is the zero-flow ridge.
+        The <em>extra</em> dealer flow the clock forces as the session runs — at each hypothetical spot (x),
+        from now (top) to the close (bottom).{' '}
+        <span style={{ color: chart.bull, fontWeight: 600 }}>Green = time forces BUYING</span>,{' '}
+        <span style={{ color: chart.bear, fontWeight: 600 }}>red = SELLING</span>; it starts at zero now and builds
+        into the close. The blue line traces the magnet (zero-flow price).
       </p>
 
       {error ? (
@@ -428,7 +541,7 @@ export default function ForcedFlowSurfaceChart({
                   : 'now'}
               </div>
               <div style={{ color: hover.value >= 0 ? chart.bull : chart.bear, fontWeight: 600 }}>
-                {hover.value >= 0 ? 'buy ' : 'sell '}
+                {hover.value >= 0 ? 'clock buys ' : 'clock sells '}
                 {formatCompactUsd(Math.abs(hover.value))}
               </div>
             </div>
