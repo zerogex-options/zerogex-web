@@ -124,6 +124,24 @@ function niceStep(raw: number): number {
   return nice * pow;
 }
 
+// Round a raw minute gap up to a friendly clock step for the time axis.
+const MINUTE_STEPS = [1, 2, 5, 10, 15, 30, 60, 120, 180, 240, 360, 720];
+function niceMinuteStep(raw: number): number {
+  for (const s of MINUTE_STEPS) if (raw <= s) return s;
+  return 720;
+}
+
+// "45m" under an hour, "1h30" / "2h" above — for minutes-to-the-close labels.
+function formatMinutes(mins: number): string {
+  const m = Math.max(0, Math.round(mins));
+  if (m >= 60) {
+    const h = Math.floor(m / 60);
+    const mm = m % 60;
+    return mm ? `${h}h${mm}` : `${h}h`;
+  }
+  return `${m}m`;
+}
+
 // --------------------------------------------------------------------------- //
 // Viewport helpers (data-space). A View is {pMin,pMax} price × {tMin,tMax} time;
 // zoom/pan/stretch all reduce to these on one axis pair.
@@ -417,25 +435,39 @@ export default function ForcedFlowSurfaceChart({
     }
     ctx.restore();
 
-    // --- X axis: time ticks (now → close). Label the native bands in view. ---
+    // --- X axis: minutes-to-the-close ticks; the session ends read "now" and
+    // "close". Interior ticks count DOWN toward the bell (left → right). --------
     ctx.save();
     ctx.fillStyle = axisColor;
     ctx.font = '11px ui-sans-serif, system-ui, -apple-system, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
-    times.forEach((t, j) => {
-      if (t < tMin - 1e-9 || t > tMax + 1e-9) return;
+    const sessionDaysDraw = times[S - 1] || 1e-9;
+    const totalMins = sessionDaysDraw * 1440;
+    const drawXTick = (t: number, label: string) => {
       const tx = xForTime(t);
-      const frac = (t - times[0]) / tFull;
-      const label = j === 0 ? 'now' : j === S - 1 ? 'close' : `${Math.round(frac * 100)}%`;
       ctx.strokeStyle = gridColor;
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(tx, PAD_T);
       ctx.lineTo(tx, PAD_T + plotH);
       ctx.stroke();
+      ctx.fillStyle = axisColor;
       ctx.fillText(label, tx, PAD_T + plotH + 6);
-    });
+    };
+    // Minutes-to-close at the two visible edges (right edge is nearer the bell,
+    // so fewer minutes remain there).
+    const minsRightEdge = Math.max(0, (sessionDaysDraw - Math.min(tMax, sessionDaysDraw)) * 1440);
+    const minsLeftEdge = Math.max(0, (sessionDaysDraw - Math.max(tMin, times[0])) * 1440);
+    const stepM = niceMinuteStep(Math.max(1e-6, (minsLeftEdge - minsRightEdge) / 7));
+    for (let m = Math.ceil(minsRightEdge / stepM) * stepM; m <= minsLeftEdge + 1e-6; m += stepM) {
+      if (m <= 0.5 || m >= totalMins - 0.5) continue; // the ends get the words
+      const t = sessionDaysDraw - m / 1440;
+      if (t < tMin - 1e-9 || t > tMax + 1e-9) continue;
+      drawXTick(t, formatMinutes(m));
+    }
+    if (times[0] >= tMin - 1e-9 && times[0] <= tMax + 1e-9) drawXTick(times[0], 'now');
+    if (sessionDaysDraw >= tMin - 1e-9 && sessionDaysDraw <= tMax + 1e-9) drawXTick(sessionDaysDraw, 'close');
     ctx.restore();
 
     // --- Spot: horizontal dashed reference at the current price. ------------
@@ -454,9 +486,11 @@ export default function ForcedFlowSurfaceChart({
       ctx.globalAlpha = 1;
       ctx.fillStyle = axisColor;
       ctx.font = 'bold 11px ui-sans-serif, system-ui, -apple-system, sans-serif';
-      ctx.textAlign = 'right';
+      // Anchored at the LEFT (now) end so it never collides with the magnet
+      // label, which sits at the RIGHT (close) end.
+      ctx.textAlign = 'left';
       ctx.textBaseline = 'bottom';
-      ctx.fillText(`Spot ${formatPrice(spot)}`, PAD_L + plotW - 4, sy2 - 3);
+      ctx.fillText(`Spot ${formatPrice(spot)}`, PAD_L + 6, sy2 - 3);
       ctx.restore();
     }
 
@@ -508,7 +542,7 @@ export default function ForcedFlowSurfaceChart({
     ctx.font = '11px ui-sans-serif, system-ui, -apple-system, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
-    ctx.fillText('Time into close →', PAD_L + plotW / 2, cssH - 4);
+    ctx.fillText('Minutes to the close →', PAD_L + plotW / 2, cssH - 4);
     ctx.translate(14, PAD_T + plotH / 2);
     ctx.rotate(-Math.PI / 2);
     ctx.fillText('Spot price (USD)', 0, 0);
@@ -816,6 +850,16 @@ export default function ForcedFlowSurfaceChart({
         <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
           {symbol}
         </span>
+        {zoomed && (
+          <button
+            type="button"
+            onClick={resetView}
+            className="ml-auto self-center rounded-md px-2 py-1 text-[11px] font-semibold"
+            style={{ background: 'transparent', color: 'var(--text-secondary)', border: '1px solid var(--text-secondary)' }}
+          >
+            Reset view
+          </button>
+        )}
       </div>
       <p className="mb-4 text-xs" style={{ color: 'var(--text-secondary)' }}>
         The <em>extra</em> dealer flow the clock forces as the session runs left→right (now → close), at each
@@ -855,20 +899,6 @@ export default function ForcedFlowSurfaceChart({
             onDoubleClick={resetView}
             style={{ display: 'block', width: '100%', height: '100%', cursor: 'grab', touchAction: 'none' }}
           />
-          {zoomed && (
-            <button
-              type="button"
-              onClick={resetView}
-              className="absolute top-2 right-2 rounded-md px-2 py-1 text-[11px] font-semibold"
-              style={{
-                background: chart.tooltipBg,
-                color: chart.tooltipText,
-                border: `1px solid ${chart.tooltipBorder}`,
-              }}
-            >
-              Reset view
-            </button>
-          )}
           {hover && (
             <div
               style={{
@@ -887,8 +917,8 @@ export default function ForcedFlowSurfaceChart({
             >
               <div>
                 {formatPrice(hover.price)} ·{' '}
-                {sessionDays > 0
-                  ? `${Math.round((hover.timeDays / sessionDays) * 100)}% to close`
+                {sessionDays > 0 && hover.timeDays > 1e-9
+                  ? `${formatMinutes((sessionDays - hover.timeDays) * 1440)} to close`
                   : 'now'}
               </div>
               <div style={{ color: hover.value >= 0 ? chart.bull : chart.bear, fontWeight: 600 }}>
