@@ -6,7 +6,7 @@ import TooltipWrapper from './TooltipWrapper';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTheme } from '@/core/ThemeContext';
 import { useChartTheme } from '@/hooks/useChartTheme';
-import { useForcedFlowSurface } from '@/hooks/useApiData';
+import { useForcedFlowSessionSurface } from '@/hooks/useApiData';
 import ChartCaption from './ChartCaption';
 
 interface ForcedFlowSurfaceChartProps {
@@ -207,12 +207,12 @@ export default function ForcedFlowSurfaceChart({
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const chart = useChartTheme();
-  const { data: surface, loading, error } = useForcedFlowSurface(symbol, spotRangePct, 15000);
+  const { data: surface, loading, error } = useForcedFlowSessionSurface(symbol, spotRangePct, 15000);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [size, setSize] = useState({ w: 900, h: CHART_H });
-  const [hover, setHover] = useState<{ price: number; timeDays: number; value: number } | null>(null);
+  const [hover, setHover] = useState<{ price: number; mtc: number; value: number; isNow: boolean } | null>(null);
   const [zoomed, setZoomed] = useState(false);
 
   // When the instrument changes, clear the "zoomed" affordance. This is the
@@ -228,10 +228,10 @@ export default function ForcedFlowSurfaceChart({
     surface != null &&
     Array.isArray(surface.z) &&
     surface.z.length > 0 &&
-    Array.isArray(surface.spots) &&
-    surface.spots.length > 0 &&
-    Array.isArray(surface.times_days) &&
-    surface.times_days.length > 0;
+    Array.isArray(surface.prices) &&
+    surface.prices.length > 0 &&
+    Array.isArray(surface.columns) &&
+    surface.columns.length > 0;
   const containerMounted = hasData && !error;
 
   const posHue = useMemo(() => parseColor(chart.bull, { r: 27, g: 196, b: 125 }), [chart.bull]);
@@ -241,24 +241,20 @@ export default function ForcedFlowSurfaceChart({
     [chart.bgCard, isDark],
   );
 
-  // Incremental ("charm") surface: subtract the now-column baseline from every
-  // price row so the flat gamma ramp cancels and what remains is the EXTRA flow
-  // the passing of time creates. zInc[i][j] = z[i][j] − z[i][0]; the "now"
-  // column (j=0) is exactly zero and colour builds toward the close.
-  const zInc = useMemo<number[][]>(() => {
-    if (!surface || !Array.isArray(surface.z)) return [];
-    return surface.z.map((row) => {
-      const base = Number(row?.[0]);
-      const b = Number.isFinite(base) ? base : 0;
-      return row.map((v) => (Number.isFinite(v) ? v - b : NaN));
-    });
-  }, [surface]);
-
+  // Robust colour-scale ceiling from the TOTAL forced-flow field: the 90th
+  // percentile of |z| across every finite cell, so the handful of
+  // settlement-saturated cells near the close can't wash out the near-spot
+  // detail the way a raw max would.
   const clip = useMemo(() => {
     const flat: number[] = [];
-    zInc.forEach((row) => row.forEach((v) => flat.push(v)));
+    if (surface && Array.isArray(surface.z)) {
+      for (const col of surface.z) {
+        if (!Array.isArray(col)) continue;
+        for (const v of col) if (Number.isFinite(v)) flat.push(v as number);
+      }
+    }
     return Math.max(1, percentileAbs(flat, CLIP_PERCENTILE));
-  }, [zInc]);
+  }, [surface]);
 
   // --- Viewport + gesture state (refs, so handlers never fight React state) ---
   const viewRef = useRef<View | null>(null); // null = full data bounds
@@ -310,19 +306,27 @@ export default function ForcedFlowSurfaceChart({
 
   // ------------------------------------------------------------------------- //
   // Draw — reads the live viewport ref, so it repaints mid-gesture with no
-  // React round-trip. X = time (now → close), Y = price (high at top).
+  // React round-trip. X = session time as MINUTES-TO-CLOSE (open on the LEFT,
+  // close on the RIGHT), Y = price (high at top).
   // ------------------------------------------------------------------------- //
   const draw = useCallback(() => {
     const cv = canvasRef.current;
     if (!cv || !surface || !hasData) return;
-    const spots = surface.spots;
-    const times = surface.times_days;
-    const z = surface.z; // raw total flow — used for the magnet ridge
-    const T = spots.length; // price samples
-    const S = times.length; // time samples
+    const prices = surface.prices;           // ascending price grid (y)
+    const columns = surface.columns;         // open→close, min_to_close DESC (x)
+    const z = surface.z;                      // z[colIndex][priceIndex], + = BUY
+    const T = prices.length;                  // price samples
+    const S = columns.length;                 // session columns
     if (T < 2 || S < 1) return;
 
-    const bounds: View = { pMin: spots[0], pMax: spots[T - 1], tMin: times[0], tMax: times[S - 1] };
+    const sessionOpen = surface.session_open_min_to_close > 0
+      ? surface.session_open_min_to_close
+      : Math.max(1e-9, Number(columns[0]?.min_to_close) || 1e-9);
+    const nowMtc = Number.isFinite(surface.now_min_to_close) ? surface.now_min_to_close : 0;
+
+    // Full data bounds. Price low→high; time is MINUTES-TO-CLOSE over
+    // [0, session_open]: 0 = the close, session_open = the open.
+    const bounds: View = { pMin: prices[0], pMax: prices[T - 1], tMin: 0, tMax: sessionOpen };
     boundsRef.current = bounds;
     // Resolve + clamp the live view against the current data bounds (spot drifts
     // intraday, so an absolute-price window can fall slightly out of range).
@@ -353,59 +357,93 @@ export default function ForcedFlowSurfaceChart({
     ctx.fillStyle = chart.bgCard || (isDark ? '#111821' : '#F7F7F7');
     ctx.fillRect(PAD_L, PAD_T, plotW, plotH);
 
-    // Data <-> pixel maps for the current window. Time flows left→right;
-    // price is vertical with the HIGH price at the top (standard chart).
+    // Data <-> pixel maps. Time is MINUTES-TO-CLOSE: the OPEN (large mtc) sits
+    // at the LEFT edge and the CLOSE (mtc→0) at the RIGHT, so x DECREASES with
+    // mtc — a horizontal flip vs. an ordinary increasing axis. Price is vertical
+    // with the HIGH price at the top (standard chart).
     const pSpan = Math.max(1e-9, pMax - pMin);
     const tSpan = Math.max(1e-9, tMax - tMin);
-    const xForTime = (t: number) => PAD_L + plotW * ((t - tMin) / tSpan);
+    const xForTime = (t: number) => PAD_L + plotW * ((tMax - t) / tSpan);
     const yForPrice = (p: number) => PAD_T + plotH * ((pMax - p) / pSpan);
 
-    // Off-screen native-resolution heatmap. Width = S (time, now at col 0),
-    // height = T (price, HIGH at row 0). Value = incremental (charm) flow.
-    const off = document.createElement('canvas');
-    off.width = S;
-    off.height = T;
-    const offCtx = off.getContext('2d');
-    if (!offCtx) return;
-    const img = offCtx.createImageData(S, T);
-    for (let r = 0; r < T; r++) {
-      const i = T - 1 - r; // row 0 = highest price
-      for (let c = 0; c < S; c++) {
-        const val = Number(zInc[i]?.[c]);
-        const idx = (r * S + c) * 4;
-        if (!Number.isFinite(val)) {
-          img.data[idx + 3] = 0;
-          continue;
-        }
-        const norm = Math.min(Math.abs(val) / clip, 1);
-        const ratio = Math.sign(val) * Math.sqrt(norm);
-        const col = divergingColor(ratio, posHue, zeroHue, negHue);
-        img.data[idx] = col.r;
-        img.data[idx + 1] = col.g;
-        img.data[idx + 2] = col.b;
-        img.data[idx + 3] = 255;
-      }
-    }
-    offCtx.putImageData(img, 0, 0);
+    // Shared vertical price-cell boundaries (midpoints between adjacent prices),
+    // so the heatmap tiles with no seams. Price grid is ascending.
+    const priceEdge = (i: number): number => {
+      if (i <= 0) return prices[0] - (prices[1] - prices[0]) / 2;
+      if (i >= T) return prices[T - 1] + (prices[T - 1] - prices[T - 2]) / 2;
+      return (prices[i - 1] + prices[i]) / 2;
+    };
 
-    // Source sub-rectangle (in offscreen px) matching the view window, so zoom &
-    // pan are a bilinear crop of the native grid.
-    const tFull = Math.max(1e-9, times[S - 1] - times[0]);
-    const pFull = Math.max(1e-9, spots[T - 1] - spots[0]);
-    const colForTime = (t: number) => ((t - times[0]) / tFull) * S;
-    const rowForPrice = (p: number) => ((spots[T - 1] - p) / pFull) * T;
-    const sx = colForTime(tMin);
-    const sw = colForTime(tMax) - sx;
-    const sy = rowForPrice(pMax);
-    const sh = rowForPrice(pMin) - sy;
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
+    // --- Heatmap: one vertical strip per session column, cell-coloured by the
+    // TOTAL forced flow z (green = dealers BUY, red = SELL). Columns sit at
+    // their own min_to_close and the past vs future regions can be spaced
+    // differently, so each strip runs from the midpoint to its LEFT neighbour to
+    // the midpoint to its RIGHT neighbour (no uniform-spacing assumption).
+    // Clipped to the plot so a zoomed view crops cleanly. --------------------
     ctx.save();
     ctx.beginPath();
     ctx.rect(PAD_L, PAD_T, plotW, plotH);
     ctx.clip();
-    ctx.drawImage(off, sx, sy, sw, sh, PAD_L, PAD_T, plotW, plotH);
+    for (let c = 0; c < S; c++) {
+      const mtc = Number(columns[c]?.min_to_close);
+      if (!Number.isFinite(mtc)) continue;
+      const xc = xForTime(mtc);
+      const prevMtc = c > 0 ? Number(columns[c - 1].min_to_close) : NaN; // larger mtc → left
+      const nextMtc = c < S - 1 ? Number(columns[c + 1].min_to_close) : NaN; // smaller mtc → right
+      const xPrev = Number.isFinite(prevMtc) ? xForTime(prevMtc) : null;
+      const xNext = Number.isFinite(nextMtc) ? xForTime(nextMtc) : null;
+      let xR = xNext != null ? (xc + xNext) / 2 : (xPrev != null ? xc + (xc - xPrev) / 2 : xc + 4);
+      let xL = xPrev != null ? (xc + xPrev) / 2 : (xNext != null ? xc - (xR - xc) : xc - 4);
+      if (xR < xL) { const tmp = xL; xL = xR; xR = tmp; }
+      if (xR < PAD_L || xL > PAD_L + plotW) continue; // wholly off-plot
+      const wStrip = xR - xL + 0.75; // slight overlap hides sub-pixel seams
+      const zcol = z[c];
+      for (let i = 0; i < T; i++) {
+        const val = Number(zcol?.[i]);
+        if (!Number.isFinite(val)) continue;
+        const yTop = yForPrice(priceEdge(i + 1)); // higher price → smaller y
+        const yBot = yForPrice(priceEdge(i));
+        const norm = Math.min(Math.abs(val) / clip, 1);
+        const ratio = Math.sign(val) * Math.sqrt(norm);
+        ctx.fillStyle = rgbToCss(divergingColor(ratio, posHue, zeroHue, negHue));
+        ctx.fillRect(xL, yTop, wStrip, yBot - yTop + 0.75);
+      }
+    }
     ctx.restore();
+
+    // --- Projection veil: everything RIGHT of "now" (mtc < now_min_to_close) is
+    // a forecast, not realised — mute it with a subtle tint + diagonal hatch so
+    // the eye reads the right side as modeled, not actual. -------------------
+    const nowX = xForTime(nowMtc);
+    const projLeft = Math.max(PAD_L, Math.min(PAD_L + plotW, nowX));
+    const projRight = PAD_L + plotW;
+    if (projRight - projLeft > 0.5) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(projLeft, PAD_T, projRight - projLeft, plotH);
+      ctx.clip();
+      ctx.fillStyle = isDark ? 'rgba(0,0,0,0.22)' : 'rgba(0,0,0,0.08)';
+      ctx.fillRect(projLeft, PAD_T, projRight - projLeft, plotH);
+      ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let x = projLeft - plotH; x < projRight; x += 8) {
+        ctx.moveTo(x, PAD_T + plotH);
+        ctx.lineTo(x + plotH, PAD_T);
+      }
+      ctx.stroke();
+      ctx.restore();
+      if (projRight - projLeft > 60) {
+        ctx.save();
+        ctx.fillStyle = axisColor;
+        ctx.globalAlpha = 0.7;
+        ctx.font = '9px ui-sans-serif, system-ui, -apple-system, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        ctx.fillText('projection →', projLeft + 6, PAD_T + 4);
+        ctx.restore();
+      }
+    }
 
     // --- Y axis: price ticks (value + % from spot) + horizontal grid. -------
     const spot = surface.spot;
@@ -435,15 +473,14 @@ export default function ForcedFlowSurfaceChart({
     }
     ctx.restore();
 
-    // --- X axis: minutes-to-the-close ticks; the session ends read "now" and
-    // "close". Interior ticks count DOWN toward the bell (left → right). --------
+    // --- X axis: minutes-to-the-close ticks. t IS min_to_close, so interior
+    // ticks are the tick value itself; the two ends read "open" (left) and
+    // "close" (right). The moving "now" marker is drawn separately below. -----
     ctx.save();
     ctx.fillStyle = axisColor;
     ctx.font = '11px ui-sans-serif, system-ui, -apple-system, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
-    const sessionDaysDraw = times[S - 1] || 1e-9;
-    const totalMins = sessionDaysDraw * 1440;
     const drawXTick = (t: number, label: string) => {
       const tx = xForTime(t);
       ctx.strokeStyle = gridColor;
@@ -455,19 +492,14 @@ export default function ForcedFlowSurfaceChart({
       ctx.fillStyle = axisColor;
       ctx.fillText(label, tx, PAD_T + plotH + 6);
     };
-    // Minutes-to-close at the two visible edges (right edge is nearer the bell,
-    // so fewer minutes remain there).
-    const minsRightEdge = Math.max(0, (sessionDaysDraw - Math.min(tMax, sessionDaysDraw)) * 1440);
-    const minsLeftEdge = Math.max(0, (sessionDaysDraw - Math.max(tMin, times[0])) * 1440);
-    const stepM = niceMinuteStep(Math.max(1e-6, (minsLeftEdge - minsRightEdge) / 7));
-    for (let m = Math.ceil(minsRightEdge / stepM) * stepM; m <= minsLeftEdge + 1e-6; m += stepM) {
-      if (m <= 0.5 || m >= totalMins - 0.5) continue; // the ends get the words
-      const t = sessionDaysDraw - m / 1440;
-      if (t < tMin - 1e-9 || t > tMax + 1e-9) continue;
-      drawXTick(t, formatMinutes(m));
+    const stepM = niceMinuteStep(Math.max(1e-6, (tMax - tMin) / 7));
+    for (let m = Math.ceil(tMin / stepM) * stepM; m <= tMax + 1e-6; m += stepM) {
+      if (m <= 0.5 || m >= sessionOpen - 0.5) continue; // the ends get the words
+      if (m < tMin - 1e-9 || m > tMax + 1e-9) continue;
+      drawXTick(m, formatMinutes(m));
     }
-    if (times[0] >= tMin - 1e-9 && times[0] <= tMax + 1e-9) drawXTick(times[0], 'now');
-    if (sessionDaysDraw >= tMin - 1e-9 && sessionDaysDraw <= tMax + 1e-9) drawXTick(sessionDaysDraw, 'close');
+    if (0 >= tMin - 1e-9 && 0 <= tMax + 1e-9) drawXTick(0, 'close');
+    if (sessionOpen >= tMin - 1e-9 && sessionOpen <= tMax + 1e-9) drawXTick(sessionOpen, 'open');
     ctx.restore();
 
     // --- Spot: horizontal dashed reference at the current price. ------------
@@ -486,7 +518,7 @@ export default function ForcedFlowSurfaceChart({
       ctx.globalAlpha = 1;
       ctx.fillStyle = axisColor;
       ctx.font = 'bold 11px ui-sans-serif, system-ui, -apple-system, sans-serif';
-      // Anchored at the LEFT (now) end so it never collides with the magnet
+      // Anchored at the LEFT (open) end so it never collides with the magnet
       // label, which sits at the RIGHT (close) end.
       ctx.textAlign = 'left';
       ctx.textBaseline = 'bottom';
@@ -494,40 +526,30 @@ export default function ForcedFlowSurfaceChart({
       ctx.restore();
     }
 
-    // --- Magnet ridge: zero-flow price (sign flip of RAW z) per time column,
-    // now a left→right line that drifts up/down through the session. ---------
+    // --- Magnet line: the zero-flow "pin" price per session column (blue),
+    // drifting up/down as the session runs open→close (left→right). ----------
     ctx.save();
     ctx.strokeStyle = chart.info || '#06B6D4';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    let penDown = false;
-    let lastPt: { x: number; y: number } | null = null;
-    times.forEach((t, j) => {
-      let best: number | null = null;
-      let bestDist = Infinity;
-      for (let i = 0; i < T - 1; i++) {
-        const y1 = Number(z[i]?.[j]);
-        const y2 = Number(z[i + 1]?.[j]);
-        if (!Number.isFinite(y1) || !Number.isFinite(y2)) continue;
-        let cx: number | null = null;
-        if (y1 === 0) cx = spots[i];
-        else if (y1 * y2 < 0) cx = spots[i] + (spots[i + 1] - spots[i]) * (-y1) / (y2 - y1);
-        if (cx != null) {
-          const d = Math.abs(cx - spot);
-          if (d < bestDist) { bestDist = d; best = cx; }
-        }
+    let magPen = false;
+    let lastMag: { x: number; y: number } | null = null;
+    for (let c = 0; c < S; c++) {
+      const col = columns[c];
+      const mag = Number(col?.magnet);
+      const mtc = Number(col?.min_to_close);
+      if (col?.magnet == null || !Number.isFinite(mag) || !Number.isFinite(mtc)
+          || mag < pMin || mag > pMax || mtc < tMin || mtc > tMax) {
+        magPen = false;
+        continue;
       }
-      if (best == null || best < pMin || best > pMax || t < tMin || t > tMax) {
-        penDown = false;
-        return;
-      }
-      const pt = { x: xForTime(t), y: yForPrice(best) };
-      if (!penDown) { ctx.moveTo(pt.x, pt.y); penDown = true; } else { ctx.lineTo(pt.x, pt.y); }
-      lastPt = pt;
-    });
+      const pt = { x: xForTime(mtc), y: yForPrice(mag) };
+      if (!magPen) { ctx.moveTo(pt.x, pt.y); magPen = true; } else { ctx.lineTo(pt.x, pt.y); }
+      lastMag = pt;
+    }
     ctx.stroke();
-    if (lastPt) {
-      const p = lastPt as { x: number; y: number };
+    if (lastMag) {
+      const p = lastMag as { x: number; y: number };
       ctx.fillStyle = chart.info || '#06B6D4';
       ctx.font = 'bold 10px ui-sans-serif, system-ui, -apple-system, sans-serif';
       ctx.textAlign = 'right';
@@ -535,6 +557,58 @@ export default function ForcedFlowSurfaceChart({
       ctx.fillText('magnet', p.x - 4, p.y - 4);
     }
     ctx.restore();
+
+    // --- Spot path: where price ACTUALLY went, over the PAST columns (amber).
+    // A clearly visible realised-price line from the open up to "now". -------
+    ctx.save();
+    ctx.strokeStyle = chart.warning || '#F59E0B';
+    ctx.lineWidth = 2.5;
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    let pastPen = false;
+    let lastPast: { x: number; y: number } | null = null;
+    for (let c = 0; c < S; c++) {
+      const col = columns[c];
+      if (!col?.is_past) { pastPen = false; continue; }
+      const sp = Number(col.spot);
+      const mtc = Number(col.min_to_close);
+      if (!Number.isFinite(sp) || !Number.isFinite(mtc)
+          || sp < pMin || sp > pMax || mtc < tMin || mtc > tMax) {
+        pastPen = false;
+        continue;
+      }
+      const pt = { x: xForTime(mtc), y: yForPrice(sp) };
+      if (!pastPen) { ctx.moveTo(pt.x, pt.y); pastPen = true; } else { ctx.lineTo(pt.x, pt.y); }
+      lastPast = pt;
+    }
+    ctx.stroke();
+    if (lastPast) {
+      const p = lastPast as { x: number; y: number };
+      ctx.fillStyle = chart.warning || '#F59E0B';
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // --- NOW marker: a distinct vertical line dividing the ACTUAL field (left)
+    // from the PROJECTION (right), labelled "now" at the top. ----------------
+    if (nowMtc >= tMin - 1e-9 && nowMtc <= tMax + 1e-9) {
+      const nx = xForTime(nowMtc);
+      ctx.save();
+      ctx.strokeStyle = chart.text || axisColor;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(nx, PAD_T);
+      ctx.lineTo(nx, PAD_T + plotH);
+      ctx.stroke();
+      ctx.fillStyle = chart.text || axisColor;
+      ctx.font = 'bold 10px ui-sans-serif, system-ui, -apple-system, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText('now', nx, PAD_T - 1);
+      ctx.restore();
+    }
 
     // --- Axis titles. -------------------------------------------------------
     ctx.save();
@@ -573,8 +647,8 @@ export default function ForcedFlowSurfaceChart({
     ctx.font = '9px ui-sans-serif, system-ui, -apple-system, sans-serif';
     ctx.fillText('buy', legendX + legendW + 4, legendY + 18);
     ctx.fillText('sell', legendX + legendW + 4, legendY + legendH - 18);
-  }, [surface, zInc, clip, size, isDark, posHue, negHue, zeroHue, hasData, plotMetrics,
-    chart.axisText, chart.gridLine, chart.bgCard, chart.info]);
+  }, [surface, clip, size, isDark, posHue, negHue, zeroHue, hasData, plotMetrics,
+    chart.axisText, chart.gridLine, chart.bgCard, chart.info, chart.warning, chart.text]);
 
   // The container only mounts once data lands; wire the ResizeObserver then.
   useEffect(() => {
@@ -631,7 +705,10 @@ export default function ForcedFlowSurfaceChart({
 
   const timeAtX = useCallback((x: number, v: View) => {
     const { plotW } = plotMetrics();
-    return v.tMin + ((x - PAD_L) / plotW) * (v.tMax - v.tMin);
+    // t is MINUTES-TO-CLOSE with the axis visually flipped (open on the LEFT),
+    // so screen-x increases as mtc DECREASES — invert accordingly. Kept as the
+    // exact inverse of draw()'s xForTime so every gesture stays anchored.
+    return v.tMax - ((x - PAD_L) / plotW) * (v.tMax - v.tMin);
   }, [plotMetrics]);
   const priceAtY = useCallback((y: number, v: View) => {
     const { plotH } = plotMetrics();
@@ -727,22 +804,25 @@ export default function ForcedFlowSurfaceChart({
       if (region !== 'plot' || !surface) { setHover(null); return; }
       const v = viewOrBounds();
       const price = priceAtY(y, v);
-      const time = timeAtX(x, v);
+      const mtc = timeAtX(x, v);
       let ni = 0, nd = Infinity;
-      for (let i = 0; i < surface.spots.length; i++) {
-        const d = Math.abs(surface.spots[i] - price);
+      for (let i = 0; i < surface.prices.length; i++) {
+        const d = Math.abs(surface.prices[i] - price);
         if (d < nd) { nd = d; ni = i; }
       }
-      let nj = 0, td = Infinity;
-      for (let j = 0; j < surface.times_days.length; j++) {
-        const d = Math.abs(surface.times_days[j] - time);
-        if (d < td) { td = d; nj = j; }
+      let nc = 0, cd = Infinity;
+      for (let c = 0; c < surface.columns.length; c++) {
+        const d = Math.abs(surface.columns[c].min_to_close - mtc);
+        if (d < cd) { cd = d; nc = c; }
       }
-      const raw = surface.z[ni]?.[nj];
-      const base = surface.z[ni]?.[0];
-      const val = Number.isFinite(raw) && Number.isFinite(base) ? (raw as number) - (base as number) : NaN;
+      const val = Number(surface.z[nc]?.[ni]);
       if (!Number.isFinite(val)) { setHover(null); return; }
-      setHover({ price: surface.spots[ni], timeDays: surface.times_days[nj], value: val });
+      setHover({
+        price: surface.prices[ni],
+        mtc: surface.columns[nc].min_to_close,
+        value: val,
+        isNow: nc === surface.now_index,
+      });
       return;
     }
     if (!b) return;
@@ -756,7 +836,7 @@ export default function ForcedFlowSurfaceChart({
       const midY = (pts[0].y + pts[1].y) / 2;
       const { plotW, plotH } = plotMetrics();
       const [tMin, tMax] = placeAxis(
-        g.centerT, (midX - PAD_L) / plotW, (g.startView.tMax - g.startView.tMin) * scale, b.tMin, b.tMax);
+        g.centerT, 1 - (midX - PAD_L) / plotW, (g.startView.tMax - g.startView.tMin) * scale, b.tMin, b.tMax);
       const [pMax2, pMin2] = (() => {
         const [a, c] = placeAxis(
           g.centerP, (midY - PAD_T) / plotH, (g.startView.pMax - g.startView.pMin) * scale, b.pMin, b.pMax);
@@ -775,8 +855,11 @@ export default function ForcedFlowSurfaceChart({
       const tSpan = g.startView.tMax - g.startView.tMin;
       const pSpan = g.startView.pMax - g.startView.pMin;
       const [tMin, tMax] = (() => {
-        let nMin = g.startView.tMin - (dx / plotW) * tSpan;
-        let nMax = g.startView.tMax - (dx / plotW) * tSpan;
+        // Axis is visually flipped (open on the LEFT), so a drag to the RIGHT
+        // reveals EARLIER (larger-mtc) data — the opposite pixel-sign of a
+        // normal increasing axis.
+        let nMin = g.startView.tMin + (dx / plotW) * tSpan;
+        let nMax = g.startView.tMax + (dx / plotW) * tSpan;
         if (nMin < b.tMin) { nMax += b.tMin - nMin; nMin = b.tMin; }
         if (nMax > b.tMax) { nMin -= nMax - b.tMax; nMax = b.tMax; }
         return [Math.max(b.tMin, nMin), Math.min(b.tMax, nMax)];
@@ -833,7 +916,6 @@ export default function ForcedFlowSurfaceChart({
   };
 
   const textColor = 'var(--text-primary)';
-  const sessionDays = hasData && surface ? surface.times_days[surface.times_days.length - 1] : 0;
 
   return (
     <div
@@ -842,9 +924,9 @@ export default function ForcedFlowSurfaceChart({
     >
       <div className="mb-1 flex items-baseline gap-2 flex-wrap">
         <h3 className="zg-h3" style={{ color: textColor }}>
-          Forced-Flow Surface · Spot × Time
+          Forced-Flow Field · Full Session
         </h3>
-        <TooltipWrapper text="Colour is the EXTRA forced dealer flow the passing of time creates — charm — over and above any spot move. Price is the vertical axis; time runs left→right from now to the 4pm close. It necessarily starts at zero at the left (now) and builds into the close: green = the clock forces buying, red = forces selling. Read LEFT→RIGHT along a price to watch time-pressure there grow into the bell; read UP↕DOWN a time column to compare prices at that moment. The blue line is the magnet — the zero-flow price dealers have nothing to do at; the dashed line is spot. Scroll to zoom, drag to pan, drag an axis to stretch just that axis, pinch on touch, double-click to reset.">
+        <TooltipWrapper text="The whole trading session's dealer forced-flow field — price on the vertical axis, time running left→right from the OPEN to the 4pm CLOSE. Colour is the TOTAL forced flow dealers must hedge at each spot: green = forced to BUY, red = forced to SELL. LEFT of the 'now' line is the ACTUAL field the session has already printed; RIGHT of it (shaded) is a PROJECTION into the close. The blue line is the magnet — the zero-flow pin price; the amber line is where price ACTUALLY went; the dashed line is the current spot. Scroll to zoom, drag to pan, drag an axis to stretch just that axis, pinch on touch, double-click to reset.">
           <Info size={14} />
         </TooltipWrapper>
         <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
@@ -862,11 +944,11 @@ export default function ForcedFlowSurfaceChart({
         )}
       </div>
       <p className="mb-4 text-xs" style={{ color: 'var(--text-secondary)' }}>
-        The <em>extra</em> dealer flow the clock forces as the session runs left→right (now → close), at each
-        hypothetical spot (vertical).{' '}
-        <span style={{ color: chart.bull, fontWeight: 600 }}>Green = time forces BUYING</span>,{' '}
-        <span style={{ color: chart.bear, fontWeight: 600 }}>red = SELLING</span>; it starts at zero now and builds
-        into the close. Blue line = the magnet (zero-flow price); dashed = spot.{' '}
+        The whole session&apos;s dealer forced-flow field, open → close (left→right) at each spot (vertical).{' '}
+        <em>Left of <strong>now</strong> is the ACTUAL field; right is a PROJECTION into the close.</em>{' '}
+        <span style={{ color: chart.bull, fontWeight: 600 }}>Green = dealers forced to BUY</span>,{' '}
+        <span style={{ color: chart.bear, fontWeight: 600 }}>red = SELL</span>. Blue line = the magnet (zero-flow pin);{' '}
+        <span style={{ color: chart.warning, fontWeight: 600 }}>amber = where price actually went</span>; dashed = spot.{' '}
         <span style={{ color: 'var(--text-muted)' }}>Scroll / drag to zoom &amp; pan · drag an axis to stretch it · double-click to reset.</span>
       </p>
 
@@ -917,12 +999,10 @@ export default function ForcedFlowSurfaceChart({
             >
               <div>
                 {formatPrice(hover.price)} ·{' '}
-                {sessionDays > 0 && hover.timeDays > 1e-9
-                  ? `${formatMinutes((sessionDays - hover.timeDays) * 1440)} to close`
-                  : 'now'}
+                {hover.isNow ? 'now' : `${formatMinutes(hover.mtc)} to close`}
               </div>
               <div style={{ color: hover.value >= 0 ? chart.bull : chart.bear, fontWeight: 600 }}>
-                {hover.value >= 0 ? 'clock buys ' : 'clock sells '}
+                {hover.value >= 0 ? 'buy ' : 'sell '}
                 {formatCompactUsd(Math.abs(hover.value))}
               </div>
             </div>

@@ -1774,6 +1774,41 @@ export function useForcedFlowSurface(symbol = 'SPY', spotRangePct = 0.02, refres
   );
 }
 
+export interface ForcedFlowSessionColumn {
+  min_to_close: number;
+  spot: number;
+  magnet: number | null;
+  is_past: boolean;
+}
+
+export interface ForcedFlowSessionSurfaceResponse {
+  symbol: string;
+  spot: number;
+  timestamp: string;
+  session_open_min_to_close: number;
+  now_min_to_close: number;
+  // Ascending price grid — the rows within each column (the heatmap's Y axis).
+  prices: number[];
+  // z[colIndex][priceIndex] = net dealer forced flow ($). Positive = dealers
+  // must BUY, negative = SELL.
+  z: number[][];
+  // Session columns ordered left→right = open→close (min_to_close DESCENDING).
+  columns: ForcedFlowSessionColumn[];
+  // Index of the last actual (≈now) column; columns after it are projection.
+  now_index: number;
+}
+
+// The full-session forced-flow field: the ACTUAL dealer forced-flow surface
+// from the open to now, plus a projection from now into the close, over a
+// price × session-time grid. Mirrors useForcedFlowSurface but carries the
+// realised past columns and the now / projection split.
+export function useForcedFlowSessionSurface(symbol = 'SPY', spotRangePct = 0.02, refreshInterval = 15000) {
+  return useApiData<ForcedFlowSessionSurfaceResponse>(
+    `/api/forced-flow/session-surface?${symbolQuery(symbol, { spot_range_pct: spotRangePct })}`,
+    { refreshInterval },
+  );
+}
+
 export interface ForcedFlowBacktestRecord {
   date: string;
   charm_flow: number;
