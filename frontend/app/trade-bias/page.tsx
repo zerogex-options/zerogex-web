@@ -383,7 +383,7 @@ export default function TradeBiasPage() {
                     </span>
                   )}
                 </div>
-                <BiasTape biasScore={payload.biasScore} trend={trend} />
+                <BiasTape biasScore={payload.biasScore} />
                 <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
                   <div className="flex items-center gap-2">
                     <span className="text-[11px] uppercase tracking-[0.16em] text-[var(--color-text-secondary)]">Direction</span>
