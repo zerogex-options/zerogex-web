@@ -6,6 +6,8 @@ import {
   formatCancellationReasonSuffix,
   parseCancellationReasonFromMessage,
   hasCancellationSignal,
+  validateCancelFeedback,
+  CANCELLATION_FEEDBACK_VALUES,
   NO_FEEDBACK,
 } from '../core/cancellationReason.ts';
 
@@ -21,6 +23,25 @@ test('feedback labels: known enum, sentinel, unknown token', () => {
   assert.equal(cancellationFeedbackLabel(NO_FEEDBACK), 'No reason given');
   // Forward-compatible: an enum value Stripe adds later still renders.
   assert.equal(cancellationFeedbackLabel('too_new_to_map'), 'Too New To Map');
+});
+
+test('validateCancelFeedback: strict membership in the Stripe enum, else null', () => {
+  // Every known enum value validates to itself.
+  for (const v of CANCELLATION_FEEDBACK_VALUES) {
+    assert.equal(validateCancelFeedback(v), v);
+  }
+  // The in-app picker sends exactly these — a spot check of the real ones.
+  assert.equal(validateCancelFeedback('too_expensive'), 'too_expensive');
+  assert.equal(validateCancelFeedback('missing_features'), 'missing_features');
+  // Anything outside the enum (unlike the lenient parser) is dropped, so we never
+  // forward an invalid value to Stripe and 400 the cancellation update.
+  assert.equal(validateCancelFeedback('made_up_reason'), null);
+  assert.equal(validateCancelFeedback(NO_FEEDBACK), null);
+  assert.equal(validateCancelFeedback(''), null);
+  assert.equal(validateCancelFeedback(null), null);
+  assert.equal(validateCancelFeedback(undefined), null);
+  assert.equal(validateCancelFeedback(42), null);
+  assert.equal(validateCancelFeedback({ feedback: 'too_expensive' }), null);
 });
 
 test('comment sanitizer: single-lines, quote-safe, bounded, null-on-empty', () => {

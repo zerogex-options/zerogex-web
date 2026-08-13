@@ -34,6 +34,7 @@
     "test:subscription-flow": "node --experimental-strip-types --test tests/subscriptionFlow.test.ts",
     "test:plan-switch": "node --experimental-strip-types --test tests/planSwitch.test.ts",
     "test:cancellation-reason": "node --experimental-strip-types --test tests/cancellationReason.test.ts",
+    "test:cancel-retention": "node --experimental-strip-types --test tests/cancelRetention.test.ts",
     "test:retention-token": "node --experimental-strip-types --test tests/retentionToken.test.ts",
     "test:offer-pricing": "node --experimental-strip-types --test tests/offerPricing.test.ts",
     "test:delayed-quote": "node --experimental-strip-types --test tests/delayedQuote.test.ts",

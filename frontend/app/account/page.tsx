@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, Suspense, useEffect, useMemo, useState } from 'react';
+import { FormEvent, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -9,6 +9,7 @@ import { AUTH_TIERS, normalizeTier, TierId } from '@/core/auth';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import VerifyEmailBanner from '@/components/VerifyEmailBanner';
 import AccountApiKeys from '@/components/AccountApiKeys';
+import CancelRetentionModal from '@/components/CancelRetentionModal';
 import { usePageT } from '@/core/LanguageContext';
 import { dict } from './page.i18n';
 
@@ -46,6 +47,10 @@ type BillingStatusPayload = {
   hasSubscription: boolean;
   paymentIssue: boolean;
   currentPeriodEnd: string | null;
+  // Whether a cancel is already scheduled, and whether the one-shot 25%-off save
+  // offer is still claimable — drives the in-app cancellation retention flow.
+  cancelAtPeriodEnd?: boolean;
+  retentionOfferClaimed?: boolean;
 };
 
 const PASSWORD_MIN_LENGTH = 12;
@@ -101,6 +106,7 @@ function AccountPageContent() {
   const [referral, setReferral] = useState<ReferralPayload | null>(null);
   const [referralCopied, setReferralCopied] = useState(false);
   const [billing, setBilling] = useState<BillingStatusPayload | null>(null);
+  const [showCancelModal, setShowCancelModal] = useState(false);
   const [donation, setDonation] = useState<DonationPayload | null>(null);
   // X/Twitter handle. `xHandle` is the input value (without the leading @);
   // `xHandleSaved` is the persisted value the server confirmed (null when unset).
@@ -131,6 +137,17 @@ function AccountPageContent() {
     }
   };
 
+  const refreshBilling = useCallback(async () => {
+    try {
+      const response = await fetch('/api/billing/status', { credentials: 'include' });
+      if (!response.ok) return;
+      const data = (await response.json()) as BillingStatusPayload;
+      setBilling(data);
+    } catch {
+      /* billing-status is non-critical; silently skip on failure */
+    }
+  }, []);
+
   useEffect(() => {
     if (authSession?.authenticated) refreshIdentities();
   }, [authSession?.authenticated]);
@@ -154,22 +171,8 @@ function AccountPageContent() {
   }, [authSession?.authenticated]);
 
   useEffect(() => {
-    if (!authSession?.authenticated) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const response = await fetch('/api/billing/status', { credentials: 'include' });
-        if (!response.ok) return;
-        const data = (await response.json()) as BillingStatusPayload;
-        if (!cancelled) setBilling(data);
-      } catch {
-        /* billing-status banner is non-critical; silently skip on failure */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [authSession?.authenticated]);
+    if (authSession?.authenticated) refreshBilling();
+  }, [authSession?.authenticated, refreshBilling]);
 
   useEffect(() => {
     if (!authSession?.authenticated) return;
@@ -682,7 +685,46 @@ function AccountPageContent() {
               {t('toGetStarted')}
             </p>
           )}
+
+          {billing?.hasSubscription &&
+            !billing?.cancelAtPeriodEnd &&
+            (billing?.status === 'active' || billing?.status === 'trialing') && (
+              <div style={{ marginTop: 12 }}>
+                <button
+                  type="button"
+                  onClick={() => setShowCancelModal(true)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: C.muted,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    padding: 0,
+                    textDecoration: 'underline',
+                  }}
+                >
+                  {t('cancelSubscription')}
+                </button>
+              </div>
+            )}
+
+          {billing?.cancelAtPeriodEnd && (
+            <p style={{ margin: '12px 0 0', color: C.muted, fontSize: 13 }}>
+              {billing?.currentPeriodEnd && formatBillingDate(billing.currentPeriodEnd)
+                ? t('subscriptionEndsOn', { date: formatBillingDate(billing.currentPeriodEnd) })
+                : t('subscriptionScheduledToCancel')}
+            </p>
+          )}
         </section>
+
+        <CancelRetentionModal
+          open={showCancelModal}
+          onClose={() => setShowCancelModal(false)}
+          onChanged={refreshBilling}
+          periodEndIso={billing?.currentPeriodEnd ?? null}
+          offerAvailable={!billing?.retentionOfferClaimed}
+        />
 
         <AccountApiKeys />
 
@@ -1132,6 +1174,12 @@ function AccountPageContent() {
       </div>
     </main>
   );
+}
+
+function formatBillingDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
 function destructiveButtonStyle(disabled: boolean): React.CSSProperties {

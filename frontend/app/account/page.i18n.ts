@@ -25,6 +25,10 @@ export const dict: PageDictionary = {
     openingPortal: 'Opening portal…',
     updatePaymentMethod: 'Update payment method',
     manageSubscription: 'Manage Subscription',
+    cancelSubscription: 'Cancel subscription',
+    subscriptionEndsOn: 'Your plan is set to cancel on {date}. You’ll keep full access until then.',
+    subscriptionScheduledToCancel:
+      'Your plan is set to cancel at the end of your current billing period.',
     noActiveSubscription: "You don't have an active subscription yet. Choose a plan on the",
     pricingPage: 'pricing page',
     toGetStarted: 'to get started.',
