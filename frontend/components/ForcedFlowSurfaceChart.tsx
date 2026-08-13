@@ -3,25 +3,31 @@
 import { Info } from 'lucide-react';
 import TooltipWrapper from './TooltipWrapper';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTheme } from '@/core/ThemeContext';
 import { useChartTheme } from '@/hooks/useChartTheme';
 import { useForcedFlowSurface } from '@/hooks/useApiData';
-import ChartCaption from "./ChartCaption";
+import ChartCaption from './ChartCaption';
 
 interface ForcedFlowSurfaceChartProps {
   symbol?: string;
   spotRangePct?: number;
 }
 
-const PAD_L = 60;
+const PAD_L = 66; // left gutter — price ticks (value + % from spot) live here
 // PAD_R reserves room for the colour-bar (14px) + its "$X" / "0" / "-$X"
 // labels (~66px) and a ~22px gap to the plot.
 const PAD_R = 104;
-const PAD_T = 20;
-const PAD_B = 44;
+const PAD_T = 22;
+const PAD_B = 46; // bottom gutter — time (now → close) ticks + axis title
+const CHART_H = 560; // taller than the old 440 so price (now on y) has room
+
+// Zoom floor: never let a visible axis shrink below this fraction of its full
+// data span (prevents zooming into a sliver of one cell).
+const MIN_SPAN_FRAC = 0.06;
 
 type RGB = { r: number; g: number; b: number };
+type View = { pMin: number; pMax: number; tMin: number; tMax: number };
 
 // Parse a CSS colour string (#hex, #rgb, rgb()/rgba()) — the values
 // useChartTheme() reads out of the palette — into an {r,g,b} the canvas colour
@@ -58,8 +64,7 @@ function blend(a: RGB, b: RGB, t: number): RGB {
 }
 
 // Diverging, zero-centred ramp: ratio ∈ [-1, 1]. +1 -> buy hue (bull),
-// −1 -> sell hue (bear), 0 -> neutral midpoint. Mirrors FlipSurfaceChart's
-// divergingColor, parameterised by the live theme hues.
+// −1 -> sell hue (bear), 0 -> neutral midpoint.
 function divergingColor(ratio: number, pos: RGB, zero: RGB, neg: RGB): RGB {
   if (!Number.isFinite(ratio)) return zero;
   const r = Math.max(-1, Math.min(1, ratio));
@@ -87,6 +92,13 @@ function formatPrice(value: number): string {
   return value.toFixed(value >= 1000 ? 0 : 2);
 }
 
+// A price tick label whose decimals track the tick step, so a zoomed-in axis
+// shows finer prices without cluttering a zoomed-out one.
+function formatTickPrice(value: number, step: number): string {
+  const decimals = step < 1 ? 2 : step < 10 ? 1 : 0;
+  return value.toFixed(decimals);
+}
+
 // Robust colour-scale ceiling: the Pth percentile of |value| across the grid,
 // so the handful of 0DTE-settlement cells that saturate near the close can't
 // wash out the near-spot detail the way a raw max does.
@@ -102,15 +114,72 @@ function percentileAbs(values: number[], p: number): number {
   return abs[idx];
 }
 
-// A "nice" axis step (1 / 2 / 5 x 10^n) near `raw`, so price ticks land on round
-// numbers and always fit inside the view span. (The old code hard-coded a 2.5%
-// step, which exceeded the ±2% span and produced a single tick.)
+// A "nice" axis step (1 / 2 / 5 x 10^n) near `raw`, so ticks land on round
+// numbers and always fit inside the view span, at any zoom level.
 function niceStep(raw: number): number {
   if (!(raw > 0)) return 1;
   const pow = Math.pow(10, Math.floor(Math.log10(raw)));
   const n = raw / pow;
   const nice = n < 1.5 ? 1 : n < 3 ? 2 : n < 7 ? 5 : 10;
   return nice * pow;
+}
+
+// --------------------------------------------------------------------------- //
+// Viewport helpers (data-space). A View is {pMin,pMax} price × {tMin,tMax} time;
+// zoom/pan/stretch all reduce to these on one axis pair.
+// --------------------------------------------------------------------------- //
+function clampAxis(
+  min: number,
+  max: number,
+  dMin: number,
+  dMax: number,
+): [number, number] {
+  const dSpan = Math.max(1e-12, dMax - dMin);
+  const span = Math.min(Math.max(max - min, dSpan * MIN_SPAN_FRAC), dSpan);
+  const c = (min + max) / 2;
+  let nMin = c - span / 2;
+  let nMax = c + span / 2;
+  if (nMin < dMin) { nMax += dMin - nMin; nMin = dMin; }
+  if (nMax > dMax) { nMin -= nMax - dMax; nMax = dMax; }
+  return [Math.max(dMin, nMin), Math.min(dMax, nMax)];
+}
+
+// Zoom one axis by `factor` (>1 = zoom out) keeping `center` under the cursor.
+function zoomAxis(
+  min: number,
+  max: number,
+  center: number,
+  factor: number,
+  dMin: number,
+  dMax: number,
+): [number, number] {
+  const dSpan = Math.max(1e-12, dMax - dMin);
+  const cur = Math.max(1e-12, max - min);
+  const span = Math.min(Math.max(cur * factor, dSpan * MIN_SPAN_FRAC), dSpan);
+  const ratio = Math.min(1, Math.max(0, (center - min) / cur));
+  let nMin = center - ratio * span;
+  let nMax = nMin + span;
+  if (nMin < dMin) { nMax += dMin - nMin; nMin = dMin; }
+  if (nMax > dMax) { nMin -= nMax - dMax; nMax = dMax; }
+  return [Math.max(dMin, nMin), Math.min(dMax, nMax)];
+}
+
+// Position one axis at a given span so that `center` lands at pixel-ratio `ratio`
+// across the plot (used by drag-pan and pinch, which anchor a grabbed point).
+function placeAxis(
+  center: number,
+  ratio: number,
+  span: number,
+  dMin: number,
+  dMax: number,
+): [number, number] {
+  const dSpan = Math.max(1e-12, dMax - dMin);
+  const s = Math.min(Math.max(span, dSpan * MIN_SPAN_FRAC), dSpan);
+  let nMin = center - ratio * s;
+  let nMax = nMin + s;
+  if (nMin < dMin) { nMax += dMin - nMin; nMin = dMin; }
+  if (nMax > dMax) { nMin -= nMax - dMax; nMax = dMax; }
+  return [Math.max(dMin, nMin), Math.min(dMax, nMax)];
 }
 
 export default function ForcedFlowSurfaceChart({
@@ -124,8 +193,18 @@ export default function ForcedFlowSurfaceChart({
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [size, setSize] = useState({ w: 800, h: 440 });
+  const [size, setSize] = useState({ w: 900, h: CHART_H });
   const [hover, setHover] = useState<{ price: number; timeDays: number; value: number } | null>(null);
+  const [zoomed, setZoomed] = useState(false);
+
+  // When the instrument changes, clear the "zoomed" affordance. This is the
+  // React adjust-state-on-prop-change pattern (runs during render, before paint);
+  // the viewport refs themselves are reset in the effect below.
+  const [renderedSymbol, setRenderedSymbol] = useState(symbol);
+  if (renderedSymbol !== symbol) {
+    setRenderedSymbol(symbol);
+    setZoomed(false);
+  }
 
   const hasData =
     surface != null &&
@@ -137,9 +216,6 @@ export default function ForcedFlowSurfaceChart({
     surface.times_days.length > 0;
   const containerMounted = hasData && !error;
 
-  // Theme hues resolved once per render; the canvas effect depends on them so a
-  // palette/theme flip repaints. Neutral midpoint = card background so zero-flow
-  // cells melt into the surface on both light and dark themes.
   const posHue = useMemo(() => parseColor(chart.bull, { r: 27, g: 196, b: 125 }), [chart.bull]);
   const negHue = useMemo(() => parseColor(chart.bear, { r: 255, g: 90, b: 102 }), [chart.bear]);
   const zeroHue = useMemo(
@@ -147,28 +223,10 @@ export default function ForcedFlowSurfaceChart({
     [chart.bgCard, isDark],
   );
 
-  // The container only mounts once data lands, so wire up the ResizeObserver
-  // when it actually attaches (mirrors FlipSurfaceChart).
-  useEffect(() => {
-    if (!containerMounted) return;
-    const node = containerRef.current;
-    if (!node) return;
-    const rect = node.getBoundingClientRect();
-    setSize({ w: Math.max(320, rect.width), h: Math.max(320, rect.height) });
-    const ro = new ResizeObserver((entries) => {
-      const cr = entries[0]?.contentRect;
-      if (!cr) return;
-      setSize({ w: Math.max(320, cr.width), h: Math.max(320, cr.height) });
-    });
-    ro.observe(node);
-    return () => ro.disconnect();
-  }, [containerMounted]);
-
-  // Incremental ("charm") surface: subtract the now-row baseline from every row
-  // so the flat, time-invariant gamma ramp cancels out and what remains is the
-  // EXTRA forced flow the passing of time creates — the whole point of the y
-  // axis. zInc[i][j] = z[i][j] − z[i][0]; the top row (now) is exactly zero
-  // (nothing forced yet) and colour builds toward the close.
+  // Incremental ("charm") surface: subtract the now-column baseline from every
+  // price row so the flat gamma ramp cancels and what remains is the EXTRA flow
+  // the passing of time creates. zInc[i][j] = z[i][j] − z[i][0]; the "now"
+  // column (j=0) is exactly zero and colour builds toward the close.
   const zInc = useMemo<number[][]>(() => {
     if (!surface || !Array.isArray(surface.z)) return [];
     return surface.z.map((row) => {
@@ -178,17 +236,84 @@ export default function ForcedFlowSurfaceChart({
     });
   }, [surface]);
 
-  // Normalise the diverging map by a robust percentile of |zInc| (not the max),
-  // so 0DTE-settlement spikes into the close don't crush the near-spot detail.
   const clip = useMemo(() => {
     const flat: number[] = [];
     zInc.forEach((row) => row.forEach((v) => flat.push(v)));
     return Math.max(1, percentileAbs(flat, CLIP_PERCENTILE));
   }, [zInc]);
 
-  useEffect(() => {
+  // --- Viewport + gesture state (refs, so handlers never fight React state) ---
+  const viewRef = useRef<View | null>(null); // null = full data bounds
+  const boundsRef = useRef<View | null>(null);
+  const zoomedRef = useRef(false);
+  const drawRef = useRef<() => void>(() => {});
+  const rafRef = useRef(0);
+  const pointers = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const gesture = useRef<{
+    mode: 'none' | 'pan' | 'scaleX' | 'scaleY' | 'pinch';
+    startX: number;
+    startY: number;
+    startView: View;
+    centerT: number;
+    centerP: number;
+    startDist: number;
+    startMidX: number;
+    startMidY: number;
+  }>({ mode: 'none', startX: 0, startY: 0, startView: { pMin: 0, pMax: 0, tMin: 0, tMax: 0 }, centerT: 0, centerP: 0, startDist: 0, startMidX: 0, startMidY: 0 });
+
+  const plotMetrics = useCallback(() => {
+    const plotW = Math.max(10, size.w - PAD_L - PAD_R);
+    const plotH = Math.max(10, size.h - PAD_T - PAD_B);
+    return { plotW, plotH };
+  }, [size]);
+
+  const markZoomed = useCallback(() => {
+    if (!zoomedRef.current) {
+      zoomedRef.current = true;
+      setZoomed(true);
+    }
+  }, []);
+
+  const scheduleDraw = useCallback(() => {
+    if (rafRef.current) return;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = 0;
+      drawRef.current();
+    });
+  }, []);
+
+  const resetView = useCallback(() => {
+    viewRef.current = null;
+    zoomedRef.current = false;
+    setZoomed(false);
+    setHover(null);
+    scheduleDraw();
+  }, [scheduleDraw]);
+
+  // ------------------------------------------------------------------------- //
+  // Draw — reads the live viewport ref, so it repaints mid-gesture with no
+  // React round-trip. X = time (now → close), Y = price (high at top).
+  // ------------------------------------------------------------------------- //
+  const draw = useCallback(() => {
     const cv = canvasRef.current;
     if (!cv || !surface || !hasData) return;
+    const spots = surface.spots;
+    const times = surface.times_days;
+    const z = surface.z; // raw total flow — used for the magnet ridge
+    const T = spots.length; // price samples
+    const S = times.length; // time samples
+    if (T < 2 || S < 1) return;
+
+    const bounds: View = { pMin: spots[0], pMax: spots[T - 1], tMin: times[0], tMax: times[S - 1] };
+    boundsRef.current = bounds;
+    // Resolve + clamp the live view against the current data bounds (spot drifts
+    // intraday, so an absolute-price window can fall slightly out of range).
+    let v = viewRef.current ?? { ...bounds };
+    const [cpMin, cpMax] = clampAxis(v.pMin, v.pMax, bounds.pMin, bounds.pMax);
+    const [ctMin, ctMax] = clampAxis(v.tMin, v.tMax, bounds.tMin, bounds.tMax);
+    v = { pMin: cpMin, pMax: cpMax, tMin: ctMin, tMax: ctMax };
+    if (viewRef.current) viewRef.current = v;
+    const { pMin, pMax, tMin, tMax } = v;
 
     const dpr = window.devicePixelRatio || 1;
     const cssW = size.w;
@@ -203,142 +328,147 @@ export default function ForcedFlowSurfaceChart({
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, cssW, cssH);
 
-    const plotW = Math.max(10, cssW - PAD_L - PAD_R);
-    const plotH = Math.max(10, cssH - PAD_T - PAD_B);
-
+    const { plotW, plotH } = plotMetrics();
     const axisColor = chart.axisText || (isDark ? '#FFF1E6' : '#1E293B');
     const gridColor = chart.gridLine || (isDark ? 'rgba(255,241,230,0.10)' : 'rgba(15,23,42,0.10)');
 
     ctx.fillStyle = chart.bgCard || (isDark ? '#111821' : '#F7F7F7');
     ctx.fillRect(PAD_L, PAD_T, plotW, plotH);
 
-    const spots = surface.spots;
-    const times = surface.times_days;
-    const z = surface.z; // raw total flow — used for the magnet ridge
-    const zi = zInc; // incremental (charm) flow — what the colour shows
-    const T = spots.length; // X (spot) — rows of z
-    const S = times.length; // Y (time)  — columns of z
-    if (T < 2 || S < 1) return;
+    // Data <-> pixel maps for the current window. Time flows left→right;
+    // price is vertical with the HIGH price at the top (standard chart).
+    const pSpan = Math.max(1e-9, pMax - pMin);
+    const tSpan = Math.max(1e-9, tMax - tMin);
+    const xForTime = (t: number) => PAD_L + plotW * ((t - tMin) / tSpan);
+    const yForPrice = (p: number) => PAD_T + plotH * ((pMax - p) / pSpan);
 
-    const xMin = spots[0];
-    const xMax = spots[T - 1];
-    const xRange = Math.max(1e-9, xMax - xMin);
-    const xForPrice = (p: number) => PAD_L + plotW * ((p - xMin) / xRange);
-
-    const tMax = Math.max(1e-9, times[S - 1] - times[0]);
-    // Off-screen native-resolution heatmap (T×S), bilinearly upscaled. Row 0
-    // (top) = now, row S-1 (bottom) = close, since times_days ascends 0→close.
+    // Off-screen native-resolution heatmap. Width = S (time, now at col 0),
+    // height = T (price, HIGH at row 0). Value = incremental (charm) flow.
     const off = document.createElement('canvas');
-    off.width = T;
-    off.height = S;
+    off.width = S;
+    off.height = T;
     const offCtx = off.getContext('2d');
     if (!offCtx) return;
-    const img = offCtx.createImageData(T, S);
-    for (let s = 0; s < S; s++) {
-      for (let x = 0; x < T; x++) {
-        // zi is indexed [spotIndex][timeIndex] = [x][s]; row 0 (now) is zero.
-        const v = Number(zi[x]?.[s]);
-        const idx = (s * T + x) * 4;
-        if (!Number.isFinite(v)) {
+    const img = offCtx.createImageData(S, T);
+    for (let r = 0; r < T; r++) {
+      const i = T - 1 - r; // row 0 = highest price
+      for (let c = 0; c < S; c++) {
+        const val = Number(zInc[i]?.[c]);
+        const idx = (r * S + c) * 4;
+        if (!Number.isFinite(val)) {
           img.data[idx + 3] = 0;
           continue;
         }
-        const norm = Math.min(Math.abs(v) / clip, 1);
-        const ratio = Math.sign(v) * Math.sqrt(norm);
-        const c = divergingColor(ratio, posHue, zeroHue, negHue);
-        img.data[idx] = c.r;
-        img.data[idx + 1] = c.g;
-        img.data[idx + 2] = c.b;
+        const norm = Math.min(Math.abs(val) / clip, 1);
+        const ratio = Math.sign(val) * Math.sqrt(norm);
+        const col = divergingColor(ratio, posHue, zeroHue, negHue);
+        img.data[idx] = col.r;
+        img.data[idx + 1] = col.g;
+        img.data[idx + 2] = col.b;
         img.data[idx + 3] = 255;
       }
     }
     offCtx.putImageData(img, 0, 0);
+
+    // Source sub-rectangle (in offscreen px) matching the view window, so zoom &
+    // pan are a bilinear crop of the native grid.
+    const tFull = Math.max(1e-9, times[S - 1] - times[0]);
+    const pFull = Math.max(1e-9, spots[T - 1] - spots[0]);
+    const colForTime = (t: number) => ((t - times[0]) / tFull) * S;
+    const rowForPrice = (p: number) => ((spots[T - 1] - p) / pFull) * T;
+    const sx = colForTime(tMin);
+    const sw = colForTime(tMax) - sx;
+    const sy = rowForPrice(pMax);
+    const sh = rowForPrice(pMin) - sy;
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(off, 0, 0, T, S, PAD_L, PAD_T, plotW, plotH);
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(PAD_L, PAD_T, plotW, plotH);
+    ctx.clip();
+    ctx.drawImage(off, sx, sy, sw, sh, PAD_L, PAD_T, plotW, plotH);
+    ctx.restore();
 
-    // Spot vertical guide.
+    // --- Y axis: price ticks (value + % from spot) + horizontal grid. -------
     const spot = surface.spot;
-    if (Number.isFinite(spot) && spot >= xMin && spot <= xMax) {
-      const sx = xForPrice(spot);
-      ctx.save();
-      // Neutral dashed reference — the magnet ridge (solid, blue) peels off it.
-      ctx.strokeStyle = axisColor;
-      ctx.globalAlpha = 0.7;
-      ctx.setLineDash([4, 4]);
-      ctx.lineWidth = 1.5;
+    ctx.save();
+    ctx.font = '11px ui-sans-serif, system-ui, -apple-system, sans-serif';
+    ctx.textBaseline = 'middle';
+    const yStep = niceStep(pSpan / 6);
+    for (let p = Math.ceil(pMin / yStep) * yStep; p <= pMax + 1e-6; p += yStep) {
+      const py = yForPrice(p);
+      ctx.strokeStyle = gridColor;
+      ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(sx, PAD_T);
-      ctx.lineTo(sx, PAD_T + plotH);
+      ctx.moveTo(PAD_L, py);
+      ctx.lineTo(PAD_L + plotW, py);
       ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.globalAlpha = 1;
       ctx.fillStyle = axisColor;
-      ctx.font = 'bold 12px ui-sans-serif, system-ui, -apple-system, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'bottom';
-      ctx.fillText(`Spot ${formatPrice(spot)}`, sx, PAD_T - 4);
-      ctx.restore();
+      ctx.textAlign = 'right';
+      ctx.fillText(formatTickPrice(p, yStep), PAD_L - 6, py - 5);
+      if (Number.isFinite(spot) && spot > 0) {
+        const pct = (p / spot - 1) * 100;
+        ctx.save();
+        ctx.globalAlpha = 0.6;
+        ctx.font = '9px ui-sans-serif, system-ui, -apple-system, sans-serif';
+        ctx.fillText(`${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`, PAD_L - 6, py + 6);
+        ctx.restore();
+      }
     }
+    ctx.restore();
 
-    // Y axis — time bands (now → close), labelled by progress into the close.
+    // --- X axis: time ticks (now → close). Label the native bands in view. ---
     ctx.save();
     ctx.fillStyle = axisColor;
     ctx.font = '11px ui-sans-serif, system-ui, -apple-system, sans-serif';
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'middle';
-    const bandH = plotH / S;
-    times.forEach((t, j) => {
-      const y = PAD_T + bandH * j + bandH / 2;
-      const frac = (t - times[0]) / tMax;
-      const label = j === 0 ? 'now' : j === S - 1 ? 'close' : `${Math.round(frac * 100)}%`;
-      ctx.fillText(label, PAD_L - 8, y);
-      if (j > 0) {
-        ctx.strokeStyle = gridColor;
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(PAD_L, PAD_T + bandH * j);
-        ctx.lineTo(PAD_L + plotW, PAD_T + bandH * j);
-        ctx.stroke();
-      }
-    });
-
-    // X axis — ~6 round-number price ticks across the view, each annotated with
-    // its distance from spot in %, so the axis is readable at any span.
-    const spotForTicks = Number.isFinite(spot) ? spot : (xMin + xMax) / 2;
-    const xStep = niceStep((xMax - xMin) / 6);
-    let tickPrice = Math.ceil(xMin / xStep) * xStep;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
-    while (tickPrice <= xMax) {
-      const tx = xForPrice(tickPrice);
+    times.forEach((t, j) => {
+      if (t < tMin - 1e-9 || t > tMax + 1e-9) return;
+      const tx = xForTime(t);
+      const frac = (t - times[0]) / tFull;
+      const label = j === 0 ? 'now' : j === S - 1 ? 'close' : `${Math.round(frac * 100)}%`;
       ctx.strokeStyle = gridColor;
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(tx, PAD_T);
       ctx.lineTo(tx, PAD_T + plotH);
       ctx.stroke();
-      ctx.fillStyle = axisColor;
-      ctx.font = '11px ui-sans-serif, system-ui, -apple-system, sans-serif';
-      ctx.fillText(formatPrice(tickPrice), tx, PAD_T + plotH + 6);
-      if (spotForTicks > 0) {
-        const pct = (tickPrice / spotForTicks - 1) * 100;
-        ctx.save();
-        ctx.globalAlpha = 0.6;
-        ctx.font = '9px ui-sans-serif, system-ui, -apple-system, sans-serif';
-        ctx.fillText(`${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`, tx, PAD_T + plotH + 19);
-        ctx.restore();
-      }
-      tickPrice += xStep;
-    }
+      ctx.fillText(label, tx, PAD_T + plotH + 6);
+    });
     ctx.restore();
 
-    // Magnet ridge — the zero-flow price traced across each time row. It is the
-    // sign flip of the RAW total surface (z), not the incremental colour: at
-    // "now" (top) it sits at spot, and if it drifts as the rows descend, that is
-    // the clock pulling the magnet toward the close. Solid blue, matching how
-    // "The Read" colours the magnet.
-    const ridge: Array<{ x: number; y: number } | null> = times.map((_, j) => {
+    // --- Spot: horizontal dashed reference at the current price. ------------
+    if (Number.isFinite(spot) && spot >= pMin && spot <= pMax) {
+      const sy2 = yForPrice(spot);
+      ctx.save();
+      ctx.strokeStyle = axisColor;
+      ctx.globalAlpha = 0.7;
+      ctx.setLineDash([4, 4]);
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(PAD_L, sy2);
+      ctx.lineTo(PAD_L + plotW, sy2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = axisColor;
+      ctx.font = 'bold 11px ui-sans-serif, system-ui, -apple-system, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(`Spot ${formatPrice(spot)}`, PAD_L + plotW - 4, sy2 - 3);
+      ctx.restore();
+    }
+
+    // --- Magnet ridge: zero-flow price (sign flip of RAW z) per time column,
+    // now a left→right line that drifts up/down through the session. ---------
+    ctx.save();
+    ctx.strokeStyle = chart.info || '#06B6D4';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    let penDown = false;
+    let lastPt: { x: number; y: number } | null = null;
+    times.forEach((t, j) => {
       let best: number | null = null;
       let bestDist = Infinity;
       for (let i = 0; i < T - 1; i++) {
@@ -350,60 +480,41 @@ export default function ForcedFlowSurfaceChart({
         else if (y1 * y2 < 0) cx = spots[i] + (spots[i + 1] - spots[i]) * (-y1) / (y2 - y1);
         if (cx != null) {
           const d = Math.abs(cx - spot);
-          if (d < bestDist) {
-            bestDist = d;
-            best = cx;
-          }
+          if (d < bestDist) { bestDist = d; best = cx; }
         }
       }
-      if (best == null || best < xMin || best > xMax) return null;
-      return { x: xForPrice(best), y: PAD_T + bandH * j + bandH / 2 };
-    });
-    ctx.save();
-    ctx.strokeStyle = chart.info || '#06B6D4';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    let penDown = false;
-    ridge.forEach((pt) => {
-      if (!pt) {
+      if (best == null || best < pMin || best > pMax || t < tMin || t > tMax) {
         penDown = false;
         return;
       }
-      if (!penDown) {
-        ctx.moveTo(pt.x, pt.y);
-        penDown = true;
-      } else {
-        ctx.lineTo(pt.x, pt.y);
-      }
+      const pt = { x: xForTime(t), y: yForPrice(best) };
+      if (!penDown) { ctx.moveTo(pt.x, pt.y); penDown = true; } else { ctx.lineTo(pt.x, pt.y); }
+      lastPt = pt;
     });
     ctx.stroke();
-    const magnetEnd = [...ridge].reverse().find((p) => p != null) as
-      | { x: number; y: number }
-      | undefined;
-    if (magnetEnd) {
-      const rightHalf = magnetEnd.x > PAD_L + plotW / 2;
+    if (lastPt) {
+      const p = lastPt as { x: number; y: number };
       ctx.fillStyle = chart.info || '#06B6D4';
       ctx.font = 'bold 10px ui-sans-serif, system-ui, -apple-system, sans-serif';
-      ctx.textAlign = rightHalf ? 'right' : 'left';
+      ctx.textAlign = 'right';
       ctx.textBaseline = 'bottom';
-      ctx.fillText('magnet', magnetEnd.x + (rightHalf ? -4 : 4), magnetEnd.y - 3);
+      ctx.fillText('magnet', p.x - 4, p.y - 4);
     }
     ctx.restore();
 
-    // Axis titles.
+    // --- Axis titles. -------------------------------------------------------
     ctx.save();
     ctx.fillStyle = axisColor;
     ctx.font = '11px ui-sans-serif, system-ui, -apple-system, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
-    ctx.fillText('Spot price (USD)', PAD_L + plotW / 2, cssH - 4);
-    ctx.translate(16, PAD_T + plotH / 2);
+    ctx.fillText('Time into close →', PAD_L + plotW / 2, cssH - 4);
+    ctx.translate(14, PAD_T + plotH / 2);
     ctx.rotate(-Math.PI / 2);
-    ctx.fillText('Time into close ↓', 0, 0);
+    ctx.fillText('Spot price (USD)', 0, 0);
     ctx.restore();
 
-    // Diverging colour bar. Top = +clip (dealers buy / bull), bottom = −clip
-    // (dealers sell / bear), neutral midpoint at 0.
+    // --- Diverging colour bar. Top = +clip (buy), bottom = −clip (sell). ----
     const legendX = PAD_L + plotW + 22;
     const legendW = 14;
     const legendY = PAD_T + 8;
@@ -411,7 +522,7 @@ export default function ForcedFlowSurfaceChart({
     const steps = 80;
     for (let i = 0; i < steps; i++) {
       const t = i / (steps - 1);
-      const ratio = 1 - 2 * t; // top +1, bottom −1
+      const ratio = 1 - 2 * t;
       ctx.fillStyle = rgbToCss(divergingColor(ratio, posHue, zeroHue, negHue));
       ctx.fillRect(legendX, legendY + (legendH * i) / steps, legendW, legendH / steps + 1);
     }
@@ -428,45 +539,263 @@ export default function ForcedFlowSurfaceChart({
     ctx.font = '9px ui-sans-serif, system-ui, -apple-system, sans-serif';
     ctx.fillText('buy', legendX + legendW + 4, legendY + 18);
     ctx.fillText('sell', legendX + legendW + 4, legendY + legendH - 18);
-  }, [surface, zInc, size, isDark, clip, hasData, posHue, negHue, zeroHue, chart.axisText, chart.gridLine, chart.bgCard, chart.info]);
+  }, [surface, zInc, clip, size, isDark, posHue, negHue, zeroHue, hasData, plotMetrics,
+    chart.axisText, chart.gridLine, chart.bgCard, chart.info]);
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!surface || !hasData) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const plotW = size.w - PAD_L - PAD_R;
-    const plotH = size.h - PAD_T - PAD_B;
-    if (x < PAD_L || x > PAD_L + plotW || y < PAD_T || y > PAD_T + plotH) {
+  // The container only mounts once data lands; wire the ResizeObserver then.
+  useEffect(() => {
+    if (!containerMounted) return;
+    const node = containerRef.current;
+    if (!node) return;
+    const rect = node.getBoundingClientRect();
+    setSize({ w: Math.max(360, rect.width), h: Math.max(360, rect.height || CHART_H) });
+    const ro = new ResizeObserver((entries) => {
+      const cr = entries[0]?.contentRect;
+      if (!cr) return;
+      setSize({ w: Math.max(360, cr.width), h: Math.max(360, cr.height || CHART_H) });
+    });
+    ro.observe(node);
+    return () => ro.disconnect();
+  }, [containerMounted]);
+
+  // Drop any zoom window when the instrument changes (refs only — no setState —
+  // so an old symbol's absolute-price window isn't clamped into the new one).
+  useEffect(() => {
+    viewRef.current = null;
+    zoomedRef.current = false;
+  }, [symbol]);
+
+  // Keep the latest draw reachable from imperative gesture handlers, and repaint
+  // on any data / size / theme change.
+  useEffect(() => {
+    drawRef.current = draw;
+    draw();
+  }, [draw]);
+
+  // ------------------------------------------------------------------------- //
+  // Interaction — pointer (mouse + touch), wheel, pinch. Data-space viewport.
+  // ------------------------------------------------------------------------- //
+  const xy = (e: { clientX: number; clientY: number }) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    return { x: e.clientX - (rect?.left ?? 0), y: e.clientY - (rect?.top ?? 0) };
+  };
+
+  const regionOf = useCallback((x: number, y: number): 'plot' | 'x' | 'y' | 'out' => {
+    const { plotW, plotH } = plotMetrics();
+    const inX = x >= PAD_L && x <= PAD_L + plotW;
+    const inY = y >= PAD_T && y <= PAD_T + plotH;
+    if (inX && inY) return 'plot';
+    if (inX && y > PAD_T + plotH) return 'x';
+    if (inY && x < PAD_L) return 'y';
+    return 'out';
+  }, [plotMetrics]);
+
+  const viewOrBounds = useCallback(
+    (): View => viewRef.current ?? boundsRef.current ?? { pMin: 0, pMax: 1, tMin: 0, tMax: 1 },
+    [],
+  );
+
+  const timeAtX = useCallback((x: number, v: View) => {
+    const { plotW } = plotMetrics();
+    return v.tMin + ((x - PAD_L) / plotW) * (v.tMax - v.tMin);
+  }, [plotMetrics]);
+  const priceAtY = useCallback((y: number, v: View) => {
+    const { plotH } = plotMetrics();
+    return v.pMax - ((y - PAD_T) / plotH) * (v.pMax - v.pMin);
+  }, [plotMetrics]);
+
+  const applyZoom = useCallback((x: number, y: number, factor: number, axis: 'both' | 'x' | 'y') => {
+    const b = boundsRef.current;
+    if (!b) return;
+    const v = { ...viewOrBounds() };
+    if (axis === 'x' || axis === 'both') {
+      const [tMin, tMax] = zoomAxis(v.tMin, v.tMax, timeAtX(x, v), factor, b.tMin, b.tMax);
+      v.tMin = tMin; v.tMax = tMax;
+    }
+    if (axis === 'y' || axis === 'both') {
+      const [pMin, pMax] = zoomAxis(v.pMin, v.pMax, priceAtY(y, v), factor, b.pMin, b.pMax);
+      v.pMin = pMin; v.pMax = pMax;
+    }
+    viewRef.current = v;
+    markZoomed();
+    scheduleDraw();
+  }, [markZoomed, scheduleDraw, timeAtX, priceAtY, viewOrBounds]);
+
+  const handleWheel = useCallback((e: WheelEvent) => {
+    if (!hasData) return;
+    e.preventDefault();
+    const { x, y } = xy(e);
+    const region = regionOf(x, y);
+    if (region === 'out') return;
+    const factor = e.deltaY > 0 ? 1.1 : 1 / 1.1; // scroll up = zoom in
+    const axis = region === 'x' ? 'x' : region === 'y' ? 'y' : 'both';
+    applyZoom(x, y, factor, axis);
+  }, [hasData, regionOf, applyZoom]);
+
+  // Wheel must be a non-passive native listener to preventDefault the page scroll.
+  useEffect(() => {
+    const cv = canvasRef.current;
+    if (!cv || !containerMounted) return;
+    cv.addEventListener('wheel', handleWheel, { passive: false });
+    return () => cv.removeEventListener('wheel', handleWheel);
+  }, [handleWheel, containerMounted]);
+
+  const setCursor = (c: string) => {
+    if (canvasRef.current) canvasRef.current.style.cursor = c;
+  };
+
+  const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!hasData) return;
+    canvasRef.current?.setPointerCapture(e.pointerId);
+    const { x, y } = xy(e);
+    pointers.current.set(e.pointerId, { x, y });
+    const v = { ...viewOrBounds() };
+    if (pointers.current.size === 2) {
+      const pts = [...pointers.current.values()];
+      gesture.current = {
+        mode: 'pinch',
+        startX: 0, startY: 0,
+        startView: v,
+        centerT: 0, centerP: 0,
+        startDist: Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y) || 1,
+        startMidX: (pts[0].x + pts[1].x) / 2,
+        startMidY: (pts[0].y + pts[1].y) / 2,
+      };
+      gesture.current.centerT = timeAtX(gesture.current.startMidX, v);
+      gesture.current.centerP = priceAtY(gesture.current.startMidY, v);
       setHover(null);
       return;
     }
-    const spots = surface.spots;
-    const times = surface.times_days;
-    const price = spots[0] + ((x - PAD_L) / plotW) * (spots[spots.length - 1] - spots[0]);
-    let nearest = 0;
-    let bestDist = Infinity;
-    for (let i = 0; i < spots.length; i++) {
-      const d = Math.abs(spots[i] - price);
-      if (d < bestDist) {
-        bestDist = d;
-        nearest = i;
+    const region = regionOf(x, y);
+    const mode = region === 'x' ? 'scaleX' : region === 'y' ? 'scaleY' : region === 'plot' ? 'pan' : 'none';
+    gesture.current = {
+      mode,
+      startX: x, startY: y,
+      startView: v,
+      centerT: timeAtX(x, v),
+      centerP: priceAtY(y, v),
+      startDist: 0, startMidX: 0, startMidY: 0,
+    };
+    if (mode === 'pan') setCursor('grabbing');
+  };
+
+  const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!hasData) return;
+    const { x, y } = xy(e);
+    if (pointers.current.has(e.pointerId)) pointers.current.set(e.pointerId, { x, y });
+    const g = gesture.current;
+    const b = boundsRef.current;
+
+    // Idle hover (no active gesture): update the read-out + cursor affordance.
+    if (g.mode === 'none') {
+      const region = regionOf(x, y);
+      setCursor(region === 'plot' ? 'grab' : region === 'x' ? 'ew-resize' : region === 'y' ? 'ns-resize' : 'default');
+      if (region !== 'plot' || !surface) { setHover(null); return; }
+      const v = viewOrBounds();
+      const price = priceAtY(y, v);
+      const time = timeAtX(x, v);
+      let ni = 0, nd = Infinity;
+      for (let i = 0; i < surface.spots.length; i++) {
+        const d = Math.abs(surface.spots[i] - price);
+        if (d < nd) { nd = d; ni = i; }
       }
-    }
-    const bandIdx = Math.min(
-      times.length - 1,
-      Math.max(0, Math.floor(((y - PAD_T) / plotH) * times.length)),
-    );
-    // Match the displayed colour: the incremental (charm) flow — raw total at
-    // this cell minus the now-row baseline.
-    const raw = surface.z[nearest]?.[bandIdx];
-    const base = surface.z[nearest]?.[0];
-    const value = Number.isFinite(raw) && Number.isFinite(base) ? (raw as number) - (base as number) : NaN;
-    if (!Number.isFinite(value)) {
-      setHover(null);
+      let nj = 0, td = Infinity;
+      for (let j = 0; j < surface.times_days.length; j++) {
+        const d = Math.abs(surface.times_days[j] - time);
+        if (d < td) { td = d; nj = j; }
+      }
+      const raw = surface.z[ni]?.[nj];
+      const base = surface.z[ni]?.[0];
+      const val = Number.isFinite(raw) && Number.isFinite(base) ? (raw as number) - (base as number) : NaN;
+      if (!Number.isFinite(val)) { setHover(null); return; }
+      setHover({ price: surface.spots[ni], timeDays: surface.times_days[nj], value: val });
       return;
     }
-    setHover({ price: spots[nearest], timeDays: times[bandIdx], value });
+    if (!b) return;
+
+    if (g.mode === 'pinch') {
+      if (pointers.current.size < 2) return;
+      const pts = [...pointers.current.values()];
+      const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y) || 1;
+      const scale = g.startDist / dist; // fingers apart -> scale<1 -> zoom in
+      const midX = (pts[0].x + pts[1].x) / 2;
+      const midY = (pts[0].y + pts[1].y) / 2;
+      const { plotW, plotH } = plotMetrics();
+      const [tMin, tMax] = placeAxis(
+        g.centerT, (midX - PAD_L) / plotW, (g.startView.tMax - g.startView.tMin) * scale, b.tMin, b.tMax);
+      const [pMax2, pMin2] = (() => {
+        const [a, c] = placeAxis(
+          g.centerP, (midY - PAD_T) / plotH, (g.startView.pMax - g.startView.pMin) * scale, b.pMin, b.pMax);
+        return [c, a]; // placeAxis returns [min,max]; price ratio is top-down
+      })();
+      viewRef.current = { tMin, tMax, pMin: Math.min(pMin2, pMax2), pMax: Math.max(pMin2, pMax2) };
+      markZoomed();
+      scheduleDraw();
+      return;
+    }
+
+    if (g.mode === 'pan') {
+      const { plotW, plotH } = plotMetrics();
+      const dx = x - g.startX;
+      const dy = y - g.startY;
+      const tSpan = g.startView.tMax - g.startView.tMin;
+      const pSpan = g.startView.pMax - g.startView.pMin;
+      const [tMin, tMax] = (() => {
+        let nMin = g.startView.tMin - (dx / plotW) * tSpan;
+        let nMax = g.startView.tMax - (dx / plotW) * tSpan;
+        if (nMin < b.tMin) { nMax += b.tMin - nMin; nMin = b.tMin; }
+        if (nMax > b.tMax) { nMin -= nMax - b.tMax; nMax = b.tMax; }
+        return [Math.max(b.tMin, nMin), Math.min(b.tMax, nMax)];
+      })();
+      const [pMin, pMax] = (() => {
+        let nMin = g.startView.pMin + (dy / plotH) * pSpan;
+        let nMax = g.startView.pMax + (dy / plotH) * pSpan;
+        if (nMin < b.pMin) { nMax += b.pMin - nMin; nMin = b.pMin; }
+        if (nMax > b.pMax) { nMin -= nMax - b.pMax; nMax = b.pMax; }
+        return [Math.max(b.pMin, nMin), Math.min(b.pMax, nMax)];
+      })();
+      viewRef.current = { tMin, tMax, pMin, pMax };
+      markZoomed();
+      scheduleDraw();
+      return;
+    }
+
+    if (g.mode === 'scaleX') {
+      const dx = x - g.startX;
+      const factor = Math.exp(-dx * 0.006); // drag right = zoom in
+      const [tMin, tMax] = zoomAxis(g.startView.tMin, g.startView.tMax, g.centerT, factor, b.tMin, b.tMax);
+      viewRef.current = { ...viewOrBounds(), tMin, tMax };
+      markZoomed();
+      scheduleDraw();
+      return;
+    }
+
+    if (g.mode === 'scaleY') {
+      const dy = y - g.startY;
+      const factor = Math.exp(dy * 0.006); // drag down = zoom out
+      const [pMin, pMax] = zoomAxis(g.startView.pMin, g.startView.pMax, g.centerP, factor, b.pMin, b.pMax);
+      viewRef.current = { ...viewOrBounds(), pMin, pMax };
+      markZoomed();
+      scheduleDraw();
+    }
+  };
+
+  const endPointer = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    pointers.current.delete(e.pointerId);
+    canvasRef.current?.releasePointerCapture?.(e.pointerId);
+    if (pointers.current.size === 0) {
+      gesture.current.mode = 'none';
+      setCursor('grab');
+    } else if (pointers.current.size === 1 && gesture.current.mode === 'pinch') {
+      // Drop back to a single-pointer pan from the remaining finger.
+      const [only] = [...pointers.current.entries()];
+      const v = { ...viewOrBounds() };
+      gesture.current = {
+        mode: 'pan', startX: only[1].x, startY: only[1].y, startView: v,
+        centerT: timeAtX(only[1].x, v), centerP: priceAtY(only[1].y, v),
+        startDist: 0, startMidX: 0, startMidY: 0,
+      };
+    }
   };
 
   const textColor = 'var(--text-primary)';
@@ -481,7 +810,7 @@ export default function ForcedFlowSurfaceChart({
         <h3 className="zg-h3" style={{ color: textColor }}>
           Forced-Flow Surface · Spot × Time
         </h3>
-        <TooltipWrapper text="Colour is the EXTRA forced dealer flow the passing of time creates — charm — at each hypothetical spot (columns) from now (top row) to the 4pm close (bottom row), over and above any spot move. It necessarily starts at zero now and builds into the close: green = the clock forces buying, red = forces selling. Read DOWN a column to watch time-pressure at one price grow into the bell; read ACROSS a row to compare prices at the same moment. The solid blue line is the magnet — the zero-flow price dealers have nothing to do at — and its drift shows where the clock is pulling the tape.">
+        <TooltipWrapper text="Colour is the EXTRA forced dealer flow the passing of time creates — charm — over and above any spot move. Price is the vertical axis; time runs left→right from now to the 4pm close. It necessarily starts at zero at the left (now) and builds into the close: green = the clock forces buying, red = forces selling. Read LEFT→RIGHT along a price to watch time-pressure there grow into the bell; read UP↕DOWN a time column to compare prices at that moment. The blue line is the magnet — the zero-flow price dealers have nothing to do at; the dashed line is spot. Scroll to zoom, drag to pan, drag an axis to stretch just that axis, pinch on touch, double-click to reset.">
           <Info size={14} />
         </TooltipWrapper>
         <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
@@ -489,11 +818,12 @@ export default function ForcedFlowSurfaceChart({
         </span>
       </div>
       <p className="mb-4 text-xs" style={{ color: 'var(--text-secondary)' }}>
-        The <em>extra</em> dealer flow the clock forces as the session runs — at each hypothetical spot (x),
-        from now (top) to the close (bottom).{' '}
+        The <em>extra</em> dealer flow the clock forces as the session runs left→right (now → close), at each
+        hypothetical spot (vertical).{' '}
         <span style={{ color: chart.bull, fontWeight: 600 }}>Green = time forces BUYING</span>,{' '}
         <span style={{ color: chart.bear, fontWeight: 600 }}>red = SELLING</span>; it starts at zero now and builds
-        into the close. The blue line traces the magnet (zero-flow price).
+        into the close. Blue line = the magnet (zero-flow price); dashed = spot.{' '}
+        <span style={{ color: 'var(--text-muted)' }}>Scroll / drag to zoom &amp; pan · drag an axis to stretch it · double-click to reset.</span>
       </p>
 
       {error ? (
@@ -511,13 +841,34 @@ export default function ForcedFlowSurfaceChart({
           No forced-flow surface data available.
         </div>
       ) : (
-        <div ref={containerRef} className="relative w-full" style={{ height: 440 }}>
+        <div ref={containerRef} className="relative w-full" style={{ height: CHART_H }}>
           <canvas
             ref={canvasRef}
-            onMouseMove={handleMouseMove}
-            onMouseLeave={() => setHover(null)}
-            style={{ display: 'block', width: '100%', height: '100%', cursor: 'crosshair' }}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={endPointer}
+            onPointerCancel={endPointer}
+            onPointerLeave={(e) => {
+              if (gesture.current.mode === 'none') setHover(null);
+              endPointer(e);
+            }}
+            onDoubleClick={resetView}
+            style={{ display: 'block', width: '100%', height: '100%', cursor: 'grab', touchAction: 'none' }}
           />
+          {zoomed && (
+            <button
+              type="button"
+              onClick={resetView}
+              className="absolute top-2 right-2 rounded-md px-2 py-1 text-[11px] font-semibold"
+              style={{
+                background: chart.tooltipBg,
+                color: chart.tooltipText,
+                border: `1px solid ${chart.tooltipBorder}`,
+              }}
+            >
+              Reset view
+            </button>
+          )}
           {hover && (
             <div
               style={{
