@@ -11,6 +11,7 @@ import {
   sendPaidWelcomeEmail,
   sendPaymentFailedEmail,
   sendPaymentRecoveredEmail,
+  sendTrialConversionFailedEmail,
   sendWelcomeBackEmail,
 } from '@/core/mailer';
 import {
@@ -28,6 +29,7 @@ import {
   priceIdToTier,
 } from '@/core/stripe';
 import { decidePaymentGrace, graceWindowEndIso } from '@/core/paymentGrace';
+import { isTrialConversionFailure } from '@/core/trialDunning';
 import { classifyPaymentSetup } from '@/core/paymentSetup';
 import { formatCancellationReasonSuffix, type CancellationDetails } from '@/core/cancellationReason';
 import { buildSaveUrl } from '@/core/retentionToken';
@@ -1512,19 +1514,43 @@ export async function POST(request: NextRequest) {
               getPaymentGraceDays(),
               Date.now(),
             );
+            // Trial-conversion failures need different copy than renewal
+            // failures: a trialer never "subscribed", so the renewal-framed nudge
+            // confuses (and can alarm) them. Detect it order-independently from
+            // the sub's trial_end vs this invoice (core/trialDunning). Best-effort
+            // — any lookup failure falls back to the renewal email.
+            let trialConversion = false;
             try {
-              await sendPaymentFailedEmail(user.email, {
-                amountFormatted,
-                cardBrand: card?.brand ?? null,
-                cardLast4: card?.last4 ?? null,
-                nextAttemptIso,
-                graceUntilIso,
-              });
+              if (invoiceSub) {
+                const sub = await getStripe().subscriptions.retrieve(invoiceSub);
+                trialConversion = isTrialConversionFailure({
+                  trialEndUnix: typeof sub.trial_end === 'number' ? sub.trial_end : null,
+                  invoiceCreatedUnix: typeof invoice.created === 'number' ? invoice.created : null,
+                  billingReason: invoice.billing_reason ?? null,
+                });
+              }
+            } catch {
+              // Non-fatal — default to the renewal-framed email.
+            }
+
+            const failedEmailArgs = {
+              amountFormatted,
+              cardBrand: card?.brand ?? null,
+              cardLast4: card?.last4 ?? null,
+              nextAttemptIso,
+              graceUntilIso,
+            };
+            try {
+              if (trialConversion) {
+                await sendTrialConversionFailedEmail(user.email, failedEmailArgs);
+              } else {
+                await sendPaymentFailedEmail(user.email, failedEmailArgs);
+              }
               logAudit({
                 type: 'payment_failed_email_sent',
                 userId: user.id,
                 email: user.email,
-                message: `Sent payment-failed email for invoice ${invoice.id}`,
+                message: `Sent ${trialConversion ? 'trial-conversion ' : ''}payment-failed email for invoice ${invoice.id}`,
               });
             } catch (err) {
               const message = err instanceof Error ? err.message : 'payment-failed email send failed';

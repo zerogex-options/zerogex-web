@@ -1187,6 +1187,100 @@ export async function sendPaymentFailedEmail(
   }
 }
 
+// Dunning for a TRIAL-CONVERSION failure: the first charge, when a free trial
+// ends, was declined. A trialer never actually "subscribed", so the renewal-
+// framed sendPaymentFailedEmail copy ("your subscription payment was declined")
+// reads wrong to them and can even suggest a charge they didn't authorize. This
+// speaks to a NEW customer keeping the access they've just been trying — same
+// enrichments (named card, grace deadline, next retry) but welcoming, not lapse-
+// framed. No FOH footer: urgent/transactional like its renewal sibling. The
+// webhook chooses between the two via core/trialDunning isTrialConversionFailure.
+export async function sendTrialConversionFailedEmail(
+  to: string,
+  opts?: {
+    amountFormatted?: string | null;
+    cardBrand?: string | null;
+    cardLast4?: string | null;
+    nextAttemptIso?: string | null;
+    graceUntilIso?: string | null;
+  },
+) {
+  const subject = 'Your ZeroGEX trial ended — a quick card fix to keep your access';
+  const accountUrl = `${getAppUrl()}/account`;
+  const safeAccountUrl = escapeHtml(accountUrl);
+
+  const cardPhrase = opts?.cardLast4
+    ? opts.cardBrand
+      ? `your ${opts.cardBrand} card ending in ${opts.cardLast4}`
+      : `the card ending in ${opts.cardLast4}`
+    : null;
+
+  // Trial-framed opener: they were on a free trial, so this is the FIRST charge —
+  // not a renewal of something they already pay for.
+  const declineSentence = opts?.amountFormatted
+    ? cardPhrase
+      ? `Your free trial just wrapped up and I went to start your subscription (${opts.amountFormatted}) — but ${cardPhrase} was declined, so the first charge didn't go through.`
+      : `Your free trial just wrapped up and I went to start your subscription (${opts.amountFormatted}) — but your card was declined, so the first charge didn't go through.`
+    : cardPhrase
+      ? `Your free trial just wrapped up and I went to start your subscription — but ${cardPhrase} was declined, so the first charge didn't go through.`
+      : `Your free trial just wrapped up and I went to start your subscription — but your card was declined, so the first charge didn't go through.`;
+
+  // Access wording: if a trial-grace window is open (BILLING_TRIAL_GRACE_ENABLED),
+  // access is held through it; otherwise stay tense-neutral (the account may have
+  // dropped to Public, and re-grants automatically the moment a charge clears).
+  const accessSentence = opts?.graceUntilIso
+    ? `Good news: your full access stays on through ${formatTrialEndDate(opts.graceUntilIso)}, so nothing changes right now. Update your card before then and you won't miss a beat — if a charge still can't be collected, the account moves to the free Public tier, and full access switches back on automatically the moment one succeeds.`
+    : `Updating your card is the fastest way to keep your access going — and if the account has already dropped to the free Public tier, full access switches back on automatically the moment a charge succeeds.`;
+
+  const retrySentence = opts?.nextAttemptIso
+    ? `Stripe will automatically try the card again on ${formatTrialEndDate(opts.nextAttemptIso)}, so an expired-or-replaced card or a momentary insufficient-funds hold may simply clear on its own.`
+    : `Stripe has made its final automatic attempt, so updating your card now is the way to pick your subscription back up.`;
+
+  const text = [
+    'Hello,',
+    '',
+    `${declineSentence} ${accessSentence}`,
+    '',
+    retrySentence,
+    '',
+    'You can update your card in about a minute from your account page:',
+    accountUrl,
+    '',
+    "If ZeroGEX earned a spot in your routine this week, that's all it takes to keep it. And if something's holding you back, just reply to this email — I read every one and I'm happy to help.",
+    '',
+    'Best,',
+    'Michael',
+    'Founder, ZeroGEX',
+  ].join('\n');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <p>Hello,</p>
+      <p>${escapeHtml(declineSentence)} ${escapeHtml(accessSentence)}</p>
+      <p>${escapeHtml(retrySentence)}</p>
+      <p>You can update your card in about a minute from your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a>.</p>
+      <p style="margin: 24px 0;">
+        <a href="${safeAccountUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Update your card</a>
+      </p>
+      <p>If ZeroGEX earned a spot in your routine this week, that&rsquo;s all it takes to keep it. And if something&rsquo;s holding you back, just reply to this email &mdash; I read every one and I&rsquo;m happy to help.</p>
+      <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+    </div>
+  `.trim();
+
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject,
+    text,
+    html,
+  });
+
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
 // Sent on the past_due → active recovery — the bookend to
 // sendPaymentFailedEmail. Fires when a failed renewal is finally resolved
 // (Stripe's Smart Retry succeeds on a later attempt, or the member updates
