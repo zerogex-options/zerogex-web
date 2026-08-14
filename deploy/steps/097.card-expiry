@@ -1,0 +1,138 @@
+#!/bin/bash
+
+# ==============================================
+# Step 097: Card-Expiry Reminder Timer (systemd)
+# ==============================================
+#
+# Installs and enables the proactive card-expiry reminder timer (see
+# deploy/systemd/zerogex-web-card-expiry.{service,timer}). The timer fires
+# once a day and triggers `make card-expiry-reminders YES=1`, which emails
+# every ACTIVE subscriber whose card on file expires within ~45 days so they
+# update it before a renewal is declined (idempotent per card expiry via
+# users.card_expiry_notified_ym).
+#
+# Idempotent — safe to re-run. The unit files are overwritten from the repo
+# (version-controlled), and `systemctl enable --now` is a no-op for an
+# already-enabled timer. No config file is written (the script reads
+# STRIPE_SECRET_KEY, RESEND_API_KEY, RESEND_FROM_EMAIL, NEXT_PUBLIC_APP_URL
+# from frontend/.env.local, which steps 030 / 036 already manage).
+
+set -e
+
+type log >/dev/null 2>&1 || log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
+
+log "Card-Expiry Reminder Timer Setup"
+
+OWNER="${SUDO_USER:-$USER}"
+
+APP_DIR="$HOME/zerogex-web"
+SYSTEMD_SOURCE="$APP_DIR/deploy/systemd"
+SYSTEMD_TARGET="/etc/systemd/system"
+UNIT="zerogex-web-card-expiry"
+ENV_FILE="$APP_DIR/frontend/.env.local"
+
+# --- Preconditions ---------------------------------------------------
+if [ ! -d "$SYSTEMD_SOURCE" ]; then
+    log "  ✗ systemd source dir not found: $SYSTEMD_SOURCE"
+    exit 1
+fi
+for f in "${UNIT}.service" "${UNIT}.timer"; do
+    if [ ! -f "$SYSTEMD_SOURCE/$f" ]; then
+        log "  ✗ missing unit file: $SYSTEMD_SOURCE/$f"
+        exit 1
+    fi
+done
+
+if [ -s "$HOME/.nvm/nvm.sh" ]; then
+    log "  ✓ nvm present at $HOME/.nvm/nvm.sh"
+else
+    log "  ✗ nvm not found at $HOME/.nvm/nvm.sh — run step 020.nodejs first"
+    exit 1
+fi
+
+# --- Env soft-check ---------------------------------------------------
+# Warn (don't fail) on empty keys — step 036 seeds them as placeholders and the
+# operator may not have filled them yet. STRIPE_SECRET_KEY is REQUIRED here (card
+# expiries are read live from Stripe); without it the send loop exits early.
+warn_missing_env() {
+    local key="$1"
+    local value
+    value=$(grep -E "^${key}=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+    if [ -z "$value" ]; then
+        log "  ⚠ $key is unset in $ENV_FILE — timer will install but sends will error/skip until set"
+    else
+        log "  ✓ $key is set"
+    fi
+}
+if [ -f "$ENV_FILE" ]; then
+    warn_missing_env STRIPE_SECRET_KEY
+    warn_missing_env RESEND_API_KEY
+    warn_missing_env RESEND_FROM_EMAIL
+    warn_missing_env NEXT_PUBLIC_APP_URL
+else
+    log "  ⚠ $ENV_FILE not found — step 030 should have created it"
+fi
+
+# --- Install + enable the units --------------------------------------
+log "  → Installing ${UNIT}.{service,timer}..."
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.service" "$SYSTEMD_TARGET/"
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.timer"   "$SYSTEMD_TARGET/"
+
+# --- Sandbox drop-in for AUTH_DB_PATH --------------------------------
+# ProtectSystem=strict seals the FS; the SQLite UPDATE + audit INSERT need the
+# auth DB dir writable. When AUTH_DB_PATH points outside the repo (e.g.
+# /var/lib/zerogex) add it via a drop-in so the version-controlled unit stays
+# clean. Mirrors step 085.
+DROPIN_DIR="$SYSTEMD_TARGET/${UNIT}.service.d"
+DROPIN="$DROPIN_DIR/auth-db-path.conf"
+AUTH_DB_PATH=""
+if [ -f "$ENV_FILE" ]; then
+    AUTH_DB_PATH=$(grep -E "^AUTH_DB_PATH=" "$ENV_FILE" 2>/dev/null \
+        | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+fi
+if [ -n "$AUTH_DB_PATH" ] && [[ "$AUTH_DB_PATH" == /* ]]; then
+    AUTH_DB_DIR=$(dirname "$AUTH_DB_PATH")
+    log "  → Writing sandbox drop-in (ReadWritePaths=$AUTH_DB_DIR)..."
+    sudo mkdir -p "$DROPIN_DIR"
+    sudo tee "$DROPIN" >/dev/null <<EOF
+[Service]
+ReadWritePaths=$AUTH_DB_DIR
+EOF
+    log "     ✓ drop-in installed at $DROPIN"
+else
+    if [ -f "$DROPIN" ]; then
+        log "  → Removing stale drop-in (AUTH_DB_PATH unset or relative)..."
+        sudo rm -f "$DROPIN"
+        sudo rmdir "$DROPIN_DIR" 2>/dev/null || true
+    fi
+    log "  → AUTH_DB_PATH absolute path unset; using unit-default ReadWritePaths"
+fi
+
+sudo systemctl daemon-reload
+
+log "  → Enabling ${UNIT}.timer (daily 04:20, Persistent=true)..."
+if sudo systemctl enable --now "${UNIT}.timer" 2>/dev/null; then
+    NEXT=$(systemctl list-timers --no-pager --no-legend "${UNIT}.timer" 2>/dev/null | awk '{print $1, $2}')
+    log "     ✓ ${UNIT}.timer enabled (next run: ${NEXT:-unknown})"
+else
+    log "     ✗ ${UNIT}.timer failed to enable"
+    exit 1
+fi
+
+# Deliberately NO test run: the service's ExecStart is the real YES=1 send path.
+# Preview with `make card-expiry-reminders DRY_RUN=1` (no send) instead.
+
+log ""
+log "Card-expiry reminder timer setup complete!"
+log ""
+log "Summary:"
+log "  ✓ ${UNIT}.timer enabled (daily 04:20, Persistent=true catches missed runs)"
+log "  ✓ Warns active subscribers whose card expires within ~45 days (tune with THRESHOLD_DAYS)"
+log "  ✓ Idempotent: users.card_expiry_notified_ym latches per card expiry; re-arms on a new card"
+log ""
+log "Useful commands:"
+log "  • systemctl list-timers ${UNIT}.timer                                  - next/last run"
+log "  • cd $APP_DIR && make card-expiry-reminders DRY_RUN=1                   - preview eligible users (no send)"
+log "  • sudo systemctl start ${UNIT}.service                                  - fire the send loop now"
+log "  • journalctl -u ${UNIT} -n 50                                           - recent send logs"
+log "  • cd $APP_DIR && make card-expiry-reminders PREVIEW_TO=you@example.com  - send one sample email"

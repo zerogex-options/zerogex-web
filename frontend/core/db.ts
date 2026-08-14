@@ -155,6 +155,12 @@ function initDb(): DatabaseSync {
   ensureColumn('users', 'subscription_status', 'TEXT');
   ensureColumn('users', 'current_period_end', 'TEXT');
   ensureColumn('users', 'cancel_at_period_end', 'INTEGER NOT NULL DEFAULT 0');
+  // Re-armable latch for the proactive card-expiry reminder cron
+  // (scripts/send-card-expiry-reminders.mts): the "YYYY-MM" of the card expiry we
+  // last warned this member about. When the member swaps in a card with a
+  // different expiry the value differs → the reminder re-arms; equal → already
+  // warned, so we don't re-nag every run.
+  ensureColumn('users', 'card_expiry_notified_ym', 'TEXT');
   ensureColumn('users', 'disclaimer_acknowledged_at', 'TEXT');
   ensureColumn('users', 'disclaimer_version_acknowledged', 'TEXT');
 
