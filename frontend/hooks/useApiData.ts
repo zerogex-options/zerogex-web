@@ -1859,9 +1859,14 @@ export function useForcedFlowSessionSurface(symbol = 'SPY', spotRangePct = 0.02,
 export interface ForcedFlowBacktestRecord {
   date: string;
   charm_flow: number;
+  // The trailing-median "recent normal" the flow was scored against, and
+  // today's flow minus it. `predicted_dir` is the sign of `charm_deviation`.
+  charm_baseline: number;
+  charm_deviation: number;
   // Noon → close return as a fraction (0.004 = +0.4%).
   return_pct: number;
-  // Morning charm-flow sign: +1 dealers must buy, −1 must sell.
+  // Charm flow vs. its recent normal: +1 = above (modeled buy-pressure stronger
+  // than usual, a bullish lean), −1 = below (weaker than usual, a bearish lean).
   predicted_dir: number;
   // Realized noon → close direction: +1 up, −1 down.
   realized_dir: number;
@@ -1870,9 +1875,12 @@ export interface ForcedFlowBacktestRecord {
 
 export interface ForcedFlowBacktestVariant {
   // Sessions with usable data. `evaluated_sessions` drops the flat/undecided
-  // ones — it's the denominator behind `hit_rate`.
+  // ones and the `warmup_sessions` with no trailing baseline yet — it's the
+  // denominator behind `hit_rate`.
   total_sessions: number;
   evaluated_sessions: number;
+  // Early sessions excluded only because no trailing baseline exists yet.
+  warmup_sessions: number;
   hits: number;
   hit_rate: number | null;
   // 95% Wilson confidence band on the hit rate — the honest width of the read.
@@ -1905,9 +1913,11 @@ export interface ForcedFlowBacktestResponse {
   smooth: ForcedFlowBacktestVariant;
 }
 
-// The Charm-into-Close track record: does the morning charm-flow sign lean the
-// same way as the actual noon → close return? Honest hit rate vs. a naive
-// directional baseline. Refreshes slowly — the newest row lands once a session.
+// The Charm-into-Close track record: when the morning charm flow runs stronger
+// (or weaker) than its own recent normal, does the noon → close return lean the
+// same way? Honest hit rate vs. a naive directional baseline — scored on the
+// deviation from a trailing baseline, not the (structurally near-constant) raw
+// sign. Refreshes slowly — the newest row lands once a session.
 export function useForcedFlowBacktest(
   symbol = 'SPY',
   lookbackDays = 180,
