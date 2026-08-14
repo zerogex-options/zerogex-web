@@ -38,7 +38,7 @@
 'use client';
 
 import type { LiveQuoteIncoming } from '@/hooks/useApiData';
-import { applyLiveQuote, setLiveStreamActive } from '@/hooks/useApiData';
+import { applyLiveQuote, resetLiveQuoteOrdering, setLiveStreamActive } from '@/hooks/useApiData';
 
 // ---------- feature flag & config ----------
 
@@ -251,6 +251,11 @@ class QuoteStream {
   private onOpen(): void {
     this.reconnectAttempt = 0;
     this.lastMessageAt = Date.now();
+    // Start a fresh ordering epoch for this connection. A browser socket is
+    // pinned to one API worker, so server_ts is monotonic within a connection;
+    // across a reconnect the socket may land on a differently-clocked worker,
+    // so we re-baseline rather than compare stamps from two different clocks.
+    resetLiveQuoteOrdering();
     // NOTE: we deliberately do NOT flip a global "live" flag here.
     // Poll throttling is decided per-symbol in useApiData.ts based
     // on whether a WS tick actually arrived for that symbol —
@@ -319,6 +324,10 @@ class QuoteStream {
           up_volume: frame.up_volume ?? null,
           down_volume: frame.down_volume ?? null,
           session: frame.session ?? null,
+          // Carry the server's emission stamp through so applyLiveQuote can
+          // reject out-of-order / duplicate frames instead of letting a stale
+          // one rewind the tip candle.
+          server_ts: frame.server_ts ?? null,
         };
         applyLiveQuote(frame.symbol, row);
         // Only 'quote' frames should reset the stall watchdog —

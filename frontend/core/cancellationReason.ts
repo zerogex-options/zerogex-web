@@ -43,6 +43,24 @@ export const CANCELLATION_FEEDBACK_LABELS: Record<string, string> = {
 // bucket to file blank cancels under (collection off, or the customer skipped).
 export const NO_FEEDBACK = 'none';
 
+// The valid Stripe `cancellation_details.feedback` enum values — exactly the keys
+// of the label map above. This is the vocabulary the in-app cancellation reason
+// picker offers, and the ONLY set of tokens Stripe accepts when we set
+// cancellation_details on a subscription; sending anything else 400s the update.
+export const CANCELLATION_FEEDBACK_VALUES: readonly string[] =
+  Object.keys(CANCELLATION_FEEDBACK_LABELS);
+
+// STRICT validation of an inbound feedback token (from the in-app reason picker)
+// against Stripe's fixed enum. Returns the token when it's one of the known
+// values, else null — so a malformed/absent reason is simply dropped (the cancel
+// still proceeds) instead of being forwarded to Stripe as an invalid enum. This
+// differs from the lenient internal normalizeFeedback() below, which accepts any
+// [a-z_]+ token when PARSING a value Stripe already stored.
+export function validateCancelFeedback(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  return CANCELLATION_FEEDBACK_VALUES.includes(value) ? value : null;
+}
+
 export function cancellationFeedbackLabel(feedback: string | null | undefined): string {
   if (!feedback || feedback === NO_FEEDBACK) return 'No reason given';
   const known = CANCELLATION_FEEDBACK_LABELS[feedback];

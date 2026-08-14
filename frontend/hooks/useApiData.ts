@@ -7,6 +7,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { GEXHistoricalContext } from '@/core/types';
+import { isFresherServerTs } from '@/core/liveQuoteOrdering';
 export type {
   GEXHistoricalContext,
   GEXHistoricalMetric,
@@ -733,6 +734,13 @@ interface MarketQuoteCacheEntry {
   pollTimer: ReturnType<typeof setInterval> | null;
   pollIntervalMs: number;
   inflight: AbortController | null;
+  // server_ts of the newest WebSocket tick applied to `data`. Guards against
+  // out-of-order / duplicate frames overwriting a fresher price (see
+  // core/liveQuoteOrdering.ts). null = no tick applied in the current
+  // connection epoch; the next tick re-baselines it. Only the WS path reads
+  // and writes this — the HTTP poll reads the same primary and can only carry
+  // an equal-or-newer close, so it never needs to advance the epoch.
+  lastLiveServerTs: number | null;
 }
 
 const marketQuoteCache = new Map<string, MarketQuoteCacheEntry>();
@@ -751,6 +759,7 @@ function getOrCreateMarketQuoteEntry(symbol: string): MarketQuoteCacheEntry {
       pollTimer: null,
       pollIntervalMs: 0,
       inflight: null,
+      lastLiveServerTs: null,
     };
     marketQuoteCache.set(symbol, entry);
   }
@@ -896,6 +905,21 @@ export function setLiveStreamActive(active: boolean): void {
 }
 
 /**
+ * Clear the per-symbol WS ordering baseline. Called by quoteStream on every
+ * socket (re)open so each connection starts a fresh ordering epoch: the first
+ * frame per symbol is adopted unconditionally, then strict-monotonic from
+ * there. Without this, reconnecting to a differently-clocked API worker whose
+ * server_ts sits behind the last epoch's could drop every frame until its
+ * wall clock caught up — a transient freeze. Resetting also correctly drops
+ * the subscribe-snapshot when a fresher tick has already landed after it.
+ */
+export function resetLiveQuoteOrdering(): void {
+  marketQuoteCache.forEach((entry) => {
+    entry.lastLiveServerTs = null;
+  });
+}
+
+/**
  * Fold a WebSocket-delivered tick into the shared cache. Called by
  * the quoteStream singleton on every 'quote' frame. Fans out to every
  * subscriber via the same listeners.forEach() the HTTP poll uses — so
@@ -931,10 +955,29 @@ export type LiveQuoteIncoming = {
   up_volume?: number | null;
   down_volume?: number | null;
   session?: string | null;
+  // Server-side emission stamp (QuoteBroadcaster._fanout: time.time()). The
+  // monotonic ordering key used to reject reordered / duplicate frames.
+  server_ts?: number | null;
 };
 
 export function applyLiveQuote(symbol: string, incoming: LiveQuoteIncoming): void {
   const entry = getOrCreateMarketQuoteEntry(symbol);
+
+  // Out-of-order / duplicate guard. WS frames can arrive out of order — the
+  // server fans each tick out on its own task, and replays a staler snapshot
+  // on every (re)subscribe — so applying whatever lands last would rewind the
+  // tip candle a step and then jump it forward on the next in-order frame
+  // (the "quotes jumping" bug). Drop any frame that isn't strictly newer than
+  // the last one we applied for this symbol. See core/liveQuoteOrdering.ts.
+  const incomingServerTs =
+    typeof incoming.server_ts === 'number' ? incoming.server_ts : null;
+  if (!isFresherServerTs(entry.lastLiveServerTs, incomingServerTs)) {
+    // The frame still proves the socket is delivering — keep the symbol on the
+    // live heartbeat — we just don't apply its stale payload.
+    markSymbolWsLive(symbol);
+    return;
+  }
+
   const prev = entry.data;
   const pickNumber = (
     inc: number | null | undefined,
@@ -963,6 +1006,10 @@ export function applyLiveQuote(symbol: string, incoming: LiveQuoteIncoming): voi
     session: pickNullable(incoming.session, prev?.session),
   };
   entry.data = merged;
+  // Advance the ordering baseline so any later-arriving older frame is
+  // rejected. Left untouched when the frame carried no stamp (isFresherServerTs
+  // already let it through under last-writer-wins).
+  if (incomingServerTs !== null) entry.lastLiveServerTs = incomingServerTs;
   entry.loading = false;
   entry.error = null;
   entry.hasFetched = true;

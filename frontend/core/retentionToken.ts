@@ -31,3 +31,25 @@ export function buildSaveUrl(appUrl: string, userId: string): string {
   const base = appUrl.replace(/\/+$/, '');
   return `${base}/save?u=${encodeURIComponent(userId)}&t=${saveToken(userId)}`;
 }
+
+// Signed, stateless retention-CONVERT tokens — the pre-trial-end sibling of the
+// save token. The ~48h trial-reminder email carries a one-click "lock in your
+// discount and keep going" link that the /convert route honors, so a trialing
+// member can claim the offer without a DB lookup and nobody can forge a claim for
+// another account. Namespaced ('convert:v1') so it can't collide with the save or
+// unsubscribe tokens — a valid save token is NOT a valid convert token.
+export function convertToken(userId: string): string {
+  return createHmac('sha256', secret()).update(`convert:v1:${userId}`).digest('base64url');
+}
+
+export function verifyConvertToken(userId: string, token: string): boolean {
+  if (!userId || !token) return false;
+  const expected = Buffer.from(convertToken(userId));
+  const given = Buffer.from(token);
+  return expected.length === given.length && timingSafeEqual(expected, given);
+}
+
+export function buildConvertUrl(appUrl: string, userId: string): string {
+  const base = appUrl.replace(/\/+$/, '');
+  return `${base}/convert?u=${encodeURIComponent(userId)}&t=${convertToken(userId)}`;
+}

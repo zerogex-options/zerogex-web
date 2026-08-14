@@ -6,6 +6,12 @@ import { REGIME_BANDS, classifyRegime } from '@/core/regime';
 interface CompositeGaugeProps {
   score: number | null;
   size?: number;
+  /**
+   * Overrides the color of the score readout, needle, and regime label. Used
+   * to tint them by implied *direction* (bull/bear/neutral) while the arc
+   * segments keep their regime colors. Falls back to the regime color.
+   */
+  accentColor?: string | null;
 }
 
 const START_ANGLE = 135;
@@ -19,7 +25,7 @@ const TICKS = [
   { value: 100, bold: false },
 ];
 
-function CompositeGaugeImpl({ score, size = 320 }: CompositeGaugeProps) {
+function CompositeGaugeImpl({ score, size = 320, accentColor }: CompositeGaugeProps) {
   const strokeWidth = Math.max(16, Math.round(size * 0.06));
   const tickPadding = 22;
   const radius = size / 2 - strokeWidth / 2 - tickPadding;
@@ -30,6 +36,9 @@ function CompositeGaugeImpl({ score, size = 320 }: CompositeGaugeProps) {
     ? Math.max(0, Math.min(100, score))
     : null;
   const regime = classifyRegime(safeScore);
+  // The readout / needle / label tint by implied direction when a caller
+  // supplies an accent; the arc segments always stay regime-colored.
+  const accent = accentColor ?? regime.color;
 
   const targetAngle = safeScore != null
     ? START_ANGLE + (safeScore / 100) * SWEEP
@@ -178,26 +187,26 @@ function CompositeGaugeImpl({ score, size = 320 }: CompositeGaugeProps) {
               y1={needleInner.y}
               x2={needleOuter.x}
               y2={needleOuter.y}
-              stroke={regime.color}
+              stroke={accent}
               strokeWidth={pulse ? 5 : 3}
               strokeLinecap="round"
               style={{ transition: 'stroke-width 250ms ease-out' }}
             />
             <circle cx={cx} cy={cy} r={8} fill="var(--color-text-primary)" />
-            <circle cx={cx} cy={cy} r={3} fill={regime.color} />
+            <circle cx={cx} cy={cy} r={3} fill={accent} />
           </g>
         )}
       </svg>
       <div className="text-center -mt-6">
         <div
           className="text-[56px] font-black leading-none"
-          style={{ color: regime.color, fontVariantNumeric: 'tabular-nums', fontFamily: 'var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)' }}
+          style={{ color: accent, fontVariantNumeric: 'tabular-nums', fontFamily: 'var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)' }}
         >
           {safeScore != null ? safeScore.toFixed(2) : '—'}
         </div>
         <div
           className="mt-2 inline-flex items-center gap-1.5 text-[18px] font-semibold"
-          style={{ color: regime.color }}
+          style={{ color: accent }}
         >
           <span aria-hidden>{regime.glyph}</span>
           <span>{regime.label}</span>

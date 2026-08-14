@@ -1,25 +1,15 @@
 'use client';
 
-import { SignalTrend } from '@/core/signalHelpers';
-
 // The signed bias on one scale: -100 (bearish, left) → 0 (neutral, center) →
 // +100 (bullish, right). A single number instead of six labels; the marker
-// position and its color carry the read.
+// position carries the read, tinted with the theme accent.
 export default function BiasTape({
   biasScore,
-  trend,
 }: {
   biasScore: number | null;
-  trend: SignalTrend;
 }) {
   const clamped = biasScore == null ? null : Math.max(-100, Math.min(100, biasScore));
   const leftPct = clamped == null ? 50 : ((clamped + 100) / 200) * 100;
-  const markerColor =
-    trend === 'bullish'
-      ? 'var(--color-bull)'
-      : trend === 'bearish'
-        ? 'var(--color-bear)'
-        : 'var(--color-warning)';
 
   return (
     <div className="w-full">
@@ -37,11 +27,6 @@ export default function BiasTape({
             : `Bias ${clamped >= 0 ? '+' : ''}${clamped.toFixed(0)} of 100`
         }
       >
-        {/* center (neutral) line */}
-        <div
-          className="absolute top-0 bottom-0"
-          style={{ left: '50%', width: 1, background: 'color-mix(in srgb, var(--color-text-primary) 40%, transparent)' }}
-        />
         {clamped != null && (
           <div
             className="absolute -top-0.5 -bottom-0.5 rounded"
@@ -49,7 +34,7 @@ export default function BiasTape({
               left: `${leftPct}%`,
               width: 3,
               transform: 'translateX(-50%)',
-              background: markerColor,
+              background: 'var(--color-accent-hot)',
               boxShadow: '0 0 0 3px var(--color-surface)',
               transition: 'left 400ms ease-out',
             }}

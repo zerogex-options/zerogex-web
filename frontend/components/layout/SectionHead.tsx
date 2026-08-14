@@ -17,6 +17,7 @@ export default function SectionHead({
   actions,
   align = 'left',
   className = '',
+  titleClassName = 'zg-h2',
 }: {
   eyebrow?: ReactNode;
   title: ReactNode;
@@ -25,6 +26,12 @@ export default function SectionHead({
   actions?: ReactNode;
   align?: 'left' | 'center';
   className?: string;
+  /**
+   * Type scale for the title element. Defaults to the `zg-h2` subsection
+   * scale; pass `zg-h3` (the design system's dedicated chart-title scale) for
+   * compact chart cards that want a smaller heading.
+   */
+  titleClassName?: string;
 }) {
   const centered = align === 'center';
   return (
@@ -40,7 +47,7 @@ export default function SectionHead({
             </div>
           ) : null}
           <div className={`flex items-center gap-2 ${centered ? 'justify-center' : ''}`}>
-            <h2 className="zg-h2">{title}</h2>
+            <h2 className={titleClassName}>{title}</h2>
             {tooltip ? (
               <TooltipWrapper text={tooltip}>
                 <Info size={14} />

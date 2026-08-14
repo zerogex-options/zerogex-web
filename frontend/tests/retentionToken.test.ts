@@ -6,7 +6,8 @@ import assert from 'node:assert/strict';
 // here makes the HMAC deterministic.
 process.env.ZEROGEX_END_USER_TOKEN_SECRET = 'test-secret-fixed';
 
-const { saveToken, verifySaveToken, buildSaveUrl } = await import('../core/retentionToken.ts');
+const { saveToken, verifySaveToken, buildSaveUrl, convertToken, verifyConvertToken, buildConvertUrl } =
+  await import('../core/retentionToken.ts');
 const { unsubToken } = await import('../core/unsubToken.ts');
 
 // The save token gates a one-click discount + un-cancel, so its verification is
@@ -44,4 +45,29 @@ test('buildSaveUrl embeds the user id and a matching token', () => {
   const t = new URL(url).searchParams.get('t');
   assert.ok(t);
   assert.equal(verifySaveToken('user_123', t), true);
+});
+
+test('the convert token verifies for its own user and not others', () => {
+  const t = convertToken('user_123');
+  assert.equal(verifyConvertToken('user_123', t), true);
+  assert.equal(verifyConvertToken('user_456', t), false);
+  assert.equal(verifyConvertToken('user_123', 'nope'), false);
+});
+
+test('save and convert tokens are namespaced apart (neither passes the other)', () => {
+  const uid = 'user_123';
+  assert.notEqual(saveToken(uid), convertToken(uid));
+  // A save link must not be replayable to claim a conversion discount, or vice-versa.
+  assert.equal(verifyConvertToken(uid, saveToken(uid)), false);
+  assert.equal(verifySaveToken(uid, convertToken(uid)), false);
+  // And neither collides with the widely-distributed unsubscribe token.
+  assert.equal(verifyConvertToken(uid, unsubToken(uid)), false);
+});
+
+test('buildConvertUrl embeds the user id and a matching token', () => {
+  const url = buildConvertUrl('https://zerogex.io/', 'user_123');
+  assert.match(url, /^https:\/\/zerogex\.io\/convert\?u=user_123&t=/);
+  const t = new URL(url).searchParams.get('t');
+  assert.ok(t);
+  assert.equal(verifyConvertToken('user_123', t), true);
 });

@@ -1356,13 +1356,14 @@ export default function FlowAnalysisPage() {
       <div className="rounded-lg p-6 h-full" style={{ backgroundColor: cardBg }}>
         <SectionHead
           title="Net Directional Premium"
+          titleClassName="zg-h3"
           tooltip="Running session total of net_premium aggregated across every contract (accumulated across 5-minute bars). Positive values indicate net bullish premium pressure, negative values indicate net bearish premium pressure."
         />
         {!hasDirectionalPremiumData ? (
           <div className="text-center py-8" style={{ color: mutedText }}>No net directional premium data available</div>
         ) : (
           <div className={isMobile ? "overflow-x-auto pb-2" : ""}>
-            <div style={{ width: isMobile ? 900 : "100%", minWidth: isMobile ? 900 : undefined, height: 320 }}>
+            <div style={{ width: isMobile ? 900 : "100%", minWidth: isMobile ? 900 : undefined, height: 288 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart
                   data={directionalPremiumSeries}
@@ -1464,13 +1465,14 @@ export default function FlowAnalysisPage() {
       <div className="rounded-lg p-6 h-full" style={{ backgroundColor: cardBg }}>
         <SectionHead
           title="Put/Call Ratio"
+          titleClassName="zg-h3"
           tooltip="Session-cumulative put volume ÷ session-cumulative call volume at each 5-minute bar. Sums total puts traded through the day over total calls traded up to that point, carrying forward contracts that stopped reporting in earlier bars."
         />
         {!hasRatioData ? (
           <div className="text-center py-8" style={{ color: mutedText }}>No put/call ratio data available</div>
         ) : (
           <div className={isMobile ? "overflow-x-auto pb-2" : ""}>
-            <div style={{ width: isMobile ? 900 : "100%", minWidth: isMobile ? 900 : undefined, height: 320 }}>
+            <div style={{ width: isMobile ? 900 : "100%", minWidth: isMobile ? 900 : undefined, height: 288 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart
                   data={putCallRatioSeries}
@@ -1575,13 +1577,14 @@ export default function FlowAnalysisPage() {
       <div className="rounded-lg p-6 h-full" style={{ backgroundColor: cardBg }}>
         <SectionHead
           title="Net Position (Buys vs. Sells)"
+          titleClassName="zg-h3"
           tooltip="Running session totals of net_volume per 5-minute bar, split by option_type. Positive values mean net buying pressure, negative values mean net selling pressure. The Put/Call Ratio above measures raw activity — this chart accounts for trade direction to distinguish buying from selling."
         />
         {!hasNetPositionData ? (
           <div className="text-center py-8" style={{ color: mutedText }}>No net position data available</div>
         ) : (
           <div className={isMobile ? "overflow-x-auto pb-2" : ""}>
-            <div style={{ width: isMobile ? 900 : "100%", minWidth: isMobile ? 900 : undefined, height: 320 }}>
+            <div style={{ width: isMobile ? 900 : "100%", minWidth: isMobile ? 900 : undefined, height: 288 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart
                   data={netPositionSeries}

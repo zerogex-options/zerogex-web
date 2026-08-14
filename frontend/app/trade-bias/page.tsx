@@ -199,7 +199,12 @@ function InputBar({ value }: { value: number | null }) {
 
 function InputsBreakdown({ payload }: { payload: TradeBiasPayload }) {
   const structural = BIAS_INPUT_KEYS.filter((k) => BIAS_INPUT_META[k].layer === 'structural');
-  const tactical = BIAS_INPUT_KEYS.filter((k) => BIAS_INPUT_META[k].layer === 'tactical');
+  // `tape_flow` is the exact same signal as the "Tape" pillar already shown in
+  // the Live read section above (the pillar is literally this input rescaled),
+  // so we omit it here rather than surface one number as two separate drivers.
+  const tactical = BIAS_INPUT_KEYS.filter(
+    (k) => BIAS_INPUT_META[k].layer === 'tactical' && k !== 'tape_flow',
+  );
 
   const Row = ({ k }: { k: (typeof BIAS_INPUT_KEYS)[number] }) => {
     const meta = BIAS_INPUT_META[k];
@@ -231,6 +236,9 @@ function InputsBreakdown({ payload }: { payload: TradeBiasPayload }) {
           Tactical · live read
         </div>
         {tactical.map((k) => <Row key={k} k={k} />)}
+        <p className="text-[11px] leading-snug text-[var(--color-text-secondary)] mt-1.5">
+          Tape Flow is shown as the <span className="font-medium text-[var(--color-text-primary)]">Tape</span> pillar in Live read above — the same signal, not a separate one.
+        </p>
       </div>
     </div>
   );
@@ -375,7 +383,7 @@ export default function TradeBiasPage() {
                     </span>
                   )}
                 </div>
-                <BiasTape biasScore={payload.biasScore} trend={trend} />
+                <BiasTape biasScore={payload.biasScore} />
                 <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
                   <div className="flex items-center gap-2">
                     <span className="text-[11px] uppercase tracking-[0.16em] text-[var(--color-text-secondary)]">Direction</span>

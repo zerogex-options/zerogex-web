@@ -533,6 +533,11 @@ export type TrialReminderEmailOptions = {
     // isn't a card.
     cardLast4?: string | null;
   } | null;
+  // A signed one-click "lock in <pct>% off and keep going" link (buildConvertUrl),
+  // when the cron could mint one (ZEROGEX_END_USER_TOKEN_SECRET set). Present it
+  // and the reminder becomes a conversion push with the incentive CTA; omit/null
+  // and it's the plain courtesy reminder, unchanged.
+  convertOfferUrl?: string | null;
 };
 
 // Pure builder for the ~48h trial-end reminder: assembles subject + HTML + text
@@ -590,6 +595,24 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
     ? `Your subscription will begin at <strong>${escapeHtml(billing.chargeLabel)}</strong> using ${cardHtmlPhrase}. Please make sure your payment method is ready, or <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">update it here</a>.`
     : null;
 
+  // Pre-trial-end CONVERSION incentive — present only when the cron minted a
+  // signed /convert link. Mirrors SAVE_PERCENT in core/retentionOffer.ts (kept
+  // local so this presenter stays free of the Stripe-importing module).
+  const CONVERT_OFFER_PERCENT = 25;
+  const convertOfferText = opts.convertOfferUrl
+    ? [
+        `By now you've had the full board — Today's Read, the GEX strike profile, the gamma flip, and the call/put walls across SPY, SPX, QQQ and NDX. If it's earned a spot in your routine, you can lock in ${CONVERT_OFFER_PERCENT}% off for a full year before your trial ends:`,
+        opts.convertOfferUrl,
+        '',
+      ]
+    : [];
+  const convertOfferHtml = opts.convertOfferUrl
+    ? `<p>By now you've had the full board &mdash; Today's Read, the GEX strike profile, the gamma flip, and the call/put walls across SPY, SPX, QQQ and NDX. If it's earned a spot in your routine, you can <strong>lock in ${CONVERT_OFFER_PERCENT}% off for a full year</strong> before your trial ends.</p>
+      <p style="margin: 20px 0;">
+        <a href="${escapeHtml(opts.convertOfferUrl)}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 700; text-decoration: none; border-radius: 8px;">Lock in ${CONVERT_OFFER_PERCENT}% off &amp; keep my access</a>
+      </p>`
+    : '';
+
   const text = [
     'Hello,',
     '',
@@ -597,6 +620,7 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
     '',
     ...(billingLineText ? [billingLineText, ''] : []),
     ...(promoLineText ? [promoLineText, ''] : []),
+    ...convertOfferText,
     "If ZeroGEX is working for you, there's nothing you need to do — you'll keep full access and the renewal will go through automatically.",
     '',
     `If it isn't the right fit, you can cancel anytime from the billing portal on your account page (${accountUrl}) and you won't be charged a cent.`,
@@ -614,6 +638,7 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
       <p>A quick heads-up: your ZeroGEX free trial ends on <strong>${escapeHtml(trialEndDate)}</strong>, and your first payment will be charged then unless you cancel before that.</p>
       ${billingLineHtml ? `<p>${billingLineHtml}</p>` : ''}
       ${promoLineHtml ? `<p>${promoLineHtml}</p>` : ''}
+      ${convertOfferHtml}
       <p>If ZeroGEX is working for you, there's nothing you need to do &mdash; you'll keep full access and the renewal will go through automatically.</p>
       <p>If it isn't the right fit, you can cancel anytime from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> and you won't be charged a cent.</p>
       <p style="margin: 24px 0;">
@@ -1080,6 +1105,91 @@ export async function sendWelcomeBackEmail(to: string) {
 // the caller can't resolve them, so the email always sends. Points the customer
 // at the billing portal — logging in is the access path, since the portal
 // session is created server-side against their authenticated account.
+export type CardExpiringEmailOptions = {
+  // Display-ready brand ("Visa"), already normalized by the caller; null for a
+  // wallet/unmapped method → neutral phrasing.
+  cardBrand?: string | null;
+  // Last four of the card on file, e.g. "4242".
+  cardLast4: string;
+  // "MM/YYYY" the card expires, e.g. "09/2026".
+  expiryLabel: string;
+};
+
+// PROACTIVE card-expiry nudge — emailed by scripts/send-card-expiry-reminders.mts
+// to an ACTIVE subscriber whose card on file expires within ~45 days, so they can
+// update it BEFORE a renewal is declined into past_due. Friendly and low-urgency
+// (nothing has failed yet), but names the exact card + expiry and drives a
+// one-click card update. No FOH footer (transactional, like the dunning family).
+// Split into a pure builder so a preview renders the exact wire copy.
+export function buildCardExpiringEmail(opts: CardExpiringEmailOptions): {
+  subject: string;
+  html: string;
+  text: string;
+} {
+  const accountUrl = `${getAppUrl()}/account`;
+  const safeAccountUrl = escapeHtml(accountUrl);
+  const subject = 'Heads-up: your card on file expires soon';
+
+  const cardPhrase = opts.cardBrand
+    ? `your ${opts.cardBrand} card ending in ${opts.cardLast4}`
+    : `the card ending in ${opts.cardLast4}`;
+  const cardPhraseHtml = opts.cardBrand
+    ? `your ${escapeHtml(opts.cardBrand)} card ending in <strong>${escapeHtml(opts.cardLast4)}</strong>`
+    : `the card ending in <strong>${escapeHtml(opts.cardLast4)}</strong>`;
+
+  const lead = `Just a friendly heads-up: ${cardPhrase} — the one on file for your ZeroGEX subscription — expires ${opts.expiryLabel}. Once it lapses, your next renewal could be declined and your access would pause until you update it.`;
+  const leadHtml = `Just a friendly heads-up: ${cardPhraseHtml} — the one on file for your ZeroGEX subscription — expires <strong>${escapeHtml(opts.expiryLabel)}</strong>. Once it lapses, your next renewal could be declined and your access would pause until you update it.`;
+  const fix =
+    'Updating it takes about a minute from your account page and keeps everything running without a hitch — nothing else changes.';
+
+  const text = [
+    'Hello,',
+    '',
+    lead,
+    '',
+    fix,
+    '',
+    accountUrl,
+    '',
+    "If you've already updated your card (or your bank has issued a replacement Stripe can pick up automatically), you can ignore this. Any questions, just reply — I'm happy to help.",
+    '',
+    'Best,',
+    'Michael',
+    'Founder, ZeroGEX',
+  ].join('\n');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <p>Hello,</p>
+      <p>${leadHtml}</p>
+      <p>${escapeHtml(fix)}</p>
+      <p style="margin: 24px 0;">
+        <a href="${safeAccountUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Update your card</a>
+      </p>
+      <p>If you've already updated your card (or your bank has issued a replacement Stripe can pick up automatically), you can ignore this. Any questions, just reply &mdash; I'm happy to help.</p>
+      <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+    </div>
+  `.trim();
+
+  return { subject, html, text };
+}
+
+// Thin sender over buildCardExpiringEmail so preview and production never drift.
+export async function sendCardExpiringEmail(to: string, opts: CardExpiringEmailOptions) {
+  const { subject, html, text } = buildCardExpiringEmail(opts);
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject,
+    text,
+    html,
+  });
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
 export async function sendPaymentFailedEmail(
   to: string,
   opts?: {
@@ -1169,6 +1279,100 @@ export async function sendPaymentFailedEmail(
       </p>
       <p>If it was just a temporary hiccup (insufficient funds, an expired or replaced card), the next retry may clear it with nothing needed from you.</p>
       <p>And if you have any questions, just reply to this email &mdash; I'm happy to help.</p>
+      <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+    </div>
+  `.trim();
+
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject,
+    text,
+    html,
+  });
+
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
+// Dunning for a TRIAL-CONVERSION failure: the first charge, when a free trial
+// ends, was declined. A trialer never actually "subscribed", so the renewal-
+// framed sendPaymentFailedEmail copy ("your subscription payment was declined")
+// reads wrong to them and can even suggest a charge they didn't authorize. This
+// speaks to a NEW customer keeping the access they've just been trying — same
+// enrichments (named card, grace deadline, next retry) but welcoming, not lapse-
+// framed. No FOH footer: urgent/transactional like its renewal sibling. The
+// webhook chooses between the two via core/trialDunning isTrialConversionFailure.
+export async function sendTrialConversionFailedEmail(
+  to: string,
+  opts?: {
+    amountFormatted?: string | null;
+    cardBrand?: string | null;
+    cardLast4?: string | null;
+    nextAttemptIso?: string | null;
+    graceUntilIso?: string | null;
+  },
+) {
+  const subject = 'Your ZeroGEX trial ended — a quick card fix to keep your access';
+  const accountUrl = `${getAppUrl()}/account`;
+  const safeAccountUrl = escapeHtml(accountUrl);
+
+  const cardPhrase = opts?.cardLast4
+    ? opts.cardBrand
+      ? `your ${opts.cardBrand} card ending in ${opts.cardLast4}`
+      : `the card ending in ${opts.cardLast4}`
+    : null;
+
+  // Trial-framed opener: they were on a free trial, so this is the FIRST charge —
+  // not a renewal of something they already pay for.
+  const declineSentence = opts?.amountFormatted
+    ? cardPhrase
+      ? `Your free trial just wrapped up and I went to start your subscription (${opts.amountFormatted}) — but ${cardPhrase} was declined, so the first charge didn't go through.`
+      : `Your free trial just wrapped up and I went to start your subscription (${opts.amountFormatted}) — but your card was declined, so the first charge didn't go through.`
+    : cardPhrase
+      ? `Your free trial just wrapped up and I went to start your subscription — but ${cardPhrase} was declined, so the first charge didn't go through.`
+      : `Your free trial just wrapped up and I went to start your subscription — but your card was declined, so the first charge didn't go through.`;
+
+  // Access wording: if a trial-grace window is open (BILLING_TRIAL_GRACE_ENABLED),
+  // access is held through it; otherwise stay tense-neutral (the account may have
+  // dropped to Public, and re-grants automatically the moment a charge clears).
+  const accessSentence = opts?.graceUntilIso
+    ? `Good news: your full access stays on through ${formatTrialEndDate(opts.graceUntilIso)}, so nothing changes right now. Update your card before then and you won't miss a beat — if a charge still can't be collected, the account moves to the free Public tier, and full access switches back on automatically the moment one succeeds.`
+    : `Updating your card is the fastest way to keep your access going — and if the account has already dropped to the free Public tier, full access switches back on automatically the moment a charge succeeds.`;
+
+  const retrySentence = opts?.nextAttemptIso
+    ? `Stripe will automatically try the card again on ${formatTrialEndDate(opts.nextAttemptIso)}, so an expired-or-replaced card or a momentary insufficient-funds hold may simply clear on its own.`
+    : `Stripe has made its final automatic attempt, so updating your card now is the way to pick your subscription back up.`;
+
+  const text = [
+    'Hello,',
+    '',
+    `${declineSentence} ${accessSentence}`,
+    '',
+    retrySentence,
+    '',
+    'You can update your card in about a minute from your account page:',
+    accountUrl,
+    '',
+    "If ZeroGEX earned a spot in your routine this week, that's all it takes to keep it. And if something's holding you back, just reply to this email — I read every one and I'm happy to help.",
+    '',
+    'Best,',
+    'Michael',
+    'Founder, ZeroGEX',
+  ].join('\n');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <p>Hello,</p>
+      <p>${escapeHtml(declineSentence)} ${escapeHtml(accessSentence)}</p>
+      <p>${escapeHtml(retrySentence)}</p>
+      <p>You can update your card in about a minute from your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a>.</p>
+      <p style="margin: 24px 0;">
+        <a href="${safeAccountUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Update your card</a>
+      </p>
+      <p>If ZeroGEX earned a spot in your routine this week, that&rsquo;s all it takes to keep it. And if something&rsquo;s holding you back, just reply to this email &mdash; I read every one and I&rsquo;m happy to help.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
     </div>
   `.trim();
