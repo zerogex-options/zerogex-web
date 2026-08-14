@@ -43,7 +43,8 @@
     "test:strike-filter": "node --experimental-strip-types --test tests/strikeFilter.test.ts",
     "test:pin-strike": "node --experimental-strip-types --test tests/pinStrike.test.ts",
     "test:gex-strike-charts": "node --experimental-strip-types --test tests/gexStrikeCharts.test.ts",
-    "test:gamma-regime": "node --experimental-strip-types --test tests/gammaRegime.test.ts"
+    "test:gamma-regime": "node --experimental-strip-types --test tests/gammaRegime.test.ts",
+    "test:forced-flow-read": "node --experimental-strip-types --test tests/forcedFlowSessionRead.test.ts"
   },
   "dependencies": {
     "jose": "^5.9.6",

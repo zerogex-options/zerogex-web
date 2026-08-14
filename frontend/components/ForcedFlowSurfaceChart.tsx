@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTheme } from '@/core/ThemeContext';
 import { useChartTheme } from '@/hooks/useChartTheme';
 import { useForcedFlowSessionSurface } from '@/hooks/useApiData';
+import { computeForcedFlowSessionRead } from '@/core/forcedFlowSessionRead';
 import ChartCaption from './ChartCaption';
 
 interface ForcedFlowSurfaceChartProps {
@@ -25,6 +26,13 @@ const CHART_H = 560; // taller than the old 440 so price (now on y) has room
 // Zoom floor: never let a visible axis shrink below this fraction of its full
 // data span (prevents zooming into a sliver of one cell).
 const MIN_SPAN_FRAC = 0.06;
+
+// Default price-axis framing on first paint / reset: a tight ±band around spot,
+// so the magnet's small lean off spot and the near-spot colour gradient are
+// visible instead of squashed against a scale the 0DTE wings set. The wings are
+// still one zoom-out away. Only the VIEW is tightened — the underlying grid
+// keeps its full span, so nothing is thrown away.
+const DEFAULT_ZOOM_PCT = 0.006;
 
 type RGB = { r: number; g: number; b: number };
 type View = { pMin: number; pMax: number; tMin: number; tMax: number };
@@ -90,6 +98,14 @@ function formatCompactUsd(value: number): string {
 function formatPrice(value: number): string {
   if (!Number.isFinite(value)) return '';
   return value.toFixed(value >= 1000 ? 0 : 2);
+}
+
+// A signed percentage for the read-out chips (the number carries its own minus,
+// so only the plus is prepended).
+function formatSignedPct(frac: number | null): string {
+  if (frac == null || !Number.isFinite(frac)) return '';
+  const pct = (frac * 100).toFixed(2);
+  return `${frac > 0 ? '+' : ''}${pct}%`;
 }
 
 // A price tick label whose decimals track the tick step, so a zoomed-in axis
@@ -256,9 +272,26 @@ export default function ForcedFlowSurfaceChart({
     return Math.max(1, percentileAbs(flat, CLIP_PERCENTILE));
   }, [surface]);
 
+  // The interpretation layer: where the field points (now-lean + projected close
+  // target) and how price has reacted to it so far this session (pin respect).
+  // Pure, off the same payload the heatmap draws — see core/forcedFlowSessionRead.
+  const read = useMemo(() => {
+    if (!hasData || !surface) return null;
+    return computeForcedFlowSessionRead({
+      spot: surface.spot,
+      columns: surface.columns,
+      now_index: surface.now_index,
+    });
+  }, [surface, hasData]);
+
   // --- Viewport + gesture state (refs, so handlers never fight React state) ---
-  const viewRef = useRef<View | null>(null); // null = full data bounds
+  const viewRef = useRef<View | null>(null); // null = auto (the default band)
   const boundsRef = useRef<View | null>(null);
+  // The view draw() actually resolved this frame (the explicit viewRef, or the
+  // default band when viewRef is null). Gestures anchor on THIS so the first
+  // zoom/pan out of the default framing starts from what's on screen, not the
+  // full data bounds.
+  const resolvedViewRef = useRef<View | null>(null);
   const zoomedRef = useRef(false);
   const drawRef = useRef<() => void>(() => {});
   const rafRef = useRef(0);
@@ -328,13 +361,25 @@ export default function ForcedFlowSurfaceChart({
     // [0, session_open]: 0 = the close, session_open = the open.
     const bounds: View = { pMin: prices[0], pMax: prices[T - 1], tMin: 0, tMax: sessionOpen };
     boundsRef.current = bounds;
+    // Default framing when the user hasn't zoomed (viewRef null): a tight ±band
+    // around spot on price, full session on time. Falls back to full bounds if
+    // spot is out of the grid or the band collapses.
+    const defaultBand = (): View => {
+      const s = surface.spot;
+      if (!(Number.isFinite(s) && s > 0)) return { ...bounds };
+      const lo = Math.max(bounds.pMin, s * (1 - DEFAULT_ZOOM_PCT));
+      const hi = Math.min(bounds.pMax, s * (1 + DEFAULT_ZOOM_PCT));
+      if (!(hi > lo)) return { ...bounds };
+      return { pMin: lo, pMax: hi, tMin: bounds.tMin, tMax: bounds.tMax };
+    };
     // Resolve + clamp the live view against the current data bounds (spot drifts
     // intraday, so an absolute-price window can fall slightly out of range).
-    let v = viewRef.current ?? { ...bounds };
+    let v = viewRef.current ?? defaultBand();
     const [cpMin, cpMax] = clampAxis(v.pMin, v.pMax, bounds.pMin, bounds.pMax);
     const [ctMin, ctMax] = clampAxis(v.tMin, v.tMax, bounds.tMin, bounds.tMax);
     v = { pMin: cpMin, pMax: cpMax, tMin: ctMin, tMax: ctMax };
     if (viewRef.current) viewRef.current = v;
+    resolvedViewRef.current = v; // what gestures anchor on (see viewOrBounds)
     const { pMin, pMax, tMin, tMax } = v;
 
     const dpr = window.devicePixelRatio || 1;
@@ -699,7 +744,10 @@ export default function ForcedFlowSurfaceChart({
   }, [plotMetrics]);
 
   const viewOrBounds = useCallback(
-    (): View => viewRef.current ?? boundsRef.current ?? { pMin: 0, pMax: 1, tMin: 0, tMax: 1 },
+    (): View =>
+      viewRef.current ??
+      resolvedViewRef.current ??
+      boundsRef.current ?? { pMin: 0, pMax: 1, tMin: 0, tMax: 1 },
     [],
   );
 
@@ -917,6 +965,22 @@ export default function ForcedFlowSurfaceChart({
 
   const textColor = 'var(--text-primary)';
 
+  // --- Read-out display values (colours + short labels for the chips). The pin
+  // regime borrows the same semantics as "The Read": info-blue for a controlling
+  // pin (long-gamma-like), amber for price fighting the field (the hot regime),
+  // deliberately NOT red/green so it never reads as a buy/sell call. ---
+  const biasColor =
+    read?.biasDir === 'up' ? chart.bull : read?.biasDir === 'down' ? chart.bear : 'var(--text-secondary)';
+  const respectColor =
+    read?.regime === 'pinned'
+      ? chart.info
+      : read?.regime === 'fighting'
+        ? chart.warning
+        : 'var(--text-secondary)';
+  const biasArrow = read?.biasDir === 'up' ? '▲' : read?.biasDir === 'down' ? '▼' : '•';
+  const biasWord =
+    read?.biasDir === 'up' ? 'Up' : read?.biasDir === 'down' ? 'Down' : read?.biasDir === 'flat' ? 'Flat' : '—';
+
   return (
     <div
       className="rounded-2xl p-6"
@@ -926,7 +990,7 @@ export default function ForcedFlowSurfaceChart({
         <h3 className="zg-h3" style={{ color: textColor }}>
           Forced-Flow Field · Full Session
         </h3>
-        <TooltipWrapper text="The whole trading session's dealer forced-flow field — price on the vertical axis, time running left→right from the OPEN to the 4pm CLOSE. Colour is the TOTAL forced flow dealers must hedge at each spot: green = forced to BUY, red = forced to SELL. LEFT of the 'now' line is the ACTUAL field the session has already printed; RIGHT of it (shaded) is a PROJECTION into the close. The blue line is the magnet — the zero-flow pin price; the amber line is where price ACTUALLY went; the dashed line is the current spot. Scroll to zoom, drag to pan, drag an axis to stretch just that axis, pinch on touch, double-click to reset.">
+        <TooltipWrapper text="The whole trading session's dealer forced-flow field — price on the vertical axis, time running left→right from the OPEN to the 4pm CLOSE. Colour is the TOTAL forced flow dealers must hedge at each spot: green = forced to BUY, red = forced to SELL. LEFT of the 'now' line is the ACTUAL field the session has already printed; RIGHT of it (shaded) is a PROJECTION into the close. The blue line is the magnet — the zero-flow pin price; the amber line is where price ACTUALLY went; the dashed line is the current spot. It opens framed tight around spot (where the magnet's lean and the near-spot gradient are legible); zoom out to see the 0DTE wings. Scroll to zoom, drag to pan, drag an axis to stretch just that axis, pinch on touch, double-click to reset.">
           <Info size={14} />
         </TooltipWrapper>
         <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
@@ -949,8 +1013,62 @@ export default function ForcedFlowSurfaceChart({
         <span style={{ color: chart.bull, fontWeight: 600 }}>Green = dealers forced to BUY</span>,{' '}
         <span style={{ color: chart.bear, fontWeight: 600 }}>red = SELL</span>. Blue line = the magnet (zero-flow pin);{' '}
         <span style={{ color: chart.warning, fontWeight: 600 }}>amber = where price actually went</span>; dashed = spot.{' '}
-        <span style={{ color: 'var(--text-muted)' }}>Scroll / drag to zoom &amp; pan · drag an axis to stretch it · double-click to reset.</span>
+        <span style={{ color: 'var(--text-muted)' }}>Opens zoomed to spot — zoom out for the 0DTE wings · drag to pan · drag an axis to stretch it · double-click to reset.</span>
       </p>
+
+      {/* THE READ — the field's two answers: where it points (bias) and whether
+          price has obeyed it so far (pin respect). Computed off the same payload
+          the heatmap draws. */}
+      {read && (
+        <div
+          className="mb-4 rounded-xl p-3"
+          style={{ background: 'var(--bg-main)', border: '1px solid var(--border-default)' }}
+        >
+          <p className="text-[13px] leading-relaxed mb-2.5" style={{ color: 'var(--text-primary)' }}>
+            <span className="font-bold" style={{ color: biasColor }}>
+              {read.headline}.
+            </span>{' '}
+            {read.sentence}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <ReadChip label="Heading" value={`${biasArrow} ${biasWord}`} color={biasColor} />
+            <ReadChip
+              label="Into close"
+              value={
+                read.closeTarget != null
+                  ? `${formatPrice(read.closeTarget)}${
+                      read.closeTargetPct != null ? ` (${formatSignedPct(read.closeTargetPct)})` : ''
+                    }`
+                  : '—'
+              }
+              color={biasColor}
+              title="The field's projected close target — the zero-flow magnet extrapolated to the 4pm bell — and its distance from spot."
+            />
+            <ReadChip
+              label="Pin respect"
+              value={read.respectPct != null ? `${Math.round(read.respectPct * 100)}%` : '—'}
+              color={respectColor}
+              title={
+                read.totalSteps > 0
+                  ? `${read.obeyedSteps} of ${read.totalSteps} session moves ran toward the pin. High = price mean-reverts to the field; low = price is fighting it.`
+                  : 'Not enough session has printed to score how price is reacting to the field yet.'
+              }
+            />
+            {(read.gapTrend === 'converging' || read.gapTrend === 'diverging') && (
+              <ReadChip
+                label="Pin"
+                value={read.gapTrend === 'converging' ? 'tightening' : 'widening'}
+                color={read.gapTrend === 'converging' ? chart.info : chart.warning}
+                title={
+                  read.gapTrend === 'converging'
+                    ? 'The gap between price and the magnet has been shrinking through the session — a pin firming up into the close.'
+                    : 'The gap between price and the magnet has been widening — price is pulling away from the field, not toward it.'
+                }
+              />
+            )}
+          </div>
+        </div>
+      )}
 
       {error ? (
         <div className="flex items-center justify-center h-[360px] text-sm" style={{ color: chart.bear }}>
@@ -1017,5 +1135,37 @@ export default function ForcedFlowSurfaceChart({
       )}
       <ChartCaption />
     </div>
+  );
+}
+
+// A compact read-out chip: a muted label + a coloured value, with an optional
+// hover title carrying the fuller explanation so the strip stays terse.
+function ReadChip({
+  label,
+  value,
+  color,
+  title,
+}: {
+  label: string;
+  value: string;
+  color: string;
+  title?: string;
+}) {
+  return (
+    <span
+      className="inline-flex items-baseline gap-1.5 rounded-lg px-2.5 py-1"
+      style={{ background: 'var(--bg-card)', border: '1px solid var(--border-default)' }}
+      title={title}
+    >
+      <span
+        className="text-[10px] uppercase tracking-wider font-semibold"
+        style={{ color: 'var(--text-muted)' }}
+      >
+        {label}
+      </span>
+      <span className="text-xs font-mono font-bold" style={{ color }}>
+        {value}
+      </span>
+    </span>
   );
 }
