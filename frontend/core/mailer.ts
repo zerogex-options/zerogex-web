@@ -533,6 +533,11 @@ export type TrialReminderEmailOptions = {
     // isn't a card.
     cardLast4?: string | null;
   } | null;
+  // A signed one-click "lock in <pct>% off and keep going" link (buildConvertUrl),
+  // when the cron could mint one (ZEROGEX_END_USER_TOKEN_SECRET set). Present it
+  // and the reminder becomes a conversion push with the incentive CTA; omit/null
+  // and it's the plain courtesy reminder, unchanged.
+  convertOfferUrl?: string | null;
 };
 
 // Pure builder for the ~48h trial-end reminder: assembles subject + HTML + text
@@ -590,6 +595,24 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
     ? `Your subscription will begin at <strong>${escapeHtml(billing.chargeLabel)}</strong> using ${cardHtmlPhrase}. Please make sure your payment method is ready, or <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">update it here</a>.`
     : null;
 
+  // Pre-trial-end CONVERSION incentive — present only when the cron minted a
+  // signed /convert link. Mirrors SAVE_PERCENT in core/retentionOffer.ts (kept
+  // local so this presenter stays free of the Stripe-importing module).
+  const CONVERT_OFFER_PERCENT = 25;
+  const convertOfferText = opts.convertOfferUrl
+    ? [
+        `By now you've had the full board — Today's Read, the GEX strike profile, the gamma flip, and the call/put walls across SPY, SPX, QQQ and NDX. If it's earned a spot in your routine, you can lock in ${CONVERT_OFFER_PERCENT}% off for a full year before your trial ends:`,
+        opts.convertOfferUrl,
+        '',
+      ]
+    : [];
+  const convertOfferHtml = opts.convertOfferUrl
+    ? `<p>By now you've had the full board &mdash; Today's Read, the GEX strike profile, the gamma flip, and the call/put walls across SPY, SPX, QQQ and NDX. If it's earned a spot in your routine, you can <strong>lock in ${CONVERT_OFFER_PERCENT}% off for a full year</strong> before your trial ends.</p>
+      <p style="margin: 20px 0;">
+        <a href="${escapeHtml(opts.convertOfferUrl)}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 700; text-decoration: none; border-radius: 8px;">Lock in ${CONVERT_OFFER_PERCENT}% off &amp; keep my access</a>
+      </p>`
+    : '';
+
   const text = [
     'Hello,',
     '',
@@ -597,6 +620,7 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
     '',
     ...(billingLineText ? [billingLineText, ''] : []),
     ...(promoLineText ? [promoLineText, ''] : []),
+    ...convertOfferText,
     "If ZeroGEX is working for you, there's nothing you need to do — you'll keep full access and the renewal will go through automatically.",
     '',
     `If it isn't the right fit, you can cancel anytime from the billing portal on your account page (${accountUrl}) and you won't be charged a cent.`,
@@ -614,6 +638,7 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
       <p>A quick heads-up: your ZeroGEX free trial ends on <strong>${escapeHtml(trialEndDate)}</strong>, and your first payment will be charged then unless you cancel before that.</p>
       ${billingLineHtml ? `<p>${billingLineHtml}</p>` : ''}
       ${promoLineHtml ? `<p>${promoLineHtml}</p>` : ''}
+      ${convertOfferHtml}
       <p>If ZeroGEX is working for you, there's nothing you need to do &mdash; you'll keep full access and the renewal will go through automatically.</p>
       <p>If it isn't the right fit, you can cancel anytime from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> and you won't be charged a cent.</p>
       <p style="margin: 24px 0;">
