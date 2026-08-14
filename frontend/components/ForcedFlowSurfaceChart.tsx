@@ -34,6 +34,12 @@ const MIN_SPAN_FRAC = 0.06;
 // keeps its full span, so nothing is thrown away.
 const DEFAULT_ZOOM_PCT = 0.006;
 
+// The heatmap is sampled into an offscreen buffer at most this size, then
+// GPU-smoothed up to the plot. Big enough to look smooth once upscaled, capped
+// so a pinch/pan redraw stays cheap (the buffer is refilled per frame).
+const HEATMAP_MAX_OFF_W = 420;
+const HEATMAP_MAX_OFF_H = 320;
+
 type RGB = { r: number; g: number; b: number };
 type View = { pMin: number; pMax: number; tMin: number; tMax: number };
 
@@ -295,6 +301,8 @@ export default function ForcedFlowSurfaceChart({
   const zoomedRef = useRef(false);
   const drawRef = useRef<() => void>(() => {});
   const rafRef = useRef(0);
+  // Reused offscreen canvas the interpolated heatmap is sampled into each frame.
+  const offscreenRef = useRef<HTMLCanvasElement | null>(null);
   const pointers = useRef<Map<number, { x: number; y: number }>>(new Map());
   const gesture = useRef<{
     mode: 'none' | 'pan' | 'scaleX' | 'scaleY' | 'pinch';
@@ -411,50 +419,113 @@ export default function ForcedFlowSurfaceChart({
     const xForTime = (t: number) => PAD_L + plotW * ((tMax - t) / tSpan);
     const yForPrice = (p: number) => PAD_T + plotH * ((pMax - p) / pSpan);
 
-    // Shared vertical price-cell boundaries (midpoints between adjacent prices),
-    // so the heatmap tiles with no seams. Price grid is ascending.
-    const priceEdge = (i: number): number => {
-      if (i <= 0) return prices[0] - (prices[1] - prices[0]) / 2;
-      if (i >= T) return prices[T - 1] + (prices[T - 1] - prices[T - 2]) / 2;
-      return (prices[i - 1] + prices[i]) / 2;
-    };
+    // --- Heatmap: the TOTAL forced-flow field (green = dealers BUY, red = SELL),
+    // BILINEARLY interpolated into an offscreen buffer and blitted GPU-smoothed
+    // into the plot, so the sparse ~41×40 grid reads as a smooth gradient rather
+    // than blocks — the near-spot structure a tight zoom is meant to reveal.
+    // Sampling happens in the VISIBLE view [tMin,tMax]×[pMin,pMax], so zoom/pan
+    // just resample; each output column keeps its true (non-uniform) time
+    // position by interpolating between the two session columns that bracket it.
+    const ow = Math.max(2, Math.min(HEATMAP_MAX_OFF_W, Math.round(plotW)));
+    const oh = Math.max(2, Math.min(HEATMAP_MAX_OFF_H, Math.round(plotH)));
+    const off = offscreenRef.current ?? (offscreenRef.current = document.createElement('canvas'));
+    off.width = ow;
+    off.height = oh;
+    const octx = off.getContext('2d');
+    if (octx) {
+      const imgData = octx.createImageData(ow, oh);
+      const buf = imgData.data;
 
-    // --- Heatmap: one vertical strip per session column, cell-coloured by the
-    // TOTAL forced flow z (green = dealers BUY, red = SELL). Columns sit at
-    // their own min_to_close and the past vs future regions can be spaced
-    // differently, so each strip runs from the midpoint to its LEFT neighbour to
-    // the midpoint to its RIGHT neighbour (no uniform-spacing assumption).
-    // Clipped to the plot so a zoomed view crops cleanly. --------------------
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(PAD_L, PAD_T, plotW, plotH);
-    ctx.clip();
-    for (let c = 0; c < S; c++) {
-      const mtc = Number(columns[c]?.min_to_close);
-      if (!Number.isFinite(mtc)) continue;
-      const xc = xForTime(mtc);
-      const prevMtc = c > 0 ? Number(columns[c - 1].min_to_close) : NaN; // larger mtc → left
-      const nextMtc = c < S - 1 ? Number(columns[c + 1].min_to_close) : NaN; // smaller mtc → right
-      const xPrev = Number.isFinite(prevMtc) ? xForTime(prevMtc) : null;
-      const xNext = Number.isFinite(nextMtc) ? xForTime(nextMtc) : null;
-      let xR = xNext != null ? (xc + xNext) / 2 : (xPrev != null ? xc + (xc - xPrev) / 2 : xc + 4);
-      let xL = xPrev != null ? (xc + xPrev) / 2 : (xNext != null ? xc - (xR - xc) : xc - 4);
-      if (xR < xL) { const tmp = xL; xL = xR; xR = tmp; }
-      if (xR < PAD_L || xL > PAD_L + plotW) continue; // wholly off-plot
-      const wStrip = xR - xL + 0.75; // slight overlap hides sub-pixel seams
-      const zcol = z[c];
-      for (let i = 0; i < T; i++) {
-        const val = Number(zcol?.[i]);
-        if (!Number.isFinite(val)) continue;
-        const yTop = yForPrice(priceEdge(i + 1)); // higher price → smaller y
-        const yBot = yForPrice(priceEdge(i));
-        const norm = Math.min(Math.abs(val) / clip, 1);
-        const ratio = Math.sign(val) * Math.sqrt(norm);
-        ctx.fillStyle = rgbToCss(divergingColor(ratio, posHue, zeroHue, negHue));
-        ctx.fillRect(xL, yTop, wStrip, yBot - yTop + 0.75);
+      // Per-output-column source columns + weight. columns[].min_to_close is
+      // DESCENDING (open→close), and output-x moving right samples DECREASING
+      // time, so the source pointer only ever advances — one monotone walk.
+      const colA = new Int32Array(ow);
+      const colB = new Int32Array(ow);
+      const colW = new Float32Array(ow);
+      let cptr = 0;
+      for (let px = 0; px < ow; px++) {
+        const t = tMax - ((px + 0.5) / ow) * tSpan; // pixel-centre time (mtc)
+        while (cptr < S - 2 && Number(columns[cptr + 1]?.min_to_close) >= t) cptr++;
+        const a = cptr;
+        const b = Math.min(cptr + 1, S - 1);
+        const ma = Number(columns[a]?.min_to_close);
+        const mb = Number(columns[b]?.min_to_close);
+        const denom = ma - mb;
+        let w = denom > 1e-9 ? (ma - t) / denom : 0;
+        w = w < 0 ? 0 : w > 1 ? 1 : w;
+        colA[px] = a;
+        colB[px] = b;
+        colW[px] = w;
       }
+
+      // Per-output-row source price indices + weight (price grid is UNIFORM
+      // ascending, so a direct linear map — no walk needed).
+      const p0 = prices[0];
+      const pStep = (prices[T - 1] - prices[0]) / (T - 1);
+      const rowA = new Int32Array(oh);
+      const rowB = new Int32Array(oh);
+      const rowW = new Float32Array(oh);
+      for (let py = 0; py < oh; py++) {
+        const p = pMax - ((py + 0.5) / oh) * pSpan; // pixel-centre price
+        let fi = pStep > 0 ? (p - p0) / pStep : 0;
+        if (fi < 0) fi = 0;
+        else if (fi > T - 1) fi = T - 1;
+        const i0 = Math.floor(fi);
+        rowA[py] = i0;
+        rowB[py] = Math.min(i0 + 1, T - 1);
+        rowW[py] = fi - i0;
+      }
+
+      // Bilinear sample → diverging colour, written straight into the buffer.
+      // Non-finite cells count as 0 (neutral) so a rare gap smooths over instead
+      // of punching a hole; the loop allocates nothing (colours inlined).
+      let o = 0;
+      for (let py = 0; py < oh; py++) {
+        const i0 = rowA[py];
+        const i1 = rowB[py];
+        const wy = rowW[py];
+        for (let px = 0; px < ow; px++) {
+          const ra = z[colA[px]];
+          const rb = z[colB[px]];
+          const wx = colW[px];
+          const a0 = ra ? ra[i0] : 0;
+          const a1 = ra ? ra[i1] : 0;
+          const b0 = rb ? rb[i0] : 0;
+          const b1 = rb ? rb[i1] : 0;
+          const top =
+            (Number.isFinite(a0) ? a0 : 0) * (1 - wy) + (Number.isFinite(a1) ? a1 : 0) * wy;
+          const bot =
+            (Number.isFinite(b0) ? b0 : 0) * (1 - wy) + (Number.isFinite(b1) ? b1 : 0) * wy;
+          const val = top * (1 - wx) + bot * wx;
+          let ratio = Math.sign(val) * Math.sqrt(Math.min(Math.abs(val) / clip, 1));
+          if (ratio < -1) ratio = -1;
+          else if (ratio > 1) ratio = 1;
+          if (ratio >= 0) {
+            buf[o] = zeroHue.r + (posHue.r - zeroHue.r) * ratio;
+            buf[o + 1] = zeroHue.g + (posHue.g - zeroHue.g) * ratio;
+            buf[o + 2] = zeroHue.b + (posHue.b - zeroHue.b) * ratio;
+          } else {
+            const u = 1 + ratio;
+            buf[o] = negHue.r + (zeroHue.r - negHue.r) * u;
+            buf[o + 1] = negHue.g + (zeroHue.g - negHue.g) * u;
+            buf[o + 2] = negHue.b + (zeroHue.b - negHue.b) * u;
+          }
+          buf[o + 3] = 255;
+          o += 4;
+        }
+      }
+      octx.putImageData(imgData, 0, 0);
+
+      // Blit into the plot, GPU-smoothed, clipped so a zoomed view crops clean.
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(PAD_L, PAD_T, plotW, plotH);
+      ctx.clip();
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(off, PAD_L, PAD_T, plotW, plotH);
+      ctx.restore();
     }
-    ctx.restore();
 
     // --- Projection veil: everything RIGHT of "now" (mtc < now_min_to_close) is
     // a forecast, not realised — mute it with a subtle tint + diagonal hatch so
@@ -661,7 +732,7 @@ export default function ForcedFlowSurfaceChart({
     ctx.font = '11px ui-sans-serif, system-ui, -apple-system, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
-    ctx.fillText('Minutes to the close →', PAD_L + plotW / 2, cssH - 4);
+    ctx.fillText('Time until close →', PAD_L + plotW / 2, cssH - 4);
     ctx.translate(14, PAD_T + plotH / 2);
     ctx.rotate(-Math.PI / 2);
     ctx.fillText('Spot price (USD)', 0, 0);
