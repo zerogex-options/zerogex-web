@@ -49,7 +49,7 @@ export default function ForcedFlowTrackRecord({
         <h3 className="zg-h3" style={{ color: textColor }}>
           Charm-into-Close · Track Record
         </h3>
-        <TooltipWrapper text="The honest scorecard for the charm forecast: did the morning charm-flow sign lean the same way as the actual noon→close move? The hit rate is shown against a naive directional baseline (a rate at or below it is worthless), with a 95% confidence band and a significance test that only certifies an edge on a real sample. Two definitions run side by side — the full 0DTE-inclusive close flow versus the smooth charm-only drift — so you can see which actually predicts.">
+        <TooltipWrapper text="The honest scorecard for the charm forecast. For an index book the raw charm sign is structurally near-constant (dealers read 'buy' almost every day), so scoring it is worthless — it just matches the baseline. Instead we score the DEVIATION from recent normal: when the morning charm flow runs stronger (or weaker) than its trailing-median baseline, does the noon→close move lean the same way? The hit rate is shown against a naive directional baseline (a rate at or below it is worthless), with a 95% confidence band and a significance test that only certifies an edge on a real sample. Two definitions run side by side — the full 0DTE-inclusive close flow versus the smooth charm-only drift.">
           <Info size={14} />
         </TooltipWrapper>
         <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
@@ -57,8 +57,11 @@ export default function ForcedFlowTrackRecord({
         </span>
       </div>
       <p className="mb-4 text-xs" style={{ color: 'var(--text-secondary)' }}>
-        Did the morning charm-flow sign lean the same way as the actual noon → close move? Scored
-        honestly against a naive directional baseline — a hit rate at or below the baseline is worth
+        The raw charm sign is structurally near-constant for an index book — dealers read{' '}
+        <em>buy</em> almost every day — so scoring it just re-prints the baseline. Instead we score
+        the <strong>deviation from recent normal</strong>: when the morning charm flow runs stronger
+        (or weaker) than its trailing-median baseline, does the noon → close move lean the same way?
+        Judged honestly against a naive directional baseline — a hit rate at or below it is worth
         nothing. Two definitions run side by side: the <strong>full</strong> close flow (dominated by
         same-day options resolving at the bell) vs. the <strong>charm-only</strong> drift.
       </p>
@@ -107,7 +110,9 @@ export default function ForcedFlowTrackRecord({
           <div className="mb-3 text-[11px]" style={{ color: 'var(--text-muted)' }}>
             {full!.hits} of {evaluated} decisive session{evaluated === 1 ? '' : 's'} (full) over the last{' '}
             {data!.lookback_days} days
-            {full!.total_sessions > evaluated ? ` · ${full!.total_sessions - evaluated} flat/undecided excluded` : ''}.
+            {full!.total_sessions > evaluated
+              ? ` · ${full!.total_sessions - evaluated} excluded${full!.warmup_sessions ? ` (${full!.warmup_sessions} building a baseline)` : ''}`
+              : ''}.
           </div>
 
           {/* Recent sessions ledger for the full variant. */}
@@ -151,11 +156,14 @@ export default function ForcedFlowTrackRecord({
           </div>
 
           <p className="mt-4 text-[11px]" style={{ color: 'var(--text-muted)' }}>
-            Each definition carries a 95% Wilson confidence band; the verdict runs a one-sided test that
-            the accuracy beats the baseline, and only certifies an edge at 95% once at least 30 decisive
-            sessions have accrued. Signal / session is the mean of (charm direction × noon → close return)
-            — the pre-cost drift of taking the charm sign at noon and closing at the bell, with its t-stat
-            against zero. Educational only; not a trade recommendation.
+            The call each session is the sign of the charm flow minus its trailing-median baseline
+            (the prior ~20 sessions), so it reads <em>above</em> or <em>below</em> recent normal rather
+            than the near-constant raw sign; the earliest sessions are held out while that baseline
+            builds. Each definition carries a 95% Wilson confidence band; the verdict runs a one-sided
+            test that the accuracy beats the baseline, and only certifies an edge at 95% once at least 30
+            decisive sessions have accrued. Signal / session is the mean of (demeaned charm lean × noon →
+            close return) — the pre-cost drift of trading that lean at noon and closing at the bell, with
+            its t-stat against zero. Educational only; not a trade recommendation.
           </p>
         </>
       )}
