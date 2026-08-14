@@ -161,6 +161,13 @@ function initDb(): DatabaseSync {
   // different expiry the value differs → the reminder re-arms; equal → already
   // warned, so we don't re-nag every run.
   ensureColumn('users', 'card_expiry_notified_ym', 'TEXT');
+  // ISO auto-resume instant when the subscription is PAUSED (Stripe
+  // pause_collection set, e.g. via the pause-instead-of-cancel retention flow),
+  // or NULL when not paused. Synced by the Stripe webhook so the account page can
+  // show "paused until X" and offer resume without a live Stripe call. A paused
+  // sub grants no access but is NOT churn (its subscription id is retained and
+  // subscription_lapsed stays 0), so it auto-resumes cleanly.
+  ensureColumn('users', 'paused_until', 'TEXT');
   ensureColumn('users', 'disclaimer_acknowledged_at', 'TEXT');
   ensureColumn('users', 'disclaimer_version_acknowledged', 'TEXT');
 

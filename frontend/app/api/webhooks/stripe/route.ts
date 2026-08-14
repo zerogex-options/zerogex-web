@@ -30,6 +30,7 @@ import {
 } from '@/core/stripe';
 import { decidePaymentGrace, graceWindowEndIso } from '@/core/paymentGrace';
 import { isTrialConversionFailure } from '@/core/trialDunning';
+import { derivePauseState } from '@/core/subscriptionPause';
 import { classifyPaymentSetup } from '@/core/paymentSetup';
 import { formatCancellationReasonSuffix, type CancellationDetails } from '@/core/cancellationReason';
 import { buildSaveUrl } from '@/core/retentionToken';
@@ -78,6 +79,9 @@ type UserRow = {
   // Read pre-UPDATE so each past_due sync can enforce the bounded window
   // (see the grace block in syncSubscriptionToUser).
   payment_grace_started_at: string | null;
+  // Last-synced pause auto-resume instant (ISO), or null when not paused. Read
+  // pre-UPDATE so a pause→resume transition can be detected for the audit log.
+  paused_until: string | null;
 };
 
 // `past_due` is intentionally NOT active: once a payment fails Stripe moves
@@ -186,7 +190,8 @@ function findUserByCustomerId(customerId: string): UserRow | null {
     .prepare(
       `SELECT id, email, tier, founding_member_started_at, founding_lifetime_applied_at,
               referred_by_code, referral_credit_months, stripe_customer_id, stripe_subscription_id,
-              stripe_price_id, subscription_status, cancel_at_period_end, payment_grace_started_at
+              stripe_price_id, subscription_status, cancel_at_period_end, payment_grace_started_at,
+              paused_until
        FROM users WHERE stripe_customer_id = ?`,
     )
     .get(customerId) as UserRow | undefined;
@@ -641,11 +646,27 @@ async function syncSubscriptionToUser(
     previousTierGranted: previousTier !== 'public',
   });
 
+  // Pause-instead-of-cancel: a paused subscription (pause_collection set — e.g.
+  // via the retention flow) keeps its Stripe sub alive but grants NO access while
+  // paused, and is NOT churn (its id is retained and subscription_lapsed stays 0),
+  // so it auto-resumes cleanly. Derived pure in core/subscriptionPause. Stripe
+  // leaves the status `active` during a pause, so without this gate a paused sub
+  // would keep full access for free.
+  const { paused: isPaused, resumesAtIso: pausedUntilIso } = derivePauseState(
+    subscription.pause_collection
+      ? {
+          behavior: subscription.pause_collection.behavior ?? null,
+          resumesAt: subscription.pause_collection.resumes_at ?? null,
+        }
+      : null,
+  );
+
   // `trialing` grants the tier only once the payment setup is confirmed ready
   // (the setupReady gate above); `active` always grants (setupReady defaults
   // true and is untouched for non-trials); a bounded grace window keeps an
-  // established payer through a recoverable renewal decline.
-  const grantsTier = (isActive && setupReady) || inGrace;
+  // established payer through a recoverable renewal decline; a paused sub grants
+  // nothing regardless.
+  const grantsTier = ((isActive && setupReady) || inGrace) && !isPaused;
   const nextTier: TierId = grantsTier && mappedTier ? mappedTier : 'public';
 
   const periodEndUnix = getCurrentPeriodEndUnix(subscription);
@@ -669,6 +690,7 @@ async function syncSubscriptionToUser(
          current_period_end = ?,
          cancel_at_period_end = ?,
          payment_grace_started_at = ?,
+         paused_until = ?,
          founding_member_started_at = COALESCE(founding_member_started_at, ?),
          updated_at = ?
        WHERE id = ?`,
@@ -681,6 +703,7 @@ async function syncSubscriptionToUser(
       periodEndIso,
       subscription.cancel_at_period_end ? 1 : 0,
       graceStartedAt,
+      pausedUntilIso,
       newlyStampedAt,
       nowIso(),
       user.id,
@@ -702,6 +725,26 @@ async function syncSubscriptionToUser(
     email: user.email,
     message: `Subscription ${subscription.id} status=${subscription.status} tier=${nextTier} cancelAtPeriodEnd=${subscription.cancel_at_period_end}`,
   });
+
+  // Pause transition observability: compares the pre-UPDATE snapshot to the
+  // derived state so a pause / resume is auditable (and distinguishable from a
+  // real cancellation, which it is NOT).
+  const wasPaused = user.paused_until != null;
+  if (isPaused && !wasPaused) {
+    logAudit({
+      type: 'billing_subscription_paused',
+      userId: user.id,
+      email: user.email,
+      message: `Subscription ${subscription.id} paused${pausedUntilIso ? ` until ${pausedUntilIso}` : ' (indefinite)'}; access held to public`,
+    });
+  } else if (!isPaused && wasPaused) {
+    logAudit({
+      type: 'billing_subscription_resumed',
+      userId: user.id,
+      email: user.email,
+      message: `Subscription ${subscription.id} resumed from pause; access restored to tier=${nextTier}`,
+    });
+  }
 
   // Observability for the payment-setup gate: a trial held at `public` because
   // its SetupIntent hasn't succeeded yet. Distinguishes "withheld pending setup"

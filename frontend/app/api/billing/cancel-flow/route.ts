@@ -11,6 +11,7 @@ import {
 } from '@/core/retentionOffer';
 import { canOfferRetentionDiscount, discountAuditType } from '@/core/cancelRetention';
 import { sanitizeCancellationComment, validateCancelFeedback } from '@/core/cancellationReason';
+import { clampPauseMonths, computeResumesAtUnix } from '@/core/subscriptionPause';
 
 // In-app cancellation RETENTION flow — the destination of the account page's
 // "Cancel subscription" button (components/CancelRetentionModal). It intercepts a
@@ -79,10 +80,14 @@ export async function POST(request: NextRequest) {
     action?: unknown;
     feedback?: unknown;
     comment?: unknown;
+    months?: unknown;
   };
   const action = body.action;
-  if (action !== 'discount' && action !== 'cancel') {
-    return NextResponse.json({ error: "action must be 'discount' or 'cancel'" }, { status: 400 });
+  if (action !== 'discount' && action !== 'cancel' && action !== 'pause' && action !== 'resume') {
+    return NextResponse.json(
+      { error: "action must be 'discount', 'pause', 'resume', or 'cancel'" },
+      { status: 400 },
+    );
   }
 
   const row = loadBillingRow(actor.user.id);
@@ -206,6 +211,67 @@ export async function POST(request: NextRequest) {
       percentOff: SAVE_PERCENT,
       currentPeriodEnd: row.current_period_end,
     });
+  }
+
+  // -------------------------------------------------------------------------
+  // Pause instead of cancel: a bounded 1–3 month break (no charge, no access)
+  // that auto-resumes. The webhook drops the tier while paused and syncs
+  // paused_until, but keeps the sub alive — a break, not churn.
+  // -------------------------------------------------------------------------
+  if (action === 'pause') {
+    // Only a live sub can be paused; a past_due member should fix payment, not
+    // pause. (The UI only surfaces pause for active/trialing subs.)
+    if (row.subscription_status !== 'active' && row.subscription_status !== 'trialing') {
+      return NextResponse.json({ ok: false, reason: 'not_pausable' }, { status: 409 });
+    }
+    const months = clampPauseMonths(body.months);
+    const resumesAt = computeResumesAtUnix(Date.now(), months);
+    try {
+      await stripe.subscriptions.update(row.stripe_subscription_id, {
+        pause_collection: { behavior: 'void', resumes_at: resumesAt },
+        // Choosing pause supersedes any pending cancel.
+        cancel_at_period_end: false,
+      });
+    } catch {
+      return NextResponse.json(
+        { error: "Couldn't pause your subscription just now. Please try again in a minute." },
+        { status: 502 },
+      );
+    }
+    const resumesAtIso = new Date(resumesAt * 1000).toISOString();
+    appendAuditEvent({
+      type: 'billing_pause_requested',
+      userId: row.id,
+      email: row.email,
+      ip: getClientIp(request),
+      message: `In-app pause requested for sub ${row.stripe_subscription_id}: ${months} month(s), resumes ${resumesAtIso}`,
+    });
+    return NextResponse.json({ ok: true, action: 'pause', months, resumesAt: resumesAtIso });
+  }
+
+  // -------------------------------------------------------------------------
+  // Resume a paused subscription now (clear pause_collection).
+  // -------------------------------------------------------------------------
+  if (action === 'resume') {
+    try {
+      await stripe.subscriptions.update(row.stripe_subscription_id, {
+        // An empty string clears pause_collection in the Stripe API.
+        pause_collection: '',
+      });
+    } catch {
+      return NextResponse.json(
+        { error: "Couldn't resume your subscription just now. Please try again in a minute." },
+        { status: 502 },
+      );
+    }
+    appendAuditEvent({
+      type: 'billing_resume_requested',
+      userId: row.id,
+      email: row.email,
+      ip: getClientIp(request),
+      message: `In-app resume requested for sub ${row.stripe_subscription_id}`,
+    });
+    return NextResponse.json({ ok: true, action: 'resume' });
   }
 
   // -------------------------------------------------------------------------

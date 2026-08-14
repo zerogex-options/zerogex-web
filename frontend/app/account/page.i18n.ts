@@ -26,6 +26,11 @@ export const dict: PageDictionary = {
     updatePaymentMethod: 'Update payment method',
     manageSubscription: 'Manage Subscription',
     cancelSubscription: 'Cancel subscription',
+    subscriptionPaused:
+      'Your subscription is paused — it resumes automatically on {date}, and you won’t be charged until then.',
+    subscriptionPausedNoDate: 'Your subscription is paused. You won’t be charged until it resumes.',
+    resumeSubscription: 'Resume now',
+    resuming: 'Resuming…',
     subscriptionEndsOn: 'Your plan is set to cancel on {date}. You’ll keep full access until then.',
     subscriptionScheduledToCancel:
       'Your plan is set to cancel at the end of your current billing period.',
