@@ -1,0 +1,16 @@
+[Unit]
+Description=ZeroGEX web card-expiry reminder email timer (daily)
+
+[Timer]
+# Once a day — card expiries change on the scale of months, so a daily sweep is
+# ample, and the per-card latch (users.card_expiry_notified_ym) means a member is
+# warned exactly once per expiring card. 04:20 is off-peak and clear of the
+# auth backup (:00), the trial-reminder timer (00/6:15), and reactivation (:40).
+OnCalendar=*-*-* 04:20:00
+# Spread load across deploys / coalesce if many boxes hit the same minute.
+RandomizedDelaySec=10m
+# If the box was down at the scheduled time, run as soon as it is back up.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

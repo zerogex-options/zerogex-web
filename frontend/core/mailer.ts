@@ -1105,6 +1105,91 @@ export async function sendWelcomeBackEmail(to: string) {
 // the caller can't resolve them, so the email always sends. Points the customer
 // at the billing portal — logging in is the access path, since the portal
 // session is created server-side against their authenticated account.
+export type CardExpiringEmailOptions = {
+  // Display-ready brand ("Visa"), already normalized by the caller; null for a
+  // wallet/unmapped method → neutral phrasing.
+  cardBrand?: string | null;
+  // Last four of the card on file, e.g. "4242".
+  cardLast4: string;
+  // "MM/YYYY" the card expires, e.g. "09/2026".
+  expiryLabel: string;
+};
+
+// PROACTIVE card-expiry nudge — emailed by scripts/send-card-expiry-reminders.mts
+// to an ACTIVE subscriber whose card on file expires within ~45 days, so they can
+// update it BEFORE a renewal is declined into past_due. Friendly and low-urgency
+// (nothing has failed yet), but names the exact card + expiry and drives a
+// one-click card update. No FOH footer (transactional, like the dunning family).
+// Split into a pure builder so a preview renders the exact wire copy.
+export function buildCardExpiringEmail(opts: CardExpiringEmailOptions): {
+  subject: string;
+  html: string;
+  text: string;
+} {
+  const accountUrl = `${getAppUrl()}/account`;
+  const safeAccountUrl = escapeHtml(accountUrl);
+  const subject = 'Heads-up: your card on file expires soon';
+
+  const cardPhrase = opts.cardBrand
+    ? `your ${opts.cardBrand} card ending in ${opts.cardLast4}`
+    : `the card ending in ${opts.cardLast4}`;
+  const cardPhraseHtml = opts.cardBrand
+    ? `your ${escapeHtml(opts.cardBrand)} card ending in <strong>${escapeHtml(opts.cardLast4)}</strong>`
+    : `the card ending in <strong>${escapeHtml(opts.cardLast4)}</strong>`;
+
+  const lead = `Just a friendly heads-up: ${cardPhrase} — the one on file for your ZeroGEX subscription — expires ${opts.expiryLabel}. Once it lapses, your next renewal could be declined and your access would pause until you update it.`;
+  const leadHtml = `Just a friendly heads-up: ${cardPhraseHtml} — the one on file for your ZeroGEX subscription — expires <strong>${escapeHtml(opts.expiryLabel)}</strong>. Once it lapses, your next renewal could be declined and your access would pause until you update it.`;
+  const fix =
+    'Updating it takes about a minute from your account page and keeps everything running without a hitch — nothing else changes.';
+
+  const text = [
+    'Hello,',
+    '',
+    lead,
+    '',
+    fix,
+    '',
+    accountUrl,
+    '',
+    "If you've already updated your card (or your bank has issued a replacement Stripe can pick up automatically), you can ignore this. Any questions, just reply — I'm happy to help.",
+    '',
+    'Best,',
+    'Michael',
+    'Founder, ZeroGEX',
+  ].join('\n');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <p>Hello,</p>
+      <p>${leadHtml}</p>
+      <p>${escapeHtml(fix)}</p>
+      <p style="margin: 24px 0;">
+        <a href="${safeAccountUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Update your card</a>
+      </p>
+      <p>If you've already updated your card (or your bank has issued a replacement Stripe can pick up automatically), you can ignore this. Any questions, just reply &mdash; I'm happy to help.</p>
+      <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+    </div>
+  `.trim();
+
+  return { subject, html, text };
+}
+
+// Thin sender over buildCardExpiringEmail so preview and production never drift.
+export async function sendCardExpiringEmail(to: string, opts: CardExpiringEmailOptions) {
+  const { subject, html, text } = buildCardExpiringEmail(opts);
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject,
+    text,
+    html,
+  });
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
 export async function sendPaymentFailedEmail(
   to: string,
   opts?: {

@@ -42,6 +42,20 @@ export const dict: PageDictionary = {
       'You’ll keep full access until the end of your current billing period. Changed your mind later? You can resubscribe anytime from the pricing page.',
     done: 'Done',
 
+    // Pause-instead-of-cancel.
+    pauseInstead: 'Pause instead of cancelling',
+    pauseHeading: 'Would a break help?',
+    pauseBody:
+      "Pause your subscription instead — no charge and no access while it's paused, and it picks back up automatically. How long would you like?",
+    pauseMonth: '{n} month',
+    pauseMonths: '{n} months',
+    pauseBack: 'Back',
+    pausedHeading: 'Your subscription is paused',
+    pausedBody:
+      "You won't be charged, and your access resumes automatically on {date}. Come back before then and I'll switch it right back on — nothing to re-set up.",
+    pausedBodyNoDate:
+      "You won't be charged while paused, and it resumes automatically. Come back anytime.",
+
     genericError: 'Something went wrong. Please try again in a minute.',
   },
 };

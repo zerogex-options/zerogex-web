@@ -20,7 +20,7 @@ import { dict } from './CancelRetentionModal.i18n';
 // source of truth and echoes the real percentOff back on success.
 const SAVE_PERCENT = 25;
 
-type Step = 'offer' | 'reason' | 'saved' | 'cancelled';
+type Step = 'offer' | 'reason' | 'pause' | 'saved' | 'cancelled' | 'paused';
 
 type Props = {
   open: boolean;
@@ -64,6 +64,7 @@ export default function CancelRetentionModal({
   const [error, setError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [comment, setComment] = useState('');
+  const [resumeLabel, setResumeLabel] = useState<string | null>(null);
 
   const endDate = formatDate(periodEndIso);
 
@@ -75,6 +76,7 @@ export default function CancelRetentionModal({
       setError(null);
       setFeedback(null);
       setComment('');
+      setResumeLabel(null);
     }
   }, [open, offerAvailable]);
 
@@ -159,6 +161,39 @@ export default function CancelRetentionModal({
     }
   }, [feedback, comment, onChanged, t]);
 
+  const submitPause = useCallback(
+    async (months: number) => {
+      setBusy(true);
+      setError(null);
+      try {
+        const csrf = await fetchCsrf();
+        if (!csrf) {
+          setError(t('genericError'));
+          return;
+        }
+        const res = await fetch('/api/billing/cancel-flow', {
+          method: 'POST',
+          headers: { 'x-csrf-token': csrf, 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ action: 'pause', months }),
+        });
+        if (res.ok) {
+          const data = (await res.json().catch(() => ({}))) as { resumesAt?: string };
+          setResumeLabel(formatDate(data.resumesAt ?? null));
+          setStep('paused');
+          onChanged();
+          return;
+        }
+        setError(t('genericError'));
+      } catch {
+        setError(t('genericError'));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [onChanged, t],
+  );
+
   if (!open) return null;
 
   const pct = String(SAVE_PERCENT);
@@ -212,6 +247,14 @@ export default function CancelRetentionModal({
                 style={primaryButtonStyle(busy)}
               >
                 {busy ? t('applying') : t('applyDiscount', { pct })}
+              </button>
+              <button
+                type="button"
+                onClick={() => setStep('pause')}
+                disabled={busy}
+                style={secondaryButtonStyle(busy)}
+              >
+                {t('pauseInstead')}
               </button>
               <button
                 type="button"
@@ -277,6 +320,14 @@ export default function CancelRetentionModal({
             <div style={buttonColumn}>
               <button
                 type="button"
+                onClick={() => setStep('pause')}
+                disabled={busy}
+                style={secondaryButtonStyle(busy)}
+              >
+                {t('pauseInstead')}
+              </button>
+              <button
+                type="button"
                 onClick={submitCancel}
                 disabled={busy}
                 style={destructiveButtonStyle(busy)}
@@ -285,6 +336,61 @@ export default function CancelRetentionModal({
               </button>
               <button type="button" onClick={onClose} disabled={busy} style={linkButtonStyle}>
                 {t('keepPlan')}
+              </button>
+            </div>
+          </>
+        )}
+
+        {step === 'pause' && (
+          <>
+            <h2 style={headingStyle}>{t('pauseHeading')}</h2>
+            <p style={bodyStyle}>{t('pauseBody')}</p>
+            <div style={{ display: 'flex', gap: 10, margin: '4px 0 18px' }}>
+              {[1, 2, 3].map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => submitPause(m)}
+                  disabled={busy}
+                  style={{
+                    flex: 1,
+                    padding: '14px 0',
+                    borderRadius: 10,
+                    border: '1px solid var(--color-brand-primary)',
+                    background: 'transparent',
+                    color: 'var(--color-text-primary)',
+                    fontSize: 15,
+                    fontWeight: 700,
+                    cursor: busy ? 'not-allowed' : 'pointer',
+                    opacity: busy ? 0.6 : 1,
+                  }}
+                >
+                  {t(m === 1 ? 'pauseMonth' : 'pauseMonths', { n: String(m) })}
+                </button>
+              ))}
+            </div>
+            <div style={buttonColumn}>
+              <button
+                type="button"
+                onClick={() => setStep('offer')}
+                disabled={busy}
+                style={linkButtonStyle}
+              >
+                {t('pauseBack')}
+              </button>
+            </div>
+          </>
+        )}
+
+        {step === 'paused' && (
+          <>
+            <h2 style={headingStyle}>{t('pausedHeading')}</h2>
+            <p style={bodyStyle}>
+              {resumeLabel ? t('pausedBody', { date: resumeLabel }) : t('pausedBodyNoDate')}
+            </p>
+            <div style={buttonColumn}>
+              <button type="button" onClick={onClose} style={primaryButtonStyle(false)}>
+                {t('done')}
               </button>
             </div>
           </>
@@ -356,6 +462,20 @@ function primaryButtonStyle(disabled: boolean): React.CSSProperties {
     padding: '12px 18px',
     fontWeight: 800,
     fontSize: 15,
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    opacity: disabled ? 0.6 : 1,
+  };
+}
+
+function secondaryButtonStyle(disabled: boolean): React.CSSProperties {
+  return {
+    background: 'transparent',
+    border: '1px solid var(--color-border)',
+    color: 'var(--color-text-primary)',
+    borderRadius: 10,
+    padding: '11px 18px',
+    fontWeight: 700,
+    fontSize: 14,
     cursor: disabled ? 'not-allowed' : 'pointer',
     opacity: disabled ? 0.6 : 1,
   };

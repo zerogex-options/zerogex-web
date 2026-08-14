@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
   const row = getDb()
     .prepare(
       `SELECT stripe_subscription_id, subscription_status, current_period_end,
-              cancel_at_period_end, retention_offer_claimed_at
+              cancel_at_period_end, retention_offer_claimed_at, paused_until
        FROM users WHERE id = ?`,
     )
     .get(session.user.id) as
@@ -31,6 +31,7 @@ export async function GET(request: NextRequest) {
         current_period_end: string | null;
         cancel_at_period_end: number | null;
         retention_offer_claimed_at: string | null;
+        paused_until: string | null;
       }
     | undefined;
 
@@ -51,6 +52,9 @@ export async function GET(request: NextRequest) {
     // offer is still claimable.
     cancelAtPeriodEnd: Number(row?.cancel_at_period_end ?? 0) === 1,
     retentionOfferClaimed: row?.retention_offer_claimed_at != null,
+    // ISO auto-resume instant when the subscription is paused, else null. Drives
+    // the account page's "paused until X" + Resume affordance.
+    pausedUntil: row?.paused_until ?? null,
   });
   // User-specific payload; same no-store rationale as the other account routes.
   response.headers.set('Cache-Control', 'no-store, private');

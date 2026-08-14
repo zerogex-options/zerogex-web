@@ -51,6 +51,8 @@ type BillingStatusPayload = {
   // offer is still claimable — drives the in-app cancellation retention flow.
   cancelAtPeriodEnd?: boolean;
   retentionOfferClaimed?: boolean;
+  // ISO auto-resume instant when the subscription is paused, else null.
+  pausedUntil?: string | null;
 };
 
 const PASSWORD_MIN_LENGTH = 12;
@@ -107,6 +109,7 @@ function AccountPageContent() {
   const [referralCopied, setReferralCopied] = useState(false);
   const [billing, setBilling] = useState<BillingStatusPayload | null>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [resuming, setResuming] = useState(false);
   const [donation, setDonation] = useState<DonationPayload | null>(null);
   // X/Twitter handle. `xHandle` is the input value (without the leading @);
   // `xHandleSaved` is the persisted value the server confirmed (null when unset).
@@ -393,6 +396,34 @@ function AccountPageContent() {
       setFeedback({ type: 'error', message: t('somethingWentWrong') });
     } finally {
       setOpening(false);
+    }
+  };
+
+  const handleResume = async () => {
+    setResuming(true);
+    setFeedback(null);
+    try {
+      const csrfResponse = await fetch('/api/auth/csrf', { credentials: 'include' });
+      const csrf = (await csrfResponse.json()) as { csrfToken?: string };
+      if (!csrf.csrfToken) {
+        setFeedback({ type: 'error', message: t('csrfError') });
+        return;
+      }
+      const response = await fetch('/api/billing/cancel-flow', {
+        method: 'POST',
+        headers: { 'x-csrf-token': csrf.csrfToken, 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action: 'resume' }),
+      });
+      if (!response.ok) {
+        setFeedback({ type: 'error', message: t('somethingWentWrong') });
+        return;
+      }
+      await refreshBilling();
+    } catch {
+      setFeedback({ type: 'error', message: t('somethingWentWrong') });
+    } finally {
+      setResuming(false);
     }
   };
 
@@ -688,6 +719,7 @@ function AccountPageContent() {
 
           {billing?.hasSubscription &&
             !billing?.cancelAtPeriodEnd &&
+            !billing?.pausedUntil &&
             (billing?.status === 'active' || billing?.status === 'trialing') && (
               <div style={{ marginTop: 12 }}>
                 <button
@@ -708,6 +740,35 @@ function AccountPageContent() {
                 </button>
               </div>
             )}
+
+          {billing?.pausedUntil && (
+            <div style={{ marginTop: 12 }}>
+              <p style={{ margin: '0 0 10px', color: C.muted, fontSize: 13 }}>
+                {formatBillingDate(billing.pausedUntil)
+                  ? t('subscriptionPaused', { date: formatBillingDate(billing.pausedUntil) })
+                  : t('subscriptionPausedNoDate')}
+              </p>
+              <button
+                type="button"
+                onClick={handleResume}
+                disabled={resuming}
+                style={{
+                  background:
+                    'linear-gradient(135deg, var(--color-brand-primary) 0%, var(--heat-mid) 100%)',
+                  border: 'none',
+                  color: 'var(--text-inverse)',
+                  borderRadius: 10,
+                  padding: '9px 16px',
+                  fontWeight: 800,
+                  fontSize: 13,
+                  cursor: resuming ? 'not-allowed' : 'pointer',
+                  opacity: resuming ? 0.6 : 1,
+                }}
+              >
+                {resuming ? t('resuming') : t('resumeSubscription')}
+              </button>
+            </div>
+          )}
 
           {billing?.cancelAtPeriodEnd && (
             <p style={{ margin: '12px 0 0', color: C.muted, fontSize: 13 }}>
