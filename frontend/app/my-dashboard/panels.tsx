@@ -25,6 +25,7 @@ import ConfluenceMatrix from '@/components/ConfluenceMatrix';
 import MsiGauge from '@/components/MsiGauge';
 import TodaysReadCard from '@/components/TodaysReadCard';
 import WorldClocks from '@/components/WorldClocks';
+import HeadlinesWire from '@/components/HeadlinesWire';
 
 import { useTimeframe } from '@/core/TimeframeContext';
 import { getMarketSession, etTodayDateKey } from '@/core/utils';
@@ -371,6 +372,18 @@ export function WorldClocksPanel() {
       <div className="flex items-center justify-center py-2">
         <WorldClocks theme={theme} session={getMarketSession()} />
       </div>
+    </WidgetCard>
+  );
+}
+
+export function TopHeadlinesPanel() {
+  const { theme } = useMyDashboardData();
+  const t = usePageT(dict);
+  // fill + a fixed minHeight give the crawl a stable frame to scroll within;
+  // pad={false} lets the dense wire rows run edge-to-edge like a real ticker.
+  return (
+    <WidgetCard title={t('topHeadlines')} pad={false} fill minHeight={360}>
+      <HeadlinesWire theme={theme} />
     </WidgetCard>
   );
 }

@@ -345,17 +345,39 @@ export default function NewsHeadlinesBadge({
                 }}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span
-                    className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
-                    style={{
-                      background: pal.bg,
-                      color: pal.fg,
-                      border: `1px solid ${pal.border}`,
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {pal.label}
-                  </span>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span
+                      className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+                      style={{
+                        background: pal.bg,
+                        color: pal.fg,
+                        border: `1px solid ${pal.border}`,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {pal.label}
+                    </span>
+                    {isHighSignal(h) && (
+                      <span
+                        title="High signal"
+                        aria-label="High signal"
+                        className="inline-flex items-center gap-1 text-[9px] font-extrabold uppercase tracking-wider"
+                        style={{ color: 'var(--color-bull)', whiteSpace: "nowrap" }}
+                      >
+                        <span
+                          aria-hidden
+                          style={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: 999,
+                            background: 'var(--color-bull)',
+                            boxShadow: '0 0 6px var(--color-bull)',
+                          }}
+                        />
+                        Signal
+                      </span>
+                    )}
+                  </div>
                   <span
                     className="text-[10px] font-semibold uppercase tracking-wider"
                     style={{ color: 'var(--text-secondary)', whiteSpace: "nowrap" }}
@@ -396,6 +418,20 @@ export default function NewsHeadlinesBadge({
                     {h.title}
                   </div>
                 )}
+                {h.summary && (
+                  <p
+                    className="mt-1.5 text-[11px] leading-snug"
+                    style={{
+                      color: 'var(--text-secondary)',
+                      display: "-webkit-box",
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: "vertical",
+                      overflow: "hidden",
+                    }}
+                  >
+                    {h.summary}
+                  </p>
+                )}
                 <div
                   className="mt-1.5 flex items-center justify-between text-[11px] font-semibold"
                   style={{ color: 'var(--text-secondary)' }}
@@ -427,7 +463,7 @@ export default function NewsHeadlinesBadge({
           textAlign: "center",
         }}
       >
-        Aggregated from public RSS feeds. Newest first.
+        CNBC market desk + central-bank & wire feeds. Newest first.
       </div>
     </div>
   );

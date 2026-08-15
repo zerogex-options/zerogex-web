@@ -32,6 +32,90 @@ interface CacheEntry {
 let cache: CacheEntry | null = null;
 let inFlight: Promise<CacheEntry> | null = null;
 
+// The ZeroGEX backend (FastAPI) exposes the exact CNBC headline set the
+// automated X post is built from at GET /api/news/headlines. We fold it into
+// this same aggregator so the "Top Headlines" surface and the auto-tweet
+// always agree on what's driving the tape. Honors the same env the rest of
+// the server-side backend clients use (core/api/serverFetch.ts).
+const BACKEND_BASE = (
+  process.env.ZEROGEX_API_BASE_URL || "http://127.0.0.1:8000"
+).replace(/\/+$/, "");
+const CNBC_SOURCE_ID = "cnbc";
+const CNBC_SOURCE_NAME = "CNBC";
+
+interface BackendHeadline {
+  title: string;
+  summary?: string | null;
+  source?: string | null;
+  link?: string | null;
+  published?: string | null;
+}
+interface BackendNewsResponse {
+  source: string;
+  generated_at: string;
+  count: number;
+  headlines: BackendHeadline[];
+}
+
+// Pull the backend's X-desk CNBC headlines and normalize them into the same
+// NewsHeadline shape the RSS path produces. Best-effort and self-bounded (a
+// 6s abort, same budget as a single RSS feed): a slow/absent backend just
+// means no CNBC this cycle, never a stalled or failed aggregate. importance +
+// crossSourceCount are placeholders that refresh() fills once it can see the
+// whole corpus.
+async function fetchXDeskCnbcHeadlines(): Promise<NewsHeadline[]> {
+  const token = process.env.ZEROGEX_API_TOKEN || process.env.ZEROGEX_API_KEY;
+  if (!token) {
+    console.warn("[api/news] CNBC backend skipped — ZEROGEX_API_TOKEN not set");
+    return [];
+  }
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), FEED_FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(`${BACKEND_BASE}/api/news/headlines`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: ctl.signal,
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      console.warn(`[api/news] CNBC backend HTTP ${res.status}`);
+      return [];
+    }
+    const json = (await res.json()) as BackendNewsResponse;
+    const out: NewsHeadline[] = [];
+    for (const h of json.headlines ?? []) {
+      if (!h.title) continue;
+      const publishedAtMs = h.published ? new Date(h.published).getTime() : NaN;
+      if (!Number.isFinite(publishedAtMs)) continue;
+      const summary = (h.summary || "").trim();
+      out.push({
+        id: h.link || `${CNBC_SOURCE_ID}:${h.title}`,
+        title: h.title,
+        url: h.link || "",
+        source: h.source || CNBC_SOURCE_NAME,
+        sourceId: CNBC_SOURCE_ID,
+        // CNBC titles are terse; fold the dek in so categorization sees the
+        // real subject ("Stocks slip" → "...as CPI runs hot" → macro).
+        category: categorizeHeadline(
+          summary ? `${h.title} ${summary}` : h.title,
+          "markets",
+        ),
+        publishedAtMs,
+        importance: 0,
+        crossSourceCount: 1,
+        summary: summary || undefined,
+      });
+    }
+    return out;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn(`[api/news] CNBC backend fetch failed — ${message}`);
+    return [];
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function fetchOne(source: NewsSource): Promise<NewsHeadline[]> {
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), FEED_FETCH_TIMEOUT_MS);
@@ -63,6 +147,7 @@ async function fetchOne(source: NewsSource): Promise<NewsHeadline[]> {
         publishedAtMs: it.pubDateMs,
         importance: 0,
         crossSourceCount: 1,
+        summary: it.description || undefined,
       });
     }
     return out;
@@ -74,8 +159,14 @@ async function fetchOne(source: NewsSource): Promise<NewsHeadline[]> {
 }
 
 async function refresh(): Promise<CacheEntry> {
-  const results = await Promise.all(NEWS_SOURCES.map(fetchOne));
-  const merged = results.flat();
+  // RSS feeds and the backend's X-desk CNBC feed fetch concurrently; the
+  // whole batch shares one wall-clock budget (each call self-aborts at
+  // FEED_FETCH_TIMEOUT_MS) so one slow upstream can't drag out the refresh.
+  const [rssResults, cnbcHeadlines] = await Promise.all([
+    Promise.all(NEWS_SOURCES.map(fetchOne)),
+    fetchXDeskCnbcHeadlines(),
+  ]);
+  const merged = [...rssResults.flat(), ...cnbcHeadlines];
 
   // Cross-source count must be computed BEFORE dedupe — once dedupe drops
   // the duplicates, the survivor wouldn't know how many wires carried it.
@@ -100,7 +191,7 @@ async function refresh(): Promise<CacheEntry> {
     return {
       ...h,
       crossSourceCount,
-      importance: scoreImportance(h.title, h.sourceId, crossSourceCount),
+      importance: scoreImportance(h.title, h.sourceId, crossSourceCount, h.summary),
     };
   });
 
