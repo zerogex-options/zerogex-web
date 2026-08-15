@@ -11,6 +11,7 @@ export const dict: PageDictionary = {
     eodPressureTimeline: 'EOD Pressure — Timeline',
     volatilityMonitor: 'Volatility Monitor',
     worldClocks: 'World Clocks',
+    topHeadlines: 'Top Headlines',
   },
   it: {
     technicals: 'Tecnici',
@@ -22,6 +23,7 @@ export const dict: PageDictionary = {
     eodPressureTimeline: 'Pressione di Fine Giornata — Cronologia',
     volatilityMonitor: 'Monitor della Volatilità',
     worldClocks: 'Orologi Mondiali',
+    topHeadlines: 'Titoli Principali',
   },
   de: {
     technicals: 'Technische Analyse',
@@ -33,6 +35,7 @@ export const dict: PageDictionary = {
     eodPressureTimeline: 'EOD-Druck — Zeitverlauf',
     volatilityMonitor: 'Volatilitätsmonitor',
     worldClocks: 'Weltuhren',
+    topHeadlines: 'Top-Schlagzeilen',
   },
   es: {
     technicals: 'Técnicos',
@@ -44,6 +47,7 @@ export const dict: PageDictionary = {
     eodPressureTimeline: 'Presión de Fin de Día — Cronología',
     volatilityMonitor: 'Monitor de Volatilidad',
     worldClocks: 'Relojes Mundiales',
+    topHeadlines: 'Titulares Principales',
   },
   fr: {
     technicals: 'Techniques',
@@ -55,5 +59,6 @@ export const dict: PageDictionary = {
     eodPressureTimeline: 'Pression de Fin de Journée — Chronologie',
     volatilityMonitor: 'Moniteur de Volatilité',
     worldClocks: 'Horloges Mondiales',
+    topHeadlines: 'Titres Principaux',
   },
 };

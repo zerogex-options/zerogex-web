@@ -12,15 +12,19 @@ export interface NewsHeadline {
   sourceId: string;
   category: NewsCategory;
   publishedAtMs: number;
-  // Heuristic 0..10ish score, computed server-side from keyword hits,
-  // source tier, and cross-source confirmation. See scoreImportance() and
-  // HIGH_SIGNAL_THRESHOLD for the rubric. Anything >= threshold passes
-  // the "High signal only" toggle in the UI.
+  // Heuristic 0..10ish score, computed server-side from keyword hits (title
+  // AND summary), source tier, and cross-source confirmation. See
+  // scoreImportance() and HIGH_SIGNAL_THRESHOLD for the rubric. Anything
+  // >= threshold passes the "High signal only" toggle in the UI.
   importance: number;
   // How many distinct feeds carried (a near-identical title of) this story
   // before dedupe — a "≥2 sources" signal is a strong proxy for wire-level
   // confirmation. 1 means only one feed had it.
   crossSourceCount: number;
+  // One-line dek/standfirst when the source carries one (the CNBC X-desk
+  // feed always does; most raw RSS titles don't). Shown under the headline
+  // in the dropdown/wire and folded into the high-signal keyword scan.
+  summary?: string;
 }
 
 export interface NewsSource {
@@ -53,18 +57,13 @@ export const NEWS_SOURCES: readonly NewsSource[] = [
     defaultCategory: "macro",
   },
   // Markets — established financial press.
-  {
-    id: "cnbc-markets",
-    name: "CNBC Markets",
-    rssUrl: "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=15839069",
-    defaultCategory: "markets",
-  },
-  {
-    id: "cnbc-economy",
-    name: "CNBC Economy",
-    rssUrl: "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=20910258",
-    defaultCategory: "macro",
-  },
+  //
+  // CNBC is intentionally NOT listed here. It is pulled from the backend's
+  // X-desk feed instead (the exact `cnbc_news.fetch_headlines()` the
+  // automated bulletin tweet is built from — see fetchXDeskCnbcHeadlines in
+  // app/api/news/route.ts). Sourcing CNBC from one place keeps the dropdown
+  // in lockstep with the auto-tweet and keeps cross-source counting honest
+  // (a CNBC-only story must not double-count as two "wires").
   {
     id: "marketwatch",
     name: "MarketWatch",
@@ -147,26 +146,47 @@ const HIGH_SIGNAL_PATTERNS: readonly RegExp[] = [
 // (policy statements, supervisory actions, sanctions designations).
 const INSTITUTIONAL_SOURCE_IDS = new Set(["fed", "ecb", "treasury"]);
 
+// Curated market-desk sources: a newsroom already filtered these down to the
+// day's market-moving tape. The CNBC feed here is the very same one the
+// automated X post is built from (backend `cnbc_news.fetch_headlines()`), so
+// a headline that cleared that editorial bar earns a base credibility nudge —
+// enough that ONE strong market-mover keyword tips it over the line without
+// needing cross-source confirmation, but not so much that a quiet desk
+// headline ("Here are the analysts' top picks") passes on the source alone.
+const CURATED_MARKET_SOURCE_IDS = new Set(["cnbc"]);
+
 // Anything at or above this passes the "High signal only" filter.
 // The rubric is tuned so:
 //   - Institutional press release alone (4) passes
 //   - Two or more keyword hits (4) pass
 //   - 1 keyword + cross-source ≥2 (4) passes
 //   - Cross-source ≥3 (4) passes
+//   - Curated market-desk (CNBC) + 1 keyword (2 + 2) passes
 //   - 1 keyword alone (2) doesn't pass
 //   - Cross-source ≥2 alone (2) doesn't pass
+//   - Curated market-desk alone (2) doesn't pass
 export const HIGH_SIGNAL_THRESHOLD = 4;
 
+// Score a headline's market importance on a 0..10ish scale.
+//
+// `summary` (the dek, when a source carries one) is scanned for the same
+// keywords as the title: CNBC titles are frequently terse ("Stocks close
+// lower") while the tradeable signal ("...as CPI runs hot and the Fed turns
+// hawkish") lives in the one-line summary. Raw-RSS sources that carry no
+// summary simply pass "" and score on the title alone, exactly as before.
 export function scoreImportance(
   title: string,
   sourceId: string,
   crossSourceCount: number,
+  summary = "",
 ): number {
   let score = 0;
   if (INSTITUTIONAL_SOURCE_IDS.has(sourceId)) score += 4;
+  else if (CURATED_MARKET_SOURCE_IDS.has(sourceId)) score += 2;
+  const haystack = summary ? `${title} ${summary}` : title;
   let keywordHits = 0;
   for (const pat of HIGH_SIGNAL_PATTERNS) {
-    if (pat.test(title)) keywordHits += 1;
+    if (pat.test(haystack)) keywordHits += 1;
   }
   // Cap at 2 hits — a single headline that namechecks five keywords
   // shouldn't outweigh one that namechecks two but is wire-confirmed.

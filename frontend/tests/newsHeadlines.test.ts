@@ -124,6 +124,59 @@ test("scoreImportance: keyword + cross-source ≥2 passes threshold", () => {
   assert.ok(s >= HIGH_SIGNAL_THRESHOLD, `keyword + cross-source should pass, got ${s}`);
 });
 
+test("scoreImportance: curated CNBC desk alone does NOT pass threshold", () => {
+  // A quiet desk headline with no market-mover keyword: the +2 curated-source
+  // nudge is real, but not enough on its own.
+  const s = scoreImportance("Here are Wall Street's favorite stocks this week", "cnbc", 1);
+  assert.ok(s < HIGH_SIGNAL_THRESHOLD, `curated source alone should not pass, got ${s}`);
+});
+
+test("scoreImportance: curated CNBC desk + a single market-mover keyword passes", () => {
+  // The whole point of the curated nudge: one strong keyword tips a CNBC
+  // headline over the line without needing cross-source confirmation, where
+  // the same title from a generic wire would not.
+  const cnbc = scoreImportance("CPI runs hotter than expected", "cnbc", 1);
+  const generic = scoreImportance("CPI runs hotter than expected", "marketwatch", 1);
+  assert.ok(cnbc >= HIGH_SIGNAL_THRESHOLD, `curated + 1 keyword should pass, got ${cnbc}`);
+  assert.ok(generic < HIGH_SIGNAL_THRESHOLD, `generic + 1 keyword should not pass, got ${generic}`);
+});
+
+test("scoreImportance: keywords in the summary count, not just the title", () => {
+  // CNBC titles are often terse; the tradeable signal lives in the dek.
+  const terseTitle = "Stocks close lower";
+  const withoutSummary = scoreImportance(terseTitle, "cnbc", 1);
+  const withSummary = scoreImportance(
+    terseTitle,
+    "cnbc",
+    1,
+    "The S&P 500 fell after CPI ran hot and traders priced in a delayed rate cut.",
+  );
+  // Terse title → curated nudge only (2). With the summary, "cpi" + "rate cut"
+  // add two keyword hits → clears the bar.
+  assert.ok(withoutSummary < HIGH_SIGNAL_THRESHOLD, `terse title should not pass, got ${withoutSummary}`);
+  assert.ok(withSummary >= HIGH_SIGNAL_THRESHOLD, `summary keywords should pass, got ${withSummary}`);
+});
+
+test("scoreImportance: summary keywords lift a generic source too", () => {
+  // Summary scanning is uniform: a plain wire whose dek names two market
+  // movers is high-signal even with a bland title.
+  const s = scoreImportance(
+    "Markets wrap",
+    "marketwatch",
+    1,
+    "War headlines and a surprise rate hike drove a sharp risk-off move.",
+  );
+  assert.ok(s >= HIGH_SIGNAL_THRESHOLD, `two summary keywords should pass, got ${s}`);
+});
+
+test("scoreImportance: omitted summary is backward-compatible (title-only)", () => {
+  // The 4th arg is optional; existing 3-arg callers score exactly as before.
+  assert.equal(
+    scoreImportance("US CPI prints hotter than expected", "cnbc-markets", 2),
+    scoreImportance("US CPI prints hotter than expected", "cnbc-markets", 2, ""),
+  );
+});
+
 test("isHighSignal mirrors threshold comparison", () => {
   assert.equal(isHighSignal({ importance: HIGH_SIGNAL_THRESHOLD }), true);
   assert.equal(isHighSignal({ importance: HIGH_SIGNAL_THRESHOLD - 1 }), false);

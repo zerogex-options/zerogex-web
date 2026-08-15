@@ -21,6 +21,7 @@ import {
   Grid2x2,
   Layers,
   LineChart,
+  Newspaper,
   Radar,
   ScrollText,
   Signal,
@@ -67,6 +68,7 @@ import {
   EodPressureEventsWidget,
   VolatilityPanel,
   WorldClocksPanel,
+  TopHeadlinesPanel,
 } from './panels';
 
 export type WidgetTier = 'basic' | 'pro';
@@ -443,6 +445,19 @@ export const WIDGETS: WidgetDef[] = [
 
   // ── Tools ──
   {
+    id: 'top-headlines',
+    title: 'Top Headlines',
+    blurb:
+      'A live, Bloomberg-style news wire — CNBC market desk plus central-bank and wire feeds — that auto-scrolls and updates as headlines break. Same feed as the header dropdown, with a high-signal filter built in.',
+    category: 'tools',
+    tier: 'basic',
+    icon: Newspaper,
+    defaultSize: 'md',
+    allowedSizes: ['sm', 'md', 'lg', 'xl'],
+    feeds: [],
+    render: () => <TopHeadlinesPanel />,
+  },
+  {
     id: 'world-clocks',
     title: 'World Clocks',
     blurb: 'New York, London and Tokyo session clocks.',
@@ -491,6 +506,7 @@ export const PRESETS: DashboardPreset[] = [
       { widgetId: 'max-pain', size: 'sm' },
       { widgetId: 'dealer-exposures', size: 'xl' },
       { widgetId: 'trade-bias', size: 'lg' },
+      { widgetId: 'top-headlines', size: 'md' },
     ],
   },
   {
