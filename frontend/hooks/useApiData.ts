@@ -1824,7 +1824,12 @@ export function useForcedFlowSurface(symbol = 'SPY', spotRangePct = 0.02, refres
 export interface ForcedFlowSessionColumn {
   min_to_close: number;
   spot: number;
+  // Nearest STABLE zero-flow level (attractor pin) — dealers buy below / sell
+  // above, so flow restores price to it. Null when there's no attractor near spot.
   magnet: number | null;
+  // Nearest UNSTABLE zero-flow level (repeller pivot / tripwire) — dealers sell
+  // below / buy above, so flow pushes price away. Null when there's none near spot.
+  pivot: number | null;
   is_past: boolean;
 }
 

@@ -1,29 +1,37 @@
 // Forced-flow session read — the interpretation layer for the full-session
 // forced-flow field (the ForcedFlowSurfaceChart). The chart draws the field;
-// this turns it into the two questions a trader actually asks of it:
+// this turns it into the two questions a trader actually asks of it, correctly
+// distinguishing the two kinds of zero-flow level:
 //
-//   1. WHERE IS PRICE LIKELY HEADED?  The field pulls price toward the magnet
-//      (the zero-flow price where dealers have nothing left to hedge). So the
-//      directional read is the magnet's LEAN off spot now, and — because charm
-//      resolves the book into the bell — the PROJECTED CLOSE magnet, the field's
-//      implied close target.
+//   • MAGNET (attractor): dealers buy below it and sell above, so forced flow
+//     RESTORES price to it — a stable pin. Price is pulled toward it.
+//   • PIVOT (repeller): dealers sell below it and buy above, so forced flow
+//     PUSHES price away — an unstable, short-gamma tipping point / tripwire.
+//     Price is repelled from it; a break through it accelerates.
 //
-//   2. HOW HAS PRICE REACTED TO THE FIELD SO FAR?  A within-session backtest:
-//      at each past time-slice the field was pulling price a direction
-//      (magnet − spot); did price's NEXT move actually go that way? The fraction
-//      of steps that obeyed is "pin respect" — high means the field is in
-//      control (mean-reverting pin), low means price is fighting it (a
-//      short-gamma / trend regime where the magnet is a weak target).
+// A level sitting near spot is only a "magnet" if it's an attractor. A repeller
+// that happens to sit near spot is a pivot, not a magnet — mislabeling it was
+// the bug this read now fixes.
+//
+//   1. WHERE IS PRICE LIKELY HEADED?  If the nearest level is a magnet, toward
+//      it (and the projected close magnet is the field's close target). If it's a
+//      pivot, the field is amplifying — price is pushed away from the pivot in
+//      whichever direction it's already leaning.
+//
+//   2. HOW HAS PRICE REACTED SO FAR?  A within-session backtest. In a pinning
+//      regime: did price move TOWARD the magnet ("pin respect")? In an amplifying
+//      regime: did price run AWAY from the pivot ("ran off the pivot")? Moving
+//      away from a repeller is the field WORKING, not being fought.
 //
 // Pure and dependency-free so it is unit-testable under the node test runner and
-// reusable off the same payload the chart already fetches. All inputs are fields
-// the /session-surface response already carries (see ForcedFlowSessionColumn) —
-// no extra request, no backend change.
+// reusable off the same payload the chart already fetches (see
+// ForcedFlowSessionColumn — magnet + pivot come straight from the response).
 
 export interface SessionColumnLike {
   min_to_close: number;
   spot: number;
-  magnet: number | null;
+  magnet: number | null; // attractor (stable pin)
+  pivot: number | null; // repeller (unstable tripwire)
   is_past: boolean;
 }
 
@@ -33,67 +41,67 @@ export interface ForcedFlowSessionReadInput {
   now_index: number;
 }
 
-// How hard price is obeying the field this session.
-//   pinned   — price mean-reverts to the magnet; the field controls the tape.
-//   fighting — price runs away from the magnet; dealers aren't in control.
-//   balanced — a loose attractor; price only half-tracks it.
-//   unknown  — too little session has printed to judge yet.
-export type PinRegime = 'pinned' | 'fighting' | 'balanced' | 'unknown';
-
 export type BiasDir = 'up' | 'down' | 'flat';
 
+// The field's structure at spot right now:
+//   pin     — the nearest zero-flow level is a magnet (attractor); long-gamma-like.
+//   pivot   — the nearest is a repeller; short-gamma, dealers amplify moves.
+//   none    — no zero-flow level near spot.
+//   unknown — too little session has printed to read.
+export type FieldRegime = 'pin' | 'pivot' | 'none' | 'unknown';
+
 export interface ForcedFlowSessionRead {
-  // --- Q1: directional bias (where the field points). ---
-  magnetNow: number | null; // zero-flow price at the now column
-  leanNowPoints: number | null; // magnetNow − spot, in price points
-  leanNowPct: number | null; // …as a fraction of spot
-  closeTarget: number | null; // projected close magnet (mtc→0 column)
-  closeTargetPoints: number | null; // closeTarget − spot
-  closeTargetPct: number | null; // …as a fraction of spot
-  biasDir: BiasDir | null; // net directional call (close target, else now-lean)
+  magnetNow: number | null; // nearest attractor to spot
+  pivotNow: number | null; // nearest repeller to spot
+  regime: FieldRegime;
 
-  // --- Q2: reaction (how price has obeyed the field so far). ---
-  respectPct: number | null; // fraction of past steps price moved toward its magnet
-  obeyedSteps: number;
-  totalSteps: number;
-  gapNowPoints: number | null; // |magnetNow − spot|, the live pin distance
-  gapTrend: 'converging' | 'diverging' | 'steady' | null; // is the pin tightening?
-  regime: PinRegime;
+  // The level the read keys on: the magnet in a pinning regime, the pivot in an
+  // amplifying one.
+  keyLevel: number | null;
+  keyLevelKind: 'pin' | 'pivot' | null;
+  keyLevelPoints: number | null; // keyLevel − spot
+  keyLevelPct: number | null;
 
-  // --- Synthesis. ---
-  headline: string; // short label, e.g. "Upward pin"
-  sentence: string; // one-line plain-English read answering both questions
+  // Q1 — directional bias.
+  biasDir: BiasDir | null;
+  closeTarget: number | null; // projected close MAGNET (attractor), when one exists
+  closeTargetPct: number | null;
+
+  // Q2 — reaction over the realized session.
+  reactionKind: 'respect' | 'amplify' | null; // toward-magnet vs away-from-pivot
+  reactionPct: number | null;
+  reactionObeyed: number;
+  reactionTotal: number;
+
+  headline: string;
+  sentence: string;
 }
 
-// Below this |lean|/spot the magnet is treated as sitting ON spot — no
-// directional bias to call (4 bps ≈ 0.3 pt on a 7800 index).
+// Below this |level−spot|/spot the bias is treated as flat (4 bps ≈ 0.3 pt on a
+// 7800 index). A step's level must lean at least PULL_EPS to count toward the
+// reaction, and the realized move must clear MOVE_EPS.
 const BIAS_EPS_PCT = 0.0004;
-// A step's pull is only counted toward "respect" if the magnet leans at least
-// this far off spot (0.4 bps) — below it there is no direction to obey and the
-// crossing is numerical noise. And the realised move must clear 0.1 bp so a flat
-// tick doesn't score.
 const PULL_EPS_PCT = 0.00004;
 const MOVE_EPS_PCT = 0.00001;
-// Respect thresholds and the minimum steps before we call a regime at all.
-const RESPECT_PINNED = 0.58;
-const RESPECT_FIGHTING = 0.42;
+// Minimum realized steps before the reaction % is worth leaning on in the prose.
 const MIN_STEPS = 5;
 
-function mean(xs: number[]): number {
-  if (!xs.length) return 0;
-  let s = 0;
-  for (const x of xs) s += x;
-  return s / xs.length;
-}
-
-function isFiniteMagnet(m: number | null | undefined): m is number {
-  return m != null && Number.isFinite(m);
+function isFiniteNum(v: number | null | undefined): v is number {
+  return v != null && Number.isFinite(v);
 }
 
 // Price formatter that tracks instrument scale: whole points on an index
 // (spot ≥ 1000), 2 dp on an ETF.
 function fmtPrice(v: number, spot: number): string {
   return v.toFixed(spot >= 1000 ? 0 : 2);
+}
+
+// Signed points, scale-aware.
+function fmtPoints(v: number, spot: number): string {
+  const sign = v > 0 ? '+' : v < 0 ? '−' : '';
+  const abs = Math.abs(v);
+  const dp = spot >= 1000 ? (abs >= 10 ? 0 : 1) : 2;
+  return `${sign}${abs.toFixed(dp)}`;
 }
 
 function fmtPct(frac: number): string {
@@ -103,18 +111,19 @@ function fmtPct(frac: number): string {
 function emptyRead(): ForcedFlowSessionRead {
   return {
     magnetNow: null,
-    leanNowPoints: null,
-    leanNowPct: null,
-    closeTarget: null,
-    closeTargetPoints: null,
-    closeTargetPct: null,
-    biasDir: null,
-    respectPct: null,
-    obeyedSteps: 0,
-    totalSteps: 0,
-    gapNowPoints: null,
-    gapTrend: null,
+    pivotNow: null,
     regime: 'unknown',
+    keyLevel: null,
+    keyLevelKind: null,
+    keyLevelPoints: null,
+    keyLevelPct: null,
+    biasDir: null,
+    closeTarget: null,
+    closeTargetPct: null,
+    reactionKind: null,
+    reactionPct: null,
+    reactionObeyed: 0,
+    reactionTotal: 0,
     headline: 'No read yet',
     sentence: 'Not enough of the session has printed to read the field yet.',
   };
@@ -126,107 +135,103 @@ export function computeForcedFlowSessionRead(
   if (!input || !Array.isArray(input.columns) || !(input.spot > 0)) return emptyRead();
   const { spot, columns } = input;
 
-  // Chronological actual columns (open → now). is_past covers history + the now
-  // column; projection columns (is_past === false) are excluded from the
-  // reaction backtest — they haven't happened.
   const past = columns.filter((c) => c && c.is_past && Number.isFinite(c.spot));
   if (past.length < 2) return emptyRead();
 
-  // --- Q1a: now-lean. Prefer the flagged now column; fall back to last actual.
   const nowCol =
     (input.now_index >= 0 && input.now_index < columns.length && columns[input.now_index]?.is_past
       ? columns[input.now_index]
       : past[past.length - 1]) ?? past[past.length - 1];
-  const magnetNow = isFiniteMagnet(nowCol.magnet) ? nowCol.magnet : null;
-  const leanNowPoints = magnetNow != null ? magnetNow - spot : null;
-  const leanNowPct = leanNowPoints != null ? leanNowPoints / spot : null;
+  const magnetNow = isFiniteNum(nowCol.magnet) ? nowCol.magnet : null;
+  const pivotNow = isFiniteNum(nowCol.pivot) ? nowCol.pivot : null;
 
-  // --- Q1b: projected close target — the mtc→0 magnet (last column overall,
-  // which is the deepest projection into the bell). Captures the into-close
-  // charm drift the now-lean doesn't yet show.
+  // --- Regime: which kind of level is NEAREST spot right now. ---
+  const distMag = magnetNow != null ? Math.abs(magnetNow - spot) : Infinity;
+  const distPiv = pivotNow != null ? Math.abs(pivotNow - spot) : Infinity;
+  let regime: FieldRegime;
+  if (!Number.isFinite(distMag) && !Number.isFinite(distPiv)) regime = 'none';
+  else if (distMag <= distPiv) regime = 'pin';
+  else regime = 'pivot';
+
+  const keyLevelKind: 'pin' | 'pivot' | null =
+    regime === 'pin' ? 'pin' : regime === 'pivot' ? 'pivot' : null;
+  const keyLevel = regime === 'pin' ? magnetNow : regime === 'pivot' ? pivotNow : null;
+  const keyLevelPoints = keyLevel != null ? keyLevel - spot : null;
+  const keyLevelPct = keyLevel != null ? keyLevel / spot - 1 : null;
+
+  // --- Q1b: projected close MAGNET (attractor extrapolated to the bell). ---
   const lastCol = columns[columns.length - 1];
-  const closeTarget = lastCol && isFiniteMagnet(lastCol.magnet) ? lastCol.magnet : null;
-  const closeTargetPoints = closeTarget != null ? closeTarget - spot : null;
-  const closeTargetPct = closeTargetPoints != null ? closeTargetPoints / spot : null;
+  const closeTarget = lastCol && isFiniteNum(lastCol.magnet) ? lastCol.magnet : null;
+  const closeTargetPct = closeTarget != null ? closeTarget / spot - 1 : null;
 
-  // --- Q2: reaction backtest. For each consecutive pair of actual columns, was
-  // the field's pull (magnet − spot) the same sign as the realised next move?
+  // --- Q2: reaction backtest, keyed to the regime. In a pinning regime, count
+  // steps where price moved TOWARD that column's magnet; in an amplifying one,
+  // steps where price ran AWAY from that column's pivot. ---
   const pullEps = spot * PULL_EPS_PCT;
   const moveEps = spot * MOVE_EPS_PCT;
   let obeyed = 0;
   let total = 0;
-  for (let i = 0; i < past.length - 1; i++) {
-    const a = past[i];
-    const b = past[i + 1];
-    if (!isFiniteMagnet(a.magnet)) continue;
-    const pull = a.magnet - a.spot; // where the field was pulling at time i
-    const move = b.spot - a.spot; // what price actually did next
-    if (Math.abs(pull) < pullEps) continue; // no direction to obey
-    if (Math.abs(move) < moveEps) continue; // price didn't move — no test
-    total++;
-    if (pull * move > 0) obeyed++;
+  const reactionKind: 'respect' | 'amplify' | null =
+    regime === 'pin' ? 'respect' : regime === 'pivot' ? 'amplify' : null;
+  if (reactionKind) {
+    for (let i = 0; i < past.length - 1; i++) {
+      const a = past[i];
+      const b = past[i + 1];
+      const level = reactionKind === 'respect' ? a.magnet : a.pivot;
+      if (!isFiniteNum(level)) continue;
+      // Toward a magnet: pull points from spot to the magnet. Away from a pivot:
+      // the "push" points from the pivot to spot (the side price is already on).
+      const drive = reactionKind === 'respect' ? level - a.spot : a.spot - level;
+      const move = b.spot - a.spot;
+      if (Math.abs(drive) < pullEps) continue;
+      if (Math.abs(move) < moveEps) continue;
+      total++;
+      if (drive * move > 0) obeyed++;
+    }
   }
-  const respectPct = total > 0 ? obeyed / total : null;
+  const reactionPct = total > 0 ? obeyed / total : null;
 
-  // --- Q2b: is the pin tightening (typical into the close) or breaking apart?
-  const gaps = past
-    .filter((c) => isFiniteMagnet(c.magnet))
-    .map((c) => Math.abs((c.magnet as number) - c.spot));
-  let gapTrend: ForcedFlowSessionRead['gapTrend'] = null;
-  if (gaps.length >= 6) {
-    const k = Math.max(1, Math.floor(gaps.length / 3));
-    const early = mean(gaps.slice(0, k));
-    const late = mean(gaps.slice(-k));
-    if (early > 0 && late < early * 0.7) gapTrend = 'converging';
-    else if (early > 0 && late > early * 1.4) gapTrend = 'diverging';
-    else gapTrend = 'steady';
-  }
-  const gapNowPoints = leanNowPoints != null ? Math.abs(leanNowPoints) : null;
-
-  // --- Regime from respect (only once enough steps have printed). ---
-  let regime: PinRegime = 'unknown';
-  if (respectPct != null && total >= MIN_STEPS) {
-    regime =
-      respectPct >= RESPECT_PINNED
-        ? 'pinned'
-        : respectPct <= RESPECT_FIGHTING
-          ? 'fighting'
-          : 'balanced';
-  }
-
-  // --- Bias direction: the forward statement (close target) if we have it,
-  // else the instantaneous now-lean. ---
-  const refPct = closeTargetPct ?? leanNowPct;
+  // --- Bias. Pin: toward the magnet (close target preferred). Pivot: the
+  // amplification direction — away from the pivot, i.e. the side spot sits on. ---
   let biasDir: BiasDir | null = null;
-  if (refPct != null) {
-    biasDir = refPct > BIAS_EPS_PCT ? 'up' : refPct < -BIAS_EPS_PCT ? 'down' : 'flat';
+  if (regime === 'pin') {
+    const refPct = closeTargetPct ?? (magnetNow != null ? magnetNow / spot - 1 : null);
+    if (refPct != null) {
+      biasDir = refPct > BIAS_EPS_PCT ? 'up' : refPct < -BIAS_EPS_PCT ? 'down' : 'flat';
+    }
+  } else if (regime === 'pivot' && pivotNow != null) {
+    const d = spot / pivotNow - 1;
+    biasDir = d > BIAS_EPS_PCT ? 'up' : d < -BIAS_EPS_PCT ? 'down' : 'flat';
   }
 
   const { headline, sentence } = synthesize({
     spot,
     regime,
     biasDir,
-    respectPct,
-    totalSteps: total,
-    closeTarget,
+    keyLevel,
     magnetNow,
-    gapTrend,
+    pivotNow,
+    closeTarget,
+    reactionKind,
+    reactionPct,
+    reactionTotal: total,
   });
 
   return {
     magnetNow,
-    leanNowPoints,
-    leanNowPct,
-    closeTarget,
-    closeTargetPoints,
-    closeTargetPct,
-    biasDir,
-    respectPct,
-    obeyedSteps: obeyed,
-    totalSteps: total,
-    gapNowPoints,
-    gapTrend,
+    pivotNow,
     regime,
+    keyLevel,
+    keyLevelKind,
+    keyLevelPoints,
+    keyLevelPct,
+    biasDir,
+    closeTarget,
+    closeTargetPct,
+    reactionKind,
+    reactionPct,
+    reactionObeyed: obeyed,
+    reactionTotal: total,
     headline,
     sentence,
   };
@@ -234,73 +239,82 @@ export function computeForcedFlowSessionRead(
 
 function synthesize(a: {
   spot: number;
-  regime: PinRegime;
+  regime: FieldRegime;
   biasDir: BiasDir | null;
-  respectPct: number | null;
-  totalSteps: number;
-  closeTarget: number | null;
+  keyLevel: number | null;
   magnetNow: number | null;
-  gapTrend: ForcedFlowSessionRead['gapTrend'];
+  pivotNow: number | null;
+  closeTarget: number | null;
+  reactionKind: 'respect' | 'amplify' | null;
+  reactionPct: number | null;
+  reactionTotal: number;
 }): { headline: string; sentence: string } {
-  const { spot, regime, biasDir, respectPct, closeTarget, magnetNow, gapTrend } = a;
-  const respect = respectPct != null ? fmtPct(respectPct) : null;
-  // The level to name as the target: the projected close magnet, else the live
-  // magnet, else spot.
-  const target = closeTarget ?? magnetNow ?? spot;
-  const targetStr = fmtPrice(target, spot);
-  const diverging = gapTrend === 'diverging';
+  const { spot, regime, biasDir, keyLevel, magnetNow, closeTarget, reactionPct, reactionTotal } = a;
 
-  // Bias phrase fragments.
-  const upDown = biasDir === 'up' ? 'up' : biasDir === 'down' ? 'down' : 'flat';
-
-  // Not enough session yet to judge reaction — lead with the bias only.
   if (regime === 'unknown') {
-    if (biasDir === 'flat' || biasDir == null) {
-      return {
-        headline: 'Forming',
-        sentence: `Too little of the session has printed to judge how price is reacting to the field yet. Right now the pin sits essentially on spot — no directional lean.`,
-      };
-    }
     return {
-      headline: biasDir === 'up' ? 'Forming · up' : 'Forming · down',
-      sentence: `Too little of the session has printed to judge how price is reacting yet, but the field leans ${upDown}, toward ${targetStr} into the close.`,
+      headline: 'Forming',
+      sentence: 'Too little of the session has printed to read the field yet.',
+    };
+  }
+  if (regime === 'none' || keyLevel == null) {
+    return {
+      headline: 'No level near spot',
+      sentence:
+        'No zero-flow level sits near spot right now — no pin or pivot to lean on; price is between structures.',
     };
   }
 
-  if (regime === 'pinned') {
-    if (biasDir === 'flat') {
-      return {
-        headline: 'Flat pin',
-        sentence: `Price has respected the pin this session — ${respect} of moves ran toward the zero-flow line — and it sits essentially on spot. Base case is chop pinned around ${targetStr}, not a directional push, unless price breaks out of the field.`,
-      };
-    }
-    const bandNote =
+  const lvl = fmtPrice(keyLevel, spot);
+  const pts = fmtPoints(keyLevel - spot, spot);
+  const scored = reactionPct != null && reactionTotal >= MIN_STEPS;
+  const pct = reactionPct != null ? fmtPct(reactionPct) : null;
+
+  if (regime === 'pin') {
+    const target = closeTarget != null ? fmtPrice(closeTarget, spot) : lvl;
+    const dirTail =
       biasDir === 'up'
-        ? 'dips into the green (dealer-buy) band below spot should get bought back'
-        : 'pops into the red (dealer-sell) band above spot should get faded';
+        ? `Base case: drift/hold up toward ${target} into the close.`
+        : biasDir === 'down'
+          ? `Base case: drift/hold down toward ${target} into the close.`
+          : `Base case: chop pinned around ${target} into the close.`;
+    let reactSentence = '';
+    if (scored && reactionPct != null) {
+      const how =
+        reactionPct >= 0.55
+          ? `Price has respected it (${pct} of moves toward it)`
+          : reactionPct <= 0.4
+            ? `Price has been overpowering it (${pct} of moves toward it)`
+            : `Price has loosely tracked it (${pct} of moves toward it)`;
+      reactSentence = `${how} this session. `;
+    } else {
+      reactSentence = 'Reaction is still scoring this early in the session. ';
+    }
+    const headline =
+      biasDir === 'up' ? 'Upward pin' : biasDir === 'down' ? 'Downward pin' : 'Flat pin';
     return {
-      headline: biasDir === 'up' ? 'Upward pin' : 'Downward pin',
-      sentence: `Price has respected the pin this session — ${respect} of moves ran toward the zero-flow line — and the field leans ${upDown}. Base case is a drift/pin toward ${targetStr} into the close; ${bandNote}.`,
+      headline,
+      sentence: `The nearest zero-flow level is a stable pin (magnet) at ${lvl} (${pts}) — dealers sell above it and buy below, so it pulls price in. ${reactSentence}${dirTail}`,
     };
   }
 
-  if (regime === 'fighting') {
-    return {
-      headline: 'Fighting the pin',
-      sentence: `Price has been fighting the field this session — only ${respect} of moves ran toward the pin, so dealers aren't controlling the tape here. Treat the magnet at ${targetStr} as a weak target: moves are extending rather than reverting, so respect the trend over the pin until this flips.`,
-    };
+  // pivot / amplifying (short gamma)
+  const pinTail =
+    magnetNow != null
+      ? `The nearest stable pin sits at ${fmtPrice(magnetNow, spot)}.`
+      : 'No stable pin sits nearby.';
+  let reactSentence = '';
+  if (scored && reactionPct != null) {
+    reactSentence =
+      reactionPct >= 0.55
+        ? `Price has run off it ${pct} of the time this session — moves extend, not revert. `
+        : `Price has held near it (only ${pct} of moves ran away) — coiling rather than breaking. `;
+  } else {
+    reactSentence = 'Reaction is still scoring this early in the session. ';
   }
-
-  // balanced
-  const leanTail =
-    biasDir === 'flat' || biasDir == null
-      ? 'with no clear directional lean'
-      : `with a mild ${upDown}ward lean toward ${targetStr}`;
-  const divTail = diverging
-    ? ' The pin has been widening, not tightening — a caution flag for leaning on it.'
-    : '';
+  const pushWord = biasDir === 'up' ? 'upward' : biasDir === 'down' ? 'downward' : 'either-way';
   return {
-    headline: 'Loose pin',
-    sentence: `Price has only loosely tracked the field this session (${respect} of moves toward the pin) — a mild attractor, not a hard one, ${leanTail}.${divTail}`,
+    headline: 'Amplifying · short γ',
+    sentence: `Price is sitting by a pivot at ${lvl} (${pts}), not a pin — dealers buy above it and sell below, so they amplify moves here (short gamma), currently a ${pushWord} push. ${reactSentence}A break back through ${lvl} flips the push the other way. ${pinTail}`,
   };
 }

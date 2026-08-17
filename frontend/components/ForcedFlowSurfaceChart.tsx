@@ -642,37 +642,45 @@ export default function ForcedFlowSurfaceChart({
       ctx.restore();
     }
 
-    // --- Magnet line: the zero-flow "pin" price per session column (blue),
-    // drifting up/down as the session runs open→close (left→right). ----------
-    ctx.save();
-    ctx.strokeStyle = chart.info || '#06B6D4';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    let magPen = false;
-    let lastMag: { x: number; y: number } | null = null;
-    for (let c = 0; c < S; c++) {
-      const col = columns[c];
-      const mag = Number(col?.magnet);
-      const mtc = Number(col?.min_to_close);
-      if (col?.magnet == null || !Number.isFinite(mag) || !Number.isFinite(mtc)
-          || mag < pMin || mag > pMax || mtc < tMin || mtc > tMax) {
-        magPen = false;
-        continue;
+    // --- Level lines: the MAGNET (attractor / stable pin — solid blue, pulls
+    // price in) and the PIVOT (repeller / short-gamma tripwire — dashed amber,
+    // pushes price away). Each is a per-column zero-flow level, drifting as the
+    // session runs; either may be absent for a column. -----------------------
+    const drawLevelLine = (key: 'magnet' | 'pivot', color: string, dash: number[], label: string) => {
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.setLineDash(dash);
+      ctx.beginPath();
+      let pen = false;
+      let last: { x: number; y: number } | null = null;
+      for (let c = 0; c < S; c++) {
+        const col = columns[c];
+        const lv = Number(col?.[key]);
+        const mtc = Number(col?.min_to_close);
+        if (col?.[key] == null || !Number.isFinite(lv) || !Number.isFinite(mtc)
+            || lv < pMin || lv > pMax || mtc < tMin || mtc > tMax) {
+          pen = false;
+          continue;
+        }
+        const pt = { x: xForTime(mtc), y: yForPrice(lv) };
+        if (!pen) { ctx.moveTo(pt.x, pt.y); pen = true; } else { ctx.lineTo(pt.x, pt.y); }
+        last = pt;
       }
-      const pt = { x: xForTime(mtc), y: yForPrice(mag) };
-      if (!magPen) { ctx.moveTo(pt.x, pt.y); magPen = true; } else { ctx.lineTo(pt.x, pt.y); }
-      lastMag = pt;
-    }
-    ctx.stroke();
-    if (lastMag) {
-      const p = lastMag as { x: number; y: number };
-      ctx.fillStyle = chart.info || '#06B6D4';
-      ctx.font = 'bold 10px ui-sans-serif, system-ui, -apple-system, sans-serif';
-      ctx.textAlign = 'right';
-      ctx.textBaseline = 'bottom';
-      ctx.fillText('magnet', p.x - 4, p.y - 4);
-    }
-    ctx.restore();
+      ctx.stroke();
+      ctx.setLineDash([]);
+      if (last) {
+        ctx.fillStyle = color;
+        ctx.font = 'bold 10px ui-sans-serif, system-ui, -apple-system, sans-serif';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(label, last.x - 4, last.y - 4);
+      }
+      ctx.restore();
+    };
+    // Pivot first so the magnet (the primary pin) draws over it on any overlap.
+    drawLevelLine('pivot', chart.warning || '#F59E0B', [5, 3], 'pivot');
+    drawLevelLine('magnet', chart.info || '#06B6D4', [], 'magnet');
 
     // --- Realized price: black hollow 5-minute candlesticks over the past
     // region — TradingView's hollow convention: HOLLOW body when close ≥ open
@@ -1100,21 +1108,31 @@ export default function ForcedFlowSurfaceChart({
 
   const textColor = 'var(--text-primary)';
 
-  // --- Read-out display values (colours + short labels for the chips). The pin
-  // regime borrows the same semantics as "The Read": info-blue for a controlling
-  // pin (long-gamma-like), amber for price fighting the field (the hot regime),
-  // deliberately NOT red/green so it never reads as a buy/sell call. ---
-  const biasColor =
-    read?.biasDir === 'up' ? chart.bull : read?.biasDir === 'down' ? chart.bear : 'var(--text-secondary)';
-  const respectColor =
-    read?.regime === 'pinned'
+  // --- Read-out display values. Colour by field STRUCTURE: a controlling magnet
+  // (pin) takes info-blue; an amplifying pivot (short γ) takes amber —
+  // deliberately NOT red/green so it never reads as a buy/sell call. The bias
+  // arrow keeps its own up/down colour. ---
+  const regimeColor =
+    read?.regime === 'pin'
       ? chart.info
-      : read?.regime === 'fighting'
+      : read?.regime === 'pivot'
         ? chart.warning
         : 'var(--text-secondary)';
+  const biasColor =
+    read?.biasDir === 'up' ? chart.bull : read?.biasDir === 'down' ? chart.bear : 'var(--text-secondary)';
   const biasArrow = read?.biasDir === 'up' ? '▲' : read?.biasDir === 'down' ? '▼' : '•';
   const biasWord =
     read?.biasDir === 'up' ? 'Up' : read?.biasDir === 'down' ? 'Down' : read?.biasDir === 'flat' ? 'Flat' : '—';
+  const regimeLabel =
+    read?.regime === 'pin'
+      ? 'Pin · long γ'
+      : read?.regime === 'pivot'
+        ? 'Pivot · short γ'
+        : read?.regime === 'none'
+          ? 'No level'
+          : '—';
+  const keyLevelLabel = read?.keyLevelKind === 'pivot' ? 'Pivot' : 'Magnet';
+  const reactionLabel = read?.reactionKind === 'amplify' ? 'Ran off pivot' : 'Pin respect';
 
   return (
     <div
@@ -1125,7 +1143,7 @@ export default function ForcedFlowSurfaceChart({
         <h3 className="zg-h3" style={{ color: textColor }}>
           Forced-Flow Field · Full Session
         </h3>
-        <TooltipWrapper text="The whole trading session's dealer forced-flow field — price on the vertical axis, time running left→right from the OPEN to the 4pm CLOSE. Colour is the TOTAL forced flow dealers must hedge at each spot: green = forced to BUY, red = forced to SELL. LEFT of the 'now' line is the ACTUAL field the session has already printed; RIGHT of it (shaded) is a PROJECTION into the close. The blue line is the magnet — the zero-flow pin price; the black hollow candlesticks are the realized 5-minute price (hollow = up bar, filled = down bar); the dashed line is the current spot. It opens framed tight around spot (where the magnet's lean and the near-spot gradient are legible); zoom out to see the 0DTE wings. Scroll to zoom, drag to pan, drag an axis to stretch just that axis, pinch on touch, double-click to reset.">
+        <TooltipWrapper text="The whole trading session's dealer forced-flow field — price on the vertical axis, time running left→right from the OPEN to the 4pm CLOSE. Colour is the TOTAL forced flow dealers must hedge at each spot: green = forced to BUY, red = forced to SELL. LEFT of the 'now' line is the ACTUAL field the session has already printed; RIGHT of it (shaded) is a PROJECTION into the close. The solid blue line is the magnet — a STABLE zero-flow pin (dealers sell above / buy below, so it pulls price in); the dashed amber line is the pivot — an UNSTABLE short-gamma tripwire (dealers buy above / sell below, so it pushes price away). The black hollow candlesticks are the realized 5-minute price (hollow = up bar, filled = down bar); the dashed grey line is the current spot. It opens framed tight around spot (where the magnet's lean and the near-spot gradient are legible); zoom out to see the 0DTE wings. Scroll to zoom, drag to pan, drag an axis to stretch just that axis, pinch on touch, double-click to reset.">
           <Info size={14} />
         </TooltipWrapper>
         <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
@@ -1146,59 +1164,69 @@ export default function ForcedFlowSurfaceChart({
         The whole session&apos;s dealer forced-flow field, open → close (left→right) at each spot (vertical).{' '}
         <em>Left of <strong>now</strong> is the ACTUAL field; right is a PROJECTION into the close.</em>{' '}
         <span style={{ color: chart.bull, fontWeight: 600 }}>Green = dealers forced to BUY</span>,{' '}
-        <span style={{ color: chart.bear, fontWeight: 600 }}>red = SELL</span>. Blue line = the magnet (zero-flow pin);{' '}
-        <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>black candles = realized 5-min price</span>; dashed = spot.{' '}
+        <span style={{ color: chart.bear, fontWeight: 600 }}>red = SELL</span>.{' '}
+        <span style={{ color: chart.info, fontWeight: 600 }}>Blue = magnet (stable pin)</span>,{' '}
+        <span style={{ color: chart.warning, fontWeight: 600 }}>dashed amber = pivot (short-γ tripwire)</span>;{' '}
+        <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>black candles = realized 5-min price</span>; dashed grey = spot.{' '}
         <span style={{ color: 'var(--text-muted)' }}>Opens zoomed to spot — zoom out for the 0DTE wings · drag to pan · drag an axis to stretch it · double-click to reset.</span>
       </p>
 
-      {/* THE READ — the field's two answers: where it points (bias) and whether
-          price has obeyed it so far (pin respect). Computed off the same payload
-          the heatmap draws. */}
+      {/* THE READ — the field's two answers: its structure at spot (a magnet
+          that pulls, or a pivot that pushes) and how price has reacted to it.
+          Computed off the same payload the heatmap draws. */}
       {read && (
         <div
           className="mb-4 rounded-xl p-3"
           style={{ background: 'var(--bg-main)', border: '1px solid var(--border-default)' }}
         >
           <p className="text-[13px] leading-relaxed mb-2.5" style={{ color: 'var(--text-primary)' }}>
-            <span className="font-bold" style={{ color: biasColor }}>
+            <span className="font-bold" style={{ color: regimeColor }}>
               {read.headline}.
             </span>{' '}
             {read.sentence}
           </p>
           <div className="flex flex-wrap gap-2">
+            <ReadChip
+              label="Regime"
+              value={regimeLabel}
+              color={regimeColor}
+              title="Which zero-flow level sits nearest spot: a MAGNET (attractor — dealers sell above / buy below, pulling price in, long-gamma-like) or a PIVOT (repeller — dealers buy above / sell below, pushing price away, short gamma)."
+            />
             <ReadChip label="Heading" value={`${biasArrow} ${biasWord}`} color={biasColor} />
-            <ReadChip
-              label="Into close"
-              value={
-                read.closeTarget != null
-                  ? `${formatPrice(read.closeTarget)}${
-                      read.closeTargetPct != null ? ` (${formatSignedPct(read.closeTargetPct)})` : ''
-                    }`
-                  : '—'
-              }
-              color={biasColor}
-              title="The field's projected close target — the zero-flow magnet extrapolated to the 4pm bell — and its distance from spot."
-            />
-            <ReadChip
-              label="Pin respect"
-              value={read.respectPct != null ? `${Math.round(read.respectPct * 100)}%` : '—'}
-              color={respectColor}
-              title={
-                read.totalSteps > 0
-                  ? `${read.obeyedSteps} of ${read.totalSteps} session moves ran toward the pin. High = price mean-reverts to the field; low = price is fighting it.`
-                  : 'Not enough session has printed to score how price is reacting to the field yet.'
-              }
-            />
-            {(read.gapTrend === 'converging' || read.gapTrend === 'diverging') && (
+            {read.keyLevel != null && (
               <ReadChip
-                label="Pin"
-                value={read.gapTrend === 'converging' ? 'tightening' : 'widening'}
-                color={read.gapTrend === 'converging' ? chart.info : chart.warning}
+                label={keyLevelLabel}
+                value={`${formatPrice(read.keyLevel)}${
+                  read.keyLevelPct != null ? ` (${formatSignedPct(read.keyLevelPct)})` : ''
+                }`}
+                color={regimeColor}
                 title={
-                  read.gapTrend === 'converging'
-                    ? 'The gap between price and the magnet has been shrinking through the session — a pin firming up into the close.'
-                    : 'The gap between price and the magnet has been widening — price is pulling away from the field, not toward it.'
+                  read.keyLevelKind === 'pivot'
+                    ? 'The pivot (short-γ tripwire) nearest spot — a level price is pushed AWAY from; a break through it accelerates.'
+                    : 'The magnet (stable pin) nearest spot — a level price is pulled TOWARD.'
                 }
+              />
+            )}
+            {read.reactionPct != null && (
+              <ReadChip
+                label={reactionLabel}
+                value={`${Math.round(read.reactionPct * 100)}%`}
+                color={regimeColor}
+                title={
+                  read.reactionKind === 'amplify'
+                    ? `${read.reactionObeyed} of ${read.reactionTotal} session moves ran AWAY from the pivot — high = the field is amplifying (short gamma), moves extend.`
+                    : `${read.reactionObeyed} of ${read.reactionTotal} session moves ran TOWARD the magnet — high = price is pinning to the field.`
+                }
+              />
+            )}
+            {read.regime === 'pin' && read.closeTarget != null && (
+              <ReadChip
+                label="Into close"
+                value={`${formatPrice(read.closeTarget)}${
+                  read.closeTargetPct != null ? ` (${formatSignedPct(read.closeTargetPct)})` : ''
+                }`}
+                color={biasColor}
+                title="The magnet extrapolated to the 4pm bell — the pin's projected close target — and its distance from spot."
               />
             )}
           </div>
