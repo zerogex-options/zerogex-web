@@ -674,38 +674,88 @@ export default function ForcedFlowSurfaceChart({
     }
     ctx.restore();
 
-    // --- Spot path: where price ACTUALLY went, over the PAST columns (amber).
-    // A clearly visible realised-price line from the open up to "now". -------
-    ctx.save();
-    ctx.strokeStyle = chart.warning || '#F59E0B';
-    ctx.lineWidth = 2.5;
-    ctx.lineJoin = 'round';
-    ctx.beginPath();
-    let pastPen = false;
-    let lastPast: { x: number; y: number } | null = null;
-    for (let c = 0; c < S; c++) {
-      const col = columns[c];
-      if (!col?.is_past) { pastPen = false; continue; }
-      const sp = Number(col.spot);
-      const mtc = Number(col.min_to_close);
-      if (!Number.isFinite(sp) || !Number.isFinite(mtc)
-          || sp < pMin || sp > pMax || mtc < tMin || mtc > tMax) {
-        pastPen = false;
-        continue;
-      }
-      const pt = { x: xForTime(mtc), y: yForPrice(sp) };
-      if (!pastPen) { ctx.moveTo(pt.x, pt.y); pastPen = true; } else { ctx.lineTo(pt.x, pt.y); }
-      lastPast = pt;
-    }
-    ctx.stroke();
-    if (lastPast) {
-      const p = lastPast as { x: number; y: number };
-      ctx.fillStyle = chart.warning || '#F59E0B';
+    // --- Realized price: black hollow 5-minute candlesticks over the past
+    // region — TradingView's hollow convention: HOLLOW body when close ≥ open
+    // (the field shows through), FILLED black when close < open; wick + border
+    // always black. Wicks are drawn only OUTSIDE the body so a hollow candle
+    // stays see-through. When the payload carries no candles (an older backend),
+    // fall back to the amber realized-price line so the overlay never vanishes.
+    const priceBars = Array.isArray(surface.price_bars) ? surface.price_bars : [];
+    if (priceBars.length > 0) {
+      ctx.save();
       ctx.beginPath();
-      ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.rect(PAD_L, PAD_T, plotW, plotH);
+      ctx.clip();
+      ctx.strokeStyle = '#000000';
+      ctx.fillStyle = '#000000';
+      ctx.lineWidth = 1;
+      const slotW = plotW * (5 / tSpan); // one 5-min slot in px (time is mtc)
+      const bodyW = Math.max(1.5, Math.min(22, slotW * 0.7));
+      for (let i = 0; i < priceBars.length; i++) {
+        const bar = priceBars[i];
+        const mtc = Number(bar?.min_to_close);
+        if (!Number.isFinite(mtc) || mtc < tMin || mtc > tMax) continue;
+        const o = Number(bar.open);
+        const h = Number(bar.high);
+        const lo = Number(bar.low);
+        const cl = Number(bar.close);
+        if (!Number.isFinite(o) || !Number.isFinite(h) || !Number.isFinite(lo) || !Number.isFinite(cl)) {
+          continue;
+        }
+        const x = xForTime(mtc);
+        const yH = yForPrice(h); // high → smallest y (top)
+        const yL = yForPrice(lo);
+        const bodyTop = Math.min(yForPrice(o), yForPrice(cl));
+        const bodyBot = Math.max(yForPrice(o), yForPrice(cl));
+        // Upper + lower wick, leaving the body span clear.
+        ctx.beginPath();
+        ctx.moveTo(x, yH);
+        ctx.lineTo(x, bodyTop);
+        ctx.moveTo(x, bodyBot);
+        ctx.lineTo(x, yL);
+        ctx.stroke();
+        const left = x - bodyW / 2;
+        const bodyH = Math.max(1, bodyBot - bodyTop);
+        if (cl < o) {
+          ctx.fillRect(left, bodyTop, bodyW, bodyH); // down → filled black
+        } else {
+          ctx.strokeRect(left, bodyTop, bodyW, bodyH); // up / doji → hollow
+        }
+      }
+      ctx.restore();
+    } else {
+      // Fallback (older backend, no candles): amber realized-price line, open→now.
+      ctx.save();
+      ctx.strokeStyle = chart.warning || '#F59E0B';
+      ctx.lineWidth = 2.5;
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      let pastPen = false;
+      let lastPast: { x: number; y: number } | null = null;
+      for (let c = 0; c < S; c++) {
+        const col = columns[c];
+        if (!col?.is_past) { pastPen = false; continue; }
+        const sp = Number(col.spot);
+        const mtc = Number(col.min_to_close);
+        if (!Number.isFinite(sp) || !Number.isFinite(mtc)
+            || sp < pMin || sp > pMax || mtc < tMin || mtc > tMax) {
+          pastPen = false;
+          continue;
+        }
+        const pt = { x: xForTime(mtc), y: yForPrice(sp) };
+        if (!pastPen) { ctx.moveTo(pt.x, pt.y); pastPen = true; } else { ctx.lineTo(pt.x, pt.y); }
+        lastPast = pt;
+      }
+      ctx.stroke();
+      if (lastPast) {
+        const p = lastPast as { x: number; y: number };
+        ctx.fillStyle = chart.warning || '#F59E0B';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
     }
-    ctx.restore();
 
     // --- NOW marker: a distinct vertical line dividing the ACTUAL field (left)
     // from the PROJECTION (right), labelled "now" at the top. ----------------
@@ -1061,7 +1111,7 @@ export default function ForcedFlowSurfaceChart({
         <h3 className="zg-h3" style={{ color: textColor }}>
           Forced-Flow Field · Full Session
         </h3>
-        <TooltipWrapper text="The whole trading session's dealer forced-flow field — price on the vertical axis, time running left→right from the OPEN to the 4pm CLOSE. Colour is the TOTAL forced flow dealers must hedge at each spot: green = forced to BUY, red = forced to SELL. LEFT of the 'now' line is the ACTUAL field the session has already printed; RIGHT of it (shaded) is a PROJECTION into the close. The blue line is the magnet — the zero-flow pin price; the amber line is where price ACTUALLY went; the dashed line is the current spot. It opens framed tight around spot (where the magnet's lean and the near-spot gradient are legible); zoom out to see the 0DTE wings. Scroll to zoom, drag to pan, drag an axis to stretch just that axis, pinch on touch, double-click to reset.">
+        <TooltipWrapper text="The whole trading session's dealer forced-flow field — price on the vertical axis, time running left→right from the OPEN to the 4pm CLOSE. Colour is the TOTAL forced flow dealers must hedge at each spot: green = forced to BUY, red = forced to SELL. LEFT of the 'now' line is the ACTUAL field the session has already printed; RIGHT of it (shaded) is a PROJECTION into the close. The blue line is the magnet — the zero-flow pin price; the black hollow candlesticks are the realized 5-minute price (hollow = up bar, filled = down bar); the dashed line is the current spot. It opens framed tight around spot (where the magnet's lean and the near-spot gradient are legible); zoom out to see the 0DTE wings. Scroll to zoom, drag to pan, drag an axis to stretch just that axis, pinch on touch, double-click to reset.">
           <Info size={14} />
         </TooltipWrapper>
         <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
@@ -1083,7 +1133,7 @@ export default function ForcedFlowSurfaceChart({
         <em>Left of <strong>now</strong> is the ACTUAL field; right is a PROJECTION into the close.</em>{' '}
         <span style={{ color: chart.bull, fontWeight: 600 }}>Green = dealers forced to BUY</span>,{' '}
         <span style={{ color: chart.bear, fontWeight: 600 }}>red = SELL</span>. Blue line = the magnet (zero-flow pin);{' '}
-        <span style={{ color: chart.warning, fontWeight: 600 }}>amber = where price actually went</span>; dashed = spot.{' '}
+        <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>black candles = realized 5-min price</span>; dashed = spot.{' '}
         <span style={{ color: 'var(--text-muted)' }}>Opens zoomed to spot — zoom out for the 0DTE wings · drag to pan · drag an axis to stretch it · double-click to reset.</span>
       </p>
 

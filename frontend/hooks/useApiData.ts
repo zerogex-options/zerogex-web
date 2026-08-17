@@ -1828,6 +1828,17 @@ export interface ForcedFlowSessionColumn {
   is_past: boolean;
 }
 
+// One realized 5-minute OHLC candle, on the same minutes-to-close axis as the
+// columns (min_to_close is the bar's CENTRE). Optional on the response — older
+// backends omit it, and the chart falls back to the realized-price line.
+export interface ForcedFlowSessionPriceBar {
+  min_to_close: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+}
+
 export interface ForcedFlowSessionSurfaceResponse {
   symbol: string;
   spot: number;
@@ -1843,6 +1854,9 @@ export interface ForcedFlowSessionSurfaceResponse {
   columns: ForcedFlowSessionColumn[];
   // Index of the last actual (≈now) column; columns after it are projection.
   now_index: number;
+  // Realized 5-min OHLC candles (open→now) for the price overlay. Optional —
+  // absent on older backends, in which case the chart draws the price line.
+  price_bars?: ForcedFlowSessionPriceBar[];
 }
 
 // The full-session forced-flow field: the ACTUAL dealer forced-flow surface
