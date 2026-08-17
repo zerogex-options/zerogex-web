@@ -671,17 +671,40 @@ export default function ForcedFlowSurfaceChart({
       ctx.stroke();
       ctx.setLineDash([]);
       if (last) {
+        // A rounded chip — card background, coloured 1px border + bold text — so
+        // the label reads clearly over candles and the field (the Gamma Chart's
+        // level-tag style). The card fill occludes whatever sits behind it.
+        ctx.font = 'bold 10.5px ui-sans-serif, system-ui, -apple-system, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        const padX = 5;
+        const chipH = 16;
+        const chipW = ctx.measureText(label).width + padX * 2;
+        // Sit the chip just left of the line end, clamped inside the plot.
+        let bx = Math.min(last.x - chipW - 2, PAD_L + plotW - chipW - 2);
+        bx = Math.max(PAD_L + 2, bx);
+        let by = Math.min(last.y - chipH / 2, PAD_T + plotH - chipH - 2);
+        by = Math.max(PAD_T + 2, by);
+        const r = 3;
+        ctx.beginPath();
+        ctx.moveTo(bx + r, by);
+        ctx.arcTo(bx + chipW, by, bx + chipW, by + chipH, r);
+        ctx.arcTo(bx + chipW, by + chipH, bx, by + chipH, r);
+        ctx.arcTo(bx, by + chipH, bx, by, r);
+        ctx.arcTo(bx, by, bx + chipW, by, r);
+        ctx.closePath();
+        ctx.fillStyle = chart.bgCard || (isDark ? '#111821' : '#F7F7F7');
+        ctx.globalAlpha = 0.94;
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = color;
+        ctx.stroke();
         ctx.fillStyle = color;
-        ctx.font = 'bold 10px ui-sans-serif, system-ui, -apple-system, sans-serif';
-        ctx.textAlign = 'right';
-        ctx.textBaseline = 'bottom';
-        ctx.fillText(label, last.x - 4, last.y - 4);
+        ctx.fillText(label, bx + padX, by + chipH / 2 + 0.5);
       }
       ctx.restore();
     };
-    // Pivot first so the magnet (the primary pin) draws over it on any overlap.
-    drawLevelLine('pivot', chart.warning || '#F59E0B', [5, 3], 'pivot');
-    drawLevelLine('magnet', chart.info || '#06B6D4', [], 'magnet');
 
     // --- Realized price: 5-minute candlesticks in the Gamma-Chart style —
     // COLOURED hollow candles. Colour tracks close vs the PREVIOUS bar's close
@@ -779,6 +802,12 @@ export default function ForcedFlowSurfaceChart({
       }
       ctx.restore();
     }
+
+    // Level lines drawn AFTER the candles so the pin/pivot and their chip labels
+    // read on top of the price, not hidden behind it. Pivot first so the magnet
+    // (the primary pin) wins any overlap.
+    drawLevelLine('pivot', chart.warning || '#F59E0B', [5, 3], 'pivot');
+    drawLevelLine('magnet', chart.info || '#06B6D4', [], 'magnet');
 
     // --- NOW marker: a distinct vertical line dividing the ACTUAL field (left)
     // from the PROJECTION (right), labelled "now" at the top. ----------------
