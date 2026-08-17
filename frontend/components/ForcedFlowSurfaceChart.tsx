@@ -676,21 +676,21 @@ export default function ForcedFlowSurfaceChart({
 
     // --- Realized price: black hollow 5-minute candlesticks over the past
     // region — TradingView's hollow convention: HOLLOW body when close ≥ open
-    // (the field shows through), FILLED black when close < open; wick + border
-    // always black. Wicks are drawn only OUTSIDE the body so a hollow candle
-    // stays see-through. When the payload carries no candles (an older backend),
-    // fall back to the amber realized-price line so the overlay never vanishes.
+    // (the field shows through), FILLED black when close < open. A light hairline
+    // HALO is painted under the black (a wider, translucent pass) so the candles
+    // stay legible over dark cells and the muted wings. Wicks are drawn only
+    // OUTSIDE the body so a hollow candle stays see-through. When the payload
+    // carries no candles (older backend), fall back to the amber realized line.
     const priceBars = Array.isArray(surface.price_bars) ? surface.price_bars : [];
     if (priceBars.length > 0) {
       ctx.save();
       ctx.beginPath();
       ctx.rect(PAD_L, PAD_T, plotW, plotH);
       ctx.clip();
-      ctx.strokeStyle = '#000000';
-      ctx.fillStyle = '#000000';
-      ctx.lineWidth = 1;
       const slotW = plotW * (5 / tSpan); // one 5-min slot in px (time is mtc)
       const bodyW = Math.max(1.5, Math.min(22, slotW * 0.7));
+      // Precompute visible candle geometry once — shared by the halo + ink passes.
+      const cands: { x: number; yH: number; yL: number; top: number; bot: number; up: boolean }[] = [];
       for (let i = 0; i < priceBars.length; i++) {
         const bar = priceBars[i];
         const mtc = Number(bar?.min_to_close);
@@ -702,26 +702,40 @@ export default function ForcedFlowSurfaceChart({
         if (!Number.isFinite(o) || !Number.isFinite(h) || !Number.isFinite(lo) || !Number.isFinite(cl)) {
           continue;
         }
-        const x = xForTime(mtc);
-        const yH = yForPrice(h); // high → smallest y (top)
-        const yL = yForPrice(lo);
-        const bodyTop = Math.min(yForPrice(o), yForPrice(cl));
-        const bodyBot = Math.max(yForPrice(o), yForPrice(cl));
-        // Upper + lower wick, leaving the body span clear.
-        ctx.beginPath();
-        ctx.moveTo(x, yH);
-        ctx.lineTo(x, bodyTop);
-        ctx.moveTo(x, bodyBot);
-        ctx.lineTo(x, yL);
-        ctx.stroke();
-        const left = x - bodyW / 2;
-        const bodyH = Math.max(1, bodyBot - bodyTop);
-        if (cl < o) {
-          ctx.fillRect(left, bodyTop, bodyW, bodyH); // down → filled black
-        } else {
-          ctx.strokeRect(left, bodyTop, bodyW, bodyH); // up / doji → hollow
-        }
+        cands.push({
+          x: xForTime(mtc),
+          yH: yForPrice(h), // high → smallest y (top)
+          yL: yForPrice(lo),
+          top: Math.min(yForPrice(o), yForPrice(cl)),
+          bot: Math.max(yForPrice(o), yForPrice(cl)),
+          up: cl >= o,
+        });
       }
+      // Two passes: a light, wider HALO under, then the black ink on top — the
+      // halo peeks ~1px around every stroke so black reads on any cell. In the
+      // halo pass the body is always outlined (never filled) so it becomes a ring.
+      const paintCandles = (color: string, lineW: number, haloPass: boolean) => {
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = lineW;
+        for (const k of cands) {
+          const left = k.x - bodyW / 2;
+          const bodyH = Math.max(1, k.bot - k.top);
+          ctx.beginPath();
+          ctx.moveTo(k.x, k.yH);
+          ctx.lineTo(k.x, k.top);
+          ctx.moveTo(k.x, k.bot);
+          ctx.lineTo(k.x, k.yL);
+          ctx.stroke();
+          if (haloPass || k.up) {
+            ctx.strokeRect(left, k.top, bodyW, bodyH); // hollow up / all halo → outline
+          } else {
+            ctx.fillRect(left, k.top, bodyW, bodyH); // ink, down bar → filled black
+          }
+        }
+      };
+      paintCandles(isDark ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.85)', 3, true);
+      paintCandles('#000000', 1, false);
       ctx.restore();
     } else {
       // Fallback (older backend, no candles): amber realized-price line, open→now.
