@@ -39,6 +39,12 @@ const DEFAULT_ZOOM_PCT = 0.006;
 // so a pinch/pan redraw stays cheap (the buffer is refilled per frame).
 const HEATMAP_MAX_OFF_W = 420;
 const HEATMAP_MAX_OFF_H = 320;
+// Peak colour intensity of the field, as a fraction of the full bull/bear hue
+// (the rest blends back toward the card background). Kept well below 1 so the
+// field reads as a SOFT tint — the same muted tone the Gamma Chart's regime
+// background uses — that the coloured candles and level lines pop over, rather
+// than a loud full-saturation heatmap. Dial up for a bolder field.
+const HEATMAP_SATURATION = 0.5;
 
 type RGB = { r: number; g: number; b: number };
 type View = { pMin: number; pMax: number; tMin: number; tMax: number };
@@ -497,19 +503,14 @@ export default function ForcedFlowSurfaceChart({
           const bot =
             (Number.isFinite(b0) ? b0 : 0) * (1 - wy) + (Number.isFinite(b1) ? b1 : 0) * wy;
           const val = top * (1 - wx) + bot * wx;
-          let ratio = Math.sign(val) * Math.sqrt(Math.min(Math.abs(val) / clip, 1));
-          if (ratio < -1) ratio = -1;
-          else if (ratio > 1) ratio = 1;
-          if (ratio >= 0) {
-            buf[o] = zeroHue.r + (posHue.r - zeroHue.r) * ratio;
-            buf[o + 1] = zeroHue.g + (posHue.g - zeroHue.g) * ratio;
-            buf[o + 2] = zeroHue.b + (posHue.b - zeroHue.b) * ratio;
-          } else {
-            const u = 1 + ratio;
-            buf[o] = negHue.r + (zeroHue.r - negHue.r) * u;
-            buf[o + 1] = negHue.g + (zeroHue.g - negHue.g) * u;
-            buf[o + 2] = negHue.b + (zeroHue.b - negHue.b) * u;
-          }
+          const mag = Math.sqrt(Math.min(Math.abs(val) / clip, 1));
+          // Blend from the card background toward the bull/bear hue, capped at
+          // HEATMAP_SATURATION so the field stays a soft tint (see the const).
+          const t = Math.min(1, mag) * HEATMAP_SATURATION;
+          const hue = val >= 0 ? posHue : negHue;
+          buf[o] = zeroHue.r + (hue.r - zeroHue.r) * t;
+          buf[o + 1] = zeroHue.g + (hue.g - zeroHue.g) * t;
+          buf[o + 2] = zeroHue.b + (hue.b - zeroHue.b) * t;
           buf[o + 3] = 255;
           o += 4;
         }
@@ -682,68 +683,68 @@ export default function ForcedFlowSurfaceChart({
     drawLevelLine('pivot', chart.warning || '#F59E0B', [5, 3], 'pivot');
     drawLevelLine('magnet', chart.info || '#06B6D4', [], 'magnet');
 
-    // --- Realized price: black hollow 5-minute candlesticks over the past
-    // region — TradingView's hollow convention: HOLLOW body when close ≥ open
-    // (the field shows through), FILLED black when close < open. A light hairline
-    // HALO is painted under the black (a wider, translucent pass) so the candles
-    // stay legible over dark cells and the muted wings. Wicks are drawn only
-    // OUTSIDE the body so a hollow candle stays see-through. When the payload
-    // carries no candles (older backend), fall back to the amber realized line.
+    // --- Realized price: 5-minute candlesticks in the Gamma-Chart style —
+    // COLOURED hollow candles. Colour tracks close vs the PREVIOUS bar's close
+    // (green up / red down, the same --color-bull / --color-bear the Gamma Chart
+    // uses); the body is HOLLOW when close ≥ open (the field shows through) and
+    // FILLED when close < open. Thin wicks (0.9α) drawn only OUTSIDE the body so
+    // a hollow candle stays see-through. Falls back to the realized-price line
+    // when the payload carries no candles (older backend).
     const priceBars = Array.isArray(surface.price_bars) ? surface.price_bars : [];
     if (priceBars.length > 0) {
       ctx.save();
       ctx.beginPath();
       ctx.rect(PAD_L, PAD_T, plotW, plotH);
       ctx.clip();
+      const bullCss = chart.bull || '#22D982';
+      const bearCss = chart.bear || '#FF3855';
       const slotW = plotW * (5 / tSpan); // one 5-min slot in px (time is mtc)
       const bodyW = Math.max(1.5, Math.min(22, slotW * 0.7));
-      // Precompute visible candle geometry once — shared by the halo + ink passes.
-      const cands: { x: number; yH: number; yL: number; top: number; bot: number; up: boolean }[] = [];
       for (let i = 0; i < priceBars.length; i++) {
         const bar = priceBars[i];
         const mtc = Number(bar?.min_to_close);
-        if (!Number.isFinite(mtc) || mtc < tMin || mtc > tMax) continue;
-        const o = Number(bar.open);
-        const h = Number(bar.high);
-        const lo = Number(bar.low);
-        const cl = Number(bar.close);
-        if (!Number.isFinite(o) || !Number.isFinite(h) || !Number.isFinite(lo) || !Number.isFinite(cl)) {
-          continue;
-        }
-        cands.push({
-          x: xForTime(mtc),
-          yH: yForPrice(h), // high → smallest y (top)
-          yL: yForPrice(lo),
-          top: Math.min(yForPrice(o), yForPrice(cl)),
-          bot: Math.max(yForPrice(o), yForPrice(cl)),
-          up: cl >= o,
-        });
-      }
-      // Two passes: a light, wider HALO under, then the black ink on top — the
-      // halo peeks ~1px around every stroke so black reads on any cell. In the
-      // halo pass the body is always outlined (never filled) so it becomes a ring.
-      const paintCandles = (color: string, lineW: number, haloPass: boolean) => {
+        const o = Number(bar?.open);
+        const h = Number(bar?.high);
+        const lo = Number(bar?.low);
+        const cl = Number(bar?.close);
+        if (!Number.isFinite(mtc) || !Number.isFinite(o) || !Number.isFinite(h)
+            || !Number.isFinite(lo) || !Number.isFinite(cl)) continue;
+        // Colour by close vs the PREVIOUS bar's close over the FULL series (not
+        // just the visible slice), so colours never flip when panning; the first
+        // bar compares to its own open, as the Gamma Chart does.
+        const prevRaw = i > 0 ? Number(priceBars[i - 1]?.close) : o;
+        const prevClose = Number.isFinite(prevRaw) ? prevRaw : o;
+        if (mtc < tMin || mtc > tMax) continue; // off the visible time range
+        const color = cl >= prevClose ? bullCss : bearCss;
+        const hollow = cl >= o;
+        const x = xForTime(mtc);
+        const yH = yForPrice(h);
+        const yL = yForPrice(lo);
+        const bodyTop = Math.min(yForPrice(o), yForPrice(cl));
+        const bodyBot = Math.max(yForPrice(o), yForPrice(cl));
+        const left = x - bodyW / 2;
+        const bodyH = Math.max(1, bodyBot - bodyTop);
         ctx.strokeStyle = color;
         ctx.fillStyle = color;
-        ctx.lineWidth = lineW;
-        for (const k of cands) {
-          const left = k.x - bodyW / 2;
-          const bodyH = Math.max(1, k.bot - k.top);
-          ctx.beginPath();
-          ctx.moveTo(k.x, k.yH);
-          ctx.lineTo(k.x, k.top);
-          ctx.moveTo(k.x, k.bot);
-          ctx.lineTo(k.x, k.yL);
-          ctx.stroke();
-          if (haloPass || k.up) {
-            ctx.strokeRect(left, k.top, bodyW, bodyH); // hollow up / all halo → outline
-          } else {
-            ctx.fillRect(left, k.top, bodyW, bodyH); // ink, down bar → filled black
-          }
+        // Wick — two segments, outside the body span.
+        ctx.globalAlpha = 0.9;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x, yH);
+        ctx.lineTo(x, bodyTop);
+        ctx.moveTo(x, bodyBot);
+        ctx.lineTo(x, yL);
+        ctx.stroke();
+        // Body — hollow outline on an up-bar, filled on a down-bar.
+        ctx.globalAlpha = 1;
+        ctx.lineWidth = 1.1;
+        if (hollow) {
+          ctx.strokeRect(left, bodyTop, bodyW, bodyH);
+        } else {
+          ctx.fillRect(left, bodyTop, bodyW, bodyH);
+          ctx.strokeRect(left, bodyTop, bodyW, bodyH);
         }
-      };
-      paintCandles(isDark ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.85)', 3, true);
-      paintCandles('#000000', 1, false);
+      }
       ctx.restore();
     } else {
       // Fallback (older backend, no candles): amber realized-price line, open→now.
@@ -816,10 +817,14 @@ export default function ForcedFlowSurfaceChart({
     const legendY = PAD_T + 8;
     const legendH = plotH - 16;
     const steps = 80;
+    // Soften the legend endpoints to the same tint the field uses (see
+    // HEATMAP_SATURATION), so the key matches the plot rather than out-saturating it.
+    const legPos = blend(zeroHue, posHue, HEATMAP_SATURATION);
+    const legNeg = blend(zeroHue, negHue, HEATMAP_SATURATION);
     for (let i = 0; i < steps; i++) {
       const t = i / (steps - 1);
       const ratio = 1 - 2 * t;
-      ctx.fillStyle = rgbToCss(divergingColor(ratio, posHue, zeroHue, negHue));
+      ctx.fillStyle = rgbToCss(divergingColor(ratio, legPos, zeroHue, legNeg));
       ctx.fillRect(legendX, legendY + (legendH * i) / steps, legendW, legendH / steps + 1);
     }
     ctx.strokeStyle = gridColor;
@@ -836,7 +841,8 @@ export default function ForcedFlowSurfaceChart({
     ctx.fillText('buy', legendX + legendW + 4, legendY + 18);
     ctx.fillText('sell', legendX + legendW + 4, legendY + legendH - 18);
   }, [surface, clip, size, isDark, posHue, negHue, zeroHue, hasData, plotMetrics,
-    chart.axisText, chart.gridLine, chart.bgCard, chart.info, chart.warning, chart.text]);
+    chart.axisText, chart.gridLine, chart.bgCard, chart.info, chart.warning, chart.text,
+    chart.bull, chart.bear]);
 
   // The container only mounts once data lands; wire the ResizeObserver then.
   useEffect(() => {
@@ -1143,7 +1149,7 @@ export default function ForcedFlowSurfaceChart({
         <h3 className="zg-h3" style={{ color: textColor }}>
           Forced-Flow Field · Full Session
         </h3>
-        <TooltipWrapper text="The whole trading session's dealer forced-flow field — price on the vertical axis, time running left→right from the OPEN to the 4pm CLOSE. Colour is the TOTAL forced flow dealers must hedge at each spot: green = forced to BUY, red = forced to SELL. LEFT of the 'now' line is the ACTUAL field the session has already printed; RIGHT of it (shaded) is a PROJECTION into the close. The solid blue line is the magnet — a STABLE zero-flow pin (dealers sell above / buy below, so it pulls price in); the dashed amber line is the pivot — an UNSTABLE short-gamma tripwire (dealers buy above / sell below, so it pushes price away). The black hollow candlesticks are the realized 5-minute price (hollow = up bar, filled = down bar); the dashed grey line is the current spot. It opens framed tight around spot (where the magnet's lean and the near-spot gradient are legible); zoom out to see the 0DTE wings. Scroll to zoom, drag to pan, drag an axis to stretch just that axis, pinch on touch, double-click to reset.">
+        <TooltipWrapper text="The whole trading session's dealer forced-flow field — price on the vertical axis, time running left→right from the OPEN to the 4pm CLOSE. Colour is the TOTAL forced flow dealers must hedge at each spot: green = forced to BUY, red = forced to SELL. LEFT of the 'now' line is the ACTUAL field the session has already printed; RIGHT of it (shaded) is a PROJECTION into the close. The solid blue line is the magnet — a STABLE zero-flow pin (dealers sell above / buy below, so it pulls price in); the dashed amber line is the pivot — an UNSTABLE short-gamma tripwire (dealers buy above / sell below, so it pushes price away). The coloured hollow candlesticks are the realized 5-minute price (green = up, red = down; hollow body = closed above its open, filled = below); the dashed grey line is the current spot. It opens framed tight around spot (where the magnet's lean and the near-spot gradient are legible); zoom out to see the 0DTE wings. Scroll to zoom, drag to pan, drag an axis to stretch just that axis, pinch on touch, double-click to reset.">
           <Info size={14} />
         </TooltipWrapper>
         <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
@@ -1167,7 +1173,7 @@ export default function ForcedFlowSurfaceChart({
         <span style={{ color: chart.bear, fontWeight: 600 }}>red = SELL</span>.{' '}
         <span style={{ color: chart.info, fontWeight: 600 }}>Blue = magnet (stable pin)</span>,{' '}
         <span style={{ color: chart.warning, fontWeight: 600 }}>dashed amber = pivot (short-γ tripwire)</span>;{' '}
-        <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>black candles = realized 5-min price</span>; dashed grey = spot.{' '}
+        candles = realized 5-min price (green up / red down); dashed grey = spot.{' '}
         <span style={{ color: 'var(--text-muted)' }}>Opens zoomed to spot — zoom out for the 0DTE wings · drag to pan · drag an axis to stretch it · double-click to reset.</span>
       </p>
 
