@@ -6,10 +6,15 @@
 // and a broken/absent/tampered store must only ever fall back to "All" (empty)
 // — never crash.
 //
-// Mirrors tests/symbolPersistence.test.ts: the module reads
-// window.localStorage lazily (guarded by a typeof check), so a minimal
-// in-memory Storage stubbed on the global before the functions run exercises
-// the real browser path under Node.
+// Plus the two-layer tab contract: sessionStorage holds THIS tab's live pick
+// and localStorage holds the last-selected default, so two open tabs can sit on
+// different expirations while a newly opened tab still starts from the last
+// pick. sessionStorage is per-tab in the browser, which under Node is modelled
+// by swapping in a fresh session store to represent "a different tab".
+//
+// Mirrors tests/symbolPersistence.test.ts: the module reads window storage
+// lazily (guarded by a typeof check), so minimal in-memory Storage stubs on the
+// global before the functions run exercise the real browser path under Node.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -30,7 +35,24 @@ class MemoryStorage {
 }
 
 const memory = new MemoryStorage();
-(globalThis as { window?: unknown }).window = { localStorage: memory };
+let session = new MemoryStorage();
+
+// A tab is (localStorage shared by all tabs) + (its own sessionStorage).
+// `openTab()` models opening a NEW tab: same localStorage, fresh session store.
+function setWindow(sessionStore: MemoryStorage): void {
+  (globalThis as { window?: unknown }).window = {
+    localStorage: memory,
+    sessionStorage: sessionStore,
+  };
+}
+
+function openTab(): MemoryStorage {
+  session = new MemoryStorage();
+  setWindow(session);
+  return session;
+}
+
+setWindow(session);
 
 // Imported AFTER the window stub so any module-level evaluation still sees it.
 const {
@@ -38,13 +60,17 @@ const {
   normalizeExpirations,
   reconcileExpirations,
   readStoredExpirations,
+  readTabExpirations,
+  resolveInitialExpirations,
   persistExpirations,
   sameExpirations,
   EXPIRATIONS_STORAGE_KEY,
+  EXPIRATIONS_SESSION_KEY,
 } = await import('../core/expirationPersistence.ts');
 
 test.beforeEach(() => {
   memory.clear();
+  openTab();
 });
 
 test('isExpirationDate accepts YYYY-MM-DD and rejects everything else', () => {
@@ -142,14 +168,31 @@ test('storage failures are swallowed (private mode / disabled storage)', () => {
       throw new Error('QuotaExceededError');
     },
   };
-  (globalThis as { window?: unknown }).window = { localStorage: throwingStorage };
+  (globalThis as { window?: unknown }).window = {
+    localStorage: throwingStorage,
+    sessionStorage: throwingStorage,
+  };
 
   assert.doesNotThrow(() => persistExpirations(['2025-06-20']));
   assert.deepEqual(persistExpirations(['2025-06-27', 'bad']), ['2025-06-27']);
   assert.deepEqual(readStoredExpirations(), []);
+  assert.equal(readTabExpirations(), null);
+  assert.deepEqual(resolveInitialExpirations(), []);
 
   // Restore the working stub for any subsequent tests.
+  setWindow(session);
+});
+
+// A browser that offers localStorage but no sessionStorage (or vice versa) must
+// still work — the missing layer is simply skipped, never dereferenced.
+test('a missing storage area degrades instead of throwing', () => {
   (globalThis as { window?: unknown }).window = { localStorage: memory };
+
+  assert.doesNotThrow(() => persistExpirations(['2025-06-20']));
+  assert.equal(readTabExpirations(), null); // no sessionStorage → no tab pick
+  assert.deepEqual(resolveInitialExpirations(), ['2025-06-20']); // default still works
+
+  setWindow(session);
 });
 
 // SSR safety: with no window at all, reads degrade to "All" and writes no-op
@@ -159,8 +202,90 @@ test('no window (SSR) degrades to [] and never throws', () => {
   delete (globalThis as { window?: unknown }).window;
 
   assert.deepEqual(readStoredExpirations(), []);
+  assert.equal(readTabExpirations(), null);
+  assert.deepEqual(resolveInitialExpirations(), []);
   assert.doesNotThrow(() => persistExpirations(['2025-06-20']));
   assert.deepEqual(persistExpirations(['2025-06-20']), ['2025-06-20']);
 
   (globalThis as { window?: unknown }).window = savedWindow;
+});
+
+// ---------------------------------------------------------------------------
+// The two-layer tab contract — what this split exists for.
+// ---------------------------------------------------------------------------
+
+test('persistExpirations writes both layers: this tab live + the shared default', () => {
+  persistExpirations(['2025-06-20']);
+  assert.equal(session.getItem(EXPIRATIONS_SESSION_KEY), '["2025-06-20"]');
+  assert.equal(memory.getItem(EXPIRATIONS_STORAGE_KEY), '["2025-06-20"]');
+});
+
+// The regression this layer was built for: two tabs open side by side must be
+// able to hold DIFFERENT expirations. Tab B picking must not move tab A.
+test('two open tabs keep independent selections', () => {
+  const tabA = openTab();
+  persistExpirations(['2025-06-20']);
+
+  const tabB = openTab();
+  persistExpirations(['2025-07-03']);
+
+  // Back on tab A: its own session store still holds A's pick, even though the
+  // shared default has since moved to B's.
+  setWindow(tabA);
+  assert.deepEqual(resolveInitialExpirations(), ['2025-06-20']);
+
+  setWindow(tabB);
+  assert.deepEqual(resolveInitialExpirations(), ['2025-07-03']);
+
+  // The shared default is the last pick made anywhere.
+  assert.deepEqual(readStoredExpirations(), ['2025-07-03']);
+});
+
+// The other half of the deal: persistence across tabs is by SEEDING, so a tab
+// opened after the fact still starts on the last thing the user chose.
+test('a newly opened tab seeds from the last-selected default', () => {
+  persistExpirations(['2025-06-27']);
+
+  openTab(); // fresh tab: empty sessionStorage, same localStorage
+  assert.equal(readTabExpirations(), null);
+  assert.deepEqual(resolveInitialExpirations(), ['2025-06-27']);
+});
+
+// A tab that has explicitly chosen All ([]) must STAY on All. This is why
+// readTabExpirations distinguishes null (never picked) from [] (picked All) —
+// re-seeding here would drag the tab back to a default it deliberately left.
+test("a tab's explicit All is not overwritten by a non-empty default", () => {
+  persistExpirations(['2025-06-20']); // default is now non-empty
+  const tabB = openTab();
+  persistExpirations([]); // tab B picks All
+
+  setWindow(tabB);
+  assert.deepEqual(readTabExpirations(), []);
+  assert.deepEqual(resolveInitialExpirations(), []);
+  assert.deepEqual(readStoredExpirations(), []); // All is also the new default
+});
+
+// Reloading a tab (same sessionStorage, module state gone) must come back on
+// that tab's own pick — including when another tab has since moved the default.
+test("a reload restores the tab's own selection, not another tab's", () => {
+  const tabA = openTab();
+  persistExpirations(['2025-06-20']);
+
+  openTab();
+  persistExpirations(['2025-07-03']); // another tab moves the shared default
+
+  setWindow(tabA); // tab A reloads: same session store, fresh module state
+  assert.deepEqual(resolveInitialExpirations(), ['2025-06-20']);
+});
+
+// A corrupt tab blob must fall through to the default rather than wedge the tab
+// on "All" — absent and unusable are treated the same at the tab layer.
+test('a corrupt tab blob falls through to the shared default', () => {
+  persistExpirations(['2025-06-27']);
+  session.setItem(EXPIRATIONS_SESSION_KEY, 'not json');
+  assert.equal(readTabExpirations(), null);
+  assert.deepEqual(resolveInitialExpirations(), ['2025-06-27']);
+
+  session.setItem(EXPIRATIONS_SESSION_KEY, '{"not":"an array"}');
+  assert.deepEqual(resolveInitialExpirations(), ['2025-06-27']);
 });
