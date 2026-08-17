@@ -14,6 +14,28 @@
 // layer gives them ONE selection that survives reloads/navigation and stays in
 // sync across every chart in the tab.
 //
+// TWO STORAGE LAYERS — "shared within a tab, independent across tabs":
+//
+//   • sessionStorage (EXPIRATIONS_SESSION_KEY) holds THIS TAB's live selection.
+//     sessionStorage is per-tab by construction: a freshly opened tab starts
+//     empty, a duplicated tab inherits a one-time copy and then diverges, and
+//     the value survives a reload of the same tab (including the reloads
+//     iOS/WebKit forces under memory pressure).
+//   • localStorage (EXPIRATIONS_STORAGE_KEY) holds the LAST-SELECTED DEFAULT,
+//     rewritten on every pick. It only ever seeds a tab that has no selection
+//     of its own, so a new tab opens on the expirations you last chose.
+//
+// That split is deliberate and is the whole point of this layer: a user
+// comparing expirations side by side (two windows, or a split screen) sets one
+// in each tab and both stay put. Writing the live value to localStorage — or
+// mirroring it back in via the `storage` event, as this module used to — makes
+// every open tab snap to whichever one was touched last, which is exactly the
+// behaviour that made side-by-side comparison impossible.
+//
+// A tab's own "All" is a real choice, not an absent one: readTabExpirations()
+// returns null ONLY when the tab has never picked, so an explicit All ([]) is
+// never re-seeded from the (possibly non-empty) stored default.
+//
 // The canonical model is an array of ISO date strings (YYYY-MM-DD):
 //   []                    → "All expirations" (aggregate the whole chain), the
 //                           default every chart already treats an empty set as.
@@ -27,7 +49,13 @@
 // own live option list at render time — so a stale date simply drops out of the
 // view and a fully-expired selection collapses to the safe "All" default.
 
+// localStorage: the last-selected default, used to seed a tab that hasn't
+// picked yet. Unchanged key — an existing saved pick keeps working.
 export const EXPIRATIONS_STORAGE_KEY = 'zgx_expirations';
+
+// sessionStorage: this tab's live selection. Distinct key so the two layers
+// can't be confused when inspecting storage by hand.
+export const EXPIRATIONS_SESSION_KEY = 'zgx_expirations_tab';
 
 // A shared, frozen empty selection so callers (and useSyncExternalStore's
 // server snapshot) can hand back a stable reference for the "All" case.
@@ -64,34 +92,81 @@ export function reconcileExpirations(
   return selection.filter((exp) => availableSet.has(exp));
 }
 
-// Read the persisted selection. Best-effort: localStorage is absent during SSR
-// and can throw (Safari private mode, storage disabled, blocked site data), and
-// a hand-edited / older-build blob of the wrong shape must degrade to "All"
-// rather than crash a chart — so any problem returns [] (All).
-export function readStoredExpirations(): string[] {
-  if (typeof window === 'undefined') return [];
+// Access a Storage area defensively: both are absent during SSR, absent in a
+// test stub that only provides one of them, and can throw on mere property
+// access in sandboxed iframes or when the user has blocked site data.
+function getStorage(area: 'localStorage' | 'sessionStorage'): Storage | null {
+  if (typeof window === 'undefined') return null;
   try {
-    const raw = window.localStorage.getItem(EXPIRATIONS_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? normalizeExpirations(parsed) : [];
+    return window[area] ?? null;
   } catch {
-    return [];
+    return null;
   }
 }
 
-// Best-effort write-through. Normalises first (so storage and every reader see
-// the canonical shape) and returns the normalised value so the caller can seed
-// in-memory state from the same thing that was persisted. A storage failure is
-// swallowed — persistence must never break expiration switching — and the
-// normalised value is still returned so the in-memory store stays correct.
+// Parse one stored blob into a normalised selection, or null when there is
+// nothing usable there. A hand-edited / older-build blob of the wrong shape
+// must degrade rather than crash a chart, so anything unparseable reads as
+// absent — the caller decides whether absent means "All" or "fall through to
+// the next layer".
+function readSelection(storage: Storage | null, key: string): string[] | null {
+  if (!storage) return null;
+  try {
+    const raw = storage.getItem(key);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? normalizeExpirations(parsed) : null;
+  } catch {
+    return null;
+  }
+}
+
+// Read the persisted DEFAULT (localStorage) — the selection a tab with no pick
+// of its own starts from. Returns [] ("All") when absent or unusable.
+export function readStoredExpirations(): string[] {
+  return readSelection(getStorage('localStorage'), EXPIRATIONS_STORAGE_KEY) ?? [];
+}
+
+// Read THIS TAB's selection (sessionStorage), or null when the tab has never
+// picked one. The null is load-bearing: it's what separates "this tab chose
+// All" (→ []) from "this tab hasn't chosen" (→ seed from the default), so an
+// explicit All is never overwritten by a stored non-empty default.
+export function readTabExpirations(): string[] | null {
+  return readSelection(getStorage('sessionStorage'), EXPIRATIONS_SESSION_KEY);
+}
+
+// Resolution order used to seed the store on a fresh mount / full reload:
+// this tab's own selection wins, then the last-selected default, then All.
+// Mirrors resolveInitialSymbol() in core/symbolPersistence.ts.
+export function resolveInitialExpirations(): string[] {
+  return readTabExpirations() ?? readStoredExpirations();
+}
+
+// Best-effort write-through to BOTH layers: sessionStorage so this tab holds
+// the pick across reloads, localStorage so the next tab opens on it. Normalises
+// first (so storage and every reader see the canonical shape) and returns the
+// normalised value so the caller can seed in-memory state from the same thing
+// that was persisted. A failure in either area is swallowed — persistence must
+// never break expiration switching — and the normalised value is still returned
+// so the in-memory store stays correct.
 export function persistExpirations(values: readonly string[]): string[] {
   const clean = normalizeExpirations(values);
-  if (typeof window === 'undefined') return clean;
-  try {
-    window.localStorage.setItem(EXPIRATIONS_STORAGE_KEY, JSON.stringify(clean));
-  } catch {
-    /* storage unavailable — see comment above */
+  const blob = JSON.stringify(clean);
+  const session = getStorage('sessionStorage');
+  if (session) {
+    try {
+      session.setItem(EXPIRATIONS_SESSION_KEY, blob);
+    } catch {
+      /* storage unavailable — see comment above */
+    }
+  }
+  const local = getStorage('localStorage');
+  if (local) {
+    try {
+      local.setItem(EXPIRATIONS_STORAGE_KEY, blob);
+    } catch {
+      /* storage unavailable — see comment above */
+    }
   }
   return clean;
 }

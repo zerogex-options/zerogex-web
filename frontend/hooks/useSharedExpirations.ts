@@ -8,8 +8,15 @@
 //   • changing the filter on one chart updates every other mounted chart live
 //     (e.g. the two charts stacked on /gamma-exposure move together);
 //   • every future mount — a later navigation, or a full reload (which iOS/WebKit
-//     triggers on its own under memory pressure) — seeds from the same value;
-//   • a change in another tab mirrors in via the `storage` event.
+//     triggers on its own under memory pressure) — seeds from the same value.
+//
+// The store is TAB-LOCAL on purpose. It used to mirror another tab's write in
+// via the `storage` event, which meant two windows (or a split screen) could
+// never hold different expirations — picking one on either side yanked both.
+// Now each tab keeps its own live selection in sessionStorage and only the
+// last-selected DEFAULT is shared through localStorage, so a new tab still
+// opens on your last pick while open tabs stay independent. See the two-layer
+// note in core/expirationPersistence.
 //
 // The pure resolve/persist/normalise contract lives in core/expirationPersistence
 // (unit-tested under Node); this file is only the thin React/browser glue.
@@ -17,13 +24,12 @@
 import { useSyncExternalStore } from 'react';
 import {
   ALL_EXPIRATIONS,
-  EXPIRATIONS_STORAGE_KEY,
   persistExpirations,
-  readStoredExpirations,
+  resolveInitialExpirations,
   sameExpirations,
 } from '@/core/expirationPersistence';
 
-// `null` until first read so we lazily hydrate from localStorage exactly once;
+// `null` until first read so we lazily hydrate from storage exactly once;
 // thereafter it holds the canonical (normalised) selection. Its reference only
 // changes when the selection changes, which is what useSyncExternalStore needs
 // getSnapshot to guarantee (returning a fresh array every call would loop).
@@ -35,7 +41,7 @@ function emit(): void {
 }
 
 function getSnapshot(): string[] {
-  if (current === null) current = readStoredExpirations();
+  if (current === null) current = resolveInitialExpirations();
   return current;
 }
 
@@ -45,35 +51,21 @@ function getServerSnapshot(): readonly string[] {
   return ALL_EXPIRATIONS;
 }
 
-// Mirror a write from another tab into this tab's store.
-function handleStorage(event: StorageEvent): void {
-  if (event.key !== null && event.key !== EXPIRATIONS_STORAGE_KEY) return;
-  const next = readStoredExpirations();
-  if (current !== null && sameExpirations(current, next)) return;
-  current = next;
-  emit();
-}
-
+// No `storage` listener by design — see the tab-local note at the top of this
+// file. Another tab's write must not reach this one; it only updates the
+// last-selected default that a FUTURE tab will seed from.
 function subscribe(listener: () => void): () => void {
-  // Attach the cross-tab listener only while something is actually subscribed,
-  // and only once regardless of how many charts are mounted.
-  if (listeners.size === 0 && typeof window !== 'undefined') {
-    window.addEventListener('storage', handleStorage);
-  }
   listeners.add(listener);
   return () => {
     listeners.delete(listener);
-    if (listeners.size === 0 && typeof window !== 'undefined') {
-      window.removeEventListener('storage', handleStorage);
-    }
   };
 }
 
-// Update the shared selection: normalise + write through to storage, then notify
-// every mounted chart. No-ops when the normalised value is unchanged, which also
-// breaks the set→broadcast→re-seed loop a chart's local mirror could otherwise
-// create. Stable identity (module scope) so callers can pass it straight to an
-// onChange without memoising.
+// Update this tab's selection: normalise + write through to storage, then notify
+// every mounted chart in the tab. No-ops when the normalised value is unchanged,
+// which also breaks the set→broadcast→re-seed loop a chart's local mirror could
+// otherwise create. Stable identity (module scope) so callers can pass it
+// straight to an onChange without memoising.
 export function setSharedExpirations(next: readonly string[]): void {
   const clean = persistExpirations(next);
   if (current !== null && sameExpirations(current, clean)) return;
@@ -84,7 +76,11 @@ export function setSharedExpirations(next: readonly string[]): void {
 export interface SharedExpirations {
   /** The active selection; an empty array means "All expirations". */
   selection: string[];
-  /** Replace the selection (normalised + persisted + broadcast to all charts). */
+  /**
+   * Replace the selection (normalised + persisted + broadcast to every chart in
+   * THIS tab; other open tabs keep theirs and only their next fresh mount picks
+   * this up as the default).
+   */
   setSelection: (next: readonly string[]) => void;
 }
 
