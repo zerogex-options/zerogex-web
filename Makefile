@@ -855,11 +855,22 @@ clean:
 	@echo "Clean complete!"
 
 # Copy logos from assets to public
+#
+# The brand lockups ship as PNGs with a transparent margin baked in, and the
+# margin differs per file, so they go through scripts/trim-png.js rather than
+# cp: it crops to the artwork and caps the resolution, which is what lets the
+# header/footer size the logo by height and get the same result in both themes.
+# Prefer whatever node is on PATH, falling back to the deploy box's nvm-managed
+# Node 22 (the same one `make build` uses).
+TRIM_PNG = bash -lc 'if ! command -v node >/dev/null 2>&1; then source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null; fi; exec node scripts/trim-png.js "$$@"' trim-png
+
 logo:
 	@echo "Copying logos from assets to public..."
-	cp assets/branding/Dark_Full.svg frontend/public/logo-dark.svg
-	cp assets/branding/Light_Full.svg frontend/public/logo-light.svg
-	cp assets/branding/Title.svg frontend/public/title.svg
+	@$(TRIM_PNG) assets/branding/Dark_Full.png frontend/public/logo-dark.png --max-width 1024
+	@$(TRIM_PNG) assets/branding/Light_Full.png frontend/public/logo-light.png --max-width 1024
+	@$(TRIM_PNG) assets/branding/Dark_Title.png frontend/public/title-dark.png --max-width 1280
+	@$(TRIM_PNG) assets/branding/Light_Title.png frontend/public/title-light.png --max-width 1280
+	@rm -f frontend/public/logo-dark.svg frontend/public/logo-light.svg frontend/public/title.svg
 	cp assets/branding/Target.svg frontend/public/target.svg
 	cp assets/branding/favicon.ico frontend/public/favicon.ico
 	cp assets/branding/og-image.png frontend/public/.

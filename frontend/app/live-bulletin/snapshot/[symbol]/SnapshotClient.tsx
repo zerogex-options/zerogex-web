@@ -31,7 +31,8 @@ import {
   type GexSummaryInput,
   type HorizonKey,
 } from '../../bulletinHelpers';
-import { rasterizeSvg } from '../../imageExport';
+import { rasterizeImage } from '../../imageExport';
+import { BRAND_TITLE } from '@/core/brand';
 
 interface SnapshotClientProps {
   symbol: 'SPY' | 'SPX' | 'QQQ' | 'NDX';
@@ -119,7 +120,7 @@ export default function SnapshotClient({
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
-    rasterizeSvg('/title.svg', 960)
+    rasterizeImage(BRAND_TITLE.dark.src, 960)
       .then((url) => {
         if (!cancelled) setLogoUrl(url);
       })

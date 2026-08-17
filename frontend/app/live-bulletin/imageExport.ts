@@ -73,16 +73,15 @@ export async function nodeToPngBlob(
   });
 }
 
-// Rasterize a same-origin SVG (e.g. the brand wordmark served from /public)
-// into a PNG data URL. We do this once on the client so the logo can be
-// embedded directly in the card: a data URL renders inside the export's
-// <foreignObject> rasterization, whereas a plain `/logo.svg` <img> ref would
-// be dropped. The SVG only references inlined data: images, so the canvas
-// stays untainted and toDataURL succeeds.
-export async function rasterizeSvg(url: string, targetWidth: number): Promise<string> {
+// Rasterize a same-origin image (the brand lockup served from /public) into a
+// PNG data URL. We do this once on the client so the logo can be embedded
+// directly in the card: a data URL renders inside the export's <foreignObject>
+// rasterization, whereas a plain `/title-dark.png` <img> ref would be dropped.
+// Same-origin content keeps the canvas untainted, so toDataURL succeeds.
+export async function rasterizeImage(url: string, targetWidth: number): Promise<string> {
   const img = await loadImage(url);
   const ratio =
-    img.naturalWidth > 0 ? img.naturalHeight / img.naturalWidth : 966 / 2093;
+    img.naturalWidth > 0 ? img.naturalHeight / img.naturalWidth : 388 / 1280;
   const width = targetWidth;
   const height = Math.max(1, Math.round(targetWidth * ratio));
   const canvas = document.createElement('canvas');

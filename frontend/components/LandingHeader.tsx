@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight, Moon, Search, Sun } from 'lucide-react';
 import { useTheme } from '@/core/ThemeContext';
+import { brandTitle } from '@/core/brand';
 import { normalizeTier } from '@/core/auth';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { capture } from '@/core/telemetry/posthog-client';
@@ -74,16 +75,14 @@ export default function LandingHeader({ hidePricingButton = false }: LandingHead
         style={{ textDecoration: 'none', margin: 0, padding: 0, lineHeight: 0 }}
       >
         <Image
-          src="/title.svg"
+          {...brandTitle(isDark)}
           alt="ZeroGEX"
-          width={300}
-          height={60}
           priority
-          // Cap the wordmark's width on phones so it can't hog the row and push
-          // the action buttons off the right edge (a 5:1 wordmark at 130% of the
-          // bar height is ~360px wide otherwise). Desktop keeps the full-size
-          // crop via sm:max-w-none.
-          className="h-[130%] sm:h-[150%] w-auto block max-w-[92px] sm:max-w-none"
+          // The lockup is trimmed to its artwork, so a plain height fraction of
+          // the bar is the whole sizing story. Phones still cap the width so a
+          // 3.3:1 lockup can't hog the row and push the action buttons off the
+          // right edge; desktop runs unclamped via sm:max-w-none.
+          className="h-[80%] sm:h-[88%] w-auto block max-w-[120px] sm:max-w-none"
           style={{
             maxHeight: 'none',
             objectFit: 'contain',

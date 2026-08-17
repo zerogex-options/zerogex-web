@@ -215,7 +215,11 @@ const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(functio
         {/* Brand row */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-            <BrandMark logoUrl={logoUrl} height={52} coral={C.coral} />
+            {/* 44px, not the 52 the old wordmark used: the lockup is 3.3:1
+                where the wordmark was 2.6:1, so this keeps the brand row the
+                same width and leaves room for the symbol badge and timestamp
+                opposite it. */}
+            <BrandMark logoUrl={logoUrl} height={44} coral={C.coral} />
             <span
               style={{
                 fontSize: 10,
@@ -433,7 +437,7 @@ function Watermark({ textPrimary }: { textPrimary: string }) {
   );
 }
 
-// Renders the brand wordmark from a pre-rasterized PNG data URL (so it embeds
+// Renders the brand lockup from a pre-rasterized PNG data URL (so it embeds
 // cleanly in the PNG export); falls back to a styled "ZEROGEX" text lockup
 // while the logo is still rasterizing or if it fails to load.
 function BrandMark({ logoUrl, height, coral }: { logoUrl?: string | null; height: number; coral: string }) {

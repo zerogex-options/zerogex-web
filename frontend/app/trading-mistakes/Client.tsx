@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import Footer from '@/components/Footer';
 import { useTheme } from '@/core/ThemeContext';
+import { brandTitle } from '@/core/brand';
 import { usePageT } from '@/core/LanguageContext';
 import { dict } from './Client.i18n';
 import {
@@ -279,7 +280,7 @@ export default function TradingMistakesClient() {
       >
         <Link href="/" className="h-full flex items-center overflow-hidden flex-shrink-0" style={{ textDecoration: 'none', lineHeight: 0 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/title.svg" alt="ZeroGEX" className="h-[130%] sm:h-[150%] w-auto block" style={{ maxHeight: 'none', objectFit: 'contain' }} />
+          <img src={brandTitle(isDark).src} alt="ZeroGEX" className="h-[80%] sm:h-[88%] w-auto block" style={{ maxHeight: 'none', objectFit: 'contain' }} />
         </Link>
 
         <div className="flex items-center gap-2">
