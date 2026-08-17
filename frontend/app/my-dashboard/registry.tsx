@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 
 import type { WidgetSize } from '@/core/myDashboardLayout';
+import { WIDGET_SIZES } from '@/core/myDashboardLayout';
 import type { FeedKey } from './DashboardData';
 
 import {
@@ -71,6 +72,12 @@ import {
   TopHeadlinesPanel,
 } from './panels';
 
+// Every widget can take every footprint. Charts included: a chart at M is half
+// of the desktop grid, which is what lets two of them (two Gamma Charts on
+// different timeframes, say) sit side by side for comparison. `defaultSize`
+// still decides how a widget lands when it's first added.
+const ALL_SIZES: WidgetSize[] = [...WIDGET_SIZES];
+
 export type WidgetTier = 'basic' | 'pro';
 
 export type WidgetCategory = 'overview' | 'gamma' | 'flow' | 'signals' | 'volatility' | 'tools';
@@ -83,7 +90,9 @@ export type WidgetDef = {
   category: WidgetCategory;
   tier: WidgetTier;
   icon: LucideIcon;
+  /** Footprint a fresh placement of this widget gets. */
   defaultSize: WidgetSize;
+  /** Footprints the member can resize this widget to. */
   allowedSizes: WidgetSize[];
   /** Shared data feeds this widget reads from MyDashboardData (empty = self-fetches). */
   feeds: FeedKey[];
@@ -118,7 +127,7 @@ export const WIDGETS: WidgetDef[] = [
     tier: 'basic',
     icon: Wallet,
     defaultSize: 'sm',
-    allowedSizes: ['sm', 'md'],
+    allowedSizes: ALL_SIZES,
     feeds: ['quote', 'sessionCloses'],
     render: () => <PriceTile />,
   },
@@ -130,7 +139,7 @@ export const WIDGETS: WidgetDef[] = [
     tier: 'basic',
     icon: ScrollText,
     defaultSize: 'md',
-    allowedSizes: ['md', 'lg', 'xl'],
+    allowedSizes: ALL_SIZES,
     feeds: ['gex', 'quote', 'sessionCloses', 'vol'],
     render: () => <TodaysReadPanel />,
   },
@@ -142,7 +151,7 @@ export const WIDGETS: WidgetDef[] = [
     tier: 'basic',
     icon: Sparkles,
     defaultSize: 'xl',
-    allowedSizes: ['lg', 'xl'],
+    allowedSizes: ALL_SIZES,
     feeds: [],
     render: () => <GammaChartPanel />,
   },
@@ -154,7 +163,7 @@ export const WIDGETS: WidgetDef[] = [
     tier: 'basic',
     icon: BarChart3,
     defaultSize: 'xl',
-    allowedSizes: ['lg', 'xl'],
+    allowedSizes: ALL_SIZES,
     feeds: [],
     render: () => <DealerExposuresPanel />,
   },
@@ -166,7 +175,7 @@ export const WIDGETS: WidgetDef[] = [
     tier: 'basic',
     icon: CandlestickChart,
     defaultSize: 'lg',
-    allowedSizes: ['md', 'lg', 'xl'],
+    allowedSizes: ALL_SIZES,
     feeds: [],
     render: () => <PriceActionPanel />,
   },
@@ -180,7 +189,7 @@ export const WIDGETS: WidgetDef[] = [
     tier: 'basic',
     icon: Activity,
     defaultSize: 'sm',
-    allowedSizes: ['sm', 'md'],
+    allowedSizes: ALL_SIZES,
     feeds: ['gex', 'historical'],
     render: () => <NetGexTile />,
   },
@@ -192,7 +201,7 @@ export const WIDGETS: WidgetDef[] = [
     tier: 'basic',
     icon: Crosshair,
     defaultSize: 'sm',
-    allowedSizes: ['sm', 'md'],
+    allowedSizes: ALL_SIZES,
     feeds: ['gex', 'quote'],
     render: () => <GammaFlipTile />,
   },
@@ -204,7 +213,7 @@ export const WIDGETS: WidgetDef[] = [
     tier: 'basic',
     icon: Target,
     defaultSize: 'sm',
-    allowedSizes: ['sm', 'md'],
+    allowedSizes: ALL_SIZES,
     feeds: ['gex', 'quote'],
     render: () => <MaxPainTile />,
   },
@@ -216,7 +225,7 @@ export const WIDGETS: WidgetDef[] = [
     tier: 'basic',
     icon: TrendingDown,
     defaultSize: 'sm',
-    allowedSizes: ['sm', 'md'],
+    allowedSizes: ALL_SIZES,
     feeds: ['gex', 'quote'],
     render: () => <CallWallTile />,
   },
@@ -228,7 +237,7 @@ export const WIDGETS: WidgetDef[] = [
     tier: 'basic',
     icon: TrendingUp,
     defaultSize: 'sm',
-    allowedSizes: ['sm', 'md'],
+    allowedSizes: ALL_SIZES,
     feeds: ['gex', 'quote'],
     render: () => <PutWallTile />,
   },
@@ -240,7 +249,7 @@ export const WIDGETS: WidgetDef[] = [
     tier: 'basic',
     icon: BarChart3,
     defaultSize: 'sm',
-    allowedSizes: ['sm', 'md'],
+    allowedSizes: ALL_SIZES,
     feeds: ['gex'],
     render: () => <CallGexTile />,
   },
@@ -252,7 +261,7 @@ export const WIDGETS: WidgetDef[] = [
     tier: 'basic',
     icon: BarChart3,
     defaultSize: 'sm',
-    allowedSizes: ['sm', 'md'],
+    allowedSizes: ALL_SIZES,
     feeds: ['gex'],
     render: () => <PutGexTile />,
   },
@@ -264,7 +273,7 @@ export const WIDGETS: WidgetDef[] = [
     tier: 'basic',
     icon: Waves,
     defaultSize: 'lg',
-    allowedSizes: ['md', 'lg', 'xl'],
+    allowedSizes: ALL_SIZES,
     feeds: [],
     render: () => <GammaPulseWidget />,
   },
@@ -276,7 +285,7 @@ export const WIDGETS: WidgetDef[] = [
     tier: 'basic',
     icon: BarChart3,
     defaultSize: 'xl',
-    allowedSizes: ['lg', 'xl'],
+    allowedSizes: ALL_SIZES,
     feeds: [],
     render: () => <GammaByStrikePanel />,
   },
@@ -288,7 +297,7 @@ export const WIDGETS: WidgetDef[] = [
     tier: 'basic',
     icon: Layers,
     defaultSize: 'xl',
-    allowedSizes: ['lg', 'xl'],
+    allowedSizes: ALL_SIZES,
     feeds: [],
     render: () => <OpenInterestByStrikePanel />,
   },
@@ -302,7 +311,7 @@ export const WIDGETS: WidgetDef[] = [
     tier: 'basic',
     icon: LineChart,
     defaultSize: 'sm',
-    allowedSizes: ['sm', 'md'],
+    allowedSizes: ALL_SIZES,
     feeds: ['flow'],
     render: () => <NetFlowTile />,
   },
@@ -314,7 +323,7 @@ export const WIDGETS: WidgetDef[] = [
     tier: 'basic',
     icon: Wallet,
     defaultSize: 'sm',
-    allowedSizes: ['sm', 'md'],
+    allowedSizes: ALL_SIZES,
     feeds: ['flow'],
     render: () => <NetPremiumTile />,
   },
@@ -326,7 +335,7 @@ export const WIDGETS: WidgetDef[] = [
     tier: 'basic',
     icon: GitCompare,
     defaultSize: 'sm',
-    allowedSizes: ['sm', 'md'],
+    allowedSizes: ALL_SIZES,
     feeds: ['flow'],
     render: () => <PutCallRatioTile />,
   },
@@ -340,7 +349,7 @@ export const WIDGETS: WidgetDef[] = [
     tier: 'basic',
     icon: Sparkles,
     defaultSize: 'lg',
-    allowedSizes: ['md', 'lg', 'xl'],
+    allowedSizes: ALL_SIZES,
     feeds: [],
     render: () => <SignalsSynthesisPanel />,
   },
@@ -352,7 +361,7 @@ export const WIDGETS: WidgetDef[] = [
     tier: 'basic',
     icon: Signal,
     defaultSize: 'md',
-    allowedSizes: ['md', 'lg', 'xl'],
+    allowedSizes: ALL_SIZES,
     feeds: [],
     render: () => <TradeBiasPanel />,
   },
@@ -364,7 +373,7 @@ export const WIDGETS: WidgetDef[] = [
     tier: 'basic',
     icon: Gauge,
     defaultSize: 'md',
-    allowedSizes: ['sm', 'md'],
+    allowedSizes: ALL_SIZES,
     feeds: ['signalScore'],
     render: () => <CompositeScorePanel />,
   },
@@ -376,7 +385,7 @@ export const WIDGETS: WidgetDef[] = [
     tier: 'basic',
     icon: Grid2x2,
     defaultSize: 'lg',
-    allowedSizes: ['md', 'lg', 'xl'],
+    allowedSizes: ALL_SIZES,
     feeds: [],
     render: () => <ConfluencePanel />,
   },
@@ -388,7 +397,7 @@ export const WIDGETS: WidgetDef[] = [
     tier: 'pro',
     icon: Radar,
     defaultSize: 'xl',
-    allowedSizes: ['lg', 'xl'],
+    allowedSizes: ALL_SIZES,
     feeds: [],
     render: () => <SignalScoreWidget />,
   },
@@ -400,7 +409,7 @@ export const WIDGETS: WidgetDef[] = [
     tier: 'pro',
     icon: Activity,
     defaultSize: 'lg',
-    allowedSizes: ['md', 'lg', 'xl'],
+    allowedSizes: ALL_SIZES,
     feeds: [],
     render: () => <VolExpansionEventsWidget />,
   },
@@ -412,7 +421,7 @@ export const WIDGETS: WidgetDef[] = [
     tier: 'pro',
     icon: Activity,
     defaultSize: 'lg',
-    allowedSizes: ['md', 'lg', 'xl'],
+    allowedSizes: ALL_SIZES,
     feeds: [],
     render: () => <EodPressureEventsWidget />,
   },
@@ -426,7 +435,7 @@ export const WIDGETS: WidgetDef[] = [
     tier: 'basic',
     icon: Gauge,
     defaultSize: 'md',
-    allowedSizes: ['sm', 'md', 'lg'],
+    allowedSizes: ALL_SIZES,
     feeds: [],
     render: () => <VolatilityPanel />,
   },
@@ -438,7 +447,7 @@ export const WIDGETS: WidgetDef[] = [
     tier: 'basic',
     icon: Activity,
     defaultSize: 'sm',
-    allowedSizes: ['sm', 'md'],
+    allowedSizes: ALL_SIZES,
     feeds: ['vol'],
     render: () => <VixTile />,
   },
@@ -453,7 +462,7 @@ export const WIDGETS: WidgetDef[] = [
     tier: 'basic',
     icon: Newspaper,
     defaultSize: 'md',
-    allowedSizes: ['sm', 'md', 'lg', 'xl'],
+    allowedSizes: ALL_SIZES,
     feeds: [],
     render: () => <TopHeadlinesPanel />,
   },
@@ -465,7 +474,7 @@ export const WIDGETS: WidgetDef[] = [
     tier: 'basic',
     icon: AlarmClock,
     defaultSize: 'md',
-    allowedSizes: ['sm', 'md'],
+    allowedSizes: ALL_SIZES,
     feeds: [],
     render: () => <WorldClocksPanel />,
   },

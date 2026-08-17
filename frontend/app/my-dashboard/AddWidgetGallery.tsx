@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Check, Lock, Plus, Search, X } from 'lucide-react';
+import { Lock, Plus, Search, Trash2, X } from 'lucide-react';
 
 import {
   CATEGORY_META,
@@ -19,14 +19,17 @@ export default function AddWidgetGallery({
   open,
   onClose,
   hasPro,
-  presentIds,
-  onToggle,
+  counts,
+  onAdd,
+  onRemoveAll,
 }: {
   open: boolean;
   onClose: () => void;
   hasPro: boolean;
-  presentIds: ReadonlySet<string>;
-  onToggle: (widget: WidgetDef) => void;
+  /** Copies of each widget currently on the board, keyed by widget id. */
+  counts: ReadonlyMap<string, number>;
+  onAdd: (widget: WidgetDef) => void;
+  onRemoveAll: (widget: WidgetDef) => void;
 }) {
   const t = usePageT(dict);
   const [query, setQuery] = useState('');
@@ -147,9 +150,10 @@ export default function AddWidgetGallery({
                   <GalleryItem
                     key={w.id}
                     widget={w}
-                    added={presentIds.has(w.id)}
+                    count={counts.get(w.id) ?? 0}
                     locked={w.tier === 'pro' && !hasPro}
-                    onToggle={() => onToggle(w)}
+                    onAdd={() => onAdd(w)}
+                    onRemoveAll={() => onRemoveAll(w)}
                   />
                 ))}
               </div>
@@ -190,18 +194,22 @@ function CatChip({
 
 function GalleryItem({
   widget,
-  added,
+  count,
   locked,
-  onToggle,
+  onAdd,
+  onRemoveAll,
 }: {
   widget: WidgetDef;
-  added: boolean;
+  /** How many copies of this widget are on the board (0 = not added). */
+  count: number;
   locked: boolean;
-  onToggle: () => void;
+  onAdd: () => void;
+  onRemoveAll: () => void;
 }) {
   const t = usePageT(dict);
   const Icon = widget.icon;
   const sizeHint = WIDGET_SIZE_LABEL[widget.defaultSize];
+  const added = count > 0;
 
   return (
     <div
@@ -230,6 +238,15 @@ function GalleryItem({
               {t('pro')}
             </span>
           )}
+          {added && (
+            <span
+              className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold"
+              style={{ background: 'var(--color-accent-hot)', color: 'var(--text-inverse)' }}
+              title={t('onBoardCount', { count: String(count) })}
+            >
+              ×{count}
+            </span>
+          )}
         </div>
         <p className="truncate text-xs" style={{ color: 'var(--text-muted)' }}>
           {widget.blurb}
@@ -248,27 +265,36 @@ function GalleryItem({
           <Lock size={13} /> {t('upgrade')}
         </Link>
       ) : (
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-pressed={added}
-          className="shrink-0 inline-flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors"
-          style={{
-            border: `1px solid ${added ? 'var(--color-accent-hot)' : 'var(--border-strong)'}`,
-            background: added ? 'transparent' : 'var(--color-accent-hot)',
-            color: added ? 'var(--color-accent-hot)' : 'var(--text-inverse)',
-          }}
-        >
-          {added ? (
-            <>
-              <Check size={13} /> {t('added')}
-            </>
-          ) : (
-            <>
-              <Plus size={13} /> {t('add')}
-            </>
+        // "Add" always adds another copy — a board can carry several of the same
+        // widget (two Gamma Charts side by side, say). Removing individual copies
+        // happens on the tile itself; here the action clears them all at once.
+        <div className="flex shrink-0 items-center gap-1.5">
+          {added && (
+            <button
+              type="button"
+              onClick={onRemoveAll}
+              title={t('removeAll', { title: widget.title })}
+              aria-label={t('removeAll', { title: widget.title })}
+              className="inline-flex items-center justify-center rounded-lg px-2 py-2 transition-colors"
+              style={{ border: '1px solid var(--border-strong)', color: 'var(--color-bear)' }}
+            >
+              <Trash2 size={13} />
+            </button>
           )}
-        </button>
+          <button
+            type="button"
+            onClick={onAdd}
+            title={added ? t('addAnother') : t('add')}
+            className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors"
+            style={{
+              border: '1px solid var(--color-accent-hot)',
+              background: 'var(--color-accent-hot)',
+              color: 'var(--text-inverse)',
+            }}
+          >
+            <Plus size={13} /> {added ? t('addAnother') : t('add')}
+          </button>
+        </div>
       )}
     </div>
   );

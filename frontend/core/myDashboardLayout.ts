@@ -20,9 +20,12 @@
  *     fatal. Unknown widget ids are dropped when a `validWidgetIds` set is
  *     supplied (so a widget removed in a later build silently disappears rather
  *     than rendering a hole).
- *   - Each widget appears at most once. The active underlying symbol is global,
- *     so a second copy of the same widget would be a duplicate with no value;
- *     de-duplication keeps the grid honest and makes add/remove idempotent.
+ *   - A widget may be placed more than once. Two copies of the same widget are
+ *     the point of a side-by-side comparison (e.g. two Gamma Charts on
+ *     different timeframes), so each placement carries its own `instanceId` and
+ *     every reducer addresses a *placement*, not a widget type. Instance ids are
+ *     repaired (assigned / de-duplicated) on load, so boards saved by the older
+ *     one-copy-per-widget build keep working untouched.
  */
 
 // Widget footprint on the responsive grid. Kept a small, closed set so a
@@ -49,7 +52,10 @@ export const WIDGET_SIZE_LABEL: Record<WidgetSize, string> = {
 
 // One placed widget. `widgetId` keys into the widget registry
 // (app/my-dashboard/registry). `size` is the user's chosen footprint.
+// `instanceId` identifies this particular placement — the same widget can sit on
+// the board several times, so every mutation is addressed by instance.
 export type PlacedWidget = {
+  instanceId: string;
   widgetId: string;
   size: WidgetSize;
 };
@@ -90,9 +96,24 @@ function getStorage(): Storage | null {
 }
 
 /**
+ * Mint an instance id for `widgetId` that is not already in `taken`.
+ * Deterministic (`gamma-chart#1`, `gamma-chart#2`, …) rather than random, so the
+ * reducers stay pure and directly unit-testable, and a saved board reads
+ * legibly in devtools.
+ */
+export function makeInstanceId(widgetId: string, taken: ReadonlySet<string>): string {
+  for (let n = 1; ; n += 1) {
+    const candidate = `${widgetId}#${n}`;
+    if (!taken.has(candidate)) return candidate;
+  }
+}
+
+/**
  * Coerce an arbitrary parsed value into a valid {@link DashboardLayout}.
  * Never throws. When `validWidgetIds` is provided, widgets whose id is not in
- * the set are dropped. Duplicates (same widgetId) collapse to the first.
+ * the set are dropped. Repeated widgets are kept — each placement is a distinct
+ * instance — while missing or colliding `instanceId`s are repaired, which is
+ * also what migrates a board saved by the older one-copy-per-widget build.
  */
 export function sanitizeLayout(raw: unknown, validWidgetIds?: ReadonlySet<string>): DashboardLayout {
   const out = emptyLayout();
@@ -101,17 +122,21 @@ export function sanitizeLayout(raw: unknown, validWidgetIds?: ReadonlySet<string
   const widgetsRaw = (raw as Record<string, unknown>).widgets;
   if (!Array.isArray(widgetsRaw)) return out;
 
-  const seen = new Set<string>();
+  const taken = new Set<string>();
   for (const entry of widgetsRaw) {
     if (!entry || typeof entry !== 'object') continue;
     const widgetId = (entry as Record<string, unknown>).widgetId;
     if (typeof widgetId !== 'string' || !widgetId) continue;
     if (validWidgetIds && !validWidgetIds.has(widgetId)) continue;
-    if (seen.has(widgetId)) continue;
     const sizeRaw = (entry as Record<string, unknown>).size;
     const size: WidgetSize = isWidgetSize(sizeRaw) ? sizeRaw : 'md';
-    seen.add(widgetId);
-    out.widgets.push({ widgetId, size });
+    const rawInstanceId = (entry as Record<string, unknown>).instanceId;
+    const instanceId =
+      typeof rawInstanceId === 'string' && rawInstanceId && !taken.has(rawInstanceId)
+        ? rawInstanceId
+        : makeInstanceId(widgetId, taken);
+    taken.add(instanceId);
+    out.widgets.push({ instanceId, widgetId, size });
   }
   return out;
 }
@@ -176,46 +201,69 @@ export function clearLayout(scope?: string | null): void {
 // Each returns a NEW layout object (immutable update) so React state transitions
 // stay predictable and every transform is trivially unit-testable.
 
-/** Append a widget. No-op if the widget is already present (idempotent). */
+/** Every instance id currently on the board. */
+function takenIds(layout: DashboardLayout): Set<string> {
+  return new Set(layout.widgets.map((w) => w.instanceId));
+}
+
+/**
+ * Append a placement of `widgetId` at `size`. Always adds — a board may hold
+ * several copies of the same widget (two Gamma Charts side by side, say), each
+ * with its own instance id and its own footprint.
+ */
 export function addWidget(
   layout: DashboardLayout,
   widgetId: string,
   size: WidgetSize,
 ): DashboardLayout {
-  if (layout.widgets.some((w) => w.widgetId === widgetId)) return layout;
-  return { ...layout, widgets: [...layout.widgets, { widgetId, size }] };
+  const instanceId = makeInstanceId(widgetId, takenIds(layout));
+  return { ...layout, widgets: [...layout.widgets, { instanceId, widgetId, size }] };
 }
 
-/** Remove a widget by id. No-op if absent. */
-export function removeWidget(layout: DashboardLayout, widgetId: string): DashboardLayout {
+/**
+ * Insert a copy of the placement `instanceId` directly after it, so the copy
+ * lands next to its original — the layout half of a side-by-side comparison.
+ * No-op if the instance is absent.
+ */
+export function duplicateWidget(layout: DashboardLayout, instanceId: string): DashboardLayout {
+  const index = layout.widgets.findIndex((w) => w.instanceId === instanceId);
+  if (index === -1) return layout;
+  const source = layout.widgets[index];
+  const copy: PlacedWidget = {
+    instanceId: makeInstanceId(source.widgetId, takenIds(layout)),
+    widgetId: source.widgetId,
+    size: source.size,
+  };
+  const widgets = [...layout.widgets];
+  widgets.splice(index + 1, 0, copy);
+  return { ...layout, widgets };
+}
+
+/** Remove one placement by instance id. No-op if absent. */
+export function removeWidget(layout: DashboardLayout, instanceId: string): DashboardLayout {
+  if (!layout.widgets.some((w) => w.instanceId === instanceId)) return layout;
+  return { ...layout, widgets: layout.widgets.filter((w) => w.instanceId !== instanceId) };
+}
+
+/** Remove every placement of `widgetId`. No-op if none are present. */
+export function removeAllOfWidget(layout: DashboardLayout, widgetId: string): DashboardLayout {
   if (!layout.widgets.some((w) => w.widgetId === widgetId)) return layout;
   return { ...layout, widgets: layout.widgets.filter((w) => w.widgetId !== widgetId) };
 }
 
-/** Change a widget's size. No-op if the widget is absent. */
+/** Change one placement's size. No-op if the instance is absent. */
 export function resizeWidget(
   layout: DashboardLayout,
-  widgetId: string,
+  instanceId: string,
   size: WidgetSize,
 ): DashboardLayout {
   let changed = false;
   const widgets = layout.widgets.map((w) => {
-    if (w.widgetId !== widgetId || w.size === size) return w;
+    if (w.instanceId !== instanceId || w.size === size) return w;
     changed = true;
     return { ...w, size };
   });
   return changed ? { ...layout, widgets } : layout;
-}
-
-/** Toggle a widget: add it (with `size`) if absent, remove it if present. */
-export function toggleWidget(
-  layout: DashboardLayout,
-  widgetId: string,
-  size: WidgetSize,
-): DashboardLayout {
-  return layout.widgets.some((w) => w.widgetId === widgetId)
-    ? removeWidget(layout, widgetId)
-    : addWidget(layout, widgetId, size);
 }
 
 /**
@@ -237,4 +285,16 @@ export function moveWidget(layout: DashboardLayout, from: number, to: number): D
 
 export function hasWidget(layout: DashboardLayout, widgetId: string): boolean {
   return layout.widgets.some((w) => w.widgetId === widgetId);
+}
+
+/** How many copies of `widgetId` sit on the board. */
+export function countWidget(layout: DashboardLayout, widgetId: string): number {
+  return layout.widgets.reduce((n, w) => (w.widgetId === widgetId ? n + 1 : n), 0);
+}
+
+/** Copies per widget id — what the add-widget gallery renders its state from. */
+export function widgetCounts(layout: DashboardLayout): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const w of layout.widgets) counts.set(w.widgetId, (counts.get(w.widgetId) ?? 0) + 1);
+  return counts;
 }

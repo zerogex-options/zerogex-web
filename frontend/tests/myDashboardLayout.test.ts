@@ -42,14 +42,23 @@ const {
   saveLayout,
   clearLayout,
   addWidget,
+  duplicateWidget,
   removeWidget,
+  removeAllOfWidget,
   resizeWidget,
-  toggleWidget,
   moveWidget,
   hasWidget,
+  countWidget,
+  widgetCounts,
+  makeInstanceId,
   isWidgetSize,
   MY_DASHBOARD_LAYOUT_VERSION,
 } = await import('../core/myDashboardLayout.ts');
+
+// Placements carry a generated instanceId; most assertions care about the
+// (widgetId, size) pair, so compare on that projection.
+const placements = (layout: { widgets: { widgetId: string; size: string }[] }) =>
+  layout.widgets.map((w) => ({ widgetId: w.widgetId, size: w.size }));
 
 const SCOPE = 'user-123';
 
@@ -73,8 +82,8 @@ test('scopes are isolated from each other', () => {
   memory.clear();
   saveLayout(addWidget(emptyLayout(), 'net-gex', 'sm'), 'user-a');
   saveLayout(addWidget(emptyLayout(), 'max-pain', 'lg'), 'user-b');
-  assert.deepEqual(loadLayout('user-a')?.widgets, [{ widgetId: 'net-gex', size: 'sm' }]);
-  assert.deepEqual(loadLayout('user-b')?.widgets, [{ widgetId: 'max-pain', size: 'lg' }]);
+  assert.deepEqual(placements(loadLayout('user-a')!), [{ widgetId: 'net-gex', size: 'sm' }]);
+  assert.deepEqual(placements(loadLayout('user-b')!), [{ widgetId: 'max-pain', size: 'lg' }]);
 });
 
 test('loadLayout returns null when nothing is stored', () => {
@@ -88,7 +97,7 @@ test('clearLayout removes only its scope', () => {
   saveLayout(addWidget(emptyLayout(), 'max-pain', 'lg'), 'user-b');
   clearLayout('user-a');
   assert.equal(loadLayout('user-a'), null);
-  assert.deepEqual(loadLayout('user-b')?.widgets, [{ widgetId: 'max-pain', size: 'lg' }]);
+  assert.deepEqual(placements(loadLayout('user-b')!), [{ widgetId: 'max-pain', size: 'lg' }]);
 });
 
 test('sanitizeLayout survives garbage without throwing', () => {
@@ -101,7 +110,7 @@ test('sanitizeLayout survives garbage without throwing', () => {
 
 test('sanitizeLayout coerces a bad size to the default and keeps the widget', () => {
   const layout = sanitizeLayout({ widgets: [{ widgetId: 'net-gex', size: 'nope' }] });
-  assert.deepEqual(layout.widgets, [{ widgetId: 'net-gex', size: 'md' }]);
+  assert.deepEqual(placements(layout), [{ widgetId: 'net-gex', size: 'md' }]);
   assert.equal(layout.version, MY_DASHBOARD_LAYOUT_VERSION);
 });
 
@@ -111,71 +120,135 @@ test('sanitizeLayout drops unknown widget ids when a valid set is supplied', () 
     { widgets: [{ widgetId: 'net-gex', size: 'sm' }, { widgetId: 'ghost', size: 'sm' }] },
     valid,
   );
-  assert.deepEqual(layout.widgets, [{ widgetId: 'net-gex', size: 'sm' }]);
+  assert.deepEqual(placements(layout), [{ widgetId: 'net-gex', size: 'sm' }]);
 });
 
-test('sanitizeLayout de-duplicates repeated widget ids (keeps first)', () => {
+test('sanitizeLayout keeps repeated widget ids as distinct instances', () => {
+  const layout = sanitizeLayout({
+    widgets: [
+      { widgetId: 'gamma-chart', size: 'md' },
+      { widgetId: 'gamma-chart', size: 'md' },
+    ],
+  });
+  assert.deepEqual(placements(layout), [
+    { widgetId: 'gamma-chart', size: 'md' },
+    { widgetId: 'gamma-chart', size: 'md' },
+  ]);
+  assert.equal(new Set(layout.widgets.map((w) => w.instanceId)).size, 2, 'instance ids are unique');
+});
+
+test('sanitizeLayout assigns instance ids to a legacy (pre-duplicates) blob', () => {
   const layout = sanitizeLayout({
     widgets: [
       { widgetId: 'net-gex', size: 'sm' },
-      { widgetId: 'net-gex', size: 'xl' },
+      { widgetId: 'max-pain', size: 'sm' },
     ],
   });
-  assert.deepEqual(layout.widgets, [{ widgetId: 'net-gex', size: 'sm' }]);
+  assert.deepEqual(layout.widgets.map((w) => w.instanceId), ['net-gex#1', 'max-pain#1']);
+});
+
+test('sanitizeLayout repairs colliding / missing instance ids', () => {
+  const layout = sanitizeLayout({
+    widgets: [
+      { instanceId: 'dup', widgetId: 'net-gex', size: 'sm' },
+      { instanceId: 'dup', widgetId: 'net-gex', size: 'md' },
+      { instanceId: 42, widgetId: 'net-gex', size: 'lg' },
+    ],
+  });
+  const ids = layout.widgets.map((w) => w.instanceId);
+  assert.equal(ids.length, 3);
+  assert.equal(new Set(ids).size, 3);
+  assert.equal(ids[0], 'dup', 'the first claim on an id keeps it');
+});
+
+test('makeInstanceId skips ids already in use', () => {
+  assert.equal(makeInstanceId('gamma-chart', new Set()), 'gamma-chart#1');
+  assert.equal(
+    makeInstanceId('gamma-chart', new Set(['gamma-chart#1', 'gamma-chart#2'])),
+    'gamma-chart#3',
+  );
 });
 
 test('loadLayout applies valid-id filtering to a persisted blob', () => {
   memory.clear();
   saveLayout(
     { version: MY_DASHBOARD_LAYOUT_VERSION, widgets: [
-      { widgetId: 'net-gex', size: 'sm' },
-      { widgetId: 'removed-in-newer-build', size: 'md' },
+      { instanceId: 'net-gex#1', widgetId: 'net-gex', size: 'sm' },
+      { instanceId: 'removed-in-newer-build#1', widgetId: 'removed-in-newer-build', size: 'md' },
     ] },
     SCOPE,
   );
   const restored = loadLayout(SCOPE, new Set(['net-gex']));
-  assert.deepEqual(restored?.widgets, [{ widgetId: 'net-gex', size: 'sm' }]);
+  assert.deepEqual(placements(restored!), [{ widgetId: 'net-gex', size: 'sm' }]);
 });
 
-test('addWidget is idempotent and immutable', () => {
-  const base = addWidget(emptyLayout(), 'net-gex', 'sm');
-  const again = addWidget(base, 'net-gex', 'xl');
-  assert.equal(again, base, 'adding a duplicate returns the same reference (no-op)');
-  const grown = addWidget(base, 'max-pain', 'md');
-  assert.notEqual(grown, base, 'a real add produces a new object');
+test('addWidget appends a new instance each time and is immutable', () => {
+  const base = addWidget(emptyLayout(), 'gamma-chart', 'md');
+  const twice = addWidget(base, 'gamma-chart', 'md');
   assert.equal(base.widgets.length, 1, 'the original layout is not mutated');
-  assert.equal(grown.widgets.length, 2);
+  assert.equal(twice.widgets.length, 2, 'the same widget can be placed more than once');
+  assert.deepEqual(twice.widgets.map((w) => w.instanceId), ['gamma-chart#1', 'gamma-chart#2']);
+  assert.notEqual(twice, base, 'an add produces a new object');
 });
 
-test('removeWidget removes and is a no-op when absent', () => {
-  const base = addWidget(emptyLayout(), 'net-gex', 'sm');
-  assert.equal(removeWidget(base, 'not-there'), base);
-  assert.deepEqual(removeWidget(base, 'net-gex').widgets, []);
-});
-
-test('resizeWidget updates only the target and no-ops when unchanged', () => {
-  const base = addWidget(addWidget(emptyLayout(), 'net-gex', 'sm'), 'max-pain', 'sm');
-  const resized = resizeWidget(base, 'max-pain', 'lg');
-  assert.deepEqual(resized.widgets, [
+test('duplicateWidget inserts a same-size copy right after the original', () => {
+  const base = addWidget(addWidget(emptyLayout(), 'gamma-chart', 'md'), 'net-gex', 'sm');
+  const copied = duplicateWidget(base, 'gamma-chart#1');
+  assert.deepEqual(placements(copied), [
+    { widgetId: 'gamma-chart', size: 'md' },
+    { widgetId: 'gamma-chart', size: 'md' },
     { widgetId: 'net-gex', size: 'sm' },
-    { widgetId: 'max-pain', size: 'lg' },
   ]);
-  assert.equal(resizeWidget(base, 'max-pain', 'sm'), base, 'same size is a no-op');
-  assert.equal(resizeWidget(base, 'ghost', 'lg'), base, 'absent widget is a no-op');
+  assert.deepEqual(copied.widgets.map((w) => w.instanceId), [
+    'gamma-chart#1',
+    'gamma-chart#2',
+    'net-gex#1',
+  ]);
+  assert.equal(duplicateWidget(base, 'ghost#1'), base, 'an absent instance is a no-op');
 });
 
-test('toggleWidget adds then removes', () => {
-  const added = toggleWidget(emptyLayout(), 'net-gex', 'md');
-  assert.equal(hasWidget(added, 'net-gex'), true);
-  const removed = toggleWidget(added, 'net-gex', 'md');
-  assert.equal(hasWidget(removed, 'net-gex'), false);
+test('removeWidget removes one instance and is a no-op when absent', () => {
+  const base = addWidget(addWidget(emptyLayout(), 'gamma-chart', 'md'), 'gamma-chart', 'lg');
+  assert.equal(removeWidget(base, 'not-there'), base);
+  const pruned = removeWidget(base, 'gamma-chart#1');
+  assert.deepEqual(placements(pruned), [{ widgetId: 'gamma-chart', size: 'lg' }]);
+  assert.equal(pruned.widgets[0].instanceId, 'gamma-chart#2', 'the other copy survives');
+});
+
+test('removeAllOfWidget clears every copy', () => {
+  const base = addWidget(addWidget(emptyLayout(), 'gamma-chart', 'md'), 'gamma-chart', 'md');
+  assert.deepEqual(removeAllOfWidget(base, 'gamma-chart').widgets, []);
+  assert.equal(removeAllOfWidget(base, 'ghost'), base, 'an absent widget is a no-op');
+});
+
+test('resizeWidget updates only the target instance and no-ops when unchanged', () => {
+  const base = addWidget(addWidget(emptyLayout(), 'gamma-chart', 'xl'), 'gamma-chart', 'xl');
+  const resized = resizeWidget(base, 'gamma-chart#2', 'md');
+  assert.deepEqual(placements(resized), [
+    { widgetId: 'gamma-chart', size: 'xl' },
+    { widgetId: 'gamma-chart', size: 'md' },
+  ]);
+  assert.equal(resizeWidget(base, 'gamma-chart#2', 'xl'), base, 'same size is a no-op');
+  assert.equal(resizeWidget(base, 'ghost#1', 'lg'), base, 'absent instance is a no-op');
+});
+
+test('counts report the copies of each widget', () => {
+  const board = addWidget(
+    addWidget(addWidget(emptyLayout(), 'gamma-chart', 'md'), 'gamma-chart', 'md'),
+    'net-gex',
+    'sm',
+  );
+  assert.equal(hasWidget(board, 'gamma-chart'), true);
+  assert.equal(countWidget(board, 'gamma-chart'), 2);
+  assert.equal(countWidget(board, 'ghost'), 0);
+  assert.deepEqual([...widgetCounts(board)], [['gamma-chart', 2], ['net-gex', 1]]);
 });
 
 test('moveWidget reorders with clamping', () => {
   const base = { version: MY_DASHBOARD_LAYOUT_VERSION, widgets: [
-    { widgetId: 'a', size: 'sm' as const },
-    { widgetId: 'b', size: 'sm' as const },
-    { widgetId: 'c', size: 'sm' as const },
+    { instanceId: 'a#1', widgetId: 'a', size: 'sm' as const },
+    { instanceId: 'b#1', widgetId: 'b', size: 'sm' as const },
+    { instanceId: 'c#1', widgetId: 'c', size: 'sm' as const },
   ] };
   assert.deepEqual(moveWidget(base, 0, 2).widgets.map((w) => w.widgetId), ['b', 'c', 'a']);
   assert.deepEqual(moveWidget(base, 2, 0).widgets.map((w) => w.widgetId), ['c', 'a', 'b']);

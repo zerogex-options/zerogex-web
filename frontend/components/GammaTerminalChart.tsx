@@ -18,7 +18,7 @@
  * across all twelve ZeroGEX palettes in light and dark.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import { Activity, ChevronsRight, Crosshair, Info, Moon, Pause, Play, Repeat, Rewind, Sun } from "lucide-react";
 import { useApiData, useMarketQuote, useGEXProfile, useGEXSummary, useSessionCloses, type SessionClosesData, type VolatilityGaugeData } from "@/hooks/useApiData";
 import { useMarketHistorical, type PriceBar } from "@/hooks/useMarketHistorical";
@@ -1399,6 +1399,16 @@ export default function GammaTerminalChart({
     return () => clearInterval(id);
   }, [rewindActive, playbackActive, playbackSpeed, style, subTf, intervalMinutes]);
 
+  // SVG <defs> ids must be unique per mounted chart: My Dashboard can hold two
+  // Gamma Charts side by side, and duplicate ids would make both instances
+  // resolve url(#…) to whichever rendered first. Strip the non-alphanumerics
+  // React's useId adds so the value is safe inside a url(#…) reference.
+  const defsId = useId().replace(/[^a-zA-Z0-9]/g, "");
+  const AREA_GRADIENT_ID = `zg-gc-area-${defsId}`;
+  const RAIL_POS_GRADIENT_ID = `zg-gc-rail-pos-${defsId}`;
+  const RAIL_NEG_GRADIENT_ID = `zg-gc-rail-neg-${defsId}`;
+  const PLOT_CLIP_ID = `zg-gc-plot-clip-${defsId}`;
+
   // ── Loading / error / empty ──────────────────────────────────────────────
   if (loading && bars.length === 0) {
     return (
@@ -1852,19 +1862,19 @@ export default function GammaTerminalChart({
             onDoubleClick={resetView}
           >
             <defs>
-              <linearGradient id="zg-gc-area" x1="0" y1="0" x2="0" y2="1">
+              <linearGradient id={AREA_GRADIENT_ID} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor={seriesColor} stopOpacity={0.32} />
                 <stop offset="100%" stopColor={seriesColor} stopOpacity={0} />
               </linearGradient>
-              <linearGradient id="zg-gc-rail-pos" x1="0" y1="0" x2="1" y2="0">
+              <linearGradient id={RAIL_POS_GRADIENT_ID} x1="0" y1="0" x2="1" y2="0">
                 <stop offset="0%" stopColor="var(--color-bull)" stopOpacity={0.12} />
                 <stop offset="100%" stopColor="var(--color-bull)" stopOpacity={0.55} />
               </linearGradient>
-              <linearGradient id="zg-gc-rail-neg" x1="1" y1="0" x2="0" y2="0">
+              <linearGradient id={RAIL_NEG_GRADIENT_ID} x1="1" y1="0" x2="0" y2="0">
                 <stop offset="0%" stopColor="var(--color-bear)" stopOpacity={0.12} />
                 <stop offset="100%" stopColor="var(--color-bear)" stopOpacity={0.55} />
               </linearGradient>
-              <clipPath id="zg-gc-plot-clip">
+              <clipPath id={PLOT_CLIP_ID}>
                 <rect x={PLOT_LEFT} y={PAD_TOP} width={PLOT_RIGHT - PLOT_LEFT} height={PRICE_BOTTOM - PAD_TOP} />
               </clipPath>
             </defs>
@@ -1921,8 +1931,8 @@ export default function GammaTerminalChart({
                 {/* smoothed net silhouette */}
                 {effectiveRailMode === "silhouette" && rail && (
                   <>
-                    <path d={rail.posPath} fill="url(#zg-gc-rail-pos)" />
-                    <path d={rail.negPath} fill="url(#zg-gc-rail-neg)" />
+                    <path d={rail.posPath} fill={`url(#${RAIL_POS_GRADIENT_ID})`} />
+                    <path d={rail.negPath} fill={`url(#${RAIL_NEG_GRADIENT_ID})`} />
                     <path d={rail.edge} fill="none" stroke="var(--text-secondary)" strokeWidth={1} opacity={0.35} />
                     {[{ p: rail.callPeak, c: "var(--color-bull)" }, { p: rail.putPeak, c: "var(--color-bear)" }].map(({ p, c }, i) => (
                       <circle key={`peak-${i}`} cx={rail.xFor(p.gex)} cy={rail.yFor(p.price)} r={2.6} fill={c} />
@@ -1981,8 +1991,8 @@ export default function GammaTerminalChart({
             )}
 
             {/* ── Price series ──────────────────────────────────────────── */}
-            <g clipPath="url(#zg-gc-plot-clip)">
-              {style === "area" && <path d={areaPath} fill="url(#zg-gc-area)" />}
+            <g clipPath={`url(#${PLOT_CLIP_ID})`}>
+              {style === "area" && <path d={areaPath} fill={`url(#${AREA_GRADIENT_ID})`} />}
               {(style === "line" || style === "area") && <path d={closePath} fill="none" stroke={seriesColor} strokeWidth={1.8} strokeLinejoin="round" strokeLinecap="round" />}
               {style === "candles" &&
                 bars.map((b, i) => {

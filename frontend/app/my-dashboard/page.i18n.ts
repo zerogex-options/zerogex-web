@@ -12,7 +12,7 @@ export const dict: PageDictionary = {
     addWidgets: 'Add widgets',
     underlyingSymbol: 'Underlying symbol',
     editingHint:
-      'Drag tiles to rearrange. Resize or remove with the controls on each tile — on touch, use the arrow buttons.',
+      'Drag tiles to rearrange. Each tile’s controls resize it (S / M / L / XL), copy it for a side-by-side comparison, or remove it — on touch, use the arrow buttons to reorder.',
     designYourDashboard: 'Design your dashboard',
     emptyStateLead:
       'Pull in live gamma levels, dealer positioning, options flow, proprietary signals and more — arranged exactly how you like. Start from a preset or add widgets one at a time.',
@@ -33,7 +33,7 @@ export const dict: PageDictionary = {
     addWidgets: 'Aggiungi widget',
     underlyingSymbol: 'Simbolo sottostante',
     editingHint:
-      'Trascina i riquadri per riordinarli. Ridimensiona o rimuovi con i controlli su ciascun riquadro — su touch, usa i pulsanti freccia.',
+      'Trascina i riquadri per riordinarli. I controlli di ogni riquadro lo ridimensionano (S / M / L / XL), lo duplicano per un confronto affiancato o lo rimuovono — su touch, usa i pulsanti freccia per riordinare.',
     designYourDashboard: 'Progetta la tua dashboard',
     emptyStateLead:
       'Integra livelli gamma in tempo reale, posizionamento dei dealer, flusso di opzioni, segnali proprietari e altro — disposti esattamente come preferisci. Parti da un preset o aggiungi i widget uno alla volta.',
@@ -54,7 +54,7 @@ export const dict: PageDictionary = {
     addWidgets: 'Widgets hinzufügen',
     underlyingSymbol: 'Basiswert-Symbol',
     editingHint:
-      'Ziehe Kacheln, um sie neu anzuordnen. Größe ändern oder entfernen über die Steuerelemente auf jeder Kachel — bei Touch die Pfeiltasten verwenden.',
+      'Ziehe Kacheln, um sie neu anzuordnen. Die Steuerelemente jeder Kachel ändern die Größe (S / M / L / XL), kopieren sie für einen Vergleich nebeneinander oder entfernen sie — bei Touch die Pfeiltasten zum Umsortieren verwenden.',
     designYourDashboard: 'Gestalte dein Dashboard',
     emptyStateLead:
       'Binde Live-Gamma-Level, Dealer-Positionierung, Optionsfluss, proprietäre Signale und mehr ein — genau so angeordnet, wie du es magst. Starte mit einem Preset oder füge Widgets einzeln hinzu.',
@@ -75,7 +75,7 @@ export const dict: PageDictionary = {
     addWidgets: 'Añadir widgets',
     underlyingSymbol: 'Símbolo del subyacente',
     editingHint:
-      'Arrastra los mosaicos para reordenarlos. Cambia el tamaño o elimínalos con los controles de cada mosaico — en pantalla táctil, usa los botones de flecha.',
+      'Arrastra los mosaicos para reordenarlos. Los controles de cada mosaico cambian su tamaño (S / M / L / XL), lo copian para comparar en paralelo o lo eliminan — en pantalla táctil, usa los botones de flecha para reordenar.',
     designYourDashboard: 'Diseña tu dashboard',
     emptyStateLead:
       'Incorpora niveles gamma en tiempo real, posicionamiento de dealers, flujo de opciones, señales propietarias y más — organizados exactamente como quieras. Empieza con un preset o añade widgets uno a uno.',
@@ -96,7 +96,7 @@ export const dict: PageDictionary = {
     addWidgets: 'Ajouter des widgets',
     underlyingSymbol: 'Symbole du sous-jacent',
     editingHint:
-      'Faites glisser les tuiles pour les réorganiser. Redimensionnez ou supprimez avec les commandes de chaque tuile — sur tactile, utilisez les boutons fléchés.',
+      'Faites glisser les tuiles pour les réorganiser. Les commandes de chaque tuile la redimensionnent (S / M / L / XL), la dupliquent pour une comparaison côte à côte ou la suppriment — sur tactile, utilisez les boutons fléchés pour réorganiser.',
     designYourDashboard: 'Concevez votre dashboard',
     emptyStateLead:
       'Intégrez des niveaux gamma en temps réel, le positionnement des dealers, le flux d\'options, des signaux propriétaires et plus encore — disposés exactement comme vous le souhaitez. Partez d\'un préréglage ou ajoutez les widgets un par un.',

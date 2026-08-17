@@ -10,6 +10,7 @@ export const dict: PageDictionary = {
     resizeTitle: 'Resize (now: {label})',
     resizeDragHandle: 'Drag to resize width (or use arrow keys)',
     removeWidget: 'Remove {title}',
+    duplicateWidget: 'Add another {title}',
   },
   it: {
     proLabel: 'Pro',
@@ -20,6 +21,7 @@ export const dict: PageDictionary = {
     resizeTitle: 'Ridimensiona (attuale: {label})',
     resizeDragHandle: 'Trascina per ridimensionare la larghezza (o usa le frecce)',
     removeWidget: 'Rimuovi {title}',
+    duplicateWidget: 'Aggiungi un altro {title}',
   },
   de: {
     proLabel: 'Pro',
@@ -30,6 +32,7 @@ export const dict: PageDictionary = {
     resizeTitle: 'Größe ändern (aktuell: {label})',
     resizeDragHandle: 'Zum Ändern der Breite ziehen (oder Pfeiltasten)',
     removeWidget: '{title} entfernen',
+    duplicateWidget: 'Weiteres {title} hinzufügen',
   },
   es: {
     proLabel: 'Pro',
@@ -40,6 +43,7 @@ export const dict: PageDictionary = {
     resizeTitle: 'Redimensionar (actual: {label})',
     resizeDragHandle: 'Arrastra para redimensionar el ancho (o usa las flechas)',
     removeWidget: 'Eliminar {title}',
+    duplicateWidget: 'Añadir otro {title}',
   },
   fr: {
     proLabel: 'Pro',
@@ -50,5 +54,6 @@ export const dict: PageDictionary = {
     resizeTitle: 'Redimensionner (actuel : {label})',
     resizeDragHandle: 'Faire glisser pour redimensionner la largeur (ou flèches)',
     removeWidget: 'Supprimer {title}',
+    duplicateWidget: 'Ajouter un autre {title}',
   },
 };

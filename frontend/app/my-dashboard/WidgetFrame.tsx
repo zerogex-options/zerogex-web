@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   ChevronLeft,
   ChevronRight,
+  Copy,
   GripVertical,
   Lock,
   Maximize2,
@@ -134,6 +135,8 @@ export type WidgetFrameProps = {
   onResizeStart: () => void;
   onResizeEnd: () => void;
   onRemove: () => void;
+  /** Drop a second copy of this widget beside it (side-by-side comparison). */
+  onDuplicate: () => void;
   onMovePrev: () => void;
   onMoveNext: () => void;
   canMovePrev: boolean;
@@ -153,6 +156,7 @@ export default function WidgetFrame({
   onResizeStart,
   onResizeEnd,
   onRemove,
+  onDuplicate,
   onMovePrev,
   onMoveNext,
   canMovePrev,
@@ -164,14 +168,9 @@ export default function WidgetFrame({
 
   const allowedSizes = widget.allowedSizes.length ? widget.allowedSizes : [size];
   const canResize = allowedSizes.length > 1;
-  // Ascending by grid footprint — used for both drag-snap and keyboard stepping.
+  // Ascending by grid footprint — used for the size picker, drag-snap and
+  // keyboard stepping alike.
   const sortedSizes = [...allowedSizes].sort((a, b) => WIDGET_COLSPAN[a] - WIDGET_COLSPAN[b]);
-
-  const cycleSize = () => {
-    const idx = allowedSizes.indexOf(size);
-    const next = allowedSizes[(idx + 1) % allowedSizes.length];
-    onResize(next);
-  };
 
   // Drag the right-edge handle to resize width. Column geometry is read live
   // from the grid (so it's correct at any breakpoint / container width), the
@@ -310,11 +309,15 @@ export default function WidgetFrame({
           <FrameIconButton label={t('moveLater')} disabled={!canMoveNext} onClick={onMoveNext}>
             <ChevronRight size={14} />
           </FrameIconButton>
-          {widget.allowedSizes.length > 1 && (
+          {canResize && size === 'sm' && (
+            // A small tile has no room for the full picker without burying its
+            // title, so it keeps the compact stepper: one click to the next
+            // footprint up, wrapping back to the smallest.
             <button
               type="button"
-              onClick={cycleSize}
+              onClick={() => onResize(sortedSizes[(sortedSizes.indexOf(size) + 1) % sortedSizes.length])}
               title={t('resizeTitle', { label: WIDGET_SIZE_LABEL[size] })}
+              aria-label={t('resizeTitle', { label: WIDGET_SIZE_LABEL[size] })}
               className="flex h-6 items-center gap-1 rounded-md px-1.5 text-[10px] font-bold"
               style={{ color: 'var(--text-secondary)' }}
             >
@@ -322,6 +325,42 @@ export default function WidgetFrame({
               {SIZE_SHORT[size]}
             </button>
           )}
+          {canResize && size !== 'sm' && (
+            // Every allowed footprint is one click away (S / M / L / XL) rather
+            // than a cycle — going from XL down to M to sit two charts side by
+            // side shouldn't take three clicks.
+            <div
+              className="flex items-center rounded-md"
+              role="group"
+              aria-label={t('resizeTitle', { label: WIDGET_SIZE_LABEL[size] })}
+              style={{ background: 'var(--bg-hover)' }}
+            >
+              <Maximize2 size={12} style={{ color: 'var(--text-muted)', margin: '0 2px 0 4px' }} />
+              {sortedSizes.map((s) => {
+                const active = s === size;
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => onResize(s)}
+                    aria-pressed={active}
+                    title={WIDGET_SIZE_LABEL[s]}
+                    aria-label={WIDGET_SIZE_LABEL[s]}
+                    className="flex h-6 min-w-[18px] items-center justify-center rounded-md px-1 text-[10px] font-bold transition-colors"
+                    style={{
+                      color: active ? 'var(--color-accent-hot)' : 'var(--text-secondary)',
+                      background: active ? 'var(--color-accent-soft)' : 'transparent',
+                    }}
+                  >
+                    {SIZE_SHORT[s]}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <FrameIconButton label={t('duplicateWidget', { title: widget.title })} onClick={onDuplicate}>
+            <Copy size={13} />
+          </FrameIconButton>
           <FrameIconButton
             label={t('removeWidget', { title: widget.title })}
             onClick={onRemove}

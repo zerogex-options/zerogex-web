@@ -19,14 +19,16 @@ export default function DashboardGrid({
   onReorder,
   onRemove,
   onResize,
+  onDuplicate,
 }: {
   items: PlacedWidget[];
   editing: boolean;
   hasPro: boolean;
   resetKey: string | number;
   onReorder: (from: number, to: number) => void;
-  onRemove: (widgetId: string) => void;
-  onResize: (widgetId: string, size: WidgetSize) => void;
+  onRemove: (instanceId: string) => void;
+  onResize: (instanceId: string, size: WidgetSize) => void;
+  onDuplicate: (instanceId: string) => void;
 }) {
   const gridRef = useRef<HTMLDivElement>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -45,7 +47,7 @@ export default function DashboardGrid({
 
         return (
           <div
-            key={item.widgetId}
+            key={item.instanceId}
             className={`zg-w-${item.size}`}
             draggable={editing && resizeIndex === null}
             onDragStart={(e) => {
@@ -56,7 +58,7 @@ export default function DashboardGrid({
               setDragIndex(index);
               e.dataTransfer.effectAllowed = 'move';
               try {
-                e.dataTransfer.setData('text/plain', item.widgetId);
+                e.dataTransfer.setData('text/plain', item.instanceId);
               } catch {
                 /* some browsers disallow setData in certain contexts */
               }
@@ -89,10 +91,11 @@ export default function DashboardGrid({
               isDropTarget={overIndex === index && dragIndex !== index}
               resetKey={resetKey}
               gridRef={gridRef}
-              onResize={(s) => onResize(item.widgetId, s)}
+              onResize={(s) => onResize(item.instanceId, s)}
               onResizeStart={() => setResizeIndex(index)}
               onResizeEnd={() => setResizeIndex(null)}
-              onRemove={() => onRemove(item.widgetId)}
+              onRemove={() => onRemove(item.instanceId)}
+              onDuplicate={() => onDuplicate(item.instanceId)}
               onMovePrev={() => onReorder(index, Math.max(0, index - 1))}
               onMoveNext={() => onReorder(index, Math.min(items.length - 1, index + 1))}
               canMovePrev={index > 0}

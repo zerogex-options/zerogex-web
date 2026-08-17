@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useApiData } from "@/hooks/useApiData";
 import { Theme } from "@/core/types";
 
@@ -104,6 +104,11 @@ export function SingleGauge({
   sizePx,
 }: SingleGaugeProps) {
   const [hovered, setHovered] = useState(false);
+  // `gaugeId` names the gauge's role; the mount-unique suffix keeps the SVG
+  // filter ids unique when the same gauge is on screen twice (My Dashboard can
+  // hold two copies of a widget side by side), so both instances don't resolve
+  // url(#…) to whichever rendered first.
+  const filterId = `${gaugeId}-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
 
   const v = Math.max(0, Math.min(10, isFinite(value) ? value : 0));
   const isDark = theme === "dark";
@@ -214,14 +219,14 @@ export function SingleGauge({
           style={{ width: pxW, height: pxH, display: "block" }}
         >
           <defs>
-            <filter id={`ngl-${gaugeId}`} x="-120%" y="-120%" width="340%" height="340%">
+            <filter id={`ngl-${filterId}`} x="-120%" y="-120%" width="340%" height="340%">
               <feGaussianBlur in="SourceGraphic" stdDeviation="1.8" result="blur" />
               <feMerge>
                 <feMergeNode in="blur" />
                 <feMergeNode in="SourceGraphic" />
               </feMerge>
             </filter>
-            <filter id={`hgl-${gaugeId}`} x="-80%" y="-80%" width="260%" height="260%">
+            <filter id={`hgl-${filterId}`} x="-80%" y="-80%" width="260%" height="260%">
               <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur" />
               <feMerge>
                 <feMergeNode in="blur" />
@@ -245,7 +250,7 @@ export function SingleGauge({
               transformOrigin: `${cx}px ${cy}px`,
               transition: "transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1)",
             }}
-            filter={`url(#ngl-${gaugeId})`}
+            filter={`url(#ngl-${filterId})`}
           >
             <line
               x1={cx} y1={cy + 5}
@@ -257,7 +262,7 @@ export function SingleGauge({
             <circle cx={cx} cy={cy - needleLen} r={1.2} fill={needleColor} opacity={0.9} />
           </g>
 
-          <circle cx={cx} cy={cy} r={5.5} fill={needleColor} opacity={0.18} filter={`url(#hgl-${gaugeId})`} />
+          <circle cx={cx} cy={cy} r={5.5} fill={needleColor} opacity={0.18} filter={`url(#hgl-${filterId})`} />
           <circle cx={cx} cy={cy} r={4} fill={needleColor} opacity={0.5} />
           <circle cx={cx} cy={cy} r={2.8} fill={needleColor} />
           <circle cx={cx} cy={cy} r={1.2} fill={hubBg} opacity={0.8} />

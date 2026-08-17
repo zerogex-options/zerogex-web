@@ -1807,11 +1807,15 @@ html {
 
 /* Footprints. Base (mobile) is a single column; they widen at the two
    breakpoints. `min-width: 0` lets tile contents (charts, tables) shrink
-   inside the track instead of forcing horizontal overflow. */
+   inside the track instead of forcing horizontal overflow.
+
+   S and M stay at half a row on the 2-column tablet grid so a pair of M
+   widgets — two Gamma Charts, say — sits side by side there as well as on the
+   4-column desktop grid, where M is likewise half the board. */
 .zg-w-sm, .zg-w-md, .zg-w-lg, .zg-w-xl { grid-column: span 1; min-width: 0; }
 @media (min-width: 640px) {
   .zg-w-sm { grid-column: span 1; }
-  .zg-w-md { grid-column: span 2; }
+  .zg-w-md { grid-column: span 1; }
   .zg-w-lg { grid-column: span 2; }
   .zg-w-xl { grid-column: span 2; }
 }

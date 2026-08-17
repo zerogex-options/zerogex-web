@@ -29,13 +29,15 @@ import { SYMBOLS } from '@/core/symbols';
 import {
   addWidget,
   clearLayout,
+  duplicateWidget,
   emptyLayout,
   loadLayout,
   moveWidget,
+  removeAllOfWidget,
   removeWidget,
   resizeWidget,
   saveLayout,
-  toggleWidget,
+  widgetCounts,
   type DashboardLayout,
   type WidgetSize,
 } from '@/core/myDashboardLayout';
@@ -100,16 +102,23 @@ export default function MyDashboardPage() {
     return set;
   }, [layout.widgets]);
 
-  const presentIds = useMemo(() => new Set(layout.widgets.map((w) => w.widgetId)), [layout.widgets]);
+  // Copies per widget id — the gallery shows a count and can add another copy.
+  const counts = useMemo(() => widgetCounts(layout), [layout]);
 
-  const handleToggle = useCallback((widget: WidgetDef) => {
-    setLayout((l) => toggleWidget(l, widget.id, widget.defaultSize));
+  const handleAdd = useCallback((widget: WidgetDef) => {
+    setLayout((l) => addWidget(l, widget.id, widget.defaultSize));
   }, []);
-  const handleRemove = useCallback((id: string) => {
-    setLayout((l) => removeWidget(l, id));
+  const handleRemoveAll = useCallback((widget: WidgetDef) => {
+    setLayout((l) => removeAllOfWidget(l, widget.id));
   }, []);
-  const handleResize = useCallback((id: string, size: WidgetSize) => {
-    setLayout((l) => resizeWidget(l, id, size));
+  const handleRemove = useCallback((instanceId: string) => {
+    setLayout((l) => removeWidget(l, instanceId));
+  }, []);
+  const handleDuplicate = useCallback((instanceId: string) => {
+    setLayout((l) => duplicateWidget(l, instanceId));
+  }, []);
+  const handleResize = useCallback((instanceId: string, size: WidgetSize) => {
+    setLayout((l) => resizeWidget(l, instanceId, size));
   }, []);
   const handleReorder = useCallback((from: number, to: number) => {
     setLayout((l) => moveWidget(l, from, to));
@@ -187,6 +196,7 @@ export default function MyDashboardPage() {
               onReorder={handleReorder}
               onRemove={handleRemove}
               onResize={handleResize}
+              onDuplicate={handleDuplicate}
             />
           </MyDashboardDataProvider>
         </>
@@ -196,8 +206,9 @@ export default function MyDashboardPage() {
         open={galleryOpen}
         onClose={() => setGalleryOpen(false)}
         hasPro={hasPro}
-        presentIds={presentIds}
-        onToggle={handleToggle}
+        counts={counts}
+        onAdd={handleAdd}
+        onRemoveAll={handleRemoveAll}
       />
     </PageShell>
   );
