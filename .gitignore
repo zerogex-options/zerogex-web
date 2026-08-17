@@ -218,6 +218,8 @@ frontend/public/robots.txt
 # generated branding files from `make logo`
 frontend/public/logo*.svg
 frontend/public/title*.svg
+frontend/public/logo*.png
+frontend/public/title*.png
 frontend/public/og-image.png
 frontend/public/favicon.ico
 frontend/public/target.svg

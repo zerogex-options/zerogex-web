@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { MarketSession, Theme } from "@/core/types";
+import { brandLogo } from "@/core/brand";
 import { colors } from "@/core/colors";
 import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight, Pin } from "lucide-react";
@@ -388,13 +389,14 @@ export default function Navigation({ theme }: NavigationProps) {
           <div className="h-full overflow-y-auto px-4 py-5">
             {headerCollapsed && (
               <div className="mb-5 rounded-xl border p-3" style={{ borderColor: border, backgroundColor: 'color-mix(in srgb, var(--bg-card) 79%, transparent)' }}>
-                <Link href="/" className="flex w-full items-center overflow-hidden">
+                {/* The lockup is trimmed to its artwork, so it's sized by height
+                    and centred — the old over-wide, negatively-offset crop
+                    existed only to cut the padding out of the SVG export. */}
+                <Link href="/" className="flex w-full items-center justify-center overflow-hidden">
                   <Image
-                    src={theme === "dark" ? "/logo-dark.svg" : "/logo-light.svg"}
+                    {...brandLogo(theme === "dark")}
                     alt="ZeroGEX"
-                    width={160}
-                    height={160}
-                    style={{ width: "118%", maxWidth: "118%", height: "auto", objectFit: "cover", marginLeft: "-9%" }}
+                    style={{ height: "84px", width: "auto", maxWidth: "100%", objectFit: "contain" }}
                   />
                 </Link>
                 {row1Price !== null && (

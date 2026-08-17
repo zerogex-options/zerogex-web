@@ -4,6 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Mail, Youtube } from 'lucide-react';
 import { Theme } from '@/core/types';
+import { brandLogo } from '@/core/brand';
 import { colors } from '@/core/colors';
 import { useLanguage } from '@/core/LanguageContext';
 import type { TranslationKey } from '@/core/i18n';
@@ -211,12 +212,13 @@ export default function Footer({ theme }: FooterProps) {
           </div>
 
           <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            {/* The stacked lockup is roughly square, where the old wordmark was
+                ~2.5:1 — 240px of height puts the same visual weight in the
+                column that 360px of the wide mark used to. */}
             <Image
-              src={isDark ? '/logo-dark.svg' : '/logo-light.svg'}
+              {...brandLogo(isDark)}
               alt="ZeroGEX"
-              width={360}
-              height={360}
-              style={{ height: '360px', width: 'auto', objectFit: 'contain' }}
+              style={{ height: '240px', width: 'auto', objectFit: 'contain' }}
             />
           </div>
 
@@ -318,11 +320,9 @@ export default function Footer({ theme }: FooterProps) {
 
           <div style={{ flex: '0 0 38%', minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
             <Image
-              src={isDark ? '/logo-dark.svg' : '/logo-light.svg'}
+              {...brandLogo(isDark)}
               alt="ZeroGEX"
-              width={160}
-              height={160}
-              style={{ width: '100%', maxWidth: 160, height: 'auto' }}
+              style={{ width: '100%', maxWidth: 120, height: 'auto' }}
             />
           </div>
         </div>

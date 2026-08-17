@@ -19,7 +19,8 @@ import {
   sampleGexProfile,
   type HorizonKey,
 } from './bulletinHelpers';
-import { nodeToPngBlob, nodeToPngDataUrl, rasterizeSvg } from './imageExport';
+import { nodeToPngBlob, nodeToPngDataUrl, rasterizeImage } from './imageExport';
+import { BRAND_TITLE } from '@/core/brand';
 
 const SYMBOLS = ['SPX', 'SPY', 'QQQ', 'NDX'] as const;
 type Symbol = (typeof SYMBOLS)[number];
@@ -40,12 +41,14 @@ export default function LiveBulletinClient({ watermark = true }: { watermark?: b
 
   const cardRef = useRef<HTMLDivElement>(null);
 
-  // Rasterize the brand wordmark (served from /public) into a PNG data URL once
+  // Rasterize the brand lockup (served from /public) into a PNG data URL once
   // on mount so it both displays crisply and embeds into the exported image.
+  // The card always renders on a dark surface, so it takes the dark variant
+  // regardless of the theme the operator is browsing in.
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
-    rasterizeSvg('/title.svg', 960)
+    rasterizeImage(BRAND_TITLE.dark.src, 960)
       .then((url) => {
         if (!cancelled) setLogoUrl(url);
       })

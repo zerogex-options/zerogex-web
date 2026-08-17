@@ -8,6 +8,7 @@ import Footer from '@/components/Footer';
 import PlanComparison from '@/components/PlanComparison';
 import VerifyEmailBanner from '@/components/VerifyEmailBanner';
 import { useTheme } from '@/core/ThemeContext';
+import { brandTitle } from '@/core/brand';
 import { normalizeTier, TierId } from '@/core/auth';
 import { FOUNDING_BILLING_START_LABEL } from '@/core/foundingLockin';
 import { useAuthSession } from '@/hooks/useAuthSession';
@@ -452,7 +453,7 @@ export default function FoundingClient({ foundingCode, annualEnabled }: Props) {
         }}
       >
         <Link href="/" className="h-full flex items-center overflow-hidden flex-shrink-0" style={{ textDecoration: 'none', lineHeight: 0 }}>
-          <Image src="/title.svg" alt="ZeroGEX" width={300} height={60} priority className="h-[130%] sm:h-[150%] w-auto block" style={{ maxHeight: 'none', objectFit: 'contain' }} />
+          <Image {...brandTitle(isDark)} alt="ZeroGEX" priority className="h-[80%] sm:h-[88%] w-auto block" style={{ maxHeight: 'none', objectFit: 'contain' }} />
         </Link>
 
         <div className="flex items-center gap-2">

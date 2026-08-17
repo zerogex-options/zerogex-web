@@ -33,6 +33,7 @@ import { SYMBOLS } from "@/core/symbols";
 import { getMarketSession } from "@/core/utils";
 import { getPrimaryPriceChangeSummary, getExtendedHoursRow } from "@/core/priceChange";
 import { colors } from "@/core/colors";
+import { brandTitle } from "@/core/brand";
 import SessionBadge from "./SessionBadge";
 import WorldClocks from "./WorldClocks";
 import OptionsCalendarBadge from "./OptionsCalendarBadge";
@@ -557,13 +558,16 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
             {!isCollapsed && (
             <div className="absolute left-1/2 top-1/2 pointer-events-none" style={{ transform: "translate(-50%, -50%)" }}>
               <Link href="/" style={{ pointerEvents: "auto", display: "flex", alignItems: "center", height: "100px", overflow: "hidden", padding: 0, margin: 0, lineHeight: 0 }}>
+                {/* Trimmed artwork, so the height fraction is the whole sizing
+                    story (the old padded export needed 150% to fill the band).
+                    76% keeps the 3.3:1 lockup ~250px wide — the footprint the
+                    old wordmark had, so it still clears the world clocks that
+                    sit either side of this absolutely-centred block. */}
                 <Image
-                  src="/title.svg"
+                  {...brandTitle(theme === "dark")}
                   alt="ZeroGEX"
-                  width={300}
-                  height={60}
                   priority
-                  style={{ width: "auto", height: "150%", maxWidth: "none", maxHeight: "none", objectFit: "contain", objectPosition: "center", display: "block", margin: 0, padding: 0 }}
+                  style={{ width: "auto", height: "76%", maxWidth: "none", maxHeight: "none", objectFit: "contain", objectPosition: "center", display: "block", margin: 0, padding: 0 }}
                 />
               </Link>
             </div>
@@ -681,12 +685,10 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
           <div ref={mobileTopBarRef} className="flex items-center justify-between mb-1 min-w-0 w-full" style={{ minHeight: "36px" }}>
             <Link href="/" className="flex items-center overflow-hidden min-w-0" style={{ height: "36px", maxWidth: "min(56vw, 210px)", padding: 0, margin: 0, lineHeight: 0 }}>
               <Image
-                src="/title.svg"
+                {...brandTitle(theme === "dark")}
                 alt="ZeroGEX"
-                width={300}
-                height={60}
                 priority
-                // Fit the wordmark fully inside the mobile top bar: cap it to the
+                // Fit the lockup fully inside the mobile top bar: cap it to the
                 // bar height AND the (flex-shrunk) container width so it never
                 // clips top/bottom or on the right the way a fixed 130%-height,
                 // width:auto image did once the icons on the right claimed space.

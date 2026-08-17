@@ -40,4 +40,24 @@ rather than fail — new partners can bootstrap without every asset in
 place.
 
 ## Generating Web Assets
-Run `make logo` to copy assets to frontend/public/
+Run `make logo` to deploy assets to frontend/public/:
+
+| Source | Deployed as | Used by |
+| --- | --- | --- |
+| `Dark_Full.png` / `Light_Full.png` | `logo-dark.png` / `logo-light.png` | footer, collapsed nav card |
+| `Dark_Title.png` / `Light_Title.png` | `title-dark.png` / `title-light.png` | header bars, live-bulletin card |
+| `Target.svg` | `target.svg` | |
+| `favicon.ico`, `og-image.png` | same name | |
+
+The four lockup PNGs are not copied verbatim: `make logo` runs them through
+`scripts/trim-png.js`, which crops the transparent margin off the export and
+caps the width (1024 for the full lockups, 1280 for the title lockups). The
+exports carry different amounts of empty canvas per file — dropping them in
+untrimmed would render the same logo at two different sizes depending on the
+theme. Re-export from the design tool under the same filenames and re-run
+`make logo`; nothing here needs manual cropping.
+
+The frontend picks the variant for the active theme in `frontend/core/brand.ts`,
+which also records the deployed pixel sizes for next/image. If a re-export
+changes the artwork's proportions, update the sizes there to whatever
+`make logo` prints.
