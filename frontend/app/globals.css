@@ -1826,6 +1826,33 @@ html {
   .zg-w-xl { grid-column: span 4; }
 }
 
+/* Split board — two independent halves side by side.
+
+   Each half is a full board of its own (its own widget grid, its own underlying
+   symbol and expiration filter), so the point is to read one against the other:
+   SPY next to QQQ, this Friday next to next Friday. They only sit side by side
+   once there is room for two usable grids — below 1280px the halves stack, one
+   above the other, and each gets the full-width 4-column grid back. */
+.zg-mydash-split {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+@media (min-width: 1280px) {
+  .zg-mydash-split {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  /* A half-width pane gets two columns rather than four, so S/M/L/XL keep
+     meaning quarter / half / three-quarters / full of the space the pane
+     actually has instead of collapsing into unreadable slivers. */
+  .zg-mydash-grid--half { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .zg-mydash-grid--half .zg-w-sm { grid-column: span 1; }
+  .zg-mydash-grid--half .zg-w-md { grid-column: span 1; }
+  .zg-mydash-grid--half .zg-w-lg { grid-column: span 2; }
+  .zg-mydash-grid--half .zg-w-xl { grid-column: span 2; }
+}
+
 /* Right-edge resize handle (edit mode). Drag it to widen/narrow a widget; it
    snaps to the widget's allowed footprints. Shown only on the 4-column desktop
    grid, where those footprints render at distinct widths — on the 2-/1-column

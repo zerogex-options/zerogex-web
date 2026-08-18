@@ -21,7 +21,8 @@
 // The pure resolve/persist/normalise contract lives in core/expirationPersistence
 // (unit-tested under Node); this file is only the thin React/browser glue.
 
-import { useSyncExternalStore } from 'react';
+import { useContext, useSyncExternalStore } from 'react';
+import { ExpirationScopeContext } from '@/core/expirationScope';
 import {
   ALL_EXPIRATIONS,
   persistExpirations,
@@ -85,10 +86,16 @@ export interface SharedExpirations {
 }
 
 export function useSharedExpirations(): SharedExpirations {
+  // A subtree can opt out of the tab-wide store — see core/expirationScope. The
+  // store is still subscribed to unconditionally (hooks can't be conditional,
+  // and useSyncExternalStore over an unchanging value is free), so a scoped
+  // chart that later loses its scope picks the shared selection straight back up.
+  const scoped = useContext(ExpirationScopeContext);
   const selection = useSyncExternalStore(
     subscribe,
     getSnapshot,
     getServerSnapshot,
   ) as string[];
+  if (scoped) return scoped;
   return { selection, setSelection: setSharedExpirations };
 }

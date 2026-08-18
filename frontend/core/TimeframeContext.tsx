@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import {
   persistSymbol,
@@ -97,6 +97,43 @@ export function TimeframeProvider({ children }: { children: ReactNode }) {
       {children}
     </TimeframeContext.Provider>
   );
+}
+
+/**
+ * Pin a subtree to one underlying symbol, overriding the page-wide pick.
+ *
+ * Every widget on the site reads its symbol from useTimeframe(), so re-providing
+ * the context with a different `symbol` is all it takes to point a whole branch
+ * of the tree at another underlying — which is how "My Dashboard" runs SPY down
+ * one half of a split board and QQQ down the other without a second page.
+ *
+ * `setSymbol` is redirected too: a chart with its own symbol switcher (the Gamma
+ * Terminal's segmented control, say) must retarget the pane it lives in, not
+ * yank the whole site. When `onSymbolChange` is omitted the setter is a no-op
+ * inside the scope, so a scoped chart can never silently change the page.
+ *
+ * A null `symbol` passes the parent context straight through, so an unscoped
+ * pane costs nothing and behaves exactly as before.
+ */
+export function TimeframeSymbolScope({
+  symbol,
+  onSymbolChange,
+  children,
+}: {
+  symbol: UnderlyingSymbol | null;
+  onSymbolChange?: (symbol: UnderlyingSymbol) => void;
+  children: ReactNode;
+}) {
+  const parent = useTimeframe();
+  const value = useMemo<TimeframeContextType>(() => {
+    if (!symbol) return parent;
+    return {
+      ...parent,
+      symbol,
+      setSymbol: onSymbolChange ?? (() => {}),
+    };
+  }, [parent, symbol, onSymbolChange]);
+  return <TimeframeContext.Provider value={value}>{children}</TimeframeContext.Provider>;
 }
 
 export function useTimeframe() {
