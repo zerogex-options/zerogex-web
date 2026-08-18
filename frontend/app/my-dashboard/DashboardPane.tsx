@@ -18,8 +18,15 @@
  *   • ExpirationScopeContext does the same for useSharedExpirations(), so the
  *     charts' built-in expiration filters read and write this pane's selection
  *     instead of the tab-wide one.
- * A pane with no overrides provides neither, so an unsplit board behaves exactly
- * as it did before the split existed.
+ *
+ * WHILE THE BOARD IS SPLIT BOTH SCOPES ARE ALWAYS INSTALLED, even on a half that
+ * hasn't been retargeted yet. Two halves that both merely "follow the page" are
+ * not independent: changing the expiry (or the symbol) from a chart inside one
+ * of them would write the page-wide value and drag the other half along with it,
+ * which is exactly what a split board must not do. So a not-yet-pinned half is
+ * seeded with the page's CURRENT values and its first change pins that half
+ * alone — the other side does not move. An unsplit, unscoped board installs
+ * neither scope and behaves exactly as it did before the split existed.
  */
 
 import { useCallback, useMemo, type ReactNode } from 'react';
@@ -40,7 +47,7 @@ import {
 import { useGEXByStrike } from '@/hooks/useApiData';
 import { useSharedExpirations } from '@/hooks/useSharedExpirations';
 import type { DashboardPane as DashboardPaneModel, PaneId, WidgetSize } from '@/core/myDashboardLayout';
-import { otherPaneId } from '@/core/myDashboardLayout';
+import { isScoped, otherPaneId } from '@/core/myDashboardLayout';
 
 import { getWidget } from './registry';
 import { MyDashboardDataProvider, type FeedKey } from './DashboardData';
@@ -88,7 +95,11 @@ export default function DashboardPane({
 }: DashboardPaneProps) {
   const t = usePageT(dict);
   const { symbol: pageSymbol } = useTimeframe();
+  // Read OUTSIDE any expiration scope (this component installs it below), so
+  // this is the page-wide selection a not-yet-pinned half starts from.
+  const { selection: pageExpirations } = useSharedExpirations();
   const effectiveSymbol = pane.scope.symbol ?? pageSymbol;
+  const effectiveExpirations = pane.scope.expirations ?? pageExpirations;
   const other = otherPaneId(pane.id);
 
   // Only the feeds this pane's own widgets consume are polled live — a split
@@ -107,13 +118,14 @@ export default function DashboardPane({
     [onExpirationsChange, pane.id],
   );
 
-  // Provided only when this pane pins its own expirations; `null` lets every
-  // chart inside fall through to the tab-wide shared selection, unchanged.
+  // Installed whenever this half must be independent: always while the board is
+  // split, and otherwise only when the half pins its own expirations. Its setter
+  // pins THIS half, so a chart's built-in expiration filter never writes the
+  // page-wide selection out from under the other side.
   const expirationScope = useMemo<ExpirationScopeValue | null>(() => {
-    const pinned = pane.scope.expirations;
-    if (pinned === null) return null;
-    return { selection: pinned, setSelection: setExpirations };
-  }, [pane.scope.expirations, setExpirations]);
+    if (!split && pane.scope.expirations === null) return null;
+    return { selection: effectiveExpirations, setSelection: setExpirations };
+  }, [split, pane.scope.expirations, effectiveExpirations, setExpirations]);
 
   const handlePaneSymbolChange = useCallback(
     (next: UnderlyingSymbol) => onSymbolChange(pane.id, next),
@@ -125,7 +137,7 @@ export default function DashboardPane({
       className="flex min-w-0 flex-col"
       aria-label={t('sideLabel', { side: paneLetter(pane.id) })}
     >
-      {split && (
+      {(split || isScoped(pane.scope)) && (
         <PaneToolbar
           pane={pane}
           pageSymbol={pageSymbol}
@@ -146,7 +158,10 @@ export default function DashboardPane({
         />
       ) : (
         <TimeframeSymbolScope
-          symbol={pane.scope.symbol}
+          // While split, even a half that still follows the page gets a concrete
+          // symbol scope, so a chart's own symbol switcher pins this half rather
+          // than moving the page — and the other side with it.
+          symbol={split ? effectiveSymbol : pane.scope.symbol}
           onSymbolChange={handlePaneSymbolChange}
         >
           <ExpirationScopeContext.Provider value={expirationScope}>
