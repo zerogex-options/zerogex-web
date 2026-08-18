@@ -57,6 +57,33 @@ export const etTodayDateKey = (): string => {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date());
 };
 
+// The ET trading date (YYYY-MM-DD) an instant belongs to. Same calendar key as
+// `etTodayDateKey`, resolved for an arbitrary timestamp rather than "now", so a
+// row's session can be read straight off its own timestamp. Returns '' for a
+// missing or unparseable value, which callers treat as "no date".
+//
+// Cached at the module level because the flow feeds call this once per row on
+// hot paths and the Intl formatter is the expensive part. Bounded so a
+// long-running session can't grow the map without limit.
+const etDateKeyCache = new Map<string, string>();
+const ET_DATE_FORMATTER = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'America/New_York',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
+export function etDateKeyFor(ts: string | null | undefined): string {
+  if (!ts) return '';
+  const cached = etDateKeyCache.get(ts);
+  if (cached != null) return cached;
+  const d = new Date(ts);
+  const key = Number.isNaN(d.getTime()) ? '' : ET_DATE_FORMATTER.format(d);
+  if (etDateKeyCache.size > 20_000) etDateKeyCache.clear();
+  etDateKeyCache.set(ts, key);
+  return key;
+}
+
 // Label a daily ("1day") candle by its ET trading date.
 //
 // A daily bucket's timestamp is a DATE marker, not a wall-clock instant: the

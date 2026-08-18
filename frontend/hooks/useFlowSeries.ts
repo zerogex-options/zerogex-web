@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
+
+import { canonicalTimestamp } from '@/core/flowSeriesCharts';
+import { etDateKeyFor, etTodayDateKey } from '@/core/utils';
 import type { FlowSnapshot } from './useFlowByContract';
 
 /**
@@ -35,10 +38,25 @@ export interface FlowSeriesPoint {
  * (`…00.000Z`) so chart-row keys match the client-side session timeline
  * built by `new Date(t).toISOString()`. Exported because every consumer of
  * FlowSeriesPoint that then keys data by timestamp hits the same issue.
+ *
+ * The implementation lives in core/flowSeriesCharts, which the chart derivations
+ * are built on; this is the name callers already import.
  */
-export function canonicalIso(ts: string): string {
-  const d = new Date(ts);
-  return Number.isNaN(d.getTime()) ? ts : d.toISOString();
+export { canonicalTimestamp as canonicalIso };
+
+/**
+ * The ET trading date a /api/flow/series response belongs to, read off its last
+ * row. Falls back to today's ET date for an empty response, so a chart still
+ * lays out an (empty) session grid rather than nothing at all.
+ */
+export function sessionDateKeyFromSeries(
+  rows: FlowSeriesPoint[] | null | undefined,
+): string {
+  if (rows && rows.length > 0) {
+    const key = etDateKeyFor(rows[rows.length - 1].timestamp);
+    if (key) return key;
+  }
+  return etTodayDateKey();
 }
 
 /**
@@ -62,7 +80,7 @@ export function snapshotFromSeries(rows: FlowSeriesPoint[] | null | undefined): 
   const putCallRatio = last.put_call_ratio
     ?? (last.call_volume_cum > 0 ? last.put_volume_cum / last.call_volume_cum : 0);
   return {
-    timestamp: canonicalIso(last.timestamp),
+    timestamp: canonicalTimestamp(last.timestamp),
     callVolume: last.call_volume_cum,
     putVolume: last.put_volume_cum,
     callPremium: last.call_premium_cum,

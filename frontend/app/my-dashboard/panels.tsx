@@ -19,6 +19,9 @@ import GammaTerminalChart from '@/components/GammaTerminalChart';
 import GammaPulsePanel from '@/components/GammaPulsePanel';
 import GexProfileChart from '@/components/GexProfileChart';
 import GexWallsChart from '@/components/GexWallsChart';
+import GammaHeatmapCanvas from '@/components/GammaHeatmapCanvas';
+import GexUnitToggle from '@/components/GexUnitToggle';
+import OptionsFlowChart from '@/components/OptionsFlowChart';
 import SignalScorePanel from '@/components/SignalScorePanel';
 import SignalEventsPanel from '@/components/SignalEventsPanel';
 import ConfluenceMatrix from '@/components/ConfluenceMatrix';
@@ -242,6 +245,34 @@ export function OpenInterestByStrikePanel() {
       />
     </div>
   );
+}
+
+// The GEX Heatmap timeseries from /gex-heatmap. GammaHeatmapCanvas is entirely
+// self-contained — it reads the active symbol, theme and GEX unit from context
+// and sizes its canvas to whatever width it's given — so the wrapper only adds
+// the page's GEX-unit pill above it (the canvas legend and tooltip read that
+// preference) and otherwise renders bare: the canvas carries its own card,
+// title bar and toolbar, and drops its fullscreen control inside a tile.
+export function GexHeatmapPanel() {
+  return (
+    <div className="flex h-full flex-col gap-3">
+      <div className="flex justify-end">
+        <GexUnitToggle showHint={false} />
+      </div>
+      <GammaHeatmapCanvas />
+    </div>
+  );
+}
+
+// ── Options Flow ──────────────────────────────────────────────────────────────
+
+// The "Options Flow" chart from /flow-analysis. Handed no session or basis prop,
+// it renders its own selectors for both alongside the underlying-price toggle,
+// and fetches its own session rows — so a tile is the full instrument, not a
+// read-only copy of the page's. It carries its own card chrome, so it renders
+// bare (no WidgetCard).
+export function OptionsFlowPanel() {
+  return <OptionsFlowChart className="h-full" />;
 }
 
 // ── Signals ─────────────────────────────────────────────────────────────────

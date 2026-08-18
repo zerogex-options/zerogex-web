@@ -2,8 +2,7 @@
 
 import PageShell from '@/components/layout/PageShell';
 import SectionHead from "@/components/layout/SectionHead";
-import { useCallback, useMemo, useState } from "react";
-import type { Dispatch, SetStateAction } from "react";
+import { useMemo, useState } from "react";
 import {
   Area,
   ComposedChart,
@@ -16,25 +15,35 @@ import {
   YAxis,
 } from "recharts";
 import { useApiData } from "@/hooks/useApiData";
-import { etDateKeyFor } from "@/hooks/useFlowByContract";
 import {
   canonicalIso,
+  sessionDateKeyFromSeries,
   snapshotFromSeries,
-  useFlowContractOptions,
   useFlowSeries,
   type FlowSeriesPoint,
 } from "@/hooks/useFlowSeries";
 import ErrorMessage from "@/components/ErrorMessage";
 import ExpandableCard from "@/components/ExpandableCard";
 import MetricCard from "@/components/MetricCard";
-import TooltipWrapper from "@/components/TooltipWrapper";
 import RegimeSummaryBanner from "@/components/RegimeSummaryBanner";
+import OptionsFlowChart from "@/components/OptionsFlowChart";
+import { buildThirtyMinGridlines } from "@/components/ChartGridlines";
 import { useTimeframe } from "@/core/TimeframeContext";
 import { useTheme } from "@/core/ThemeContext";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { getSessionTimestamps } from "@/core/utils";
-import { loadChartSettings, saveChartSettings } from "@/core/chartSettings";
-import { useSharedExpirations } from "@/hooks/useSharedExpirations";
+import { etDateKeyFor } from "@/core/utils";
+// The Options Flow chart's own derivations live in core/flowSeriesCharts, shared
+// with the "Options Flow" My Dashboard widget. The compact charts below reuse the
+// session timeline, labels and axis helpers from there so every chart on this
+// page lands on the same slots.
+import {
+  getDateMarkerMeta,
+  getFiveMinuteSessionTimeline,
+  isBarWindowComplete,
+  latestRowMs,
+  safeTimeLabel,
+  type NetVolumeMode,
+} from "@/core/flowSeriesCharts";
 
 // ── Chart row shape ───────────────────────────────────────────────────────────
 
@@ -50,129 +59,10 @@ interface NetDirectionalPremiumRow {
   negativePremium: number | null;
 }
 
-interface TimeseriesRow {
-  timestamp: string;
-  time: string;
-  callPremium: number | null;
-  putPremium: number | null;
-  netVolume: number | null;
-  positiveNetVolume: number | null;
-  negativeNetVolume: number | null;
-  underlyingPrice: number | null;
-}
-
 interface NetPositionRow {
   timestamp: string;
   callPosition: number | null;
   putPosition: number | null;
-}
-
-// ── Date / session helpers ────────────────────────────────────────────────────
-
-function getCurrentETDateKey(): string {
-  return etDateKeyFor(new Date().toISOString());
-}
-
-function getETTimeTimestamp(dateKey: string, etHour: number, etMinute: number): number | null {
-  const [y, m, d] = dateKey.split("-").map(Number);
-  if (!y || !m || !d) return null;
-
-  const etFmt = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-
-  const candidateHours = Array.from(new Set([etHour + 4, etHour + 5])).filter((h) => h >= 0 && h <= 23);
-  for (const utcHour of candidateHours) {
-    const candidate = Date.UTC(y, m - 1, d, utcHour, etMinute);
-    const parts = etFmt.formatToParts(new Date(candidate));
-    const h = Number(parts.find((p) => p.type === "hour")?.value ?? -1);
-    const min = Number(parts.find((p) => p.type === "minute")?.value ?? -1);
-    if (h === etHour && min === etMinute) return candidate;
-  }
-  return null;
-}
-
-function extendTimelineToSessionClose(timeline: string[], dateKey: string, stepMs: number = 60_000): string[] {
-  if (timeline.length === 0) return timeline;
-  const targetMs = getETTimeTimestamp(dateKey, 16, 15);
-  if (targetMs == null) return timeline;
-
-  const result = [...timeline];
-  let cursor = new Date(result[result.length - 1]).getTime();
-  if (!Number.isFinite(cursor)) return timeline;
-
-  while (cursor < targetMs) {
-    cursor += stepMs;
-    result.push(new Date(cursor).toISOString());
-  }
-  return result;
-}
-
-/** Builds a 5-minute ET session timeline for the given date (09:30–16:15 ET). */
-function getFiveMinuteSessionTimeline(dateKey: string): string[] {
-  const minuteTimeline = getSessionTimestamps(dateKey);
-  const fiveMin = minuteTimeline.filter((_, idx) => idx % 5 === 0);
-  return extendTimelineToSessionClose(fiveMin, dateKey, 5 * 60_000);
-}
-
-/**
- * Returns the millisecond timestamp of the latest row in `rows`, or -Infinity
- * if the array is empty. Used so alignment functions can tell "internal gap"
- * (carry-forward) slots apart from "trailing" (leave null) slots.
- */
-function latestRowMs<T extends { timestamp: string }>(rows: T[]): number {
-  if (rows.length === 0) return -Infinity;
-  const last = rows[rows.length - 1].timestamp;
-  const ms = new Date(last).getTime();
-  return Number.isFinite(ms) ? ms : -Infinity;
-}
-
-/**
- * Aligns a cumulative timeseries to the session timeline. Each chart on this
- * page plots running session totals, so a 5-minute bar with no reported API
- * activity should hold the previous cumulative value rather than punch a hole
- * in the line. We only leave nulls for slots *after* the last real bar so the
- * curve doesn't extrapolate into future market time.
- */
-function alignSeriesToTimeline(rows: TimeseriesRow[], timeline: string[]): TimeseriesRow[] {
-  const byTs = new Map(rows.map((r) => [r.timestamp, r]));
-  const lastMs = latestRowMs(rows);
-
-  let prev: TimeseriesRow | null = null;
-  return timeline.map((timestamp) => {
-    const exact = byTs.get(timestamp);
-    if (exact) {
-      prev = exact;
-      return exact;
-    }
-    const ms = new Date(timestamp).getTime();
-    if (prev && Number.isFinite(ms) && ms < lastMs) {
-      const netVolume = prev.netVolume;
-      return {
-        timestamp,
-        time: safeTimeLabel(timestamp),
-        callPremium: prev.callPremium,
-        putPremium: prev.putPremium,
-        netVolume,
-        positiveNetVolume: netVolume != null && netVolume > 0 ? netVolume : 0,
-        negativeNetVolume: netVolume != null && netVolume < 0 ? netVolume : 0,
-        underlyingPrice: prev.underlyingPrice,
-      } satisfies TimeseriesRow;
-    }
-    return {
-      timestamp,
-      time: safeTimeLabel(timestamp),
-      callPremium: null,
-      putPremium: null,
-      netVolume: null,
-      positiveNetVolume: null,
-      negativeNetVolume: null,
-      underlyingPrice: null,
-    } satisfies TimeseriesRow;
-  });
 }
 
 function alignRatioToTimeline(rows: PutCallRatioRow[], timeline: string[]): PutCallRatioRow[] {
@@ -278,35 +168,6 @@ function alignNetPositionToTimeline(rows: NetPositionRow[], timeline: string[]):
 // those rows until the bar window fully elapses; after that, a genuine 0 is
 // allowed through.
 
-const BAR_WINDOW_MS = 5 * 60_000;
-
-function isBarWindowComplete(timestamp: string): boolean {
-  const ms = new Date(timestamp).getTime();
-  if (!Number.isFinite(ms)) return true;
-  return Date.now() >= ms + BAR_WINDOW_MS;
-}
-
-function maskIncompleteZeroFlowBars(rows: TimeseriesRow[]): TimeseriesRow[] {
-  return rows.map((row) => {
-    if (
-      row.callPremium === 0 &&
-      row.putPremium === 0 &&
-      row.netVolume === 0 &&
-      !isBarWindowComplete(row.timestamp)
-    ) {
-      return {
-        ...row,
-        callPremium: null,
-        putPremium: null,
-        netVolume: null,
-        positiveNetVolume: null,
-        negativeNetVolume: null,
-      };
-    }
-    return row;
-  });
-}
-
 function maskIncompleteZeroNetPositionBars(rows: NetPositionRow[]): NetPositionRow[] {
   return rows.map((row) => {
     if (
@@ -320,48 +181,11 @@ function maskIncompleteZeroNetPositionBars(rows: NetPositionRow[]): NetPositionR
   });
 }
 
-// ── Label / axis helpers ──────────────────────────────────────────────────────
-
-function safeTimeLabel(value?: string) {
-  if (!value) return "--:--";
-  const d = new Date(value);
-  return Number.isNaN(d.getTime())
-    ? "--:--"
-    : d.toLocaleTimeString("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-        timeZone: "America/New_York",
-      });
-}
-
 // ── FlowSeriesPoint → chart row mappers ──────────────────────────────────────
 //
 // The backend at /api/flow/series returns rows whose fields are already the
 // session cumulatives the charts plot. These mappers are trivial field
 // renames — no accumulation, no gap-filling.
-
-export type NetVolumeMode = "raw" | "directional";
-
-function mapSeriesToFlowTimeseries(
-  rows: FlowSeriesPoint[],
-  mode: NetVolumeMode,
-): TimeseriesRow[] {
-  return rows.map((r) => {
-    const netVolume = mode === "raw" ? r.raw_volume_cum : r.net_volume_cum;
-    const timestamp = canonicalIso(r.timestamp);
-    return {
-      timestamp,
-      time: safeTimeLabel(timestamp),
-      callPremium: r.call_premium_cum,
-      putPremium: r.put_premium_cum,
-      netVolume,
-      positiveNetVolume: netVolume > 0 ? netVolume : 0,
-      negativeNetVolume: netVolume < 0 ? netVolume : 0,
-      underlyingPrice: r.underlying_price,
-    };
-  });
-}
 
 function mapSeriesToRatioRows(rows: FlowSeriesPoint[]): PutCallRatioRow[] {
   return rows.map((r) => ({ timestamp: canonicalIso(r.timestamp), ratio: r.put_call_ratio }));
@@ -389,68 +213,6 @@ function mapSeriesToNetPositionRows(rows: FlowSeriesPoint[]): NetPositionRow[] {
 
 // ── Chart layout helpers ──────────────────────────────────────────────────────
 
-/** Computes a clean axis step that gives roughly 6 ticks over the given range. */
-function getDynamicStep(min: number, max: number): number {
-  const range = Math.max(1, Math.abs(max - min));
-  const rawStep = range / 6;
-  const magnitude = Math.pow(10, Math.floor(Math.log10(rawStep)));
-  const normalized = rawStep / magnitude;
-  let step: number;
-  if (normalized < 1.5) step = 1 * magnitude;
-  else if (normalized < 3.5) step = 2 * magnitude;
-  else if (normalized < 7.5) step = 5 * magnitude;
-  else step = 10 * magnitude;
-  return Math.max(1, step);
-}
-
-function getUnderlyingDomain(rows: TimeseriesRow[]) {
-  const prices = rows
-    .map((r) => r.underlyingPrice)
-    .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
-
-  if (prices.length === 0) return ["auto", "auto"] as const;
-
-  const minPrice = Math.min(...prices);
-  const maxPrice = Math.max(...prices);
-  const span = Math.max(0.01, maxPrice - minPrice);
-  const padding = span * 0.03;
-
-  return [minPrice - padding, maxPrice + padding] as const;
-}
-
-function roundToStep(value: number, step: number, mode: "up" | "down") {
-  if (!Number.isFinite(value)) return 0;
-  if (mode === "down") return Math.floor(value / step) * step;
-  return Math.ceil(value / step) * step;
-}
-
-/**
- * Generates an array of evenly-spaced, human-readable tick values spanning
- * [min, max].  Uses getDynamicStep to pick a clean interval.
- */
-function generateNiceTicks(min: number, max: number): number[] {
-  if (!Number.isFinite(min) || !Number.isFinite(max) || min >= max) return [min];
-  const step = getDynamicStep(min, max);
-  const start = roundToStep(min, step, "down");
-  const ticks: number[] = [];
-  for (let i = 0; i < 20; i++) {
-    const t = parseFloat((start + i * step).toPrecision(12));
-    ticks.push(t);
-    if (t >= max) break;
-  }
-  return ticks;
-}
-
-/** True when the timestamp falls on a :00 or :30 UTC minute boundary.
- *  Because ET market times are always at :30 offset (DST-safe), UTC :00/:30
- *  maps exactly to each half-hour boundary in ET. */
-function is30MinBoundary(ts: string): boolean {
-  const d = new Date(ts);
-  if (isNaN(d.getTime())) return false;
-  const m = d.getUTCMinutes();
-  return m === 0 || m === 30;
-}
-
 const MAJOR_TICK_ET_HOURS = new Set([10, 12, 14, 16]);
 
 /** True when `ts` lands exactly on 10:00, 12:00, 14:00, or 16:00 ET — used
@@ -468,519 +230,6 @@ function isMajorTwoHourTick(ts: string): boolean {
   const etHour = Number(parts.find((p) => p.type === "hour")?.value);
   return MAJOR_TICK_ET_HOURS.has(etHour);
 }
-
-function getDynamicLeftMargin(rows: TimeseriesRow[]) {
-  const prices = rows
-    .map((r) => r.underlyingPrice)
-    .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
-
-  if (prices.length === 0) return 86;
-
-  const maxAbs = Math.max(...prices.map((v) => Math.abs(v)));
-  const digits = Math.max(3, Math.floor(Math.log10(Math.max(1, maxAbs))) + 1);
-  return Math.max(86, Math.min(120, 52 + digits * 10));
-}
-
-function getDateMarkerMeta(timestamps: string[]) {
-  const groups = new Map<string, { first: number; last: number }>();
-
-  timestamps.forEach((ts, idx) => {
-    const d = new Date(ts);
-    if (Number.isNaN(d.getTime())) return;
-    const key = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    const current = groups.get(key);
-    if (!current) groups.set(key, { first: idx, last: idx });
-    else groups.set(key, { first: current.first, last: idx });
-  });
-
-  const indexToLabel = new Map<number, string>();
-  groups.forEach((g, label) => {
-    indexToLabel.set(g.first, label);
-  });
-
-  return indexToLabel;
-}
-
-// ── Gridline helper ──────────────────────────────────────────────────────────
-
-const GRID_STROKE_DASHARRAY = "2 4";
-const GRID_OPACITY = 0.28;
-
-/**
- * Returns an array of ReferenceLine elements, one vertical dotted line at
- * each 30-minute boundary in the provided series. Used by every chart on
- * the page for a consistent dotted-gridline look that lines up with the
- * time labels.
- */
-function buildThirtyMinGridlines<T extends { timestamp: string }>(
-  data: T[],
-  stroke: string,
-  keyPrefix: string,
-  yAxisId?: string,
-) {
-  return data
-    .filter((row) => is30MinBoundary(row.timestamp))
-    .map((row) => (
-      <ReferenceLine
-        key={`${keyPrefix}-${row.timestamp}`}
-        x={row.timestamp}
-        {...(yAxisId ? { yAxisId } : {})}
-        stroke={stroke}
-        strokeDasharray={GRID_STROKE_DASHARRAY}
-        opacity={GRID_OPACITY}
-      />
-    ));
-}
-
-// ── Sub-components ────────────────────────────────────────────────────────────
-
-
-function FilterRow({
-  label,
-  options,
-  selected,
-  onToggle,
-  onSelectAll,
-  onClear,
-  renderOption,
-  loading = false,
-  error = null,
-}: {
-  label: string;
-  options: string[];
-  selected: Set<string>;
-  onToggle: (v: string) => void;
-  onSelectAll: () => void;
-  onClear: () => void;
-  renderOption?: (v: string) => string;
-  loading?: boolean;
-  error?: string | null;
-}) {
-  const active = selected.size > 0;
-  const allSelected = active && selected.size === options.length;
-  const btnBase =
-    "shrink-0 px-2.5 py-1 text-xs rounded-full border transition whitespace-nowrap cursor-pointer";
-  const btnInactive: React.CSSProperties = {
-    backgroundColor: "transparent",
-    borderColor: "var(--color-border)",
-    color: "var(--color-text-secondary)",
-  };
-  const btnActive: React.CSSProperties = {
-    backgroundColor: "var(--color-info)",
-    borderColor: "var(--color-info)",
-    color: "#ffffff",
-  };
-  const controlBtn: React.CSSProperties = {
-    backgroundColor: "var(--color-surface)",
-    borderColor: "var(--color-border)",
-    color: "var(--color-text-secondary)",
-  };
-
-  return (
-    <div className="flex items-center gap-3">
-      <span
-        className="shrink-0 text-xs font-semibold uppercase tracking-wide"
-        style={{ color: "var(--color-text-secondary)", minWidth: 72 }}
-      >
-        {label}
-      </span>
-      <div className="flex items-center gap-1.5 shrink-0">
-        <button
-          type="button"
-          onClick={onSelectAll}
-          disabled={options.length === 0 || allSelected}
-          className={`${btnBase} ${options.length === 0 || allSelected ? "opacity-50 cursor-not-allowed" : "hover:border-[var(--border-strong)]"}`}
-          style={controlBtn}
-        >
-          Select All
-        </button>
-        <button
-          type="button"
-          onClick={onClear}
-          disabled={!active}
-          className={`${btnBase} ${!active ? "opacity-50 cursor-not-allowed" : "hover:border-[var(--border-strong)]"}`}
-          style={controlBtn}
-        >
-          Clear
-        </button>
-      </div>
-      <div className="flex gap-1.5 overflow-x-auto flex-1 min-w-0 py-0.5" style={{ scrollbarWidth: "thin" }}>
-        {options.length === 0 ? (
-          error ? (
-            <span className="text-xs italic" style={{ color: "var(--color-danger, #ef4444)" }}>
-              Failed to load — {error}
-            </span>
-          ) : loading ? (
-            <span className="text-xs italic" style={{ color: "var(--color-text-secondary)" }}>
-              Loading…
-            </span>
-          ) : (
-            <span className="text-xs italic" style={{ color: "var(--color-text-secondary)" }}>
-              None available
-            </span>
-          )
-        ) : (
-          options.map((option) => {
-            const isActive = selected.has(option);
-            return (
-              <button
-                key={option}
-                type="button"
-                onClick={() => onToggle(option)}
-                aria-pressed={isActive}
-                className={`${btnBase} ${isActive ? "" : "hover:border-[var(--border-strong)]"}`}
-                style={isActive ? btnActive : btnInactive}
-              >
-                {renderOption ? renderOption(option) : option}
-              </button>
-            );
-          })
-        )}
-      </div>
-    </div>
-  );
-}
-
-function FlowFilters({
-  strikeOptions,
-  expirationOptions,
-  selectedStrikes,
-  selectedExpirations,
-  onToggleStrike,
-  onToggleExpiration,
-  onClearStrikes,
-  onClearExpirations,
-  onSelectAllStrikes,
-  onSelectAllExpirations,
-  loading = false,
-  error = null,
-}: {
-  strikeOptions: string[];
-  expirationOptions: string[];
-  selectedStrikes: Set<string>;
-  selectedExpirations: Set<string>;
-  onToggleStrike: (v: string) => void;
-  onToggleExpiration: (v: string) => void;
-  onClearStrikes: () => void;
-  onClearExpirations: () => void;
-  onSelectAllStrikes: () => void;
-  onSelectAllExpirations: () => void;
-  loading?: boolean;
-  error?: string | null;
-}) {
-  return (
-    <div
-      className="mb-4 rounded-lg border p-3 space-y-2.5"
-      style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-surface-subtle)" }}
-    >
-      <FilterRow
-        label="Strike"
-        options={strikeOptions}
-        selected={selectedStrikes}
-        onToggle={onToggleStrike}
-        onSelectAll={onSelectAllStrikes}
-        onClear={onClearStrikes}
-        loading={loading}
-        error={error}
-      />
-      <FilterRow
-        label="Expiration"
-        options={expirationOptions}
-        selected={selectedExpirations}
-        onToggle={onToggleExpiration}
-        onSelectAll={onSelectAllExpirations}
-        onClear={onClearExpirations}
-        loading={loading}
-        error={error}
-      />
-    </div>
-  );
-}
-
-function FullWidthFlowChart({
-  rows,
-  isDark,
-  isMobile,
-  showUnderlyingPrice,
-}: {
-  rows: TimeseriesRow[];
-  isDark: boolean;
-  isMobile: boolean;
-  showUnderlyingPrice: boolean;
-}) {
-  const axisStroke = isDark ? "var(--color-text-primary)" : "var(--color-text-primary)";
-
-  if (rows.length === 0) {
-    return <div className="text-center py-8" style={{ color: isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)" }}>No chart data available</div>;
-  }
-
-  // ── Premium axis: handle negative cumulative values ─────────────────────────
-  const premiumValues = rows.flatMap((r) => [r.callPremium ?? 0, r.putPremium ?? 0]).filter(Number.isFinite);
-  const rawMinPremium = premiumValues.length > 0 ? Math.min(0, ...premiumValues) : 0;
-  const rawMaxPremium = premiumValues.length > 0 ? Math.max(0, ...premiumValues) : 0;
-  const premiumStep = getDynamicStep(rawMinPremium, Math.max(1, rawMaxPremium - rawMinPremium));
-  const premiumDomainMin = roundToStep(rawMinPremium, premiumStep, "down");
-  const premiumDomainMax = roundToStep(Math.max(rawMinPremium + 1, rawMaxPremium), premiumStep, "up");
-  const premiumTicks = generateNiceTicks(premiumDomainMin, premiumDomainMax);
-
-  // ── Volume axis: actual min/max with nice step ─────────────────────────────
-  const rawVolumeValues = rows.map((r) => r.netVolume ?? 0).filter(Number.isFinite);
-  const rawMinVolume = rawVolumeValues.length > 0 ? Math.min(0, ...rawVolumeValues) : 0;
-  const rawMaxVolume = rawVolumeValues.length > 0 ? Math.max(0, ...rawVolumeValues) : 0;
-  const volumeStep = getDynamicStep(rawMinVolume, rawMaxVolume);
-  const minVolume = roundToStep(rawMinVolume, volumeStep, "down");
-  // Ensure the domain never collapses to [x, x] which hides the chart
-  const rawMaxVolumeRounded = roundToStep(rawMaxVolume, volumeStep, "up");
-  const maxVolume = rawMaxVolumeRounded > minVolume ? rawMaxVolumeRounded : minVolume + volumeStep;
-  const volumeTicks = generateNiceTicks(minVolume, maxVolume);
-
-  // ── Price axis: padded domain with nice explicit ticks ─────────────────────
-  const underlyingDomain = getUnderlyingDomain(rows);
-  const [domainMin, domainMax] = underlyingDomain;
-  const priceRange = typeof domainMin === "number" && typeof domainMax === "number" ? domainMax - domainMin : 0;
-  const priceDecimals = priceRange / 5 < 1 ? 2 : 0;
-  const priceTicks =
-    typeof domainMin === "number" && typeof domainMax === "number"
-      ? generateNiceTicks(domainMin, domainMax)
-      : undefined;
-
-  const dateMarkerMeta = getDateMarkerMeta(rows.map((r) => r.timestamp));
-  // When the underlying price line is hidden we drop the left price axis
-  // entirely and reclaim its gutter so the premium/volume plots use the full
-  // width. The top (price/premium) and bottom (volume) charts must keep an
-  // identical left inset — margin + left-axis width — to stay vertically
-  // aligned, so both switch together off this single flag.
-  const leftChartMargin = isMobile ? 8 : showUnderlyingPrice ? getDynamicLeftMargin(rows) : 16;
-  const rightChartMargin = isMobile ? 8 : 70;
-  const yAxisWidth = isMobile ? 40 : 72;
-  const yAxisWidthRight = isMobile ? 38 : 62;
-  const chartWidth = isMobile ? 900 : "100%";
-
-  return (
-    <div className={isMobile ? "overflow-x-auto pb-2" : ""}>
-      <div className="h-[580px]" style={{ width: chartWidth, minWidth: isMobile ? 900 : undefined }}>
-      <ResponsiveContainer width="100%" height={360}>
-        <ComposedChart data={rows} margin={{ top: 20, right: rightChartMargin, left: leftChartMargin, bottom: 0 }}>
-          <XAxis
-            dataKey="timestamp"
-            stroke={axisStroke}
-            minTickGap={24}
-            padding={{ left: 0, right: 0 }}
-            hide
-          />
-          {showUnderlyingPrice ? (
-            <YAxis
-              yAxisId="price"
-              stroke={axisStroke}
-              orientation="left"
-              domain={underlyingDomain}
-              ticks={priceTicks}
-              tickFormatter={(v) => `$${Number(v).toFixed(priceDecimals)}`}
-              tick={{ fontSize: isMobile ? 9 : 10, fill: axisStroke }}
-              tickMargin={isMobile ? 2 : 8}
-              width={yAxisWidth}
-              padding={{ top: 14, bottom: 8 }}
-              label={isMobile ? undefined : { value: "Underlying Price", angle: -90, position: "left", fill: axisStroke, fontSize: 10, offset: 10 }}
-            />
-          ) : null}
-          <YAxis
-            yAxisId="premium"
-            stroke={axisStroke}
-            orientation="right"
-            domain={[premiumDomainMin, premiumDomainMax]}
-            ticks={premiumTicks}
-            tickFormatter={(v) => {
-              const n = Number(v);
-              const abs = Math.abs(n);
-              const sign = n < 0 ? '-' : '';
-              if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(1)}M`;
-              if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(0)}K`;
-              return `${sign}$${Math.round(abs)}`;
-            }}
-            tick={{ fontSize: isMobile ? 9 : 10, fill: axisStroke }}
-            tickMargin={isMobile ? 2 : 8}
-            width={yAxisWidthRight}
-            padding={{ top: 14, bottom: 8 }}
-            label={isMobile ? undefined : { value: "Net Put/Call Premiums", angle: 90, position: "right", fill: axisStroke, fontSize: 10, offset: 16 }}
-          />
-          <Tooltip
-            contentStyle={{ backgroundColor: "var(--color-chart-tooltip-bg)", borderColor: "var(--color-border)", borderRadius: 8, color: "var(--color-chart-tooltip-text)" }}
-            labelStyle={{ color: "var(--color-chart-tooltip-text)", fontWeight: 600 }}
-            itemStyle={{ color: "var(--color-chart-tooltip-muted)" }}
-            labelFormatter={(value) => new Date(String(value)).toLocaleString()}
-            formatter={(value, name) => {
-              const n = Number(value ?? 0);
-              if (name === "Underlying") return [`$${n.toFixed(2)}`, name];
-              return [`$${n.toLocaleString()}`, name];
-            }}
-          />
-          <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: 11, paddingBottom: 6, color: isDark ? "var(--color-border)" : "var(--color-text-primary)" }} />
-          {buildThirtyMinGridlines(rows, axisStroke, "flow-top", "premium")}
-          <ReferenceLine yAxisId="premium" y={0} stroke={axisStroke} opacity={0.6} />
-          {showUnderlyingPrice ? (
-            <Line
-              yAxisId="price"
-              type="monotone"
-              dataKey="underlyingPrice"
-              name="Underlying"
-              stroke="var(--color-warning)"
-              strokeWidth={2}
-              dot={false}
-              connectNulls
-            />
-          ) : null}
-          <Line
-            yAxisId="premium"
-            type="monotone"
-            dataKey="callPremium"
-            name="Net Call Prem"
-            stroke="var(--color-positive)"
-            strokeWidth={2}
-            dot={false}
-            connectNulls
-          />
-          <Line
-            yAxisId="premium"
-            type="monotone"
-            dataKey="putPremium"
-            name="Net Put Prem"
-            stroke="var(--color-negative)"
-            strokeWidth={2}
-            dot={false}
-            connectNulls
-          />
-        </ComposedChart>
-      </ResponsiveContainer>
-
-      <ResponsiveContainer width="100%" height={220}>
-        <ComposedChart data={rows} margin={{ top: 0, right: rightChartMargin, left: leftChartMargin, bottom: 28 }}>
-          <XAxis
-            dataKey="timestamp"
-            stroke={axisStroke}
-            interval={0}
-            minTickGap={24}
-            padding={{ left: 0, right: 0 }}
-            tickLine={false}
-            tick={(props: {
-              x?: number | string;
-              y?: number | string;
-              payload?: { value?: string | number };
-              index?: number;
-            }) => {
-              const x = Number(props?.x ?? 0);
-              const y = Number(props?.y ?? 0);
-              const payload = props?.payload;
-              const index = Number(props?.index ?? -1);
-              const ts = String(payload?.value || "");
-              const timeLabel = safeTimeLabel(ts);
-              const dateLabel = dateMarkerMeta.get(index);
-              const showTime = is30MinBoundary(ts) || Boolean(dateLabel);
-              if (!showTime && !dateLabel) return <g transform={`translate(${x},${y})`} />;
-              return (
-                <g transform={`translate(${x},${y})`}>
-                  <line x1={0} y1={0} x2={0} y2={5} stroke={axisStroke} strokeWidth={1} opacity={0.6} />
-                  {showTime ? (
-                    <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>
-                      {timeLabel}
-                    </text>
-                  ) : null}
-                  {dateLabel ? (
-                    <text dy={26} textAnchor="middle" fill={isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)"} fontSize={9}>
-                      {dateLabel}
-                    </text>
-                  ) : null}
-                </g>
-              );
-            }}
-          />
-          {showUnderlyingPrice ? (
-            <YAxis
-              yAxisId="volumeSpacer"
-              orientation="left"
-              domain={[0, 1]}
-              width={yAxisWidth}
-              axisLine={false}
-              tickLine={false}
-              tick={false}
-            />
-          ) : null}
-          <YAxis
-            yAxisId="volume"
-            orientation="right"
-            stroke={axisStroke}
-            domain={[minVolume, maxVolume]}
-            ticks={volumeTicks}
-            tickFormatter={(v) => {
-              const n = Number(v);
-              if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-              if (Math.abs(n) >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
-              return String(Math.round(n));
-            }}
-            tick={{ fontSize: isMobile ? 9 : 10, fill: axisStroke }}
-            tickMargin={isMobile ? 2 : 8}
-            width={yAxisWidthRight}
-            label={isMobile ? undefined : { value: "Net Volume", angle: 90, position: "right", fill: axisStroke, fontSize: 10, offset: 16 }}
-          />
-          <Tooltip
-            content={({ active, label, payload }) => {
-              if (!active || !payload || payload.length === 0) return null;
-              const point = payload[0]?.payload as { netVolume?: number } | undefined;
-              return (
-                <div style={{ backgroundColor: "var(--color-chart-tooltip-bg)", borderColor: "var(--color-border)", color: "var(--color-chart-tooltip-text)" }} className="rounded-lg border px-3 py-2 text-sm">
-                  <div className="font-semibold">{new Date(String(label)).toLocaleString()}</div>
-                  <div>Net Volume: {Number(point?.netVolume ?? 0).toLocaleString()}</div>
-                </div>
-              );
-            }}
-          />
-          {buildThirtyMinGridlines(rows, axisStroke, "flow-bottom", "volume")}
-          <ReferenceLine yAxisId="volume" y={0} stroke={axisStroke} opacity={0.6} />
-          <Area
-            yAxisId="volume"
-            type="monotone"
-            dataKey="positiveNetVolume"
-            name="Positive Net Volume"
-            stroke="var(--color-positive)"
-            fill="var(--color-positive)"
-            fillOpacity={0.45}
-            baseValue={0}
-            connectNulls
-            isAnimationActive={false}
-          />
-          <Area
-            yAxisId="volume"
-            type="monotone"
-            dataKey="negativeNetVolume"
-            name="Negative Net Volume"
-            stroke="var(--color-negative)"
-            fill="var(--color-negative)"
-            fillOpacity={0.45}
-            baseValue={0}
-            connectNulls
-            isAnimationActive={false}
-          />
-        </ComposedChart>
-      </ResponsiveContainer>
-      </div>
-    </div>
-  );
-}
-
-// ── Persistent Options Flow chart preferences ────────────────────────────────
-//
-// Backed by the shared per-chart settings store (localStorage via
-// core/chartSettings), so a user's choice to hide the underlying price line on
-// the Options Flow chart auto-loads the next time they open the page. Keyed by
-// a stable chart id that sits alongside the app's other `zgx_` prefs.
-const OPTIONS_FLOW_CHART_ID = "options-flow";
-
-type OptionsFlowSettings = {
-  showUnderlyingPrice: boolean;
-};
-
-const OPTIONS_FLOW_DEFAULTS: OptionsFlowSettings = {
-  showUnderlyingPrice: true,
-};
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -1000,39 +249,15 @@ export default function FlowAnalysisPage() {
   const [flowSession, setFlowSession] = useState<"current" | "prior">("current");
   const [netVolumeMode, setNetVolumeMode] = useState<NetVolumeMode>("directional");
 
-  // ── Options Flow display prefs (persisted) ────────────────────────────────
-  // Restored once on mount from localStorage; the SSR / first-visit case falls
-  // back to defaults. Read in a lazy initializer — mirroring how symbol / GEX
-  // unit hydrate — so restore costs no extra render pass. Saved on every change
-  // so the chart reopens exactly as the user left it, with no explicit "save".
-  const [savedOptionsFlow] = useState(() =>
-    loadChartSettings(OPTIONS_FLOW_CHART_ID, OPTIONS_FLOW_DEFAULTS),
-  );
-  const [showUnderlyingPrice, setShowUnderlyingPrice] = useState<boolean>(
-    savedOptionsFlow.showUnderlyingPrice,
-  );
-  const toggleUnderlyingPrice = useCallback((next: boolean) => {
-    setShowUnderlyingPrice(next);
-    saveChartSettings<OptionsFlowSettings>(OPTIONS_FLOW_CHART_ID, {
-      showUnderlyingPrice: next,
-    });
-  }, []);
-
   // ── Server-computed session cumulatives (unfiltered) ─────────────────────
-  // Drives the Put/Call Ratio, Net Directional Premium, Net Position charts
-  // and the Flow Snapshot cards. Options Flow chart uses this when no
-  // strike/expiration filters are active.
+  // Drives the Flow Snapshot cards and the Put/Call Ratio, Net Directional
+  // Premium and Net Position charts, and is handed to the Options Flow chart as
+  // its unfiltered baseline so that chart doesn't open a second poll of the
+  // same feed.
   const {
     rows: flowSeriesUnfiltered,
     error: flowError,
   } = useFlowSeries(symbol, flowSession);
-
-  // Distinct strikes / expirations for the filter chips.
-  const {
-    options: serverContractOptions,
-    loading: contractOptionsLoading,
-    error: contractOptionsError,
-  } = useFlowContractOptions(symbol, flowSession);
 
   // A cheap intervals=1 probe of the other session just to read its ET date
   // for the session dropdown label.
@@ -1047,13 +272,12 @@ export default function FlowAnalysisPage() {
   }, [otherSessionProbe]);
 
   // ── Derive the session date ──────────────────────────────────────────────
-  const selectedDate = useMemo(() => {
-    if (flowSeriesUnfiltered && flowSeriesUnfiltered.length > 0) {
-      const ts = flowSeriesUnfiltered[flowSeriesUnfiltered.length - 1].timestamp;
-      return etDateKeyFor(ts) || getCurrentETDateKey();
-    }
-    return getCurrentETDateKey();
-  }, [flowSeriesUnfiltered]);
+  // Same read the Options Flow chart makes, so every chart on the page lays out
+  // on the session the rows actually report rather than on today's clock.
+  const selectedDate = useMemo(
+    () => sessionDateKeyFromSeries(flowSeriesUnfiltered),
+    [flowSeriesUnfiltered],
+  );
 
   const currentDateLabel = flowSession === "current" ? selectedDate : (otherSessionDate ?? null);
   const priorDateLabel = flowSession === "prior" ? selectedDate : (otherSessionDate ?? null);
@@ -1085,60 +309,6 @@ export default function FlowAnalysisPage() {
     : `Session flow is showing ${latestSnapshot.netPremium >= 0 ? 'net call-premium' : 'net put-premium'} pressure of $${(Math.abs(latestSnapshot.netPremium) / 1_000_000).toFixed(2)}M with a net contract imbalance of ${Math.abs(latestSnapshot.netFlow).toLocaleString()} (${latestSnapshot.netFlow >= 0 ? 'call-led' : 'put-led'}). Put/Call ratio is ${latestSnapshot.putCallRatio.toFixed(2)}, which ${
       latestSnapshot.putCallRatio > 1.1 ? 'leans defensive' : latestSnapshot.putCallRatio < 0.9 ? 'leans risk-on' : 'is close to balanced'
     }. Day traders can anchor directional bias to this flow regime, while swing traders should watch for follow-through across multiple sessions before sizing up.`;
-
-  // ── Filter chips (Strike / Expiration) ───────────────────────────────────
-  const strikeOptions = useMemo(
-    () => serverContractOptions.strikes.map((n) => String(n)),
-    [serverContractOptions],
-  );
-  const expirationOptions = useMemo(
-    () => serverContractOptions.expirations.slice().sort(),
-    [serverContractOptions],
-  );
-
-  const [selectedStrikes, setSelectedStrikes] = useState<Set<string>>(new Set());
-  // Expirations are backed by the tab-wide shared selection (empty = no filter /
-  // All), so a pick here follows over to the GEX/gamma charts and back. Strikes
-  // stay page-local. See useSharedExpirations.
-  const { selection: sharedExpirations, setSelection: setSharedExpirations } = useSharedExpirations();
-  const selectedExpirations = useMemo(() => new Set(sharedExpirations), [sharedExpirations]);
-
-  // Drop any previously-selected values that no longer appear in the current options
-  const effectiveSelectedStrikes = useMemo(
-    () => new Set(strikeOptions.filter((v) => selectedStrikes.has(v))),
-    [strikeOptions, selectedStrikes],
-  );
-  const effectiveSelectedExpirations = useMemo(
-    () => new Set(expirationOptions.filter((v) => selectedExpirations.has(v))),
-    [expirationOptions, selectedExpirations],
-  );
-
-  const hasActiveFilters =
-    effectiveSelectedStrikes.size > 0 || effectiveSelectedExpirations.size > 0;
-
-  // ── Filtered fetch (only when user has a strike/expiration chip active) ──
-  const serverFilters = useMemo(
-    () => ({
-      strikes: Array.from(effectiveSelectedStrikes),
-      expirations: Array.from(effectiveSelectedExpirations),
-    }),
-    [effectiveSelectedStrikes, effectiveSelectedExpirations],
-  );
-  const { rows: flowSeriesFiltered } = useFlowSeries(symbol, flowSession, {
-    enabled: hasActiveFilters,
-    filters: serverFilters,
-  });
-
-  // ── Options Flow chart series (respects filter chips) ────────────────────
-  const mainSeries = useMemo(() => {
-    if (!selectedDate || sessionTimeline.length === 0) return [];
-    const sourceRows = hasActiveFilters
-      ? (flowSeriesFiltered ?? [])
-      : (flowSeriesUnfiltered ?? []);
-    const base = mapSeriesToFlowTimeseries(sourceRows, netVolumeMode);
-    const aligned = alignSeriesToTimeline(base, sessionTimeline);
-    return maskIncompleteZeroFlowBars(aligned);
-  }, [hasActiveFilters, flowSeriesFiltered, flowSeriesUnfiltered, selectedDate, sessionTimeline, netVolumeMode]);
 
   // ── Put/Call ratio (unfiltered) ──────────────────────────────────────────
   const putCallRatioSeries = useMemo(() => {
@@ -1182,32 +352,6 @@ export default function FlowAnalysisPage() {
     [directionalPremiumSeries],
   );
 
-  // ── Filter chip toggles ───────────────────────────────────────────────────
-
-  const makeToggler = useCallback(
-    (setter: Dispatch<SetStateAction<Set<string>>>) => (value: string) => {
-      setter((prev) => {
-        const next = new Set(prev);
-        if (next.has(value)) next.delete(value);
-        else next.add(value);
-        return next;
-      });
-    },
-    [],
-  );
-  const toggleStrikes = useMemo(() => makeToggler(setSelectedStrikes), [makeToggler]);
-  // Expirations toggle the shared selection instead of local state, so the
-  // change broadcasts to every other expiration-filtering chart.
-  const toggleExpirations = useCallback(
-    (value: string) => {
-      const next = new Set(sharedExpirations);
-      if (next.has(value)) next.delete(value);
-      else next.add(value);
-      setSharedExpirations(Array.from(next));
-    },
-    [sharedExpirations, setSharedExpirations],
-  );
-
   return (
     <PageShell>
       <h1 className="text-3xl font-bold mb-8">Flow Analysis</h1>
@@ -1225,14 +369,7 @@ export default function FlowAnalysisPage() {
           <span className="text-sm" style={{ color: mutedText }}>Session</span>
           <select
             value={flowSession}
-            onChange={(e) => {
-              setFlowSession(e.target.value as "current" | "prior");
-              // Strikes are page-local, so reset them on a session switch.
-              // Expirations are the shared, persisted selection — leave it be;
-              // it reconciles to the new session's options on its own, and any
-              // expiries the two sessions share stay selected.
-              setSelectedStrikes(new Set());
-            }}
+            onChange={(e) => setFlowSession(e.target.value as "current" | "prior")}
             className="px-3 py-1.5 text-sm rounded-md border focus:outline-none cursor-pointer"
             style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor }}
           >
@@ -1307,47 +444,15 @@ export default function FlowAnalysisPage() {
       </section>
 
       {/* ── Options Flow ──────────────────────────────────────────────── */}
-      <section className="mb-8 rounded-lg p-6" style={{ backgroundColor: cardBg }}>
-        <SectionHead
-          title="Options Flow"
-          tooltip="Primary axis: net call premium (green) and net put premium (red). Bottom axis: net volume area, green above zero and red below zero. Aggregates every contract returned by the by-contract endpoint in 5-minute intervals. Use the filters below to narrow by strike or expiration."
-          actions={
-            <label
-              className="flex items-center gap-2 text-xs cursor-pointer select-none whitespace-nowrap"
-              style={{ color: mutedText }}
-            >
-              <input
-                type="checkbox"
-                checked={showUnderlyingPrice}
-                onChange={(e) => toggleUnderlyingPrice(e.target.checked)}
-                className="cursor-pointer"
-                style={{ accentColor: "var(--color-warning)" }}
-              />
-              <span>Show underlying price</span>
-            </label>
-          }
-        />
-        <FlowFilters
-          strikeOptions={strikeOptions}
-          expirationOptions={expirationOptions}
-          selectedStrikes={effectiveSelectedStrikes}
-          selectedExpirations={effectiveSelectedExpirations}
-          onToggleStrike={toggleStrikes}
-          onToggleExpiration={toggleExpirations}
-          onClearStrikes={() => setSelectedStrikes(new Set())}
-          onClearExpirations={() => setSharedExpirations([])}
-          onSelectAllStrikes={() => setSelectedStrikes(new Set(strikeOptions))}
-          onSelectAllExpirations={() => setSharedExpirations(expirationOptions)}
-          loading={contractOptionsLoading}
-          error={contractOptionsError}
-        />
-        <FullWidthFlowChart
-          rows={mainSeries}
-          isDark={isDark}
-          isMobile={isMobile}
-          showUnderlyingPrice={showUnderlyingPrice}
-        />
-      </section>
+      {/* The same instrument members can drop on their board — session and
+          basis come from this page's control bar, and it reuses the unfiltered
+          rows fetched above rather than opening its own poll. */}
+      <OptionsFlowChart
+        className="mb-8"
+        session={flowSession}
+        netVolumeMode={netVolumeMode}
+        baseRows={flowSeriesUnfiltered}
+      />
 
       {/* ── Compact charts row (Net Directional Premium · Put/Call Ratio · Net Position) ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">

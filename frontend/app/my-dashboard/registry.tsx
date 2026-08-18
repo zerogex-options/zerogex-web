@@ -16,6 +16,7 @@ import {
   BarChart3,
   CandlestickChart,
   Crosshair,
+  Flame,
   Gauge,
   GitCompare,
   Grid2x2,
@@ -58,6 +59,8 @@ import {
   GammaChartPanel,
   GammaByStrikePanel,
   OpenInterestByStrikePanel,
+  GexHeatmapPanel,
+  OptionsFlowPanel,
   PriceActionPanel,
   GammaPulseWidget,
   SignalsSynthesisPanel,
@@ -302,7 +305,34 @@ export const WIDGETS: WidgetDef[] = [
     render: () => <OpenInterestByStrikePanel />,
   },
 
+  {
+    id: 'gex-heatmap',
+    title: 'GEX Heatmap',
+    blurb:
+      'The dealer-gamma surface through the day: a smoothed time × strike heatmap of net GEX with the underlying’s candles and the gamma-flip line drawn over it. Timeframe, expiration filter and zoom built in.',
+    category: 'gamma',
+    tier: 'basic',
+    icon: Flame,
+    defaultSize: 'xl',
+    allowedSizes: ALL_SIZES,
+    feeds: [],
+    render: () => <GexHeatmapPanel />,
+  },
+
   // ── Options Flow ──
+  {
+    id: 'options-flow',
+    title: 'Options Flow',
+    blurb:
+      'Net call and put premium against net volume through the session, with the underlying price overlaid. Session, net-volume basis and strike / expiration filters built in.',
+    category: 'flow',
+    tier: 'basic',
+    icon: Waves,
+    defaultSize: 'xl',
+    allowedSizes: ALL_SIZES,
+    feeds: [],
+    render: () => <OptionsFlowPanel />,
+  },
   {
     id: 'net-flow',
     title: 'Net Flow',
@@ -529,6 +559,7 @@ export const PRESETS: DashboardPreset[] = [
       { widgetId: 'put-call-ratio', size: 'sm' },
       { widgetId: 'call-wall', size: 'sm' },
       { widgetId: 'put-wall', size: 'sm' },
+      { widgetId: 'options-flow', size: 'xl' },
       { widgetId: 'dealer-exposures', size: 'xl' },
       { widgetId: 'price-action', size: 'lg' },
     ],
@@ -544,6 +575,7 @@ export const PRESETS: DashboardPreset[] = [
       { widgetId: 'put-gex', size: 'sm' },
       { widgetId: 'gamma-flip', size: 'sm' },
       { widgetId: 'dealer-exposures', size: 'xl' },
+      { widgetId: 'gex-heatmap', size: 'xl' },
       { widgetId: 'gamma-pulse', size: 'lg' },
     ],
   },

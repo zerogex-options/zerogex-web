@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
+import { etDateKeyFor } from '@/core/utils';
+
 /**
  * Row shape returned by GET /api/flow/by-contract. Each row represents a
  * single 5-minute bar's contribution for one contract — the values are
@@ -136,29 +138,11 @@ function normalizeToFiveMinuteIso(ts: string): string | null {
   return new Date(Math.floor(ms / BAR_MS) * BAR_MS).toISOString();
 }
 
-// Cached at the module level so hot paths don't pay the Intl formatter cost
-// for every row. Bounded so long-running sessions don't leak.
-const etDateKeyCache = new Map<string, string>();
-const ET_DATE_FORMATTER = new Intl.DateTimeFormat('en-CA', {
-  timeZone: 'America/New_York',
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-});
-function getETDateKey(ts: string): string {
-  const cached = etDateKeyCache.get(ts);
-  if (cached != null) return cached;
-  const d = new Date(ts);
-  const key = Number.isNaN(d.getTime()) ? '' : ET_DATE_FORMATTER.format(d);
-  if (etDateKeyCache.size > 20_000) etDateKeyCache.clear();
-  etDateKeyCache.set(ts, key);
-  return key;
-}
-
-export function etDateKeyFor(ts: string | null | undefined): string {
-  if (!ts) return '';
-  return getETDateKey(ts);
-}
+// The ET trading-date key now lives in core/utils next to etTodayDateKey, so the
+// flow feeds, the Flow Analysis page and the shared Options Flow derivations all
+// resolve a row's session from one implementation. Re-exported here (imported at
+// the top of the file) because this module has always been its import site.
+export { etDateKeyFor };
 
 export function latestRowTimestamp(rows: FlowByContractPoint[] | null | undefined): string | null {
   if (!rows || rows.length === 0) return null;
@@ -179,7 +163,7 @@ export function latestRowTimestamp(rows: FlowByContractPoint[] | null | undefine
 export function latestRowDateKey(rows: FlowByContractPoint[] | null | undefined): string | null {
   const ts = latestRowTimestamp(rows);
   if (!ts) return null;
-  const key = getETDateKey(ts);
+  const key = etDateKeyFor(ts);
   return key || null;
 }
 
@@ -204,7 +188,7 @@ export function computeFlowSnapshot(
   const scoped = dateKey
     ? rows.filter((r) => {
         const ts = rowTimestamp(r);
-        return ts ? getETDateKey(ts) === dateKey : false;
+        return ts ? etDateKeyFor(ts) === dateKey : false;
       })
     : rows;
   if (scoped.length === 0) return null;
