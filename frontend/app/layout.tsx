@@ -203,9 +203,12 @@ const SITE_DESCRIPTION = 'Real-time gamma exposure, dealer positioning, gamma wa
 export const metadata: Metadata = {
   title: 'ZeroGEX™ | Real-Time Options Analytics',
   description: SITE_DESCRIPTION,
-  icons: {
-    icon: '/favicon.ico',
-  },
+  // No `icons` entry on purpose. app/favicon.ico is an App Router metadata
+  // file, so Next emits the <link rel="icon"> itself with a content hash in the
+  // URL (/favicon.ico?favicon.<hash>.ico). Spelling out `icons: { icon:
+  // '/favicon.ico' }` here adds a second, un-hashed tag that browsers can
+  // prefer -- and an un-hashed URL never changes, so a re-exported favicon
+  // keeps resolving to whatever the browser already cached.
   metadataBase: new URL('https://zerogex.io'),
   openGraph: {
     title: 'ZeroGEX™ | Real-Time Options Analytics',
@@ -257,7 +260,6 @@ export default async function RootLayout({
   return (
     <html lang={locale} className={htmlClass}>
       <head>
-        <link rel="icon" href="/favicon.ico" />
         {/* Site-wide Organization + WebSite structured data (brand entity). */}
         <SiteJsonLd />
       </head>

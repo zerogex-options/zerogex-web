@@ -221,8 +221,10 @@ frontend/public/title*.svg
 frontend/public/logo*.png
 frontend/public/title*.png
 frontend/public/og-image.png
-frontend/public/favicon.ico
 frontend/public/target.svg
+# favicon lands in app/, not public/ -- Next hashes app/favicon.ico into the
+# <link rel="icon"> URL, so that copy is the one that busts browser caches.
+frontend/app/favicon.ico
 frontend/public/folds-of-honor-*
 
 # blog post images, synced from assets/blog by `make blog-images`
