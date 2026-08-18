@@ -19,7 +19,8 @@
  */
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
-import { Activity, ChevronsRight, Crosshair, Info, Moon, Pause, Play, Repeat, Rewind, Sun } from "lucide-react";
+import { Activity, ChevronsRight, Info, Moon, Pause, Play, Repeat, Rewind, Sun } from "lucide-react";
+import TooltipWrapper from "./TooltipWrapper";
 import { useApiData, useMarketQuote, useGEXProfile, useGEXSummary, useSessionCloses, type SessionClosesData, type VolatilityGaugeData } from "@/hooks/useApiData";
 import { useMarketHistorical, type PriceBar } from "@/hooks/useMarketHistorical";
 import { useStrikeProfileTimeseries, type StrikeProfileStrike } from "@/hooks/useStrikeProfileTimeseries";
@@ -1581,6 +1582,13 @@ export default function GammaTerminalChart({
                 <span className="zg-eyebrow" style={{ color: "var(--color-brand-primary)" }}>
                   ZeroGEX Gamma Chart
                 </span>
+                {/* The pointer-interaction hint lives here rather than in the
+                    controls row below: as a line of text there it was wide
+                    enough to wrap the row onto a second line the moment the
+                    expiry filter grew (an "All" pill becoming a date), which
+                    pushed the chart down and knocked a split board's two halves
+                    out of alignment. */}
+                <TooltipWrapper text="Scroll to zoom, drag to pan, and hover anywhere on the chart to read dealer gamma at that price. Use the Time and Price steppers at the bottom-right for finer control, or Reset to snap back to the live view." />
                 {sessionBadge && (
                   <span className="zg-chip" style={{ ["--chip-color" as string]: sessionBadge.color }}>
                     {sessionBadge.label}
@@ -1826,12 +1834,6 @@ export default function GammaTerminalChart({
                 ⟲ Reset
               </button>
             )}
-            <div className="hidden md:flex items-center gap-1.5" style={{ color: "var(--text-muted)" }}>
-              <Crosshair size={13} />
-              <span className="zg-eyebrow" style={{ fontSize: 10 }}>
-                Scroll zoom · drag pan · hover for gamma
-              </span>
-            </div>
           </div>
         </div>
       </div>
@@ -2291,14 +2293,17 @@ export default function GammaTerminalChart({
       {live && (
         <div className="flex items-center gap-2 px-4 py-2" style={{ borderTop: "1px solid var(--border-default)", background: "var(--bg-subtle)" }}>
           {!rewindActive ? (
-            <>
-              <button type="button" onClick={enterRewind} className="zg-gc-pill" style={{ ["--pill-color" as string]: "var(--color-accent-hot)" }}>
-                <Rewind size={13} /> Rewind
-              </button>
-              <span className="zg-eyebrow hidden sm:inline" style={{ fontSize: 9.5, color: "var(--text-muted)" }}>
-                Replay how price &amp; dealer gamma moved through the session
-              </span>
-            </>
+            // The blurb that used to sit beside this button is now the button's
+            // own hover tooltip — it explained the control, so it belongs on it.
+            <button
+              type="button"
+              onClick={enterRewind}
+              title="Replay how price & dealer gamma moved through the session"
+              className="zg-gc-pill"
+              style={{ ["--pill-color" as string]: "var(--color-accent-hot)" }}
+            >
+              <Rewind size={13} /> Rewind
+            </button>
           ) : (
             <>
               <button type="button" onClick={exitRewind} className="zg-gc-pill" data-active style={{ ["--pill-color" as string]: "var(--color-bull)" }}>
