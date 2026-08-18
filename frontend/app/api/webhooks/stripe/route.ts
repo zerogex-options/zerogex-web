@@ -79,6 +79,10 @@ type UserRow = {
   // Read pre-UPDATE so each past_due sync can enforce the bounded window
   // (see the grace block in syncSubscriptionToUser).
   payment_grace_started_at: string | null;
+  // Which failure opened that window ('renewal' | 'trial'), or null when none is
+  // open. Read pre-UPDATE so the follow-up past_due syncs (whose previousStatus
+  // is itself `past_due`) carry the original cohort forward instead of losing it.
+  payment_grace_reason: string | null;
   // Last-synced pause auto-resume instant (ISO), or null when not paused. Read
   // pre-UPDATE so a pause→resume transition can be detected for the audit log.
   paused_until: string | null;
@@ -191,7 +195,7 @@ function findUserByCustomerId(customerId: string): UserRow | null {
       `SELECT id, email, tier, founding_member_started_at, founding_lifetime_applied_at,
               referred_by_code, referral_credit_months, stripe_customer_id, stripe_subscription_id,
               stripe_price_id, subscription_status, cancel_at_period_end, payment_grace_started_at,
-              paused_until
+              payment_grace_reason, paused_until
        FROM users WHERE stripe_customer_id = ?`,
     )
     .get(customerId) as UserRow | undefined;
@@ -632,10 +636,14 @@ async function syncSubscriptionToUser(
   // trial ends; with it disabled, trials downgrade immediately as before.
   // Decision logic is unit-tested in tests/paymentGrace.test.ts.
   const graceDays = getPaymentGraceDays();
-  const { graceStartedAt, inGrace } = decidePaymentGrace({
+  const { graceStartedAt, graceReason, inGrace } = decidePaymentGrace({
     status: subscription.status,
     previousStatus,
     graceStartedAt: user.payment_grace_started_at,
+    graceReason:
+      user.payment_grace_reason === 'renewal' || user.payment_grace_reason === 'trial'
+        ? user.payment_grace_reason
+        : null,
     graceDays,
     nowMs: Date.now(),
     trialGrace: getTrialGraceEnabled(),
@@ -690,6 +698,7 @@ async function syncSubscriptionToUser(
          current_period_end = ?,
          cancel_at_period_end = ?,
          payment_grace_started_at = ?,
+         payment_grace_reason = ?,
          paused_until = ?,
          founding_member_started_at = COALESCE(founding_member_started_at, ?),
          updated_at = ?
@@ -703,6 +712,7 @@ async function syncSubscriptionToUser(
       periodEndIso,
       subscription.cancel_at_period_end ? 1 : 0,
       graceStartedAt,
+      graceReason,
       pausedUntilIso,
       newlyStampedAt,
       nowIso(),
@@ -1218,6 +1228,7 @@ async function clearSubscriptionFromUser(subscription: Stripe.Subscription) {
          subscription_lapsed = 1,
          payment_recovery_pending = 0,
          payment_grace_started_at = NULL,
+         payment_grace_reason = NULL,
          updated_at = ?
        WHERE id = ?`,
     )

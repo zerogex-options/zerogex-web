@@ -76,6 +76,13 @@ export type SignupPoint = {
   // Free-trial users — subscription_status='trialing'. Card on file but
   // not yet charged. Mirrors `make users TRIAL=yes`.
   trialing: number;
+  // Trial-conversion grace users — the free trial lapsed, the first real charge
+  // was DECLINED, and they are inside the bounded payment-recovery window
+  // (subscription_status='past_due', paid tier retained, payment_grace_reason
+  // ='trial'). Still subscribers — Stripe's retries may yet convert them — but
+  // they have never completed a payment, so they are neither Full Subscriber nor
+  // Free Trial. See core/paymentGrace.ts.
+  graceTrial: number;
   disclaimer: number;
 };
 
@@ -451,6 +458,7 @@ type SignupDay = {
   public: number;
   paying: number;
   trialing: number;
+  graceTrial: number;
   disclaimer: number;
 };
 
@@ -477,6 +485,10 @@ function readSignupStore(): SignupStoreShape {
           public: Number(v?.public) || 0,
           paying: Number(v?.paying) || 0,
           trialing: Number(v?.trialing) || 0,
+          // Samples written before the trial-grace split have no `graceTrial`
+          // key; 0 leaves those days reading exactly as they did then (that
+          // cohort was counted inside `paying`), so the area stays continuous.
+          graceTrial: Number(v?.graceTrial) || 0,
           disclaimer: Number(v?.disclaimer) || 0,
         };
       }
@@ -521,22 +533,36 @@ function currentTierCounts(): { basic: number; pro: number; public: number } {
 }
 
 // Headcount split by subscription state, for the Total Subscribers chart:
-//   active   — fully paying subscribers, PLUS members in the payment-recovery
-//              grace window (subscription `past_due` but tier still pro/basic:
-//              a failed renewal Stripe is still retrying, with access retained —
-//              see BILLING_PAYMENT_GRACE_DAYS). They remain paying customers
-//              until access actually drops, so counting them keeps this
-//              reconciled with the subscription-flow chart, which books the loss
-//              only at the real downgrade (tier -> public), not at past_due entry.
-//   trialing — card on file, free-trial window still running.
+//   active     — fully paying subscribers, PLUS members in a RENEWAL-failure
+//                payment-recovery grace window (subscription `past_due` but tier
+//                still pro/basic: a failed renewal Stripe is still retrying, with
+//                access retained — see BILLING_PAYMENT_GRACE_DAYS). Those are
+//                established payers whose access hasn't dropped, so counting them
+//                here keeps this reconciled with the subscription-flow chart,
+//                which books the loss only at the real downgrade (tier ->
+//                public), not at past_due entry.
+//   trialing   — card on file, free-trial window still running.
+//   graceTrial — the trial lapsed, the first conversion charge was DECLINED, and
+//                the member is inside the same bounded grace window
+//                (payment_grace_reason='trial'). Broken out of `active` because
+//                they have never actually completed a payment: they are neither a
+//                full subscriber nor still on trial, and the bucket sizes the
+//                revenue at risk at the trial→paid step specifically.
 // A past_due row whose tier has ALREADY gone 'public' (grace expired or disabled)
 // is a genuine downgrade and is excluded here, as are unpaid/canceled/public.
-function currentPayingCounts(): { active: number; trialing: number } {
+// A past_due row with no recorded reason (a window opened before the reason
+// column existed) counts as `active`, exactly as every past_due grace row did
+// before the split, so no history is retroactively re-attributed.
+function currentPayingCounts(): { active: number; trialing: number; graceTrial: number } {
   try {
     const rows = getDb()
       .prepare(
         `SELECT
-           CASE WHEN subscription_status = 'trialing' THEN 'trialing' ELSE 'active' END AS bucket,
+           CASE
+             WHEN subscription_status = 'trialing' THEN 'trialing'
+             WHEN subscription_status = 'past_due' AND payment_grace_reason = 'trial' THEN 'graceTrial'
+             ELSE 'active'
+           END AS bucket,
            COUNT(*) AS c
          FROM users
          WHERE subscription_status IN ('active', 'trialing')
@@ -546,14 +572,16 @@ function currentPayingCounts(): { active: number; trialing: number } {
       .all() as Array<{ bucket: string; c: number }>;
     let active = 0;
     let trialing = 0;
+    let graceTrial = 0;
     for (const row of rows) {
       const c = Number(row.c) || 0;
       if (row.bucket === 'active') active = c;
       else if (row.bucket === 'trialing') trialing = c;
+      else if (row.bucket === 'graceTrial') graceTrial = c;
     }
-    return { active, trialing };
+    return { active, trialing, graceTrial };
   } catch {
-    return { active: 0, trialing: 0 };
+    return { active: 0, trialing: 0, graceTrial: 0 };
   }
 }
 
@@ -778,6 +806,7 @@ function buildSignupSeries(now: Date): SignupPoint[] {
     public: counts.public,
     paying: paying.active,
     trialing: paying.trialing,
+    graceTrial: paying.graceTrial,
     disclaimer,
   };
   const existing = store.days[today];
@@ -788,6 +817,7 @@ function buildSignupSeries(now: Date): SignupPoint[] {
     existing.public !== sample.public ||
     existing.paying !== sample.paying ||
     existing.trialing !== sample.trialing ||
+    existing.graceTrial !== sample.graceTrial ||
     existing.disclaimer !== sample.disclaimer
   ) {
     store.days[today] = sample;
@@ -802,6 +832,7 @@ function buildSignupSeries(now: Date): SignupPoint[] {
     public: 0,
     paying: 0,
     trialing: 0,
+    graceTrial: 0,
     disclaimer: 0,
   };
   for (const day of dailyKeys) {
@@ -813,6 +844,7 @@ function buildSignupSeries(now: Date): SignupPoint[] {
       public: last.public,
       paying: last.paying,
       trialing: last.trialing,
+      graceTrial: last.graceTrial,
       disclaimer: last.disclaimer,
     });
   }

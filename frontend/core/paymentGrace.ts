@@ -13,6 +13,15 @@
 // (users.payment_grace_started_at) and applied (tier retention), and
 // getPaymentGraceDays() in core/stripe.ts for the window length.
 
+// Which failure opened the window. Persisted (users.payment_grace_reason) so the
+// cohort survives across the many past_due syncs that follow the one that opened
+// it, and so admin monitoring can show trial-conversion failures separately from
+// established-renewal failures:
+//   renewal — an established paying subscription's renewal charge was declined.
+//   trial   — a free trial lapsed and the FIRST conversion charge was declined,
+//             so the member has never completed a payment yet.
+export type PaymentGraceReason = 'renewal' | 'trial';
+
 export type PaymentGraceInput = {
   // Current Stripe subscription status on this webhook sync.
   status: string;
@@ -21,6 +30,10 @@ export type PaymentGraceInput = {
   previousStatus: string | null;
   // Persisted window anchor from the users row (ISO), or null when none is open.
   graceStartedAt: string | null;
+  // Persisted reason from the users row, or null when none is open (and null on
+  // rows whose window was opened before this column existed — carried through
+  // verbatim rather than guessed, so nothing is mis-attributed retroactively).
+  graceReason?: PaymentGraceReason | null;
   // Window length in days (getPaymentGraceDays(); 0 disables grace entirely).
   graceDays: number;
   // Injected clock (Date.now()) so the decision is deterministic under test.
@@ -46,6 +59,9 @@ export type PaymentGraceInput = {
 export type PaymentGraceDecision = {
   // Value to persist back to users.payment_grace_started_at.
   graceStartedAt: string | null;
+  // Value to persist back to users.payment_grace_reason. Always null whenever
+  // graceStartedAt is null, so the two columns can never disagree.
+  graceReason: PaymentGraceReason | null;
   // Whether the member keeps their paid tier on this sync despite `past_due`.
   inGrace: boolean;
 };
@@ -57,6 +73,7 @@ export function decidePaymentGrace(input: PaymentGraceInput): PaymentGraceDecisi
     status,
     previousStatus,
     graceStartedAt,
+    graceReason = null,
     graceDays,
     nowMs,
     trialGrace = false,
@@ -67,7 +84,7 @@ export function decidePaymentGrace(input: PaymentGraceInput): PaymentGraceDecisi
   // back to `trialing`, cancel, etc. The tier grant is then driven by the normal
   // ACTIVE_STATUSES check in the webhook, not by grace.
   if (status !== 'past_due') {
-    return { graceStartedAt: null, inGrace: false };
+    return { graceStartedAt: null, graceReason: null, inGrace: false };
   }
 
   // Already inside an open window: enforce the bound off the persisted anchor.
@@ -77,7 +94,10 @@ export function decidePaymentGrace(input: PaymentGraceInput): PaymentGraceDecisi
   if (graceStartedAt) {
     const startedMs = Date.parse(graceStartedAt);
     const inGrace = Number.isFinite(startedMs) && nowMs - startedMs < graceDays * DAY_MS;
-    return { graceStartedAt, inGrace };
+    // The reason belongs to the window, not to this sync: carry the persisted
+    // one through unchanged (previousStatus is `past_due` on these follow-up
+    // syncs and so can no longer identify the cohort).
+    return { graceStartedAt, graceReason, inGrace };
   }
 
   // First `past_due` sync. Open a window for an established (previously `active`)
@@ -86,14 +106,17 @@ export function decidePaymentGrace(input: PaymentGraceInput): PaymentGraceDecisi
   // the "already inside a window" branch above enforces the bound identically on
   // subsequent past_due syncs regardless of which case opened it. With trialGrace
   // off, a trialing→past_due opens no window (the original hard trial-end).
-  const qualifies =
-    previousStatus === 'active' ||
-    (trialGrace && previousStatus === 'trialing' && previousTierGranted);
-  if (graceDays > 0 && qualifies) {
-    return { graceStartedAt: new Date(nowMs).toISOString(), inGrace: true };
+  const openedBy: PaymentGraceReason | null =
+    previousStatus === 'active'
+      ? 'renewal'
+      : trialGrace && previousStatus === 'trialing' && previousTierGranted
+        ? 'trial'
+        : null;
+  if (graceDays > 0 && openedBy) {
+    return { graceStartedAt: new Date(nowMs).toISOString(), graceReason: openedBy, inGrace: true };
   }
 
-  return { graceStartedAt: null, inGrace: false };
+  return { graceStartedAt: null, graceReason: null, inGrace: false };
 }
 
 // The instant an open grace window runs through, or null when none is currently

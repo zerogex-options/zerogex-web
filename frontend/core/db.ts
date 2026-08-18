@@ -461,6 +461,18 @@ function initDb(): DatabaseSync {
   // unvalidated card never gets grace.
   ensureColumn('users', 'payment_grace_started_at', 'TEXT');
 
+  // Which failure opened the grace window anchored above: 'renewal' (an
+  // established paying subscription's renewal charge declined) or 'trial' (a free
+  // trial lapsed and the FIRST conversion charge declined, so the member has
+  // never completed a payment). Written and cleared in lockstep with
+  // payment_grace_started_at by decidePaymentGrace, so a non-NULL reason always
+  // accompanies an open window. NULL also on windows opened before this column
+  // existed — those are left unattributed rather than guessed, and admin
+  // monitoring counts them with the established payers, exactly as it did before
+  // the split. Read by core/monitoring.ts to break the trial-conversion cohort
+  // out of the Total Subscribers chart.
+  ensureColumn('users', 'payment_grace_reason', 'TEXT');
+
   // Soft-delete marker for self-service account deletion (see
   // app/api/account/delete/route.ts + the /account danger zone). NULL = active;
   // set to the ISO timestamp when the member deletes their account. We keep the

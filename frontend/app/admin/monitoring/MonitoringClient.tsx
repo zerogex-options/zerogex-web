@@ -25,6 +25,10 @@ type SnapshotPoint = {
   uniqueIps: number;
 };
 
+// Mirrors SignupPoint in core/monitoring.ts. `graceTrial` is the trial-conversion
+// grace cohort: the free trial lapsed, the first real charge was declined, and
+// the member is inside the bounded payment-recovery window (still a subscriber
+// with access, but never yet charged successfully).
 type SignupPoint = {
   day: string;
   basic: number;
@@ -32,6 +36,7 @@ type SignupPoint = {
   public: number;
   paying: number;
   trialing: number;
+  graceTrial: number;
   disclaimer: number;
 };
 
@@ -348,7 +353,7 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
   const topIpsMax = data.topIps[0]?.count ?? 0;
   const topUsersMax = data.topUsers[0]?.count ?? 0;
   const tierYScale = niceYScale(data.signups.reduce((m, p) => Math.max(m, p.basic + p.pro + p.public), 0));
-  const subscriberYScale = niceYScale(data.signups.reduce((m, p) => Math.max(m, p.paying + p.trialing), 0));
+  const subscriberYScale = niceYScale(data.signups.reduce((m, p) => Math.max(m, p.paying + p.trialing + p.graceTrial), 0));
 
   return (
     <div>
@@ -2093,13 +2098,20 @@ type TotalSubscribersChartCardProps = {
   yScale: { max: number; ticks: number[] };
 };
 
-// Paying subscribers split into Full Subscriber (active) and Free Trial
-// (trialing) as a stacked area. One total — Total Subscribers — in the header.
+// Subscribers with access, split into Full Subscriber (active, plus established
+// payers riding out a renewal-failure grace window), Free Trial (trialing), and
+// Trial Grace — a lapsed trial whose first conversion charge was declined and
+// which is inside the bounded payment-recovery window while Stripe retries.
+// Trial Grace stacks on top: it's the at-risk band, subscribers today who have
+// never completed a payment. One total — Total Subscribers — in the header.
 function TotalSubscribersChartCard({ data, cardBg, axisStroke, mutedText, yScale }: TotalSubscribersChartCardProps) {
   const payingColor = '#ff8531';
   const trialingColor = '#ffa600';
-  const latest = data.length > 0 ? data[data.length - 1] : { paying: 0, trialing: 0 };
-  const totalSubscribers = latest.paying + latest.trialing;
+  const graceTrialColor = '#ffd380';
+  const graceTrialTitle =
+    'Free trial ended, the first subscription charge failed, and access is retained during the bounded payment-recovery grace window while Stripe retries the card.';
+  const latest = data.length > 0 ? data[data.length - 1] : { paying: 0, trialing: 0, graceTrial: 0 };
+  const totalSubscribers = latest.paying + latest.trialing + latest.graceTrial;
   const dayLabel = useMemo(() => makeDayLabelFormatter(data.map((p) => p.day)), [data]);
   return (
     <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
@@ -2108,6 +2120,7 @@ function TotalSubscribersChartCard({ data, cardBg, axisStroke, mutedText, yScale
         <div className="flex items-center gap-4 text-xs" style={{ color: mutedText }}>
           <span><span style={{ color: payingColor }}>●</span> Full Subscriber: {latest.paying.toLocaleString()}</span>
           <span><span style={{ color: trialingColor }}>●</span> Free Trial: {latest.trialing.toLocaleString()}</span>
+          <span title={graceTrialTitle}><span style={{ color: graceTrialColor }}>●</span> Trial Grace: {latest.graceTrial.toLocaleString()}</span>
           <span>Total Subscribers: {totalSubscribers.toLocaleString()}</span>
         </div>
       </div>
@@ -2141,6 +2154,7 @@ function TotalSubscribersChartCard({ data, cardBg, axisStroke, mutedText, yScale
                   if (!active || !payload?.length) return null;
                   const paying = Number(payload.find((p) => p.dataKey === 'paying')?.value ?? 0);
                   const trialing = Number(payload.find((p) => p.dataKey === 'trialing')?.value ?? 0);
+                  const graceTrial = Number(payload.find((p) => p.dataKey === 'graceTrial')?.value ?? 0);
                   return (
                     <div
                       className="rounded-lg border px-3 py-2 text-xs"
@@ -2149,7 +2163,8 @@ function TotalSubscribersChartCard({ data, cardBg, axisStroke, mutedText, yScale
                       <div className="font-semibold mb-1">{dayLabel(String(label))}</div>
                       <div>Full Subscriber: {paying.toLocaleString()}</div>
                       <div>Free Trial: {trialing.toLocaleString()}</div>
-                      <div className="mt-1">Total Subscribers: {(paying + trialing).toLocaleString()}</div>
+                      <div>Trial Grace: {graceTrial.toLocaleString()}</div>
+                      <div className="mt-1">Total Subscribers: {(paying + trialing + graceTrial).toLocaleString()}</div>
                     </div>
                   );
                 }}
@@ -2171,6 +2186,16 @@ function TotalSubscribersChartCard({ data, cardBg, axisStroke, mutedText, yScale
                 stackId="subscribers"
                 stroke={trialingColor}
                 fill={trialingColor}
+                fillOpacity={0.5}
+                isAnimationActive={false}
+              />
+              <Area
+                type="monotone"
+                dataKey="graceTrial"
+                name="Trial Grace"
+                stackId="subscribers"
+                stroke={graceTrialColor}
+                fill={graceTrialColor}
                 fillOpacity={0.5}
                 isAnimationActive={false}
               />

@@ -30,6 +30,7 @@ test('opens a window on the first past_due of a previously-active subscription',
   const d = decidePaymentGrace(input({ previousStatus: 'active', graceStartedAt: null }));
   assert.equal(d.inGrace, true);
   assert.equal(d.graceStartedAt, new Date(NOW).toISOString());
+  assert.equal(d.graceReason, 'renewal');
 });
 
 test('a trial-conversion failure (previousStatus trialing) opens no window', () => {
@@ -58,6 +59,7 @@ test('trialGrace on: a trialing->past_due failure opens a window', () => {
   );
   assert.equal(d.inGrace, true);
   assert.equal(d.graceStartedAt, new Date(NOW).toISOString());
+  assert.equal(d.graceReason, 'trial');
 });
 
 test('trialGrace off (default): a trialing->past_due failure opens no window', () => {
@@ -212,4 +214,65 @@ test('graceWindowEndIso: null with no anchor, grace disabled, or a malformed anc
   assert.equal(graceWindowEndIso(null, 3, NOW), null);
   assert.equal(graceWindowEndIso(new Date(NOW).toISOString(), 0, NOW), null);
   assert.equal(graceWindowEndIso('not-a-date', 3, NOW), null);
+});
+
+// --- grace reason -----------------------------------------------------------
+// The reason is what lets admin monitoring break the trial-conversion cohort out
+// of Total Subscribers, so it must be written on open, carried across the
+// follow-up past_due syncs (whose previousStatus is itself `past_due`, i.e. no
+// longer identifies the cohort), and cleared in lockstep with the anchor.
+
+test('no open window means no reason (the two columns never disagree)', () => {
+  for (const d of [
+    decidePaymentGrace(input({ previousStatus: null, graceStartedAt: null })),
+    decidePaymentGrace(input({ graceDays: 0, graceStartedAt: null })),
+    decidePaymentGrace(input({ previousStatus: 'trialing', trialGrace: false, graceStartedAt: null })),
+    decidePaymentGrace(
+      input({ previousStatus: 'trialing', trialGrace: true, previousTierGranted: false, graceStartedAt: null }),
+    ),
+  ]) {
+    assert.equal(d.graceStartedAt, null);
+    assert.equal(d.graceReason, null);
+  }
+});
+
+test('leaving past_due clears the reason along with the anchor', () => {
+  for (const status of ['active', 'trialing', 'canceled', 'unpaid']) {
+    const d = decidePaymentGrace(
+      input({ status, graceStartedAt: new Date(NOW - DAY_MS).toISOString(), graceReason: 'trial' }),
+    );
+    assert.equal(d.graceStartedAt, null, `${status} should clear the anchor`);
+    assert.equal(d.graceReason, null, `${status} should clear the reason`);
+  }
+});
+
+test('a later past_due sync carries the opening reason through unchanged', () => {
+  const opened = new Date(NOW - DAY_MS).toISOString();
+  for (const reason of ['trial', 'renewal'] as const) {
+    const d = decidePaymentGrace(
+      input({ previousStatus: 'past_due', graceStartedAt: opened, graceReason: reason }),
+    );
+    assert.equal(d.inGrace, true);
+    assert.equal(d.graceReason, reason);
+  }
+});
+
+test('an expired window still reports its reason (the anchor is kept, not reopened)', () => {
+  const opened = new Date(NOW - 4 * DAY_MS).toISOString();
+  const d = decidePaymentGrace(
+    input({ previousStatus: 'past_due', graceStartedAt: opened, graceReason: 'trial' }),
+  );
+  assert.equal(d.inGrace, false);
+  assert.equal(d.graceStartedAt, opened);
+  assert.equal(d.graceReason, 'trial');
+});
+
+test('a legacy window with no recorded reason stays unattributed', () => {
+  // Rows whose window opened before the reason column existed must not be
+  // guessed at: monitoring counts a null reason with the established payers,
+  // exactly as it did before the split.
+  const opened = new Date(NOW - DAY_MS).toISOString();
+  const d = decidePaymentGrace(input({ previousStatus: 'past_due', graceStartedAt: opened }));
+  assert.equal(d.inGrace, true);
+  assert.equal(d.graceReason, null);
 });

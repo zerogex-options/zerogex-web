@@ -35,8 +35,21 @@ Shipped on branch `claude/product-viability-strategy-j7lev6`:
   - **Deliberately excludes trial-conversion failures** (previous status
     `trialing`, never `active`) — an unvalidated trial card still downgrades
     immediately, so this does *not* extend free access to abusers.
+  - *Since superseded by trial grace:* `BILLING_TRIAL_GRACE_ENABLED` (default
+    **on**) gives a lapsed trial whose **first** conversion charge is declined the
+    same bounded window — but only when the trial had already been granted access
+    (its SetupIntent succeeded). A trial we withheld for an unvalidated card still
+    downgrades instantly, so the abuse exclusion above still holds. Set
+    `BILLING_TRIAL_GRACE_ENABLED=0` to restore the hard trial-end downgrade.
   - Auditable: emits `billing_payment_grace_active` / `billing_payment_grace_ended`
     audit events so you can count the involuntary-churn saves.
+  - Which of the two failures opened a window is recorded in
+    `users.payment_grace_reason` (`renewal` | `trial`), written and cleared in
+    lockstep with the anchor. Admin → Monitoring → **Total Subscribers** uses it to
+    stack the trial-conversion cohort as its own **Trial Grace** band: subscribers
+    with access today who have never completed a payment. Renewal-failure grace
+    stays inside **Full Subscriber** — those members already paid. Watch the band
+    for the share of trials that convert on a retry versus lapse.
 
 ### b. Documentation footguns removed
 - `content/help/platform/tiers-and-access.md` said **"14-day trial"** while the
