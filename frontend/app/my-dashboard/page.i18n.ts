@@ -21,6 +21,15 @@ export const dict: PageDictionary = {
     proChip: 'Pro',
     appliesBasicTierWidgets: 'Applies the Basic-tier widgets',
     confirmResetBoard: 'Clear your dashboard and start over?',
+    splitView: 'Split view',
+    splitViewTitle: 'Show two independent halves, each with its own underlying and expiration',
+    cloneToSecondHalf: 'Clone to a second half',
+    cloneToSecondHalfTitle: 'Copy this board to a second half, then point the copy at a different expiry or underlying',
+    confirmCloneSide: 'Side {side} already has widgets. Replace them with a copy of this side?',
+    confirmClearSide: 'Remove every widget from side {side}?',
+    sideLabel: 'Side {side}',
+    editingHintSplit:
+      'Drag tiles to rearrange within a half. Each tile’s controls resize it (S / M / L / XL), copy it, move it to the other half, or remove it. Each half’s toolbar sets its own underlying and expiration.',
   },
   it: {
     yourBoard: 'La tua bacheca',
@@ -42,6 +51,15 @@ export const dict: PageDictionary = {
     proChip: 'Pro',
     appliesBasicTierWidgets: 'Applica i widget del livello Basic',
     confirmResetBoard: 'Vuoi svuotare la dashboard e ricominciare?',
+    splitView: 'Vista divisa',
+    splitViewTitle: 'Mostra due metà indipendenti, ognuna con sottostante e scadenza propri',
+    cloneToSecondHalf: 'Clona in una seconda metà',
+    cloneToSecondHalfTitle: 'Copia questa bacheca in una seconda metà, poi imposta la copia su una scadenza o un sottostante diverso',
+    confirmCloneSide: 'Il lato {side} contiene già dei widget. Sostituirli con una copia di questo lato?',
+    confirmClearSide: 'Rimuovere tutti i widget dal lato {side}?',
+    sideLabel: 'Lato {side}',
+    editingHintSplit:
+      'Trascina i riquadri per riordinarli all’interno di una metà. I controlli di ogni riquadro lo ridimensionano (S / M / L / XL), lo duplicano, lo spostano nell’altra metà o lo rimuovono. La barra di ogni metà imposta sottostante e scadenza propri.',
   },
   de: {
     yourBoard: 'Dein Board',
@@ -63,6 +81,15 @@ export const dict: PageDictionary = {
     proChip: 'Pro',
     appliesBasicTierWidgets: 'Wendet die Basic-Tier-Widgets an',
     confirmResetBoard: 'Dashboard leeren und neu beginnen?',
+    splitView: 'Geteilte Ansicht',
+    splitViewTitle: 'Zwei unabhängige Hälften anzeigen, jede mit eigenem Basiswert und Verfall',
+    cloneToSecondHalf: 'In eine zweite Hälfte klonen',
+    cloneToSecondHalfTitle: 'Kopiere dieses Board in eine zweite Hälfte und richte die Kopie dann auf einen anderen Verfall oder Basiswert aus',
+    confirmCloneSide: 'Seite {side} enthält bereits Widgets. Durch eine Kopie dieser Seite ersetzen?',
+    confirmClearSide: 'Alle Widgets von Seite {side} entfernen?',
+    sideLabel: 'Seite {side}',
+    editingHintSplit:
+      'Ziehe Kacheln, um sie innerhalb einer Hälfte neu anzuordnen. Die Steuerelemente jeder Kachel ändern die Größe (S / M / L / XL), kopieren sie, verschieben sie in die andere Hälfte oder entfernen sie. Die Leiste jeder Hälfte setzt eigenen Basiswert und Verfall.',
   },
   es: {
     yourBoard: 'Tu tablero',
@@ -84,6 +111,15 @@ export const dict: PageDictionary = {
     proChip: 'Pro',
     appliesBasicTierWidgets: 'Aplica los widgets del nivel Basic',
     confirmResetBoard: '¿Vaciar tu dashboard y empezar de nuevo?',
+    splitView: 'Vista dividida',
+    splitViewTitle: 'Muestra dos mitades independientes, cada una con su subyacente y vencimiento',
+    cloneToSecondHalf: 'Clonar en una segunda mitad',
+    cloneToSecondHalfTitle: 'Copia este tablero en una segunda mitad y luego apunta la copia a otro vencimiento o subyacente',
+    confirmCloneSide: 'El lado {side} ya tiene widgets. ¿Reemplazarlos por una copia de este lado?',
+    confirmClearSide: '¿Quitar todos los widgets del lado {side}?',
+    sideLabel: 'Lado {side}',
+    editingHintSplit:
+      'Arrastra los mosaicos para reordenarlos dentro de una mitad. Los controles de cada mosaico cambian su tamaño (S / M / L / XL), lo copian, lo mueven a la otra mitad o lo eliminan. La barra de cada mitad define su propio subyacente y vencimiento.',
   },
   fr: {
     yourBoard: 'Votre tableau',
@@ -105,5 +141,14 @@ export const dict: PageDictionary = {
     proChip: 'Pro',
     appliesBasicTierWidgets: 'Applique les widgets du niveau Basic',
     confirmResetBoard: 'Vider votre dashboard et recommencer ?',
+    splitView: 'Vue divisée',
+    splitViewTitle: 'Afficher deux moitiés indépendantes, chacune avec son sous-jacent et son échéance',
+    cloneToSecondHalf: 'Cloner vers une seconde moitié',
+    cloneToSecondHalfTitle: 'Copiez ce tableau vers une seconde moitié, puis orientez la copie vers une autre échéance ou un autre sous-jacent',
+    confirmCloneSide: 'Le côté {side} contient déjà des widgets. Les remplacer par une copie de ce côté ?',
+    confirmClearSide: 'Retirer tous les widgets du côté {side} ?',
+    sideLabel: 'Côté {side}',
+    editingHintSplit:
+      'Faites glisser les tuiles pour les réorganiser au sein d’une moitié. Les commandes de chaque tuile la redimensionnent (S / M / L / XL), la dupliquent, la déplacent vers l’autre moitié ou la suppriment. La barre de chaque moitié définit son propre sous-jacent et son échéance.',
   },
 };

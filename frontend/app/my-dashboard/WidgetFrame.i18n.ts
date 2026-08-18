@@ -11,6 +11,7 @@ export const dict: PageDictionary = {
     resizeDragHandle: 'Drag to resize width (or use arrow keys)',
     removeWidget: 'Remove {title}',
     duplicateWidget: 'Add another {title}',
+    moveToSide: 'Move to side {side}',
   },
   it: {
     proLabel: 'Pro',
@@ -22,6 +23,7 @@ export const dict: PageDictionary = {
     resizeDragHandle: 'Trascina per ridimensionare la larghezza (o usa le frecce)',
     removeWidget: 'Rimuovi {title}',
     duplicateWidget: 'Aggiungi un altro {title}',
+    moveToSide: 'Sposta nel lato {side}',
   },
   de: {
     proLabel: 'Pro',
@@ -33,6 +35,7 @@ export const dict: PageDictionary = {
     resizeDragHandle: 'Zum Ändern der Breite ziehen (oder Pfeiltasten)',
     removeWidget: '{title} entfernen',
     duplicateWidget: 'Weiteres {title} hinzufügen',
+    moveToSide: 'Auf Seite {side} verschieben',
   },
   es: {
     proLabel: 'Pro',
@@ -44,6 +47,7 @@ export const dict: PageDictionary = {
     resizeDragHandle: 'Arrastra para redimensionar el ancho (o usa las flechas)',
     removeWidget: 'Eliminar {title}',
     duplicateWidget: 'Añadir otro {title}',
+    moveToSide: 'Mover al lado {side}',
   },
   fr: {
     proLabel: 'Pro',
@@ -55,5 +59,6 @@ export const dict: PageDictionary = {
     resizeDragHandle: 'Faire glisser pour redimensionner la largeur (ou flèches)',
     removeWidget: 'Supprimer {title}',
     duplicateWidget: 'Ajouter un autre {title}',
+    moveToSide: 'Déplacer vers le côté {side}',
   },
 };

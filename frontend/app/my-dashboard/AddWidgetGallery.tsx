@@ -20,14 +20,22 @@ export default function AddWidgetGallery({
   onClose,
   hasPro,
   counts,
+  targetLabel,
   onAdd,
   onRemoveAll,
 }: {
   open: boolean;
   onClose: () => void;
   hasPro: boolean;
-  /** Copies of each widget currently on the board, keyed by widget id. */
+  /**
+   * Copies of each widget currently on the board, keyed by widget id. On a split
+   * board this is scoped to the half being added to, so the counts and the
+   * "remove all" action describe that side alone.
+   */
   counts: ReadonlyMap<string, number>;
+  /** Which half is being added to ("Side B"), shown in the header. Omitted on
+   *  an unsplit board, where there is only one place a widget can land. */
+  targetLabel?: string;
   onAdd: (widget: WidgetDef) => void;
   onRemoveAll: (widget: WidgetDef) => void;
 }) {
@@ -87,7 +95,7 @@ export default function AddWidgetGallery({
           <div>
             <h2 className="zg-h3">{t('title')}</h2>
             <p className="zg-caption" style={{ color: 'var(--text-muted)' }}>
-              {t('subtitle')}
+              {targetLabel ? t('subtitleForTarget', { target: targetLabel }) : t('subtitle')}
             </p>
           </div>
           <button

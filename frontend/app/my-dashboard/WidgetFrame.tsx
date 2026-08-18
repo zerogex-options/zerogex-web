@@ -16,13 +16,14 @@ import {
   ChevronRight,
   Copy,
   GripVertical,
+  ArrowLeftRight,
   Lock,
   Maximize2,
   RotateCw,
   X,
 } from 'lucide-react';
 
-import type { WidgetSize } from '@/core/myDashboardLayout';
+import type { PaneId, WidgetSize } from '@/core/myDashboardLayout';
 import { WIDGET_COLSPAN, WIDGET_SIZE_LABEL } from '@/core/myDashboardLayout';
 import type { WidgetDef } from './registry';
 import { usePageT } from '@/core/LanguageContext';
@@ -137,6 +138,10 @@ export type WidgetFrameProps = {
   onRemove: () => void;
   /** Drop a second copy of this widget beside it (side-by-side comparison). */
   onDuplicate: () => void;
+  /** The other half of a split board, or null when the board isn't split. */
+  sendToPane?: PaneId | null;
+  /** Move this tile to `sendToPane`. Absent when there is nowhere to send it. */
+  onSendToPane?: () => void;
   onMovePrev: () => void;
   onMoveNext: () => void;
   canMovePrev: boolean;
@@ -157,6 +162,8 @@ export default function WidgetFrame({
   onResizeEnd,
   onRemove,
   onDuplicate,
+  sendToPane,
+  onSendToPane,
   onMovePrev,
   onMoveNext,
   canMovePrev,
@@ -361,6 +368,14 @@ export default function WidgetFrame({
           <FrameIconButton label={t('duplicateWidget', { title: widget.title })} onClick={onDuplicate}>
             <Copy size={13} />
           </FrameIconButton>
+          {sendToPane && onSendToPane && (
+            <FrameIconButton
+              label={t('moveToSide', { side: sendToPane.toUpperCase() })}
+              onClick={onSendToPane}
+            >
+              <ArrowLeftRight size={13} />
+            </FrameIconButton>
+          )}
           <FrameIconButton
             label={t('removeWidget', { title: widget.title })}
             onClick={onRemove}

@@ -6,6 +6,12 @@
  * browser; widgets are tier-gated (Pro-only pieces show an upgrade prompt for
  * Basic members). Reordering is drag-and-drop on desktop and button-driven on
  * touch.
+ *
+ * The board can be SPLIT into two independent halves. Set one half up, clone it
+ * across with one click, then point the copy at a different expiry or a
+ * different underlying — the two halves render side by side, each fetching its
+ * own data. The scoping mechanism lives in DashboardPane; this file owns the
+ * layout state, persistence and the board-level controls.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -13,6 +19,8 @@ import {
   LayoutGrid,
   Pencil,
   Check,
+  Columns2,
+  Copy,
   Plus,
   RotateCcw,
   Sparkles,
@@ -29,18 +37,30 @@ import { SYMBOLS } from '@/core/symbols';
 import {
   addWidget,
   clearLayout,
+  clearPane,
+  clonePane,
   duplicateWidget,
   emptyLayout,
+  getPane,
+  isLayoutEmpty,
   loadLayout,
   moveWidget,
+  moveWidgetToPane,
+  otherPaneId,
   removeAllOfWidget,
   removeWidget,
   resizeWidget,
   saveLayout,
+  setPaneExpirations,
+  setPaneSymbol,
+  setSplit,
+  visiblePanes,
   widgetCounts,
   type DashboardLayout,
+  type PaneId,
   type WidgetSize,
 } from '@/core/myDashboardLayout';
+import type { UnderlyingSymbol } from '@/core/symbolPersistence';
 import {
   PRESETS,
   WIDGET_IDS,
@@ -48,14 +68,12 @@ import {
   type DashboardPreset,
   type WidgetDef,
 } from './registry';
-import { MyDashboardDataProvider, type FeedKey } from './DashboardData';
-import DashboardGrid from './DashboardGrid';
+import DashboardPane, { paneLetter } from './DashboardPane';
 import AddWidgetGallery from './AddWidgetGallery';
 
 export default function MyDashboardPage() {
   const t = usePageT(dict);
   const { data: authSession, loading: authLoading } = useAuthSession();
-  const { symbol } = useTimeframe();
   const tier = authSession?.user?.tier ?? 'public';
   const hasPro = hasTierAccess(normalizeTier(tier), 'pro');
   const scope = authSession?.user?.id ?? null;
@@ -63,12 +81,10 @@ export default function MyDashboardPage() {
   const [hydrated, setHydrated] = useState(false);
   const [layout, setLayout] = useState<DashboardLayout>(emptyLayout);
   const [editing, setEditing] = useState(false);
-  const [galleryOpen, setGalleryOpen] = useState(false);
-  // Switching symbol re-fetches every widget's data, so key the error
-  // boundaries on it — a widget that errored on the old symbol gets a fresh
-  // mount and retries automatically. Derived (no effect) so it stays clear of
-  // the set-state-in-effect lint rule.
-  const resetKey = symbol;
+  // Which half the add-widget gallery is adding to; null while it's closed. The
+  // gallery's counts and its add/remove actions all address that pane, so on a
+  // split board "3 placed" means three on THIS side.
+  const [galleryPane, setGalleryPane] = useState<PaneId | null>(null);
 
   // Load the saved board once auth resolves (so we key storage by member id).
   // localStorage is client-only, so this runs post-mount to avoid a hydration
@@ -94,23 +110,26 @@ export default function MyDashboardPage() {
     saveLayout(layout, scope);
   }, [layout, hydrated, scope]);
 
-  const activeFeeds = useMemo<Set<FeedKey>>(() => {
-    const set = new Set<FeedKey>();
-    for (const w of layout.widgets) {
-      getWidget(w.widgetId)?.feeds.forEach((f) => set.add(f));
-    }
-    return set;
-  }, [layout.widgets]);
+  // Copies per widget id in the pane the gallery is targeting — the gallery
+  // shows a count and can add another copy.
+  const galleryTarget: PaneId = galleryPane ?? 'a';
+  const counts = useMemo(
+    () => widgetCounts(layout, galleryTarget),
+    [layout, galleryTarget],
+  );
 
-  // Copies per widget id — the gallery shows a count and can add another copy.
-  const counts = useMemo(() => widgetCounts(layout), [layout]);
-
-  const handleAdd = useCallback((widget: WidgetDef) => {
-    setLayout((l) => addWidget(l, widget.id, widget.defaultSize));
-  }, []);
-  const handleRemoveAll = useCallback((widget: WidgetDef) => {
-    setLayout((l) => removeAllOfWidget(l, widget.id));
-  }, []);
+  const handleAdd = useCallback(
+    (widget: WidgetDef) => {
+      setLayout((l) => addWidget(l, galleryTarget, widget.id, widget.defaultSize));
+    },
+    [galleryTarget],
+  );
+  const handleRemoveAll = useCallback(
+    (widget: WidgetDef) => {
+      setLayout((l) => removeAllOfWidget(l, widget.id, galleryTarget));
+    },
+    [galleryTarget],
+  );
   const handleRemove = useCallback((instanceId: string) => {
     setLayout((l) => removeWidget(l, instanceId));
   }, []);
@@ -120,12 +139,67 @@ export default function MyDashboardPage() {
   const handleResize = useCallback((instanceId: string, size: WidgetSize) => {
     setLayout((l) => resizeWidget(l, instanceId, size));
   }, []);
-  const handleReorder = useCallback((from: number, to: number) => {
-    setLayout((l) => moveWidget(l, from, to));
+  const handleReorder = useCallback((paneId: PaneId, from: number, to: number) => {
+    setLayout((l) => moveWidget(l, paneId, from, to));
   }, []);
+  const handleSendToPane = useCallback((instanceId: string, target: PaneId) => {
+    setLayout((l) => moveWidgetToPane(l, instanceId, target));
+  }, []);
+
+  // ── Split / per-half controls ──
+  const handleToggleSplit = useCallback(() => {
+    // Collapsing keeps side B's contents (see setSplit) so the toggle is
+    // reversible — nothing is thrown away by going back to one board.
+    setLayout((l) => setSplit(l, !l.split));
+  }, []);
+
+  const handlePaneSymbol = useCallback((paneId: PaneId, next: UnderlyingSymbol | null) => {
+    setLayout((l) => setPaneSymbol(l, paneId, next));
+  }, []);
+
+  const handlePaneExpirations = useCallback(
+    (paneId: PaneId, next: readonly string[] | null) => {
+      setLayout((l) => setPaneExpirations(l, paneId, next));
+    },
+    [],
+  );
+
+  // The headline action: copy this half onto the other one (turning the split on
+  // if it wasn't already), so the member can retarget the copy. Confirmed only
+  // when the target already holds widgets — the copy replaces them. The confirm
+  // runs outside the updater so it can't fire twice under StrictMode.
+  const handleClone = useCallback(
+    (from: PaneId) => {
+      const to = otherPaneId(from);
+      if (
+        getPane(layout, to).widgets.length > 0 &&
+        typeof window !== 'undefined' &&
+        !window.confirm(t('confirmCloneSide', { side: paneLetter(to) }))
+      ) {
+        return;
+      }
+      setLayout((l) => clonePane(l, from, to));
+    },
+    [layout, t],
+  );
+
+  const handleClearPane = useCallback(
+    (paneId: PaneId) => {
+      if (
+        typeof window !== 'undefined' &&
+        !window.confirm(t('confirmClearSide', { side: paneLetter(paneId) }))
+      ) {
+        return;
+      }
+      setLayout((l) => clearPane(l, paneId));
+    },
+    [t],
+  );
 
   const applyPreset = useCallback(
     (preset: DashboardPreset) => {
+      // A preset seeds the first half only; cloning it across is the member's
+      // next move, not something a preset should decide for them.
       let next = emptyLayout();
       for (const w of preset.widgets) {
         const def = getWidget(w.widgetId);
@@ -133,11 +207,11 @@ export default function MyDashboardPage() {
         // Skip Pro widgets a Basic member can't use, so a preset never seeds a
         // board full of locked tiles.
         if (def.tier === 'pro' && !hasPro) continue;
-        next = addWidget(next, w.widgetId, w.size);
+        next = addWidget(next, 'a', w.widgetId, w.size);
       }
       setLayout(next);
       setEditing(false);
-      setGalleryOpen(false);
+      setGalleryPane(null);
     },
     [hasPro],
   );
@@ -151,15 +225,20 @@ export default function MyDashboardPage() {
     setEditing(false);
   }, [scope, t]);
 
-  const isEmpty = layout.widgets.length === 0;
+  const isEmpty = isLayoutEmpty(layout);
+  const panes = visiblePanes(layout);
 
   return (
     <PageShell width="bleed">
       <Header
         editing={editing}
         isEmpty={isEmpty}
+        split={layout.split}
+        canClone={getPane(layout, 'a').widgets.length > 0}
         onToggleEdit={() => setEditing((e) => !e)}
-        onOpenGallery={() => setGalleryOpen(true)}
+        onToggleSplit={handleToggleSplit}
+        onClone={() => handleClone('a')}
+        onOpenGallery={() => setGalleryPane('a')}
         onReset={handleReset}
       />
 
@@ -170,7 +249,7 @@ export default function MyDashboardPage() {
           hasPro={hasPro}
           presets={PRESETS}
           onApplyPreset={applyPreset}
-          onOpenGallery={() => setGalleryOpen(true)}
+          onOpenGallery={() => setGalleryPane('a')}
         />
       ) : (
         <>
@@ -184,29 +263,39 @@ export default function MyDashboardPage() {
               }}
             >
               <Sparkles size={14} style={{ color: 'var(--color-accent-hot)' }} />
-              {t('editingHint')}
+              {layout.split ? t('editingHintSplit') : t('editingHint')}
             </div>
           )}
-          <MyDashboardDataProvider activeFeeds={activeFeeds}>
-            <DashboardGrid
-              items={layout.widgets}
-              editing={editing}
-              hasPro={hasPro}
-              resetKey={resetKey}
-              onReorder={handleReorder}
-              onRemove={handleRemove}
-              onResize={handleResize}
-              onDuplicate={handleDuplicate}
-            />
-          </MyDashboardDataProvider>
+          <div className={layout.split ? 'zg-mydash-split' : undefined}>
+            {panes.map((pane) => (
+              <DashboardPane
+                key={pane.id}
+                pane={pane}
+                split={layout.split}
+                editing={editing}
+                hasPro={hasPro}
+                onSymbolChange={handlePaneSymbol}
+                onExpirationsChange={handlePaneExpirations}
+                onClone={handleClone}
+                onClear={handleClearPane}
+                onOpenGallery={setGalleryPane}
+                onReorder={handleReorder}
+                onRemove={handleRemove}
+                onResize={handleResize}
+                onDuplicate={handleDuplicate}
+                onSendToOtherPane={handleSendToPane}
+              />
+            ))}
+          </div>
         </>
       )}
 
       <AddWidgetGallery
-        open={galleryOpen}
-        onClose={() => setGalleryOpen(false)}
+        open={galleryPane !== null}
+        onClose={() => setGalleryPane(null)}
         hasPro={hasPro}
         counts={counts}
+        targetLabel={layout.split ? t('sideLabel', { side: paneLetter(galleryTarget) }) : undefined}
         onAdd={handleAdd}
         onRemoveAll={handleRemoveAll}
       />
@@ -219,13 +308,22 @@ export default function MyDashboardPage() {
 function Header({
   editing,
   isEmpty,
+  split,
+  canClone,
   onToggleEdit,
+  onToggleSplit,
+  onClone,
   onOpenGallery,
   onReset,
 }: {
   editing: boolean;
   isEmpty: boolean;
+  split: boolean;
+  /** False when side A has nothing to copy across. */
+  canClone: boolean;
   onToggleEdit: () => void;
+  onToggleSplit: () => void;
+  onClone: () => void;
   onOpenGallery: () => void;
   onReset: () => void;
 }) {
@@ -249,6 +347,28 @@ function Header({
         <SymbolToggle />
         {!isEmpty && (
           <>
+            {!split && (
+              // One click to go from "I've built one board" to "I've got two,
+              // and the second one is a copy I can retarget".
+              <button
+                type="button"
+                onClick={onClone}
+                disabled={!canClone}
+                className="zg-btn zg-btn--secondary"
+                title={t('cloneToSecondHalfTitle')}
+              >
+                <Copy size={15} /> {t('cloneToSecondHalf')}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onToggleSplit}
+              aria-pressed={split}
+              className={`zg-btn ${split ? 'zg-btn--primary' : 'zg-btn--ghost'}`}
+              title={t('splitViewTitle')}
+            >
+              <Columns2 size={15} /> {t('splitView')}
+            </button>
             {editing && (
               <button type="button" onClick={onReset} className="zg-btn zg-btn--ghost" title={t('resetBoardTitle')}>
                 <RotateCcw size={15} /> {t('reset')}

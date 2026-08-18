@@ -3,32 +3,46 @@
 import { useRef, useState } from 'react';
 import WidgetFrame from './WidgetFrame';
 import { getWidget } from './registry';
-import type { PlacedWidget, WidgetSize } from '@/core/myDashboardLayout';
+import type { PaneId, PlacedWidget, WidgetSize } from '@/core/myDashboardLayout';
 
 /**
  * The widget grid + reordering. Drag-and-drop uses the native HTML5 DnD API
  * (no dependency); live reordering happens on drag-enter. Touch devices — where
  * HTML5 DnD is unreliable — use the tile's move-earlier / move-later buttons,
  * so reordering is fully usable without a drag.
+ *
+ * One grid renders one pane. On a split board each half gets its own instance
+ * with `half` set, which narrows the desktop grid from four columns to two so
+ * the footprints still mean "quarter / half / three-quarters / full" of the
+ * space the pane actually has. Reordering is within a pane; `sendToPane` adds
+ * the cross-pane move to each tile's edit controls.
  */
 export default function DashboardGrid({
   items,
   editing,
   hasPro,
   resetKey,
+  half = false,
+  sendToPane = null,
   onReorder,
   onRemove,
   onResize,
   onDuplicate,
+  onSendToPane,
 }: {
   items: PlacedWidget[];
   editing: boolean;
   hasPro: boolean;
   resetKey: string | number;
+  /** True when this grid is one half of a split board (two-column desktop). */
+  half?: boolean;
+  /** The pane a tile can be moved to, or null when the board isn't split. */
+  sendToPane?: PaneId | null;
   onReorder: (from: number, to: number) => void;
   onRemove: (instanceId: string) => void;
   onResize: (instanceId: string, size: WidgetSize) => void;
   onDuplicate: (instanceId: string) => void;
+  onSendToPane?: (instanceId: string, target: PaneId) => void;
 }) {
   const gridRef = useRef<HTMLDivElement>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -39,7 +53,7 @@ export default function DashboardGrid({
   const [resizeIndex, setResizeIndex] = useState<number | null>(null);
 
   return (
-    <div ref={gridRef} className="zg-mydash-grid">
+    <div ref={gridRef} className={half ? 'zg-mydash-grid zg-mydash-grid--half' : 'zg-mydash-grid'}>
       {items.map((item, index) => {
         const widget = getWidget(item.widgetId);
         if (!widget) return null;
@@ -96,6 +110,12 @@ export default function DashboardGrid({
               onResizeEnd={() => setResizeIndex(null)}
               onRemove={() => onRemove(item.instanceId)}
               onDuplicate={() => onDuplicate(item.instanceId)}
+              sendToPane={sendToPane}
+              onSendToPane={
+                sendToPane && onSendToPane
+                  ? () => onSendToPane(item.instanceId, sendToPane)
+                  : undefined
+              }
               onMovePrev={() => onReorder(index, Math.max(0, index - 1))}
               onMoveNext={() => onReorder(index, Math.min(items.length - 1, index + 1))}
               canMovePrev={index > 0}

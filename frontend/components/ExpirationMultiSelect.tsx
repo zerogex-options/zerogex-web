@@ -18,6 +18,19 @@ interface ExpirationMultiSelectProps {
   /** Field label rendered before the trigger (e.g. "Expiration"). */
   label?: string;
   disabled?: boolean;
+  /**
+   * Optional third state offered above "All expirations", for callers where a
+   * selection can also be INHERITED rather than made here — the split "My
+   * Dashboard" board, whose two halves each either follow the page-wide
+   * selection or pin their own. Omitted everywhere else, leaving the control
+   * exactly as it was: All, or an explicit set.
+   */
+  inheritOption?: {
+    label: string;
+    /** True while the caller is inheriting — shown checked and as the summary. */
+    active: boolean;
+    onSelect: () => void;
+  };
 }
 
 /**
@@ -34,6 +47,7 @@ export default function ExpirationMultiSelect({
   onChange,
   label = 'Expiration',
   disabled = false,
+  inheritOption,
 }: ExpirationMultiSelectProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
@@ -47,12 +61,17 @@ export default function ExpirationMultiSelect({
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
-  const summary =
-    selected.length === 0
+  const summary = inheritOption?.active
+    ? inheritOption.label
+    : selected.length === 0
       ? 'All'
       : selected.length === 1
         ? selected[0]
         : `${selected.length} exps`;
+
+  // "All" is only the active row when nothing is being inherited — otherwise the
+  // inherit row owns the checkmark.
+  const allActive = selected.length === 0 && !inheritOption?.active;
 
   const toggle = (exp: string) =>
     onChange(selected.includes(exp) ? selected.filter((v) => v !== exp) : [...selected, exp]);
@@ -89,20 +108,36 @@ export default function ExpirationMultiSelect({
             overflowY: 'auto',
           }}
         >
+          {inheritOption && (
+            <button
+              type="button"
+              onClick={inheritOption.onSelect}
+              className="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-[color:var(--color-info-soft)]"
+              style={{
+                color: inheritOption.active
+                  ? 'var(--color-text-primary)'
+                  : 'var(--color-text-secondary)',
+                fontWeight: inheritOption.active ? 600 : 400,
+              }}
+            >
+              <span className="inline-flex w-3 justify-center">{inheritOption.active ? '✓' : ''}</span>
+              {inheritOption.label}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => onChange([])}
             className="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-[color:var(--color-info-soft)]"
             style={{
-              color: selected.length === 0 ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
-              fontWeight: selected.length === 0 ? 600 : 400,
+              color: allActive ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+              fontWeight: allActive ? 600 : 400,
             }}
           >
-            <span className="inline-flex w-3 justify-center">{selected.length === 0 ? '✓' : ''}</span>
+            <span className="inline-flex w-3 justify-center">{allActive ? '✓' : ''}</span>
             All expirations
           </button>
           {options.map((exp) => {
-            const checked = selected.includes(exp);
+            const checked = !inheritOption?.active && selected.includes(exp);
             return (
               <button
                 key={exp}
