@@ -1199,12 +1199,34 @@ export default function ForcedFlowSurfaceChart({
         The whole session&apos;s dealer forced-flow field, open → close (left→right) at each spot (vertical).{' '}
         <em>Left of <strong>now</strong> is the ACTUAL field; right is a PROJECTION into the close.</em>{' '}
         <span style={{ color: chart.bull, fontWeight: 600 }}>Green = dealers forced to BUY</span>,{' '}
-        <span style={{ color: chart.bear, fontWeight: 600 }}>red = SELL</span>.{' '}
-        <span style={{ color: chart.info, fontWeight: 600 }}>Blue = magnet (stable pin)</span>,{' '}
-        <span style={{ color: chart.warning, fontWeight: 600 }}>dashed amber = pivot (short-γ tripwire)</span>;{' '}
+        <span style={{ color: chart.bear, fontWeight: 600 }}>red = SELL</span>;{' '}
         candles = realized 5-min price (green up / red down); dashed grey = spot.{' '}
         <span style={{ color: 'var(--text-muted)' }}>Opens zoomed to spot — zoom out for the 0DTE wings · drag to pan · drag an axis to stretch it · double-click to reset.</span>
       </p>
+
+      {/* Line key — the one thing to remember: a Magnet PULLS price in, a Pivot
+          PUSHES it away. The swatches mirror the on-chart line styles. */}
+      <div
+        className="mb-4 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[11px]"
+        style={{ color: 'var(--text-secondary)' }}
+      >
+        <span className="inline-flex items-center gap-2">
+          <svg width="22" height="10" aria-hidden="true">
+            <line x1="0" y1="5" x2="22" y2="5" stroke={chart.info} strokeWidth="2.5" />
+          </svg>
+          <span>
+            <strong style={{ color: chart.info }}>Magnet</strong> — pulls price in
+          </span>
+        </span>
+        <span className="inline-flex items-center gap-2">
+          <svg width="22" height="10" aria-hidden="true">
+            <line x1="0" y1="5" x2="22" y2="5" stroke={chart.warning} strokeWidth="2.5" strokeDasharray="5 3" />
+          </svg>
+          <span>
+            <strong style={{ color: chart.warning }}>Pivot</strong> — pushes price away
+          </span>
+        </span>
+      </div>
 
       {/* THE READ — the field's two answers: its structure at spot (a magnet
           that pulls, or a pivot that pushes) and how price has reacted to it.
