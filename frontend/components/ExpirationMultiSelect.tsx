@@ -86,11 +86,17 @@ export default function ExpirationMultiSelect({
         onClick={() => setOpen((v) => !v)}
         disabled={disabled}
         title="Filter by expiration (select one or more to aggregate)"
-        className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+        className="inline-flex items-center justify-between gap-1 rounded px-2 py-1 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
         style={{
           backgroundColor: 'var(--color-surface-subtle)',
           color: 'var(--color-text-primary)',
           border: `1px solid var(--color-border)`,
+          // Wide enough for the longest summary (a full YYYY-MM-DD) so the
+          // trigger keeps one width whatever is selected. Otherwise picking a
+          // date grows the control, which can rewrap the toolbar it sits in —
+          // on a split "My Dashboard" board that pushed one half's chart down
+          // and knocked the two sides out of alignment.
+          minWidth: 104,
         }}
       >
         <span>{summary}</span>
