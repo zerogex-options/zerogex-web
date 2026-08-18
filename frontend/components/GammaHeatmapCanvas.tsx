@@ -13,6 +13,7 @@ import {
   ZoomIn,
   ZoomOut,
 } from 'lucide-react';
+import { useInDashboardWidget } from '@/core/dashboardWidget';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApiData, useGEXByStrike, useMarketQuote } from '@/hooks/useApiData';
 import { useMarketHistorical } from '@/hooks/useMarketHistorical';
@@ -177,6 +178,8 @@ export default function GammaHeatmapCanvas() {
   const [paused, setPaused] = useState<boolean>(DEFAULTS.paused);
   const [showGrid, setShowGrid] = useState<boolean>(savedSettings.showGrid);
   const [fullscreen, setFullscreen] = useState<boolean>(false);
+  // No fullscreen control inside a "My Dashboard" tile — see core/dashboardWidget.
+  const inWidget = useInDashboardWidget();
   const [expiryOpen, setExpiryOpen] = useState<boolean>(false);
   const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
 
@@ -1022,15 +1025,17 @@ export default function GammaHeatmapCanvas() {
             <Info size={14} />
           </TooltipWrapper>
         </div>
-        <button
-          type="button"
-          onClick={() => setFullscreen((v) => !v)}
-          title={fullscreen ? 'Exit fullscreen (Esc)' : 'Enter fullscreen'}
-          className="rounded-md p-1.5 transition-colors hover:bg-[color:var(--color-info-soft)]"
-          style={{ color: subtle }}
-        >
-          {fullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-        </button>
+        {!inWidget && (
+          <button
+            type="button"
+            onClick={() => setFullscreen((v) => !v)}
+            title={fullscreen ? 'Exit fullscreen (Esc)' : 'Enter fullscreen'}
+            className="rounded-md p-1.5 transition-colors hover:bg-[color:var(--color-info-soft)]"
+            style={{ color: subtle }}
+          >
+            {fullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+          </button>
+        )}
       </div>
 
       {/* Toolbar */}

@@ -2,8 +2,7 @@
 
 import { ReactNode, createContext, useContext, useState } from 'react';
 import { Expand, X } from 'lucide-react';
-import { useTheme } from '@/core/ThemeContext';
-import { colors } from '@/core/colors';
+import { useInDashboardWidget } from '@/core/dashboardWidget';
 
 interface ExpandableCardProps {
   children: ReactNode;
@@ -24,7 +23,19 @@ export default function ExpandableCard({
   expandButtonLabel = 'Expand chart',
 }: ExpandableCardProps) {
   const [expanded, setExpanded] = useState(false);
-  const { theme } = useTheme();
+  // Inside a "My Dashboard" tile the card renders bare: the tile owns its
+  // top-right corner (the Expand button sat on top of the tile's remove button)
+  // and a widget is resized by its footprint rather than blown up to fill the
+  // viewport. See core/dashboardWidget.
+  const inWidget = useInDashboardWidget();
+
+  if (inWidget) {
+    return (
+      <div className={`relative ${className}`}>
+        <ExpandedCardContext.Provider value={false}>{children}</ExpandedCardContext.Provider>
+      </div>
+    );
+  }
 
   return (
     <>

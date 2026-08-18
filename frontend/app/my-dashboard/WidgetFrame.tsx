@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 
 import type { PaneId, WidgetSize } from '@/core/myDashboardLayout';
+import { DashboardWidgetContext } from '@/core/dashboardWidget';
 import { WIDGET_COLSPAN, WIDGET_SIZE_LABEL } from '@/core/myDashboardLayout';
 import type { WidgetDef } from './registry';
 import { usePageT } from '@/core/LanguageContext';
@@ -264,10 +265,16 @@ export default function WidgetFrame({
     }
   };
 
+  // Everything a widget renders is marked as living in a tile, so the reused
+  // feature components drop their own expand / fullscreen affordance — the tile
+  // owns its top-right corner (that button used to sit on top of the remove
+  // button) and is resized by its footprint, not blown up to the viewport.
   const body = locked ? (
     <UpgradeCard widget={widget} />
   ) : (
-    <WidgetErrorBoundary resetKey={resetKey}>{widget.render()}</WidgetErrorBoundary>
+    <DashboardWidgetContext.Provider value>
+      <WidgetErrorBoundary resetKey={resetKey}>{widget.render()}</WidgetErrorBoundary>
+    </DashboardWidgetContext.Provider>
   );
 
   return (

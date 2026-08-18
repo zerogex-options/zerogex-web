@@ -16,6 +16,7 @@ import {
   ZoomIn,
   ZoomOut,
 } from 'lucide-react';
+import { useInDashboardWidget } from '@/core/dashboardWidget';
 import {
   useApiData,
   useGEXByStrike,
@@ -368,6 +369,10 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const [showPmLevels, setShowPmLevels] = useState<boolean>(savedSettings.showPmLevels);
   const [showPrevLevels, setShowPrevLevels] = useState<boolean>(savedSettings.showPrevLevels);
   const [fullscreen, setFullscreen] = useState<boolean>(false);
+  // Inside a "My Dashboard" tile there is no fullscreen control: the tile owns
+  // its top-right corner and is sized by its own footprint. See
+  // core/dashboardWidget.
+  const inWidget = useInDashboardWidget();
   const [expiryOpen, setExpiryOpen] = useState<boolean>(false);
   const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
 
@@ -1912,15 +1917,17 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
           style={{ borderBottom: `1px solid ${border}`, color: textPrimary }}
         >
           <div className="text-sm font-semibold tracking-wide">{symbol} Strike Profile</div>
-          <button
-            type="button"
-            onClick={() => setFullscreen((v) => !v)}
-            title={fullscreen ? 'Exit fullscreen (Esc)' : 'Enter fullscreen'}
-            className="rounded-md p-1.5 transition-colors hover:bg-[color:var(--color-info-soft)]"
-            style={{ color: subtle }}
-          >
-            {fullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-          </button>
+          {!inWidget && (
+            <button
+              type="button"
+              onClick={() => setFullscreen((v) => !v)}
+              title={fullscreen ? 'Exit fullscreen (Esc)' : 'Enter fullscreen'}
+              className="rounded-md p-1.5 transition-colors hover:bg-[color:var(--color-info-soft)]"
+              style={{ color: subtle }}
+            >
+              {fullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+            </button>
+          )}
         </div>
       )}
 
@@ -2134,7 +2141,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
 
         {/* Fullscreen toggle — in compact mode the title bar is hidden, so
             the expand button lives here in the toolbar instead. */}
-        {compact && (
+        {compact && !inWidget && (
           <button
             type="button"
             title={fullscreen ? 'Exit fullscreen (Esc)' : 'Enter fullscreen'}
