@@ -54,6 +54,7 @@ const {
   clearPane,
   swapPanes,
   setSplit,
+  setLinkPriceAxis,
   setPaneSymbol,
   setPaneExpirations,
   getPane,
@@ -112,6 +113,7 @@ test('a fresh layout has two panes, unsplit and unscoped', () => {
   assert.equal(layout.panes.length, 2);
   assert.deepEqual(layout.panes.map((p) => p.id), ['a', 'b']);
   assert.equal(layout.split, false);
+  assert.equal(layout.linkPriceAxis, true, 'linked price axes are the default');
   assert.equal(isLayoutEmpty(layout), true);
   assert.equal(isScoped(layout.panes[0].scope), false);
   assert.deepEqual(visiblePanes(layout).map((p) => p.id), ['a'], 'only side A renders unsplit');
@@ -306,6 +308,7 @@ test('loadLayout applies valid-id filtering to a persisted blob', () => {
     {
       version: MY_DASHBOARD_LAYOUT_VERSION,
       split: false,
+      linkPriceAxis: true,
       panes: [
         {
           id: 'a' as const,
@@ -555,4 +558,33 @@ test('paneOfInstance / allWidgets read across both halves', () => {
   assert.equal(paneOfInstance(layout, 'ghost#1'), null);
   assert.deepEqual(allWidgets(layout).map((w) => w.widgetId), ['net-gex', 'max-pain']);
   assert.equal(isLayoutEmpty(layout), false);
+});
+
+test('setLinkPriceAxis toggles, and only an explicit false survives a reload', () => {
+  const base = emptyLayout();
+  assert.equal(setLinkPriceAxis(base, true), base, 'already-on is a no-op');
+  const off = setLinkPriceAxis(base, false);
+  assert.equal(off.linkPriceAxis, false);
+  assert.equal(setLinkPriceAxis(off, true).linkPriceAxis, true);
+
+  // The field post-dates the split, so a board saved without it must keep the
+  // helpful default rather than silently losing the link.
+  assert.equal(sanitizeLayout({ panes: [] }).linkPriceAxis, true, 'absent reads as on');
+  assert.equal(sanitizeLayout({ widgets: [] }).linkPriceAxis, true, 'a pre-split board too');
+  assert.equal(
+    sanitizeLayout({ panes: [], linkPriceAxis: false }).linkPriceAxis,
+    false,
+    'an explicit false is honoured',
+  );
+  assert.equal(
+    sanitizeLayout({ panes: [], linkPriceAxis: 'nope' }).linkPriceAxis,
+    true,
+    'a junk value falls back to on',
+  );
+});
+
+test('the link setting round-trips through storage', () => {
+  memory.clear();
+  saveLayout(setLinkPriceAxis(add(emptyLayout(), 'gamma-chart', 'xl'), false), SCOPE);
+  assert.equal(loadLayout(SCOPE)!.linkPriceAxis, false);
 });

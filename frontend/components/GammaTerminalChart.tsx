@@ -35,6 +35,7 @@ import ErrorMessage from "./ErrorMessage";
 import MobileScrollableChart from "./MobileScrollableChart";
 import ExpirationMultiSelect from "./ExpirationMultiSelect";
 import { useSharedExpirations } from "@/hooks/useSharedExpirations";
+import { useLinkedPriceAxis } from "@/core/linkedPriceAxis";
 import { reconcileExpirations } from "@/core/expirationPersistence";
 import { netGexAtSpotOrNull, aboveFlipBandIsLong } from "@/core/gammaRegime";
 import { buildExpectedRange, type HorizonKey } from "@/app/live-bulletin/bulletinHelpers";
@@ -332,6 +333,15 @@ export default function GammaTerminalChart({
   const live = !delayed;
   const { symbol: ctxSymbol, setSymbol } = useTimeframe();
   const symbol = snapshot ? snapshot.symbol : ctxSymbol;
+  // On a linked split board the price axis is shared with the other half — see
+  // core/linkedPriceAxis. Null everywhere else, and every path below falls back
+  // to this chart's own private `priceView` when it is.
+  const priceLink = useLinkedPriceAxis();
+  const linkedView = priceLink ? priceLink.view : null;
+  // The window every linked chart on THIS symbol shares — the union of what
+  // each would auto-fit to on its own. Null when unlinked, or when this chart
+  // is the only one on its symbol (nothing to reconcile with).
+  const linkedBase = priceLink ? priceLink.domains.get(symbol) ?? null : null;
   const isMobile = useIsMobile();
   const [timeframeState, setTimeframe] = useState<ChartTimeframe>("5min");
   const timeframe = snapshot ? snapshot.timeframe : timeframeState;
@@ -341,6 +351,13 @@ export default function GammaTerminalChart({
   const [hydrated, setHydrated] = useState(false);
   const [view, setView] = useState<{ count: number; offset: number }>({ count: DEFAULT_COUNT, offset: 0 });
   const [priceView, setPriceView] = useState<{ zoom: number; center: number | null }>(DEFAULT_PRICE_VIEW);
+  // The zoom/pan actually on screen, wherever it is stored. Gesture handlers
+  // read this so a drag on the half that ISN'T driving still starts from what
+  // that half is showing.
+  const effPriceZoom = priceLink ? (linkedView?.zoom ?? 1) : priceView.zoom;
+  const priceIsManual = priceLink
+    ? linkedView !== null
+    : priceView.center !== null || priceView.zoom !== 1;
   // Client-stamped instant of the latest live quote tick — drives the realtime
   // "updated HH:MM:SS ET" line (see fmtEtClock). Null until the first tick and
   // in delayed mode; never used server-side, so no hydration mismatch.
@@ -751,8 +768,7 @@ export default function GammaTerminalChart({
     return base;
   }, [allBars, viewStart, viewEnd, partialCurrentBar]);
   const atLiveEdge = !rewindActive && effOffset === 0;
-  const isCustomView =
-    view.offset !== 0 || view.count !== DEFAULT_COUNT || priceView.zoom !== 1 || priceView.center !== null;
+  const isCustomView = view.offset !== 0 || view.count !== DEFAULT_COUNT || priceIsManual;
 
   // The gamma structure at the rewound moment: the exact bucket for the anchor
   // bar if one exists (aligned timeframes), else the nearest bucket in time.
@@ -959,16 +975,36 @@ export default function GammaTerminalChart({
     // auto midpoint while still auto-fitting).
     const autoMin = dMin;
     const autoMax = dMax;
+    // Raw, purely data-derived auto-fit. Reported to the link as-is (see the
+    // effect below) — it must never depend on what the link hands back, or the
+    // report and the shared window would chase each other.
     const autoMid = (autoMin + autoMax) / 2;
     const autoHalf = Math.max((autoMax - autoMin) / 2, 1e-6);
-    // While rewinding, freeze the vertical scale to the domain captured at
-    // rewind entry so scrubbing never moves the y-axis; live view fits to the
-    // visible bars. Manual zoom/pan (priceView) still applies on top of either.
+    // The window the manual zoom/pan is applied to. Three sources, in order:
+    // the axis frozen at rewind entry (so scrubbing never moves the y-axis);
+    // the window shared with the other half of a linked board (so two expiries
+    // of one symbol start out on identical price bands); or this chart's own
+    // auto-fit.
     const frozen = rewindActive ? frozenAxis : null;
-    const baseMid = frozen ? frozen.mid : autoMid;
-    const baseHalf = frozen ? frozen.half : autoHalf;
-    const half = baseHalf * priceView.zoom;
-    const center = priceView.center ?? baseMid;
+    const shared = frozen ? null : linkedBase;
+    const baseMid = frozen ? frozen.mid : shared ? (shared.min + shared.max) / 2 : autoMid;
+    const baseHalf = frozen
+      ? frozen.half
+      : shared
+        ? Math.max((shared.max - shared.min) / 2, 1e-6)
+        : autoHalf;
+    // Linked charts take their zoom/pan from the link, held relative to the
+    // base window so it means the same thing on both halves. Unlinked charts
+    // keep the private absolute-centre view they always had.
+    let half: number;
+    let center: number;
+    if (priceLink) {
+      half = baseHalf * (linkedView?.zoom ?? 1);
+      center = baseMid + (linkedView?.centerRel ?? 0) * baseHalf;
+    } else {
+      half = baseHalf * priceView.zoom;
+      center = priceView.center ?? baseMid;
+    }
     dMin = center - half;
     dMax = center + half;
 
@@ -985,8 +1021,52 @@ export default function GammaTerminalChart({
     const priceForY = (y: number) => dMin + (1 - (y - PAD_TOP) / (PRICE_BOTTOM - PAD_TOP)) * (dMax - dMin);
     const yVol = (v: number) => VOL_BOTTOM - (v / maxVol) * (VOL_BOTTOM - VOL_TOP);
 
-    return { dMin, dMax, autoMid, autoHalf, xStep, candleWidth, maxVol, priceAxis, xForIndex, yPrice, priceForY, yVol, n };
-  }, [bars, flip, callWall, putWall, vwap, priceView.zoom, priceView.center, rewindActive, frozenAxis]);
+    return { dMin, dMax, autoMid, autoHalf, baseMid, baseHalf, xStep, candleWidth, maxVol, priceAxis, xForIndex, yPrice, priceForY, yVol, n };
+  }, [bars, flip, callWall, putWall, vwap, priceView.zoom, priceView.center, rewindActive, frozenAxis, priceLink, linkedView, linkedBase]);
+
+  // Publish this chart's own auto-fit domain so the link can union it with the
+  // other half's (see core/linkedPriceAxis). Reports the RAW auto values, which
+  // are data-derived and unaffected by whatever window the link hands back — so
+  // this settles in one pass instead of oscillating. Withdrawn on unmount, and
+  // whenever the chart leaves a linked board.
+  const autoMid = layout?.autoMid ?? null;
+  const autoHalf = layout?.autoHalf ?? null;
+  const linkKey = useId();
+  const reportDomain = priceLink?.reportDomain;
+  useEffect(() => {
+    if (!reportDomain) return;
+    if (autoMid == null || autoHalf == null) {
+      reportDomain(linkKey, null);
+      return;
+    }
+    reportDomain(linkKey, { symbol, min: autoMid - autoHalf, max: autoMid + autoHalf });
+    return () => reportDomain(linkKey, null);
+  }, [reportDomain, linkKey, symbol, autoMid, autoHalf]);
+
+  // Every price zoom / pan goes through one of these two. On a linked board
+  // they write the shared view — a zoom multiplier plus a pan relative to the
+  // shared base window — so both halves move together; otherwise they update
+  // this chart's own axis exactly as before. They are split by axis so that
+  // zooming never disturbs the pan and vice versa, in either mode.
+  const commitPriceZoom = (nextZoom: number) => {
+    if (priceLink) {
+      priceLink.setView({ zoom: nextZoom, centerRel: linkedView?.centerRel ?? 0 });
+      return;
+    }
+    setPriceView((pv) => (pv.zoom === nextZoom ? pv : { zoom: nextZoom, center: pv.center }));
+  };
+
+  const commitPriceCenter = (nextCenter: number) => {
+    if (priceLink) {
+      if (!layout) return;
+      priceLink.setView({
+        zoom: linkedView?.zoom ?? 1,
+        centerRel: layout.baseHalf ? (nextCenter - layout.baseMid) / layout.baseHalf : 0,
+      });
+      return;
+    }
+    setPriceView((pv) => (pv.center === nextCenter ? pv : { zoom: pv.zoom, center: nextCenter }));
+  };
 
   // Rail silhouette geometry (net dealer gamma by price, aligned to the y-axis).
   const rail = useMemo(() => {
@@ -1130,8 +1210,8 @@ export default function GammaTerminalChart({
       startOffset: effOffset,
       startCenter: layout ? (layout.dMin + layout.dMax) / 2 : 0,
       startSpan: layout ? layout.dMax - layout.dMin : 1,
-      startPriceManual: priceView.center !== null || priceView.zoom !== 1,
-      startZoom: priceView.zoom,
+      startPriceManual: priceIsManual,
+      startZoom: effPriceZoom,
       axisZone,
       priceEngaged: false,
       moved: false,
@@ -1156,8 +1236,7 @@ export default function GammaTerminalChart({
         }
         if (drag.moved) {
           const factor = Math.exp(dyScreen * 0.006);
-          const nextZoom = clamp(drag.startZoom * factor, PRICE_ZOOM_MIN, PRICE_ZOOM_MAX);
-          setPriceView((pv) => (pv.zoom === nextZoom ? pv : { zoom: nextZoom, center: pv.center }));
+          commitPriceZoom(clamp(drag.startZoom * factor, PRICE_ZOOM_MIN, PRICE_ZOOM_MAX));
         }
         return;
       }
@@ -1183,8 +1262,7 @@ export default function GammaTerminalChart({
           const dPrice = (dyView * drag.startSpan) / (PRICE_BOTTOM - PAD_TOP);
           const lo = layout.autoMid - layout.autoHalf * 6;
           const hi = layout.autoMid + layout.autoHalf * 6;
-          const nextCenter = clamp(drag.startCenter + dPrice, lo, hi);
-          setPriceView((pv) => (pv.center === nextCenter ? pv : { zoom: pv.zoom, center: nextCenter }));
+          commitPriceCenter(clamp(drag.startCenter + dPrice, lo, hi));
         }
         return;
       }
@@ -1221,6 +1299,7 @@ export default function GammaTerminalChart({
   const resetView = () => {
     setView({ count: DEFAULT_COUNT, offset: 0 });
     setPriceView(DEFAULT_PRICE_VIEW);
+    priceLink?.setView(null);
     setHover(null);
   };
 
@@ -1241,8 +1320,18 @@ export default function GammaTerminalChart({
 
   // Vertical (price) zoom — scrunch/expand about the current center.
   const zoomPrice = (factor: number) => {
-    setPriceView((pv) => ({ zoom: clamp(pv.zoom * factor, PRICE_ZOOM_MIN, PRICE_ZOOM_MAX), center: pv.center }));
+    commitPriceZoom(clamp(effPriceZoom * factor, PRICE_ZOOM_MIN, PRICE_ZOOM_MAX));
   };
+
+  // The wheel listener below is attached natively and re-attached only when the
+  // TIME view changes, so anything it calls must be reached through a ref —
+  // closing over zoomPrice directly would freeze the price zoom at whatever it
+  // was when the listener was last attached, and every wheel tick would scale
+  // that same stale value instead of compounding.
+  const zoomPriceRef = useRef(zoomPrice);
+  useEffect(() => {
+    zoomPriceRef.current = zoomPrice;
+  });
 
   // Wheel: over the candles → time zoom (anchored on the bar under the cursor);
   // over the price axis / rail, or with Shift held → vertical price zoom.
@@ -1257,7 +1346,7 @@ export default function GammaTerminalChart({
       const vx = (e.clientX - rect.left) * (VW / Math.max(1, rect.width));
       const factor = e.deltaY < 0 ? 1 / ZOOM_FACTOR : ZOOM_FACTOR;
       if (e.shiftKey || vx > PLOT_RIGHT) {
-        setPriceView((pv) => ({ zoom: clamp(pv.zoom * factor, PRICE_ZOOM_MIN, PRICE_ZOOM_MAX), center: pv.center }));
+        zoomPriceRef.current(factor);
         return;
       }
       setHover(null);

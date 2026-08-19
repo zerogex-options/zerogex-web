@@ -156,6 +156,13 @@ export type DashboardLayout = {
   /** Whether pane 'b' renders. Pane 'b' keeps its contents while off, so
    *  un-splitting and re-splitting is non-destructive. */
   split: boolean;
+  /**
+   * Whether the two halves' Gamma Charts share one price (y) axis. On by
+   * default: the reason to put two charts side by side is to read one against
+   * the other, and that only works if a level sits at the same height on both.
+   * Has no effect unless the board is split and both halves hold a chart.
+   */
+  linkPriceAxis: boolean;
   /** Always exactly two panes, in PANE_IDS order. */
   panes: DashboardPane[];
 };
@@ -186,6 +193,7 @@ export function emptyLayout(): DashboardLayout {
   return {
     version: MY_DASHBOARD_LAYOUT_VERSION,
     split: false,
+    linkPriceAxis: true,
     panes: PANE_IDS.map(emptyPane),
   };
 }
@@ -300,6 +308,7 @@ export function sanitizeLayout(raw: unknown, validWidgetIds?: ReadonlySet<string
       pane.widgets = sanitizeWidgets(stored.widgets, taken, validWidgetIds);
     }
     out.split = blob.split === true;
+    out.linkPriceAxis = blob.linkPriceAxis !== false;
     return out;
   }
 
@@ -639,6 +648,14 @@ export function clonePane(layout: DashboardLayout, from: PaneId, to: PaneId): Da
   };
   const panes = layout.panes.map((pane) => (pane.id === to ? { ...pane, scope, widgets } : pane));
   return { ...layout, split: true, panes };
+}
+
+/**
+ * Link or unlink the two halves' price axes. Stored on the board so the choice
+ * survives a reload, like the split itself.
+ */
+export function setLinkPriceAxis(layout: DashboardLayout, link: boolean): DashboardLayout {
+  return layout.linkPriceAxis === link ? layout : { ...layout, linkPriceAxis: link };
 }
 
 /** Drop every widget from one pane, leaving its scope alone. */
