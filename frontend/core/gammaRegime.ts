@@ -86,3 +86,40 @@ export function aboveFlipBandIsLong(
   // is the opposite of the badge.
   return spot >= flip ? longGammaNow : !longGammaNow;
 }
+
+/**
+ * Regime of the single band on screen when the flip is OFF the visible price
+ * scale.
+ *
+ * The chart's price domain is fitted to the bars and can then be zoomed and
+ * panned, so the flip regularly sits outside it. When it does, the whole
+ * visible window lies on ONE side of the flip and is therefore entirely in one
+ * regime — the shading must still be painted (previously it disappeared exactly
+ * when the regime was most one-sided) and it must be the correct side:
+ *
+ *   flip below the bottom of the scale → every visible price is ABOVE it
+ *                                        → the above-flip band fills the plot
+ *   flip above the top of the scale    → every visible price is BELOW it
+ *                                        → the below-flip band fills the plot
+ *
+ * Orientation comes from the same {@link aboveFlipBandIsLong} value that drives
+ * the in-view split, so the off-scale tint and its label stay consistent with
+ * the "Dealer Gamma @ Spot" badge. Note this is a statement about the visible
+ * window, not about spot: when the view is panned to the far side of the flip
+ * from spot, the tint correctly reports the opposite regime to the badge.
+ *
+ * Callers invoke this only when the flip is outside [domainMin, domainMax];
+ * `domainMax` is not needed because "not below the bottom" then means "above
+ * the top".
+ *
+ * @param flip gamma-flip level, known to be outside the visible domain
+ * @param domainMin low edge of the visible price domain
+ * @param aboveBandIsLong orientation from {@link aboveFlipBandIsLong}
+ */
+export function offScaleBandIsLong(
+  flip: number,
+  domainMin: number,
+  aboveBandIsLong: boolean,
+): boolean {
+  return flip < domainMin ? aboveBandIsLong : !aboveBandIsLong;
+}
