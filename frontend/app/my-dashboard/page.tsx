@@ -14,13 +14,15 @@
  * layout state, persistence and the board-level controls.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   LayoutGrid,
   Pencil,
   Check,
   Columns2,
   Copy,
+  Link2,
+  Unlink,
   Plus,
   RotateCcw,
   Sparkles,
@@ -51,6 +53,7 @@ import {
   removeWidget,
   resizeWidget,
   saveLayout,
+  setLinkPriceAxis,
   setPaneExpirations,
   setPaneSymbol,
   setSplit,
@@ -68,6 +71,7 @@ import {
   type DashboardPreset,
   type WidgetDef,
 } from './registry';
+import { LinkedPriceAxisProvider } from '@/core/linkedPriceAxis';
 import DashboardPane, { paneLetter } from './DashboardPane';
 import AddWidgetGallery from './AddWidgetGallery';
 
@@ -153,6 +157,10 @@ export default function MyDashboardPage() {
     setLayout((l) => setSplit(l, !l.split));
   }, []);
 
+  const handleToggleLinkPriceAxis = useCallback(() => {
+    setLayout((l) => setLinkPriceAxis(l, !l.linkPriceAxis));
+  }, []);
+
   const handlePaneSymbol = useCallback((paneId: PaneId, next: UnderlyingSymbol | null) => {
     setLayout((l) => setPaneSymbol(l, paneId, next));
   }, []);
@@ -234,9 +242,11 @@ export default function MyDashboardPage() {
         editing={editing}
         isEmpty={isEmpty}
         split={layout.split}
+        linkPriceAxis={layout.linkPriceAxis}
         canClone={getPane(layout, 'a').widgets.length > 0}
         onToggleEdit={() => setEditing((e) => !e)}
         onToggleSplit={handleToggleSplit}
+        onToggleLinkPriceAxis={handleToggleLinkPriceAxis}
         onClone={() => handleClone('a')}
         onOpenGallery={() => setGalleryPane('a')}
         onReset={handleReset}
@@ -266,7 +276,12 @@ export default function MyDashboardPage() {
               {layout.split ? t('editingHintSplit') : t('editingHint')}
             </div>
           )}
-          <div className={layout.split ? 'zg-mydash-split' : undefined}>
+          {/* While the halves are linked, their Gamma Charts share one price
+              axis — the provider has to sit ABOVE both panes for them to meet
+              in it. Unlinked (or unsplit) there is no provider at all, so every
+              chart keeps its own axis exactly as it does on any other page. */}
+          <BoardPanes linked={layout.split && layout.linkPriceAxis}>
+            <div className={layout.split ? 'zg-mydash-split' : undefined}>
             {panes.map((pane) => (
               <DashboardPane
                 key={pane.id}
@@ -286,7 +301,8 @@ export default function MyDashboardPage() {
                 onSendToOtherPane={handleSendToPane}
               />
             ))}
-          </div>
+            </div>
+          </BoardPanes>
         </>
       )}
 
@@ -303,15 +319,35 @@ export default function MyDashboardPage() {
   );
 }
 
+// ── Board panes wrapper ───────────────────────────────────────────────────────
+
+/**
+ * Mounts the shared price-axis link around both halves when they're linked, and
+ * gets out of the way when they aren't. Keeping the provider out of the tree
+ * entirely (rather than passing it a disabled flag) is what guarantees an
+ * unlinked chart behaves precisely as it always has: it finds no link above it
+ * and never consults one.
+ *
+ * Unlinking unmounts the provider, which discards the shared zoom/pan — so
+ * turning the link off returns each half to its own auto-fit axis, which is
+ * what "unlinked" should mean.
+ */
+function BoardPanes({ linked, children }: { linked: boolean; children: ReactNode }) {
+  if (!linked) return <>{children}</>;
+  return <LinkedPriceAxisProvider>{children}</LinkedPriceAxisProvider>;
+}
+
 // ── Header ────────────────────────────────────────────────────────────────────
 
 function Header({
   editing,
   isEmpty,
   split,
+  linkPriceAxis,
   canClone,
   onToggleEdit,
   onToggleSplit,
+  onToggleLinkPriceAxis,
   onClone,
   onOpenGallery,
   onReset,
@@ -319,10 +355,12 @@ function Header({
   editing: boolean;
   isEmpty: boolean;
   split: boolean;
+  linkPriceAxis: boolean;
   /** False when side A has nothing to copy across. */
   canClone: boolean;
   onToggleEdit: () => void;
   onToggleSplit: () => void;
+  onToggleLinkPriceAxis: () => void;
   onClone: () => void;
   onOpenGallery: () => void;
   onReset: () => void;
@@ -369,6 +407,17 @@ function Header({
             >
               <Columns2 size={15} /> {t('splitView')}
             </button>
+            {split && (
+              <button
+                type="button"
+                onClick={onToggleLinkPriceAxis}
+                aria-pressed={linkPriceAxis}
+                className={`zg-btn ${linkPriceAxis ? 'zg-btn--secondary' : 'zg-btn--ghost'}`}
+                title={linkPriceAxis ? t('unlinkPriceAxisTitle') : t('linkPriceAxisTitle')}
+              >
+                {linkPriceAxis ? <Link2 size={15} /> : <Unlink size={15} />} {t('linkPriceAxis')}
+              </button>
+            )}
             {editing && (
               <button type="button" onClick={onReset} className="zg-btn zg-btn--ghost" title={t('resetBoardTitle')}>
                 <RotateCcw size={15} /> {t('reset')}
