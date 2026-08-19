@@ -18,16 +18,16 @@
  * across all twelve ZeroGEX palettes in light and dark.
  */
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
 import { Activity, ChevronsRight, Info, Moon, Pause, Play, Repeat, Rewind, Sun } from "lucide-react";
 import TooltipWrapper from "./TooltipWrapper";
-import { useApiData, useMarketQuote, useGEXProfile, useGEXSummary, useSessionCloses, type SessionClosesData, type VolatilityGaugeData } from "@/hooks/useApiData";
+import { useApiData, useMarketQuote, useGEXByStrike, useGEXProfile, useGEXSummary, useSessionCloses, type SessionClosesData, type VolatilityGaugeData } from "@/hooks/useApiData";
 import { useMarketHistorical, type PriceBar } from "@/hooks/useMarketHistorical";
 import { useStrikeProfileTimeseries, type StrikeProfileStrike } from "@/hooks/useStrikeProfileTimeseries";
 import { useTechnicals } from "@/hooks/useTechnicals";
 import { useTimeframe, type UnderlyingSymbol } from "@/core/TimeframeContext";
 import { getPrimaryPriceChangeSummary, getExtendedHoursRow } from "@/core/priceChange";
-import { omitClosedMarketTimes, shouldOmitClosedMarketTimes, isIndexSymbol, isWithinRegularMarketHours, etTradingDateLabel } from "@/core/utils";
+import { omitClosedMarketTimes, shouldOmitClosedMarketTimes, isIndexSymbol, isWithinRegularMarketHours, etTodayDateKey, etTradingDateLabel } from "@/core/utils";
 import { SYMBOLS } from "@/core/symbols";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import LoadingSpinner from "./LoadingSpinner";
@@ -38,6 +38,13 @@ import { useSharedExpirations } from "@/hooks/useSharedExpirations";
 import { useLinkedPriceAxis } from "@/core/linkedPriceAxis";
 import { reconcileExpirations } from "@/core/expirationPersistence";
 import { netGexAtSpotOrNull, aboveFlipBandIsLong } from "@/core/gammaRegime";
+import {
+  buildExpirationSplit,
+  expirationOpacityRamp,
+  expirationShares,
+  shownExpirations,
+  type ExpirationSegment,
+} from "@/core/expirationGradient";
 import { buildExpectedRange, type HorizonKey } from "@/app/live-bulletin/bulletinHelpers";
 
 type ChartTimeframe = "1min" | "5min" | "15min" | "1hr" | "1day";
@@ -152,6 +159,8 @@ interface RailStrike {
 const RAIL_STORAGE_KEY = "zg.gammaChart.rail.v1";
 // Net-overlay bar colour for "combined" mode — violet, distinct from bull/bear.
 const NET_BAR_COLOR = "#7C3AED";
+// Base opacity every rail bar (and every expiry segment within one) is drawn at.
+const RAIL_BAR_OPACITY = 0.85;
 // Below this per-strike vertical slot (px) the on-bar $ labels are suppressed;
 // zoom the price axis to spread the strikes apart and they reappear.
 const RAIL_LABEL_MIN_SLOT = 12;
@@ -1138,6 +1147,106 @@ export default function GammaTerminalChart({
       .sort((a, b) => a.price - b.price);
   }, [rewindBucket, liveGexBucket, live]);
 
+  // ── Per-expiration gradient for the rail bars ──
+  // The strike-profile timeseries sums gamma server-side across the selected
+  // expirations, so its buckets carry no per-expiration dimension. The
+  // /api/gex/by-strike snapshot IS broken out per expiration, so it supplies
+  // the *split* that subdivides each authoritative call/put bar into DTE-ranked
+  // segments — nearest expiration anchored at the zero baseline (boldest),
+  // fanning out to the furthest at the bar's tip (faintest). Exactly the ramp
+  // the GEX Strike Profile chart draws.
+  //
+  // Only fetched when it can actually be drawn: live, rail on, and in one of
+  // the call/put bar modes (Net is a single signed bar — a per-expiration net
+  // can flip sign, so it has no meaningful stack, same as the Strike Profile).
+  // The snapshot is "now", so scrubbing back through rewind drops to the
+  // bucket's plain aggregate bars.
+  const railStackEnabled =
+    live && overlays.rail && !rewindActive &&
+    (effectiveRailMode === "split" || effectiveRailMode === "combined");
+  // limit / sort match the GEX Strike Profile's call so the two pages hit the
+  // identical URL (and therefore the same server-side read cache).
+  const { data: gexByStrikeRows } = useGEXByStrike(symbol, 200, railStackEnabled ? 10000 : 0, "impact", railStackEnabled);
+
+  const todayKey = etTodayDateKey();
+
+  // strike(cents) → normalised expiration → call/put magnitudes, plus the
+  // snapshot's expiration universe (nearest-first = DTE rank).
+  const { perStrike: railPerStrikeExp, expirations: railByStrikeExps } = useMemo(
+    () => buildExpirationSplit(gexByStrikeRows, todayKey),
+    [gexByStrikeRows, todayKey],
+  );
+
+  // DTE-ranked opacity keyed on the FULL snapshot universe so a segment's shade
+  // stays stable regardless of which expirations are filtered in.
+  const railExpOpacity = useMemo(() => expirationOpacityRamp(railByStrikeExps), [railByStrikeExps]);
+
+  // The shown subset (nearest-first). Empty selection = All → whole universe.
+  const railStackExpiries = useMemo(
+    () => shownExpirations(railByStrikeExps, effectiveRailExpiries),
+    [railByStrikeExps, effectiveRailExpiries],
+  );
+
+  // Per-strike, per-side expiration SHARES (nearest→furthest DTE) among the
+  // shown expirations. These subdivide the authoritative timeseries bar width —
+  // the by-strike snapshot only supplies the *split*, never the magnitude, so a
+  // truncated/near-spot snapshot can't distort the levels: the segments always
+  // sum back to the real aggregate bar. A side with no by-strike data at a
+  // strike yields an empty list → that side renders as a single solid bar.
+  const railStackedByStrike = useMemo(() => {
+    const m = new Map<number, { call: ExpirationSegment[]; put: ExpirationSegment[] }>();
+    railPerStrikeExp.forEach((inner, key) => {
+      m.set(key, {
+        call: expirationShares(inner, railStackExpiries, (c) => c.call),
+        put: expirationShares(inner, railStackExpiries, (c) => c.put),
+      });
+    });
+    return m;
+  }, [railPerStrikeExp, railStackExpiries]);
+
+  const railStackingActive = railStackEnabled && railStackedByStrike.size > 0;
+
+  // Draws one call/put bar as its expiration stack: `totalWidth` is the
+  // authoritative aggregate width and `segs` the by-strike shares partitioning
+  // it, so the segments always sum back to the real bar. dir = +1 grows right
+  // (calls), -1 left (puts); the nearest DTE sits at the zero baseline
+  // (boldest), the furthest at the tip. Returns null when there's no
+  // per-expiration split (caller draws the plain aggregate bar instead).
+  const railStackSegments = (
+    keyPrefix: string,
+    segs: ExpirationSegment[],
+    dir: 1 | -1,
+    totalWidth: number,
+    y: number,
+    barH: number,
+    fill: string,
+  ): ReactNode[] | null => {
+    if (segs.length === 0 || !(totalWidth > 0)) return null;
+    // With a single expiration shown the DTE ramp carries no information, so
+    // render it at full strength rather than its (dimmer) absolute-DTE shade.
+    const singleShown = railStackExpiries.length <= 1;
+    const rects: ReactNode[] = [];
+    const yTop = y - barH / 2;
+    let cursor = RAIL_CENTER;
+    segs.forEach(({ exp, frac }) => {
+      const w = totalWidth * frac;
+      if (!(w > 0)) return;
+      rects.push(
+        <rect
+          key={`${keyPrefix}-${exp}`}
+          x={dir > 0 ? cursor : cursor - w}
+          y={yTop}
+          width={w}
+          height={barH}
+          fill={fill}
+          opacity={(singleShown ? 1 : railExpOpacity.get(exp) ?? 1) * RAIL_BAR_OPACITY}
+        />,
+      );
+      cursor += dir * w;
+    });
+    return rects.length ? rects : null;
+  };
+
   // Bar geometry: an x-scale max per mode, a bar thickness from the median
   // vertical strike spacing, and a density gate for the on-bar $ labels.
   const railBars = useMemo(() => {
@@ -2014,6 +2123,7 @@ export default function GammaTerminalChart({
                   {effectiveRailMode !== "silhouette" && (
                     <tspan fill="var(--text-secondary)">{`  ·  ${effectiveRailMode === "net" ? "NET" : effectiveRailMode === "split" ? "CALL / PUT" : "COMBINED"}`}</tspan>
                   )}
+                  {railStackingActive && <tspan fill="var(--text-muted)">{"  ·  BY EXPIRY"}</tspan>}
                   {filteredExp && <tspan fill="var(--color-warning)">{"  ·  FILTERED"}</tspan>}
                 </text>
                 {/* zero baseline */}
@@ -2054,10 +2164,25 @@ export default function GammaTerminalChart({
                     const pw = railBars.wFor(s.putGex);
                     const netW = railBars.wFor(s.netGex);
                     const netPos = s.netGex >= 0;
+                    // Live edge → subdivide the authoritative call/put widths
+                    // by expiration (nearest at the baseline, faintest at the
+                    // tip); otherwise, or at a strike the snapshot doesn't
+                    // cover, draw the single aggregate bars.
+                    const st = railStackingActive ? railStackedByStrike.get(Math.round(s.price * 100)) : undefined;
+                    const callSegs = st
+                      ? railStackSegments(`callseg-${s.price}`, st.call, 1, Math.max(0, cw), y, h, "var(--color-bull)")
+                      : null;
+                    const putSegs = st
+                      ? railStackSegments(`putseg-${s.price}`, st.put, -1, Math.max(0, pw), y, h, "var(--color-bear)")
+                      : null;
                     return (
                       <g key={`bar-${s.price}`}>
-                        <rect x={RAIL_CENTER} y={y - h / 2} width={Math.max(0, cw)} height={h} fill="var(--color-bull)" opacity={0.85} />
-                        <rect x={RAIL_CENTER - pw} y={y - h / 2} width={Math.max(0, pw)} height={h} fill="var(--color-bear)" opacity={0.85} />
+                        {callSegs ?? (
+                          <rect x={RAIL_CENTER} y={y - h / 2} width={Math.max(0, cw)} height={h} fill="var(--color-bull)" opacity={RAIL_BAR_OPACITY} />
+                        )}
+                        {putSegs ?? (
+                          <rect x={RAIL_CENTER - pw} y={y - h / 2} width={Math.max(0, pw)} height={h} fill="var(--color-bear)" opacity={RAIL_BAR_OPACITY} />
+                        )}
                         {/* Net overlay: same thickness as the call/put bars (the
                             split tip still shows past it), matching the GEX Strike
                             Profile's Combined view. */}
@@ -2463,6 +2588,25 @@ export default function GammaTerminalChart({
         <LegendDot color="var(--color-pin)" label="Pin Strike" />
         <LegendDot color="var(--color-hazy)" label="VWAP" />
         <LegendDot color="var(--color-accent-hot)" label="Last" />
+        {railStackingActive && (
+          <span
+            className="flex items-center gap-1.5"
+            style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, color: "var(--text-secondary)", letterSpacing: "0.03em" }}
+            title="Each rail bar is split by expiration: the nearest expiration sits at the zero line (boldest) and the furthest fans out to the tip (faintest)"
+          >
+            <span>near</span>
+            <span
+              style={{
+                width: 28,
+                height: 8,
+                display: "inline-block",
+                borderRadius: 2,
+                background: "linear-gradient(90deg, var(--text-primary) 0%, color-mix(in srgb, var(--text-primary) 25%, transparent) 100%)",
+              }}
+            />
+            <span>far</span>
+          </span>
+        )}
         <div className="ml-auto flex items-center gap-1.5" style={{ color: "var(--text-muted)" }}>
           <Info size={12} />
           <span className="zg-eyebrow" style={{ fontSize: 9.5 }}>

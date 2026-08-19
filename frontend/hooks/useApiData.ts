@@ -530,12 +530,14 @@ export function useGEXByStrike(
   symbol = 'SPY',
   limit = 50,
   refreshInterval = 10000,
-  sortBy: 'distance' | 'impact' = 'distance'
+  sortBy: 'distance' | 'impact' = 'distance',
+  enabled = true,
 ) {
   return useApiData<GEXStrikeRow[]>(
     `/api/gex/by-strike?${symbolQuery(symbol, { limit, sort_by: sortBy })}`,
     {
       refreshInterval,
+      enabled,
       shouldAcceptData: shouldAcceptGexStrikeSnapshot,
     },
   );

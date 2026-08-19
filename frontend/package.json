@@ -49,6 +49,7 @@
     "test:strike-filter": "node --experimental-strip-types --test tests/strikeFilter.test.ts",
     "test:pin-strike": "node --experimental-strip-types --test tests/pinStrike.test.ts",
     "test:gex-strike-charts": "node --experimental-strip-types --test tests/gexStrikeCharts.test.ts",
+    "test:expiration-gradient": "node --experimental-strip-types --test tests/expirationGradient.test.ts",
     "test:flow-series-charts": "node --experimental-strip-types --test tests/flowSeriesCharts.test.ts",
     "test:gamma-regime": "node --experimental-strip-types --test tests/gammaRegime.test.ts",
     "test:implied-direction": "node --experimental-strip-types --test tests/impliedDirection.test.ts",
