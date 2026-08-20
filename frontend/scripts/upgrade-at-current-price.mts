@@ -78,6 +78,10 @@ import Stripe from 'stripe';
 import { couponResultCents, holdSteadyDiscountCents } from '../core/holdRate.ts';
 
 const AUDIT_TYPE = 'billing_tier_upgraded_at_current_price';
+// Stamped on every coupon this script mints, so a later run can find and reuse
+// one instead of minting a near-duplicate, and so --list-orphans can tell our
+// coupons apart from the configured ones in .env.local.
+const COUPON_REASON = 'upgrade_at_current_price';
 const VALID_TIERS = ['basic', 'pro'];
 const DEFAULT_WAIT_SECONDS = 120;
 const POLL_INTERVAL_MS = 3000;
@@ -92,6 +96,7 @@ type Cadence = 'monthly' | 'annual';
 
 type Args = {
   email: string | null;
+  listOrphans: boolean;
   tier: string;
   currentPrice: number | null;
   coupon: string | null;
@@ -126,6 +131,7 @@ function parseEnvFile(filePath: string): Record<string, string> {
 function parseArgs(argv: string[]): Args {
   const args: Args = {
     email: null,
+    listOrphans: false,
     tier: 'pro',
     currentPrice: null,
     coupon: null,
@@ -137,6 +143,7 @@ function parseArgs(argv: string[]): Args {
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === '--email') args.email = (argv[++i] ?? '').trim().toLowerCase() || null;
+    else if (arg === '--list-orphans') args.listOrphans = true;
     else if (arg === '--tier') args.tier = (argv[++i] ?? '').trim().toLowerCase();
     else if (arg === '--current-price') args.currentPrice = Number(argv[++i]);
     else if (arg === '--coupon') args.coupon = (argv[++i] ?? '').trim() || null;
@@ -163,7 +170,10 @@ Switches the subscription onto the target tier's price and discounts it back
 down to what they already pay, so the Stripe webhook grants the tier itself.
 
 Options:
-      --email <addr>        Member to upgrade (required).
+      --email <addr>        Member to upgrade (required, except --list-orphans).
+      --list-orphans        List every hold-steady coupon this script has ever
+                            minted and say which are still applied. Read-only;
+                            no other flag is needed.
       --tier <tier>         Target tier: ${VALID_TIERS.join(' | ')} (default: pro).
       --current-price <n>   Override the detected rate, in dollars (e.g. 19).
                             Use when the upcoming-invoice preview isn't a
@@ -248,7 +258,7 @@ if (cliArgs.help) {
   process.exit(0);
 }
 
-if (!cliArgs.email) {
+if (!cliArgs.email && !cliArgs.listOrphans) {
   console.error('Error: --email is required. See --help.');
   process.exit(1);
 }
@@ -312,6 +322,111 @@ function loadUser(): UserRow {
     process.exit(1);
   }
   return found;
+}
+
+// Every coupon this script has ever minted, oldest first. Stripe cannot filter
+// by metadata, so we page the whole list and match on our marker — fine at the
+// scale a single-operator SaaS mints these.
+async function listMintedCoupons(client: Stripe): Promise<Stripe.Coupon[]> {
+  const found: Stripe.Coupon[] = [];
+  let startingAfter: string | undefined;
+  for (;;) {
+    const page: Stripe.ApiList<Stripe.Coupon> = await client.coupons.list({
+      limit: 100,
+      ...(startingAfter ? { starting_after: startingAfter } : {}),
+    });
+    for (const coupon of page.data) {
+      if (coupon.metadata?.reason === COUPON_REASON) found.push(coupon);
+    }
+    if (!page.has_more || page.data.length === 0) break;
+    startingAfter = page.data[page.data.length - 1].id;
+  }
+  return found.reverse();
+}
+
+function subscriptionCouponIds(sub: Stripe.Subscription): string[] {
+  const discounts = (sub.discounts ?? []) as unknown[];
+  const ids: string[] = [];
+  for (const entry of discounts) {
+    if (typeof entry === 'string') {
+      ids.push(entry);
+      continue;
+    }
+    const coupon = (entry as { coupon?: { id?: string } | string }).coupon;
+    if (typeof coupon === 'string') ids.push(coupon);
+    else if (coupon?.id) ids.push(coupon.id);
+  }
+  return ids;
+}
+
+// A minted coupon is live only if it is still applied to the subscription of the
+// member it was minted for. Its metadata.user_id gives us that member directly,
+// so this stays O(coupons) rather than scanning every subscription.
+async function couponIsApplied(client: Stripe, coupon: Stripe.Coupon): Promise<boolean> {
+  const userId = coupon.metadata?.user_id;
+  if (!userId) return false;
+  const rows = querySqlite<{ stripe_subscription_id: string | null }>(
+    dbPath,
+    `SELECT stripe_subscription_id FROM users WHERE id = '${escapeSqlLiteral(userId)}' LIMIT 1;`,
+  );
+  const subId = rows[0]?.stripe_subscription_id;
+  if (!subId) return false;
+  try {
+    const sub = await client.subscriptions.retrieve(subId);
+    return subscriptionCouponIds(sub).includes(coupon.id);
+  } catch {
+    // Subscription gone (cancelled, deleted) — nothing is holding the coupon.
+    return false;
+  }
+}
+
+if (cliArgs.listOrphans) {
+  const client = new Stripe(STRIPE_SECRET_KEY);
+  let minted: Stripe.Coupon[];
+  try {
+    minted = await listMintedCoupons(client);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'unknown error';
+    console.error(`Error: could not list coupons from Stripe: ${message}`);
+    process.exit(1);
+  }
+  if (minted.length === 0) {
+    console.log('No hold-steady coupons have been minted by this script.');
+    process.exit(0);
+  }
+  console.log(`Hold-steady coupons minted by this script (metadata.reason=${COUPON_REASON}):\n`);
+  const orphans: string[] = [];
+  for (const coupon of minted) {
+    const applied = await couponIsApplied(client, coupon);
+    if (!applied) orphans.push(coupon.id);
+    const amount =
+      typeof coupon.amount_off === 'number'
+        ? formatCents(coupon.amount_off, coupon.currency ?? 'usd')
+        : coupon.percent_off != null
+          ? `${coupon.percent_off}%`
+          : '—';
+    const emailRows = coupon.metadata?.user_id
+      ? querySqlite<{ email: string }>(
+          dbPath,
+          `SELECT email FROM users WHERE id = '${escapeSqlLiteral(coupon.metadata.user_id)}' LIMIT 1;`,
+        )
+      : [];
+    console.log(
+      `  ${applied ? 'IN USE ' : 'ORPHAN '} ${coupon.id.padEnd(12)} ${amount.padEnd(9)} off, ${coupon.duration}` +
+        `  ${emailRows[0]?.email ?? coupon.metadata?.user_id ?? 'unknown member'}` +
+        `  created ${new Date(coupon.created * 1000).toISOString().slice(0, 10)}`,
+    );
+  }
+  console.log('');
+  if (orphans.length === 0) {
+    console.log('Every minted coupon is still applied — nothing to clean up.');
+  } else {
+    console.log(`Safe to delete in Stripe (applied to nothing): ${orphans.join(', ')}`);
+    console.log('Deleting a coupon never disturbs discounts already applied elsewhere.');
+    console.log('Leave every coupon marked IN USE, and never touch the configured');
+    console.log('STRIPE_COUPON_* coupons in .env.local — they are not listed here.');
+  }
+  process.exit(0);
 }
 
 const user = loadUser();
@@ -508,25 +623,54 @@ if (discountCents > 0) {
     couponId = existing.id;
     console.log(`\nUsing coupon ${couponId}.`);
   } else {
+    // Reuse before minting. A repair run would otherwise leave another
+    // near-identical forever-coupon behind every time, and picking the live one
+    // out of a pile of them later is exactly the kind of mistake that
+    // overcharges someone. Match on our marker plus the member and the exact
+    // rate, so a reused coupon is provably interchangeable with a fresh one.
+    let reused: Stripe.Coupon | null = null;
     try {
-      const created = await stripe.coupons.create({
-        amount_off: discountCents,
-        currency,
-        duration: 'forever',
-        name: `${cliArgs.tier} at legacy rate (${formatCents(currentEffectiveCents, currency)})`,
-        metadata: {
-          reason: 'upgrade_at_current_price',
-          user_id: user.id,
-          held_rate_cents: String(currentEffectiveCents),
-        },
-      });
-      couponId = created.id;
-      console.log(`\nCreated coupon ${couponId} — ${formatCents(discountCents, currency)} off, forever.`);
+      const minted = await listMintedCoupons(stripe);
+      reused =
+        minted.find(
+          (c) =>
+            c.valid &&
+            c.duration === 'forever' &&
+            c.amount_off === discountCents &&
+            (c.currency ?? 'usd') === currency &&
+            c.metadata?.user_id === user.id &&
+            c.metadata?.held_rate_cents === String(currentEffectiveCents),
+        ) ?? null;
     } catch (err) {
+      // A listing failure is not fatal — fall through and mint a new one.
       const message = err instanceof Error ? err.message : 'unknown error';
-      console.error(`\nError: could not create the hold-steady coupon: ${message}`);
-      console.error('No changes were made to the subscription.');
-      process.exit(1);
+      console.error(`Warning: could not scan existing coupons (${message}); minting a new one.`);
+    }
+
+    if (reused) {
+      couponId = reused.id;
+      console.log(`\nReusing coupon ${couponId} — ${formatCents(discountCents, currency)} off, forever.`);
+    } else {
+      try {
+        const created = await stripe.coupons.create({
+          amount_off: discountCents,
+          currency,
+          duration: 'forever',
+          name: `${cliArgs.tier} at legacy rate (${formatCents(currentEffectiveCents, currency)})`,
+          metadata: {
+            reason: COUPON_REASON,
+            user_id: user.id,
+            held_rate_cents: String(currentEffectiveCents),
+          },
+        });
+        couponId = created.id;
+        console.log(`\nCreated coupon ${couponId} — ${formatCents(discountCents, currency)} off, forever.`);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'unknown error';
+        console.error(`\nError: could not create the hold-steady coupon: ${message}`);
+        console.error('No changes were made to the subscription.');
+        process.exit(1);
+      }
     }
   }
 }

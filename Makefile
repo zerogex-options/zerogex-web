@@ -661,6 +661,17 @@ upgrade-at-current-price:
 #   make comp-member EMAIL=foo@example.com DRY_RUN=1
 #   make comp-member EMAIL=foo@example.com REFUND=1 YES=1
 #   make comp-member EMAIL=foo@example.com FINALIZE=1 YES=1
+# List every hold-steady coupon `upgrade-at-current-price` has ever minted and
+# say which are still applied to the member they were minted for. Read-only.
+# Anything marked ORPHAN is applied to nothing and is safe to delete in Stripe;
+# deleting a coupon never disturbs discounts already applied elsewhere. The
+# configured STRIPE_COUPON_* coupons from .env.local are never listed here and
+# must never be deleted -- every paying member shares those.
+# Usage:
+#   make held-rate-coupons
+held-rate-coupons:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/upgrade-at-current-price.mts --list-orphans'
+
 COMP_TIER ?= pro
 comp-member:
 	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make comp-member EMAIL=foo@example.com DRY_RUN=1)"; exit 1; fi
