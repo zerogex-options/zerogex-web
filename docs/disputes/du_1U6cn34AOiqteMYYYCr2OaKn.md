@@ -274,7 +274,21 @@ does not concede the disputed charge, which covers service already delivered for
 2026-08-13 to 2026-09-13 period. Recommended sequence:
 
 1. Submit the evidence above before 2026-09-05.
-2. Cancel `sub_1U1YUq4AOiqteMYYGmVCi5Cn` at period end so no further charge is attempted.
+2. Cancel `sub_1U1YUq4AOiqteMYYGmVCi5Cn` **at period end** so no further charge is
+   attempted, using `make set-cancellation EMAIL=jeremyy.zamora@gmail.com ON=1` (dry-run
+   first). He keeps access through 2026-09-13, which he paid for, and the subscription
+   then ends with no renewal.
+
+   Do **not** use `make cancel-subscription` for this. That target is for a sub stuck in
+   `past_due`/`unpaid`: it cancels immediately, drops the account to `public`, revokes API
+   keys, and ends paid access with no refund — it refuses an `active` sub without `FORCE=1`
+   for exactly that reason. Using it here would end access he has already paid for and
+   would cost us the "he retained full access for the whole period he was billed for" fact
+   that the evidence relies on.
+
+   `set-cancellation` also sends no email, and because it mirrors the flag locally it
+   suppresses the webhook's 0→1 cancel-ack transition — so it will not fire the retention
+   email offering him 25% off, which is not something to send a customer mid-chargeback.
 3. Optionally email the customer stating the subscription is cancelled and no further
    charges will occur. This costs nothing and occasionally results in the cardholder
    withdrawing the dispute with their bank, which is the cleanest possible outcome.
