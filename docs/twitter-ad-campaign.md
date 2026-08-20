@@ -371,7 +371,7 @@ video (1280×720, ≤15s)**; optional **2–6 card carousel** ("the 4 levels tha
 | C6 | **The offer** (clean risk-reversal card) | 7 DAYS FREE. NO CHARGE UNTIL DAY 7. | CONVERT |
 
 **Reuse, don't rebuild** — assets already in-repo:
-- `assets/branding/og-image.png` (1200×630) — the master lockup, drop-in ready.
+- `assets/branding/og-image.png` (1731×909) — the master lockup, drop-in ready.
 - `assets/blog/` screenshots — `zerogex-dashboard-overview`, `zerogex-strike-dte-heatmap`,
   `zerogex-walls-chart`, `zerogex-gamma-flip-card`, `zerogex-net-gex-flip-card`,
   `zerogex-max-pain-card`, `zerogex-strike-profile-flip`, … (feed C3/C4/carousel).
