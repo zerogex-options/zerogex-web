@@ -1691,7 +1691,7 @@ export default function GammaTerminalChart({
   // Level definitions rendered as reference lines + right-axis tags.
   type LevelDef = { key: string; label: string; value: number | null; color: string; dash: string; show: boolean };
   const levelDefs: LevelDef[] = [
-    { key: "flip", label: "FLIP", value: flip, color: "var(--heat-mid)", dash: "7 4", show: overlays.levels },
+    { key: "flip", label: "FLIP", value: flip, color: "var(--color-flip)", dash: "7 4", show: overlays.levels },
     { key: "call", label: "CALL WALL", value: callWall, color: "var(--color-bull)", dash: "3 4", show: overlays.levels },
     { key: "put", label: "PUT WALL", value: putWall, color: "var(--color-bear)", dash: "3 4", show: overlays.levels },
     { key: "pain", label: "MAX PAIN", value: maxPain, color: "var(--color-gold)", dash: "1 5", show: overlays.maxPain },
@@ -1970,7 +1970,7 @@ export default function GammaTerminalChart({
           <div className="hidden sm:block" style={{ width: 1, height: 22, background: "var(--border-default)" }} />
 
           {/* Overlay pills */}
-          <OverlayPill label="Gamma Levels" color="var(--heat-mid)" active={overlays.levels} onClick={() => setOverlays((o) => ({ ...o, levels: !o.levels }))} />
+          <OverlayPill label="Gamma Levels" color="var(--color-flip)" active={overlays.levels} onClick={() => setOverlays((o) => ({ ...o, levels: !o.levels }))} />
           <OverlayPill label="Gamma Rail" color="var(--color-bull)" active={overlays.rail} onClick={() => setOverlays((o) => ({ ...o, rail: !o.rail }))} />
           <OverlayPill label="Regime" color="var(--color-accent-hot)" active={overlays.regime} onClick={() => setOverlays((o) => ({ ...o, regime: !o.regime }))} />
           <OverlayPill label="VWAP" color="var(--color-hazy)" active={overlays.vwap} onClick={() => setOverlays((o) => ({ ...o, vwap: !o.vwap }))} />
@@ -2228,7 +2228,7 @@ export default function GammaTerminalChart({
 
                 {/* flip zero-crossing tie-line to the plot */}
                 {inDomain(flip) && (
-                  <line x1={RAIL_LEFT - 6} x2={RAIL_RIGHT} y1={yPrice(flip)} y2={yPrice(flip)} stroke="var(--heat-mid)" strokeWidth={1} strokeDasharray="2 3" opacity={0.6} />
+                  <line x1={RAIL_LEFT - 6} x2={RAIL_RIGHT} y1={yPrice(flip)} y2={yPrice(flip)} stroke="var(--color-flip)" strokeWidth={1} strokeDasharray="2 3" opacity={0.6} />
                 )}
               </g>
             )}
@@ -2299,6 +2299,54 @@ export default function GammaTerminalChart({
                 </text>
               </g>
             ))}
+
+            {/* ── Flip status chip — why there is no FLIP line ─────────────
+                 The flip is the one level whose ABSENCE is itself a question:
+                 users see an empty plot where they expected a line and can't
+                 tell whether the level is off the visible scale or simply
+                 wasn't resolved. The arrowed axis tag (off-scale) and the "—"
+                 in the regime badge (unresolved) both answer it, but neither
+                 sits where the user is looking. This says it in place.
+                   * off scale  → flip colour, arrow toward it, price included
+                                  so the chip is self-sufficient
+                   * unresolved → muted, no price: the profile came back
+                                  one-signed or too thin to place a crossing */}
+            {overlays.levels && (flip == null || !inDomain(flip)) && (() => {
+              const offScaleUp = flip != null && flip > layout.dMax;
+              const label =
+                flip == null ? "FLIP UNAVAILABLE" : `FLIP ${offScaleUp ? "↑" : "↓"} ${fmtPrice(flip)}`;
+              const color = flip == null ? "var(--text-muted)" : "var(--color-flip)";
+              // Pinned to the edge the flip lies beyond, so the chip points at
+              // the off-screen level rather than floating mid-plot. Two things
+              // already own the top-left of the plot: the OHLC readout (an
+              // absolutely-positioned div painted OVER the svg — a chip up
+              // there is invisible, not just crowded) and the centred
+              // off-scale regime caption. So the top slot sits below both, and
+              // the unresolved case — which has no direction to point in, and
+              // no caption since the regime band needs a flip — is parked at
+              // the bottom edge, the one corner nothing else claims.
+              const y = offScaleUp ? PAD_TOP + 46 : PRICE_BOTTOM - 10;
+              // De-collide against the level chips the same way they
+              // de-collide against each other: shift right past any chip whose
+              // row this one would land in.
+              const x = chipPlacements.reduce(
+                (acc, c) => (Math.abs(c.y - y) < 16 ? Math.max(acc, c.x + c.w + 5) : acc),
+                PLOT_LEFT + 6,
+              );
+              return (
+                <g transform={`translate(${x}, ${y})`} opacity={0.9}>
+                  <rect x={0} y={-8} width={labelWidth(label)} height={16} rx={2} fill="var(--bg-card)" stroke={color} strokeWidth={1} strokeDasharray={flip == null ? "2 2" : undefined} opacity={0.95} />
+                  <text x={6} y={3.5} fontFamily="var(--font-mono)" fontSize={9.5} letterSpacing="0.08em" fill={color} fontWeight={600}>
+                    {label}
+                  </text>
+                  <title>
+                    {flip == null
+                      ? "No gamma flip could be resolved for this snapshot — the scanned gamma profile came back one-signed, or the chain was too thin to place the zero crossing. Nothing is drawn rather than a level we don't trust."
+                      : `The gamma flip sits at ${fmtPrice(flip)}, outside the price range on screen. Zoom the price axis out (Price −, Shift+scroll, or drag the right-hand price scale) to bring it into view.`}
+                  </title>
+                </g>
+              );
+            })()}
 
             {/* ── Last-price line + live cursor (tag drawn in declutter pass) ── */}
             {(() => {
@@ -2608,7 +2656,7 @@ export default function GammaTerminalChart({
 
       {/* ── Footer legend ───────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-4 py-2.5" style={{ borderTop: "1px solid var(--border-default)", background: "var(--bg-subtle)" }}>
-        <LegendDot color="var(--heat-mid)" label="Gamma Flip" />
+        <LegendDot color="var(--color-flip)" label="Gamma Flip" />
         <LegendDot color="var(--color-bull)" label="Call Wall" />
         <LegendDot color="var(--color-bear)" label="Put Wall" />
         <LegendDot color="var(--color-gold)" label="Max Pain" />

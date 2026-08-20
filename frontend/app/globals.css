@@ -30,9 +30,13 @@
   --accent-3: #2563EB;
   --accent-4: #E0527E;
 
-  /* Live-now cursor accent. Defined in every named palette; this is the
-     base-root fallback (was missing, leaving --color-accent-hot undefined
-     in the default theme). Distinct from --heat-mid amber (the flip). */
+  /* Live-now cursor accent — the last-traded-price line. Defined in every
+     named palette; this is the base-root fallback (was missing, leaving
+     --color-accent-hot undefined in the default theme). The gamma flip used
+     to borrow --heat-mid, which most palettes tune to a red that lands on
+     top of this one (several set them to the SAME hex), so the two most
+     important lines on the Gamma Chart were indistinguishable. The flip now
+     has its own token below — keep these two apart in any new palette. */
   --color-accent-hot: var(--accent-4);
   --color-accent-soft: rgba(224, 82, 126, 0.14);
 
@@ -53,9 +57,20 @@
   --color-king: #8B5CF6;
   --color-king-soft: rgba(139, 92, 246, 0.16);
 
+  /* Gamma Flip — the dealer-gamma regime boundary. An azure placed
+     deliberately outside the warm ramp: the flip separates the green
+     (long-gamma) and red (short-gamma) shading, so it must not read as
+     either, and it must never be confused with the --color-accent-hot
+     last-price line, which every palette tunes warm. Blue also matches the
+     flip line already drawn on the Gamma Heatmap (--accent-2), so the level
+     keeps one identity across charts. Defined once here; every named palette
+     inherits it, so the flip stays consistently azure across themes. */
+  --color-flip: #3B9EFF;
+  --color-flip-soft: rgba(59, 158, 255, 0.16);
+
   /* Pin Strike — the reachable 0DTE strike with the strongest modeled
      positive (restoring) dealer-gamma pin. A teal placed deliberately outside
-     the green/red walls, the amber gamma-flip, the gold Max-Pain and the
+     the green/red walls, the azure gamma-flip, the gold Max-Pain and the
      violet King so the pin reads as its own distinct level. Defined once here;
      every named palette inherits it, so the pin stays consistently teal across
      themes. */
