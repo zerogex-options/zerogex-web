@@ -116,6 +116,28 @@ and `scripts/setup-billing-portal.mts`.
 
 ### The paid-after-cancel case (orphaned payments)
 
+**Finding the ones who never wrote in.** `make recover-orphan-payment EMAIL=…`
+answers "is this member stranded?", which only helps for the ones who contact
+you. Most will not: a stranded member sees a Public account and believes the
+dunning emails that told them the payment failed. Sweep for them instead:
+
+```
+make scan-orphan-payments                        # last 120 days
+make scan-orphan-payments SINCE_DAYS=365 VERBOSE=1
+```
+
+It walks Stripe's paid invoices, keeps the ones whose customer is on a free tier
+locally, and runs each through the same `decideOrphanPayment` the webhook uses.
+Read-only — every hit prints the `recover-orphan-payment` command that fixes it,
+itself a dry run until `YES=1`.
+
+Do not hunt for these in SQL alone. `tier='public' AND subscription_status='canceled'`
+is every trial that ended without converting — ~195 rows on this deploy, almost
+all ordinary churn. The signal that separates a stranded payer from a lapsed
+trialist is money collected against no live subscription, and that lives only in
+Stripe.
+
+
 *Cancel the subscription* does **not** void the invoice that failed. It stays
 `open`, and its hosted invoice URL is in every dunning email Stripe already sent.
 So a member whose subscription was just canceled for nonpayment can still fix
