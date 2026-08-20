@@ -131,6 +131,20 @@ locally, and runs each through the same `decideOrphanPayment` the webhook uses.
 Read-only — every hit prints the `recover-orphan-payment` command that fixes it,
 itself a dry run until `YES=1`.
 
+The sweep sorts what it finds into three answers, because they need three
+different responses:
+
+- **Orphaned payments** — paid, on a free tier, and the period is still running.
+  One `recover-orphan-payment` command fixes each.
+- **Lost paid time** — paid, then cut off *before* the period they bought was
+  over, and that period has since expired. Re-creating the subscription is the
+  wrong remedy here: it would hand them future time instead of the days they
+  lost. A refund or a credit is the answer, and it is your call. Voluntary
+  cancellations are excluded — a member who asked to cancel early gave those days
+  up themselves.
+- **Needs a look** — money with no entitlement where the plan to restore was not
+  unambiguous (a retired price, an unreadable period).
+
 Do not hunt for these in SQL alone. `tier='public' AND subscription_status='canceled'`
 is every trial that ended without converting — ~195 rows on this deploy, almost
 all ordinary churn. The signal that separates a stranded payer from a lapsed
