@@ -609,6 +609,33 @@ grant-partner-pro:
 	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make grant-partner-pro EMAIL=foo@example.com YES=1)"; exit 1; fi
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/grant-partner-pro.mts --email $(EMAIL) $(if $(DAYS),--days $(DAYS),) $(if $(COMMISSION_BPS),--commission-bps $(COMMISSION_BPS),) $(if $(WINDOW_MONTHS),--window-months $(WINDOW_MONTHS),) $(if $(PROMO_CODE),--promo-code $(PROMO_CODE),) $(if $(COUPON_ID),--coupon-id $(COUPON_ID),) $(if $(DISCLOSURE_URL),--disclosure-url $(DISCLOSURE_URL),) $(if $(X_HANDLE),--x-handle $(X_HANDLE),) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
 
+# Permanently comp ONE member onto a paid tier for free -- the "thanks for the
+# bug report, here's Pro on the house" path. Handles both shapes of account: a
+# member with no subscription (bare tier flip) and a PAYING member, whose live
+# subscription has to be retired first IN A SPECIFIC ORDER.
+#
+# Do not hand-roll this with update-user-tier. Both natural orderings are wrong:
+# flipping the tier on a paying member does not hold (every subscription sync
+# recomputes tier from the Stripe price, so their next renewal silently reverts
+# it -- and they keep being charged), while cancelling AFTER granting the comp
+# destroys it (subscription.deleted hard-sets tier='public', leaving them BELOW
+# where they started). This target cancels first, WAITS for the deleted webhook
+# to actually land, and only then writes the comped tier.
+#
+# REFUND=1 also refunds the member's most recent paid invoice -- cancelling is
+# not a refund, and a member mid-period has already paid for time you are about
+# to give away. FINALIZE=1 skips the cancel and just lands the comp; use it if
+# the webhook wait times out (the script tells you when). Sends NO email --
+# write to the member yourself. Run `make diagnose-user EMAIL=...` first.
+# Usage:
+#   make comp-member EMAIL=foo@example.com DRY_RUN=1
+#   make comp-member EMAIL=foo@example.com REFUND=1 YES=1
+#   make comp-member EMAIL=foo@example.com FINALIZE=1 YES=1
+COMP_TIER ?= pro
+comp-member:
+	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make comp-member EMAIL=foo@example.com DRY_RUN=1)"; exit 1; fi
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/comp-member.mts --email $(EMAIL) --tier $(if $(TIER),$(TIER),$(COMP_TIER)) $(if $(REFUND),--refund,) $(if $(FINALIZE),--finalize,) $(if $(WAIT_SECONDS),--wait-seconds $(WAIT_SECONDS),) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
+
 # Wind down a Creator Partner: clear partner_* state on the user, deactivate
 # their Stripe promotion_code, downgrade tier='pro' -> 'public' only if no
 # active paying Stripe sub. Keeps referral_code (referrals ledger references

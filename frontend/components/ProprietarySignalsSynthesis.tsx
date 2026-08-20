@@ -1,7 +1,8 @@
 'use client';
 
 import { type ReactNode, useMemo } from 'react';
-import { Info, Minus, TrendingDown, TrendingUp } from 'lucide-react';
+import Link from 'next/link';
+import { Info, Lock, Minus, TrendingDown, TrendingUp } from 'lucide-react';
 import {
   useBasicSignalsBundle,
   useEodPressureSignal,
@@ -21,6 +22,7 @@ import { useHasTierAccess } from '@/hooks/useAuthSession';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 import { REGIME_BANDS, classifyRegime } from '@/core/regime';
 import { asObject, getNumber } from '@/core/signalHelpers';
+import { buildRegimeTriggers, type RegimeTrigger } from '@/core/regimeTriggers';
 import { colors } from '@/core/colors';
 import { spectrumIndicatorLeft } from '@/core/spectrumIndicator';
 import TooltipWrapper from './TooltipWrapper';
@@ -341,42 +343,6 @@ const BASIC_SIGNAL_LABELS: Record<BasicSignalName, string> = {
   positioning_trap: 'Positioning Trap',
 };
 
-interface RegimeTrigger {
-  key: string;
-  label: string;
-  // 0–100 readiness / imminence / loading; null when data is missing.
-  magnitude: number | null;
-  // Backend-provided playbook state label (e.g. "Break Watch", "Loaded").
-  state: string | null;
-  // Optional directional tag the backend attaches to the trigger; shown as
-  // context only — these signals are not directional votes.
-  direction: 'bullish' | 'bearish' | 'neutral' | null;
-}
-
-function extractDirection(raw: unknown): 'bullish' | 'bearish' | 'neutral' | null {
-  if (typeof raw === 'string') {
-    const v = raw.toLowerCase();
-    if (v === 'bullish' || v === 'bearish' || v === 'neutral') return v;
-  }
-  if (typeof raw === 'number' && Number.isFinite(raw)) {
-    if (raw > 0) return 'bullish';
-    if (raw < 0) return 'bearish';
-    return 'neutral';
-  }
-  return null;
-}
-
-// vol_expansion has no backend-provided label; derive a state band from
-// the `expansion` readiness (already 0–100). Thresholds match the
-// `triggered` cutoff (|score| ≥ 0.25 with readiness floor 0.15 ⇒ ~25 as
-// the lower band; full readiness saturates at 100).
-function deriveVolExpansionState(expansion: number | null): string | null {
-  if (expansion == null) return null;
-  if (expansion >= 70) return 'Loaded';
-  if (expansion >= 40) return 'Building';
-  return 'Quiet';
-}
-
 function regimeStateColor(magnitude: number | null): string {
   if (magnitude == null) return 'var(--color-text-secondary)';
   if (magnitude >= 70) return 'var(--color-bull)';
@@ -386,9 +352,13 @@ function regimeStateColor(magnitude: number | null): string {
 
 interface RegimeTriggersCardProps {
   triggers: RegimeTrigger[];
+  // True when the viewer lacks Pro, so these Pro-only endpoints were never
+  // fetched. Without this the rows read "awaiting data", which looks like a
+  // feed outage rather than a tier gate.
+  locked: boolean;
 }
 
-function RegimeTriggersCard({ triggers }: RegimeTriggersCardProps) {
+function RegimeTriggersCard({ triggers, locked }: RegimeTriggersCardProps) {
   return (
     <CardShell
       title="Regime Triggers · Readiness"
@@ -430,13 +400,30 @@ function RegimeTriggersCard({ triggers }: RegimeTriggersCardProps) {
               </div>
               <div className="flex items-center justify-between text-[10px]">
                 <span style={{ color: 'var(--text-secondary)' }}>
-                  {trigger.state ?? (trigger.magnitude == null ? 'awaiting data' : '—')}
+                  {trigger.state ?? (trigger.magnitude == null ? (locked ? 'Pro' : 'awaiting data') : '—')}
                 </span>
               </div>
             </div>
           );
         })}
       </div>
+      {locked && (
+        // Same upgrade affordance the widget gallery uses for a Pro tile a
+        // Basic member can see but not open. Without it the card is three
+        // dashes and no explanation, which reads as broken rather than gated.
+        <div className="mt-auto pt-3">
+          <Link
+            href="/pricing"
+            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold"
+            style={{ background: 'var(--color-accent-hot)', color: 'var(--text-inverse)' }}
+          >
+            <Lock size={12} /> Unlock with Pro
+          </Link>
+          <p className="mt-2 text-[10px]" style={{ color: 'var(--text-secondary)' }}>
+            Regime readiness is a Pro signal. Composite MSI and Signal Breadth stay on Basic.
+          </p>
+        </div>
+      )}
     </CardShell>
   );
 }
@@ -505,35 +492,14 @@ export default function ProprietarySignalsSynthesis() {
     gammaVwap.data,
   ]);
 
-  const regimeTriggers = useMemo<RegimeTrigger[]>(() => {
-    const volCtx = asObject(volExpansion.data);
-    const rbCtx = asObject(asObject(rangeBreak.data)?.context_values);
-    const mpCtx = asObject(asObject(marketPressure.data)?.context_values);
-    return [
-      {
-        key: 'vol_expansion',
-        label: 'Volatility Expansion',
-        // Top-level `expansion` field (see VolExpansionSignalResponse).
-        magnitude: volCtx ? getNumber(volCtx.expansion) : null,
-        state: deriveVolExpansionState(volCtx ? getNumber(volCtx.expansion) : null),
-        direction: extractDirection(asObject(volExpansion.data)?.direction),
-      },
-      {
-        key: 'range_break_imminence',
-        label: 'Range Break Imminence',
-        magnitude: rbCtx ? getNumber(rbCtx.imminence) : null,
-        state: typeof rbCtx?.label === 'string' ? rbCtx.label : null,
-        direction: extractDirection(rbCtx?.direction),
-      },
-      {
-        key: 'market_pressure',
-        label: 'Market Pressure',
-        magnitude: mpCtx ? getNumber(mpCtx.loading) : null,
-        state: typeof mpCtx?.label === 'string' ? mpCtx.label : null,
-        direction: extractDirection(mpCtx?.direction_sign),
-      },
-    ];
-  }, [volExpansion.data, rangeBreak.data, marketPressure.data]);
+  // Field mapping lives in @/core/regimeTriggers so the response-shape
+  // contract (headline readings are top-level, NOT under `context_values`)
+  // is unit-tested — reading them from `context_values` silently pinned every
+  // row to "awaiting data".
+  const regimeTriggers = useMemo<RegimeTrigger[]>(
+    () => buildRegimeTriggers(volExpansion.data, rangeBreak.data, marketPressure.data),
+    [volExpansion.data, rangeBreak.data, marketPressure.data],
+  );
 
   return (
     // MSI sits on top at its natural height; the Breadth + Regime Triggers
@@ -544,7 +510,7 @@ export default function ProprietarySignalsSynthesis() {
       <CompositeMsiCard score={compositeScore} />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-h-0">
         <SignalBreadthCard basicSignals={basicSignals} advancedSignals={advancedSignals} />
-        <RegimeTriggersCard triggers={regimeTriggers} />
+        <RegimeTriggersCard triggers={regimeTriggers} locked={!hasPro} />
       </div>
     </div>
   );
