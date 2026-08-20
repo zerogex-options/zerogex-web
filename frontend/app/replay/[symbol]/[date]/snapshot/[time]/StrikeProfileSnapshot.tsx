@@ -1,9 +1,16 @@
 'use client';
 
-import { useId, useMemo, useState } from 'react';
+import { useId, useMemo, useState, type ReactNode } from 'react';
 import { BarChart3 } from 'lucide-react';
 
 import { staggerLabelYs } from '../../levelStagger';
+import {
+  expDateKey,
+  expirationOpacityRamp,
+  expirationShares,
+  type ExpirationCell,
+  type ExpirationSegment,
+} from '@/core/expirationGradient';
 
 // Horizontal-strike-profile card for the shareable moment page. Mirrors the
 // ReplayScrubber's right-hand strike panel so the snapshot reads the same way
@@ -18,12 +25,18 @@ type GexMode = 'split' | 'net' | 'combined';
 // top of the call/put split. Matches the Strike Profile chart and the main
 // replay panel exactly (a deep violet distinct from the bull/bear split bars).
 const NET_BAR_COLOR = '#7C3AED';
+// Base opacity every bar (and every expiry segment within one) is drawn at.
+const BAR_OPACITY = 0.9;
 
 interface SnapshotStrike {
   strike: number | null;
   net_gex: number | null;
   call_gex?: number | null;
   put_gex?: number | null;
+  // gex_by_strike is keyed per (strike, expiration), so /replay/frame returns
+  // one row per expiration. Optional so the gradient lights up when the payload
+  // carries the label and falls back to plain summed bars when it doesn't.
+  expiration?: string | null;
 }
 
 interface StrikeProfileSnapshotProps {
@@ -41,6 +54,10 @@ interface Row {
   net: number;
   call: number;
   put: number;
+  // Per-expiration shares of this strike's call / put bar, nearest-first.
+  // Empty when the payload carries no expiration labels for this side.
+  callSegs: ExpirationSegment[];
+  putSegs: ExpirationSegment[];
 }
 
 function formatMagnitude(v: number): string {
@@ -96,13 +113,32 @@ export default function StrikeProfileSnapshot({
 }: StrikeProfileSnapshotProps) {
   const clipId = `snap-clip-${useId().replace(/[^a-zA-Z0-9-]/g, '')}`;
 
+  // The frame's expiration universe, nearest-first (= DTE rank). Drives the
+  // shade of each stacked segment; empty on payloads with no expiration
+  // labels, which collapses the whole feature to today's plain summed bars.
+  const expirations = useMemo(() => {
+    const seen = new Set<string>();
+    for (const s of strikes) {
+      const exp = expDateKey(s.expiration);
+      if (exp) seen.add(exp);
+    }
+    return Array.from(seen).sort((a, b) => a.localeCompare(b));
+  }, [strikes]);
+
+  const expOpacity = useMemo(() => expirationOpacityRamp(expirations), [expirations]);
+
   const rows = useMemo<Row[]>(() => {
     // /replay/frame returns one row per (strike, expiration), so a strike can
     // appear more than once; sum call/put/net across expirations into a single
     // per-strike row (call + put stays consistent with net since each source
     // row already satisfies call + put = net). This keeps the profile one bar
     // per strike instead of overlapping bars for multi-expiration strikes.
+    //
+    // The per-expiration magnitudes are kept alongside the sums so each bar can
+    // then be subdivided back into a DTE-ranked gradient — the summed value
+    // stays the authoritative bar width, the split only partitions it.
     const byStrike = new Map<number, Row>();
+    const cellsByStrike = new Map<number, Map<string, ExpirationCell>>();
     for (const s of strikes) {
       if (s.strike == null || s.net_gex == null) continue;
       const strike = s.strike;
@@ -114,13 +150,67 @@ export default function StrikeProfileSnapshot({
         existing.call += call;
         existing.put += put;
       } else {
-        byStrike.set(strike, { strike, net: s.net_gex, call, put });
+        byStrike.set(strike, { strike, net: s.net_gex, call, put, callSegs: [], putSegs: [] });
       }
+      const exp = expDateKey(s.expiration);
+      if (!exp) continue;
+      let cells = cellsByStrike.get(strike);
+      if (!cells) { cells = new Map(); cellsByStrike.set(strike, cells); }
+      const cur = cells.get(exp) ?? { call: 0, put: 0 };
+      cur.call += Math.abs(call);
+      cur.put += Math.abs(put);
+      cells.set(exp, cur);
     }
+    byStrike.forEach((row, strike) => {
+      const cells = cellsByStrike.get(strike);
+      row.callSegs = expirationShares(cells, expirations, (c) => c.call);
+      row.putSegs = expirationShares(cells, expirations, (c) => c.put);
+    });
     // Ascending so yForPrice (higher price = higher on chart) lays them out
     // like an option chain, highest strike at the top.
     return Array.from(byStrike.values()).sort((a, b) => a.strike - b.strike);
-  }, [strikes]);
+  }, [strikes, expirations]);
+
+  // The gradient only carries information with more than one expiration in the
+  // frame; a single-expiration snapshot renders at full strength as before.
+  const gradientActive = expirations.length > 1;
+
+  // Draws one call/put bar as its expiration stack. `totalWidth` is the
+  // authoritative summed bar and `segs` the shares partitioning it, so the
+  // segments always add back to the real bar. dir = +1 grows right (calls),
+  // -1 left (puts); nearest DTE sits at the zero line, furthest at the tip.
+  // Returns null when there's no split (caller draws the plain bar instead).
+  const stackSegments = (
+    keyPrefix: string,
+    segs: ExpirationSegment[],
+    dir: 1 | -1,
+    totalWidth: number,
+    y: number,
+    barHeight: number,
+    fill: string,
+  ): ReactNode[] | null => {
+    if (segs.length === 0 || !(totalWidth > 0)) return null;
+    const rects: ReactNode[] = [];
+    const yTop = y - barHeight / 2;
+    let cursor = CENTER;
+    for (const { exp, frac } of segs) {
+      const w = totalWidth * frac;
+      if (!(w > 0)) continue;
+      rects.push(
+        <rect
+          key={`${keyPrefix}-${exp}`}
+          x={dir > 0 ? cursor : cursor - w}
+          y={yTop}
+          width={w}
+          height={barHeight}
+          fill={fill}
+          opacity={(expOpacity.get(exp) ?? 1) * BAR_OPACITY}
+        />,
+      );
+      cursor += dir * w;
+    }
+    return rects.length ? rects : null;
+  };
 
   // Whether the payload carries per-strike call/put gamma. Drives whether the
   // Split/Combined toggle is offered at all.
@@ -354,28 +444,37 @@ export default function StrikeProfileSnapshot({
               if (r.call === 0 && r.put === 0 && !(isCombined && r.net !== 0)) {
                 return null;
               }
+              // Subdivide each side into its DTE-ranked expiration segments
+              // (nearest at the zero line, faintest at the tip). Falls back to
+              // the plain solid bar when the frame carries no split.
+              const callSegs = gradientActive
+                ? stackSegments(`snapcall-${r.strike}`, r.callSegs, 1, Math.max(0, callW), y, barH, 'var(--color-bull)')
+                : null;
+              const putSegs = gradientActive
+                ? stackSegments(`snapput-${r.strike}`, r.putSegs, -1, Math.max(0, putW), y, barH, 'var(--color-bear)')
+                : null;
               return (
                 <g key={`gex-${r.strike}`}>
-                  {r.call !== 0 && (
+                  {callSegs ?? (r.call !== 0 && (
                     <rect
                       x={CENTER}
                       y={y - barH / 2}
                       width={Math.max(0, callW)}
                       height={barH}
                       fill="var(--color-bull)"
-                      opacity={0.9}
+                      opacity={BAR_OPACITY}
                     />
-                  )}
-                  {r.put !== 0 && (
+                  ))}
+                  {putSegs ?? (r.put !== 0 && (
                     <rect
                       x={CENTER - Math.max(0, putW)}
                       y={y - barH / 2}
                       width={Math.max(0, putW)}
                       height={barH}
                       fill="var(--color-bear)"
-                      opacity={0.9}
+                      opacity={BAR_OPACITY}
                     />
-                  )}
+                  ))}
                   {isCombined && r.net !== 0 && (
                     <rect
                       x={netPositive ? CENTER : CENTER - Math.max(0, netW)}
@@ -476,6 +575,34 @@ export default function StrikeProfileSnapshot({
               </g>
             );
           })}
+
+          {/* Expiry ramp key — only when the gradient is actually drawn.
+              Anchored left, under the panel title, clear of the call/put/net
+              swatches on the right. */}
+          {effMode !== 'net' && gradientActive && (
+            <>
+              <defs>
+                <linearGradient id={`${clipId}-expramp`} x1="0" x2="1" y1="0" y2="0">
+                  <stop offset="0%" stopColor="var(--color-text-secondary)" stopOpacity={1} />
+                  <stop offset="100%" stopColor="var(--color-text-secondary)" stopOpacity={0.25} />
+                </linearGradient>
+              </defs>
+              <text x={PLOT_X0} y={PLOT_TOP - 9} fontSize={9} fill="var(--color-text-secondary)">
+                near
+              </text>
+              <rect
+                x={PLOT_X0 + 24}
+                y={PLOT_TOP - 16}
+                width={34}
+                height={7}
+                rx={1.5}
+                fill={`url(#${clipId}-expramp)`}
+              />
+              <text x={PLOT_X0 + 62} y={PLOT_TOP - 9} fontSize={9} fill="var(--color-text-secondary)">
+                far expiry
+              </text>
+            </>
+          )}
         </svg>
       </div>
     </div>

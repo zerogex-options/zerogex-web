@@ -16,6 +16,7 @@ const {
   expirationOpacityRamp,
   shownExpirations,
   expirationShares,
+  sharesToSegments,
 } = await import('../core/expirationGradient.ts');
 
 const TODAY = '2026-08-14';
@@ -128,4 +129,62 @@ test('expirationShares returns nothing when a side has no data at the strike', (
   assert.deepEqual(expirationShares(perStrike.get(59_000), UNIVERSE, (c) => c.call), []);
   // A strike the snapshot doesn't cover at all.
   assert.deepEqual(expirationShares(perStrike.get(1), UNIVERSE, (c) => c.put), []);
+});
+
+// ── sharesToSegments ─────────────────────────────────────────────────────────
+// /api/replay/range ships each expiration's fraction of a bar aligned by INDEX
+// to a nearest-first legend (repeating date strings on every strike of every
+// minute would balloon a whole-session payload). This rehydrates that wire
+// form into the same segments the live path produces.
+
+const LEGEND = ['2026-08-14', '2026-08-21', 'far'];
+
+test('sharesToSegments pairs each share with its legend entry, in order', () => {
+  const segs = sharesToSegments([0.5, 0.3, 0.2], LEGEND);
+  assert.deepEqual(segs.map((s) => s.exp), LEGEND);
+  assert.deepEqual(segs.map((s) => s.frac), [0.5, 0.3, 0.2]);
+});
+
+test('sharesToSegments drops zero-width slots', () => {
+  // A strike with nothing on the middle expiration must not emit a 0-width
+  // rect between its neighbours.
+  const segs = sharesToSegments([0.6, 0, 0.4], LEGEND);
+  assert.deepEqual(segs.map((s) => s.exp), ['2026-08-14', 'far']);
+});
+
+test('sharesToSegments re-normalises rounded wire values to fill the bar', () => {
+  // The server rounds for compactness, so shares can sum to just under 1 —
+  // rendered raw that would leave a sliver of the bar unpainted.
+  const segs = sharesToSegments([0.3333, 0.3333, 0.3333], LEGEND);
+  assert.ok(Math.abs(segs.reduce((a, s) => a + s.frac, 0) - 1) < 1e-9);
+  // Overshoot is corrected the same way, so segments never run past the tip.
+  const over = sharesToSegments([0.7, 0.7], ['2026-08-14', '2026-08-21']);
+  assert.ok(Math.abs(over.reduce((a, s) => a + s.frac, 0) - 1) < 1e-9);
+});
+
+test('sharesToSegments tolerates a shares/legend length mismatch', () => {
+  // Never index past the legend (an older payload, or a legend that grew).
+  assert.deepEqual(sharesToSegments([0.5, 0.5, 0.5, 0.5], LEGEND).length, 3);
+  const short = sharesToSegments([1], LEGEND);
+  assert.deepEqual(short, [{ exp: '2026-08-14', frac: 1 }]);
+});
+
+test('sharesToSegments returns nothing when there is no usable split', () => {
+  // Each of these means "draw one solid bar", not "draw an empty bar".
+  assert.deepEqual(sharesToSegments(null, LEGEND), []);
+  assert.deepEqual(sharesToSegments(undefined, LEGEND), []);
+  assert.deepEqual(sharesToSegments([], LEGEND), []);
+  assert.deepEqual(sharesToSegments([0, 0, 0], LEGEND), []);
+  assert.deepEqual(sharesToSegments([0.5, 0.5], []), []);
+  assert.deepEqual(sharesToSegments([Number.NaN, 1], LEGEND), [{ exp: '2026-08-21', frac: 1 }]);
+});
+
+test('sharesToSegments keeps the far bucket last so it takes the faintest shade', () => {
+  // The legend's trailing "far" entry is a catch-all, not a date — ranking is
+  // positional, which is exactly what puts it at the faint end of the ramp.
+  const ramp = expirationOpacityRamp(LEGEND);
+  const segs = sharesToSegments([0.5, 0.3, 0.2], LEGEND);
+  assert.equal(segs[segs.length - 1].exp, 'far');
+  assert.equal(ramp.get('far'), FAR_OPACITY);
+  assert.equal(ramp.get('2026-08-14'), NEAR_OPACITY);
 });

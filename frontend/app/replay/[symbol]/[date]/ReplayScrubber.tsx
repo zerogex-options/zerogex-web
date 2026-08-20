@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { BarChart3, Eye, EyeOff, Link2, Pause, Play, RotateCcw, Twitter, ZoomIn, ZoomOut } from 'lucide-react';
 import {
   Bar,
@@ -14,6 +14,11 @@ import {
 } from 'recharts';
 import { capture } from '@/core/telemetry/posthog-client';
 import { staggerLabelYs } from './levelStagger';
+import {
+  expirationOpacityRamp,
+  sharesToSegments,
+  type ExpirationSegment,
+} from '@/core/expirationGradient';
 
 // Interactive replay of one trading day's per-minute GEX frames. Pure
 // client-side once the initial range payload is hydrated — scrubbing
@@ -47,6 +52,12 @@ interface Frame {
     net_gex: number | null;
     call_gex?: number | null;
     put_gex?: number | null;
+    // Per-expiration shares of this strike's call / put bar (fractions summing
+    // to 1), aligned positionally to the payload's top-level `expirations`
+    // legend. Optional: /replay/range only sends them when asked, and a strike
+    // the snapshot doesn't cover simply renders as one solid bar.
+    call_shares?: number[] | null;
+    put_shares?: number[] | null;
   }>;
 }
 
@@ -62,6 +73,10 @@ interface StrikeGex {
   net: number;
   call: number;
   put: number;
+  // Nearest-first expiration segments partitioning the call / put bar. Empty
+  // when the frame carries no split for this side.
+  callSegs: ExpirationSegment[];
+  putSegs: ExpirationSegment[];
 }
 
 // Purple overlay bar for the Combined view — the per-strike NET GEX drawn on
@@ -70,6 +85,48 @@ interface StrikeGex {
 // violet distinct from the bull/bear split bars) so the two charts read the
 // same way.
 const NET_BAR_COLOR = '#7C3AED';
+// Base opacity every bar (and every expiry segment within one) is drawn at.
+const BAR_OPACITY = 0.9;
+
+// Draws one call/put bar as its expiration stack. `totalWidth` is the
+// authoritative bar width from the frame and `segs` the shares partitioning
+// it, so the segments always add back to the real bar — the split can never
+// change a level. dir = +1 grows right (calls), -1 left (puts); the nearest
+// DTE sits at the zero baseline, the furthest at the tip. Returns null when
+// there's no split, so the caller falls back to a plain solid bar.
+function stackSegments(
+  keyPrefix: string,
+  segs: ExpirationSegment[],
+  dir: 1 | -1,
+  center: number,
+  totalWidth: number,
+  y: number,
+  barHeight: number,
+  fill: string,
+  expOpacity: Map<string, number>,
+): ReactNode[] | null {
+  if (segs.length === 0 || !(totalWidth > 0)) return null;
+  const rects: ReactNode[] = [];
+  const yTop = y - barHeight / 2;
+  let cursor = center;
+  for (const { exp, frac } of segs) {
+    const w = totalWidth * frac;
+    if (!(w > 0)) continue;
+    rects.push(
+      <rect
+        key={`${keyPrefix}-${exp}`}
+        x={dir > 0 ? cursor : cursor - w}
+        y={yTop}
+        width={w}
+        height={barHeight}
+        fill={fill}
+        opacity={(expOpacity.get(exp) ?? 1) * BAR_OPACITY}
+      />,
+    );
+    cursor += dir * w;
+  }
+  return rects.length ? rects : null;
+}
 
 interface Candle {
   timestamp: string;
@@ -88,7 +145,17 @@ interface ReplayScrubberProps {
   initialFrames: Frame[];
   initialCandles: Candle[];
   siteUrl: string;
+  /** Nearest-first expiration legend the per-strike share arrays index into.
+   *  The trailing entry may be the literal "far" (a catch-all for everything
+   *  past the payload's expiration cap), which ranks last and therefore takes
+   *  the faintest shade. Empty when the payload carries no expiration mix. */
+  expirations?: string[];
 }
+
+// Stable empty default for the optional expirations legend — a fresh []
+// literal in the parameter list would be a new reference every render and
+// re-run every memo keyed on it.
+const EMPTY_EXPIRATIONS: string[] = [];
 
 const PLAY_SPEEDS = [1, 4, 16, 60] as const;
 type PlaySpeed = (typeof PLAY_SPEEDS)[number];
@@ -317,6 +384,7 @@ export default function ReplayScrubber({
   initialFrames,
   initialCandles,
   siteUrl,
+  expirations = EMPTY_EXPIRATIONS,
 }: ReplayScrubberProps) {
   const frames = initialFrames;
   const candles = initialCandles;
@@ -361,10 +429,21 @@ export default function ReplayScrubber({
         net: s.net_gex,
         call: s.call_gex != null && Number.isFinite(s.call_gex) ? s.call_gex : 0,
         put: s.put_gex != null && Number.isFinite(s.put_gex) ? s.put_gex : 0,
+        // The shares only subdivide the call/put values above — they never
+        // change a bar's length, so a missing or malformed split degrades to a
+        // plain solid bar rather than a wrong one.
+        callSegs: sharesToSegments(s.call_shares, expirations),
+        putSegs: sharesToSegments(s.put_shares, expirations),
       });
     }
     return byStrike;
-  }, [currentFrame]);
+  }, [currentFrame, expirations]);
+
+  // DTE-ranked shade per expiration, keyed on the session-wide legend so a
+  // segment's colour never shifts as the playhead moves. The ramp only carries
+  // information with more than one expiration in the session.
+  const expOpacity = useMemo(() => expirationOpacityRamp(expirations), [expirations]);
+  const gradientActive = expirations.length > 1;
 
   // Whether any frame in the session carries per-strike call/put gamma. When
   // false the payload is Net-only, so the Split/Combined toggle is hidden and
@@ -709,6 +788,8 @@ export default function ReplayScrubber({
         candles={candles}
         strikes={allStrikes}
         strikeGex={strikeGexByStrike}
+        expOpacity={expOpacity}
+        gradientActive={gradientActive}
         gexPeak={gexPeak}
         gexMode={effGexMode}
         canSplit={hasSplitData}
@@ -830,6 +911,11 @@ interface ReplayOverlayChartProps {
   strikeGex: Map<number, StrikeGex>;
   gexPeak: number;
   gexMode: GexMode;
+  /** DTE-ranked shade per expiration (nearest boldest). */
+  expOpacity: Map<string, number>;
+  /** Whether the session carries more than one expiration — below that the
+   *  ramp carries no information and bars render at full strength. */
+  gradientActive: boolean;
   // Whether the payload carries call/put gamma. Drives whether the
   // Split/Combined cycle toggle is offered at all.
   canSplit: boolean;
@@ -858,6 +944,8 @@ function ReplayOverlayChart({
   strikeGex,
   gexPeak,
   gexMode,
+  expOpacity,
+  gradientActive,
   canSplit,
   onCycleGexMode,
   yLo,
@@ -1459,28 +1547,39 @@ function ReplayOverlayChart({
             if (agg.call === 0 && agg.put === 0 && !(isCombined && agg.net !== 0)) {
               return null;
             }
+            // Subdivide each side into its DTE-ranked expiration segments —
+            // nearest expiration anchored at the zero line (boldest), fanning
+            // out to the furthest at the bar's tip (faintest). The segments
+            // partition the authoritative bar width, so they always add back
+            // to the same bar; a strike with no split draws solid as before.
+            const callSegs = gradientActive
+              ? stackSegments(`callseg-${strike}`, agg.callSegs, 1, MID_CENTER, Math.max(0, callW), y, barH, 'var(--color-bull)', expOpacity)
+              : null;
+            const putSegs = gradientActive
+              ? stackSegments(`putseg-${strike}`, agg.putSegs, -1, MID_CENTER, Math.max(0, putW), y, barH, 'var(--color-bear)', expOpacity)
+              : null;
             return (
               <g key={`gex-${strike}`}>
-                {agg.call !== 0 && (
+                {callSegs ?? (agg.call !== 0 && (
                   <rect
                     x={MID_CENTER}
                     y={y - barH / 2}
                     width={Math.max(0, callW)}
                     height={barH}
                     fill="var(--color-bull)"
-                    opacity={0.9}
+                    opacity={BAR_OPACITY}
                   />
-                )}
-                {agg.put !== 0 && (
+                ))}
+                {putSegs ?? (agg.put !== 0 && (
                   <rect
                     x={MID_CENTER - Math.max(0, putW)}
                     y={y - barH / 2}
                     width={Math.max(0, putW)}
                     height={barH}
                     fill="var(--color-bear)"
-                    opacity={0.9}
+                    opacity={BAR_OPACITY}
                   />
-                )}
+                ))}
                 {isCombined && agg.net !== 0 && (
                   <rect
                     x={netPositive ? MID_CENTER : MID_CENTER - Math.max(0, netW)}
@@ -1577,6 +1676,34 @@ function ReplayOverlayChart({
                   </g>
                 );
               })}
+            </g>
+          )}
+
+          {/* Expiry ramp key — only when the gradient is actually drawn. Sits
+              under the panel title on the LEFT so it can't collide with the
+              call/put/net swatches anchored to the right edge. */}
+          {gexMode !== 'net' && gradientActive && (
+            <g>
+              <defs>
+                <linearGradient id={`${clipId}-expramp`} x1="0" x2="1" y1="0" y2="0">
+                  <stop offset="0%" stopColor="var(--color-text-secondary)" stopOpacity={1} />
+                  <stop offset="100%" stopColor="var(--color-text-secondary)" stopOpacity={0.25} />
+                </linearGradient>
+              </defs>
+              <text x={MID_X} y={PLOT_TOP - 20} fontSize={9} fill="var(--color-text-secondary)">
+                near
+              </text>
+              <rect
+                x={MID_X + 24}
+                y={PLOT_TOP - 27}
+                width={34}
+                height={7}
+                rx={1.5}
+                fill={`url(#${clipId}-expramp)`}
+              />
+              <text x={MID_X + 62} y={PLOT_TOP - 20} fontSize={9} fill="var(--color-text-secondary)">
+                far expiry
+              </text>
             </g>
           )}
 
