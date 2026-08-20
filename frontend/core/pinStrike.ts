@@ -22,7 +22,7 @@ export const PIN_STRENGTH_MODERATE_MIN_CONFIDENCE = 0.33;
 
 // Single source of truth for the Pin Strike line/marker color across every
 // surface. The teal is defined once as `--color-pin` in globals.css (theme-
-// consistent, deliberately distinct from the green/red walls, amber flip, gold
+// consistent, deliberately distinct from the green/red walls, azure flip, gold
 // max-pain and violet King). Contexts that resolve CSS vars use
 // PIN_STRIKE_COLOR_VAR; contexts that need a literal color string — hex-only
 // module constants (MarketMakerExposures) and the rasterized-to-PNG bulletin,
