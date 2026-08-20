@@ -22,10 +22,12 @@ cancelled before the charge; they did not, and separately we satisfied Visa's
 trial-conversion notification requirement 48 hours before billing.
 
 Weak point to be aware of, stated plainly: we have **no product-usage evidence after the
-charge**. The last `login_success` is 2026-08-06. The account was set up, used on day one,
-and apparently never revisited. This looks like a "forgot I signed up" chargeback rather
-than a fraud or a genuine failed cancellation — which is winnable on the documentation,
-but it is not the same as showing the customer consuming the service they paid for.
+charge**, and the session record confirms there is none to find — no authenticated request
+was made after 2026-08-07, a week before the charge (see "Evidence checks already run").
+The account was set up and used attentively on day one, then never revisited. This is a
+"forgot I signed up" chargeback rather than fraud or a genuine failed cancellation, which
+is winnable on the documentation — but it is not the same as showing the customer
+consuming the service they paid for, and the issuer may weigh that.
 
 See "Operational follow-up" at the bottom — **whatever the outcome, this subscription
 renews 2026-09-13 and will likely produce a second chargeback if left alone.**
@@ -161,6 +163,15 @@ card is not a cancellation, and we emailed them about both the failure and the r
 > The $29.00 charged is below our $59.00/month list rate; the customer received a
 > promotional discount applied at signup and carried into the first paid period.
 >
+> Every action taken to create this account and start the subscription came from a single
+> residential IP address, 2603:8002:6c40:23:3cb0:8fbd:246d:69ac: account registration
+> (21:03:22 UTC), the email verification request and its completion (21:04:02), a password
+> reset request and completion (21:05:35), login (21:05:41), checkout initiation
+> (21:05:55), acknowledgement of our platform disclaimer (21:06:58), and completion of the
+> Pro onboarding and API-key setup flow (21:07:09) — seven distinct deliberate actions
+> across four minutes on 2026-08-06, from one connection. This was a knowing, attended
+> signup, not an incidental or unnoticed enrollment.
+>
 > Emails delivered to jeremyy.zamora@gmail.com before the disputed charge: paid welcome
 > (2026-08-06 21:06:40), mid-trial value nudge (2026-08-08 22:46:28), trial-end reminder
 > (2026-08-11 22:19:53). After the charge: payment-failed notice (2026-08-13 22:07:54) and
@@ -175,7 +186,7 @@ card is not a cancellation, and we emailed them about both the failure and the r
 | `customer_email_address` | jeremyy.zamora@gmail.com |
 | `product_description` | ZeroGEX Pro — monthly subscription to a live options gamma-exposure (GEX) analytics platform: Today's Read, GEX strike profile, gamma flip level, and call/put wall levels across SPY, SPX, QQQ and NDX, plus API access. |
 | `service_date` | 2026-08-14 |
-| `customer_purchase_ip` | *pull from audit log — see below* |
+| `customer_purchase_ip` | `2603:8002:6c40:23:3cb0:8fbd:246d:69ac` |
 
 ## Attachments to upload
 
@@ -217,28 +228,40 @@ card is not a cancellation, and we emailed them about both the failure and the r
   account page showing the "Cancel subscription" button, to evidence that the policy was
   on the purchase page and that self-service cancellation was one click away at all times.
 
-## Remaining evidence to pull
+## Evidence checks already run
 
-The signup and checkout IP addresses are recorded but not printed by `make diagnose-user`.
-Pull them for `customer_purchase_ip` — a matching IP across signup, login, and checkout is
-strong corroboration:
+**Purchase IP — usable, include it.** `audit_events.ip` shows every account-setup and
+checkout action on 2026-08-06 originating from one residential address,
+`2603:8002:6c40:23:3cb0:8fbd:246d:69ac`. That is the value for `customer_purchase_ip`, and
+the consistency across seven actions is written into `uncategorized_text` above.
 
-```sh
-sqlite3 frontend/data/auth.db \
-  "SELECT created_at, type, ip FROM audit_events
-    WHERE user_id = 'user_a6d4e5c41982998e216dd167'
-    ORDER BY created_at;"
-```
+One login 29 minutes after checkout (2026-08-06 21:34:34) came from `146.70.174.222`, a
+hosting range commonly used by consumer VPNs. **Do not volunteer this.** Identity is not
+contested in this dispute — the reason code is 13.2 (canceled recurring transaction), not
+fraud — and `customer_purchase_ip` correctly means the IP the purchase was made from, which
+is the residential one. Raising a VPN address unprompted in a non-fraud dispute introduces
+doubt for no gain. It is noted here only so it isn't a surprise if it ever comes up.
 
-Also worth pulling — session activity, which is the one gap in this package. If the session
-row was rotated after 2026-08-14, that is post-charge product access and materially
-strengthens the case:
+**Session activity — negative, leave it out.** There is one session row, created
+2026-08-06 21:34:34, with `last_rotated_at` identical to `created_at` and `expires_at`
+exactly 14 days later, never extended.
 
-```sh
-sqlite3 frontend/data/auth.db \
-  "SELECT created_at, last_rotated_at, expires_at FROM sessions
-    WHERE user_id = 'user_a6d4e5c41982998e216dd167';"
-```
+Sessions rotate on the first authenticated request made more than
+`AUTH_SESSION_ROTATE_AFTER_SECONDS` (default 24h) after the previous rotation, and rotation
+pushes `expires_at` out by a fresh TTL (`frontend/core/serverAuth.ts:1090-1097`). An
+unrotated row therefore is not merely "no evidence of a visit" — it positively establishes
+that **no authenticated request was made after 2026-08-07 21:34**, a week before the
+disputed charge. Any visit on or after that date would have moved both timestamps.
+
+So there is no post-charge usage evidence to be had from the web app, and the package must
+not imply otherwise. Do not include session data in the submission.
+
+**One place left worth checking.** API keys are not in `auth.db` — they live in the backend
+key service's own `api_keys` table (`frontend/core/apiKeys.ts:12`). The customer completed
+the API-key onboarding flow on 2026-08-06, so if that service records last-used or
+per-key request counts, it is the only remaining source of post-charge activity. If it
+shows API calls after 2026-08-14, add them to `uncategorized_text` — that would be the
+single strongest addition available to this package. If it shows nothing, submit as is.
 
 ## Operational follow-up
 
