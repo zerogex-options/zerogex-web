@@ -609,6 +609,36 @@ grant-partner-pro:
 	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make grant-partner-pro EMAIL=foo@example.com YES=1)"; exit 1; fi
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/grant-partner-pro.mts --email $(EMAIL) $(if $(DAYS),--days $(DAYS),) $(if $(COMMISSION_BPS),--commission-bps $(COMMISSION_BPS),) $(if $(WINDOW_MONTHS),--window-months $(WINDOW_MONTHS),) $(if $(PROMO_CODE),--promo-code $(PROMO_CODE),) $(if $(COUPON_ID),--coupon-id $(COUPON_ID),) $(if $(DISCLOSURE_URL),--disclosure-url $(DISCLOSURE_URL),) $(if $(X_HANDLE),--x-handle $(X_HANDLE),) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
 
+# Move ONE paying member up a tier while LEAVING THEIR BILL WHERE IT IS --
+# "you're paying for Basic, I'm giving you Pro at the price you already pay."
+# A goodwill upgrade, not a comp: they keep paying, you just stop charging more
+# for the better tier. For an actual freebie (no subscription at all), that's
+# comp-member below.
+#
+# Do not hand-roll this as a tier flip. priceIdToTier (core/stripe.ts) derives
+# the tier from the Stripe PRICE and every subscription sync recomputes it, so
+# writing tier='pro' by hand holds only until the member's next renewal. This
+# target instead switches the subscription onto the target tier's price and
+# discounts it back down to what they pay today, so the webhook grants the tier
+# itself -- and it therefore survives renewals.
+#
+# The held rate is read from the upcoming-invoice preview, i.e. net of any
+# discount already on the sub (a discounted member must not get a stealth rise);
+# override with CURRENT_PRICE=<dollars> if that preview isn't a representative
+# full period. Existing discounts are REPLACED, not stacked -- an old coupon was
+# sized against the old list price. Nothing is charged today
+# (proration_behavior=none) and the member keeps the period they already paid
+# for. Sends NO email -- write to the member yourself. Run
+# `make diagnose-user EMAIL=...` first.
+# Usage:
+#   make upgrade-at-current-price EMAIL=foo@example.com DRY_RUN=1
+#   make upgrade-at-current-price EMAIL=foo@example.com YES=1
+#   make upgrade-at-current-price EMAIL=foo@example.com CURRENT_PRICE=19 YES=1
+UPGRADE_TIER ?= pro
+upgrade-at-current-price:
+	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make upgrade-at-current-price EMAIL=foo@example.com DRY_RUN=1)"; exit 1; fi
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/upgrade-at-current-price.mts --email $(EMAIL) --tier $(if $(TIER),$(TIER),$(UPGRADE_TIER)) $(if $(CURRENT_PRICE),--current-price $(CURRENT_PRICE),) $(if $(COUPON),--coupon $(COUPON),) $(if $(WAIT_SECONDS),--wait-seconds $(WAIT_SECONDS),) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
+
 # Permanently comp ONE member onto a paid tier for free -- the "thanks for the
 # bug report, here's Pro on the house" path. Handles both shapes of account: a
 # member with no subscription (bare tier flip) and a PAYING member, whose live

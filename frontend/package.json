@@ -53,6 +53,7 @@
     "test:flow-series-charts": "node --experimental-strip-types --test tests/flowSeriesCharts.test.ts",
     "test:gamma-regime": "node --experimental-strip-types --test tests/gammaRegime.test.ts",
     "test:regime-triggers": "node --experimental-strip-types --test tests/regimeTriggers.test.ts",
+    "test:hold-rate": "node --experimental-strip-types --test tests/holdRate.test.ts",
     "test:implied-direction": "node --experimental-strip-types --test tests/impliedDirection.test.ts",
     "test:forced-flow-read": "node --experimental-strip-types --test tests/forcedFlowSessionRead.test.ts",
     "test:referee-bonus": "node --experimental-strip-types --test tests/refereeBonus.test.ts",
