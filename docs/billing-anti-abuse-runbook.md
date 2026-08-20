@@ -140,7 +140,9 @@ different responses:
   over, and that period has since expired. Re-creating the subscription is the
   wrong remedy here: it would hand them future time instead of the days they
   lost. A refund or a credit is the answer, and it is your call. Two things are
-  excluded: a member who asked to cancel early gave those days up themselves, and
+  excluded: a member who asked to cancel early gave those days up themselves —
+  read from Stripe's `cancellation_details.reason`, because a cancellation made
+  in Stripe's own billing portal never reaches our audit log — and
   a plan switch tears the old subscription down exactly when the new period
   starts — so only a deletion of the subscription the invoice actually paid for
   counts.
