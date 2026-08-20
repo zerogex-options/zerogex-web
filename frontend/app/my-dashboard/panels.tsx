@@ -22,6 +22,8 @@ import GexWallsChart from '@/components/GexWallsChart';
 import GammaHeatmapCanvas from '@/components/GammaHeatmapCanvas';
 import GexUnitToggle from '@/components/GexUnitToggle';
 import StrikeFilterToggle from '@/components/StrikeFilterToggle';
+import SessionDeltaToggle from '@/components/SessionDeltaToggle';
+import ExpirationMultiSelect from '@/components/ExpirationMultiSelect';
 import { GammaLadder } from '@/components/PairGammaHeatmap';
 import OptionsFlowChart from '@/components/OptionsFlowChart';
 import SignalScorePanel from '@/components/SignalScorePanel';
@@ -35,6 +37,7 @@ import HeadlinesWire from '@/components/HeadlinesWire';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useGexUnit } from '@/core/GexUnitContext';
 import { useStrikeFilter } from '@/core/StrikeFilterContext';
+import { useSessionDelta } from '@/core/SessionDeltaContext';
 import { getMarketSession, etTodayDateKey } from '@/core/utils';
 import {
   useApiData,
@@ -45,6 +48,7 @@ import {
   type SignalEventName,
 } from '@/hooks/useApiData';
 import { useGammaLadderColumn } from '@/hooks/useGammaLadder';
+import { useChartExpirations } from '@/hooks/useChartExpirations';
 import { useStrikeProfileTimeseries } from '@/hooks/useStrikeProfileTimeseries';
 import { useSharedExpirations } from '@/hooks/useSharedExpirations';
 import { reconcileExpirations } from '@/core/expirationPersistence';
@@ -269,12 +273,6 @@ export function GexHeatmapPanel() {
   );
 }
 
-// Ladder depth inside a tile. The page runs the full ±20 strikes — an ~820px
-// column it has the height for; a tile shares its grid row's height with every
-// widget beside it, so it shows ±10 (21 rows at 20px), which still spans the
-// walls and the flip on an ordinary session.
-const LADDER_TILE_MAX_SIDE = 10;
-
 // The ladder's header control slot. Pair Comparison puts its per-column symbol
 // dropdown here; a tile follows the board's symbol (or its pane's), so it reads
 // as a plain label — retargeting is a board-level action, not a per-tile one.
@@ -290,17 +288,23 @@ function LadderSymbolTag({ symbol }: { symbol: string }) {
 }
 
 // One column of the Pair Comparison ladder — the same component and the same
-// feeds (useGammaLadderColumn), for the board's symbol. Its two display
+// feeds (useGammaLadderColumn), for the board's symbol. Its display
 // preferences ride along so the tile is the full instrument rather than a
-// read-only copy: Strikes (active-only vs every listed strike) and the GEX unit
-// are global preferences, so changing either here moves the ladder, the pair
-// page and the by-strike table together.
+// read-only copy: Strikes (active-only vs every listed strike), the GEX unit,
+// the expiration filter and the Session-Δ overlay are all global preferences,
+// so changing any of them here moves the ladder, the pair page and the
+// by-strike table together.
 export function GammaLadderPanel() {
   const { symbol } = useTimeframe();
   const { gexUnit } = useGexUnit();
   const { activeOnly } = useStrikeFilter();
+  const { showSessionDelta } = useSessionDelta();
   const t = usePageT(dict);
-  const column = useGammaLadderColumn(symbol);
+  const expirations = useChartExpirations(symbol, true);
+  const column = useGammaLadderColumn(symbol, true, {
+    expirations: expirations.selection,
+    sessionDelta: showSessionDelta,
+  });
   const ladderColumn = useMemo(
     () => ({ ...column, control: <LadderSymbolTag symbol={symbol} /> }),
     [column, symbol],
@@ -319,14 +323,17 @@ export function GammaLadderPanel() {
         style={{ borderBottom: '1px solid var(--border-subtle)' }}
       >
         <StrikeFilterToggle showHint={false} />
+        <ExpirationMultiSelect
+          options={expirations.available}
+          selected={expirations.selection}
+          onChange={expirations.setSelection}
+          label="Expiry"
+          disabled={expirations.available.length === 0}
+        />
+        <SessionDeltaToggle showHint={false} />
         <GexUnitToggle showHint={false} />
       </div>
-      <GammaLadder
-        column={ladderColumn}
-        gexUnit={gexUnit}
-        activeOnly={activeOnly}
-        maxSide={LADDER_TILE_MAX_SIDE}
-      />
+      <GammaLadder column={ladderColumn} gexUnit={gexUnit} activeOnly={activeOnly} />
     </WidgetCard>
   );
 }

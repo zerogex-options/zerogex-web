@@ -31,7 +31,7 @@
  *     level-differencing conflates.
  */
 
-import { useMemo, useRef, useState, useCallback } from 'react';
+import { useMemo, useRef, useState, useCallback, type ReactNode } from 'react';
 import { ArrowUp, ArrowDown, ArrowRight, Info } from 'lucide-react';
 import {
   useStrikeProfileTimeseries,
@@ -39,11 +39,12 @@ import {
 } from '@/hooks/useStrikeProfileTimeseries';
 import { useChartTheme } from '@/hooks/useChartTheme';
 import { useTimeframe } from '@/core/TimeframeContext';
-import { useSharedExpirations } from '@/hooks/useSharedExpirations';
+import { useChartExpirations } from '@/hooks/useChartExpirations';
 import { useGexUnit, gexScaleFactor, GEX_UNIT_LABEL } from '@/core/GexUnitContext';
 import { useStrikeFilter } from '@/core/StrikeFilterContext';
 import { formatGexCompact } from '@/core/signalHelpers';
 import ChartCaption from './ChartCaption';
+import ExpirationMultiSelect from './ExpirationMultiSelect';
 import TooltipWrapper from './TooltipWrapper';
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -329,11 +330,13 @@ export default function GammaShiftLadder({ symbol: symbolProp }: { symbol?: stri
   const chart = useChartTheme();
   const { symbol: ctxSymbol } = useTimeframe();
   const symbol = symbolProp ?? ctxSymbol;
-  const { selection } = useSharedExpirations();
+  // Tab-shared expiration selection, reconciled to the expirations this symbol
+  // can actually serve (a pick made on another symbol's chart must not leak a
+  // foreign date into the param). Empty selection = "all", the default.
+  const { available, selection, setSelection, param: expParam } = useChartExpirations(symbol, true);
   const { gexUnit } = useGexUnit();
   const { activeOnly } = useStrikeFilter();
 
-  const expParam = selection.length === 0 ? 'all' : [...selection].sort().join(',');
   // '5min' shares the cache key the GEX Strike Profile page already warms, and
   // 78 five-minute buckets ≈ a full RTH session of rewind depth.
   const { buckets, loading, error } = useStrikeProfileTimeseries(symbol, '5min', expParam);
@@ -529,10 +532,23 @@ export default function GammaShiftLadder({ symbol: symbolProp }: { symbol?: stri
   const card = 'rounded-2xl p-5 sm:p-6';
   const cardStyle = { background: 'var(--bg-card)', border: '1px solid var(--border-default)' } as const;
 
+  // The expiry filter renders in EVERY state (error / loading / too-few-buckets
+  // included) so a filtered selection that returns no data can always be
+  // switched back to "All" without leaving the card.
+  const expiryControl = (
+    <ExpirationMultiSelect
+      options={available}
+      selected={selection}
+      onChange={setSelection}
+      label="Expiry"
+      disabled={available.length === 0}
+    />
+  );
+
   if (error) {
     return (
       <div className={card} style={cardStyle}>
-        <Heading symbol={symbol} />
+        <Heading symbol={symbol} control={expiryControl} />
         <div className="flex h-[280px] items-center justify-center text-sm" style={{ color: chart.bear }}>
           {error === 'No data available yet'
             ? `No gamma timeseries for ${symbol} yet.`
@@ -544,7 +560,7 @@ export default function GammaShiftLadder({ symbol: symbolProp }: { symbol?: stri
   if ((loading && n === 0) || n === 0) {
     return (
       <div className={card} style={cardStyle}>
-        <Heading symbol={symbol} />
+        <Heading symbol={symbol} control={expiryControl} />
         <div className="flex h-[280px] items-center justify-center text-sm" style={{ color: 'var(--text-secondary)' }}>
           Loading gamma timeseries…
         </div>
@@ -554,7 +570,7 @@ export default function GammaShiftLadder({ symbol: symbolProp }: { symbol?: stri
   if (n < 2) {
     return (
       <div className={card} style={cardStyle}>
-        <Heading symbol={symbol} />
+        <Heading symbol={symbol} control={expiryControl} />
         <div className="flex h-[280px] items-center justify-center px-6 text-center text-sm" style={{ color: 'var(--text-secondary)' }}>
           Only one snapshot so far — Gamma Shift needs two points in time. Check back after the next update.
         </div>
@@ -568,7 +584,7 @@ export default function GammaShiftLadder({ symbol: symbolProp }: { symbol?: stri
 
   return (
     <div className={card} style={cardStyle}>
-      <Heading symbol={symbol} />
+      <Heading symbol={symbol} control={expiryControl} />
 
       {/* ── time selection ─────────────────────────────────────────────── */}
       <div className="mb-4 mt-5">
@@ -755,19 +771,20 @@ export default function GammaShiftLadder({ symbol: symbolProp }: { symbol?: stri
 // sub-render helpers
 // ────────────────────────────────────────────────────────────────────────────
 
-function Heading({ symbol }: { symbol: string }) {
+function Heading({ symbol, control }: { symbol: string; control?: ReactNode }) {
   return (
     <div>
-      <div className="flex items-baseline gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <h3 className="zg-h3" style={{ color: 'var(--text-primary)' }}>
           Gamma Shift
         </h3>
-        <TooltipWrapper text="How dealer gamma at each strike has CHANGED between two points in time — not just where it sits now. Green means gamma rose at that strike (more long-gamma / pinning force); red means it fell (more short-gamma / accelerant). Set the two times with the presets, or drag the From and To handles.">
+        <TooltipWrapper text="How dealer gamma at each strike has CHANGED between two points in time — not just where it sits now. Green means gamma rose at that strike (more long-gamma / pinning force); red means it fell (more short-gamma / accelerant). Set the two times with the presets, or drag the From and To handles. The Expiry filter scopes every number on the card to the selected expirations (default: all).">
           <Info size={14} />
         </TooltipWrapper>
         <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
           {symbol}
         </span>
+        {control && <span className="ml-auto">{control}</span>}
       </div>
       <p className="mt-1 text-sm leading-snug" style={{ color: 'var(--text-secondary)' }}>
         See how dealer gamma at each strike{' '}

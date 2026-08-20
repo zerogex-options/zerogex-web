@@ -39,12 +39,21 @@ import { useMemo, type ReactNode } from "react";
 import { Crown } from "lucide-react";
 import { gexScaleFactor, GEX_UNIT_LABEL, type GexUnit } from "@/core/GexUnitContext";
 import { selectActiveCells } from "@/core/strikeFilter";
+import { sessionDeltaMark, sessionDeltaTitle } from "@/core/sessionDelta";
 import LoadingSpinner from "./LoadingSpinner";
 import ErrorMessage from "./ErrorMessage";
 
 export interface HeatmapCell {
   strike: number;
   net_gex: number;
+}
+
+/** The Δ-since-open baseline: per-strike Net GEX at the session's 09:30 ET
+ *  open, already summed over the column's expiration selection (see
+ *  core/sessionDelta). Present only while the Session Δ preference is on. */
+export interface SessionBaselineInput {
+  netByStrike: Map<number, number>;
+  frameTs: string | null;
 }
 
 export interface HeatmapColumnInput {
@@ -58,6 +67,8 @@ export interface HeatmapColumnInput {
   /** Day change % for the header badge (optional — omitted in some modes). */
   changePercent?: number | null;
   isPositive?: boolean;
+  /** Session-open baseline for the Δ triangles (optional — live mode only). */
+  sessionBaseline?: SessionBaselineInput | null;
   loading: boolean;
   error: string | null;
   /** The symbol dropdown, injected by the page so the ladder stays presentational. */
@@ -348,6 +359,37 @@ function ChangeBadge({ changePercent, isPositive }: { changePercent?: number | n
   );
 }
 
+// Fraction of the column's tint clip below which a session change is left
+// unmarked — the triangles must read as signal, not per-row noise.
+const DELTA_NOISE_FRACTION = 0.02;
+
+// A crisp CSS-border triangle for the Δ-since-open indicator: green▲ where
+// dealer gamma has built since the session opened, red▼ where it has eroded.
+// Strength (opacity) tiers with the size of the move so a strike that doubled
+// pops while a modest build stays quiet — the ladder must not turn into
+// confetti. Drawn with borders (not a glyph) so it renders identically at 6px
+// in every font/theme.
+function DeltaTriangle({ dir, strong }: { dir: "up" | "down"; strong: boolean }) {
+  const color = dir === "up" ? "var(--color-bull)" : "var(--color-bear)";
+  const side = "3.5px solid transparent";
+  return (
+    <span
+      aria-hidden
+      style={{
+        display: "inline-block",
+        width: 0,
+        height: 0,
+        borderLeft: side,
+        borderRight: side,
+        opacity: strong ? 1 : 0.55,
+        ...(dir === "up"
+          ? { borderBottom: `5px solid ${color}` }
+          : { borderTop: `5px solid ${color}` }),
+      }}
+    />
+  );
+}
+
 function RegimeChip({ spot, flip }: { spot: number | null; flip: number | null }) {
   if (spot == null || flip == null || !Number.isFinite(spot) || !Number.isFinite(flip)) return null;
   const long = spot >= flip;
@@ -371,6 +413,12 @@ function HeatmapColumn({
   const { input, cellByOffset, arrowsByOffset, clip, gexScale, peakOffset } = model;
   const unitLabel = GEX_UNIT_LABEL[gexUnit];
   const lv = model.levelValues;
+  // Session-Δ overlay: a column with a baseline reserves a fixed slot before
+  // every value so the numbers stay column-aligned whether or not a given row
+  // earns a triangle. The noise floor scales with the column's own tint clip
+  // so "too small to mark" adapts to SPY and SPX alike.
+  const baseline = input.sessionBaseline ?? null;
+  const deltaFloor = clip * DELTA_NOISE_FRACTION;
 
   return (
     <div className="min-w-0 flex flex-col">
@@ -402,10 +450,20 @@ function HeatmapColumn({
         </div>
       </div>
 
-      {/* Sub-header: strike / net gex labels */}
+      {/* Sub-header: strike / net gex labels (+ the Δ legend while the
+          session-delta overlay is on, so the triangles are self-explaining) */}
       <div className="flex items-center justify-between px-2 py-1 text-[9px] uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
         <span>Strike</span>
-        <span>Net GEX ({unitLabel})</span>
+        <span className="inline-flex items-center gap-1" title={baseline ? "Triangles mark dealer gamma built (▲) or eroded (▼) at that strike since the 09:30 ET open, for the selected expirations" : undefined}>
+          {baseline && (
+            <span className="inline-flex items-center gap-0.5 normal-case">
+              <DeltaTriangle dir="up" strong />
+              <DeltaTriangle dir="down" strong />
+              <span style={{ letterSpacing: 0 }}>Δ open ·</span>
+            </span>
+          )}
+          Net GEX ({unitLabel})
+        </span>
       </div>
 
       {input.error ? (
@@ -477,6 +535,28 @@ function HeatmapColumn({
                           // in currentColor so it stays readable on any cell tint.
                           <Crown size={12} strokeWidth={2.25} aria-label="King node — heaviest dealer gamma" style={{ color: "currentColor", flex: "0 0 auto" }} />
                         )}
+                        {baseline &&
+                          (() => {
+                            const mark = sessionDeltaMark(
+                              cell.net_gex,
+                              baseline.netByStrike.get(cell.strike),
+                              deltaFloor,
+                            );
+                            return (
+                              <span
+                                className="inline-flex items-center justify-center"
+                                style={{ width: 8, flex: "0 0 auto" }}
+                                title={mark ? sessionDeltaTitle(mark) : undefined}
+                              >
+                                {mark && (
+                                  <DeltaTriangle
+                                    dir={mark.dir}
+                                    strong={mark.pct == null || mark.pct >= 0.5}
+                                  />
+                                )}
+                              </span>
+                            );
+                          })()}
                         {fmtGex((cell.net_gex || 0) * gexScale)}
                       </span>
                     </>
@@ -537,25 +617,23 @@ export default function PairGammaHeatmap({
  *
  * Used by the "Gamma Ladder" My Dashboard widget, where `control` is a plain
  * symbol label rather than the page's dropdown (the tile follows the board's
- * symbol) and `maxSide` is shortened so the ladder fits a tile instead of
- * stretching its whole grid row.
+ * symbol). The strike window is the SAME ±MAX_SIDE the pair page renders — a
+ * tile used to shorten it, which made the widget read as a different (smaller)
+ * instrument than the page; now the two surfaces show the identical ladder.
  */
 export function GammaLadder({
   column,
   gexUnit,
   activeOnly = true,
-  maxSide = MAX_SIDE,
 }: {
   column: HeatmapColumnInput;
   gexUnit: GexUnit;
   /** Hide strikes with no dealer gamma (net GEX 0) — see PairGammaHeatmap. */
   activeOnly?: boolean;
-  /** Strikes rendered on each side of spot. Each row is 20px tall. */
-  maxSide?: number;
 }) {
   const model = useMemo(
-    () => buildModel(column, gexUnit, activeOnly, maxSide),
-    [column, gexUnit, activeOnly, maxSide],
+    () => buildModel(column, gexUnit, activeOnly, MAX_SIDE),
+    [column, gexUnit, activeOnly],
   );
   const offsets = useMemo(() => columnOffsets([model]), [model]);
 

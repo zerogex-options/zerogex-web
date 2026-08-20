@@ -8,6 +8,7 @@ import { normalizeLocale } from '@/core/i18n/locales';
 import { TimeframeProvider } from '@/core/TimeframeContext';
 import { GexUnitProvider } from '@/core/GexUnitContext';
 import { StrikeFilterProvider } from '@/core/StrikeFilterContext';
+import { SessionDeltaProvider } from '@/core/SessionDeltaContext';
 import { DensityProvider } from '@/core/DensityContext';
 import ClientLayout from '@/components/ClientLayout';
 import TelemetryProvider from '@/components/TelemetryProvider';
@@ -270,14 +271,16 @@ export default async function RootLayout({
             <TimeframeProvider>
               <GexUnitProvider>
                 <StrikeFilterProvider>
-                  <DensityProvider>
-                    <TelemetryProvider />
-                    <TwitterPixelProvider />
-                    <PageAnalytics />
-                    <ClientLayout>
-                      {children}
-                    </ClientLayout>
-                  </DensityProvider>
+                  <SessionDeltaProvider>
+                    <DensityProvider>
+                      <TelemetryProvider />
+                      <TwitterPixelProvider />
+                      <PageAnalytics />
+                      <ClientLayout>
+                        {children}
+                      </ClientLayout>
+                    </DensityProvider>
+                  </SessionDeltaProvider>
                 </StrikeFilterProvider>
               </GexUnitProvider>
             </TimeframeProvider>

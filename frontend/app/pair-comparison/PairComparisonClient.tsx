@@ -16,6 +16,8 @@ import { ChevronDown, Sparkles } from "lucide-react";
 import PageShell from "@/components/layout/PageShell";
 import PairGammaHeatmap, { type HeatmapCell, type HeatmapColumnInput } from "@/components/PairGammaHeatmap";
 import StrikeFilterToggle from "@/components/StrikeFilterToggle";
+import SessionDeltaToggle from "@/components/SessionDeltaToggle";
+import ExpirationMultiSelect from "@/components/ExpirationMultiSelect";
 import PairReplayScrubber from "@/components/PairReplayScrubber";
 import PairCandleChart from "@/components/PairCandleChart";
 import GexUnitToggle from "@/components/GexUnitToggle";
@@ -24,9 +26,13 @@ import TooltipWrapper from "@/components/TooltipWrapper";
 import ChartCaption from "@/components/ChartCaption";
 import { type ChartTimeframe } from "@/components/ChartTimeframeSelect";
 import { useGammaLadderColumn, type GammaLadderColumnData } from "@/hooks/useGammaLadder";
+import { useChartExpirations } from "@/hooks/useChartExpirations";
+import { useSharedExpirations } from "@/hooks/useSharedExpirations";
 import { usePairReplay, type PairReplayData, type ReplayFrame, type ReplayCandle } from "@/hooks/usePairReplay";
+import { reconcileExpirations } from "@/core/expirationPersistence";
 import { useGexUnit } from "@/core/GexUnitContext";
 import { useStrikeFilter } from "@/core/StrikeFilterContext";
+import { useSessionDelta } from "@/core/SessionDeltaContext";
 import { useTimeframe, type UnderlyingSymbol } from "@/core/TimeframeContext";
 import { SYMBOLS } from "@/core/symbols";
 
@@ -41,9 +47,14 @@ const TIMEFRAME_OPTIONS: Array<{ value: ChartTimeframe; label: string }> = [
 const INFO_TEXT =
   "Compare two symbols' dealer-gamma structure side by side. The left ladder follows your header symbol; " +
   "pick any of SPY / QQQ / SPX / NDX to compare on the right. Both stay centered on spot and strike-aligned, " +
-  "with the Gamma Flip, Call/Put Walls and Max Pain marked. Enter Replay to scrub the most-recent session " +
+  "with the Gamma Flip, Call/Put Walls and Max Pain marked. The Expiry filter scopes both ladders (and their " +
+  "walls and flip) to one or more expirations — default All; Max Pain reads NA while filtered, as it has no " +
+  "per-expiry-set equivalent. Session Δ overlays a small green up / red down triangle beside each strike's " +
+  "Net GEX showing whether dealer gamma there has built or eroded since the 09:30 ET open, for the selected " +
+  "expirations. Enter Replay to scrub the most-recent session " +
   "minute by minute (spot in replay is the underlying close for that minute; the change is vs the session open, " +
-  "while live shows the day change from the prior close). The Strikes toggle shows only strikes carrying " +
+  "while live shows the day change from the prior close; replay is always the whole chain). The Strikes toggle " +
+  "shows only strikes carrying " +
   "dealer gamma (Active) or every listed strike near spot (All) — Active keeps high-priced chains like NDX, " +
   "which list a fine grid but concentrate open interest on the round strikes, from reading as sparse. " +
   "Net GEX is a modeled estimate of dealer gamma by strike — decision-support context only, not investment advice.";
@@ -209,8 +220,34 @@ export default function PairComparisonClient() {
   const { activeOnly } = useStrikeFilter();
 
   const liveEnabled = mode === "live";
-  const live1 = useGammaLadderColumn(sym1, liveEnabled);
-  const live2 = useGammaLadderColumn(sym2, liveEnabled);
+  // Session-Δ overlay preference (shared with the dashboard ladder tile).
+  const { showSessionDelta } = useSessionDelta();
+
+  // Expiration filter — one tab-shared selection, reconciled PER SYMBOL (each
+  // column only passes dates its own chain can serve). The page's selector
+  // offers the union of the two chains so a date listed on either side stays
+  // pickable; replay is always whole-chain, so the selector rests while
+  // replaying (its fetches are live-gated too).
+  const exp1 = useChartExpirations(sym1, liveEnabled);
+  const exp2 = useChartExpirations(sym2, liveEnabled);
+  const { selection: sharedExpirations, setSelection: setSharedExpirations } = useSharedExpirations();
+  const expiryOptions = useMemo(
+    () => Array.from(new Set([...exp1.available, ...exp2.available])).sort(),
+    [exp1.available, exp2.available],
+  );
+  const expirySelected = useMemo(
+    () => reconcileExpirations(sharedExpirations, expiryOptions),
+    [sharedExpirations, expiryOptions],
+  );
+
+  const live1 = useGammaLadderColumn(sym1, liveEnabled, {
+    expirations: exp1.selection,
+    sessionDelta: showSessionDelta,
+  });
+  const live2 = useGammaLadderColumn(sym2, liveEnabled, {
+    expirations: exp2.selection,
+    sessionDelta: showSessionDelta,
+  });
   const replay1 = usePairReplay(sym1, replayArmed, mode === "replay");
   const replay2 = usePairReplay(sym2, replayArmed, mode === "replay");
 
@@ -330,12 +367,22 @@ export default function PairComparisonClient() {
         </div>
       </header>
 
-      {/* Global controls: candle timeframe · ladder strike filter (left) · GEX unit (right) */}
+      {/* Global controls: candle timeframe · ladder strike filter · expiry
+          filter · session-Δ overlay (left) · GEX unit (right) */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <span className="zg-eyebrow" style={{ fontSize: 10 }}>Candles</span>
         <TimeframeSeg value={timeframe} onChange={setTimeframe} />
         <span className="zg-eyebrow" style={{ fontSize: 10 }}>Strikes</span>
         <StrikeFilterToggle />
+        <ExpirationMultiSelect
+          options={expiryOptions}
+          selected={expirySelected}
+          onChange={setSharedExpirations}
+          label="Expiry"
+          disabled={expiryOptions.length === 0}
+        />
+        <span className="zg-eyebrow" style={{ fontSize: 10 }}>Session Δ</span>
+        <SessionDeltaToggle />
         <div className="flex items-center gap-2 ml-auto">
           <span className="zg-eyebrow" style={{ fontSize: 10 }}>GEX unit</span>
           <GexUnitToggle showHint={false} />
