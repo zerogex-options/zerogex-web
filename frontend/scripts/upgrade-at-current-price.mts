@@ -344,17 +344,25 @@ async function listMintedCoupons(client: Stripe): Promise<Stripe.Coupon[]> {
   return found.reverse();
 }
 
-function subscriptionCouponIds(sub: Stripe.Subscription): string[] {
+// Coupon ids on a subscription, or null when they cannot be determined.
+//
+// A subscription's `discounts` are only Discount OBJECTS when expanded — a plain
+// retrieve returns bare DISCOUNT ids ('di_...'), which are NOT coupon ids. The
+// webhook's namesake gets away with reading `d.coupon` directly because event
+// payloads arrive pre-expanded; a script must ask for the expansion.
+//
+// Returning null rather than [] on an unexpanded payload is deliberate: an empty
+// list would read as "this coupon is applied nowhere", which is exactly the
+// wrong answer to hand someone about to delete it.
+function subscriptionCouponIds(sub: Stripe.Subscription): string[] | null {
   const discounts = (sub.discounts ?? []) as unknown[];
   const ids: string[] = [];
   for (const entry of discounts) {
-    if (typeof entry === 'string') {
-      ids.push(entry);
-      continue;
-    }
-    const coupon = (entry as { coupon?: { id?: string } | string }).coupon;
-    if (typeof coupon === 'string') ids.push(coupon);
-    else if (coupon?.id) ids.push(coupon.id);
+    if (typeof entry === 'string') return null; // unexpanded — cannot resolve
+    const coupon = (entry as { coupon?: { id?: string } | string | null }).coupon;
+    const id = typeof coupon === 'string' ? coupon : coupon?.id;
+    if (!id) return null;
+    if (!ids.includes(id)) ids.push(id);
   }
   return ids;
 }
@@ -362,21 +370,31 @@ function subscriptionCouponIds(sub: Stripe.Subscription): string[] {
 // A minted coupon is live only if it is still applied to the subscription of the
 // member it was minted for. Its metadata.user_id gives us that member directly,
 // so this stays O(coupons) rather than scanning every subscription.
-async function couponIsApplied(client: Stripe, coupon: Stripe.Coupon): Promise<boolean> {
+type AppliedState = 'applied' | 'unapplied' | 'unknown';
+
+async function couponIsApplied(client: Stripe, coupon: Stripe.Coupon): Promise<AppliedState> {
   const userId = coupon.metadata?.user_id;
-  if (!userId) return false;
+  // No member stamped on it — we cannot prove where it is used, so we must not
+  // claim it is unused.
+  if (!userId) return 'unknown';
   const rows = querySqlite<{ stripe_subscription_id: string | null }>(
     dbPath,
     `SELECT stripe_subscription_id FROM users WHERE id = '${escapeSqlLiteral(userId)}' LIMIT 1;`,
   );
+  if (rows.length === 0) return 'unknown'; // member no longer in the DB
   const subId = rows[0]?.stripe_subscription_id;
-  if (!subId) return false;
+  // Member exists but carries no subscription: nothing can be holding it.
+  if (!subId) return 'unapplied';
   try {
-    const sub = await client.subscriptions.retrieve(subId);
-    return subscriptionCouponIds(sub).includes(coupon.id);
+    // The expansion is what makes `.coupon.id` readable at all — see
+    // subscriptionCouponIds above.
+    const sub = await client.subscriptions.retrieve(subId, { expand: ['discounts'] });
+    const ids = subscriptionCouponIds(sub);
+    if (ids === null) return 'unknown';
+    return ids.includes(coupon.id) ? 'applied' : 'unapplied';
   } catch {
-    // Subscription gone (cancelled, deleted) — nothing is holding the coupon.
-    return false;
+    // Could not read the subscription at all — unknown, never "safe to delete".
+    return 'unknown';
   }
 }
 
@@ -396,9 +414,11 @@ if (cliArgs.listOrphans) {
   }
   console.log(`Hold-steady coupons minted by this script (metadata.reason=${COUPON_REASON}):\n`);
   const orphans: string[] = [];
+  let unknowns = 0;
   for (const coupon of minted) {
-    const applied = await couponIsApplied(client, coupon);
-    if (!applied) orphans.push(coupon.id);
+    const state = await couponIsApplied(client, coupon);
+    if (state === 'unapplied') orphans.push(coupon.id);
+    if (state === 'unknown') unknowns += 1;
     const amount =
       typeof coupon.amount_off === 'number'
         ? formatCents(coupon.amount_off, coupon.currency ?? 'usd')
@@ -411,15 +431,23 @@ if (cliArgs.listOrphans) {
           `SELECT email FROM users WHERE id = '${escapeSqlLiteral(coupon.metadata.user_id)}' LIMIT 1;`,
         )
       : [];
+    const label = state === 'applied' ? 'IN USE ' : state === 'unapplied' ? 'ORPHAN ' : 'UNKNOWN';
     console.log(
-      `  ${applied ? 'IN USE ' : 'ORPHAN '} ${coupon.id.padEnd(12)} ${amount.padEnd(9)} off, ${coupon.duration}` +
+      `  ${label} ${coupon.id.padEnd(12)} ${amount.padEnd(9)} off, ${coupon.duration}` +
         `  ${emailRows[0]?.email ?? coupon.metadata?.user_id ?? 'unknown member'}` +
         `  created ${new Date(coupon.created * 1000).toISOString().slice(0, 10)}`,
     );
   }
   console.log('');
+  if (unknowns > 0) {
+    console.log(
+      `${unknowns} coupon(s) could not be resolved and are marked UNKNOWN — they are NOT listed as`,
+    );
+    console.log('safe to delete. Check those by hand in Stripe before touching them.');
+    console.log('');
+  }
   if (orphans.length === 0) {
-    console.log('Every minted coupon is still applied — nothing to clean up.');
+    console.log('No coupon is provably unused — nothing to clean up.');
   } else {
     console.log(`Safe to delete in Stripe (applied to nothing): ${orphans.join(', ')}`);
     console.log('Deleting a coupon never disturbs discounts already applied elsewhere.');
