@@ -248,6 +248,7 @@ type Hit = {
   // see classifyElapsed below.
   periodStartUnix: number | null;
   periodEndUnix: number | null;
+  subscriptionId: string | null;
   // Filled in for the elapsed bucket only: how the member's access actually
   // ended relative to the period they paid for.
   lostFrom?: string;
@@ -355,6 +356,7 @@ try {
       reason: recoverable ? null : decision.reason,
       periodStartUnix: readInvoicePeriodStartUnix(invoice),
       periodEndUnix: readInvoicePeriodEndUnix(invoice),
+      subscriptionId,
     };
     if (recoverable) hits.push(record);
     else if (decision.reason === 'period_already_elapsed') elapsed.push(record);
@@ -389,7 +391,16 @@ try {
 // their own shortly before the deletion, so a deletion preceded by one is read
 // as voluntary and left alone. (Cancel-at-period-end never trips this at all —
 // its deletion lands AT the period end, not inside it.)
-type AuditRow = { email: string; type: string; created_at: string };
+type AuditRow = { email: string; type: string; created_at: string; message: string };
+
+// The deletion audit row names the subscription that ended:
+//   "Subscription sub_123 ended; tier reset to public"
+// Pulling that id out is what lets a plan switch be told from a real loss. A
+// message that does not match yields null, which classifyElapsedPaidPeriod
+// treats as unverifiable and never counts as a loss.
+function readEndedSubscriptionId(message: string): string | null {
+  return /\bsub_[A-Za-z0-9]+/.exec(message)?.[0] ?? null;
+}
 
 function classifyElapsed(candidates: Hit[]): { lost: Hit[]; consumed: Hit[] } {
   if (candidates.length === 0) return { lost: [], consumed: [] };
@@ -400,7 +411,7 @@ function classifyElapsed(candidates: Hit[]): { lost: Hit[]; consumed: Hit[] } {
   try {
     audit = querySqlite<AuditRow>(
       dbPath,
-      `SELECT lower(email) AS email, type, created_at FROM audit_events
+      `SELECT lower(email) AS email, type, created_at, message FROM audit_events
         WHERE lower(email) IN (${inList})
           AND type IN ('stripe_subscription_deleted','stripe_cancellation_requested','billing_cancel_flow_submitted')
         ORDER BY created_at ASC;`,
@@ -412,16 +423,21 @@ function classifyElapsed(candidates: Hit[]): { lost: Hit[]; consumed: Hit[] } {
     return { lost: [], consumed: candidates };
   }
 
-  const deletionsByEmail = new Map<string, number[]>();
+  type Deletion = { atUnix: number; subscriptionId: string | null };
+  const deletionsByEmail = new Map<string, Deletion[]>();
   const cancelRequestsByEmail = new Map<string, number[]>();
   for (const row of audit) {
     const unix = Math.floor(new Date(row.created_at).getTime() / 1000);
     if (!Number.isFinite(unix)) continue;
-    const bucket =
-      row.type === 'stripe_subscription_deleted' ? deletionsByEmail : cancelRequestsByEmail;
-    const list = bucket.get(row.email) ?? [];
+    if (row.type === 'stripe_subscription_deleted') {
+      const list = deletionsByEmail.get(row.email) ?? [];
+      list.push({ atUnix: unix, subscriptionId: readEndedSubscriptionId(row.message ?? '') });
+      deletionsByEmail.set(row.email, list);
+      continue;
+    }
+    const list = cancelRequestsByEmail.get(row.email) ?? [];
     list.push(unix);
-    bucket.set(row.email, list);
+    cancelRequestsByEmail.set(row.email, list);
   }
 
   const lost: Hit[] = [];
@@ -431,7 +447,8 @@ function classifyElapsed(candidates: Hit[]): { lost: Hit[]; consumed: Hit[] } {
     const verdict = classifyElapsedPaidPeriod({
       periodStartUnix: candidate.periodStartUnix,
       periodEndUnix: candidate.periodEndUnix,
-      deletionUnixes: deletionsByEmail.get(email) ?? [],
+      invoiceSubscriptionId: candidate.subscriptionId,
+      deletions: deletionsByEmail.get(email) ?? [],
       cancelRequestUnixes: cancelRequestsByEmail.get(email) ?? [],
     });
     if (verdict.kind === 'consumed') {

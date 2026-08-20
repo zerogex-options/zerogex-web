@@ -139,9 +139,11 @@ different responses:
 - **Lost paid time** — paid, then cut off *before* the period they bought was
   over, and that period has since expired. Re-creating the subscription is the
   wrong remedy here: it would hand them future time instead of the days they
-  lost. A refund or a credit is the answer, and it is your call. Voluntary
-  cancellations are excluded — a member who asked to cancel early gave those days
-  up themselves.
+  lost. A refund or a credit is the answer, and it is your call. Two things are
+  excluded: a member who asked to cancel early gave those days up themselves, and
+  a plan switch tears the old subscription down exactly when the new period
+  starts — so only a deletion of the subscription the invoice actually paid for
+  counts.
 - **Needs a look** — money with no entitlement where the plan to restore was not
   unambiguous (a retired price, an unreadable period).
 

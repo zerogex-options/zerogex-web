@@ -240,18 +240,26 @@ const ONE_DAY = 24 * 60 * 60;
 const ELAPSED_START = 1_760_000_000;
 const ELAPSED_END = ELAPSED_START + 30 * ONE_DAY;
 
+const PAID_SUB = 'sub_paid_for_this_period';
+
 function classifyFixture(over: Partial<Parameters<typeof classifyElapsedPaidPeriod>[0]> = {}) {
   return classifyElapsedPaidPeriod({
     periodStartUnix: ELAPSED_START,
     periodEndUnix: ELAPSED_END,
-    deletionUnixes: [],
+    invoiceSubscriptionId: PAID_SUB,
+    deletions: [],
     cancelRequestUnixes: [],
     ...over,
   });
 }
 
+// Shorthand: a deletion of the subscription this invoice actually paid for.
+function del(atUnix: number, subscriptionId: string = PAID_SUB) {
+  return { atUnix, subscriptionId };
+}
+
 test('access that ran to the period end is ordinary churn', () => {
-  const verdict = classifyFixture({ deletionUnixes: [ELAPSED_END] });
+  const verdict = classifyFixture({ deletions: [del(ELAPSED_END)] });
   assert.equal(verdict.kind, 'consumed');
   assert.equal(verdict.reason, 'access_ran_to_period_end');
 });
@@ -262,7 +270,7 @@ test('no deletion at all is ordinary churn', () => {
 
 test('a deletion inside the paid window is lost paid time', () => {
   const lostAt = ELAPSED_START + 10 * ONE_DAY;
-  const verdict = classifyFixture({ deletionUnixes: [lostAt] });
+  const verdict = classifyFixture({ deletions: [del(lostAt)] });
   assert.equal(verdict.kind, 'lost');
   if (verdict.kind !== 'lost') return;
   assert.equal(verdict.lostAtUnix, lostAt);
@@ -272,7 +280,7 @@ test('a deletion inside the paid window is lost paid time', () => {
 test('a member who asked to cancel gave the rest of the period up themselves', () => {
   const lostAt = ELAPSED_START + 10 * ONE_DAY;
   const verdict = classifyFixture({
-    deletionUnixes: [lostAt],
+    deletions: [del(lostAt)],
     cancelRequestUnixes: [lostAt - 60],
   });
   assert.equal(verdict.kind, 'consumed');
@@ -284,7 +292,7 @@ test('a cancellation from a previous period does not excuse this deletion', () =
   // cycle — reading it as consent here would hide a real loss.
   const lostAt = ELAPSED_START + 20 * ONE_DAY;
   const verdict = classifyFixture({
-    deletionUnixes: [lostAt],
+    deletions: [del(lostAt)],
     cancelRequestUnixes: [ELAPSED_START - 90 * ONE_DAY],
   });
   assert.equal(verdict.kind, 'lost');
@@ -293,7 +301,7 @@ test('a cancellation from a previous period does not excuse this deletion', () =
 test('a cancellation AFTER the deletion does not excuse it either', () => {
   const lostAt = ELAPSED_START + 10 * ONE_DAY;
   const verdict = classifyFixture({
-    deletionUnixes: [lostAt],
+    deletions: [del(lostAt)],
     cancelRequestUnixes: [lostAt + ONE_DAY],
   });
   assert.equal(verdict.kind, 'lost');
@@ -301,7 +309,7 @@ test('a cancellation AFTER the deletion does not excuse it either', () => {
 
 test('the earliest involuntary deletion sets the loss', () => {
   const first = ELAPSED_START + 5 * ONE_DAY;
-  const verdict = classifyFixture({ deletionUnixes: [ELAPSED_START + 12 * ONE_DAY, first] });
+  const verdict = classifyFixture({ deletions: [del(ELAPSED_START + 12 * ONE_DAY), del(first)] });
   assert.equal(verdict.kind, 'lost');
   if (verdict.kind !== 'lost') return;
   assert.equal(verdict.lostAtUnix, first);
@@ -310,14 +318,51 @@ test('the earliest involuntary deletion sets the loss', () => {
 test('a deletion at the exact period start is not a loss', () => {
   // Boundary: the window is exclusive at both edges, so a deletion stamped at
   // the very start belongs to the prior cycle, not this paid one.
-  assert.equal(classifyFixture({ deletionUnixes: [ELAPSED_START] }).kind, 'consumed');
+  assert.equal(classifyFixture({ deletions: [del(ELAPSED_START)] }).kind, 'consumed');
 });
 
 test('unresolved period bounds never claim a loss', () => {
   const verdict = classifyFixture({
     periodStartUnix: null,
-    deletionUnixes: [ELAPSED_START + ONE_DAY],
+    deletions: [del(ELAPSED_START + ONE_DAY)],
   });
   assert.equal(verdict.kind, 'consumed');
   assert.equal(verdict.reason, 'period_bounds_unresolved');
+});
+
+test('a plan switch is not a loss — it deletes a different subscription', () => {
+  // The old subscription is torn down at the instant the new one starts, which
+  // lands inside the period the new one just billed for. Only the subscription
+  // id tells the two apart.
+  const verdict = classifyFixture({
+    deletions: [del(ELAPSED_START + 5, 'sub_the_old_plan')],
+  });
+  assert.equal(verdict.kind, 'consumed');
+  assert.equal(verdict.reason, 'access_ran_to_period_end');
+});
+
+test('a loss is still caught when a switch happened in the same window', () => {
+  const lostAt = ELAPSED_START + 9 * ONE_DAY;
+  const verdict = classifyFixture({
+    deletions: [del(ELAPSED_START + 5, 'sub_the_old_plan'), del(lostAt)],
+  });
+  assert.equal(verdict.kind, 'lost');
+  if (verdict.kind !== 'lost') return;
+  assert.equal(verdict.lostAtUnix, lostAt);
+});
+
+test('an unnamed subscription in the deletion record claims nothing', () => {
+  const verdict = classifyFixture({
+    deletions: [del(ELAPSED_START + 9 * ONE_DAY, null)],
+  });
+  assert.equal(verdict.kind, 'consumed');
+});
+
+test('an invoice with no subscription claims nothing', () => {
+  const verdict = classifyFixture({
+    invoiceSubscriptionId: null,
+    deletions: [del(ELAPSED_START + 9 * ONE_DAY)],
+  });
+  assert.equal(verdict.kind, 'consumed');
+  assert.equal(verdict.reason, 'subscription_unresolved');
 });
