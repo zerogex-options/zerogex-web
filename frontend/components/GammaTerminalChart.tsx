@@ -37,7 +37,7 @@ import ExpirationMultiSelect from "./ExpirationMultiSelect";
 import { useSharedExpirations } from "@/hooks/useSharedExpirations";
 import { useLinkedPriceAxis } from "@/core/linkedPriceAxis";
 import { reconcileExpirations } from "@/core/expirationPersistence";
-import { netGexAtSpotOrNull, aboveFlipBandIsLong } from "@/core/gammaRegime";
+import { netGexAtSpotOrNull, aboveFlipBandIsLong, offScaleBandIsLong } from "@/core/gammaRegime";
 import { buildExpectedRange, type HorizonKey } from "@/app/live-bulletin/bulletinHelpers";
 
 type ChartTimeframe = "1min" | "5min" | "15min" | "1hr" | "1day";
@@ -1557,6 +1557,27 @@ export default function GammaTerminalChart({
   // non-monotonic book (see core/gammaRegime). Reduces to "long above the flip,
   // short below" on a monotonic book.
   const aboveBandIsLong = aboveFlipBandIsLong(spot, flip, longGammaNow);
+  // Where the two regime bands meet, in plot coordinates. When the flip sits
+  // inside the visible price range that's the flip line itself. When it sits
+  // OUTSIDE it — zoomed in, panned away, or a flip simply far from the tape —
+  // the split collapses onto an edge instead of the shading disappearing:
+  // every visible price is then on ONE side of the flip, so that side's band
+  // fills the plot and the other is zero-height. A flip above the top of the
+  // scale leaves only the below-flip band on screen; a flip below the bottom
+  // leaves only the above-flip band.
+  const regimeSplitY =
+    flip == null
+      ? null
+      : inDomain(flip)
+        ? yPrice(flip)
+        : flip > layout.dMax
+          ? PAD_TOP
+          : PRICE_BOTTOM;
+  // Regime of the single band on screen when the flip is off-scale — same
+  // aboveBandIsLong orientation as the split above, so the off-scale label
+  // always agrees with the tint drawn under it.
+  const offScaleRegimeIsLong =
+    flip == null ? aboveBandIsLong : offScaleBandIsLong(flip, layout.dMin, aboveBandIsLong);
 
   // Level definitions rendered as reference lines + right-axis tags.
   type LevelDef = { key: string; label: string; value: number | null; color: string; dash: string; show: boolean };
@@ -1972,23 +1993,29 @@ export default function GammaTerminalChart({
 
             {/* Regime zones — the band containing spot matches the "Dealer
                 Gamma @ Spot" badge (aboveBandIsLong), so the shading never
-                contradicts the badge on a lumpy / non-monotonic book. */}
-            {overlays.regime && !regimeUnknown && inDomain(flip) && (
+                contradicts the badge on a lumpy / non-monotonic book. Drawn
+                whenever a flip is known, including when the flip itself is off
+                the visible scale: then the split (regimeSplitY) sits on an edge
+                and the one on-screen band tints the whole plot. */}
+            {overlays.regime && !regimeUnknown && regimeSplitY != null && (
               <g>
-                <rect x={PLOT_LEFT} y={PAD_TOP} width={PLOT_RIGHT - PLOT_LEFT} height={Math.max(0, yPrice(flip) - PAD_TOP)} fill={`color-mix(in srgb, ${aboveBandIsLong ? "var(--color-bull)" : "var(--color-bear)"} 7%, transparent)`} />
-                <rect x={PLOT_LEFT} y={yPrice(flip)} width={PLOT_RIGHT - PLOT_LEFT} height={Math.max(0, PRICE_BOTTOM - yPrice(flip))} fill={`color-mix(in srgb, ${aboveBandIsLong ? "var(--color-bear)" : "var(--color-bull)"} 7%, transparent)`} />
-                <text x={(PLOT_LEFT + PLOT_RIGHT) / 2} y={PAD_TOP + 15} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={10} letterSpacing="0.16em" fill={aboveBandIsLong ? "var(--color-bull)" : "var(--color-bear)"} opacity={0.65}>
-                  {aboveBandIsLong ? "LONG Γ · PINNING" : "SHORT Γ · TRENDING"}
-                </text>
-                <text x={(PLOT_LEFT + PLOT_RIGHT) / 2} y={PRICE_BOTTOM - 9} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={10} letterSpacing="0.16em" fill={aboveBandIsLong ? "var(--color-bear)" : "var(--color-bull)"} opacity={0.65}>
-                  {aboveBandIsLong ? "SHORT Γ · TRENDING" : "LONG Γ · PINNING"}
-                </text>
+                <rect x={PLOT_LEFT} y={PAD_TOP} width={PLOT_RIGHT - PLOT_LEFT} height={Math.max(0, regimeSplitY - PAD_TOP)} fill={`color-mix(in srgb, ${aboveBandIsLong ? "var(--color-bull)" : "var(--color-bear)"} 7%, transparent)`} />
+                <rect x={PLOT_LEFT} y={regimeSplitY} width={PLOT_RIGHT - PLOT_LEFT} height={Math.max(0, PRICE_BOTTOM - regimeSplitY)} fill={`color-mix(in srgb, ${aboveBandIsLong ? "var(--color-bear)" : "var(--color-bull)"} 7%, transparent)`} />
+                {inDomain(flip) ? (
+                  <>
+                    <text x={(PLOT_LEFT + PLOT_RIGHT) / 2} y={PAD_TOP + 15} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={10} letterSpacing="0.16em" fill={aboveBandIsLong ? "var(--color-bull)" : "var(--color-bear)"} opacity={0.65}>
+                      {aboveBandIsLong ? "LONG Γ · PINNING" : "SHORT Γ · TRENDING"}
+                    </text>
+                    <text x={(PLOT_LEFT + PLOT_RIGHT) / 2} y={PRICE_BOTTOM - 9} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={10} letterSpacing="0.16em" fill={aboveBandIsLong ? "var(--color-bear)" : "var(--color-bull)"} opacity={0.65}>
+                      {aboveBandIsLong ? "SHORT Γ · TRENDING" : "LONG Γ · PINNING"}
+                    </text>
+                  </>
+                ) : (
+                  <text x={(PLOT_LEFT + PLOT_RIGHT) / 2} y={PAD_TOP + 15} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={10} letterSpacing="0.16em" fill={offScaleRegimeIsLong ? "var(--color-bull)" : "var(--color-bear)"} opacity={0.65}>
+                    {offScaleRegimeIsLong ? "LONG Γ · PINNING REGIME" : "SHORT Γ · TRENDING REGIME"}
+                  </text>
+                )}
               </g>
-            )}
-            {overlays.regime && !regimeUnknown && !inDomain(flip) && (
-              <text x={(PLOT_LEFT + PLOT_RIGHT) / 2} y={PAD_TOP + 15} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={10} letterSpacing="0.16em" fill={longGammaNow ? "var(--color-bull)" : "var(--color-bear)"} opacity={0.65}>
-                {longGammaNow ? "LONG Γ · PINNING REGIME" : "SHORT Γ · TRENDING REGIME"}
-              </text>
             )}
 
             {/* Price grid + right axis labels */}

@@ -18,6 +18,7 @@ import {
   type BillingCadence,
 } from '@/core/stripe';
 import { getRefereeCouponId, isReferralProgramEnabled } from '@/core/referrals';
+import { resolveRefereeBonusCoupon, splitRefereeBonus } from '@/core/refereeBonus';
 import {
   findCreatorByReferralCode,
   getPartnerAudienceCouponId,
@@ -399,10 +400,11 @@ type DiscountResolution =
       // the subscription by the webhook before the first (post-trial) invoice.
       couponId: string | null;
       // A SECOND coupon to stack onto the subscription in addition to couponId.
-      // Non-null only for a referred user who ALSO qualifies for the public
-      // promo: the referee bonus stacks on top of the promo. Carried to the
-      // webhook via subscription metadata and applied while the sub is still
-      // trialing (before any charge). Null in every single-discount case.
+      // Non-null only for a friend-referred new customer who ALSO qualifies for
+      // another offer (the public promo, or the founding rate): the
+      // refer-a-friend bonus is additive and stacks on top of it. Carried to
+      // the webhook via subscription metadata and applied while the sub is
+      // still trialing (before any charge). Null in every single-discount case.
       stackCouponId: string | null;
       foundingApplied: boolean;
       referralApplied: boolean;
@@ -424,6 +426,22 @@ function resolveDiscount(input: {
   // bonus (a new-customer incentive) is withheld from returning customers.
   hasPriorPaid: boolean;
 }): DiscountResolution {
+  // The refer-a-friend bonus, resolved FIRST and independently of every other
+  // offer, because it is additive: a friend-referred new customer keeps it on
+  // top of whatever rate they'd have gotten anyway (see core/refereeBonus).
+  // Null for organic signups, returning customers, and when the program or the
+  // cadence's coupon isn't configured. The creator-partner and campaign-code
+  // branches below are separate programs carrying their own referee discount,
+  // so they return before this is ever applied.
+  const refereeCouponId = resolveRefereeBonusCoupon({
+    cadence: input.cadence,
+    referredByCode: input.referredByCode,
+    programEnabled: isReferralProgramEnabled(),
+    hasPriorPaid: input.hasPriorPaid,
+    couponForCadence: getRefereeCouponId(input.cadence),
+    monthlyCoupon: getRefereeCouponId('monthly'),
+  });
+
   if (input.foundingCode) {
     const expected = getFoundingPromoCode();
     if (!expected || input.foundingCode !== expected) {
@@ -462,12 +480,15 @@ function resolveDiscount(input: {
         error: `Founding-member discount is not configured for this plan (${input.tier}/${input.cadence}).`,
       };
     }
+    // The founding rate is the primary (advertised) offer, but a founder who
+    // also arrived through a friend's link keeps the refer-a-friend bonus on
+    // top of it: the founding coupon rides the Checkout Session and the bonus
+    // is stacked onto the subscription during the trial, before first charge.
     return {
       ok: true,
-      couponId,
-      stackCouponId: null,
+      ...splitRefereeBonus(couponId, refereeCouponId),
       foundingApplied: true,
-      referralApplied: false,
+      referralApplied: refereeCouponId != null,
       partnerApplied: false,
       winbackApplied: false,
       campaignApplied: false,
@@ -480,7 +501,10 @@ function resolveDiscount(input: {
   // proven server-side (subscription_lapsed=1 + a win-back email on record) at
   // the call site. If the coupon env for this (tier, cadence) isn't configured,
   // fall through to promo/none so a returning user is never blocked — they just
-  // don't get the win-back rate.
+  // don't get the win-back rate. No refer-a-friend bonus rides along here: a
+  // win-back-eligible account has subscription_lapsed=1, which makes
+  // hasPriorPaid true, so refereeCouponId above is necessarily null — the bonus
+  // is a new-customer incentive and a churner returning is not a new customer.
   if (input.winbackEligible) {
     const winbackCouponId = getWinbackCouponId({ tier: input.tier, cadence: input.cadence });
     if (winbackCouponId) {
@@ -563,82 +587,20 @@ function resolveDiscount(input: {
     }
   }
 
+  // The public promo is the primary offer for everyone else, and the
+  // refer-a-friend bonus stacks on top of it. With both present the promo rides
+  // the Checkout Session (it's the public-facing rate shown at checkout) and
+  // the bonus is stacked onto the subscription by the webhook before the first
+  // (post-trial) invoice, so both apply to that invoice. With only one — or
+  // neither — present, splitRefereeBonus degrades to exactly that one (or no
+  // discount at all).
   const promoCouponId = getActivePromoCouponId({ tier: input.tier, cadence: input.cadence });
-
-  // Standard referee coupon (first month free monthly / 10% off first year
-  // annual), resolved independently of the promo so the two can STACK. Gated to
-  // first-time customers: the referee bonus is a new-customer incentive, and a
-  // returning customer (no trial) also has no pre-first-invoice window to stack
-  // the coupon into — so we withhold it rather than deliver it inconsistently.
-  let refereeCouponId: string | null = null;
-  if (input.referredByCode && isReferralProgramEnabled() && !input.hasPriorPaid) {
-    const refereeCoupon = getRefereeCouponId(input.cadence);
-    if (refereeCoupon) {
-      // Defense-in-depth: the monthly referee coupon is 100%-off (first month
-      // free). On an annual line item that same coupon would make the entire
-      // first YEAR free. The coupon is already keyed to cadence, but guard the
-      // env-misconfig case where the annual var was pointed at the monthly
-      // coupon — drop the referee coupon rather than give away a free year.
-      const monthlyCoupon = getRefereeCouponId('monthly');
-      if (!(input.cadence === 'annual' && monthlyCoupon && refereeCoupon === monthlyCoupon)) {
-        refereeCouponId = refereeCoupon;
-      }
-    }
-  }
-
-  // Stack: a referred user who ALSO qualifies for the public promo gets BOTH.
-  // Stripe Checkout allows only one discount, so the promo rides the Checkout
-  // Session (it's the public-facing rate shown at checkout) and the referee
-  // coupon is stacked onto the subscription by the webhook before the first
-  // (post-trial) invoice. Both then apply to that first invoice.
-  if (promoCouponId && refereeCouponId) {
-    return {
-      ok: true,
-      couponId: promoCouponId,
-      stackCouponId: refereeCouponId,
-      foundingApplied: false,
-      referralApplied: true,
-      partnerApplied: false,
-      winbackApplied: false,
-      campaignApplied: false,
-      campaignCode: null,
-    };
-  }
-
-  // Only one (or neither) applies.
-  if (refereeCouponId) {
-    return {
-      ok: true,
-      couponId: refereeCouponId,
-      stackCouponId: null,
-      foundingApplied: false,
-      referralApplied: true,
-      partnerApplied: false,
-      winbackApplied: false,
-      campaignApplied: false,
-      campaignCode: null,
-    };
-  }
-  if (promoCouponId) {
-    return {
-      ok: true,
-      couponId: promoCouponId,
-      stackCouponId: null,
-      foundingApplied: false,
-      referralApplied: false,
-      partnerApplied: false,
-      winbackApplied: false,
-      campaignApplied: false,
-      campaignCode: null,
-    };
-  }
 
   return {
     ok: true,
-    couponId: null,
-    stackCouponId: null,
+    ...splitRefereeBonus(promoCouponId, refereeCouponId),
     foundingApplied: false,
-    referralApplied: false,
+    referralApplied: refereeCouponId != null,
     partnerApplied: false,
     winbackApplied: false,
     campaignApplied: false,
