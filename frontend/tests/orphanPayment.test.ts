@@ -146,8 +146,11 @@ test('a spent or partly-spent coupon is flagged, never re-applied', () => {
   ]);
   assert.deepEqual(result.carry, []);
   assert.deepEqual(result.flagged, [
-    { couponId: 'promo_first_year', duration: 'once' },
-    { couponId: 'intro_12mo', duration: 'repeating' },
+    // A fully-spent intro price is the designed outcome — the pricing page says
+    // "$229 first year, then $299" — so it is reported but not raised for review.
+    { couponId: 'promo_first_year', duration: 'once', needsReview: false },
+    // A repeating coupon may be partly unspent, which is a judgement call.
+    { couponId: 'intro_12mo', duration: 'repeating', needsReview: true },
   ]);
 });
 
@@ -156,7 +159,9 @@ test('an unreadable duration is flagged rather than trusted', () => {
     { couponId: 'mystery', duration: null, durationInMonths: null },
   ]);
   assert.deepEqual(result.carry, []);
-  assert.deepEqual(result.flagged, [{ couponId: 'mystery', duration: 'unknown' }]);
+  assert.deepEqual(result.flagged, [
+    { couponId: 'mystery', duration: 'unknown', needsReview: true },
+  ]);
 });
 
 test('mixed discounts split correctly and never duplicate', () => {
@@ -167,6 +172,15 @@ test('mixed discounts split correctly and never duplicate', () => {
   ]);
   assert.deepEqual(result.carry, ['forever_winback']);
   assert.equal(result.flagged.length, 1);
+});
+
+test("the standard first-year promo raises no review — it expired as advertised", () => {
+  const result = decideDiscountCarryOver([
+    { couponId: 'promo_pro_annual', duration: 'once', durationInMonths: null },
+  ]);
+  assert.deepEqual(result.carry, []);
+  assert.equal(result.flagged.length, 1);
+  assert.equal(result.flagged[0].needsReview, false);
 });
 
 test('no discounts on the canceled sub → nothing to carry', () => {

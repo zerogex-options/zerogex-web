@@ -136,14 +136,21 @@ This is handled:
   add `billing_orphan_payment_recovered`. `make webhook-health` counts both and
   exits non-zero when a detected payment was neither recovered nor skipped.
 - **At the right price.** The re-created subscription is a new Stripe object, so
-  it starts with no discounts. A `forever` coupon (founding lifetime 25%, a
-  forever winback rate) is carried across; a `once` or `repeating` one is not —
-  it was spent on the invoice just paid, and re-applying it would discount a
-  period the member never bought. Whatever does not carry is recorded as
-  `billing_orphan_payment_discount_review` and listed by `make webhook-health`,
-  because the member's renewal price has changed and somebody should confirm
-  that is intended. **Check this against the paid invoice**: if the amount
-  collected is below the price's list rate, a discount was in play.
+  it starts with no discounts, and which coupons follow depends on their
+  duration:
+  - `forever` (founding lifetime 25%, a forever winback rate) is **carried
+    across** — it is a permanent entitlement, and losing it would overcharge the
+    member on every renewal from then on.
+  - `once` is **not carried, and raises nothing**. It was spent in full on the
+    invoice just paid — the standard Pro offer is "$229 first year, then $299" —
+    so the undiscounted renewal is exactly what the member agreed to.
+  - `repeating`, or a duration Stripe did not expand, is **not carried and IS
+    flagged**, as `billing_orphan_payment_discount_review`, listed by
+    `make webhook-health`. How much of a partly-spent coupon the member is still
+    owed is a judgement call, not something to guess at.
+
+  `make recover-orphan-payment` prints the decision for every coupon during its
+  dry run, so the renewal price is visible before anything is written.
 - **By hand,** for anything the automatic path declines (an unmapped price, a
   period that already elapsed, a one-off invoice) and for payments orphaned
   before this shipped — their `invoice.paid` is already in `stripe_webhook_events`,
