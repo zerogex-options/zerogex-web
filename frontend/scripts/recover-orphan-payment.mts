@@ -49,7 +49,13 @@ import { execFileSync, spawnSync } from 'node:child_process';
 
 import Stripe from 'stripe';
 
-import { decideOrphanPayment, buildRecoverySubscriptionParams, RECOVERED_FROM_INVOICE_KEY } from '../core/orphanPayment.ts';
+import {
+  buildRecoverySubscriptionParams,
+  decideDiscountCarryOver,
+  decideOrphanPayment,
+  readSubscriptionDiscounts,
+  RECOVERED_FROM_INVOICE_KEY,
+} from '../core/orphanPayment.ts';
 import {
   readInvoicePaymentMethodId,
   readInvoicePeriodEndUnix,
@@ -299,13 +305,21 @@ type Candidate = {
   invoice: Stripe.Invoice;
   decision: ReturnType<typeof decideOrphanPayment>;
   subscriptionStatus: string | null;
+  // The canceled subscription itself, when it is still retrievable — read for
+  // the coupons that may have to follow the member onto the new one.
+  canceledSubscription: Stripe.Subscription | null;
 };
 
-async function subscriptionStatusOf(subscriptionId: string | null): Promise<string | null> {
+async function retrieveSubscription(
+  subscriptionId: string | null,
+): Promise<Stripe.Subscription | null> {
   if (!subscriptionId) return null;
   try {
-    const sub = await stripe.subscriptions.retrieve(subscriptionId);
-    return sub.status;
+    // Expand the coupons so their `duration` is readable — that field decides
+    // whether a discount is carried over.
+    return await stripe.subscriptions.retrieve(subscriptionId, {
+      expand: ['discounts.coupon'],
+    });
   } catch (err) {
     const code = (err as { code?: string; statusCode?: number }).code;
     const statusCode = (err as { statusCode?: number }).statusCode;
@@ -320,11 +334,13 @@ async function subscriptionStatusOf(subscriptionId: string | null): Promise<stri
 
 async function evaluate(invoice: Stripe.Invoice): Promise<Candidate> {
   const subscriptionId = readInvoiceSubscriptionId(invoice);
-  const subscriptionStatus = await subscriptionStatusOf(subscriptionId);
+  const canceledSubscription = await retrieveSubscription(subscriptionId);
+  const subscriptionStatus = canceledSubscription?.status ?? null;
   const priceId = readInvoicePriceId(invoice);
   return {
     invoice,
     subscriptionStatus,
+    canceledSubscription,
     decision: decideOrphanPayment({
       amountPaid: invoice.amount_paid ?? 0,
       invoiceStatus: invoice.status ?? null,
@@ -402,7 +418,7 @@ if (!candidate) {
   process.exit(0);
 }
 
-const { invoice, decision, subscriptionStatus } = candidate;
+const { invoice, decision, subscriptionStatus, canceledSubscription } = candidate;
 const periodStartUnix = readInvoicePeriodStartUnix(invoice);
 const periodEndUnix = readInvoicePeriodEndUnix(invoice);
 
@@ -423,9 +439,30 @@ if (!(decision.kind === 'detected' && decision.recoverable)) {
 }
 
 const sku = skuByPriceId.get(decision.priceId)!;
+// A new subscription starts with no discounts: forever coupons follow the
+// member, spent/partly-spent ones deliberately do not (see
+// decideDiscountCarryOver). Print BOTH before writing anything, because a
+// discount that does not carry changes what the member pays at renewal.
+const carryOver = decideDiscountCarryOver(readSubscriptionDiscounts(canceledSubscription));
+
 console.log(`Plan to restore:    ${sku.tier} / ${sku.cadence}  (price ${decision.priceId})`);
 console.log(`First renewal:      ${isoOf(decision.billingCycleAnchorUnix)}  ← paid period honoured until here`);
 console.log(`Charge now:         $0.00  (proration_behavior=none — they already paid for this period)`);
+if (carryOver.carry.length) {
+  console.log(`Discounts carried:  ${carryOver.carry.join(', ')}  (duration=forever)`);
+}
+for (const flagged of carryOver.flagged) {
+  console.log(`Discount NOT carried: ${flagged.couponId} (duration=${flagged.duration})`);
+  console.log(`  A '${flagged.duration}' coupon was spent on the invoice just paid, so re-applying it`);
+  console.log('  would discount a period the member never bought. Renewals bill the full price.');
+  console.log('  If that coupon was meant to be permanent, add it in the Stripe Dashboard after this run.');
+}
+if (!carryOver.carry.length && !carryOver.flagged.length && canceledSubscription) {
+  console.log('Discounts:          none on the canceled subscription');
+}
+if (!canceledSubscription) {
+  console.log('Discounts:          canceled subscription no longer retrievable — none can be carried');
+}
 console.log('');
 console.log(`Effect: create the subscription in Stripe, set ${user.email} to '${sku.tier}',`);
 console.log('and let the customer.subscription.created webhook reconcile + send welcome-back.');
@@ -480,35 +517,43 @@ const params = buildRecoverySubscriptionParams({
   invoiceId: invoice.id!,
   periodStartUnix,
   defaultPaymentMethodId: paymentMethodId,
+  carryCouponIds: carryOver.carry,
 });
 
-// Backdating is cosmetic (it makes the subscription start match the period the
-// member paid for); the grant itself comes from billing_cycle_anchor +
-// proration_behavior 'none'. Stripe constrains how far back backdate_start_date
-// may reach, so a rejection there must not be what leaves a paid-up member on
-// 'public' — retry once without it. Mirrors createRecoverySubscription in the
-// webhook.
+// Only billing_cycle_anchor + proration_behavior 'none' deliver the grant;
+// backdate_start_date (cosmetic) and discounts (the carried coupon) are optional
+// and some Stripe states reject them. Drop them one at a time rather than fail —
+// a member who paid must not stay on 'public' over an optional param — and
+// report what went. Mirrors createRecoverySubscription in the webhook.
+const OPTIONAL_RECOVERY_PARAMS = ['backdate_start_date', 'discounts'] as const;
+
 async function createRecoverySubscription(
   createParams: Record<string, unknown>,
-): Promise<Stripe.Subscription> {
-  try {
-    return await stripe.subscriptions.create(
-      createParams as unknown as Stripe.SubscriptionCreateParams,
-    );
-  } catch (err) {
-    if (!('backdate_start_date' in createParams)) throw err;
-    console.log('Note: Stripe rejected backdate_start_date; retrying without it.');
-    const withoutBackdate = { ...createParams };
-    delete withoutBackdate.backdate_start_date;
-    return await stripe.subscriptions.create(
-      withoutBackdate as unknown as Stripe.SubscriptionCreateParams,
-    );
+): Promise<{ subscription: Stripe.Subscription; dropped: string[] }> {
+  const attempt = { ...createParams };
+  const dropped: string[] = [];
+  for (;;) {
+    try {
+      const subscription = await stripe.subscriptions.create(
+        attempt as unknown as Stripe.SubscriptionCreateParams,
+      );
+      return { subscription, dropped };
+    } catch (err) {
+      const next = OPTIONAL_RECOVERY_PARAMS.find((key) => key in attempt);
+      if (!next) throw err;
+      console.log(`Note: Stripe rejected ${next}; retrying without it.`);
+      delete attempt[next];
+      dropped.push(next);
+    }
   }
 }
 
 let created: Stripe.Subscription;
+let droppedParams: string[] = [];
 try {
-  created = await createRecoverySubscription(params);
+  const result = await createRecoverySubscription(params);
+  created = result.subscription;
+  droppedParams = result.dropped;
 } catch (err) {
   const message = err instanceof Error ? err.message : 'unknown error';
   console.error(`\nError: Stripe subscription create failed: ${message}`);
@@ -550,7 +595,7 @@ execSqlite(
      NULL,
      '${escapeSqlLiteral(user.email)}',
      'manual-script',
-     '${escapeSqlLiteral(`Invoice ${invoice.id} recovered as subscription ${created.id} on price ${decision.priceId}; paid period honoured through ${isoOf(decision.billingCycleAnchorUnix)} (first renewal charge); tier set to ${sku.tier}`)}',
+     '${escapeSqlLiteral(`Invoice ${invoice.id} recovered as subscription ${created.id} on price ${decision.priceId}; paid period honoured through ${isoOf(decision.billingCycleAnchorUnix)} (first renewal charge); tier set to ${sku.tier}${carryOver.carry.length ? `; carried forever coupon(s) ${carryOver.carry.join(', ')}` : ''}${droppedParams.length ? `; Stripe rejected ${droppedParams.join(', ')}` : ''}`)}',
      '${escapeSqlLiteral(stamp)}'
    );`,
 );
@@ -558,5 +603,12 @@ execSqlite(
 console.log('');
 console.log(`Done. ${user.email} is now '${sku.tier}' on subscription ${created.id} (${created.status}).`);
 console.log(`Next charge: ${isoOf(decision.billingCycleAnchorUnix)} — nothing was billed today.`);
+if (carryOver.flagged.length || droppedParams.includes('discounts')) {
+  console.log('');
+  console.log('CHECK THE RENEWAL PRICE: this subscription does not carry every discount the');
+  console.log('canceled one had, so the renewal above may bill more than the member last paid.');
+  console.log('Compare it against their paid invoice and add the coupon in Stripe if it was');
+  console.log('meant to be permanent.');
+}
 console.log('The customer.subscription.created webhook will reconcile the row and send the');
 console.log('welcome-back email.');

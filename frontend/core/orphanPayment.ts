@@ -177,6 +177,96 @@ export function decideOrphanPayment(input: OrphanPaymentInput): OrphanPaymentDec
   };
 }
 
+// --- Discount carry-over ---------------------------------------------------
+//
+// The re-created subscription is a NEW Stripe object, so it starts with no
+// discounts. The canceled one may have carried a coupon, and whether that coupon
+// should follow depends entirely on its duration:
+//
+//   forever    A permanent entitlement — the founding lifetime 25%, a forever
+//              winback rate. Losing it silently overcharges the member on every
+//              future renewal. Carry it.
+//   once       Already spent, on the very invoice that was just paid.
+//              Re-applying it would discount the NEXT period too, which the
+//              member never bought. Do not carry.
+//   repeating  Partly spent, by an amount this module cannot see (the count
+//              lives in the old subscription's invoice history). Re-applying
+//              restarts the clock. Do not carry.
+//
+// Anything not carried is FLAGGED rather than dropped in silence, so the audit
+// row and the recovery script both name the coupon and let a human decide.
+
+export type SubscriptionDiscount = {
+  couponId: string | null;
+  duration: string | null;
+  durationInMonths: number | null;
+};
+
+export type DiscountCarryOver = {
+  // Coupon ids to re-apply to the re-created subscription.
+  carry: string[];
+  // Coupons deliberately NOT re-applied, with the duration that decided it.
+  flagged: Array<{ couponId: string; duration: string }>;
+};
+
+export function decideDiscountCarryOver(discounts: SubscriptionDiscount[]): DiscountCarryOver {
+  const carry: string[] = [];
+  const flagged: Array<{ couponId: string; duration: string }> = [];
+  for (const discount of discounts) {
+    const couponId = discount.couponId;
+    if (!couponId) continue;
+    if (discount.duration === 'forever') {
+      if (!carry.includes(couponId)) carry.push(couponId);
+      continue;
+    }
+    // 'once', 'repeating', and an unresolved duration all land here: never hand
+    // out a discount we cannot show the member is still owed.
+    flagged.push({ couponId, duration: discount.duration ?? 'unknown' });
+  }
+  return { carry, flagged };
+}
+
+// Structural read of a Stripe subscription's discounts, tolerant of the shapes
+// the field takes across API versions and expansion levels: `discounts` may hold
+// expanded discount objects or bare ids, each wrapping a coupon that is itself
+// either an object or an id, and older payloads carry a single `discount`.
+// Bare-id forms yield a null duration, which the policy above treats as
+// "unknown" and refuses to carry.
+export function readSubscriptionDiscounts(subscription: unknown): SubscriptionDiscount[] {
+  const sub =
+    subscription && typeof subscription === 'object'
+      ? (subscription as Record<string, unknown>)
+      : null;
+  if (!sub) return [];
+
+  const raw: unknown[] = Array.isArray(sub.discounts) ? [...sub.discounts] : [];
+  if (raw.length === 0 && sub.discount) raw.push(sub.discount);
+
+  const out: SubscriptionDiscount[] = [];
+  for (const entry of raw) {
+    if (typeof entry === 'string') {
+      // A bare discount id tells us nothing about the coupon behind it.
+      out.push({ couponId: null, duration: null, durationInMonths: null });
+      continue;
+    }
+    if (!entry || typeof entry !== 'object') continue;
+    const coupon = (entry as { coupon?: unknown }).coupon;
+    if (typeof coupon === 'string') {
+      out.push({ couponId: coupon, duration: null, durationInMonths: null });
+      continue;
+    }
+    if (coupon && typeof coupon === 'object') {
+      const c = coupon as { id?: unknown; duration?: unknown; duration_in_months?: unknown };
+      out.push({
+        couponId: typeof c.id === 'string' ? c.id : null,
+        duration: typeof c.duration === 'string' ? c.duration : null,
+        durationInMonths: typeof c.duration_in_months === 'number' ? c.duration_in_months : null,
+      });
+    }
+  }
+  return out;
+}
+
 // The exact Stripe subscriptions.create params that restore a recoverable
 // orphaned payment. Shared by the webhook and the manual recovery script so
 // both produce byte-identical subscriptions.
@@ -191,6 +281,10 @@ export function decideOrphanPayment(input: OrphanPaymentInput): OrphanPaymentDec
 //   backdate_start_date   starts the subscription at the beginning of the paid
 //                         period so reporting and the member's own invoice
 //                         history line up with what they bought.
+//   discounts             any forever coupon the canceled subscription carried
+//                         (decideDiscountCarryOver) — a permanent rate the member
+//                         keeps, which a brand-new subscription would silently
+//                         lose.
 //   metadata              stamps which invoice this was recovered from, which
 //                         is also the idempotency key: before creating, callers
 //                         look for an existing subscription already carrying
@@ -207,6 +301,9 @@ export function buildRecoverySubscriptionParams(opts: {
   // The payment method that settled the invoice, wired as the subscription's
   // default so the renewal uses the card that just worked.
   defaultPaymentMethodId?: string | null;
+  // Coupon ids that must follow the member onto the new subscription
+  // (decideDiscountCarryOver's `carry`).
+  carryCouponIds?: string[];
 }): Record<string, unknown> {
   const params: Record<string, unknown> = {
     customer: opts.customerId,
@@ -220,6 +317,9 @@ export function buildRecoverySubscriptionParams(opts: {
   }
   if (opts.defaultPaymentMethodId) {
     params.default_payment_method = opts.defaultPaymentMethodId;
+  }
+  if (opts.carryCouponIds && opts.carryCouponIds.length > 0) {
+    params.discounts = opts.carryCouponIds.map((coupon) => ({ coupon }));
   }
   return params;
 }
