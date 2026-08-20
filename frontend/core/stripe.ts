@@ -279,6 +279,25 @@ export function getTrialGraceEnabled(): boolean {
   return process.env.BILLING_TRIAL_GRACE_ENABLED !== '0';
 }
 
+// Whether the Stripe webhook may automatically restore a member whose payment
+// was ORPHANED — i.e. Stripe canceled their subscription for nonpayment, they
+// then paid the still-open invoice from a dunning email, and no
+// customer.subscription.* event exists to grant their tier back (see
+// core/orphanPayment.ts). Recovery re-creates the same plan with billing
+// anchored at the end of the period they just paid for, so they are never
+// charged twice.
+//
+// Defaults ON: leaving collected money with no entitlement is the worse
+// failure, and the decision is narrow (paid, non-zero, member on 'public', a
+// catalogued price, a period that has not elapsed). Set
+// BILLING_ORPHAN_RECOVERY_ENABLED=0 to detect-and-log only — the
+// billing_orphan_payment_detected audit row is written either way, so nothing
+// goes silent when this is off; recover by hand with
+// `make recover-orphan-payment EMAIL=<addr> YES=1`.
+export function getOrphanPaymentRecoveryEnabled(): boolean {
+  return process.env.BILLING_ORPHAN_RECOVERY_ENABLED !== '0';
+}
+
 // Billing portal configuration id (bpc_...). When set, the portal route
 // passes it explicitly as `configuration` so we use this exact configuration
 // regardless of Stripe's account-level default. When unset, the portal falls

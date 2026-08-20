@@ -63,6 +63,18 @@ const lifetimes = count('stripe_founding_lifetime_applied');
 const redeemed = count('stripe_founding_redeemed');
 const failed24h = count('stripe_payment_failed', '-1 day');
 const failed7d = count('stripe_payment_failed', '-7 days');
+// Orphaned payments: money collected on an invoice whose subscription Stripe
+// had already canceled, so nothing granted the member their tier back. The
+// webhook recovers the clear-cut ones automatically; anything left DETECTED but
+// not RECOVERED is a paying customer sitting on 'public' right now.
+const orphanPay24h = count('billing_orphan_payment_detected', '-1 day');
+const orphanPay7d = count('billing_orphan_payment_detected', '-7 days');
+const orphanFixed24h = count('billing_orphan_payment_recovered', '-1 day');
+const orphanFixed7d = count('billing_orphan_payment_recovered', '-7 days');
+const orphanStuck24h =
+  orphanPay24h -
+  orphanFixed24h -
+  count('billing_orphan_payment_skipped', '-1 day');
 
 function alertMark(n) {
   return n > 0 ? '  ⚠️' : '';
@@ -75,6 +87,8 @@ console.log('  Errors            :  ' + String(errors24h).padStart(4) + '  ' + S
 console.log('  Orphans           :  ' + String(orphans24h).padStart(4) + '  ' + String(orphans7d).padStart(4));
 console.log('  Stale skipped     :  ' + String(stale24h).padStart(4) + '  ' + String(stale7d).padStart(4));
 console.log('  Payment failed    :  ' + String(failed24h).padStart(4) + '  ' + String(failed7d).padStart(4) + alertMark(failed24h));
+console.log('  Orphaned payments :  ' + String(orphanPay24h).padStart(4) + '  ' + String(orphanPay7d).padStart(4) + alertMark(orphanPay24h));
+console.log('   of which recovered:  ' + String(orphanFixed24h).padStart(4) + '  ' + String(orphanFixed7d).padStart(4));
 console.log('');
 console.log('=== Founding-cohort metrics ===');
 console.log('');
@@ -106,6 +120,23 @@ if (orphans24h > 0) {
   }
 }
 
+if (orphanPay24h > 0) {
+  console.log('=== Orphaned payments (24h) ===');
+  console.log('');
+  console.log('  A paid invoice that granted nothing — usually a member paying the');
+  console.log('  still-open invoice from a dunning email AFTER Stripe canceled their');
+  console.log('  subscription for nonpayment. Rows marked "needs a human" were not');
+  console.log('  recovered automatically; restore them with:');
+  console.log('    make recover-orphan-payment EMAIL=<addr> YES=1');
+  console.log('');
+  for (const r of recent('billing_orphan_payment_detected', '-1 day')) {
+    console.log('  ' + r.created_at + '  ' + (r.email ?? '—'));
+    console.log('    ' + r.message);
+    console.log('');
+  }
+}
+
 // Non-zero exit code if there are real errors so this can be wired into a
-// cron job that emails on failure.
-process.exit(errors24h > 0 ? 1 : 0);
+// cron job that emails on failure. An orphaned payment nobody recovered is the
+// same class of problem: a customer who paid and has nothing to show for it.
+process.exit(errors24h > 0 || orphanStuck24h > 0 ? 1 : 0);

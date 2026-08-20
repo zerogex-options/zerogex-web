@@ -22,6 +22,7 @@ import {
   getFoundingLifetimeCouponId,
   getAppUrl,
   getManagedCadenceCouponIds,
+  getOrphanPaymentRecoveryEnabled,
   getPaymentGraceDays,
   getTrialGraceEnabled,
   getStripe,
@@ -29,6 +30,18 @@ import {
   priceIdToTier,
 } from '@/core/stripe';
 import { decidePaymentGrace, graceWindowEndIso } from '@/core/paymentGrace';
+import {
+  buildRecoverySubscriptionParams,
+  decideOrphanPayment,
+  RECOVERED_FROM_INVOICE_KEY,
+} from '@/core/orphanPayment';
+import {
+  readInvoicePaymentMethodId,
+  readInvoicePeriodEndUnix,
+  readInvoicePeriodStartUnix,
+  readInvoicePriceId,
+  readInvoiceSubscriptionId,
+} from '@/core/stripeInvoice';
 import { isTrialConversionFailure } from '@/core/trialDunning';
 import { derivePauseState } from '@/core/subscriptionPause';
 import { classifyPaymentSetup } from '@/core/paymentSetup';
@@ -108,6 +121,11 @@ const LIFECYCLE_EVENT_TYPES = new Set<string>([
   'customer.subscription.deleted',
 ]);
 
+// Same set as a stable list + its SQL placeholders, for the ordering guard's
+// `type IN (...)` filter below.
+const LIFECYCLE_EVENT_TYPE_LIST = [...LIFECYCLE_EVENT_TYPES];
+const LIFECYCLE_EVENT_TYPE_PLACEHOLDERS = LIFECYCLE_EVENT_TYPE_LIST.map(() => '?').join(', ');
+
 // 11 months chosen so the lifetime coupon is on the subscription before the
 // post-intro renewal invoice is generated. The intro coupon exhausts after
 // 12 invoices, so applying at month 11 lets the cycle-13 invoice pick up the
@@ -125,10 +143,12 @@ function extractSubscriptionId(event: Stripe.Event): string | null {
     const id = (obj as { id?: string }).id;
     return typeof id === 'string' ? id : null;
   }
-  if (event.type === 'invoice.payment_failed') {
-    const sub = (obj as { subscription?: string | { id?: string } | null }).subscription;
-    if (typeof sub === 'string') return sub;
-    return sub?.id ?? null;
+  if (event.type.startsWith('invoice.')) {
+    // Version-tolerant: `invoice.subscription` only exists up to acacia — basil
+    // moved it under `parent.subscription_details`. Reading just the flat field
+    // would leave subscription_id NULL on every invoice row, blinding the
+    // stale-ordering guard above.
+    return readInvoiceSubscriptionId(obj);
   }
   return null;
 }
@@ -1202,6 +1222,237 @@ async function maybeSendPaidWelcomeEmail(
   }
 }
 
+// Creates the recovery subscription, retrying once WITHOUT `backdate_start_date`
+// if Stripe rejects it. Backdating is cosmetic — it makes the subscription's
+// start match the period the member paid for, which is nice in reporting and in
+// their invoice history — but Stripe constrains how far back it may reach. The
+// grant itself comes from billing_cycle_anchor + proration_behavior 'none',
+// which the retry keeps, so a rejected backdate must never be what leaves a
+// paid-up member on 'public'.
+async function createRecoverySubscription(
+  params: Record<string, unknown>,
+): Promise<Stripe.Subscription> {
+  try {
+    return await getStripe().subscriptions.create(
+      params as unknown as Stripe.SubscriptionCreateParams,
+    );
+  } catch (err) {
+    if (!('backdate_start_date' in params)) throw err;
+    const withoutBackdate = { ...params };
+    delete withoutBackdate.backdate_start_date;
+    return await getStripe().subscriptions.create(
+      withoutBackdate as unknown as Stripe.SubscriptionCreateParams,
+    );
+  }
+}
+
+// Restores a member whose payment was ORPHANED: Stripe canceled their
+// subscription for nonpayment, they then paid the still-open invoice from one of
+// Stripe's dunning emails, and — because Stripe never resurrects a canceled
+// subscription when its final invoice is paid out of band — no
+// customer.subscription.* event exists to give their tier back. Money in, no
+// entitlement, and (before this) nothing that noticed.
+//
+// Runs on invoice.paid. The decision is core/orphanPayment.ts; everything here
+// is the I/O around it. Recovery re-creates the SAME plan with billing anchored
+// at the end of the period just paid for, so the member gets exactly what they
+// bought and is not charged twice. Never throws — a recovery failure must not
+// 500 the webhook and unwind the commission accrual that ran before it; the
+// audit row is what an operator (or `make recover-orphan-payment`) picks up.
+async function maybeRecoverOrphanPayment(invoice: Stripe.Invoice): Promise<void> {
+  const invoiceId = invoice.id;
+  const customerId =
+    typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id ?? null;
+  if (!invoiceId || !customerId) return;
+  const user = findUserByCustomerId(customerId);
+  if (!user) return;
+
+  const subscriptionId = readInvoiceSubscriptionId(invoice);
+
+  // The subscription's LIVE status, not the one in the event body: the event was
+  // rendered when the payment landed, and for the ordinary recovery cases Stripe
+  // has already moved the subscription on. A subscription that no longer exists
+  // reads as `resource_missing`.
+  //
+  // Any OTHER Stripe error must abort: treating a transient failure as "the
+  // subscription is gone" would create a second subscription alongside a live
+  // one and bill the member twice. Silence is the safe failure here — the
+  // invoice is still paid, and the manual script can recover it.
+  let subscriptionStatus: string | null = null;
+  if (subscriptionId) {
+    try {
+      const sub = await getStripe().subscriptions.retrieve(subscriptionId);
+      subscriptionStatus = sub.status;
+    } catch (err) {
+      const code = (err as { code?: string; statusCode?: number }).code;
+      const statusCode = (err as { statusCode?: number }).statusCode;
+      const missing = code === 'resource_missing' || statusCode === 404;
+      if (!missing) {
+        logAudit({
+          type: 'billing_orphan_payment_check_error',
+          userId: user.id,
+          email: user.email,
+          message: `Could not read subscription ${subscriptionId} for paid invoice ${invoiceId}; skipped orphan check`,
+        });
+        return;
+      }
+    }
+  }
+
+  const priceId = readInvoicePriceId(invoice);
+  const periodEndUnix = readInvoicePeriodEndUnix(invoice);
+  const decision = decideOrphanPayment({
+    amountPaid: invoice.amount_paid ?? 0,
+    invoiceStatus: invoice.status ?? null,
+    billingReason: invoice.billing_reason ?? null,
+    subscriptionId,
+    subscriptionStatus,
+    localTier: normalizeTier(user.tier),
+    localSubscriptionId: user.stripe_subscription_id,
+    priceId,
+    priceMapsToPaidTier: priceId ? priceIdToTier(priceId) !== null : false,
+    coveredPeriodEndUnix: periodEndUnix,
+    nowUnix: Math.floor(Date.now() / 1000),
+  });
+
+  if (decision.kind === 'none') return;
+
+  logAudit({
+    type: 'billing_orphan_payment_detected',
+    userId: user.id,
+    email: user.email,
+    message:
+      `Paid invoice ${invoiceId} left no entitlement (${decision.reason}); ` +
+      `sub=${subscriptionId ?? 'none'} status=${subscriptionStatus ?? 'gone'} ` +
+      `amount_paid=${invoice.amount_paid ?? 0} tier=${normalizeTier(user.tier)}` +
+      (decision.recoverable ? '' : ' — needs a human'),
+  });
+
+  if (!decision.recoverable) return;
+  if (!getOrphanPaymentRecoveryEnabled()) {
+    logAudit({
+      type: 'billing_orphan_payment_skipped',
+      userId: user.id,
+      email: user.email,
+      message: `Automatic recovery disabled (BILLING_ORPHAN_RECOVERY_ENABLED=0); invoice ${invoiceId} awaits \`make recover-orphan-payment EMAIL=${user.email}\``,
+    });
+    return;
+  }
+
+  // Idempotency + last-line double-charge guard, both read from Stripe rather
+  // than from our mirror: a live subscription anywhere on this customer means
+  // there is nothing to restore (our row can lag a webhook), and a subscription
+  // already stamped with this invoice id means a previous run — the webhook's,
+  // or the manual script's — already recovered it.
+  try {
+    const existing = await getStripe().subscriptions.list({
+      customer: customerId,
+      status: 'all',
+      limit: 100,
+    });
+    const live = existing.data.find((sub) =>
+      ['active', 'trialing', 'past_due', 'unpaid', 'incomplete', 'paused'].includes(sub.status),
+    );
+    if (live) {
+      logAudit({
+        type: 'billing_orphan_payment_skipped',
+        userId: user.id,
+        email: user.email,
+        message: `Invoice ${invoiceId}: customer already has live subscription ${live.id} (${live.status}); no recovery`,
+      });
+      return;
+    }
+    const already = existing.data.find(
+      (sub) => sub.metadata?.[RECOVERED_FROM_INVOICE_KEY] === invoiceId,
+    );
+    if (already) {
+      logAudit({
+        type: 'billing_orphan_payment_skipped',
+        userId: user.id,
+        email: user.email,
+        message: `Invoice ${invoiceId} was already recovered as subscription ${already.id}`,
+      });
+      return;
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'subscription list failed';
+    logAudit({
+      type: 'billing_orphan_payment_error',
+      userId: user.id,
+      email: user.email,
+      message: `Invoice ${invoiceId}: could not list existing subscriptions (${message}); no recovery attempted`,
+    });
+    return;
+  }
+
+  // Renew on the card that actually settled this invoice, not the one that
+  // failed. Best-effort in three steps: the (possibly unexpanded) invoice body,
+  // then its PaymentIntent, then nothing — with no explicit default Stripe falls
+  // back to the customer's own default payment method.
+  let paymentMethodId = readInvoicePaymentMethodId(invoice);
+  if (!paymentMethodId) {
+    const piRef = (invoice as unknown as { payment_intent?: unknown }).payment_intent;
+    const piId = typeof piRef === 'string' ? piRef : null;
+    if (piId) {
+      try {
+        const pi = await getStripe().paymentIntents.retrieve(piId);
+        paymentMethodId =
+          typeof pi.payment_method === 'string' ? pi.payment_method : pi.payment_method?.id ?? null;
+      } catch {
+        // Non-fatal — the subscription still gets the customer default.
+      }
+    }
+  }
+
+  const params = buildRecoverySubscriptionParams({
+    customerId,
+    priceId: decision.priceId,
+    billingCycleAnchorUnix: decision.billingCycleAnchorUnix,
+    invoiceId,
+    periodStartUnix: readInvoicePeriodStartUnix(invoice),
+    defaultPaymentMethodId: paymentMethodId,
+  });
+
+  let created: Stripe.Subscription;
+  try {
+    created = await createRecoverySubscription(params);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'subscription create failed';
+    logAudit({
+      type: 'billing_orphan_payment_error',
+      userId: user.id,
+      email: user.email,
+      message: `Invoice ${invoiceId}: recovery subscription create failed (${message}); member is still public having paid`,
+    });
+    return;
+  }
+
+  logAudit({
+    type: 'billing_orphan_payment_recovered',
+    userId: user.id,
+    email: user.email,
+    message:
+      `Invoice ${invoiceId} recovered as subscription ${created.id} on price ${decision.priceId}; ` +
+      `paid period honoured through ${new Date(decision.billingCycleAnchorUnix * 1000).toISOString()} (first renewal charge)`,
+  });
+
+  // Grant the tier now rather than waiting on our own customer.subscription.created
+  // to come back round. That event still lands and re-syncs to the same values —
+  // the sync is idempotent — this just closes the window in which the member has
+  // paid, has a subscription, and still sees 'public'.
+  try {
+    await syncSubscriptionToUser(created);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'sync failed';
+    logAudit({
+      type: 'billing_orphan_payment_error',
+      userId: user.id,
+      email: user.email,
+      message: `Invoice ${invoiceId}: recovery sub ${created.id} created but immediate sync failed (${message}); the subscription.created event should reconcile it`,
+    });
+  }
+}
+
 async function clearSubscriptionFromUser(subscription: Stripe.Subscription) {
   const customerId =
     typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id;
@@ -1379,12 +1630,22 @@ export async function POST(request: NextRequest) {
   }
 
   if (subscriptionId && LIFECYCLE_EVENT_TYPES.has(event.type)) {
+    // Compare only against other LIFECYCLE events. Invoice events also record a
+    // subscription_id (they carry one, and ops queries want it), but an
+    // invoice.paid stamped a second later than the customer.subscription.updated
+    // it accompanies says nothing about which subscription STATE we last
+    // applied — counting it here would drop that update as 'stale' and leave a
+    // recovered member on 'public', which is the exact failure this guard is
+    // meant to prevent.
     const newest = db
       .prepare(
         `SELECT MAX(created) AS m FROM stripe_webhook_events
-         WHERE subscription_id = ? AND id <> ?`,
+         WHERE subscription_id = ? AND id <> ?
+           AND type IN (${LIFECYCLE_EVENT_TYPE_PLACEHOLDERS})`,
       )
-      .get(subscriptionId, event.id) as { m: number | null } | undefined;
+      .get(subscriptionId, event.id, ...LIFECYCLE_EVENT_TYPE_LIST) as
+      | { m: number | null }
+      | undefined;
     if (newest?.m != null && newest.m > event.created) {
       logAudit({
         type: 'stripe_webhook_stale_skipped',
@@ -1463,6 +1724,12 @@ export async function POST(request: NextRequest) {
             message: `Invoice ${invoice.id}: accrued ${outcome.commissionAmount} on billed ${outcome.billedAmount} ${outcome.currency}`,
           });
         }
+        // Orphaned-payment recovery. A paid invoice normally arrives alongside a
+        // customer.subscription.* event that decides the tier — but when Stripe
+        // has already canceled the subscription for nonpayment, paying its
+        // still-open invoice emits NOTHING else. Without this the member stays
+        // on 'public' having paid in full.
+        await maybeRecoverOrphanPayment(invoice);
         break;
       }
       case 'charge.refunded': {
@@ -1524,10 +1791,11 @@ export async function POST(request: NextRequest) {
           typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
         const user = customerId ? findUserByCustomerId(customerId) : null;
         if (user) {
-          const invoiceSub =
-            typeof invoice.subscription === 'string'
-              ? invoice.subscription
-              : invoice.subscription?.id ?? null;
+          // Version-tolerant read — see core/stripeInvoice.ts. Getting this
+          // wrong is not cosmetic: a null here silently skipped the
+          // trial-conversion branch below, so every trialer whose first charge
+          // declined got the renewal-framed dunning email.
+          const invoiceSub = readInvoiceSubscriptionId(invoice);
           logAudit({
             type: 'stripe_payment_failed',
             userId: user.id,

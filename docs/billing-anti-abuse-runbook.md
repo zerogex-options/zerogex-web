@@ -114,6 +114,41 @@ and `scripts/setup-billing-portal.mts`.
   ≤ the point where you're comfortable a still-failing card has lost access
   (default 3 days ≈ first retry or two).
 
+### The paid-after-cancel case (orphaned payments)
+
+*Cancel the subscription* does **not** void the invoice that failed. It stays
+`open`, and its hosted invoice URL is in every dunning email Stripe already sent.
+So a member whose subscription was just canceled for nonpayment can still fix
+their card days later and pay in full — and Stripe does **not** resurrect a
+canceled subscription when its final invoice is paid out of band. Only
+`invoice.paid` fires: money collected, no subscription, member left on `public`.
+
+This is handled:
+
+- **Automatically.** The `invoice.paid` handler runs
+  `maybeRecoverOrphanPayment` (decision logic in `core/orphanPayment.ts`). When a
+  paid, non-zero invoice leaves a `public` member with no live subscription, it
+  re-creates the same plan with `billing_cycle_anchor` at the **end of the period
+  that invoice paid for** and `proration_behavior: 'none'` — so the member gets
+  exactly the access they bought, is not charged twice, and renews normally.
+  Set `BILLING_ORPHAN_RECOVERY_ENABLED=0` to detect-and-log only.
+- **Visibly.** Every case writes `billing_orphan_payment_detected`; recoveries
+  add `billing_orphan_payment_recovered`. `make webhook-health` counts both and
+  exits non-zero when a detected payment was neither recovered nor skipped.
+- **By hand,** for anything the automatic path declines (an unmapped price, a
+  period that already elapsed, a one-off invoice) and for payments orphaned
+  before this shipped — their `invoice.paid` is already in `stripe_webhook_events`,
+  so re-sending it from the Dashboard is deduped, not replayed:
+
+  ```
+  make recover-orphan-payment EMAIL=<addr>          # dry run
+  make recover-orphan-payment EMAIL=<addr> YES=1    # apply
+  ```
+
+If you would rather never collect on a subscription you have already canceled,
+void the invoice at cancel time: `make cancel-subscription EMAIL=<addr>
+--void-invoice` does this, and voiding is final.
+
 ---
 
 ## 4. Optional follow-up — app-level card-fingerprint trial dedupe (defense-in-depth)
