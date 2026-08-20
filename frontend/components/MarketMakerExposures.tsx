@@ -196,7 +196,12 @@ const GEX_VALUE_MIN_SLOT = 11; // min px of vertical room per strike to show lab
 
 const SPOT_LINE = '#06B6D4';
 const KEY_LEVEL = '#F5C24A';
-const FLIP_LINE = '#FFB44A';
+// Gamma Flip — the app-wide flip hue (--color-flip); a literal hex here
+// because this file's level colors are module constants, not CSS vars. Was an
+// amber a shade off KEY_LEVEL, which put the regime boundary and the walls in
+// the same hue on the one chart that draws them together. Azure separates them
+// and matches the flip on the Gamma Chart and the heatmaps.
+const FLIP_LINE = '#3B9EFF';
 // Pin Strike — reachable 0DTE positive-gamma pin. Teal, the app-wide pin hue
 // (--color-pin); a literal hex here because this file's level colors are
 // module constants, not CSS vars. Dashed + labeled so it reads distinctly from

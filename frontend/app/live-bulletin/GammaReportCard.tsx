@@ -28,6 +28,8 @@ type CardColors = {
   textSecondary: string;
   textFaint: string;
   amber: string;
+  flip: string;
+  maxpain: string;
   bull: string;
   bear: string;
   blue: string;
@@ -52,6 +54,12 @@ function buildCardColors(chart: ReturnType<typeof useChartTheme>): CardColors {
     textSecondary: '#9DB1C4',
     textFaint: '#5E7689',
     amber: chart.accentHot || chart.gold || '#F59E0B',
+    // The two levels that carry their own app-wide hue rather than a palette
+    // accent: the flip is azure everywhere it's drawn, max pain gold. The card
+    // used the palette's hot accent for the flip (the last-price hue) and the
+    // info blue for max pain, so neither matched the charts it summarizes.
+    flip: chart.flip || '#3B9EFF',
+    maxpain: chart.maxpain || '#F0B429',
     bull: chart.bull || '#1BC47D',
     bear: chart.bear || '#FF5A66',
     blue: chart.info || '#3B82F6',
@@ -346,7 +354,7 @@ const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(functio
             marginTop: 18,
           }}
         >
-          <Metric label="Gamma Flip" value={fmtPrice(model.gammaFlip)} accent={C.amber} C={C} />
+          <Metric label="Gamma Flip" value={fmtPrice(model.gammaFlip)} accent={C.flip} C={C} />
           <Metric
             label="Net GEX"
             value={fmtNetGex(model.netGex)}
@@ -356,7 +364,7 @@ const GammaReportCard = forwardRef<HTMLDivElement, GammaReportCardProps>(functio
           <Metric label="Pin Strike" value={fmtPrice(model.pinStrike)} accent={PIN_STRIKE_COLOR_HEX} C={C} />
           <Metric label="Call Wall" value={fmtPrice(model.callWall)} accent={C.bear} C={C} />
           <Metric label="Put Wall" value={fmtPrice(model.putWall)} accent={C.bull} C={C} />
-          <Metric label="Max Pain" value={fmtPrice(model.maxPain)} accent={C.blue} C={C} />
+          <Metric label="Max Pain" value={fmtPrice(model.maxPain)} accent={C.maxpain} C={C} />
         </div>
 
         {/* Probability-bounded expected range */}
@@ -592,14 +600,14 @@ function assignLevels(points: MapPoint[], pos: (v: number) => number) {
 function GammaMap({ model, C }: { model: ReportModel; C: CardColors }) {
   const points: MapPoint[] = [
     { key: 'put', label: 'Put Wall', value: model.putWall!, color: C.bull, side: 'below' as const, priority: 1 },
-    { key: 'flip', label: 'Flip', value: model.gammaFlip!, color: C.amber, side: 'above' as const, priority: 2 },
+    { key: 'flip', label: 'Flip', value: model.gammaFlip!, color: C.flip, side: 'above' as const, priority: 2 },
     { key: 'spot', label: 'Spot', value: model.spot!, color: C.textPrimary, side: 'above' as const, priority: 3 },
     { key: 'call', label: 'Call Wall', value: model.callWall!, color: C.bear, side: 'below' as const, priority: 1 },
     // Max Pain (OI settlement magnet) groups with the structural walls below;
     // Pin Strike (gamma-stabilization pin) groups with the flip above. Both use
-    // their tile colors (blue / teal) and only render when present — the filter
+    // their tile colors (gold / teal) and only render when present — the filter
     // drops any null level.
-    { key: 'pain', label: 'Max Pain', value: model.maxPain!, color: C.blue, side: 'below' as const, priority: 2 },
+    { key: 'pain', label: 'Max Pain', value: model.maxPain!, color: C.maxpain, side: 'below' as const, priority: 2 },
     { key: 'pin', label: 'Pin Strike', value: model.pinStrike!, color: PIN_STRIKE_COLOR_HEX, side: 'above' as const, priority: 2 },
   ].filter((p) => p.value != null && Number.isFinite(p.value));
 

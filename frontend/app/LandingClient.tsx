@@ -39,6 +39,8 @@ const C = {
   light:    'var(--color-text-primary)',
   muted:    'var(--color-text-secondary)',
   amber:    'var(--color-brand-primary)',
+  flip:     'var(--color-flip)',
+  maxpain:  'var(--color-maxpain)',
   green:    'var(--color-positive)',
   red:      'var(--color-negative)',
   border:   'var(--border-default)',
@@ -627,11 +629,14 @@ export default function LandingPage() {
           {/* Visual explanation */}
           <div className="zg-panel" style={{ padding: 28 }}>
             {[
-              { label: t('glossaryGammaFlipLabel'), desc: t('glossaryGammaFlipDesc'), color: C.amber, icon: Target },
+              // The four levels use the hues the charts draw them in, so the
+              // glossary teaches the colour language the product actually
+              // speaks. Net GEX isn't a level — it stays brand amber.
+              { label: t('glossaryGammaFlipLabel'), desc: t('glossaryGammaFlipDesc'), color: C.flip,  icon: Target },
               { label: t('glossaryCallWallLabel'),  desc: t('glossaryCallWallDesc'),  color: C.green, icon: TrendingUp },
               { label: t('glossaryPutWallLabel'),   desc: t('glossaryPutWallDesc'),   color: C.red,   icon: TrendingDown },
               { label: t('glossaryNetGexLabel'),    desc: t('glossaryNetGexDesc'),    color: C.amber, icon: BarChart2 },
-              { label: t('glossaryMaxPainLabel'),   desc: t('glossaryMaxPainDesc'),   color: C.muted, icon: Target },
+              { label: t('glossaryMaxPainLabel'),   desc: t('glossaryMaxPainDesc'),   color: C.maxpain, icon: Target },
             ].map((item) => (
               <div
                 key={item.label}

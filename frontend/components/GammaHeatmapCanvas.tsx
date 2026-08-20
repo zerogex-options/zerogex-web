@@ -788,12 +788,15 @@ export default function GammaHeatmapCanvas() {
     // would imply a continuous regime when the resolver actually
     // changed its qualifying scan.
     if (gammaFlipByMs.size > 0) {
+      // --color-flip is the app-wide flip hue, shared with the Gamma Chart and
+      // the exposure ladder. Was --accent-2, a per-palette brand navy that goes
+      // nearly black on the light themes this canvas also renders in.
       const flipColor = (() => {
         if (typeof window !== 'undefined') {
-          const v = getComputedStyle(document.documentElement).getPropertyValue('--accent-2').trim();
+          const v = getComputedStyle(document.documentElement).getPropertyValue('--color-flip').trim();
           if (v) return v;
         }
-        return 'var(--color-brand-accent)';
+        return '#3B9EFF';
       })();
       const drawFlipPath = (expandedFilter: boolean) => {
         ctx.beginPath();
@@ -1308,7 +1311,7 @@ export default function GammaHeatmapCanvas() {
             title="Price where dealer net gamma flips sign — above it dealers dampen volatility, below it they amplify it"
           >
             <svg width="22" height="6" aria-hidden="true">
-              <line x1="0" x2="22" y1="3" y2="3" stroke="var(--accent-2)" strokeWidth="2.25" />
+              <line x1="0" x2="22" y1="3" y2="3" stroke="var(--color-flip)" strokeWidth="2.25" />
             </svg>
             <span style={{ color: textPrimary }}>Gamma Flip</span>
           </span>
@@ -1317,7 +1320,7 @@ export default function GammaHeatmapCanvas() {
             title="Dashed segments mark cycles where the default resolver scan (±20% of spot) found no near-spot regime boundary and the search expanded to ±35% / ±50%. Those expansion-rung flips are geometrically valid but live far from spot; treat them as marginal, not as the live regime level."
           >
             <svg width="22" height="6" aria-hidden="true">
-              <line x1="0" x2="22" y1="3" y2="3" stroke="var(--accent-2)" strokeWidth="2" strokeDasharray="6,4" opacity="0.55" />
+              <line x1="0" x2="22" y1="3" y2="3" stroke="var(--color-flip)" strokeWidth="2" strokeDasharray="6,4" opacity="0.55" />
             </svg>
             <span style={{ color: textPrimary }}>Gamma Flip (expanded scan)</span>
           </span>

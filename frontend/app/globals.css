@@ -68,6 +68,17 @@
   --color-flip: #3B9EFF;
   --color-flip-soft: rgba(59, 158, 255, 0.16);
 
+  /* Max Pain — the pinning strike. Drew from --color-gold, which is not a
+     level token: half the palettes alias --color-accent-hot to the same gold,
+     which put Max Pain and the last-price line in one colour, and the charts
+     that aren't the Gamma Chart spend --color-gold on other things entirely
+     (the spot line on the walls chart, the profile curve on the GEX profile).
+     Its own token, a saturated gold that stays clear of the muted golds those
+     palettes use for their hot accent. Defined once here; every named palette
+     inherits it. */
+  --color-maxpain: #F0B429;
+  --color-maxpain-soft: rgba(240, 180, 41, 0.16);
+
   /* Pin Strike — the reachable 0DTE strike with the strongest modeled
      positive (restoring) dealer-gamma pin. A teal placed deliberately outside
      the green/red walls, the azure gamma-flip, the gold Max-Pain and the

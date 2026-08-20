@@ -76,10 +76,10 @@ type LevelKey = "spot" | "flip" | "call" | "put" | "pain";
 // single cryptic letter, and the column-header legend spells each one out.
 const LEVEL_META: Record<LevelKey, { label: string; short: string; code: string; color: string }> = {
   spot: { label: "Spot", short: "Spot", code: "SP", color: "var(--color-accent-hot)" },
-  flip: { label: "Gamma Flip", short: "Flip", code: "GF", color: "var(--color-warning)" },
+  flip: { label: "Gamma Flip", short: "Flip", code: "GF", color: "var(--color-flip)" },
   call: { label: "Call Wall", short: "Call", code: "CW", color: "var(--color-bear)" },
   put: { label: "Put Wall", short: "Put", code: "PW", color: "var(--color-bull)" },
-  pain: { label: "Max Pain", short: "Pain", code: "MP", color: "var(--color-accent-hot)" },
+  pain: { label: "Max Pain", short: "Pain", code: "MP", color: "var(--color-maxpain)" },
 };
 // Order the rail draws in when levels collide on one row.
 const LEVEL_ORDER: LevelKey[] = ["flip", "call", "put", "pain"];

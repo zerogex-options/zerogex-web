@@ -31,6 +31,9 @@ export interface ChartTheme {
   accentSoft: string;
   gold: string;
   goldSoft: string;
+  // Level hues, palette-independent — see CSS_VAR_MAP below.
+  flip: string;
+  maxpain: string;
   maroon: string;
   navy: string;
   emerald: string;
@@ -77,6 +80,10 @@ const CSS_VAR_MAP: Record<keyof Omit<ChartTheme, 'series'>, string> = {
   accentHot: '--color-accent-hot',
   accentSoft: '--color-accent-soft',
   gold: '--color-gold',
+  // Level hues held apart from the palette's accents so a level never reads as
+  // a direction or as the live price — see the block in globals.css.
+  flip: '--color-flip',
+  maxpain: '--color-maxpain',
   goldSoft: '--color-gold-soft',
   maroon: '--color-maroon',
   navy: '--color-navy',
