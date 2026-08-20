@@ -130,8 +130,10 @@ export default function ChartClient({
         </div>
       </section>
 
-      {/* Where do we expect the underlying to go — the regime × wall playbook */}
-      <GammaExpectationMatrix className="mb-10" />
+      {/* Where do we expect the underlying to go — the regime × wall playbook.
+          Fed the same snapshot/mode as the chart so the delayed public view
+          reads the frozen snapshot and does no client fetching either. */}
+      <GammaExpectationMatrix className="mb-10" snapshot={snapshot} delayed={delayed} />
 
       {/* Conversion (delayed) or cross-links to deeper tools (live) */}
       {delayed ? (
