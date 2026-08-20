@@ -30,12 +30,36 @@
 //   3. Mint a forever amount_off coupon for the difference, so the new price
 //      lands on their existing rate to the cent. amount_off, not percent_off:
 //      a percentage re-derived against a different list price drifts.
-//   4. Switch the subscription item onto the target price, REPLACING the
-//      existing discounts with that coupon (an old coupon was sized for the old
-//      price -- stacking it would land somewhere arbitrary), with
-//      proration_behavior='none' so the member is not charged anything today
-//      and keeps the period they have already paid for.
-//   5. Wait for the webhook to sync the new tier onto the row, and verify.
+//   4. Switch the subscription item onto the target price with
+//      proration_behavior='none', so the member is not charged anything today
+//      and keeps the period they have already paid for. Discounts are NOT set
+//      in that same update -- see below.
+//   5. Wait for the webhook to sync the new tier AND for
+//      maybeReconcileDiscountOnPlanSwitch to settle, then apply the hold-steady
+//      coupon as the LAST write, and verify the next invoice from Stripe after
+//      a settle delay.
+//
+// ORDERING, THE HARD-WON PART: a price switch makes the webhook run
+// maybeReconcileDiscountOnPlanSwitch (app/api/webhooks/stripe/route.ts), which
+// normalizes the subscription's discounts to the managed coupon for the NEW
+// tier/cadence -- the public promo, or the founding intro. Applying the
+// hold-steady coupon in the same update as the price switch therefore loses a
+// race: the reconciler lands afterwards and the member ends up on the standard
+// promo rate, not the rate they were promised. Verifying right after the switch
+// reads the pre-reconcile figure and reports a success that is about to stop
+// being true. So the coupon goes on LAST, after the reconciler has run, and the
+// verification happens after a settle delay.
+//
+// Because the reconciler only fires on a real switch (a prior synced price that
+// differs from the new one), the hold-steady coupon is stable once applied:
+// later syncs see the same price on both sides and no-op. Switching the member's
+// plan AGAIN later re-runs the reconciler and clobbers the held rate -- re-run
+// this script in repair mode afterwards.
+//
+// REPAIR MODE: if the member is already on the target price, the switch is
+// skipped and only the discount is repaired. That case requires an explicit
+// --current-price, because the live preview then reflects whatever rate they are
+// wrongly on -- reading it back would cement the mistake.
 //
 // No refund, no cancellation, no immediate charge. Sends NO email: the paid
 // welcome is CAS-guarded on paid_welcome_email_sent_at, which an existing payer
@@ -57,6 +81,12 @@ const AUDIT_TYPE = 'billing_tier_upgraded_at_current_price';
 const VALID_TIERS = ['basic', 'pro'];
 const DEFAULT_WAIT_SECONDS = 120;
 const POLL_INTERVAL_MS = 3000;
+// Breathing room for the webhook's discount reconciler to finish after a price
+// switch, before we write the hold-steady coupon over its decision.
+const RECONCILER_SETTLE_MS = 8000;
+// Delay before reading the next invoice back, so a late reconcile shows up in
+// our verification instead of in the member's next bill.
+const VERIFY_SETTLE_MS = 8000;
 
 type Cadence = 'monthly' | 'annual';
 
@@ -342,8 +372,15 @@ if (!targetPriceId) {
   console.error(`Error: ${targetPriceEnvKey} is not set in env or .env.local.`);
   process.exit(1);
 }
-if (targetPriceId === currentPrice.id) {
-  console.error(`Error: ${user.email} is already on the ${cliArgs.tier} ${cadence} price. Nothing to do.`);
+// Already on the target price: the plan switch is done (or was never needed) and
+// only the discount needs putting right. This is the state a switch lands in
+// when the discount reconciler has replaced the held rate with the standard promo.
+const repairOnly = targetPriceId === currentPrice.id;
+if (repairOnly && cliArgs.currentPrice === null) {
+  console.error(`Error: ${user.email} is already on the ${cliArgs.tier} ${cadence} price (repair mode).`);
+  console.error('The live preview reflects whatever rate they are currently on, so it cannot be trusted');
+  console.error('as the rate to hold — reading it back would cement the wrong figure. State it explicitly:');
+  console.error(`  make upgrade-at-current-price EMAIL=${user.email} CURRENT_PRICE=<dollars> YES=1`);
   process.exit(1);
 }
 
@@ -494,69 +531,118 @@ if (discountCents > 0) {
   }
 }
 
-// 2. Switch the item onto the target price and REPLACE the discounts. The old
-//    coupon was sized against the old list price; keeping or stacking it would
-//    land the member on an arbitrary amount. proration_behavior='none' means no
-//    charge today and no credit — they simply keep the period already paid for.
-let updated: Stripe.Subscription;
-try {
-  updated = await stripe.subscriptions.update(subscription.id, {
-    items: [{ id: item.id, price: targetPriceId }],
-    proration_behavior: 'none',
+// 2. Switch the item onto the target price. Deliberately does NOT set discounts:
+//    the switch triggers the webhook's discount reconciler, which would land
+//    after us and overwrite whatever we set here with the managed promo for the
+//    new tier. The hold-steady coupon goes on in step 4, once that has run.
+//    proration_behavior='none' means no charge today and no credit — the member
+//    simply keeps the period already paid for.
+if (!repairOnly) {
+  try {
+    const updated = await stripe.subscriptions.update(subscription.id, {
+      items: [{ id: item.id, price: targetPriceId }],
+      proration_behavior: 'none',
+      metadata: { ...(subscription.metadata ?? {}), tier: cliArgs.tier, cadence },
+    });
+    console.log(`Subscription ${updated.id} switched to ${targetPriceId} (status '${updated.status}').`);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'unknown error';
+    console.error(`\nError: subscription update failed: ${message}`);
+    if (couponId && !cliArgs.coupon) {
+      console.error(`The coupon ${couponId} was created but is unused — delete it in Stripe if you do not retry.`);
+    }
+    console.error('The subscription is unchanged; the member is still on their old plan.');
+    process.exit(1);
+  }
+
+  // 3. Wait for the webhook to grant the tier. We never write the tier column —
+  //    letting the reconciler own it is what makes this survive renewals.
+  const deadline = Date.now() + cliArgs.waitSeconds * 1000;
+  let synced = false;
+  process.stdout.write(`Waiting up to ${cliArgs.waitSeconds}s for the webhook to grant '${cliArgs.tier}'`);
+  while (Date.now() < deadline) {
+    if (loadUser().tier === cliArgs.tier) {
+      synced = true;
+      break;
+    }
+    process.stdout.write('.');
+    await sleep(POLL_INTERVAL_MS);
+  }
+  process.stdout.write('\n');
+  if (!synced) {
+    console.error(`\nThe price switch landed but the row still reads '${loadUser().tier ?? '—'}'.`);
+    console.error('Not applying the hold-steady coupon while the webhook is behind — it would race the');
+    console.error('discount reconciler. Once the tier syncs, repair the rate with:');
+    console.error(
+      `  make upgrade-at-current-price EMAIL=${user.email} TIER=${cliArgs.tier} CURRENT_PRICE=${(currentEffectiveCents / 100).toFixed(2)} YES=1`,
+    );
+    process.exit(1);
+  }
+
+  // Give the discount reconciler its turn. It runs in the same webhook pass as
+  // the tier sync, so it is typically already done; the extra settle covers a
+  // slower delivery. Applying our coupon before it runs is precisely the race
+  // that silently puts the member on the standard promo rate instead.
+  console.log(`Letting the discount reconciler settle (${Math.round(RECONCILER_SETTLE_MS / 1000)}s)...`);
+  await sleep(RECONCILER_SETTLE_MS);
+}
+
+// 4. Apply the hold-steady coupon as the LAST write, replacing whatever the
+//    reconciler decided. Any pre-existing coupon was sized against a different
+//    list price, so this replaces rather than stacks.
+async function applyHoldCoupon(): Promise<void> {
+  await stripe.subscriptions.update(subscription.id, {
     discounts: couponId ? [{ coupon: couponId }] : [],
-    metadata: {
-      ...(subscription.metadata ?? {}),
-      tier: cliArgs.tier,
-      cadence,
-    },
   });
+}
+
+try {
+  await applyHoldCoupon();
+  console.log(
+    couponId
+      ? `Applied hold-steady coupon ${couponId} (replacing any reconciled discount).`
+      : 'Cleared discounts — target list already equals their rate.',
+  );
 } catch (err) {
   const message = err instanceof Error ? err.message : 'unknown error';
-  console.error(`\nError: subscription update failed: ${message}`);
-  if (couponId && !cliArgs.coupon) {
-    console.error(`The coupon ${couponId} was created but is unused — delete it in Stripe if you do not retry.`);
-  }
-  console.error('The subscription is unchanged; the member is still on their old plan.');
+  console.error(`\nError: could not apply the hold-steady discount: ${message}`);
+  console.error(`The member is on ${cliArgs.tier} but NOT at the intended rate. Fix this in Stripe now.`);
   process.exit(1);
 }
 
-console.log(`Subscription ${updated.id} switched to ${targetPriceId} (status '${updated.status}').`);
-
-// 3. Confirm the next charge really is unchanged, straight from Stripe rather
-//    than from our own arithmetic.
-try {
-  const preview = await stripe.invoices.retrieveUpcoming({
-    customer: user.stripe_customer_id as string,
-    subscription: updated.id,
-  });
-  const previewNote =
-    preview.amount_due === currentEffectiveCents
-      ? 'unchanged, as intended'
-      : `EXPECTED ${formatCents(currentEffectiveCents, currency)} — INVESTIGATE`;
-  console.log(`Next invoice now:   ${formatCents(preview.amount_due, preview.currency)} (${previewNote})`);
-  if (preview.amount_due !== currentEffectiveCents) {
-    console.error('The member would be charged a different amount than intended. Fix this in Stripe before telling them.');
+// 5. Verify from Stripe AFTER a settle delay, so anything landing behind us
+//    shows up here rather than in the member's next invoice. One retry, because
+//    a late reconciler pass is recoverable; a second miss is not something to
+//    paper over.
+async function previewCents(): Promise<number | null> {
+  try {
+    const preview = await stripe.invoices.retrieveUpcoming({
+      customer: user.stripe_customer_id as string,
+      subscription: subscription.id,
+    });
+    return preview.amount_due;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'unknown error';
+    console.error(`Warning: could not preview the next invoice (${message}).`);
+    return null;
   }
-} catch (err) {
-  const message = err instanceof Error ? err.message : 'unknown error';
-  console.error(`Warning: could not preview the next invoice (${message}). Verify the amount in Stripe by hand.`);
 }
 
-// 4. Wait for the webhook to grant the tier. We deliberately do NOT write the
-//    tier column: the reconciler owns it, and letting it do the granting is what
-//    makes this upgrade survive the member's next renewal.
-const deadline = Date.now() + cliArgs.waitSeconds * 1000;
-let synced = false;
-process.stdout.write(`Waiting up to ${cliArgs.waitSeconds}s for the webhook to grant '${cliArgs.tier}'`);
-while (Date.now() < deadline) {
-  if (loadUser().tier === cliArgs.tier) {
-    synced = true;
-    break;
+await sleep(VERIFY_SETTLE_MS);
+let finalCents = await previewCents();
+if (finalCents !== null && finalCents !== currentEffectiveCents) {
+  console.error(
+    `Next invoice reads ${formatCents(finalCents, currency)}, expected ${formatCents(currentEffectiveCents, currency)} — something reconciled behind us. Re-applying once...`,
+  );
+  try {
+    await applyHoldCoupon();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'unknown error';
+    console.error(`Re-apply failed: ${message}`);
   }
-  process.stdout.write('.');
-  await sleep(POLL_INTERVAL_MS);
+  await sleep(VERIFY_SETTLE_MS);
+  finalCents = await previewCents();
 }
-process.stdout.write('\n');
 
 const auditId = `audit_${crypto.randomBytes(12).toString('hex')}`;
 execSqlite(
@@ -570,22 +656,29 @@ execSqlite(
      '${escapeSqlLiteral(user.email)}',
      'manual-script',
      '${escapeSqlLiteral(
-       `Moved to ${cliArgs.tier} (${cadence}) on price ${targetPriceId}, rate held at ` +
-         `${formatCents(currentEffectiveCents, currency)}${couponId ? ` via coupon ${couponId}` : ''}`,
+       `${repairOnly ? 'Repaired held rate' : `Moved to ${cliArgs.tier} (${cadence}) on price ${targetPriceId}`}` +
+         `, rate held at ${formatCents(currentEffectiveCents, currency)}` +
+         `${couponId ? ` via coupon ${couponId}` : ''}` +
+         `${finalCents !== null ? `; next invoice ${formatCents(finalCents, currency)}` : ''}`,
      )}',
      '${escapeSqlLiteral(nowIso())}'
    );`,
 );
 
-if (!synced) {
-  console.error(`\nThe subscription IS switched, but the row still reads '${loadUser().tier ?? '—'}'.`);
-  console.error('The webhook grants the tier — it may just be behind. Re-check with:');
-  console.error(`  make diagnose-user EMAIL=${user.email}`);
-  console.error('If it never lands, check webhook delivery in the Stripe dashboard.');
+if (finalCents === null) {
+  console.error('\nCould not confirm the next invoice from Stripe. VERIFY THE AMOUNT BY HAND before telling the member.');
+  process.exit(1);
+}
+if (finalCents !== currentEffectiveCents) {
+  console.error(
+    `\nFAILED: next invoice is ${formatCents(finalCents, currency)}, not ${formatCents(currentEffectiveCents, currency)}.`,
+  );
+  console.error('The member would be charged the wrong amount. Fix the discount in Stripe before telling them anything.');
   process.exit(1);
 }
 
+const tierNow = loadUser().tier;
 console.log(
-  `\nDone. ${user.email} is on '${cliArgs.tier}', still paying ${formatCents(currentEffectiveCents, currency)} / ${cadence === 'monthly' ? 'month' : 'year'}.`,
+  `\nDone. ${user.email} is on '${tierNow}', next invoice ${formatCents(finalCents, currency)} / ${cadence === 'monthly' ? 'month' : 'year'} — verified after settle.`,
 );
 console.log('No charge today, no refund, no cancellation. Sends no email — tell the member yourself.');
