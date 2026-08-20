@@ -34,9 +34,10 @@ import { execFileSync, spawnSync } from 'node:child_process';
 
 import Stripe from 'stripe';
 
-import { decideOrphanPayment } from '../core/orphanPayment.ts';
+import { classifyElapsedPaidPeriod, decideOrphanPayment } from '../core/orphanPayment.ts';
 import {
   readInvoicePeriodEndUnix,
+  readInvoicePeriodStartUnix,
   readInvoicePriceId,
   readInvoiceSubscriptionId,
 } from '../core/stripeInvoice.ts';
@@ -124,6 +125,10 @@ function ensureSqlite3Cli() {
     console.error('Install it with: sudo apt-get install sqlite3');
     process.exit(1);
   }
+}
+
+function escapeSqlLiteral(value: string): string {
+  return value.replace(/'/g, "''");
 }
 
 function querySqlite<T = Record<string, unknown>>(dbPath: string, sql: string): T[] {
@@ -239,6 +244,14 @@ type Hit = {
   paidAt: string;
   coveredThrough: string;
   reason: string | null;
+  // Kept in unix so an elapsed period can be checked against the audit log —
+  // see classifyElapsed below.
+  periodStartUnix: number | null;
+  periodEndUnix: number | null;
+  // Filled in for the elapsed bucket only: how the member's access actually
+  // ended relative to the period they paid for.
+  lostFrom?: string;
+  lostDays?: number;
 };
 
 // Three buckets, because they need three different responses:
@@ -250,6 +263,11 @@ type Hit = {
 const hits: Hit[] = [];
 const needsReview: Hit[] = [];
 const ruledOut: Hit[] = [];
+// Paid invoices whose period has since run out. On its own that says nothing —
+// it is both what ordinary churn looks like and what Craig's bug looks like a
+// month later — so these are held back and resolved against the audit log once
+// the sweep finishes.
+const elapsed: Hit[] = [];
 // Customers with money on record but no local account at all — a different
 // failure from the one this script hunts, and worth seeing rather than dropping.
 const unknownCustomers = new Set<string>();
@@ -335,8 +353,11 @@ try {
       paidAt: fmtDateUnix(invoice.status_transitions?.paid_at ?? invoice.created ?? null),
       coveredThrough: fmtDateUnix(readInvoicePeriodEndUnix(invoice)),
       reason: recoverable ? null : decision.reason,
+      periodStartUnix: readInvoicePeriodStartUnix(invoice),
+      periodEndUnix: readInvoicePeriodEndUnix(invoice),
     };
     if (recoverable) hits.push(record);
+    else if (decision.reason === 'period_already_elapsed') elapsed.push(record);
     else if (decision.kind === 'detected') needsReview.push(record);
     else ruledOut.push(record);
   }
@@ -348,6 +369,87 @@ try {
   process.exit(1);
 }
 
+// --- Resolve the elapsed bucket --------------------------------------------
+//
+// "They paid for a period that has since ended" describes two opposite things:
+//
+//   consumed   They paid, had the tier for the period, and it ran out. Ordinary
+//              churn — nothing owed, nothing to do.
+//   lost       They paid, and their access was taken away BEFORE the period they
+//              had bought was over. That is Craig's bug seen a month later, when
+//              re-creating the subscription is no longer the right remedy — the
+//              period is gone, so what is owed is a refund or a credit.
+//
+// Stripe cannot tell these apart; the audit log can. A tier reset lands as
+// stripe_subscription_deleted, so a deletion timestamped INSIDE the paid period
+// means the member lost days they had paid for.
+//
+// One exception, and it matters: a member who asks to cancel immediately gives
+// up the rest of the period by choice. Those carry a cancellation request of
+// their own shortly before the deletion, so a deletion preceded by one is read
+// as voluntary and left alone. (Cancel-at-period-end never trips this at all —
+// its deletion lands AT the period end, not inside it.)
+type AuditRow = { email: string; type: string; created_at: string };
+
+function classifyElapsed(candidates: Hit[]): { lost: Hit[]; consumed: Hit[] } {
+  if (candidates.length === 0) return { lost: [], consumed: [] };
+
+  const emails = [...new Set(candidates.map((c) => c.email.toLowerCase()))];
+  const inList = emails.map((e) => `'${escapeSqlLiteral(e)}'`).join(',');
+  let audit: AuditRow[] = [];
+  try {
+    audit = querySqlite<AuditRow>(
+      dbPath,
+      `SELECT lower(email) AS email, type, created_at FROM audit_events
+        WHERE lower(email) IN (${inList})
+          AND type IN ('stripe_subscription_deleted','stripe_cancellation_requested','billing_cancel_flow_submitted')
+        ORDER BY created_at ASC;`,
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'unknown error';
+    console.error(`Warning: could not read audit events (${message}).`);
+    console.error('Elapsed periods are reported as consumed rather than guessed at.');
+    return { lost: [], consumed: candidates };
+  }
+
+  const deletionsByEmail = new Map<string, number[]>();
+  const cancelRequestsByEmail = new Map<string, number[]>();
+  for (const row of audit) {
+    const unix = Math.floor(new Date(row.created_at).getTime() / 1000);
+    if (!Number.isFinite(unix)) continue;
+    const bucket =
+      row.type === 'stripe_subscription_deleted' ? deletionsByEmail : cancelRequestsByEmail;
+    const list = bucket.get(row.email) ?? [];
+    list.push(unix);
+    bucket.set(row.email, list);
+  }
+
+  const lost: Hit[] = [];
+  const consumed: Hit[] = [];
+  for (const candidate of candidates) {
+    const email = candidate.email.toLowerCase();
+    const verdict = classifyElapsedPaidPeriod({
+      periodStartUnix: candidate.periodStartUnix,
+      periodEndUnix: candidate.periodEndUnix,
+      deletionUnixes: deletionsByEmail.get(email) ?? [],
+      cancelRequestUnixes: cancelRequestsByEmail.get(email) ?? [],
+    });
+    if (verdict.kind === 'consumed') {
+      consumed.push({ ...candidate, reason: verdict.reason });
+      continue;
+    }
+    lost.push({
+      ...candidate,
+      lostFrom: fmtDateUnix(verdict.lostAtUnix),
+      lostDays: Math.max(1, Math.round(verdict.lostSeconds / 86400)),
+    });
+  }
+  return { lost, consumed };
+}
+
+const { lost: lostPaidTime, consumed } = classifyElapsed(elapsed);
+ruledOut.push(...consumed);
+
 console.log('');
 console.log('');
 console.log(`Scanned:            ${scanned} paid invoices (${paidNonZero} non-zero)`);
@@ -357,8 +459,9 @@ if (hitCap) {
 console.log('');
 
 if (hits.length === 0) {
-  console.log('No orphaned payments. Every non-zero paid invoice in the window belongs to a');
-  console.log('member who holds the tier they paid for.');
+  console.log('No recoverable orphaned payments — nobody is sitting on a free tier right now');
+  console.log('with a paid period still running. Any finding below concerns periods that have');
+  console.log('already expired, which no subscription can restore.');
 } else {
   console.log(`ORPHANED PAYMENTS: ${hits.length}`);
   console.log('These members paid in full and are sitting on a free tier right now.');
@@ -373,6 +476,25 @@ if (hits.length === 0) {
   }
   console.log('Each command above is a DRY RUN — it prints the plan and writes nothing.');
   console.log('Add YES=1 to apply.');
+}
+
+if (lostPaidTime.length > 0) {
+  console.log('');
+  console.log(`LOST PAID TIME: ${lostPaidTime.length}`);
+  console.log('These members paid, then had their access taken away before the period they');
+  console.log('had bought was over — and that period has now expired, so re-creating the');
+  console.log('subscription would give them future time instead of what they lost.');
+  console.log('A refund or a credit is the remedy, and that is your call.');
+  console.log('');
+  for (const item of lostPaidTime) {
+    console.log(`  ${item.email}`);
+    console.log(
+      `    ${item.invoiceId}  ${item.amount}  paid ${item.paidAt}  covered through ${item.coveredThrough}`,
+    );
+    console.log(`    access ended ${item.lostFrom} — roughly ${item.lostDays} paid day(s) lost`);
+    console.log(`    make diagnose-user EMAIL=${item.email}`);
+    console.log('');
+  }
 }
 
 if (needsReview.length > 0) {

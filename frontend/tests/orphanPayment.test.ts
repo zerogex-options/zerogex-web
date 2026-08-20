@@ -1,11 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  RECOVERED_FROM_INVOICE_KEY,
   buildRecoverySubscriptionParams,
+  classifyElapsedPaidPeriod,
   decideDiscountCarryOver,
   decideOrphanPayment,
   readSubscriptionDiscounts,
-  RECOVERED_FROM_INVOICE_KEY,
   type OrphanPaymentInput,
 } from '../core/orphanPayment.ts';
 
@@ -228,4 +229,95 @@ test('carried coupons land in the create params, absent when there are none', ()
   assert.deepEqual(withCoupons.discounts, [{ coupon: 'c_1' }]);
   assert.equal('discounts' in buildRecoverySubscriptionParams({ ...base, carryCouponIds: [] }), false);
   assert.equal('discounts' in buildRecoverySubscriptionParams(base), false);
+});
+
+// --- classifyElapsedPaidPeriod ---------------------------------------------
+// A paid period that has run out is either ordinary churn or a member who was
+// cut off from something they had already bought. Everything here is about
+// keeping those two apart.
+
+const ONE_DAY = 24 * 60 * 60;
+const ELAPSED_START = 1_760_000_000;
+const ELAPSED_END = ELAPSED_START + 30 * ONE_DAY;
+
+function classifyFixture(over: Partial<Parameters<typeof classifyElapsedPaidPeriod>[0]> = {}) {
+  return classifyElapsedPaidPeriod({
+    periodStartUnix: ELAPSED_START,
+    periodEndUnix: ELAPSED_END,
+    deletionUnixes: [],
+    cancelRequestUnixes: [],
+    ...over,
+  });
+}
+
+test('access that ran to the period end is ordinary churn', () => {
+  const verdict = classifyFixture({ deletionUnixes: [ELAPSED_END] });
+  assert.equal(verdict.kind, 'consumed');
+  assert.equal(verdict.reason, 'access_ran_to_period_end');
+});
+
+test('no deletion at all is ordinary churn', () => {
+  assert.equal(classifyFixture().kind, 'consumed');
+});
+
+test('a deletion inside the paid window is lost paid time', () => {
+  const lostAt = ELAPSED_START + 10 * ONE_DAY;
+  const verdict = classifyFixture({ deletionUnixes: [lostAt] });
+  assert.equal(verdict.kind, 'lost');
+  if (verdict.kind !== 'lost') return;
+  assert.equal(verdict.lostAtUnix, lostAt);
+  assert.equal(verdict.lostSeconds, 20 * ONE_DAY);
+});
+
+test('a member who asked to cancel gave the rest of the period up themselves', () => {
+  const lostAt = ELAPSED_START + 10 * ONE_DAY;
+  const verdict = classifyFixture({
+    deletionUnixes: [lostAt],
+    cancelRequestUnixes: [lostAt - 60],
+  });
+  assert.equal(verdict.kind, 'consumed');
+  assert.equal(verdict.reason, 'member_cancelled_early');
+});
+
+test('a cancellation from a previous period does not excuse this deletion', () => {
+  // A request long before the deletion belongs to some earlier cancel/resubscribe
+  // cycle — reading it as consent here would hide a real loss.
+  const lostAt = ELAPSED_START + 20 * ONE_DAY;
+  const verdict = classifyFixture({
+    deletionUnixes: [lostAt],
+    cancelRequestUnixes: [ELAPSED_START - 90 * ONE_DAY],
+  });
+  assert.equal(verdict.kind, 'lost');
+});
+
+test('a cancellation AFTER the deletion does not excuse it either', () => {
+  const lostAt = ELAPSED_START + 10 * ONE_DAY;
+  const verdict = classifyFixture({
+    deletionUnixes: [lostAt],
+    cancelRequestUnixes: [lostAt + ONE_DAY],
+  });
+  assert.equal(verdict.kind, 'lost');
+});
+
+test('the earliest involuntary deletion sets the loss', () => {
+  const first = ELAPSED_START + 5 * ONE_DAY;
+  const verdict = classifyFixture({ deletionUnixes: [ELAPSED_START + 12 * ONE_DAY, first] });
+  assert.equal(verdict.kind, 'lost');
+  if (verdict.kind !== 'lost') return;
+  assert.equal(verdict.lostAtUnix, first);
+});
+
+test('a deletion at the exact period start is not a loss', () => {
+  // Boundary: the window is exclusive at both edges, so a deletion stamped at
+  // the very start belongs to the prior cycle, not this paid one.
+  assert.equal(classifyFixture({ deletionUnixes: [ELAPSED_START] }).kind, 'consumed');
+});
+
+test('unresolved period bounds never claim a loss', () => {
+  const verdict = classifyFixture({
+    periodStartUnix: null,
+    deletionUnixes: [ELAPSED_START + ONE_DAY],
+  });
+  assert.equal(verdict.kind, 'consumed');
+  assert.equal(verdict.reason, 'period_bounds_unresolved');
 });

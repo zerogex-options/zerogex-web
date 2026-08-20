@@ -337,3 +337,71 @@ export function buildRecoverySubscriptionParams(opts: {
   }
   return params;
 }
+
+// --- Elapsed paid periods --------------------------------------------------
+//
+// Once the period an invoice paid for has run out, no subscription can restore
+// it, so decideOrphanPayment stops at 'period_already_elapsed'. But that reason
+// covers two opposite situations, and only one of them owes the member anything:
+//
+//   consumed  They paid, held the tier for the period, and it ran out. Ordinary
+//             churn.
+//   lost      Their access was taken away BEFORE the period they had bought was
+//             over. Seen a month late, this is the same bug that stranded a
+//             member on the free tier — except the remedy is now a refund or a
+//             credit, because the days themselves are gone.
+//
+// Stripe cannot separate them; the local audit log can, since a tier reset is
+// recorded as a subscription deletion. A deletion timestamped inside the paid
+// window means paid days were taken.
+//
+// The exception that keeps this honest: a member who asks to cancel immediately
+// gives up the rest of the period by choice. Their own cancellation request sits
+// shortly before the deletion, so a deletion preceded by one reads as voluntary.
+// Cancel-at-period-end never trips the rule at all — its deletion lands AT the
+// period end, and the window below is deliberately exclusive at both edges.
+
+export type ElapsedPeriodVerdict =
+  | { kind: 'consumed'; reason: string }
+  | { kind: 'lost'; lostAtUnix: number; lostSeconds: number };
+
+export const VOLUNTARY_CANCEL_WINDOW_SECONDS = 7 * 24 * 60 * 60;
+
+export function classifyElapsedPaidPeriod(input: {
+  periodStartUnix: number | null;
+  periodEndUnix: number | null;
+  // Timestamps of tier-resetting subscription deletions for this member.
+  deletionUnixes: number[];
+  // Timestamps of cancellations the member asked for themselves.
+  cancelRequestUnixes: number[];
+  voluntaryWindowSeconds?: number;
+}): ElapsedPeriodVerdict {
+  const { periodStartUnix, periodEndUnix, deletionUnixes, cancelRequestUnixes } = input;
+  const voluntaryWindow = input.voluntaryWindowSeconds ?? VOLUNTARY_CANCEL_WINDOW_SECONDS;
+
+  // Without both edges of the paid window there is nothing to compare against;
+  // claiming a loss on a guess would send a refund to someone owed nothing.
+  if (periodStartUnix == null || periodEndUnix == null) {
+    return { kind: 'consumed', reason: 'period_bounds_unresolved' };
+  }
+
+  const insideWindow = deletionUnixes.filter((t) => t > periodStartUnix && t < periodEndUnix);
+  if (insideWindow.length === 0) {
+    return { kind: 'consumed', reason: 'access_ran_to_period_end' };
+  }
+
+  const involuntary = insideWindow.filter(
+    (deletedAt) =>
+      !cancelRequestUnixes.some(
+        (requestedAt) => requestedAt <= deletedAt && deletedAt - requestedAt <= voluntaryWindow,
+      ),
+  );
+  if (involuntary.length === 0) {
+    return { kind: 'consumed', reason: 'member_cancelled_early' };
+  }
+
+  // Earliest involuntary loss — the member was without what they paid for from
+  // that moment until the period ran out.
+  const lostAtUnix = Math.min(...involuntary);
+  return { kind: 'lost', lostAtUnix, lostSeconds: periodEndUnix - lostAtUnix };
+}
