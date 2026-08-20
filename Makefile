@@ -1,4 +1,4 @@
-.PHONY: help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription honor-winback-discount recover-orphan-payment clear-zombie-customers webhook-health trial-reminders trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback reactivation checkout-recovery founding-final-call public-cohort cancellations churn-breakdown enable-portal-cancel-reasons save-url reset-save-latch diagnose-user reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo blog-images
+.PHONY: help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription honor-winback-discount recover-orphan-payment scan-orphan-payments clear-zombie-customers webhook-health trial-reminders trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback reactivation checkout-recovery founding-final-call public-cohort cancellations churn-breakdown enable-portal-cancel-reasons save-url reset-save-latch diagnose-user reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo blog-images
 
 # Default target
 help:
@@ -32,6 +32,7 @@ help:
 	@echo "  make foh-donation-reminder - Send the quarterly FOH reminder email to the admin (fully self-contained instructions inside). Meant for cron on the 5th of Jan/Apr/Jul/Oct; TO=<addr> overrides the FOH_REMINDER_EMAIL env; QUARTER=<label> overrides the auto-detected closing quarter; DRY_RUN=1 to preview"
 	@echo "  make set-cancellation EMAIL=<email> (OFF=1 | ON=1) - Flip one customer's cancel_at_period_end: OFF=1 stops a scheduled cancel (renews, or converts a trial to paid); ON=1 schedules a cancel at period end (DRY_RUN=1 to preview, YES=1 to apply)"
 	@echo "  make honor-winback-discount EMAIL=<email> - Honor the manual 'reply discount' win-back offer: STACK a 25%-off-1-year coupon on top of any existing discounts and (default) stop a scheduled cancel so the sub converts/renews on the card on file. COUPON=<id> pins a coupon; CREATE_COUPON=1 [PERCENT=25] mints one; KEEP_CANCELLATION=1 leaves the cancel intact. DRY_RUN=1 to preview, YES=1 to apply"
+	@echo "  make scan-orphan-payments [SINCE_DAYS=120] [VERBOSE=1] - Sweep every paid Stripe invoice for members who paid in full and are still on a free tier (the ones who never wrote in). Read-only; prints the recover-orphan-payment command for each hit"
 	@echo "  make clear-zombie-customers - NULL stripe_customer_id on rows with no subscription (APPLY=1 to write, dry-run by default)"
 	@echo "  make webhook-health - Stripe webhook health summary (errors/orphans/failed payments, last 24h + 7d)"
 	@echo "  make signup-alarm  - Check the trailing registration rate and email the operator if signups have flatlined. Runs hourly via systemd (step 096); FORCE=1 bypasses the active-hours/cooldown gates, DRY_RUN=1 previews without sending, WINDOW=<h>/MIN=<n> override thresholds"
@@ -431,6 +432,12 @@ diagnose-user:
 #   make recover-orphan-payment EMAIL=foo@example.com
 #   make recover-orphan-payment EMAIL=foo@example.com YES=1
 #   make recover-orphan-payment EMAIL=foo@example.com INVOICE=in_123 YES=1
+# Sweep the whole customer base for orphaned payments — read-only.
+#   make scan-orphan-payments
+#   make scan-orphan-payments SINCE_DAYS=365 VERBOSE=1
+scan-orphan-payments:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/scan-orphan-payments.mts $(if $(SINCE_DAYS),--since-days $(SINCE_DAYS),) $(if $(VERBOSE),--verbose,)'
+
 recover-orphan-payment:
 	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make recover-orphan-payment EMAIL=foo@example.com)"; exit 1; fi
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/recover-orphan-payment.mts --email $(EMAIL) $(if $(INVOICE),--invoice $(INVOICE),) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
