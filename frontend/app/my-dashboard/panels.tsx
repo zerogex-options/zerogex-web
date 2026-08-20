@@ -8,7 +8,7 @@
  */
 
 import { useMemo } from 'react';
-import { Gauge } from 'lucide-react';
+import { Gauge, ListOrdered } from 'lucide-react';
 
 import MarketMakerExposures from '@/components/MarketMakerExposures';
 import ProprietarySignalsSynthesis from '@/components/ProprietarySignalsSynthesis';
@@ -21,6 +21,8 @@ import GexProfileChart from '@/components/GexProfileChart';
 import GexWallsChart from '@/components/GexWallsChart';
 import GammaHeatmapCanvas from '@/components/GammaHeatmapCanvas';
 import GexUnitToggle from '@/components/GexUnitToggle';
+import StrikeFilterToggle from '@/components/StrikeFilterToggle';
+import { GammaLadder } from '@/components/PairGammaHeatmap';
 import OptionsFlowChart from '@/components/OptionsFlowChart';
 import SignalScorePanel from '@/components/SignalScorePanel';
 import SignalEventsPanel from '@/components/SignalEventsPanel';
@@ -31,6 +33,8 @@ import WorldClocks from '@/components/WorldClocks';
 import HeadlinesWire from '@/components/HeadlinesWire';
 
 import { useTimeframe } from '@/core/TimeframeContext';
+import { useGexUnit } from '@/core/GexUnitContext';
+import { useStrikeFilter } from '@/core/StrikeFilterContext';
 import { getMarketSession, etTodayDateKey } from '@/core/utils';
 import {
   useApiData,
@@ -40,6 +44,7 @@ import {
   useMarketQuote,
   type SignalEventName,
 } from '@/hooks/useApiData';
+import { useGammaLadderColumn } from '@/hooks/useGammaLadder';
 import { useStrikeProfileTimeseries } from '@/hooks/useStrikeProfileTimeseries';
 import { useSharedExpirations } from '@/hooks/useSharedExpirations';
 import { reconcileExpirations } from '@/core/expirationPersistence';
@@ -261,6 +266,68 @@ export function GexHeatmapPanel() {
       </div>
       <GammaHeatmapCanvas />
     </div>
+  );
+}
+
+// Ladder depth inside a tile. The page runs the full ±20 strikes — an ~820px
+// column it has the height for; a tile shares its grid row's height with every
+// widget beside it, so it shows ±10 (21 rows at 20px), which still spans the
+// walls and the flip on an ordinary session.
+const LADDER_TILE_MAX_SIDE = 10;
+
+// The ladder's header control slot. Pair Comparison puts its per-column symbol
+// dropdown here; a tile follows the board's symbol (or its pane's), so it reads
+// as a plain label — retargeting is a board-level action, not a per-tile one.
+function LadderSymbolTag({ symbol }: { symbol: string }) {
+  return (
+    <span
+      className="font-mono font-bold"
+      style={{ fontSize: 14, letterSpacing: '0.04em', color: 'var(--text-primary)' }}
+    >
+      {symbol}
+    </span>
+  );
+}
+
+// One column of the Pair Comparison ladder — the same component and the same
+// feeds (useGammaLadderColumn), for the board's symbol. Its two display
+// preferences ride along so the tile is the full instrument rather than a
+// read-only copy: Strikes (active-only vs every listed strike) and the GEX unit
+// are global preferences, so changing either here moves the ladder, the pair
+// page and the by-strike table together.
+export function GammaLadderPanel() {
+  const { symbol } = useTimeframe();
+  const { gexUnit } = useGexUnit();
+  const { activeOnly } = useStrikeFilter();
+  const t = usePageT(dict);
+  const column = useGammaLadderColumn(symbol);
+  const ladderColumn = useMemo(
+    () => ({ ...column, control: <LadderSymbolTag symbol={symbol} /> }),
+    [column, symbol],
+  );
+
+  return (
+    <WidgetCard
+      title={t('gammaLadder')}
+      icon={ListOrdered}
+      href="/pair-comparison"
+      hrefLabel={t('comparePair')}
+      pad={false}
+    >
+      <div
+        className="flex flex-wrap items-center justify-between gap-2 px-3 py-2"
+        style={{ borderBottom: '1px solid var(--border-subtle)' }}
+      >
+        <StrikeFilterToggle showHint={false} />
+        <GexUnitToggle showHint={false} />
+      </div>
+      <GammaLadder
+        column={ladderColumn}
+        gexUnit={gexUnit}
+        activeOnly={activeOnly}
+        maxSide={LADDER_TILE_MAX_SIDE}
+      />
+    </WidgetCard>
   );
 }
 

@@ -3,6 +3,8 @@ import type { PageDictionary } from '@/core/LanguageContext';
 export const dict: PageDictionary = {
   en: {
     technicals: 'Technicals',
+    gammaLadder: 'Gamma Ladder',
+    comparePair: 'Compare',
     proprietarySignals: 'Proprietary Signals',
     tradeBias: 'Trade Bias',
     confluenceMatrix: 'Confluence Matrix',
@@ -15,6 +17,8 @@ export const dict: PageDictionary = {
   },
   it: {
     technicals: 'Tecnici',
+    gammaLadder: 'Scala Gamma',
+    comparePair: 'Confronta',
     proprietarySignals: 'Segnali Proprietari',
     tradeBias: 'Bias di Trading',
     confluenceMatrix: 'Matrice di Confluenza',
@@ -27,6 +31,8 @@ export const dict: PageDictionary = {
   },
   de: {
     technicals: 'Technische Analyse',
+    gammaLadder: 'Gamma-Leiter',
+    comparePair: 'Vergleichen',
     proprietarySignals: 'Proprietäre Signale',
     tradeBias: 'Trade-Bias',
     confluenceMatrix: 'Konfluenzmatrix',
@@ -39,6 +45,8 @@ export const dict: PageDictionary = {
   },
   es: {
     technicals: 'Técnicos',
+    gammaLadder: 'Escalera Gamma',
+    comparePair: 'Comparar',
     proprietarySignals: 'Señales Propietarias',
     tradeBias: 'Sesgo de Trading',
     confluenceMatrix: 'Matriz de Confluencia',
@@ -51,6 +59,8 @@ export const dict: PageDictionary = {
   },
   fr: {
     technicals: 'Techniques',
+    gammaLadder: 'Échelle Gamma',
+    comparePair: 'Comparer',
     proprietarySignals: 'Signaux Propriétaires',
     tradeBias: 'Biais de Trading',
     confluenceMatrix: 'Matrice de Confluence',

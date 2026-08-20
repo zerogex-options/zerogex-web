@@ -29,6 +29,10 @@
  * Layout is fully fluid: the two columns flex to share the available width and
  * shrink to 0 (min-w-0), so the pair fits a phone instead of forcing a wide
  * fixed-gutter horizontal scroll the way the previous version did.
+ *
+ * The same column also ships on its own as {@link GammaLadder} — one ladder for
+ * one symbol, which is what the "Gamma Ladder" My Dashboard widget mounts. It is
+ * literally this file's column, so the two surfaces can't drift apart.
  */
 
 import { useMemo, type ReactNode } from "react";
@@ -86,7 +90,10 @@ const LEVEL_ORDER: LevelKey[] = ["flip", "call", "put", "pain"];
 
 // ---- Layout constants -------------------------------------------------------
 const ROW_H = 20; // px per strike row — identical across both columns => aligned
-const MAX_SIDE = 20; // strikes shown on each side of the spot-nearest center
+// Strikes shown on each side of the spot-nearest center. Callers can shorten the
+// window (a dashboard tile is far shorter than the page's full-height ladder);
+// the pair page keeps the full depth.
+const MAX_SIDE = 20;
 
 // ---- Number formatting ------------------------------------------------------
 function percentile(values: number[], p: number): number {
@@ -130,17 +137,22 @@ function fmtSpot(v: number | null): string {
 interface BuiltColumn {
   sorted: HeatmapCell[]; // descending by strike
   centerIdx: number; // index of the strike nearest spot
-  up: number; // rows above center that exist (capped to MAX_SIDE)
-  down: number; // rows below center that exist (capped to MAX_SIDE)
+  up: number; // rows above center that exist (capped to maxSide)
+  down: number; // rows below center that exist (capped to maxSide)
 }
 
-function buildColumn(cells: HeatmapCell[], spot: number | null, activeOnly: boolean): BuiltColumn | null {
+function buildColumn(
+  cells: HeatmapCell[],
+  spot: number | null,
+  activeOnly: boolean,
+  maxSide: number,
+): BuiltColumn | null {
   const clean = cells
     .map((c) => ({ strike: Number(c.strike), net_gex: Number(c.net_gex) }))
     .filter((c) => Number.isFinite(c.strike));
   if (clean.length === 0) return null;
   // Drop no-positioning strikes (net GEX 0) BEFORE centering/windowing so the
-  // fixed ±MAX_SIDE window fills with real levels — see selectActiveCells.
+  // fixed ±maxSide window fills with real levels — see selectActiveCells.
   const sorted = selectActiveCells(clean, activeOnly).sort((a, b) => b.strike - a.strike);
 
   // Center on the strike nearest spot; if spot is missing, use the median strike.
@@ -155,8 +167,8 @@ function buildColumn(cells: HeatmapCell[], spot: number | null, activeOnly: bool
       }
     });
   }
-  const up = Math.min(MAX_SIDE, centerIdx);
-  const down = Math.min(MAX_SIDE, sorted.length - 1 - centerIdx);
+  const up = Math.min(maxSide, centerIdx);
+  const down = Math.min(maxSide, sorted.length - 1 - centerIdx);
   return { sorted, centerIdx, up, down };
 }
 
@@ -189,8 +201,13 @@ interface ColumnModel {
   peakOffset: number | null;
 }
 
-function buildModel(input: HeatmapColumnInput, gexUnit: GexUnit, activeOnly: boolean): ColumnModel {
-  const built = buildColumn(input.cells, input.spot, activeOnly);
+function buildModel(
+  input: HeatmapColumnInput,
+  gexUnit: GexUnit,
+  activeOnly: boolean,
+  maxSide: number,
+): ColumnModel {
+  const built = buildColumn(input.cells, input.spot, activeOnly, maxSide);
   const cellByOffset = new Map<number, HeatmapCell>();
   const arrowsByOffset = new Map<number, LevelKey[]>();
   const levelValues: Record<LevelKey, number | null> = {
@@ -231,6 +248,18 @@ function buildModel(input: HeatmapColumnInput, gexUnit: GexUnit, activeOnly: boo
   const clip = Math.max(1, percentile(absVals, 0.98));
   const gexScale = gexScaleFactor(gexUnit, input.spot);
   return { input, built, cellByOffset, arrowsByOffset, levelValues, clip, gexScale, peakOffset };
+}
+
+// The shared row grid, descending from the deepest "up" offset any column
+// reaches to the deepest "down" one. Every column renders the SAME offsets — a
+// column that runs out of strikes leaves a blank row — which is what keeps the
+// pair strike-aligned; with one column it is simply that column's own window.
+function columnOffsets(models: ColumnModel[]): number[] {
+  const up = Math.max(0, ...models.map((m) => m.built?.up ?? 0));
+  const down = Math.max(0, ...models.map((m) => m.built?.down ?? 0));
+  const out: number[] = [];
+  for (let o = up; o >= -down; o--) out.push(o);
+  return out;
 }
 
 // Signed translucent tint for a cell, layered over --bg-card. Signed-sqrt curve
@@ -478,16 +507,10 @@ export default function PairGammaHeatmap({
    *  fine-grid strikes that otherwise crowd out the active 25-pt levels. */
   activeOnly?: boolean;
 }) {
-  const leftModel = useMemo(() => buildModel(left, gexUnit, activeOnly), [left, gexUnit, activeOnly]);
-  const rightModel = useMemo(() => buildModel(right, gexUnit, activeOnly), [right, gexUnit, activeOnly]);
+  const leftModel = useMemo(() => buildModel(left, gexUnit, activeOnly, MAX_SIDE), [left, gexUnit, activeOnly]);
+  const rightModel = useMemo(() => buildModel(right, gexUnit, activeOnly, MAX_SIDE), [right, gexUnit, activeOnly]);
 
-  const { offsets } = useMemo(() => {
-    const up = Math.max(leftModel.built?.up ?? 0, rightModel.built?.up ?? 0);
-    const down = Math.max(leftModel.built?.down ?? 0, rightModel.built?.down ?? 0);
-    const out: number[] = [];
-    for (let o = up; o >= -down; o--) out.push(o);
-    return { offsets: out };
-  }, [leftModel, rightModel]);
+  const offsets = useMemo(() => columnOffsets([leftModel, rightModel]), [leftModel, rightModel]);
 
   return (
     // Each column holds a 140px floor and grows to share the width; the two fit
@@ -502,6 +525,43 @@ export default function PairGammaHeatmap({
           <HeatmapColumn model={rightModel} offsets={offsets} gexUnit={gexUnit} />
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * A SINGLE gamma ladder — the Pair Comparison column on its own, for one
+ * symbol. Same header (control slot, spot + change, the GF/CW/PW/MP legend),
+ * same center-pinned rows, same sign tint and King node; there is no second
+ * column to align against, so the window is just this symbol's own.
+ *
+ * Used by the "Gamma Ladder" My Dashboard widget, where `control` is a plain
+ * symbol label rather than the page's dropdown (the tile follows the board's
+ * symbol) and `maxSide` is shortened so the ladder fits a tile instead of
+ * stretching its whole grid row.
+ */
+export function GammaLadder({
+  column,
+  gexUnit,
+  activeOnly = true,
+  maxSide = MAX_SIDE,
+}: {
+  column: HeatmapColumnInput;
+  gexUnit: GexUnit;
+  /** Hide strikes with no dealer gamma (net GEX 0) — see PairGammaHeatmap. */
+  activeOnly?: boolean;
+  /** Strikes rendered on each side of spot. Each row is 20px tall. */
+  maxSide?: number;
+}) {
+  const model = useMemo(
+    () => buildModel(column, gexUnit, activeOnly, maxSide),
+    [column, gexUnit, activeOnly, maxSide],
+  );
+  const offsets = useMemo(() => columnOffsets([model]), [model]);
+
+  return (
+    <div className="h-full min-w-0" style={{ background: "var(--bg-card)" }}>
+      <HeatmapColumn model={model} offsets={offsets} gexUnit={gexUnit} />
     </div>
   );
 }
