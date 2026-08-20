@@ -22,6 +22,7 @@ import {
   Grid2x2,
   Layers,
   LineChart,
+  ListOrdered,
   Newspaper,
   Radar,
   ScrollText,
@@ -58,6 +59,7 @@ import {
   DealerExposuresPanel,
   GammaChartPanel,
   GammaByStrikePanel,
+  GammaLadderPanel,
   OpenInterestByStrikePanel,
   GexHeatmapPanel,
   OptionsFlowPanel,
@@ -303,6 +305,20 @@ export const WIDGETS: WidgetDef[] = [
     allowedSizes: ALL_SIZES,
     feeds: [],
     render: () => <OpenInterestByStrikePanel />,
+  },
+
+  {
+    id: 'gamma-ladder',
+    title: 'Gamma Ladder',
+    blurb:
+      'One column of the Pair Comparison ladder: Net GEX strike by strike around spot, tinted by sign and magnitude, with the Gamma Flip, Call/Put Walls, Max Pain and the heaviest-gamma King node marked. Strike filter and GEX unit built in.',
+    category: 'gamma',
+    tier: 'basic',
+    icon: ListOrdered,
+    defaultSize: 'sm',
+    allowedSizes: ALL_SIZES,
+    feeds: [],
+    render: () => <GammaLadderPanel />,
   },
 
   {

@@ -23,13 +23,12 @@ import BetaBadge from "@/components/BetaBadge";
 import TooltipWrapper from "@/components/TooltipWrapper";
 import ChartCaption from "@/components/ChartCaption";
 import { type ChartTimeframe } from "@/components/ChartTimeframeSelect";
-import { useApiData, useGEXSummary, useMarketQuote, useSessionCloses } from "@/hooks/useApiData";
+import { useGammaLadderColumn, type GammaLadderColumnData } from "@/hooks/useGammaLadder";
 import { usePairReplay, type PairReplayData, type ReplayFrame, type ReplayCandle } from "@/hooks/usePairReplay";
 import { useGexUnit } from "@/core/GexUnitContext";
 import { useStrikeFilter } from "@/core/StrikeFilterContext";
 import { useTimeframe, type UnderlyingSymbol } from "@/core/TimeframeContext";
 import { SYMBOLS } from "@/core/symbols";
-import { getPrimaryPriceChangeSummary } from "@/core/priceChange";
 
 const TIMEFRAME_OPTIONS: Array<{ value: ChartTimeframe; label: string }> = [
   { value: "1min", label: "1m" },
@@ -57,55 +56,6 @@ const COMPARE_DEFAULT: Record<UnderlyingSymbol, UnderlyingSymbol> = {
   SPX: "NDX",
   NDX: "SPX",
 };
-
-// ── Live-poll cadences ───────────────────────────────────────────────────────
-// Pair Comparison is the app's heaviest page: it runs TWO live columns, each
-// polling the GEX heatmap and summary, so its per-viewer request rate is ~2× a
-// single-symbol dashboard. The website's BFF proxies straight to the API
-// (ZEROGEX_API_BASE_URL, default 127.0.0.1:8000), bypassing the nginx response
-// cache / request coalescing that fronts direct API traffic — so every poll from
-// every viewer lands on a uvicorn worker. That is why the site-wide overload
-// surfaced as 503s here first, on the gamma heatmap.
-//
-// The heatmap and summary go through useApiData as independent per-URL fetch
-// loops (and the two columns are different symbols), so their cadence directly
-// sets how many requests this page emits. The heatmap only changes on the
-// analytics cycle (~60s) and is cached ~5s server-side (ANALYTICS_CACHE_TTL_
-// SECONDS), so polling it every second just re-fetched byte-identical data;
-// aligning the poll with that cache cuts the heaviest request type ~5× per
-// column with no visible change to the surface. The summary (flip / walls /
-// max-pain, also 60s-cycle) is kept a touch faster so its spot_price — the
-// ladder marker and the candles' horizontal spot line — stays live-ish.
-//
-// Quotes are deliberately NOT rate-limited here: useMarketQuote already shares
-// one deduplicated subscription per symbol (min interval across subscribers) and
-// drops to a heartbeat once the WebSocket is serving that symbol, so the live
-// candle tip keeps its 1 Hz feel without adding per-column HTTP load.
-//
-// NOTE: useApiData halves the nominal interval (REFRESH_ACCELERATION_FACTOR) with
-// a 1s floor, so 10_000 → ~5s and 5_000 → ~2.5s effective.
-const HEATMAP_REFRESH_MS = 10_000; // ~5s effective — matches the server GEX cache
-const SUMMARY_REFRESH_MS = 5_000; // ~2.5s effective — keeps the spot marker live-ish
-
-interface HeatmapBucket {
-  timestamp: string;
-  heatmap?: HeatmapCell[];
-}
-
-// Freshest non-empty per-strike column (an empty after-hours tip mustn't blank it).
-function latestHeatmap(buckets: HeatmapBucket[] | null | undefined): HeatmapCell[] {
-  if (!Array.isArray(buckets)) return [];
-  for (let i = buckets.length - 1; i >= 0; i -= 1) {
-    const h = buckets[i]?.heatmap;
-    if (Array.isArray(h) && h.length > 0) return h;
-  }
-  return [];
-}
-
-function heatmapUrl(symbol: string): string {
-  const s = encodeURIComponent(symbol);
-  return `/api/gex/heatmap?symbol=${s}&underlying=${s}&timeframe=5min&window_units=6`;
-}
 
 // Last replay frame at-or-before a timestamp (frames are chronological ascending).
 function frameAtOrBefore(frames: ReplayFrame[], targetTs: string | null): ReplayFrame | null {
@@ -210,44 +160,12 @@ function TimeframeSeg({ value, onChange }: { value: ChartTimeframe; onChange: (v
   );
 }
 
-// Build the live-mode input for one column from the polling hooks.
-function useLiveColumn(symbol: UnderlyingSymbol, enabled: boolean): Omit<HeatmapColumnInput, "control"> {
-  const { data: summary } = useGEXSummary(symbol, SUMMARY_REFRESH_MS, enabled);
-  const { data: hm, loading, error } = useApiData<HeatmapBucket[]>(heatmapUrl(symbol), { refreshInterval: HEATMAP_REFRESH_MS, enabled });
-  const { data: quote } = useMarketQuote(symbol, 1000, enabled);
-  const { data: closes } = useSessionCloses(symbol, 60000, quote?.session ?? null, enabled);
-
-  return useMemo(() => {
-    const change = getPrimaryPriceChangeSummary({
-      quoteClose: quote?.close ?? null,
-      quoteSession: quote?.session ?? null,
-      sessionCloses: closes ?? null,
-      displaySource: quote?.display_source ?? null,
-      futuresClose: quote?.futures_close ?? null,
-      futuresReferenceClose: quote?.futures_reference_close ?? null,
-    });
-    return {
-      symbol,
-      cells: latestHeatmap(hm),
-      spot: summary?.spot_price ?? null,
-      gammaFlip: summary?.gamma_flip ?? null,
-      callWall: summary?.call_wall ?? null,
-      putWall: summary?.put_wall ?? null,
-      maxPain: summary?.max_pain ?? null,
-      changePercent: change.changePercent,
-      isPositive: change.isPositive,
-      loading,
-      error,
-    };
-  }, [symbol, hm, summary, quote, closes, loading, error]);
-}
-
 // Build the replay-mode input for one column at the shared playhead timestamp.
 function replayColumn(
   symbol: UnderlyingSymbol,
   replay: PairReplayData,
   cursorTs: string | null,
-): Omit<HeatmapColumnInput, "control"> {
+): GammaLadderColumnData {
   const frame = frameAtOrBefore(replay.frames, cursorTs);
   const spot = closeAtOrBefore(replay.candles, frame?.timestamp ?? cursorTs);
   const open = firstOpen(replay.candles);
@@ -291,8 +209,8 @@ export default function PairComparisonClient() {
   const { activeOnly } = useStrikeFilter();
 
   const liveEnabled = mode === "live";
-  const live1 = useLiveColumn(sym1, liveEnabled);
-  const live2 = useLiveColumn(sym2, liveEnabled);
+  const live1 = useGammaLadderColumn(sym1, liveEnabled);
+  const live2 = useGammaLadderColumn(sym2, liveEnabled);
   const replay1 = usePairReplay(sym1, replayArmed, mode === "replay");
   const replay2 = usePairReplay(sym2, replayArmed, mode === "replay");
 
