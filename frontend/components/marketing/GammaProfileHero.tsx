@@ -8,8 +8,9 @@ import ChartCaption from '../ChartCaption';
 /**
  * The landing hero visual IS the product output: the live net-GEX-by-price
  * curve, drawn as a terminal readout. Positive gamma fills in --color-bull,
- * negative in --color-bear, the zero-gamma / flip is banded in --heat-mid (the
- * theme's flip color), and spot is the single --color-accent-hot cursor.
+ * negative in --color-bear, the zero-gamma / flip is banded in --color-flip
+ * (the app-wide flip azure, shared with every chart that draws the level), and
+ * spot is the single --color-accent-hot cursor.
  *
  * All colors are read from the active theme's CSS variables, so the hero
  * re-themes with the palette. Graceful empty state before data arrives.
@@ -48,7 +49,7 @@ export default function GammaProfileHero({ symbol = 'SPY' }: { symbol?: string }
       grid: css.getPropertyValue('--color-grid-line').trim() || 'rgba(255,255,255,0.1)',
       bull: css.getPropertyValue('--color-bull').trim() || '#22c55e',
       bear: css.getPropertyValue('--color-bear').trim() || '#ef4444',
-      flip: css.getPropertyValue('--heat-mid').trim() || '#f59e0b',
+      flip: css.getPropertyValue('--color-flip').trim() || '#3B9EFF',
       spot: css.getPropertyValue('--color-accent-hot').trim() || '#f43f5e',
       rule: css.getPropertyValue('--border-default').trim() || 'rgba(255,255,255,0.2)',
     };
@@ -241,7 +242,7 @@ export default function GammaProfileHero({ symbol = 'SPY' }: { symbol?: string }
       >
         {[
           { l: 'Net GEX', v: fmtUsd(netGex), c: netGex == null ? 'var(--text-primary)' : netGex >= 0 ? 'var(--color-bull)' : 'var(--color-bear)' },
-          { l: 'Flip', v: flip != null ? `$${flip.toFixed(0)}` : '--', c: 'var(--heat-mid)' },
+          { l: 'Flip', v: flip != null ? `$${flip.toFixed(0)}` : '--', c: 'var(--color-flip)' },
           { l: 'Call Wall', v: callWall != null ? `$${callWall.toFixed(0)}` : '--', c: 'var(--color-bull)' },
           { l: 'Put Wall', v: putWall != null ? `$${putWall.toFixed(0)}` : '--', c: 'var(--color-bear)' },
         ].map((cell, i) => (

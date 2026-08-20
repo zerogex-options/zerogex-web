@@ -4,7 +4,7 @@ import type { CSSProperties } from 'react';
  * Registration / crop marks in the four corners of a panel — a technical-
  * drawing signature that marks a surface as a considered object, not a
  * generic card. Neutral by default (structural, not signal), so it never
- * competes with the amber flip or the bull/bear data colors. Parent must be
+ * competes with the azure flip or the bull/bear data colors. Parent must be
  * position: relative.
  */
 export default function RegistrationCorners({

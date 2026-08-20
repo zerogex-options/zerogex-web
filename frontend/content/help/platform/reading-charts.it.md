@@ -16,6 +16,17 @@ ZeroGEX utilizza una tavolozza piccola e coerente in tutti i grafici. Una volta 
 
 Il **significato** dei colori è stabile in tutti i grafici. Lo stesso verde è "rialzista" ovunque.
 
+### I livelli chiave
+
+Quattro livelli hanno un colore proprio ovunque vengano disegnati, tenuto distinto dal linguaggio rialzista/ribassista qui sopra perché un livello non venga mai letto come una direzione:
+
+- **Azzurro** — il **gamma flip**. È il confine tra la zona di gamma lunga e quella di gamma corta, quindi non è deliberatamente né verde né rosso.
+- **Oro** — il **max pain**.
+- **Verde acqua** — il **pin strike**.
+- **Viola** — il **GEX king**, il nodo di gamma dominante.
+
+**Call wall** e **put wall** prendono invece i colori direzionali, e l'**ultimo prezzo scambiato** prende l'accento caldo di ciascun tema — sempre un colore caldo, mai l'azzurro del flip.
+
 ## La score line
 
 Ogni score di segnale viene tracciato sullo stesso asse y **[-1, +1]** con la linea dello zero al centro. La colorazione di sfondo vicino alle soglie di trigger ricorda dove il segnale diventa operativo.
@@ -57,11 +68,19 @@ Le celle più "calde" sono gli strike che contano per le scadenze più vicine. O
 
 Candele OHLC standard con VWAP e gli overlay gamma. Gli overlay sono il tocco distintivo di ZeroGEX:
 
-- La linea del **gamma flip**.
+- La linea del **gamma flip** — tratteggio lungo, azzurra, con l'etichetta `FLIP` sul bordo sinistro.
 - Le linee del **call wall** e del **put wall**.
 - **Max pain** (dove rilevante).
 
+La linea a puntini fini nell'accento caldo del tema è l'**ultimo prezzo scambiato**, non un livello gamma — nella legenda sotto il grafico compare come "Last".
+
 Gli overlay ti permettono di leggere il price action attraverso la lente del dealer positioning senza uscire dal grafico.
+
+### Quando manca la linea del flip
+
+Un livello viene disegnato solo finché rientra nell'intervallo di prezzo visibile: su un sottostante a prezzo elevato il cui flip è lontano dallo spot — NDX in particolare — la linea del flip può quindi finire fuori scala. Il grafico lo dice invece di lasciartelo indovinare: un chip sul bordo dell'area di disegno riporta `FLIP ↓ 22,600.00` con direzione e prezzo, e l'asse dei prezzi a destra porta un tag con la freccia corrispondente. Riduci lo zoom dell'asse dei prezzi (il pulsante **Price −**, Maiusc+scroll, o trascinando la scala dei prezzi a destra) per riportare la linea in vista.
+
+Ogni tanto non è possibile risolvere alcun flip — il profilo gamma scansionato risulta di un solo segno, oppure la catena è troppo sottile per collocare l'attraversamento dello zero. In quel caso il chip riporta `FLIP UNAVAILABLE` e il badge "Dealer Gamma @ Spot" mostra un semplice `—`. Preferiamo non disegnare nulla piuttosto che un livello di cui non ci fidiamo.
 
 ## Comportamento al passaggio del mouse
 

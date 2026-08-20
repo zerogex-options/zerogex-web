@@ -16,6 +16,17 @@ ZeroGEX verwendet über alle Charts hinweg eine kleine, konsistente Farbpalette.
 
 Die **Bedeutung** der Farben bleibt über alle Charts hinweg stabil. Dasselbe Grün steht überall für "bullisch".
 
+### Die zentralen Level
+
+Vier Level tragen überall dort, wo sie gezeichnet werden, ihre eigene Farbe — bewusst getrennt von der bullisch/bärisch-Sprache oben, damit ein Level nie als Richtung gelesen wird:
+
+- **Azurblau** — der **Gamma Flip**. Er ist die Grenze zwischen Long-Gamma- und Short-Gamma-Zone und ist deshalb absichtlich weder grün noch rot.
+- **Gold** — **Max Pain**.
+- **Petrol** — der **Pin Strike**.
+- **Violett** — der **GEX King**, der dominante Gamma-Knoten.
+
+**Call Wall** und **Put Wall** tragen dagegen die Richtungsfarben, und der **zuletzt gehandelte Preis** trägt den Hot-Accent des jeweiligen Themes — immer eine warme Farbe, nie das Azurblau des Flips.
+
 ## Die Score-Line
 
 Jeder Signal-Score wird auf derselben **[-1, +1]**-y-Achse mit der Nulllinie in der Mitte dargestellt. Die Hintergrundeinfärbung in der Nähe der Trigger-Schwellen erinnert daran, wo das Signal handlungsrelevant wird.
@@ -57,11 +68,19 @@ Die heißesten Zellen sind die Strikes, die für die nächstliegenden Verfallste
 
 Standard-OHLC-Candles mit VWAP und den Gamma-Overlays. Die Overlays sind der ZeroGEX-Twist:
 
-- Die **Gamma-Flip**-Linie.
+- Die **Gamma-Flip**-Linie — lange Striche, azurblau, am linken Rand mit `FLIP` beschriftet.
 - Die **Call-Wall**- und **Put-Wall**-Linien.
 - **Max Pain** (wo relevant).
 
+Die fein gepunktete Linie im Hot-Accent des Themes ist der **zuletzt gehandelte Preis**, kein Gamma-Level — in der Legende unter dem Chart steht sie als "Last".
+
 Mit den Overlays kannst du das Preisgeschehen durch die Dealer-Positioning-Brille lesen, ohne den Chart zu verlassen.
+
+### Wenn keine Flip-Linie zu sehen ist
+
+Ein Level wird nur gezeichnet, solange es im aktuell sichtbaren Preisbereich liegt. Bei einem hochpreisigen Basiswert, dessen Flip weit vom Spot entfernt liegt — NDX besonders —, kann die Flip-Linie deshalb außerhalb der sichtbaren Skala liegen. Der Chart sagt das ausdrücklich, statt dich raten zu lassen: ein Chip am Rand der Zeichenfläche zeigt `FLIP ↓ 22,600.00` mit Richtung und Preis, und die rechte Preisachse trägt ein passendes Pfeil-Tag. Zoome die Preisachse heraus (Schaltfläche **Price −**, Umschalt+Scrollen oder Ziehen an der rechten Preisskala), um die Linie selbst ins Bild zu holen.
+
+Gelegentlich lässt sich gar kein Flip bestimmen — das abgetastete Gamma-Profil hat durchgehend ein Vorzeichen, oder die Chain ist zu dünn, um den Nulldurchgang zu setzen. Dann steht auf dem Chip `FLIP UNAVAILABLE`, und das Badge "Dealer Gamma @ Spot" zeigt ein schlichtes `—`. Wir zeichnen lieber nichts als ein Level, dem wir nicht trauen.
 
 ## Hover-Verhalten
 
