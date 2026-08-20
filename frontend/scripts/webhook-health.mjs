@@ -71,6 +71,10 @@ const orphanPay24h = count('billing_orphan_payment_detected', '-1 day');
 const orphanPay7d = count('billing_orphan_payment_detected', '-7 days');
 const orphanFixed24h = count('billing_orphan_payment_recovered', '-1 day');
 const orphanFixed7d = count('billing_orphan_payment_recovered', '-7 days');
+// Recovered, but at a different price than the member was paying: a discount on
+// the canceled subscription could not be carried across. Not an error — someone
+// just has to confirm the new renewal rate is intended.
+const orphanDiscount24h = count('billing_orphan_payment_discount_review', '-1 day');
 const orphanStuck24h =
   orphanPay24h -
   orphanFixed24h -
@@ -130,6 +134,20 @@ if (orphanPay24h > 0) {
   console.log('    make recover-orphan-payment EMAIL=<addr> YES=1');
   console.log('');
   for (const r of recent('billing_orphan_payment_detected', '-1 day')) {
+    console.log('  ' + r.created_at + '  ' + (r.email ?? '—'));
+    console.log('    ' + r.message);
+    console.log('');
+  }
+}
+
+if (orphanDiscount24h > 0) {
+  console.log('=== Recovered payments needing a price check (24h) ===');
+  console.log('');
+  console.log('  These members were restored, but a discount their canceled subscription');
+  console.log('  carried did NOT come across — their renewal now bills at a different rate.');
+  console.log('  Confirm each is intended, and re-apply the coupon in Stripe if not.');
+  console.log('');
+  for (const r of recent('billing_orphan_payment_discount_review', '-1 day')) {
     console.log('  ' + r.created_at + '  ' + (r.email ?? '—'));
     console.log('    ' + r.message);
     console.log('');

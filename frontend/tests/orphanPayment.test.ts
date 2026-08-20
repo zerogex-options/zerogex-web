@@ -1,8 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  decideOrphanPayment,
   buildRecoverySubscriptionParams,
+  decideDiscountCarryOver,
+  decideOrphanPayment,
+  readSubscriptionDiscounts,
   RECOVERED_FROM_INVOICE_KEY,
   type OrphanPaymentInput,
 } from '../core/orphanPayment.ts';
@@ -121,4 +123,95 @@ test('recovery params omit optional wiring when it is unknown', () => {
   });
   assert.equal('backdate_start_date' in params, false);
   assert.equal('default_payment_method' in params, false);
+});
+
+// --- Discount carry-over ---------------------------------------------------
+// The re-created subscription is a NEW Stripe object with no discounts of its
+// own. Getting this wrong is a silent price change either way: dropping a
+// forever coupon overcharges every future renewal, re-applying a spent one
+// discounts a period the member never bought.
+
+test('a forever coupon follows the member onto the new subscription', () => {
+  const result = decideDiscountCarryOver([
+    { couponId: 'founding_lifetime_25', duration: 'forever', durationInMonths: null },
+  ]);
+  assert.deepEqual(result.carry, ['founding_lifetime_25']);
+  assert.deepEqual(result.flagged, []);
+});
+
+test('a spent or partly-spent coupon is flagged, never re-applied', () => {
+  const result = decideDiscountCarryOver([
+    { couponId: 'promo_first_year', duration: 'once', durationInMonths: null },
+    { couponId: 'intro_12mo', duration: 'repeating', durationInMonths: 12 },
+  ]);
+  assert.deepEqual(result.carry, []);
+  assert.deepEqual(result.flagged, [
+    { couponId: 'promo_first_year', duration: 'once' },
+    { couponId: 'intro_12mo', duration: 'repeating' },
+  ]);
+});
+
+test('an unreadable duration is flagged rather than trusted', () => {
+  const result = decideDiscountCarryOver([
+    { couponId: 'mystery', duration: null, durationInMonths: null },
+  ]);
+  assert.deepEqual(result.carry, []);
+  assert.deepEqual(result.flagged, [{ couponId: 'mystery', duration: 'unknown' }]);
+});
+
+test('mixed discounts split correctly and never duplicate', () => {
+  const result = decideDiscountCarryOver([
+    { couponId: 'forever_winback', duration: 'forever', durationInMonths: null },
+    { couponId: 'forever_winback', duration: 'forever', durationInMonths: null },
+    { couponId: 'promo_first_year', duration: 'once', durationInMonths: null },
+  ]);
+  assert.deepEqual(result.carry, ['forever_winback']);
+  assert.equal(result.flagged.length, 1);
+});
+
+test('no discounts on the canceled sub → nothing to carry', () => {
+  assert.deepEqual(decideDiscountCarryOver([]), { carry: [], flagged: [] });
+});
+
+test('subscription discounts are read across shapes and expansion levels', () => {
+  // Expanded coupon objects — the shape the retrieve() with expand gives us.
+  assert.deepEqual(
+    readSubscriptionDiscounts({
+      discounts: [{ coupon: { id: 'c_1', duration: 'forever', duration_in_months: null } }],
+    }),
+    [{ couponId: 'c_1', duration: 'forever', durationInMonths: null }],
+  );
+  // Bare coupon id — carries no duration, so the policy refuses it.
+  assert.deepEqual(readSubscriptionDiscounts({ discounts: [{ coupon: 'c_2' }] }), [
+    { couponId: 'c_2', duration: null, durationInMonths: null },
+  ]);
+  // Legacy single `discount`.
+  assert.deepEqual(
+    readSubscriptionDiscounts({
+      discount: { coupon: { id: 'c_3', duration: 'repeating', duration_in_months: 6 } },
+    }),
+    [{ couponId: 'c_3', duration: 'repeating', durationInMonths: 6 }],
+  );
+  // Garbage never throws.
+  for (const junk of [null, undefined, 7, 'sub_x', {}, { discounts: 'nope' }]) {
+    assert.deepEqual(readSubscriptionDiscounts(junk), []);
+  }
+});
+
+test('a bare discount id is unusable and is not carried', () => {
+  const discounts = readSubscriptionDiscounts({ discounts: ['di_1'] });
+  assert.deepEqual(decideDiscountCarryOver(discounts), { carry: [], flagged: [] });
+});
+
+test('carried coupons land in the create params, absent when there are none', () => {
+  const base = {
+    customerId: 'cus_x',
+    priceId: 'price_pro_annual',
+    billingCycleAnchorUnix: PERIOD_END,
+    invoiceId: 'in_x',
+  };
+  const withCoupons = buildRecoverySubscriptionParams({ ...base, carryCouponIds: ['c_1'] });
+  assert.deepEqual(withCoupons.discounts, [{ coupon: 'c_1' }]);
+  assert.equal('discounts' in buildRecoverySubscriptionParams({ ...base, carryCouponIds: [] }), false);
+  assert.equal('discounts' in buildRecoverySubscriptionParams(base), false);
 });

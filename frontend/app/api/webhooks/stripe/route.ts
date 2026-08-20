@@ -32,7 +32,9 @@ import {
 import { decidePaymentGrace, graceWindowEndIso } from '@/core/paymentGrace';
 import {
   buildRecoverySubscriptionParams,
+  decideDiscountCarryOver,
   decideOrphanPayment,
+  readSubscriptionDiscounts,
   RECOVERED_FROM_INVOICE_KEY,
 } from '@/core/orphanPayment';
 import {
@@ -1222,27 +1224,36 @@ async function maybeSendPaidWelcomeEmail(
   }
 }
 
-// Creates the recovery subscription, retrying once WITHOUT `backdate_start_date`
-// if Stripe rejects it. Backdating is cosmetic — it makes the subscription's
-// start match the period the member paid for, which is nice in reporting and in
-// their invoice history — but Stripe constrains how far back it may reach. The
-// grant itself comes from billing_cycle_anchor + proration_behavior 'none',
-// which the retry keeps, so a rejected backdate must never be what leaves a
-// paid-up member on 'public'.
+// Creates the recovery subscription, dropping OPTIONAL params one at a time if
+// Stripe rejects them and reporting what it had to drop.
+//
+// Only `billing_cycle_anchor` + `proration_behavior: 'none'` actually deliver the
+// grant. `backdate_start_date` is cosmetic (it lines the subscription's start up
+// with the period paid for, and Stripe constrains how far back it may reach) and
+// `discounts` re-applies a carried-over forever coupon, which some coupon states
+// refuse. Neither is worth failing over: a member who paid must not be left on
+// 'public' because an optional param was rejected. What was dropped comes back
+// to the caller so the audit row says so — a lost discount is a real overcharge
+// and must never pass silently.
+const OPTIONAL_RECOVERY_PARAMS = ['backdate_start_date', 'discounts'] as const;
+
 async function createRecoverySubscription(
   params: Record<string, unknown>,
-): Promise<Stripe.Subscription> {
-  try {
-    return await getStripe().subscriptions.create(
-      params as unknown as Stripe.SubscriptionCreateParams,
-    );
-  } catch (err) {
-    if (!('backdate_start_date' in params)) throw err;
-    const withoutBackdate = { ...params };
-    delete withoutBackdate.backdate_start_date;
-    return await getStripe().subscriptions.create(
-      withoutBackdate as unknown as Stripe.SubscriptionCreateParams,
-    );
+): Promise<{ subscription: Stripe.Subscription; dropped: string[] }> {
+  const attempt = { ...params };
+  const dropped: string[] = [];
+  for (;;) {
+    try {
+      const subscription = await getStripe().subscriptions.create(
+        attempt as unknown as Stripe.SubscriptionCreateParams,
+      );
+      return { subscription, dropped };
+    } catch (err) {
+      const next = OPTIONAL_RECOVERY_PARAMS.find((key) => key in attempt);
+      if (!next) throw err;
+      delete attempt[next];
+      dropped.push(next);
+    }
   }
 }
 
@@ -1279,10 +1290,16 @@ async function maybeRecoverOrphanPayment(invoice: Stripe.Invoice): Promise<void>
   // one and bill the member twice. Silence is the safe failure here — the
   // invoice is still paid, and the manual script can recover it.
   let subscriptionStatus: string | null = null;
+  let canceledSubscription: Stripe.Subscription | null = null;
   if (subscriptionId) {
     try {
-      const sub = await getStripe().subscriptions.retrieve(subscriptionId);
+      // Expand the coupons so their `duration` is readable — that field is what
+      // decides whether a discount follows the member onto the new subscription.
+      const sub = await getStripe().subscriptions.retrieve(subscriptionId, {
+        expand: ['discounts.coupon'],
+      });
       subscriptionStatus = sub.status;
+      canceledSubscription = sub;
     } catch (err) {
       const code = (err as { code?: string; statusCode?: number }).code;
       const statusCode = (err as { statusCode?: number }).statusCode;
@@ -1404,6 +1421,12 @@ async function maybeRecoverOrphanPayment(invoice: Stripe.Invoice): Promise<void>
     }
   }
 
+  // A brand-new subscription starts with no discounts. Carry the canceled one's
+  // FOREVER coupons across (a founding lifetime rate, a forever winback price);
+  // anything spent or partly spent is flagged for a human instead of being
+  // re-applied, which would discount a period the member never bought.
+  const carryOver = decideDiscountCarryOver(readSubscriptionDiscounts(canceledSubscription));
+
   const params = buildRecoverySubscriptionParams({
     customerId,
     priceId: decision.priceId,
@@ -1411,11 +1434,15 @@ async function maybeRecoverOrphanPayment(invoice: Stripe.Invoice): Promise<void>
     invoiceId,
     periodStartUnix: readInvoicePeriodStartUnix(invoice),
     defaultPaymentMethodId: paymentMethodId,
+    carryCouponIds: carryOver.carry,
   });
 
   let created: Stripe.Subscription;
+  let droppedParams: string[] = [];
   try {
-    created = await createRecoverySubscription(params);
+    const result = await createRecoverySubscription(params);
+    created = result.subscription;
+    droppedParams = result.dropped;
   } catch (err) {
     const message = err instanceof Error ? err.message : 'subscription create failed';
     logAudit({
@@ -1427,14 +1454,43 @@ async function maybeRecoverOrphanPayment(invoice: Stripe.Invoice): Promise<void>
     return;
   }
 
+  const carriedSuffix = carryOver.carry.length
+    ? `; carried forever coupon(s) ${carryOver.carry.join(', ')}`
+    : '';
+  const droppedSuffix = droppedParams.length
+    ? `; Stripe rejected ${droppedParams.join(', ')} — recreated without them`
+    : '';
   logAudit({
     type: 'billing_orphan_payment_recovered',
     userId: user.id,
     email: user.email,
     message:
       `Invoice ${invoiceId} recovered as subscription ${created.id} on price ${decision.priceId}; ` +
-      `paid period honoured through ${new Date(decision.billingCycleAnchorUnix * 1000).toISOString()} (first renewal charge)`,
+      `paid period honoured through ${new Date(decision.billingCycleAnchorUnix * 1000).toISOString()} (first renewal charge)` +
+      carriedSuffix +
+      droppedSuffix,
   });
+
+  // A discount that did NOT follow the member is a price change they never
+  // agreed to, so it gets its own row rather than a clause in the one above:
+  // renewals now bill at a different rate and somebody should confirm that is
+  // intended.
+  const unresolvedDiscounts = [
+    ...carryOver.flagged.map((f) => `${f.couponId} (duration=${f.duration})`),
+    ...(droppedParams.includes('discounts')
+      ? carryOver.carry.map((id) => `${id} (rejected by Stripe)`)
+      : []),
+  ];
+  if (unresolvedDiscounts.length > 0) {
+    logAudit({
+      type: 'billing_orphan_payment_discount_review',
+      userId: user.id,
+      email: user.email,
+      message:
+        `Subscription ${created.id} (recovered from ${invoiceId}) does NOT carry: ${unresolvedDiscounts.join('; ')}. ` +
+        `Renewal will bill at the undiscounted rate for price ${decision.priceId} — confirm that is intended.`,
+    });
+  }
 
   // Grant the tier now rather than waiting on our own customer.subscription.created
   // to come back round. That event still lands and re-syncs to the same values —

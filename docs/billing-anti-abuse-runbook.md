@@ -135,6 +135,15 @@ This is handled:
 - **Visibly.** Every case writes `billing_orphan_payment_detected`; recoveries
   add `billing_orphan_payment_recovered`. `make webhook-health` counts both and
   exits non-zero when a detected payment was neither recovered nor skipped.
+- **At the right price.** The re-created subscription is a new Stripe object, so
+  it starts with no discounts. A `forever` coupon (founding lifetime 25%, a
+  forever winback rate) is carried across; a `once` or `repeating` one is not —
+  it was spent on the invoice just paid, and re-applying it would discount a
+  period the member never bought. Whatever does not carry is recorded as
+  `billing_orphan_payment_discount_review` and listed by `make webhook-health`,
+  because the member's renewal price has changed and somebody should confirm
+  that is intended. **Check this against the paid invoice**: if the amount
+  collected is below the price's list rate, a discount was in play.
 - **By hand,** for anything the automatic path declines (an unmapped price, a
   period that already elapsed, a one-off invoice) and for payments orphaned
   before this shipped — their `invoice.paid` is already in `stripe_webhook_events`,
