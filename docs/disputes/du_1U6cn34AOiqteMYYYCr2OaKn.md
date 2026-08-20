@@ -182,10 +182,36 @@ card is not a cancellation, and we emailed them about both the failure and the r
 - **`receipt`** — the hosted invoice for `in_1U45qG4AOiqteMYYZtU2r5FM`, printed to PDF:
   `https://invoice.stripe.com/i/acct_1TOi5O4AOiqteMYY/live_YWNjdF8xVE9pNU80QU9pcXRlTVlZLF9WNEVJNnVIYUlOZFdsQklna2lOZVpCSTFHck1vSW1vLDE3Nzc5OTYxNA0200SM5fp1Og?s=ap`
 - **`cancellation_policy`** — the `/terms` page, Section 4, printed to PDF.
-- **`customer_communication`** — the trial-end reminder email as actually sent. Render the
-  exact wire copy rather than reconstructing it (`buildTrialReminderEmail` is the shared
-  builder used by both the cron and its `--render` preview, so preview and production
-  cannot drift). Print to PDF and include the 2026-08-11 send timestamp.
+- **`customer_communication`** — the trial-end reminder email as actually sent on
+  2026-08-11. Take it from the **Resend dashboard** (search jeremyy.zamora@gmail.com,
+  2026-08-11): that is the authentic sent artifact, with a delivery timestamp the bank can
+  weigh, and it needs no caveat.
+
+  Do **not** use `make trial-reminders RENDER=jeremyy.zamora@gmail.com` for this. That mode
+  builds from `users.current_period_end`, which is now 2026-09-13 — so it would render an
+  email saying the trial ends in September, which is not what was sent. Submitting that as
+  "the email we sent" would be inaccurate and would undercut the rest of the package if the
+  issuer cross-checked it.
+
+  If Resend retention has already expired, reproduce the exact wire copy by calling the
+  shared builder with the real trial-end date instead:
+
+  ```sh
+  cd frontend && node --experimental-strip-types -e "
+    import('./core/mailer.ts').then(async (m) => {
+      const { subject, html } = m.buildTrialReminderEmail({
+        trialEndIso: '2026-08-13T21:06:35.000Z',
+        billing: { chargeLabel: '\$29.00/month', cardBrand: 'Visa', cardLast4: '8562' },
+      });
+      console.error(subject);
+      require('fs').writeFileSync('/tmp/reminder-2026-08-11.html', html);
+    });
+  "
+  ```
+
+  `buildTrialReminderEmail` is the same builder the cron sends through, so the copy is
+  identical to what went out. Label it in the evidence as a reproduction of the 2026-08-11
+  send rather than presenting it as a captured copy.
 - **`service_documentation`** — a screenshot of the pricing page showing both the hero
   trial copy and the full "Refund & Cancellation Policy" section, and a screenshot of the
   account page showing the "Cancel subscription" button, to evidence that the policy was
