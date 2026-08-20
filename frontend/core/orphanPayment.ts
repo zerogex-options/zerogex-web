@@ -366,10 +366,14 @@ export function buildRecoverySubscriptionParams(opts: {
 // being paid for, a genuine loss deletes the same one.
 //
 // And a member who asks to cancel immediately gives up the rest of the period by
-// choice. Their own cancellation request sits shortly before the deletion, so a
-// deletion preceded by one reads as voluntary. Cancel-at-period-end never trips
-// the rule at all — its deletion lands AT the period end, and the window below is
-// deliberately exclusive at both edges.
+// choice. Stripe records that on the subscription as
+// cancellation_details.reason='cancellation_requested', which is the ONLY
+// trustworthy signal for it: our own audit rows are written by our cancel flow,
+// so a member who cancels straight from Stripe's billing portal leaves none, and
+// their deliberate cancellation would otherwise read as access being taken away.
+// The audit rows remain a fallback for when Stripe reports no reason at all.
+// Cancel-at-period-end never trips the rule either way — its deletion lands AT
+// the period end, and the window below is deliberately exclusive at both edges.
 
 export type ElapsedPeriodVerdict =
   | { kind: 'consumed'; reason: string }
@@ -383,6 +387,10 @@ export function classifyElapsedPaidPeriod(input: {
   // The subscription the paid invoice belongs to. Without it a deletion cannot
   // be tied to this period, and nothing is claimed.
   invoiceSubscriptionId: string | null;
+  // Stripe's cancellation_details.reason on that subscription — authoritative
+  // about HOW it ended. 'cancellation_requested' means the member asked, however
+  // they asked; 'payment_failed' means dunning ended it.
+  cancellationReason: string | null;
   // Tier-resetting subscription deletions for this member, each naming the
   // subscription that ended.
   deletions: Array<{ atUnix: number; subscriptionId: string | null }>;
@@ -390,8 +398,14 @@ export function classifyElapsedPaidPeriod(input: {
   cancelRequestUnixes: number[];
   voluntaryWindowSeconds?: number;
 }): ElapsedPeriodVerdict {
-  const { periodStartUnix, periodEndUnix, invoiceSubscriptionId, deletions, cancelRequestUnixes } =
-    input;
+  const {
+    periodStartUnix,
+    periodEndUnix,
+    invoiceSubscriptionId,
+    cancellationReason,
+    deletions,
+    cancelRequestUnixes,
+  } = input;
   const voluntaryWindow = input.voluntaryWindowSeconds ?? VOLUNTARY_CANCEL_WINDOW_SECONDS;
 
   // Without both edges of the paid window there is nothing to compare against;
@@ -401,6 +415,11 @@ export function classifyElapsedPaidPeriod(input: {
   }
   if (!invoiceSubscriptionId) {
     return { kind: 'consumed', reason: 'subscription_unresolved' };
+  }
+  if (cancellationReason === 'cancellation_requested') {
+    // The member ended it themselves. Whatever days remained were theirs to
+    // give up, and no refund is owed for them.
+    return { kind: 'consumed', reason: 'member_requested_cancellation' };
   }
 
   const insideWindow = deletions

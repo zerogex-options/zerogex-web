@@ -249,6 +249,7 @@ type Hit = {
   periodStartUnix: number | null;
   periodEndUnix: number | null;
   subscriptionId: string | null;
+  cancellationReason: string | null;
   // Filled in for the elapsed bucket only: how the member's access actually
   // ended relative to the period they paid for.
   lostFrom?: string;
@@ -357,6 +358,9 @@ try {
       periodStartUnix: readInvoicePeriodStartUnix(invoice),
       periodEndUnix: readInvoicePeriodEndUnix(invoice),
       subscriptionId,
+      // Stripe's own account of how the subscription ended — the only signal
+      // that sees a cancellation made outside our own cancel flow.
+      cancellationReason: subscription?.cancellation_details?.reason ?? null,
     };
     if (recoverable) hits.push(record);
     else if (decision.reason === 'period_already_elapsed') elapsed.push(record);
@@ -448,6 +452,7 @@ function classifyElapsed(candidates: Hit[]): { lost: Hit[]; consumed: Hit[] } {
       periodStartUnix: candidate.periodStartUnix,
       periodEndUnix: candidate.periodEndUnix,
       invoiceSubscriptionId: candidate.subscriptionId,
+      cancellationReason: candidate.cancellationReason,
       deletions: deletionsByEmail.get(email) ?? [],
       cancelRequestUnixes: cancelRequestsByEmail.get(email) ?? [],
     });
@@ -509,6 +514,9 @@ if (lostPaidTime.length > 0) {
       `    ${item.invoiceId}  ${item.amount}  paid ${item.paidAt}  covered through ${item.coveredThrough}`,
     );
     console.log(`    access ended ${item.lostFrom} — roughly ${item.lostDays} paid day(s) lost`);
+    // Print Stripe's own reason alongside the verdict: a finding you cannot
+    // sanity-check is a finding you should not act on.
+    console.log(`    stripe cancellation reason: ${item.cancellationReason ?? 'none recorded'}`);
     console.log(`    make diagnose-user EMAIL=${item.email}`);
     console.log('');
   }

@@ -247,6 +247,7 @@ function classifyFixture(over: Partial<Parameters<typeof classifyElapsedPaidPeri
     periodStartUnix: ELAPSED_START,
     periodEndUnix: ELAPSED_END,
     invoiceSubscriptionId: PAID_SUB,
+    cancellationReason: null,
     deletions: [],
     cancelRequestUnixes: [],
     ...over,
@@ -365,4 +366,27 @@ test('an invoice with no subscription claims nothing', () => {
   });
   assert.equal(verdict.kind, 'consumed');
   assert.equal(verdict.reason, 'subscription_unresolved');
+});
+
+test("Stripe's own cancellation_requested outranks a missing audit row", () => {
+  // A portal cancellation writes no audit row of ours, so without this the
+  // member's own decision reads as access being taken away from them.
+  const verdict = classifyFixture({
+    cancellationReason: 'cancellation_requested',
+    deletions: [del(ELAPSED_START + 3 * ONE_DAY)],
+    cancelRequestUnixes: [],
+  });
+  assert.equal(verdict.kind, 'consumed');
+  assert.equal(verdict.reason, 'member_requested_cancellation');
+});
+
+test('a payment_failed cancellation inside a paid period is still a loss', () => {
+  const lostAt = ELAPSED_START + 3 * ONE_DAY;
+  const verdict = classifyFixture({
+    cancellationReason: 'payment_failed',
+    deletions: [del(lostAt)],
+  });
+  assert.equal(verdict.kind, 'lost');
+  if (verdict.kind !== 'lost') return;
+  assert.equal(verdict.lostAtUnix, lostAt);
 });
