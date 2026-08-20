@@ -14,6 +14,7 @@ import TelemetryProvider from '@/components/TelemetryProvider';
 import PageAnalytics from '@/components/PageAnalytics';
 import TwitterPixelProvider from '@/components/TwitterPixelProvider';
 import SiteJsonLd from '@/components/SiteJsonLd';
+import { OG_IMAGE_PATH, OG_IMAGE_WIDTH, OG_IMAGE_HEIGHT } from '@/core/ogImageManifest';
 
 // Site body sans — Inter is the shared body font across every palette.
 const inter = localFont({
@@ -217,9 +218,9 @@ export const metadata: Metadata = {
     siteName: 'ZeroGEX',
     images: [
       {
-        url: '/og-image.png',
-        width: 1200,
-        height: 630,
+        url: OG_IMAGE_PATH,
+        width: OG_IMAGE_WIDTH,
+        height: OG_IMAGE_HEIGHT,
         alt: 'ZeroGEX Options Analytics Platform',
       },
     ],
@@ -230,7 +231,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'ZeroGEX™ | Real-Time Options Analytics',
     description: SITE_DESCRIPTION,
-    images: ['/og-image.png'],
+    images: [OG_IMAGE_PATH],
   },
 };
 

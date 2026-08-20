@@ -10,6 +10,8 @@
  * the JSON-LD will fall back to site defaults and the related block
  * won't render until the entry is added.
  */
+import { OG_IMAGE_PATH } from '@/core/ogImageManifest';
+
 export type ArticleKind = 'pillar' | 'tier1' | 'tier2' | 'article' | 'landing';
 
 export type ArticleMeta = {
@@ -26,7 +28,11 @@ export type ArticleMeta = {
 
 export const SITE_URL = 'https://zerogex.io';
 export const SITE_NAME = 'ZeroGEX';
-export const SITE_DEFAULT_OG_IMAGE = `${SITE_URL}/og-image.png`;
+// Content-hashed so replacing the artwork changes the URL. A fixed
+// /og-image.png can be answered from a warm Cloudflare edge or a scraper's card
+// cache long after the new PNG deploys, which silently reverts the card to the
+// old image. See scripts/og-image-manifest.js.
+export const SITE_DEFAULT_OG_IMAGE = `${SITE_URL}${OG_IMAGE_PATH}`;
 
 // One-line brand description reused by the Organization JSON-LD node. Kept
 // separate from the per-page SITE_DESCRIPTION so the entity description stays

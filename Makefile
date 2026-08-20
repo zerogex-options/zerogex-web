@@ -944,6 +944,8 @@ clean:
 # Node 22 (the same one `make build` uses).
 TRIM_PNG = bash -lc 'if ! command -v node >/dev/null 2>&1; then source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null; fi; exec node scripts/trim-png.js "$$@"' trim-png
 
+OG_MANIFEST = bash -lc 'if ! command -v node >/dev/null 2>&1; then source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null; fi; exec node scripts/og-image-manifest.js'
+
 logo:
 	@echo "Copying logos from assets to public..."
 	@$(TRIM_PNG) assets/branding/Dark_Full.png frontend/public/logo-dark.png --max-width 1024
@@ -952,7 +954,15 @@ logo:
 	@$(TRIM_PNG) assets/branding/Light_Title.png frontend/public/title-light.png --max-width 1280
 	@rm -f frontend/public/logo-dark.svg frontend/public/logo-light.svg frontend/public/title.svg
 	cp assets/branding/Target.svg frontend/public/target.svg
-	cp assets/branding/og-image.png frontend/public/.
+# The social card goes through scripts/og-image-manifest.js rather than a plain
+# cp. That script hashes the PNG's bytes into its filename and regenerates
+# frontend/core/ogImageManifest.ts, so replacing the artwork produces a new URL
+# for the og:image/twitter:image tags. The old fixed /og-image.png URL never
+# moved, and zerogex.io is proxied through Cloudflare (which caches .png per
+# edge and is never purged on deploy), so a scraper re-crawling the page could
+# be handed the previous artwork days after the new one shipped -- and re-pin
+# it. Same reasoning as the hashed favicon URL below.
+	@$(OG_MANIFEST)
 # The favicon goes to frontend/app/, not frontend/public/. Next's App Router
 # treats app/favicon.ico as a metadata file: it serves it at /favicon.ico and
 # emits <link rel="icon" href="/favicon.ico?favicon.<hash>.ico">, where the
