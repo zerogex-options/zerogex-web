@@ -7,25 +7,33 @@
  * read straight off the Gamma Chart into a plain-language expectation for how
  * price behaves at the nearest wall:
  *
- *   • Gamma Regime  — Positive (spot above the Gamma Flip, dealers long gamma,
- *                     pinning) vs Negative (spot below the flip, dealers short
- *                     gamma, trending).
- *   • Approach      — price rising toward the Call Wall vs falling toward the
- *                     Put Wall.
+ *   • Gamma Regime  — Positive (dealers long gamma at spot, pinning) vs
+ *                     Negative (dealers short gamma, trending).
+ *   • Approach      — the wall in play: the Call Wall above, or the Put Wall
+ *                     below.
  *
  * The output is the classic dealer-mechanics heuristic: in positive gamma the
  * approached wall acts as a magnet and the level holds (pin / bounce); in
  * negative gamma dealer hedging adds fuel and the level tends to break
- * (breakout / breakdown). Inputs drive the highlighted cell; clicking a cell
- * sets the inputs. It is decision-support context, not a signal.
+ * (breakout / breakdown). It is decision-support context, not a signal.
+ *
+ * The highlighted cell is NOT a default — it is resolved live from the same
+ * levels the Gamma Chart is drawing for the symbol and expirations the user has
+ * selected (useGammaPlaybook → core/gammaPlaybook), so switching SPY → NDX, or
+ * filtering the chain down to 0DTE, moves the read with it. Clicking a cell
+ * still pins a manual "what if" read; changing symbol or expirations re-arms
+ * the live one, and "Follow the chart" restores it on demand.
  */
 
 import { useState } from 'react';
-import { ArrowUp, ArrowDown, Magnet, Zap } from 'lucide-react';
+import { ArrowUp, ArrowDown, Crosshair, Magnet, RotateCcw, Zap } from 'lucide-react';
 import ChartCaption from "./ChartCaption";
+import { useGammaPlaybook } from "@/hooks/useGammaPlaybook";
+import { formatLevel } from "@/core/gammaPlaybook";
+import type { ChartSnapshot } from "./GammaTerminalChart";
 
 type Regime = 'positive' | 'negative';
-type Approach = 'up' | 'down'; // 'up' → toward Call Wall, 'down' → toward Put Wall
+type Approach = 'up' | 'down'; // 'up' → Call Wall, 'down' → Put Wall
 
 interface CellSpec {
   headline: string;
@@ -76,14 +84,20 @@ const MATRIX: Record<Regime, Record<Approach, CellSpec>> = {
 };
 
 const REGIMES: Array<{ value: Regime; label: string; sub: string }> = [
-  { value: 'positive', label: 'Positive γ', sub: 'Above flip · pinning' },
-  { value: 'negative', label: 'Negative γ', sub: 'Below flip · trending' },
+  { value: 'positive', label: 'Positive γ', sub: 'Dealers long γ · pinning' },
+  { value: 'negative', label: 'Negative γ', sub: 'Dealers short γ · trending' },
 ];
 
 const APPROACHES: Array<{ value: Approach; label: string; icon: React.ReactNode }> = [
   { value: 'up', label: 'Up → Call Wall', icon: <ArrowUp size={13} /> },
   { value: 'down', label: 'Down → Put Wall', icon: <ArrowDown size={13} /> },
 ];
+
+// Fallback cell for a book too degraded to read (no flip, no walls). Shown
+// un-highlighted behind the "awaiting data" badge, so the matrix still explains
+// itself instead of rendering blank.
+const FALLBACK_REGIME: Regime = 'positive';
+const FALLBACK_APPROACH: Approach = 'up';
 
 // Fill/accent per outcome: "hold" reads as contained (info), "break" as
 // explosive (hot). Direction is carried separately by the arrow glyph so the
@@ -135,25 +149,88 @@ function Segmented<T extends string>({
 }
 
 export default function GammaExpectationMatrix({
-  initialRegime = 'positive',
-  initialApproach = 'up',
   className = '',
+  snapshot = null,
+  delayed = false,
 }: {
-  initialRegime?: Regime;
-  initialApproach?: Approach;
   className?: string;
+  /** Delayed public snapshot, passed straight through to the read (no client fetching). */
+  snapshot?: ChartSnapshot | null;
+  /** Force delayed mode even without a snapshot, mirroring GammaTerminalChart. */
+  delayed?: boolean;
 }) {
-  const [regime, setRegime] = useState<Regime>(initialRegime);
-  const [approach, setApproach] = useState<Approach>(initialApproach);
+  const read = useGammaPlaybook({ snapshot, delayed });
+  const { scenario } = read;
+
+  // A manual pin ("what if the tape were short gamma?") overrides the live read
+  // until the user drops it — but only for THIS symbol + expiration selection.
+  // Changing either means the trader is asking about a different book, so the
+  // live read re-arms. Adjusting state during render on a key change is the same
+  // React-sanctioned pattern the chart and data hooks use, so it needs no effect.
+  const [pinned, setPinned] = useState<{ regime: Regime; approach: Approach } | null>(null);
+  const selectionKey = `${read.symbol}:${read.expirations.join(',')}`;
+  const [trackedKey, setTrackedKey] = useState(selectionKey);
+  if (trackedKey !== selectionKey) {
+    setTrackedKey(selectionKey);
+    setPinned(null);
+  }
+
+  const regime: Regime = pinned?.regime ?? scenario.regime ?? FALLBACK_REGIME;
+  const approach: Approach = pinned?.approach ?? scenario.approach ?? FALLBACK_APPROACH;
+  // A pin that lands on the live cell is indistinguishable from following it, so
+  // it doesn't earn the "Manual read" badge — the market simply caught up.
+  const following =
+    pinned === null || (regime === scenario.regime && approach === scenario.approach);
+  // True only when the highlighted cell IS the live read — the badge and the
+  // matrix must never claim a live read the data didn't support.
+  const liveRead = following && scenario.resolved;
+
+  const select = (nextRegime: Regime, nextApproach: Approach) => {
+    // Re-selecting exactly what the live read already says drops the pin rather
+    // than freezing an identical manual copy of it.
+    if (scenario.resolved && nextRegime === scenario.regime && nextApproach === scenario.approach) {
+      setPinned(null);
+      return;
+    }
+    setPinned({ regime: nextRegime, approach: nextApproach });
+  };
 
   const active = MATRIX[regime][approach];
   const accent = outcomeAccent(active.outcome);
 
+  const statusColor = liveRead
+    ? read.delayed
+      ? 'var(--color-warning)'
+      : 'var(--color-brand-primary)'
+    : following
+      ? 'var(--text-muted)'
+      : 'var(--color-warning)';
+  const statusLabel = liveRead
+    ? read.delayed
+      ? 'Delayed read · ~15 min'
+      : 'Live read'
+    : following
+      ? read.loading
+        ? 'Reading the chain…'
+        : 'Awaiting gamma data'
+      : 'Manual read';
+
   return (
     <section className={`zg-feature-shell p-5 sm:p-6 ${className}`}>
-      <div className="flex items-center gap-2 mb-1">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
         <span className="zg-eyebrow" style={{ color: 'var(--color-brand-primary)' }}>
           Playbook
+        </span>
+        <span
+          className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide"
+          style={{
+            color: statusColor,
+            border: `1px solid ${statusColor}`,
+            background: `color-mix(in srgb, ${statusColor} 10%, transparent)`,
+          }}
+        >
+          <Crosshair size={11} />
+          {statusLabel}
         </span>
       </div>
       <h2
@@ -167,22 +244,73 @@ export default function GammaExpectationMatrix({
       >
         Where do we expect the underlying to go?
       </h2>
-      <p style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--text-secondary)', maxWidth: 720, marginBottom: 18 }}>
-        Pick the current gamma regime and which wall price is approaching. The matrix returns the classic
-        dealer-hedging expectation for that level — whether it should act as a magnet that holds, or as fuel that
-        breaks.
+      <p style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--text-secondary)', maxWidth: 720, marginBottom: 14 }}>
+        The matrix returns the classic dealer-hedging expectation for the wall that price is trading against —
+        whether it should act as a magnet that holds, or as fuel that breaks. The highlighted cell is read live from the chart
+        above for <strong style={{ color: 'var(--text-primary)' }}>{read.symbol}</strong> and the expirations you have
+        selected; pick another cell any time to explore the other three.
       </p>
+
+      {/* What the read is standing on — the same levels drawn on the chart. */}
+      <LevelStrip read={read} />
+
+      <div style={{ maxWidth: 760, marginTop: 10, marginBottom: 16 }}>
+        {/* While a manual cell is pinned the sentence still reports the LIVE
+            read, so it has to say so — otherwise it looks like an explanation
+            of the cell the user picked. */}
+        {!following && (
+          <div className="zg-eyebrow" style={{ fontSize: 10, marginBottom: 3 }}>
+            Live read (you are viewing a manual cell)
+          </div>
+        )}
+        <p style={{ fontSize: 12.5, lineHeight: 1.6, color: 'var(--text-secondary)' }}>
+          {read.rationale}
+          {scenario.resolved && scenario.beyondWall && (
+            <>
+              {' '}
+              <span style={{ color: 'var(--color-warning)' }}>
+                Price is on the far side of that wall — treat the level as the one being retested.
+              </span>
+            </>
+          )}
+        </p>
+      </div>
 
       {/* Inputs */}
       <div className="flex flex-wrap items-end gap-x-8 gap-y-4 mb-5">
         <div className="flex flex-col gap-1.5">
           <span className="zg-eyebrow" style={{ fontSize: 10 }}>Gamma Regime</span>
-          <Segmented options={REGIMES} value={regime} onChange={setRegime} ariaLabel="Gamma regime" />
+          <Segmented
+            options={REGIMES}
+            value={regime}
+            onChange={(v) => select(v, approach)}
+            ariaLabel="Gamma regime"
+          />
         </div>
         <div className="flex flex-col gap-1.5">
           <span className="zg-eyebrow" style={{ fontSize: 10 }}>Approach</span>
-          <Segmented options={APPROACHES} value={approach} onChange={setApproach} ariaLabel="Price approach" />
+          <Segmented
+            options={APPROACHES}
+            value={approach}
+            onChange={(v) => select(regime, v)}
+            ariaLabel="Price approach"
+          />
         </div>
+        {!following && (
+          <button
+            type="button"
+            onClick={() => setPinned(null)}
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors"
+            style={{
+              border: '1px solid var(--color-brand-primary)',
+              color: 'var(--color-brand-primary)',
+              background: 'transparent',
+            }}
+          >
+            <RotateCcw size={13} />
+            Follow the chart
+          </button>
+        )}
       </div>
 
       {/* 2×2 matrix */}
@@ -209,10 +337,9 @@ export default function GammaExpectationMatrix({
             regimeSub={r.sub}
             activeRegime={regime}
             activeApproach={approach}
-            onSelect={(reg, app) => {
-              setRegime(reg);
-              setApproach(app);
-            }}
+            liveRegime={scenario.regime}
+            liveApproach={scenario.approach}
+            onSelect={select}
           />
         ))}
       </div>
@@ -259,12 +386,78 @@ export default function GammaExpectationMatrix({
       </div>
 
       <p style={{ fontSize: 11.5, lineHeight: 1.6, color: 'var(--text-muted)', marginTop: 14 }}>
-        Regime is read from spot vs the Gamma Flip; the approached wall is the Call Wall above / Put Wall below — all
-        drawn on the chart. This is a simplified dealer-hedging heuristic and decision-support context, not a
-        guarantee of price behavior or investment advice.
+        Regime is the modeled sign of dealer gamma at spot (the chart&apos;s LONG/SHORT badge, falling back to spot vs
+        the Gamma Flip); the wall in play is whichever of the Call Wall / Put Wall sits nearest spot — all drawn on the
+        chart, and all following your symbol and expiration picks. This is a simplified dealer-hedging heuristic and
+        decision-support context, not a guarantee of price behavior or investment advice.
       </p>
-      <ChartCaption />
+      <ChartCaption live delayed={read.delayed} />
     </section>
+  );
+}
+
+/** The levels the highlighted cell is standing on, in the chart's own terms. */
+function LevelStrip({ read }: { read: ReturnType<typeof useGammaPlaybook> }) {
+  const wall = read.scenario.wall;
+  const items: Array<{ label: string; value: string; accent?: string }> = [];
+  items.push({ label: 'Scope', value: read.expirationLabel });
+  if (read.spot != null) items.push({ label: 'Spot', value: formatLevel(read.spot) });
+  if (read.flip != null) items.push({ label: 'Flip', value: formatLevel(read.flip) });
+  if (read.callWall != null) {
+    items.push({
+      label: 'Call Wall',
+      value: formatLevel(read.callWall),
+      accent: wall?.side === 'call' ? 'var(--color-bull)' : undefined,
+    });
+  }
+  if (read.putWall != null) {
+    items.push({
+      label: 'Put Wall',
+      value: formatLevel(read.putWall),
+      accent: wall?.side === 'put' ? 'var(--color-bear)' : undefined,
+    });
+  }
+  if (wall) {
+    items.push({
+      label: read.scenario.beyondWall ? 'Through by' : 'Distance',
+      value: `${wall.distancePct.toFixed(2)}%`,
+    });
+  }
+
+  return (
+    <div
+      className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl px-3.5 py-2.5"
+      style={{ background: 'var(--color-surface-subtle)', border: '1px solid var(--border-subtle)' }}
+    >
+      <span
+        style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: 13,
+          fontWeight: 700,
+          letterSpacing: '0.04em',
+          color: 'var(--text-primary)',
+        }}
+      >
+        {read.symbol}
+      </span>
+      {items.map((item) => (
+        <span key={item.label} className="inline-flex items-baseline gap-1.5">
+          <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+            {item.label}
+          </span>
+          <span
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 12.5,
+              fontWeight: 600,
+              color: item.accent ?? 'var(--text-primary)',
+            }}
+          >
+            {item.value}
+          </span>
+        </span>
+      ))}
+    </div>
   );
 }
 
@@ -274,6 +467,8 @@ function RowFragment({
   regimeSub,
   activeRegime,
   activeApproach,
+  liveRegime,
+  liveApproach,
   onSelect,
 }: {
   regime: Regime;
@@ -281,6 +476,9 @@ function RowFragment({
   regimeSub: string;
   activeRegime: Regime;
   activeApproach: Approach;
+  /** The cell the live read resolves to, so a pinned view still shows where the tape actually is. */
+  liveRegime: Regime | null;
+  liveApproach: Approach | null;
   onSelect: (regime: Regime, approach: Approach) => void;
 }) {
   return (
@@ -295,12 +493,14 @@ function RowFragment({
         const cell = MATRIX[regime][a.value];
         const accent = outcomeAccent(cell.outcome);
         const isActive = activeRegime === regime && activeApproach === a.value;
+        const isLive = liveRegime === regime && liveApproach === a.value;
         return (
           <button
             key={a.value}
             type="button"
             onClick={() => onSelect(regime, a.value)}
             aria-pressed={isActive}
+            title={isLive ? 'The current read for this symbol and expiration selection' : undefined}
             className="text-left rounded-xl p-3 transition-all"
             style={{
               border: `1px solid ${isActive ? accent : 'var(--color-border)'}`,
@@ -318,6 +518,16 @@ function RowFragment({
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
                 {cell.headline}
               </span>
+              {/* Where the tape actually is — kept visible even while a manual
+                  cell is pinned, so the pin never hides the live read. */}
+              {isLive && !isActive && (
+                <span
+                  className="text-[9px] font-semibold uppercase tracking-wide rounded-full px-1.5 py-0.5"
+                  style={{ color: 'var(--color-brand-primary)', border: '1px solid var(--color-brand-primary)' }}
+                >
+                  Live
+                </span>
+              )}
             </div>
             <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>{cell.tag}</span>
           </button>

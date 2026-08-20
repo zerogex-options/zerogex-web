@@ -35,8 +35,8 @@ import ErrorMessage from "./ErrorMessage";
 import MobileScrollableChart from "./MobileScrollableChart";
 import ExpirationMultiSelect from "./ExpirationMultiSelect";
 import { useSharedExpirations } from "@/hooks/useSharedExpirations";
+import { useChartExpirations } from "@/hooks/useChartExpirations";
 import { useLinkedPriceAxis } from "@/core/linkedPriceAxis";
-import { reconcileExpirations } from "@/core/expirationPersistence";
 import { netGexAtSpotOrNull, aboveFlipBandIsLong, offScaleBandIsLong } from "@/core/gammaRegime";
 import {
   buildExpirationSplit,
@@ -397,9 +397,12 @@ export default function GammaTerminalChart({
   const [railLabels, setRailLabels] = useState(false);
   // Expiration filter for the gamma-by-strike rail. Shared + persisted across
   // every expiration-filtering chart in the tab (see useSharedExpirations);
-  // empty = all (aggregate the whole chain). Reconciled to this chart's live
-  // expirations below so a foreign/stale pick can't request a missing expiry.
-  const { selection: railExpiries, setSelection: setRailExpiries } = useSharedExpirations();
+  // empty = all (aggregate the whole chain). The READ side is resolved further
+  // down by useChartExpirations (reconciled to this chart's live expirations, so
+  // a foreign/stale pick can't request a missing expiry); only the setter is
+  // taken straight from the store, because the symbol-change reset below fires
+  // during render, ahead of that call.
+  const { setSelection: setRailExpiries } = useSharedExpirations();
   const effectiveRailMode: RailMode = live ? railMode : "silhouette";
 
   // Snap the view back to the live default whenever the instrument or timeframe
@@ -524,28 +527,20 @@ export default function GammaTerminalChart({
   // stays fresh. Never enabled in delayed mode (the snapshot supplies strikes).
   // Pinned to 5-min buckets; anchors resolve by timestamp so they align with
   // candles of any timeframe. Seeding here also makes entering rewind instant.
-  // Available expirations (future-dated, ascending) for the multi-select.
-  const { data: expirationsData } = useApiData<string[] | null>(
-    `/api/gex/expirations?symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}&lookback_hours=168`,
-    { refreshInterval: live ? 60000 : 0, enabled: live },
-  );
-  const availableExpiries = useMemo(() => {
-    const list = Array.isArray(expirationsData) ? expirationsData : [];
-    const todayKey = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
-    return Array.from(new Set(list.filter((e): e is string => typeof e === "string" && e >= todayKey))).sort();
-  }, [expirationsData]);
-  // Reconcile the shared selection to what this chart can actually show, so a
-  // pick made on another chart (with a different expiry universe) never leaks a
-  // missing expiration into the param and an expired pick collapses to "All".
-  const effectiveRailExpiries = useMemo(
-    () => reconcileExpirations(railExpiries, availableExpiries),
-    [railExpiries, availableExpiries],
-  );
-  // Expiration filter for the gamma-by-strike surface: empty = all (aggregate
-  // the whole chain), else the sorted, comma-joined set. Drives the rail bars
-  // and — when a subset is chosen — the flip/walls, so the lines match the bars.
-  const railExpParam = effectiveRailExpiries.length === 0 ? "all" : [...effectiveRailExpiries].sort().join(",");
-  const filteredExp = effectiveRailExpiries.length > 0;
+  // Available expirations (future-dated, ascending) for the multi-select, the
+  // reconciled selection, and the endpoint param — resolved by the shared hook
+  // so the Playbook under the chart reads the exact same filtered book (and
+  // shares this chart's strike-profile-timeseries cache entry).
+  //
+  // `railExpParam`: empty selection = all (aggregate the whole chain), else the
+  // sorted, comma-joined set. Drives the rail bars and — when a subset is
+  // chosen — the flip/walls, so the lines match the bars.
+  const {
+    available: availableExpiries,
+    selection: effectiveRailExpiries,
+    param: railExpParam,
+    filtered: filteredExp,
+  } = useChartExpirations(symbol, live);
   const { buckets: gexBuckets } = useStrikeProfileTimeseries(symbol, "5min", railExpParam, rewindActive, live);
 
   const dataAll = snapshot ? snapshot.bars : liveRows;
