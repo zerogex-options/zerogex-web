@@ -186,15 +186,21 @@ export function decideOrphanPayment(input: OrphanPaymentInput): OrphanPaymentDec
 //   forever    A permanent entitlement — the founding lifetime 25%, a forever
 //              winback rate. Losing it silently overcharges the member on every
 //              future renewal. Carry it.
-//   once       Already spent, on the very invoice that was just paid.
-//              Re-applying it would discount the NEXT period too, which the
-//              member never bought. Do not carry.
+//   once       Fully spent, on the very invoice that was just paid. Re-applying
+//              it would discount the NEXT period too, which the member never
+//              bought. Do not carry — and this needs no review: the intro price
+//              ending is exactly what the pricing page promised ("$229 first
+//              year, then $299"), so the undiscounted renewal is correct.
 //   repeating  Partly spent, by an amount this module cannot see (the count
 //              lives in the old subscription's invoice history). Re-applying
-//              restarts the clock. Do not carry.
+//              restarts the clock. Do not carry, and DO flag for review — how
+//              much of it the member is still owed is a judgement call.
 //
-// Anything not carried is FLAGGED rather than dropped in silence, so the audit
-// row and the recovery script both name the coupon and let a human decide.
+// Anything not carried is reported rather than dropped in silence, so the
+// recovery script names every coupon while it is still a dry run. Only the
+// genuinely ambiguous ones (`needsReview`) reach the audit log — a first-year
+// promo expiring on schedule is not an incident, and treating it as one buries
+// the cases that are.
 
 export type SubscriptionDiscount = {
   couponId: string | null;
@@ -206,12 +212,15 @@ export type DiscountCarryOver = {
   // Coupon ids to re-apply to the re-created subscription.
   carry: string[];
   // Coupons deliberately NOT re-applied, with the duration that decided it.
-  flagged: Array<{ couponId: string; duration: string }>;
+  // `needsReview` separates "a human should look at this" (a partly-spent
+  // repeating coupon, a duration we could not read) from "this is the designed
+  // outcome" (a fully-spent `once` intro price).
+  flagged: Array<{ couponId: string; duration: string; needsReview: boolean }>;
 };
 
 export function decideDiscountCarryOver(discounts: SubscriptionDiscount[]): DiscountCarryOver {
   const carry: string[] = [];
-  const flagged: Array<{ couponId: string; duration: string }> = [];
+  const flagged: DiscountCarryOver['flagged'] = [];
   for (const discount of discounts) {
     const couponId = discount.couponId;
     if (!couponId) continue;
@@ -220,8 +229,13 @@ export function decideDiscountCarryOver(discounts: SubscriptionDiscount[]): Disc
       continue;
     }
     // 'once', 'repeating', and an unresolved duration all land here: never hand
-    // out a discount we cannot show the member is still owed.
-    flagged.push({ couponId, duration: discount.duration ?? 'unknown' });
+    // out a discount we cannot show the member is still owed. Only the ones
+    // whose remaining value is genuinely unclear are raised for review.
+    flagged.push({
+      couponId,
+      duration: discount.duration ?? 'unknown',
+      needsReview: discount.duration !== 'once',
+    });
   }
   return { carry, flagged };
 }

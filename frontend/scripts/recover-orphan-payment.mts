@@ -453,9 +453,18 @@ if (carryOver.carry.length) {
 }
 for (const flagged of carryOver.flagged) {
   console.log(`Discount NOT carried: ${flagged.couponId} (duration=${flagged.duration})`);
-  console.log(`  A '${flagged.duration}' coupon was spent on the invoice just paid, so re-applying it`);
-  console.log('  would discount a period the member never bought. Renewals bill the full price.');
-  console.log('  If that coupon was meant to be permanent, add it in the Stripe Dashboard after this run.');
+  if (flagged.duration === 'once') {
+    // The standard intro offer: "$X first year, then list price". It was spent
+    // on the invoice just paid, so the full-price renewal is what the member
+    // signed up for — say so plainly instead of raising a false alarm.
+    console.log('  Spent in full on the invoice just paid — an intro price that has run its');
+    console.log('  course. The renewal above bills the list price, which is what they agreed');
+    console.log('  to at checkout. Nothing to do.');
+  } else {
+    console.log(`  A '${flagged.duration}' coupon may be only partly spent, and how much of it`);
+    console.log('  the member is still owed is a judgement call — so it is not re-applied.');
+    console.log('  Renewals bill the full price; add the coupon in Stripe if that is wrong.');
+  }
 }
 if (!carryOver.carry.length && !carryOver.flagged.length && canceledSubscription) {
   console.log('Discounts:          none on the canceled subscription');
@@ -603,7 +612,7 @@ execSqlite(
 console.log('');
 console.log(`Done. ${user.email} is now '${sku.tier}' on subscription ${created.id} (${created.status}).`);
 console.log(`Next charge: ${isoOf(decision.billingCycleAnchorUnix)} — nothing was billed today.`);
-if (carryOver.flagged.length || droppedParams.includes('discounts')) {
+if (carryOver.flagged.some((f) => f.needsReview) || droppedParams.includes('discounts')) {
   console.log('');
   console.log('CHECK THE RENEWAL PRICE: this subscription does not carry every discount the');
   console.log('canceled one had, so the renewal above may bill more than the member last paid.');

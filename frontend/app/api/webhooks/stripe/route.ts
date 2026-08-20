@@ -1471,12 +1471,16 @@ async function maybeRecoverOrphanPayment(invoice: Stripe.Invoice): Promise<void>
       droppedSuffix,
   });
 
-  // A discount that did NOT follow the member is a price change they never
-  // agreed to, so it gets its own row rather than a clause in the one above:
-  // renewals now bill at a different rate and somebody should confirm that is
-  // intended.
+  // A discount whose remaining value is unclear gets its own row rather than a
+  // clause in the one above: renewals now bill at a different rate and somebody
+  // should confirm that is intended. A fully-spent `once` intro coupon is NOT
+  // one of these — the member agreed to "intro price first year, then list", so
+  // its expiry is the designed outcome and logging it as needing review would
+  // bury the cases that do.
   const unresolvedDiscounts = [
-    ...carryOver.flagged.map((f) => `${f.couponId} (duration=${f.duration})`),
+    ...carryOver.flagged
+      .filter((f) => f.needsReview)
+      .map((f) => `${f.couponId} (duration=${f.duration})`),
     ...(droppedParams.includes('discounts')
       ? carryOver.carry.map((id) => `${id} (rejected by Stripe)`)
       : []),
