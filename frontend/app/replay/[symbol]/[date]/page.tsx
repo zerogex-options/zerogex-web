@@ -129,7 +129,21 @@ export default async function ReplayDatePage({
   const sym = resolveSymbol(symbol);
   if (!isValidDate(date)) notFound();
   const data = await loadRange(date, sym);
+  // Two different things, and they used to print the same sentence.
+  //
+  // `data === null` is `serverApiGet` reporting that the CALL failed — the
+  // backend was unreachable, the token is missing, the frames read timed out
+  // (the API answers 503 for that specifically). Nothing was learned about the
+  // session. `data.frames.length === 0` is the API answering successfully that
+  // the session has no frames.
+  //
+  // Collapsing the two meant a backend outage rendered as a confident claim
+  // about our own ingestion — the visitor is told the data was never written,
+  // and a screenshot of it rules nothing out for whoever gets asked why the
+  // replay is blank. The reason lands in the Next.js server log either way
+  // (see `serverApiGet`); this just stops the page from overstating it.
   if (!data || data.frames.length === 0) {
+    const unavailable = !data;
     return (
       <main className="mx-auto max-w-5xl px-4 py-10">
         <div className="mb-5">
@@ -141,8 +155,22 @@ export default async function ReplayDatePage({
           </Link>
         </div>
         <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-8 text-sm text-[var(--color-text-secondary)]">
-          No replayable frames for {sym} on {formatHumanDate(date)}. Either the session
-          predates GEX ingestion or the analytics engine didn&rsquo;t write that day.
+          {unavailable ? (
+            <>
+              Couldn&rsquo;t load the {sym} replay for {formatHumanDate(date)} just now — the
+              data service didn&rsquo;t answer. This is on our side, not a gap in the session.
+              Refresh in a moment, or{' '}
+              <Link href="/replay" className="underline hover:text-[var(--color-text-primary)]">
+                pick another session
+              </Link>
+              .
+            </>
+          ) : (
+            <>
+              No replayable frames for {sym} on {formatHumanDate(date)}. Either the session
+              predates GEX ingestion or the analytics engine didn&rsquo;t write that day.
+            </>
+          )}
         </div>
       </main>
     );
