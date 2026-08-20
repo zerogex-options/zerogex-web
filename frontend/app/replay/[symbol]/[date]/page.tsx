@@ -32,6 +32,11 @@ interface ReplayFrame {
     net_gex: number | null;
     call_gex?: number | null;
     put_gex?: number | null;
+    // Per-expiration shares of this strike's call / put bar (fractions summing
+    // to 1), aligned positionally to the payload's `expirations` legend. Only
+    // present when the request opts in, and only for strikes the mix covers.
+    call_shares?: number[] | null;
+    put_shares?: number[] | null;
   }>;
 }
 
@@ -54,6 +59,10 @@ interface ReplayRangePayload {
   count: number;
   frames: ReplayFrame[];
   candles: ReplayCandle[];
+  // Nearest-first expiration legend the per-strike share arrays index into; the
+  // trailing entry may be the literal "far" (a catch-all for everything past
+  // the API's expiration cap). Absent unless include_expirations was requested.
+  expirations?: string[];
 }
 
 function isValidDate(raw: string): boolean {
@@ -77,8 +86,13 @@ function formatHumanDate(raw: string): string {
 }
 
 async function loadRange(date: string, symbol: string): Promise<ReplayRangePayload | null> {
+  // include_expirations attaches the per-strike expiration mix that colour-
+  // grades each gamma bar by time-to-expiry (nearest boldest → furthest
+  // faintest). It costs a second session-wide scan server-side, which is why
+  // it's opt-in — this page draws the gradient, so it opts in; the pair-
+  // comparison scrubber reads the same endpoint without it.
   return serverApiGet<ReplayRangePayload>(
-    `/api/replay/range?symbol=${symbol}&date=${date}&timeframe=1min`,
+    `/api/replay/range?symbol=${symbol}&date=${date}&timeframe=1min&include_expirations=true`,
     REVALIDATE_SECONDS,
   );
 }
@@ -177,6 +191,7 @@ export default async function ReplayDatePage({
         initialFrames={data.frames}
         initialCandles={data.candles ?? []}
         siteUrl={SITE_URL}
+        expirations={data.expirations ?? []}
       />
 
       <section className="mt-8 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-5 text-xs text-[var(--color-text-secondary)] leading-relaxed">

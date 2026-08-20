@@ -122,6 +122,40 @@ export function shownExpirations(
 }
 
 /**
+ * Positional share array (as shipped by /api/replay/range) → segments.
+ *
+ * The server sends each expiration's fraction of a bar aligned by INDEX to a
+ * nearest-first legend, which is far more compact than repeating date strings
+ * on every strike of every minute. This rehydrates that into the same
+ * `{exp, frac}` segments `expirationShares` produces, so both feeds render
+ * through one code path.
+ *
+ * Zero-width slots are dropped (they'd draw nothing), and the surviving
+ * fractions are re-normalised: the wire values are rounded for compactness, so
+ * they can sum to slightly under or over 1 and would otherwise leave a sliver
+ * of the bar unpainted or overshoot its tip. Returns an empty list when the
+ * shares are missing, mismatched, or all zero — the caller then draws one
+ * solid bar.
+ */
+export function sharesToSegments(
+  shares: readonly number[] | null | undefined,
+  legend: readonly string[],
+): ExpirationSegment[] {
+  if (!shares || shares.length === 0 || legend.length === 0) return [];
+  const usable = Math.min(shares.length, legend.length);
+  const segs: ExpirationSegment[] = [];
+  let total = 0;
+  for (let i = 0; i < usable; i += 1) {
+    const frac = Number(shares[i]);
+    if (!Number.isFinite(frac) || frac <= 0) continue;
+    segs.push({ exp: legend[i], frac });
+    total += frac;
+  }
+  if (total <= 0) return [];
+  return segs.map((s) => ({ exp: s.exp, frac: s.frac / total }));
+}
+
+/**
  * One strike's per-side expiration shares, nearest-first. The caller multiplies
  * these by the AUTHORITATIVE bar width (from the strike-profile timeseries), so
  * the snapshot only ever supplies the split, never the magnitude — a truncated
