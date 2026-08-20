@@ -1,7 +1,8 @@
 'use client';
 
 import { type ReactNode, useMemo } from 'react';
-import { Info, Minus, TrendingDown, TrendingUp } from 'lucide-react';
+import Link from 'next/link';
+import { Info, Lock, Minus, TrendingDown, TrendingUp } from 'lucide-react';
 import {
   useBasicSignalsBundle,
   useEodPressureSignal,
@@ -399,13 +400,30 @@ function RegimeTriggersCard({ triggers, locked }: RegimeTriggersCardProps) {
               </div>
               <div className="flex items-center justify-between text-[10px]">
                 <span style={{ color: 'var(--text-secondary)' }}>
-                  {trigger.state ?? (trigger.magnitude == null ? (locked ? 'Pro signal' : 'awaiting data') : '—')}
+                  {trigger.state ?? (trigger.magnitude == null ? (locked ? 'Pro' : 'awaiting data') : '—')}
                 </span>
               </div>
             </div>
           );
         })}
       </div>
+      {locked && (
+        // Same upgrade affordance the widget gallery uses for a Pro tile a
+        // Basic member can see but not open. Without it the card is three
+        // dashes and no explanation, which reads as broken rather than gated.
+        <div className="mt-auto pt-3">
+          <Link
+            href="/pricing"
+            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold"
+            style={{ background: 'var(--color-accent-hot)', color: 'var(--text-inverse)' }}
+          >
+            <Lock size={12} /> Unlock with Pro
+          </Link>
+          <p className="mt-2 text-[10px]" style={{ color: 'var(--text-secondary)' }}>
+            Regime readiness is a Pro signal. Composite MSI and Signal Breadth stay on Basic.
+          </p>
+        </div>
+      )}
     </CardShell>
   );
 }
