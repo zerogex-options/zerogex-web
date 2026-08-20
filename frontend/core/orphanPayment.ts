@@ -355,11 +355,21 @@ export function buildRecoverySubscriptionParams(opts: {
 // recorded as a subscription deletion. A deletion timestamped inside the paid
 // window means paid days were taken.
 //
-// The exception that keeps this honest: a member who asks to cancel immediately
-// gives up the rest of the period by choice. Their own cancellation request sits
-// shortly before the deletion, so a deletion preceded by one reads as voluntary.
-// Cancel-at-period-end never trips the rule at all — its deletion lands AT the
-// period end, and the window below is deliberately exclusive at both edges.
+// Two exceptions keep this honest.
+//
+// The deletion must belong to THE SUBSCRIPTION THIS INVOICE PAID FOR. A member
+// who switches plans has their old subscription torn down at the very moment the
+// new one starts, so a switch otherwise reads as "cut off on day one of the
+// period they just paid for" — which is how the first sweep produced its single
+// finding, on a member who had simply upgraded. Matching on subscription id
+// separates the two: a switch deletes a different subscription than the one
+// being paid for, a genuine loss deletes the same one.
+//
+// And a member who asks to cancel immediately gives up the rest of the period by
+// choice. Their own cancellation request sits shortly before the deletion, so a
+// deletion preceded by one reads as voluntary. Cancel-at-period-end never trips
+// the rule at all — its deletion lands AT the period end, and the window below is
+// deliberately exclusive at both edges.
 
 export type ElapsedPeriodVerdict =
   | { kind: 'consumed'; reason: string }
@@ -370,13 +380,18 @@ export const VOLUNTARY_CANCEL_WINDOW_SECONDS = 7 * 24 * 60 * 60;
 export function classifyElapsedPaidPeriod(input: {
   periodStartUnix: number | null;
   periodEndUnix: number | null;
-  // Timestamps of tier-resetting subscription deletions for this member.
-  deletionUnixes: number[];
+  // The subscription the paid invoice belongs to. Without it a deletion cannot
+  // be tied to this period, and nothing is claimed.
+  invoiceSubscriptionId: string | null;
+  // Tier-resetting subscription deletions for this member, each naming the
+  // subscription that ended.
+  deletions: Array<{ atUnix: number; subscriptionId: string | null }>;
   // Timestamps of cancellations the member asked for themselves.
   cancelRequestUnixes: number[];
   voluntaryWindowSeconds?: number;
 }): ElapsedPeriodVerdict {
-  const { periodStartUnix, periodEndUnix, deletionUnixes, cancelRequestUnixes } = input;
+  const { periodStartUnix, periodEndUnix, invoiceSubscriptionId, deletions, cancelRequestUnixes } =
+    input;
   const voluntaryWindow = input.voluntaryWindowSeconds ?? VOLUNTARY_CANCEL_WINDOW_SECONDS;
 
   // Without both edges of the paid window there is nothing to compare against;
@@ -384,11 +399,18 @@ export function classifyElapsedPaidPeriod(input: {
   if (periodStartUnix == null || periodEndUnix == null) {
     return { kind: 'consumed', reason: 'period_bounds_unresolved' };
   }
+  if (!invoiceSubscriptionId) {
+    return { kind: 'consumed', reason: 'subscription_unresolved' };
+  }
 
-  const insideWindow = deletionUnixes.filter((t) => t > periodStartUnix && t < periodEndUnix);
+  const insideWindow = deletions
+    .filter((d) => d.subscriptionId === invoiceSubscriptionId)
+    .map((d) => d.atUnix)
+    .filter((t) => t > periodStartUnix && t < periodEndUnix);
   if (insideWindow.length === 0) {
     return { kind: 'consumed', reason: 'access_ran_to_period_end' };
   }
+
 
   const involuntary = insideWindow.filter(
     (deletedAt) =>
