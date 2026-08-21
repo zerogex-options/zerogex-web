@@ -1024,6 +1024,27 @@ blog-images:
 		echo "(no blog images found in assets/blog/ — skipping)"; \
 	fi
 
+# Publish the packaged NinjaTrader import archive, when one has been dropped in.
+#
+# Only NinjaTrader itself can produce an archive its importer accepts (File ->
+# Utilities -> Export NinjaScript). We deliberately do NOT synthesise one here:
+# a hand-rolled zip that NT8 rejects is worse than no zip at all, because the
+# download button would be live and broken. So this is a guarded copy in the
+# same spirit as `make logo` -- drop the real export at
+# assets/ninjatrader/ZeroGexGammaLevels.zip and it ships on the next deploy;
+# until then the site offers the .cs source only and this step no-ops.
+#
+# The .cs in frontend/public/ninjatrader/ stays the source of record either way.
+ninjatrader-package:
+	@echo "Publishing NinjaTrader package..."
+	@mkdir -p frontend/public/ninjatrader
+	@if [ -f assets/ninjatrader/ZeroGexGammaLevels.zip ]; then \
+		cp assets/ninjatrader/ZeroGexGammaLevels.zip frontend/public/ninjatrader/ZeroGexGammaLevels.zip && \
+		echo "  ✓ One-click import archive published"; \
+	else \
+		echo "  ⚠ assets/ninjatrader/ZeroGexGammaLevels.zip missing — the gamma pages will offer the .cs source only (see assets/ninjatrader/README.md)"; \
+	fi
+
 # Full deployment
 deploy:
 	@echo "Starting full deployment..."
@@ -1035,12 +1056,14 @@ deploy:
 	@make logo
 	@echo "4. Copying blog images..."
 	@make blog-images
-	@echo "5. Rebuilding application..."
+	@echo "5. Publishing NinjaTrader package..."
+	@make ninjatrader-package
+	@echo "6. Rebuilding application..."
 	rm -rf frontend/.next
 	cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && npm run build'
-	@echo "6. Restarting PM2..."
+	@echo "7. Restarting PM2..."
 	bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && pm2 restart zerogex-web'
-	@echo "7. Saving PM2 config..."
+	@echo "8. Saving PM2 config..."
 	bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && pm2 save'
 	@echo "Deployment complete!"
 	@echo ""

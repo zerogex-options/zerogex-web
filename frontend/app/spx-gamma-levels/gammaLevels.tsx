@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { ArrowRight, CheckCircle2, Clock, History, Minus, TrendingDown, TrendingUp } from 'lucide-react';
@@ -854,8 +856,17 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
         <PlotOnTradingView />
 
         {/* The auto-updating Pro counterpart: NinjaScript can make HTTP calls,
-            so this one pulls the levels instead of asking for manual entry. */}
-        <PlotOnNinjaTrader />
+            so this one pulls the levels instead of asking for manual entry.
+            The packaged one-click import only exists once a real NinjaTrader
+            export has been dropped into assets/ninjatrader/ and copied in by
+            `make ninjatrader-package` — which the deploy runs before the build,
+            so this build-time check sees it. Absent, we offer the .cs alone
+            rather than a download button that 404s. */}
+        <PlotOnNinjaTrader
+          hasPackage={existsSync(
+            join(process.cwd(), 'public', 'ninjatrader', 'ZeroGexGammaLevels.zip'),
+          )}
+        />
 
         {/* "Today's <ticker> net GEX" — a plain-language answer for the
             "<ticker> net gamma exposure current / today / value / zero-cross"

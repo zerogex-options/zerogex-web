@@ -52,7 +52,9 @@ already authorizes this endpoint. (Scope enforcement is opt-in via
 | File | Purpose |
 | --- | --- |
 | `frontend/public/ninjatrader/ZeroGexGammaLevels.cs` | The indicator source. Served at `https://zerogex.io/ninjatrader/ZeroGexGammaLevels.cs`. Also the source of record if we later publish a packaged NinjaTrader import (`.zip`). |
-| `frontend/components/PlotOnNinjaTrader.tsx` | "Plot these levels on NinjaTrader" section rendered on all four gamma pages, mirroring `PlotOnTradingView.tsx`. Links to the `.cs` and the install steps, framed as a Pro feature. |
+| `frontend/components/PlotOnNinjaTrader.tsx` | "Plot these levels on NinjaTrader" section rendered on all four gamma pages, mirroring `PlotOnTradingView.tsx`. Offers the packaged import when one exists and the `.cs` otherwise, framed as a Pro feature. |
+| `assets/ninjatrader/` | Slot for a genuine NinjaTrader export (`ZeroGexGammaLevels.zip`). See its README. |
+| `Makefile` → `ninjatrader-package` | Guarded copy of that archive into `public/ninjatrader/`, run by `make deploy` **before** the build so the page's build-time presence check sees it. |
 
 There is no middleware in the frontend, so everything under `public/` is
 served statically with no auth gate — the `.cs` downloads exactly the way
@@ -68,10 +70,16 @@ the existing `.pine` file does.
 - Optional **price-cross alerts** (NinjaTrader `Alert()`) when price crosses
   a level.
 
-The per-strike gamma profile that `/api/v1/levels` also returns is **not**
-rendered (the levels are the primary chart overlay); a right-anchored
-strike-profile histogram is the natural next enhancement — the endpoint
-already returns the `profile` array, so it's a rendering-only add.
+- An optional **per-strike gamma histogram**: one right-anchored horizontal
+  segment per strike, running left from the last bar, length scaled to
+  `|net_gex|` against the largest bar in view, coloured by sign. Off by
+  default — it is dozens of extra draw objects on the price panel, and an
+  existing user's chart shouldn't sprout them on update.
+
+The histogram pulls `profile` from the same response, so it costs no extra
+request. `Histogram strikes (nearest spot)` maps straight to the endpoint's
+`strikes` query parameter (server-bounded 1–200, clamped client-side so a bad
+setting can't produce a `422`).
 
 ## Install
 
@@ -84,7 +92,12 @@ already returns the `profile` array, so it's a rendering-only add.
    - **API key (Bearer)** — your ZeroGEX Pro key from `/account#api-access`.
    - **Symbol** — `SPX`, `SPY`, `QQQ`, or `NDX` (set it to match the chart).
    - **Poll interval** — default 60s (matches the analytics cycle).
+   - **Show strike profile histogram** — off by default; turn it on for the
+     per-strike gamma bars, and tune `Histogram strikes` / `Histogram width`.
    - Toggle levels, colors, labels, info panel, and alerts to taste.
+
+If a packaged export has been published, the gamma pages offer it instead and
+step 2 collapses to **File → Utilities → Import NinjaScript…**.
 
 ## How it works (for maintainers)
 
@@ -100,8 +113,18 @@ already returns the `profile` array, so it's a rendering-only add.
   `CultureInfo.InvariantCulture` (critical: many NinjaTrader users have a
   comma decimal separator).
 - **Rendering** uses the high-level `Draw.HorizontalLine` / `Draw.Text` /
-  `Draw.TextFixed` API from `OnBarUpdate` (no SharpDX), so it's simple and
-  robust. Hidden or null levels call `RemoveDrawObject` so nothing lingers.
+  `Draw.TextFixed` / `Draw.Line` API from `OnBarUpdate` (no SharpDX), so it's
+  simple and robust. Hidden or null levels call `RemoveDrawObject` so nothing
+  lingers.
+- **The histogram's profile array** needs more than the flat extractor: its
+  keys repeat per element. `ExtractProfile` walks the array by brace depth and
+  runs the same extractor *scoped to one element*, where each key is unique
+  again. Profile elements hold only numbers, so depth alone delimits them.
+- **Histogram redraws are gated.** `Draw.Line` takes `barsAgo`, which resolves
+  to an absolute bar at draw time, so the bars must be redrawn as bars form or
+  they drift off the right edge. Redrawing dozens of objects on every tick of
+  an `OnEachTick` indicator is wasteful, so the redraw fires only on a new bar,
+  a new snapshot, or a toggle. Bar count is also clamped to `CurrentBar`.
 
 ### Limitations / notes
 
@@ -131,9 +154,10 @@ already returns the `profile` array, so it's a rendering-only add.
    (`PlotOnNinjaTrader.tsx`), mirroring `PlotOnTradingView.tsx`.
 4. **Compile check (blocking before announcement):** build once in the
    NinjaScript Editor on a real NT8 install and confirm the levels draw
-   against a live key.
-5. **(next)** render the strike-profile histogram; optionally publish a
-   packaged NinjaTrader import `.zip` for one-click install.
+   against a live key, with the histogram both off and on.
+5. **Packaged import:** export from NT8 and commit the archive to
+   `assets/ninjatrader/` (see its README). Until then the pages offer the
+   `.cs` and the deploy step no-ops — nothing breaks.
 
 ---
 

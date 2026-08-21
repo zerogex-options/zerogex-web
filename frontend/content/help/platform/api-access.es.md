@@ -25,13 +25,13 @@ La documentación requiere una cuenta Pro. Los usuarios públicos son redirigido
 
 ## Autenticación
 
-La autenticación utiliza **tokens bearer**. La generación de claves de autoservicio desde tu página de Cuenta está en camino; hasta que se lance, las claves se emiten manualmente:
+La autenticación utiliza **tokens bearer**. Generas tu clave tú mismo desde tu cuenta — no hay nada que esperar:
 
-1. Envía un correo a [support@zerogex.io](mailto:support@zerogex.io) desde la dirección de tu cuenta (solo cuentas Pro).
-2. Te enviamos una clave y notas de configuración.
-3. Inclúyela como `Authorization: Bearer <key>` en cada solicitud.
+1. Inicia sesión y ve a **Cuenta → Acceso API** (`/account#api-access`).
+2. Haz clic en **Generar clave API** y copia la clave de la revelación única — se muestra una sola vez, durante unos minutos, y después no se puede recuperar. Guárdala en un gestor de contraseñas o un almacén de secretos.
+3. Envíala como `Authorization: Bearer <key>` en cada solicitud.
 
-¿Necesitas rotar o revocar una clave? Escribe a soporte y lo resolveremos rápidamente.
+Las claves API personales son una función Pro; las cuentas Basic y Public se redirigen a Precios. Generar una clave nueva revoca de inmediato la anterior (tienes como máximo una clave activa), así que rotar es simplemente volver a generarla. ¿Necesitas ayuda o revocar una clave? Escribe a [support@zerogex.io](mailto:support@zerogex.io).
 
 ## Límites de uso
 
@@ -75,6 +75,13 @@ Los endpoints históricos admiten ventanas de varios días. Para backfills profu
 - Una clave por entorno (dev, prod). Rótalas según un calendario.
 - No pongas una clave en código del lado del cliente. La plataforma está diseñada para consumo desde el servidor.
 - Configura un `User-Agent` adecuado — nos ayuda a ayudarte cuando una solicitud falla.
+
+## Integraciones de gráficos
+
+Si solo quieres nuestros niveles en tu propio gráfico, puede que no necesites programar nada:
+
+- **NinjaTrader 8** — un indicador NinjaScript gratuito que consulta `GET /api/v1/levels/{symbol}` con tu clave Pro y dibuja el Gamma Flip, el Call Wall, el Put Wall, el Max Pain y el Pin Strike. Descárgalo desde cualquier página gratuita de niveles gamma (por ejemplo [/spx-gamma-levels](/spx-gamma-levels)), compílalo en el Editor NinjaScript y pega tu clave.
+- **TradingView** — un script Pine gratuito. Solo entrada manual: Pine Script no puede hacer llamadas HTTP, así que los números de hoy los escribes tú.
 
 ## Ver también
 

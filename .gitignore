@@ -230,6 +230,10 @@ frontend/public/target.svg
 # <link rel="icon"> URL, so that copy is the one that busts browser caches.
 frontend/app/favicon.ico
 frontend/public/folds-of-honor-*
+# Published NinjaTrader import archive. The source of record is the .cs next to
+# it (committed); the .zip is copied in from assets/ninjatrader/ at deploy time
+# by `make ninjatrader-package`, so it never belongs in git.
+frontend/public/ninjatrader/*.zip
 
 # blog post images, synced from assets/blog by `make blog-images`
 frontend/public/blog/

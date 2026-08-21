@@ -12,9 +12,14 @@ import { capture } from '@/core/telemetry/posthog-client';
 // needs a key. See docs/ninjatrader-indicator.md.
 
 const INDICATOR_URL = '/ninjatrader/ZeroGexGammaLevels.cs';
+const PACKAGE_URL = '/ninjatrader/ZeroGexGammaLevels.zip';
 const INDICATOR_NAME = 'ZeroGEX Gamma Levels';
 
-export default function PlotOnNinjaTrader() {
+// `hasPackage` is resolved at build time by the server component that renders
+// this: the packaged import only exists once a real NinjaTrader export has been
+// published by `make ninjatrader-package`. When it hasn't, we offer the .cs
+// alone rather than a button that 404s.
+export default function PlotOnNinjaTrader({ hasPackage = false }: { hasPackage?: boolean }) {
   return (
     <section
       style={{
@@ -51,7 +56,8 @@ export default function PlotOnNinjaTrader() {
       <p style={{ margin: '0 0 8px 0', fontSize: 15, lineHeight: 1.65, color: 'var(--color-text-secondary)', maxWidth: 720 }}>
         Our free{' '}
         <strong style={{ color: 'var(--color-text-primary)' }}>{INDICATOR_NAME}</strong> indicator for NinjaTrader 8
-        draws the Gamma Flip, Call Wall, Put Wall, Max Pain, and Pin Strike on your chart — and unlike the
+        draws the Gamma Flip, Call Wall, Put Wall, Max Pain, and Pin Strike on your chart — with an optional
+        per-strike gamma histogram — and unlike the
         TradingView script, it <strong style={{ color: 'var(--color-text-primary)' }}>updates itself</strong>. It
         polls the ZeroGEX API on a timer, so you never retype a number.
       </p>
@@ -62,9 +68,13 @@ export default function PlotOnNinjaTrader() {
 
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 18 }}>
         <a
-          href={INDICATOR_URL}
+          href={hasPackage ? PACKAGE_URL : INDICATOR_URL}
           download
-          onClick={() => capture('ninjatrader_indicator_clicked', { action: 'download' })}
+          onClick={() =>
+            capture('ninjatrader_indicator_clicked', {
+              action: hasPackage ? 'download_package' : 'download',
+            })
+          }
           style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -78,7 +88,7 @@ export default function PlotOnNinjaTrader() {
             color: '#ffffff',
           }}
         >
-          Download the indicator <Download size={16} />
+          {hasPackage ? 'Download for NinjaTrader' : 'Download the indicator'} <Download size={16} />
         </a>
         <a
           href="/account#api-access"
@@ -115,12 +125,33 @@ export default function PlotOnNinjaTrader() {
           <strong style={{ color: 'var(--color-text-primary)' }}>Account → API Access</strong> and click{' '}
           <em>Generate API Key</em>. It&apos;s revealed once, so copy it somewhere safe.
         </li>
-        <li>
-          <strong style={{ color: 'var(--color-text-primary)' }}>Compile the indicator.</strong> In NinjaTrader 8
-          open <strong style={{ color: 'var(--color-text-primary)' }}>New → NinjaScript Editor</strong>, right-click{' '}
-          <strong style={{ color: 'var(--color-text-primary)' }}>Indicators → New Indicator</strong>, paste in the
-          downloaded file, and press <strong style={{ color: 'var(--color-text-primary)' }}>F5</strong> to compile.
-        </li>
+        {hasPackage ? (
+          <li>
+            <strong style={{ color: 'var(--color-text-primary)' }}>Import it.</strong> In NinjaTrader 8 open{' '}
+            <strong style={{ color: 'var(--color-text-primary)' }}>
+              File → Utilities → Import NinjaScript…
+            </strong>{' '}
+            and pick the downloaded <code>.zip</code>. It compiles on import. Prefer the raw source?{' '}
+            <a
+              href={INDICATOR_URL}
+              download
+              onClick={() => capture('ninjatrader_indicator_clicked', { action: 'download' })}
+              style={{ color: 'var(--color-brand-accent)' }}
+            >
+              Grab the .cs
+            </a>{' '}
+            and paste it into the NinjaScript Editor instead.
+          </li>
+        ) : (
+          <li>
+            <strong style={{ color: 'var(--color-text-primary)' }}>Compile the indicator.</strong> In NinjaTrader 8
+            open <strong style={{ color: 'var(--color-text-primary)' }}>New → NinjaScript Editor</strong>,
+            right-click{' '}
+            <strong style={{ color: 'var(--color-text-primary)' }}>Indicators → New Indicator</strong>, paste in
+            the downloaded file, and press{' '}
+            <strong style={{ color: 'var(--color-text-primary)' }}>F5</strong> to compile.
+          </li>
+        )}
         <li>
           <strong style={{ color: 'var(--color-text-primary)' }}>Add it to a chart.</strong> Right-click your SPX,
           SPY, QQQ, or NDX chart → <strong style={{ color: 'var(--color-text-primary)' }}>Indicators…</strong>, add{' '}

@@ -25,13 +25,13 @@ La documentation nécessite un compte Pro. Les utilisateurs publics sont redirig
 
 ## Authentification
 
-L'authentification utilise des **jetons bearer**. La génération de clés en libre-service depuis votre page Compte arrive bientôt ; en attendant son lancement, les clés sont délivrées manuellement :
+L'authentification utilise des **jetons bearer**. Vous générez votre clé vous-même depuis votre compte — rien à attendre :
 
-1. Envoyez un e-mail à [support@zerogex.io](mailto:support@zerogex.io) depuis l'adresse e-mail de votre compte (comptes Pro uniquement).
-2. Nous vous envoyons une clé et des notes de configuration.
-3. Incluez-la sous la forme `Authorization: Bearer <key>` dans chaque requête.
+1. Connectez-vous et ouvrez **Compte → Accès API** (`/account#api-access`).
+2. Cliquez sur **Générer une clé API** et copiez la clé lors de l'affichage unique — elle n'apparaît qu'une seule fois, pendant quelques minutes, et ne peut plus être récupérée ensuite. Conservez-la dans un gestionnaire de mots de passe ou un coffre à secrets.
+3. Envoyez-la sous la forme `Authorization: Bearer <key>` dans chaque requête.
 
-Besoin de faire tourner ou de révoquer une clé ? Écrivez au support, nous traiterons la demande rapidement.
+Les clés API personnelles sont une fonctionnalité Pro ; les comptes Basic et Public sont redirigés vers la page Tarifs. Générer une nouvelle clé révoque immédiatement la précédente (vous n'avez au plus qu'une seule clé active), la rotation consiste donc simplement à en regénérer une. Besoin d'aide ou de révoquer une clé ? Écrivez à [support@zerogex.io](mailto:support@zerogex.io).
 
 ## Limites de débit
 
@@ -75,6 +75,13 @@ Les endpoints historiques prennent en charge des fenêtres de plusieurs jours. P
 - Une clé par environnement (dev, prod). Faites-les tourner selon un calendrier régulier.
 - Ne placez pas de clé dans du code côté client. La plateforme est conçue pour une consommation côté serveur.
 - Définissez un `User-Agent` pertinent — cela nous aide à vous aider lorsqu'une requête pose problème.
+
+## Intégrations de graphiques
+
+Si vous voulez simplement nos niveaux sur votre propre graphique, vous n'avez peut-être rien à coder :
+
+- **NinjaTrader 8** — un indicateur NinjaScript gratuit qui interroge `GET /api/v1/levels/{symbol}` avec votre clé Pro et trace le Gamma Flip, le Call Wall, le Put Wall, le Max Pain et le Pin Strike. Téléchargez-le depuis n'importe quelle page gratuite de niveaux gamma (par exemple [/spx-gamma-levels](/spx-gamma-levels)), compilez-le dans l'éditeur NinjaScript et collez-y votre clé.
+- **TradingView** — un script Pine gratuit. Saisie manuelle uniquement : Pine Script ne peut pas effectuer d'appels HTTP, vous saisissez donc vous-même les chiffres du jour.
 
 ## Voir aussi
 

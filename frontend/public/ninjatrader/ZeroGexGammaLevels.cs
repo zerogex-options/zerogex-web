@@ -8,6 +8,7 @@
 //    • Put Wall     (downside floor)
 //    • Max Pain     (expiration magnet)
 //    • Pin Strike   (0DTE pin magnet)
+//  …plus an optional right-anchored per-strike net-gamma histogram.
 //
 //  Unlike the free manual-entry TradingView script, this indicator pulls the
 //  numbers for you. It requires a ZeroGEX API key, which ships with the Pro
@@ -64,6 +65,12 @@ namespace NinjaTrader.NinjaScript.Indicators
         public double? MaxPain;
         public double? PinStrike;
         public double? Spot;
+
+        // Per-strike net gamma, ascending by strike (the API sorts it that
+        // way). Parallel lists rather than a bar type: the histogram only
+        // ever needs these two columns.
+        public List<double> ProfileStrike;
+        public List<double> ProfileNetGex;
         public int? AgeSeconds;
         public string AsOf;
         public string Symbol;
@@ -89,6 +96,16 @@ namespace NinjaTrader.NinjaScript.Indicators
 
         // Last-seen close for cross-alert edge detection (avoids re-alerting).
         private double _prevClose = double.NaN;
+
+        // Histogram bookkeeping. The bars are anchored with barsAgo, which
+        // resolves to an absolute bar at draw time, so they have to be redrawn
+        // as bars form or they drift away from the right edge. Redrawing every
+        // tick would be dozens of Draw calls per tick on a fast chart, so the
+        // redraw is gated on "new bar, new snapshot, or toggled".
+        private int _profileDrawn;
+        private int _profileAnchorBar = -1;
+        private bool _profileShown;
+        private ZeroGexLevelsSnapshot _profileSnapshot;
 
         protected override void OnStateChange()
         {
@@ -117,6 +134,12 @@ namespace NinjaTrader.NinjaScript.Indicators
                 ShowMaxPain = true;
                 ShowPinStrike = true;
 
+                // Opt-in: this is 40 extra draw objects on the price panel, so
+                // an existing user's chart shouldn't sprout them on update.
+                ShowStrikeProfile = false;
+                ProfileStrikeCount = 40;
+                ProfileWidthBars = 20;
+
                 // --- Style ---
                 LineWidth = 2;
                 ShowLabels = true;
@@ -128,6 +151,8 @@ namespace NinjaTrader.NinjaScript.Indicators
                 PutBrush = Brushes.SeaGreen;
                 PainBrush = Brushes.MediumPurple;
                 PinBrush = Brushes.DeepSkyBlue;
+                ProfilePosBrush = Brushes.SteelBlue;
+                ProfileNegBrush = Brushes.IndianRed;
             }
             else if (State == State.Terminated)
             {
@@ -201,7 +226,11 @@ namespace NinjaTrader.NinjaScript.Indicators
         {
             string baseUrl = (ApiBaseUrl ?? "").TrimEnd('/');
             string sym = Uri.EscapeDataString((Symbol ?? "").Trim().ToUpperInvariant());
-            string url = baseUrl + "/api/v1/levels/" + sym;
+            // strikes= is bounded 1..200 server-side; clamp here so a bad
+            // setting can never turn into a 422.
+            int want = Math.Min(200, Math.Max(1, ProfileStrikeCount));
+            string url = baseUrl + "/api/v1/levels/" + sym +
+                         "?strikes=" + want.ToString(CultureInfo.InvariantCulture);
 
             using (var req = new HttpRequestMessage(HttpMethod.Get, url))
             {
@@ -237,7 +266,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             if (string.IsNullOrEmpty(json))
                 return null;
 
-            return new ZeroGexLevelsSnapshot
+            var snap = new ZeroGexLevelsSnapshot
             {
                 GammaFlip = ExtractNumber(json, "gamma_flip"),
                 CallWall = ExtractNumber(json, "call_wall"),
@@ -249,6 +278,62 @@ namespace NinjaTrader.NinjaScript.Indicators
                 AsOf = ExtractString(json, "as_of"),
                 Symbol = ExtractString(json, "symbol"),
             };
+
+            ExtractProfile(json, snap);
+            return snap;
+        }
+
+        /// <summary>Walk the "profile" array and pull (strike, net_gex) from each
+        /// element. Scoping the flat extractor to one object at a time is what
+        /// makes the repeated keys unambiguous; the elements contain only
+        /// numbers, so brace-depth alone delimits them.</summary>
+        private static void ExtractProfile(string json, ZeroGexLevelsSnapshot snap)
+        {
+            snap.ProfileStrike = new List<double>();
+            snap.ProfileNetGex = new List<double>();
+
+            int k = json.IndexOf("\"profile\"", StringComparison.Ordinal);
+            if (k < 0)
+                return;
+
+            int open = json.IndexOf('[', k);
+            if (open < 0)
+                return;
+
+            int i = open + 1;
+            while (i < json.Length && json[i] != ']')
+            {
+                if (json[i] != '{')
+                {
+                    i++;
+                    continue;
+                }
+
+                int depth = 0;
+                int start = i;
+                int j = i;
+                for (; j < json.Length; j++)
+                {
+                    if (json[j] == '{')
+                        depth++;
+                    else if (json[j] == '}')
+                    {
+                        depth--;
+                        if (depth == 0) { j++; break; }
+                    }
+                }
+
+                string element = json.Substring(start, j - start);
+                double? strike = ExtractNumber(element, "strike");
+                double? netGex = ExtractNumber(element, "net_gex");
+                if (strike.HasValue && netGex.HasValue)
+                {
+                    snap.ProfileStrike.Add(strike.Value);
+                    snap.ProfileNetGex.Add(netGex.Value);
+                }
+
+                i = j;
+            }
         }
 
         /// <summary>Return the numeric value that follows "key": — or null when
@@ -332,6 +417,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             DrawOne("ZG_Put", ShowPutWall, s?.PutWall, "Put Wall", PutBrush);
             DrawOne("ZG_Pain", ShowMaxPain, s?.MaxPain, "Max Pain", PainBrush);
             DrawOne("ZG_Pin", ShowPinStrike, s?.PinStrike, "Pin Strike", PinBrush);
+            DrawProfile(s);
 
             if (ShowInfoPanel)
                 Draw.TextFixed(this, "ZG_Info", BuildInfoText(s), TextPosition.TopRight);
@@ -362,6 +448,60 @@ namespace NinjaTrader.NinjaScript.Indicators
             {
                 RemoveDrawObject(tag + "_txt");
             }
+        }
+
+        /// <summary>Right-anchored per-strike net-gamma histogram: one horizontal
+        /// segment per strike, running left from the last bar, its length scaled
+        /// to |net_gex| against the largest bar in view.</summary>
+        private void DrawProfile(ZeroGexLevelsSnapshot s)
+        {
+            bool stale = _profileAnchorBar != CurrentBar
+                         || _profileShown != ShowStrikeProfile
+                         || !ReferenceEquals(_profileSnapshot, s);
+            if (!stale)
+                return;
+
+            int drawn = 0;
+
+            if (ShowStrikeProfile && s != null && s.ProfileStrike != null && s.ProfileStrike.Count > 0)
+            {
+                double maxAbs = 0;
+                for (int i = 0; i < s.ProfileNetGex.Count; i++)
+                {
+                    double magnitude = Math.Abs(s.ProfileNetGex[i]);
+                    if (magnitude > maxAbs)
+                        maxAbs = magnitude;
+                }
+
+                if (maxAbs > 0)
+                {
+                    // Never reach further left than the chart actually has bars.
+                    int span = Math.Min(Math.Max(1, ProfileWidthBars), Math.Max(1, CurrentBar));
+
+                    for (int i = 0; i < s.ProfileStrike.Count; i++)
+                    {
+                        double netGex = s.ProfileNetGex[i];
+                        int length = (int)Math.Round(span * Math.Abs(netGex) / maxAbs);
+                        if (length < 1)
+                            length = 1;
+
+                        double y = s.ProfileStrike[i];
+                        Draw.Line(this, "ZG_Prof_" + i, length, y, 0, y,
+                                  netGex >= 0 ? ProfilePosBrush : ProfileNegBrush);
+                        drawn++;
+                    }
+                }
+            }
+
+            // Retire bars left over from a wider profile, or from the histogram
+            // being switched off.
+            for (int i = drawn; i < _profileDrawn; i++)
+                RemoveDrawObject("ZG_Prof_" + i);
+
+            _profileDrawn = drawn;
+            _profileAnchorBar = CurrentBar;
+            _profileShown = ShowStrikeProfile;
+            _profileSnapshot = s;
         }
 
         private string BuildInfoText(ZeroGexLevelsSnapshot s)
@@ -462,6 +602,20 @@ namespace NinjaTrader.NinjaScript.Indicators
         public bool ShowPinStrike { get; set; }
 
         [NinjaScriptProperty]
+        [Display(Name = "Show strike profile histogram", Order = 6, GroupName = "2. Levels")]
+        public bool ShowStrikeProfile { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(1, 200)]
+        [Display(Name = "Histogram strikes (nearest spot)", Order = 7, GroupName = "2. Levels")]
+        public int ProfileStrikeCount { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(1, 200)]
+        [Display(Name = "Histogram width (bars)", Order = 8, GroupName = "2. Levels")]
+        public int ProfileWidthBars { get; set; }
+
+        [NinjaScriptProperty]
         [Range(1, 5)]
         [Display(Name = "Line width", Order = 1, GroupName = "3. Style")]
         public int LineWidth { get; set; }
@@ -531,6 +685,28 @@ namespace NinjaTrader.NinjaScript.Indicators
         {
             get { return Serialize.BrushToString(PinBrush); }
             set { PinBrush = Serialize.StringToBrush(value); }
+        }
+
+        [XmlIgnore]
+        [Display(Name = "Histogram color (net positive)", Order = 10, GroupName = "3. Style")]
+        public Brush ProfilePosBrush { get; set; }
+
+        [Browsable(false)]
+        public string ProfilePosBrushSerialize
+        {
+            get { return Serialize.BrushToString(ProfilePosBrush); }
+            set { ProfilePosBrush = Serialize.StringToBrush(value); }
+        }
+
+        [XmlIgnore]
+        [Display(Name = "Histogram color (net negative)", Order = 11, GroupName = "3. Style")]
+        public Brush ProfileNegBrush { get; set; }
+
+        [Browsable(false)]
+        public string ProfileNegBrushSerialize
+        {
+            get { return Serialize.BrushToString(ProfileNegBrush); }
+            set { ProfileNegBrush = Serialize.StringToBrush(value); }
         }
 
         #endregion
