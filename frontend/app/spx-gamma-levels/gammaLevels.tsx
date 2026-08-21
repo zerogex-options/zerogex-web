@@ -7,6 +7,7 @@ import TodaysReadCard from '@/components/TodaysReadCard';
 import BreadcrumbJsonLd from '@/components/BreadcrumbJsonLd';
 import LandingHeader from '@/components/LandingHeader';
 import PlotOnTradingView from '@/components/PlotOnTradingView';
+import PlotOnNinjaTrader from '@/components/PlotOnNinjaTrader';
 import Footer from './Footer';
 import ShareBlock from './ShareBlock';
 import PaidFunnelAnalytics from './PaidFunnelAnalytics';
@@ -851,6 +852,10 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
             on their own chart, then route them to the live dashboard. Shared by
             all three ticker pages via this GammaLevelsView. */}
         <PlotOnTradingView />
+
+        {/* The auto-updating Pro counterpart: NinjaScript can make HTTP calls,
+            so this one pulls the levels instead of asking for manual entry. */}
+        <PlotOnNinjaTrader />
 
         {/* "Today's <ticker> net GEX" — a plain-language answer for the
             "<ticker> net gamma exposure current / today / value / zero-cross"

@@ -76,6 +76,19 @@ The derived history endpoints — GEX (`/api/gex/historical`), max pain, and sig
 - Don't put a key in client-side code. The platform is built for server-side consumption.
 - Set a sensible `User-Agent` — it helps us help you when a request goes wrong.
 
+## Charting integrations
+
+If all you want is our levels on your own chart, you may not need to write
+anything:
+
+- **NinjaTrader 8** — a free NinjaScript indicator that polls
+  `GET /api/v1/levels/{symbol}` with your Pro key and draws the Gamma Flip,
+  Call Wall, Put Wall, Max Pain, and Pin Strike. Download it from any free
+  gamma levels page (e.g. [/spx-gamma-levels](/spx-gamma-levels)), compile it
+  in the NinjaScript Editor, and paste in your key.
+- **TradingView** — a free Pine script. Manual entry only: Pine Script can't
+  make HTTP calls, so you type today's numbers in yourself.
+
 ## See also
 
 - [Tiers, Access & What Unlocks Where](/help/platform/tiers-and-access)

@@ -38,6 +38,11 @@ export const TelemetryEvent = {
   /** Free TradingView Pine indicator copied / downloaded / opened (client,
    *  /spx-gamma-levels + /spy-gamma-levels + /qqq-gamma-levels). */
   TradingViewIndicatorClicked: 'tradingview_indicator_clicked',
+  /** NinjaTrader 8 NinjaScript indicator downloaded, or its "get your API key"
+   *  CTA clicked (client, the four gamma-levels pages). The `action` property
+   *  records which: download | get_key. Unlike the TradingView script this one
+   *  auto-updates, so it needs a Pro key — the two actions split that funnel. */
+  NinjaTraderIndicatorClicked: 'ninjatrader_indicator_clicked',
   /** Social crawler fetched an opengraph-image (server, one per URL per cache TTL). */
   OgPreviewed: 'og_previewed',
 
