@@ -26,6 +26,12 @@ export const it: Dictionary = {
   'register.submit': 'Crea account e continua alla prova',
   'register.submitting': 'Creazione account…',
   'register.nextStep': 'Passo successivo: scegli il tuo piano. Nessun addebito fino al 7° giorno.',
+  'register.termsIntro': 'Accetto i',
+  'register.termsLinkText': 'Termini di servizio',
+  'register.termsAnd': 'e la',
+  'register.privacyLinkText': 'Politica sulla privacy',
+  'register.termsOutro': '.',
+  'register.termsRequired': 'Accetta i Termini di servizio e la Politica sulla privacy per continuare.',
   'register.haveAccount': 'Hai già un account? Accedi',
   'register.csrfError':
     'Impossibile inizializzare la registrazione sicura. Aggiorna la pagina e riprova. Se hai bloccato i cookie per questo sito, abilitali prima.',

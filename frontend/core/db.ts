@@ -171,6 +171,16 @@ function initDb(): DatabaseSync {
   ensureColumn('users', 'disclaimer_acknowledged_at', 'TEXT');
   ensureColumn('users', 'disclaimer_version_acknowledged', 'TEXT');
 
+  // Affirmative acceptance of the Terms of Service and Privacy Policy, captured
+  // at registration (the checkbox on /register; the API refuses a signup
+  // without it). Version is the terms' effective date — see core/legalTerms —
+  // so a row identifies WHICH text was agreed to, not merely that something
+  // was. Accounts created before this shipped have both columns NULL: absent,
+  // not falsified. Read them as "no recorded acceptance" and fall back to the
+  // footer-linked published terms.
+  ensureColumn('users', 'terms_accepted_at', 'TEXT');
+  ensureColumn('users', 'terms_version_accepted', 'TEXT');
+
   // Founding-member program. `founding_eligible` is a one-time grant set via
   // scripts/seed-founders.mjs for the launch cohort; new signups default to 0
   // and cannot redeem the founding code. `founding_member_started_at` is set

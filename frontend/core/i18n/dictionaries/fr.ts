@@ -26,6 +26,12 @@ export const fr: Dictionary = {
   'register.submit': 'Créer le compte et continuer vers l’essai',
   'register.submitting': 'Création du compte…',
   'register.nextStep': 'Étape suivante : choisissez votre offre. Aucun débit avant le 7e jour.',
+  'register.termsIntro': 'J\'accepte les',
+  'register.termsLinkText': 'Conditions d\'utilisation',
+  'register.termsAnd': 'et la',
+  'register.privacyLinkText': 'Politique de confidentialité',
+  'register.termsOutro': '.',
+  'register.termsRequired': 'Veuillez accepter les Conditions d\'utilisation et la Politique de confidentialité pour continuer.',
   'register.haveAccount': 'Vous avez déjà un compte ? Connectez-vous',
   'register.csrfError':
     'Impossible d’initialiser l’inscription sécurisée. Veuillez actualiser la page et réessayer. Si vous avez bloqué les cookies pour ce site, autorisez-les d’abord.',

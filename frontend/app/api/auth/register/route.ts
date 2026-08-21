@@ -10,6 +10,7 @@ import {
   SOURCE_COOKIE_NAME,
   validateCsrf,
 } from '@/core/serverAuth';
+import { isAcceptedTermsVersionCurrent, TERMS_VERSION } from '@/core/legalTerms';
 
 // Auth mutation route; never cache the response at the /api/ proxy.
 export const dynamic = 'force-dynamic';
@@ -34,6 +35,7 @@ export async function POST(request: NextRequest) {
     email?: string;
     password?: string;
     ref?: string;
+    acceptedTermsVersion?: string;
   };
   const email = body.email?.trim().toLowerCase();
   const password = body.password ?? '';
@@ -52,6 +54,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Email and password (12+ chars) are required' }, { status: 400 });
   }
 
+  // Terms acceptance is checked here for a clean, specific error, and again in
+  // registerUser, which is the actual gate. The client posts the version it
+  // rendered the checkbox against, so a stale tab that accepted superseded
+  // terms is rejected rather than silently recorded as accepting the current
+  // ones — the whole point of storing a version is that it be true.
+  if (!isAcceptedTermsVersionCurrent(body.acceptedTermsVersion)) {
+    return NextResponse.json(
+      { error: 'You must accept the Terms of Service and Privacy Policy to create an account.' },
+      { status: 400 },
+    );
+  }
+
   try {
     // Tier is decided SERVER-side, never by the request body. Honoring a
     // client-supplied tier was a complete paywall bypass (anyone could
@@ -67,6 +81,7 @@ export async function POST(request: NextRequest) {
       request,
       email,
       password,
+      TERMS_VERSION,
       selfSignupTier(),
       referralCode,
       signupSource,
