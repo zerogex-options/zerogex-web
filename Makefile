@@ -970,8 +970,6 @@ logo:
 	@$(TRIM_PNG) assets/branding/Light_Full.png frontend/public/logo-light.png --max-width 1024
 	@$(TRIM_PNG) assets/branding/Dark_Title.png frontend/public/title-dark.png --max-width 1280
 	@$(TRIM_PNG) assets/branding/Light_Title.png frontend/public/title-light.png --max-width 1280
-	@rm -f frontend/public/logo-dark.svg frontend/public/logo-light.svg frontend/public/title.svg
-	cp assets/branding/Target.svg frontend/public/target.svg
 # The social card goes through scripts/og-image-manifest.js rather than a plain
 # cp. That script hashes the PNG's bytes into its filename and regenerates
 # frontend/core/ogImageManifest.ts, so replacing the artwork produces a new URL
@@ -990,7 +988,6 @@ logo:
 # untouched, which is why a new favicon used to keep showing up as the old one.
 # The rm clears that shadowing copy from boxes deployed before this change;
 # public/favicon.ico is gitignored, so `git pull` alone would never remove it.
-	@rm -f frontend/public/favicon.ico
 	cp assets/branding/favicon.ico frontend/app/favicon.ico
 	@echo "Copying Folds of Honor partner-kit assets..."
 	@if [ -f assets/branding/folds-of-honor-proud-supporter.png ]; then \
