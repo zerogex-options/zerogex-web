@@ -26,6 +26,12 @@ export const de: Dictionary = {
   'register.submit': 'Konto erstellen & zur Testphase',
   'register.submitting': 'Konto wird erstellt…',
   'register.nextStep': 'Nächster Schritt: Wähle deinen Plan. Keine Abbuchung bis Tag 7.',
+  'register.termsIntro': 'Ich stimme den',
+  'register.termsLinkText': 'Nutzungsbedingungen',
+  'register.termsAnd': 'und der',
+  'register.privacyLinkText': 'Datenschutzerklärung',
+  'register.termsOutro': 'zu.',
+  'register.termsRequired': 'Bitte akzeptiere die Nutzungsbedingungen und die Datenschutzerklärung, um fortzufahren.',
   'register.haveAccount': 'Hast du schon ein Konto? Anmelden',
   'register.csrfError':
     'Die sichere Registrierung konnte nicht initialisiert werden. Bitte aktualisiere die Seite und versuche es erneut. Falls du Cookies für diese Seite blockiert hast, erlaube sie zuerst.',

@@ -7,6 +7,7 @@ import { sendEmailVerification } from '@/core/mailer';
 import { recordReferralSignup } from '@/core/referrals';
 import { normalizeCampaignCode } from '@/core/campaigns';
 import { sanitizeUtmSource } from '@/core/utils';
+import { isAcceptedTermsVersionCurrent } from '@/core/legalTerms';
 
 // First-party cookie that carries an inbound ?ref= code from the landing page
 // through to account creation (incl. the OAuth round-trip).
@@ -415,10 +416,21 @@ export async function registerUser(
   request: NextRequest,
   email: string,
   password: string,
+  // The terms version the member affirmatively accepted at signup. Required:
+  // no path creates an account without a recorded acceptance. Enforced here
+  // rather than only in the route so a future caller can't quietly skip it —
+  // an account with a NULL acceptance is indistinguishable from a pre-cutover
+  // one, and that ambiguity is exactly what makes the record worthless as
+  // evidence later.
+  acceptedTermsVersion: string,
   tier: TierId = 'public',
   referralCode?: string | null,
   signupSource?: string | null,
 ) {
+  if (!isAcceptedTermsVersionCurrent(acceptedTermsVersion)) {
+    throw new Error('You must accept the Terms of Service and Privacy Policy to create an account.');
+  }
+
   const normalizedEmail = email.trim().toLowerCase();
   if (getUserByEmail(normalizedEmail)) throw new Error('Email already registered');
 
@@ -442,10 +454,24 @@ export async function registerUser(
     updatedAt: nowIso(),
   };
 
+  // terms_accepted_at shares createdAt rather than taking its own clock read:
+  // the acceptance and the account creation are the same act, and a record
+  // that says so exactly is easier to stand behind than one off by a few ms.
   db.prepare(
-    `INSERT INTO users (id, email, password_hash, tier, created_at, updated_at, signup_utm_source)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
-  ).run(user.id, user.email, user.passwordHash, user.tier, user.createdAt, user.updatedAt, sanitizeUtmSource(signupSource));
+    `INSERT INTO users (id, email, password_hash, tier, created_at, updated_at, signup_utm_source,
+                        terms_accepted_at, terms_version_accepted)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    user.id,
+    user.email,
+    user.passwordHash,
+    user.tier,
+    user.createdAt,
+    user.updatedAt,
+    sanitizeUtmSource(signupSource),
+    user.createdAt,
+    acceptedTermsVersion,
+  );
 
   // Best-effort referral attribution — an invalid/absent code just leaves the
   // signup organic and must never block account creation.
@@ -463,7 +489,10 @@ export async function registerUser(
     userId: user.id,
     email: user.email,
     ip: getClientIp(request),
-    message: 'User registered',
+    // Version in the message as well as the column: the audit row already
+    // carries the timestamp and IP of the act, so this one line is a complete,
+    // quotable answer to "what did the customer agree to, and when".
+    message: `User registered; accepted Terms of Service and Privacy Policy (effective ${acceptedTermsVersion})`,
   });
 
   return { id: user.id, email: user.email, tier: user.tier };
@@ -477,11 +506,12 @@ export async function registerAndStartSession(
   request: NextRequest,
   email: string,
   password: string,
+  acceptedTermsVersion: string,
   tier: TierId = 'public',
   referralCode?: string | null,
   signupSource?: string | null,
 ) {
-  await registerUser(request, email, password, tier, referralCode, signupSource);
+  await registerUser(request, email, password, acceptedTermsVersion, tier, referralCode, signupSource);
   const fullUser = getUserByEmail(email.trim().toLowerCase());
   if (!fullUser) throw new Error('Registration succeeded but user lookup failed');
 

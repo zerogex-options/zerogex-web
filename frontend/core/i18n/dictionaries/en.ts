@@ -32,6 +32,12 @@ export const en = {
   'register.submit': 'Create Account & Continue to Trial',
   'register.submitting': 'Creating account…',
   'register.nextStep': 'Next step: choose your plan. No charge until day 7.',
+  'register.termsIntro': 'I agree to the',
+  'register.termsLinkText': 'Terms of Service',
+  'register.termsAnd': 'and',
+  'register.privacyLinkText': 'Privacy Policy',
+  'register.termsOutro': '.',
+  'register.termsRequired': 'Please accept the Terms of Service and Privacy Policy to continue.',
   'register.haveAccount': 'Already have an account? Sign in',
   'register.csrfError':
     'Couldn’t initialize secure signup. Please refresh and try again. If you’ve blocked cookies for this site, allow them first.',

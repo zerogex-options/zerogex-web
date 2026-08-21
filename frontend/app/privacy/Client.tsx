@@ -6,6 +6,7 @@ import { useTheme } from '@/core/ThemeContext';
 import { usePageT } from '@/core/LanguageContext';
 import { ShieldCheck } from 'lucide-react';
 import { dict } from './Client.i18n';
+import { TERMS_EFFECTIVE_DATE_LABEL } from '@/core/legalTerms';
 
 const C = {
   card: 'var(--color-surface)',
@@ -15,7 +16,8 @@ const C = {
   border: 'var(--border-default)',
 };
 
-const EFFECTIVE_DATE = 'April 25, 2026';
+// Shared with the acceptance recorded at registration — see core/legalTerms.
+const EFFECTIVE_DATE = TERMS_EFFECTIVE_DATE_LABEL;
 const CONTACT_EMAIL = 'support@zerogex.io';
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {

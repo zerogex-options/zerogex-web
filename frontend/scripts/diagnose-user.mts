@@ -136,6 +136,8 @@ type UserRow = {
   tier: string | null;
   created_at: string | null;
   email_verified_at: string | null;
+  terms_accepted_at: string | null;
+  terms_version_accepted: string | null;
   founding_eligible: number | null;
   founding_member_started_at: string | null;
   founding_lifetime_applied_at: string | null;
@@ -155,6 +157,7 @@ type UserRow = {
 const rows = querySqlite<UserRow>(
   dbPath,
   `SELECT id, email, tier, created_at, email_verified_at,
+          terms_accepted_at, terms_version_accepted,
           founding_eligible, founding_member_started_at, founding_lifetime_applied_at,
           paid_welcome_email_sent_at, subscription_lapsed, subscription_status,
           stripe_customer_id, stripe_subscription_id, stripe_price_id,
@@ -201,6 +204,16 @@ kv('ID', user.id);
 kv('Tier', user.tier ?? 'public');
 kv('Account created', orDash(user.created_at));
 kv('Email verified', orDash(user.email_verified_at));
+// Printed as one line because that is how it gets used: a chargeback asks what
+// the member agreed to and when, and this answers both. A dash means the
+// account predates the signup checkbox — say "no recorded acceptance", never
+// imply one happened.
+kv(
+  'Terms accepted',
+  user.terms_accepted_at
+    ? `${user.terms_accepted_at} (effective ${orDash(user.terms_version_accepted)})`
+    : '—',
+);
 kv('Founding eligible', yesNo(user.founding_eligible));
 kv('Referred by code', orDash(user.referred_by_code));
 kv('Referral credit months', String(user.referral_credit_months ?? 0));

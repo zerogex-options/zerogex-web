@@ -9,6 +9,7 @@ import { TelemetryEvent } from '@/core/telemetry/events';
 import { readUtmParams } from '@/core/telemetry/utm';
 import { useLanguage } from '@/core/LanguageContext';
 import { LOCALE_META, type Locale } from '@/core/i18n/locales';
+import { TERMS_VERSION } from '@/core/legalTerms';
 
 const SELF_SIGNUP_TIERS = new Set(['basic', 'pro']);
 
@@ -41,6 +42,9 @@ function RegisterPageContent({
   const [csrfToken, setCsrfToken] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // Unchecked by default and never pre-filled: a pre-ticked box is not an
+  // affirmative act, and the record is only worth keeping if it reflects one.
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const selectedTier = useMemo(() => {
     const raw = searchParams.get('tier');
@@ -121,6 +125,16 @@ function RegisterPageContent({
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    // The checkbox is `required`, so the browser blocks submit before this in
+    // normal use. Kept as a guard for the paths native validation doesn't
+    // cover, and because the server rejects an unaccepted signup anyway — this
+    // just turns that rejection into an inline message instead of a round-trip.
+    if (!acceptedTerms) {
+      setError(t('register.termsRequired'));
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -141,7 +155,17 @@ function RegisterPageContent({
           'Content-Type': 'application/json',
           'x-csrf-token': token,
         },
-        body: JSON.stringify({ email, password, tier: selectedTier, ref: refCode ?? undefined }),
+        body: JSON.stringify({
+          email,
+          password,
+          tier: selectedTier,
+          ref: refCode ?? undefined,
+          // Post the version this page rendered the checkbox against, not a
+          // bare boolean: if the terms were revised while this tab sat open,
+          // the server rejects it rather than recording acceptance of text the
+          // member was never shown.
+          acceptedTermsVersion: TERMS_VERSION,
+        }),
       });
 
       const payload = (await response.json()) as {
@@ -258,6 +282,35 @@ function RegisterPageContent({
             />
             <span className="mt-1 block text-xs text-[var(--color-text-secondary)] opacity-80">
               {t('register.passwordHint')}
+            </span>
+          </label>
+
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-brand-primary)]"
+              type="checkbox"
+              checked={acceptedTerms}
+              onChange={(event) => setAcceptedTerms(event.target.checked)}
+              required
+            />
+            <span className="text-[var(--color-text-secondary)]">
+              {t('register.termsIntro')}{' '}
+              <Link
+                href="/terms"
+                target="_blank"
+                className="text-[var(--color-brand-primary)] hover:underline"
+              >
+                {t('register.termsLinkText')}
+              </Link>{' '}
+              {t('register.termsAnd')}{' '}
+              <Link
+                href="/privacy"
+                target="_blank"
+                className="text-[var(--color-brand-primary)] hover:underline"
+              >
+                {t('register.privacyLinkText')}
+              </Link>
+              {t('register.termsOutro')}
             </span>
           </label>
 
