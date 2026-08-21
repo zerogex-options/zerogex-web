@@ -13,11 +13,24 @@
 | Disputed invoice | `in_1U45qG4AOiqteMYYZtU2r5FM` — paid 2026-08-14 |
 | Evidence deadline | **2026-09-05** |
 
+## Status
+
+- **2026-08-21 — subscription scheduled to cancel at period end** (`make set-cancellation
+  ON=1`). Access runs to 2026-09-13; no renewal charge will be attempted. This was our
+  action, not the customer's.
+- **Evidence: not yet confirmed submitted.** Every field below has been rewritten to be
+  true as of 2026-08-21. If anything was submitted before that date using the earlier
+  wording, it was accurate when filed and needs no correction — but do not re-submit the
+  old text.
+
 ## Recommendation: counter
 
 The cardholder's stated reason is factually contradicted by our records. **No cancellation
-was ever requested, on any path, and the subscription is still active today** with
-`cancel_at_period_end = false`. Visa 13.2 requires the cardholder to have actually
+was ever requested, on any path**. The subscription ran with
+`cancel_at_period_end = false` continuously from signup through the disputed charge and
+for a week beyond it. We scheduled it to end at period end ourselves on 2026-08-21, in
+response to this dispute — see "Status" below, which every evidence field must now
+reflect. Visa 13.2 requires the cardholder to have actually
 cancelled before the charge; they did not, and separately we satisfied Visa's
 trial-conversion notification requirement 48 hours before billing.
 
@@ -81,8 +94,14 @@ card is not a cancellation, and we emailed them about both the failure and the r
 
 ### `cancellation_rebuttal`
 
-> The customer never cancelled this subscription. It remains active today, six days after
-> this dispute was filed, and has never been scheduled for cancellation.
+> The customer never cancelled this subscription, and never asked us to.
+>
+> It ran with cancellation not scheduled continuously from signup on 2026-08-06, through
+> the disputed charge on 2026-08-14, and for a further week beyond it. On 2026-08-21 we
+> scheduled it to end at the close of the current paid period. That was our own decision,
+> taken in response to this dispute so that the customer is not billed again while it is
+> open; it was not requested by the customer, who has still never contacted us. The
+> customer retains full access through 2026-09-13, the period already paid for.
 >
 > Cancellation is available to the customer at all times through three self-service paths:
 > a "Cancel subscription" button on their account page, the Stripe-hosted billing portal,
@@ -154,8 +173,10 @@ card is not a cancellation, and we emailed them about both the failure and the r
 > 21:03:22 UTC, email verified 2026-08-06 21:04:02 UTC.
 >
 > Subscription sub_1U1YUq4AOiqteMYYGmVCi5Cn, created 2026-08-06 21:06:35 UTC with a 7-day
-> free trial ending 2026-08-13 21:06:35 UTC. Status: active. cancel_at_period_end: false.
-> Current period end: 2026-09-13 21:06:35 UTC. Payment method: Visa ending 8562, expiry
+> free trial ending 2026-08-13 21:06:35 UTC. Status: active, with access running through
+> 2026-09-13 21:06:35 UTC. cancel_at_period_end was false continuously from signup until
+> we ourselves set it on 2026-08-21 in response to this dispute, so that no further charge
+> is attempted while it is open. Payment method: Visa ending 8562, expiry
 > 12/2031, the same card used at signup and the subscription default throughout.
 >
 > Invoice history for this customer, in full:
