@@ -12,8 +12,19 @@
  *   5s   Do I believe it?                        — the plane, the levels, the ribbon
  *   30s  What exactly moved?                     — the ladder, below this card
  *
- * Encoding rules this card holds to, both learned the hard way from the
- * ladder it replaces:
+ * Layout notes, from the first cut's mistakes:
+ *
+ * * The levels were a VERTICAL LIST in a half-width column, which used about
+ *   half the width it was given and left ~100px dead beneath it. They are now
+ *   a row of tiles across the full panel — which is also what lets each value
+ *   be 20px instead of 13px.
+ * * The plane sat alone in a 264px column with a paragraph under it. It now
+ *   anchors the hero row beside the headline it illustrates.
+ * * Zones are separated by hairline rules, not nested bordered boxes — the
+ *   house rule is "one border deep" (components/layout/Panel.tsx), and the
+ *   nesting was also spending ~26px of horizontal padding per box.
+ *
+ * Encoding rules this card holds to:
  *
  * * **Direction is positional, not just chromatic.** Gamma built BELOW spot
  *   is a floor; the identical build ABOVE spot is a ceiling. The old ladder
@@ -29,11 +40,9 @@
  */
 
 import { useMemo } from 'react';
-import { Info } from 'lucide-react';
 import { useChartTheme } from '@/hooks/useChartTheme';
+import MobileScrollableChart from './MobileScrollableChart';
 import {
-  LOOKBACK_LABEL,
-  LOOKBACK_ORDER,
   STATE_META,
   buildExpiryCaveat,
   buildHeadline,
@@ -49,47 +58,23 @@ import {
   ribbonReference,
   type Lens,
   type LevelRow,
-  type Lookback,
   type RegimeShiftPayload,
   type ShiftStrike,
-  type StateMeta,
 } from '@/core/regimeShift';
-import ChartCaption from './ChartCaption';
-import TooltipWrapper from './TooltipWrapper';
+import {
+  Chip,
+  HeroStat,
+  LevelTile,
+  Note,
+  PanelHeader,
+  PanelMessage,
+  Zone,
+  toneColor,
+} from './RegimeShiftUI';
 
 // ────────────────────────────────────────────────────────────────────────────
 // helpers
 // ────────────────────────────────────────────────────────────────────────────
-
-function toneColor(tone: StateMeta['tone']): string {
-  switch (tone) {
-    case 'bull':
-      return 'var(--color-bull)';
-    case 'bear':
-      return 'var(--color-bear)';
-    case 'warning':
-      return 'var(--color-warning)';
-    case 'info':
-      return 'var(--color-info)';
-    default:
-      return 'var(--text-muted)';
-  }
-}
-
-function toneSoft(tone: StateMeta['tone']): string {
-  switch (tone) {
-    case 'bull':
-      return 'var(--color-bull-soft)';
-    case 'bear':
-      return 'var(--color-bear-soft)';
-    case 'warning':
-      return 'var(--color-warning-soft)';
-    case 'info':
-      return 'var(--color-info-soft)';
-    default:
-      return 'var(--bg-subtle)';
-  }
-}
 
 function fmtTime(iso: string | null | undefined): string {
   if (!iso) return '--:--';
@@ -117,6 +102,9 @@ const DIRECTION_GLYPH: Record<LevelRow['direction'], string> = {
   flat: '→',
 };
 
+const HEADER_TOOLTIP =
+  "How dealer gamma CHANGED between two points in time, reduced to a read. Two independent axes: whether gamma near spot rose (stabilizing) or fell (fragile), and whether the change landed below spot (supportive) or above it (capping). The quadrant names the state; the distance from centre, in standard deviations of this symbol's own shift history, sets the wording.";
+
 // ────────────────────────────────────────────────────────────────────────────
 // the shift plane
 // ────────────────────────────────────────────────────────────────────────────
@@ -129,6 +117,10 @@ const DIRECTION_GLYPH: Record<LevelRow['direction'], string> = {
  * ring is "dramatically". That equivalence is the point — a reader who
  * glances at the arrow and a reader who reads the sentence get the same
  * answer, which is what makes the sentence trustworthy.
+ *
+ * The viewBox is sized so one unit ≈ one rendered pixel at the size this
+ * actually draws at. The first cut used a 230-unit box with 7-unit labels,
+ * which rendered at literally 7px.
  */
 function ShiftPlane({
   leanZ,
@@ -141,9 +133,9 @@ function ShiftPlane({
   tone: string;
   normalized: boolean;
 }) {
-  const SIZE = 230;
+  const SIZE = 220;
   const C = SIZE / 2;
-  const R = 88;
+  const R = 80;
   const MAX = 3;
   const px = (v: number) => C + (Math.max(-MAX, Math.min(MAX, v)) / MAX) * R;
   const py = (v: number) => C - (Math.max(-MAX, Math.min(MAX, v)) / MAX) * R;
@@ -154,21 +146,19 @@ function ShiftPlane({
   const showArrow = normalized && len > 4;
 
   const quadrants = [
-    { x: C, y: 0, fill: 'var(--color-bull-soft)', label: 'FIRMING', lx: SIZE - 8, ly: 14, anchor: 'end' },
-    { x: 0, y: 0, fill: 'var(--color-info-soft)', label: 'CAPPING', lx: 8, ly: 14, anchor: 'start' },
-    { x: C, y: C, fill: 'var(--color-warning-soft)', label: 'FRAGILE BID', lx: SIZE - 8, ly: SIZE - 8, anchor: 'end' },
-    { x: 0, y: C, fill: 'var(--color-bear-soft)', label: 'DETERIORATING', lx: 8, ly: SIZE - 8, anchor: 'start' },
+    { x: C, y: 0, fill: 'var(--color-bull-soft)', label: 'FIRMING', lx: SIZE - 9, ly: 18, anchor: 'end' },
+    { x: 0, y: 0, fill: 'var(--color-info-soft)', label: 'CAPPING', lx: 9, ly: 18, anchor: 'start' },
+    { x: C, y: C, fill: 'var(--color-warning-soft)', label: 'FRAGILE BID', lx: SIZE - 9, ly: SIZE - 10, anchor: 'end' },
+    { x: 0, y: C, fill: 'var(--color-bear-soft)', label: 'DETERIORATING', lx: 9, ly: SIZE - 10, anchor: 'start' },
   ] as const;
 
   let arrow = null;
   if (showArrow) {
     const ux = (ex - C) / len;
     const uy = (ey - C) / len;
-    const sx = ex - ux * 7;
-    const sy = ey - uy * 7;
     const a = Math.atan2(uy, ux);
     const W = 0.42;
-    const H = 9;
+    const H = 11;
     const head = [
       [ex, ey],
       [ex - H * Math.cos(a - W), ey - H * Math.sin(a - W)],
@@ -178,7 +168,15 @@ function ShiftPlane({
       .join(' ');
     arrow = (
       <>
-        <line x1={C} y1={C} x2={sx} y2={sy} stroke={tone} strokeWidth={2.4} strokeLinecap="round" />
+        <line
+          x1={C}
+          y1={C}
+          x2={ex - ux * 8}
+          y2={ey - uy * 8}
+          stroke={tone}
+          strokeWidth={3}
+          strokeLinecap="round"
+        />
         <polygon points={head} fill={tone} />
       </>
     );
@@ -187,8 +185,9 @@ function ShiftPlane({
   return (
     <svg
       viewBox={`0 0 ${SIZE} ${SIZE}`}
-      width="100%"
-      style={{ maxWidth: SIZE }}
+      width={SIZE}
+      height={SIZE}
+      className="max-w-full"
       role="img"
       aria-label={`Shift plane: lean ${leanZ.toFixed(1)} sigma, stability ${stabilityZ.toFixed(1)} sigma`}
     >
@@ -200,11 +199,10 @@ function ShiftPlane({
             y={q.ly}
             textAnchor={q.anchor}
             fontFamily="var(--font-mono)"
-            fontSize={7.5}
+            fontSize={10}
             fontWeight={600}
-            letterSpacing={0.9}
-            fill="var(--text-muted)"
-            opacity={0.85}
+            letterSpacing={0.6}
+            fill="var(--text-secondary)"
           >
             {q.label}
           </text>
@@ -223,30 +221,29 @@ function ShiftPlane({
             strokeDasharray="2 4"
           />
           <text
-            x={C + 3}
-            y={py(r) - 3}
+            x={C + 4}
+            y={py(r) - 4}
             fontFamily="var(--font-mono)"
-            fontSize={7}
+            fontSize={10}
             fill="var(--text-muted)"
-            opacity={0.7}
           >
             {r}σ
           </text>
         </g>
       ))}
 
-      <line x1={C - R - 8} y1={C} x2={C + R + 8} y2={C} stroke="var(--border-default)" strokeWidth={1} />
-      <line x1={C} y1={C - R - 8} x2={C} y2={C + R + 8} stroke="var(--border-default)" strokeWidth={1} />
-      <text x={C + R + 8} y={C + 11} textAnchor="end" fontFamily="var(--font-mono)" fontSize={7} fill="var(--text-muted)">
+      <line x1={C - R - 10} y1={C} x2={C + R + 10} y2={C} stroke="var(--border-default)" strokeWidth={1} />
+      <line x1={C} y1={C - R - 10} x2={C} y2={C + R + 10} stroke="var(--border-default)" strokeWidth={1} />
+      <text x={C + R + 10} y={C + 14} textAnchor="end" fontFamily="var(--font-mono)" fontSize={10} fill="var(--text-muted)">
         SUPPORT →
       </text>
-      <text x={C - R - 8} y={C + 11} textAnchor="start" fontFamily="var(--font-mono)" fontSize={7} fill="var(--text-muted)">
+      <text x={C - R - 10} y={C + 14} textAnchor="start" fontFamily="var(--font-mono)" fontSize={10} fill="var(--text-muted)">
         ← RESISTANCE
       </text>
 
       {arrow}
-      <circle cx={C} cy={C} r={3.4} fill="var(--bg-subtle)" stroke="var(--text-muted)" strokeWidth={1.4} />
-      {showArrow && <circle cx={ex} cy={ey} r={4.6} fill={tone} stroke="var(--bg-subtle)" strokeWidth={2} />}
+      <circle cx={C} cy={C} r={4} fill="var(--bg-card)" stroke="var(--text-muted)" strokeWidth={1.5} />
+      {showArrow && <circle cx={ex} cy={ey} r={5.5} fill={tone} stroke="var(--bg-card)" strokeWidth={2} />}
     </svg>
   );
 }
@@ -262,6 +259,10 @@ function ShiftPlane({
  * "where", not "how much at each strike" — the ladder still does the latter,
  * below. Bars grow up for gamma added and down for gamma shed, so the sign is
  * carried by position as well as colour.
+ *
+ * The viewBox is 1200 wide and 240 tall so it fills a full-width panel at
+ * roughly 1:1 unit-to-pixel, instead of a 700x140 box stretched across 1200px
+ * (which scaled the type to ~17px and left the bars in a thin band).
  */
 function ConcentrationRibbon({
   strikes,
@@ -278,22 +279,19 @@ function ConcentrationRibbon({
   bull: string;
   bear: string;
 }) {
-  const W = 700;
-  const H = 140;
-  const PAD = 8;
-  const TOP = 20;
-  const BOT = 100;
-  const MID = 60;
-  const HMAX = 36;
+  const W = 1200;
+  const H = 196;
+  const PAD = 12;
+  const BOT = 158;
+  const MID = 92;
+  const HMAX = 64;
 
   const ordered = useMemo(() => [...strikes].sort((a, b) => a.strike - b.strike), [strikes]);
   const reference = useMemo(() => ribbonReference(ordered, lens), [ordered, lens]);
 
   if (ordered.length === 0) {
     return (
-      <div className="flex h-[120px] items-center justify-center text-xs" style={{ color: 'var(--text-muted)' }}>
-        No per-strike change in this window.
-      </div>
+      <PanelMessage height={160}>No per-strike change in this window.</PanelMessage>
     );
   }
 
@@ -305,19 +303,33 @@ function ConcentrationRibbon({
   const bandResolved = band?.resolved && Number.isFinite(band.low) && Number.isFinite(band.high);
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="xMidYMid meet" role="img" aria-label="Change in dealer gamma by strike">
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      width="100%"
+      height={H}
+      preserveAspectRatio="xMidYMid meet"
+      role="img"
+      aria-label="Change in dealer gamma by strike"
+    >
       {bandResolved && (
         <rect
           x={xOf(band.low)}
-          y={TOP - 4}
+          // Hug the bar field rather than the whole box: the band marks a
+          // strike RANGE, and a rect drawn to the full height reads as a
+          // large empty area under whichever side happens to be quiet.
+          y={MID - HMAX - 6}
           width={Math.max(bw, xOf(band.high) + bw - xOf(band.low))}
-          height={BOT - TOP + 8}
-          rx={5}
+          height={HMAX * 2 + 12}
+          rx={6}
+          // A light wash, not a block: the band marks a strike range, so its
+          // rect necessarily spans both halves of a diverging chart and a
+          // heavier fill reads as "something is missing" under whichever side
+          // is quiet that session.
           fill="var(--color-warning-soft)"
-          fillOpacity={0.45}
+          fillOpacity={0.16}
           stroke="var(--color-warning)"
           strokeWidth={1}
-          strokeDasharray="3 3"
+          strokeDasharray="4 4"
         />
       )}
 
@@ -325,18 +337,18 @@ function ConcentrationRibbon({
 
       {ordered.map((row) => {
         const value = lens === 'net' ? row.d_net : row.positioning;
-        const h = Math.max(1.5, ribbonHeight(value, reference) * HMAX);
+        const h = Math.max(2, ribbonHeight(value, reference) * HMAX);
         const up = value >= 0;
         return (
           <rect
             key={row.strike}
-            x={xOf(row.strike) + 1}
-            width={Math.max(1, bw - 2)}
+            x={xOf(row.strike) + 1.5}
+            width={Math.max(2, bw - 3)}
             y={up ? MID - h : MID}
             height={h}
-            rx={1.5}
+            rx={2}
             fill={up ? bull : bear}
-            opacity={h < 4 ? 0.5 : 0.92}
+            opacity={h < 8 ? 0.55 : 0.92}
           >
             <title>{`${formatStrike(row.strike)}: ${formatSignedGex(value)}`}</title>
           </rect>
@@ -347,20 +359,20 @@ function ConcentrationRibbon({
         <>
           <line
             x1={xOf(spot)}
-            y1={TOP - 6}
+            y1={MID - HMAX - 12}
             x2={xOf(spot)}
             y2={BOT + 4}
             stroke="var(--text-primary)"
-            strokeWidth={1.3}
-            strokeDasharray="4 3"
+            strokeWidth={1.5}
+            strokeDasharray="5 4"
             opacity={0.7}
           />
           <text
             x={xOf(spot)}
-            y={11}
+            y={14}
             textAnchor="middle"
             fontFamily="var(--font-mono)"
-            fontSize={10}
+            fontSize={13}
             fontWeight={700}
             fill="var(--text-primary)"
           >
@@ -369,18 +381,25 @@ function ConcentrationRibbon({
         </>
       )}
 
-      <text x={PAD} y={BOT + 20} fontFamily="var(--font-mono)" fontSize={10} fill="var(--text-muted)">
+      <text x={PAD} y={BOT + 26} fontFamily="var(--font-mono)" fontSize={12} fill="var(--text-muted)">
         {formatStrike(lo)}
       </text>
-      <text x={W - PAD} y={BOT + 20} textAnchor="end" fontFamily="var(--font-mono)" fontSize={10} fill="var(--text-muted)">
+      <text
+        x={W - PAD}
+        y={BOT + 26}
+        textAnchor="end"
+        fontFamily="var(--font-mono)"
+        fontSize={12}
+        fill="var(--text-muted)"
+      >
         {formatStrike(hi)}
       </text>
       <text
         x={bandResolved ? (xOf(band.low) + xOf(band.high) + bw) / 2 : W / 2}
-        y={BOT + 34}
+        y={BOT + 26}
         textAnchor="middle"
         fontFamily="var(--font-mono)"
-        fontSize={10}
+        fontSize={13}
         fontWeight={600}
         fill={bandResolved ? 'var(--color-warning)' : 'var(--text-muted)'}
       >
@@ -400,146 +419,122 @@ export interface GammaRegimeShiftCardProps {
   payload: RegimeShiftPayload | null;
   loading: boolean;
   error: string | null;
-  lookback: Lookback;
-  onLookbackChange: (l: Lookback) => void;
   lens: Lens;
   onLensChange: (l: Lens) => void;
   symbol: string;
-  /** Rendered top-right — the page injects its expiry filter here. */
-  control?: React.ReactNode;
 }
 
 export default function GammaRegimeShiftCard({
   payload,
   loading,
   error,
-  lookback,
-  onLookbackChange,
   lens,
   onLensChange,
   symbol,
-  control,
 }: GammaRegimeShiftCardProps) {
   const chart = useChartTheme();
 
-  const heading = (
-    <div className="flex flex-wrap items-center gap-2 border-b pb-3" style={{ borderColor: 'var(--border-subtle)' }}>
-      <h3 className="zg-h3" style={{ color: 'var(--text-primary)' }}>
-        Gamma Regime Shift
-      </h3>
-      <TooltipWrapper text="How dealer gamma CHANGED between two points in time, reduced to a read. Two independent axes: whether gamma near spot rose (stabilizing) or fell (fragile), and whether the change landed below spot (supportive) or above it (capping). The quadrant names the state; the distance from centre, in standard deviations of this symbol's own shift history, sets the wording.">
-        <Info size={14} />
-      </TooltipWrapper>
-      <span
-        className="rounded px-1.5 py-0.5 font-mono text-xs font-semibold"
-        style={{ color: 'var(--text-secondary)', background: 'var(--bg-subtle)' }}
-      >
-        {symbol}
-      </span>
-      <div className="ml-auto flex flex-wrap items-center gap-3">
-        <LookbackPicker value={lookback} onChange={onLookbackChange} />
-        {control}
-      </div>
-    </div>
-  );
-
   if (error) {
     return (
-      <div className="zg-panel p-5">
-        {heading}
-        <div className="flex h-[220px] items-center justify-center px-6 text-center text-sm" style={{ color: 'var(--color-bear)' }}>
+      <div className="zg-panel">
+        <PanelHeader title="Gamma Regime Shift" tooltip={HEADER_TOOLTIP} />
+        <PanelMessage tone="bear">
           {error === 'No data available yet'
             ? `No gamma history for ${symbol} yet.`
             : `Couldn’t load the regime shift: ${error}`}
-        </div>
+        </PanelMessage>
       </div>
     );
   }
 
   if (loading && !payload) {
     return (
-      <div className="zg-panel p-5">
-        {heading}
-        <div className="flex h-[220px] items-center justify-center text-sm" style={{ color: 'var(--text-secondary)' }}>
-          Reading the shift…
-        </div>
+      <div className="zg-panel">
+        <PanelHeader title="Gamma Regime Shift" tooltip={HEADER_TOOLTIP} />
+        <PanelMessage>Reading the shift…</PanelMessage>
       </div>
     );
   }
 
   if (!payload) {
     return (
-      <div className="zg-panel p-5">
-        {heading}
-        <div className="flex h-[220px] items-center justify-center px-6 text-center text-sm" style={{ color: 'var(--text-secondary)' }}>
+      <div className="zg-panel">
+        <PanelHeader title="Gamma Regime Shift" tooltip={HEADER_TOOLTIP} />
+        <PanelMessage>
           Not enough history for this window yet. Try a shorter lookback.
-        </div>
+        </PanelMessage>
       </div>
     );
   }
 
   const meta = STATE_META[payload.read.state];
   const tone = toneColor(meta.tone);
-  const soft = toneSoft(meta.tone);
-  const headline = buildHeadline(payload);
-  const subhead = buildSubhead(payload);
+  const levels = buildLevelRows(payload);
   const caveat = buildExpiryCaveat(payload.expiry_scope);
   const normNote = buildNormalizationNote(payload.read);
-  const levels = buildLevelRows(payload);
   const normalized = payload.read.normalization !== 'none';
 
   return (
-    <div className="zg-panel p-5">
-      {heading}
-
-      {/* ── tier 1: the glance ─────────────────────────────────────────── */}
-      <div className="mt-5 flex flex-wrap items-start gap-5">
-        <div
-          className="min-w-[170px] rounded-xl px-4 py-3"
-          style={{ background: soft, border: `1px solid ${tone}`, color: tone }}
-        >
-          <span
-            className="block font-mono text-[10px] font-semibold uppercase tracking-[0.16em] opacity-80"
-          >
-            Regime shift
+    <div className="zg-panel">
+      <PanelHeader
+        title="Gamma Regime Shift"
+        tooltip={HEADER_TOOLTIP}
+        right={
+          <span className="font-mono text-[12px]" style={{ color: 'var(--text-muted)' }}>
+            {payload.lookback_label} · {fmtTime(payload.from.timestamp)} →{' '}
+            {fmtTime(payload.to.timestamp)} ET
           </span>
-          <span className="mt-0.5 flex items-center gap-2 text-[28px] font-bold leading-tight">
-            <span className="font-mono text-xl">{meta.glyph}</span>
-            {meta.label}
-          </span>
-          <span className="mt-1 block font-mono text-[11px] opacity-90">
-            {normalized
-              ? `${payload.read.magnitude.toFixed(1)}σ · ${payload.read.adverb}`
-              : 'magnitude not measured'}
-          </span>
-        </div>
+        }
+      />
 
-        <div className="min-w-[280px] flex-1">
-          <p className="text-xl font-bold leading-snug md:text-2xl" style={{ color: 'var(--text-primary)' }}>
-            {headline}
-          </p>
-          <p className="mt-1.5 text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-            {subhead}
-          </p>
-          {/* The two axes as separate chips: a session can be stabilizing AND
-              capping, and one quadrant word cannot carry both. */}
-          {payload.read.state !== 'QUIET' && (
-            <div className="mt-2.5 flex flex-wrap gap-2">
-              <AxisChip label={meta.stability} value={formatZ(payload.read.stability_z)} />
-              <AxisChip label={meta.direction} value={formatZ(payload.read.lean_z)} />
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ── tier 2: the evidence ───────────────────────────────────────── */}
-      <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-[264px_1fr]">
-        <div className="rounded-xl p-3" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
-          <PanelHead
-            left="Shift plane"
-            right={normalized ? `σ vs ${payload.read.sessions_in_window}d` : 'unscaled'}
+      {/* ── the glance: state, sentence, and the plane that proves it ───── */}
+      <Zone flush>
+        <div className="flex flex-wrap items-start gap-6">
+          <HeroStat
+            eyebrow="Regime shift"
+            value={`${meta.glyph} ${meta.label}`}
+            caption={
+              normalized
+                ? `${payload.read.magnitude.toFixed(1)}σ · ${payload.read.adverb}`
+                : 'magnitude not measured'
+            }
+            tone={meta.tone}
           />
-          <div className="flex justify-center">
+
+          <div className="min-w-[300px] flex-1">
+            <p
+              className="text-[clamp(22px,2.2vw,30px)] font-bold leading-[1.2] tracking-tight"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              {buildHeadline(payload)}
+            </p>
+            <p className="mt-2 text-[14px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+              {buildSubhead(payload)}
+            </p>
+            {/* The two axes as separate chips: a session can be stabilizing AND
+                capping, and one quadrant word cannot carry both. */}
+            {payload.read.state !== 'QUIET' && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Chip label={meta.stability} value={formatZ(payload.read.stability_z)} />
+                <Chip label={meta.direction} value={formatZ(payload.read.lean_z)} />
+                <Chip
+                  label="normalized vs"
+                  value={normalized ? `${payload.read.sessions_in_window} sessions` : '—'}
+                />
+              </div>
+            )}
+            {/* The plane's legend lives here rather than under the plane: it
+                fills the column that would otherwise run out of content first,
+                and it reads as a caption to the whole row either way. */}
+            <p className="mt-4 max-w-[62ch] text-[13px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+              On the plane, centre is no change and the arrow tip is where the book sits
+              now — its length is the size of the move, so landing past the 2σ ring is
+              exactly the word “{payload.read.adverb}”. The upper half is stabilizing, the
+              lower half fragile; right of centre is supportive, left is capping.
+            </p>
+          </div>
+
+          <div className="shrink-0">
             <ShiftPlane
               leanZ={payload.read.lean_z}
               stabilityZ={payload.read.stability_z}
@@ -547,78 +542,52 @@ export default function GammaRegimeShiftCard({
               normalized={normalized}
             />
           </div>
-          <p className="mt-2 text-[11px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-            Centre is no change. The arrow tip is where the book sits now — past the
-            2σ ring is the word “{payload.read.adverb}”. Upper half stabilizing,
-            lower half fragile.
-          </p>
         </div>
+      </Zone>
 
-        <div className="rounded-xl p-3" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
-          <PanelHead
-            left="Before → after"
-            right={`${fmtTime(payload.from.timestamp)} → ${fmtTime(payload.to.timestamp)} ET`}
-          />
-          <div>
-            {levels.map((row) => (
-              <div
-                key={row.key}
-                className="grid grid-cols-[84px_1fr] items-baseline gap-2.5 border-b py-2.5 last:border-b-0"
-                style={{ borderColor: 'var(--border-subtle)' }}
-              >
-                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                  {row.label}
-                </span>
-                <span className="flex flex-wrap items-baseline gap-2 font-mono text-[13px] tabular-nums">
-                  {row.before && (
-                    <>
-                      <span className="line-through opacity-80" style={{ color: 'var(--text-muted)' }}>
-                        {row.before}
-                      </span>
-                      <span className="text-[11px]" style={{ color: SENSE_COLOR[row.sense] }}>
-                        {DIRECTION_GLYPH[row.direction]}
-                      </span>
-                    </>
-                  )}
-                  <span className="font-bold" style={{ color: SENSE_COLOR[row.sense] }}>
-                    {row.after}
-                  </span>
-                  <span className="font-sans text-[10.5px]" style={{ color: 'var(--text-muted)' }}>
-                    {row.note}
-                  </span>
-                </span>
-              </div>
-            ))}
-          </div>
-          {caveat && (
-            <p
-              className="mt-3 border-t pt-2.5 text-[11.5px] leading-relaxed"
-              style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}
-            >
-              {caveat}
-            </p>
-          )}
+      {/* ── the levels, as a row that fills the panel ───────────────────── */}
+      <Zone label="Before → after">
+        <div className="flex flex-wrap gap-y-4">
+          {levels.map((row) => (
+            <LevelTile
+              key={row.key}
+              label={row.label}
+              before={row.before || undefined}
+              after={row.after}
+              glyph={DIRECTION_GLYPH[row.direction]}
+              color={SENSE_COLOR[row.sense]}
+              note={row.note}
+            />
+          ))}
         </div>
-      </div>
+      </Zone>
 
       {/* ── where it landed ────────────────────────────────────────────── */}
-      <div className="mt-4 rounded-xl p-3" style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)' }}>
-        <PanelHead
-          left="Where the change landed"
-          right={`${payload.strikes.length} strikes${payload.strikes_truncated ? ' (largest movers)' : ''}`}
-        />
-        <ConcentrationRibbon
-          strikes={payload.strikes}
-          lens={lens}
-          spot={payload.spot}
-          band={payload.band}
-          bull={chart.bull}
-          bear={chart.bear}
-        />
-        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[10.5px]" style={{ color: 'var(--text-muted)' }}>
+      <Zone
+        label="Where the change landed"
+        right={`${payload.strikes.length} strikes${payload.strikes_truncated ? ' · largest movers' : ''}`}
+      >
+        {/* A 36-strike price axis squeezed into a phone's width scales every
+            label to ~4px. On narrow screens the ribbon keeps a readable scale
+            and scrolls instead, the same way every other wide chart on the
+            site behaves. */}
+        <MobileScrollableChart minWidthClass="min-w-[760px]" initialScroll="center">
+          <ConcentrationRibbon
+            strikes={payload.strikes}
+            lens={lens}
+            spot={payload.spot}
+            band={payload.band}
+            bull={chart.bull}
+            bear={chart.bear}
+          />
+        </MobileScrollableChart>
+        <div
+          className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[12px]"
+          style={{ color: 'var(--text-muted)' }}
+        >
           <span>
-            <strong style={{ color: 'var(--text-secondary)' }}>Above the line</strong> = gamma added{' '}
-            <span style={{ color: chart.bull }}>▲</span>
+            <strong style={{ color: 'var(--text-secondary)' }}>Above the line</strong> = gamma
+            added <span style={{ color: chart.bull }}>▲</span>
           </span>
           <span>
             <strong style={{ color: 'var(--text-secondary)' }}>Below</strong> = gamma shed{' '}
@@ -626,95 +595,30 @@ export default function GammaRegimeShiftCard({
           </span>
           <span>Height is scaled against a typical strike move, so a quiet window looks quiet</span>
         </div>
-      </div>
+      </Zone>
 
       {/* ── lens + disclosure ──────────────────────────────────────────── */}
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <LensToggle lens={lens} onChange={onLensChange} />
-        <span className="font-mono text-[11px]" style={{ color: 'var(--text-muted)' }}>
-          {payload.lookback_label}
-        </span>
-      </div>
-      <p className="mt-2 text-[11px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-        {lens === 'net'
-          ? 'Total change — every reason gamma moved between the two times, including the existing book re-pricing as spot and implied vol moved.'
-          : 'Repositioning — only the part driven by contracts actually opened or closed, stripping out price-driven re-pricing (a first-order estimate).'}
-      </p>
-      {normNote && (
-        <p className="mt-1.5 text-[11px] leading-relaxed" style={{ color: 'var(--color-warning)' }}>
-          {normNote}
-        </p>
-      )}
-      <p className="mt-1.5 text-[11px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-        Modeled dealer gamma (calls positive, puts negative open-interest convention);
-        actual dealer inventory is not observable from public option-chain data.
-      </p>
-
-      <ChartCaption />
-    </div>
-  );
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// sub-components
-// ────────────────────────────────────────────────────────────────────────────
-
-function PanelHead({ left, right }: { left: string; right?: string }) {
-  return (
-    <div className="mb-2.5 flex items-center justify-between gap-2">
-      <span className="font-mono text-[9.5px] font-semibold uppercase tracking-[0.15em]" style={{ color: 'var(--text-muted)' }}>
-        {left}
-      </span>
-      {right && (
-        <span className="font-mono text-[9.5px]" style={{ color: 'var(--text-muted)' }}>
-          {right}
-        </span>
-      )}
-    </div>
-  );
-}
-
-function AxisChip({ label, value }: { label: string; value: string }) {
-  return (
-    <span
-      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold"
-      style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}
-    >
-      {label}
-      <span className="font-mono opacity-80">{value}</span>
-    </span>
-  );
-}
-
-function LookbackPicker({
-  value,
-  onChange,
-}: {
-  value: Lookback;
-  onChange: (l: Lookback) => void;
-}) {
-  return (
-    <div className="flex flex-wrap gap-1">
-      {LOOKBACK_ORDER.map((key) => {
-        const active = key === value;
-        return (
-          <button
-            key={key}
-            type="button"
-            onClick={() => onChange(key)}
-            aria-pressed={active}
-            className="rounded-md px-2.5 py-1 font-mono text-[11px] transition-colors"
-            style={{
-              background: active ? 'var(--color-warning-soft)' : 'transparent',
-              border: `1px solid ${active ? 'var(--color-warning)' : 'var(--border-default)'}`,
-              color: active ? 'var(--color-warning)' : 'var(--text-muted)',
-              fontWeight: active ? 600 : 500,
-            }}
-          >
-            {LOOKBACK_LABEL[key]}
-          </button>
-        );
-      })}
+      <Zone>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-[280px] flex-1">
+            <LensToggle lens={lens} onChange={onLensChange} />
+            <p className="mt-2 text-[13px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+              {lens === 'net'
+                ? 'Total change — every reason gamma moved between the two times, including the existing book re-pricing as spot and implied vol moved.'
+                : 'Repositioning — only the part driven by contracts actually opened or closed, stripping out price-driven re-pricing (a first-order estimate).'}
+            </p>
+          </div>
+          <div className="min-w-[280px] flex-1 space-y-1.5">
+            {caveat && <Note>{caveat}</Note>}
+            {normNote && <Note tone="warning">{normNote}</Note>}
+            <Note>
+              Modeled dealer gamma (calls positive, puts negative open-interest
+              convention); actual dealer inventory is not observable from public
+              option-chain data.
+            </Note>
+          </div>
+        </div>
+      </Zone>
     </div>
   );
 }
@@ -728,7 +632,7 @@ function LensToggle({ lens, onChange }: { lens: Lens; onChange: (l: Lens) => voi
         type="button"
         onClick={() => onChange(key)}
         aria-pressed={on}
-        className="rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors"
+        className="rounded-md px-3 py-1.5 text-[12px] font-semibold transition-colors"
         style={{
           background: on ? 'var(--color-info)' : 'transparent',
           color: on ? 'var(--color-surface)' : 'var(--text-secondary)',
