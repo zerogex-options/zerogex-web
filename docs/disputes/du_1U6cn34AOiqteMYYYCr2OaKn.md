@@ -13,11 +13,34 @@
 | Disputed invoice | `in_1U45qG4AOiqteMYYZtU2r5FM` — paid 2026-08-14 |
 | Evidence deadline | **2026-09-05** |
 
+## Status — closed out, awaiting the issuer's decision
+
+Actions taken 2026-08-21, in this order. The order mattered and was deliberate.
+
+1. **Evidence submitted to Stripe.** Filed while the subscription was still active with
+   `cancel_at_period_end = false`, so every present-tense claim in it was true at the
+   moment of filing.
+2. **Subscription scheduled to cancel at period end** (`make set-cancellation ON=1`).
+   Access runs to 2026-09-13; no renewal charge will be attempted. Our action, not the
+   customer's. Deliberately after step 1: doing it first would have falsified the
+   rebuttal's central claim on the day it was filed.
+3. **Customer emailed** to say the subscription is cancelled and he won't be charged
+   again. No argument, no admission.
+
+**The evidence fields below are reproduced AS FILED. Do not edit them** — they are the
+record of what the issuer received, and that record has to stay fixed. Their present-tense
+claims describe 2026-08-21 before step 2, which is when they were submitted and when they
+were true.
+
+Anyone reusing this document as a template for a later dispute: the subscription state
+changed at step 2, so re-derive the facts rather than copying these paragraphs forward.
+
 ## Recommendation: counter
 
 The cardholder's stated reason is factually contradicted by our records. **No cancellation
-was ever requested, on any path, and the subscription is still active today** with
-`cancel_at_period_end = false`. Visa 13.2 requires the cardholder to have actually
+was ever requested, on any path**. The subscription ran with
+`cancel_at_period_end = false` continuously from signup, through the disputed charge, and
+for a week beyond it — until we scheduled it to end ourselves on 2026-08-21 (see Status). Visa 13.2 requires the cardholder to have actually
 cancelled before the charge; they did not, and separately we satisfied Visa's
 trial-conversion notification requirement 48 hours before billing.
 
@@ -77,7 +100,21 @@ charge went through the following day on retry. If they interpreted the decline 
 subscription having lapsed, that would explain the "I cancelled" framing — but a declined
 card is not a cancellation, and we emailed them about both the failure and the recovery.
 
-## Paste-ready Stripe evidence fields
+## Evidence fields as filed
+
+Stripe's dispute form labels these differently from the API field names. The mapping used
+at filing:
+
+| Form label | API field |
+| --- | --- |
+| "Why wasn't the subscription previously canceled?" | `cancellation_rebuttal` |
+| "When was the customer presented with the cancellation policy?" | `cancellation_policy_disclosure` |
+| "Access activity log" | `access_activity_log` |
+
+The rebuttal was filed under the form's "Why wasn't the subscription previously canceled?"
+prompt, opening by answering that question directly — because the customer never asked us
+to — before the body reproduced below.
+
 
 ### `cancellation_rebuttal`
 
