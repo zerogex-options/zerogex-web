@@ -126,11 +126,13 @@ card is not a cancellation, and we emailed them about both the failure and the r
 >    proceeded from this page to Stripe Checkout on 2026-08-06 (checkout session
 >    cs_live_a1VDjF0bVn4tig26z6PmDiDKdaYzFCvIkc3RttyMcuKjgkWFKEFXtnYRnt).
 >
-> 2. In our Terms of Service, Section 4 ("Subscriptions, Billing, and Cancellation"):
->    "Paid subscriptions are billed in advance on a recurring basis through Stripe at the
->    rates and intervals shown when you subscribe. By subscribing, you authorize us and
->    Stripe to charge your payment method for the applicable fees." and "You may cancel at
->    any time through the Stripe-hosted billing portal."
+> 2. In our published Terms of Service, linked in the footer of every page on the site
+>    including the pricing page the customer purchased from. Section 4 ("Subscriptions,
+>    Billing, and Cancellation") states: "Paid subscriptions are billed in advance on a
+>    recurring basis through Stripe at the rates and intervals shown when you subscribe.
+>    By subscribing, you authorize us and Stripe to charge your payment method for the
+>    applicable fees." and "You may cancel at any time through the Stripe-hosted billing
+>    portal."
 >
 > 3. In the welcome email sent 2026-08-06 immediately after signup, which stated the trial
 >    end date and that the customer could cancel from the billing portal on their account
@@ -177,6 +179,47 @@ card is not a cancellation, and we emailed them about both the failure and the r
 > (2026-08-11 22:19:53). After the charge: payment-failed notice (2026-08-13 22:07:54) and
 > payment-recovered confirmation (2026-08-14 14:08:03). None bounced and none were replied
 > to with a cancellation request.
+
+### `access_activity_log`
+
+Stripe's form labels this **"Access activity log"**. All timestamps UTC.
+
+> Account user_a6d4e5c41982998e216dd167 (jeremyy.zamora@gmail.com). Server-side access log:
+>
+> 2026-08-06 21:03:22 — account registered — 2603:8002:6c40:23:3cb0:8fbd:246d:69ac
+> 2026-08-06 21:03:22 — email verification requested — 2603:8002:6c40:23:3cb0:8fbd:246d:69ac
+> 2026-08-06 21:04:02 — email verification completed — 2603:8002:6c40:23:3cb0:8fbd:246d:69ac
+> 2026-08-06 21:04:49 — password reset requested — 2603:8002:6c40:23:3cb0:8fbd:246d:69ac
+> 2026-08-06 21:05:35 — password reset completed — 2603:8002:6c40:23:3cb0:8fbd:246d:69ac
+> 2026-08-06 21:05:41 — authenticated login — 2603:8002:6c40:23:3cb0:8fbd:246d:69ac
+> 2026-08-06 21:05:55 — checkout initiated, session cs_live_a1VDjF0bVn4tig26z6PmDiDKdaYzFCvIkc3RttyMcuKjgkWFKEFXtnYRnt — 2603:8002:6c40:23:3cb0:8fbd:246d:69ac
+> 2026-08-06 21:06:35 — subscription created; Pro access provisioned server-side
+> 2026-08-06 21:06:58 — platform disclaimer acknowledged in-app — 2603:8002:6c40:23:3cb0:8fbd:246d:69ac
+> 2026-08-06 21:07:09 — Pro onboarding and API-key setup completed in-app — 2603:8002:6c40:23:3cb0:8fbd:246d:69ac
+> 2026-08-06 21:34:34 — authenticated login — 146.70.174.222
+>
+> The account was provisioned with full Pro access on 2026-08-06, including an active API
+> key issued to the customer, and that access remained live and unrestricted for the
+> entire period covered by the disputed charge (2026-08-13 to 2026-09-13). The service was
+> never suspended, throttled, or withheld, and access was not interrupted by the failed
+> first charge on 2026-08-13 — we deliberately held the customer's Pro tier through a
+> 3-day payment grace window while the retry completed.
+>
+> ZeroGEX is a live market-data service: the subscription entitles the customer to
+> continuous access to real-time gamma-exposure analytics for as long as it is active,
+> which was the case throughout. The customer never contacted us to report any difficulty
+> accessing the service.
+
+Include the 21:34:34 login and its IP. In a fraud dispute a datacenter IP would be worth
+weighing; under 13.2 the cardholder has affirmatively acknowledged the subscription is
+his, so identity is not contested, and a log with one row conspicuously missing its IP
+reads as edited. The single-value `customer_purchase_ip` field is different — that one
+correctly takes the residential address the purchase was actually made from.
+
+This field is where honesty costs us something and we pay it anyway: the log ends on
+2026-08-06. Do not pad it, and do not phrase anything to imply post-charge logins. The
+defensible claim is that access was continuously *provisioned and available*, which is
+true and is what the merchant is obliged to deliver. Non-use is the customer's choice.
 
 ### Simple fields
 
