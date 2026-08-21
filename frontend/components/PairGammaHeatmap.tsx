@@ -593,15 +593,17 @@ export default function PairGammaHeatmap({
   const offsets = useMemo(() => columnOffsets([leftModel, rightModel]), [leftModel, rightModel]);
 
   return (
-    // Each column holds a 140px floor and grows to share the width; the two fit
-    // any phone ≥ ~300px. On anything narrower the columns keep their floor and
-    // this container scrolls the ladder horizontally instead of clipping it.
+    // Each column holds a 175px floor and grows to share the width — enough
+    // for the header's level legend and the value column (with the Δ slot) to
+    // sit comfortably. The two fit any phone ≥ ~360px; on anything narrower
+    // the columns keep their floor and this container scrolls the ladder
+    // horizontally instead of clipping it.
     <div className="overflow-x-auto">
       <div className="flex" style={{ gap: 1, background: "var(--border-default)" }}>
-        <div style={{ flex: "1 1 140px", minWidth: 140, background: "var(--bg-card)" }}>
+        <div style={{ flex: "1 1 175px", minWidth: 175, background: "var(--bg-card)" }}>
           <HeatmapColumn model={leftModel} offsets={offsets} gexUnit={gexUnit} />
         </div>
-        <div style={{ flex: "1 1 140px", minWidth: 140, background: "var(--bg-card)" }}>
+        <div style={{ flex: "1 1 175px", minWidth: 175, background: "var(--bg-card)" }}>
           <HeatmapColumn model={rightModel} offsets={offsets} gexUnit={gexUnit} />
         </div>
       </div>
