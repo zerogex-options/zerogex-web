@@ -394,8 +394,10 @@ export default function PairComparisonClient() {
           replay transport spanning the bottom — one playhead drives all four. */}
       <div className="zg-feature-shell zg-gc-rise" style={{ overflow: "hidden" }}>
         <div className="flex flex-col lg:flex-row">
-          {/* Left: the two gamma ladders (narrowed) */}
-          <div className="w-full lg:w-[340px] lg:flex-none border-b lg:border-b-0 lg:border-r border-[var(--border-default)]">
+          {/* Left: the two gamma ladders. ~212px per column so the level
+              legend, strike tags and the value column (with the Δ slot) fit
+              without crowding; the candle charts flex into what remains. */}
+          <div className="w-full lg:w-[425px] lg:flex-none border-b lg:border-b-0 lg:border-r border-[var(--border-default)]">
             <PairGammaHeatmap left={leftInput} right={rightInput} gexUnit={gexUnit} activeOnly={activeOnly} />
           </div>
 
