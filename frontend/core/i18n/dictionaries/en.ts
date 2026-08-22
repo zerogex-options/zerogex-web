@@ -16,6 +16,7 @@ export const en = {
   'menu.login': 'Login',
   'menu.logout': 'Logout',
   'menu.logoutMobile': 'Log out',
+  'menu.notSignedIn': 'Not signed in',
 
   // Register / signup page
   'register.title': 'Create your ZeroGEX account',
@@ -94,6 +95,14 @@ export const en = {
   'footer.apiDocs': 'API Docs',
   'footer.privacy': 'Privacy',
   'footer.terms': 'Terms',
+  // Column headings for the link grid, plus the entries that only the
+  // footer surfaces (the rest reuse their nav.* labels).
+  'footer.col.company': 'Company',
+  'footer.col.legal': 'Legal',
+  'footer.pricing': 'Pricing',
+  'footer.faqs': 'FAQs',
+  'footer.tagline':
+    'Real-time gamma exposure and dealer positioning for SPX, SPY, QQQ and NDX traders.',
   'footer.veteransBadge': '3% supports veterans',
   'footer.rights': '© 2026 ZeroGEX, All rights reserved.',
   'footer.disclaimer':

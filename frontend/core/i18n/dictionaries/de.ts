@@ -11,6 +11,7 @@ export const de: Dictionary = {
   'menu.login': 'Anmelden',
   'menu.logout': 'Abmelden',
   'menu.logoutMobile': 'Abmelden',
+  'menu.notSignedIn': 'Nicht angemeldet',
 
   'register.title': 'Erstelle dein ZeroGEX-Konto',
   'register.referralBanner': '🎉 Ein Freund hat dich eingeladen — dein Rabatt wird an der Kasse angewendet.',
@@ -84,6 +85,12 @@ export const de: Dictionary = {
   'footer.apiDocs': 'API-Doku',
   'footer.privacy': 'Datenschutz',
   'footer.terms': 'AGB',
+  'footer.col.company': 'Unternehmen',
+  'footer.col.legal': 'Rechtliches',
+  'footer.pricing': 'Preise',
+  'footer.faqs': 'FAQ',
+  'footer.tagline':
+    'Echtzeit-Gamma-Exposure und Dealer-Positionierung für SPX-, SPY-, QQQ- und NDX-Trader.',
   'footer.veteransBadge': '3 % für Veteranen',
   'footer.rights': '© 2026 ZeroGEX, alle Rechte vorbehalten.',
   'footer.disclaimer':

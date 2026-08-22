@@ -1683,12 +1683,305 @@ html {
 }
 .zg-btn--ghost:hover { color: var(--text-primary); }
 
+/* ============================================================
+   CHROME — header, sidebar, account menu, footer.
+   The frame around the product. It used to be built from inline
+   styles and JS onMouseEnter handlers, which meant five different
+   corner radii on screen at once, no :focus-visible or :active on
+   anything, and menu rows with no hover at all. One vocabulary
+   here, so the frame reads as deliberate as the instruments do.
+   ============================================================ */
+
+/* Icon button — the ONE round-trip control in the header rails
+   (theme, search, account, collapse). Fixed 34px box so a row of
+   them sits on a common baseline regardless of glyph size. */
+.zg-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color var(--dur-1) var(--ease-standard),
+              border-color var(--dur-1) var(--ease-standard),
+              color var(--dur-1) var(--ease-standard);
+}
+.zg-icon-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+.zg-icon-btn:active { background: var(--bg-active); }
+.zg-icon-btn[data-active="true"] {
+  border-color: var(--color-accent-hot);
+  color: var(--color-accent-hot);
+}
+/* Compact variant for the collapsed header and the mobile top bar. */
+.zg-icon-btn--sm { width: 28px; height: 28px; }
+
+/* Avatar — initials in a square plate. The account control has to say
+   WHO is signed in; a generic outline glyph for both states is the
+   single clearest "unfinished" tell in an app header. */
+.zg-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-control);
+  border: 1px solid transparent;
+  background: var(--color-accent-hot);
+  color: var(--text-inverse);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  cursor: pointer;
+  transition: filter var(--dur-1) var(--ease-standard),
+              border-color var(--dur-1) var(--ease-standard);
+}
+.zg-avatar:hover { filter: brightness(1.12); }
+.zg-avatar--sm { width: 28px; height: 28px; font-size: 10px; }
+
+/* Menu — the account/profile dropdown surface. */
+.zg-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  min-width: 248px;
+  padding: 6px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-panel);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-pop);
+  z-index: 60;
+}
+
+/* Identity block at the head of the menu — email + plan. */
+.zg-menu-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 10px 12px;
+}
+.zg-menu-head-text { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.zg-menu-email {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.zg-menu-sep {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--border-subtle);
+}
+
+/* Menu row — hover is the whole point. The old rows had none at all. */
+.zg-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color var(--dur-1) var(--ease-standard),
+              color var(--dur-1) var(--ease-standard);
+}
+.zg-menu-item:hover { background: var(--bg-hover); }
+.zg-menu-item svg { flex-shrink: 0; color: var(--text-secondary); }
+.zg-menu-item:hover svg { color: var(--text-primary); }
+.zg-menu-item--accent { color: var(--color-accent-hot); }
+.zg-menu-item--accent svg,
+.zg-menu-item--accent:hover svg { color: var(--color-accent-hot); }
+.zg-menu-item--accent:hover { background: color-mix(in srgb, var(--color-accent-hot) 12%, transparent); }
+
+/* ── Sidebar ──────────────────────────────────────────────────
+   Rows carry their state on a left rail, the way every established
+   console does it, instead of a tinted rounded box that reads as a
+   button. Hover/active are CSS, so they also cover :focus-visible. */
+.zg-nav-group {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 10px;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color var(--dur-1) var(--ease-standard),
+              background-color var(--dur-1) var(--ease-standard);
+}
+.zg-nav-group:hover { color: var(--text-primary); background: var(--bg-hover); }
+
+.zg-nav-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px 8px 12px;
+  border: 0;
+  border-left: 2px solid transparent;
+  border-radius: 0 var(--radius-control) var(--radius-control) 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color var(--dur-1) var(--ease-standard),
+              border-color var(--dur-1) var(--ease-standard),
+              color var(--dur-1) var(--ease-standard);
+}
+.zg-nav-row:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.zg-nav-row[data-active="true"] {
+  border-left-color: var(--color-accent-hot);
+  background: color-mix(in srgb, var(--color-accent-hot) 10%, transparent);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.zg-nav-row-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Pin toggle inside a row — invisible until the row is hovered or the
+   page is pinned, so the rail stays quiet at rest. */
+.zg-nav-pin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border-radius: var(--radius-control);
+  color: var(--text-muted);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity var(--dur-1) var(--ease-standard),
+              color var(--dur-1) var(--ease-standard);
+}
+.zg-nav-row:hover .zg-nav-pin,
+.zg-nav-pin:focus-visible { opacity: 0.7; }
+.zg-nav-pin:hover { opacity: 1; color: var(--color-accent-hot); }
+.zg-nav-pin[data-pinned="true"] { opacity: 1; color: var(--color-accent-hot); }
+
+/* Thin themed scrollbar for the sidebar and other in-app scroll panes.
+   The default chrome scrollbar is the loudest thing on a dark console. */
+.zg-scroll { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+.zg-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+.zg-scroll::-webkit-scrollbar-track { background: transparent; }
+.zg-scroll::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: var(--radius-pill);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.zg-scroll::-webkit-scrollbar-thumb:hover { background: var(--border-strong); background-clip: padding-box; }
+
+/* ── Footer ───────────────────────────────────────────────────
+   Semantic link columns + a bottom legal bar, the shape every
+   established platform converged on. Replaces one flat list of
+   nine links under a generic "Navigation" head. */
+.zg-footer-cols {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 32px 24px;
+}
+@media (min-width: 640px) { .zg-footer-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1024px) { .zg-footer-cols { grid-template-columns: 1.4fr repeat(4, minmax(0, 1fr)); } }
+
+.zg-footer-link {
+  display: inline-block;
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color var(--dur-1) var(--ease-standard);
+}
+.zg-footer-link:hover { color: var(--text-primary); }
+
+/* Social — ghost buttons that fill on hover. The filled brand-colour
+   circles with drop shadows they replace were the most dated element
+   on the page. */
+.zg-social {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: background-color var(--dur-1) var(--ease-standard),
+              border-color var(--dur-1) var(--ease-standard),
+              color var(--dur-1) var(--ease-standard);
+}
+.zg-social:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
 /* ── Craft floor: shipped once, invisible. ────────────────────
    A global focus ring for keyboard users, and a reduced-motion guard
    that quiets every animation/transition for users who ask for it. */
 :where(a, button, [role="button"], input, select, textarea, summary):focus-visible {
   outline: 2px solid var(--color-accent-hot);
   outline-offset: 2px;
+}
+
+/* Hinting/smoothing so the variable faces render at the weight they
+   were drawn at rather than a heavier rasterised approximation. */
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Branded selection — a detail every polished product ships and no
+   unfinished one does. */
+::selection {
+  background: color-mix(in srgb, var(--color-accent-hot) 30%, transparent);
+  color: var(--text-primary);
 }
 
 @media (prefers-reduced-motion: reduce) {
