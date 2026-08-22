@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { usePathname } from 'next/navigation';
 import { useTheme } from '@/core/ThemeContext';
-import { colors } from '@/core/colors';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { identify as telemetryIdentify, reset as telemetryReset } from '@/core/telemetry/posthog-client';
 import { DISCLAIMER_VERSION } from '@/core/disclaimer';
@@ -250,7 +249,15 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       <main className="zg-faceplate md:pl-[var(--zgx-nav-width,0px)]" style={{ flex: 1, paddingTop: "var(--zgx-nav-height, 0px)" }}>
         {children}
       </main>
-      <Footer theme={theme} />
+      {/* The sidebar is position:fixed and runs to the bottom of the viewport,
+          so the footer has to clear it the same way <main> does — without this
+          its left 272px renders underneath the sidebar and the brand block and
+          disclaimer are clipped. The offset lives here rather than in Footer
+          because eleven standalone pages (landing, pricing, terms, …) render
+          the same Footer with no sidebar present. */}
+      <div className="md:pl-[var(--zgx-nav-width,0px)]">
+        <Footer theme={theme} />
+      </div>
       {disclaimerModal}
       {foundingLockinModal}
       {proWelcomeModal}

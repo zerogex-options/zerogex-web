@@ -1830,8 +1830,8 @@ html {
   border-radius: var(--radius-control);
   background: transparent;
   font-family: var(--font-mono);
-  font-weight: 600;
-  font-size: 10px;
+  font-weight: 700;
+  font-size: 12px;
   letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--text-muted);
