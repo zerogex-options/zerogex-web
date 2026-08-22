@@ -641,7 +641,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
     about: [
       { '@type': 'Thing', name: 'Gamma exposure (GEX)' },
       { '@type': 'Thing', name: 'Dealer hedging' },
-      { '@type': 'Thing', name: `${primary} options` },
+      { '@type': 'Thing', name: `${SYMBOL_CHAIN[primary]} options` },
       { '@type': 'Thing', name: 'Call wall' },
       { '@type': 'Thing', name: 'Put wall' },
       { '@type': 'Thing', name: 'Gamma flip' },

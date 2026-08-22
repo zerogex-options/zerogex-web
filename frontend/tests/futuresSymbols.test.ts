@@ -26,6 +26,8 @@ import {
   isFuturesTicker,
   isWithinFuturesSessionHours,
   isWithinTradingHoursForSymbol,
+  omitOutOfHoursForSymbol,
+  omitClosedMarketTimes,
 } from '../core/utils.ts';
 
 test('ES and NQ are picker symbols backed by SPX and NDX', () => {
@@ -100,4 +102,27 @@ test('isFuturesTicker tolerates the continuous-contract @ prefix', () => {
 
 test('an invalid timestamp is not treated as an open session', () => {
   assert.equal(isWithinFuturesSessionHours('not-a-date'), false);
+});
+
+// The bug this guards: every candle chart filtered its bars with
+// omitClosedMarketTimes, which applies the EQUITY extended-hours window. For a
+// contract that trades ~23h a day that deletes the entire overnight session —
+// the exact hours an ES chart exists to show.
+test('overnight ES bars survive the chart filter but SPX bars do not', () => {
+  const bars = [
+    { timestamp: '2026-08-19T07:00:00Z' }, // 03:00 ET Wed — overnight
+    { timestamp: '2026-08-19T14:00:00Z' }, // 10:00 ET Wed — cash session
+    { timestamp: '2026-08-19T23:00:00Z' }, // 19:00 ET Wed — overnight
+  ];
+  const es = omitOutOfHoursForSymbol(bars, (b) => b.timestamp, 'ES');
+  assert.equal(es.length, 3, 'ES keeps its overnight bars');
+
+  const spx = omitOutOfHoursForSymbol(bars, (b) => b.timestamp, 'SPX');
+  assert.equal(spx.length, 1, 'SPX keeps only the cash-session bar');
+
+  // The old call applied the equity window (04:00-20:00 ET), silently
+  // dropping the 03:00 ET bar from an ES chart. The 19:00 ET one survived by
+  // coincidence — it happens to fall inside equity extended hours — which is
+  // exactly why the bug was easy to miss by eye.
+  assert.equal(omitClosedMarketTimes(bars, (b) => b.timestamp).length, 2);
 });

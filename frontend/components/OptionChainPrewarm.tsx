@@ -21,7 +21,10 @@ import { useEffect } from 'react';
 import { prewarmOptionChain } from '@/core/optionChainCache';
 import { scheduleIdle } from '@/core/scheduleIdle';
 
-const PREWARM_SYMBOLS = ['SPY', 'SPX', 'QQQ', 'NDX', 'ES', 'NQ'] as const;
+// Deliberately the four BACKING symbols only. ES/NQ answers are re-projections
+// of the SPX/NDX ones, so prewarming them would fire two more speculative
+// requests per page load for every visitor to warm data that is already warm.
+const PREWARM_SYMBOLS = ['SPY', 'SPX', 'QQQ', 'NDX'] as const;
 
 export default function OptionChainPrewarm() {
   useEffect(() => scheduleIdle(() => {

@@ -27,7 +27,7 @@ import { useStrikeProfileTimeseries, type StrikeProfileStrike } from "@/hooks/us
 import { useTechnicals } from "@/hooks/useTechnicals";
 import { useTimeframe, type UnderlyingSymbol } from "@/core/TimeframeContext";
 import { getPrimaryPriceChangeSummary, getExtendedHoursRow } from "@/core/priceChange";
-import { omitClosedMarketTimes, shouldOmitClosedMarketTimes, isIndexSymbol, isWithinRegularMarketHours, etTodayDateKey, etTradingDateLabel } from "@/core/utils";
+import { omitClosedMarketTimes, shouldOmitClosedMarketTimes, isIndexSymbol, isWithinRegularMarketHours, etTodayDateKey, etTradingDateLabel, omitOutOfHoursForSymbol } from "@/core/utils";
 import { SYMBOLS } from "@/core/symbols";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import LoadingSpinner from "./LoadingSpinner";
@@ -590,7 +590,7 @@ export default function GammaTerminalChart({
   const { rows: subRowsRaw } = useMarketHistorical(symbol, subTf ?? timeframe, !symbolIsIndex, subEnabled);
   const subBars = useMemo(() => {
     if (!subEnabled) return [] as Array<{ ms: number; open: number; high: number; low: number; close: number; up: number; down: number }>;
-    const rows = omitClosedMarketTimes(subRowsRaw || [], (d) => d.timestamp);
+    const rows = omitOutOfHoursForSymbol(subRowsRaw || [], (d) => d.timestamp, symbol);
     return rows
       .map((d) => {
         const close = Number(d.close ?? d.price ?? 0);
@@ -607,7 +607,7 @@ export default function GammaTerminalChart({
       })
       .filter((b) => Number.isFinite(b.ms))
       .sort((a, b) => a.ms - b.ms);
-  }, [subEnabled, subRowsRaw]);
+  }, [subEnabled, subRowsRaw, symbol]);
 
   // Stage 1 — normalize + aggregate history (expensive; independent of the tick).
   const historicalBars = useMemo(() => {
@@ -615,7 +615,7 @@ export default function GammaTerminalChart({
     // them by intraday ET hours would drop every Monday (see
     // shouldOmitClosedMarketTimes). Only intraday series need the filter.
     const filtered = shouldOmitClosedMarketTimes(intervalMinutes)
-      ? omitClosedMarketTimes(data || [], (d) => d.timestamp)
+      ? omitOutOfHoursForSymbol(data || [], (d) => d.timestamp, symbol)
       : data || [];
     const seed = filtered[0]?.close ?? filtered[0]?.price ?? 0;
     const normalized = filtered.reduce(
@@ -637,7 +637,7 @@ export default function GammaTerminalChart({
       { rows: [] as Bar[], prevClose: seed },
     );
     return aggregateBars(normalized.rows, intervalMinutes, POOL);
-  }, [data, intervalMinutes]);
+  }, [data, intervalMinutes, symbol]);
 
   // Stage 2 — overlay the live tick onto the tip bar (same bucket-scoped,
   // history-authoritative rules proven out in UnderlyingCandlesChart). This is
