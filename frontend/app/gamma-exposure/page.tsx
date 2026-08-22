@@ -38,6 +38,7 @@ import { etTodayDateKey } from '@/core/utils';
 import { useSharedExpirations } from '@/hooks/useSharedExpirations';
 import { reconcileExpirations } from '@/core/expirationPersistence';
 import { netGexAtSpotOrNull, longGammaAtSpot } from '@/core/gammaRegime';
+import { volatilityIndexFor } from '@/core/symbols';
 import {
   aggregateStrikes,
   chartExpirationOptions as deriveChartExpirationOptions,
@@ -118,7 +119,7 @@ export default function GammaExposurePage() {
     [openInterestPayload],
   );
   // QQQ/NDX's correct implied-vol input is VXN (Nasdaq-100); SPX/SPY use VIX.
-  const volIndex: 'VIX' | 'VXN' = symbol === 'QQQ' || symbol === 'NDX' ? 'VXN' : 'VIX';
+  const volIndex: 'VIX' | 'VXN' = volatilityIndexFor(symbol);
   const { data: volGauge } = useVolatilityGauge(30000, volIndex);
   // vol-expansion is a Pro-only endpoint; this page is Basic-tier, so gate the
   // poll behind Pro access instead of 403-looping for non-Pro viewers. The

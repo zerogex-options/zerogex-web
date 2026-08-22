@@ -12,7 +12,7 @@ import ForcedFlowTrackRecord from '@/components/ForcedFlowTrackRecord';
 // The on-page selector drives the shared TimeframeContext symbol (same source
 // of truth as the global header picker), so switching here stays in lockstep
 // with the rest of the app.
-const SYMBOLS: UnderlyingSymbol[] = ['SPY', 'SPX', 'QQQ', 'NDX'];
+const SYMBOLS: UnderlyingSymbol[] = ['SPY', 'SPX', 'QQQ', 'NDX', 'ES', 'NQ'];
 
 export default function ForcedFlowPage() {
   const { symbol, setSymbol } = useTimeframe();

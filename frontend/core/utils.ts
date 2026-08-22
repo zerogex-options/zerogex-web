@@ -149,6 +149,36 @@ const INDEX_SYMBOLS: ReadonlySet<string> = new Set([
   'SPX', 'NDX', 'DJX', 'RUT', 'VIX', 'XSP', 'OEX', 'COMP',
 ]);
 
+// CME equity-index futures. Unlike an index or an ETF these trade the
+// electronic session — Sunday 18:00 ET straight through to Friday 17:00 ET,
+// with only the daily 17:00–18:00 maintenance break — so neither the regular
+// nor the extended-hours filter describes them, and applying either would
+// trim away most of a legitimate overnight series.
+const FUTURES_SYMBOLS: ReadonlySet<string> = new Set(['ES', 'NQ', 'RTY', 'YM']);
+
+export const isFuturesTicker = (symbol: string | null | undefined): boolean => {
+  if (!symbol) return false;
+  return FUTURES_SYMBOLS.has(symbol.toUpperCase().replace(/^@/, ''));
+};
+
+export const isWithinFuturesSessionHours = (timestamp: string | Date): boolean => {
+  const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return false;
+
+  const parts = etFormatter.formatToParts(date);
+  const weekday = parts.find((p) => p.type === 'weekday')?.value;
+  const hour = Number(parts.find((p) => p.type === 'hour')?.value ?? '0');
+  const minute = Number(parts.find((p) => p.type === 'minute')?.value ?? '0');
+  const totalMinutes = hour * 60 + minute;
+
+  // Daily maintenance break, every trading day.
+  if (totalMinutes >= 17 * 60 && totalMinutes < 18 * 60) return false;
+  if (weekday === 'Sat') return false;
+  if (weekday === 'Sun') return totalMinutes >= 18 * 60; // Sunday reopen
+  if (weekday === 'Fri') return totalMinutes < 17 * 60; // Friday close
+  return true;
+};
+
 export const isIndexSymbol = (symbol: string | null | undefined): boolean => {
   if (!symbol) return false;
   const normalized = symbol.toUpperCase().replace(/^\$/, '');
@@ -158,10 +188,12 @@ export const isIndexSymbol = (symbol: string | null | undefined): boolean => {
 export const isWithinTradingHoursForSymbol = (
   timestamp: string | Date,
   symbol: string | null | undefined,
-): boolean =>
-  isIndexSymbol(symbol)
+): boolean => {
+  if (isFuturesTicker(symbol)) return isWithinFuturesSessionHours(timestamp);
+  return isIndexSymbol(symbol)
     ? isWithinRegularMarketHours(timestamp)
     : isWithinExtendedMarketHours(timestamp);
+};
 
 /**
  * Whether the session string reported by /api/market/quote indicates the

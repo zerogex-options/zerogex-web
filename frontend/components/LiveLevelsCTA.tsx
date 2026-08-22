@@ -26,6 +26,8 @@ const TICKERS = [
   { href: '/spy-gamma-levels', label: 'SPY' },
   { href: '/qqq-gamma-levels', label: 'QQQ' },
   { href: '/ndx-gamma-levels', label: 'NDX' },
+  { href: '/es-gamma-levels', label: 'ES' },
+  { href: '/nq-gamma-levels', label: 'NQ' },
 ] as const;
 
 const linkClass =

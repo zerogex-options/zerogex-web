@@ -54,7 +54,7 @@ import type { UnderlyingSymbol } from './symbolPersistence';
 // are pinned by their own unit tests (tests/symbolPersistence.test.ts,
 // tests/expirationPersistence.test.ts, tests/myDashboardLayout.test.ts).
 
-const UNDERLYING_SYMBOLS: readonly string[] = ['SPY', 'SPX', 'QQQ', 'NDX'];
+const UNDERLYING_SYMBOLS: readonly string[] = ['SPY', 'SPX', 'QQQ', 'NDX', 'ES', 'NQ'];
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 function isUnderlyingSymbol(value: unknown): value is UnderlyingSymbol {

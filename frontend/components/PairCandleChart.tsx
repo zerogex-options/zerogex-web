@@ -21,7 +21,7 @@ import { useMarketHistorical } from "@/hooks/useMarketHistorical";
 import { type ReplayCandle } from "@/hooks/usePairReplay";
 import LoadingSpinner from "./LoadingSpinner";
 import ErrorMessage from "./ErrorMessage";
-import { omitClosedMarketTimes } from "@/core/utils";
+import { omitClosedMarketTimes, omitOutOfHoursForSymbol } from "@/core/utils";
 import { type ChartTimeframe } from "./ChartTimeframeSelect";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import MobileScrollableChart from "./MobileScrollableChart";
@@ -156,8 +156,12 @@ interface RawRow {
 // Normalize raw historical rows into gap-filled CandleBars (closed-market times
 // dropped, missing fields carried forward from the prior close, up/down volume
 // split). Shared by the live path and the replay pre-session fill.
-function normalizeRows(rows: RawRow[]): CandleBar[] {
-  const filtered = omitClosedMarketTimes(rows || [], (d) => d.timestamp);
+//
+// The symbol decides which session counts as "closed": each leg of a pair is
+// filtered on its own calendar, so an ES leg keeps its overnight CME bars while
+// an SPX leg is still trimmed to the cash session.
+function normalizeRows(rows: RawRow[], symbol: string): CandleBar[] {
+  const filtered = omitOutOfHoursForSymbol(rows || [], (d) => d.timestamp, symbol);
   let prevClose = filtered[0]?.close ?? filtered[0]?.price ?? 0;
   const out: CandleBar[] = [];
   for (const d of filtered) {
@@ -268,8 +272,8 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
 
   // Stage 1 — aggregate the historical rows (independent of the live tick).
   const historicalBars = useMemo(
-    () => aggregateBars(normalizeRows(data), intervalMinutes, MAX_POINTS),
-    [data, intervalMinutes],
+    () => aggregateBars(normalizeRows(data, symbol), intervalMinutes, MAX_POINTS),
+    [data, intervalMinutes, symbol],
   );
 
   // Stage 2 — reconcile the live quote with the historical tip bar. Same
@@ -306,7 +310,7 @@ export default function PairCandleChart({ symbol, timeframe, label, embedded = f
   // Replay reveals the session up to the playhead and prepends the full
   // historical cache (~hundreds of bars) as pre-session fill so a constant
   // window always shows; live uses the reconciled live bars.
-  const fullHistBars = replayActive ? normalizeRows(dataAll) : EMPTY_BARS;
+  const fullHistBars = replayActive ? normalizeRows(dataAll, symbol) : EMPTY_BARS;
   const replayBars = replayActive
     ? buildReplayBars(replay?.candles ?? EMPTY_REPLAY_CANDLES, fullHistBars, replay?.cursorTs ?? null, intervalMinutes, MAX_POINTS)
     : EMPTY_BARS;

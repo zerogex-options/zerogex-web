@@ -10,7 +10,7 @@ import TooltipWrapper from "./TooltipWrapper";
 import ExpandableCard from "./ExpandableCard";
 import { colors } from "@/core/colors";
 import { useTheme } from "@/core/ThemeContext";
-import { omitClosedMarketTimes, shouldOmitClosedMarketTimes, etTradingDateLabel } from "@/core/utils";
+import { omitClosedMarketTimes, shouldOmitClosedMarketTimes, etTradingDateLabel, omitOutOfHoursForSymbol } from "@/core/utils";
 import { useTimeframe } from "@/core/TimeframeContext";
 import ChartTimeframeSelect, { type ChartTimeframe } from "./ChartTimeframeSelect";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -132,7 +132,7 @@ export default function UnderlyingCandlesChart() {
   const data = useMemo(() => dataAll.slice(-fetchWindowUnits), [dataAll, fetchWindowUnits]);
 
   // Stage 1 — aggregate the historical rows. Expensive
-  // (omitClosedMarketTimes walks all bars, aggregateBars does bucket
+  // (omitOutOfHoursForSymbol walks all bars, aggregateBars does bucket
   // sort + slice + map) and depends only on the historical response
   // + timeframe, not on the live tick. Keeping this in its own memo
   // means a 1Hz WS push doesn't re-sort N minutes of history every
@@ -142,7 +142,7 @@ export default function UnderlyingCandlesChart() {
     // them by intraday ET hours would drop every Monday (see
     // shouldOmitClosedMarketTimes). Only intraday series need the filter.
     const filtered = shouldOmitClosedMarketTimes(intervalMinutes)
-      ? omitClosedMarketTimes(data || [], (d) => d.timestamp)
+      ? omitOutOfHoursForSymbol(data || [], (d) => d.timestamp, symbol)
       : data || [];
     const seed = filtered[0]?.close ?? filtered[0]?.price ?? 0;
 
@@ -176,7 +176,7 @@ export default function UnderlyingCandlesChart() {
     );
 
     return aggregateBars(normalized.rows, intervalMinutes, maxPoints);
-  }, [data, intervalMinutes, maxPoints]);
+  }, [data, intervalMinutes, maxPoints, symbol]);
 
   // Stage 2 — reconcile the live WS tick with the historical tip bar.
   //

@@ -20,6 +20,7 @@ import StickyTrialBar from './StickyTrialBar';
 import GammaTerminalChart from '@/components/GammaTerminalChart';
 import { loadChartSnapshot } from '@/app/chart/snapshot';
 import { netGexAtSpotOrNull } from '@/core/gammaRegime';
+import { volatilityIndexFor } from '@/core/symbols';
 
 // Shared, ticker-first view behind the free gamma-levels pages. One component
 // renders four routes — /spx-gamma-levels, /spy-gamma-levels, /qqq-gamma-levels,
@@ -44,7 +45,7 @@ const SITE = 'https://zerogex.io';
 // (never wall-clock), so it stays deterministic inside the ISR HTML.
 const STALE_THRESHOLD_MS = 90 * 60 * 1000;
 
-const SYMBOLS = ['SPX', 'SPY', 'QQQ', 'NDX'] as const;
+const SYMBOLS = ['SPX', 'SPY', 'QQQ', 'NDX', 'ES', 'NQ'] as const;
 type Symbol = (typeof SYMBOLS)[number];
 
 interface GexSummary {
@@ -90,7 +91,30 @@ const SYMBOL_AUDIENCE: Record<Symbol, string> = {
   SPY: 'SPY and S&P 500 options traders',
   QQQ: 'QQQ and Nasdaq-100 options traders',
   NDX: 'NDX and Nasdaq-100 options traders',
+  ES: 'ES and S&P 500 futures traders',
+  NQ: 'NQ and Nasdaq-100 futures traders',
 };
+
+// The options chain each symbol's levels are actually computed from. ES and
+// NQ have no chain of their own here: their levels are the SPX / NDX
+// option-derived levels carried onto the futures price axis. Saying "the ES
+// options chain" on a public page would be plainly false, so the copy names
+// the real source wherever the two differ.
+const SYMBOL_CHAIN: Record<Symbol, Symbol> = {
+  SPX: 'SPX',
+  SPY: 'SPY',
+  QQQ: 'QQQ',
+  NDX: 'NDX',
+  ES: 'SPX',
+  NQ: 'NDX',
+};
+
+/** Sentence disclosing the derivation, for symbols that have one. */
+function derivationNote(primary: Symbol): string {
+  const chain = SYMBOL_CHAIN[primary];
+  if (chain === primary) return '';
+  return ` ${primary} levels are derived from the ${chain} options chain and converted to ${primary} prices using the live futures basis, so they line up with the ${primary} contract you actually trade.`;
+}
 
 function buildSymbolContent(primary: Symbol): SymbolContent {
   const path = `/${primary.toLowerCase()}-gamma-levels`;
@@ -100,11 +124,13 @@ function buildSymbolContent(primary: Symbol): SymbolContent {
     title: `${primary} Gamma Levels Today: Gamma Flip, Call Wall, Put Wall & Net GEX`,
     description: `Free daily ${primary} gamma levels — the ${primary} gamma flip, call wall, put wall, max pain, and net dealer GEX (Net GEX). Delayed dealer-positioning levels, refreshed every 15 minutes. No signup required.`,
     h1: `${primary} Gamma Levels Today`,
-    intro: `Track today's ${primary} gamma levels — the ${primary} gamma flip, call wall, put wall, max pain, and net dealer GEX. These free levels are delayed roughly 15 minutes and help ${SYMBOL_AUDIENCE[primary]} see the key dealer-positioning zones where price may pin, reject, or accelerate before it gets there.`,
+    intro: `Track today's ${primary} gamma levels — the ${primary} gamma flip, call wall, put wall, max pain, and net dealer GEX. These free levels are delayed roughly 15 minutes and help ${SYMBOL_AUDIENCE[primary]} see the key dealer-positioning zones where price may pin, reject, or accelerate before it gets there.${derivationNote(primary)}`,
   };
 }
 
 const SYMBOL_CONTENT: Record<Symbol, SymbolContent> = {
+  ES: buildSymbolContent('ES'),
+  NQ: buildSymbolContent('NQ'),
   SPX: buildSymbolContent('SPX'),
   SPY: buildSymbolContent('SPY'),
   QQQ: buildSymbolContent('QQQ'),
@@ -161,7 +187,7 @@ function faqItems(primary: Symbol): { q: string; a: string }[] {
     },
     {
       q: `What is ${primary}'s net gamma exposure (net GEX) right now?`,
-      a: `Today's ${primary} net GEX — the net dealer gamma across the ${primary} options chain, evaluated at spot and expressed as a signed dollar "gamma" figure — is shown at the top of this page and refreshed on a roughly 15-minute delay. A positive value means ${primary} is trading above its gamma flip, where dealer hedging tends to suppress volatility; a negative value means it is below the flip, where hedging tends to amplify it. The price where net GEX crosses zero is the gamma flip, also called the zero-gamma level. Net GEX is a modeled estimate, not directly observed dealer inventory.`,
+      a: `Today's ${primary} net GEX — the net dealer gamma across the ${SYMBOL_CHAIN[primary]} options chain, evaluated at spot and expressed as a signed dollar "gamma" figure — is shown at the top of this page and refreshed on a roughly 15-minute delay. A positive value means ${primary} is trading above its gamma flip, where dealer hedging tends to suppress volatility; a negative value means it is below the flip, where hedging tends to amplify it. The price where net GEX crosses zero is the gamma flip, also called the zero-gamma level. Net GEX is a modeled estimate, not directly observed dealer inventory.`,
     },
     {
       q: 'What is the gamma flip?',
@@ -615,7 +641,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
     about: [
       { '@type': 'Thing', name: 'Gamma exposure (GEX)' },
       { '@type': 'Thing', name: 'Dealer hedging' },
-      { '@type': 'Thing', name: `${primary} options` },
+      { '@type': 'Thing', name: `${SYMBOL_CHAIN[primary]} options` },
       { '@type': 'Thing', name: 'Call wall' },
       { '@type': 'Thing', name: 'Put wall' },
       { '@type': 'Thing', name: 'Gamma flip' },
@@ -744,7 +770,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
                 priorClose: null,
                 summary: primaryData,
                 vix: null,
-                volIndex: primary === 'QQQ' || primary === 'NDX' ? 'VXN' : 'VIX',
+                volIndex: volatilityIndexFor(primary),
                 horizon: 'daily',
               })}
             />

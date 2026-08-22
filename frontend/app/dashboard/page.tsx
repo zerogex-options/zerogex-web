@@ -27,6 +27,7 @@ import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 import { buildReportModel } from '@/app/live-bulletin/bulletinHelpers';
 import { usePageT } from '@/core/LanguageContext';
 import { dict } from './page.i18n';
+import { volatilityIndexFor } from '@/core/symbols';
 
 function formatCompactUsd(value: number | null | undefined, showPositiveSign = false): string {
   if (value == null || !Number.isFinite(value)) return '--';
@@ -86,7 +87,7 @@ export default function DashboardPage() {
   // the live-bulletin model so the dashboard's at-a-glance summary stays in
   // sync with the operator-facing bulletin and any downstream surfaces.
   // QQQ/NDX's correct implied-vol input is VXN; SPX/SPY use VIX.
-  const volIndex: 'VIX' | 'VXN' = symbol === 'QQQ' || symbol === 'NDX' ? 'VXN' : 'VIX';
+  const volIndex: 'VIX' | 'VXN' = volatilityIndexFor(symbol);
   const { data: volGauge } = useVolatilityGauge(30000, volIndex);
   const todaysReadModel = useMemo(
     () =>

@@ -29,7 +29,7 @@ import { useStrikeProfileTimeseries } from '@/hooks/useStrikeProfileTimeseries';
 import type { StrikeProfileBucket as StrikeProfileBucketRow } from '@/hooks/useStrikeProfileTimeseries';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
-import { etTodayDateKey, getMarketSession, isIndexSymbol, omitClosedMarketTimes } from '@/core/utils';
+import { etTodayDateKey, getMarketSession, isIndexSymbol, omitClosedMarketTimes, omitOutOfHoursForSymbol } from "@/core/utils";
 import { loadChartSettings, saveChartSettings } from '@/core/chartSettings';
 import { PIN_STRIKE_COLOR_HEX } from '@/core/pinStrike';
 import { useSharedExpirations } from '@/hooks/useSharedExpirations';
@@ -586,14 +586,14 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const candleBuckets = useMemo(() => {
     const base = isFuturesMode
       ? marketHistoricalAll
-      : omitClosedMarketTimes(marketHistoricalAll, (b) => b.timestamp);
+      : omitOutOfHoursForSymbol(marketHistoricalAll, (b) => b.timestamp, symbol);
     return base
       .filter((b) => {
         const o = toNumber(b.open ?? b.close);
         return o != null && o > 0;
       })
       .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-  }, [marketHistoricalAll, isFuturesMode]);
+  }, [marketHistoricalAll, isFuturesMode, symbol]);
 
   // ── Strike-Profile bucket lookup by timestamp ──
   // Candles and GEX data come from different endpoints with different
