@@ -1,6 +1,8 @@
 'use client';
 
 import PageShell from '@/components/layout/PageShell';
+import FuturesUnsupportedPanel from '@/components/FuturesUnsupportedPanel';
+import { isFuturesSymbol } from '@/core/symbols';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Filter, Info } from 'lucide-react';
 import { Bar, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -711,6 +713,15 @@ export default function SmartMoneyPage() {
   const setColumnFilter = (key: FilterableKey, value: string) => {
     setColumnFilters((prev) => ({ ...prev, [key]: value }));
   };
+
+  // ES/NQ enumerate no option contracts — the API answers 400.
+  if (isFuturesSymbol(symbol)) {
+    return (
+      <PageShell>
+        <FuturesUnsupportedPanel symbol={symbol} surface="Smart money flow" />
+      </PageShell>
+    );
+  }
 
   return (
     <PageShell>
