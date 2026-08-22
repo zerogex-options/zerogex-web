@@ -248,3 +248,7 @@ deploy/systemd/backup-auth.env
 # janitor config (retention/keep-floor + cache paths, box-local) — keep the
 # .example tracked, never the real file the deploy step writes on the box
 deploy/systemd/janitor.env
+
+# monitoring backup config (may name a private S3 bucket + a box-local backup
+# dir) — keep the .example tracked, never the real file copied in on the box
+deploy/systemd/monitoring-backup.env
