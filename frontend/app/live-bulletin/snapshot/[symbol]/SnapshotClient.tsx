@@ -33,9 +33,10 @@ import {
 } from '../../bulletinHelpers';
 import { rasterizeImage } from '../../imageExport';
 import { BRAND_TITLE } from '@/core/brand';
+import type { UnderlyingSymbol } from '@/core/symbolPersistence';
 
 interface SnapshotClientProps {
-  symbol: 'SPY' | 'SPX' | 'QQQ' | 'NDX';
+  symbol: UnderlyingSymbol;
   horizon: HorizonKey;
   dateLabel?: string;
   watermark?: boolean;

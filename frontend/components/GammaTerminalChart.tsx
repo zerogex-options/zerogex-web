@@ -46,6 +46,7 @@ import {
   type ExpirationSegment,
 } from "@/core/expirationGradient";
 import { buildExpectedRange, type HorizonKey } from "@/app/live-bulletin/bulletinHelpers";
+import { volatilityIndexFor } from '@/core/symbols';
 
 type ChartTimeframe = "1min" | "5min" | "15min" | "1hr" | "1day";
 type PriceStyle = "candles" | "line" | "area";
@@ -514,7 +515,7 @@ export default function GammaTerminalChart({
   // implied-vol mapping the Live Bulletin uses. Live-only: the delayed public
   // snapshot does zero client fetching, so the band simply hides there (exactly
   // as the Bulletin hides it when the vol index is unavailable).
-  const volIndex: "VIX" | "VXN" = symbol === "QQQ" || symbol === "NDX" ? "VXN" : "VIX";
+  const volIndex: "VIX" | "VXN" = volatilityIndexFor(symbol);
   const { data: volGauge } = useApiData<VolatilityGaugeData>(
     `/api/market/volatility?ticker=${volIndex}`,
     { refreshInterval: live ? 30000 : 0, enabled: live },

@@ -32,6 +32,7 @@ import {
 } from '@/hooks/useApiData';
 import { snapshotFromSeries, useFlowSeries } from '@/hooks/useFlowSeries';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
+import { volatilityIndexFor } from '@/core/symbols';
 
 // snapshotFromSeries returns `FlowSnapshot | null`; derive the non-null shape
 // rather than reaching into the internal useFlowByContract module.
@@ -105,7 +106,7 @@ export function MyDashboardDataProvider({
     quote?.session ?? null,
   );
 
-  const volIndex: VolatilityIndex = symbol === 'QQQ' || symbol === 'NDX' ? 'VXN' : 'VIX';
+  const volIndex: VolatilityIndex = volatilityIndexFor(symbol);
   const { data: vol } = useVolatilityGauge(volOn ? 30000 : 0, volIndex);
   const { data: signalScore } = useSignalScore(symbol, scoreOn ? 10000 : 0);
 

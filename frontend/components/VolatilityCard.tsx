@@ -8,6 +8,7 @@ import { useTheme } from "@/core/ThemeContext";
 import { useTimeframe } from "@/core/TimeframeContext";
 import { interpolateGaugeColor, SingleGauge } from "./VolatilityGauges";
 import ChartCaption from "./ChartCaption";
+import { volatilityIndexFor } from '@/core/symbols';
 
 // ── Zone data ─────────────────────────────────────────────────────────────────
 
@@ -312,7 +313,7 @@ export default function VolatilityCard({ stacked = false }: VolatilityCardProps 
   const { theme } = useTheme();
   const { symbol } = useTimeframe();
   // QQQ/NDX's correct implied-vol input is VXN (Nasdaq-100); SPX/SPY use VIX.
-  const volIndex: "VIX" | "VXN" = symbol === "QQQ" || symbol === "NDX" ? "VXN" : "VIX";
+  const volIndex: "VIX" | "VXN" = volatilityIndexFor(symbol);
   const { data } = useVolatilityGauge(30000, volIndex);
   const isDark = theme === "dark";
   const fetchedAt = useMemo(() => data?.timestamp ?? "", [data]);

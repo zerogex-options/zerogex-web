@@ -60,12 +60,14 @@ const INFO_TEXT =
   "Net GEX is a modeled estimate of dealer gamma by strike — decision-support context only, not investment advice.";
 
 // Default "compare against" symbol for each header symbol — its like-pair, so a
-// fresh visit opens on a meaningful comparison (SPY↔QQQ, SPX↔NDX).
+// fresh visit opens on a meaningful comparison (SPY↔QQQ, SPX↔NDX, ES↔NQ).
 const COMPARE_DEFAULT: Record<UnderlyingSymbol, UnderlyingSymbol> = {
   SPY: "QQQ",
   QQQ: "SPY",
   SPX: "NDX",
   NDX: "SPX",
+  ES: "NQ",
+  NQ: "ES",
 };
 
 // Last replay frame at-or-before a timestamp (frames are chronological ascending).

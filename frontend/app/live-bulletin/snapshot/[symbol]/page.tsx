@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { serverApiGet } from '@/core/api/serverFetch';
-import { resolveSymbol } from '@/core/symbols';
+import { resolveSymbol, volatilityIndexFor } from '@/core/symbols';
 import { projectedIndexSpot, sampleGexProfile, type HorizonKey } from '../../bulletinHelpers';
 import SnapshotClient from './SnapshotClient';
 
@@ -108,7 +108,7 @@ export default async function SnapshotPage({
   const horizon = coerceHorizon(sp.horizon);
   const watermark = sp.watermark !== '0'; // default on; ``?watermark=0`` disables
   // QQQ/NDX's implied-vol input is VXN (Nasdaq-100); everything else uses VIX.
-  const volIndex: 'VIX' | 'VXN' = symbol === 'QQQ' || symbol === 'NDX' ? 'VXN' : 'VIX';
+  const volIndex: 'VIX' | 'VXN' = volatilityIndexFor(symbol);
 
   // SSR the five data feeds in parallel.  Any individual failure
   // returns null and the card gracefully hides that field (matches
