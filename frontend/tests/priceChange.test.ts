@@ -15,7 +15,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { getPrimaryPriceChangeSummary, getExtendedHoursRow } from "../core/priceChange.ts";
+import { getPrimaryPriceChangeSummary, getExtendedHoursRow, getSpotPriorCloseChange } from "../core/priceChange.ts";
 import type { SessionClosesData } from "../hooks/useApiData.ts";
 
 // Build a SessionClosesData with the two closes the calc reads. `current` and
@@ -247,4 +247,49 @@ test("extended row: exactly flat → zero change counts as positive (green)", ()
   assert.equal(r.change, 0);
   assert.equal(r.changePercent, 0);
   assert.equal(r.isPositive, true);
+});
+
+// ── getSpotPriorCloseChange — the gamma ladder header badge ──────────────────
+// The plain "% vs prior close" of a live displayed spot: no frozen-close
+// display swap, no futures basis. The baseline field flips at 16:00 —
+// current_session_close until today has closed (open / pre-market / unknown),
+// prior_session_close afterwards (after-hours and every closed state).
+
+test("spot badge, open session → spot vs current_session_close", () => {
+  const r = getSpotPriorCloseChange(750.0, "open", closes(747.0, 745.0));
+  approx(r.changePercent, (3.0 / 747.0) * 100);
+  assert.equal(r.isPositive, true);
+});
+
+test("spot badge, pre-market → still vs current_session_close (today hasn't closed)", () => {
+  const r = getSpotPriorCloseChange(746.0, "pre-market", closes(747.0, 745.0));
+  approx(r.changePercent, (-1.0 / 747.0) * 100);
+  assert.equal(r.isPositive, false);
+});
+
+test("spot badge, unknown session reads as live → current_session_close", () => {
+  const r = getSpotPriorCloseChange(750.0, null, closes(747.0, 745.0));
+  approx(r.changePercent, (3.0 / 747.0) * 100);
+});
+
+test("spot badge, after-hours → vs prior_session_close (day change, not since-16:00 drift)", () => {
+  // Today's 16:00 close (747) has rolled into current; the day change of an
+  // after-hours spot is measured against yesterday's close (745).
+  const r = getSpotPriorCloseChange(747.5, "after-hours", closes(747.0, 745.0));
+  approx(r.changePercent, (2.5 / 745.0) * 100);
+  assert.equal(r.isPositive, true);
+});
+
+test("spot badge, closed states → vs prior_session_close", () => {
+  for (const session of ["closed", "closed-weekend", "closed-holiday"]) {
+    const r = getSpotPriorCloseChange(747.0, session, closes(747.0, 745.0));
+    approx(r.changePercent, (2.0 / 745.0) * 100);
+  }
+});
+
+test("spot badge degrades to null on missing inputs", () => {
+  assert.equal(getSpotPriorCloseChange(null, "open", closes(747.0, 745.0)).changePercent, null);
+  assert.equal(getSpotPriorCloseChange(750.0, "open", null).changePercent, null);
+  assert.equal(getSpotPriorCloseChange(750.0, "open", closes(0, 745.0)).changePercent, null);
+  assert.equal(getSpotPriorCloseChange(NaN, "open", closes(747.0, 745.0)).changePercent, null);
 });
