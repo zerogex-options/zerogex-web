@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { Mail, Youtube } from 'lucide-react';
 import { Theme } from '@/core/types';
 import { brandLogo } from '@/core/brand';
-import { colors } from '@/core/colors';
 import { useLanguage } from '@/core/LanguageContext';
 import type { TranslationKey } from '@/core/i18n';
 
@@ -13,18 +12,47 @@ interface FooterProps {
   theme: Theme;
 }
 
-const border = 'var(--border-default)';
+type FooterLink = { href: string; labelKey: TranslationKey; external?: boolean };
+type FooterColumn = { headingKey: TranslationKey; links: FooterLink[] };
 
-const footerLinks: { href: string; label: string; labelKey: TranslationKey; external: boolean }[] = [
-  { href: '/dashboard', label: 'Platform', labelKey: 'footer.platform', external: false },
-  { href: '/spx-gamma-levels', label: 'Free Gamma Levels', labelKey: 'footer.freeGammaLevels', external: false },
-  { href: '/updates', label: 'Updates', labelKey: 'footer.updates', external: false },
-  { href: '/about', label: 'About', labelKey: 'nav.about', external: false },
-  { href: '/giving', label: 'Giving Back', labelKey: 'footer.givingBack', external: false },
-  { href: 'https://api.zerogex.io/docs', label: 'API Docs', labelKey: 'footer.apiDocs', external: true },
-  { href: '/education', label: 'Education', labelKey: 'nav.group.education', external: false },
-  { href: '/privacy', label: 'Privacy', labelKey: 'footer.privacy', external: false },
-  { href: '/terms', label: 'Terms', labelKey: 'footer.terms', external: false },
+// Four semantic columns instead of one flat list of nine links under a generic
+// "Navigation" head. Grouping is the whole point: a visitor scanning for the
+// API docs, the risk disclaimer, and the education hub should find each in the
+// column they'd expect it in on any other platform, without reading all nine.
+const FOOTER_COLUMNS: FooterColumn[] = [
+  {
+    headingKey: 'footer.platform',
+    links: [
+      { href: '/dashboard', labelKey: 'footer.platform' },
+      { href: '/spx-gamma-levels', labelKey: 'footer.freeGammaLevels' },
+      { href: '/pricing', labelKey: 'footer.pricing' },
+      { href: 'https://api.zerogex.io/docs', labelKey: 'footer.apiDocs', external: true },
+    ],
+  },
+  {
+    headingKey: 'nav.group.education',
+    links: [
+      { href: '/education', labelKey: 'nav.hub' },
+      { href: '/guides', labelKey: 'nav.guides' },
+      { href: '/help/platform', labelKey: 'nav.platformGuide' },
+      { href: '/help/faqs', labelKey: 'footer.faqs' },
+    ],
+  },
+  {
+    headingKey: 'footer.col.company',
+    links: [
+      { href: '/about', labelKey: 'nav.about' },
+      { href: '/updates', labelKey: 'footer.updates' },
+      { href: '/giving', labelKey: 'footer.givingBack' },
+    ],
+  },
+  {
+    headingKey: 'footer.col.legal',
+    links: [
+      { href: '/privacy', labelKey: 'footer.privacy' },
+      { href: '/terms', labelKey: 'footer.terms' },
+    ],
+  },
 ];
 
 const VETERANS_BADGE_TEXT = '3% of every subscription supports U.S. military families via Folds of Honor.';
@@ -67,60 +95,21 @@ function RedditIcon({ size = 16 }: { size?: number }) {
   );
 }
 
-function SocialLinks({
-  size = 38,
-  iconSize = 18,
-  align = 'start',
-}: {
-  size?: number;
-  iconSize?: number;
-  align?: 'start' | 'end';
-}) {
-  const baseStyle: React.CSSProperties = {
-    width: size,
-    height: size,
-    borderRadius: '50%',
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'var(--color-brand-primary)',
-    color: '#ffffff',
-    textDecoration: 'none',
-    transition: 'transform 150ms ease, box-shadow 150ms ease, opacity 150ms ease',
-    boxShadow: '0 2px 6px rgba(0, 0, 0, 0.25)',
-  };
-
-  const onEnter = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    e.currentTarget.style.transform = 'translateY(-1px)';
-    e.currentTarget.style.boxShadow = '0 6px 14px rgba(0, 0, 0, 0.35)';
-    e.currentTarget.style.opacity = '0.92';
-  };
-  const onLeave = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    e.currentTarget.style.transform = 'translateY(0)';
-    e.currentTarget.style.boxShadow = '0 2px 6px rgba(0, 0, 0, 0.25)';
-    e.currentTarget.style.opacity = '1';
-  };
-
+// Ghost icon buttons. These used to be solid brand-coloured circles with drop
+// shadows and a translateY lift on hover — the single most dated element on the
+// page, and the only place on the site using a filled circular control.
+function SocialLinks() {
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-        justifyContent: align === 'end' ? 'flex-end' : 'flex-start',
-      }}
-    >
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
       <a
         href={TWITTER_URL}
         target="_blank"
         rel="noreferrer"
         aria-label={`ZeroGEX on X (${TWITTER_HANDLE})`}
         title={TWITTER_HANDLE}
-        style={baseStyle}
-        onMouseEnter={onEnter}
-        onMouseLeave={onLeave}
+        className="zg-social"
       >
-        <XIcon size={iconSize} />
+        <XIcon size={15} />
       </a>
       <a
         href={YOUTUBE_URL}
@@ -128,11 +117,9 @@ function SocialLinks({
         rel="noreferrer"
         aria-label={`ZeroGEX on YouTube (${YOUTUBE_HANDLE})`}
         title={YOUTUBE_HANDLE}
-        style={baseStyle}
-        onMouseEnter={onEnter}
-        onMouseLeave={onLeave}
+        className="zg-social"
       >
-        <Youtube size={iconSize} strokeWidth={2.25} />
+        <Youtube size={16} strokeWidth={2} />
       </a>
       <a
         href={REDDIT_URL}
@@ -140,21 +127,17 @@ function SocialLinks({
         rel="noreferrer"
         aria-label={`ZeroGEX on Reddit (${REDDIT_HANDLE})`}
         title={REDDIT_HANDLE}
-        style={baseStyle}
-        onMouseEnter={onEnter}
-        onMouseLeave={onLeave}
+        className="zg-social"
       >
-        <RedditIcon size={iconSize} />
+        <RedditIcon size={15} />
       </a>
       <a
         href={`mailto:${CONTACT_EMAIL}`}
         aria-label={`Email ZeroGEX at ${CONTACT_EMAIL}`}
         title={CONTACT_EMAIL}
-        style={baseStyle}
-        onMouseEnter={onEnter}
-        onMouseLeave={onLeave}
+        className="zg-social"
       >
-        <Mail size={iconSize} strokeWidth={2.25} />
+        <Mail size={16} strokeWidth={2} />
       </a>
     </div>
   );
@@ -163,167 +146,124 @@ function SocialLinks({
 export default function Footer({ theme }: FooterProps) {
   const { t } = useLanguage();
   const isDark = theme === 'dark';
-  const subtext = isDark ? 'var(--text-secondary)' : 'var(--text-muted)';
-  const textLight = isDark ? "var(--text-primary)" : 'var(--text-inverse)';
 
   return (
     <footer
-      className="border-t mt-16"
+      className="border-t"
       style={{
-        background: isDark ? 'var(--bg-active)' : 'var(--border-subtle)',
-        borderColor: border,
+        marginTop: 'var(--space-section)',
+        background: 'var(--bg-subtle)',
+        borderColor: 'var(--border-default)',
       }}
     >
-      <div className="container mx-auto px-6 py-12">
-        <div className="hidden md:flex" style={{ alignItems: 'center', gap: 32 }}>
-          <div style={{ flex: 1 }}>
-            <div className="zg-label" style={{ color: 'var(--color-brand-primary)', marginBottom: 14 }}>
-              {t('footer.navigation')}
-            </div>
-            <div style={{ display: 'grid', gap: 10 }}>
-              {footerLinks.map((item) => (
-                <div key={item.href}>
-                  {item.external ? (
-                    <a
-                      href={item.href}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="zg-small"
-                      style={{ color: subtext, textDecoration: 'none' }}
-                      onMouseEnter={(e) => { e.currentTarget.style.color = textLight; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.color = subtext; }}
-                    >
-                      {t(item.labelKey)}
-                    </a>
-                  ) : (
-                    <Link
-                      href={item.href}
-                      className="zg-small"
-                      style={{ color: subtext, textDecoration: 'none' }}
-                      onMouseEnter={(e) => { e.currentTarget.style.color = textLight; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.color = subtext; }}
-                    >
-                      {t(item.labelKey)}
-                    </Link>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-            {/* The stacked lockup is roughly square, where the old wordmark was
-                ~2.5:1 — 240px of height puts the same visual weight in the
-                column that 360px of the wide mark used to. */}
-            <Image
-              {...brandLogo(isDark)}
-              alt="ZeroGEX"
-              style={{ height: '240px', width: 'auto', objectFit: 'contain' }}
-            />
-          </div>
-
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
-            <SocialLinks align="end" />
+      <div className="container mx-auto px-6 py-14">
+        <div className="zg-footer-cols">
+          {/* Brand block. The logo used to render at 240px in the middle of the
+              row, which put more visual weight on the mark than on anything a
+              visitor came to the footer to find. */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'flex-start' }}>
+            <Link href="/" aria-label="ZeroGEX home" style={{ display: 'block', lineHeight: 0 }}>
+              <Image
+                {...brandLogo(isDark)}
+                alt="ZeroGEX"
+                style={{ height: '68px', width: 'auto', objectFit: 'contain' }}
+              />
+            </Link>
+            <p className="zg-small" style={{ margin: 0, maxWidth: 300 }}>
+              {t('footer.tagline')}
+            </p>
+            <SocialLinks />
             <Link
               href="/giving"
               aria-label={VETERANS_BADGE_TEXT}
               title={VETERANS_BADGE_TEXT}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 8,
-                padding: '4px 10px 4px 4px', borderRadius: 999,
-                background: `${'var(--color-brand-primary)'}18`,
-                border: `1px solid ${'var(--color-brand-primary)'}40`,
-                color: 'var(--color-brand-primary)',
-                fontWeight: 700, textDecoration: 'none', marginTop: 4,
-              }}
               className="zg-caption"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '4px 10px 4px 4px',
+                borderRadius: 'var(--radius-pill)',
+                background: 'color-mix(in srgb, var(--color-brand-primary) 12%, transparent)',
+                border: '1px solid color-mix(in srgb, var(--color-brand-primary) 30%, transparent)',
+                color: 'var(--color-brand-primary)',
+                fontWeight: 600,
+                textDecoration: 'none',
+              }}
             >
               <Image
                 src="/folds-of-honor-proud-supporter.png"
                 alt=""
-                width={28}
-                height={28}
-                style={{
-                  width: 28, height: 28, borderRadius: '50%',
-                  background: '#ffffff',
-                  padding: 2,
-                }}
+                width={24}
+                height={24}
+                style={{ width: 24, height: 24, borderRadius: '50%', background: '#ffffff', padding: 2 }}
               />
               {t('footer.veteransBadge')}
             </Link>
-            <p className="zg-caption" style={{ color: subtext, margin: 0, textAlign: 'right' }}>
-              {t('footer.rights')}
-            </p>
-            <p className="zg-caption" style={{ color: subtext, margin: 0, textAlign: 'right', maxWidth: 360 }}>
-              {t('footer.disclaimer')}
-            </p>
           </div>
+
+          {FOOTER_COLUMNS.map((column) => (
+            <nav key={column.headingKey} aria-label={t(column.headingKey)}>
+              <div className="zg-eyebrow" style={{ marginBottom: 14 }}>
+                {t(column.headingKey)}
+              </div>
+              <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 10 }}>
+                {column.links.map((link) => (
+                  <li key={`${column.headingKey}-${link.href}`}>
+                    {link.external ? (
+                      <a href={link.href} target="_blank" rel="noreferrer" className="zg-footer-link">
+                        {t(link.labelKey)}
+                      </a>
+                    ) : (
+                      <Link href={link.href} className="zg-footer-link">
+                        {t(link.labelKey)}
+                      </Link>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          ))}
         </div>
 
-        <div className="flex md:hidden" style={{ gap: 16 }}>
-          <div style={{ flex: '0 0 62%', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div className="zg-label" style={{ color: 'var(--color-brand-primary)', marginBottom: 4 }}>
-              {t('footer.navigation')}
-            </div>
-            {footerLinks.map((item) => (
-              <div key={item.href} style={{ marginBottom: 2 }}>
-                {item.external ? (
-                  <a href={item.href} target="_blank" rel="noreferrer" className="zg-small" style={{ color: subtext, textDecoration: 'none', whiteSpace: 'nowrap', display: 'inline-block' }}>
-                    {t(item.labelKey)}
-                  </a>
-                ) : (
-                  <Link href={item.href} className="zg-small" style={{ color: subtext, textDecoration: 'none', whiteSpace: 'nowrap', display: 'inline-block' }}>
-                    {t(item.labelKey)}
-                  </Link>
-                )}
-              </div>
-            ))}
+        {/* Risk disclosure. Its own full-width band above the legal bar, the
+            way regulated finance products present fine print, rather than
+            crammed right-aligned into a 360px column. */}
+        <p
+          className="zg-caption"
+          style={{
+            margin: 0,
+            marginTop: 48,
+            paddingTop: 24,
+            borderTop: '1px solid var(--border-subtle)',
+            maxWidth: '78ch',
+          }}
+        >
+          {t('footer.disclaimer')}
+        </p>
 
-            <div style={{ marginTop: 10 }}>
-              <SocialLinks size={34} iconSize={16} />
-            </div>
-            <Link
-              href="/giving"
-              aria-label={VETERANS_BADGE_TEXT}
-              title={VETERANS_BADGE_TEXT}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 8,
-                padding: '4px 10px 4px 4px', borderRadius: 999,
-                background: `${'var(--color-brand-primary)'}18`,
-                border: `1px solid ${'var(--color-brand-primary)'}40`,
-                color: 'var(--color-brand-primary)',
-                fontWeight: 700, textDecoration: 'none',
-                width: 'fit-content', marginTop: 4,
-              }}
-              className="zg-caption"
-            >
-              <Image
-                src="/folds-of-honor-proud-supporter.png"
-                alt=""
-                width={26}
-                height={26}
-                style={{
-                  width: 26, height: 26, borderRadius: '50%',
-                  background: '#ffffff',
-                  padding: 2,
-                }}
-              />
-              {t('footer.veteransBadge')}
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            marginTop: 24,
+            paddingTop: 20,
+            borderTop: '1px solid var(--border-subtle)',
+          }}
+        >
+          <p className="zg-caption" style={{ margin: 0 }}>
+            {t('footer.rights')}
+          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+            <Link href="/privacy" className="zg-footer-link" style={{ fontSize: 12 }}>
+              {t('footer.privacy')}
             </Link>
-            <p className="zg-caption" style={{ color: subtext, margin: '10px 0 0 0' }}>
-              {t('footer.disclaimer')}
-            </p>
-            <p className="zg-caption" style={{ color: subtext, margin: 0 }}>
-              {t('footer.rights')}
-            </p>
-          </div>
-
-          <div style={{ flex: '0 0 38%', minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-            <Image
-              {...brandLogo(isDark)}
-              alt="ZeroGEX"
-              style={{ width: '100%', maxWidth: 120, height: 'auto' }}
-            />
+            <Link href="/terms" className="zg-footer-link" style={{ fontSize: 12 }}>
+              {t('footer.terms')}
+            </Link>
           </div>
         </div>
       </div>
