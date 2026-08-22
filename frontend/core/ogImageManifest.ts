@@ -7,10 +7,10 @@
 // bytes — see the header comment in that script for the full story.
 
 /** Content hash of assets/branding/og-image.png (first 8 hex of its sha256). */
-export const OG_IMAGE_HASH = '6d505791';
+export const OG_IMAGE_HASH = '6addd631';
 
 /** Cache-busting path for the site-wide social card, relative to the site root. */
-export const OG_IMAGE_PATH = '/og-image.6d505791.png';
+export const OG_IMAGE_PATH = '/og-image.6addd631.png';
 
 /** The card's real pixel dimensions, read from the PNG's IHDR chunk. */
 export const OG_IMAGE_WIDTH = 1731;
