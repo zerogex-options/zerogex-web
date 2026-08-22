@@ -25,7 +25,7 @@
 import { useMemo } from "react";
 import type { HeatmapCell, HeatmapColumnInput, SessionBaselineInput } from "@/components/PairGammaHeatmap";
 import { useApiData, useGEXSummary, useMarketQuote, useSessionCloses } from "./useApiData";
-import { getPrimaryPriceChangeSummary } from "@/core/priceChange";
+import { getSpotPriorCloseChange } from "@/core/priceChange";
 import { baselineNetByStrike, sessionOpenIsoFor, type FrameStrikeRow } from "@/core/sessionDelta";
 
 /** Everything a ladder column renders except the header control, which the
@@ -194,18 +194,18 @@ export function useGammaLadderColumn(
   }, [openIso, baselineFrame, expParam]);
 
   return useMemo(() => {
-    const change = getPrimaryPriceChangeSummary({
-      quoteClose: quote?.close ?? null,
-      quoteSession: quote?.session ?? null,
-      sessionCloses: closes ?? null,
-      displaySource: quote?.display_source ?? null,
-      futuresClose: quote?.futures_close ?? null,
-      futuresReferenceClose: quote?.futures_reference_close ?? null,
-    });
+    // The header badge is the plain day change of the DISPLAYED spot vs the
+    // previous regular-session close — the reading everyone expects beside a
+    // price. Not getPrimaryPriceChangeSummary: that reading freezes its price
+    // side on the official close in extended hours and swaps indices to a
+    // futures-vs-futures basis overnight, so its % can describe a different
+    // number than the analytics spot this header actually shows.
+    const spot = summary?.spot_price ?? null;
+    const change = getSpotPriorCloseChange(spot, quote?.session ?? null, closes ?? null);
     return {
       symbol,
       cells: bucketCells(tipBucket),
-      spot: summary?.spot_price ?? null,
+      spot,
       // With a specific expiration set, the walls and flip must describe that
       // set's gamma alone — the timeseries bucket recomputes them for the
       // filter, while /api/gex/summary is always the whole chain. "All" keeps
