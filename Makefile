@@ -1048,7 +1048,16 @@ deploy:
 	@echo "1. Pulling latest changes..."
 	git pull
 	@echo "2. Installing dependencies..."
-	cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && npm install'
+# `npm ci` and not `npm install`: install writes package-lock.json, so every
+# deploy re-resolved the ^ ranges to whatever was newest on npm and left the
+# tree dirty on release -- prod picked up unreviewed transitive versions and
+# then those pins got committed back from the box. ci installs exactly what
+# the lockfile says and never writes it. Dependency bumps belong in dev, via
+# `make install`, where they can be reviewed. NOTE: ci wipes node_modules and
+# reinstalls from scratch, and it hard-fails if package.json and the lockfile
+# disagree -- that failure is the point, but it stops the deploy before the
+# PM2 restart in step 7.
+	cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && npm ci'
 	@echo "3. Copying logos..."
 	@make logo
 	@echo "4. Copying blog images..."
