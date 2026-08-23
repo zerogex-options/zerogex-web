@@ -120,6 +120,13 @@ step 2 collapses to **File → Utilities → Import NinjaScript…**.
   keys repeat per element. `ExtractProfile` walks the array by brace depth and
   runs the same extractor *scoped to one element*, where each key is unique
   again. Profile elements hold only numbers, so depth alone delimits them.
+- **The API key is deliberately not a `[NinjaScriptProperty]`.** NinjaTrader
+  renders every one of those into the indicator label across the top of the
+  chart, so marking the key as one would put a live credential in plain text on
+  screen and into every screenshot a user shares. Dropping the attribute keeps
+  it in the settings dialog and in the saved workspace, but out of the label.
+  Do not re-add it. Anything genuinely secret added later needs the same
+  treatment.
 - **Histogram redraws are gated.** `Draw.Line` takes `barsAgo`, which resolves
   to an absolute bar at draw time, so the bars must be redrawn as bars form or
   they drift off the right edge. Redrawing dozens of objects on every tick of

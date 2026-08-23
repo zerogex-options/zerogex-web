@@ -568,7 +568,16 @@ namespace NinjaTrader.NinjaScript.Indicators
         [Display(Name = "API base URL", Order = 1, GroupName = "1. Connection")]
         public string ApiBaseUrl { get; set; }
 
-        [NinjaScriptProperty]
+        // Deliberately NOT [NinjaScriptProperty]. NinjaTrader prints every
+        // NinjaScriptProperty into the indicator label at the top of the chart,
+        // so marking the key as one puts the user's live credential in plain
+        // text on screen — and into every screenshot they ever share. Without
+        // the attribute the property still appears in the indicator's settings
+        // dialog and still persists to the workspace; it just stops being part
+        // of the label signature. PasswordPropertyText masks it in the grid too,
+        // which is best-effort: it's a standard ComponentModel attribute, so it
+        // costs nothing if NinjaTrader's WPF grid ignores it.
+        [PasswordPropertyText(true)]
         [Display(Name = "API key (Bearer)", Order = 2, GroupName = "1. Connection")]
         public string ApiKey { get; set; }
 
