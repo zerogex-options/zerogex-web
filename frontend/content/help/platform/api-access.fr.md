@@ -80,7 +80,7 @@ Les endpoints historiques prennent en charge des fenêtres de plusieurs jours. P
 
 Si vous voulez simplement nos niveaux sur votre propre graphique, vous n'avez peut-être rien à coder :
 
-- **NinjaTrader 8** — un indicateur NinjaScript gratuit qui interroge `GET /api/v1/levels/{symbol}` avec votre clé Pro et trace le Gamma Flip, le Call Wall, le Put Wall, le Max Pain et le Pin Strike. Téléchargez-le depuis n'importe quelle page gratuite de niveaux gamma (par exemple [/spx-gamma-levels](/spx-gamma-levels)), compilez-le dans l'éditeur NinjaScript et collez-y votre clé.
+- **NinjaTrader 8** — un indicateur NinjaScript gratuit qui interroge `GET /api/v1/levels/{symbol}` avec votre clé Pro et trace le Gamma Flip, le Call Wall, le Put Wall, le Max Pain et le Pin Strike. Téléchargez-le depuis n'importe quelle page gratuite de niveaux gamma (par exemple [/spx-gamma-levels](/spx-gamma-levels)), compilez-le dans l'éditeur NinjaScript et collez-y votre clé. Sur un graphique ES ou NQ, réglez le symbole sur `ES` ou `NQ` : les niveaux arrivent déjà sur l'axe de prix des futures, sans écart de base à appliquer.
 - **TradingView** — un script Pine gratuit. Saisie manuelle uniquement : Pine Script ne peut pas effectuer d'appels HTTP, vous saisissez donc vous-même les chiffres du jour.
 
 ## Voir aussi

@@ -86,11 +86,12 @@ setting can't produce a `422`).
 1. In NinjaTrader 8: **New → NinjaScript Editor**.
 2. Right-click **Indicators → New Indicator** (or **Import…** the `.cs`),
    paste in `ZeroGexGammaLevels.cs`, and **Compile** (F5).
-3. Open a chart of SPX / SPY / QQQ / NDX, right-click → **Indicators…**, add
+3. Open a chart of ES / NQ / SPX / SPY / QQQ / NDX, right-click → **Indicators…**, add
    **ZeroGEX Gamma Levels**.
 4. In the indicator settings:
    - **API key (Bearer)** — your ZeroGEX Pro key from `/account#api-access`.
-   - **Symbol** — `SPX`, `SPY`, `QQQ`, or `NDX` (set it to match the chart).
+   - **Symbol** — `ES`, `NQ`, `SPX`, `SPY`, `QQQ`, or `NDX` (set it to match
+     the chart). On an ES or NQ chart, use `ES` / `NQ` — see below.
    - **Poll interval** — default 60s (matches the analytics cycle).
    - **Show strike profile histogram** — off by default; turn it on for the
      per-strike gamma bars, and tune `Histogram strikes` / `Histogram width`.
@@ -98,6 +99,36 @@ setting can't produce a `422`).
 
 If a packaged export has been published, the gamma pages offer it instead and
 step 2 collapses to **File → Utilities → Import NinjaScript…**.
+
+## ES and NQ (futures charts)
+
+NinjaTrader is mostly a futures platform, so this is the common case: set
+**Symbol** to `ES` or `NQ` on an ES/NQ chart and the levels come back already
+on the futures price axis.
+
+There is **no basis offset setting, and there should not be one.** ZeroGEX
+never computes gamma from options on futures — ES and SPX track the same
+index, so the dealer book behind an ES chart *is* the SPX book; only the price
+axis differs. `FuturesProjectionMiddleware` in the API rewrites `ES` → `SPX`
+inbound and carries the price-space fields across on the way out, so
+`/api/v1/levels/ES` is projected without the levels router knowing futures
+exist. Two properties of that design matter here:
+
+- **Levels project, dollars don't.** `gamma_flip`, `call_wall`, `put_wall`,
+  `max_pain`, `pin_strike` and each profile `strike` are in `PRICE_FIELDS`;
+  `net_gex`, `call_gex` and `put_gex` are in `NEVER_PROJECT`. That is exactly
+  what the histogram needs — bars are scaled by *relative* `|net_gex|`, so
+  unprojected exposure is correct, not a bug.
+- **Spot is never projected.** The live ES print comes from the futures feed,
+  so the info panel shows the real ES price, and the response's `symbol` field
+  is rewritten back to `ES` (it is in `LABEL_FIELDS`) rather than leaking
+  `SPX`.
+
+The ratio is measured off the tape rather than modelled from carry, so it
+self-corrects through the quarterly roll. A client-side offset would be
+strictly worse: manual, stale on roll, and wrong overnight — where the naive
+`chart price − API spot` double-counts the overnight move, because cash is
+frozen at the 16:00 close while the future keeps trading.
 
 ## How it works (for maintainers)
 
@@ -140,10 +171,9 @@ step 2 collapses to **File → Utilities → Import NinjaScript…**.
   lines refresh within one poll interval. With **no incoming ticks** (after
   hours, a static replay), the last levels simply hold — fine, since
   post-close levels are static anyway.
-- Symbol coverage follows `ANALYTICS_UNDERLYINGS` on the API side; the four
-  the public gamma pages publish are SPX / SPY / QQQ / NDX. The **Symbol**
-  field drives the API call, not the chart data, so set it to match the
-  chart. An uncovered symbol returns `404`.
+- Symbol coverage follows `ANALYTICS_UNDERLYINGS` on the API side, plus the
+  two projected futures. The **Symbol** field drives the API call, not the
+  chart data, so set it to match the chart. An uncovered symbol returns `404`.
 - **This file is not compiled in CI** — there is no NinjaTrader/.NET SDK in
   the web repo's toolchain, so nothing here or in review has ever built it.
   Compile it once in the NinjaScript Editor before publishing, and verify:

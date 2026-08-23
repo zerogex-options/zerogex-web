@@ -62,6 +62,12 @@ export default function PlotOnNinjaTrader({ hasPackage = false }: { hasPackage?:
         polls the ZeroGEX API on a timer, so you never retype a number.
       </p>
       <p style={{ margin: '0 0 20px 0', fontSize: 13, lineHeight: 1.6, color: 'var(--color-text-secondary)', opacity: 0.85, maxWidth: 720 }}>
+        Trading <strong style={{ color: 'var(--color-text-primary)' }}>ES</strong> or{' '}
+        <strong style={{ color: 'var(--color-text-primary)' }}>NQ</strong>? Set the symbol and the levels arrive
+        already on the futures price axis — no basis offset to work out, and nothing to re-enter after a
+        quarterly roll.
+      </p>
+      <p style={{ margin: '0 0 20px 0', fontSize: 13, lineHeight: 1.6, color: 'var(--color-text-secondary)', opacity: 0.85, maxWidth: 720 }}>
         The indicator itself is free and open — the live data needs a ZeroGEX API key, which is included with Pro.
         Generate yours from your account in a couple of clicks.
       </p>
@@ -153,10 +159,12 @@ export default function PlotOnNinjaTrader({ hasPackage = false }: { hasPackage?:
           </li>
         )}
         <li>
-          <strong style={{ color: 'var(--color-text-primary)' }}>Add it to a chart.</strong> Right-click your SPX,
-          SPY, QQQ, or NDX chart → <strong style={{ color: 'var(--color-text-primary)' }}>Indicators…</strong>, add{' '}
+          <strong style={{ color: 'var(--color-text-primary)' }}>Add it to a chart.</strong> Right-click your chart
+          → <strong style={{ color: 'var(--color-text-primary)' }}>Indicators…</strong>, add{' '}
           <strong style={{ color: 'var(--color-text-primary)' }}>&ldquo;{INDICATOR_NAME}&rdquo;</strong>, then paste
-          your key into <em>API key</em> and set <em>Symbol</em> to match the chart.
+          your key into <em>API key</em> and set <em>Symbol</em> to match the chart —{' '}
+          <strong style={{ color: 'var(--color-text-primary)' }}>ES</strong> or{' '}
+          <strong style={{ color: 'var(--color-text-primary)' }}>NQ</strong> for futures, or SPX, SPY, QQQ, NDX.
         </li>
       </ol>
     </section>
