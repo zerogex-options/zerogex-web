@@ -15,6 +15,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 
 import Stripe from 'stripe';
 import { formatCardBrand } from '../core/stripeCard.ts';
+import { classifyTrialEngagement, daysSinceLastSeen } from '../core/trialEngagement.ts';
 
 // The July-1 founding deferral landed in commit 06b7128. founders whose
 // subscription started before this got charged immediately; founders after it
@@ -138,6 +139,7 @@ type UserRow = {
   email_verified_at: string | null;
   terms_accepted_at: string | null;
   terms_version_accepted: string | null;
+  last_seen_at: string | null;
   founding_eligible: number | null;
   founding_member_started_at: string | null;
   founding_lifetime_applied_at: string | null;
@@ -157,7 +159,7 @@ type UserRow = {
 const rows = querySqlite<UserRow>(
   dbPath,
   `SELECT id, email, tier, created_at, email_verified_at,
-          terms_accepted_at, terms_version_accepted,
+          terms_accepted_at, terms_version_accepted, last_seen_at,
           founding_eligible, founding_member_started_at, founding_lifetime_applied_at,
           paid_welcome_email_sent_at, subscription_lapsed, subscription_status,
           stripe_customer_id, stripe_subscription_id, stripe_price_id,
@@ -214,6 +216,28 @@ kv(
     ? `${user.terms_accepted_at} (effective ${orDash(user.terms_version_accepted)})`
     : '—',
 );
+// Engagement, not just recency: "used it once on signup day and never came
+// back" is the shape that precedes a chargeback, and a bare timestamp buries
+// it. A dash means the account predates last_seen_at — unknown, not dormant.
+{
+  const engagement = classifyTrialEngagement({
+    trialStartIso: user.created_at,
+    lastSeenAtIso: user.last_seen_at,
+  });
+  const idle = daysSinceLastSeen(user.last_seen_at, new Date().toISOString());
+  kv(
+    'Last seen',
+    user.last_seen_at
+      ? `${user.last_seen_at}${idle === null ? '' : ` (${idle}d ago)`} — ${
+          engagement === 'dormant'
+            ? 'DORMANT: no return visit after signup'
+            : engagement === 'engaged'
+              ? 'returned after signup'
+              : 'engagement unknown'
+        }`
+      : '— (predates last_seen_at)',
+  );
+}
 kv('Founding eligible', yesNo(user.founding_eligible));
 kv('Referred by code', orDash(user.referred_by_code));
 kv('Referral credit months', String(user.referral_credit_months ?? 0));
