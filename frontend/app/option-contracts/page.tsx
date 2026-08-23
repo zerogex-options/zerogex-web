@@ -1,6 +1,8 @@
 "use client";
 
 import PageShell from '@/components/layout/PageShell';
+import FuturesUnsupportedPanel from '@/components/FuturesUnsupportedPanel';
+import { isFuturesSymbol } from '@/core/symbols';
 import { useMemo, useState } from "react";
 import {
   Bar,
@@ -707,6 +709,15 @@ export default function OptionContractsPage() {
       : strikeError && strikeError !== "No data available yet"
         ? strikeError
         : null;
+
+  // ES/NQ enumerate no option contracts — the API answers 400.
+  if (isFuturesSymbol(symbol)) {
+    return (
+      <PageShell>
+        <FuturesUnsupportedPanel symbol={symbol} surface="Option contracts" />
+      </PageShell>
+    );
+  }
 
   return (
     <PageShell>

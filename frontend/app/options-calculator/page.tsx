@@ -10,7 +10,8 @@ import { Minus, Plus } from 'lucide-react';
 import MobileScrollableChart from '@/components/MobileScrollableChart';
 import { useApiData, useMarketQuote } from '@/hooks/useApiData';
 import { useTimeframe } from '@/core/TimeframeContext';
-import { isFuturesSymbol, FUTURES_BACKING_INDEX } from '@/core/symbols';
+import { isFuturesSymbol } from '@/core/symbols';
+import FuturesUnsupportedPanel from '@/components/FuturesUnsupportedPanel';
 import {
   buildOptionChainUrl,
   getCachedOptionChain,
@@ -533,26 +534,14 @@ export default function OptionsCalculatorPage() {
     );
   };
 
-  // ES and NQ have no option chain in ZeroGEX — their levels are SPX/NDX
-  // option-derived. /api/option/quote answers 400 for them, and every leg
-  // would silently price at $0 because these hooks only destructure `data`.
-  // Say so instead of rendering a calculator full of zeroes.
+  // /api/option/quote answers 400 for ES/NQ. The four quote hooks destructure
+  // only `data`, so without this the page rendered a complete strategy with
+  // every leg priced at $0.00 and a P&L built on it.
   if (isFuturesSymbol(symbol)) {
-    const backing = FUTURES_BACKING_INDEX[symbol.toUpperCase()] ?? 'SPX';
     return (
       <PageShell>
         <h1 className="text-3xl font-bold mb-8">Strategy Builder</h1>
-        <div
-          className="bg-[var(--color-surface)] rounded-lg p-6"
-          style={{ border: '1px solid var(--color-border)' }}
-        >
-          <p className="font-semibold mb-2">Not available for {symbol.toUpperCase()}</p>
-          <p style={{ color: 'var(--color-text-secondary)' }}>
-            {symbol.toUpperCase()} has no option chain of its own here — its dealer levels
-            are derived from {backing} options and carried onto the {symbol.toUpperCase()}{' '}
-            price axis. Switch to {backing} to build a strategy.
-          </p>
-        </div>
+        <FuturesUnsupportedPanel symbol={symbol} surface="The strategy builder" />
       </PageShell>
     );
   }
