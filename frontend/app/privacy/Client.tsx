@@ -55,18 +55,6 @@ export default function PrivacyPage() {
       <LandingHeader />
 
       <main style={{ minHeight: '100vh', padding: '120px 24px 84px', position: 'relative' }}>
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            backgroundImage: `
-              linear-gradient(var(--border-subtle) 1px, transparent 1px),
-              linear-gradient(90deg, var(--border-subtle) 1px, transparent 1px)
-            `,
-            backgroundSize: '62px 62px',
-            pointerEvents: 'none',
-          }}
-        />
         <article style={{ position: 'relative', zIndex: 1, maxWidth: 820, margin: '0 auto' }}>
           <div style={{ marginBottom: 32 }}>
             <div
