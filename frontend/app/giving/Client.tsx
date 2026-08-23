@@ -160,14 +160,6 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
         padding: '120px 24px 80px', position: 'relative', overflow: 'hidden',
       }}>
         <div style={{
-          position: 'absolute', inset: 0, zIndex: 0,
-          backgroundImage: `
-            linear-gradient(var(--border-subtle) 1px, transparent 1px),
-            linear-gradient(90deg, var(--border-subtle) 1px, transparent 1px)
-          `,
-          backgroundSize: '64px 64px',
-        }} />
-        <div style={{
           position: 'absolute', top: '40%', left: '50%',
           transform: 'translate(-50%,-50%)',
           width: 800, height: 500,
