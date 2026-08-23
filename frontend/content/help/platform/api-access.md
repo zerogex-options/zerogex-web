@@ -85,7 +85,9 @@ anything:
   `GET /api/v1/levels/{symbol}` with your Pro key and draws the Gamma Flip,
   Call Wall, Put Wall, Max Pain, and Pin Strike. Download it from any free
   gamma levels page (e.g. [/spx-gamma-levels](/spx-gamma-levels)), compile it
-  in the NinjaScript Editor, and paste in your key.
+  in the NinjaScript Editor, and paste in your key. On an ES or NQ chart set
+  the symbol to `ES` / `NQ` and the levels arrive already on the futures price
+  axis — there is no basis offset to apply.
 - **TradingView** — a free Pine script. Manual entry only: Pine Script can't
   make HTTP calls, so you type today's numbers in yourself.
 

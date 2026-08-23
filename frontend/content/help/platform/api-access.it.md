@@ -80,7 +80,7 @@ Gli endpoint storici supportano finestre multi-giorno. Per backfill approfonditi
 
 Se vuoi soltanto i nostri livelli sul tuo grafico, potresti non dover scrivere codice:
 
-- **NinjaTrader 8** — un indicatore NinjaScript gratuito che interroga `GET /api/v1/levels/{symbol}` con la tua chiave Pro e disegna Gamma Flip, Call Wall, Put Wall, Max Pain e Pin Strike. Scaricalo da una qualsiasi pagina gratuita dei livelli gamma (ad esempio [/spx-gamma-levels](/spx-gamma-levels)), compilalo nell'Editor NinjaScript e incolla la tua chiave.
+- **NinjaTrader 8** — un indicatore NinjaScript gratuito che interroga `GET /api/v1/levels/{symbol}` con la tua chiave Pro e disegna Gamma Flip, Call Wall, Put Wall, Max Pain e Pin Strike. Scaricalo da una qualsiasi pagina gratuita dei livelli gamma (ad esempio [/spx-gamma-levels](/spx-gamma-levels)), compilalo nell'Editor NinjaScript e incolla la tua chiave. Su un grafico ES o NQ imposta il simbolo su `ES` o `NQ`: i livelli arrivano già sull'asse di prezzo dei futures, senza alcun offset di base da applicare.
 - **TradingView** — uno script Pine gratuito. Solo inserimento manuale: Pine Script non può effettuare chiamate HTTP, quindi i numeri di oggi li inserisci tu.
 
 ## Vedi anche

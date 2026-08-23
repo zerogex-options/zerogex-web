@@ -24,6 +24,13 @@
 //  Informational and educational use only. Not financial advice. Options
 //  trading involves significant risk.
 //
+//  FUTURES: set Symbol to ES or NQ and the levels arrive already on the
+//  futures price axis — no basis offset to enter and nothing to keep in sync.
+//  ZeroGEX computes gamma from the SPX / NDX option chains (there is no
+//  separate ES book) and carries the price-space levels across server-side
+//  using a measured index/future ratio. Dealer exposure is deliberately NOT
+//  rescaled, which is why the histogram's relative bar sizes stay correct.
+//
 //  INSTALL: NinjaTrader → New → NinjaScript Editor → right-click Indicators →
 //  Import… (or paste this file into a new Indicator), then Compile (F5).
 //  Add "ZeroGEX Gamma Levels" to a chart and set your API key + symbol in the
@@ -582,7 +589,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         public string ApiKey { get; set; }
 
         [NinjaScriptProperty]
-        [Display(Name = "Symbol (SPX / SPY / QQQ / NDX)", Order = 3, GroupName = "1. Connection")]
+        [Display(Name = "Symbol (ES / NQ / SPX / SPY / QQQ / NDX)", Order = 3, GroupName = "1. Connection")]
         public string Symbol { get; set; }
 
         [NinjaScriptProperty]
