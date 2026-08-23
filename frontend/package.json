@@ -26,6 +26,7 @@
     "test:symbol-persistence": "node --experimental-strip-types --test tests/symbolPersistence.test.ts",
     "test:futures-symbols": "node --experimental-strip-types --test tests/futuresSymbols.test.ts",
     "test:expiration-persistence": "node --experimental-strip-types --test tests/expirationPersistence.test.ts",
+    "test:trial-engagement": "node --experimental-strip-types --test tests/trialEngagement.test.ts",
     "test:legal-terms": "node --experimental-strip-types --test tests/legalTerms.test.ts",
     "test:api-keys": "node --experimental-strip-types --test tests/apiKeys.test.ts",
     "test:my-dashboard": "node --experimental-strip-types --test tests/myDashboardLayout.test.ts",

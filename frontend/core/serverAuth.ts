@@ -37,6 +37,10 @@ type SessionRecord = {
 };
 
 type SessionWithUser = {
+  // Deliberately a sibling of `user` rather than a field on it: `user` is the
+  // shape served to the browser by /api/auth/session, and when a member last
+  // loaded a page is internal bookkeeping with no business being sent to them.
+  lastSeenAt: string | null;
   user: {
     id: string;
     email: string;
@@ -86,6 +90,10 @@ export function selfSignupTier(): TierId {
 
 const SESSION_TTL_SECONDS = readPositiveInt('AUTH_SESSION_TTL_SECONDS', 60 * 60 * 24 * 14);
 const SESSION_ROTATE_AFTER_SECONDS = readPositiveInt('AUTH_SESSION_ROTATE_AFTER_SECONDS', 60 * 60 * 24);
+// How stale users.last_seen_at may get before an authenticated request rewrites
+// it. 15 minutes is far finer than the day-level resolution anything reads it
+// at, while keeping the write off the vast majority of requests.
+const LAST_SEEN_THROTTLE_SECONDS = readPositiveInt('AUTH_LAST_SEEN_THROTTLE_SECONDS', 60 * 15);
 const LOGIN_WINDOW_MS = 10 * 60 * 1000;
 const LOGIN_MAX_ATTEMPTS = 5;
 const PASSWORD_RESET_TTL_SECONDS = readPositiveInt('AUTH_PASSWORD_RESET_TTL_SECONDS', 30 * 60);
@@ -199,7 +207,8 @@ function getSessionByToken(token: string): SessionWithUser | null {
               u.id as user_id2, u.email, u.tier, u.stripe_subscription_id,
               u.email_verified_at, u.paid_welcome_email_sent_at, u.subscription_lapsed,
               u.disclaimer_acknowledged_at, u.disclaimer_version_acknowledged,
-              u.founding_eligible, u.founding_lockin_dismissed_at, u.pro_welcome_seen_at
+              u.founding_eligible, u.founding_lockin_dismissed_at, u.pro_welcome_seen_at,
+              u.last_seen_at
        FROM sessions s
        JOIN users u ON u.id = s.user_id
        WHERE s.token_hash = ? AND u.deleted_at IS NULL`
@@ -209,6 +218,7 @@ function getSessionByToken(token: string): SessionWithUser | null {
   if (!row) return null;
 
   return {
+    lastSeenAt: (row.last_seen_at as string | null) ?? null,
     user: {
       id: row.user_id2 as string,
       email: row.email as string,
@@ -1127,12 +1137,34 @@ export async function getSessionFromRequest(request: NextRequest) {
     data.session.expiresAt = newExpires;
   }
 
+  touchLastSeen(data.user.id, data.lastSeenAt);
+
   return {
     user: data.user,
     expiresAt: data.session.expiresAt,
     csrfToken: data.session.csrfSecret,
     rotatedToken,
   };
+}
+
+// Stamp users.last_seen_at on an authenticated request, at most once per
+// AUTH_LAST_SEEN_THROTTLE_SECONDS. Every authenticated page load and API call
+// lands here, so an unthrottled write would mean a row update per request for
+// no added resolution — the question this feeds is "which day did they last
+// use the product", not "which minute".
+//
+// Deliberately silent on failure. This is observability: a member must never
+// see an error, and a request must never fail, because a bookkeeping write
+// didn't land.
+function touchLastSeen(userId: string, lastSeenAt: string | null): void {
+  if (lastSeenAt && Date.now() - new Date(lastSeenAt).getTime() < LAST_SEEN_THROTTLE_SECONDS * 1000) {
+    return;
+  }
+  try {
+    getDb().prepare('UPDATE users SET last_seen_at = ? WHERE id = ?').run(nowIso(), userId);
+  } catch {
+    // Non-fatal by design — see above.
+  }
 }
 
 export async function clearSession(request: NextRequest) {
