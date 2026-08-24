@@ -79,6 +79,7 @@ export const en = {
   'nav.monitoring': 'Monitoring',
   'nav.pageAnalytics': 'Page Analytics',
   'nav.about': 'About',
+  'nav.support': 'Support',
   'nav.account': 'Account',
   'nav.collapse': 'Collapse {name}',
   'nav.expand': 'Expand {name}',

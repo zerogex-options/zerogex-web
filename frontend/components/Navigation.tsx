@@ -98,6 +98,10 @@ export default function Navigation({ theme }: NavigationProps) {
         items: [
           { id: "/about", label: "About", labelKey: "nav.about" as const },
           { id: "https://api.zerogex.io/docs", label: "API Specs", external: true },
+          // mailto: — `external` keeps it an <a href> rather than a router.push,
+          // and the http-only target/rel check leaves it opening in the same tab
+          // so the mail client takes over instead of leaving a blank window.
+          { id: "mailto:support@zerogex.io", label: "Support", labelKey: "nav.support" as const, external: true },
           ...(isAuthenticated ? [{ id: "/account", label: "Account", labelKey: "nav.account" as const }] : []),
         ],
       },

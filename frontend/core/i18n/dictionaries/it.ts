@@ -70,6 +70,7 @@ export const it: Dictionary = {
   'nav.monitoring': 'Monitoraggio',
   'nav.pageAnalytics': 'Analisi pagine',
   'nav.about': 'Chi siamo',
+  'nav.support': 'Supporto',
   'nav.account': 'Account',
   'nav.collapse': 'Comprimi {name}',
   'nav.expand': 'Espandi {name}',
