@@ -53,8 +53,9 @@ already authorizes this endpoint. (Scope enforcement is opt-in via
 | --- | --- |
 | `frontend/public/ninjatrader/ZeroGexGammaLevels.cs` | The indicator source. Served at `https://zerogex.io/ninjatrader/ZeroGexGammaLevels.cs`. Also the source of record if we later publish a packaged NinjaTrader import (`.zip`). |
 | `frontend/components/PlotOnNinjaTrader.tsx` | "Plot these levels on NinjaTrader" section rendered on all four gamma pages, mirroring `PlotOnTradingView.tsx`. Offers the packaged import when one exists and the `.cs` otherwise, framed as a Pro feature. |
-| `assets/ninjatrader/` | Slot for a genuine NinjaTrader export (`ZeroGexGammaLevels.zip`). See its README. |
-| `Makefile` → `ninjatrader-package` | Guarded copy of that archive into `public/ninjatrader/`, run by `make deploy` **before** the build so the page's build-time presence check sees it. |
+| `assets/ninjatrader/` | The genuine NinjaTrader export (`ZeroGexGammaLevels.zip`). See its README. |
+| `scripts/verify-ninjatrader-package.py` | Proves the archive's embedded source is the source of record before it is published. Fails the deploy if not. |
+| `Makefile` → `ninjatrader-package` | Verifies, then copies the archive into `public/ninjatrader/`. Run by `make deploy` **before** the build so the page's build-time presence check sees it. |
 
 There is no middleware in the frontend, so everything under `public/` is
 served statically with no auth gate — the `.cs` downloads exactly the way
@@ -193,8 +194,29 @@ frozen at the 16:00 close while the future keeps trading.
    NinjaScript Editor on a real NT8 install and confirm the levels draw
    against a live key, with the histogram both off and on.
 5. **Packaged import:** export from NT8 and commit the archive to
-   `assets/ninjatrader/` (see its README). Until then the pages offer the
-   `.cs` and the deploy step no-ops — nothing breaks.
+   `assets/ninjatrader/` (see its README). Every deploy re-verifies it against
+   the `.cs`, so re-export whenever the source changes. Absent, the pages offer
+   the `.cs` and the deploy step no-ops — nothing breaks.
+
+## Supply chain
+
+We have no NinjaTrader in this toolchain, so the export is produced on someone
+else's machine and then served from our domain. That is a real trust step, and
+it is why `scripts/verify-ninjatrader-package.py` gates the publish: the source
+inside the archive must equal `ZeroGexGammaLevels.cs` byte for byte after
+normalising the BOM and CRLF that a Windows round trip introduces.
+
+NinjaTrader appends a `#region NinjaScript generated code` block that is not in
+our source and varies legitimately with the `[NinjaScriptProperty]` set, so it
+cannot be diffed. It is compiled, though, so the verifier tripwires it against
+constructs NinjaTrader never emits and prints its hash. **Read that tail by
+hand whenever the property set changes** — that is the one part of a published
+archive nothing else checks.
+
+That generated block is also a useful signal in its own right: the factory
+overloads it declares are derived from the `[NinjaScriptProperty]` members, so
+`ApiKey` being absent from those signatures is independent confirmation that
+the key stays out of the chart label.
 
 ---
 

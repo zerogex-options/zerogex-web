@@ -1044,11 +1044,20 @@ blog-images:
 # assets/ninjatrader/ZeroGexGammaLevels.zip and it ships on the next deploy;
 # until then the site offers the .cs source only and this step no-ops.
 #
-# The .cs in frontend/public/ninjatrader/ stays the source of record either way.
+# The .cs in frontend/public/ninjatrader/ stays the source of record either way,
+# and the archive is verified against it before publishing: the export is built
+# on someone else's machine and then served from our domain, so we prove the
+# source inside matches ours rather than trusting the sender. That same check
+# catches a stale archive exported before the last edit to the .cs. A failed
+# verification fails the deploy — deliberately, because the alternative is
+# publishing an unverified binary.
 ninjatrader-package:
 	@echo "Publishing NinjaTrader package..."
 	@mkdir -p frontend/public/ninjatrader
 	@if [ -f assets/ninjatrader/ZeroGexGammaLevels.zip ]; then \
+		python3 scripts/verify-ninjatrader-package.py \
+			assets/ninjatrader/ZeroGexGammaLevels.zip \
+			frontend/public/ninjatrader/ZeroGexGammaLevels.cs && \
 		cp assets/ninjatrader/ZeroGexGammaLevels.zip frontend/public/ninjatrader/ZeroGexGammaLevels.zip && \
 		echo "  ✓ One-click import archive published"; \
 	else \
