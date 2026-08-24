@@ -48,7 +48,10 @@ HTTPS call made from the Node process that decides to send it.
   Generate API Key and copy the one-time secret, send it as
   `Authorization: Bearer <key>`) plus a deep link to `/account#api-access`. Carried by
   **both Pro welcome emails** (paid/trial and founding), since key generation is a Pro
-  benefit (`isApiKeyEligibleTier`). The in-app Pro welcome modal
+  benefit (`isApiKeyEligibleTier`), and by the **welcome-back** email under a
+  different intro (`API_KEY_INTRO_RETURNING`): dropping below Pro revokes every key
+  the account held (`revokeApiKeysIfTierDropped`), so a resubscriber's old scripts and
+  NinjaTrader charts are authenticating with a dead key and need a fresh one. The in-app Pro welcome modal
   (`components/ProWelcomeModal`) announces the same thing but fires once and is
   dismissed for good, so the email is the durable copy. Keep in sync with the modal and
   the account page's API Access section (`components/AccountApiKeys`). Covered by
@@ -157,7 +160,9 @@ auth/transactional and TradeWorkz alerts.
 
 **Welcome back (resubscribe)** — `sendWelcomeBackEmail(to)`
 - **Subject:** `Welcome back to ZeroGEX!`
-- "Your full access has been restored…" FOH footer.
+- "Your full access has been restored…" Shared **API-key walkthrough** under the
+  returning-member intro — their prior key was revoked on the tier drop, so this is a
+  repair notice, not a feature announcement. FOH footer.
 
 ### 3.3 Trial-end & billing / dunning
 

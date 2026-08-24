@@ -159,10 +159,19 @@ const API_KEY_STEPS: ReadonlyArray<string> = [
 const API_KEY_INTRO =
   'One more thing worth knowing about: your Pro plan includes self-service API keys, so you can call the ZeroGEX data API straight from your own scripts, spreadsheets, and integrations — no waiting on support. If you ever need one:';
 
-function apiKeyTextLines(): string[] {
+// Returning members need the same steps for a different reason: dropping below
+// Pro revokes every key the account held (revokeApiKeysIfTierDropped), so any
+// integration they left running — a NinjaTrader indicator, a sheet, a bot — is
+// authenticating with a dead key until they mint a new one. Say that plainly
+// rather than reusing the "if you ever need one" framing, which reads as
+// optional to someone whose setup is already broken.
+const API_KEY_INTRO_RETURNING =
+  'One thing to know if you were using the API before: your old key was revoked when the subscription lapsed, so any script, spreadsheet, or NinjaTrader chart still pointed at it needs a fresh one. Generating a replacement takes a few seconds:';
+
+function apiKeyTextLines(intro: string = API_KEY_INTRO): string[] {
   const apiKeyUrl = `${getAppUrl()}/account#api-access`;
   return [
-    API_KEY_INTRO,
+    intro,
     '',
     ...API_KEY_STEPS.map((step, i) => `  ${i + 1}. ${step}`),
     '',
@@ -171,14 +180,14 @@ function apiKeyTextLines(): string[] {
   ];
 }
 
-function apiKeyHtmlBlock(): string {
+function apiKeyHtmlBlock(intro: string = API_KEY_INTRO): string {
   const apiKeyUrl = `${getAppUrl()}/account#api-access`;
   const safeApiKeyUrl = escapeHtml(apiKeyUrl);
   const items = API_KEY_STEPS.map(
     (step) => `<li style="margin: 0 0 8px;">${escapeHtml(step)}</li>`,
   ).join('');
   return `
-      <p>${escapeHtml(API_KEY_INTRO)}</p>
+      <p>${escapeHtml(intro)}</p>
       <ol style="padding-left: 20px; margin: 12px 0;">${items}</ol>
       <p style="margin: 0 0 8px;"><a href="${safeApiKeyUrl}" style="color: #f5b400; font-weight: 600;">Generate an API key</a></p>
       <p style="font-size: 13px; color: #555; margin: 0 0 16px;">You can generate or regenerate a key anytime from your account page &mdash; regenerating immediately deactivates the previous key.</p>`;
@@ -1174,6 +1183,8 @@ export async function sendWelcomeBackEmail(to: string) {
     '',
     "ZeroGEX has kept growing since you were last subscribed, and returning users like you help me keep building. Your full access has been restored, so you can jump straight back into the data.",
     '',
+    ...apiKeyTextLines(API_KEY_INTRO_RETURNING),
+    '',
     "Please feel free to reach out to me directly if anything has changed about what you need, or if there's something we could improve. I read every message, and customer feedback is a huge part of how I'm shaping the product.",
     '',
     'Thanks again — I really appreciate your support.',
@@ -1190,6 +1201,7 @@ export async function sendWelcomeBackEmail(to: string) {
       <p>Hello,</p>
       <p>I just wanted to personally thank you for coming back to ZeroGEX &mdash; it really does mean a lot to have you here again.</p>
       <p>ZeroGEX has kept growing since you were last subscribed, and returning users like you help me keep building. Your full access has been restored, so you can jump straight back into the data.</p>
+      ${apiKeyHtmlBlock(API_KEY_INTRO_RETURNING)}
       <p>Please feel free to reach out to me directly if anything has changed about what you need, or if there's something we could improve. I read every message, and customer feedback is a huge part of how I'm shaping the product.</p>
       <p>Thanks again &mdash; I really appreciate your support.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>

@@ -16,7 +16,9 @@ process.env.NEXT_PUBLIC_APP_URL = APP_URL;
 process.env.RESEND_API_KEY = 're_test_key';
 process.env.RESEND_FROM_EMAIL = 'ZeroGEX <hello@zerogex.test>';
 
-const { sendPaidWelcomeEmail, sendFoundingWelcomeEmail } = await import('../core/mailer.ts');
+const { sendPaidWelcomeEmail, sendFoundingWelcomeEmail, sendWelcomeBackEmail } = await import(
+  '../core/mailer.ts'
+);
 
 type SentEmail = { subject: string; text: string; html: string };
 
@@ -46,13 +48,25 @@ async function capture(send: () => Promise<void>): Promise<SentEmail> {
 // branch a brand-new Pro subscriber actually receives out of checkout.
 const trialEndIso = '2099-01-15T16:00:00.000Z';
 
+// The two first-subscribe emails frame keys as a Pro benefit the member may not
+// know they have. (The welcome-back email frames the same steps as a repair —
+// see its own test.)
+function assertNewSubscriberFraming({ text, html }: SentEmail, label: string) {
+  for (const [format, body] of [
+    ['text', text],
+    ['html', html],
+  ] as const) {
+    assert.match(body, /self-service API keys/, `${label} (${format}): names the benefit`);
+  }
+}
+
+// The mechanics every variant must carry, whatever the framing around them.
 function assertApiKeyGuidance({ text, html }: SentEmail, label: string) {
   for (const [format, body] of [
     ['text', text],
     ['html', html],
   ] as const) {
     const where = `${label} (${format})`;
-    assert.match(body, /self-service API keys/, `${where}: names the API-key benefit`);
     assert.match(body, /API Access/, `${where}: names the account section to open`);
     assert.match(body, /Generate API Key/, `${where}: names the button to click`);
     assert.match(body, /shown only once/, `${where}: warns the secret is one-time`);
@@ -70,12 +84,14 @@ test('paid/trial Pro welcome email explains self-service API key generation', as
   );
   assert.equal(sent.subject, 'Your ZeroGEX trial is active');
   assertApiKeyGuidance(sent, 'paid welcome (trial copy)');
+  assertNewSubscriberFraming(sent, 'paid welcome (trial copy)');
 });
 
 test('immediate-paid Pro welcome email explains self-service API key generation', async () => {
   const sent = await capture(() => sendPaidWelcomeEmail('member@example.com'));
   assert.equal(sent.subject, 'Thank you for subscribing to ZeroGEX!');
   assertApiKeyGuidance(sent, 'paid welcome (no-trial copy)');
+  assertNewSubscriberFraming(sent, 'paid welcome (no-trial copy)');
 });
 
 test('founding welcome email explains self-service API key generation', async () => {
@@ -83,6 +99,20 @@ test('founding welcome email explains self-service API key generation', async ()
     sendFoundingWelcomeEmail('founder@example.com', { trialEndIso }),
   );
   assertApiKeyGuidance(sent, 'founding welcome');
+  assertNewSubscriberFraming(sent, 'founding welcome');
+});
+
+test('welcome-back email tells a returning member their old key was revoked', async () => {
+  const sent = await capture(() => sendWelcomeBackEmail('returning@example.com'));
+  assert.equal(sent.subject, 'Welcome back to ZeroGEX!');
+  assertApiKeyGuidance(sent, 'welcome back');
+  // Dropping below Pro revokes every key the account held, so a resubscriber's
+  // old integrations are authenticating with a dead key. The generic "if you
+  // ever need one" framing would read as optional to someone already broken.
+  for (const body of [sent.text, sent.html]) {
+    assert.match(body, /old key was revoked/);
+    assert.doesNotMatch(body, /If you ever need one/);
+  }
 });
 
 test('the API-key steps are an ordered list in the HTML body, not a bare link', async () => {
