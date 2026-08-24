@@ -320,11 +320,18 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
     }
   };
 
-  const row1PriceLabel = (isExtendedHours || quoteSession === "closed")
+  const row1PriceBaseLabel = (isExtendedHours || quoteSession === "closed")
     ? (sessionClosesData?.current_session_close_ts
         ? `Closing price as of ${formatEtDateTime(sessionClosesData.current_session_close_ts)}`
         : "regular session close")
     : (quoteData?.timestamp ? `as of ${formatEtDateTime(quoteData.timestamp)}` : "latest quote");
+  // ES/NQ only: the feed is behind but the market is open, so the price shown
+  // is the last observed futures print rather than a live one. Say so — the
+  // alternative (reporting the session closed) swapped in the last cash close
+  // and published its day change as today's.
+  const row1PriceLabel = quoteData?.stale
+    ? `${row1PriceBaseLabel} — feed delayed, last observed print`
+    : row1PriceBaseLabel;
 
   const row1ChangeLabel = quoteSession === "open"
     ? (sessionClosesData?.current_session_close_ts
