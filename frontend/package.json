@@ -31,6 +31,7 @@
     "test:api-keys": "node --experimental-strip-types --test tests/apiKeys.test.ts",
     "test:my-dashboard": "node --experimental-strip-types --test tests/myDashboardLayout.test.ts",
     "test:pro-welcome": "node --experimental-strip-types --test tests/proWelcome.test.ts",
+    "test:welcome-api-key": "node --experimental-strip-types --test tests/welcomeEmailApiKey.test.ts",
     "test:payment-grace": "node --experimental-strip-types --test tests/paymentGrace.test.ts",
     "test:payment-setup": "node --experimental-strip-types --test tests/paymentSetup.test.ts",
     "test:api-tier-gate": "node --experimental-strip-types --test tests/apiTierGate.test.ts",

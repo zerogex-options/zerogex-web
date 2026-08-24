@@ -140,6 +140,50 @@ function startHereHtmlList(): string {
   return `<ul style="padding-left: 20px; margin: 12px 0;">${items}</ul>`;
 }
 
+// Self-service API-key instructions carried by both Pro welcome emails (paid /
+// trial and founding). Key generation is a Pro benefit (isApiKeyEligibleTier),
+// so every recipient of these two emails can act on it the moment they read it.
+// The in-app one-time Pro welcome modal (components/ProWelcomeModal) announces
+// the same thing, but it only fires on the first landing back from checkout and
+// is dismissed for good — a member who closes it, checks out on a phone, or
+// simply doesn't need the API until later has nothing to go back to. The email
+// is the durable copy they can search their inbox for, so the steps are spelled
+// out here rather than reduced to a link. Keep these three steps in sync with
+// the modal and the account page's API Access section (components/AccountApiKeys).
+const API_KEY_STEPS: ReadonlyArray<string> = [
+  'Open Account → API Access.',
+  'Click "Generate API Key" and copy the secret — it\'s shown only once.',
+  'Send it on your requests as the header: Authorization: Bearer <your key>',
+];
+
+const API_KEY_INTRO =
+  'One more thing worth knowing about: your Pro plan includes self-service API keys, so you can call the ZeroGEX data API straight from your own scripts, spreadsheets, and integrations — no waiting on support. If you ever need one:';
+
+function apiKeyTextLines(): string[] {
+  const apiKeyUrl = `${getAppUrl()}/account#api-access`;
+  return [
+    API_KEY_INTRO,
+    '',
+    ...API_KEY_STEPS.map((step, i) => `  ${i + 1}. ${step}`),
+    '',
+    `Generate a key here: ${apiKeyUrl}`,
+    "You can generate or regenerate a key anytime from your account page — regenerating immediately deactivates the previous key.",
+  ];
+}
+
+function apiKeyHtmlBlock(): string {
+  const apiKeyUrl = `${getAppUrl()}/account#api-access`;
+  const safeApiKeyUrl = escapeHtml(apiKeyUrl);
+  const items = API_KEY_STEPS.map(
+    (step) => `<li style="margin: 0 0 8px;">${escapeHtml(step)}</li>`,
+  ).join('');
+  return `
+      <p>${escapeHtml(API_KEY_INTRO)}</p>
+      <ol style="padding-left: 20px; margin: 12px 0;">${items}</ol>
+      <p style="margin: 0 0 8px;"><a href="${safeApiKeyUrl}" style="color: #f5b400; font-weight: 600;">Generate an API key</a></p>
+      <p style="font-size: 13px; color: #555; margin: 0 0 16px;">You can generate or regenerate a key anytime from your account page &mdash; regenerating immediately deactivates the previous key.</p>`;
+}
+
 export async function sendEmailVerification(to: string, verifyUrl: string) {
   const safeLink = escapeHtml(verifyUrl);
   const subject = 'Verify your ZeroGEX email';
@@ -298,6 +342,8 @@ export async function sendPaidWelcomeEmail(
     '',
     TRIAL_DISCLAIMER_LINE,
     '',
+    ...apiKeyTextLines(),
+    '',
     growthLine,
     '',
     "Please feel free to reply directly if you run into anything, have questions, or see something that could be improved. I read every message, and customer feedback is a huge part of how I'm shaping the product.",
@@ -325,6 +371,7 @@ export async function sendPaidWelcomeEmail(
         <a href="${safeDashboardUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Open the live dashboard</a>
       </p>
       <p style="font-size: 13px; color: #555;">${TRIAL_DISCLAIMER_LINE}</p>
+      ${apiKeyHtmlBlock()}
       <p>${growthLine}</p>
       <p>Please feel free to reply directly if you run into anything, have questions, or see something that could be improved. I read every message, and customer feedback is a huge part of how I'm shaping the product.</p>
       <p>Thanks again &mdash; I really appreciate your support.</p>
@@ -459,6 +506,8 @@ export async function sendFoundingWelcomeEmail(
     '',
     "It genuinely means a lot to have your support this early. ZeroGEX is still growing quickly, and early paid users like you help make it possible for me to keep improving the platform, adding features, and making the data more useful for active traders. As a Founding Member your rate is locked in for the first year, and the 25% lifetime discount applies automatically after that.",
     '',
+    ...apiKeyTextLines(),
+    '',
     "Please feel free to reach out to me directly if you run into anything, have questions, or see something that could be improved. I read every message, and customer feedback is a huge part of how I'm shaping the product.",
     '',
     'Thanks again — I really appreciate your support.',
@@ -476,6 +525,7 @@ export async function sendFoundingWelcomeEmail(
       ${trialLineHtml ? `<p>${trialLineHtml}</p>` : ''}
       <p>I just wanted to personally thank you for subscribing to ZeroGEX.</p>
       <p>It genuinely means a lot to have your support this early. ZeroGEX is still growing quickly, and early paid users like you help make it possible for me to keep improving the platform, adding features, and making the data more useful for active traders. As a Founding Member your rate is locked in for the first year, and the 25% lifetime discount applies automatically after that.</p>
+      ${apiKeyHtmlBlock()}
       <p>Please feel free to reach out to me directly if you run into anything, have questions, or see something that could be improved. I read every message, and customer feedback is a huge part of how I'm shaping the product.</p>
       <p>Thanks again &mdash; I really appreciate your support.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
