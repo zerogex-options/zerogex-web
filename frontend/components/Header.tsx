@@ -30,6 +30,7 @@ import { getMarketSession } from "@/core/utils";
 import { getPrimaryPriceChangeSummary, getExtendedHoursRow } from "@/core/priceChange";
 import { brandTitle } from "@/core/brand";
 import SessionBadge from "./SessionBadge";
+import FuturesDelayBadge from "./FuturesDelayBadge";
 import WorldClocks from "./WorldClocks";
 import OptionsCalendarBadge from "./OptionsCalendarBadge";
 import NewsHeadlinesBadge from "./NewsHeadlinesBadge";
@@ -452,6 +453,11 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                           ◆ {futuresTicker} FUT
                         </span>
                       )}
+                      <FuturesDelayBadge
+                        symbol={symbol}
+                        stale={quoteData?.stale}
+                        dataAgeSeconds={quoteData?.data_age_seconds}
+                      />
                       {row1Change !== null && row1ChangePercent !== null && (
                         <div className="zg-datum flex items-center gap-1 px-2 py-1 font-semibold w-fit" title={row1ChangeLabel} style={{ borderRadius: 'var(--radius-control)', backgroundColor: `${row1Positive ? 'var(--color-bull)' : 'var(--color-bear)'}1f`, color: row1Positive ? 'var(--color-bull)' : 'var(--color-bear)', fontSize: "12px" }}>
                           {row1Positive ? <TrendingUp size={12} strokeWidth={2.5} /> : <TrendingDown size={12} strokeWidth={2.5} />}
@@ -822,6 +828,11 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                       ◆ {futuresTicker} FUT
                     </span>
                   )}
+                  <FuturesDelayBadge
+                    symbol={symbol}
+                    stale={quoteData?.stale}
+                    dataAgeSeconds={quoteData?.data_age_seconds}
+                  />
                   {row1Change !== null && row1ChangePercent !== null && (
                     <div
                       className="zg-datum flex items-center gap-1.5 px-2.5 py-1 font-semibold text-sm"

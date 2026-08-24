@@ -64,7 +64,8 @@
     "test:forced-flow-read": "node --experimental-strip-types --test tests/forcedFlowSessionRead.test.ts",
     "test:referee-bonus": "node --experimental-strip-types --test tests/refereeBonus.test.ts",
     "test:orphan-payment": "node --experimental-strip-types --test tests/orphanPayment.test.ts",
-    "test:stripe-invoice": "node --experimental-strip-types --test tests/stripeInvoice.test.ts"
+    "test:stripe-invoice": "node --experimental-strip-types --test tests/stripeInvoice.test.ts",
+    "test:futures-delay": "node --experimental-strip-types --test tests/futuresDelayDisclosure.test.ts"
   },
   "dependencies": {
     "jose": "^5.9.6",

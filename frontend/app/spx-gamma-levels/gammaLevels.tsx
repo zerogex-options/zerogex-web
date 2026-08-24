@@ -19,6 +19,7 @@ import PricingTrialCta from './PricingTrialCta';
 import StickyTrialBar from './StickyTrialBar';
 import GammaTerminalChart from '@/components/GammaTerminalChart';
 import { loadChartSnapshot } from '@/app/chart/snapshot';
+import { futuresDelayNote } from '@/core/futuresDataStatus';
 import { netGexAtSpotOrNull } from '@/core/gammaRegime';
 import { volatilityIndexFor } from '@/core/symbols';
 
@@ -113,7 +114,9 @@ const SYMBOL_CHAIN: Record<Symbol, Symbol> = {
 function derivationNote(primary: Symbol): string {
   const chain = SYMBOL_CHAIN[primary];
   if (chain === primary) return '';
-  return ` ${primary} levels are derived from the ${chain} options chain and converted to ${primary} prices using the live futures basis, so they line up with the ${primary} contract you actually trade.`;
+  // futuresDelayNote is empty once the real-time CME entitlement is live —
+  // see core/futuresDataStatus.ts, which is the single switch.
+  return ` ${primary} levels are derived from the ${chain} options chain and converted to ${primary} prices using the live futures basis, so they line up with the ${primary} contract you actually trade.${futuresDelayNote(primary)}`;
 }
 
 function buildSymbolContent(primary: Symbol): SymbolContent {
