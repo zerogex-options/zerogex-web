@@ -20,6 +20,7 @@ import { ArrowRight, Gauge, Layers, LineChart, Sparkles, Target, Waves } from 'l
 import PageShell from '@/components/layout/PageShell';
 import GammaTerminalChart, { type ChartSnapshot } from '@/components/GammaTerminalChart';
 import GammaExpectationMatrix from '@/components/GammaExpectationMatrix';
+import KeyLevelsStrip from '@/components/KeyLevelsStrip';
 
 const EDGE_CARDS: Array<{ icon: React.ReactNode; accent: string; title: string; body: string }> = [
   {
@@ -76,6 +77,19 @@ export default function ChartClient({
           </span>
         </div>
         <h1 className="zg-h1" style={{ marginBottom: 12 }}>The Gamma Chart</h1>
+
+        {/* Key Levels, before the copy rather than after it: the whole point is
+            that a phone shows the pin and the flip without scrolling, and the
+            lead paragraph below is a screen tall on a handset. Delayed mode
+            passes the snapshot straight through, so the public view stays
+            frozen server data with zero client fetching, exactly like the
+            chart — the public path costs nothing at all. In live mode it is a
+            second useGammaPlaybook subscriber alongside the Playbook below,
+            which is a deliberate trade: two 30s polls of two small JSON
+            endpoints buys the guarantee that the strip and the chart resolve
+            their levels through exactly the same code path. */}
+        <KeyLevelsStrip snapshot={snapshot} delayed={delayed} className="mb-5" />
+
         <p style={{ fontSize: 16, lineHeight: 1.65, color: 'var(--text-secondary)', maxWidth: 760 }}>
           Price and dealer gamma on one surface. See exactly where market makers are forced to trade against
           you — the Gamma Flip, the Call and Put Walls, and a silhouette of dealer positioning by price — drawn

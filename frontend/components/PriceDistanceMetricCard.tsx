@@ -3,6 +3,7 @@
 import { TrendingDown, TrendingUp } from 'lucide-react';
 import { Theme } from '@/core/types';
 import MetricCard from './MetricCard';
+import { keyLevelDistance } from '@/core/keyLevels';
 import { colors } from '@/core/colors';
 
 interface PriceDistanceMetricCardProps {
@@ -13,19 +14,16 @@ interface PriceDistanceMetricCardProps {
   theme?: Theme;
 }
 
+// The distance format (signed dollars / signed percent / above-or-below spot)
+// is shared with the Key Levels strip and widget via core/keyLevels, so a level
+// reads identically wherever it is rendered. Only the colour + icon are local.
 function getDistanceMeta(level: number | null | undefined, spotPrice: number | null | undefined) {
-  if (level == null || spotPrice == null || spotPrice === 0) return null;
-
-  const delta = level - spotPrice;
-  const pct = (delta / spotPrice) * 100;
-  const isAbove = delta >= 0;
-
+  const distance = keyLevelDistance(level, spotPrice);
+  if (!distance) return null;
   return {
-    isAbove,
-    color: isAbove ? 'var(--color-bull)' : 'var(--color-bear)',
-    deltaLabel: `${isAbove ? '+' : '-'}$${Math.abs(delta).toFixed(2)}`,
-    pctLabel: `${isAbove ? '+' : '-'}${Math.abs(pct).toFixed(2)}%`,
-    spotRelationLabel: `${isAbove ? 'above' : 'below'} spot`,
+    ...distance,
+    color: distance.isAbove ? 'var(--color-bull)' : 'var(--color-bear)',
+    spotRelationLabel: distance.relationLabel,
   };
 }
 

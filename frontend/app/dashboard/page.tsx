@@ -11,6 +11,7 @@ import { snapshotFromSeries, useFlowSeries } from '@/hooks/useFlowSeries';
 import MetricCard from '@/components/MetricCard';
 import PageShell from '@/components/layout/PageShell';
 import GammaTerminalChart from '@/components/GammaTerminalChart';
+import KeyLevelsStrip from '@/components/KeyLevelsStrip';
 import { LoadingCard } from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import ProprietarySignalsSynthesis from '@/components/ProprietarySignalsSynthesis';
@@ -117,7 +118,8 @@ export default function DashboardPage() {
   if (gexLoading && !gexData) {
     return (
       <PageShell>
-        <h1 className="zg-h1 mb-8">{t('dashboardTitle')}</h1>
+        <h1 className="zg-h1 mb-4">{t('dashboardTitle')}</h1>
+        <KeyLevelsStrip className="mb-6" />
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <LoadingCard />
           <LoadingCard />
@@ -132,10 +134,18 @@ export default function DashboardPage() {
     <PageShell>
       <TrialStartedBanner />
 
-      <div className="flex items-center justify-between gap-3 mb-4">
+      <div className="flex items-center justify-between gap-3 mb-3">
         <h1 className="zg-h1">{t('dashboardTitle')}</h1>
         <DensityToggle />
       </div>
+
+      {/* Key Levels — the dealer-positioning levels the Gamma Chart draws,
+          hoisted to the top of the page. On a phone the chart itself is several
+          screens down, so the pin and the flip used to cost a long scroll; this
+          puts them above the fold in the wall cards' own format. It reads the
+          SAME levels the chart resolves (useGammaPlaybook), so the symbol and
+          expiration filter move it without any state of its own. */}
+      <KeyLevelsStrip className="mb-6" />
 
       {/* Today's Read — the auto-generated regime prose. Collapsed by default in
           Simple mode so the dashboard opens glance-first; the compact Trade Bias
