@@ -38,6 +38,7 @@ import { useSharedExpirations } from "@/hooks/useSharedExpirations";
 import { useChartExpirations } from "@/hooks/useChartExpirations";
 import { useLinkedPriceAxis } from "@/core/linkedPriceAxis";
 import { netGexAtSpotOrNull, aboveFlipBandIsLong, offScaleBandIsLong } from "@/core/gammaRegime";
+import { computeMaxPainFromStrikes } from "@/core/keyLevels";
 import {
   buildExpirationSplit,
   expirationOpacityRamp,
@@ -854,10 +855,10 @@ export default function GammaTerminalChart({
   // dropping it. Live/delayed paths use the served value.
   const maxPain = rewindActive
     ? rewindBucket
-      ? computeMaxPain(rewindBucket.strikes)
+      ? computeMaxPainFromStrikes(rewindBucket.strikes)
       : null
     : filteredExp && live && liveGexBucket
-      ? computeMaxPain(liveGexBucket.strikes)
+      ? computeMaxPainFromStrikes(liveGexBucket.strikes)
       : snapshot ? snapshot.gamma.maxPain : num(gexSummary?.max_pain);
   // Sign-consistent at-spot dealer gamma (drives the LONG/SHORT badge). Only
   // the spot-shift profile's net_gex_at_spot is used; we deliberately DON'T
@@ -2700,33 +2701,6 @@ function coerceNum(v: unknown): number | null {
   if (v == null || v === "") return null;
   const n = typeof v === "string" ? Number(v) : (v as number);
   return typeof n === "number" && Number.isFinite(n) ? n : null;
-}
-
-// Textbook Max Pain: the strike that minimizes total in-the-money option value
-// (writers' payout) across the chain — Σ callOI·(K−s) for s<K plus Σ putOI·(s−K)
-// for s>K. Recovers a historical Max Pain from a rewound bucket's per-strike OI,
-// which the timeseries doesn't carry as a first-class field.
-function computeMaxPain(strikes: StrikeProfileStrike[] | undefined): number | null {
-  if (!Array.isArray(strikes)) return null;
-  const rows = strikes
-    .map((s) => ({ k: coerceNum(s.strike), c: coerceNum(s.call_oi) ?? 0, p: coerceNum(s.put_oi) ?? 0 }))
-    .filter((r): r is { k: number; c: number; p: number } => r.k != null)
-    .sort((a, b) => a.k - b.k);
-  if (rows.length < 3 || !rows.some((r) => r.c > 0 || r.p > 0)) return null;
-  let bestK: number | null = null;
-  let bestLoss = Infinity;
-  for (const cand of rows) {
-    let loss = 0;
-    for (const r of rows) {
-      if (r.k < cand.k) loss += r.c * (cand.k - r.k);
-      else if (r.k > cand.k) loss += r.p * (r.k - cand.k);
-    }
-    if (loss < bestLoss) {
-      bestLoss = loss;
-      bestK = cand.k;
-    }
-  }
-  return bestK;
 }
 
 // Rebuild the gamma rail for a rewound moment from a bucket's per-strike net

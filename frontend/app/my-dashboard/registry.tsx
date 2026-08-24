@@ -56,6 +56,7 @@ import {
 } from './tiles';
 import {
   TodaysReadPanel,
+  KeyLevelsPanel,
   DealerExposuresPanel,
   GammaChartPanel,
   GammaByStrikePanel,
@@ -186,6 +187,21 @@ export const WIDGETS: WidgetDef[] = [
   },
 
   // ── Gamma & GEX ──
+  {
+    id: 'key-levels',
+    title: 'Key Levels',
+    blurb:
+      'Every level the Gamma Chart draws, in one strip: spot, Gamma Flip, Pin Strike, Call Wall, Put Wall and Max Pain, each with its live distance from spot. Follows this pane’s symbol and expiration filter.',
+    category: 'gamma',
+    tier: 'basic',
+    icon: Crosshair,
+    // Wide enough for the whole row on a desktop board; the cards reflow to
+    // whatever footprint a resize hands it, down to two across at S.
+    defaultSize: 'lg',
+    allowedSizes: ALL_SIZES,
+    feeds: [],
+    render: () => <KeyLevelsPanel />,
+  },
   {
     id: 'net-gex',
     title: 'Net GEX',
