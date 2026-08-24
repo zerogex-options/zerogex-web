@@ -139,6 +139,14 @@ export interface MarketQuoteRow {
   data_symbol?: string | null;
   futures_close?: number | null;
   futures_reference_close?: number | null;
+  // FEED freshness on the natively-served futures quote (ES / NQ). Separate
+  // from `session`, which describes the CME calendar: a "closed" session
+  // makes getPrimaryPriceChangeSummary swap the headline price for the last
+  // cash close, so folding staleness into it published a three-day-old price
+  // as live. `stale` gates the chart tip-candle merge instead; the session
+  // stays honest. Absent on the cash index / ETF path.
+  stale?: boolean | null;
+  data_age_seconds?: number | null;
 }
 
 interface UseApiDataOptions<T = unknown> {

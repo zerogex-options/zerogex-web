@@ -293,3 +293,42 @@ test("spot badge degrades to null on missing inputs", () => {
   assert.equal(getSpotPriorCloseChange(750.0, "open", closes(0, 745.0)).changePercent, null);
   assert.equal(getSpotPriorCloseChange(NaN, "open", closes(747.0, 745.0)).changePercent, null);
 });
+
+
+// --- ES / NQ: why the futures quote's `session` must describe the MARKET ----
+//
+// ES and NQ trade nearly 23 hours, so /api/market/quote reports session "open"
+// through the whole CME session and the header reads live-vs-Friday's-16:00.
+// The backend briefly folded FEED staleness into that flag — a late bar was
+// reported "closed" so the chart would stop merging it onto the live tip.
+// But "closed" is not a merge switch: it also swaps the headline price for
+// current_session_close and the baseline for prior_session_close. The two
+// cases below are the same feed a minute apart, and they differ by three days.
+
+test("futures, session open → live print vs the last 16:00 mark", () => {
+  const r = getPrimaryPriceChangeSummary({
+    quoteClose: 7677.25,               // live ES, Monday pre-market
+    quoteSession: "open",              // CME is trading
+    sessionCloses: closes(7692.0, 7665.25), // Fri 16:00, Thu 16:00
+  });
+  assert.equal(r.displayPrice, 7677.25);
+  approx(r.change, -14.75);
+  approx(r.changePercent, (-14.75 / 7692.0) * 100);
+  assert.equal(r.isPositive, false);
+});
+
+test("futures, session closed → Friday's close and FRIDAY'S change", () => {
+  // The shipped bug, pinned. Same live 7677.25 print available; reporting the
+  // session closed published "$7692.00 +26.75 (+0.35%)" instead — a three-day
+  // -old price with a stale day change, and nothing on screen to say so.
+  const r = getPrimaryPriceChangeSummary({
+    quoteClose: 7677.25,
+    quoteSession: "closed",
+    sessionCloses: closes(7692.0, 7665.25),
+  });
+  assert.equal(r.displayPrice, 7692.0);   // NOT the live print
+  approx(r.change, 26.75);                // Friday's change, shown as today's
+  // This reading is correct ONLY when the market is genuinely closed (the
+  // 17:00-18:00 CME break, the weekend). It must never be reached because a
+  // feed fell behind — see _native_futures_quote and its `stale` field.
+});
