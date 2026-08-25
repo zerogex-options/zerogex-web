@@ -66,6 +66,20 @@ the existing `.pine` file does.
 - **Gamma Flip**, **Call Wall**, **Put Wall**, **Max Pain**, **Pin Strike**
   as horizontal lines with price labels (each toggleable, each with its own
   color). A level the API returns as `null` is hidden, not drawn at zero.
+- **GEX 1..N** — the strikes carrying the most dealer gamma, dashed so they
+  stay distinct from the headline walls. Free: the profile the histogram uses
+  already carries every strike's net gamma, so this ranks data already in
+  hand, with no extra request. Ranked on **absolute** gamma, so a heavy put
+  strike ranks alongside a heavy call strike — the question is "where is the
+  most dealer gamma", not "where is it most positive".
+- **VWAP** — session volume-weighted average price, from
+  `GET /api/technicals/vwap-deviation?...&window_units=1`. This is the one
+  feature that costs a second request per poll. It is best-effort: a failure
+  leaves the levels untouched rather than costing the user the lines they came
+  for. `window_units=1` returns a single bucket, so the flat extractor cannot
+  pick up an older bar. `vwap` is in the API's `PRICE_FIELDS`, so on ES/NQ it
+  arrives projected like every other level, and the `technicals` scope it needs
+  is already in every external tier (see *Which key works*).
 - An **info panel** (top-right) showing the five values, the symbol, and how
   many seconds ago the snapshot was computed.
 - Optional **price-cross alerts** (NinjaTrader `Alert()`) when price crosses
@@ -94,6 +108,9 @@ setting can't produce a `422`).
    - **Symbol** — `ES`, `NQ`, `SPX`, `SPY`, `QQQ`, or `NDX` (set it to match
      the chart). On an ES or NQ chart, use `ES` / `NQ` — see below.
    - **Poll interval** — default 60s (matches the analytics cycle).
+   - **Show GEX 1..N** and **Show VWAP** — both ON by default. Unlike the
+     histogram these are a handful of ordinary lines rather than dozens of
+     draw objects, and they are the two things traders asked for by name.
    - **Show strike profile histogram** — off by default; turn it on for the
      per-strike gamma bars, and tune `Histogram strikes` / `Histogram width` /
      `Histogram bar thickness`. Thickness is a stroke width in pixels: the

@@ -8,6 +8,8 @@
 //    • Put Wall     (downside floor)
 //    • Max Pain     (expiration magnet)
 //    • Pin Strike   (0DTE pin magnet)
+//    • GEX 1..N     (the strikes carrying the most dealer gamma)
+//    • VWAP         (session volume-weighted average price)
 //  …plus an optional right-anchored per-strike net-gamma histogram.
 //
 //  Unlike the free manual-entry TradingView script, this indicator pulls the
@@ -78,6 +80,10 @@ namespace NinjaTrader.NinjaScript.Indicators
         // ever needs these two columns.
         public List<double> ProfileStrike;
         public List<double> ProfileNetGex;
+
+        // Session VWAP, from a second endpoint. Null when the extra call is
+        // switched off or failed — it is additive, never load-bearing.
+        public double? Vwap;
         public int? AgeSeconds;
         public string AsOf;
         public string Symbol;
@@ -109,6 +115,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         // as bars form or they drift away from the right edge. Redrawing every
         // tick would be dozens of Draw calls per tick on a fast chart, so the
         // redraw is gated on "new bar, new snapshot, or toggled".
+        private int _gexRanksDrawn;
         private int _profileDrawn;
         private int _profileAnchorBar = -1;
         private bool _profileShown;
@@ -141,6 +148,13 @@ namespace NinjaTrader.NinjaScript.Indicators
                 ShowMaxPain = true;
                 ShowPinStrike = true;
 
+                // Both default ON, unlike the histogram: these are a handful of
+                // ordinary lines, not dozens of draw objects, and they are the
+                // two things traders asked for by name.
+                ShowGexRanks = true;
+                GexRankCount = 4;
+                ShowVwap = true;
+
                 // Opt-in: this is 40 extra draw objects on the price panel, so
                 // an existing user's chart shouldn't sprout them on update.
                 ShowStrikeProfile = false;
@@ -165,6 +179,8 @@ namespace NinjaTrader.NinjaScript.Indicators
                 PinBrush = Brushes.DeepSkyBlue;
                 ProfilePosBrush = Brushes.SteelBlue;
                 ProfileNegBrush = Brushes.IndianRed;
+                GexRankBrush = Brushes.Goldenrod;
+                VwapBrush = Brushes.DodgerBlue;
             }
             else if (State == State.Terminated)
             {
@@ -255,8 +271,52 @@ namespace NinjaTrader.NinjaScript.Indicators
                     if (!resp.IsSuccessStatusCode)
                         throw new Exception("HTTP " + (int)resp.StatusCode + " for " + url);
 
-                    return Parse(body);
+                    var snap = Parse(body);
+                    if (snap != null && ShowVwap)
+                        snap.Vwap = await FetchVwapAsync(baseUrl, sym).ConfigureAwait(false);
+
+                    return snap;
                 }
+            }
+        }
+
+        /// <summary>Session VWAP from /api/technicals/vwap-deviation.
+        ///
+        /// Deliberately best-effort: a failure here returns null and leaves the
+        /// levels intact, because VWAP is additive and should never cost the
+        /// user the lines they actually came for.
+        ///
+        /// window_units=1 asks for a single bucket, so the flat extractor's
+        /// first-match cannot pick up an older bar — and it keeps the payload
+        /// tiny. (The endpoint orders newest-first anyway; this does not rely
+        /// on that.) `vwap` is in the API's PRICE_FIELDS, so on an ES or NQ
+        /// chart it arrives projected onto the futures axis like every other
+        /// level.</summary>
+        private async Task<double?> FetchVwapAsync(string baseUrl, string escapedSymbol)
+        {
+            string url = baseUrl + "/api/technicals/vwap-deviation?symbol=" + escapedSymbol +
+                         "&timeframe=1min&window_units=1";
+
+            try
+            {
+                using (var req = new HttpRequestMessage(HttpMethod.Get, url))
+                {
+                    req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", (ApiKey ?? "").Trim());
+                    req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+                    using (var resp = await _http.SendAsync(req).ConfigureAwait(false))
+                    {
+                        if (!resp.IsSuccessStatusCode)
+                            return null;
+
+                        string body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                        return ExtractNumber(body, "vwap");
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                return null;
             }
         }
 
@@ -429,6 +489,8 @@ namespace NinjaTrader.NinjaScript.Indicators
             DrawOne("ZG_Put", ShowPutWall, s?.PutWall, "Put Wall", PutBrush);
             DrawOne("ZG_Pain", ShowMaxPain, s?.MaxPain, "Max Pain", PainBrush);
             DrawOne("ZG_Pin", ShowPinStrike, s?.PinStrike, "Pin Strike", PinBrush);
+            DrawOne("ZG_Vwap", ShowVwap, s?.Vwap, "VWAP", VwapBrush);
+            DrawGexRanks(s);
             DrawProfile(s);
 
             if (ShowInfoPanel)
@@ -460,6 +522,86 @@ namespace NinjaTrader.NinjaScript.Indicators
             {
                 RemoveDrawObject(tag + "_txt");
             }
+        }
+
+        /// <summary>The strikes carrying the most dealer gamma, drawn as dashed
+        /// lines labelled GEX 1..N — GEX 1 being the largest.
+        ///
+        /// Costs no extra request: the profile the histogram already uses holds
+        /// every strike's net gamma, so this is a ranking of data in hand.
+        /// Ranked on ABSOLUTE gamma, so a heavy put strike ranks alongside a
+        /// heavy call strike — the question being answered is "where is the
+        /// most dealer gamma", not "where is the most positive gamma".
+        ///
+        /// Selection rather than a sort: N is single digits against at most 200
+        /// strikes, so this is cheaper than ordering the whole profile, and it
+        /// avoids taking a LINQ dependency the NinjaScript compiler would have
+        /// to resolve.</summary>
+        private void DrawGexRanks(ZeroGexLevelsSnapshot s)
+        {
+            int drawn = 0;
+
+            if (ShowGexRanks && s != null && s.ProfileStrike != null && s.ProfileStrike.Count > 0)
+            {
+                int want = Math.Min(Math.Max(1, GexRankCount), s.ProfileStrike.Count);
+                bool[] taken = new bool[s.ProfileStrike.Count];
+
+                for (int rank = 0; rank < want; rank++)
+                {
+                    int best = -1;
+                    double bestMagnitude = 0;
+
+                    for (int i = 0; i < s.ProfileStrike.Count; i++)
+                    {
+                        if (taken[i])
+                            continue;
+
+                        double magnitude = Math.Abs(s.ProfileNetGex[i]);
+                        if (magnitude > bestMagnitude)
+                        {
+                            bestMagnitude = magnitude;
+                            best = i;
+                        }
+                    }
+
+                    // Ran out of strikes carrying any gamma at all.
+                    if (best < 0)
+                        break;
+
+                    taken[best] = true;
+
+                    string tag = "ZG_Gex" + (rank + 1);
+                    double y = s.ProfileStrike[best];
+
+                    // Dashed, so the ranked strikes stay visually distinct from
+                    // the four headline walls.
+                    Draw.HorizontalLine(this, tag, y, GexRankBrush, DashStyleHelper.Dash,
+                                        Math.Max(1, LineWidth));
+
+                    if (ShowLabels)
+                    {
+                        string text = "GEX " + (rank + 1) + "  " +
+                                      y.ToString("0.##", CultureInfo.InvariantCulture);
+                        Draw.Text(this, tag + "_txt", text, 0, y, GexRankBrush);
+                    }
+                    else
+                    {
+                        RemoveDrawObject(tag + "_txt");
+                    }
+
+                    drawn++;
+                }
+            }
+
+            // Retire ranks left over from a larger count, or from the whole
+            // group being switched off.
+            for (int rank = drawn; rank < _gexRanksDrawn; rank++)
+            {
+                RemoveDrawObject("ZG_Gex" + (rank + 1));
+                RemoveDrawObject("ZG_Gex" + (rank + 1) + "_txt");
+            }
+
+            _gexRanksDrawn = drawn;
         }
 
         /// <summary>Right-anchored per-strike net-gamma histogram: one horizontal
@@ -528,7 +670,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             return "ZeroGEX Gamma Levels — " + sym + "\n" +
                    "Flip "  + Fmt(s.GammaFlip) + "   Call " + Fmt(s.CallWall) + "\n" +
                    "Put "   + Fmt(s.PutWall)   + "   Pain " + Fmt(s.MaxPain) + "\n" +
-                   "Pin "   + Fmt(s.PinStrike) + "\n" +
+                   "Pin "   + Fmt(s.PinStrike) + "   VWAP " + Fmt(s.Vwap) + "\n" +
                    "updated " + age + "  ·  zerogex.io";
         }
 
@@ -554,6 +696,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             CrossAlert("ZGX_Put", s.PutWall, "Put Wall");
             CrossAlert("ZGX_Pain", s.MaxPain, "Max Pain");
             CrossAlert("ZGX_Pin", s.PinStrike, "Pin Strike");
+            CrossAlert("ZGX_Vwap", s.Vwap, "VWAP");
         }
 
         private void CrossAlert(string id, double? level, string label)
@@ -624,22 +767,35 @@ namespace NinjaTrader.NinjaScript.Indicators
         public bool ShowPinStrike { get; set; }
 
         [NinjaScriptProperty]
-        [Display(Name = "Show strike profile histogram", Order = 6, GroupName = "2. Levels")]
+        [Display(Name = "Show GEX 1..N (top gamma strikes)", Order = 6, GroupName = "2. Levels")]
+        public bool ShowGexRanks { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(1, 10)]
+        [Display(Name = "How many GEX levels", Order = 7, GroupName = "2. Levels")]
+        public int GexRankCount { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Show VWAP", Order = 8, GroupName = "2. Levels")]
+        public bool ShowVwap { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Show strike profile histogram", Order = 9, GroupName = "2. Levels")]
         public bool ShowStrikeProfile { get; set; }
 
         [NinjaScriptProperty]
         [Range(1, 200)]
-        [Display(Name = "Histogram strikes (nearest spot)", Order = 7, GroupName = "2. Levels")]
+        [Display(Name = "Histogram strikes (nearest spot)", Order = 10, GroupName = "2. Levels")]
         public int ProfileStrikeCount { get; set; }
 
         [NinjaScriptProperty]
         [Range(1, 200)]
-        [Display(Name = "Histogram width (bars)", Order = 8, GroupName = "2. Levels")]
+        [Display(Name = "Histogram width (bars)", Order = 11, GroupName = "2. Levels")]
         public int ProfileWidthBars { get; set; }
 
         [NinjaScriptProperty]
         [Range(1, 20)]
-        [Display(Name = "Histogram bar thickness (pixels)", Order = 9, GroupName = "2. Levels")]
+        [Display(Name = "Histogram bar thickness (pixels)", Order = 12, GroupName = "2. Levels")]
         public int ProfileBarWidth { get; set; }
 
         [NinjaScriptProperty]
@@ -715,7 +871,29 @@ namespace NinjaTrader.NinjaScript.Indicators
         }
 
         [XmlIgnore]
-        [Display(Name = "Histogram color (net positive)", Order = 10, GroupName = "3. Style")]
+        [Display(Name = "GEX 1..N color", Order = 10, GroupName = "3. Style")]
+        public Brush GexRankBrush { get; set; }
+
+        [Browsable(false)]
+        public string GexRankBrushSerialize
+        {
+            get { return Serialize.BrushToString(GexRankBrush); }
+            set { GexRankBrush = Serialize.StringToBrush(value); }
+        }
+
+        [XmlIgnore]
+        [Display(Name = "VWAP color", Order = 11, GroupName = "3. Style")]
+        public Brush VwapBrush { get; set; }
+
+        [Browsable(false)]
+        public string VwapBrushSerialize
+        {
+            get { return Serialize.BrushToString(VwapBrush); }
+            set { VwapBrush = Serialize.StringToBrush(value); }
+        }
+
+        [XmlIgnore]
+        [Display(Name = "Histogram color (net positive)", Order = 12, GroupName = "3. Style")]
         public Brush ProfilePosBrush { get; set; }
 
         [Browsable(false)]
@@ -726,7 +904,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         }
 
         [XmlIgnore]
-        [Display(Name = "Histogram color (net negative)", Order = 11, GroupName = "3. Style")]
+        [Display(Name = "Histogram color (net negative)", Order = 13, GroupName = "3. Style")]
         public Brush ProfileNegBrush { get; set; }
 
         [Browsable(false)]
