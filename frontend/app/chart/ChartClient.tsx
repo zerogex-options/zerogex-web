@@ -19,6 +19,7 @@ import Link from 'next/link';
 import { ArrowRight, Gauge, Layers, LineChart, Sparkles, Target, Waves } from 'lucide-react';
 import PageShell from '@/components/layout/PageShell';
 import GammaTerminalChart, { type ChartSnapshot } from '@/components/GammaTerminalChart';
+import { SYMBOLS } from '@/core/symbols';
 import GammaExpectationMatrix from '@/components/GammaExpectationMatrix';
 import KeyLevelsStrip from '@/components/KeyLevelsStrip';
 
@@ -105,7 +106,10 @@ export default function ChartClient({
           )}
         </p>
         <div className="flex flex-wrap items-center gap-8 mt-5">
-          <Stat value="SPY · QQQ · SPX · NDX" label="Underlyings" />
+          {/* Derived from the same SYMBOLS the chart's own switcher maps, so the
+              hero cannot advertise a different set from the one it renders —
+              this line still read SPY · QQQ · SPX · NDX after ES and NQ shipped. */}
+          <Stat value={SYMBOLS.join(' · ')} label="Underlyings" />
           <Stat value="1m → 1D" label="Timeframes" />
           <Stat value={delayed ? '~15 min' : 'Live'} label={delayed ? 'Delayed preview' : 'Dealer gamma overlay'} />
         </div>
@@ -162,7 +166,7 @@ export default function ChartClient({
             </h3>
             <p style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--text-secondary)', maxWidth: 620 }}>
               You&apos;re viewing a ~15-minute-delayed snapshot of SPY. Members get the live chart — real-time
-              dealer gamma, SPY/QQQ/SPX/NDX, all timeframes — plus the full dealer-positioning suite.
+              dealer gamma, {SYMBOLS.join('/')}, all timeframes — plus the full dealer-positioning suite.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
