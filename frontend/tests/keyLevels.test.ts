@@ -15,6 +15,7 @@ import assert from 'node:assert/strict';
 import {
   buildKeyLevels,
   computeMaxPainFromStrikes,
+  flipSymbol,
   formatKeyLevelValue,
   keyLevelDistance,
   keyLevelsRegime,
@@ -258,4 +259,40 @@ test('keyLevelsRegime labels the modeled regime and renders nothing when unknown
   assert.equal(keyLevelsRegime(true)?.long, true);
   assert.equal(keyLevelsRegime(false)?.label, 'Short γ');
   assert.equal(keyLevelsRegime(false)?.long, false);
+});
+
+// ── Flipping between symbols ────────────────────────────────────────────────
+
+const RING = ['SPY', 'QQQ', 'SPX', 'NDX', 'ES', 'NQ'] as const;
+
+test('flipSymbol steps forward and backward through the ring', () => {
+  assert.equal(flipSymbol(RING, 'SPY', 1), 'QQQ');
+  assert.equal(flipSymbol(RING, 'QQQ', 1), 'SPX');
+  assert.equal(flipSymbol(RING, 'QQQ', -1), 'SPY');
+  assert.equal(flipSymbol(RING, 'NDX', -1), 'SPX');
+});
+
+test('flipSymbol wraps at both ends so neither arrow dead-ends', () => {
+  assert.equal(flipSymbol(RING, 'NQ', 1), 'SPY');
+  assert.equal(flipSymbol(RING, 'SPY', -1), 'NQ');
+});
+
+test('flipSymbol treats any non-negative delta as forward and negative as back', () => {
+  assert.equal(flipSymbol(RING, 'SPY', 0), 'QQQ');
+  assert.equal(flipSymbol(RING, 'SPY', 5), 'QQQ');
+  assert.equal(flipSymbol(RING, 'SPY', -5), 'NQ');
+});
+
+test('flipSymbol lands on the first symbol when the current one is unknown', () => {
+  // A symbol the picker does not carry (a stale persisted value, a future
+  // underlying) must not make the arrows guess an offset from nothing.
+  assert.equal(flipSymbol(RING, 'TSLA', 1), 'SPY');
+  assert.equal(flipSymbol(RING, 'TSLA', -1), 'SPY');
+  assert.equal(flipSymbol(RING, '', 1), 'SPY');
+});
+
+test('flipSymbol returns null when there is nowhere to flip — no affordance', () => {
+  assert.equal(flipSymbol([], 'SPY', 1), null);
+  assert.equal(flipSymbol(['SPY'], 'SPY', 1), null);
+  assert.equal(flipSymbol(['SPY'], 'SPY', -1), null);
 });
