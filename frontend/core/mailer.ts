@@ -152,7 +152,7 @@ function startHereHtmlList(): string {
 // the modal and the account page's API Access section (components/AccountApiKeys).
 const API_KEY_STEPS: ReadonlyArray<string> = [
   'Open Account → API Access.',
-  'Click "Generate API Key" and copy the secret — it\'s shown only once.',
+  'Name it after the machine it\'s for, click "Generate API Key", and copy the secret — it\'s shown only once.',
   'Send it on your requests as the header: Authorization: Bearer <your key>',
 ];
 
@@ -176,7 +176,7 @@ function apiKeyTextLines(intro: string = API_KEY_INTRO): string[] {
     ...API_KEY_STEPS.map((step, i) => `  ${i + 1}. ${step}`),
     '',
     `Generate a key here: ${apiKeyUrl}`,
-    "You can generate or regenerate a key anytime from your account page — regenerating immediately deactivates the previous key.",
+    "You can add a key anytime from your account page — up to three at once, one per machine — and generating one never affects the keys you already have.",
   ];
 }
 
@@ -190,7 +190,7 @@ function apiKeyHtmlBlock(intro: string = API_KEY_INTRO): string {
       <p>${escapeHtml(intro)}</p>
       <ol style="padding-left: 20px; margin: 12px 0;">${items}</ol>
       <p style="margin: 0 0 8px;"><a href="${safeApiKeyUrl}" style="color: #f5b400; font-weight: 600;">Generate an API key</a></p>
-      <p style="font-size: 13px; color: #555; margin: 0 0 16px;">You can generate or regenerate a key anytime from your account page &mdash; regenerating immediately deactivates the previous key.</p>`;
+      <p style="font-size: 13px; color: #555; margin: 0 0 16px;">You can add a key anytime from your account page &mdash; up to three at once, one per machine &mdash; and generating one never affects the keys you already have.</p>`;
 }
 
 export async function sendEmailVerification(to: string, verifyUrl: string) {

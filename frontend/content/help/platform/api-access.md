@@ -28,10 +28,11 @@ The docs require a Pro account. Public users are routed to the Pricing page on c
 Authentication uses **bearer tokens**. Generate your key yourself from your account — there's nothing to wait for:
 
 1. Sign in and go to **Account → API Access** (`/account#api-access`).
-2. Click **Generate API Key** and copy the key from the one-time reveal — it's shown once, for a few minutes, and can't be retrieved again. Store it in a password manager or secret store.
-3. Send it as `Authorization: Bearer <key>` on every request.
+2. Name the key after the machine or integration it's for ("desktop", "NinjaTrader"). Optional, but it's what tells your keys apart later.
+3. Click **Generate API Key** and copy the key from the one-time reveal — it's shown once, for a few minutes, and can't be retrieved again. Store it in a password manager or secret store.
+4. Send it as `Authorization: Bearer <key>` on every request.
 
-Personal API keys are a Pro feature; Basic and Public accounts are routed to Pricing. Generating a new key immediately revokes your previous one (you hold at most one active key at a time), so rotating is just a matter of regenerating. Need help or a key revoked? Email [support@zerogex.io](mailto:support@zerogex.io).
+Personal API keys are a Pro feature; Basic and Public accounts are routed to Pricing. You can hold **up to three active keys at once**, so a second machine gets its own key rather than taking over the first one's — generating a key never affects the keys you already have. Each key shows when it was last used, which is the quickest way to tell whether an integration is still authenticating. Revoke any single key from the same page when you retire a machine; the others keep working. Need help or a key revoked out of band? Email [support@zerogex.io](mailto:support@zerogex.io).
 
 ## Rate limits
 
@@ -72,7 +73,8 @@ The derived history endpoints — GEX (`/api/gex/historical`), max pain, and sig
 
 ## Best practices
 
-- One key per environment (dev, prod). Rotate them on a schedule.
+- One key per machine or environment (laptop, prod box, NinjaTrader), named for what it runs on — that name is what makes a stale key obvious months later.
+- Rotate without downtime: generate the replacement, move the integration over, confirm the new key shows a recent "last used", then revoke the old one.
 - Don't put a key in client-side code. The platform is built for server-side consumption.
 - Set a sensible `User-Agent` — it helps us help you when a request goes wrong.
 

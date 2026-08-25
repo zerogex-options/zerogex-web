@@ -273,7 +273,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'api-keys',
         q: 'I\'m on Pro — how do I get my API key?',
-        a: 'Generate it yourself: sign in and go to <strong>Account → API Access</strong>, then click <em>Generate API Key</em>. The key is revealed once, so copy it straight into a password manager — it can\'t be retrieved later. Use it as <code>Authorization: Bearer &lt;key&gt;</code> on every request. You hold one active key at a time, so rotating is just regenerating (which immediately revokes the old one). Need a key revoked out of band? Email support@zerogex.io.',
+        a: 'Generate it yourself: sign in and go to <strong>Account → API Access</strong>, name the key after the machine it\'s for, then click <em>Generate API Key</em>. The key is revealed once, so copy it straight into a password manager — it can\'t be retrieved later. Use it as <code>Authorization: Bearer &lt;key&gt;</code> on every request. You can hold up to three keys at once — one per machine — and generating a new one never affects the others. Each key shows when it was last used, so you can see at a glance which are still live, and you can revoke any single key without disturbing the rest. Need a key revoked out of band? Email support@zerogex.io.',
       },
       {
         id: 'api-ninjatrader',

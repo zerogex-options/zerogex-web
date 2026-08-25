@@ -28,10 +28,11 @@ La documentation nécessite un compte Pro. Les utilisateurs publics sont redirig
 L'authentification utilise des **jetons bearer**. Vous générez votre clé vous-même depuis votre compte — rien à attendre :
 
 1. Connectez-vous et ouvrez **Compte → Accès API** (`/account#api-access`).
-2. Cliquez sur **Générer une clé API** et copiez la clé lors de l'affichage unique — elle n'apparaît qu'une seule fois, pendant quelques minutes, et ne peut plus être récupérée ensuite. Conservez-la dans un gestionnaire de mots de passe ou un coffre à secrets.
-3. Envoyez-la sous la forme `Authorization: Bearer <key>` dans chaque requête.
+2. Nommez la clé d'après la machine ou l'intégration à laquelle elle est destinée (« desktop », « NinjaTrader »). C'est facultatif, mais c'est ce qui vous permettra de distinguer vos clés par la suite.
+3. Cliquez sur **Générer une clé API** et copiez la clé lors de l'affichage unique — elle n'apparaît qu'une seule fois, pendant quelques minutes, et ne peut plus être récupérée ensuite. Conservez-la dans un gestionnaire de mots de passe ou un coffre à secrets.
+4. Envoyez-la sous la forme `Authorization: Bearer <key>` dans chaque requête.
 
-Les clés API personnelles sont une fonctionnalité Pro ; les comptes Basic et Public sont redirigés vers la page Tarifs. Générer une nouvelle clé révoque immédiatement la précédente (vous n'avez au plus qu'une seule clé active), la rotation consiste donc simplement à en regénérer une. Besoin d'aide ou de révoquer une clé ? Écrivez à [support@zerogex.io](mailto:support@zerogex.io).
+Les clés API personnelles sont une fonctionnalité Pro ; les comptes Basic et Public sont redirigés vers la page Tarifs. Vous pouvez détenir **jusqu'à trois clés actives simultanément** : une deuxième machine reçoit ainsi sa propre clé au lieu de s'approprier celle de la première — générer une clé n'affecte jamais celles que vous avez déjà. Chaque clé indique sa dernière utilisation, ce qui est le moyen le plus rapide de savoir si une intégration s'authentifie toujours. Révoquez n'importe quelle clé depuis cette même page lorsque vous mettez une machine hors service ; les autres continuent de fonctionner. Besoin d'aide ou de révoquer une clé hors procédure ? Écrivez à [support@zerogex.io](mailto:support@zerogex.io).
 
 ## Limites de débit
 
@@ -72,7 +73,8 @@ Les endpoints historiques prennent en charge des fenêtres de plusieurs jours. P
 
 ## Bonnes pratiques
 
-- Une clé par environnement (dev, prod). Faites-les tourner selon un calendrier régulier.
+- Une clé par machine ou environnement (portable, serveur de production, NinjaTrader), nommée d'après ce sur quoi elle tourne — ce nom est ce qui rendra évidente, des mois plus tard, la clé devenue obsolète.
+- Effectuez la rotation sans interruption : générez la clé de remplacement, basculez l'intégration, vérifiez que la nouvelle clé affiche une « dernière utilisation » récente, puis seulement révoquez l'ancienne.
 - Ne placez pas de clé dans du code côté client. La plateforme est conçue pour une consommation côté serveur.
 - Définissez un `User-Agent` pertinent — cela nous aide à vous aider lorsqu'une requête pose problème.
 

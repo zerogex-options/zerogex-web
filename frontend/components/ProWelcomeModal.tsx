@@ -307,7 +307,7 @@ export default function ProWelcomeModal({ theme, onClose }: ProWelcomeModalProps
             marginBottom: 0,
           }}
         >
-          You can generate or regenerate a key anytime from your Account page.
+          You can add a key anytime from your Account page — up to three at once, one per machine.
         </p>
       </div>
     </div>

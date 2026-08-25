@@ -28,10 +28,11 @@ La documentación requiere una cuenta Pro. Los usuarios públicos son redirigido
 La autenticación utiliza **tokens bearer**. Generas tu clave tú mismo desde tu cuenta — no hay nada que esperar:
 
 1. Inicia sesión y ve a **Cuenta → Acceso API** (`/account#api-access`).
-2. Haz clic en **Generar clave API** y copia la clave de la revelación única — se muestra una sola vez, durante unos minutos, y después no se puede recuperar. Guárdala en un gestor de contraseñas o un almacén de secretos.
-3. Envíala como `Authorization: Bearer <key>` en cada solicitud.
+2. Ponle a la clave el nombre de la máquina o integración para la que es («desktop», «NinjaTrader»). Es opcional, pero es lo que te permitirá distinguir tus claves más adelante.
+3. Haz clic en **Generar clave API** y copia la clave de la revelación única — se muestra una sola vez, durante unos minutos, y después no se puede recuperar. Guárdala en un gestor de contraseñas o un almacén de secretos.
+4. Envíala como `Authorization: Bearer <key>` en cada solicitud.
 
-Las claves API personales son una función Pro; las cuentas Basic y Public se redirigen a Precios. Generar una clave nueva revoca de inmediato la anterior (tienes como máximo una clave activa), así que rotar es simplemente volver a generarla. ¿Necesitas ayuda o revocar una clave? Escribe a [support@zerogex.io](mailto:support@zerogex.io).
+Las claves API personales son una función Pro; las cuentas Basic y Public se redirigen a Precios. Puedes tener **hasta tres claves activas a la vez**, de modo que una segunda máquina reciba su propia clave en lugar de apropiarse de la primera: generar una clave nunca afecta a las que ya tienes. Cada clave indica cuándo se usó por última vez, que es la forma más rápida de saber si una integración sigue autenticándose. Revoca cualquier clave concreta desde esa misma página cuando retires una máquina; las demás siguen funcionando. ¿Necesitas ayuda o revocar una clave fuera de lo habitual? Escribe a [support@zerogex.io](mailto:support@zerogex.io).
 
 ## Límites de uso
 
@@ -72,7 +73,8 @@ Los endpoints históricos admiten ventanas de varios días. Para backfills profu
 
 ## Buenas prácticas
 
-- Una clave por entorno (dev, prod). Rótalas según un calendario.
+- Una clave por máquina o entorno (portátil, servidor de producción, NinjaTrader), con el nombre de aquello en lo que se ejecuta: ese nombre es lo que deja clara meses después cuál es la clave obsoleta.
+- Rota sin interrupciones: genera la clave de reemplazo, migra la integración, comprueba que la nueva clave muestre un «último uso» reciente y solo entonces revoca la antigua.
 - No pongas una clave en código del lado del cliente. La plataforma está diseñada para consumo desde el servidor.
 - Configura un `User-Agent` adecuado — nos ayuda a ayudarte cuando una solicitud falla.
 

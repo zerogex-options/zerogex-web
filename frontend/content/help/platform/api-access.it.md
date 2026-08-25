@@ -28,10 +28,11 @@ La documentazione richiede un account Pro. Gli utenti pubblici vengono reindiriz
 L'autenticazione utilizza **bearer token**. Generi la chiave da solo dal tuo account — non c'è nulla da aspettare:
 
 1. Accedi e vai su **Account → Accesso API** (`/account#api-access`).
-2. Clicca su **Genera chiave API** e copia la chiave dalla visualizzazione una tantum — viene mostrata una sola volta, per pochi minuti, e poi non è più recuperabile. Conservala in un password manager o in un secret store.
-3. Inviala come `Authorization: Bearer <key>` in ogni richiesta.
+2. Assegna alla chiave il nome della macchina o dell'integrazione a cui è destinata («desktop», «NinjaTrader»). È facoltativo, ma è ciò che ti permetterà di distinguere le tue chiavi in seguito.
+3. Clicca su **Genera chiave API** e copia la chiave dalla visualizzazione una tantum — viene mostrata una sola volta, per pochi minuti, e poi non è più recuperabile. Conservala in un password manager o in un secret store.
+4. Inviala come `Authorization: Bearer <key>` in ogni richiesta.
 
-Le chiavi API personali sono una funzione Pro; gli account Basic e Public vengono reindirizzati a Prezzi. Generare una nuova chiave revoca immediatamente la precedente (hai al massimo una chiave attiva), quindi ruotare significa semplicemente rigenerare. Ti serve aiuto o vuoi revocare una chiave? Scrivi a [support@zerogex.io](mailto:support@zerogex.io).
+Le chiavi API personali sono una funzione Pro; gli account Basic e Public vengono reindirizzati a Prezzi. Puoi avere **fino a tre chiavi attive contemporaneamente**, così una seconda macchina riceve la propria chiave invece di subentrare a quella della prima: generare una chiave non tocca mai quelle che hai già. Ogni chiave indica quando è stata usata l'ultima volta, il modo più rapido per capire se un'integrazione si sta ancora autenticando. Revoca una singola chiave dalla stessa pagina quando dismetti una macchina; le altre continuano a funzionare. Ti serve aiuto o vuoi revocare una chiave fuori dalla procedura? Scrivi a [support@zerogex.io](mailto:support@zerogex.io).
 
 ## Rate limit
 
@@ -72,7 +73,8 @@ Gli endpoint storici supportano finestre multi-giorno. Per backfill approfonditi
 
 ## Best practice
 
-- Una chiave per ambiente (dev, prod). Ruotale secondo una pianificazione.
+- Una chiave per macchina o ambiente (portatile, server di produzione, NinjaTrader), con il nome di ciò su cui gira: è quel nome a rendere evidente, mesi dopo, quale chiave è ormai obsoleta.
+- Ruota senza interruzioni: genera la chiave sostitutiva, sposta l'integrazione, verifica che la nuova chiave mostri un «ultimo utilizzo» recente e solo allora revoca la vecchia.
 - Non inserire una chiave nel codice lato client. La piattaforma è progettata per un consumo lato server.
 - Imposta uno `User-Agent` sensato — ci aiuta ad aiutarti quando una richiesta va storta.
 

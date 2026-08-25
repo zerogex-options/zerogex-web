@@ -28,10 +28,11 @@ Die Dokumentation erfordert ein Pro-Konto. Public-Nutzer werden beim Klick zur P
 Die Authentifizierung erfolgt über **Bearer-Token**. Du generierst deinen Schlüssel selbst über deinen Account — es gibt nichts abzuwarten:
 
 1. Melde dich an und öffne **Account → API-Zugang** (`/account#api-access`).
-2. Klicke auf **API-Schlüssel generieren** und kopiere den Schlüssel aus der einmaligen Anzeige — er wird nur ein einziges Mal für wenige Minuten angezeigt und kann danach nicht mehr abgerufen werden. Speichere ihn in einem Passwort-Manager oder Secret-Store.
-3. Füge ihn als `Authorization: Bearer <key>` bei jeder Anfrage ein.
+2. Benenne den Schlüssel nach dem Rechner oder der Integration, für die er gedacht ist („desktop", „NinjaTrader"). Optional, aber genau das hilft dir später, deine Schlüssel auseinanderzuhalten.
+3. Klicke auf **API-Schlüssel generieren** und kopiere den Schlüssel aus der einmaligen Anzeige — er wird nur ein einziges Mal für wenige Minuten angezeigt und kann danach nicht mehr abgerufen werden. Speichere ihn in einem Passwort-Manager oder Secret-Store.
+4. Füge ihn als `Authorization: Bearer <key>` bei jeder Anfrage ein.
 
-Persönliche API-Schlüssel sind ein Pro-Feature; Basic- und Public-Konten werden zur Pricing-Seite weitergeleitet. Ein neu generierter Schlüssel widerruft sofort den vorherigen (du hast höchstens einen aktiven Schlüssel), Rotation heißt also einfach neu generieren. Brauchst du Hilfe oder soll ein Schlüssel widerrufen werden? Schreib an [support@zerogex.io](mailto:support@zerogex.io).
+Persönliche API-Schlüssel sind ein Pro-Feature; Basic- und Public-Konten werden zur Pricing-Seite weitergeleitet. Du kannst **bis zu drei aktive Schlüssel gleichzeitig** haben: Ein zweiter Rechner bekommt damit seinen eigenen Schlüssel, statt den ersten zu übernehmen — ein neu generierter Schlüssel lässt deine bestehenden unberührt. Bei jedem Schlüssel steht, wann er zuletzt verwendet wurde; das ist der schnellste Weg zu sehen, ob eine Integration noch authentifiziert. Einzelne Schlüssel kannst du auf derselben Seite widerrufen, wenn du einen Rechner ausmusterst — die übrigen laufen weiter. Brauchst du Hilfe oder soll ein Schlüssel außer der Reihe widerrufen werden? Schreib an [support@zerogex.io](mailto:support@zerogex.io).
 
 ## Rate-Limits
 
@@ -72,7 +73,8 @@ Historische Endpunkte unterstützen mehrtägige Zeitfenster. Für tiefgehende Ba
 
 ## Best Practices
 
-- Ein Schlüssel pro Umgebung (dev, prod). Rotiere sie nach einem festen Rhythmus.
+- Ein Schlüssel pro Rechner oder Umgebung (Laptop, Prod-Server, NinjaTrader), benannt nach dem, worauf er läuft — dieser Name macht Monate später sofort klar, welcher Schlüssel veraltet ist.
+- Rotiere ohne Ausfallzeit: Generiere den Ersatzschlüssel, stelle die Integration um, prüfe, dass der neue Schlüssel ein aktuelles „zuletzt verwendet" zeigt, und widerrufe erst dann den alten.
 - Platziere keinen Schlüssel in clientseitigem Code. Die Plattform ist für serverseitige Nutzung konzipiert.
 - Setze einen sinnvollen `User-Agent` — das hilft uns, dir zu helfen, wenn eine Anfrage schiefgeht.
 

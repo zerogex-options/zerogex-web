@@ -1,9 +1,10 @@
 import 'server-only';
 
 import { isApiKeyEligibleTier, TierId } from '@/core/auth';
-import { emailLocalPart } from '@/core/apiKeyNaming';
+import { emailLocalPart, resolveKeyLabel } from '@/core/apiKeyNaming';
+import { MAX_ACTIVE_API_KEYS } from '@/core/apiKeyLimits';
 
-export { emailLocalPart };
+export { emailLocalPart, MAX_ACTIVE_API_KEYS };
 
 /**
  * Server-only client for the ZeroGEX backend's key-administration endpoints
@@ -50,12 +51,22 @@ export class ApiKeyAdminError extends Error {
 export type ProvisionedKey = {
   // The raw secret — present exactly once, on the provision response.
   apiKey: string;
+  id: number;
   name: string;
   prefix: string;
   createdAt: string | null;
 };
 
+export type RevokedKey = {
+  id: number;
+  name: string;
+  prefix: string;
+};
+
 export type ApiKeyInfo = {
+  // The key service's row id. Needed to revoke this key and not another —
+  // names are unique per user, but ids are what the revoke endpoint takes.
+  id: number;
   name: string;
   prefix: string;
   createdAt: string | null;
@@ -116,12 +127,27 @@ async function adminFetch<T>(
 }
 
 /**
- * Mint a fresh key for the user, revoking any existing active key first
- * (regenerate semantics — at most one active key per user). Returns the raw
- * secret, which the caller must show exactly once and never persist.
+ * Mint a fresh key for the user, leaving their existing keys alone. Returns
+ * the raw secret, which the caller must show exactly once and never persist.
+ *
+ * `revoke_existing: false` is sent explicitly even though the key service now
+ * defaults to it. That flag defaulting the other way is exactly what made
+ * putting a key on a second machine silently kill the first, so this call site
+ * states which behaviour it wants rather than inheriting it — and it keeps
+ * working if the website deploys ahead of the key service.
+ *
+ * `label` is the user's name for the machine ("laptop"); their email
+ * local-part is used when they don't give one. The key service picks the
+ * final stored `name` from it — appending `-1`, `-2`, … if that label was
+ * used before — so callers must display the returned `name`, not the label
+ * they sent.
+ *
+ * Throws `ApiKeyAdminError` with status 409 when the user is already at
+ * `MAX_ACTIVE_API_KEYS`.
  */
-export async function provisionApiKey(email: string): Promise<ProvisionedKey> {
+export async function provisionApiKey(email: string, label?: string): Promise<ProvisionedKey> {
   const data = await adminFetch<{
+    id: number;
     name: string;
     prefix: string;
     created_at: string | null;
@@ -130,13 +156,14 @@ export async function provisionApiKey(email: string): Promise<ProvisionedKey> {
     method: 'POST',
     body: {
       user_id: email,
-      base_name: emailLocalPart(email),
+      base_name: resolveKeyLabel(email, label),
       tier: PRO_KEY_TIER,
-      revoke_existing: true,
+      revoke_existing: false,
     },
   });
   return {
     apiKey: data.api_key,
+    id: data.id,
     name: data.name,
     prefix: data.prefix,
     createdAt: data.created_at,
@@ -144,13 +171,14 @@ export async function provisionApiKey(email: string): Promise<ProvisionedKey> {
 }
 
 /**
- * Return the user's current active key metadata (never the secret), or null
- * if they have none. If more than one is somehow active, the most recently
- * created wins.
+ * Return metadata for every key the user currently has active (never the
+ * secret), oldest first — the order the key service returns them in, which is
+ * creation order. An empty array means they hold none.
  */
-export async function getActiveApiKey(email: string): Promise<ApiKeyInfo | null> {
+export async function listActiveApiKeys(email: string): Promise<ApiKeyInfo[]> {
   const data = await adminFetch<{
     keys: Array<{
+      id: number;
       name: string;
       prefix: string;
       created_at: string | null;
@@ -159,18 +187,44 @@ export async function getActiveApiKey(email: string): Promise<ApiKeyInfo | null>
   }>(`${ADMIN_PATH}?user_id=${encodeURIComponent(email)}&active_only=true`, {
     method: 'GET',
   });
-  const keys = data.keys ?? [];
-  if (keys.length === 0) return null;
-  const latest = keys[keys.length - 1];
-  return {
-    name: latest.name,
-    prefix: latest.prefix,
-    createdAt: latest.created_at,
-    lastUsedAt: latest.last_used_at,
-  };
+  return (data.keys ?? []).map((k) => ({
+    id: k.id,
+    name: k.name,
+    prefix: k.prefix,
+    createdAt: k.created_at,
+    lastUsedAt: k.last_used_at,
+  }));
 }
 
-/** Revoke every active key for the user. Returns how many were revoked. */
+/**
+ * Revoke ONE of the user's keys, leaving the rest working. Resolves to the
+ * revoked key's metadata, or null when there was nothing to revoke — the id
+ * doesn't exist, isn't this user's, or was already revoked. Callers get the
+ * name back so they can say which key went without a second round trip.
+ *
+ * Passing `email` is not redundant with the id: the key service scopes its
+ * UPDATE by user, so an id belonging to someone else revokes nothing rather
+ * than revoking their key.
+ */
+export async function revokeApiKey(email: string, keyId: number): Promise<RevokedKey | null> {
+  const data = await adminFetch<{
+    revoked: boolean;
+    key: { id: number; name: string; prefix: string } | null;
+  }>(`${ADMIN_PATH}/revoke`, {
+    method: 'POST',
+    body: { user_id: email, key_id: keyId },
+  });
+  if (!data.revoked || !data.key) return null;
+  return { id: data.key.id, name: data.key.name, prefix: data.key.prefix };
+}
+
+/**
+ * Revoke every active key for the user. Returns how many were revoked.
+ *
+ * The all-or-nothing path, still: losing Pro or deleting the account takes
+ * every key the user holds, however many that is. To retire one machine, use
+ * {@link revokeApiKey}.
+ */
 export async function revokeAllApiKeys(email: string): Promise<number> {
   const data = await adminFetch<{ revoked: number }>(`${ADMIN_PATH}/revoke-all`, {
     method: 'POST',
