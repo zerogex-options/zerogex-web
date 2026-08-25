@@ -678,7 +678,14 @@ namespace NinjaTrader.NinjaScript.Indicators
                             length = 1;
 
                         double y = s.ProfileStrike[i];
-                        Draw.Line(this, "ZG_Prof_" + i, length, y, 0, y,
+                        // isAutoScale MUST be passed: the styled Draw.Line
+                        // overload takes it as the third argument, and the
+                        // unstyled one has no width at all — so a call without
+                        // it matches no overload. false is also what we want:
+                        // these bars sit at strike prices that can be far from
+                        // the visible range, and letting them drive the Y axis
+                        // would zoom the chart out from the price action.
+                        Draw.Line(this, "ZG_Prof_" + i, false, length, y, 0, y,
                                   netGex >= 0 ? ProfilePosBrush : ProfileNegBrush,
                                   DashStyleHelper.Solid, Math.Max(1, ProfileBarWidth));
                         drawn++;
