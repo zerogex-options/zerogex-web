@@ -20,12 +20,22 @@
  * reads that pane's scoped symbol/expiration contexts, so a split board's two
  * halves show two different books. Rendering is shared verbatim rather than
  * reimplemented — one strip, two mounts.
+ *
+ * It also FLIPS between underlyings in place: hover-revealed arrows at the
+ * sides on a pointer device, a horizontal swipe on touch. A flip is not a
+ * private mode — it calls the same setSymbol the chart's own symbol switcher
+ * calls, so the strip can never end up describing a different book from the
+ * chart under it, and inside a My Dashboard pane the pane's TimeframeSymbolScope
+ * turns that same call into "retarget this half", leaving the other one alone.
  */
 
-import { TrendingDown, TrendingUp } from 'lucide-react';
+import { useCallback, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { ChevronLeft, ChevronRight, TrendingDown, TrendingUp } from 'lucide-react';
 import type { ChartSnapshot } from './GammaTerminalChart';
 import { useGammaPlaybook, type GammaPlaybookRead } from '@/hooks/useGammaPlaybook';
-import { buildKeyLevels, keyLevelsRegime, type KeyLevel } from '@/core/keyLevels';
+import { useTimeframe, type UnderlyingSymbol } from '@/core/TimeframeContext';
+import { SYMBOLS } from '@/core/symbols';
+import { buildKeyLevels, flipSymbol, keyLevelsRegime, type KeyLevel } from '@/core/keyLevels';
 import {
   PIN_STRIKE_TOOLTIP,
   classifyPinStrength,
@@ -111,6 +121,53 @@ function KeyLevelCard({ level, loading }: { level: KeyLevel; loading: boolean })
 }
 
 /**
+ * What the strip needs to offer a flip: where each arrow goes, and what to do
+ * when one is taken. Resolved by the caller (which owns the symbol list and the
+ * setter) so the board itself stays presentational.
+ */
+export type KeyLevelsFlip = {
+  /** Destination of the left arrow / a rightward swipe. */
+  prev: string;
+  /** Destination of the right arrow / a leftward swipe. */
+  next: string;
+  onFlip: (symbol: string) => void;
+};
+
+type FlipDirection = 'prev' | 'next';
+
+/** Minimum horizontal travel before a touch drag counts as a flip. */
+const SWIPE_MIN_PX = 44;
+/**
+ * How much more horizontal than vertical that travel has to be. A finger
+ * scrolling the page drifts sideways; without this the strip would swap the
+ * symbol out from under someone who was only scrolling past it.
+ */
+const SWIPE_AXIS_RATIO = 1.5;
+
+function FlipArrow({
+  direction,
+  symbol,
+  onActivate,
+}: {
+  direction: FlipDirection;
+  symbol: string;
+  onActivate: () => void;
+}) {
+  const label = `Show key levels for ${symbol}`;
+  return (
+    <button
+      type="button"
+      className={`zg-kl-arrow zg-kl-arrow--${direction}`}
+      onClick={onActivate}
+      aria-label={label}
+      title={label}
+    >
+      {direction === 'prev' ? <ChevronLeft size={13} /> : <ChevronRight size={13} />}
+    </button>
+  );
+}
+
+/**
  * The shared rendering primitive: the header line plus the card grid, driven by
  * a resolved read. Kept separate from the fetching so the strip and the widget
  * (and anything later) render byte-identical output from the same input.
@@ -122,11 +179,57 @@ function KeyLevelCard({ level, loading }: { level: KeyLevel; loading: boolean })
  */
 export function KeyLevelsBoard({
   read,
+  flip = null,
   className = '',
 }: {
   read: GammaPlaybookRead;
+  /** Omit (or pass null) for a strip with nowhere to flip to. */
+  flip?: KeyLevelsFlip | null;
   className?: string;
 }) {
+  // Which way the incoming symbol should slide in from. Set by whichever
+  // gesture caused the flip; a symbol changed from somewhere else entirely
+  // (the header picker, a pane toolbar) simply reuses the last direction,
+  // which for a 190ms slide is not worth tracking a second source for.
+  const [direction, setDirection] = useState<FlipDirection>('next');
+  const swipeStart = useRef<{ x: number; y: number } | null>(null);
+
+  const goto = useCallback(
+    (dir: FlipDirection) => {
+      if (!flip) return;
+      setDirection(dir);
+      flip.onFlip(dir === 'next' ? flip.next : flip.prev);
+    },
+    [flip],
+  );
+
+  // Touch only: a mouse drag across the strip is a text selection (and, in My
+  // Dashboard's edit mode, the start of a tile drag), never a flip.
+  const onPointerDown = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    swipeStart.current = e.pointerType === 'touch' ? { x: e.clientX, y: e.clientY } : null;
+  }, []);
+
+  const onPointerUp = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      const start = swipeStart.current;
+      swipeStart.current = null;
+      if (!start || !flip) return;
+      const dx = e.clientX - start.x;
+      const dy = e.clientY - start.y;
+      if (Math.abs(dx) < SWIPE_MIN_PX) return;
+      if (Math.abs(dx) < Math.abs(dy) * SWIPE_AXIS_RATIO) return;
+      // Dragging left pulls the next symbol in from the right, as any carousel.
+      goto(dx < 0 ? 'next' : 'prev');
+    },
+    [flip, goto],
+  );
+
+  // The browser takes the pointer back when it decides the gesture was a
+  // scroll; that must abandon the swipe rather than resolve it on release.
+  const onPointerCancel = useCallback(() => {
+    swipeStart.current = null;
+  }, []);
+
   // The Pin's strength copy and its confidence thresholds live in
   // core/pinStrike; composing them here is what keeps the level model itself
   // free of runtime imports (and unit-testable under the Node runner).
@@ -183,15 +286,33 @@ export function KeyLevelsBoard({
       </div>
 
       <div
-        style={{
-          display: 'grid',
-          gap: 8,
-          gridTemplateColumns: `repeat(auto-fit, minmax(${MIN_CARD_PX}px, 1fr))`,
-        }}
+        className="zg-kl-flip"
+        onPointerDown={flip ? onPointerDown : undefined}
+        onPointerUp={flip ? onPointerUp : undefined}
+        onPointerCancel={flip ? onPointerCancel : undefined}
       >
-        {levels.map((level) => (
-          <KeyLevelCard key={level.id} level={level} loading={read.loading} />
-        ))}
+        {flip && (
+          <FlipArrow direction="prev" symbol={flip.prev} onActivate={() => goto('prev')} />
+        )}
+        <div
+          // Keyed on the symbol so the entry animation restarts on every flip
+          // (a CSS animation only replays on a fresh element).
+          key={read.symbol}
+          className="zg-kl-cards"
+          data-flip={flip ? direction : undefined}
+          style={{
+            display: 'grid',
+            gap: 8,
+            gridTemplateColumns: `repeat(auto-fit, minmax(${MIN_CARD_PX}px, 1fr))`,
+          }}
+        >
+          {levels.map((level) => (
+            <KeyLevelCard key={level.id} level={level} loading={read.loading} />
+          ))}
+        </div>
+        {flip && (
+          <FlipArrow direction="next" symbol={flip.next} onActivate={() => goto('next')} />
+        )}
       </div>
     </section>
   );
@@ -212,5 +333,17 @@ export default function KeyLevelsStrip({
   className?: string;
 }) {
   const read = useGammaPlaybook({ snapshot, delayed });
-  return <KeyLevelsBoard read={read} className={className} />;
+  const { setSymbol } = useTimeframe();
+
+  const prev = flipSymbol(SYMBOLS, read.symbol, -1);
+  const next = flipSymbol(SYMBOLS, read.symbol, 1);
+  // No flipping on the delayed public view: switching symbols needs data the
+  // frozen snapshot does not carry, which is the same reason the chart below
+  // it fixes its own symbol picker there.
+  const flip: KeyLevelsFlip | null =
+    read.delayed || !prev || !next
+      ? null
+      : { prev, next, onFlip: (symbol) => setSymbol(symbol as UnderlyingSymbol) };
+
+  return <KeyLevelsBoard read={read} flip={flip} className={className} />;
 }

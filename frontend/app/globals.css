@@ -2134,6 +2134,96 @@ body {
   .zg-w-xl { grid-column: span 4; }
 }
 
+/* ── Key Levels flip ─────────────────────────────────────────────────────────
+   The Key Levels strip flips between underlyings in place. Two input idioms,
+   one behaviour: hover-revealed arrows on a pointer device, a horizontal swipe
+   on touch. Both call the same setSymbol the chart's own symbol switcher does,
+   so a flip moves the whole surface (or, inside a My Dashboard pane, retargets
+   just that half) rather than leaving the strip describing a different book
+   from everything around it. */
+.zg-kl-flip {
+  position: relative;
+  /* The browser keeps vertical scrolling; horizontal drags reach the swipe
+     handler instead of being swallowed as a pan. */
+  touch-action: pan-y;
+}
+
+/* 22px wide at a -12px offset is deliberate arithmetic, not taste: the arrow
+   then reaches only 10px into the outer card, which is inside that card's 12px
+   of horizontal padding — so it floats over the edge without ever covering a
+   digit. The 12px it hangs outside the strip fits in the 16px gutter every host
+   gives it (PageShell's px-4, WidgetCard's p-4), so nothing overflows and the
+   widget's overflow-hidden panel never clips it either. */
+.zg-kl-arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  transform: translateY(-50%);
+  border-radius: 999px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+  transition: opacity 160ms ease, left 160ms ease, right 160ms ease,
+    color 160ms ease, border-color 160ms ease;
+}
+.zg-kl-arrow--prev { left: -12px; }
+.zg-kl-arrow--next { right: -12px; }
+
+/* Pointer devices: the arrows stay out of the strip's way until it is hovered
+   or something inside it takes focus, then they slide out to the edges. Hidden
+   means non-interactive too, so a click near the edge of a resting strip can
+   never flip the symbol by accident. */
+@media (hover: hover) {
+  .zg-kl-arrow {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .zg-kl-arrow--prev { left: -2px; }
+  .zg-kl-arrow--next { right: -2px; }
+
+  .zg-kl-flip:hover .zg-kl-arrow,
+  .zg-kl-flip:focus-within .zg-kl-arrow {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .zg-kl-flip:hover .zg-kl-arrow--prev,
+  .zg-kl-flip:focus-within .zg-kl-arrow--prev { left: -12px; }
+  .zg-kl-flip:hover .zg-kl-arrow--next,
+  .zg-kl-flip:focus-within .zg-kl-arrow--next { right: -12px; }
+
+  .zg-kl-arrow:hover {
+    color: var(--color-accent-hot);
+    border-color: var(--color-accent-hot);
+  }
+}
+
+/* Touch: nothing to hover with, so the arrows sit permanently at a low weight.
+   They are the visible hint that the strip swipes — and a tap target for
+   anyone who would rather not. */
+@media (hover: none) {
+  .zg-kl-arrow { opacity: 0.6; }
+}
+
+/* Direction-aware entry, so a flip reads as movement rather than a swap: the
+   incoming symbol slides in from the side it came from. The global
+   prefers-reduced-motion rule above collapses it to an instant change. */
+@keyframes zg-kl-in-next {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes zg-kl-in-prev {
+  from { opacity: 0; transform: translateX(-16px); }
+  to { opacity: 1; transform: none; }
+}
+.zg-kl-cards[data-flip='next'] { animation: zg-kl-in-next 190ms ease-out; }
+.zg-kl-cards[data-flip='prev'] { animation: zg-kl-in-prev 190ms ease-out; }
+
 /* Split board — two independent halves side by side.
 
    Each half is a full board of its own (its own widget grid, its own underlying

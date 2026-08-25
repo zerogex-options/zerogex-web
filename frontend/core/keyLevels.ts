@@ -326,3 +326,32 @@ export function keyLevelsRegime(longGamma: boolean | null): KeyLevelsRegime | nu
       : 'Dealers are modeled short gamma at spot — hedging amplifies moves (trending).',
   };
 }
+
+/**
+ * The next underlying one step around the symbol ring — the model behind the
+ * Key Levels strip's flip arrows and its swipe gesture.
+ *
+ * It WRAPS on purpose. Six symbols in a ring means neither arrow ever
+ * dead-ends, so "can I flip this?" has one answer everywhere rather than a
+ * disabled control the user has to discover the edges of. Each arrow names its
+ * destination, so wrapping is never a surprise.
+ *
+ * Returns null only when there is genuinely nowhere to go (an empty or
+ * single-symbol list) so the caller can render no affordance at all. A current
+ * symbol that isn't in the list lands on the first one rather than guessing an
+ * offset from it.
+ *
+ * @param delta forward (>= 0) or backward (< 0) one step
+ */
+export function flipSymbol<T extends string>(
+  symbols: readonly T[],
+  current: string,
+  delta: number,
+): T | null {
+  if (symbols.length === 0) return null;
+  const at = symbols.indexOf(current as T);
+  if (at < 0) return symbols[0];
+  if (symbols.length < 2) return null;
+  const step = delta >= 0 ? 1 : -1;
+  return symbols[(at + step + symbols.length) % symbols.length];
+}
