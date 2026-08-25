@@ -1,4 +1,4 @@
-.PHONY: help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription honor-winback-discount recover-orphan-payment scan-orphan-payments clear-zombie-customers webhook-health trial-reminders trial-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback reactivation checkout-recovery founding-final-call public-cohort cancellations churn-breakdown enable-portal-cancel-reasons save-url reset-save-latch diagnose-user reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo blog-images
+.PHONY: help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription honor-winback-discount recover-orphan-payment scan-orphan-payments clear-zombie-customers webhook-health trial-reminders trial-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback reactivation checkout-recovery founding-final-call public-cohort cancellations churn-breakdown enable-portal-cancel-reasons save-url reset-save-latch diagnose-user reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo og-check blog-images
 
 # Default target
 help:
@@ -70,6 +70,7 @@ help:
 	@echo "  make clean      - Remove build artifacts"
 	@echo "  make deploy     - Full deployment (pull, install, rebuild)"
 	@echo "  make logo       - Copy logos from assets to public"
+	@echo "  make og-check   - Check the DEPLOYED site serves the social card this checkout expects, and name the cause when it does not (stale deploy / missing PNG / X's own card cache). Read-only; ORIGIN=<url> to point elsewhere"
 	@echo "  make blog-images - Copy blog post images from assets/blog to frontend/public/blog"
 	@echo ""
 
@@ -976,6 +977,7 @@ clean:
 TRIM_PNG = bash -lc 'if ! command -v node >/dev/null 2>&1; then source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null; fi; exec node scripts/trim-png.js "$$@"' trim-png
 
 OG_MANIFEST = bash -lc 'if ! command -v node >/dev/null 2>&1; then source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null; fi; exec node scripts/og-image-manifest.js'
+OG_CHECK = bash -lc 'if ! command -v node >/dev/null 2>&1; then source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null; fi; exec node scripts/og-image-manifest.js --live'
 
 logo:
 	@echo "Copying logos from assets to public..."
@@ -1019,6 +1021,16 @@ logo:
 		cp assets/branding/folds-of-honor-boilerplate.pdf frontend/public/folds-of-honor-boilerplate.pdf; \
 	fi
 	@echo "Logos copied successfully!"
+
+# Answer "why is X still showing the old og-image?" without re-deriving it by
+# hand. The symptom has four causes -- a stale committed manifest, a box that
+# has not redeployed, a deploy where `make logo` did not run, and X's own card
+# cache -- and only the last one is invisible from the repo, so it is the one
+# people waste time on. This checks the first three against the live site and,
+# when they all pass, prints the cache workaround. Read-only and safe to run
+# from anywhere with network; it never writes or deploys.
+og-check:
+	@$(OG_CHECK)
 
 # Copy blog post images from assets/blog to the Next.js public/blog directory
 # (the path referenced by markdown image links like /blog/<name>.png). Source
