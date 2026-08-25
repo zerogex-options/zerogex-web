@@ -37,10 +37,28 @@
  * Dependency-free on purpose: `make logo` runs it on the deploy box, which is
  * the same constraint scripts/trim-png.js works under.
  *
- * Usage: node scripts/og-image-manifest.js [--check]
+ * Usage: node scripts/og-image-manifest.js [--check | --live]
  *
  *   --check  don't write anything; exit non-zero if the committed manifest is
  *            out of date with respect to assets/branding/og-image.png
+ *
+ *   --live   don't write anything; check that the *deployed* site serves the
+ *            card this repo expects, and name the failure mode when it does
+ *            not. Implies --check. ORIGIN=<url> overrides https://zerogex.io.
+ *
+ * The --live mode exists because "the old og-image is showing on X" has four
+ * distinct causes and only the first three are ours to fix:
+ *
+ *   1. the committed manifest is stale (someone replaced the artwork without
+ *      re-running `make logo`);
+ *   2. the box has not deployed since the artwork changed, so the tags still
+ *      name the previous hash;
+ *   3. it deployed but `make logo` did not run, so the hashed PNG 404s;
+ *   4. everything above is correct and X is simply serving its own cached
+ *      card, which it keys on the *page* URL and holds for about a week.
+ *
+ * Only 4 is invisible from the repo, and it is the common one -- hence the
+ * closing note this prints on success, which is the actual remedy.
  */
 
 const fs = require('fs');
@@ -90,8 +108,148 @@ export const OG_IMAGE_HEIGHT = ${height};
 `;
 }
 
-function main() {
-  const check = process.argv.includes('--check');
+const DEFAULT_ORIGIN = 'https://zerogex.io';
+
+// Scrapers are served the same HTML as everyone else, but ask as one anyway:
+// it is what we are actually trying to characterise, and it keeps this honest
+// if the origin ever starts varying by user agent.
+const SCRAPER_UA = 'Twitterbot/1.0';
+
+const FETCH_TIMEOUT_MS = 15000;
+
+async function get(url, accept) {
+  const res = await fetch(url, {
+    headers: { 'user-agent': SCRAPER_UA, accept },
+    redirect: 'follow',
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  });
+  return res;
+}
+
+/**
+ * Pull one meta tag's content out of raw HTML. Matches on `property=` or
+ * `name=` because OG tags use the former and Twitter's use the latter, and
+ * anchors the key so og:image does not also match og:image:width.
+ */
+function metaContent(html, key) {
+  for (const [tag] of html.matchAll(/<meta[^>]*>/gi)) {
+    if (!new RegExp(`\\b(?:property|name)\\s*=\\s*["']${key}["']`, 'i').test(tag)) continue;
+    const m = tag.match(/\bcontent\s*=\s*["']([^"']*)["']/i);
+    if (m) return m[1];
+  }
+  return null;
+}
+
+function fail(lines) {
+  console.error(`og-image-manifest: ${lines.join('\n')}`);
+  process.exit(1);
+}
+
+async function live({ hash, width, height }) {
+  const origin = (process.env.ORIGIN || DEFAULT_ORIGIN).replace(/\/+$/, '');
+  const expectedPath = `/og-image.${hash}.png`;
+  const expectedUrl = `${origin}${expectedPath}`;
+
+  console.log(`og-image-manifest: checking ${origin} against og-image.${hash}.png`);
+
+  let html;
+  try {
+    const res = await get(`${origin}/`, 'text/html');
+    if (!res.ok) fail([`${origin}/ returned HTTP ${res.status}.`]);
+    html = await res.text();
+  } catch (err) {
+    fail([`could not reach ${origin}/ (${err.message}).`]);
+  }
+
+  // X prefers twitter:image when it is present and falls back to og:image, so
+  // both have to be right -- a correct og:image alone would still card wrong.
+  for (const key of ['og:image', 'twitter:image']) {
+    const got = metaContent(html, key);
+    if (!got) fail([`${origin}/ serves no <meta ${key}> tag at all.`]);
+    // Next resolves these against metadataBase, so compare absolute-or-relative.
+    if (got !== expectedUrl && got !== expectedPath) {
+      fail([
+        `${key} points at the wrong card.`,
+        `    serving:  ${got}`,
+        `    expected: ${expectedUrl}`,
+        '',
+        '  The deploy box is behind this checkout. Pull and redeploy there:',
+        '      cd ~/zerogex-web && make deploy',
+      ]);
+    }
+  }
+
+  let bytes, contentType;
+  try {
+    const res = await get(expectedUrl, 'image/png');
+    if (!res.ok) {
+      fail([
+        `the tags name ${expectedPath} but it returns HTTP ${res.status}.`,
+        '',
+        '  The manifest deployed without the PNG beside it, which means step 3',
+        '  of the deploy (`make logo`) did not run. Re-run it on the box:',
+        '      cd ~/zerogex-web && make logo && make rebuild',
+      ]);
+    }
+    contentType = res.headers.get('content-type') || '(none)';
+    bytes = Buffer.from(await res.arrayBuffer());
+  } catch (err) {
+    fail([`could not fetch ${expectedUrl} (${err.message}).`]);
+  }
+
+  // The filename *is* the digest, so this is self-verifying: anything but a
+  // match means something between us and the client rewrote the bytes.
+  const served = crypto.createHash('sha256').update(bytes).digest('hex').slice(0, 8);
+  if (served !== hash) {
+    fail([
+      `${expectedPath} does not contain the bytes it is named for.`,
+      `    served sha256: ${served}`,
+      `    expected:      ${hash}`,
+      '',
+      '  A content-addressed URL cannot go stale on its own, so something in',
+      '  front of the origin is rewriting or mis-serving it. Check Cloudflare.',
+    ]);
+  }
+
+  // X's own limits, and the two ways a technically-correct card still renders
+  // wrong: over 5 MB it drops the image and falls back to a link preview, and
+  // it crops to 1.91:1, so a ratio far from that loses part of the artwork.
+  const mb = bytes.length / (1024 * 1024);
+  if (mb > 5) {
+    fail([
+      `${expectedPath} is ${mb.toFixed(1)} MB, over X's 5 MB limit for a card image.`,
+      '',
+      '  X drops an oversized image and renders a bare link instead. Re-export',
+      '  assets/branding/og-image.png smaller, then `make logo` and commit.',
+    ]);
+  }
+
+  const ratio = width / height;
+  console.log(`  ✓ og:image and twitter:image both name ${expectedPath}`);
+  console.log(`  ✓ it serves ${(bytes.length / 1024).toFixed(0)} KB of ${contentType}, sha256 ${served}`);
+  if (ratio < 1.7 || ratio > 2.1) {
+    console.log(`  ⚠ ${width}x${height} is ${ratio.toFixed(2)}:1; X crops cards to 1.91:1, so`);
+    console.log('    expect the edges of this artwork to be cut off in the timeline.');
+  } else {
+    console.log(`  ✓ ${width}x${height} (${ratio.toFixed(2)}:1, inside X's 1.91:1 crop)`);
+  }
+  console.log('');
+  console.log('Everything on our side is current. An old card on X is now X\'s own');
+  console.log('cache: it keys the card on the page URL, holds it about a week, and');
+  console.log('the Card Validator that used to force a refresh was retired -- there');
+  console.log('is no purge button any more.');
+  console.log('');
+  console.log('  To get the new card immediately, post a URL X has not scraped yet:');
+  console.log(`      ${origin}/?v=2        (bump the number each time)`);
+  console.log('');
+  console.log('  To preview without posting, paste that URL into the X compose box');
+  console.log('  and wait a beat -- the composer scrapes through the same cache a');
+  console.log('  real post does. Do not preview the bare URL you intend to post.');
+}
+
+async function main() {
+  const wantsLive = process.argv.includes('--live');
+  const check = wantsLive || process.argv.includes('--check');
 
   if (!fs.existsSync(SOURCE)) {
     console.error(`og-image-manifest: ${path.relative(REPO_ROOT, SOURCE)} is missing`);
@@ -113,6 +271,7 @@ function main() {
       process.exit(1);
     }
     console.log(`og-image-manifest: up to date (og-image.${hash}.png, ${width}x${height})`);
+    if (wantsLive) await live({ hash, width, height });
     return;
   }
 
@@ -138,4 +297,7 @@ function main() {
   console.log(`  ✓ og-image.${hash}.png (${width}x${height})`);
 }
 
-main();
+main().catch((err) => {
+  console.error(`og-image-manifest: ${err.message}`);
+  process.exit(1);
+});
