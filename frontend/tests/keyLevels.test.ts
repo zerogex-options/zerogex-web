@@ -15,6 +15,7 @@ import assert from 'node:assert/strict';
 import {
   buildKeyLevels,
   computeMaxPainFromStrikes,
+  flipDirectionBetween,
   flipSymbol,
   formatKeyLevelValue,
   keyLevelDistance,
@@ -295,4 +296,30 @@ test('flipSymbol returns null when there is nowhere to flip — no affordance', 
   assert.equal(flipSymbol([], 'SPY', 1), null);
   assert.equal(flipSymbol(['SPY'], 'SPY', 1), null);
   assert.equal(flipSymbol(['SPY'], 'SPY', -1), null);
+});
+
+test('flipDirectionBetween takes the shortest way round the ring', () => {
+  // A one-step flip — what the arrows and a swipe always do — is never a tie,
+  // so the animation direction is exact for every gesture.
+  assert.equal(flipDirectionBetween(RING, 'SPY', 'QQQ'), 'next');
+  assert.equal(flipDirectionBetween(RING, 'QQQ', 'SPY'), 'prev');
+  assert.equal(flipDirectionBetween(RING, 'NQ', 'SPY'), 'next');
+  assert.equal(flipDirectionBetween(RING, 'SPY', 'NQ'), 'prev');
+});
+
+test('flipDirectionBetween handles a jump made from outside the strip', () => {
+  // The page's own symbol picker can move several steps at once; the strip
+  // still animates whichever way is shorter.
+  assert.equal(flipDirectionBetween(RING, 'SPY', 'SPX'), 'next');
+  assert.equal(flipDirectionBetween(RING, 'SPX', 'SPY'), 'prev');
+  assert.equal(flipDirectionBetween(RING, 'NQ', 'QQQ'), 'next');
+});
+
+test('flipDirectionBetween resolves ties, unknowns and no-ops forward', () => {
+  // Directly opposite on an even ring — either answer is as true as the other.
+  assert.equal(flipDirectionBetween(RING, 'SPY', 'NDX'), 'next');
+  assert.equal(flipDirectionBetween(RING, 'SPY', 'SPY'), 'next');
+  assert.equal(flipDirectionBetween(RING, 'TSLA', 'SPY'), 'next');
+  assert.equal(flipDirectionBetween(RING, 'SPY', 'TSLA'), 'next');
+  assert.equal(flipDirectionBetween([], 'SPY', 'QQQ'), 'next');
 });

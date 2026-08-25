@@ -355,3 +355,30 @@ export function flipSymbol<T extends string>(
   const step = delta >= 0 ? 1 : -1;
   return symbols[(at + step + symbols.length) % symbols.length];
 }
+
+/**
+ * Which way a symbol change moved around the ring — the direction the incoming
+ * strip should slide in from.
+ *
+ * Derived from the two symbols rather than remembered from whichever control
+ * was used. That is what keeps the animation honest: the direction is a
+ * function of the symbol actually on screen, so it cannot disagree with it, and
+ * a change made anywhere else (the page's own symbol picker, a pane toolbar, a
+ * deep link) animates the right way too rather than reusing a stale gesture.
+ *
+ * Shortest way round wins, so a one-step flip is always exact. A tie — the
+ * symbol directly opposite on an even ring — and any symbol not on the ring
+ * resolve forward.
+ */
+export function flipDirectionBetween(
+  symbols: readonly string[],
+  from: string,
+  to: string,
+): 'prev' | 'next' {
+  const n = symbols.length;
+  const at = symbols.indexOf(from);
+  const to_ = symbols.indexOf(to);
+  if (n === 0 || at < 0 || to_ < 0) return 'next';
+  const forward = (to_ - at + n) % n;
+  return forward * 2 <= n ? 'next' : 'prev';
+}
