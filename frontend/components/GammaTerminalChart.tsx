@@ -27,6 +27,7 @@ import { useStrikeProfileTimeseries, type StrikeProfileStrike } from "@/hooks/us
 import { useTechnicals } from "@/hooks/useTechnicals";
 import { useTimeframe, type UnderlyingSymbol } from "@/core/TimeframeContext";
 import { getPrimaryPriceChangeSummary, getExtendedHoursRow } from "@/core/priceChange";
+import { futuresDelayLabel } from "@/core/futuresDataStatus";
 import { omitClosedMarketTimes, shouldOmitClosedMarketTimes, isIndexSymbol, isWithinRegularMarketHours, etTodayDateKey, etTradingDateLabel, omitOutOfHoursForSymbol } from "@/core/utils";
 import { SYMBOLS } from "@/core/symbols";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -557,6 +558,15 @@ export default function GammaTerminalChart({
   // The chart candles + price marker deliberately stay on the cash tape.
   const displaySource = snapshot ? snapshot.quote?.display_source ?? null : quote?.display_source ?? null;
   const futuresSwap = displaySource === "futures";
+  // ES / NQ only: the feed's own age. `session` describes the CME calendar, so
+  // it reads "open" through the whole futures session and would light the LIVE
+  // pill on top of a delayed feed. Freshness is a separate axis and the badge
+  // has to read it, or the chart claims to be live while the header beside it
+  // says the same tape is ten minutes old. Absent on every cash symbol.
+  const feedStale = !snapshot && quote?.stale === true;
+  const feedAgeSeconds = !snapshot && typeof quote?.data_age_seconds === "number"
+    ? quote.data_age_seconds
+    : null;
   const futuresTicker = futuresSwap
     ? (snapshot ? snapshot.quote?.data_symbol : quote?.data_symbol) ?? null
     : null;
@@ -1755,9 +1765,11 @@ export default function GammaTerminalChart({
     ? { label: "◀ REWIND", color: "var(--color-accent-hot)" }
     : delayed
       ? { label: "◷ DELAYED ~15 MIN", color: "var(--color-warning)" }
-      : futuresSwap
-        ? { label: "◆ FUTURES", color: "var(--color-brand-coral)" }
-        : sessionLabel(session);
+      : feedStale
+        ? { label: `◷ ${futuresDelayLabel(feedAgeSeconds)}`, color: "var(--color-warning)" }
+        : futuresSwap
+          ? { label: "◆ FUTURES", color: "var(--color-brand-coral)" }
+          : sessionLabel(session);
 
   // Freshness line under the headline price.
   //  • Delayed: the snapshot's repaired "as of" (the delayed tape's freshest
@@ -1770,7 +1782,13 @@ export default function GammaTerminalChart({
   const liveStamp = fmtEtClock(liveUpdatedAt); // realtime tick receipt, to the second
   // The overnight future is actively trading even though the cash index reports
   // session='closed', so treat the futures swap as a live session for freshness.
-  const liveSessionActive = !delayed && !rewindActive && (futuresSwap || (!!session && !/closed/i.test(session)));
+  //  • Live session but a DELAYED feed (ES/NQ on the delayed CME package): the
+  //    wall-clock receipt is the moment the poll returned, not the moment the
+  //    price traded. Showing it to the second next to a ten-minute-old price is
+  //    the most precise-looking lie on the page, so fall back to the bar's own
+  //    time, which is what "as of" has always meant here.
+  const liveSessionActive =
+    !delayed && !rewindActive && !feedStale && (futuresSwap || (!!session && !/closed/i.test(session)));
   const freshnessLabel = delayed
     ? dataStamp && `Delayed quote · as of ${dataStamp}`
     : liveSessionActive
@@ -2348,7 +2366,11 @@ export default function GammaTerminalChart({
             {(() => {
               const y = clamp(yPrice(liveTip.close), PAD_TOP, PRICE_BOTTOM);
               const x = xForIndex(lastIdx);
-              const isLive = !delayed && !rewindActive && !!session && session !== "closed";
+              // feedStale: the pinging dot asserts "this bar is trading right now".
+              // On a delayed feed the tip is the newest bar we have, not the newest
+              // bar that exists, so the dashed last-price line stays and the ping goes.
+              const isLive =
+                !delayed && !rewindActive && !feedStale && !!session && session !== "closed";
               return (
                 <g>
                   <line x1={PLOT_LEFT} x2={PLOT_RIGHT} y1={y} y2={y} stroke="var(--color-accent-hot)" strokeWidth={1} strokeDasharray="2 3" opacity={0.8} />
@@ -2681,7 +2703,12 @@ export default function GammaTerminalChart({
         <div className="ml-auto flex items-center gap-1.5" style={{ color: "var(--text-muted)" }}>
           <Info size={12} />
           <span className="zg-eyebrow" style={{ fontSize: 9.5 }}>
-            Dealer gamma computed by ZeroGEX · {delayed ? "delayed ~15 min" : "updates live"}
+            Dealer gamma computed by ZeroGEX ·{" "}
+            {delayed
+              ? "delayed ~15 min"
+              : feedStale
+                ? `price feed ${futuresDelayLabel(feedAgeSeconds).toLowerCase()}`
+                : "updates live"}
           </span>
         </div>
       </div>
