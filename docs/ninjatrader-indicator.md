@@ -95,7 +95,10 @@ setting can't produce a `422`).
      the chart). On an ES or NQ chart, use `ES` / `NQ` — see below.
    - **Poll interval** — default 60s (matches the analytics cycle).
    - **Show strike profile histogram** — off by default; turn it on for the
-     per-strike gamma bars, and tune `Histogram strikes` / `Histogram width`.
+     per-strike gamma bars, and tune `Histogram strikes` / `Histogram width` /
+     `Histogram bar thickness`. Thickness is a stroke width in pixels: the
+     short `Draw.Line` overload defaults to 1px, which reads as a hairline
+     rather than a histogram, so the bars pass it explicitly.
    - Toggle levels, colors, labels, info panel, and alerts to taste.
 
 If a packaged export has been published, the gamma pages offer it instead and

@@ -146,6 +146,11 @@ namespace NinjaTrader.NinjaScript.Indicators
                 ShowStrikeProfile = false;
                 ProfileStrikeCount = 40;
                 ProfileWidthBars = 20;
+                // Bar thickness in pixels. The default Draw.Line stroke is 1px,
+                // which reads as a hairline rather than a histogram; 5 gives the
+                // bars enough body to be read at a glance without them merging
+                // into each other at typical strike spacing.
+                ProfileBarWidth = 5;
 
                 // --- Style ---
                 LineWidth = 2;
@@ -494,7 +499,8 @@ namespace NinjaTrader.NinjaScript.Indicators
 
                         double y = s.ProfileStrike[i];
                         Draw.Line(this, "ZG_Prof_" + i, length, y, 0, y,
-                                  netGex >= 0 ? ProfilePosBrush : ProfileNegBrush);
+                                  netGex >= 0 ? ProfilePosBrush : ProfileNegBrush,
+                                  DashStyleHelper.Solid, Math.Max(1, ProfileBarWidth));
                         drawn++;
                     }
                 }
@@ -630,6 +636,11 @@ namespace NinjaTrader.NinjaScript.Indicators
         [Range(1, 200)]
         [Display(Name = "Histogram width (bars)", Order = 8, GroupName = "2. Levels")]
         public int ProfileWidthBars { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(1, 20)]
+        [Display(Name = "Histogram bar thickness (pixels)", Order = 9, GroupName = "2. Levels")]
+        public int ProfileBarWidth { get; set; }
 
         [NinjaScriptProperty]
         [Range(1, 5)]
