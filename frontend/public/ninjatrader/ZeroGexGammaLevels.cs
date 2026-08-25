@@ -132,7 +132,13 @@ namespace NinjaTrader.NinjaScript.Indicators
                 IsOverlay = true;                       // draw on the price panel
                 DisplayInDataBox = false;
                 DrawOnPricePanel = true;
-                IsSuspendedWhileInactive = true;        // stop polling when the tab is hidden
+                // Deliberately false. Suspending on an inactive tab means
+                // NinjaTrader restarts the instance when you come back, which
+                // drops the snapshot and used to blank the chart — reported as
+                // "leave it an hour and the levels disappear". The saving was
+                // one small request a minute; the cost was the indicator
+                // appearing to break whenever you looked at another tab.
+                IsSuspendedWhileInactive = false;
                 PaintPriceMarkers = false;
 
                 // --- Connection ---
@@ -240,8 +246,11 @@ namespace NinjaTrader.NinjaScript.Indicators
                 }
                 catch (Exception ex)
                 {
-                    _status = "error: " + ex.Message;
-                    Print("ZeroGEX fetch error: " + ex);
+                    _status = ex.Message;
+                    // Also to the Output window, so a user who cannot read the
+                    // panel can copy something useful into a support email.
+                    Print("ZeroGEX " + DateTime.Now.ToString("HH:mm:ss") +
+                          " fetch failed: " + ex.Message);
                 }
                 finally
                 {
@@ -269,7 +278,19 @@ namespace NinjaTrader.NinjaScript.Indicators
                 {
                     string body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
                     if (!resp.IsSuccessStatusCode)
-                        throw new Exception("HTTP " + (int)resp.StatusCode + " for " + url);
+                    {
+                        int code = (int)resp.StatusCode;
+                        // Name the two the user can act on. 401/403 almost always
+                        // means the key was replaced elsewhere — only one key is
+                        // active per account, so generating a new one silently
+                        // retires the one sitting in this chart.
+                        if (code == 401 || code == 403)
+                            throw new Exception("key rejected (HTTP " + code +
+                                                ") — generating a new API key retires the old one");
+                        if (code == 429)
+                            throw new Exception("rate limited (HTTP 429) — polling too often");
+                        throw new Exception("HTTP " + code);
+                    }
 
                     var snap = Parse(body);
                     if (snap != null && ShowVwap)
@@ -484,6 +505,19 @@ namespace NinjaTrader.NinjaScript.Indicators
         {
             var s = _snapshot; // single volatile read
 
+            // With no snapshot — first load, or a fetch that failed — leave
+            // whatever is already drawn alone and just say so in the panel.
+            // Passing nulls through to DrawOne removes every line, which turns
+            // a recoverable hiccup into "the indicator stopped working". The
+            // levels themselves are a snapshot of an option book, so holding
+            // the last good ones is both honest and useful; the panel's age
+            // and status tell the trader how much to trust them.
+            if (s == null)
+            {
+                DrawInfoPanel(null);
+                return;
+            }
+
             DrawOne("ZG_Flip", ShowGammaFlip, s?.GammaFlip, "Gamma Flip", FlipBrush);
             DrawOne("ZG_Call", ShowCallWall, s?.CallWall, "Call Wall", CallBrush);
             DrawOne("ZG_Put", ShowPutWall, s?.PutWall, "Put Wall", PutBrush);
@@ -492,7 +526,11 @@ namespace NinjaTrader.NinjaScript.Indicators
             DrawOne("ZG_Vwap", ShowVwap, s?.Vwap, "VWAP", VwapBrush);
             DrawGexRanks(s);
             DrawProfile(s);
+            DrawInfoPanel(s);
+        }
 
+        private void DrawInfoPanel(ZeroGexLevelsSnapshot s)
+        {
             if (ShowInfoPanel)
                 Draw.TextFixed(this, "ZG_Info", BuildInfoText(s), TextPosition.TopRight);
             else
@@ -667,11 +705,17 @@ namespace NinjaTrader.NinjaScript.Indicators
             string age = s.AgeSeconds.HasValue ? s.AgeSeconds.Value + "s ago" : "—";
             string sym = string.IsNullOrEmpty(s.Symbol) ? (Symbol ?? "") : s.Symbol;
 
+            // Levels are held through a failure rather than wiped, so the panel
+            // has to be the thing that admits they are no longer live.
+            string health = _status == "ok"
+                ? ""
+                : "\n⚠ not updating: " + _status;
+
             return "ZeroGEX Gamma Levels — " + sym + "\n" +
                    "Flip "  + Fmt(s.GammaFlip) + "   Call " + Fmt(s.CallWall) + "\n" +
                    "Put "   + Fmt(s.PutWall)   + "   Pain " + Fmt(s.MaxPain) + "\n" +
                    "Pin "   + Fmt(s.PinStrike) + "   VWAP " + Fmt(s.Vwap) + "\n" +
-                   "updated " + age + "  ·  zerogex.io";
+                   "updated " + age + "  ·  zerogex.io" + health;
         }
 
         private static string Fmt(double? v)
@@ -730,10 +774,18 @@ namespace NinjaTrader.NinjaScript.Indicators
         // text on screen — and into every screenshot they ever share. Without
         // the attribute the property still appears in the indicator's settings
         // dialog and still persists to the workspace; it just stops being part
-        // of the label signature. PasswordPropertyText masks it in the grid too,
-        // which is best-effort: it's a standard ComponentModel attribute, so it
-        // costs nothing if NinjaTrader's WPF grid ignores it.
-        [PasswordPropertyText(true)]
+        // of the label signature.
+        //
+        // PasswordPropertyText was here to mask the value in the grid as well,
+        // and has been REMOVED. It is a prime suspect for the report that the
+        // key stops working and has to be regenerated: if NinjaTrader's grid
+        // writes the *displayed* text back to the property, the stored key
+        // silently becomes a row of asterisks — and the user cannot tell,
+        // because a masked real key looks exactly the same. Unproven, but the
+        // attribute was only ever cosmetic and the leak that actually mattered
+        // (the key in the chart label) is fixed by the missing
+        // NinjaScriptProperty above. Do not re-add it without testing that the
+        // key survives a workspace save and reload.
         [Display(Name = "API key (Bearer)", Order = 2, GroupName = "1. Connection")]
         public string ApiKey { get; set; }
 

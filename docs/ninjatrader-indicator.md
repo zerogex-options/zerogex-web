@@ -187,6 +187,21 @@ frozen at the 16:00 close while the future keeps trading.
 
 ### Limitations / notes
 
+- **`IsSuspendedWhileInactive` is deliberately `false`.** It was `true`, which
+  suspends the script while its tab is inactive — and NinjaTrader restarts the
+  instance on resume, dropping the snapshot. Combined with the bug below that
+  read as "leave it an hour and the levels disappear". Saving one small request
+  a minute was not worth the indicator appearing to break.
+- **A missing snapshot never wipes the chart.** `DrawOne` removes a level when
+  its value is null, which is right for a level the API genuinely reports as
+  null — but passing it `s?.Level` from a null snapshot removed *everything* on
+  the first frame after any restart or failed fetch. The levels are now held and
+  the panel carries a `⚠ not updating` line with the reason. Holding is the
+  honest default: these describe an option book, so stale-but-labelled beats
+  blank.
+- **401/403 is surfaced in plain words**, because only one key is active per
+  account: generating a new key silently retires the one sitting in a chart, and
+  that is the likeliest reason a working chart stops.
 - Refresh is driven by `OnBarUpdate`, which fires on incoming ticks. During
   the session (when levels matter and move) tick flow is continuous, so
   lines refresh within one poll interval. With **no incoming ticks** (after
