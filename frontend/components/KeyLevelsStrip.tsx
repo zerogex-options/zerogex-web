@@ -35,7 +35,13 @@ import type { ChartSnapshot } from './GammaTerminalChart';
 import { useGammaPlaybook, type GammaPlaybookRead } from '@/hooks/useGammaPlaybook';
 import { useTimeframe, type UnderlyingSymbol } from '@/core/TimeframeContext';
 import { SYMBOLS } from '@/core/symbols';
-import { buildKeyLevels, flipSymbol, keyLevelsRegime, type KeyLevel } from '@/core/keyLevels';
+import {
+  buildKeyLevels,
+  flipDirectionBetween,
+  flipSymbol,
+  keyLevelsRegime,
+  type KeyLevel,
+} from '@/core/keyLevels';
 import {
   PIN_STRIKE_TOOLTIP,
   classifyPinStrength,
@@ -126,10 +132,12 @@ function KeyLevelCard({ level, loading }: { level: KeyLevel; loading: boolean })
  * setter) so the board itself stays presentational.
  */
 export type KeyLevelsFlip = {
-  /** Destination of the left arrow / a rightward swipe. */
-  prev: string;
-  /** Destination of the right arrow / a leftward swipe. */
-  next: string;
+  /**
+   * The ring the strip flips around. Passed whole rather than as two
+   * precomputed ends because the board needs it to work out which way a symbol
+   * change moved — including one made from outside the strip entirely.
+   */
+  symbols: readonly string[];
   onFlip: (symbol: string) => void;
 };
 
@@ -187,20 +195,41 @@ export function KeyLevelsBoard({
   flip?: KeyLevelsFlip | null;
   className?: string;
 }) {
-  // Which way the incoming symbol should slide in from. Set by whichever
-  // gesture caused the flip; a symbol changed from somewhere else entirely
-  // (the header picker, a pane toolbar) simply reuses the last direction,
-  // which for a 190ms slide is not worth tracking a second source for.
-  const [direction, setDirection] = useState<FlipDirection>('next');
+  const prevSymbol = flip ? flipSymbol(flip.symbols, read.symbol, -1) : null;
+  const nextSymbol = flip ? flipSymbol(flip.symbols, read.symbol, 1) : null;
+  const canFlip = flip != null && prevSymbol != null && nextSymbol != null;
+
+  // Which way the incoming symbol slides in from, worked out during render from
+  // the symbol change itself (the useApiData "reset on prop change" idiom).
+  // Deriving it beats remembering which control was used: the direction lands
+  // in the same render as the new symbol, so it can never animate one way while
+  // showing a symbol that moved the other, and a change made from the page's
+  // own symbol picker animates correctly too.
+  const [seen, setSeen] = useState<{ symbol: string; direction: FlipDirection }>({
+    symbol: read.symbol,
+    direction: 'next',
+  });
+  if (seen.symbol !== read.symbol) {
+    // React's "adjust state while rendering" escape hatch: it discards this
+    // pass and re-runs immediately, so the committed render carries the new
+    // symbol and its direction together — which is the whole point, since a
+    // direction that lands a render later would never restart the animation.
+    setSeen({
+      symbol: read.symbol,
+      direction: flipDirectionBetween(flip?.symbols ?? [], seen.symbol, read.symbol),
+    });
+  }
+  const direction = seen.direction;
+
   const swipeStart = useRef<{ x: number; y: number } | null>(null);
 
   const goto = useCallback(
     (dir: FlipDirection) => {
-      if (!flip) return;
-      setDirection(dir);
-      flip.onFlip(dir === 'next' ? flip.next : flip.prev);
+      const target = dir === 'next' ? nextSymbol : prevSymbol;
+      if (!flip || !target) return;
+      flip.onFlip(target);
     },
-    [flip],
+    [flip, nextSymbol, prevSymbol],
   );
 
   // Touch only: a mouse drag across the strip is a text selection (and, in My
@@ -213,7 +242,7 @@ export function KeyLevelsBoard({
     (e: ReactPointerEvent<HTMLDivElement>) => {
       const start = swipeStart.current;
       swipeStart.current = null;
-      if (!start || !flip) return;
+      if (!start || !canFlip) return;
       const dx = e.clientX - start.x;
       const dy = e.clientY - start.y;
       if (Math.abs(dx) < SWIPE_MIN_PX) return;
@@ -221,7 +250,7 @@ export function KeyLevelsBoard({
       // Dragging left pulls the next symbol in from the right, as any carousel.
       goto(dx < 0 ? 'next' : 'prev');
     },
-    [flip, goto],
+    [canFlip, goto],
   );
 
   // The browser takes the pointer back when it decides the gesture was a
@@ -254,11 +283,24 @@ export function KeyLevelsBoard({
   return (
     <section className={className} aria-label={`Key levels for ${read.symbol}`}>
       <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1">
-        <span className="zg-eyebrow" style={{ color: 'var(--text-primary)' }}>
+        {/* The underlying is the loudest thing in this line, and everything
+            around it is demoted to a label. It is what the arrows and the swipe
+            change, so it has to be the token the eye is already on when it
+            changes — otherwise the first flip reads as the numbers jumping for
+            no reason. It carries the same entry animation as the cards, so the
+            symbol visibly moves with them. */}
+        <span className="zg-eyebrow" style={{ fontSize: 10, color: 'var(--text-muted)' }}>
           Key Levels
         </span>
+        <span
+          key={read.symbol}
+          className="zg-kl-symbol"
+          data-flip={canFlip ? direction : undefined}
+        >
+          {read.symbol}
+        </span>
         <span className="zg-eyebrow truncate" style={{ fontSize: 10 }}>
-          {read.symbol} · {read.expirationLabel}
+          · {read.expirationLabel}
         </span>
         {regime && (
           <span
@@ -287,19 +329,19 @@ export function KeyLevelsBoard({
 
       <div
         className="zg-kl-flip"
-        onPointerDown={flip ? onPointerDown : undefined}
-        onPointerUp={flip ? onPointerUp : undefined}
-        onPointerCancel={flip ? onPointerCancel : undefined}
+        onPointerDown={canFlip ? onPointerDown : undefined}
+        onPointerUp={canFlip ? onPointerUp : undefined}
+        onPointerCancel={canFlip ? onPointerCancel : undefined}
       >
-        {flip && (
-          <FlipArrow direction="prev" symbol={flip.prev} onActivate={() => goto('prev')} />
+        {canFlip && prevSymbol && (
+          <FlipArrow direction="prev" symbol={prevSymbol} onActivate={() => goto('prev')} />
         )}
         <div
           // Keyed on the symbol so the entry animation restarts on every flip
           // (a CSS animation only replays on a fresh element).
           key={read.symbol}
           className="zg-kl-cards"
-          data-flip={flip ? direction : undefined}
+          data-flip={canFlip ? direction : undefined}
           style={{
             display: 'grid',
             gap: 8,
@@ -310,8 +352,8 @@ export function KeyLevelsBoard({
             <KeyLevelCard key={level.id} level={level} loading={read.loading} />
           ))}
         </div>
-        {flip && (
-          <FlipArrow direction="next" symbol={flip.next} onActivate={() => goto('next')} />
+        {canFlip && nextSymbol && (
+          <FlipArrow direction="next" symbol={nextSymbol} onActivate={() => goto('next')} />
         )}
       </div>
     </section>
@@ -335,15 +377,12 @@ export default function KeyLevelsStrip({
   const read = useGammaPlaybook({ snapshot, delayed });
   const { setSymbol } = useTimeframe();
 
-  const prev = flipSymbol(SYMBOLS, read.symbol, -1);
-  const next = flipSymbol(SYMBOLS, read.symbol, 1);
   // No flipping on the delayed public view: switching symbols needs data the
   // frozen snapshot does not carry, which is the same reason the chart below
   // it fixes its own symbol picker there.
-  const flip: KeyLevelsFlip | null =
-    read.delayed || !prev || !next
-      ? null
-      : { prev, next, onFlip: (symbol) => setSymbol(symbol as UnderlyingSymbol) };
+  const flip: KeyLevelsFlip | null = read.delayed
+    ? null
+    : { symbols: SYMBOLS, onFlip: (symbol) => setSymbol(symbol as UnderlyingSymbol) };
 
   return <KeyLevelsBoard read={read} flip={flip} className={className} />;
 }
