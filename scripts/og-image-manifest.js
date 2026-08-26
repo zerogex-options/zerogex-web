@@ -137,6 +137,25 @@ async function get(url, accept, headers = {}) {
   });
 }
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * The natural way to use this is `make rebuild && make og-check`, and that
+ * races: pm2 returns as soon as it has restarted the process, while Next is
+ * still booting, so nginx has nothing to proxy to and answers 502 for a few
+ * seconds. That is a cold start, not a broken deploy, so ride it out briefly
+ * rather than reporting the site as down. A gateway error that outlasts this
+ * is reported normally.
+ */
+async function getPage(url, attempts = 4) {
+  for (let i = 1; ; i++) {
+    const res = await get(url, 'text/html');
+    if (res.ok || ![502, 503, 504].includes(res.status) || i === attempts) return res;
+    console.log(`  · ${res.status} from the origin — the app is probably still booting, retrying (${i}/${attempts - 1})`);
+    await sleep(3000);
+  }
+}
+
 /**
  * Pull one meta tag's content out of raw HTML. Matches on `property=` or
  * `name=` because OG tags use the former and Twitter's use the latter, and
@@ -228,8 +247,17 @@ async function live({ hash, width, height }) {
 
   let html, pageRes;
   try {
-    pageRes = await get(pageUrl, 'text/html');
-    if (!pageRes.ok) fail([`${pageUrl} returned HTTP ${pageRes.status}.`]);
+    pageRes = await getPage(pageUrl);
+    if (!pageRes.ok) {
+      fail([
+        `${pageUrl} returned HTTP ${pageRes.status}.`,
+        `    ${edge(pageRes)}`,
+        ...([502, 503, 504].includes(pageRes.status)
+          ? ['', '  A gateway error this persistent is the app failing to come up,',
+                '  not a slow restart. Check it: pm2 logs zerogex-web --lines 50']
+          : []),
+      ]);
+    }
     html = await pageRes.text();
   } catch (err) {
     fail([`could not reach ${pageUrl} (${err.message}).`]);
