@@ -70,7 +70,7 @@ help:
 	@echo "  make clean      - Remove build artifacts"
 	@echo "  make deploy     - Full deployment (pull, install, rebuild)"
 	@echo "  make logo       - Copy logos from assets to public"
-	@echo "  make og-check   - Check the DEPLOYED site serves the social card this checkout expects, and name the cause when it does not (stale deploy / missing PNG / X's own card cache). Read-only; ORIGIN=<url> to point elsewhere"
+	@echo "  make og-check   - Check the DEPLOYED site serves the social card this checkout expects, and name the cause when it does not (stale deploy / missing PNG / wrong twitter:card / Cloudflare blocking X's fetcher / X's own card cache). Read-only; PAGE=<path> to check the exact URL you post (e.g. /?v=2), ORIGIN=<url> to point elsewhere"
 	@echo "  make blog-images - Copy blog post images from assets/blog to frontend/public/blog"
 	@echo ""
 
