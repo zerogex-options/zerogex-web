@@ -98,8 +98,21 @@ export default function ExpirationMultiSelect({
   // pick must never silently become.
   const allActive = selected.length === 0 && !inheritOption?.active && !zeroDte?.active;
 
+  // While one of the alternative rows owns the selection — inheriting, or the
+  // rolling 0DTE pick — no dated row renders as checked, so the dated rows must
+  // toggle against an EMPTY set. Otherwise a row that looks unchecked is
+  // secretly in `selected` (0DTE resolves to today's date; inheriting carries
+  // the page's dates), and clicking it removes it instead of selecting it —
+  // landing the user on "All expirations", the opposite of what they clicked
+  // for. Deriving `checked` from the same value keeps the two in step by
+  // construction.
+  const datedSelection = inheritOption?.active || zeroDte?.active ? [] : selected;
   const toggle = (exp: string) =>
-    onChange(selected.includes(exp) ? selected.filter((v) => v !== exp) : [...selected, exp]);
+    onChange(
+      datedSelection.includes(exp)
+        ? datedSelection.filter((v) => v !== exp)
+        : [...datedSelection, exp],
+    );
 
   return (
     <div ref={ref} className="relative inline-flex items-center">
@@ -194,8 +207,7 @@ export default function ExpirationMultiSelect({
             All expirations
           </button>
           {options.map((exp) => {
-            const checked =
-              !inheritOption?.active && !zeroDte?.active && selected.includes(exp);
+            const checked = datedSelection.includes(exp);
             return (
               <button
                 key={exp}

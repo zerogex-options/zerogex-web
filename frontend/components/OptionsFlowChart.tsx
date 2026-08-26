@@ -722,12 +722,18 @@ export default function OptionsFlowChart({
   // change broadcasts to every other expiration-filtering chart.
   const toggleExpirations = useCallback(
     (value: string) => {
-      const next = new Set(sharedExpirations);
+      // Toggle against the RESOLVED selection the chips are drawn from, not the
+      // stored intent. A rolling 0DTE pick resolves to today's date, so building
+      // from the raw value would leave both the token and the clicked date in
+      // the set and make an apparently-selected chip impossible to clear.
+      // Hand-picking dates is also the user saying they no longer mean "always
+      // today", so the rolling token is deliberately dropped here.
+      const next = new Set(effectiveSelectedExpirations);
       if (next.has(value)) next.delete(value);
       else next.add(value);
       setSharedExpirations(Array.from(next));
     },
-    [sharedExpirations, setSharedExpirations],
+    [effectiveSelectedExpirations, setSharedExpirations],
   );
 
   return (
