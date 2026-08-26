@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 
 import type { WidgetSize } from '@/core/myDashboardLayout';
+import { ROLLING_ZERO_DTE } from '@/core/expirationPersistence';
 import { WIDGET_SIZES } from '@/core/myDashboardLayout';
 import type { FeedKey } from './DashboardData';
 
@@ -560,10 +561,52 @@ export type DashboardPreset = {
   name: string;
   blurb: string;
   tier: WidgetTier;
+  /**
+   * Expiration scope to pin on the seeded pane. Omitted by every preset that
+   * has no opinion, leaving the board following the page-wide selection — which
+   * is what presets did before this existed and remains the right default.
+   *
+   * It is here for the one case where the expiration filter is not a setting
+   * alongside the widgets but the entire point of the board: a same-day preset
+   * whose widgets all read the whole chain is not a 0DTE board, it is the
+   * ordinary board with a different name.
+   */
+  expirations?: readonly string[];
   widgets: { widgetId: string; size: WidgetSize }[];
 };
 
 export const PRESETS: DashboardPreset[] = [
+  {
+    // First in the list because same-day is what most members are here for, and
+    // because it is the one board that is tedious to assemble by hand: the
+    // widgets are the easy half, remembering to scope the whole thing to
+    // today's expiry is the half people miss.
+    id: 'zero-dte-intraday',
+    name: '0DTE Intraday',
+    blurb: "Same-day only — pinned to today's expiry, and it stays pinned tomorrow.",
+    tier: 'basic',
+    // The load-bearing line. Without it this is a widget list that happens to
+    // suit 0DTE while quietly showing the whole chain; with it every widget on
+    // the board that honours the pane scope — Key Levels, the Gamma Chart, the
+    // strike book, the flow — reads the same-day book. ROLLING_ZERO_DTE rather
+    // than today's date so the board is still a 0DTE board tomorrow morning.
+    expirations: [ROLLING_ZERO_DTE],
+    widgets: [
+      // Read the day, then the levels, then the tape. Glance-first at the top:
+      // a same-day trader checking in mid-session should get the regime and the
+      // levels without scrolling, and only then the charts to act on.
+      { widgetId: 'todays-read', size: 'xl' },
+      { widgetId: 'price', size: 'sm' },
+      { widgetId: 'net-gex', size: 'sm' },
+      { widgetId: 'gamma-flip', size: 'sm' },
+      { widgetId: 'vix-level', size: 'sm' },
+      { widgetId: 'key-levels', size: 'xl' },
+      { widgetId: 'gamma-chart', size: 'xl' },
+      { widgetId: 'gamma-by-strike', size: 'xl' },
+      { widgetId: 'trade-bias', size: 'lg' },
+      { widgetId: 'options-flow', size: 'lg' },
+    ],
+  },
   {
     id: 'traders-overview',
     name: "Trader's Overview",

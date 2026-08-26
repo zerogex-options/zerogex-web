@@ -217,6 +217,13 @@ export default function MyDashboardPage() {
         if (def.tier === 'pro' && !hasPro) continue;
         next = addWidget(next, 'a', w.widgetId, w.size);
       }
+      // A preset that names an expiration scope pins it on the seeded half.
+      // This also surfaces the pane toolbar (isScoped), so the scope the preset
+      // just applied is visible and adjustable rather than an invisible setting
+      // the member has to take on faith.
+      if (preset.expirations) {
+        next = setPaneExpirations(next, 'a', preset.expirations);
+      }
       setLayout(next);
       setEditing(false);
       setGalleryPane(null);
