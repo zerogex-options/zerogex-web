@@ -685,8 +685,8 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // reads as "All". Derived — not stored — so it needs no render-phase prune;
   // the shared store keeps the user's literal pick and each chart reconciles.
   const selectedExpiries = useMemo(
-    () => reconcileExpirations(rawExpiries, availableExpirations),
-    [rawExpiries, availableExpirations],
+    () => reconcileExpirations(rawExpiries, availableExpirations, todayKey),
+    [rawExpiries, availableExpirations, todayKey],
   );
 
   // Map one bucket's strikes payload into the existing StrikeAggregation

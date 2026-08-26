@@ -12,6 +12,7 @@ import ResponsiveChartArea from './ResponsiveChartArea';
 import ExpirationMultiSelect from './ExpirationMultiSelect';
 import { useSharedExpirations } from '@/hooks/useSharedExpirations';
 import { reconcileExpirations } from '@/core/expirationPersistence';
+import { useZeroDteOption } from '@/hooks/useZeroDteOption';
 import { etTodayDateKey } from '@/core/utils';
 import ChartCaption from "./ChartCaption";
 
@@ -237,10 +238,14 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
   // (see useSharedExpirations), reconciled here to the expirations this chart
   // actually has so a stale/foreign pick drops out and simply reads as "All".
   const { selection, setSelection } = useSharedExpirations();
+  // Hoisted above the reconcile (it used to live down by the DTE labels): the
+  // reconcile needs it to resolve a rolling 0DTE pick to a real expiration.
+  const todayKey = etTodayDateKey();
   const selectedExpirations = useMemo(
-    () => reconcileExpirations(selection, expirationOptions),
-    [selection, expirationOptions],
+    () => reconcileExpirations(selection, expirationOptions, todayKey),
+    [selection, expirationOptions, todayKey],
   );
+  const zeroDte = useZeroDteOption(expirationOptions, todayKey);
   const [displayMode, setDisplayMode] = useState<DisplayMode>('oi');
 
   // Universe (ascending = nearest first) and the shown subset (empty = All).
@@ -252,7 +257,6 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
     return allExpirationsSorted.filter((exp) => sel.has(exp));
   }, [allExpirationsSorted, selectedExpirations, isSubset]);
 
-  const todayKey = etTodayDateKey();
   const dteLabel = (exp: string): string => {
     const dte = dteBetweenKeys(todayKey, exp);
     if (dte == null) return exp;
@@ -611,6 +615,7 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
               options={expirationOptions}
               selected={selectedExpirations}
               onChange={setSelection}
+              zeroDte={zeroDte}
             />
             <div className="inline-flex rounded border" style={{ borderColor: inputBorder, backgroundColor: inputBg }}>
               <button

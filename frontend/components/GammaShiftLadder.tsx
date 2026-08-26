@@ -40,6 +40,8 @@ import {
 import { useChartTheme } from '@/hooks/useChartTheme';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useChartExpirations } from '@/hooks/useChartExpirations';
+import { useZeroDteOption } from '@/hooks/useZeroDteOption';
+import { etTodayDateKey } from '@/core/utils';
 import { useGexUnit, gexScaleFactor, GEX_UNIT_LABEL } from '@/core/GexUnitContext';
 import { useStrikeFilter } from '@/core/StrikeFilterContext';
 import { sessionOpenAnchorIndex } from '@/core/sessionDelta';
@@ -335,6 +337,7 @@ export default function GammaShiftLadder({ symbol: symbolProp }: { symbol?: stri
   // can actually serve (a pick made on another symbol's chart must not leak a
   // foreign date into the param). Empty selection = "all", the default.
   const { available, selection, setSelection, param: expParam } = useChartExpirations(symbol, true);
+  const zeroDte = useZeroDteOption(available, etTodayDateKey());
   const { gexUnit } = useGexUnit();
   const { activeOnly } = useStrikeFilter();
 
@@ -553,6 +556,7 @@ export default function GammaShiftLadder({ symbol: symbolProp }: { symbol?: stri
       onChange={setSelection}
       label="Expiry"
       disabled={available.length === 0}
+      zeroDte={zeroDte}
     />
   );
 

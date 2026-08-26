@@ -52,6 +52,7 @@ import { useGammaLadderColumn } from '@/hooks/useGammaLadder';
 import { useChartExpirations } from '@/hooks/useChartExpirations';
 import { useStrikeProfileTimeseries } from '@/hooks/useStrikeProfileTimeseries';
 import { useSharedExpirations } from '@/hooks/useSharedExpirations';
+import { useZeroDteOption } from '@/hooks/useZeroDteOption';
 import { reconcileExpirations } from '@/core/expirationPersistence';
 import { buildReportModel } from '@/app/live-bulletin/bulletinHelpers';
 import { usePageT } from '@/core/LanguageContext';
@@ -180,9 +181,10 @@ export function GammaByStrikePanel() {
     [expirationOptions, todayKey],
   );
   const chartSelectedExpirations = useMemo(
-    () => reconcileExpirations(sharedExpirations, chartExpirationOptions),
-    [sharedExpirations, chartExpirationOptions],
+    () => reconcileExpirations(sharedExpirations, chartExpirationOptions, todayKey),
+    [sharedExpirations, chartExpirationOptions, todayKey],
   );
+  const zeroDte = useZeroDteOption(chartExpirationOptions, todayKey);
   const profileStrikeData = useMemo(
     () =>
       toProfileStrikeData(
@@ -229,6 +231,7 @@ export function GammaByStrikePanel() {
         expirationOptions={chartExpirationOptions}
         selectedExpirations={chartSelectedExpirations}
         onSelectedExpirationsChange={setSharedExpirations}
+        zeroDte={zeroDte}
         perExpirationData={perExpirationData}
         todayKey={todayKey}
       />

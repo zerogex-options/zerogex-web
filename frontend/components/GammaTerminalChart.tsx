@@ -36,6 +36,7 @@ import ErrorMessage from "./ErrorMessage";
 import MobileScrollableChart from "./MobileScrollableChart";
 import ExpirationMultiSelect from "./ExpirationMultiSelect";
 import { useSharedExpirations } from "@/hooks/useSharedExpirations";
+import { useZeroDteOption } from "@/hooks/useZeroDteOption";
 import { useChartExpirations } from "@/hooks/useChartExpirations";
 import { useLinkedPriceAxis } from "@/core/linkedPriceAxis";
 import { netGexAtSpotOrNull, aboveFlipBandIsLong, offScaleBandIsLong } from "@/core/gammaRegime";
@@ -1176,6 +1177,9 @@ export default function GammaTerminalChart({
   const { data: gexByStrikeRows } = useGEXByStrike(symbol, 200, railStackEnabled ? 10000 : 0, "impact", railStackEnabled);
 
   const todayKey = etTodayDateKey();
+  // Placed here rather than beside availableExpiries above: it needs todayKey,
+  // and both sit at the component's top level so the hook order is stable.
+  const railZeroDte = useZeroDteOption(availableExpiries, todayKey);
 
   // strike(cents) → normalised expiration → call/put magnitudes, plus the
   // snapshot's expiration universe (nearest-first = DTE rank).
@@ -2041,6 +2045,7 @@ export default function GammaTerminalChart({
                 onChange={setRailExpiries}
                 label="Expiry"
                 disabled={availableExpiries.length === 0}
+                zeroDte={railZeroDte}
               />
             </>
           )}

@@ -39,7 +39,11 @@ import { usePageT } from '@/core/LanguageContext';
 import { SYMBOLS } from '@/core/symbols';
 import type { UnderlyingSymbol } from '@/core/symbolPersistence';
 import { etTodayDateKey } from '@/core/utils';
-import { reconcileExpirations } from '@/core/expirationPersistence';
+import {
+  ROLLING_ZERO_DTE,
+  reconcileExpirations,
+  selectionIsRollingZeroDte,
+} from '@/core/expirationPersistence';
 import {
   chartExpirationOptions,
   strikeExpirationOptions,
@@ -371,8 +375,21 @@ function PaneExpirationSelect({
   // screen rather than from a stale date the chart already dropped.
   const effective = pinned ?? shared;
   const selected = useMemo(
-    () => reconcileExpirations(effective, options),
-    [effective, options],
+    () => reconcileExpirations(effective, options, todayKey),
+    [effective, options, todayKey],
+  );
+
+  // Built here rather than via useZeroDteOption: this control owns a third
+  // state that hook knows nothing about — a pane either PINS its own selection
+  // or follows the page — so "is 0DTE the active pick?" has to be asked of the
+  // pinned value, not of the tab-wide store.
+  const zeroDte = useMemo(
+    () => ({
+      active: pinned !== null && selectionIsRollingZeroDte(pinned),
+      onSelect: () => onChange(paneId, [ROLLING_ZERO_DTE]),
+      availableToday: options.includes(todayKey),
+    }),
+    [pinned, onChange, paneId, options, todayKey],
   );
 
   return (
@@ -386,6 +403,7 @@ function PaneExpirationSelect({
         active: pinned === null,
         onSelect: () => onChange(paneId, null),
       }}
+      zeroDte={zeroDte}
     />
   );
 }
