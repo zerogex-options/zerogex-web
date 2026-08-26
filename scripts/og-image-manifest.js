@@ -55,11 +55,20 @@
  *   2. the box has not deployed since the artwork changed, so the tags still
  *      name the previous hash;
  *   3. it deployed but `make logo` did not run, so the hashed PNG 404s;
- *   4. everything above is correct and X is simply serving its own cached
- *      card, which it keys on the *page* URL and holds for about a week.
+ *   4. everything is correct but the image is too heavy, so X scrapes the
+ *      page, keeps the title and description, and silently drops the picture;
+ *   5. everything is correct and X is simply serving its own cached card,
+ *      which it keys on the *page* URL and holds for about a week.
  *
- * Only 4 is invisible from the repo, and it is the common one -- hence the
- * closing note this prints on success, which is the actual remedy.
+ * 4 and 5 are both invisible from the repo and look identical from the outside
+ * -- a stale-looking card with nothing wrong on our side. They are told apart
+ * by whether a *fresh* scrape (a URL X has not seen) renders the image: if it
+ * comes back as a small card carrying the current title and description, the
+ * page scrape worked and the image was refused, which is 4.
+ *
+ * 4 is not hypothetical. The 1731x909 1.7 MB export of this card was dropped
+ * by X while every check here passed; the same artwork at 1200x630 / 379 KB
+ * rendered. X's documented 5 MB cap is not the limit that actually binds.
  */
 
 const fs = require('fs');
@@ -322,8 +331,10 @@ async function live({ hash, width, height }) {
   // fetcher gives up quickly, and a content-addressed URL is cold at every
   // edge the first time each one is asked for it.
   if (mb > 1) {
-    console.log(`  ⚠ ${mb.toFixed(1)} MB is heavy for a card. It is inside X's 5 MB cap, but a`);
-    console.log('    cold fetch of this size is a common reason the image is dropped.');
+    console.log(`  ⚠ ${mb.toFixed(1)} MB is heavy for a card. X's documented cap is 5 MB, but`);
+    console.log('    that cap is not the real limit: a 1.7 MB 1731x909 card was dropped');
+    console.log('    silently here -- scraped fine, no image -- while a 379 KB 1200x630');
+    console.log('    one rendered. Keep it well under 1 MB at 1200x630.');
   }
 
   await printProbe(expectedUrl, origin);
