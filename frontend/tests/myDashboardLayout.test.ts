@@ -281,6 +281,45 @@ test('sanitizeLayout validates a pane scope and keeps "All" distinct from "inher
   assert.deepEqual(getPane(layout, 'b').scope.expirations, [], 'an explicit "All" is preserved');
 });
 
+// ── The rolling 0DTE pane scope ──────────────────────────────────────────────
+// The "0DTE Intraday" preset seeds a pane scope of [ROLLING_ZERO_DTE]. That is
+// only a 0DTE board for as long as the token survives the round trip: if
+// normalisation dropped it the scope would silently become "All" — the whole
+// chain — which is precisely the failure the token was introduced to end.
+
+test('a pane scope pinned to the rolling 0DTE token round-trips through storage', () => {
+  const pinned = setPaneExpirations(emptyLayout(), 'a', ['0DTE']);
+  assert.deepEqual(getPane(pinned, 'a').scope.expirations, ['0DTE']);
+  assert.equal(isScoped(getPane(pinned, 'a').scope), true, 'pinning surfaces the pane toolbar');
+
+  saveLayout(pinned, SCOPE);
+  const loaded = loadLayout(SCOPE);
+  assert.deepEqual(
+    getPane(loaded as Layout, 'a').scope.expirations,
+    ['0DTE'],
+    'the token survives save/load — a reload tomorrow is still a 0DTE board',
+  );
+});
+
+test('sanitizeLayout keeps the 0DTE token and sorts it ahead of dated picks', () => {
+  const layout = sanitizeLayout({
+    panes: [
+      { id: 'a', scope: { symbol: null, expirations: ['2026-03-20', '0DTE', 'junk'] }, widgets: [] },
+      { id: 'b', scope: { symbol: null, expirations: null }, widgets: [] },
+    ],
+  });
+  assert.deepEqual(
+    getPane(layout, 'a').scope.expirations,
+    ['0DTE', '2026-03-20'],
+    'token first, junk still dropped',
+  );
+  assert.equal(
+    getPane(layout, 'b').scope.expirations,
+    null,
+    'null still means "follow the page", distinct from a pinned selection',
+  );
+});
+
 test('sanitizeLayout resolves reordered / duplicated / missing pane entries', () => {
   const layout = sanitizeLayout({
     split: true,

@@ -41,6 +41,8 @@ import ChartCaption from '@/components/ChartCaption';
 import Collapsible from '@/components/Collapsible';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useChartExpirations } from '@/hooks/useChartExpirations';
+import { useZeroDteOption } from '@/hooks/useZeroDteOption';
+import { etTodayDateKey } from '@/core/utils';
 import {
   useExpiryRolloff,
   useRegimeHistory,
@@ -51,6 +53,7 @@ import { LOOKBACK_LABEL, LOOKBACK_ORDER, type Lens, type Lookback } from '@/core
 export default function GammaShiftPage() {
   const { symbol } = useTimeframe();
   const { available, selection, setSelection } = useChartExpirations(symbol, true);
+  const zeroDte = useZeroDteOption(available, etTodayDateKey());
   const [lookback, setLookback] = useState<Lookback>('session');
   const [lens, setLens] = useState<Lens>('net');
 
@@ -108,6 +111,7 @@ export default function GammaShiftPage() {
             onChange={setSelection}
             label="Expiry"
             disabled={available.length === 0}
+            zeroDte={zeroDte}
           />
           <GexUnitToggle />
           <StrikeFilterToggle />

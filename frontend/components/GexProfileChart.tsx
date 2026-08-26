@@ -23,6 +23,7 @@ import StrikeRangeScrollbar from './StrikeRangeScrollbar';
 import ValueRangeScrollbar from './ValueRangeScrollbar';
 import ResponsiveChartArea from './ResponsiveChartArea';
 import ExpirationMultiSelect from './ExpirationMultiSelect';
+import type { ZeroDteOption } from '@/hooks/useZeroDteOption';
 import ChartCaption from "./ChartCaption";
 
 // Each zoom click narrows / widens the visible strike range by this factor.
@@ -75,6 +76,12 @@ interface GexProfileChartProps {
   /** Selected expirations; empty array = All (aggregate across the chain). */
   selectedExpirations?: string[];
   onSelectedExpirationsChange?: (value: string[]) => void;
+  /**
+   * Rolling "0DTE" row for the expiration dropdown. Passed in rather than
+   * derived here: this chart is controlled — its owner holds the selection —
+   * and only the owner can say whether the rolling token is the active pick.
+   */
+  zeroDte?: ZeroDteOption;
   /**
    * Full per-(strike, expiration) GEX breakdown across ALL of
    * `expirationOptions` (never pre-filtered by the selection) — the stacked
@@ -497,6 +504,7 @@ export default function GexProfileChart({
   expirationOptions,
   selectedExpirations,
   onSelectedExpirationsChange,
+  zeroDte,
   perExpirationData,
   todayKey,
 }: GexProfileChartProps) {
@@ -910,6 +918,7 @@ export default function GexProfileChart({
                 options={expirationOptions}
                 selected={selectedExpirations ?? []}
                 onChange={onSelectedExpirationsChange}
+                zeroDte={zeroDte}
               />
             )}
           </div>

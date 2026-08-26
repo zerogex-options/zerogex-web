@@ -40,6 +40,8 @@ import { useTheme } from '@/core/ThemeContext';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useSharedExpirations } from '@/hooks/useSharedExpirations';
+import { reconcileExpirations } from '@/core/expirationPersistence';
+import { etTodayDateKey } from '@/core/utils';
 import { loadChartSettings, saveChartSettings } from '@/core/chartSettings';
 import {
   sessionDateKeyFromSeries,
@@ -647,16 +649,20 @@ export default function OptionsFlowChart({
   // the new session's options on its own, so a session switch leaves it alone.
   // See useSharedExpirations.
   const { selection: sharedExpirations, setSelection: setSharedExpirations } = useSharedExpirations();
-  const selectedExpirations = useMemo(() => new Set(sharedExpirations), [sharedExpirations]);
+  const todayKey = etTodayDateKey();
 
   // Drop any previously-selected values that no longer appear in the current options
   const effectiveSelectedStrikes = useMemo(
     () => new Set(strikeOptions.filter((v) => selectedStrikes.has(v))),
     [strikeOptions, selectedStrikes],
   );
+  // Routed through the shared reconcile rather than a local intersection: it is
+  // the one place that resolves the rolling 0DTE token to today's expiration, so
+  // an ad-hoc `filter` here would silently drop a 0DTE pick and quietly widen
+  // this chart to the whole chain while every other chart stayed same-day.
   const effectiveSelectedExpirations = useMemo(
-    () => new Set(expirationOptions.filter((v) => selectedExpirations.has(v))),
-    [expirationOptions, selectedExpirations],
+    () => new Set(reconcileExpirations(sharedExpirations, expirationOptions, todayKey)),
+    [sharedExpirations, expirationOptions, todayKey],
   );
 
   const hasActiveFilters =
@@ -716,12 +722,18 @@ export default function OptionsFlowChart({
   // change broadcasts to every other expiration-filtering chart.
   const toggleExpirations = useCallback(
     (value: string) => {
-      const next = new Set(sharedExpirations);
+      // Toggle against the RESOLVED selection the chips are drawn from, not the
+      // stored intent. A rolling 0DTE pick resolves to today's date, so building
+      // from the raw value would leave both the token and the clicked date in
+      // the set and make an apparently-selected chip impossible to clear.
+      // Hand-picking dates is also the user saying they no longer mean "always
+      // today", so the rolling token is deliberately dropped here.
+      const next = new Set(effectiveSelectedExpirations);
       if (next.has(value)) next.delete(value);
       else next.add(value);
       setSharedExpirations(Array.from(next));
     },
-    [sharedExpirations, setSharedExpirations],
+    [effectiveSelectedExpirations, setSharedExpirations],
   );
 
   return (

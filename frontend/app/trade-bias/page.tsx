@@ -17,6 +17,8 @@ import PageShell from '@/components/layout/PageShell';
 import TooltipWrapper from '@/components/TooltipWrapper';
 import SignalsGuide from '@/components/SignalsGuide';
 import { useTimeframe } from '@/core/TimeframeContext';
+import { BIAS_TENOR_OPTIONS, type BiasTenor } from '@/core/tradeBiasTenor';
+import { useBiasTenor } from '@/hooks/useBiasTenor';
 import { getMarketSession } from '@/core/utils';
 import { humanize, SignalTrend, trendColor } from '@/core/signalHelpers';
 import BiasTape from './BiasTape';
@@ -57,11 +59,6 @@ const STATE_VERB: Record<string, string> = {
   override: 'overrode',
   baseline: 'sits on',
 };
-
-const TENOR_OPTIONS: { value: string; label: string }[] = [
-  { value: 'swing', label: 'Swing · Multi-day' },
-  { value: 'intraday', label: 'Intraday · 0DTE' },
-];
 
 type ConnectionState = 'idle' | 'live' | 'stale' | 'disconnected';
 
@@ -303,7 +300,11 @@ function TacticalPanel({ payload }: { payload: TradeBiasPayload }) {
 
 export default function TradeBiasPage() {
   const { symbol } = useTimeframe();
-  const [tenor, setTenor] = useState('swing');
+  // Shared with the Trade Bias widgets on a board, and persisted — see
+  // hooks/useBiasTenor. The store's server snapshot is the default, so the
+  // <select> hydrates without a mismatch and adopts the stored pick on the
+  // first client commit.
+  const { tenor, setTenor } = useBiasTenor();
   const { payload, history, lastUpdatedAt, connection, loading, historyLoaded, noData, refetch } =
     useTradeBiasData(symbol, tenor);
 
@@ -325,12 +326,12 @@ export default function TradeBiasPage() {
             <span className="hidden sm:inline">Horizon</span>
             <select
               value={tenor}
-              onChange={(e) => setTenor(e.target.value)}
+              onChange={(e) => setTenor(e.target.value as BiasTenor)}
               className="rounded-md border bg-transparent px-2 py-1 text-xs font-medium text-[var(--color-text-primary)]"
               style={{ borderColor: 'var(--color-border)' }}
               aria-label="Bias horizon"
             >
-              {TENOR_OPTIONS.map((o) => (
+              {BIAS_TENOR_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>

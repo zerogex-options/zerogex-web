@@ -31,6 +31,26 @@ interface ExpirationMultiSelectProps {
     active: boolean;
     onSelect: () => void;
   };
+  /**
+   * Optional rolling "0DTE" row, offered above "All expirations" by callers
+   * whose selection is persisted (core/expirationPersistence's ROLLING_ZERO_DTE).
+   * It is a genuinely different KIND of pick from the dated rows below it: those
+   * name a date, this one names a rule — "whatever expires today" — and so keeps
+   * meaning the same thing tomorrow. Omitted by callers holding a transient,
+   * in-memory selection, where a rolling pick would have nothing to roll into.
+   */
+  zeroDte?: {
+    /** True while the rolling token is the active pick. */
+    active: boolean;
+    onSelect: () => void;
+    /**
+     * False when today is not an expiry for this chain (weekend, holiday, or an
+     * underlying with no same-day contract). The row still renders — hiding it
+     * would make a persisted 0DTE board look broken every weekend — but says so
+     * and reads as inactive rather than silently resolving to another date.
+     */
+    availableToday: boolean;
+  };
 }
 
 /**
@@ -48,6 +68,7 @@ export default function ExpirationMultiSelect({
   label = 'Expiration',
   disabled = false,
   inheritOption,
+  zeroDte,
 }: ExpirationMultiSelectProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
@@ -63,18 +84,35 @@ export default function ExpirationMultiSelect({
 
   const summary = inheritOption?.active
     ? inheritOption.label
-    : selected.length === 0
-      ? 'All'
-      : selected.length === 1
-        ? selected[0]
-        : `${selected.length} exps`;
+    : zeroDte?.active
+      ? '0DTE'
+      : selected.length === 0
+        ? 'All'
+        : selected.length === 1
+          ? selected[0]
+          : `${selected.length} exps`;
 
-  // "All" is only the active row when nothing is being inherited — otherwise the
-  // inherit row owns the checkmark.
-  const allActive = selected.length === 0 && !inheritOption?.active;
+  // "All" is only the active row when nothing else owns the checkmark. A rolling
+  // 0DTE pick resolves to an EMPTY selection on a day with no same-day expiry,
+  // which would otherwise light up "All" — and "All" is the one answer a 0DTE
+  // pick must never silently become.
+  const allActive = selected.length === 0 && !inheritOption?.active && !zeroDte?.active;
 
+  // While one of the alternative rows owns the selection — inheriting, or the
+  // rolling 0DTE pick — no dated row renders as checked, so the dated rows must
+  // toggle against an EMPTY set. Otherwise a row that looks unchecked is
+  // secretly in `selected` (0DTE resolves to today's date; inheriting carries
+  // the page's dates), and clicking it removes it instead of selecting it —
+  // landing the user on "All expirations", the opposite of what they clicked
+  // for. Deriving `checked` from the same value keeps the two in step by
+  // construction.
+  const datedSelection = inheritOption?.active || zeroDte?.active ? [] : selected;
   const toggle = (exp: string) =>
-    onChange(selected.includes(exp) ? selected.filter((v) => v !== exp) : [...selected, exp]);
+    onChange(
+      datedSelection.includes(exp)
+        ? datedSelection.filter((v) => v !== exp)
+        : [...datedSelection, exp],
+    );
 
   return (
     <div ref={ref} className="relative inline-flex items-center">
@@ -130,6 +168,32 @@ export default function ExpirationMultiSelect({
               {inheritOption.label}
             </button>
           )}
+          {zeroDte && (
+            <button
+              type="button"
+              onClick={zeroDte.onSelect}
+              title={
+                zeroDte.availableToday
+                  ? "Follows today's expiry — stays 0DTE tomorrow instead of pinning today's date"
+                  : 'No same-day expiration in this chain today'
+              }
+              className="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-[color:var(--color-info-soft)]"
+              style={{
+                color: zeroDte.active
+                  ? 'var(--color-text-primary)'
+                  : 'var(--color-text-secondary)',
+                fontWeight: zeroDte.active ? 600 : 400,
+              }}
+            >
+              <span className="inline-flex w-3 justify-center">{zeroDte.active ? '✓' : ''}</span>
+              <span>
+                0DTE
+                <span className="ml-1" style={{ color: 'var(--color-text-secondary)' }}>
+                  {zeroDte.availableToday ? '· today’s expiry' : '· none today'}
+                </span>
+              </span>
+            </button>
+          )}
           <button
             type="button"
             onClick={() => onChange([])}
@@ -143,7 +207,7 @@ export default function ExpirationMultiSelect({
             All expirations
           </button>
           {options.map((exp) => {
-            const checked = !inheritOption?.active && selected.includes(exp);
+            const checked = datedSelection.includes(exp);
             return (
               <button
                 key={exp}

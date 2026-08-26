@@ -28,8 +28,10 @@ import { type ChartTimeframe } from "@/components/ChartTimeframeSelect";
 import { useGammaLadderColumn, type GammaLadderColumnData } from "@/hooks/useGammaLadder";
 import { useChartExpirations } from "@/hooks/useChartExpirations";
 import { useSharedExpirations } from "@/hooks/useSharedExpirations";
+import { useZeroDteOption } from "@/hooks/useZeroDteOption";
 import { usePairReplay, type PairReplayData, type ReplayFrame, type ReplayCandle } from "@/hooks/usePairReplay";
 import { reconcileExpirations } from "@/core/expirationPersistence";
+import { etTodayDateKey } from "@/core/utils";
 import { useGexUnit } from "@/core/GexUnitContext";
 import { useStrikeFilter } from "@/core/StrikeFilterContext";
 import { useSessionDelta } from "@/core/SessionDeltaContext";
@@ -237,9 +239,11 @@ export default function PairComparisonClient() {
     () => Array.from(new Set([...exp1.available, ...exp2.available])).sort(),
     [exp1.available, exp2.available],
   );
+  const todayKey = etTodayDateKey();
+  const zeroDte = useZeroDteOption(expiryOptions, todayKey);
   const expirySelected = useMemo(
-    () => reconcileExpirations(sharedExpirations, expiryOptions),
-    [sharedExpirations, expiryOptions],
+    () => reconcileExpirations(sharedExpirations, expiryOptions, todayKey),
+    [sharedExpirations, expiryOptions, todayKey],
   );
 
   const live1 = useGammaLadderColumn(sym1, liveEnabled, {
@@ -382,6 +386,7 @@ export default function PairComparisonClient() {
           onChange={setSharedExpirations}
           label="Expiry"
           disabled={expiryOptions.length === 0}
+          zeroDte={zeroDte}
         />
         <span className="zg-eyebrow" style={{ fontSize: 10 }}>Session Δ</span>
         <SessionDeltaToggle />

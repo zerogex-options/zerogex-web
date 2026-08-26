@@ -32,6 +32,7 @@ import {
 import PageShell from '@/components/layout/PageShell';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { useTimeframe } from '@/core/TimeframeContext';
+import { setBiasTenor } from '@/hooks/useBiasTenor';
 import { usePageT } from '@/core/LanguageContext';
 import { dict } from './page.i18n';
 import { hasTierAccess, normalizeTier } from '@/core/auth';
@@ -216,6 +217,17 @@ export default function MyDashboardPage() {
         // board full of locked tiles.
         if (def.tier === 'pro' && !hasPro) continue;
         next = addWidget(next, 'a', w.widgetId, w.size);
+      }
+      // A preset that names an expiration scope pins it on the seeded half.
+      // This also surfaces the pane toolbar (isScoped), so the scope the preset
+      // just applied is visible and adjustable rather than an invisible setting
+      // the member has to take on faith.
+      if (preset.expirations) {
+        next = setPaneExpirations(next, 'a', preset.expirations);
+      }
+      // Switching the shared horizon is deliberate — see DashboardPreset.
+      if (preset.biasTenor) {
+        setBiasTenor(preset.biasTenor);
       }
       setLayout(next);
       setEditing(false);

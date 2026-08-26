@@ -36,18 +36,24 @@
 // returns null ONLY when the tab has never picked, so an explicit All ([]) is
 // never re-seeded from the (possibly non-empty) stored default.
 //
-// The canonical model is an array of ISO date strings (YYYY-MM-DD):
+// The canonical model is an array of ISO date strings (YYYY-MM-DD), plus one
+// rolling token:
 //   []                    → "All expirations" (aggregate the whole chain), the
 //                           default every chart already treats an empty set as.
 //   ['2025-06-20', …]     → restrict to exactly those expirations.
-// The array is always normalised (deduped, ascending) so the stored blob and
-// the cache-key params the charts derive from it are stable.
+//   ['0DTE']              → whatever expires TODAY, re-resolved every render.
+// The array is always normalised (deduped, token first, dates ascending) so the
+// stored blob and the cache-key params the charts derive from it are stable.
 //
 // Expirations are dates, so a saved pick naturally goes stale: a date chosen
 // today may no longer trade tomorrow. Persistence stays lossless (we keep the
 // user's literal pick), and each chart calls reconcileExpirations() against its
 // own live option list at render time — so a stale date simply drops out of the
 // view and a fully-expired selection collapses to the safe "All" default.
+//
+// That staleness is precisely why ROLLING_ZERO_DTE exists: for a same-day
+// trader, "All" is not a safe fallback, it is a different book. See the token's
+// own comment below.
 
 // localStorage: the last-selected default, used to seed a tab that hasn't
 // picked yet. Unchanged key — an existing saved pick keeps working.
@@ -63,33 +69,85 @@ export const ALL_EXPIRATIONS: readonly string[] = Object.freeze([]);
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+// The one non-date member of the selection model: "whatever expires TODAY",
+// re-resolved on every render instead of frozen to the date it was picked on.
+//
+// A literal date is the wrong way to say "0DTE". Storing 2025-06-20 because
+// that was today when the trader clicked it means the pick is silently wrong
+// tomorrow: reconcileExpirations drops the expired date, the selection empties,
+// and an empty selection reads as ALL expirations. So a 0DTE board quietly
+// becomes a whole-chain board overnight — the worst failure mode available,
+// because the numbers stay plausible and nothing announces the change.
+//
+// This token is the user's literal intent, kept literal. It survives
+// normalisation and storage untouched; reconcileExpirations() is the single
+// point where it becomes a concrete date, against the chart's own option list
+// and the caller's ET date key. When today is NOT an expiry (a weekend, a
+// holiday, or an underlying with no same-day contract) it resolves to nothing
+// rather than to the nearest expiry — "no 0DTE today" is the honest answer, and
+// silently substituting Friday's book would repeat the very bug above.
+export const ROLLING_ZERO_DTE = '0DTE';
+
 export function isExpirationDate(value: unknown): value is string {
   return typeof value === 'string' && ISO_DATE_RE.test(value);
 }
 
-// Dedupe + sort ascending, dropping anything that isn't a YYYY-MM-DD string.
-// ISO dates sort lexicographically in chronological order, so localeCompare is
-// exactly the ascending-by-date the charts want. The result is a fresh array
-// safe to store as component state.
+/** True for the rolling same-day token (as opposed to a literal date). */
+export function isRollingZeroDte(value: unknown): boolean {
+  return value === ROLLING_ZERO_DTE;
+}
+
+/** True when a selection is the rolling same-day pick. */
+export function selectionIsRollingZeroDte(selection: readonly string[]): boolean {
+  return selection.length === 1 && isRollingZeroDte(selection[0]);
+}
+
+// Dedupe + sort ascending, dropping anything that isn't a YYYY-MM-DD string or
+// the rolling 0DTE token. ISO dates sort lexicographically in chronological
+// order, so localeCompare is exactly the ascending-by-date the charts want. The
+// 0DTE token sorts FIRST: it stands for today, and nothing in a current/future
+// option list can expire sooner. The result is a fresh array safe to store as
+// component state.
 export function normalizeExpirations(values: readonly unknown[]): string[] {
   const seen = new Set<string>();
+  let rolling = false;
   for (const value of values) {
-    if (isExpirationDate(value)) seen.add(value);
+    if (isRollingZeroDte(value)) rolling = true;
+    else if (isExpirationDate(value)) seen.add(value);
   }
-  return Array.from(seen).sort((a, b) => a.localeCompare(b));
+  const dates = Array.from(seen).sort((a, b) => a.localeCompare(b));
+  return rolling ? [ROLLING_ZERO_DTE, ...dates] : dates;
 }
 
 // Project a (normalised) selection onto the expirations a given chart actually
-// has options for, preserving order. Keeps a stale/foreign date from lingering
-// in a chart's view; when nothing survives, the empty result reads as "All",
-// which is the correct, safe fallback for a selection that has fully expired.
+// has options for, preserving order, and resolve the rolling 0DTE token to a
+// real date on the way through. Keeps a stale/foreign date from lingering in a
+// chart's view; when nothing survives, the empty result reads as "All", which
+// is the correct, safe fallback for a selection that has fully expired.
+//
+// `todayKey` is the ET date key (YYYY-MM-DD) — the same one chartExpirationOptions
+// takes. It is REQUIRED rather than optional on purpose: an optional parameter
+// would let a new call site forget it and silently drop the 0DTE token back to
+// "All", which is exactly the bug this token exists to kill. Making the compiler
+// ask the question routes every consumer through one door.
 export function reconcileExpirations(
   selection: readonly string[],
   available: readonly string[],
+  todayKey: string,
 ): string[] {
   if (selection.length === 0) return [];
   const availableSet = new Set(available);
-  return selection.filter((exp) => availableSet.has(exp));
+  const out: string[] = [];
+  const emitted = new Set<string>();
+  for (const exp of selection) {
+    // The token resolves to today's expiry only if one is actually listed;
+    // otherwise it contributes nothing (see ROLLING_ZERO_DTE).
+    const resolved = isRollingZeroDte(exp) ? todayKey : exp;
+    if (!availableSet.has(resolved) || emitted.has(resolved)) continue;
+    emitted.add(resolved);
+    out.push(resolved);
+  }
+  return out;
 }
 
 // Access a Storage area defensively: both are absent during SSR, absent in a

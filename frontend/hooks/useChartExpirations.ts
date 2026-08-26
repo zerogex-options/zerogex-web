@@ -45,20 +45,24 @@ export function useChartExpirations(symbol: string, enabled: boolean): ChartExpi
     { refreshInterval: enabled ? 60000 : 0, enabled },
   );
 
+  // Hoisted out of the memo below: the reconcile needs the same ET date key to
+  // resolve a rolling 0DTE pick to a concrete expiration.
+  const todayKey = etTodayDateKey();
+
   const available = useMemo(() => {
     const list = Array.isArray(data) ? data : [];
-    const todayKey = etTodayDateKey();
     return Array.from(
       new Set(list.filter((e): e is string => typeof e === 'string' && e >= todayKey)),
     ).sort();
-  }, [data]);
+  }, [data, todayKey]);
 
   // Reconcile the shared selection to what this symbol can actually show, so a
   // pick made on another chart (with a different expiry universe) never leaks a
-  // missing expiration into the param and an expired pick collapses to "All".
+  // missing expiration into the param, an expired pick collapses to "All", and
+  // a rolling 0DTE pick becomes today's actual expiration.
   const effective = useMemo(
-    () => reconcileExpirations(selection, available),
-    [selection, available],
+    () => reconcileExpirations(selection, available, todayKey),
+    [selection, available, todayKey],
   );
 
   const param = effective.length === 0 ? 'all' : [...effective].sort().join(',');
