@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import {
   Activity,
@@ -17,6 +17,13 @@ import PageShell from '@/components/layout/PageShell';
 import TooltipWrapper from '@/components/TooltipWrapper';
 import SignalsGuide from '@/components/SignalsGuide';
 import { useTimeframe } from '@/core/TimeframeContext';
+import {
+  BIAS_TENOR_OPTIONS,
+  DEFAULT_BIAS_TENOR,
+  persistBiasTenor,
+  readStoredBiasTenor,
+  type BiasTenor,
+} from '@/core/tradeBiasTenor';
 import { getMarketSession } from '@/core/utils';
 import { humanize, SignalTrend, trendColor } from '@/core/signalHelpers';
 import BiasTape from './BiasTape';
@@ -57,11 +64,6 @@ const STATE_VERB: Record<string, string> = {
   override: 'overrode',
   baseline: 'sits on',
 };
-
-const TENOR_OPTIONS: { value: string; label: string }[] = [
-  { value: 'swing', label: 'Swing · Multi-day' },
-  { value: 'intraday', label: 'Intraday · 0DTE' },
-];
 
 type ConnectionState = 'idle' | 'live' | 'stale' | 'disconnected';
 
@@ -303,7 +305,23 @@ function TacticalPanel({ payload }: { payload: TradeBiasPayload }) {
 
 export default function TradeBiasPage() {
   const { symbol } = useTimeframe();
-  const [tenor, setTenor] = useState('swing');
+  const [tenor, setTenor] = useState<BiasTenor>(DEFAULT_BIAS_TENOR);
+  // One-time hydration from localStorage after mount. The server and the first
+  // client render intentionally start on the default, so the <select> has no
+  // SSR mismatch; this reconciles from storage exactly once — the same
+  // deliberate pattern (and eslint carve-out) the sidebar favourites use.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    const saved = readStoredBiasTenor();
+    if (saved) setTenor(saved);
+  }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
+  // Written on the way through rather than from an effect on `tenor`, so the
+  // pick is in storage before a reload can discard the in-memory state.
+  const changeTenor = useCallback((next: BiasTenor) => {
+    setTenor(next);
+    persistBiasTenor(next);
+  }, []);
   const { payload, history, lastUpdatedAt, connection, loading, historyLoaded, noData, refetch } =
     useTradeBiasData(symbol, tenor);
 
@@ -325,12 +343,12 @@ export default function TradeBiasPage() {
             <span className="hidden sm:inline">Horizon</span>
             <select
               value={tenor}
-              onChange={(e) => setTenor(e.target.value)}
+              onChange={(e) => changeTenor(e.target.value as BiasTenor)}
               className="rounded-md border bg-transparent px-2 py-1 text-xs font-medium text-[var(--color-text-primary)]"
               style={{ borderColor: 'var(--color-border)' }}
               aria-label="Bias horizon"
             >
-              {TENOR_OPTIONS.map((o) => (
+              {BIAS_TENOR_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>
