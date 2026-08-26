@@ -392,10 +392,10 @@ export function SignalsSynthesisPanel() {
   );
 }
 
-export function TradeBiasPanel() {
+export function RegimePlaybookPanel() {
   const t = usePageT(dict);
   return (
-    <WidgetCard title={t('tradeBias')}>
+    <WidgetCard title={t('regimePlaybook')}>
       <TradeBiasSection compact />
     </WidgetCard>
   );
@@ -403,8 +403,8 @@ export function TradeBiasPanel() {
 
 /**
  * The Signals Engine's bias for a chosen horizon — a different read from
- * TradeBiasPanel above, which computes its composite in the browser and has no
- * horizon at all. Linked to the full page, since this card is deliberately the
+ * RegimePlaybookPanel above, which composites its own read in the browser and
+ * has no horizon at all. Linked to the full page, since this card is deliberately the
  * summary and the playbook/checklist/history live there.
  */
 export function TradeBiasHorizonPanel() {
