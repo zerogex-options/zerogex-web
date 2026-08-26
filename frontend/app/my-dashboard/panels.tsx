@@ -14,6 +14,7 @@ import MarketMakerExposures from '@/components/MarketMakerExposures';
 import ProprietarySignalsSynthesis from '@/components/ProprietarySignalsSynthesis';
 import VolatilityCard from '@/components/VolatilityCard';
 import TradeBiasSection from '@/components/TradeBiasSection';
+import BiasHorizonCard from '@/app/trade-bias/BiasHorizonCard';
 import UnderlyingCandlesChart from '@/components/UnderlyingCandlesChart';
 import GammaTerminalChart from '@/components/GammaTerminalChart';
 import KeyLevelsStrip from '@/components/KeyLevelsStrip';
@@ -396,6 +397,21 @@ export function TradeBiasPanel() {
   return (
     <WidgetCard title={t('tradeBias')}>
       <TradeBiasSection compact />
+    </WidgetCard>
+  );
+}
+
+/**
+ * The Signals Engine's bias for a chosen horizon — a different read from
+ * TradeBiasPanel above, which computes its composite in the browser and has no
+ * horizon at all. Linked to the full page, since this card is deliberately the
+ * summary and the playbook/checklist/history live there.
+ */
+export function TradeBiasHorizonPanel() {
+  const t = usePageT(dict);
+  return (
+    <WidgetCard title={t('tradeBiasHorizon')} href="/trade-bias">
+      <BiasHorizonCard />
     </WidgetCard>
   );
 }

@@ -15,6 +15,7 @@ import {
   AlarmClock,
   BarChart3,
   CandlestickChart,
+  Compass,
   Crosshair,
   Flame,
   Gauge,
@@ -38,6 +39,7 @@ import {
 
 import type { WidgetSize } from '@/core/myDashboardLayout';
 import { ROLLING_ZERO_DTE } from '@/core/expirationPersistence';
+import type { BiasTenor } from '@/core/tradeBiasTenor';
 import { WIDGET_SIZES } from '@/core/myDashboardLayout';
 import type { FeedKey } from './DashboardData';
 
@@ -68,6 +70,7 @@ import {
   PriceActionPanel,
   GammaPulseWidget,
   SignalsSynthesisPanel,
+  TradeBiasHorizonPanel,
   TradeBiasPanel,
   ConfluencePanel,
   CompositeScorePanel,
@@ -419,7 +422,11 @@ export const WIDGETS: WidgetDef[] = [
   {
     id: 'trade-bias',
     title: 'Trade Bias',
-    blurb: 'Glance-first regime, directional bias and playbook read.',
+    // Says which of the two bias reads this is. They are different
+    // calculations and are allowed to disagree, so a member choosing between
+    // them on the board needs to be told which one they are placing.
+    blurb:
+      'Glance-first regime, directional bias and playbook read, composited in your browser from the proprietary signals.',
     category: 'signals',
     tier: 'basic',
     icon: Signal,
@@ -427,6 +434,19 @@ export const WIDGETS: WidgetDef[] = [
     allowedSizes: ALL_SIZES,
     feeds: [],
     render: () => <TradeBiasPanel />,
+  },
+  {
+    id: 'trade-bias-horizon',
+    title: 'Trade Bias · Horizon',
+    blurb:
+      "The Signals Engine's signed directional call for a horizon you pick — Swing (multi-day) or Intraday (0DTE). The same read the Trade Bias page shows, summarised: bias, conviction and the regime behind it.",
+    category: 'signals',
+    tier: 'basic',
+    icon: Compass,
+    defaultSize: 'md',
+    allowedSizes: ALL_SIZES,
+    feeds: [],
+    render: () => <TradeBiasHorizonPanel />,
   },
   {
     id: 'composite-score',
@@ -572,6 +592,18 @@ export type DashboardPreset = {
    * ordinary board with a different name.
    */
   expirations?: readonly string[];
+  /**
+   * Trade Bias horizon to switch to. Same reasoning as `expirations`: a board
+   * that calls itself same-day while its bias widget shows the multi-day read
+   * is worse than no preset, because both are labelled "Trade Bias" and only
+   * one of them is the call the member came for.
+   *
+   * The horizon is a single shared preference (hooks/useBiasTenor), so this
+   * also moves the /trade-bias page. That is the intent, not a leak — applying
+   * a preset named "0DTE Intraday" is the member saying what they trade — and
+   * it is one click to change back from either surface.
+   */
+  biasTenor?: BiasTenor;
   widgets: { widgetId: string; size: WidgetSize }[];
 };
 
@@ -591,6 +623,7 @@ export const PRESETS: DashboardPreset[] = [
     // strike book, the flow — reads the same-day book. ROLLING_ZERO_DTE rather
     // than today's date so the board is still a 0DTE board tomorrow morning.
     expirations: [ROLLING_ZERO_DTE],
+    biasTenor: 'intraday',
     widgets: [
       // Read the day, then the levels, then the tape. Glance-first at the top:
       // a same-day trader checking in mid-session should get the regime and the
@@ -603,7 +636,7 @@ export const PRESETS: DashboardPreset[] = [
       { widgetId: 'key-levels', size: 'xl' },
       { widgetId: 'gamma-chart', size: 'xl' },
       { widgetId: 'gamma-by-strike', size: 'xl' },
-      { widgetId: 'trade-bias', size: 'lg' },
+      { widgetId: 'trade-bias-horizon', size: 'lg' },
       { widgetId: 'options-flow', size: 'lg' },
     ],
   },

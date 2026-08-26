@@ -32,6 +32,7 @@ import {
 import PageShell from '@/components/layout/PageShell';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { useTimeframe } from '@/core/TimeframeContext';
+import { setBiasTenor } from '@/hooks/useBiasTenor';
 import { usePageT } from '@/core/LanguageContext';
 import { dict } from './page.i18n';
 import { hasTierAccess, normalizeTier } from '@/core/auth';
@@ -223,6 +224,10 @@ export default function MyDashboardPage() {
       // the member has to take on faith.
       if (preset.expirations) {
         next = setPaneExpirations(next, 'a', preset.expirations);
+      }
+      // Switching the shared horizon is deliberate — see DashboardPreset.
+      if (preset.biasTenor) {
+        setBiasTenor(preset.biasTenor);
       }
       setLayout(next);
       setEditing(false);
