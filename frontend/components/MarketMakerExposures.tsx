@@ -33,7 +33,7 @@ import { etTodayDateKey, getMarketSession, isIndexSymbol, omitClosedMarketTimes,
 import { loadChartSettings, saveChartSettings } from '@/core/chartSettings';
 import { PIN_STRIKE_COLOR_HEX } from '@/core/pinStrike';
 import { useSharedExpirations } from '@/hooks/useSharedExpirations';
-import { reconcileExpirations } from '@/core/expirationPersistence';
+import { isRollingZeroDte, reconcileExpirations } from '@/core/expirationPersistence';
 import ChartCaption from './ChartCaption';
 
 interface StrikeAggregation {
@@ -541,7 +541,14 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // the cache key + backend filter, so an overnight-rolled pick never fetches an
   // expired contract. The dropdown reconciles against the full live universe
   // below; here we only have `todayKey`, which covers the staleness case.
-  const paramExpiries = rawExpiries.filter((exp) => exp >= todayKey);
+  // The rolling 0DTE token is NOT a date and must be resolved before this
+  // filter, not after: '0DTE' sorts below every ISO date ('0' < '2'), so a bare
+  // `>= todayKey` drops it, the param falls back to 'all', and this chart fetches
+  // the WHOLE CHAIN while its own dropdown still reads 0DTE. That is precisely
+  // the silently-wrong-book failure the token exists to prevent.
+  const paramExpiries = Array.from(
+    new Set(rawExpiries.map((exp) => (isRollingZeroDte(exp) ? todayKey : exp))),
+  ).filter((exp) => exp >= todayKey);
   const expirationsParam = paramExpiries.length === 0
     ? 'all'
     : [...paramExpiries].sort().join(',');
@@ -685,8 +692,8 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // reads as "All". Derived — not stored — so it needs no render-phase prune;
   // the shared store keeps the user's literal pick and each chart reconciles.
   const selectedExpiries = useMemo(
-    () => reconcileExpirations(rawExpiries, availableExpirations),
-    [rawExpiries, availableExpirations],
+    () => reconcileExpirations(rawExpiries, availableExpirations, todayKey),
+    [rawExpiries, availableExpirations, todayKey],
   );
 
   // Map one bucket's strikes payload into the existing StrikeAggregation

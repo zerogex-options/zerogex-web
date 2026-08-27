@@ -2210,9 +2210,25 @@ body {
   .zg-kl-arrow { opacity: 0.6; }
 }
 
+/* The underlying, promoted to the subject of the strip's header line. It is
+   what a flip changes, so it outweighs the "Key Levels" label and the expiry
+   scope around it — a reader who has never flipped before should be looking at
+   this token when it moves. Mono and tracked to match the card values, which
+   are the other numbers on this surface that mean "market data". */
+.zg-kl-symbol {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: 0.04em;
+  color: var(--text-primary);
+}
+
 /* Direction-aware entry, so a flip reads as movement rather than a swap: the
-   incoming symbol slides in from the side it came from. The global
-   prefers-reduced-motion rule above collapses it to an instant change. */
+   incoming symbol slides in from the side it came from, in step with the cards
+   below it. The global prefers-reduced-motion rule above collapses it to an
+   instant change. */
 @keyframes zg-kl-in-next {
   from { opacity: 0; transform: translateX(16px); }
   to { opacity: 1; transform: none; }
@@ -2221,8 +2237,10 @@ body {
   from { opacity: 0; transform: translateX(-16px); }
   to { opacity: 1; transform: none; }
 }
-.zg-kl-cards[data-flip='next'] { animation: zg-kl-in-next 190ms ease-out; }
-.zg-kl-cards[data-flip='prev'] { animation: zg-kl-in-prev 190ms ease-out; }
+.zg-kl-cards[data-flip='next'],
+.zg-kl-symbol[data-flip='next'] { animation: zg-kl-in-next 190ms ease-out; }
+.zg-kl-cards[data-flip='prev'],
+.zg-kl-symbol[data-flip='prev'] { animation: zg-kl-in-prev 190ms ease-out; }
 
 /* Split board — two independent halves side by side.
 

@@ -1,5 +1,3 @@
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { ArrowRight, CheckCircle2, Clock, History, Minus, TrendingDown, TrendingUp } from 'lucide-react';
@@ -10,6 +8,7 @@ import BreadcrumbJsonLd from '@/components/BreadcrumbJsonLd';
 import LandingHeader from '@/components/LandingHeader';
 import PlotOnTradingView from '@/components/PlotOnTradingView';
 import PlotOnNinjaTrader from '@/components/PlotOnNinjaTrader';
+import { NT_PACKAGE_PATH } from '@/core/ninjaTraderManifest';
 import Footer from './Footer';
 import ShareBlock from './ShareBlock';
 import PaidFunnelAnalytics from './PaidFunnelAnalytics';
@@ -152,15 +151,68 @@ function symbolOrder(primary: Symbol): Symbol[] {
   return [primary, ...SYMBOLS.filter((s) => s !== primary)];
 }
 
-export function gammaMetadata(primary: Symbol): Metadata {
+// Value-led meta description — the search-snippet counterpart to the "Today's
+// <ticker> net GEX" answer block further down the page.
+//
+// Search Console (92 days to 2026-08-24) shows this page taking 23,027
+// impressions at average position 7.05 and converting 0.48% of them. Position
+// seven normally earns 2-3%, so the loss is happening in the snippet, not the
+// ranking. The query cluster says why: "<ticker> net gex current value",
+// "<ticker> net gamma exposure current", "current <ticker> net gex dollar
+// gamma" — searchers want a NUMBER, and the evergreen description promised
+// "levels", which reads as another explainer page. Leading with the actual
+// figure makes the snippet answer the query it ranks for.
+//
+// Uses the same `fmtNetGex` / `fmtPrice` helpers as the visible cards, off the
+// same cached snapshot, so the snippet can never contradict the page. Falls
+// back to `c.description` whenever the snapshot is missing a value — a
+// half-filled description with an em dash where a level should be is worse
+// than the evergreen copy.
+function liveDescription(primary: Symbol, data: GexSummary | null): string {
   const c = SYMBOL_CONTENT[primary];
+  const netGex = netGexAtSpotOrNull(data?.net_gex_at_spot);
+  const flip = data?.gamma_flip ?? null;
+  if (netGex === null || flip === null) return c.description;
+
+  // Net GEX and the flip carry the intent, so they lead and are always present.
+  // The walls and max pain are additive: each is appended only if it exists,
+  // and only while the whole line stays inside the ~155 characters Google
+  // renders, so a wide print (NDX five-figure strikes, a $123.4M net GEX)
+  // truncates the least important term instead of the sentence.
+  const head = `${primary} net GEX ${fmtNetGex(netGex)} · gamma flip ${fmtPrice(flip)}`;
+  const tail = `. Free ${primary} dealer-positioning levels, 15-min delayed. No signup.`;
+  const optional: string[] = [];
+  if (data?.call_wall != null) optional.push(`call wall ${fmtPrice(data.call_wall)}`);
+  if (data?.put_wall != null) optional.push(`put wall ${fmtPrice(data.put_wall)}`);
+  if (data?.max_pain != null) optional.push(`max pain ${fmtPrice(data.max_pain)}`);
+
+  let out = head;
+  for (const part of optional) {
+    const next = `${out} · ${part}`;
+    if (next.length + tail.length > 155) break;
+    out = next;
+  }
+  return out + tail;
+}
+
+// Async because the description carries live values. The snapshot comes from
+// the same 900s-cached `serverApiGet` the page component uses, so this shares
+// that cache entry rather than adding a backend call, and stays compatible
+// with `force-static` + `revalidate = 900` on each route.
+export async function gammaMetadata(primary: Symbol): Promise<Metadata> {
+  const c = SYMBOL_CONTENT[primary];
+  const data = await serverApiGet<GexSummary>(
+    `/api/gex/summary?symbol=${primary}&underlying=${primary}`,
+    900,
+  );
+  const description = liveDescription(primary, data);
   return {
     title: c.title,
-    description: c.description,
+    description,
     alternates: { canonical: c.path },
     openGraph: {
       title: c.title,
-      description: c.description,
+      description,
       url: c.shareUrl,
       siteName: 'ZeroGEX',
       type: 'website',
@@ -168,7 +220,7 @@ export function gammaMetadata(primary: Symbol): Metadata {
     twitter: {
       card: 'summary_large_image',
       title: c.title,
-      description: c.description,
+      description,
     },
   };
 }
@@ -887,15 +939,11 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
         {/* The auto-updating Pro counterpart: NinjaScript can make HTTP calls,
             so this one pulls the levels instead of asking for manual entry.
             The packaged one-click import only exists once a real NinjaTrader
-            export has been dropped into assets/ninjatrader/ and copied in by
-            `make ninjatrader-package` — which the deploy runs before the build,
-            so this build-time check sees it. Absent, we offer the .cs alone
-            rather than a download button that 404s. */}
-        <PlotOnNinjaTrader
-          hasPackage={existsSync(
-            join(process.cwd(), 'public', 'ninjatrader', 'ZeroGexGammaLevels.zip'),
-          )}
-        />
+            export has been dropped into assets/ninjatrader/. The generated
+            manifest records that — NT_PACKAGE_PATH is null when there is no
+            archive — so this no longer needs to stat the filesystem, and the
+            path it does carry is content-addressed against Cloudflare's cache. */}
+        <PlotOnNinjaTrader hasPackage={NT_PACKAGE_PATH !== null} />
 
         {/* "Today's <ticker> net GEX" — a plain-language answer for the
             "<ticker> net gamma exposure current / today / value / zero-cross"

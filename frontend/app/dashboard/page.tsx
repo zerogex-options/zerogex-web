@@ -114,21 +114,14 @@ export default function DashboardPage() {
 
   const latestFlowSnapshot = snapshotFromSeries(flowSeriesRows);
 
-  // Show loading state only on initial load
-  if (gexLoading && !gexData) {
-    return (
-      <PageShell>
-        <h1 className="zg-h1 mb-4">{t('dashboardTitle')}</h1>
-        <KeyLevelsStrip className="mb-6" />
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <LoadingCard />
-          <LoadingCard />
-          <LoadingCard />
-          <LoadingCard />
-        </div>
-      </PageShell>
-    );
-  }
+  // The initial-load skeleton replaces only the BODY. It used to be an early
+  // return of a second PageShell tree, which React could not reconcile against
+  // this one — so every symbol change (the summary drops back to loading while
+  // the new one lands) tore down and rebuilt the banner, the title row and the
+  // Key Levels strip. Besides the flicker, that cost the strip the render state
+  // its flip animation reads, which is why a backwards flip always slid in
+  // forwards. One tree, one mount, and only the cards below swap.
+  const awaitingFirstLoad = gexLoading && !gexData;
 
   return (
     <PageShell>
@@ -147,6 +140,15 @@ export default function DashboardPage() {
           expiration filter move it without any state of its own. */}
       <KeyLevelsStrip className="mb-6" />
 
+      {awaitingFirstLoad ? (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <LoadingCard />
+          <LoadingCard />
+          <LoadingCard />
+          <LoadingCard />
+        </div>
+      ) : (
+        <>
       {/* Today's Read — the auto-generated regime prose. Collapsed by default in
           Simple mode so the dashboard opens glance-first; the compact Trade Bias
           summary below carries the at-a-glance directional read. Composed from
@@ -291,6 +293,8 @@ export default function DashboardPage() {
         <div className="text-right text-sm text-[var(--text-muted)]">
           {t('lastUpdatedLabel', { time: new Date(gexData.timestamp).toLocaleTimeString() })}
         </div>
+      )}
+        </>
       )}
     </PageShell>
   );

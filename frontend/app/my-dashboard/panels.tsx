@@ -14,6 +14,7 @@ import MarketMakerExposures from '@/components/MarketMakerExposures';
 import ProprietarySignalsSynthesis from '@/components/ProprietarySignalsSynthesis';
 import VolatilityCard from '@/components/VolatilityCard';
 import TradeBiasSection from '@/components/TradeBiasSection';
+import BiasHorizonCard from '@/app/trade-bias/BiasHorizonCard';
 import UnderlyingCandlesChart from '@/components/UnderlyingCandlesChart';
 import GammaTerminalChart from '@/components/GammaTerminalChart';
 import KeyLevelsStrip from '@/components/KeyLevelsStrip';
@@ -52,6 +53,7 @@ import { useGammaLadderColumn } from '@/hooks/useGammaLadder';
 import { useChartExpirations } from '@/hooks/useChartExpirations';
 import { useStrikeProfileTimeseries } from '@/hooks/useStrikeProfileTimeseries';
 import { useSharedExpirations } from '@/hooks/useSharedExpirations';
+import { useZeroDteOption } from '@/hooks/useZeroDteOption';
 import { reconcileExpirations } from '@/core/expirationPersistence';
 import { buildReportModel } from '@/app/live-bulletin/bulletinHelpers';
 import { usePageT } from '@/core/LanguageContext';
@@ -180,9 +182,10 @@ export function GammaByStrikePanel() {
     [expirationOptions, todayKey],
   );
   const chartSelectedExpirations = useMemo(
-    () => reconcileExpirations(sharedExpirations, chartExpirationOptions),
-    [sharedExpirations, chartExpirationOptions],
+    () => reconcileExpirations(sharedExpirations, chartExpirationOptions, todayKey),
+    [sharedExpirations, chartExpirationOptions, todayKey],
   );
+  const zeroDte = useZeroDteOption(chartExpirationOptions, todayKey);
   const profileStrikeData = useMemo(
     () =>
       toProfileStrikeData(
@@ -229,6 +232,7 @@ export function GammaByStrikePanel() {
         expirationOptions={chartExpirationOptions}
         selectedExpirations={chartSelectedExpirations}
         onSelectedExpirationsChange={setSharedExpirations}
+        zeroDte={zeroDte}
         perExpirationData={perExpirationData}
         todayKey={todayKey}
       />
@@ -329,6 +333,7 @@ export function GammaLadderPanel() {
   const { showSessionDelta } = useSessionDelta();
   const t = usePageT(dict);
   const expirations = useChartExpirations(symbol, true);
+  const ladderZeroDte = useZeroDteOption(expirations.available, etTodayDateKey());
   const column = useGammaLadderColumn(symbol, true, {
     expirations: expirations.selection,
     sessionDelta: showSessionDelta,
@@ -357,6 +362,7 @@ export function GammaLadderPanel() {
           onChange={expirations.setSelection}
           label="Expiry"
           disabled={expirations.available.length === 0}
+          zeroDte={ladderZeroDte}
         />
         <SessionDeltaToggle showHint={false} />
         <GexUnitToggle showHint={false} />
@@ -388,11 +394,26 @@ export function SignalsSynthesisPanel() {
   );
 }
 
-export function TradeBiasPanel() {
+export function RegimePlaybookPanel() {
   const t = usePageT(dict);
   return (
-    <WidgetCard title={t('tradeBias')}>
+    <WidgetCard title={t('regimePlaybook')}>
       <TradeBiasSection compact />
+    </WidgetCard>
+  );
+}
+
+/**
+ * The Signals Engine's bias for a chosen horizon — a different read from
+ * RegimePlaybookPanel above, which composites its own read in the browser and
+ * has no horizon at all. Linked to the full page, since this card is deliberately the
+ * summary and the playbook/checklist/history live there.
+ */
+export function TradeBiasHorizonPanel() {
+  const t = usePageT(dict);
+  return (
+    <WidgetCard title={t('tradeBiasHorizon')} href="/trade-bias">
+      <BiasHorizonCard />
     </WidgetCard>
   );
 }

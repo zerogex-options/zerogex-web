@@ -56,19 +56,30 @@ import type { UnderlyingSymbol } from './symbolPersistence';
 
 const UNDERLYING_SYMBOLS: readonly string[] = ['SPY', 'SPX', 'QQQ', 'NDX', 'ES', 'NQ'];
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+// Mirrors ROLLING_ZERO_DTE in core/expirationPersistence — the rolling
+// "whatever expires today" token. Spelled out again here rather than imported,
+// for the same reason UNDERLYING_SYMBOLS is: this module's runtime dependency
+// surface has to stay empty. Dropping it here instead of carrying it through
+// would quietly turn a pane pinned to 0DTE (the "0DTE Intraday" preset seeds
+// exactly that) into a pane showing the whole chain on the next reload.
+const ROLLING_ZERO_DTE = '0DTE';
 
 function isUnderlyingSymbol(value: unknown): value is UnderlyingSymbol {
   return typeof value === 'string' && UNDERLYING_SYMBOLS.includes(value);
 }
 
-/** Dedupe + sort ascending, dropping anything that isn't a YYYY-MM-DD string.
- *  ISO dates sort lexicographically in chronological order. */
+/** Dedupe + sort ascending, dropping anything that isn't a YYYY-MM-DD string
+ *  or the rolling 0DTE token. ISO dates sort lexicographically in chronological
+ *  order; the token sorts first, since nothing expires sooner than today. */
 function normalizeExpirations(values: readonly unknown[]): string[] {
   const seen = new Set<string>();
+  let rolling = false;
   for (const value of values) {
-    if (typeof value === 'string' && ISO_DATE_RE.test(value)) seen.add(value);
+    if (value === ROLLING_ZERO_DTE) rolling = true;
+    else if (typeof value === 'string' && ISO_DATE_RE.test(value)) seen.add(value);
   }
-  return Array.from(seen).sort((a, b) => a.localeCompare(b));
+  const dates = Array.from(seen).sort((a, b) => a.localeCompare(b));
+  return rolling ? [ROLLING_ZERO_DTE, ...dates] : dates;
 }
 
 /** Order-sensitive equality for two normalised selections. */

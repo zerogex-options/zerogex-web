@@ -57,8 +57,11 @@ setWindow(session);
 // Imported AFTER the window stub so any module-level evaluation still sees it.
 const {
   isExpirationDate,
+  isRollingZeroDte,
+  selectionIsRollingZeroDte,
   normalizeExpirations,
   reconcileExpirations,
+  ROLLING_ZERO_DTE,
   readStoredExpirations,
   readTabExpirations,
   resolveInitialExpirations,
@@ -94,14 +97,125 @@ test('normalizeExpirations dedupes, sorts ascending, and drops invalid entries',
 
 test('reconcileExpirations keeps only still-available dates, preserving order', () => {
   const available = ['2025-06-20', '2025-06-27', '2025-07-03'];
+  const today = '2025-06-20';
   assert.deepEqual(
-    reconcileExpirations(['2025-06-27', '2025-06-20'], available),
+    reconcileExpirations(['2025-06-27', '2025-06-20'], available, today),
     ['2025-06-27', '2025-06-20'],
   );
   // An empty selection ("All") is passed through untouched.
-  assert.deepEqual(reconcileExpirations([], available), []);
+  assert.deepEqual(reconcileExpirations([], available, today), []);
   // A fully-expired selection collapses to [] (which reads as "All").
-  assert.deepEqual(reconcileExpirations(['1999-01-01'], available), []);
+  assert.deepEqual(reconcileExpirations(['1999-01-01'], available, today), []);
+});
+
+// ── The rolling 0DTE token ───────────────────────────────────────────────────
+// The whole point of the token is that it does NOT rot: a same-day trader's
+// pick has to still mean "today" tomorrow. These tests pin the two halves of
+// that promise — it survives storage unresolved, and it resolves per-render.
+
+test('isRollingZeroDte / selectionIsRollingZeroDte identify the token', () => {
+  assert.equal(isRollingZeroDte(ROLLING_ZERO_DTE), true);
+  assert.equal(isRollingZeroDte('2025-06-20'), false);
+  assert.equal(isRollingZeroDte('0dte'), false); // case-sensitive: one spelling
+  assert.equal(selectionIsRollingZeroDte([ROLLING_ZERO_DTE]), true);
+  assert.equal(selectionIsRollingZeroDte([]), false);
+  // A mixed pick is not "the rolling pick" — the dropdown must not show 0DTE
+  // as the whole answer when a dated expiry is also selected.
+  assert.equal(selectionIsRollingZeroDte([ROLLING_ZERO_DTE, '2025-06-27']), false);
+});
+
+test('normalizeExpirations preserves the 0DTE token and sorts it first', () => {
+  assert.deepEqual(normalizeExpirations([ROLLING_ZERO_DTE]), [ROLLING_ZERO_DTE]);
+  assert.deepEqual(
+    normalizeExpirations(['2025-06-27', ROLLING_ZERO_DTE, '2025-06-20']),
+    [ROLLING_ZERO_DTE, '2025-06-20', '2025-06-27'],
+  );
+  // Deduped like any other member.
+  assert.deepEqual(
+    normalizeExpirations([ROLLING_ZERO_DTE, ROLLING_ZERO_DTE]),
+    [ROLLING_ZERO_DTE],
+  );
+  // Still drops genuine junk.
+  assert.deepEqual(normalizeExpirations(['nope', 42, null]), []);
+});
+
+test('reconcileExpirations resolves the 0DTE token to today, every day', () => {
+  // Monday: today's expiry is listed, so the token resolves to it.
+  assert.deepEqual(
+    reconcileExpirations([ROLLING_ZERO_DTE], ['2025-06-20', '2025-06-27'], '2025-06-20'),
+    ['2025-06-20'],
+  );
+  // Next session: the SAME stored selection resolves to the new today. This is
+  // the regression the token exists for — a literal '2025-06-20' would have
+  // dropped out here and collapsed to [] ("All"), silently widening a 0DTE
+  // board to the whole chain.
+  assert.deepEqual(
+    reconcileExpirations([ROLLING_ZERO_DTE], ['2025-06-23', '2025-06-27'], '2025-06-23'),
+    ['2025-06-23'],
+  );
+  // Contrast, spelled out: the dated pick really does rot.
+  assert.deepEqual(
+    reconcileExpirations(['2025-06-20'], ['2025-06-23', '2025-06-27'], '2025-06-23'),
+    [],
+  );
+});
+
+test('reconcileExpirations drops the 0DTE token when today is not an expiry', () => {
+  // A weekend / holiday, or an underlying with no same-day contract. Resolving
+  // to the nearest expiry instead would be the same silent substitution the
+  // token exists to prevent, so it contributes nothing.
+  assert.deepEqual(
+    reconcileExpirations([ROLLING_ZERO_DTE], ['2025-06-27', '2025-07-03'], '2025-06-21'),
+    [],
+  );
+});
+
+test('reconcileExpirations does not double-count 0DTE alongside today’s date', () => {
+  const available = ['2025-06-20', '2025-06-27'];
+  assert.deepEqual(
+    reconcileExpirations([ROLLING_ZERO_DTE, '2025-06-20'], available, '2025-06-20'),
+    ['2025-06-20'],
+  );
+  assert.deepEqual(
+    reconcileExpirations([ROLLING_ZERO_DTE, '2025-06-27'], available, '2025-06-20'),
+    ['2025-06-20', '2025-06-27'],
+  );
+});
+
+// The no-regression pin. Everything above adds a token to the model; this
+// asserts the model is otherwise byte-for-byte what it was for the ~all of
+// users who never pick 0DTE. If a future change to the token machinery
+// perturbs a plain dated selection, this is the test that should fail.
+test('a dated selection is completely untouched by the token machinery', () => {
+  const available = ['2025-06-20', '2025-06-27', '2025-07-03'];
+  const today = '2025-06-20';
+
+  // Order preserved, not re-sorted, not deduped away, not resolved.
+  assert.deepEqual(
+    reconcileExpirations(['2025-07-03', '2025-06-27'], available, today),
+    ['2025-07-03', '2025-06-27'],
+  );
+  // Today's literal date stays a literal date — it is NOT silently promoted to
+  // the rolling token, which would change its meaning tomorrow.
+  assert.deepEqual(reconcileExpirations([today], available, today), [today]);
+  assert.deepEqual(persistExpirations([today]), [today]);
+  // "All" still means all.
+  assert.deepEqual(reconcileExpirations([], available, today), []);
+  // Normalisation of dates alone is unchanged: dedupe + ascending, no token.
+  assert.deepEqual(
+    normalizeExpirations(['2025-07-03', '2025-06-20', '2025-07-03']),
+    ['2025-06-20', '2025-07-03'],
+  );
+});
+
+test('the 0DTE token round-trips through storage unresolved', () => {
+  // Persistence stays lossless: storage holds the RULE, not the date it was
+  // picked on, so a reload tomorrow rehydrates a still-correct 0DTE pick.
+  const stored = persistExpirations([ROLLING_ZERO_DTE]);
+  assert.deepEqual(stored, [ROLLING_ZERO_DTE]);
+  assert.deepEqual(readStoredExpirations(), [ROLLING_ZERO_DTE]);
+  assert.deepEqual(readTabExpirations(), [ROLLING_ZERO_DTE]);
+  assert.deepEqual(resolveInitialExpirations(), [ROLLING_ZERO_DTE]);
 });
 
 test('persistExpirations writes a normalised blob and readStoredExpirations reads it back', () => {
