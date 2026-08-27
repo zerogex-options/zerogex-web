@@ -53,8 +53,14 @@ export const formatTime = (timezone: string): string => {
 // reference point for lex-comparing expiration date strings (the canonical
 // zero-padded YYYY-MM-DD layout sorts identically as a string and as a
 // calendar date) — anything strictly less than this is a past session.
+// Reuses ET_DATE_FORMATTER (declared below; this only runs at call time) rather
+// than constructing an Intl.DateTimeFormat per call — the same reason
+// etDateKeyFor caches it. Several charts now call this once per render to
+// resolve the rolling 0DTE token, including ones that re-render on every quote
+// tick, so a fresh formatter each time is real per-frame work. Both spellings
+// format identically for en-CA: numeric year/month/day is the default.
 export const etTodayDateKey = (): string => {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date());
+  return ET_DATE_FORMATTER.format(new Date());
 };
 
 // The ET trading date (YYYY-MM-DD) an instant belongs to. Same calendar key as

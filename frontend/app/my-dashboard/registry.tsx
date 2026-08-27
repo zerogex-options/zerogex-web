@@ -633,10 +633,17 @@ export const PRESETS: DashboardPreset[] = [
       // Read the day, then the levels, then the tape. Glance-first at the top:
       // a same-day trader checking in mid-session should get the regime and the
       // levels without scrolling, and only then the charts to act on.
+      //
+      // The Net GEX and Gamma Flip TILES are deliberately absent. They read the
+      // board-wide `gex` feed, which is a whole-chain summary that takes no
+      // expiration argument — so on a board scoped to today they would print
+      // whole-chain numbers directly above a Key Levels strip and a strike book
+      // showing the same-day book, with nothing explaining the disagreement.
+      // Key Levels carries the gamma flip anyway, and it DOES follow the pane's
+      // scope. Two plausible answers to one question is the failure this preset
+      // exists to avoid, not one to ship at the top of it.
       { widgetId: 'todays-read', size: 'xl' },
       { widgetId: 'price', size: 'sm' },
-      { widgetId: 'net-gex', size: 'sm' },
-      { widgetId: 'gamma-flip', size: 'sm' },
       { widgetId: 'vix-level', size: 'sm' },
       { widgetId: 'key-levels', size: 'xl' },
       { widgetId: 'gamma-chart', size: 'xl' },

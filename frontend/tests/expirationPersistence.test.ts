@@ -182,6 +182,32 @@ test('reconcileExpirations does not double-count 0DTE alongside today’s date',
   );
 });
 
+// The no-regression pin. Everything above adds a token to the model; this
+// asserts the model is otherwise byte-for-byte what it was for the ~all of
+// users who never pick 0DTE. If a future change to the token machinery
+// perturbs a plain dated selection, this is the test that should fail.
+test('a dated selection is completely untouched by the token machinery', () => {
+  const available = ['2025-06-20', '2025-06-27', '2025-07-03'];
+  const today = '2025-06-20';
+
+  // Order preserved, not re-sorted, not deduped away, not resolved.
+  assert.deepEqual(
+    reconcileExpirations(['2025-07-03', '2025-06-27'], available, today),
+    ['2025-07-03', '2025-06-27'],
+  );
+  // Today's literal date stays a literal date — it is NOT silently promoted to
+  // the rolling token, which would change its meaning tomorrow.
+  assert.deepEqual(reconcileExpirations([today], available, today), [today]);
+  assert.deepEqual(persistExpirations([today]), [today]);
+  // "All" still means all.
+  assert.deepEqual(reconcileExpirations([], available, today), []);
+  // Normalisation of dates alone is unchanged: dedupe + ascending, no token.
+  assert.deepEqual(
+    normalizeExpirations(['2025-07-03', '2025-06-20', '2025-07-03']),
+    ['2025-06-20', '2025-07-03'],
+  );
+});
+
 test('the 0DTE token round-trips through storage unresolved', () => {
   // Persistence stays lossless: storage holds the RULE, not the date it was
   // picked on, so a reload tomorrow rehydrates a still-correct 0DTE pick.

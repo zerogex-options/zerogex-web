@@ -333,6 +333,7 @@ export function GammaLadderPanel() {
   const { showSessionDelta } = useSessionDelta();
   const t = usePageT(dict);
   const expirations = useChartExpirations(symbol, true);
+  const ladderZeroDte = useZeroDteOption(expirations.available, etTodayDateKey());
   const column = useGammaLadderColumn(symbol, true, {
     expirations: expirations.selection,
     sessionDelta: showSessionDelta,
@@ -361,6 +362,7 @@ export function GammaLadderPanel() {
           onChange={expirations.setSelection}
           label="Expiry"
           disabled={expirations.available.length === 0}
+          zeroDte={ladderZeroDte}
         />
         <SessionDeltaToggle showHint={false} />
         <GexUnitToggle showHint={false} />

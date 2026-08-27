@@ -40,7 +40,7 @@ import { useTheme } from '@/core/ThemeContext';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useSharedExpirations } from '@/hooks/useSharedExpirations';
-import { reconcileExpirations } from '@/core/expirationPersistence';
+import { isRollingZeroDte, reconcileExpirations } from '@/core/expirationPersistence';
 import { etTodayDateKey } from '@/core/utils';
 import { loadChartSettings, saveChartSettings } from '@/core/chartSettings';
 import {
@@ -723,17 +723,26 @@ export default function OptionsFlowChart({
   const toggleExpirations = useCallback(
     (value: string) => {
       // Toggle against the RESOLVED selection the chips are drawn from, not the
-      // stored intent. A rolling 0DTE pick resolves to today's date, so building
+      // stored intent: a rolling 0DTE pick resolves to today's date, so building
       // from the raw value would leave both the token and the clicked date in
       // the set and make an apparently-selected chip impossible to clear.
-      // Hand-picking dates is also the user saying they no longer mean "always
-      // today", so the rolling token is deliberately dropped here.
-      const next = new Set(effectiveSelectedExpirations);
+      // Hand-picking a date is the user saying they no longer mean "always
+      // today", so the token is deliberately dropped.
+      //
+      // Dates this chart has no option for are carried through untouched. Its
+      // universe is the contracts that actually TRADED this session — a strict
+      // subset of the chain — so a pick made on a by-strike chart is routinely
+      // absent here, and folding it out would silently rewrite the tab-wide
+      // selection for every other chart on one chip click.
+      const foreign = sharedExpirations.filter(
+        (exp) => !isRollingZeroDte(exp) && !expirationOptions.includes(exp),
+      );
+      const next = new Set([...effectiveSelectedExpirations, ...foreign]);
       if (next.has(value)) next.delete(value);
       else next.add(value);
       setSharedExpirations(Array.from(next));
     },
-    [effectiveSelectedExpirations, setSharedExpirations],
+    [effectiveSelectedExpirations, sharedExpirations, expirationOptions, setSharedExpirations],
   );
 
   return (

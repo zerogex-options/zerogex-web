@@ -43,7 +43,18 @@ function apiBaseUrl(): string {
   return process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 }
 
-export function useTradeBiasData(symbol: string, tenor: string): TradeBiasState {
+/**
+ * @param withHistory  Fetch the multi-day bias history. True for the page,
+ *   which charts it. Summary consumers (the board widget) pass false: the
+ *   history request pulls up to 2000 rows across 8 days on every mount, symbol
+ *   switch and horizon toggle, and a card that only renders the current payload
+ *   throws all of it away.
+ */
+export function useTradeBiasData(
+  symbol: string,
+  tenor: string,
+  withHistory = true,
+): TradeBiasState {
   const [payload, setPayload] = useState<TradeBiasPayload | null>(null);
   const [history, setHistory] = useState<TradeBiasHistoryRow[]>([]);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
@@ -195,7 +206,12 @@ export function useTradeBiasData(symbol: string, tenor: string): TradeBiasState 
     lifetimeAbortRef.current?.abort();
     const controller = new AbortController();
     lifetimeAbortRef.current = controller;
-    void fetchHistory(symbol, tenor);
+    if (withHistory) {
+      void fetchHistory(symbol, tenor);
+    } else {
+      // Nothing will arrive to flip this, and consumers gate on it.
+      setHistoryLoaded(true);
+    }
     void runFetchCycle(symbol, tenor);
     return () => {
       if (retryTimerRef.current != null) {
@@ -204,7 +220,7 @@ export function useTradeBiasData(symbol: string, tenor: string): TradeBiasState 
       }
       controller.abort();
     };
-  }, [symbol, tenor, fetchHistory, runFetchCycle]);
+  }, [symbol, tenor, withHistory, fetchHistory, runFetchCycle]);
 
   // Adaptive interval based on market session, rechecked every minute.
   useEffect(() => {
@@ -264,7 +280,7 @@ export function useTradeBiasData(symbol: string, tenor: string): TradeBiasState 
         const idleMs = lastHiddenAtRef.current != null ? Date.now() - lastHiddenAtRef.current : 0;
         lastHiddenAtRef.current = null;
         const [sym, ten] = keyRef.current.split('|');
-        if (idleMs > REFOCUS_HISTORY_REFRESH_MS) void fetchHistory(sym, ten);
+        if (withHistory && idleMs > REFOCUS_HISTORY_REFRESH_MS) void fetchHistory(sym, ten);
         void runFetchCycle(sym, ten);
         if (pollTimerRef.current != null) window.clearInterval(pollTimerRef.current);
         pollTimerRef.current = window.setInterval(() => {
@@ -275,15 +291,15 @@ export function useTradeBiasData(symbol: string, tenor: string): TradeBiasState 
     };
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
-  }, [intervalMs, fetchHistory, runFetchCycle]);
+  }, [intervalMs, withHistory, fetchHistory, runFetchCycle]);
 
   const refetch = useCallback(() => {
     setLoading(true);
     consecutiveFailuresRef.current = 0;
     const [sym, ten] = keyRef.current.split('|');
-    void fetchHistory(sym, ten);
+    if (withHistory) void fetchHistory(sym, ten);
     void runFetchCycle(sym, ten);
-  }, [fetchHistory, runFetchCycle]);
+  }, [withHistory, fetchHistory, runFetchCycle]);
 
   return {
     payload,
