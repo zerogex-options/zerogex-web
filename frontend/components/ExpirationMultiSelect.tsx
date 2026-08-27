@@ -85,7 +85,13 @@ export default function ExpirationMultiSelect({
   const summary = inheritOption?.active
     ? inheritOption.label
     : zeroDte?.active
-      ? '0DTE'
+      ? // On a day with no same-day expiry the pick resolves to nothing, and the
+        // charts fall back to the whole chain. Say so on the trigger — a control
+        // reading a flat "0DTE" over whole-chain numbers is the exact lie the
+        // token was introduced to stop telling.
+        zeroDte.availableToday
+        ? '0DTE'
+        : '0DTE · none'
       : selected.length === 0
         ? 'All'
         : selected.length === 1
@@ -98,15 +104,17 @@ export default function ExpirationMultiSelect({
   // pick must never silently become.
   const allActive = selected.length === 0 && !inheritOption?.active && !zeroDte?.active;
 
-  // While one of the alternative rows owns the selection — inheriting, or the
-  // rolling 0DTE pick — no dated row renders as checked, so the dated rows must
-  // toggle against an EMPTY set. Otherwise a row that looks unchecked is
-  // secretly in `selected` (0DTE resolves to today's date; inheriting carries
-  // the page's dates), and clicking it removes it instead of selecting it —
-  // landing the user on "All expirations", the opposite of what they clicked
-  // for. Deriving `checked` from the same value keeps the two in step by
-  // construction.
-  const datedSelection = inheritOption?.active || zeroDte?.active ? [] : selected;
+  // A rolling 0DTE pick reaches the dated rows as a resolved DATE (today's), so
+  // toggling against `selected` would treat a row that renders unchecked as
+  // already-selected and REMOVE it — landing the user on "All expirations", the
+  // opposite of what they clicked for. Starting from an empty set makes the
+  // click mean what it looks like: swap the rolling pick for this date.
+  //
+  // Inheriting is deliberately NOT folded in here. There `selected` is a real
+  // dated set a pin is meant to start from — "switching to a pinned set starts
+  // from what's on screen" (DashboardPane) — so emptying it would silently drop
+  // every other inherited date on the first click.
+  const datedSelection = zeroDte?.active ? [] : selected;
   const toggle = (exp: string) =>
     onChange(
       datedSelection.includes(exp)
@@ -207,7 +215,7 @@ export default function ExpirationMultiSelect({
             All expirations
           </button>
           {options.map((exp) => {
-            const checked = datedSelection.includes(exp);
+            const checked = !inheritOption?.active && datedSelection.includes(exp);
             return (
               <button
                 key={exp}
