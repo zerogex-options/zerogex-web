@@ -48,6 +48,24 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
       a: 'A clean break above the call wall can signal a positioning or regime change. The hedging that capped the move can reverse into buying, which sometimes fuels an extension higher.',
     },
   ],
+  'what-is-a-gamma-wall': [
+    {
+      q: 'What is a gamma wall?',
+      a: 'A gamma wall is a strike on the option chain where modeled dealer gamma exposure is heavily concentrated. It marks a price level where option positioning is unusually dense, so the hedging dealers may do around it can be larger than at neighbouring strikes.',
+    },
+    {
+      q: 'What is the difference between a call wall and a put wall?',
+      a: 'The call wall is the heaviest call-gamma concentration above spot; the put wall is the heaviest put-gamma concentration below spot. Together they bracket the current price. Which one acts as a brake and which as an accelerant depends on the modeled dealer gamma sign, not on whether the contracts are calls or puts.',
+    },
+    {
+      q: 'Is a gamma wall support or resistance?',
+      a: 'No. A gamma wall is a positioning reference, not a defended level. Nothing obliges any participant to trade at a strike, and hedging is only one source of order flow. A wall indicates a reaction is more likely there than at a random strike, and says nothing about direction on its own.',
+    },
+    {
+      q: 'Do gamma walls move during the day?',
+      a: 'Yes. Walls are recomputed as the book changes. They migrate both when open interest changes and when spot, time or implied volatility reprice the gamma each existing contract carries — so the ranking of strikes can shift even with open interest unchanged. Movement is fastest on 0DTE.',
+    },
+  ],
   'what-is-gex-in-trading': [
     {
       q: 'What is GEX in trading?',
