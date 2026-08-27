@@ -3,10 +3,9 @@ import { ArrowRight, Newspaper } from 'lucide-react';
 import ItemListJsonLd from '@/components/ItemListJsonLd';
 
 export const metadata = {
-  title:
-    'Latest Options Gamma Analysis: SPX / SPY / QQQ / NDX Pinning, Gamma Flip & Dealer Flow | ZeroGEX',
+  title: 'Options Gamma Analysis: SPX, SPY, QQQ & NDX Dealer Flow',
   description:
-    'The latest ZeroGEX options gamma analysis, newest first — SPX, SPY, QQQ and NDX pinning, the gamma flip, call walls, put walls, 0DTE dealer positioning, and dealer-flow deep dives. New breakdowns added regularly, each with a worked example and today’s live levels. Browse everything by topic in the Education hub.',
+    'Options gamma analysis for SPX, SPY, QQQ and NDX, newest first — pinning, the gamma flip, call and put walls, and 0DTE dealer positioning.',
   alternates: { canonical: '/articles' },
 };
 
@@ -19,6 +18,13 @@ type Article = {
 };
 
 const ARTICLES: Article[] = [
+  {
+    href: '/education/what-is-a-gamma-wall',
+    kind: 'Published • August 27, 2026 • 16:00 UTC',
+    title: 'What Is a Gamma Wall? Gamma Walls in Trading Explained',
+    blurb:
+      'The plain-English definition — a strike where modeled dealer gamma concentrates. The two walls, why price can react at them, why a wall is a positioning reference rather than support or resistance, and why the level migrates through the session.',
+  },
   {
     href: '/education/pin-strike-explained',
     kind: 'Published • August 9, 2026 • 16:00 UTC',

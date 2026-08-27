@@ -49,6 +49,7 @@ const popularExplainers = [
   { href: '/education/how-to-read-a-gamma-flip', label: 'How to Read a Gamma Flip' },
   { href: '/education/what-is-a-put-wall', label: 'What Is a Put Wall?' },
   { href: '/education/what-is-a-call-wall', label: 'What Is a Call Wall?' },
+  { href: '/education/what-is-a-gamma-wall', label: 'What Is a Gamma Wall?' },
   { href: '/education/spx-net-gamma-exposure-today', label: 'SPX Net Gamma Exposure Today' },
   { href: '/education/best-gex-tools', label: 'Best GEX Tools, Fairly Compared' },
   { href: '/education/max-pain-explained', label: 'Max Pain Explained' },
