@@ -37,6 +37,7 @@
     "test:payment-setup": "node --experimental-strip-types --test tests/paymentSetup.test.ts",
     "test:api-tier-gate": "node --experimental-strip-types --test tests/apiTierGate.test.ts",
     "test:subscription-flow": "node --experimental-strip-types --test tests/subscriptionFlow.test.ts",
+    "test:trial-conveyor": "node --experimental-strip-types --test tests/trialConveyor.test.ts",
     "test:plan-switch": "node --experimental-strip-types --test tests/planSwitch.test.ts",
     "test:cancellation-reason": "node --experimental-strip-types --test tests/cancellationReason.test.ts",
     "test:cancel-retention": "node --experimental-strip-types --test tests/cancelRetention.test.ts",
