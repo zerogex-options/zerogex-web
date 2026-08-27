@@ -152,6 +152,13 @@ export const HELP_ARTICLES: HelpArticle[] = [
     section: 'API & Data Access',
   },
   {
+    slug: 'mcp-integration',
+    title: 'Building an MCP Server on the ZeroGEX API',
+    description:
+      'The consolidated levels endpoint, tool definitions to start from, and keeping a model from quoting stale levels as live.',
+    section: 'API & Data Access',
+  },
+  {
     slug: 'data-coverage',
     title: 'Data Coverage & Refresh',
     description: 'Supported symbols, market hours, refresh cadence, holidays.',

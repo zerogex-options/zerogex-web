@@ -90,9 +90,18 @@ anything:
   axis — there is no basis offset to apply.
 - **TradingView** — a free Pine script. Manual entry only: Pine Script can't
   make HTTP calls, so you type today's numbers in yourself.
+- **thinkorswim** — nothing to install. thinkScript is sandboxed the same way
+  Pine Script is, so no study can pull the levels; manual entry is the only
+  route on the platform itself.
+
+If your platform can't reach the network — or you'd rather ask for the levels
+than read them — see
+[Building an MCP Server on the ZeroGEX API](/help/platform/mcp-integration),
+which covers wiring the API into an AI assistant.
 
 ## See also
 
 - [Tiers, Access & What Unlocks Where](/help/platform/tiers-and-access)
 - [Data Coverage & Refresh](/help/platform/data-coverage)
+- [Building an MCP Server on the ZeroGEX API](/help/platform/mcp-integration)
 - [API Docs (external)](https://api.zerogex.io/docs)
