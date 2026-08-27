@@ -2,6 +2,7 @@
 
 import { Download, KeyRound, Radio } from 'lucide-react';
 import { capture } from '@/core/telemetry/posthog-client';
+import { NT_INDICATOR_PATH, NT_PACKAGE_PATH } from '@/core/ninjaTraderManifest';
 
 // "Plot these levels on NinjaTrader" — the Pro counterpart to PlotOnTradingView.
 //
@@ -11,8 +12,13 @@ import { capture } from '@/core/telemetry/posthog-client';
 // integration, and a Pro feature: the .cs is free and open, the data behind it
 // needs a key. See docs/ninjatrader-indicator.md.
 
-const INDICATOR_URL = '/ninjatrader/ZeroGexGammaLevels.cs';
-const PACKAGE_URL = '/ninjatrader/ZeroGexGammaLevels.zip';
+// Content-addressed, from the generated manifest. zerogex.io is proxied
+// through Cloudflare with a 4-hour cache that `make deploy` never purges, so a
+// fixed URL can hand a customer the previous build for hours after a new one
+// ships. A new build is a new URL, so no cache can answer for it with stale
+// bytes. Same reasoning as the social card — see scripts/ninjatrader-manifest.js.
+const INDICATOR_URL = NT_INDICATOR_PATH;
+const PACKAGE_URL = NT_PACKAGE_PATH;
 const INDICATOR_NAME = 'ZeroGEX Gamma Levels';
 
 // `hasPackage` is resolved at build time by the server component that renders
@@ -74,7 +80,7 @@ export default function PlotOnNinjaTrader({ hasPackage = false }: { hasPackage?:
 
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 18 }}>
         <a
-          href={hasPackage ? PACKAGE_URL : INDICATOR_URL}
+          href={hasPackage && PACKAGE_URL ? PACKAGE_URL : INDICATOR_URL}
           download
           onClick={() =>
             capture('ninjatrader_indicator_clicked', {

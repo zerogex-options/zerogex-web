@@ -234,6 +234,10 @@ frontend/public/folds-of-honor-*
 # it (committed); the .zip is copied in from assets/ninjatrader/ at deploy time
 # by `make ninjatrader-package`, so it never belongs in git.
 frontend/public/ninjatrader/*.zip
+# Content-addressed copies written by scripts/ninjatrader-manifest.js. The
+# hashes live in the committed frontend/core/ninjaTraderManifest.ts; the files
+# themselves are derived, so they are regenerated on every deploy.
+frontend/public/ninjatrader/*.[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f].cs
 
 # blog post images, synced from assets/blog by `make blog-images`
 frontend/public/blog/

@@ -977,6 +977,8 @@ clean:
 TRIM_PNG = bash -lc 'if ! command -v node >/dev/null 2>&1; then source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null; fi; exec node scripts/trim-png.js "$$@"' trim-png
 
 OG_MANIFEST = bash -lc 'if ! command -v node >/dev/null 2>&1; then source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null; fi; exec node scripts/og-image-manifest.js'
+
+NT_MANIFEST = bash -lc 'if ! command -v node >/dev/null 2>&1; then source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null; fi; exec node scripts/ninjatrader-manifest.js'
 OG_CHECK = bash -lc 'if ! command -v node >/dev/null 2>&1; then source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null; fi; exec node scripts/og-image-manifest.js --live'
 
 logo:
@@ -1075,6 +1077,7 @@ ninjatrader-package:
 	else \
 		echo "  ⚠ assets/ninjatrader/ZeroGexGammaLevels.zip missing — the gamma pages will offer the .cs source only (see assets/ninjatrader/README.md)"; \
 	fi
+	@$(NT_MANIFEST)
 
 # Full deployment
 deploy:
