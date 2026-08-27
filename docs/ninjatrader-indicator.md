@@ -107,7 +107,12 @@ setting can't produce a `422`).
    - **API key (Bearer)** — your ZeroGEX Pro key from `/account#api-access`.
    - **Symbol** — `ES`, `NQ`, `SPX`, `SPY`, `QQQ`, or `NDX` (set it to match
      the chart). On an ES or NQ chart, use `ES` / `NQ` — see below.
-   - **Poll interval** — default 60s (matches the analytics cycle).
+   - **Poll interval** — default 60s (matches the analytics cycle), floor
+     30s. The floor is enforced at runtime as well as by the `Range`
+     attribute: the attribute stops someone typing a smaller number, the
+     runtime clamp stops a workspace that already holds one. A tester was
+     found polling every 10s — six requests for bytes that change once a
+     minute.
    - **Show GEX 1..N** and **Show VWAP** — both ON by default. Unlike the
      histogram these are a handful of ordinary lines rather than dozens of
      draw objects, and they are the two things traders asked for by name.
@@ -192,6 +197,12 @@ frozen at the 16:00 close while the future keeps trading.
   instance on resume, dropping the snapshot. Combined with the bug below that
   read as "leave it an hour and the levels disappear". Saving one small request
   a minute was not worth the indicator appearing to break.
+- **Labels sit above their line, not on it.** `Label offset above line
+  (ticks)` defaults to 4 and is measured in ticks, so one setting behaves the
+  same on ES, NQ and SPX, whose tick sizes differ by an order of magnitude. 0
+  restores the old on-the-line behaviour. This only separates text from its
+  own line; two levels a tick apart still overlap each other, which is a
+  reason to keep the GEX count low rather than something the offset can fix.
 - **A missing snapshot never wipes the chart.** `DrawOne` removes a level when
   its value is null, which is right for a level the API genuinely reports as
   null — but passing it `s?.Level` from a null snapshot removed *everything* on

@@ -175,6 +175,12 @@ namespace NinjaTrader.NinjaScript.Indicators
                 // --- Style ---
                 LineWidth = 2;
                 ShowLabels = true;
+                // Labels used to sit exactly ON their line, which reads fine
+                // with four levels and becomes an unreadable smear once GEX
+                // 1..10 and VWAP are on too. Nudging them up a few ticks costs
+                // nothing and separates text from line. In ticks, so it scales
+                // with the instrument; 0 restores the old behaviour.
+                LabelOffsetTicks = 4;
                 ShowInfoPanel = true;
                 EnableAlerts = false;
 
@@ -215,7 +221,15 @@ namespace NinjaTrader.NinjaScript.Indicators
         // ------------------------------------------------------------------
         private void MaybeFetch()
         {
-            int poll = Math.Max(5, PollSeconds);
+            // Floor of 30s, enforced here and not only by the Range attribute.
+            // The attribute stops someone TYPING a smaller number; this stops a
+            // workspace that already has one. A tester was found polling every
+            // 10s, which is six requests for bytes that only change once a
+            // minute — identical data, six times the rate-limit burn. 30 is
+            // still a real choice: the analytics cycle is ~60s and unaligned,
+            // so polling at 30 halves the worst-case staleness rather than
+            // eliminating it. Below that there is nothing left to win.
+            int poll = Math.Max(30, PollSeconds);
             if ((DateTime.UtcNow - _lastFetchUtc).TotalSeconds < poll)
                 return;
 
@@ -554,7 +568,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             if (ShowLabels)
             {
                 string text = label + "  " + price.ToString("0.##", CultureInfo.InvariantCulture);
-                Draw.Text(this, tag + "_txt", text, 0, price, brush);
+                Draw.Text(this, tag + "_txt", text, 0, LabelY(price), brush);
             }
             else
             {
@@ -620,7 +634,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                     {
                         string text = "GEX " + (rank + 1) + "  " +
                                       y.ToString("0.##", CultureInfo.InvariantCulture);
-                        Draw.Text(this, tag + "_txt", text, 0, y, GexRankBrush);
+                        Draw.Text(this, tag + "_txt", text, 0, LabelY(y), GexRankBrush);
                     }
                     else
                     {
@@ -725,6 +739,14 @@ namespace NinjaTrader.NinjaScript.Indicators
                    "updated " + age + "  ·  zerogex.io" + health;
         }
 
+        /// <summary>Where a level's label sits, relative to its line. Ticks
+        /// rather than points so one setting behaves the same on ES, NQ and
+        /// SPX, whose tick sizes differ by an order of magnitude.</summary>
+        private double LabelY(double price)
+        {
+            return price + Math.Max(0, LabelOffsetTicks) * TickSize;
+        }
+
         private static string Fmt(double? v)
         {
             return v.HasValue ? v.Value.ToString("0.##", CultureInfo.InvariantCulture) : "—";
@@ -801,7 +823,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         public string Symbol { get; set; }
 
         [NinjaScriptProperty]
-        [Range(5, 3600)]
+        [Range(30, 3600)]
         [Display(Name = "Poll interval (seconds)", Order = 4, GroupName = "1. Connection")]
         public int PollSeconds { get; set; }
 
@@ -867,15 +889,20 @@ namespace NinjaTrader.NinjaScript.Indicators
         public bool ShowLabels { get; set; }
 
         [NinjaScriptProperty]
-        [Display(Name = "Show info panel", Order = 3, GroupName = "3. Style")]
+        [Range(0, 100)]
+        [Display(Name = "Label offset above line (ticks)", Order = 3, GroupName = "3. Style")]
+        public int LabelOffsetTicks { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Show info panel", Order = 4, GroupName = "3. Style")]
         public bool ShowInfoPanel { get; set; }
 
         [NinjaScriptProperty]
-        [Display(Name = "Enable cross alerts", Order = 4, GroupName = "3. Style")]
+        [Display(Name = "Enable cross alerts", Order = 5, GroupName = "3. Style")]
         public bool EnableAlerts { get; set; }
 
         [XmlIgnore]
-        [Display(Name = "Gamma Flip color", Order = 5, GroupName = "3. Style")]
+        [Display(Name = "Gamma Flip color", Order = 6, GroupName = "3. Style")]
         public Brush FlipBrush { get; set; }
 
         [Browsable(false)]
@@ -886,7 +913,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         }
 
         [XmlIgnore]
-        [Display(Name = "Call Wall color", Order = 6, GroupName = "3. Style")]
+        [Display(Name = "Call Wall color", Order = 7, GroupName = "3. Style")]
         public Brush CallBrush { get; set; }
 
         [Browsable(false)]
@@ -897,7 +924,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         }
 
         [XmlIgnore]
-        [Display(Name = "Put Wall color", Order = 7, GroupName = "3. Style")]
+        [Display(Name = "Put Wall color", Order = 8, GroupName = "3. Style")]
         public Brush PutBrush { get; set; }
 
         [Browsable(false)]
@@ -908,7 +935,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         }
 
         [XmlIgnore]
-        [Display(Name = "Max Pain color", Order = 8, GroupName = "3. Style")]
+        [Display(Name = "Max Pain color", Order = 9, GroupName = "3. Style")]
         public Brush PainBrush { get; set; }
 
         [Browsable(false)]
@@ -919,7 +946,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         }
 
         [XmlIgnore]
-        [Display(Name = "Pin Strike color", Order = 9, GroupName = "3. Style")]
+        [Display(Name = "Pin Strike color", Order = 10, GroupName = "3. Style")]
         public Brush PinBrush { get; set; }
 
         [Browsable(false)]
@@ -930,7 +957,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         }
 
         [XmlIgnore]
-        [Display(Name = "GEX 1..N color", Order = 10, GroupName = "3. Style")]
+        [Display(Name = "GEX 1..N color", Order = 11, GroupName = "3. Style")]
         public Brush GexRankBrush { get; set; }
 
         [Browsable(false)]
@@ -941,7 +968,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         }
 
         [XmlIgnore]
-        [Display(Name = "VWAP color", Order = 11, GroupName = "3. Style")]
+        [Display(Name = "VWAP color", Order = 12, GroupName = "3. Style")]
         public Brush VwapBrush { get; set; }
 
         [Browsable(false)]
@@ -952,7 +979,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         }
 
         [XmlIgnore]
-        [Display(Name = "Histogram color (net positive)", Order = 12, GroupName = "3. Style")]
+        [Display(Name = "Histogram color (net positive)", Order = 13, GroupName = "3. Style")]
         public Brush ProfilePosBrush { get; set; }
 
         [Browsable(false)]
@@ -963,7 +990,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         }
 
         [XmlIgnore]
-        [Display(Name = "Histogram color (net negative)", Order = 13, GroupName = "3. Style")]
+        [Display(Name = "Histogram color (net negative)", Order = 14, GroupName = "3. Style")]
         public Brush ProfileNegBrush { get; set; }
 
         [Browsable(false)]
