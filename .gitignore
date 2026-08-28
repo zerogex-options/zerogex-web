@@ -256,3 +256,9 @@ deploy/systemd/janitor.env
 # monitoring backup config (may name a private S3 bucket + a box-local backup
 # dir) — keep the .example tracked, never the real file copied in on the box
 deploy/systemd/monitoring-backup.env
+
+# macOS Finder droppings. Six of these were committed by a `git add -A`
+# run from a Mac; nothing here ever wants them.
+.DS_Store
+**/.DS_Store
+frontend/public/favicon.ico
