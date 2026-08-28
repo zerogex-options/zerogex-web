@@ -6,7 +6,7 @@
 
 ## Abgedeckte Symbole
 
-ZeroGEX bietet vollständige analytische Abdeckung für vier Instrumente:
+ZeroGEX bietet vollständige analytische Abdeckung für vier Basiswerte im Kassamarkt:
 
 - **SPY** — S&P 500 ETF
 - **SPX** — S&P 500 Index (Optionen europäischen Stils)
@@ -14,6 +14,13 @@ ZeroGEX bietet vollständige analytische Abdeckung für vier Instrumente:
 - **NDX** — Nasdaq 100 Index (Optionen europäischen Stils)
 
 Dies sind die vier liquidesten und gamma-reichsten Basiswerte im US-Optionsmarkt — die Instrumente, bei denen die Hedging-Aktivität der Dealer den größten Einfluss auf den Intraday-Preis hat.
+
+Hinzu kommen zwei CME-Aktienindex-Futures als vollwertige Symbole:
+
+- **ES** — E-mini S&P 500 Future
+- **NQ** — E-mini Nasdaq 100 Future
+
+ES und NQ haben kein eigenes Optionsbuch. ES und SPX bilden denselben Index ab, das Dealer-Buch hinter einem ES-Chart *ist* also das SPX-Buch — die SPX-Level (bzw. NDX bei NQ) werden auf die Futures-Preisachse projiziert, während die Preisreihe selbst aus dem CME-Feed stammt. Das Projektionsverhältnis wird am Tape gemessen statt aus Carry modelliert und korrigiert sich dadurch über jeden Quartalsroll selbst; einen Basis-Offset musst du nirgends einstellen. Dollar-Exposures (Netto-, Call- und Put-GEX) bleiben bewusst unprojiziert: Das Histogramm skaliert auf *relatives* Exposure, die Form ist also in beiden Fällen dieselbe. Die Micro-Kontrakte (/MES, /MNQ) sind derselbe Kontrakt in einem Zehntel der Größe — es gelten dieselben Level.
 
 Wir planen nicht, einzelne Aktien zu unterstützen. Das Signalmodell und das Regime-Konzept sind auf das Dealer-Verhalten auf Indexebene ausgelegt.
 
@@ -26,6 +33,10 @@ ZeroGEX verwendet durchgehend die US-Ostküstenzeit (Eastern Time):
 - **After-Hours** — 16:00 – 20:00 Uhr ET (soweit verfügbar)
 
 Das Sitzungs-Badge im Header zeigt an, in welchem Zeitfenster du dich befindest.
+
+**ES und NQ laufen stattdessen in der elektronischen CME-Sitzung**, die deutlich weiter reicht: von Sonntag 18:00 Uhr ET durchgehend bis Freitag 17:00 Uhr ET, mit einer täglichen Wartungspause von 17:00 bis 18:00 Uhr ET. Damit sind die asiatische und die europäische Sitzung vollständig abgedeckt, und die ES/NQ-Kurse kommen in Echtzeit von der CME. Ist ein Kassaindex geschlossen, sein Future aber im Handel, zeigt das Sitzungs-Badge „Futures“ und die Preiskachel den Future — mit der Veränderung gegenüber dessen eigenem Schlusskurs um 16:00 Uhr ET — statt des eingefrorenen Kassaindex.
+
+Die Dealer-Level auf einem Futures-Chart stammen weiterhin aus dem Index-Optionsbuch, das während der US-Handelszeiten bepreist wird. Über Nacht siehst du also den live handelnden ES/NQ gegen die Level, wie sie zum US-Schluss standen, aktualisiert sobald nächtliche Chain-Daten veröffentlicht werden (siehe *Pre-Market und After-Hours* weiter unten); sie werden nicht tickweise um 3:00 Uhr ET neu berechnet. Veraltet eine Futures-Quote selbst, trägt der Preis ein Badge mit der gemessenen Verzögerung.
 
 ## Aktualisierungsrhythmus nach Ansicht
 
@@ -78,12 +89,12 @@ Wir geben die konkreten Anbieternamen nicht öffentlich bekannt, aber der Qualit
 
 Die End-to-End-Latenz vom Drucken eines Trades auf dem Tape bis zum Erreichen deines Browsers liegt während der regulären Handelszeiten typischerweise unter einer Sekunde. Der Engpass sind selten die Daten — meist sind es dein Netzwerk und dein Browser. Siehe [Streaming & Performance](/help/platform/streaming-and-performance).
 
-## Warum nur SPY / SPX / QQQ / NDX
+## Warum nur der Index-Komplex
 
 Zwei Gründe:
 
-1. Das Dealer-Positionierungsmodell funktioniert nur dort gut, wo der Dealer-Flow einen bedeutenden Anteil am Gesamt-Flow ausmacht. Das ist der Index-Komplex.
-2. Wir setzen lieber auf vier Instrumente, die wir richtig beherrschen, statt auf zehn Instrumente, die wir nur halb beherrschen.
+1. Das Dealer-Positionierungsmodell funktioniert nur dort gut, wo der Dealer-Flow einen bedeutenden Anteil am Gesamt-Flow ausmacht. Das ist der Index-Komplex — SPY, SPX, QQQ, NDX und die Futures ES / NQ, die dieselben beiden Indizes abbilden.
+2. Wir setzen lieber auf eine Handvoll Instrumente, die wir richtig beherrschen, statt auf zehn Instrumente, die wir nur halb beherrschen.
 
 Einzelaktien können durch idiosynkratische Nachrichten driften, was die GEX-Lesart verrauscht. Auf dieses Spiel lassen wir uns nicht ein.
 
