@@ -25,6 +25,7 @@ import {
   type ConveyorState,
   type ConveyorTotals,
 } from '@/core/trialConveyor';
+import { ledgerKindLabel, type LedgerEventKind, type LedgerRow } from '@/core/subscriberBucket';
 
 type SnapshotPoint = {
   bucket: string;
@@ -193,10 +194,22 @@ type CancellationReasonsSummary = {
 type TrialConveyor = {
   riders: ConveyorRider[];
   truncated: number;
+  departures: ConveyorRider[];
+  departingValue: number;
   totals: ConveyorTotals;
   outcomes: ConveyorOutcomes;
   trialDays: number;
   graceDays: number;
+  generatedAt: string;
+};
+
+// Mirrors SubscriberLedgerSnapshot in core/monitoring.ts (hand-synced — that
+// module is server-only). LedgerRow comes from the pure core/subscriberBucket.
+type SubscriberLedger = {
+  windowDays: number;
+  rows: LedgerRow[];
+  truncated: number;
+  net: { fullSubscriber: number; freeTrial: number; trialGrace: number };
   generatedAt: string;
 };
 
@@ -210,6 +223,7 @@ type Snapshot = {
   growthRates: GrowthRatePoint[];
   cancellationReasons: CancellationReasonsSummary;
   trialConveyor: TrialConveyor;
+  subscriberLedger: SubscriberLedger;
   conversionBySource: ConversionBySourceSnapshot;
   hourly: SnapshotPoint[];
   daily: SnapshotPoint[];
@@ -1003,6 +1017,237 @@ function TrialOutcomesCard({
   );
 }
 
+// Colour + sign convention for the ledger: anything that grows the subscriber
+// base reads green, anything that shrinks it reads red, and the two warnings
+// that move no counts YET (a scheduled cancel, a renewal in dunning) read amber
+// — those are the ones worth acting on before they become a departure.
+const LEDGER_TONE: Record<LedgerEventKind, string> = {
+  trialStarted: ROW_COLORS.signups,
+  converted: CONVEYOR_COLORS.running,
+  recovered: CONVEYOR_COLORS.running,
+  trialChargeDeclined: CONVEYOR_COLORS.stalled,
+  renewalFailed: CONVEYOR_COLORS.stalled,
+  cancelScheduled: CONVEYOR_COLORS.stalled,
+  cancelReverted: CONVEYOR_COLORS.running,
+  accessEnded: CONVEYOR_COLORS.rollingOff,
+};
+
+function formatLedgerTime(iso: string, nowMs: number): string {
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms)) return '—';
+  const ageMinutes = Math.floor((nowMs - ms) / 60_000);
+  if (ageMinutes < 1) return 'just now';
+  if (ageMinutes < 60) return `${ageMinutes}m ago`;
+  if (ageMinutes < 60 * 24) return `${Math.floor(ageMinutes / 60)}h ago`;
+  return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+// A signed count chip. Rendered only for a line this row actually moved, so a
+// row that moves nothing reads as the warning it is rather than a wall of zeros.
+function DeltaChip({ label, delta }: { label: string; delta: number }) {
+  if (delta === 0) return null;
+  const up = delta > 0;
+  return (
+    <span
+      className="text-[11px] font-semibold px-1.5 py-0.5 rounded tabular-nums whitespace-nowrap"
+      style={{
+        background: up ? `${CONVEYOR_COLORS.running}22` : `${CONVEYOR_COLORS.rollingOff}22`,
+        color: up ? CONVEYOR_COLORS.running : CONVEYOR_COLORS.rollingOff,
+      }}
+    >
+      {up ? '+' : ''}{delta} {label}
+    </span>
+  );
+}
+
+// The answer to "the number moved and I don't know why". Every row states what
+// happened, to whom, and what it did to each line of the Total Subscribers
+// chart — so a headcount change is always traceable to a named member.
+function SubscriberLedgerCard({
+  ledger,
+  nowMs,
+  cardBg,
+  borderColor,
+  mutedText,
+  textColor,
+}: {
+  ledger: SubscriberLedger;
+  nowMs: number;
+  cardBg: string;
+  borderColor: string;
+  mutedText: string;
+  textColor: string;
+}) {
+  const [onlyMoves, setOnlyMoves] = useState(false);
+  const moved = (r: LedgerRow) =>
+    r.fullSubscriberDelta !== 0 || r.freeTrialDelta !== 0 || r.trialGraceDelta !== 0;
+  const rows = onlyMoves ? ledger.rows.filter(moved) : ledger.rows;
+  const net = ledger.net.fullSubscriber;
+
+  return (
+    <div className="rounded-lg p-4" style={{ background: cardBg, border: `1px solid ${borderColor}` }}>
+      <div className="flex items-baseline justify-between flex-wrap gap-2 mb-3">
+        <span className="text-sm" style={{ color: textColor }}>
+          Full Subscribers moved{' '}
+          <span
+            className="font-semibold tabular-nums"
+            style={{ color: net >= 0 ? CONVEYOR_COLORS.running : CONVEYOR_COLORS.rollingOff }}
+          >
+            {net >= 0 ? '+' : ''}{net}
+          </span>{' '}
+          over the last {ledger.windowDays} days — every row below accounts for part of it.
+        </span>
+        <button
+          type="button"
+          onClick={() => setOnlyMoves((v) => !v)}
+          className="text-xs px-2 py-1 rounded"
+          style={{
+            border: `1px solid ${borderColor}`,
+            color: onlyMoves ? 'var(--color-text-primary)' : mutedText,
+            background: onlyMoves ? `${borderColor}33` : 'transparent',
+          }}
+        >
+          {onlyMoves ? 'Showing count changes only' : 'Show count changes only'}
+        </button>
+      </div>
+
+      {rows.length === 0 ? (
+        <p className="text-sm py-6 text-center" style={{ color: mutedText }}>
+          Nothing has changed in the last {ledger.windowDays} days.
+        </p>
+      ) : (
+        <ul>
+          {rows.map((r, idx) => (
+            <li
+              key={`${r.at}-${r.userId ?? idx}-${r.kind}`}
+              className="grid gap-3 py-2 items-start"
+              style={{
+                gridTemplateColumns: 'minmax(0, 5rem) minmax(0, 1fr) auto',
+                borderTop: idx === 0 ? undefined : `1px solid ${borderColor}33`,
+              }}
+            >
+              <span className="text-xs tabular-nums pt-0.5" style={{ color: mutedText }} title={r.at}>
+                {formatLedgerTime(r.at, nowMs)}
+              </span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span
+                    className="text-xs font-semibold px-1.5 py-0.5 rounded"
+                    style={{ background: `${LEDGER_TONE[r.kind]}22`, color: LEDGER_TONE[r.kind] }}
+                  >
+                    {ledgerKindLabel(r.kind)}
+                  </span>
+                  <span className="text-xs truncate" style={{ color: textColor }} title={r.email ?? undefined}>
+                    {r.email ?? r.userId ?? 'unknown member'}
+                  </span>
+                </div>
+                <div className="text-[11px] mt-0.5" style={{ color: mutedText }}>
+                  {r.detail}
+                </div>
+              </div>
+              <div className="flex gap-1.5 flex-wrap justify-end">
+                <DeltaChip label="paying" delta={r.fullSubscriberDelta} />
+                <DeltaChip label="trial" delta={r.freeTrialDelta} />
+                <DeltaChip label="grace" delta={r.trialGraceDelta} />
+                {!moved(r) && (
+                  <span className="text-[11px] px-1.5 py-0.5 rounded" style={{ color: mutedText }}>
+                    no count change
+                  </span>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {ledger.truncated > 0 && (
+        <p className="text-xs mt-3" style={{ color: mutedText }}>
+          + {ledger.truncated} older change{ledger.truncated === 1 ? '' : 's'} not shown. The net above counts them all.
+        </p>
+      )}
+    </div>
+  );
+}
+
+// Paying subscribers who have already clicked Cancel. They still count as Full
+// Subscribers right up to the day their access ends, so this is the one place
+// that departure is visible BEFORE it lands on the chart.
+function ScheduledDeparturesCard({
+  departures,
+  departingValue,
+  nowMs,
+  cardBg,
+  borderColor,
+  mutedText,
+  textColor,
+}: {
+  departures: ConveyorRider[];
+  departingValue: number;
+  nowMs: number;
+  cardBg: string;
+  borderColor: string;
+  mutedText: string;
+  textColor: string;
+}) {
+  return (
+    <div className="rounded-lg p-4" style={{ background: cardBg, border: `1px solid ${borderColor}` }}>
+      <div className="flex items-baseline justify-between flex-wrap gap-2">
+        <span className="text-sm" style={{ color: textColor }}>
+          {departures.length === 0 ? (
+            'No paying subscriber has a cancellation scheduled.'
+          ) : (
+            <>
+              <span className="font-semibold tabular-nums">{departures.length}</span> paying subscriber
+              {departures.length === 1 ? '' : 's'} will drop off when their period ends
+            </>
+          )}
+        </span>
+        {departures.length > 0 && (
+          <span className="text-xs" style={{ color: mutedText }}>
+            {formatUsd(departingValue)}/mo leaving
+          </span>
+        )}
+      </div>
+
+      {departures.length > 0 && (
+        <ul className="mt-3">
+          {departures.map((d, idx) => (
+            <li
+              key={d.userId}
+              className="grid gap-3 py-2 items-center"
+              style={{
+                gridTemplateColumns: 'minmax(0, 1fr) auto',
+                borderTop: idx === 0 ? undefined : `1px solid ${borderColor}33`,
+              }}
+            >
+              <div className="min-w-0">
+                <div className="text-xs truncate" style={{ color: textColor }} title={d.email ?? undefined}>
+                  {d.email ?? d.userId}
+                </div>
+                <div className="text-[11px]" style={{ color: mutedText }}>
+                  {conveyorPlanLabel(d)}
+                  {d.monthlyValue > 0 ? ` · ${formatUsd(d.monthlyValue)}/mo` : ''}
+                </div>
+              </div>
+              <div className="text-right">
+                <CountdownTicker
+                  deadline={d.convertsAt}
+                  nowMs={nowMs}
+                  color={CONVEYOR_COLORS.rollingOff}
+                  className="text-sm font-semibold"
+                />
+                <div className="text-[11px]" style={{ color: mutedText }}>
+                  until access ends
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function ConveyorTab({ data, cardBg, borderColor, mutedText, textColor }: DataTabProps) {
   const conveyor = data.trialConveyor;
 
@@ -1162,6 +1407,43 @@ function ConveyorTab({ data, cardBg, borderColor, mutedText, textColor }: DataTa
           </>
         )}
       </div>
+    </section>
+
+    <section className="mb-8">
+      <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
+        <h2 className="text-lg font-semibold" style={{ color: textColor }}>Leaving Next</h2>
+        <span className="text-xs" style={{ color: mutedText }}>
+          Paying members who already clicked Cancel. They still count as Full Subscribers until their period ends —
+          this is where that drop is visible before it lands.
+        </span>
+      </div>
+      <ScheduledDeparturesCard
+        departures={conveyor.departures}
+        departingValue={conveyor.departingValue}
+        nowMs={nowMs}
+        cardBg={cardBg}
+        borderColor={borderColor}
+        mutedText={mutedText}
+        textColor={textColor}
+      />
+    </section>
+
+    <section className="mb-8">
+      <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
+        <h2 className="text-lg font-semibold" style={{ color: textColor }}>Subscriber Ledger</h2>
+        <span className="text-xs" style={{ color: mutedText }}>
+          Every change to the subscriber counts, newest first — who it was, what happened, and exactly what it did to
+          each line of the Total Subscribers chart.
+        </span>
+      </div>
+      <SubscriberLedgerCard
+        ledger={data.subscriberLedger}
+        nowMs={nowMs}
+        cardBg={cardBg}
+        borderColor={borderColor}
+        mutedText={mutedText}
+        textColor={textColor}
+      />
     </section>
 
     <section className="mb-8">

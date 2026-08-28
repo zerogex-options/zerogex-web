@@ -35,6 +35,13 @@ import {
   NO_FEEDBACK,
 } from '@/core/cancellationReason';
 import {
+  buildSubscriberLedger,
+  summarizeLedger,
+  type LedgerDeleteEvent,
+  type LedgerRow,
+  type LedgerSyncEvent,
+} from '@/core/subscriberBucket';
+import {
   accumulateTrialOutcomes,
   classifyRider,
   NOMINAL_TRIAL_DAYS,
@@ -224,10 +231,27 @@ export type TrialConveyorSnapshot = {
   truncated: number;
   totals: ConveyorTotals;
   outcomes: ConveyorOutcomes;
+  // Paying subscribers who have already clicked Cancel and are counting down to
+  // the day their access actually ends. They still count as Full Subscribers
+  // until then, so without this the drop lands as a surprise weeks later.
+  departures: ConveyorRider[];
+  departingValue: number;
   // Nominal free-trial length, for labelling the belt's scale.
   trialDays: number;
   // Length of the payment-recovery window a stalled trial gets, in days.
   graceDays: number;
+  generatedAt: string;
+};
+
+// Reverse-chronological record of every change to the subscriber headcount:
+// who it happened to, what happened, and what it did to each line of the Total
+// Subscribers chart. See core/subscriberBucket for how it's derived.
+export type SubscriberLedgerSnapshot = {
+  windowDays: number;
+  rows: LedgerRow[];
+  truncated: number;
+  // Net movement of each chart line across the window, which the rows account for.
+  net: { fullSubscriber: number; freeTrial: number; trialGrace: number };
   generatedAt: string;
 };
 
@@ -240,6 +264,7 @@ export type MonitoringSnapshot = {
   growthRates: GrowthRatePoint[];
   cancellationReasons: CancellationReasonsSummary;
   trialConveyor: TrialConveyorSnapshot;
+  subscriberLedger: SubscriberLedgerSnapshot;
   hourly: MonitoringSnapshotPoint[];
   daily: MonitoringSnapshotPoint[];
   topIps: Array<{ ip: string; count: number }>;
@@ -1254,6 +1279,103 @@ function buildCancellationReasons(): CancellationReasonsSummary {
 }
 
 
+
+// ── Subscriber ledger ──────────────────────────────────────────────────────
+const LEDGER_WINDOW_DAYS = 30;
+// Cap on rows serialized to the client. Well above a normal window's traffic;
+// the net totals are computed over every row, so only the list is trimmed.
+const LEDGER_MAX_ROWS = 200;
+
+// Reconstruct the headcount's recent history from the same audit streams the
+// flow charts read. Named with a trailing underscore because the pure builder it
+// delegates to owns the plain name. Any failure yields an empty ledger rather
+// than 500-ing the admin page.
+function buildSubscriberLedger_(now: Date): SubscriberLedgerSnapshot {
+  const empty: SubscriberLedgerSnapshot = {
+    windowDays: LEDGER_WINDOW_DAYS,
+    rows: [],
+    truncated: 0,
+    net: { fullSubscriber: 0, freeTrial: 0, trialGrace: 0 },
+    generatedAt: now.toISOString(),
+  };
+  try {
+    const db = getDb();
+    // Scanned oldest-first so each subscription's prior state is known before
+    // the transition that changes it. A sub's history may start before the
+    // display window, so the scan reaches further back than the window and the
+    // rows are filtered to the window afterwards — otherwise a member whose
+    // first sync predates it would render as a spurious "new subscriber".
+    const since = LEDGER_WINDOW_DAYS * 2;
+    const syncRows = db
+      .prepare(
+        `SELECT created_at, user_id, email, message FROM audit_events
+         WHERE type = 'stripe_subscription_sync'
+           AND created_at > datetime('now', '-${since} days')
+         ORDER BY created_at ASC`,
+      )
+      .all() as Array<{ created_at: string; user_id: string | null; email: string | null; message: string }>;
+    const deletedRows = db
+      .prepare(
+        `SELECT created_at, user_id, email, message FROM audit_events
+         WHERE type = 'stripe_subscription_deleted'
+           AND created_at > datetime('now', '-${since} days')`,
+      )
+      .all() as Array<{ created_at: string; user_id: string | null; email: string | null; message: string }>;
+
+    const syncs: LedgerSyncEvent[] = [];
+    for (const row of syncRows) {
+      const subId = parseSubIdFromMessage(row.message);
+      if (!subId) continue;
+      syncs.push({
+        subId,
+        userId: row.user_id,
+        email: row.email,
+        at: toIsoInstant(row.created_at),
+        status: parseSyncStatus(row.message),
+        tier: parseSyncTierRaw(row.message),
+        cancelAtPeriodEnd: /cancelAtPeriodEnd=true/.test(row.message),
+      });
+    }
+    const deletes: LedgerDeleteEvent[] = deletedRows.map((row) => ({
+      subId: parseSubIdFromMessage(row.message),
+      userId: row.user_id,
+      email: row.email,
+      at: toIsoInstant(row.created_at),
+      reason: parseCancellationReasonFromMessage(row.message).feedback,
+    }));
+
+    const cutoffMs = now.getTime() - LEDGER_WINDOW_DAYS * 86_400_000;
+    const all = buildSubscriberLedger(syncs, deletes).filter((r) => Date.parse(r.at) >= cutoffMs);
+    return {
+      windowDays: LEDGER_WINDOW_DAYS,
+      rows: all.slice(0, LEDGER_MAX_ROWS),
+      truncated: Math.max(0, all.length - LEDGER_MAX_ROWS),
+      net: summarizeLedger(all),
+      generatedAt: now.toISOString(),
+    };
+  } catch {
+    return empty;
+  }
+}
+
+// audit_events.created_at is written by SQLite's datetime() as "YYYY-MM-DD
+// HH:MM:SS" with no zone marker, and it is UTC. Normalize to a real ISO instant
+// so Date.parse doesn't read it as local time.
+function toIsoInstant(createdAt: string): string {
+  const trimmed = createdAt.trim();
+  if (/[Zz]$|[+-]\d{2}:?\d{2}$/.test(trimmed)) return trimmed;
+  return `${trimmed.replace(' ', 'T')}Z`;
+}
+
+// The tier token exactly as the sync message carries it, for the ledger's bucket
+// classification (which folds the legacy ids itself). parseSyncTierStrict maps
+// unknown tokens to null, which would read as "no tier"; here an unrecognized
+// token should simply not be a paid tier.
+function parseSyncTierRaw(message: string): string | null {
+  const m = message.match(/\btier=(\w+)/);
+  return m ? m[1] : null;
+}
+
 // ── Conversion Conveyor ────────────────────────────────────────────────────
 // How far back the audit scan reaches for BOTH the boarding times of trials
 // currently in flight and the historical outcome tally. Comfortably longer than
@@ -1296,6 +1418,8 @@ function buildTrialConveyor(now: Date): TrialConveyorSnapshot {
   const empty: TrialConveyorSnapshot = {
     riders: [],
     truncated: 0,
+    departures: [],
+    departingValue: 0,
     totals: summarizeRiders([]),
     outcomes: summarizeTrialOutcomes(new Map(), [], CONVEYOR_OUTCOMES_WINDOW_DAYS),
     trialDays: NOMINAL_TRIAL_DAYS,
@@ -1324,7 +1448,8 @@ function buildTrialConveyor(now: Date): TrialConveyorSnapshot {
            FROM users
           WHERE deleted_at IS NULL
             AND (subscription_status = 'trialing'
-                 OR (subscription_status = 'past_due' AND payment_grace_reason = 'trial'))`,
+                 OR (subscription_status = 'past_due' AND payment_grace_reason = 'trial')
+                 OR (subscription_status = 'active' AND cancel_at_period_end = 1))`,
       )
       .all() as ConveyorUserRow[];
 
@@ -1363,13 +1488,19 @@ function buildTrialConveyor(now: Date): TrialConveyorSnapshot {
     }));
 
     const riders: ConveyorRider[] = [];
+    const departures: ConveyorRider[] = [];
     for (const row of userRows) {
       const state = classifyRider({
         subscriptionStatus: row.status,
         cancelAtPeriodEnd: Number(row.cancelAtPeriodEnd) === 1,
         paymentGraceReason: row.graceReason,
       });
-      if (!state) continue;
+      // A PAYING subscriber with a scheduled cancel isn't on the belt — they
+      // already converted — but they are the other thing an operator must not be
+      // surprised by, so they get the same countdown treatment below.
+      const isScheduledDeparture =
+        !state && row.status === 'active' && Number(row.cancelAtPeriodEnd) === 1;
+      if (!state && !isScheduledDeparture) continue;
 
       // The deadline the belt counts down to. A running/rolling-off rider is
       // due at the trial end (Stripe's current_period_end while `trialing`);
@@ -1389,17 +1520,21 @@ function buildTrialConveyor(now: Date): TrialConveyorSnapshot {
       const founding = Number(row.founding) === 1;
       const monthlyValue = sku ? amounts[sku.tier][sku.cadence][founding ? 'founding' : 'list'] : 0;
 
-      riders.push({
+      const entry: ConveyorRider = {
         userId: row.id,
         email: row.email,
-        state,
+        // A scheduled departure is presented in the rolling-off lane: same
+        // meaning (leaving, not paying again), different stage of the funnel.
+        state: state ?? 'rollingOff',
         tier: sku?.tier ?? null,
         cadence: sku?.cadence ?? null,
         founding,
         boardedAt: row.subId ? (boardedBySub.get(row.subId) ?? null) : null,
         convertsAt,
         monthlyValue,
-      });
+      };
+      if (state) riders.push(entry);
+      else departures.push(entry);
     }
 
     const totals = summarizeRiders(riders);
@@ -1413,6 +1548,8 @@ function buildTrialConveyor(now: Date): TrialConveyorSnapshot {
     return {
       riders: ordered.slice(0, CONVEYOR_MAX_RIDERS),
       truncated: Math.max(0, ordered.length - CONVEYOR_MAX_RIDERS),
+      departures: sortRidersByDeadline(departures).slice(0, CONVEYOR_MAX_RIDERS),
+      departingValue: departures.reduce((sum, d) => sum + d.monthlyValue, 0),
       totals,
       outcomes,
       trialDays: NOMINAL_TRIAL_DAYS,
@@ -1578,6 +1715,7 @@ export function getSnapshot(): MonitoringSnapshot {
     growthRates: buildGrowthRates(now),
     cancellationReasons: buildCancellationReasons(),
     trialConveyor: buildTrialConveyor(now),
+    subscriberLedger: buildSubscriberLedger_(now),
     hourly: hourlyKeys.map((key) => bucketToPoint(key, live.hourly[key])),
     daily: dailyKeys.map((key) => bucketToPoint(key, live.daily[key])),
     topIps: aggregateTopIps(live.daily, 10),
