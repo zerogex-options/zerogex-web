@@ -108,11 +108,22 @@ setting can't produce a `422`).
    - **Symbol** — `ES`, `NQ`, `SPX`, `SPY`, `QQQ`, or `NDX` (set it to match
      the chart). On an ES or NQ chart, use `ES` / `NQ` — see below.
    - **Poll interval** — default 60s (matches the analytics cycle), floor
-     30s. The floor is enforced at runtime as well as by the `Range`
-     attribute: the attribute stops someone typing a smaller number, the
-     runtime clamp stops a workspace that already holds one. A tester was
-     found polling every 10s — six requests for bytes that change once a
-     minute.
+     30s, enforced by the runtime clamp in `MaybeFetch` and **not** by the
+     `Range` attribute. A tester was found polling every 10s — six requests
+     for bytes that change once a minute — and the first attempt at this
+     raised the `Range` floor to 30 as well. That broke him: NinjaTrader
+     validates a persisted workspace value against `Range` when the chart
+     loads, and a value outside it is a modal error that stops the indicator
+     loading. He opened NinjaTrader to six dialogs reading *"Value of property
+     'PollSeconds' … is 10 and not in valid range between 30 and 3600"* and
+     lost the indicator on the chart he trades, having changed nothing.
+
+     **A `Range` on a persisted property may only ever widen.** It is there to
+     catch typing; it cannot enforce policy, because the values it would reject
+     are already sitting in workspaces on other people's machines. Policy goes
+     in the runtime clamp, which repairs an existing workspace rather than
+     refusing it. `PollSeconds` is now `Range(1, 3600)` — wider than any value
+     that could have been persisted — and still honours 30s.
    - **Show GEX 1..N** and **Show VWAP** — both ON by default. Unlike the
      histogram these are a handful of ordinary lines rather than dozens of
      draw objects, and they are the two things traders asked for by name.
