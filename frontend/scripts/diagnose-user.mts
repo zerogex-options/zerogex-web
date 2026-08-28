@@ -16,6 +16,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import Stripe from 'stripe';
 import { formatCardBrand } from '../core/stripeCard.ts';
 import { classifyTrialEngagement, daysSinceLastSeen } from '../core/trialEngagement.ts';
+import { classifySubscriberBucket } from '../core/subscriberBucket.ts';
 
 // The July-1 founding deferral landed in commit 06b7128. founders whose
 // subscription started before this got charged immediately; founders after it
@@ -151,6 +152,8 @@ type UserRow = {
   stripe_price_id: string | null;
   current_period_end: string | null;
   cancel_at_period_end: number | null;
+  payment_grace_started_at: string | null;
+  payment_grace_reason: string | null;
   trial_reminder_email_sent_at: string | null;
   referred_by_code: string | null;
   referral_credit_months: number | null;
@@ -164,6 +167,7 @@ const rows = querySqlite<UserRow>(
           paid_welcome_email_sent_at, subscription_lapsed, subscription_status,
           stripe_customer_id, stripe_subscription_id, stripe_price_id,
           current_period_end, cancel_at_period_end,
+          payment_grace_started_at, payment_grace_reason,
           trial_reminder_email_sent_at,
           referred_by_code, referral_credit_months
    FROM users
@@ -253,9 +257,27 @@ kv('Stripe subscription id', orDash(user.stripe_subscription_id));
 kv('Stripe price id', orDash(user.stripe_price_id));
 kv('Current period end', orDash(user.current_period_end));
 kv('Cancel at period end', yesNo(user.cancel_at_period_end));
+kv('Payment grace started', orDash(user.payment_grace_started_at));
+kv('Payment grace reason', orDash(user.payment_grace_reason));
 kv('Paid welcome sent', orDash(user.paid_welcome_email_sent_at));
 kv('Subscription lapsed', yesNo(user.subscription_lapsed));
 kv('Trial reminder sent', orDash(user.trial_reminder_email_sent_at));
+
+// Which line of the admin Total Subscribers chart this member is on RIGHT NOW,
+// and why. Uses the same classifier the chart's buckets are tested against
+// (core/subscriberBucket), so "why isn't this person in Trial Grace?" is
+// answerable here instead of by reading monitoring SQL by hand.
+header('Admin monitoring bucket');
+{
+  const verdict = classifySubscriberBucket({
+    subscriptionStatus: user.subscription_status,
+    tier: user.tier,
+    paymentGraceReason: user.payment_grace_reason,
+    cancelAtPeriodEnd: Number(user.cancel_at_period_end) === 1,
+  });
+  kv('Counted as', verdict.label);
+  kv('Because', verdict.why);
+}
 
 // Deferral analysis — what the checkout route would have computed at the
 // time of subscription. Surfaces the exact reason a founder might NOT have
