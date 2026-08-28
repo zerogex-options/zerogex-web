@@ -227,8 +227,11 @@ frontend/public/og-image.png
 frontend/public/og-image.*.png
 frontend/public/target.svg
 # favicon lands in app/, not public/ -- Next hashes app/favicon.ico into the
-# <link rel="icon"> URL, so that copy is the one that busts browser caches.
+# <link rel="icon"> URL, so that copy is the one that busts browser caches. The
+# public/ copy is a stale shadow that defeats exactly that (see `make logo`),
+# and it was NOT ignored here until a `git add -A` committed one by accident.
 frontend/app/favicon.ico
+frontend/public/favicon.ico
 frontend/public/folds-of-honor-*
 # Published NinjaTrader import archive. The source of record is the .cs next to
 # it (committed); the .zip is copied in from assets/ninjatrader/ at deploy time
@@ -261,4 +264,3 @@ deploy/systemd/monitoring-backup.env
 # run from a Mac; nothing here ever wants them.
 .DS_Store
 **/.DS_Store
-frontend/public/favicon.ico
