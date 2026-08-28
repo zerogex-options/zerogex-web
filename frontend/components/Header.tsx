@@ -13,14 +13,10 @@ import {
   ChevronDown,
   Moon,
   Sun,
-  CircleUserRound,
-  LogIn,
-  LogOut,
-  Rocket,
-  User,
   Search,
 } from "lucide-react";
 import { NAV_GROUPS, type NavGroup, type NavItem } from "@/core/navigation";
+import AccountMenu from "./AccountMenu";
 import BetaBadge from "./BetaBadge";
 import TierBadge from "./TierBadge";
 import ThemeDropdown from "./ThemeDropdown";
@@ -32,9 +28,9 @@ import { useTimeframe } from "@/core/TimeframeContext";
 import { SYMBOLS } from "@/core/symbols";
 import { getMarketSession } from "@/core/utils";
 import { getPrimaryPriceChangeSummary, getExtendedHoursRow } from "@/core/priceChange";
-import { colors } from "@/core/colors";
 import { brandTitle } from "@/core/brand";
 import SessionBadge from "./SessionBadge";
+import FuturesDelayBadge from "./FuturesDelayBadge";
 import WorldClocks from "./WorldClocks";
 import OptionsCalendarBadge from "./OptionsCalendarBadge";
 import NewsHeadlinesBadge from "./NewsHeadlinesBadge";
@@ -64,10 +60,8 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
   });
   const headerRef = useRef<HTMLElement | null>(null);
   const mobileTopBarRef = useRef<HTMLDivElement | null>(null);
-  const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const router = useRouter();
   const pathname = usePathname();
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
 
   const mobileNavGroups = useMemo<NavGroup[]>(
@@ -79,6 +73,10 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
         items: [
           { id: "/about", label: "About", labelKey: "nav.about" },
           { id: "https://api.zerogex.io/docs", label: "API Specs", external: true },
+          // mailto: — `external` keeps it an <a href> rather than a router.push,
+          // and the http-only target/rel check leaves it opening in the same tab
+          // so the mail client takes over instead of leaving a blank window.
+          { id: "mailto:support@zerogex.io", label: "Support", labelKey: "nav.support", external: true },
         ],
       },
     ],
@@ -237,17 +235,6 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
   }, [isCollapsed, mobileMenuOpen]);
 
   useEffect(() => {
-    const closeOnOutside = (event: MouseEvent) => {
-      if (!profileMenuRef.current) return;
-      if (!profileMenuRef.current.contains(event.target as Node)) {
-        setProfileMenuOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", closeOnOutside);
-    return () => document.removeEventListener("mousedown", closeOnOutside);
-  }, []);
-
-  useEffect(() => {
     const interval = setInterval(() => {
       setSession(getMarketSession());
     }, 60000);
@@ -320,11 +307,18 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
     }
   };
 
-  const row1PriceLabel = (isExtendedHours || quoteSession === "closed")
+  const row1PriceBaseLabel = (isExtendedHours || quoteSession === "closed")
     ? (sessionClosesData?.current_session_close_ts
         ? `Closing price as of ${formatEtDateTime(sessionClosesData.current_session_close_ts)}`
         : "regular session close")
     : (quoteData?.timestamp ? `as of ${formatEtDateTime(quoteData.timestamp)}` : "latest quote");
+  // ES/NQ only: the feed is behind but the market is open, so the price shown
+  // is the last observed futures print rather than a live one. Say so — the
+  // alternative (reporting the session closed) swapped in the last cash close
+  // and published its day change as today's.
+  const row1PriceLabel = quoteData?.stale
+    ? `${row1PriceBaseLabel} — feed delayed, last observed print`
+    : row1PriceBaseLabel;
 
   const row1ChangeLabel = quoteSession === "open"
     ? (sessionClosesData?.current_session_close_ts
@@ -369,91 +363,15 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
             <div className="flex items-center" style={{ gap: isCollapsed ? "14px" : "20px" }}>
                 <button
                   onClick={onToggleTheme}
-                  className="rounded-full border transition-colors"
-                  style={{ borderColor: border, color: 'var(--text-secondary)', backgroundColor: "transparent", cursor: "pointer", marginLeft: "12px", marginRight: isCollapsed ? "0" : "12px", padding: isCollapsed ? "6px" : "9px" }}
-                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${'var(--color-brand-accent)'}26`; e.currentTarget.style.color = 'var(--color-brand-accent)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+                  className={`zg-icon-btn${isCollapsed ? " zg-icon-btn--sm" : ""}`}
+                  style={{ marginLeft: "12px", marginRight: isCollapsed ? "0" : "12px" }}
                   aria-label={t('menu.toggleTheme')}
                 >
-                  {theme === "dark" ? <Moon size={isCollapsed ? 18 : 20} /> : <Sun size={isCollapsed ? 18 : 20} />}
+                  {theme === "dark" ? <Moon size={isCollapsed ? 16 : 18} /> : <Sun size={isCollapsed ? 16 : 18} />}
                 </button>
                 <ThemeDropdown />
                 {isCollapsed && <LanguageDropdown compact />}
-                {isCollapsed && (
-                  <div ref={profileMenuRef} style={{ position: "relative" }}>
-                    <button
-                      type="button"
-                      onClick={() => setProfileMenuOpen((prev) => !prev)}
-                      className="rounded-full border transition-colors"
-                      style={{ borderColor: border, color: 'var(--text-secondary)', backgroundColor: "transparent", padding: "6px", cursor: "pointer" }}
-                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${'var(--color-brand-accent)'}26`; e.currentTarget.style.color = 'var(--color-brand-accent)'; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = 'var(--text-secondary)'; }}
-                      aria-label={t('menu.openProfile')}
-                    >
-                      <CircleUserRound size={18} />
-                    </button>
-                    {profileMenuOpen && (
-                      <div
-                        className="rounded-lg border p-2"
-                        style={{
-                          position: "absolute",
-                          left: 0,
-                          top: "calc(100% + 8px)",
-                          minWidth: "210px",
-                          borderColor: border,
-                          background: "color-mix(in srgb, var(--bg-card) 95%, transparent)",
-                          boxShadow: "0 8px 26px rgba(0,0,0,0.25)",
-                          zIndex: 60,
-                        }}
-                      >
-                        {authSession?.authenticated && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setProfileMenuOpen(false);
-                              router.push("/account");
-                            }}
-                            className="w-full rounded-md px-3 py-2.5 text-left text-sm font-semibold"
-                            style={{ color: 'var(--text-primary)' }}
-                          >
-                            <span className="inline-flex items-center gap-2.5"><User size={16} />{t('menu.account')}</span>
-                          </button>
-                        )}
-                        {canUpgrade && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setProfileMenuOpen(false);
-                              router.push("/pricing");
-                            }}
-                            className="w-full rounded-md px-3 py-2.5 text-left text-sm font-semibold"
-                            style={{ color: 'var(--text-primary)' }}
-                          >
-                            <span className="inline-flex items-center gap-2.5"><Rocket size={16} />{t('menu.upgrade')}</span>
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setProfileMenuOpen(false);
-                            if (authSession?.authenticated) {
-                              void handleLogout();
-                              return;
-                            }
-                            router.push("/login");
-                          }}
-                          className="w-full rounded-md px-3 py-2.5 text-left text-sm font-semibold"
-                          style={{ color: 'var(--text-primary)' }}
-                        >
-                          <span className="inline-flex items-center gap-2.5">
-                            {authSession?.authenticated ? <LogOut size={16} /> : <LogIn size={16} />}
-                            {authSession?.authenticated ? t('menu.logout') : t('menu.login')}
-                          </span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
+                {isCollapsed && <AccountMenu align="start" compact />}
                 {isCollapsed && <OptionsCalendarBadge theme={theme} compact />}
                 {isCollapsed && <NewsHeadlinesBadge theme={theme} compact />}
                 {isCollapsed && (
@@ -525,18 +443,27 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                 {!isCollapsed && row1Price !== null && (
                   <div className="flex flex-col gap-0.5">
                     <div className={(quoteSession === "open" || quoteSession === "closed") ? undefined : "flex items-center gap-2"} style={(quoteSession === "open" || quoteSession === "closed") ? { display: "contents" } : undefined}>
-                      <span className="font-bold" style={{ fontSize: "1.5rem", lineHeight: 1.05 }} title={row1PriceLabel}>${row1Price.toFixed(2)}</span>
+                      {/* zg-metric, not font-bold: the live quote reprices every
+                          second, and proportional digits change width as they
+                          tick, so the whole row shimmies. Tabular + slashed-zero
+                          pins each glyph to one advance width. */}
+                      <span className="zg-metric" style={{ fontSize: "1.5rem" }} title={row1PriceLabel}>${row1Price.toFixed(2)}</span>
                       {futuresTicker && (
                         <span
-                          className="px-1.5 py-0.5 rounded font-bold tracking-wide w-fit"
+                          className="zg-chip w-fit"
                           title={`Outside cash session — showing ${futuresTicker} futures for ${symbol}`}
-                          style={{ backgroundColor: 'var(--color-brand-coral)1f', color: 'var(--color-brand-coral)', fontSize: '10px' }}
+                          style={{ '--chip-color': 'var(--color-brand-coral)' } as React.CSSProperties}
                         >
                           ◆ {futuresTicker} FUT
                         </span>
                       )}
+                      <FuturesDelayBadge
+                        symbol={symbol}
+                        stale={quoteData?.stale}
+                        dataAgeSeconds={quoteData?.data_age_seconds}
+                      />
                       {row1Change !== null && row1ChangePercent !== null && (
-                        <div className="flex items-center gap-1 px-2 py-1 rounded-lg font-semibold w-fit" title={row1ChangeLabel} style={{ backgroundColor: `${row1Positive ? 'var(--color-bull)' : 'var(--color-bear)'}1f`, color: row1Positive ? 'var(--color-bull)' : 'var(--color-bear)', fontSize: "12px" }}>
+                        <div className="zg-datum flex items-center gap-1 px-2 py-1 font-semibold w-fit" title={row1ChangeLabel} style={{ borderRadius: 'var(--radius-control)', backgroundColor: `${row1Positive ? 'var(--color-bull)' : 'var(--color-bear)'}1f`, color: row1Positive ? 'var(--color-bull)' : 'var(--color-bear)', fontSize: "12px" }}>
                           {row1Positive ? <TrendingUp size={12} strokeWidth={2.5} /> : <TrendingDown size={12} strokeWidth={2.5} />}
                           {row1Positive ? "+" : ""}{row1Change.toFixed(2)} ({row1Positive ? "+" : ""}{row1ChangePercent.toFixed(2)}%)
                         </div>
@@ -545,8 +472,8 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                     {showExtendedRow && row2Price !== null && row2Change !== null && row2ChangePercent !== null && (
                       <div className="flex items-center gap-1.5 mt-0.5" title={row2Label}>
                         {extendedHoursIcon === "moon" ? <Moon size={11} style={{ color: 'var(--text-secondary)' }} /> : <Sun size={11} style={{ color: 'var(--text-secondary)' }} />}
-                        <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)', opacity: 0.8 }}>${row2Price.toFixed(2)}</span>
-                        <span className="text-xs font-semibold" title={row2ChangeLabel} style={{ color: row2Positive ? 'var(--color-bull)' : 'var(--color-bear)' }}>
+                        <span className="zg-datum text-xs font-semibold" style={{ color: 'var(--text-primary)', opacity: 0.8 }}>${row2Price.toFixed(2)}</span>
+                        <span className="zg-datum text-xs font-semibold" title={row2ChangeLabel} style={{ color: row2Positive ? 'var(--color-bull)' : 'var(--color-bear)' }}>
                           {row2Positive ? "+" : ""}{row2Change.toFixed(2)} ({row2Positive ? "+" : ""}{row2ChangePercent.toFixed(2)}%)
                         </span>
                       </div>
@@ -581,101 +508,20 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                 <OptionsCalendarBadge theme={theme} />
                 <NewsHeadlinesBadge theme={theme} />
                 <LanguageDropdown />
-                <Link
-                  href="/search"
-                  aria-label="Search"
-                  className="rounded-full border transition-colors flex items-center justify-center"
-                  style={{ borderColor: border, color: 'var(--text-secondary)', backgroundColor: "transparent", padding: "9px", cursor: "pointer" }}
-                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${'var(--color-brand-accent)'}26`; e.currentTarget.style.color = 'var(--color-brand-accent)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = 'var(--text-secondary)'; }}
-                >
-                  <Search size={20} />
+                <Link href="/search" aria-label="Search" className="zg-icon-btn">
+                  <Search size={18} />
                 </Link>
-                <div ref={profileMenuRef} style={{ position: "relative" }}>
-                  <button
-                    type="button"
-                    onClick={() => setProfileMenuOpen((prev) => !prev)}
-                    className="rounded-full border transition-colors"
-                    style={{ borderColor: border, color: 'var(--text-secondary)', backgroundColor: "transparent", padding: "9px", cursor: "pointer" }}
-                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${'var(--color-brand-accent)'}26`; e.currentTarget.style.color = 'var(--color-brand-accent)'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = 'var(--text-secondary)'; }}
-                    aria-label={t('menu.openProfile')}
-                  >
-                    <CircleUserRound size={20} />
-                  </button>
-                  {profileMenuOpen && (
-                    <div
-                      className="rounded-lg border p-2"
-                      style={{
-                        position: "absolute",
-                        right: 0,
-                        top: "calc(100% + 8px)",
-                        minWidth: "210px",
-                        borderColor: border,
-                        background: "color-mix(in srgb, var(--bg-card) 95%, transparent)",
-                        boxShadow: "0 8px 26px rgba(0,0,0,0.25)",
-                        zIndex: 60,
-                      }}
-                    >
-                      {authSession?.authenticated && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setProfileMenuOpen(false);
-                            router.push("/account");
-                          }}
-                          className="w-full rounded-md px-3 py-2.5 text-left text-sm font-semibold"
-                          style={{ color: 'var(--text-primary)' }}
-                        >
-                          <span className="inline-flex items-center gap-2.5"><User size={16} />{t('menu.account')}</span>
-                        </button>
-                      )}
-                      {canUpgrade && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setProfileMenuOpen(false);
-                            router.push("/pricing");
-                          }}
-                          className="w-full rounded-md px-3 py-2.5 text-left text-sm font-semibold"
-                          style={{ color: 'var(--text-primary)' }}
-                        >
-                          <span className="inline-flex items-center gap-2.5"><Rocket size={16} />{t('menu.upgrade')}</span>
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setProfileMenuOpen(false);
-                          if (authSession?.authenticated) {
-                            void handleLogout();
-                            return;
-                          }
-                          router.push("/login");
-                        }}
-                        className="w-full rounded-md px-3 py-2.5 text-left text-sm font-semibold"
-                        style={{ color: 'var(--text-primary)' }}
-                      >
-                        <span className="inline-flex items-center gap-2.5">
-                          {authSession?.authenticated ? <LogOut size={16} /> : <LogIn size={16} />}
-                          {authSession?.authenticated ? "Logout" : "Login"}
-                        </span>
-                      </button>
-                    </div>
-                  )}
-                </div>
+                <AccountMenu align="end" />
               </div>
             )}
 
             <button
               onClick={toggleCollapsed}
-              className="p-2 rounded-lg transition-all duration-200 hover:bg-opacity-10 absolute"
-              style={{ color: 'var(--text-secondary)', backgroundColor: "transparent", top: "50%", transform: "translateY(-50%)", right: "12px" }}
-              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-hover)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
+              className="zg-icon-btn zg-icon-btn--sm absolute"
+              style={{ border: "0", top: "50%", transform: "translateY(-50%)", right: "12px" }}
               aria-label={isCollapsed ? "Expand header" : "Collapse header"}
             >
-              {isCollapsed ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
+              {isCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
             </button>
           </div>
         </div>
@@ -706,30 +552,28 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
               />
             </Link>
             <div className="flex items-center gap-2 flex-shrink-0">
-              <Link
-                href="/search"
-                aria-label="Search"
-                className="rounded-full border transition-colors flex items-center justify-center"
-                style={{ borderColor: border, color: 'var(--text-secondary)', backgroundColor: "transparent", padding: "6px", cursor: "pointer" }}
-              >
-                <Search size={18} />
+              <Link href="/search" aria-label="Search" className="zg-icon-btn zg-icon-btn--sm">
+                <Search size={16} />
               </Link>
               <OptionsCalendarBadge theme={theme} compact mobile />
               <NewsHeadlinesBadge theme={theme} compact mobile />
               <button
                 onClick={onToggleTheme}
-                className="rounded-full border transition-colors"
-                style={{ borderColor: border, color: 'var(--text-secondary)', backgroundColor: "transparent", padding: "6px", cursor: "pointer" }}
-                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${'var(--color-brand-accent)'}26`; e.currentTarget.style.color = 'var(--color-brand-accent)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+                className="zg-icon-btn zg-icon-btn--sm"
                 aria-label={t('menu.toggleTheme')}
               >
-                {theme === "dark" ? <Moon size={18} /> : <Sun size={18} />}
+                {theme === "dark" ? <Moon size={16} /> : <Sun size={16} />}
               </button>
               <ThemeDropdown />
               <LanguageDropdown compact />
-              <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-0 mr-1">
-                {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="zg-icon-btn zg-icon-btn--sm mr-1"
+                style={{ border: "0" }}
+                aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+                aria-expanded={mobileMenuOpen}
+              >
+                {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
               </button>
             </div>
           </div>
@@ -945,13 +789,14 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                   ) : (
                     <Sun size={20} style={{ color: 'var(--text-secondary)' }} />
                   )}
-                  <span className="font-bold text-2xl" title={row2Label}>
+                  <span className="zg-metric" style={{ fontSize: "1.5rem" }} title={row2Label}>
                     ${row2Price.toFixed(2)}
                   </span>
                   <div
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-semibold text-sm"
+                    className="zg-datum flex items-center gap-1.5 px-2.5 py-1 font-semibold text-sm"
                     title={row2ChangeLabel}
                     style={{
+                      borderRadius: 'var(--radius-control)',
                       backgroundColor:
                         theme === "dark"
                           ? `${row2Positive ? 'var(--color-bull)' : 'var(--color-bear)'}15`
@@ -972,25 +817,32 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
               ) : row1Price !== null ? (
                 <div className="flex items-center gap-3 flex-wrap">
                   <span
-                    className="font-bold text-2xl"
+                    className="zg-metric"
+                    style={{ fontSize: "1.5rem" }}
                     title={row1PriceLabel}
                   >
                     ${row1Price.toFixed(2)}
                   </span>
                   {futuresTicker && (
                     <span
-                      className="px-1.5 py-0.5 rounded font-bold tracking-wide w-fit"
+                      className="zg-chip w-fit"
                       title={`Outside cash session — showing ${futuresTicker} futures for ${symbol}`}
-                      style={{ backgroundColor: 'var(--color-brand-coral)1f', color: 'var(--color-brand-coral)', fontSize: '10px' }}
+                      style={{ '--chip-color': 'var(--color-brand-coral)' } as React.CSSProperties}
                     >
                       ◆ {futuresTicker} FUT
                     </span>
                   )}
+                  <FuturesDelayBadge
+                    symbol={symbol}
+                    stale={quoteData?.stale}
+                    dataAgeSeconds={quoteData?.data_age_seconds}
+                  />
                   {row1Change !== null && row1ChangePercent !== null && (
                     <div
-                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-semibold text-sm"
+                      className="zg-datum flex items-center gap-1.5 px-2.5 py-1 font-semibold text-sm"
                       title={row1ChangeLabel}
                       style={{
+                        borderRadius: 'var(--radius-control)',
                         backgroundColor:
                           theme === "dark"
                             ? `${row1Positive ? 'var(--color-bull)' : 'var(--color-bear)'}15`

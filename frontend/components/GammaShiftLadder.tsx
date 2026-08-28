@@ -40,8 +40,11 @@ import {
 import { useChartTheme } from '@/hooks/useChartTheme';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useChartExpirations } from '@/hooks/useChartExpirations';
+import { useZeroDteOption } from '@/hooks/useZeroDteOption';
+import { etTodayDateKey } from '@/core/utils';
 import { useGexUnit, gexScaleFactor, GEX_UNIT_LABEL } from '@/core/GexUnitContext';
 import { useStrikeFilter } from '@/core/StrikeFilterContext';
+import { sessionOpenAnchorIndex } from '@/core/sessionDelta';
 import { formatGexCompact } from '@/core/signalHelpers';
 import ChartCaption from './ChartCaption';
 import ExpirationMultiSelect from './ExpirationMultiSelect';
@@ -334,6 +337,7 @@ export default function GammaShiftLadder({ symbol: symbolProp }: { symbol?: stri
   // can actually serve (a pick made on another symbol's chart must not leak a
   // foreign date into the param). Empty selection = "all", the default.
   const { available, selection, setSelection, param: expParam } = useChartExpirations(symbol, true);
+  const zeroDte = useZeroDteOption(available, etTodayDateKey());
   const { gexUnit } = useGexUnit();
   const { activeOnly } = useStrikeFilter();
 
@@ -355,10 +359,20 @@ export default function GammaShiftLadder({ symbol: symbolProp }: { symbol?: stri
       return { aIdx: a, bIdx: b };
     }
     const b = n - 1;
+    if (preset === 'session') {
+      // "Since open" anchors at the 09:30 ET cash open of the latest bucket's
+      // session — for every symbol. Index feeds are RTH-only so their oldest
+      // bucket IS the open, but ETF feeds carry pre-market buckets that must
+      // not count as "the open"; the anchor helper skips them (and falls back
+      // to the oldest available bucket when 09:30 isn't in the window — the
+      // A time shown above the ladder always reads the real anchor).
+      const anchor = sessionOpenAnchorIndex(buckets.map((x) => x.timestamp));
+      return { aIdx: Math.min(anchor, b - 1), bIdx: b };
+    }
     const p = PRESETS.find((x) => x.key === preset);
-    const back = p?.buckets === 'session' ? b : typeof p?.buckets === 'number' ? p.buckets : 6;
+    const back = typeof p?.buckets === 'number' ? p.buckets : 6;
     return { aIdx: Math.max(0, b - back), bIdx: b };
-  }, [n, preset, custom]);
+  }, [n, preset, custom, buckets]);
 
   const bucketA = buckets[aIdx];
   const bucketB = buckets[bIdx];
@@ -542,6 +556,7 @@ export default function GammaShiftLadder({ symbol: symbolProp }: { symbol?: stri
       onChange={setSelection}
       label="Expiry"
       disabled={available.length === 0}
+      zeroDte={zeroDte}
     />
   );
 

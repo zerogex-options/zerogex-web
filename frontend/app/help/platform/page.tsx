@@ -230,6 +230,12 @@ const sections: Section[] = [
           'How to read the API docs, what your Pro tier unlocks, and the basic auth + rate-limit model.',
       },
       {
+        href: '/help/platform/mcp-integration',
+        title: 'Building an MCP Server on the ZeroGEX API',
+        blurb:
+          'The consolidated levels endpoint, tool definitions to start from, and how to stop a language model quoting stale levels as if they were live.',
+      },
+      {
         href: '/help/platform/data-coverage',
         title: 'Data Coverage &amp; Refresh',
         blurb:

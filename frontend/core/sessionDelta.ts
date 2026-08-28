@@ -75,6 +75,31 @@ export function sessionOpenIsoFor(ts: string | null | undefined): string | null 
 }
 
 /**
+ * Index of the bucket where a "Since open" comparison should anchor: the
+ * first timestamp at-or-after 09:30 ET on the session the LAST timestamp
+ * belongs to. Index feeds are RTH-only so this is usually index 0, but ETF
+ * feeds carry pre-market buckets, and the cash open — not the window's oldest
+ * bucket — is the session baseline. Falls back to 0 (the earliest available
+ * bucket) when nothing at-or-after that session's open is in the window
+ * (pre-market, or a window too short to reach back to 09:30); callers render
+ * the anchor's actual time, so the fallback is visible rather than silent.
+ */
+export function sessionOpenAnchorIndex(
+  timestamps: readonly (string | null | undefined)[],
+): number {
+  if (timestamps.length === 0) return 0;
+  const openIso = sessionOpenIsoFor(timestamps[timestamps.length - 1]);
+  if (!openIso) return 0;
+  const openMs = Date.parse(openIso);
+  for (let i = 0; i < timestamps.length; i += 1) {
+    const ts = timestamps[i];
+    const ms = ts ? Date.parse(ts) : NaN;
+    if (Number.isFinite(ms) && ms >= openMs) return i;
+  }
+  return 0;
+}
+
+/**
  * Collapse a frame's per-(strike, expiration) rows to per-strike Net GEX
  * summed across the selected expirations. `selected` uses the site-wide
  * convention: an EMPTY array means "All expirations".

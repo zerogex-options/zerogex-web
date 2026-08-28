@@ -128,6 +128,43 @@ export function getPrimaryPriceChangeSummary({
   };
 }
 
+export interface SpotPriorCloseChange {
+  changePercent: number | null;
+  isPositive: boolean;
+}
+
+/**
+ * Day-change % for a LIVE displayed spot against the previous regular-session
+ * close — the plain "% vs prior close" reading everyone expects next to a
+ * price. Used by the gamma ladder header, where the big number is the
+ * analytics spot (gex_summary.spot_price): the badge must describe THAT
+ * number, so no frozen-close display swap and no futures-basis change ever
+ * applies here — just (spot − previous close) / previous close.
+ *
+ * Which field holds "the previous close" flips at 16:00 (see SessionClosesData):
+ * while today hasn't closed (open, pre-market — and an unknown session, the
+ * common live case) it's `current_session_close`; once today's close has
+ * rolled in (after-hours and every closed state) it's `prior_session_close`,
+ * which keeps the badge reading as the familiar day change instead of a
+ * near-zero "since 16:00" drift.
+ */
+export function getSpotPriorCloseChange(
+  spot: number | null | undefined,
+  quoteSession: string | null | undefined,
+  sessionCloses: SessionClosesData | null | undefined,
+): SpotPriorCloseChange {
+  const session = quoteSession as MarketSession | null;
+  const todayHasClosed = !(session == null || session === 'open' || session === 'pre-market');
+  const base = todayHasClosed
+    ? (sessionCloses?.prior_session_close ?? null)
+    : (sessionCloses?.current_session_close ?? null);
+  if (spot == null || !Number.isFinite(spot) || base == null || !Number.isFinite(base) || base === 0) {
+    return { changePercent: null, isPositive: false };
+  }
+  const changePercent = ((spot - base) / base) * 100;
+  return { changePercent, isPositive: changePercent >= 0 };
+}
+
 export interface ExtendedHoursRow {
   price: number | null;
   change: number | null;

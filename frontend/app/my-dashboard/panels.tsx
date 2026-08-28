@@ -14,8 +14,10 @@ import MarketMakerExposures from '@/components/MarketMakerExposures';
 import ProprietarySignalsSynthesis from '@/components/ProprietarySignalsSynthesis';
 import VolatilityCard from '@/components/VolatilityCard';
 import TradeBiasSection from '@/components/TradeBiasSection';
+import BiasHorizonCard from '@/app/trade-bias/BiasHorizonCard';
 import UnderlyingCandlesChart from '@/components/UnderlyingCandlesChart';
 import GammaTerminalChart from '@/components/GammaTerminalChart';
+import KeyLevelsStrip from '@/components/KeyLevelsStrip';
 import GammaPulsePanel from '@/components/GammaPulsePanel';
 import GexProfileChart from '@/components/GexProfileChart';
 import GexWallsChart from '@/components/GexWallsChart';
@@ -51,6 +53,7 @@ import { useGammaLadderColumn } from '@/hooks/useGammaLadder';
 import { useChartExpirations } from '@/hooks/useChartExpirations';
 import { useStrikeProfileTimeseries } from '@/hooks/useStrikeProfileTimeseries';
 import { useSharedExpirations } from '@/hooks/useSharedExpirations';
+import { useZeroDteOption } from '@/hooks/useZeroDteOption';
 import { reconcileExpirations } from '@/core/expirationPersistence';
 import { buildReportModel } from '@/app/live-bulletin/bulletinHelpers';
 import { usePageT } from '@/core/LanguageContext';
@@ -89,6 +92,33 @@ export function TodaysReadPanel() {
     [symbol, quote?.close, gex, sessionCloses?.current_session_close, vol?.index, volIndex],
   );
   return <TodaysReadCard model={model} />;
+}
+
+/**
+ * Key Levels — the same strip that sits at the top of the Gamma Chart pages,
+ * mounted as a widget. Literally the same component, so the two can't drift:
+ * whatever the strip shows, the widget shows.
+ *
+ * It needs no symbol/expiry props because it reads them from context, and a
+ * pane re-provides both (TimeframeSymbolScope + ExpirationScopeContext — see
+ * DashboardPane). So on a split board the two halves show two different books,
+ * and cloning a column across carries the widget with its new scope. Its cards
+ * are an auto-fit grid, so it reflows to whatever footprint a drag-resize hands
+ * it — two across at S, all six in a row at XL.
+ *
+ * Self-fetching (feeds: []) like the other panel widgets: its levels come from
+ * useGammaPlaybook, not the shared tile feeds, because that is what keeps them
+ * identical to the chart's — expiration filter included.
+ */
+export function KeyLevelsPanel() {
+  // No WidgetCard title: the strip renders its own header, and on a split board
+  // that header is what tells the two halves apart (it names the symbol and the
+  // expiration scope actually in force for this pane).
+  return (
+    <WidgetCard pad>
+      <KeyLevelsStrip />
+    </WidgetCard>
+  );
 }
 
 export function DealerExposuresPanel() {
@@ -152,9 +182,10 @@ export function GammaByStrikePanel() {
     [expirationOptions, todayKey],
   );
   const chartSelectedExpirations = useMemo(
-    () => reconcileExpirations(sharedExpirations, chartExpirationOptions),
-    [sharedExpirations, chartExpirationOptions],
+    () => reconcileExpirations(sharedExpirations, chartExpirationOptions, todayKey),
+    [sharedExpirations, chartExpirationOptions, todayKey],
   );
+  const zeroDte = useZeroDteOption(chartExpirationOptions, todayKey);
   const profileStrikeData = useMemo(
     () =>
       toProfileStrikeData(
@@ -201,6 +232,7 @@ export function GammaByStrikePanel() {
         expirationOptions={chartExpirationOptions}
         selectedExpirations={chartSelectedExpirations}
         onSelectedExpirationsChange={setSharedExpirations}
+        zeroDte={zeroDte}
         perExpirationData={perExpirationData}
         todayKey={todayKey}
       />
@@ -301,6 +333,7 @@ export function GammaLadderPanel() {
   const { showSessionDelta } = useSessionDelta();
   const t = usePageT(dict);
   const expirations = useChartExpirations(symbol, true);
+  const ladderZeroDte = useZeroDteOption(expirations.available, etTodayDateKey());
   const column = useGammaLadderColumn(symbol, true, {
     expirations: expirations.selection,
     sessionDelta: showSessionDelta,
@@ -329,6 +362,7 @@ export function GammaLadderPanel() {
           onChange={expirations.setSelection}
           label="Expiry"
           disabled={expirations.available.length === 0}
+          zeroDte={ladderZeroDte}
         />
         <SessionDeltaToggle showHint={false} />
         <GexUnitToggle showHint={false} />
@@ -360,11 +394,26 @@ export function SignalsSynthesisPanel() {
   );
 }
 
-export function TradeBiasPanel() {
+export function RegimePlaybookPanel() {
   const t = usePageT(dict);
   return (
-    <WidgetCard title={t('tradeBias')}>
+    <WidgetCard title={t('regimePlaybook')}>
       <TradeBiasSection compact />
+    </WidgetCard>
+  );
+}
+
+/**
+ * The Signals Engine's bias for a chosen horizon — a different read from
+ * RegimePlaybookPanel above, which composites its own read in the browser and
+ * has no horizon at all. Linked to the full page, since this card is deliberately the
+ * summary and the playbook/checklist/history live there.
+ */
+export function TradeBiasHorizonPanel() {
+  const t = usePageT(dict);
+  return (
+    <WidgetCard title={t('tradeBiasHorizon')} href="/trade-bias">
+      <BiasHorizonCard />
     </WidgetCard>
   );
 }

@@ -13,7 +13,43 @@
 | Disputed invoice | `in_1U45qG4AOiqteMYYZtU2r5FM` — paid 2026-08-14 |
 | Evidence deadline | **2026-09-05** |
 
-## Status — closed out, awaiting the issuer's decision
+## Outcome: LOST
+
+JPMorgan Chase Bank N.A. — Debit decided for the cardholder. The decision is final; Visa
+13.2 has no second round, and pre-arbitration is not worth pursuing at $29. Net cost: the
+$29 plus the dispute-received fee plus the dispute-countered fee, the last of which is
+only refunded on a win.
+
+The issuer filed documentation with its decision, viewable in the Stripe Dashboard. Read
+it — it is the only direct evidence of what the cardholder actually told their bank, and
+it is what should drive any prevention work. Everything below this line was written
+before the outcome was known.
+
+### What this says about the evidence
+
+The package was accurate and well-supported, and it still lost. The gap was never the
+documentation: it was that **no post-charge usage existed to show**. The cardholder
+signed up on 2026-08-06, used the product for roughly half an hour, and never returned —
+`sessions.last_rotated_at` never moved past that day. Against a debit issuer, "he never
+cancelled and we told him clearly" is a weaker position than "he used what he paid for",
+and only the second one was unavailable to us.
+
+Worth setting as policy rather than re-deciding case by case: at this amount, with no
+post-charge usage evidence and a debit BIN, countering is close to break-even even with
+strong documentation. The evidence work still earns its keep — it is reusable, and it is
+what makes a *good* case winnable — but a $29 dispute in this shape is a reasonable one
+to simply accept.
+
+### The prevention signal this surfaced
+
+The account gave a clear warning before it ever became a dispute: a trial that converted
+to a paid charge with **zero engagement after day one**. That cohort is the highest
+chargeback risk there is, and the data to spot it already exists, if coarsely
+(`sessions.last_rotated_at`, which only advances once per 24h of use — a real
+`users.last_seen_at` would measure it properly). Nothing currently looks at it before
+converting a trial.
+
+## Filing record — closed out
 
 Actions taken 2026-08-21, in this order. The order mattered and was deliberate.
 

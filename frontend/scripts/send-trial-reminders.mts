@@ -43,6 +43,11 @@ import Stripe from 'stripe';
 import { buildTrialReminderEmail, sendTrialReminderEmail } from '../core/mailer.ts';
 import { formatCardBrand } from '../core/stripeCard.ts';
 import { buildConvertUrl } from '../core/retentionToken.ts';
+import {
+  classifyTrialEngagement,
+  shouldSendDormantTrialCopy,
+  type TrialEngagement,
+} from '../core/trialEngagement.ts';
 
 // 48h from now is the target; a 6h window on each side absorbs a daily cron
 // landing at an arbitrary clock time without ever double- or zero-counting.
@@ -445,7 +450,8 @@ if (cliArgs.render) {
   const email = cliArgs.render;
   const rows = querySqlite<UserRow>(
     dbPath,
-    `SELECT id, email, current_period_end, stripe_customer_id, stripe_subscription_id
+    `SELECT id, email, current_period_end, stripe_customer_id, stripe_subscription_id,
+            created_at, last_seen_at
      FROM users
      WHERE email = '${escapeSqlLiteral(email)}'
      LIMIT 1;`,
@@ -484,10 +490,12 @@ if (cliArgs.render) {
     }
   }
 
+  const renderEngagement = engagementFor(user);
   const { subject, html, text } = buildTrialReminderEmail({
     trialEndIso: user.current_period_end,
     billing,
     convertOfferUrl: convertUrlFor(user.id),
+    dormant: shouldSendDormantTrialCopy(renderEngagement),
   });
 
   const outDir = cliArgs.out ?? os.tmpdir();
@@ -499,6 +507,14 @@ if (cliArgs.render) {
 
   console.log(`Rendered trial reminder for ${email} — NOT sent, no DB writes.`);
   console.log(`Trial end:     ${user.current_period_end}`);
+  console.log(`Engagement:    ${renderEngagement}${
+    renderEngagement === 'dormant'
+      ? ' — dormant copy: charge-first, no annual lock-in offer'
+      : renderEngagement === 'unknown'
+        ? ' — no last_seen_at on this account; ordinary copy'
+        : ' — ordinary copy'
+  }`);
+  console.log(`Last seen:     ${user.last_seen_at ?? '— (never recorded)'}`);
   console.log(`Subject:       ${subject}`);
   console.log(
     `Billing line:  ${
@@ -531,11 +547,23 @@ type UserRow = {
   current_period_end: string;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
+  created_at: string | null;
+  last_seen_at: string | null;
 };
+
+// One place that turns a row into its engagement, so the dry-run listing, the
+// send loop and --render can never disagree about which copy a member gets.
+function engagementFor(user: { created_at: string | null; last_seen_at: string | null }): TrialEngagement {
+  return classifyTrialEngagement({
+    trialStartIso: user.created_at,
+    lastSeenAtIso: user.last_seen_at,
+  });
+}
 
 const eligible = querySqlite<UserRow>(
   dbPath,
-  `SELECT id, email, current_period_end, stripe_customer_id, stripe_subscription_id
+  `SELECT id, email, current_period_end, stripe_customer_id, stripe_subscription_id,
+          created_at, last_seen_at
    FROM users
    WHERE subscription_status = 'trialing'
      AND trial_reminder_email_sent_at IS NULL
@@ -558,9 +586,28 @@ if (eligible.length === 0) {
   process.exit(0);
 }
 
+const dormantCount = eligible.filter((u) => shouldSendDormantTrialCopy(engagementFor(u))).length;
+const unknownCount = eligible.filter((u) => engagementFor(u) === 'unknown').length;
+console.log(
+  `Engagement:       ${eligible.length - dormantCount - unknownCount} engaged, ${dormantCount} dormant, ${unknownCount} unknown`,
+);
+if (dormantCount > 0) {
+  console.log(
+    '                  (dormant = no authenticated request since signup; they get the',
+  );
+  console.log(
+    '                   charge-first reminder with no annual lock-in offer)',
+  );
+}
+if (unknownCount > 0) {
+  console.log(
+    '                  (unknown = account predates last_seen_at; treated as engaged)',
+  );
+}
+
 const sample = eligible.slice(0, 10);
 for (const u of sample) {
-  console.log(`  - ${u.email}: trial ends ${u.current_period_end}`);
+  console.log(`  - ${u.email}: trial ends ${u.current_period_end}  [${engagementFor(u)}]`);
 }
 if (eligible.length > sample.length) {
   console.log(`  ... and ${eligible.length - sample.length} more`);
@@ -617,6 +664,7 @@ for (const user of eligible) {
       trialEndIso: user.current_period_end,
       billing,
       convertOfferUrl: convertUrlFor(user.id),
+      dormant: shouldSendDormantTrialCopy(engagementFor(user)),
     });
     const nowIso = new Date().toISOString();
     // Stamp the latch FIRST so a partial run that crashes after some sends

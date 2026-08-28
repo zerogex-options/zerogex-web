@@ -230,6 +230,14 @@ frontend/public/target.svg
 # <link rel="icon"> URL, so that copy is the one that busts browser caches.
 frontend/app/favicon.ico
 frontend/public/folds-of-honor-*
+# Published NinjaTrader import archive. The source of record is the .cs next to
+# it (committed); the .zip is copied in from assets/ninjatrader/ at deploy time
+# by `make ninjatrader-package`, so it never belongs in git.
+frontend/public/ninjatrader/*.zip
+# Content-addressed copies written by scripts/ninjatrader-manifest.js. The
+# hashes live in the committed frontend/core/ninjaTraderManifest.ts; the files
+# themselves are derived, so they are regenerated on every deploy.
+frontend/public/ninjatrader/*.[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f].cs
 
 # blog post images, synced from assets/blog by `make blog-images`
 frontend/public/blog/
@@ -244,3 +252,7 @@ deploy/systemd/backup-auth.env
 # janitor config (retention/keep-floor + cache paths, box-local) — keep the
 # .example tracked, never the real file the deploy step writes on the box
 deploy/systemd/janitor.env
+
+# monitoring backup config (may name a private S3 bucket + a box-local backup
+# dir) — keep the .example tracked, never the real file copied in on the box
+deploy/systemd/monitoring-backup.env

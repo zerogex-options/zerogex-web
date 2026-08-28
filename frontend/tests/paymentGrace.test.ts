@@ -276,3 +276,94 @@ test('a legacy window with no recorded reason stays unattributed', () => {
   assert.equal(d.inGrace, true);
   assert.equal(d.graceReason, null);
 });
+
+// ── Trial-conversion attribution across Stripe's trial-end `active` sync ────
+// At trial end Stripe does NOT jump straight to past_due: it moves the sub to
+// `active` when the cycle invoice is created, then to `past_due` only once that
+// invoice finalizes (~an hour later) and the charge is declined. By then the
+// last-synced status is `active`, so previousStatus alone attributes a genuine
+// first-charge failure to the RENEWAL cohort — which is why admin monitoring's
+// Trial Grace bucket read zero. `trialConversion` is the order-independent
+// signal the caller derives from the subscription's trial_end (window logic in
+// core/trialDunning, covered in tests/trialDunning.test.ts).
+
+test('trial end → active → past_due is still a TRIAL conversion, not a renewal', () => {
+  const d = decidePaymentGrace(
+    input({
+      previousStatus: 'active', // Stripe's trial-end sync already overwrote `trialing`
+      trialConversion: true,
+      trialGrace: true,
+      previousTierGranted: true,
+    }),
+  );
+  assert.equal(d.graceReason, 'trial');
+  assert.equal(d.inGrace, true);
+});
+
+test('an established payer whose renewal fails stays a RENEWAL', () => {
+  const d = decidePaymentGrace(
+    input({ previousStatus: 'active', trialConversion: false, trialGrace: true }),
+  );
+  assert.equal(d.graceReason, 'renewal');
+  assert.equal(d.inGrace, true);
+});
+
+test('the trial_end signal respects the trialGrace switch', () => {
+  // Trial grace off is the old hard trial-end: no window, and crucially NOT a
+  // renewal window smuggled in through Stripe's trial-end `active` sync — that
+  // would make BILLING_TRIAL_GRACE_ENABLED=0 silently ineffective.
+  const d = decidePaymentGrace(
+    input({ previousStatus: 'active', trialConversion: true, trialGrace: false }),
+  );
+  assert.equal(d.graceStartedAt, null);
+  assert.equal(d.graceReason, null);
+  assert.equal(d.inGrace, false);
+});
+
+test('the trial_end signal never bypasses the withheld-card guard', () => {
+  for (const previousStatus of ['active', 'trialing']) {
+    const d = decidePaymentGrace(
+      input({
+        previousStatus,
+        trialConversion: true,
+        trialGrace: true,
+        previousTierGranted: false,
+      }),
+    );
+    assert.equal(d.graceStartedAt, null, previousStatus);
+    assert.equal(d.graceReason, null, previousStatus);
+    assert.equal(d.inGrace, false, previousStatus);
+  }
+});
+
+test('previousStatus trialing still works as the fallback with no trial_end signal', () => {
+  const d = decidePaymentGrace(
+    input({ previousStatus: 'trialing', trialConversion: false, trialGrace: true }),
+  );
+  assert.equal(d.graceReason, 'trial');
+});
+
+test('trial attribution survives the later past_due retry syncs', () => {
+  const opened = new Date(NOW - DAY_MS).toISOString();
+  const d = decidePaymentGrace(
+    input({
+      previousStatus: 'past_due',
+      graceStartedAt: opened,
+      graceReason: 'trial',
+      trialConversion: true,
+      trialGrace: true,
+    }),
+  );
+  assert.equal(d.graceReason, 'trial');
+  assert.equal(d.graceStartedAt, opened);
+});
+
+test('a trial conversion on a sub with no prior status still opens as trial', () => {
+  // previousStatus null (a sub we never synced before) carries no cohort
+  // information, but trial_end does — and it must not fall through to renewal.
+  const d = decidePaymentGrace(
+    input({ previousStatus: null, trialConversion: true, trialGrace: true }),
+  );
+  assert.equal(d.graceReason, 'trial');
+  assert.equal(d.inGrace, true);
+});

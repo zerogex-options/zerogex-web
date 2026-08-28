@@ -15,6 +15,7 @@ import {
   AlarmClock,
   BarChart3,
   CandlestickChart,
+  Compass,
   Crosshair,
   Flame,
   Gauge,
@@ -37,6 +38,8 @@ import {
 } from 'lucide-react';
 
 import type { WidgetSize } from '@/core/myDashboardLayout';
+import { ROLLING_ZERO_DTE } from '@/core/expirationPersistence';
+import type { BiasTenor } from '@/core/tradeBiasTenor';
 import { WIDGET_SIZES } from '@/core/myDashboardLayout';
 import type { FeedKey } from './DashboardData';
 
@@ -56,6 +59,7 @@ import {
 } from './tiles';
 import {
   TodaysReadPanel,
+  KeyLevelsPanel,
   DealerExposuresPanel,
   GammaChartPanel,
   GammaByStrikePanel,
@@ -66,7 +70,8 @@ import {
   PriceActionPanel,
   GammaPulseWidget,
   SignalsSynthesisPanel,
-  TradeBiasPanel,
+  RegimePlaybookPanel,
+  TradeBiasHorizonPanel,
   ConfluencePanel,
   CompositeScorePanel,
   SignalScoreWidget,
@@ -186,6 +191,21 @@ export const WIDGETS: WidgetDef[] = [
   },
 
   // ── Gamma & GEX ──
+  {
+    id: 'key-levels',
+    title: 'Key Levels',
+    blurb:
+      'Every level the Gamma Chart draws, in one strip: spot, Gamma Flip, Pin Strike, Call Wall, Put Wall and Max Pain, each with its live distance from spot. Follows this pane’s symbol and expiration filter.',
+    category: 'gamma',
+    tier: 'basic',
+    icon: Crosshair,
+    // Wide enough for the whole row on a desktop board; the cards reflow to
+    // whatever footprint a resize hands it, down to two across at S.
+    defaultSize: 'lg',
+    allowedSizes: ALL_SIZES,
+    feeds: [],
+    render: () => <KeyLevelsPanel />,
+  },
   {
     id: 'net-gex',
     title: 'Net GEX',
@@ -400,16 +420,38 @@ export const WIDGETS: WidgetDef[] = [
     render: () => <SignalsSynthesisPanel />,
   },
   {
+    // The id stays 'trade-bias' though the widget is now called Regime &
+    // Playbook: ids are what persisted boards store, and an unknown id is
+    // dropped on load (see sanitizeLayout), so renaming it would silently
+    // delete this widget from every board already carrying it.
     id: 'trade-bias',
-    title: 'Trade Bias',
-    blurb: 'Glance-first regime, directional bias and playbook read.',
+    title: 'Regime & Playbook',
+    // Renamed off "Trade Bias" because two widgets under that name were two
+    // different calculations — this composite, and the engine's signed call in
+    // Trade Bias · Horizon — which are allowed to disagree. Naming this one for
+    // what it actually leads with settles which is which.
+    blurb:
+      'Glance-first regime read, directional bias and the playbook for it, composited in your browser from the proprietary signals.',
     category: 'signals',
     tier: 'basic',
     icon: Signal,
     defaultSize: 'md',
     allowedSizes: ALL_SIZES,
     feeds: [],
-    render: () => <TradeBiasPanel />,
+    render: () => <RegimePlaybookPanel />,
+  },
+  {
+    id: 'trade-bias-horizon',
+    title: 'Trade Bias · Horizon',
+    blurb:
+      "The Signals Engine's signed directional call for a horizon you pick — Swing (multi-day) or Intraday (0DTE). The same read the Trade Bias page shows, summarised: bias, conviction and the regime behind it.",
+    category: 'signals',
+    tier: 'basic',
+    icon: Compass,
+    defaultSize: 'md',
+    allowedSizes: ALL_SIZES,
+    feeds: [],
+    render: () => <TradeBiasHorizonPanel />,
   },
   {
     id: 'composite-score',
@@ -544,10 +586,72 @@ export type DashboardPreset = {
   name: string;
   blurb: string;
   tier: WidgetTier;
+  /**
+   * Expiration scope to pin on the seeded pane. Omitted by every preset that
+   * has no opinion, leaving the board following the page-wide selection — which
+   * is what presets did before this existed and remains the right default.
+   *
+   * It is here for the one case where the expiration filter is not a setting
+   * alongside the widgets but the entire point of the board: a same-day preset
+   * whose widgets all read the whole chain is not a 0DTE board, it is the
+   * ordinary board with a different name.
+   */
+  expirations?: readonly string[];
+  /**
+   * Trade Bias horizon to switch to. Same reasoning as `expirations`: a board
+   * that calls itself same-day while its bias widget shows the multi-day read
+   * is worse than no preset, because both are labelled "Trade Bias" and only
+   * one of them is the call the member came for.
+   *
+   * The horizon is a single shared preference (hooks/useBiasTenor), so this
+   * also moves the /trade-bias page. That is the intent, not a leak — applying
+   * a preset named "0DTE Intraday" is the member saying what they trade — and
+   * it is one click to change back from either surface.
+   */
+  biasTenor?: BiasTenor;
   widgets: { widgetId: string; size: WidgetSize }[];
 };
 
 export const PRESETS: DashboardPreset[] = [
+  {
+    // First in the list because same-day is what most members are here for, and
+    // because it is the one board that is tedious to assemble by hand: the
+    // widgets are the easy half, remembering to scope the whole thing to
+    // today's expiry is the half people miss.
+    id: 'zero-dte-intraday',
+    name: '0DTE Intraday',
+    blurb: "Same-day only — pinned to today's expiry, and it stays pinned tomorrow.",
+    tier: 'basic',
+    // The load-bearing line. Without it this is a widget list that happens to
+    // suit 0DTE while quietly showing the whole chain; with it every widget on
+    // the board that honours the pane scope — Key Levels, the Gamma Chart, the
+    // strike book, the flow — reads the same-day book. ROLLING_ZERO_DTE rather
+    // than today's date so the board is still a 0DTE board tomorrow morning.
+    expirations: [ROLLING_ZERO_DTE],
+    biasTenor: 'intraday',
+    widgets: [
+      // Read the day, then the levels, then the tape. Glance-first at the top:
+      // a same-day trader checking in mid-session should get the regime and the
+      // levels without scrolling, and only then the charts to act on.
+      //
+      // The Net GEX and Gamma Flip TILES are deliberately absent. They read the
+      // board-wide `gex` feed, which is a whole-chain summary that takes no
+      // expiration argument — so on a board scoped to today they would print
+      // whole-chain numbers directly above a Key Levels strip and a strike book
+      // showing the same-day book, with nothing explaining the disagreement.
+      // Key Levels carries the gamma flip anyway, and it DOES follow the pane's
+      // scope. Two plausible answers to one question is the failure this preset
+      // exists to avoid, not one to ship at the top of it.
+      { widgetId: 'todays-read', size: 'xl' },
+      { widgetId: 'price', size: 'sm' },
+      { widgetId: 'vix-level', size: 'sm' },
+      { widgetId: 'key-levels', size: 'xl' },
+      { widgetId: 'gamma-chart', size: 'xl' },
+      { widgetId: 'gamma-by-strike', size: 'xl' },
+      { widgetId: 'trade-bias-horizon', size: 'lg' },
+      { widgetId: 'options-flow', size: 'lg' },
+    ],
+  },
   {
     id: 'traders-overview',
     name: "Trader's Overview",

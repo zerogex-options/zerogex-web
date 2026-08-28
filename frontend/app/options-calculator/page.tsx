@@ -10,6 +10,8 @@ import { Minus, Plus } from 'lucide-react';
 import MobileScrollableChart from '@/components/MobileScrollableChart';
 import { useApiData, useMarketQuote } from '@/hooks/useApiData';
 import { useTimeframe } from '@/core/TimeframeContext';
+import { isFuturesSymbol } from '@/core/symbols';
+import FuturesUnsupportedPanel from '@/components/FuturesUnsupportedPanel';
 import {
   buildOptionChainUrl,
   getCachedOptionChain,
@@ -531,6 +533,18 @@ export default function OptionsCalculatorPage() {
       </g>
     );
   };
+
+  // /api/option/quote answers 400 for ES/NQ. The four quote hooks destructure
+  // only `data`, so without this the page rendered a complete strategy with
+  // every leg priced at $0.00 and a P&L built on it.
+  if (isFuturesSymbol(symbol)) {
+    return (
+      <PageShell>
+        <h1 className="text-3xl font-bold mb-8">Strategy Builder</h1>
+        <FuturesUnsupportedPanel symbol={symbol} surface="The strategy builder" />
+      </PageShell>
+    );
+  }
 
   return (
     <PageShell>

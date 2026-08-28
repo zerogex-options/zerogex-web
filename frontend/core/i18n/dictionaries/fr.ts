@@ -11,6 +11,7 @@ export const fr: Dictionary = {
   'menu.login': 'Se connecter',
   'menu.logout': 'Se déconnecter',
   'menu.logoutMobile': 'Se déconnecter',
+  'menu.notSignedIn': 'Non connecté',
 
   'register.title': 'Créez votre compte ZeroGEX',
   'register.referralBanner': '🎉 Un ami vous a parrainé — votre réduction est appliquée au paiement.',
@@ -69,6 +70,7 @@ export const fr: Dictionary = {
   'nav.monitoring': 'Surveillance',
   'nav.pageAnalytics': 'Analytique des pages',
   'nav.about': 'À propos',
+  'nav.support': 'Assistance',
   'nav.account': 'Compte',
   'nav.collapse': 'Réduire {name}',
   'nav.expand': 'Développer {name}',
@@ -84,6 +86,12 @@ export const fr: Dictionary = {
   'footer.apiDocs': 'Documentation de l’API',
   'footer.privacy': 'Confidentialité',
   'footer.terms': 'Conditions',
+  'footer.col.company': 'Entreprise',
+  'footer.col.legal': 'Mentions légales',
+  'footer.pricing': 'Tarifs',
+  'footer.faqs': 'FAQ',
+  'footer.tagline':
+    'Exposition gamma en temps réel et positionnement des teneurs de marché pour les traders SPX, SPY, QQQ et NDX.',
   'footer.veteransBadge': '3 % pour les vétérans',
   'footer.rights': '© 2026 ZeroGEX, tous droits réservés.',
   'footer.disclaimer':

@@ -1,4 +1,4 @@
-.PHONY: help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription honor-winback-discount recover-orphan-payment scan-orphan-payments clear-zombie-customers webhook-health trial-reminders trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback reactivation checkout-recovery founding-final-call public-cohort cancellations churn-breakdown enable-portal-cancel-reasons save-url reset-save-latch diagnose-user reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo blog-images
+.PHONY: help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription honor-winback-discount recover-orphan-payment scan-orphan-payments clear-zombie-customers webhook-health trial-reminders trial-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback reactivation checkout-recovery founding-final-call public-cohort cancellations churn-breakdown enable-portal-cancel-reasons save-url reset-save-latch diagnose-user reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo og-check blog-images
 
 # Default target
 help:
@@ -36,6 +36,7 @@ help:
 	@echo "  make clear-zombie-customers - NULL stripe_customer_id on rows with no subscription (APPLY=1 to write, dry-run by default)"
 	@echo "  make webhook-health - Stripe webhook health summary (errors/orphans/failed payments, last 24h + 7d)"
 	@echo "  make signup-alarm  - Check the trailing registration rate and email the operator if signups have flatlined. Runs hourly via systemd (step 096); FORCE=1 bypasses the active-hours/cooldown gates, DRY_RUN=1 previews without sending, WINDOW=<h>/MIN=<n> override thresholds"
+	@echo "  make trial-engagement - Review trials by whether the member has used the product since signup (read-only, DORMANT_ONLY=1 to filter)"
 	@echo "  make trial-reminders - Send ~48h-before-trial-end reminder emails (DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, RENDER=<email> to dry-run one member's real copy to files without sending)"
 	@echo "  make trial-value-nudge - Send the mid-trial (~day 2) value/activation nudge to current trialers, ahead of the day 3-7 cancel wave (DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, WINDOW_HOURS=N to tune the window)"
 	@echo "  make card-expiry-reminders - Email active subscribers whose card on file expires within ~45 days so they update it before a renewal fails (DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, THRESHOLD_DAYS=N / LIMIT=N to tune)"
@@ -69,6 +70,7 @@ help:
 	@echo "  make clean      - Remove build artifacts"
 	@echo "  make deploy     - Full deployment (pull, install, rebuild)"
 	@echo "  make logo       - Copy logos from assets to public"
+	@echo "  make og-check   - Check the DEPLOYED site serves the social card this checkout expects, and name the cause when it does not (stale deploy / missing PNG / wrong twitter:card / Cloudflare blocking X's fetcher / X's own card cache). Read-only; PAGE=<path> to check the exact URL you post (e.g. /?v=2), ORIGIN=<url> to point elsewhere"
 	@echo "  make blog-images - Copy blog post images from assets/blog to frontend/public/blog"
 	@echo ""
 
@@ -307,6 +309,18 @@ trial-reminders:
 # honors marketing opt-out and skips already-cancelled trials. DRY_RUN=1
 # previews, YES=1 sends, PREVIEW_TO=<email> sends one sample, WINDOW_HOURS=N
 # tunes the +/- window.
+# Read-only review of every member currently on a free trial and whether they
+# have actually used the product since signing up (users.last_seen_at vs the
+# account's created_at — see core/trialEngagement). A trial converting on a
+# member who never came back is the cohort that produced dispute
+# du_1U6cn34AOiqteMYYYCr2OaKn; the 48h reminder already mails them different
+# copy, and this is the surface for looking at them directly beforehand.
+# Never writes, never calls Stripe.
+#   make trial-engagement
+#   make trial-engagement DORMANT_ONLY=1
+trial-engagement:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/scan-trial-engagement.mts $(if $(DORMANT_ONLY),--dormant-only,)'
+
 trial-value-nudge:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-trial-value-nudge.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),) $(if $(WINDOW_HOURS),--window-hours $(WINDOW_HOURS),)'
 
@@ -964,14 +978,15 @@ TRIM_PNG = bash -lc 'if ! command -v node >/dev/null 2>&1; then source $$HOME/.n
 
 OG_MANIFEST = bash -lc 'if ! command -v node >/dev/null 2>&1; then source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null; fi; exec node scripts/og-image-manifest.js'
 
+NT_MANIFEST = bash -lc 'if ! command -v node >/dev/null 2>&1; then source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null; fi; exec node scripts/ninjatrader-manifest.js'
+OG_CHECK = bash -lc 'if ! command -v node >/dev/null 2>&1; then source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null; fi; exec node scripts/og-image-manifest.js --live'
+
 logo:
 	@echo "Copying logos from assets to public..."
 	@$(TRIM_PNG) assets/branding/Dark_Full.png frontend/public/logo-dark.png --max-width 1024
 	@$(TRIM_PNG) assets/branding/Light_Full.png frontend/public/logo-light.png --max-width 1024
 	@$(TRIM_PNG) assets/branding/Dark_Title.png frontend/public/title-dark.png --max-width 1280
 	@$(TRIM_PNG) assets/branding/Light_Title.png frontend/public/title-light.png --max-width 1280
-	@rm -f frontend/public/logo-dark.svg frontend/public/logo-light.svg frontend/public/title.svg
-	cp assets/branding/Target.svg frontend/public/target.svg
 # The social card goes through scripts/og-image-manifest.js rather than a plain
 # cp. That script hashes the PNG's bytes into its filename and regenerates
 # frontend/core/ogImageManifest.ts, so replacing the artwork produces a new URL
@@ -990,7 +1005,6 @@ logo:
 # untouched, which is why a new favicon used to keep showing up as the old one.
 # The rm clears that shadowing copy from boxes deployed before this change;
 # public/favicon.ico is gitignored, so `git pull` alone would never remove it.
-	@rm -f frontend/public/favicon.ico
 	cp assets/branding/favicon.ico frontend/app/favicon.ico
 	@echo "Copying Folds of Honor partner-kit assets..."
 	@if [ -f assets/branding/folds-of-honor-proud-supporter.png ]; then \
@@ -1010,6 +1024,16 @@ logo:
 	fi
 	@echo "Logos copied successfully!"
 
+# Answer "why is X still showing the old og-image?" without re-deriving it by
+# hand. The symptom has four causes -- a stale committed manifest, a box that
+# has not redeployed, a deploy where `make logo` did not run, and X's own card
+# cache -- and only the last one is invisible from the repo, so it is the one
+# people waste time on. This checks the first three against the live site and,
+# when they all pass, prints the cache workaround. Read-only and safe to run
+# from anywhere with network; it never writes or deploys.
+og-check:
+	@$(OG_CHECK)
+
 # Copy blog post images from assets/blog to the Next.js public/blog directory
 # (the path referenced by markdown image links like /blog/<name>.png). Source
 # and destination filenames are identical, so a wildcard makes this target
@@ -1024,23 +1048,65 @@ blog-images:
 		echo "(no blog images found in assets/blog/ — skipping)"; \
 	fi
 
+# Publish the packaged NinjaTrader import archive, when one has been dropped in.
+#
+# Only NinjaTrader itself can produce an archive its importer accepts (File ->
+# Utilities -> Export NinjaScript). We deliberately do NOT synthesise one here:
+# a hand-rolled zip that NT8 rejects is worse than no zip at all, because the
+# download button would be live and broken. So this is a guarded copy in the
+# same spirit as `make logo` -- drop the real export at
+# assets/ninjatrader/ZeroGexGammaLevels.zip and it ships on the next deploy;
+# until then the site offers the .cs source only and this step no-ops.
+#
+# The .cs in frontend/public/ninjatrader/ stays the source of record either way,
+# and the archive is verified against it before publishing: the export is built
+# on someone else's machine and then served from our domain, so we prove the
+# source inside matches ours rather than trusting the sender. That same check
+# catches a stale archive exported before the last edit to the .cs. A failed
+# verification fails the deploy — deliberately, because the alternative is
+# publishing an unverified binary.
+ninjatrader-package:
+	@echo "Publishing NinjaTrader package..."
+	@mkdir -p frontend/public/ninjatrader
+	@if [ -f assets/ninjatrader/ZeroGexGammaLevels.zip ]; then \
+		python3 scripts/verify-ninjatrader-package.py \
+			assets/ninjatrader/ZeroGexGammaLevels.zip \
+			frontend/public/ninjatrader/ZeroGexGammaLevels.cs && \
+		cp assets/ninjatrader/ZeroGexGammaLevels.zip frontend/public/ninjatrader/ZeroGexGammaLevels.zip && \
+		echo "  ✓ One-click import archive published"; \
+	else \
+		echo "  ⚠ assets/ninjatrader/ZeroGexGammaLevels.zip missing — the gamma pages will offer the .cs source only (see assets/ninjatrader/README.md)"; \
+	fi
+	@$(NT_MANIFEST)
+
 # Full deployment
 deploy:
 	@echo "Starting full deployment..."
 	@echo "1. Pulling latest changes..."
 	git pull
 	@echo "2. Installing dependencies..."
-	cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && npm install'
+# `npm ci` and not `npm install`: install writes package-lock.json, so every
+# deploy re-resolved the ^ ranges to whatever was newest on npm and left the
+# tree dirty on release -- prod picked up unreviewed transitive versions and
+# then those pins got committed back from the box. ci installs exactly what
+# the lockfile says and never writes it. Dependency bumps belong in dev, via
+# `make install`, where they can be reviewed. NOTE: ci wipes node_modules and
+# reinstalls from scratch, and it hard-fails if package.json and the lockfile
+# disagree -- that failure is the point, but it stops the deploy before the
+# PM2 restart in step 7.
+	cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && npm ci'
 	@echo "3. Copying logos..."
 	@make logo
 	@echo "4. Copying blog images..."
 	@make blog-images
-	@echo "5. Rebuilding application..."
+	@echo "5. Publishing NinjaTrader package..."
+	@make ninjatrader-package
+	@echo "6. Rebuilding application..."
 	rm -rf frontend/.next
 	cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && npm run build'
-	@echo "6. Restarting PM2..."
+	@echo "7. Restarting PM2..."
 	bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && pm2 restart zerogex-web'
-	@echo "7. Saving PM2 config..."
+	@echo "8. Saving PM2 config..."
 	bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && pm2 save'
 	@echo "Deployment complete!"
 	@echo ""

@@ -228,19 +228,6 @@ export default function RealTimeGexLandingClient() {
 
       {/* Hero */}
       <section style={{ minHeight: '100vh', padding: '120px 24px 84px', position: 'relative' }}>
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            backgroundImage: `
-              linear-gradient(var(--border-subtle) 1px, transparent 1px),
-              linear-gradient(90deg, var(--border-subtle) 1px, transparent 1px)
-            `,
-            backgroundSize: '62px 62px',
-            pointerEvents: 'none',
-            opacity: 0.6,
-          }}
-        />
         <div style={{ position: 'relative', zIndex: 1, maxWidth: 1100, margin: '0 auto', textAlign: 'center' }}>
           <Pill>
             <Activity size={14} /> Real-Time GEX for 0DTE Traders

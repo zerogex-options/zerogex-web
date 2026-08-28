@@ -15,7 +15,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { getPrimaryPriceChangeSummary, getExtendedHoursRow } from "../core/priceChange.ts";
+import { getPrimaryPriceChangeSummary, getExtendedHoursRow, getSpotPriorCloseChange } from "../core/priceChange.ts";
 import type { SessionClosesData } from "../hooks/useApiData.ts";
 
 // Build a SessionClosesData with the two closes the calc reads. `current` and
@@ -247,4 +247,88 @@ test("extended row: exactly flat → zero change counts as positive (green)", ()
   assert.equal(r.change, 0);
   assert.equal(r.changePercent, 0);
   assert.equal(r.isPositive, true);
+});
+
+// ── getSpotPriorCloseChange — the gamma ladder header badge ──────────────────
+// The plain "% vs prior close" of a live displayed spot: no frozen-close
+// display swap, no futures basis. The baseline field flips at 16:00 —
+// current_session_close until today has closed (open / pre-market / unknown),
+// prior_session_close afterwards (after-hours and every closed state).
+
+test("spot badge, open session → spot vs current_session_close", () => {
+  const r = getSpotPriorCloseChange(750.0, "open", closes(747.0, 745.0));
+  approx(r.changePercent, (3.0 / 747.0) * 100);
+  assert.equal(r.isPositive, true);
+});
+
+test("spot badge, pre-market → still vs current_session_close (today hasn't closed)", () => {
+  const r = getSpotPriorCloseChange(746.0, "pre-market", closes(747.0, 745.0));
+  approx(r.changePercent, (-1.0 / 747.0) * 100);
+  assert.equal(r.isPositive, false);
+});
+
+test("spot badge, unknown session reads as live → current_session_close", () => {
+  const r = getSpotPriorCloseChange(750.0, null, closes(747.0, 745.0));
+  approx(r.changePercent, (3.0 / 747.0) * 100);
+});
+
+test("spot badge, after-hours → vs prior_session_close (day change, not since-16:00 drift)", () => {
+  // Today's 16:00 close (747) has rolled into current; the day change of an
+  // after-hours spot is measured against yesterday's close (745).
+  const r = getSpotPriorCloseChange(747.5, "after-hours", closes(747.0, 745.0));
+  approx(r.changePercent, (2.5 / 745.0) * 100);
+  assert.equal(r.isPositive, true);
+});
+
+test("spot badge, closed states → vs prior_session_close", () => {
+  for (const session of ["closed", "closed-weekend", "closed-holiday"]) {
+    const r = getSpotPriorCloseChange(747.0, session, closes(747.0, 745.0));
+    approx(r.changePercent, (2.0 / 745.0) * 100);
+  }
+});
+
+test("spot badge degrades to null on missing inputs", () => {
+  assert.equal(getSpotPriorCloseChange(null, "open", closes(747.0, 745.0)).changePercent, null);
+  assert.equal(getSpotPriorCloseChange(750.0, "open", null).changePercent, null);
+  assert.equal(getSpotPriorCloseChange(750.0, "open", closes(0, 745.0)).changePercent, null);
+  assert.equal(getSpotPriorCloseChange(NaN, "open", closes(747.0, 745.0)).changePercent, null);
+});
+
+
+// --- ES / NQ: why the futures quote's `session` must describe the MARKET ----
+//
+// ES and NQ trade nearly 23 hours, so /api/market/quote reports session "open"
+// through the whole CME session and the header reads live-vs-Friday's-16:00.
+// The backend briefly folded FEED staleness into that flag — a late bar was
+// reported "closed" so the chart would stop merging it onto the live tip.
+// But "closed" is not a merge switch: it also swaps the headline price for
+// current_session_close and the baseline for prior_session_close. The two
+// cases below are the same feed a minute apart, and they differ by three days.
+
+test("futures, session open → live print vs the last 16:00 mark", () => {
+  const r = getPrimaryPriceChangeSummary({
+    quoteClose: 7677.25,               // live ES, Monday pre-market
+    quoteSession: "open",              // CME is trading
+    sessionCloses: closes(7692.0, 7665.25), // Fri 16:00, Thu 16:00
+  });
+  assert.equal(r.displayPrice, 7677.25);
+  approx(r.change, -14.75);
+  approx(r.changePercent, (-14.75 / 7692.0) * 100);
+  assert.equal(r.isPositive, false);
+});
+
+test("futures, session closed → Friday's close and FRIDAY'S change", () => {
+  // The shipped bug, pinned. Same live 7677.25 print available; reporting the
+  // session closed published "$7692.00 +26.75 (+0.35%)" instead — a three-day
+  // -old price with a stale day change, and nothing on screen to say so.
+  const r = getPrimaryPriceChangeSummary({
+    quoteClose: 7677.25,
+    quoteSession: "closed",
+    sessionCloses: closes(7692.0, 7665.25),
+  });
+  assert.equal(r.displayPrice, 7692.0);   // NOT the live print
+  approx(r.change, 26.75);                // Friday's change, shown as today's
+  // This reading is correct ONLY when the market is genuinely closed (the
+  // 17:00-18:00 CME break, the weekend). It must never be reached because a
+  // feed fell behind — see _native_futures_quote and its `stale` field.
 });

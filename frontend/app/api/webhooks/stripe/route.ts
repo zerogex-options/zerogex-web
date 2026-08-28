@@ -45,7 +45,11 @@ import {
   readInvoicePriceId,
   readInvoiceSubscriptionId,
 } from '@/core/stripeInvoice';
-import { isTrialConversionFailure, isTrialConversionInvoice } from '@/core/trialDunning';
+import {
+  isTrialConversionFailure,
+  isTrialConversionInvoice,
+  isWithinTrialConversionWindow,
+} from '@/core/trialDunning';
 import { derivePauseState } from '@/core/subscriptionPause';
 import { classifyPaymentSetup } from '@/core/paymentSetup';
 import { formatCancellationReasonSuffix, type CancellationDetails } from '@/core/cancellationReason';
@@ -665,10 +669,11 @@ async function syncSubscriptionToUser(
   // decidePaymentGrace opens it on the first past_due sync of a previously-active
   // sub, enforces the bound on subsequent past_due syncs, and closes it the
   // moment the sub leaves past_due. When trial grace is enabled
-  // (getTrialGraceEnabled), a trial-conversion failure (previousStatus
-  // `trialing`) also opens a window with the same bounded length, so a
-  // recoverable first-charge decline doesn't drop the member the instant the
-  // trial ends; with it disabled, trials downgrade immediately as before.
+  // (getTrialGraceEnabled), a trial-conversion failure also opens a window with
+  // the same bounded length, so a recoverable first-charge decline doesn't drop
+  // the member the instant the trial ends; with it disabled, trials downgrade
+  // immediately as before. Which failure it IS comes from trial_end, not from
+  // previousStatus — see the trialConversion argument below.
   // Decision logic is unit-tested in tests/paymentGrace.test.ts.
   const graceDays = getPaymentGraceDays();
   const { graceStartedAt, graceReason, inGrace } = decidePaymentGrace({
@@ -682,6 +687,18 @@ async function syncSubscriptionToUser(
     graceDays,
     nowMs: Date.now(),
     trialGrace: getTrialGraceEnabled(),
+    // Order-independent trial-conversion signal. previousStatus can't carry this
+    // on its own: at trial end Stripe moves the sub to `active` when the cycle
+    // invoice is created and only to `past_due` once that invoice finalizes and
+    // the charge is declined, so the trial-end `active` sync has already
+    // overwritten `trialing` by the time the failure arrives. Reading trial_end
+    // (pinned to when the trial actually ended) instead is what keeps a genuine
+    // first-charge failure out of the renewal cohort — and what makes admin
+    // monitoring's Trial Grace bucket non-zero.
+    trialConversion: isWithinTrialConversionWindow(
+      typeof subscription.trial_end === 'number' ? subscription.trial_end : null,
+      Date.now(),
+    ),
     // A trial we withheld access from (its setup never succeeded, so the
     // previous synced tier stayed `public`) must not be handed the recovery
     // window when its first charge fails — that would grant premium to exactly

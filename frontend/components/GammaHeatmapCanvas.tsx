@@ -271,7 +271,11 @@ export default function GammaHeatmapCanvas() {
   const priceData: PriceDataPoint[] = useMemo(() => {
     const sliced = priceRowsAll.slice(-fetchUnits);
     if (sliced.length === 0) return sliced;
-    if (!isSessionLive(quote?.session) || !quote) return sliced;
+    // `stale` (ES/NQ only) is what keeps a dead futures feed off the live
+    // tip. The session flag used to carry that too, but it also drives the
+    // header's price selection, so overloading it published the last cash
+    // close as the live price. Freshness is its own signal now.
+    if (!isSessionLive(quote?.session) || !quote || quote.stale) return sliced;
     const liveClose = Number(quote.close);
     if (!Number.isFinite(liveClose) || liveClose <= 0) return sliced;
     const tip = sliced[sliced.length - 1];

@@ -96,3 +96,56 @@ test('kill-switch: gate is ON by default and only OFF for the exact value "0"', 
   // Off only for the exact opt-out value.
   assert.equal(isApiTierGateEnabled('0'), false);
 });
+
+// The backend (zerogex-oa) serves every endpoint under BOTH /api/* (v1) and
+// /api/v2/* (the freshness-envelope surface). RULES is written in the v1 form
+// and `covers()` matches whole segments, so an un-normalized versioned path
+// matches nothing — and this gate is fail-open, so "nothing matched" means
+// "pass". That would hand every premium surface to any caller the moment a
+// /api/v2/[...rest] proxy is added. Lock the equivalence down in both
+// directions: premium stays premium, and ungated stays ungated.
+test('versioned paths gate identically to their unversioned form', () => {
+  const cases: Array<[string, ApiAccess | null]> = [
+    ['/api/signals/advanced/vol-expansion', 'pro'],
+    ['/api/signals/trade-bias', 'pro'],
+    ['/api/signals/trade-bias-history', 'pro'],
+    ['/api/signals/score', 'basic'],
+    ['/api/backtest/runs', 'pro'],
+    ['/api/backtest/runs/shared/tok_1', 'public'],
+    ['/api/tradeworkz/admin/reset-fleet', 'admin'],
+    ['/api/gex/summary', 'basic'],
+    ['/api/flow/smart-money', 'basic'],
+    ['/api/forced-flow/curve', 'basic'],
+    ['/api/replay/frame', 'basic'],
+    ['/api/option/quote', 'basic'],
+    ['/api/max-pain/current', 'basic'],
+    ['/api/technicals', 'basic'],
+    ['/api/market/volatility', 'basic'],
+    // Deliberately ungated paths must STAY ungated under a version prefix —
+    // over-stripping would 403 the anonymous header chrome.
+    ['/api/market/quote', null],
+    ['/api/market/session-closes', null],
+    ['/api/tradeworkz/me/feed', null],
+    ['/api/tradeworkz/bots/7/follow', null],
+  ];
+  for (const [v1Path, expected] of cases) {
+    eq(v1Path, expected);
+    for (const version of ['v2', 'v3']) {
+      eq(v1Path.replace('/api/', `/api/${version}/`), expected);
+    }
+  }
+});
+
+test('version stripping does not over-match lookalike segments', () => {
+  // Only a literal /api/v<digits> segment is a version. Anything else keeps
+  // its original (unmatched → pass) answer rather than being rewritten.
+  eq('/api/version/foo', null);
+  eq('/api/v2x/gex/summary', null);
+  eq('/api/versioning/gex', null);
+  // A bare /api/v2 with no sub-path matches no rule.
+  eq('/api/v2', null);
+  // The existing anti-startsWith guard still holds after normalization.
+  eq('/api/v2/gexfoo', null);
+  // Only a LEADING version segment is stripped.
+  eq('/api/gex/v2/summary', 'basic');
+});

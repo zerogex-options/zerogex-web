@@ -36,6 +36,7 @@ const memory = new MemoryStorage();
 // Imported AFTER the window stub so any window-guarded path sees it.
 const {
   sessionOpenIsoFor,
+  sessionOpenAnchorIndex,
   baselineNetByStrike,
   sessionDeltaMark,
   sessionDeltaTitle,
@@ -70,6 +71,51 @@ test("sessionOpenIsoFor returns null for missing/garbage input", () => {
   assert.equal(sessionOpenIsoFor(null), null);
   assert.equal(sessionOpenIsoFor(undefined), null);
   assert.equal(sessionOpenIsoFor("not-a-time"), null);
+});
+
+// ---- "Since open" anchor index ----------------------------------------------
+
+test("sessionOpenAnchorIndex skips an ETF feed's pre-market buckets", () => {
+  // 12:00Z/13:00Z are 08:00/09:00 EDT (pre-market); the cash open is 13:30Z.
+  const idx = sessionOpenAnchorIndex([
+    "2026-08-20T12:00:00Z",
+    "2026-08-20T13:00:00Z",
+    "2026-08-20T13:30:00Z",
+    "2026-08-20T15:00:00Z",
+  ]);
+  assert.equal(idx, 2);
+});
+
+test("sessionOpenAnchorIndex is 0 for an RTH-only (index) feed", () => {
+  assert.equal(
+    sessionOpenAnchorIndex(["2026-08-20T13:30:00Z", "2026-08-20T14:00:00Z"]),
+    0,
+  );
+});
+
+test("sessionOpenAnchorIndex anchors under EST too", () => {
+  // January: 09:30 ET = 14:30Z; 14:00Z is pre-market.
+  const idx = sessionOpenAnchorIndex([
+    "2026-01-15T14:00:00Z",
+    "2026-01-15T14:30:00Z",
+    "2026-01-15T15:00:00Z",
+  ]);
+  assert.equal(idx, 1);
+});
+
+test("sessionOpenAnchorIndex falls back to the oldest bucket when the open is out of window", () => {
+  // Pure pre-market window: nothing at-or-after 13:30Z yet.
+  assert.equal(
+    sessionOpenAnchorIndex(["2026-08-20T11:00:00Z", "2026-08-20T12:00:00Z"]),
+    0,
+  );
+  // Evening window that no longer reaches back to the open: every bucket is
+  // after 13:30Z, so the first one wins (the earliest available).
+  assert.equal(
+    sessionOpenAnchorIndex(["2026-08-20T17:30:00Z", "2026-08-20T20:00:00Z"]),
+    0,
+  );
+  assert.equal(sessionOpenAnchorIndex([]), 0);
 });
 
 // ---- baseline aggregation ---------------------------------------------------

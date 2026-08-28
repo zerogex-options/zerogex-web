@@ -1353,17 +1353,6 @@
   --font-mono: var(--font-geist-mono);
 }
 
-/* Faceplate — a subtle instrument grid on the app content ground. Shows only
-   in the negative space between flat panels, so every page reads as a screen
-   even with no live data. Themed via --border-subtle. */
-.zg-faceplate {
-  background-image:
-    linear-gradient(var(--border-subtle) 1px, transparent 1px),
-    linear-gradient(90deg, var(--border-subtle) 1px, transparent 1px);
-  background-size: 52px 52px;
-  background-attachment: local;
-}
-
 html, body {
   margin: 0;
   padding: 0;
@@ -1683,12 +1672,305 @@ html {
 }
 .zg-btn--ghost:hover { color: var(--text-primary); }
 
+/* ============================================================
+   CHROME — header, sidebar, account menu, footer.
+   The frame around the product. It used to be built from inline
+   styles and JS onMouseEnter handlers, which meant five different
+   corner radii on screen at once, no :focus-visible or :active on
+   anything, and menu rows with no hover at all. One vocabulary
+   here, so the frame reads as deliberate as the instruments do.
+   ============================================================ */
+
+/* Icon button — the ONE round-trip control in the header rails
+   (theme, search, account, collapse). Fixed 34px box so a row of
+   them sits on a common baseline regardless of glyph size. */
+.zg-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color var(--dur-1) var(--ease-standard),
+              border-color var(--dur-1) var(--ease-standard),
+              color var(--dur-1) var(--ease-standard);
+}
+.zg-icon-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+.zg-icon-btn:active { background: var(--bg-active); }
+.zg-icon-btn[data-active="true"] {
+  border-color: var(--color-accent-hot);
+  color: var(--color-accent-hot);
+}
+/* Compact variant for the collapsed header and the mobile top bar. */
+.zg-icon-btn--sm { width: 28px; height: 28px; }
+
+/* Avatar — initials in a square plate. The account control has to say
+   WHO is signed in; a generic outline glyph for both states is the
+   single clearest "unfinished" tell in an app header. */
+.zg-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-control);
+  border: 1px solid transparent;
+  background: var(--color-accent-hot);
+  color: var(--text-inverse);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  cursor: pointer;
+  transition: filter var(--dur-1) var(--ease-standard),
+              border-color var(--dur-1) var(--ease-standard);
+}
+.zg-avatar:hover { filter: brightness(1.12); }
+.zg-avatar--sm { width: 28px; height: 28px; font-size: 10px; }
+
+/* Menu — the account/profile dropdown surface. */
+.zg-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  min-width: 248px;
+  padding: 6px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-panel);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-pop);
+  z-index: 60;
+}
+
+/* Identity block at the head of the menu — email + plan. */
+.zg-menu-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 10px 12px;
+}
+.zg-menu-head-text { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.zg-menu-email {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.zg-menu-sep {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--border-subtle);
+}
+
+/* Menu row — hover is the whole point. The old rows had none at all. */
+.zg-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color var(--dur-1) var(--ease-standard),
+              color var(--dur-1) var(--ease-standard);
+}
+.zg-menu-item:hover { background: var(--bg-hover); }
+.zg-menu-item svg { flex-shrink: 0; color: var(--text-secondary); }
+.zg-menu-item:hover svg { color: var(--text-primary); }
+.zg-menu-item--accent { color: var(--color-accent-hot); }
+.zg-menu-item--accent svg,
+.zg-menu-item--accent:hover svg { color: var(--color-accent-hot); }
+.zg-menu-item--accent:hover { background: color-mix(in srgb, var(--color-accent-hot) 12%, transparent); }
+
+/* ── Sidebar ──────────────────────────────────────────────────
+   Rows carry their state on a left rail, the way every established
+   console does it, instead of a tinted rounded box that reads as a
+   button. Hover/active are CSS, so they also cover :focus-visible. */
+.zg-nav-group {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color var(--dur-1) var(--ease-standard),
+              background-color var(--dur-1) var(--ease-standard);
+}
+.zg-nav-group:hover { color: var(--text-primary); background: var(--bg-hover); }
+
+.zg-nav-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px 8px 12px;
+  border: 0;
+  border-left: 2px solid transparent;
+  border-radius: 0 var(--radius-control) var(--radius-control) 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color var(--dur-1) var(--ease-standard),
+              border-color var(--dur-1) var(--ease-standard),
+              color var(--dur-1) var(--ease-standard);
+}
+.zg-nav-row:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.zg-nav-row[data-active="true"] {
+  border-left-color: var(--color-accent-hot);
+  background: color-mix(in srgb, var(--color-accent-hot) 10%, transparent);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.zg-nav-row-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Pin toggle inside a row — invisible until the row is hovered or the
+   page is pinned, so the rail stays quiet at rest. */
+.zg-nav-pin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border-radius: var(--radius-control);
+  color: var(--text-muted);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity var(--dur-1) var(--ease-standard),
+              color var(--dur-1) var(--ease-standard);
+}
+.zg-nav-row:hover .zg-nav-pin,
+.zg-nav-pin:focus-visible { opacity: 0.7; }
+.zg-nav-pin:hover { opacity: 1; color: var(--color-accent-hot); }
+.zg-nav-pin[data-pinned="true"] { opacity: 1; color: var(--color-accent-hot); }
+
+/* Thin themed scrollbar for the sidebar and other in-app scroll panes.
+   The default chrome scrollbar is the loudest thing on a dark console. */
+.zg-scroll { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+.zg-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+.zg-scroll::-webkit-scrollbar-track { background: transparent; }
+.zg-scroll::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: var(--radius-pill);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.zg-scroll::-webkit-scrollbar-thumb:hover { background: var(--border-strong); background-clip: padding-box; }
+
+/* ── Footer ───────────────────────────────────────────────────
+   Semantic link columns + a bottom legal bar, the shape every
+   established platform converged on. Replaces one flat list of
+   nine links under a generic "Navigation" head. */
+.zg-footer-cols {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 32px 24px;
+}
+@media (min-width: 640px) { .zg-footer-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1024px) { .zg-footer-cols { grid-template-columns: 1.4fr repeat(4, minmax(0, 1fr)); } }
+
+.zg-footer-link {
+  display: inline-block;
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color var(--dur-1) var(--ease-standard);
+}
+.zg-footer-link:hover { color: var(--text-primary); }
+
+/* Social — ghost buttons that fill on hover. The filled brand-colour
+   circles with drop shadows they replace were the most dated element
+   on the page. */
+.zg-social {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: background-color var(--dur-1) var(--ease-standard),
+              border-color var(--dur-1) var(--ease-standard),
+              color var(--dur-1) var(--ease-standard);
+}
+.zg-social:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
 /* ── Craft floor: shipped once, invisible. ────────────────────
    A global focus ring for keyboard users, and a reduced-motion guard
    that quiets every animation/transition for users who ask for it. */
 :where(a, button, [role="button"], input, select, textarea, summary):focus-visible {
   outline: 2px solid var(--color-accent-hot);
   outline-offset: 2px;
+}
+
+/* Hinting/smoothing so the variable faces render at the weight they
+   were drawn at rather than a heavier rasterised approximation. */
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Branded selection — a detail every polished product ships and no
+   unfinished one does. */
+::selection {
+  background: color-mix(in srgb, var(--color-accent-hot) 30%, transparent);
+  color: var(--text-primary);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1851,6 +2133,114 @@ html {
   .zg-w-lg { grid-column: span 3; }
   .zg-w-xl { grid-column: span 4; }
 }
+
+/* ── Key Levels flip ─────────────────────────────────────────────────────────
+   The Key Levels strip flips between underlyings in place. Two input idioms,
+   one behaviour: hover-revealed arrows on a pointer device, a horizontal swipe
+   on touch. Both call the same setSymbol the chart's own symbol switcher does,
+   so a flip moves the whole surface (or, inside a My Dashboard pane, retargets
+   just that half) rather than leaving the strip describing a different book
+   from everything around it. */
+.zg-kl-flip {
+  position: relative;
+  /* The browser keeps vertical scrolling; horizontal drags reach the swipe
+     handler instead of being swallowed as a pan. */
+  touch-action: pan-y;
+}
+
+/* 22px wide at a -12px offset is deliberate arithmetic, not taste: the arrow
+   then reaches only 10px into the outer card, which is inside that card's 12px
+   of horizontal padding — so it floats over the edge without ever covering a
+   digit. The 12px it hangs outside the strip fits in the 16px gutter every host
+   gives it (PageShell's px-4, WidgetCard's p-4), so nothing overflows and the
+   widget's overflow-hidden panel never clips it either. */
+.zg-kl-arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  transform: translateY(-50%);
+  border-radius: 999px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+  transition: opacity 160ms ease, left 160ms ease, right 160ms ease,
+    color 160ms ease, border-color 160ms ease;
+}
+.zg-kl-arrow--prev { left: -12px; }
+.zg-kl-arrow--next { right: -12px; }
+
+/* Pointer devices: the arrows stay out of the strip's way until it is hovered
+   or something inside it takes focus, then they slide out to the edges. Hidden
+   means non-interactive too, so a click near the edge of a resting strip can
+   never flip the symbol by accident. */
+@media (hover: hover) {
+  .zg-kl-arrow {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .zg-kl-arrow--prev { left: -2px; }
+  .zg-kl-arrow--next { right: -2px; }
+
+  .zg-kl-flip:hover .zg-kl-arrow,
+  .zg-kl-flip:focus-within .zg-kl-arrow {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .zg-kl-flip:hover .zg-kl-arrow--prev,
+  .zg-kl-flip:focus-within .zg-kl-arrow--prev { left: -12px; }
+  .zg-kl-flip:hover .zg-kl-arrow--next,
+  .zg-kl-flip:focus-within .zg-kl-arrow--next { right: -12px; }
+
+  .zg-kl-arrow:hover {
+    color: var(--color-accent-hot);
+    border-color: var(--color-accent-hot);
+  }
+}
+
+/* Touch: nothing to hover with, so the arrows sit permanently at a low weight.
+   They are the visible hint that the strip swipes — and a tap target for
+   anyone who would rather not. */
+@media (hover: none) {
+  .zg-kl-arrow { opacity: 0.6; }
+}
+
+/* The underlying, promoted to the subject of the strip's header line. It is
+   what a flip changes, so it outweighs the "Key Levels" label and the expiry
+   scope around it — a reader who has never flipped before should be looking at
+   this token when it moves. Mono and tracked to match the card values, which
+   are the other numbers on this surface that mean "market data". */
+.zg-kl-symbol {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: 0.04em;
+  color: var(--text-primary);
+}
+
+/* Direction-aware entry, so a flip reads as movement rather than a swap: the
+   incoming symbol slides in from the side it came from, in step with the cards
+   below it. The global prefers-reduced-motion rule above collapses it to an
+   instant change. */
+@keyframes zg-kl-in-next {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes zg-kl-in-prev {
+  from { opacity: 0; transform: translateX(-16px); }
+  to { opacity: 1; transform: none; }
+}
+.zg-kl-cards[data-flip='next'],
+.zg-kl-symbol[data-flip='next'] { animation: zg-kl-in-next 190ms ease-out; }
+.zg-kl-cards[data-flip='prev'],
+.zg-kl-symbol[data-flip='prev'] { animation: zg-kl-in-prev 190ms ease-out; }
 
 /* Split board — two independent halves side by side.
 

@@ -25,13 +25,13 @@ La documentazione richiede un account Pro. Gli utenti pubblici vengono reindiriz
 
 ## Autenticazione
 
-L'autenticazione utilizza **bearer token**. La generazione self-serve delle chiavi dalla tua pagina Account è in arrivo; fino al lancio, le chiavi vengono rilasciate manualmente:
+L'autenticazione utilizza **bearer token**. Generi la chiave da solo dal tuo account — non c'è nulla da aspettare:
 
-1. Scrivi a [support@zerogex.io](mailto:support@zerogex.io) dall'indirizzo email del tuo account (solo account Pro).
-2. Ti inviamo una chiave e le note di configurazione.
-3. Includila come `Authorization: Bearer <key>` in ogni richiesta.
+1. Accedi e vai su **Account → Accesso API** (`/account#api-access`).
+2. Clicca su **Genera chiave API** e copia la chiave dalla visualizzazione una tantum — viene mostrata una sola volta, per pochi minuti, e poi non è più recuperabile. Conservala in un password manager o in un secret store.
+3. Inviala come `Authorization: Bearer <key>` in ogni richiesta.
 
-Hai bisogno di ruotare o revocare una chiave? Scrivi al supporto e la gestiremo rapidamente.
+Le chiavi API personali sono una funzione Pro; gli account Basic e Public vengono reindirizzati a Prezzi. Generare una nuova chiave revoca immediatamente la precedente (hai al massimo una chiave attiva), quindi ruotare significa semplicemente rigenerare. Ti serve aiuto o vuoi revocare una chiave? Scrivi a [support@zerogex.io](mailto:support@zerogex.io).
 
 ## Rate limit
 
@@ -75,6 +75,13 @@ Gli endpoint storici supportano finestre multi-giorno. Per backfill approfonditi
 - Una chiave per ambiente (dev, prod). Ruotale secondo una pianificazione.
 - Non inserire una chiave nel codice lato client. La piattaforma è progettata per un consumo lato server.
 - Imposta uno `User-Agent` sensato — ci aiuta ad aiutarti quando una richiesta va storta.
+
+## Integrazioni grafiche
+
+Se vuoi soltanto i nostri livelli sul tuo grafico, potresti non dover scrivere codice:
+
+- **NinjaTrader 8** — un indicatore NinjaScript gratuito che interroga `GET /api/v1/levels/{symbol}` con la tua chiave Pro e disegna Gamma Flip, Call Wall, Put Wall, Max Pain e Pin Strike. Scaricalo da una qualsiasi pagina gratuita dei livelli gamma (ad esempio [/spx-gamma-levels](/spx-gamma-levels)), compilalo nell'Editor NinjaScript e incolla la tua chiave. Su un grafico ES o NQ imposta il simbolo su `ES` o `NQ`: i livelli arrivano già sull'asse di prezzo dei futures, senza alcun offset di base da applicare.
+- **TradingView** — uno script Pine gratuito. Solo inserimento manuale: Pine Script non può effettuare chiamate HTTP, quindi i numeri di oggi li inserisci tu.
 
 ## Vedi anche
 

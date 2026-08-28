@@ -19,7 +19,9 @@ import Link from 'next/link';
 import { ArrowRight, Gauge, Layers, LineChart, Sparkles, Target, Waves } from 'lucide-react';
 import PageShell from '@/components/layout/PageShell';
 import GammaTerminalChart, { type ChartSnapshot } from '@/components/GammaTerminalChart';
+import { SYMBOLS } from '@/core/symbols';
 import GammaExpectationMatrix from '@/components/GammaExpectationMatrix';
+import KeyLevelsStrip from '@/components/KeyLevelsStrip';
 
 const EDGE_CARDS: Array<{ icon: React.ReactNode; accent: string; title: string; body: string }> = [
   {
@@ -76,6 +78,19 @@ export default function ChartClient({
           </span>
         </div>
         <h1 className="zg-h1" style={{ marginBottom: 12 }}>The Gamma Chart</h1>
+
+        {/* Key Levels, before the copy rather than after it: the whole point is
+            that a phone shows the pin and the flip without scrolling, and the
+            lead paragraph below is a screen tall on a handset. Delayed mode
+            passes the snapshot straight through, so the public view stays
+            frozen server data with zero client fetching, exactly like the
+            chart — the public path costs nothing at all. In live mode it is a
+            second useGammaPlaybook subscriber alongside the Playbook below,
+            which is a deliberate trade: two 30s polls of two small JSON
+            endpoints buys the guarantee that the strip and the chart resolve
+            their levels through exactly the same code path. */}
+        <KeyLevelsStrip snapshot={snapshot} delayed={delayed} className="mb-5" />
+
         <p style={{ fontSize: 16, lineHeight: 1.65, color: 'var(--text-secondary)', maxWidth: 760 }}>
           Price and dealer gamma on one surface. See exactly where market makers are forced to trade against
           you — the Gamma Flip, the Call and Put Walls, and a silhouette of dealer positioning by price — drawn
@@ -91,7 +106,10 @@ export default function ChartClient({
           )}
         </p>
         <div className="flex flex-wrap items-center gap-8 mt-5">
-          <Stat value="SPY · QQQ · SPX · NDX" label="Underlyings" />
+          {/* Derived from the same SYMBOLS the chart's own switcher maps, so the
+              hero cannot advertise a different set from the one it renders —
+              this line still read SPY · QQQ · SPX · NDX after ES and NQ shipped. */}
+          <Stat value={SYMBOLS.join(' · ')} label="Underlyings" />
           <Stat value="1m → 1D" label="Timeframes" />
           <Stat value={delayed ? '~15 min' : 'Live'} label={delayed ? 'Delayed preview' : 'Dealer gamma overlay'} />
         </div>
@@ -148,7 +166,7 @@ export default function ChartClient({
             </h3>
             <p style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--text-secondary)', maxWidth: 620 }}>
               You&apos;re viewing a ~15-minute-delayed snapshot of SPY. Members get the live chart — real-time
-              dealer gamma, SPY/QQQ/SPX/NDX, all timeframes — plus the full dealer-positioning suite.
+              dealer gamma, {SYMBOLS.join('/')}, all timeframes — plus the full dealer-positioning suite.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">

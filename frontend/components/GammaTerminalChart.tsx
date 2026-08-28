@@ -27,7 +27,8 @@ import { useStrikeProfileTimeseries, type StrikeProfileStrike } from "@/hooks/us
 import { useTechnicals } from "@/hooks/useTechnicals";
 import { useTimeframe, type UnderlyingSymbol } from "@/core/TimeframeContext";
 import { getPrimaryPriceChangeSummary, getExtendedHoursRow } from "@/core/priceChange";
-import { omitClosedMarketTimes, shouldOmitClosedMarketTimes, isIndexSymbol, isWithinRegularMarketHours, etTodayDateKey, etTradingDateLabel } from "@/core/utils";
+import { futuresDelayLabel } from "@/core/futuresDataStatus";
+import { omitClosedMarketTimes, shouldOmitClosedMarketTimes, isIndexSymbol, isWithinRegularMarketHours, etTodayDateKey, etTradingDateLabel, omitOutOfHoursForSymbol } from "@/core/utils";
 import { SYMBOLS } from "@/core/symbols";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import LoadingSpinner from "./LoadingSpinner";
@@ -35,9 +36,12 @@ import ErrorMessage from "./ErrorMessage";
 import MobileScrollableChart from "./MobileScrollableChart";
 import ExpirationMultiSelect from "./ExpirationMultiSelect";
 import { useSharedExpirations } from "@/hooks/useSharedExpirations";
+import { useZeroDteOption } from "@/hooks/useZeroDteOption";
+import { selectionIsRollingZeroDte } from "@/core/expirationPersistence";
 import { useChartExpirations } from "@/hooks/useChartExpirations";
 import { useLinkedPriceAxis } from "@/core/linkedPriceAxis";
 import { netGexAtSpotOrNull, aboveFlipBandIsLong, offScaleBandIsLong } from "@/core/gammaRegime";
+import { computeMaxPainFromStrikes } from "@/core/keyLevels";
 import {
   buildExpirationSplit,
   expirationOpacityRamp,
@@ -46,6 +50,7 @@ import {
   type ExpirationSegment,
 } from "@/core/expirationGradient";
 import { buildExpectedRange, type HorizonKey } from "@/app/live-bulletin/bulletinHelpers";
+import { volatilityIndexFor } from '@/core/symbols';
 
 type ChartTimeframe = "1min" | "5min" | "15min" | "1hr" | "1day";
 type PriceStyle = "candles" | "line" | "area";
@@ -402,7 +407,7 @@ export default function GammaTerminalChart({
   // a foreign/stale pick can't request a missing expiry); only the setter is
   // taken straight from the store, because the symbol-change reset below fires
   // during render, ahead of that call.
-  const { setSelection: setRailExpiries } = useSharedExpirations();
+  const { selection: rawRailExpiries, setSelection: setRailExpiries } = useSharedExpirations();
   const effectiveRailMode: RailMode = live ? railMode : "silhouette";
 
   // Snap the view back to the live default whenever the instrument or timeframe
@@ -421,10 +426,15 @@ export default function GammaTerminalChart({
 
   // Clear the expiration filter when the instrument changes (a QQQ expiry is
   // meaningless for SPY); timeframe changes keep it (same option chain).
+  //
+  // The rolling 0DTE token is the exception, and survives: "whatever expires
+  // today" means the same thing on every chain, so the reason for clearing does
+  // not apply to it. Clearing it here would quietly widen a 0DTE board to the
+  // whole chain the first time the user switched symbols.
   const [railExpSym, setRailExpSym] = useState(symbol);
   if (railExpSym !== symbol) {
     setRailExpSym(symbol);
-    setRailExpiries([]);
+    if (!selectionIsRollingZeroDte(rawRailExpiries)) setRailExpiries([]);
   }
 
   // Restore persisted view preferences once on mount. Server and the first
@@ -514,7 +524,7 @@ export default function GammaTerminalChart({
   // implied-vol mapping the Live Bulletin uses. Live-only: the delayed public
   // snapshot does zero client fetching, so the band simply hides there (exactly
   // as the Bulletin hides it when the vol index is unavailable).
-  const volIndex: "VIX" | "VXN" = symbol === "QQQ" || symbol === "NDX" ? "VXN" : "VIX";
+  const volIndex: "VIX" | "VXN" = volatilityIndexFor(symbol);
   const { data: volGauge } = useApiData<VolatilityGaugeData>(
     `/api/market/volatility?ticker=${volIndex}`,
     { refreshInterval: live ? 30000 : 0, enabled: live },
@@ -556,6 +566,15 @@ export default function GammaTerminalChart({
   // The chart candles + price marker deliberately stay on the cash tape.
   const displaySource = snapshot ? snapshot.quote?.display_source ?? null : quote?.display_source ?? null;
   const futuresSwap = displaySource === "futures";
+  // ES / NQ only: the feed's own age. `session` describes the CME calendar, so
+  // it reads "open" through the whole futures session and would light the LIVE
+  // pill on top of a delayed feed. Freshness is a separate axis and the badge
+  // has to read it, or the chart claims to be live while the header beside it
+  // says the same tape is ten minutes old. Absent on every cash symbol.
+  const feedStale = !snapshot && quote?.stale === true;
+  const feedAgeSeconds = !snapshot && typeof quote?.data_age_seconds === "number"
+    ? quote.data_age_seconds
+    : null;
   const futuresTicker = futuresSwap
     ? (snapshot ? snapshot.quote?.data_symbol : quote?.data_symbol) ?? null
     : null;
@@ -589,7 +608,7 @@ export default function GammaTerminalChart({
   const { rows: subRowsRaw } = useMarketHistorical(symbol, subTf ?? timeframe, !symbolIsIndex, subEnabled);
   const subBars = useMemo(() => {
     if (!subEnabled) return [] as Array<{ ms: number; open: number; high: number; low: number; close: number; up: number; down: number }>;
-    const rows = omitClosedMarketTimes(subRowsRaw || [], (d) => d.timestamp);
+    const rows = omitOutOfHoursForSymbol(subRowsRaw || [], (d) => d.timestamp, symbol);
     return rows
       .map((d) => {
         const close = Number(d.close ?? d.price ?? 0);
@@ -606,7 +625,7 @@ export default function GammaTerminalChart({
       })
       .filter((b) => Number.isFinite(b.ms))
       .sort((a, b) => a.ms - b.ms);
-  }, [subEnabled, subRowsRaw]);
+  }, [subEnabled, subRowsRaw, symbol]);
 
   // Stage 1 — normalize + aggregate history (expensive; independent of the tick).
   const historicalBars = useMemo(() => {
@@ -614,7 +633,7 @@ export default function GammaTerminalChart({
     // them by intraday ET hours would drop every Monday (see
     // shouldOmitClosedMarketTimes). Only intraday series need the filter.
     const filtered = shouldOmitClosedMarketTimes(intervalMinutes)
-      ? omitClosedMarketTimes(data || [], (d) => d.timestamp)
+      ? omitOutOfHoursForSymbol(data || [], (d) => d.timestamp, symbol)
       : data || [];
     const seed = filtered[0]?.close ?? filtered[0]?.price ?? 0;
     const normalized = filtered.reduce(
@@ -636,7 +655,7 @@ export default function GammaTerminalChart({
       { rows: [] as Bar[], prevClose: seed },
     );
     return aggregateBars(normalized.rows, intervalMinutes, POOL);
-  }, [data, intervalMinutes]);
+  }, [data, intervalMinutes, symbol]);
 
   // Stage 2 — overlay the live tick onto the tip bar (same bucket-scoped,
   // history-authoritative rules proven out in UnderlyingCandlesChart). This is
@@ -853,10 +872,10 @@ export default function GammaTerminalChart({
   // dropping it. Live/delayed paths use the served value.
   const maxPain = rewindActive
     ? rewindBucket
-      ? computeMaxPain(rewindBucket.strikes)
+      ? computeMaxPainFromStrikes(rewindBucket.strikes)
       : null
     : filteredExp && live && liveGexBucket
-      ? computeMaxPain(liveGexBucket.strikes)
+      ? computeMaxPainFromStrikes(liveGexBucket.strikes)
       : snapshot ? snapshot.gamma.maxPain : num(gexSummary?.max_pain);
   // Sign-consistent at-spot dealer gamma (drives the LONG/SHORT badge). Only
   // the spot-shift profile's net_gex_at_spot is used; we deliberately DON'T
@@ -1164,6 +1183,9 @@ export default function GammaTerminalChart({
   const { data: gexByStrikeRows } = useGEXByStrike(symbol, 200, railStackEnabled ? 10000 : 0, "impact", railStackEnabled);
 
   const todayKey = etTodayDateKey();
+  // Placed here rather than beside availableExpiries above: it needs todayKey,
+  // and both sit at the component's top level so the hook order is stable.
+  const railZeroDte = useZeroDteOption(availableExpiries, todayKey);
 
   // strike(cents) → normalised expiration → call/put magnitudes, plus the
   // snapshot's expiration universe (nearest-first = DTE rank).
@@ -1754,9 +1776,11 @@ export default function GammaTerminalChart({
     ? { label: "◀ REWIND", color: "var(--color-accent-hot)" }
     : delayed
       ? { label: "◷ DELAYED ~15 MIN", color: "var(--color-warning)" }
-      : futuresSwap
-        ? { label: "◆ FUTURES", color: "var(--color-brand-coral)" }
-        : sessionLabel(session);
+      : feedStale
+        ? { label: `◷ ${futuresDelayLabel(feedAgeSeconds)}`, color: "var(--color-warning)" }
+        : futuresSwap
+          ? { label: "◆ FUTURES", color: "var(--color-brand-coral)" }
+          : sessionLabel(session);
 
   // Freshness line under the headline price.
   //  • Delayed: the snapshot's repaired "as of" (the delayed tape's freshest
@@ -1769,7 +1793,13 @@ export default function GammaTerminalChart({
   const liveStamp = fmtEtClock(liveUpdatedAt); // realtime tick receipt, to the second
   // The overnight future is actively trading even though the cash index reports
   // session='closed', so treat the futures swap as a live session for freshness.
-  const liveSessionActive = !delayed && !rewindActive && (futuresSwap || (!!session && !/closed/i.test(session)));
+  //  • Live session but a DELAYED feed (ES/NQ on the delayed CME package): the
+  //    wall-clock receipt is the moment the poll returned, not the moment the
+  //    price traded. Showing it to the second next to a ten-minute-old price is
+  //    the most precise-looking lie on the page, so fall back to the bar's own
+  //    time, which is what "as of" has always meant here.
+  const liveSessionActive =
+    !delayed && !rewindActive && !feedStale && (futuresSwap || (!!session && !/closed/i.test(session)));
   const freshnessLabel = delayed
     ? dataStamp && `Delayed quote · as of ${dataStamp}`
     : liveSessionActive
@@ -2021,6 +2051,7 @@ export default function GammaTerminalChart({
                 onChange={setRailExpiries}
                 label="Expiry"
                 disabled={availableExpiries.length === 0}
+                zeroDte={railZeroDte}
               />
             </>
           )}
@@ -2347,7 +2378,11 @@ export default function GammaTerminalChart({
             {(() => {
               const y = clamp(yPrice(liveTip.close), PAD_TOP, PRICE_BOTTOM);
               const x = xForIndex(lastIdx);
-              const isLive = !delayed && !rewindActive && !!session && session !== "closed";
+              // feedStale: the pinging dot asserts "this bar is trading right now".
+              // On a delayed feed the tip is the newest bar we have, not the newest
+              // bar that exists, so the dashed last-price line stays and the ping goes.
+              const isLive =
+                !delayed && !rewindActive && !feedStale && !!session && session !== "closed";
               return (
                 <g>
                   <line x1={PLOT_LEFT} x2={PLOT_RIGHT} y1={y} y2={y} stroke="var(--color-accent-hot)" strokeWidth={1} strokeDasharray="2 3" opacity={0.8} />
@@ -2680,7 +2715,12 @@ export default function GammaTerminalChart({
         <div className="ml-auto flex items-center gap-1.5" style={{ color: "var(--text-muted)" }}>
           <Info size={12} />
           <span className="zg-eyebrow" style={{ fontSize: 9.5 }}>
-            Dealer gamma computed by ZeroGEX · {delayed ? "delayed ~15 min" : "updates live"}
+            Dealer gamma computed by ZeroGEX ·{" "}
+            {delayed
+              ? "delayed ~15 min"
+              : feedStale
+                ? `price feed ${futuresDelayLabel(feedAgeSeconds).toLowerCase()}`
+                : "updates live"}
           </span>
         </div>
       </div>
@@ -2699,33 +2739,6 @@ function coerceNum(v: unknown): number | null {
   if (v == null || v === "") return null;
   const n = typeof v === "string" ? Number(v) : (v as number);
   return typeof n === "number" && Number.isFinite(n) ? n : null;
-}
-
-// Textbook Max Pain: the strike that minimizes total in-the-money option value
-// (writers' payout) across the chain — Σ callOI·(K−s) for s<K plus Σ putOI·(s−K)
-// for s>K. Recovers a historical Max Pain from a rewound bucket's per-strike OI,
-// which the timeseries doesn't carry as a first-class field.
-function computeMaxPain(strikes: StrikeProfileStrike[] | undefined): number | null {
-  if (!Array.isArray(strikes)) return null;
-  const rows = strikes
-    .map((s) => ({ k: coerceNum(s.strike), c: coerceNum(s.call_oi) ?? 0, p: coerceNum(s.put_oi) ?? 0 }))
-    .filter((r): r is { k: number; c: number; p: number } => r.k != null)
-    .sort((a, b) => a.k - b.k);
-  if (rows.length < 3 || !rows.some((r) => r.c > 0 || r.p > 0)) return null;
-  let bestK: number | null = null;
-  let bestLoss = Infinity;
-  for (const cand of rows) {
-    let loss = 0;
-    for (const r of rows) {
-      if (r.k < cand.k) loss += r.c * (cand.k - r.k);
-      else if (r.k > cand.k) loss += r.p * (r.k - cand.k);
-    }
-    if (loss < bestLoss) {
-      bestLoss = loss;
-      bestK = cand.k;
-    }
-  }
-  return bestK;
 }
 
 // Rebuild the gamma rail for a rewound moment from a bucket's per-strike net

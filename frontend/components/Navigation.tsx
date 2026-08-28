@@ -3,7 +3,6 @@
 import { usePathname, useRouter } from "next/navigation";
 import { MarketSession, Theme } from "@/core/types";
 import { brandLogo } from "@/core/brand";
-import { colors } from "@/core/colors";
 import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight, Pin } from "lucide-react";
 import { NAV_GROUPS, type NavGroup, type NavItem } from "@/core/navigation";
@@ -39,7 +38,6 @@ export default function Navigation({ theme }: NavigationProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [session, setSession] = useState(getMarketSession());
-  const [hoveredPage, setHoveredPage] = useState<string | null>(null);
   const [sidebarVisible, setSidebarVisible] = useState(() => {
     if (typeof window === "undefined") return true;
     try {
@@ -100,6 +98,10 @@ export default function Navigation({ theme }: NavigationProps) {
         items: [
           { id: "/about", label: "About", labelKey: "nav.about" as const },
           { id: "https://api.zerogex.io/docs", label: "API Specs", external: true },
+          // mailto: — `external` keeps it an <a href> rather than a router.push,
+          // and the http-only target/rel check leaves it opening in the same tab
+          // so the mail client takes over instead of leaving a blank window.
+          { id: "mailto:support@zerogex.io", label: "Support", labelKey: "nav.support" as const, external: true },
           ...(isAuthenticated ? [{ id: "/account", label: "Account", labelKey: "nav.account" as const }] : []),
         ],
       },
@@ -268,33 +270,25 @@ export default function Navigation({ theme }: NavigationProps) {
 
   const border = "var(--color-border)";
 
-  // A single nav row: label + optional lock/beta badges + a pin (star) toggle.
+  // A single nav row: label + optional lock/beta badges + a pin toggle.
   // Defined at component scope so the Favorites group and the normal groups
-  // render identical rows. The star is a role="button" span, not a real
+  // render identical rows. The pin is a role="button" span, not a real
   // <button>, because the row itself is a <button>/<a> and nesting interactive
   // buttons is invalid HTML — the span still gets a keyboard handler + aria.
+  //
+  // State lives in CSS (.zg-nav-row + data-active) rather than in a
+  // hoveredPage state variable and inline styles. Two reasons beyond the
+  // obvious: a React state write per pointer move re-rendered the whole
+  // sidebar on every row crossing, and inline hover can't express
+  // :focus-visible, so keyboard users had no visible row highlight at all.
+  // The active row is marked with a left rail — the convention every
+  // established console uses — instead of a tinted rounded box that reads
+  // as a button rather than a location.
   const renderItem = (page: NavItem) => {
     const isExternal = page.external === true;
     const isActive = pathname === page.id;
-    const isHovered = hoveredPage === page.id;
     const lock = lockedTier(page);
     const isFav = favorites.includes(page.id);
-    const accent = theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)';
-    // Only animate paint-only properties (see the note that used to live here):
-    // animating the `border`/`background` shorthands re-evaluates the whole box
-    // each frame and made rows jitter on hover.
-    const commonStyle = {
-      color: isActive || isHovered ? accent : "var(--text-primary)",
-      opacity: isActive || isHovered ? 1 : 0.72,
-      backgroundColor: isHovered && !isActive
-        ? `${accent}18`
-        : isActive
-          ? `${accent}14`
-          : "transparent",
-      borderColor: isActive || isHovered ? `${accent}40` : "transparent",
-      transitionProperty: "color, background-color, border-color, opacity",
-      transitionDuration: "200ms",
-    };
     const favLabel = isFav
       ? t('nav.removeFavorite', { name: navLabel(page) })
       : t('nav.addFavorite', { name: navLabel(page) });
@@ -317,19 +311,20 @@ export default function Navigation({ theme }: NavigationProps) {
             toggleFavorite(page.id);
           }
         }}
-        className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
-        style={{
-          // Brand-coral pin (these are "pinned" pages), not a gold star: solid
-          // when the page is pinned, a dim outline that brightens on hover as the
-          // affordance to pin it.
-          color: isFav ? accent : "var(--text-secondary)",
-          opacity: isFav ? 1 : isHovered ? 0.8 : 0.32,
-          cursor: "pointer",
-          transition: "opacity 200ms, color 200ms",
-        }}
+        className="zg-nav-pin"
+        data-pinned={isFav ? "true" : undefined}
       >
-        <Pin size={15} fill={isFav ? "currentColor" : "none"} strokeWidth={isFav ? 1.75 : 2} />
+        <Pin size={14} fill={isFav ? "currentColor" : "none"} strokeWidth={isFav ? 1.75 : 2} />
       </span>
+    );
+
+    const body = (
+      <>
+        <span className="zg-nav-row-label">{navLabel(page)}</span>
+        {lock && <TierBadge tier={lock} />}
+        {page.beta && <BetaBadge />}
+        {favStar}
+      </>
     );
 
     if (isExternal) {
@@ -340,15 +335,10 @@ export default function Navigation({ theme }: NavigationProps) {
           href={targetHref}
           target={targetHref.startsWith("http") ? "_blank" : undefined}
           rel={targetHref.startsWith("http") ? "noreferrer" : undefined}
-          onMouseEnter={() => setHoveredPage(page.id)}
-          onMouseLeave={() => setHoveredPage(null)}
-          className="flex w-full items-center gap-2 rounded-xl border border-solid px-3 py-3 text-left text-sm font-semibold"
-          style={commonStyle}
+          className="zg-nav-row"
+          data-active={isActive ? "true" : undefined}
         >
-          <span>{navLabel(page)}</span>
-          {lock && <TierBadge tier={lock} />}
-          {page.beta && <BetaBadge />}
-          {favStar}
+          {body}
         </Link>
       );
     }
@@ -357,16 +347,12 @@ export default function Navigation({ theme }: NavigationProps) {
       <button
         key={page.id}
         onClick={() => router.push(resolveNavTarget(page))}
-        onMouseEnter={() => setHoveredPage(page.id)}
-        onMouseLeave={() => setHoveredPage(null)}
-        className="flex w-full items-center gap-2 rounded-xl border border-solid px-3 py-3 text-left text-sm font-semibold"
-        style={commonStyle}
+        className="zg-nav-row"
+        data-active={isActive ? "true" : undefined}
+        aria-current={isActive ? "page" : undefined}
         type="button"
       >
-        <span>{navLabel(page)}</span>
-        {lock && <TierBadge tier={lock} />}
-        {page.beta && <BetaBadge />}
-        {favStar}
+        {body}
       </button>
     );
   };
@@ -386,9 +372,9 @@ export default function Navigation({ theme }: NavigationProps) {
             WebkitBackdropFilter: "blur(20px)",
           }}
         >
-          <div className="h-full overflow-y-auto px-4 py-5">
+          <div className="zg-scroll h-full overflow-y-auto px-3 py-5">
             {headerCollapsed && (
-              <div className="mb-5 rounded-xl border p-3" style={{ borderColor: border, backgroundColor: 'color-mix(in srgb, var(--bg-card) 79%, transparent)' }}>
+              <div className="zg-panel mb-4 p-3" style={{ backgroundColor: 'color-mix(in srgb, var(--bg-card) 79%, transparent)' }}>
                 {/* The lockup is trimmed to its artwork, so it's sized by height
                     and centred — the old over-wide, negatively-offset crop
                     existed only to cut the padding out of the SVG export. */}
@@ -402,9 +388,9 @@ export default function Navigation({ theme }: NavigationProps) {
                 {row1Price !== null && (
                   <div className="mt-3 flex items-center justify-between gap-2">
                     <div className="flex flex-col gap-1">
-                      <span className="font-bold text-lg">${row1Price.toFixed(2)}</span>
+                      <span className="zg-metric" style={{ fontSize: "1.125rem" }}>${row1Price.toFixed(2)}</span>
                       {row1Change !== null && row1ChangePercent !== null && (
-                        <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg font-semibold text-xs w-fit" style={{ backgroundColor: `${row1Positive ? 'var(--color-bull)' : 'var(--color-bear)'}1f`, color: row1Positive ? 'var(--color-bull)' : 'var(--color-bear)' }}>
+                        <div className="zg-datum flex items-center gap-1 px-2 py-0.5 font-semibold text-xs w-fit" style={{ borderRadius: 'var(--radius-control)', backgroundColor: `${row1Positive ? 'var(--color-bull)' : 'var(--color-bear)'}1f`, color: row1Positive ? 'var(--color-bull)' : 'var(--color-bear)' }}>
                           {row1Positive ? <TrendingUp size={12} strokeWidth={2.5} /> : <TrendingDown size={12} strokeWidth={2.5} />}
                           {row1Positive ? "+" : ""}{row1Change.toFixed(2)} ({row1Positive ? "+" : ""}{row1ChangePercent.toFixed(2)}%)
                         </div>
@@ -417,29 +403,25 @@ export default function Navigation({ theme }: NavigationProps) {
             )}
             {favoriteItems.length > 0 && (() => {
               const favExpanded = expandedGroups["__favorites__"] ?? true;
-              const headAccent = theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)';
               return (
-                <div className="mb-4">
+                <div className="mb-3">
                   <button
                     type="button"
                     onClick={() => setExpandedGroups((prev) => ({ ...prev, __favorites__: !favExpanded }))}
-                    className="mb-2 flex w-full items-center justify-between rounded-lg px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em]"
-                    style={{
-                      color: headAccent,
-                      background: `${headAccent}0f`,
-                    }}
+                    className="zg-nav-group mb-1"
+                    aria-expanded={favExpanded}
                   >
                     <span className="flex items-center gap-1.5">
-                      <Pin size={12} fill="currentColor" strokeWidth={1.75} />
+                      <Pin size={11} fill="currentColor" strokeWidth={1.75} />
                       {t('nav.group.favorites')}
                     </span>
                     <ChevronDown
-                      size={14}
+                      size={13}
                       style={{ transform: favExpanded ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 0.2s" }}
                     />
                   </button>
                   {favExpanded ? (
-                    <div className="space-y-1">{favoriteItems.map(renderItem)}</div>
+                    <div>{favoriteItems.map(renderItem)}</div>
                   ) : null}
                 </div>
               );
@@ -448,24 +430,21 @@ export default function Navigation({ theme }: NavigationProps) {
               const isExpanded = expandedGroups[group.label] ?? false;
 
               return (
-                <div key={group.label} className="mb-4 last:mb-0">
+                <div key={group.label} className="mb-3 last:mb-0">
                   <button
                     type="button"
                     onClick={() => setExpandedGroups((prev) => ({ ...prev, [group.label]: !isExpanded }))}
-                    className="mb-2 flex w-full items-center justify-between rounded-lg px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em]"
-                    style={{
-                      color: theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)',
-                      background: `${theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)'}0f`,
-                    }}
+                    className="zg-nav-group mb-1"
+                    aria-expanded={isExpanded}
                   >
                     {group.labelKey ? t(group.labelKey) : group.label}
                     <ChevronDown
-                      size={14}
+                      size={13}
                       style={{ transform: isExpanded ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 0.2s" }}
                     />
                   </button>
                   {isExpanded ? (
-                    <div className="space-y-1">
+                    <div>
                       {group.items.map(renderItem)}
                       {group.subgroups.map((subgroup) => {
                         const subKey = `${group.label}::${subgroup.label}`;
@@ -473,38 +452,12 @@ export default function Navigation({ theme }: NavigationProps) {
                         const subgroupId = subgroup.id;
                         const subgroupLock = lockedTier(subgroup);
                         const subgroupActive = subgroupId != null && pathname === subgroupId;
-                        const subgroupHovered = subgroupId != null && hoveredPage === subgroupId;
-                        const subgroupAccent = theme === "light" ? 'var(--color-brand-coral)' : 'var(--color-brand-primary)';
-                        const subgroupTransition = {
-                          transitionProperty: "color, background-color, border-color, opacity",
-                          transitionDuration: "200ms",
-                        };
-                        const subgroupStyle = subgroupId != null
-                          ? {
-                              color: subgroupActive || subgroupHovered ? subgroupAccent : "var(--text-primary)",
-                              opacity: subgroupActive || subgroupHovered ? 1 : 0.72,
-                              backgroundColor: subgroupHovered && !subgroupActive
-                                ? `${subgroupAccent}18`
-                                : subgroupActive
-                                  ? `${subgroupAccent}14`
-                                  : "transparent",
-                              borderColor: subgroupActive || subgroupHovered ? `${subgroupAccent}40` : "transparent",
-                              ...subgroupTransition,
-                            }
-                          : {
-                              color: 'var(--text-primary)',
-                              opacity: 0.72,
-                              backgroundColor: "transparent",
-                              borderColor: "transparent",
-                              ...subgroupTransition,
-                            };
                         return (
-                          <div key={subKey} className="mt-2 pl-2 border-l" style={{ borderColor: `${subgroupAccent}33` }}>
+                          <div key={subKey} className="mt-1">
                             <div
-                              className="mb-1 flex w-full items-center rounded-xl border border-solid text-sm font-semibold"
-                              style={subgroupStyle}
-                              onMouseEnter={() => subgroupId && setHoveredPage(subgroupId)}
-                              onMouseLeave={() => setHoveredPage(null)}
+                              className="zg-nav-row"
+                              data-active={subgroupActive ? "true" : undefined}
+                              style={{ padding: 0, gap: 0 }}
                             >
                               {subgroupId ? (
                                 <button
@@ -513,36 +466,40 @@ export default function Navigation({ theme }: NavigationProps) {
                                     router.push(resolveNavTarget({ id: subgroupId, requiredTier: subgroup.requiredTier }));
                                     setExpandedGroups((prev) => ({ ...prev, [subKey]: true }));
                                   }}
-                                  className="flex-1 px-3 py-3 text-left bg-transparent flex items-center gap-2"
-                                  style={{ color: "inherit" }}
+                                  className="flex-1 min-w-0 px-3 py-2 text-left bg-transparent flex items-center gap-2"
+                                  style={{ color: "inherit", font: "inherit", border: 0, cursor: "pointer" }}
+                                  aria-current={subgroupActive ? "page" : undefined}
                                 >
-                                  {navLabel(subgroup)}
+                                  <span className="zg-nav-row-label">{navLabel(subgroup)}</span>
                                   {subgroupLock && <TierBadge tier={subgroupLock} />}
                                 </button>
                               ) : (
-                                <span className="flex-1 px-3 py-3 flex items-center gap-2" style={{ color: "inherit" }}>
-                                  {navLabel(subgroup)}
+                                <span className="flex-1 min-w-0 px-3 py-2 flex items-center gap-2" style={{ color: "inherit" }}>
+                                  <span className="zg-nav-row-label">{navLabel(subgroup)}</span>
                                   {subgroupLock && <TierBadge tier={subgroupLock} />}
                                 </span>
                               )}
                               <button
                                 type="button"
                                 aria-label={isSubExpanded ? t('nav.collapse', { name: navLabel(subgroup) }) : t('nav.expand', { name: navLabel(subgroup) })}
+                                aria-expanded={isSubExpanded}
                                 onClick={(event) => {
                                   event.stopPropagation();
                                   setExpandedGroups((prev) => ({ ...prev, [subKey]: !isSubExpanded }));
                                 }}
-                                className="flex h-9 w-9 items-center justify-center rounded-lg bg-transparent"
-                                style={{ color: "inherit" }}
+                                className="flex h-8 w-8 shrink-0 items-center justify-center bg-transparent"
+                                style={{ color: "inherit", border: 0, cursor: "pointer", borderRadius: "var(--radius-control)" }}
                               >
                                 <ChevronDown
-                                  size={14}
+                                  size={13}
                                   style={{ transform: isSubExpanded ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 0.2s" }}
                                 />
                               </button>
                             </div>
+                            {/* Children indent off a hairline, so depth reads
+                                structurally rather than from a second tint. */}
                             {isSubExpanded ? (
-                              <div className="space-y-1">
+                              <div className="ml-3 pl-1 border-l" style={{ borderColor: "var(--border-subtle)" }}>
                                 {subgroup.items.map(renderItem)}
                               </div>
                             ) : null}
@@ -558,8 +515,9 @@ export default function Navigation({ theme }: NavigationProps) {
           <button
             type="button"
             onClick={toggleSidebar}
-            className="absolute -right-9 top-4 flex h-14 w-9 items-center justify-center rounded-r-xl border border-l-0 opacity-0 transition-opacity duration-150 group-hover/sidebar:opacity-100 focus-visible:opacity-100"
+            className="absolute -right-8 top-4 flex h-14 w-8 items-center justify-center border border-l-0 opacity-0 transition-opacity duration-150 group-hover/sidebar:opacity-100 focus-visible:opacity-100"
             style={{
+              borderRadius: "0 var(--radius-control) var(--radius-control) 0",
               backgroundColor: "color-mix(in srgb, var(--bg-card) 95%, transparent)",
               borderColor: border,
               color: 'var(--text-secondary)',
@@ -575,11 +533,12 @@ export default function Navigation({ theme }: NavigationProps) {
         <button
           type="button"
           onClick={toggleSidebar}
-          className="hidden md:flex fixed z-30 items-center gap-1 rounded-r-xl border border-l-0 px-2"
+          className="hidden md:flex fixed z-30 items-center gap-1 border border-l-0 px-2"
           style={{
             left: 0,
             top: "calc(var(--zgx-header-height, 0px) + 18px)",
             height: "56px",
+            borderRadius: "0 var(--radius-control) var(--radius-control) 0",
             backgroundColor: "color-mix(in srgb, var(--bg-card) 95%, transparent)",
             borderColor: border,
             color: 'var(--text-secondary)',

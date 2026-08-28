@@ -15,10 +15,17 @@
  *   • expirations — the tab-shared filter, reconciled per symbol by
  *                   useChartExpirations. The SAME `param` the chart requests, so
  *                   both share one strike-profile-timeseries cache entry.
- *   • levels      — flip / call wall / put wall from the expiration-filtered
- *                   timeseries bucket when a subset is selected (what the chart
- *                   draws), else the whole-chain profile/summary.
+ *   • levels      — flip / call wall / put wall / max pain from the
+ *                   expiration-filtered timeseries bucket when a subset is
+ *                   selected (what the chart draws), else the whole-chain
+ *                   profile/summary.
  *   • spot/drift  — the chart's tape reading (see core/priceChange).
+ *
+ * It is also the single source of truth for the Key Levels strip and the Key
+ * Levels widget (see core/keyLevels), which is why it returns Max Pain and the
+ * Pin Strike alongside the three levels the Playbook's own 2×2 consumes: those
+ * surfaces must show exactly the levels the chart above them is drawing, for
+ * the same symbol and expirations, without opening a second set of polls.
  *
  * Delayed (public) mode reads the server snapshot and does ZERO client
  * fetching, exactly like the chart it sits under.
@@ -44,6 +51,7 @@ import {
   resolvePlaybookScenario,
   type PlaybookScenario,
 } from '@/core/gammaPlaybook';
+import { computeMaxPainFromStrikes } from '@/core/keyLevels';
 import type { ChartSnapshot } from '@/components/GammaTerminalChart';
 
 // The Playbook's own polls. Slower than the chart's (10s/5s) because a regime
@@ -61,11 +69,26 @@ export interface GammaPlaybookRead {
   /** True when a strict subset of the chain is selected. */
   filtered: boolean;
   spot: number | null;
+  /** Session change behind the spot reading (core/priceChange's tape). */
+  spotChange: number | null;
+  spotChangePercent: number | null;
   flip: number | null;
   callWall: number | null;
   putWall: number | null;
+  /** The options pin, recomputed from the filtered book when one is selected. */
+  maxPain: number | null;
+  /**
+   * Reachable 0DTE positive-gamma pin. Whole-chain by construction (it models
+   * into-expiration hedging), so — exactly like the chart's pin line — it is
+   * read from the summary and does NOT follow the expiration filter.
+   */
+  pinStrike: number | null;
+  /** Normalized dominance of that pin, for the strength label. */
+  pinConfidence: number | null;
   /** At-spot dealer gamma actually used for the regime (null when withheld). */
   netGexAtSpot: number | null;
+  /** Modeled long-gamma regime at spot; null when genuinely unknown. */
+  longGamma: boolean | null;
   scenario: PlaybookScenario;
   /** One sentence explaining why this cell is the live read. */
   rationale: string;
@@ -140,6 +163,19 @@ export function useGammaPlaybook({
     : snapshot
       ? snapshot.gamma.putWall
       : num(gexProfile?.put_wall ?? gexSummary?.put_wall);
+  // Max Pain is not a stored field on the timeseries buckets, so a filtered
+  // book recovers it from that bucket's per-strike OI — the same recovery the
+  // chart does, so the strip can never print a whole-chain pin beside a
+  // filtered chart line.
+  const maxPain = levelBucket
+    ? computeMaxPainFromStrikes(levelBucket.strikes)
+    : snapshot
+      ? snapshot.gamma.maxPain
+      : num(gexSummary?.max_pain);
+  // Pin Strike is summary-only (see the interface note) and absent from the
+  // public snapshot, where it degrades to "no active pin".
+  const pinStrike = snapshot ? null : num(gexSummary?.pin_strike);
+  const pinConfidence = snapshot ? null : num(gexSummary?.pin_confidence);
 
   // Spot: the same tape reading the chart's price marker rides (live quote in
   // extended hours, the regular close when the tape is shut).
@@ -158,6 +194,11 @@ export function useGammaPlaybook({
     filtered && levelBucket != null,
   );
 
+  // Resolved by the shared regime helper, so neither the Playbook's row nor the
+  // Key Levels regime chip can contradict the chart's LONG/SHORT badge. Null
+  // when the regime is genuinely unknown — callers render nothing, not a guess.
+  const longGamma = longGammaAtSpot(netGexAtSpot, spot, flip);
+
   const scenario = useMemo(
     () =>
       resolvePlaybookScenario({
@@ -165,12 +206,10 @@ export function useGammaPlaybook({
         callWall,
         putWall,
         netGexAtSpot,
-        // Resolved by the shared regime helper, so the Playbook's row can never
-        // contradict the chart's LONG/SHORT badge.
-        longGamma: longGammaAtSpot(netGexAtSpot, spot, flip),
+        longGamma,
         drift: tape.change,
       }),
-    [spot, callWall, putWall, netGexAtSpot, flip, tape.change],
+    [spot, callWall, putWall, netGexAtSpot, longGamma, tape.change],
   );
 
   const expirationLabel = useMemo(
@@ -190,10 +229,16 @@ export function useGammaPlaybook({
     expirationLabel,
     filtered: !delayed && filtered,
     spot,
+    spotChange: tape.change,
+    spotChangePercent: tape.changePercent,
     flip,
     callWall,
     putWall,
+    maxPain,
+    pinStrike,
+    pinConfidence,
     netGexAtSpot,
+    longGamma,
     scenario,
     rationale,
     // Only "still landing" until the first response; an unresolved read after

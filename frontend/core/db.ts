@@ -181,6 +181,19 @@ function initDb(): DatabaseSync {
   ensureColumn('users', 'terms_accepted_at', 'TEXT');
   ensureColumn('users', 'terms_version_accepted', 'TEXT');
 
+  // Last authenticated request, throttled to one write per
+  // AUTH_LAST_SEEN_THROTTLE_SECONDS (see serverAuth.getSessionFromRequest).
+  // sessions.last_rotated_at was the only prior proxy for "did this member come
+  // back", and it advances at most once per 24h, which is too coarse to tell a
+  // member who returned daily from one who never came back at all.
+  //
+  // That distinction is what core/trialEngagement reads to decide whether a
+  // trial is about to convert on a member who never used the product — the
+  // cohort that produces chargebacks. NULL means the account predates this
+  // column, which is unknown engagement, NOT dormancy; nothing may infer
+  // dormancy from its absence.
+  ensureColumn('users', 'last_seen_at', 'TEXT');
+
   // Founding-member program. `founding_eligible` is a one-time grant set via
   // scripts/seed-founders.mjs for the launch cohort; new signups default to 0
   // and cannot redeem the founding code. `founding_member_started_at` is set

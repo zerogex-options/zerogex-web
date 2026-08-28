@@ -36,8 +36,10 @@ import { selectActive } from '@/core/strikeFilter';
 import { useTheme } from '@/core/ThemeContext';
 import { etTodayDateKey } from '@/core/utils';
 import { useSharedExpirations } from '@/hooks/useSharedExpirations';
+import { useZeroDteOption } from '@/hooks/useZeroDteOption';
 import { reconcileExpirations } from '@/core/expirationPersistence';
 import { netGexAtSpotOrNull, longGammaAtSpot } from '@/core/gammaRegime';
+import { volatilityIndexFor } from '@/core/symbols';
 import {
   aggregateStrikes,
   chartExpirationOptions as deriveChartExpirationOptions,
@@ -118,7 +120,7 @@ export default function GammaExposurePage() {
     [openInterestPayload],
   );
   // QQQ/NDX's correct implied-vol input is VXN (Nasdaq-100); SPX/SPY use VIX.
-  const volIndex: 'VIX' | 'VXN' = symbol === 'QQQ' || symbol === 'NDX' ? 'VXN' : 'VIX';
+  const volIndex: 'VIX' | 'VXN' = volatilityIndexFor(symbol);
   const { data: volGauge } = useVolatilityGauge(30000, volIndex);
   // vol-expansion is a Pro-only endpoint; this page is Basic-tier, so gate the
   // poll behind Pro access instead of 403-looping for non-Pro viewers. The
@@ -165,9 +167,10 @@ export default function GammaExposurePage() {
   // reconciled to the current/future expirations it can plot — which also drops
   // any now-past pick after the date rolls, so no separate pruning is needed.
   const chartSelectedExpirations = useMemo(
-    () => reconcileExpirations(sharedExpirations, chartExpirationOptions),
-    [sharedExpirations, chartExpirationOptions],
+    () => reconcileExpirations(sharedExpirations, chartExpirationOptions, todayKey),
+    [sharedExpirations, chartExpirationOptions, todayKey],
   );
+  const zeroDte = useZeroDteOption(chartExpirationOptions, todayKey);
 
   // The table's tri-state selection (null = All, [] = none / empty table,
   // [dates] = subset), derived — not stored — so it tracks the shared selection
@@ -181,9 +184,9 @@ export default function GammaExposurePage() {
   const tableCleared = clearedAgainst !== null && clearedAgainst === sharedExpirations;
   const selectedExpirations = useMemo<string[] | null>(() => {
     if (tableCleared) return [];
-    const reconciled = reconcileExpirations(sharedExpirations, expirationOptions);
+    const reconciled = reconcileExpirations(sharedExpirations, expirationOptions, todayKey);
     return reconciled.length > 0 ? reconciled : null;
-  }, [tableCleared, sharedExpirations, expirationOptions]);
+  }, [tableCleared, sharedExpirations, expirationOptions, todayKey]);
 
   // Aggregate by-strike data for the table (respects table's multi-select).
   const strikeData = useMemo(() => {
@@ -530,6 +533,7 @@ export default function GammaExposurePage() {
             expirationOptions={chartExpirationOptions}
             selectedExpirations={chartSelectedExpirations}
             onSelectedExpirationsChange={setSharedExpirations}
+            zeroDte={zeroDte}
             perExpirationData={perExpirationStrikeData}
             todayKey={todayKey}
           />

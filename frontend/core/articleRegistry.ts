@@ -61,7 +61,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     blurb:
       'Starting today, ZeroGEX donates 3% of every subscription to Folds of Honor — funding educational scholarships for the families of fallen and disabled U.S. service members. The mechanics, the math, and why.',
     description:
-      'ZeroGEX is donating 3% of every subscription to Folds of Honor — quarterly donations, gross-revenue basis, full transparency. Mechanics, math, and the why behind the partner choice.',
+      'ZeroGEX donates 3% of every subscription to Folds of Honor — quarterly, on gross revenue. The mechanics, the math, and why we chose this partner.',
     datePublished: '2026-06-24',
     readMinutes: 4,
     kind: 'article',
@@ -109,7 +109,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     blurb:
       'The practical intraday read on the gamma flip — what changes above versus below, how dealer hedging behavior shifts, and how to use it as a filter.',
     description:
-      'How to read a gamma flip intraday — what the flip level is, what changes above vs below, and how dealer hedging behavior shifts. Gamma flip explained for SPX traders.',
+      'How to read a gamma flip intraday — what the flip level is, what changes above versus below it, and how dealer hedging shifts. Gamma flip explained for SPX.',
     datePublished: '2026-06-11',
     readMinutes: 8,
     kind: 'tier1',
@@ -121,7 +121,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     blurb:
       'What gamma walls actually are, why price tends to react at the call wall and put wall, how the walls migrate, and when they can hold versus break.',
     description:
-      'Gamma walls explained — what call walls and put walls are, why price often reacts at them, how they shift intraday, and when they hold versus break. Practical SPX trader guide.',
+      'Gamma walls explained — what call walls and put walls are, why price reacts at them, how they shift intraday, and when they hold versus break.',
     datePublished: '2026-06-11',
     readMinutes: 9,
     kind: 'tier1',
@@ -133,7 +133,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     blurb:
       'Why same-day expiries dominate the intraday dealer book, how positive/negative gamma regimes change the tape for 0DTE, and how to read SPX 0DTE flow.',
     description:
-      '0DTE dealer positioning explained — why dealer gamma matters most for same-day expiries, how negative vs positive gamma regimes change the tape, and how to read SPX 0DTE flow.',
+      '0DTE dealer positioning explained — why dealer gamma matters most for same-day expiries, and how negative versus positive regimes change the SPX tape.',
     datePublished: '2026-06-11',
     readMinutes: 9,
     kind: 'tier1',
@@ -157,7 +157,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     blurb:
       'The reachable 0DTE strike with the strongest modeled positive dealer-gamma stabilization into expiration — built by re-pricing the book as if spot were at each strike, weighted by whether price can actually get there. Why it is not the biggest-gamma strike, how it differs from max pain and the walls, and why it is allowed to return no active pin.',
     description:
-      'Pin Strike explained — the reachable 0DTE strike with the strongest modeled positive dealer-gamma stabilization into expiration. How it is computed, how it differs from the walls, gamma flip, max pain and the King Node, and when it returns no active pin.',
+      'Pin Strike explained — the reachable 0DTE strike with the strongest modeled dealer-gamma pull into expiration, and how it differs from the walls.',
     datePublished: '2026-08-09',
     readMinutes: 14,
     kind: 'tier2',
@@ -181,7 +181,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     blurb:
       'What vanna and charm are, why they drive dealer hedging flows, how vanna can drive the vol-compression grind, and how charm shapes the into-close flow.',
     description:
-      'Vanna and charm explained — what each Greek is, why they drive dealer hedging flows, how vanna can create the vol-compression grind, and how charm shapes the close.',
+      'Vanna and charm explained — what each Greek is, why they drive dealer hedging, how vanna creates the vol-compression grind, and how charm shapes the close.',
     datePublished: '2026-06-11',
     readMinutes: 14,
     kind: 'tier2',
@@ -205,7 +205,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     blurb:
       'Live gamma flip, call and put walls, dealer positioning, and composite signals — built for SPX/0DTE intraday flow. Free dashboard, no signup required.',
     description:
-      'Real-time 0DTE GEX for SPX, SPY, QQQ and NDX — live gamma flip, call and put walls, dealer positioning, and a 13-signal composite built for intraday 0DTE flow. Free dashboard, no signup required.',
+      'Real-time 0DTE GEX for SPX, SPY, QQQ and NDX — live gamma flip, call and put walls, dealer positioning, and a 13-signal composite. Free, no signup.',
     datePublished: '2026-06-11',
     readMinutes: 0,
     kind: 'landing',
@@ -217,7 +217,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     blurb:
       'The practical deep-dive on the Squeeze Setup signal — what it asks, the five inputs that drive the score, when it triggers, and how to use it as a precondition filter for directional breakouts.',
     description:
-      'Squeeze Setup signal explained — what it asks, the five headline inputs, how the score triggers, and how to use it to identify markets coiled for a directional move.',
+      'Squeeze Setup signal explained — what it asks, its five headline inputs, how the score triggers, and how to spot markets coiled for a directional move.',
     datePublished: '2026-06-12',
     readMinutes: 10,
     kind: 'tier2',
@@ -229,7 +229,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     blurb:
       'What the Positioning Trap signal measures, why crowded options trades break, how the score is built from PCR + smart-money imbalance + regime, and how to fade the crowd at the right moment.',
     description:
-      'Positioning Trap signal explained — what it measures, how the score is built, why crowded options trades break, and how to fade the crowd instead of being trapped.',
+      'Positioning Trap signal explained — what it measures, how the score is built, why crowded options trades break, and how to fade the crowd instead.',
     datePublished: '2026-06-12',
     readMinutes: 9,
     kind: 'tier2',
@@ -241,7 +241,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     blurb:
       'The trader-facing read on the EOD Pressure signal — how charm decay and pin gravity combine into a directional drift estimator for the final 90 minutes of the cash session.',
     description:
-      'EOD Pressure signal explained — how charm decay and pin gravity drive forced hedging into the close, how the score is built, and how to read it in the final 90 minutes.',
+      'EOD Pressure signal explained — how charm decay and pin gravity force hedging into the close, how the score is built, and how to read the final 90 minutes.',
     datePublished: '2026-06-12',
     readMinutes: 11,
     kind: 'tier2',
@@ -253,7 +253,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     blurb:
       'Failed breakouts aren\'t random. They\'re driven by dealer hedging at concentrated strikes, regime conditions, and three structural variables that flag the fail before you chase.',
     description:
-      'Why do breakouts fail in SPY and SPX? The structural reason behind failed breakouts — dealer hedging, gamma regime, and the three conditions that make the trap likely.',
+      'Why do breakouts fail in SPY and SPX? The structural reason — dealer hedging, gamma regime, and the three conditions that make the trap likely.',
     datePublished: '2026-06-15',
     readMinutes: 10,
     kind: 'tier1',
@@ -277,7 +277,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     blurb:
       'The 0DTE chase is the most expensive bad habit in short-term options trading. Three signs you\'re about to make the mistake, the structural read that overrides the instinct, and the conditions when the momentum is actually real.',
     description:
-      'How to avoid chasing 0DTE moves — why same-day chases are structurally dangerous, three signs you\'re about to chase, and the regime read that tells you when to stand down.',
+      'How to avoid chasing 0DTE moves — why same-day chases are structurally dangerous, three signs you’re about to chase, and when to stand down.',
     datePublished: '2026-06-15',
     readMinutes: 11,
     kind: 'tier1',
@@ -289,7 +289,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     blurb:
       'Negative gamma means dealer hedging amplifies moves instead of dampening them. What the term actually refers to, how to spot a negative-gamma regime in real time, and what changes in your trading.',
     description:
-      'What does negative gamma mean? Plain-English explainer — dealers amplify moves, volatility expands, breakouts extend. How to spot a negative-gamma regime in real time.',
+      'What does negative gamma mean? Dealers amplify moves, volatility expands, breakouts extend — and how to spot a negative-gamma regime in real time.',
     datePublished: '2026-06-15',
     readMinutes: 10,
     kind: 'tier1',
@@ -301,7 +301,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     blurb:
       'Options pinning isn\'t superstition — it\'s dealer hedging at heavy gamma strikes that can pull price toward the strike. The mechanism, why it intensifies near expiry, and when the pin holds vs. breaks.',
     description:
-      'Why does SPY pin near a strike? Options pinning explained — the dealer-hedging mechanism, why it\'s strongest on OPEX and end-of-day, and when the pin holds vs. breaks.',
+      'Why does SPY pin near a strike? Options pinning explained — the dealer-hedging mechanism, why it peaks on OPEX, and when the pin holds versus breaks.',
     datePublished: '2026-06-15',
     readMinutes: 11,
     kind: 'tier1',
@@ -313,7 +313,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     blurb:
       'The gamma flip is a playbook switch, not a price level. Three setups each regime supports, the workflow for using the flip as a playbook signal, and what to do when spot crosses.',
     description:
-      'How to trade around gamma flip levels — what changes when spot crosses, the three setup types each regime supports, and the workflow for using the flip as a playbook switch.',
+      'How to trade around gamma flip levels — what changes when spot crosses, the three setups each regime supports, and using the flip as a playbook switch.',
     datePublished: '2026-06-15',
     readMinutes: 10,
     kind: 'tier1',
@@ -325,7 +325,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     blurb:
       'SPY and SPX track the same index through two separate dealer gamma books. How their gamma levels differ, how to translate a level with the ~10x ratio, which book carries more weight, and how agreement between the modeled books can be used as unvalidated contextual confluence.',
     description:
-      'SPY vs SPX options — which gamma levels matter? How the two dealer gamma books differ, translating levels with the ~10x ratio, which carries more weight, and how ZeroGEX treats agreement as contextual confluence rather than guaranteed reliability.',
+      'SPY vs SPX gamma levels — how the two dealer gamma books differ, how to translate levels with the ~10x ratio, and which one carries more weight.',
     datePublished: '2026-07-06',
     readMinutes: 9,
     kind: 'tier1',
@@ -337,7 +337,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     blurb:
       'The Put Wall is the largest below-spot put-gamma concentration. Learn why it may coincide with support, why modeled short-put hedging does not create a mechanical floor, and how repricing can move the wall intraday.',
     description:
-      'What is a Put Wall? Learn how ZeroGEX identifies below-spot put-gamma concentration, why support is conditional on the broader profile and flow, and how the modeled level can migrate.',
+      'What is a put wall? The strike below spot where put gamma concentrates — why support there is conditional on the broader profile, and how it migrates.',
     datePublished: '2026-07-07',
     readMinutes: 8,
     kind: 'tier1',
@@ -349,9 +349,21 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     blurb:
       'The call wall is the strike where call-side dealer gamma concentrates — the level dealer hedging tends to defend on the way up. What it is, why it can cap rallies in long gamma, how it migrates, what a break may indicate about the strength of the level, and where to see today’s live SPX, SPY, QQQ, and NDX call walls.',
     description:
-      'What is a call wall? The strike where call gamma concentrates and dealer hedging can defend the upside — why it often acts as resistance, how it migrates, and when price breaks through. See today’s SPX / SPY / QQQ / NDX call walls.',
+      'What is a call wall? The strike where call gamma concentrates and dealer hedging can defend the upside — why it acts as resistance, and when it breaks.',
     datePublished: '2026-07-07',
     readMinutes: 8,
+    kind: 'tier1',
+  },
+  'what-is-a-gamma-wall': {
+    slug: 'what-is-a-gamma-wall',
+    href: '/education/what-is-a-gamma-wall',
+    title: 'What Is a Gamma Wall? Gamma Walls in Trading Explained',
+    blurb:
+      'The plain-English definition of a gamma wall — a strike where modeled dealer gamma concentrates. The two walls, why price can react at them, why a wall is not support or resistance, and why the level migrates through the session.',
+    description:
+      'What is a gamma wall? The strike where modeled dealer gamma concentrates — the call wall and put wall, why price reacts there, and why it is not support.',
+    datePublished: '2026-08-27',
+    readMinutes: 6,
     kind: 'tier1',
   },
   'what-is-gex-in-trading': {
@@ -361,7 +373,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     blurb:
       'GEX — gamma exposure — is the one number that helps explain why some days pin and others trend. A plain-English, beginner-first explainer: what GEX measures, how dealer gamma moves the tape, and what positive versus negative regimes mean for your trading.',
     description:
-      'What is GEX in trading? Gamma exposure explained simply — what GEX measures, why dealer gamma moves markets, and how to read positive vs negative regimes. A beginner’s guide with today’s live levels.',
+      'What is GEX in trading? Gamma exposure explained simply — what GEX measures, why dealer gamma moves markets, and how to read positive vs negative regimes.',
     datePublished: '2026-07-07',
     readMinutes: 7,
     kind: 'tier1',
@@ -373,7 +385,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     blurb:
       '“What’s the current SPX net gamma exposure?” The answer changes every session. What net GEX is, how to read a positive versus negative reading, where the gamma-flip zero-cross sits, and how to pull up today’s live SPX net GEX in one click.',
     description:
-      'SPX net gamma exposure today — what current net GEX means, how to read a positive vs negative reading, where the zero-cross (gamma flip) sits, and how to see the live SPX net GEX value now.',
+      'SPX net gamma exposure today — what current net GEX means, how to read a positive versus negative print, and where the zero-cross (gamma flip) sits.',
     datePublished: '2026-07-07',
     readMinutes: 9,
     kind: 'tier1',
@@ -385,7 +397,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     blurb:
       'Dealers don’t trade stock because they have a view — they trade it because the delta of the options they hold keeps moving on its own, and every move creates fresh hedging pressure. The foundation of forced dealer flow.',
     description:
-      'Why market makers are forced to trade stock — delta-hedging, why the option book’s delta never sits still, and how spot, time, and vol force compelled dealer flow with no view attached.',
+      'Why market makers are forced to trade stock — delta-hedging, why the option book’s delta never sits still, and how spot, time and vol compel dealer flow.',
     datePublished: '2026-07-12',
     readMinutes: 8,
     kind: 'tier1',
@@ -397,7 +409,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     blurb:
       'Delta tells a dealer how much stock to hold, but it never sits still. Intraday, its three dominant drivers are price, time, and volatility. Those sensitivities are gamma, charm, and vanna, and together they help shape Forced Flow.',
     description:
-      'Delta and its three children — gamma (delta vs price), charm (delta vs time), and vanna (delta vs vol). Why a dealer hedges the change in delta, and why you reprice the book instead of summing the greeks.',
+      'Delta and its three children — gamma (delta vs price), charm (delta vs time) and vanna (delta vs vol), and why dealers hedge the change in delta.',
     datePublished: '2026-07-12',
     readMinutes: 7,
     kind: 'tier2',
@@ -409,7 +421,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     blurb:
       'Charm measures delta’s sensitivity to time, holding other inputs constant. ZeroGEX uses it to estimate conditional hedge pressure; it is not a scheduled dealer order.',
     description:
-      'Charm explained — how time changes option delta and creates conditional modeled hedge pressure into expiration, subject to spot, volatility, inventory, and portfolio offsets.',
+      'Charm explained — how time changes option delta and creates conditional modeled hedge pressure into expiration, subject to spot, vol and inventory.',
     datePublished: '2026-07-12',
     readMinutes: 8,
     kind: 'tier2',
@@ -433,7 +445,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     blurb:
       'Delta Exposure looks like the natural sibling of gamma exposure. ZeroGEX does not publish it as a headline flow estimate: raw options-only DEX excludes the offsetting underlying hedge and measures a delta level rather than its future change.',
     description:
-      'Why we don’t publish DEX (delta exposure = ΣΔ·OI) — raw options-only DEX excludes the offsetting underlying hedge and is not a standalone forecast of future hedge flow. Its valid inventory and scenario uses, and what ZeroGEX publishes instead.',
+      'Why we don’t publish DEX (ΣΔ·OI) — raw options-only DEX ignores the offsetting underlying hedge and isn’t a forecast of hedge flow. What we publish instead.',
     datePublished: '2026-07-12',
     readMinutes: 9,
     kind: 'article',
@@ -459,7 +471,7 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'spx-net-gamma-exposure-today',
   ],
   'gamma-walls-explained': [
-    'gamma-exposure-explained',
+    'what-is-a-gamma-wall',
     'what-is-a-put-wall',
     'what-is-a-call-wall',
   ],
@@ -557,12 +569,17 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
   'what-is-a-put-wall': [
     'gamma-walls-explained',
     'what-is-a-call-wall',
-    'options-support-and-resistance',
+    'what-is-a-gamma-wall',
   ],
   'what-is-a-call-wall': [
     'gamma-walls-explained',
     'what-is-a-put-wall',
-    'how-to-read-a-gamma-flip',
+    'what-is-a-gamma-wall',
+  ],
+  'what-is-a-gamma-wall': [
+    'gamma-walls-explained',
+    'what-is-a-call-wall',
+    'what-is-a-put-wall',
   ],
   'what-is-gex-in-trading': [
     'gamma-exposure-explained',

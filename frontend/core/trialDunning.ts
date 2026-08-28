@@ -61,3 +61,25 @@ export function isTrialConversionInvoice(input: TrialConversionInvoiceInput): bo
 // the two paths must never drift apart on what counts as a conversion charge.
 export const isTrialConversionFailure = isTrialConversionInvoice;
 export type TrialConversionFailureInput = TrialConversionInvoiceInput;
+
+// Whether a subscription's trial ended recently enough that a payment problem
+// observed at `nowMs` belongs to its FIRST charge rather than a later renewal.
+// Same window and skew as isTrialConversionInvoice, for callers that hold the
+// SUBSCRIPTION but no invoice — notably the `customer.subscription.updated`
+// grace decision (core/paymentGrace), which cannot see the invoice at all.
+//
+// Order-independence is the whole point here too: at trial end Stripe moves the
+// sub to `active` (cycle invoice created) and only to `past_due` once that
+// invoice finalizes and the charge is declined, so the last-synced status is
+// `active` by the time the failure lands. trial_end stays pinned to when the
+// trial actually ended, so it identifies the conversion regardless of sync order.
+export function isWithinTrialConversionWindow(
+  trialEndUnix: number | null | undefined,
+  nowMs: number,
+  windowDays = 2,
+): boolean {
+  if (trialEndUnix == null || !Number.isFinite(trialEndUnix)) return false;
+  if (!Number.isFinite(nowMs)) return false;
+  const deltaSeconds = nowMs / 1000 - trialEndUnix;
+  return deltaSeconds >= -SKEW_SECONDS && deltaSeconds <= windowDays * DAY_SECONDS;
+}

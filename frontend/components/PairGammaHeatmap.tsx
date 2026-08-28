@@ -390,6 +390,32 @@ function DeltaTriangle({ dir, strong }: { dir: "up" | "down"; strong: boolean })
   );
 }
 
+// One slim, full-width caption for the session-Δ triangles, rendered ONCE
+// under the ladder (never per column — a per-column legend has to wrap inside
+// ~200px and turns the sub-header into a jumble). Shown only while the
+// overlay is on, so the chrome stays quiet otherwise.
+function DeltaLegend() {
+  return (
+    <div
+      className="flex items-center justify-center gap-3 px-2 py-1 text-[9px] uppercase tracking-wider whitespace-nowrap"
+      style={{
+        color: "var(--text-muted)",
+        background: "var(--bg-subtle)",
+        borderTop: "1px solid var(--border-default)",
+      }}
+      title="Session Δ: triangles mark dealer gamma built (▲) or eroded (▼) at that strike since the 09:30 ET cash open, for the selected expirations. Small drifts are left unmarked."
+    >
+      <span className="inline-flex items-center gap-1">
+        <DeltaTriangle dir="up" strong /> built
+      </span>
+      <span className="inline-flex items-center gap-1">
+        <DeltaTriangle dir="down" strong /> eroded
+      </span>
+      <span>since 09:30 open</span>
+    </div>
+  );
+}
+
 function RegimeChip({ spot, flip }: { spot: number | null; flip: number | null }) {
   if (spot == null || flip == null || !Number.isFinite(spot) || !Number.isFinite(flip)) return null;
   const long = spot >= flip;
@@ -442,28 +468,23 @@ function HeatmapColumn({
         </div>
         {/* Live level legend — the key for the on-row rail tags (GF/CW/PW/MP).
             All four always render (missing → "NA") so both columns stay the
-            same size. */}
-        <div className="flex flex-wrap gap-x-2.5 gap-y-1">
+            same size. A fixed 2×2 grid, not flex-wrap: four chips don't fit a
+            ladder column on one line, and free wrapping broke them into a
+            ragged 3+1 (MP orphaned on its own line). Content-sized columns
+            keep the pairs compact and left-aligned at any tile width. */}
+        <div className="grid grid-cols-[auto_auto] justify-start gap-x-3 gap-y-1">
           {(["flip", "call", "put", "pain"] as LevelKey[]).map((k) => (
             <LevelChip key={k} meta={LEVEL_META[k]} value={lv[k]} />
           ))}
         </div>
       </div>
 
-      {/* Sub-header: strike / net gex labels (+ the Δ legend while the
-          session-delta overlay is on, so the triangles are self-explaining) */}
-      <div className="flex items-center justify-between px-2 py-1 text-[9px] uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+      {/* Sub-header: strike / net gex labels. One line, never wrapped — the
+          session-Δ triangles are explained by the shared DeltaLegend strip
+          under the ladder, not squeezed in here. */}
+      <div className="flex items-center justify-between px-2 py-1 text-[9px] uppercase tracking-wider whitespace-nowrap" style={{ color: "var(--text-muted)" }}>
         <span>Strike</span>
-        <span className="inline-flex items-center gap-1" title={baseline ? "Triangles mark dealer gamma built (▲) or eroded (▼) at that strike since the 09:30 ET open, for the selected expirations" : undefined}>
-          {baseline && (
-            <span className="inline-flex items-center gap-0.5 normal-case">
-              <DeltaTriangle dir="up" strong />
-              <DeltaTriangle dir="down" strong />
-              <span style={{ letterSpacing: 0 }}>Δ open ·</span>
-            </span>
-          )}
-          Net GEX ({unitLabel})
-        </span>
+        <span>Net GEX ({unitLabel})</span>
       </div>
 
       {input.error ? (
@@ -593,18 +614,21 @@ export default function PairGammaHeatmap({
   const offsets = useMemo(() => columnOffsets([leftModel, rightModel]), [leftModel, rightModel]);
 
   return (
-    // Each column holds a 140px floor and grows to share the width; the two fit
-    // any phone ≥ ~300px. On anything narrower the columns keep their floor and
-    // this container scrolls the ladder horizontally instead of clipping it.
+    // Each column holds a 175px floor and grows to share the width — enough
+    // for the header's level legend and the value column (with the Δ slot) to
+    // sit comfortably. The two fit any phone ≥ ~360px; on anything narrower
+    // the columns keep their floor and this container scrolls the ladder
+    // horizontally instead of clipping it.
     <div className="overflow-x-auto">
       <div className="flex" style={{ gap: 1, background: "var(--border-default)" }}>
-        <div style={{ flex: "1 1 140px", minWidth: 140, background: "var(--bg-card)" }}>
+        <div style={{ flex: "1 1 175px", minWidth: 175, background: "var(--bg-card)" }}>
           <HeatmapColumn model={leftModel} offsets={offsets} gexUnit={gexUnit} />
         </div>
-        <div style={{ flex: "1 1 140px", minWidth: 140, background: "var(--bg-card)" }}>
+        <div style={{ flex: "1 1 175px", minWidth: 175, background: "var(--bg-card)" }}>
           <HeatmapColumn model={rightModel} offsets={offsets} gexUnit={gexUnit} />
         </div>
       </div>
+      {(left.sessionBaseline || right.sessionBaseline) && <DeltaLegend />}
     </div>
   );
 }
@@ -640,6 +664,7 @@ export function GammaLadder({
   return (
     <div className="h-full min-w-0" style={{ background: "var(--bg-card)" }}>
       <HeatmapColumn model={model} offsets={offsets} gexUnit={gexUnit} />
+      {column.sessionBaseline && <DeltaLegend />}
     </div>
   );
 }

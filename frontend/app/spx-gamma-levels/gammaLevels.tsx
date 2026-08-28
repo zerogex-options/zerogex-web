@@ -7,6 +7,8 @@ import TodaysReadCard from '@/components/TodaysReadCard';
 import BreadcrumbJsonLd from '@/components/BreadcrumbJsonLd';
 import LandingHeader from '@/components/LandingHeader';
 import PlotOnTradingView from '@/components/PlotOnTradingView';
+import PlotOnNinjaTrader from '@/components/PlotOnNinjaTrader';
+import { NT_PACKAGE_PATH } from '@/core/ninjaTraderManifest';
 import Footer from './Footer';
 import ShareBlock from './ShareBlock';
 import PaidFunnelAnalytics from './PaidFunnelAnalytics';
@@ -16,7 +18,9 @@ import PricingTrialCta from './PricingTrialCta';
 import StickyTrialBar from './StickyTrialBar';
 import GammaTerminalChart from '@/components/GammaTerminalChart';
 import { loadChartSnapshot } from '@/app/chart/snapshot';
+import { futuresDelayNote } from '@/core/futuresDataStatus';
 import { netGexAtSpotOrNull } from '@/core/gammaRegime';
+import { volatilityIndexFor } from '@/core/symbols';
 
 // Shared, ticker-first view behind the free gamma-levels pages. One component
 // renders four routes — /spx-gamma-levels, /spy-gamma-levels, /qqq-gamma-levels,
@@ -41,7 +45,7 @@ const SITE = 'https://zerogex.io';
 // (never wall-clock), so it stays deterministic inside the ISR HTML.
 const STALE_THRESHOLD_MS = 90 * 60 * 1000;
 
-const SYMBOLS = ['SPX', 'SPY', 'QQQ', 'NDX'] as const;
+const SYMBOLS = ['SPX', 'SPY', 'QQQ', 'NDX', 'ES', 'NQ'] as const;
 type Symbol = (typeof SYMBOLS)[number];
 
 interface GexSummary {
@@ -87,7 +91,32 @@ const SYMBOL_AUDIENCE: Record<Symbol, string> = {
   SPY: 'SPY and S&P 500 options traders',
   QQQ: 'QQQ and Nasdaq-100 options traders',
   NDX: 'NDX and Nasdaq-100 options traders',
+  ES: 'ES and S&P 500 futures traders',
+  NQ: 'NQ and Nasdaq-100 futures traders',
 };
+
+// The options chain each symbol's levels are actually computed from. ES and
+// NQ have no chain of their own here: their levels are the SPX / NDX
+// option-derived levels carried onto the futures price axis. Saying "the ES
+// options chain" on a public page would be plainly false, so the copy names
+// the real source wherever the two differ.
+const SYMBOL_CHAIN: Record<Symbol, Symbol> = {
+  SPX: 'SPX',
+  SPY: 'SPY',
+  QQQ: 'QQQ',
+  NDX: 'NDX',
+  ES: 'SPX',
+  NQ: 'NDX',
+};
+
+/** Sentence disclosing the derivation, for symbols that have one. */
+function derivationNote(primary: Symbol): string {
+  const chain = SYMBOL_CHAIN[primary];
+  if (chain === primary) return '';
+  // futuresDelayNote is empty once the real-time CME entitlement is live —
+  // see core/futuresDataStatus.ts, which is the single switch.
+  return ` ${primary} levels are derived from the ${chain} options chain and converted to ${primary} prices using the live futures basis, so they line up with the ${primary} contract you actually trade.${futuresDelayNote(primary)}`;
+}
 
 function buildSymbolContent(primary: Symbol): SymbolContent {
   const path = `/${primary.toLowerCase()}-gamma-levels`;
@@ -97,11 +126,13 @@ function buildSymbolContent(primary: Symbol): SymbolContent {
     title: `${primary} Gamma Levels Today: Gamma Flip, Call Wall, Put Wall & Net GEX`,
     description: `Free daily ${primary} gamma levels — the ${primary} gamma flip, call wall, put wall, max pain, and net dealer GEX (Net GEX). Delayed dealer-positioning levels, refreshed every 15 minutes. No signup required.`,
     h1: `${primary} Gamma Levels Today`,
-    intro: `Track today's ${primary} gamma levels — the ${primary} gamma flip, call wall, put wall, max pain, and net dealer GEX. These free levels are delayed roughly 15 minutes and help ${SYMBOL_AUDIENCE[primary]} see the key dealer-positioning zones where price may pin, reject, or accelerate before it gets there.`,
+    intro: `Track today's ${primary} gamma levels — the ${primary} gamma flip, call wall, put wall, max pain, and net dealer GEX. These free levels are delayed roughly 15 minutes and help ${SYMBOL_AUDIENCE[primary]} see the key dealer-positioning zones where price may pin, reject, or accelerate before it gets there.${derivationNote(primary)}`,
   };
 }
 
 const SYMBOL_CONTENT: Record<Symbol, SymbolContent> = {
+  ES: buildSymbolContent('ES'),
+  NQ: buildSymbolContent('NQ'),
   SPX: buildSymbolContent('SPX'),
   SPY: buildSymbolContent('SPY'),
   QQQ: buildSymbolContent('QQQ'),
@@ -120,15 +151,68 @@ function symbolOrder(primary: Symbol): Symbol[] {
   return [primary, ...SYMBOLS.filter((s) => s !== primary)];
 }
 
-export function gammaMetadata(primary: Symbol): Metadata {
+// Value-led meta description — the search-snippet counterpart to the "Today's
+// <ticker> net GEX" answer block further down the page.
+//
+// Search Console (92 days to 2026-08-24) shows this page taking 23,027
+// impressions at average position 7.05 and converting 0.48% of them. Position
+// seven normally earns 2-3%, so the loss is happening in the snippet, not the
+// ranking. The query cluster says why: "<ticker> net gex current value",
+// "<ticker> net gamma exposure current", "current <ticker> net gex dollar
+// gamma" — searchers want a NUMBER, and the evergreen description promised
+// "levels", which reads as another explainer page. Leading with the actual
+// figure makes the snippet answer the query it ranks for.
+//
+// Uses the same `fmtNetGex` / `fmtPrice` helpers as the visible cards, off the
+// same cached snapshot, so the snippet can never contradict the page. Falls
+// back to `c.description` whenever the snapshot is missing a value — a
+// half-filled description with an em dash where a level should be is worse
+// than the evergreen copy.
+function liveDescription(primary: Symbol, data: GexSummary | null): string {
   const c = SYMBOL_CONTENT[primary];
+  const netGex = netGexAtSpotOrNull(data?.net_gex_at_spot);
+  const flip = data?.gamma_flip ?? null;
+  if (netGex === null || flip === null) return c.description;
+
+  // Net GEX and the flip carry the intent, so they lead and are always present.
+  // The walls and max pain are additive: each is appended only if it exists,
+  // and only while the whole line stays inside the ~155 characters Google
+  // renders, so a wide print (NDX five-figure strikes, a $123.4M net GEX)
+  // truncates the least important term instead of the sentence.
+  const head = `${primary} net GEX ${fmtNetGex(netGex)} · gamma flip ${fmtPrice(flip)}`;
+  const tail = `. Free ${primary} dealer-positioning levels, 15-min delayed. No signup.`;
+  const optional: string[] = [];
+  if (data?.call_wall != null) optional.push(`call wall ${fmtPrice(data.call_wall)}`);
+  if (data?.put_wall != null) optional.push(`put wall ${fmtPrice(data.put_wall)}`);
+  if (data?.max_pain != null) optional.push(`max pain ${fmtPrice(data.max_pain)}`);
+
+  let out = head;
+  for (const part of optional) {
+    const next = `${out} · ${part}`;
+    if (next.length + tail.length > 155) break;
+    out = next;
+  }
+  return out + tail;
+}
+
+// Async because the description carries live values. The snapshot comes from
+// the same 900s-cached `serverApiGet` the page component uses, so this shares
+// that cache entry rather than adding a backend call, and stays compatible
+// with `force-static` + `revalidate = 900` on each route.
+export async function gammaMetadata(primary: Symbol): Promise<Metadata> {
+  const c = SYMBOL_CONTENT[primary];
+  const data = await serverApiGet<GexSummary>(
+    `/api/gex/summary?symbol=${primary}&underlying=${primary}`,
+    900,
+  );
+  const description = liveDescription(primary, data);
   return {
     title: c.title,
-    description: c.description,
+    description,
     alternates: { canonical: c.path },
     openGraph: {
       title: c.title,
-      description: c.description,
+      description,
       url: c.shareUrl,
       siteName: 'ZeroGEX',
       type: 'website',
@@ -136,7 +220,7 @@ export function gammaMetadata(primary: Symbol): Metadata {
     twitter: {
       card: 'summary_large_image',
       title: c.title,
-      description: c.description,
+      description,
     },
   };
 }
@@ -158,7 +242,7 @@ function faqItems(primary: Symbol): { q: string; a: string }[] {
     },
     {
       q: `What is ${primary}'s net gamma exposure (net GEX) right now?`,
-      a: `Today's ${primary} net GEX — the net dealer gamma across the ${primary} options chain, evaluated at spot and expressed as a signed dollar "gamma" figure — is shown at the top of this page and refreshed on a roughly 15-minute delay. A positive value means ${primary} is trading above its gamma flip, where dealer hedging tends to suppress volatility; a negative value means it is below the flip, where hedging tends to amplify it. The price where net GEX crosses zero is the gamma flip, also called the zero-gamma level. Net GEX is a modeled estimate, not directly observed dealer inventory.`,
+      a: `Today's ${primary} net GEX — the net dealer gamma across the ${SYMBOL_CHAIN[primary]} options chain, evaluated at spot and expressed as a signed dollar "gamma" figure — is shown at the top of this page and refreshed on a roughly 15-minute delay. A positive value means ${primary} is trading above its gamma flip, where dealer hedging tends to suppress volatility; a negative value means it is below the flip, where hedging tends to amplify it. The price where net GEX crosses zero is the gamma flip, also called the zero-gamma level. Net GEX is a modeled estimate, not directly observed dealer inventory.`,
     },
     {
       q: 'What is the gamma flip?',
@@ -612,7 +696,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
     about: [
       { '@type': 'Thing', name: 'Gamma exposure (GEX)' },
       { '@type': 'Thing', name: 'Dealer hedging' },
-      { '@type': 'Thing', name: `${primary} options` },
+      { '@type': 'Thing', name: `${SYMBOL_CHAIN[primary]} options` },
       { '@type': 'Thing', name: 'Call wall' },
       { '@type': 'Thing', name: 'Put wall' },
       { '@type': 'Thing', name: 'Gamma flip' },
@@ -741,7 +825,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
                 priorClose: null,
                 summary: primaryData,
                 vix: null,
-                volIndex: primary === 'QQQ' || primary === 'NDX' ? 'VXN' : 'VIX',
+                volIndex: volatilityIndexFor(primary),
                 horizon: 'daily',
               })}
             />
@@ -851,6 +935,15 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
             on their own chart, then route them to the live dashboard. Shared by
             all three ticker pages via this GammaLevelsView. */}
         <PlotOnTradingView />
+
+        {/* The auto-updating Pro counterpart: NinjaScript can make HTTP calls,
+            so this one pulls the levels instead of asking for manual entry.
+            The packaged one-click import only exists once a real NinjaTrader
+            export has been dropped into assets/ninjatrader/. The generated
+            manifest records that — NT_PACKAGE_PATH is null when there is no
+            archive — so this no longer needs to stat the filesystem, and the
+            path it does carry is content-addressed against Cloudflare's cache. */}
+        <PlotOnNinjaTrader hasPackage={NT_PACKAGE_PATH !== null} />
 
         {/* "Today's <ticker> net GEX" — a plain-language answer for the
             "<ticker> net gamma exposure current / today / value / zero-cross"

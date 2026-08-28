@@ -43,6 +43,20 @@ HTTPS call made from the Node process that decides to send it.
   welcome and the trial-quickstart bridge so onboarding guidance stays in lockstep.
 - **`TRIAL_DISCLAIMER_LINE`** — the "not financial advice / no guaranteed outcome"
   framing carried verbatim by every trial-facing email.
+- **`API_KEY_STEPS` / `API_KEY_INTRO`** (`apiKeyTextLines` / `apiKeyHtmlBlock`) — the
+  three-step self-service API-key walkthrough (open Account → API Access, click
+  Generate API Key and copy the one-time secret, send it as
+  `Authorization: Bearer <key>`) plus a deep link to `/account#api-access`. Carried by
+  **both Pro welcome emails** (paid/trial and founding), since key generation is a Pro
+  benefit (`isApiKeyEligibleTier`), and by the **welcome-back** email under a
+  different intro (`API_KEY_INTRO_RETURNING`): dropping below Pro revokes every key
+  the account held (`revokeApiKeysIfTierDropped`), so a resubscriber's old scripts and
+  NinjaTrader charts are authenticating with a dead key and need a fresh one. The in-app Pro welcome modal
+  (`components/ProWelcomeModal`) announces the same thing but fires once and is
+  dismissed for good, so the email is the durable copy. Keep in sync with the modal and
+  the account page's API Access section (`components/AccountApiKeys`). Covered by
+  `tests/welcomeEmailApiKey.test.ts` (`npm run test:welcome-api-key`), which renders the
+  real emails against a stubbed Resend transport.
 - **`formatTrialEndDate`** — formats dates in **America/New_York**, so a displayed
   deadline never drifts off-by-one near midnight UTC.
 
@@ -135,13 +149,15 @@ auth/transactional and TradeWorkz alerts.
 - **Subject:** `Your ZeroGEX trial is active` (trial) **or** `Thank you for subscribing to ZeroGEX!` (immediate paid)
 - Trial branch avoids "thank you for subscribing" (a trialer hasn't paid). Includes the
   trial-end date, cancel-anytime language, an optional **promo intro-rate** line, the
-  shared "start here" list + dashboard CTA, the disclaimer line, a founder note, a P.S.
-  linking `/updates`, and the FOH footer.
+  shared "start here" list + dashboard CTA, the disclaimer line, the shared
+  **API-key walkthrough** (after the disclaimer, so the dashboard stays the primary
+  CTA), a founder note, a P.S. linking `/updates`, and the FOH footer.
 
 **Founding welcome** — `sendFoundingWelcomeEmail(to, { trialEndIso? })`
 - **Subject:** `Thank you for subscribing to ZeroGEX!`
 - "As a Founding Member your rate is locked in for the first year, and the 25% lifetime
   discount applies automatically after that." Deferred-charge trial line when present.
+  Shared **API-key walkthrough** (founding members are Pro, so they're key-eligible too).
   FOH footer.
 
 **Trial quickstart bridge** — `sendTrialQuickstartEmail(to, { trialEndIso? })`
@@ -152,7 +168,9 @@ auth/transactional and TradeWorkz alerts.
 
 **Welcome back (resubscribe)** — `sendWelcomeBackEmail(to)`
 - **Subject:** `Welcome back to ZeroGEX!`
-- "Your full access has been restored…" FOH footer.
+- "Your full access has been restored…" Shared **API-key walkthrough** under the
+  returning-member intro — their prior key was revoked on the tier drop, so this is a
+  repair notice, not a feature announcement. FOH footer.
 
 ### 3.3 Trial-end & billing / dunning
 

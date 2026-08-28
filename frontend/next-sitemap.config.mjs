@@ -55,6 +55,20 @@ function lastmodFor(urlPath) {
   return new Date().toISOString();
 }
 
+// Every force-static /<ticker>-gamma-levels landing. Declared once because the
+// list is consumed twice below (dedupe + priority) and a ticker added to only
+// one of them either duplicates a <url> or silently loses its SEO priority.
+// ES / NQ are the futures pages: their levels are SPX / NDX option-derived,
+// carried onto the futures price axis.
+const GAMMA_LEVEL_PATHS = [
+  '/spx-gamma-levels',
+  '/spy-gamma-levels',
+  '/qqq-gamma-levels',
+  '/ndx-gamma-levels',
+  '/es-gamma-levels',
+  '/nq-gamma-levels',
+];
+
 /** @type {import('next-sitemap').IConfig} */
 const config = {
   siteUrl: 'https://zerogex.io',
@@ -171,13 +185,10 @@ const config = {
     addDir('content/help/platform', (slug) => `/help/platform/${slug}`);
 
     // Paths already auto-emitted (the force-static gamma pages) or intentionally
-    // kept out of the sitemap. Skipping the gamma trio avoids a duplicate <url>.
+    // kept out of the sitemap. Skipping the gamma pages avoids a duplicate <url>.
     const skip = new Set([
       '/education/decoding-gamma-exposure',
-      '/spx-gamma-levels',
-      '/spy-gamma-levels',
-      '/qqq-gamma-levels',
-      '/ndx-gamma-levels',
+      ...GAMMA_LEVEL_PATHS,
     ]);
 
     const seen = new Set();
@@ -199,14 +210,9 @@ const config = {
     if (urlPath === '/pricing') {
       return { loc: urlPath, changefreq: 'monthly', priority: 0.9, lastmod };
     }
-    if (
-      urlPath === '/spx-gamma-levels' ||
-      urlPath === '/spy-gamma-levels' ||
-      urlPath === '/qqq-gamma-levels' ||
-      urlPath === '/ndx-gamma-levels'
-    ) {
-      // Ticker-first lead-magnet pages — the SEO landings for "SPX/SPY/QQQ/NDX
-      // gamma levels" intent searches. Each is self-canonical and refreshed
+    if (GAMMA_LEVEL_PATHS.includes(urlPath)) {
+      // Ticker-first lead-magnet pages — the SEO landings for "<ticker> gamma
+      // levels" intent searches. Each is self-canonical and refreshed
       // every market day, so daily changefreq matches reality and the priority
       // sits just below the homepage.
       return { loc: urlPath, changefreq: 'daily', priority: 0.95, lastmod };

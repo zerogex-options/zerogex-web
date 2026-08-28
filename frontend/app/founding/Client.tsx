@@ -489,18 +489,6 @@ export default function FoundingClient({ foundingCode, annualEnabled }: Props) {
       </nav>
 
       <section style={{ minHeight: '100vh', padding: '120px 24px 84px', position: 'relative' }}>
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            backgroundImage: `
-              linear-gradient(var(--border-subtle) 1px, transparent 1px),
-              linear-gradient(90deg, var(--border-subtle) 1px, transparent 1px)
-            `,
-            backgroundSize: '62px 62px',
-            pointerEvents: 'none',
-          }}
-        />
         <div style={{ position: 'relative', zIndex: 1, maxWidth: 1100, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 36 }}>
             <div

@@ -11,6 +11,7 @@ import { snapshotFromSeries, useFlowSeries } from '@/hooks/useFlowSeries';
 import MetricCard from '@/components/MetricCard';
 import PageShell from '@/components/layout/PageShell';
 import GammaTerminalChart from '@/components/GammaTerminalChart';
+import KeyLevelsStrip from '@/components/KeyLevelsStrip';
 import { LoadingCard } from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import ProprietarySignalsSynthesis from '@/components/ProprietarySignalsSynthesis';
@@ -27,6 +28,7 @@ import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
 import { buildReportModel } from '@/app/live-bulletin/bulletinHelpers';
 import { usePageT } from '@/core/LanguageContext';
 import { dict } from './page.i18n';
+import { volatilityIndexFor } from '@/core/symbols';
 
 function formatCompactUsd(value: number | null | undefined, showPositiveSign = false): string {
   if (value == null || !Number.isFinite(value)) return '--';
@@ -86,7 +88,7 @@ export default function DashboardPage() {
   // the live-bulletin model so the dashboard's at-a-glance summary stays in
   // sync with the operator-facing bulletin and any downstream surfaces.
   // QQQ/NDX's correct implied-vol input is VXN; SPX/SPY use VIX.
-  const volIndex: 'VIX' | 'VXN' = symbol === 'QQQ' || symbol === 'NDX' ? 'VXN' : 'VIX';
+  const volIndex: 'VIX' | 'VXN' = volatilityIndexFor(symbol);
   const { data: volGauge } = useVolatilityGauge(30000, volIndex);
   const todaysReadModel = useMemo(
     () =>
@@ -112,30 +114,41 @@ export default function DashboardPage() {
 
   const latestFlowSnapshot = snapshotFromSeries(flowSeriesRows);
 
-  // Show loading state only on initial load
-  if (gexLoading && !gexData) {
-    return (
-      <PageShell>
-        <h1 className="zg-h1 mb-8">{t('dashboardTitle')}</h1>
+  // The initial-load skeleton replaces only the BODY. It used to be an early
+  // return of a second PageShell tree, which React could not reconcile against
+  // this one — so every symbol change (the summary drops back to loading while
+  // the new one lands) tore down and rebuilt the banner, the title row and the
+  // Key Levels strip. Besides the flicker, that cost the strip the render state
+  // its flip animation reads, which is why a backwards flip always slid in
+  // forwards. One tree, one mount, and only the cards below swap.
+  const awaitingFirstLoad = gexLoading && !gexData;
+
+  return (
+    <PageShell>
+      <TrialStartedBanner />
+
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <h1 className="zg-h1">{t('dashboardTitle')}</h1>
+        <DensityToggle />
+      </div>
+
+      {/* Key Levels — the dealer-positioning levels the Gamma Chart draws,
+          hoisted to the top of the page. On a phone the chart itself is several
+          screens down, so the pin and the flip used to cost a long scroll; this
+          puts them above the fold in the wall cards' own format. It reads the
+          SAME levels the chart resolves (useGammaPlaybook), so the symbol and
+          expiration filter move it without any state of its own. */}
+      <KeyLevelsStrip className="mb-6" />
+
+      {awaitingFirstLoad ? (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <LoadingCard />
           <LoadingCard />
           <LoadingCard />
           <LoadingCard />
         </div>
-      </PageShell>
-    );
-  }
-
-  return (
-    <PageShell>
-      <TrialStartedBanner />
-
-      <div className="flex items-center justify-between gap-3 mb-4">
-        <h1 className="zg-h1">{t('dashboardTitle')}</h1>
-        <DensityToggle />
-      </div>
-
+      ) : (
+        <>
       {/* Today's Read — the auto-generated regime prose. Collapsed by default in
           Simple mode so the dashboard opens glance-first; the compact Trade Bias
           summary below carries the at-a-glance directional read. Composed from
@@ -280,6 +293,8 @@ export default function DashboardPage() {
         <div className="text-right text-sm text-[var(--text-muted)]">
           {t('lastUpdatedLabel', { time: new Date(gexData.timestamp).toLocaleTimeString() })}
         </div>
+      )}
+        </>
       )}
     </PageShell>
   );

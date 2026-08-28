@@ -3,14 +3,23 @@ import Link from 'next/link';
 
 function parseInline(text: string): ReactNode[] {
   const nodes: ReactNode[] = [];
-  const regex = /(\*\*[^*]+\*\*|\*[^*]+\*|\[[^\]]+\]\([^)]+\))/g;
+  const regex = /(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*|\[[^\]]+\]\([^)]+\))/g;
   let last = 0;
   let match: RegExpExecArray | null;
 
   while ((match = regex.exec(text)) !== null) {
     if (match.index > last) nodes.push(text.slice(last, match.index));
     const token = match[0];
-    if (token.startsWith('**')) {
+    if (token.startsWith('`')) {
+      // Was rendered as literal backticks until now, across every article and
+      // help page. `.zg-code` is the design system's existing inline-or-block
+      // code style, so this adopts it rather than inventing one.
+      nodes.push(
+        <code key={`${match.index}-c`} className="zg-code">
+          {token.slice(1, -1)}
+        </code>,
+      );
+    } else if (token.startsWith('**')) {
       nodes.push(<strong key={`${match.index}-b`}>{token.slice(2, -2)}</strong>);
     } else if (token.startsWith('[')) {
       const linkMatch = token.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
@@ -115,6 +124,32 @@ export function renderMarkdown(markdown: string): ReactNode[] {
       continue;
     }
 
+    // Fenced code block. The opening fence may carry a language hint, which we
+    // accept and ignore — there is no highlighter here, and swallowing it is
+    // better than printing "json" as the first line of the block. An
+    // unterminated fence runs to the end of the document rather than throwing.
+    if (trimmed.startsWith('```')) {
+      const fence = trimmed.slice(0, 3);
+      i += 1;
+      const code: string[] = [];
+      while (i < lines.length && !lines[i].trim().startsWith(fence)) {
+        // Raw, not trimmed: indentation is meaningful inside a code block.
+        code.push(lines[i]);
+        i += 1;
+      }
+      if (i < lines.length) i += 1; // consume the closing fence
+      out.push(
+        <pre
+          key={`pre-${i}`}
+          className="my-6 overflow-x-auto rounded-[var(--radius-control)] border border-[var(--border-subtle)] bg-[var(--bg-hover)] p-4 text-[13px] leading-6 text-[var(--text-primary)]"
+          style={{ fontFamily: 'var(--font-mono)' }}
+        >
+          <code>{code.join('\n')}</code>
+        </pre>,
+      );
+      continue;
+    }
+
     if (trimmed.startsWith('|')) {
       const tableLines: string[] = [];
       while (i < lines.length && lines[i].trim().startsWith('|')) {
@@ -210,7 +245,7 @@ export function renderMarkdown(markdown: string): ReactNode[] {
     while (
       i < lines.length &&
       lines[i].trim() &&
-      !['#', '##', '###', '-', '>', '|'].some((prefix) => lines[i].trim().startsWith(prefix)) &&
+      !['#', '##', '###', '-', '>', '|', '```'].some((prefix) => lines[i].trim().startsWith(prefix)) &&
       !/^\d+\.\s/.test(lines[i].trim()) &&
       lines[i].trim() !== '---'
     ) {

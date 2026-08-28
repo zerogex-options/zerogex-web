@@ -25,13 +25,13 @@ Die Dokumentation erfordert ein Pro-Konto. Public-Nutzer werden beim Klick zur P
 
 ## Authentifizierung
 
-Die Authentifizierung erfolgt über **Bearer-Token**. Die Self-Service-Generierung von Schlüsseln über deine Account-Seite ist in Vorbereitung; bis zum Launch werden Schlüssel manuell vergeben:
+Die Authentifizierung erfolgt über **Bearer-Token**. Du generierst deinen Schlüssel selbst über deinen Account — es gibt nichts abzuwarten:
 
-1. Schreib eine E-Mail an [support@zerogex.io](mailto:support@zerogex.io) von deiner Konto-E-Mail-Adresse aus (nur Pro-Konten).
-2. Wir senden dir einen Schlüssel sowie Einrichtungshinweise.
+1. Melde dich an und öffne **Account → API-Zugang** (`/account#api-access`).
+2. Klicke auf **API-Schlüssel generieren** und kopiere den Schlüssel aus der einmaligen Anzeige — er wird nur ein einziges Mal für wenige Minuten angezeigt und kann danach nicht mehr abgerufen werden. Speichere ihn in einem Passwort-Manager oder Secret-Store.
 3. Füge ihn als `Authorization: Bearer <key>` bei jeder Anfrage ein.
 
-Muss ein Schlüssel rotiert oder widerrufen werden? Schreib dem Support, wir kümmern uns zügig darum.
+Persönliche API-Schlüssel sind ein Pro-Feature; Basic- und Public-Konten werden zur Pricing-Seite weitergeleitet. Ein neu generierter Schlüssel widerruft sofort den vorherigen (du hast höchstens einen aktiven Schlüssel), Rotation heißt also einfach neu generieren. Brauchst du Hilfe oder soll ein Schlüssel widerrufen werden? Schreib an [support@zerogex.io](mailto:support@zerogex.io).
 
 ## Rate-Limits
 
@@ -75,6 +75,13 @@ Historische Endpunkte unterstützen mehrtägige Zeitfenster. Für tiefgehende Ba
 - Ein Schlüssel pro Umgebung (dev, prod). Rotiere sie nach einem festen Rhythmus.
 - Platziere keinen Schlüssel in clientseitigem Code. Die Plattform ist für serverseitige Nutzung konzipiert.
 - Setze einen sinnvollen `User-Agent` — das hilft uns, dir zu helfen, wenn eine Anfrage schiefgeht.
+
+## Chart-Integrationen
+
+Wenn du unsere Levels nur auf deinem eigenen Chart sehen willst, musst du womöglich gar nichts programmieren:
+
+- **NinjaTrader 8** — ein kostenloser NinjaScript-Indikator, der `GET /api/v1/levels/{symbol}` mit deinem Pro-Schlüssel abfragt und Gamma Flip, Call Wall, Put Wall, Max Pain sowie Pin Strike zeichnet. Lade ihn von einer der kostenlosen Gamma-Levels-Seiten herunter (z. B. [/spx-gamma-levels](/spx-gamma-levels)), kompiliere ihn im NinjaScript-Editor und trage deinen Schlüssel ein. Setze auf einem ES- oder NQ-Chart das Symbol auf `ES` bzw. `NQ` — die Levels kommen dann bereits auf der Futures-Preisachse an, ein Basis-Offset ist nicht nötig.
+- **TradingView** — ein kostenloses Pine-Skript. Nur manuelle Eingabe: Pine Script kann keine HTTP-Aufrufe machen, du trägst die heutigen Zahlen also selbst ein.
 
 ## Siehe auch
 

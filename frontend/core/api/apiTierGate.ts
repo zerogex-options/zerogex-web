@@ -88,12 +88,36 @@ function covers(path: string, prefix: string): boolean {
   return path === prefix || path.startsWith(prefix + '/');
 }
 
+// Strip an API version segment so RULES stays version-agnostic.
+//
+// The backend serves the SAME endpoints under `/api/gex/summary` (v1) and
+// `/api/v2/gex/summary` (v2, the freshness-envelope surface). Every prefix in
+// RULES is written in the v1 form and `covers()` matches whole segments, so a
+// versioned path matches NOTHING — and because this gate is deliberately
+// fail-open, "nothing matched" means "pass". Without this, adding a
+// `/api/v2/[...rest]` proxy would hand every premium surface to any caller:
+// /api/v2/signals/advanced/*, /api/v2/backtest/*, /api/v2/gex/* and the rest
+// would all resolve to `null` → ungated. The upstream cannot save us — it
+// authenticates the shared BFF key and enforces no end-user tier, as the
+// header comment above says.
+//
+// Normalizing here rather than adding v2 copies of every rule keeps ONE source
+// of truth and covers a future /api/v3 the day it ships, instead of silently
+// re-opening the same hole. Only the gate decision is normalized; proxy.ts
+// still forwards the original pathname upstream.
+function stripApiVersion(pathname: string): string {
+  return pathname.replace(/^\/api\/v\d+(?=\/|$)/, '/api');
+}
+
 // The access the given request pathname requires, or null when no rule matches
 // (unmapped → passes through, preserving today's behavior). First match wins, so
-// the ordering in RULES is significant.
+// the ordering in RULES is significant. Versioned paths are normalized to their
+// unversioned form first, so /api/v2/signals/advanced gates exactly as
+// /api/signals/advanced does.
 export function requiredApiAccess(pathname: string): ApiAccess | null {
+  const path = stripApiVersion(pathname);
   for (const rule of RULES) {
-    if (covers(pathname, rule.prefix)) return rule.access;
+    if (covers(path, rule.prefix)) return rule.access;
   }
   return null;
 }

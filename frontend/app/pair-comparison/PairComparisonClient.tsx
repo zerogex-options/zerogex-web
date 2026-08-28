@@ -28,8 +28,10 @@ import { type ChartTimeframe } from "@/components/ChartTimeframeSelect";
 import { useGammaLadderColumn, type GammaLadderColumnData } from "@/hooks/useGammaLadder";
 import { useChartExpirations } from "@/hooks/useChartExpirations";
 import { useSharedExpirations } from "@/hooks/useSharedExpirations";
+import { useZeroDteOption } from "@/hooks/useZeroDteOption";
 import { usePairReplay, type PairReplayData, type ReplayFrame, type ReplayCandle } from "@/hooks/usePairReplay";
 import { reconcileExpirations } from "@/core/expirationPersistence";
+import { etTodayDateKey } from "@/core/utils";
 import { useGexUnit } from "@/core/GexUnitContext";
 import { useStrikeFilter } from "@/core/StrikeFilterContext";
 import { useSessionDelta } from "@/core/SessionDeltaContext";
@@ -60,12 +62,14 @@ const INFO_TEXT =
   "Net GEX is a modeled estimate of dealer gamma by strike — decision-support context only, not investment advice.";
 
 // Default "compare against" symbol for each header symbol — its like-pair, so a
-// fresh visit opens on a meaningful comparison (SPY↔QQQ, SPX↔NDX).
+// fresh visit opens on a meaningful comparison (SPY↔QQQ, SPX↔NDX, ES↔NQ).
 const COMPARE_DEFAULT: Record<UnderlyingSymbol, UnderlyingSymbol> = {
   SPY: "QQQ",
   QQQ: "SPY",
   SPX: "NDX",
   NDX: "SPX",
+  ES: "NQ",
+  NQ: "ES",
 };
 
 // Last replay frame at-or-before a timestamp (frames are chronological ascending).
@@ -235,9 +239,11 @@ export default function PairComparisonClient() {
     () => Array.from(new Set([...exp1.available, ...exp2.available])).sort(),
     [exp1.available, exp2.available],
   );
+  const todayKey = etTodayDateKey();
+  const zeroDte = useZeroDteOption(expiryOptions, todayKey);
   const expirySelected = useMemo(
-    () => reconcileExpirations(sharedExpirations, expiryOptions),
-    [sharedExpirations, expiryOptions],
+    () => reconcileExpirations(sharedExpirations, expiryOptions, todayKey),
+    [sharedExpirations, expiryOptions, todayKey],
   );
 
   const live1 = useGammaLadderColumn(sym1, liveEnabled, {
@@ -380,6 +386,7 @@ export default function PairComparisonClient() {
           onChange={setSharedExpirations}
           label="Expiry"
           disabled={expiryOptions.length === 0}
+          zeroDte={zeroDte}
         />
         <span className="zg-eyebrow" style={{ fontSize: 10 }}>Session Δ</span>
         <SessionDeltaToggle />
@@ -394,8 +401,10 @@ export default function PairComparisonClient() {
           replay transport spanning the bottom — one playhead drives all four. */}
       <div className="zg-feature-shell zg-gc-rise" style={{ overflow: "hidden" }}>
         <div className="flex flex-col lg:flex-row">
-          {/* Left: the two gamma ladders (narrowed) */}
-          <div className="w-full lg:w-[340px] lg:flex-none border-b lg:border-b-0 lg:border-r border-[var(--border-default)]">
+          {/* Left: the two gamma ladders. ~212px per column so the level
+              legend, strike tags and the value column (with the Δ slot) fit
+              without crowding; the candle charts flex into what remains. */}
+          <div className="w-full lg:w-[425px] lg:flex-none border-b lg:border-b-0 lg:border-r border-[var(--border-default)]">
             <PairGammaHeatmap left={leftInput} right={rightInput} gexUnit={gexUnit} activeOnly={activeOnly} />
           </div>
 

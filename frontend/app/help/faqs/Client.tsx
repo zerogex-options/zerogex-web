@@ -273,7 +273,12 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'api-keys',
         q: 'I\'m on Pro — how do I get my API key?',
-        a: 'API access is a Pro feature. Self-serve key generation from your Account page is on the way; until it ships, keys are issued by hand — email support@zerogex.io from your account address and we\'ll send you a key plus setup notes. Use it as <code>Authorization: Bearer &lt;key&gt;</code> on every request. Email us to rotate or revoke a key.',
+        a: 'Generate it yourself: sign in and go to <strong>Account → API Access</strong>, then click <em>Generate API Key</em>. The key is revealed once, so copy it straight into a password manager — it can\'t be retrieved later. Use it as <code>Authorization: Bearer &lt;key&gt;</code> on every request. You hold one active key at a time, so rotating is just regenerating (which immediately revokes the old one). Need a key revoked out of band? Email support@zerogex.io.',
+      },
+      {
+        id: 'api-ninjatrader',
+        q: 'Can I plot the levels on NinjaTrader?',
+        a: 'Yes — we publish a free NinjaTrader 8 indicator that draws the Gamma Flip, Call Wall, Put Wall, Max Pain, and Pin Strike on your chart and keeps them current by polling the API. Download it from any of the free gamma levels pages (for example <a href="/spx-gamma-levels">/spx-gamma-levels</a>), compile it in the NinjaScript Editor, and paste in your Pro API key. The indicator is free and open source; the live data behind it needs the key. Unlike our TradingView script, which is manual-entry because Pine Script can\'t make HTTP calls, this one updates itself.',
       },
       {
         id: 'api-streaming',
