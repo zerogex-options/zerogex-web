@@ -718,10 +718,18 @@ namespace NinjaTrader.NinjaScript.Indicators
             _profileSnapshot = s;
         }
 
+        /// <summary>Shown in the info panel so a screenshot identifies its own
+        /// build. Two beta testers now compile this by hand from files sent by
+        /// email, on their own schedules, which means at any moment they are on
+        /// different versions and neither they nor we can tell which. A bug
+        /// report against an unknown build costs a round trip to establish what
+        /// is even being reported. Bump this on every file sent to a tester.</summary>
+        private const string BuildVersion = "v1.4";
+
         private string BuildInfoText(ZeroGexLevelsSnapshot s)
         {
             if (s == null)
-                return "ZeroGEX Gamma Levels\n" + _status;
+                return "ZeroGEX Gamma Levels " + BuildVersion + "\n" + _status;
 
             string age = s.AgeSeconds.HasValue ? s.AgeSeconds.Value + "s ago" : "—";
             string sym = string.IsNullOrEmpty(s.Symbol) ? (Symbol ?? "") : s.Symbol;
@@ -736,7 +744,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                    "Flip "  + Fmt(s.GammaFlip) + "   Call " + Fmt(s.CallWall) + "\n" +
                    "Put "   + Fmt(s.PutWall)   + "   Pain " + Fmt(s.MaxPain) + "\n" +
                    "Pin "   + Fmt(s.PinStrike) + "   VWAP " + Fmt(s.Vwap) + "\n" +
-                   "updated " + age + "  ·  zerogex.io" + health;
+                   "updated " + age + "  ·  zerogex.io " + BuildVersion + health;
         }
 
         /// <summary>Where a level's label sits, relative to its line. Ticks
