@@ -37,6 +37,7 @@
     "test:cancellation-reason": "node --experimental-strip-types --test tests/cancellationReason.test.ts",
     "test:cancel-retention": "node --experimental-strip-types --test tests/cancelRetention.test.ts",
     "test:trial-dunning": "node --experimental-strip-types --test tests/trialDunning.test.ts",
+    "test:trial-converted": "node --experimental-strip-types --test tests/trialConverted.test.ts",
     "test:trial-offer": "node --experimental-strip-types --test tests/trialOffer.test.ts",
     "test:card-expiry": "node --experimental-strip-types --test tests/cardExpiry.test.ts",
     "test:subscription-pause": "node --experimental-strip-types --test tests/subscriptionPause.test.ts",

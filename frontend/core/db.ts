@@ -350,6 +350,26 @@ function initDb(): DatabaseSync {
   // trial gets one fresh nudge.
   ensureColumn('users', 'trial_midpoint_email_sent_at', 'TEXT');
 
+  // Idempotency stamp for the trial-CONVERSION confirmation email — the receipt
+  // sent when a trial's first real charge clears (core/mailer
+  // sendTrialConvertedEmail). NULL = eligible; CAS-set to ISO in the Stripe
+  // webhook's invoice.paid handler, so a redelivered or replayed invoice event
+  // can't bill the member's inbox twice for one conversion.
+  //
+  // Deliberately NOT backfilled for the existing paid base, unlike
+  // pro_welcome_seen_at above. The send is gated on the invoice actually BEING
+  // the trial-conversion charge (isTrialConversionInvoice: a cycle invoice
+  // created at trial_end), and an already-converted member only ever produces
+  // renewal invoices, which are a full billing cycle outside that window. The
+  // predicate — not this stamp — is what keeps the email off the existing base,
+  // so backfilling would buy nothing and would silence any member still mid-
+  // trial on the boot this column is born.
+  //
+  // Never cleared: a second trial can't happen for a member who has already
+  // paid (checkout suppresses the trial for hasPriorPaid accounts), so there is
+  // no re-arm case the way there is for the reminder latches above.
+  ensureColumn('users', 'trial_converted_email_sent_at', 'TEXT');
+
   // One-shot latch for the abandoned-checkout recovery email sent by
   // scripts/send-checkout-recovery.mts. NULL = eligible, set to the ISO
   // timestamp of the send once delivered. Deliberately never cleared: a

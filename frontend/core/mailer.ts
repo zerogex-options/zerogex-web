@@ -1391,6 +1391,151 @@ export async function sendTrialConversionFailedEmail(
   }
 }
 
+// The success bookend to sendTrialConversionFailedEmail: the trial ended and
+// the FIRST real charge cleared. Until this existed the lifecycle was
+// asymmetric — a failed conversion got an email, a successful one got silence,
+// so the single moment a member actually starts paying was the one moment we
+// said nothing. That silence is what turns an expected charge into a "what is
+// this?" charge, which is a refund request or a dispute rather than a renewal.
+//
+// Deliberately a short CONFIRMATION, not a second onboarding email: the
+// start-here guidance already went out with the trial welcome on day 0 and the
+// billing mechanics with the 48h reminder, so repeating either here would read
+// as a pitch attached to a charge. It states what was taken, on which card,
+// when the next one lands, and where to manage it — then gets out of the way.
+// Carries the FOH footer like the other positive subscriber touchpoints.
+export type TrialConvertedEmailOptions = {
+  // Formatted amount actually collected, e.g. "$29.00", or null when the
+  // invoice didn't expose a usable amount/currency (the copy then stays
+  // amount-neutral rather than guessing).
+  amountFormatted?: string | null;
+  // Display-ready card brand ("Visa"), already normalized by formatCardBrand.
+  // Null for wallet/Link/unmapped methods → neutral "payment method on file".
+  cardBrand?: string | null;
+  // Last four of the card charged. Null when no card is resolvable.
+  cardLast4?: string | null;
+  // ISO instant of the next renewal charge (the conversion invoice's period
+  // end). Omitted from the copy when null rather than hedged.
+  nextChargeIso?: string | null;
+  // True when the conversion invoice settled at zero — an account credit (a
+  // banked referral free month, most often) covered the first period in full.
+  // The copy then confirms the membership WITHOUT claiming a payment was
+  // taken, which would be a false statement on the one email whose whole job
+  // is being accurate about money.
+  fullyCredited?: boolean;
+};
+
+// Pure builder for the trial-conversion confirmation: subject + text + HTML from
+// already-resolved inputs, no Resend/Stripe/DB I/O. Split from the sender on the
+// same rationale as buildTrialReminderEmail — a preview can render the exact wire
+// copy, and the branch matrix is unit-testable (tests/trialConverted.test.ts).
+export function buildTrialConvertedEmail(opts?: TrialConvertedEmailOptions): {
+  subject: string;
+  html: string;
+  text: string;
+} {
+  const subject = 'Your ZeroGEX trial just became a full membership';
+
+  const accountUrl = `${getAppUrl()}/account`;
+  const safeAccountUrl = escapeHtml(accountUrl);
+  const dashboardUrl = `${getAppUrl()}/dashboard`;
+  const safeDashboardUrl = escapeHtml(dashboardUrl);
+
+  // Same card phrasing as the failure email so the two bookends name a card
+  // identically — a member who sees both reads one consistent voice.
+  const cardPhrase = opts?.cardLast4
+    ? opts.cardBrand
+      ? `your ${opts.cardBrand} card ending in ${opts.cardLast4}`
+      : `the card ending in ${opts.cardLast4}`
+    : null;
+
+  const amount = opts?.amountFormatted ?? null;
+  const chargeClause = amount
+    ? cardPhrase
+      ? `the first payment went through — ${amount} on ${cardPhrase}`
+      : `the first payment went through — ${amount} on your payment method on file`
+    : cardPhrase
+      ? `the first payment went through on ${cardPhrase}`
+      : 'the first payment went through';
+
+  const openerSentence = opts?.fullyCredited
+    ? 'Your free trial just wrapped up and your membership rolled straight on — a credit on your account covered this first period in full, so there was nothing to pay.'
+    : `Your free trial just wrapped up and ${chargeClause}. You're now a full ZeroGEX member.`;
+
+  const accessSentence =
+    "Nothing changes on your end and there's nothing to do — your full access simply carries on uninterrupted.";
+
+  const nextChargeSentence = opts?.nextChargeIso
+    ? `Your next charge is on ${formatTrialEndDate(opts.nextChargeIso)}, and it renews automatically from there until you cancel.`
+    : null;
+
+  const manageSentenceText = `Your invoices, your card, and the cancel button all live on your account page — you're free to change or cancel any of it at any time: ${accountUrl}`;
+
+  const thanksSentence =
+    "Thank you for backing ZeroGEX this early. Paid members are what make it possible for me to keep improving the platform, and I don't take that lightly.";
+
+  const questionsSentence =
+    "If anything about this charge looks off, or you have a question about your plan, just reply to this email — I read every one and I'm happy to sort it out.";
+
+  const text = [
+    'Hello,',
+    '',
+    `${openerSentence} ${accessSentence}`,
+    '',
+    ...(nextChargeSentence ? [nextChargeSentence, ''] : []),
+    manageSentenceText,
+    '',
+    `Jump back into the live dashboard: ${dashboardUrl}`,
+    '',
+    thanksSentence,
+    '',
+    questionsSentence,
+    '',
+    'Best,',
+    'Michael',
+    'Founder, ZeroGEX',
+    '',
+    ...renderFohFooterTextLines(),
+  ].join('\n');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <p>Hello,</p>
+      <p>${escapeHtml(openerSentence)} ${escapeHtml(accessSentence)}</p>
+      ${nextChargeSentence ? `<p>${escapeHtml(nextChargeSentence)}</p>` : ''}
+      <p>Your invoices, your card, and the cancel button all live on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> &mdash; you're free to change or cancel any of it at any time.</p>
+      <p style="margin: 24px 0;">
+        <a href="${safeDashboardUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Open the live dashboard</a>
+      </p>
+      <p>${escapeHtml(thanksSentence)}</p>
+      <p>${escapeHtml(questionsSentence)}</p>
+      <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+      ${renderFohFooterHtml()}
+    </div>
+  `.trim();
+
+  return { subject, html, text };
+}
+
+// Sends the trial-conversion confirmation. Thin wrapper over
+// buildTrialConvertedEmail so the wire copy and any preview never drift.
+export async function sendTrialConvertedEmail(to: string, opts?: TrialConvertedEmailOptions) {
+  const { subject, html, text } = buildTrialConvertedEmail(opts);
+
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject,
+    text,
+    html,
+  });
+
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
 // Sent on the past_due → active recovery — the bookend to
 // sendPaymentFailedEmail. Fires when a failed renewal is finally resolved
 // (Stripe's Smart Retry succeeds on a later attempt, or the member updates

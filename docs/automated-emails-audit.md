@@ -66,6 +66,7 @@ stops a cron re-firing the same email every run. Verified list of latch columns:
 |---|---|---|---|
 | `paid_welcome_email_sent_at` | Trial/paid welcome | first paid checkout | never (see `subscription_lapsed`) |
 | `trial_reminder_email_sent_at` | 48h-before-trial-end reminder | reminder sent | on each fresh `trialing` window (re-arms per trial) |
+| `trial_converted_email_sent_at` | Trial-conversion confirmation | trial's first real charge clears | **never** (a paid account never gets a second trial) |
 | `checkout_recovery_email_sent_at` | Abandoned-checkout nudge | nudge sent | **never** (permanent one-shot) |
 | `verified_never_paid_email_sent_at` | ~2h "try the trial" nudge | nudge sent | **never** |
 | `reactivation_email_sent_at` | ~3-week extended-trial nudge | nudge sent | **never** |
@@ -94,6 +95,13 @@ Other gates that are **not** DB latches:
 
 - **Payment-failed** email is gated in the webhook by `invoice.attempt_count === 1`
   so it does not re-fire on each Stripe Smart Retry.
+- **Trial-conversion** emails (both the confirmation and its dunning bookend) are
+  gated by `isTrialConversionInvoice` in `core/trialDunning.ts` — a pure predicate
+  that identifies the conversion charge as "a `subscription_cycle` invoice created
+  within ~2 days of `trial_end`". `invoice.paid` / `invoice.payment_failed` fire on
+  every renewal too, so this classification is what keeps both emails off
+  established members. Both branches share the one predicate so a conversion that
+  clears and one that declines can never be classified differently.
 - **Referral reward** is gated by the `referrals` ledger row walking
   `pending → rewarded` (a user can only be referred once — `UNIQUE referee_user_id`).
 - **TradeWorkz alerts** are gated by rows in the `tw_notifications_log` table
@@ -153,6 +161,19 @@ auth/transactional and TradeWorkz alerts.
 - Courtesy heads-up before auto-conversion. When `billing` is resolved from Stripe it
   names the exact charge + card ("Your subscription will begin at $X/month using your
   Visa card ending in 1234"). Manage-subscription CTA. No FOH footer.
+
+**Trial-conversion confirmation** — `sendTrialConvertedEmail(to, { amountFormatted?, cardBrand?, cardLast4?, nextChargeIso?, fullyCredited? })`
+- **Subject:** `Your ZeroGEX trial just became a full membership`
+- Fired from the Stripe webhook's `invoice.paid` when a trial's **first real charge
+  clears** — the success bookend to `sendTrialConversionFailedEmail`. Names what was
+  actually collected (`amount_paid`, so an applied referral credit is reflected) and
+  the card it came off, the next charge date, and the account page for invoices /
+  card / cancel. Deliberately short: the start-here guidance shipped with the trial
+  welcome and the billing mechanics with the 48h reminder, so this only confirms the
+  charge. `fullyCredited` (a $0 conversion invoice, i.e. a banked referral month
+  covered it) switches the copy so it never claims a payment was taken. FOH footer.
+- Pure builder `buildTrialConvertedEmail` + thin sender, locked down in
+  `tests/trialConverted.test.ts`.
 
 **Payment failed** — `sendPaymentFailedEmail(to, { amountFormatted?, cardBrand?, cardLast4?, nextAttemptIso?, graceUntilIso? })`
 - **Subject:** `We couldn't process your ZeroGEX payment`
