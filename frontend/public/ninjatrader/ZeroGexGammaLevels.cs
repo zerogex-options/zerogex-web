@@ -543,16 +543,27 @@ namespace NinjaTrader.NinjaScript.Indicators
         // The render model derived from it is built and read only here.
         // ------------------------------------------------------------------
 
-        /// <summary>One horizontal level, reduced to what a frame needs.</summary>
+        /// <summary>One horizontal level, reduced to what a frame needs.
+        ///
+        /// Label rather than a finished string because several levels routinely
+        /// land on one strike and their names get joined — see AddLevel.</summary>
         private class RenderLevel
         {
             public double Price;
-            public string Text;
+            public string Label;
             public Brush Stroke;
             public bool Dashed;
         }
 
         private readonly List<RenderLevel> _levels = new List<RenderLevel>();
+
+        // Per-frame scratch for label de-collision, held as fields so a repaint
+        // allocates nothing.
+        private readonly List<int> _labelOrder = new List<int>();
+        private readonly List<float> _labelY = new List<float>();
+
+        /// <summary>Vertical space one label occupies, in pixels.</summary>
+        private const float LabelLineHeight = 15f;
         private ZeroGexLevelsSnapshot _levelsBuiltFrom;
         private int _levelsBuiltCount = -1;
 
@@ -706,15 +717,41 @@ namespace NinjaTrader.NinjaScript.Indicators
             _levelsBuiltCount = want;
         }
 
+        /// <summary>Add a level, or fold it into one already at that price.
+        ///
+        /// On ES the strikes are five points apart and the metrics collide
+        /// constantly: a tester's chart had Put Wall, Max Pain and GEX 2 all on
+        /// 7711.75, printing "Ma8GEX:2 7711.75" — three labels in the same
+        /// pixel row, none of them readable. Drawing three lines there was just
+        /// as pointless, since only the last one is visible.
+        ///
+        /// Folding them makes the chart say something truer than any of the
+        /// three did alone: not "there is a level here" but "three different
+        /// measures of dealer positioning agree on this strike". The headline
+        /// walls are added before the ranked strikes, so the merged entry keeps
+        /// the wall's colour, and stays solid unless every part of it is
+        /// dashed.</summary>
         private void AddLevel(bool show, double? value, string label, Brush stroke, bool dashed)
         {
             if (!show || value == null || value.Value == 0)
                 return;
 
+            double price = value.Value;
+
+            for (int i = 0; i < _levels.Count; i++)
+            {
+                if (_levels[i].Price != price)
+                    continue;
+
+                _levels[i].Label = _levels[i].Label + " · " + label;
+                _levels[i].Dashed = _levels[i].Dashed && dashed;
+                return;
+            }
+
             _levels.Add(new RenderLevel
             {
-                Price = value.Value,
-                Text = label + "  " + value.Value.ToString("0.##", CultureInfo.InvariantCulture),
+                Price = price,
+                Label = label,
                 Stroke = stroke,
                 Dashed = dashed
             });
@@ -730,6 +767,9 @@ namespace NinjaTrader.NinjaScript.Indicators
             float width = Math.Max(1, LineWidth);
             float inset = Math.Max(0, LabelRightOffsetPixels);
             double lift = Math.Max(0, LabelOffsetTicks) * TickSize;
+
+            _labelOrder.Clear();
+            _labelY.Clear();
 
             for (int i = 0; i < _levels.Count; i++)
             {
@@ -755,14 +795,54 @@ namespace NinjaTrader.NinjaScript.Indicators
                 if (!ShowLabels)
                     continue;
 
-                // The label ends `inset` pixels from the right edge whatever the
-                // chart is doing, which is the whole point of the rewrite: it
-                // stays put when the chart scrolls, and it sits in the margin
-                // past the last bar rather than on top of the candles.
+                // Collected rather than drawn, because where a label can sit
+                // depends on the labels above it. Insertion-sorted by y on the
+                // way in: at most a dozen levels, so this is cheaper and
+                // simpler than sorting afterwards.
                 float labelY = (float)chartScale.GetYByValue(level.Price + lift);
+                int at = _labelY.Count;
+                while (at > 0 && _labelY[at - 1] > labelY)
+                    at--;
+
+                _labelY.Insert(at, labelY);
+                _labelOrder.Insert(at, i);
+            }
+
+            if (!ShowLabels)
+                return;
+
+            // Push each label below the one above it where they would overlap.
+            //
+            // Folding equal prices in AddLevel handles the common collision,
+            // but levels a tick or two apart still land in the same pixel row:
+            // Pin Strike at 7741.75 and VWAP at 7741.5 printed as one smear on
+            // a tester's chart. Different prices genuinely need different
+            // labels, so they are stacked rather than merged, in price order,
+            // and each still carries its own number.
+            //
+            // Downward only, so the topmost label of a cluster stays on its own
+            // line and the drift is predictable rather than centred and moving.
+            float prevBottom = float.NegativeInfinity;
+
+            for (int k = 0; k < _labelOrder.Count; k++)
+            {
+                float labelY = _labelY[k];
+                if (labelY - LabelLineHeight < prevBottom)
+                    labelY = prevBottom + LabelLineHeight;
+
+                prevBottom = labelY;
+
+                RenderLevel level = _levels[_labelOrder[k]];
+                SharpDX.Direct2D1.Brush stroke = brushes.Get(level.Stroke);
+                if (stroke == null)
+                    continue;
+
+                string text = level.Label + "  " +
+                              level.Price.ToString("0.##", CultureInfo.InvariantCulture);
                 float boxWidth = Math.Max(1f, (right - inset) - left);
-                RenderTarget.DrawText(level.Text, font,
-                                      new SharpDX.RectangleF(left, labelY - 15f, boxWidth, 14f),
+                RenderTarget.DrawText(text, font,
+                                      new SharpDX.RectangleF(left, labelY - LabelLineHeight,
+                                                             boxWidth, LabelLineHeight - 1f),
                                       stroke);
             }
         }
@@ -859,7 +939,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         /// different versions and neither they nor we can tell which. A bug
         /// report against an unknown build costs a round trip to establish what
         /// is even being reported. Bump this on every file sent to a tester.</summary>
-        private const string BuildVersion = "v1.5";
+        private const string BuildVersion = "v1.6";
 
         private string BuildInfoText(ZeroGexLevelsSnapshot s)
         {
