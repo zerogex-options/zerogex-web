@@ -132,9 +132,9 @@ setting can't produce a `422`).
      draw objects, and they are the two things traders asked for by name.
    - **Show strike profile histogram** — off by default; turn it on for the
      per-strike gamma bars, and tune `Histogram strikes` / `Histogram width` /
-     `Histogram bar thickness`. Thickness is a stroke width in pixels: the
-     short `Draw.Line` overload defaults to 1px, which reads as a hairline
-     rather than a histogram, so the bars pass it explicitly.
+     `Histogram bar thickness`. Width is a percentage of the chart's width and
+     thickness is the bar's height in pixels; 1px reads as a hairline rather
+     than a histogram, so the default is 5.
    - Toggle levels, colors, labels, info panel, and alerts to taste.
 
 If a packaged export has been published, the gamma pages offer it instead and
