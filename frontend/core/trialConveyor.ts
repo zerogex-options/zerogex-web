@@ -416,3 +416,76 @@ export function sortRidersByDeadline(riders: ConveyorRider[]): ConveyorRider[] {
     return at - bt;
   });
 }
+
+// ── Committed forward projection ───────────────────────────────────────────
+// What the Full Subscriber count becomes over the next few days if NOTHING new
+// happens — no new signups, no new cancellations. Every input is already
+// locked in: a trial in flight has a scheduled first charge, and a member who
+// clicked Cancel has a scheduled last day. That makes this a commitment, not a
+// forecast, and the reason it belongs on the chart as a dashed continuation of
+// the real line rather than as a separate model.
+//
+// Deliberately NOT counted:
+//   • rolling-off trials — a trialer who cancelled never enters Full
+//     Subscriber at all, so their departure moves this line by nothing.
+//   • stalled trials (Trial Grace) — genuinely undecided. Counting them as
+//     conversions would inflate the line with charges that already failed once;
+//     counting them as losses would write them off while Stripe is still
+//     retrying. They are reported separately instead.
+//   • new signups — a trial started today cannot convert inside the window, so
+//     including any would mean modelling acquisition, which this is not.
+
+export type SubscriberProjectionPoint = {
+  day: string;
+  // Projected Full Subscriber count at the END of this day.
+  projected: number;
+  // Trials whose first charge is due this day, and paying members whose
+  // scheduled cancellation takes effect this day.
+  conversions: number;
+  departures: number;
+};
+
+/**
+ * Roll `startCount` forward across `days` (ascending ET day keys).
+ *
+ * Anything already due on or before the first projected day is folded into it:
+ * an overdue charge or lapse is imminent, not absent, so dropping it would
+ * quietly understate the very next step of the line.
+ */
+export function projectFullSubscribers(input: {
+  startCount: number;
+  days: string[];
+  conversionDays: Array<string | null>;
+  departureDays: Array<string | null>;
+}): SubscriberProjectionPoint[] {
+  const { startCount, days } = input;
+  if (days.length === 0) return [];
+
+  const tally = (entries: Array<string | null>): Map<string, number> => {
+    const counts = new Map<string, number>();
+    const first = days[0];
+    const last = days[days.length - 1];
+    for (const day of entries) {
+      if (!day) continue;
+      // Past-due lands on the first day; anything beyond the horizon is simply
+      // outside the window and is not counted.
+      if (day > last) continue;
+      const key = day < first ? first : day;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    return counts;
+  };
+
+  const conversions = tally(input.conversionDays);
+  const departures = tally(input.departureDays);
+
+  let running = startCount;
+  return days.map((day) => {
+    const added = conversions.get(day) ?? 0;
+    const lost = departures.get(day) ?? 0;
+    // A headcount can't go negative; a projection implying it would is a sign
+    // the inputs disagree, not something to render below zero.
+    running = Math.max(0, running + added - lost);
+    return { day, projected: running, conversions: added, departures: lost };
+  });
+}

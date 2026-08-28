@@ -45,6 +45,8 @@ import {
   accumulateTrialOutcomes,
   classifyRider,
   NOMINAL_TRIAL_DAYS,
+  projectFullSubscribers,
+  type SubscriberProjectionPoint,
   sortRidersByDeadline,
   summarizeRiders,
   summarizeTrialOutcomes,
@@ -255,6 +257,23 @@ export type SubscriberLedgerSnapshot = {
   generatedAt: string;
 };
 
+// Dashed continuation of the Full Subscriber line: what the count becomes over
+// the next SUBSCRIBER_PROJECTION_DAYS if nothing NEW happens, driven entirely by
+// events already scheduled in the Conversion Conveyor. See
+// projectFullSubscribers in core/trialConveyor for what is and isn't counted.
+export type SubscriberProjection = {
+  horizonDays: number;
+  // Day the projection departs from — the chart's last real point, so the
+  // dashed line starts exactly where the solid one ends.
+  anchorDay: string | null;
+  anchorPaying: number;
+  points: SubscriberProjectionPoint[];
+  // Trials sitting in the payment-recovery window, deliberately excluded from
+  // the line because they are genuinely undecided. Surfaced so the projection
+  // can say how much of the picture it is leaving out.
+  undecidedStalled: number;
+};
+
 export type MonitoringSnapshot = {
   mrr: MrrSnapshot;
   mrrSeries: MrrPoint[];
@@ -265,6 +284,7 @@ export type MonitoringSnapshot = {
   cancellationReasons: CancellationReasonsSummary;
   trialConveyor: TrialConveyorSnapshot;
   subscriberLedger: SubscriberLedgerSnapshot;
+  subscriberProjection: SubscriberProjection;
   hourly: MonitoringSnapshotPoint[];
   daily: MonitoringSnapshotPoint[];
   topIps: Array<{ ip: string; count: number }>;
@@ -1280,6 +1300,57 @@ function buildCancellationReasons(): CancellationReasonsSummary {
 
 
 
+
+// ── Committed forward projection ───────────────────────────────────────────
+const SUBSCRIBER_PROJECTION_DAYS = 7;
+
+// Roll the Full Subscriber line forward off the conveyor's own contents. Every
+// input is already scheduled — a trial in flight has a first-charge date, a
+// cancelled member has a last day — so this is a commitment rather than a
+// forecast, and it anchors to the series' last real point so the dashed line
+// continues the solid one instead of floating beside it.
+function buildSubscriberProjection(
+  now: Date,
+  signups: SignupPoint[],
+  conveyor: TrialConveyorSnapshot,
+): SubscriberProjection {
+  const last = signups.length > 0 ? signups[signups.length - 1] : null;
+  const anchorDay = last?.day ?? null;
+  const anchorPaying = last?.paying ?? 0;
+
+  // The horizon starts the day AFTER the anchor: the anchor is a real, observed
+  // point and must not be overwritten by a projected one.
+  const keys = generateDailyKeys(
+    new Date(now.getTime() + SUBSCRIBER_PROJECTION_DAYS * 86_400_000),
+    SUBSCRIBER_PROJECTION_DAYS + 1,
+  );
+  const days = anchorDay ? keys.filter((d) => d > anchorDay) : keys;
+
+  const dayOf = (iso: string | null): string | null => {
+    if (!iso) return null;
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return null;
+    return etBucketKeys(d).day;
+  };
+
+  return {
+    horizonDays: SUBSCRIBER_PROJECTION_DAYS,
+    anchorDay,
+    anchorPaying,
+    points: projectFullSubscribers({
+      startCount: anchorPaying,
+      days,
+      // Only trials still heading for a charge become paying subscribers; a
+      // rolling-off trialer never joins this line, so they move it by nothing.
+      conversionDays: conveyor.riders
+        .filter((r) => r.state === 'running')
+        .map((r) => dayOf(r.convertsAt)),
+      departureDays: conveyor.departures.map((d) => dayOf(d.convertsAt)),
+    }),
+    undecidedStalled: conveyor.totals.stalled,
+  };
+}
+
 // ── Subscriber ledger ──────────────────────────────────────────────────────
 const LEDGER_WINDOW_DAYS = 30;
 // Cap on rows serialized to the client. Well above a normal window's traffic;
@@ -1701,6 +1772,10 @@ export function getSnapshot(): MonitoringSnapshot {
   const dailyKeys = generateDailyKeys(now);
   const mrr = buildMrr();
   const mrrSeries = buildMrrSeries(now, mrr);
+  // Built once and shared: the projection reads both, and anchoring it to the
+  // series' own last point is what makes the dashed line meet the solid one.
+  const signups = buildSignupSeries(now);
+  const trialConveyor = buildTrialConveyor(now);
   return {
     mrr,
     mrrSeries,
@@ -1710,12 +1785,13 @@ export function getSnapshot(): MonitoringSnapshot {
     // rate as a long-run average. (The forward projection line is computed
     // client-side from a shorter trailing window and is unaffected either way.)
     mrrTrend: computeMrrTrend(mrrSeries.slice(-MAX_DAILY), mrr.targetMrr),
-    signups: buildSignupSeries(now),
+    signups,
     signupFlow: buildSignupFlowSeries(now),
     growthRates: buildGrowthRates(now),
     cancellationReasons: buildCancellationReasons(),
-    trialConveyor: buildTrialConveyor(now),
+    trialConveyor,
     subscriberLedger: buildSubscriberLedger_(now),
+    subscriberProjection: buildSubscriberProjection(now, signups, trialConveyor),
     hourly: hourlyKeys.map((key) => bucketToPoint(key, live.hourly[key])),
     daily: dailyKeys.map((key) => bucketToPoint(key, live.daily[key])),
     topIps: aggregateTopIps(live.daily, 10),

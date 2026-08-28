@@ -26,6 +26,7 @@ import {
   type ConveyorTotals,
 } from '@/core/trialConveyor';
 import { ledgerKindLabel, type LedgerEventKind, type LedgerRow } from '@/core/subscriberBucket';
+import type { SubscriberProjectionPoint } from '@/core/trialConveyor';
 
 type SnapshotPoint = {
   bucket: string;
@@ -213,6 +214,16 @@ type SubscriberLedger = {
   generatedAt: string;
 };
 
+// Mirrors SubscriberProjection in core/monitoring.ts (hand-synced — that module
+// is server-only). The point shape comes from the pure core/trialConveyor.
+type SubscriberProjection = {
+  horizonDays: number;
+  anchorDay: string | null;
+  anchorPaying: number;
+  points: SubscriberProjectionPoint[];
+  undecidedStalled: number;
+};
+
 type Snapshot = {
   ok: boolean;
   mrr: Mrr;
@@ -224,6 +235,7 @@ type Snapshot = {
   cancellationReasons: CancellationReasonsSummary;
   trialConveyor: TrialConveyor;
   subscriberLedger: SubscriberLedger;
+  subscriberProjection: SubscriberProjection;
   conversionBySource: ConversionBySourceSnapshot;
   hourly: SnapshotPoint[];
   daily: SnapshotPoint[];
@@ -394,7 +406,14 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
   const topIpsMax = data.topIps[0]?.count ?? 0;
   const topUsersMax = data.topUsers[0]?.count ?? 0;
   const tierYScale = niceYScale(data.signups.reduce((m, p) => Math.max(m, p.basic + p.pro + p.public), 0));
-  const subscriberYScale = niceYScale(data.signups.reduce((m, p) => Math.max(m, p.paying + p.trialing + p.graceTrial), 0));
+  const subscriberYScale = niceYScale(
+    Math.max(
+      data.signups.reduce((m, p) => Math.max(m, p.paying + p.trialing + p.graceTrial), 0),
+      // The dashed projection extends past today's stack, so it has to be in
+      // the scale or a growing forecast would run off the top of the chart.
+      data.subscriberProjection.points.reduce((m, p) => Math.max(m, p.projected), 0),
+    ),
+  );
 
   return (
     <div>
@@ -405,7 +424,7 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <GrowthRateCard rates={data.growthRates} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} />
           <SubscriptionFlowByWeekdayCard data={data.signupFlow} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} brandColor={ROW_COLORS.signups} />
-          <TotalSubscribersChartCard data={data.signups} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} yScale={subscriberYScale} />
+          <TotalSubscribersChartCard data={data.signups} projection={data.subscriberProjection} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} yScale={subscriberYScale} />
           <TierBreakdownChartCard data={data.signups} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} brandColor={ROW_COLORS.signups} yScale={tierYScale} />
           <SubscriptionFlowChartCard data={data.signupFlow} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} brandColor={ROW_COLORS.signups} />
           <DailyRegistrationsChartCard
@@ -2885,7 +2904,19 @@ function TierBreakdownChartCard({ data, cardBg, axisStroke, mutedText, brandColo
   );
 }
 
+// What the dashed projection is and, just as importantly, what it leaves out.
+function projectionTitle(projection: SubscriberProjection): string {
+  const base =
+    `Committed projection: today's ${projection.anchorPaying} full subscribers, plus trials already scheduled ` +
+    `to be charged over the next ${projection.horizonDays} days, minus members whose cancellation takes effect ` +
+    `in that window. No new signups are assumed.`;
+  return projection.undecidedStalled > 0
+    ? `${base} ${projection.undecidedStalled} trial${projection.undecidedStalled === 1 ? '' : 's'} retrying a declined charge are excluded as undecided.`
+    : base;
+}
+
 type TotalSubscribersChartCardProps = {
+  projection: SubscriberProjection;
   data: SignupPoint[];
   cardBg: string;
   axisStroke: string;
@@ -2899,15 +2930,37 @@ type TotalSubscribersChartCardProps = {
 // which is inside the bounded payment-recovery window while Stripe retries.
 // Trial Grace stacks on top: it's the at-risk band, subscribers today who have
 // never completed a payment. One total — Total Subscribers — in the header.
-function TotalSubscribersChartCard({ data, cardBg, axisStroke, mutedText, yScale }: TotalSubscribersChartCardProps) {
+function TotalSubscribersChartCard({ data, projection, cardBg, axisStroke, mutedText, yScale }: TotalSubscribersChartCardProps) {
   const payingColor = '#ff8531';
   const trialingColor = '#ffa600';
   const graceTrialColor = '#ffd380';
   const graceTrialTitle =
     'Free trial ended, the first subscription charge failed, and access is retained during the bounded payment-recovery grace window while Stripe retries the card.';
+  const projectedColor = '#2c8c6a';
   const latest = data.length > 0 ? data[data.length - 1] : { paying: 0, trialing: 0, graceTrial: 0 };
   const totalSubscribers = latest.paying + latest.trialing + latest.graceTrial;
-  const dayLabel = useMemo(() => makeDayLabelFormatter(data.map((p) => p.day)), [data]);
+
+  // Actual days, then the projected ones appended. The anchor day carries BOTH
+  // its real `paying` value and the same value as `projectedPaying`, which is
+  // what makes the dashed line start ON the solid line instead of a day away
+  // from it. Projected rows leave the stacked areas undefined so those simply
+  // stop at today rather than collapsing to zero.
+  const chartData = useMemo(() => {
+    const rows: Array<Record<string, number | string | undefined>> = data.map((p) => ({ ...p }));
+    if (rows.length > 0 && projection.points.length > 0) {
+      rows[rows.length - 1] = { ...rows[rows.length - 1], projectedPaying: projection.anchorPaying };
+    }
+    for (const p of projection.points) rows.push({ day: p.day, projectedPaying: p.projected });
+    return rows;
+  }, [data, projection]);
+
+  const projectionByDay = useMemo(
+    () => new Map(projection.points.map((p) => [p.day, p])),
+    [projection.points],
+  );
+  const projectedEnd = projection.points.length > 0 ? projection.points[projection.points.length - 1] : null;
+  const projectedNet = projectedEnd ? projectedEnd.projected - projection.anchorPaying : 0;
+  const dayLabel = useMemo(() => makeDayLabelFormatter(chartData.map((p) => String(p.day))), [chartData]);
   return (
     <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
       <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
@@ -2917,6 +2970,12 @@ function TotalSubscribersChartCard({ data, cardBg, axisStroke, mutedText, yScale
           <span><span style={{ color: trialingColor }}>●</span> Free Trial: {latest.trialing.toLocaleString()}</span>
           <span title={graceTrialTitle}><span style={{ color: graceTrialColor }}>●</span> Trial Grace: {latest.graceTrial.toLocaleString()}</span>
           <span>Total Subscribers: {totalSubscribers.toLocaleString()}</span>
+          {projectedEnd && (
+            <span title={projectionTitle(projection)}>
+              <span style={{ color: projectedColor }}>⇢</span> {projection.horizonDays}d projection:{' '}
+              {projectedEnd.projected.toLocaleString()} ({projectedNet >= 0 ? '+' : ''}{projectedNet})
+            </span>
+          )}
         </div>
       </div>
       {data.length === 0 ? (
@@ -2924,7 +2983,7 @@ function TotalSubscribersChartCard({ data, cardBg, axisStroke, mutedText, yScale
       ) : (
         <MobileScrollableChart>
           <ResponsiveContainer width="100%" height={280}>
-            <ComposedChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+            <ComposedChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
               <CartesianGrid strokeOpacity={0.1} vertical={false} />
               <XAxis
                 dataKey="day"
@@ -2947,6 +3006,26 @@ function TotalSubscribersChartCard({ data, cardBg, axisStroke, mutedText, yScale
                 cursor={{ stroke: 'var(--color-text-primary)', strokeOpacity: 0.2 }}
                 content={({ active, label, payload }) => {
                   if (!active || !payload?.length) return null;
+                  // A projected day has no observed values — show what the
+                  // projection is made of instead of three misleading zeros.
+                  const proj = projectionByDay.get(String(label));
+                  if (proj) {
+                    return (
+                      <div
+                        className="rounded-lg border px-3 py-2 text-xs"
+                        style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', color: 'var(--color-chart-tooltip-text)' }}
+                      >
+                        <div className="font-semibold mb-1">{dayLabel(String(label))} · projected</div>
+                        <div>Full Subscriber: {proj.projected.toLocaleString()}</div>
+                        <div style={{ opacity: 0.8 }}>
+                          {proj.conversions > 0 ? `+${proj.conversions} trial${proj.conversions === 1 ? '' : 's'} converting` : 'no conversions due'}
+                        </div>
+                        <div style={{ opacity: 0.8 }}>
+                          {proj.departures > 0 ? `−${proj.departures} cancellation${proj.departures === 1 ? '' : 's'} taking effect` : 'no cancellations due'}
+                        </div>
+                      </div>
+                    );
+                  }
                   const paying = Number(payload.find((p) => p.dataKey === 'paying')?.value ?? 0);
                   const trialing = Number(payload.find((p) => p.dataKey === 'trialing')?.value ?? 0);
                   const graceTrial = Number(payload.find((p) => p.dataKey === 'graceTrial')?.value ?? 0);
@@ -2963,6 +3042,19 @@ function TotalSubscribersChartCard({ data, cardBg, axisStroke, mutedText, yScale
                     </div>
                   );
                 }}
+              />
+              <Line
+                type="monotone"
+                dataKey="projectedPaying"
+                name={`Full Subscriber (${projection.horizonDays}d projection)`}
+                stroke={projectedColor}
+                strokeWidth={2}
+                strokeDasharray="5 4"
+                dot={false}
+                // The anchor day is the only point on both lines; without this
+                // the dashed run would break at the seam.
+                connectNulls
+                isAnimationActive={false}
               />
               <Area
                 type="monotone"

@@ -7,6 +7,7 @@ import {
   countdownParts,
   emptyConveyorDelta,
   formatCountdown,
+  projectFullSubscribers,
   sortRidersByDeadline,
   summarizeRiders,
   summarizeTrialOutcomes,
@@ -442,4 +443,78 @@ test('the yield rate no longer counts a failed conversion as converted', () => {
   assert.equal(out.converted, 1);
   assert.equal(out.rolledOff, 1);
   assert.equal(out.conversionRate, 0.5);
+});
+
+// ── Committed forward projection ───────────────────────────────────────────
+// The dashed continuation of the Full Subscriber line. It must only ever move
+// on things already scheduled, and must not quietly lose an overdue one.
+
+const DAYS7 = ['2026-08-28', '2026-08-29', '2026-08-30', '2026-08-31', '2026-09-01', '2026-09-02', '2026-09-03'];
+
+test('projection: conversions add and scheduled departures subtract, day by day', () => {
+  const p = projectFullSubscribers({
+    startCount: 100,
+    days: DAYS7,
+    conversionDays: ['2026-08-28', '2026-08-30', '2026-08-30'],
+    departureDays: ['2026-08-29'],
+  });
+  assert.deepEqual(p.map((x) => x.projected), [101, 100, 102, 102, 102, 102, 102]);
+  assert.equal(p[2].conversions, 2);
+  assert.equal(p[1].departures, 1);
+});
+
+test('projection: a flat window just carries the current count forward', () => {
+  const p = projectFullSubscribers({ startCount: 105, days: DAYS7, conversionDays: [], departureDays: [] });
+  assert.deepEqual(new Set(p.map((x) => x.projected)), new Set([105]));
+});
+
+test('projection: anything already overdue lands on the first day, not nowhere', () => {
+  // A charge due yesterday is imminent, so dropping it would understate the
+  // very next step of the line.
+  const p = projectFullSubscribers({
+    startCount: 10,
+    days: DAYS7,
+    conversionDays: ['2026-08-01'],
+    departureDays: ['2026-07-15'],
+  });
+  assert.equal(p[0].conversions, 1);
+  assert.equal(p[0].departures, 1);
+  assert.equal(p[0].projected, 10);
+});
+
+test('projection: events beyond the horizon are outside the window, not folded in', () => {
+  const p = projectFullSubscribers({
+    startCount: 10,
+    days: DAYS7,
+    conversionDays: ['2026-12-01'],
+    departureDays: ['2026-12-02'],
+  });
+  assert.deepEqual(p.map((x) => x.projected), Array(7).fill(10));
+});
+
+test('projection: never renders below zero', () => {
+  const p = projectFullSubscribers({
+    startCount: 1,
+    days: DAYS7,
+    conversionDays: [],
+    departureDays: ['2026-08-28', '2026-08-29', '2026-08-30'],
+  });
+  assert.deepEqual(p.map((x) => x.projected), [0, 0, 0, 0, 0, 0, 0]);
+});
+
+test('projection: undated entries are skipped rather than guessed onto a day', () => {
+  const p = projectFullSubscribers({
+    startCount: 50,
+    days: DAYS7,
+    conversionDays: [null, null],
+    departureDays: [null],
+  });
+  assert.deepEqual(p.map((x) => x.projected), Array(7).fill(50));
+});
+
+test('projection: an empty horizon yields no points', () => {
+  assert.deepEqual(
+    projectFullSubscribers({ startCount: 5, days: [], conversionDays: ['2026-08-28'], departureDays: [] }),
+    [],
+  );
 });
