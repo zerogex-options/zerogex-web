@@ -8,13 +8,17 @@
  *
  *   1. **Gamma Regime Shift** — the one-second read. What changed, how much
  *      against this symbol's own history, and what that means.
- *   2. **Expiry Roll-off** — what disappears at the next expiration, and
+ *   2. **Gamma Trend** — the same change as a series rather than a verdict:
+ *      dealer gamma plotted across the session, and the spot↔flip cushion
+ *      plotted under it. The card above says what changed; this says which
+ *      way it has been going, which is the question a level cannot answer.
+ *   3. **Expiry Roll-off** — what disappears at the next expiration, and
  *      whether that is a lot. This is also the reason the card above can
  *      compare two sessions honestly: it excludes the tranche that expired
  *      in between, and this panel is where that tranche is accounted for.
- *   3. **Session History** — what every recent session read as, so today has
+ *   4. **Session History** — what every recent session read as, so today has
  *      a context to sit in.
- *   4. **Strike-by-strike ladder** — the original view, kept intact as the
+ *   5. **Strike-by-strike ladder** — the original view, kept intact as the
  *      receipt. It stops being the headline and becomes the evidence.
  *
  * Controls live in ONE bar at the top rather than repeating per panel: the
@@ -31,6 +35,7 @@
 import { useState } from 'react';
 import PageShell from '@/components/layout/PageShell';
 import GammaRegimeShiftCard from '@/components/GammaRegimeShiftCard';
+import GammaTrendPanel from '@/components/GammaTrendPanel';
 import ExpiryRolloffPanel from '@/components/ExpiryRolloffPanel';
 import RegimeSessionHistory from '@/components/RegimeSessionHistory';
 import GammaShiftLadder from '@/components/GammaShiftLadder';
@@ -127,6 +132,8 @@ export default function GammaShiftPage() {
           onLensChange={setLens}
           symbol={symbol}
         />
+
+        <GammaTrendPanel symbol={symbol} />
 
         <ExpiryRolloffPanel
           payload={rolloff.data}
