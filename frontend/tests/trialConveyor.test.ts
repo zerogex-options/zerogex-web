@@ -324,3 +324,122 @@ test('sortRidersByDeadline: does not mutate the caller’s array', () => {
   sortRidersByDeadline(input);
   assert.deepEqual(input.map((r) => r.userId), ['b', 'a']);
 });
+
+// ── The trial-end `active` is provisional ──────────────────────────────────
+// Stripe flips a subscription to `active` when the post-trial invoice is
+// CREATED, ~an hour before the charge is attempted. Booking that as a
+// conversion counts members who then declined — inflating both the converted
+// total and the yield rate with people who never paid a cent. These cases are
+// taken from a real production account (jordanjosh7718): trialing → active →
+// deleted an hour later, no past_due anywhere.
+
+test('trial end → active → DELETED an hour later is a roll-off, not a conversion', () => {
+  const byDay = accumulateTrialOutcomes(
+    [sync('sub_1', 'trialing', '2026-08-20'), sync('sub_1', 'active', '2026-08-27')],
+    [del('sub_1', '2026-08-27')],
+  );
+  assert.deepEqual(totals(byDay), { boarded: 1, converted: 0, rolledOff: 1, stalled: 0 });
+  assert.equal(byDay.get('2026-08-27')?.converted, 0, 'the provisional conversion must be revoked');
+  assert.equal(byDay.get('2026-08-27')?.rolledOff, 1);
+});
+
+test('trial end → active → past_due is a stall, not a conversion', () => {
+  const byDay = accumulateTrialOutcomes(
+    [
+      sync('sub_1', 'trialing', '2026-08-20'),
+      sync('sub_1', 'active', '2026-08-27'),
+      sync('sub_1', 'past_due', '2026-08-28'),
+    ],
+    [],
+  );
+  assert.deepEqual(totals(byDay), { boarded: 1, converted: 0, rolledOff: 0, stalled: 1 });
+});
+
+test('a stalled trial that recovers converts on the RETRY that succeeded', () => {
+  const byDay = accumulateTrialOutcomes(
+    [
+      sync('sub_1', 'trialing', '2026-08-20'),
+      sync('sub_1', 'active', '2026-08-27'), // provisional
+      sync('sub_1', 'past_due', '2026-08-28'), // declined — revoked, stalled
+      sync('sub_1', 'active', '2026-08-29'), // Smart Retry recovered it
+    ],
+    [],
+  );
+  assert.deepEqual(totals(byDay), { boarded: 1, converted: 1, rolledOff: 0, stalled: 1 });
+  assert.equal(byDay.get('2026-08-29')?.converted, 1);
+});
+
+test('a confirmed conversion churning a cycle later is NOT a trial roll-off', () => {
+  // The whole point of the confirmation window: ordinary churn is a full
+  // billing cycle out, so the conversion stands and nothing books as a roll-off.
+  const byDay = accumulateTrialOutcomes(
+    [sync('sub_1', 'trialing', '2026-08-20'), sync('sub_1', 'active', '2026-08-27')],
+    [del('sub_1', '2026-09-27')],
+  );
+  assert.deepEqual(totals(byDay), { boarded: 1, converted: 1, rolledOff: 0, stalled: 0 });
+});
+
+test('the confirmation window boundary holds on both sides', () => {
+  const outcome = (deleteDay: string) =>
+    totals(
+      accumulateTrialOutcomes(
+        [sync('s', 'trialing', '2026-08-20'), sync('s', 'active', '2026-08-27')],
+        [del('s', deleteDay)],
+      ),
+    );
+  // Inside the window (≤ 2 days): the charge never landed.
+  assert.deepEqual(outcome('2026-08-29'), { boarded: 1, converted: 0, rolledOff: 1, stalled: 0 });
+  // Outside it: a real customer who churned.
+  assert.deepEqual(outcome('2026-08-30'), { boarded: 1, converted: 1, rolledOff: 0, stalled: 0 });
+});
+
+test('a terminal STATUS soon after active revokes the conversion too', () => {
+  // Same failure reported as a status sync rather than a deletion row.
+  const byDay = accumulateTrialOutcomes(
+    [
+      sync('sub_1', 'trialing', '2026-08-20'),
+      sync('sub_1', 'active', '2026-08-27'),
+      sync('sub_1', 'canceled', '2026-08-27'),
+    ],
+    [],
+  );
+  assert.deepEqual(totals(byDay), { boarded: 1, converted: 0, rolledOff: 1, stalled: 0 });
+});
+
+test('a revoked conversion is still not double-booked across both streams', () => {
+  const byDay = accumulateTrialOutcomes(
+    [
+      sync('sub_1', 'trialing', '2026-08-20'),
+      sync('sub_1', 'active', '2026-08-27'),
+      sync('sub_1', 'canceled', '2026-08-27'),
+    ],
+    [del('sub_1', '2026-08-27')],
+  );
+  assert.equal(totals(byDay).rolledOff, 1);
+  assert.equal(totals(byDay).converted, 0);
+});
+
+test('a clean conversion with no failure is unaffected', () => {
+  const byDay = accumulateTrialOutcomes(
+    [sync('sub_1', 'trialing', '2026-08-20'), sync('sub_1', 'active', '2026-08-27')],
+    [],
+  );
+  assert.deepEqual(totals(byDay), { boarded: 1, converted: 1, rolledOff: 0, stalled: 0 });
+});
+
+test('the yield rate no longer counts a failed conversion as converted', () => {
+  // Two trials: one really paid, one is the jordanjosh sequence. 50%, not 100%.
+  const byDay = accumulateTrialOutcomes(
+    [
+      sync('paid', 'trialing', '2026-08-20'),
+      sync('paid', 'active', '2026-08-27'),
+      sync('failed', 'trialing', '2026-08-20'),
+      sync('failed', 'active', '2026-08-27'),
+    ],
+    [del('failed', '2026-08-27')],
+  );
+  const out = summarizeTrialOutcomes(byDay, ['2026-08-20', '2026-08-27'], 30);
+  assert.equal(out.converted, 1);
+  assert.equal(out.rolledOff, 1);
+  assert.equal(out.conversionRate, 0.5);
+});

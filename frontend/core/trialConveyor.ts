@@ -178,6 +178,29 @@ export function emptyConveyorDelta(): ConveyorDayDelta {
 // Statuses that terminate a subscription without a successful charge.
 const TERMINAL_STATUSES = new Set(['canceled', 'cancelled', 'incomplete_expired', 'unpaid']);
 
+// How long an `active` sync stays PROVISIONAL before it counts as a real
+// conversion, in days. Stripe flips a subscription to `active` when the
+// post-trial invoice is CREATED — before the charge is attempted — so `active`
+// is not evidence of payment. The outcome lands up to an hour later when the
+// invoice finalizes: `past_due` on a decline Stripe will retry, or an outright
+// deletion when it won't. Either arriving this soon after means the charge
+// never succeeded, so the provisional conversion is revoked.
+//
+// Ordinary churn is well outside this: a member who converts and later cancels
+// keeps access to period end, so their deletion lands a full billing cycle
+// later and their conversion stands. Matches core/trialDunning's window.
+const CONVERSION_CONFIRM_DAYS = 2;
+
+// Whole days between two 'YYYY-MM-DD' bucket keys, or null if either is
+// unparseable. Positive when `later` is after `earlier`.
+function dayDistance(earlier: string | null, later: string | null): number | null {
+  if (!earlier || !later) return null;
+  const a = Date.parse(`${earlier}T00:00:00Z`);
+  const b = Date.parse(`${later}T00:00:00Z`);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
+  return Math.round((b - a) / 86_400_000);
+}
+
 // Book per-day trial outcomes from an ORDERED (oldest-first) sync stream plus
 // the terminal deletion rows.
 //
@@ -190,6 +213,13 @@ const TERMINAL_STATUSES = new Set(['canceled', 'cancelled', 'incomplete_expired'
 // A sub converts at most once (the first `active` after its trial); everything
 // after that is ordinary subscription life, so a member who converts and later
 // churns is NOT booked as a trial roll-off.
+//
+// That first `active` is booked PROVISIONALLY. Stripe moves a subscription to
+// `active` when the post-trial invoice is created, an hour or so BEFORE the
+// charge is attempted, so treating it as proof of payment counts a trial that
+// then declines as a conversion — inflating both the converted total and the
+// yield rate with members who never paid. A past_due or a deletion within
+// CONVERSION_CONFIRM_DAYS of that day revokes it and books the real outcome.
 export function accumulateTrialOutcomes(
   syncs: ConveyorSyncEvent[],
   deletes: ConveyorDeleteEvent[],
@@ -202,15 +232,41 @@ export function accumulateTrialOutcomes(
     byDay.set(day, existing);
   };
 
-  type SubState = { sawTrial: boolean; converted: boolean; stalled: boolean; terminal: boolean };
+  const unbook = (day: string | null, key: keyof ConveyorDayDelta) => {
+    if (!day) return;
+    const existing = byDay.get(day);
+    if (existing) existing[key] -= 1;
+  };
+
+  type SubState = {
+    sawTrial: boolean;
+    stalled: boolean;
+    terminal: boolean;
+    // Day the provisional conversion was booked on, or null if none stands.
+    // Kept so the booking can be revoked from that same day if the charge
+    // turns out to have failed.
+    convertedDay: string | null;
+  };
   const subs = new Map<string, SubState>();
   const stateFor = (subId: string): SubState => {
     let s = subs.get(subId);
     if (!s) {
-      s = { sawTrial: false, converted: false, stalled: false, terminal: false };
+      s = { sawTrial: false, stalled: false, terminal: false, convertedDay: null };
       subs.set(subId, s);
     }
     return s;
+  };
+
+  // Revoke a provisional conversion when the failure lands close enough to it to
+  // be the SAME charge failing. Returns whether one was revoked, so the caller
+  // knows this sub is still undecided rather than a converted customer churning.
+  const revokeIfUnconfirmed = (s: SubState, day: string | null): boolean => {
+    if (!s.convertedDay) return false;
+    const gap = dayDistance(s.convertedDay, day);
+    if (gap == null || gap < 0 || gap > CONVERSION_CONFIRM_DAYS) return false;
+    unbook(s.convertedDay, 'converted');
+    s.convertedDay = null;
+    return true;
   };
 
   for (const ev of syncs) {
@@ -225,28 +281,43 @@ export function accumulateTrialOutcomes(
       }
       continue;
     }
-    if (!s.sawTrial || s.converted || s.terminal) continue;
+    if (!s.sawTrial || s.terminal) continue;
     if (ev.status === 'active') {
-      s.converted = true;
-      book(ev.day, 'converted');
+      // Provisional — see CONVERSION_CONFIRM_DAYS. Only one conversion per
+      // trial, but a sub that already stalled CAN still convert: that's Smart
+      // Retries recovering the charge, which is a real conversion.
+      if (!s.convertedDay) {
+        s.convertedDay = ev.day;
+        book(ev.day, 'converted');
+      }
     } else if (ev.status === 'past_due') {
+      // The charge behind that `active` was declined after all.
+      revokeIfUnconfirmed(s, ev.day);
       // One stall per trial: Stripe re-syncs on every retry attempt.
-      if (!s.stalled) {
+      if (!s.stalled && !s.convertedDay) {
         s.stalled = true;
         book(ev.day, 'stalled');
       }
     } else if (ev.status && TERMINAL_STATUSES.has(ev.status)) {
+      const revoked = revokeIfUnconfirmed(s, ev.day);
       s.terminal = true;
-      book(ev.day, 'rolledOff');
+      // A confirmed conversion churning later is ordinary churn, not a trial
+      // roll-off; only an unconfirmed (or never-converted) trial books here.
+      if (revoked || !s.convertedDay) book(ev.day, 'rolledOff');
     }
   }
 
   for (const ev of deletes) {
     if (!ev.subId) continue;
     const s = subs.get(ev.subId);
-    // A deletion only ends a TRIAL when we saw the trial and it never converted;
-    // `terminal` guards the sub whose cancel already booked via a sync.
-    if (!s || !s.sawTrial || s.converted || s.terminal) continue;
+    // A deletion only ends a TRIAL when we saw the trial and it isn't already
+    // terminal (its cancel booked via a sync). Stripe deletes the subscription
+    // outright — with no past_due at all — when the post-trial charge fails on a
+    // payment method it won't retry, so this is a live path for a trial that
+    // never paid, not just an edge case.
+    if (!s || !s.sawTrial || s.terminal) continue;
+    const revoked = revokeIfUnconfirmed(s, ev.day);
+    if (!revoked && s.convertedDay) continue; // a real customer churning later
     s.terminal = true;
     book(ev.day, 'rolledOff');
   }
