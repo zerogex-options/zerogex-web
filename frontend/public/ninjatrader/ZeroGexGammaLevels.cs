@@ -822,9 +822,23 @@ namespace NinjaTrader.NinjaScript.Indicators
         [Display(Name = "Symbol (ES / NQ / SPX / SPY / QQQ / NDX)", Order = 3, GroupName = "1. Connection")]
         public string Symbol { get; set; }
 
+        // Range DELIBERATELY stays wider than the interval we actually honour.
+        //
+        // NinjaTrader validates a persisted workspace value against this
+        // attribute at LOAD time, and a value outside it is a hard modal error
+        // that stops the indicator loading on that chart. Raising this floor
+        // from 5 to 30 therefore broke every existing workspace holding a
+        // smaller number — a user with six charts got six error dialogs and
+        // lost the indicator on the chart he trades, having changed nothing.
+        //
+        // The rule this bug bought: a Range on a persisted property may only
+        // ever WIDEN. It exists to catch typing, not to enforce policy. Policy
+        // is the runtime clamp in MaybeFetch, which floors this at 30s and,
+        // unlike an attribute, fixes an existing workspace instead of rejecting
+        // it. Lower this bound freely; never raise it.
         [NinjaScriptProperty]
-        [Range(30, 3600)]
-        [Display(Name = "Poll interval (seconds)", Order = 4, GroupName = "1. Connection")]
+        [Range(1, 3600)]
+        [Display(Name = "Poll interval (seconds — 30s minimum is applied)", Order = 4, GroupName = "1. Connection")]
         public int PollSeconds { get; set; }
 
         [NinjaScriptProperty]
