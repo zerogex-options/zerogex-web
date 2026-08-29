@@ -19,7 +19,7 @@
  */
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
-import { Activity, ChevronsRight, Info, Moon, Pause, Play, Repeat, Rewind, Sun } from "lucide-react";
+import { Activity, Camera, ChevronsRight, Info, Moon, Pause, Play, Repeat, Rewind, Sun } from "lucide-react";
 import TooltipWrapper from "./TooltipWrapper";
 import { useApiData, useMarketQuote, useGEXByStrike, useGEXProfile, useGEXSummary, useSessionCloses, type SessionClosesData, type VolatilityGaugeData } from "@/hooks/useApiData";
 import { useMarketHistorical, type PriceBar } from "@/hooks/useMarketHistorical";
@@ -38,6 +38,7 @@ import ExpirationMultiSelect from "./ExpirationMultiSelect";
 import { useSharedExpirations } from "@/hooks/useSharedExpirations";
 import { useZeroDteOption } from "@/hooks/useZeroDteOption";
 import { selectionIsRollingZeroDte } from "@/core/expirationPersistence";
+import { chartSvgToPngBlob, downloadBlob, resolvedBackground } from "@/core/chartImageExport";
 import { useChartExpirations } from "@/hooks/useChartExpirations";
 import { useLinkedPriceAxis } from "@/core/linkedPriceAxis";
 import { netGexAtSpotOrNull, aboveFlipBandIsLong, offScaleBandIsLong } from "@/core/gammaRegime";
@@ -1429,6 +1430,41 @@ export default function GammaTerminalChart({
     setHover(null);
   };
 
+  // ── PNG export ──────────────────────────────────────────────────────────
+  // Snapshot the instrument exactly as it stands — same overlays, same zoom,
+  // same expiry filter — the way TradingView's camera does. The raster comes
+  // off the SVG's viewBox rather than its on-screen box, so the file is the
+  // same 1360x636 (x2) whatever the window is doing.
+  const [exportState, setExportState] = useState<"idle" | "working" | "error">("idle");
+
+  const downloadPng = async () => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    setExportState("working");
+    try {
+      // Drop the crosshair before serializing: a hover readout frozen into a
+      // saved image is a value from whenever the mouse happened to be there.
+      // Moving to this button usually clears it via the SVG's pointer-leave,
+      // but a touch tap or a keyboard activation never fires that — and the
+      // clear has to be COMMITTED before we read the DOM, so wait a frame
+      // rather than serializing the tree React has not re-rendered yet.
+      if (hover) {
+        setHover(null);
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      }
+      const blob = await chartSvgToPngBlob(svg, {
+        background: resolvedBackground(containerRef.current),
+      });
+      const stamp = etTodayDateKey();
+      downloadBlob(blob, `zerogex-${symbol.toLowerCase()}-${timeframe}-${stamp}.png`);
+      setExportState("idle");
+    } catch (err) {
+      console.error("Failed to export chart PNG", err);
+      setExportState("error");
+      setTimeout(() => setExportState("idle"), 2500);
+    }
+  };
+
   // Time zoom about the current view center (used by the on-screen buttons).
   const zoomTimeCentered = (factor: number) => {
     setHover(null);
@@ -2053,6 +2089,19 @@ export default function GammaTerminalChart({
                 disabled={availableExpiries.length === 0}
                 zeroDte={railZeroDte}
               />
+              {/* A 0DTE pick with no same-day expiry resolves to nothing, and
+                  nothing means All — so the levels below are whole-chain while
+                  the control still says 0DTE. Say it out loud, next to the
+                  control that caused it and again on the chart itself. */}
+              {railZeroDte.widenedToAll && (
+                <span
+                  className="zg-chip"
+                  style={{ ["--chip-color" as string]: "var(--color-warning)" }}
+                  title="No same-day expiration in this chain today (weekend, holiday, or no 0DTE contract). The levels and rail are aggregated across ALL expirations, not today's book."
+                >
+                  No 0DTE today · showing all expiries
+                </span>
+              )}
             </>
           )}
 
@@ -2079,6 +2128,33 @@ export default function GammaTerminalChart({
                 ⟲ Reset
               </button>
             )}
+            <button
+              type="button"
+              onClick={downloadPng}
+              disabled={exportState === "working"}
+              title="Save this chart as a PNG image"
+              aria-label="Save this chart as a PNG image"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                fontFamily: "var(--font-mono)",
+                fontSize: 11,
+                fontWeight: 600,
+                letterSpacing: "0.04em",
+                textTransform: "uppercase",
+                padding: "5px 11px",
+                borderRadius: "var(--radius-pill)",
+                border: `1px solid ${exportState === "error" ? "var(--color-bear)" : "var(--border-default)"}`,
+                color: exportState === "error" ? "var(--color-bear)" : "var(--text-secondary)",
+                background: "var(--bg-subtle)",
+                cursor: exportState === "working" ? "progress" : "pointer",
+                opacity: exportState === "working" ? 0.6 : 1,
+              }}
+            >
+              <Camera size={13} />
+              {exportState === "error" ? "Failed" : exportState === "working" ? "Saving…" : "Save"}
+            </button>
           </div>
         </div>
       </div>
@@ -2178,6 +2254,9 @@ export default function GammaTerminalChart({
                   )}
                   {railStackingActive && <tspan fill="var(--text-muted)">{"  ·  BY EXPIRY"}</tspan>}
                   {filteredExp && <tspan fill="var(--color-warning)">{"  ·  FILTERED"}</tspan>}
+                  {railZeroDte.widenedToAll && (
+                    <tspan fill="var(--color-warning)">{"  ·  ALL EXPIRIES (NO 0DTE TODAY)"}</tspan>
+                  )}
                 </text>
                 {/* zero baseline */}
                 <line x1={RAIL_CENTER} x2={RAIL_CENTER} y1={PAD_TOP} y2={PRICE_BOTTOM} stroke="var(--border-strong)" strokeWidth={1} opacity={0.5} />
