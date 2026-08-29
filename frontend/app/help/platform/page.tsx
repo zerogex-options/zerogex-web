@@ -17,7 +17,7 @@ import {
 export const metadata = {
   title: 'ZeroGEX Platform Guide: Feature-by-Feature Walkthroughs',
   description:
-    'Step-by-step product help for the ZeroGEX platform — every page, panel, and chart explained. Dashboard, Live Bulletin, Signals, Metrics, Strategy Tools, and account workflows.',
+    'Step-by-step help for the ZeroGEX platform — every page, panel and chart explained: Dashboard, Live Bulletin, Signals, Metrics and Strategy Tools.',
   alternates: { canonical: '/help/platform' },
 };
 
