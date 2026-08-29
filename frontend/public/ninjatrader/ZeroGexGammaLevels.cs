@@ -939,14 +939,14 @@ namespace NinjaTrader.NinjaScript.Indicators
         /// different versions and neither they nor we can tell which. A bug
         /// report against an unknown build costs a round trip to establish what
         /// is even being reported. Bump this on every file sent to a tester.</summary>
-        private const string BuildVersion = "v1.6";
+        private const string BuildVersion = "v1.7";
 
         private string BuildInfoText(ZeroGexLevelsSnapshot s)
         {
             if (s == null)
                 return "ZeroGEX Gamma Levels " + BuildVersion + "\n" + _status;
 
-            string age = s.AgeSeconds.HasValue ? s.AgeSeconds.Value + "s ago" : "—";
+            string age = Age(s.AgeSeconds);
             string sym = string.IsNullOrEmpty(s.Symbol) ? (Symbol ?? "") : s.Symbol;
 
             // Levels are held through a failure rather than wiped, so the panel
@@ -968,6 +968,42 @@ namespace NinjaTrader.NinjaScript.Indicators
         private double LabelY(double price)
         {
             return price + Math.Max(0, LabelOffsetTicks) * TickSize;
+        }
+
+        /// <summary>How old the snapshot is, in units a person can read.
+        ///
+        /// This was a raw seconds count, which is right during a session and
+        /// nonsense outside one: a tester's Saturday screenshot read "updated
+        /// 53463s ago". Nothing was broken -- the fetch was fine and the API
+        /// was honestly reporting Friday's close -- but no one reads five
+        /// digits of seconds as fifteen hours.
+        ///
+        /// Deliberately no staleness WARNING attached. Data this old is normal
+        /// whenever the market is shut, so a warning would fire every weekend
+        /// and teach people to ignore it. The number is the honest signal; the
+        /// trader knows whether the market is open.
+        ///
+        /// The thresholds overlap on purpose -- seconds up to 90, minutes up to
+        /// 90 -- so the unit changes a beat after it stops being useful rather
+        /// than flickering at the boundary.</summary>
+        private static string Age(int? seconds)
+        {
+            if (!seconds.HasValue)
+                return "—";
+
+            int total = Math.Max(0, seconds.Value);
+            if (total < 90)
+                return total + "s ago";
+
+            int minutes = total / 60;
+            if (minutes < 90)
+                return minutes + "m ago";
+
+            int hours = minutes / 60;
+            if (hours < 48)
+                return hours + "h " + (minutes % 60) + "m ago";
+
+            return (hours / 24) + "d ago";
         }
 
         private static string Fmt(double? v)
