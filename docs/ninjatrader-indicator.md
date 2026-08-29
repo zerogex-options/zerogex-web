@@ -250,6 +250,21 @@ frozen at the 16:00 close while the future keeps trading.
   restores the old on-the-line behaviour. This only separates text from its
   own line; two levels a tick apart still overlap each other, which is a
   reason to keep the GEX count low rather than something the offset can fix.
+- **Levels sharing a price are folded into one label.** On ES the strikes are
+  five points apart and the metrics collide constantly: a tester's chart had
+  Put Wall, Max Pain and GEX 2 all on 7711.75, printing `Ma8GEX:2 7711.75` —
+  three labels in one pixel row, none readable, and three lines where only the
+  last was visible. `AddLevel` folds them into `Put Wall · Max Pain · GEX 2`,
+  which says something truer than any of the three alone: three measures of
+  dealer positioning agree on this strike. Walls are added before ranks, so the
+  merged entry keeps the wall's colour and stays solid unless every part is
+  dashed.
+- **Labels that are close but not equal are stacked, not merged.** Pin Strike
+  at 7741.75 and VWAP at 7741.5 are different levels a tick apart that still
+  land in one pixel row. `RenderLevels` insertion-sorts labels by y and pushes
+  each one below the last where they would overlap — downward only, so the top
+  of a cluster stays on its own line and the drift is predictable. The push
+  cascades: a label moved onto its neighbour moves that one too.
 - **Labels are right-aligned into the margin.** `Label distance from right edge
   (pixels)` defaults to 8, measured from the edge of the *window* rather than
   from a bar — which is the setting the `OnRender` rewrite existed to make
