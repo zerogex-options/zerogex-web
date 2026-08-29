@@ -160,16 +160,20 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
   ],
   'gamma-walls-explained': [
     {
-      q: 'What are gamma walls?',
-      a: 'Gamma walls are the strikes where dealer gamma is most concentrated — the call wall above spot and the put wall below it. Price tends to react at these levels because dealer hedging clusters there.',
+      q: 'What does the distance between the call wall and put wall tell you?',
+      a: 'The gap is the range current positioning is most consistent with. A narrow gap means gamma is concentrated close to spot on both sides, which in a positive-gamma regime is the classic pinning setup. A wide gap means the nearest dense strikes are far away, so price can travel further before meeting concentrated hedging. Both readings depend on the regime: below the gamma flip, a narrow range is not a pin.',
     },
     {
-      q: 'Why does price react at gamma walls?',
-      a: 'Heavy gamma at a strike means dealers must trade more of the underlying as price approaches it. That concentrated hedging tends to slow, pin, or reverse price near the wall.',
+      q: 'Why do gamma walls seem to work on some days and not others?',
+      a: 'Because the effect depends on the modeled dealer gamma sign, not on the level. In a positive-gamma regime hedging tends to lean against moves, so walls can slow price. In a negative-gamma regime the same hedging tends to lean with moves, so the same wall can become a breakout vector rather than a brake.',
     },
     {
-      q: 'Do gamma walls move?',
-      a: 'Yes. They migrate through the session as price, time, and volatility change the modeled exposure, and can jump around large expirations. They are a live map, not fixed lines.',
+      q: 'How do gamma walls behave on 0DTE?',
+      a: 'Same-day gamma is very large near spot and falls away quickly, so 0DTE walls sit tight to price and carry heavier concentration than longer-dated ones. That makes pinning stronger when the regime supports it, but also makes the walls unstable — they can migrate several times an hour purely from repricing, with no new positions opened.',
+    },
+    {
+      q: 'What does it mean when a gamma wall moves with price?',
+      a: 'A wall that migrates as price approaches it is a weaker level than one that stays put. Migration can come from repricing as spot, time and implied volatility change, or from a different strike becoming the largest eligible concentration — it does not establish that anyone opened new positions there. A wall chasing price makes a fade of that level harder to justify.',
     },
   ],
   'what-is-negative-gamma': [
