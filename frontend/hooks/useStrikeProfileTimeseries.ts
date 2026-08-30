@@ -47,6 +47,22 @@ export interface StrikeProfileBucket {
   gamma_flip?: number | string | null;
   call_wall?: number | string | null;
   put_wall?: number | string | null;
+  /**
+   * Pin Strike (+ its 0..1 confidence) as of the bucket's close, so the chart
+   * can draw the pin line while rewinding instead of hiding it.
+   *
+   * Unlike `gamma_flip` / `call_wall` / `put_wall`, these do NOT follow the
+   * `expirations` filter: the pin is 0DTE-by-construction (it models
+   * into-expiration hedging) and whole-chain by definition, so the server
+   * serves the stored whole-chain value in every expiration scope — matching
+   * live, where the pin does not move with the Expiry selector. Read them
+   * from the rewind bucket only, never from a live expiration-filtered one.
+   *
+   * `null` when the bucket had no active pin, and on rows written before the
+   * pin shipped — draw no line, never a `0`.
+   */
+  pin_strike?: number | string | null;
+  pin_confidence?: number | string | null;
   strikes?: StrikeProfileStrike[];
 }
 
@@ -241,7 +257,7 @@ async function pollTipBucket(symbol: string, timeframe: string, expirations: str
       const idx = updatedBuckets.findIndex((b) => bucketTimestampMs(b) === ms);
       if (idx >= 0) {
         // Always overwrite — the incoming bucket carries the most recent
-        // strikes / walls / flip / OHLC for that bucket_ts.  Unlike the
+        // strikes / walls / flip / pin / OHLC for that bucket_ts.  Unlike the
         // candle-merge in useMarketHistorical (which preserves the open
         // across a flickering API), the analytics engine writes one
         // snapshot per cycle so the incoming bucket IS the truth.
