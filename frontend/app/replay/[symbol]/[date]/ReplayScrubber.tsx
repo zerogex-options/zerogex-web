@@ -13,7 +13,7 @@ import {
   YAxis,
 } from 'recharts';
 import { capture } from '@/core/telemetry/posthog-client';
-import { staggerLabelYs } from './levelStagger';
+import { classifyLevelVisibility, staggerLabelYs } from './levelStagger';
 import {
   expirationOpacityRamp,
   sharesToSegments,
@@ -1197,15 +1197,34 @@ function ReplayOverlayChart({
   // vertically — keeping them inside the plot and in price order — while the
   // lines stay put. Only levels whose line is on-screen get a label (the lines
   // are clipped to the plot box, so an off-screen level shouldn't show a label).
+  // Every level this chart can draw, declared once: the markers below and the
+  // status row under the plot are two views of the same list, so a level can
+  // never appear in one and be forgotten by the other.
+  const levelDefs: Array<{ value: number | null; label: string; color: string; dash: string }> = [
+    { value: callWall, label: 'Call Wall', color: 'var(--color-bear)', dash: '5 3' },
+    { value: gammaFlip, label: 'Flip', color: 'var(--color-warning)', dash: '4 3' },
+    { value: maxPain, label: 'Max Pain', color: 'var(--color-gold)', dash: '1 5' },
+    { value: putWall, label: 'Put Wall', color: 'var(--color-bull)', dash: '5 3' },
+    { value: pinStrike, label: 'Pin', color: 'var(--color-pin)', dash: '2 3' },
+  ];
+
+  // A level disappears from the plot in two different ways, and both render as
+  // literally nothing: it has no value this minute (the server suppresses a pin
+  // below its score floor, so "no active pin" is a real and frequent answer), or
+  // it sits outside the visible price range and gets clipped. An absent line is
+  // indistinguishable from a product that has no such level — which is exactly
+  // how a working Pin read as broken to a trader who opened a replay on a minute
+  // where it happened to be inactive. So the status row accounts for all five
+  // levels every minute and says which of the two is true.
+  const levelStatuses = levelDefs.map((d) => ({
+    label: d.label,
+    color: d.color,
+    value: d.value,
+    state: classifyLevelVisibility(d.value, yForPrice, { top: PLOT_TOP, bottom: PLOT_BOTTOM }),
+  }));
+
   const levelMarkers = (() => {
-    const defs: Array<{ value: number | null; label: string; color: string; dash: string }> = [
-      { value: callWall, label: 'Call Wall', color: 'var(--color-bear)', dash: '5 3' },
-      { value: gammaFlip, label: 'Flip', color: 'var(--color-warning)', dash: '4 3' },
-      { value: maxPain, label: 'Max Pain', color: 'var(--color-gold)', dash: '1 5' },
-      { value: putWall, label: 'Put Wall', color: 'var(--color-bull)', dash: '5 3' },
-      { value: pinStrike, label: 'Pin', color: 'var(--color-pin)', dash: '2 3' },
-    ];
-    const items = defs
+    const items = levelDefs
       .flatMap((d) =>
         d.value != null && Number.isFinite(d.value)
           ? [{ label: d.label, color: d.color, dash: d.dash, value: d.value, lineY: yForPrice(d.value) }]
@@ -1795,6 +1814,44 @@ function ReplayOverlayChart({
             />
           )}
         </svg>
+      </div>
+      {/* Level status — the plot's silent absences, said out loud. See
+          levelStatuses above for why this row exists. */}
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[10px] text-[var(--color-text-secondary)]">
+        {levelStatuses.map((s) => {
+          // 'none' is the only state without a price, so every other branch has
+          // one to show — but read it off the value rather than trusting the
+          // state, so a future state can't reintroduce a null dereference.
+          const price = s.value != null && Number.isFinite(s.value) ? s.value.toFixed(2) : null;
+          return (
+            <span key={s.label} className="inline-flex items-center gap-1.5">
+              <span
+                aria-hidden
+                style={{
+                  display: 'inline-block',
+                  width: 9,
+                  height: 2,
+                  borderRadius: 1,
+                  // A level with nothing on the plot gets a muted rule rather
+                  // than its own hue: the swatch must not imply a drawn line.
+                  background: s.state === 'on' ? s.color : 'var(--color-border)',
+                }}
+              />
+              <span style={s.state === 'on' ? { color: 'var(--color-text-primary)' } : undefined}>
+                {s.label}
+              </span>
+              {s.state === 'on' && price ? (
+                <span style={{ color: s.color, fontWeight: 700 }}>{price}</span>
+              ) : price ? (
+                <span>
+                  {price} · {s.state === 'above' ? 'above' : 'below'} range
+                </span>
+              ) : (
+                <span>· none this minute</span>
+              )}
+            </span>
+          );
+        })}
       </div>
     </div>
   );
