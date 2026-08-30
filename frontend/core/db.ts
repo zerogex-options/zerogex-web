@@ -41,6 +41,13 @@ function initDb(): DatabaseSync {
       FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
     );
   `);
+  // Every read of this table goes by token_hash, which the UNIQUE above already
+  // indexes. The by-user_id access — expired-row pruning on sign-in, and the
+  // full revoke on password reset and account deletion — used to be rare enough
+  // to leave as a scan, because a user only ever had one row. Sessions are
+  // additive now (see createSessionForUser), so a long-lived account
+  // accumulates one row per sign-in and those scans grow with it.
+  db.exec('CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);');
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS audit_events (
