@@ -278,7 +278,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'api-ninjatrader',
         q: 'Can I plot the levels on NinjaTrader?',
-        a: 'Yes — we publish a free NinjaTrader 8 indicator that draws the Gamma Flip, Call Wall, Put Wall, Max Pain, and Pin Strike on your chart and keeps them current by polling the API. Download it from any of the free gamma levels pages (for example <a href="/spx-gamma-levels">/spx-gamma-levels</a>), compile it in the NinjaScript Editor, and paste in your Pro API key. The indicator is free and open source; the live data behind it needs the key. Unlike our TradingView script, which is manual-entry because Pine Script can\'t make HTTP calls, this one updates itself.',
+        a: 'Yes — our NinjaTrader 8 indicator draws the Gamma Flip, Call Wall, Put Wall, Max Pain, and Pin Strike on your chart and keeps them current by polling the API. It is included with Pro: signed in to a Pro plan, download it from any of the free gamma levels pages (for example <a href="/spx-gamma-levels">/spx-gamma-levels</a>), compile it in the NinjaScript Editor, and paste in your API key. On any other plan those pages show an <a href="/pricing?plan=pro">upgrade link</a> in place of the download. Unlike our TradingView script, which is manual-entry because Pine Script can\'t make HTTP calls, this one updates itself.',
       },
       {
         id: 'api-streaming',

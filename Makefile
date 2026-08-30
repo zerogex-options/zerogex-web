@@ -1062,21 +1062,24 @@ blog-images:
 # and the archive is verified against it before publishing: the export is built
 # on someone else's machine and then served from our domain, so we prove the
 # source inside matches ours rather than trusting the sender. That same check
-# catches a stale archive exported before the last edit to the .cs. A failed
-# verification fails the deploy — deliberately, because the alternative is
-# publishing an unverified binary.
+# catches a stale archive exported before the last edit to the .cs.
+#
+# Verification, publication and the manifest entry all now happen inside
+# scripts/ninjatrader-manifest.js, so they cannot disagree. They used to: the
+# verify+cp lived here and the manifest was written there, which meant a failed
+# verification aborted the deploy at this step while the COMMITTED manifest went
+# on advertising the archive it had refused to publish. Whoever then built
+# without this target shipped a page whose download button pointed at a file
+# nothing had ever written — the 404 a customer hits, with no way to tell from
+# the page that anything is wrong.
+#
+# An unverifiable archive is therefore no longer fatal: it degrades to the
+# documented .cs-only path (the same one taken when no archive exists at all)
+# and warns. Withholding one download is not worth blocking a whole deploy —
+# and the old hard failure blocked every unrelated fix in the same push.
 ninjatrader-package:
 	@echo "Publishing NinjaTrader package..."
 	@mkdir -p frontend/public/ninjatrader
-	@if [ -f assets/ninjatrader/ZeroGexGammaLevels.zip ]; then \
-		python3 scripts/verify-ninjatrader-package.py \
-			assets/ninjatrader/ZeroGexGammaLevels.zip \
-			frontend/public/ninjatrader/ZeroGexGammaLevels.cs && \
-		cp assets/ninjatrader/ZeroGexGammaLevels.zip frontend/public/ninjatrader/ZeroGexGammaLevels.zip && \
-		echo "  ✓ One-click import archive published"; \
-	else \
-		echo "  ⚠ assets/ninjatrader/ZeroGexGammaLevels.zip missing — the gamma pages will offer the .cs source only (see assets/ninjatrader/README.md)"; \
-	fi
 	@$(NT_MANIFEST)
 
 # Full deployment

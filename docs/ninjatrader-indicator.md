@@ -16,9 +16,14 @@ so this is the first *true* auto-updating third-party charting integration.
 
 ## Monetization model
 
-**The code is free; the data is gated by the API key.** The `.cs` file is
-inert without a valid key, so it can be distributed openly (like the Pine
-script) while the value — real-time levels — stays behind the paywall:
+**The download is gated at Pro; the data is gated again by the API key.**
+
+The `.cs` is inert without a valid key, so distributing it openly was
+defensible — but on a free, anonymous-accessible page it mostly handed a file
+to people who had no key to use it with, and the "free and open" framing set up
+an expectation the API then refused. So `PlotOnNinjaTrader.tsx` now gates the
+download itself on Pro and shows everyone else an upgrade CTA to
+`/pricing?plan=pro`. The key remains the load-bearing control:
 
 - The indicator calls `GET {ApiBaseUrl}/api/v1/levels/{Symbol}` with
   `Authorization: Bearer <key>`.
@@ -52,14 +57,38 @@ already authorizes this endpoint. (Scope enforcement is opt-in via
 | File | Purpose |
 | --- | --- |
 | `frontend/public/ninjatrader/ZeroGexGammaLevels.cs` | The indicator source. Served at `https://zerogex.io/ninjatrader/ZeroGexGammaLevels.cs`. Also the source of record if we later publish a packaged NinjaTrader import (`.zip`). |
-| `frontend/components/PlotOnNinjaTrader.tsx` | "Plot these levels on NinjaTrader" section rendered on all four gamma pages, mirroring `PlotOnTradingView.tsx`. Offers the packaged import when one exists and the `.cs` otherwise, framed as a Pro feature. |
+| `frontend/components/PlotOnNinjaTrader.tsx` | "Plot these levels on NinjaTrader" section rendered on all six gamma pages, mirroring `PlotOnTradingView.tsx`. Offers the packaged import when one exists and the `.cs` otherwise — **to Pro members only**; below Pro it renders an upgrade CTA and no download link at all. Fail-closed: the pages are prerendered with no session, so the locked state is what the static HTML and the first client paint show. |
 | `assets/ninjatrader/` | The genuine NinjaTrader export (`ZeroGexGammaLevels.zip`). See its README. |
-| `scripts/verify-ninjatrader-package.py` | Proves the archive's embedded source is the source of record before it is published. Fails the deploy if not. |
-| `Makefile` → `ninjatrader-package` | Verifies, then copies the archive into `public/ninjatrader/`. Run by `make deploy` **before** the build so the page's build-time presence check sees it. |
+| `scripts/verify-ninjatrader-package.py` | Proves the archive's embedded source is the source of record before it is published. Exit 1 means "do not publish this archive". |
+| `scripts/ninjatrader-manifest.js` | The single decision point: hashes the sources, runs the verifier, publishes what passes into `public/ninjatrader/`, prunes what no longer does, and writes `core/ninjaTraderManifest.ts` to match. `--check` fails when the committed manifest has drifted from the tracked sources. |
+| `Makefile` → `ninjatrader-package` | Thin wrapper over that script. Run by `make deploy` **before** the build, so the manifest the build inlines is the one describing what is actually on disk. |
+| `frontend/tests/ninjaTraderManifest.test.ts` | Pins the invariant below: `npm run test:ninjatrader-manifest`. |
 
-There is no middleware in the frontend, so everything under `public/` is
-served statically with no auth gate — the `.cs` downloads exactly the way
-the existing `.pine` file does.
+> **Why the manifest and the publisher must be one step.** They were two: the
+> Makefile verified and copied the archive, and the script wrote the manifest.
+> A `.cs` edit landed without a regenerate, which (a) left the committed
+> manifest advertising the *previous* content hash — a hashed URL no deploy
+> would ever write — and (b) made the now-stale archive fail verification,
+> which hard-failed `make deploy` before the manifest could self-heal. The
+> result was a normal-looking download button 404ing in customers' hands. The
+> manifest is a *promise that those bytes are in `public/`*, so only the code
+> that puts them there may write it, and an unpublishable archive is recorded
+> as `null` (pages offer the `.cs` alone) rather than aborting the deploy.
+
+**What the Pro gate is, precisely.** Everything under `public/` is served
+statically by Next with no auth check — `frontend/proxy.ts` returns early for
+any path containing a `.`, so it never sees these requests. The gate is
+therefore in the UI: below Pro the page renders no link to the file, so the
+download is unreachable by clicking, but the content-addressed URL still
+resolves for anyone who has it (a Pro member could pass it on, and it stays
+valid until the next `.cs` change moves the hash).
+
+That is the right trade here and not an oversight. The `.cs` is inert without a
+key, so the artifact worth protecting is the key, not the source — and serving
+these from `public/` is what keeps them on Cloudflare's edge instead of through
+the BFF. If the download itself ever needs to be genuinely enforced, that means
+moving it behind a route handler that calls `getSessionFromRequest` and checks
+the tier, and accepting the caching change that comes with it.
 
 ## What it draws
 
@@ -241,8 +270,9 @@ frozen at the 16:00 close while the future keeps trading.
    against a live key, with the histogram both off and on.
 5. **Packaged import:** export from NT8 and commit the archive to
    `assets/ninjatrader/` (see its README). Every deploy re-verifies it against
-   the `.cs`, so re-export whenever the source changes. Absent, the pages offer
-   the `.cs` and the deploy step no-ops — nothing breaks.
+   the `.cs`, so re-export whenever the source changes. Absent — or present but
+   failing verification — the pages offer the `.cs` alone and the deploy
+   continues; nothing breaks and nothing 404s.
 
 ## Supply chain
 

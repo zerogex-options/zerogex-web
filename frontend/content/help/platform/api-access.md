@@ -81,11 +81,11 @@ The derived history endpoints — GEX (`/api/gex/historical`), max pain, and sig
 If all you want is our levels on your own chart, you may not need to write
 anything:
 
-- **NinjaTrader 8** — a free NinjaScript indicator that polls
+- **NinjaTrader 8** — a NinjaScript indicator included with Pro that polls
   `GET /api/v1/levels/{symbol}` with your Pro key and draws the Gamma Flip,
-  Call Wall, Put Wall, Max Pain, and Pin Strike. Download it from any free
-  gamma levels page (e.g. [/spx-gamma-levels](/spx-gamma-levels)), compile it
-  in the NinjaScript Editor, and paste in your key. On an ES or NQ chart set
+  Call Wall, Put Wall, Max Pain, and Pin Strike. Signed in to Pro, download it
+  from any free gamma levels page (e.g. [/spx-gamma-levels](/spx-gamma-levels)),
+  compile it in the NinjaScript Editor, and paste in your key. On an ES or NQ chart set
   the symbol to `ES` / `NQ` and the levels arrive already on the futures price
   axis — there is no basis offset to apply.
 - **TradingView** — a free Pine script. Manual entry only: Pine Script can't

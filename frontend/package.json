@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "test:auth": "bash scripts/test-auth.sh",
+    "test:ninjatrader-manifest": "node --experimental-strip-types --test tests/ninjaTraderManifest.test.ts",
     "test:nav-access": "node --experimental-strip-types --test tests/navigationAccess.test.ts",
     "test:trade-bias": "bash scripts/test-trade-bias.sh",
     "test:trade-bias-tenor": "node --experimental-strip-types --test tests/tradeBiasTenor.test.ts",
