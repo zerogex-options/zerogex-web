@@ -35,6 +35,12 @@ const PUBLIC_ROUTE_PATTERNS = [
   '/updates',
   '/search',
   '/real-time-gex-0dte',
+  // Chart-platform integration landings — the TradingView script and the
+  // NinjaTrader 8 indicator. Marketing/how-to copy with no member data; the
+  // NinjaTrader page's download is the free, inert .cs (the live data behind
+  // it is what the API key gates), so both stay open and crawlable.
+  '/tradingview-indicator',
+  '/ninjatrader-indicator',
   '/login',
   '/register',
   '/forgot-password',

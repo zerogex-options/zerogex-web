@@ -25,7 +25,20 @@ const INDICATOR_NAME = 'ZeroGEX Gamma Levels';
 // this: the packaged import only exists once a real NinjaTrader export has been
 // published by `make ninjatrader-package`. When it hasn't, we offer the .cs
 // alone rather than a button that 404s.
-export default function PlotOnNinjaTrader({ hasPackage = false }: { hasPackage?: boolean }) {
+interface PlotOnNinjaTraderProps {
+  hasPackage?: boolean;
+  /**
+   * Set on the dedicated /ninjatrader-indicator page, where this section IS the
+   * page rather than a block under today's level cards — it promotes the
+   * heading to the page <h1>. The copy is otherwise shared verbatim with the
+   * gamma-levels pages so the two surfaces cannot drift.
+   */
+  standalone?: boolean;
+}
+
+export default function PlotOnNinjaTrader({ hasPackage = false, standalone = false }: PlotOnNinjaTraderProps) {
+  const Heading = standalone ? 'h1' : 'h2';
+
   return (
     <section
       style={{
@@ -56,9 +69,17 @@ export default function PlotOnNinjaTrader({ hasPackage = false }: { hasPackage?:
         <Radio size={12} /> Pro · NinjaTrader 8
       </div>
 
-      <h2 style={{ margin: '0 0 12px 0', fontSize: 24, fontWeight: 800, letterSpacing: '-0.3px' }}>
-        Plot these levels on NinjaTrader
-      </h2>
+      <Heading
+        style={{
+          margin: '0 0 12px 0',
+          fontSize: standalone ? 'clamp(28px, 4.2vw, 38px)' : 24,
+          fontWeight: standalone ? 900 : 800,
+          lineHeight: standalone ? 1.15 : undefined,
+          letterSpacing: '-0.3px',
+        }}
+      >
+        {standalone ? 'Plot ZeroGEX gamma levels on NinjaTrader' : 'Plot these levels on NinjaTrader'}
+      </Heading>
       <p style={{ margin: '0 0 8px 0', fontSize: 15, lineHeight: 1.65, color: 'var(--color-text-secondary)', maxWidth: 720 }}>
         Our free{' '}
         <strong style={{ color: 'var(--color-text-primary)' }}>{INDICATOR_NAME}</strong> indicator for NinjaTrader 8
