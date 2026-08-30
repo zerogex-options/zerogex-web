@@ -1,4 +1,4 @@
-.PHONY: help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription honor-winback-discount recover-orphan-payment scan-orphan-payments clear-zombie-customers webhook-health trial-reminders trial-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback reactivation checkout-recovery founding-final-call public-cohort cancellations churn-breakdown enable-portal-cancel-reasons save-url reset-save-latch diagnose-user reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo og-check blog-images
+.PHONY: help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription honor-winback-discount recover-orphan-payment scan-orphan-payments clear-zombie-customers webhook-health trial-reminders trial-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback reactivation checkout-recovery founding-final-call public-cohort cancellations churn-breakdown enable-portal-cancel-reasons save-url reset-save-latch diagnose-user reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo og-check blog-images ninjatrader-package
 
 # Default target
 help:
@@ -84,13 +84,26 @@ dev:
 	@echo "Starting development server..."
 	cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && npm run dev'
 
-# Build for production
-build:
+# Build for production.
+#
+# Depends on ninjatrader-package because the NinjaTrader download URL is
+# content-addressed: core/ninjaTraderManifest.ts is COMMITTED (so a plain build
+# resolves) but the hashed file it names is GITIGNORED and written only by that
+# step. Build without it on a box that has never run it and the page ships a
+# download button pointing at a file that is not on disk -- a 404 for the
+# customer, from a build that reported success. `make deploy` always ran this
+# step; `make build` and `make rebuild` did not, so a routine rebuild between
+# deploys silently reintroduced the bug. Cheap and idempotent, so it just
+# becomes a prerequisite rather than something to remember.
+build: ninjatrader-package
 	@echo "Building for production..."
 	cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && npm run build'
 
-# Clean build and restart
-rebuild:
+# Clean build and restart. Same prerequisite, and for a second reason: Next
+# reads public/ once at boot, so a file that appears there while the server is
+# running keeps 404ing until a restart. Generating before the PM2 restart below
+# means one command leaves the box consistent; generating after would not.
+rebuild: ninjatrader-package
 	@echo "Cleaning build directory..."
 	rm -rf frontend/.next
 	@echo "Building for production..."
