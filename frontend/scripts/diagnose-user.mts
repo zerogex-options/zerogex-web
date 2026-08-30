@@ -66,8 +66,8 @@ function usage() {
   console.log(`Usage:
   node --experimental-strip-types scripts/diagnose-user.mts --email <email>
 
-Prints the DB row, last 20 audit_events, and live Stripe state (customer,
-subscription, last 5 invoices) for one user. Read-only.
+Prints the DB row, last 20 audit_events (with the originating IP), and live
+Stripe state (customer, subscription, last 5 invoices) for one user. Read-only.
 
 Options:
   -e, --email <email>   Target user. Required.
@@ -343,9 +343,18 @@ if (deadlineAt - Date.now() < 48 * 60 * 60 * 1000) {
 
 if (audit.length > 0) {
   header('Recent audit events (last 20)');
+  // The IP was always selected and never printed, which made the most common
+  // support question unanswerable from this tool: "was this one person on two
+  // devices, or one device losing its session?" Logging in anywhere ends every
+  // other session for that user (createSessionForUser deletes the user's rows
+  // before inserting), so repeated login_success with no logout between them
+  // reads as a bug until you can see that the addresses alternate — at which
+  // point it reads as a phone and a laptop taking turns evicting each other.
+  // Own column rather than appended, so the addresses line up and a change is
+  // visible by scanning rather than by reading each row.
   for (const row of audit) {
     const msg = row.message ? ` — ${row.message}` : '';
-    console.log(`  ${row.created_at}  ${row.type.padEnd(36)}${msg}`);
+    console.log(`  ${row.created_at}  ${row.type.padEnd(36)}${(row.ip ?? '—').padEnd(17)}${msg}`);
   }
 }
 
