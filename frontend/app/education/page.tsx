@@ -5,7 +5,7 @@ import ItemListJsonLd from '@/components/ItemListJsonLd';
 export const metadata = {
   title: 'Options Gamma Education: GEX, Gamma Flip, Call Walls & 0DTE Dealer Positioning',
   description:
-    'ZeroGEX options gamma education — GEX, the gamma flip, call walls, put walls, 0DTE dealer positioning, vanna and charm, and max pain. Plain-English explainers plus today’s live SPX / SPY / QQQ / NDX levels.',
+    'Plain-English explainers for GEX, the gamma flip, call and put walls, 0DTE dealer positioning and max pain — plus today’s live SPX, SPY and QQQ levels.',
   alternates: { canonical: '/education' },
 };
 

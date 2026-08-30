@@ -1005,6 +1005,12 @@ logo:
 # untouched, which is why a new favicon used to keep showing up as the old one.
 # The rm clears that shadowing copy from boxes deployed before this change;
 # public/favicon.ico is gitignored, so `git pull` alone would never remove it.
+#
+# That rm went missing at some point and this comment outlived it, so the
+# shadow was only ever cleared by hand. It is restored below. The ignore rule
+# the comment claims also did not exist until now, which is how a `git add -A`
+# from a Mac came to commit one.
+	@rm -f frontend/public/favicon.ico
 	cp assets/branding/favicon.ico frontend/app/favicon.ico
 	@echo "Copying Folds of Honor partner-kit assets..."
 	@if [ -f assets/branding/folds-of-honor-proud-supporter.png ]; then \

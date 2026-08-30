@@ -78,10 +78,24 @@ const SECONDARY_CTA_STYLE = {
 // disagree — but a null path with a true flag is precisely the shape that
 // renders a live button over a file nothing published, and that is the bug
 // customers report as a 404. Cheap to make unrepresentable, so we do.
-export default function PlotOnNinjaTrader({ hasPackage = false }: { hasPackage?: boolean }) {
+interface PlotOnNinjaTraderProps {
+  hasPackage?: boolean;
+  /**
+   * Set on the dedicated /ninjatrader-indicator page, where this section IS the
+   * page rather than a block under today's level cards — it promotes the
+   * heading to the page <h1>. The copy is otherwise shared verbatim with the
+   * gamma-levels pages so the two surfaces cannot drift.
+   */
+  standalone?: boolean;
+}
+
+export default function PlotOnNinjaTrader({ hasPackage = false, standalone = false }: PlotOnNinjaTraderProps) {
+  const Heading = standalone ? 'h1' : 'h2';
   // Pro (and admin, which outranks it) get the real download; everyone else —
   // anonymous, Public, Basic, and anyone whose session has not resolved yet —
-  // gets the upgrade path instead.
+  // gets the upgrade path instead. This is the only gate on either surface:
+  // /ninjatrader-indicator is a public route too, so the standalone page is
+  // gated by rendering this component and nothing else.
   const hasPro = useHasTierAccess('pro');
   const packageUrl = hasPackage ? PACKAGE_URL : null;
   const packageReady = packageUrl !== null;
@@ -117,11 +131,19 @@ export default function PlotOnNinjaTrader({ hasPackage = false }: { hasPackage?:
         <Radio size={12} /> Pro · NinjaTrader 8
       </div>
 
-      <h2 style={{ margin: '0 0 12px 0', fontSize: 24, fontWeight: 800, letterSpacing: '-0.3px' }}>
-        Plot these levels on NinjaTrader
-      </h2>
+      <Heading
+        style={{
+          margin: '0 0 12px 0',
+          fontSize: standalone ? 'clamp(28px, 4.2vw, 38px)' : 24,
+          fontWeight: standalone ? 900 : 800,
+          lineHeight: standalone ? 1.15 : undefined,
+          letterSpacing: '-0.3px',
+        }}
+      >
+        {standalone ? 'Plot ZeroGEX gamma levels on NinjaTrader' : 'Plot these levels on NinjaTrader'}
+      </Heading>
       <p style={{ margin: '0 0 8px 0', fontSize: 15, lineHeight: 1.65, color: 'var(--color-text-secondary)', maxWidth: 720 }}>
-        Our free{' '}
+        Our{' '}
         <strong style={{ color: 'var(--color-text-primary)' }}>{INDICATOR_NAME}</strong> indicator for NinjaTrader 8
         draws the Gamma Flip, Call Wall, Put Wall, Max Pain, and Pin Strike on your chart — with an optional
         per-strike gamma histogram — and unlike the

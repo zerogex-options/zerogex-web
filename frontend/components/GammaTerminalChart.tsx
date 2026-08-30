@@ -19,7 +19,7 @@
  */
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
-import { Activity, ChevronsRight, Info, Moon, Pause, Play, Repeat, Rewind, Sun } from "lucide-react";
+import { Activity, Camera, ChevronsRight, Info, Moon, Pause, Play, Repeat, Rewind, Sun } from "lucide-react";
 import TooltipWrapper from "./TooltipWrapper";
 import { useApiData, useMarketQuote, useGEXByStrike, useGEXProfile, useGEXSummary, useSessionCloses, type SessionClosesData, type VolatilityGaugeData } from "@/hooks/useApiData";
 import { useMarketHistorical, type PriceBar } from "@/hooks/useMarketHistorical";
@@ -38,6 +38,7 @@ import ExpirationMultiSelect from "./ExpirationMultiSelect";
 import { useSharedExpirations } from "@/hooks/useSharedExpirations";
 import { useZeroDteOption } from "@/hooks/useZeroDteOption";
 import { selectionIsRollingZeroDte } from "@/core/expirationPersistence";
+import { chartSvgToPngBlob, downloadBlob, resolvedBackground } from "@/core/chartImageExport";
 import { useChartExpirations } from "@/hooks/useChartExpirations";
 import { useLinkedPriceAxis } from "@/core/linkedPriceAxis";
 import { netGexAtSpotOrNull, aboveFlipBandIsLong, offScaleBandIsLong } from "@/core/gammaRegime";
@@ -849,9 +850,10 @@ export default function GammaTerminalChart({
     return null;
   }, [gexBuckets]);
 
-  // ── Gamma levels ── Rewind takes flip/walls from the historical bucket, Max
-  // Pain from the bucket's per-strike OI and VWAP from the bars; net-GEX-at-spot
-  // isn't recoverable from the timeseries, so it's hidden while rewinding. When
+  // ── Gamma levels ── Rewind takes flip/walls/pin from the historical bucket,
+  // Max Pain from the bucket's per-strike OI and VWAP from the bars;
+  // net-GEX-at-spot isn't recoverable from the timeseries, so it's hidden
+  // while rewinding (it's the only level still withheld there). When
   // an expiration filter is active the LIVE flip/walls also come from the
   // filtered timeseries bucket (the endpoint aggregates to the selected
   // expirations), so the level lines track the filtered bars — not the
@@ -884,10 +886,22 @@ export default function GammaTerminalChart({
   // the point value is absent the badge falls back to the geometric
   // spot-vs-flip read (see longGammaNow), not an opposite-signed total.
   const netGexAtSpot = rewindActive ? null : snapshot ? snapshot.gamma.netGexAtSpot : netGexAtSpotOrNull(gexProfile?.net_gex_at_spot);
-  // Pin Strike — reachable 0DTE positive-gamma pin. Not stored on the
-  // timeseries rewind buckets, so it's hidden during rewind (same as
-  // netGexAtSpot); live/delayed reads the served summary value.
-  const pinStrike = rewindActive ? null : num(gexSummary?.pin_strike);
+  // Pin Strike — reachable 0DTE positive-gamma pin, drawn during rewind from
+  // the bucket's stored value (the server ships the same per-cycle pin the
+  // Daily Replay reads, as of the bucket's close).
+  //
+  // rewindBucket, NOT levelBucket: levelBucket also fires for a LIVE
+  // expiration filter, and the pin must stay whole-chain there — it is
+  // 0DTE-by-construction, so it doesn't follow the Expiry selector on any
+  // surface (see the note in useGammaPlaybook). Falling back to the summary
+  // when there's no bucket keeps it live-sourced alongside flip/walls while
+  // the timeseries seeds.
+  //
+  // Null (no active pin, or a session predating the pin) draws NO LINE —
+  // every levelDefs consumer skips a null value. Never a 0 on the axis.
+  const pinStrike = rewindBucket
+    ? coerceNum(rewindBucket.pin_strike)
+    : num(gexSummary?.pin_strike);
   const vwap = rewindActive ? rewindVwap : snapshot ? snapshot.vwap : num(technicals.latest?.vwap_deviation?.vwap);
 
   const profilePoints = useMemo<ProfilePoint[]>(() => {
@@ -1427,6 +1441,41 @@ export default function GammaTerminalChart({
     setPriceView(DEFAULT_PRICE_VIEW);
     priceLink?.setView(null);
     setHover(null);
+  };
+
+  // ── PNG export ──────────────────────────────────────────────────────────
+  // Snapshot the instrument exactly as it stands — same overlays, same zoom,
+  // same expiry filter — the way TradingView's camera does. The raster comes
+  // off the SVG's viewBox rather than its on-screen box, so the file is the
+  // same 1360x636 (x2) whatever the window is doing.
+  const [exportState, setExportState] = useState<"idle" | "working" | "error">("idle");
+
+  const downloadPng = async () => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    setExportState("working");
+    try {
+      // Drop the crosshair before serializing: a hover readout frozen into a
+      // saved image is a value from whenever the mouse happened to be there.
+      // Moving to this button usually clears it via the SVG's pointer-leave,
+      // but a touch tap or a keyboard activation never fires that — and the
+      // clear has to be COMMITTED before we read the DOM, so wait a frame
+      // rather than serializing the tree React has not re-rendered yet.
+      if (hover) {
+        setHover(null);
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      }
+      const blob = await chartSvgToPngBlob(svg, {
+        background: resolvedBackground(containerRef.current),
+      });
+      const stamp = etTodayDateKey();
+      downloadBlob(blob, `zerogex-${symbol.toLowerCase()}-${timeframe}-${stamp}.png`);
+      setExportState("idle");
+    } catch (err) {
+      console.error("Failed to export chart PNG", err);
+      setExportState("error");
+      setTimeout(() => setExportState("idle"), 2500);
+    }
   };
 
   // Time zoom about the current view center (used by the on-screen buttons).
@@ -2053,6 +2102,19 @@ export default function GammaTerminalChart({
                 disabled={availableExpiries.length === 0}
                 zeroDte={railZeroDte}
               />
+              {/* A 0DTE pick with no same-day expiry resolves to nothing, and
+                  nothing means All — so the levels below are whole-chain while
+                  the control still says 0DTE. Say it out loud, next to the
+                  control that caused it and again on the chart itself. */}
+              {railZeroDte.widenedToAll && (
+                <span
+                  className="zg-chip"
+                  style={{ ["--chip-color" as string]: "var(--color-warning)" }}
+                  title="No same-day expiration in this chain today (weekend, holiday, or no 0DTE contract). The levels and rail are aggregated across ALL expirations, not today's book."
+                >
+                  No 0DTE today · showing all expiries
+                </span>
+              )}
             </>
           )}
 
@@ -2079,6 +2141,33 @@ export default function GammaTerminalChart({
                 ⟲ Reset
               </button>
             )}
+            <button
+              type="button"
+              onClick={downloadPng}
+              disabled={exportState === "working"}
+              title="Save this chart as a PNG image"
+              aria-label="Save this chart as a PNG image"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                fontFamily: "var(--font-mono)",
+                fontSize: 11,
+                fontWeight: 600,
+                letterSpacing: "0.04em",
+                textTransform: "uppercase",
+                padding: "5px 11px",
+                borderRadius: "var(--radius-pill)",
+                border: `1px solid ${exportState === "error" ? "var(--color-bear)" : "var(--border-default)"}`,
+                color: exportState === "error" ? "var(--color-bear)" : "var(--text-secondary)",
+                background: "var(--bg-subtle)",
+                cursor: exportState === "working" ? "progress" : "pointer",
+                opacity: exportState === "working" ? 0.6 : 1,
+              }}
+            >
+              <Camera size={13} />
+              {exportState === "error" ? "Failed" : exportState === "working" ? "Saving…" : "Save"}
+            </button>
           </div>
         </div>
       </div>
@@ -2178,6 +2267,9 @@ export default function GammaTerminalChart({
                   )}
                   {railStackingActive && <tspan fill="var(--text-muted)">{"  ·  BY EXPIRY"}</tspan>}
                   {filteredExp && <tspan fill="var(--color-warning)">{"  ·  FILTERED"}</tspan>}
+                  {railZeroDte.widenedToAll && (
+                    <tspan fill="var(--color-warning)">{"  ·  ALL EXPIRIES (NO 0DTE TODAY)"}</tspan>
+                  )}
                 </text>
                 {/* zero baseline */}
                 <line x1={RAIL_CENTER} x2={RAIL_CENTER} y1={PAD_TOP} y2={PRICE_BOTTOM} stroke="var(--border-strong)" strokeWidth={1} opacity={0.5} />
