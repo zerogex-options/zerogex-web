@@ -1,0 +1,136 @@
+ZeroGEX — What's Changed · August 2026
+Subject: What's changed at ZeroGEX since you left
+
+(Plain-text version of 2026-08-product-update-cancelled.html, for churned
+members who have not already had the automated ~1-month win-back. Sent
+per-recipient via scripts/send-product-update.mts.)
+
+------------------------------------------------------------
+
+Hi there,
+
+I'm Michael, the founder. You had a ZeroGEX subscription at one point and
+let it go — that's completely fair, and this isn't a guilt trip.
+
+A fair amount has shipped since then, including a few things people
+specifically asked for on their way out. Here's what's changed, and there's
+a discount at the bottom if any of it lands.
+
+
+== WHAT'S NEW ==
+
+* Your levels, on your own chart (https://zerogex.io/tradingview-indicator).
+  Two indicators that put the ZeroGEX levels on the chart you already trade.
+  The TradingView script is free and draws the Gamma Flip, Call Wall, Put
+  Wall, and Max Pain on SPY, SPX, QQQ, NDX, ES, or NQ, with optional
+  cross-alerts. The NinjaTrader 8 indicator
+  (https://zerogex.io/ninjatrader-indicator), included with Pro, polls the
+  ZeroGEX API and keeps the same levels current on its own — plus Pin
+  Strike, the strikes carrying the most dealer gamma, and VWAP — so you
+  never retype a number.
+
+* ES and NQ (https://zerogex.io/es-gamma-levels). Futures are first-class
+  now. ES and NQ have their own gamma levels and their own free pages, and
+  they carry the same read as SPY, SPX, QQQ, and NDX everywhere else on the
+  site. The levels come from the SPX and NDX options books and are converted
+  to futures prices on the live basis, so what you read is quoted where you
+  actually trade.
+
+* Gamma Shift (https://zerogex.io/gamma-shift). What changed, not just where
+  things stand. Gamma Shift shows the per-strike move in dealer gamma
+  between two points in time, read three ways — and it separates out the
+  part explained by contracts rolling off at expiration, so a shift caused
+  by expiry doesn't read as fresh positioning.
+
+* Pin Strike (https://zerogex.io/education/pin-strike-explained). A new
+  dealer-positioning metric: the reachable 0DTE strike carrying the
+  strongest restoring dealer gamma into expiration — the strike hedging
+  pressure is most likely to hold price toward. It is its own read, not a
+  rename of Max Pain or the walls, and it is now drawn across the gamma
+  charts, the Live Bulletin positioning map, Daily Replay, and the levels
+  pages.
+
+* Three new metrics — Market Tide, Pair Comparison, and Volatility
+  (https://zerogex.io/market-tide). Market Tide folds gamma and flow across
+  the covered indices into a single bearish-to-bullish score. Pair
+  Comparison (https://zerogex.io/pair-comparison) puts any two of SPY, QQQ,
+  SPX, and NDX side by side on strike-aligned Net GEX ladders, with a replay
+  scrubber to watch the levels migrate through a session. Volatility
+  (https://zerogex.io/volatility) charts put/call IV skew alongside
+  realized-versus-implied.
+
+
+== WHAT'S COMING NEXT ==
+
+A quick look at where ZeroGEX is headed — the current direction:
+
+-> Enhanced backtesting. More strategies, more control, deeper analytics,
+   and a longer history window as we expand the dataset.
+
+-> More tickers. ES and NQ were the start — coverage keeps growing beyond
+   SPY, SPX, QQQ, and NDX.
+
+-> More automated strategies. Additional TradeWorkz™
+   (https://zerogex.io/trading-signals) bots — each with the same public,
+   no-cherry-picking track record.
+
+-> A more streamlined experience. An ongoing pass to simplify the platform —
+   fewer clicks to the read that matters, and less on-screen noise.
+
+-> A sharper mobile experience. Continued work to make ZeroGEX feel great on
+   the phone, not just the desktop.
+
+
+== IF YOU WANT ANOTHER LOOK ==
+
+25% off your first year back, applied automatically at checkout through the
+link below — nothing to type in, and it's tied to your account.
+
+Your old settings, layouts, and saved symbols are still there. If you were
+Pro, note that dropping below Pro revokes API keys, so you'd generate a
+fresh one from Account > API Access (that's also what the NinjaTrader
+indicator needs).
+
+Come back at 25% off: https://zerogex.io/pricing?winback=1
+
+No rush, and no hard feelings if the answer is no — you can also just watch
+the free levels for a while (https://zerogex.io/spx-gamma-levels).
+
+
+== WE'RE A FOLDS OF HONOR PROUD SUPPORTER ==
+
+3% of every subscription is pledged to Folds of Honor, funding educational
+scholarships for the spouses and children of fallen and disabled U.S.
+service members — at no extra cost to you. It comes out of ZeroGEX's share,
+not your price. We settle one consolidated donation each quarter and publish
+the running total at https://zerogex.io/giving — the ledger, not a marketing
+claim.
+
+
+------------------------------------------------------------
+
+That's the honest summary. If something specific drove you off — price, a
+missing feature, something that didn't work — I'd genuinely like to hear it;
+just hit reply. I read every message myself, and a fair number of the items
+above started as exactly that kind of note.
+
+Trade well,
+Michael
+Founder, ZeroGEX
+
+------------------------------------------------------------
+
+ZeroGEX provides options market-structure data and analytics for educational
+and informational purposes only. It is not investment advice, and nothing
+here is a recommendation to buy or sell any security. Options trading
+involves substantial risk and is not suitable for every investor.
+
+Free Gamma Levels: https://zerogex.io/spx-gamma-levels
+Pricing:           https://zerogex.io/pricing
+Giving:            https://zerogex.io/giving
+Help & FAQ:        https://zerogex.io/help/faqs
+
+You're receiving this because you previously held a ZeroGEX subscription.
+Don't want ZeroGEX product updates? Unsubscribe: {{UNSUB_URL}}
+Questions? Just reply, or email Michael@zerogex.io
+ZeroGEX · 1121 Worthington Woods Boulevard #6043, Worthington, OH 43085, US
