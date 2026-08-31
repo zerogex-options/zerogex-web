@@ -134,7 +134,12 @@ namespace NinjaTrader.NinjaScript.Indicators
                 // --- Connection ---
                 ApiBaseUrl = "https://api.zerogex.io";
                 ApiKey = "";
-                Symbol = "SPX";
+                // AUTO, not SPX. A fixed default is a default that is wrong on
+                // most charts it lands on, and wrong here means quietly drawing
+                // another instrument's levels. Existing workspaces hold an
+                // explicit value and are untouched; they get the warning
+                // instead.
+                Symbol = "AUTO";
                 PollSeconds = 60;                       // matches the ~60s analytics cycle
 
                 // --- Levels to show ---
@@ -278,7 +283,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         private async Task<ZeroGexLevelsSnapshot> FetchAsync()
         {
             string baseUrl = (ApiBaseUrl ?? "").TrimEnd('/');
-            string sym = Uri.EscapeDataString((Symbol ?? "").Trim().ToUpperInvariant());
+            string sym = Uri.EscapeDataString(ResolveSymbol());
             // strikes= is bounded 1..200 server-side; clamp here so a bad
             // setting can never turn into a 422.
             int want = Math.Min(200, Math.Max(1, ProfileStrikeCount));
@@ -329,6 +334,84 @@ namespace NinjaTrader.NinjaScript.Indicators
         /// on that.) `vwap` is in the API's PRICE_FIELDS, so on an ES or NQ
         /// chart it arrives projected onto the futures axis like every other
         /// level.</summary>
+        // ------------------------------------------------------------------
+        // Which instrument are we actually drawing?
+        //
+        // The symbol was a free-text setting with no relationship to the chart
+        // it was sitting on, and a tester found the consequence: "it does not
+        // warn me, it just plots NQ when I am on ES, which makes it
+        // unreliable." He is right, and unreliable is generous. Every other
+        // NinjaTrader indicator reads its instrument from the chart; this one
+        // asked the user to keep two things in sync by memory, silently drew
+        // one instrument's levels on another's chart when they drifted, and
+        // looked exactly the same doing it. A level you trade against is worse
+        // than useless if it might belong to a different contract.
+        //
+        // Two answers, because they fix different halves. AUTO takes the symbol
+        // from the chart, so there is nothing to keep in sync. And whenever an
+        // explicit setting disagrees with the chart, the panel says so in the
+        // one place the trader is already looking. The warning matters more
+        // than the convenience: it is what makes a mistake visible instead of
+        // silent, including for everyone who keeps their setting explicit.
+        // ------------------------------------------------------------------
+
+        /// <summary>The symbol to request: the setting, or the chart's own
+        /// instrument when the setting is blank or AUTO.</summary>
+        private string ResolveSymbol()
+        {
+            string configured = (Symbol ?? "").Trim().ToUpperInvariant();
+            if (configured.Length > 0 && configured != "AUTO")
+                return configured;
+
+            return ChartSymbol();
+        }
+
+        /// <summary>The chart's instrument, normalised to what the API knows.
+        ///
+        /// MasterInstrument.Name is the root rather than the contract, so an
+        /// "ES 09-26" chart gives "ES". The micros map onto their full-size
+        /// contract because they track the same index and the same option
+        /// chain backs both -- and because warning an MES trader that he is
+        /// "on the wrong chart" would be the false alarm that gets the real
+        /// warning ignored.</summary>
+        private string ChartSymbol()
+        {
+            try
+            {
+                if (Instrument == null || Instrument.MasterInstrument == null)
+                    return "";
+
+                string name = (Instrument.MasterInstrument.Name ?? "").Trim().ToUpperInvariant();
+                if (name == "MES")
+                    return "ES";
+                if (name == "MNQ")
+                    return "NQ";
+
+                return name;
+            }
+            catch (Exception)
+            {
+                // Instrument is not resolvable in every state. A symbol we
+                // cannot read is not a symbol we should claim is wrong.
+                return "";
+            }
+        }
+
+        /// <summary>Empty unless the setting and the chart disagree.</summary>
+        private string SymbolMismatch()
+        {
+            string configured = (Symbol ?? "").Trim().ToUpperInvariant();
+            if (configured.Length == 0 || configured == "AUTO")
+                return "";
+
+            string chart = ChartSymbol();
+            if (chart.Length == 0 || chart == configured)
+                return "";
+
+            return "⚠ showing " + configured + " levels on a " + chart +
+                   " chart — set Symbol to " + chart + " or AUTO";
+        }
+
         private async Task<double?> FetchVwapAsync(string baseUrl, string escapedSymbol)
         {
             string url = baseUrl + "/api/technicals/vwap-deviation?symbol=" + escapedSymbol +
@@ -991,12 +1074,16 @@ namespace NinjaTrader.NinjaScript.Indicators
         /// different versions and neither they nor we can tell which. A bug
         /// report against an unknown build costs a round trip to establish what
         /// is even being reported. Bump this on every file sent to a tester.</summary>
-        private const string BuildVersion = "v1.8";
+        private const string BuildVersion = "v1.9";
 
         private string BuildInfoText(ZeroGexLevelsSnapshot s)
         {
             if (s == null)
-                return "ZeroGEX Gamma Levels " + BuildVersion + "\n" + _status;
+            {
+                string warn = SymbolMismatch();
+                return "ZeroGEX Gamma Levels " + BuildVersion + "\n" + _status +
+                       (warn.Length > 0 ? "\n" + warn : "");
+            }
 
             string age = Age(s.AgeSeconds);
             string sym = string.IsNullOrEmpty(s.Symbol) ? (Symbol ?? "") : s.Symbol;
@@ -1006,6 +1093,13 @@ namespace NinjaTrader.NinjaScript.Indicators
             string health = _status == "ok"
                 ? ""
                 : "\n⚠ not updating: " + _status;
+
+            // Ahead of the health line on purpose. A stale level is a level you
+            // can still reason about; a level belonging to another instrument
+            // is one you cannot, and it is the failure that looks like success.
+            string mismatch = SymbolMismatch();
+            if (mismatch.Length > 0)
+                health = "\n" + mismatch + health;
 
             return "ZeroGEX Gamma Levels — " + sym + "\n" +
                    "Flip "  + Fmt(s.GammaFlip) + "   Call " + Fmt(s.CallWall) + "\n" +
@@ -1130,7 +1224,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         public string ApiKey { get; set; }
 
         [NinjaScriptProperty]
-        [Display(Name = "Symbol (ES / NQ / SPX / SPY / QQQ / NDX)", Order = 3, GroupName = "1. Connection")]
+        [Display(Name = "Symbol (AUTO, or ES / NQ / SPX / SPY / QQQ / NDX)", Order = 3, GroupName = "1. Connection")]
         public string Symbol { get; set; }
 
         // Range DELIBERATELY stays wider than the interval we actually honour.
