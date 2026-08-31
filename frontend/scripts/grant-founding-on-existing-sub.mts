@@ -508,6 +508,12 @@ const mergedMetadata: Record<string, string> = {
   founding_activation: 'existing_sub',
 };
 
+// Sampled BEFORE the update so the invoice check below can tell an invoice this
+// call created from one that was already sitting on the subscription. Slack of a
+// minute absorbs clock skew between this box and Stripe; the invoice we need to
+// exclude is days old, so a minute is nowhere near enough to let it through.
+const updateStartedAtEpoch = Math.floor(Date.now() / 1000) - 60;
+
 let updated: Stripe.Subscription;
 try {
   updated = await stripe.subscriptions.update(subscription.id, {
@@ -552,8 +558,28 @@ for (const d of updatedDiscountsRaw) {
 
 // Charged amount + receipt from the invoice the update generated (always_invoice /
 // create_prorations). None → no immediate invoice.
+//
+// latest_invoice is NOT that invoice. It is whatever invoice is most recent on
+// the subscription, created by this call or not, and it is always populated on
+// a subscription that has ever billed. Reading it as "charged now" reported a
+// charge that never happened: a --proration none grant printed "Charged now:
+// $29.00" and linked the receipt for an invoice the member had paid four days
+// earlier at the end of his trial, and wrote the same figure into the audit
+// row. On a tool that moves real money, a phantom charge is the one error that
+// invites a correction worse than the bug -- someone refunds $29 that was owed.
+//
+// So an invoice only counts as this call's if it was created after this call
+// started. The proration test is belt and braces: with none, Stripe issues no
+// immediate invoice at all, so there is nothing this call could have created.
 const latest = updated.latest_invoice;
-const invoice = latest && typeof latest !== 'string' ? (latest as Stripe.Invoice) : null;
+const latestInvoice = latest && typeof latest !== 'string' ? (latest as Stripe.Invoice) : null;
+const invoice =
+  latestInvoice &&
+  cliArgs.proration !== 'none' &&
+  typeof latestInvoice.created === 'number' &&
+  latestInvoice.created >= updateStartedAtEpoch
+    ? latestInvoice
+    : null;
 
 const stamp = nowIso();
 const auditId = `audit_${crypto.randomBytes(12).toString('hex')}`;
