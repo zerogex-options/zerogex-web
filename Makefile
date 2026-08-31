@@ -1,4 +1,4 @@
-.PHONY: help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription honor-winback-discount recover-orphan-payment scan-orphan-payments clear-zombie-customers webhook-health trial-reminders trial-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback reactivation checkout-recovery founding-final-call public-cohort cancellations churn-breakdown enable-portal-cancel-reasons save-url reset-save-latch diagnose-user reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo og-check blog-images ninjatrader-package
+.PHONY: help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription honor-winback-discount recover-orphan-payment scan-orphan-payments clear-zombie-customers webhook-health trial-reminders trial-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback reactivation checkout-recovery founding-final-call public-cohort cancellations churn-breakdown enable-portal-cancel-reasons save-url reset-save-latch diagnose-user reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo og-check blog-images ninjatrader-package
 
 # Default target
 help:
@@ -18,6 +18,7 @@ help:
 	@echo "  make x-handles  - List only users who registered an X/Twitter handle (email + @handle). EMAIL_ONLY=yes for just emails"
 	@echo "  make referrals  - Print the referral ledger + per-referrer summary (signups, rewards, banked months)"
 	@echo "  make attribute-referral EMAIL=<referee> REF=<code-or-email> - Manually tie an organic signup to a referrer (back-attribution). REWARD=1 also grants the referrer's free month if the referee already converted to paid (the webhook won't). DRY_RUN=1 to preview, YES=1 to apply"
+	@echo "  make send-403-notice                     - One-off: notify the 10 API users hit by the 2026-08-31 scope-enforcement 403s (excludes Jim, answered personally). DRY_RUN=1 to preview, ONLY=<addr> to test one, YES=1 to send"
 	@echo "  make migrate    - Force the auth DB's lazy migration to run now (use after --start-from <step> deploys that add new columns)"
 	@echo "  make migrate-tiers - Migrate legacy starter/elite users to basic/pro (DRY_RUN=1 to preview)"
 	@echo "  make all-to-pro - Promote every non-admin user to pro (DRY_RUN=1 to preview)"
@@ -185,6 +186,19 @@ attribute-referral:
 	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (the referee; e.g. make attribute-referral EMAIL=friend@example.com REF=ABCD2345)"; exit 1; fi
 	@if [ -z "$(REF)" ]; then echo "Error: REF is required (the referrer's 8-char code or their email)"; exit 1; fi
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/attribute-referral.mts --referee $(EMAIL) --referrer "$(REF)" $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(REWARD),--reward,)'
+
+# One-off incident notice for the 2026-08-31 API scope-enforcement 403s.
+# Each recipient gets their OWN failure count and endpoint list (taken from the
+# audit log and baked into the script), so the mail says what actually happened
+# on their account rather than apologising in the abstract. One message per
+# person — never a shared To/CC, which would leak every customer's address.
+# jimmyturk@gmail.com is excluded on purpose: he reported it and was answered
+# personally. Preview everything, then send yourself first, then send for real:
+#   make send-403-notice DRY_RUN=1
+#   make send-403-notice ONLY=you@zerogex.io YES=1
+#   make send-403-notice YES=1
+send-403-notice:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-api-403-incident-notice.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(ONLY),--only $(ONLY),)'
 
 # Force the auth DB's lazy migration to run now. Used after a deploy that
 # adds new columns but skipped the app rebuild + PM2 restart (most often
