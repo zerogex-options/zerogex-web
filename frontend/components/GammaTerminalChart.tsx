@@ -43,6 +43,7 @@ import { useChartExpirations } from "@/hooks/useChartExpirations";
 import { useLinkedPriceAxis } from "@/core/linkedPriceAxis";
 import { netGexAtSpotOrNull, aboveFlipBandIsLong, offScaleBandIsLong } from "@/core/gammaRegime";
 import { computeMaxPainFromStrikes } from "@/core/keyLevels";
+import { classifyPinStrength, pinStrengthLabel } from "@/core/pinStrike";
 import {
   buildExpirationSplit,
   expirationOpacityRamp,
@@ -90,6 +91,7 @@ interface Bar {
 interface OverlayState {
   levels: boolean; // gamma flip + call/put walls
   maxPain: boolean;
+  king: boolean; // GEX King (whole-chain heaviest-gamma strike)
   pin: boolean; // pin strike (reachable 0DTE positive-gamma pin)
   vwap: boolean;
   rail: boolean; // gamma structure rail
@@ -105,7 +107,8 @@ const DEFAULT_OVERLAYS: OverlayState = {
   rail: true,
   regime: true,
   // Off by default: a new overlay shouldn't reshape every existing user's chart
-  // unasked. The stored-prefs merge leaves it false for returning users too.
+  // unasked. The stored-prefs merge leaves them false for returning users too.
+  king: false,
   expectedRange: false,
 };
 
@@ -902,6 +905,30 @@ export default function GammaTerminalChart({
   const pinStrike = rewindBucket
     ? coerceNum(rewindBucket.pin_strike)
     : num(gexSummary?.pin_strike);
+  // Confidence rides the SAME source as the pin itself, so the strength shown
+  // on the line can never describe a different moment than the line it
+  // annotates: the rewound bucket's stored value while rewinding, the live
+  // summary otherwise.
+  const pinConfidence = rewindBucket
+    ? coerceNum(rewindBucket.pin_confidence)
+    : num(gexSummary?.pin_confidence);
+  // "PIN · STRONG" / "· MODERATE" / "· WEAK" — the Key Levels strength moved
+  // onto the chart, so the conviction travels with the level instead of living
+  // only in the tile strip. classifyPinStrength is the shared classifier the
+  // strip already uses, so the two surfaces cannot disagree. A null confidence
+  // (or no active pin) drops the suffix and the chip reads "PIN", exactly as
+  // it did before.
+  const pinStrength = classifyPinStrength(pinStrike, pinConfidence);
+  const pinLabel =
+    pinStrength === "none" ? "PIN" : `PIN · ${pinStrengthLabel(pinStrength).toUpperCase()}`;
+  // GEX King — the whole-chain heaviest-|net-gamma| strike. Sourced ONLY from
+  // the all-expiration summary, never levelBucket: like the Pin it must not
+  // follow the Expiry selector, because narrowing it to a subset of
+  // expirations would not filter it, it would make it a different metric
+  // wearing the same name. Null while rewinding and on the delayed public
+  // snapshot — neither carries a historical King, and drawing the LIVE value
+  // at a rewound moment would misdate it. Null draws no line.
+  const gexKing = rewindActive || snapshot ? null : num(gexSummary?.max_gamma_strike);
   const vwap = rewindActive ? rewindVwap : snapshot ? snapshot.vwap : num(technicals.latest?.vwap_deviation?.vwap);
 
   const profilePoints = useMemo<ProfilePoint[]>(() => {
@@ -1761,7 +1788,8 @@ export default function GammaTerminalChart({
     { key: "call", label: "CALL WALL", value: callWall, color: "var(--color-bull)", dash: "3 4", show: overlays.levels },
     { key: "put", label: "PUT WALL", value: putWall, color: "var(--color-bear)", dash: "3 4", show: overlays.levels },
     { key: "pain", label: "MAX PAIN", value: maxPain, color: "var(--color-maxpain)", dash: "1 5", show: overlays.maxPain },
-    { key: "pin", label: "PIN", value: pinStrike, color: "var(--color-pin)", dash: "2 3", show: overlays.pin },
+    { key: "king", label: "GEX KING", value: gexKing, color: "var(--color-king)", dash: "5 3", show: overlays.king },
+    { key: "pin", label: pinLabel, value: pinStrike, color: "var(--color-pin)", dash: "2 3", show: overlays.pin },
     { key: "vwap", label: "VWAP", value: vwap, color: "var(--color-hazy)", dash: "6 5", show: overlays.vwap },
     { key: "er-high", label: "ER HIGH", value: erModel?.high ?? null, color: "var(--color-info)", dash: "2 5", show: overlays.expectedRange && erModel != null },
     { key: "er-low", label: "ER LOW", value: erModel?.low ?? null, color: "var(--color-info)", dash: "2 5", show: overlays.expectedRange && erModel != null },
@@ -2049,6 +2077,7 @@ export default function GammaTerminalChart({
           <OverlayPill label="Regime" color="var(--color-accent-hot)" active={overlays.regime} onClick={() => setOverlays((o) => ({ ...o, regime: !o.regime }))} />
           <OverlayPill label="VWAP" color="var(--color-hazy)" active={overlays.vwap} onClick={() => setOverlays((o) => ({ ...o, vwap: !o.vwap }))} />
           <OverlayPill label="Max Pain" color="var(--color-maxpain)" active={overlays.maxPain} onClick={() => setOverlays((o) => ({ ...o, maxPain: !o.maxPain }))} />
+          <OverlayPill label="GEX King" color="var(--color-king)" active={overlays.king} onClick={() => setOverlays((o) => ({ ...o, king: !o.king }))} />
           <OverlayPill label="Pin Strike" color="var(--color-pin)" active={overlays.pin} onClick={() => setOverlays((o) => ({ ...o, pin: !o.pin }))} />
           {/* Expected Range — live-only (the delayed public snapshot carries no
               vol index). The Daily/Weekly/Monthly selector appears once it's on. */}
