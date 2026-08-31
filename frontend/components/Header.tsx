@@ -106,10 +106,15 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
     });
     return initial;
   });
-  const { data: authSession, refresh: refreshAuth } = useAuthSession();
+  const { data: authSession, loading: authLoading, refresh: refreshAuth } = useAuthSession();
   const currentTier = authSession?.user?.tier ?? "public";
   const isPublicUser = normalizeTier(currentTier) === "public";
+  // Gated on the session having actually resolved. Until it does, currentTier
+  // falls back to "public", which would offer a Pro member an Upgrade button
+  // for the length of one fetch on every hard page load — the same
+  // loading-is-not-logged-out confusion the auth row below avoids.
   const canUpgrade = (() => {
+    if (authLoading) return false;
     const t = normalizeTier(currentTier);
     return t !== "pro" && t !== "admin";
   })();
@@ -766,6 +771,13 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                     {t('menu.upgrade')}
                   </button>
                 )}
+                {/* Unlike the desktop AccountMenu — whose trigger is inert
+                    until the session resolves, so its menu can never be opened
+                    early — this menu opens from a button that does not depend
+                    on auth at all. On a slow mobile connection it is genuinely
+                    reachable while /api/auth/session is still in flight, and a
+                    signed-in member would be shown "Log in". Hold the row's box
+                    and label it only once we know. */}
                 <button
                   type="button"
                   onClick={() => {
@@ -777,9 +789,15 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                     setMobileMenuOpen(false);
                   }}
                   className="rounded-lg border px-3 py-2 text-sm font-semibold"
-                  style={{ borderColor: border, color: 'var(--text-secondary)' }}
+                  style={{
+                    borderColor: border,
+                    color: 'var(--text-secondary)',
+                    ...(authLoading ? { visibility: 'hidden' as const } : null),
+                  }}
+                  aria-hidden={authLoading ? true : undefined}
+                  tabIndex={authLoading ? -1 : undefined}
                 >
-                  {authSession?.authenticated ? t('menu.logoutMobile') : t('menu.login')}
+                  {authLoading ? '\u00a0' : authSession?.authenticated ? t('menu.logoutMobile') : t('menu.login')}
                 </button>
               </div>
 
