@@ -31,7 +31,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const WINDOW = '9:22 and 10:10 AM ET on this morning';
+const WINDOW = '9:22 and 10:10 AM ET this morning';
 const SUBJECT = 'Resolved: ZeroGEX API problems today';
 const SUPPORT = 'support@zerogex.io';
 // Latency recovered here after the last mitigation landed; stated so a
