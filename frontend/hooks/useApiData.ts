@@ -156,7 +156,7 @@ interface UseApiDataOptions<T = unknown> {
   shouldAcceptData?: (nextData: T, prevData: T | null) => boolean;
 }
 
-const REFRESH_ACCELERATION_FACTOR = 0.5;
+const REFRESH_ACCELERATION_FACTOR = 1.0;
 const MIN_REFRESH_INTERVAL_MS = 1000;
 
 /**
