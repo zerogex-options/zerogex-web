@@ -773,7 +773,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             AddLevel(ShowPutWall, s.PutWall, "Put Wall", PutBrush, false);
             AddLevel(ShowMaxPain, s.MaxPain, "Max Pain", PainBrush, false);
             AddLevel(ShowPinStrike, s.PinStrike, "Pin Strike", PinBrush, false);
-            AddLevel(ShowVwap, s.Vwap, "VWAP", VwapBrush, false);
+            AddLevel(ShowVwap, s.Vwap, VwapLabel(), VwapBrush, false);
 
             // GEX 1..N: the strikes carrying the most dealer gamma, ranked on
             // ABSOLUTE net gamma so a heavy put strike ranks alongside a heavy
@@ -838,6 +838,26 @@ namespace NinjaTrader.NinjaScript.Indicators
         /// walls are added before the ranked strikes, so the merged entry keeps
         /// the wall's colour, and stays solid unless every part of it is
         /// dashed.</summary>
+        /// <summary>"VWAP", or "VWAP (cash)" on a futures chart.
+        ///
+        /// Ours is a cash-session VWAP: the index price weighted by its proxy
+        /// ETF's volume profile over the cash day, then carried onto the
+        /// futures axis. A futures trader's own VWAP is built from the futures
+        /// tape over the futures session, which starts the evening before. The
+        /// two are near each other and never equal, and a tester spent a
+        /// morning waiting for one to confirm the other before working out they
+        /// were not measuring the same thing.
+        ///
+        /// One word on the chart is the cheapest way to stop that happening to
+        /// the next person. Only on ES and NQ: on an SPX or SPY chart there is
+        /// no other VWAP to confuse it with, and the qualifier would be
+        /// noise.</summary>
+        private string VwapLabel()
+        {
+            string sym = ResolveSymbol();
+            return (sym == "ES" || sym == "NQ") ? "VWAP (cash)" : "VWAP";
+        }
+
         private void AddLevel(bool show, double? value, string label, Brush stroke, bool dashed)
         {
             if (!show || value == null || value.Value == 0)
@@ -1104,7 +1124,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             return "ZeroGEX Gamma Levels — " + sym + "\n" +
                    "Flip "  + Fmt(s.GammaFlip) + "   Call " + Fmt(s.CallWall) + "\n" +
                    "Put "   + Fmt(s.PutWall)   + "   Pain " + Fmt(s.MaxPain) + "\n" +
-                   "Pin "   + Fmt(s.PinStrike) + "   VWAP " + Fmt(s.Vwap) + "\n" +
+                   "Pin "   + Fmt(s.PinStrike) + "   " + VwapLabel() + " " + Fmt(s.Vwap) + "\n" +
                    "updated " + age + "  ·  zerogex.io " + BuildVersion + health;
         }
 
