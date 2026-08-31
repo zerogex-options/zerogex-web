@@ -38,8 +38,9 @@ export type PaymentGraceInput = {
   graceDays: number;
   // Injected clock (Date.now()) so the decision is deterministic under test.
   nowMs: number;
-  // When true, a trial-conversion failure (previousStatus `trialing`) ALSO opens
-  // a grace window, using the same bounded graceDays. Defaults to false, which
+  // When true, a trial-conversion failure ALSO opens a grace window, using the
+  // same bounded graceDays (see trialConversion below for how one is identified,
+  // which is NOT simply previousStatus). Defaults to false, which
   // preserves the original renewal-only behavior. The Stripe webhook passes
   // getTrialGraceEnabled(). A trial already requires a card at checkout, so its
   // first-charge decline is the same recoverable case a renewal decline is — this
@@ -54,6 +55,26 @@ export type PaymentGraceInput = {
   // previousTierGranted true and keeps the recovery window. Defaults true so the
   // renewal branch and every existing caller are unchanged.
   previousTierGranted?: boolean;
+  // Whether this past_due is the FIRST charge at the end of a free trial, decided
+  // ORDER-INDEPENDENTLY by the caller from the subscription's trial_end
+  // (isWithinTrialConversionWindow in core/trialDunning). This is what makes the
+  // Trial Grace cohort measurable at all.
+  //
+  // previousStatus cannot identify a first-charge failure on its own: at trial
+  // end Stripe moves the subscription to `active` when the cycle invoice is
+  // created, and only to `past_due` once that invoice finalizes (~an hour later)
+  // and the charge is declined. The trial-end `active` sync overwrites the
+  // last-synced `trialing` first, so by the time the failure arrives
+  // previousStatus reads `active` and the failure is attributed to the RENEWAL
+  // cohort — which is why admin monitoring's Trial Grace bucket read zero while
+  // trial-conversion failures were plainly happening.
+  //
+  // Stripe pins trial_end to when the trial actually ended and keeps it for the
+  // life of the subscription, so "the trial ended moments ago" identifies the
+  // conversion charge no matter which syncs landed in which order. Same signal
+  // core/trialDunning already uses to pick the dunning copy. Defaults false, so
+  // callers that don't supply it keep the previousStatus-only behavior.
+  trialConversion?: boolean;
 };
 
 export type PaymentGraceDecision = {
@@ -78,6 +99,7 @@ export function decidePaymentGrace(input: PaymentGraceInput): PaymentGraceDecisi
     nowMs,
     trialGrace = false,
     previousTierGranted = true,
+    trialConversion = false,
   } = input;
 
   // Any non-past_due status closes the window: recovery to `active`, a switch
@@ -106,12 +128,27 @@ export function decidePaymentGrace(input: PaymentGraceInput): PaymentGraceDecisi
   // the "already inside a window" branch above enforces the bound identically on
   // subsequent past_due syncs regardless of which case opened it. With trialGrace
   // off, a trialing→past_due opens no window (the original hard trial-end).
-  const openedBy: PaymentGraceReason | null =
-    previousStatus === 'active'
+  //
+  // The caller's trial_end signal is consulted FIRST because it is authoritative
+  // and order-independent, where previousStatus is whatever Stripe's sync
+  // ordering happened to leave behind (see trialConversion above).
+  // previousStatus === 'trialing' remains the fallback for a sub that skipped
+  // the trial-end `active` sync, or whose trial_end the caller couldn't read.
+  //
+  // Once a past_due IS identified as a trial conversion, the trial rules decide
+  // it outright — it must never fall through to the renewal branch. Otherwise a
+  // withheld-card trial (previousTierGranted false) would be handed a window by
+  // the renewal path purely because Stripe's trial-end `active` sync ran first,
+  // defeating the guard, and BILLING_TRIAL_GRACE_ENABLED=0 would be silently
+  // ineffective for exactly the failures it is meant to govern.
+  const isTrialConversion = trialConversion || previousStatus === 'trialing';
+  const openedBy: PaymentGraceReason | null = isTrialConversion
+    ? trialGrace && previousTierGranted
+      ? 'trial'
+      : null
+    : previousStatus === 'active'
       ? 'renewal'
-      : trialGrace && previousStatus === 'trialing' && previousTierGranted
-        ? 'trial'
-        : null;
+      : null;
   if (graceDays > 0 && openedBy) {
     return { graceStartedAt: new Date(nowMs).toISOString(), graceReason: openedBy, inGrace: true };
   }

@@ -3,10 +3,9 @@ import { ArrowRight, Newspaper } from 'lucide-react';
 import ItemListJsonLd from '@/components/ItemListJsonLd';
 
 export const metadata = {
-  title:
-    'Latest Options Gamma Analysis: SPX / SPY / QQQ / NDX Pinning, Gamma Flip & Dealer Flow | ZeroGEX',
+  title: 'Options Gamma Analysis: SPX, SPY, QQQ & NDX Dealer Flow',
   description:
-    'The latest ZeroGEX options gamma analysis, newest first — SPX, SPY, QQQ and NDX pinning, the gamma flip, call walls, put walls, 0DTE dealer positioning, and dealer-flow deep dives. New breakdowns added regularly, each with a worked example and today’s live levels. Browse everything by topic in the Education hub.',
+    'Options gamma analysis for SPX, SPY, QQQ and NDX, newest first — pinning, the gamma flip, call and put walls, and 0DTE dealer positioning.',
   alternates: { canonical: '/articles' },
 };
 
@@ -19,6 +18,13 @@ type Article = {
 };
 
 const ARTICLES: Article[] = [
+  {
+    href: '/education/what-is-a-gamma-wall',
+    kind: 'Published • August 27, 2026 • 16:00 UTC',
+    title: 'What Is a Gamma Wall? Gamma Walls in Trading Explained',
+    blurb:
+      'The plain-English definition — a strike where modeled dealer gamma concentrates. The two walls, why price can react at them, why a wall is a positioning reference rather than support or resistance, and why the level migrates through the session.',
+  },
   {
     href: '/education/pin-strike-explained',
     kind: 'Published • August 9, 2026 • 16:00 UTC',
@@ -204,10 +210,10 @@ const ARTICLES: Article[] = [
   },
   {
     href: '/education/gamma-walls-explained',
-    kind: 'Published • June 11, 2026 • 16:00 UTC',
+    kind: 'Updated • August 29, 2026 • 16:00 UTC',
     title: 'Gamma Walls Explained: Call Wall, Put Wall, and How Price Reacts',
     blurb:
-      'What gamma walls actually are, why price tends to react at the call wall and put wall, how the walls migrate through the session, and the conditions that make a wall more likely to hold versus break.',
+      'What the call wall and put wall do in each gamma regime, what the distance between them tells you, how they behave into same-day expiry, why they migrate through the session, and the conditions that decide whether the read holds or breaks.',
   },
   {
     href: '/education/how-to-read-a-gamma-flip',

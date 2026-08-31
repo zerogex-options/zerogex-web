@@ -77,7 +77,9 @@ function Stat({ label, value, color }: { label: string; value: string; color?: s
 export default function BiasHorizonCard() {
   const { symbol } = useTimeframe();
   const { tenor } = useBiasTenor();
-  const { payload, connection, loading, noData } = useTradeBiasData(symbol, tenor);
+  // withHistory=false: this card renders only the current payload, and the
+  // history request is 2000 rows across 8 days on every mount and toggle.
+  const { payload, connection, loading, noData } = useTradeBiasData(symbol, tenor, false);
 
   const isIntraday = tenor === 'intraday';
   const trend = payload?.direction ?? 'neutral';
@@ -177,7 +179,17 @@ export default function BiasHorizonCard() {
             </div>
           )}
         </div>
-      ) : null}
+      ) : (
+        // Reachable: one failed poll clears `loading` while `connection` only
+        // flips to disconnected after two. Without this the card would render a
+        // bare horizon toggle over empty space and say nothing about why.
+        <div className="rounded-lg border p-4 text-center" style={{ borderColor: 'var(--color-border)' }}>
+          <div className="text-xs font-semibold">Bias unavailable</div>
+          <div className="mt-1 text-[11px] text-[var(--color-text-secondary)]">
+            Couldn’t reach the signals engine. Retrying automatically.
+          </div>
+        </div>
+      )}
     </div>
   );
 }

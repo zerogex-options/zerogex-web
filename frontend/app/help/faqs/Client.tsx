@@ -58,7 +58,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'symbols',
         q: 'What symbols are currently supported?',
-        a: 'ZeroGEX provides full analytics coverage for SPY (S&P 500 ETF), SPX (S&P 500 Index), QQQ (Nasdaq 100 ETF), and NDX (Nasdaq 100 Index). These are the four most liquid, most gamma-rich underlyings in the U.S. options market — the instruments where dealer hedging activity has the greatest intraday impact.',
+        a: 'ZeroGEX provides full analytics coverage for SPY (S&P 500 ETF), SPX (S&P 500 Index), QQQ (Nasdaq 100 ETF), and NDX (Nasdaq 100 Index) — the four most liquid, most gamma-rich underlyings in the U.S. options market, where dealer hedging activity has the greatest intraday impact. ES and NQ (the CME E-mini futures) are also first-class symbols in the picker: they carry the SPX and NDX dealer levels on the futures price axis, with the price series from the real-time CME feed. See the futures question below for how that projection works.',
       },
       {
         id: 'single-names',
@@ -68,7 +68,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'futures',
         q: 'Can I use ZeroGEX to trade futures like ES, MES, NQ, or MNQ?',
-        a: 'Yes — you map the future to its index book. /ES and /MES trade off the SPX (and SPY) gamma levels; /NQ and /MNQ off QQQ or NDX. The structural levels are identical; only the price scale differs. When the cash index is closed, the Live Bulletin already shows the ES/NQ futures-implied price for context. Translating the levels directly into futures prices is on the roadmap.',
+        a: 'Yes — and for ES and NQ you no longer map anything by hand. Pick ES or NQ in the symbol picker and the levels come back already on the futures price axis. ES and SPX track the same index, so the dealer book behind an ES chart is the SPX book; only the price scale differs. We project the SPX (and NDX, for NQ) levels onto that axis using a ratio measured off the tape rather than modelled from carry, so it self-corrects through each quarterly roll — there is no basis offset for you to configure. For the micros, /MES and /MNQ are the same contract at a tenth the size, so the levels are identical. ES and NQ trade the CME electronic session — Sunday 6:00 PM ET through Friday 5:00 PM ET, less the 5:00–6:00 PM maintenance break — so the price axis is live through the Asian and European sessions. The levels themselves come from the index options book, which prices during U.S. hours, so overnight they hold at their last computed state rather than recomputing tick-by-tick.',
       },
       {
         id: 'refresh-cadence',
@@ -278,7 +278,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'api-ninjatrader',
         q: 'Can I plot the levels on NinjaTrader?',
-        a: 'Yes — we publish a free NinjaTrader 8 indicator that draws the Gamma Flip, Call Wall, Put Wall, Max Pain, and Pin Strike on your chart and keeps them current by polling the API. Download it from any of the free gamma levels pages (for example <a href="/spx-gamma-levels">/spx-gamma-levels</a>), compile it in the NinjaScript Editor, and paste in your Pro API key. The indicator is free and open source; the live data behind it needs the key. Unlike our TradingView script, which is manual-entry because Pine Script can\'t make HTTP calls, this one updates itself.',
+        a: 'Yes — our NinjaTrader 8 indicator draws the Gamma Flip, Call Wall, Put Wall, Max Pain, and Pin Strike on your chart and keeps them current by polling the API. It is included with Pro: signed in to a Pro plan, download it from any of the free gamma levels pages (for example <a href="/spx-gamma-levels">/spx-gamma-levels</a>), compile it in the NinjaScript Editor, and paste in your API key. On any other plan those pages show an <a href="/pricing?plan=pro">upgrade link</a> in place of the download. Unlike our TradingView script, which is manual-entry because Pine Script can\'t make HTTP calls, this one updates itself.',
       },
       {
         id: 'api-streaming',

@@ -12,6 +12,7 @@ import {
   sendPaymentFailedEmail,
   sendPaymentRecoveredEmail,
   sendTrialConversionFailedEmail,
+  sendTrialConvertedEmail,
   sendWelcomeBackEmail,
 } from '@/core/mailer';
 import {
@@ -44,7 +45,11 @@ import {
   readInvoicePriceId,
   readInvoiceSubscriptionId,
 } from '@/core/stripeInvoice';
-import { isTrialConversionFailure } from '@/core/trialDunning';
+import {
+  isTrialConversionFailure,
+  isTrialConversionInvoice,
+  isWithinTrialConversionWindow,
+} from '@/core/trialDunning';
 import { derivePauseState } from '@/core/subscriptionPause';
 import { classifyPaymentSetup } from '@/core/paymentSetup';
 import { formatCancellationReasonSuffix, type CancellationDetails } from '@/core/cancellationReason';
@@ -101,6 +106,10 @@ type UserRow = {
   // Last-synced pause auto-resume instant (ISO), or null when not paused. Read
   // pre-UPDATE so a pause→resume transition can be detected for the audit log.
   paused_until: string | null;
+  // Stamp for the trial-conversion confirmation email, or null when it hasn't
+  // been sent. Read only as a cheap short-circuit (see
+  // maybeSendTrialConvertedEmail) — the CAS UPDATE there stays the authority.
+  trial_converted_email_sent_at: string | null;
 };
 
 // `past_due` is intentionally NOT active: once a payment fails Stripe moves
@@ -198,14 +207,22 @@ function describePromoIfPresent(subscription: Stripe.Subscription): string | nul
   return 'introductory period';
 }
 
-function formatInvoiceAmount(invoice: Stripe.Invoice): string | null {
-  if (typeof invoice.amount_due !== 'number') return null;
+function formatInvoiceAmount(
+  invoice: Stripe.Invoice,
+  // Which side of the invoice to quote. Dunning names what was DUE (the charge
+  // that just failed); the trial-conversion receipt names what was actually
+  // PAID, which an account credit can drive below amount_due — quoting the due
+  // amount there would tell a member they were charged money they weren't.
+  field: 'amount_due' | 'amount_paid' = 'amount_due',
+): string | null {
+  const amount = invoice[field];
+  if (typeof amount !== 'number') return null;
   if (typeof invoice.currency !== 'string') return null;
   try {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: invoice.currency.toUpperCase(),
-    }).format(invoice.amount_due / 100);
+    }).format(amount / 100);
   } catch {
     return null;
   }
@@ -217,7 +234,7 @@ function findUserByCustomerId(customerId: string): UserRow | null {
       `SELECT id, email, tier, founding_member_started_at, founding_lifetime_applied_at,
               referred_by_code, referral_credit_months, stripe_customer_id, stripe_subscription_id,
               stripe_price_id, subscription_status, cancel_at_period_end, payment_grace_started_at,
-              payment_grace_reason, paused_until
+              payment_grace_reason, paused_until, trial_converted_email_sent_at
        FROM users WHERE stripe_customer_id = ?`,
     )
     .get(customerId) as UserRow | undefined;
@@ -652,10 +669,11 @@ async function syncSubscriptionToUser(
   // decidePaymentGrace opens it on the first past_due sync of a previously-active
   // sub, enforces the bound on subsequent past_due syncs, and closes it the
   // moment the sub leaves past_due. When trial grace is enabled
-  // (getTrialGraceEnabled), a trial-conversion failure (previousStatus
-  // `trialing`) also opens a window with the same bounded length, so a
-  // recoverable first-charge decline doesn't drop the member the instant the
-  // trial ends; with it disabled, trials downgrade immediately as before.
+  // (getTrialGraceEnabled), a trial-conversion failure also opens a window with
+  // the same bounded length, so a recoverable first-charge decline doesn't drop
+  // the member the instant the trial ends; with it disabled, trials downgrade
+  // immediately as before. Which failure it IS comes from trial_end, not from
+  // previousStatus — see the trialConversion argument below.
   // Decision logic is unit-tested in tests/paymentGrace.test.ts.
   const graceDays = getPaymentGraceDays();
   const { graceStartedAt, graceReason, inGrace } = decidePaymentGrace({
@@ -669,6 +687,18 @@ async function syncSubscriptionToUser(
     graceDays,
     nowMs: Date.now(),
     trialGrace: getTrialGraceEnabled(),
+    // Order-independent trial-conversion signal. previousStatus can't carry this
+    // on its own: at trial end Stripe moves the sub to `active` when the cycle
+    // invoice is created and only to `past_due` once that invoice finalizes and
+    // the charge is declined, so the trial-end `active` sync has already
+    // overwritten `trialing` by the time the failure arrives. Reading trial_end
+    // (pinned to when the trial actually ended) instead is what keeps a genuine
+    // first-charge failure out of the renewal cohort — and what makes admin
+    // monitoring's Trial Grace bucket non-zero.
+    trialConversion: isWithinTrialConversionWindow(
+      typeof subscription.trial_end === 'number' ? subscription.trial_end : null,
+      Date.now(),
+    ),
     // A trial we withheld access from (its setup never succeeded, so the
     // previous synced tier stayed `public`) must not be handed the recovery
     // window when its first charge fails — that would grant premium to exactly
@@ -1221,6 +1251,127 @@ async function maybeSendPaidWelcomeEmail(
       email: user.email,
       message: `Welcome-back email send failed for sub ${subscription.id}: ${message}`,
     });
+  }
+}
+
+// The success bookend to the invoice.payment_failed dunning branch: a trial's
+// FIRST real charge just cleared, which is the single moment a member goes from
+// trying ZeroGEX to paying for it. Called from invoice.paid — which also fires
+// on every renewal — so the classification carries the whole load:
+//
+//   1. `billing_reason` pre-gate. Rejects renewals, prorations and the $0
+//      trial-create invoice before spending a Stripe call on them (the common
+//      case by far). Mirrors isTrialConversionInvoice's own rule exactly,
+//      null included ("unknown, allow"), so it can only skip what the predicate
+//      would have rejected anyway.
+//   2. isTrialConversionInvoice — the same order-independent predicate the
+//      failure branch uses, so a conversion charge that clears and one that
+//      declines can never be classified differently. Deliberately NOT the
+//      member's live DB status: that races customer.subscription.updated, and
+//      losing the race here would mean silence on a real conversion.
+//   3. CAS-claim of trial_converted_email_sent_at (NULL → stamp) — at most one
+//      confirmation per account no matter what Stripe redelivers, the same
+//      claim-then-send shape as maybeSendPaidWelcomeEmail above.
+//
+// The charge is read off the INVOICE, not the subscription price: amount_paid
+// is what actually left the member's card, net of any banked referral credit.
+async function maybeSendTrialConvertedEmail(invoice: Stripe.Invoice): Promise<void> {
+  const customerId =
+    typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
+  if (!customerId) return;
+
+  const billingReason = invoice.billing_reason ?? null;
+  if (billingReason != null && billingReason !== 'subscription_cycle') return;
+
+  const user = findUserByCustomerId(customerId);
+  if (!user) return;
+
+  // Cheap short-circuit, not the guard: once a member's confirmation has gone
+  // out, every later renewal of theirs exits here instead of spending a Stripe
+  // call to re-derive "this is a renewal". Two concurrent invoice.paid events
+  // can both read NULL and get past this — the CAS UPDATE below is what makes
+  // the send at-most-once.
+  if (user.trial_converted_email_sent_at != null) return;
+
+  const invoiceSub = readInvoiceSubscriptionId(invoice);
+  if (!invoiceSub) return;
+
+  // trial_end lives on the subscription, not the invoice, so this lookup is
+  // what makes the conversion/renewal call possible at all.
+  let subscription: Stripe.Subscription;
+  try {
+    subscription = await getStripe().subscriptions.retrieve(invoiceSub);
+  } catch (err) {
+    // Unclassifiable → stay silent. Sending on an invoice we couldn't classify
+    // would congratulate an established member on "converting" at some ordinary
+    // renewal, which is a worse failure than missing one confirmation.
+    const message = err instanceof Error ? err.message : 'subscription lookup failed';
+    logAudit({
+      type: 'trial_converted_email_error',
+      userId: user.id,
+      email: user.email,
+      message: `Could not classify invoice ${invoice.id} for sub ${invoiceSub} (no email sent): ${message}`,
+    });
+    return;
+  }
+
+  const isConversion = isTrialConversionInvoice({
+    trialEndUnix: typeof subscription.trial_end === 'number' ? subscription.trial_end : null,
+    invoiceCreatedUnix: typeof invoice.created === 'number' ? invoice.created : null,
+    billingReason,
+  });
+  if (!isConversion) return;
+
+  const stamp = nowIso();
+  const claim = getDb()
+    .prepare(
+      `UPDATE users SET trial_converted_email_sent_at = ?, updated_at = ?
+       WHERE id = ? AND trial_converted_email_sent_at IS NULL`,
+    )
+    .run(stamp, stamp, user.id) as { changes: number | bigint };
+  if (Number(claim.changes) === 0) return;
+
+  // Best-effort enrichment: name the exact card that was charged. A Stripe
+  // hiccup here must never cost the member their confirmation, so any failure
+  // falls back to the neutral "payment method on file" phrasing.
+  let card: { brand: string | null; last4: string } | null = null;
+  try {
+    card = await resolveSubscriptionCard(getStripe(), invoiceSub, customerId);
+  } catch {
+    // Non-fatal — the confirmation still sends without naming the card.
+  }
+
+  const periodEndUnix = readInvoicePeriodEndUnix(invoice);
+
+  try {
+    await sendTrialConvertedEmail(user.email, {
+      amountFormatted: formatInvoiceAmount(invoice, 'amount_paid'),
+      cardBrand: card?.brand ?? null,
+      cardLast4: card?.last4 ?? null,
+      nextChargeIso:
+        periodEndUnix != null ? new Date(periodEndUnix * 1000).toISOString() : null,
+      // A conversion invoice that settled at zero was covered by account credit
+      // (a banked referral free month). The copy must not claim a payment was
+      // taken when none was.
+      fullyCredited: invoice.amount_paid === 0,
+    });
+    logAudit({
+      type: 'trial_converted_email_sent',
+      userId: user.id,
+      email: user.email,
+      message: `Sent trial-conversion confirmation for invoice ${invoice.id} on sub ${invoiceSub}`,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'trial-converted email send failed';
+    logAudit({
+      type: 'trial_converted_email_error',
+      userId: user.id,
+      email: user.email,
+      message: `Trial-conversion confirmation failed for invoice ${invoice.id}: ${message}`,
+    });
+    // Swallow — the stamp is already claimed, so a webhook retry no-ops rather
+    // than re-sending, and a transient Resend error must not 500 the webhook
+    // (Stripe would retry the whole handler and double-apply everything else).
   }
 }
 
@@ -1790,6 +1941,11 @@ export async function POST(request: NextRequest) {
         // still-open invoice emits NOTHING else. Without this the member stays
         // on 'public' having paid in full.
         await maybeRecoverOrphanPayment(invoice);
+        // Trial-conversion confirmation — the success bookend to the
+        // trial-conversion dunning email in invoice.payment_failed below.
+        // Self-classifying and CAS-latched, so it no-ops on the renewals and
+        // prorations that also land here.
+        await maybeSendTrialConvertedEmail(invoice);
         break;
       }
       case 'charge.refunded': {

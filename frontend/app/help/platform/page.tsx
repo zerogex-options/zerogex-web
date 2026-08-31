@@ -17,7 +17,7 @@ import {
 export const metadata = {
   title: 'ZeroGEX Platform Guide: Feature-by-Feature Walkthroughs',
   description:
-    'Step-by-step product help for the ZeroGEX platform — every page, panel, and chart explained. Dashboard, Live Bulletin, Signals, Metrics, Strategy Tools, and account workflows.',
+    'Step-by-step help for the ZeroGEX platform — every page, panel and chart explained: Dashboard, Live Bulletin, Signals, Metrics and Strategy Tools.',
   alternates: { canonical: '/help/platform' },
 };
 
@@ -228,6 +228,12 @@ const sections: Section[] = [
         title: 'API Access &amp; Keys (Pro)',
         blurb:
           'How to read the API docs, what your Pro tier unlocks, and the basic auth + rate-limit model.',
+      },
+      {
+        href: '/help/platform/mcp-integration',
+        title: 'Building an MCP Server on the ZeroGEX API',
+        blurb:
+          'The consolidated levels endpoint, tool definitions to start from, and how to stop a language model quoting stale levels as if they were live.',
       },
       {
         href: '/help/platform/data-coverage',

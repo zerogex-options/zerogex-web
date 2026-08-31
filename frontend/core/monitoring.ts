@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { getDb } from '@/core/db';
 import { DISCLAIMER_VERSION } from '@/core/disclaimer';
-import { priceIdToSku } from '@/core/stripe';
+import { getPaymentGraceDays, priceIdToSku } from '@/core/stripe';
 import {
   computeMrr,
   computeMrrTrend,
@@ -34,6 +34,28 @@ import {
   parseCancellationReasonFromMessage,
   NO_FEEDBACK,
 } from '@/core/cancellationReason';
+import {
+  buildSubscriberLedger,
+  summarizeLedger,
+  type LedgerDeleteEvent,
+  type LedgerRow,
+  type LedgerSyncEvent,
+} from '@/core/subscriberBucket';
+import {
+  accumulateTrialOutcomes,
+  classifyRider,
+  NOMINAL_TRIAL_DAYS,
+  projectFullSubscribers,
+  type SubscriberProjectionPoint,
+  sortRidersByDeadline,
+  summarizeRiders,
+  summarizeTrialOutcomes,
+  type ConveyorDeleteEvent,
+  type ConveyorOutcomes,
+  type ConveyorRider,
+  type ConveyorSyncEvent,
+  type ConveyorTotals,
+} from '@/core/trialConveyor';
 
 const STORE_PATH = process.env.MONITORING_STORE_PATH ?? path.join(process.cwd(), 'data', 'monitoring.json');
 const SIGNUP_STORE_PATH = process.env.SIGNUP_STORE_PATH ?? path.join(process.cwd(), 'data', 'signups.json');
@@ -199,6 +221,59 @@ export type WebhookHealth = {
   }>;
 };
 
+// The live trial→paying assembly line behind the admin "Conversion Conveyor"
+// tab: every free trial currently in flight, each with the instant it is due to
+// be charged, plus what happened to the trials that already reached the end of
+// the belt. See core/trialConveyor.ts for the state machine.
+export type TrialConveyorSnapshot = {
+  // Riders currently on the belt, soonest deadline first. Bounded by
+  // CONVEYOR_MAX_RIDERS so a promo spike can't balloon the admin payload;
+  // `truncated` is how many were cut (the totals always count everyone).
+  riders: ConveyorRider[];
+  truncated: number;
+  totals: ConveyorTotals;
+  outcomes: ConveyorOutcomes;
+  // Paying subscribers who have already clicked Cancel and are counting down to
+  // the day their access actually ends. They still count as Full Subscribers
+  // until then, so without this the drop lands as a surprise weeks later.
+  departures: ConveyorRider[];
+  departingValue: number;
+  // Nominal free-trial length, for labelling the belt's scale.
+  trialDays: number;
+  // Length of the payment-recovery window a stalled trial gets, in days.
+  graceDays: number;
+  generatedAt: string;
+};
+
+// Reverse-chronological record of every change to the subscriber headcount:
+// who it happened to, what happened, and what it did to each line of the Total
+// Subscribers chart. See core/subscriberBucket for how it's derived.
+export type SubscriberLedgerSnapshot = {
+  windowDays: number;
+  rows: LedgerRow[];
+  truncated: number;
+  // Net movement of each chart line across the window, which the rows account for.
+  net: { fullSubscriber: number; freeTrial: number; trialGrace: number };
+  generatedAt: string;
+};
+
+// Dashed continuation of the Full Subscriber line: what the count becomes over
+// the next SUBSCRIBER_PROJECTION_DAYS if nothing NEW happens, driven entirely by
+// events already scheduled in the Conversion Conveyor. See
+// projectFullSubscribers in core/trialConveyor for what is and isn't counted.
+export type SubscriberProjection = {
+  horizonDays: number;
+  // Day the projection departs from — the chart's last real point, so the
+  // dashed line starts exactly where the solid one ends.
+  anchorDay: string | null;
+  anchorPaying: number;
+  points: SubscriberProjectionPoint[];
+  // Trials sitting in the payment-recovery window, deliberately excluded from
+  // the line because they are genuinely undecided. Surfaced so the projection
+  // can say how much of the picture it is leaving out.
+  undecidedStalled: number;
+};
+
 export type MonitoringSnapshot = {
   mrr: MrrSnapshot;
   mrrSeries: MrrPoint[];
@@ -207,6 +282,9 @@ export type MonitoringSnapshot = {
   signupFlow: SignupFlowPoint[];
   growthRates: GrowthRatePoint[];
   cancellationReasons: CancellationReasonsSummary;
+  trialConveyor: TrialConveyorSnapshot;
+  subscriberLedger: SubscriberLedgerSnapshot;
+  subscriberProjection: SubscriberProjection;
   hourly: MonitoringSnapshotPoint[];
   daily: MonitoringSnapshotPoint[];
   topIps: Array<{ ip: string; count: number }>;
@@ -926,6 +1004,15 @@ function isFlowDayEmpty(p: SignupFlowPoint): boolean {
   );
 }
 
+// ET day-bucket key for an audit row's created_at (stored UTC), or null when
+// the timestamp is unparseable. Shared by every builder that folds audit events
+// onto the same day axis as the charts.
+function etDayKey(createdAt: string): string | null {
+  const d = new Date(createdAt);
+  if (Number.isNaN(d.getTime())) return null;
+  return etBucketKeys(d).day;
+}
+
 // Per-day paid-subscription flow and account registrations, sourced from the
 // audit_events log. Displays up to FLOW_WINDOW_DAYS of history (trimmed to the
 // earliest day with activity, floored at MAX_DAILY) since it recomputes from the
@@ -969,11 +1056,7 @@ function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
   const acc: Record<string, FlowAcc> = {};
   for (const day of dailyKeys) acc[day] = emptyFlowAcc();
 
-  const etDay = (createdAt: string): string | null => {
-    const d = new Date(createdAt);
-    if (Number.isNaN(d.getTime())) return null;
-    return etBucketKeys(d).day;
-  };
+  const etDay = etDayKey;
 
   try {
     const db = getDb();
@@ -1215,6 +1298,341 @@ function buildCancellationReasons(): CancellationReasonsSummary {
   }
 }
 
+
+
+
+// ── Committed forward projection ───────────────────────────────────────────
+const SUBSCRIBER_PROJECTION_DAYS = 7;
+
+// Roll the Full Subscriber line forward off the conveyor's own contents. Every
+// input is already scheduled — a trial in flight has a first-charge date, a
+// cancelled member has a last day — so this is a commitment rather than a
+// forecast, and it anchors to the series' last real point so the dashed line
+// continues the solid one instead of floating beside it.
+function buildSubscriberProjection(
+  now: Date,
+  signups: SignupPoint[],
+  conveyor: TrialConveyorSnapshot,
+): SubscriberProjection {
+  const last = signups.length > 0 ? signups[signups.length - 1] : null;
+  const anchorDay = last?.day ?? null;
+  const anchorPaying = last?.paying ?? 0;
+
+  // The horizon starts the day AFTER the anchor: the anchor is a real, observed
+  // point and must not be overwritten by a projected one.
+  const keys = generateDailyKeys(
+    new Date(now.getTime() + SUBSCRIBER_PROJECTION_DAYS * 86_400_000),
+    SUBSCRIBER_PROJECTION_DAYS + 1,
+  );
+  const days = anchorDay ? keys.filter((d) => d > anchorDay) : keys;
+
+  const dayOf = (iso: string | null): string | null => {
+    if (!iso) return null;
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return null;
+    return etBucketKeys(d).day;
+  };
+
+  return {
+    horizonDays: SUBSCRIBER_PROJECTION_DAYS,
+    anchorDay,
+    anchorPaying,
+    points: projectFullSubscribers({
+      startCount: anchorPaying,
+      days,
+      // Only trials still heading for a charge become paying subscribers; a
+      // rolling-off trialer never joins this line, so they move it by nothing.
+      conversionDays: conveyor.riders
+        .filter((r) => r.state === 'running')
+        .map((r) => dayOf(r.convertsAt)),
+      departureDays: conveyor.departures.map((d) => dayOf(d.convertsAt)),
+    }),
+    undecidedStalled: conveyor.totals.stalled,
+  };
+}
+
+// ── Subscriber ledger ──────────────────────────────────────────────────────
+const LEDGER_WINDOW_DAYS = 30;
+// Cap on rows serialized to the client. Well above a normal window's traffic;
+// the net totals are computed over every row, so only the list is trimmed.
+const LEDGER_MAX_ROWS = 200;
+
+// Reconstruct the headcount's recent history from the same audit streams the
+// flow charts read. Named with a trailing underscore because the pure builder it
+// delegates to owns the plain name. Any failure yields an empty ledger rather
+// than 500-ing the admin page.
+function buildSubscriberLedger_(now: Date): SubscriberLedgerSnapshot {
+  const empty: SubscriberLedgerSnapshot = {
+    windowDays: LEDGER_WINDOW_DAYS,
+    rows: [],
+    truncated: 0,
+    net: { fullSubscriber: 0, freeTrial: 0, trialGrace: 0 },
+    generatedAt: now.toISOString(),
+  };
+  try {
+    const db = getDb();
+    // Scanned oldest-first so each subscription's prior state is known before
+    // the transition that changes it. A sub's history may start before the
+    // display window, so the scan reaches further back than the window and the
+    // rows are filtered to the window afterwards — otherwise a member whose
+    // first sync predates it would render as a spurious "new subscriber".
+    const since = LEDGER_WINDOW_DAYS * 2;
+    const syncRows = db
+      .prepare(
+        `SELECT created_at, user_id, email, message FROM audit_events
+         WHERE type = 'stripe_subscription_sync'
+           AND created_at > datetime('now', '-${since} days')
+         ORDER BY created_at ASC`,
+      )
+      .all() as Array<{ created_at: string; user_id: string | null; email: string | null; message: string }>;
+    const deletedRows = db
+      .prepare(
+        `SELECT created_at, user_id, email, message FROM audit_events
+         WHERE type = 'stripe_subscription_deleted'
+           AND created_at > datetime('now', '-${since} days')`,
+      )
+      .all() as Array<{ created_at: string; user_id: string | null; email: string | null; message: string }>;
+
+    const syncs: LedgerSyncEvent[] = [];
+    for (const row of syncRows) {
+      const subId = parseSubIdFromMessage(row.message);
+      if (!subId) continue;
+      syncs.push({
+        subId,
+        userId: row.user_id,
+        email: row.email,
+        at: toIsoInstant(row.created_at),
+        status: parseSyncStatus(row.message),
+        tier: parseSyncTierRaw(row.message),
+        cancelAtPeriodEnd: /cancelAtPeriodEnd=true/.test(row.message),
+      });
+    }
+    const deletes: LedgerDeleteEvent[] = deletedRows.map((row) => ({
+      subId: parseSubIdFromMessage(row.message),
+      userId: row.user_id,
+      email: row.email,
+      at: toIsoInstant(row.created_at),
+      reason: parseCancellationReasonFromMessage(row.message).feedback,
+    }));
+
+    const cutoffMs = now.getTime() - LEDGER_WINDOW_DAYS * 86_400_000;
+    const all = buildSubscriberLedger(syncs, deletes).filter((r) => Date.parse(r.at) >= cutoffMs);
+    return {
+      windowDays: LEDGER_WINDOW_DAYS,
+      rows: all.slice(0, LEDGER_MAX_ROWS),
+      truncated: Math.max(0, all.length - LEDGER_MAX_ROWS),
+      net: summarizeLedger(all),
+      generatedAt: now.toISOString(),
+    };
+  } catch {
+    return empty;
+  }
+}
+
+// audit_events.created_at is written by SQLite's datetime() as "YYYY-MM-DD
+// HH:MM:SS" with no zone marker, and it is UTC. Normalize to a real ISO instant
+// so Date.parse doesn't read it as local time.
+function toIsoInstant(createdAt: string): string {
+  const trimmed = createdAt.trim();
+  if (/[Zz]$|[+-]\d{2}:?\d{2}$/.test(trimmed)) return trimmed;
+  return `${trimmed.replace(' ', 'T')}Z`;
+}
+
+// The tier token exactly as the sync message carries it, for the ledger's bucket
+// classification (which folds the legacy ids itself). parseSyncTierStrict maps
+// unknown tokens to null, which would read as "no tier"; here an unrecognized
+// token should simply not be a paid tier.
+function parseSyncTierRaw(message: string): string | null {
+  const m = message.match(/\btier=(\w+)/);
+  return m ? m[1] : null;
+}
+
+// ── Conversion Conveyor ────────────────────────────────────────────────────
+// How far back the audit scan reaches for BOTH the boarding times of trials
+// currently in flight and the historical outcome tally. Comfortably longer than
+// the longest routine trial (REACTIVATION_TRIAL_DAYS, 30) so an in-flight
+// rider's boarding event is still in range, and far cheaper than the 850-day
+// flow scan next door — audit_events has no (type, created_at) index.
+const CONVEYOR_SYNC_WINDOW_DAYS = 120;
+// Trailing window the conversion rate is measured over.
+const CONVEYOR_OUTCOMES_WINDOW_DAYS = 30;
+// Cap on riders serialized to the client. The belt is naturally small (a 7-day
+// trial window), but a promo spike shouldn't balloon the admin payload; the
+// totals are computed over ALL riders, so only the visible queue is trimmed.
+const CONVEYOR_MAX_RIDERS = 60;
+
+const CONVEYOR_DAY_MS = 86_400_000;
+
+type ConveyorUserRow = {
+  id: string;
+  email: string | null;
+  subId: string | null;
+  priceId: string | null;
+  status: string | null;
+  periodEnd: string | null;
+  cancelAtPeriodEnd: number;
+  graceStartedAt: string | null;
+  graceReason: string | null;
+  founding: number;
+};
+
+// The live trial→paying assembly line. Three reads, all bounded:
+//   • the users table for every trial currently in flight (the riders),
+//   • the `stripe_subscription_sync` audit stream for when each one BOARDED
+//     (its first `trialing` sync) and for the historical outcomes,
+//   • the deletion stream, so a trial cancelled outright is booked as a
+//     roll-off rather than silently vanishing.
+// Every failure path falls through to an empty belt: this panel must never
+// 500 the admin page.
+function buildTrialConveyor(now: Date): TrialConveyorSnapshot {
+  const graceDays = getPaymentGraceDays();
+  const empty: TrialConveyorSnapshot = {
+    riders: [],
+    truncated: 0,
+    departures: [],
+    departingValue: 0,
+    totals: summarizeRiders([]),
+    outcomes: summarizeTrialOutcomes(new Map(), [], CONVEYOR_OUTCOMES_WINDOW_DAYS),
+    trialDays: NOMINAL_TRIAL_DAYS,
+    graceDays,
+    generatedAt: now.toISOString(),
+  };
+
+  try {
+    const db = getDb();
+    const amounts = mrrConfigFromEnv().amounts;
+
+    const userRows = db
+      .prepare(
+        `SELECT id,
+                email,
+                stripe_subscription_id AS subId,
+                stripe_price_id AS priceId,
+                subscription_status AS status,
+                current_period_end AS periodEnd,
+                cancel_at_period_end AS cancelAtPeriodEnd,
+                payment_grace_started_at AS graceStartedAt,
+                payment_grace_reason AS graceReason,
+                CASE WHEN founding_member_started_at IS NOT NULL
+                       AND founding_lifetime_applied_at IS NULL
+                     THEN 1 ELSE 0 END AS founding
+           FROM users
+          WHERE deleted_at IS NULL
+            AND (subscription_status = 'trialing'
+                 OR (subscription_status = 'past_due' AND payment_grace_reason = 'trial')
+                 OR (subscription_status = 'active' AND cancel_at_period_end = 1))`,
+      )
+      .all() as ConveyorUserRow[];
+
+    const syncRows = db
+      .prepare(
+        `SELECT created_at, message FROM audit_events
+         WHERE type = 'stripe_subscription_sync'
+           AND created_at > datetime('now', '-${CONVEYOR_SYNC_WINDOW_DAYS} days')
+         ORDER BY created_at ASC`,
+      )
+      .all() as Array<{ created_at: string; message: string }>;
+    const deletedRows = db
+      .prepare(
+        `SELECT created_at, message FROM audit_events
+         WHERE type = 'stripe_subscription_deleted'
+           AND created_at > datetime('now', '-${CONVEYOR_SYNC_WINDOW_DAYS} days')`,
+      )
+      .all() as Array<{ created_at: string; message: string }>;
+
+    // First `trialing` sync per subscription = the instant it boarded the belt.
+    // Rows are already oldest-first, so the first hit wins.
+    const boardedBySub = new Map<string, string>();
+    const syncEvents: ConveyorSyncEvent[] = [];
+    for (const row of syncRows) {
+      const subId = parseSubIdFromMessage(row.message);
+      if (!subId) continue;
+      const status = parseSyncStatus(row.message);
+      if (status === 'trialing' && !boardedBySub.has(subId)) {
+        boardedBySub.set(subId, row.created_at);
+      }
+      syncEvents.push({ subId, status, day: etDayKey(row.created_at) });
+    }
+    const deleteEvents: ConveyorDeleteEvent[] = deletedRows.map((row) => ({
+      subId: parseSubIdFromMessage(row.message),
+      day: etDayKey(row.created_at),
+    }));
+
+    const riders: ConveyorRider[] = [];
+    const departures: ConveyorRider[] = [];
+    for (const row of userRows) {
+      const state = classifyRider({
+        subscriptionStatus: row.status,
+        cancelAtPeriodEnd: Number(row.cancelAtPeriodEnd) === 1,
+        paymentGraceReason: row.graceReason,
+      });
+      // A PAYING subscriber with a scheduled cancel isn't on the belt — they
+      // already converted — but they are the other thing an operator must not be
+      // surprised by, so they get the same countdown treatment below.
+      const isScheduledDeparture =
+        !state && row.status === 'active' && Number(row.cancelAtPeriodEnd) === 1;
+      if (!state && !isScheduledDeparture) continue;
+
+      // The deadline the belt counts down to. A running/rolling-off rider is
+      // due at the trial end (Stripe's current_period_end while `trialing`);
+      // a stalled one is counted down to the end of its recovery window — the
+      // last moment a retry can still convert it.
+      let convertsAt: string | null = row.periodEnd;
+      if (state === 'stalled') {
+        const startedMs = row.graceStartedAt ? Date.parse(row.graceStartedAt) : NaN;
+        convertsAt = Number.isFinite(startedMs)
+          ? new Date(startedMs + graceDays * CONVEYOR_DAY_MS).toISOString()
+          : null;
+      }
+
+      // Priced exactly like the MRR snapshot: unmappable price ids contribute
+      // $0 rather than a guess, so the belt's value can't silently inflate.
+      const sku = row.priceId ? priceIdToSku(row.priceId) : null;
+      const founding = Number(row.founding) === 1;
+      const monthlyValue = sku ? amounts[sku.tier][sku.cadence][founding ? 'founding' : 'list'] : 0;
+
+      const entry: ConveyorRider = {
+        userId: row.id,
+        email: row.email,
+        // A scheduled departure is presented in the rolling-off lane: same
+        // meaning (leaving, not paying again), different stage of the funnel.
+        state: state ?? 'rollingOff',
+        tier: sku?.tier ?? null,
+        cadence: sku?.cadence ?? null,
+        founding,
+        boardedAt: row.subId ? (boardedBySub.get(row.subId) ?? null) : null,
+        convertsAt,
+        monthlyValue,
+      };
+      if (state) riders.push(entry);
+      else departures.push(entry);
+    }
+
+    const totals = summarizeRiders(riders);
+    const ordered = sortRidersByDeadline(riders);
+    const outcomes = summarizeTrialOutcomes(
+      accumulateTrialOutcomes(syncEvents, deleteEvents),
+      generateDailyKeys(now, CONVEYOR_OUTCOMES_WINDOW_DAYS),
+      CONVEYOR_OUTCOMES_WINDOW_DAYS,
+    );
+
+    return {
+      riders: ordered.slice(0, CONVEYOR_MAX_RIDERS),
+      truncated: Math.max(0, ordered.length - CONVEYOR_MAX_RIDERS),
+      departures: sortRidersByDeadline(departures).slice(0, CONVEYOR_MAX_RIDERS),
+      departingValue: departures.reduce((sum, d) => sum + d.monthlyValue, 0),
+      totals,
+      outcomes,
+      trialDays: NOMINAL_TRIAL_DAYS,
+      graceDays,
+      generatedAt: now.toISOString(),
+    };
+  } catch {
+    // Query/parse failure: render an empty belt rather than 500-ing the page.
+    return empty;
+  }
+}
+
 // Counts audit_events rows of `type` whose created_at is newer than
 // `intervalSql` (e.g. '-1 day', '-7 days'). Empty/missing audit_events
 // table is treated as zero so this never throws back to the API route.
@@ -1354,6 +1772,10 @@ export function getSnapshot(): MonitoringSnapshot {
   const dailyKeys = generateDailyKeys(now);
   const mrr = buildMrr();
   const mrrSeries = buildMrrSeries(now, mrr);
+  // Built once and shared: the projection reads both, and anchoring it to the
+  // series' own last point is what makes the dashed line meet the solid one.
+  const signups = buildSignupSeries(now);
+  const trialConveyor = buildTrialConveyor(now);
   return {
     mrr,
     mrrSeries,
@@ -1363,10 +1785,13 @@ export function getSnapshot(): MonitoringSnapshot {
     // rate as a long-run average. (The forward projection line is computed
     // client-side from a shorter trailing window and is unaffected either way.)
     mrrTrend: computeMrrTrend(mrrSeries.slice(-MAX_DAILY), mrr.targetMrr),
-    signups: buildSignupSeries(now),
+    signups,
     signupFlow: buildSignupFlowSeries(now),
     growthRates: buildGrowthRates(now),
     cancellationReasons: buildCancellationReasons(),
+    trialConveyor,
+    subscriberLedger: buildSubscriberLedger_(now),
+    subscriberProjection: buildSubscriberProjection(now, signups, trialConveyor),
     hourly: hourlyKeys.map((key) => bucketToPoint(key, live.hourly[key])),
     daily: dailyKeys.map((key) => bucketToPoint(key, live.daily[key])),
     topIps: aggregateTopIps(live.daily, 10),

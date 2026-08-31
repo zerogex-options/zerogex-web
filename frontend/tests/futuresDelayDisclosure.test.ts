@@ -1,9 +1,15 @@
 // The ES / NQ market-data disclosure.
 //
-// The account is on TradeStation's DELAYED CME package while the real-time
-// entitlement is provisioned, so every ES/NQ price on the site runs ~10
-// minutes behind the futures market. Equities, the cash indexes, and the
-// dealer levels themselves (computed from live SPX/NDX chains) are unaffected.
+// The account ran on TradeStation's DELAYED CME package during the ES / NQ
+// rollout, which put every ES/NQ price on the site ~10 minutes behind the
+// futures market. The real-time entitlement is now provisioned, so
+// FUTURES_REALTIME_PENDING is false and the standing-delay prose is gone.
+// Equities, the cash indexes, and the dealer levels themselves (computed from
+// live SPX/NDX chains) were unaffected throughout.
+//
+// The tests below are written against BOTH states rather than the current one,
+// because the flag is the thing most likely to move again — a delayed package
+// is what you fall back to if the entitlement lapses.
 //
 // Two properties matter more than the copy:
 //
@@ -21,6 +27,7 @@ import {
   FUTURES_REALTIME_PENDING,
   futuresDelayLabel,
   futuresDelayNote,
+  futuresDelayTitle,
 } from "../core/futuresDataStatus.ts";
 
 test("a steady ~10 minute lag reads as one stable label", () => {
@@ -67,5 +74,42 @@ test("the static-page note names the symbol and is gated by the one switch", () 
     // Flipping FUTURES_REALTIME_PENDING must remove the prose everywhere at
     // once, with no second place to remember.
     assert.equal(note, "");
+  }
+});
+
+test("the tooltip blames the entitlement, not the feed, only while one applies", () => {
+  const title = futuresDelayTitle("ES", 600);
+  if (FUTURES_REALTIME_PENDING) {
+    // A standing delay is the entitlement working as sold. Calling that a
+    // stall would send someone hunting an outage that isn't there.
+    assert.ok(/delayed CME feed/.test(title), title);
+    assert.ok(!/stalled/.test(title), title);
+  } else {
+    // With real-time entitled there is no standing delay left to blame, so a
+    // lagging print is an outage. Calling it "delayed" would explain away a
+    // dead feed as normal — the exact failure this disclosure exists to catch.
+    assert.ok(/stalled/.test(title), title);
+    assert.ok(!/delayed CME feed/.test(title), title);
+  }
+});
+
+test("the tooltip always clears the dealer levels of blame", () => {
+  // A trader who reads the badge as "the levels are stale too" has drawn the
+  // opposite of the truth: levels come from live SPX/NDX chains either way.
+  for (const [symbol, chain] of [["ES", "SPX"], ["NQ", "NDX"]]) {
+    const title = futuresDelayTitle(symbol, 900);
+    assert.ok(title.includes(`live ${chain} options`), title);
+    assert.ok(/are current/.test(title), title);
+  }
+});
+
+test("the tooltip reports the measured age, and survives not having one", () => {
+  assert.ok(/about 10 minutes/.test(futuresDelayTitle("ES", 600)));
+  assert.ok(/about 25 minutes/.test(futuresDelayTitle("ES", 1500)));
+  // No age must still produce a sentence, never "about NaN minutes".
+  for (const age of [null, undefined, Number.NaN]) {
+    const title = futuresDelayTitle("ES", age);
+    assert.ok(/an unknown amount/.test(title), title);
+    assert.ok(!/NaN/.test(title), title);
   }
 });

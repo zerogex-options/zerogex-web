@@ -31,9 +31,10 @@ import { useTimeframe } from '@/core/TimeframeContext';
 import { useTheme } from '@/core/ThemeContext';
 import { etTodayDateKey, getMarketSession, isIndexSymbol, omitClosedMarketTimes, omitOutOfHoursForSymbol } from "@/core/utils";
 import { loadChartSettings, saveChartSettings } from '@/core/chartSettings';
+import { visibleViewBoxRight } from '@/core/chartViewport';
 import { PIN_STRIKE_COLOR_HEX } from '@/core/pinStrike';
 import { useSharedExpirations } from '@/hooks/useSharedExpirations';
-import { reconcileExpirations } from '@/core/expirationPersistence';
+import { isRollingZeroDte, reconcileExpirations } from '@/core/expirationPersistence';
 import ChartCaption from './ChartCaption';
 
 interface StrikeAggregation {
@@ -541,7 +542,14 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // the cache key + backend filter, so an overnight-rolled pick never fetches an
   // expired contract. The dropdown reconciles against the full live universe
   // below; here we only have `todayKey`, which covers the staleness case.
-  const paramExpiries = rawExpiries.filter((exp) => exp >= todayKey);
+  // The rolling 0DTE token is NOT a date and must be resolved before this
+  // filter, not after: '0DTE' sorts below every ISO date ('0' < '2'), so a bare
+  // `>= todayKey` drops it, the param falls back to 'all', and this chart fetches
+  // the WHOLE CHAIN while its own dropdown still reads 0DTE. That is precisely
+  // the silently-wrong-book failure the token exists to prevent.
+  const paramExpiries = Array.from(
+    new Set(rawExpiries.map((exp) => (isRollingZeroDte(exp) ? todayKey : exp))),
+  ).filter((exp) => exp >= todayKey);
   const expirationsParam = paramExpiries.length === 0
     ? 'all'
     : [...paramExpiries].sort().join(',');
@@ -1567,6 +1575,56 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // ── Hover tracking for tooltips/crosshair ──
   const containerRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
+
+  // ── Where the drawing surface actually ends on screen ──
+  // The SVG has a ``min-width`` floor so the chart stays legible on a phone;
+  // below that floor it is wider than its scroll container and its right-hand
+  // edge is off-screen. The key-level pills used to be pinned to CW — the far
+  // edge of the viewBox — so in any tile narrower than the floor (a common My
+  // Dashboard footprint) they were sliced down to their first letter or two.
+  // Anchoring them to the visible edge instead keeps them readable at every
+  // width, and follows the container as the user scrolls the chart sideways.
+  // Starts at CW so the first paint (and SSR) places them exactly where a
+  // full-width layout wants them; the measurement only ever pulls them left.
+  const [labelRightEdge, setLabelRightEdge] = useState(CW);
+  // Until ``yBounds`` resolves the component renders a loading card instead of
+  // the chart, so there is no container to measure yet — hence the dependency:
+  // the effect has to re-run on the render that finally mounts the SVG.
+  const chartMounted = yBounds != null;
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const measure = () => {
+      const svg = svgRef.current;
+      if (!container || !svg) return;
+      const cRect = container.getBoundingClientRect();
+      const sRect = svg.getBoundingClientRect();
+      const next = visibleViewBoxRight({
+        svgWidth: sRect.width,
+        svgHeight: sRect.height,
+        viewBoxWidth: CW,
+        viewBoxHeight: CH,
+        visibleRightPx: cRect.right - sRect.left,
+      });
+      // Sub-pixel jitter (a scroll easing out, a fractional resize) would
+      // otherwise re-render the whole chart on every frame.
+      setLabelRightEdge((prev) => (Math.abs(prev - next) > 0.5 ? next : prev));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(container);
+    if (svgRef.current) ro.observe(svgRef.current);
+    container.addEventListener('scroll', measure, { passive: true });
+    window.addEventListener('resize', measure);
+    return () => {
+      ro.disconnect();
+      container.removeEventListener('scroll', measure);
+      window.removeEventListener('resize', measure);
+    };
+    // ``fullscreen`` and ``compact`` both re-lay-out the SVG box; re-running
+    // re-attaches the observers to the box that actually got rendered.
+  }, [chartMounted, fullscreen, compact]);
+
   type HoverState = {
     pxX: number;
     pxY: number;
@@ -2741,8 +2799,14 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
             return positioned.map((lvl, i) => {
               const text = `${lvl.label} ${lvl.price.toFixed(2)}`;
               const pillW = Math.max(72, text.length * 5.6);
-              const pillX = CW - pillW - 2;
-              const lineEndX = pillX - 8;
+              // Right-align to the visible edge of the drawing, not to CW —
+              // see ``labelRightEdge``. Identical to ``CW - pillW - 2`` whenever
+              // the whole chart is on screen; when it isn't, the pill slides in
+              // with it instead of being clipped to its first letter. The floor
+              // keeps the pill on the canvas even in a viewport too narrow to
+              // hold one.
+              const pillX = Math.max(LEFT_X, labelRightEdge - pillW - 2);
+              const lineEndX = Math.max(LEFT_X, pillX - 8);
               const offset = Math.abs(lvl.labelY - lvl.y) > 0.5;
               return (
                 <g key={`lvl-${i}-${lvl.price}`}>

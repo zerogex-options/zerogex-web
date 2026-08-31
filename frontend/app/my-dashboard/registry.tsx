@@ -70,8 +70,8 @@ import {
   PriceActionPanel,
   GammaPulseWidget,
   SignalsSynthesisPanel,
+  RegimePlaybookPanel,
   TradeBiasHorizonPanel,
-  TradeBiasPanel,
   ConfluencePanel,
   CompositeScorePanel,
   SignalScoreWidget,
@@ -420,20 +420,25 @@ export const WIDGETS: WidgetDef[] = [
     render: () => <SignalsSynthesisPanel />,
   },
   {
+    // The id stays 'trade-bias' though the widget is now called Regime &
+    // Playbook: ids are what persisted boards store, and an unknown id is
+    // dropped on load (see sanitizeLayout), so renaming it would silently
+    // delete this widget from every board already carrying it.
     id: 'trade-bias',
-    title: 'Trade Bias',
-    // Says which of the two bias reads this is. They are different
-    // calculations and are allowed to disagree, so a member choosing between
-    // them on the board needs to be told which one they are placing.
+    title: 'Regime & Playbook',
+    // Renamed off "Trade Bias" because two widgets under that name were two
+    // different calculations — this composite, and the engine's signed call in
+    // Trade Bias · Horizon — which are allowed to disagree. Naming this one for
+    // what it actually leads with settles which is which.
     blurb:
-      'Glance-first regime, directional bias and playbook read, composited in your browser from the proprietary signals.',
+      'Glance-first regime read, directional bias and the playbook for it, composited in your browser from the proprietary signals.',
     category: 'signals',
     tier: 'basic',
     icon: Signal,
     defaultSize: 'md',
     allowedSizes: ALL_SIZES,
     feeds: [],
-    render: () => <TradeBiasPanel />,
+    render: () => <RegimePlaybookPanel />,
   },
   {
     id: 'trade-bias-horizon',
@@ -628,10 +633,17 @@ export const PRESETS: DashboardPreset[] = [
       // Read the day, then the levels, then the tape. Glance-first at the top:
       // a same-day trader checking in mid-session should get the regime and the
       // levels without scrolling, and only then the charts to act on.
+      //
+      // The Net GEX and Gamma Flip TILES are deliberately absent. They read the
+      // board-wide `gex` feed, which is a whole-chain summary that takes no
+      // expiration argument — so on a board scoped to today they would print
+      // whole-chain numbers directly above a Key Levels strip and a strike book
+      // showing the same-day book, with nothing explaining the disagreement.
+      // Key Levels carries the gamma flip anyway, and it DOES follow the pane's
+      // scope. Two plausible answers to one question is the failure this preset
+      // exists to avoid, not one to ship at the top of it.
       { widgetId: 'todays-read', size: 'xl' },
       { widgetId: 'price', size: 'sm' },
-      { widgetId: 'net-gex', size: 'sm' },
-      { widgetId: 'gamma-flip', size: 'sm' },
       { widgetId: 'vix-level', size: 'sm' },
       { widgetId: 'key-levels', size: 'xl' },
       { widgetId: 'gamma-chart', size: 'xl' },

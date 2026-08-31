@@ -59,6 +59,7 @@ const {
   isExpirationDate,
   isRollingZeroDte,
   selectionIsRollingZeroDte,
+  zeroDteWidenedToAll,
   normalizeExpirations,
   reconcileExpirations,
   ROLLING_ZERO_DTE,
@@ -170,6 +171,47 @@ test('reconcileExpirations drops the 0DTE token when today is not an expiry', ()
   );
 });
 
+// zeroDteWidenedToAll is the companion to the drop above: reconcile silently
+// turning ['0DTE'] into [] is correct, and [] correctly means "All", so a
+// weekend chart plots the whole chain under a 0DTE label with every individual
+// step honest. These pin the one predicate that lets the UI say so.
+test('zeroDteWidenedToAll flags a 0DTE pick with no same-day expiry', () => {
+  assert.equal(
+    zeroDteWidenedToAll([ROLLING_ZERO_DTE], ['2025-06-27', '2025-07-03'], '2025-06-21'),
+    true,
+  );
+});
+
+test('zeroDteWidenedToAll is false when today IS an expiry', () => {
+  assert.equal(
+    zeroDteWidenedToAll([ROLLING_ZERO_DTE], ['2025-06-20', '2025-06-27'], '2025-06-20'),
+    false,
+  );
+});
+
+test('zeroDteWidenedToAll is false while the expiration list is still loading', () => {
+  // An empty `available` means "not fetched yet", not "today is absent". Without
+  // this guard the warning fires on every mount, before the chain arrives, and
+  // a warning that cries wolf on load is one nobody reads on a weekend.
+  assert.equal(zeroDteWidenedToAll([ROLLING_ZERO_DTE], [], '2025-06-21'), false);
+});
+
+test('zeroDteWidenedToAll ignores selections that are not the rolling pick', () => {
+  const available = ['2025-06-27', '2025-07-03'];
+  // An explicit All is the user's own choice — nothing was substituted for it.
+  assert.equal(zeroDteWidenedToAll([], available, '2025-06-21'), false);
+  // A dated pick that has gone stale collapses to All too, but the date was
+  // never a standing "follow today" instruction, so it is not this warning's
+  // business (reconcileExpirations already drops it).
+  assert.equal(zeroDteWidenedToAll(['2025-06-20'], available, '2025-06-21'), false);
+  // 0DTE alongside a date is a mixed pick: the dated half still filters, so the
+  // chart is not showing the whole chain and there is nothing to announce.
+  assert.equal(
+    zeroDteWidenedToAll([ROLLING_ZERO_DTE, '2025-06-27'], available, '2025-06-21'),
+    false,
+  );
+});
+
 test('reconcileExpirations does not double-count 0DTE alongside today’s date', () => {
   const available = ['2025-06-20', '2025-06-27'];
   assert.deepEqual(
@@ -179,6 +221,32 @@ test('reconcileExpirations does not double-count 0DTE alongside today’s date',
   assert.deepEqual(
     reconcileExpirations([ROLLING_ZERO_DTE, '2025-06-27'], available, '2025-06-20'),
     ['2025-06-20', '2025-06-27'],
+  );
+});
+
+// The no-regression pin. Everything above adds a token to the model; this
+// asserts the model is otherwise byte-for-byte what it was for the ~all of
+// users who never pick 0DTE. If a future change to the token machinery
+// perturbs a plain dated selection, this is the test that should fail.
+test('a dated selection is completely untouched by the token machinery', () => {
+  const available = ['2025-06-20', '2025-06-27', '2025-07-03'];
+  const today = '2025-06-20';
+
+  // Order preserved, not re-sorted, not deduped away, not resolved.
+  assert.deepEqual(
+    reconcileExpirations(['2025-07-03', '2025-06-27'], available, today),
+    ['2025-07-03', '2025-06-27'],
+  );
+  // Today's literal date stays a literal date — it is NOT silently promoted to
+  // the rolling token, which would change its meaning tomorrow.
+  assert.deepEqual(reconcileExpirations([today], available, today), [today]);
+  assert.deepEqual(persistExpirations([today]), [today]);
+  // "All" still means all.
+  assert.deepEqual(reconcileExpirations([], available, today), []);
+  // Normalisation of dates alone is unchanged: dedupe + ascending, no token.
+  assert.deepEqual(
+    normalizeExpirations(['2025-07-03', '2025-06-20', '2025-07-03']),
+    ['2025-06-20', '2025-07-03'],
   );
 });
 

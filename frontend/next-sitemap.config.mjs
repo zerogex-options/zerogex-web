@@ -160,11 +160,13 @@ const config = {
       '/help',
       '/help/faqs',
       '/help/quickstarts',
+      '/ninjatrader-indicator',
       '/pricing',
       '/privacy',
       '/real-time-gex-0dte',
       '/terms',
       '/trading-mistakes',
+      '/tradingview-indicator',
       '/updates',
     ];
 

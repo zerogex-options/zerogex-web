@@ -41,6 +41,13 @@ function initDb(): DatabaseSync {
       FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
     );
   `);
+  // Every read of this table goes by token_hash, which the UNIQUE above already
+  // indexes. The by-user_id access — expired-row pruning on sign-in, and the
+  // full revoke on password reset and account deletion — used to be rare enough
+  // to leave as a scan, because a user only ever had one row. Sessions are
+  // additive now (see createSessionForUser), so a long-lived account
+  // accumulates one row per sign-in and those scans grow with it.
+  db.exec('CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);');
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS audit_events (
@@ -362,6 +369,26 @@ function initDb(): DatabaseSync {
   // fresh 'trialing' transition (same re-arm as the reminder latch) so a second
   // trial gets one fresh nudge.
   ensureColumn('users', 'trial_midpoint_email_sent_at', 'TEXT');
+
+  // Idempotency stamp for the trial-CONVERSION confirmation email — the receipt
+  // sent when a trial's first real charge clears (core/mailer
+  // sendTrialConvertedEmail). NULL = eligible; CAS-set to ISO in the Stripe
+  // webhook's invoice.paid handler, so a redelivered or replayed invoice event
+  // can't bill the member's inbox twice for one conversion.
+  //
+  // Deliberately NOT backfilled for the existing paid base, unlike
+  // pro_welcome_seen_at above. The send is gated on the invoice actually BEING
+  // the trial-conversion charge (isTrialConversionInvoice: a cycle invoice
+  // created at trial_end), and an already-converted member only ever produces
+  // renewal invoices, which are a full billing cycle outside that window. The
+  // predicate — not this stamp — is what keeps the email off the existing base,
+  // so backfilling would buy nothing and would silence any member still mid-
+  // trial on the boot this column is born.
+  //
+  // Never cleared: a second trial can't happen for a member who has already
+  // paid (checkout suppresses the trial for hasPriorPaid accounts), so there is
+  // no re-arm case the way there is for the reminder latches above.
+  ensureColumn('users', 'trial_converted_email_sent_at', 'TEXT');
 
   // One-shot latch for the abandoned-checkout recovery email sent by
   // scripts/send-checkout-recovery.mts. NULL = eligible, set to the ISO

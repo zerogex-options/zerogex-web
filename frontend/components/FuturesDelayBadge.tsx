@@ -1,7 +1,7 @@
 "use client";
 
 import { isFuturesSymbol } from "@/core/symbols";
-import { FUTURES_REALTIME_PENDING, futuresDelayLabel } from "@/core/futuresDataStatus";
+import { futuresDelayLabel, futuresDelayTitle } from "@/core/futuresDataStatus";
 
 /**
  * Discloses that an ES / NQ quote is running behind the futures market.
@@ -17,6 +17,12 @@ import { FUTURES_REALTIME_PENDING, futuresDelayLabel } from "@/core/futuresDataS
  *     "10-minute delay" notice is wrong on a real-time feed that has died;
  *     this one reports that honestly too.
  *
+ * Both strings come from core/futuresDataStatus — the label from the measured
+ * age, the tooltip from the age AND the entitlement state, since a real-time
+ * feed running late is a stalled feed rather than a delayed one. Keeping the
+ * copy there is deliberate: that module is the single place to revisit when
+ * the CME entitlement changes, and this component renders whatever it says.
+ *
  * Only ES / NQ carry `stale` / `data_age_seconds` — the cash index and ETF
  * quote paths never set them, so this renders for futures alone.
  */
@@ -28,19 +34,14 @@ interface Props {
 }
 
 export default function FuturesDelayBadge({ symbol, stale, dataAgeSeconds }: Props) {
-  if (!isFuturesSymbol(symbol) || !stale) return null;
+  // The leading `!symbol` is redundant at runtime — isFuturesSymbol already
+  // rejects null and undefined — but it is what narrows the prop to `string`
+  // for futuresDelayTitle, which takes one.
+  if (!symbol || !isFuturesSymbol(symbol) || !stale) return null;
 
   const age = typeof dataAgeSeconds === "number" ? dataAgeSeconds : null;
   const label = futuresDelayLabel(age);
-  const exact = age != null ? `about ${Math.round(age / 60)} minutes` : "an unknown amount";
-
-  const title =
-    `${symbol} quotes come from a delayed CME feed and are running ${exact} behind the ` +
-    `futures market. The dealer levels on this page are computed from live ` +
-    `${symbol === "NQ" ? "NDX" : "SPX"} options and are current.` +
-    (FUTURES_REALTIME_PENDING
-      ? " Real-time futures data is being enabled — this notice will clear itself once it is live."
-      : "");
+  const title = futuresDelayTitle(symbol, age);
 
   return (
     <span

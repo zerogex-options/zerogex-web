@@ -1,14 +1,19 @@
 #!/usr/bin/env node
 // Run from the frontend/ directory:
 //   node --experimental-strip-types scripts/send-product-update.mts \
-//     --audience subscribers|registrants \
-//     [--dry-run] [--preview-to <email>] [--send --yes] [--limit N] \
-//     [--days N] [--subject "..."] [--throttle-ms N] [--no-list-unsubscribe] [--csv <path>]
+//     --audience subscribers|registrants|cancelled \
+//     [--campaign <id>] [--dry-run] [--preview-to <email>] [--send --yes] \
+//     [--limit N] [--days N] [--since <ISO date>] [--subject "..."] \
+//     [--throttle-ms N] [--no-list-unsubscribe] [--csv <path>]
 //
-// One-shot July 2026 product update, sent DIRECTLY per-recipient from the server
+// One-shot product-update campaign, sent DIRECTLY per-recipient from the server
 // via Resend (emails.send). Computes the cohort from the auth DB, sends the
 // matching docs/newsletters/*.html + *.txt to each recipient, and stamps an
 // audit row so re-runs resume instead of double-sending.
+//
+// Campaigns are registered in CAMPAIGNS below and selected with --campaign;
+// DEFAULT_CAMPAIGN is what a bare invocation sends. Past campaigns stay
+// registered so a finished send can still be counted or re-audited.
 //
 // The email body carries a per-recipient Unsubscribe link: the {{UNSUB_URL}}
 // placeholder is replaced with a signed /unsubscribe link, and the same URL is
@@ -20,13 +25,29 @@
 // Audiences:
 //   subscribers  → active + trialing customers.
 //                  WHERE subscription_status IN ('active','trialing')
-//   registrants  → signed up ≤N days (default 30), verified email, logged in
-//                  (proxied by authenticated page-view activity — no last_login
-//                  column exists), never subscribed, and NOT already reached by
-//                  the automated verified-never-paid nudge (no double-touch).
+//   registrants  → signed up ≤N days (default 30) or since --since, verified
+//                  email, logged in (proxied by authenticated page-view activity
+//                  — no last_login column exists), never subscribed, and NOT
+//                  already reached by the automated verified-never-paid nudge
+//                  (no double-touch).
+//   cancelled    → churned members (subscription_lapsed=1, no live sub, verified,
+//                  not an operator, not self-deleted) who have NOT already had
+//                  the automated ~1-month win-back (winback_email_sent_at IS
+//                  NULL), so nobody gets two win-back pitches. Mirrors the
+//                  eligibility in scripts/send-winback.mts minus its churn-age
+//                  window, plus the marketing opt-out every campaign honors.
 //
-// Idempotency: a `product_update_2026_07_sent` row is written to audit_events on
-// each successful send; already-stamped users are skipped on re-run.
+// WIN-BACK COUPON (cancelled only): the email's CTA is /pricing?winback=1, and
+// app/api/billing/checkout/route.ts only attaches the coupon when BOTH
+// subscription_lapsed=1 AND users.winback_email_sent_at is set. This sender
+// therefore stamps winback_email_sent_at on each successful `cancelled` send —
+// which is also what stops the weekly automated win-back from double-touching
+// the cohort. Because the promise is worthless without the coupon configured,
+// the run refuses to start unless STRIPE_COUPON_WINBACK_* is present (override
+// with --allow-missing-coupon when the offer is being honored by hand).
+//
+// Idempotency: a `<campaign key>_sent` row is written to audit_events on each
+// successful send; already-stamped users are skipped on re-run.
 //
 // Env (from process.env or .env.local): RESEND_API_KEY, RESEND_FROM_EMAIL.
 // AUTH_DB_PATH overrides the DB. Requires the sqlite3 CLI on PATH.
@@ -37,9 +58,19 @@ import crypto from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { buildUnsubUrl } from '../core/unsubToken.ts';
 
-type Audience = 'subscribers' | 'registrants';
+type Audience = 'subscribers' | 'registrants' | 'cancelled';
+
+type AudienceContent = { subject: string; html: string; text: string };
+
+type CampaignSpec = {
+  // Idempotency key; the audit row written per send is `${key}_sent`.
+  key: string;
+  // Only the audiences this campaign actually has content for.
+  content: Partial<Record<Audience, AudienceContent>>;
+};
 
 type Args = {
+  campaign: string;
   audience: Audience | null;
   dryRun: boolean;
   send: boolean;
@@ -48,26 +79,58 @@ type Args = {
   csvPath: string | null;
   limit: number | null;
   days: number;
+  // Explicit signup-window floor for the registrant cohort (ISO date). Takes
+  // precedence over --days, which is a relative fallback.
+  since: string | null;
+  // Send the `cancelled` audience even when no win-back coupon is configured
+  // (i.e. the discount will be honored by hand instead of at checkout).
+  allowMissingCoupon: boolean;
   subject: string | null;
   throttleMs: number;
   listUnsub: boolean;
   help: boolean;
 };
 
-const CAMPAIGN = 'product_update_2026_07';
 const REPLY_TO = 'Michael@zerogex.io';
 
-const SUBJECTS: Record<Audience, string> = {
-  subscribers: "What's new at ZeroGEX — and what's coming next",
-  registrants: 'Your ZeroGEX account is ready — start with the free levels',
-};
-const FILES: Record<Audience, { html: string; text: string }> = {
-  subscribers: { html: '2026-07-product-update.html', text: '2026-07-product-update.txt' },
-  registrants: {
-    html: '2026-07-product-update-registrants.html',
-    text: '2026-07-product-update-registrants.txt',
+// Every product-update campaign, newest last. A finished campaign stays
+// registered so its cohort can still be counted or re-audited with --campaign.
+const CAMPAIGNS: Record<string, CampaignSpec> = {
+  '2026-07': {
+    key: 'product_update_2026_07',
+    content: {
+      subscribers: {
+        subject: "What's new at ZeroGEX — and what's coming next",
+        html: '2026-07-product-update.html',
+        text: '2026-07-product-update.txt',
+      },
+      registrants: {
+        subject: 'Your ZeroGEX account is ready — start with the free levels',
+        html: '2026-07-product-update-registrants.html',
+        text: '2026-07-product-update-registrants.txt',
+      },
+    },
+  },
+  '2026-08': {
+    key: 'product_update_2026_08',
+    content: {
+      registrants: {
+        subject: "What's new at ZeroGEX since you signed up",
+        html: '2026-08-product-update-registrants.html',
+        text: '2026-08-product-update-registrants.txt',
+      },
+      cancelled: {
+        subject: "What's changed at ZeroGEX since you left",
+        html: '2026-08-product-update-cancelled.html',
+        text: '2026-08-product-update-cancelled.txt',
+      },
+    },
   },
 };
+const DEFAULT_CAMPAIGN = '2026-08';
+
+// The July send used a 30-day signup window. The August campaign targets only
+// registrants who arrived SINCE that send, so it passes --since instead.
 const DEFAULT_DAYS = 30;
 const DEFAULT_THROTTLE_MS = 550; // conservative: ≈1.8 req/s, well under Resend limits
 
@@ -95,6 +158,7 @@ function parseEnvFile(filePath: string): Record<string, string> {
 
 function parseArgs(argv: string[]): Args {
   const args: Args = {
+    campaign: DEFAULT_CAMPAIGN,
     audience: null,
     dryRun: false,
     send: false,
@@ -103,6 +167,8 @@ function parseArgs(argv: string[]): Args {
     csvPath: null,
     limit: null,
     days: DEFAULT_DAYS,
+    since: null,
+    allowMissingCoupon: false,
     subject: null,
     throttleMs: DEFAULT_THROTTLE_MS,
     listUnsub: true,
@@ -112,11 +178,20 @@ function parseArgs(argv: string[]): Args {
     const arg = argv[i];
     if (arg === '--audience') {
       const v = argv[++i];
-      if (v !== 'subscribers' && v !== 'registrants') {
-        console.error(`Error: --audience must be "subscribers" or "registrants".`);
+      if (v !== 'subscribers' && v !== 'registrants' && v !== 'cancelled') {
+        console.error(`Error: --audience must be "subscribers", "registrants" or "cancelled".`);
         process.exit(1);
       }
       args.audience = v;
+    } else if (arg === '--campaign') {
+      const v = argv[++i] ?? '';
+      if (!Object.prototype.hasOwnProperty.call(CAMPAIGNS, v)) {
+        console.error(
+          `Error: unknown --campaign "${v}". Known: ${Object.keys(CAMPAIGNS).join(', ')}.`,
+        );
+        process.exit(1);
+      }
+      args.campaign = v;
     } else if (arg === '--dry-run') args.dryRun = true;
     else if (arg === '--send') args.send = true;
     else if (arg === '--yes' || arg === '-y') args.yes = true;
@@ -136,7 +211,16 @@ function parseArgs(argv: string[]): Args {
         process.exit(1);
       }
       args.days = v;
-    } else if (arg === '--subject') args.subject = argv[++i] ?? null;
+    } else if (arg === '--since') {
+      const v = argv[++i] ?? '';
+      const ts = Date.parse(v);
+      if (!Number.isFinite(ts)) {
+        console.error('Error: --since expects a parseable date (e.g. 2026-07-20).');
+        process.exit(1);
+      }
+      args.since = new Date(ts).toISOString();
+    } else if (arg === '--allow-missing-coupon') args.allowMissingCoupon = true;
+    else if (arg === '--subject') args.subject = argv[++i] ?? null;
     else if (arg === '--throttle-ms') {
       const v = Number(argv[++i] ?? '');
       if (!Number.isFinite(v) || v < 0) {
@@ -153,11 +237,15 @@ function parseArgs(argv: string[]): Args {
 function usage() {
   console.log(`Usage:
   node --experimental-strip-types scripts/send-product-update.mts \\
-    --audience subscribers|registrants \\
-    [--dry-run] [--preview-to <email>] [--send --yes] [--limit N] \\
-    [--days N] [--subject "..."] [--throttle-ms N] [--no-list-unsubscribe] [--csv <path>]
+    --audience subscribers|registrants|cancelled \\
+    [--campaign <id>] [--dry-run] [--preview-to <email>] [--send --yes] \\
+    [--limit N] [--days N] [--since <ISO date>] [--subject "..."] \\
+    [--throttle-ms N] [--no-list-unsubscribe] [--csv <path>]
 
-Sends the July 2026 product update directly, per-recipient, via Resend.
+Sends a product-update campaign directly, per-recipient, via Resend.
+Campaigns: ${Object.keys(CAMPAIGNS)
+    .map((c) => (c === DEFAULT_CAMPAIGN ? `${c} (default)` : c))
+    .join(', ')}
 
 Modes (default is dry-run — counts only, nothing sent):
       --dry-run                 Print cohort count + sample. No send, no writes.
@@ -166,13 +254,17 @@ Modes (default is dry-run — counts only, nothing sent):
       --limit N                 With --send: only the first N recipients (test batch).
       --csv <path>              Write the cohort emails to a CSV. No send.
       --days N                  Registrant signup window (default ${DEFAULT_DAYS}).
+      --since <ISO date>        Registrant signup floor; overrides --days.
+      --allow-missing-coupon    Send 'cancelled' with no win-back coupon set.
       --subject "..."           Override the default subject.
       --throttle-ms N           Delay between sends (default ${DEFAULT_THROTTLE_MS}).
       --no-list-unsubscribe     Omit the List-Unsubscribe header (not recommended).
   -h, --help                    Show this help.
 
-Idempotent: successful sends stamp audit_events(type='${CAMPAIGN}_sent'); a
-re-run skips anyone already stamped, so an interrupted run resumes cleanly.`);
+Idempotent: successful sends stamp audit_events(type='<campaign key>_sent'); a
+re-run skips anyone already stamped, so an interrupted run resumes cleanly.
+The 'cancelled' audience additionally stamps users.winback_email_sent_at, which
+is what makes the email's /pricing?winback=1 coupon attach at checkout.`);
 }
 
 function ensureSqlite3Cli() {
@@ -239,6 +331,16 @@ if (cli.help || !cli.audience) {
   process.exit(cli.help ? 0 : 1);
 }
 const audience = cli.audience;
+const campaignSpec = CAMPAIGNS[cli.campaign]!;
+const CAMPAIGN = campaignSpec.key;
+const content = campaignSpec.content[audience];
+if (!content) {
+  console.error(
+    `Error: campaign ${cli.campaign} has no content for audience "${audience}". ` +
+      `Available: ${Object.keys(campaignSpec.content).join(', ')}.`,
+  );
+  process.exit(1);
+}
 
 const cwd = process.cwd();
 const envLocal = parseEnvFile(path.join(cwd, '.env.local'));
@@ -259,15 +361,43 @@ if (!fs.existsSync(dbPath)) {
 ensureSqlite3Cli();
 
 const docsDir = path.join(cwd, '..', 'docs', 'newsletters');
-const htmlPath = path.join(docsDir, FILES[audience].html);
-const textPath = path.join(docsDir, FILES[audience].text);
+const htmlPath = path.join(docsDir, content.html);
+const textPath = path.join(docsDir, content.text);
 for (const p of [htmlPath, textPath]) {
   if (!fs.existsSync(p)) {
     console.error(`Email file not found: ${p}`);
     process.exit(1);
   }
 }
-const subject = cli.subject || SUBJECTS[audience];
+const subject = cli.subject || content.subject;
+
+// The cancelled variant promises a discount that only materializes if a
+// STRIPE_COUPON_WINBACK_* coupon exists for the plan the member picks — the
+// checkout route attaches it, this script only makes them eligible. Sending
+// the promise with no coupon configured would be a broken offer, so refuse.
+// Mirrors getWinbackCouponId()'s env names in core/stripe.ts.
+if (audience === 'cancelled' && !cli.allowMissingCoupon) {
+  const couponEnvs = [
+    'STRIPE_COUPON_WINBACK_BASIC_MONTHLY',
+    'STRIPE_COUPON_WINBACK_BASIC_ANNUAL',
+    'STRIPE_COUPON_WINBACK_PRO_MONTHLY',
+    'STRIPE_COUPON_WINBACK_PRO_ANNUAL',
+  ];
+  const missing = couponEnvs.filter((k) => !(process.env[k] || envLocal[k]));
+  if (missing.length === couponEnvs.length) {
+    console.error(
+      '\nError: no win-back coupon configured, but the cancelled email promises 25% off.\n' +
+        `Set at least one of: ${couponEnvs.join(', ')}\n` +
+        'in frontend/.env.local, or pass --allow-missing-coupon if you are honoring\n' +
+        'the discount by hand (scripts/honor-winback-discount.mts).',
+    );
+    process.exit(1);
+  }
+  if (missing.length > 0) {
+    console.warn(`\nWarning: win-back coupon missing for ${missing.join(', ')}.`);
+    console.warn('Members who pick one of those plans will not see the discount.\n');
+  }
+}
 
 // ---- Cohort selection ------------------------------------------------------
 
@@ -282,10 +412,35 @@ if (audience === 'subscribers') {
        FROM users
       WHERE subscription_status IN ('active','trialing')
         AND marketing_unsubscribed_at IS NULL
+        AND deleted_at IS NULL
+      ORDER BY created_at ASC;`,
+  );
+} else if (audience === 'cancelled') {
+  // Churned members who have NOT already had the automated ~1-month win-back.
+  // Deliberately mirrors scripts/send-winback.mts's eligibility (lapsed, no
+  // live sub, verified, not an operator, not self-deleted, never win-backed)
+  // WITHOUT its churn-age window — a campaign sweeps the standing backlog
+  // rather than the handful who newly crossed the 30-day line. The marketing
+  // opt-out is added on top because this is a campaign, not a transactional
+  // nudge. No audit-event join is needed: the winback_email_sent_at latch,
+  // not a churn timestamp, is what defines "not yet reached".
+  rows = querySqlite<Row>(
+    dbPath,
+    `SELECT id, email, created_at
+       FROM users
+      WHERE COALESCE(subscription_lapsed, 0) = 1
+        AND stripe_subscription_id IS NULL
+        AND email_verified_at IS NOT NULL
+        AND tier != 'admin'
+        AND winback_email_sent_at IS NULL
+        AND marketing_unsubscribed_at IS NULL
+        AND deleted_at IS NULL
       ORDER BY created_at ASC;`,
   );
 } else {
-  const sinceIso = new Date(Date.now() - cli.days * 86_400_000).toISOString();
+  // --since pins the floor to a date (this campaign: the July send, so only
+  // registrants who arrived after it qualify); --days is the relative fallback.
+  const sinceIso = cli.since ?? new Date(Date.now() - cli.days * 86_400_000).toISOString();
   rows = querySqlite<Row>(
     dbPath,
     `SELECT id, email, created_at
@@ -297,6 +452,7 @@ if (audience === 'subscribers') {
         AND (subscription_status IS NULL OR subscription_status NOT IN ('active','trialing'))
         AND verified_never_paid_email_sent_at IS NULL
         AND marketing_unsubscribed_at IS NULL
+        AND deleted_at IS NULL
         AND created_at >= '${esc(sinceIso)}'
         AND EXISTS (SELECT 1 FROM page_view_events pv WHERE pv.user_id = u.id)
       ORDER BY created_at ASC;`,
@@ -312,6 +468,7 @@ if (audience === 'subscribers') {
           AND COALESCE(subscription_lapsed, 0) = 0
           AND (subscription_status IS NULL OR subscription_status NOT IN ('active','trialing'))
           AND verified_never_paid_email_sent_at IS NOT NULL
+          AND deleted_at IS NULL
           AND created_at >= '${esc(sinceIso)}'
           AND EXISTS (SELECT 1 FROM page_view_events pv WHERE pv.user_id = u.id);`,
     )[0]?.n ?? 0;
@@ -330,11 +487,17 @@ const toSend = rows.filter((r) => !alreadySent.has(r.id));
 const alreadyCount = rows.length - toSend.length;
 
 console.log(`Auth DB:        ${dbPath}`);
+console.log(`Campaign:       ${cli.campaign} (${CAMPAIGN})`);
 console.log(`Audience:       ${audience}`);
-console.log(`Email:          ${FILES[audience].html} / ${FILES[audience].text}`);
+console.log(`Email:          ${content.html} / ${content.text}`);
 console.log(`Subject:        ${subject}`);
+if (audience === 'cancelled') {
+  console.log(`Cohort rule:    churned, never win-backed (stamps winback_email_sent_at)`);
+}
 if (audience === 'registrants') {
-  console.log(`Signup window:  last ${cli.days} days`);
+  console.log(
+    cli.since ? `Signup window:  since ${cli.since}` : `Signup window:  last ${cli.days} days`,
+  );
   console.log(`Excluded:       ${excludedNudged} already got the verified-never-paid nudge`);
 }
 console.log(`Cohort size:    ${rows.length}`);
@@ -447,6 +610,27 @@ if (cli.send) {
     if (res.ok) {
       const nowIso = new Date().toISOString();
       const auditId = `audit_${crypto.randomBytes(12).toString('hex')}`;
+      // The cancelled variant IS a win-back, so it claims the same latch the
+      // automated sender uses. Two things follow, both intended: the CTA's
+      // /pricing?winback=1 coupon becomes attachable for this member (the
+      // checkout route requires this column to be set), and the weekly
+      // automated win-back will never double-touch them. The Stripe webhook
+      // clears it on re-subscribe, so a future re-churn re-qualifies.
+      //
+      // Ordered before the audit row deliberately. Both writes follow a
+      // delivered email, so the only question is which one to lose if the
+      // process dies between them — and the latch is the load-bearing one:
+      // without it the member's discount link silently applies nothing and the
+      // weekly job emails them a second time. Losing the audit row instead
+      // costs only a reporting record, since the cohort query already excludes
+      // anyone latched.
+      if (audience === 'cancelled') {
+        execSqlite(
+          dbPath,
+          `UPDATE users SET winback_email_sent_at = '${esc(nowIso)}'
+            WHERE id = '${esc(user.id)}' AND winback_email_sent_at IS NULL;`,
+        );
+      }
       // Stamp the audit row as the idempotency source of truth.
       execSqlite(
         dbPath,

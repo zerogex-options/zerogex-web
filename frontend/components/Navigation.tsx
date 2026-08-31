@@ -97,6 +97,10 @@ export default function Navigation({ theme }: NavigationProps) {
         // through /login and add a confusing detour.
         items: [
           { id: "/about", label: "About", labelKey: "nav.about" as const },
+          // Chart-platform integrations. Brand names, so no labelKey — they
+          // stay English in every locale, same as "API Specs".
+          { id: "/tradingview-indicator", label: "TradingView Indicator" },
+          { id: "/ninjatrader-indicator", label: "NinjaTrader Indicator" },
           { id: "https://api.zerogex.io/docs", label: "API Specs", external: true },
           // mailto: — `external` keeps it an <a href> rather than a router.push,
           // and the http-only target/rel check leaves it opening in the same tab

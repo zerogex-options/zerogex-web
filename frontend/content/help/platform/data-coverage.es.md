@@ -6,7 +6,7 @@
 
 ## Símbolos cubiertos
 
-ZeroGEX ofrece cobertura analítica completa para cuatro instrumentos:
+ZeroGEX ofrece cobertura analítica completa para cuatro subyacentes de contado:
 
 - **SPY** — ETF del S&P 500
 - **SPX** — Índice S&P 500 (opciones de estilo europeo)
@@ -14,6 +14,13 @@ ZeroGEX ofrece cobertura analítica completa para cuatro instrumentos:
 - **NDX** — Índice Nasdaq 100 (opciones de estilo europeo)
 
 Estos son los cuatro subyacentes más líquidos y con mayor gamma del mercado de opciones de EE. UU. — los instrumentos donde la actividad de cobertura de los dealers tiene el mayor impacto en el precio intradía.
+
+A ellos se suman dos futuros sobre índices de CME, como símbolos de pleno derecho:
+
+- **ES** — futuro E-mini del S&P 500
+- **NQ** — futuro E-mini del Nasdaq 100
+
+ES y NQ no tienen un libro de opciones propio. ES y SPX siguen el mismo índice, así que el libro de dealers detrás de un gráfico de ES *es* el libro del SPX: los niveles del SPX (o del NDX, para NQ) se proyectan sobre el eje de precios del futuro, mientras que la serie de precios procede del feed de CME. La razón de proyección se mide sobre la cinta en lugar de modelarse a partir del carry, de modo que se autocorrige en cada rollover trimestral y no hay ningún ajuste de base que configurar. Las exposiciones en dólares (GEX neto, de calls y de puts) se dejan deliberadamente sin proyectar: el histograma escala sobre la exposición *relativa*, así que la forma es la misma en ambos casos. Los micros (/MES, /MNQ) son el mismo contrato a una décima parte del tamaño, por lo que se aplican los mismos niveles.
 
 No tenemos previsto dar soporte a acciones individuales. El modelo de señales y el concepto de régimen están diseñados en torno al comportamiento de los dealers a nivel de índice.
 
@@ -26,6 +33,10 @@ ZeroGEX utiliza en todo momento la hora del Este de EE. UU. (ET):
 - **After-hours** — 16:00 – 20:00 ET (donde esté disponible)
 
 El indicador de sesión en la cabecera confirma en qué franja horaria te encuentras.
+
+**ES y NQ funcionan en cambio con la sesión electrónica de CME**, mucho más amplia: desde el domingo a las 18:00 ET de forma continua hasta el viernes a las 17:00 ET, con una pausa diaria de mantenimiento de 17:00 a 18:00 ET. Eso cubre por completo las sesiones asiática y europea, y las cotizaciones de ES/NQ son de CME en tiempo real. Cuando un índice de contado está cerrado pero su futuro cotiza, el indicador de sesión muestra «Futuros» y la ficha de precio muestra el futuro — con la variación medida frente a su propio cierre de las 16:00 ET — en lugar del índice de contado congelado.
+
+Los niveles de dealers en un gráfico de futuros siguen procediendo del libro de opciones del índice, que cotiza durante el horario estadounidense. Así que de noche estás viendo cotizar en vivo el ES/NQ frente a los niveles tal como quedaron al cierre estadounidense, actualizados a medida que se publican los datos nocturnos de la cadena (véase *Pre-market y after-hours* más abajo); no se recalculan tick a tick a las 3:00 ET. Si una cotización de futuros se queda obsoleta, el precio lleva una etiqueta que indica el retraso medido.
 
 ## Cadencia de actualización por sección
 
@@ -78,12 +89,12 @@ No revelamos públicamente los nombres específicos de los proveedores, pero el 
 
 La latencia de extremo a extremo desde que una operación se imprime en el tape hasta que llega a tu navegador suele ser inferior a un segundo durante el horario regular. El cuello de botella rara vez son los datos — normalmente es tu red y tu navegador. Consulta [Streaming y rendimiento](/help/platform/streaming-and-performance).
 
-## Por qué solo SPY / SPX / QQQ / NDX
+## Por qué solo el complejo de índices
 
 Dos razones:
 
-1. El modelo de posicionamiento de los dealers solo funciona bien donde el flow de los dealers representa una fracción significativa del flow total. Ese es el complejo de índices.
-2. Preferimos acertar con cuatro instrumentos antes que hacerlo a medias con diez.
+1. El modelo de posicionamiento de los dealers solo funciona bien donde el flow de los dealers representa una fracción significativa del flow total. Ese es el complejo de índices — SPY, SPX, QQQ, NDX y los futuros ES / NQ, que siguen esos mismos dos índices.
+2. Preferimos acertar con un puñado de instrumentos antes que hacerlo a medias con diez.
 
 Las acciones individuales pueden desviarse por noticias idiosincráticas que hacen más ruidosa la lectura del GEX. Ese no es nuestro juego.
 

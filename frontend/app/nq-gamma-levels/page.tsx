@@ -10,7 +10,9 @@ import GammaLevelsView, { gammaMetadata } from '../spx-gamma-levels/gammaLevels'
 export const dynamic = 'force-static';
 export const revalidate = 900;
 
-export const metadata = gammaMetadata('NQ');
+export function generateMetadata() {
+  return gammaMetadata('NQ');
+}
 
 export default function Page() {
   return <GammaLevelsView primary="NQ" />;

@@ -16,6 +16,17 @@ import {
   MRR_PROJECTION_HORIZONS,
 } from '@/core/pricing';
 import { accumulateFlowByWeekday } from '@/core/subscriptionFlow';
+import {
+  beltProgress,
+  countdownParts,
+  formatCountdown,
+  type ConveyorOutcomes,
+  type ConveyorRider,
+  type ConveyorState,
+  type ConveyorTotals,
+} from '@/core/trialConveyor';
+import { ledgerKindLabel, type LedgerEventKind, type LedgerRow } from '@/core/subscriberBucket';
+import type { SubscriberProjectionPoint } from '@/core/trialConveyor';
 
 type SnapshotPoint = {
   bucket: string;
@@ -178,6 +189,41 @@ type CancellationReasonsSummary = {
   }>;
 };
 
+// Mirrors TrialConveyorSnapshot in core/monitoring.ts (hand-synced — that module
+// is server-only). The nested rider/totals/outcomes shapes are imported from
+// core/trialConveyor, which is pure and shared with the server.
+type TrialConveyor = {
+  riders: ConveyorRider[];
+  truncated: number;
+  departures: ConveyorRider[];
+  departingValue: number;
+  totals: ConveyorTotals;
+  outcomes: ConveyorOutcomes;
+  trialDays: number;
+  graceDays: number;
+  generatedAt: string;
+};
+
+// Mirrors SubscriberLedgerSnapshot in core/monitoring.ts (hand-synced — that
+// module is server-only). LedgerRow comes from the pure core/subscriberBucket.
+type SubscriberLedger = {
+  windowDays: number;
+  rows: LedgerRow[];
+  truncated: number;
+  net: { fullSubscriber: number; freeTrial: number; trialGrace: number };
+  generatedAt: string;
+};
+
+// Mirrors SubscriberProjection in core/monitoring.ts (hand-synced — that module
+// is server-only). The point shape comes from the pure core/trialConveyor.
+type SubscriberProjection = {
+  horizonDays: number;
+  anchorDay: string | null;
+  anchorPaying: number;
+  points: SubscriberProjectionPoint[];
+  undecidedStalled: number;
+};
+
 type Snapshot = {
   ok: boolean;
   mrr: Mrr;
@@ -187,6 +233,9 @@ type Snapshot = {
   signupFlow: SignupFlowPoint[];
   growthRates: GrowthRatePoint[];
   cancellationReasons: CancellationReasonsSummary;
+  trialConveyor: TrialConveyor;
+  subscriberLedger: SubscriberLedger;
+  subscriberProjection: SubscriberProjection;
   conversionBySource: ConversionBySourceSnapshot;
   hourly: SnapshotPoint[];
   daily: SnapshotPoint[];
@@ -227,7 +276,7 @@ const METRICS: Array<{ key: MetricKey; title: string; color: string; description
   { key: 'uniqueIps', title: 'Unique Source IPs', color: ROW_COLORS.uniqueIps, description: 'Distinct client IPs observed during the bucket.' },
 ];
 
-type TabId = 'frontend' | 'backend' | 'stripe' | 'revenue';
+type TabId = 'frontend' | 'backend' | 'stripe' | 'revenue' | 'conveyor';
 
 export default function MonitoringClient() {
   const cardBg = 'var(--color-surface)';
@@ -280,6 +329,7 @@ export default function MonitoringClient() {
     { id: 'backend', label: 'Backend' },
     { id: 'stripe', label: 'Stripe' },
     { id: 'revenue', label: 'Revenue Tracking' },
+    { id: 'conveyor', label: 'Conversion Conveyor' },
   ];
 
   return (
@@ -328,6 +378,9 @@ export default function MonitoringClient() {
       {tab === 'revenue' && data && !loading && !error && (
         <RevenueTab data={data} cardBg={cardBg} borderColor={borderColor} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} />
       )}
+      {tab === 'conveyor' && data && !loading && !error && (
+        <ConveyorTab data={data} cardBg={cardBg} borderColor={borderColor} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} />
+      )}
       {tab !== 'backend' && loading && tab !== 'frontend' && <LoadingSpinner size="lg" />}
       {tab !== 'backend' && error && tab !== 'frontend' && <ErrorMessage message={error} />}
     </PageShell>
@@ -353,7 +406,14 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
   const topIpsMax = data.topIps[0]?.count ?? 0;
   const topUsersMax = data.topUsers[0]?.count ?? 0;
   const tierYScale = niceYScale(data.signups.reduce((m, p) => Math.max(m, p.basic + p.pro + p.public), 0));
-  const subscriberYScale = niceYScale(data.signups.reduce((m, p) => Math.max(m, p.paying + p.trialing + p.graceTrial), 0));
+  const subscriberYScale = niceYScale(
+    Math.max(
+      data.signups.reduce((m, p) => Math.max(m, p.paying + p.trialing + p.graceTrial), 0),
+      // The dashed projection extends past today's stack, so it has to be in
+      // the scale or a growing forecast would run off the top of the chart.
+      data.subscriberProjection.points.reduce((m, p) => Math.max(m, p.projected), 0),
+    ),
+  );
 
   return (
     <div>
@@ -364,7 +424,7 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <GrowthRateCard rates={data.growthRates} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} />
           <SubscriptionFlowByWeekdayCard data={data.signupFlow} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} brandColor={ROW_COLORS.signups} />
-          <TotalSubscribersChartCard data={data.signups} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} yScale={subscriberYScale} />
+          <TotalSubscribersChartCard data={data.signups} projection={data.subscriberProjection} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} yScale={subscriberYScale} />
           <TierBreakdownChartCard data={data.signups} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} brandColor={ROW_COLORS.signups} yScale={tierYScale} />
           <SubscriptionFlowChartCard data={data.signupFlow} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} brandColor={ROW_COLORS.signups} />
           <DailyRegistrationsChartCard
@@ -659,6 +719,760 @@ function RevenueTab({ data, cardBg, borderColor, axisStroke, mutedText, textColo
         <span className="text-xs" style={{ color: mutedText }}>A what-if model, not a forecast: start from today&apos;s paying subs and tune acquisition, growth shape, churn, plan mix, and prices to see where subs, MRR, and ARR could land.</span>
       </div>
       <GrowthProjectionsCard startingSubs={data.mrr.activeSubscribers} targetMrr={data.mrr.targetMrr} cardBg={cardBg} borderColor={borderColor} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} brandColor={ROW_COLORS.signups} />
+    </section>
+  </div>;
+}
+
+// ── Conversion Conveyor ────────────────────────────────────────────────────
+// The trial→paying pipeline as an assembly line: every free trial in flight is
+// a package riding a belt toward its first charge, counting down live. Cancels
+// fall off the belt; a declined first charge jams at the end of it.
+
+const CONVEYOR_COLORS = {
+  running: ROW_COLORS.mrr, //      heading for the charge — money on its way
+  rollingOff: '#c1435b', //        cancelled mid-trial — off the belt
+  stalled: ROW_COLORS.topIps, //   first charge declined — recoverable, not lost
+  belt: ROW_COLORS.webhookHealth,
+} as const;
+
+const CONVEYOR_STATE_LABEL: Record<ConveyorState, string> = {
+  running: 'On the belt',
+  rollingOff: 'Rolling off',
+  stalled: 'Charge declined',
+};
+
+// What each lane's countdown is actually counting down TO. A running trial is
+// counting to money; a rolling-off one to a departure; a stalled one to the
+// last retry Stripe will attempt before access is revoked.
+const CONVEYOR_DEADLINE_LABEL: Record<ConveyorState, string> = {
+  running: 'until first charge',
+  rollingOff: 'until they leave',
+  stalled: 'until last retry',
+};
+
+function conveyorPlanLabel(rider: ConveyorRider): string {
+  if (!rider.tier) return 'Plan unknown';
+  const parts: string[] = [TIER_LABEL[rider.tier]];
+  if (rider.cadence) parts.push(CADENCE_LABEL[rider.cadence]);
+  if (rider.founding) parts.push('Founding');
+  return parts.join(' · ');
+}
+
+// Live d:hh:mm:ss ticker. Every countdown on the page reads from ONE `nowMs`
+// owned by the tab, so all the lanes tick in lockstep on a single interval
+// instead of each row running its own timer.
+function CountdownTicker({
+  deadline,
+  nowMs,
+  color,
+  className,
+}: {
+  deadline: string | null;
+  nowMs: number;
+  color: string;
+  className?: string;
+}) {
+  const target = deadline ? Date.parse(deadline) : NaN;
+  if (!Number.isFinite(target)) {
+    return <span className={className} style={{ color, opacity: 0.5 }}>—</span>;
+  }
+  const remaining = target - nowMs;
+  const parts = countdownParts(remaining);
+  return (
+    <span
+      className={`tabular-nums ${className ?? ''}`}
+      style={{ color, opacity: parts.expired ? 0.6 : 1 }}
+      title={new Date(target).toLocaleString()}
+    >
+      {parts.expired ? 'due now' : formatCountdown(remaining)}
+    </span>
+  );
+}
+
+// One trial's strip of belt. The track is progress-normalized — every lane's
+// right edge is that rider's OWN charge moment — so a 30-day reactivation trial
+// and a 7-day standard trial are directly comparable at a glance.
+function ConveyorLane({
+  rider,
+  nowMs,
+  borderColor,
+  mutedText,
+  textColor,
+}: {
+  rider: ConveyorRider;
+  nowMs: number;
+  borderColor: string;
+  mutedText: string;
+  textColor: string;
+}) {
+  const color = CONVEYOR_COLORS[rider.state];
+  const progress = beltProgress({
+    boardedAtMs: rider.boardedAt ? Date.parse(rider.boardedAt) : null,
+    convertsAtMs: rider.convertsAt ? Date.parse(rider.convertsAt) : null,
+    nowMs,
+  });
+  // A stalled rider has already reached the end of the belt — pin it there
+  // rather than letting the grace-window clock re-scale it back to the middle.
+  const pct = rider.state === 'stalled' ? 100 : progress * 100;
+  // Keep the package inside the track at both ends instead of half-hanging off.
+  const clampedPct = Math.min(96, Math.max(4, pct));
+  const dropped = rider.state === 'rollingOff';
+
+  return (
+    <li
+      className="grid items-center gap-3 py-2"
+      style={{
+        gridTemplateColumns: 'minmax(0, 13rem) minmax(0, 1fr) auto',
+        borderTop: `1px solid ${borderColor}33`,
+      }}
+    >
+      <div className="min-w-0">
+        <div className="text-xs truncate" style={{ color: textColor }} title={rider.email ?? rider.userId}>
+          {rider.email ?? rider.userId}
+        </div>
+        <div className="text-[11px] truncate" style={{ color: mutedText }}>
+          {conveyorPlanLabel(rider)}
+          {rider.monthlyValue > 0 ? ` · ${formatUsd(rider.monthlyValue)}/mo` : ''}
+        </div>
+      </div>
+
+      {/* The belt itself: slatted track, a filled run showing distance already
+          travelled, and the package sitting at this rider's position. */}
+      <div className="relative h-7" title={`${Math.round(pct)}% of the way to the charge`}>
+        <div
+          className="absolute inset-x-0 top-1/2 h-3 rounded-sm -translate-y-1/2 overflow-hidden"
+          style={{
+            background: `${borderColor}33`,
+            backgroundImage: `repeating-linear-gradient(115deg, ${borderColor}44 0 6px, transparent 6px 12px)`,
+            opacity: dropped ? 0.4 : 1,
+          }}
+        >
+          <span
+            className="block h-full"
+            style={{ width: `${pct}%`, background: `${color}55` }}
+          />
+        </div>
+        {/* The charge gate at the end of the line. */}
+        <span
+          className="absolute right-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded"
+          style={{ background: color, opacity: dropped ? 0.35 : 0.9 }}
+        />
+        <span
+          className="absolute top-1/2 h-4 w-4 rounded-sm"
+          style={{
+            left: `${clampedPct}%`,
+            transform: dropped
+              ? 'translate(-50%, 30%) rotate(28deg)' // tipped off the belt
+              : 'translate(-50%, -50%)',
+            background: dropped ? 'transparent' : color,
+            border: `2px solid ${color}`,
+            opacity: dropped ? 0.6 : 1,
+            boxShadow: rider.state === 'running' ? `0 0 0 3px ${color}22` : undefined,
+          }}
+        />
+      </div>
+
+      <div className="text-right">
+        <CountdownTicker deadline={rider.convertsAt} nowMs={nowMs} color={color} className="text-sm font-semibold" />
+        <div className="text-[11px]" style={{ color: mutedText }}>
+          {CONVEYOR_DEADLINE_LABEL[rider.state]}
+        </div>
+      </div>
+    </li>
+  );
+}
+
+// The machine itself, drawn once so the belt below is self-explaining: what the
+// stages are, how many are sitting in each, and where a trial can leave the
+// line. Counts are live (the belt) except the last stage, which is the trailing
+// window's completed conversions — the output the line has actually produced.
+function ConveyorPipelineDiagram({
+  conveyor,
+  registrations,
+  borderColor,
+  mutedText,
+}: {
+  conveyor: TrialConveyor;
+  registrations: number;
+  borderColor: string;
+  mutedText: string;
+}) {
+  const windowDays = conveyor.outcomes.windowDays;
+  // Accounts created but never loaded onto the belt — the leak between "made an
+  // account" and "started a trial". Floored at 0: the two counts come from
+  // different sources (the users table vs. the audit stream), so a trial that
+  // started just outside the registration window must not render as negative.
+  const neverBoarded = Math.max(0, registrations - conveyor.outcomes.boarded);
+  const stages: Array<{ label: string; value: string; caption: string; color: string; drop?: string }> = [
+    {
+      label: 'Signs up',
+      value: String(registrations),
+      caption: `accounts created · ${windowDays}d`,
+      color: ROW_COLORS.uniqueUsers,
+      drop: neverBoarded > 0 ? `${neverBoarded} never started a trial` : undefined,
+    },
+    {
+      label: 'Boards belt',
+      value: String(conveyor.outcomes.boarded),
+      caption: `trials started · ${windowDays}d`,
+      color: ROW_COLORS.signups,
+    },
+    {
+      label: 'Free trial',
+      value: String(conveyor.totals.running),
+      caption: 'riding the belt now',
+      color: CONVEYOR_COLORS.running,
+      drop: conveyor.totals.rollingOff > 0 ? `${conveyor.totals.rollingOff} cancelled — rolling off` : undefined,
+    },
+    {
+      label: 'First charge',
+      value: String(conveyor.totals.stalled),
+      caption: `declined, retrying (${conveyor.graceDays}d)`,
+      color: CONVEYOR_COLORS.stalled,
+      drop: conveyor.outcomes.rolledOff > 0 ? `${conveyor.outcomes.rolledOff} left without paying · ${windowDays}d` : undefined,
+    },
+    {
+      label: 'Paying',
+      value: String(conveyor.outcomes.converted),
+      caption: `converted · ${windowDays}d`,
+      color: ROW_COLORS.mrr,
+    },
+  ];
+  return (
+    <div className="flex items-stretch gap-2 overflow-x-auto pb-1">
+      {stages.map((stage, idx) => (
+        <div key={stage.label} className="flex items-stretch gap-2 shrink-0">
+          <div className="rounded-lg px-3 py-2 min-w-[9.5rem]" style={{ border: `1px solid ${stage.color}66` }}>
+            <div className="text-[11px] uppercase tracking-wide" style={{ color: mutedText }}>
+              {stage.label}
+            </div>
+            <div className="text-xl font-semibold tabular-nums" style={{ color: stage.color }}>
+              {stage.value}
+            </div>
+            <div className="text-[11px]" style={{ color: mutedText }}>
+              {stage.caption}
+            </div>
+            {stage.drop && (
+              <div className="text-[11px] mt-1" style={{ color: CONVEYOR_COLORS.rollingOff }}>
+                ↳ {stage.drop}
+              </div>
+            )}
+          </div>
+          {idx < stages.length - 1 && (
+            <div className="flex items-center text-lg self-center" style={{ color: borderColor }} aria-hidden>
+              ▸
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Trailing-window scoreboard for trials that already reached a decision. The
+// rate's denominator is converted + rolled off ONLY: a trial still retrying is
+// undecided, and counting it as a loss would understate the line's real yield.
+function TrialOutcomesCard({
+  outcomes,
+  cardBg,
+  borderColor,
+  mutedText,
+  textColor,
+}: {
+  outcomes: TrialConveyor['outcomes'];
+  cardBg: string;
+  borderColor: string;
+  mutedText: string;
+  textColor: string;
+}) {
+  const decided = outcomes.converted + outcomes.rolledOff;
+  const ratePct = outcomes.conversionRate == null ? null : outcomes.conversionRate * 100;
+  const convertedWidth = decided > 0 ? (outcomes.converted / decided) * 100 : 0;
+  return (
+    <div className="rounded-lg p-4" style={{ background: cardBg, border: `1px solid ${borderColor}` }}>
+      <div className="flex items-baseline justify-between flex-wrap gap-2">
+        <h3 className="zg-h3" style={{ color: textColor }}>Conveyor Yield</h3>
+        <span className="text-xs" style={{ color: mutedText }}>
+          last {outcomes.windowDays} days
+        </span>
+      </div>
+      <p className="text-xs mt-1" style={{ color: mutedText }}>
+        Of the trials that reached the end of the belt, how many actually paid. Trials still retrying a declined charge
+        are left out of the rate — they haven&apos;t been decided yet.
+      </p>
+
+      <div className="mt-3 flex items-baseline gap-2">
+        <span className="text-3xl font-bold tabular-nums" style={{ color: CONVEYOR_COLORS.running }}>
+          {ratePct == null ? '—' : `${ratePct.toFixed(0)}%`}
+        </span>
+        <span className="text-xs" style={{ color: mutedText }}>
+          {decided > 0
+            ? `${outcomes.converted} of ${decided} decided trials converted`
+            : 'no trials have reached a decision yet'}
+        </span>
+      </div>
+
+      {decided > 0 && (
+        <div className="mt-2 h-3 rounded overflow-hidden flex" style={{ background: `${borderColor}33` }}>
+          <span style={{ width: `${convertedWidth}%`, background: CONVEYOR_COLORS.running }} />
+          <span style={{ width: `${100 - convertedWidth}%`, background: CONVEYOR_COLORS.rollingOff }} />
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+        {[
+          { label: 'Started', value: outcomes.boarded, color: ROW_COLORS.signups },
+          { label: 'Converted', value: outcomes.converted, color: CONVEYOR_COLORS.running },
+          { label: 'Rolled off', value: outcomes.rolledOff, color: CONVEYOR_COLORS.rollingOff },
+          { label: 'Charge declined', value: outcomes.stalled, color: CONVEYOR_COLORS.stalled },
+        ].map((cell) => (
+          <div key={cell.label} className="rounded-lg p-2" style={{ border: `1px solid ${borderColor}55` }}>
+            <div className="text-[11px] uppercase tracking-wide" style={{ color: mutedText }}>{cell.label}</div>
+            <div className="text-xl font-semibold tabular-nums" style={{ color: cell.color }}>{cell.value}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Colour + sign convention for the ledger: anything that grows the subscriber
+// base reads green, anything that shrinks it reads red, and the two warnings
+// that move no counts YET (a scheduled cancel, a renewal in dunning) read amber
+// — those are the ones worth acting on before they become a departure.
+const LEDGER_TONE: Record<LedgerEventKind, string> = {
+  trialStarted: ROW_COLORS.signups,
+  converted: CONVEYOR_COLORS.running,
+  recovered: CONVEYOR_COLORS.running,
+  trialChargeDeclined: CONVEYOR_COLORS.stalled,
+  renewalFailed: CONVEYOR_COLORS.stalled,
+  cancelScheduled: CONVEYOR_COLORS.stalled,
+  cancelReverted: CONVEYOR_COLORS.running,
+  accessEnded: CONVEYOR_COLORS.rollingOff,
+};
+
+function formatLedgerTime(iso: string, nowMs: number): string {
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms)) return '—';
+  const ageMinutes = Math.floor((nowMs - ms) / 60_000);
+  if (ageMinutes < 1) return 'just now';
+  if (ageMinutes < 60) return `${ageMinutes}m ago`;
+  if (ageMinutes < 60 * 24) return `${Math.floor(ageMinutes / 60)}h ago`;
+  return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+// A signed count chip. Rendered only for a line this row actually moved, so a
+// row that moves nothing reads as the warning it is rather than a wall of zeros.
+function DeltaChip({ label, delta }: { label: string; delta: number }) {
+  if (delta === 0) return null;
+  const up = delta > 0;
+  return (
+    <span
+      className="text-[11px] font-semibold px-1.5 py-0.5 rounded tabular-nums whitespace-nowrap"
+      style={{
+        background: up ? `${CONVEYOR_COLORS.running}22` : `${CONVEYOR_COLORS.rollingOff}22`,
+        color: up ? CONVEYOR_COLORS.running : CONVEYOR_COLORS.rollingOff,
+      }}
+    >
+      {up ? '+' : ''}{delta} {label}
+    </span>
+  );
+}
+
+// The answer to "the number moved and I don't know why". Every row states what
+// happened, to whom, and what it did to each line of the Total Subscribers
+// chart — so a headcount change is always traceable to a named member.
+function SubscriberLedgerCard({
+  ledger,
+  nowMs,
+  cardBg,
+  borderColor,
+  mutedText,
+  textColor,
+}: {
+  ledger: SubscriberLedger;
+  nowMs: number;
+  cardBg: string;
+  borderColor: string;
+  mutedText: string;
+  textColor: string;
+}) {
+  const [onlyMoves, setOnlyMoves] = useState(false);
+  const moved = (r: LedgerRow) =>
+    r.fullSubscriberDelta !== 0 || r.freeTrialDelta !== 0 || r.trialGraceDelta !== 0;
+  const rows = onlyMoves ? ledger.rows.filter(moved) : ledger.rows;
+  const net = ledger.net.fullSubscriber;
+
+  return (
+    <div className="rounded-lg p-4" style={{ background: cardBg, border: `1px solid ${borderColor}` }}>
+      <div className="flex items-baseline justify-between flex-wrap gap-2 mb-3">
+        <span className="text-sm" style={{ color: textColor }}>
+          Full Subscribers moved{' '}
+          <span
+            className="font-semibold tabular-nums"
+            style={{ color: net >= 0 ? CONVEYOR_COLORS.running : CONVEYOR_COLORS.rollingOff }}
+          >
+            {net >= 0 ? '+' : ''}{net}
+          </span>{' '}
+          over the last {ledger.windowDays} days — every row below accounts for part of it.
+        </span>
+        <button
+          type="button"
+          onClick={() => setOnlyMoves((v) => !v)}
+          className="text-xs px-2 py-1 rounded"
+          style={{
+            border: `1px solid ${borderColor}`,
+            color: onlyMoves ? 'var(--color-text-primary)' : mutedText,
+            background: onlyMoves ? `${borderColor}33` : 'transparent',
+          }}
+        >
+          {onlyMoves ? 'Showing count changes only' : 'Show count changes only'}
+        </button>
+      </div>
+
+      {rows.length === 0 ? (
+        <p className="text-sm py-6 text-center" style={{ color: mutedText }}>
+          Nothing has changed in the last {ledger.windowDays} days.
+        </p>
+      ) : (
+        <ul>
+          {rows.map((r, idx) => (
+            <li
+              key={`${r.at}-${r.userId ?? idx}-${r.kind}`}
+              className="grid gap-3 py-2 items-start"
+              style={{
+                gridTemplateColumns: 'minmax(0, 5rem) minmax(0, 1fr) auto',
+                borderTop: idx === 0 ? undefined : `1px solid ${borderColor}33`,
+              }}
+            >
+              <span className="text-xs tabular-nums pt-0.5" style={{ color: mutedText }} title={r.at}>
+                {formatLedgerTime(r.at, nowMs)}
+              </span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span
+                    className="text-xs font-semibold px-1.5 py-0.5 rounded"
+                    style={{ background: `${LEDGER_TONE[r.kind]}22`, color: LEDGER_TONE[r.kind] }}
+                  >
+                    {ledgerKindLabel(r.kind)}
+                  </span>
+                  <span className="text-xs truncate" style={{ color: textColor }} title={r.email ?? undefined}>
+                    {r.email ?? r.userId ?? 'unknown member'}
+                  </span>
+                </div>
+                <div className="text-[11px] mt-0.5" style={{ color: mutedText }}>
+                  {r.detail}
+                </div>
+              </div>
+              <div className="flex gap-1.5 flex-wrap justify-end">
+                <DeltaChip label="paying" delta={r.fullSubscriberDelta} />
+                <DeltaChip label="trial" delta={r.freeTrialDelta} />
+                <DeltaChip label="grace" delta={r.trialGraceDelta} />
+                {!moved(r) && (
+                  <span className="text-[11px] px-1.5 py-0.5 rounded" style={{ color: mutedText }}>
+                    no count change
+                  </span>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {ledger.truncated > 0 && (
+        <p className="text-xs mt-3" style={{ color: mutedText }}>
+          + {ledger.truncated} older change{ledger.truncated === 1 ? '' : 's'} not shown. The net above counts them all.
+        </p>
+      )}
+    </div>
+  );
+}
+
+// Paying subscribers who have already clicked Cancel. They still count as Full
+// Subscribers right up to the day their access ends, so this is the one place
+// that departure is visible BEFORE it lands on the chart.
+function ScheduledDeparturesCard({
+  departures,
+  departingValue,
+  nowMs,
+  cardBg,
+  borderColor,
+  mutedText,
+  textColor,
+}: {
+  departures: ConveyorRider[];
+  departingValue: number;
+  nowMs: number;
+  cardBg: string;
+  borderColor: string;
+  mutedText: string;
+  textColor: string;
+}) {
+  return (
+    <div className="rounded-lg p-4" style={{ background: cardBg, border: `1px solid ${borderColor}` }}>
+      <div className="flex items-baseline justify-between flex-wrap gap-2">
+        <span className="text-sm" style={{ color: textColor }}>
+          {departures.length === 0 ? (
+            'No paying subscriber has a cancellation scheduled.'
+          ) : (
+            <>
+              <span className="font-semibold tabular-nums">{departures.length}</span> paying subscriber
+              {departures.length === 1 ? '' : 's'} will drop off when their period ends
+            </>
+          )}
+        </span>
+        {departures.length > 0 && (
+          <span className="text-xs" style={{ color: mutedText }}>
+            {formatUsd(departingValue)}/mo leaving
+          </span>
+        )}
+      </div>
+
+      {departures.length > 0 && (
+        <ul className="mt-3">
+          {departures.map((d, idx) => (
+            <li
+              key={d.userId}
+              className="grid gap-3 py-2 items-center"
+              style={{
+                gridTemplateColumns: 'minmax(0, 1fr) auto',
+                borderTop: idx === 0 ? undefined : `1px solid ${borderColor}33`,
+              }}
+            >
+              <div className="min-w-0">
+                <div className="text-xs truncate" style={{ color: textColor }} title={d.email ?? undefined}>
+                  {d.email ?? d.userId}
+                </div>
+                <div className="text-[11px]" style={{ color: mutedText }}>
+                  {conveyorPlanLabel(d)}
+                  {d.monthlyValue > 0 ? ` · ${formatUsd(d.monthlyValue)}/mo` : ''}
+                </div>
+              </div>
+              <div className="text-right">
+                <CountdownTicker
+                  deadline={d.convertsAt}
+                  nowMs={nowMs}
+                  color={CONVEYOR_COLORS.rollingOff}
+                  className="text-sm font-semibold"
+                />
+                <div className="text-[11px]" style={{ color: mutedText }}>
+                  until access ends
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function ConveyorTab({ data, cardBg, borderColor, mutedText, textColor }: DataTabProps) {
+  const conveyor = data.trialConveyor;
+
+  // One clock for the whole tab. The snapshot itself refreshes on the page's
+  // 60s poll; this interval only re-renders the countdowns in between, so the
+  // timers tick every second without re-fetching anything.
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const onBelt = conveyor.totals.running + conveyor.totals.rollingOff + conveyor.totals.stalled;
+  // New accounts over the same trailing window the outcomes use, so the first
+  // two stages of the diagram are directly comparable. signupFlow is the
+  // authoritative one-row-per-account registration count (see core/monitoring).
+  const registrations = useMemo(
+    () =>
+      data.signupFlow
+        .slice(-conveyor.outcomes.windowDays)
+        .reduce((sum, point) => sum + point.registrations, 0),
+    [data.signupFlow, conveyor.outcomes.windowDays],
+  );
+  const nextRider = useMemo(
+    () => conveyor.riders.find((r) => r.state === 'running' && r.convertsAt === conveyor.totals.nextConversionAt),
+    [conveyor.riders, conveyor.totals.nextConversionAt],
+  );
+
+  return <div>
+    <section className="mb-8">
+      <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
+        <h2 className="text-lg font-semibold" style={{ color: textColor }}>The Conveyor</h2>
+        <span className="text-xs" style={{ color: mutedText }}>
+          Every free trial is a package on a belt. It boards at signup, rides for the trial length, and comes off the
+          end as a paying subscriber — unless the member cancels (falls off) or the first charge is declined (jams at
+          the gate). Timers are live.
+        </span>
+      </div>
+
+      <div className="rounded-lg p-4" style={{ background: cardBg, border: `1px solid ${borderColor}` }}>
+        <ConveyorPipelineDiagram conveyor={conveyor} registrations={registrations} borderColor={borderColor} mutedText={mutedText} />
+      </div>
+    </section>
+
+    <section className="mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="rounded-lg p-4" style={{ background: cardBg, border: `1px solid ${borderColor}` }}>
+          <div className="text-xs uppercase tracking-wide" style={{ color: mutedText }}>On the belt</div>
+          <div className="text-3xl font-bold tabular-nums" style={{ color: CONVEYOR_COLORS.running }}>
+            {conveyor.totals.running}
+          </div>
+          <div className="text-xs mt-1" style={{ color: mutedText }}>
+            trials still heading for a charge
+          </div>
+        </div>
+
+        <div className="rounded-lg p-4" style={{ background: cardBg, border: `1px solid ${borderColor}` }}>
+          <div className="text-xs uppercase tracking-wide" style={{ color: mutedText }}>Next conversion in</div>
+          <CountdownTicker
+            deadline={conveyor.totals.nextConversionAt}
+            nowMs={nowMs}
+            color={CONVEYOR_COLORS.running}
+            className="block text-3xl font-bold"
+          />
+          <div className="text-xs mt-1 truncate" style={{ color: mutedText }} title={nextRider?.email ?? undefined}>
+            {nextRider
+              ? `${nextRider.email ?? nextRider.userId} · ${conveyorPlanLabel(nextRider)}`
+              : conveyor.totals.nextConversionAt
+                ? 'next trial due'
+                : 'nothing due'}
+          </div>
+        </div>
+
+        <div className="rounded-lg p-4" style={{ background: cardBg, border: `1px solid ${borderColor}` }}>
+          <div className="text-xs uppercase tracking-wide" style={{ color: mutedText }}>Coming off the belt</div>
+          <div className="text-3xl font-bold tabular-nums" style={{ color: ROW_COLORS.mrr }}>
+            {formatUsd(conveyor.totals.beltValue)}
+          </div>
+          <div className="text-xs mt-1" style={{ color: mutedText }}>
+            new MRR if every running trial converts
+          </div>
+        </div>
+
+        <div className="rounded-lg p-4" style={{ background: cardBg, border: `1px solid ${borderColor}` }}>
+          <div className="text-xs uppercase tracking-wide" style={{ color: mutedText }}>Falling off / jammed</div>
+          <div className="text-3xl font-bold tabular-nums" style={{ color: CONVEYOR_COLORS.rollingOff }}>
+            {conveyor.totals.rollingOff + conveyor.totals.stalled}
+          </div>
+          <div className="text-xs mt-1" style={{ color: mutedText }}>
+            {conveyor.totals.rollingOff} cancelled · {conveyor.totals.stalled} declined ·{' '}
+            {formatUsd(conveyor.totals.atRiskValue)}/mo at risk
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section className="mb-8">
+      <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
+        <h2 className="text-lg font-semibold" style={{ color: textColor }}>Trials In Flight</h2>
+        <span className="text-xs" style={{ color: mutedText }}>
+          Soonest charge first. Each lane is one trial&apos;s own run — left edge is the day it started, right edge is
+          its first charge — so a {conveyor.trialDays}-day trial and a longer reactivation trial compare directly.
+        </span>
+      </div>
+
+      <div className="rounded-lg p-4" style={{ background: cardBg, border: `1px solid ${borderColor}` }}>
+        <div className="flex items-center gap-4 flex-wrap text-xs mb-1" style={{ color: mutedText }}>
+          {(['running', 'rollingOff', 'stalled'] as const).map((state) => (
+            <span key={state} className="inline-flex items-center gap-1.5">
+              <span
+                className="h-3 w-3 rounded-sm"
+                style={{
+                  background: state === 'rollingOff' ? 'transparent' : CONVEYOR_COLORS[state],
+                  border: `2px solid ${CONVEYOR_COLORS[state]}`,
+                }}
+              />
+              {CONVEYOR_STATE_LABEL[state]}
+            </span>
+          ))}
+        </div>
+
+        {conveyor.riders.length === 0 ? (
+          <p className="text-sm py-6 text-center" style={{ color: mutedText }}>
+            The belt is empty — no free trials in flight right now.
+          </p>
+        ) : (
+          <>
+            <div
+              className="grid gap-3 text-[11px] uppercase tracking-wide pt-2"
+              style={{ gridTemplateColumns: 'minmax(0, 13rem) minmax(0, 1fr) auto', color: mutedText }}
+            >
+              <span>Member</span>
+              <span className="flex justify-between">
+                <span>Trial starts</span>
+                <span>First charge</span>
+              </span>
+              <span className="text-right">d:hh:mm:ss</span>
+            </div>
+            <ul>
+              {conveyor.riders.map((r) => (
+                <ConveyorLane
+                  key={r.userId}
+                  rider={r}
+                  nowMs={nowMs}
+                  borderColor={borderColor}
+                  mutedText={mutedText}
+                  textColor={textColor}
+                />
+              ))}
+            </ul>
+            {conveyor.truncated > 0 && (
+              <p className="text-xs mt-3" style={{ color: mutedText }}>
+                + {conveyor.truncated} more trial{conveyor.truncated === 1 ? '' : 's'} on the belt, not shown. The
+                counts above include all {onBelt}.
+              </p>
+            )}
+          </>
+        )}
+      </div>
+    </section>
+
+    <section className="mb-8">
+      <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
+        <h2 className="text-lg font-semibold" style={{ color: textColor }}>Leaving Next</h2>
+        <span className="text-xs" style={{ color: mutedText }}>
+          Paying members who already clicked Cancel. They still count as Full Subscribers until their period ends —
+          this is where that drop is visible before it lands.
+        </span>
+      </div>
+      <ScheduledDeparturesCard
+        departures={conveyor.departures}
+        departingValue={conveyor.departingValue}
+        nowMs={nowMs}
+        cardBg={cardBg}
+        borderColor={borderColor}
+        mutedText={mutedText}
+        textColor={textColor}
+      />
+    </section>
+
+    <section className="mb-8">
+      <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
+        <h2 className="text-lg font-semibold" style={{ color: textColor }}>Subscriber Ledger</h2>
+        <span className="text-xs" style={{ color: mutedText }}>
+          Every change to the subscriber counts, newest first — who it was, what happened, and exactly what it did to
+          each line of the Total Subscribers chart.
+        </span>
+      </div>
+      <SubscriberLedgerCard
+        ledger={data.subscriberLedger}
+        nowMs={nowMs}
+        cardBg={cardBg}
+        borderColor={borderColor}
+        mutedText={mutedText}
+        textColor={textColor}
+      />
+    </section>
+
+    <section className="mb-8">
+      <TrialOutcomesCard
+        outcomes={conveyor.outcomes}
+        cardBg={cardBg}
+        borderColor={borderColor}
+        mutedText={mutedText}
+        textColor={textColor}
+      />
     </section>
   </div>;
 }
@@ -2090,7 +2904,19 @@ function TierBreakdownChartCard({ data, cardBg, axisStroke, mutedText, brandColo
   );
 }
 
+// What the dashed projection is and, just as importantly, what it leaves out.
+function projectionTitle(projection: SubscriberProjection): string {
+  const base =
+    `Committed projection: today's ${projection.anchorPaying} full subscribers, plus trials already scheduled ` +
+    `to be charged over the next ${projection.horizonDays} days, minus members whose cancellation takes effect ` +
+    `in that window. No new signups are assumed.`;
+  return projection.undecidedStalled > 0
+    ? `${base} ${projection.undecidedStalled} trial${projection.undecidedStalled === 1 ? '' : 's'} retrying a declined charge are excluded as undecided.`
+    : base;
+}
+
 type TotalSubscribersChartCardProps = {
+  projection: SubscriberProjection;
   data: SignupPoint[];
   cardBg: string;
   axisStroke: string;
@@ -2104,15 +2930,37 @@ type TotalSubscribersChartCardProps = {
 // which is inside the bounded payment-recovery window while Stripe retries.
 // Trial Grace stacks on top: it's the at-risk band, subscribers today who have
 // never completed a payment. One total — Total Subscribers — in the header.
-function TotalSubscribersChartCard({ data, cardBg, axisStroke, mutedText, yScale }: TotalSubscribersChartCardProps) {
+function TotalSubscribersChartCard({ data, projection, cardBg, axisStroke, mutedText, yScale }: TotalSubscribersChartCardProps) {
   const payingColor = '#ff8531';
   const trialingColor = '#ffa600';
   const graceTrialColor = '#ffd380';
   const graceTrialTitle =
     'Free trial ended, the first subscription charge failed, and access is retained during the bounded payment-recovery grace window while Stripe retries the card.';
+  const projectedColor = '#2c8c6a';
   const latest = data.length > 0 ? data[data.length - 1] : { paying: 0, trialing: 0, graceTrial: 0 };
   const totalSubscribers = latest.paying + latest.trialing + latest.graceTrial;
-  const dayLabel = useMemo(() => makeDayLabelFormatter(data.map((p) => p.day)), [data]);
+
+  // Actual days, then the projected ones appended. The anchor day carries BOTH
+  // its real `paying` value and the same value as `projectedPaying`, which is
+  // what makes the dashed line start ON the solid line instead of a day away
+  // from it. Projected rows leave the stacked areas undefined so those simply
+  // stop at today rather than collapsing to zero.
+  const chartData = useMemo(() => {
+    const rows: Array<Record<string, number | string | undefined>> = data.map((p) => ({ ...p }));
+    if (rows.length > 0 && projection.points.length > 0) {
+      rows[rows.length - 1] = { ...rows[rows.length - 1], projectedPaying: projection.anchorPaying };
+    }
+    for (const p of projection.points) rows.push({ day: p.day, projectedPaying: p.projected });
+    return rows;
+  }, [data, projection]);
+
+  const projectionByDay = useMemo(
+    () => new Map(projection.points.map((p) => [p.day, p])),
+    [projection.points],
+  );
+  const projectedEnd = projection.points.length > 0 ? projection.points[projection.points.length - 1] : null;
+  const projectedNet = projectedEnd ? projectedEnd.projected - projection.anchorPaying : 0;
+  const dayLabel = useMemo(() => makeDayLabelFormatter(chartData.map((p) => String(p.day))), [chartData]);
   return (
     <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
       <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
@@ -2122,6 +2970,12 @@ function TotalSubscribersChartCard({ data, cardBg, axisStroke, mutedText, yScale
           <span><span style={{ color: trialingColor }}>●</span> Free Trial: {latest.trialing.toLocaleString()}</span>
           <span title={graceTrialTitle}><span style={{ color: graceTrialColor }}>●</span> Trial Grace: {latest.graceTrial.toLocaleString()}</span>
           <span>Total Subscribers: {totalSubscribers.toLocaleString()}</span>
+          {projectedEnd && (
+            <span title={projectionTitle(projection)}>
+              <span style={{ color: projectedColor }}>⇢</span> {projection.horizonDays}d projection:{' '}
+              {projectedEnd.projected.toLocaleString()} ({projectedNet >= 0 ? '+' : ''}{projectedNet})
+            </span>
+          )}
         </div>
       </div>
       {data.length === 0 ? (
@@ -2129,7 +2983,7 @@ function TotalSubscribersChartCard({ data, cardBg, axisStroke, mutedText, yScale
       ) : (
         <MobileScrollableChart>
           <ResponsiveContainer width="100%" height={280}>
-            <ComposedChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+            <ComposedChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
               <CartesianGrid strokeOpacity={0.1} vertical={false} />
               <XAxis
                 dataKey="day"
@@ -2152,6 +3006,26 @@ function TotalSubscribersChartCard({ data, cardBg, axisStroke, mutedText, yScale
                 cursor={{ stroke: 'var(--color-text-primary)', strokeOpacity: 0.2 }}
                 content={({ active, label, payload }) => {
                   if (!active || !payload?.length) return null;
+                  // A projected day has no observed values — show what the
+                  // projection is made of instead of three misleading zeros.
+                  const proj = projectionByDay.get(String(label));
+                  if (proj) {
+                    return (
+                      <div
+                        className="rounded-lg border px-3 py-2 text-xs"
+                        style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', color: 'var(--color-chart-tooltip-text)' }}
+                      >
+                        <div className="font-semibold mb-1">{dayLabel(String(label))} · projected</div>
+                        <div>Full Subscriber: {proj.projected.toLocaleString()}</div>
+                        <div style={{ opacity: 0.8 }}>
+                          {proj.conversions > 0 ? `+${proj.conversions} trial${proj.conversions === 1 ? '' : 's'} converting` : 'no conversions due'}
+                        </div>
+                        <div style={{ opacity: 0.8 }}>
+                          {proj.departures > 0 ? `−${proj.departures} cancellation${proj.departures === 1 ? '' : 's'} taking effect` : 'no cancellations due'}
+                        </div>
+                      </div>
+                    );
+                  }
                   const paying = Number(payload.find((p) => p.dataKey === 'paying')?.value ?? 0);
                   const trialing = Number(payload.find((p) => p.dataKey === 'trialing')?.value ?? 0);
                   const graceTrial = Number(payload.find((p) => p.dataKey === 'graceTrial')?.value ?? 0);
@@ -2168,6 +3042,19 @@ function TotalSubscribersChartCard({ data, cardBg, axisStroke, mutedText, yScale
                     </div>
                   );
                 }}
+              />
+              <Line
+                type="monotone"
+                dataKey="projectedPaying"
+                name={`Full Subscriber (${projection.horizonDays}d projection)`}
+                stroke={projectedColor}
+                strokeWidth={2}
+                strokeDasharray="5 4"
+                dot={false}
+                // The anchor day is the only point on both lines; without this
+                // the dashed run would break at the seam.
+                connectNulls
+                isAnimationActive={false}
               />
               <Area
                 type="monotone"

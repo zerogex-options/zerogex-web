@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isTrialConversionFailure, type TrialConversionFailureInput } from '../core/trialDunning.ts';
+import {
+  isTrialConversionFailure,
+  isWithinTrialConversionWindow,
+  type TrialConversionFailureInput,
+} from '../core/trialDunning.ts';
 
 // Distinguishing a trial-conversion first-charge failure from a renewal failure
 // is what lets the webhook send new-customer-appropriate dunning copy instead of
@@ -57,4 +61,44 @@ test('window is configurable', () => {
   const oneDayLate = TRIAL_END + 24 * 3600;
   assert.equal(isTrialConversionFailure(input({ invoiceCreatedUnix: oneDayLate, windowDays: 0 })), false);
   assert.equal(isTrialConversionFailure(input({ invoiceCreatedUnix: oneDayLate, windowDays: 2 })), true);
+});
+
+// The subscription-only variant, used by the grace decision on
+// customer.subscription.updated where no invoice is in hand. Same window, same
+// skew — a trial that ended moments ago is a first charge; a renewal a cycle
+// later is not.
+const NOW_MS = TRIAL_END * 1000;
+
+test('isWithinTrialConversionWindow: right at trial_end is a conversion', () => {
+  assert.equal(isWithinTrialConversionWindow(TRIAL_END, NOW_MS), true);
+});
+
+test('isWithinTrialConversionWindow: an hour later (invoice finalization lag) still counts', () => {
+  assert.equal(isWithinTrialConversionWindow(TRIAL_END, NOW_MS + 3600_000), true);
+});
+
+test('isWithinTrialConversionWindow: a renewal a cycle later does not', () => {
+  assert.equal(isWithinTrialConversionWindow(TRIAL_END, NOW_MS + 30 * 24 * 3600_000), false);
+});
+
+test('isWithinTrialConversionWindow: no trial on the sub is never a conversion', () => {
+  assert.equal(isWithinTrialConversionWindow(null, NOW_MS), false);
+  assert.equal(isWithinTrialConversionWindow(undefined, NOW_MS), false);
+});
+
+test('isWithinTrialConversionWindow: malformed inputs are never trusted', () => {
+  assert.equal(isWithinTrialConversionWindow(Number.NaN, NOW_MS), false);
+  assert.equal(isWithinTrialConversionWindow(Number.POSITIVE_INFINITY, NOW_MS), false);
+  assert.equal(isWithinTrialConversionWindow(TRIAL_END, Number.NaN), false);
+});
+
+test('isWithinTrialConversionWindow: window is configurable and matches the invoice check', () => {
+  const oneDayLate = NOW_MS + 24 * 3600_000;
+  assert.equal(isWithinTrialConversionWindow(TRIAL_END, oneDayLate, 0), false);
+  assert.equal(isWithinTrialConversionWindow(TRIAL_END, oneDayLate, 2), true);
+  // Same boundary the invoice-based check uses, so the two can't drift apart.
+  assert.equal(
+    isWithinTrialConversionWindow(TRIAL_END, oneDayLate),
+    isTrialConversionFailure({ trialEndUnix: TRIAL_END, invoiceCreatedUnix: oneDayLate / 1000 }),
+  );
 });

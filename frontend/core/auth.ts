@@ -35,6 +35,14 @@ const PUBLIC_ROUTE_PATTERNS = [
   '/updates',
   '/search',
   '/real-time-gex-0dte',
+  // Chart-platform integration landings — the TradingView script and the
+  // NinjaTrader 8 indicator. Marketing/how-to copy with no member data, so both
+  // stay open and crawlable. The NinjaTrader page's DOWNLOAD is Pro-gated, but
+  // that gate lives in PlotOnNinjaTrader (which renders no link below Pro),
+  // not here: routing the whole page to /login would cost the SEO landing its
+  // entire purpose, and there is nothing on it a non-member may not read.
+  '/tradingview-indicator',
+  '/ninjatrader-indicator',
   '/login',
   '/register',
   '/forgot-password',

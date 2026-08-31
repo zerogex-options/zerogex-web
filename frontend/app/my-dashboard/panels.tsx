@@ -333,6 +333,7 @@ export function GammaLadderPanel() {
   const { showSessionDelta } = useSessionDelta();
   const t = usePageT(dict);
   const expirations = useChartExpirations(symbol, true);
+  const ladderZeroDte = useZeroDteOption(expirations.available, etTodayDateKey());
   const column = useGammaLadderColumn(symbol, true, {
     expirations: expirations.selection,
     sessionDelta: showSessionDelta,
@@ -361,6 +362,7 @@ export function GammaLadderPanel() {
           onChange={expirations.setSelection}
           label="Expiry"
           disabled={expirations.available.length === 0}
+          zeroDte={ladderZeroDte}
         />
         <SessionDeltaToggle showHint={false} />
         <GexUnitToggle showHint={false} />
@@ -392,10 +394,10 @@ export function SignalsSynthesisPanel() {
   );
 }
 
-export function TradeBiasPanel() {
+export function RegimePlaybookPanel() {
   const t = usePageT(dict);
   return (
-    <WidgetCard title={t('tradeBias')}>
+    <WidgetCard title={t('regimePlaybook')}>
       <TradeBiasSection compact />
     </WidgetCard>
   );
@@ -403,8 +405,8 @@ export function TradeBiasPanel() {
 
 /**
  * The Signals Engine's bias for a chosen horizon — a different read from
- * TradeBiasPanel above, which computes its composite in the browser and has no
- * horizon at all. Linked to the full page, since this card is deliberately the
+ * RegimePlaybookPanel above, which composites its own read in the browser and
+ * has no horizon at all. Linked to the full page, since this card is deliberately the
  * summary and the playbook/checklist/history live there.
  */
 export function TradeBiasHorizonPanel() {
