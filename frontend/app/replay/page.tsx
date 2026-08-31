@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 
 import { serverApiGet } from '@/core/api/serverFetch';
 import SymbolPicker from '@/components/SymbolPicker';
 import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
+import SessionCard from './SessionCard';
 
 // Landing page for /replay — lists the recent trading days that have
 // replayable GEX data and links to /replay/[date]. ISR-cached for an
@@ -114,23 +114,13 @@ export default async function ReplayLanding({
                 'var(--color-text-secondary)';
               return (
                 <li key={session.date}>
-                  <Link
+                  <SessionCard
                     href={`/replay/${symbol}/${session.date}`}
-                    className="block rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 transition-colors hover:bg-[var(--color-surface-subtle)]"
-                  >
-                    <div className="flex items-baseline justify-between gap-3">
-                      <div className="font-semibold">{formatHumanDate(session.date)}</div>
-                      <div
-                        className="text-[10px] uppercase tracking-[0.18em] font-bold"
-                        style={{ color: tone }}
-                      >
-                        {meta.label}
-                      </div>
-                    </div>
-                    <div className="mt-1 font-mono text-[11px] text-[var(--color-text-secondary)]">
-                      {session.bar_count} bars
-                    </div>
-                  </Link>
+                    humanDate={formatHumanDate(session.date)}
+                    statusLabel={meta.label}
+                    statusTone={tone}
+                    barCount={session.bar_count}
+                  />
                 </li>
               );
             })}
