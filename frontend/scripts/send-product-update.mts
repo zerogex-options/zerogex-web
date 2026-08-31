@@ -27,9 +27,12 @@
 //                  WHERE subscription_status IN ('active','trialing')
 //   registrants  → signed up ≤N days (default 30) or since --since, verified
 //                  email, logged in (proxied by authenticated page-view activity
-//                  — no last_login column exists), never subscribed, and NOT
-//                  already reached by the automated verified-never-paid nudge
-//                  (no double-touch).
+//                  — no last_login column exists), and never subscribed.
+//                  Whether this also skips anyone the automated ~2h onboarding
+//                  nudge already reached is per-campaign
+//                  (CampaignSpec.excludeOnboardingNudged): July did, August does
+//                  not, because in steady state that nudge reaches nearly every
+//                  signup within hours and excluding them empties the cohort.
 //   cancelled    → churned members (subscription_lapsed=1, no live sub, verified,
 //                  not an operator, not self-deleted) who have NOT already had
 //                  the automated ~1-month win-back (winback_email_sent_at IS
@@ -67,6 +70,21 @@ type CampaignSpec = {
   key: string;
   // Only the audiences this campaign actually has content for.
   content: Partial<Record<Audience, AudienceContent>>;
+  // Whether the `registrants` cohort skips anyone the automated ~2h onboarding
+  // nudge (scripts/send-verified-never-paid.mts) has already reached.
+  //
+  // July needed this: the nudge automation was new, the campaign existed to
+  // reach the backlog that predated it, and a same-week second touch would
+  // have read as a double-send. It is wrong in steady state — that timer fires
+  // every 2 hours over a 2h..7d window, so it stamps essentially every verified
+  // signup within hours, and excluding them leaves a cohort of near zero (a
+  // live run in August returned 2 recipients against 146 skipped). A campaign
+  // reporting six weeks of shipped work is not a second copy of the onboarding
+  // nudge, and the two are weeks apart, so August keeps them.
+  //
+  // Per-campaign rather than removed outright so re-running a past campaign
+  // still reproduces the cohort it actually sent to.
+  excludeOnboardingNudged: boolean;
 };
 
 type Args = {
@@ -98,6 +116,7 @@ const REPLY_TO = 'Michael@zerogex.io';
 const CAMPAIGNS: Record<string, CampaignSpec> = {
   '2026-07': {
     key: 'product_update_2026_07',
+    excludeOnboardingNudged: true,
     content: {
       subscribers: {
         subject: "What's new at ZeroGEX — and what's coming next",
@@ -113,6 +132,7 @@ const CAMPAIGNS: Record<string, CampaignSpec> = {
   },
   '2026-08': {
     key: 'product_update_2026_08',
+    excludeOnboardingNudged: false,
     content: {
       registrants: {
         subject: "What's new at ZeroGEX since you signed up",
@@ -441,36 +461,36 @@ if (audience === 'subscribers') {
   // --since pins the floor to a date (this campaign: the July send, so only
   // registrants who arrived after it qualify); --days is the relative fallback.
   const sinceIso = cli.since ?? new Date(Date.now() - cli.days * 86_400_000).toISOString();
-  rows = querySqlite<Row>(
-    dbPath,
-    `SELECT id, email, created_at
-       FROM users u
-      WHERE email_verified_at IS NOT NULL
+  // Shared by the cohort query and the nudged-count query below, so the two can
+  // never drift into reporting on different populations.
+  const registrantBase = `email_verified_at IS NOT NULL
         AND tier = 'public'
         AND stripe_subscription_id IS NULL
         AND COALESCE(subscription_lapsed, 0) = 0
         AND (subscription_status IS NULL OR subscription_status NOT IN ('active','trialing'))
-        AND verified_never_paid_email_sent_at IS NULL
         AND marketing_unsubscribed_at IS NULL
         AND deleted_at IS NULL
         AND created_at >= '${esc(sinceIso)}'
-        AND EXISTS (SELECT 1 FROM page_view_events pv WHERE pv.user_id = u.id)
+        AND EXISTS (SELECT 1 FROM page_view_events pv WHERE pv.user_id = u.id)`;
+  rows = querySqlite<Row>(
+    dbPath,
+    `SELECT id, email, created_at
+       FROM users u
+      WHERE ${registrantBase}
+        ${campaignSpec.excludeOnboardingNudged ? 'AND verified_never_paid_email_sent_at IS NULL' : ''}
       ORDER BY created_at ASC;`,
   );
+  // How many of this window already had the ~2h onboarding nudge. When the
+  // campaign excludes them it's the size of what we skipped; when it doesn't,
+  // it's how much of the cohort is on a second touch. Same population either
+  // way, so the number is comparable across campaigns.
   excludedNudged =
     querySqlite<{ n: number }>(
       dbPath,
       `SELECT COUNT(*) AS n
          FROM users u
-        WHERE email_verified_at IS NOT NULL
-          AND tier = 'public'
-          AND stripe_subscription_id IS NULL
-          AND COALESCE(subscription_lapsed, 0) = 0
-          AND (subscription_status IS NULL OR subscription_status NOT IN ('active','trialing'))
-          AND verified_never_paid_email_sent_at IS NOT NULL
-          AND deleted_at IS NULL
-          AND created_at >= '${esc(sinceIso)}'
-          AND EXISTS (SELECT 1 FROM page_view_events pv WHERE pv.user_id = u.id);`,
+        WHERE ${registrantBase}
+          AND verified_never_paid_email_sent_at IS NOT NULL;`,
     )[0]?.n ?? 0;
 }
 
@@ -498,7 +518,11 @@ if (audience === 'registrants') {
   console.log(
     cli.since ? `Signup window:  since ${cli.since}` : `Signup window:  last ${cli.days} days`,
   );
-  console.log(`Excluded:       ${excludedNudged} already got the verified-never-paid nudge`);
+  console.log(
+    campaignSpec.excludeOnboardingNudged
+      ? `Excluded:       ${excludedNudged} already got the ~2h onboarding nudge`
+      : `Second touch:   ${excludedNudged} of these already got the ~2h onboarding nudge`,
+  );
 }
 console.log(`Cohort size:    ${rows.length}`);
 if (alreadyCount > 0) console.log(`Already emailed: ${alreadyCount} (skipped)`);

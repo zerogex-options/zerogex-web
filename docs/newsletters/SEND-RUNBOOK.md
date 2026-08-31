@@ -21,13 +21,29 @@ Pin Strike, and the Market Tide / Pair Comparison / Volatility metric pages.
 
 | Audience | Who | Files | Subject |
 |---|---|---|---|
-| `registrants` | Verified, never subscribed, signed up **since the July send**, logged in, not already sent the verified-never-paid nudge | `2026-08-product-update-registrants.html` / `.txt` | What's new at ZeroGEX since you signed up |
+| `registrants` | Verified, never subscribed, signed up **since the July send**, logged in | `2026-08-product-update-registrants.html` / `.txt` | What's new at ZeroGEX since you signed up |
 | `cancelled` | Churned (`subscription_lapsed=1`), verified, no live sub, not an operator, and **never win-backed** (`winback_email_sent_at IS NULL`) | `2026-08-product-update-cancelled.html` / `.txt` | What's changed at ZeroGEX since you left |
 
 **Idempotency key:** `product_update_2026_08`. Each successful send stamps
 `audit_events(type='product_update_2026_08_sent')`, so a re-run — including after a
 `--limit` test batch — skips anyone already emailed and an interrupted run resumes
 cleanly.
+
+### Why `registrants` no longer skips the already-nudged
+
+July excluded anyone the automated ~2h onboarding nudge
+(`scripts/send-verified-never-paid.mts`) had reached, to avoid a same-week
+double-touch. That rule is wrong once the automation is in steady state: its
+timer fires **every 2 hours** over a 2h–7d window, so it stamps
+`verified_never_paid_email_sent_at` on essentially every verified signup within
+hours of registration. A live August run with the exclusion returned **2
+recipients against 146 skipped**.
+
+So August keeps them. The flag is per-campaign
+(`CampaignSpec.excludeOnboardingNudged`), not deleted, so re-running
+`--campaign 2026-07` still reproduces the cohort July actually sent to. The
+dry-run reports the overlap either way — `Excluded:` when the campaign skips
+them, `Second touch:` when it doesn't.
 
 ### The `cancelled` audience needs a win-back coupon
 
