@@ -31,9 +31,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const WINDOW = '9:22 AM and 10:10 AM ET on Sunday, 31 August 2026';
-const SUBJECT = 'Resolved: ZeroGEX API 403 errors this morning';
+const WINDOW = '9:22 and 10:10 AM ET on Monday morning';
+const SUBJECT = 'Resolved: ZeroGEX API problems today';
 const SUPPORT = 'support@zerogex.io';
+// Latency recovered here after the last mitigation landed; stated so a
+// recipient can match it against their own logs rather than take "fixed"
+// on faith.
+const RECOVERED_AT = 'about 12:40 PM ET';
 
 // Resend's default rate limit is 2 requests/second. 600ms keeps a comfortable
 // margin on a list this small; there is no reason to go faster.
@@ -161,17 +165,21 @@ function describeFailures(n: number) {
 function renderText(r: Recipient) {
   return `Hi,
 
-If your ZeroGEX API integration started failing this morning, this note explains why — and it was our doing, not anything wrong on your side.
+If your ZeroGEX API integration had trouble today, there were two separate problems — and both were ours, not anything wrong on your side.
 
-Between ${WINDOW} we had a permissions change live that was stricter than intended. It returned HTTP 403 on endpoints your plan should have access to. On your account it affected ${describeFailures(r.failures)}, on:
+First, between ${WINDOW}, a permissions change we deployed on Sunday evening was returning HTTP 403 on endpoints your plan should have access to. On your account it affected ${describeFailures(r.failures)}, on:
 
 ${r.endpoints.map((e) => `  - ${e}`).join('\n')}
 
-It is fixed. We rolled the change back and confirmed those endpoints are serving normally again. Nothing on your side needs to change: your API key is fine, and if you regenerated it while troubleshooting, that wasn't necessary — the new one works exactly the same, so there is no need to switch back. Re-running whatever failed should now succeed.
+Second, and unrelated: from late morning into the early afternoon the API was slow, with some requests taking tens of seconds or timing out entirely. We had outgrown our database capacity, and Monday-open volume was queueing requests behind each other.
 
-The mistake was ours. We enabled the check without first confirming which endpoints live integrations actually depend on. We have since pulled that usage data, so if we revisit this we will know precisely what would be affected and will give proper notice well in advance rather than changing it underneath you.
+Both are resolved. The permissions change was rolled back at 10:10 AM, and response times returned to normal at ${RECOVERED_AT} — the API is now faster than it was before any of this started. We are upgrading the database hardware this evening after the close so there is proper headroom going forward.
 
-Sorry for the disruption, and for any time you lost chasing a problem that was not yours. If anything is still failing, reply here or write to ${SUPPORT} and I will look at it directly.
+Nothing on your side needs to change. Your API key is fine, and if you regenerated it while troubleshooting, that was not necessary — the new one works exactly the same, so there is no need to switch back. Re-running whatever failed should now succeed.
+
+On the permissions mistake specifically: we enabled that check without first confirming which endpoints live integrations actually depend on. We have since pulled that usage data, so if we revisit it we will know precisely what would be affected and will give proper notice well in advance rather than changing it underneath you.
+
+Sorry for the disruption, and for any time you lost chasing problems that were not yours. If anything is still failing, reply here or write to ${SUPPORT} and I will look at it directly.
 
 Michael
 ZeroGEX
@@ -185,12 +193,14 @@ function renderHtml(r: Recipient) {
   return `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 15px; line-height: 1.6; color: #111;">
       <p>Hi,</p>
-      <p>If your ZeroGEX API integration started failing this morning, this note explains why — and it was our doing, not anything wrong on your side.</p>
-      <p>Between <strong>${escapeHtml(WINDOW)}</strong> we had a permissions change live that was stricter than intended. It returned HTTP 403 on endpoints your plan should have access to. On your account it affected <strong>${escapeHtml(describeFailures(r.failures))}</strong>, on:</p>
+      <p>If your ZeroGEX API integration had trouble today, there were two separate problems — and both were ours, not anything wrong on your side.</p>
+      <p>First, between <strong>${escapeHtml(WINDOW)}</strong>, a permissions change we deployed on Sunday evening was returning HTTP 403 on endpoints your plan should have access to. On your account it affected <strong>${escapeHtml(describeFailures(r.failures))}</strong>, on:</p>
       <ul style="padding-left: 20px;">${items}</ul>
-      <p>It is fixed. We rolled the change back and confirmed those endpoints are serving normally again. Nothing on your side needs to change: your API key is fine, and if you regenerated it while troubleshooting, that wasn't necessary — the new one works exactly the same, so there is no need to switch back. Re-running whatever failed should now succeed.</p>
-      <p>The mistake was ours. We enabled the check without first confirming which endpoints live integrations actually depend on. We have since pulled that usage data, so if we revisit this we will know precisely what would be affected and will give proper notice well in advance rather than changing it underneath you.</p>
-      <p>Sorry for the disruption, and for any time you lost chasing a problem that was not yours. If anything is still failing, reply here or write to <a href="mailto:${SUPPORT}">${SUPPORT}</a> and I will look at it directly.</p>
+      <p>Second, and unrelated: from late morning into the early afternoon the API was slow, with some requests taking tens of seconds or timing out entirely. We had outgrown our database capacity, and Monday-open volume was queueing requests behind each other.</p>
+      <p>Both are resolved. The permissions change was rolled back at 10:10 AM, and response times returned to normal at ${escapeHtml(RECOVERED_AT)} — the API is now faster than it was before any of this started. We are upgrading the database hardware this evening after the close so there is proper headroom going forward.</p>
+      <p>Nothing on your side needs to change. Your API key is fine, and if you regenerated it while troubleshooting, that was not necessary — the new one works exactly the same, so there is no need to switch back. Re-running whatever failed should now succeed.</p>
+      <p>On the permissions mistake specifically: we enabled that check without first confirming which endpoints live integrations actually depend on. We have since pulled that usage data, so if we revisit it we will know precisely what would be affected and will give proper notice well in advance rather than changing it underneath you.</p>
+      <p>Sorry for the disruption, and for any time you lost chasing problems that were not yours. If anything is still failing, reply here or write to <a href="mailto:${SUPPORT}">${SUPPORT}</a> and I will look at it directly.</p>
       <p>Michael<br>ZeroGEX</p>
     </div>
   `.trim();
