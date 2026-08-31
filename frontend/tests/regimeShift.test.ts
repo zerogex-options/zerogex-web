@@ -666,6 +666,28 @@ test("a cross-session window with no OI move gets a different reason", () => {
   assert.doesNotMatch(out, /once a day at settlement/i);
 });
 
+test("the net-shift tile does not report $0 for a figure nobody measured", () => {
+  // Zero here is the same structural absence the ribbon shows, and "$0"
+  // sitting beside four real before→after levels reads as a measurement.
+  const rows = buildLevelRows(
+    unresolvedPositioning({
+      scores: { ...payload().scores, net_shift: 0 },
+    }),
+  );
+  const net = rows.find((r) => r.key === "net_shift");
+  assert.ok(net);
+  assert.equal(net.after, "—");
+  assert.equal(net.sense, "flat");
+  assert.match(net.note, /open-interest/i);
+});
+
+test("the net-shift tile still reports a real figure on a lens that resolved", () => {
+  const rows = buildLevelRows(payload());
+  const net = rows.find((r) => r.key === "net_shift");
+  assert.ok(net);
+  assert.equal(net.after, formatSignedGex(payload().scores.net_shift));
+});
+
 test("cross-session lookbacks are exactly the ones that straddle a settlement", () => {
   for (const lb of ["prev_close", "prev_same_time", "week"] as const) {
     assert.equal(isCrossSession(lb), true, lb);

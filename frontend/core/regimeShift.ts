@@ -720,6 +720,22 @@ export function buildLevelRows(payload: RegimeShiftPayload): LevelRow[] {
     });
   }
 
+  // On the repositioning lens in a window with no open-interest change, the
+  // net shift is 0 for the same structural reason the ribbon is empty — and
+  // "$0" sitting in a tile beside four real levels reads as a measurement.
+  if (!positioningResolved(payload)) {
+    rows.push({
+      key: 'net_shift',
+      label: 'Net shift',
+      before: '',
+      after: '—',
+      direction: 'flat',
+      sense: 'flat',
+      note: 'no open-interest change to attribute',
+    });
+    return rows;
+  }
+
   rows.push({
     key: 'net_shift',
     label: 'Net shift',
