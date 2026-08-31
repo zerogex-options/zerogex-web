@@ -176,6 +176,10 @@ namespace NinjaTrader.NinjaScript.Indicators
                 // Eight pixels clear of the right edge: enough to read, not
                 // so much that the label drifts away from its own line.
                 LabelRightOffsetPixels = 8;
+                // 12 and not bold reproduces exactly what shipped before this
+                // was settable, so nobody's chart changes on upgrade.
+                LabelFontSize = 12;
+                LabelBold = false;
                 ShowInfoPanel = true;
                 EnableAlerts = false;
 
@@ -560,8 +564,18 @@ namespace NinjaTrader.NinjaScript.Indicators
         private readonly List<int> _labelOrder = new List<int>();
         private readonly List<float> _labelY = new List<float>();
 
-        /// <summary>Vertical space one label occupies, in pixels.</summary>
-        private const float LabelLineHeight = 15f;
+        /// <summary>Vertical space one label occupies, in pixels.
+        ///
+        /// Derived from the font size rather than fixed. It used to be a
+        /// constant 15, which is right for 12pt and quietly wrong for anything
+        /// else: the de-collision pass below spaces labels by this number, so a
+        /// reader who enlarged the text would have got the overlapping smear
+        /// back, having changed the one setting meant to make things clearer.
+        /// +3 reproduces the old 15 exactly at the default 12.</summary>
+        private float LabelLineHeight
+        {
+            get { return Math.Max(6, LabelFontSize) + 3f; }
+        }
         private ZeroGexLevelsSnapshot _levelsBuiltFrom;
         private int _levelsBuiltCount = -1;
 
@@ -626,7 +640,13 @@ namespace NinjaTrader.NinjaScript.Indicators
             {
                 using (var brushes = new BrushCache(RenderTarget))
                 using (var font = new SharpDX.DirectWrite.TextFormat(
-                           NinjaTrader.Core.Globals.DirectWriteFactory, "Arial", 12f))
+                           NinjaTrader.Core.Globals.DirectWriteFactory, "Arial",
+                           LabelBold
+                               ? SharpDX.DirectWrite.FontWeight.Bold
+                               : SharpDX.DirectWrite.FontWeight.Normal,
+                           SharpDX.DirectWrite.FontStyle.Normal,
+                           SharpDX.DirectWrite.FontStretch.Normal,
+                           Math.Max(6, LabelFontSize)))
                 {
                     // Labels are right-aligned into the margin, so the text ends
                     // at a fixed distance from the right edge however long it is.
@@ -960,7 +980,8 @@ namespace NinjaTrader.NinjaScript.Indicators
             float boxWidth = Math.Max(1f, (right - 8f) - left);
 
             RenderTarget.DrawText(BuildInfoText(s), font,
-                                  new SharpDX.RectangleF(left, ChartPanel.Y + 6f, boxWidth, 120f),
+                                  new SharpDX.RectangleF(left, ChartPanel.Y + 6f, boxWidth,
+                                                         LabelLineHeight * 8f),
                                   ink);
         }
 
@@ -970,7 +991,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         /// different versions and neither they nor we can tell which. A bug
         /// report against an unknown build costs a round trip to establish what
         /// is even being reported. Bump this on every file sent to a tester.</summary>
-        private const string BuildVersion = "v1.7";
+        private const string BuildVersion = "v1.8";
 
         private string BuildInfoText(ZeroGexLevelsSnapshot s)
         {
@@ -1210,16 +1231,32 @@ namespace NinjaTrader.NinjaScript.Indicators
         [Display(Name = "Label distance from right edge (pixels)", Order = 4, GroupName = "3. Style")]
         public int LabelRightOffsetPixels { get; set; }
 
+        // Asked for by a 74-year-old tester in as many words: "for us older
+        // guys, it would be nice if the font size/weight could be enlarged."
+        // Worth more than it looks. Everything this indicator knows reaches the
+        // trader through these two settings and the panel, so text he has to
+        // lean in to read is the whole product being hard to use. The upper
+        // bound is deliberately generous; a level chart is not a spreadsheet
+        // and nobody is hurt by 40pt if that is what it takes to read it.
         [NinjaScriptProperty]
-        [Display(Name = "Show info panel", Order = 5, GroupName = "3. Style")]
+        [Range(6, 48)]
+        [Display(Name = "Label text size", Order = 5, GroupName = "3. Style")]
+        public int LabelFontSize { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Label text bold", Order = 6, GroupName = "3. Style")]
+        public bool LabelBold { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Show info panel", Order = 7, GroupName = "3. Style")]
         public bool ShowInfoPanel { get; set; }
 
         [NinjaScriptProperty]
-        [Display(Name = "Enable cross alerts", Order = 6, GroupName = "3. Style")]
+        [Display(Name = "Enable cross alerts", Order = 8, GroupName = "3. Style")]
         public bool EnableAlerts { get; set; }
 
         [XmlIgnore]
-        [Display(Name = "Gamma Flip color", Order = 7, GroupName = "3. Style")]
+        [Display(Name = "Gamma Flip color", Order = 9, GroupName = "3. Style")]
         public Brush FlipBrush { get; set; }
 
         [Browsable(false)]
@@ -1230,7 +1267,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         }
 
         [XmlIgnore]
-        [Display(Name = "Call Wall color", Order = 8, GroupName = "3. Style")]
+        [Display(Name = "Call Wall color", Order = 10, GroupName = "3. Style")]
         public Brush CallBrush { get; set; }
 
         [Browsable(false)]
@@ -1241,7 +1278,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         }
 
         [XmlIgnore]
-        [Display(Name = "Put Wall color", Order = 9, GroupName = "3. Style")]
+        [Display(Name = "Put Wall color", Order = 11, GroupName = "3. Style")]
         public Brush PutBrush { get; set; }
 
         [Browsable(false)]
@@ -1252,7 +1289,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         }
 
         [XmlIgnore]
-        [Display(Name = "Max Pain color", Order = 10, GroupName = "3. Style")]
+        [Display(Name = "Max Pain color", Order = 12, GroupName = "3. Style")]
         public Brush PainBrush { get; set; }
 
         [Browsable(false)]
@@ -1263,7 +1300,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         }
 
         [XmlIgnore]
-        [Display(Name = "Pin Strike color", Order = 11, GroupName = "3. Style")]
+        [Display(Name = "Pin Strike color", Order = 13, GroupName = "3. Style")]
         public Brush PinBrush { get; set; }
 
         [Browsable(false)]
@@ -1274,7 +1311,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         }
 
         [XmlIgnore]
-        [Display(Name = "GEX 1..N color", Order = 12, GroupName = "3. Style")]
+        [Display(Name = "GEX 1..N color", Order = 14, GroupName = "3. Style")]
         public Brush GexRankBrush { get; set; }
 
         [Browsable(false)]
@@ -1285,7 +1322,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         }
 
         [XmlIgnore]
-        [Display(Name = "VWAP color", Order = 13, GroupName = "3. Style")]
+        [Display(Name = "VWAP color", Order = 15, GroupName = "3. Style")]
         public Brush VwapBrush { get; set; }
 
         [Browsable(false)]
@@ -1301,7 +1338,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         // dark charts both testers run, and anyone on a light chart can change
         // it rather than squint at pale grey on white.
         [XmlIgnore]
-        [Display(Name = "Info panel color", Order = 17, GroupName = "3. Style")]
+        [Display(Name = "Info panel color", Order = 19, GroupName = "3. Style")]
         public Brush InfoPanelBrush { get; set; }
 
         [Browsable(false)]
@@ -1312,7 +1349,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         }
 
         [XmlIgnore]
-        [Display(Name = "Histogram color (net positive)", Order = 14, GroupName = "3. Style")]
+        [Display(Name = "Histogram color (net positive)", Order = 16, GroupName = "3. Style")]
         public Brush ProfilePosBrush { get; set; }
 
         [Browsable(false)]
@@ -1323,7 +1360,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         }
 
         [XmlIgnore]
-        [Display(Name = "Histogram color (net negative)", Order = 15, GroupName = "3. Style")]
+        [Display(Name = "Histogram color (net negative)", Order = 17, GroupName = "3. Style")]
         public Brush ProfileNegBrush { get; set; }
 
         [Browsable(false)]
