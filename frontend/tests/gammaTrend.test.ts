@@ -17,6 +17,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  buildTrendAxis,
   buildTrendSeries,
   formatGexAxis,
   gammaDomain,
@@ -351,4 +352,119 @@ test("axis ticks drop the plus but keep the minus", () => {
   assert.equal(formatGexAxis(-1.2e9), "−$1.20B");
   assert.equal(formatGexAxis(0), "$0");
   assert.equal(formatGexAxis(null), "");
+});
+
+// --------------------------------------------------------------------------
+// The time axis
+// --------------------------------------------------------------------------
+//
+// The panel plots position, not time, because the analytics engine only
+// writes while the chain is open: on a true time scale the overnight span
+// between two sessions eats most of the plot and the line drawn across it is
+// an interpolation, not a reading. Two things have to survive that trade —
+// labels a trader recognises, and a visible mark where time was removed.
+
+/** A session's worth of 5-minute buckets starting at an ET wall-clock time. */
+function session(dayIso: string, startEt: string, count: number): TrendBucket[] {
+  // ET is UTC-4 through the summer dates used here.
+  const [hh, mm] = startEt.split(":").map(Number);
+  const base = Date.UTC(
+    Number(dayIso.slice(0, 4)),
+    Number(dayIso.slice(5, 7)) - 1,
+    Number(dayIso.slice(8, 10)),
+    hh + 4,
+    mm,
+  );
+  return Array.from({ length: count }, (_, i) => ({
+    timestamp: new Date(base + i * 5 * 60_000).toISOString(),
+    close: 100,
+    gamma_flip: 98,
+    strikes: [{ strike: 100, net_gamma: 1 }],
+  }));
+}
+
+test("ticks land on round ET times, not on whichever bucket fell there", () => {
+  // 09:30 -> 11:55, buckets every 5 minutes.
+  const points = buildTrendSeries(session("2026-08-21", "09:30", 30));
+  const axis = buildTrendAxis(points);
+
+  const labels = axis.ticks.map((t) => t.label);
+  assert.ok(labels.length > 0);
+  for (const label of labels) {
+    assert.match(label, /^\d{2}:(00|30)$/, label);
+  }
+  assert.equal(labels[0], "09:30");
+  assert.ok(labels.includes("10:30"));
+  assert.ok(labels.includes("11:30"));
+});
+
+test("every tick points at a real reading", () => {
+  const points = buildTrendSeries(session("2026-08-21", "09:30", 30));
+  const axis = buildTrendAxis(points);
+
+  for (const tick of axis.ticks) {
+    assert.ok(Number.isInteger(tick.index));
+    assert.ok(tick.index >= 0 && tick.index < points.length);
+  }
+});
+
+test("the tick budget coarsens the step rather than crowding the axis", () => {
+  // Three sessions: half-hourly would be ~40 ticks.
+  const points = buildTrendSeries([
+    ...session("2026-08-19", "09:30", 78),
+    ...session("2026-08-20", "09:30", 78),
+    ...session("2026-08-21", "09:30", 78),
+  ]);
+  const axis = buildTrendAxis(points, 9);
+
+  assert.ok(axis.ticks.length <= 9, `got ${axis.ticks.length} ticks`);
+  assert.ok(axis.stepMinutes > 30, "should have coarsened past half-hourly");
+});
+
+test("a closed market is cut out and the seam is reported", () => {
+  // Yesterday's last hour, then today's first hour: ~17.5 hours of nothing
+  // between them, which on a time axis is most of the plot.
+  const points = buildTrendSeries([
+    ...session("2026-08-20", "15:00", 12),
+    ...session("2026-08-21", "09:30", 12),
+  ]);
+  const axis = buildTrendAxis(points);
+
+  assert.equal(axis.breaks.length, 1);
+  // The break indexes the first reading of the NEW session, so the caller can
+  // draw the rule just before it.
+  assert.equal(axis.breaks[0].index, 12);
+  assert.match(axis.breaks[0].label, /8\/21/);
+});
+
+test("a single missed write is not mistaken for a session boundary", () => {
+  // One dropped bucket is a 10-minute gap on a 5-minute feed. Marking that as
+  // a session break would put a seam in the middle of a live session.
+  const full = session("2026-08-21", "09:30", 12);
+  const points = buildTrendSeries([...full.slice(0, 5), ...full.slice(6)]);
+
+  assert.equal(buildTrendAxis(points).breaks.length, 0);
+});
+
+test("the first reading after a break is labelled with its day", () => {
+  const points = buildTrendSeries([
+    ...session("2026-08-20", "15:00", 12),
+    ...session("2026-08-21", "09:30", 12),
+  ]);
+  const axis = buildTrendAxis(points);
+
+  const resumed = axis.ticks.find((t) => t.index === 12);
+  assert.ok(resumed, "the resuming session must carry a tick");
+  assert.match(resumed.label, /8\/21 09:30/);
+});
+
+test("an empty or single-point series produces an axis, not a crash", () => {
+  assert.deepEqual(buildTrendAxis([]).ticks, []);
+  assert.deepEqual(buildTrendAxis([]).breaks, []);
+
+  const one = buildTrendSeries(session("2026-08-21", "09:30", 1));
+  const axis = buildTrendAxis(one);
+  assert.equal(axis.ticks.length, 1);
+  assert.equal(axis.ticks[0].index, 0);
+  assert.equal(axis.breaks.length, 0);
 });

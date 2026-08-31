@@ -45,6 +45,7 @@ import { useChartExpirations } from '@/hooks/useChartExpirations';
 import { useGexUnit, gexScaleFactor, GEX_UNIT_LABEL } from '@/core/GexUnitContext';
 import { formatEtTime } from '@/core/signalHelpers';
 import {
+  buildTrendAxis,
   buildTrendSeries,
   cushionTone,
   describeCushionTrend,
@@ -58,6 +59,7 @@ import {
   priceDomain,
   summarizeTrend,
   type GammaTrendPoint,
+  type TrendAxis,
 } from '@/core/gammaTrend';
 import { Note, PanelHeader, PanelMessage, Zone, toneColor } from './RegimeShiftUI';
 
@@ -65,6 +67,9 @@ const HEADER_TOOLTIP =
   'Dealer gamma and the gap between spot and the gamma flip, plotted across the session. The top plot answers whether the book is building or decaying; the bottom answers whether the flip is closing on spot (cushion thinning) or pulling away. The two are on separate plots because they are measured in different units — putting them on one pair of axes would invent a crossing point that is not in the data.';
 
 interface ChartRow {
+  /** Position in the stored series — the x value both plots use.
+   *  See core/gammaTrend.buildTrendAxis for why this is not `t`. */
+  i: number;
   t: number;
   gamma: number;
   flip: number | null;
@@ -75,7 +80,8 @@ interface ChartRow {
 }
 
 function toChartRows(points: GammaTrendPoint[]): ChartRow[] {
-  return points.map((p) => ({
+  return points.map((p, i) => ({
+    i,
     t: p.t,
     gamma: p.gamma,
     flip: p.flip,
@@ -132,6 +138,11 @@ export default function GammaTrendPanel({ symbol: symbolProp }: { symbol?: strin
     [rows],
   );
 
+  // Ticks on round ET times and the seams where a closed market was cut out
+  // — see core/gammaTrend.buildTrendAxis for why the plots are indexed by
+  // position rather than drawn on a time scale.
+  const axis = useMemo(() => buildTrendAxis(points), [points]);
+
   const gTone = gammaTone(summary);
   const cTone = cushionTone(summary);
 
@@ -165,7 +176,7 @@ export default function GammaTrendPanel({ symbol: symbolProp }: { symbol?: strin
   }
 
   const axisTick = { fontSize: 11, fill: chart.axisText };
-  const timeTick = (v: number) => formatEtTime(v);
+  const tickLabel = new Map(axis.ticks.map((t) => [t.index, t.label]));
 
   return (
     <div className="zg-panel">
@@ -231,15 +242,21 @@ export default function GammaTrendPanel({ symbol: symbolProp }: { symbol?: strin
                   </linearGradient>
                 </defs>
                 <CartesianGrid stroke={chart.gridLine} opacity={0.5} vertical={false} />
+                <SessionBreaks axis={axis} color={chart.borderStrong} />
                 <XAxis
-                  dataKey="t"
+                  dataKey="i"
                   type="number"
-                  scale="time"
-                  domain={['dataMin', 'dataMax']}
+                  domain={[0, rows.length - 1]}
+                  ticks={axis.ticks.map((t) => t.index)}
                   stroke={chart.axisText}
                   tick={axisTick}
-                  tickFormatter={timeTick}
-                  minTickGap={44}
+                  tickFormatter={(v) => tickLabel.get(Number(v)) ?? ''}
+                  // The tick SET is anchored (only round ET times are
+                  // candidates); this only thins that set when the labels
+                  // would collide on a narrow screen, so a phone drops to
+                  // hourly rather than overprinting half-hourly.
+                  minTickGap={40}
+                  interval="preserveStartEnd"
                 />
                 <YAxis
                   stroke={chart.axisText}
@@ -281,15 +298,21 @@ export default function GammaTrendPanel({ symbol: symbolProp }: { symbol?: strin
             <ResponsiveContainer width="100%" height={216}>
               <ComposedChart data={rows} margin={{ top: 8, right: 36, left: 8, bottom: 20 }}>
                 <CartesianGrid stroke={chart.gridLine} opacity={0.5} vertical={false} />
+                <SessionBreaks axis={axis} color={chart.borderStrong} />
                 <XAxis
-                  dataKey="t"
+                  dataKey="i"
                   type="number"
-                  scale="time"
-                  domain={['dataMin', 'dataMax']}
+                  domain={[0, rows.length - 1]}
+                  ticks={axis.ticks.map((t) => t.index)}
                   stroke={chart.axisText}
                   tick={axisTick}
-                  tickFormatter={timeTick}
-                  minTickGap={44}
+                  tickFormatter={(v) => tickLabel.get(Number(v)) ?? ''}
+                  // The tick SET is anchored (only round ET times are
+                  // candidates); this only thins that set when the labels
+                  // would collide on a narrow screen, so a phone drops to
+                  // hourly rather than overprinting half-hourly.
+                  minTickGap={40}
+                  interval="preserveStartEnd"
                 />
                 <YAxis
                   stroke={chart.axisText}
@@ -357,7 +380,11 @@ export default function GammaTrendPanel({ symbol: symbolProp }: { symbol?: strin
           {GEX_UNIT_LABEL[gexUnit]}, summed across the expirations selected above, over the{' '}
           {summary.count} five-minute buckets stored for this session. Gamma and price are plotted
           separately because they are different units — a shared pair of axes would imply a
-          crossing point that the data does not contain.
+          crossing point that the data does not contain. The x-axis is one slot per stored
+          reading, so hours the market was shut take no width;{' '}
+          {axis.breaks.length > 0
+            ? 'a dashed rule marks each session boundary that was closed up.'
+            : 'ticks land on round ET times rather than on whichever reading happened to fall there.'}
         </Note>
       </Zone>
     </div>
@@ -367,6 +394,37 @@ export default function GammaTrendPanel({ symbol: symbolProp }: { symbol?: strin
 // ────────────────────────────────────────────────────────────────────────────
 // sub-render helpers
 // ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The seam where a closed market was cut out of the axis.
+ *
+ * Collapsing the overnight gap is what stops most of the plot being dead
+ * space, but it also puts 15:55 next to 09:35 — so the join has to be visible
+ * or the chart quietly asserts those were consecutive readings. A dashed rule
+ * with the resuming session's date is the smallest mark that says "time was
+ * removed here" without competing with the data.
+ */
+function SessionBreaks({ axis, color }: { axis: TrendAxis; color: string }) {
+  return (
+    <>
+      {axis.breaks.map((b) => (
+        <ReferenceLine
+          key={b.index}
+          x={b.index - 0.5}
+          stroke={color}
+          strokeWidth={1}
+          strokeDasharray="3 3"
+          label={{
+            value: b.label,
+            position: 'insideTopLeft',
+            fontSize: 10,
+            fill: color,
+          }}
+        />
+      ))}
+    </>
+  );
+}
 
 function Stat({
   label,

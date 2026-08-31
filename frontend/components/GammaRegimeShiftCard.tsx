@@ -49,11 +49,14 @@ import {
   buildLevelRows,
   buildNormalizationNote,
   buildSubhead,
+  describePositioningGap,
   formatBand,
   formatPercent,
   formatSignedGex,
   formatStrike,
   formatZ,
+  isCrossSession,
+  positioningResolved,
   ribbonHeight,
   ribbonReference,
   type Lens,
@@ -337,8 +340,13 @@ function ConcentrationRibbon({
 
       {ordered.map((row) => {
         const value = lens === 'net' ? row.d_net : row.positioning;
+        // A strike that did not move gets NO bar. The old floor of 2px drew
+        // one anyway, and `value >= 0` coloured it green and put it above the
+        // axis — so a chain with no change rendered as a full-width dotted
+        // green line, which reads as "gamma was added everywhere".
+        if (value === 0) return null;
         const h = Math.max(2, ribbonHeight(value, reference) * HMAX);
-        const up = value >= 0;
+        const up = value > 0;
         return (
           <rect
             key={row.strike}
@@ -473,6 +481,9 @@ export default function GammaRegimeShiftCard({
   const caveat = buildExpiryCaveat(payload.expiry_scope);
   const normNote = buildNormalizationNote(payload.read);
   const normalized = payload.read.normalization !== 'none';
+  // False only on the repositioning lens, in a window where open interest
+  // never republished — see core/regimeShift.positioningResolved.
+  const lensResolved = positioningResolved(payload);
 
   return (
     <div className="zg-panel">
@@ -565,47 +576,67 @@ export default function GammaRegimeShiftCard({
       {/* ── where it landed ────────────────────────────────────────────── */}
       <Zone
         label="Where the change landed"
-        right={`${payload.strikes.length} strikes${payload.strikes_truncated ? ' · largest movers' : ''}`}
+        right={
+          lensResolved
+            ? `${payload.strikes.length} strikes${payload.strikes_truncated ? ' · largest movers' : ''}`
+            : undefined
+        }
       >
-        {/* A 36-strike price axis squeezed into a phone's width scales every
-            label to ~4px. On narrow screens the ribbon keeps a readable scale
-            and scrolls instead, the same way every other wide chart on the
-            site behaves. */}
-        <MobileScrollableChart minWidthClass="min-w-[760px]" initialScroll="center">
-          <ConcentrationRibbon
-            strikes={payload.strikes}
-            lens={lens}
-            spot={payload.spot}
-            band={payload.band}
-            bull={chart.bull}
-            bear={chart.bear}
-          />
-        </MobileScrollableChart>
-        <div
-          className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[12px]"
-          style={{ color: 'var(--text-muted)' }}
-        >
-          <span>
-            <strong style={{ color: 'var(--text-secondary)' }}>Above the line</strong> = gamma
-            added <span style={{ color: chart.bull }}>▲</span>
-          </span>
-          <span>
-            <strong style={{ color: 'var(--text-secondary)' }}>Below</strong> = gamma shed{' '}
-            <span style={{ color: chart.bear }}>▼</span>
-          </span>
-          <span>Height is scaled against a typical strike move, so a quiet window looks quiet</span>
-        </div>
+        {lensResolved ? (
+          <>
+            {/* A 36-strike price axis squeezed into a phone's width scales every
+                label to ~4px. On narrow screens the ribbon keeps a readable scale
+                and scrolls instead, the same way every other wide chart on the
+                site behaves. */}
+            <MobileScrollableChart minWidthClass="min-w-[760px]" initialScroll="center">
+              <ConcentrationRibbon
+                strikes={payload.strikes}
+                lens={lens}
+                spot={payload.spot}
+                band={payload.band}
+                bull={chart.bull}
+                bear={chart.bear}
+              />
+            </MobileScrollableChart>
+            <div
+              className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[12px]"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              <span>
+                <strong style={{ color: 'var(--text-secondary)' }}>Above the line</strong> = gamma
+                added <span style={{ color: chart.bull }}>▲</span>
+              </span>
+              <span>
+                <strong style={{ color: 'var(--text-secondary)' }}>Below</strong> = gamma shed{' '}
+                <span style={{ color: chart.bear }}>▼</span>
+              </span>
+              <span>
+                Height is scaled against a typical strike move, so a quiet window looks quiet
+              </span>
+            </div>
+          </>
+        ) : (
+          /* An empty answer, said out loud. Drawing the ribbon here would put a
+             flat line of zero-height bars on screen, and a flat line on a
+             change chart is not "no data" to a reader — it is "nothing
+             changed", which is a far stronger claim than the feed supports. */
+          <PositioningUnavailable payload={payload} onUseTotal={() => onLensChange('net')} />
+        )}
       </Zone>
 
       {/* ── lens + disclosure ──────────────────────────────────────────── */}
       <Zone>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-[280px] flex-1">
-            <LensToggle lens={lens} onChange={onLensChange} />
+            <LensToggle
+              lens={lens}
+              onChange={onLensChange}
+              positioningEmpty={lens === 'positioning' && !lensResolved}
+            />
             <p className="mt-2 text-[13px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
               {lens === 'net'
                 ? 'Total change — every reason gamma moved between the two times, including the existing book re-pricing as spot and implied vol moved.'
-                : 'Repositioning — only the part driven by contracts actually opened or closed, stripping out price-driven re-pricing (a first-order estimate).'}
+                : 'Repositioning — only the part driven by contracts actually opened or closed, stripping out price-driven re-pricing (a first-order estimate). Open interest is published once a day at settlement, so this needs a window that straddles one.'}
             </p>
           </div>
           <div className="min-w-[280px] flex-1 space-y-1.5">
@@ -623,8 +654,63 @@ export default function GammaRegimeShiftCard({
   );
 }
 
-function LensToggle({ lens, onChange }: { lens: Lens; onChange: (l: Lens) => void }) {
-  const opt = (key: Lens, label: string) => {
+/**
+ * What the repositioning lens shows when it cannot show anything.
+ *
+ * The mechanism, not the symptom: told that open interest only republishes at
+ * settlement, a reader understands why every intraday window looks like this
+ * and stops re-checking. Told "no data", they try again in an hour.
+ *
+ * The way out is one click, so it is offered as one.
+ */
+function PositioningUnavailable({
+  payload,
+  onUseTotal,
+}: {
+  payload: RegimeShiftPayload;
+  onUseTotal: () => void;
+}) {
+  const intraday = !isCrossSession(payload.lookback);
+  return (
+    <div className="flex flex-col items-start gap-3 py-8">
+      <p className="max-w-[68ch] text-[14px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+        {describePositioningGap(payload)}
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={onUseTotal}
+          className="rounded-md px-3 py-1.5 text-[12px] font-semibold transition-colors"
+          style={{
+            border: '1px solid var(--color-info)',
+            color: 'var(--color-info)',
+            background: 'var(--color-info-soft)',
+          }}
+        >
+          Show total change instead
+        </button>
+        {intraday && (
+          <span className="text-[12px]" style={{ color: 'var(--text-muted)' }}>
+            …or set Compare to <strong style={{ color: 'var(--text-secondary)' }}>vs Yesterday</strong>,{' '}
+            <strong style={{ color: 'var(--text-secondary)' }}>vs Prior close</strong> or{' '}
+            <strong style={{ color: 'var(--text-secondary)' }}>vs Last week</strong>.
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function LensToggle({
+  lens,
+  onChange,
+  positioningEmpty,
+}: {
+  lens: Lens;
+  onChange: (l: Lens) => void;
+  positioningEmpty: boolean;
+}) {
+  const opt = (key: Lens, label: string, hint?: string) => {
     const on = lens === key;
     return (
       <button
@@ -632,6 +718,7 @@ function LensToggle({ lens, onChange }: { lens: Lens; onChange: (l: Lens) => voi
         type="button"
         onClick={() => onChange(key)}
         aria-pressed={on}
+        title={hint}
         className="rounded-md px-3 py-1.5 text-[12px] font-semibold transition-colors"
         style={{
           background: on ? 'var(--color-info)' : 'transparent',
@@ -639,6 +726,14 @@ function LensToggle({ lens, onChange }: { lens: Lens; onChange: (l: Lens) => voi
         }}
       >
         {label}
+        {/* Marked rather than disabled: a control that silently does nothing
+            is worse than one that explains itself, and the explanation only
+            fits once it has been clicked. */}
+        {key === 'positioning' && positioningEmpty && (
+          <span aria-hidden className="ml-1.5" style={{ opacity: 0.7 }}>
+            —
+          </span>
+        )}
       </button>
     );
   };
@@ -648,7 +743,13 @@ function LensToggle({ lens, onChange }: { lens: Lens; onChange: (l: Lens) => voi
       style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)' }}
     >
       {opt('net', 'Total change')}
-      {opt('positioning', 'Repositioning')}
+      {opt(
+        'positioning',
+        'Repositioning',
+        positioningEmpty
+          ? 'Nothing to show in this window — open interest only republishes at settlement'
+          : undefined,
+      )}
     </div>
   );
 }

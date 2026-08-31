@@ -23,12 +23,15 @@ import {
   buildRolloffSentence,
   buildSubhead,
   describeFlipCrossing,
+  describePositioningGap,
   formatBand,
   formatGexMagnitude,
   formatPercent,
   formatSignedGex,
   formatStrike,
   formatZ,
+  isCrossSession,
+  positioningResolved,
   ribbonHeight,
   ribbonReference,
   type ExpiryRolloffPayload,
@@ -95,8 +98,20 @@ function payload(overrides: Partial<RegimeShiftPayload> = {}): RegimeShiftPayloa
       added_net_gex: 0,
     },
     rolloff: null,
+    positioning: { resolved: true, oi_moved_strikes: 31, strike_count: 59 },
     ...overrides,
   };
+}
+
+/** The shape an intraday window actually comes back as on the second lens. */
+function unresolvedPositioning(
+  overrides: Partial<RegimeShiftPayload> = {},
+): RegimeShiftPayload {
+  return payload({
+    lens: "positioning",
+    positioning: { resolved: false, oi_moved_strikes: 0, strike_count: 59 },
+    ...overrides,
+  });
 }
 
 function rolloff(overrides: Partial<ExpiryRolloffPayload> = {}): ExpiryRolloffPayload {
@@ -218,6 +233,44 @@ test("headline covers every state", () => {
 test("a quiet read says nothing happened rather than naming a direction", () => {
   const out = buildHeadline(payload({ read: { ...payload().read, state: "QUIET" } }));
   assert.equal(out, "No meaningful repositioning.");
+});
+
+test("an unmeasured read never claims nothing happened", () => {
+  // Without a denominator every z is 0, so the server classifies QUIET —
+  // but "no meaningful repositioning" is a measurement, and none was taken.
+  // This is the one sentence on the card a reader acts on by NOT looking
+  // further, so it must never be produced by an absence of history.
+  const out = buildHeadline(
+    payload({
+      read: { ...payload().read, state: "QUIET", normalization: "none" },
+    }),
+  );
+  assert.ok(!out.includes("No meaningful repositioning"));
+  assert.match(out, /not enough history/i);
+});
+
+test("an unmeasured read says the direction still stands", () => {
+  // No flip crossing here — that is an observed fact and rightly outranks
+  // everything, normalization or not.
+  const out = buildSubhead(
+    payload({
+      read: { ...payload().read, state: "QUIET", normalization: "none" },
+      from: { ...payload().from, gamma_flip: 755 },
+    }),
+  );
+  assert.match(out, /direction is measured/i);
+});
+
+test("an empty repositioning lens is not reported as a quiet session", () => {
+  // Every strike reads zero because open interest never republished, not
+  // because dealers sat still. Saying "no meaningful repositioning" there is
+  // the strongest possible claim made from an absence of data.
+  const out = buildHeadline(
+    unresolvedPositioning({
+      read: { ...payload().read, state: "QUIET" },
+    }),
+  );
+  assert.equal(out, "No repositioning visible in this window.");
 });
 
 test("the adverb comes from the server, not from this layer", () => {
@@ -575,4 +628,49 @@ test("the two axes are named separately on every state", () => {
   assert.equal(STATE_META.CAPPING.direction, "capping");
   assert.equal(STATE_META.FRAGILE_BID.stability, "destabilizing");
   assert.equal(STATE_META.FRAGILE_BID.direction, "supportive");
+});
+
+
+// --------------------------------------------------------------------------
+// The repositioning lens
+// --------------------------------------------------------------------------
+
+test("the lens question is only asked on the lens that raises it", () => {
+  // On 'net' the OI counter is irrelevant, so a zero there must not suppress
+  // a perfectly good total-change ribbon.
+  assert.equal(
+    positioningResolved(
+      payload({ positioning: { resolved: false, oi_moved_strikes: 0, strike_count: 59 } }),
+    ),
+    true,
+  );
+  assert.equal(positioningResolved(unresolvedPositioning()), false);
+});
+
+test("a payload from an older API build is not treated as empty", () => {
+  const { positioning: _dropped, ...rest } = payload({ lens: "positioning" });
+  assert.equal(positioningResolved(rest as RegimeShiftPayload), true);
+});
+
+test("an intraday window is told open interest cannot move inside a session", () => {
+  const out = describePositioningGap(unresolvedPositioning({ lookback: "1h" }));
+  assert.match(out, /once a day at settlement/i);
+  assert.match(out, /prior session/i);
+});
+
+test("a cross-session window with no OI move gets a different reason", () => {
+  // Here the window DID straddle a settlement, so "you picked the wrong
+  // lookback" would be wrong — the book genuinely only re-priced.
+  const out = describePositioningGap(unresolvedPositioning({ lookback: "prev_close" }));
+  assert.match(out, /re-pricing/i);
+  assert.doesNotMatch(out, /once a day at settlement/i);
+});
+
+test("cross-session lookbacks are exactly the ones that straddle a settlement", () => {
+  for (const lb of ["prev_close", "prev_same_time", "week"] as const) {
+    assert.equal(isCrossSession(lb), true, lb);
+  }
+  for (const lb of ["30m", "1h", "2h", "4h", "session"] as const) {
+    assert.equal(isCrossSession(lb), false, lb);
+  }
 });

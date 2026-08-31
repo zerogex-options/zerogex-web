@@ -104,8 +104,8 @@ export interface TrendBucket {
 
 export interface GammaTrendPoint {
   timestamp: string;
-  /** Epoch ms. Recharts needs a numeric x for a true time scale — a category
-   *  axis would space an illiquid 5-minute gap the same as a busy one. */
+  /** Epoch ms. Kept for labelling and tooltips; the plots are indexed by
+   *  position rather than plotted on a time scale — see `buildTrendAxis`. */
   t: number;
   /** Σ net dealer gamma across every strike, in the caller's display unit. */
   gamma: number;
@@ -175,6 +175,224 @@ export function buildTrendSeries(
 
   out.sort((a, b) => a.t - b.t);
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// The time axis
+// ---------------------------------------------------------------------------
+
+/**
+ * Why these plots are indexed by POSITION and not plotted on a time scale.
+ *
+ * The series is a fixed-cadence bucket feed, and the analytics engine only
+ * writes while the chain is open. A true time axis therefore spends its width
+ * in proportion to the CLOCK, and the clock includes the ~17.5 hours between
+ * one session's close and the next one's open. At 10am the seed window
+ * reaches back into yesterday afternoon, so most of the plot is an empty
+ * overnight span with the two stubs of real data squeezed against its edges.
+ * There is nothing to read in that space: dealer gamma does not move while
+ * the market is shut, and the line drawn across it is an interpolation
+ * between two sessions, not a reading.
+ *
+ * Indexing by position gives every stored bucket the same width, which drops
+ * the closed span to nothing. Two things have to come back for that to be
+ * honest, and `buildTrendAxis` produces both:
+ *
+ *   • **ticks on round wall-clock times.** Position indices are meaningless
+ *     to a reader, and letting the chart library pick from them lands labels
+ *     on 10:07 and 11:42. Ticks are chosen at :00/:30 ET boundaries — the
+ *     times a trader already thinks in.
+ *   • **a visible seam** wherever a gap was collapsed, so the axis never
+ *     silently claims 15:55 and 09:35 are adjacent readings.
+ *
+ * ET, not local time: the boundaries a reader wants are the session's, and a
+ * reader in London must see the same 10:30 tick as one in Chicago.
+ */
+export interface TrendAxisTick {
+  /** Index into the points array — the x value the chart plots against. */
+  index: number;
+  /** "10:30", or "Fri 10:30" on the first tick of a new day. */
+  label: string;
+}
+
+export interface TrendAxisBreak {
+  /** Index of the first point AFTER the collapsed gap. */
+  index: number;
+  /** "Fri 8/28" — which session resumes here. */
+  label: string;
+}
+
+export interface TrendAxis {
+  ticks: TrendAxisTick[];
+  breaks: TrendAxisBreak[];
+  /** Minutes between ticks, for callers that want to describe the scale. */
+  stepMinutes: number;
+}
+
+interface EtParts {
+  day: string;
+  minuteOfDay: number;
+}
+
+/**
+ * ET calendar parts for an epoch-ms instant.
+ *
+ * A local twin of `core/signalHelpers.etPartsFromMs`, for the same reason the
+ * formatters at the top of this file are twins: this module takes no imports
+ * so it can run headless under `node --test`. `Intl` is a global, not an
+ * import, and it is the only thing that gets ET right across DST without a
+ * timezone table.
+ */
+function etParts(ms: number): EtParts {
+  if (!Number.isFinite(ms)) return { day: '', minuteOfDay: 0 };
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).formatToParts(new Date(ms));
+  let year = '';
+  let month = '';
+  let day = '';
+  let hour = '0';
+  let minute = '0';
+  for (const p of parts) {
+    if (p.type === 'year') year = p.value;
+    else if (p.type === 'month') month = p.value;
+    else if (p.type === 'day') day = p.value;
+    else if (p.type === 'hour') hour = p.value;
+    else if (p.type === 'minute') minute = p.value;
+  }
+  // `hour12: false` renders midnight as "24" in some ICU versions.
+  const hr = parseInt(hour, 10) % 24;
+  return { day: `${year}-${month}-${day}`, minuteOfDay: hr * 60 + parseInt(minute, 10) };
+}
+
+function etClock(minuteOfDay: number): string {
+  const hh = Math.floor(minuteOfDay / 60);
+  const mm = minuteOfDay % 60;
+  return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+}
+
+/** "Fri 8/28" — enough to place a session without spending a whole date. */
+function etDayLabel(ms: number): string {
+  try {
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York',
+      weekday: 'short',
+      month: 'numeric',
+      day: 'numeric',
+    }).format(new Date(ms));
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Tick spacings to try, coarsest last.
+ *
+ * Half-hourly is the target — it is the grain a session is actually discussed
+ * in ("the 10:30 push", "into the 15:30 imbalance") — and the ladder only
+ * coarsens when half-hourly would not fit in `maxTicks`.
+ */
+const TICK_STEPS_MINUTES = [30, 60, 120, 240] as const;
+
+/**
+ * A gap is a break when it exceeds the typical bucket spacing by this much.
+ *
+ * Generous on purpose: a single missed write is a gap of ~2 cadences and is
+ * NOT a session boundary, and marking it as one would put a seam in the
+ * middle of a continuous session. An overnight gap is ~200 cadences on a
+ * 5-minute feed, so nothing subtle is being separated here.
+ */
+const BREAK_GAP_MULTIPLE = 4;
+
+function medianSpacing(points: readonly GammaTrendPoint[]): number {
+  const gaps: number[] = [];
+  for (let i = 1; i < points.length; i += 1) {
+    const d = points[i].t - points[i - 1].t;
+    if (d > 0) gaps.push(d);
+  }
+  if (gaps.length === 0) return 0;
+  gaps.sort((a, b) => a - b);
+  return gaps[Math.floor(gaps.length / 2)];
+}
+
+/**
+ * Ticks on round ET times, plus the seams where a closed market was cut out.
+ *
+ * `maxTicks` is a budget, not a target: the finest spacing that fits wins, so
+ * a two-hour window gets half-hourly ticks and a three-session one gets
+ * four-hourly, without either crowding the axis.
+ */
+export function buildTrendAxis(
+  points: readonly GammaTrendPoint[],
+  maxTicks = 9,
+): TrendAxis {
+  const empty: TrendAxis = { ticks: [], breaks: [], stepMinutes: TICK_STEPS_MINUTES[0] };
+  if (!points || points.length === 0) return empty;
+
+  const parts = points.map((p) => etParts(p.t));
+  const cadence = medianSpacing(points);
+
+  // Seams first: they also force a tick, since the first reading of a new
+  // session is a point a reader looks for by name.
+  const breaks: TrendAxisBreak[] = [];
+  if (cadence > 0) {
+    const threshold = cadence * BREAK_GAP_MULTIPLE;
+    for (let i = 1; i < points.length; i += 1) {
+      if (points[i].t - points[i - 1].t > threshold) {
+        breaks.push({ index: i, label: etDayLabel(points[i].t) });
+      }
+    }
+  }
+  const breakIndices = new Set(breaks.map((b) => b.index));
+
+  const pick = (stepMinutes: number): number[] => {
+    const out: number[] = [];
+    for (let i = 0; i < points.length; i += 1) {
+      // The bucket that CROSSES a boundary carries its tick, so a feed whose
+      // buckets do not land exactly on :30 still gets labelled — one bucket
+      // late is a label off by less than a cadence, where requiring an exact
+      // hit would silently drop every tick on that feed.
+      const crossed =
+        i === 0 ||
+        breakIndices.has(i) ||
+        parts[i].day !== parts[i - 1].day ||
+        Math.floor(parts[i].minuteOfDay / stepMinutes) !==
+          Math.floor(parts[i - 1].minuteOfDay / stepMinutes);
+      if (crossed) out.push(i);
+    }
+    return out;
+  };
+
+  let stepMinutes = TICK_STEPS_MINUTES[TICK_STEPS_MINUTES.length - 1];
+  let indices = pick(stepMinutes);
+  for (const step of TICK_STEPS_MINUTES) {
+    const candidate = pick(step);
+    if (candidate.length <= maxTicks) {
+      stepMinutes = step;
+      indices = candidate;
+      break;
+    }
+  }
+
+  const ticks = indices.map((index) => {
+    const clock = etClock(parts[index].minuteOfDay);
+    // The date rides along only where it changes — repeating it on every
+    // tick of a one-session chart is noise, and omitting it entirely on a
+    // multi-session one makes 10:30 ambiguous.
+    const newDay = index > 0 && parts[index].day !== parts[index - 1].day;
+    return {
+      index,
+      label: newDay ? `${etDayLabel(points[index].t)} ${clock}` : clock,
+    };
+  });
+
+  return { ticks, breaks, stepMinutes };
 }
 
 // ---------------------------------------------------------------------------
