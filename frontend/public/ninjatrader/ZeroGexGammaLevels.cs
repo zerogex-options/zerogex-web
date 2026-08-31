@@ -188,6 +188,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 ProfileNegBrush = Brushes.IndianRed;
                 GexRankBrush = Brushes.Goldenrod;
                 VwapBrush = Brushes.DodgerBlue;
+                InfoPanelBrush = Brushes.Gainsboro;
             }
             else if (State == State.Terminated)
             {
@@ -204,12 +205,9 @@ namespace NinjaTrader.NinjaScript.Indicators
 
             MaybeFetch();
 
-            // Lines, labels and the histogram are drawn in OnRender, which the
-            // chart drives. All that is left here is the info panel, which is a
-            // Draw object because TextFixed is already anchored to the window
-            // and works: there is nothing for the rewrite to fix.
-            DrawInfoPanel(_snapshot);
-
+            // Nothing is drawn from here any more, panel included. Everything
+            // the chart shows is painted in OnRender, which the chart drives
+            // whether or not a tick has arrived.
             if (EnableAlerts)
                 CheckCrossAlerts();
 
@@ -620,16 +618,12 @@ namespace NinjaTrader.NinjaScript.Indicators
                 return;
 
             var s = _snapshot;
-            if (s == null)
-                return;
 
             // A render exception is not a quiet failure: NinjaTrader calls this
             // every frame and would keep throwing every frame. Trap it, say so
             // in the panel, and leave the chart usable.
             try
             {
-                BuildLevels(s);
-
                 using (var brushes = new BrushCache(RenderTarget))
                 using (var font = new SharpDX.DirectWrite.TextFormat(
                            NinjaTrader.Core.Globals.DirectWriteFactory, "Arial", 12f))
@@ -637,6 +631,16 @@ namespace NinjaTrader.NinjaScript.Indicators
                     // Labels are right-aligned into the margin, so the text ends
                     // at a fixed distance from the right edge however long it is.
                     font.TextAlignment = SharpDX.DirectWrite.TextAlignment.Trailing;
+
+                    // Panel first, and deliberately OUTSIDE the snapshot guard:
+                    // when there is no snapshot the panel is the only thing on
+                    // the chart that can say why.
+                    RenderInfoPanel(s, font, brushes);
+
+                    if (s == null)
+                        return;
+
+                    BuildLevels(s);
 
                     RenderProfile(s, chartScale, brushes);
                     RenderLevels(chartScale, font, brushes);
@@ -925,12 +929,39 @@ namespace NinjaTrader.NinjaScript.Indicators
             }
         }
 
-        private void DrawInfoPanel(ZeroGexLevelsSnapshot s)
+        /// <summary>The status panel, top right.
+        ///
+        /// This was a Draw.TextFixed object painted from OnBarUpdate, and that
+        /// is a bug you only see when the market is shut. OnBarUpdate runs on
+        /// incoming ticks. On a Sunday a chart loads, replays its historical
+        /// bars, starts an ASYNC fetch and paints the panel in the same pass --
+        /// so it paints "starting…", because the fetch has not returned yet.
+        /// The fetch then succeeds a second later and nothing ever repaints,
+        /// because no tick ever arrives. A tester spent a weekend looking at a
+        /// panel that said "starting…" over data that had arrived fine.
+        ///
+        /// Painting it here instead fixes that by construction: the chart
+        /// drives OnRender, so the panel is as current as the pixels around it,
+        /// and the age counter ticks up on its own rather than freezing at
+        /// whatever the last trade happened to leave behind.</summary>
+        private void RenderInfoPanel(ZeroGexLevelsSnapshot s,
+                                     SharpDX.DirectWrite.TextFormat font,
+                                     BrushCache brushes)
         {
-            if (ShowInfoPanel)
-                Draw.TextFixed(this, "ZG_Info", BuildInfoText(s), TextPosition.TopRight);
-            else
-                RemoveDrawObject("ZG_Info");
+            if (!ShowInfoPanel)
+                return;
+
+            SharpDX.Direct2D1.Brush ink = brushes.Get(InfoPanelBrush);
+            if (ink == null)
+                return;
+
+            float left = ChartPanel.X;
+            float right = ChartPanel.X + ChartPanel.W;
+            float boxWidth = Math.Max(1f, (right - 8f) - left);
+
+            RenderTarget.DrawText(BuildInfoText(s), font,
+                                  new SharpDX.RectangleF(left, ChartPanel.Y + 6f, boxWidth, 120f),
+                                  ink);
         }
 
         /// <summary>Shown in the info panel so a screenshot identifies its own
@@ -1262,6 +1293,22 @@ namespace NinjaTrader.NinjaScript.Indicators
         {
             get { return Serialize.BrushToString(VwapBrush); }
             set { VwapBrush = Serialize.StringToBrush(value); }
+        }
+
+        // The panel used to be a Draw.TextFixed object, which took its colour
+        // from the chart's own text setting. Rendering it directly means
+        // choosing one, so it becomes a setting: Gainsboro reads well on the
+        // dark charts both testers run, and anyone on a light chart can change
+        // it rather than squint at pale grey on white.
+        [XmlIgnore]
+        [Display(Name = "Info panel color", Order = 17, GroupName = "3. Style")]
+        public Brush InfoPanelBrush { get; set; }
+
+        [Browsable(false)]
+        public string InfoPanelBrushSerialize
+        {
+            get { return Serialize.BrushToString(InfoPanelBrush); }
+            set { InfoPanelBrush = Serialize.StringToBrush(value); }
         }
 
         [XmlIgnore]
