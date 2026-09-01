@@ -64,6 +64,31 @@ set, and warns per missing (tier, cadence). Pass `--allow-missing-coupon` only i
 you are honoring the discount by hand with
 `scripts/honor-winback-discount.mts`.
 
+### The discount rate is never hardcoded
+
+The cancelled email does not state a percentage of its own. It carries
+`{{DISCOUNT_LABEL}}` (the full phrase, e.g. "50% off your first year") and
+`{{DISCOUNT_SHORT}}` (the button, e.g. "50% off"), both substituted at send time
+from **`WINBACK_DISCOUNT_LABEL`** — the same value `scripts/send-winback.mts`
+and the `/pricing` welcome-back banner read. Set it to match whatever the
+configured coupon actually grants, and the coupon, the banner, the automated
+win-back and this campaign all state one rate.
+
+The script **refuses to send** when a template needs the label and
+`WINBACK_DISCOUNT_LABEL` is unset — a default would reintroduce exactly the
+drift this exists to prevent. Every run echoes what the copy will claim:
+
+```
+Discount copy:  "50% off your first year"  (button reads "Come back at 50% off")
+```
+
+Check that line against the coupon before sending. To confirm the coupon itself:
+
+```
+KEY=$(grep -m1 '^STRIPE_SECRET_KEY=' .env.local | cut -d= -f2- | tr -d '"')
+curl -s "https://api.stripe.com/v1/coupons/<coupon id>" -u "$KEY:"
+```
+
 ### Before sending
 
 Consider pausing the weekly automated win-back timer for the duration of the

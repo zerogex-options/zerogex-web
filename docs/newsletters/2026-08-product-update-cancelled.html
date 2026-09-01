@@ -5,7 +5,12 @@
   already received the automated ~1-month win-back (winback_email_sent_at IS
   NULL). Shorter than the registrant variant on purpose: they already know what
   ZeroGEX is, so there is no product tour and no FAQ — just what changed since
-  they left, and the 25%-off return offer.
+  they left, and the return offer.
+
+  The discount rate is NOT hardcoded: {{DISCOUNT_LABEL}} and {{DISCOUNT_SHORT}}
+  are substituted at send time from WINBACK_DISCOUNT_LABEL — the same value
+  scripts/send-winback.mts and the /pricing welcome-back banner read — so the
+  copy always states whatever the configured coupon actually grants.
 
   IMPORTANT — the CTA is /pricing?winback=1, and the checkout route only
   attaches the win-back coupon when BOTH subscription_lapsed=1 AND
@@ -57,7 +62,7 @@
 <body style="margin:0; padding:0; background-color:#eceff3;">
   <!-- Preheader -->
   <div style="display:none; font-size:1px; line-height:1px; max-height:0; max-width:0; opacity:0; overflow:hidden; mso-hide:all; color:#eceff3;">
-    Indicators for your own charts, ES and NQ, Gamma Shift, Pin Strike, and three new metrics — plus 25% off if you want another look.
+    Indicators for your own charts, ES and NQ, Gamma Shift, Pin Strike, and three new metrics — plus {{DISCOUNT_SHORT}} if you want another look.
     &nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;
   </div>
 
@@ -199,14 +204,14 @@
                   <td style="padding:20px 22px 20px 22px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
                     <div style="font-size:18px; font-weight:800; color:#12283c; margin-bottom:8px;">If you want another look</div>
                     <p style="margin:0 0 10px 0; font-size:15px; line-height:1.6; color:#3a4650;">
-                      <strong>25% off your first year back</strong>, applied automatically at checkout through the link below &mdash; nothing to type in, and it&rsquo;s tied to your account.
+                      <strong>{{DISCOUNT_LABEL}}</strong>, applied automatically at checkout through the link below &mdash; nothing to type in, and it&rsquo;s tied to your account.
                     </p>
                     <p style="margin:0 0 16px 0; font-size:15px; line-height:1.6; color:#3a4650;">
                       Your old settings, layouts, and saved symbols are still there. If you were Pro, note that dropping below Pro revokes API keys, so you&rsquo;d generate a fresh one from Account &rarr; API Access (that&rsquo;s also what the NinjaTrader indicator needs).
                     </p>
                     <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
                       <td align="center" bgcolor="#0f2234" style="border-radius:8px;">
-                        <a href="https://zerogex.io/pricing?winback=1" target="_blank" style="display:inline-block; padding:12px 24px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; font-size:14px; font-weight:700; color:#ffffff; border-radius:8px;">Come back at 25% off &rarr;</a>
+                        <a href="https://zerogex.io/pricing?winback=1" target="_blank" style="display:inline-block; padding:12px 24px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif; font-size:14px; font-weight:700; color:#ffffff; border-radius:8px;">Come back at {{DISCOUNT_SHORT}} &rarr;</a>
                       </td>
                     </tr></table>
                     <p style="margin:14px 0 0 0; font-size:14px; line-height:1.5; color:#66727e;">
