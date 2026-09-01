@@ -23,11 +23,19 @@
 //   • Setup withheld — 'trialing' at tier 'public': the card's SetupIntent never
 //                      succeeded, so access was withheld. A -1 against the old
 //                      Free Trial line.
-//   • Unpriced       — a live paid tier whose stripe_price_id maps to no SKU.
-//                      NOT an accounting artifact: it means the price table is
-//                      missing an id, and MRR is under-reporting the same member.
+//   • Unmapped price — the OTHER way a live subscription lands at tier 'public':
+//                      syncSubscriptionToUser falls back to 'public' when the
+//                      price id maps to no SKU, so a missing STRIPE_PRICE_* env
+//                      var silently revokes a paying member's access. Separated
+//                      from the pauses above because it is a config fault, not a
+//                      retention event — and it is invisible otherwise, since
+//                      both land in exactly the same DB state.
 //
-// Read-only. Reads AUTH_DB_PATH from env or .env.local (default data/auth.db).
+// Read-only. Reads AUTH_DB_PATH and the STRIPE_PRICE_* ids from env or
+// .env.local (default data/auth.db). The price ids are read directly rather than
+// imported from core/stripe.ts, which pulls in the Stripe SDK and a path alias;
+// same dependency-free discipline as scripts/churn-breakdown.mjs. If the env var
+// names change there, mirror them here.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -84,6 +92,24 @@ if (!fs.existsSync(dbPath)) {
   process.exit(1);
 }
 
+// The configured SKU price ids, exactly as core/stripe.ts builds its lookup.
+// Empty when none are configured (e.g. run off a machine without billing env),
+// in which case the unmapped-price check is skipped rather than reporting every
+// subscriber as broken.
+const PRICE_ENV_VARS = [
+  'STRIPE_PRICE_BASIC_MONTHLY',
+  'STRIPE_PRICE_BASIC_ANNUAL',
+  'STRIPE_PRICE_PRO_MONTHLY',
+  'STRIPE_PRICE_PRO_ANNUAL',
+];
+const configuredPriceIds = new Set(
+  PRICE_ENV_VARS.map((k) => process.env[k] || envLocal[k]).filter(Boolean),
+);
+const priceTableKnown = configuredPriceIds.size > 0;
+// Only meaningful when the table is known; otherwise nothing is "unmapped".
+const isUnmappedPrice = (priceId) =>
+  priceTableKnown && (!priceId || !configuredPriceIds.has(priceId));
+
 const db = new DatabaseSync(dbPath, { readOnly: true });
 
 // Every account carrying subscription state at all — a deliberately wider net
@@ -100,7 +126,7 @@ const rows = db
   .all();
 
 const buckets = { fullSubscriber: [], converting: [], freeTrial: [], trialGrace: [] };
-const notCounted = { paused: [], setupWithheld: [], other: [] };
+const notCounted = { paused: [], unmappedPrice: [], setupWithheld: [], other: [] };
 
 for (const r of rows) {
   const verdict = classifySubscriberBucket({
@@ -114,8 +140,16 @@ for (const r of rows) {
     buckets[verdict.bucket].push(r);
     continue;
   }
-  if (r.subscription_status === 'active') notCounted.paused.push(r);
-  else if (r.subscription_status === 'trialing') notCounted.setupWithheld.push(r);
+  if (r.subscription_status === 'active') {
+    // A live `active` sub at tier 'public' has two possible causes and the same
+    // DB state either way. paused_until settles it: the retention flow always
+    // bounds a pause to 1-3 months, so it is set for every pause we initiate.
+    // Absent that, an unrecognised price id is the far likelier explanation, and
+    // it is a bug rather than a member decision — so it must not hide among the
+    // pauses.
+    if (!r.paused_until && isUnmappedPrice(r.stripe_price_id)) notCounted.unmappedPrice.push(r);
+    else notCounted.paused.push(r);
+  } else if (r.subscription_status === 'trialing') notCounted.setupWithheld.push(r);
   else notCounted.other.push({ ...r, why: verdict.why });
 }
 
@@ -139,12 +173,20 @@ console.log('');
 console.log('Has a subscription but is NOT a subscriber');
 console.log('─────────────────────────────────────────');
 console.log(`${n(notCounted.paused)}  Paused            active in Stripe, no tier granted — a bounded break`);
+console.log(`${n(notCounted.unmappedPrice)}  Unmapped price    active, but the price id maps to no SKU — a CONFIG FAULT`);
 console.log(`${n(notCounted.setupWithheld)}  Setup withheld    trialing, card setup never succeeded — no access`);
 console.log(`${n(notCounted.other)}  Other             past_due past its grace window`);
+if (!priceTableKnown) {
+  console.log('       (no STRIPE_PRICE_* ids in env — unmapped-price check skipped)');
+}
 
 // What the OLD (pre-split) chart would have shown, so a drop is attributable
 // line by line instead of guessed at.
-const oldFull = buckets.fullSubscriber.length + buckets.converting.length + notCounted.paused.length;
+const oldFull =
+  buckets.fullSubscriber.length +
+  buckets.converting.length +
+  notCounted.paused.length +
+  notCounted.unmappedPrice.length;
 const oldTrial = buckets.freeTrial.length + notCounted.setupWithheld.length;
 console.log('');
 console.log('Reconciliation against the pre-split chart');
@@ -156,8 +198,15 @@ if (buckets.converting.length > 0) {
 if (notCounted.paused.length > 0) {
   console.log(`    -${notCounted.paused.length}  paused — they have no access and are paying nothing`);
 }
-if (buckets.converting.length === 0 && notCounted.paused.length === 0) {
-  console.log('     (no difference — nothing is mid-conversion or paused right now)');
+if (notCounted.unmappedPrice.length > 0) {
+  console.log(`    -${notCounted.unmappedPrice.length}  price id maps to no SKU — investigate, this one is a fault`);
+}
+if (
+  buckets.converting.length === 0 &&
+  notCounted.paused.length === 0 &&
+  notCounted.unmappedPrice.length === 0
+) {
+  console.log('     (no difference — nothing is mid-conversion, paused, or mispriced right now)');
 }
 console.log(`  Free Trial would previously have read ${oldTrial} (now ${buckets.freeTrial.length})`);
 if (notCounted.setupWithheld.length > 0) {
@@ -166,12 +215,17 @@ if (notCounted.setupWithheld.length > 0) {
 
 // A live paid tier we cannot price is a real gap, not an accounting artifact:
 // the same member is missing from MRR. Surfaced unconditionally.
-const unpriced = [...buckets.fullSubscriber, ...buckets.converting, ...buckets.freeTrial, ...buckets.trialGrace]
-  .filter((r) => !r.stripe_price_id);
+const unpriced = [
+  ...buckets.fullSubscriber,
+  ...buckets.converting,
+  ...buckets.freeTrial,
+  ...buckets.trialGrace,
+].filter((r) => isUnmappedPrice(r.stripe_price_id));
 if (unpriced.length > 0) {
   console.log('');
-  console.log(`  ! ${unpriced.length} counted subscriber(s) carry no stripe_price_id — MRR under-reports them`);
-  for (const r of unpriced) console.log(`      ${r.email}`);
+  console.log(`  ! ${unpriced.length} counted subscriber(s) carry a price id that maps to no SKU`);
+  console.log('    MRR prices them at $0, and the next webhook sync will drop them to public.');
+  for (const r of unpriced) console.log(`      ${r.email}  ${r.stripe_price_id ?? '(none)'}`);
 }
 
 if (showNames) {
@@ -185,6 +239,7 @@ if (showNames) {
   console.log('─────────────────────────────────────────');
   list('Converting (charge in flight)', buckets.converting);
   list('Paused', notCounted.paused, (r) => (r.paused_until ? `  resumes ${r.paused_until}` : '  (indefinite)'));
+  list('Unmapped price', notCounted.unmappedPrice, (r) => `  ${r.stripe_price_id ?? '(none)'}`);
   list('Setup withheld', notCounted.setupWithheld);
   list('Other (off the chart)', notCounted.other, (r) => `  — ${r.why}`);
 }
