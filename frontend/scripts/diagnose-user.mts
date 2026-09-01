@@ -154,6 +154,7 @@ type UserRow = {
   cancel_at_period_end: number | null;
   payment_grace_started_at: string | null;
   payment_grace_reason: string | null;
+  first_payment_at: string | null;
   trial_reminder_email_sent_at: string | null;
   referred_by_code: string | null;
   referral_credit_months: number | null;
@@ -167,7 +168,7 @@ const rows = querySqlite<UserRow>(
           paid_welcome_email_sent_at, subscription_lapsed, subscription_status,
           stripe_customer_id, stripe_subscription_id, stripe_price_id,
           current_period_end, cancel_at_period_end,
-          payment_grace_started_at, payment_grace_reason,
+          payment_grace_started_at, payment_grace_reason, first_payment_at,
           trial_reminder_email_sent_at,
           referred_by_code, referral_credit_months
    FROM users
@@ -259,6 +260,7 @@ kv('Current period end', orDash(user.current_period_end));
 kv('Cancel at period end', yesNo(user.cancel_at_period_end));
 kv('Payment grace started', orDash(user.payment_grace_started_at));
 kv('Payment grace reason', orDash(user.payment_grace_reason));
+kv('First payment cleared', orDash(user.first_payment_at));
 kv('Paid welcome sent', orDash(user.paid_welcome_email_sent_at));
 kv('Subscription lapsed', yesNo(user.subscription_lapsed));
 kv('Trial reminder sent', orDash(user.trial_reminder_email_sent_at));
@@ -274,6 +276,7 @@ header('Admin monitoring bucket');
     tier: user.tier,
     paymentGraceReason: user.payment_grace_reason,
     cancelAtPeriodEnd: Number(user.cancel_at_period_end) === 1,
+    firstPaymentAt: user.first_payment_at,
   });
   kv('Counted as', verdict.label);
   kv('Because', verdict.why);

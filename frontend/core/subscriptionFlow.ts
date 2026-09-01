@@ -19,6 +19,12 @@
 // tier public<->paid transitions therefore reconciles with the headcount by
 // construction — and is backward-compatible with pre-grace history, where the
 // webhook already wrote tier=public the instant a sub went past_due.
+//
+// currentPayingCounts gates every one of its lines on that same paid tier, which
+// is what closes the two states where a subscription stays live while access is
+// withheld: a PAUSED sub (Stripe keeps it `active`) and a trial held at the
+// payment-setup gate (`trialing`, card not yet validated). Both drop to
+// tier=public, so both leave the headcount and book here, on the same day.
 
 export type PaidTier = 'basic' | 'pro';
 export type SyncTier = PaidTier | 'public';
@@ -61,6 +67,8 @@ export type FlowDelta = {
   basicPaymentFail: number;
   proCancel: number;
   basicCancel: number;
+  proPause: number;
+  basicPause: number;
 };
 
 export function emptyFlowDelta(): FlowDelta {
@@ -73,6 +81,8 @@ export function emptyFlowDelta(): FlowDelta {
     basicPaymentFail: 0,
     proCancel: 0,
     basicCancel: 0,
+    proPause: 0,
+    basicPause: 0,
   };
 }
 
@@ -80,6 +90,25 @@ export function emptyFlowDelta(): FlowDelta {
 // synced status was one of these is a terminal payment failure (retries
 // exhausted), not a voluntary cancel.
 const DUNNING_STATUSES = new Set(['past_due', 'unpaid']);
+
+// How long after a trial's first `active` a departure still belongs to that
+// first charge rather than to ordinary churn, in days. Mirrors
+// CONVERSION_CONFIRM_DAYS in core/trialConveyor and the window in
+// core/trialDunning: Stripe flips the sub to `active` when the post-trial
+// invoice is created, so a trial whose charge fails on a card Stripe won't
+// retry is deleted outright with `active` as its last synced status. Without
+// this window that departure books as a voluntary cancellation.
+const CONVERSION_CONFIRM_DAYS = 2;
+
+// Whole days between two 'YYYY-MM-DD' bucket keys, or null if either is
+// unparseable. Positive when `later` is after `earlier`.
+function dayDistance(earlier: string | null, later: string | null): number | null {
+  if (!earlier || !later) return null;
+  const a = Date.parse(`${earlier}T00:00:00Z`);
+  const b = Date.parse(`${later}T00:00:00Z`);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
+  return Math.round((b - a) / 86_400_000);
+}
 
 // Accumulate the per-day flow. `syncEvents` MUST be ascending by created_at.
 // Adds/reactivations are positive; payment-failure downgrades and cancellations
@@ -101,10 +130,14 @@ export function accumulateSubscriptionFlow(
   const everSubscribed = new Set<string>(); // ever counted — distinguishes add vs reactivation
   const lastPaidTier = new Map<string, PaidTier>(); // tier to attribute a later drop to
   const lastStatus = new Map<string, string>(); // classify a deletion (dunning vs clean)
+  const sawTrial = new Set<string>(); // observed `trialing` — only these can be at a FIRST charge
+  const firstActiveDay = new Map<string, string>(); // day the post-trial invoice was raised
 
   for (const ev of syncEvents) {
     const { subId, status, tier, day } = ev;
     if (!subId) continue;
+    if (status === 'trialing') sawTrial.add(subId);
+    if (status === 'active' && day && !firstActiveDay.has(subId)) firstActiveDay.set(subId, day);
     const wasSub = subscribed.get(subId) ?? false;
 
     // Counted state from the synced tier: a paid tier => subscribed; an explicit
@@ -123,12 +156,20 @@ export function accumulateSubscriptionFlow(
         book(day, t === 'pro' ? 'proAdd' : 'basicAdd', 1);
       }
     } else if (wasSub && !isSub) {
-      // Lost a subscriber via a sync. The webhook only sets tier=public from a
-      // non-active status (dunning), so a paid->public sync is a payment-failure
-      // downgrade — booked the day access actually drops (grace expiry), NOT the
-      // day the sub first entered past_due.
+      // Lost a subscriber via a sync, booked the day access ACTUALLY drops (grace
+      // expiry), NOT the day the sub first entered past_due. Two causes, and the
+      // status tells them apart: Stripe leaves a PAUSED subscription `active`
+      // while granting no tier, so a paid->public drop on a live `active` sub is
+      // the pause-instead-of-cancel retention lever, not a decline. Everything
+      // else reaches tier=public from a dunning status and is a payment-failure
+      // downgrade. Booking a pause as a payment failure would report a member who
+      // deliberately took a bounded break as involuntary churn.
       const t: PaidTier = lastPaidTier.get(subId) ?? 'basic';
-      book(day, t === 'pro' ? 'proPaymentFail' : 'basicPaymentFail', -1);
+      if (status === 'active') {
+        book(day, t === 'pro' ? 'proPause' : 'basicPause', -1);
+      } else {
+        book(day, t === 'pro' ? 'proPaymentFail' : 'basicPaymentFail', -1);
+      }
     }
 
     subscribed.set(subId, isSub);
@@ -151,8 +192,14 @@ export function accumulateSubscriptionFlow(
     if (!(subscribed.get(subId) ?? false)) continue;
     const t: PaidTier = lastPaidTier.get(subId) ?? 'basic';
     // Deleted while still a subscriber: a dunning last status means retries were
-    // exhausted (terminal payment failure); anything else is a voluntary cancel.
-    if (DUNNING_STATUSES.has(lastStatus.get(subId) ?? '')) {
+    // exhausted (terminal payment failure). So does a deletion that lands on a
+    // trial's FIRST charge — Stripe removes the subscription outright, with no
+    // past_due at all, when that charge fails on a payment method it won't
+    // retry, leaving the trial-end `active` as the last status. Anything else is
+    // a voluntary cancel.
+    const gap = sawTrial.has(subId) ? dayDistance(firstActiveDay.get(subId) ?? null, day) : null;
+    const firstChargeFailed = gap != null && gap >= 0 && gap <= CONVERSION_CONFIRM_DAYS;
+    if (DUNNING_STATUSES.has(lastStatus.get(subId) ?? '') || firstChargeFailed) {
       book(day, t === 'pro' ? 'proPaymentFail' : 'basicPaymentFail', -1);
     } else {
       book(day, t === 'pro' ? 'proCancel' : 'basicCancel', -1);
@@ -170,9 +217,10 @@ export function accumulateSubscriptionFlow(
 // pure and DB-free, so it's unit-tested next to the accumulator that feeds it and
 // can be imported by the client chart (this module has no `server-only` import).
 
-// The nine per-day flow counts — exactly the numeric fields of a SignupFlowPoint
-// (core/monitoring.ts) minus its `day`. Adds and reactivations are positive;
-// cancellations and payment-failure downgrades arrive pre-negated.
+// The eleven per-day flow counts — exactly the numeric fields of a
+// SignupFlowPoint (core/monitoring.ts) minus its `day`. Adds and reactivations
+// are positive; cancellations, payment-failure downgrades and pauses arrive
+// pre-negated.
 export type FlowCounts = {
   proAdd: number;
   basicAdd: number;
@@ -182,6 +230,8 @@ export type FlowCounts = {
   basicCancel: number;
   proPaymentFail: number;
   basicPaymentFail: number;
+  proPause: number;
+  basicPause: number;
   registrations: number;
 };
 
@@ -194,6 +244,8 @@ const FLOW_COUNT_KEYS: readonly (keyof FlowCounts)[] = [
   'basicCancel',
   'proPaymentFail',
   'basicPaymentFail',
+  'proPause',
+  'basicPause',
   'registrations',
 ];
 
@@ -236,6 +288,8 @@ function emptyFlowCounts(): FlowCounts {
     basicCancel: 0,
     proPaymentFail: 0,
     basicPaymentFail: 0,
+    proPause: 0,
+    basicPause: 0,
     registrations: 0,
   };
 }

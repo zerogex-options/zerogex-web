@@ -158,6 +158,14 @@ export type ConveyorDeleteEvent = {
   day: string | null;
 };
 
+// A subscription invoice that actually got PAID (the `stripe_first_payment`
+// audit stream). Only the first one per subscription is written, so its presence
+// is proof the trial's conversion charge cleared.
+export type ConveyorPaymentEvent = {
+  subId: string;
+  day: string | null;
+};
+
 export type ConveyorDayDelta = {
   // Trials that STARTED that day (first `trialing` sync for the sub).
   boarded: number;
@@ -220,10 +228,21 @@ function dayDistance(earlier: string | null, later: string | null): number | nul
 // then declines as a conversion — inflating both the converted total and the
 // yield rate with members who never paid. A past_due or a deletion within
 // CONVERSION_CONFIRM_DAYS of that day revokes it and books the real outcome.
+//
+// `payments` settles that provisional booking positively instead of waiting the
+// window out: a subscription in the `stripe_first_payment` stream has had a real
+// charge clear, so its conversion is CONFIRMED and can never be revoked. That
+// stream only exists going forward, so a subscription without one still falls
+// back to the time-based rule and historical windows keep reading the same.
 export function accumulateTrialOutcomes(
   syncs: ConveyorSyncEvent[],
   deletes: ConveyorDeleteEvent[],
+  payments: ConveyorPaymentEvent[] = [],
 ): Map<string, ConveyorDayDelta> {
+  // A payment is always raised after the `active` sync that precedes it, so
+  // membership alone is enough — no interleaving needed.
+  const paidSubs = new Set<string>();
+  for (const ev of payments) if (ev.subId) paidSubs.add(ev.subId);
   const byDay = new Map<string, ConveyorDayDelta>();
   const book = (day: string | null, key: keyof ConveyorDayDelta) => {
     if (!day) return;
@@ -239,6 +258,7 @@ export function accumulateTrialOutcomes(
   };
 
   type SubState = {
+    subId: string;
     sawTrial: boolean;
     stalled: boolean;
     terminal: boolean;
@@ -251,7 +271,7 @@ export function accumulateTrialOutcomes(
   const stateFor = (subId: string): SubState => {
     let s = subs.get(subId);
     if (!s) {
-      s = { sawTrial: false, stalled: false, terminal: false, convertedDay: null };
+      s = { subId, sawTrial: false, stalled: false, terminal: false, convertedDay: null };
       subs.set(subId, s);
     }
     return s;
@@ -260,8 +280,11 @@ export function accumulateTrialOutcomes(
   // Revoke a provisional conversion when the failure lands close enough to it to
   // be the SAME charge failing. Returns whether one was revoked, so the caller
   // knows this sub is still undecided rather than a converted customer churning.
+  // A conversion backed by an observed payment is never revoked — the money
+  // moved, so a later failure is a renewal declining, not this charge.
   const revokeIfUnconfirmed = (s: SubState, day: string | null): boolean => {
     if (!s.convertedDay) return false;
+    if (paidSubs.has(s.subId)) return false;
     const gap = dayDistance(s.convertedDay, day);
     if (gap == null || gap < 0 || gap > CONVERSION_CONFIRM_DAYS) return false;
     unbook(s.convertedDay, 'converted');

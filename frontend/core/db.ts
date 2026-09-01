@@ -523,6 +523,47 @@ function initDb(): DatabaseSync {
   // out of the Total Subscribers chart.
   ensureColumn('users', 'payment_grace_reason', 'TEXT');
 
+  // ISO instant this member's FIRST subscription invoice was actually PAID, or
+  // NULL if no payment of theirs has ever cleared. Stamped once (COALESCE, so
+  // renewals and webhook redeliveries never move it) from the invoice.paid
+  // webhook branch, which is the only place we learn that money moved.
+  //
+  // It exists because `subscription_status` cannot answer "is this a paying
+  // customer". Stripe flips a subscription from `trialing` to `active` when the
+  // post-trial invoice is CREATED — roughly an hour before it attempts the
+  // charge — so an `active` subscription is evidence of an invoice, not of a
+  // payment. Counting that `active` as a Full Subscriber made the admin
+  // headcount tick up at trial end and back down an hour later whenever the card
+  // declined. core/subscriberBucket.ts routes an `active` with no stamp to the
+  // Converting line instead, and promotes it here when the charge clears.
+  ensureColumn('users', 'first_payment_at', 'TEXT');
+  // One-time backfill for rows that predate the column. Everyone on a live
+  // `active` subscription today has been through at least one successful charge
+  // — a trial still at its first charge is `trialing`, and one whose charge was
+  // declined is `past_due` — so leaving them NULL would park the entire existing
+  // subscriber base on the Converting line. updated_at is the closest instant we
+  // still hold for them; it is only ever read as "not null", never as a date.
+  //
+  // Deliberately NOT restricted to paid tiers: an `active` row sitting at tier
+  // 'public' is a PAUSED established payer, and skipping them would drop them
+  // onto Converting when their pause ends. Stamping a row the headcount doesn't
+  // select is inert either way — every one of its lines requires a paid tier.
+  //
+  // The one row this can misjudge is a member who happens to be inside the
+  // trial-conversion hour at migration time; they are stamped as paid a few
+  // minutes early. That is a single account, once, and it self-corrects on their
+  // next real invoice.
+  try {
+    db.prepare(
+      `UPDATE users
+          SET first_payment_at = updated_at
+        WHERE first_payment_at IS NULL
+          AND subscription_status = 'active'`,
+    ).run();
+  } catch {
+    // A fresh database has no rows to backfill; never block startup on this.
+  }
+
   // Soft-delete marker for self-service account deletion (see
   // app/api/account/delete/route.ts + the /account danger zone). NULL = active;
   // set to the ISO timestamp when the member deletes their account. We keep the

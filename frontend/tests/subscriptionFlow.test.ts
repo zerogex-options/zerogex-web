@@ -192,6 +192,89 @@ test('RECONCILIATION: summed flow equals the net change in subscriber headcount'
 });
 
 // --- Weekday breakdown -----------------------------------------------------
+// ── Pause is not churn ─────────────────────────────────────────────────────
+// Stripe leaves a PAUSED subscription `active` while the webhook grants no tier,
+// so the member genuinely leaves the headcount — but filing that under
+// payment-failure downgrades reported a deliberate, bounded break as involuntary
+// churn, and made the retention lever look like a billing problem.
+
+test('a retention pause books its own family, not a payment failure', () => {
+  const flow = accumulateSubscriptionFlow(
+    [
+      sync('s1', 'active', 'pro', 'd1'),
+      sync('s1', 'active', 'public', 'd2'), // pause_collection set: still active, no tier
+    ],
+    [],
+  );
+  const t = totals(flow);
+  assert.equal(t.proPause, -1);
+  assert.equal(t.proPaymentFail, 0, 'a pause is not a declined card');
+  assert.equal(t.proCancel, 0, 'and it is not a cancellation either');
+});
+
+test('resuming a pause comes back as a reactivation', () => {
+  const flow = accumulateSubscriptionFlow(
+    [
+      sync('s1', 'active', 'pro', 'd1'),
+      sync('s1', 'active', 'public', 'd2'),
+      sync('s1', 'active', 'pro', 'd3'),
+    ],
+    [],
+  );
+  const t = totals(flow);
+  assert.equal(t.proPause, -1);
+  assert.equal(t.proReactivate, 1);
+  // The whole episode nets to zero, exactly as the headcount does.
+  assert.equal(t.proAdd + t.proReactivate + t.proPause, 1, 'only the original add survives');
+});
+
+test('a dunning drop is still a payment failure, not a pause', () => {
+  // The status is what tells them apart: tier->public from past_due is grace
+  // expiring, and that must keep reading as involuntary churn.
+  const flow = accumulateSubscriptionFlow(
+    [sync('s1', 'active', 'pro', 'd1'), sync('s1', 'past_due', 'public', 'd2')],
+    [],
+  );
+  const t = totals(flow);
+  assert.equal(t.proPaymentFail, -1);
+  assert.equal(t.proPause, 0);
+});
+
+// ── The unretryable first charge ───────────────────────────────────────────
+// Stripe deletes a subscription outright — with no past_due at all — when the
+// post-trial charge fails on a payment method it won't retry. The last synced
+// status is then the trial-end `active`, which used to read as a clean exit and
+// file a declined card under voluntary cancellations.
+
+test('a trial deleted right after its first charge is a payment failure', () => {
+  const flow = accumulateSubscriptionFlow(
+    [sync('s1', 'trialing', 'pro', '2026-08-01'), sync('s1', 'active', 'pro', '2026-08-08')],
+    [del('s1', '2026-08-08')],
+  );
+  const t = totals(flow);
+  assert.equal(t.proPaymentFail, -1);
+  assert.equal(t.proCancel, 0, 'nobody chose to leave here — the card was refused');
+});
+
+test('a converted member cancelling a cycle later is still a voluntary cancel', () => {
+  // Well outside the first-charge window, so this must not be re-attributed.
+  const flow = accumulateSubscriptionFlow(
+    [sync('s1', 'trialing', 'pro', '2026-08-01'), sync('s1', 'active', 'pro', '2026-08-08')],
+    [del('s1', '2026-09-08')],
+  );
+  const t = totals(flow);
+  assert.equal(t.proCancel, -1);
+  assert.equal(t.proPaymentFail, 0);
+});
+
+test('a sub that never trialed keeps the old deletion attribution', () => {
+  const flow = accumulateSubscriptionFlow(
+    [sync('s1', 'active', 'pro', '2026-08-01')],
+    [del('s1', '2026-08-01')],
+  );
+  assert.equal(totals(flow).proCancel, -1);
+});
+
 // accumulateFlowByWeekday folds the per-day flow onto the seven weekdays for the
 // admin "Subscription Flow by Weekday" card. Its contract: correct weekday from
 // an ET date key (timezone-independent), fair `days` denominator, and sums that
@@ -207,6 +290,8 @@ function emptyCounts(): FlowCounts {
     basicCancel: 0,
     proPaymentFail: 0,
     basicPaymentFail: 0,
+    proPause: 0,
+    basicPause: 0,
     registrations: 0,
   };
 }
