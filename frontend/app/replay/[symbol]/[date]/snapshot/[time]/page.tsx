@@ -261,6 +261,7 @@ export default async function ReplaySnapshotPage({
           putWall={summary?.put_wall ?? null}
           maxPain={summary?.max_pain ?? null}
           pinStrike={summary?.pin_strike ?? null}
+          pinConfidence={summary?.pin_confidence ?? null}
         />
       </section>
 
