@@ -425,6 +425,13 @@ export function useApiData<T>(endpoint: string, options: UseApiDataOptions<T> = 
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // HTTP status of the last failed response, or null when the failure never
+  // produced one (transport error) / there is no failure. `error` alone can't
+  // answer "was this a paywall, a missing symbol, or an outage?" — it is a
+  // human-readable string, and every caller that tried to branch on it was
+  // reduced to rendering one undifferentiated empty state. See
+  // core/signalAvailability.ts for the consumer that turns this into a label.
+  const [errorStatus, setErrorStatus] = useState<number | null>(null);
   const [refetchToken, setRefetchToken] = useState(0);
 
   // Reset state synchronously when the endpoint changes so stale data from the
@@ -435,6 +442,7 @@ export function useApiData<T>(endpoint: string, options: UseApiDataOptions<T> = 
     setData(null);
     setLoading(true);
     setError(null);
+    setErrorStatus(null);
   }
 
   // Hold the latest callbacks in refs so they can change without tearing
@@ -447,6 +455,7 @@ export function useApiData<T>(endpoint: string, options: UseApiDataOptions<T> = 
   useEffect(() => {
     if (!enabled) {
       setLoading(false);
+      setErrorStatus(null);
       return;
     }
 
@@ -454,11 +463,18 @@ export function useApiData<T>(endpoint: string, options: UseApiDataOptions<T> = 
 
     const fetchData = async () => {
       if (controller.signal.aborted) return;
+      // Per-attempt, so the status published to state always belongs to the
+      // SAME attempt as the error message beside it. Setting it at the throw
+      // site instead would let a 403 linger through a later transport failure
+      // (which produces no status of its own), and a paywalled panel would
+      // flip to a hard error only on the polls that failed to connect.
+      let attemptStatus: number | null = null;
       try {
         const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
         const response = await fetch(`${baseUrl}${endpoint}`, { signal: controller.signal });
 
         if (!response.ok) {
+          attemptStatus = response.status;
           if (response.status === 404) {
             throw new Error('No data available yet');
           }
@@ -482,12 +498,14 @@ export function useApiData<T>(endpoint: string, options: UseApiDataOptions<T> = 
 
         if (accepted) {
           setError(null);
+          setErrorStatus(null);
         }
       } catch (err) {
         if (controller.signal.aborted) return;
         if (err instanceof DOMException && err.name === 'AbortError') return;
         const errorMessage = err instanceof Error ? err.message : 'Failed to fetch data';
         setError(errorMessage);
+        setErrorStatus(attemptStatus);
         onErrorRef.current?.(errorMessage);
       } finally {
         if (!controller.signal.aborted) setLoading(false);
@@ -511,7 +529,7 @@ export function useApiData<T>(endpoint: string, options: UseApiDataOptions<T> = 
     setRefetchToken((t) => t + 1);
   }, []);
 
-  return { data, loading, error, refetch };
+  return { data, loading, error, errorStatus, refetch };
 }
 
 
