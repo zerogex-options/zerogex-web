@@ -4,7 +4,7 @@ import { Megaphone, Sparkles, Compass } from 'lucide-react';
 export const metadata = {
   title: 'Product Updates | ZeroGEX',
   description:
-    "What's new at ZeroGEX and what's coming next: the TradingView and NinjaTrader indicators, ES and NQ coverage, Gamma Shift, Pin Strike, and the road ahead. A running log of platform updates.",
+    "What's new at ZeroGEX and what's coming next: chart integrations for TradingView, thinkorswim, NinjaTrader and Sierra Chart, ES and NQ coverage, Gamma Shift, Pin Strike, and the road ahead. A running log of platform updates.",
   alternates: { canonical: '/updates' },
 };
 
@@ -26,9 +26,9 @@ const UPDATES: Update[] = [
       'Two things people have asked for since the last note are here: the ZeroGEX levels on the chart you already trade, and real futures coverage. Here is everything that shipped since July, and where the platform goes next.',
     whatsNew: [
       {
-        title: 'Your levels, on your own chart',
-        href: '/tradingview-indicator',
-        body: 'Two indicators that put the ZeroGEX levels on the chart you already trade. The TradingView script is free and draws the Gamma Flip, Call Wall, Put Wall, and Max Pain on SPY, SPX, QQQ, NDX, ES, or NQ, with optional cross-alerts. The NinjaTrader 8 indicator, included with Pro, polls the ZeroGEX API and keeps those levels current on its own, along with Pin Strike, the strikes carrying the most dealer gamma, and VWAP. You never retype a number.',
+        title: 'Your levels, on your own charts',
+        href: '/integrations',
+        body: 'Four integrations that put the ZeroGEX levels on the platform you already trade from. The TradingView and thinkorswim scripts are free: they draw the Gamma Flip, Call Wall, Put Wall and Max Pain as horizontal lines, with optional cross-alerts. The NinjaTrader 8 and Sierra Chart studies, included with Pro, poll the ZeroGEX API and keep those levels current on their own, Pin Strike included, so you never retype a number.',
       },
       {
         title: 'ES and NQ',
@@ -38,12 +38,12 @@ const UPDATES: Update[] = [
       {
         title: 'Gamma Shift',
         href: '/gamma-shift',
-        body: 'What changed, not just where things stand. Gamma Shift shows the per-strike move in dealer gamma between two points in time, read three ways. It also separates out the part explained by contracts rolling off at expiration, so a shift caused by expiry doesn’t read as fresh positioning.',
+        body: 'What changed, not just where things stand. Gamma Shift shows the per-strike move in modeled dealer gamma between two points in time, read three ways. It also separates out the part explained by contracts rolling off at expiration, so a shift caused by expiry doesn’t read as fresh positioning.',
       },
       {
         title: 'Pin Strike',
         href: '/education/pin-strike-explained',
-        body: 'A new dealer-positioning metric: the reachable 0DTE strike carrying the strongest restoring dealer gamma into expiration. In plain terms, the strike that hedging pressure is most likely to hold price toward. It is its own read, not a rename of Max Pain or the walls, and it now appears across the gamma charts, the Live Bulletin positioning map, Daily Replay, and the levels pages.',
+        body: 'A new dealer-positioning metric: the reachable 0DTE strike with the strongest modeled restoring dealer gamma into expiration. In plain terms, the strike that hedging pressure is most likely to hold price toward. It is its own read, not a rename of Max Pain or the walls, and it now appears across the gamma charts, the Live Bulletin positioning map, Daily Replay, and the levels pages.',
       },
       {
         title: 'Market Tide, Pair Comparison, and Volatility',

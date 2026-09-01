@@ -2,8 +2,8 @@
   "_note": "The 'what's new since you left' bullets in the ~1-month win-back email (scripts/send-winback.mts reads this; core/mailer.ts renders it). Edit freely to keep the email evergreen — no code change or redeploy of the app is needed, the next send picks it up. Keep it to 2-4 punchy items; 'title' is bolded, 'body' follows an em-dash. If this file is missing or invalid, the sender falls back to DEFAULT_WINBACK_HIGHLIGHTS in core/mailer.ts. Keep in sync with the August 2026 campaign copy in docs/newsletters/2026-08-product-update-*.txt and the /updates entry (app/updates/page.tsx).",
   "highlights": [
     {
-      "title": "Your levels on your own chart",
-      "body": "a free TradingView script that draws the Gamma Flip, Call Wall, Put Wall and Max Pain on SPY, SPX, QQQ, NDX, ES or NQ, plus a NinjaTrader 8 indicator, included with Pro, that polls the API and keeps those levels current on their own along with Pin Strike and VWAP."
+      "title": "Your levels on your own charts",
+      "body": "four integrations across TradingView, thinkorswim, NinjaTrader 8 and Sierra Chart. The first two are free manual-entry scripts; the Pro studies poll the API and keep the Gamma Flip, Call Wall, Put Wall, Max Pain and Pin Strike current on their own."
     },
     {
       "title": "ES and NQ",
@@ -11,7 +11,7 @@
     },
     {
       "title": "Gamma Shift",
-      "body": "what changed, not just where things stand: the per-strike move in dealer gamma between two points in time, with expiry roll-off separated out so it doesn't read as fresh positioning."
+      "body": "what changed, not just where things stand: the per-strike move in modeled dealer gamma between two points in time, with expiry roll-off separated out so it doesn't read as fresh positioning."
     },
     {
       "title": "Three new metrics",
