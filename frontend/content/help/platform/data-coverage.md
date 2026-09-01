@@ -6,7 +6,7 @@
 
 ## Symbols covered
 
-ZeroGEX provides full analytics coverage for four instruments:
+ZeroGEX provides full analytics coverage for four cash underlyings:
 
 - **SPY** — S&P 500 ETF
 - **SPX** — S&P 500 Index (European-style options)
@@ -14,6 +14,13 @@ ZeroGEX provides full analytics coverage for four instruments:
 - **NDX** — Nasdaq 100 Index (European-style options)
 
 These are the four most liquid, most gamma-rich underlyings in the U.S. options market — the instruments where dealer hedging activity has the greatest impact on intraday price.
+
+Two CME equity-index futures are also first-class symbols:
+
+- **ES** — E-mini S&P 500 futures
+- **NQ** — E-mini Nasdaq 100 futures
+
+ES and NQ are not a separate options book. ES and SPX track the same index, so the dealer book behind an ES chart *is* the SPX book — the SPX levels (and NDX, for NQ) are projected onto the futures price axis, while the price series itself comes from the CME feed. The projection ratio is measured off the tape rather than modelled from carry, so it self-corrects through each quarterly roll and there is no basis offset to configure. Dollar exposures (net, call, and put GEX) are deliberately left unprojected: the histogram scales on *relative* exposure, so the shape is the same either way. The micro contracts (/MES, /MNQ) are the same contract at a tenth the size, so the same levels apply.
 
 We don't plan to support single-name equities. The signal model and the regime concept are designed around index-level dealer behavior.
 
@@ -26,6 +33,10 @@ ZeroGEX uses US Eastern Time throughout:
 - **After-hours** — 4:00 PM – 8:00 PM ET (where available)
 
 The session badge in the header confirms which window you're in.
+
+**ES and NQ run on the CME electronic session instead**, which is much wider: Sunday 6:00 PM ET straight through to Friday 5:00 PM ET, with a daily maintenance break from 5:00 to 6:00 PM ET. That covers the Asian and European sessions in full, and ES/NQ quotes are real-time CME. When a cash index is closed but its future is trading, the session badge reads "Futures" and the price tile shows the future — with the change measured against the future's own 4:00 PM ET print — rather than the frozen cash index.
+
+The dealer levels on a futures chart still come from the index options book, which prices during U.S. hours. So overnight you are watching live ES/NQ trade against the levels as they stood at the U.S. close, updated as overnight chain data publishes (see *Pre-market and after-hours* below); they do not recompute tick-by-tick at 3:00 AM ET. If a futures quote itself goes stale, the price carries a badge naming the measured lag.
 
 ## Refresh cadence by surface
 
@@ -72,25 +83,31 @@ The Backtesting page exposes the historical horizon for whatever signal you sele
 
 ## Data sources
 
-ZeroGEX draws on several distinct classes of professional market data, each with its own source:
+ZeroGEX uses professional-tier real-time options and underlying market data under commercial
+entitlements. It is worth being precise about what that means, because it is not all one tape:
 
-- **Real-time listed U.S. options trades and quotes** — used to price the chain and to infer intraday positioning changes between official open-interest updates.
-- **Official open interest** — tallied by the clearinghouse after the session and published for the next trading day. It is an end-of-session figure, not a real-time one.
-- **Real-time underlying quotes** for the index and ETF.
-- **A CME futures feed** for the ES / NQ pages, which is a separate entitlement from the options and equity feeds.
+- **SPY and QQQ options** are OPRA-disseminated — the consolidated tape for U.S. listed options,
+  carrying real-time trades and quotes.
+- **SPX, SPXW, and NDX** are index options. Index-options entitlements are licensed separately
+  through the listing exchange and are *not* carried on the OPRA tape.
+- **ES and NQ** prices come from the real-time CME feed.
+- **Open interest** is a separate, end-of-session figure from clearing rather than a real-time
+  value.
 
-Greeks and every dealer-positioning metric are computed by ZeroGEX from those inputs rather than supplied ready-made by a vendor — see [Methodology & Validation](/methodology). We don't disclose specific vendor names publicly.
+Greeks and every dealer-positioning metric are computed by ZeroGEX from those inputs rather than
+supplied ready-made by a vendor — see [Methodology & Validation](/methodology). We don't disclose
+specific vendor names publicly.
 
 ## Latency
 
 The end-to-end latency from a trade printing on the tape to it reaching your browser is typically under a second during regular hours. The bottleneck is rarely the data — it's your network and browser. See [Streaming & Performance](/help/platform/streaming-and-performance).
 
-## Why only SPY / SPX / QQQ / NDX
+## Why only the index complex
 
 Two reasons:
 
-1. The dealer-positioning model only works well where dealer flow is a meaningful fraction of total flow. That's the index complex.
-2. We'd rather get four instruments right than ten instruments half-right.
+1. The dealer-positioning model only works well where dealer flow is a meaningful fraction of total flow. That's the index complex — SPY, SPX, QQQ, NDX, and the ES / NQ futures that track the same two indices.
+2. We'd rather get a handful of instruments right than ten instruments half-right.
 
 Single-name equities can drift on idiosyncratic news that makes the GEX read noisier. We're not in that game.
 

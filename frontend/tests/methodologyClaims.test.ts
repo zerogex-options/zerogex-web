@@ -114,11 +114,13 @@ test('every locale translates the footer methodology link and the landing disclo
 // ── The data-source claim has to stay narrower than the entitlements ──────────
 
 test('the FAQ does not make one blanket feed claim across every data class', () => {
-  // ES / NQ prices come from a CME futures feed and official open interest comes
-  // from clearing after the session — neither is the options tape. A single
-  // "ZeroGEX uses <one feed>" sentence is therefore wrong for the inputs that
-  // matter most to GEX.
+  // The inputs do not share a source: SPX / SPXW / NDX are index options
+  // licensed through their listing exchange rather than carried on OPRA, ES/NQ
+  // prices come from CME, and official open interest comes from clearing after
+  // the session. A single "ZeroGEX uses <one feed>" sentence is therefore wrong
+  // for the inputs that matter most to GEX.
   const faqs = read('../app/help/faqs/Client.tsx');
   assert.doesNotMatch(faqs, /uses OPRA-feed options data/i);
-  assert.match(faqs, /open interest published by the clearinghouse/i);
+  assert.match(faqs, /not carried on OPRA|licensed separately|not all one tape/i);
+  assert.match(faqs, /(end-of-session figure from clearing|published by the clearinghouse)/i);
 });

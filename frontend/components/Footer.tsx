@@ -12,7 +12,14 @@ interface FooterProps {
   theme: Theme;
 }
 
-type FooterLink = { href: string; labelKey: TranslationKey; external?: boolean };
+// A link carries either a `labelKey` (translated) or a literal English
+// `label` — the latter for brand names like TradingView and NinjaTrader, which
+// stay English in every locale. Same convention core/navigation.ts uses for
+// nav entries, so the two menus never disagree about what to translate.
+type FooterLink = { href: string; external?: boolean } & (
+  | { labelKey: TranslationKey; label?: never }
+  | { label: string; labelKey?: never }
+);
 type FooterColumn = { headingKey: TranslationKey; links: FooterLink[] };
 
 // Four semantic columns instead of one flat list of nine links under a generic
@@ -25,6 +32,8 @@ const FOOTER_COLUMNS: FooterColumn[] = [
     links: [
       { href: '/dashboard', labelKey: 'footer.platform' },
       { href: '/spx-gamma-levels', labelKey: 'footer.freeGammaLevels' },
+      { href: '/tradingview-indicator', label: 'TradingView Indicator' },
+      { href: '/ninjatrader-indicator', label: 'NinjaTrader Indicator' },
       { href: '/pricing', labelKey: 'footer.pricing' },
       { href: 'https://api.zerogex.io/docs', labelKey: 'footer.apiDocs', external: true },
     ],
@@ -150,6 +159,7 @@ function SocialLinks() {
 export default function Footer({ theme }: FooterProps) {
   const { t } = useLanguage();
   const isDark = theme === 'dark';
+  const linkLabel = (link: FooterLink) => (link.labelKey ? t(link.labelKey) : link.label);
 
   return (
     <footer
@@ -216,11 +226,11 @@ export default function Footer({ theme }: FooterProps) {
                   <li key={`${column.headingKey}-${link.href}`}>
                     {link.external ? (
                       <a href={link.href} target="_blank" rel="noreferrer" className="zg-footer-link">
-                        {t(link.labelKey)}
+                        {linkLabel(link)}
                       </a>
                     ) : (
                       <Link href={link.href} className="zg-footer-link">
-                        {t(link.labelKey)}
+                        {linkLabel(link)}
                       </Link>
                     )}
                   </li>

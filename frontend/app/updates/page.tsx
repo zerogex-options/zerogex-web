@@ -4,7 +4,7 @@ import { Megaphone, Sparkles, Compass } from 'lucide-react';
 export const metadata = {
   title: 'Product Updates | ZeroGEX',
   description:
-    "What's new at ZeroGEX and what's coming next — Trade Bias, the Gamma Chart, My Dashboard, NDX coverage, and the road ahead. A running log of platform updates.",
+    "What's new at ZeroGEX and what's coming next: the TradingView and NinjaTrader indicators, ES and NQ coverage, Gamma Shift, Pin Strike, and the road ahead. A running log of platform updates.",
   alternates: { canonical: '/updates' },
 };
 
@@ -19,6 +19,61 @@ type Update = {
 
 // Newest first. Add a new object to the top of this array to publish an update.
 const UPDATES: Update[] = [
+  {
+    date: 'August 30, 2026',
+    title: 'Your levels on your own charts, plus futures',
+    intro:
+      'Two things people have asked for since the last note are here: the ZeroGEX levels on the chart you already trade, and real futures coverage. Here is everything that shipped since July, and where the platform goes next.',
+    whatsNew: [
+      {
+        title: 'Your levels, on your own chart',
+        href: '/tradingview-indicator',
+        body: 'Two indicators that put the ZeroGEX levels on the chart you already trade. The TradingView script is free and draws the Gamma Flip, Call Wall, Put Wall, and Max Pain on SPY, SPX, QQQ, NDX, ES, or NQ, with optional cross-alerts. The NinjaTrader 8 indicator, included with Pro, polls the ZeroGEX API and keeps those levels current on its own, along with Pin Strike, the strikes carrying the most dealer gamma, and VWAP. You never retype a number.',
+      },
+      {
+        title: 'ES and NQ',
+        href: '/es-gamma-levels',
+        body: 'Futures are first-class now. ES and NQ have their own gamma levels and their own free pages, and they carry the same read as SPY, SPX, QQQ, and NDX everywhere else on the site. The levels come from the SPX and NDX options books and are converted to futures prices on the live basis, so what you read is quoted where you actually trade.',
+      },
+      {
+        title: 'Gamma Shift',
+        href: '/gamma-shift',
+        body: 'What changed, not just where things stand. Gamma Shift shows the per-strike move in dealer gamma between two points in time, read three ways. It also separates out the part explained by contracts rolling off at expiration, so a shift caused by expiry doesn’t read as fresh positioning.',
+      },
+      {
+        title: 'Pin Strike',
+        href: '/education/pin-strike-explained',
+        body: 'A new dealer-positioning metric: the reachable 0DTE strike carrying the strongest restoring dealer gamma into expiration. In plain terms, the strike that hedging pressure is most likely to hold price toward. It is its own read, not a rename of Max Pain or the walls, and it now appears across the gamma charts, the Live Bulletin positioning map, Daily Replay, and the levels pages.',
+      },
+      {
+        title: 'Market Tide, Pair Comparison, and Volatility',
+        href: '/market-tide',
+        body: 'Three new metric pages. Market Tide folds gamma and flow across the covered indices into a single bearish-to-bullish score. Pair Comparison puts any two of SPY, QQQ, SPX, and NDX side by side on strike-aligned Net GEX ladders, with a replay scrubber to watch the levels migrate through a session. Volatility charts put/call IV skew alongside realized-versus-implied.',
+      },
+    ],
+    whatsComing: [
+      {
+        title: 'Enhanced backtesting',
+        body: 'More strategies, more control, deeper analytics, and a longer history window as we expand the dataset.',
+      },
+      {
+        title: 'More tickers',
+        body: 'ES and NQ were the start. Coverage keeps growing beyond SPY, SPX, QQQ, and NDX.',
+      },
+      {
+        title: 'More automated strategies',
+        body: 'Additional TradeWorkz™ bots, each with the same public, no-cherry-picking track record.',
+      },
+      {
+        title: 'A more streamlined experience',
+        body: 'An ongoing pass to simplify the platform: fewer clicks to the read that matters, and less on-screen noise.',
+      },
+      {
+        title: 'A sharper mobile experience',
+        body: 'Continued work to make ZeroGEX feel great on the phone, not just the desktop.',
+      },
+    ],
+  },
   {
     date: 'July 24, 2026',
     title: 'Now live — plus what’s coming next',

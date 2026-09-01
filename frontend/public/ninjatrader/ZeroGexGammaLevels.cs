@@ -10,7 +10,8 @@
 //    • Pin Strike   (0DTE pin magnet)
 //    • GEX 1..N     (the strikes carrying the most dealer gamma)
 //    • VWAP         (session volume-weighted average price)
-//  …plus an optional right-anchored per-strike net-gamma histogram.
+//  …plus an optional per-strike net-gamma histogram, pinned to the left
+//  edge of the chart window so it stays put as bars form.
 //
 //  Unlike the free manual-entry TradingView script, this indicator pulls the
 //  numbers for you. It requires a ZeroGEX API key, which ships with the Pro
@@ -110,17 +111,6 @@ namespace NinjaTrader.NinjaScript.Indicators
         // Last-seen close for cross-alert edge detection (avoids re-alerting).
         private double _prevClose = double.NaN;
 
-        // Histogram bookkeeping. The bars are anchored with barsAgo, which
-        // resolves to an absolute bar at draw time, so they have to be redrawn
-        // as bars form or they drift away from the right edge. Redrawing every
-        // tick would be dozens of Draw calls per tick on a fast chart, so the
-        // redraw is gated on "new bar, new snapshot, or toggled".
-        private int _gexRanksDrawn;
-        private int _profileDrawn;
-        private int _profileAnchorBar = -1;
-        private bool _profileShown;
-        private ZeroGexLevelsSnapshot _profileSnapshot;
-
         protected override void OnStateChange()
         {
             if (State == State.SetDefaults)
@@ -161,15 +151,17 @@ namespace NinjaTrader.NinjaScript.Indicators
                 GexRankCount = 4;
                 ShowVwap = true;
 
-                // Opt-in: this is 40 extra draw objects on the price panel, so
-                // an existing user's chart shouldn't sprout them on update.
+                // Opt-in: forty extra bars on the price panel, so an existing
+                // user's chart shouldn't sprout them on update.
                 ShowStrikeProfile = false;
                 ProfileStrikeCount = 40;
+                // Percent of panel width. Named "Bars" because the property
+                // name is the workspace storage key and renaming it would
+                // reset the value on every chart that already has one.
                 ProfileWidthBars = 20;
-                // Bar thickness in pixels. The default Draw.Line stroke is 1px,
-                // which reads as a hairline rather than a histogram; 5 gives the
-                // bars enough body to be read at a glance without them merging
-                // into each other at typical strike spacing.
+                // Bar thickness in pixels. 5 gives the bars enough body to be
+                // read at a glance without them merging into each other at
+                // typical strike spacing.
                 ProfileBarWidth = 5;
 
                 // --- Style ---
@@ -181,6 +173,13 @@ namespace NinjaTrader.NinjaScript.Indicators
                 // nothing and separates text from line. In ticks, so it scales
                 // with the instrument; 0 restores the old behaviour.
                 LabelOffsetTicks = 4;
+                // Eight pixels clear of the right edge: enough to read, not
+                // so much that the label drifts away from its own line.
+                LabelRightOffsetPixels = 8;
+                // 12 and not bold reproduces exactly what shipped before this
+                // was settable, so nobody's chart changes on upgrade.
+                LabelFontSize = 12;
+                LabelBold = false;
                 ShowInfoPanel = true;
                 EnableAlerts = false;
 
@@ -193,6 +192,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 ProfileNegBrush = Brushes.IndianRed;
                 GexRankBrush = Brushes.Goldenrod;
                 VwapBrush = Brushes.DodgerBlue;
+                InfoPanelBrush = Brushes.Gainsboro;
             }
             else if (State == State.Terminated)
             {
@@ -208,8 +208,10 @@ namespace NinjaTrader.NinjaScript.Indicators
                 return;
 
             MaybeFetch();
-            DrawLevels();
 
+            // Nothing is drawn from here any more, panel included. Everything
+            // the chart shows is painted in OnRender, which the chart drives
+            // whether or not a tick has arrived.
             if (EnableAlerts)
                 CheckCrossAlerts();
 
@@ -513,97 +515,207 @@ namespace NinjaTrader.NinjaScript.Indicators
         }
 
         // ------------------------------------------------------------------
-        // Rendering (high-level Draw API — runs on the data thread)
+        // Rendering
+        //
+        // Everything except the info panel is drawn in OnRender, in device
+        // pixels, rather than through the high-level Draw API.
+        //
+        // The Draw API anchors everything to bars. That is the right model for
+        // a trendline and the wrong one for a level. Three separate reports,
+        // from two testers, were all this one decision: labels pinned to the
+        // last bar slid off screen the moment a trader scrolled back to study
+        // a level that had held, leaving unlabelled lines and, in his words,
+        // "I don't know what I am seeing"; the histogram was anchored the same
+        // way and crawled leftward as bars formed, when a profile is supposed
+        // to sit still; and there was no way to move a label off the price
+        // action, because a bar anchor has only bars to move between and every
+        // one of them has candles on it.
+        //
+        // OnRender has no bars in it. The chart hands us a panel and a price
+        // scale, we convert prices to pixels ourselves, and anything placed
+        // relative to a panel edge stays where it was put -- through scrolling,
+        // through zooming, and through a rewind to last Tuesday. One change
+        // answers all three reports, which is why this is a rewrite of the
+        // drawing layer rather than three patches on top of the old one.
+        //
+        // Thread note: OnRender runs on the UI thread, OnBarUpdate on the data
+        // thread. The only state crossing between them is _snapshot, which is
+        // volatile and replaced wholesale rather than mutated, so a frame sees
+        // either the old snapshot or the new one and never a half-built one.
+        // The render model derived from it is built and read only here.
         // ------------------------------------------------------------------
-        private void DrawLevels()
-        {
-            var s = _snapshot; // single volatile read
 
-            // With no snapshot — first load, or a fetch that failed — leave
-            // whatever is already drawn alone and just say so in the panel.
-            // Passing nulls through to DrawOne removes every line, which turns
-            // a recoverable hiccup into "the indicator stopped working". The
-            // levels themselves are a snapshot of an option book, so holding
-            // the last good ones is both honest and useful; the panel's age
-            // and status tell the trader how much to trust them.
-            if (s == null)
-            {
-                DrawInfoPanel(null);
-                return;
-            }
-
-            DrawOne("ZG_Flip", ShowGammaFlip, s?.GammaFlip, "Gamma Flip", FlipBrush);
-            DrawOne("ZG_Call", ShowCallWall, s?.CallWall, "Call Wall", CallBrush);
-            DrawOne("ZG_Put", ShowPutWall, s?.PutWall, "Put Wall", PutBrush);
-            DrawOne("ZG_Pain", ShowMaxPain, s?.MaxPain, "Max Pain", PainBrush);
-            DrawOne("ZG_Pin", ShowPinStrike, s?.PinStrike, "Pin Strike", PinBrush);
-            DrawOne("ZG_Vwap", ShowVwap, s?.Vwap, "VWAP", VwapBrush);
-            DrawGexRanks(s);
-            DrawProfile(s);
-            DrawInfoPanel(s);
-        }
-
-        private void DrawInfoPanel(ZeroGexLevelsSnapshot s)
-        {
-            if (ShowInfoPanel)
-                Draw.TextFixed(this, "ZG_Info", BuildInfoText(s), TextPosition.TopRight);
-            else
-                RemoveDrawObject("ZG_Info");
-        }
-
-        private void DrawOne(string tag, bool show, double? value, string label, Brush brush)
-        {
-            // Remove a previously-drawn line when the level is hidden or unset,
-            // so a toggled-off or newly-null level doesn't linger on the chart.
-            if (!show || value == null || value.Value == 0)
-            {
-                RemoveDrawObject(tag);
-                RemoveDrawObject(tag + "_txt");
-                return;
-            }
-
-            double price = value.Value;
-            Draw.HorizontalLine(this, tag, price, brush, DashStyleHelper.Solid, Math.Max(1, LineWidth));
-
-            if (ShowLabels)
-            {
-                string text = label + "  " + price.ToString("0.##", CultureInfo.InvariantCulture);
-                Draw.Text(this, tag + "_txt", text, 0, LabelY(price), brush);
-            }
-            else
-            {
-                RemoveDrawObject(tag + "_txt");
-            }
-        }
-
-        /// <summary>The strikes carrying the most dealer gamma, drawn as dashed
-        /// lines labelled GEX 1..N — GEX 1 being the largest.
+        /// <summary>One horizontal level, reduced to what a frame needs.
         ///
-        /// Costs no extra request: the profile the histogram already uses holds
-        /// every strike's net gamma, so this is a ranking of data in hand.
-        /// Ranked on ABSOLUTE gamma, so a heavy put strike ranks alongside a
-        /// heavy call strike — the question being answered is "where is the
-        /// most dealer gamma", not "where is the most positive gamma".
-        ///
-        /// Selection rather than a sort: N is single digits against at most 200
-        /// strikes, so this is cheaper than ordering the whole profile, and it
-        /// avoids taking a LINQ dependency the NinjaScript compiler would have
-        /// to resolve.</summary>
-        private void DrawGexRanks(ZeroGexLevelsSnapshot s)
+        /// Label rather than a finished string because several levels routinely
+        /// land on one strike and their names get joined — see AddLevel.</summary>
+        private class RenderLevel
         {
-            int drawn = 0;
+            public double Price;
+            public string Label;
+            public Brush Stroke;
+            public bool Dashed;
+        }
 
-            if (ShowGexRanks && s != null && s.ProfileStrike != null && s.ProfileStrike.Count > 0)
+        private readonly List<RenderLevel> _levels = new List<RenderLevel>();
+
+        // Per-frame scratch for label de-collision, held as fields so a repaint
+        // allocates nothing.
+        private readonly List<int> _labelOrder = new List<int>();
+        private readonly List<float> _labelY = new List<float>();
+
+        /// <summary>Vertical space one label occupies, in pixels.
+        ///
+        /// Derived from the font size rather than fixed. It used to be a
+        /// constant 15, which is right for 12pt and quietly wrong for anything
+        /// else: the de-collision pass below spaces labels by this number, so a
+        /// reader who enlarged the text would have got the overlapping smear
+        /// back, having changed the one setting meant to make things clearer.
+        /// +3 reproduces the old 15 exactly at the default 12.</summary>
+        private float LabelLineHeight
+        {
+            get { return Math.Max(6, LabelFontSize) + 3f; }
+        }
+        private ZeroGexLevelsSnapshot _levelsBuiltFrom;
+        private int _levelsBuiltCount = -1;
+
+        /// <summary>Per-frame cache of Direct2D brushes.
+        ///
+        /// A Direct2D brush belongs to the render target and has to be built
+        /// from the WPF one and then disposed. Doing that per shape is forty
+        /// creates and disposes a frame with the histogram on, at whatever rate
+        /// the chart repaints. There are only ever nine distinct colours, so
+        /// they are converted once and dropped together at the end of the
+        /// frame.</summary>
+        private sealed class BrushCache : IDisposable
+        {
+            private readonly SharpDX.Direct2D1.RenderTarget _target;
+            private readonly Dictionary<Brush, SharpDX.Direct2D1.Brush> _map =
+                new Dictionary<Brush, SharpDX.Direct2D1.Brush>();
+
+            public BrushCache(SharpDX.Direct2D1.RenderTarget target)
             {
-                int want = Math.Min(Math.Max(1, GexRankCount), s.ProfileStrike.Count);
-                bool[] taken = new bool[s.ProfileStrike.Count];
+                _target = target;
+            }
 
-                for (int rank = 0; rank < want; rank++)
+            public SharpDX.Direct2D1.Brush Get(Brush wpf)
+            {
+                if (wpf == null)
+                    return null;
+
+                SharpDX.Direct2D1.Brush dx;
+                if (_map.TryGetValue(wpf, out dx))
+                    return dx;
+
+                dx = wpf.ToDxBrush(_target);
+                _map[wpf] = dx;
+                return dx;
+            }
+
+            public void Dispose()
+            {
+                foreach (var dx in _map.Values)
+                {
+                    if (dx != null)
+                        dx.Dispose();
+                }
+
+                _map.Clear();
+            }
+        }
+
+        protected override void OnRender(ChartControl chartControl, ChartScale chartScale)
+        {
+            base.OnRender(chartControl, chartScale);
+
+            if (RenderTarget == null || chartControl == null || chartScale == null || ChartPanel == null)
+                return;
+
+            var s = _snapshot;
+
+            // A render exception is not a quiet failure: NinjaTrader calls this
+            // every frame and would keep throwing every frame. Trap it, say so
+            // in the panel, and leave the chart usable.
+            try
+            {
+                using (var brushes = new BrushCache(RenderTarget))
+                using (var font = new SharpDX.DirectWrite.TextFormat(
+                           NinjaTrader.Core.Globals.DirectWriteFactory, "Arial",
+                           LabelBold
+                               ? SharpDX.DirectWrite.FontWeight.Bold
+                               : SharpDX.DirectWrite.FontWeight.Normal,
+                           SharpDX.DirectWrite.FontStyle.Normal,
+                           SharpDX.DirectWrite.FontStretch.Normal,
+                           Math.Max(6, LabelFontSize)))
+                {
+                    // Labels are right-aligned into the margin, so the text ends
+                    // at a fixed distance from the right edge however long it is.
+                    font.TextAlignment = SharpDX.DirectWrite.TextAlignment.Trailing;
+
+                    // Panel first, and deliberately OUTSIDE the snapshot guard:
+                    // when there is no snapshot the panel is the only thing on
+                    // the chart that can say why.
+                    RenderInfoPanel(s, font, brushes);
+
+                    if (s == null)
+                        return;
+
+                    BuildLevels(s);
+
+                    RenderProfile(s, chartScale, brushes);
+                    RenderLevels(chartScale, font, brushes);
+                }
+            }
+            catch (Exception ex)
+            {
+                _status = "render failed: " + ex.Message;
+            }
+        }
+
+        /// <summary>Resolve a snapshot into the flat list a frame walks.
+        ///
+        /// Rebuilt only when the snapshot or the requested rank count changes.
+        /// Ranking is a selection pass over up to 200 strikes and the chart can
+        /// repaint many times a second, so it does not belong in the frame.</summary>
+        private void BuildLevels(ZeroGexLevelsSnapshot s)
+        {
+            int want = ShowGexRanks ? Math.Max(1, GexRankCount) : 0;
+            if (ReferenceEquals(_levelsBuiltFrom, s) && _levelsBuiltCount == want)
+                return;
+
+            _levels.Clear();
+
+            AddLevel(ShowGammaFlip, s.GammaFlip, "Gamma Flip", FlipBrush, false);
+            AddLevel(ShowCallWall, s.CallWall, "Call Wall", CallBrush, false);
+            AddLevel(ShowPutWall, s.PutWall, "Put Wall", PutBrush, false);
+            AddLevel(ShowMaxPain, s.MaxPain, "Max Pain", PainBrush, false);
+            AddLevel(ShowPinStrike, s.PinStrike, "Pin Strike", PinBrush, false);
+            AddLevel(ShowVwap, s.Vwap, "VWAP", VwapBrush, false);
+
+            // GEX 1..N: the strikes carrying the most dealer gamma, ranked on
+            // ABSOLUTE net gamma so a heavy put strike ranks alongside a heavy
+            // call strike -- the question is "where is the most dealer gamma",
+            // not "where is the most positive gamma". Costs no extra request:
+            // the profile the histogram uses already holds every strike.
+            // The two profile columns are parsed independently, so they are
+            // walked to the shorter of the two rather than trusting them to
+            // agree. A ragged payload should cost a missing rank, not an
+            // IndexOutOfRange thrown once per frame inside the renderer.
+            int strikes = (s.ProfileStrike == null || s.ProfileNetGex == null)
+                ? 0
+                : Math.Min(s.ProfileStrike.Count, s.ProfileNetGex.Count);
+
+            if (want > 0 && strikes > 0)
+            {
+                int take = Math.Min(want, strikes);
+                bool[] taken = new bool[strikes];
+
+                for (int rank = 0; rank < take; rank++)
                 {
                     int best = -1;
                     double bestMagnitude = 0;
 
-                    for (int i = 0; i < s.ProfileStrike.Count; i++)
+                    for (int i = 0; i < strikes; i++)
                     {
                         if (taken[i])
                             continue;
@@ -621,109 +733,272 @@ namespace NinjaTrader.NinjaScript.Indicators
                         break;
 
                     taken[best] = true;
-
-                    string tag = "ZG_Gex" + (rank + 1);
-                    double y = s.ProfileStrike[best];
-
-                    // Dashed, so the ranked strikes stay visually distinct from
-                    // the four headline walls.
-                    Draw.HorizontalLine(this, tag, y, GexRankBrush, DashStyleHelper.Dash,
-                                        Math.Max(1, LineWidth));
-
-                    if (ShowLabels)
-                    {
-                        string text = "GEX " + (rank + 1) + "  " +
-                                      y.ToString("0.##", CultureInfo.InvariantCulture);
-                        Draw.Text(this, tag + "_txt", text, 0, LabelY(y), GexRankBrush);
-                    }
-                    else
-                    {
-                        RemoveDrawObject(tag + "_txt");
-                    }
-
-                    drawn++;
+                    AddLevel(true, s.ProfileStrike[best], "GEX " + (rank + 1), GexRankBrush, true);
                 }
             }
 
-            // Retire ranks left over from a larger count, or from the whole
-            // group being switched off.
-            for (int rank = drawn; rank < _gexRanksDrawn; rank++)
-            {
-                RemoveDrawObject("ZG_Gex" + (rank + 1));
-                RemoveDrawObject("ZG_Gex" + (rank + 1) + "_txt");
-            }
-
-            _gexRanksDrawn = drawn;
+            _levelsBuiltFrom = s;
+            _levelsBuiltCount = want;
         }
 
-        /// <summary>Right-anchored per-strike net-gamma histogram: one horizontal
-        /// segment per strike, running left from the last bar, its length scaled
-        /// to |net_gex| against the largest bar in view.</summary>
-        private void DrawProfile(ZeroGexLevelsSnapshot s)
+        /// <summary>Add a level, or fold it into one already at that price.
+        ///
+        /// On ES the strikes are five points apart and the metrics collide
+        /// constantly: a tester's chart had Put Wall, Max Pain and GEX 2 all on
+        /// 7711.75, printing "Ma8GEX:2 7711.75" — three labels in the same
+        /// pixel row, none of them readable. Drawing three lines there was just
+        /// as pointless, since only the last one is visible.
+        ///
+        /// Folding them makes the chart say something truer than any of the
+        /// three did alone: not "there is a level here" but "three different
+        /// measures of dealer positioning agree on this strike". The headline
+        /// walls are added before the ranked strikes, so the merged entry keeps
+        /// the wall's colour, and stays solid unless every part of it is
+        /// dashed.</summary>
+        private void AddLevel(bool show, double? value, string label, Brush stroke, bool dashed)
         {
-            bool stale = _profileAnchorBar != CurrentBar
-                         || _profileShown != ShowStrikeProfile
-                         || !ReferenceEquals(_profileSnapshot, s);
-            if (!stale)
+            if (!show || value == null || value.Value == 0)
                 return;
 
-            int drawn = 0;
+            double price = value.Value;
 
-            if (ShowStrikeProfile && s != null && s.ProfileStrike != null && s.ProfileStrike.Count > 0)
+            for (int i = 0; i < _levels.Count; i++)
             {
-                double maxAbs = 0;
-                for (int i = 0; i < s.ProfileNetGex.Count; i++)
-                {
-                    double magnitude = Math.Abs(s.ProfileNetGex[i]);
-                    if (magnitude > maxAbs)
-                        maxAbs = magnitude;
-                }
+                if (_levels[i].Price != price)
+                    continue;
 
-                if (maxAbs > 0)
-                {
-                    // Never reach further left than the chart actually has bars.
-                    int span = Math.Min(Math.Max(1, ProfileWidthBars), Math.Max(1, CurrentBar));
-
-                    for (int i = 0; i < s.ProfileStrike.Count; i++)
-                    {
-                        double netGex = s.ProfileNetGex[i];
-                        int length = (int)Math.Round(span * Math.Abs(netGex) / maxAbs);
-                        if (length < 1)
-                            length = 1;
-
-                        double y = s.ProfileStrike[i];
-                        // isAutoScale MUST be passed: the styled Draw.Line
-                        // overload takes it as the third argument, and the
-                        // unstyled one has no width at all — so a call without
-                        // it matches no overload. false is also what we want:
-                        // these bars sit at strike prices that can be far from
-                        // the visible range, and letting them drive the Y axis
-                        // would zoom the chart out from the price action.
-                        Draw.Line(this, "ZG_Prof_" + i, false, length, y, 0, y,
-                                  netGex >= 0 ? ProfilePosBrush : ProfileNegBrush,
-                                  DashStyleHelper.Solid, Math.Max(1, ProfileBarWidth));
-                        drawn++;
-                    }
-                }
+                _levels[i].Label = _levels[i].Label + " · " + label;
+                _levels[i].Dashed = _levels[i].Dashed && dashed;
+                return;
             }
 
-            // Retire bars left over from a wider profile, or from the histogram
-            // being switched off.
-            for (int i = drawn; i < _profileDrawn; i++)
-                RemoveDrawObject("ZG_Prof_" + i);
-
-            _profileDrawn = drawn;
-            _profileAnchorBar = CurrentBar;
-            _profileShown = ShowStrikeProfile;
-            _profileSnapshot = s;
+            _levels.Add(new RenderLevel
+            {
+                Price = price,
+                Label = label,
+                Stroke = stroke,
+                Dashed = dashed
+            });
         }
+
+        private void RenderLevels(ChartScale chartScale, SharpDX.DirectWrite.TextFormat font, BrushCache brushes)
+        {
+            float left = ChartPanel.X;
+            float right = ChartPanel.X + ChartPanel.W;
+            float top = ChartPanel.Y;
+            float bottom = ChartPanel.Y + ChartPanel.H;
+
+            float width = Math.Max(1, LineWidth);
+            float inset = Math.Max(0, LabelRightOffsetPixels);
+            double lift = Math.Max(0, LabelOffsetTicks) * TickSize;
+
+            _labelOrder.Clear();
+            _labelY.Clear();
+
+            for (int i = 0; i < _levels.Count; i++)
+            {
+                RenderLevel level = _levels[i];
+                float y = (float)chartScale.GetYByValue(level.Price);
+
+                // Outside the visible price range. Skipped rather than clamped:
+                // a label pinned to the panel edge would assert a level is
+                // somewhere it is not.
+                if (y < top || y > bottom)
+                    continue;
+
+                SharpDX.Direct2D1.Brush stroke = brushes.Get(level.Stroke);
+                if (stroke == null)
+                    continue;
+
+                if (level.Dashed)
+                    DrawDashed(left, right, y, stroke, width);
+                else
+                    RenderTarget.DrawLine(new SharpDX.Vector2(left, y),
+                                          new SharpDX.Vector2(right, y), stroke, width);
+
+                if (!ShowLabels)
+                    continue;
+
+                // Collected rather than drawn, because where a label can sit
+                // depends on the labels above it. Insertion-sorted by y on the
+                // way in: at most a dozen levels, so this is cheaper and
+                // simpler than sorting afterwards.
+                float labelY = (float)chartScale.GetYByValue(level.Price + lift);
+                int at = _labelY.Count;
+                while (at > 0 && _labelY[at - 1] > labelY)
+                    at--;
+
+                _labelY.Insert(at, labelY);
+                _labelOrder.Insert(at, i);
+            }
+
+            if (!ShowLabels)
+                return;
+
+            // Push each label below the one above it where they would overlap.
+            //
+            // Folding equal prices in AddLevel handles the common collision,
+            // but levels a tick or two apart still land in the same pixel row:
+            // Pin Strike at 7741.75 and VWAP at 7741.5 printed as one smear on
+            // a tester's chart. Different prices genuinely need different
+            // labels, so they are stacked rather than merged, in price order,
+            // and each still carries its own number.
+            //
+            // Downward only, so the topmost label of a cluster stays on its own
+            // line and the drift is predictable rather than centred and moving.
+            float prevBottom = float.NegativeInfinity;
+
+            for (int k = 0; k < _labelOrder.Count; k++)
+            {
+                float labelY = _labelY[k];
+                if (labelY - LabelLineHeight < prevBottom)
+                    labelY = prevBottom + LabelLineHeight;
+
+                prevBottom = labelY;
+
+                RenderLevel level = _levels[_labelOrder[k]];
+                SharpDX.Direct2D1.Brush stroke = brushes.Get(level.Stroke);
+                if (stroke == null)
+                    continue;
+
+                string text = level.Label + "  " +
+                              level.Price.ToString("0.##", CultureInfo.InvariantCulture);
+                float boxWidth = Math.Max(1f, (right - inset) - left);
+                RenderTarget.DrawText(text, font,
+                                      new SharpDX.RectangleF(left, labelY - LabelLineHeight,
+                                                             boxWidth, LabelLineHeight - 1f),
+                                      stroke);
+            }
+        }
+
+        /// <summary>A dashed horizontal line, drawn as segments.
+        ///
+        /// Direct2D dashing needs a StrokeStyle built from a properties struct
+        /// whose defaults are not all valid, and this file cannot be compiled
+        /// here to find out which. Segments use nothing but DrawLine, which the
+        /// solid levels have already proven on the same render target.</summary>
+        private void DrawDashed(float x0, float x1, float y, SharpDX.Direct2D1.Brush brush, float width)
+        {
+            const float dash = 6f;
+            const float gap = 6f;
+
+            for (float x = x0; x < x1; x += dash + gap)
+            {
+                float end = Math.Min(x + dash, x1);
+                RenderTarget.DrawLine(new SharpDX.Vector2(x, y), new SharpDX.Vector2(end, y), brush, width);
+            }
+        }
+
+        /// <summary>Per-strike net-gamma histogram, pinned to the left edge.
+        ///
+        /// It used to run leftward from the last bar, so it crept across the
+        /// chart as bars formed. A profile is a picture of where gamma sits in
+        /// price, not an event at a moment in time, so it belongs in a fixed
+        /// column -- the same way a volume profile does. Left rather than right
+        /// because the labels now own the right margin.</summary>
+        private void RenderProfile(ZeroGexLevelsSnapshot s, ChartScale chartScale, BrushCache brushes)
+        {
+            if (!ShowStrikeProfile || s.ProfileStrike == null || s.ProfileNetGex == null)
+                return;
+
+            // Shorter of the two columns, for the same reason as BuildLevels.
+            int strikes = Math.Min(s.ProfileStrike.Count, s.ProfileNetGex.Count);
+            if (strikes == 0)
+                return;
+
+            double maxAbs = 0;
+            for (int i = 0; i < strikes; i++)
+            {
+                double magnitude = Math.Abs(s.ProfileNetGex[i]);
+                if (magnitude > maxAbs)
+                    maxAbs = magnitude;
+            }
+
+            if (maxAbs <= 0)
+                return;
+
+            float left = ChartPanel.X;
+            float top = ChartPanel.Y;
+            float bottom = ChartPanel.Y + ChartPanel.H;
+
+            // ProfileWidthBars is a percentage of panel width now that the
+            // histogram no longer measures itself in bars. The IDENTIFIER keeps
+            // its old name deliberately: NinjaTrader stores a setting under the
+            // property name, so renaming it would silently reset the value in
+            // every workspace that already holds one. Only the label changed.
+            float span = ChartPanel.W * Math.Min(100, Math.Max(1, ProfileWidthBars)) / 100f;
+            float thickness = Math.Max(1, ProfileBarWidth);
+
+            for (int i = 0; i < strikes; i++)
+            {
+                float y = (float)chartScale.GetYByValue(s.ProfileStrike[i]);
+                if (y < top || y > bottom)
+                    continue;
+
+                double netGex = s.ProfileNetGex[i];
+                float length = (float)(span * Math.Abs(netGex) / maxAbs);
+                if (length < 1f)
+                    length = 1f;
+
+                SharpDX.Direct2D1.Brush fill = brushes.Get(netGex >= 0 ? ProfilePosBrush : ProfileNegBrush);
+                if (fill == null)
+                    continue;
+
+                RenderTarget.FillRectangle(
+                    new SharpDX.RectangleF(left, y - thickness / 2f, length, thickness), fill);
+            }
+        }
+
+        /// <summary>The status panel, top right.
+        ///
+        /// This was a Draw.TextFixed object painted from OnBarUpdate, and that
+        /// is a bug you only see when the market is shut. OnBarUpdate runs on
+        /// incoming ticks. On a Sunday a chart loads, replays its historical
+        /// bars, starts an ASYNC fetch and paints the panel in the same pass --
+        /// so it paints "starting…", because the fetch has not returned yet.
+        /// The fetch then succeeds a second later and nothing ever repaints,
+        /// because no tick ever arrives. A tester spent a weekend looking at a
+        /// panel that said "starting…" over data that had arrived fine.
+        ///
+        /// Painting it here instead fixes that by construction: the chart
+        /// drives OnRender, so the panel is as current as the pixels around it,
+        /// and the age counter ticks up on its own rather than freezing at
+        /// whatever the last trade happened to leave behind.</summary>
+        private void RenderInfoPanel(ZeroGexLevelsSnapshot s,
+                                     SharpDX.DirectWrite.TextFormat font,
+                                     BrushCache brushes)
+        {
+            if (!ShowInfoPanel)
+                return;
+
+            SharpDX.Direct2D1.Brush ink = brushes.Get(InfoPanelBrush);
+            if (ink == null)
+                return;
+
+            float left = ChartPanel.X;
+            float right = ChartPanel.X + ChartPanel.W;
+            float boxWidth = Math.Max(1f, (right - 8f) - left);
+
+            RenderTarget.DrawText(BuildInfoText(s), font,
+                                  new SharpDX.RectangleF(left, ChartPanel.Y + 6f, boxWidth,
+                                                         LabelLineHeight * 8f),
+                                  ink);
+        }
+
+        /// <summary>Shown in the info panel so a screenshot identifies its own
+        /// build. Two beta testers now compile this by hand from files sent by
+        /// email, on their own schedules, which means at any moment they are on
+        /// different versions and neither they nor we can tell which. A bug
+        /// report against an unknown build costs a round trip to establish what
+        /// is even being reported. Bump this on every file sent to a tester.</summary>
+        private const string BuildVersion = "v1.8";
 
         private string BuildInfoText(ZeroGexLevelsSnapshot s)
         {
             if (s == null)
-                return "ZeroGEX Gamma Levels\n" + _status;
+                return "ZeroGEX Gamma Levels " + BuildVersion + "\n" + _status;
 
-            string age = s.AgeSeconds.HasValue ? s.AgeSeconds.Value + "s ago" : "—";
+            string age = Age(s.AgeSeconds);
             string sym = string.IsNullOrEmpty(s.Symbol) ? (Symbol ?? "") : s.Symbol;
 
             // Levels are held through a failure rather than wiped, so the panel
@@ -736,7 +1011,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                    "Flip "  + Fmt(s.GammaFlip) + "   Call " + Fmt(s.CallWall) + "\n" +
                    "Put "   + Fmt(s.PutWall)   + "   Pain " + Fmt(s.MaxPain) + "\n" +
                    "Pin "   + Fmt(s.PinStrike) + "   VWAP " + Fmt(s.Vwap) + "\n" +
-                   "updated " + age + "  ·  zerogex.io" + health;
+                   "updated " + age + "  ·  zerogex.io " + BuildVersion + health;
         }
 
         /// <summary>Where a level's label sits, relative to its line. Ticks
@@ -745,6 +1020,42 @@ namespace NinjaTrader.NinjaScript.Indicators
         private double LabelY(double price)
         {
             return price + Math.Max(0, LabelOffsetTicks) * TickSize;
+        }
+
+        /// <summary>How old the snapshot is, in units a person can read.
+        ///
+        /// This was a raw seconds count, which is right during a session and
+        /// nonsense outside one: a tester's Saturday screenshot read "updated
+        /// 53463s ago". Nothing was broken -- the fetch was fine and the API
+        /// was honestly reporting Friday's close -- but no one reads five
+        /// digits of seconds as fifteen hours.
+        ///
+        /// Deliberately no staleness WARNING attached. Data this old is normal
+        /// whenever the market is shut, so a warning would fire every weekend
+        /// and teach people to ignore it. The number is the honest signal; the
+        /// trader knows whether the market is open.
+        ///
+        /// The thresholds overlap on purpose -- seconds up to 90, minutes up to
+        /// 90 -- so the unit changes a beat after it stops being useful rather
+        /// than flickering at the boundary.</summary>
+        private static string Age(int? seconds)
+        {
+            if (!seconds.HasValue)
+                return "—";
+
+            int total = Math.Max(0, seconds.Value);
+            if (total < 90)
+                return total + "s ago";
+
+            int minutes = total / 60;
+            if (minutes < 90)
+                return minutes + "m ago";
+
+            int hours = minutes / 60;
+            if (hours < 48)
+                return hours + "h " + (minutes % 60) + "m ago";
+
+            return (hours / 24) + "d ago";
         }
 
         private static string Fmt(double? v)
@@ -822,9 +1133,23 @@ namespace NinjaTrader.NinjaScript.Indicators
         [Display(Name = "Symbol (ES / NQ / SPX / SPY / QQQ / NDX)", Order = 3, GroupName = "1. Connection")]
         public string Symbol { get; set; }
 
+        // Range DELIBERATELY stays wider than the interval we actually honour.
+        //
+        // NinjaTrader validates a persisted workspace value against this
+        // attribute at LOAD time, and a value outside it is a hard modal error
+        // that stops the indicator loading on that chart. Raising this floor
+        // from 5 to 30 therefore broke every existing workspace holding a
+        // smaller number — a user with six charts got six error dialogs and
+        // lost the indicator on the chart he trades, having changed nothing.
+        //
+        // The rule this bug bought: a Range on a persisted property may only
+        // ever WIDEN. It exists to catch typing, not to enforce policy. Policy
+        // is the runtime clamp in MaybeFetch, which floors this at 30s and,
+        // unlike an attribute, fixes an existing workspace instead of rejecting
+        // it. Lower this bound freely; never raise it.
         [NinjaScriptProperty]
-        [Range(30, 3600)]
-        [Display(Name = "Poll interval (seconds)", Order = 4, GroupName = "1. Connection")]
+        [Range(1, 3600)]
+        [Display(Name = "Poll interval (seconds — 30s minimum is applied)", Order = 4, GroupName = "1. Connection")]
         public int PollSeconds { get; set; }
 
         [NinjaScriptProperty]
@@ -871,7 +1196,7 @@ namespace NinjaTrader.NinjaScript.Indicators
 
         [NinjaScriptProperty]
         [Range(1, 200)]
-        [Display(Name = "Histogram width (bars)", Order = 11, GroupName = "2. Levels")]
+        [Display(Name = "Histogram width (% of chart width)", Order = 11, GroupName = "2. Levels")]
         public int ProfileWidthBars { get; set; }
 
         [NinjaScriptProperty]
@@ -893,16 +1218,45 @@ namespace NinjaTrader.NinjaScript.Indicators
         [Display(Name = "Label offset above line (ticks)", Order = 3, GroupName = "3. Style")]
         public int LabelOffsetTicks { get; set; }
 
+        // Distance from the RIGHT EDGE OF THE WINDOW, not from a bar. This is
+        // the setting the rewrite exists to make possible: a trader asked to
+        // "scoot the numbers over so I can clearly see the bar action" and the
+        // honest answer under the old drawing model was that he could not,
+        // because a label anchored to a bar can only be moved to another bar
+        // and every one of them has candles on it. Range is generous rather
+        // than tuned: panels vary from a laptop half-screen to a 4K quadrant,
+        // and a value too large for the panel is clamped at render time.
         [NinjaScriptProperty]
-        [Display(Name = "Show info panel", Order = 4, GroupName = "3. Style")]
+        [Range(0, 2000)]
+        [Display(Name = "Label distance from right edge (pixels)", Order = 4, GroupName = "3. Style")]
+        public int LabelRightOffsetPixels { get; set; }
+
+        // Asked for by a 74-year-old tester in as many words: "for us older
+        // guys, it would be nice if the font size/weight could be enlarged."
+        // Worth more than it looks. Everything this indicator knows reaches the
+        // trader through these two settings and the panel, so text he has to
+        // lean in to read is the whole product being hard to use. The upper
+        // bound is deliberately generous; a level chart is not a spreadsheet
+        // and nobody is hurt by 40pt if that is what it takes to read it.
+        [NinjaScriptProperty]
+        [Range(6, 48)]
+        [Display(Name = "Label text size", Order = 5, GroupName = "3. Style")]
+        public int LabelFontSize { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Label text bold", Order = 6, GroupName = "3. Style")]
+        public bool LabelBold { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Show info panel", Order = 7, GroupName = "3. Style")]
         public bool ShowInfoPanel { get; set; }
 
         [NinjaScriptProperty]
-        [Display(Name = "Enable cross alerts", Order = 5, GroupName = "3. Style")]
+        [Display(Name = "Enable cross alerts", Order = 8, GroupName = "3. Style")]
         public bool EnableAlerts { get; set; }
 
         [XmlIgnore]
-        [Display(Name = "Gamma Flip color", Order = 6, GroupName = "3. Style")]
+        [Display(Name = "Gamma Flip color", Order = 9, GroupName = "3. Style")]
         public Brush FlipBrush { get; set; }
 
         [Browsable(false)]
@@ -913,7 +1267,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         }
 
         [XmlIgnore]
-        [Display(Name = "Call Wall color", Order = 7, GroupName = "3. Style")]
+        [Display(Name = "Call Wall color", Order = 10, GroupName = "3. Style")]
         public Brush CallBrush { get; set; }
 
         [Browsable(false)]
@@ -924,7 +1278,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         }
 
         [XmlIgnore]
-        [Display(Name = "Put Wall color", Order = 8, GroupName = "3. Style")]
+        [Display(Name = "Put Wall color", Order = 11, GroupName = "3. Style")]
         public Brush PutBrush { get; set; }
 
         [Browsable(false)]
@@ -935,7 +1289,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         }
 
         [XmlIgnore]
-        [Display(Name = "Max Pain color", Order = 9, GroupName = "3. Style")]
+        [Display(Name = "Max Pain color", Order = 12, GroupName = "3. Style")]
         public Brush PainBrush { get; set; }
 
         [Browsable(false)]
@@ -946,7 +1300,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         }
 
         [XmlIgnore]
-        [Display(Name = "Pin Strike color", Order = 10, GroupName = "3. Style")]
+        [Display(Name = "Pin Strike color", Order = 13, GroupName = "3. Style")]
         public Brush PinBrush { get; set; }
 
         [Browsable(false)]
@@ -957,7 +1311,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         }
 
         [XmlIgnore]
-        [Display(Name = "GEX 1..N color", Order = 11, GroupName = "3. Style")]
+        [Display(Name = "GEX 1..N color", Order = 14, GroupName = "3. Style")]
         public Brush GexRankBrush { get; set; }
 
         [Browsable(false)]
@@ -968,7 +1322,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         }
 
         [XmlIgnore]
-        [Display(Name = "VWAP color", Order = 12, GroupName = "3. Style")]
+        [Display(Name = "VWAP color", Order = 15, GroupName = "3. Style")]
         public Brush VwapBrush { get; set; }
 
         [Browsable(false)]
@@ -978,8 +1332,24 @@ namespace NinjaTrader.NinjaScript.Indicators
             set { VwapBrush = Serialize.StringToBrush(value); }
         }
 
+        // The panel used to be a Draw.TextFixed object, which took its colour
+        // from the chart's own text setting. Rendering it directly means
+        // choosing one, so it becomes a setting: Gainsboro reads well on the
+        // dark charts both testers run, and anyone on a light chart can change
+        // it rather than squint at pale grey on white.
         [XmlIgnore]
-        [Display(Name = "Histogram color (net positive)", Order = 13, GroupName = "3. Style")]
+        [Display(Name = "Info panel color", Order = 19, GroupName = "3. Style")]
+        public Brush InfoPanelBrush { get; set; }
+
+        [Browsable(false)]
+        public string InfoPanelBrushSerialize
+        {
+            get { return Serialize.BrushToString(InfoPanelBrush); }
+            set { InfoPanelBrush = Serialize.StringToBrush(value); }
+        }
+
+        [XmlIgnore]
+        [Display(Name = "Histogram color (net positive)", Order = 16, GroupName = "3. Style")]
         public Brush ProfilePosBrush { get; set; }
 
         [Browsable(false)]
@@ -990,7 +1360,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         }
 
         [XmlIgnore]
-        [Display(Name = "Histogram color (net negative)", Order = 14, GroupName = "3. Style")]
+        [Display(Name = "Histogram color (net negative)", Order = 17, GroupName = "3. Style")]
         public Brush ProfileNegBrush { get; set; }
 
         [Browsable(false)]

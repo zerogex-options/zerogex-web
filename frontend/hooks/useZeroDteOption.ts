@@ -23,12 +23,24 @@
 
 import { useCallback, useMemo } from 'react';
 import { useSharedExpirations } from '@/hooks/useSharedExpirations';
-import { ROLLING_ZERO_DTE, selectionIsRollingZeroDte } from '@/core/expirationPersistence';
+import {
+  ROLLING_ZERO_DTE,
+  selectionIsRollingZeroDte,
+  zeroDteWidenedToAll,
+} from '@/core/expirationPersistence';
 
 export interface ZeroDteOption {
   active: boolean;
   onSelect: () => void;
   availableToday: boolean;
+  /**
+   * True when this pick is active but has no same-day expiry to resolve to, so
+   * the caller's chart has quietly widened to the whole chain. Distinct from
+   * `!availableToday`, which is also true while the expiration list is still
+   * loading — see zeroDteWidenedToAll. Callers surface this ON THE CHART; the
+   * dropdown's own "· none today" is not where anyone reads a level.
+   */
+  widenedToAll: boolean;
 }
 
 /**
@@ -42,9 +54,10 @@ export function useZeroDteOption(options: readonly string[], todayKey: string): 
   // `options` is current/future only, so a plain membership test is the honest
   // question: does this chain have a contract expiring today at all?
   const availableToday = options.includes(todayKey);
+  const widenedToAll = zeroDteWidenedToAll(selection, options, todayKey);
   const onSelect = useCallback(() => setSelection([ROLLING_ZERO_DTE]), [setSelection]);
   return useMemo(
-    () => ({ active, onSelect, availableToday }),
-    [active, onSelect, availableToday],
+    () => ({ active, onSelect, availableToday, widenedToAll }),
+    [active, onSelect, availableToday, widenedToAll],
   );
 }

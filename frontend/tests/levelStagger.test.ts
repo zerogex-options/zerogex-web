@@ -6,7 +6,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { staggerLabelYs } from '../app/replay/[symbol]/[date]/levelStagger.ts';
+import {
+  classifyLevelVisibility,
+  staggerLabelYs,
+} from '../app/replay/[symbol]/[date]/levelStagger.ts';
 
 const OPTS = { gap: 13, minY: 10, maxY: 500 };
 
@@ -52,4 +55,50 @@ test('never overlaps: every adjacent pair keeps at least the gap', () => {
   for (let i = 1; i < ys.length; i += 1) {
     assert.ok(ys[i] - ys[i - 1] >= 13 - 1e-9, `pair ${i} too close: ${ys[i - 1]} → ${ys[i]}`);
   }
+});
+
+// ── classifyLevelVisibility ────────────────────────────────────────────────
+// The plot drops a level silently in three different situations, and all three
+// look identical on screen: nothing. These pin the distinction the status row
+// depends on. The band and the 1px slack deliberately mirror the marker filter
+// in ReplayScrubber, so 'on' means exactly "this level got a marker".
+
+const BAND = { top: 24, bottom: 500 };
+// A straight linear map from price to y over the band: 700 → bottom, 800 → top.
+const yFor = (price: number) => BAND.bottom - ((price - 700) / 100) * (BAND.bottom - BAND.top);
+
+test('a level inside the visible band is on the chart', () => {
+  assert.equal(classifyLevelVisibility(750, yFor, BAND), 'on');
+  assert.equal(classifyLevelVisibility(700, yFor, BAND), 'on');
+  assert.equal(classifyLevelVisibility(800, yFor, BAND), 'on');
+});
+
+test('a missing level reads as none, never as a position', () => {
+  // The Pin is null whenever the server suppresses it below the score floor —
+  // 25 of the 391 minutes in QQQ's 2026-08-24 session, including the close.
+  assert.equal(classifyLevelVisibility(null, yFor, BAND), 'none');
+  assert.equal(classifyLevelVisibility(undefined, yFor, BAND), 'none');
+  assert.equal(classifyLevelVisibility(Number.NaN, yFor, BAND), 'none');
+  assert.equal(classifyLevelVisibility(Number.POSITIVE_INFINITY, yFor, BAND), 'none');
+});
+
+test('a level off the top or bottom of the band is reported with its direction', () => {
+  assert.equal(classifyLevelVisibility(900, yFor, BAND), 'above');
+  assert.equal(classifyLevelVisibility(600, yFor, BAND), 'below');
+});
+
+test('zero is a position, not an absence', () => {
+  // Distinct from `none`: a level legitimately at 0 must not be swallowed by a
+  // falsy check. It is off the band here, so it reports its direction.
+  assert.equal(classifyLevelVisibility(0, yFor, BAND), 'below');
+});
+
+test('the 1px slack matches the marker filter, so on means drawn', () => {
+  // Exactly 1px past each edge still counts as on — the same inclusive slack
+  // the plot's own filter uses. Past that, it is clipped and says so.
+  const atTopEdge = (y: number) => y;
+  assert.equal(classifyLevelVisibility(BAND.top - 1, atTopEdge, BAND), 'on');
+  assert.equal(classifyLevelVisibility(BAND.top - 2, atTopEdge, BAND), 'above');
+  assert.equal(classifyLevelVisibility(BAND.bottom + 1, atTopEdge, BAND), 'on');
+  assert.equal(classifyLevelVisibility(BAND.bottom + 2, atTopEdge, BAND), 'below');
 });

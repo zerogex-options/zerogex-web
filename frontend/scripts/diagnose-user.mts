@@ -66,8 +66,8 @@ function usage() {
   console.log(`Usage:
   node --experimental-strip-types scripts/diagnose-user.mts --email <email>
 
-Prints the DB row, last 20 audit_events, and live Stripe state (customer,
-subscription, last 5 invoices) for one user. Read-only.
+Prints the DB row, last 20 audit_events (with the originating IP), and live
+Stripe state (customer, subscription, last 5 invoices) for one user. Read-only.
 
 Options:
   -e, --email <email>   Target user. Required.
@@ -154,6 +154,7 @@ type UserRow = {
   cancel_at_period_end: number | null;
   payment_grace_started_at: string | null;
   payment_grace_reason: string | null;
+  first_payment_at: string | null;
   trial_reminder_email_sent_at: string | null;
   referred_by_code: string | null;
   referral_credit_months: number | null;
@@ -167,7 +168,7 @@ const rows = querySqlite<UserRow>(
           paid_welcome_email_sent_at, subscription_lapsed, subscription_status,
           stripe_customer_id, stripe_subscription_id, stripe_price_id,
           current_period_end, cancel_at_period_end,
-          payment_grace_started_at, payment_grace_reason,
+          payment_grace_started_at, payment_grace_reason, first_payment_at,
           trial_reminder_email_sent_at,
           referred_by_code, referral_credit_months
    FROM users
@@ -259,6 +260,7 @@ kv('Current period end', orDash(user.current_period_end));
 kv('Cancel at period end', yesNo(user.cancel_at_period_end));
 kv('Payment grace started', orDash(user.payment_grace_started_at));
 kv('Payment grace reason', orDash(user.payment_grace_reason));
+kv('First payment cleared', orDash(user.first_payment_at));
 kv('Paid welcome sent', orDash(user.paid_welcome_email_sent_at));
 kv('Subscription lapsed', yesNo(user.subscription_lapsed));
 kv('Trial reminder sent', orDash(user.trial_reminder_email_sent_at));
@@ -274,6 +276,7 @@ header('Admin monitoring bucket');
     tier: user.tier,
     paymentGraceReason: user.payment_grace_reason,
     cancelAtPeriodEnd: Number(user.cancel_at_period_end) === 1,
+    firstPaymentAt: user.first_payment_at,
   });
   kv('Counted as', verdict.label);
   kv('Because', verdict.why);
@@ -343,9 +346,18 @@ if (deadlineAt - Date.now() < 48 * 60 * 60 * 1000) {
 
 if (audit.length > 0) {
   header('Recent audit events (last 20)');
+  // The IP was always selected and never printed, which made the most common
+  // support question unanswerable from this tool: "was this one person on two
+  // devices, or one device losing its session?" Logging in anywhere ends every
+  // other session for that user (createSessionForUser deletes the user's rows
+  // before inserting), so repeated login_success with no logout between them
+  // reads as a bug until you can see that the addresses alternate — at which
+  // point it reads as a phone and a laptop taking turns evicting each other.
+  // Own column rather than appended, so the addresses line up and a change is
+  // visible by scanning rather than by reading each row.
   for (const row of audit) {
     const msg = row.message ? ` — ${row.message}` : '';
-    console.log(`  ${row.created_at}  ${row.type.padEnd(36)}${msg}`);
+    console.log(`  ${row.created_at}  ${row.type.padEnd(36)}${(row.ip ?? '—').padEnd(17)}${msg}`);
   }
 }
 

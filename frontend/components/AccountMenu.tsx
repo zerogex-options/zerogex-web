@@ -35,7 +35,7 @@ interface AccountMenuProps {
 export default function AccountMenu({ align = "end", compact = false }: AccountMenuProps) {
   const { t } = useLanguage();
   const router = useRouter();
-  const { data: authSession, refresh: refreshAuth } = useAuthSession();
+  const { data: authSession, loading: authLoading, refresh: refreshAuth } = useAuthSession();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -94,6 +94,21 @@ export default function AccountMenu({ align = "end", compact = false }: AccountM
 
   return (
     <div ref={wrapRef} style={{ position: "relative" }}>
+      {/* Three states, not two. `loading` is NOT "signed out": the session
+          store starts empty on every hard page load and only fills in once
+          /api/auth/session answers, so treating a null session as anonymous
+          made this button render the generic signed-out glyph for a beat and
+          then flip to the member's initials. In the header, on every full page
+          load, that reads as "it logged me out again" — and it is the thing
+          members describe when they say their login is not preserved as they
+          move around the site. Nothing was actually wrong with their session.
+
+          So while the answer is unknown, assert neither: hold the button's box
+          (visibility, not display, so nothing reflows when it resolves) and
+          paint it once we know. An invisible control for one fetch beats a
+          confidently wrong one, and it cannot be clicked meanwhile, which is
+          also why the menu below needs no loading branch of its own — it
+          cannot be opened before this resolves. */}
       <button
         ref={triggerRef}
         type="button"
@@ -103,13 +118,16 @@ export default function AccountMenu({ align = "end", compact = false }: AccountM
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         className={
-          isAuthed
+          isAuthed && !authLoading
             ? `zg-avatar${compact ? " zg-avatar--sm" : ""}`
             : `zg-icon-btn${compact ? " zg-icon-btn--sm" : ""}`
         }
+        style={authLoading ? { visibility: "hidden" } : undefined}
+        aria-hidden={authLoading ? true : undefined}
+        tabIndex={authLoading ? -1 : undefined}
         data-active={open ? "true" : undefined}
       >
-        {isAuthed ? initials : <CircleUserRound size={compact ? 16 : 18} />}
+        {authLoading ? null : isAuthed ? initials : <CircleUserRound size={compact ? 16 : 18} />}
       </button>
 
       {open && (

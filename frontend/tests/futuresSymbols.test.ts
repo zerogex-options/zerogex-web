@@ -18,6 +18,7 @@ import {
   SYMBOLS,
   FUTURES_BACKING_INDEX,
   isFuturesSymbol,
+  optionChainSymbolFor,
   volatilityIndexFor,
   resolveSymbol,
 } from '../core/symbols.ts';
@@ -52,6 +53,35 @@ test('isFuturesSymbol separates the futures from their backing indices', () => {
   assert.equal(isFuturesSymbol('SPX'), false);
   assert.equal(isFuturesSymbol('SPY'), false);
   assert.equal(isFuturesSymbol(null), false);
+});
+
+// The bug this guards: the Flow Analysis strike / expiration chips asked
+// /api/flow/contracts for ES and NQ, which is one of the per-contract surfaces
+// the API refuses (400) for a future — both filter rows rendered
+// "Failed to load — API error: 400". The chain symbol is what those endpoints
+// have to be asked for.
+test('a chain request resolves to the backing index for a future only', () => {
+  assert.equal(optionChainSymbolFor('ES'), 'SPX');
+  assert.equal(optionChainSymbolFor('NQ'), 'NDX');
+  assert.equal(optionChainSymbolFor('nq'), 'NDX');
+  // Everything else asks for itself — no silent rewrite of a cash symbol.
+  assert.equal(optionChainSymbolFor('SPX'), 'SPX');
+  assert.equal(optionChainSymbolFor('SPY'), 'SPY');
+  assert.equal(optionChainSymbolFor('QQQ'), 'QQQ');
+  assert.equal(optionChainSymbolFor('NDX'), 'NDX');
+});
+
+// The values fetched on the chain symbol are handed straight back to
+// /api/flow/series?symbol=ES as its `strikes` filter, which the API matches
+// AFTER rewriting the symbol to the backing index. So the chain symbol has to
+// be a fixed point: resolving it twice must not walk somewhere else, or a
+// second pass would move the filter out of the space the API matches in.
+test('the chain symbol is already its own chain', () => {
+  for (const symbol of SYMBOLS) {
+    const chain = optionChainSymbolFor(symbol);
+    assert.equal(optionChainSymbolFor(chain), chain, `${symbol} -> ${chain}`);
+    assert.equal(isFuturesSymbol(chain), false, `${chain} still has a chain of its own`);
+  }
 });
 
 test('Nasdaq-100 exposure reads against VXN, S&P against VIX', () => {

@@ -226,6 +226,65 @@ test('accumulateTrialOutcomes: unparseable days and missing sub ids are dropped,
   assert.deepEqual(totals(byDay), emptyConveyorDelta());
 });
 
+// ── Payment confirmation ───────────────────────────────────────────────────
+// The stripe_first_payment stream settles a provisional conversion positively
+// instead of waiting the confirmation window out. Subscriptions without one
+// (history predating the stream) keep falling back to the time-based rule, so
+// existing windows read exactly as they did.
+
+test('accumulateTrialOutcomes: an observed payment makes the conversion unrevokable', () => {
+  // Money moved on the 8th, so the past_due on the 9th is a LATER problem, not
+  // the same charge failing. Without the payment stream the 1-day gap would
+  // revoke the conversion and book a stall.
+  const byDay = accumulateTrialOutcomes(
+    [
+      sync('sub_1', 'trialing', '2026-08-01'),
+      sync('sub_1', 'active', '2026-08-08'),
+      sync('sub_1', 'past_due', '2026-08-09'),
+    ],
+    [],
+    [{ subId: 'sub_1', day: '2026-08-08' }],
+  );
+  assert.deepEqual(totals(byDay), { boarded: 1, converted: 1, rolledOff: 0, stalled: 0 });
+});
+
+test('accumulateTrialOutcomes: a deletion right after a PAID conversion is ordinary churn', () => {
+  const byDay = accumulateTrialOutcomes(
+    [sync('sub_1', 'trialing', '2026-08-01'), sync('sub_1', 'active', '2026-08-08')],
+    [del('sub_1', '2026-08-09')],
+    [{ subId: 'sub_1', day: '2026-08-08' }],
+  );
+  assert.deepEqual(totals(byDay), { boarded: 1, converted: 1, rolledOff: 0, stalled: 0 });
+});
+
+test('accumulateTrialOutcomes: with no payment stream the old revoke still applies', () => {
+  // Same sequence, no payment observed: the decline within the window revokes
+  // the provisional conversion, exactly as before.
+  const byDay = accumulateTrialOutcomes(
+    [
+      sync('sub_1', 'trialing', '2026-08-01'),
+      sync('sub_1', 'active', '2026-08-08'),
+      sync('sub_1', 'past_due', '2026-08-09'),
+    ],
+    [],
+  );
+  assert.deepEqual(totals(byDay), { boarded: 1, converted: 0, rolledOff: 0, stalled: 1 });
+});
+
+test('accumulateTrialOutcomes: a payment on a DIFFERENT sub confirms nothing', () => {
+  const byDay = accumulateTrialOutcomes(
+    [
+      sync('sub_1', 'trialing', '2026-08-01'),
+      sync('sub_1', 'active', '2026-08-08'),
+      sync('sub_1', 'past_due', '2026-08-09'),
+    ],
+    [],
+    [{ subId: 'sub_2', day: '2026-08-08' }],
+  );
+  assert.equal(totals(byDay).converted, 0);
+  assert.equal(totals(byDay).stalled, 1);
+});
+
 // ── summarizeTrialOutcomes ─────────────────────────────────────────────────
 
 test('summarizeTrialOutcomes: rate is converted over DECIDED trials only', () => {
