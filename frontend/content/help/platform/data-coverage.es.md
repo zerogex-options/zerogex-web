@@ -81,7 +81,7 @@ La página de Backtesting muestra el horizonte histórico disponible para la se�
 
 ## Fuentes de datos
 
-ZeroGEX utiliza **datos de opciones del feed OPRA** (el tape consolidado de opciones de EE. UU.) junto con el feed de cotización de la acción subyacente. Ambas son fuentes de datos profesionales y en tiempo real.
+ZeroGEX utiliza datos de mercado profesionales en tiempo real de opciones y subyacentes, bajo licencias comerciales. No se trata de un único tape: las **opciones sobre SPY y QQQ** se difunden por OPRA (el tape consolidado de opciones de EE. UU.), mientras que **SPX, SPXW y NDX** son opciones sobre índices, cuyos entitlements se licencian por separado a través de la bolsa de cotización y *no* circulan por el tape de OPRA. Los precios de ES y NQ provienen del feed en tiempo real de CME. El interés abierto es una cifra separada de cierre de sesión procedente del clearing, no un valor en tiempo real.
 
 No revelamos públicamente los nombres específicos de los proveedores, pero el nivel de calidad es institucional — los mismos feeds de datos que utilizan las mesas cuantitativas.
 

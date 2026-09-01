@@ -81,7 +81,7 @@ Die Backtesting-Seite zeigt den historischen Zeithorizont für das jeweils ausge
 
 ## Datenquellen
 
-ZeroGEX nutzt **Optionsdaten aus dem OPRA-Feed** (das konsolidierte Tape für US-Optionen) sowie den Kursfeed des zugrunde liegenden Basiswerts. Beides sind professionelle Echtzeit-Datenquellen.
+ZeroGEX nutzt professionelle Echtzeit-Marktdaten zu Optionen und Basiswerten unter kommerziellen Lizenzen. Dabei handelt es sich nicht um ein einziges Tape: **SPY- und QQQ-Optionen** werden über OPRA verbreitet (das konsolidierte Tape für US-Optionen), während **SPX, SPXW und NDX** Indexoptionen sind, deren Entitlements separat über die jeweilige Listing-Börse lizenziert werden und die *nicht* auf dem OPRA-Tape laufen. Die Kurse für ES und NQ stammen aus dem Echtzeit-CME-Feed. Das Open Interest ist eine separate Größe vom Ende der Sitzung aus dem Clearing und kein Echtzeitwert.
 
 Wir geben die konkreten Anbieternamen nicht öffentlich bekannt, aber der Qualitätsstandard ist institutionell — dieselben Datenfeeds, die auch von Quant-Desks genutzt werden.
 

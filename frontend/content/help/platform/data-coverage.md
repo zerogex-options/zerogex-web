@@ -83,7 +83,16 @@ The Backtesting page exposes the historical horizon for whatever signal you sele
 
 ## Data sources
 
-ZeroGEX uses **OPRA-feed options data** (the consolidated tape for U.S. options — real-time trades and quotes, used to infer intraday positioning) plus the underlying equity quote feed. Official open interest is a separate, end-of-session figure from clearing rather than a real-time value. All are professional-grade sources.
+ZeroGEX uses professional-tier real-time options and underlying market data under commercial
+entitlements. It is worth being precise about what that means, because it is not all one tape:
+
+- **SPY and QQQ options** are OPRA-disseminated — the consolidated tape for U.S. listed options,
+  carrying real-time trades and quotes.
+- **SPX, SPXW, and NDX** are index options. Index-options entitlements are licensed separately
+  through the listing exchange and are *not* carried on the OPRA tape.
+- **ES and NQ** prices come from the real-time CME feed.
+- **Open interest** is a separate, end-of-session figure from clearing rather than a real-time
+  value.
 
 We don't disclose specific vendor names publicly, but the quality bar is institutional — same data feeds used by quant desks.
 

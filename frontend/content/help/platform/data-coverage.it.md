@@ -81,7 +81,7 @@ La pagina di Backtesting mostra l'orizzonte storico disponibile per il segnale s
 
 ## Fonti dati
 
-ZeroGEX utilizza **dati opzioni del feed OPRA** (il tape consolidato per le opzioni USA) insieme al feed di quotazione dell'azione sottostante. Entrambe sono fonti dati professionali e in tempo reale.
+ZeroGEX utilizza dati di mercato professionali in tempo reale su opzioni e sottostanti, con licenze commerciali. Non si tratta di un unico tape: le **opzioni su SPY e QQQ** sono diffuse tramite OPRA (il tape consolidato delle opzioni USA), mentre **SPX, SPXW e NDX** sono opzioni su indice, i cui entitlement sono concessi in licenza separatamente dalla borsa di quotazione e *non* transitano sul tape OPRA. I prezzi di ES e NQ provengono dal feed CME in tempo reale. L'open interest è un dato separato di fine sessione proveniente dal clearing, non un valore in tempo reale.
 
 Non divulghiamo pubblicamente i nomi specifici dei fornitori, ma lo standard qualitativo è di livello istituzionale — gli stessi feed dati utilizzati dai desk quantitativi.
 
