@@ -536,32 +536,37 @@ function initDb(): DatabaseSync {
   // headcount tick up at trial end and back down an hour later whenever the card
   // declined. core/subscriberBucket.ts routes an `active` with no stamp to the
   // Converting line instead, and promotes it here when the charge clears.
-  ensureColumn('users', 'first_payment_at', 'TEXT');
-  // One-time backfill for rows that predate the column. Everyone on a live
-  // `active` subscription today has been through at least one successful charge
-  // — a trial still at its first charge is `trialing`, and one whose charge was
-  // declined is `past_due` — so leaving them NULL would park the entire existing
-  // subscriber base on the Converting line. updated_at is the closest instant we
-  // still hold for them; it is only ever read as "not null", never as a date.
+  //
+  // Backfill for rows that predate the column, gated on ensureColumn's "just
+  // added" return so it runs EXACTLY ONCE (same pattern as pro_welcome_seen_at
+  // and email_verified_at above). The gate is load-bearing, not tidiness: an
+  // unguarded re-run would stamp whoever happens to be mid-conversion at that
+  // moment as having paid, so every deploy and every process restart would
+  // quietly promote a member whose card had not been charged yet — the exact
+  // bug this column exists to prevent.
+  //
+  // Everyone on a live `active` subscription at that instant has been through at
+  // least one successful charge — a trial still at its first charge is
+  // `trialing`, and one whose charge was declined is `past_due` — so leaving
+  // them NULL would park the entire existing subscriber base on the Converting
+  // line. updated_at is the closest instant we still hold for them; it is only
+  // ever read as "not null", never as a date.
   //
   // Deliberately NOT restricted to paid tiers: an `active` row sitting at tier
   // 'public' is a PAUSED established payer, and skipping them would drop them
   // onto Converting when their pause ends. Stamping a row the headcount doesn't
   // select is inert either way — every one of its lines requires a paid tier.
   //
-  // The one row this can misjudge is a member who happens to be inside the
-  // trial-conversion hour at migration time; they are stamped as paid a few
-  // minutes early. That is a single account, once, and it self-corrects on their
-  // next real invoice.
-  try {
+  // The one row this can misjudge is a member inside the trial-conversion hour
+  // at migration time; they are stamped as paid a few minutes early. That is a
+  // single account, once, and it self-corrects on their next real invoice.
+  if (ensureColumn('users', 'first_payment_at', 'TEXT')) {
     db.prepare(
       `UPDATE users
           SET first_payment_at = updated_at
         WHERE first_payment_at IS NULL
           AND subscription_status = 'active'`,
     ).run();
-  } catch {
-    // A fresh database has no rows to backfill; never block startup on this.
   }
 
   // Soft-delete marker for self-service account deletion (see
