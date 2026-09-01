@@ -12,7 +12,14 @@ This is the **paid** counterpart to the free TradingView funnel:
 > indicator (live, requires an API key)**
 
 Because NinjaScript is C#/.NET it can make HTTP calls (Pine Script cannot),
-so this is the first *true* auto-updating third-party charting integration.
+so this was the first *true* auto-updating third-party charting integration.
+The Sierra Chart ACSIL study (`docs/sierra-chart-indicator.md`) is the second,
+on identical monetization terms — it differs only in how it presents the key,
+because ACSIL cannot attach request headers.
+
+One of four chart-platform integrations — see `docs/integrations.md` for the
+whole set. This page now sits under the `/integrations` hub: it keeps its own
+URL, but the nav and footer carry only the hub.
 
 ## Monetization model
 

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Mail, Youtube } from 'lucide-react';
 import { Theme } from '@/core/types';
 import { brandLogo } from '@/core/brand';
+import { INTEGRATIONS_HUB } from '@/core/integrations';
 import { useLanguage } from '@/core/LanguageContext';
 import type { TranslationKey } from '@/core/i18n';
 
@@ -13,9 +14,10 @@ interface FooterProps {
 }
 
 // A link carries either a `labelKey` (translated) or a literal English
-// `label` — the latter for brand names like TradingView and NinjaTrader, which
-// stay English in every locale. Same convention core/navigation.ts uses for
-// nav entries, so the two menus never disagree about what to translate.
+// `label` — the latter for brand names, which stay English in every locale.
+// Same convention core/navigation.ts uses for nav entries, so the two menus
+// never disagree about what to translate. (The chart-platform brand names
+// that used to need it now sit behind one translated "Integrations" link.)
 type FooterLink = { href: string; external?: boolean } & (
   | { labelKey: TranslationKey; label?: never }
   | { label: string; labelKey?: never }
@@ -32,8 +34,10 @@ const FOOTER_COLUMNS: FooterColumn[] = [
     links: [
       { href: '/dashboard', labelKey: 'footer.platform' },
       { href: '/spx-gamma-levels', labelKey: 'footer.freeGammaLevels' },
-      { href: '/tradingview-indicator', label: 'TradingView Indicator' },
-      { href: '/ninjatrader-indicator', label: 'NinjaTrader Indicator' },
+      // One link, not one per platform — the four landings live under
+      // /integrations and the hub is the only entry the menus carry too.
+      // See core/integrations.ts.
+      { href: INTEGRATIONS_HUB.href, labelKey: 'nav.integrations' },
       { href: '/pricing', labelKey: 'footer.pricing' },
       { href: 'https://api.zerogex.io/docs', labelKey: 'footer.apiDocs', external: true },
     ],

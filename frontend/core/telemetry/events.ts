@@ -44,6 +44,18 @@ export const TelemetryEvent = {
    *  get_key. Unlike the TradingView script this one
    *  auto-updates, so it needs a Pro key — the two actions split that funnel. */
   NinjaTraderIndicatorClicked: 'ninjatrader_indicator_clicked',
+  /** Free thinkorswim thinkScript study copied or downloaded (client, the
+   *  gamma-levels pages + /thinkorswim-indicator). The `action` property
+   *  records which: copy | download. Copy is the primary path — thinkorswim
+   *  has no public script library to link to, so the study is pasted into the
+   *  Study Editor — and the split shows how many people take the file
+   *  instead, which is also the clipboard-blocked fallback. */
+  ThinkorswimIndicatorClicked: 'thinkorswim_indicator_clicked',
+  /** Sierra Chart ACSIL study downloaded, or its "get your API key" CTA
+   *  clicked (client, the gamma-levels pages + /sierra-chart-indicator). The
+   *  `action` property records which: download | get_key | upgrade |
+   *  see_pricing. Same Pro funnel as the NinjaTrader indicator. */
+  SierraChartIndicatorClicked: 'sierrachart_indicator_clicked',
   /** Social crawler fetched an opengraph-image (server, one per URL per cache TTL). */
   OgPreviewed: 'og_previewed',
 

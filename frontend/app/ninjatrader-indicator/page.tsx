@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
-import IndicatorCrossLink from '@/components/IndicatorCrossLink';
 import IndicatorPageShell from '@/components/IndicatorPageShell';
+import IntegrationsStrip from '@/components/IntegrationsStrip';
 import LiveLevelsCTA from '@/components/LiveLevelsCTA';
 import PlotOnNinjaTrader from '@/components/PlotOnNinjaTrader';
 import { SITE_DEFAULT_OG_IMAGE, SITE_NAME, SITE_URL } from '@/core/articleRegistry';
+import { INTEGRATIONS_HUB, integrationById } from '@/core/integrations';
 import { NT_PACKAGE_PATH } from '@/core/ninjaTraderManifest';
 
 // Standalone home for the NinjaTrader 8 indicator — the auto-updating, Pro
@@ -11,13 +12,15 @@ import { NT_PACKAGE_PATH } from '@/core/ninjaTraderManifest';
 // render under today's cards, same `hasPackage` build-time switch, so the
 // download button here can never point at an archive that was not published.
 //
-// The route stays public (see PUBLIC_ROUTE_PATTERNS): this is a marketing and
+// The route stays public (see integrationRoutes() in core/integrations.ts,
+// spread into PUBLIC_ROUTE_PATTERNS): this is a marketing and
 // how-to landing that has to be crawlable and readable by non-members. The
 // DOWNLOAD inside it is what's gated, and PlotOnNinjaTrader does that on its
 // own — so there is deliberately no tier check here. Anything added to this
 // page that links the .cs or .zip directly would bypass that gate.
 
-const PATH = '/ninjatrader-indicator';
+const INTEGRATION = integrationById('ninjatrader');
+const PATH = INTEGRATION.href;
 const TITLE = 'ZeroGEX Gamma Levels — Auto-Updating NinjaTrader 8 Indicator';
 const DESCRIPTION =
   'A NinjaTrader 8 indicator that draws the ZeroGEX gamma flip, call wall, put wall, max pain, and pin strike on your chart and keeps them current — it polls the ZeroGEX API, so you never retype a number. Included with ZeroGEX Pro, along with the API key it needs.';
@@ -64,17 +67,15 @@ const JSON_LD = {
 
 export default function NinjaTraderIndicatorPage() {
   return (
-    <IndicatorPageShell crumb="NinjaTrader Indicator" path={PATH} jsonLd={JSON_LD}>
+    <IndicatorPageShell
+      crumb={INTEGRATION.navLabel}
+      path={PATH}
+      parent={{ name: INTEGRATIONS_HUB.crumb, url: INTEGRATIONS_HUB.href }}
+      jsonLd={JSON_LD}
+    >
       <PlotOnNinjaTrader hasPackage={NT_PACKAGE_PATH !== null} standalone />
 
-      <IndicatorCrossLink
-        eyebrow="Free · TradingView"
-        accent="--color-brand-primary"
-        title="Not on NinjaTrader?"
-        body="We publish a free TradingView script for the same levels. Pine Script cannot make HTTP calls, so that one is manual-entry — you type today's Gamma Flip, Call Wall, Put Wall, and Max Pain into its Settings — but it needs no API key and works on any TradingView chart."
-        href="/tradingview-indicator"
-        cta="See the TradingView indicator"
-      />
+      <IntegrationsStrip exclude="ninjatrader" />
 
       <LiveLevelsCTA
         headline="See the levels the indicator draws"

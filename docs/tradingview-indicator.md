@@ -9,6 +9,12 @@ any chart. It is a **discovery funnel**, not a data integration:
 **Published (public, open-source):**
 <https://www.tradingview.com/script/FyyCXQwa-ZeroGEX-Daily-Gamma-Levels/>
 
+One of four chart-platform integrations — see `docs/integrations.md` for the
+whole set and for why two of them are free and manual while two are Pro and
+auto-updating. This page now sits under the `/integrations` hub: it keeps its
+own URL (it ranks, and the published TradingView script links it), but the nav
+and footer carry only the hub.
+
 ## Files
 
 | File | Purpose |

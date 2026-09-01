@@ -1,4 +1,4 @@
-.PHONY: help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription honor-winback-discount recover-orphan-payment scan-orphan-payments clear-zombie-customers webhook-health trial-reminders trial-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback reactivation checkout-recovery founding-final-call public-cohort cancellations churn-breakdown enable-portal-cancel-reasons save-url reset-save-latch diagnose-user subscriber-headcount reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo og-check blog-images ninjatrader-package
+.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription honor-winback-discount recover-orphan-payment scan-orphan-payments clear-zombie-customers webhook-health trial-reminders trial-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback reactivation checkout-recovery founding-final-call public-cohort cancellations churn-breakdown enable-portal-cancel-reasons save-url reset-save-latch diagnose-user subscriber-headcount reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo og-check blog-images ninjatrader-package
 
 # Default target
 help:
@@ -97,7 +97,7 @@ dev:
 # step; `make build` and `make rebuild` did not, so a routine rebuild between
 # deploys silently reintroduced the bug. Cheap and idempotent, so it just
 # becomes a prerequisite rather than something to remember.
-build: ninjatrader-package
+build: ninjatrader-package integration-assets
 	@echo "Building for production..."
 	cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && npm run build'
 
@@ -105,7 +105,7 @@ build: ninjatrader-package
 # reads public/ once at boot, so a file that appears there while the server is
 # running keeps 404ing until a restart. Generating before the PM2 restart below
 # means one command leaves the box consistent; generating after would not.
-rebuild: ninjatrader-package
+rebuild: ninjatrader-package integration-assets
 	@echo "Cleaning build directory..."
 	rm -rf frontend/.next
 	@echo "Building for production..."
@@ -1016,6 +1016,8 @@ TRIM_PNG = bash -lc 'if ! command -v node >/dev/null 2>&1; then source $$HOME/.n
 OG_MANIFEST = bash -lc 'if ! command -v node >/dev/null 2>&1; then source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null; fi; exec node scripts/og-image-manifest.js'
 
 NT_MANIFEST = bash -lc 'if ! command -v node >/dev/null 2>&1; then source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null; fi; exec node scripts/ninjatrader-manifest.js'
+
+INTEGRATION_ASSETS = bash -lc 'if ! command -v node >/dev/null 2>&1; then source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null; fi; exec node scripts/integration-assets-manifest.js'
 OG_CHECK = bash -lc 'if ! command -v node >/dev/null 2>&1; then source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null; fi; exec node scripts/og-image-manifest.js --live'
 
 logo:
@@ -1125,6 +1127,17 @@ ninjatrader-package:
 	@mkdir -p frontend/public/ninjatrader
 	@$(NT_MANIFEST)
 
+# Content-addressed copies of the thinkorswim and Sierra Chart study sources.
+#
+# Same contract as ninjatrader-package above, minus the archive handling:
+# frontend/core/integrationAssets.ts is COMMITTED so a plain build resolves,
+# but the hashed files it names are GITIGNORED and written only here. Skip this
+# on a box that has never run it and the two study pages ship download buttons
+# pointing at files that are not on disk.
+integration-assets:
+	@echo "Publishing chart-platform study sources..."
+	@$(INTEGRATION_ASSETS)
+
 # Full deployment
 deploy:
 	@echo "Starting full deployment..."
@@ -1147,6 +1160,8 @@ deploy:
 	@make blog-images
 	@echo "5. Publishing NinjaTrader package..."
 	@make ninjatrader-package
+	@echo "5b. Publishing chart-platform study sources..."
+	@make integration-assets
 	@echo "6. Rebuilding application..."
 	rm -rf frontend/.next
 	cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && npm run build'

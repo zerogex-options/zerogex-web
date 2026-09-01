@@ -242,6 +242,13 @@ frontend/public/ninjatrader/*.zip
 # themselves are derived, so they are regenerated on every deploy.
 frontend/public/ninjatrader/*.[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f].cs
 
+# Content-addressed copies of the other chart-platform study sources, written
+# by scripts/integration-assets-manifest.js. Same deal: the hashes live in the
+# committed frontend/core/integrationAssets.ts, the files are derived. The
+# unhashed originals next to them ARE tracked — they are the sources of record.
+frontend/public/thinkorswim/*.[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f].thinkscript
+frontend/public/sierrachart/*.[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f].cpp
+
 # blog post images, synced from assets/blog by `make blog-images`
 frontend/public/blog/
 

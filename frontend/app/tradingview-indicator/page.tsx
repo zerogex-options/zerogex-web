@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
-import IndicatorCrossLink from '@/components/IndicatorCrossLink';
 import IndicatorPageShell from '@/components/IndicatorPageShell';
+import IntegrationsStrip from '@/components/IntegrationsStrip';
 import LiveLevelsCTA from '@/components/LiveLevelsCTA';
 import PlotOnTradingView from '@/components/PlotOnTradingView';
 import { SITE_DEFAULT_OG_IMAGE, SITE_NAME, SITE_URL } from '@/core/articleRegistry';
+import { INTEGRATIONS_HUB, integrationById } from '@/core/integrations';
 
 // Standalone home for the free TradingView script. The gamma-levels pages
 // already carry this section under today's level cards; this route gives the
@@ -11,8 +12,13 @@ import { SITE_DEFAULT_OG_IMAGE, SITE_NAME, SITE_URL } from '@/core/articleRegist
 // from X/StockTwits posts, and from the nav — without a second copy of the
 // copy. <PlotOnTradingView standalone /> is the same component those pages
 // render, so the two can never say different things.
+//
+// It now sits under /integrations rather than beside it: the menus link only
+// the hub, so the breadcrumb parent is what keeps this page's place in the
+// site's structure legible to a reader and to Google.
 
-const PATH = '/tradingview-indicator';
+const INTEGRATION = integrationById('tradingview');
+const PATH = INTEGRATION.href;
 const TITLE = 'ZeroGEX Daily Gamma Levels — Free TradingView Indicator';
 const DESCRIPTION =
   'Free TradingView indicator that plots the ZeroGEX gamma flip, call wall, put wall, and max pain as horizontal lines on SPY, SPX, QQQ, NDX, ES or NQ — with optional cross-alerts.';
@@ -53,17 +59,15 @@ const JSON_LD = {
 
 export default function TradingViewIndicatorPage() {
   return (
-    <IndicatorPageShell crumb="TradingView Indicator" path={PATH} jsonLd={JSON_LD}>
+    <IndicatorPageShell
+      crumb={INTEGRATION.navLabel}
+      path={PATH}
+      parent={{ name: INTEGRATIONS_HUB.crumb, url: INTEGRATIONS_HUB.href }}
+      jsonLd={JSON_LD}
+    >
       <PlotOnTradingView standalone />
 
-      <IndicatorCrossLink
-        eyebrow="Pro · NinjaTrader 8"
-        accent="--color-brand-accent"
-        title="Want the levels to update themselves?"
-        body="Pine Script cannot make HTTP calls, so the TradingView script is manual-entry by design. Our NinjaTrader 8 indicator is C#, so it polls the ZeroGEX API on a timer and redraws — Gamma Flip, Call Wall, Put Wall, Max Pain, and Pin Strike, without ever retyping a number."
-        href="/ninjatrader-indicator"
-        cta="See the NinjaTrader indicator"
-      />
+      <IntegrationsStrip exclude="tradingview" />
 
       <LiveLevelsCTA
         headline="Get today's numbers to type in"

@@ -8,6 +8,7 @@ import BreadcrumbJsonLd from '@/components/BreadcrumbJsonLd';
 import LandingHeader from '@/components/LandingHeader';
 import PlotOnTradingView from '@/components/PlotOnTradingView';
 import PlotOnNinjaTrader from '@/components/PlotOnNinjaTrader';
+import IntegrationsStrip from '@/components/IntegrationsStrip';
 import { NT_PACKAGE_PATH } from '@/core/ninjaTraderManifest';
 import Footer from './Footer';
 import ShareBlock from './ShareBlock';
@@ -944,6 +945,19 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
             archive — so this no longer needs to stat the filesystem, and the
             path it does carry is content-addressed against Cloudflare's cache. */}
         <PlotOnNinjaTrader hasPackage={NT_PACKAGE_PATH !== null} />
+
+        {/* The other two platforms as a compact strip rather than two more
+            full sections. These pages already carry a lot below the fold, and
+            a fourth 28px-padded block of setup instructions would push the
+            evergreen content that makes them rank further down for the
+            benefit of whichever platform happened to be listed last. The
+            strip links each landing and the hub; the two big sections above
+            stay because they are the two integrations these pages have always
+            converted on. */}
+        <IntegrationsStrip
+          exclude={['tradingview', 'ninjatrader']}
+          heading="On thinkorswim or Sierra Chart instead?"
+        />
 
         {/* "Today's <ticker> net GEX" — a plain-language answer for the
             "<ticker> net gamma exposure current / today / value / zero-cross"
