@@ -3,11 +3,11 @@
   "highlights": [
     {
       "title": "Your levels on your own chart",
-      "body": "a free TradingView script that draws the Gamma Flip, Call Wall, Put Wall and Max Pain on SPY, SPX, QQQ, NDX, ES or NQ — and a NinjaTrader 8 indicator, included with Pro, that polls the API and keeps those levels plus Pin Strike and VWAP current on their own."
+      "body": "a free TradingView script that draws the Gamma Flip, Call Wall, Put Wall and Max Pain on SPY, SPX, QQQ, NDX, ES or NQ, plus a NinjaTrader 8 indicator, included with Pro, that polls the API and keeps those levels current on their own along with Pin Strike and VWAP."
     },
     {
       "title": "ES and NQ",
-      "body": "futures are first-class now — their own gamma levels, their own free pages, and the same read as SPY, SPX, QQQ and NDX everywhere else, converted to futures prices on the live basis."
+      "body": "futures are first-class now, with their own gamma levels, their own free pages, and the same read as SPY, SPX, QQQ and NDX everywhere else, converted to futures prices on the live basis."
     },
     {
       "title": "Gamma Shift",
