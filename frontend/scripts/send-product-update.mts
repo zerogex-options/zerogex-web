@@ -299,9 +299,33 @@ function esc(v: string): string {
   return v.replace(/'/g, "''");
 }
 
+// The live app writes to this database continuously, and the sqlite3 CLI
+// defaults to a ZERO busy timeout: any overlap with the app's writer fails
+// immediately with "database is locked (5)" rather than waiting. That aborted
+// the August cancelled send at recipient 169 of 193 — after the email had gone
+// out — and stranded the remaining 24. `.timeout` makes the CLI wait for the
+// lock like every other client does. Passed via -cmd so it applies before the
+// SQL, and produces no output of its own (unlike a PRAGMA, which would land a
+// row in the -json result below).
+const SQLITE_BUSY_TIMEOUT_MS = 15_000;
+
+function sqliteArgs(dbPath: string, extra: string[] = []): string[] {
+  return ['-cmd', `.timeout ${SQLITE_BUSY_TIMEOUT_MS}`, ...extra, dbPath];
+}
+
+function isLockError(message: string): boolean {
+  return /database is locked|database table is locked|busy/i.test(message);
+}
+
+// Synchronous pause. execSqlite is sync (it runs inside the send loop's
+// bookkeeping), so the async sleep() below is unusable here.
+function sleepSync(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
 function querySqlite<T = Record<string, unknown>>(dbPath: string, sql: string): T[] {
   try {
-    const out = execFileSync('sqlite3', ['-json', dbPath, sql], {
+    const out = execFileSync('sqlite3', [...sqliteArgs(dbPath, ['-json']), sql], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     }).trim();
@@ -314,8 +338,28 @@ function querySqlite<T = Record<string, unknown>>(dbPath: string, sql: string): 
   }
 }
 
-function execSqlite(dbPath: string, sql: string): void {
-  execFileSync('sqlite3', [dbPath, sql], { stdio: ['ignore', 'ignore', 'pipe'] });
+// Retries on top of the busy timeout: the timeout covers a writer that holds
+// the lock briefly, the retries cover a WAL checkpoint or a burst of app writes
+// that outlasts it. Anything that is not a lock error fails on the first try —
+// a malformed statement will not fix itself.
+function execSqlite(dbPath: string, sql: string, attempts = 3): void {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      execFileSync('sqlite3', [...sqliteArgs(dbPath), sql], {
+        stdio: ['ignore', 'ignore', 'pipe'],
+      });
+      return;
+    } catch (err) {
+      const stderr = (err as { stderr?: Buffer | string }).stderr;
+      const message = (
+        typeof stderr === 'string' ? stderr : stderr?.toString?.() ?? (err as Error).message
+      ).trim();
+      if (attempt >= attempts || !isLockError(message)) {
+        throw new Error(message || (err as Error).message);
+      }
+      sleepSync(attempt * 500);
+    }
+  }
 }
 
 function sleep(ms: number): Promise<void> {
@@ -687,6 +731,8 @@ if (cli.send) {
 
   let ok = 0;
   let fail = 0;
+  // Delivered, but whose audit/latch write did not land. Reported at the end.
+  const unrecorded: string[] = [];
   for (let i = 0; i < batch.length; i++) {
     const user = batch[i];
     const res = await sendOne(
@@ -703,29 +749,37 @@ if (cli.send) {
       // automated win-back will never double-touch them. The Stripe webhook
       // clears it on re-subscribe, so a future re-churn re-qualifies.
       //
-      // Ordered before the audit row deliberately. Both writes follow a
-      // delivered email, so the only question is which one to lose if the
-      // process dies between them — and the latch is the load-bearing one:
-      // without it the member's discount link silently applies nothing and the
-      // weekly job emails them a second time. Losing the audit row instead
-      // costs only a reporting record, since the cohort query already excludes
-      // anyone latched.
-      if (audience === 'cancelled') {
+      // Both writes go in ONE transaction, so the record of a delivered email
+      // is all-or-nothing. Splitting them meant a failure between the two left
+      // a member emailed, unlatched and unaudited — re-sent on the next run.
+      // One statement is also one lock acquisition instead of two.
+      const latchSql =
+        audience === 'cancelled'
+          ? `UPDATE users SET winback_email_sent_at = '${esc(nowIso)}'
+               WHERE id = '${esc(user.id)}' AND winback_email_sent_at IS NULL;`
+          : '';
+      try {
         execSqlite(
           dbPath,
-          `UPDATE users SET winback_email_sent_at = '${esc(nowIso)}'
-            WHERE id = '${esc(user.id)}' AND winback_email_sent_at IS NULL;`,
+          `BEGIN IMMEDIATE;
+           ${latchSql}
+           INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
+           VALUES ('${esc(auditId)}', '${CAMPAIGN}_sent', '${esc(user.id)}', NULL,
+                   '${esc(user.email)}', 'send-product-update',
+                   '${esc(`${audience} product update sent`)}', '${esc(nowIso)}');
+           COMMIT;`,
         );
+        ok++;
+      } catch (err) {
+        // The email is already delivered; there is no unsending it. Aborting
+        // here would strand every remaining recipient to save one bookkeeping
+        // row, so record the miss and keep going. These addresses re-qualify on
+        // a re-run and would receive a second copy, which is why they are
+        // listed at the end for the operator to reconcile.
+        unrecorded.push(user.email);
+        console.error(`  UNRECORDED ${user.email}: ${(err as Error).message}`);
+        ok++;
       }
-      // Stamp the audit row as the idempotency source of truth.
-      execSqlite(
-        dbPath,
-        `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
-         VALUES ('${esc(auditId)}', '${CAMPAIGN}_sent', '${esc(user.id)}', NULL,
-                 '${esc(user.email)}', 'send-product-update',
-                 '${esc(`${audience} product update sent`)}', '${esc(nowIso)}');`,
-      );
-      ok++;
     } else {
       fail++;
       if (fail <= 10) console.error(`  FAIL ${user.email}: ${res.status} ${res.body}`);
@@ -735,7 +789,14 @@ if (cli.send) {
   }
 
   console.log(`\nDone. ${ok} sent, ${fail} failed.`);
-  process.exit(fail > 0 ? 1 : 0);
+  if (unrecorded.length > 0) {
+    console.error(
+      `\n${unrecorded.length} email(s) were DELIVERED but not recorded, so a re-run would ` +
+        `send them again. Reconcile before re-running:`,
+    );
+    for (const email of unrecorded) console.error(`  ${email}`);
+  }
+  process.exit(fail > 0 || unrecorded.length > 0 ? 1 : 0);
 }
 
 if (!cli.csvPath) {
