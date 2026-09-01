@@ -23,6 +23,7 @@ import GexProfileChart from '@/components/GexProfileChart';
 import GexWallsChart from '@/components/GexWallsChart';
 import GammaHeatmapCanvas from '@/components/GammaHeatmapCanvas';
 import GexUnitToggle from '@/components/GexUnitToggle';
+import WallDepthToggle from '@/components/WallDepthToggle';
 import StrikeFilterToggle from '@/components/StrikeFilterToggle';
 import SessionDeltaToggle from '@/components/SessionDeltaToggle';
 import ExpirationMultiSelect from '@/components/ExpirationMultiSelect';
@@ -207,9 +208,14 @@ export function GammaByStrikePanel() {
     '5min',
     expirationsParam(chartSelectedExpirations),
   );
-  const { chartCallWall, chartPutWall } = useMemo(() => {
+  const { chartCallWall, chartPutWall, chartCallWalls, chartPutWalls } = useMemo(() => {
     if (buckets.length === 0) {
-      return { chartCallWall: undefined, chartPutWall: undefined };
+      return {
+        chartCallWall: undefined,
+        chartPutWall: undefined,
+        chartCallWalls: undefined,
+        chartPutWalls: undefined,
+      };
     }
     const latest = buckets[buckets.length - 1];
     const cw = Number(latest?.call_wall);
@@ -217,6 +223,10 @@ export function GammaByStrikePanel() {
     return {
       chartCallWall: Number.isFinite(cw) ? cw : undefined,
       chartPutWall: Number.isFinite(pw) ? pw : undefined,
+      // Ranked ladders from the SAME bucket as the walls above, so the chart's
+      // optional C2/C3 · P2/P3 levels describe the frame it is already drawing.
+      chartCallWalls: latest?.call_walls ?? undefined,
+      chartPutWalls: latest?.put_walls ?? undefined,
     };
   }, [buckets]);
 
@@ -229,6 +239,8 @@ export function GammaByStrikePanel() {
         gammaFlip={gexData?.gamma_flip}
         callWall={chartCallWall}
         putWall={chartPutWall}
+        callWalls={chartCallWalls}
+        putWalls={chartPutWalls}
         expirationOptions={chartExpirationOptions}
         selectedExpirations={chartSelectedExpirations}
         onSelectedExpirationsChange={setSharedExpirations}
@@ -366,6 +378,7 @@ export function GammaLadderPanel() {
         />
         <SessionDeltaToggle showHint={false} />
         <GexUnitToggle showHint={false} />
+        <WallDepthToggle />
       </div>
       <GammaLadder column={ladderColumn} gexUnit={gexUnit} activeOnly={activeOnly} />
     </WidgetCard>

@@ -33,6 +33,8 @@ import { etTodayDateKey, getMarketSession, isIndexSymbol, omitClosedMarketTimes,
 import { loadChartSettings, saveChartSettings } from '@/core/chartSettings';
 import { visibleViewBoxRight } from '@/core/chartViewport';
 import { PIN_STRIKE_COLOR_HEX } from '@/core/pinStrike';
+import { extraWalls, normalizeWallDepth, parseWallLadder, wallRankDash, wallRankOpacity, wallTooltip } from '@/core/wallLadder';
+import { useWallDepth, WALL_DEPTH_LABEL } from '@/core/WallDepthContext';
 import { useSharedExpirations } from '@/hooks/useSharedExpirations';
 import { isRollingZeroDte, reconcileExpirations } from '@/core/expirationPersistence';
 import ChartCaption from './ChartCaption';
@@ -1524,15 +1526,35 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const effFlip = toNumber(levelSourceBucket?.gamma_flip) ?? toNumber(gexSummary?.gamma_flip);
   const effCallWall = toNumber(levelSourceBucket?.call_wall) ?? toNumber(gexSummary?.call_wall);
   const effPutWall = toNumber(levelSourceBucket?.put_wall) ?? toNumber(gexSummary?.put_wall);
+  // ── Wall ladder ── The optional secondary walls (C2/C3 · P2/P3), read
+  // through the SAME bucket-then-summary fallback as the primary walls above,
+  // so scrubbing back replays the whole ladder alongside the candles rather
+  // than leaving a live C2 stranded on a historical frame.
+  //
+  // parseWallLadder pins rank 1 to the wall resolved above, so even when the
+  // bucket supplies the ladder and the summary supplies the wall (or vice
+  // versa) the chart cannot draw "C1" and "Call Wall" at two different prices.
+  const { wallDepth, setWallDepth } = useWallDepth();
+  const effCallWalls = useMemo(
+    () => parseWallLadder(levelSourceBucket?.call_walls ?? gexSummary?.call_walls, 'call', effCallWall),
+    [levelSourceBucket, gexSummary?.call_walls, effCallWall],
+  );
+  const effPutWalls = useMemo(
+    () => parseWallLadder(levelSourceBucket?.put_walls ?? gexSummary?.put_walls, 'put', effPutWall),
+    [levelSourceBucket, gexSummary?.put_walls, effPutWall],
+  );
   // Pin Strike is a summary-only level (not carried on the strike-profile
   // timeseries buckets), so it reads straight from the served summary.
   const effPin = toNumber(gexSummary?.pin_strike);
 
   const keyLevels = useMemo(() => {
-    if (!yBounds) return [] as Array<{ y: number; price: number; color: string; label: string; emphasized?: boolean; dash?: string }>;
+    // `opacity` / `title` carry the wall ladder's rank hierarchy: C2 must read
+    // as subordinate to the Call Wall, not as another equal level line.
+    type KeyLevelItem = { y: number; price: number; color: string; label: string; emphasized?: boolean; dash?: string; opacity?: number; title?: string };
+    if (!yBounds) return [] as KeyLevelItem[];
     const yFor = (price: number) =>
       PLOT_TOP + (1 - (price - yBounds.yMin) / Math.max(1e-9, yBounds.yMax - yBounds.yMin)) * PLOT_HEIGHT;
-    const items: Array<{ y: number; price: number; color: string; label: string; emphasized?: boolean; dash?: string }> = [];
+    const items: KeyLevelItem[] = [];
     if (effFlip != null && Number.isFinite(effFlip)) {
       items.push({ y: yFor(effFlip), price: effFlip, color: FLIP_LINE, label: 'Gamma Flip' });
     }
@@ -1547,6 +1569,21 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     }
     if (effPin != null && Number.isFinite(effPin)) {
       items.push({ y: yFor(effPin), price: effPin, color: PIN_LINE, label: 'Pin Strike', dash: '2 3' });
+    }
+    // Secondary walls — same KEY_LEVEL hue as the primary pair (they are the
+    // same kind of level), stepped down in opacity and dash weight by rank.
+    // Labelled C2/C3 · P2/P3 rather than "Call Wall" so the pill says which
+    // rung it is. Nothing is added at the default depth of 1.
+    for (const wall of [...extraWalls(effCallWalls, wallDepth), ...extraWalls(effPutWalls, wallDepth)]) {
+      items.push({
+        y: yFor(wall.strike),
+        price: wall.strike,
+        color: KEY_LEVEL,
+        label: wall.label,
+        dash: wallRankDash(wall.rank),
+        opacity: wallRankOpacity(wall.rank),
+        title: wallTooltip(wall, chartSpot),
+      });
     }
     // Session context levels — pre-market + previous-session high/low.
     // Non-index symbols only; each pushes independently so partial data
@@ -1570,7 +1607,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
       }
     }
     return items;
-  }, [effFlip, effCallWall, effPutWall, effPin, chartSpot, symbolIsIndex, sessionLevels, yBounds, PLOT_HEIGHT, showPmLevels, showPrevLevels]);
+  }, [effFlip, effCallWall, effPutWall, effCallWalls, effPutWalls, wallDepth, effPin, chartSpot, symbolIsIndex, sessionLevels, yBounds, PLOT_HEIGHT, showPmLevels, showPrevLevels]);
 
   // ── Hover tracking for tooltips/crosshair ──
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -2263,6 +2300,27 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                 />
                 <span>Show grid lines</span>
               </label>
+              {/* Wall depth — how many Call/Put Walls to draw per side. A
+                  select rather than checkboxes because the levels are
+                  cumulative (C2 always implies C1), so independent toggles
+                  would offer states that don't exist. NOT part of this chart's
+                  saved settings: the depth is a site-wide preference shared
+                  with the Gamma Chart and the Gamma Ladder, so a board showing
+                  all three can't disagree with itself about which walls exist. */}
+              <label className="flex items-center justify-between gap-2 px-3 py-1.5 text-xs cursor-pointer hover:bg-[color:var(--color-info-soft)]" style={{ color: textPrimary }}>
+                <span>Wall depth</span>
+                <select
+                  value={wallDepth}
+                  onChange={(e) => setWallDepth(normalizeWallDepth(e.target.value))}
+                  className="text-xs rounded px-1 py-0.5"
+                  style={{ color: textPrimary, backgroundColor: 'var(--bg-subtle)', border: `1px solid ${border}` }}
+                  aria-label="Call/Put wall depth"
+                >
+                  {([1, 2, 3] as const).map((d) => (
+                    <option key={d} value={d}>{WALL_DEPTH_LABEL[d]}</option>
+                  ))}
+                </select>
+              </label>
               {!symbolIsIndex && (
                 <>
                   <label className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer hover:bg-[color:var(--color-info-soft)]" style={{ color: textPrimary }}>
@@ -2809,7 +2867,8 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
               const lineEndX = Math.max(LEFT_X, pillX - 8);
               const offset = Math.abs(lvl.labelY - lvl.y) > 0.5;
               return (
-                <g key={`lvl-${i}-${lvl.price}`}>
+                <g key={`lvl-${i}-${lvl.price}`} opacity={lvl.opacity}>
+                  {lvl.title && <title>{lvl.title}</title>}
                   <line
                     x1={LEFT_X}
                     x2={lineEndX}
@@ -3208,6 +3267,14 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
           </svg>
           <span style={{ color: textPrimary }}>Put Wall</span>
         </span>
+        {wallDepth > 1 && (
+          <span className="flex items-center gap-1.5" title={`Secondary Call/Put Walls — the next strongest gamma strikes on each side of spot, ranked C2${wallDepth > 2 ? '/C3' : ''} above and P2${wallDepth > 2 ? '/P3' : ''} below. Same level type as the primary walls, drawn lighter because rank is the message.`}>
+            <svg width="22" height="6" aria-hidden="true">
+              <line x1="0" x2="22" y1="3" y2="3" stroke={KEY_LEVEL} strokeDasharray={wallRankDash(2)} strokeWidth="1.2" opacity={wallRankOpacity(2)} />
+            </svg>
+            <span style={{ color: textPrimary }}>{wallDepth > 2 ? 'C2/C3 · P2/P3' : 'C2 · P2'}</span>
+          </span>
+        )}
         <span className="flex items-center gap-1.5" title="Pin Strike — reachable 0DTE strike with the strongest modeled positive dealer-gamma stabilization into expiration; a modeled pinning level, not a target">
           <svg width="22" height="6" aria-hidden="true">
             <line x1="0" x2="22" y1="3" y2="3" stroke={PIN_LINE} strokeDasharray="2 3" strokeWidth="1.2" />

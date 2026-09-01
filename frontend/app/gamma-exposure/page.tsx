@@ -233,9 +233,14 @@ export default function GammaExposurePage() {
   const { buckets: strikeProfileBuckets } = useStrikeProfileTimeseries(
     symbol, '5min', chartExpirationsParam,
   );
-  const { chartCallWall, chartPutWall } = useMemo(() => {
+  const { chartCallWall, chartPutWall, chartCallWalls, chartPutWalls } = useMemo(() => {
     if (strikeProfileBuckets.length === 0) {
-      return { chartCallWall: undefined, chartPutWall: undefined };
+      return {
+        chartCallWall: undefined,
+        chartPutWall: undefined,
+        chartCallWalls: undefined,
+        chartPutWalls: undefined,
+      };
     }
     const latest = strikeProfileBuckets[strikeProfileBuckets.length - 1];
     const cw = Number(latest?.call_wall);
@@ -243,6 +248,10 @@ export default function GammaExposurePage() {
     return {
       chartCallWall: Number.isFinite(cw) ? cw : undefined,
       chartPutWall: Number.isFinite(pw) ? pw : undefined,
+      // Ranked ladders from the SAME bucket as the walls above, so the chart's
+      // optional C2/C3 · P2/P3 levels describe the frame it is already drawing.
+      chartCallWalls: latest?.call_walls ?? undefined,
+      chartPutWalls: latest?.put_walls ?? undefined,
     };
   }, [strikeProfileBuckets]);
 
@@ -530,6 +539,8 @@ export default function GammaExposurePage() {
             gammaFlip={gexData?.gamma_flip}
             callWall={chartCallWall}
             putWall={chartPutWall}
+            callWalls={chartCallWalls}
+            putWalls={chartPutWalls}
             expirationOptions={chartExpirationOptions}
             selectedExpirations={chartSelectedExpirations}
             onSelectedExpirationsChange={setSharedExpirations}

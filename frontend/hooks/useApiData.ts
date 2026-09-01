@@ -8,6 +8,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { GEXHistoricalContext } from '@/core/types';
 import { isFresherServerTs } from '@/core/liveQuoteOrdering';
+import type { WallLevelPayload } from '@/core/wallLadder';
 export type {
   GEXHistoricalContext,
   GEXHistoricalMetric,
@@ -56,6 +57,11 @@ interface GEXSummaryRow {
   max_pain?: number | null;
   call_wall?: number | null;
   put_wall?: number | null;
+  // Ranked wall ladders — the optional secondary walls (C2/C3 · P2/P3) the
+  // gamma surfaces can draw. Rank 1 repeats call_wall / put_wall above, so a
+  // consumer that only wants the headline wall ignores these entirely.
+  call_walls?: WallLevelPayload[] | null;
+  put_walls?: WallLevelPayload[] | null;
   put_call_ratio?: number | null;
   // GEX King — the heaviest-|net-gamma| strike with per-strike totals summed
   // across ALL expirations. The slow structural counterpart to the same-day

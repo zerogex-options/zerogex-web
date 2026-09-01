@@ -27,6 +27,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import type { WallLevelPayload } from '@/core/wallLadder';
 
 export interface StrikeProfileStrike {
   strike?: number | string;
@@ -47,6 +48,14 @@ export interface StrikeProfileBucket {
   gamma_flip?: number | string | null;
   call_wall?: number | string | null;
   put_wall?: number | string | null;
+  /**
+   * Ranked wall ladders for this bucket — the optional secondary walls
+   * (C2/C3 · P2/P3). Computed from the same rows and the same bucket close as
+   * the scalars above, so they follow the `expirations` filter identically and
+   * rank 1 is this bucket's own `call_wall` / `put_wall`.
+   */
+  call_walls?: WallLevelPayload[] | null;
+  put_walls?: WallLevelPayload[] | null;
   /**
    * Pin Strike (+ its 0..1 confidence) as of the bucket's close, so the chart
    * can draw the pin line while rewinding instead of hiding it.

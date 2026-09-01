@@ -27,6 +27,7 @@ import type { HeatmapCell, HeatmapColumnInput, SessionBaselineInput } from "@/co
 import { useApiData, useGEXSummary, useMarketQuote, useSessionCloses } from "./useApiData";
 import { getSpotPriorCloseChange } from "@/core/priceChange";
 import { baselineNetByStrike, sessionOpenIsoFor, type FrameStrikeRow } from "@/core/sessionDelta";
+import { parseWallLadder, type WallLevelPayload } from "@/core/wallLadder";
 
 /** Everything a ladder column renders except the header control, which the
  *  surface injects (a symbol dropdown on Pair Comparison, a plain label in a
@@ -75,6 +76,8 @@ interface TipBucket {
   gamma_flip?: number | string | null;
   call_wall?: number | string | null;
   put_wall?: number | string | null;
+  call_walls?: WallLevelPayload[] | null;
+  put_walls?: WallLevelPayload[] | null;
   strikes?: Array<{
     strike?: number | string;
     net_gamma?: number | string | null;
@@ -202,6 +205,10 @@ export function useGammaLadderColumn(
     // number than the analytics spot this header actually shows.
     const spot = summary?.spot_price ?? null;
     const change = getSpotPriorCloseChange(spot, quote?.session ?? null, closes ?? null);
+    // Resolved once: the ladder below has to be pinned to the very same value
+    // the column draws as its Call/Put Wall, not to a second read of it.
+    const callWall = filtered ? num(tipBucket?.call_wall) : summary?.call_wall ?? null;
+    const putWall = filtered ? num(tipBucket?.put_wall) : summary?.put_wall ?? null;
     return {
       symbol,
       cells: bucketCells(tipBucket),
@@ -211,8 +218,21 @@ export function useGammaLadderColumn(
       // filter, while /api/gex/summary is always the whole chain. "All" keeps
       // the canonical summary levels (parity with every other surface).
       gammaFlip: filtered ? num(tipBucket?.gamma_flip) : summary?.gamma_flip ?? null,
-      callWall: filtered ? num(tipBucket?.call_wall) : summary?.call_wall ?? null,
-      putWall: filtered ? num(tipBucket?.put_wall) : summary?.put_wall ?? null,
+      callWall,
+      putWall,
+      // The wall ladder follows the SAME filtered/unfiltered split as the
+      // primary wall beside it, and is pinned to that wall at rank 1, so the
+      // ladder's C1 tag and the CW tag can never land on different rows.
+      callWalls: parseWallLadder(
+        filtered ? tipBucket?.call_walls : summary?.call_walls,
+        "call",
+        callWall,
+      ),
+      putWalls: parseWallLadder(
+        filtered ? tipBucket?.put_walls : summary?.put_walls,
+        "put",
+        putWall,
+      ),
       maxPain: filtered ? null : summary?.max_pain ?? null,
       changePercent: change.changePercent,
       isPositive: change.isPositive,

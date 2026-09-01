@@ -16,6 +16,8 @@ import {
 import { Info, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
 import { useGEXProfile } from '@/hooks/useApiData';
 import { GEX_UNIT_LABEL, gexScaleFactor, useGexUnit } from '@/core/GexUnitContext';
+import { extraWalls, parseWallLadder, wallRankDash, wallRankOpacity, type WallLevelPayload } from '@/core/wallLadder';
+import { useWallDepth } from '@/core/WallDepthContext';
 import ExpandableCard from './ExpandableCard';
 import TooltipWrapper from './TooltipWrapper';
 import MobileScrollableChart from './MobileScrollableChart';
@@ -23,6 +25,7 @@ import StrikeRangeScrollbar from './StrikeRangeScrollbar';
 import ValueRangeScrollbar from './ValueRangeScrollbar';
 import ResponsiveChartArea from './ResponsiveChartArea';
 import ExpirationMultiSelect from './ExpirationMultiSelect';
+import WallDepthToggle from './WallDepthToggle';
 import type { ZeroDteOption } from '@/hooks/useZeroDteOption';
 import ChartCaption from "./ChartCaption";
 
@@ -72,6 +75,14 @@ interface GexProfileChartProps {
   gammaFlip?: number | null;
   callWall?: number | null;
   putWall?: number | null;
+  /**
+   * Ranked wall ladders from the same snapshot `callWall` / `putWall` came
+   * from. Rank 1 repeats those, so these only ever ADD the optional secondary
+   * walls (C2/C3 · P2/P3); omit them and the chart draws exactly the two wall
+   * lines it always has.
+   */
+  callWalls?: WallLevelPayload[] | null;
+  putWalls?: WallLevelPayload[] | null;
   expirationOptions?: string[];
   /** Selected expirations; empty array = All (aggregate across the chain). */
   selectedExpirations?: string[];
@@ -501,6 +512,8 @@ export default function GexProfileChart({
   gammaFlip,
   callWall,
   putWall,
+  callWalls,
+  putWalls,
   expirationOptions,
   selectedExpirations,
   onSelectedExpirationsChange,
@@ -509,6 +522,18 @@ export default function GexProfileChart({
   todayKey,
 }: GexProfileChartProps) {
   const { gexUnit } = useGexUnit();
+  // Secondary walls to draw beside the primary pair, from the SAME snapshot the
+  // caller took callWall / putWall from and pinned to those values at rank 1 —
+  // so C2 can never appear on a chart whose "Call Wall" line came from a
+  // different frame. Empty at the default depth of 1.
+  const { wallDepth } = useWallDepth();
+  const secondaryWalls = useMemo(
+    () => [
+      ...extraWalls(parseWallLadder(callWalls, 'call', callWall), wallDepth),
+      ...extraWalls(parseWallLadder(putWalls, 'put', putWall), wallDepth),
+    ],
+    [callWalls, putWalls, callWall, putWall, wallDepth],
+  );
   const textColor = 'var(--text-primary)';
   const axisStroke = 'var(--color-text-primary)';
 
@@ -921,6 +946,9 @@ export default function GexProfileChart({
                 zeroDte={zeroDte}
               />
             )}
+            {/* Only offered when the caller actually supplies a ladder — a
+                depth switch that can't change anything is worse than none. */}
+            {(callWalls?.length || putWalls?.length) ? <WallDepthToggle /> : null}
           </div>
           </div>
           {/* Legend row — on its own line so it never reflows onto a second
@@ -1244,6 +1272,31 @@ export default function GexProfileChart({
                     }}
                   />
                 )}
+                {/* Secondary walls (C2/C3 · P2/P3) — same hue as their primary,
+                    stepped down in opacity and dash weight by rank, and labelled
+                    with the short ladder name so they don't crowd the axis with
+                    a second "Call Wall". They share the primary's stagger row:
+                    the ladder ranks are strikes apart, so their labels don't
+                    collide with each other, and a shared row keeps the reserved
+                    top margin unchanged. */}
+                {secondaryWalls.map((wall) => (
+                  <ReferenceLine
+                    key={wall.label}
+                    yAxisId="strike"
+                    x={wall.strike}
+                    stroke={wall.side === 'call' ? 'var(--color-bull)' : 'var(--color-bear)'}
+                    strokeDasharray={wallRankDash(wall.rank)}
+                    strokeOpacity={wallRankOpacity(wall.rank)}
+                    label={{
+                      value: `${wall.label}: ${formatStrikePrecise(wall.strike)}`,
+                      position: 'top',
+                      dy: wall.side === 'call' ? REF_LABEL_STAGGER.callWall : REF_LABEL_STAGGER.putWall,
+                      fill: wall.side === 'call' ? 'var(--color-bull)' : 'var(--color-bear)',
+                      fillOpacity: wallRankOpacity(wall.rank),
+                      fontSize: 10,
+                    }}
+                  />
+                ))}
               </ComposedChart>
               </ResponsiveContainer>
             </MobileScrollableChart>

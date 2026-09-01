@@ -4,6 +4,7 @@ import { serverApiGet } from '@/core/api/serverFetch';
 import { getMarketSession, isIndexSymbol } from '@/core/utils';
 import { resolveDelayedQuote } from '@/core/delayedQuote';
 import { netGexAtSpotOrNull } from '@/core/gammaRegime';
+import { parseWallLadder, type WallLevelPayload } from '@/core/wallLadder';
 import type { SessionClosesData } from '@/hooks/useApiData';
 import type { PriceBar } from '@/hooks/useMarketHistorical';
 import type { StrikeProfileStrike } from '@/hooks/useStrikeProfileTimeseries';
@@ -50,6 +51,8 @@ interface RawSummary {
   gamma_flip?: unknown;
   call_wall?: unknown;
   put_wall?: unknown;
+  call_walls?: WallLevelPayload[] | null;
+  put_walls?: WallLevelPayload[] | null;
 }
 interface RawQuote {
   close?: unknown;
@@ -192,6 +195,13 @@ export async function loadChartSnapshot(
       // only. Never the summary's net_gex (the whole-chain total), which can
       // carry the opposite sign and would desync the badge from the flip.
       netGexAtSpot: netGexAtSpotOrNull(profile?.net_gex_at_spot),
+      // Ranked wall ladders, so the public delayed view draws the same
+      // C2/C3 · P2/P3 levels the live chart does. Only /api/gex/summary
+      // carries the ladder, and its rank 1 is pinned to the wall resolved
+      // above — which may have come from the profile — so the snapshot can't
+      // ship a ladder that contradicts its own Call Wall line.
+      callWalls: parseWallLadder(summary?.call_walls, 'call', num(profile?.call_wall) ?? num(summary?.call_wall)),
+      putWalls: parseWallLadder(summary?.put_walls, 'put', num(profile?.put_wall) ?? num(summary?.put_wall)),
     },
     profile: profilePoints,
     strikes: pickStrikeSurface(buckets),

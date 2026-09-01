@@ -40,6 +40,8 @@ import { Crown } from "lucide-react";
 import { gexScaleFactor, GEX_UNIT_LABEL, type GexUnit } from "@/core/GexUnitContext";
 import { selectActiveCells } from "@/core/strikeFilter";
 import { sessionDeltaMark, sessionDeltaTitle } from "@/core/sessionDelta";
+import { extraWalls, type WallLevel, type WallSide } from "@/core/wallLadder";
+import { useWallDepth } from "@/core/WallDepthContext";
 import LoadingSpinner from "./LoadingSpinner";
 import ErrorMessage from "./ErrorMessage";
 
@@ -63,6 +65,13 @@ export interface HeatmapColumnInput {
   gammaFlip: number | null;
   callWall: number | null;
   putWall: number | null;
+  /**
+   * Ranked wall ladders (C1..C3 / P1..P3). Rank 1 repeats `callWall` /
+   * `putWall` above, so the extra rungs are the only thing these add; a caller
+   * that omits them draws exactly the primary walls it always did.
+   */
+  callWalls?: readonly WallLevel[] | null;
+  putWalls?: readonly WallLevel[] | null;
   maxPain: number | null;
   /** Day change % for the header badge (optional — omitted in some modes). */
   changePercent?: number | null;
@@ -86,18 +95,32 @@ const NEG_COLOR = "var(--color-info)"; // navy blue
 const MAX_TINT = 55;
 
 // ---- Level marker config (tokenized chrome) --------------------------------
-type LevelKey = "spot" | "flip" | "call" | "put" | "pain";
+type LevelKey = "spot" | "flip" | "call" | "put" | "pain" | "call2" | "call3" | "put2" | "put3";
 // Two-letter codes (GF / CW / PW / MP) read far clearer on the row rail than a
-// single cryptic letter, and the column-header legend spells each one out.
+// single cryptic letter, and the column-header legend spells each one out. The
+// secondary walls use their ladder names (C2/C3 · P2/P3) verbatim — those ARE
+// the two-character codes, and inventing a second naming here would put a
+// different label on the same level than the Gamma Chart shows.
 const LEVEL_META: Record<LevelKey, { label: string; short: string; code: string; color: string }> = {
   spot: { label: "Spot", short: "Spot", code: "SP", color: "var(--color-accent-hot)" },
   flip: { label: "Gamma Flip", short: "Flip", code: "GF", color: "var(--color-flip)" },
   call: { label: "Call Wall", short: "Call", code: "CW", color: "var(--color-bear)" },
   put: { label: "Put Wall", short: "Put", code: "PW", color: "var(--color-bull)" },
   pain: { label: "Max Pain", short: "Pain", code: "MP", color: "var(--color-maxpain)" },
+  call2: { label: "2nd Call Wall", short: "C2", code: "C2", color: "var(--color-bear)" },
+  call3: { label: "3rd Call Wall", short: "C3", code: "C3", color: "var(--color-bear)" },
+  put2: { label: "2nd Put Wall", short: "P2", code: "P2", color: "var(--color-bull)" },
+  put3: { label: "3rd Put Wall", short: "P3", code: "P3", color: "var(--color-bull)" },
 };
-// Order the rail draws in when levels collide on one row.
-const LEVEL_ORDER: LevelKey[] = ["flip", "call", "put", "pain"];
+// Rank 2/3 keyed by side, so a ladder entry maps to a level key without a
+// lookup table at each call site.
+const WALL_LEVEL_KEYS: Record<WallSide, Partial<Record<number, LevelKey>>> = {
+  call: { 2: "call2", 3: "call3" },
+  put: { 2: "put2", 3: "put3" },
+};
+// Order the rail draws in when levels collide on one row. The primaries lead:
+// when C1 and C2 land on the same row, the row should read as the Call Wall.
+const LEVEL_ORDER: LevelKey[] = ["flip", "call", "put", "pain", "call2", "put2", "call3", "put3"];
 
 // ---- Layout constants -------------------------------------------------------
 const ROW_H = 20; // px per strike row — identical across both columns => aligned
@@ -217,6 +240,7 @@ function buildModel(
   gexUnit: GexUnit,
   activeOnly: boolean,
   maxSide: number,
+  wallDepth: number,
 ): ColumnModel {
   const built = buildColumn(input.cells, input.spot, activeOnly, maxSide);
   const cellByOffset = new Map<number, HeatmapCell>();
@@ -227,7 +251,22 @@ function buildModel(
     call: input.callWall,
     put: input.putWall,
     pain: input.maxPain,
+    // Null until the ladder supplies them — a level with no value places no
+    // rail tag and its legend chip reads NA, same as any other absent level.
+    call2: null,
+    call3: null,
+    put2: null,
+    put3: null,
   };
+  // Ranks 2..depth only: rank 1 is already `call`/`put` above, and tagging the
+  // same row twice would put "CW C1" on one strike.
+  for (const wall of [
+    ...extraWalls(input.callWalls ?? [], wallDepth),
+    ...extraWalls(input.putWalls ?? [], wallDepth),
+  ]) {
+    const key = WALL_LEVEL_KEYS[wall.side][wall.rank];
+    if (key) levelValues[key] = wall.strike;
+  }
 
   const absVals: number[] = [];
   let peakOffset: number | null = null;
@@ -439,6 +478,16 @@ function HeatmapColumn({
   const { input, cellByOffset, arrowsByOffset, clip, gexScale, peakOffset } = model;
   const unitLabel = GEX_UNIT_LABEL[gexUnit];
   const lv = model.levelValues;
+  // Read again here rather than threading it through the model: the legend
+  // decides which chips to SHOW, while the model decides which rail tags to
+  // place. Both read the one shared preference, so they cannot disagree.
+  const { wallDepth } = useWallDepth();
+  // A column with no ladder at all (Pair Comparison's Replay builds its
+  // columns from buffered frames, which carry the primary walls but no ranked
+  // ladder) shows no secondary chips rather than four muted "NA"s. Once a
+  // ladder IS present, an NA on one side is real information — that side of
+  // the chain has no second wall.
+  const hasWallLadder = (input.callWalls?.length ?? 0) > 0 || (input.putWalls?.length ?? 0) > 0;
   // Session-Δ overlay: a column with a baseline reserves a fixed slot before
   // every value so the numbers stay column-aligned whether or not a given row
   // earns a triangle. The noise floor scales with the column's own tint clip
@@ -473,7 +522,18 @@ function HeatmapColumn({
             ragged 3+1 (MP orphaned on its own line). Content-sized columns
             keep the pairs compact and left-aligned at any tile width. */}
         <div className="grid grid-cols-[auto_auto] justify-start gap-x-3 gap-y-1">
-          {(["flip", "call", "put", "pain"] as LevelKey[]).map((k) => (
+          {/* The four primaries always render; the secondary walls join them
+              only at the depth that draws them, so the default tile is exactly
+              the 2×2 grid it has always been. Each added pair keeps the grid
+              even, so the column never ends on a ragged single chip. */}
+          {([
+            "flip",
+            "call",
+            "put",
+            "pain",
+            ...(hasWallLadder && wallDepth > 1 ? (["call2", "put2"] as LevelKey[]) : []),
+            ...(hasWallLadder && wallDepth > 2 ? (["call3", "put3"] as LevelKey[]) : []),
+          ] as LevelKey[]).map((k) => (
             <LevelChip key={k} meta={LEVEL_META[k]} value={lv[k]} />
           ))}
         </div>
@@ -608,8 +668,11 @@ export default function PairGammaHeatmap({
    *  fine-grid strikes that otherwise crowd out the active 25-pt levels. */
   activeOnly?: boolean;
 }) {
-  const leftModel = useMemo(() => buildModel(left, gexUnit, activeOnly, MAX_SIDE), [left, gexUnit, activeOnly]);
-  const rightModel = useMemo(() => buildModel(right, gexUnit, activeOnly, MAX_SIDE), [right, gexUnit, activeOnly]);
+  // Site-wide preference, so a board holding this ladder next to the Gamma
+  // Chart shows the same set of walls on both.
+  const { wallDepth } = useWallDepth();
+  const leftModel = useMemo(() => buildModel(left, gexUnit, activeOnly, MAX_SIDE, wallDepth), [left, gexUnit, activeOnly, wallDepth]);
+  const rightModel = useMemo(() => buildModel(right, gexUnit, activeOnly, MAX_SIDE, wallDepth), [right, gexUnit, activeOnly, wallDepth]);
 
   const offsets = useMemo(() => columnOffsets([leftModel, rightModel]), [leftModel, rightModel]);
 
@@ -655,9 +718,10 @@ export function GammaLadder({
   /** Hide strikes with no dealer gamma (net GEX 0) — see PairGammaHeatmap. */
   activeOnly?: boolean;
 }) {
+  const { wallDepth } = useWallDepth();
   const model = useMemo(
-    () => buildModel(column, gexUnit, activeOnly, MAX_SIDE),
-    [column, gexUnit, activeOnly],
+    () => buildModel(column, gexUnit, activeOnly, MAX_SIDE, wallDepth),
+    [column, gexUnit, activeOnly, wallDepth],
   );
   const offsets = useMemo(() => columnOffsets([model]), [model]);
 

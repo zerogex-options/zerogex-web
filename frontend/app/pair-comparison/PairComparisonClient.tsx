@@ -21,6 +21,7 @@ import ExpirationMultiSelect from "@/components/ExpirationMultiSelect";
 import PairReplayScrubber from "@/components/PairReplayScrubber";
 import PairCandleChart from "@/components/PairCandleChart";
 import GexUnitToggle from "@/components/GexUnitToggle";
+import WallDepthToggle from "@/components/WallDepthToggle";
 import BetaBadge from "@/components/BetaBadge";
 import TooltipWrapper from "@/components/TooltipWrapper";
 import ChartCaption from "@/components/ChartCaption";
@@ -390,6 +391,10 @@ export default function PairComparisonClient() {
         />
         <span className="zg-eyebrow" style={{ fontSize: 10 }}>Session Δ</span>
         <SessionDeltaToggle />
+        {/* Wall depth is only meaningful on the live ladders: replay frames
+            carry the primary walls but no ranked ladder, so in Replay the
+            secondary rungs would read NA no matter what this said. */}
+        {mode !== "replay" && <WallDepthToggle />}
         <div className="flex items-center gap-2 ml-auto">
           <span className="zg-eyebrow" style={{ fontSize: 10 }}>GEX unit</span>
           <GexUnitToggle showHint={false} />

@@ -44,6 +44,8 @@ import { useLinkedPriceAxis } from "@/core/linkedPriceAxis";
 import { netGexAtSpotOrNull, aboveFlipBandIsLong, offScaleBandIsLong } from "@/core/gammaRegime";
 import { computeMaxPainFromStrikes } from "@/core/keyLevels";
 import { classifyPinStrength, pinStrengthLabel } from "@/core/pinStrike";
+import { extraWalls, parseWallLadder, wallRankDash, wallRankOpacity, wallTooltip, type WallLevel } from "@/core/wallLadder";
+import { useWallDepth, WALL_DEPTH_LABEL } from "@/core/WallDepthContext";
 import {
   buildExpirationSplit,
   expirationOpacityRamp,
@@ -326,7 +328,18 @@ export interface ChartSnapshot {
     futures_reference_close?: number | null;
   } | null;
   sessionCloses: SessionClosesData | null;
-  gamma: { flip: number | null; callWall: number | null; putWall: number | null; maxPain: number | null; netGexAtSpot: number | null };
+  gamma: {
+    flip: number | null;
+    callWall: number | null;
+    putWall: number | null;
+    maxPain: number | null;
+    netGexAtSpot: number | null;
+    /** Ranked wall ladders (C1..C3 / P1..P3) as of the snapshot. Optional:
+     *  a snapshot taken before the ladder shipped simply draws its one
+     *  wall per side, exactly as it always did. */
+    callWalls?: WallLevel[] | null;
+    putWalls?: WallLevel[] | null;
+  };
   /** Cumulative GEX-profile curve (fallback rail source). */
   profile: ProfilePoint[];
   /** Per-strike net gamma for the delayed rail, so the public view draws the
@@ -871,6 +884,33 @@ export default function GammaTerminalChart({
   const putWall = levelBucket
     ? coerceNum(levelBucket.put_wall)
     : snapshot ? snapshot.gamma.putWall : num(gexProfile?.put_wall ?? gexSummary?.put_wall);
+  // ── Wall ladder ── The optional C2/C3 · P2/P3 levels, read through the SAME
+  // fallback chain as the primary wall above so the ladder and the CALL WALL /
+  // PUT WALL lines always describe one book: a rewound (or expiration-filtered)
+  // bucket carries its own ladder, a snapshot carries the one it was taken
+  // with, and live falls back to the summary. /api/gex/profile has no ladder,
+  // so the summary is the only live source.
+  //
+  // parseWallLadder pins rank 1 to the wall resolved above even if the ladder
+  // came from the other end of that chain, which is what stops the chart ever
+  // drawing "C1" and "CALL WALL" at two different prices on one axis.
+  const { wallDepth, cycleWallDepth } = useWallDepth();
+  const callWallLadder = useMemo(
+    () => parseWallLadder(
+      levelBucket ? levelBucket.call_walls : snapshot ? snapshot.gamma.callWalls : gexSummary?.call_walls,
+      "call",
+      callWall,
+    ),
+    [levelBucket, snapshot, gexSummary?.call_walls, callWall],
+  );
+  const putWallLadder = useMemo(
+    () => parseWallLadder(
+      levelBucket ? levelBucket.put_walls : snapshot ? snapshot.gamma.putWalls : gexSummary?.put_walls,
+      "put",
+      putWall,
+    ),
+    [levelBucket, snapshot, gexSummary?.put_walls, putWall],
+  );
   // Max Pain isn't a stored field on the timeseries buckets, but their
   // per-strike open interest is — so during rewind we recover the historical
   // Max Pain from that OI (textbook min-writer-payout strike) instead of
@@ -1782,7 +1822,11 @@ export default function GammaTerminalChart({
     flip == null ? aboveBandIsLong : offScaleBandIsLong(flip, layout.dMin, aboveBandIsLong);
 
   // Level definitions rendered as reference lines + right-axis tags.
-  type LevelDef = { key: string; label: string; value: number | null; color: string; dash: string; show: boolean };
+  // `opacity` and `title` exist for the secondary walls: rank IS the message,
+  // so C2 must read as subordinate to the CALL WALL above it rather than as a
+  // fourth equal line. Everything else leaves them undefined and renders
+  // exactly as before.
+  type LevelDef = { key: string; label: string; value: number | null; color: string; dash: string; show: boolean; opacity?: number; title?: string };
   const levelDefs: LevelDef[] = [
     { key: "flip", label: "FLIP", value: flip, color: "var(--color-flip)", dash: "7 4", show: overlays.levels },
     { key: "call", label: "CALL WALL", value: callWall, color: "var(--color-bull)", dash: "3 4", show: overlays.levels },
@@ -1793,6 +1837,20 @@ export default function GammaTerminalChart({
     { key: "vwap", label: "VWAP", value: vwap, color: "var(--color-hazy)", dash: "6 5", show: overlays.vwap },
     { key: "er-high", label: "ER HIGH", value: erModel?.high ?? null, color: "var(--color-info)", dash: "2 5", show: overlays.expectedRange && erModel != null },
     { key: "er-low", label: "ER LOW", value: erModel?.low ?? null, color: "var(--color-info)", dash: "2 5", show: overlays.expectedRange && erModel != null },
+    // Secondary walls (C2/C3 · P2/P3). Same hue as their primary so the side
+    // reads instantly, stepped down in opacity and dash weight by rank. Gated
+    // on overlays.levels too — one "Gamma Levels" switch still turns every
+    // wall off, rather than leaving orphaned C2 lines behind.
+    ...[...extraWalls(callWallLadder, wallDepth), ...extraWalls(putWallLadder, wallDepth)].map((w) => ({
+      key: `wall-${w.label}`,
+      label: w.label,
+      value: w.strike,
+      color: w.side === "call" ? "var(--color-bull)" : "var(--color-bear)",
+      dash: wallRankDash(w.rank),
+      show: overlays.levels,
+      opacity: wallRankOpacity(w.rank),
+      title: wallTooltip(w, spot),
+    })),
   ];
 
   // Confluence: is spot pinned to a level (within 0.12%)? Emphasize if so.
@@ -1816,9 +1874,9 @@ export default function GammaTerminalChart({
     const GAP = 5;
     const visible = levelDefs
       .filter((l): l is LevelDef & { value: number } => l.show && l.value != null && inDomain(l.value))
-      .map((l) => ({ key: l.key, label: l.label, color: l.color, y: clamp(yPrice(l.value), PAD_TOP + 1, PRICE_BOTTOM - 1), w: labelWidth(l.label) }))
+      .map((l) => ({ key: l.key, label: l.label, color: l.color, opacity: l.opacity ?? 1, title: l.title, y: clamp(yPrice(l.value), PAD_TOP + 1, PRICE_BOTTOM - 1), w: labelWidth(l.label) }))
       .sort((a, b) => a.y - b.y);
-    const placed: Array<{ key: string; label: string; color: string; y: number; w: number; x: number }> = [];
+    const placed: Array<{ key: string; label: string; color: string; opacity: number; title?: string; y: number; w: number; x: number }> = [];
     for (const c of visible) {
       let x = PLOT_LEFT + 6;
       for (const p of placed) {
@@ -2079,6 +2137,20 @@ export default function GammaTerminalChart({
           <OverlayPill label="Max Pain" color="var(--color-maxpain)" active={overlays.maxPain} onClick={() => setOverlays((o) => ({ ...o, maxPain: !o.maxPain }))} />
           <OverlayPill label="GEX King" color="var(--color-king)" active={overlays.king} onClick={() => setOverlays((o) => ({ ...o, king: !o.king }))} />
           <OverlayPill label="Pin Strike" color="var(--color-pin)" active={overlays.pin} onClick={() => setOverlays((o) => ({ ...o, pin: !o.pin }))} />
+          {/* Wall depth — how many Call/Put Walls to draw per side. One button
+              cycling C1 → C2 → C3 rather than three pills: the levels are
+              cumulative (C2 always implies C1), so a set of independent
+              toggles would offer states that don't exist. Only shown while the
+              Gamma Levels overlay is on, since that switch owns the walls.
+              The preference is shared with every other gamma surface. */}
+          {overlays.levels && (
+            <OverlayPill
+              label={WALL_DEPTH_LABEL[wallDepth]}
+              color="var(--color-bull)"
+              active={wallDepth > 1}
+              onClick={cycleWallDepth}
+            />
+          )}
           {/* Expected Range — live-only (the delayed public snapshot carries no
               vol index). The Daily/Weekly/Monthly selector appears once it's on. */}
           {live && (
@@ -2433,13 +2505,16 @@ export default function GammaTerminalChart({
               const y = clamp(yPrice(l.value), PAD_TOP + 1, PRICE_BOTTOM - 1);
               const emphasized = confluenceKey === l.key;
               return (
-                <line key={`levelline-${l.key}`} x1={PLOT_LEFT} x2={PLOT_RIGHT} y1={y} y2={y} stroke={l.color} strokeWidth={emphasized ? 2 : 1.3} strokeDasharray={l.dash} opacity={emphasized ? 1 : 0.85} />
+                <line key={`levelline-${l.key}`} x1={PLOT_LEFT} x2={PLOT_RIGHT} y1={y} y2={y} stroke={l.color} strokeWidth={emphasized ? 2 : 1.3} strokeDasharray={l.dash} opacity={emphasized ? 1 : (l.opacity ?? 0.85)}>
+                  {l.title && <title>{l.title}</title>}
+                </line>
               );
             })}
 
             {/* ── Level name chips, de-collided so they never overlap ────── */}
             {chipPlacements.map((c) => (
-              <g key={`chip-${c.key}`} transform={`translate(${c.x}, ${c.y})`}>
+              <g key={`chip-${c.key}`} transform={`translate(${c.x}, ${c.y})`} opacity={c.opacity}>
+                {c.title && <title>{c.title}</title>}
                 <rect x={0} y={-8} width={c.w} height={16} rx={2} fill="var(--bg-card)" stroke={c.color} strokeWidth={1} opacity={0.95} />
                 <text x={6} y={3.5} fontFamily="var(--font-mono)" fontSize={9.5} letterSpacing="0.08em" fill={c.color} fontWeight={600}>
                   {c.label}
@@ -2528,6 +2603,7 @@ export default function GammaTerminalChart({
                     value: fmtPrice(l.value),
                     bg: l.color,
                     strong: false,
+                    opacity: l.opacity,
                     arrow: (!inDomain(l.value) ? (l.value > layout.dMax ? "up" : "down") : null) as "up" | "down" | null,
                   })),
                 {
@@ -2536,11 +2612,12 @@ export default function GammaTerminalChart({
                   value: fmtPrice(liveTip.close),
                   bg: "var(--color-accent-hot)",
                   strong: true,
+                  opacity: undefined as number | undefined,
                   arrow: null as "up" | "down" | null,
                 },
               ];
               return spreadTags(raw, 16, PAD_TOP + 2, PRICE_BOTTOM - 2).map((t) => (
-                <PriceTag key={t.key} x={AXIS_COL_X - 6} y={t.yAdj} value={t.value} bg={t.bg} strong={t.strong} arrow={t.arrow} />
+                <PriceTag key={t.key} x={AXIS_COL_X - 6} y={t.yAdj} value={t.value} bg={t.bg} strong={t.strong} arrow={t.arrow} opacity={t.opacity} />
               ));
             })()}
 
@@ -2810,6 +2887,12 @@ export default function GammaTerminalChart({
         <LegendDot color="var(--color-flip)" label="Gamma Flip" />
         <LegendDot color="var(--color-bull)" label="Call Wall" />
         <LegendDot color="var(--color-bear)" label="Put Wall" />
+        {/* One entry for the whole secondary set — the chart already labels each
+            line C2/C3/P2/P3 on the axis, so a dot per rank would repeat that
+            four times in a legend that has to stay one line. */}
+        {overlays.levels && wallDepth > 1 && (
+          <LegendDot color="var(--color-bull)" label={wallDepth > 2 ? "C2/C3 · P2/P3" : "C2 · P2"} />
+        )}
         <LegendDot color="var(--color-maxpain)" label="Max Pain" />
         <LegendDot color="var(--color-pin)" label="Pin Strike" />
         <LegendDot color="var(--color-hazy)" label="VWAP" />
@@ -2973,11 +3056,14 @@ function RailBarLabel({ x, y, anchor, color, text }: { x: number; y: number; anc
   );
 }
 
-function PriceTag({ x, y, value, bg, strong = false, arrow = null }: { x: number; y: number; value: string; bg: string; strong?: boolean; arrow?: "up" | "down" | null }) {
+function PriceTag({ x, y, value, bg, strong = false, arrow = null, opacity }: { x: number; y: number; value: string; bg: string; strong?: boolean; arrow?: "up" | "down" | null; opacity?: number }) {
   const w = 8 + value.length * 6.6 + (arrow ? 8 : 0);
   const h = strong ? 18 : 15;
   return (
-    <g transform={`translate(${x - w}, ${y})`}>
+    // `opacity` is only set for the secondary wall tags (C2/C3 · P2/P3), which
+    // must sit visually under the primary CALL WALL / PUT WALL tag rather than
+    // competing with it on the axis.
+    <g transform={`translate(${x - w}, ${y})`} opacity={opacity}>
       <rect x={0} y={-h / 2} width={w} height={h} rx={2} fill={bg} />
       <text x={w / 2} y={strong ? 4 : 3.5} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={strong ? 12 : 10.5} fontWeight={strong ? 700 : 600} fill="var(--text-inverse)" style={{ fontVariantNumeric: "tabular-nums" }}>
         {arrow === "up" ? "▲ " : arrow === "down" ? "▼ " : ""}
