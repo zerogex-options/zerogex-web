@@ -1,12 +1,18 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ChevronLeft, Magnet, TrendingUp } from 'lucide-react';
+import { ChevronLeft, Magnet, Pin, TrendingUp } from 'lucide-react';
 
 import ShareCardButton from '@/components/ShareCardButton';
 import SymbolPicker from '@/components/SymbolPicker';
 import { buildSymbolHrefs, resolveSymbol } from '@/core/symbols';
 import { serverApiGet } from '@/core/api/serverFetch';
+import {
+  classifyPinStrength,
+  formatPinStrike,
+  pinStrikeSubtitle,
+  PIN_STRIKE_COLOR_VAR,
+} from '@/core/pinStrike';
 import StrikeProfileSnapshot from './StrikeProfileSnapshot';
 
 // Permalink page for a single replay moment. /replay/{date}/snapshot/{HHMM}
@@ -31,6 +37,7 @@ interface FramePayload {
     gamma_flip: number | null;
     max_pain: number | null;
     pin_strike: number | null;
+    pin_confidence: number | null;
     net_gex: number | null;
   } | null;
   // call_gex / put_gex are the same per-strike gamma columns net_gex is
@@ -164,6 +171,10 @@ export default async function ReplaySnapshotPage({
   const pickerHrefs = buildSymbolHrefs((s) => `/replay/${s}/${date}/snapshot/${time}`);
   const tweetBody = `${sym} GEX surface at ${minute} on ${human}.`;
   const summary = frame.summary;
+  // "Is there an active pin at this minute" is one question with one answer,
+  // and core/pinStrike owns it: a null strike and a non-positive one are both
+  // "no pin", so the card is never rendered around a "$0.00".
+  const hasPin = classifyPinStrength(summary?.pin_strike, summary?.pin_confidence) !== 'none';
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:py-10">
@@ -206,14 +217,38 @@ export default async function ReplaySnapshotPage({
         <Stat label="Gamma flip" value={fmtPrice(summary?.gamma_flip)} accent="var(--color-warning)" />
       </section>
 
-      {summary?.max_pain != null && (
-        <section className="mb-6 rounded-xl border-2 border-[var(--color-warning)] bg-[var(--color-surface)] px-5 py-4">
-          <div className="flex items-baseline gap-2 text-[10px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
-            <Magnet size={11} /> Max pain at this moment
-          </div>
-          <div className="mt-1 text-3xl font-black tracking-tight">
-            {fmtPrice(summary.max_pain)}
-          </div>
+      {/* Max pain and Pin Strike side by side — two different reads on where
+          this minute pulls toward, so neither borrows the other's headline.
+          Each renders only when the frame carries it, and a lone survivor
+          takes the full width. */}
+      {(summary?.max_pain != null || hasPin) && (
+        <section className="mb-6 flex flex-wrap gap-3">
+          {summary?.max_pain != null && (
+            <div className="min-w-[220px] flex-1 rounded-xl border-2 border-[var(--color-warning)] bg-[var(--color-surface)] px-5 py-4">
+              <div className="flex items-baseline gap-2 text-[10px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
+                <Magnet size={11} /> Max pain at this moment
+              </div>
+              <div className="mt-1 text-3xl font-black tracking-tight">
+                {fmtPrice(summary.max_pain)}
+              </div>
+            </div>
+          )}
+          {hasPin && (
+            <div
+              className="min-w-[220px] flex-1 rounded-xl border-2 bg-[var(--color-surface)] px-5 py-4"
+              style={{ borderColor: PIN_STRIKE_COLOR_VAR }}
+            >
+              <div className="flex items-baseline gap-2 text-[10px] uppercase tracking-[0.22em] font-bold text-[var(--color-text-secondary)]">
+                <Pin size={11} /> Pin strike at this moment
+              </div>
+              <div className="mt-1 text-3xl font-black tracking-tight">
+                {formatPinStrike(summary?.pin_strike)}
+              </div>
+              <div className="mt-1 text-[11px] text-[var(--color-text-secondary)]">
+                {pinStrikeSubtitle(summary?.pin_strike, summary?.pin_confidence)}
+              </div>
+            </div>
+          )}
         </section>
       )}
 
