@@ -220,6 +220,10 @@ frontend/public/logo*.svg
 frontend/public/title*.svg
 frontend/public/logo*.png
 frontend/public/title*.png
+# Email lockups, derived from assets/branding/ by `make logo` (see the Makefile).
+# The hand-made frontend/public/email/zerogex-header.png stays tracked: it is
+# what the already-sent July 2026 campaign references.
+frontend/public/email/zerogex-email-*.png
 frontend/public/og-image.png
 # ...and the content-hashed copy the social tags actually point at, emitted by
 # scripts/og-image-manifest.js. Only frontend/core/ogImageManifest.ts (which

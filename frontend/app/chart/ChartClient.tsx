@@ -92,9 +92,9 @@ export default function ChartClient({
         <KeyLevelsStrip snapshot={snapshot} delayed={delayed} className="mb-5" />
 
         <p style={{ fontSize: 16, lineHeight: 1.65, color: 'var(--text-secondary)', maxWidth: 760 }}>
-          Price and dealer gamma on one surface. See exactly where market makers are forced to trade against
-          you — the Gamma Flip, the Call and Put Walls, and a silhouette of dealer positioning by price — drawn
-          inline on a fast, precise candle chart. Nothing else shows you this.
+          Price and modeled dealer gamma on one surface. See where hedging pressure is modeled to
+          concentrate — the Gamma Flip, the Call and Put Walls, and a silhouette of modeled dealer
+          positioning by price — drawn inline on a fast, precise candle chart. Nothing else shows you this.
           {delayed && (
             <>
               {' '}

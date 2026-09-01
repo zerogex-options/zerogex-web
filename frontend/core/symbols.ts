@@ -52,6 +52,27 @@ export function isFuturesSymbol(symbol: string | null | undefined): boolean {
 }
 
 /**
+ * The symbol whose OPTION CHAIN answers for this one: the backing cash index
+ * for a future, the symbol itself for everything else.
+ *
+ * Distinct from the price axis, and the distinction is the whole point. The API
+ * serves ES / NQ by running the SPX / NDX handler and projecting the result
+ * onto the futures price axis, but it REFUSES (400) the endpoints that
+ * enumerate individual contracts — a projected strike is not a strike anyone
+ * can trade, and it would no longer round-trip to the chain it came from.
+ *
+ * So a caller that needs to name a chain (the Flow Analysis strike /
+ * expiration chips, which list the contracts that actually traded) asks for
+ * SPX / NDX and keeps those values in the index's own strike space. A filter
+ * built from them still applies to `?symbol=ES`, because the API rewrites the
+ * symbol to the backing index before matching and only the response comes back
+ * on the futures axis.
+ */
+export function optionChainSymbolFor(symbol: string): string {
+  return FUTURES_BACKING_INDEX[(symbol || '').toUpperCase()] ?? symbol;
+}
+
+/**
  * The volatility index that pairs with a symbol.
  *
  * Nasdaq-100 exposure (QQQ / NDX / NQ) reads against VXN; everything else

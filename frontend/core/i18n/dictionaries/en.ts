@@ -93,6 +93,7 @@ export const en = {
   'footer.platform': 'Platform',
   'footer.freeGammaLevels': 'Free Gamma Levels',
   'footer.updates': 'Updates',
+  'footer.methodology': 'Methodology & Validation',
   'footer.givingBack': 'Giving Back',
   'footer.apiDocs': 'API Docs',
   'footer.privacy': 'Privacy',

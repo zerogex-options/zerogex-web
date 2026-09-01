@@ -30,6 +30,7 @@ import GexWallsChart from '@/components/GexWallsChart';
 import CharmVannaFlows from '@/components/CharmVannaFlows';
 import VolSurfaceChart from '@/components/VolSurfaceChart';
 import ExpandableCard, { useExpandedCard } from '@/components/ExpandableCard';
+import ModeledPositioningNote from '@/components/ModeledPositioningNote';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useStrikeFilter } from '@/core/StrikeFilterContext';
 import { selectActive } from '@/core/strikeFilter';
@@ -773,6 +774,10 @@ export default function GammaExposurePage() {
           </div>
         </ExpandableCard>
       </section>
+
+      {/* Every number on this page is signed by the positioning convention, so
+          the disclosure closes the page rather than living only in tooltips. */}
+      <ModeledPositioningNote />
     </PageShell>
   );
 }

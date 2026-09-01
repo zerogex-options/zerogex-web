@@ -1026,6 +1026,24 @@ logo:
 	@$(TRIM_PNG) assets/branding/Light_Full.png frontend/public/logo-light.png --max-width 1024
 	@$(TRIM_PNG) assets/branding/Dark_Title.png frontend/public/title-dark.png --max-width 1280
 	@$(TRIM_PNG) assets/branding/Light_Title.png frontend/public/title-light.png --max-width 1280
+# Email lockups. These used to be a hand-made PNG committed under
+# frontend/public/email/, which is exactly why the campaign emails were still
+# showing the pre-August logo months after `make logo` had refreshed every
+# other surface -- nothing regenerated it. Deriving them here means a
+# re-export from the design tool reaches the emails like it reaches the site.
+#
+# Always the DARK variants: both lockups sit on the navy header/footer bands,
+# and per core/brand.ts the dark variant is the one carrying the light wordmark.
+# Sized at 2x their CSS width (400px header, 240px footer) for retina.
+#
+# Deliberately NEW filenames rather than overwriting zerogex-header.png:
+# zerogex.io is proxied through Cloudflare, which caches .png per edge and is
+# never purged on deploy (same reasoning as the hashed og-image and favicon
+# URLs below), so replacing the bytes in place could serve the old artwork to
+# recipients for days. The old file stays put for the already-sent July send.
+	@mkdir -p frontend/public/email
+	@$(TRIM_PNG) assets/branding/Dark_Title.png frontend/public/email/zerogex-email-header.png --max-width 800
+	@$(TRIM_PNG) assets/branding/Dark_Full.png frontend/public/email/zerogex-email-footer.png --max-width 480
 # The social card goes through scripts/og-image-manifest.js rather than a plain
 # cp. That script hashes the PNG's bytes into its filename and regenerates
 # frontend/core/ogImageManifest.ts, so replacing the artwork produces a new URL

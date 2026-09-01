@@ -608,8 +608,19 @@ export default function LandingPage() {
             <p className="zg-body" style={{ color: subtext, margin: '0 0 20px' }}>
               <strong style={{ color: text }}>{t('whatIsBody1Strong')}</strong> {t('whatIsBody1Rest')}
             </p>
-            <p className="zg-body" style={{ color: subtext, margin: '0 0 28px' }}>
+            <p className="zg-body" style={{ color: subtext, margin: '0 0 14px' }}>
               {t('whatIsBody2')}
+            </p>
+            {/* The modeled-vs-observed caveat, stated where the product claim is
+                made rather than buried in an education article. Public option
+                data does not disclose which side a dealer holds at each strike,
+                so "dealer positioning" here is a convention applied to the
+                chain — see /methodology for the full disclosure. */}
+            <p className="zg-caption" style={{ color: subtext, margin: '0 0 28px' }}>
+              {t('whatIsModeledNote')}{' '}
+              <Link href="/methodology" style={{ color: C.amber, textDecoration: 'underline' }}>
+                {t('whatIsModeledLink')}
+              </Link>
             </p>
             <Link
               href={exploreDashboardHref}

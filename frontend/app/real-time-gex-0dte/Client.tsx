@@ -323,7 +323,7 @@ export default function RealTimeGexLandingClient() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 18 }}>
             <PainPoint
               title="Delayed feeds miss the flip"
-              body="A 15-minute-delayed GEX read is structurally wrong when the gamma flip is migrating intraday. The regime can change during the delay window, and the trade decisions that follow are out of sync with the actual dealer book."
+              body="A 15-minute-delayed GEX read is structurally wrong when the gamma flip is migrating intraday. The regime can change during the delay window, and the trade decisions that follow are out of sync with the chain as it stands now."
             />
             <PainPoint
               title="Static screenshots miss the migration"

@@ -63,6 +63,28 @@ export function pinStrengthLabel(strength: PinStrength): string {
 }
 
 /**
+ * The Pin's label on a CHART LINE: "Pin · Strong" for an active pin, and a bare
+ * "Pin" only when there is no pin to qualify at all. A missing confidence still
+ * classifies (as Weak, via `classifyPinStrength`) rather than dropping the
+ * suffix — the same answer `pinStrikeSubtitle` gives the tiles, so one pin
+ * cannot read two ways depending on which surface you are looking at.
+ *
+ * Separate from `pinStrikeSubtitle`, which is the *tile* copy and spells the
+ * confidence out as a percent; a line label has to stay short enough to sit in
+ * a stack of level tags without pushing the others off the plot. Shared so the
+ * live chart and the replay can't drift into naming the same level differently
+ * — callers that render level tags in caps (the Gamma Terminal chart) simply
+ * upper-case the result.
+ */
+export function pinLineLabel(
+  pinStrike: number | null | undefined,
+  pinConfidence: number | null | undefined,
+): string {
+  const strength = classifyPinStrength(pinStrike, pinConfidence);
+  return strength === 'none' ? 'Pin' : `Pin · ${STRENGTH_LABEL[strength]}`;
+}
+
+/**
  * Format the Pin Strike value for a tile — a dollar-prefixed strike, or the
  * em-dash empty state when there is no active pin. Never returns `0`/`NaN`.
  */

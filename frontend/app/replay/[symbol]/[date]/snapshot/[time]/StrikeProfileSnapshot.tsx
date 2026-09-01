@@ -11,6 +11,7 @@ import {
   type ExpirationCell,
   type ExpirationSegment,
 } from '@/core/expirationGradient';
+import { pinLineLabel } from '@/core/pinStrike';
 
 // Horizontal-strike-profile card for the shareable moment page. Mirrors the
 // ReplayScrubber's right-hand strike panel so the snapshot reads the same way
@@ -47,6 +48,7 @@ interface StrikeProfileSnapshotProps {
   putWall?: number | null;
   maxPain?: number | null;
   pinStrike?: number | null;
+  pinConfidence?: number | null;
 }
 
 interface Row {
@@ -110,6 +112,7 @@ export default function StrikeProfileSnapshot({
   putWall,
   maxPain,
   pinStrike,
+  pinConfidence,
 }: StrikeProfileSnapshotProps) {
   const clipId = `snap-clip-${useId().replace(/[^a-zA-Z0-9-]/g, '')}`;
 
@@ -298,8 +301,12 @@ export default function StrikeProfileSnapshot({
     refLines.push({ level: maxPain, label: `Max Pain ${maxPain.toFixed(2)}`, color: 'var(--color-gold)' });
   // Pin Strike — reachable 0DTE positive-gamma pin. Teal (--color-pin), the
   // app-wide pin hue, matching the Gamma Terminal chart and the daily replay.
+  // The label carries the strength ("Pin · Strong") via the shared
+  // pinLineLabel, so a shared snapshot says how much conviction the model had
+  // in the pin rather than just where it sat — the same read the live chart
+  // and the scrubber give. Falls back to plain "Pin" when confidence is absent.
   if (pinStrike != null && Number.isFinite(pinStrike))
-    refLines.push({ level: pinStrike, label: `Pin ${pinStrike.toFixed(2)}`, color: 'var(--color-pin)' });
+    refLines.push({ level: pinStrike, label: `${pinLineLabel(pinStrike, pinConfidence)} ${pinStrike.toFixed(2)}`, color: 'var(--color-pin)' });
 
   // Stagger the reference-level labels vertically so close-together levels
   // (spot / flip / max pain often cluster near spot) don't overlap. The lines

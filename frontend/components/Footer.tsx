@@ -55,6 +55,10 @@ const FOOTER_COLUMNS: FooterColumn[] = [
     headingKey: 'footer.col.company',
     links: [
       { href: '/about', labelKey: 'nav.about' },
+      // Permanent, site-wide answer to "what does ZeroGEX actually claim?".
+      // Sits next to About because it is an institutional disclosure about the
+      // product — what is observed vs. modeled — not a tutorial.
+      { href: '/methodology', labelKey: 'footer.methodology' },
       { href: '/updates', labelKey: 'footer.updates' },
       { href: '/giving', labelKey: 'footer.givingBack' },
     ],

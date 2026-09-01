@@ -28,6 +28,12 @@ function sourceFileForRoute(urlPath) {
     return path.join(PROJECT_ROOT, 'content', 'articles', `${educationMatch[1]}.md`);
   }
 
+  // /methodology is markdown-backed but lives at the content root rather than
+  // in a scanned directory, so its lastmod has to be wired up by hand.
+  if (trimmed === 'methodology') {
+    return path.join(PROJECT_ROOT, 'content', 'methodology.md');
+  }
+
   const guidesMatch = /^guides\/([^/]+)$/.exec(trimmed);
   if (guidesMatch) {
     return path.join(PROJECT_ROOT, 'content', 'guides', `${guidesMatch[1]}.md`);
@@ -160,19 +166,22 @@ const config = {
       '/help',
       '/help/faqs',
       '/help/quickstarts',
-      // The chart-integration hub and the four platform landings under it.
-      // Kept as literals rather than imported from core/integrations.ts:
-      // this config is loaded by next-sitemap as plain ESM outside the Next
-      // build, so the '@/...' alias it would need does not resolve here.
-      // tests/integrations.test.ts asserts the two lists agree.
+      // The chart-integration hub and the four platform landings under it
+      // (/integrations, /ninjatrader-, /sierra-chart-, /thinkorswim- and
+      // /tradingview-indicator) are listed as literals rather than imported
+      // from core/integrations.ts: this config is loaded by next-sitemap as
+      // plain ESM outside the Next build, so the '@/...' alias it would need
+      // does not resolve here. tests/integrations.test.ts asserts the two
+      // lists agree, so the duplication is checked rather than trusted.
       '/integrations',
+      '/methodology',
       '/ninjatrader-indicator',
-      '/sierra-chart-indicator',
-      '/thinkorswim-indicator',
       '/pricing',
       '/privacy',
       '/real-time-gex-0dte',
+      '/sierra-chart-indicator',
       '/terms',
+      '/thinkorswim-indicator',
       '/trading-mistakes',
       '/tradingview-indicator',
       '/updates',
