@@ -192,7 +192,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 ProfileNegBrush = Brushes.IndianRed;
                 GexRankBrush = Brushes.Goldenrod;
                 VwapBrush = Brushes.DodgerBlue;
-                InfoPanelBrush = Brushes.Gainsboro;
+                InfoPanelBrush = Brushes.Gray;
             }
             else if (State == State.Terminated)
             {
@@ -991,7 +991,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         /// different versions and neither they nor we can tell which. A bug
         /// report against an unknown build costs a round trip to establish what
         /// is even being reported. Bump this on every file sent to a tester.</summary>
-        private const string BuildVersion = "v1.8";
+        private const string BuildVersion = "v1.9";
 
         private string BuildInfoText(ZeroGexLevelsSnapshot s)
         {
@@ -1334,9 +1334,25 @@ namespace NinjaTrader.NinjaScript.Indicators
 
         // The panel used to be a Draw.TextFixed object, which took its colour
         // from the chart's own text setting. Rendering it directly means
-        // choosing one, so it becomes a setting: Gainsboro reads well on the
-        // dark charts both testers run, and anyone on a light chart can change
-        // it rather than squint at pale grey on white.
+        // choosing one, so it becomes a setting.
+        //
+        // That choice was Gainsboro, on the reasoning that both testers ran
+        // dark charts and a light-chart user could just change it. The first
+        // light-chart user reported it as hard to read, which is the right
+        // call: measured against a white background Gainsboro is 1.37:1, below
+        // any legibility threshold there is. "Configurable" does not rescue a
+        // default nobody can read well enough to go looking for the setting.
+        //
+        // Gray is the balanced default instead — 3.95:1 on white, 4.82:1 on a
+        // #101010 dark chart, so it is comfortably readable on both rather than
+        // excellent on one and invisible on the other. Dark-chart users lose
+        // some contrast against Gainsboro's 13.88:1 and can raise it back with
+        // the same setting, which is the trade in the direction that leaves
+        // nobody unable to read the panel out of the box.
+        //
+        // Deriving this from ChartControl's background would beat any fixed
+        // choice, and is the obvious next step if this is still not right for
+        // someone.
         [XmlIgnore]
         [Display(Name = "Info panel color", Order = 19, GroupName = "3. Style")]
         public Brush InfoPanelBrush { get; set; }
