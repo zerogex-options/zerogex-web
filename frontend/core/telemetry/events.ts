@@ -92,6 +92,13 @@ export const TelemetryEvent = {
   /** The visitor returned from Stripe Checkout without paying — bounced back to
    *  /pricing?trial=1&checkout_cancelled=1 (client). The trial has not started. */
   CheckoutCancelled: 'checkout_cancelled',
+  /** An in-product upsell on a tier-locked panel was clicked (client). Carries
+   *  `feature` (the locked surface, e.g. vol_expansion) and `required_tier`.
+   *  These panels sit inside pages the viewer already pays for, so the click is
+   *  a far warmer upgrade intent than a pricing-page visit — and it is the only
+   *  way to tell whether naming the gate converts, or whether a locked panel
+   *  just reads as broken. */
+  LockedFeatureCtaClick: 'locked_feature_cta_click',
 } as const;
 
 export type TelemetryEventName = (typeof TelemetryEvent)[keyof typeof TelemetryEvent];
