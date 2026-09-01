@@ -56,12 +56,16 @@ input showLevelsDate = no;  # Turn on once you have filled in levelsDate above.
 # -----------------------------------------------------------------------------
 #  Display
 # -----------------------------------------------------------------------------
-input lineWeight     = 2;
-input lineStyle      = {default Solid, Dashed, Dotted};
-input showPriceChips = yes; # Price bubble pinned to the right edge of each line.
+input showPriceChips = yes; # Price bubble on each line.
 input showInfoLabels = yes; # Chips along the top of the chart.
 input showSource     = yes; # "zerogex.io" attribution chip.
 input enableAlerts   = yes; # Fire a thinkorswim alert when price crosses a level.
+
+# Line colour, weight and style are NOT inputs here. thinkorswim already gives
+# every plot its own controls for all three under Edit Studies, which is both
+# the native way to do it and better than a dropdown -- and thinkScript's
+# SetStyle()/SetLineWeight() want a compile-time constant, so driving them from
+# a computed value is a good way to make the study fail to compile on paste.
 
 # -----------------------------------------------------------------------------
 #  Colours
@@ -76,10 +80,6 @@ DefineGlobalColor("Max Pain",   CreateColor(156, 39, 176));
 # -----------------------------------------------------------------------------
 #  Helpers
 # -----------------------------------------------------------------------------
-def style = if lineStyle == lineStyle.Dashed then Curve.SHORT_DASH
-            else if lineStyle == lineStyle.Dotted then Curve.POINTS
-            else Curve.FIRM;
-
 # The rightmost bar that has data. close[-1] is the *next* bar, which is NaN
 # only at the right-hand edge — the standard thinkScript last-bar test. Chips
 # are drawn here so there is exactly one per level rather than one per bar.
@@ -92,29 +92,26 @@ def isLastBar = !IsNaN(close) and IsNaN(close[-1]);
 # -----------------------------------------------------------------------------
 plot CallWallLine = if callWall > 0 then callWall else Double.NaN;
 CallWallLine.SetDefaultColor(GlobalColor("Call Wall"));
-CallWallLine.SetLineWeight(lineWeight);
-CallWallLine.SetStyle(style);
+CallWallLine.SetLineWeight(2);
 
 plot GammaFlipLine = if gammaFlip > 0 then gammaFlip else Double.NaN;
 GammaFlipLine.SetDefaultColor(GlobalColor("Gamma Flip"));
-GammaFlipLine.SetLineWeight(lineWeight);
-GammaFlipLine.SetStyle(style);
+GammaFlipLine.SetLineWeight(2);
 
 plot PutWallLine = if putWall > 0 then putWall else Double.NaN;
 PutWallLine.SetDefaultColor(GlobalColor("Put Wall"));
-PutWallLine.SetLineWeight(lineWeight);
-PutWallLine.SetStyle(style);
+PutWallLine.SetLineWeight(2);
 
 plot MaxPainLine = if maxPain > 0 then maxPain else Double.NaN;
 MaxPainLine.SetDefaultColor(GlobalColor("Max Pain"));
-MaxPainLine.SetLineWeight(lineWeight);
-MaxPainLine.SetStyle(style);
+MaxPainLine.SetLineWeight(2);
 
 # -----------------------------------------------------------------------------
 #  Price chips on the lines
-#  AddChartBubble draws to the RIGHT of the anchor bar, so anchoring on the
-#  last bar puts each chip out in the empty space past the price action rather
-#  than on top of it.
+#  Anchored on the last bar so there is one chip per level rather than one per
+#  bar. They sit at the right-hand edge, next to where price actually is; if
+#  they crowd the last few candles, expand the chart's right margin or turn
+#  showPriceChips off and read the values off the top-of-chart labels instead.
 # -----------------------------------------------------------------------------
 AddChartBubble(showPriceChips and isLastBar and callWall > 0,
                callWall,  "Call Wall "  + AsPrice(callWall),  GlobalColor("Call Wall"),  yes);
@@ -128,13 +125,13 @@ AddChartBubble(showPriceChips and isLastBar and maxPain > 0,
 # -----------------------------------------------------------------------------
 #  Info chips along the top of the chart
 # -----------------------------------------------------------------------------
-AddLabel(showInfoLabels, "ZeroGEX Gamma Levels · " + levelsFor, Color.GRAY);
+AddLabel(showInfoLabels, "ZeroGEX Gamma Levels - " + levelsFor, Color.GRAY);
 AddLabel(showInfoLabels and showLevelsDate, "Levels: " + levelsDate, Color.GRAY);
 AddLabel(showInfoLabels and callWall > 0,  "Call Wall "  + AsPrice(callWall),  GlobalColor("Call Wall"));
 AddLabel(showInfoLabels and gammaFlip > 0, "Gamma Flip " + AsPrice(gammaFlip), GlobalColor("Gamma Flip"));
 AddLabel(showInfoLabels and putWall > 0,   "Put Wall "   + AsPrice(putWall),   GlobalColor("Put Wall"));
 AddLabel(showInfoLabels and maxPain > 0,   "Max Pain "   + AsPrice(maxPain),   GlobalColor("Max Pain"));
-AddLabel(showSource, "zerogex.io — free delayed levels · informational only", Color.GRAY);
+AddLabel(showSource, "zerogex.io - free delayed levels - informational only", Color.GRAY);
 
 # -----------------------------------------------------------------------------
 #  Level-cross alerts
@@ -145,7 +142,7 @@ AddLabel(showSource, "zerogex.io — free delayed levels · informational only",
 Alert(enableAlerts and callWall > 0 and close crosses callWall,
       "ZeroGEX: price crossed the Call Wall", Alert.BAR, Sound.Chimes);
 Alert(enableAlerts and gammaFlip > 0 and close crosses gammaFlip,
-      "ZeroGEX: price crossed the Gamma Flip — possible regime shift", Alert.BAR, Sound.Ring);
+      "ZeroGEX: price crossed the Gamma Flip - possible regime shift", Alert.BAR, Sound.Ring);
 Alert(enableAlerts and putWall > 0 and close crosses putWall,
       "ZeroGEX: price crossed the Put Wall", Alert.BAR, Sound.Chimes);
 Alert(enableAlerts and maxPain > 0 and close crosses maxPain,

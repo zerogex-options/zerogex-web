@@ -39,6 +39,31 @@ a one-line signature fix, not a redesign. The most likely candidates, in order:
 3. `sc.GetPersistentInt` / `sc.SetPersistentInt` — some versions expose the
    getter as a reference (`int& sc.GetPersistentInt(int)`), which this code is
    already compatible with.
+4. `SCString::Trim()` / `MakeUpper()` / `Left()`, and `VALUEFORMAT_INHERITED`.
+
+### What HAS been compiled and tested
+
+The three functions that carry the study's actual logic — `ParseJsonNumber`,
+`ExtractJsonNumber` and `PollClockNow` — are plain C++ with no ACSIL surface
+beyond `SCString`, so they were extracted verbatim into a harness with a
+stubbed `SCString`, compiled with `g++ -Wall -Wextra`, and run against
+realistic `/api/v1/levels` payloads. That covers the parts most likely to be
+*silently* wrong, as opposed to failing to compile:
+
+- every level parsed out of a real response body, including fractional and
+  negative-exponent values;
+- `pin_strike: null` treated as absent, in both document orderings, and never
+  confused with the `pin_strike_reason` key that shares its prefix;
+- a 401 body yielding nothing rather than zeros;
+- `null` / `true` / a quoted string / a lone `-` all rejected;
+- the hand-rolled parser agreeing with `strtod` to 1e-9 relative on sixteen
+  representative values in the C locale;
+- every poll interval from 1s to 120s measuring exactly, which is the check
+  that caught the truncation bug described below.
+
+The harness is not committed — it stubs a vendor type it cannot ship — but it
+is a dozen lines to rebuild from this description if the parsing is ever
+touched again.
 
 ## Monetization model
 
@@ -99,6 +124,36 @@ along in `Referer` on a redirect.
 The endpoint's entire response is derived, redistributable analytics, which is
 what makes the trade acceptable here and nowhere else.
 
+## It is not a port of the NinjaTrader indicator
+
+Same *job*, deliberately smaller *scope*. Both poll the same endpoint on a
+timer and draw dealer-positioning levels that maintain themselves, and both are
+gated the same way. What Sierra Chart does **not** carry:
+
+| | NinjaTrader 8 | Sierra Chart |
+| --- | --- | --- |
+| Gamma Flip, Call Wall, Put Wall, Max Pain, Pin Strike | yes | yes |
+| GEX 1..N (top gamma strikes) | yes, count configurable | no |
+| Session VWAP | yes | no — Sierra Chart has a better native one |
+| Per-strike gamma histogram | yes, width/thickness/strike-count configurable | no |
+| Per-level show/hide toggles | 8 inputs | native Subgraphs tab |
+| Line width, label offset, label edge distance | 4 style inputs | native Subgraphs tab |
+| Request size | `strikes=` follows the histogram setting | always `strikes=1` |
+
+Two different reasons for the gaps. The style and show/hide inputs are absent
+because Sierra Chart already gives every subgraph its own controls — replicating
+them as study inputs would be worse than the native UI, not better. VWAP is
+absent for the same reason: Sierra Chart ships one.
+
+The histogram and the GEX 1..N ranks are the real functional difference, and
+they are absent because they need chart-space drawing rather than horizontal
+lines — the NinjaTrader version pins the histogram to the left edge of the
+chart window and redraws it as bars form, which is `s_UseTool`-class work in
+ACSIL and exactly the version-sensitive surface this file was written to avoid
+until it has been compiled once against a real install. They are the obvious
+second pass, and `strikes=1` in the request is the only thing that would need
+to change on the wire.
+
 ## Files
 
 | File | Purpose |
@@ -142,6 +197,31 @@ data nothing reads.
 parses cleanly and yields no levels — which would otherwise look like "the API
 has no data today" rather than "your key is wrong". The study checks for the
 absence of a `"levels"` key and names that case explicitly in the message log.
+
+**Numbers are parsed by hand, not with `strtod`.** `strtod` honours
+`LC_NUMERIC`, and on an install whose locale uses a comma as the decimal
+separator it stops at the `.` — turning `5950.25` into `5950` and drawing a
+level that is silently, plausibly wrong. Sierra Chart has a large European user
+base and a wrong line on a chart is worse than a missing one, so the parse
+follows the JSON grammar directly, which always uses `.` wherever the machine
+is.
+
+**The poll interval floors at 30s at runtime**, matching the NinjaTrader
+indicator against the same endpoint. `SetIntLimits` governs only what can be
+typed into the settings dialog; a chartbook saved with a smaller number, or a
+`.cht` passed between traders, carries it straight past. That is the same
+lesson the NinjaTrader indicator's `[Range]` attribute learned — the input
+bound catches typing, the runtime clamp is the policy.
+
+**Two failure modes that would otherwise be silent** are handled explicitly.
+An outstanding request is abandoned after 30s, because the in-flight flag is
+otherwise a one-way latch and a single lost response would stop the study
+permanently while it kept showing hours-old levels as though they were current.
+And a subgraph array that comes back zeroed — which Sierra Chart does on a full
+recalculation, i.e. a timeframe change, symbol change, or history load — is
+treated as "the snapshot is gone" and triggers an immediate re-fetch, rather
+than being stamped across the chart as a line at zero that would collapse the
+price scale.
 
 ## Install (what the page tells users)
 

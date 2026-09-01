@@ -6,13 +6,13 @@
 // the previous bytes — see the header comment in that script.
 
 /** Content hash of the thinkScript study source (manual-entry) (first 8 hex of its sha256). */
-export const THINKORSWIM_STUDY_HASH = 'df619688';
+export const THINKORSWIM_STUDY_HASH = '5dd32fa4';
 
 /** Cache-busting path for the thinkScript study source (manual-entry), relative to the site root. */
-export const THINKORSWIM_STUDY_PATH = '/thinkorswim/zerogex-daily-gamma-levels.df619688.thinkscript';
+export const THINKORSWIM_STUDY_PATH = '/thinkorswim/zerogex-daily-gamma-levels.5dd32fa4.thinkscript';
 
 /** Content hash of the Sierra Chart ACSIL study source (auto-updating) (first 8 hex of its sha256). */
-export const SIERRACHART_STUDY_HASH = '4a402a57';
+export const SIERRACHART_STUDY_HASH = 'cb77dd26';
 
 /** Cache-busting path for the Sierra Chart ACSIL study source (auto-updating), relative to the site root. */
-export const SIERRACHART_STUDY_PATH = '/sierrachart/ZeroGexGammaLevels.4a402a57.cpp';
+export const SIERRACHART_STUDY_PATH = '/sierrachart/ZeroGexGammaLevels.cb77dd26.cpp';

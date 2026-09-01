@@ -46,10 +46,12 @@ export const TelemetryEvent = {
   NinjaTraderIndicatorClicked: 'ninjatrader_indicator_clicked',
   /** Free thinkorswim thinkScript study copied or downloaded (client, the
    *  gamma-levels pages + /thinkorswim-indicator). The `action` property
-   *  records which: copy | download. Copy is the primary path — thinkorswim
-   *  has no public script library to link to, so the study is pasted into the
-   *  Study Editor — and the split shows how many people take the file
-   *  instead, which is also the clipboard-blocked fallback. */
+   *  records which: copy | copy_failed | download. Copy is the primary path —
+   *  thinkorswim has no public script library to link to, so the study is
+   *  pasted into the Study Editor — and the split shows how many people take
+   *  the file instead, which is also the clipboard-blocked fallback.
+   *  `copy` fires on intent and `copy_failed` on a rejected clipboard, so the
+   *  two together say whether that fallback is load-bearing. */
   ThinkorswimIndicatorClicked: 'thinkorswim_indicator_clicked',
   /** Sierra Chart ACSIL study downloaded, or its "get your API key" CTA
    *  clicked (client, the gamma-levels pages + /sierra-chart-indicator). The

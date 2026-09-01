@@ -73,8 +73,8 @@ what to do about it.
   hidden when its input is left at `0` — the unset sentinel, not a price. An
   unset level plots `Double.NaN`, which thinkorswim draws as nothing at all, so
   it costs no chart space and no legend entry.
-- A price chip per line, anchored on the last bar so it renders in the empty
-  space to the right of the price action rather than on top of it.
+- A price chip per line, anchored on the last bar so there is one chip per
+  level rather than one per bar.
 - Info chips along the top of the chart.
 - Four `Alert()` conditions on `close crosses <level>`, at `Alert.BAR` so they
   fire on bar close rather than on every tick — an intrabar wick across the
@@ -83,6 +83,18 @@ what to do about it.
 Colours are `DefineGlobalColor` globals rather than inputs, because thinkScript
 has no colour input type; users recolour them under the study's **Globals**
 section in Edit Studies.
+
+Line **style and weight are deliberately not inputs.** thinkorswim already
+gives every plot its own colour/weight/style controls under Edit Studies, so a
+dropdown would have duplicated a native feature — and `SetStyle()` /
+`SetLineWeight()` want a compile-time constant, so driving them from a computed
+`def` (which is a *series* in thinkScript, not a constant) is a good way to
+make the study fail to compile the first time someone pastes it.
+
+Every string the platform **renders** — labels, bubbles, alert text — is plain
+ASCII on purpose. The comments carry normal typography, but this file travels
+by clipboard into a Java editor, and a mangled character in a comment is
+invisible while a mangled one on someone's chart is not.
 
 The study syncs to the user's thinkorswim account, so the paste is one-time and
 it follows them across desktop, web, and mobile.

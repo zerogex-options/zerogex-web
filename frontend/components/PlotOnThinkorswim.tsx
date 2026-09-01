@@ -92,6 +92,11 @@ export default function PlotOnThinkorswim({ standalone = false }: PlotOnThinkors
       // recovery path, and a state that clears itself would hide the problem
       // before the reader worked out what to do about it.
       setCopyState('failed');
+      // Recorded separately from the click above, which fires on intent. Without
+      // this a blocked clipboard counts as a successful copy, and the one number
+      // that tells us whether the download fallback is load-bearing — how often
+      // the primary path fails — is not in the data at all.
+      capture('thinkorswim_indicator_clicked', { action: 'copy_failed' });
     }
   };
 

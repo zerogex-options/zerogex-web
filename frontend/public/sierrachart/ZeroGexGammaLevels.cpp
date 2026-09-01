@@ -93,8 +93,27 @@ enum ZeroGexPersistent
 {
     P_REQUEST_IN_FLIGHT = 1,  // a MakeHTTPRequest is outstanding
     P_LAST_POLL_SECONDS = 2,  // when the last request went out (see below)
-    P_LEVELS_LOADED     = 3   // at least one good snapshot has landed
+    P_LEVELS_LOADED     = 3,  // at least one good snapshot has landed
+    P_KEY_WARNING_SHOWN = 4   // the "set your API key" note has been logged
 };
+
+// How long an outstanding request may stay outstanding before it is written
+// off. Without this the in-flight flag is a one-way latch: a request whose
+// response never arrives — dropped connection, a Sierra Chart build that does
+// not re-enter the study on a transport failure — leaves the flag set forever
+// and the study silently stops updating, showing levels that look current and
+// are hours old. That is the worst failure this file can have, so it gets a
+// watchdog rather than a comment.
+static const int REQUEST_TIMEOUT_SECONDS = 30;
+
+// The poll floor that actually binds, matching the NinjaTrader indicator
+// against the same endpoint. The analytics cycle behind /api/v1/levels is
+// ~60s and unaligned, so polling at 30 halves worst-case staleness; below that
+// there is nothing left to win and every extra request is rate limit spent on
+// bytes that did not change. Enforced here rather than only through the input
+// limits, because those govern the settings dialog and not a chartbook that
+// already carries a smaller number.
+static const int MINIMUM_REFRESH_SECONDS = 30;
 
 // One day expressed in seconds. SCDateTime counts in days, and the refresh
 // interval is configured in seconds, so every comparison needs this. Defined
@@ -110,11 +129,16 @@ static const double SECONDS_PER_DAY = 86400.0;
 // about five minutes and broken every refresh interval shorter than that.
 static const double POLL_CLOCK_EPOCH_DAYS = 40000.0;
 
-/** Seconds on the poll clock right now. */
+/** Seconds on the poll clock right now.
+ *
+ *  Rounded, not truncated. days × 86400 does not land exactly on a whole
+ *  second in binary floating point, so a plain cast — which truncates toward
+ *  zero — loses up to a second on every reading and makes every interval
+ *  measure one short. At the 15s minimum that is a 7% error. */
 static int PollClockNow(SCStudyInterfaceRef sc)
 {
     const double DaysSinceEpoch = sc.CurrentSystemDateTime.GetAsDouble() - POLL_CLOCK_EPOCH_DAYS;
-    return static_cast<int>(DaysSinceEpoch * SECONDS_PER_DAY);
+    return static_cast<int>(DaysSinceEpoch * SECONDS_PER_DAY + 0.5);
 }
 
 // ---------------------------------------------------------------------------
@@ -132,11 +156,87 @@ static int PollClockNow(SCStudyInterfaceRef sc)
 //  explicit that consumers hide rather than zero it: a Put Wall drawn at 0
 //  would flatten the chart's price scale.
 // ---------------------------------------------------------------------------
+/** Parse a JSON number at ``Cursor``. Locale-independent by construction.
+ *
+ *  Deliberately NOT strtod. strtod honours LC_NUMERIC, and on an install whose
+ *  locale uses a comma as the decimal separator it stops at the '.' — turning
+ *  5950.25 into 5950 and drawing a level that is silently, plausibly wrong.
+ *  A wrong line on a chart is worse than a missing one, and Sierra Chart has a
+ *  large European user base, so the parse is done by hand against the JSON
+ *  grammar, which always uses '.' regardless of where the machine is.
+ *
+ *  Accumulating the fraction digit by digit is very slightly less accurate
+ *  than strtod's correctly-rounded conversion — on the order of 1e-12 for a
+ *  four-figure price. Every value here is cast to float before it reaches a
+ *  subgraph, and float resolution around 6000 is about 5e-4, so the difference
+ *  cannot survive to the chart.
+ */
+static bool ParseJsonNumber(const char* Cursor, double& OutValue)
+{
+    bool Negative = false;
+    if (*Cursor == '-')
+    {
+        Negative = true;
+        ++Cursor;
+    }
+
+    if (*Cursor < '0' || *Cursor > '9')
+        return false;  // not a number (covers null, true, a quoted string)
+
+    double Value = 0.0;
+    while (*Cursor >= '0' && *Cursor <= '9')
+        Value = Value * 10.0 + (*Cursor++ - '0');
+
+    if (*Cursor == '.')
+    {
+        ++Cursor;
+        double Scale = 0.1;
+        while (*Cursor >= '0' && *Cursor <= '9')
+        {
+            Value += (*Cursor++ - '0') * Scale;
+            Scale *= 0.1;
+        }
+    }
+
+    if (*Cursor == 'e' || *Cursor == 'E')
+    {
+        ++Cursor;
+        bool NegativeExponent = false;
+        if (*Cursor == '-')
+        {
+            NegativeExponent = true;
+            ++Cursor;
+        }
+        else if (*Cursor == '+')
+        {
+            ++Cursor;
+        }
+
+        int Exponent = 0;
+        while (*Cursor >= '0' && *Cursor <= '9')
+        {
+            Exponent = Exponent * 10 + (*Cursor++ - '0');
+            // Bounded so a garbled body carrying 1e999999999 cannot spin this
+            // loop. Anything past double's range is not a level either way.
+            if (Exponent > 400)
+                return false;
+        }
+
+        for (int Step = 0; Step < Exponent; ++Step)
+            Value = NegativeExponent ? Value / 10.0 : Value * 10.0;
+    }
+
+    OutValue = Negative ? -Value : Value;
+    return true;
+}
+
 static bool ExtractJsonNumber(const SCString& Json, const char* Key, double& OutValue)
 {
     SCString Needle;
     Needle.Format("\"%s\":", Key);
 
+    // The closing quote in the needle is what keeps "pin_strike" from matching
+    // "pin_strike_reason", which the response also carries at its top level.
     const char* Found = strstr(Json.GetChars(), Needle.GetChars());
     if (Found == NULL)
         return false;
@@ -145,16 +245,7 @@ static bool ExtractJsonNumber(const SCString& Json, const char* Key, double& Out
     while (*Cursor == ' ' || *Cursor == '\t')
         ++Cursor;
 
-    if (*Cursor == 'n')  // null
-        return false;
-
-    char* End = NULL;
-    const double Parsed = strtod(Cursor, &End);
-    if (End == Cursor)    // nothing numeric there
-        return false;
-
-    OutValue = Parsed;
-    return true;
+    return ParseJsonNumber(Cursor, OutValue);
 }
 
 // ---------------------------------------------------------------------------
@@ -234,7 +325,15 @@ SCSFExport scsf_ZeroGexGammaLevels(SCStudyInterfaceRef sc)
 
         // 60s matches the analytics refresh cycle behind the endpoint, so
         // polling faster only spends rate limit re-fetching identical bytes.
-        sc.Input[IN_REFRESH_SECS].Name = "Refresh Interval (Seconds)";
+        //
+        // The limits here are deliberately WIDER than the policy. SetIntLimits
+        // only constrains what someone can type into the settings dialog; a
+        // chartbook saved with a smaller value, or a .cht passed between
+        // traders, carries its own number straight past it. So the floor that
+        // actually binds is the runtime clamp below, and this bound exists
+        // only to catch typing. Same rule the NinjaTrader indicator arrived at
+        // the hard way: widen this freely, never raise it.
+        sc.Input[IN_REFRESH_SECS].Name = "Refresh Interval (Seconds - 30s minimum is applied)";
         sc.Input[IN_REFRESH_SECS].SetInt(60);
         sc.Input[IN_REFRESH_SECS].SetIntLimits(15, 3600);
 
@@ -333,6 +432,25 @@ SCSFExport scsf_ZeroGexGammaLevels(SCStudyInterfaceRef sc)
             // Element 0 is as good as any — ApplyLevel stamped the same value
             // across every element, which is what makes the line horizontal.
             const float Value = sc.Subgraph[SubgraphIndex][0];
+
+            // …unless the array was reallocated under us. Sierra Chart zeroes
+            // the subgraph arrays on a full recalculation — a timeframe or
+            // symbol change, more history loading in, a chart reload — and the
+            // study is then called with a DrawStyle that still says LINE over
+            // data that is all zeros. Stamping that zero across the chart
+            // would draw every level at 0 and collapse the price scale, which
+            // is a far louder failure than a missing line.
+            //
+            // So treat a zeroed array as "the snapshot is gone" and re-fetch
+            // immediately (clearing the poll timer skips the interval wait).
+            // The gap is one request, typically well under a second.
+            if (Value == 0.0f)
+            {
+                sc.SetPersistentInt(P_LEVELS_LOADED, 0);
+                sc.SetPersistentInt(P_LAST_POLL_SECONDS, 0);
+                break;
+            }
+
             const int StartIndex = sc.UpdateStartIndex > 0 ? sc.UpdateStartIndex : 0;
             for (int Index = StartIndex; Index < sc.ArraySize; ++Index)
                 sc.Subgraph[SubgraphIndex][Index] = Value;
@@ -346,20 +464,44 @@ SCSFExport scsf_ZeroGexGammaLevels(SCStudyInterfaceRef sc)
     ApiKey.Trim();
     if (ApiKey.GetLength() == 0)
     {
-        // Once, not every update — sc.UpdateAlways would otherwise fill the
-        // message log with this while someone is still pasting their key in.
-        if (sc.GetPersistentInt(P_LEVELS_LOADED) == 0 && sc.UpdateStartIndex == 0)
+        // Logged once per study instance, not once per update. sc.UpdateAlways
+        // means this function runs continuously, so an unguarded message would
+        // fill the log while someone is still pasting their key in. A dedicated
+        // flag rather than a UpdateStartIndex test, which is 0 on every full
+        // recalculation and on a chart with no bars yet.
+        if (sc.GetPersistentInt(P_KEY_WARNING_SHOWN) == 0)
+        {
             sc.AddMessageToLog("ZeroGEX: set your API key in the study settings. Pro members generate one at zerogex.io/account#api-access.", 1);
+            sc.SetPersistentInt(P_KEY_WARNING_SHOWN, 1);
+        }
         return;
     }
-
-    if (sc.GetPersistentInt(P_REQUEST_IN_FLIGHT) != 0)
-        return;  // a request is already outstanding
+    // Armed again once a key is present, so someone who clears the key later
+    // is told about it rather than left with a silently dead study.
+    sc.SetPersistentInt(P_KEY_WARNING_SHOWN, 0);
 
     const int NowSeconds = PollClockNow(sc);
     const int LastPollSeconds = sc.GetPersistentInt(P_LAST_POLL_SECONDS);
 
-    if (LastPollSeconds != 0 && (NowSeconds - LastPollSeconds) < sc.Input[IN_REFRESH_SECS].GetInt())
+    if (sc.GetPersistentInt(P_REQUEST_IN_FLIGHT) != 0)
+    {
+        // A request is outstanding — unless it has been outstanding so long
+        // that no response is coming. Without this the flag is a one-way
+        // latch and a single lost response stops the study permanently while
+        // it keeps displaying the last levels as though they were current.
+        if ((NowSeconds - LastPollSeconds) < REQUEST_TIMEOUT_SECONDS)
+            return;
+
+        sc.SetPersistentInt(P_REQUEST_IN_FLIGHT, 0);
+        if (LogStatus)
+            sc.AddMessageToLog("ZeroGEX: no response within 30s — abandoning that request and retrying.", 0);
+    }
+
+    int RefreshSeconds = sc.Input[IN_REFRESH_SECS].GetInt();
+    if (RefreshSeconds < MINIMUM_REFRESH_SECONDS)
+        RefreshSeconds = MINIMUM_REFRESH_SECONDS;
+
+    if (LastPollSeconds != 0 && (NowSeconds - LastPollSeconds) < RefreshSeconds)
         return;
 
     SCString Symbol = sc.Input[IN_SYMBOL].GetString();
