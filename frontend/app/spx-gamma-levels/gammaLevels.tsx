@@ -8,6 +8,8 @@ import BreadcrumbJsonLd from '@/components/BreadcrumbJsonLd';
 import LandingHeader from '@/components/LandingHeader';
 import PlotOnTradingView from '@/components/PlotOnTradingView';
 import PlotOnNinjaTrader from '@/components/PlotOnNinjaTrader';
+import PlotOnThinkorswim from '@/components/PlotOnThinkorswim';
+import IntegrationsStrip from '@/components/IntegrationsStrip';
 import { NT_PACKAGE_PATH } from '@/core/ninjaTraderManifest';
 import Footer from './Footer';
 import ShareBlock from './ShareBlock';
@@ -944,6 +946,37 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
             archive — so this no longer needs to stat the filesystem, and the
             path it does carry is content-addressed against Cloudflare's cache. */}
         <PlotOnNinjaTrader hasPackage={NT_PACKAGE_PATH !== null} />
+
+        {/* thinkorswim's study is copied with today's numbers ALREADY IN IT.
+            primaryData is the same snapshot the cards above render, so what the
+            reader copies is what they are looking at, and the daily ritual is
+            one paste instead of a paste plus four numbers typed into a settings
+            dialog. thinkScript cannot fetch anything, so a regenerated paste is
+            the only automation that platform allows — which is exactly why this
+            section belongs on the page that HAS the numbers. */}
+        <PlotOnThinkorswim
+          levels={{
+            symbol: primary,
+            gammaFlip: primaryData?.gamma_flip,
+            callWall: primaryData?.call_wall,
+            putWall: primaryData?.put_wall,
+            maxPain: primaryData?.max_pain,
+            asOf: primaryData?.timestamp,
+          }}
+        />
+
+        {/* Sierra Chart as a compact card rather than a fourth full section.
+            These pages already carry a lot below the fold, and another
+            28px-padded block of setup instructions would push the evergreen
+            content that makes them rank further down. The three sections above
+            earn the space: two are what these pages have always converted on,
+            and thinkorswim's is here for the pre-fill above. Sierra Chart's
+            does not benefit the same way — it fetches its own levels, so its
+            landing page serves it just as well. */}
+        <IntegrationsStrip
+          exclude={['tradingview', 'ninjatrader', 'thinkorswim']}
+          heading="On Sierra Chart instead?"
+        />
 
         {/* "Today's <ticker> net GEX" — a plain-language answer for the
             "<ticker> net gamma exposure current / today / value / zero-cross"

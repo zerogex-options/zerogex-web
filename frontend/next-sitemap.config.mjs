@@ -166,12 +166,22 @@ const config = {
       '/help',
       '/help/faqs',
       '/help/quickstarts',
+      // The chart-integration hub and the four platform landings under it
+      // (/integrations, /ninjatrader-, /sierra-chart-, /thinkorswim- and
+      // /tradingview-indicator) are listed as literals rather than imported
+      // from core/integrations.ts: this config is loaded by next-sitemap as
+      // plain ESM outside the Next build, so the '@/...' alias it would need
+      // does not resolve here. tests/integrations.test.ts asserts the two
+      // lists agree, so the duplication is checked rather than trusted.
+      '/integrations',
       '/methodology',
       '/ninjatrader-indicator',
       '/pricing',
       '/privacy',
       '/real-time-gex-0dte',
+      '/sierra-chart-indicator',
       '/terms',
+      '/thinkorswim-indicator',
       '/trading-mistakes',
       '/tradingview-indicator',
       '/updates',

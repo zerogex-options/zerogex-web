@@ -3,21 +3,30 @@ import BreadcrumbJsonLd from './BreadcrumbJsonLd';
 import LandingHeader from './LandingHeader';
 import SiteFooter from './SiteFooter';
 
-// Page chrome shared by the two indicator landings (/tradingview-indicator and
-// /ninjatrader-indicator). Identical shell to the free gamma-levels pages —
-// landing nav, 1080px column, site footer — so an indicator page reads as the
-// same site rather than a bolted-on microsite.
+// Page chrome shared by the /integrations hub and the four platform landings
+// under it. Identical shell to the free gamma-levels pages — landing nav,
+// 1080px column, site footer — so an integration page reads as the same site
+// rather than a bolted-on microsite.
 export default function IndicatorPageShell({
   crumb,
   path,
+  parent,
   jsonLd,
   children,
 }: {
-  /** Breadcrumb label for this page (the trail is Home › crumb). */
+  /** Breadcrumb label for this page. */
   crumb: string;
   /** Site-relative path, used for the breadcrumb item URL. */
   path: string;
-  /** schema.org payload for the indicator itself (SoftwareApplication). */
+  /**
+   * Optional intermediate crumb, so the four platform pages sit UNDER the hub
+   * (Home › Chart Integrations › TradingView Indicator) rather than beside it.
+   * Passing it is what tells Google these pages are a set with a parent — and
+   * it is what stops the nav collapse from orphaning them, since the hub link
+   * is now the only one in the menus.
+   */
+  parent?: { name: string; url: string };
+  /** schema.org payload for the integration itself (SoftwareApplication). */
   jsonLd: Record<string, unknown>;
   children: ReactNode;
 }) {
@@ -40,6 +49,7 @@ export default function IndicatorPageShell({
       <BreadcrumbJsonLd
         items={[
           { name: 'Home', url: '/' },
+          ...(parent ? [parent] : []),
           { name: crumb, url: path },
         ]}
       />

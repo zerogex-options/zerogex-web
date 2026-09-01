@@ -44,6 +44,28 @@ export const TelemetryEvent = {
    *  get_key. Unlike the TradingView script this one
    *  auto-updates, so it needs a Pro key — the two actions split that funnel. */
   NinjaTraderIndicatorClicked: 'ninjatrader_indicator_clicked',
+  /** Free thinkorswim thinkScript study copied or downloaded (client, the
+   *  gamma-levels pages + /thinkorswim-indicator). The `action` property
+   *  records which: copy_prefilled | copy | copy_failed | download.
+   *
+   *  Copy is the primary path — thinkorswim has no public script library to
+   *  link to, so the study is pasted into the Study Editor — and the split
+   *  shows how many people take the file instead, which is also the
+   *  clipboard-blocked fallback. `copy`/`copy_prefilled` fire on intent and
+   *  `copy_failed` on a rejected clipboard, so they together say whether that
+   *  fallback is load-bearing.
+   *
+   *  `copy_prefilled` means the study went out with today's levels already in
+   *  it and `copy` means it went out blank, which happens only when the
+   *  snapshot was unavailable. The ratio is therefore also a passive monitor:
+   *  a rising share of plain `copy` means the levels fetch behind these pages
+   *  is failing, well before anyone reports a blank study. */
+  ThinkorswimIndicatorClicked: 'thinkorswim_indicator_clicked',
+  /** Sierra Chart ACSIL study downloaded, or its "get your API key" CTA
+   *  clicked (client, the gamma-levels pages + /sierra-chart-indicator). The
+   *  `action` property records which: download | get_key | upgrade |
+   *  see_pricing. Same Pro funnel as the NinjaTrader indicator. */
+  SierraChartIndicatorClicked: 'sierrachart_indicator_clicked',
   /** Social crawler fetched an opengraph-image (server, one per URL per cache TTL). */
   OgPreviewed: 'og_previewed',
 

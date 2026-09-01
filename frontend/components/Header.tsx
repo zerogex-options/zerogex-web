@@ -16,6 +16,7 @@ import {
   Search,
 } from "lucide-react";
 import { NAV_GROUPS, type NavGroup, type NavItem } from "@/core/navigation";
+import { INTEGRATIONS_HUB } from "@/core/integrations";
 import AccountMenu from "./AccountMenu";
 import BetaBadge from "./BetaBadge";
 import TierBadge from "./TierBadge";
@@ -72,10 +73,9 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
         labelKey: "nav.group.more",
         items: [
           { id: "/about", label: "About", labelKey: "nav.about" },
-          // Chart-platform integrations. Brand names, so no labelKey — they
-          // stay English in every locale, same as "API Specs".
-          { id: "/tradingview-indicator", label: "TradingView Indicator" },
-          { id: "/ninjatrader-indicator", label: "NinjaTrader Indicator" },
+          // One entry for every chart-platform integration — see the note on
+          // the same group in Navigation.tsx.
+          { id: INTEGRATIONS_HUB.href, label: INTEGRATIONS_HUB.navLabel, labelKey: "nav.integrations" },
           { id: "https://api.zerogex.io/docs", label: "API Specs", external: true },
           // mailto: — `external` keeps it an <a href> rather than a router.push,
           // and the http-only target/rel check leaves it opening in the same tab

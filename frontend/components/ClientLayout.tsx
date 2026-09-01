@@ -6,6 +6,7 @@ import { useTheme } from '@/core/ThemeContext';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { identify as telemetryIdentify, reset as telemetryReset } from '@/core/telemetry/posthog-client';
 import { DISCLAIMER_VERSION } from '@/core/disclaimer';
+import { integrationRoutes } from '@/core/integrations';
 import { FOUNDING_LOCKIN_DEADLINE_ISO } from '@/core/foundingLockin';
 import { PRO_WELCOME_SESSION_KEY, isProWelcomeEligible } from '@/core/proWelcome';
 import Header from './Header';
@@ -51,7 +52,7 @@ const getProWelcomeGateClient = () => {
 };
 
 // Routes that render their own full-page layout (no app chrome)
-const STANDALONE_ROUTES = ['/', '/about', '/giving', '/pricing', '/founding', '/login', '/register', '/unauthorized', '/terms', '/privacy', '/real-time-gex-0dte', '/spx-gamma-levels', '/spy-gamma-levels', '/qqq-gamma-levels', '/ndx-gamma-levels', '/es-gamma-levels', '/nq-gamma-levels', '/trading-mistakes', '/tradingview-indicator', '/ninjatrader-indicator'];
+const STANDALONE_ROUTES = ['/', '/about', '/giving', '/pricing', '/founding', '/login', '/register', '/unauthorized', '/terms', '/privacy', '/real-time-gex-0dte', '/spx-gamma-levels', '/spy-gamma-levels', '/qqq-gamma-levels', '/ndx-gamma-levels', '/es-gamma-levels', '/nq-gamma-levels', '/trading-mistakes', ...integrationRoutes()];
 
 // Routes where the disclaimer modal should not interrupt the user (the auth
 // flow itself, and the public terms/privacy pages which already contain the
