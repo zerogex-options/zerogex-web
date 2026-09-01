@@ -20,9 +20,11 @@
 //                      sub active; the webhook grants no access. Also counted as
 //                      a Full Subscriber before the tier gate, and also a
 //                      correct -1.
-//   • Setup withheld — 'trialing' at tier 'public': the card's SetupIntent never
-//                      succeeded, so access was withheld. A -1 against the old
-//                      Free Trial line.
+//   • Setup withheld — 'trialing' at tier 'public' with no pause on file: the
+//                      card's SetupIntent never succeeded, so access was
+//                      withheld. A -1 against the old Free Trial line. (A
+//                      trialer who PAUSED reaches the same tier 'public' state
+//                      and is counted with the pauses instead.)
 //   • Unmapped price — the OTHER way a live subscription lands at tier 'public':
 //                      syncSubscriptionToUser falls back to 'public' when the
 //                      price id maps to no SKU, so a missing STRIPE_PRICE_* env
@@ -149,8 +151,14 @@ for (const r of rows) {
     // pauses.
     if (!r.paused_until && isUnmappedPrice(r.stripe_price_id)) notCounted.unmappedPrice.push(r);
     else notCounted.paused.push(r);
-  } else if (r.subscription_status === 'trialing') notCounted.setupWithheld.push(r);
-  else notCounted.other.push({ ...r, why: verdict.why });
+  } else if (r.subscription_status === 'trialing') {
+    // A trialer can pause too — the cancel flow allows it for `trialing` as well
+    // as `active` — and that lands at tier 'public' just like a withheld card
+    // does. Without this check a paused trialer is reported as a failed payment
+    // setup, which points the investigation at exactly the wrong thing.
+    if (r.paused_until) notCounted.paused.push(r);
+    else notCounted.setupWithheld.push(r);
+  } else notCounted.other.push({ ...r, why: verdict.why });
 }
 
 const n = (a) => String(a.length).padStart(4);
@@ -182,12 +190,19 @@ if (!priceTableKnown) {
 
 // What the OLD (pre-split) chart would have shown, so a drop is attributable
 // line by line instead of guessed at.
+// Which line each now-uncounted member USED to sit on is decided by their
+// subscription_status, because that is all the old SQL bucketed on: an `active`
+// row landed on Full Subscriber whatever its tier, a `trialing` row on Free
+// Trial. A paused trialer therefore came off the trial line, not the paying one.
+const pausedFromPaying = notCounted.paused.filter((r) => r.subscription_status === 'active');
+const pausedFromTrial = notCounted.paused.filter((r) => r.subscription_status === 'trialing');
 const oldFull =
   buckets.fullSubscriber.length +
   buckets.converting.length +
-  notCounted.paused.length +
+  pausedFromPaying.length +
   notCounted.unmappedPrice.length;
-const oldTrial = buckets.freeTrial.length + notCounted.setupWithheld.length;
+const oldTrial =
+  buckets.freeTrial.length + pausedFromTrial.length + notCounted.setupWithheld.length;
 console.log('');
 console.log('Reconciliation against the pre-split chart');
 console.log('─────────────────────────────────────────');
@@ -195,20 +210,23 @@ console.log(`  Full Subscriber would previously have read ${oldFull} (now ${buck
 if (buckets.converting.length > 0) {
   console.log(`    -${buckets.converting.length}  now on Converting — their charge has not cleared yet`);
 }
-if (notCounted.paused.length > 0) {
-  console.log(`    -${notCounted.paused.length}  paused — they have no access and are paying nothing`);
+if (pausedFromPaying.length > 0) {
+  console.log(`    -${pausedFromPaying.length}  paused — they have no access and are paying nothing`);
 }
 if (notCounted.unmappedPrice.length > 0) {
   console.log(`    -${notCounted.unmappedPrice.length}  price id maps to no SKU — investigate, this one is a fault`);
 }
 if (
   buckets.converting.length === 0 &&
-  notCounted.paused.length === 0 &&
+  pausedFromPaying.length === 0 &&
   notCounted.unmappedPrice.length === 0
 ) {
   console.log('     (no difference — nothing is mid-conversion, paused, or mispriced right now)');
 }
 console.log(`  Free Trial would previously have read ${oldTrial} (now ${buckets.freeTrial.length})`);
+if (pausedFromTrial.length > 0) {
+  console.log(`    -${pausedFromTrial.length}  paused mid-trial — no charge and no access until they resume`);
+}
 if (notCounted.setupWithheld.length > 0) {
   console.log(`    -${notCounted.setupWithheld.length}  card setup never succeeded — access was withheld`);
 }
