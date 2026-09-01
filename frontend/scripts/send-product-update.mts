@@ -551,8 +551,70 @@ if (cli.csvPath) {
 
 // ---- Load content ----------------------------------------------------------
 
-const html = fs.readFileSync(htmlPath, 'utf8');
-const text = fs.readFileSync(textPath, 'utf8');
+// The discount a template promises has to be whatever the configured coupon
+// actually grants, and the rate is stated in three places: the Stripe coupon,
+// the /pricing welcome-back banner, and the win-back emails. Rather than
+// hardcode a percentage into the campaign copy — where it silently rots the
+// first time the coupon changes — the cancelled template carries
+// {{DISCOUNT_LABEL}} / {{DISCOUNT_SHORT}} and we substitute the SAME
+// WINBACK_DISCOUNT_LABEL that scripts/send-winback.mts reads. One value, one
+// rate, everywhere.
+const DISCOUNT_LABEL =
+  process.env.WINBACK_DISCOUNT_LABEL || envLocal.WINBACK_DISCOUNT_LABEL || '';
+
+// Short form for the CTA button and preheader, where the full label reads long:
+// the leading "50% off" / "$20 off" when the label starts with one, else a
+// rate-free fallback so an unusual label can never render a broken button.
+function shortDiscount(label: string): string {
+  const m = label.trim().match(/^((?:\d+(?:\.\d+)?\s*%)|(?:[$€£]\s?\d+(?:\.\d+)?))\s*off\b/i);
+  return m ? `${m[1].replace(/\s+/g, '')} off` : 'a discount';
+}
+
+// Minimal escape: the label is operator-set, not user input, but it lands
+// inside markup so a stray & or < would still corrupt the email.
+function escapeHtmlText(v: string): string {
+  return v
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
+}
+
+let html = fs.readFileSync(htmlPath, 'utf8');
+let text = fs.readFileSync(textPath, 'utf8');
+
+const needsDiscountLabel =
+  html.includes('{{DISCOUNT_LABEL}}') ||
+  html.includes('{{DISCOUNT_SHORT}}') ||
+  text.includes('{{DISCOUNT_LABEL}}') ||
+  text.includes('{{DISCOUNT_SHORT}}');
+
+if (needsDiscountLabel) {
+  // Refuse rather than fall back to a default. A default is exactly the drift
+  // this substitution exists to prevent: it would state a rate nobody chose,
+  // against a coupon that may grant something else entirely.
+  if (!DISCOUNT_LABEL) {
+    console.error(
+      '\nError: this email states a discount, but WINBACK_DISCOUNT_LABEL is not set.\n' +
+        'Set it in frontend/.env.local to match the configured win-back coupon, e.g.\n' +
+        '  WINBACK_DISCOUNT_LABEL="50% off your first year"\n' +
+        'The same value is read by scripts/send-winback.mts and the /pricing\n' +
+        'welcome-back banner, so all three state one rate.',
+    );
+    process.exit(1);
+  }
+  html = html
+    .replaceAll('{{DISCOUNT_LABEL}}', escapeHtmlText(DISCOUNT_LABEL))
+    .replaceAll('{{DISCOUNT_SHORT}}', escapeHtmlText(shortDiscount(DISCOUNT_LABEL)));
+  text = text
+    .replaceAll('{{DISCOUNT_LABEL}}', DISCOUNT_LABEL)
+    .replaceAll('{{DISCOUNT_SHORT}}', shortDiscount(DISCOUNT_LABEL));
+  // Echo what the copy will actually claim, so the rate is reviewed rather than
+  // assumed — the whole point of routing it through one env value.
+  console.log(
+    `Discount copy:  "${DISCOUNT_LABEL}"  (button reads "Come back at ${shortDiscount(DISCOUNT_LABEL)}")`,
+  );
+}
 
 function buildPayload(to: string, subj: string, unsubUrl: string): Record<string, unknown> {
   const payload: Record<string, unknown> = {

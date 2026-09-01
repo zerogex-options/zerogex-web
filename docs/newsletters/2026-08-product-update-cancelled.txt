@@ -83,15 +83,16 @@ A quick look at where ZeroGEX is headed — the current direction:
 
 == IF YOU WANT ANOTHER LOOK ==
 
-25% off your first year back, applied automatically at checkout through the
-link below — nothing to type in, and it's tied to your account.
+{{DISCOUNT_LABEL}}, applied automatically at checkout through
+the link below — nothing to type in, and it's tied to your
+account.
 
 Your old settings, layouts, and saved symbols are still there. If you were
 Pro, note that dropping below Pro revokes API keys, so you'd generate a
 fresh one from Account > API Access (that's also what the NinjaTrader
 indicator needs).
 
-Come back at 25% off: https://zerogex.io/pricing?winback=1
+Come back at {{DISCOUNT_SHORT}}: https://zerogex.io/pricing?winback=1
 
 No rush, and no hard feelings if the answer is no — you can also just watch
 the free levels for a while (https://zerogex.io/spx-gamma-levels).
