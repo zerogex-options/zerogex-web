@@ -5,6 +5,11 @@ import Link from 'next/link';
 import { Check, Copy, Download, LineChart } from 'lucide-react';
 import { capture } from '@/core/telemetry/posthog-client';
 import { THINKORSWIM_STUDY_PATH } from '@/core/integrationAssets';
+import {
+  fillThinkScriptLevels,
+  hasAnyLevel,
+  type ThinkorswimLevels,
+} from '@/core/thinkorswimStudy';
 
 // "Plot these levels on thinkorswim" — the second free-indicator funnel step,
 // alongside PlotOnTradingView.
@@ -20,6 +25,15 @@ import { THINKORSWIM_STUDY_PATH } from '@/core/integrationAssets';
 // Free and ungated, like the TradingView script and for the same reason: the
 // study is inert without numbers, and the numbers are on the public
 // gamma-levels pages. There is nothing here to gate.
+//
+// When today's levels are available the copy button hands over the study with
+// them ALREADY IN IT, so the daily ritual is one paste rather than a paste plus
+// four numbers typed into a settings dialog. thinkScript cannot fetch anything,
+// so pasting a regenerated script is the only automation the platform allows —
+// it is what every vendor shipping GEX levels to thinkorswim does, and it is
+// strictly less work than what this block asked for before. The filling itself
+// lives in core/thinkorswimStudy.ts and rewrites the tracked template, so the
+// filled study and the blank one cannot drift.
 
 const STUDY_NAME = 'ZeroGEX Daily Gamma Levels';
 
@@ -33,6 +47,14 @@ const STUDY_URL: string = THINKORSWIM_STUDY_PATH;
 const LEVELS_HREF = '/spx-gamma-levels';
 
 interface PlotOnThinkorswimProps {
+  /**
+   * Today's levels, when the surface has them. The gamma-levels pages pass the
+   * same snapshot their cards render, so what gets copied is what the reader is
+   * looking at. Omitted (or all-null, on an outage) falls back to the blank
+   * template — and the copy says so, rather than promising today's numbers and
+   * handing over four zeros.
+   */
+  levels?: ThinkorswimLevels | null;
   /**
    * Set on the dedicated /thinkorswim-indicator page, where this section IS
    * the page rather than a block under today's level cards. It promotes the
@@ -57,8 +79,14 @@ const CTA_BASE = {
   fontFamily: 'inherit',
 } as const;
 
-export default function PlotOnThinkorswim({ standalone = false }: PlotOnThinkorswimProps) {
+export default function PlotOnThinkorswim({ levels, standalone = false }: PlotOnThinkorswimProps) {
   const Heading = standalone ? 'h1' : 'h2';
+  // Only claim pre-filled levels when at least one actually resolved. On an
+  // outage the snapshot is present but every field is null, and offering
+  // "today's levels" that are four zeros is worse than offering the blank
+  // template honestly.
+  const prefilled = hasAnyLevel(levels);
+  const prefilledSymbol = prefilled ? levels?.symbol : null;
   // Three states, not two: a failed copy must not show a success tick. Older
   // Safari and any non-secure context reject navigator.clipboard outright, and
   // silently rendering "Copied" there would send someone to the Study Editor
@@ -77,14 +105,20 @@ export default function PlotOnThinkorswim({ standalone = false }: PlotOnThinkors
   );
 
   const onCopy = async () => {
-    capture('thinkorswim_indicator_clicked', { action: 'copy' });
+    capture('thinkorswim_indicator_clicked', { action: prefilled ? 'copy_prefilled' : 'copy' });
     try {
       // Fetched rather than inlined into the bundle: the study is ~6KB of
       // thinkScript that every visitor to a gamma-levels page would otherwise
       // download as part of the JS payload, to serve the few who click.
       const response = await fetch(STUDY_URL);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      await navigator.clipboard.writeText(await response.text());
+      const template = await response.text();
+      // Filling is a substitution over the fetched template, so a failure here
+      // is a bug in our regex rather than anything the user did — and it would
+      // hand them a study that looks filled and is not. Let it throw into the
+      // catch below, which shows the failure and points at the download.
+      const source = prefilled && levels ? fillThinkScriptLevels(template, levels) : template;
+      await navigator.clipboard.writeText(source);
       setCopyState('copied');
       setTimeout(() => setCopyState('idle'), 2500);
     } catch {
@@ -143,10 +177,21 @@ export default function PlotOnThinkorswim({ standalone = false }: PlotOnThinkors
       </Heading>
       <p style={{ margin: '0 0 8px 0', fontSize: 15, lineHeight: 1.65, color: 'var(--color-text-secondary)', maxWidth: 720 }}>
         On Schwab&apos;s thinkorswim? Paste our free{' '}
-        <strong style={{ color: 'var(--color-text-primary)' }}>{STUDY_NAME}</strong> study into the Study Editor
-        once, then enter today&apos;s numbers {levelsSource}. It draws the Gamma Flip, Call Wall, Put Wall, and
-        Max Pain as horizontal lines with a price chip on each — and can fire a thinkorswim alert when price
-        crosses one.
+        <strong style={{ color: 'var(--color-text-primary)' }}>{STUDY_NAME}</strong> study into the Study
+        Editor. It draws the Gamma Flip, Call Wall, Put Wall, and Max Pain as horizontal lines with a price
+        chip on each — and can fire a thinkorswim alert when price crosses one.
+        {prefilled ? (
+          <>
+            {' '}
+            The copy button below hands you the study with{' '}
+            <strong style={{ color: 'var(--color-text-primary)' }}>
+              today&apos;s {prefilledSymbol} levels already in it
+            </strong>{' '}
+            — nothing to type.
+          </>
+        ) : (
+          <> Then enter today&apos;s numbers {levelsSource}.</>
+        )}
       </p>
       <p style={{ margin: '0 0 20px 0', fontSize: 13, lineHeight: 1.6, color: 'var(--color-text-secondary)', opacity: 0.85, maxWidth: 720 }}>
         Manual-entry only. thinkScript runs sandboxed inside thinkorswim with no network access at all, so no
@@ -174,7 +219,8 @@ export default function PlotOnThinkorswim({ standalone = false }: PlotOnThinkors
             </>
           ) : (
             <>
-              Copy the study <Copy size={16} />
+              {prefilled ? `Copy with today's ${prefilledSymbol} levels` : 'Copy the study'}{' '}
+              <Copy size={16} />
             </>
           )}
         </button>
@@ -209,7 +255,9 @@ export default function PlotOnThinkorswim({ standalone = false }: PlotOnThinkors
       >
         {copyState === 'failed'
           ? 'Your browser blocked the clipboard — use Download the file instead, then open it in any text editor.'
-          : 'Roughly 150 lines of thinkScript. Nothing to install and no account needed.'}
+          : prefilled
+            ? 'Roughly 150 lines of thinkScript, with the four levels filled in. Nothing to install and no account needed — re-copy tomorrow for the new numbers.'
+            : 'Roughly 150 lines of thinkScript. Nothing to install and no account needed.'}
       </p>
 
       <ol
@@ -230,9 +278,19 @@ export default function PlotOnThinkorswim({ standalone = false }: PlotOnThinkors
           OK.
         </li>
         <li>
-          <strong style={{ color: 'var(--color-text-primary)' }}>Add it to the chart</strong> and open its
-          settings, then enter today&apos;s Gamma Flip, Call Wall, Put Wall, and Max Pain {levelsSource}. Leave
-          any level at 0 to hide it.
+          {prefilled ? (
+            <>
+              <strong style={{ color: 'var(--color-text-primary)' }}>Add it to the chart.</strong> The levels
+              are already set, so it draws immediately. To refresh them tomorrow, come back and copy again,
+              then paste over the same study — or open its settings and edit the four numbers by hand.
+            </>
+          ) : (
+            <>
+              <strong style={{ color: 'var(--color-text-primary)' }}>Add it to the chart</strong> and open its
+              settings, then enter today&apos;s Gamma Flip, Call Wall, Put Wall, and Max Pain {levelsSource}.
+              Leave any level at 0 to hide it.
+            </>
+          )}
         </li>
         <li>
           It follows you across{' '}

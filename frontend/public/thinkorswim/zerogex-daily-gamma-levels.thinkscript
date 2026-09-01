@@ -51,7 +51,7 @@ input maxPain   = 0.0;      # Strike where the most option value expires worthle
 # under the hood and do not render as their own names in a string.
 input levelsFor   = "SPX";
 input levelsDate  = "";
-input showLevelsDate = no;  # Turn on once you have filled in levelsDate above.
+input showLevelsDate = no;  # Shows the snapshot-date chip. Set yes when levelsDate is filled.
 
 # -----------------------------------------------------------------------------
 #  Display

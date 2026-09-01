@@ -102,10 +102,11 @@ export const INTEGRATIONS: readonly Integration[] = [
     navLabel: 'thinkorswim Study',
     cardTitle: 'Plot the levels on thinkorswim',
     blurb:
-      'A free thinkScript study for thinkorswim desktop, web, and mobile. Paste it once into the Study Editor and it draws the Gamma Flip, Call Wall, Put Wall, and Max Pain, with a level chip on each line and optional cross-alerts.',
+      'A free thinkScript study for thinkorswim desktop, web, and mobile. Copy it with today’s levels already filled in, paste it into the Study Editor, and it draws the Gamma Flip, Call Wall, Put Wall, and Max Pain — with a level chip on each line and optional cross-alerts.',
     tier: 'free',
     updates: 'manual',
-    updatesNote: 'thinkScript has no network access at all, so it is manual-entry by design.',
+    updatesNote:
+      'thinkScript has no network access at all, so you re-copy the study each day — but it comes with the numbers already in it.',
     language: 'thinkScript',
     levels: 'Gamma Flip · Call Wall · Put Wall · Max Pain',
     accent: '--color-brand-primary',

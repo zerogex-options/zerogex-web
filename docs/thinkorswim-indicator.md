@@ -48,6 +48,48 @@ The download button restores the familiar name via `download="ZeroGEX_Daily_Gamm
 so what lands in the user's Downloads folder is what they expect.
 `tests/integrationAssets.test.ts` pins the stored extension.
 
+## The copy button hands over TODAY'S levels, not a blank template
+
+This is the only automation thinkScript allows, and it is what every vendor
+shipping GEX levels to thinkorswim does — [Trading Volatility][tv] generates a
+script you paste over your study, and [GEX Levels][gl] is explicit that there
+is no auto-update and you re-paste to refresh. Typing four numbers into a
+settings dialog was the part people dropped out on, and the part they had to
+redo every morning.
+
+[tv]: https://stocks.tradingvolatility.net/blog/export-multi-gex-levels-tos
+[gl]: https://gex-levels.com/blog/thinkorswim-gamma-levels
+
+`core/thinkorswimStudy.ts` rewrites the `input` DEFAULTS in the tracked
+template rather than assembling a second copy of the script, so there is still
+exactly one source of record and a filled study cannot drift from the blank
+one. Three details in there are load-bearing:
+
+- **A whole-number level still emits a decimal point.** thinkScript infers an
+  input's TYPE from its default, so `input callWall = 6100;` produces an
+  *integer* input that then refuses a fractional value when the user edits it.
+  `6100.0` keeps it a double.
+- **An unresolved level is left at `0.0`**, the study's hide-this-level
+  sentinel — so a partial snapshot draws what it has rather than a line at zero.
+- **The date is rendered in ET.** Market data is ET-dated; 03:30 UTC is still
+  the previous evening in New York, and a study labelled with tomorrow's date
+  reads as levels the user has not seen.
+
+Each surface passes the snapshot it already has, so what gets copied is what
+the reader is looking at:
+
+| Surface | Levels |
+| --- | --- |
+| `/spx-`, `/spy-`, `/qqq-`, `/ndx-`, `/es-`, `/nq-gamma-levels` | that page's own ticker, from the same `primaryData` its cards render |
+| `/thinkorswim-indicator` | SPX, fetched server-side at 900s to match the gamma pages |
+
+When the fetch fails, `hasAnyLevel()` is false and the section falls back to
+the blank template **and says so** — rather than promising today's numbers and
+handing over four zeros. That fallback is also monitored: the split between the
+`copy_prefilled` and `copy` telemetry actions is a passive alarm on the levels
+fetch, since a rising share of plain `copy` means the snapshot is unavailable
+well before anyone reports a blank study.
+
 ## Delivery: copy first, download second
 
 TradingView hosts our published script, so that page just links to it. There is
@@ -104,8 +146,8 @@ it follows them across desktop, web, and mobile.
 1. On a chart: **Studies → Edit Studies… → Create**.
 2. Select everything in the editor and paste ours over it.
 3. Name it "ZeroGEX Daily Gamma Levels", click OK, apply it.
-4. Open its settings and type in today's four numbers from
-   `zerogex.io/spx-gamma-levels` (or the SPY / QQQ / NDX / ES / NQ pages).
+4. Nothing to type — the levels are already in it. To refresh tomorrow, copy
+   again and paste over the same study.
 
 ## Cache-busting
 
