@@ -70,7 +70,7 @@ Die Backtesting-Seite zeigt den historischen Zeithorizont für das jeweils ausge
 
 ## Datenquellen
 
-ZeroGEX nutzt **Optionsdaten aus dem OPRA-Feed** (das konsolidierte Tape für US-Optionen) sowie den Kursfeed des zugrunde liegenden Basiswerts. Beides sind professionelle Echtzeit-Datenquellen.
+ZeroGEX nutzt mehrere unterschiedliche Klassen professioneller Marktdaten mit jeweils eigener Quelle: Echtzeit-Trades und -Quotes für gelistete US-Optionen, offizielles Open Interest (nach Sessionende vom Clearing veröffentlicht — kein Echtzeitwert), Echtzeit-Kurse des Basiswerts sowie einen CME-Futures-Feed für die ES-/NQ-Seiten. Griechen und alle Dealer-Positionierungs-Kennzahlen berechnet ZeroGEX selbst aus diesen Eingaben — siehe [Methodik & Validierung](/methodology).
 
 Wir geben die konkreten Anbieternamen nicht öffentlich bekannt, aber der Qualitätsstandard ist institutionell — dieselben Datenfeeds, die auch von Quant-Desks genutzt werden.
 

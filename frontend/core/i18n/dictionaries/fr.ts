@@ -82,6 +82,7 @@ export const fr: Dictionary = {
   'footer.platform': 'Plateforme',
   'footer.freeGammaLevels': 'Niveaux Gamma gratuits',
   'footer.updates': 'Nouveautés',
+  'footer.methodology': 'Méthodologie et validation',
   'footer.givingBack': 'Engagement solidaire',
   'footer.apiDocs': 'Documentation de l’API',
   'footer.privacy': 'Confidentialité',

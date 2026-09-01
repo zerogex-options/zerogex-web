@@ -26,7 +26,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'what-is-zerogex',
         q: 'What is ZeroGEX?',
-        a: 'ZeroGEX is a real-time options analytics platform built around dealer positioning. It shows you where dealers are long or short gamma, where the gamma flip sits, where the call and put walls are, and runs a suite of real-time signals on top of all of it. The point is to give you the same lens market makers use to hedge — so you can read intraday price action in those terms.',
+        a: 'ZeroGEX is a real-time options analytics platform built around dealer positioning. It models where dealers are long or short gamma, where the gamma flip sits, where the call and put walls are, and runs a suite of real-time signals on top of all of it. The point is to give you the same lens market makers hedge through — so you can read intraday price action in those terms. Dealer positioning is modeled from the option chain, not directly observed; see the Methodology page for the full disclosure.',
       },
       {
         id: 'who-its-for',
@@ -83,7 +83,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'data-source',
         q: 'Where does the data come from?',
-        a: 'ZeroGEX uses OPRA-feed options data (the consolidated U.S. options tape) plus the underlying equity quote feed. Both are professional, institutional-grade real-time data sources. We don\'t disclose specific vendor names publicly.',
+        a: 'ZeroGEX derives its analytics from several distinct classes of professional market data, each with its own source: real-time listed U.S. options trades and quotes, official open interest published by the clearinghouse after each session (an end-of-session figure, not a live one), real-time quotes for the underlying index and ETF, and — on the ES/NQ futures pages — a CME futures feed. Greeks and every positioning metric are computed by ZeroGEX from those inputs rather than supplied ready-made by a vendor. We don\'t disclose specific vendor names publicly.',
       },
       {
         id: 'history-depth',
@@ -293,9 +293,14 @@ const FAQ_DATA: FAQCategory[] = [
     blurb: 'How the numbers are actually computed.',
     faqs: [
       {
+        id: 'modeled-vs-observed',
+        q: 'Does ZeroGEX know the actual dealer positions?',
+        a: 'No — and no vendor does. Public options data shows how many contracts are outstanding at each strike, but not who is long and who is short. ZeroGEX therefore applies a defined positioning convention: calls are signed positive and puts negative, modeling dealers as net long the calls customers overwrite and net short the puts customers buy for protection. Every dealer-positioning metric on the platform is derived under that convention. It is disclosed, applied consistently, and useful precisely because it is consistent — but it is a model, not a measurement. The Methodology & Validation page sets out the full assumptions, the limitations, and how we test them.',
+      },
+      {
         id: 'what-is-gex',
         q: 'What is Gamma Exposure (GEX) and why does it matter?',
-        a: 'GEX is the aggregate sensitivity of options dealers\' delta hedges to price moves in the underlying. When dealers are long gamma (positive net GEX at spot), they sell rallies and buy dips — a dampening effect on volatility. When they\'re short gamma, they chase price — an amplifying effect. Knowing the GEX regime tells you whether the market is likely to mean-revert or trend.',
+        a: 'GEX is the aggregate sensitivity of options dealers\' delta hedges to price moves in the underlying. When dealers are modeled long gamma (positive net GEX at spot), the hedging reflex is to sell rallies and buy dips — a dampening effect on volatility. When modeled short gamma, hedging chases price — an amplifying effect. Knowing the modeled GEX regime tells you whether the market is more likely to mean-revert or trend.',
       },
       {
         id: 'gamma-flip',

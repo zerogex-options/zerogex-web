@@ -28,6 +28,12 @@ function sourceFileForRoute(urlPath) {
     return path.join(PROJECT_ROOT, 'content', 'articles', `${educationMatch[1]}.md`);
   }
 
+  // /methodology is markdown-backed but lives at the content root rather than
+  // in a scanned directory, so its lastmod has to be wired up by hand.
+  if (trimmed === 'methodology') {
+    return path.join(PROJECT_ROOT, 'content', 'methodology.md');
+  }
+
   const guidesMatch = /^guides\/([^/]+)$/.exec(trimmed);
   if (guidesMatch) {
     return path.join(PROJECT_ROOT, 'content', 'guides', `${guidesMatch[1]}.md`);
@@ -160,6 +166,7 @@ const config = {
       '/help',
       '/help/faqs',
       '/help/quickstarts',
+      '/methodology',
       '/pricing',
       '/privacy',
       '/real-time-gex-0dte',

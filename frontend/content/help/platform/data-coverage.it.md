@@ -70,7 +70,7 @@ La pagina di Backtesting mostra l'orizzonte storico disponibile per il segnale s
 
 ## Fonti dati
 
-ZeroGEX utilizza **dati opzioni del feed OPRA** (il tape consolidato per le opzioni USA) insieme al feed di quotazione dell'azione sottostante. Entrambe sono fonti dati professionali e in tempo reale.
+ZeroGEX utilizza diverse classi distinte di dati di mercato professionali, ciascuna con la propria fonte: trade e quotazioni in tempo reale delle opzioni quotate USA, l'open interest ufficiale pubblicato dalla stanza di compensazione dopo la sessione (un dato di fine sessione, non in tempo reale), quotazioni in tempo reale del sottostante e un feed dei futures CME per le pagine ES / NQ. Le greche e ogni metrica di posizionamento dei dealer sono calcolate da ZeroGEX a partire da questi input — vedi [Metodologia e validazione](/methodology).
 
 Non divulghiamo pubblicamente i nomi specifici dei fornitori, ma lo standard qualitativo è di livello istituzionale — gli stessi feed dati utilizzati dai desk quantitativi.
 

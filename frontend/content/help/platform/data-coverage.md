@@ -72,9 +72,14 @@ The Backtesting page exposes the historical horizon for whatever signal you sele
 
 ## Data sources
 
-ZeroGEX uses **OPRA-feed options data** (the consolidated tape for U.S. options — real-time trades and quotes, used to infer intraday positioning) plus the underlying equity quote feed. Official open interest is a separate, end-of-session figure from clearing rather than a real-time value. All are professional-grade sources.
+ZeroGEX draws on several distinct classes of professional market data, each with its own source:
 
-We don't disclose specific vendor names publicly, but the quality bar is institutional — same data feeds used by quant desks.
+- **Real-time listed U.S. options trades and quotes** — used to price the chain and to infer intraday positioning changes between official open-interest updates.
+- **Official open interest** — tallied by the clearinghouse after the session and published for the next trading day. It is an end-of-session figure, not a real-time one.
+- **Real-time underlying quotes** for the index and ETF.
+- **A CME futures feed** for the ES / NQ pages, which is a separate entitlement from the options and equity feeds.
+
+Greeks and every dealer-positioning metric are computed by ZeroGEX from those inputs rather than supplied ready-made by a vendor — see [Methodology & Validation](/methodology). We don't disclose specific vendor names publicly.
 
 ## Latency
 
