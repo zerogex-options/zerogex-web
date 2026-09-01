@@ -43,7 +43,7 @@ import { useChartExpirations } from "@/hooks/useChartExpirations";
 import { useLinkedPriceAxis } from "@/core/linkedPriceAxis";
 import { netGexAtSpotOrNull, aboveFlipBandIsLong, offScaleBandIsLong } from "@/core/gammaRegime";
 import { computeMaxPainFromStrikes } from "@/core/keyLevels";
-import { classifyPinStrength, pinStrengthLabel } from "@/core/pinStrike";
+import { pinLineLabel } from "@/core/pinStrike";
 import {
   buildExpirationSplit,
   expirationOpacityRamp,
@@ -914,13 +914,12 @@ export default function GammaTerminalChart({
     : num(gexSummary?.pin_confidence);
   // "PIN · STRONG" / "· MODERATE" / "· WEAK" — the Key Levels strength moved
   // onto the chart, so the conviction travels with the level instead of living
-  // only in the tile strip. classifyPinStrength is the shared classifier the
-  // strip already uses, so the two surfaces cannot disagree. A null confidence
-  // (or no active pin) drops the suffix and the chip reads "PIN", exactly as
-  // it did before.
-  const pinStrength = classifyPinStrength(pinStrike, pinConfidence);
-  const pinLabel =
-    pinStrength === "none" ? "PIN" : `PIN · ${pinStrengthLabel(pinStrength).toUpperCase()}`;
+  // only in the tile strip. The wording is core/pinStrike's, shared with the
+  // Daily Replay chart's pin line and built on the same classifier the tile
+  // strip uses, so no two surfaces can disagree about the same pin. Upper-cased
+  // here because this chart's level tags are caps. With no active pin there is
+  // nothing to qualify and the chip reads "PIN", exactly as before.
+  const pinLabel = pinLineLabel(pinStrike, pinConfidence).toUpperCase();
   // GEX King — the whole-chain heaviest-|net-gamma| strike. Sourced ONLY from
   // the all-expiration summary, never levelBucket: like the Pin it must not
   // follow the Expiry selector, because narrowing it to a subset of
