@@ -40,6 +40,10 @@ test('tradeworkz admin ops are admin; customer follow/feed are ungated (pass thr
 test('signals: advanced + trade-bias are pro; the rest (score/action/basic) are basic', () => {
   eq('/api/signals/advanced/eod-pressure', 'pro');
   eq('/api/signals/advanced', 'pro');
+  // vol-expansion is the one advanced signal carved down to basic — the Basic
+  // Dealer Positioning page embeds the reading, so gating it at pro left a
+  // permanent upsell inside a page Basic already pays for.
+  eq('/api/signals/advanced/vol-expansion', 'basic');
   eq('/api/signals/trade-bias', 'pro');
   eq('/api/signals/trade-bias-history', 'pro'); // distinct segment, explicit rule
   // Composite score is fetched by the Basic /my-dashboard → must be basic.
@@ -49,6 +53,28 @@ test('signals: advanced + trade-bias are pro; the rest (score/action/basic) are 
   eq('/api/signals/basic/skew-delta', 'basic');
   eq('/api/signals/trade', 'basic'); // must NOT be swept up by the trade-bias rule
   eq('/api/signals', 'basic');
+});
+
+// The vol-expansion carve-out is a prefix sitting INSIDE a broader pro prefix,
+// with a pro sub-path of its own beneath it. covers() matches descendants, so
+// rule order is the only thing keeping the Pro analytic out of Basic's hands —
+// reorder these and the leak is silent, which is exactly what this gate exists
+// to prevent.
+test('vol-expansion carve-out: the reading is basic, its accuracy analytics stay pro', () => {
+  eq('/api/signals/advanced/vol-expansion', 'basic');
+  // Descendants of the reading (e.g. a future sub-resource) follow it to basic.
+  eq('/api/signals/advanced/vol-expansion/history', 'basic');
+  // ...except /accuracy, which has its own explicit pro rule ordered ahead of
+  // the basic prefix. This is the assertion that fails if someone "tidies" the
+  // rules into alphabetical or general-to-specific order.
+  eq('/api/signals/advanced/vol-expansion/accuracy', 'pro');
+  eq('/api/signals/advanced/vol-expansion/accuracy/rollup', 'pro');
+  // Sibling advanced signals are untouched by the carve-out.
+  eq('/api/signals/advanced/squeeze-setup', 'pro');
+  eq('/api/signals/advanced/market-pressure', 'pro');
+  // Segment-aware: a path that merely starts with the same characters must not
+  // inherit basic.
+  eq('/api/signals/advanced/vol-expansionista', 'pro');
 });
 
 test('derived analytics surfaces are basic', () => {
@@ -106,7 +132,9 @@ test('kill-switch: gate is ON by default and only OFF for the exact value "0"', 
 // directions: premium stays premium, and ungated stays ungated.
 test('versioned paths gate identically to their unversioned form', () => {
   const cases: Array<[string, ApiAccess | null]> = [
-    ['/api/signals/advanced/vol-expansion', 'pro'],
+    ['/api/signals/advanced/vol-expansion', 'basic'],
+    ['/api/signals/advanced/vol-expansion/accuracy', 'pro'],
+    ['/api/signals/advanced/squeeze-setup', 'pro'],
     ['/api/signals/trade-bias', 'pro'],
     ['/api/signals/trade-bias-history', 'pro'],
     ['/api/signals/score', 'basic'],
