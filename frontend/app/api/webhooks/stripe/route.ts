@@ -1182,14 +1182,29 @@ async function maybeSendPaidWelcomeEmail(
   if (Number(firstTimeClaim.changes) > 0) {
     const subMetadata = (subscription.metadata ?? {}) as Record<string, string | undefined>;
     const isFounding = subMetadata.founding === '1';
+    const trialStartUnix =
+      typeof subscription.trial_start === 'number' ? subscription.trial_start : null;
+    const trialEndUnix =
+      typeof subscription.trial_end === 'number' ? subscription.trial_end : null;
     // Derive the trial-end date the email mentions from the real Stripe
     // trial_end so the copy can't drift from what Stripe will actually
     // charge. Only meaningful while still in 'trialing' — if the sub
     // already activated past the trial (no trial set, or trial elapsed),
     // emit the no-trial copy.
     const trialEndIso =
-      subscription.status === 'trialing' && typeof subscription.trial_end === 'number'
-        ? new Date(subscription.trial_end * 1000).toISOString()
+      subscription.status === 'trialing' && trialEndUnix !== null
+        ? new Date(trialEndUnix * 1000).toISOString()
+        : null;
+    // Length of THIS trial, measured off Stripe's own window rather than
+    // assumed to be the standard TRIAL_PERIOD_DAYS: a cold signup returning
+    // through the reactivation email's ?reactivate=1 link checks out with the
+    // extended REACTIVATION_TRIAL_DAYS (default 30), so hard-coded "7-day" copy
+    // would promise that member a charge three weeks before the date named in
+    // the very next sentence. Null when Stripe reports no trial start, which
+    // makes the welcome name no day count at all — see describeTrialLength.
+    const trialDays =
+      trialEndIso !== null && trialStartUnix !== null && trialEndUnix !== null
+        ? (trialEndUnix - trialStartUnix) / 86_400
         : null;
     // Promo only meaningful on the non-founding path — founding has its own
     // (richer) intro discount and that email already speaks to it.
@@ -1198,7 +1213,7 @@ async function maybeSendPaidWelcomeEmail(
       if (isFounding) {
         await sendFoundingWelcomeEmail(user.email, { trialEndIso });
       } else {
-        await sendPaidWelcomeEmail(user.email, { trialEndIso, promoIntroLabel });
+        await sendPaidWelcomeEmail(user.email, { trialEndIso, trialDays, promoIntroLabel });
       }
       logAudit({
         type: 'paid_welcome_email_sent',

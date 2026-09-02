@@ -59,6 +59,11 @@ HTTPS call made from the Node process that decides to send it.
   real emails against a stubbed Resend transport.
 - **`formatTrialEndDate`** — formats dates in **America/New_York**, so a displayed
   deadline never drifts off-by-one near midnight UTC.
+- **`describeTrialLength(trialDays)`** — renders the trial-length phrase the welcome
+  opens on (`"30-day free trial"`). A missing or implausible count (non-finite, `< 1`,
+  `> 365`) degrades to a bare `"free trial"` rather than guessing: that phrasing is
+  true for every trial length, whereas a wrong day count is a billing promise the
+  trial-end date in the next sentence would immediately contradict.
 
 ### Signed unsubscribe tokens
 
@@ -145,13 +150,22 @@ auth/transactional and TradeWorkz alerts.
 
 ### 3.2 Trial & subscription welcome
 
-**Trial / paid welcome** — `sendPaidWelcomeEmail(to, { trialEndIso?, promoIntroLabel? })`
+**Trial / paid welcome** — `sendPaidWelcomeEmail(to, { trialEndIso?, trialDays?, promoIntroLabel? })`
 - **Subject:** `Your ZeroGEX trial is active` (trial) **or** `Thank you for subscribing to ZeroGEX!` (immediate paid)
 - Trial branch avoids "thank you for subscribing" (a trialer hasn't paid). Includes the
-  trial-end date, cancel-anytime language, an optional **promo intro-rate** line, the
-  shared "start here" list + dashboard CTA, the disclaimer line, the shared
-  **API-key walkthrough** (after the disclaimer, so the dashboard stays the primary
-  CTA), a founder note, a P.S. linking `/updates`, and the FOH footer.
+  **trial length** and trial-end date, cancel-anytime language, an optional **promo
+  intro-rate** line, the shared "start here" list + dashboard CTA, the disclaimer line,
+  the shared **API-key walkthrough** (after the disclaimer, so the dashboard stays the
+  primary CTA), a founder note, a P.S. linking `/updates`, and the FOH footer.
+- **The trial is not always 7 days.** `trialDays` carries the real length, which the
+  webhook measures off the subscription's own window (`trial_start` → `trial_end`)
+  rather than assuming `TRIAL_PERIOD_DAYS`: a cold signup returning through the
+  reactivation email's `?reactivate=1` link checks out with the extended
+  `REACTIVATION_TRIAL_DAYS` (default 30), and an operator can restore a hand-picked
+  window with `restore-trial-after-switch.mts`. The copy renders "Your 30-day free
+  trial is now active" for that member — hard-coded "7-day" copy used to promise a
+  charge three weeks before the date printed in the very next sentence. Covered by
+  `tests/trialWelcome.test.ts` (`npm run test:trial-welcome`).
 
 **Founding welcome** — `sendFoundingWelcomeEmail(to, { trialEndIso? })`
 - **Subject:** `Thank you for subscribing to ZeroGEX!`

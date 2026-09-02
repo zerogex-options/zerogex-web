@@ -84,6 +84,26 @@ function formatTrialEndDate(iso: string): string {
   }).format(new Date(iso));
 }
 
+// How a welcome email names the length of the trial that just started. The
+// trial is NOT always the standard 7 days: a cold signup returning through the
+// ?reactivate=1 link in the second-touch reactivation email is granted the
+// extended REACTIVATION_TRIAL_DAYS (default 30 — see
+// app/api/billing/checkout/route.ts), and an operator can restore a hand-picked
+// window with scripts/restore-trial-after-switch.mts. Callers pass the real
+// count read off the subscription's own trial window, so the copy tracks what
+// Stripe will actually do instead of repeating an assumption.
+//
+// A missing or implausible count drops the number instead of guessing: "your
+// free trial is now active" is true for every trial length, whereas a wrong day
+// count is a billing promise the trial-end date in the very next sentence would
+// immediately contradict.
+export function describeTrialLength(trialDays?: number | null): string {
+  if (typeof trialDays !== 'number' || !Number.isFinite(trialDays)) return 'free trial';
+  const days = Math.round(trialDays);
+  if (days < 1 || days > 365) return 'free trial';
+  return `${days}-day free trial`;
+}
+
 // The "start here" focus list — the most relevant pieces of ZeroGEX for a
 // first session, named to match the live dashboard's actual card/section
 // titles so a new user can find each one. Today's Read leads because it's the
@@ -292,6 +312,12 @@ export async function sendPaidWelcomeEmail(
   to: string,
   opts?: {
     trialEndIso?: string | null;
+    // Real length of the trial in days, derived by the caller from the
+    // subscription's own trial window (trial_start -> trial_end) rather than
+    // assumed to be the standard 7: a reactivation signup gets
+    // REACTIVATION_TRIAL_DAYS (default 30). Omitted or unusable and the copy
+    // names no day count at all (see describeTrialLength).
+    trialDays?: number | null;
     // When the subscription was checked out under the limited-time public
     // promo, the webhook passes a short descriptor like "first 6 months" or
     // "first year" so the welcome email mentions the intro window and what
@@ -302,11 +328,11 @@ export async function sendPaidWelcomeEmail(
 ) {
   const trialEndDate = opts?.trialEndIso ? formatTrialEndDate(opts.trialEndIso) : null;
   const promoLabel = opts?.promoIntroLabel ?? null;
-  // A set trial-end date means this is a fresh 7-day trial (the standard
-  // checkout path). Trial copy deliberately avoids "thank you for subscribing"
-  // — a trialer hasn't paid, and that phrasing reads as if they were charged.
-  // The no-trial branch is a genuine immediate paid subscriber, so it keeps
-  // the "subscribing" thank-you.
+  // A set trial-end date means the subscription is still trialing (the standard
+  // checkout path), whatever that trial's length turned out to be. Trial copy
+  // deliberately avoids "thank you for subscribing" — a trialer hasn't paid, and
+  // that phrasing reads as if they were charged. The no-trial branch is a
+  // genuine immediate paid subscriber, so it keeps the "subscribing" thank-you.
   const isTrial = Boolean(trialEndDate);
   const subject = isTrial
     ? 'Your ZeroGEX trial is active'
@@ -316,11 +342,12 @@ export async function sendPaidWelcomeEmail(
   const safeAccountUrl = escapeHtml(accountUrl);
   const dashboardUrl = `${getAppUrl()}/dashboard`;
   const safeDashboardUrl = escapeHtml(dashboardUrl);
+  const trialLength = describeTrialLength(opts?.trialDays);
   const trialLineText = trialEndDate
-    ? `Your 7-day free trial is now active, so you have full access right away — dive in and make the most of it. You won't be charged until ${trialEndDate}, and if ZeroGEX turns out not to be the right fit, you're free to cancel before then from the billing portal on your account page (${accountUrl}) and you won't be billed.`
+    ? `Your ${trialLength} is now active, so you have full access right away — dive in and make the most of it. You won't be charged until ${trialEndDate}, and if ZeroGEX turns out not to be the right fit, you're free to cancel before then from the billing portal on your account page (${accountUrl}) and you won't be billed.`
     : null;
   const trialLineHtml = trialEndDate
-    ? `Your 7-day free trial is now active, so you have full access right away &mdash; dive in and make the most of it. You won't be charged until ${escapeHtml(trialEndDate)}, and if ZeroGEX turns out not to be the right fit, you're free to cancel before then from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> and you won't be billed.`
+    ? `Your ${escapeHtml(trialLength)} is now active, so you have full access right away &mdash; dive in and make the most of it. You won't be charged until ${escapeHtml(trialEndDate)}, and if ZeroGEX turns out not to be the right fit, you're free to cancel before then from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> and you won't be billed.`
     : null;
   const promoLineText = promoLabel
     ? `You're on our limited-time introductory rate for the ${promoLabel} — it's already attached to your subscription. After that period your plan renews automatically at our standard rate.`
