@@ -924,14 +924,22 @@ export default function GammaTerminalChart({
   // here because this chart's level tags are caps. With no active pin there is
   // nothing to qualify and the chip reads "PIN", exactly as before.
   const pinLabel = pinLineLabel(pinStrike, pinConfidence).toUpperCase();
-  // GEX King — the whole-chain heaviest-|net-gamma| strike. Sourced ONLY from
-  // the all-expiration summary, never levelBucket: like the Pin it must not
-  // follow the Expiry selector, because narrowing it to a subset of
-  // expirations would not filter it, it would make it a different metric
-  // wearing the same name. Null while rewinding and on the delayed public
-  // snapshot — neither carries a historical King, and drawing the LIVE value
-  // at a rewound moment would misdate it. Null draws no line.
-  const gexKing = rewindActive || snapshot ? null : num(gexSummary?.max_gamma_strike);
+  // GEX King — the whole-chain heaviest-|net-gamma| strike.
+  //
+  // rewindBucket, NOT levelBucket — exactly like the Pin above: levelBucket
+  // also fires for a LIVE expiration filter, and the King must stay
+  // whole-chain there, because narrowing it to a subset of expirations would
+  // not filter it, it would make it a different metric wearing the same name.
+  // While rewinding it comes from the bucket's own stored value, so a replayed
+  // moment shows the King as it stood then rather than today's.
+  //
+  // Still null on the delayed public snapshot, which carries no King at all.
+  // Null draws no line — never a 0 on the axis.
+  const gexKing = rewindBucket
+    ? coerceNum(rewindBucket.max_gamma_strike)
+    : snapshot
+      ? null
+      : num(gexSummary?.max_gamma_strike);
   const vwap = rewindActive ? rewindVwap : snapshot ? snapshot.vwap : num(technicals.latest?.vwap_deviation?.vwap);
 
   const profilePoints = useMemo<ProfilePoint[]>(() => {

@@ -38,6 +38,7 @@ interface FramePayload {
     max_pain: number | null;
     pin_strike: number | null;
     pin_confidence: number | null;
+    max_gamma_strike: number | null;
     net_gex: number | null;
   } | null;
   // call_gex / put_gex are the same per-strike gamma columns net_gex is
@@ -262,6 +263,7 @@ export default async function ReplaySnapshotPage({
           maxPain={summary?.max_pain ?? null}
           pinStrike={summary?.pin_strike ?? null}
           pinConfidence={summary?.pin_confidence ?? null}
+          gexKing={summary?.max_gamma_strike ?? null}
         />
       </section>
 

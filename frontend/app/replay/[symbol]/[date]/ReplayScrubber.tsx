@@ -45,6 +45,9 @@ interface Frame {
   max_pain: number | null;
   pin_strike: number | null;
   pin_confidence: number | null;
+  // GEX King — whole-chain heaviest-|net-gamma| strike for the frame's
+  // minute. Null on rows written before the column shipped; no line is drawn.
+  max_gamma_strike: number | null;
   // net_gex is always present; call_gex / put_gex are the same per-strike
   // dealer-gamma columns (from gex_by_strike) and are optional so the
   // Split / Combined gamma views activate only when the payload carries them.
@@ -482,6 +485,9 @@ export default function ReplayScrubber({
   // Terminal chart does, rather than carrying the field and dropping it.
   const pinStrike = currentFrame?.pin_strike ?? null;
   const pinConfidence = currentFrame?.pin_confidence ?? null;
+  // GEX King migrates through the session like the walls, so it updates as
+  // you scrub — the structural node the live chart draws, now replayable.
+  const gexKing = currentFrame?.max_gamma_strike ?? null;
 
   // Session-wide GEX peak — per mode — so the horizontal-bar magnitude axis
   // stays pinned as the user scrubs (otherwise the widest bar this minute
@@ -834,6 +840,7 @@ export default function ReplayScrubber({
         maxPain={maxPain}
         pinStrike={pinStrike}
         pinConfidence={pinConfidence}
+        gexKing={gexKing}
         cursorTimestamp={cursorTimestamp}
         pinATimestamp={pinA != null ? frames[pinA]?.timestamp ?? null : null}
         pinBTimestamp={pinB != null ? frames[pinB]?.timestamp ?? null : null}
@@ -977,6 +984,7 @@ interface ReplayOverlayChartProps {
   maxPain: number | null;
   pinStrike: number | null;
   pinConfidence: number | null;
+  gexKing: number | null;
   cursorTimestamp: string | null;
   pinATimestamp: string | null;
   pinBTimestamp: string | null;
@@ -1006,6 +1014,7 @@ function ReplayOverlayChart({
   maxPain,
   pinStrike,
   pinConfidence,
+  gexKing,
   cursorTimestamp,
   pinATimestamp,
   pinBTimestamp,
@@ -1276,6 +1285,7 @@ function ReplayOverlayChart({
     { key: 'max-pain', value: maxPain, label: 'Max Pain', color: 'var(--color-gold)', dash: '1 5' },
     { key: 'put-wall', value: putWall, label: 'Put Wall', color: 'var(--color-bull)', dash: '5 3' },
     { key: 'pin', value: pinStrike, label: pinLabel, color: PIN_STRIKE_COLOR_VAR, dash: '2 3' },
+    { key: 'gex-king', value: gexKing, label: 'GEX King', color: 'var(--color-king)', dash: '5 3' },
   ];
 
   // A level disappears from the plot in two different ways, and both render as

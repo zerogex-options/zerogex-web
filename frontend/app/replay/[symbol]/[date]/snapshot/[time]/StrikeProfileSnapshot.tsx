@@ -49,6 +49,7 @@ interface StrikeProfileSnapshotProps {
   maxPain?: number | null;
   pinStrike?: number | null;
   pinConfidence?: number | null;
+  gexKing?: number | null;
 }
 
 interface Row {
@@ -113,6 +114,7 @@ export default function StrikeProfileSnapshot({
   maxPain,
   pinStrike,
   pinConfidence,
+  gexKing,
 }: StrikeProfileSnapshotProps) {
   const clipId = `snap-clip-${useId().replace(/[^a-zA-Z0-9-]/g, '')}`;
 
@@ -307,6 +309,11 @@ export default function StrikeProfileSnapshot({
   // and the scrubber give. Falls back to plain "Pin" when confidence is absent.
   if (pinStrike != null && Number.isFinite(pinStrike))
     refLines.push({ level: pinStrike, label: `${pinLineLabel(pinStrike, pinConfidence)} ${pinStrike.toFixed(2)}`, color: 'var(--color-pin)' });
+  // GEX King — whole-chain heaviest-gamma strike, in the app-wide king hue
+  // so the snapshot carries the same structural node as the live chart and
+  // the scrubber rather than stopping at the same-day pin.
+  if (gexKing != null && Number.isFinite(gexKing))
+    refLines.push({ level: gexKing, label: `GEX King ${gexKing.toFixed(2)}`, color: 'var(--color-king)' });
 
   // Stagger the reference-level labels vertically so close-together levels
   // (spot / flip / max pain often cluster near spot) don't overlap. The lines

@@ -23,6 +23,9 @@ interface ReplayFrame {
   // the pin line; null on rows written before pin_strike shipped.
   pin_strike: number | null;
   pin_confidence: number | null;
+  // GEX King — whole-chain heaviest-|net-gamma| strike for the minute, the
+  // structural counterpart to the same-day pin above; null on older rows.
+  max_gamma_strike: number | null;
   // call_gex / put_gex are the same per-strike dealer gamma columns net_gex is
   // sourced from (gex_by_strike); optional so the scrubber's Split / Combined
   // views light up when the payload carries them and cleanly fall back to the
