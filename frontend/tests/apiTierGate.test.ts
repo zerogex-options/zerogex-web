@@ -103,12 +103,12 @@ test('market: paid series are basic; quote/session chrome stays public (ungated)
   // stale via server-side ISR, but this proxy served them LIVE to anyone.
   eq('/api/market/historical', 'basic');
   eq('/api/market/open-interest', 'basic');
+  // useSessionLevels has one caller (MarketMakerExposures), which renders only
+  // on the Basic /my-dashboard and /gex-strike-profile.
+  eq('/api/market/session-levels', 'basic');
   // Anonymous header chrome — must stay reachable without a session.
   eq('/api/market/quote', null);
   eq('/api/market/session-closes', null);
-  // Client-fetched by MarketMakerExposures on the PUBLIC /replay/* pages for
-  // non-index symbols; gating it would degrade a public page.
-  eq('/api/market/session-levels', null);
 });
 
 test('unmapped paths pass through (null) — the denylist fails open', () => {
@@ -162,6 +162,7 @@ test('versioned paths gate identically to their unversioned form', () => {
     ['/api/market/volatility', 'basic'],
     ['/api/market/historical', 'basic'],
     ['/api/market/open-interest', 'basic'],
+    ['/api/market/session-levels', 'basic'],
     ['/api/tradeworkz/bots', 'pro'],
     ['/api/tradeworkz/summary', 'pro'],
     ['/api/tradeworkz/performance-trend', 'pro'],
@@ -170,7 +171,6 @@ test('versioned paths gate identically to their unversioned form', () => {
     ['/api/market/quote', null],
     ['/api/market/session-closes', null],
     ['/api/tradeworkz/me/feed', null],
-    ['/api/market/session-levels', null],
     ['/api/tradeworkz/bots/7/follow', 'public'],
   ];
   for (const [v1Path, expected] of cases) {

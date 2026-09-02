@@ -100,24 +100,39 @@ const RULES: readonly Rule[] = [
   // unlisted → passes through.
   { prefix: '/api/market/volatility', access: 'basic' },
 
-  // Underlying OHLC bars and open interest. Both were unmapped, which is the
-  // squarest form of the bypass this module exists to stop: the free pages that
-  // show this data (/chart, /spx-gamma-levels) render it SERVER-side through
-  // serverApiGet with a 900s ISR cache, so "free" means ~15-minute-stale — while
-  // an anonymous GET to the same path through this proxy returned it LIVE
-  // (proxy.ts fetches no-store). Client-side these are fetched only by Basic
-  // pages: /gamma-exposure, /my-dashboard, /max-pain, /smart-money, /volatility,
-  // /gex-heatmap, /gex-strike-profile. Safe to gate because every public consumer
-  // of GammaTerminalChart passes `delayed`/`snapshot`, which sets `live = false`
-  // and disables the useMarketHistorical poll entirely.
+  // Underlying OHLC bars, open interest, and session levels. All three were
+  // unmapped, which is the squarest form of the bypass this module exists to
+  // stop: the free pages that show this data (/chart, /spx-gamma-levels) render
+  // it SERVER-side through serverApiGet with a 900s ISR cache, so "free" means
+  // ~15-minute-stale — while an anonymous GET to the same path through this
+  // proxy returned it LIVE (proxy.ts fetches no-store). serverApiGet talks to
+  // FastAPI directly and never traverses this proxy, so gating cannot break the
+  // SSR/public path — /api/market/volatility above is the standing proof.
+  //
+  // Client-side, every consumer sits on a Basic-or-higher page:
+  //   historical     — useMarketHistorical, called by /max-pain, /smart-money,
+  //                    /volatility, /pair-comparison (PairCandleChart),
+  //                    /gex-heatmap + /gamma-exposure + /my-dashboard
+  //                    (GammaHeatmapCanvas), /my-dashboard +
+  //                    /gex-strike-profile (MarketMakerExposures,
+  //                    UnderlyingCandlesChart), /dashboard (GammaTerminalChart).
+  //                    The PUBLIC GammaTerminalChart mounts (/chart,
+  //                    /spx-gamma-levels) pass `delayed`/`snapshot`, which sets
+  //                    `live = false` and disables the poll entirely.
+  //   open-interest  — /my-dashboard and /gamma-exposure only.
+  //   session-levels — useSessionLevels has exactly one caller,
+  //                    MarketMakerExposures, which renders only on
+  //                    /my-dashboard and /gex-strike-profile. (It is referenced
+  //                    in comments on the public /replay/* scrubber, but that
+  //                    component renders from server-fetched props and issues no
+  //                    client-side request.)
   { prefix: '/api/market/historical', access: 'basic' },
   { prefix: '/api/market/open-interest', access: 'basic' },
+  { prefix: '/api/market/session-levels', access: 'basic' },
 
-  // NOT gated, deliberately: /api/market/quote and /api/market/session-closes are
-  // the anonymous header chrome, and /api/market/session-levels is client-fetched
-  // by MarketMakerExposures on the PUBLIC /replay/* pages for non-index symbols
-  // (premarket / prior-session high-low overlays). Gating that one would degrade
-  // a public page, and the levels themselves are not a paid surface.
+  // NOT gated, deliberately: /api/market/quote and /api/market/session-closes
+  // are the anonymous header chrome (live price + prior closes in the site
+  // header), so they must stay reachable without a session.
 ];
 
 // Segment-aware prefix match: `path` is covered by `prefix` when it equals the
