@@ -30,7 +30,12 @@
 // tier ranks at least that high. A null result (no rule matched) also passes.
 export type ApiAccess = 'public' | 'basic' | 'pro' | 'admin';
 
-type Rule = { prefix: string; access: ApiAccess };
+// A rule matches either by path prefix (the common case) or by an exact regex
+// — the latter for carve-outs a prefix cannot express, e.g. a per-user action
+// nested UNDER a premium collection (`/api/tradeworkz/bots/{id}/follow`).
+type Rule =
+  | { prefix: string; access: ApiAccess }
+  | { pattern: RegExp; access: ApiAccess };
 
 // ORDERED, first-match-wins. More-specific prefixes MUST precede the broader
 // prefix they carve out of. Rationale for each tier is in the audit; the short
@@ -43,9 +48,25 @@ const RULES: readonly Rule[] = [
 
   // TradeWorkz fleet administration (simulate / inject-test-event / reset-fleet /
   // provision). Rendered only behind an `isAdmin` check in the UI; enforce it.
-  // Customer follow/feed endpoints under /api/tradeworkz are intentionally NOT
-  // listed (per-user prefs, not premium data) so they keep working for any tier.
   { prefix: '/api/tradeworkz/admin', access: 'admin' },
+
+  // TradeWorkz per-user actions that live UNDER the premium /bots collection.
+  // Follow/unfollow is a preference, not signal data, and /account/notifications
+  // (open to ANY logged-in tier) calls it — including for a member who has since
+  // downgraded off Pro and still needs to unfollow. Must precede the /bots rule.
+  { pattern: /^\/api\/tradeworkz\/bots\/[^/]+\/follow$/, access: 'public' },
+
+  // TradeWorkz signal product — the Pro-only /trading-signals page is the sole
+  // client-side consumer of every one of these (bot roster + detail, per-bot
+  // trades / equity curve / metrics, fleet summary, leaderboard, equity curves,
+  // performance trend). They were unmapped, so the whole Pro bot surface was
+  // readable by anyone who could reach same-origin /api/*. The /me/* prefs
+  // (follows, feed) stay unlisted — per-user state, any logged-in tier.
+  { prefix: '/api/tradeworkz/bots', access: 'pro' },
+  { prefix: '/api/tradeworkz/summary', access: 'pro' },
+  { prefix: '/api/tradeworkz/leaderboard', access: 'pro' },
+  { prefix: '/api/tradeworkz/equity-curves', access: 'pro' },
+  { prefix: '/api/tradeworkz/performance-trend', access: 'pro' },
 
   // Signals: the advanced-signal surface and Trade Bias are pro-exclusive (only
   // pro pages fetch them). The composite score / action / basic components under
@@ -78,6 +99,40 @@ const RULES: readonly Rule[] = [
   // header chrome and must stay open). Everything else under /api/market is left
   // unlisted → passes through.
   { prefix: '/api/market/volatility', access: 'basic' },
+
+  // Underlying OHLC bars, open interest, and session levels. All three were
+  // unmapped, which is the squarest form of the bypass this module exists to
+  // stop: the free pages that show this data (/chart, /spx-gamma-levels) render
+  // it SERVER-side through serverApiGet with a 900s ISR cache, so "free" means
+  // ~15-minute-stale — while an anonymous GET to the same path through this
+  // proxy returned it LIVE (proxy.ts fetches no-store). serverApiGet talks to
+  // FastAPI directly and never traverses this proxy, so gating cannot break the
+  // SSR/public path — /api/market/volatility above is the standing proof.
+  //
+  // Client-side, every consumer sits on a Basic-or-higher page:
+  //   historical     — useMarketHistorical, called by /max-pain, /smart-money,
+  //                    /volatility, /pair-comparison (PairCandleChart),
+  //                    /gex-heatmap + /gamma-exposure + /my-dashboard
+  //                    (GammaHeatmapCanvas), /my-dashboard +
+  //                    /gex-strike-profile (MarketMakerExposures,
+  //                    UnderlyingCandlesChart), /dashboard (GammaTerminalChart).
+  //                    The PUBLIC GammaTerminalChart mounts (/chart,
+  //                    /spx-gamma-levels) pass `delayed`/`snapshot`, which sets
+  //                    `live = false` and disables the poll entirely.
+  //   open-interest  — /my-dashboard and /gamma-exposure only.
+  //   session-levels — useSessionLevels has exactly one caller,
+  //                    MarketMakerExposures, which renders only on
+  //                    /my-dashboard and /gex-strike-profile. (It is referenced
+  //                    in comments on the public /replay/* scrubber, but that
+  //                    component renders from server-fetched props and issues no
+  //                    client-side request.)
+  { prefix: '/api/market/historical', access: 'basic' },
+  { prefix: '/api/market/open-interest', access: 'basic' },
+  { prefix: '/api/market/session-levels', access: 'basic' },
+
+  // NOT gated, deliberately: /api/market/quote and /api/market/session-closes
+  // are the anonymous header chrome (live price + prior closes in the site
+  // header), so they must stay reachable without a session.
 ];
 
 // Segment-aware prefix match: `path` is covered by `prefix` when it equals the
@@ -117,7 +172,8 @@ function stripApiVersion(pathname: string): string {
 export function requiredApiAccess(pathname: string): ApiAccess | null {
   const path = stripApiVersion(pathname);
   for (const rule of RULES) {
-    if (covers(path, rule.prefix)) return rule.access;
+    const hit = 'prefix' in rule ? covers(path, rule.prefix) : rule.pattern.test(path);
+    if (hit) return rule.access;
   }
   return null;
 }

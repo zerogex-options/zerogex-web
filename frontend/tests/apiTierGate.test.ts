@@ -28,13 +28,45 @@ test('backtest platform (non-shared) is pro', () => {
   eq('/api/backtest/meta', 'pro');
 });
 
-test('tradeworkz admin ops are admin; customer follow/feed are ungated (pass through)', () => {
+test('tradeworkz admin ops are admin; customer follow/feed stay open', () => {
   eq('/api/tradeworkz/admin', 'admin');
   eq('/api/tradeworkz/admin/reset-fleet', 'admin');
   eq('/api/tradeworkz/admin/simulate', 'admin');
   // Per-user prefs are deliberately NOT gated — any logged-in tier uses them.
   eq('/api/tradeworkz/me/feed', null);
-  eq('/api/tradeworkz/bots/7/follow', null);
+  eq('/api/tradeworkz/me/follows', null);
+  // Follow/unfollow is a per-user pref nested under the premium /bots
+  // collection: 'public' is an explicit pass, same effect as null at the gate.
+  eq('/api/tradeworkz/bots/7/follow', 'public');
+});
+
+// The Pro /trading-signals page is the only client-side consumer of the
+// TradeWorkz signal product. These were unmapped (→ fail-open), so the whole
+// bot surface was readable by anyone who could reach same-origin /api/*.
+test('tradeworkz signal product is pro', () => {
+  for (const p of [
+    '/api/tradeworkz/bots',
+    '/api/tradeworkz/bots/7',
+    '/api/tradeworkz/bots/7/trades',
+    '/api/tradeworkz/bots/7/equity-curve',
+    '/api/tradeworkz/bots/7/metrics',
+    '/api/tradeworkz/summary',
+    '/api/tradeworkz/leaderboard',
+    '/api/tradeworkz/equity-curves',
+    '/api/tradeworkz/performance-trend',
+  ]) {
+    eq(p, 'pro');
+  }
+});
+
+test('the follow carve-out is exact — it never widens the /bots gate', () => {
+  // Only the literal .../follow leaf passes; neighbours and deeper paths do not.
+  eq('/api/tradeworkz/bots/7/follow', 'public');
+  eq('/api/tradeworkz/bots/7/followers', 'pro');
+  eq('/api/tradeworkz/bots/7/follow/extra', 'pro');
+  // No {id} segment → not the follow leaf; falls through to the /bots gate.
+  eq('/api/tradeworkz/bots/follow', 'pro');
+  eq('/api/tradeworkz/bots/7/8/follow', 'pro'); // {id} is a single segment
 });
 
 test('signals: advanced + trade-bias are pro; the rest (score/action/basic) are basic', () => {
@@ -65,11 +97,18 @@ test('derived analytics surfaces are basic', () => {
   }
 });
 
-test('market: volatility gauge is basic; quote/session chrome stays public (ungated)', () => {
+test('market: paid series are basic; quote/session chrome stays public (ungated)', () => {
   eq('/api/market/volatility', 'basic');
+  // Backed the Basic tool pages while unmapped: free pages get these ~15-min
+  // stale via server-side ISR, but this proxy served them LIVE to anyone.
+  eq('/api/market/historical', 'basic');
+  eq('/api/market/open-interest', 'basic');
+  // useSessionLevels has one caller (MarketMakerExposures), which renders only
+  // on the Basic /my-dashboard and /gex-strike-profile.
+  eq('/api/market/session-levels', 'basic');
+  // Anonymous header chrome — must stay reachable without a session.
   eq('/api/market/quote', null);
   eq('/api/market/session-closes', null);
-  eq('/api/market/historical', null);
 });
 
 test('unmapped paths pass through (null) — the denylist fails open', () => {
@@ -121,12 +160,18 @@ test('versioned paths gate identically to their unversioned form', () => {
     ['/api/max-pain/current', 'basic'],
     ['/api/technicals', 'basic'],
     ['/api/market/volatility', 'basic'],
+    ['/api/market/historical', 'basic'],
+    ['/api/market/open-interest', 'basic'],
+    ['/api/market/session-levels', 'basic'],
+    ['/api/tradeworkz/bots', 'pro'],
+    ['/api/tradeworkz/summary', 'pro'],
+    ['/api/tradeworkz/performance-trend', 'pro'],
     // Deliberately ungated paths must STAY ungated under a version prefix —
     // over-stripping would 403 the anonymous header chrome.
     ['/api/market/quote', null],
     ['/api/market/session-closes', null],
     ['/api/tradeworkz/me/feed', null],
-    ['/api/tradeworkz/bots/7/follow', null],
+    ['/api/tradeworkz/bots/7/follow', 'public'],
   ];
   for (const [v1Path, expected] of cases) {
     eq(v1Path, expected);
