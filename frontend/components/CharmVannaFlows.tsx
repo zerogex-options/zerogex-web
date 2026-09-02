@@ -31,6 +31,15 @@ interface CharmVannaFlowsProps {
   symbol?: string;
 }
 
+// Tier id -> the name the plan goes by on /pricing. Kept local and total:
+// an unmapped id falls back to the raw value rather than rendering "undefined".
+const PLAN_LABELS: Record<string, string> = {
+  basic: 'Basic',
+  pro: 'Pro',
+  admin: 'Admin',
+  public: 'a free account',
+};
+
 function formatB(value: number): string {
   const abs = Math.abs(value);
   const sign = value >= 0 ? '+' : '';
@@ -108,10 +117,13 @@ export default function CharmVannaFlows({
   // which falsely implied a healthy signal on cycles where none existed.
   //
   // The reason, when there is no reading, has to be specific. A bare "N/A"
-  // is the same cell whether the viewer is on Basic (this signal is Pro),
-  // the symbol has no coverage, or the signal engine is down — three
-  // problems with three different owners and three different fixes, and it
-  // sent a working paywall to support as a bug report. See
+  // is the same cell whether the viewer lacks the tier, the symbol has no
+  // coverage, or the signal engine is down — three problems with three
+  // different owners and three different fixes, and it once sent a working
+  // paywall to support as a bug report. That paywall is gone (the reading is
+  // a Basic entitlement now), which makes the distinction MORE important, not
+  // less: a Basic viewer is expected to see a value here, so an empty row is
+  // now far likelier to be a genuine fault than a gate. See
   // core/signalAvailability.ts for how the state is derived.
   const volRisk = ((): {
     label: string;
@@ -151,11 +163,17 @@ export default function CharmVannaFlows({
 
     const muted = 'var(--text-secondary)';
     switch (volExpansionState?.kind) {
-      case 'locked':
-        // Named, not blanked. The viewer is already paying for this page, so
-        // the honest message is which plan carries this row — not silence
-        // that reads as breakage.
-        return { label: 'Pro', caption: 'Included with Pro', color: muted, barPct: null, locked: true };
+      case 'locked': {
+        // Named, not blanked — the honest message is which plan carries this
+        // row, not silence that reads as breakage. Derived from the state's
+        // requiredTier rather than hardcoded: this row's own gate moved from
+        // Pro to Basic, and copy that names the wrong plan is worse than the
+        // silence it replaced.
+        const plan = volExpansionState?.kind === 'locked'
+          ? PLAN_LABELS[volExpansionState.requiredTier] ?? volExpansionState.requiredTier
+          : 'Pro';
+        return { label: plan, caption: `Included with ${plan}`, color: muted, barPct: null, locked: true };
+      }
       case 'unsupported':
         return {
           label: 'N/A',

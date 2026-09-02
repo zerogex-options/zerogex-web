@@ -73,6 +73,28 @@ const RULES: readonly Rule[] = [
   // /api/signals are a Basic entitlement (fetched by the Basic /my-dashboard),
   // so the broad /api/signals rule is `basic`. trade-bias-history is a distinct
   // path segment from trade-bias, hence its own explicit rule.
+  //
+  // vol-expansion is the one advanced signal carved down to Basic, and the two
+  // rules below must stay in this order.
+  //
+  // WHY: the Basic-tier Dealer Positioning page (/gamma-exposure) embeds a
+  // single vol-expansion READING as the "Vol expansion risk" row of its Charm &
+  // Vanna Flows card. Gating it at pro left a permanent hole in a page Basic
+  // already pays for — the row could only ever render an upsell, which is not
+  // what a Basic subscriber should meet inside a Basic feature.
+  //
+  // What did NOT move: the standalone /volatility-expansion and
+  // /advanced-signals PAGES are still pro, gated by route in core/auth.ts, and
+  // the /accuracy sub-path below stays pro so the signal's hit-rate analytics
+  // remain a Pro deep-dive. Basic gets the reading its own page displays,
+  // nothing else. ProprietarySignalsSynthesis (rendered on the Basic
+  // dashboards) is unaffected either way — it self-gates its fetch on Pro.
+  //
+  // ORDER: covers() matches descendants, so the bare vol-expansion prefix would
+  // otherwise swallow /accuracy and hand a Pro analytic to Basic. The more
+  // specific pro rule MUST come first.
+  { prefix: '/api/signals/advanced/vol-expansion/accuracy', access: 'pro' },
+  { prefix: '/api/signals/advanced/vol-expansion', access: 'basic' },
   { prefix: '/api/signals/advanced', access: 'pro' },
   { prefix: '/api/signals/trade-bias', access: 'pro' },
   { prefix: '/api/signals/trade-bias-history', access: 'pro' },

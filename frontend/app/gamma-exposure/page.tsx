@@ -124,17 +124,24 @@ export default function GammaExposurePage() {
   // QQQ/NDX's correct implied-vol input is VXN (Nasdaq-100); SPX/SPY use VIX.
   const volIndex: 'VIX' | 'VXN' = volatilityIndexFor(symbol);
   const { data: volGauge } = useVolatilityGauge(30000, volIndex);
-  // vol-expansion is a Pro-only endpoint; this page is Basic-tier, so gate the
-  // poll behind Pro access instead of 403-looping for non-Pro viewers.
+  // vol-expansion backs the "Vol expansion risk" row of the Charm & Vanna Flows
+  // card, and is a Basic entitlement — the same tier as this page. It used to be
+  // gated at Pro, which meant a Basic subscriber met an upsell inside a page
+  // they already pay for; the reading is now carved down to Basic in
+  // core/api/apiTierGate.ts (the standalone /volatility-expansion page and the
+  // signal's /accuracy analytics stay Pro).
   //
-  // Skipping the request is right, but it used to make the row indistinguishable
-  // from a broken one: no request means no data, and CharmVannaFlows had only
-  // the resulting null to render, so a Basic viewer got "N/A — No expansion
-  // signal available" over a Pro feature working exactly as designed. We now
-  // carry the REASON alongside the data — entitlement, HTTP status, and whether
-  // the session has even resolved — so the row can name the gate (and an
-  // outage can look like an outage).
-  const { allowed: hasProAccess, loading: tierResolving } = useTierAccessState('pro');
+  // Still gated rather than fired unconditionally: an anonymous or
+  // still-resolving viewer would only earn a 401/403, so the guard keeps the
+  // request off the wire until the session actually confirms the tier.
+  //
+  // The availability plumbing below outlives the tier change and is the reason
+  // to keep it: this row previously rendered "N/A — No expansion signal
+  // available" for a paywall, a missing symbol and a dead signal engine alike.
+  // Carrying the REASON — entitlement, HTTP status, whether the session has even
+  // resolved — is what lets an outage look like an outage now that a Basic
+  // viewer is expected to see a real value here.
+  const { allowed: hasSignalAccess, loading: tierResolving } = useTierAccessState('basic');
   const {
     data: volExpansion,
     loading: volExpansionLoading,
@@ -142,11 +149,11 @@ export default function GammaExposurePage() {
     errorStatus: volExpansionStatus,
   } = useApiData<VolExpansionSignalResponse>(
     `/api/signals/advanced/vol-expansion?symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}`,
-    { refreshInterval: 30000, enabled: hasProAccess },
+    { refreshInterval: 30000, enabled: hasSignalAccess },
   );
   const volExpansionAvailability = useMemo(
     () => resolveSignalAvailability({
-      entitled: hasProAccess,
+      entitled: hasSignalAccess,
       tierResolving,
       // Explicit null check first: Number(null) is 0, which IS finite, so a
       // coercion-only test would read a backend `"expansion": null` as a real
@@ -156,9 +163,11 @@ export default function GammaExposurePage() {
       loading: volExpansionLoading,
       hasError: volExpansionError != null,
       errorStatus: volExpansionStatus,
-      requiredTier: 'pro',
+      // Only reachable by a viewer below Basic (an expired session mid-render),
+      // for whom the honest upsell is the plan this page itself requires.
+      requiredTier: 'basic',
     }),
-    [hasProAccess, tierResolving, volExpansion, volExpansionLoading, volExpansionError, volExpansionStatus],
+    [hasSignalAccess, tierResolving, volExpansion, volExpansionLoading, volExpansionError, volExpansionStatus],
   );
 
   // Expiration filter state for strike table
