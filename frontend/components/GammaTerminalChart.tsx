@@ -44,6 +44,7 @@ import { useLinkedPriceAxis } from "@/core/linkedPriceAxis";
 import { netGexAtSpotOrNull, aboveFlipBandIsLong, offScaleBandIsLong } from "@/core/gammaRegime";
 import { computeMaxPainFromStrikes } from "@/core/keyLevels";
 import { pinLineLabel } from "@/core/pinStrike";
+import { barClock, formatBarDuration } from "@/core/barClock";
 import {
   buildExpirationSplit,
   expirationOpacityRamp,
@@ -97,6 +98,7 @@ interface OverlayState {
   rail: boolean; // gamma structure rail
   regime: boolean; // long/short gamma background zones
   expectedRange: boolean; // IV-derived ±1σ expected-range band (Daily/Weekly/Monthly)
+  barTimer: boolean; // countdown + elapsed on the forming candle
 }
 
 const DEFAULT_OVERLAYS: OverlayState = {
@@ -110,6 +112,7 @@ const DEFAULT_OVERLAYS: OverlayState = {
   // unasked. The stored-prefs merge leaves them false for returning users too.
   king: false,
   expectedRange: false,
+  barTimer: false,
 };
 
 const OVERLAY_STORAGE_KEY = "zg.gammaChart.overlays.v1";
@@ -1690,6 +1693,34 @@ export default function GammaTerminalChart({
     return () => clearInterval(id);
   }, [rewindActive, playbackActive, playbackSpeed, style, subTf, intervalMinutes]);
 
+  // ── Bar timer ── How far the forming candle is through its own window, as a
+  // countdown beside the last price and an elapsed/remaining line in the
+  // crosshair readout. Only meaningful when we are actually looking at a candle
+  // that is still forming: a delayed snapshot's tip is the newest bar we HAVE
+  // rather than the newest that exists, a stale futures feed is not printing
+  // into it, and rewind or a panned-back view is parked on a closed one.
+  const liveBarTimestamp = allBars.length > 0 ? allBars[allBars.length - 1].timestamp : null;
+  // Same predicate the pinging live-price dot asserts, hoisted so the two can't
+  // drift: a timer counting down beside a dot that says the tape is dead (or
+  // vice versa) is worse than either signal alone.
+  const feedIsLive = !delayed && !rewindActive && !feedStale && !!session && session !== "closed";
+  const barTimerLive = overlays.barTimer && feedIsLive && atLiveEdge;
+  // Ticks only while the timer is on screen — a chart with it switched off, or
+  // parked in history, must not re-render once a second for nothing.
+  const [barClockNow, setBarClockNow] = useState<number>(() => Date.now());
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (!barTimerLive) return;
+    // Re-read immediately: the stored instant went stale while the timer was
+    // hidden, and without this the first second after switching it on would
+    // count from whenever the chart last happened to tick.
+    setBarClockNow(Date.now());
+    const id = setInterval(() => setBarClockNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [barTimerLive]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+  const liveBarClock = barTimerLive ? barClock(liveBarTimestamp, timeframe, barClockNow) : null;
+
   // SVG <defs> ids must be unique per mounted chart: My Dashboard can hold two
   // Gamma Charts side by side, and duplicate ids would make both instances
   // resolve url(#…) to whichever rendered first. Strip the non-alphanumerics
@@ -2078,6 +2109,11 @@ export default function GammaTerminalChart({
           <OverlayPill label="Max Pain" color="var(--color-maxpain)" active={overlays.maxPain} onClick={() => setOverlays((o) => ({ ...o, maxPain: !o.maxPain }))} />
           <OverlayPill label="GEX King" color="var(--color-king)" active={overlays.king} onClick={() => setOverlays((o) => ({ ...o, king: !o.king }))} />
           <OverlayPill label="Pin Strike" color="var(--color-pin)" active={overlays.pin} onClick={() => setOverlays((o) => ({ ...o, pin: !o.pin }))} />
+          {/* Bar Timer — live-only. The delayed public snapshot is a frozen tip,
+              so a countdown on it would be counting down someone else's candle. */}
+          {live && (
+            <OverlayPill label="Bar Timer" color="var(--color-accent-hot)" active={overlays.barTimer} onClick={() => setOverlays((o) => ({ ...o, barTimer: !o.barTimer }))} />
+          )}
           {/* Expected Range — live-only (the delayed public snapshot carries no
               vol index). The Daily/Weekly/Monthly selector appears once it's on. */}
           {live && (
@@ -2501,8 +2537,7 @@ export default function GammaTerminalChart({
               // feedStale: the pinging dot asserts "this bar is trading right now".
               // On a delayed feed the tip is the newest bar we have, not the newest
               // bar that exists, so the dashed last-price line stays and the ping goes.
-              const isLive =
-                !delayed && !rewindActive && !feedStale && !!session && session !== "closed";
+              const isLive = feedIsLive;
               return (
                 <g>
                   <line x1={PLOT_LEFT} x2={PLOT_RIGHT} y1={y} y2={y} stroke="var(--color-accent-hot)" strokeWidth={1} strokeDasharray="2 3" opacity={0.8} />
@@ -2538,9 +2573,29 @@ export default function GammaTerminalChart({
                   arrow: null as "up" | "down" | null,
                 },
               ];
-              return spreadTags(raw, 16, PAD_TOP + 2, PRICE_BOTTOM - 2).map((t) => (
-                <PriceTag key={t.key} x={AXIS_COL_X - 6} y={t.yAdj} value={t.value} bg={t.bg} strong={t.strong} arrow={t.arrow} />
-              ));
+              const tags = spreadTags(raw, 16, PAD_TOP + 2, PRICE_BOTTOM - 2);
+              // The countdown hangs off the last-price tag's DECLUTTERED y, not
+              // its raw one, so it stays glued to the tag when a clustered
+              // gamma level has pushed that tag off the price line.
+              const lastTagY = tags.find((t) => t.key === "last")?.yAdj ?? null;
+              return (
+                <>
+                  {tags.map((t) => (
+                    <PriceTag key={t.key} x={AXIS_COL_X - 6} y={t.yAdj} value={t.value} bg={t.bg} strong={t.strong} arrow={t.arrow} />
+                  ))}
+                  {liveBarClock && lastTagY != null && (
+                    <BarCountdownTag
+                      x={AXIS_COL_X - 6}
+                      // Below the tag by default, flipped above it when the last
+                      // price is riding the bottom of the range — clamping into
+                      // the gutter instead would stack the two on the same row.
+                      y={lastTagY + 17 <= PRICE_BOTTOM - 2 ? lastTagY + 17 : lastTagY - 17}
+                      label={formatBarDuration(liveBarClock.remainingMs, "ceil")}
+                      progress={liveBarClock.progress}
+                    />
+                  )}
+                </>
+              );
             })()}
 
             {/* ── Volume pane ───────────────────────────────────────────── */}
@@ -2664,6 +2719,29 @@ export default function GammaTerminalChart({
                 <Row k="C" v={fmtPrice(activeBar.close)} color={activeBar.close >= activePrevClose ? "var(--color-bull)" : "var(--color-bear)"} />
                 <Row k="Vol" v={fmtVol(activeBar.volume)} />
               </div>
+              {liveBarClock && activeBar.timestamp === liveBarTimestamp && (
+                <div style={{ marginTop: 6 }}>
+                  <div
+                    className="flex items-center justify-between gap-2"
+                    style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, fontVariantNumeric: "tabular-nums" }}
+                  >
+                    <span style={{ color: "var(--text-muted)" }}>{formatBarDuration(liveBarClock.elapsedMs)} elapsed</span>
+                    <span style={{ color: "var(--color-accent-hot)", fontWeight: 600 }}>
+                      {formatBarDuration(liveBarClock.remainingMs, "ceil")} left
+                    </span>
+                  </div>
+                  <div style={{ height: 2, borderRadius: 1, marginTop: 3, background: "color-mix(in srgb, var(--color-accent-hot) 20%, transparent)" }}>
+                    <div
+                      style={{
+                        height: 2,
+                        borderRadius: 1,
+                        width: `${Math.round(liveBarClock.progress * 100)}%`,
+                        background: "var(--color-accent-hot)",
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
               <div style={{ height: 1, background: "var(--border-subtle)", margin: "7px 0" }} />
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.1em", color: "var(--color-brand-primary)", marginBottom: 4 }}>GAMMA @ {fmtPrice(hover.price)}</div>
               {hoverGex != null ? (
@@ -2982,6 +3060,29 @@ function PriceTag({ x, y, value, bg, strong = false, arrow = null }: { x: number
         {arrow === "up" ? "▲ " : arrow === "down" ? "▼ " : ""}
         {value}
       </text>
+    </g>
+  );
+}
+
+/**
+ * Time left in the forming candle, hung under the last-price tag in the axis
+ * gutter — the terminal convention, and the reason it sits there rather than
+ * over the plot: it reads as part of the price column, not as another overlay.
+ * The rule underneath fills left-to-right as the candle runs out.
+ */
+function BarCountdownTag({ x, y, label, progress }: { x: number; y: number; label: string; progress: number }) {
+  const w = Math.max(34, 10 + label.length * 6.6);
+  const h = 14;
+  const filled = Math.max(0, Math.min(1, progress)) * (w - 4);
+  return (
+    <g transform={`translate(${x - w}, ${y})`} role="img">
+      <title>{`${label} left in this candle`}</title>
+      <rect x={0} y={-h / 2} width={w} height={h} rx={2} fill="var(--bg-card)" stroke="var(--color-accent-hot)" strokeWidth={0.8} opacity={0.95} />
+      <text x={w / 2} y={2} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={9.5} fontWeight={600} fill="var(--color-accent-hot)" style={{ fontVariantNumeric: "tabular-nums" }}>
+        {label}
+      </text>
+      <rect x={2} y={h / 2 - 2.6} width={w - 4} height={1.4} rx={0.7} fill="var(--color-accent-hot)" opacity={0.18} />
+      {filled > 0 && <rect x={2} y={h / 2 - 2.6} width={filled} height={1.4} rx={0.7} fill="var(--color-accent-hot)" opacity={0.85} />}
     </g>
   );
 }
