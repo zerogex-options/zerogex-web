@@ -1,4 +1,4 @@
-.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription honor-winback-discount recover-orphan-payment scan-orphan-payments clear-zombie-customers webhook-health trial-reminders trial-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback reactivation checkout-recovery founding-final-call public-cohort cancellations churn-breakdown enable-portal-cancel-reasons save-url reset-save-latch diagnose-user subscriber-headcount reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo og-check blog-images ninjatrader-package
+.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription honor-winback-discount recover-orphan-payment scan-orphan-payments clear-zombie-customers webhook-health trial-reminders trial-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback reactivation checkout-recovery founding-final-call public-cohort cancellations churn-breakdown enable-portal-cancel-reasons save-url reset-save-latch diagnose-user subscriber-headcount reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo og-check verify-gate blog-images ninjatrader-package
 
 # Default target
 help:
@@ -1096,6 +1096,20 @@ logo:
 # from anywhere with network; it never writes or deploys.
 og-check:
 	@$(OG_CHECK)
+
+# Smoke-test the BFF consumer-tier gate against a running deployment. The unit
+# suite (npm run test:api-tier-gate) proves the decision table; this proves the
+# deployed BFF enforces it, and that no free page or paying member got locked
+# out in the process. Read-only: issues GETs only, never writes or deploys.
+#
+#   make verify-gate                              # against https://zerogex.io
+#   make verify-gate BASE=http://127.0.0.1:3000   # against a local build
+#
+# Member-side checks need a session cookie (zgx_session from a logged-in
+# browser) and the tier that account is on:
+#   ZGX_SESSION=<cookie> TIER=basic make verify-gate
+verify-gate:
+	@cd frontend && ./scripts/verify-api-tier-gate.sh $(BASE)
 
 # Copy blog post images from assets/blog to the Next.js public/blog directory
 # (the path referenced by markdown image links like /blog/<name>.png). Source
