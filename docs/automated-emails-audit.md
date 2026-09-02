@@ -272,6 +272,25 @@ auth/transactional and TradeWorkz alerts.
 - **Subject:** `[ZeroGEX] Reactivation review — N cold signups ready (N-day trial)`
 - Pre-send review digest, mirrors the win-back digest.
 
+**Cancellation alert (operator)** — `sendCancellationAlertEmail(to, alert)`
+- **Subject:** `[ZeroGEX] <email> cancelled — <what they typed>` (falls back to the survey
+  label, then `no reason given`)
+- Fires from `frontend/scripts/send-cancellation-alerts.mts` / `make cancellation-alerts`,
+  driven every 15 minutes by `zerogex-web-cancellation-alerts.timer`. **Sends nothing to
+  users** — one email to the operator per churn event, carrying the Stripe cancellation
+  survey (`cancel_feedback` label + verbatim `cancel_comment`), tenure, the save-window
+  deadline, and the `make diagnose-user` / `save-url` / `honor-winback-discount` commands
+  pre-filled with the address.
+- Alerts on **both** churn rows, which mean different things: `stripe_cancellation_requested`
+  (they clicked Cancel and **still have access** — the only window in which a reply can
+  save them) and `stripe_subscription_deleted` (access is gone).
+- **Sweeper, not a webhook send**, on purpose: the alert is derived from `audit_events`, so
+  a failed send simply isn't latched and the next tick retries it, and history is
+  backfillable with `SINCE=`. Idempotency is a `cancellation_alert_sent` audit row keyed
+  to the churn event's own audit id (`alert_for=<id>`), so a cancel → reactivate → cancel
+  alerts twice while a re-run alerts zero more times.
+- No Folds of Honor footer, no unsubscribe — internal operational mail.
+
 ### 3.6 Product / ops / receipts
 
 **Product-update newsletter** — `frontend/scripts/send-product-update.mts` (inline copy from `docs/newsletters/2026-07-*.{html,txt}`)
