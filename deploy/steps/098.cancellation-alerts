@@ -1,0 +1,161 @@
+#!/bin/bash
+
+# ==============================================
+# Step 098: Cancellation Alerts Timer (systemd)
+# ==============================================
+#
+# Installs and enables the cancellation-alerts timer (see
+# deploy/systemd/zerogex-web-cancellation-alerts.{service,timer}). The timer
+# fires every 15 minutes and triggers `make cancellation-alerts`, which sweeps
+# audit_events for churn rows that have not been alerted yet and emails the
+# operator one message per cancellation — carrying the reason the member typed
+# into Stripe's cancellation survey.
+#
+# WHY: the reason has been captured on the churn row since the cancellation
+# survey was wired up, but nothing pushed it anywhere. In practice you read it
+# weeks later, after the member's period end had already passed and the only
+# thing left to send was a win-back. This closes that loop.
+#
+# Idempotent — safe to re-run. Unit files are overwritten from the repo
+# (they're version-controlled). No config file is written; the script reads
+# CANCELLATION_ALERT_EMAIL (or SIGNUP_ALARM_EMAIL / FOH_REMINDER_EMAIL),
+# RESEND_API_KEY, RESEND_FROM_EMAIL, AUTH_DB_PATH, NEXT_PUBLIC_APP_URL from
+# frontend/.env.local, which steps 030/036 already manage.
+#
+# DB-dir RW: unlike the read-only reporting timers this one WRITES — the
+# `cancellation_alert_sent` audit row is the idempotency latch. The base unit
+# lists the two known DB locations (/var/lib/zerogex and frontend/data) with a
+# leading '-'. If AUTH_DB_PATH points somewhere else, this step writes a
+# drop-in adding that directory to ReadWritePaths so the insert (and the WAL
+# sidecars) succeed under ProtectSystem=strict.
+#
+# FIRST INSTALL: the timer starts from a 72h lookback, so enabling it will
+# alert on any cancellation from the last three days. If you have already dealt
+# with those by hand, silence the backlog first — see the closing notes below.
+
+set -e
+
+# Fallback log if this step is invoked directly (deploy.sh exports a log
+# function, but operators sometimes run a single step in isolation).
+type log >/dev/null 2>&1 || log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
+
+log "Cancellation Alerts Timer Setup"
+
+APP_DIR="$HOME/zerogex-web"
+SYSTEMD_SOURCE="$APP_DIR/deploy/systemd"
+SYSTEMD_TARGET="/etc/systemd/system"
+UNIT="zerogex-web-cancellation-alerts"
+ENV_FILE="$APP_DIR/frontend/.env.local"
+
+# --- Preconditions ---------------------------------------------------
+if [ ! -d "$SYSTEMD_SOURCE" ]; then
+    log "  ✗ systemd source dir not found: $SYSTEMD_SOURCE"
+    exit 1
+fi
+for f in "${UNIT}.service" "${UNIT}.timer"; do
+    if [ ! -f "$SYSTEMD_SOURCE/$f" ]; then
+        log "  ✗ missing unit file: $SYSTEMD_SOURCE/$f"
+        exit 1
+    fi
+done
+
+# nvm + Node 22 are installed by step 020.nodejs. The Makefile target sources
+# $HOME/.nvm/nvm.sh at runtime, so presence here is enough.
+if [ -s "$HOME/.nvm/nvm.sh" ]; then
+    log "  ✓ nvm present at $HOME/.nvm/nvm.sh"
+else
+    log "  ✗ nvm not found at $HOME/.nvm/nvm.sh — run step 020.nodejs first"
+    exit 1
+fi
+
+# --- Env soft-check --------------------------------------------------
+# The script needs Resend creds to send AND a recipient. Warn (don't fail) if
+# any are empty — the timer still installs, and if the keys land later, the next
+# scheduled tick just works. The recipient falls back through SIGNUP_ALARM_EMAIL
+# to FOH_REMINDER_EMAIL, so only warn when all three are unset.
+read_env() {
+    grep -E "^$1=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'"
+}
+warn_missing_env() {
+    if [ -z "$(read_env "$1")" ]; then
+        log "  ⚠ $1 is unset in $ENV_FILE — timer will install but alerts error until set"
+    else
+        log "  ✓ $1 is set"
+    fi
+}
+if [ -f "$ENV_FILE" ]; then
+    warn_missing_env RESEND_API_KEY
+    warn_missing_env RESEND_FROM_EMAIL
+    if [ -z "$(read_env CANCELLATION_ALERT_EMAIL)" ] \
+       && [ -z "$(read_env SIGNUP_ALARM_EMAIL)" ] \
+       && [ -z "$(read_env FOH_REMINDER_EMAIL)" ]; then
+        log "  ⚠ none of CANCELLATION_ALERT_EMAIL / SIGNUP_ALARM_EMAIL / FOH_REMINDER_EMAIL set in $ENV_FILE — no recipient"
+    else
+        log "  ✓ alert recipient resolvable"
+    fi
+else
+    log "  ⚠ $ENV_FILE not found — step 030 should have created it"
+fi
+
+# --- Install the units -----------------------------------------------
+log "  → Installing ${UNIT}.{service,timer}..."
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.service" "$SYSTEMD_TARGET/"
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.timer"   "$SYSTEMD_TARGET/"
+
+# --- DB-dir RW drop-in for a custom AUTH_DB_PATH ---------------------
+# The base unit already grants RW to /var/lib/zerogex and frontend/data. If
+# AUTH_DB_PATH lives elsewhere, add its directory so the latch INSERT and the
+# WAL sidecars are writable under ProtectSystem=strict.
+DROPIN_DIR="$SYSTEMD_TARGET/${UNIT}.service.d"
+AUTH_DB_PATH_VALUE="$(read_env AUTH_DB_PATH)"
+if [ -n "$AUTH_DB_PATH_VALUE" ]; then
+    DB_DIR="$(dirname "$AUTH_DB_PATH_VALUE")"
+    case "$DB_DIR" in
+        /var/lib/zerogex|"$APP_DIR/frontend/data")
+            log "  ✓ AUTH_DB_PATH dir ($DB_DIR) already covered by the base unit"
+            sudo rm -f "$DROPIN_DIR/10-db-readwrite.conf" 2>/dev/null || true
+            ;;
+        *)
+            log "  → AUTH_DB_PATH dir ($DB_DIR) is custom — writing ReadWritePaths drop-in"
+            sudo mkdir -p "$DROPIN_DIR"
+            printf '[Service]\nReadWritePaths=%s\n' "$DB_DIR" | sudo tee "$DROPIN_DIR/10-db-readwrite.conf" >/dev/null
+            ;;
+    esac
+else
+    log "  ℹ AUTH_DB_PATH not set — script defaults to frontend/data/auth.db (covered by base unit)"
+fi
+
+sudo systemctl daemon-reload
+
+log "  → Enabling ${UNIT}.timer (every 15m on :07/:22/:37/:52, Persistent=true)..."
+if sudo systemctl enable --now "${UNIT}.timer" 2>/dev/null; then
+    NEXT=$(systemctl list-timers --no-pager --no-legend "${UNIT}.timer" 2>/dev/null | awk '{print $1, $2}')
+    log "     ✓ ${UNIT}.timer enabled (next run: ${NEXT:-unknown})"
+else
+    log "     ✗ ${UNIT}.timer failed to enable"
+    exit 1
+fi
+
+# Deliberately NO real send here (it would email the operator, possibly several
+# times if there are recent cancellations). Smoke-test with the dry run, which
+# prints exactly what would go out and touches nothing:
+#   cd ~/zerogex-web && make cancellation-alerts DRY_RUN=1
+
+log ""
+log "Cancellation alerts timer setup complete!"
+log ""
+log "Summary:"
+log "  ✓ ${UNIT}.timer enabled (every 15m; a tick with no new cancellations exits immediately)"
+log "  ✓ Fires: one email per cancellation, carrying the survey reason + free-text comment"
+log "  ✓ Recipient: CANCELLATION_ALERT_EMAIL (falls back to SIGNUP_ALARM_EMAIL, then FOH_REMINDER_EMAIL)"
+log "  ✓ Idempotent: each churn event is latched by a 'cancellation_alert_sent' audit row"
+log "  ✓ Defaults: 72h lookback, 25 alerts/run cap (tune CANCELLATION_ALERT_* in .env.local)"
+log ""
+log "Useful commands:"
+log "  • cd $APP_DIR && make cancellation-alerts DRY_RUN=1              - preview (no send, no latch)"
+log "  • cd $APP_DIR && make cancellation-alerts PREVIEW_TO=you@x.com   - one sample alert, to check the layout"
+log "  • cd $APP_DIR && make cancellation-alerts SINCE=2026-08-01       - backfill history you never got told about"
+log "  • cd $APP_DIR && make cancellation-alerts SINCE=2026-01-01 MARK_ONLY=1"
+log "                                                                  - silence an old backlog WITHOUT emailing"
+log "  • systemctl list-timers ${UNIT}.timer                            - next/last run"
+log "  • journalctl -u ${UNIT} -n 50                                    - recent run logs"
