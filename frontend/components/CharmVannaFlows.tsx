@@ -1,8 +1,12 @@
 'use client';
 
-import { Info } from 'lucide-react';
+import Link from 'next/link';
+import { Info, Lock } from 'lucide-react';
 import { useTheme } from '@/core/ThemeContext';
 import { colors } from '@/core/colors';
+import { capture } from '@/core/telemetry/posthog-client';
+import { TelemetryEvent } from '@/core/telemetry/events';
+import type { SignalAvailability } from '@/core/signalAvailability';
 import TooltipWrapper from './TooltipWrapper';
 import ExpandableCard from './ExpandableCard';
 import ChartCaption from "./ChartCaption";
@@ -19,7 +23,22 @@ interface VolExpansionData {
 interface CharmVannaFlowsProps {
   byStrikeData: ByStrikeRow[] | null | undefined;
   volExpansion: VolExpansionData | null | undefined;
+  /** Why `volExpansion` is empty, when it is. Optional: omitted, the row falls
+   *  back to the old data-presence-only read, so any caller that hasn't been
+   *  plumbed through still renders exactly what it did before. */
+  volExpansionState?: SignalAvailability;
+  /** Named in the "no coverage for this symbol" copy. */
+  symbol?: string;
 }
+
+// Tier id -> the name the plan goes by on /pricing. Kept local and total:
+// an unmapped id falls back to the raw value rather than rendering "undefined".
+const PLAN_LABELS: Record<string, string> = {
+  basic: 'Basic',
+  pro: 'Pro',
+  admin: 'Admin',
+  public: 'a free account',
+};
 
 function formatB(value: number): string {
   const abs = Math.abs(value);
@@ -70,7 +89,12 @@ function FlowBar({ value, maxAbs, isDark }: { value: number; maxAbs: number; isD
   );
 }
 
-export default function CharmVannaFlows({ byStrikeData, volExpansion }: CharmVannaFlowsProps) {
+export default function CharmVannaFlows({
+  byStrikeData,
+  volExpansion,
+  volExpansionState,
+  symbol,
+}: CharmVannaFlowsProps) {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const textColor = 'var(--text-primary)';
@@ -83,28 +107,93 @@ export default function CharmVannaFlows({ byStrikeData, volExpansion }: CharmVan
   const maxAbs = Math.max(Math.abs(totalVanna), Math.abs(totalCharm), Math.abs(eodCharm), 1);
 
   const expansion = volExpansion?.expansion ?? null;
-  // Distinct N/A state when the backend hasn't returned a value yet —
-  // previously this silently rendered "Low" with "GEX suppressing
-  // vol", which falsely implied a healthy reading on cycles where
-  // the signal was actually unavailable (404, pre-warmup, signal
-  // engine restart).  The classification is computed only when
-  // expansion is present; otherwise the label and its supporting
-  // copy explicitly say "no data".
-  let volRiskLabel: 'High' | 'Medium' | 'Low' | 'N/A';
-  if (expansion == null || !Number.isFinite(expansion)) {
-    volRiskLabel = 'N/A';
-  } else if (expansion >= 60) {
-    volRiskLabel = 'High';
-  } else if (expansion >= 30) {
-    volRiskLabel = 'Medium';
-  } else {
-    volRiskLabel = 'Low';
-  }
-  const volRiskColor = volRiskLabel === 'High'
-    ? 'var(--color-bear)'
-    : volRiskLabel === 'Medium'
-      ? 'var(--color-warning)'
-      : 'var(--text-secondary)';
+  const hasExpansion = expansion != null && Number.isFinite(expansion);
+
+  // The vol-expansion row reports one of two different kinds of thing: a
+  // reading, or the reason there isn't one.
+  //
+  // A reading is classified only when `expansion` is actually present —
+  // this used to render "Low / GEX suppressing vol" for a missing value,
+  // which falsely implied a healthy signal on cycles where none existed.
+  //
+  // The reason, when there is no reading, has to be specific. A bare "N/A"
+  // is the same cell whether the viewer lacks the tier, the symbol has no
+  // coverage, or the signal engine is down — three problems with three
+  // different owners and three different fixes, and it once sent a working
+  // paywall to support as a bug report. That paywall is gone (the reading is
+  // a Basic entitlement now), which makes the distinction MORE important, not
+  // less: a Basic viewer is expected to see a value here, so an empty row is
+  // now far likelier to be a genuine fault than a gate. See
+  // core/signalAvailability.ts for how the state is derived.
+  const volRisk = ((): {
+    label: string;
+    caption: string;
+    color: string;
+    barPct: number | null;
+    locked: boolean;
+  } => {
+    if (hasExpansion) {
+      const value = expansion as number;
+      if (value >= 60) {
+        return {
+          label: 'High',
+          caption: 'Vol breakout likely',
+          color: 'var(--color-bear)',
+          barPct: 85,
+          locked: false,
+        };
+      }
+      if (value >= 30) {
+        return {
+          label: 'Medium',
+          caption: 'Moderate expansion risk',
+          color: 'var(--color-warning)',
+          barPct: 50,
+          locked: false,
+        };
+      }
+      return {
+        label: 'Low',
+        caption: 'GEX suppressing vol',
+        color: 'var(--text-secondary)',
+        barPct: 20,
+        locked: false,
+      };
+    }
+
+    const muted = 'var(--text-secondary)';
+    switch (volExpansionState?.kind) {
+      case 'locked': {
+        // Named, not blanked — the honest message is which plan carries this
+        // row, not silence that reads as breakage. Derived from the state's
+        // requiredTier rather than hardcoded: this row's own gate moved from
+        // Pro to Basic, and copy that names the wrong plan is worse than the
+        // silence it replaced.
+        const plan = volExpansionState?.kind === 'locked'
+          ? PLAN_LABELS[volExpansionState.requiredTier] ?? volExpansionState.requiredTier
+          : 'Pro';
+        return { label: plan, caption: `Included with ${plan}`, color: muted, barPct: null, locked: true };
+      }
+      case 'unsupported':
+        return {
+          label: 'N/A',
+          caption: symbol ? `No coverage for ${symbol}` : 'No coverage for this symbol',
+          color: muted,
+          barPct: null,
+          locked: false,
+        };
+      case 'error':
+        // Deliberately NOT "N/A": an outage should look like an outage, both
+        // to the viewer and to whoever they send the screenshot to.
+        return { label: '—', caption: 'Signal temporarily unavailable', color: muted, barPct: null, locked: false };
+      case 'resolving':
+        return { label: '—', caption: 'Checking availability…', color: muted, barPct: null, locked: false };
+      default:
+        // 'ready' with no value, or no state passed at all (the pre-existing
+        // caller contract) — the backend answered and simply had no reading.
+        return { label: 'N/A', caption: 'No expansion signal available', color: muted, barPct: null, locked: false };
+    }
+  })();
 
   const flowItems = [
     {
@@ -167,17 +256,34 @@ export default function CharmVannaFlows({ byStrikeData, volExpansion }: CharmVan
           <div className="flex-1 min-w-0">
             <div className="text-sm font-semibold" style={{ color: textColor }}>Vol expansion risk</div>
             <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-              {volRiskLabel === 'N/A'
-                ? 'No expansion signal available'
-                : volRiskLabel === 'Low'
-                  ? 'GEX suppressing vol'
-                  : volRiskLabel === 'High'
-                    ? 'Vol breakout likely'
-                    : 'Moderate expansion risk'}
+              {volRisk.caption}
+              {volRisk.locked && (
+                <>
+                  {' \u00b7 '}
+                  <Link
+                    href="/pricing?plan=pro"
+                    onClick={() => capture(TelemetryEvent.LockedFeatureCtaClick, {
+                      feature: 'vol_expansion',
+                      required_tier: volExpansionState?.kind === 'locked'
+                        ? volExpansionState.requiredTier
+                        : 'pro',
+                      symbol,
+                    })}
+                    className="underline underline-offset-2"
+                    style={{ color: 'var(--color-brand-accent)' }}
+                  >
+                    Upgrade
+                  </Link>
+                </>
+              )}
             </div>
           </div>
-          <div className="text-sm font-bold italic whitespace-nowrap" style={{ color: volRiskColor }}>
-            {volRiskLabel}
+          <div
+            className="text-sm font-bold italic whitespace-nowrap flex items-center gap-1"
+            style={{ color: volRisk.color }}
+          >
+            {volRisk.locked && <Lock size={12} aria-hidden />}
+            {volRisk.label}
           </div>
           <div
             className="h-5 rounded-full flex-shrink-0"
@@ -186,12 +292,12 @@ export default function CharmVannaFlows({ byStrikeData, volExpansion }: CharmVan
               backgroundColor: isDark ? 'var(--border-subtle)' : 'var(--border-subtle)',
             }}
           >
-            {volRiskLabel !== 'N/A' && (
+            {volRisk.barPct != null && (
               <div
                 className="h-full rounded-full"
                 style={{
-                  width: volRiskLabel === 'High' ? '85%' : volRiskLabel === 'Medium' ? '50%' : '20%',
-                  backgroundColor: volRiskColor,
+                  width: `${volRisk.barPct}%`,
+                  backgroundColor: volRisk.color,
                   opacity: 0.6,
                 }}
               />

@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import {
   classifyPinStrength,
   formatPinStrike,
+  pinLineLabel,
   pinStrikeSubtitle,
   pinStrengthLabel,
   PIN_STRIKE_EMPTY,
@@ -63,4 +64,32 @@ test('pinStrikeSubtitle degrades gracefully with no confidence', () => {
 test('pinStrikeSubtitle shows the no-pin state when there is no strike', () => {
   assert.equal(pinStrikeSubtitle(null, null), 'No active pin');
   assert.equal(pinStrikeSubtitle(undefined, 0.9), 'No active pin');
+});
+
+// pinLineLabel is what the Daily Replay chart's pin line and the Gamma
+// Terminal chart's PIN tag are both built from — the level must not be named
+// two different things on two charts showing the same minute.
+test('pinLineLabel qualifies the line with the pin strength', () => {
+  assert.equal(pinLineLabel(775, 0.62), 'Pin · Strong');
+  assert.equal(pinLineLabel(775, 0.4), 'Pin · Moderate');
+  assert.equal(pinLineLabel(775, 0.2), 'Pin · Weak');
+});
+
+test('pinLineLabel falls back to a bare "Pin" when there is no pin', () => {
+  // A missing confidence reads as Weak rather than as unqualified — the same
+  // answer pinStrikeSubtitle already gives the tiles, so one pin cannot read
+  // two ways depending on which surface you are looking at.
+  assert.equal(pinLineLabel(775, null), 'Pin · Weak');
+  // The bare "Pin" is reserved for having no pin to qualify at all.
+  assert.equal(pinLineLabel(null, 0.9), 'Pin');
+  assert.equal(pinLineLabel(undefined, undefined), 'Pin');
+  // Never a "$0" pin, and so never a strength claimed for one.
+  assert.equal(pinLineLabel(0, 0.9), 'Pin');
+});
+
+test('pinLineLabel upper-cases into the Gamma Terminal chart tag', () => {
+  // That chart's level tags are caps; it upper-cases this result rather than
+  // composing its own wording.
+  assert.equal(pinLineLabel(775, 0.62).toUpperCase(), 'PIN · STRONG');
+  assert.equal(pinLineLabel(null, null).toUpperCase(), 'PIN');
 });

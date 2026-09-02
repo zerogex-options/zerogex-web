@@ -6,7 +6,7 @@
 
 ## What is a gamma wall?
 
-A **gamma wall** is a strike on the option chain where modeled dealer gamma exposure is heavily concentrated. It marks a price level where option positioning is unusually dense, so the hedging that dealers may do around that level can be larger than it is at neighbouring strikes.
+A **gamma wall** is a strike on the option chain where modeled dealer gamma exposure is heavily concentrated. It marks a price level where option positioning is unusually dense, so the hedging that dealers may do around that level can be larger than it is at neighboring strikes.
 
 Two things follow from that definition, and both matter.
 

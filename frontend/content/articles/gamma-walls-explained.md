@@ -1,16 +1,16 @@
 # Gamma Walls Explained: Call Wall, Put Wall, and How Price Reacts
 
-*Gamma walls are the most-watched levels in dealer-positioning analysis. This is what a gamma wall actually is, the call wall put wall meaning, why price reacts at them, how they shift intraday, and when they hold versus break.*
+*Gamma walls are the most-watched levels in dealer-positioning analysis. What each wall does in each regime, what the gap between them tells you, how they behave into same-day expiry, and when the read holds versus breaks.*
 
 ---
 
-## What is a gamma wall?
+## Start here
 
-A gamma wall is a strike on the option chain where modeled dealer gamma exposure is concentrated heavily on one side of the book. The two most-watched walls are the **call wall** — the heaviest call gamma concentration above spot — and the **put wall** — the heaviest put gamma concentration below spot. Each is a level where dealer hedging, liquidity, and positioning can cluster — but a wall is not automatically resistance or support. Whether it behaves as support, resistance, a magnet, or an accelerant depends on the modeled or actual dealer gamma *sign* and the surrounding flow, not on whether the contracts are calls or puts.
+A gamma wall is a strike where modeled dealer gamma exposure is heavily concentrated. There are two: the **call wall** above spot and the **put wall** below it. Neither is support or resistance by construction — what a wall does depends on the modeled dealer gamma *sign* and the flow around it, not on whether the contracts sitting there are calls or puts.
 
-Walls are not moving averages or psychological levels. They emerge from real open interest: contract-by-contract, weighted by the gamma each contract carries. When traders ask about the call wall put wall meaning, what they are really asking is: *where does option gamma concentrate, and how might dealer hedging around those strikes affect price?*
+If that definition is what you came for, [What Is a Gamma Wall?](/education/what-is-a-gamma-wall) covers it on its own and is the shorter read.
 
-This piece walks through what each wall is, why price tends to react at them, how they shift intraday, and when the wall thesis holds versus when it breaks. For the regime context that decides whether a gamma wall *dampens* or *amplifies* the move, pair this with [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) and the broader [Gamma Exposure pillar](/education/gamma-exposure-explained).
+This page is the applied one. It assumes you know what a wall is and works through the parts that decide whether the level is useful on a given day: what each wall does in each regime, what the distance between them tells you, how they behave into same-day expiry, how they migrate, and the conditions under which the read holds or fails. For the regime context underneath all of it, pair this with [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) and the broader [Gamma Exposure pillar](/education/gamma-exposure-explained).
 
 ---
 
@@ -54,6 +54,18 @@ This is why walls feel like they "work" some days and not others. A gamma wall i
 
 ---
 
+## What the distance between the walls tells you
+
+The two walls carry more information together than either does alone. The gap between them is the range current positioning is most consistent with, and its shape is readable in two ways.
+
+**Width.** A narrow wall range means gamma is concentrated close to spot on both sides. In a positive-gamma regime that is the classic pinning setup — hedging leans against moves in both directions and the range tends to hold. A wide range means the nearest dense strikes are far away, so there is less concentrated hedging in between and price can travel further before meeting any.
+
+**Asymmetry.** Spot rarely sits in the middle. When one wall is much closer than the other, the near wall is the level that actually gets tested and the far one is mostly context. Spot sitting 0.3% under the call wall and 1.4% above the put wall is a different day from spot sitting midway between them: the first has a near-term decision point, the second does not.
+
+The trap is reading width or asymmetry without the regime. Both readings above assume positive gamma. Below the flip, the same narrow range is not a pin — it is a short distance between two levels that hedging will help price move through.
+
+---
+
 ## How gamma walls shift intraday
 
 Walls do not get announced at the open and hold through the close. They migrate. Three common patterns:
@@ -63,6 +75,18 @@ Walls do not get announced at the open and hold through the close. They migrate.
 3. **Near-expiry concentration.** ATM gamma can rise sharply while decisively ITM or OTM strikes tend toward zero, changing the ranking. That repricing is distinct from positions closing and from official OI updating after clearing.
 
 A wall can also shift purely because spot, time, and implied vol move — the strike carrying the most modeled exposure changes even when positioning does not. A gamma wall is the *current* heaviest modeled-gamma strike. Treat it as a live read, not a fixed line.
+
+---
+
+## Gamma walls into same-day expiry
+
+0DTE is where wall behavior is most extreme, in both directions.
+
+Gamma on a same-day chain is very large near spot and falls away quickly from it, so the walls sit tight to price and the concentration at them is far heavier than on a longer-dated chain. When the regime supports it, that produces the strongest pinning you are likely to see — price grinding in a narrow band between two walls only a few points apart.
+
+The same concentration makes those walls unstable. Because 0DTE gamma reprices sharply as spot moves and as the clock runs, a 0DTE wall can migrate several times in an hour without a single new position being opened. Walls can also vanish: as strikes go decisively in or out of the money their modeled gamma tends toward zero, and the ranking reshuffles around whatever is left near spot.
+
+Two practical consequences. A 0DTE wall read has a much shorter shelf life than the same read on a monthly chain — minutes rather than hours. And once price clears a 0DTE wall in a negative-gamma regime, there is often little dense gamma left between it and the next level, which is part of why late-session breaks on expiry days can travel so far so quickly.
 
 ---
 

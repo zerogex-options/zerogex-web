@@ -12,7 +12,8 @@ import {
   useApiData,
 } from '@/hooks/useApiData';
 import type { VolExpansionSignalResponse } from '@/hooks/useApiData';
-import { useHasTierAccess } from '@/hooks/useAuthSession';
+import { useTierAccessState } from '@/hooks/useAuthSession';
+import { resolveSignalAvailability } from '@/core/signalAvailability';
 import { useStrikeProfileTimeseries } from '@/hooks/useStrikeProfileTimeseries';
 import MetricCard from '@/components/MetricCard';
 import HistoricalContextBadge from '@/components/HistoricalContextBadge';
@@ -30,6 +31,7 @@ import GexWallsChart from '@/components/GexWallsChart';
 import CharmVannaFlows from '@/components/CharmVannaFlows';
 import VolSurfaceChart from '@/components/VolSurfaceChart';
 import ExpandableCard, { useExpandedCard } from '@/components/ExpandableCard';
+import ModeledPositioningNote from '@/components/ModeledPositioningNote';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useStrikeFilter } from '@/core/StrikeFilterContext';
 import { selectActive } from '@/core/strikeFilter';
@@ -122,14 +124,50 @@ export default function GammaExposurePage() {
   // QQQ/NDX's correct implied-vol input is VXN (Nasdaq-100); SPX/SPY use VIX.
   const volIndex: 'VIX' | 'VXN' = volatilityIndexFor(symbol);
   const { data: volGauge } = useVolatilityGauge(30000, volIndex);
-  // vol-expansion is a Pro-only endpoint; this page is Basic-tier, so gate the
-  // poll behind Pro access instead of 403-looping for non-Pro viewers. The
-  // consumer (CharmVannaFlows) already handles a null volExpansion, so a Basic
-  // viewer sees the same output minus the wasted requests.
-  const hasProAccess = useHasTierAccess('pro');
-  const { data: volExpansion } = useApiData<VolExpansionSignalResponse>(
+  // vol-expansion backs the "Vol expansion risk" row of the Charm & Vanna Flows
+  // card, and is a Basic entitlement — the same tier as this page. It used to be
+  // gated at Pro, which meant a Basic subscriber met an upsell inside a page
+  // they already pay for; the reading is now carved down to Basic in
+  // core/api/apiTierGate.ts (the standalone /volatility-expansion page and the
+  // signal's /accuracy analytics stay Pro).
+  //
+  // Still gated rather than fired unconditionally: an anonymous or
+  // still-resolving viewer would only earn a 401/403, so the guard keeps the
+  // request off the wire until the session actually confirms the tier.
+  //
+  // The availability plumbing below outlives the tier change and is the reason
+  // to keep it: this row previously rendered "N/A — No expansion signal
+  // available" for a paywall, a missing symbol and a dead signal engine alike.
+  // Carrying the REASON — entitlement, HTTP status, whether the session has even
+  // resolved — is what lets an outage look like an outage now that a Basic
+  // viewer is expected to see a real value here.
+  const { allowed: hasSignalAccess, loading: tierResolving } = useTierAccessState('basic');
+  const {
+    data: volExpansion,
+    loading: volExpansionLoading,
+    error: volExpansionError,
+    errorStatus: volExpansionStatus,
+  } = useApiData<VolExpansionSignalResponse>(
     `/api/signals/advanced/vol-expansion?symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}`,
-    { refreshInterval: 30000, enabled: hasProAccess },
+    { refreshInterval: 30000, enabled: hasSignalAccess },
+  );
+  const volExpansionAvailability = useMemo(
+    () => resolveSignalAvailability({
+      entitled: hasSignalAccess,
+      tierResolving,
+      // Explicit null check first: Number(null) is 0, which IS finite, so a
+      // coercion-only test would read a backend `"expansion": null` as a real
+      // reading and fall straight back to the bare "no signal" copy this
+      // change exists to remove. Mirrors CharmVannaFlows' own guard.
+      hasValue: volExpansion?.expansion != null && Number.isFinite(Number(volExpansion.expansion)),
+      loading: volExpansionLoading,
+      hasError: volExpansionError != null,
+      errorStatus: volExpansionStatus,
+      // Only reachable by a viewer below Basic (an expired session mid-render),
+      // for whom the honest upsell is the plan this page itself requires.
+      requiredTier: 'basic',
+    }),
+    [hasSignalAccess, tierResolving, volExpansion, volExpansionLoading, volExpansionError, volExpansionStatus],
   );
 
   // Expiration filter state for strike table
@@ -585,7 +623,12 @@ export default function GammaExposurePage() {
             <GexStrikeDteHeatmap byStrikeData={gexByStrike} spotPrice={quoteData?.close} />
           </div>
           <div className="lg:col-span-2 h-full">
-            <CharmVannaFlows byStrikeData={gexByStrike} volExpansion={volExpansion} />
+            <CharmVannaFlows
+              byStrikeData={gexByStrike}
+              volExpansion={volExpansion}
+              volExpansionState={volExpansionAvailability}
+              symbol={symbol}
+            />
           </div>
         </div>
       </section>
@@ -773,6 +816,10 @@ export default function GammaExposurePage() {
           </div>
         </ExpandableCard>
       </section>
+
+      {/* Every number on this page is signed by the positioning convention, so
+          the disclosure closes the page rather than living only in tooltips. */}
+      <ModeledPositioningNote />
     </PageShell>
   );
 }

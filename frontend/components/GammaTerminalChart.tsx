@@ -19,7 +19,7 @@
  */
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
-import { Activity, ChevronsRight, Info, Moon, Pause, Play, Repeat, Rewind, Sun } from "lucide-react";
+import { Activity, Camera, ChevronsRight, Info, Moon, Pause, Play, Repeat, Rewind, Sun } from "lucide-react";
 import TooltipWrapper from "./TooltipWrapper";
 import { useApiData, useMarketQuote, useGEXByStrike, useGEXProfile, useGEXSummary, useSessionCloses, type SessionClosesData, type VolatilityGaugeData } from "@/hooks/useApiData";
 import { useMarketHistorical, type PriceBar } from "@/hooks/useMarketHistorical";
@@ -39,10 +39,13 @@ import ExpirationMultiSelect from "./ExpirationMultiSelect";
 import { useSharedExpirations } from "@/hooks/useSharedExpirations";
 import { useZeroDteOption } from "@/hooks/useZeroDteOption";
 import { selectionIsRollingZeroDte } from "@/core/expirationPersistence";
+import { chartSvgToPngBlob, downloadBlob, resolvedBackground } from "@/core/chartImageExport";
 import { useChartExpirations } from "@/hooks/useChartExpirations";
 import { useLinkedPriceAxis } from "@/core/linkedPriceAxis";
 import { netGexAtSpotOrNull, aboveFlipBandIsLong, offScaleBandIsLong } from "@/core/gammaRegime";
 import { computeMaxPainFromStrikes } from "@/core/keyLevels";
+import { pinLineLabel } from "@/core/pinStrike";
+import { barClock, formatBarDuration } from "@/core/barClock";
 import {
   buildExpirationSplit,
   expirationOpacityRamp,
@@ -90,11 +93,13 @@ interface Bar {
 interface OverlayState {
   levels: boolean; // gamma flip + call/put walls
   maxPain: boolean;
+  king: boolean; // GEX King (whole-chain heaviest-gamma strike)
   pin: boolean; // pin strike (reachable 0DTE positive-gamma pin)
   vwap: boolean;
   rail: boolean; // gamma structure rail
   regime: boolean; // long/short gamma background zones
   expectedRange: boolean; // IV-derived ±1σ expected-range band (Daily/Weekly/Monthly)
+  barTimer: boolean; // countdown + elapsed on the forming candle
 }
 
 const DEFAULT_OVERLAYS: OverlayState = {
@@ -105,8 +110,10 @@ const DEFAULT_OVERLAYS: OverlayState = {
   rail: true,
   regime: true,
   // Off by default: a new overlay shouldn't reshape every existing user's chart
-  // unasked. The stored-prefs merge leaves it false for returning users too.
+  // unasked. The stored-prefs merge leaves them false for returning users too.
+  king: false,
   expectedRange: false,
+  barTimer: false,
 };
 
 const OVERLAY_STORAGE_KEY = "zg.gammaChart.overlays.v1";
@@ -850,9 +857,10 @@ export default function GammaTerminalChart({
     return null;
   }, [gexBuckets]);
 
-  // ── Gamma levels ── Rewind takes flip/walls from the historical bucket, Max
-  // Pain from the bucket's per-strike OI and VWAP from the bars; net-GEX-at-spot
-  // isn't recoverable from the timeseries, so it's hidden while rewinding. When
+  // ── Gamma levels ── Rewind takes flip/walls/pin from the historical bucket,
+  // Max Pain from the bucket's per-strike OI and VWAP from the bars;
+  // net-GEX-at-spot isn't recoverable from the timeseries, so it's hidden
+  // while rewinding (it's the only level still withheld there). When
   // an expiration filter is active the LIVE flip/walls also come from the
   // filtered timeseries bucket (the endpoint aggregates to the selected
   // expirations), so the level lines track the filtered bars — not the
@@ -885,10 +893,45 @@ export default function GammaTerminalChart({
   // the point value is absent the badge falls back to the geometric
   // spot-vs-flip read (see longGammaNow), not an opposite-signed total.
   const netGexAtSpot = rewindActive ? null : snapshot ? snapshot.gamma.netGexAtSpot : netGexAtSpotOrNull(gexProfile?.net_gex_at_spot);
-  // Pin Strike — reachable 0DTE positive-gamma pin. Not stored on the
-  // timeseries rewind buckets, so it's hidden during rewind (same as
-  // netGexAtSpot); live/delayed reads the served summary value.
-  const pinStrike = rewindActive ? null : num(gexSummary?.pin_strike);
+  // Pin Strike — reachable 0DTE positive-gamma pin, drawn during rewind from
+  // the bucket's stored value (the server ships the same per-cycle pin the
+  // Daily Replay reads, as of the bucket's close).
+  //
+  // rewindBucket, NOT levelBucket: levelBucket also fires for a LIVE
+  // expiration filter, and the pin must stay whole-chain there — it is
+  // 0DTE-by-construction, so it doesn't follow the Expiry selector on any
+  // surface (see the note in useGammaPlaybook). Falling back to the summary
+  // when there's no bucket keeps it live-sourced alongside flip/walls while
+  // the timeseries seeds.
+  //
+  // Null (no active pin, or a session predating the pin) draws NO LINE —
+  // every levelDefs consumer skips a null value. Never a 0 on the axis.
+  const pinStrike = rewindBucket
+    ? coerceNum(rewindBucket.pin_strike)
+    : num(gexSummary?.pin_strike);
+  // Confidence rides the SAME source as the pin itself, so the strength shown
+  // on the line can never describe a different moment than the line it
+  // annotates: the rewound bucket's stored value while rewinding, the live
+  // summary otherwise.
+  const pinConfidence = rewindBucket
+    ? coerceNum(rewindBucket.pin_confidence)
+    : num(gexSummary?.pin_confidence);
+  // "PIN · STRONG" / "· MODERATE" / "· WEAK" — the Key Levels strength moved
+  // onto the chart, so the conviction travels with the level instead of living
+  // only in the tile strip. The wording is core/pinStrike's, shared with the
+  // Daily Replay chart's pin line and built on the same classifier the tile
+  // strip uses, so no two surfaces can disagree about the same pin. Upper-cased
+  // here because this chart's level tags are caps. With no active pin there is
+  // nothing to qualify and the chip reads "PIN", exactly as before.
+  const pinLabel = pinLineLabel(pinStrike, pinConfidence).toUpperCase();
+  // GEX King — the whole-chain heaviest-|net-gamma| strike. Sourced ONLY from
+  // the all-expiration summary, never levelBucket: like the Pin it must not
+  // follow the Expiry selector, because narrowing it to a subset of
+  // expirations would not filter it, it would make it a different metric
+  // wearing the same name. Null while rewinding and on the delayed public
+  // snapshot — neither carries a historical King, and drawing the LIVE value
+  // at a rewound moment would misdate it. Null draws no line.
+  const gexKing = rewindActive || snapshot ? null : num(gexSummary?.max_gamma_strike);
   const vwap = rewindActive ? rewindVwap : snapshot ? snapshot.vwap : num(technicals.latest?.vwap_deviation?.vwap);
 
   const profilePoints = useMemo<ProfilePoint[]>(() => {
@@ -1437,6 +1480,41 @@ export default function GammaTerminalChart({
     setHover(null);
   };
 
+  // ── PNG export ──────────────────────────────────────────────────────────
+  // Snapshot the instrument exactly as it stands — same overlays, same zoom,
+  // same expiry filter — the way TradingView's camera does. The raster comes
+  // off the SVG's viewBox rather than its on-screen box, so the file is the
+  // same 1360x636 (x2) whatever the window is doing.
+  const [exportState, setExportState] = useState<"idle" | "working" | "error">("idle");
+
+  const downloadPng = async () => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    setExportState("working");
+    try {
+      // Drop the crosshair before serializing: a hover readout frozen into a
+      // saved image is a value from whenever the mouse happened to be there.
+      // Moving to this button usually clears it via the SVG's pointer-leave,
+      // but a touch tap or a keyboard activation never fires that — and the
+      // clear has to be COMMITTED before we read the DOM, so wait a frame
+      // rather than serializing the tree React has not re-rendered yet.
+      if (hover) {
+        setHover(null);
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      }
+      const blob = await chartSvgToPngBlob(svg, {
+        background: resolvedBackground(containerRef.current),
+      });
+      const stamp = etTodayDateKey();
+      downloadBlob(blob, `zerogex-${symbol.toLowerCase()}-${timeframe}-${stamp}.png`);
+      setExportState("idle");
+    } catch (err) {
+      console.error("Failed to export chart PNG", err);
+      setExportState("error");
+      setTimeout(() => setExportState("idle"), 2500);
+    }
+  };
+
   // Time zoom about the current view center (used by the on-screen buttons).
   const zoomTimeCentered = (factor: number) => {
     setHover(null);
@@ -1623,6 +1701,34 @@ export default function GammaTerminalChart({
     return () => clearInterval(id);
   }, [rewindActive, playbackActive, playbackSpeed, style, subTf, intervalMinutes]);
 
+  // ── Bar timer ── How far the forming candle is through its own window, as a
+  // countdown beside the last price and an elapsed/remaining line in the
+  // crosshair readout. Only meaningful when we are actually looking at a candle
+  // that is still forming: a delayed snapshot's tip is the newest bar we HAVE
+  // rather than the newest that exists, a stale futures feed is not printing
+  // into it, and rewind or a panned-back view is parked on a closed one.
+  const liveBarTimestamp = allBars.length > 0 ? allBars[allBars.length - 1].timestamp : null;
+  // Same predicate the pinging live-price dot asserts, hoisted so the two can't
+  // drift: a timer counting down beside a dot that says the tape is dead (or
+  // vice versa) is worse than either signal alone.
+  const feedIsLive = !delayed && !rewindActive && !feedStale && !!session && session !== "closed";
+  const barTimerLive = overlays.barTimer && feedIsLive && atLiveEdge;
+  // Ticks only while the timer is on screen — a chart with it switched off, or
+  // parked in history, must not re-render once a second for nothing.
+  const [barClockNow, setBarClockNow] = useState<number>(() => Date.now());
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (!barTimerLive) return;
+    // Re-read immediately: the stored instant went stale while the timer was
+    // hidden, and without this the first second after switching it on would
+    // count from whenever the chart last happened to tick.
+    setBarClockNow(Date.now());
+    const id = setInterval(() => setBarClockNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [barTimerLive]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+  const liveBarClock = barTimerLive ? barClock(liveBarTimestamp, timeframe, barClockNow) : null;
+
   // SVG <defs> ids must be unique per mounted chart: My Dashboard can hold two
   // Gamma Charts side by side, and duplicate ids would make both instances
   // resolve url(#…) to whichever rendered first. Strip the non-alphanumerics
@@ -1720,7 +1826,8 @@ export default function GammaTerminalChart({
     { key: "call", label: "CALL WALL", value: callWall, color: "var(--color-bull)", dash: "3 4", show: overlays.levels },
     { key: "put", label: "PUT WALL", value: putWall, color: "var(--color-bear)", dash: "3 4", show: overlays.levels },
     { key: "pain", label: "MAX PAIN", value: maxPain, color: "var(--color-maxpain)", dash: "1 5", show: overlays.maxPain },
-    { key: "pin", label: "PIN", value: pinStrike, color: "var(--color-pin)", dash: "2 3", show: overlays.pin },
+    { key: "king", label: "GEX KING", value: gexKing, color: "var(--color-king)", dash: "5 3", show: overlays.king },
+    { key: "pin", label: pinLabel, value: pinStrike, color: "var(--color-pin)", dash: "2 3", show: overlays.pin },
     { key: "vwap", label: "VWAP", value: vwap, color: "var(--color-hazy)", dash: "6 5", show: overlays.vwap },
     { key: "er-high", label: "ER HIGH", value: erModel?.high ?? null, color: "var(--color-info)", dash: "2 5", show: overlays.expectedRange && erModel != null },
     { key: "er-low", label: "ER LOW", value: erModel?.low ?? null, color: "var(--color-info)", dash: "2 5", show: overlays.expectedRange && erModel != null },
@@ -2008,7 +2115,13 @@ export default function GammaTerminalChart({
           <OverlayPill label="Regime" color="var(--color-accent-hot)" active={overlays.regime} onClick={() => setOverlays((o) => ({ ...o, regime: !o.regime }))} />
           <OverlayPill label="VWAP" color="var(--color-hazy)" active={overlays.vwap} onClick={() => setOverlays((o) => ({ ...o, vwap: !o.vwap }))} />
           <OverlayPill label="Max Pain" color="var(--color-maxpain)" active={overlays.maxPain} onClick={() => setOverlays((o) => ({ ...o, maxPain: !o.maxPain }))} />
+          <OverlayPill label="GEX King" color="var(--color-king)" active={overlays.king} onClick={() => setOverlays((o) => ({ ...o, king: !o.king }))} />
           <OverlayPill label="Pin Strike" color="var(--color-pin)" active={overlays.pin} onClick={() => setOverlays((o) => ({ ...o, pin: !o.pin }))} />
+          {/* Bar Timer — live-only. The delayed public snapshot is a frozen tip,
+              so a countdown on it would be counting down someone else's candle. */}
+          {live && (
+            <OverlayPill label="Bar Timer" color="var(--color-accent-hot)" active={overlays.barTimer} onClick={() => setOverlays((o) => ({ ...o, barTimer: !o.barTimer }))} />
+          )}
           {/* Expected Range — live-only (the delayed public snapshot carries no
               vol index). The Daily/Weekly/Monthly selector appears once it's on. */}
           {live && (
@@ -2061,6 +2174,19 @@ export default function GammaTerminalChart({
                 disabled={availableExpiries.length === 0}
                 zeroDte={railZeroDte}
               />
+              {/* A 0DTE pick with no same-day expiry resolves to nothing, and
+                  nothing means All — so the levels below are whole-chain while
+                  the control still says 0DTE. Say it out loud, next to the
+                  control that caused it and again on the chart itself. */}
+              {railZeroDte.widenedToAll && (
+                <span
+                  className="zg-chip"
+                  style={{ ["--chip-color" as string]: "var(--color-warning)" }}
+                  title="No same-day expiration in this chain today (weekend, holiday, or no 0DTE contract). The levels and rail are aggregated across ALL expirations, not today's book."
+                >
+                  No 0DTE today · showing all expiries
+                </span>
+              )}
             </>
           )}
 
@@ -2087,6 +2213,33 @@ export default function GammaTerminalChart({
                 ⟲ Reset
               </button>
             )}
+            <button
+              type="button"
+              onClick={downloadPng}
+              disabled={exportState === "working"}
+              title="Save this chart as a PNG image"
+              aria-label="Save this chart as a PNG image"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                fontFamily: "var(--font-mono)",
+                fontSize: 11,
+                fontWeight: 600,
+                letterSpacing: "0.04em",
+                textTransform: "uppercase",
+                padding: "5px 11px",
+                borderRadius: "var(--radius-pill)",
+                border: `1px solid ${exportState === "error" ? "var(--color-bear)" : "var(--border-default)"}`,
+                color: exportState === "error" ? "var(--color-bear)" : "var(--text-secondary)",
+                background: "var(--bg-subtle)",
+                cursor: exportState === "working" ? "progress" : "pointer",
+                opacity: exportState === "working" ? 0.6 : 1,
+              }}
+            >
+              <Camera size={13} />
+              {exportState === "error" ? "Failed" : exportState === "working" ? "Saving…" : "Save"}
+            </button>
           </div>
         </div>
       </div>
@@ -2186,6 +2339,9 @@ export default function GammaTerminalChart({
                   )}
                   {railStackingActive && <tspan fill="var(--text-muted)">{"  ·  BY EXPIRY"}</tspan>}
                   {filteredExp && <tspan fill="var(--color-warning)">{"  ·  FILTERED"}</tspan>}
+                  {railZeroDte.widenedToAll && (
+                    <tspan fill="var(--color-warning)">{"  ·  ALL EXPIRIES (NO 0DTE TODAY)"}</tspan>
+                  )}
                 </text>
                 {/* zero baseline */}
                 <line x1={RAIL_CENTER} x2={RAIL_CENTER} y1={PAD_TOP} y2={PRICE_BOTTOM} stroke="var(--border-strong)" strokeWidth={1} opacity={0.5} />
@@ -2389,8 +2545,7 @@ export default function GammaTerminalChart({
               // feedStale: the pinging dot asserts "this bar is trading right now".
               // On a delayed feed the tip is the newest bar we have, not the newest
               // bar that exists, so the dashed last-price line stays and the ping goes.
-              const isLive =
-                !delayed && !rewindActive && !feedStale && !!session && session !== "closed";
+              const isLive = feedIsLive;
               return (
                 <g>
                   <line x1={PLOT_LEFT} x2={PLOT_RIGHT} y1={y} y2={y} stroke="var(--color-accent-hot)" strokeWidth={1} strokeDasharray="2 3" opacity={0.8} />
@@ -2426,9 +2581,29 @@ export default function GammaTerminalChart({
                   arrow: null as "up" | "down" | null,
                 },
               ];
-              return spreadTags(raw, 16, PAD_TOP + 2, PRICE_BOTTOM - 2).map((t) => (
-                <PriceTag key={t.key} x={AXIS_COL_X - 6} y={t.yAdj} value={t.value} bg={t.bg} strong={t.strong} arrow={t.arrow} />
-              ));
+              const tags = spreadTags(raw, 16, PAD_TOP + 2, PRICE_BOTTOM - 2);
+              // The countdown hangs off the last-price tag's DECLUTTERED y, not
+              // its raw one, so it stays glued to the tag when a clustered
+              // gamma level has pushed that tag off the price line.
+              const lastTagY = tags.find((t) => t.key === "last")?.yAdj ?? null;
+              return (
+                <>
+                  {tags.map((t) => (
+                    <PriceTag key={t.key} x={AXIS_COL_X - 6} y={t.yAdj} value={t.value} bg={t.bg} strong={t.strong} arrow={t.arrow} />
+                  ))}
+                  {liveBarClock && lastTagY != null && (
+                    <BarCountdownTag
+                      x={AXIS_COL_X - 6}
+                      // Below the tag by default, flipped above it when the last
+                      // price is riding the bottom of the range — clamping into
+                      // the gutter instead would stack the two on the same row.
+                      y={lastTagY + 17 <= PRICE_BOTTOM - 2 ? lastTagY + 17 : lastTagY - 17}
+                      label={formatBarDuration(liveBarClock.remainingMs, "ceil")}
+                      progress={liveBarClock.progress}
+                    />
+                  )}
+                </>
+              );
             })()}
 
             {/* ── Volume pane ───────────────────────────────────────────── */}
@@ -2552,6 +2727,29 @@ export default function GammaTerminalChart({
                 <Row k="C" v={fmtPrice(activeBar.close)} color={activeBar.close >= activePrevClose ? "var(--color-bull)" : "var(--color-bear)"} />
                 <Row k="Vol" v={fmtVol(activeBar.volume)} />
               </div>
+              {liveBarClock && activeBar.timestamp === liveBarTimestamp && (
+                <div style={{ marginTop: 6 }}>
+                  <div
+                    className="flex items-center justify-between gap-2"
+                    style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, fontVariantNumeric: "tabular-nums" }}
+                  >
+                    <span style={{ color: "var(--text-muted)" }}>{formatBarDuration(liveBarClock.elapsedMs)} elapsed</span>
+                    <span style={{ color: "var(--color-accent-hot)", fontWeight: 600 }}>
+                      {formatBarDuration(liveBarClock.remainingMs, "ceil")} left
+                    </span>
+                  </div>
+                  <div style={{ height: 2, borderRadius: 1, marginTop: 3, background: "color-mix(in srgb, var(--color-accent-hot) 20%, transparent)" }}>
+                    <div
+                      style={{
+                        height: 2,
+                        borderRadius: 1,
+                        width: `${Math.round(liveBarClock.progress * 100)}%`,
+                        background: "var(--color-accent-hot)",
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
               <div style={{ height: 1, background: "var(--border-subtle)", margin: "7px 0" }} />
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.1em", color: "var(--color-brand-primary)", marginBottom: 4 }}>GAMMA @ {fmtPrice(hover.price)}</div>
               {hoverGex != null ? (
@@ -2870,6 +3068,29 @@ function PriceTag({ x, y, value, bg, strong = false, arrow = null }: { x: number
         {arrow === "up" ? "▲ " : arrow === "down" ? "▼ " : ""}
         {value}
       </text>
+    </g>
+  );
+}
+
+/**
+ * Time left in the forming candle, hung under the last-price tag in the axis
+ * gutter — the terminal convention, and the reason it sits there rather than
+ * over the plot: it reads as part of the price column, not as another overlay.
+ * The rule underneath fills left-to-right as the candle runs out.
+ */
+function BarCountdownTag({ x, y, label, progress }: { x: number; y: number; label: string; progress: number }) {
+  const w = Math.max(34, 10 + label.length * 6.6);
+  const h = 14;
+  const filled = Math.max(0, Math.min(1, progress)) * (w - 4);
+  return (
+    <g transform={`translate(${x - w}, ${y})`} role="img">
+      <title>{`${label} left in this candle`}</title>
+      <rect x={0} y={-h / 2} width={w} height={h} rx={2} fill="var(--bg-card)" stroke="var(--color-accent-hot)" strokeWidth={0.8} opacity={0.95} />
+      <text x={w / 2} y={2} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={9.5} fontWeight={600} fill="var(--color-accent-hot)" style={{ fontVariantNumeric: "tabular-nums" }}>
+        {label}
+      </text>
+      <rect x={2} y={h / 2 - 2.6} width={w - 4} height={1.4} rx={0.7} fill="var(--color-accent-hot)" opacity={0.18} />
+      {filled > 0 && <rect x={2} y={h / 2 - 2.6} width={filled} height={1.4} rx={0.7} fill="var(--color-accent-hot)" opacity={0.85} />}
     </g>
   );
 }

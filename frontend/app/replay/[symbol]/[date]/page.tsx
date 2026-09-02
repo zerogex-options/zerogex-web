@@ -227,8 +227,10 @@ export default async function ReplayDatePage({
         Drag the scrubber to any minute · use play/pause to auto-advance · the combined chart puts
         the session tape on the left and the dealer-net-GEX strike profile on the right, sharing
         the same price axis so a wick and a strike bar at the same level line up horizontally ·
-        the call wall (resistance), put wall (support), and gamma flip draw as horizontal levels
-        that migrate minute-by-minute as you scrub ·
+        the call wall (resistance), put wall (support), gamma flip, max pain and pin strike draw
+        as horizontal levels that migrate minute-by-minute as you scrub — the pin line carries
+        its strength, and the row under the plot says which levels are absent this minute
+        versus merely off-screen ·
         toggle the strike profile between <em>Split</em> (call vs. put gamma), <em>Net</em>, and
         <em>Combined</em> (the split with the purple net bar overlaid) — same views as the Strike
         Profile chart ·

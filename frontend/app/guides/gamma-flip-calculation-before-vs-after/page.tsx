@@ -7,7 +7,7 @@ import { loadLocalizedMarkdown } from '@/core/localizedContent';
 export const metadata = {
   title: 'Gamma Flip Calculation: Before vs After (ZeroGEX Guide)',
   description:
-    'How ZeroGEX locates the zero-gamma level — the move from a cumulative net-GEX approximation to the spot-shift dealer gamma profile, and what you see on the platform.',
+    'How ZeroGEX locates the zero-gamma level — from a cumulative net-GEX approximation to the spot-shift dealer gamma profile, and what you see on the platform.',
   alternates: { canonical: '/guides/gamma-flip-calculation-before-vs-after' },
 };
 
