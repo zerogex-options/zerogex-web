@@ -189,7 +189,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'multiple-symbols',
         q: 'Can I view multiple symbols at once?',
-        a: 'Each browser tab can show one symbol. To view SPY, SPX, QQQ, and NDX side-by-side, open four tabs. The symbol picker is in the header.',
+        a: 'Each browser tab can show one symbol. To view several side-by-side — SPY, SPX, QQQ, NDX, ES, NQ — open a tab for each. The symbol picker is in the header.',
       },
       {
         id: 'mobile-support',
