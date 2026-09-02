@@ -80,7 +80,8 @@
     "test:orphan-payment": "node --experimental-strip-types --test tests/orphanPayment.test.ts",
     "test:stripe-invoice": "node --experimental-strip-types --test tests/stripeInvoice.test.ts",
     "test:futures-delay": "node --experimental-strip-types --test tests/futuresDelayDisclosure.test.ts",
-    "test:trial-welcome": "node --experimental-strip-types --test tests/trialWelcome.test.ts"
+    "test:trial-welcome": "node --experimental-strip-types --test tests/trialWelcome.test.ts",
+    "test:trial-banner": "node --experimental-strip-types --test tests/trialStartedBanner.test.ts"
   },
   "dependencies": {
     "jose": "^5.9.6",
