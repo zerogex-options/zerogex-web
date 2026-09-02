@@ -28,6 +28,7 @@ import { useTimeframe } from "@/core/TimeframeContext";
 import { SYMBOLS } from "@/core/symbols";
 import { getMarketSession } from "@/core/utils";
 import { getPrimaryPriceChangeSummary, getExtendedHoursRow } from "@/core/priceChange";
+import { resolvePriceSession, sessionClosesLagBehind } from "@/core/sessionCloses";
 import { brandTitle } from "@/core/brand";
 import SessionBadge from "./SessionBadge";
 import FuturesDelayBadge from "./FuturesDelayBadge";
@@ -251,13 +252,28 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
       ? 'futures'
       : (quoteSession as MarketSession | null) ?? session;
 
-  const isExtendedHours = quoteSession === "pre-market" || quoteSession === "after-hours";
+  // The session the PRICE calc reads. Identical to quoteSession except in the first
+  // minutes of after-hours, before /api/market/session-closes has rolled today's 16:00
+  // close in: that payload is still the open-session pair, so it is read as one (see
+  // core/sessionCloses.ts) instead of publishing yesterday's close as today's price.
+  // Badges and session labels keep reading quoteSession — the clock is right, the
+  // closes are late.
+  const closesLagBehind = sessionClosesLagBehind(
+    quoteSession,
+    sessionClosesData?.current_session_close_ts,
+    quoteData?.timestamp,
+  );
+  const priceSession = resolvePriceSession(quoteSession, sessionClosesData, quoteData?.timestamp);
+
+  const isExtendedHours = priceSession === "pre-market" || priceSession === "after-hours";
   const extendedHoursIcon = quoteSession === "pre-market" ? "sun" : "moon";
 
   // ── Row 1 ─────────────────────────────────────────────────────────────────
   // open     → live quote close  vs  current_session_close
   // closed   → live quote close  vs  prior_session_close
   // pre/ah   → current_session_close  vs  prior_session_close
+  // (after-hours whose closes have not rolled yet reads as `open` — the live print
+  //  vs the previous close, which is the same day change the header showed at 15:59.)
   const {
     displayPrice: row1Price,
     change: row1Change,
@@ -265,7 +281,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
     isPositive: row1Positive,
   } = getPrimaryPriceChangeSummary({
     quoteClose: quoteData?.close,
-    quoteSession,
+    quoteSession: priceSession,
     sessionCloses: sessionClosesData,
     displaySource: quoteData?.display_source,
     futuresClose: quoteData?.futures_close,
@@ -307,7 +323,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
     }
   };
 
-  const row1PriceBaseLabel = (isExtendedHours || quoteSession === "closed")
+  const row1PriceBaseLabel = (isExtendedHours || priceSession === "closed")
     ? (sessionClosesData?.current_session_close_ts
         ? `Closing price as of ${formatEtDateTime(sessionClosesData.current_session_close_ts)}`
         : "regular session close")
@@ -318,9 +334,13 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
   // and published its day change as today's.
   const row1PriceLabel = quoteData?.stale
     ? `${row1PriceBaseLabel} — feed delayed, last observed print`
-    : row1PriceBaseLabel;
+    : closesLagBehind
+      // Say why the official close is not on screen yet, rather than letting the live
+      // after-hours print pass silently for a settled 4 PM close.
+      ? `${row1PriceBaseLabel} — today's close has not settled yet`
+      : row1PriceBaseLabel;
 
-  const row1ChangeLabel = quoteSession === "open"
+  const row1ChangeLabel = priceSession === "open"
     ? (sessionClosesData?.current_session_close_ts
         ? `vs close ${formatEtDateTime(sessionClosesData.current_session_close_ts)}`
         : "vs previous close")
@@ -442,7 +462,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                 )}
                 {!isCollapsed && row1Price !== null && (
                   <div className="flex flex-col gap-0.5">
-                    <div className={(quoteSession === "open" || quoteSession === "closed") ? undefined : "flex items-center gap-2"} style={(quoteSession === "open" || quoteSession === "closed") ? { display: "contents" } : undefined}>
+                    <div className={(priceSession === "open" || priceSession === "closed") ? undefined : "flex items-center gap-2"} style={(priceSession === "open" || priceSession === "closed") ? { display: "contents" } : undefined}>
                       {/* zg-metric, not font-bold: the live quote reprices every
                           second, and proportional digits change width as they
                           tick, so the whole row shimmies. Tabular + slashed-zero

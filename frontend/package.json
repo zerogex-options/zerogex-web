@@ -52,6 +52,7 @@
     "test:delayed-quote": "node --experimental-strip-types --test tests/delayedQuote.test.ts",
     "test:live-quote-ordering": "node --experimental-strip-types --test tests/liveQuoteOrdering.test.ts",
     "test:price-change": "node --experimental-strip-types --test tests/priceChange.test.ts",
+    "test:session-closes": "node --experimental-strip-types --test tests/sessionCloses.test.ts",
     "test:market-tide": "node --experimental-strip-types --test tests/marketTide.test.ts",
     "test:daily-bars": "node --experimental-strip-types --test tests/dailyBars.test.ts",
     "test:strike-filter": "node --experimental-strip-types --test tests/strikeFilter.test.ts",

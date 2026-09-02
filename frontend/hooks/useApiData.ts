@@ -8,6 +8,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { GEXHistoricalContext } from '@/core/types';
 import { isFresherServerTs } from '@/core/liveQuoteOrdering';
+import { sessionClosesLagBehind } from '@/core/sessionCloses';
 export type {
   GEXHistoricalContext,
   GEXHistoricalMetric,
@@ -1148,7 +1149,12 @@ export function useSmartMoneyFlow(symbol = 'SPY', limit = 10, session: 'current'
 
 export interface SessionClosesData {
   symbol: string;
-  /** Most recent completed regular-session close (4 PM ET). During market hours this is yesterday's close; during AH/PM it is today's close. */
+  /**
+   * Most recent completed regular-session close (4 PM ET). During market hours this is
+   * yesterday's close; during AH/PM it is today's close — except in the minutes after
+   * 16:00, before today's close has settled upstream, where it is still yesterday's.
+   * Read it through core/sessionCloses.ts, which detects that window.
+   */
   current_session_close: number;
   current_session_close_ts: string;
   /** The regular-session close that precedes current_session_close (used for the row-1 change calculation). */
@@ -1156,23 +1162,51 @@ export interface SessionClosesData {
   prior_session_close_ts: string;
 }
 
+/**
+ * While the served payload is still a session behind (see core/sessionCloses.ts),
+ * every price surface is on a fallback reading and today's official close is the
+ * one thing they are waiting for — so poll for it at this cadence instead of the
+ * caller's. Only a modest step up from the usual 60s: the fallback reading is a
+ * sound one (the live print against the previous close), so this is about not
+ * sitting on it for an extra half-minute once the real close lands, not a race.
+ */
+const SESSION_CLOSES_LAGGING_REFRESH_MS = 30000;
+
 export function useSessionCloses(
   symbol = 'SPY',
   refreshInterval = 60000,
   sessionTrigger?: string | null,
   enabled = true,
 ) {
+  // Chases its own output: the payload currently held decides the next poll rate,
+  // and once the roll lands `lagging` goes false and the cadence relaxes again.
+  // No client-side "as of" is available here, so the lag test falls back to the
+  // viewer's ET date — good enough to pick a poll interval.
+  const [lagging, setLagging] = useState(false);
   const result = useApiData<SessionClosesData>(
     `/api/market/session-closes?${symbolQuery(symbol)}`,
-    { refreshInterval, enabled }
+    {
+      refreshInterval: lagging
+        ? Math.min(refreshInterval, SESSION_CLOSES_LAGGING_REFRESH_MS)
+        : refreshInterval,
+      enabled,
+    }
   );
 
+  const currentCloseTs = result.data?.current_session_close_ts ?? null;
+  useEffect(() => {
+    setLagging(sessionClosesLagBehind(sessionTrigger, currentCloseTs));
+  }, [sessionTrigger, currentCloseTs]);
+
   // The session-closes endpoint advances `current_session_close` from yesterday
-  // to today exactly at 16:00 ET (and analogous boundaries for pre/AH). Polling
+  // to today at the 16:00 ET flip (and analogous boundaries for pre/AH). Polling
   // alone leaves up to a full refresh interval where `quoteData.session` has
   // already flipped but the close hasn't, briefly displaying yesterday's close
   // as the headline price. Forcing a refetch on every session change closes
-  // that window.
+  // that window. It does NOT close the other one: today's close only lands once
+  // the closing auction settles upstream, so the payload can stay a session
+  // behind for minutes no matter how often it is asked — that gap is handled at
+  // the read side by core/sessionCloses.ts, and polled out by the cadence above.
   const { refetch } = result;
   useEffect(() => {
     if (sessionTrigger != null) {

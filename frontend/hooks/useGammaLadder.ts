@@ -26,6 +26,7 @@ import { useMemo } from "react";
 import type { HeatmapCell, HeatmapColumnInput, SessionBaselineInput } from "@/components/PairGammaHeatmap";
 import { useApiData, useGEXSummary, useMarketQuote, useSessionCloses } from "./useApiData";
 import { getSpotPriorCloseChange } from "@/core/priceChange";
+import { resolvePriceSession } from "@/core/sessionCloses";
 import { baselineNetByStrike, sessionOpenIsoFor, type FrameStrikeRow } from "@/core/sessionDelta";
 
 /** Everything a ladder column renders except the header control, which the
@@ -201,7 +202,14 @@ export function useGammaLadderColumn(
     // futures-vs-futures basis overnight, so its % can describe a different
     // number than the analytics spot this header actually shows.
     const spot = summary?.spot_price ?? null;
-    const change = getSpotPriorCloseChange(spot, quote?.session ?? null, closes ?? null);
+    // Read as `open` while the served closes have not rolled past 16:00 yet: the
+    // payload is still the pre-flip pair, and taking prior_session_close off it would
+    // measure the badge against a close two sessions back (see core/sessionCloses.ts).
+    const change = getSpotPriorCloseChange(
+      spot,
+      resolvePriceSession(quote?.session ?? null, closes ?? null, quote?.timestamp ?? null),
+      closes ?? null,
+    );
     return {
       symbol,
       cells: bucketCells(tipBucket),

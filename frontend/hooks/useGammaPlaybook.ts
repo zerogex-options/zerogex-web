@@ -42,6 +42,7 @@ import { useStrikeProfileTimeseries, type StrikeProfileBucket } from '@/hooks/us
 import { useChartExpirations } from '@/hooks/useChartExpirations';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { getPrimaryPriceChangeSummary } from '@/core/priceChange';
+import { resolvePriceSession } from '@/core/sessionCloses';
 import { etTodayDateKey } from '@/core/utils';
 import { longGammaAtSpot, netGexAtSpotOrNull } from '@/core/gammaRegime';
 import {
@@ -181,7 +182,13 @@ export function useGammaPlaybook({
   // extended hours, the regular close when the tape is shut).
   const tape = getPrimaryPriceChangeSummary({
     quoteClose: snapshot ? snapshot.quote?.close ?? null : quote?.close ?? null,
-    quoteSession: snapshot ? snapshot.quote?.session ?? null : quote?.session ?? null,
+    // Read as `open` while the served closes are still a session behind, so the spot
+    // keeps tracking the tape across 16:00 (see core/sessionCloses.ts).
+    quoteSession: resolvePriceSession(
+      snapshot ? snapshot.quote?.session ?? null : quote?.session ?? null,
+      snapshot ? snapshot.sessionCloses : sessionCloses,
+      snapshot ? snapshot.quote?.timestamp ?? null : quote?.timestamp ?? null,
+    ),
     sessionCloses: snapshot ? snapshot.sessionCloses : sessionCloses,
     preferLiveExtendedHours: true,
   });

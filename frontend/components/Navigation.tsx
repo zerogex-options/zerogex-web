@@ -11,6 +11,7 @@ import Link from "next/link";
 import { useLanguage } from "@/core/LanguageContext";
 import { useTimeframe } from "@/core/TimeframeContext";
 import { useMarketQuote, useSessionCloses } from "@/hooks/useApiData";
+import { resolvePriceSession } from "@/core/sessionCloses";
 import { getMarketSession } from "@/core/utils";
 import { hasTierAccess, navItemRequiredTier, normalizeTier, type TierId } from "@/core/auth";
 import SessionBadge from "./SessionBadge";
@@ -223,11 +224,16 @@ export default function Navigation({ theme }: NavigationProps) {
   const quoteSession = quoteData?.session ?? null;
   const { data: sessionClosesData } = useSessionCloses(symbol, 60000, quoteSession);
   const sessionForBadge = (quoteSession as MarketSession | null) ?? session;
-  const isExtendedHours = quoteSession === "pre-market" || quoteSession === "after-hours";
-  const row1Price = (isExtendedHours || quoteSession === "closed")
+  // Price-calc session only — the badge above keeps the real one. In the first minutes
+  // of after-hours the served closes can still be the pre-16:00 pair; reading that with
+  // the after-hours convention shows yesterday's close as today's price with yesterday's
+  // day change, so it is read as the open-session shape it is (core/sessionCloses.ts).
+  const priceSession = resolvePriceSession(quoteSession, sessionClosesData, quoteData?.timestamp);
+  const isExtendedHours = priceSession === "pre-market" || priceSession === "after-hours";
+  const row1Price = (isExtendedHours || priceSession === "closed")
     ? (sessionClosesData?.current_session_close ?? null)
     : (quoteData?.close ?? null);
-  const row1BaseClose = quoteSession === "open"
+  const row1BaseClose = priceSession === "open"
     ? (sessionClosesData?.current_session_close ?? null)
     : (sessionClosesData?.prior_session_close ?? null);
   const row1Change =

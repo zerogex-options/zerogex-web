@@ -27,6 +27,7 @@ import { useStrikeProfileTimeseries, type StrikeProfileStrike } from "@/hooks/us
 import { useTechnicals } from "@/hooks/useTechnicals";
 import { useTimeframe, type UnderlyingSymbol } from "@/core/TimeframeContext";
 import { getPrimaryPriceChangeSummary, getExtendedHoursRow } from "@/core/priceChange";
+import { resolvePriceSession } from "@/core/sessionCloses";
 import { futuresDelayLabel } from "@/core/futuresDataStatus";
 import { omitClosedMarketTimes, shouldOmitClosedMarketTimes, isIndexSymbol, isWithinRegularMarketHours, etTodayDateKey, etTradingDateLabel, omitOutOfHoursForSymbol } from "@/core/utils";
 import { SYMBOLS } from "@/core/symbols";
@@ -928,9 +929,16 @@ export default function GammaTerminalChart({
   //    — so the futures fields are OMITTED here and the marker never jumps to
   //    the future, falling back to current_session_close outside the cash session.
   const quoteClose = snapshot ? snapshot.quote?.close : quote?.close;
+  // The session these three readings are computed with. It is `session` except in the
+  // first minutes of after-hours, while /api/market/session-closes still answers with
+  // the pre-16:00 pair: that payload is the open-session shape and is read as one, so
+  // the headline stays on the live tape against the previous close instead of falling
+  // back a whole session to yesterday's (see core/sessionCloses.ts). Everything else
+  // here — the badge, the LIVE pill, the tip-candle merge — keeps reading `session`.
+  const priceSession = resolvePriceSession(session, sessionCloses, quoteTs);
   const headline = getPrimaryPriceChangeSummary({
     quoteClose,
-    quoteSession: session,
+    quoteSession: priceSession,
     sessionCloses,
     displaySource,
     futuresClose: snapshot ? snapshot.quote?.futures_close : quote?.futures_close,
@@ -938,11 +946,11 @@ export default function GammaTerminalChart({
   });
   const tape = getPrimaryPriceChangeSummary({
     quoteClose,
-    quoteSession: session,
+    quoteSession: priceSession,
     sessionCloses,
     preferLiveExtendedHours: true,
   });
-  const isExtendedHours = session === "pre-market" || session === "after-hours";
+  const isExtendedHours = priceSession === "pre-market" || priceSession === "after-hours";
   // ETFs/stocks only — indexes have no extended-hours tape (they show futures or
   // "closed" outside the cash session), and the futures swap owns the headline.
   const showExtendedRow = isExtendedHours && !symbolIsIndex && !futuresSwap;
