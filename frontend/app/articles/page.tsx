@@ -210,10 +210,10 @@ const ARTICLES: Article[] = [
   },
   {
     href: '/education/gamma-walls-explained',
-    kind: 'Published • June 11, 2026 • 16:00 UTC',
+    kind: 'Updated • August 29, 2026 • 16:00 UTC',
     title: 'Gamma Walls Explained: Call Wall, Put Wall, and How Price Reacts',
     blurb:
-      'What gamma walls actually are, why price tends to react at the call wall and put wall, how the walls migrate through the session, and the conditions that make a wall more likely to hold versus break.',
+      'What the call wall and put wall do in each gamma regime, what the distance between them tells you, how they behave into same-day expiry, why they migrate through the session, and the conditions that decide whether the read holds or breaks.',
   },
   {
     href: '/education/how-to-read-a-gamma-flip',

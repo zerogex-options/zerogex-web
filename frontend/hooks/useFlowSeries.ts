@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { canonicalTimestamp } from '@/core/flowSeriesCharts';
+import { optionChainSymbolFor } from '@/core/symbols';
 import { etDateKeyFor, etTodayDateKey } from '@/core/utils';
 import type { FlowSnapshot } from './useFlowByContract';
 
@@ -446,6 +447,13 @@ export interface UseFlowContractOptionsResult {
   options: FlowContractOptions;
   loading: boolean;
   error: string | null;
+  /**
+   * The symbol the strikes/expirations actually belong to — the caller's own
+   * for a cash index or ETF, the backing index for ES / NQ. Callers that
+   * DISPLAY the values need it: an SPX strike labelled as an ES one reads as a
+   * price on the futures axis, which it is not.
+   */
+  chainSymbol: string;
 }
 
 /**
@@ -453,17 +461,27 @@ export interface UseFlowContractOptionsResult {
  * selected session. Refreshed every 5 minutes — the set only grows slowly
  * as new contracts print during the day.
  *
- * Returns `{ options, loading, error }` so callers can render proper
- * loading / error states on their filter dropdowns. `loading` is only true
- * on the first fetch; subsequent refetches keep the prior options visible
- * and update them in place.
+ * Asks on the CHAIN symbol, not the caller's: ES / NQ have no chain of their
+ * own, and this endpoint is one of the per-contract surfaces the API refuses
+ * (400) for a future rather than project a strike that could not round-trip to
+ * the chain it came from. Requesting SPX / NDX gets the contracts an ES / NQ
+ * session's flow is actually made of, in the strike space `/api/flow/series`
+ * matches its `strikes` filter against — the API rewrites `symbol=ES` to SPX
+ * before filtering, so the same values apply unchanged to the filtered fetch.
+ * A side benefit: ES and SPX now share one cache entry and one poll.
+ *
+ * Returns `{ options, loading, error, chainSymbol }` so callers can render
+ * proper loading / error states on their filter dropdowns and say whose
+ * contracts they are showing. `loading` is only true on the first fetch;
+ * subsequent refetches keep the prior options visible and update them in place.
  */
 export function useFlowContractOptions(
   symbol: string,
   session: 'current' | 'prior',
   enabled: boolean = true,
 ): UseFlowContractOptionsResult {
-  const cacheKey = `${symbol}:${session}`;
+  const chainSymbol = optionChainSymbolFor(symbol);
+  const cacheKey = `${chainSymbol}:${session}`;
   const cached = contractsCache.get(cacheKey);
   const [options, setOptions] = useState<FlowContractOptions>(
     cached ?? { strikes: [], expirations: [] },
@@ -480,7 +498,7 @@ export function useFlowContractOptions(
 
     const run = async (isInitial: boolean) => {
       try {
-        const next = await fetchContractOptions(symbol, session);
+        const next = await fetchContractOptions(chainSymbol, session);
         if (cancelled) return;
         const nextIsEmpty = next.strikes.length === 0 && next.expirations.length === 0;
         setOptions((prev) => {
@@ -491,7 +509,7 @@ export function useFlowContractOptions(
           // snapshot until a non-empty response arrives.
           if (nextIsEmpty && prevHasData) {
             console.warn(
-              `[useFlowContractOptions] backend returned empty for ${symbol}/${session}; keeping previously fetched options`,
+              `[useFlowContractOptions] backend returned empty for ${chainSymbol}/${session}; keeping previously fetched options`,
             );
             return prev;
           }
@@ -502,7 +520,7 @@ export function useFlowContractOptions(
       } catch (e) {
         if (cancelled) return;
         const message = e instanceof Error ? e.message : 'Failed to fetch contract options';
-        console.warn(`[useFlowContractOptions] fetch failed for ${symbol}/${session}:`, message);
+        console.warn(`[useFlowContractOptions] fetch failed for ${chainSymbol}/${session}:`, message);
         setError(message);
       } finally {
         if (!cancelled && isInitial) setLoading(false);
@@ -515,7 +533,7 @@ export function useFlowContractOptions(
       cancelled = true;
       clearInterval(timer);
     };
-  }, [cacheKey, symbol, session, enabled]);
+  }, [cacheKey, chainSymbol, session, enabled]);
 
-  return { options, loading, error };
+  return { options, loading, error, chainSymbol };
 }

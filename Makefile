@@ -1,4 +1,4 @@
-.PHONY: help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription honor-winback-discount recover-orphan-payment scan-orphan-payments clear-zombie-customers webhook-health trial-reminders trial-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback reactivation checkout-recovery founding-final-call public-cohort cancellations churn-breakdown enable-portal-cancel-reasons save-url reset-save-latch diagnose-user reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo og-check blog-images
+.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription honor-winback-discount recover-orphan-payment scan-orphan-payments clear-zombie-customers webhook-health trial-reminders trial-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback reactivation checkout-recovery founding-final-call public-cohort cancellations churn-breakdown enable-portal-cancel-reasons save-url reset-save-latch diagnose-user subscriber-headcount reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo og-check blog-images ninjatrader-package
 
 # Default target
 help:
@@ -18,6 +18,7 @@ help:
 	@echo "  make x-handles  - List only users who registered an X/Twitter handle (email + @handle). EMAIL_ONLY=yes for just emails"
 	@echo "  make referrals  - Print the referral ledger + per-referrer summary (signups, rewards, banked months)"
 	@echo "  make attribute-referral EMAIL=<referee> REF=<code-or-email> - Manually tie an organic signup to a referrer (back-attribution). REWARD=1 also grants the referrer's free month if the referee already converted to paid (the webhook won't). DRY_RUN=1 to preview, YES=1 to apply"
+	@echo "  make send-403-notice                     - One-off: notify the 10 API users hit by the 2026-08-31 scope-enforcement 403s (excludes Jim, answered personally). DRY_RUN=1 to preview, ONLY=<addr> to test one, YES=1 to send"
 	@echo "  make migrate    - Force the auth DB's lazy migration to run now (use after --start-from <step> deploys that add new columns)"
 	@echo "  make migrate-tiers - Migrate legacy starter/elite users to basic/pro (DRY_RUN=1 to preview)"
 	@echo "  make all-to-pro - Promote every non-admin user to pro (DRY_RUN=1 to preview)"
@@ -57,6 +58,7 @@ help:
 	@echo "  make churn-breakdown - Diagnose a cancellation spike: split recent cancels into trial-abandon vs paid-cancel vs lapsed (and lapses into payment-failed vs voluntary/expired), by tier, tenure (trial-cliff detector), signup source, daily timeline, and captured cancel reasons. WINDOW=<days> (default 14) or SINCE=<YYYY-MM-DD> to set the window, CSV=1 for per-user rows"
 	@echo "  make enable-portal-cancel-reasons - Turn on the Stripe billing-portal cancellation survey (feedback + free-text) so future cancels record a WHY. DRY_RUN=1 to preview, YES=1 to apply. CHANGES THE LIVE CUSTOMER PORTAL"
 	@echo "  make diagnose-user EMAIL=<email> - Read-only dump of one user: DB row, last 20 audit events, live Stripe customer/subscription/invoices, and notes on whether the July-1 founding deferral applied"
+	@echo "  make subscriber-headcount [NAMES=1] - Decompose the admin Total Subscribers chart (Full Subscriber / Converting / Free Trial / Trial Grace) and account for every subscription-carrying account it does not count — paused, setup-withheld, lapsed. Answers 'why did the headcount move' (read-only)"
 	@echo "  make recover-orphan-payment EMAIL=<email> - Restore a member who PAID an invoice after Stripe had already canceled their subscription for nonpayment (money collected, still on Public). Re-creates the plan with billing anchored at the end of the period they paid for, so they are never charged twice. DRY by default, YES=1 to apply, INVOICE=in_... to pick the invoice"
 	@echo "  make save-url EMAIL=<email> - Print the signed one-click self-serve SAVE url (app/save) for a member + their eligibility, to test the retention flow without a real cancellation email (read-only)"
 	@echo "  make reset-save-latch EMAIL=<email> - TESTING: clear a member's one-shot save latch (retention_offer_claimed_at) so the /save flow can be claimed again"
@@ -84,13 +86,26 @@ dev:
 	@echo "Starting development server..."
 	cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && npm run dev'
 
-# Build for production
-build:
+# Build for production.
+#
+# Depends on ninjatrader-package because the NinjaTrader download URL is
+# content-addressed: core/ninjaTraderManifest.ts is COMMITTED (so a plain build
+# resolves) but the hashed file it names is GITIGNORED and written only by that
+# step. Build without it on a box that has never run it and the page ships a
+# download button pointing at a file that is not on disk -- a 404 for the
+# customer, from a build that reported success. `make deploy` always ran this
+# step; `make build` and `make rebuild` did not, so a routine rebuild between
+# deploys silently reintroduced the bug. Cheap and idempotent, so it just
+# becomes a prerequisite rather than something to remember.
+build: ninjatrader-package integration-assets
 	@echo "Building for production..."
 	cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && npm run build'
 
-# Clean build and restart
-rebuild:
+# Clean build and restart. Same prerequisite, and for a second reason: Next
+# reads public/ once at boot, so a file that appears there while the server is
+# running keeps 404ing until a restart. Generating before the PM2 restart below
+# means one command leaves the box consistent; generating after would not.
+rebuild: ninjatrader-package integration-assets
 	@echo "Cleaning build directory..."
 	rm -rf frontend/.next
 	@echo "Building for production..."
@@ -172,6 +187,19 @@ attribute-referral:
 	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (the referee; e.g. make attribute-referral EMAIL=friend@example.com REF=ABCD2345)"; exit 1; fi
 	@if [ -z "$(REF)" ]; then echo "Error: REF is required (the referrer's 8-char code or their email)"; exit 1; fi
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/attribute-referral.mts --referee $(EMAIL) --referrer "$(REF)" $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(REWARD),--reward,)'
+
+# One-off incident notice for the 2026-08-31 API scope-enforcement 403s.
+# Each recipient gets their OWN failure count and endpoint list (taken from the
+# audit log and baked into the script), so the mail says what actually happened
+# on their account rather than apologising in the abstract. One message per
+# person — never a shared To/CC, which would leak every customer's address.
+# jimmyturk@gmail.com is excluded on purpose: he reported it and was answered
+# personally. Preview everything, then send yourself first, then send for real:
+#   make send-403-notice DRY_RUN=1
+#   make send-403-notice ONLY=you@zerogex.io YES=1
+#   make send-403-notice YES=1
+send-403-notice:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-api-403-incident-notice.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(ONLY),--only $(ONLY),)'
 
 # Force the auth DB's lazy migration to run now. Used after a deploy that
 # adds new columns but skipped the app rebuild + PM2 restart (most often
@@ -427,6 +455,15 @@ founding-final-call:
 diagnose-user:
 	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make diagnose-user EMAIL=foo@example.com)"; exit 1; fi
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/diagnose-user.mts --email $(EMAIL)'
+
+# Decompose the admin Total Subscribers chart and account for every
+# subscription-carrying account it does NOT count, so a headcount move is
+# explainable without re-reading the monitoring SQL. The aggregate sibling of
+# `make diagnose-user`: that one answers "why is THIS person not counted", this
+# one answers "why did the number move". Read-only.
+# Usage: make subscriber-headcount [NAMES=1]
+subscriber-headcount:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/subscriber-headcount.mts $(if $(NAMES),--names,)'
 
 # Restore a member whose payment was ORPHANED: Stripe exhausted its retries on a
 # failed charge and canceled the subscription (dropping them to public), and the
@@ -979,6 +1016,8 @@ TRIM_PNG = bash -lc 'if ! command -v node >/dev/null 2>&1; then source $$HOME/.n
 OG_MANIFEST = bash -lc 'if ! command -v node >/dev/null 2>&1; then source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null; fi; exec node scripts/og-image-manifest.js'
 
 NT_MANIFEST = bash -lc 'if ! command -v node >/dev/null 2>&1; then source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null; fi; exec node scripts/ninjatrader-manifest.js'
+
+INTEGRATION_ASSETS = bash -lc 'if ! command -v node >/dev/null 2>&1; then source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null; fi; exec node scripts/integration-assets-manifest.js'
 OG_CHECK = bash -lc 'if ! command -v node >/dev/null 2>&1; then source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null; fi; exec node scripts/og-image-manifest.js --live'
 
 logo:
@@ -987,6 +1026,24 @@ logo:
 	@$(TRIM_PNG) assets/branding/Light_Full.png frontend/public/logo-light.png --max-width 1024
 	@$(TRIM_PNG) assets/branding/Dark_Title.png frontend/public/title-dark.png --max-width 1280
 	@$(TRIM_PNG) assets/branding/Light_Title.png frontend/public/title-light.png --max-width 1280
+# Email lockups. These used to be a hand-made PNG committed under
+# frontend/public/email/, which is exactly why the campaign emails were still
+# showing the pre-August logo months after `make logo` had refreshed every
+# other surface -- nothing regenerated it. Deriving them here means a
+# re-export from the design tool reaches the emails like it reaches the site.
+#
+# Always the DARK variants: both lockups sit on the navy header/footer bands,
+# and per core/brand.ts the dark variant is the one carrying the light wordmark.
+# Sized at 2x their CSS width (400px header, 240px footer) for retina.
+#
+# Deliberately NEW filenames rather than overwriting zerogex-header.png:
+# zerogex.io is proxied through Cloudflare, which caches .png per edge and is
+# never purged on deploy (same reasoning as the hashed og-image and favicon
+# URLs below), so replacing the bytes in place could serve the old artwork to
+# recipients for days. The old file stays put for the already-sent July send.
+	@mkdir -p frontend/public/email
+	@$(TRIM_PNG) assets/branding/Dark_Title.png frontend/public/email/zerogex-email-header.png --max-width 800
+	@$(TRIM_PNG) assets/branding/Dark_Full.png frontend/public/email/zerogex-email-footer.png --max-width 480
 # The social card goes through scripts/og-image-manifest.js rather than a plain
 # cp. That script hashes the PNG's bytes into its filename and regenerates
 # frontend/core/ogImageManifest.ts, so replacing the artwork produces a new URL
@@ -1005,6 +1062,12 @@ logo:
 # untouched, which is why a new favicon used to keep showing up as the old one.
 # The rm clears that shadowing copy from boxes deployed before this change;
 # public/favicon.ico is gitignored, so `git pull` alone would never remove it.
+#
+# That rm went missing at some point and this comment outlived it, so the
+# shadow was only ever cleared by hand. It is restored below. The ignore rule
+# the comment claims also did not exist until now, which is how a `git add -A`
+# from a Mac came to commit one.
+	@rm -f frontend/public/favicon.ico
 	cp assets/branding/favicon.ico frontend/app/favicon.ico
 	@echo "Copying Folds of Honor partner-kit assets..."
 	@if [ -f assets/branding/folds-of-honor-proud-supporter.png ]; then \
@@ -1062,22 +1125,36 @@ blog-images:
 # and the archive is verified against it before publishing: the export is built
 # on someone else's machine and then served from our domain, so we prove the
 # source inside matches ours rather than trusting the sender. That same check
-# catches a stale archive exported before the last edit to the .cs. A failed
-# verification fails the deploy — deliberately, because the alternative is
-# publishing an unverified binary.
+# catches a stale archive exported before the last edit to the .cs.
+#
+# Verification, publication and the manifest entry all now happen inside
+# scripts/ninjatrader-manifest.js, so they cannot disagree. They used to: the
+# verify+cp lived here and the manifest was written there, which meant a failed
+# verification aborted the deploy at this step while the COMMITTED manifest went
+# on advertising the archive it had refused to publish. Whoever then built
+# without this target shipped a page whose download button pointed at a file
+# nothing had ever written — the 404 a customer hits, with no way to tell from
+# the page that anything is wrong.
+#
+# An unverifiable archive is therefore no longer fatal: it degrades to the
+# documented .cs-only path (the same one taken when no archive exists at all)
+# and warns. Withholding one download is not worth blocking a whole deploy —
+# and the old hard failure blocked every unrelated fix in the same push.
 ninjatrader-package:
 	@echo "Publishing NinjaTrader package..."
 	@mkdir -p frontend/public/ninjatrader
-	@if [ -f assets/ninjatrader/ZeroGexGammaLevels.zip ]; then \
-		python3 scripts/verify-ninjatrader-package.py \
-			assets/ninjatrader/ZeroGexGammaLevels.zip \
-			frontend/public/ninjatrader/ZeroGexGammaLevels.cs && \
-		cp assets/ninjatrader/ZeroGexGammaLevels.zip frontend/public/ninjatrader/ZeroGexGammaLevels.zip && \
-		echo "  ✓ One-click import archive published"; \
-	else \
-		echo "  ⚠ assets/ninjatrader/ZeroGexGammaLevels.zip missing — the gamma pages will offer the .cs source only (see assets/ninjatrader/README.md)"; \
-	fi
 	@$(NT_MANIFEST)
+
+# Content-addressed copies of the thinkorswim and Sierra Chart study sources.
+#
+# Same contract as ninjatrader-package above, minus the archive handling:
+# frontend/core/integrationAssets.ts is COMMITTED so a plain build resolves,
+# but the hashed files it names are GITIGNORED and written only here. Skip this
+# on a box that has never run it and the two study pages ship download buttons
+# pointing at files that are not on disk.
+integration-assets:
+	@echo "Publishing chart-platform study sources..."
+	@$(INTEGRATION_ASSETS)
 
 # Full deployment
 deploy:
@@ -1101,6 +1178,8 @@ deploy:
 	@make blog-images
 	@echo "5. Publishing NinjaTrader package..."
 	@make ninjatrader-package
+	@echo "5b. Publishing chart-platform study sources..."
+	@make integration-assets
 	@echo "6. Rebuilding application..."
 	rm -rf frontend/.next
 	cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && npm run build'

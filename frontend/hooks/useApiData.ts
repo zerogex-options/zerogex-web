@@ -57,6 +57,10 @@ interface GEXSummaryRow {
   call_wall?: number | null;
   put_wall?: number | null;
   put_call_ratio?: number | null;
+  // GEX King — the heaviest-|net-gamma| strike with per-strike totals summed
+  // across ALL expirations. The slow structural counterpart to the same-day
+  // Pin below; nullable, hide-don't-zero.
+  max_gamma_strike?: number | null;
   // Pin Strike — reachable 0DTE strike with the strongest modeled positive
   // (restoring) dealer gamma into expiration (distinct from wall/flip/max-pain).
   // Null when no meaningful pin exists; pin_strike_reason then holds a
@@ -156,7 +160,7 @@ interface UseApiDataOptions<T = unknown> {
   shouldAcceptData?: (nextData: T, prevData: T | null) => boolean;
 }
 
-const REFRESH_ACCELERATION_FACTOR = 0.5;
+const REFRESH_ACCELERATION_FACTOR = 1.0;
 const MIN_REFRESH_INTERVAL_MS = 1000;
 
 /**
@@ -386,6 +390,32 @@ function normalizeNumbers(value: unknown): unknown {
   return value;
 }
 
+/**
+ * Turn a failed response into a sentence, not a status code.
+ *
+ * FastAPI's `detail` is where our endpoints put the reason a request could
+ * not be served, and several of them are deliberately specific — "there is
+ * nothing to compare yet this session" tells a reader what to do, where
+ * "API error: 409" tells them only that something broke and invites a
+ * support ticket. Falling back to the bare status keeps the old behaviour
+ * for responses that carry no body.
+ */
+async function describeHttpError(response: Response): Promise<string> {
+  try {
+    const body = await response.json();
+    const detail = (body as { detail?: unknown })?.detail;
+    if (typeof detail === 'string' && detail.trim()) return detail;
+    // 422s from FastAPI's validator carry an array of field errors.
+    if (Array.isArray(detail) && detail.length > 0) {
+      const first = detail[0] as { msg?: unknown };
+      if (typeof first?.msg === 'string' && first.msg.trim()) return first.msg;
+    }
+  } catch {
+    // No body, or not JSON — the status is all we have.
+  }
+  return `API error: ${response.status}`;
+}
+
 export function useApiData<T>(endpoint: string, options: UseApiDataOptions<T> = {}) {
   const { refreshInterval = 5000, enabled = true, onError, shouldAcceptData } = options;
   const effectiveRefreshInterval = refreshInterval > 0
@@ -395,6 +425,13 @@ export function useApiData<T>(endpoint: string, options: UseApiDataOptions<T> = 
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // HTTP status of the last failed response, or null when the failure never
+  // produced one (transport error) / there is no failure. `error` alone can't
+  // answer "was this a paywall, a missing symbol, or an outage?" — it is a
+  // human-readable string, and every caller that tried to branch on it was
+  // reduced to rendering one undifferentiated empty state. See
+  // core/signalAvailability.ts for the consumer that turns this into a label.
+  const [errorStatus, setErrorStatus] = useState<number | null>(null);
   const [refetchToken, setRefetchToken] = useState(0);
 
   // Reset state synchronously when the endpoint changes so stale data from the
@@ -405,6 +442,7 @@ export function useApiData<T>(endpoint: string, options: UseApiDataOptions<T> = 
     setData(null);
     setLoading(true);
     setError(null);
+    setErrorStatus(null);
   }
 
   // Hold the latest callbacks in refs so they can change without tearing
@@ -417,6 +455,7 @@ export function useApiData<T>(endpoint: string, options: UseApiDataOptions<T> = 
   useEffect(() => {
     if (!enabled) {
       setLoading(false);
+      setErrorStatus(null);
       return;
     }
 
@@ -424,15 +463,22 @@ export function useApiData<T>(endpoint: string, options: UseApiDataOptions<T> = 
 
     const fetchData = async () => {
       if (controller.signal.aborted) return;
+      // Per-attempt, so the status published to state always belongs to the
+      // SAME attempt as the error message beside it. Setting it at the throw
+      // site instead would let a 403 linger through a later transport failure
+      // (which produces no status of its own), and a paywalled panel would
+      // flip to a hard error only on the polls that failed to connect.
+      let attemptStatus: number | null = null;
       try {
         const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
         const response = await fetch(`${baseUrl}${endpoint}`, { signal: controller.signal });
 
         if (!response.ok) {
+          attemptStatus = response.status;
           if (response.status === 404) {
             throw new Error('No data available yet');
           }
-          throw new Error(`API error: ${response.status}`);
+          throw new Error(await describeHttpError(response));
         }
 
         const rawResult = await response.json();
@@ -452,12 +498,14 @@ export function useApiData<T>(endpoint: string, options: UseApiDataOptions<T> = 
 
         if (accepted) {
           setError(null);
+          setErrorStatus(null);
         }
       } catch (err) {
         if (controller.signal.aborted) return;
         if (err instanceof DOMException && err.name === 'AbortError') return;
         const errorMessage = err instanceof Error ? err.message : 'Failed to fetch data';
         setError(errorMessage);
+        setErrorStatus(attemptStatus);
         onErrorRef.current?.(errorMessage);
       } finally {
         if (!controller.signal.aborted) setLoading(false);
@@ -481,7 +529,7 @@ export function useApiData<T>(endpoint: string, options: UseApiDataOptions<T> = 
     setRefetchToken((t) => t + 1);
   }, []);
 
-  return { data, loading, error, refetch };
+  return { data, loading, error, errorStatus, refetch };
 }
 
 

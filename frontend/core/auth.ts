@@ -35,6 +35,26 @@ const PUBLIC_ROUTE_PATTERNS = [
   '/updates',
   '/search',
   '/real-time-gex-0dte',
+  // The /integrations hub and every chart-platform landing under it.
+  // Marketing/how-to copy with no member data, so they stay open and
+  // crawlable. Two of them (NinjaTrader, Sierra Chart) have a Pro-gated
+  // DOWNLOAD, but that gate lives in their section components — which render
+  // no link at all below Pro — not here: routing the whole page to /login
+  // would cost the SEO landing its entire purpose, and there is nothing on it
+  // a non-member may not read.
+  //
+  // Listed rather than spread from core/integrations.ts, even though that
+  // registry owns the list everywhere else. This module is imported by
+  // proxy.ts (edge middleware) and by tests that run under node's
+  // --experimental-strip-types loader, which resolves relative imports
+  // without extensions differently than the bundler does — an import here
+  // breaks both. tests/integrations.test.ts asserts the two lists agree, the
+  // same way it does for next-sitemap.config.mjs.
+  '/integrations',
+  '/tradingview-indicator',
+  '/thinkorswim-indicator',
+  '/ninjatrader-indicator',
+  '/sierra-chart-indicator',
   '/login',
   '/register',
   '/forgot-password',

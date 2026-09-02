@@ -12,7 +12,8 @@ import {
   useApiData,
 } from '@/hooks/useApiData';
 import type { VolExpansionSignalResponse } from '@/hooks/useApiData';
-import { useHasTierAccess } from '@/hooks/useAuthSession';
+import { useTierAccessState } from '@/hooks/useAuthSession';
+import { resolveSignalAvailability } from '@/core/signalAvailability';
 import { useStrikeProfileTimeseries } from '@/hooks/useStrikeProfileTimeseries';
 import MetricCard from '@/components/MetricCard';
 import HistoricalContextBadge from '@/components/HistoricalContextBadge';
@@ -30,6 +31,7 @@ import GexWallsChart from '@/components/GexWallsChart';
 import CharmVannaFlows from '@/components/CharmVannaFlows';
 import VolSurfaceChart from '@/components/VolSurfaceChart';
 import ExpandableCard, { useExpandedCard } from '@/components/ExpandableCard';
+import ModeledPositioningNote from '@/components/ModeledPositioningNote';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useStrikeFilter } from '@/core/StrikeFilterContext';
 import { selectActive } from '@/core/strikeFilter';
@@ -123,13 +125,40 @@ export default function GammaExposurePage() {
   const volIndex: 'VIX' | 'VXN' = volatilityIndexFor(symbol);
   const { data: volGauge } = useVolatilityGauge(30000, volIndex);
   // vol-expansion is a Pro-only endpoint; this page is Basic-tier, so gate the
-  // poll behind Pro access instead of 403-looping for non-Pro viewers. The
-  // consumer (CharmVannaFlows) already handles a null volExpansion, so a Basic
-  // viewer sees the same output minus the wasted requests.
-  const hasProAccess = useHasTierAccess('pro');
-  const { data: volExpansion } = useApiData<VolExpansionSignalResponse>(
+  // poll behind Pro access instead of 403-looping for non-Pro viewers.
+  //
+  // Skipping the request is right, but it used to make the row indistinguishable
+  // from a broken one: no request means no data, and CharmVannaFlows had only
+  // the resulting null to render, so a Basic viewer got "N/A — No expansion
+  // signal available" over a Pro feature working exactly as designed. We now
+  // carry the REASON alongside the data — entitlement, HTTP status, and whether
+  // the session has even resolved — so the row can name the gate (and an
+  // outage can look like an outage).
+  const { allowed: hasProAccess, loading: tierResolving } = useTierAccessState('pro');
+  const {
+    data: volExpansion,
+    loading: volExpansionLoading,
+    error: volExpansionError,
+    errorStatus: volExpansionStatus,
+  } = useApiData<VolExpansionSignalResponse>(
     `/api/signals/advanced/vol-expansion?symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}`,
     { refreshInterval: 30000, enabled: hasProAccess },
+  );
+  const volExpansionAvailability = useMemo(
+    () => resolveSignalAvailability({
+      entitled: hasProAccess,
+      tierResolving,
+      // Explicit null check first: Number(null) is 0, which IS finite, so a
+      // coercion-only test would read a backend `"expansion": null` as a real
+      // reading and fall straight back to the bare "no signal" copy this
+      // change exists to remove. Mirrors CharmVannaFlows' own guard.
+      hasValue: volExpansion?.expansion != null && Number.isFinite(Number(volExpansion.expansion)),
+      loading: volExpansionLoading,
+      hasError: volExpansionError != null,
+      errorStatus: volExpansionStatus,
+      requiredTier: 'pro',
+    }),
+    [hasProAccess, tierResolving, volExpansion, volExpansionLoading, volExpansionError, volExpansionStatus],
   );
 
   // Expiration filter state for strike table
@@ -585,7 +614,12 @@ export default function GammaExposurePage() {
             <GexStrikeDteHeatmap byStrikeData={gexByStrike} spotPrice={quoteData?.close} />
           </div>
           <div className="lg:col-span-2 h-full">
-            <CharmVannaFlows byStrikeData={gexByStrike} volExpansion={volExpansion} />
+            <CharmVannaFlows
+              byStrikeData={gexByStrike}
+              volExpansion={volExpansion}
+              volExpansionState={volExpansionAvailability}
+              symbol={symbol}
+            />
           </div>
         </div>
       </section>
@@ -773,6 +807,10 @@ export default function GammaExposurePage() {
           </div>
         </ExpandableCard>
       </section>
+
+      {/* Every number on this page is signed by the positioning convention, so
+          the disclosure closes the page rather than living only in tooltips. */}
+      <ModeledPositioningNote />
     </PageShell>
   );
 }

@@ -46,6 +46,8 @@ Run `make logo` to deploy assets to frontend/public/:
 | --- | --- | --- |
 | `Dark_Full.png` / `Light_Full.png` | `logo-dark.png` / `logo-light.png` | footer, collapsed nav card |
 | `Dark_Title.png` / `Light_Title.png` | `title-dark.png` / `title-light.png` | header bars, live-bulletin card |
+| `Dark_Title.png` | `email/zerogex-email-header.png` | campaign email header band |
+| `Dark_Full.png` | `email/zerogex-email-footer.png` | campaign email footer |
 | `Target.svg` | `target.svg` | |
 | `favicon.ico`, `og-image.png` | same name | |
 
@@ -56,6 +58,13 @@ exports carry different amounts of empty canvas per file — dropping them in
 untrimmed would render the same logo at two different sizes depending on the
 theme. Re-export from the design tool under the same filenames and re-run
 `make logo`; nothing here needs manual cropping.
+
+The two email lockups are always the DARK variants: they sit on the navy
+header and footer bands of the campaign emails, and the dark variant is the one
+carrying the light wordmark. They are generated at 2x their CSS width for
+retina, and use their own filenames rather than overwriting the older
+`email/zerogex-header.png` (which the already-sent July 2026 campaign
+references, and which Cloudflare may still be serving from edge cache).
 
 The frontend picks the variant for the active theme in `frontend/core/brand.ts`,
 which also records the deployed pixel sizes for next/image. If a re-export

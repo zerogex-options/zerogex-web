@@ -129,6 +129,30 @@ export function useAuthSession() {
 }
 
 /**
+ * Entitlement plus the one bit `useHasTierAccess` deliberately throws away:
+ * whether the session has resolved yet.
+ *
+ * `allowed` is false while the session is in flight — that fail-closed default
+ * is correct for a GUARD and is exactly what useHasTierAccess exposes. It is
+ * wrong for a LABEL: a Pro member would be told "upgrade for this" for as long
+ * as /api/auth/session takes to answer, and permanently if it fails. Anything
+ * that renders the reason a feature is unavailable needs to tell "not
+ * entitled" apart from "don't know yet", so it reads `loading` too and shows a
+ * neutral placeholder until the answer is real.
+ *
+ * Mirrors hasTierAccess's dev behavior — when auth is disabled everything is
+ * allowed and nothing is ever pending.
+ */
+export function useTierAccessState(
+  minimumTier: TierId,
+): { allowed: boolean; loading: boolean } {
+  const { data, loading } = useAuthSession();
+  if (process.env.NEXT_PUBLIC_AUTH_ENABLED !== '1') return { allowed: true, loading: false };
+  const tier = data?.user?.tier;
+  return { allowed: tier ? hasTierAccess(tier, minimumTier) : false, loading };
+}
+
+/**
  * True only when the signed-in user's tier meets `minimumTier`. Returns false
  * while the session is still resolving and for anonymous / lower-tier users, so
  * it's safe as an `enabled` guard on tier-gated fetches: a non-entitled viewer
@@ -136,10 +160,12 @@ export function useAuthSession() {
  * and an entitled viewer starts fetching as soon as the session lands. Mirrors
  * hasTierAccess's dev behavior — when auth is disabled everything is allowed, so
  * local/CI without sessions keeps fetching exactly as before.
+ *
+ * Fail-closed on purpose, and load-bearing where it is used as a hard gate —
+ * PlotOnNinjaTrader renders the locked state until the session actually
+ * confirms Pro, so a prerendered page never ships a live download link. Use
+ * useTierAccessState when you need to DESCRIBE the gate rather than enforce it.
  */
 export function useHasTierAccess(minimumTier: TierId): boolean {
-  const { data } = useAuthSession();
-  if (process.env.NEXT_PUBLIC_AUTH_ENABLED !== '1') return true;
-  const tier = data?.user?.tier;
-  return tier ? hasTierAccess(tier, minimumTier) : false;
+  return useTierAccessState(minimumTier).allowed;
 }

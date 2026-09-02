@@ -110,6 +110,11 @@ type UserRow = {
   // been sent. Read only as a cheap short-circuit (see
   // maybeSendTrialConvertedEmail) — the CAS UPDATE there stays the authority.
   trial_converted_email_sent_at: string | null;
+  // ISO instant this member's first subscription invoice was actually PAID, or
+  // null if none ever has been. Read as a cheap short-circuit for the once-per
+  // -account stamp in maybeStampFirstPayment; the CAS UPDATE there is the
+  // authority. See core/db.ts for why subscription_status can't answer this.
+  first_payment_at: string | null;
 };
 
 // `past_due` is intentionally NOT active: once a payment fails Stripe moves
@@ -234,7 +239,8 @@ function findUserByCustomerId(customerId: string): UserRow | null {
       `SELECT id, email, tier, founding_member_started_at, founding_lifetime_applied_at,
               referred_by_code, referral_credit_months, stripe_customer_id, stripe_subscription_id,
               stripe_price_id, subscription_status, cancel_at_period_end, payment_grace_started_at,
-              payment_grace_reason, paused_until, trial_converted_email_sent_at
+              payment_grace_reason, paused_until, trial_converted_email_sent_at,
+              first_payment_at
        FROM users WHERE stripe_customer_id = ?`,
     )
     .get(customerId) as UserRow | undefined;
@@ -868,20 +874,13 @@ async function syncSubscriptionToUser(
       )
       .run(nowIso(), user.id);
   }
-  if (previousStatus !== 'active' && subscription.status === 'active') {
-    // Fires on first paid activation, including a trial converting to paid.
-    await captureServer(user.id, TelemetryEvent.SubscriptionPaid, {
-      tier: nextTier,
-      founding,
-      subscription_id: subscription.id,
-      period_end: periodEndIso,
-    });
-    await captureTwitterConversion({
-      eventId: TwitterEvent.purchase,
-      conversionId: subscription.id,
-      email: user.email,
-    });
-  }
+  // NOTE: the paid-conversion funnel event and the ad-platform purchase
+  // conversion deliberately do NOT fire on this transition. Stripe moves a
+  // subscription to `active` when the post-trial invoice is CREATED, an hour or
+  // so before it attempts the charge, so firing here reports every trial whose
+  // card then declines as a purchase. They fire from maybeStampFirstPayment on
+  // invoice.paid instead, keyed to the subscription id exactly as before so the
+  // ad platform's own dedup is unaffected.
 
   // Reconcile the member's founding/promo rate across a plan or cadence switch
   // (portal monthly<->annual or tier change): swap in the cadence-correct coupon
@@ -1267,6 +1266,83 @@ async function maybeSendPaidWelcomeEmail(
       message: `Welcome-back email send failed for sub ${subscription.id}: ${message}`,
     });
   }
+}
+
+// Stamp the instant this member's FIRST subscription invoice was actually paid,
+// and report the conversion to the funnel from there.
+//
+// This is the moment `subscription_status` cannot give us. At trial end Stripe
+// raises the cycle invoice and moves the subscription `trialing` -> `active`
+// about an hour BEFORE it attempts the charge, so `active` means an invoice
+// exists, not that money moved. Everything downstream that wants "is this a
+// paying customer" — the admin Full Subscriber headcount (core/subscriberBucket),
+// the funnel event, the ad-platform purchase conversion — has to key off a paid
+// invoice instead, or it counts the trials that are about to decline.
+//
+// Which invoices count: any paid SUBSCRIPTION invoice except the $0 one Stripe
+// raises to open a trial. A conversion invoice fully covered by a banked referral
+// credit settles at $0 and still counts — the month was bought, just not with the
+// member's card — while a no-trial signup's first invoice always carries a real
+// amount, so the amount test only ever excludes the trial-opening invoice.
+//
+// The CAS UPDATE (NULL -> stamp) makes this exactly-once per account no matter
+// how many renewals land or how often Stripe redelivers, which is also what
+// keeps the funnel event and the ad conversion from firing twice.
+async function maybeStampFirstPayment(invoice: Stripe.Invoice): Promise<void> {
+  const customerId =
+    typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
+  if (!customerId) return;
+
+  const subId = readInvoiceSubscriptionId(invoice);
+  if (!subId) return; // a one-off invoice, not a subscription payment
+
+  const billingReason = invoice.billing_reason ?? null;
+  if (billingReason === 'subscription_create' && invoice.amount_paid === 0) return;
+
+  const user = findUserByCustomerId(customerId);
+  if (!user) return;
+  // Cheap short-circuit — every renewal after the first exits here. The CAS
+  // below is what actually makes the stamp at-most-once.
+  if (user.first_payment_at != null) return;
+
+  const stamp = nowIso();
+  const claim = getDb()
+    .prepare(
+      `UPDATE users SET first_payment_at = ?, updated_at = ?
+       WHERE id = ? AND first_payment_at IS NULL`,
+    )
+    .run(stamp, stamp, user.id) as { changes: number | bigint };
+  if (Number(claim.changes) === 0) return;
+
+  // The audit row is what lets the admin ledger and the Conversion Conveyor
+  // reconstruct this transition historically: nothing about the SUBSCRIPTION
+  // changes when its invoice is paid, so the subscription-sync stream those
+  // views read cannot see it. The `sub_...` id is embedded for
+  // parseSubIdFromMessage (core/monitoring.ts).
+  logAudit({
+    type: 'stripe_first_payment',
+    userId: user.id,
+    email: user.email,
+    message: `First payment cleared on sub ${subId} (invoice ${invoice.id}, ${invoice.amount_paid} ${invoice.currency})`,
+  });
+
+  // Funnel + ad-platform conversion, fired HERE rather than on the
+  // trialing->active transition: that transition happens before the charge, so
+  // reporting it there books every declined trial conversion as a purchase.
+  const founding =
+    user.founding_member_started_at != null && user.founding_lifetime_applied_at == null;
+  const periodEndUnix = readInvoicePeriodEndUnix(invoice);
+  await captureServer(user.id, TelemetryEvent.SubscriptionPaid, {
+    tier: normalizeTier(user.tier),
+    founding,
+    subscription_id: subId,
+    period_end: periodEndUnix != null ? new Date(periodEndUnix * 1000).toISOString() : null,
+  });
+  await captureTwitterConversion({
+    eventId: TwitterEvent.purchase,
+    conversionId: subId,
+    email: user.email,
+  });
 }
 
 // The success bookend to the invoice.payment_failed dunning branch: a trial's
@@ -1956,6 +2032,10 @@ export async function POST(request: NextRequest) {
         // still-open invoice emits NOTHING else. Without this the member stays
         // on 'public' having paid in full.
         await maybeRecoverOrphanPayment(invoice);
+        // Record that money actually moved. Runs before the email below because
+        // it is the stamp the admin headcount reads: it promotes the member off
+        // the Converting line and onto Full Subscriber.
+        await maybeStampFirstPayment(invoice);
         // Trial-conversion confirmation — the success bookend to the
         // trial-conversion dunning email in invoice.payment_failed below.
         // Self-classifying and CAS-latched, so it no-ops on the renewals and

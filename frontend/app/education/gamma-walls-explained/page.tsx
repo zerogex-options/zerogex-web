@@ -24,7 +24,7 @@ export default async function GammaWallsExplainedPage() {
       </Link>
 
       <article className="rounded-3xl border border-[var(--color-border)] bg-[var(--bg-card)]/95 px-8 py-10 shadow-[0_20px_60px_var(--color-info-soft)] md:px-14">
-        <div className="mb-8 text-sm uppercase tracking-[0.2em] text-[var(--text-muted)]">ZeroGEX Education • 9 min read</div>
+        <div className="mb-8 text-sm uppercase tracking-[0.2em] text-[var(--text-muted)]">ZeroGEX Education • 11 min read</div>
         <div className="blog-medium-style">{renderMarkdown(markdown)}</div>
       </article>
 

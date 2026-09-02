@@ -6,6 +6,7 @@ import { brandLogo } from "@/core/brand";
 import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight, Pin } from "lucide-react";
 import { NAV_GROUPS, type NavGroup, type NavItem } from "@/core/navigation";
+import { INTEGRATIONS_HUB } from "@/core/integrations";
 import Image from "next/image";
 import Link from "next/link";
 import { useLanguage } from "@/core/LanguageContext";
@@ -97,6 +98,12 @@ export default function Navigation({ theme }: NavigationProps) {
         // through /login and add a confusing detour.
         items: [
           { id: "/about", label: "About", labelKey: "nav.about" as const },
+          // One entry for every chart-platform integration, not one per
+          // platform. Four brand names in a row crowded out everything else in
+          // this group, and the hub is where a visitor who does not yet know
+          // which platform script they want has to land anyway. The list
+          // itself lives in core/integrations.ts.
+          { id: INTEGRATIONS_HUB.href, label: INTEGRATIONS_HUB.navLabel, labelKey: "nav.integrations" as const },
           { id: "https://api.zerogex.io/docs", label: "API Specs", external: true },
           // mailto: — `external` keeps it an <a href> rather than a router.push,
           // and the http-only target/rel check leaves it opening in the same tab

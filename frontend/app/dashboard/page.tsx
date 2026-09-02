@@ -21,6 +21,7 @@ import TradeBiasSection from '@/components/TradeBiasSection';
 import SignalsGuide from '@/components/SignalsGuide';
 import TodaysReadCard from '@/components/TodaysReadCard';
 import Collapsible from '@/components/Collapsible';
+import ModeledPositioningNote from '@/components/ModeledPositioningNote';
 import TrialStartedBanner from './TrialStartedBanner';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useDensity } from '@/core/DensityContext';
@@ -288,12 +289,17 @@ export default function DashboardPage() {
         </div>
       </Collapsible>
 
-      {/* Data Freshness */}
-      {gexData && (
-        <div className="text-right text-sm text-[var(--text-muted)]">
-          {t('lastUpdatedLabel', { time: new Date(gexData.timestamp).toLocaleTimeString() })}
-        </div>
-      )}
+      {/* Data Freshness + the modeled-positioning disclosure. Both belong on
+          the same footer row: one qualifies WHEN the numbers are from, the
+          other qualifies WHAT they are. */}
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <ModeledPositioningNote />
+        {gexData && (
+          <div className="text-right text-sm text-[var(--text-muted)]">
+            {t('lastUpdatedLabel', { time: new Date(gexData.timestamp).toLocaleTimeString() })}
+          </div>
+        )}
+      </div>
         </>
       )}
     </PageShell>
