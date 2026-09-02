@@ -1093,8 +1093,24 @@ namespace NinjaTrader.NinjaScript.Indicators
         /// email, on their own schedules, which means at any moment they are on
         /// different versions and neither they nor we can tell which. A bug
         /// report against an unknown build costs a round trip to establish what
-        /// is even being reported. Bump this on every file sent to a tester.</summary>
-        private const string BuildVersion = "v1.9";
+        /// is even being reported. Bump this on every file sent to a tester.
+        ///
+        /// It jumps 1.9 -> 2.0 because 1.9 was spent twice. Two changes landed
+        /// in parallel, each correctly bumping 1.8 to 1.9, and both merged. The
+        /// content merged cleanly; the NUMBER did not. For a while two builds
+        /// answered to v1.9: one with the light-chart panel colour, one with
+        /// that plus the symbol-mismatch warning. A version that identifies two
+        /// different things identifies nothing, which costs exactly what the
+        /// stamp was added to save.
+        ///
+        /// The lesson is not "be careful". It is that this constant is shared
+        /// mutable state edited by people who cannot see each other, so a
+        /// collision is the expected outcome rather than a slip. Skipping to
+        /// 2.0 makes the ambiguous number dead: nothing new will ever be 1.9
+        /// again, so a report naming it can only mean the old pair, and a
+        /// report naming 2.0 can only mean this. Anyone bumping from here
+        /// should check what release already says first.</summary>
+        private const string BuildVersion = "v2.0";
 
         private string BuildInfoText(ZeroGexLevelsSnapshot s)
         {
