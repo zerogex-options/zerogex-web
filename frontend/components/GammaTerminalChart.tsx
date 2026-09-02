@@ -729,6 +729,26 @@ export default function GammaTerminalChart({
     0,
     Math.min(Math.max(0, total - 1), Math.max(effCount - 1, firstGexIdx ?? effCount - 1)),
   );
+  // How far back Rewind can actually go, as a clock time.
+  //
+  // The scrubber simply stops at rewindMinIdx, and a control that stops with
+  // no explanation reads as missing data rather than a bounded window — the
+  // same failure mode as a level that draws nothing. So name the boundary
+  // before the user hits it, and point at the tool that does cover the whole
+  // session. The bound is the strike-profile history the chart holds, which is
+  // a fixed number of buckets ending at the live tip, NOT "since the open".
+  const rewindFloorLabel = useMemo(() => {
+    const ts = allBars[rewindMinIdx]?.timestamp;
+    if (!ts) return null;
+    const t = new Date(ts).getTime();
+    if (!Number.isFinite(t)) return null;
+    return new Date(t).toLocaleString("en-US", {
+      timeZone: "America/New_York",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+  }, [allBars, rewindMinIdx]);
 
   // Rewind pins the window's right edge to the bar CONTAINING `rewindTime` (the
   // floor bucket — so the replay clock can sit part-way through the current
@@ -2893,6 +2913,23 @@ export default function GammaTerminalChart({
                   ? `${new Date(rewindTime).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })} ET`
                   : ""}
               </span>
+              {rewindFloorLabel && (
+                <a
+                  href={`/replay/${symbol}/${etTodayDateKey()}`}
+                  title={`Rewind reaches back to ${rewindFloorLabel} ET — the strike-profile history this chart holds, which is a fixed window ending at the live tip rather than the whole session. Daily Replay carries every minute from the open.`}
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 11,
+                    color: "var(--text-secondary)",
+                    whiteSpace: "nowrap",
+                    fontVariantNumeric: "tabular-nums",
+                    textDecoration: "underline dotted",
+                    textUnderlineOffset: 3,
+                  }}
+                >
+                  back to {rewindFloorLabel} · full session
+                </a>
+              )}
             </>
           )}
         </div>
