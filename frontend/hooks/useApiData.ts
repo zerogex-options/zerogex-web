@@ -31,6 +31,20 @@ interface OptionFlowRow {
   unusual_activity_score?: number | null;
 }
 
+export interface PinStabilityRow {
+  symbol: string;
+  current_pin: number;
+  /** ISO timestamp at which the CURRENT pin value took hold. */
+  held_since: string;
+  held_samples: number;
+  session_open_pin: number;
+  /** Signed: negative means the pin has walked down since the open. */
+  net_migration: number;
+  distinct_values: number;
+  quiet_samples: number;
+  total_samples: number;
+}
+
 interface GEXSummaryRow {
   timestamp: string;
   symbol: string;
@@ -581,6 +595,21 @@ function shouldAcceptSignalScoreSnapshot(next: SignalScoreResponse, prev: Signal
 
 export function useGEXSummary(symbol = 'SPY', refreshInterval = 5000, enabled = true) {
   return useApiData<GEXSummaryRow>(`/api/gex/summary?${symbolQuery(symbol)}`, { refreshInterval, enabled });
+}
+
+/**
+ * Pin stability — what the pin has DONE this session, not just where it is.
+ *
+ * Polls far slower than the summary: it is a whole-session reduction that can
+ * only change when the analytics cycle writes a new frame (~60s), so a 5s poll
+ * would be pure waste. 404 is the honest "no pin activity this session" answer
+ * and surfaces as null data, which the caller renders as nothing.
+ */
+export function usePinStability(symbol = 'SPY', refreshInterval = 60000, enabled = true) {
+  return useApiData<PinStabilityRow>(`/api/gex/pin-stability?${symbolQuery(symbol)}`, {
+    refreshInterval,
+    enabled,
+  });
 }
 
 export function useGEXByStrike(

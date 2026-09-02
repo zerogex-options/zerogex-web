@@ -108,6 +108,50 @@ export function pinStrikeSubtitle(
 }
 
 /** The shared tooltip copy for the Pin Strike metric. */
+/** The session-path facts behind the stability note. */
+export interface PinStabilityRead {
+  held_since: string;
+  net_migration: number;
+  distinct_values: number;
+}
+
+/**
+ * One line describing what the pin has DONE this session.
+ *
+ * Two shapes, because they are genuinely different reads: a pin that has never
+ * left its strike gets "Held since 09:41", and one that has moved leads with
+ * the signed distance ("-30 pts today"), since that is the fact a trader
+ * watching the level walk away needs first. The migration is measured from the
+ * session's opening pin, so it answers "how far has this travelled", not "how
+ * far was the last hop".
+ *
+ * Returns null when there is nothing to say — no reading, or a strike that
+ * never resolved — so the caller renders nothing rather than a zeroed line.
+ */
+export function pinStabilityNote(
+  stability: PinStabilityRead | null | undefined,
+): string | null {
+  if (!stability) return null;
+  const t = new Date(stability.held_since);
+  if (Number.isNaN(t.getTime())) return null;
+  const held = t.toLocaleString('en-US', {
+    timeZone: 'America/New_York',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  if (!(stability.distinct_values > 1) || stability.net_migration === 0) {
+    return `Held since ${held}`;
+  }
+  // U+2212 minus, not a hyphen: this sits next to prices in a tabular column.
+  const move = stability.net_migration;
+  const sign = move > 0 ? '+' : '\u2212';
+  const magnitude = Math.abs(move);
+  // Strikes are discrete; a trailing ".0" on every reading is noise.
+  const pts = Number.isInteger(magnitude) ? String(magnitude) : magnitude.toFixed(2);
+  return `${sign}${pts} pts today \u00b7 held since ${held}`;
+}
+
 export const PIN_STRIKE_TOOLTIP =
   'Pin Strike estimates the nearby 0DTE strike with the strongest combination ' +
   'of positive dealer-gamma stabilization and the probability of price reaching ' +

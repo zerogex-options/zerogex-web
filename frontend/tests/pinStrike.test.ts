@@ -13,6 +13,7 @@ import {
   pinLineLabel,
   pinStrikeSubtitle,
   pinStrengthLabel,
+  pinStabilityNote,
   PIN_STRIKE_EMPTY,
   PIN_STRENGTH_STRONG_MIN_CONFIDENCE,
   PIN_STRENGTH_MODERATE_MIN_CONFIDENCE,
@@ -92,4 +93,48 @@ test('pinLineLabel upper-cases into the Gamma Terminal chart tag', () => {
   // composing its own wording.
   assert.equal(pinLineLabel(775, 0.62).toUpperCase(), 'PIN · STRONG');
   assert.equal(pinLineLabel(null, null).toUpperCase(), 'PIN');
+});
+
+// ---------------------------------------------------------------------------
+// Pin stability — what the pin has DONE this session
+// ---------------------------------------------------------------------------
+
+test('pinStabilityNote reports a held pin by the time it took hold', () => {
+  // 13:41Z is 09:41 ET — the session-open read.
+  assert.equal(
+    pinStabilityNote({ held_since: '2026-08-31T13:41:00Z', net_migration: 0, distinct_values: 1 }),
+    'Held since 09:41',
+  );
+});
+
+test('pinStabilityNote leads with the signed move once the pin has migrated', () => {
+  // The session Andres described: the pin walked 30 points DOWN with the tape.
+  // The distance is the fact a trader watching the level leave needs first, so
+  // it comes before the hold time rather than after it.
+  assert.equal(
+    pinStabilityNote({ held_since: '2026-08-31T18:05:00Z', net_migration: -30, distinct_values: 3 }),
+    '\u221230 pts today \u00b7 held since 14:05',
+  );
+  assert.equal(
+    pinStabilityNote({ held_since: '2026-08-31T18:05:00Z', net_migration: 12.5, distinct_values: 2 }),
+    '+12.50 pts today \u00b7 held since 14:05',
+  );
+});
+
+test('pinStabilityNote treats a zero net move as held even across strikes', () => {
+  // A pin that left 7730 and came back has travelled nowhere on net, and
+  // "0 pts today" would be a distinction without a difference.
+  assert.equal(
+    pinStabilityNote({ held_since: '2026-08-31T13:41:00Z', net_migration: 0, distinct_values: 3 }),
+    'Held since 09:41',
+  );
+});
+
+test('pinStabilityNote renders nothing rather than a zeroed line', () => {
+  assert.equal(pinStabilityNote(null), null);
+  assert.equal(pinStabilityNote(undefined), null);
+  assert.equal(
+    pinStabilityNote({ held_since: 'not-a-timestamp', net_migration: -30, distinct_values: 2 }),
+    null,
+  );
 });
