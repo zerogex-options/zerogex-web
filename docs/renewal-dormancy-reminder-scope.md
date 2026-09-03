@@ -3,8 +3,9 @@
 *A dormancy-aware notice before a **renewal** charge, mirroring what
 `core/trialEngagement.ts` already does before a **trial conversion**.*
 
-> **Status:** scoped, not built. Ship §6 (read-only scan) first and read the
-> cohort size before writing a single email.
+> **Status:** step 0 built — `make renewal-engagement` (read-only) plus
+> `core/renewalEngagement.ts` and its tests. The send path is NOT built.
+> Read the cohort size out of the scan before writing a single email.
 
 ---
 
@@ -53,10 +54,10 @@ one to copy.
 
 | Path | Role |
 | --- | --- |
-| `core/renewalEngagement.ts` | Pure decision. No imports, injected clock. Same discipline as `core/cardExpiry.ts` / `core/paymentGrace.ts`. |
-| `tests/renewalEngagement.test.ts` | Locks the decision table, including every `unknown` path. |
+| `core/renewalEngagement.ts` | **Built.** Pure decision. No imports, injected clock. Same discipline as `core/cardExpiry.ts` / `core/paymentGrace.ts`. |
+| `tests/renewalEngagement.test.ts` | **Built.** 23 cases; locks the decision table, including every `unknown` path. |
+| `scripts/scan-renewal-engagement.mts` | **Built.** Read-only cohort report (§6). Mirrors `scan-trial-engagement.mts`. |
 | `scripts/send-renewal-reminders.mts` | Cohort query + latch/audit I/O + mailer call. `--dry-run` / `--yes` / `--preview-to` / `--limit` / `--lead-hours`. |
-| `scripts/scan-renewal-engagement.mts` | Read-only cohort report (§6). Mirrors `scan-trial-engagement.mts`. |
 | `core/mailer.ts` | `sendRenewalReminderEmail()` — value-forward copy per §5. |
 | `core/db.ts` | `ensureColumn('users', 'renewal_dormancy_notified_period', 'TEXT')` |
 | `deploy/systemd/zerogex-web-renewal-reminders.{service,timer}` | Daily 05:10 — clear of trial-reminders (00/06:15), card-expiry (04:20), reactivation (:40), auth backup (:00). `RandomizedDelaySec=10m`, `Persistent=true`. |
@@ -79,9 +80,12 @@ renewalEngagement(input) -> 'engaged' | 'dormant' | 'unknown'
   (the cohort query is verbatim from `send-card-expiry-reminders.mts:311`).
 - `cancel_at_period_end = 0`. Already canceling means no renewal is coming;
   mailing them is noise at best.
-- `first_payment_cleared` is set and the current period is **not** the trial
-  conversion. Trial conversions belong to `send-trial-reminders.mts`; the two
-  cohorts must not overlap or a member gets both emails.
+- `first_payment_at` is set. This excludes comped members and partner grants,
+  who are `active` with no price to renew — telling them one does would be a lie.
+  It needs no separate trial-conversion exclusion: `send-trial-reminders.mts`
+  selects `status = 'trialing'`, and a converting trial is never `active` while
+  an `active` sub is always past its trial, so the two cohorts are disjoint by
+  construction and one member cannot receive both emails.
 - `current_period_end` within `RENEWAL_REMINDER_LEAD_HOURS` (default **72**,
   clamped `[24, 168]`). Longer than the trial's 48h on purpose: there is no
   unconditional-refund promise behind a renewal, so the member needs real room
@@ -101,11 +105,17 @@ authenticated requests, throttled to 15 minutes
 threshold needs. This is a real improvement over the
 `sessions.last_rotated_at` coarseness the dispute doc complained about.
 
-**Keep the `unknown` asymmetry.** `trialEngagement.ts:32` is explicit: absence
-of data is not evidence of dormancy. NULL `last_seen_at` is a pre-cutover
-account, so `unknown` → **never send**. This is the single most important
-inherited constraint. Read a NULL as dormancy and the first run mails the whole
-legacy book at once.
+**Keep the `unknown` asymmetry — but for a different reason than the trial has.**
+In `trialEngagement.ts` both cohorts get an email and only the copy differs, so
+a misread sends the wrong words. Here only the dormant cohort is mailed at all,
+so a misread either mails someone who did not need it (harmless, given §5's
+copy) or skips someone who did — and skipping looks like the worse error.
+
+It still fails toward skipping, because the failure mode is not one member:
+`unknown` means NULL `last_seen_at`, which is a property of every account
+created before that column shipped. Treat NULL as dormant and the first run does
+not miss a notice, it mails the whole legacy book at once. `unknown` → **never
+send**.
 
 ## 5. The copy — the actual design risk
 
@@ -135,12 +145,16 @@ cancel-forward version would cause.
 
 ## 6. Ship order
 
-1. **`make renewal-engagement`** — read-only, sends nothing. Prints the active
-   cohort by engagement with idle days, `DORMANT_ONLY=1` to filter. **Run this
-   before building anything else.** If the dormant-renewal cohort is three
-   people, this whole feature is a doc and a cron nobody needs; if it is three
-   hundred, it is the highest-leverage retention work available.
-2. `core/renewalEngagement.ts` + tests. Pure, fast, no infrastructure.
+1. ~~**`make renewal-engagement`**~~ — **built.** Read-only, sends nothing.
+   Prints the active paid book by engagement with idle days, hours to renewal,
+   and a per-row reason; `DORMANT_ONLY=1` to filter, `DORMANCY_DAYS=` /
+   `LEAD_HOURS=` to re-cut the window. Its `WOULD SEND` column is the future
+   cron's cohort, previewed. **Run it before building anything else.** If the
+   dormant-renewal cohort is three people, this whole feature is a doc and a
+   cron nobody needs; if it is three hundred, it is the highest-leverage
+   retention work available.
+2. ~~`core/renewalEngagement.ts` + tests~~ — **built.** Pure, no infrastructure;
+   `npm run test:renewal-engagement`.
 3. Mailer copy, reviewed against §5, previewed with `PREVIEW_TO=`.
 4. The cron behind `--dry-run`, verified against the scan's numbers.
 5. Timer + deploy step. `YES=1` only once a dry run has been eyeballed twice.
