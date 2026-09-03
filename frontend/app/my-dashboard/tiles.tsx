@@ -14,6 +14,7 @@ import { getPrimaryPriceChangeSummary } from '@/core/priceChange';
 import { resolvePriceSession } from '@/core/sessionCloses';
 import { isIndexSymbol } from '@/core/utils';
 import { usePageT } from '@/core/LanguageContext';
+import { levelSourceChain } from '@/core/keyLevels';
 import { useMyDashboardData } from './DashboardData';
 import { dict } from './tiles.i18n';
 import { netGexAtSpotOrNull, longGammaAtSpot } from '@/core/gammaRegime';
@@ -108,15 +109,41 @@ export function NetGexTile() {
   );
 }
 
+type Translate = ReturnType<typeof usePageT>;
+
+/**
+ * Localized "why is this card empty" copy, composed the same way the shared
+ * English explainer in core/keyLevels is: the general reason, plus — only for
+ * ES / NQ — the sentence naming the chain the level actually comes from. A
+ * futures trader looking at a blank Gamma Flip has no way to know the miss
+ * happened on NDX, and "why is there no data for /NQ" is the email that gets
+ * written when nothing on the card says so.
+ */
+function unresolvedLevelTooltipFor(
+  t: Translate,
+  level: string,
+  symbol: string | null | undefined,
+  kind: 'flip' | 'strike',
+): string {
+  const chain = levelSourceChain(symbol);
+  const body = t(kind === 'flip' ? 'flipUnresolvedTooltip' : 'strikeUnresolvedTooltip', { level });
+  if (!chain || !symbol) return body;
+  return `${body} ${t('levelUnresolvedProjected', { symbol: symbol.toUpperCase(), chain })}`;
+}
+
 export function GammaFlipTile() {
   const t = usePageT(dict);
-  const { theme, gex, quote } = useMyDashboardData();
+  const { theme, gex, quote, symbol } = useMyDashboardData();
+  const title = t('gammaFlipTitle');
   return (
     <PriceDistanceMetricCard
-      title={t('gammaFlipTitle')}
+      title={title}
       level={gex?.gamma_flip}
       spotPrice={quote?.close}
       tooltip={t('gammaFlipTooltip')}
+      symbol={symbol}
+      unresolvedKind="flip"
+      unresolvedTooltip={unresolvedLevelTooltipFor(t, title, symbol, 'flip')}
       theme={theme}
     />
   );
@@ -124,13 +151,17 @@ export function GammaFlipTile() {
 
 export function MaxPainTile() {
   const t = usePageT(dict);
-  const { theme, gex, quote } = useMyDashboardData();
+  const { theme, gex, quote, symbol } = useMyDashboardData();
+  const title = t('maxPainTitle');
   return (
     <PriceDistanceMetricCard
-      title={t('maxPainTitle')}
+      title={title}
       level={gex?.max_pain}
       spotPrice={quote?.close}
       tooltip={t('maxPainTooltip')}
+      symbol={symbol}
+      unresolvedKind="strike"
+      unresolvedTooltip={unresolvedLevelTooltipFor(t, title, symbol, 'strike')}
       theme={theme}
     />
   );

@@ -213,6 +213,11 @@ export interface KeyLevelPinInput {
 }
 
 export interface KeyLevelsInput {
+  /**
+   * The underlying the levels belong to. Only shapes the empty state, which
+   * has to name the backing chain for ES / NQ — see unresolvedLevelTooltip.
+   */
+  symbol?: string | null;
   spot: number | null | undefined;
   /** Session change for the Spot card (core/priceChange's tape reading). */
   spotChange?: number | null;
@@ -232,14 +237,103 @@ const TOOLTIPS: Record<Exclude<KeyLevelId, 'pin'>, string> = {
   maxPain: 'Estimated strike where option-holder payout is minimized at expiry — the options pin.',
 };
 
+/** The two reasons a level shows no distance, as the cards word them. */
+export const LEVEL_AWAITING_PRICE_NOTE = 'Awaiting price';
+export const LEVEL_UNRESOLVED_NOTE = 'Unresolved this snapshot';
+
 /**
  * Reason copy for a card with no distance to show, in PriceDistanceMetricCard's
  * own precedence: a missing spot is reported as a missing spot (the level may
  * be perfectly fine), and only then is the level itself called unresolved.
  */
 function emptyNoteFor(hasLevel: boolean, hasSpot: boolean): string {
-  if (!hasSpot) return 'Awaiting price';
-  return hasLevel ? 'Awaiting price' : 'Unresolved this snapshot';
+  if (!hasSpot) return LEVEL_AWAITING_PRICE_NOTE;
+  return hasLevel ? LEVEL_AWAITING_PRICE_NOTE : LEVEL_UNRESOLVED_NOTE;
+}
+
+/**
+ * Which option chain a symbol's dealer levels are computed from.
+ *
+ * ES and NQ carry no chain of their own — the backend answers them by running
+ * the SPX / NDX handler and converting the price-space fields onto the futures
+ * axis with the live basis (src/api/futures_middleware.py). That indirection is
+ * invisible on a card, and it is the whole reason "/NQ has no gamma flip" is
+ * asked as if NQ were broken: the level that failed to resolve is NDX's.
+ *
+ * Restated here rather than imported from core/symbols so this module stays
+ * runtime-dependency-free for the Node test runner (see the header note on
+ * KEY_LEVEL_EMPTY). Symbols absent from the map are their own chain.
+ */
+const LEVEL_SOURCE_CHAIN: Readonly<Record<string, string>> = {
+  ES: 'SPX',
+  NQ: 'NDX',
+  RTY: 'RUT',
+  YM: 'DJX',
+};
+
+/** The chain `symbol`'s levels come from, or null when it is its own chain. */
+export function levelSourceChain(symbol: string | null | undefined): string | null {
+  if (!symbol) return null;
+  return LEVEL_SOURCE_CHAIN[symbol.trim().toUpperCase()] ?? null;
+}
+
+/**
+ * Which story explains a missing level. The flip is a ROOT of the dealer-gamma
+ * profile, so it goes missing when no crossing qualifies; the walls and max
+ * pain are RANKINGS over strikes, so they go missing when no strike qualifies.
+ * One body for both would have to be vague enough to be useless, or claim of a
+ * max pain something only true of the flip.
+ */
+export type UnresolvedLevelKind = 'flip' | 'strike';
+
+const UNRESOLVED_KIND: Record<Exclude<KeyLevelId, 'spot' | 'pin'>, UnresolvedLevelKind> = {
+  flip: 'flip',
+  callWall: 'strike',
+  putWall: 'strike',
+  maxPain: 'strike',
+};
+
+/**
+ * Why a level reads as an em-dash — the explainer behind the "unresolved" hint.
+ *
+ * An unresolved level is a DECLINED publish, not a failed one: the flip
+ * resolver only accepts a zero crossing that sits within the actionable
+ * distance of spot and is backed by real open interest, and it emits NULL
+ * rather than a level it can't stand behind (src/analytics/main_engine.py,
+ * _resolve_gamma_flip). A card that says only "Unresolved" reads as a bug, so
+ * the tooltip has to say that much and — for ES / NQ — which chain the miss
+ * actually happened on.
+ *
+ * Pure and English-only, matching TOOLTIPS above; the localized surfaces
+ * compose the same shape from their own dictionaries.
+ */
+export function unresolvedLevelTooltip(
+  label: string,
+  symbol?: string | null,
+  kind: UnresolvedLevelKind = 'flip',
+): string {
+  const ticker = symbol ? symbol.trim().toUpperCase() : null;
+  const chain = levelSourceChain(symbol);
+  const projected =
+    chain && ticker
+      ? ` ${ticker} has no options chain of its own — these levels are computed from the ${chain} chain and converted to ${ticker} prices, so it is the ${chain} snapshot that came back without one.`
+      : '';
+  const reason =
+    kind === 'flip'
+      ? `${label} is published only when the modeled dealer-gamma profile gives ` +
+        'a zero crossing close enough to spot to trade and backed by real open ' +
+        'interest. When spot sits deep inside one gamma regime, or the chain is ' +
+        'thin or one-sided — extended hours, an implied-volatility spike — no ' +
+        'crossing clears that bar'
+      : `${label} is ranked over the strikes in this snapshot's option chain, ` +
+        'so it needs strikes carrying real open interest to rank. When the ' +
+        'chain comes back thin or unpriced — extended hours, a feed gap — no ' +
+        'strike qualifies';
+  return (
+    `${reason}, and ZeroGEX shows no level instead of a number it can't stand ` +
+    `behind.${projected} It normally resolves again on a later snapshot; Net ` +
+    "GEX's sign still tells you which regime spot is in."
+  );
 }
 
 /**
@@ -270,7 +364,13 @@ export function buildKeyLevels(input: KeyLevelsInput): KeyLevel[] {
       emptyNote: distance ? null : emptyNoteFor(level != null, hasSpot),
       note: null,
       subnote: null,
-      tooltip: TOOLTIPS[id],
+      // A card with no level to define is better served by an explanation of
+      // WHY there is none: the definition is what the trader already knows,
+      // and "unresolved" on its own reads as a broken feed.
+      tooltip:
+        hasSpot && level == null
+          ? unresolvedLevelTooltip(label, input.symbol, UNRESOLVED_KIND[id])
+          : TOOLTIPS[id],
     };
   };
 

@@ -12,6 +12,7 @@ export default function MetricCard({
   subtitleColor,
   trend = 'neutral',
   tooltip,
+  tooltipIcon,
   icon,
   contextBadge,
 }: MetricCardProps) {
@@ -31,7 +32,7 @@ export default function MetricCard({
           <h3 className="zg-eyebrow">{title}</h3>
         </div>
         <TooltipWrapper text={tooltip}>
-          <Info size={14} />
+          {tooltipIcon ?? <Info size={14} />}
         </TooltipWrapper>
       </div>
       <AutoFitValue

@@ -13,6 +13,12 @@ export const dict: PageDictionary = {
     gammaFlipTitle: 'Gamma Flip',
     gammaFlipTooltip:
       'Price where aggregate net gamma changes sign. The card shows the live dollar and percent distance from the current underlying so you can judge whether spot is above or below the flip.',
+    flipUnresolvedTooltip:
+      '{level} is published only when the modeled dealer-gamma profile gives a zero crossing close enough to spot to trade and backed by real open interest. When spot sits deep inside one gamma regime, or the chain is thin or one-sided — extended hours, an implied-volatility spike — no crossing clears that bar, and ZeroGEX shows no level instead of a number it cannot stand behind. It normally resolves again on a later snapshot; the sign of Net GEX still tells you which regime spot is in.',
+    levelUnresolvedProjected:
+      '{symbol} has no options chain of its own — these levels are computed from the {chain} chain and converted to {symbol} prices using the live futures basis, so it is the {chain} snapshot that came back without one.',
+    strikeUnresolvedTooltip:
+      '{level} is ranked over the strikes in this snapshot’s option chain, so it needs strikes carrying real open interest to rank. When the chain comes back thin or unpriced — extended hours, a feed gap — no strike qualifies, and ZeroGEX shows no level instead of a number it cannot stand behind. It normally resolves again on a later snapshot.',
     maxPainTitle: 'Max Pain',
     maxPainTooltip:
       'Estimated strike where option-holder payout is minimized at expiry. The card shows the live dollar and percent distance from the current underlying so you can gauge how far spot is from the options pin.',
@@ -54,6 +60,12 @@ export const dict: PageDictionary = {
     gammaFlipTitle: 'Gamma Flip',
     gammaFlipTooltip:
       'Prezzo in cui la gamma netta aggregata cambia segno. La scheda mostra la distanza in tempo reale, in dollari e percentuale, dal sottostante attuale, così puoi capire se lo spot è sopra o sotto il flip.',
+    flipUnresolvedTooltip:
+      '{level} viene pubblicato solo quando il profilo modellato della gamma dei dealer presenta un attraversamento dello zero abbastanza vicino allo spot per essere operabile e sostenuto da open interest reale. Quando lo spot si trova in profondità dentro un unico regime di gamma, o la catena è sottile o unilaterale — orari estesi, un picco di volatilità implicita — nessun attraversamento supera quella soglia, e ZeroGEX non mostra alcun livello invece di un numero di cui non può rispondere. Di norma si risolve di nuovo in uno snapshot successivo; il segno del Net GEX indica comunque in quale regime si trova lo spot.',
+    levelUnresolvedProjected:
+      '{symbol} non ha una propria catena di opzioni — questi livelli sono calcolati sulla catena {chain} e convertiti in prezzi {symbol} usando la base futures in tempo reale, quindi è lo snapshot {chain} a essere tornato senza il livello.',
+    strikeUnresolvedTooltip:
+      '{level} viene classificato sugli strike della catena di opzioni di questo snapshot, quindi ha bisogno di strike con open interest reale. Quando la catena torna sottile o senza prezzi — orari estesi, un buco nel feed — nessuno strike si qualifica, e ZeroGEX non mostra alcun livello invece di un numero di cui non può rispondere. Di norma si risolve di nuovo in uno snapshot successivo.',
     maxPainTitle: 'Max Pain',
     maxPainTooltip:
       "Strike stimato in cui il payout dei detentori di opzioni è minimizzato a scadenza. La scheda mostra la distanza in tempo reale, in dollari e percentuale, dal sottostante attuale, così puoi valutare quanto lo spot è distante dal pin delle opzioni.",
@@ -95,6 +107,12 @@ export const dict: PageDictionary = {
     gammaFlipTitle: 'Gamma Flip',
     gammaFlipTooltip:
       'Preis, an dem das aggregierte Netto-Gamma das Vorzeichen wechselt. Die Karte zeigt den Live-Abstand in Dollar und Prozent zum aktuellen Basiswert, damit du beurteilen kannst, ob der Spot über oder unter dem Flip liegt.',
+    flipUnresolvedTooltip:
+      '{level} wird nur veröffentlicht, wenn das modellierte Dealer-Gamma-Profil einen Nulldurchgang liefert, der nah genug am Spot liegt, um handelbar zu sein, und durch echtes Open Interest gedeckt ist. Sitzt der Spot tief in einem einzigen Gamma-Regime, oder ist die Optionskette dünn oder einseitig — erweiterte Handelszeiten, ein Sprung der impliziten Volatilität —, überschreitet kein Durchgang diese Schwelle, und ZeroGEX zeigt lieber kein Level als eine Zahl, für die es nicht einstehen kann. In einem späteren Snapshot löst es sich normalerweise wieder auf; das Vorzeichen des Net GEX zeigt weiterhin, in welchem Regime der Spot steht.',
+    levelUnresolvedProjected:
+      '{symbol} hat keine eigene Optionskette — diese Levels werden aus der {chain}-Kette berechnet und über die laufende Futures-Basis in {symbol}-Preise umgerechnet. Es ist also der {chain}-Snapshot, der ohne Level zurückkam.',
+    strikeUnresolvedTooltip:
+      '{level} wird über die Strikes der Optionskette dieses Snapshots ermittelt und braucht daher Strikes mit echtem Open Interest. Kommt die Kette dünn oder ohne Preise zurück — erweiterte Handelszeiten, eine Lücke im Feed —, qualifiziert sich kein Strike, und ZeroGEX zeigt lieber kein Level als eine Zahl, für die es nicht einstehen kann. In einem späteren Snapshot löst es sich normalerweise wieder auf.',
     maxPainTitle: 'Max Pain',
     maxPainTooltip:
       'Geschätzter Strike, an dem die Auszahlung der Optionsinhaber bei Verfall minimiert wird. Die Karte zeigt den Live-Abstand in Dollar und Prozent zum aktuellen Basiswert, damit du einschätzen kannst, wie weit der Spot vom Options-Pin entfernt ist.',
@@ -136,6 +154,12 @@ export const dict: PageDictionary = {
     gammaFlipTitle: 'Gamma Flip',
     gammaFlipTooltip:
       'Precio en el que la gamma neta agregada cambia de signo. La tarjeta muestra la distancia en tiempo real, en dólares y porcentaje, respecto al subyacente actual, para que puedas evaluar si el spot está por encima o por debajo del flip.',
+    flipUnresolvedTooltip:
+      '{level} solo se publica cuando el perfil modelado de gamma de los dealers ofrece un cruce por cero lo bastante cerca del spot para ser operable y respaldado por open interest real. Cuando el spot está muy dentro de un único régimen de gamma, o la cadena es delgada o unilateral — horario extendido, un salto de volatilidad implícita —, ningún cruce supera ese umbral, y ZeroGEX no muestra ningún nivel en lugar de una cifra que no puede respaldar. Normalmente vuelve a resolverse en un snapshot posterior; el signo del Net GEX sigue indicando en qué régimen está el spot.',
+    levelUnresolvedProjected:
+      '{symbol} no tiene cadena de opciones propia: estos niveles se calculan sobre la cadena {chain} y se convierten a precios de {symbol} con la base de futuros en vivo, así que es el snapshot de {chain} el que volvió sin nivel.',
+    strikeUnresolvedTooltip:
+      '{level} se clasifica sobre los strikes de la cadena de opciones de este snapshot, así que necesita strikes con open interest real. Cuando la cadena vuelve delgada o sin precios — horario extendido, un hueco en el feed —, ningún strike califica, y ZeroGEX no muestra ningún nivel en lugar de una cifra que no puede respaldar. Normalmente vuelve a resolverse en un snapshot posterior.',
     maxPainTitle: 'Max Pain',
     maxPainTooltip:
       'Strike estimado en el que el pago a los tenedores de opciones se minimiza al vencimiento. La tarjeta muestra la distancia en tiempo real, en dólares y porcentaje, respecto al subyacente actual, para que puedas evaluar cuán lejos está el spot del pin de opciones.',
@@ -177,6 +201,12 @@ export const dict: PageDictionary = {
     gammaFlipTitle: 'Gamma Flip',
     gammaFlipTooltip:
       "Prix auquel la gamma nette agrégée change de signe. La carte affiche l'écart en direct, en dollars et en pourcentage, par rapport au sous-jacent actuel, pour évaluer si le spot est au-dessus ou en dessous du flip.",
+    flipUnresolvedTooltip:
+      "{level} n'est publié que lorsque le profil modélisé du gamma des dealers présente un passage par zéro suffisamment proche du spot pour être négociable et adossé à un open interest réel. Lorsque le spot se situe profondément dans un seul régime de gamma, ou que la chaîne est mince ou unilatérale — séances étendues, un pic de volatilité implicite —, aucun passage ne franchit ce seuil, et ZeroGEX n'affiche aucun niveau plutôt qu'un chiffre qu'il ne peut pas assumer. Il se résout normalement à nouveau sur un snapshot ultérieur ; le signe du Net GEX indique toujours dans quel régime se trouve le spot.",
+    levelUnresolvedProjected:
+      "{symbol} n'a pas de chaîne d'options propre : ces niveaux sont calculés sur la chaîne {chain} puis convertis en prix {symbol} via la base futures en direct — c'est donc le snapshot {chain} qui est revenu sans niveau.",
+    strikeUnresolvedTooltip:
+      "{level} est classé sur les strikes de la chaîne d'options de ce snapshot : il lui faut donc des strikes portant un open interest réel. Lorsque la chaîne revient mince ou sans prix — séances étendues, un trou dans le flux —, aucun strike ne se qualifie, et ZeroGEX n'affiche aucun niveau plutôt qu'un chiffre qu'il ne peut pas assumer. Il se résout normalement à nouveau sur un snapshot ultérieur.",
     maxPainTitle: 'Max Pain',
     maxPainTooltip:
       "Strike estimé auquel le paiement aux détenteurs d'options est minimisé à l'échéance. La carte affiche l'écart en direct, en dollars et en pourcentage, par rapport au sous-jacent actuel, pour évaluer à quel point le spot est éloigné du pin des options.",

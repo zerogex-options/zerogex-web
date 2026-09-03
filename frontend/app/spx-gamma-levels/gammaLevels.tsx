@@ -120,6 +120,18 @@ function derivationNote(primary: Symbol): string {
   return ` ${primary} levels are derived from the ${chain} options chain and converted to ${primary} prices using the live futures basis, so they line up with the ${primary} contract you actually trade.${futuresDelayNote(primary)}`;
 }
 
+/**
+ * The extra sentence the "why is the flip blank" answer needs on ES / NQ: the
+ * crossing that failed to resolve is the backing index's, so a trader on the
+ * futures page does not conclude the futures data is broken. Empty for a symbol
+ * that is its own chain, where there is nothing to attribute.
+ */
+function flipChainNote(primary: Symbol): string {
+  const chain = SYMBOL_CHAIN[primary];
+  if (chain === primary) return '';
+  return ` ${primary} carries no options chain of its own — its levels are computed from the ${chain} chain and converted to ${primary} prices — so a blank ${primary} flip means the ${chain} snapshot had no publishable crossing, not that ${primary} data is missing.`;
+}
+
 function buildSymbolContent(primary: Symbol): SymbolContent {
   const path = `/${primary.toLowerCase()}-gamma-levels`;
   return {
@@ -249,6 +261,10 @@ function faqItems(primary: Symbol): { q: string; a: string }[] {
     {
       q: 'What is the gamma flip?',
       a: 'The gamma flip is the price level where dealer positioning may shift from positive gamma to negative gamma, or vice versa. Above or below this level, market behavior can change from more stable and mean-reverting to more volatile and directional.',
+    },
+    {
+      q: `Why is the ${primary} gamma flip showing no value?`,
+      a: `A blank gamma flip is a deliberate result, not missing data. ZeroGEX publishes the flip only when the modeled dealer-gamma profile has a zero crossing close enough to spot to be tradable and backed by real open interest. When ${primary} is trading deep inside one gamma regime, or the options chain is thin or one-sided — extended hours, or an implied-volatility spike that collapses modeled gamma across the board — no crossing clears that bar, and no level is published rather than one that can't be stood behind. The call wall, put wall and max pain on this page are unaffected, the sign of net GEX still tells you which regime ${primary} is in, and the flip normally resolves again on a later snapshot.${flipChainNote(primary)}`,
     },
     {
       q: 'What is a call wall?',
@@ -409,9 +425,30 @@ const REGIME_DISPLAY: Record<
     label: 'Gamma flip unresolved',
     color: 'var(--color-text-secondary)',
     icon: 'none',
-    body: 'The dealer gamma flip couldn’t be resolved from this snapshot — read these levels as provisional.',
+    body:
+      'This snapshot produced no gamma flip: the modeled dealer-gamma profile had no zero crossing close enough to spot to be tradable and backed by real open interest, so no level is published rather than one we can’t stand behind. Read these levels as provisional — it normally resolves again on a later snapshot.',
   },
 };
+
+/**
+ * The Gamma flip row's sub-label. Its normal hint explains what the level IS;
+ * when the level is missing, that hint is answering a question nobody asked and
+ * the row reads as a broken feed. Naming the backing chain matters most for
+ * ES / NQ, whose levels are the SPX / NDX levels converted onto the futures
+ * axis: a blank NQ flip is an NDX snapshot with no crossing, not a gap in the
+ * NQ data, and only this line says so where a trader is already looking.
+ */
+function flipHint(symbol: Symbol, flip: number | null | undefined): string {
+  if (flip != null && Number.isFinite(flip)) {
+    return 'Regime line — above = positive, below = negative';
+  }
+  const chain = SYMBOL_CHAIN[symbol];
+  const source =
+    chain === symbol
+      ? `the ${symbol} chain`
+      : `the ${chain} chain (${symbol} carries no chain of its own)`;
+  return `No crossing near enough to spot to publish in this snapshot — resolved from ${source}`;
+}
 
 // Last-good snapshot per symbol, held in process memory to ride through a brief
 // upstream outage. A backend deploy bounces the API for ~30–60s (a graceful
@@ -593,7 +630,7 @@ function SymbolCard({
         <LevelRow label="Reference spot (delayed)" value={fmtPrice(data?.spot_price)} hint="Approximate, snapshot ≥15 min ago" />
         <LevelRow label="Call wall" value={fmtPrice(data?.call_wall)} hint="Strike that tends to cap upside" />
         <LevelRow label="Put wall" value={fmtPrice(data?.put_wall)} hint="Strike that tends to floor downside" />
-        <LevelRow label="Gamma flip" value={fmtPrice(data?.gamma_flip)} hint="Regime line — above = positive, below = negative" />
+        <LevelRow label="Gamma flip" value={fmtPrice(data?.gamma_flip)} hint={flipHint(symbol, data?.gamma_flip)} />
         <LevelRow label="Max pain" value={fmtPrice(data?.max_pain)} hint="Strike where the most contracts expire worthless" />
         <LevelRow label="Pin strike" value={fmtPrice(data?.pin_strike)} hint="Reachable 0DTE strike with the strongest modeled positive dealer-gamma stabilization into expiration — a modeled pinning level, not a target" />
         <LevelRow label="Net dealer GEX (at spot)" value={fmtNetGex(netGexAtSpotOrNull(data?.net_gex_at_spot))} hint="Modeled (call-positive/put-negative convention); actual dealer inventory isn't directly observable" />
