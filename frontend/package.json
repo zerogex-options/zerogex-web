@@ -70,6 +70,7 @@
     "test:regime-shift": "node --experimental-strip-types --test tests/regimeShift.test.ts",
     "test:pin-strike": "node --experimental-strip-types --test tests/pinStrike.test.ts",
     "test:key-levels": "node --experimental-strip-types --test tests/keyLevels.test.ts",
+    "test:tooltip-placement": "node --experimental-strip-types --test tests/tooltipPlacement.test.ts",
     "test:gex-strike-charts": "node --experimental-strip-types --test tests/gexStrikeCharts.test.ts",
     "test:expiration-gradient": "node --experimental-strip-types --test tests/expirationGradient.test.ts",
     "test:flow-series-charts": "node --experimental-strip-types --test tests/flowSeriesCharts.test.ts",

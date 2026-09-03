@@ -1,9 +1,22 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 import { Info } from "lucide-react";
 import { useExpandedCard } from "./ExpandableCard";
+import {
+  estimateTooltipHeight,
+  resolveTooltipGeometry,
+  type TooltipGeometry,
+  type TooltipPlacement,
+} from "@/core/tooltipPlacement";
 
 interface TooltipWrapperProps {
   text: string;
@@ -12,18 +25,14 @@ interface TooltipWrapperProps {
   placement?: "auto" | TooltipPlacement;
 }
 
-type TooltipPlacement = "top" | "bottom";
-
-type TooltipLayout = {
-  top: number;
-  left: number;
-  placement: TooltipPlacement;
-  arrowLeft: number;
-};
-
-const TOOLTIP_WIDTH = 360;
-const TOOLTIP_GAP = 12;
-const VIEWPORT_PADDING = 16;
+/**
+ * useLayoutEffect that degrades to useEffect on the server. The measurement
+ * pass has to land before paint or the tooltip visibly jumps from its estimate
+ * to its measured position; React warns when useLayoutEffect runs during SSR, and
+ * these components are server-rendered even though they are client components.
+ */
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 export default function TooltipWrapper({
   text,
@@ -32,8 +41,9 @@ export default function TooltipWrapper({
   placement = "auto",
 }: TooltipWrapperProps) {
   const [show, setShow] = useState(false);
-  const [layout, setLayout] = useState<TooltipLayout | null>(null);
+  const [layout, setLayout] = useState<TooltipGeometry | null>(null);
   const triggerRef = useRef<HTMLDivElement>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
   const expanded = useExpandedCard();
   const tooltipId = useId();
 
@@ -41,38 +51,32 @@ export default function TooltipWrapper({
     if (!triggerRef.current || typeof window === "undefined") return;
 
     const rect = triggerRef.current.getBoundingClientRect();
-    const viewportWidth = window.innerWidth;
-    const estimatedHeight = Math.min(160, Math.max(72, Math.ceil(text.length / 56) * 24 + 28));
-
-    const centeredLeft = rect.left + rect.width / 2 - TOOLTIP_WIDTH / 2;
-    const clampedLeft = Math.min(
-      Math.max(centeredLeft, VIEWPORT_PADDING),
-      viewportWidth - TOOLTIP_WIDTH - VIEWPORT_PADDING,
+    setLayout(
+      resolveTooltipGeometry({
+        anchor: { top: rect.top, bottom: rect.bottom, left: rect.left, width: rect.width },
+        viewport: { width: window.innerWidth, height: window.innerHeight },
+        // The rendered box once it exists, the estimate only for the first
+        // frame. Guessing was the whole bug: a long tooltip is however tall it
+        // is, and no formula over character counts knows that as well as the
+        // DOM does.
+        height: tooltipRef.current?.offsetHeight || estimateTooltipHeight(text),
+        placement,
+      }),
     );
-
-    const roomAbove = rect.top - VIEWPORT_PADDING;
-    const computedPlacement: TooltipPlacement = placement === "auto"
-      ? (roomAbove >= estimatedHeight + TOOLTIP_GAP ? "top" : "bottom")
-      : placement;
-
-    const top = computedPlacement === "top"
-      ? rect.top - TOOLTIP_GAP
-      : rect.bottom + TOOLTIP_GAP;
-
-    const triggerCenter = rect.left + rect.width / 2;
-    const arrowLeft = Math.min(
-      TOOLTIP_WIDTH - 20,
-      Math.max(20, triggerCenter - clampedLeft),
-    );
-
-    setLayout({ top, left: clampedLeft, placement: computedPlacement, arrowLeft });
   }, [placement, text]);
 
+  // The estimate positions the first frame; this corrects it against the real
+  // box before the browser paints, so a long tooltip never appears off screen
+  // and never visibly snaps back into it.
+  useIsomorphicLayoutEffect(() => {
+    if (!show) return;
+    updateLayout();
+    // updateLayout reads the node it just measured but only ever writes a
+    // layout object, so this settles in one pass instead of looping.
+  }, [show, updateLayout]);
 
   useEffect(() => {
     if (!show) return;
-
-    updateLayout();
 
     const handleViewportChange = () => updateLayout();
     const handleEscape = (event: KeyboardEvent) => {
@@ -115,34 +119,38 @@ export default function TooltipWrapper({
   const tooltipNode = show && layout && typeof document !== "undefined"
     ? createPortal(
         <div
+          ref={tooltipRef}
           role="tooltip"
           id={tooltipId}
           className="pointer-events-none fixed z-[9999] rounded-lg border px-4 py-3 text-sm leading-relaxed"
           style={{
-            top: layout.placement === "top" ? layout.top : layout.top,
+            top: layout.top,
             left: layout.left,
-            transform: layout.placement === "top" ? "translateY(-100%)" : undefined,
-            width: `${TOOLTIP_WIDTH}px`,
+            width: `${layout.width}px`,
+            maxHeight: `${layout.maxHeight}px`,
+            overflowY: layout.clipped ? "auto" : "visible",
             background: "var(--color-chart-tooltip-bg)",
             color: "var(--color-chart-tooltip-text)",
             borderColor: "var(--color-border)",
             boxShadow: "0 8px 24px var(--color-info-soft), 0 2px 8px rgba(0,0,0,0.08)",
           }}
         >
-          <div
-            aria-hidden="true"
-            className="absolute h-3 w-3 rotate-45 border"
-            style={{
-              left: layout.arrowLeft - 6,
-              background: "var(--color-chart-tooltip-bg)",
-              borderColor: "var(--color-border)",
-              top: layout.placement === "top" ? "calc(100% - 7px)" : "-7px",
-              borderLeftWidth: layout.placement === "top" ? 0 : 1,
-              borderTopWidth: layout.placement === "top" ? 0 : 1,
-              borderRightWidth: layout.placement === "top" ? 1 : 0,
-              borderBottomWidth: layout.placement === "top" ? 1 : 0,
-            }}
-          />
+          {layout.showArrow && (
+            <div
+              aria-hidden="true"
+              className="absolute h-3 w-3 rotate-45 border"
+              style={{
+                left: layout.arrowLeft - 6,
+                background: "var(--color-chart-tooltip-bg)",
+                borderColor: "var(--color-border)",
+                top: layout.placement === "top" ? "calc(100% - 7px)" : "-7px",
+                borderLeftWidth: layout.placement === "top" ? 0 : 1,
+                borderTopWidth: layout.placement === "top" ? 0 : 1,
+                borderRightWidth: layout.placement === "top" ? 1 : 0,
+                borderBottomWidth: layout.placement === "top" ? 1 : 0,
+              }}
+            />
+          )}
           <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--color-text-secondary)" }}>
             Context
           </div>
