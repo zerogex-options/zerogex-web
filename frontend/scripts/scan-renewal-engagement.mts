@@ -21,7 +21,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 
 import {
   decideRenewalReminder,
@@ -83,16 +83,76 @@ the eligible count for that reason.
 WOULD-SEND counts the members a pre-renewal dormancy reminder would mail today
 if the send path existed. It does not exist yet; see
 docs/renewal-dormancy-reminder-scope.md.
+
+Reads AUTH_DB_PATH from env or frontend/.env.local, falling back to
+frontend/data/auth.db.
 `.trim());
   process.exit(0);
 }
 
-// Mirrors the DB path resolution the other scripts use.
-const dbPath = process.env.AUTH_DB_PATH ?? path.join(process.cwd(), 'data', 'auth.db');
+// Same resolution the other operational scripts use: an explicit env var wins,
+// then frontend/.env.local, then the in-repo default. Reading .env.local is the
+// load-bearing part — AUTH_DB_PATH lives there in production (/var/lib/zerogex/
+// auth.db), and without it this silently falls back to the in-repo path, where
+// a leftover empty auth.db passes the existsSync check below and then fails
+// deep inside a query with "no such table: users".
+function parseEnvFile(filePath: string): Record<string, string> {
+  if (!fs.existsSync(filePath)) return {};
+  const env: Record<string, string> = {};
+  for (const rawLine of fs.readFileSync(filePath, 'utf8').split('\n')) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) continue;
+    const eq = line.indexOf('=');
+    if (eq === -1) continue;
+    const key = line.slice(0, eq).trim();
+    let value = line.slice(eq + 1).trim();
+    if (
+      value.length >= 2 &&
+      ((value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'")))
+    ) {
+      value = value.slice(1, -1);
+    }
+    env[key] = value;
+  }
+  return env;
+}
+
+function ensureSqlite3Cli(): void {
+  const probe = spawnSync('sqlite3', ['-version'], { stdio: 'ignore' });
+  if (probe.error || probe.status !== 0) {
+    console.error('Error: sqlite3 CLI not found on PATH.');
+    console.error('Install it with: sudo apt-get install sqlite3');
+    process.exit(1);
+  }
+}
+
+// Existence is not enough: an empty or stale auth.db is a file too. Fail here,
+// naming the path, instead of surfacing a raw execFileSync stack trace.
+function ensureUsersTable(file: string): void {
+  const probe = spawnSync(
+    'sqlite3',
+    ['-json', file, "SELECT name FROM sqlite_master WHERE type='table' AND name='users';"],
+    { encoding: 'utf8' },
+  );
+  if (probe.status !== 0 || !probe.stdout.trim()) {
+    console.error(`No 'users' table in ${file} — that is not the live auth DB.`);
+    console.error('Tip: set AUTH_DB_PATH in frontend/.env.local or export it in your shell.');
+    process.exit(1);
+  }
+}
+
+const cwd = process.cwd();
+const envLocal = parseEnvFile(path.join(cwd, '.env.local'));
+const dbPath =
+  process.env.AUTH_DB_PATH || envLocal.AUTH_DB_PATH || path.join(cwd, 'data', 'auth.db');
 if (!fs.existsSync(dbPath)) {
-  console.error(`Auth DB not found at ${dbPath}. Set AUTH_DB_PATH.`);
+  console.error(`Auth DB not found at: ${dbPath}`);
+  console.error('Tip: set AUTH_DB_PATH in frontend/.env.local or export it in your shell.');
   process.exit(1);
 }
+ensureSqlite3Cli();
+ensureUsersTable(dbPath);
 
 function querySqlite<T>(file: string, sql: string): T[] {
   const out = execFileSync('sqlite3', ['-json', file, sql], { encoding: 'utf8' }).trim();
