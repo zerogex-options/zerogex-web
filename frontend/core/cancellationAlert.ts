@@ -93,6 +93,21 @@ export function describeTenure(days: number | null): string {
   return `${days} days (~${months} month${months === 1 ? '' : 's'})`;
 }
 
+// ── Per-run batching ─────────────────────────────────────────────────────────
+// How many of the pending churn events a single run takes.
+//
+// The cap exists for exactly one reason: to stop a wide `--since` window mailing
+// the entire churn history in one go. It follows that it must NOT apply when the
+// run sends nothing. `--mark-only` capped at 25 is actively harmful — you ask it
+// to silence a backlog of 355, it silences 25, and the timer then mails you the
+// other 330, which is the precise outcome the flag exists to prevent. That is a
+// bug this function exists to hold shut.
+export function selectBatch<T>(pending: readonly T[], limit: number, markOnly: boolean): T[] {
+  // limit <= 0 means unlimited; mark-only is always unlimited.
+  if (markOnly || limit <= 0) return [...pending];
+  return pending.slice(0, limit);
+}
+
 // ── The alert payload ────────────────────────────────────────────────────────
 
 export type ChurnAlertInput = {

@@ -11,6 +11,7 @@ import {
   describeTenure,
   daysUntil,
   buildChurnAlert,
+  selectBatch,
   type ChurnAlertInput,
 } from '../core/cancellationAlert.ts';
 import { formatCancellationReasonSuffix } from '../core/cancellationReason.ts';
@@ -36,6 +37,28 @@ const BASE: ChurnAlertInput = {
 };
 
 const NOW = '2026-09-02T12:00:00.000Z';
+
+test('selectBatch: the per-run cap is an INBOX guard, so mark-only ignores it', () => {
+  const pending = Array.from({ length: 60 }, (_, i) => i);
+
+  // A sending run is capped: that is the whole point — one wide --since must not
+  // mail the entire churn history at once.
+  assert.equal(selectBatch(pending, 25, false).length, 25);
+
+  // A mark-only run sends nothing, so capping it silences 25 and leaves the
+  // timer to mail the other 35 — the exact outcome --mark-only exists to
+  // prevent. This shipped once; it must not ship again.
+  assert.equal(selectBatch(pending, 25, true).length, 60);
+
+  // limit <= 0 means unlimited on either path.
+  assert.equal(selectBatch(pending, 0, false).length, 60);
+  assert.equal(selectBatch(pending, -1, false).length, 60);
+
+  // Never returns more than it was given, and never mutates the input.
+  assert.equal(selectBatch(pending, 500, false).length, 60);
+  assert.equal(selectBatch([], 25, false).length, 0);
+  assert.equal(pending.length, 60);
+});
 
 test('churn event types: the two rows that mean someone is leaving', () => {
   assert.equal(classifyChurnEvent('stripe_cancellation_requested'), 'pending');

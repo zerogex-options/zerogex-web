@@ -30,8 +30,10 @@
 # sidecars) succeed under ProtectSystem=strict.
 #
 # FIRST INSTALL: the timer starts from a 72h lookback, so enabling it will
-# alert on any cancellation from the last three days. If you have already dealt
-# with those by hand, silence the backlog first — see the closing notes below.
+# alert on any cancellation from the last three days. On a busy account that is
+# not a handful of emails — silence the backlog BEFORE enabling, with the
+# MARK_ONLY run in the closing notes below (it ignores the per-run cap and takes
+# the whole history, so one invocation is enough).
 
 set -e
 
@@ -157,5 +159,6 @@ log "  • cd $APP_DIR && make cancellation-alerts PREVIEW_TO=you@x.com   - one 
 log "  • cd $APP_DIR && make cancellation-alerts SINCE=2026-08-01       - backfill history you never got told about"
 log "  • cd $APP_DIR && make cancellation-alerts SINCE=2026-01-01 MARK_ONLY=1"
 log "                                                                  - silence an old backlog WITHOUT emailing"
+log "                                                                    (ignores the per-run cap: takes the WHOLE backlog)"
 log "  • systemctl list-timers ${UNIT}.timer                            - next/last run"
 log "  • journalctl -u ${UNIT} -n 50                                    - recent run logs"

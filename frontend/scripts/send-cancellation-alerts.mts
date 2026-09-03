@@ -42,6 +42,7 @@
 //   NEXT_PUBLIC_APP_URL                 admin dashboard link (default zerogex.io)
 //   CANCELLATION_ALERT_LOOKBACK_HOURS   trailing window, default 72
 //   CANCELLATION_ALERT_LIMIT            max sends per run, default 25
+//   CANCELLATION_ALERT_THROTTLE_MS      gap between sends, default 550
 //
 // Flags:
 //   --to <email>      Override recipient
@@ -51,7 +52,12 @@
 //   --lookback <h>    Override CANCELLATION_ALERT_LOOKBACK_HOURS
 //   --limit <n>       Override the per-run cap (0 = unlimited). The cap exists so
 //                     a first run or a wide --since cannot blast the whole churn
-//                     history into your inbox in one go.
+//                     history into your inbox in one go. Ignored by --mark-only,
+//                     which sends nothing and so always takes the whole backlog.
+//   --throttle-ms <n> Gap between sends. Resend rejects above 10 requests/second
+//                     with a 429, and a capped run of 25 goes out far faster than
+//                     that unthrottled. Default 550 (~1.8/s), matching
+//                     send-product-update.mts.
 //   --kind <k>        pending | lapsed | both (default both)
 //   --dry-run         Print what would be sent; send nothing, latch nothing
 //   --mark-only       Latch WITHOUT sending. The "I have already dealt with this
@@ -75,6 +81,7 @@ import {
   buildAlertLatchMessage,
   parseAlertLatchEventId,
   buildChurnAlert,
+  selectBatch,
   type ChurnEventKind,
 } from '../core/cancellationAlert.ts';
 import { sendCancellationAlertEmail } from '../core/mailer.ts';
@@ -107,6 +114,22 @@ for (const [k, v] of Object.entries(envFromFile)) {
   if (process.env[k] === undefined) process.env[k] = v;
 }
 
+// Resend rejects anything above 10 requests/second with a 429. A capped run of
+// 25 alerts issued back-to-back clears that easily, so the sends are spaced.
+// Matches the value send-product-update.mts settled on.
+const DEFAULT_THROTTLE_MS = 550;
+
+// Env override, resolved once. Invalid or negative values fall back to the
+// default rather than silently disabling the spacing.
+function envThrottleMs(): number {
+  const raw = Number(process.env.CANCELLATION_ALERT_THROTTLE_MS);
+  return Number.isFinite(raw) && raw >= 0 ? raw : DEFAULT_THROTTLE_MS;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 // ── Args ──────────────────────────────────────────────────────────────────────
 type Args = {
   to: string | null;
@@ -117,6 +140,7 @@ type Args = {
   dryRun: boolean;
   markOnly: boolean;
   preview: string | null;
+  throttleMs: number;
 };
 
 function usage(): never {
@@ -130,6 +154,7 @@ function usage(): never {
   --dry-run        Print the alerts; send nothing, latch nothing
   --mark-only      Latch without sending (silence a historical backlog)
   --preview <addr> Send one synthetic sample alert to <addr> and exit
+  --throttle-ms N  Gap between sends (default ${DEFAULT_THROTTLE_MS}; Resend caps at 10/s)
   -h, --help       This message`);
   process.exit(0);
 }
@@ -144,6 +169,7 @@ function parseArgs(argv: string[]): Args {
     dryRun: false,
     markOnly: false,
     preview: null,
+    throttleMs: envThrottleMs(),
   };
   for (let i = 0; i < argv.length; i += 1) {
     switch (argv[i]) {
@@ -177,6 +203,11 @@ function parseArgs(argv: string[]): Args {
       case '--preview':
         args.preview = argv[++i] ?? null;
         break;
+      case '--throttle-ms': {
+        const v = Number(argv[++i]);
+        if (Number.isFinite(v) && v >= 0) args.throttleMs = v;
+        break;
+      }
       case '-h':
       case '--help':
         usage();
@@ -289,11 +320,16 @@ async function main(): Promise<void> {
   }
 
   const pending = churnRows.filter((r) => !alreadyAlerted.has(r.id) && r.email);
+  // Count latched rows that belong to THIS window, not every latch in the latch
+  // scan. A `--since` backfill writes its latches today, so the raw set size
+  // includes events far outside the current window and the three numbers stop
+  // adding up ("259 events, 25 already alerted, 259 to send").
+  const alreadyInWindow = churnRows.length - pending.length;
 
   console.log(`[cancellation-alerts] db=${DB_PATH}`);
   console.log(`[cancellation-alerts] window since ${SINCE} (kind=${args.kind})`);
   console.log(
-    `[cancellation-alerts] ${churnRows.length} churn event(s) in window, ${alreadyAlerted.size} already alerted, ${pending.length} to send`,
+    `[cancellation-alerts] ${churnRows.length} churn event(s) in window, ${alreadyInWindow} already alerted, ${pending.length} to send`,
   );
 
   if (pending.length === 0) {
@@ -301,7 +337,9 @@ async function main(): Promise<void> {
     return;
   }
 
-  const batch = LIMIT > 0 ? pending.slice(0, LIMIT) : pending;
+  // See selectBatch: the cap is an inbox guard, so it is skipped when the run
+  // sends nothing.
+  const batch = selectBatch(pending, LIMIT, args.markOnly);
   if (batch.length < pending.length) {
     console.log(
       `[cancellation-alerts] capped at ${LIMIT} this run (${pending.length - batch.length} deferred to the next tick; raise with --limit)`,
@@ -387,6 +425,14 @@ async function run(db: DatabaseSync, batch: ChurnRow[], to: string | null): Prom
       failed += 1;
       const message = err instanceof Error ? err.message : String(err);
       console.error(`  FAIL ${row.email} (${kind}): ${message}`);
+    }
+
+    // Space the sends. Only the network path needs it — dry-run and --mark-only
+    // already `continue`d above and never reach here. A failure is throttled the
+    // same as a success: a 429 means we are going too fast, so pressing straight
+    // on would just earn another one.
+    if (row !== batch[batch.length - 1] && args.throttleMs > 0) {
+      await sleep(args.throttleMs);
     }
   }
 
