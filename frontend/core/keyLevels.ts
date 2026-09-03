@@ -58,6 +58,14 @@ export interface KeyLevel {
   distance: KeyLevelDistance | null;
   /** Shown in place of the distance when there is none. Never blank. */
   emptyNote: string | null;
+  /**
+   * True when the level is absent because the book could not RESOLVE it — the
+   * case `tooltip` explains instead of defining. False for a level that is
+   * simply not there (no active pin) or one merely waiting on a price: neither
+   * has an explanation worth an affordance, and putting one on every empty card
+   * would be the six-info-dots problem this strip exists to avoid.
+   */
+  unresolved: boolean;
   /** Optional secondary metadata (Pin Strike's strength bucket). */
   note: string | null;
   /** Optional third line rendered on the card (Pin Strike's session path). */
@@ -362,6 +370,7 @@ export function buildKeyLevels(input: KeyLevelsInput): KeyLevel[] {
       valueLabel: formatKeyLevelValue(level),
       distance,
       emptyNote: distance ? null : emptyNoteFor(level != null, hasSpot),
+      unresolved: hasSpot && level == null,
       note: null,
       subnote: null,
       // A card with no level to define is better served by an explanation of
@@ -390,6 +399,9 @@ export function buildKeyLevels(input: KeyLevelsInput): KeyLevel[] {
       valueLabel: formatKeyLevelValue(spot),
       distance: spotDistance,
       emptyNote: spotDistance ? null : hasSpot ? 'Awaiting change context' : 'Awaiting price',
+      // The tape either has a price or it does not; there is no resolver to
+      // decline one, so there is nothing to explain.
+      unresolved: false,
       note: null,
       subnote: null,
       tooltip: TOOLTIPS.spot,
@@ -404,6 +416,9 @@ export function buildKeyLevels(input: KeyLevelsInput): KeyLevel[] {
       // "No active pin" is the honest empty state ONLY when there is no pin —
       // a resolved pin with no spot to measure against is a missing price.
       emptyNote: pinDistance ? null : pin == null ? input.pin.absentLabel : emptyNoteFor(true, hasSpot),
+      // "No active pin" already IS the explanation — a session with no
+      // qualifying 0DTE strike is a finding, not a gap.
+      unresolved: false,
       // Strength is the Pin's own metadata, not a distance — carried separately
       // so the compact strip can put it in the title without a second line.
       note: pin == null ? null : input.pin.note,

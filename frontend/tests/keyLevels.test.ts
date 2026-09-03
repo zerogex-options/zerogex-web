@@ -457,3 +457,28 @@ test('the unresolved explainer tells the strike story for a wall or max pain', (
     assert.match(byId(thin, id).tooltip, /computed from the NDX chain/, id);
   }
 });
+
+test('only a DECLINED level is marked unresolved — the strip mark follows it', () => {
+  // KeyLevelsStrip hangs its help affordance on this flag alone. It has to be
+  // true for the case that has an explanation and false for every other kind of
+  // empty, or the strip is back to an info dot on every card.
+  const declined = buildKeyLevels({
+    ...RESOLVED,
+    symbol: 'NQ',
+    flip: null,
+    pin: pinInput(null, null),
+  });
+  assert.equal(byId(declined, 'flip').unresolved, true, 'a level the book declined');
+  assert.equal(byId(declined, 'pin').unresolved, false, '"No active pin" is its own answer');
+  assert.equal(byId(declined, 'callWall').unresolved, false, 'a resolved level');
+  assert.equal(byId(declined, 'spot').unresolved, false, 'the tape has no resolver');
+});
+
+test('a level waiting on a PRICE is not marked unresolved', () => {
+  // No spot means no distance, but the level itself may be perfectly fine —
+  // marking it would put a question mark on a card with nothing to explain.
+  const noSpot = buildKeyLevels({ ...RESOLVED, spot: null, pin: pinInput(null, null) });
+  for (const level of noSpot) {
+    assert.equal(level.unresolved, false, `${level.id} is waiting on a price, not declined`);
+  }
+});
