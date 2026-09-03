@@ -33,12 +33,18 @@ interface OptionFlowRow {
 
 export interface PinStabilityRow {
   symbol: string;
+  /** Where the pin is right now, however new that value is. */
   current_pin: number;
-  /** ISO timestamp at which the CURRENT pin value took hold. */
+  current_since: string;
+  current_samples: number;
+  /** False while the current pin has not yet settled at its strike. */
+  current_established: boolean;
+  /** The most recent value that has SETTLED, and since when. */
+  held_pin: number;
   held_since: string;
   held_samples: number;
   session_open_pin: number;
-  /** Signed: negative means the pin has walked down since the open. */
+  /** Signed, measured between settled levels: negative = the pin walked down. */
   net_migration: number;
   distinct_values: number;
   quiet_samples: number;

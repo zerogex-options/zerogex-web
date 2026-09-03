@@ -110,23 +110,41 @@ export function pinStrikeSubtitle(
 /** The shared tooltip copy for the Pin Strike metric. */
 /** The session-path facts behind the stability note. */
 export interface PinStabilityRead {
+  held_pin: number;
   held_since: string;
   net_migration: number;
   distinct_values: number;
+  /** False while the pin standing now has not yet settled at its strike. */
+  current_established: boolean;
+}
+
+/** Strikes are discrete; a trailing ".0" on every reading is noise. */
+function trimStrike(value: number): string {
+  return Number.isInteger(value) ? String(value) : value.toFixed(2);
 }
 
 /**
  * One line describing what the pin has DONE this session.
  *
- * Two shapes, because they are genuinely different reads: a pin that has never
- * left its strike gets "Held since 09:41", and one that has moved leads with
- * the signed distance ("-30 pts today"), since that is the fact a trader
- * watching the level walk away needs first. The migration is measured from the
- * session's opening pin, so it answers "how far has this travelled", not "how
- * far was the last hop".
+ * Three shapes, because they are genuinely different reads:
  *
- * Returns null when there is nothing to say — no reading, or a strike that
- * never resolved — so the caller renders nothing rather than a zeroed line.
+ *   • settled, never moved  → "Held since 09:41"
+ *   • settled, has moved    → "-30 pts today · held since 14:05"
+ *   • not settled yet       → "Held 7675 since 09:30"
+ *
+ * A migrated pin leads with the signed distance, since that is the fact a
+ * trader watching the level walk away needs first, and the distance is measured
+ * from the session's opening settled level — "how far has this travelled", not
+ * "how big was the last hop".
+ *
+ * The third shape names the strike explicitly, and that is the point: while the
+ * current pin is provisional the card's headline value and the settled level
+ * are DIFFERENT numbers, so "Held since 09:30" alone would read as if the
+ * headline value had held since the open. A one-minute tick at the bell is not
+ * a migration, and it must not be dressed as one.
+ *
+ * Returns null when there is nothing to say — no reading, or a timestamp that
+ * will not parse — so the caller renders nothing rather than a zeroed line.
  */
 export function pinStabilityNote(
   stability: PinStabilityRead | null | undefined,
@@ -140,16 +158,17 @@ export function pinStabilityNote(
     minute: '2-digit',
     hour12: false,
   });
+
+  if (!stability.current_established) {
+    return `Held ${trimStrike(stability.held_pin)} since ${held}`;
+  }
   if (!(stability.distinct_values > 1) || stability.net_migration === 0) {
     return `Held since ${held}`;
   }
   // U+2212 minus, not a hyphen: this sits next to prices in a tabular column.
   const move = stability.net_migration;
   const sign = move > 0 ? '+' : '\u2212';
-  const magnitude = Math.abs(move);
-  // Strikes are discrete; a trailing ".0" on every reading is noise.
-  const pts = Number.isInteger(magnitude) ? String(magnitude) : magnitude.toFixed(2);
-  return `${sign}${pts} pts today \u00b7 held since ${held}`;
+  return `${sign}${trimStrike(Math.abs(move))} pts today \u00b7 held since ${held}`;
 }
 
 export const PIN_STRIKE_TOOLTIP =
