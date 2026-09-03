@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "npm run test:api-tier-gate && npm run test:api-proxy-coverage",
     "build": "next build",
     "postbuild": "next-sitemap --config next-sitemap.config.mjs",
     "start": "next start",
@@ -43,6 +44,7 @@
     "test:subscriber-bucket": "node --experimental-strip-types --test tests/subscriberBucket.test.ts",
     "test:payment-setup": "node --experimental-strip-types --test tests/paymentSetup.test.ts",
     "test:api-tier-gate": "node --experimental-strip-types --test tests/apiTierGate.test.ts",
+    "test:api-proxy-coverage": "node --experimental-strip-types --test tests/apiProxyCoverage.test.ts",
     "test:signal-availability": "node --experimental-strip-types --test tests/signalAvailability.test.ts",
     "test:subscription-flow": "node --experimental-strip-types --test tests/subscriptionFlow.test.ts",
     "test:trial-conveyor": "node --experimental-strip-types --test tests/trialConveyor.test.ts",

@@ -1,4 +1,4 @@
-.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription honor-winback-discount recover-orphan-payment scan-orphan-payments clear-zombie-customers webhook-health trial-reminders trial-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback reactivation checkout-recovery founding-final-call public-cohort cancellations churn-breakdown enable-portal-cancel-reasons save-url reset-save-latch diagnose-user subscriber-headcount reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo og-check verify-gate blog-images ninjatrader-package
+.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription honor-winback-discount recover-orphan-payment scan-orphan-payments clear-zombie-customers webhook-health trial-reminders trial-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback reactivation checkout-recovery founding-final-call public-cohort cancellations churn-breakdown enable-portal-cancel-reasons save-url reset-save-latch diagnose-user subscriber-headcount reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo og-check verify-gate check-gate blog-images ninjatrader-package
 
 # Default target
 help:
@@ -1110,6 +1110,24 @@ og-check:
 #   ZGX_SESSION=<cookie> TIER=basic make verify-gate
 verify-gate:
 	@cd frontend && ./scripts/verify-api-tier-gate.sh $(BASE)
+
+# Static half of the tier-gate guard, run against the SOURCE rather than a
+# deployment. Two suites: the decision table (what each path resolves to) and
+# the coverage check (has every proxied namespace been classified at all).
+#
+# The coverage check is what stops this class of bug recurring. The gate is a
+# fail-OPEN denylist, so a new premium endpoint is served to anonymous callers
+# until somebody adds a rule -- and a denylist cannot report what is missing
+# from it. This enumerates the proxy routes on disk and fails on any that has
+# not been deliberately classified.
+#
+# Both run automatically via the `prebuild` npm hook, so `make build`,
+# `make rebuild` and `make deploy` are all gated already. This target is for
+# running them on their own:
+#
+#   make check-gate     # static, no deployment needed (pairs with verify-gate)
+check-gate:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && npm run test:api-tier-gate && npm run test:api-proxy-coverage'
 
 # Copy blog post images from assets/blog to the Next.js public/blog directory
 # (the path referenced by markdown image links like /blog/<name>.png). Source
