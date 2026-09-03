@@ -107,7 +107,14 @@ export default function PriceDistanceMetricCard({
         </span>
       )}
       tooltip={unresolved ? emptyTooltip : tooltip}
-      tooltipIcon={unresolved ? <HelpCircle size={14} /> : undefined}
+      // Amber question mark in place of the usual info dot: the same mark the
+      // Key Levels strip puts beside an em-dash, so an unexplained-looking
+      // blank always carries the same affordance in the same color.
+      tooltipIcon={
+        unresolved ? (
+          <HelpCircle size={14} strokeWidth={2.5} style={{ color: 'var(--color-warning)' }} />
+        ) : undefined
+      }
       theme={theme}
       trend="neutral"
     />

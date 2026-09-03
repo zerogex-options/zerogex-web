@@ -30,8 +30,9 @@
  */
 
 import { useCallback, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
-import { ChevronLeft, ChevronRight, TrendingDown, TrendingUp } from 'lucide-react';
+import { ChevronLeft, ChevronRight, HelpCircle, TrendingDown, TrendingUp } from 'lucide-react';
 import type { ChartSnapshot } from './GammaTerminalChart';
+import TooltipWrapper from './TooltipWrapper';
 import { useGammaPlaybook, type GammaPlaybookRead } from '@/hooks/useGammaPlaybook';
 import { usePinStability } from '@/hooks/useApiData';
 import { useTimeframe, type UnderlyingSymbol } from '@/core/TimeframeContext';
@@ -90,10 +91,35 @@ function KeyLevelCard({ level, loading }: { level: KeyLevel; loading: boolean })
         <div className="zg-skeleton-line mt-1.5 h-4 w-3/4" />
       ) : (
         <div
-          className="zg-metric mt-1 truncate"
+          className="zg-metric mt-1 flex min-w-0 items-center gap-1.5"
           style={{ fontSize: 17, color: resolved ? 'var(--text-primary)' : 'var(--text-muted)' }}
         >
-          {level.valueLabel}
+          <span className="truncate">{level.valueLabel}</span>
+          {level.unresolved && (
+            // The strip carries its copy on the card's `title` rather than an
+            // info dot per card — six of them would defeat a compact strip. An
+            // em-dash is the exception that reasoning did not cover: it is the
+            // one card whose value looks like a fault, at most one or two are
+            // ever in this state, and a native title nobody knows to hover for
+            // is indistinguishable from no explanation at all. So exactly the
+            // empty card gets a mark, and it draws the eye where the question
+            // already is. `title=""` keeps the card's own native tooltip from
+            // firing underneath this one.
+            <span
+              title=""
+              className="shrink-0 leading-none"
+              // Amber, not the card's muted grey: the mark has to survive
+              // TooltipWrapper's resting 60% opacity and still catch an eye
+              // that is scanning the strip for numbers. Same warning token the
+              // "data temporarily delayed" badge uses, so an anomaly on a level
+              // reads the same color wherever it appears.
+              style={{ color: 'var(--color-warning)' }}
+            >
+              <TooltipWrapper text={level.tooltip} inlineInExpanded={false}>
+                <HelpCircle size={14} strokeWidth={2.5} aria-hidden="true" />
+              </TooltipWrapper>
+            </span>
+          )}
         </div>
       )}
       {pending ? (
