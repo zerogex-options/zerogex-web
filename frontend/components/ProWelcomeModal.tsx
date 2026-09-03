@@ -172,8 +172,29 @@ export default function ProWelcomeModal({ theme, onClose }: ProWelcomeModalProps
             Thanks for subscribing. You now have full access to everything Pro unlocks &mdash;
             advanced signals, real-time dealer positioning, GEX heatmaps, and backtesting.
           </p>
+          {/* Expectation-setting, deliberately BEFORE the feature tour. The most
+              common way a trial fails is not a missing feature — it is reading the
+              gamma flip as a mechanical trigger, watching it not determine a range,
+              and concluding the concept is broken. /methodology says the opposite in
+              our own words, but nothing surfaced it during a trial, so the people who
+              most needed it never found it. Framed as a reason to trust the tool:
+              publishing where your model is weakest is a strength. */}
+          <p style={{ margin: '0 0 10px 0' }}>
+            One thing worth knowing up front: dealer positioning is{' '}
+            <em>modeled</em>, not observed &mdash; no public dataset says who is long and who is
+            short at a strike. The levels are probabilistic context, not mechanical triggers. We
+            write down exactly what&apos;s derived, what&apos;s assumed, and where the model is
+            weakest in{' '}
+            <Link
+              href="/methodology"
+              style={{ color: 'var(--color-brand-primary)', fontWeight: 600 }}
+            >
+              Methodology &amp; Validation
+            </Link>
+            . Five minutes, and it will save you misreading a level.
+          </p>
           <p style={{ margin: 0 }}>
-            Jump into the{' '}
+            Otherwise, jump into the{' '}
             <Link href="/dashboard" style={{ color: 'var(--color-brand-primary)', fontWeight: 600 }}>
               dashboard
             </Link>{' '}

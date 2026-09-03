@@ -135,8 +135,8 @@ const TRIAL_START_HERE: ReadonlyArray<{ title: string; body: string }> = [
     body: 'whether the broader options structure is more stabilizing or more unstable right now.',
   },
   {
-    title: 'SPY / SPX / QQQ / NDX',
-    body: 'the same read across all four, for intraday index context.',
+    title: 'SPY / SPX / QQQ / NDX / ES / NQ',
+    body: 'the same read across the cash indices and the ES / NQ futures, for intraday context wherever you trade it.',
   },
 ];
 
@@ -148,6 +148,44 @@ const TRIAL_START_HERE: ReadonlyArray<{ title: string; body: string }> = [
 // the alerts. Kept verbatim across emails on purpose.
 const TRIAL_DISCLAIMER_LINE =
   "ZeroGEX is built to give you better market-structure context before price gets there. It isn't financial advice, and no tool can promise a guaranteed outcome — how you trade the levels is always your call.";
+
+// The single most common way a trial fails is a expectation mismatch, not a
+// product gap: someone reads the gamma flip as a mechanical trigger, watches it
+// not determine a range, and concludes the concept is broken. /methodology says
+// the opposite in ZeroGEX's own words — dealer positioning is modeled rather
+// than observed, and the levels are probabilistic context — but a trialist has
+// to go looking for it, and the ones who most need it are the least likely to.
+//
+// So it goes in the onboarding, framed as a reason to trust the tool rather than
+// a hedge: publishing where your model is weakest is a strength, and the traders
+// worth keeping are exactly the ones who want to know before they trade a number.
+function methodologyUrl(): string {
+  return `${getAppUrl()}/methodology`;
+}
+
+function methodologyTextLine(): string {
+  return (
+    'What it is, and what it is not: dealer positioning is MODELED, not observed — ' +
+    'no public dataset says who is long and who is short at a strike. So the levels ' +
+    'are probabilistic context, not mechanical triggers. Exactly what is derived, ' +
+    `what is assumed, and where the model is weakest: ${methodologyUrl()} — worth ` +
+    'five minutes before you judge a level.'
+  );
+}
+
+function methodologyHtmlBlock(): string {
+  const url = escapeHtml(methodologyUrl());
+  return `
+    <p style="font-size: 13px; color: #555; border-left: 3px solid #e8e8e8; padding: 2px 0 2px 12px; margin: 16px 0;">
+      <strong style="color: #1a1a1a;">What it is, and what it isn't.</strong>
+      Dealer positioning is <em>modeled</em>, not observed &mdash; no public dataset says who is long
+      and who is short at a strike. So the levels are probabilistic context, not mechanical triggers.
+      Exactly what's derived, what's assumed, and where the model is weakest is written down in
+      <a href="${url}" style="color: #f5b400; font-weight: 600;">Methodology &amp; Validation</a>
+      &mdash; worth five minutes before you judge a level.
+    </p>
+  `.trim();
+}
 
 function startHereTextLines(): string[] {
   return TRIAL_START_HERE.map((s) => `  • ${s.title} — ${s.body}`);
@@ -379,6 +417,8 @@ export async function sendPaidWelcomeEmail(
     '',
     TRIAL_DISCLAIMER_LINE,
     '',
+    methodologyTextLine(),
+    '',
     ...apiKeyTextLines(),
     '',
     growthLine,
@@ -408,6 +448,7 @@ export async function sendPaidWelcomeEmail(
         <a href="${safeDashboardUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Open the live dashboard</a>
       </p>
       <p style="font-size: 13px; color: #555;">${TRIAL_DISCLAIMER_LINE}</p>
+      ${methodologyHtmlBlock()}
       ${apiKeyHtmlBlock()}
       <p>${growthLine}</p>
       <p>Please feel free to reply directly if you run into anything, have questions, or see something that could be improved. I read every message, and customer feedback is a huge part of how I'm shaping the product.</p>
@@ -477,6 +518,8 @@ export async function sendTrialQuickstartEmail(
     '',
     TRIAL_DISCLAIMER_LINE,
     '',
+    methodologyTextLine(),
+    '',
     "If anything's unclear or you have a question, just reply to this email. I read every message myself, and it genuinely shapes what I build next.",
     '',
     'Thanks for giving ZeroGEX a try.',
@@ -498,6 +541,7 @@ export async function sendTrialQuickstartEmail(
         <a href="${safeDashboardUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Open the live dashboard</a>
       </p>
       <p style="font-size: 13px; color: #555;">${TRIAL_DISCLAIMER_LINE}</p>
+      ${methodologyHtmlBlock()}
       <p>If anything's unclear or you have a question, just reply to this email. I read every message myself, and it genuinely shapes what I build next.</p>
       <p>Thanks for giving ZeroGEX a try.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
@@ -873,6 +917,12 @@ export function buildTrialValueEmail(opts: TrialValueEmailOptions): {
     '',
     `Want the model behind it? The 5-minute read is Gamma Exposure Explained: ${gexUrl}`,
     '',
+    'And if you want to know what the model does NOT claim — what is measured, what is ' +
+      'assumed, and where it is weakest — that is Methodology & Validation: ' +
+      `${methodologyUrl()}. Dealer positioning is modeled, not observed, and the levels ` +
+      'are probabilistic context rather than mechanical triggers. I would rather you read ' +
+      'that and push back than guess at what the numbers are promising.',
+    '',
     "If anything's confusing, not what you expected, or just not clicking yet — reply to this email and tell me. I read every message and I'll personally help you get a useful read before your trial is up.",
     '',
     'Best,',
@@ -895,6 +945,7 @@ export function buildTrialValueEmail(opts: TrialValueEmailOptions): {
         <a href="${safeDashboardUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Open your dashboard</a>
       </p>
       <p style="font-size: 14px; color: #3a4650;">Want the model behind it? The 5-minute read is <a href="${safeGexUrl}" style="${linkStyle}">Gamma Exposure Explained</a>.</p>
+      <p style="font-size: 14px; color: #3a4650;">And if you want to know what the model <em>doesn't</em> claim &mdash; what's measured, what's assumed, and where it's weakest &mdash; that's <a href="${escapeHtml(`${getAppUrl()}/methodology`)}" style="${linkStyle}">Methodology &amp; Validation</a>. Dealer positioning is modeled, not observed, and the levels are probabilistic context rather than mechanical triggers. I'd rather you read that and push back than guess at what the numbers are promising.</p>
       <p>If anything's confusing, not what you expected, or just not clicking yet &mdash; reply to this email and tell me. I read every message and I'll personally help you get a useful read before your trial is up.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
       <p style="margin-top: 24px; font-size: 12px; color: #888;">Prefer fewer emails like this? <a href="${safeUnsubUrl}" style="color: #888;">Unsubscribe</a>.</p>
