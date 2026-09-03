@@ -27,6 +27,12 @@ export interface MetricCardProps {
   subtitleColor?: string;
   trend?: 'bullish' | 'bearish' | 'neutral';
   tooltip: string;
+  /**
+   * Replaces the tooltip's default Info glyph. Used to mark a card whose
+   * tooltip explains an EMPTY value rather than the metric itself — the
+   * question-mark state has to be visible before the hover, or nobody hovers.
+   */
+  tooltipIcon?: React.ReactNode;
   icon?: React.ReactNode;
   theme?: Theme;
   /**

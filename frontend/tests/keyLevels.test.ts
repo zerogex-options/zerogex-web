@@ -20,7 +20,11 @@ import {
   formatKeyLevelValue,
   keyLevelDistance,
   keyLevelsRegime,
+  levelSourceChain,
+  unresolvedLevelTooltip,
   KEY_LEVEL_EMPTY,
+  LEVEL_AWAITING_PRICE_NOTE,
+  LEVEL_UNRESOLVED_NOTE,
   type KeyLevel,
 } from '../core/keyLevels.ts';
 import {
@@ -322,4 +326,134 @@ test('flipDirectionBetween resolves ties, unknowns and no-ops forward', () => {
   assert.equal(flipDirectionBetween(RING, 'TSLA', 'SPY'), 'next');
   assert.equal(flipDirectionBetween(RING, 'SPY', 'TSLA'), 'next');
   assert.equal(flipDirectionBetween([], 'SPY', 'QQQ'), 'next');
+});
+
+// ---------------------------------------------------------------------------
+// The empty state's EXPLANATION — the copy that has to answer "why is there no
+// data for /NQ" before a customer writes in to ask. An unresolved level is a
+// declined publish, and the difference between that and a broken feed only
+// exists if this copy says so.
+// ---------------------------------------------------------------------------
+
+test('the empty-state notes are the ones the cards render', () => {
+  // PriceDistanceMetricCard composes its subtitle from these, so a reword here
+  // is a reword there — that is the point of exporting them.
+  const levels = buildKeyLevels({
+    spot: 600,
+    flip: null,
+    pin: pinInput(null, null),
+    callWall: 610,
+    putWall: 590,
+    maxPain: 600,
+  });
+  assert.equal(byId(levels, 'flip').emptyNote, LEVEL_UNRESOLVED_NOTE);
+
+  const noSpot = buildKeyLevels({
+    spot: null,
+    flip: 598,
+    pin: pinInput(null, null),
+    callWall: null,
+    putWall: null,
+    maxPain: null,
+  });
+  assert.equal(byId(noSpot, 'flip').emptyNote, LEVEL_AWAITING_PRICE_NOTE);
+});
+
+test('levelSourceChain names the chain a futures symbol resolves from', () => {
+  // ES / NQ carry no chain of their own: the backend runs the SPX / NDX
+  // handler and converts the price fields onto the futures axis.
+  assert.equal(levelSourceChain('NQ'), 'NDX');
+  assert.equal(levelSourceChain('nq'), 'NDX');
+  assert.equal(levelSourceChain(' ES '), 'SPX');
+  assert.equal(levelSourceChain('RTY'), 'RUT');
+  assert.equal(levelSourceChain('YM'), 'DJX');
+});
+
+test('levelSourceChain returns null for a symbol that IS its own chain', () => {
+  // Null is what suppresses the "resolved from …" clause — a cash symbol has
+  // nothing to attribute, and claiming otherwise would be wrong, not just noisy.
+  for (const own of ['SPX', 'SPY', 'QQQ', 'NDX', 'TSLA']) {
+    assert.equal(levelSourceChain(own), null, `${own} is its own chain`);
+  }
+  assert.equal(levelSourceChain(null), null);
+  assert.equal(levelSourceChain(undefined), null);
+  assert.equal(levelSourceChain(''), null);
+});
+
+test('the unresolved explainer says it is a declined publish, not a gap', () => {
+  const copy = unresolvedLevelTooltip('Gamma Flip', 'SPX');
+  assert.match(copy, /^Gamma Flip is published only when/);
+  // The three things a trader needs: why it is blank, that it recovers, and
+  // what still works meanwhile.
+  assert.match(copy, /open\s+interest/);
+  assert.match(copy, /later\s+snapshot/);
+  assert.match(copy, /Net GEX/);
+  // A cash symbol must not be told about a chain it does not borrow from.
+  assert.ok(!copy.includes('no options chain of its own'));
+});
+
+test('the unresolved explainer blames the right chain on ES / NQ', () => {
+  // The load-bearing sentence: a blank NQ flip is an NDX snapshot with no
+  // publishable crossing, not missing NQ data.
+  const nq = unresolvedLevelTooltip('Gamma Flip', 'NQ');
+  assert.match(nq, /NQ has no options chain of its own/);
+  assert.match(nq, /computed from the NDX chain/);
+  assert.match(nq, /it is the NDX snapshot that came back without one/);
+
+  const es = unresolvedLevelTooltip('Gamma Flip', 'es');
+  assert.match(es, /ES has no options chain of its own/);
+  assert.match(es, /the SPX chain/);
+});
+
+test('the unresolved explainer carries the level it is explaining', () => {
+  // One shared body serves every priced card, so the level's own name has to
+  // lead — a Max Pain card must not explain the gamma flip.
+  assert.match(unresolvedLevelTooltip('Max Pain', 'SPY'), /^Max Pain is published only when/);
+  assert.match(unresolvedLevelTooltip('Call Wall', null), /^Call Wall is published only when/);
+});
+
+test('buildKeyLevels swaps the definition for the explainer on an unresolved level', () => {
+  // The strip carries ONE native tooltip per card. When there is no level, the
+  // definition is the least useful thing it could say — so the explainer takes
+  // the slot, and it names the chain when the symbol borrows one.
+  const nq = buildKeyLevels({ ...RESOLVED, symbol: 'NQ', flip: null });
+  const flip = byId(nq, 'flip');
+  assert.equal(flip.valueLabel, KEY_LEVEL_EMPTY);
+  assert.equal(flip.emptyNote, LEVEL_UNRESOLVED_NOTE);
+  assert.match(flip.tooltip, /^Gamma Flip is published only when/);
+  assert.match(flip.tooltip, /computed from the NDX chain/);
+  // Its resolved neighbours keep their definitions — only the empty card changes.
+  assert.match(byId(nq, 'callWall').tooltip, /heaviest call open interest/);
+});
+
+test('buildKeyLevels keeps the definition while the price is what is missing', () => {
+  // No spot means no distance, but the LEVEL may be perfectly fine — calling it
+  // unresolved there would be the same wrong claim the card's subtitle avoids.
+  const levels = buildKeyLevels({ ...RESOLVED, symbol: 'NQ', spot: null });
+  assert.match(byId(levels, 'flip').tooltip, /where aggregate net dealer gamma changes sign/);
+});
+
+test('the unresolved explainer tells the strike story for a wall or max pain', () => {
+  // Max Pain is a RANKING over strikes, not a root of the gamma profile, so the
+  // flip's "no zero crossing" wording would be a claim about the wrong thing.
+  const strike = unresolvedLevelTooltip('Max Pain', 'SPY', 'strike');
+  assert.match(strike, /^Max Pain is ranked over the strikes/);
+  assert.match(strike, /no strike qualifies/);
+  assert.ok(!strike.includes('zero crossing'), 'a strike ranking has no crossing');
+
+  // And buildKeyLevels picks the story per level rather than one for all.
+  const thin = buildKeyLevels({
+    ...RESOLVED,
+    symbol: 'NQ',
+    flip: null,
+    callWall: null,
+    maxPain: null,
+  });
+  assert.match(byId(thin, 'flip').tooltip, /zero crossing/);
+  assert.match(byId(thin, 'callWall').tooltip, /^Call Wall is ranked over the strikes/);
+  assert.match(byId(thin, 'maxPain').tooltip, /^Max Pain is ranked over the strikes/);
+  // The chain attribution rides along on every one of them.
+  for (const id of ['flip', 'callWall', 'maxPain']) {
+    assert.match(byId(thin, id).tooltip, /computed from the NDX chain/, id);
+  }
 });

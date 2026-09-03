@@ -285,6 +285,10 @@ export function KeyLevelsBoard({
   // snapshot, which is a frozen moment with no session path behind it.
   const { data: pinStability } = usePinStability(read.symbol, 60000, !read.delayed);
   const levels = buildKeyLevels({
+    // Carried so an unresolved level can name the chain it came from: an ES/NQ
+    // blank is an SPX/NDX snapshot with no publishable crossing, not a gap in
+    // the futures data.
+    symbol: read.symbol,
     spot: read.spot,
     spotChange: read.spotChange,
     spotChangePercent: read.spotChangePercent,
