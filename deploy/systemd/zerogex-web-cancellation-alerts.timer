@@ -1,0 +1,25 @@
+[Unit]
+Description=ZeroGEX web cancellation-alerts timer (every 15m; alerts on new cancellations)
+
+[Timer]
+# Every 15 minutes, offset off the quarter-hours so it never lands on the same
+# minute as the other timers on this box (auth backup :00, trial-reminders :15,
+# verify-reminders :20, verified-never-paid :30, signup-alarm :35,
+# checkout-recovery :45).
+#
+# WHY SO OFTEN, when the other retention timers run daily: a cancellation is the
+# one event with a closing window attached. The member keeps access until period
+# end, and a reply that lands the same afternoon can still save them — a reply
+# that lands next week is a win-back email to somebody who has already moved on.
+# The tick is cheap (a short trailing scan of audit_events, then exit), so the
+# frequency costs essentially nothing.
+OnCalendar=*:07,22,37,52
+# Spread load across deploys / coalesce if the box wakes many timers at once.
+RandomizedDelaySec=45
+# If the box was down at the scheduled minute, run once as soon as it is back
+# up. The 72h default lookback means a catch-up run still finds anything missed
+# during the outage, and the per-event audit latch keeps it from double-sending.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

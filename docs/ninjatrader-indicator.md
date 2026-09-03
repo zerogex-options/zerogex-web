@@ -12,13 +12,25 @@ This is the **paid** counterpart to the free TradingView funnel:
 > indicator (live, requires an API key)**
 
 Because NinjaScript is C#/.NET it can make HTTP calls (Pine Script cannot),
-so this is the first *true* auto-updating third-party charting integration.
+so this was the first *true* auto-updating third-party charting integration.
+The Sierra Chart ACSIL study (`docs/sierra-chart-indicator.md`) is the second,
+on identical monetization terms — it differs only in how it presents the key,
+because ACSIL cannot attach request headers.
+
+One of four chart-platform integrations — see `docs/integrations.md` for the
+whole set. This page now sits under the `/integrations` hub: it keeps its own
+URL, but the nav and footer carry only the hub.
 
 ## Monetization model
 
-**The code is free; the data is gated by the API key.** The `.cs` file is
-inert without a valid key, so it can be distributed openly (like the Pine
-script) while the value — real-time levels — stays behind the paywall:
+**The download is gated at Pro; the data is gated again by the API key.**
+
+The `.cs` is inert without a valid key, so distributing it openly was
+defensible — but on a free, anonymous-accessible page it mostly handed a file
+to people who had no key to use it with, and the "free and open" framing set up
+an expectation the API then refused. So `PlotOnNinjaTrader.tsx` now gates the
+download itself on Pro and shows everyone else an upgrade CTA to
+`/pricing?plan=pro`. The key remains the load-bearing control:
 
 - The indicator calls `GET {ApiBaseUrl}/api/v1/levels/{Symbol}` with
   `Authorization: Bearer <key>`.
@@ -52,14 +64,38 @@ already authorizes this endpoint. (Scope enforcement is opt-in via
 | File | Purpose |
 | --- | --- |
 | `frontend/public/ninjatrader/ZeroGexGammaLevels.cs` | The indicator source. Served at `https://zerogex.io/ninjatrader/ZeroGexGammaLevels.cs`. Also the source of record if we later publish a packaged NinjaTrader import (`.zip`). |
-| `frontend/components/PlotOnNinjaTrader.tsx` | "Plot these levels on NinjaTrader" section rendered on all four gamma pages, mirroring `PlotOnTradingView.tsx`. Offers the packaged import when one exists and the `.cs` otherwise, framed as a Pro feature. |
+| `frontend/components/PlotOnNinjaTrader.tsx` | "Plot these levels on NinjaTrader" section rendered on all six gamma pages, mirroring `PlotOnTradingView.tsx`. Offers the packaged import when one exists and the `.cs` otherwise — **to Pro members only**; below Pro it renders an upgrade CTA and no download link at all. Fail-closed: the pages are prerendered with no session, so the locked state is what the static HTML and the first client paint show. |
 | `assets/ninjatrader/` | The genuine NinjaTrader export (`ZeroGexGammaLevels.zip`). See its README. |
-| `scripts/verify-ninjatrader-package.py` | Proves the archive's embedded source is the source of record before it is published. Fails the deploy if not. |
-| `Makefile` → `ninjatrader-package` | Verifies, then copies the archive into `public/ninjatrader/`. Run by `make deploy` **before** the build so the page's build-time presence check sees it. |
+| `scripts/verify-ninjatrader-package.py` | Proves the archive's embedded source is the source of record before it is published. Exit 1 means "do not publish this archive". |
+| `scripts/ninjatrader-manifest.js` | The single decision point: hashes the sources, runs the verifier, publishes what passes into `public/ninjatrader/`, prunes what no longer does, and writes `core/ninjaTraderManifest.ts` to match. `--check` fails when the committed manifest has drifted from the tracked sources. |
+| `Makefile` → `ninjatrader-package` | Thin wrapper over that script. Run by `make deploy` **before** the build, so the manifest the build inlines is the one describing what is actually on disk. |
+| `frontend/tests/ninjaTraderManifest.test.ts` | Pins the invariant below: `npm run test:ninjatrader-manifest`. |
 
-There is no middleware in the frontend, so everything under `public/` is
-served statically with no auth gate — the `.cs` downloads exactly the way
-the existing `.pine` file does.
+> **Why the manifest and the publisher must be one step.** They were two: the
+> Makefile verified and copied the archive, and the script wrote the manifest.
+> A `.cs` edit landed without a regenerate, which (a) left the committed
+> manifest advertising the *previous* content hash — a hashed URL no deploy
+> would ever write — and (b) made the now-stale archive fail verification,
+> which hard-failed `make deploy` before the manifest could self-heal. The
+> result was a normal-looking download button 404ing in customers' hands. The
+> manifest is a *promise that those bytes are in `public/`*, so only the code
+> that puts them there may write it, and an unpublishable archive is recorded
+> as `null` (pages offer the `.cs` alone) rather than aborting the deploy.
+
+**What the Pro gate is, precisely.** Everything under `public/` is served
+statically by Next with no auth check — `frontend/proxy.ts` returns early for
+any path containing a `.`, so it never sees these requests. The gate is
+therefore in the UI: below Pro the page renders no link to the file, so the
+download is unreachable by clicking, but the content-addressed URL still
+resolves for anyone who has it (a Pro member could pass it on, and it stays
+valid until the next `.cs` change moves the hash).
+
+That is the right trade here and not an oversight. The `.cs` is inert without a
+key, so the artifact worth protecting is the key, not the source — and serving
+these from `public/` is what keeps them on Cloudflare's edge instead of through
+the BFF. If the download itself ever needs to be genuinely enforced, that means
+moving it behind a route handler that calls `getSessionFromRequest` and checks
+the tier, and accepting the caching change that comes with it.
 
 ## What it draws
 
@@ -85,11 +121,14 @@ the existing `.pine` file does.
 - Optional **price-cross alerts** (NinjaTrader `Alert()`) when price crosses
   a level.
 
-- An optional **per-strike gamma histogram**: one right-anchored horizontal
-  segment per strike, running left from the last bar, length scaled to
-  `|net_gex|` against the largest bar in view, colored by sign. Off by
-  default — it is dozens of extra draw objects on the price panel, and an
-  existing user's chart shouldn't sprout them on update.
+- An optional **per-strike gamma histogram**: one horizontal bar per strike,
+  its length scaled to `|net_gex|` against the largest bar in view and colored
+  by sign. Pinned to the **left edge of the chart window** — it used to run
+  leftward from the last bar and so crept across the chart as bars formed,
+  which a tester reported as the profile refusing to sit still. Left rather
+  than right because the labels now own the right margin. Off by default: it is
+  forty extra bars on the price panel, and an existing user's chart shouldn't
+  sprout them on update.
 
 The histogram pulls `profile` from the same response, so it costs no extra
 request. `Histogram strikes (nearest spot)` maps straight to the endpoint's
@@ -108,19 +147,30 @@ setting can't produce a `422`).
    - **Symbol** — `ES`, `NQ`, `SPX`, `SPY`, `QQQ`, or `NDX` (set it to match
      the chart). On an ES or NQ chart, use `ES` / `NQ` — see below.
    - **Poll interval** — default 60s (matches the analytics cycle), floor
-     30s. The floor is enforced at runtime as well as by the `Range`
-     attribute: the attribute stops someone typing a smaller number, the
-     runtime clamp stops a workspace that already holds one. A tester was
-     found polling every 10s — six requests for bytes that change once a
-     minute.
+     30s, enforced by the runtime clamp in `MaybeFetch` and **not** by the
+     `Range` attribute. A tester was found polling every 10s — six requests
+     for bytes that change once a minute — and the first attempt at this
+     raised the `Range` floor to 30 as well. That broke him: NinjaTrader
+     validates a persisted workspace value against `Range` when the chart
+     loads, and a value outside it is a modal error that stops the indicator
+     loading. He opened NinjaTrader to six dialogs reading *"Value of property
+     'PollSeconds' … is 10 and not in valid range between 30 and 3600"* and
+     lost the indicator on the chart he trades, having changed nothing.
+
+     **A `Range` on a persisted property may only ever widen.** It is there to
+     catch typing; it cannot enforce policy, because the values it would reject
+     are already sitting in workspaces on other people's machines. Policy goes
+     in the runtime clamp, which repairs an existing workspace rather than
+     refusing it. `PollSeconds` is now `Range(1, 3600)` — wider than any value
+     that could have been persisted — and still honors 30s.
    - **Show GEX 1..N** and **Show VWAP** — both ON by default. Unlike the
      histogram these are a handful of ordinary lines rather than dozens of
      draw objects, and they are the two things traders asked for by name.
    - **Show strike profile histogram** — off by default; turn it on for the
      per-strike gamma bars, and tune `Histogram strikes` / `Histogram width` /
-     `Histogram bar thickness`. Thickness is a stroke width in pixels: the
-     short `Draw.Line` overload defaults to 1px, which reads as a hairline
-     rather than a histogram, so the bars pass it explicitly.
+     `Histogram bar thickness`. Width is a percentage of the chart's width and
+     thickness is the bar's height in pixels; 1px reads as a hairline rather
+     than a histogram, so the default is 5.
    - Toggle levels, colors, labels, info panel, and alerts to taste.
 
 If a packaged export has been published, the gamma pages offer it instead and
@@ -169,10 +219,39 @@ frozen at the 16:00 close while the future keeps trading.
   vs `net_gex_at_spot`) cannot false-match. All numeric parsing uses
   `CultureInfo.InvariantCulture` (critical: many NinjaTrader users have a
   comma decimal separator).
-- **Rendering** uses the high-level `Draw.HorizontalLine` / `Draw.Text` /
-  `Draw.TextFixed` / `Draw.Line` API from `OnBarUpdate` (no SharpDX), so it's
-  simple and robust. Hidden or null levels call `RemoveDrawObject` so nothing
-  lingers.
+- **Rendering is `OnRender`, in device pixels** — SharpDX, driven by the
+  chart, not the high-level `Draw` API from `OnBarUpdate`. Only the info panel
+  is still a draw object (`Draw.TextFixed`, which was already anchored to the
+  window and needed no fixing).
+
+  The `Draw` API anchors everything to bars, which is right for a trendline and
+  wrong for a level. Three reports from two testers were all that one decision:
+  labels pinned to the last bar vanished when scrolling back through history,
+  leaving unlabeled lines; the histogram crawled leftward as bars formed, when
+  a profile should sit still; and a label could not be moved off the candles,
+  because a bar anchor has only bars to move between. `OnRender` gets a panel
+  and a price scale, and anything placed against a panel edge stays put through
+  scrolling, zooming and a rewind to last week. One rewrite, three reports.
+
+  New API surface is small and all of it standard NT8: `ChartPanel.X/Y/W/H`,
+  `chartScale.GetYByValue`, `RenderTarget.DrawLine/DrawText/FillRectangle`,
+  `ToDxBrush`, and `Core.Globals.DirectWriteFactory`. Dashes are drawn as
+  segments rather than through a Direct2D `StrokeStyle`, because a
+  `StrokeStyleProperties` struct has defaults that are not all valid and this
+  file cannot be compiled here to find out which; segments use only `DrawLine`,
+  already proven by the solid levels.
+- **`BrushCache` converts each WPF brush once per frame.** A Direct2D brush
+  belongs to the render target and must be created then disposed. Per shape
+  that is forty creates a frame with the histogram on; there are only nine
+  distinct colors, so they are converted once and dropped together.
+- **`OnRender` is wrapped in try/catch.** NinjaTrader calls it every frame, so
+  an uncaught exception throws every frame forever. It is trapped, reported
+  through the info panel's status line, and the chart stays usable.
+- **The render model is cached on the snapshot reference.** Ranking GEX 1..N is
+  a selection pass over up to 200 strikes; the chart repaints far more often
+  than the snapshot changes, so `BuildLevels` rebuilds only when the snapshot
+  or the requested rank count changes. Property edits reload the whole
+  indicator, so toggles and colors pick themselves up.
 - **The histogram's profile array** needs more than the flat extractor: its
   keys repeat per element. `ExtractProfile` walks the array by brace depth and
   runs the same extractor *scoped to one element*, where each key is unique
@@ -184,11 +263,15 @@ frozen at the 16:00 close while the future keeps trading.
   it in the settings dialog and in the saved workspace, but out of the label.
   Do not re-add it. Anything genuinely secret added later needs the same
   treatment.
-- **Histogram redraws are gated.** `Draw.Line` takes `barsAgo`, which resolves
-  to an absolute bar at draw time, so the bars must be redrawn as bars form or
-  they drift off the right edge. Redrawing dozens of objects on every tick of
-  an `OnEachTick` indicator is wasteful, so the redraw fires only on a new bar,
-  a new snapshot, or a toggle. Bar count is also clamped to `CurrentBar`.
+- **The profile columns are walked to the shorter of the two.** `strike` and
+  `net_gex` are parsed independently, so a ragged payload should cost a missing
+  bar rather than an `IndexOutOfRange` thrown once per frame inside the
+  renderer.
+- **`ProfileWidthBars` is a percentage now, not bars**, since the histogram no
+  longer measures itself against the chart's bars. The *identifier* keeps its
+  old name on purpose: NinjaTrader stores a setting under the property name, so
+  renaming it would silently reset the value in every workspace that already
+  holds one. Only the display label changed.
 
 ### Limitations / notes
 
@@ -203,6 +286,27 @@ frozen at the 16:00 close while the future keeps trading.
   restores the old on-the-line behavior. This only separates text from its
   own line; two levels a tick apart still overlap each other, which is a
   reason to keep the GEX count low rather than something the offset can fix.
+- **Levels sharing a price are folded into one label.** On ES the strikes are
+  five points apart and the metrics collide constantly: a tester's chart had
+  Put Wall, Max Pain and GEX 2 all on 7711.75, printing `Ma8GEX:2 7711.75` —
+  three labels in one pixel row, none readable, and three lines where only the
+  last was visible. `AddLevel` folds them into `Put Wall · Max Pain · GEX 2`,
+  which says something truer than any of the three alone: three measures of
+  dealer positioning agree on this strike. Walls are added before ranks, so the
+  merged entry keeps the wall's color and stays solid unless every part is
+  dashed.
+- **Labels that are close but not equal are stacked, not merged.** Pin Strike
+  at 7741.75 and VWAP at 7741.5 are different levels a tick apart that still
+  land in one pixel row. `RenderLevels` insertion-sorts labels by y and pushes
+  each one below the last where they would overlap — downward only, so the top
+  of a cluster stays on its own line and the drift is predictable. The push
+  cascades: a label moved onto its neighbor moves that one too.
+- **Labels are right-aligned into the margin.** `Label distance from right edge
+  (pixels)` defaults to 8, measured from the edge of the *window* rather than
+  from a bar — which is the setting the `OnRender` rewrite existed to make
+  possible. A trader asked to "scoot the numbers over so I can clearly see the
+  bar action", and under the old model the honest answer was that he could not.
+  Larger values move labels left, back toward the price action.
 - **A missing snapshot never wipes the chart.** `DrawOne` removes a level when
   its value is null, which is right for a level the API genuinely reports as
   null — but passing it `s?.Level` from a null snapshot removed *everything* on
@@ -241,8 +345,9 @@ frozen at the 16:00 close while the future keeps trading.
    against a live key, with the histogram both off and on.
 5. **Packaged import:** export from NT8 and commit the archive to
    `assets/ninjatrader/` (see its README). Every deploy re-verifies it against
-   the `.cs`, so re-export whenever the source changes. Absent, the pages offer
-   the `.cs` and the deploy step no-ops — nothing breaks.
+   the `.cs`, so re-export whenever the source changes. Absent — or present but
+   failing verification — the pages offer the `.cs` alone and the deploy
+   continues; nothing breaks and nothing 404s.
 
 ## Supply chain
 

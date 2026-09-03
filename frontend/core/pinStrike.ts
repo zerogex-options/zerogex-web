@@ -63,6 +63,28 @@ export function pinStrengthLabel(strength: PinStrength): string {
 }
 
 /**
+ * The Pin's label on a CHART LINE: "Pin · Strong" for an active pin, and a bare
+ * "Pin" only when there is no pin to qualify at all. A missing confidence still
+ * classifies (as Weak, via `classifyPinStrength`) rather than dropping the
+ * suffix — the same answer `pinStrikeSubtitle` gives the tiles, so one pin
+ * cannot read two ways depending on which surface you are looking at.
+ *
+ * Separate from `pinStrikeSubtitle`, which is the *tile* copy and spells the
+ * confidence out as a percent; a line label has to stay short enough to sit in
+ * a stack of level tags without pushing the others off the plot. Shared so the
+ * live chart and the replay can't drift into naming the same level differently
+ * — callers that render level tags in caps (the Gamma Terminal chart) simply
+ * upper-case the result.
+ */
+export function pinLineLabel(
+  pinStrike: number | null | undefined,
+  pinConfidence: number | null | undefined,
+): string {
+  const strength = classifyPinStrength(pinStrike, pinConfidence);
+  return strength === 'none' ? 'Pin' : `Pin · ${STRENGTH_LABEL[strength]}`;
+}
+
+/**
  * Format the Pin Strike value for a tile — a dollar-prefixed strike, or the
  * em-dash empty state when there is no active pin. Never returns `0`/`NaN`.
  */
@@ -86,6 +108,69 @@ export function pinStrikeSubtitle(
 }
 
 /** The shared tooltip copy for the Pin Strike metric. */
+/** The session-path facts behind the stability note. */
+export interface PinStabilityRead {
+  held_pin: number;
+  held_since: string;
+  net_migration: number;
+  distinct_values: number;
+  /** False while the pin standing now has not yet settled at its strike. */
+  current_established: boolean;
+}
+
+/** Strikes are discrete; a trailing ".0" on every reading is noise. */
+function trimStrike(value: number): string {
+  return Number.isInteger(value) ? String(value) : value.toFixed(2);
+}
+
+/**
+ * One line describing what the pin has DONE this session.
+ *
+ * Three shapes, because they are genuinely different reads:
+ *
+ *   • settled, never moved  → "Held since 09:41"
+ *   • settled, has moved    → "-30 pts today · held since 14:05"
+ *   • not settled yet       → "Held 7675 since 09:30"
+ *
+ * A migrated pin leads with the signed distance, since that is the fact a
+ * trader watching the level walk away needs first, and the distance is measured
+ * from the session's opening settled level — "how far has this traveled", not
+ * "how big was the last hop".
+ *
+ * The third shape names the strike explicitly, and that is the point: while the
+ * current pin is provisional the card's headline value and the settled level
+ * are DIFFERENT numbers, so "Held since 09:30" alone would read as if the
+ * headline value had held since the open. A one-minute tick at the bell is not
+ * a migration, and it must not be dressed as one.
+ *
+ * Returns null when there is nothing to say — no reading, or a timestamp that
+ * will not parse — so the caller renders nothing rather than a zeroed line.
+ */
+export function pinStabilityNote(
+  stability: PinStabilityRead | null | undefined,
+): string | null {
+  if (!stability) return null;
+  const t = new Date(stability.held_since);
+  if (Number.isNaN(t.getTime())) return null;
+  const held = t.toLocaleString('en-US', {
+    timeZone: 'America/New_York',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+
+  if (!stability.current_established) {
+    return `Held ${trimStrike(stability.held_pin)} since ${held}`;
+  }
+  if (!(stability.distinct_values > 1) || stability.net_migration === 0) {
+    return `Held since ${held}`;
+  }
+  // U+2212 minus, not a hyphen: this sits next to prices in a tabular column.
+  const move = stability.net_migration;
+  const sign = move > 0 ? '+' : '\u2212';
+  return `${sign}${trimStrike(Math.abs(move))} pts today \u00b7 held since ${held}`;
+}
+
 export const PIN_STRIKE_TOOLTIP =
   'Pin Strike estimates the nearby 0DTE strike with the strongest combination ' +
   'of positive dealer-gamma stabilization and the probability of price reaching ' +

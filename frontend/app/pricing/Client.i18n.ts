@@ -8,7 +8,7 @@ export const dict: PageDictionary = {
     heroTrialSubtitle: 'Choose your plan to start your {days}-day free trial.',
     heroTrialNoCharge: 'No charge until day {days}. Cancel anytime.',
     heroTrialBody:
-      'Your ZeroGEX account is ready. Pick Basic or Pro to unlock live SPY, SPX, QQQ, and NDX gamma levels, dealer positioning, flow pressure, and market state signals.',
+      'Your ZeroGEX account is ready. Pick Basic or Pro to unlock live SPY, SPX, QQQ, NDX, ES, and NQ gamma levels, dealer positioning, flow pressure, and market state signals.',
     heroTitle: 'Trade with a live map of the options levels that matter.',
     heroSubtitle:
       'ZeroGEX helps SPY/SPX/QQQ/NDX traders track gamma exposure, call/put walls, gamma flip, dealer positioning, and flow pressure in real time.',
@@ -96,7 +96,7 @@ export const dict: PageDictionary = {
     heroTrialSubtitle: 'Scegli il tuo piano per iniziare la prova gratuita di {days} giorni.',
     heroTrialNoCharge: 'Nessun addebito fino al giorno {days}. Annulla quando vuoi.',
     heroTrialBody:
-      'Il tuo account ZeroGEX è pronto. Scegli Basic o Pro per sbloccare i livelli gamma in tempo reale di SPY, SPX, QQQ e NDX, il posizionamento dei dealer, la pressione dei flussi e i segnali di stato del mercato.',
+      'Il tuo account ZeroGEX è pronto. Scegli Basic o Pro per sbloccare i livelli gamma in tempo reale di SPY, SPX, QQQ, NDX, ES e NQ, il posizionamento dei dealer, la pressione dei flussi e i segnali di stato del mercato.',
     heroTitle: 'Fai trading con una mappa in tempo reale dei livelli delle opzioni che contano.',
     heroSubtitle:
       'ZeroGEX aiuta i trader di SPY/SPX/QQQ/NDX a monitorare l’esposizione gamma, i call/put wall, il gamma flip, il posizionamento dei dealer e la pressione dei flussi in tempo reale.',
@@ -185,7 +185,7 @@ export const dict: PageDictionary = {
     heroTrialSubtitle: 'Wähle deinen Plan, um deine {days}-tägige kostenlose Testphase zu starten.',
     heroTrialNoCharge: 'Keine Abbuchung bis Tag {days}. Jederzeit kündbar.',
     heroTrialBody:
-      'Dein ZeroGEX-Konto ist bereit. Wähle Basic oder Pro, um Live-Gamma-Level für SPY, SPX, QQQ und NDX, Dealer-Positionierung, Flow-Druck und Marktzustandssignale freizuschalten.',
+      'Dein ZeroGEX-Konto ist bereit. Wähle Basic oder Pro, um Live-Gamma-Level für SPY, SPX, QQQ, NDX, ES und NQ, Dealer-Positionierung, Flow-Druck und Marktzustandssignale freizuschalten.',
     heroTitle: 'Handle mit einer Live-Karte der Optionslevel, die wirklich zählen.',
     heroSubtitle:
       'ZeroGEX hilft SPY/SPX/QQQ/NDX-Tradern, Gamma-Exposure, Call-/Put-Walls, Gamma-Flip, Dealer-Positionierung und Flow-Druck in Echtzeit zu verfolgen.',
@@ -273,7 +273,7 @@ export const dict: PageDictionary = {
     heroTrialSubtitle: 'Elige tu plan para comenzar tu prueba gratuita de {days} días.',
     heroTrialNoCharge: 'Sin cargos hasta el día {days}. Cancela cuando quieras.',
     heroTrialBody:
-      'Tu cuenta de ZeroGEX está lista. Elige Basic o Pro para desbloquear los niveles de gamma en tiempo real de SPY, SPX, QQQ y NDX, el posicionamiento de los dealers, la presión de flujo y las señales de estado del mercado.',
+      'Tu cuenta de ZeroGEX está lista. Elige Basic o Pro para desbloquear los niveles de gamma en tiempo real de SPY, SPX, QQQ, NDX, ES y NQ, el posicionamiento de los dealers, la presión de flujo y las señales de estado del mercado.',
     heroTitle: 'Opera con un mapa en tiempo real de los niveles de opciones que importan.',
     heroSubtitle:
       'ZeroGEX ayuda a los traders de SPY/SPX/QQQ/NDX a seguir la exposición gamma, los call/put walls, el gamma flip, el posicionamiento de los dealers y la presión de flujo en tiempo real.',
@@ -361,7 +361,7 @@ export const dict: PageDictionary = {
     heroTrialSubtitle: 'Choisissez votre offre pour démarrer votre essai gratuit de {days} jours.',
     heroTrialNoCharge: "Aucun prélèvement avant le jour {days}. Annulez à tout moment.",
     heroTrialBody:
-      "Votre compte ZeroGEX est prêt. Choisissez Basic ou Pro pour débloquer les niveaux gamma en temps réel de SPY, SPX, QQQ et NDX, le positionnement des dealers, la pression de flux et les signaux d'état du marché.",
+      "Votre compte ZeroGEX est prêt. Choisissez Basic ou Pro pour débloquer les niveaux gamma en temps réel de SPY, SPX, QQQ, NDX, ES et NQ, le positionnement des dealers, la pression de flux et les signaux d'état du marché.",
     heroTitle: 'Tradez avec une carte en temps réel des niveaux d’options qui comptent.',
     heroSubtitle:
       'ZeroGEX aide les traders SPY/SPX/QQQ/NDX à suivre l’exposition gamma, les call/put walls, le gamma flip, le positionnement des dealers et la pression de flux en temps réel.',

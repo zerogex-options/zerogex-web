@@ -119,11 +119,12 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     href: '/education/gamma-walls-explained',
     title: 'Gamma Walls Explained: Call Wall and Put Wall',
     blurb:
-      'What gamma walls actually are, why price tends to react at the call wall and put wall, how the walls migrate, and when they can hold versus break.',
+      'What the call wall and put wall actually do in each gamma regime, what the distance between them tells you, how they behave into same-day expiry, why they migrate through the session, and the conditions that decide whether the read holds or breaks.',
     description:
-      'Gamma walls explained — what call walls and put walls are, why price reacts at them, how they shift intraday, and when they hold versus break.',
+      'Gamma walls explained — what each wall does in each regime, what the gap between them tells you, how they behave on 0DTE, and when the read holds or fails.',
     datePublished: '2026-06-11',
-    readMinutes: 9,
+    dateModified: '2026-08-29',
+    readMinutes: 11,
     kind: 'tier1',
   },
   '0dte-dealer-positioning-explained': {

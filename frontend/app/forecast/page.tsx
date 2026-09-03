@@ -42,7 +42,7 @@ interface ForecastDateList {
 export const metadata: Metadata = {
   title: 'Gamma Forecast — ZeroGEX',
   description:
-    'Every morning we commit to a projected range, an expected-volatility call, and key gamma levels with touch odds — never a direction call — then grade ourselves at 4 PM. Browse the receipts.',
+    'Every morning we commit to a projected range, an expected-volatility call and gamma levels with touch odds — never a direction call — then grade it at 4 PM.',
   alternates: { canonical: `${SITE_URL}/forecast` },
   openGraph: {
     type: 'website',

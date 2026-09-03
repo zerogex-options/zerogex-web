@@ -13,12 +13,13 @@ import {
   YAxis,
 } from 'recharts';
 import { capture } from '@/core/telemetry/posthog-client';
-import { staggerLabelYs } from './levelStagger';
+import { classifyLevelVisibility, staggerLabelYs } from './levelStagger';
 import {
   expirationOpacityRamp,
   sharesToSegments,
   type ExpirationSegment,
 } from '@/core/expirationGradient';
+import { pinLineLabel, PIN_STRIKE_COLOR_VAR } from '@/core/pinStrike';
 
 // Interactive replay of one trading day's per-minute GEX frames. Pure
 // client-side once the initial range payload is hydrated — scrubbing
@@ -44,6 +45,9 @@ interface Frame {
   max_pain: number | null;
   pin_strike: number | null;
   pin_confidence: number | null;
+  // GEX King — whole-chain heaviest-|net-gamma| strike for the frame's
+  // minute. Null on rows written before the column shipped; no line is drawn.
+  max_gamma_strike: number | null;
   // net_gex is always present; call_gex / put_gex are the same per-strike
   // dealer-gamma columns (from gex_by_strike) and are optional so the
   // Split / Combined gamma views activate only when the payload carries them.
@@ -476,8 +480,14 @@ export default function ReplayScrubber({
   // carries it per frame (null on older rows, then the line simply isn't drawn).
   const maxPain = currentFrame?.max_pain ?? null;
   // Pin Strike rides along per frame too (null on rows written before it
-  // shipped, then the line simply isn't drawn).
+  // shipped, then the line simply isn't drawn). Its confidence rides with it
+  // so the chart can label the line's strength the way the live Gamma
+  // Terminal chart does, rather than carrying the field and dropping it.
   const pinStrike = currentFrame?.pin_strike ?? null;
+  const pinConfidence = currentFrame?.pin_confidence ?? null;
+  // GEX King migrates through the session like the walls, so it updates as
+  // you scrub — the structural node the live chart draws, now replayable.
+  const gexKing = currentFrame?.max_gamma_strike ?? null;
 
   // Session-wide GEX peak — per mode — so the horizontal-bar magnitude axis
   // stays pinned as the user scrubs (otherwise the widest bar this minute
@@ -660,6 +670,32 @@ export default function ReplayScrubber({
       .sort((x, y) => y.strike - x.strike);
   }, [pinA, pinB, frames]);
 
+  // Pin Strike markers for the A→B diff. The diff answers "which strikes did
+  // dealers re-hedge into / out of between these two moments" — where the pin
+  // sat at each end is what says whether that re-hedging MOVED the pin, so
+  // both ends get a line rather than just the one you scrubbed to.
+  //
+  // The Y axis is a CATEGORY axis over the diff's own strikes, so a reference
+  // line only lands on a strike that is actually in the chart; a pin outside
+  // the diffed band has no row to sit on and is dropped rather than drawn at a
+  // misleading position. A pin that didn't move collapses to a single "Pin"
+  // line instead of stacking two identical ones on the same row.
+  const diffPinLines = useMemo(() => {
+    if (diffRows == null || pinA == null || pinB == null) return [];
+    const inChart = new Set(diffRows.map((r) => r.strike));
+    const at = (idx: number) => {
+      const v = frames[idx]?.pin_strike;
+      return v != null && Number.isFinite(v) && inChart.has(v) ? v : null;
+    };
+    const a = at(pinA);
+    const b = at(pinB);
+    if (a != null && a === b) return [{ key: 'pin-ab', strike: a, label: 'Pin A=B' }];
+    const out: Array<{ key: string; strike: number; label: string }> = [];
+    if (a != null) out.push({ key: 'pin-a', strike: a, label: 'Pin A' });
+    if (b != null) out.push({ key: 'pin-b', strike: b, label: 'Pin B' });
+    return out;
+  }, [diffRows, pinA, pinB, frames]);
+
   if (frames.length === 0) {
     return (
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-subtle)] p-6 text-sm text-[var(--color-text-secondary)]">
@@ -803,6 +839,8 @@ export default function ReplayScrubber({
         putWall={putWall}
         maxPain={maxPain}
         pinStrike={pinStrike}
+        pinConfidence={pinConfidence}
+        gexKing={gexKing}
         cursorTimestamp={cursorTimestamp}
         pinATimestamp={pinA != null ? frames[pinA]?.timestamp ?? null : null}
         pinBTimestamp={pinB != null ? frames[pinB]?.timestamp ?? null : null}
@@ -862,6 +900,24 @@ export default function ReplayScrubber({
                   labelFormatter={(label) => `Strike $${label}`}
                 />
                 <ReferenceLine x={0} stroke="var(--color-border)" />
+                {/* Pin Strike at each end of the diff — same teal and dash as
+                    the pin line on the overlay chart above, so the two charts
+                    name the level the same way. */}
+                {diffPinLines.map((pin) => (
+                  <ReferenceLine
+                    key={pin.key}
+                    y={pin.strike}
+                    stroke={PIN_STRIKE_COLOR_VAR}
+                    strokeDasharray="2 3"
+                    label={{
+                      value: pin.label,
+                      position: 'insideRight',
+                      fill: PIN_STRIKE_COLOR_VAR,
+                      fontSize: 10,
+                      fontWeight: 700,
+                    }}
+                  />
+                ))}
                 {/* Grouped signed bars — a diff needs the direction of change
                     (right = grew, left = shrank), so unlike the strike-profile
                     panel each series keeps its sign here rather than pinning
@@ -927,6 +983,8 @@ interface ReplayOverlayChartProps {
   putWall: number | null;
   maxPain: number | null;
   pinStrike: number | null;
+  pinConfidence: number | null;
+  gexKing: number | null;
   cursorTimestamp: string | null;
   pinATimestamp: string | null;
   pinBTimestamp: string | null;
@@ -955,6 +1013,8 @@ function ReplayOverlayChart({
   putWall,
   maxPain,
   pinStrike,
+  pinConfidence,
+  gexKing,
   cursorTimestamp,
   pinATimestamp,
   pinBTimestamp,
@@ -1197,18 +1257,67 @@ function ReplayOverlayChart({
   // vertically — keeping them inside the plot and in price order — while the
   // lines stay put. Only levels whose line is on-screen get a label (the lines
   // are clipped to the plot box, so an off-screen level shouldn't show a label).
+  // Every level this chart can draw, declared once: the markers below and the
+  // status row under the plot are two views of the same list, so a level can
+  // never appear in one and be forgotten by the other.
+  //
+  // The Pin carries its strength in the label ("Pin · Strong") the same way the
+  // live Gamma Terminal chart does, and from the same core/pinStrike wording —
+  // the replay payload already ships pin_confidence per minute, so a replayed
+  // minute names the pin exactly as the live chart named it at that minute
+  // instead of drawing a bare, unqualified line. With no pin there is nothing
+  // to qualify and the label is just "Pin"; the level is then absent anyway and
+  // the status row below says so.
+  const pinLabel = pinLineLabel(pinStrike, pinConfidence);
+  // `key` is the identity the marker and status nodes are keyed on, separate
+  // from `label` precisely because the Pin's label now changes with its
+  // strength as you scrub — keying on the text would remount that level's
+  // nodes mid-playback every time the strength bucket flipped.
+  const levelDefs: Array<{
+    key: string;
+    value: number | null;
+    label: string;
+    color: string;
+    dash: string;
+  }> = [
+    { key: 'call-wall', value: callWall, label: 'Call Wall', color: 'var(--color-bear)', dash: '5 3' },
+    { key: 'flip', value: gammaFlip, label: 'Flip', color: 'var(--color-warning)', dash: '4 3' },
+    { key: 'max-pain', value: maxPain, label: 'Max Pain', color: 'var(--color-gold)', dash: '1 5' },
+    { key: 'put-wall', value: putWall, label: 'Put Wall', color: 'var(--color-bull)', dash: '5 3' },
+    { key: 'pin', value: pinStrike, label: pinLabel, color: PIN_STRIKE_COLOR_VAR, dash: '2 3' },
+    { key: 'gex-king', value: gexKing, label: 'GEX King', color: 'var(--color-king)', dash: '5 3' },
+  ];
+
+  // A level disappears from the plot in two different ways, and both render as
+  // literally nothing: it has no value this minute (the server suppresses a pin
+  // below its score floor, so "no active pin" is a real and frequent answer), or
+  // it sits outside the visible price range and gets clipped. An absent line is
+  // indistinguishable from a product that has no such level — which is exactly
+  // how a working Pin read as broken to a trader who opened a replay on a minute
+  // where it happened to be inactive. So the status row accounts for all five
+  // levels every minute and says which of the two is true.
+  const levelStatuses = levelDefs.map((d) => ({
+    key: d.key,
+    label: d.label,
+    color: d.color,
+    value: d.value,
+    state: classifyLevelVisibility(d.value, yForPrice, { top: PLOT_TOP, bottom: PLOT_BOTTOM }),
+  }));
+
   const levelMarkers = (() => {
-    const defs: Array<{ value: number | null; label: string; color: string; dash: string }> = [
-      { value: callWall, label: 'Call Wall', color: 'var(--color-bear)', dash: '5 3' },
-      { value: gammaFlip, label: 'Flip', color: 'var(--color-warning)', dash: '4 3' },
-      { value: maxPain, label: 'Max Pain', color: 'var(--color-gold)', dash: '1 5' },
-      { value: putWall, label: 'Put Wall', color: 'var(--color-bull)', dash: '5 3' },
-      { value: pinStrike, label: 'Pin', color: 'var(--color-pin)', dash: '2 3' },
-    ];
-    const items = defs
+    const items = levelDefs
       .flatMap((d) =>
         d.value != null && Number.isFinite(d.value)
-          ? [{ label: d.label, color: d.color, dash: d.dash, value: d.value, lineY: yForPrice(d.value) }]
+          ? [
+              {
+                key: d.key,
+                label: d.label,
+                color: d.color,
+                dash: d.dash,
+                value: d.value,
+                lineY: yForPrice(d.value),
+              },
+            ]
           : [],
       )
       // Only on-screen levels get a label — the lines are clipped to the plot box.
@@ -1384,9 +1493,9 @@ function ReplayOverlayChart({
             );
           })}
 
-          {/* Level lines (call/put walls, gamma flip, max pain) are drawn
-              LATER — after the candles and strike bars — so their lines and
-              labels read on top instead of being obscured. See the
+          {/* Level lines (call/put walls, gamma flip, max pain, pin strike)
+              are drawn LATER — after the candles and strike bars — so their
+              lines and labels read on top instead of being obscured. See the
               "Level lines" block below the right panel. */}
 
           {/* ── LEFT PANEL: 5-min candles ── */}
@@ -1707,21 +1816,21 @@ function ReplayOverlayChart({
             </g>
           )}
 
-          {/* ── Level lines: call/put walls, gamma flip, max pain ──
+          {/* ── Level lines: call/put walls, gamma flip, max pain, pin ──
               Drawn here — AFTER the candles and strike bars — so the lines
               and their labels paint on top instead of being obscured by the
               bars/candles. Each spans both panels as a single regime marker,
               clipped to the plot box. Labels are right-edge anchored so they
               stack into one column; call wall sits above spot, put wall below,
-              flip and max pain near it. Colors match the rest of the app
-              (call = bear/resistance, put = bull/support, flip = warning,
-              max pain = gold, as on the Gamma Terminal chart). */}
+              flip, max pain and the pin near it. Colors match the rest of the
+              app (call = bear/resistance, put = bull/support, flip = warning,
+              max pain = gold, pin = teal, as on the Gamma Terminal chart). */}
           {levelMarkers.map((lvl) => {
             // A label nudged more than a couple px off its line gets a faint
             // vertical leader back to the line so the tie stays legible.
             const nudged = Math.abs(lvl.labelY - (lvl.lineY - 4)) > 2;
             return (
-              <g key={lvl.label} clipPath={`url(#${clipId})`}>
+              <g key={lvl.key} clipPath={`url(#${clipId})`}>
                 <line
                   x1={LEFT_X}
                   x2={MID_X + MID_W}
@@ -1795,6 +1904,44 @@ function ReplayOverlayChart({
             />
           )}
         </svg>
+      </div>
+      {/* Level status — the plot's silent absences, said out loud. See
+          levelStatuses above for why this row exists. */}
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[10px] text-[var(--color-text-secondary)]">
+        {levelStatuses.map((s) => {
+          // 'none' is the only state without a price, so every other branch has
+          // one to show — but read it off the value rather than trusting the
+          // state, so a future state can't reintroduce a null dereference.
+          const price = s.value != null && Number.isFinite(s.value) ? s.value.toFixed(2) : null;
+          return (
+            <span key={s.key} className="inline-flex items-center gap-1.5">
+              <span
+                aria-hidden
+                style={{
+                  display: 'inline-block',
+                  width: 9,
+                  height: 2,
+                  borderRadius: 1,
+                  // A level with nothing on the plot gets a muted rule rather
+                  // than its own hue: the swatch must not imply a drawn line.
+                  background: s.state === 'on' ? s.color : 'var(--color-border)',
+                }}
+              />
+              <span style={s.state === 'on' ? { color: 'var(--color-text-primary)' } : undefined}>
+                {s.label}
+              </span>
+              {s.state === 'on' && price ? (
+                <span style={{ color: s.color, fontWeight: 700 }}>{price}</span>
+              ) : price ? (
+                <span>
+                  {price} · {s.state === 'above' ? 'above' : 'below'} range
+                </span>
+              ) : (
+                <span>· none this minute</span>
+              )}
+            </span>
+          );
+        })}
       </div>
     </div>
   );

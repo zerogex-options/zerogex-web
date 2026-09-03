@@ -210,6 +210,7 @@ function FlowFilters({
   onSelectAllExpirations,
   loading = false,
   error = null,
+  note = null,
 }: {
   strikeOptions: string[];
   expirationOptions: string[];
@@ -223,12 +224,19 @@ function FlowFilters({
   onSelectAllExpirations: () => void;
   loading?: boolean;
   error?: string | null;
+  /** Whose contracts these are, when that isn't the symbol on the chart. */
+  note?: string | null;
 }) {
   return (
     <div
       className="mb-4 rounded-lg border p-3 space-y-2.5"
       style={{ borderColor: "var(--color-border)", backgroundColor: "var(--color-surface-subtle)" }}
     >
+      {note && (
+        <p className="text-xs" style={{ color: "var(--color-text-secondary)" }}>
+          {note}
+        </p>
+      )}
       <FilterRow
         label="Strike"
         options={strikeOptions}
@@ -621,7 +629,17 @@ export default function OptionsFlowChart({
     options: serverContractOptions,
     loading: contractOptionsLoading,
     error: contractOptionsError,
+    chainSymbol,
   } = useFlowContractOptions(symbol, session);
+
+  // ES / NQ trade at a basis to the index their flow is measured from, so an
+  // SPX strike shown bare under an ES chart reads as a level on the futures
+  // axis — which it is not, and which is exactly why the API refuses to
+  // project these values. Name the chain instead of relabeling the numbers.
+  const chainNote =
+    chainSymbol.toUpperCase() === symbol.toUpperCase()
+      ? null
+      : `${symbol} has no option chain of its own — its flow is ${chainSymbol} flow, so the strikes below are ${chainSymbol} strikes, not ${symbol} prices.`;
 
   const strikeOptions = useMemo(
     () => serverContractOptions.strikes.map((n) => String(n)),
@@ -806,6 +824,7 @@ export default function OptionsFlowChart({
         onSelectAllExpirations={() => setSharedExpirations(expirationOptions)}
         loading={contractOptionsLoading}
         error={contractOptionsError}
+        note={chainNote}
       />
       <FullWidthFlowChart
         rows={rows}

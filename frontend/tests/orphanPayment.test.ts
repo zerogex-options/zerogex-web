@@ -255,7 +255,11 @@ function classifyFixture(over: Partial<Parameters<typeof classifyElapsedPaidPeri
 }
 
 // Shorthand: a deletion of the subscription this invoice actually paid for.
-function del(atUnix: number, subscriptionId: string = PAID_SUB) {
+// `subscriptionId` is nullable to match the shape classifyElapsedPaidPeriod
+// actually accepts — a deletion record that names no subscription is a real
+// case (it matches no invoice, so it claims nothing), and the test below
+// depends on being able to build one.
+function del(atUnix: number, subscriptionId: string | null = PAID_SUB) {
   return { atUnix, subscriptionId };
 }
 

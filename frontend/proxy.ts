@@ -74,6 +74,35 @@ export async function proxy(request: NextRequest) {
   }
 
   const session = await getSessionFromRequest(request);
+
+  // Every response returned from here on MUST go through this. Resolving the
+  // session is not read-only: once past the rotation interval,
+  // getSessionFromRequest writes the NEW token hash to the sessions row before
+  // it returns, so the token the browser is still holding is already dead. The
+  // only copy of the replacement is `session.rotatedToken`, and the only way to
+  // hand it over is a Set-Cookie on THIS response. Drop it and the member is
+  // logged out — not at expiry, but on their very next request.
+  //
+  // That is exactly what used to happen on the /unauthorized redirect below:
+  // it was built fresh and returned without the cookie, so a Basic member who
+  // happened to open a Pro page in the hour their session came due for rotation
+  // was signed out on the spot. Funneling every path through one helper is
+  // what stops that reappearing the next time a branch is added here.
+  const finalize = (response: NextResponse) => {
+    if (session?.rotatedToken) {
+      response.cookies.set({
+        name: SESSION_COOKIE_NAME,
+        value: session.rotatedToken,
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: SESSION_COOKIE_MAX_AGE_SECONDS,
+      });
+    }
+    return response;
+  };
+
   if (!session) {
     // Anonymous /dashboard visitors get the free public preview instead of
     // a /login wall — the 15-min-delayed gamma-levels page is the SEO-target
@@ -82,7 +111,7 @@ export async function proxy(request: NextRequest) {
     if (pathname === '/dashboard') {
       const response = NextResponse.redirect(new URL('/spx-gamma-levels', request.url));
       response.headers.set('X-Robots-Tag', 'noindex, follow');
-      return response;
+      return finalize(response);
     }
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('next', `${pathname}${search}`);
@@ -95,7 +124,7 @@ export async function proxy(request: NextRequest) {
     // header is visible.
     const response = NextResponse.redirect(loginUrl);
     response.headers.set('X-Robots-Tag', 'noindex, follow');
-    return response;
+    return finalize(response);
   }
 
   // Post-checkout grace. Stripe's success_url (/dashboard?trial_started=1) can
@@ -114,23 +143,10 @@ export async function proxy(request: NextRequest) {
     unauthorizedUrl.searchParams.set('path', pathname);
     const response = NextResponse.redirect(unauthorizedUrl);
     response.headers.set('X-Robots-Tag', 'noindex, follow');
-    return response;
+    return finalize(response);
   }
 
-  const response = NextResponse.next();
-  if (session.rotatedToken) {
-    response.cookies.set({
-      name: 'zgx_session',
-      value: session.rotatedToken,
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: SESSION_COOKIE_MAX_AGE_SECONDS,
-    });
-  }
-
-  return response;
+  return finalize(NextResponse.next());
 }
 
 export const config = {

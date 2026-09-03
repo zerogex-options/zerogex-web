@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import type { ChurnAlert } from './cancellationAlert.ts';
 
 // Inlined rather than imported from core/stripe so this module stays
 // importable from standalone `node --experimental-strip-types` scripts —
@@ -82,6 +83,26 @@ function formatTrialEndDate(iso: string): string {
     day: 'numeric',
     year: 'numeric',
   }).format(new Date(iso));
+}
+
+// How a welcome email names the length of the trial that just started. The
+// trial is NOT always the standard 7 days: a cold signup returning through the
+// ?reactivate=1 link in the second-touch reactivation email is granted the
+// extended REACTIVATION_TRIAL_DAYS (default 30 — see
+// app/api/billing/checkout/route.ts), and an operator can restore a hand-picked
+// window with scripts/restore-trial-after-switch.mts. Callers pass the real
+// count read off the subscription's own trial window, so the copy tracks what
+// Stripe will actually do instead of repeating an assumption.
+//
+// A missing or implausible count drops the number instead of guessing: "your
+// free trial is now active" is true for every trial length, whereas a wrong day
+// count is a billing promise the trial-end date in the very next sentence would
+// immediately contradict.
+export function describeTrialLength(trialDays?: number | null): string {
+  if (typeof trialDays !== 'number' || !Number.isFinite(trialDays)) return 'free trial';
+  const days = Math.round(trialDays);
+  if (days < 1 || days > 365) return 'free trial';
+  return `${days}-day free trial`;
 }
 
 // The "start here" focus list — the most relevant pieces of ZeroGEX for a
@@ -292,6 +313,12 @@ export async function sendPaidWelcomeEmail(
   to: string,
   opts?: {
     trialEndIso?: string | null;
+    // Real length of the trial in days, derived by the caller from the
+    // subscription's own trial window (trial_start -> trial_end) rather than
+    // assumed to be the standard 7: a reactivation signup gets
+    // REACTIVATION_TRIAL_DAYS (default 30). Omitted or unusable and the copy
+    // names no day count at all (see describeTrialLength).
+    trialDays?: number | null;
     // When the subscription was checked out under the limited-time public
     // promo, the webhook passes a short descriptor like "first 6 months" or
     // "first year" so the welcome email mentions the intro window and what
@@ -302,11 +329,11 @@ export async function sendPaidWelcomeEmail(
 ) {
   const trialEndDate = opts?.trialEndIso ? formatTrialEndDate(opts.trialEndIso) : null;
   const promoLabel = opts?.promoIntroLabel ?? null;
-  // A set trial-end date means this is a fresh 7-day trial (the standard
-  // checkout path). Trial copy deliberately avoids "thank you for subscribing"
-  // — a trialer hasn't paid, and that phrasing reads as if they were charged.
-  // The no-trial branch is a genuine immediate paid subscriber, so it keeps
-  // the "subscribing" thank-you.
+  // A set trial-end date means the subscription is still trialing (the standard
+  // checkout path), whatever that trial's length turned out to be. Trial copy
+  // deliberately avoids "thank you for subscribing" — a trialer hasn't paid, and
+  // that phrasing reads as if they were charged. The no-trial branch is a
+  // genuine immediate paid subscriber, so it keeps the "subscribing" thank-you.
   const isTrial = Boolean(trialEndDate);
   const subject = isTrial
     ? 'Your ZeroGEX trial is active'
@@ -316,11 +343,12 @@ export async function sendPaidWelcomeEmail(
   const safeAccountUrl = escapeHtml(accountUrl);
   const dashboardUrl = `${getAppUrl()}/dashboard`;
   const safeDashboardUrl = escapeHtml(dashboardUrl);
+  const trialLength = describeTrialLength(opts?.trialDays);
   const trialLineText = trialEndDate
-    ? `Your 7-day free trial is now active, so you have full access right away — dive in and make the most of it. You won't be charged until ${trialEndDate}, and if ZeroGEX turns out not to be the right fit, you're free to cancel before then from the billing portal on your account page (${accountUrl}) and you won't be billed.`
+    ? `Your ${trialLength} is now active, so you have full access right away — dive in and make the most of it. You won't be charged until ${trialEndDate}, and if ZeroGEX turns out not to be the right fit, you're free to cancel before then from the billing portal on your account page (${accountUrl}) and you won't be billed.`
     : null;
   const trialLineHtml = trialEndDate
-    ? `Your 7-day free trial is now active, so you have full access right away &mdash; dive in and make the most of it. You won't be charged until ${escapeHtml(trialEndDate)}, and if ZeroGEX turns out not to be the right fit, you're free to cancel before then from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> and you won't be billed.`
+    ? `Your ${escapeHtml(trialLength)} is now active, so you have full access right away &mdash; dive in and make the most of it. You won't be charged until ${escapeHtml(trialEndDate)}, and if ZeroGEX turns out not to be the right fit, you're free to cancel before then from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> and you won't be billed.`
     : null;
   const promoLineText = promoLabel
     ? `You're on our limited-time introductory rate for the ${promoLabel} — it's already attached to your subscription. After that period your plan renews automatically at our standard rate.`
@@ -1994,6 +2022,114 @@ export async function sendWinbackEmail(to: string, opts?: WinbackEmailOptions) {
     from: getFromAddress(),
     to,
     subject,
+    text,
+    html,
+  });
+
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
+// Operator alert: one email per cancellation, the moment we notice one, carrying
+// the reason the member typed on their way out. Sent by
+// scripts/send-cancellation-alerts.mts (see there for the sweep + latch), never
+// to a customer — `to` is always the founder's own address.
+//
+// The point of this email is a DECISION, not a record: everything needed to
+// judge "is this one savable, and what do I say?" sits above the fold — the
+// verbatim comment first (it is the only part no dashboard can reconstruct),
+// then tenure and the save-window deadline, then the three commands you would
+// otherwise go dig out of the Makefile.
+//
+// Deliberately no Folds of Honor footer and no unsubscribe: this is internal
+// operational mail, not a subscriber touchpoint.
+export async function sendCancellationAlertEmail(to: string, alert: ChurnAlert) {
+  const pending = alert.kind === 'pending';
+  const appUrl = getAppUrl();
+  const adminUrl = `${appUrl}/admin/monitoring`;
+
+  const factLines = alert.facts.map((f) => `  ${f.label.padEnd(18)} ${f.value}`).join('\n');
+  const commandLines = alert.commands.map((c) => `  ${c}`).join('\n');
+
+  const text = [
+    alert.headline,
+    ...(alert.saveWindowNote ? ['', alert.saveWindowNote] : []),
+    '',
+    'WHY THEY LEFT',
+    `  Survey reason: ${alert.reasonLabel}`,
+    alert.comment ? `  In their words: "${alert.comment}"` : '  They typed nothing.',
+    '',
+    'MEMBER',
+    factLines,
+    '',
+    'NEXT',
+    commandLines,
+    '',
+    `Admin dashboard: ${adminUrl}`,
+    '',
+    alert.hasSignal
+      ? 'Reply to them from your own inbox — a founder reply beats any automated flow.'
+      : 'No reason captured. Worth a short "what made you leave?" note; those replies are how the survey gets better.',
+  ].join('\n');
+
+  // The comment gets a pull-quote because it is the highest-value string in the
+  // whole email — the one thing that tells you what to actually build or say.
+  const commentHtml = alert.comment
+    ? `<blockquote style="margin: 0 0 18px; padding: 14px 16px; background: #fff8e1; border-left: 3px solid #f5b400; font-size: 15px; line-height: 1.5; color: #1a1a1a;">&ldquo;${escapeHtml(alert.comment)}&rdquo;</blockquote>`
+    : `<p style="margin: 0 0 18px; padding: 14px 16px; background: #f5f5f5; border-left: 3px solid #ccc; font-size: 14px; color: #666;">They typed nothing &mdash; only the survey reason above.</p>`;
+
+  const factsHtml = alert.facts
+    .map(
+      (f) =>
+        `<tr>
+           <td style="padding: 5px 14px 5px 0; color: #777; font-size: 13px; white-space: nowrap; vertical-align: top;">${escapeHtml(f.label)}</td>
+           <td style="padding: 5px 0; color: #1a1a1a; font-size: 13px; vertical-align: top;">${escapeHtml(f.value)}</td>
+         </tr>`,
+    )
+    .join('');
+
+  const commandsHtml = alert.commands
+    .map(
+      (c) =>
+        `<div style="font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; background: #f5f5f5; padding: 7px 10px; border-radius: 6px; margin: 0 0 6px; color: #1a1a1a;">${escapeHtml(c)}</div>`,
+    )
+    .join('');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 620px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <div style="display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 4px 9px; border-radius: 5px; margin-bottom: 12px; ${
+        pending ? 'background: #fff8e1; color: #8a6100;' : 'background: #f1f1f1; color: #666;'
+      }">${pending ? 'Canceled &mdash; still has access' : 'Subscription ended'}</div>
+      <h1 style="font-size: 19px; margin: 0 0 4px;">${escapeHtml(alert.email)}</h1>
+      <p style="margin: 0 0 4px; color: #444; font-size: 14px;">${escapeHtml(alert.reasonLabel)} &middot; after ${escapeHtml(alert.tenure)}</p>
+      ${
+        alert.saveWindowNote
+          ? `<p style="margin: 0 0 18px; color: #8a6100; font-size: 13px; font-weight: 600;">${escapeHtml(alert.saveWindowNote)}</p>`
+          : '<div style="height: 14px;"></div>'
+      }
+      ${commentHtml}
+      <h2 style="font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; color: #777; margin: 22px 0 6px;">Member</h2>
+      <table style="border-collapse: collapse; width: 100%;">${factsHtml}</table>
+      <h2 style="font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; color: #777; margin: 22px 0 8px;">Next</h2>
+      ${commandsHtml}
+      <p style="margin: 18px 0 0; font-size: 13px; color: #444;">${
+        alert.hasSignal
+          ? 'Reply from your own inbox &mdash; a founder reply beats any automated flow.'
+          : 'No reason captured. Worth a short &ldquo;what made you leave?&rdquo; note; those replies are how the survey gets better.'
+      }</p>
+      <p style="margin: 20px 0 0; font-size: 12px; color: #999; border-top: 1px solid #eee; padding-top: 12px;">
+        <a href="${escapeHtml(adminUrl)}" style="color: #999;">Admin dashboard</a>
+        &middot; sent by <code style="font-size: 11.5px;">make cancellation-alerts</code>
+      </p>
+    </div>
+  `.trim();
+
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject: alert.subject,
     text,
     html,
   });

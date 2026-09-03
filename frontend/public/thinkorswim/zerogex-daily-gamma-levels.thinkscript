@@ -1,0 +1,149 @@
+# =============================================================================
+#  ZeroGEX Daily Gamma Levels — thinkorswim (thinkScript) study
+#  Manually plot today's dealer-positioning levels on any chart:
+#    • Gamma Flip   (regime line)
+#    • Call Wall    (upside cap)
+#    • Put Wall     (downside floor)
+#    • Max Pain     (expiration magnet)
+#
+#  Free delayed levels (copy today's numbers from here):
+#    https://zerogex.io/spx-gamma-levels
+#
+#  Real-time auto-updating levels, live dealer positioning, option flow and
+#  the intraday dashboard:
+#    https://zerogex.io
+#
+#  This study is manual-entry only — it does not pull data from ZeroGEX, and
+#  it cannot: thinkScript runs sandboxed inside thinkorswim with no network
+#  access of any kind. If you want levels that update themselves, our
+#  NinjaTrader 8 and Sierra Chart studies poll the API directly:
+#    https://zerogex.io/integrations
+#
+#  Informational and educational use only. Not financial advice. Options
+#  trading involves significant risk.
+#
+#  INSTALL
+#    1. Chart → Studies → Edit Studies… → Create (or Studies → Add Study →
+#       Custom → New Study).
+#    2. Select everything in the editor and paste this file over it.
+#    3. Name it "ZeroGEX Daily Gamma Levels", click OK, and apply it.
+#    4. Open the study's settings and type in today's four numbers.
+#
+#  Works on thinkorswim desktop, web, and mobile. Set any level to 0 to hide
+#  that line — 0 is the "unset" sentinel, not a price.
+# =============================================================================
+
+declare upper;
+
+# -----------------------------------------------------------------------------
+#  Levels  —  set any value to 0 to hide that line
+# -----------------------------------------------------------------------------
+input callWall  = 0.0;      # Strike where call-side dealer gamma piles up — tends to cap upside.
+input gammaFlip = 0.0;      # Regime line. Above = positive gamma (vol suppressed), below = negative (vol amplified).
+input putWall   = 0.0;      # Strike where put-side dealer gamma piles up — tends to floor downside.
+input maxPain   = 0.0;      # Strike where the most option value expires worthless — the expiration magnet.
+
+# -----------------------------------------------------------------------------
+#  Labels  (cosmetic — these do not affect what is drawn)
+# -----------------------------------------------------------------------------
+# Free text rather than a dropdown so it can name anything you trade, and so it
+# concatenates into the chart label cleanly. thinkScript enum inputs are numeric
+# under the hood and do not render as their own names in a string.
+input levelsFor   = "SPX";
+input levelsDate  = "";
+input showLevelsDate = no;  # Shows the snapshot-date chip. Set yes when levelsDate is filled.
+
+# -----------------------------------------------------------------------------
+#  Display
+# -----------------------------------------------------------------------------
+input showPriceChips = yes; # Price bubble on each line.
+input showInfoLabels = yes; # Chips along the top of the chart.
+input showSource     = yes; # "zerogex.io" attribution chip.
+input enableAlerts   = yes; # Fire a thinkorswim alert when price crosses a level.
+
+# Line color, weight and style are NOT inputs here. thinkorswim already gives
+# every plot its own controls for all three under Edit Studies, which is both
+# the native way to do it and better than a dropdown -- and thinkScript's
+# SetStyle()/SetLineWeight() want a compile-time constant, so driving them from
+# a computed value is a good way to make the study fail to compile on paste.
+
+# -----------------------------------------------------------------------------
+#  Colors
+#  thinkScript has no color input type, so these are globals — recolor them
+#  under the study's "Globals" section in Edit Studies.
+# -----------------------------------------------------------------------------
+DefineGlobalColor("Call Wall",  CreateColor(242, 54, 69));
+DefineGlobalColor("Gamma Flip", CreateColor(255, 152, 0));
+DefineGlobalColor("Put Wall",   CreateColor(8, 153, 129));
+DefineGlobalColor("Max Pain",   CreateColor(156, 39, 176));
+
+# -----------------------------------------------------------------------------
+#  Helpers
+# -----------------------------------------------------------------------------
+# The rightmost bar that has data. close[-1] is the *next* bar, which is NaN
+# only at the right-hand edge — the standard thinkScript last-bar test. Chips
+# are drawn here so there is exactly one per level rather than one per bar.
+def isLastBar = !IsNaN(close) and IsNaN(close[-1]);
+
+# -----------------------------------------------------------------------------
+#  The four levels, as horizontal lines
+#  A level of 0 plots Double.NaN, which thinkorswim draws as nothing at all —
+#  so an unset level costs no chart space and no legend entry.
+# -----------------------------------------------------------------------------
+plot CallWallLine = if callWall > 0 then callWall else Double.NaN;
+CallWallLine.SetDefaultColor(GlobalColor("Call Wall"));
+CallWallLine.SetLineWeight(2);
+
+plot GammaFlipLine = if gammaFlip > 0 then gammaFlip else Double.NaN;
+GammaFlipLine.SetDefaultColor(GlobalColor("Gamma Flip"));
+GammaFlipLine.SetLineWeight(2);
+
+plot PutWallLine = if putWall > 0 then putWall else Double.NaN;
+PutWallLine.SetDefaultColor(GlobalColor("Put Wall"));
+PutWallLine.SetLineWeight(2);
+
+plot MaxPainLine = if maxPain > 0 then maxPain else Double.NaN;
+MaxPainLine.SetDefaultColor(GlobalColor("Max Pain"));
+MaxPainLine.SetLineWeight(2);
+
+# -----------------------------------------------------------------------------
+#  Price chips on the lines
+#  Anchored on the last bar so there is one chip per level rather than one per
+#  bar. They sit at the right-hand edge, next to where price actually is; if
+#  they crowd the last few candles, expand the chart's right margin or turn
+#  showPriceChips off and read the values off the top-of-chart labels instead.
+# -----------------------------------------------------------------------------
+AddChartBubble(showPriceChips and isLastBar and callWall > 0,
+               callWall,  "Call Wall "  + AsPrice(callWall),  GlobalColor("Call Wall"),  yes);
+AddChartBubble(showPriceChips and isLastBar and gammaFlip > 0,
+               gammaFlip, "Gamma Flip " + AsPrice(gammaFlip), GlobalColor("Gamma Flip"), yes);
+AddChartBubble(showPriceChips and isLastBar and putWall > 0,
+               putWall,   "Put Wall "   + AsPrice(putWall),   GlobalColor("Put Wall"),   no);
+AddChartBubble(showPriceChips and isLastBar and maxPain > 0,
+               maxPain,   "Max Pain "   + AsPrice(maxPain),   GlobalColor("Max Pain"),   no);
+
+# -----------------------------------------------------------------------------
+#  Info chips along the top of the chart
+# -----------------------------------------------------------------------------
+AddLabel(showInfoLabels, "ZeroGEX Gamma Levels - " + levelsFor, Color.GRAY);
+AddLabel(showInfoLabels and showLevelsDate, "Levels: " + levelsDate, Color.GRAY);
+AddLabel(showInfoLabels and callWall > 0,  "Call Wall "  + AsPrice(callWall),  GlobalColor("Call Wall"));
+AddLabel(showInfoLabels and gammaFlip > 0, "Gamma Flip " + AsPrice(gammaFlip), GlobalColor("Gamma Flip"));
+AddLabel(showInfoLabels and putWall > 0,   "Put Wall "   + AsPrice(putWall),   GlobalColor("Put Wall"));
+AddLabel(showInfoLabels and maxPain > 0,   "Max Pain "   + AsPrice(maxPain),   GlobalColor("Max Pain"));
+AddLabel(showSource, "zerogex.io - free delayed levels - informational only", Color.GRAY);
+
+# -----------------------------------------------------------------------------
+#  Level-cross alerts
+#  Alert.BAR fires once per bar close rather than on every tick, which is what
+#  you want for a level cross — an intrabar wick across the Gamma Flip that
+#  closes back inside it is noise, not a regime change.
+# -----------------------------------------------------------------------------
+Alert(enableAlerts and callWall > 0 and close crosses callWall,
+      "ZeroGEX: price crossed the Call Wall", Alert.BAR, Sound.Chimes);
+Alert(enableAlerts and gammaFlip > 0 and close crosses gammaFlip,
+      "ZeroGEX: price crossed the Gamma Flip - possible regime shift", Alert.BAR, Sound.Ring);
+Alert(enableAlerts and putWall > 0 and close crosses putWall,
+      "ZeroGEX: price crossed the Put Wall", Alert.BAR, Sound.Chimes);
+Alert(enableAlerts and maxPain > 0 and close crosses maxPain,
+      "ZeroGEX: price crossed Max Pain", Alert.BAR, Sound.Ding);

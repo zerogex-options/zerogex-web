@@ -3,6 +3,9 @@ import { serverApiGet } from '@/core/api/serverFetch';
 import { captureServer } from '@/core/telemetry/posthog-server';
 import { TelemetryEvent } from '@/core/telemetry/events';
 import { resolveSymbol } from '@/core/symbols';
+// PIN_STRIKE_COLOR_HEX, not the CSS var: satori resolves no custom properties,
+// so this card needs the literal the var is defined from (see core/pinStrike).
+import { formatPinStrike, PIN_STRIKE_COLOR_HEX } from '@/core/pinStrike';
 
 export const runtime = 'nodejs';
 export const alt = 'ZeroGEX Replay snapshot — historical dealer gamma surface';
@@ -19,6 +22,10 @@ interface FramePayload {
     put_wall: number | null;
     gamma_flip: number | null;
     max_pain: number | null;
+    // Pin Strike — the reachable 0DTE positive-gamma pin for this minute.
+    // /api/replay/frame ships it alongside the walls; null when there was no
+    // active pin, which the card prints as the same em-dash the other cells use.
+    pin_strike: number | null;
     net_gex: number | null;
   } | null;
   strikes?: Array<{ strike: number | null; net_gex: number | null }>;
@@ -234,12 +241,17 @@ export default async function Image({ params }: { params: { symbol: string; date
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: 18 }}>
+            <div style={{ display: 'flex', gap: 16 }}>
               {[
                 { label: 'Call wall', value: fmtPrice(summary.call_wall), color: '#F45854' },
                 { label: 'Put wall', value: fmtPrice(summary.put_wall), color: '#10B981' },
                 { label: 'Gamma flip', value: fmtPrice(summary.gamma_flip), color: '#FF8531' },
                 { label: 'Max pain', value: fmtPrice(summary.max_pain), color: '#FFD380' },
+                {
+                  label: 'Pin strike',
+                  value: formatPinStrike(summary.pin_strike),
+                  color: PIN_STRIKE_COLOR_HEX,
+                },
               ].map((cell) => (
                 <div
                   key={cell.label}
@@ -250,7 +262,7 @@ export default async function Image({ params }: { params: { symbol: string; date
                     background: '#0B3344',
                     borderRadius: 12,
                     borderLeft: `4px solid ${cell.color}`,
-                    padding: '18px 22px',
+                    padding: '18px 18px',
                   }}
                 >
                   <div
@@ -267,7 +279,7 @@ export default async function Image({ params }: { params: { symbol: string; date
                   </div>
                   <div
                     style={{
-                      fontSize: 36,
+                      fontSize: 30,
                       fontWeight: 900,
                       color: '#FFF1E6',
                       marginTop: 6,

@@ -497,19 +497,41 @@ export default function GammaHeatmapCanvas() {
   const [size, setSize] = useState({ w: 1300, h: 720 });
   const [hover, setHover] = useState<{ x: number; y: number } | null>(null);
 
+  // The canvas container is only rendered once `grid` resolves — before that
+  // the card shows "No heatmap data available" instead. The ref is therefore
+  // null on the first mount, so the ResizeObserver setup has to re-run when the
+  // container actually attaches; with a bare `[]` it bailed once and never came
+  // back, leaving the canvas pinned to the initial {1300, 720} fallback. On the
+  // full-width page 1300px happens to be about right, so it went unnoticed —
+  // but in a My Dashboard tile the canvas was ~600px wider than the tile, and
+  // since everything is drawn relative to plotW the whole right-hand side of
+  // the chart (the newest bars, the color legend) was laid out past the card's
+  // edge and silently clipped: a mid-afternoon board showed nothing after late
+  // morning. Same fix, and same reason, as FlipSurfaceChart / ForcedFlowSurfaceChart.
+  const containerMounted = grid != null;
   useEffect(() => {
+    if (!containerMounted) return;
     const node = containerRef.current;
     if (!node) return;
+    const measure = (w: number) => {
+      const cw = Math.max(320, w);
+      setSize({ w: cw, h: Math.max(360, Math.min(820, cw * 0.55)) });
+    };
+    // Seed from the freshly-mounted container so the first paint already uses
+    // the real layout width instead of the fallback. Subtract the container's
+    // own padding so this matches the observer's `contentRect.width` exactly —
+    // otherwise the seed would run one frame ~32px (px-4) too wide.
+    const cs = window.getComputedStyle(node);
+    const padX = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+    measure(node.clientWidth - padX);
     const ro = new ResizeObserver((entries) => {
       const cr = entries[0]?.contentRect;
       if (!cr) return;
-      const w = Math.max(320, cr.width);
-      const h = Math.max(360, Math.min(820, w * 0.55));
-      setSize({ w, h });
+      measure(cr.width);
     });
     ro.observe(node);
     return () => ro.disconnect();
-  }, []);
+  }, [containerMounted]);
 
   useEffect(() => {
     const cv = canvasRef.current;

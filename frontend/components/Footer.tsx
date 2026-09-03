@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Mail, Youtube } from 'lucide-react';
 import { Theme } from '@/core/types';
 import { brandLogo } from '@/core/brand';
+import { INTEGRATIONS_HUB } from '@/core/integrations';
 import { useLanguage } from '@/core/LanguageContext';
 import type { TranslationKey } from '@/core/i18n';
 
@@ -12,7 +13,15 @@ interface FooterProps {
   theme: Theme;
 }
 
-type FooterLink = { href: string; labelKey: TranslationKey; external?: boolean };
+// A link carries either a `labelKey` (translated) or a literal English
+// `label` — the latter for brand names, which stay English in every locale.
+// Same convention core/navigation.ts uses for nav entries, so the two menus
+// never disagree about what to translate. (The chart-platform brand names
+// that used to need it now sit behind one translated "Integrations" link.)
+type FooterLink = { href: string; external?: boolean } & (
+  | { labelKey: TranslationKey; label?: never }
+  | { label: string; labelKey?: never }
+);
 type FooterColumn = { headingKey: TranslationKey; links: FooterLink[] };
 
 // Four semantic columns instead of one flat list of nine links under a generic
@@ -25,6 +34,10 @@ const FOOTER_COLUMNS: FooterColumn[] = [
     links: [
       { href: '/dashboard', labelKey: 'footer.platform' },
       { href: '/spx-gamma-levels', labelKey: 'footer.freeGammaLevels' },
+      // One link, not one per platform — the four landings live under
+      // /integrations and the hub is the only entry the menus carry too.
+      // See core/integrations.ts.
+      { href: INTEGRATIONS_HUB.href, labelKey: 'nav.integrations' },
       { href: '/pricing', labelKey: 'footer.pricing' },
       { href: 'https://api.zerogex.io/docs', labelKey: 'footer.apiDocs', external: true },
     ],
@@ -42,6 +55,10 @@ const FOOTER_COLUMNS: FooterColumn[] = [
     headingKey: 'footer.col.company',
     links: [
       { href: '/about', labelKey: 'nav.about' },
+      // Permanent, site-wide answer to "what does ZeroGEX actually claim?".
+      // Sits next to About because it is an institutional disclosure about the
+      // product — what is observed vs. modeled — not a tutorial.
+      { href: '/methodology', labelKey: 'footer.methodology' },
       { href: '/updates', labelKey: 'footer.updates' },
       { href: '/giving', labelKey: 'footer.givingBack' },
     ],
@@ -146,6 +163,7 @@ function SocialLinks() {
 export default function Footer({ theme }: FooterProps) {
   const { t } = useLanguage();
   const isDark = theme === 'dark';
+  const linkLabel = (link: FooterLink) => (link.labelKey ? t(link.labelKey) : link.label);
 
   return (
     <footer
@@ -212,11 +230,11 @@ export default function Footer({ theme }: FooterProps) {
                   <li key={`${column.headingKey}-${link.href}`}>
                     {link.external ? (
                       <a href={link.href} target="_blank" rel="noreferrer" className="zg-footer-link">
-                        {t(link.labelKey)}
+                        {linkLabel(link)}
                       </a>
                     ) : (
                       <Link href={link.href} className="zg-footer-link">
-                        {t(link.labelKey)}
+                        {linkLabel(link)}
                       </Link>
                     )}
                   </li>

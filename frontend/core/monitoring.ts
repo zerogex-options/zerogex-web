@@ -38,6 +38,7 @@ import {
   buildSubscriberLedger,
   summarizeLedger,
   type LedgerDeleteEvent,
+  type LedgerPaymentEvent,
   type LedgerRow,
   type LedgerSyncEvent,
 } from '@/core/subscriberBucket';
@@ -52,6 +53,7 @@ import {
   summarizeTrialOutcomes,
   type ConveyorDeleteEvent,
   type ConveyorOutcomes,
+  type ConveyorPaymentEvent,
   type ConveyorRider,
   type ConveyorSyncEvent,
   type ConveyorTotals,
@@ -92,9 +94,16 @@ export type SignupPoint = {
   basic: number;
   pro: number;
   public: number;
-  // Full subscribers — Stripe subscription_status='active'. Mirrors what
+  // Full subscribers — a live subscription with a paid tier on which at least one
+  // invoice has actually been paid (users.first_payment_at). Mirrors what
   // `make users PAID=yes` lists.
   paying: number;
+  // Trial conversions in flight — subscription_status='active' but no payment of
+  // theirs has ever cleared. Stripe raises the post-trial invoice and flips the
+  // sub to `active` about an hour before it attempts the charge, so this band is
+  // "the charge has been raised, we don't know yet". They land on `paying` when
+  // the invoice is paid, or on `graceTrial` when it's declined.
+  converting: number;
   // Free-trial users — subscription_status='trialing'. Card on file but
   // not yet charged. Mirrors `make users TRIAL=yes`.
   trialing: number;
@@ -134,6 +143,15 @@ export type SignupPoint = {
 //   • basicCancel / proCancel — a VOLUNTARY cancellation: the sub was deleted
 //                               without having been downgraded for payment failure
 //                               (also stored negative)
+//   • basicPause / proPause   — a retention PAUSE: the member took a bounded
+//                               break (Stripe pause_collection) rather than
+//                               canceling. Stripe leaves such a subscription
+//                               `active` while the webhook grants no tier, so
+//                               access — and the headcount — drops without this
+//                               being churn at all. Its own family so it stops
+//                               reading as involuntary payment-failure churn;
+//                               the resume comes back as a reactivation. Stored
+//                               negative.
 // The two churn causes partition each lost sub, so they never double-count.
 // `registrations` is the number of new self-serve accounts that day (any tier —
 // everyone starts on Public at email registration), for the separate line chart.
@@ -147,6 +165,8 @@ export type SignupFlowPoint = {
   proCancel: number;
   basicPaymentFail: number;
   proPaymentFail: number;
+  basicPause: number;
+  proPause: number;
   registrations: number;
 };
 
@@ -253,7 +273,7 @@ export type SubscriberLedgerSnapshot = {
   rows: LedgerRow[];
   truncated: number;
   // Net movement of each chart line across the window, which the rows account for.
-  net: { fullSubscriber: number; freeTrial: number; trialGrace: number };
+  net: { fullSubscriber: number; converting: number; freeTrial: number; trialGrace: number };
   generatedAt: string;
 };
 
@@ -535,6 +555,9 @@ type SignupDay = {
   pro: number;
   public: number;
   paying: number;
+  // Optional: days stored before the Converting band existed have no value for
+  // it, and a stored day is replayed verbatim rather than recomputed.
+  converting?: number;
   trialing: number;
   graceTrial: number;
   disclaimer: number;
@@ -562,6 +585,10 @@ function readSignupStore(): SignupStoreShape {
           pro: Number(v?.pro) || 0,
           public: Number(v?.public) || 0,
           paying: Number(v?.paying) || 0,
+          // Samples written before the Converting band have no key; 0 reads
+          // those days exactly as they read then (that cohort was counted
+          // inside `paying`), so the stacked area stays continuous.
+          converting: Number(v?.converting) || 0,
           trialing: Number(v?.trialing) || 0,
           // Samples written before the trial-grace split have no `graceTrial`
           // key; 0 leaves those days reading exactly as they did then (that
@@ -611,14 +638,24 @@ function currentTierCounts(): { basic: number; pro: number; public: number } {
 }
 
 // Headcount split by subscription state, for the Total Subscribers chart:
-//   active     — fully paying subscribers, PLUS members in a RENEWAL-failure
-//                payment-recovery grace window (subscription `past_due` but tier
-//                still pro/basic: a failed renewal Stripe is still retrying, with
-//                access retained — see BILLING_PAYMENT_GRACE_DAYS). Those are
-//                established payers whose access hasn't dropped, so counting them
-//                here keeps this reconciled with the subscription-flow chart,
-//                which books the loss only at the real downgrade (tier ->
-//                public), not at past_due entry.
+//   active     — fully paying subscribers: a live subscription on which at least
+//                one invoice has actually been PAID (users.first_payment_at).
+//                Includes members in a RENEWAL-failure payment-recovery grace
+//                window (subscription `past_due` but tier still pro/basic: a
+//                failed renewal Stripe is still retrying, with access retained —
+//                see BILLING_PAYMENT_GRACE_DAYS). Those are established payers
+//                whose access hasn't dropped, so counting them here keeps this
+//                reconciled with the subscription-flow chart, which books the
+//                loss only at the real downgrade (tier -> public), not at
+//                past_due entry.
+//   converting — the trial ended, Stripe raised the first invoice and flipped
+//                the subscription to `active`, but no payment of theirs has ever
+//                cleared. Stripe does that about an hour BEFORE it attempts the
+//                charge, so this is a charge in flight, not a customer. Broken
+//                out because folding it into `active` made the Full Subscriber
+//                line tick up at every trial end and back down an hour later on
+//                each decline — a real subscriber and a card about to be refused
+//                are not the same thing.
 //   trialing   — card on file, free-trial window still running.
 //   graceTrial — the trial lapsed, the first conversion charge was DECLINED, and
 //                the member is inside the same bounded grace window
@@ -626,12 +663,28 @@ function currentTierCounts(): { basic: number; pro: number; public: number } {
 //                they have never actually completed a payment: they are neither a
 //                full subscriber nor still on trial, and the bucket sizes the
 //                revenue at risk at the trial→paid step specifically.
-// A past_due row whose tier has ALREADY gone 'public' (grace expired or disabled)
-// is a genuine downgrade and is excluded here, as are unpaid/canceled/public.
+//
+// EVERY line is gated on a paid tier, exactly as accumulateSubscriptionFlow
+// books its adds and losses, which is what makes the two reconcile by
+// construction. Two states keep a live subscription_status while access is
+// withheld, and the tier is the only thing that reveals either: a PAUSED
+// subscription (Stripe leaves it `active` while pause_collection is set; the
+// member pays nothing and gets nothing) and a trial held at the PAYMENT-SETUP
+// GATE (`trialing` whose SetupIntent hasn't succeeded). Both drop to tier
+// 'public'. Counting them here — as this did before — put members on the chart
+// that the flow chart had already booked out, so a pause showed as a −1 bar
+// under a headcount that never moved.
+//
 // A past_due row with no recorded reason (a window opened before the reason
 // column existed) counts as `active`, exactly as every past_due grace row did
-// before the split, so no history is retroactively re-attributed.
-function currentPayingCounts(): { active: number; trialing: number; graceTrial: number } {
+// before the split, so no history is retroactively re-attributed. So does a
+// past_due row with no first_payment_at: reaching a renewal means they paid.
+function currentPayingCounts(): {
+  active: number;
+  converting: number;
+  trialing: number;
+  graceTrial: number;
+} {
   try {
     const rows = getDb()
       .prepare(
@@ -639,27 +692,30 @@ function currentPayingCounts(): { active: number; trialing: number; graceTrial: 
            CASE
              WHEN subscription_status = 'trialing' THEN 'trialing'
              WHEN subscription_status = 'past_due' AND payment_grace_reason = 'trial' THEN 'graceTrial'
+             WHEN subscription_status = 'active' AND first_payment_at IS NULL THEN 'converting'
              ELSE 'active'
            END AS bucket,
            COUNT(*) AS c
          FROM users
-         WHERE subscription_status IN ('active', 'trialing')
-            OR (subscription_status = 'past_due' AND tier IN ('pro', 'basic'))
+         WHERE tier IN ('pro', 'basic', 'elite', 'starter')
+           AND subscription_status IN ('active', 'trialing', 'past_due')
          GROUP BY bucket`,
       )
       .all() as Array<{ bucket: string; c: number }>;
     let active = 0;
+    let converting = 0;
     let trialing = 0;
     let graceTrial = 0;
     for (const row of rows) {
       const c = Number(row.c) || 0;
       if (row.bucket === 'active') active = c;
+      else if (row.bucket === 'converting') converting = c;
       else if (row.bucket === 'trialing') trialing = c;
       else if (row.bucket === 'graceTrial') graceTrial = c;
     }
-    return { active, trialing, graceTrial };
+    return { active, converting, trialing, graceTrial };
   } catch {
-    return { active: 0, trialing: 0, graceTrial: 0 };
+    return { active: 0, converting: 0, trialing: 0, graceTrial: 0 };
   }
 }
 
@@ -883,6 +939,7 @@ function buildSignupSeries(now: Date): SignupPoint[] {
     pro: counts.pro,
     public: counts.public,
     paying: paying.active,
+    converting: paying.converting,
     trialing: paying.trialing,
     graceTrial: paying.graceTrial,
     disclaimer,
@@ -894,6 +951,7 @@ function buildSignupSeries(now: Date): SignupPoint[] {
     existing.pro !== sample.pro ||
     existing.public !== sample.public ||
     existing.paying !== sample.paying ||
+    existing.converting !== sample.converting ||
     existing.trialing !== sample.trialing ||
     existing.graceTrial !== sample.graceTrial ||
     existing.disclaimer !== sample.disclaimer
@@ -909,6 +967,7 @@ function buildSignupSeries(now: Date): SignupPoint[] {
     pro: 0,
     public: 0,
     paying: 0,
+    converting: 0,
     trialing: 0,
     graceTrial: 0,
     disclaimer: 0,
@@ -921,6 +980,10 @@ function buildSignupSeries(now: Date): SignupPoint[] {
       pro: last.pro,
       public: last.public,
       paying: last.paying,
+      // Days sampled before this band existed carry no value; 0 is the truthful
+      // reading (nothing was ever observed mid-conversion) and keeps the stacked
+      // area continuous instead of punching a hole in it.
+      converting: last.converting ?? 0,
       trialing: last.trialing,
       graceTrial: last.graceTrial,
       disclaimer: last.disclaimer,
@@ -938,6 +1001,8 @@ type FlowAcc = {
   proCancel: number;
   basicPaymentFail: number;
   proPaymentFail: number;
+  basicPause: number;
+  proPause: number;
   registrations: number;
 };
 
@@ -951,6 +1016,8 @@ function emptyFlowAcc(): FlowAcc {
     proCancel: 0,
     basicPaymentFail: 0,
     proPaymentFail: 0,
+    basicPause: 0,
+    proPause: 0,
     registrations: 0,
   };
 }
@@ -1000,6 +1067,8 @@ function isFlowDayEmpty(p: SignupFlowPoint): boolean {
     p.basicCancel === 0 &&
     p.proPaymentFail === 0 &&
     p.basicPaymentFail === 0 &&
+    p.proPause === 0 &&
+    p.basicPause === 0 &&
     p.registrations === 0
   );
 }
@@ -1111,6 +1180,8 @@ function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
       bucket.basicPaymentFail += delta.basicPaymentFail;
       bucket.proCancel += delta.proCancel;
       bucket.basicCancel += delta.basicCancel;
+      bucket.proPause += delta.proPause;
+      bucket.basicPause += delta.basicPause;
     }
 
     // Registrations: authoritative new-account count from the users table (one
@@ -1366,7 +1437,7 @@ function buildSubscriberLedger_(now: Date): SubscriberLedgerSnapshot {
     windowDays: LEDGER_WINDOW_DAYS,
     rows: [],
     truncated: 0,
-    net: { fullSubscriber: 0, freeTrial: 0, trialGrace: 0 },
+    net: { fullSubscriber: 0, converting: 0, freeTrial: 0, trialGrace: 0 },
     generatedAt: now.toISOString(),
   };
   try {
@@ -1415,8 +1486,33 @@ function buildSubscriberLedger_(now: Date): SubscriberLedgerSnapshot {
       reason: parseCancellationReasonFromMessage(row.message).feedback,
     }));
 
+    // The Converting -> Full Subscriber step. Nothing about the SUBSCRIPTION
+    // changes when its invoice is paid, so the sync stream above cannot see it;
+    // this is the only record that money moved.
+    const paidRows = db
+      .prepare(
+        `SELECT created_at, user_id, email, message FROM audit_events
+         WHERE type = 'stripe_first_payment'
+           AND created_at > datetime('now', '-${since} days')
+         ORDER BY created_at ASC`,
+      )
+      .all() as Array<{ created_at: string; user_id: string | null; email: string | null; message: string }>;
+    const payments: LedgerPaymentEvent[] = [];
+    for (const row of paidRows) {
+      const subId = parseSubIdFromMessage(row.message);
+      if (!subId) continue;
+      payments.push({
+        subId,
+        userId: row.user_id,
+        email: row.email,
+        at: toIsoInstant(row.created_at),
+      });
+    }
+
     const cutoffMs = now.getTime() - LEDGER_WINDOW_DAYS * 86_400_000;
-    const all = buildSubscriberLedger(syncs, deletes).filter((r) => Date.parse(r.at) >= cutoffMs);
+    const all = buildSubscriberLedger(syncs, deletes, payments, now.getTime()).filter(
+      (r) => Date.parse(r.at) >= cutoffMs,
+    );
     return {
       windowDays: LEDGER_WINDOW_DAYS,
       rows: all.slice(0, LEDGER_MAX_ROWS),
@@ -1558,6 +1654,22 @@ function buildTrialConveyor(now: Date): TrialConveyorSnapshot {
       day: etDayKey(row.created_at),
     }));
 
+    // Proof that a conversion charge actually cleared, which settles the
+    // provisional `active` booking positively instead of waiting out the
+    // confirmation window. See accumulateTrialOutcomes.
+    const paidRows = db
+      .prepare(
+        `SELECT created_at, message FROM audit_events
+         WHERE type = 'stripe_first_payment'
+           AND created_at > datetime('now', '-${CONVEYOR_SYNC_WINDOW_DAYS} days')`,
+      )
+      .all() as Array<{ created_at: string; message: string }>;
+    const paymentEvents: ConveyorPaymentEvent[] = [];
+    for (const row of paidRows) {
+      const subId = parseSubIdFromMessage(row.message);
+      if (subId) paymentEvents.push({ subId, day: etDayKey(row.created_at) });
+    }
+
     const riders: ConveyorRider[] = [];
     const departures: ConveyorRider[] = [];
     for (const row of userRows) {
@@ -1611,7 +1723,7 @@ function buildTrialConveyor(now: Date): TrialConveyorSnapshot {
     const totals = summarizeRiders(riders);
     const ordered = sortRidersByDeadline(riders);
     const outcomes = summarizeTrialOutcomes(
-      accumulateTrialOutcomes(syncEvents, deleteEvents),
+      accumulateTrialOutcomes(syncEvents, deleteEvents, paymentEvents),
       generateDailyKeys(now, CONVEYOR_OUTCOMES_WINDOW_DAYS),
       CONVEYOR_OUTCOMES_WINDOW_DAYS,
     );

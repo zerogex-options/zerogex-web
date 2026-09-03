@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 
 import PageShell from '@/components/layout/PageShell';
+import ModeledPositioningNote from '@/components/ModeledPositioningNote';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { setBiasTenor } from '@/hooks/useBiasTenor';
@@ -327,6 +328,11 @@ export default function MyDashboardPage() {
         onAdd={handleAdd}
         onRemoveAll={handleRemoveAll}
       />
+
+      {/* Board-level disclosure. Most GEX widgets carry the caveat in their
+          tooltip, but a tooltip is opt-in — this states it once, in the open,
+          for whatever combination of tiles the member assembled. */}
+      <ModeledPositioningNote className="mt-4" />
     </PageShell>
   );
 }

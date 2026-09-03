@@ -102,6 +102,32 @@ export function selectionIsRollingZeroDte(selection: readonly string[]): boolean
   return selection.length === 1 && isRollingZeroDte(selection[0]);
 }
 
+// True when a rolling 0DTE pick has nothing to resolve to, and the chart it
+// feeds is therefore showing the WHOLE CHAIN under a 0DTE label.
+//
+// This is the one state where the selection model tells the truth and the
+// screen still misleads: reconcileExpirations() correctly drops the token on a
+// day with no same-day expiry, the empty result correctly means "All", and the
+// chart correctly plots All — every step honest, the sum of them not. A
+// same-day trader who left the board on 0DTE comes back to whole-chain walls
+// and flip, with plausible numbers and nothing announcing the substitution.
+//
+// The dropdown already reads "0DTE · none", but nobody reads a level off a
+// closed dropdown. Callers use this to say so where the levels actually are.
+//
+// `available` empty means the expiration list has not loaded yet — not that
+// today is absent from it — so that case is NOT a widening. Without this guard
+// the warning flashes on every mount before the chain arrives.
+export function zeroDteWidenedToAll(
+  selection: readonly string[],
+  available: readonly string[],
+  todayKey: string,
+): boolean {
+  if (!selectionIsRollingZeroDte(selection)) return false;
+  if (available.length === 0) return false;
+  return !available.includes(todayKey);
+}
+
 // Dedupe + sort ascending, dropping anything that isn't a YYYY-MM-DD string or
 // the rolling 0DTE token. ISO dates sort lexicographically in chronological
 // order, so localeCompare is exactly the ascending-by-date the charts want. The

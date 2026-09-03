@@ -26,7 +26,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'what-is-zerogex',
         q: 'What is ZeroGEX?',
-        a: 'ZeroGEX is a real-time options analytics platform built around dealer positioning. It shows you where dealers are long or short gamma, where the gamma flip sits, where the call and put walls are, and runs a suite of real-time signals on top of all of it. The point is to give you the same lens market makers use to hedge — so you can read intraday price action in those terms.',
+        a: 'ZeroGEX is a real-time options analytics platform built around dealer positioning. It models where dealers are long or short gamma, where the gamma flip sits, where the call and put walls are, and runs a suite of real-time signals on top of all of it. The point is to give you the same lens market makers hedge through — so you can read intraday price action in those terms. Dealer positioning is modeled from the option chain, not directly observed; see the Methodology page for the full disclosure.',
       },
       {
         id: 'who-its-for',
@@ -58,7 +58,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'symbols',
         q: 'What symbols are currently supported?',
-        a: 'ZeroGEX provides full analytics coverage for SPY (S&P 500 ETF), SPX (S&P 500 Index), QQQ (Nasdaq 100 ETF), and NDX (Nasdaq 100 Index). These are the four most liquid, most gamma-rich underlyings in the U.S. options market — the instruments where dealer hedging activity has the greatest intraday impact.',
+        a: 'ZeroGEX provides full analytics coverage for SPY (S&P 500 ETF), SPX (S&P 500 Index), QQQ (Nasdaq 100 ETF), and NDX (Nasdaq 100 Index) — the four most liquid, most gamma-rich underlyings in the U.S. options market, where dealer hedging activity has the greatest intraday impact. ES and NQ (the CME E-mini futures) are also first-class symbols in the picker: they carry the SPX and NDX dealer levels on the futures price axis, with the price series from the real-time CME feed. See the futures question below for how that projection works.',
       },
       {
         id: 'single-names',
@@ -68,7 +68,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'futures',
         q: 'Can I use ZeroGEX to trade futures like ES, MES, NQ, or MNQ?',
-        a: 'Yes — you map the future to its index book. /ES and /MES trade off the SPX (and SPY) gamma levels; /NQ and /MNQ off QQQ or NDX. The structural levels are identical; only the price scale differs. When the cash index is closed, the Live Bulletin already shows the ES/NQ futures-implied price for context. Translating the levels directly into futures prices is on the roadmap.',
+        a: 'Yes — and for ES and NQ you no longer map anything by hand. Pick ES or NQ in the symbol picker and the levels come back already on the futures price axis. ES and SPX track the same index, so the dealer book behind an ES chart is the SPX book; only the price scale differs. We project the SPX (and NDX, for NQ) levels onto that axis using a ratio measured off the tape rather than modeled from carry, so it self-corrects through each quarterly roll — there is no basis offset for you to configure. For the micros, /MES and /MNQ are the same contract at a tenth the size, so the levels are identical. ES and NQ trade the CME electronic session — Sunday 6:00 PM ET through Friday 5:00 PM ET, less the 5:00–6:00 PM maintenance break — so the price axis is live through the Asian and European sessions. The levels themselves come from the index options book, which prices during U.S. hours, so overnight they hold at their last computed state rather than recomputing tick-by-tick.',
       },
       {
         id: 'refresh-cadence',
@@ -83,7 +83,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'data-source',
         q: 'Where does the data come from?',
-        a: 'ZeroGEX uses OPRA-feed options data (the consolidated U.S. options tape) plus the underlying equity quote feed. Both are professional, institutional-grade real-time data sources. We don\'t disclose specific vendor names publicly.',
+        a: 'ZeroGEX uses professional-tier real-time options and underlying market data under commercial entitlements. It is worth being precise, because it is not all one tape: SPY and QQQ options are OPRA-disseminated (the consolidated U.S. options tape), while SPX, SPXW, and NDX are index options licensed separately through their listing exchanges rather than carried on OPRA. ES and NQ prices come from the real-time CME feed. Open interest is a separate end-of-session figure from clearing, not a real-time value. We don\'t disclose specific vendor names publicly.',
       },
       {
         id: 'history-depth',
@@ -189,7 +189,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'multiple-symbols',
         q: 'Can I view multiple symbols at once?',
-        a: 'Each browser tab can show one symbol. To view SPY, SPX, QQQ, and NDX side-by-side, open four tabs. The symbol picker is in the header.',
+        a: 'Each browser tab can show one symbol. To view several side-by-side — SPY, SPX, QQQ, NDX, ES, NQ — open a tab for each. The symbol picker is in the header.',
       },
       {
         id: 'mobile-support',
@@ -278,7 +278,7 @@ const FAQ_DATA: FAQCategory[] = [
       {
         id: 'api-ninjatrader',
         q: 'Can I plot the levels on NinjaTrader?',
-        a: 'Yes — we publish a free NinjaTrader 8 indicator that draws the Gamma Flip, Call Wall, Put Wall, Max Pain, and Pin Strike on your chart and keeps them current by polling the API. Download it from any of the free gamma levels pages (for example <a href="/spx-gamma-levels">/spx-gamma-levels</a>), compile it in the NinjaScript Editor, and paste in your Pro API key. The indicator is free and open source; the live data behind it needs the key. Unlike our TradingView script, which is manual-entry because Pine Script can\'t make HTTP calls, this one updates itself.',
+        a: 'Yes — our NinjaTrader 8 indicator draws the Gamma Flip, Call Wall, Put Wall, Max Pain, and Pin Strike on your chart and keeps them current by polling the API. It is included with Pro: signed in to a Pro plan, download it from any of the free gamma levels pages (for example <a href="/spx-gamma-levels">/spx-gamma-levels</a>), compile it in the NinjaScript Editor, and paste in your API key. On any other plan those pages show an <a href="/pricing?plan=pro">upgrade link</a> in place of the download. Unlike our TradingView script, which is manual-entry because Pine Script can\'t make HTTP calls, this one updates itself.',
       },
       {
         id: 'api-streaming',
@@ -293,9 +293,14 @@ const FAQ_DATA: FAQCategory[] = [
     blurb: 'How the numbers are actually computed.',
     faqs: [
       {
+        id: 'modeled-vs-observed',
+        q: 'Does ZeroGEX know the actual dealer positions?',
+        a: 'No — and no vendor does. Public options data shows how many contracts are outstanding at each strike, but not who is long and who is short. ZeroGEX therefore applies a defined positioning convention: calls are signed positive and puts negative, modeling dealers as net long the calls customers overwrite and net short the puts customers buy for protection. Every dealer-positioning metric on the platform is derived under that convention. It is disclosed, applied consistently, and useful precisely because it is consistent — but it is a model, not a measurement. The Methodology & Validation page sets out the full assumptions, the limitations, and how we test them.',
+      },
+      {
         id: 'what-is-gex',
         q: 'What is Gamma Exposure (GEX) and why does it matter?',
-        a: 'GEX is the aggregate sensitivity of options dealers\' delta hedges to price moves in the underlying. When dealers are long gamma (positive net GEX at spot), they sell rallies and buy dips — a dampening effect on volatility. When they\'re short gamma, they chase price — an amplifying effect. Knowing the GEX regime tells you whether the market is likely to mean-revert or trend.',
+        a: 'GEX is the aggregate sensitivity of options dealers\' delta hedges to price moves in the underlying. When dealers are modeled long gamma (positive net GEX at spot), the hedging reflex is to sell rallies and buy dips — a dampening effect on volatility. When modeled short gamma, hedging chases price — an amplifying effect. Knowing the modeled GEX regime tells you whether the market is more likely to mean-revert or trend.',
       },
       {
         id: 'gamma-flip',

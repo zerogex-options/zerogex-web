@@ -4,33 +4,55 @@ import { useState, useSyncExternalStore } from 'react';
 import { X } from 'lucide-react';
 import { usePageT } from '@/core/LanguageContext';
 import { dict } from './TrialStartedBanner.i18n';
+import { resolveTrialStartedCopy } from './trialStartedCopy';
 
-// Post-checkout welcome. Stripe's success_url is /dashboard?trial_started=1;
-// this shows a one-time, dismissible confirmation so the just-converted trialer
-// gets a clear "you're in" moment. If the subscription webhook hasn't granted
-// the tier yet, the dashboard's own data hooks fill in within a few seconds
-// (they poll), so the banner reassures while that settles.
+// Post-checkout welcome. Stripe's success_url is
+// /dashboard?trial_started=1&trial=<what checkout granted>; this shows a
+// one-time, dismissible confirmation so the just-converted member gets a clear
+// "you're in" moment. If the subscription webhook hasn't granted the tier yet,
+// the dashboard's own data hooks fill in within a few seconds (they poll), so
+// the banner reassures while that settles.
 //
-// The `trial_started` flag is read via useSyncExternalStore (server snapshot =
-// false) rather than a mount effect — SSR-safe, no hydration mismatch, and no
-// synchronous setState-in-effect.
+// `trial` describes the trial itself and drives which of the three messages
+// renders (see ./trialStartedCopy). It is read from the URL rather than from
+// the session because the banner's whole job is the window BEFORE the webhook
+// syncs — at first paint the account may not know it has a trial yet, but the
+// checkout that just redirected here knows exactly what it granted.
+//
+// Both params are read via useSyncExternalStore (server snapshot = null)
+// rather than a mount effect — SSR-safe, no hydration mismatch, and no
+// synchronous setState-in-effect. The snapshot is a string (or null), never an
+// object: useSyncExternalStore compares snapshots with Object.is, so a fresh
+// object on every call would re-render forever.
 const subscribe = () => () => {};
-const readTrialStarted = () => {
+const readTrialParam = (): string | null => {
   try {
-    return new URLSearchParams(window.location.search).get('trial_started') === '1';
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('trial_started') !== '1') return null;
+    // '' rather than null when `trial` is absent, so "post-checkout, trial
+    // undescribed" stays distinguishable from "not a post-checkout view".
+    return params.get('trial') ?? '';
   } catch {
     // A malformed query string must never break the dashboard.
-    return false;
+    return null;
   }
 };
-const readServer = () => false;
+const readServer = (): string | null => null;
 
 export default function TrialStartedBanner() {
-  const trialStarted = useSyncExternalStore(subscribe, readTrialStarted, readServer);
+  const trialParam = useSyncExternalStore(subscribe, readTrialParam, readServer);
   const [dismissed, setDismissed] = useState(false);
   const t = usePageT(dict);
 
-  if (!trialStarted || dismissed) return null;
+  if (trialParam === null || dismissed) return null;
+
+  const copy = resolveTrialStartedCopy(trialParam);
+  const [welcomeMessage, billingMessage] =
+    copy.variant === 'days'
+      ? [t('welcomeDays', { days: copy.days }), t('billingDays', { days: copy.days })]
+      : copy.variant === 'deferred'
+        ? [t('welcomeDeferred'), t('billingDeferred')]
+        : [t('welcomeNone'), t('billingNone')];
 
   return (
     <div
@@ -48,9 +70,9 @@ export default function TrialStartedBanner() {
       }}
     >
       <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 600, lineHeight: 1.4 }}>
-        {t('welcomeMessage')}{' '}
+        {welcomeMessage}{' '}
         <span style={{ color: 'var(--color-text-secondary)', fontWeight: 500 }}>
-          {t('noChargeMessage')}
+          {billingMessage}
         </span>
       </span>
       <button

@@ -1672,6 +1672,30 @@ html {
 }
 .zg-btn--ghost:hover { color: var(--text-primary); }
 
+/* Disclosure — the one-line "there is more prose here" toggle. Label-sized and
+   quiet on purpose: it sits where a paragraph used to, so it must read as the
+   folded edge of that paragraph rather than as another button competing with
+   the page's real actions. Pair it with aria-expanded on the button. */
+.zg-disclosure {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 11px;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  transition: color var(--dur-2) var(--ease-standard);
+}
+.zg-disclosure:hover { color: var(--text-primary); }
+.zg-disclosure svg { color: var(--text-muted); }
+.zg-disclosure:hover svg { color: var(--text-primary); }
+
 /* ============================================================
    CHROME — header, sidebar, account menu, footer.
    The frame around the product. It used to be built from inline

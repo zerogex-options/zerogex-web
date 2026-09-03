@@ -41,6 +41,13 @@ function initDb(): DatabaseSync {
       FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
     );
   `);
+  // Every read of this table goes by token_hash, which the UNIQUE above already
+  // indexes. The by-user_id access — expired-row pruning on sign-in, and the
+  // full revoke on password reset and account deletion — used to be rare enough
+  // to leave as a scan, because a user only ever had one row. Sessions are
+  // additive now (see createSessionForUser), so a long-lived account
+  // accumulates one row per sign-in and those scans grow with it.
+  db.exec('CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);');
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS audit_events (
@@ -515,6 +522,52 @@ function initDb(): DatabaseSync {
   // the split. Read by core/monitoring.ts to break the trial-conversion cohort
   // out of the Total Subscribers chart.
   ensureColumn('users', 'payment_grace_reason', 'TEXT');
+
+  // ISO instant this member's FIRST subscription invoice was actually PAID, or
+  // NULL if no payment of theirs has ever cleared. Stamped once (COALESCE, so
+  // renewals and webhook redeliveries never move it) from the invoice.paid
+  // webhook branch, which is the only place we learn that money moved.
+  //
+  // It exists because `subscription_status` cannot answer "is this a paying
+  // customer". Stripe flips a subscription from `trialing` to `active` when the
+  // post-trial invoice is CREATED — roughly an hour before it attempts the
+  // charge — so an `active` subscription is evidence of an invoice, not of a
+  // payment. Counting that `active` as a Full Subscriber made the admin
+  // headcount tick up at trial end and back down an hour later whenever the card
+  // declined. core/subscriberBucket.ts routes an `active` with no stamp to the
+  // Converting line instead, and promotes it here when the charge clears.
+  //
+  // Backfill for rows that predate the column, gated on ensureColumn's "just
+  // added" return so it runs EXACTLY ONCE (same pattern as pro_welcome_seen_at
+  // and email_verified_at above). The gate is load-bearing, not tidiness: an
+  // unguarded re-run would stamp whoever happens to be mid-conversion at that
+  // moment as having paid, so every deploy and every process restart would
+  // quietly promote a member whose card had not been charged yet — the exact
+  // bug this column exists to prevent.
+  //
+  // Everyone on a live `active` subscription at that instant has been through at
+  // least one successful charge — a trial still at its first charge is
+  // `trialing`, and one whose charge was declined is `past_due` — so leaving
+  // them NULL would park the entire existing subscriber base on the Converting
+  // line. updated_at is the closest instant we still hold for them; it is only
+  // ever read as "not null", never as a date.
+  //
+  // Deliberately NOT restricted to paid tiers: an `active` row sitting at tier
+  // 'public' is a PAUSED established payer, and skipping them would drop them
+  // onto Converting when their pause ends. Stamping a row the headcount doesn't
+  // select is inert either way — every one of its lines requires a paid tier.
+  //
+  // The one row this can misjudge is a member inside the trial-conversion hour
+  // at migration time; they are stamped as paid a few minutes early. That is a
+  // single account, once, and it self-corrects on their next real invoice.
+  if (ensureColumn('users', 'first_payment_at', 'TEXT')) {
+    db.prepare(
+      `UPDATE users
+          SET first_payment_at = updated_at
+        WHERE first_payment_at IS NULL
+          AND subscription_status = 'active'`,
+    ).run();
+  }
 
   // Soft-delete marker for self-service account deletion (see
   // app/api/account/delete/route.ts + the /account danger zone). NULL = active;

@@ -13,10 +13,16 @@
  *   • delayed (snapshot set) — the public view; the chart renders a frozen,
  *     ~15-min-delayed server snapshot and does zero client fetching. The page
  *     (a server component) picks the mode from the visitor's session.
+ *
+ * The mode also decides how much prose the hero opens with. A member has
+ * already bought the argument, so the pitch and the spec row start folded
+ * behind a one-line disclosure; the public page still has to make the case, so
+ * they start open. Either reader can toggle it.
  */
 
 import Link from 'next/link';
-import { ArrowRight, Gauge, Layers, LineChart, Sparkles, Target, Waves } from 'lucide-react';
+import { useState } from 'react';
+import { ArrowRight, ChevronDown, ChevronUp, Gauge, Layers, LineChart, Sparkles, Target, Waves } from 'lucide-react';
 import PageShell from '@/components/layout/PageShell';
 import GammaTerminalChart, { type ChartSnapshot } from '@/components/GammaTerminalChart';
 import { SYMBOLS } from '@/core/symbols';
@@ -66,6 +72,19 @@ export default function ChartClient({
   snapshot?: ChartSnapshot | null;
   delayed?: boolean;
 }) {
+  // The hero pitch — what this surface is and what it carries — is written for
+  // someone deciding whether it is worth paying for. A member has already
+  // decided, and on a handset that paragraph plus the spec row is most of a
+  // screen standing between them and the chart they came for. So it folds for
+  // members and stays open for the public lead magnet; the toggle is there for
+  // either, and the choice is nobody's but the reader's.
+  //
+  // `delayed` IS the paying-member signal, not a proxy for one: /chart renders
+  // delayed={false} only for a signed-in basic/pro session and the frozen
+  // snapshot for everyone else. Keying the default off it also means the
+  // indexable public HTML still ships this copy expanded, so nothing about the
+  // free page changes for search.
+  const [introOpen, setIntroOpen] = useState(delayed);
 
   return (
     <PageShell width="wide">
@@ -91,27 +110,44 @@ export default function ChartClient({
             their levels through exactly the same code path. */}
         <KeyLevelsStrip snapshot={snapshot} delayed={delayed} className="mb-5" />
 
-        <p style={{ fontSize: 16, lineHeight: 1.65, color: 'var(--text-secondary)', maxWidth: 760 }}>
-          Price and dealer gamma on one surface. See exactly where market makers are forced to trade against
-          you — the Gamma Flip, the Call and Put Walls, and a silhouette of dealer positioning by price — drawn
-          inline on a fast, precise candle chart. Nothing else shows you this.
-          {delayed && (
-            <>
-              {' '}
-              <strong style={{ color: 'var(--text-primary)' }}>
-                This free preview is delayed about 15 minutes;
-              </strong>{' '}
-              members get it live.
-            </>
-          )}
-        </p>
-        <div className="flex flex-wrap items-center gap-8 mt-5">
-          {/* Derived from the same SYMBOLS the chart's own switcher maps, so the
-              hero cannot advertise a different set from the one it renders —
-              this line still read SPY · QQQ · SPX · NDX after ES and NQ shipped. */}
-          <Stat value={SYMBOLS.join(' · ')} label="Underlyings" />
-          <Stat value="1m → 1D" label="Timeframes" />
-          <Stat value={delayed ? '~15 min' : 'Live'} label={delayed ? 'Delayed preview' : 'Dealer gamma overlay'} />
+        <button
+          type="button"
+          className="zg-disclosure"
+          aria-expanded={introOpen}
+          aria-controls="chart-hero-intro"
+          onClick={() => setIntroOpen((open) => !open)}
+        >
+          About this chart
+          {introOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+        </button>
+
+        {/* Kept mounted and hidden rather than unmounted: aria-controls has to
+            point at something that exists in both states, and the copy is
+            static — there is nothing to tear down. */}
+        <div id="chart-hero-intro" hidden={!introOpen}>
+          <p style={{ fontSize: 16, lineHeight: 1.65, color: 'var(--text-secondary)', maxWidth: 760, marginTop: 12 }}>
+            Price and modeled dealer gamma on one surface. See where hedging pressure is modeled to
+            concentrate — the Gamma Flip, the Call and Put Walls, and a silhouette of modeled dealer
+            positioning by price — drawn inline on a fast, precise candle chart. Nothing else shows you this.
+            {delayed && (
+              <>
+                {' '}
+                <strong style={{ color: 'var(--text-primary)' }}>
+                  This free preview is delayed about 15 minutes;
+                </strong>{' '}
+                members get it live.
+              </>
+            )}
+          </p>
+          <div className="flex flex-wrap items-center gap-8 mt-5">
+            {/* Derived from the same SYMBOLS the chart's own switcher maps, so
+                the hero cannot advertise a different set from the one it
+                renders — this line still read SPY · QQQ · SPX · NDX after ES
+                and NQ shipped. */}
+            <Stat value={SYMBOLS.join(' · ')} label="Underlyings" />
+            <Stat value="1m → 1D" label="Timeframes" />
+            <Stat value={delayed ? '~15 min' : 'Live'} label={delayed ? 'Delayed preview' : 'Dealer gamma overlay'} />
+          </div>
         </div>
       </header>
 

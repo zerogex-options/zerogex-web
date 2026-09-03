@@ -8,6 +8,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { GEXHistoricalContext } from '@/core/types';
 import { isFresherServerTs } from '@/core/liveQuoteOrdering';
+import { sessionClosesLagBehind } from '@/core/sessionCloses';
 export type {
   GEXHistoricalContext,
   GEXHistoricalMetric,
@@ -28,6 +29,26 @@ interface OptionFlowRow {
   net_delta?: number | null;
   sentiment?: string | null;
   unusual_activity_score?: number | null;
+}
+
+export interface PinStabilityRow {
+  symbol: string;
+  /** Where the pin is right now, however new that value is. */
+  current_pin: number;
+  current_since: string;
+  current_samples: number;
+  /** False while the current pin has not yet settled at its strike. */
+  current_established: boolean;
+  /** The most recent value that has SETTLED, and since when. */
+  held_pin: number;
+  held_since: string;
+  held_samples: number;
+  session_open_pin: number;
+  /** Signed, measured between settled levels: negative = the pin walked down. */
+  net_migration: number;
+  distinct_values: number;
+  quiet_samples: number;
+  total_samples: number;
 }
 
 interface GEXSummaryRow {
@@ -57,6 +78,10 @@ interface GEXSummaryRow {
   call_wall?: number | null;
   put_wall?: number | null;
   put_call_ratio?: number | null;
+  // GEX King — the heaviest-|net-gamma| strike with per-strike totals summed
+  // across ALL expirations. The slow structural counterpart to the same-day
+  // Pin below; nullable, hide-don't-zero.
+  max_gamma_strike?: number | null;
   // Pin Strike — reachable 0DTE strike with the strongest modeled positive
   // (restoring) dealer gamma into expiration (distinct from wall/flip/max-pain).
   // Null when no meaningful pin exists; pin_strike_reason then holds a
@@ -156,7 +181,7 @@ interface UseApiDataOptions<T = unknown> {
   shouldAcceptData?: (nextData: T, prevData: T | null) => boolean;
 }
 
-const REFRESH_ACCELERATION_FACTOR = 0.5;
+const REFRESH_ACCELERATION_FACTOR = 1.0;
 const MIN_REFRESH_INTERVAL_MS = 1000;
 
 /**
@@ -386,6 +411,32 @@ function normalizeNumbers(value: unknown): unknown {
   return value;
 }
 
+/**
+ * Turn a failed response into a sentence, not a status code.
+ *
+ * FastAPI's `detail` is where our endpoints put the reason a request could
+ * not be served, and several of them are deliberately specific — "there is
+ * nothing to compare yet this session" tells a reader what to do, where
+ * "API error: 409" tells them only that something broke and invites a
+ * support ticket. Falling back to the bare status keeps the old behavior
+ * for responses that carry no body.
+ */
+async function describeHttpError(response: Response): Promise<string> {
+  try {
+    const body = await response.json();
+    const detail = (body as { detail?: unknown })?.detail;
+    if (typeof detail === 'string' && detail.trim()) return detail;
+    // 422s from FastAPI's validator carry an array of field errors.
+    if (Array.isArray(detail) && detail.length > 0) {
+      const first = detail[0] as { msg?: unknown };
+      if (typeof first?.msg === 'string' && first.msg.trim()) return first.msg;
+    }
+  } catch {
+    // No body, or not JSON — the status is all we have.
+  }
+  return `API error: ${response.status}`;
+}
+
 export function useApiData<T>(endpoint: string, options: UseApiDataOptions<T> = {}) {
   const { refreshInterval = 5000, enabled = true, onError, shouldAcceptData } = options;
   const effectiveRefreshInterval = refreshInterval > 0
@@ -395,6 +446,13 @@ export function useApiData<T>(endpoint: string, options: UseApiDataOptions<T> = 
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // HTTP status of the last failed response, or null when the failure never
+  // produced one (transport error) / there is no failure. `error` alone can't
+  // answer "was this a paywall, a missing symbol, or an outage?" — it is a
+  // human-readable string, and every caller that tried to branch on it was
+  // reduced to rendering one undifferentiated empty state. See
+  // core/signalAvailability.ts for the consumer that turns this into a label.
+  const [errorStatus, setErrorStatus] = useState<number | null>(null);
   const [refetchToken, setRefetchToken] = useState(0);
 
   // Reset state synchronously when the endpoint changes so stale data from the
@@ -405,6 +463,7 @@ export function useApiData<T>(endpoint: string, options: UseApiDataOptions<T> = 
     setData(null);
     setLoading(true);
     setError(null);
+    setErrorStatus(null);
   }
 
   // Hold the latest callbacks in refs so they can change without tearing
@@ -417,6 +476,7 @@ export function useApiData<T>(endpoint: string, options: UseApiDataOptions<T> = 
   useEffect(() => {
     if (!enabled) {
       setLoading(false);
+      setErrorStatus(null);
       return;
     }
 
@@ -424,15 +484,22 @@ export function useApiData<T>(endpoint: string, options: UseApiDataOptions<T> = 
 
     const fetchData = async () => {
       if (controller.signal.aborted) return;
+      // Per-attempt, so the status published to state always belongs to the
+      // SAME attempt as the error message beside it. Setting it at the throw
+      // site instead would let a 403 linger through a later transport failure
+      // (which produces no status of its own), and a paywalled panel would
+      // flip to a hard error only on the polls that failed to connect.
+      let attemptStatus: number | null = null;
       try {
         const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
         const response = await fetch(`${baseUrl}${endpoint}`, { signal: controller.signal });
 
         if (!response.ok) {
+          attemptStatus = response.status;
           if (response.status === 404) {
             throw new Error('No data available yet');
           }
-          throw new Error(`API error: ${response.status}`);
+          throw new Error(await describeHttpError(response));
         }
 
         const rawResult = await response.json();
@@ -452,12 +519,14 @@ export function useApiData<T>(endpoint: string, options: UseApiDataOptions<T> = 
 
         if (accepted) {
           setError(null);
+          setErrorStatus(null);
         }
       } catch (err) {
         if (controller.signal.aborted) return;
         if (err instanceof DOMException && err.name === 'AbortError') return;
         const errorMessage = err instanceof Error ? err.message : 'Failed to fetch data';
         setError(errorMessage);
+        setErrorStatus(attemptStatus);
         onErrorRef.current?.(errorMessage);
       } finally {
         if (!controller.signal.aborted) setLoading(false);
@@ -481,7 +550,7 @@ export function useApiData<T>(endpoint: string, options: UseApiDataOptions<T> = 
     setRefetchToken((t) => t + 1);
   }, []);
 
-  return { data, loading, error, refetch };
+  return { data, loading, error, errorStatus, refetch };
 }
 
 
@@ -532,6 +601,21 @@ function shouldAcceptSignalScoreSnapshot(next: SignalScoreResponse, prev: Signal
 
 export function useGEXSummary(symbol = 'SPY', refreshInterval = 5000, enabled = true) {
   return useApiData<GEXSummaryRow>(`/api/gex/summary?${symbolQuery(symbol)}`, { refreshInterval, enabled });
+}
+
+/**
+ * Pin stability — what the pin has DONE this session, not just where it is.
+ *
+ * Polls far slower than the summary: it is a whole-session reduction that can
+ * only change when the analytics cycle writes a new frame (~60s), so a 5s poll
+ * would be pure waste. 404 is the honest "no pin activity this session" answer
+ * and surfaces as null data, which the caller renders as nothing.
+ */
+export function usePinStability(symbol = 'SPY', refreshInterval = 60000, enabled = true) {
+  return useApiData<PinStabilityRow>(`/api/gex/pin-stability?${symbolQuery(symbol)}`, {
+    refreshInterval,
+    enabled,
+  });
 }
 
 export function useGEXByStrike(
@@ -1148,7 +1232,12 @@ export function useSmartMoneyFlow(symbol = 'SPY', limit = 10, session: 'current'
 
 export interface SessionClosesData {
   symbol: string;
-  /** Most recent completed regular-session close (4 PM ET). During market hours this is yesterday's close; during AH/PM it is today's close. */
+  /**
+   * Most recent completed regular-session close (4 PM ET). During market hours this is
+   * yesterday's close; during AH/PM it is today's close — except in the minutes after
+   * 16:00, before today's close has settled upstream, where it is still yesterday's.
+   * Read it through core/sessionCloses.ts, which detects that window.
+   */
   current_session_close: number;
   current_session_close_ts: string;
   /** The regular-session close that precedes current_session_close (used for the row-1 change calculation). */
@@ -1156,23 +1245,51 @@ export interface SessionClosesData {
   prior_session_close_ts: string;
 }
 
+/**
+ * While the served payload is still a session behind (see core/sessionCloses.ts),
+ * every price surface is on a fallback reading and today's official close is the
+ * one thing they are waiting for — so poll for it at this cadence instead of the
+ * caller's. Only a modest step up from the usual 60s: the fallback reading is a
+ * sound one (the live print against the previous close), so this is about not
+ * sitting on it for an extra half-minute once the real close lands, not a race.
+ */
+const SESSION_CLOSES_LAGGING_REFRESH_MS = 30000;
+
 export function useSessionCloses(
   symbol = 'SPY',
   refreshInterval = 60000,
   sessionTrigger?: string | null,
   enabled = true,
 ) {
+  // Chases its own output: the payload currently held decides the next poll rate,
+  // and once the roll lands `lagging` goes false and the cadence relaxes again.
+  // No client-side "as of" is available here, so the lag test falls back to the
+  // viewer's ET date — good enough to pick a poll interval.
+  const [lagging, setLagging] = useState(false);
   const result = useApiData<SessionClosesData>(
     `/api/market/session-closes?${symbolQuery(symbol)}`,
-    { refreshInterval, enabled }
+    {
+      refreshInterval: lagging
+        ? Math.min(refreshInterval, SESSION_CLOSES_LAGGING_REFRESH_MS)
+        : refreshInterval,
+      enabled,
+    }
   );
 
+  const currentCloseTs = result.data?.current_session_close_ts ?? null;
+  useEffect(() => {
+    setLagging(sessionClosesLagBehind(sessionTrigger, currentCloseTs));
+  }, [sessionTrigger, currentCloseTs]);
+
   // The session-closes endpoint advances `current_session_close` from yesterday
-  // to today exactly at 16:00 ET (and analogous boundaries for pre/AH). Polling
+  // to today at the 16:00 ET flip (and analogous boundaries for pre/AH). Polling
   // alone leaves up to a full refresh interval where `quoteData.session` has
   // already flipped but the close hasn't, briefly displaying yesterday's close
   // as the headline price. Forcing a refetch on every session change closes
-  // that window.
+  // that window. It does NOT close the other one: today's close only lands once
+  // the closing auction settles upstream, so the payload can stay a session
+  // behind for minutes no matter how often it is asked — that gap is handled at
+  // the read side by core/sessionCloses.ts, and polled out by the cadence above.
   const { refetch } = result;
   useEffect(() => {
     if (sessionTrigger != null) {

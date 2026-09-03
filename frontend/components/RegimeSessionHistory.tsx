@@ -166,8 +166,9 @@ export default function RegimeSessionHistory({
       <div className="zg-panel">
         {header}
         <PanelMessage height={160}>
-          No stored sessions for {symbol} yet. Reads are written once per session, so this
-          strip fills in as they accumulate.
+          No stored sessions for {symbol} yet. One read is written per trading day, so this
+          strip fills in a bar at a time — and the card above stays on a provisional
+          magnitude until about ten of them exist to measure against.
         </PanelMessage>
       </div>
     );

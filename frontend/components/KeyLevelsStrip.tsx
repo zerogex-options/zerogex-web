@@ -33,6 +33,7 @@ import { useCallback, useRef, useState, type PointerEvent as ReactPointerEvent }
 import { ChevronLeft, ChevronRight, TrendingDown, TrendingUp } from 'lucide-react';
 import type { ChartSnapshot } from './GammaTerminalChart';
 import { useGammaPlaybook, type GammaPlaybookRead } from '@/hooks/useGammaPlaybook';
+import { usePinStability } from '@/hooks/useApiData';
 import { useTimeframe, type UnderlyingSymbol } from '@/core/TimeframeContext';
 import { SYMBOLS } from '@/core/symbols';
 import {
@@ -46,6 +47,7 @@ import {
   PIN_STRIKE_TOOLTIP,
   classifyPinStrength,
   pinStrengthLabel,
+  pinStabilityNote,
 } from '@/core/pinStrike';
 
 /**
@@ -68,6 +70,7 @@ function cardTitle(level: KeyLevel): string {
   if (level.distance) lines.push(level.distance.label);
   else if (level.emptyNote) lines.push(level.emptyNote);
   if (level.note) lines.push(level.note);
+  if (level.subnote) lines.push(level.subnote);
   lines.push(level.tooltip);
   return lines.join('\n');
 }
@@ -120,6 +123,20 @@ function KeyLevelCard({ level, loading }: { level: KeyLevel; loading: boolean })
           style={{ fontSize: 10.5, color: 'var(--text-muted)' }}
         >
           {level.emptyNote}
+        </div>
+      )}
+      {/* The Pin's session path. Rendered rather than tucked into the card
+          title because a pin that migrates while a trader watches reads as a
+          level that failed unless the movement is stated where they are
+          already looking -- the strength note above it lives in the title,
+          which is exactly how it went unnoticed. */}
+      {!pending && level.subnote && (
+        <div
+          className="mt-0.5 truncate leading-tight"
+          style={{ fontSize: 10, color: 'var(--text-muted)' }}
+          title={level.subnote}
+        >
+          {level.subnote}
         </div>
       )}
     </div>
@@ -263,6 +280,10 @@ export function KeyLevelsBoard({
   // core/pinStrike; composing them here is what keeps the level model itself
   // free of runtime imports (and unit-testable under the Node runner).
   const pinStrength = classifyPinStrength(read.pinStrike, read.pinConfidence);
+  // Polls on its own slow cadence: a whole-session reduction can only change
+  // when the analytics cycle writes a frame. Skipped on the delayed public
+  // snapshot, which is a frozen moment with no session path behind it.
+  const { data: pinStability } = usePinStability(read.symbol, 60000, !read.delayed);
   const levels = buildKeyLevels({
     spot: read.spot,
     spotChange: read.spotChange,
@@ -271,6 +292,7 @@ export function KeyLevelsBoard({
     pin: {
       strike: read.pinStrike,
       note: pinStrength === 'none' ? null : `Pin strength: ${pinStrengthLabel(pinStrength)}`,
+      subnote: pinStabilityNote(pinStability),
       absentLabel: pinStrengthLabel('none'),
       tooltip: PIN_STRIKE_TOOLTIP,
     },

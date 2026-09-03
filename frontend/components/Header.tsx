@@ -16,6 +16,7 @@ import {
   Search,
 } from "lucide-react";
 import { NAV_GROUPS, type NavGroup, type NavItem } from "@/core/navigation";
+import { INTEGRATIONS_HUB } from "@/core/integrations";
 import AccountMenu from "./AccountMenu";
 import BetaBadge from "./BetaBadge";
 import TierBadge from "./TierBadge";
@@ -28,6 +29,7 @@ import { useTimeframe } from "@/core/TimeframeContext";
 import { SYMBOLS } from "@/core/symbols";
 import { getMarketSession } from "@/core/utils";
 import { getPrimaryPriceChangeSummary, getExtendedHoursRow } from "@/core/priceChange";
+import { resolvePriceSession, sessionClosesLagBehind } from "@/core/sessionCloses";
 import { brandTitle } from "@/core/brand";
 import SessionBadge from "./SessionBadge";
 import FuturesDelayBadge from "./FuturesDelayBadge";
@@ -72,6 +74,9 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
         labelKey: "nav.group.more",
         items: [
           { id: "/about", label: "About", labelKey: "nav.about" },
+          // One entry for every chart-platform integration — see the note on
+          // the same group in Navigation.tsx.
+          { id: INTEGRATIONS_HUB.href, label: INTEGRATIONS_HUB.navLabel, labelKey: "nav.integrations" },
           { id: "https://api.zerogex.io/docs", label: "API Specs", external: true },
           // mailto: — `external` keeps it an <a href> rather than a router.push,
           // and the http-only target/rel check leaves it opening in the same tab
@@ -102,10 +107,15 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
     });
     return initial;
   });
-  const { data: authSession, refresh: refreshAuth } = useAuthSession();
+  const { data: authSession, loading: authLoading, refresh: refreshAuth } = useAuthSession();
   const currentTier = authSession?.user?.tier ?? "public";
   const isPublicUser = normalizeTier(currentTier) === "public";
+  // Gated on the session having actually resolved. Until it does, currentTier
+  // falls back to "public", which would offer a Pro member an Upgrade button
+  // for the length of one fetch on every hard page load — the same
+  // loading-is-not-logged-out confusion the auth row below avoids.
   const canUpgrade = (() => {
+    if (authLoading) return false;
     const t = normalizeTier(currentTier);
     return t !== "pro" && t !== "admin";
   })();
@@ -251,13 +261,28 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
       ? 'futures'
       : (quoteSession as MarketSession | null) ?? session;
 
-  const isExtendedHours = quoteSession === "pre-market" || quoteSession === "after-hours";
+  // The session the PRICE calc reads. Identical to quoteSession except in the first
+  // minutes of after-hours, before /api/market/session-closes has rolled today's 16:00
+  // close in: that payload is still the open-session pair, so it is read as one (see
+  // core/sessionCloses.ts) instead of publishing yesterday's close as today's price.
+  // Badges and session labels keep reading quoteSession — the clock is right, the
+  // closes are late.
+  const closesLagBehind = sessionClosesLagBehind(
+    quoteSession,
+    sessionClosesData?.current_session_close_ts,
+    quoteData?.timestamp,
+  );
+  const priceSession = resolvePriceSession(quoteSession, sessionClosesData, quoteData?.timestamp);
+
+  const isExtendedHours = priceSession === "pre-market" || priceSession === "after-hours";
   const extendedHoursIcon = quoteSession === "pre-market" ? "sun" : "moon";
 
   // ── Row 1 ─────────────────────────────────────────────────────────────────
   // open     → live quote close  vs  current_session_close
   // closed   → live quote close  vs  prior_session_close
   // pre/ah   → current_session_close  vs  prior_session_close
+  // (after-hours whose closes have not rolled yet reads as `open` — the live print
+  //  vs the previous close, which is the same day change the header showed at 15:59.)
   const {
     displayPrice: row1Price,
     change: row1Change,
@@ -265,7 +290,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
     isPositive: row1Positive,
   } = getPrimaryPriceChangeSummary({
     quoteClose: quoteData?.close,
-    quoteSession,
+    quoteSession: priceSession,
     sessionCloses: sessionClosesData,
     displaySource: quoteData?.display_source,
     futuresClose: quoteData?.futures_close,
@@ -307,7 +332,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
     }
   };
 
-  const row1PriceBaseLabel = (isExtendedHours || quoteSession === "closed")
+  const row1PriceBaseLabel = (isExtendedHours || priceSession === "closed")
     ? (sessionClosesData?.current_session_close_ts
         ? `Closing price as of ${formatEtDateTime(sessionClosesData.current_session_close_ts)}`
         : "regular session close")
@@ -318,9 +343,13 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
   // and published its day change as today's.
   const row1PriceLabel = quoteData?.stale
     ? `${row1PriceBaseLabel} — feed delayed, last observed print`
-    : row1PriceBaseLabel;
+    : closesLagBehind
+      // Say why the official close is not on screen yet, rather than letting the live
+      // after-hours print pass silently for a settled 4 PM close.
+      ? `${row1PriceBaseLabel} — today's close has not settled yet`
+      : row1PriceBaseLabel;
 
-  const row1ChangeLabel = quoteSession === "open"
+  const row1ChangeLabel = priceSession === "open"
     ? (sessionClosesData?.current_session_close_ts
         ? `vs close ${formatEtDateTime(sessionClosesData.current_session_close_ts)}`
         : "vs previous close")
@@ -442,7 +471,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                 )}
                 {!isCollapsed && row1Price !== null && (
                   <div className="flex flex-col gap-0.5">
-                    <div className={(quoteSession === "open" || quoteSession === "closed") ? undefined : "flex items-center gap-2"} style={(quoteSession === "open" || quoteSession === "closed") ? { display: "contents" } : undefined}>
+                    <div className={(priceSession === "open" || priceSession === "closed") ? undefined : "flex items-center gap-2"} style={(priceSession === "open" || priceSession === "closed") ? { display: "contents" } : undefined}>
                       {/* zg-metric, not font-bold: the live quote reprices every
                           second, and proportional digits change width as they
                           tick, so the whole row shimmies. Tabular + slashed-zero
@@ -762,6 +791,13 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                     {t('menu.upgrade')}
                   </button>
                 )}
+                {/* Unlike the desktop AccountMenu — whose trigger is inert
+                    until the session resolves, so its menu can never be opened
+                    early — this menu opens from a button that does not depend
+                    on auth at all. On a slow mobile connection it is genuinely
+                    reachable while /api/auth/session is still in flight, and a
+                    signed-in member would be shown "Log in". Hold the row's box
+                    and label it only once we know. */}
                 <button
                   type="button"
                   onClick={() => {
@@ -773,9 +809,15 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                     setMobileMenuOpen(false);
                   }}
                   className="rounded-lg border px-3 py-2 text-sm font-semibold"
-                  style={{ borderColor: border, color: 'var(--text-secondary)' }}
+                  style={{
+                    borderColor: border,
+                    color: 'var(--text-secondary)',
+                    ...(authLoading ? { visibility: 'hidden' as const } : null),
+                  }}
+                  aria-hidden={authLoading ? true : undefined}
+                  tabIndex={authLoading ? -1 : undefined}
                 >
-                  {authSession?.authenticated ? t('menu.logoutMobile') : t('menu.login')}
+                  {authLoading ? '\u00a0' : authSession?.authenticated ? t('menu.logoutMobile') : t('menu.login')}
                 </button>
               </div>
 

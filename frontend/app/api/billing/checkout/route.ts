@@ -226,6 +226,14 @@ export async function POST(request: NextRequest) {
       ? Math.floor(foundingDeadlineMs / 1000)
       : null;
 
+  // What the post-checkout banner should say, decided here because this is the
+  // only place that knows what was actually granted — the member lands on the
+  // dashboard before the webhook has synced anything to read. Mirrors the
+  // subscription_data precedence below exactly: founding deferral, else a day
+  // count, else no trial. Consumed by resolveTrialStartedCopy in
+  // app/dashboard/trialStartedCopy.ts.
+  const trialParam = foundingTrialEndUnix ? 'deferred' : trialDays ? String(trialDays) : 'none';
+
   const stripe = getStripe();
   const appUrl = getAppUrl();
 
@@ -314,10 +322,14 @@ export async function POST(request: NextRequest) {
     // Land the just-converted trialer straight in the product they unlocked.
     // The webhook grants the (trialing) tier; ?trial_started=1 both marks the
     // funnel step and tells the middleware to let them through during the brief
-    // window before the webhook syncs (see proxy.ts). Cancels return to the
-    // trial-context pricing page — never the free gamma page — with a friendly
-    // "trial hasn't started yet" notice.
-    success_url: `${appUrl}/dashboard?trial_started=1`,
+    // window before the webhook syncs (see proxy.ts) — it stays set on every
+    // path, including the no-trial one, so a resubscriber isn't bounced. The
+    // separate ?trial= says WHICH trial (if any) this checkout granted, so the
+    // welcome banner can't promise a 7-day window to someone on a 30-day
+    // reactivation trial or a charge-free week to someone billed just now.
+    // Cancels return to the trial-context pricing page — never the free gamma
+    // page — with a friendly "trial hasn't started yet" notice.
+    success_url: `${appUrl}/dashboard?trial_started=1&trial=${trialParam}`,
     cancel_url: `${appUrl}/pricing?trial=1&checkout_cancelled=1`,
     // Stripe Tax: enabled so the Tax engine evaluates every session. Today
     // we have no tax registrations, so Stripe calculates $0 tax for every

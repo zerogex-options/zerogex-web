@@ -36,16 +36,19 @@ type SnapshotPoint = {
   uniqueIps: number;
 };
 
-// Mirrors SignupPoint in core/monitoring.ts. `graceTrial` is the trial-conversion
-// grace cohort: the free trial lapsed, the first real charge was declined, and
-// the member is inside the bounded payment-recovery window (still a subscriber
-// with access, but never yet charged successfully).
+// Mirrors SignupPoint in core/monitoring.ts. `converting` is the trial→paid step
+// in flight: Stripe has raised the first invoice and flipped the subscription to
+// `active`, but no payment has cleared yet (it attempts the charge about an hour
+// later). `graceTrial` is what those become when the charge is DECLINED: inside
+// the bounded payment-recovery window, still a subscriber with access, but never
+// yet charged successfully.
 type SignupPoint = {
   day: string;
   basic: number;
   pro: number;
   public: number;
   paying: number;
+  converting: number;
   trialing: number;
   graceTrial: number;
   disclaimer: number;
@@ -67,6 +70,11 @@ type SignupFlowPoint = {
   proCancel: number;
   basicPaymentFail: number;
   proPaymentFail: number;
+  // Retention pauses — a bounded break, not churn. Negative like the churn
+  // families because the headcount really does drop, but kept apart from both
+  // so a pause never reads as a cancellation or a declined card.
+  basicPause: number;
+  proPause: number;
   registrations: number;
 };
 
@@ -210,7 +218,7 @@ type SubscriberLedger = {
   windowDays: number;
   rows: LedgerRow[];
   truncated: number;
-  net: { fullSubscriber: number; freeTrial: number; trialGrace: number };
+  net: { fullSubscriber: number; converting: number; freeTrial: number; trialGrace: number };
   generatedAt: string;
 };
 
@@ -268,6 +276,14 @@ const ROW_COLORS = {
   topUsers: '#ffd380',
   webhookHealth: '#003f5c',
 } as const;
+
+// The trial→paid step in flight: the first invoice exists, the charge hasn't
+// landed. Deliberately between the Free Trial amber and the Full Subscriber
+// orange, because that is exactly where these members sit.
+const CONVERTING_COLOR = '#bc5090';
+// A retention pause — a bounded break the member chose. Muted rather than alarm-
+// colored: it leaves the headcount, but it is not churn.
+const PAUSE_COLOR = '#58508d';
 
 const METRICS: Array<{ key: MetricKey; title: string; color: string; description: string }> = [
   { key: 'uniqueUsers', title: 'Unique Users (Logged In)', color: ROW_COLORS.uniqueUsers, description: 'Distinct authenticated users active during the bucket.' },
@@ -408,7 +424,7 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
   const tierYScale = niceYScale(data.signups.reduce((m, p) => Math.max(m, p.basic + p.pro + p.public), 0));
   const subscriberYScale = niceYScale(
     Math.max(
-      data.signups.reduce((m, p) => Math.max(m, p.paying + p.trialing + p.graceTrial), 0),
+      data.signups.reduce((m, p) => Math.max(m, p.paying + p.converting + p.trialing + p.graceTrial), 0),
       // The dashed projection extends past today's stack, so it has to be in
       // the scale or a growing forecast would run off the top of the chart.
       data.subscriberProjection.points.reduce((m, p) => Math.max(m, p.projected), 0),
@@ -1042,12 +1058,15 @@ function TrialOutcomesCard({
 // — those are the ones worth acting on before they become a departure.
 const LEDGER_TONE: Record<LedgerEventKind, string> = {
   trialStarted: ROW_COLORS.signups,
+  conversionPending: CONVERTING_COLOR,
   converted: CONVEYOR_COLORS.running,
   recovered: CONVEYOR_COLORS.running,
   trialChargeDeclined: CONVEYOR_COLORS.stalled,
   renewalFailed: CONVEYOR_COLORS.stalled,
   cancelScheduled: CONVEYOR_COLORS.stalled,
   cancelReverted: CONVEYOR_COLORS.running,
+  paused: PAUSE_COLOR,
+  resumed: CONVEYOR_COLORS.running,
   accessEnded: CONVEYOR_COLORS.rollingOff,
 };
 
@@ -1099,7 +1118,10 @@ function SubscriberLedgerCard({
 }) {
   const [onlyMoves, setOnlyMoves] = useState(false);
   const moved = (r: LedgerRow) =>
-    r.fullSubscriberDelta !== 0 || r.freeTrialDelta !== 0 || r.trialGraceDelta !== 0;
+    r.fullSubscriberDelta !== 0 ||
+    r.convertingDelta !== 0 ||
+    r.freeTrialDelta !== 0 ||
+    r.trialGraceDelta !== 0;
   const rows = onlyMoves ? ledger.rows.filter(moved) : ledger.rows;
   const net = ledger.net.fullSubscriber;
 
@@ -1166,6 +1188,7 @@ function SubscriberLedgerCard({
               </div>
               <div className="flex gap-1.5 flex-wrap justify-end">
                 <DeltaChip label="paying" delta={r.fullSubscriberDelta} />
+                <DeltaChip label="converting" delta={r.convertingDelta} />
                 <DeltaChip label="trial" delta={r.freeTrialDelta} />
                 <DeltaChip label="grace" delta={r.trialGraceDelta} />
                 {!moved(r) && (
@@ -2924,21 +2947,30 @@ type TotalSubscribersChartCardProps = {
   yScale: { max: number; ticks: number[] };
 };
 
-// Subscribers with access, split into Full Subscriber (active, plus established
-// payers riding out a renewal-failure grace window), Free Trial (trialing), and
-// Trial Grace — a lapsed trial whose first conversion charge was declined and
-// which is inside the bounded payment-recovery window while Stripe retries.
-// Trial Grace stacks on top: it's the at-risk band, subscribers today who have
-// never completed a payment. One total — Total Subscribers — in the header.
+// Subscribers with access, split into Full Subscriber (a payment of theirs has
+// actually cleared, plus established payers riding out a renewal-failure grace
+// window), Free Trial (trialing), Converting, and Trial Grace.
+//
+// The two upper bands are the trial→paid step, which is not instant: Stripe
+// raises the first invoice and flips the subscription to `active` about an hour
+// BEFORE it attempts the charge. Converting is that hour — invoice raised,
+// outcome unknown. It resolves into Full Subscriber when the payment clears, or
+// into Trial Grace when the card is declined and Stripe starts retrying. They
+// stack on top because together they are the at-risk band: subscribers today who
+// have never completed a payment. One total — Total Subscribers — in the header.
 function TotalSubscribersChartCard({ data, projection, cardBg, axisStroke, mutedText, yScale }: TotalSubscribersChartCardProps) {
   const payingColor = '#ff8531';
   const trialingColor = '#ffa600';
+  const convertingColor = CONVERTING_COLOR;
   const graceTrialColor = '#ffd380';
+  const convertingTitle =
+    'Free trial ended and Stripe raised the first subscription invoice, flipping the subscription to active — but it attempts the charge about an hour later, so no payment has cleared yet. These become Full Subscribers when it does, or Trial Grace when the card is declined.';
   const graceTrialTitle =
     'Free trial ended, the first subscription charge failed, and access is retained during the bounded payment-recovery grace window while Stripe retries the card.';
   const projectedColor = '#2c8c6a';
-  const latest = data.length > 0 ? data[data.length - 1] : { paying: 0, trialing: 0, graceTrial: 0 };
-  const totalSubscribers = latest.paying + latest.trialing + latest.graceTrial;
+  const latest =
+    data.length > 0 ? data[data.length - 1] : { paying: 0, converting: 0, trialing: 0, graceTrial: 0 };
+  const totalSubscribers = latest.paying + latest.converting + latest.trialing + latest.graceTrial;
 
   // Actual days, then the projected ones appended. The anchor day carries BOTH
   // its real `paying` value and the same value as `projectedPaying`, which is
@@ -2968,6 +3000,7 @@ function TotalSubscribersChartCard({ data, projection, cardBg, axisStroke, muted
         <div className="flex items-center gap-4 text-xs" style={{ color: mutedText }}>
           <span><span style={{ color: payingColor }}>●</span> Full Subscriber: {latest.paying.toLocaleString()}</span>
           <span><span style={{ color: trialingColor }}>●</span> Free Trial: {latest.trialing.toLocaleString()}</span>
+          <span title={convertingTitle}><span style={{ color: convertingColor }}>●</span> Converting: {latest.converting.toLocaleString()}</span>
           <span title={graceTrialTitle}><span style={{ color: graceTrialColor }}>●</span> Trial Grace: {latest.graceTrial.toLocaleString()}</span>
           <span>Total Subscribers: {totalSubscribers.toLocaleString()}</span>
           {projectedEnd && (
@@ -3027,6 +3060,7 @@ function TotalSubscribersChartCard({ data, projection, cardBg, axisStroke, muted
                     );
                   }
                   const paying = Number(payload.find((p) => p.dataKey === 'paying')?.value ?? 0);
+                  const converting = Number(payload.find((p) => p.dataKey === 'converting')?.value ?? 0);
                   const trialing = Number(payload.find((p) => p.dataKey === 'trialing')?.value ?? 0);
                   const graceTrial = Number(payload.find((p) => p.dataKey === 'graceTrial')?.value ?? 0);
                   return (
@@ -3037,8 +3071,11 @@ function TotalSubscribersChartCard({ data, projection, cardBg, axisStroke, muted
                       <div className="font-semibold mb-1">{dayLabel(String(label))}</div>
                       <div>Full Subscriber: {paying.toLocaleString()}</div>
                       <div>Free Trial: {trialing.toLocaleString()}</div>
+                      <div>Converting: {converting.toLocaleString()}</div>
                       <div>Trial Grace: {graceTrial.toLocaleString()}</div>
-                      <div className="mt-1">Total Subscribers: {(paying + trialing + graceTrial).toLocaleString()}</div>
+                      <div className="mt-1">
+                        Total Subscribers: {(paying + converting + trialing + graceTrial).toLocaleString()}
+                      </div>
                     </div>
                   );
                 }}
@@ -3073,6 +3110,16 @@ function TotalSubscribersChartCard({ data, projection, cardBg, axisStroke, muted
                 stackId="subscribers"
                 stroke={trialingColor}
                 fill={trialingColor}
+                fillOpacity={0.5}
+                isAnimationActive={false}
+              />
+              <Area
+                type="monotone"
+                dataKey="converting"
+                name="Converting"
+                stackId="subscribers"
+                stroke={convertingColor}
+                fill={convertingColor}
                 fillOpacity={0.5}
                 isAnimationActive={false}
               />
@@ -3129,6 +3176,14 @@ function SubscriptionFlowChartCard({ data, cardBg, axisStroke, mutedText, brandC
   const paymentFailBase = '#7a5195';
   const proPaymentFailColor = paymentFailBase;
   const basicPaymentFailColor = lighten(paymentFailBase, 0.4);
+  // Retention pauses. Also net-negative — a paused subscription pays nothing and
+  // grants no access, so it genuinely leaves the headcount — but it is NOT churn:
+  // the member chose a bounded break and comes back on their own. Its own family
+  // so it can never be read as a cancellation or a declined card; the resume
+  // returns above the axis as a reactivation.
+  const pauseBase = PAUSE_COLOR;
+  const proPauseColor = pauseBase;
+  const basicPauseColor = lighten(pauseBase, 0.4);
   // Bright accent so the net line reads clearly in front of the add / cancel /
   // payment-failure columns.
   const netColor = '#ffa600';
@@ -3142,6 +3197,8 @@ function SubscriptionFlowChartCard({ data, cardBg, axisStroke, mutedText, brandC
     let basicCancel = 0;
     let proPaymentFail = 0;
     let basicPaymentFail = 0;
+    let proPause = 0;
+    let basicPause = 0;
     for (const p of data) {
       proAdd += p.proAdd;
       basicAdd += p.basicAdd;
@@ -3151,10 +3208,12 @@ function SubscriptionFlowChartCard({ data, cardBg, axisStroke, mutedText, brandC
       basicCancel += p.basicCancel;
       proPaymentFail += p.proPaymentFail;
       basicPaymentFail += p.basicPaymentFail;
+      proPause += p.proPause;
+      basicPause += p.basicPause;
     }
-    // Cancels and payment-fails are stored negative, so net onboards is the
-    // straight algebraic sum of all eight flows (adds + reactivations are
-    // positive, cancels + payment-fails negative).
+    // Cancels, payment-fails and pauses are stored negative, so net onboards is
+    // the straight algebraic sum of all ten flows (adds + reactivations are
+    // positive, the rest negative).
     return {
       proAdd,
       basicAdd,
@@ -3164,9 +3223,12 @@ function SubscriptionFlowChartCard({ data, cardBg, axisStroke, mutedText, brandC
       basicCancel,
       proPaymentFail,
       basicPaymentFail,
+      proPause,
+      basicPause,
       net:
         proAdd + basicAdd + proReactivate + basicReactivate +
-        proCancel + basicCancel + proPaymentFail + basicPaymentFail,
+        proCancel + basicCancel + proPaymentFail + basicPaymentFail +
+        proPause + basicPause,
     };
   }, [data]);
 
@@ -3181,7 +3243,8 @@ function SubscriptionFlowChartCard({ data, cardBg, axisStroke, mutedText, brandC
         ...p,
         net:
           p.proAdd + p.basicAdd + p.proReactivate + p.basicReactivate +
-          p.proCancel + p.basicCancel + p.proPaymentFail + p.basicPaymentFail,
+          p.proCancel + p.basicCancel + p.proPaymentFail + p.basicPaymentFail +
+          p.proPause + p.basicPause,
       })),
     [data],
   );
@@ -3195,7 +3258,14 @@ function SubscriptionFlowChartCard({ data, cardBg, axisStroke, mutedText, brandC
       0,
     );
     const barNegBound = data.reduce(
-      (m, p) => Math.max(m, -(p.proCancel + p.basicCancel + p.proPaymentFail + p.basicPaymentFail)),
+      (m, p) =>
+        Math.max(
+          m,
+          -(
+            p.proCancel + p.basicCancel + p.proPaymentFail + p.basicPaymentFail +
+            p.proPause + p.basicPause
+          ),
+        ),
       0,
     );
     // Both halves of the diverging axis share ONE tick interval so the negative
@@ -3232,7 +3302,9 @@ function SubscriptionFlowChartCard({ data, cardBg, axisStroke, mutedText, brandC
           p.proCancel !== 0 ||
           p.basicCancel !== 0 ||
           p.proPaymentFail !== 0 ||
-          p.basicPaymentFail !== 0,
+          p.basicPaymentFail !== 0 ||
+          p.proPause !== 0 ||
+          p.basicPause !== 0,
       ),
     [data],
   );
@@ -3253,6 +3325,8 @@ function SubscriptionFlowChartCard({ data, cardBg, axisStroke, mutedText, brandC
           <span><span style={{ color: basicCancelColor }}>●</span> Basic cancels: {Math.abs(totals.basicCancel).toLocaleString()}</span>
           <span><span style={{ color: proPaymentFailColor }}>●</span> Pro payment fails: {Math.abs(totals.proPaymentFail).toLocaleString()}</span>
           <span><span style={{ color: basicPaymentFailColor }}>●</span> Basic payment fails: {Math.abs(totals.basicPaymentFail).toLocaleString()}</span>
+          <span title="Retention pauses — a bounded break, not churn. The member keeps their subscription and comes back as a reactivation."><span style={{ color: proPauseColor }}>●</span> Pro pauses: {Math.abs(totals.proPause).toLocaleString()}</span>
+          <span title="Retention pauses — a bounded break, not churn. The member keeps their subscription and comes back as a reactivation."><span style={{ color: basicPauseColor }}>●</span> Basic pauses: {Math.abs(totals.basicPause).toLocaleString()}</span>
         </div>
       </div>
       {!hasData ? (
@@ -3294,9 +3368,12 @@ function SubscriptionFlowChartCard({ data, cardBg, axisStroke, mutedText, brandC
                   const basicCancel = num('basicCancel');
                   const proPaymentFail = num('proPaymentFail');
                   const basicPaymentFail = num('basicPaymentFail');
+                  const proPause = num('proPause');
+                  const basicPause = num('basicPause');
                   const net =
                     proAdd + basicAdd + proReactivate + basicReactivate +
-                    proCancel + basicCancel + proPaymentFail + basicPaymentFail;
+                    proCancel + basicCancel + proPaymentFail + basicPaymentFail +
+                    proPause + basicPause;
                   return (
                     <div
                       className="rounded-lg border px-3 py-2 text-xs"
@@ -3316,6 +3393,9 @@ function SubscriptionFlowChartCard({ data, cardBg, axisStroke, mutedText, brandC
                       <div className="mt-1" style={{ color: paymentFailBase }}>Payment-failure downgrades: {signed(proPaymentFail + basicPaymentFail)}</div>
                       <div className="pl-2">Pro: {signed(proPaymentFail)}</div>
                       <div className="pl-2">Basic: {signed(basicPaymentFail)}</div>
+                      <div className="mt-1" style={{ color: pauseBase }}>Pauses (a break, not churn): {signed(proPause + basicPause)}</div>
+                      <div className="pl-2">Pro: {signed(proPause)}</div>
+                      <div className="pl-2">Basic: {signed(basicPause)}</div>
                     </div>
                   );
                 }}
@@ -3328,6 +3408,8 @@ function SubscriptionFlowChartCard({ data, cardBg, axisStroke, mutedText, brandC
               <Bar yAxisId="flow" dataKey="proCancel" name="Pro cancellations" stackId="flow" fill={proCancelColor} maxBarSize={28} isAnimationActive={false} />
               <Bar yAxisId="flow" dataKey="basicPaymentFail" name="Basic payment-failure downgrades" stackId="flow" fill={basicPaymentFailColor} maxBarSize={28} isAnimationActive={false} />
               <Bar yAxisId="flow" dataKey="proPaymentFail" name="Pro payment-failure downgrades" stackId="flow" fill={proPaymentFailColor} maxBarSize={28} isAnimationActive={false} />
+              <Bar yAxisId="flow" dataKey="basicPause" name="Basic pauses" stackId="flow" fill={basicPauseColor} maxBarSize={28} isAnimationActive={false} />
+              <Bar yAxisId="flow" dataKey="proPause" name="Pro pauses" stackId="flow" fill={proPauseColor} maxBarSize={28} isAnimationActive={false} />
               <Line
                 yAxisId="flow"
                 type="monotone"
@@ -3356,7 +3438,7 @@ type SubscriptionFlowByWeekdayCardProps = {
 
 // The per-day Subscription Flow folded onto the seven weekdays, to surface a
 // weekly rhythm the daily columns bury — e.g. a Monday signup peak that fades
-// across the week. Same eight flow families, colors, and net line as the daily
+// across the week. Same ten flow families, colors, and net line as the daily
 // chart, but one column per weekday (Mon→Sun). The Avg/Total toggle switches
 // between the mean per occurrence of that weekday — the fair comparison, since a
 // window doesn't hold each weekday an equal number of times — and the raw sums.
@@ -3373,6 +3455,9 @@ function SubscriptionFlowByWeekdayCard({ data, cardBg, axisStroke, mutedText, br
   const paymentFailBase = '#7a5195';
   const proPaymentFailColor = paymentFailBase;
   const basicPaymentFailColor = lighten(paymentFailBase, 0.4);
+  const pauseBase = PAUSE_COLOR;
+  const proPauseColor = pauseBase;
+  const basicPauseColor = lighten(pauseBase, 0.4);
   const netColor = '#ffa600';
 
   const [mode, setMode] = useState<'avg' | 'total'>('avg');
@@ -3390,7 +3475,9 @@ function SubscriptionFlowByWeekdayCard({ data, cardBg, axisStroke, mutedText, br
           b.proCancel !== 0 ||
           b.basicCancel !== 0 ||
           b.proPaymentFail !== 0 ||
-          b.basicPaymentFail !== 0,
+          b.basicPaymentFail !== 0 ||
+          b.proPause !== 0 ||
+          b.basicPause !== 0,
       ),
     [buckets],
   );
@@ -3411,6 +3498,8 @@ function SubscriptionFlowByWeekdayCard({ data, cardBg, axisStroke, mutedText, br
         const basicCancel = v(b.basicCancel);
         const proPaymentFail = v(b.proPaymentFail);
         const basicPaymentFail = v(b.basicPaymentFail);
+        const proPause = v(b.proPause);
+        const basicPause = v(b.basicPause);
         return {
           label: b.label,
           days: b.days,
@@ -3422,9 +3511,12 @@ function SubscriptionFlowByWeekdayCard({ data, cardBg, axisStroke, mutedText, br
           basicCancel,
           proPaymentFail,
           basicPaymentFail,
+          proPause,
+          basicPause,
           net:
             proAdd + basicAdd + proReactivate + basicReactivate +
-            proCancel + basicCancel + proPaymentFail + basicPaymentFail,
+            proCancel + basicCancel + proPaymentFail + basicPaymentFail +
+            proPause + basicPause,
         };
       }),
     [buckets, mode],
@@ -3439,7 +3531,14 @@ function SubscriptionFlowByWeekdayCard({ data, cardBg, axisStroke, mutedText, br
       0,
     );
     const negBound = chartData.reduce(
-      (m, p) => Math.max(m, -(p.proCancel + p.basicCancel + p.proPaymentFail + p.basicPaymentFail)),
+      (m, p) =>
+        Math.max(
+          m,
+          -(
+            p.proCancel + p.basicCancel + p.proPaymentFail + p.basicPaymentFail +
+            p.proPause + p.basicPause
+          ),
+        ),
       0,
     );
     const nice = niceYScale(Math.max(posBound, negBound, 1));
@@ -3468,11 +3567,13 @@ function SubscriptionFlowByWeekdayCard({ data, cardBg, axisStroke, mutedText, br
         const reactivations = v(b.proReactivate + b.basicReactivate);
         const cancels = v(-(b.proCancel + b.basicCancel));
         const paymentFails = v(-(b.proPaymentFail + b.basicPaymentFail));
+        const pauses = v(-(b.proPause + b.basicPause));
         const net = v(
           b.proAdd + b.basicAdd + b.proReactivate + b.basicReactivate +
-            b.proCancel + b.basicCancel + b.proPaymentFail + b.basicPaymentFail,
+            b.proCancel + b.basicCancel + b.proPaymentFail + b.basicPaymentFail +
+            b.proPause + b.basicPause,
         );
-        return { label: b.label, weekday: b.weekday, days: b.days, newAdds, reactivations, cancels, paymentFails, net };
+        return { label: b.label, weekday: b.weekday, days: b.days, newAdds, reactivations, cancels, paymentFails, pauses, net };
       }),
     [buckets, mode],
   );
@@ -3601,9 +3702,12 @@ function SubscriptionFlowByWeekdayCard({ data, cardBg, axisStroke, mutedText, br
                         const basicCancel = num('basicCancel');
                         const proPaymentFail = num('proPaymentFail');
                         const basicPaymentFail = num('basicPaymentFail');
+                        const proPause = num('proPause');
+                        const basicPause = num('basicPause');
                         const net =
                           proAdd + basicAdd + proReactivate + basicReactivate +
-                          proCancel + basicCancel + proPaymentFail + basicPaymentFail;
+                          proCancel + basicCancel + proPaymentFail + basicPaymentFail +
+                          proPause + basicPause;
                         const row = chartData.find((r) => r.label === label);
                         return (
                           <div
@@ -3623,6 +3727,7 @@ function SubscriptionFlowByWeekdayCard({ data, cardBg, axisStroke, mutedText, br
                             <div className="mt-1" style={{ color: reactivateBase }}>Reactivations: {fmtSigned(proReactivate + basicReactivate)}</div>
                             <div className="mt-1" style={{ color: cancelBase }}>Cancellations: {fmtSigned(proCancel + basicCancel)}</div>
                             <div className="mt-1" style={{ color: paymentFailBase }}>Payment-failure downgrades: {fmtSigned(proPaymentFail + basicPaymentFail)}</div>
+                            <div className="mt-1" style={{ color: pauseBase }}>Pauses (a break, not churn): {fmtSigned(proPause + basicPause)}</div>
                           </div>
                         );
                       }}
@@ -3635,6 +3740,8 @@ function SubscriptionFlowByWeekdayCard({ data, cardBg, axisStroke, mutedText, br
                     <Bar yAxisId="flow" dataKey="proCancel" name="Pro cancellations" stackId="flow" fill={proCancelColor} maxBarSize={44} isAnimationActive={false} />
                     <Bar yAxisId="flow" dataKey="basicPaymentFail" name="Basic payment-failure downgrades" stackId="flow" fill={basicPaymentFailColor} maxBarSize={44} isAnimationActive={false} />
                     <Bar yAxisId="flow" dataKey="proPaymentFail" name="Pro payment-failure downgrades" stackId="flow" fill={proPaymentFailColor} maxBarSize={44} isAnimationActive={false} />
+                    <Bar yAxisId="flow" dataKey="basicPause" name="Basic pauses" stackId="flow" fill={basicPauseColor} maxBarSize={44} isAnimationActive={false} />
+                    <Bar yAxisId="flow" dataKey="proPause" name="Pro pauses" stackId="flow" fill={proPauseColor} maxBarSize={44} isAnimationActive={false} />
                     <Line
                       yAxisId="flow"
                       type="monotone"
@@ -3659,6 +3766,7 @@ function SubscriptionFlowByWeekdayCard({ data, cardBg, axisStroke, mutedText, br
                     <th className="text-right font-semibold py-1 px-1" style={{ color: reactivateBase }}>React.</th>
                     <th className="text-right font-semibold py-1 px-1" style={{ color: cancelBase }}>Cancel</th>
                     <th className="text-right font-semibold py-1 px-1" style={{ color: paymentFailBase }}>Pay-fail</th>
+                    <th className="text-right font-semibold py-1 px-1" style={{ color: pauseBase }}>Pause</th>
                     <th className="text-right font-semibold py-1 px-1" style={{ color: netColor }}>Net</th>
                     <th className="text-right font-semibold py-1 pl-1">n</th>
                   </tr>
@@ -3675,6 +3783,7 @@ function SubscriptionFlowByWeekdayCard({ data, cardBg, axisStroke, mutedText, br
                         <td className="text-right py-1 px-1">{r.reactivations > 0 ? fmt(r.reactivations) : '—'}</td>
                         <td className="text-right py-1 px-1">{r.cancels > 0 ? fmt(r.cancels) : '—'}</td>
                         <td className="text-right py-1 px-1">{r.paymentFails > 0 ? fmt(r.paymentFails) : '—'}</td>
+                        <td className="text-right py-1 px-1">{r.pauses > 0 ? fmt(r.pauses) : '—'}</td>
                         <td className="text-right py-1 px-1" style={{ color: netColor }}>{fmtSigned(r.net)}</td>
                         <td className="text-right py-1 pl-1" style={{ color: mutedText }}>{r.days.toLocaleString()}</td>
                       </tr>
@@ -3684,7 +3793,7 @@ function SubscriptionFlowByWeekdayCard({ data, cardBg, axisStroke, mutedText, br
               </table>
               <p className="text-[11px] mt-2" style={{ color: mutedText }}>
                 {mode === 'avg' ? 'Per-day average of each weekday. ' : 'Total over the window. '}
-                “n” is how many of that weekday the window covers. Cancels and pay-fails shown as positive magnitudes; Net carries the sign.
+                “n” is how many of that weekday the window covers. Cancels, pay-fails and pauses shown as positive magnitudes; Net carries the sign. A pause is a bounded break, not churn — the member returns as a reactivation.
               </p>
             </div>
           </div>

@@ -11,6 +11,7 @@ import MetricCard from '@/components/MetricCard';
 import PriceDistanceMetricCard from '@/components/PriceDistanceMetricCard';
 import HistoricalContextBadge from '@/components/HistoricalContextBadge';
 import { getPrimaryPriceChangeSummary } from '@/core/priceChange';
+import { resolvePriceSession } from '@/core/sessionCloses';
 import { isIndexSymbol } from '@/core/utils';
 import { usePageT } from '@/core/LanguageContext';
 import { useMyDashboardData } from './DashboardData';
@@ -33,7 +34,10 @@ export function PriceTile() {
   const { symbol, theme, quote, sessionCloses } = useMyDashboardData();
   const underlyingPrice = getPrimaryPriceChangeSummary({
     quoteClose: quote?.close,
-    quoteSession: quote?.session,
+    // Read as `open` while the served closes have not rolled past 16:00 yet, so the
+    // tile shows the live print vs the previous close rather than yesterday's close
+    // billed as today's (see core/sessionCloses.ts).
+    quoteSession: resolvePriceSession(quote?.session, sessionCloses, quote?.timestamp),
     sessionCloses,
     displaySource: quote?.display_source,
     futuresClose: quote?.futures_close,

@@ -1,21 +1,21 @@
 {
-  "_note": "The 'what's new since you left' bullets in the ~1-month win-back email (scripts/send-winback.mts reads this; core/mailer.ts renders it). Edit freely to keep the email evergreen — no code change or redeploy of the app is needed, the next send picks it up. Keep it to 2-4 punchy items; 'title' is bolded, 'body' follows an em-dash. If this file is missing or invalid, the sender falls back to DEFAULT_WINBACK_HIGHLIGHTS in core/mailer.ts.",
+  "_note": "The 'what's new since you left' bullets in the ~1-month win-back email (scripts/send-winback.mts reads this; core/mailer.ts renders it). Edit freely to keep the email evergreen — no code change or redeploy of the app is needed, the next send picks it up. Keep it to 2-4 punchy items; 'title' is bolded, 'body' follows an em-dash. If this file is missing or invalid, the sender falls back to DEFAULT_WINBACK_HIGHLIGHTS in core/mailer.ts. Keep in sync with the August 2026 campaign copy in docs/newsletters/2026-08-product-update-*.txt and the /updates entry (app/updates/page.tsx).",
   "highlights": [
     {
-      "title": "Gamma Chart",
-      "body": "a live price-and-dealer-gamma terminal with the Gamma Flip, Call/Put Walls, and Max Pain drawn right on SPY, QQQ, SPX, and NDX — plus session rewind to replay how a level held."
+      "title": "Your levels on your own charts",
+      "body": "four integrations across TradingView, thinkorswim, NinjaTrader 8 and Sierra Chart. The first two are free manual-entry scripts; the Pro studies poll the API and keep the Gamma Flip, Call Wall, Put Wall, Max Pain and Pin Strike current on their own."
     },
     {
-      "title": "My Dashboard",
-      "body": "a customizable board you build from the pieces of ZeroGEX you use most — arrange the charts and cards how you like, and it saves your layout, settings, and symbols."
+      "title": "ES and NQ",
+      "body": "futures are first-class now, with their own gamma levels, their own free pages, and the same read as SPY, SPX, QQQ and NDX everywhere else, converted to futures prices on the live basis."
     },
     {
-      "title": "Trade Bias",
-      "body": "a single, signed directional call that fuses the gamma and volatility regime with live price action, flow, tape, and momentum — for a multi-day swing or a same-day 0DTE read."
+      "title": "Gamma Shift",
+      "body": "what changed, not just where things stand: the per-strike move in modeled dealer gamma between two points in time, with expiry roll-off separated out so it doesn't read as fresh positioning."
     },
     {
-      "title": "NDX coverage",
-      "body": "the Nasdaq-100 now gets the same gamma read as SPY, SPX, and QQQ across every tool."
+      "title": "Three new metrics",
+      "body": "Market Tide folds gamma and flow across the covered indices into one bearish-to-bullish score, Pair Comparison puts any two indices side by side on strike-aligned Net GEX ladders with a replay scrubber, and Volatility charts put/call IV skew against realized-versus-implied."
     }
   ]
 }

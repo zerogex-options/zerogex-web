@@ -60,6 +60,8 @@ export interface KeyLevel {
   emptyNote: string | null;
   /** Optional secondary metadata (Pin Strike's strength bucket). */
   note: string | null;
+  /** Optional third line rendered on the card (Pin Strike's session path). */
+  subnote: string | null;
   tooltip: string;
 }
 
@@ -200,6 +202,13 @@ export interface KeyLevelPinInput {
   note: string | null;
   /** Shown when there is no pin at all — pinStrengthLabel('none'). */
   absentLabel: string;
+  /**
+   * "Held since 09:41" / "−30 pts today · held since 14:05" — what the pin has
+   * DONE this session. Unlike `note` this is rendered ON the card: a level that
+   * migrates while a trader watches reads as a level that failed unless the
+   * movement is stated where they are already looking.
+   */
+  subnote?: string | null;
   tooltip: string;
 }
 
@@ -260,6 +269,7 @@ export function buildKeyLevels(input: KeyLevelsInput): KeyLevel[] {
       distance,
       emptyNote: distance ? null : emptyNoteFor(level != null, hasSpot),
       note: null,
+      subnote: null,
       tooltip: TOOLTIPS[id],
     };
   };
@@ -281,6 +291,7 @@ export function buildKeyLevels(input: KeyLevelsInput): KeyLevel[] {
       distance: spotDistance,
       emptyNote: spotDistance ? null : hasSpot ? 'Awaiting change context' : 'Awaiting price',
       note: null,
+      subnote: null,
       tooltip: TOOLTIPS.spot,
     },
     priced('flip', 'Gamma Flip', input.flip),
@@ -296,6 +307,7 @@ export function buildKeyLevels(input: KeyLevelsInput): KeyLevel[] {
       // Strength is the Pin's own metadata, not a distance — carried separately
       // so the compact strip can put it in the title without a second line.
       note: pin == null ? null : input.pin.note,
+      subnote: pin == null ? null : input.pin.subnote ?? null,
       tooltip: input.pin.tooltip,
     },
     priced('callWall', 'Call Wall', input.callWall),

@@ -263,7 +263,33 @@ function createSessionForUser(user: AuthUser) {
   const now = nowIso();
   const expiresAt = new Date(Date.now() + SESSION_TTL_SECONDS * 1000).toISOString();
 
-  db.prepare('DELETE FROM sessions WHERE user_id = ?').run(user.id);
+  // Sessions are additive: signing in somewhere new does NOT end the sessions
+  // already open elsewhere.
+  //
+  // This used to `DELETE FROM sessions WHERE user_id = ?` first, making one
+  // live session per account across every browser, tab and device. Nothing
+  // told the member, so the evicted surface just stopped being signed in the
+  // next time they touched it — indistinguishable, from their side, from the
+  // app randomly logging them out. Onboarding is where it bit hardest, because
+  // that is when a member has the most surfaces open at once: the signup tab,
+  // the Stripe return, and whatever the verification and welcome emails opened.
+  // Sign in on one and the others are dead; sign in again on those and you kill
+  // the first. Support reports of this read as "my login isn't preserved when I
+  // move between pages", and the audit log shows the shape clearly — repeated
+  // login_success with no logout between them.
+  //
+  // Revocation is still explicit and still total where it should be: a password
+  // reset (below) and an account deletion both clear every row, which is the
+  // behavior that actually matters after a credential compromise. What is gone
+  // is the silent eviction on ordinary sign-in.
+  //
+  // Prune this user's EXPIRED rows on the way past. Without the wholesale
+  // delete, rows would otherwise accumulate one per sign-in forever: the only
+  // other cleanup is in getSessionFromRequest, which can only ever reach the
+  // single session presenting itself, never the abandoned ones. Scoped to this
+  // user and to rows already past their TTL, so it is a small, bounded write
+  // that removes nothing anybody could still be using.
+  db.prepare('DELETE FROM sessions WHERE user_id = ? AND expires_at <= ?').run(user.id, now);
   db.prepare(
     `INSERT INTO sessions (id, user_id, token_hash, csrf_secret, created_at, expires_at, last_rotated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?)`

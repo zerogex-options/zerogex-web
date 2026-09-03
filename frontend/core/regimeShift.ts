@@ -78,6 +78,26 @@ export interface ShiftScores {
   net_shift: number;
   gross_shift: number;
   sigma_price: number;
+  /** Proximity-weighted |dealer gamma| the change was measured against. */
+  near_spot_stock?: number;
+  /** Trading hours the window spans — what the sigma was scaled by. */
+  window_hours?: number;
+}
+
+/**
+ * Whether the `positioning` lens can answer anything in THIS window.
+ *
+ * Open interest is a once-a-day settlement figure: the feed republishes the
+ * same number all session, so an intraday A→B pair carries an identical OI at
+ * every strike and the OI-driven component is zero at every strike — by
+ * construction, not because dealers sat on their hands. A ribbon drawn from
+ * that reads as "nothing was traded anywhere", which is a claim the data
+ * cannot support, so the surface says what it cannot see instead.
+ */
+export interface PositioningSupport {
+  resolved: boolean;
+  oi_moved_strikes: number;
+  strike_count: number;
 }
 
 export interface ShiftBand {
@@ -133,6 +153,8 @@ export interface RegimeShiftPayload {
   strikes_truncated: boolean;
   expiry_scope: ExpiryScope;
   rolloff: RolloffSummary | null;
+  /** Older API builds omit this; treat a missing block as "unknown". */
+  positioning?: PositioningSupport;
 }
 
 export interface RolloffTranche {
@@ -333,6 +355,68 @@ export function formatBand(band: ShiftBand | null | undefined): string | null {
 }
 
 // ---------------------------------------------------------------------------
+// The repositioning lens
+// ---------------------------------------------------------------------------
+
+/**
+ * Whether the *positioning* lens has anything to show in this window.
+ *
+ * Only meaningful when that lens is selected — on the `net` lens the answer is
+ * irrelevant and this returns true so the ordinary copy runs.
+ *
+ * Open interest is published once a day, at settlement. Within a session the
+ * feed republishes the same number, so an intraday A→B pair has
+ * `oi_b − oi_a === 0` at every strike and the OI-driven component of the
+ * change is exactly zero everywhere. The ribbon then draws a flat line of
+ * minimum-height bars, which reads as "dealers touched nothing all day" — the
+ * strongest possible claim, made from an absence of data.
+ *
+ * A missing `positioning` block (an older API build) is treated as resolved:
+ * the old rendering is wrong but not misleading in a NEW way, and inventing a
+ * warning from a field that is not there would be its own guess.
+ */
+export function positioningResolved(payload: RegimeShiftPayload): boolean {
+  if (payload.lens !== 'positioning') return true;
+  if (!payload.positioning) return true;
+  return payload.positioning.resolved;
+}
+
+/** Cross-session lookbacks, the ones that straddle a settlement. */
+const CROSS_SESSION_LOOKBACKS: readonly Lookback[] = [
+  'prev_same_time',
+  'prev_close',
+  'week',
+];
+
+export function isCrossSession(lookback: Lookback): boolean {
+  return CROSS_SESSION_LOOKBACKS.includes(lookback);
+}
+
+/**
+ * Why the repositioning lens is empty, and what to do about it.
+ *
+ * Names the mechanism rather than the symptom: a reader told "open interest
+ * only republishes at settlement" understands why every intraday window looks
+ * like this and stops re-checking, where one told "no data" tries again in an
+ * hour and gets the same blank chart.
+ */
+export function describePositioningGap(payload: RegimeShiftPayload): string {
+  const crossSession = isCrossSession(payload.lookback);
+  if (crossSession) {
+    return (
+      'Open interest has not moved at any strike between these two snapshots, ' +
+      'so there is no repositioning to attribute — the whole change is the ' +
+      'existing book re-pricing.'
+    );
+  }
+  return (
+    'Open interest is published once a day at settlement, so a window inside ' +
+    'one session cannot see contracts open or close. Compare against a prior ' +
+    'session to read repositioning.'
+  );
+}
+
+// ---------------------------------------------------------------------------
 // The headline
 // ---------------------------------------------------------------------------
 
@@ -349,6 +433,18 @@ export function buildHeadline(payload: RegimeShiftPayload): string {
   const where = formatBand(band);
   const at = where ? ` into ${where}` : '';
   const across = where ? ` across ${where}` : '';
+
+  // With no denominator every z is 0, so `classify` lands on QUIET — which
+  // would print "No meaningful repositioning" for a session nobody measured.
+  // That is the one sentence on this card that must never be guessed at: it
+  // is the claim a reader acts on by NOT looking further.
+  if (read.normalization === 'none') {
+    return 'Not enough history to size this shift.';
+  }
+
+  if (read.state === 'QUIET' && !positioningResolved(payload)) {
+    return 'No repositioning visible in this window.';
+  }
 
   switch (read.state) {
     case 'FIRMING':
@@ -378,6 +474,12 @@ export function buildSubhead(payload: RegimeShiftPayload): string {
   if (crossing) return crossing;
 
   const meta = STATE_META[read.state];
+  if (read.normalization === 'none') {
+    return 'The direction is measured; the size is not, until sessions accumulate.';
+  }
+  if (read.state === 'QUIET' && !positioningResolved(payload)) {
+    return describePositioningGap(payload);
+  }
   if (read.state === 'QUIET') {
     return 'Walls and flip held. The prior read still applies.';
   }
@@ -616,6 +718,22 @@ export function buildLevelRows(payload: RegimeShiftPayload): LevelRow[] {
       sense: direction === 'flat' ? 'flat' : direction === 'up' ? 'good' : 'bad',
       note: gexAfter >= 0 ? 'dealers long gamma here' : 'dealers short gamma here',
     });
+  }
+
+  // On the repositioning lens in a window with no open-interest change, the
+  // net shift is 0 for the same structural reason the ribbon is empty — and
+  // "$0" sitting in a tile beside four real levels reads as a measurement.
+  if (!positioningResolved(payload)) {
+    rows.push({
+      key: 'net_shift',
+      label: 'Net shift',
+      before: '',
+      after: '—',
+      direction: 'flat',
+      sense: 'flat',
+      note: 'no open-interest change to attribute',
+    });
+    return rows;
   }
 
   rows.push({

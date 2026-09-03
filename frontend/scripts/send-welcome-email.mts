@@ -29,6 +29,7 @@ type Args = {
   email: string | null;
   variant: Variant;
   trialEnd: string | null;
+  trialDays: number | null;
   force: boolean;
   dryRun: boolean;
   help: boolean;
@@ -49,6 +50,21 @@ function normalizeTrialEnd(value: string): string {
     process.exit(1);
   }
   return iso;
+}
+
+// Trial length in whole days for the welcome copy ("Your 30-day free trial is
+// now active"). Rejected rather than silently ignored when unparseable: this
+// number becomes a promise about the charge date, so a typo must not quietly
+// fall back to a different one.
+function normalizeTrialDays(value: string | undefined): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || Math.round(parsed) < 1) {
+    console.error(
+      `Error: invalid --trial-days "${value ?? ''}". Expected a positive whole number of days.`,
+    );
+    process.exit(1);
+  }
+  return Math.round(parsed);
 }
 
 function parseEnvFile(filePath: string): Record<string, string> {
@@ -83,6 +99,7 @@ function parseArgs(argv: string[]): Args {
     email: null,
     variant: 'paid',
     trialEnd: null,
+    trialDays: null,
     force: false,
     dryRun: false,
     help: false,
@@ -92,6 +109,7 @@ function parseArgs(argv: string[]): Args {
     if (arg === '--email' || arg === '-e') args.email = argv[++i] ?? null;
     else if (arg === '--variant' || arg === '-v') args.variant = (argv[++i] ?? '') as Variant;
     else if (arg === '--trial-end' || arg === '-t') args.trialEnd = argv[++i] ?? null;
+    else if (arg === '--trial-days') args.trialDays = normalizeTrialDays(argv[++i]);
     else if (arg === '--force') args.force = true;
     else if (arg === '--dry-run') args.dryRun = true;
     else if (arg === '--help' || arg === '-h') args.help = true;
@@ -103,7 +121,7 @@ function usage() {
   console.log(`Usage:
   node --experimental-strip-types scripts/send-welcome-email.mts \\
     --email <user@example.com> [--variant <variant>] [--trial-end <date>] \\
-    [--force] [--dry-run]
+    [--trial-days <n>] [--force] [--dry-run]
 
 Options:
   -e, --email <email>       Target user (required).
@@ -113,6 +131,13 @@ Options:
                             calendar date (YYYY-MM-DD) or a full ISO
                             timestamp. Only applies to paid/founding; ignored
                             for welcome-back. Omit for the non-trial copy.
+      --trial-days <n>      Length of the trial the paid welcome names, e.g.
+                            "Your 30-day free trial is now active". Match the
+                            subscription's real window (Stripe trial_start ->
+                            trial_end) — a reactivation signup gets
+                            REACTIVATION_TRIAL_DAYS, not 7. Omit and the copy
+                            names no day count at all, which is safe but
+                            vaguer. Paid variant only.
       --force               Send even if paid_welcome_email_sent_at is already
                             set (only meaningful for paid/founding).
       --dry-run             Print what would happen without sending or writing.
@@ -193,6 +218,20 @@ if (cliArgs.trialEnd && cliArgs.variant === 'welcome-back') {
   process.exit(1);
 }
 
+// Only the paid welcome names a trial length; founding copy speaks to the
+// locked-in rate instead, and welcome-back has no trial at all.
+if (cliArgs.trialDays !== null && cliArgs.variant !== 'paid') {
+  console.error('Error: --trial-days only applies to the paid variant.');
+  process.exit(1);
+}
+
+// A day count with no trial-end date would name a length on copy that never
+// renders the trial branch — almost certainly a mistyped invocation.
+if (cliArgs.trialDays !== null && !cliArgs.trialEnd) {
+  console.error('Error: --trial-days requires --trial-end (the non-trial copy has no trial line).');
+  process.exit(1);
+}
+
 const trialEndIso = cliArgs.trialEnd ? normalizeTrialEnd(cliArgs.trialEnd) : null;
 
 const cwd = process.cwd();
@@ -257,7 +296,8 @@ if (stampsThisVariant && user.paid_welcome_email_sent_at && !cliArgs.force) {
   process.exit(3);
 }
 
-const copyMode = trialEndIso ? `trial (ends ${trialEndIso})` : 'non-trial';
+const trialLengthMode = cliArgs.trialDays !== null ? `${cliArgs.trialDays}-day` : 'length unnamed';
+const copyMode = trialEndIso ? `trial (${trialLengthMode}, ends ${trialEndIso})` : 'non-trial';
 
 console.log(`Auth DB:    ${dbPath}`);
 console.log(`User:       ${user.email} (id=${user.id}, tier=${user.tier})`);
@@ -278,7 +318,7 @@ if (cliArgs.dryRun) {
 }
 
 if (cliArgs.variant === 'paid') {
-  await sendPaidWelcomeEmail(email, { trialEndIso });
+  await sendPaidWelcomeEmail(email, { trialEndIso, trialDays: cliArgs.trialDays });
 } else if (cliArgs.variant === 'founding') {
   await sendFoundingWelcomeEmail(email, { trialEndIso });
 } else {
