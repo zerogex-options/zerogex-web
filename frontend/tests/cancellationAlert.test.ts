@@ -12,6 +12,7 @@ import {
   daysUntil,
   buildChurnAlert,
   selectBatch,
+  shouldAlertOnChurn,
   type ChurnAlertInput,
 } from '../core/cancellationAlert.ts';
 import { formatCancellationReasonSuffix } from '../core/cancellationReason.ts';
@@ -37,6 +38,45 @@ const BASE: ChurnAlertInput = {
 };
 
 const NOW = '2026-09-02T12:00:00.000Z';
+
+test('shouldAlertOnChurn: a pending cancel always alerts, reason or not', () => {
+  // They still have access, so there is a live save window and a decision to
+  // make. Tenure alone can justify a reply — a silent cancel at four months is
+  // worth an email. Filtering these would defeat the point of the alert.
+  assert.equal(shouldAlertOnChurn('pending', 'Cancellation requested for sub_1', false), true);
+  assert.equal(
+    shouldAlertOnChurn('pending', 'Cancellation requested | cancel_feedback=unused', false),
+    true,
+  );
+});
+
+test('shouldAlertOnChurn: a lapse only alerts when the survey captured something', () => {
+  // Access is already gone. A lapse with no reason carries no decision and no
+  // information — overwhelmingly a trial that just ended — and on real data that
+  // class was ~85% of the stream, enough noise to bury the signal with it.
+  assert.equal(shouldAlertOnChurn('lapsed', 'Subscription sub_1 ended', false), false);
+
+  // A captured enum is signal.
+  assert.equal(
+    shouldAlertOnChurn('lapsed', 'Subscription sub_1 ended | cancel_feedback=switched_service', false),
+    true,
+  );
+  // So is free text, which is the richest case of all.
+  assert.equal(
+    shouldAlertOnChurn(
+      'lapsed',
+      'Subscription sub_1 ended | cancel_comment="dealer hedging flows are missing"',
+      false,
+    ),
+    true,
+  );
+});
+
+test('shouldAlertOnChurn: the escape hatch restores the unfiltered stream', () => {
+  assert.equal(shouldAlertOnChurn('lapsed', 'Subscription sub_1 ended', true), true);
+  // ...and never suppresses anything that was already alerting.
+  assert.equal(shouldAlertOnChurn('pending', 'Cancellation requested', true), true);
+});
 
 test('selectBatch: the per-run cap is an INBOX guard, so mark-only ignores it', () => {
   const pending = Array.from({ length: 60 }, (_, i) => i);

@@ -93,6 +93,35 @@ export function describeTenure(days: number | null): string {
   return `${days} days (~${months} month${months === 1 ? '' : 's'})`;
 }
 
+// ── Which churn events are worth an alert ────────────────────────────────────
+// The first week of live running answered this empirically: most churn rows
+// carry no reason at all, and an alert stream that is ~85% "no reason given"
+// gets filtered to a folder — taking the 15% that matters with it.
+//
+// The split that survives that pressure is by what you can DO about the event,
+// not by how much text it carries:
+//
+//   pending — always alerts, reason or not. They still have access, so there is
+//             a live save window and a decision to make. Tenure alone is enough
+//             to act on: a silent cancel at four months is worth a reply.
+//   lapsed  — alerts only when the survey captured something. Access is already
+//             gone, so a lapse with no reason carries no decision and no
+//             information; it is overwhelmingly a trial that simply ended
+//             without anyone touching the cancel flow, which is why there is no
+//             reason to report. A lapse WITH a reason is the opposite: it is the
+//             member telling you why, which is the whole point of the alert.
+//
+// Set includeSilentLapses to restore the unfiltered firehose.
+export function shouldAlertOnChurn(
+  kind: ChurnEventKind,
+  auditMessage: string,
+  includeSilentLapses: boolean,
+): boolean {
+  if (kind === 'pending') return true;
+  if (includeSilentLapses) return true;
+  return hasCancellationSignal(parseCancellationReasonFromMessage(auditMessage));
+}
+
 // ── Per-run batching ─────────────────────────────────────────────────────────
 // How many of the pending churn events a single run takes.
 //

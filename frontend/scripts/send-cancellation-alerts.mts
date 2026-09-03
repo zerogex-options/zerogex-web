@@ -43,6 +43,10 @@
 //   CANCELLATION_ALERT_LOOKBACK_HOURS   trailing window, default 72
 //   CANCELLATION_ALERT_LIMIT            max sends per run, default 25
 //   CANCELLATION_ALERT_THROTTLE_MS      gap between sends, default 550
+//   CANCELLATION_ALERT_INCLUDE_SILENT_LAPSES=1
+//                                       alert on lapses that captured no reason
+//                                       too (default: they are skipped)
+//   CANCELLATION_ALERT_BUSY_TIMEOUT_MS  SQLite lock wait, default 10000
 //
 // Flags:
 //   --to <email>      Override recipient
@@ -59,6 +63,13 @@
 //                     that unthrottled. Default 550 (~1.8/s), matching
 //                     send-product-update.mts.
 //   --kind <k>        pending | lapsed | both (default both)
+//   --include-silent-lapses
+//                     Also alert on lapsed subscriptions whose cancellation
+//                     survey captured nothing. Off by default: access is already
+//                     gone and no reason was given, so there is nothing to act on
+//                     — almost always a trial that simply ended. Pending cancels
+//                     are NEVER filtered, reason or not; they still have a live
+//                     save window. See shouldAlertOnChurn in core/cancellationAlert.ts.
 //   --dry-run         Print what would be sent; send nothing, latch nothing
 //   --mark-only       Latch WITHOUT sending. The "I have already dealt with this
 //                     backlog by hand, don't email me about history" escape hatch:
@@ -82,6 +93,7 @@ import {
   parseAlertLatchEventId,
   buildChurnAlert,
   selectBatch,
+  shouldAlertOnChurn,
   type ChurnEventKind,
 } from '../core/cancellationAlert.ts';
 import { sendCancellationAlertEmail } from '../core/mailer.ts';
@@ -141,6 +153,7 @@ type Args = {
   markOnly: boolean;
   preview: string | null;
   throttleMs: number;
+  includeSilentLapses: boolean;
 };
 
 function usage(): never {
@@ -151,6 +164,8 @@ function usage(): never {
   --lookback <h>   Trailing window in hours (default 72)
   --limit <n>      Max alerts per run (default 25; 0 = unlimited)
   --kind <k>       pending | lapsed | both (default both)
+  --include-silent-lapses
+                   Also alert on lapses with no reason captured (default: skipped)
   --dry-run        Print the alerts; send nothing, latch nothing
   --mark-only      Latch without sending (silence a historical backlog)
   --preview <addr> Send one synthetic sample alert to <addr> and exit
@@ -170,6 +185,7 @@ function parseArgs(argv: string[]): Args {
     markOnly: false,
     preview: null,
     throttleMs: envThrottleMs(),
+    includeSilentLapses: process.env.CANCELLATION_ALERT_INCLUDE_SILENT_LAPSES === '1',
   };
   for (let i = 0; i < argv.length; i += 1) {
     switch (argv[i]) {
@@ -202,6 +218,9 @@ function parseArgs(argv: string[]): Args {
         break;
       case '--preview':
         args.preview = argv[++i] ?? null;
+        break;
+      case '--include-silent-lapses':
+        args.includeSilentLapses = true;
         break;
       case '--throttle-ms': {
         const v = Number(argv[++i]);
@@ -278,6 +297,15 @@ async function main(): Promise<void> {
   // has nothing to write regardless.
   const db = new DatabaseSync(DB_PATH, { readOnly: args.dryRun });
 
+  // Without this SQLite fails the moment anything else holds the write lock,
+  // and something else usually does: the Next.js app serves from this same
+  // database, and the 15-minute timer can fire mid-run. A long --since backfill
+  // died exactly this way ("fatal: database is locked") after latching ~160 of
+  // 286 rows. Waiting for the lock is the correct behaviour — these writes are
+  // tiny and the contention is milliseconds.
+  const busyMs = Number(process.env.CANCELLATION_ALERT_BUSY_TIMEOUT_MS);
+  db.exec(`PRAGMA busy_timeout = ${Number.isFinite(busyMs) && busyMs >= 0 ? busyMs : 10_000}`);
+
   const wantedTypes =
     args.kind === 'both'
       ? [...CHURN_EVENT_TYPE_VALUES]
@@ -319,18 +347,28 @@ async function main(): Promise<void> {
     if (id) alreadyAlerted.add(id);
   }
 
-  const pending = churnRows.filter((r) => !alreadyAlerted.has(r.id) && r.email);
+  const unalerted = churnRows.filter((r) => !alreadyAlerted.has(r.id) && r.email);
+  const pending = unalerted.filter((r) => {
+    const kind = classifyChurnEvent(r.type);
+    return kind ? shouldAlertOnChurn(kind, r.message, args.includeSilentLapses) : false;
+  });
+  const suppressed = unalerted.length - pending.length;
   // Count latched rows that belong to THIS window, not every latch in the latch
   // scan. A `--since` backfill writes its latches today, so the raw set size
   // includes events far outside the current window and the three numbers stop
   // adding up ("259 events, 25 already alerted, 259 to send").
-  const alreadyInWindow = churnRows.length - pending.length;
+  const alreadyInWindow = churnRows.length - unalerted.length;
 
   console.log(`[cancellation-alerts] db=${DB_PATH}`);
   console.log(`[cancellation-alerts] window since ${SINCE} (kind=${args.kind})`);
   console.log(
     `[cancellation-alerts] ${churnRows.length} churn event(s) in window, ${alreadyInWindow} already alerted, ${pending.length} to send`,
   );
+  if (suppressed > 0) {
+    console.log(
+      `[cancellation-alerts] ${suppressed} lapsed with no reason captured — skipped (--include-silent-lapses to see them)`,
+    );
+  }
 
   if (pending.length === 0) {
     db.close();
@@ -371,6 +409,33 @@ async function run(db: DatabaseSync, batch: ChurnRow[], to: string | null): Prom
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       );
 
+  // Mark-only runs as ONE transaction. Silencing a backlog is hundreds of tiny
+  // inserts, and doing them one at a time takes and releases the write lock
+  // hundreds of times — which is how a 286-row backfill died on "database is
+  // locked" after latching ~160, leaving the backlog half-silenced and the timer
+  // free to mail the rest. One transaction takes the lock once, for
+  // milliseconds, and is all-or-nothing: either the backlog is silenced or
+  // nothing changed and you can simply run it again.
+  if (args.markOnly && insertLatch) {
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      for (const row of batch) {
+        const kind = classifyChurnEvent(row.type);
+        if (!kind) continue;
+        latch(insertLatch, row, kind);
+        // Per-row output is useful for a handful and pure noise for hundreds.
+        if (batch.length <= 25) console.log(`  MARKED ${row.email} (${kind})`);
+      }
+      db.exec('COMMIT');
+    } catch (err) {
+      db.exec('ROLLBACK');
+      throw err;
+    }
+    console.log(`\n[cancellation-alerts] ${batch.length} marked, 0 sent — nothing was emailed`);
+    db.close();
+    return;
+  }
+
   let sent = 0;
   let failed = 0;
 
@@ -407,10 +472,10 @@ async function run(db: DatabaseSync, batch: ChurnRow[], to: string | null): Prom
       continue;
     }
 
+    // Only reachable as --dry-run --mark-only (the writing path returned above,
+    // and dry-run's own branch already `continue`d), so there is nothing to latch.
     if (args.markOnly) {
-      latch(insertLatch, row, kind);
-      sent += 1;
-      console.log(`  MARKED ${row.email} (${kind}) — no email sent`);
+      console.log(`  WOULD MARK ${row.email} (${kind})`);
       continue;
     }
 
