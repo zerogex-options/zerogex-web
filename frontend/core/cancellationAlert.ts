@@ -93,6 +93,21 @@ export function describeTenure(days: number | null): string {
   return `${days} days (~${months} month${months === 1 ? '' : 's'})`;
 }
 
+// ── Run exit status ──────────────────────────────────────────────────────────
+// Whether a finished run should fail its systemd unit.
+//
+// A PARTIAL failure is the design working, not a fault: an unlatched send is
+// retried on the next tick, so a transient 429 or a blip at Resend clears itself
+// within fifteen minutes. Failing the unit for that leaves `systemctl --failed`
+// red over something already handled and, worse, makes the red meaningless — the
+// run where nothing went out looks identical to the one where 24 of 25 did.
+//
+// Nothing succeeding is the case that does NOT self-heal: wrong credentials, a
+// revoked key, no egress. That is the one worth waking someone for.
+export function alertRunExitCode(sent: number, failed: number): 0 | 1 {
+  return sent === 0 && failed > 0 ? 1 : 0;
+}
+
 // ── Which churn events are worth an alert ────────────────────────────────────
 // The first week of live running answered this empirically: most churn rows
 // carry no reason at all, and an alert stream that is ~85% "no reason given"

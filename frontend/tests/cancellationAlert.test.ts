@@ -13,6 +13,7 @@ import {
   buildChurnAlert,
   selectBatch,
   shouldAlertOnChurn,
+  alertRunExitCode,
   type ChurnAlertInput,
 } from '../core/cancellationAlert.ts';
 import { formatCancellationReasonSuffix } from '../core/cancellationReason.ts';
@@ -38,6 +39,21 @@ const BASE: ChurnAlertInput = {
 };
 
 const NOW = '2026-09-02T12:00:00.000Z';
+
+test('alertRunExitCode: only a run where NOTHING succeeded fails the unit', () => {
+  // Clean run.
+  assert.equal(alertRunExitCode(25, 0), 0);
+  // Partial: the failures were never latched, so the next tick retries them.
+  // Failing the unit here would light up `systemctl --failed` over a condition
+  // that resolves itself, and drown the run that genuinely needs attention.
+  assert.equal(alertRunExitCode(24, 1), 0);
+  assert.equal(alertRunExitCode(1, 24), 0);
+  // Nothing sent and failures present: credentials, egress, a revoked key —
+  // none of which self-heal. This is the one that should page you.
+  assert.equal(alertRunExitCode(0, 25), 1);
+  // Nothing to do at all is not a failure.
+  assert.equal(alertRunExitCode(0, 0), 0);
+});
 
 test('shouldAlertOnChurn: a pending cancel always alerts, reason or not', () => {
   // They still have access, so there is a live save window and a decision to

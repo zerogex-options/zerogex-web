@@ -94,6 +94,7 @@ import {
   buildChurnAlert,
   selectBatch,
   shouldAlertOnChurn,
+  alertRunExitCode,
   type ChurnEventKind,
 } from '../core/cancellationAlert.ts';
 import { sendCancellationAlertEmail } from '../core/mailer.ts';
@@ -503,14 +504,21 @@ async function run(db: DatabaseSync, batch: ChurnRow[], to: string | null): Prom
 
   if (args.dryRun) {
     console.log(`\n[cancellation-alerts] dry run — ${batch.length} alert(s) would be sent to ${to ?? '(no recipient configured)'}`);
+  } else if (failed > 0) {
+    console.log(
+      `\n[cancellation-alerts] ${sent} sent, ${failed} failed — the failures were not latched and retry on the next tick`,
+    );
   } else {
     console.log(
-      `\n[cancellation-alerts] ${sent} ${args.markOnly ? 'marked' : 'sent'}, ${failed} failed`,
+      `\n[cancellation-alerts] ${sent} ${args.markOnly ? 'marked' : 'sent'}, 0 failed`,
     );
   }
 
   db.close();
-  process.exit(failed > 0 ? 1 : 0);
+
+  // See alertRunExitCode: a partial failure retries next tick and must not fail
+  // the unit; a run where nothing succeeded does not self-heal and must.
+  process.exit(alertRunExitCode(sent, failed));
 }
 
 // One synthetic alert, so the layout can be checked on a real mail client without
