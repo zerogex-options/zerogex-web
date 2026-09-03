@@ -42,7 +42,7 @@ The output is a continuous score in **[−1.0, +1.0]**.
 |-------|----------------------|
 | +0.6 to +1.0 | Strong modeled upward drift into the close. The magnet sits above spot and dealers are modeled to buy. |
 | +0.2 to +0.6 | Mild upside drift. Bias intraday holds long but don't size aggressively. |
-| −0.2 to +0.2 | No edge. Either too early in the window or charm and pin terms are cancelling. |
+| −0.2 to +0.2 | No edge. Either too early in the window or charm and pin terms are canceling. |
 | −0.2 to −0.6 | Mild downside drift. Bias short or close longs. |
 | −0.6 to −1.0 | Strong modeled downward drift into the close. |
 
@@ -143,7 +143,7 @@ A zero reading is the most common state. The signal is *designed* to be silent o
 - No strikes inside the ATM band on a sparse or thinly-quoted chain.
 - Both `max_pain` and `max_gamma_strike` are null.
 - Pin target sitting exactly at spot.
-- Charm and pin scores exactly cancelling — rare, requires opposite directions and equal magnitude.
+- Charm and pin scores exactly canceling — rare, requires opposite directions and equal magnitude.
 
 If you are watching the panel at 13:55 ET and it reads zero, that is correct and expected. The signal will populate at 14:30 ET and ramp into the close.
 

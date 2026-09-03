@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
     //
     // Post-cutover we ALSO auto-login the new account — the registration
     // form is the entry point for paid signup, and bouncing through /login
-    // afterwards breaks the register→checkout flow.
+    // afterward breaks the register→checkout flow.
     const session = await registerAndStartSession(
       request,
       email,

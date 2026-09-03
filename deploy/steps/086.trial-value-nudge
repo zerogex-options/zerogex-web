@@ -11,7 +11,7 @@
 # activation email to trialing users around the ~day-2 mark — BEFORE the day
 # 3-7 cancel wave and well before the 48h billing reminder. Idempotent via
 # users.trial_midpoint_email_sent_at; the send honors marketing opt-out and
-# skips already-cancelled trials.
+# skips already-canceled trials.
 #
 # Idempotent — safe to re-run. The unit files are overwritten from the repo
 # (version-controlled, so this is the desired behavior), and
@@ -132,7 +132,7 @@ log ""
 log "Summary:"
 log "  ✓ ${UNIT}.timer enabled (every 6h on 00/6:45, offset from trial-reminders at :15)"
 log "  ✓ Eligibility windowed +/-3h around now+120h (~day 2 of a 7-day trial)"
-log "  ✓ Skips already-cancelled trials; honors marketing_unsubscribed_at"
+log "  ✓ Skips already-canceled trials; honors marketing_unsubscribed_at"
 log "  ✓ Idempotent: users.trial_midpoint_email_sent_at latches per trial; webhook re-arms on new trialing transitions"
 log ""
 log "Useful commands:"

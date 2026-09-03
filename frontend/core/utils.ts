@@ -98,7 +98,7 @@ export function etDateKeyFor(ts: string | null | undefined): string {
 // (13:30–21:00 UTC) sits wholly inside one UTC calendar day, that day's UTC
 // date IS the ET trading date. Rendering the marker in America/New_York would
 // convert 00:00Z back 4–5h into the previous evening — 2026-08-04T00:00:00Z
-// prints as "Aug 3, 20:00 ET" — labelling every daily candle a day early.
+// prints as "Aug 3, 20:00 ET" — labeling every daily candle a day early.
 // Formatting in UTC returns the correct trading date and is DST-proof (it never
 // touches the ET offset). Use this for daily bars ONLY; intraday bars are true
 // instants and must still render in ET.

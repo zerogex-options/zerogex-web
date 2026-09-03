@@ -233,7 +233,7 @@ test('computeMaxPainFromStrikes coerces string columns and ignores blank strikes
     { strike: '100', call_oi: '200', put_oi: '200' },
     { strike: '105', call_oi: '0', put_oi: '20' },
   ];
-  // The blank strike must not become a $0 strike and win the minimisation.
+  // The blank strike must not become a $0 strike and win the minimization.
   assert.equal(computeMaxPainFromStrikes(strikes), 100);
 });
 
@@ -241,7 +241,7 @@ test('computeMaxPainFromStrikes returns null for a book too thin to read', () =>
   assert.equal(computeMaxPainFromStrikes(null), null);
   assert.equal(computeMaxPainFromStrikes(undefined), null);
   assert.equal(computeMaxPainFromStrikes([{ strike: 100, call_oi: 5, put_oi: 5 }]), null);
-  // Three strikes but no open interest anywhere — nothing to minimise.
+  // Three strikes but no open interest anywhere — nothing to minimize.
   assert.equal(
     computeMaxPainFromStrikes([
       { strike: 95, call_oi: 0, put_oi: 0 },

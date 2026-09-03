@@ -274,7 +274,7 @@ const records = rows
     const source = (hasUtm ? row.signup_utm_source : null) || 'organic/direct';
     const reason = reasonByUser.get(row.id) ?? { feedback: null, comment: null };
     // Why a lapsed sub died: involuntary (died in dunning / had a payment
-    // failure) vs voluntary/expired (cancelled or a trial that simply ran out).
+    // failure) vs voluntary/expired (canceled or a trial that simply ran out).
     // A pending cancel-click (trial-abandon / paid-cancel) is voluntary by
     // definition. This split is the fork in the fix: billing/dunning vs the
     // trial experience.

@@ -51,7 +51,7 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
   'what-is-a-gamma-wall': [
     {
       q: 'What is a gamma wall?',
-      a: 'A gamma wall is a strike on the option chain where modeled dealer gamma exposure is heavily concentrated. It marks a price level where option positioning is unusually dense, so the hedging dealers may do around it can be larger than at neighbouring strikes.',
+      a: 'A gamma wall is a strike on the option chain where modeled dealer gamma exposure is heavily concentrated. It marks a price level where option positioning is unusually dense, so the hedging dealers may do around it can be larger than at neighboring strikes.',
     },
     {
       q: 'What is the difference between a call wall and a put wall?',

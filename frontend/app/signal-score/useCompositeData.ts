@@ -55,7 +55,7 @@ export function useCompositeData(symbol: string): CompositeState {
   // One AbortController per symbol lifetime. Replaced (and the previous
   // one aborted) when the symbol changes or the hook unmounts. All
   // fetches read this signal at call time so in-flight requests are
-  // cancelled cleanly instead of waiting to roundtrip and then being
+  // canceled cleanly instead of waiting to roundtrip and then being
   // discarded by a symbol guard.
   const lifetimeAbortRef = useRef<AbortController | null>(null);
 

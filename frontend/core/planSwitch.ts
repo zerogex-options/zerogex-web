@@ -44,7 +44,7 @@ export type PlanSwitchDecision =
   // "Current Plan", but guard the request path too).
   | { kind: 'noop' };
 
-// Decide how to fulfil an existing subscriber's plan-change request.
+// Decide how to fulfill an existing subscriber's plan-change request.
 //
 // In-app upgrade requires ALL of:
 //   • the subscription is `trialing` (no invoice yet → nothing to prorate/refund,

@@ -13,7 +13,7 @@
 const PIXEL_ID = process.env.NEXT_PUBLIC_TWITTER_PIXEL_ID;
 
 // X's Universal Website Tag global (`twq`). Typed minimally so we avoid `any`
-// while modelling the queueing stub the loader installs (version/queue/exe).
+// while modeling the queueing stub the loader installs (version/queue/exe).
 type TwqFn = ((...args: unknown[]) => void) & {
   version?: string;
   queue?: unknown[][];

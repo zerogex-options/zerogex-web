@@ -21,7 +21,7 @@
  *
  * Clamped at 0 to mirror the API's negative-extrinsic clamp: a crossed or
  * stale quote can imply breakeven < spot for a call (i.e. instant profit),
- * which is a data artefact rather than a real trading opportunity.
+ * which is a data artifact rather than a real trading opportunity.
  */
 export function moveToBreakevenPct(
   strike: number,

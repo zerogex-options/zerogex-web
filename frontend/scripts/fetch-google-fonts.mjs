@@ -75,7 +75,7 @@ async function fetchBinary(url) {
 }
 
 // Pull the `/* latin */` @font-face blocks out of a CSS2 response, as
-// [{ weight, url }] in requested order. Google emits one comment-labelled
+// [{ weight, url }] in requested order. Google emits one comment-labeled
 // block per (subset, weight); we keep only latin, normal style.
 function parseLatinFaces(css) {
   const faceRe = /\/\*\s*latin\s*\*\/\s*@font-face\s*\{([^}]*)\}/g;

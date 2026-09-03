@@ -52,7 +52,7 @@ export function persistBiasTenor(tenor: BiasTenor): void {
 
 /**
  * The stored horizon, or null when there is nothing usable there. The guard is
- * on the VALUE, not just its type: an unrecognised string would be forwarded to
+ * on the VALUE, not just its type: an unrecognized string would be forwarded to
  * the bias API as a tenor it has no reading for, and the page would sit on an
  * empty "no data" state that looks like an outage rather than a bad preference.
  */

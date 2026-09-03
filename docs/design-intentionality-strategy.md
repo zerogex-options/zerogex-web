@@ -9,7 +9,7 @@
 > information design and the brand.
 
 This document was produced by diagnosing the live codebase (193 components, grep-verified
-counts, real file/line references), synthesising seven expert design critiques and three
+counts, real file/line references), synthesizing seven expert design critiques and three
 competing art directions, then adversarially pressure-testing the result (genericness
 score **19/100**, lower is better).
 
@@ -26,12 +26,12 @@ primitive invokes it. Every component independently re-stacks the same five redu
 "this-is-a-card" signals:
 
 1. a soft radius (`rounded-2xl`, and 11 different arbitrary corner values overall),
-2. a 1px border drawn in the **body-text** colour (`1px solid var(--text-secondary)`),
-3. a coloured glow (`box-shadow … var(--color-info-soft)`),
+2. a 1px border drawn in the **body-text** color (`1px solid var(--text-secondary)`),
+3. a colored glow (`box-shadow … var(--color-info-soft)`),
 4. a 135° gradient wash,
 5. a tinted icon-in-a-box,
 
-…then floats them in a rhythm-less `gap-2`/`p-6`/`mb-8` grid under a centred eyebrow-pill.
+…then floats them in a rhythm-less `gap-2`/`p-6`/`mb-8` grid under a centered eyebrow-pill.
 That is the literal default of assembling a Tailwind/shadcn card kit. Because the page shell
 (`container mx-auto`, 33×), the section head (redefined 6×) and the buttons (inline-styled
 with JS hover, ~7× in one file) are copy-pasted, the layout can only change one file at a
@@ -67,7 +67,7 @@ composition discipline on the tokens you already own.
   - Both render in whatever `--font-display` the active palette supplies.
 - **Dark is the terminal's native surface** (a flow desk's home at 6am), not an afterthought
   toggle. Spec the dark depth ramp first; derive light for Editorial.
-- **Colour is a signed quantity with locked, non-overlapping semantics:**
+- **Color is a signed quantity with locked, non-overlapping semantics:**
   - `--color-bull` / `--color-bear` = **direction** on live data only.
   - `--heat-mid` **amber** = the **gamma flip / zero-gamma zone** — everywhere it appears and
     *only* there. Never "this text is important."
@@ -88,12 +88,12 @@ A rule a reviewer can grep for is a rule that holds.
 | # | Principle | The rule |
 |---|---|---|
 | P01 | **One border deep** | Only a `<Panel>` draws a border/background; a bordered surface never nests inside another. Leaf tiles are naked content on hairline rules. |
-| P02 | **Depth by tone & rule; dark is native** | Spec the dark ramp first. One depth cue per element. Ban `linear-gradient` in chrome and coloured `box-shadow`. |
-| P03 | **Colour is a locked signal** | bull/bear = direction; amber = the flip only; accent-hot = the one live cursor. Define `--color-accent-hot` in default `:root`. |
+| P02 | **Depth by tone & rule; dark is native** | Spec the dark ramp first. One depth cue per element. Ban `linear-gradient` in chrome and colored `box-shadow`. |
+| P03 | **Color is a locked signal** | bull/bear = direction; amber = the flip only; accent-hot = the one live cursor. Define `--color-accent-hot` in default `:root`. |
 | P04 | **Palette is voice; register is density** | Never touch the palette voice. Register controls density only (Terminal vs Editorial). Both inherit the palette's `--font-display`. |
 | P05 | **Numbers are typeset like instruments** | Every live/columnar number → `.zg-metric` (mono, tabular-nums, slashed-zero, right-aligned, fixed decimals). Magnitude by alignment/weight, never a `4xl` bold number in a tint. |
 | P06 | **The strike ladder is the spine** | A table-first ladder: strikes as rows; call/put/net-GEX/greeks as ruled columns; walls flagged; flip row banded amber; DTE segmented. Dashboards compose from it. |
-| P07 | **Freshness is part of the instrument** | Every data surface carries an as-of stamp and a session state (LIVE/DELAYED/CLOSED/PRE-MARKET/WEEKEND). Stale data greys itself; the live accent lights only when LIVE. |
+| P07 | **Freshness is part of the instrument** | Every data surface carries an as-of stamp and a session state (LIVE/DELAYED/CLOSED/PRE-MARKET/WEEKEND). Stale data grays itself; the live accent lights only when LIVE. |
 | P08 | **Design the not-happy-path** | Every data primitive ships loading (ruled skeleton), empty ("no chain for {expiry}"), partial and error variants in the same hairline language. No blank cards, no layout shift. |
 | P09 | **One type scale; uppercase is rare** | All text routes through `.zg-*`; one `.zg-label` per section on one tracking value; card titles never uppercase. CI-grep bans raw `font-(semibold\|bold\|black)`, bare `uppercase`, `text-[Npx]`. |
 | P10 | **Square by default, three radii** | `--radius-control: 2px`, `--radius-panel: 2px`, `--radius-pill: 999px` (status dots only). Retire `rounded-2xl/xl/3xl`. |
@@ -194,6 +194,6 @@ The distinctive device is never decoration; it's a functional readout of the **g
 
 ---
 
-*Method: diagnosis grounded in the live codebase; strategy synthesised from seven expert
+*Method: diagnosis grounded in the live codebase; strategy synthesized from seven expert
 design critiques and three competing art directions, adversarially pressure-tested
 (genericness 19/100).*

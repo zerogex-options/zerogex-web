@@ -10,7 +10,7 @@
 // (GEX Profile, OI by Strike, the Gamma Terminal rail, the strike
 // table, the Flow-Analysis contract filter) each let the user pick one or more
 // expirations to filter by. Historically every one kept its own in-memory
-// selection that reset on reload and never agreed with its neighbours. This
+// selection that reset on reload and never agreed with its neighbors. This
 // layer gives them ONE selection that survives reloads/navigation and stays in
 // sync across every chart in the tab.
 //
@@ -30,7 +30,7 @@
 // in each tab and both stay put. Writing the live value to localStorage — or
 // mirroring it back in via the `storage` event, as this module used to — makes
 // every open tab snap to whichever one was touched last, which is exactly the
-// behaviour that made side-by-side comparison impossible.
+// behavior that made side-by-side comparison impossible.
 //
 // A tab's own "All" is a real choice, not an absent one: readTabExpirations()
 // returns null ONLY when the tab has never picked, so an explicit All ([]) is
@@ -42,7 +42,7 @@
 //                           default every chart already treats an empty set as.
 //   ['2025-06-20', …]     → restrict to exactly those expirations.
 //   ['0DTE']              → whatever expires TODAY, re-resolved every render.
-// The array is always normalised (deduped, token first, dates ascending) so the
+// The array is always normalized (deduped, token first, dates ascending) so the
 // stored blob and the cache-key params the charts derive from it are stable.
 //
 // Expirations are dates, so a saved pick naturally goes stale: a date chosen
@@ -80,7 +80,7 @@ const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 // because the numbers stay plausible and nothing announces the change.
 //
 // This token is the user's literal intent, kept literal. It survives
-// normalisation and storage untouched; reconcileExpirations() is the single
+// normalization and storage untouched; reconcileExpirations() is the single
 // point where it becomes a concrete date, against the chart's own option list
 // and the caller's ET date key. When today is NOT an expiry (a weekend, a
 // holiday, or an underlying with no same-day contract) it resolves to nothing
@@ -119,7 +119,7 @@ export function normalizeExpirations(values: readonly unknown[]): string[] {
   return rolling ? [ROLLING_ZERO_DTE, ...dates] : dates;
 }
 
-// Project a (normalised) selection onto the expirations a given chart actually
+// Project a (normalized) selection onto the expirations a given chart actually
 // has options for, preserving order, and resolve the rolling 0DTE token to a
 // real date on the way through. Keeps a stale/foreign date from lingering in a
 // chart's view; when nothing survives, the empty result reads as "All", which
@@ -162,7 +162,7 @@ function getStorage(area: 'localStorage' | 'sessionStorage'): Storage | null {
   }
 }
 
-// Parse one stored blob into a normalised selection, or null when there is
+// Parse one stored blob into a normalized selection, or null when there is
 // nothing usable there. A hand-edited / older-build blob of the wrong shape
 // must degrade rather than crash a chart, so anything unparseable reads as
 // absent — the caller decides whether absent means "All" or "fall through to
@@ -201,11 +201,11 @@ export function resolveInitialExpirations(): string[] {
 }
 
 // Best-effort write-through to BOTH layers: sessionStorage so this tab holds
-// the pick across reloads, localStorage so the next tab opens on it. Normalises
+// the pick across reloads, localStorage so the next tab opens on it. Normalizes
 // first (so storage and every reader see the canonical shape) and returns the
-// normalised value so the caller can seed in-memory state from the same thing
+// normalized value so the caller can seed in-memory state from the same thing
 // that was persisted. A failure in either area is swallowed — persistence must
-// never break expiration switching — and the normalised value is still returned
+// never break expiration switching — and the normalized value is still returned
 // so the in-memory store stays correct.
 export function persistExpirations(values: readonly string[]): string[] {
   const clean = normalizeExpirations(values);
@@ -229,7 +229,7 @@ export function persistExpirations(values: readonly string[]): string[] {
   return clean;
 }
 
-// Order-sensitive equality for two normalised selections. Used to no-op
+// Order-sensitive equality for two normalized selections. Used to no-op
 // redundant store updates (and so break any set→broadcast→re-seed feedback
 // loop between the shared store and a chart's local mirror).
 export function sameExpirations(a: readonly string[], b: readonly string[]): boolean {

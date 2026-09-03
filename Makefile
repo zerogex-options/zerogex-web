@@ -53,7 +53,7 @@ help:
 	@echo "  make partners [EMAIL=<partner>] - Roster of every Creator Partner: X handle, referral + promo codes, commission rate/window, Pro-grant expiry, activation date, disclosure URL. The 'who are my partners' view."
 	@echo "  make partner-commissions [EMAIL=<partner>] [FULL=1] [STATUS=accrued|paid|reversed] - Print the Creator Partner commission ledger: per-partner totals and (with --full) full row-by-row view. Use at month-end to figure out payouts."
 	@echo "  make public-cohort - Break the tier='public' cohort into reactivation segments (EMAILS=1 for paste-ready lists, COHORT=<key> to filter, SHOW_LAST_LOGIN=1 to split warm/cold/never, WARM_DAYS=<n> to tune, SINCE=<YYYY-MM-DD> to filter to signups on/after a date)"
-	@echo "  make cancellations - List customers who cancelled and when (pending = clicked Cancel, still has access; lapsed = subscription ended). STATUS=pending|lapsed to filter, EMAILS=1 for a recipient list, CSV=1 to export, SINCE=<YYYY-MM-DD> for cancellations on/after a date"
+	@echo "  make cancellations - List customers who canceled and when (pending = clicked Cancel, still has access; lapsed = subscription ended). STATUS=pending|lapsed to filter, EMAILS=1 for a recipient list, CSV=1 to export, SINCE=<YYYY-MM-DD> for cancellations on/after a date"
 	@echo "  make churn-breakdown - Diagnose a cancellation spike: split recent cancels into trial-abandon vs paid-cancel vs lapsed (and lapses into payment-failed vs voluntary/expired), by tier, tenure (trial-cliff detector), signup source, daily timeline, and captured cancel reasons. WINDOW=<days> (default 14) or SINCE=<YYYY-MM-DD> to set the window, CSV=1 for per-user rows"
 	@echo "  make enable-portal-cancel-reasons - Turn on the Stripe billing-portal cancellation survey (feedback + free-text) so future cancels record a WHY. DRY_RUN=1 to preview, YES=1 to apply. CHANGES THE LIVE CUSTOMER PORTAL"
 	@echo "  make diagnose-user EMAIL=<email> - Read-only dump of one user: DB row, last 20 audit events, live Stripe customer/subscription/invoices, and notes on whether the July-1 founding deferral applied"
@@ -306,7 +306,7 @@ trial-reminders:
 # Send the mid-trial value/activation nudge (~day 2 of a 7-day trial) to
 # currently-trialing members, BEFORE the day 3-7 cancel wave and well before the
 # 48h billing reminder above. Idempotent via users.trial_midpoint_email_sent_at;
-# honors marketing opt-out and skips already-cancelled trials. DRY_RUN=1
+# honors marketing opt-out and skips already-canceled trials. DRY_RUN=1
 # previews, YES=1 sends, PREVIEW_TO=<email> sends one sample, WINDOW_HOURS=N
 # tunes the +/- window.
 # Read-only review of every member currently on a free trial and whether they
@@ -379,7 +379,7 @@ winback:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-winback.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(DIGEST),--digest $(DIGEST_TO),) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),) $(if $(PREVIEW_MODE),--preview-mode $(PREVIEW_MODE),) $(if $(LAG_DAYS),--lag-days $(LAG_DAYS),) $(if $(LOOKBACK_DAYS),--lookback-days $(LOOKBACK_DAYS),)'
 
 # Send the second-touch reactivation email to cold verified-never-paid signups —
-# the inactive-signup analogue of the win-back above. Targets public-tier,
+# the inactive-signup analog of the win-back above. Targets public-tier,
 # verified, no-sub, not-churned, not-unsubscribed users who signed up inside the
 # [now-LOOKBACK_DAYS, now-LAG_DAYS] window (defaults 3650d/21d — the wide
 # lookback deliberately sweeps the aged backlog). Pitches an EXTENDED free trial
@@ -668,12 +668,12 @@ upgrade-at-current-price:
 # Do not hand-roll this with update-user-tier. Both natural orderings are wrong:
 # flipping the tier on a paying member does not hold (every subscription sync
 # recomputes tier from the Stripe price, so their next renewal silently reverts
-# it -- and they keep being charged), while cancelling AFTER granting the comp
+# it -- and they keep being charged), while canceling AFTER granting the comp
 # destroys it (subscription.deleted hard-sets tier='public', leaving them BELOW
 # where they started). This target cancels first, WAITS for the deleted webhook
 # to actually land, and only then writes the comped tier.
 #
-# REFUND=1 also refunds the member's most recent paid invoice -- cancelling is
+# REFUND=1 also refunds the member's most recent paid invoice -- canceling is
 # not a refund, and a member mid-period has already paid for time you are about
 # to give away. FINALIZE=1 skips the cancel and just lands the comp; use it if
 # the webhook wait times out (the script tells you when). Sends NO email --
@@ -751,8 +751,8 @@ partner-commissions:
 public-cohort:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/list-public-cohort.mjs --via-make $(if $(EMAILS),--emails,) $(if $(COHORT),--cohort $(COHORT),) $(if $(SHOW_LAST_LOGIN),--show-last-login,) $(if $(WARM_DAYS),--warm-days $(WARM_DAYS),) $(if $(SINCE),--since $(SINCE),)'
 
-# List every customer whose subscription is currently cancelled, and when they
-# cancelled. Two states: pending (users.cancel_at_period_end=1 — clicked Cancel,
+# List every customer whose subscription is currently canceled, and when they
+# canceled. Two states: pending (users.cancel_at_period_end=1 — clicked Cancel,
 # still has access until current_period_end) and lapsed (users.subscription_
 # lapsed=1 — subscription ended, tier reset to public; dated by the latest
 # 'stripe_subscription_deleted' audit event). Default prints a table sorted
@@ -1051,7 +1051,7 @@ blog-images:
 # Publish the packaged NinjaTrader import archive, when one has been dropped in.
 #
 # Only NinjaTrader itself can produce an archive its importer accepts (File ->
-# Utilities -> Export NinjaScript). We deliberately do NOT synthesise one here:
+# Utilities -> Export NinjaScript). We deliberately do NOT synthesize one here:
 # a hand-rolled zip that NT8 rejects is worse than no zip at all, because the
 # download button would be live and broken. So this is a guarded copy in the
 # same spirit as `make logo` -- drop the real export at

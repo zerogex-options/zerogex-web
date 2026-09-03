@@ -253,7 +253,7 @@ test("extended row: exactly flat → zero change counts as positive (green)", ()
 // The plain "% vs prior close" of a live displayed spot: no frozen-close
 // display swap, no futures basis. The baseline field flips at 16:00 —
 // current_session_close until today has closed (open / pre-market / unknown),
-// prior_session_close afterwards (after-hours and every closed state).
+// prior_session_close afterward (after-hours and every closed state).
 
 test("spot badge, open session → spot vs current_session_close", () => {
   const r = getSpotPriorCloseChange(750.0, "open", closes(747.0, 745.0));

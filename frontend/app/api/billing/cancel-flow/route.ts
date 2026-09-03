@@ -158,7 +158,7 @@ export async function POST(request: NextRequest) {
     try {
       await stripe.subscriptions.update(subscription.id, {
         discounts: nextCouponIds.map((c) => ({ coupon: c })),
-        // Un-cancel (a no-op if they weren't cancelling). Never prorate/charge
+        // Un-cancel (a no-op if they weren't canceling). Never prorate/charge
         // mid-period; the stacked discount rides the next invoice only.
         cancel_at_period_end: false,
         proration_behavior: 'none',

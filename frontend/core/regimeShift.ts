@@ -197,10 +197,10 @@ export interface RegimeHistoryPayload {
 export interface StateMeta {
   /** Display name — the word on the chip. */
   label: string;
-  /** Which CSS colour token carries this state. */
+  /** Which CSS color token carries this state. */
   tone: 'bull' | 'bear' | 'warning' | 'info' | 'muted';
   /**
-   * Direction glyph. Present so the chip is never colour-alone: red and
+   * Direction glyph. Present so the chip is never color-alone: red and
    * green separate at ΔE 34 for normal vision but collapse to ~5 under
    * deuteranopia, and this card's entire job is direction.
    */
@@ -525,7 +525,7 @@ function ordinal(n: number): string {
  * `direction` is which way the NUMBER moved; `sense` is whether that is good
  * for the tape. They are not the same thing — a gamma flip dropping is a
  * falling number and a bullish event — and binding them to one field is what
- * makes every flip-crossing row render the wrong colour.
+ * makes every flip-crossing row render the wrong color.
  */
 export interface LevelRow {
   key: string;

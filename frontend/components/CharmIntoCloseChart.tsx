@@ -92,7 +92,7 @@ export default function CharmIntoCloseChart({ symbol = 'SPY' }: CharmIntoCloseCh
   const sessionDays = data?.session_days ?? 1;
   const closeFlow = data?.close_flow_usd ?? 0;
 
-  // Buy vs sell colours the whole story: positive close flow = forced buying.
+  // Buy vs sell colors the whole story: positive close flow = forced buying.
   const flowColor = closeFlow >= 0 ? chart.bull : chart.bear;
   const direction = closeFlow >= 0 ? 'buy' : 'sell';
 

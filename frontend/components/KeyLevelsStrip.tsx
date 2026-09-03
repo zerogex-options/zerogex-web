@@ -307,7 +307,7 @@ export function KeyLevelsBoard({
             className="zg-chip"
             style={{
               // Reuses the site's existing bull/bear tone for the regime — the
-              // colour-coded regime system is a separate track, not this one.
+              // color-coded regime system is a separate track, not this one.
               ['--chip-color' as string]: regime.long ? 'var(--color-bull)' : 'var(--color-bear)',
               fontSize: 10,
             }}

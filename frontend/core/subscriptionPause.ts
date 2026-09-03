@@ -2,7 +2,7 @@
 // subscription keeps its Stripe subscription alive (so it auto-resumes on its own)
 // but is billed nothing and — per the webhook's entitlement gate — grants no
 // access, so it is NOT churn: the member takes a bounded break and comes back
-// instead of cancelling outright.
+// instead of canceling outright.
 //
 // Kept PURE (no imports) so it's unit-tested without Stripe. The webhook derives
 // entitlement from derivePauseState(subscription.pause_collection); the

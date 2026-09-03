@@ -238,7 +238,7 @@ export type TrialConveyorSnapshot = {
   // until then, so without this the drop lands as a surprise weeks later.
   departures: ConveyorRider[];
   departingValue: number;
-  // Nominal free-trial length, for labelling the belt's scale.
+  // Nominal free-trial length, for labeling the belt's scale.
   trialDays: number;
   // Length of the payment-recovery window a stalled trial gets, in days.
   graceDays: number;
@@ -1144,9 +1144,9 @@ function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
 // Trailing acquisition velocity, intentionally measured at the customer's
 // decision/failure moment rather than at the later access downgrade. A first
 // paid-tier sync includes `trialing`, so it represents a free-trial start.
-// Cancellation acknowledgements provide historical coverage; the dedicated
+// Cancellation acknowledgments provide historical coverage; the dedicated
 // request audit is the durable source going forward. Grouping cancellation
-// rows by user/day prevents the acknowledgement and request rows emitted for
+// rows by user/day prevents the acknowledgment and request rows emitted for
 // the same click from being counted twice.
 //
 // Win-backs offset cancellations: an honor-winback-discount run that clears a
@@ -1154,7 +1154,7 @@ function buildSignupFlowSeries(now: Date): SignupFlowPoint[] {
 // cancel_at_period_end") means the member was retained on the same
 // subscription — no re-subscribe, so no offsetting signup ever lands. We
 // subtract in-window win-backs from the in-window cancellation count (floored
-// at 0) so a cancelled-then-won-back member nets to zero rather than showing as
+// at 0) so a canceled-then-won-back member nets to zero rather than showing as
 // a loss. This is a count-level offset within the same window (simplest): a
 // win-back whose original cancel fell outside the window slightly under-counts
 // cancellations, and --keep-cancellation runs (which don't clear the cancel)
@@ -1198,10 +1198,10 @@ function buildGrowthRates(now: Date): GrowthRatePoint[] {
         const invoice = row.message.match(/Invoice (in_[A-Za-z0-9]+)/)?.[1] ?? row.message;
         paymentFailures.add(`${day}:${invoice}`);
       } else if (row.type === 'billing_winback_discount_honored') {
-        // Only a win-back that actually un-cancelled offsets a cancellation;
+        // Only a win-back that actually un-canceled offsets a cancellation;
         // the script stamps "cleared cancel_at_period_end" into the message
         // exactly on that path, so --keep-cancellation runs (coupon pre-load
-        // only, member still cancelling) are skipped.
+        // only, member still canceling) are skipped.
         if (/cleared cancel_at_period_end/.test(row.message)) {
           winbacks.add(`${day}:${row.user_id ?? parseSubIdFromMessage(row.message) ?? row.message}`);
         }
@@ -1220,7 +1220,7 @@ function buildGrowthRates(now: Date): GrowthRatePoint[] {
   return horizons.map((windowDays) => {
     const signupCount = countSince(signups, windowDays);
     const winbackCount = countSince(winbacks, windowDays);
-    // Net win-backs out of the cancellation count so a cancelled-then-won-back
+    // Net win-backs out of the cancellation count so a canceled-then-won-back
     // member doesn't read as a loss. Floored at 0 so more win-backs than
     // in-window cancels can't invent phantom growth.
     const cancellationCount = Math.max(0, countSince(cancellations, windowDays) - winbackCount);
@@ -1306,7 +1306,7 @@ const SUBSCRIBER_PROJECTION_DAYS = 7;
 
 // Roll the Full Subscriber line forward off the conveyor's own contents. Every
 // input is already scheduled — a trial in flight has a first-charge date, a
-// cancelled member has a last day — so this is a commitment rather than a
+// canceled member has a last day — so this is a commitment rather than a
 // forecast, and it anchors to the series' last real point so the dashed line
 // continues the solid one instead of floating beside it.
 function buildSubscriberProjection(
@@ -1374,7 +1374,7 @@ function buildSubscriberLedger_(now: Date): SubscriberLedgerSnapshot {
     // Scanned oldest-first so each subscription's prior state is known before
     // the transition that changes it. A sub's history may start before the
     // display window, so the scan reaches further back than the window and the
-    // rows are filtered to the window afterwards — otherwise a member whose
+    // rows are filtered to the window afterward — otherwise a member whose
     // first sync predates it would render as a spurious "new subscriber".
     const since = LEDGER_WINDOW_DAYS * 2;
     const syncRows = db
@@ -1480,7 +1480,7 @@ type ConveyorUserRow = {
 //   • the users table for every trial currently in flight (the riders),
 //   • the `stripe_subscription_sync` audit stream for when each one BOARDED
 //     (its first `trialing` sync) and for the historical outcomes,
-//   • the deletion stream, so a trial cancelled outright is booked as a
+//   • the deletion stream, so a trial canceled outright is booked as a
 //     roll-off rather than silently vanishing.
 // Every failure path falls through to an empty belt: this panel must never
 // 500 the admin page.

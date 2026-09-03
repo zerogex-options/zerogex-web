@@ -44,7 +44,7 @@
 // normalizes the subscription's discounts to the managed coupon for the NEW
 // tier/cadence -- the public promo, or the founding intro. Applying the
 // hold-steady coupon in the same update as the price switch therefore loses a
-// race: the reconciler lands afterwards and the member ends up on the standard
+// race: the reconciler lands afterward and the member ends up on the standard
 // promo rate, not the rate they were promised. Verifying right after the switch
 // reads the pre-reconcile figure and reports a success that is about to stop
 // being true. So the coupon goes on LAST, after the reconciler has run, and the
@@ -54,7 +54,7 @@
 // differs from the new one), the hold-steady coupon is stable once applied:
 // later syncs see the same price on both sides and no-op. Switching the member's
 // plan AGAIN later re-runs the reconciler and clobbers the held rate -- re-run
-// this script in repair mode afterwards.
+// this script in repair mode afterward.
 //
 // REPAIR MODE: if the member is already on the target price, the switch is
 // skipped and only the discount is repaired. That case requires an explicit

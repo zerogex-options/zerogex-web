@@ -629,8 +629,8 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
   const dormant = opts.dormant === true;
   // The dormant subject names the charge instead of the trial ending. A member
   // who never came back has no mental model of "my trial" to attach a reminder
-  // to; what they will recognise later is the line on their statement, so the
-  // subject is written to be recognised now rather than then.
+  // to; what they will recognize later is the line on their statement, so the
+  // subject is written to be recognized now rather than then.
   const subject = dormant
     ? 'Before your ZeroGEX trial converts — a quick check'
     : 'Your ZeroGEX free trial ends in 2 days';
@@ -674,7 +674,7 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
         // "Make sure your card is ready" is a nudge toward a successful charge,
         // which reads as pressure next to the dormant copy's offer of an exit.
         // The amount and the card still appear either way — that is the part
-        // that stops the charge being unrecognised on a statement.
+        // that stops the charge being unrecognized on a statement.
         dormant ? '' : ` Please make sure your payment method is ready, or update it from your account page (${accountUrl}).`
       }`
     : null;
@@ -712,7 +712,7 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
   // Openers. The ordinary one assumes the member knows what their trial is.
   // The dormant one cannot: it names the date, the charge and the exit in the
   // first two sentences, on the assumption this email is the only thing
-  // standing between them and an unrecognised line on a statement.
+  // standing between them and an unrecognized line on a statement.
   const openerText = dormant
     ? `I noticed you haven't been back to ZeroGEX since you signed up, so I wanted to flag this rather than let it surprise you: your free trial ends on ${trialEndDate}, and your first payment goes through then.`
     : `A quick heads-up: your ZeroGEX free trial ends on ${trialEndDate}, and your first payment will be charged then unless you cancel before that.`;
@@ -1740,7 +1740,7 @@ export async function sendCancellationEmail(
   const text = [
     'Hello,',
     '',
-    'I saw you just cancelled your ZeroGEX subscription — first, thank you. You\'ve been a real part of what I\'ve been building here, and I don\'t take that lightly.',
+    'I saw you just canceled your ZeroGEX subscription — first, thank you. You\'ve been a real part of what I\'ve been building here, and I don\'t take that lightly.',
     '',
     `You still have full access until ${periodEndDate}, so nothing changes yet on your end. I just wanted to reach out personally before that day comes.`,
     '',
@@ -1773,7 +1773,7 @@ export async function sendCancellationEmail(
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
       <p>Hello,</p>
-      <p>I saw you just cancelled your ZeroGEX subscription &mdash; first, thank you. You've been a real part of what I've been building here, and I don't take that lightly.</p>
+      <p>I saw you just canceled your ZeroGEX subscription &mdash; first, thank you. You've been a real part of what I've been building here, and I don't take that lightly.</p>
       <p>You still have full access until <strong>${escapeHtml(periodEndDate)}</strong>, so nothing changes yet on your end. I just wanted to reach out personally before that day comes.</p>
       ${saveUrl
         ? `<div style="background: #f4fbf6; border: 1px solid #bfe6cf; border-radius: 10px; padding: 16px 18px; margin: 20px 0; text-align: center;">
@@ -2140,7 +2140,7 @@ export async function sendVerifiedNeverPaidEmail(to: string) {
 // Second-touch reactivation email for a verified-never-paid signup who ignored
 // the first ~2h nudge (sendVerifiedNeverPaidEmail). Fired ~3 weeks later by
 // scripts/send-reactivation.mts. One-shot per account (latch on
-// users.reactivation_email_sent_at). This is the inactive-signup analogue of the
+// users.reactivation_email_sent_at). This is the inactive-signup analog of the
 // churned win-back: the first touch pitched the standard 7-day trial and didn't
 // convert, so this one CHANGES the offer to an extended trial (`trialDays`,
 // granted server-side at checkout for the ?reactivate=1 arrival) — the longer

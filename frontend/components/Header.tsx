@@ -489,7 +489,7 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                     story (the old padded export needed 150% to fill the band).
                     76% keeps the 3.3:1 lockup ~250px wide — the footprint the
                     old wordmark had, so it still clears the world clocks that
-                    sit either side of this absolutely-centred block. */}
+                    sit either side of this absolutely-centered block. */}
                 <Image
                   {...brandTitle(theme === "dark")}
                   alt="ZeroGEX"

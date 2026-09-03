@@ -16,7 +16,7 @@ interface PriceDistanceMetricCardProps {
 
 // The distance format (signed dollars / signed percent / above-or-below spot)
 // is shared with the Key Levels strip and widget via core/keyLevels, so a level
-// reads identically wherever it is rendered. Only the colour + icon are local.
+// reads identically wherever it is rendered. Only the color + icon are local.
 function getDistanceMeta(level: number | null | undefined, spotPrice: number | null | undefined) {
   const distance = keyLevelDistance(level, spotPrice);
   if (!distance) return null;

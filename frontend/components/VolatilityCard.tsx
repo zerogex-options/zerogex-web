@@ -58,12 +58,12 @@ function InfoPanel({ type, isDark }: InfoPanelProps) {
           <>
             Maps <strong style={{ color: textColor }}>$VIX.X</strong> to a 0–10 log scale
             anchored to historical percentiles. Equal gauge steps represent proportionally
-            equal changes in realised fear, not raw VIX points.
+            equal changes in realized fear, not raw VIX points.
           </>
         ) : (
           <>
             Weighted composite rate-of-change of VIX across five time scales (5&nbsp;min → 2&nbsp;hrs),
-            normalised against realised per-bar VIX volatility. Scaled so that{" "}
+            normalized against realized per-bar VIX volatility. Scaled so that{" "}
             <strong style={{ color: textColor }}>±2σ maps to the full 0–10 range</strong> —
             routine intraday moves stay in the middle band; only genuine trend moves reach the extremes.
             Reading of 5 = neutral.

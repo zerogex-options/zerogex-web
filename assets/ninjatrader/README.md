@@ -33,7 +33,7 @@ someone else's machine and then served from our domain, so "we trust whoever
 sent it" is not good enough for a public download. It rejects:
 
 - source inside the archive that differs from
-  `frontend/public/ninjatrader/ZeroGexGammaLevels.cs` (after normalising BOM
+  `frontend/public/ninjatrader/ZeroGexGammaLevels.cs` (after normalizing BOM
   and CRLF), which covers both tampering and the duller case — a **stale**
   archive exported before the last edit to the `.cs`
 - a missing `Info.xml`, which NinjaTrader would refuse to import

@@ -444,7 +444,7 @@ export const WIDGETS: WidgetDef[] = [
     id: 'trade-bias-horizon',
     title: 'Trade Bias · Horizon',
     blurb:
-      "The Signals Engine's signed directional call for a horizon you pick — Swing (multi-day) or Intraday (0DTE). The same read the Trade Bias page shows, summarised: bias, conviction and the regime behind it.",
+      "The Signals Engine's signed directional call for a horizon you pick — Swing (multi-day) or Intraday (0DTE). The same read the Trade Bias page shows, summarized: bias, conviction and the regime behind it.",
     category: 'signals',
     tier: 'basic',
     icon: Compass,
@@ -600,7 +600,7 @@ export type DashboardPreset = {
   /**
    * Trade Bias horizon to switch to. Same reasoning as `expirations`: a board
    * that calls itself same-day while its bias widget shows the multi-day read
-   * is worse than no preset, because both are labelled "Trade Bias" and only
+   * is worse than no preset, because both are labeled "Trade Bias" and only
    * one of them is the call the member came for.
    *
    * The horizon is a single shared preference (hooks/useBiasTenor), so this
@@ -624,7 +624,7 @@ export const PRESETS: DashboardPreset[] = [
     tier: 'basic',
     // The load-bearing line. Without it this is a widget list that happens to
     // suit 0DTE while quietly showing the whole chain; with it every widget on
-    // the board that honours the pane scope — Key Levels, the Gamma Chart, the
+    // the board that honors the pane scope — Key Levels, the Gamma Chart, the
     // strike book, the flow — reads the same-day book. ROLLING_ZERO_DTE rather
     // than today's date so the board is still a 0DTE board tomorrow morning.
     expirations: [ROLLING_ZERO_DTE],

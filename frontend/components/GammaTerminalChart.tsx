@@ -151,7 +151,7 @@ const RAIL_CENTER = (RAIL_LEFT + RAIL_RIGHT) / 2;
 const RAIL_HALF = (RAIL_RIGHT - RAIL_LEFT) / 2 - 10;
 
 // ── Gamma-by-strike rail view ── the rail draws either the smoothed net
-// silhouette (default, existing behaviour) or discrete per-strike bars: NET
+// silhouette (default, existing behavior) or discrete per-strike bars: NET
 // (one signed bar), SPLIT (separate call + put bars) or COMBINED (split bars
 // plus a net overlay), mirroring the GEX Strike Profile chart.
 type RailMode = "silhouette" | "net" | "split" | "combined";
@@ -162,7 +162,7 @@ interface RailStrike {
   netGex: number;
 }
 const RAIL_STORAGE_KEY = "zg.gammaChart.rail.v1";
-// Net-overlay bar colour for "combined" mode — violet, distinct from bull/bear.
+// Net-overlay bar color for "combined" mode — violet, distinct from bull/bear.
 const NET_BAR_COLOR = "#7C3AED";
 // Base opacity every rail bar (and every expiry segment within one) is drawn at.
 const RAIL_BAR_OPACITY = 0.85;
@@ -896,7 +896,7 @@ export default function GammaTerminalChart({
     // per-strike source (the strike-profile timeseries) so they render
     // identically — only the bucket differs (the rewound moment vs the live
     // tip). Raw per-strike values are discrete and sign-alternating between
-    // neighbours, so rewindRailCurve smooths them into the clean silhouette.
+    // neighbors, so rewindRailCurve smooths them into the clean silhouette.
     const strikeBucket = rewindBucket ?? (live ? liveGexBucket : null);
     if (strikeBucket) return rewindRailCurve(strikeBucket.strikes);
     // Delayed snapshot: per-strike if present, else the served cumulative curve.
@@ -1018,7 +1018,7 @@ export default function GammaTerminalChart({
         : autoHalf;
     // Linked charts take their zoom/pan from the link, held relative to the
     // base window so it means the same thing on both halves. Unlinked charts
-    // keep the private absolute-centre view they always had.
+    // keep the private absolute-center view they always had.
     let half: number;
     let center: number;
     if (priceLink) {
@@ -1187,7 +1187,7 @@ export default function GammaTerminalChart({
   // and both sit at the component's top level so the hook order is stable.
   const railZeroDte = useZeroDteOption(availableExpiries, todayKey);
 
-  // strike(cents) → normalised expiration → call/put magnitudes, plus the
+  // strike(cents) → normalized expiration → call/put magnitudes, plus the
   // snapshot's expiration universe (nearest-first = DTE rank).
   const { perStrike: railPerStrikeExp, expirations: railByStrikeExps } = useMemo(
     () => buildExpirationSplit(gexByStrikeRows, todayKey),
@@ -1513,7 +1513,7 @@ export default function GammaTerminalChart({
   const enterRewind = () => {
     if (allBars.length < MIN_COUNT) return;
     // Freeze the y-axis to the current auto-fit domain so scrubbing doesn't move
-    // it (the user can still adjust it by hand afterwards).
+    // it (the user can still adjust it by hand afterward).
     if (layout) setFrozenAxis({ mid: layout.autoMid, half: layout.autoHalf });
     // Anchor at the earliest replayable bar (full window + GEX coverage) so Play
     // has the longest runway. Set the clock to that candle's END so it opens on
@@ -2333,7 +2333,7 @@ export default function GammaTerminalChart({
                  wasn't resolved. The arrowed axis tag (off-scale) and the "—"
                  in the regime badge (unresolved) both answer it, but neither
                  sits where the user is looking. This says it in place.
-                   * off scale  → flip colour, arrow toward it, price included
+                   * off scale  → flip color, arrow toward it, price included
                                   so the chip is self-sufficient
                    * unresolved → muted, no price: the profile came back
                                   one-signed or too thin to place a crossing */}
@@ -2346,7 +2346,7 @@ export default function GammaTerminalChart({
               // the off-screen level rather than floating mid-plot. Two things
               // already own the top-left of the plot: the OHLC readout (an
               // absolutely-positioned div painted OVER the svg — a chip up
-              // there is invisible, not just crowded) and the centred
+              // there is invisible, not just crowded) and the centered
               // off-scale regime caption. So the top slot sits below both, and
               // the unresolved case — which has no direction to point in, and
               // no caption since the regime band needs a flip — is parked at
@@ -2744,7 +2744,7 @@ function coerceNum(v: unknown): number | null {
 // Rebuild the gamma rail for a rewound moment from a bucket's per-strike net
 // gamma. The live rail draws a smooth net-gamma-by-price density (two lobes
 // peaking at the put-side / call-side walls); the raw bucket strikes are the
-// same quantity but discrete and sign-alternating between neighbours, so plotted
+// same quantity but discrete and sign-alternating between neighbors, so plotted
 // directly they read as a jagged, center-crossing silhouette (the "funky" rail).
 // We convolve them with a Gaussian (bandwidth ≈ the strike spacing) onto a fine
 // price grid to recover that clean silhouette, preserving the sign convention

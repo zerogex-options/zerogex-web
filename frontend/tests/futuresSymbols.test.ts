@@ -8,7 +8,7 @@
 //   * they validate and persist like any other underlying, or the picker
 //     silently snaps back to SPY on reload;
 //   * NQ reads against VXN (not VIX), which is the pairing that was
-//     copy-pasted across a dozen surfaces before it was centralised;
+//     copy-pasted across a dozen surfaces before it was centralized;
 //   * their chart series is filtered by the CME session, not by equity hours,
 //     which would trim away most of a legitimate overnight series.
 import test from 'node:test';

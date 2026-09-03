@@ -20,7 +20,7 @@
 //     exactly one run.
 //   - users.trial_midpoint_email_sent_at IS NULL (latch; the Stripe webhook
 //     clears it on every fresh transition into 'trialing').
-//   - users.cancel_at_period_end = 0 (never nudge someone who already cancelled).
+//   - users.cancel_at_period_end = 0 (never nudge someone who already canceled).
 //   - users.marketing_unsubscribed_at IS NULL (engagement email → honors opt-out).
 //   - users.deleted_at IS NULL.
 //

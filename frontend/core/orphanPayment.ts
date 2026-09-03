@@ -21,7 +21,7 @@
 // The fix is to notice the orphaned payment on invoice.paid and re-create the
 // subscription in Stripe with its billing anchored at the END of the period the
 // member just paid for — so they get exactly the access they bought, are not
-// charged twice, and renew normally afterwards. That re-created subscription
+// charged twice, and renew normally afterward. That re-created subscription
 // emits customer.subscription.created, and the ordinary sync grants the tier.
 //
 // This module holds only the decision (unit-tested in tests/orphanPayment.test.ts);
@@ -61,7 +61,7 @@ export type OrphanPaymentInput = {
   // invoice.status — only a settled 'paid' invoice buys anything.
   invoiceStatus: string | null;
   // invoice.billing_reason. null/unknown is tolerated (treated as allowed) so a
-  // shape we don't recognise degrades to "detected", never to a silent skip.
+  // shape we don't recognize degrades to "detected", never to a silent skip.
   billingReason: string | null;
   // The subscription this invoice billed for, or null when it has no
   // subscription parent (readInvoiceSubscriptionId).
@@ -153,7 +153,7 @@ export function decideOrphanPayment(input: OrphanPaymentInput): OrphanPaymentDec
     return { kind: 'detected', recoverable: false, reason: 'price_unresolved' };
   }
   if (!priceMapsToPaidTier) {
-    // A price outside our current catalogue (a retired SKU, a custom deal).
+    // A price outside our current catalog (a retired SKU, a custom deal).
     // Re-creating it would grant an undefined tier, so leave it to a human.
     return { kind: 'detected', recoverable: false, reason: 'price_not_in_catalogue' };
   }
@@ -194,7 +194,7 @@ export function decideOrphanPayment(input: OrphanPaymentInput): OrphanPaymentDec
 //   repeating  Partly spent, by an amount this module cannot see (the count
 //              lives in the old subscription's invoice history). Re-applying
 //              restarts the clock. Do not carry, and DO flag for review — how
-//              much of it the member is still owed is a judgement call.
+//              much of it the member is still owed is a judgment call.
 //
 // Anything not carried is reported rather than dropped in silence, so the
 // recovery script names every coupon while it is still a dry run. Only the

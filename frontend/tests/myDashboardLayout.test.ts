@@ -2,7 +2,7 @@
 // (frontend/core/myDashboardLayout.ts) that back the customizable dashboard.
 // Focus: the robustness contract (a corrupt/old/new stored blob can never crash
 // the dashboard — worst case is an empty layout), the migration of a pre-split
-// board, the immutable reducers, and the split/clone/scope behaviour that lets a
+// board, the immutable reducers, and the split/clone/scope behavior that lets a
 // member set one half up and read a retargeted copy beside it.
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -275,7 +275,7 @@ test('sanitizeLayout validates a pane scope and keeps "All" distinct from "inher
   assert.deepEqual(
     getPane(layout, 'a').scope.expirations,
     ['2026-01-16', '2026-03-20'],
-    'expirations are normalised: junk dropped, sorted ascending',
+    'expirations are normalized: junk dropped, sorted ascending',
   );
   assert.equal(getPane(layout, 'b').scope.symbol, null, 'an unknown symbol falls back to inherit');
   assert.deepEqual(getPane(layout, 'b').scope.expirations, [], 'an explicit "All" is preserved');
@@ -284,7 +284,7 @@ test('sanitizeLayout validates a pane scope and keeps "All" distinct from "inher
 // ── The rolling 0DTE pane scope ──────────────────────────────────────────────
 // The "0DTE Intraday" preset seeds a pane scope of [ROLLING_ZERO_DTE]. That is
 // only a 0DTE board for as long as the token survives the round trip: if
-// normalisation dropped it the scope would silently become "All" — the whole
+// normalization dropped it the scope would silently become "All" — the whole
 // chain — which is precisely the failure the token was introduced to end.
 
 test('a pane scope pinned to the rolling 0DTE token round-trips through storage', () => {
@@ -569,7 +569,7 @@ test('setPaneSymbol pins and un-pins a half', () => {
   assert.equal(getPane(setPaneSymbol(pinned, 'b', null), 'b').scope.symbol, null, 'null = follow the page');
 });
 
-test('setPaneExpirations normalises, and separates "All" from "follow the page"', () => {
+test('setPaneExpirations normalizes, and separates "All" from "follow the page"', () => {
   const base = emptyLayout();
   const pinned = setPaneExpirations(base, 'a', ['2026-03-20', '2026-01-16', '2026-03-20']);
   assert.deepEqual(getPane(pinned, 'a').scope.expirations, ['2026-01-16', '2026-03-20']);
@@ -613,7 +613,7 @@ test('setLinkPriceAxis toggles, and only an explicit false survives a reload', (
   assert.equal(
     sanitizeLayout({ panes: [], linkPriceAxis: false }).linkPriceAxis,
     false,
-    'an explicit false is honoured',
+    'an explicit false is honored',
   );
   assert.equal(
     sanitizeLayout({ panes: [], linkPriceAxis: 'nope' }).linkPriceAxis,

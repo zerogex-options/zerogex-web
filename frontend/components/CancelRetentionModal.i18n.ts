@@ -21,10 +21,10 @@ export const dict: PageDictionary = {
     // Step 2 — reason capture (only if they declined the offer).
     reasonHeading: 'Sorry to see you go',
     reasonBody:
-      'Mind sharing why you’re cancelling? It genuinely helps me fix what’s not working — but it’s optional.',
+      'Mind sharing why you’re canceling? It genuinely helps me fix what’s not working — but it’s optional.',
     reasonCommentPlaceholder: 'Anything else you’d like me to know? (optional)',
     confirmCancel: 'Cancel my subscription',
-    cancelling: 'Cancelling…',
+    canceling: 'Canceling…',
     keepPlan: 'Never mind — keep my plan',
 
     // Terminal — saved.
@@ -34,16 +34,16 @@ export const dict: PageDictionary = {
     savedBodyNoDate:
       'Done. {pct}% off for a year is on your account and your access continues — nothing else to do.',
 
-    // Terminal — cancelled.
-    cancelledHeading: 'Your subscription is set to cancel',
-    cancelledBody:
+    // Terminal — canceled.
+    canceledHeading: 'Your subscription is set to cancel',
+    canceledBody:
       'You’ll keep full access until {date}. Changed your mind later? You can resubscribe anytime from the pricing page.',
-    cancelledBodyNoDate:
+    canceledBodyNoDate:
       'You’ll keep full access until the end of your current billing period. Changed your mind later? You can resubscribe anytime from the pricing page.',
     done: 'Done',
 
     // Pause-instead-of-cancel.
-    pauseInstead: 'Pause instead of cancelling',
+    pauseInstead: 'Pause instead of canceling',
     pauseHeading: 'Would a break help?',
     pauseBody:
       "Pause your subscription instead — no charge and no access while it's paused, and it picks back up automatically. How long would you like?",

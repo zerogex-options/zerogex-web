@@ -179,7 +179,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 // with four levels and becomes an unreadable smear once GEX
                 // 1..10 and VWAP are on too. Nudging them up a few ticks costs
                 // nothing and separates text from line. In ticks, so it scales
-                // with the instrument; 0 restores the old behaviour.
+                // with the instrument; 0 restores the old behavior.
                 LabelOffsetTicks = 4;
                 ShowInfoPanel = true;
                 EnableAlerts = false;
@@ -577,7 +577,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         }
 
         /// <summary>The strikes carrying the most dealer gamma, drawn as dashed
-        /// lines labelled GEX 1..N — GEX 1 being the largest.
+        /// lines labeled GEX 1..N — GEX 1 being the largest.
         ///
         /// Costs no extra request: the profile the histogram already uses holds
         /// every strike's net gamma, so this is a ranking of data in hand.

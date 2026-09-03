@@ -4,7 +4,7 @@
  * RegimeSessionHistory — what every recent session read as, at a glance.
  *
  * One column per trading day, oldest on the left. The bar's height is the
- * shift magnitude, its colour and glyph the state, so a month of sessions
+ * shift magnitude, its color and glyph the state, so a month of sessions
  * answers questions a single day's card cannot: is this a persistently
  * capping tape, or did today break a run of quiet? Have we been shortening
  * gamma all week?
@@ -20,7 +20,7 @@
  * panel fills its width, rather than the first cut's stack of a short strip
  * over a wide detail bar with empty space either side of both.
  *
- * Colour is never the only encoding: each bar carries its state glyph, and
+ * Color is never the only encoding: each bar carries its state glyph, and
  * every bar is keyboard-reachable with a text summary.
  */
 
@@ -38,7 +38,7 @@ import {
 import { Note, PanelHeader, PanelMessage, Zone, toneColor } from './RegimeShiftUI';
 
 const HEADER_TOOLTIP =
-  "What each recent session read as. Bar height is the size of that day's shift; colour and glyph are the state it landed in. Every bar is normalized against the same window, so they are comparable to each other — a day that reads 2σ here was genuinely twice the move of a day that reads 1σ.";
+  "What each recent session read as. Bar height is the size of that day's shift; color and glyph are the state it landed in. Every bar is normalized against the same window, so they are comparable to each other — a day that reads 2σ here was genuinely twice the move of a day that reads 1σ.";
 
 function stateColor(state: RegimeState): string {
   return toneColor(STATE_META[state].tone);

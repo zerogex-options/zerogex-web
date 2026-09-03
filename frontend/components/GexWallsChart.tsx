@@ -385,7 +385,7 @@ export default function GexWallsChart({ openInterestData, spotPrice, byStrikeFal
 
   // visibleDomain controls ONLY which slice of strikes the XAxis renders;
   // the chart container width and the YAxis stay put. `null` until data
-  // arrives, then initialised to the full range (zoomed out).
+  // arrives, then initialized to the full range (zoomed out).
   const [visibleDomain, setVisibleDomain] = useState<[number, number] | null>(null);
 
   if (fullStrikeDomain != null) {

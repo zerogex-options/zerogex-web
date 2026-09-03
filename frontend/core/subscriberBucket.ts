@@ -387,7 +387,7 @@ export function buildSubscriberLedger(
       detail: scheduled
         ? `Scheduled cancellation took effect — access ended${ev.reason ? ` (${ev.reason})` : ''}`
         : isTrialPhase(s, atMs)
-          ? 'Trial ended, the first charge failed and Stripe cancelled the subscription'
+          ? 'Trial ended, the first charge failed and Stripe canceled the subscription'
           : `Subscription ended${ev.reason ? ` (${ev.reason})` : ''}`,
     });
     s.bucket = 'notCounted';

@@ -86,7 +86,7 @@ function formatHumanDate(raw: string): string {
 }
 
 async function loadRange(date: string, symbol: string): Promise<ReplayRangePayload | null> {
-  // include_expirations attaches the per-strike expiration mix that colour-
+  // include_expirations attaches the per-strike expiration mix that color-
   // grades each gamma bar by time-to-expiry (nearest boldest → furthest
   // faintest). It costs a second session-wide scan server-side, which is why
   // it's opt-in — this page draws the gradient, so it opts in; the pair-

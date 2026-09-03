@@ -119,7 +119,7 @@ export default function DashboardPage() {
   // this one — so every symbol change (the summary drops back to loading while
   // the new one lands) tore down and rebuilt the banner, the title row and the
   // Key Levels strip. Besides the flicker, that cost the strip the render state
-  // its flip animation reads, which is why a backwards flip always slid in
+  // its flip animation reads, which is why a backward flip always slid in
   // forwards. One tree, one mount, and only the cards below swap.
   const awaitingFirstLoad = gexLoading && !gexData;
 

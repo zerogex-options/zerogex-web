@@ -50,7 +50,7 @@ export type DiscountAudit = {
 // growth-rate dashboard honest:
 //
 //   • The member was ALREADY scheduled to cancel (cancel_at_period_end=1) — e.g.
-//     they cancelled earlier via the portal/email and are now un-cancelling.
+//     they canceled earlier via the portal/email and are now un-canceling.
 //     Clearing that is a genuine WIN-BACK save. core/monitoring buildGrowthRates
 //     already counted their cancellation and nets saves back out by matching
 //     'billing_winback_discount_honored' rows carrying the phrase

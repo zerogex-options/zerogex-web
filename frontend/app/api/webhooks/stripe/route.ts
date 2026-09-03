@@ -93,7 +93,7 @@ type UserRow = {
   // active) so the funnel events fire exactly once on the actual change.
   subscription_status: string | null;
   // Last-synced cancel_at_period_end flag (0/1). Read pre-UPDATE so the
-  // 0→1 transition fires the cancellation acknowledgement email once.
+  // 0→1 transition fires the cancellation acknowledgment email once.
   cancel_at_period_end: number;
   // ISO timestamp anchoring an open payment-recovery grace window, or null.
   // Read pre-UPDATE so each past_due sync can enforce the bounded window
@@ -121,7 +121,7 @@ const ACTIVE_STATUSES = new Set<Stripe.Subscription.Status>(['active', 'trialing
 
 // Subscription-state events whose ordering matters: applying a stale one
 // (e.g. an old 'active' redelivered after 'deleted') would re-promote a
-// cancelled user. Guarded by event.created vs the newest processed event
+// canceled user. Guarded by event.created vs the newest processed event
 // for the same subscription.
 const LIFECYCLE_EVENT_TYPES = new Set<string>([
   'checkout.session.completed',
@@ -490,7 +490,7 @@ async function maybeReconcileDiscountOnPlanSwitch(
 // coupon carried in subscription.metadata.stack_coupon (set by the checkout
 // route); this applies it.
 //
-// Gated on `trialing`: the discount set must be finalised BEFORE the first
+// Gated on `trialing`: the discount set must be finalized BEFORE the first
 // invoice. A referee coupon is duration:once, so adding it after the first
 // (trial-end) invoice would wrongly discount a later cycle instead. Every
 // referred user gets the 7-day trial, so the window always exists in practice;
@@ -732,7 +732,7 @@ async function syncSubscriptionToUser(
   const periodEndUnix = getCurrentPeriodEndUnix(subscription);
   const periodEndIso = periodEndUnix ? new Date(periodEndUnix * 1000).toISOString() : null;
 
-  // Founding redemption is signalled by subscription.metadata.founding='1',
+  // Founding redemption is signaled by subscription.metadata.founding='1',
   // set at checkout time. First sync after redemption stamps the column;
   // COALESCE keeps the original timestamp on subsequent syncs.
   const subMetadata = (subscription.metadata ?? {}) as Record<string, string | undefined>;
@@ -942,7 +942,7 @@ async function syncSubscriptionToUser(
   });
 }
 
-// Fires the cancellation acknowledgement email on the 0→1 transition of
+// Fires the cancellation acknowledgment email on the 0→1 transition of
 // cancel_at_period_end (the moment the customer clicks Cancel), and clears
 // the send-latch on the reverse 1→0 (reactivation) so a future re-cancel
 // can re-fire. Idempotent via CAS-claim on cancel_ack_email_sent_at, so
@@ -1617,7 +1617,7 @@ async function maybeRecoverOrphanPayment(invoice: Stripe.Invoice): Promise<void>
     email: user.email,
     message:
       `Invoice ${invoiceId} recovered as subscription ${created.id} on price ${decision.priceId}; ` +
-      `paid period honoured through ${new Date(decision.billingCycleAnchorUnix * 1000).toISOString()} (first renewal charge)` +
+      `paid period honored through ${new Date(decision.billingCycleAnchorUnix * 1000).toISOString()} (first renewal charge)` +
       carriedSuffix +
       droppedSuffix,
   });
@@ -1823,7 +1823,7 @@ export async function POST(request: NextRequest) {
   // Stripe retries any non-2xx and can deliver events out of order. Without
   // these guards a retried event double-applies and an out-of-order replay
   // (old 'active' after 'deleted') silently re-grants premium to a
-  // cancelled user.
+  // canceled user.
   const db = getDb();
   const subscriptionId = extractSubscriptionId(event);
 

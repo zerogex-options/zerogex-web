@@ -28,7 +28,7 @@
 //   2. Re-creates the SAME plan in Stripe with billing_cycle_anchor at the END
 //      of the period that invoice paid for and proration_behavior 'none' — so
 //      the member gets exactly the access they bought, is NOT charged again for
-//      it, and renews normally afterwards. The card that settled the invoice is
+//      it, and renews normally afterward. The card that settled the invoice is
 //      wired as the subscription default.
 //   3. Mirrors the grant onto the users row (tier, subscription mirror, grace
 //      latches cleared) for immediacy, and writes an audit row. The
@@ -446,7 +446,7 @@ const sku = skuByPriceId.get(decision.priceId)!;
 const carryOver = decideDiscountCarryOver(readSubscriptionDiscounts(canceledSubscription));
 
 console.log(`Plan to restore:    ${sku.tier} / ${sku.cadence}  (price ${decision.priceId})`);
-console.log(`First renewal:      ${isoOf(decision.billingCycleAnchorUnix)}  ← paid period honoured until here`);
+console.log(`First renewal:      ${isoOf(decision.billingCycleAnchorUnix)}  ← paid period honored until here`);
 console.log(`Charge now:         $0.00  (proration_behavior=none — they already paid for this period)`);
 if (carryOver.carry.length) {
   console.log(`Discounts carried:  ${carryOver.carry.join(', ')}  (duration=forever)`);
@@ -462,7 +462,7 @@ for (const flagged of carryOver.flagged) {
     console.log('  to at checkout. Nothing to do.');
   } else {
     console.log(`  A '${flagged.duration}' coupon may be only partly spent, and how much of it`);
-    console.log('  the member is still owed is a judgement call — so it is not re-applied.');
+    console.log('  the member is still owed is a judgment call — so it is not re-applied.');
     console.log('  Renewals bill the full price; add the coupon in Stripe if that is wrong.');
   }
 }
@@ -604,7 +604,7 @@ execSqlite(
      NULL,
      '${escapeSqlLiteral(user.email)}',
      'manual-script',
-     '${escapeSqlLiteral(`Invoice ${invoice.id} recovered as subscription ${created.id} on price ${decision.priceId}; paid period honoured through ${isoOf(decision.billingCycleAnchorUnix)} (first renewal charge); tier set to ${sku.tier}${carryOver.carry.length ? `; carried forever coupon(s) ${carryOver.carry.join(', ')}` : ''}${droppedParams.length ? `; Stripe rejected ${droppedParams.join(', ')}` : ''}`)}',
+     '${escapeSqlLiteral(`Invoice ${invoice.id} recovered as subscription ${created.id} on price ${decision.priceId}; paid period honored through ${isoOf(decision.billingCycleAnchorUnix)} (first renewal charge); tier set to ${sku.tier}${carryOver.carry.length ? `; carried forever coupon(s) ${carryOver.carry.join(', ')}` : ''}${droppedParams.length ? `; Stripe rejected ${droppedParams.join(', ')}` : ''}`)}',
      '${escapeSqlLiteral(stamp)}'
    );`,
 );

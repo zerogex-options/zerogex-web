@@ -555,7 +555,7 @@ export default function StrikeProfileSnapshot({
             Dealer GEX {effMode === 'split' ? '(Call / Put)' : effMode === 'net' ? '(Net)' : '(Combined)'}
           </text>
 
-          {/* Colour legend for split/combined so the purple Net overlay reads
+          {/* Color legend for split/combined so the purple Net overlay reads
               unambiguously. */}
           {legend.map((item, i, arr) => {
             const slot = 48;

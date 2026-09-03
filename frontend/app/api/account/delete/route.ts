@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
 
   // 1. Stop billing. Cancel immediately (not at period end) — the account is
   // going away, so there's nothing to keep access for. Best-effort: a Stripe
-  // failure (already-cancelled, network) must not block the deletion. The
+  // failure (already-canceled, network) must not block the deletion. The
   // customer.subscription.deleted webhook that follows only updates billing
   // columns; it never clears deleted_at.
   if (row.stripe_subscription_id) {

@@ -5,7 +5,7 @@
 //     [--preview-to <email>]
 //
 // The SECOND-touch reactivation email for the verified-never-paid cohort — the
-// inactive-signup analogue of the churned win-back (scripts/send-winback.mts).
+// inactive-signup analog of the churned win-back (scripts/send-winback.mts).
 // The first touch (scripts/send-verified-never-paid.mts, ~2h after signup)
 // pitched the standard 7-day trial and, for this cohort, didn't convert. This
 // one reaches back out ~3 weeks after signup and CHANGES the offer: an extended

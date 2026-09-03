@@ -19,7 +19,7 @@
 //     rewrites the comp back to their paid tier. It also leaves them being
 //     charged, which is the opposite of a comp.
 //
-//   * Cancelling AFTER granting the comp destroys it. customer.subscription
+//   * Canceling AFTER granting the comp destroys it. customer.subscription
 //     .deleted hard-sets tier='public' (clearSubscriptionFromUser), so the
 //     member lands BELOW where they started.
 //
@@ -35,7 +35,7 @@
 //      public->public transition, so it does not revoke the member's API keys
 //      on the way through.
 //   2. (--refund) Refund the most recent PAID invoice on that subscription.
-//      Cancelling is not a refund: a member mid-period has already paid for time
+//      Canceling is not a refund: a member mid-period has already paid for time
 //      you are about to give away for free.
 //   3. WAIT for the webhook's stripe_subscription_deleted audit row before
 //      writing anything else. This is the race the manual runbook loses.
@@ -147,7 +147,7 @@ Options:
       --email <addr>       Member to comp (required).
       --tier <tier>        Comped tier: ${VALID_TIERS.join(' | ')} (default: pro).
       --refund             Also refund the most recent PAID invoice on the
-                           subscription. Cancelling alone is not a refund.
+                           subscription. Canceling alone is not a refund.
       --finalize           Skip the cancel; just write the comped tier and
                            verify. Use after a --wait-seconds timeout. Safe to
                            re-run.

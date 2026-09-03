@@ -31,7 +31,7 @@ The package was accurate and well-supported, and it still lost. The gap was neve
 documentation: it was that **no post-charge usage existed to show**. The cardholder
 signed up on 2026-08-06, used the product for roughly half an hour, and never returned —
 `sessions.last_rotated_at` never moved past that day. Against a debit issuer, "he never
-cancelled and we told him clearly" is a weaker position than "he used what he paid for",
+canceled and we told him clearly" is a weaker position than "he used what he paid for",
 and only the second one was unavailable to us.
 
 Worth setting as policy rather than re-deciding case by case: at this amount, with no
@@ -60,7 +60,7 @@ Actions taken 2026-08-21, in this order. The order mattered and was deliberate.
    Access runs to 2026-09-13; no renewal charge will be attempted. Our action, not the
    customer's. Deliberately after step 1: doing it first would have falsified the
    rebuttal's central claim on the day it was filed.
-3. **Customer emailed** to say the subscription is cancelled and he won't be charged
+3. **Customer emailed** to say the subscription is canceled and he won't be charged
    again. No argument, no admission.
 
 **The evidence fields below are reproduced AS FILED. Do not edit them** — they are the
@@ -77,7 +77,7 @@ The cardholder's stated reason is factually contradicted by our records. **No ca
 was ever requested, on any path**. The subscription ran with
 `cancel_at_period_end = false` continuously from signup, through the disputed charge, and
 for a week beyond it — until we scheduled it to end ourselves on 2026-08-21 (see Status). Visa 13.2 requires the cardholder to have actually
-cancelled before the charge; they did not, and separately we satisfied Visa's
+canceled before the charge; they did not, and separately we satisfied Visa's
 trial-conversion notification requirement 48 hours before billing.
 
 Weak point to be aware of, stated plainly: we have **no product-usage evidence after the
@@ -106,7 +106,7 @@ The webhook path fires on the genuine `cancel_at_period_end` 0→1 transition, s
 a cancel initiated *anywhere* — including directly in Stripe's portal, outside our UI.
 
 **This account's audit log contains none of these events.** It contains only signup, email
-verification, a password reset, two logins, disclaimer acknowledgement, the Pro onboarding
+verification, a password reset, two logins, disclaimer acknowledgment, the Pro onboarding
 modal, and the automated billing/email lifecycle. The subscription record likewise shows
 `cancel_at_period_end = no` in both our database and Stripe — not just at the time of the
 charge, but as of today, six days after the dispute was filed.
@@ -133,7 +133,7 @@ charge, but as of today, six days after the dispute was filed.
 
 Note the 2026-08-13 decline: the cardholder's own bank declined the first attempt, and the
 charge went through the following day on retry. If they interpreted the decline as the
-subscription having lapsed, that would explain the "I cancelled" framing — but a declined
+subscription having lapsed, that would explain the "I canceled" framing — but a declined
 card is not a cancellation, and we emailed them about both the failure and the recovery.
 
 ## Evidence fields as filed
@@ -154,7 +154,7 @@ to — before the body reproduced below.
 
 ### `cancellation_rebuttal`
 
-> The customer never cancelled this subscription. It remains active today, six days after
+> The customer never canceled this subscription. It remains active today, six days after
 > this dispute was filed, and has never been scheduled for cancellation.
 >
 > Cancellation is available to the customer at all times through three self-service paths:
@@ -242,7 +242,7 @@ to — before the body reproduced below.
 > residential IP address, 2603:8002:6c40:23:3cb0:8fbd:246d:69ac: account registration
 > (21:03:22 UTC), the email verification request and its completion (21:04:02), a password
 > reset request and completion (21:05:35), login (21:05:41), checkout initiation
-> (21:05:55), acknowledgement of our platform disclaimer (21:06:58), and completion of the
+> (21:05:55), acknowledgment of our platform disclaimer (21:06:58), and completion of the
 > Pro onboarding and API-key setup flow (21:07:09) — seven distinct deliberate actions
 > across four minutes on 2026-08-06, from one connection. This was a knowing, attended
 > signup, not an incidental or unnoticed enrollment.
@@ -385,7 +385,7 @@ single strongest addition available to this package. If it shows nothing, submit
 disputed one charge will very likely dispute the next one, and a second chargeback costs
 another dispute fee and counts against the account's dispute ratio regardless of outcome.
 
-Countering the dispute and cancelling the subscription are not in tension — cancelling now
+Countering the dispute and canceling the subscription are not in tension — canceling now
 does not concede the disputed charge, which covers service already delivered for the
 2026-08-13 to 2026-09-13 period. Recommended sequence:
 
@@ -405,6 +405,6 @@ does not concede the disputed charge, which covers service already delivered for
    `set-cancellation` also sends no email, and because it mirrors the flag locally it
    suppresses the webhook's 0→1 cancel-ack transition — so it will not fire the retention
    email offering him 25% off, which is not something to send a customer mid-chargeback.
-3. Optionally email the customer stating the subscription is cancelled and no further
+3. Optionally email the customer stating the subscription is canceled and no further
    charges will occur. This costs nothing and occasionally results in the cardholder
    withdrawing the dispute with their bank, which is the cleanest possible outcome.

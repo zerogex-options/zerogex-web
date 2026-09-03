@@ -150,7 +150,7 @@ test('a spent or partly-spent coupon is flagged, never re-applied', () => {
     // A fully-spent intro price is the designed outcome — the pricing page says
     // "$229 first year, then $299" — so it is reported but not raised for review.
     { couponId: 'promo_first_year', duration: 'once', needsReview: false },
-    // A repeating coupon may be partly unspent, which is a judgement call.
+    // A repeating coupon may be partly unspent, which is a judgment call.
     { couponId: 'intro_12mo', duration: 'repeating', needsReview: true },
   ]);
 });

@@ -47,7 +47,7 @@ test('offer eligibility: non-live statuses are not offerable', () => {
   }
 });
 
-test('discount audit: already-cancelling → win-back type that offsets a counted cancellation', () => {
+test('discount audit: already-canceling → win-back type that offsets a counted cancellation', () => {
   const d = discountAuditType(true);
   assert.equal(d.type, 'billing_winback_discount_honored');
   assert.equal(d.offsetsCountedCancellation, true);

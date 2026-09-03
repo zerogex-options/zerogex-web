@@ -56,8 +56,8 @@ if (userCols.has('referral_credit_months')) {
   }
 }
 
-// Referees whose subscription has lapsed (cancelled / trial ended without
-// converting). Used to derive a display-only `cancelled` status for rows that
+// Referees whose subscription has lapsed (canceled / trial ended without
+// converting). Used to derive a display-only `canceled` status for rows that
 // are still stored as `pending`: the referee signed up under the code but their
 // trial/subscription ended before it ever converted, so the referrer never
 // earned the reward. The stored status is deliberately left `pending` — if such
@@ -70,10 +70,10 @@ if (userCols.has('subscription_lapsed')) {
   }
 }
 
-// A still-pending row whose referee has churned reads as `cancelled` in the
+// A still-pending row whose referee has churned reads as `canceled` in the
 // report; every other row shows its stored status verbatim.
 const displayStatus = (r) =>
-  r.status === 'pending' && lapsedRefereeIds.has(r.referee_user_id) ? 'cancelled' : r.status;
+  r.status === 'pending' && lapsedRefereeIds.has(r.referee_user_id) ? 'canceled' : r.status;
 
 const rows = db
   .prepare(
@@ -146,6 +146,6 @@ console.log(
   `Totals: ${rows.length} referral(s), ${totalRewarded} rewarded, ${totalBanked} month(s) banked across ${bankedById.size} referrer(s).`,
 );
 console.log('');
-console.log('Status legend: pending = referee signed up but not yet paid; cancelled = referee\'s');
+console.log('Status legend: pending = referee signed up but not yet paid; canceled = referee\'s');
 console.log('trial/subscription ended before converting, so no reward was earned; rewarded =');
 console.log('referee subscribed and the referrer\'s free month was credited or banked.');

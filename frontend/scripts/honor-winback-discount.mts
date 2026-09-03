@@ -19,10 +19,10 @@
 //
 //   2. Clears cancel_at_period_end (unless --keep-cancellation) so the offer
 //      actually retains them: a trialing sub converts to paid at trial_end
-//      instead of ending; an active sub renews instead of cancelling. The card
+//      instead of ending; an active sub renews instead of canceling. The card
 //      already on file is charged — no re-subscribe. (Mirrors set-cancellation
 //      --off, including clearing cancel_ack_email_sent_at so a future re-cancel
-//      can re-send the acknowledgement.)
+//      can re-send the acknowledgment.)
 //
 // The coupon to stack is resolved in this order:
 //   --coupon <id>                         pin an exact, already-created coupon.
@@ -411,7 +411,7 @@ if (!sku) {
 }
 
 // Coupon ids currently on the subscription, de-duplicated in order, with meta
-// for labelling. These are ALL preserved — we stack, never strip.
+// for labeling. These are ALL preserved — we stack, never strip.
 const discountsRaw = ((subscription as unknown as { discounts?: ExpandedDiscount[] }).discounts ??
   []) as ExpandedDiscount[];
 const currentCouponIds: string[] = [];
@@ -619,7 +619,7 @@ if (noChange) {
   console.log('');
   console.log(
     `Nothing to do: ${addCouponId} is already applied${
-      isCancelling ? ' and --keep-cancellation was passed' : ' and the sub is not cancelling'
+      isCancelling ? ' and --keep-cancellation was passed' : ' and the sub is not canceling'
     }. No writes.`,
   );
   process.exit(0);
@@ -660,7 +660,7 @@ const stamp = nowIso();
 
 // Mirror the cancellation flag if we cleared it, matching set-cancellation.mts
 // and the webhook reactivation branch (also clear cancel_ack_email_sent_at so a
-// future re-cancel can re-fire the acknowledgement). The webhook reconciles to
+// future re-cancel can re-fire the acknowledgment). The webhook reconciles to
 // the same values later (idempotent).
 if (willClearCancel) {
   execSqlite(
@@ -707,7 +707,7 @@ if (willClearCancel) {
 }
 
 // Best-effort: show the real next charge after the stacked discounts, so the
-// applied rate is concrete. A sub with nothing upcoming (still cancelling under
+// applied rate is concrete. A sub with nothing upcoming (still canceling under
 // --keep-cancellation) has no preview — skip it rather than crash. Mirrors the
 // upcoming-invoice read in scripts/diagnose-user.mts.
 if (user.stripe_customer_id) {

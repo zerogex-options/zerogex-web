@@ -9,7 +9,7 @@
 //   • eligible       — live sub scheduled to cancel, offer unclaimed → shows the
 //                      "claim 25% off & keep access" confirmation button.
 //   • already claimed — retention_offer_claimed_at set → shows "you're all set".
-//   • not cancelling  — no live sub, or not scheduled to cancel → shows
+//   • not canceling  — no live sub, or not scheduled to cancel → shows
 //                      "nothing to restore". Put a test account into the
 //                      eligible state with:
 //                        make set-cancellation EMAIL=<addr> ON=1 YES=1
@@ -115,7 +115,7 @@ if (user.retention_offer_claimed_at) {
   state = `already claimed (${user.retention_offer_claimed_at}) — page shows "you're all set"`;
 } else if (!user.stripe_subscription_id || !live || !cancelling) {
   state =
-    `NOT cancelling (status=${user.subscription_status ?? 'none'}, cancel_at_period_end=${Number(user.cancel_at_period_end) || 0}) — page shows "nothing to restore".\n` +
+    `NOT canceling (status=${user.subscription_status ?? 'none'}, cancel_at_period_end=${Number(user.cancel_at_period_end) || 0}) — page shows "nothing to restore".\n` +
     `           To test the real offer, schedule a cancel first:  make set-cancellation EMAIL=${user.email} ON=1 YES=1`;
 } else {
   state = 'ELIGIBLE — page shows the "claim 25% off & keep access" button';

@@ -1,4 +1,4 @@
-// Unit tests for core/expirationGradient.ts — the "colour graded by expiry"
+// Unit tests for core/expirationGradient.ts — the "color graded by expiry"
 // math shared by the GEX Strike Profile chart's stacked bars and the Gamma
 // Chart's dealer-gamma rail. The convention pinned here is the whole point of
 // the feature: the NEAREST expiration is anchored at the zero baseline at full
@@ -23,7 +23,7 @@ const TODAY = '2026-08-14';
 
 // ── expDateKey ───────────────────────────────────────────────────────────────
 
-test('expDateKey normalises a trailing time component away', () => {
+test('expDateKey normalizes a trailing time component away', () => {
   assert.equal(expDateKey('2026-08-15T00:00:00'), '2026-08-15');
   assert.equal(expDateKey('2026-08-15'), '2026-08-15');
   assert.equal(expDateKey(null), '');
@@ -117,7 +117,7 @@ test('expirationShares splits a side into fractions summing to 1, nearest-first'
   assert.ok(Math.abs(segs.reduce((a, s) => a + s.frac, 0) - 1) < 1e-9);
 });
 
-test('expirationShares renormalises to the shown subset, so segments still fill the bar', () => {
+test('expirationShares renormalizes to the shown subset, so segments still fill the bar', () => {
   const { perStrike } = buildExpirationSplit(ROWS, TODAY);
   const segs = expirationShares(perStrike.get(60_000), ['2026-08-21'], (c) => c.call);
   assert.deepEqual(segs, [{ exp: '2026-08-21', frac: 1 }]);
@@ -147,12 +147,12 @@ test('sharesToSegments pairs each share with its legend entry, in order', () => 
 
 test('sharesToSegments drops zero-width slots', () => {
   // A strike with nothing on the middle expiration must not emit a 0-width
-  // rect between its neighbours.
+  // rect between its neighbors.
   const segs = sharesToSegments([0.6, 0, 0.4], LEGEND);
   assert.deepEqual(segs.map((s) => s.exp), ['2026-08-14', 'far']);
 });
 
-test('sharesToSegments re-normalises rounded wire values to fill the bar', () => {
+test('sharesToSegments re-normalizes rounded wire values to fill the bar', () => {
   // The server rounds for compactness, so shares can sum to just under 1 —
   // rendered raw that would leave a sliver of the bar unpainted.
   const segs = sharesToSegments([0.3333, 0.3333, 0.3333], LEGEND);

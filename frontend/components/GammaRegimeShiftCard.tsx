@@ -28,14 +28,14 @@
  *
  * * **Direction is positional, not just chromatic.** Gamma built BELOW spot
  *   is a floor; the identical build ABOVE spot is a ceiling. The old ladder
- *   coloured both green. Here the lean axis carries it, and the ribbon puts
+ *   colored both green. Here the lean axis carries it, and the ribbon puts
  *   spot on the axis so the side is visible.
- * * **The arrow and the colour come from different fields.** A gamma flip
+ * * **The arrow and the color come from different fields.** A gamma flip
  *   dropping is a falling number and a bullish event. `LevelRow.direction`
- *   drives the glyph, `LevelRow.sense` drives the colour — see core/regimeShift.
+ *   drives the glyph, `LevelRow.sense` drives the color — see core/regimeShift.
  *
- * Colour is never load-bearing alone: bull/bear separate at ΔE ~34 for normal
- * vision but collapse to ~5 under deuteranopia, so every coloured mark here
+ * Color is never load-bearing alone: bull/bear separate at ΔE ~34 for normal
+ * vision but collapse to ~5 under deuteranopia, so every colored mark here
  * also carries a glyph, a sign, or a position.
  */
 
@@ -103,7 +103,7 @@ const DIRECTION_GLYPH: Record<LevelRow['direction'], string> = {
 };
 
 const HEADER_TOOLTIP =
-  "How dealer gamma CHANGED between two points in time, reduced to a read. Two independent axes: whether gamma near spot rose (stabilizing) or fell (fragile), and whether the change landed below spot (supportive) or above it (capping). The quadrant names the state; the distance from centre, in standard deviations of this symbol's own shift history, sets the wording.";
+  "How dealer gamma CHANGED between two points in time, reduced to a read. Two independent axes: whether gamma near spot rose (stabilizing) or fell (fragile), and whether the change landed below spot (supportive) or above it (capping). The quadrant names the state; the distance from center, in standard deviations of this symbol's own shift history, sets the wording.";
 
 // ────────────────────────────────────────────────────────────────────────────
 // the shift plane
@@ -258,7 +258,7 @@ function ShiftPlane({
  * A horizontal strip rather than the vertical ladder because this answers
  * "where", not "how much at each strike" — the ladder still does the latter,
  * below. Bars grow up for gamma added and down for gamma shed, so the sign is
- * carried by position as well as colour.
+ * carried by position as well as color.
  *
  * The viewBox is 1200 wide and 240 tall so it fills a full-width panel at
  * roughly 1:1 unit-to-pixel, instead of a 700x140 box stretched across 1200px
@@ -527,10 +527,10 @@ export default function GammaRegimeShiftCard({
                 fills the column that would otherwise run out of content first,
                 and it reads as a caption to the whole row either way. */}
             <p className="mt-4 max-w-[62ch] text-[13px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-              On the plane, centre is no change and the arrow tip is where the book sits
+              On the plane, center is no change and the arrow tip is where the book sits
               now — its length is the size of the move, so landing past the 2σ ring is
               exactly the word “{payload.read.adverb}”. The upper half is stabilizing, the
-              lower half fragile; right of centre is supportive, left is capping.
+              lower half fragile; right of center is supportive, left is capping.
             </p>
           </div>
 

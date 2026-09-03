@@ -44,9 +44,9 @@ function formatPrice(value: number): string {
 }
 
 // Label for a vertical ReferenceLine that anchors to one side of the line
-// instead of centring on it. When the zero-flow level coincides with spot —
+// instead of centering on it. When the zero-flow level coincides with spot —
 // which it does at the bell, where the reprice curve crosses zero right at the
-// current price — two centred labels smear on top of each other. Anchoring
+// current price — two centered labels smear on top of each other. Anchoring
 // "Spot" to the left of its line and "Zero-flow" to the right keeps both
 // legible no matter how close the two lines sit.
 function VLineLabel({
@@ -144,7 +144,7 @@ export default function ForcedFlowCurveChart({
   const { data, loading, error } = useForcedFlowCurve(symbol, spotRangePct, 15000);
 
   // Attribution bands use the palette's 5-series ramp; the total-reprice line
-  // rides on top in the neutral foreground colour so it reads as the
+  // rides on top in the neutral foreground color so it reads as the
   // aggregate, not a fourth band.
   const gammaColor = chart.series[0];
   const charmColor = chart.series[2];

@@ -162,7 +162,7 @@ test('accumulateTrialOutcomes: a trial that converts books boarded + converted, 
   assert.equal(byDay.get('2026-08-08')?.converted, 1);
 });
 
-test('accumulateTrialOutcomes: a trial cancelled before the charge rolls off', () => {
+test('accumulateTrialOutcomes: a trial canceled before the charge rolls off', () => {
   const bySync = accumulateTrialOutcomes(
     [sync('sub_1', 'trialing', '2026-08-01'), sync('sub_1', 'canceled', '2026-08-04')],
     [],

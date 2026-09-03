@@ -138,9 +138,9 @@ export function Zone({
  * the point — lets the value be 20px instead of 13px, which is the right size
  * for the thing a trader is actually here to read.
  *
- * `direction` drives the glyph, `sense` drives the colour. They are separate
+ * `direction` drives the glyph, `sense` drives the color. They are separate
  * because a gamma flip dropping is a falling number and a bullish event; bind
- * them to one field and every flip-crossing tile renders the wrong colour.
+ * them to one field and every flip-crossing tile renders the wrong color.
  */
 export function LevelTile({
   label,
@@ -214,7 +214,7 @@ export function HeroStat({
   );
 }
 
-/** A small labelled reading, e.g. "stabilizing +2.6σ". */
+/** A small labeled reading, e.g. "stabilizing +2.6σ". */
 export function Chip({ label, value }: { label: string; value?: string }) {
   return (
     <span
@@ -249,7 +249,7 @@ export function Note({
   );
 }
 
-/** Centred placeholder for a panel's loading / empty / error states. */
+/** Centered placeholder for a panel's loading / empty / error states. */
 export function PanelMessage({
   children,
   tone = 'secondary',

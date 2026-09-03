@@ -114,7 +114,7 @@ if (shown.length === 0) {
 
 console.log('');
 console.log(
-  `${'EMAIL'.padEnd(34)}${'ENGAGEMENT'.padEnd(12)}${'IDLE'.padEnd(8)}${'CONVERTS'.padEnd(26)}CANCELLING`,
+  `${'EMAIL'.padEnd(34)}${'ENGAGEMENT'.padEnd(12)}${'IDLE'.padEnd(8)}${'CONVERTS'.padEnd(26)}CANCELING`,
 );
 for (const r of shown) {
   const idle = r.idleDays === null ? '—' : `${r.idleDays}d`;
@@ -139,5 +139,5 @@ if (dormant.length > 0) {
   console.log(
     'annual lock-in offer; beyond that they are ordinary conversions and are not',
   );
-  console.log('cancelled or held back by anything.');
+  console.log('canceled or held back by anything.');
 }

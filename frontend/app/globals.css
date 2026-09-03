@@ -70,7 +70,7 @@
 
   /* Max Pain — the pinning strike. Drew from --color-gold, which is not a
      level token: half the palettes alias --color-accent-hot to the same gold,
-     which put Max Pain and the last-price line in one colour, and the charts
+     which put Max Pain and the last-price line in one color, and the charts
      that aren't the Gamma Chart spend --color-gold on other things entirely
      (the spot line on the walls chart, the profile curve on the GEX profile).
      Its own token, a saturated gold that stays clear of the muted golds those
@@ -1926,7 +1926,7 @@ html {
 }
 .zg-footer-link:hover { color: var(--text-primary); }
 
-/* Social — ghost buttons that fill on hover. The filled brand-colour
+/* Social — ghost buttons that fill on hover. The filled brand-color
    circles with drop shadows they replace were the most dated element
    on the page. */
 .zg-social {
@@ -1959,7 +1959,7 @@ html {
 }
 
 /* Hinting/smoothing so the variable faces render at the weight they
-   were drawn at rather than a heavier rasterised approximation. */
+   were drawn at rather than a heavier rasterized approximation. */
 body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -2136,7 +2136,7 @@ body {
 
 /* ── Key Levels flip ─────────────────────────────────────────────────────────
    The Key Levels strip flips between underlyings in place. Two input idioms,
-   one behaviour: hover-revealed arrows on a pointer device, a horizontal swipe
+   one behavior: hover-revealed arrows on a pointer device, a horizontal swipe
    on touch. Both call the same setSymbol the chart's own symbol switcher does,
    so a flip moves the whole surface (or, inside a My Dashboard pane, retargets
    just that half) rather than leaving the strip describing a different book

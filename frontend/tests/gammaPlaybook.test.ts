@@ -107,7 +107,7 @@ test('expiration-filtered levels ignore the whole-chain at-spot value', () => {
   assert.equal(filtered.regime, 'negative'); // ...but the filtered book has spot below its flip
   assert.equal(filtered.regimeBasis, 'spot-vs-flip');
 
-  // Same numbers unfiltered → the chain value is honoured again.
+  // Same numbers unfiltered → the chain value is honored again.
   const unfiltered = resolvePlaybookScenario(
     levelsFor({ spot: 590, flip: 595, callWall: 610, putWall: 580, netGexAtSpot: 4.2e9 }),
   );

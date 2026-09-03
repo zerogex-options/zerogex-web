@@ -35,7 +35,7 @@ test("an older (reordered) frame is dropped", () => {
 });
 
 test("a frame with no server_ts is applied (no ordering signal → last-writer-wins)", () => {
-  // Backwards-compat with any server that omits the stamp; absence of an
+  // Backward-compat with any server that omits the stamp; absence of an
   // ordering signal must never freeze the stream.
   assert.equal(isFresherServerTs(1_000.0, null), true);
   assert.equal(isFresherServerTs(1_000.0, undefined), true);

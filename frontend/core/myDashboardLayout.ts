@@ -82,7 +82,7 @@ function normalizeExpirations(values: readonly unknown[]): string[] {
   return rolling ? [ROLLING_ZERO_DTE, ...dates] : dates;
 }
 
-/** Order-sensitive equality for two normalised selections. */
+/** Order-sensitive equality for two normalized selections. */
 function sameExpirations(a: readonly string[], b: readonly string[]): boolean {
   if (a === b) return true;
   if (a.length !== b.length) return false;

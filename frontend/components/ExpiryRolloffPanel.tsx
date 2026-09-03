@@ -285,7 +285,7 @@ export default function ExpiryRolloffPanel({
                       </span>
                       <div className="relative h-3.5 flex-1">
                         {/* The zero line the diverging bars hang off — without a
-                            visible axis a "left of centre" encoding has no centre. */}
+                            visible axis a "left of center" encoding has no center. */}
                         <div
                           className="absolute -top-px h-[calc(100%+2px)]"
                           style={{ left: '50%', width: 1, background: 'var(--text-muted)', opacity: 0.5 }}
@@ -313,7 +313,7 @@ export default function ExpiryRolloffPanel({
             )}
             <div className="mt-2.5">
               <Note>
-                <span style={{ color: chart.bull }}>▶</span> right of centre = long gamma
+                <span style={{ color: chart.bull }}>▶</span> right of center = long gamma
                 leaving · <span style={{ color: chart.bear }}>◀</span> left = short gamma
                 leaving
               </Note>

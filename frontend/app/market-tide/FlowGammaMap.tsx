@@ -78,7 +78,7 @@ export default function FlowGammaMap({ components }: { components: MarketTideCom
           CAPPED GRIND
         </text>
 
-        {/* frame + centre cross */}
+        {/* frame + center cross */}
         <rect x={L} y={T} width={PW} height={PH} fill="none" stroke="var(--color-border)" strokeWidth="1" />
         <line x1={L} y1={cy} x2={VW - R} y2={cy} stroke="var(--border-strong)" strokeWidth="1" />
         <line x1={cx} y1={T} x2={cx} y2={T + PH} stroke="var(--border-strong)" strokeWidth="1" />

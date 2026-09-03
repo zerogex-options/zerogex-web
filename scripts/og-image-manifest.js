@@ -171,7 +171,7 @@ function metaContent(html, key) {
 }
 
 /**
- * Summarise who answered. `cf-mitigated` appears when Cloudflare challenged or
+ * Summarize who answered. `cf-mitigated` appears when Cloudflare challenged or
  * blocked the request, and the absence of any CF header means the request
  * never reached the edge -- in which case this check says nothing about what a
  * scraper out on the internet gets.

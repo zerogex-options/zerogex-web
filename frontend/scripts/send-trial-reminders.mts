@@ -22,7 +22,7 @@
 //
 // Eligibility:
 //   - users.subscription_status = 'trialing'
-//   - users.current_period_end falls in the trailing 48h window centred on
+//   - users.current_period_end falls in the trailing 48h window centered on
 //     "48 hours from now", widened by +/- WINDOW_HOURS/2 on each side so a
 //     run that lands a few hours late still catches the cohort exactly once.
 //   - users.trial_reminder_email_sent_at IS NULL (idempotency latch; the

@@ -11,7 +11,7 @@ It replaces the earlier IP-based "origin gate" (reverted) — no
 
 ## Scope & caveats (read first)
 
-- **Website only.** `api.zerogex.io` is served **direct-to-origin** (grey-cloud
+- **Website only.** `api.zerogex.io` is served **direct-to-origin** (gray-cloud
   DNS, its own nginx server block). It is deliberately *not* covered — enabling
   mTLS there would reject every direct API consumer (external keys, the
   NinjaTrader tool, etc.). This runbook only touches the `zerogex.io` vhost.

@@ -54,7 +54,7 @@ Every charge produces a Stripe invoice. The portal lists every past invoice with
 
 ## Failed payments
 
-If a charge fails, Stripe retries automatically over several days. During the retry window, your subscription is in "past due" state — paid features stay available temporarily. If all retries fail, the subscription is cancelled and tier reverts.
+If a charge fails, Stripe retries automatically over several days. During the retry window, your subscription is in "past due" state — paid features stay available temporarily. If all retries fail, the subscription is canceled and tier reverts.
 
 The most common failure modes: expired card, address verification mismatch, regional restrictions. Update the payment method in the portal to resolve.
 

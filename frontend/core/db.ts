@@ -99,7 +99,7 @@ function initDb(): DatabaseSync {
   // (globally unique) so a redelivered/retried event is a no-op. `created`
   // is the Stripe event.created unix timestamp, used to reject a stale
   // (out-of-order) subscription event that would otherwise re-promote a
-  // cancelled user.
+  // canceled user.
   db.exec(`
     CREATE TABLE IF NOT EXISTS stripe_webhook_events (
       id TEXT PRIMARY KEY,
@@ -357,7 +357,7 @@ function initDb(): DatabaseSync {
   // above, to reach trialing members before the mid-trial cancel wave (most
   // trial cancels land at 3–7 days' tenure, before the 48h reminder ever fires).
   // Unlike that reminder this is an engagement email, so its sender honors
-  // marketing_unsubscribed_at and skips already-cancelled trials. NULL =
+  // marketing_unsubscribed_at and skips already-canceled trials. NULL =
   // eligible; set to the ISO timestamp on send. Cleared back to NULL on each
   // fresh 'trialing' transition (same re-arm as the reminder latch) so a second
   // trial gets one fresh nudge.
@@ -401,7 +401,7 @@ function initDb(): DatabaseSync {
   // One-shot latch for the SECOND-touch reactivation email sent ~3 weeks after
   // the verified-never-paid nudge above, to the same "signed up, never paid"
   // cohort who ignored that first nudge (see scripts/send-reactivation.mts).
-  // This is the inactive-signup analogue of the churned win-back: the first
+  // This is the inactive-signup analog of the churned win-back: the first
   // touch pitched the standard 7-day trial and didn't land, so this one changes
   // the offer — an EXTENDED free trial (REACTIVATION_TRIAL_DAYS, granted
   // server-side at app/api/billing/checkout/route.ts for a ?reactivate=1
@@ -431,14 +431,14 @@ function initDb(): DatabaseSync {
   // email path. Flipped to 1 by clearSubscriptionFromUser on subscription
   // deletion, atomically cleared back to 0 by maybeSendPaidWelcomeEmail when
   // it fires the welcome-back. This lets the welcome handler tell apart
-  // "customer cancelled then came back" (welcome-back) from "customer is
+  // "customer canceled then came back" (welcome-back) from "customer is
   // upgrading in place" (silent) via two race-safe CAS claims (on the stamp
   // and on this flag), with no dependence on any column mutated by
   // concurrent customer.subscription.* events for the same signup flow —
   // which is what caused the original race where the welcome was skipped.
   //
   // Backfill on first add: a user who's been welcomed but no longer has a
-  // subscription id likely cancelled before this column existed. Mark them
+  // subscription id likely canceled before this column existed. Mark them
   // so their next checkout fires welcome-back instead of falling through to
   // the silent-upgrade branch.
   if (ensureColumn('users', 'subscription_lapsed', 'INTEGER NOT NULL DEFAULT 0')) {
@@ -449,7 +449,7 @@ function initDb(): DatabaseSync {
     );
   }
 
-  // Idempotency stamp for the cancellation acknowledgement email fired when
+  // Idempotency stamp for the cancellation acknowledgment email fired when
   // Stripe flips cancel_at_period_end false → true (the "clicked Cancel"
   // moment). NULL = eligible; set to ISO on send via CAS in the webhook so
   // redeliveries can't double-fire. Cleared back to NULL on the reverse

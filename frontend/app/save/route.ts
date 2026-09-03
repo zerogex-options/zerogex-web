@@ -137,7 +137,7 @@ export async function GET(request: NextRequest) {
     <p style="font-size:15px; line-height:1.6; color:#3a4650; margin:0 0 18px;">
       Before you go — I&rsquo;d rather keep you than lose you. Claim <strong>25% off for a full year</strong>
       and your access stays on, no re-subscribe and no re-entering a card. You&rsquo;ll simply be charged the
-      discounted rate at ${escapeHtml(endsOn)} instead of cancelling.
+      discounted rate at ${escapeHtml(endsOn)} instead of canceling.
     </p>
     <form method="POST" action="${escapeHtml(action)}" style="margin:0;">
       <button type="submit" style="display:inline-block; padding:13px 22px; background:#f5b400; color:#000; font-weight:700; font-size:15px; border:none; border-radius:8px; cursor:pointer;">

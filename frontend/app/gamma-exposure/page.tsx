@@ -179,7 +179,7 @@ export default function GammaExposurePage() {
   // unchanged; once shared moves, `clearedAgainst` no longer matches (the store
   // hands back a stable reference until the value actually changes) and the
   // table follows shared again. Reconciled to the table's own expiration
-  // universe, and memoised so the strike-table aggregation below keeps its
+  // universe, and memoized so the strike-table aggregation below keeps its
   // referential-stability fast path.
   const tableCleared = clearedAgainst !== null && clearedAgainst === sharedExpirations;
   const selectedExpirations = useMemo<string[] | null>(() => {

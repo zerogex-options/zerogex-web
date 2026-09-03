@@ -730,7 +730,7 @@ function RevenueTab({ data, cardBg, borderColor, axisStroke, mutedText, textColo
 
 const CONVEYOR_COLORS = {
   running: ROW_COLORS.mrr, //      heading for the charge — money on its way
-  rollingOff: '#c1435b', //        cancelled mid-trial — off the belt
+  rollingOff: '#c1435b', //        canceled mid-trial — off the belt
   stalled: ROW_COLORS.topIps, //   first charge declined — recoverable, not lost
   belt: ROW_COLORS.webhookHealth,
 } as const;
@@ -837,7 +837,7 @@ function ConveyorLane({
       </div>
 
       {/* The belt itself: slatted track, a filled run showing distance already
-          travelled, and the package sitting at this rider's position. */}
+          traveled, and the package sitting at this rider's position. */}
       <div className="relative h-7" title={`${Math.round(pct)}% of the way to the charge`}>
         <div
           className="absolute inset-x-0 top-1/2 h-3 rounded-sm -translate-y-1/2 overflow-hidden"
@@ -922,7 +922,7 @@ function ConveyorPipelineDiagram({
       value: String(conveyor.totals.running),
       caption: 'riding the belt now',
       color: CONVEYOR_COLORS.running,
-      drop: conveyor.totals.rollingOff > 0 ? `${conveyor.totals.rollingOff} cancelled — rolling off` : undefined,
+      drop: conveyor.totals.rollingOff > 0 ? `${conveyor.totals.rollingOff} canceled — rolling off` : undefined,
     },
     {
       label: 'First charge',
@@ -1036,7 +1036,7 @@ function TrialOutcomesCard({
   );
 }
 
-// Colour + sign convention for the ledger: anything that grows the subscriber
+// Color + sign convention for the ledger: anything that grows the subscriber
 // base reads green, anything that shrinks it reads red, and the two warnings
 // that move no counts YET (a scheduled cancel, a renewal in dunning) read amber
 // — those are the ones worth acting on before they become a departure.
@@ -1356,7 +1356,7 @@ function ConveyorTab({ data, cardBg, borderColor, mutedText, textColor }: DataTa
             {conveyor.totals.rollingOff + conveyor.totals.stalled}
           </div>
           <div className="text-xs mt-1" style={{ color: mutedText }}>
-            {conveyor.totals.rollingOff} cancelled · {conveyor.totals.stalled} declined ·{' '}
+            {conveyor.totals.rollingOff} canceled · {conveyor.totals.stalled} declined ·{' '}
             {formatUsd(conveyor.totals.atRiskValue)}/mo at risk
           </div>
         </div>

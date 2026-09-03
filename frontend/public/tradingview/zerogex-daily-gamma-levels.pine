@@ -60,7 +60,7 @@ notes    = input.string("", "Notes / source", group = GRP_BOX, tooltip = "Free t
 showSource = input.bool(true, "Show \"zerogex.io\" source line", group = GRP_BOX)
 
 // ----------------------------------------------------------------------------
-//  Enable price-cross alerts (create alerts from the Alerts panel afterwards)
+//  Enable price-cross alerts (create alerts from the Alerts panel afterward)
 // ----------------------------------------------------------------------------
 GRP_ALERT = "Alerts"
 alertsOn = input.bool(true, "Enable level-cross alert conditions", group = GRP_ALERT, tooltip = "When on, this script exposes \"cross\" alert conditions in TradingView's Create Alert dialog.")
@@ -103,7 +103,7 @@ f_drawLevel(float price, string txt, color col) =>
             if showLabels
                 // Near-opaque chip: labels render above lines, so a solid
                 // background hides the line segment behind the text (a
-                // translucent bg lets the same-coloured line bleed through
+                // translucent bg lets the same-colored line bleed through
                 // and makes the price unreadable).
                 lb := label.new(bar_index, price, text = txt + "  " + str.tostring(price, format.mintick), xloc = xloc.bar_index, style = label.style_label_left, color = color.new(color.black, 12), textcolor = col, size = lSize)
 

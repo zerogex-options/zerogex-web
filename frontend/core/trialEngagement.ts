@@ -50,7 +50,7 @@ function parse(iso: string | null): number | null {
 // The asymmetry is deliberate. Sending an engaged member copy that opens "you
 // haven't had a chance to use ZeroGEX yet" is wrong, insulting, and lands on
 // someone who was about to pay happily. Sending a dormant member the ordinary
-// reminder is merely the behaviour that already exists. So every ambiguous
+// reminder is merely the behavior that already exists. So every ambiguous
 // case takes the second error, never the first.
 export function classifyTrialEngagement(input: ClassifyTrialEngagementInput): TrialEngagement {
   const start = parse(input.trialStartIso);

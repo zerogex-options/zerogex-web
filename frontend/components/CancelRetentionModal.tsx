@@ -20,7 +20,7 @@ import { dict } from './CancelRetentionModal.i18n';
 // source of truth and echoes the real percentOff back on success.
 const SAVE_PERCENT = 25;
 
-type Step = 'offer' | 'reason' | 'pause' | 'saved' | 'cancelled' | 'paused';
+type Step = 'offer' | 'reason' | 'pause' | 'saved' | 'canceled' | 'paused';
 
 type Props = {
   open: boolean;
@@ -149,7 +149,7 @@ export default function CancelRetentionModal({
         }),
       });
       if (res.ok) {
-        setStep('cancelled');
+        setStep('canceled');
         onChanged();
         return;
       }
@@ -332,7 +332,7 @@ export default function CancelRetentionModal({
                 disabled={busy}
                 style={destructiveButtonStyle(busy)}
               >
-                {busy ? t('cancelling') : t('confirmCancel')}
+                {busy ? t('canceling') : t('confirmCancel')}
               </button>
               <button type="button" onClick={onClose} disabled={busy} style={linkButtonStyle}>
                 {t('keepPlan')}
@@ -410,11 +410,11 @@ export default function CancelRetentionModal({
           </>
         )}
 
-        {step === 'cancelled' && (
+        {step === 'canceled' && (
           <>
-            <h2 style={headingStyle}>{t('cancelledHeading')}</h2>
+            <h2 style={headingStyle}>{t('canceledHeading')}</h2>
             <p style={bodyStyle}>
-              {endDate ? t('cancelledBody', { date: endDate }) : t('cancelledBodyNoDate')}
+              {endDate ? t('canceledBody', { date: endDate }) : t('canceledBodyNoDate')}
             </p>
             <div style={buttonColumn}>
               <button type="button" onClick={onClose} style={primaryButtonStyle(false)}>

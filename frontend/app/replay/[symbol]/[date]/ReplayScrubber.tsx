@@ -261,7 +261,7 @@ function niceTicks(lo: number, hi: number, target: number): number[] {
 }
 
 // Format a price-axis label with just enough precision to disambiguate
-// neighbours at the chosen tick step, so a $5-step axis reads 715 / 720
+// neighbors at the chosen tick step, so a $5-step axis reads 715 / 720
 // / 725 (no trailing .00) and a $0.10-step axis reads 715.0 / 715.1.
 function formatPriceTick(v: number, step: number): string {
   if (!Number.isFinite(v)) return '';
@@ -440,7 +440,7 @@ export default function ReplayScrubber({
   }, [currentFrame, expirations]);
 
   // DTE-ranked shade per expiration, keyed on the session-wide legend so a
-  // segment's colour never shifts as the playhead moves. The ramp only carries
+  // segment's color never shifts as the playhead moves. The ramp only carries
   // information with more than one expiration in the session.
   const expOpacity = useMemo(() => expirationOpacityRamp(expirations), [expirations]);
   const gradientActive = expirations.length > 1;
@@ -654,7 +654,7 @@ export default function ReplayScrubber({
         deltaNet: e.bNet - e.aNet,
         deltaCall: e.bCall - e.aCall,
         deltaPut: e.bPut - e.aPut,
-        // Per-cell fill for the Net-mode single bar (sign-coloured, as before).
+        // Per-cell fill for the Net-mode single bar (sign-colored, as before).
         fill: e.bNet - e.aNet >= 0 ? 'var(--color-bull)' : 'var(--color-bear)',
       }))
       .sort((x, y) => y.strike - x.strike);
@@ -865,7 +865,7 @@ export default function ReplayScrubber({
                 {/* Grouped signed bars — a diff needs the direction of change
                     (right = grew, left = shrank), so unlike the strike-profile
                     panel each series keeps its sign here rather than pinning
-                    calls right / puts left. Net mode keeps the sign-coloured
+                    calls right / puts left. Net mode keeps the sign-colored
                     single bar; Split adds call/put; Combined adds the purple
                     net delta. */}
                 {effGexMode === 'net' && (
@@ -1643,7 +1643,7 @@ function ReplayOverlayChart({
                 : 'Dealer GEX · combined'}
           </text>
 
-          {/* Colour legend for the split/combined views — anchored to the
+          {/* Color legend for the split/combined views — anchored to the
               right edge of the gamma panel so the purple Net overlay in
               particular reads unambiguously. Net view needs no legend (the
               bull/bear sign is self-explanatory). */}
@@ -1713,7 +1713,7 @@ function ReplayOverlayChart({
               bars/candles. Each spans both panels as a single regime marker,
               clipped to the plot box. Labels are right-edge anchored so they
               stack into one column; call wall sits above spot, put wall below,
-              flip and max pain near it. Colours match the rest of the app
+              flip and max pain near it. Colors match the rest of the app
               (call = bear/resistance, put = bull/support, flip = warning,
               max pain = gold, as on the Gamma Terminal chart). */}
           {levelMarkers.map((lvl) => {

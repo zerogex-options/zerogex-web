@@ -630,7 +630,7 @@ export default function LandingPage() {
           <div className="zg-panel" style={{ padding: 28 }}>
             {[
               // The four levels use the hues the charts draw them in, so the
-              // glossary teaches the colour language the product actually
+              // glossary teaches the color language the product actually
               // speaks. Net GEX isn't a level — it stays brand amber.
               { label: t('glossaryGammaFlipLabel'), desc: t('glossaryGammaFlipDesc'), color: C.flip,  icon: Target },
               { label: t('glossaryCallWallLabel'),  desc: t('glossaryCallWallDesc'),  color: C.green, icon: TrendingUp },

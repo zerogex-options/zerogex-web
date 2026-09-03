@@ -31,7 +31,7 @@ export type ExpirationScopeValue = {
 
 /**
  * `null` (the default) means "no override" — consumers fall through to the
- * tab-wide shared store, which is the behaviour everywhere outside a scoped
+ * tab-wide shared store, which is the behavior everywhere outside a scoped
  * pane.
  */
 export const ExpirationScopeContext = createContext<ExpirationScopeValue | null>(null);

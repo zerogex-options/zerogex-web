@@ -167,7 +167,7 @@ function disclaimerAccepted(row) {
 // Three former columns (Paid / Founder / Verified) are now per-user badges
 // appended to the Tier cell. Done to keep the table narrower than a 100-col
 // terminal — three separate columns + their 2-char separators added ~20 cols
-// of width for one bit of info each. ANSI colour only when stdout is a TTY,
+// of width for one bit of info each. ANSI color only when stdout is a TTY,
 // so piping into less/grep doesn't dump escape codes.
 //
 // Founder collapses the prior E/R/L substates into a single icon: it's still
@@ -277,9 +277,9 @@ const tableRows = sortedRecords.map((rec) => [
   rec.lastLoginAt,
 ]);
 
-// CSI escape sequences from ANSI colour are zero-width; strip them before
+// CSI escape sequences from ANSI color are zero-width; strip them before
 // counting so the column-width math doesn't over-pad cells that contain
-// coloured badge glyphs.
+// colored badge glyphs.
 const ANSI_RE = /\x1b\[[0-9;]*m/g;
 function visualLength(text) {
   return [...text.replace(ANSI_RE, '')].length;

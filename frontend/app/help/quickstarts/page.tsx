@@ -250,7 +250,7 @@ const tracks: Track[] = [
       {
         id: 'manage-subscription',
         title: 'Managing your subscription',
-        blurb: 'Upgrading from Basic to Pro, switching to annual, updating payment method, and cancelling cleanly.',
+        blurb: 'Upgrading from Basic to Pro, switching to annual, updating payment method, and canceling cleanly.',
         duration: '1:50',
         level: 'New trader',
         tag: 'Billing',

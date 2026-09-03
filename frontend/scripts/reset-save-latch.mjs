@@ -7,7 +7,7 @@
 //   node --no-warnings scripts/reset-save-latch.mjs --email <addr>
 //
 // Local DB write only — never touches Stripe. To re-run the FULL flow you also
-// need the member back in the cancelling state; this script prints the
+// need the member back in the canceling state; this script prints the
 // set-cancellation command to do that.
 
 import fs from 'node:fs';
@@ -99,7 +99,7 @@ if (!user.retention_offer_claimed_at) {
 
 if (Number(user.cancel_at_period_end) !== 1) {
   console.log('');
-  console.log('Note: to re-run the full flow, put the member back in the cancelling state first:');
+  console.log('Note: to re-run the full flow, put the member back in the canceling state first:');
   console.log(`  make set-cancellation EMAIL=${user.email} ON=1 YES=1`);
   console.log(`Then get a fresh link:  make save-url EMAIL=${user.email}`);
 }

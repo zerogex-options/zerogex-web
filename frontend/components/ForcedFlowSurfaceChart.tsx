@@ -16,7 +16,7 @@ interface ForcedFlowSurfaceChartProps {
 }
 
 const PAD_L = 66; // left gutter — price ticks (value + % from spot) live here
-// PAD_R reserves room for the colour-bar (14px) + its "$X" / "0" / "-$X"
+// PAD_R reserves room for the color-bar (14px) + its "$X" / "0" / "-$X"
 // labels (~66px) and a ~22px gap to the plot.
 const PAD_R = 104;
 const PAD_T = 22;
@@ -28,7 +28,7 @@ const CHART_H = 560; // taller than the old 440 so price (now on y) has room
 const MIN_SPAN_FRAC = 0.06;
 
 // Default price-axis framing on first paint / reset: a tight ±band around spot,
-// so the magnet's small lean off spot and the near-spot colour gradient are
+// so the magnet's small lean off spot and the near-spot color gradient are
 // visible instead of squashed against a scale the 0DTE wings set. The wings are
 // still one zoom-out away. Only the VIEW is tightened — the underlying grid
 // keeps its full span, so nothing is thrown away.
@@ -39,18 +39,18 @@ const DEFAULT_ZOOM_PCT = 0.006;
 // so a pinch/pan redraw stays cheap (the buffer is refilled per frame).
 const HEATMAP_MAX_OFF_W = 420;
 const HEATMAP_MAX_OFF_H = 320;
-// Peak colour intensity of the field, as a fraction of the full bull/bear hue
+// Peak color intensity of the field, as a fraction of the full bull/bear hue
 // (the rest blends back toward the card background). Kept well below 1 so the
 // field reads as a SOFT tint — the same muted tone the Gamma Chart's regime
-// background uses — that the coloured candles and level lines pop over, rather
+// background uses — that the colored candles and level lines pop over, rather
 // than a loud full-saturation heatmap. Dial up for a bolder field.
 const HEATMAP_SATURATION = 0.5;
 
 type RGB = { r: number; g: number; b: number };
 type View = { pMin: number; pMax: number; tMin: number; tMax: number };
 
-// Parse a CSS colour string (#hex, #rgb, rgb()/rgba()) — the values
-// useChartTheme() reads out of the palette — into an {r,g,b} the canvas colour
+// Parse a CSS color string (#hex, #rgb, rgb()/rgba()) — the values
+// useChartTheme() reads out of the palette — into an {r,g,b} the canvas color
 // ramp can blend. Falls back to `fallback` if the string is empty (SSR) or
 // unparseable, so the heatmap never renders with NaN channels.
 function parseColor(input: string | undefined, fallback: RGB): RGB {
@@ -83,7 +83,7 @@ function blend(a: RGB, b: RGB, t: number): RGB {
   };
 }
 
-// Diverging, zero-centred ramp: ratio ∈ [-1, 1]. +1 -> buy hue (bull),
+// Diverging, zero-centered ramp: ratio ∈ [-1, 1]. +1 -> buy hue (bull),
 // −1 -> sell hue (bear), 0 -> neutral midpoint.
 function divergingColor(ratio: number, pos: RGB, zero: RGB, neg: RGB): RGB {
   if (!Number.isFinite(ratio)) return zero;
@@ -127,7 +127,7 @@ function formatTickPrice(value: number, step: number): string {
   return value.toFixed(decimals);
 }
 
-// Robust colour-scale ceiling: the Pth percentile of |value| across the grid,
+// Robust color-scale ceiling: the Pth percentile of |value| across the grid,
 // so the handful of 0DTE-settlement cells that saturate near the close can't
 // wash out the near-spot detail the way a raw max does.
 const CLIP_PERCENTILE = 0.9;
@@ -269,7 +269,7 @@ export default function ForcedFlowSurfaceChart({
     [chart.bgCard, isDark],
   );
 
-  // Robust colour-scale ceiling from the TOTAL forced-flow field: the 90th
+  // Robust color-scale ceiling from the TOTAL forced-flow field: the 90th
   // percentile of |z| across every finite cell, so the handful of
   // settlement-saturated cells near the close can't wash out the near-spot
   // detail the way a raw max would.
@@ -450,7 +450,7 @@ export default function ForcedFlowSurfaceChart({
       const colW = new Float32Array(ow);
       let cptr = 0;
       for (let px = 0; px < ow; px++) {
-        const t = tMax - ((px + 0.5) / ow) * tSpan; // pixel-centre time (mtc)
+        const t = tMax - ((px + 0.5) / ow) * tSpan; // pixel-center time (mtc)
         while (cptr < S - 2 && Number(columns[cptr + 1]?.min_to_close) >= t) cptr++;
         const a = cptr;
         const b = Math.min(cptr + 1, S - 1);
@@ -472,7 +472,7 @@ export default function ForcedFlowSurfaceChart({
       const rowB = new Int32Array(oh);
       const rowW = new Float32Array(oh);
       for (let py = 0; py < oh; py++) {
-        const p = pMax - ((py + 0.5) / oh) * pSpan; // pixel-centre price
+        const p = pMax - ((py + 0.5) / oh) * pSpan; // pixel-center price
         let fi = pStep > 0 ? (p - p0) / pStep : 0;
         if (fi < 0) fi = 0;
         else if (fi > T - 1) fi = T - 1;
@@ -482,9 +482,9 @@ export default function ForcedFlowSurfaceChart({
         rowW[py] = fi - i0;
       }
 
-      // Bilinear sample → diverging colour, written straight into the buffer.
+      // Bilinear sample → diverging color, written straight into the buffer.
       // Non-finite cells count as 0 (neutral) so a rare gap smooths over instead
-      // of punching a hole; the loop allocates nothing (colours inlined).
+      // of punching a hole; the loop allocates nothing (colors inlined).
       let o = 0;
       for (let py = 0; py < oh; py++) {
         const i0 = rowA[py];
@@ -529,7 +529,7 @@ export default function ForcedFlowSurfaceChart({
     }
 
     // --- Projection veil: everything RIGHT of "now" (mtc < now_min_to_close) is
-    // a forecast, not realised — mute it with a subtle tint + diagonal hatch so
+    // a forecast, not realized — mute it with a subtle tint + diagonal hatch so
     // the eye reads the right side as modeled, not actual. -------------------
     const nowX = xForTime(nowMtc);
     const projLeft = Math.max(PAD_L, Math.min(PAD_L + plotW, nowX));
@@ -671,7 +671,7 @@ export default function ForcedFlowSurfaceChart({
       ctx.stroke();
       ctx.setLineDash([]);
       if (last) {
-        // A rounded chip — card background, coloured 1px border + bold text — so
+        // A rounded chip — card background, colored 1px border + bold text — so
         // the label reads clearly over candles and the field (the Gamma Chart's
         // level-tag style). The card fill occludes whatever sits behind it.
         ctx.font = 'bold 10.5px ui-sans-serif, system-ui, -apple-system, sans-serif';
@@ -707,7 +707,7 @@ export default function ForcedFlowSurfaceChart({
     };
 
     // --- Realized price: 5-minute candlesticks in the Gamma-Chart style —
-    // COLOURED hollow candles. Colour tracks close vs the PREVIOUS bar's close
+    // COLORED hollow candles. Color tracks close vs the PREVIOUS bar's close
     // (green up / red down, the same --color-bull / --color-bear the Gamma Chart
     // uses); the body is HOLLOW when close ≥ open (the field shows through) and
     // FILLED when close < open. Thin wicks (0.9α) drawn only OUTSIDE the body so
@@ -732,8 +732,8 @@ export default function ForcedFlowSurfaceChart({
         const cl = Number(bar?.close);
         if (!Number.isFinite(mtc) || !Number.isFinite(o) || !Number.isFinite(h)
             || !Number.isFinite(lo) || !Number.isFinite(cl)) continue;
-        // Colour by close vs the PREVIOUS bar's close over the FULL series (not
-        // just the visible slice), so colours never flip when panning; the first
+        // Color by close vs the PREVIOUS bar's close over the FULL series (not
+        // just the visible slice), so colors never flip when panning; the first
         // bar compares to its own open, as the Gamma Chart does.
         const prevRaw = i > 0 ? Number(priceBars[i - 1]?.close) : o;
         const prevClose = Number.isFinite(prevRaw) ? prevRaw : o;
@@ -810,7 +810,7 @@ export default function ForcedFlowSurfaceChart({
     drawLevelLine('magnet', chart.info || '#06B6D4', [], 'magnet');
 
     // --- NOW marker: a distinct vertical line dividing the ACTUAL field (left)
-    // from the PROJECTION (right), labelled "now" at the top. ----------------
+    // from the PROJECTION (right), labeled "now" at the top. ----------------
     if (nowMtc >= tMin - 1e-9 && nowMtc <= tMax + 1e-9) {
       const nx = xForTime(nowMtc);
       ctx.save();
@@ -840,7 +840,7 @@ export default function ForcedFlowSurfaceChart({
     ctx.fillText('Spot price (USD)', 0, 0);
     ctx.restore();
 
-    // --- Diverging colour bar. Top = +clip (buy), bottom = −clip (sell). ----
+    // --- Diverging color bar. Top = +clip (buy), bottom = −clip (sell). ----
     const legendX = PAD_L + plotW + 22;
     const legendW = 14;
     const legendY = PAD_T + 8;
@@ -1143,10 +1143,10 @@ export default function ForcedFlowSurfaceChart({
 
   const textColor = 'var(--text-primary)';
 
-  // --- Read-out display values. Colour by field STRUCTURE: a controlling magnet
+  // --- Read-out display values. Color by field STRUCTURE: a controlling magnet
   // (pin) takes info-blue; an amplifying pivot (short γ) takes amber —
   // deliberately NOT red/green so it never reads as a buy/sell call. The bias
-  // arrow keeps its own up/down colour. ---
+  // arrow keeps its own up/down color. ---
   const regimeColor =
     read?.regime === 'pin'
       ? chart.info
@@ -1178,7 +1178,7 @@ export default function ForcedFlowSurfaceChart({
         <h3 className="zg-h3" style={{ color: textColor }}>
           Forced-Flow Field · Full Session
         </h3>
-        <TooltipWrapper text="The whole trading session's dealer forced-flow field — price on the vertical axis, time running left→right from the OPEN to the 4pm CLOSE. Colour is the TOTAL forced flow dealers must hedge at each spot: green = forced to BUY, red = forced to SELL. LEFT of the 'now' line is the ACTUAL field the session has already printed; RIGHT of it (shaded) is a PROJECTION into the close. The solid blue line is the magnet — a STABLE zero-flow pin (dealers sell above / buy below, so it pulls price in); the dashed amber line is the pivot — an UNSTABLE short-gamma tripwire (dealers buy above / sell below, so it pushes price away). The coloured hollow candlesticks are the realized 5-minute price (green = up, red = down; hollow body = closed above its open, filled = below); the dashed grey line is the current spot. It opens framed tight around spot (where the magnet's lean and the near-spot gradient are legible); zoom out to see the 0DTE wings. Scroll to zoom, drag to pan, drag an axis to stretch just that axis, pinch on touch, double-click to reset.">
+        <TooltipWrapper text="The whole trading session's dealer forced-flow field — price on the vertical axis, time running left→right from the OPEN to the 4pm CLOSE. Color is the TOTAL forced flow dealers must hedge at each spot: green = forced to BUY, red = forced to SELL. LEFT of the 'now' line is the ACTUAL field the session has already printed; RIGHT of it (shaded) is a PROJECTION into the close. The solid blue line is the magnet — a STABLE zero-flow pin (dealers sell above / buy below, so it pulls price in); the dashed amber line is the pivot — an UNSTABLE short-gamma tripwire (dealers buy above / sell below, so it pushes price away). The colored hollow candlesticks are the realized 5-minute price (green = up, red = down; hollow body = closed above its open, filled = below); the dashed gray line is the current spot. It opens framed tight around spot (where the magnet's lean and the near-spot gradient are legible); zoom out to see the 0DTE wings. Scroll to zoom, drag to pan, drag an axis to stretch just that axis, pinch on touch, double-click to reset.">
           <Info size={14} />
         </TooltipWrapper>
         <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
@@ -1200,7 +1200,7 @@ export default function ForcedFlowSurfaceChart({
         <em>Left of <strong>now</strong> is the ACTUAL field; right is a PROJECTION into the close.</em>{' '}
         <span style={{ color: chart.bull, fontWeight: 600 }}>Green = dealers forced to BUY</span>,{' '}
         <span style={{ color: chart.bear, fontWeight: 600 }}>red = SELL</span>;{' '}
-        candles = realized 5-min price (green up / red down); dashed grey = spot.{' '}
+        candles = realized 5-min price (green up / red down); dashed gray = spot.{' '}
         <span style={{ color: 'var(--text-muted)' }}>Opens zoomed to spot — zoom out for the 0DTE wings · drag to pan · drag an axis to stretch it · double-click to reset.</span>
       </p>
 
@@ -1358,7 +1358,7 @@ export default function ForcedFlowSurfaceChart({
   );
 }
 
-// A compact read-out chip: a muted label + a coloured value, with an optional
+// A compact read-out chip: a muted label + a colored value, with an optional
 // hover title carrying the fuller explanation so the strip stays terse.
 function ReadChip({
   label,

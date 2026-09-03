@@ -8,7 +8,7 @@
 // founder-voice win-back: "here's what you've missed, you're missing out, come
 // back at a discount — no pressure." This is the "churned" cohort in
 // scripts/list-public-cohort.mjs, and the natural follow-up to the cancellation
-// acknowledgement email (core/mailer.ts sendCancellationEmail) fired the moment
+// acknowledgment email (core/mailer.ts sendCancellationEmail) fired the moment
 // they clicked Cancel — this one lands ~30 days after access actually ended.
 //
 // Intended to be scheduled (systemd timer) once a day; the unit
@@ -85,9 +85,9 @@ function getActivePromoDeadlineLabelLocal(): string | null {
 // ~1 month after churn. 30d lag = "give them about a month to settle before we
 // reach back out." 60d lookback = a 30-day catch window (>> the daily cadence,
 // so nobody slips through a tick) that also bounds the first-deploy blast to
-// only the last two months of churn instead of the entire back catalogue.
+// only the last two months of churn instead of the entire back catalog.
 const DEFAULT_LAG_DAYS = 30;
-// Effectively unbounded: the weekly job should "catch ALL users who cancelled
+// Effectively unbounded: the weekly job should "catch ALL users who canceled
 // 30+ days ago and haven't been contacted yet", not just a rolling 30–60 day
 // slice. The winback_email_sent_at latch already prevents re-contacting anyone,
 // so a wide ceiling just lets the very first run sweep the whole backlog; steady

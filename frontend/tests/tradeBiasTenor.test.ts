@@ -1,6 +1,6 @@
 // Unit tests for the Trade Bias horizon preference (frontend/core/tradeBiasTenor.ts).
 //
-// The contract: a horizon the user picks survives a reload, an unrecognised or
+// The contract: a horizon the user picks survives a reload, an unrecognized or
 // absent stored value falls back to the default rather than reaching the bias
 // API, and blocked storage degrades instead of throwing.
 //
@@ -83,7 +83,7 @@ test('nothing stored resolves to the default', () => {
 });
 
 test('a tampered or stale stored value falls back to the default', () => {
-  // The value guard is the point: an unrecognised tenor forwarded to the bias
+  // The value guard is the point: an unrecognized tenor forwarded to the bias
   // API returns no reading, and the page would show an empty state that looks
   // like an outage rather than a bad preference.
   memory.setItem(BIAS_TENOR_STORAGE_KEY, 'banana');

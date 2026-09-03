@@ -147,7 +147,7 @@ test('slots after the last bar stay null so the curve never runs into future tim
   }
 });
 
-test('every aligned slot is labelled in ET, on the timeline it was given', () => {
+test('every aligned slot is labeled in ET, on the timeline it was given', () => {
   const timeline = [BAR(0), BAR(5)];
   const aligned = alignFlowSeriesToTimeline([], timeline);
   assert.deepEqual(aligned.map((r) => r.timestamp), timeline);

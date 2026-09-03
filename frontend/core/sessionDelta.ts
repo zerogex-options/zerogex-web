@@ -135,7 +135,7 @@ export interface SessionDeltaMark {
  * to mark — the indicator must stay a signal, not per-row noise.
  *
  * `noiseFloor` is an absolute dollar floor the caller derives from the
- * column's own scale (e.g. a small fraction of its tint-normalisation clip) so
+ * column's own scale (e.g. a small fraction of its tint-normalization clip) so
  * "too small" adapts to SPY and SPX alike. On top of it, moves under 5% of the
  * strike's own baseline are suppressed as drift.
  */

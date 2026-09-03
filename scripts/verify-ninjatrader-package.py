@@ -4,7 +4,7 @@
 The archive is produced by NinjaTrader on someone else's machine (we have no
 NT8 in this toolchain), and it becomes a public download from zerogex.io. So
 before publishing it we prove that the source inside is the source of record —
-byte for byte, after normalisation — rather than trusting the sender.
+byte for byte, after normalization — rather than trusting the sender.
 
 It also catches the duller but likelier failure: a stale archive exported
 before the last edit to the .cs, which would silently ship an old indicator.
@@ -53,7 +53,7 @@ TAIL_DENYLIST = (
 )
 
 
-def normalise(raw: bytes) -> str:
+def normalize(raw: bytes) -> str:
     """Strip the UTF-8 BOM and collapse CRLF, so a Windows round trip is a no-op."""
     if raw.startswith(b"\xef\xbb\xbf"):
         raw = raw[3:]
@@ -73,7 +73,7 @@ def main() -> None:
     archive_path, source_path = sys.argv[1], sys.argv[2]
 
     with open(source_path, "rb") as handle:
-        source = normalise(handle.read())
+        source = normalize(handle.read())
 
     try:
         archive = zipfile.ZipFile(archive_path)
@@ -85,7 +85,7 @@ def main() -> None:
             fail("archive contains a corrupt member")
 
         names = archive.namelist()
-        # NinjaTrader writes backslash separators; normalise before matching.
+        # NinjaTrader writes backslash separators; normalize before matching.
         if not any(n.replace("\\", "/").rsplit("/", 1)[-1].lower() == "info.xml" for n in names):
             fail("no Info.xml — NinjaTrader will not import this archive")
 
@@ -96,7 +96,7 @@ def main() -> None:
         matches = []
         for name in candidates:
             try:
-                text = normalise(archive.read(name))
+                text = normalize(archive.read(name))
             except UnicodeDecodeError:
                 continue
             if CLASS_DECL.search(text):

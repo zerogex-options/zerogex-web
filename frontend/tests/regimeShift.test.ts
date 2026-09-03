@@ -6,7 +6,7 @@
 //
 //  * a band is quoted ONLY when it resolved (naming a level that is not
 //    there is how a generated headline loses a reader for good);
-//  * a level row's arrow and its colour come from DIFFERENT fields, because
+//  * a level row's arrow and its color come from DIFFERENT fields, because
 //    a gamma flip dropping is a falling number and a bullish event;
 //  * the ribbon's scale is stable across sessions, so a quiet day looks
 //    quiet rather than being renormalized up to look like a violent one.
@@ -308,7 +308,7 @@ test("expiry caveat is null when nothing was excluded", () => {
   assert.equal(buildExpiryCaveat(null), null);
 });
 
-test("expiry caveat singularises one expiry", () => {
+test("expiry caveat singularizes one expiry", () => {
   const out = buildExpiryCaveat({
     common: ["2026-08-21"],
     common_count: 1,
@@ -345,12 +345,12 @@ test("no normalization says the magnitude is not measured", () => {
 });
 
 // --------------------------------------------------------------------------
-// Level rows — arrow vs colour
+// Level rows — arrow vs color
 // --------------------------------------------------------------------------
 
-test("a gamma flip dropping below spot is a DOWN arrow in a GOOD colour", () => {
+test("a gamma flip dropping below spot is a DOWN arrow in a GOOD color", () => {
   // The single most important encoding rule on this card: the arrow reports
-  // which way the number moved, the colour reports whether that is good for
+  // which way the number moved, the color reports whether that is good for
   // the tape. Bind them to one field and every crossing row renders wrong.
   const rows = buildLevelRows(payload());
   const flip = rows.find((r) => r.key === "flip");
@@ -359,7 +359,7 @@ test("a gamma flip dropping below spot is a DOWN arrow in a GOOD colour", () => 
   assert.equal(flip.sense, "good");
 });
 
-test("a gamma flip rising above spot is an UP arrow in a BAD colour", () => {
+test("a gamma flip rising above spot is an UP arrow in a BAD color", () => {
   const rows = buildLevelRows(
     payload({
       spot: 100,
@@ -560,9 +560,9 @@ test("ribbon reference never returns zero", () => {
 // State metadata
 // --------------------------------------------------------------------------
 
-test("every state carries a glyph so colour is never the only encoding", () => {
+test("every state carries a glyph so color is never the only encoding", () => {
   // Bull green and bear red separate at ΔE ~34 for normal vision but collapse
-  // to ~5 under deuteranopia. On a card whose whole job is direction, colour
+  // to ~5 under deuteranopia. On a card whose whole job is direction, color
   // cannot be load-bearing on its own.
   for (const [state, meta] of Object.entries(STATE_META)) {
     assert.ok(meta.glyph.length > 0, state);

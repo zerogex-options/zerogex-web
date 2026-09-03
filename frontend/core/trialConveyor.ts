@@ -80,7 +80,7 @@ export function classifyRider(row: {
   return null;
 }
 
-// Fraction of the belt travelled, clamped to [0, 1]. Uses the rider's true
+// Fraction of the belt traveled, clamped to [0, 1]. Uses the rider's true
 // span (boarded → charge) when both ends are known; otherwise it walks back
 // `fallbackSpanMs` from the deadline so a rider with no recoverable boarding
 // time still renders somewhere sane instead of pinned at 0.
@@ -163,7 +163,7 @@ export type ConveyorDayDelta = {
   boarded: number;
   // Trials that converted: the sub's first `active` sync AFTER a trial.
   converted: number;
-  // Trials that ended without ever being charged — cancelled/expired/deleted
+  // Trials that ended without ever being charged — canceled/expired/deleted
   // while still un-converted.
   rolledOff: number;
   // Trials whose first conversion charge was declined (trialing → past_due).
@@ -426,14 +426,14 @@ export function sortRidersByDeadline(riders: ConveyorRider[]): ConveyorRider[] {
 // the real line rather than as a separate model.
 //
 // Deliberately NOT counted:
-//   • rolling-off trials — a trialer who cancelled never enters Full
+//   • rolling-off trials — a trialer who canceled never enters Full
 //     Subscriber at all, so their departure moves this line by nothing.
 //   • stalled trials (Trial Grace) — genuinely undecided. Counting them as
 //     conversions would inflate the line with charges that already failed once;
 //     counting them as losses would write them off while Stripe is still
 //     retrying. They are reported separately instead.
 //   • new signups — a trial started today cannot convert inside the window, so
-//     including any would mean modelling acquisition, which this is not.
+//     including any would mean modeling acquisition, which this is not.
 
 export type SubscriberProjectionPoint = {
   day: string;

@@ -58,7 +58,7 @@ test("ITM put — breakeven below spot by extrinsic only", () => {
 
 test("deep ITM with negative-extrinsic quote clamps to 0", () => {
   // Crossed quote: 100C @ $9 with spot 115 → moveDollars = 100 + 9 − 115 = −6.
-  // Would imply free money; clamp to 0 rather than surface the artefact.
+  // Would imply free money; clamp to 0 rather than surface the artifact.
   assert.equal(moveToBreakevenPct(100, 9, 115, 'C'), 0);
   // Same for a put: 100P @ $4 with spot 90 → moveDollars = 90 − 100 + 4 = −6.
   assert.equal(moveToBreakevenPct(100, 4, 90, 'P'), 0);

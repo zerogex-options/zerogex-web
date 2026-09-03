@@ -116,7 +116,7 @@ function RegisterPageContent({
         // Swallow — submit-time getCsrfToken() retries and reports its own
         // error to the user. Keeping the button enabled means a transient
         // /api/auth/csrf failure doesn't leave them staring at a permanently
-        // greyed-out Create Account button with no explanation.
+        // grayed-out Create Account button with no explanation.
       }
     };
 

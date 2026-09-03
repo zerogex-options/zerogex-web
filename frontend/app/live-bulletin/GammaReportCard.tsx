@@ -568,7 +568,7 @@ const TRACK_GAP = 13; // gap between the nearest label row and the track
 const TRACK_H = 4;
 
 // Greedily assign each point to the lowest vertical level (0 = nearest the
-// track) that has no already-placed neighbour within LABEL_MIN_GAP_PCT. Points
+// track) that has no already-placed neighbor within LABEL_MIN_GAP_PCT. Points
 // are processed in priority order so the most important marker on a side
 // (e.g. live Spot) keeps the row closest to the track and lower-priority,
 // colliding markers (e.g. Flip, when price is sitting on the flip) stack above

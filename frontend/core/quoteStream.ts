@@ -311,7 +311,7 @@ class QuoteStream {
         // $0.00 across the header, price card, GEX spot line, and
         // candle tip. applyLiveQuote's merge preserves the previous
         // value for any null field, so passing null through is the
-        // correct behaviour: the last known price stays on screen
+        // correct behavior: the last known price stays on screen
         // until a real tick arrives.
         const row: LiveQuoteIncoming = {
           symbol: frame.symbol,

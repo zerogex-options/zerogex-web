@@ -1,7 +1,7 @@
 // Unit tests for the shared expiration-filter persistence layer
 // (frontend/core/expirationPersistence.ts) that backs the cross-chart
 // expiration selection. The contract under test: a set of expirations the user
-// picks must round-trip through storage in a normalised shape, reconcile
+// picks must round-trip through storage in a normalized shape, reconcile
 // cleanly against each chart's live options (so stale/expired dates drop out),
 // and a broken/absent/tampered store must only ever fall back to "All" (empty)
 // — never crash.
@@ -9,7 +9,7 @@
 // Plus the two-layer tab contract: sessionStorage holds THIS tab's live pick
 // and localStorage holds the last-selected default, so two open tabs can sit on
 // different expirations while a newly opened tab still starts from the last
-// pick. sessionStorage is per-tab in the browser, which under Node is modelled
+// pick. sessionStorage is per-tab in the browser, which under Node is modeled
 // by swapping in a fresh session store to represent "a different tab".
 //
 // Mirrors tests/symbolPersistence.test.ts: the module reads window storage
@@ -201,7 +201,7 @@ test('a dated selection is completely untouched by the token machinery', () => {
   assert.deepEqual(persistExpirations([today]), [today]);
   // "All" still means all.
   assert.deepEqual(reconcileExpirations([], available, today), []);
-  // Normalisation of dates alone is unchanged: dedupe + ascending, no token.
+  // Normalization of dates alone is unchanged: dedupe + ascending, no token.
   assert.deepEqual(
     normalizeExpirations(['2025-07-03', '2025-06-20', '2025-07-03']),
     ['2025-06-20', '2025-07-03'],
@@ -218,9 +218,9 @@ test('the 0DTE token round-trips through storage unresolved', () => {
   assert.deepEqual(resolveInitialExpirations(), [ROLLING_ZERO_DTE]);
 });
 
-test('persistExpirations writes a normalised blob and readStoredExpirations reads it back', () => {
+test('persistExpirations writes a normalized blob and readStoredExpirations reads it back', () => {
   const stored = persistExpirations(['2025-06-27', '2025-06-20', '2025-06-27']);
-  assert.deepEqual(stored, ['2025-06-20', '2025-06-27']); // returns normalised
+  assert.deepEqual(stored, ['2025-06-20', '2025-06-27']); // returns normalized
   assert.equal(memory.getItem(EXPIRATIONS_STORAGE_KEY), '["2025-06-20","2025-06-27"]');
   assert.deepEqual(readStoredExpirations(), ['2025-06-20', '2025-06-27']);
 });
@@ -263,7 +263,7 @@ test('sameExpirations compares by order-sensitive value', () => {
   assert.equal(sameExpirations(['2025-06-20'], ['2025-06-20']), true);
   assert.equal(sameExpirations(['2025-06-20'], ['2025-06-27']), false);
   assert.equal(sameExpirations(['2025-06-20'], []), false);
-  // Normalised inputs are always sorted, so differing order is a real change.
+  // Normalized inputs are always sorted, so differing order is a real change.
   assert.equal(
     sameExpirations(['2025-06-20', '2025-06-27'], ['2025-06-27', '2025-06-20']),
     false,
@@ -272,7 +272,7 @@ test('sameExpirations compares by order-sensitive value', () => {
 
 // Private-mode Safari throws on localStorage access. Persistence is best-effort:
 // a throwing store must not bubble out of persistExpirations/readStoredExpirations,
-// and persist still returns the normalised value so the in-memory store stays right.
+// and persist still returns the normalized value so the in-memory store stays right.
 test('storage failures are swallowed (private mode / disabled storage)', () => {
   const throwingStorage = {
     getItem() {
@@ -310,7 +310,7 @@ test('a missing storage area degrades instead of throwing', () => {
 });
 
 // SSR safety: with no window at all, reads degrade to "All" and writes no-op
-// while still returning the normalised value.
+// while still returning the normalized value.
 test('no window (SSR) degrades to [] and never throws', () => {
   const savedWindow = (globalThis as { window?: unknown }).window;
   delete (globalThis as { window?: unknown }).window;

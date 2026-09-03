@@ -55,7 +55,7 @@ export function isFuturesSymbol(symbol: string | null | undefined): boolean {
  * The volatility index that pairs with a symbol.
  *
  * Nasdaq-100 exposure (QQQ / NDX / NQ) reads against VXN; everything else
- * against VIX. Centralised because this pairing is consumed by roughly a
+ * against VIX. Centralized because this pairing is consumed by roughly a
  * dozen surfaces, and a symbol added to the picker but missed in one of them
  * silently renders the wrong vol gauge.
  */

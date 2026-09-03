@@ -3,19 +3,19 @@
 //   node --no-warnings scripts/list-cancellations.mjs \
 //     [--status <pending|lapsed>] [--emails | --csv] [--since <date>]
 //
-// Lists every customer who has cancelled, and when. There are two distinct
+// Lists every customer who has canceled, and when. There are two distinct
 // cancellation states, both surfaced here:
 //
 //   pending  — users.cancel_at_period_end = 1. The customer clicked "Cancel"
 //              but the subscription is still live and they keep access until
-//              users.current_period_end. "Cancelled" is the moment they clicked,
+//              users.current_period_end. "Canceled" is the moment they clicked,
 //              read from users.cancel_ack_email_sent_at (stamped on the 0->1
 //              transition by the Stripe webhook; app/api/webhooks/stripe/
 //              route.ts maybeHandleCancelAckTransition). "Access ends" is
 //              current_period_end.
 //   lapsed   — users.subscription_lapsed = 1. The subscription actually ended
 //              (customer.subscription.deleted) and the tier was reset to public.
-//              "Cancelled" is the MAX(created_at) of that user's
+//              "Canceled" is the MAX(created_at) of that user's
 //              'stripe_subscription_deleted' audit_events rows — the same anchor
 //              scripts/send-winback.mts keys the win-back window off, so a user
 //              who churned, returned, and churned again is dated by their LATEST
@@ -77,21 +77,21 @@ function usage() {
   node --no-warnings scripts/list-cancellations.mjs \\
     [--status <pending|lapsed>] [--emails | --csv] [--since <date>]
 
-Lists every customer whose subscription is currently cancelled, and when they
-cancelled. Two states are reported:
+Lists every customer whose subscription is currently canceled, and when they
+canceled. Two states are reported:
 
   pending   Clicked Cancel; still has access until their current period ends
-            (users.cancel_at_period_end = 1). "Cancelled" = the click moment;
+            (users.cancel_at_period_end = 1). "Canceled" = the click moment;
             "Access ends" = current_period_end.
   lapsed    Subscription actually ended and tier was reset to public
-            (users.subscription_lapsed = 1). "Cancelled" = the latest
+            (users.subscription_lapsed = 1). "Canceled" = the latest
             'stripe_subscription_deleted' audit event.
 
 Rows are sorted most-recent cancellation first. Only current cancellations are
 shown; a customer who churned and re-subscribed is no longer listed.
 
 Modes:
-  (default)             Table: User ID, Email, Status, Cancelled (date),
+  (default)             Table: User ID, Email, Status, Canceled (date),
                         Access ends (date), Tier.
   --emails              Print matching emails only, one per line (paste-ready
                         for a mailer). Honors --status / --since.
@@ -279,7 +279,7 @@ function formatDate(iso) {
   return m ? m[1] : '—';
 }
 
-// ANSI colour only when stdout is a TTY, so piping into less/grep/a file
+// ANSI color only when stdout is a TTY, so piping into less/grep/a file
 // doesn't dump escape codes. pending = still-has-access (amber), lapsed =
 // access gone (red).
 const useColor = !!process.stdout.isTTY;
@@ -293,7 +293,7 @@ const STATUS_LABEL = {
 
 const tierLabel = (t) => t.charAt(0).toUpperCase() + t.slice(1);
 
-const headers = ['User ID', 'Email', 'Status', 'Cancelled', 'Access ends', 'Tier'];
+const headers = ['User ID', 'Email', 'Status', 'Canceled', 'Access ends', 'Tier'];
 const tableRows = records.map((rec) => [
   shortId(rec.id),
   rec.email,
@@ -339,7 +339,7 @@ console.log('');
 console.log('Legend:');
 console.log('  Status   pending = clicked Cancel, still has access until "Access ends"');
 console.log('           lapsed  = subscription ended; tier reset to public');
-console.log('  Cancelled    pending: when they clicked Cancel (cancel-ack stamp);');
+console.log('  Canceled     pending: when they clicked Cancel (cancel-ack stamp);');
 console.log('               lapsed:  latest stripe_subscription_deleted audit event');
 if (!hasAuditEvents) {
   console.log('');

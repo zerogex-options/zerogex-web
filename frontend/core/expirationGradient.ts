@@ -1,5 +1,5 @@
 /**
- * Expiration gradient — the shared math behind the "colour graded by expiry"
+ * Expiration gradient — the shared math behind the "color graded by expiry"
  * bars: a per-(strike, expiration) split of the /api/gex/by-strike snapshot,
  * a DTE-ranked opacity ramp, and the per-strike shares that subdivide an
  * authoritative bar width into segments.
@@ -131,7 +131,7 @@ export function shownExpirations(
  * through one code path.
  *
  * Zero-width slots are dropped (they'd draw nothing), and the surviving
- * fractions are re-normalised: the wire values are rounded for compactness, so
+ * fractions are re-normalized: the wire values are rounded for compactness, so
  * they can sum to slightly under or over 1 and would otherwise leave a sliver
  * of the bar unpainted or overshoot its tip. Returns an empty list when the
  * shares are missing, mismatched, or all zero — the caller then draws one

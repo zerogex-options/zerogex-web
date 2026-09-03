@@ -142,7 +142,7 @@ function crop(image, box) {
 
 /**
  * Box-filter downscale to `targetWidth`, averaging in premultiplied alpha so
- * the transparent pixels around the artwork can't bleed their colour into the
+ * the transparent pixels around the artwork can't bleed their color into the
  * edges. Returns the image untouched when it is already narrow enough.
  */
 function downscale(image, targetWidth) {
@@ -187,7 +187,7 @@ function downscale(image, targetWidth) {
 }
 
 /**
- * Re-encode, picking the filter that minimises the sum of absolute
+ * Re-encode, picking the filter that minimizes the sum of absolute
  * differences per scanline — the heuristic from the PNG spec, and what keeps
  * the cropped file from ballooning past the original.
  */

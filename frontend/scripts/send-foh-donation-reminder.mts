@@ -17,7 +17,7 @@
 //      window pre-filled — computes gross paid subscription revenue for that
 //      window, from which 3% is the donation
 //   3. The tracked FOH donation URL
-//   4. The exact `make quarterly-receipt` command to run afterwards
+//   4. The exact `make quarterly-receipt` command to run afterward
 //   5. A reminder about the tweet + badge attach step
 //
 // Env:
@@ -157,7 +157,7 @@ function buildText(q: ClosingQuarter): string {
     ``,
     `  ${FOH_DONATION_URL}`,
     ``,
-    `Save the receipt PDF that FOH emails you afterwards.`,
+    `Save the receipt PDF that FOH emails you afterward.`,
     ``,
     `STEP 3 — Publish on the site (one command)`,
     `───────────────────────────────────────────────────`,
@@ -207,7 +207,7 @@ function buildHtml(q: ClosingQuarter): string {
   <h2 style="font-size: 16px; margin: 28px 0 8px; color: #333;">Step 2 — Send the donation</h2>
   <p style="margin: 0;">Wire or use a card at the ZeroGEX-tracked partner page:</p>
   <p style="margin: 8px 0;"><a href="${escapeHtml(FOH_DONATION_URL)}" style="display: inline-block; padding: 10px 16px; background: #f5b400; color: #000; font-weight: 700; text-decoration: none; border-radius: 8px;">Open the ZeroGEX FOH partner page</a></p>
-  <p style="margin: 8px 0 0; color: #555; font-size: 14px;">Save the receipt PDF that FOH emails you afterwards.</p>
+  <p style="margin: 8px 0 0; color: #555; font-size: 14px;">Save the receipt PDF that FOH emails you afterward.</p>
 
   <h2 style="font-size: 16px; margin: 28px 0 8px; color: #333;">Step 3 — Publish on the site (one command)</h2>
   <p style="margin: 0 0 8px;">On the EC2 box, from <code>~/zerogex-web</code>:</p>

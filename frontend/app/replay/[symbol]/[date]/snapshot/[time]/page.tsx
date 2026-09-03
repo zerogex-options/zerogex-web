@@ -42,7 +42,7 @@ interface FramePayload {
     call_gex?: number | null;
     put_gex?: number | null;
     // gex_by_strike is keyed per (strike, expiration), so a strike arrives once
-    // per expiration. Optional so the chart's expiry colour gradient lights up
+    // per expiration. Optional so the chart's expiry color gradient lights up
     // when the payload labels the rows and falls back to summed bars when not.
     expiration?: string | null;
   }>;

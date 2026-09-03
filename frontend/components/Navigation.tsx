@@ -376,7 +376,7 @@ export default function Navigation({ theme }: NavigationProps) {
             {headerCollapsed && (
               <div className="zg-panel mb-4 p-3" style={{ backgroundColor: 'color-mix(in srgb, var(--bg-card) 79%, transparent)' }}>
                 {/* The lockup is trimmed to its artwork, so it's sized by height
-                    and centred — the old over-wide, negatively-offset crop
+                    and centered — the old over-wide, negatively-offset crop
                     existed only to cut the padding out of the SVG export. */}
                 <Link href="/" className="flex w-full items-center justify-center overflow-hidden">
                   <Image

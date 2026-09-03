@@ -73,7 +73,7 @@ Then the decisive step. Only a *positive* local gamma can pin:
 restoring_gex(K) = max( local_gex(K), 0 )
 ```
 
-If the neighborhood around `K` is net short dealer gamma — a destabilizing, move-amplifying pocket — its restoring score is zero. It is not a weak pin; it is *not a pin at all*, and it is scored accordingly. This single `max(·, 0)` is what encodes the physics: pins are made of positive gamma, full stop.
+If the neighborhood around `K` is net short dealer gamma — a destabilizing, move-amplifying pocket — its restoring score is zero. It is not a weak pin; it is *not a pin at all*, and it is scored accordingly. This single `max(·, 0)` is what encodes the physics: pins are made of positive gamma, period.
 
 ---
 

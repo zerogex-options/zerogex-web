@@ -19,7 +19,7 @@ interface FlipSurfaceChartProps {
 const DEFAULT_HORIZONS = [1, 3, 5, 10, 20, 60];
 
 const PAD_L = 56;
-// PAD_R reserves room for the colour-bar (14px) plus its "+$X.XX" / "0" /
+// PAD_R reserves room for the color-bar (14px) plus its "+$X.XX" / "0" /
 // "-$X.XX" labels (~70px) and a ~22px gap to the plot.  The wall / spot /
 // contour legend now lives in a sidebar outside the canvas, so this is the
 // only legend the canvas itself has to budget for.
@@ -39,14 +39,14 @@ const LABEL_ROW_SPOT = 56;
 
 type RGB = { r: number; g: number; b: number };
 
-// Diverging-cell colours.  Long-γ stabilising side: deep navy (#2c4875).
-// Short-γ destabilising side: magenta (#bc5090).  Centre transitions
+// Diverging-cell colors.  Long-γ stabilizing side: deep navy (#2c4875).
+// Short-γ destabilizing side: magenta (#bc5090).  Center transitions
 // through near-white so the zero contour reads cleanly.
 const POSITIVE_HUE: RGB = { r: 44, g: 72, b: 117 };
 const ZERO_HUE: RGB = { r: 247, g: 247, b: 247 };
 const NEGATIVE_HUE: RGB = { r: 188, g: 80, b: 144 };
 
-// Reference-line colours mirrored from the Strike Profile chart on the
+// Reference-line colors mirrored from the Strike Profile chart on the
 // Dealer Positioning page so the two read as a coherent pair.
 const CALL_WALL_COLOR = 'var(--color-bull)';
 const PUT_WALL_COLOR = 'var(--color-bear)';
@@ -167,7 +167,7 @@ export default function FlipSurfaceChart({
     return () => ro.disconnect();
   }, [containerMounted]);
 
-  // Clip used for normalising the diverging colour map.  The 97th-percentile
+  // Clip used for normalizing the diverging color map.  The 97th-percentile
   // bound stops one extreme cell from washing out everything else.
   const clip = useMemo(() => {
     if (!surface) return 1;
@@ -212,7 +212,7 @@ export default function FlipSurfaceChart({
     const xForPrice = (p: number) => PAD_L + plotW * ((p - gridMin) / xRange);
 
     // Horizons rendered as equal-height bands.  Each profile row paints a
-    // horizontal strip; the y-centre of each band carries the horizon label.
+    // horizontal strip; the y-center of each band carries the horizon label.
     const bandHeight = plotH / horizonsList.length;
     const yForBand = (idx: number) => PAD_T + bandHeight * idx;
     const yForHorizon = (h: number) => {
@@ -427,7 +427,7 @@ export default function FlipSurfaceChart({
     ctx.fillText('Hypothetical spot (USD)', PAD_L + plotW / 2, cssH - 4);
     ctx.restore();
 
-    // Legend / colour bar on the right.
+    // Legend / color bar on the right.
     const legendX = PAD_L + plotW + 22;
     const legendW = 14;
     const legendY = PAD_T + 8;
@@ -510,7 +510,7 @@ export default function FlipSurfaceChart({
             <h3 className="zg-h3" style={{ color: textColor }}>
               Horizon × Price Contour
             </h3>
-            <TooltipWrapper text="Signed dealer-GEX surface across hypothetical spot prices (x) and option horizons (y). Blue cells are long-gamma (stabilising), red cells are short-gamma (destabilising). The black line traces the zero crossing — the per-horizon gamma flip. Vertical guides mark current spot (cyan) and the heaviest call/put walls.">
+            <TooltipWrapper text="Signed dealer-GEX surface across hypothetical spot prices (x) and option horizons (y). Blue cells are long-gamma (stabilizing), red cells are short-gamma (destabilizing). The black line traces the zero crossing — the per-horizon gamma flip. Vertical guides mark current spot (cyan) and the heaviest call/put walls.">
               <Info size={14} />
             </TooltipWrapper>
           </div>

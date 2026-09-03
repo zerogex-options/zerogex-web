@@ -259,7 +259,7 @@ export default function GammaHeatmapCanvas() {
   );
   const { rows: priceRowsAll } = useMarketHistorical(symbol, apiTf);
   // Live quote for the tip-candle close merge.  Mirrors the Strike
-  // Profile chart's behaviour: while the session is live (cash for
+  // Profile chart's behavior: while the session is live (cash for
   // indexes, 04:00–20:00 for stocks/ETFs) ONLY the most recent slot's
   // close is overridden with /api/market/quote.close so the candle and
   // spot line move on the same 1Hz tick as the header.  open / high /
@@ -726,7 +726,7 @@ export default function GammaHeatmapCanvas() {
 
     // Underlying candlesticks on top of the heatmap.  Solid bodies with
     // a darker edge — keeps the brightness of the brand bullish/bearish
-    // colours for at-a-glance direction reading while the darker outline
+    // colors for at-a-glance direction reading while the darker outline
     // and the wick split at the body edges keep the candles legible
     // against the heatmap's blue→warm-white→orange gradient underneath.
     if (priceData && priceData.length > 0) {

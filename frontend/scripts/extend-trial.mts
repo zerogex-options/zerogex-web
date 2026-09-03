@@ -306,7 +306,7 @@ if (!user.stripe_subscription_id) {
   process.exit(1);
 }
 // Only trials can be "extended". If she has already converted to paid, pushing
-// trial_end backwards on an active sub is the wrong tool — comp her instead.
+// trial_end backward on an active sub is the wrong tool — comp her instead.
 if (user.subscription_status !== 'trialing') {
   console.error(
     `Error: ${user.email} is not on a trial (status=${user.subscription_status ?? 'none'}).`,

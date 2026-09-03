@@ -86,7 +86,7 @@ stops a cron re-firing the same email every run. Verified list of latch columns:
 | `reactivation_email_sent_at` | ~3-week extended-trial nudge | nudge sent | **never** |
 | `verify_reminder_email_sent_at` | "finish verifying" nudge | nudge sent | **never** |
 | `founding_final_call_email_sent_at` | Founding final-call | email sent | **never** (deadline crosses once) |
-| `cancel_ack_email_sent_at` | Cancellation acknowledgement | Stripe flips `cancel_at_period_end`→true | on reactivation (re-cancel can re-fire) |
+| `cancel_ack_email_sent_at` | Cancellation acknowledgment | Stripe flips `cancel_at_period_end`→true | on reactivation (re-cancel can re-fire) |
 | `winback_email_sent_at` | ~1-month-after-churn win-back | win-back sent | on welcome-back (`subscription_lapsed` 1→0) |
 | `marketing_unsubscribed_at` | **opt-out** — excludes from marketing sends | user unsubscribes | (opt back in only manually) |
 
@@ -98,7 +98,7 @@ Two **flags** (not timestamps) drive the dunning/welcome logic:
   ordinary renewal, and re-arms for the next failure. Also cleared on
   `customer.subscription.deleted`.
 - **`subscription_lapsed`** (0/1): set to 1 on subscription deletion, cleared to 0
-  when the welcome-back fires. Discriminates "cancelled then came back" (welcome-back)
+  when the welcome-back fires. Discriminates "canceled then came back" (welcome-back)
   from "upgrading in place" (silent).
 - **`payment_grace_started_at`**: anchors the `BILLING_PAYMENT_GRACE_DAYS` grace
   window so an established sub keeps its paid tier through Stripe's Smart Retries
@@ -237,7 +237,7 @@ auth/transactional and TradeWorkz alerts.
 
 ### 3.5 Retention / churn
 
-**Cancellation acknowledgement** — `sendCancellationEmail(to, { periodEndIso })`
+**Cancellation acknowledgment** — `sendCancellationEmail(to, { periodEndIso })`
 - **Subject:** `Sorry to see you go — mind sharing why?`
 - Fires at the click-Cancel moment (still has access until period end). Asks why,
   offers 25% off for a year via manual "reply 'discount'" fulfillment. No FOH footer.

@@ -289,7 +289,7 @@ export function getTrialGraceEnabled(): boolean {
 //
 // Defaults ON: leaving collected money with no entitlement is the worse
 // failure, and the decision is narrow (paid, non-zero, member on 'public', a
-// catalogued price, a period that has not elapsed). Set
+// cataloged price, a period that has not elapsed). Set
 // BILLING_ORPHAN_RECOVERY_ENABLED=0 to detect-and-log only — the
 // billing_orphan_payment_detected audit row is written either way, so nothing
 // goes silent when this is off; recover by hand with
@@ -332,7 +332,7 @@ export function createBillingPortalSession(
 }
 
 export function getCurrentPeriodEndUnix(subscription: Stripe.Subscription): number | null {
-  // API versions from 2024-onwards expose current_period_end on the subscription item.
+  // API versions from 2024-onward expose current_period_end on the subscription item.
   // Older versions had it on the subscription itself. Read both for compatibility.
   const item = subscription.items?.data?.[0];
   const itemValue = (item as unknown as { current_period_end?: number } | undefined)?.current_period_end;

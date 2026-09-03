@@ -98,7 +98,7 @@ function isoFromYmd(y: number, m: number, d: number): string {
   return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
-// Walk backwards from (y, m, d) until we land on a non-weekend, non-holiday
+// Walk backward from (y, m, d) until we land on a non-weekend, non-holiday
 // trading day. Bounded loop guards against pathological inputs.
 function previousBusinessDay(
   y: number,

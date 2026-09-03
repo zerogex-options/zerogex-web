@@ -731,7 +731,7 @@ export function usePremiumSurface(
 // refreshInterval = 0 ("paused"): the subscriber receives the cached
 // snapshot plus the result of any initial fetch, then freezes — it
 // doesn't drive the poll loop and doesn't react to further updates.
-// Mirrors the pre-shared-cache behaviour of useApiData with
+// Mirrors the pre-shared-cache behavior of useApiData with
 // refreshInterval=0 so chart pause / rewind continues to freeze the
 // quote-driven candles and spot line as it always did.
 interface MarketQuoteCacheEntry {
@@ -1754,7 +1754,7 @@ export interface ForcedFlowCharmDecayResponse {
   spot: number;
   timestamp: string;
   session_days: number;
-  // Cumulative charm-driven forced flow ($) realised by the close if spot holds.
+  // Cumulative charm-driven forced flow ($) realized by the close if spot holds.
   close_flow_usd: number;
   curve: ForcedFlowCharmDecayPoint[];
 }
@@ -1844,7 +1844,7 @@ export interface ForcedFlowSessionColumn {
 }
 
 // One realized 5-minute OHLC candle, on the same minutes-to-close axis as the
-// columns (min_to_close is the bar's CENTRE). Optional on the response — older
+// columns (min_to_close is the bar's CENTER). Optional on the response — older
 // backends omit it, and the chart falls back to the realized-price line.
 export interface ForcedFlowSessionPriceBar {
   min_to_close: number;
@@ -1877,7 +1877,7 @@ export interface ForcedFlowSessionSurfaceResponse {
 // The full-session forced-flow field: the ACTUAL dealer forced-flow surface
 // from the open to now, plus a projection from now into the close, over a
 // price × session-time grid. Mirrors useForcedFlowSurface but carries the
-// realised past columns and the now / projection split.
+// realized past columns and the now / projection split.
 export function useForcedFlowSessionSurface(symbol = 'SPY', spotRangePct = 0.02, refreshInterval = 15000) {
   return useApiData<ForcedFlowSessionSurfaceResponse>(
     `/api/forced-flow/session-surface?${symbolQuery(symbol, { spot_range_pct: spotRangePct })}`,

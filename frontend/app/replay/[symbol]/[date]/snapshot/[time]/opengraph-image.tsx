@@ -26,7 +26,7 @@ interface FramePayload {
 
 // Green above / red below by sign — the universal gamma-profile convention.
 // (Kept net here rather than the call/put split so the strip doesn't clash
-// with the wall cells' green=put / red=call colours in the same image.)
+// with the wall cells' green=put / red=call colors in the same image.)
 const OG_POS = '#10B981';
 const OG_NEG = '#F45854';
 const STRIP_H = 120;

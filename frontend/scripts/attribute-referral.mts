@@ -473,7 +473,7 @@ const refereeConverted = referee.subscription_status === 'active';
 let billingState: string;
 if (refereeConverted) billingState = 'active (paid) — reward will NOT auto-fire';
 else if (referee.subscription_status === 'trialing') billingState = 'trialing (not yet paid)';
-else if (referee.subscription_lapsed) billingState = 'cancelled / lapsed';
+else if (referee.subscription_lapsed) billingState = 'canceled / lapsed';
 else if (referee.stripe_subscription_id) billingState = `subscription ${referee.subscription_status ?? 'unknown'}`;
 else billingState = 'no subscription yet';
 

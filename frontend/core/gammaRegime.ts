@@ -29,7 +29,7 @@ export function netGexAtSpotOrNull(value: unknown): number | null {
 
 /**
  * The modeled long-gamma regime at spot, as a sign — the shared resolver behind
- * every LONG/SHORT badge, trend colour, and posture line on the site.
+ * every LONG/SHORT badge, trend color, and posture line on the site.
  *
  * Returns `true` (modeled long gamma), `false` (short), or `null` when the
  * regime is genuinely unknown. It prefers the sign of `netGexAtSpot` (the

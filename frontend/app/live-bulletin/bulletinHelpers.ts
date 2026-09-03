@@ -261,7 +261,7 @@ export function fmtTimeET(iso?: string): string {
 }
 
 // Build the derived report model from raw inputs, including the auto-generated
-// headline and lead paragraph. The operator can override the prose afterwards;
+// headline and lead paragraph. The operator can override the prose afterward;
 // this just gives a sane, on-brand starting point keyed off the live numbers.
 /** A market quote's optional index->future display-swap fields (attached by
  * /api/market/quote when INDEX_FUTURES_DISPLAY_ENABLED and the symbol is a

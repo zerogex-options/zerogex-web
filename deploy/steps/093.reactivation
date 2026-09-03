@@ -7,7 +7,7 @@
 # Installs and enables the reactivation email timer (see
 # deploy/systemd/zerogex-web-reactivation.{service,timer}). The timer fires
 # daily on :40 and triggers `make reactivation YES=1`, which sends the
-# second-touch reactivation email — the inactive-signup analogue of the
+# second-touch reactivation email — the inactive-signup analog of the
 # win-back — to cold verified-never-paid signups (public tier, verified, no
 # active sub, not churned, not founding-eligible, not unsubscribed) who signed
 # up at least 21 days ago and haven't received it yet. The pitch is an EXTENDED

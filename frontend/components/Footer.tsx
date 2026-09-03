@@ -95,7 +95,7 @@ function RedditIcon({ size = 16 }: { size?: number }) {
   );
 }
 
-// Ghost icon buttons. These used to be solid brand-coloured circles with drop
+// Ghost icon buttons. These used to be solid brand-colored circles with drop
 // shadows and a translateY lift on hover — the single most dated element on the
 // page, and the only place on the site using a filled circular control.
 function SocialLinks() {

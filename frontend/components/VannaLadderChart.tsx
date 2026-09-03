@@ -104,7 +104,7 @@ export default function VannaLadderChart({ symbol = 'SPY' }: VannaLadderChartPro
     [curve],
   );
 
-  // Numeric x-axis centres each bar on its rung, so the outer bars (dataMin /
+  // Numeric x-axis centers each bar on its rung, so the outer bars (dataMin /
   // dataMax) would straddle the plot edge and clip. Pad the domain by ~¾ of a
   // rung on each side so every bar sits fully inside the frame.
   const xDomain = useMemo<[number, number]>(() => {

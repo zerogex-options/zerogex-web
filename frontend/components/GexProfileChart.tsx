@@ -89,7 +89,7 @@ interface GexProfileChartProps {
    * from it.
    */
   perExpirationData?: PerExpirationStrikeRow[];
-  /** Today's ET date key (YYYY-MM-DD) for labelling expirations by DTE. */
+  /** Today's ET date key (YYYY-MM-DD) for labeling expirations by DTE. */
   todayKey?: string;
 }
 
@@ -224,7 +224,7 @@ function selectStrikeTicks(visibleDomain: [number, number]): number[] {
 }
 
 // Pick a "nice" step (1, 2, 5 × 10^k) that lands ~targetCount ticks across
-// the half-range.  Both y-axes need symmetric ticks centred on 0 with clean
+// the half-range.  Both y-axes need symmetric ticks centered on 0 with clean
 // round values like $1B, $2B — recharts' default tick generator picks
 // fractional values when the domain is set to data-driven extremes.
 function niceStep(halfRange: number, targetCount: number): number {
@@ -665,11 +665,11 @@ export default function GexProfileChart({
   // visibleDomain controls ONLY which slice of strikes the XAxis renders.
   // The chart container stays the same width and the YAxis stays pinned —
   // changing the domain just shifts/narrows which strikes appear inside it.
-  // `null` means "no data yet"; once data lands we initialise to the full
+  // `null` means "no data yet"; once data lands we initialize to the full
   // range so the chart starts zoomed out.
   const [visibleDomain, setVisibleDomain] = useState<[number, number] | null>(null);
 
-  // Adjust state during render to initialise / expand the bounds when the
+  // Adjust state during render to initialize / expand the bounds when the
   // option chain grows. We deliberately don't shrink visibleDomain on
   // out-of-range — the user's chosen window is what they want to see.
   if (fullStrikeDomain != null) {
@@ -1051,7 +1051,7 @@ export default function GexProfileChart({
                     style: { fill: axisStroke, fontSize: 11, textAnchor: 'middle' },
                   }}
                 />
-                {/* Right axis colour matches the left so the two y-scales read
+                {/* Right axis color matches the left so the two y-scales read
                     as a pair; the profile curve and its legend swatch are
                     enough to associate the right axis with the profile
                     series visually. */}

@@ -314,7 +314,7 @@ export default function MarketPressurePage() {
           <>
             <strong>Bands:</strong> 0–24 Discharged · 25–49 Building · 50–74 Loaded · 75–100 Critical. A score of 0
             does NOT mean &quot;neutral market&quot; — it means a pillar collapsed (no walls, no greeks, no flow) or
-            opposing directional forces are cancelling. Treat as &quot;this lens is dark.&quot;
+            opposing directional forces are canceling. Treat as &quot;this lens is dark.&quot;
           </>
         }
       >

@@ -124,7 +124,7 @@ export default async function SnapshotPage({
   const priorClose = sessionCloses?.current_session_close ?? null;
   // For a cash index outside the cash session, project the implied spot from
   // the future (matches the daily-forecast + bulletin-tweet projection) so
-  // the screenshot never shows a frozen cash close labelled as a live SPX
+  // the screenshot never shows a frozen cash close labeled as a live SPX
   // quote.  Falls back to the cash close when not a futures swap.
   const projection = projectedIndexSpot(quote, priorClose);
   const spot = projection?.spot ?? quote?.close ?? summary?.spot_price ?? null;

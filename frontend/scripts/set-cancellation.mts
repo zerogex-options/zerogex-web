@@ -6,7 +6,7 @@
 // Flip ONE customer's cancel_at_period_end flag on their Stripe subscription:
 //   --off  Stop a scheduled cancellation. The subscription will renew (or, if
 //          she's still on a trial, convert to paid and charge at trial_end)
-//          instead of ending. Use this to let a customer who had cancelled
+//          instead of ending. Use this to let a customer who had canceled
 //          convert after all.
 //   --on   Schedule cancellation at period end. She keeps access until then,
 //          then the subscription ends with no further charge.
@@ -18,7 +18,7 @@
 // customer.subscription.updated, and the webhook (app/api/webhooks/stripe/
 // route.ts) mirrors cancel_at_period_end onto the users row and — on the 1→0
 // (reactivation) transition — clears cancel_ack_email_sent_at so a future
-// re-cancel can re-send the acknowledgement. This script writes those same
+// re-cancel can re-send the acknowledgment. This script writes those same
 // values straight to the row too, so state is correct immediately; the webhook
 // reconciles to the same values later (idempotent).
 //
@@ -26,7 +26,7 @@
 // Idempotent: if the flag is already in the requested state, it no-ops.
 // Records an audit_events row (type billing_cancellation_set) per change.
 //
-// NOTE: clearing the flag on someone who deliberately cancelled means she will
+// NOTE: clearing the flag on someone who deliberately canceled means she will
 // be charged at period end unless she cancels again — make sure she's been told
 // (a surprise charge invites a dispute). This script sends NO email; use your
 // own note to set expectations.
@@ -99,7 +99,7 @@ Sets one customer's cancel_at_period_end flag on their Stripe subscription.
 Direction (exactly one required):
       --off   Stop a scheduled cancellation — the subscription renews, or (on a
               trial) converts to paid and charges at trial_end, instead of
-              ending. Use to let a customer who had cancelled convert after all.
+              ending. Use to let a customer who had canceled convert after all.
       --on    Schedule cancellation at period end — she keeps access until then,
               then it ends with no further charge.
 
@@ -299,7 +299,7 @@ console.log(`Status:             ${subscription.status} (${endLabel} ${periodEnd
 console.log(`cancel_at_period_end: ${subscription.cancel_at_period_end ? 'true' : 'false'}  →  ${desired ? 'true' : 'false'}`);
 
 if (subscription.cancel_at_period_end === desired) {
-  console.log(`\nAlready ${desired ? 'scheduled to cancel' : 'not cancelling'}. Nothing to do.`);
+  console.log(`\nAlready ${desired ? 'scheduled to cancel' : 'not canceling'}. Nothing to do.`);
   process.exit(0);
 }
 
@@ -337,7 +337,7 @@ try {
 const stamp = nowIso();
 // Mirror the flag. On stopping a cancellation (→ false), also clear
 // cancel_ack_email_sent_at, matching the webhook's reactivation branch so a
-// future re-cancel can re-fire the acknowledgement email.
+// future re-cancel can re-fire the acknowledgment email.
 const clearAckClause = desired ? '' : ", cancel_ack_email_sent_at = NULL";
 execSqlite(
   dbPath,

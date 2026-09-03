@@ -18,7 +18,7 @@
 // opens on your last pick while open tabs stay independent. See the two-layer
 // note in core/expirationPersistence.
 //
-// The pure resolve/persist/normalise contract lives in core/expirationPersistence
+// The pure resolve/persist/normalize contract lives in core/expirationPersistence
 // (unit-tested under Node); this file is only the thin React/browser glue.
 
 import { useContext, useSyncExternalStore } from 'react';
@@ -31,7 +31,7 @@ import {
 } from '@/core/expirationPersistence';
 
 // `null` until first read so we lazily hydrate from storage exactly once;
-// thereafter it holds the canonical (normalised) selection. Its reference only
+// thereafter it holds the canonical (normalized) selection. Its reference only
 // changes when the selection changes, which is what useSyncExternalStore needs
 // getSnapshot to guarantee (returning a fresh array every call would loop).
 let current: string[] | null = null;
@@ -62,11 +62,11 @@ function subscribe(listener: () => void): () => void {
   };
 }
 
-// Update this tab's selection: normalise + write through to storage, then notify
-// every mounted chart in the tab. No-ops when the normalised value is unchanged,
+// Update this tab's selection: normalize + write through to storage, then notify
+// every mounted chart in the tab. No-ops when the normalized value is unchanged,
 // which also breaks the set→broadcast→re-seed loop a chart's local mirror could
 // otherwise create. Stable identity (module scope) so callers can pass it
-// straight to an onChange without memoising.
+// straight to an onChange without memoizing.
 export function setSharedExpirations(next: readonly string[]): void {
   const clean = persistExpirations(next);
   if (current !== null && sameExpirations(current, clean)) return;
@@ -78,7 +78,7 @@ export interface SharedExpirations {
   /** The active selection; an empty array means "All expirations". */
   selection: string[];
   /**
-   * Replace the selection (normalised + persisted + broadcast to every chart in
+   * Replace the selection (normalized + persisted + broadcast to every chart in
    * THIS tab; other open tabs keep theirs and only their next fresh mount picks
    * this up as the default).
    */

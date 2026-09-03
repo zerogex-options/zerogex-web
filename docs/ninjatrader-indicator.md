@@ -87,7 +87,7 @@ the existing `.pine` file does.
 
 - An optional **per-strike gamma histogram**: one right-anchored horizontal
   segment per strike, running left from the last bar, length scaled to
-  `|net_gex|` against the largest bar in view, coloured by sign. Off by
+  `|net_gex|` against the largest bar in view, colored by sign. Off by
   default — it is dozens of extra draw objects on the price panel, and an
   existing user's chart shouldn't sprout them on update.
 
@@ -150,7 +150,7 @@ exist. Two properties of that design matter here:
   is rewritten back to `ES` (it is in `LABEL_FIELDS`) rather than leaking
   `SPX`.
 
-The ratio is measured off the tape rather than modelled from carry, so it
+The ratio is measured off the tape rather than modeled from carry, so it
 self-corrects through the quarterly roll. A client-side offset would be
 strictly worse: manual, stale on roll, and wrong overnight — where the naive
 `chart price − API spot` double-counts the overnight move, because cash is
@@ -200,7 +200,7 @@ frozen at the 16:00 close while the future keeps trading.
 - **Labels sit above their line, not on it.** `Label offset above line
   (ticks)` defaults to 4 and is measured in ticks, so one setting behaves the
   same on ES, NQ and SPX, whose tick sizes differ by an order of magnitude. 0
-  restores the old on-the-line behaviour. This only separates text from its
+  restores the old on-the-line behavior. This only separates text from its
   own line; two levels a tick apart still overlap each other, which is a
   reason to keep the GEX count low rather than something the offset can fix.
 - **A missing snapshot never wipes the chart.** `DrawOne` removes a level when
@@ -208,7 +208,7 @@ frozen at the 16:00 close while the future keeps trading.
   null — but passing it `s?.Level` from a null snapshot removed *everything* on
   the first frame after any restart or failed fetch. The levels are now held and
   the panel carries a `⚠ not updating` line with the reason. Holding is the
-  honest default: these describe an option book, so stale-but-labelled beats
+  honest default: these describe an option book, so stale-but-labeled beats
   blank.
 - **401/403 is surfaced in plain words**, because only one key is active per
   account: generating a new key silently retires the one sitting in a chart, and
@@ -250,7 +250,7 @@ We have no NinjaTrader in this toolchain, so the export is produced on someone
 else's machine and then served from our domain. That is a real trust step, and
 it is why `scripts/verify-ninjatrader-package.py` gates the publish: the source
 inside the archive must equal `ZeroGexGammaLevels.cs` byte for byte after
-normalising the BOM and CRLF that a Windows round trip introduces.
+normalizing the BOM and CRLF that a Windows round trip introduces.
 
 NinjaTrader appends a `#region NinjaScript generated code` block that is not in
 our source and varies legitimately with the `[NinjaScriptProperty]` set, so it

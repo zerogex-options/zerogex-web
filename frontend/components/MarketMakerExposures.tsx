@@ -186,10 +186,10 @@ const MID_W = 280;
 
 // Numeric GEX value labels overlaid on the middle-panel gamma bars when the
 // "Show GEX values" display option is on. Drawn at each bar's tip in the bar's
-// own colour with a card-background halo (paint-order stroke) so they stay
+// own color with a card-background halo (paint-order stroke) so they stay
 // legible over any bar or the panel background across every theme, and only
 // when each strike row has enough vertical room to hold one without colliding
-// with its neighbour (GEX_VALUE_MIN_SLOT).
+// with its neighbor (GEX_VALUE_MIN_SLOT).
 const GEX_VALUE_FONT = 9; // px
 const GEX_VALUE_PAD = 4; // px gap between a bar tip and its value label
 const GEX_VALUE_MIN_SLOT = 11; // min px of vertical room per strike to show labels
@@ -797,11 +797,11 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   // separate endpoint — /api/gex/expirations — that can lag or return empty;
   // keying the stack off it would blank the gradient whenever that endpoint is
   // behind, even though the by-strike data is right there.) Expirations are
-  // normalised to their YYYY-MM-DD date and restricted to today-or-later.
+  // normalized to their YYYY-MM-DD date and restricted to today-or-later.
   const isSubsetSel = selectedExpiries.length > 0;
 
   type ExpCell = { call: number; put: number; callOi: number; putOi: number };
-  // strike(cents) → normalised expiration → magnitudes, plus the sorted list of
+  // strike(cents) → normalized expiration → magnitudes, plus the sorted list of
   // expirations actually present in the snapshot (nearest-first = DTE rank).
   // Cents-keyed so the lookup from the timeseries strike grid can't miss on
   // float drift.
@@ -839,7 +839,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
     return m;
   }, [byStrikeExps]);
 
-  // The shown subset (nearest-first), normalised to match the snapshot keys.
+  // The shown subset (nearest-first), normalized to match the snapshot keys.
   // Empty selection = All → the whole snapshot universe.
   const stackExpiries = useMemo(() => {
     if (!isSubsetSel) return byStrikeExps;
@@ -1217,7 +1217,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   }, [visibleStrikes, gexMode]);
 
   // Only render the numeric per-strike GEX values when each strike row has
-  // enough vertical room to hold a label without overlapping its neighbour;
+  // enough vertical room to hold a label without overlapping its neighbor;
   // when the view is zoomed out to a dense strike ladder the labels are
   // suppressed (zoom in to reveal them). Never in compact mode — the middle
   // gamma panel it labels isn't drawn there.
@@ -1226,7 +1226,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
 
   // Render one per-strike GEX value at a bar's tip. Grows outward from the tip
   // (`dir` = 1 right, -1 left) and, when that would overflow the panel, pins to
-  // the panel edge instead. Bar-colour fill over a card-background halo keeps it
+  // the panel edge instead. Bar-color fill over a card-background halo keeps it
   // legible over the bar or the panel background in any theme.
   const gexValueLabel = (
     value: number,
@@ -2413,7 +2413,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                 // ── Color: close vs PREVIOUS candle's close ──
                 // > prior close → bullish, < prior close → bearish,
                 // == prior close (or no prior available) → neutral.
-                // The neutral colour tracks the theme so it stays visible
+                // The neutral color tracks the theme so it stays visible
                 // in both light and dark modes.
                 const prevClose = i > 0
                   ? visibleCandlesForRender[i - 1].close
@@ -3054,7 +3054,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
                 type="button"
                 onClick={() => setPlaybackLoop((v) => !v)}
                 className={toolbarBtnClass}
-                // Active loop uses the rewind-cyan accent (same colour the
+                // Active loop uses the rewind-cyan accent (same color the
                 // "Rewinding" pill uses up in the toolbar) so it reads as
                 // distinctly engaged at a glance — the default toolbar
                 // active-state was too subtle for a sticky toggle that
@@ -3101,7 +3101,7 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
         className="flex flex-wrap items-center gap-x-5 gap-y-1 px-5 py-2 text-xs"
         style={{ borderTop: `1px solid ${border}`, color: subtle }}
       >
-        {/* Gamma / Positions bars: colour by side, shaded by expiration (0DTE
+        {/* Gamma / Positions bars: color by side, shaded by expiration (0DTE
             boldest → furthest faintest) when the live snapshot is stacked. */}
         <span className="flex items-center gap-1.5" title="Call gamma / OI bars, stacked by expiration (0DTE boldest → furthest faintest)">
           <span

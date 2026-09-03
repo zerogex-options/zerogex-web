@@ -306,7 +306,7 @@ export function buildKeyLevels(input: KeyLevelsInput): KeyLevel[] {
 
 /**
  * The dealer-gamma regime chip that heads the strip. Deliberately a plain
- * label + the app's existing bull/bear tone — the colour-coded regime rewrite
+ * label + the app's existing bull/bear tone — the color-coded regime rewrite
  * is a separate track, so this reuses what already exists and adds no scheme.
  */
 export interface KeyLevelsRegime {

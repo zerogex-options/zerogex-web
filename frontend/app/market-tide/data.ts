@@ -140,7 +140,7 @@ export interface MarketTideReadItem {
 }
 export interface MarketTideRead {
   headline: string;
-  /** the direction word inside `headline` to emphasise, e.g. "mildly bullish" */
+  /** the direction word inside `headline` to emphasize, e.g. "mildly bullish" */
   emphasis: string;
   shortGamma: boolean;
   items: MarketTideReadItem[];

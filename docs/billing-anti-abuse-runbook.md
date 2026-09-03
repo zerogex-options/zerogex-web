@@ -187,7 +187,7 @@ This is handled:
   - `repeating`, or a duration Stripe did not expand, is **not carried and IS
     flagged**, as `billing_orphan_payment_discount_review`, listed by
     `make webhook-health`. How much of a partly-spent coupon the member is still
-    owed is a judgement call, not something to guess at.
+    owed is a judgment call, not something to guess at.
 
   `make recover-orphan-payment` prints the decision for every coupon during its
   dry run, so the renewal price is visible before anything is written.

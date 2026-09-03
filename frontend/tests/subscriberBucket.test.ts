@@ -61,7 +61,7 @@ test('a trial-conversion failure inside the window reads Trial Grace', () => {
   assert.equal(v.label, 'Trial Grace');
 });
 
-test('the same failure MISLABELLED renewal hides in Full Subscriber', () => {
+test('the same failure MISLABELED renewal hides in Full Subscriber', () => {
   // This is the bug the trial_end fix corrects, stated as a fact about the
   // chart: a member who has never paid a cent reads as a full subscriber.
   const v = classifySubscriberBucket({

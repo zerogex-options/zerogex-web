@@ -20,7 +20,7 @@ import {
   omitClosedMarketTimes,
 } from '../core/utils.ts';
 
-// ── Labelling: a daily marker must show its own calendar date ────────────────
+// ── Labeling: a daily marker must show its own calendar date ────────────────
 test('daily UTC-midnight bucket labels its own calendar date, not the ET-shifted previous day', () => {
   // The exact case from the report: the Aug 4 session's daily bucket is stamped
   // 2026-08-04T00:00:00Z. Formatted in ET that is "Aug 3, 20:00" — a day early.

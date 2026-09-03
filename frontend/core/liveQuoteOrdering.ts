@@ -55,7 +55,7 @@
  * Rules, in order:
  *   - No incoming stamp → apply. Absence of an ordering signal must never
  *     freeze the stream; we fall back to the previous last-writer-wins
- *     behaviour (also keeps us compatible with any server that omits
+ *     behavior (also keeps us compatible with any server that omits
  *     server_ts).
  *   - No baseline yet → apply, and the caller adopts this frame's stamp as the
  *     new baseline.

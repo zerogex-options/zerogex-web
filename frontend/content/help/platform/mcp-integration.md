@@ -32,11 +32,11 @@ One call returns every dealer-positioning level plus the per-strike gamma profil
 | --- | --- | --- |
 | `symbol` | string | Echoes the underlying you asked for. |
 | `spot` | number | Underlying price the levels were computed against. |
-| `gamma_flip` | number \| null | Where modelled dealer gamma changes sign. |
+| `gamma_flip` | number \| null | Where modeled dealer gamma changes sign. |
 | `call_wall` | number \| null | Heaviest call gamma — the level that tends to cap. |
 | `put_wall` | number \| null | Heaviest put gamma — the level that tends to support. |
 | `max_pain` | number \| null | Expiration magnet across the chain. |
-| `pin_strike` | number \| null | The reachable same-day strike with the strongest modelled restoring gamma into the close. |
+| `pin_strike` | number \| null | The reachable same-day strike with the strongest modeled restoring gamma into the close. |
 | `pin_strike_reason` | string \| null | A `REASON_*` code explaining a null pin. |
 | `net_gex_at_spot` | number \| null | Signed dealer gamma at spot. The sign is the regime. |
 | `as_of` | string | ISO 8601 UTC — when the snapshot was computed, not when you asked. |
@@ -61,14 +61,14 @@ ES and NQ have no separate options book. Gamma is computed from the SPX and NDX 
 
 Shape tools around how a trader asks, not around your endpoint list. A short list of task-shaped tools produces better tool selection than one wrapper per route.
 
-Two schema decisions do most of the work. **Enumerate the symbols** — the closed set belongs in the schema, where it prevents a bad call rather than explaining the `404` afterwards. And **spend the description on when *not* to reach for the tool**; it is prompt real estate, and a description that only restates the name wastes it.
+Two schema decisions do most of the work. **Enumerate the symbols** — the closed set belongs in the schema, where it prevents a bad call rather than explaining the `404` afterward. And **spend the description on when *not* to reach for the tool**; it is prompt real estate, and a description that only restates the name wastes it.
 
 ### get_gamma_levels
 
 ```json
 {
   "name": "get_gamma_levels",
-  "description": "Current dealer-positioning levels for one underlying: gamma flip, call wall, put wall, max pain, pin strike, and net dealer gamma at spot, plus an optional per-strike gamma profile. Levels are modelled from the live options chain and re-computed roughly once a minute. Use for 'where are the levels', 'what's the gamma flip', 'is QQQ in positive gamma'. Not a price feed and not a forecast: it describes dealer positioning right now and says nothing about direction. A null level means the book does not support that level at the moment, not zero.",
+  "description": "Current dealer-positioning levels for one underlying: gamma flip, call wall, put wall, max pain, pin strike, and net dealer gamma at spot, plus an optional per-strike gamma profile. Levels are modeled from the live options chain and re-computed roughly once a minute. Use for 'where are the levels', 'what's the gamma flip', 'is QQQ in positive gamma'. Not a price feed and not a forecast: it describes dealer positioning right now and says nothing about direction. A null level means the book does not support that level at the moment, not zero.",
   "inputSchema": {
     "type": "object",
     "properties": {
@@ -186,7 +186,7 @@ return {
 };
 ```
 
-Note that the stale branch doesn't only report an age — it tells the model how to behave. Tool output is one of the few places where instructions are followed reliably, because they arrive attached to the thing the model just asked for. A bare `age_seconds: 412` leaves the judgement call to something that has no idea what your cycle time is.
+Note that the stale branch doesn't only report an age — it tells the model how to behave. Tool output is one of the few places where instructions are followed reliably, because they arrive attached to the thing the model just asked for. A bare `age_seconds: 412` leaves the judgment call to something that has no idea what your cycle time is.
 
 ## Failures worth handling by name
 
