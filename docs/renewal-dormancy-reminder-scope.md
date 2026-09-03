@@ -159,6 +159,31 @@ cancel-forward version would cause.
 4. The cron behind `--dry-run`, verified against the scan's numbers.
 5. Timer + deploy step. `YES=1` only once a dry run has been eyeballed twice.
 
+## 6a. First run — 2026-09-03
+
+115 active paid subscribers: **97 engaged, 0 dormant, 18 unknown**, 0 would-send.
+
+The zero is not a retention result. `users.last_seen_at` shipped 2026-08-23
+(`a349643`), so on this run the observable history was 11 days old while the
+threshold being measured was 30 — no member could be classified dormant no
+matter how inactive, and the longest idle stretch on record was 10d, right at
+the ceiling the column's age imposes. The scan now detects this and says so
+rather than reporting a bare zero; the guard compares the maximum observed idle
+against the threshold.
+
+So the question is not yet answerable at 30 days. Two ways to get a real read:
+
+- **Wait.** The column passes 30 days old around **2026-09-22**. Re-run then.
+- **Re-cut inside the history now:** `make renewal-engagement DORMANCY_DAYS=7`,
+  which the 11-day window can actually express.
+
+The **18 unknowns (16% of the paid book)** are the more interesting number
+today. `last_seen_at` is written on every authenticated request, so a NULL means
+no authenticated request since 2026-08-23 — these members have not logged in for
+11+ days. That is the closest thing to a dormancy signal currently available,
+and it is invisible to every count the scan reports, by design. Worth looking at
+directly before the send path is considered.
+
 ## 7. Measurement
 
 Emit `renewal_dormancy_reminder_sent` audit rows so the cohort is queryable

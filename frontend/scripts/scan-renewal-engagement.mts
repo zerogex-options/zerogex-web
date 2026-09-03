@@ -223,6 +223,7 @@ const scored: Scored[] = rows.map((r) => {
 });
 
 const countBy = (e: RenewalEngagement) => scored.filter((r) => r.engagement === e).length;
+const unknownCount = countBy('unknown');
 const dormant = scored.filter((r) => r.engagement === 'dormant');
 const wouldSend = scored.filter((r) => r.wouldSend);
 
@@ -270,8 +271,43 @@ for (const r of shown) {
 }
 
 // The number the scope doc says to read before building anything else.
+//
+// Guarded, because a zero here has two very different meanings. users.last_seen_at
+// only started being written when that column shipped, so the observable history
+// is as young as the column: until it is older than the dormancy threshold, NO
+// member can be classified dormant no matter how inactive they are, and a naked
+// "0 dormant" reads as a retention triumph when it is really "not measurable
+// yet". The maximum idle actually observed is the tell — if it is below the
+// threshold, the window is the binding constraint, not the members' behavior.
+const observedIdle = scored.map((r) => r.idle).filter((d): d is number => d !== null);
+const maxIdle = observedIdle.length > 0 ? Math.max(...observedIdle) : null;
+const historyTooShort = maxIdle !== null && maxIdle < cliArgs.dormancyDays;
+
 console.log('');
-if (dormant.length === 0) {
+if (unknownCount > 0) {
+  console.log(
+    `${unknownCount} member(s) have no last_seen_at at all — no authenticated request since` +
+      ` that column`,
+  );
+  console.log(
+    'shipped. They are excluded from every count above: unknown is not dormant. They are',
+  );
+  console.log('the closest thing to a dormancy signal available, and the first place to look.');
+  console.log('');
+}
+if (dormant.length === 0 && historyTooShort) {
+  console.log(
+    `No member can be dormant yet: the longest idle stretch on record is ${maxIdle}d, short of the`,
+  );
+  console.log(
+    `${cliArgs.dormancyDays}d threshold, so last_seen_at history is still younger than the window it is being`,
+  );
+  console.log('measured against. This is NOT evidence that nobody goes dormant — the question is');
+  console.log(
+    `not answerable for another ~${cliArgs.dormancyDays - maxIdle}d. Re-run then, or re-cut it now with a threshold`,
+  );
+  console.log(`inside the history, e.g. DORMANCY_DAYS=${Math.max(7, Math.floor(maxIdle / 2))}.`);
+} else if (dormant.length === 0) {
   console.log('No dormant paying members. The send path has no cohort to serve — do not build it');
   console.log('yet; re-run this as the paid book grows.');
 } else {
