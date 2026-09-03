@@ -2044,13 +2044,39 @@ export async function POST(request: NextRequest) {
         break;
       }
       case 'charge.refunded': {
+        const charge = event.data.object as Stripe.Charge;
+        const invoiceId =
+          typeof charge.invoice === 'string' ? charge.invoice : charge.invoice?.id ?? null;
+
+        // Record the refund itself, unconditionally. Stripe leaves a refunded
+        // invoice's status as 'paid' (the refund lives on the charge), so
+        // without this row a refund is invisible to scripts/diagnose-user.mts:
+        // the operator reading an account sees the money leave with nothing
+        // explaining it. Logged BEFORE the commission work below, and
+        // independent of it — most refunds have no referrer to reverse, and
+        // the refund is a fact even if that lookup throws.
+        const customerId =
+          typeof charge.customer === 'string' ? charge.customer : charge.customer?.id ?? null;
+        const refundedUser = customerId ? findUserByCustomerId(customerId) : null;
+        // amount_refunded is CUMULATIVE, not this event's delta: a second
+        // partial refund reports the running total. Always stating it as
+        // "X of Y charged" keeps that unambiguous instead of reading as the
+        // amount of this one refund.
+        const isFullRefund = charge.amount_refunded >= charge.amount;
+        logAudit({
+          type: 'refund_issued',
+          userId: refundedUser?.id,
+          email: refundedUser?.email,
+          message:
+            `${isFullRefund ? 'Full' : 'Partial'} refund on charge ${charge.id}: ` +
+            `${charge.amount_refunded} of ${charge.amount} ${charge.currency} charged` +
+            (invoiceId ? `, invoice ${invoiceId}` : ' (no invoice — one-off charge)'),
+        });
+
         // Any refund on a paid invoice reverses that invoice's accrued
         // commission. Partial vs full refund is treated identically —
         // the whole commission flips to 'reversed'. Anything already
         // marked 'paid' (out the door) needs a manual clawback.
-        const charge = event.data.object as Stripe.Charge;
-        const invoiceId =
-          typeof charge.invoice === 'string' ? charge.invoice : charge.invoice?.id ?? null;
         if (invoiceId) {
           const reversed = reversePartnerCommissionsForInvoice(invoiceId);
           if (reversed > 0) {
