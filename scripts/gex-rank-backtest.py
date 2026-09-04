@@ -67,6 +67,9 @@ behavior, knowing what it does.
 USAGE
     export ZEROGEX_API_KEY=...            # any Pro key: the replay router is gex-scoped
     python3 scripts/gex-rank-backtest.py --symbol NQ --last 30
+
+    # On the API box, point it at the local service and skip the CDN entirely:
+    python3 scripts/gex-rank-backtest.py --base http://127.0.0.1:8000 --symbol NQ --last 120
     python3 scripts/gex-rank-backtest.py --symbol NQ --dates 2026-09-03,2026-09-02
     python3 scripts/gex-rank-backtest.py --symbol NQ --last 30 --json out.json
 
@@ -94,7 +97,13 @@ import urllib.request
 from datetime import datetime, time as dtime
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-DEFAULT_BASE = "https://api.zerogex.io"
+# On the API box itself, ZEROGEX_API_BASE_URL already points at the local
+# service (127.0.0.1:8000). Preferring it means a bulk run skips Cloudflare and
+# the edge rate limiter entirely, which is the right way to pull a hundred
+# sessions of your own data: nothing about this job belongs on the CDN.
+DEFAULT_BASE = os.environ.get("ZEROGEX_API_BASE_URL") or "https://api.zerogex.io"
+
+USER_AGENT = "ZeroGEX-GexRankBacktest/1.0 (+https://zerogex.io)"
 
 # Held constant for a run so a rerun on the same data reproduces exactly. A
 # backtest whose conclusion moves between runs is not a measurement.
@@ -119,6 +128,12 @@ def _get(base: str, path: str, params: Dict[str, Any], key: str,
     req = urllib.request.Request(url, headers={
         "Authorization": "Bearer " + key,
         "Accept": "application/json",
+        # Cloudflare bans the default "Python-urllib/3.x" signature outright
+        # (error 1010, browser_signature_banned) before the request ever reaches
+        # the API, so a valid key gets a 403 that looks like an auth failure and
+        # is not one. This says what the client is rather than pretending to be
+        # a browser; the point is to be identifiable in the logs, not to hide.
+        "User-Agent": USER_AGENT,
     })
     for attempt in range(attempts):
         try:
