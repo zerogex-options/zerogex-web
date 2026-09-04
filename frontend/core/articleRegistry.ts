@@ -247,6 +247,18 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     readMinutes: 11,
     kind: 'tier2',
   },
+  'how-often-do-gamma-walls-break': {
+    slug: 'how-often-do-gamma-walls-break',
+    href: '/education/how-often-do-gamma-walls-break',
+    title: 'How Often Do Gamma Walls Actually Break? We Measured It',
+    blurb:
+      'We measured 737 wall tests across SPY, SPX, QQQ and NDX. S&P walls held about two times in three within the hour; Nasdaq walls were closer to a coin flip — and none of the nineteen things we measured about an individual wall predicted which ones broke.',
+    description:
+      'How often do gamma walls break? Measured break curves for SPY, SPX, QQQ and NDX, why the answer depends on the index rather than the instrument, and what did not predict a break.',
+    datePublished: '2026-09-04',
+    readMinutes: 9,
+    kind: 'tier1',
+  },
   'why-do-breakouts-fail': {
     slug: 'why-do-breakouts-fail',
     href: '/education/why-do-breakouts-fail',
@@ -531,6 +543,11 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'vanna-and-charm-explained',
     'squeeze-setup-explained',
     'eod-pressure-and-trap-detection',
+  ],
+  'how-often-do-gamma-walls-break': [
+    'gamma-walls-explained',
+    'why-do-breakouts-fail',
+    'what-is-a-call-wall',
   ],
   'why-do-breakouts-fail': [
     'gamma-walls-explained',

@@ -260,6 +260,24 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
       a: 'No — the regime decides. In a positive-gamma regime, hedging defends the levels and reversals are more likely; in a negative-gamma regime, the same levels tend to give way and breaks extend.',
     },
   ],
+  'how-often-do-gamma-walls-break': [
+    {
+      q: 'How often do gamma walls break?',
+      a: 'Measured over 737 wall tests across four index products in mid-2026, S&P walls (SPY and SPX) broke about 31% of the time within an hour of being tested, and Nasdaq walls (QQQ and NDX) closer to 48-50%. The figure depends on the horizon you hold for: on SPX the same tests break roughly 18% of the time within thirty minutes and 31% within sixty.',
+    },
+    {
+      q: 'Do call walls break more often than put walls?',
+      a: 'No. Call walls and put walls broke at statistically indistinguishable rates at every horizon in every product measured. Whatever differences exist between the two, they are not in how often the level gives way.',
+    },
+    {
+      q: 'Does the size of a gamma wall predict whether it holds?',
+      a: 'Not reliably. Across four index products, wall size points weakly in the intuitive direction — larger walls break slightly less — but the effect is too small to separate from noise in a ten-week sample. Nineteen candidate predictors were tested and none pointed the same way across products more often than chance would produce.',
+    },
+    {
+      q: 'Why do Nasdaq gamma walls break more often than S&P ones?',
+      a: 'The data shows it is a property of the underlying index rather than the option chain. SPY and SPX behave identically despite $1 and $5 strike ladders, as do QQQ and NDX, while every S&P-versus-Nasdaq comparison differs. That rules out finer strike spacing as the explanation.',
+    },
+  ],
   'why-do-breakouts-fail': [
     {
       q: 'Why do breakouts fail?',
