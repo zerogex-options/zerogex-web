@@ -303,15 +303,22 @@ def evaluate_levels(
 ) -> List[Optional[str]]:
     """One outcome slot per level, in the order given."""
     tol, move = tol_atr * atr, move_atr * atr
-    results: List[Optional[str]] = []
+    results: List[str] = []
     for level in levels:
-        outcome: Optional[str] = None
+        # "untouched" and "unresolved" are different facts and were both being
+        # reported as unresolved, which made a level price never went near look
+        # like a level that was tested and gave no answer. On real data that
+        # inflated the unresolved column to ~22 of 28 per rank and hid how few
+        # actual observations there were: about 55 across all ten ranks, not 250.
+        outcome = "untouched"
         for i, c in enumerate(candles):
             hi, lo = c.get("high"), c.get("low")
             if hi is None or lo is None:
                 continue
             if not (float(lo) - tol <= level <= float(hi) + tol):
                 continue
+            if outcome == "untouched":
+                outcome = "unresolved"          # it was reached; the rest is what happened next
             verdict = classify_touch(candles, i, level, tol, move, horizon)
             if verdict is not None:
                 outcome = verdict
@@ -435,12 +442,13 @@ def rate(rejections: int, breaks: int) -> Optional[float]:
 
 
 def summarize(sessions: List[Dict[str, Any]], ranks: int) -> Dict[str, Any]:
-    per_rank = [{"rejection": 0, "break": 0, "unresolved": 0} for _ in range(ranks)]
+    per_rank = [{"rejection": 0, "break": 0, "unresolved": 0, "untouched": 0}
+                for _ in range(ranks)]
     for s in sessions:
         for i, outcome in enumerate(s["outcomes"]):
             if i >= ranks:
                 break
-            per_rank[i]["unresolved" if outcome is None else outcome] += 1
+            per_rank[i][outcome or "unresolved"] += 1
 
     # Null distribution of the per-rank rate, from the label shuffles.
     null_rates: List[List[float]] = [[] for _ in range(ranks)]
@@ -530,18 +538,26 @@ def report(symbol: str, sessions: List[Dict[str, Any]], ranks: int, args: argpar
     s = summarize(sessions, ranks)
     dist = distance_table(sessions, ranks)
 
-    print("\n  rank   touched  reject  break  unres   rate     shuffled-null   p")
-    print("  " + "-" * 68)
+    print("\n  rank   sess  touch%  reject  break  unres   rate     shuffled-null   p")
+    print("  " + "-" * 74)
     for i in range(ranks):
         row = s["per_rank"][i]
+        sess = sum(row.values())
         touched = row["rejection"] + row["break"] + row["unresolved"]
         r = rate(row["rejection"], row["break"])
         null = s["null_rates"][i]
         null_mean = sum(null) / len(null) if null else None
         p = empirical_p(r, null)
-        print(f"  GEX {i + 1:<2} {touched:7d} {row['rejection']:7d} {row['break']:6d} "
-              f"{row['unresolved']:6d}  {fmt_rate(r)}   {fmt_rate(null_mean)}      "
+        print(f"  GEX {i + 1:<2} {sess:5d}  {touched / sess * 100 if sess else 0:5.0f}% "
+              f"{row['rejection']:7d} {row['break']:6d} {row['unresolved']:6d}  "
+              f"{fmt_rate(r)}   {fmt_rate(null_mean)}      "
               f"{'  -- ' if p is None else f'{p:.3f}'}")
+
+    resolved = sum(r["rejection"] + r["break"] for r in s["per_rank"])
+    if resolved < 200:
+        print(f"\n  ⚠ {resolved} resolved observations across {ranks} ranks "
+              f"(~{resolved // max(1, ranks)} each). The per-rank rates above are noise at"
+              f"\n    this size; read the distance table instead.")
 
     rr = rate(s["random"]["rejection"], s["random"]["break"])
     print(f"\n  random strikes (same count, same grid):  {fmt_rate(rr)}"
@@ -716,6 +732,10 @@ def main() -> int:
     if not dates:
         print("No replayable sessions found.", file=sys.stderr)
         return 1
+    if args.last and len(dates) < args.last:
+        print(f"  note: asked for {args.last} sessions, {symbol} has {len(dates)} of replay "
+              f"history ({dates[-1]} … {dates[0]}). Not a cap — that is all there is.",
+              file=sys.stderr)
 
     rng = random.Random(SEED)
     sessions, skipped = [], []
