@@ -38,13 +38,23 @@ buckets, and the bucketed table is the one that matters.
 
 WHAT IS MEASURED
 ----------------
-Touch:     price traded within `tol` of the level (tol in ATR units).
-Outcome:   from the touch bar, look forward `horizon` bars. Whichever comes
+Touch:     a bar CLOSED within `tol` of the level (tol in ATR units). Not a wick
+           tagging it: with a wick the bar closes back on the approach side, so
+           `level - move` is nearer than `level + move` and rejection wins on
+           geometry alone. That scored 72% on a random walk owed 50%.
+Outcome:   from the bar AFTER the touch, look forward `horizon` bars. Including
+           the touch bar itself scored an instant rejection off its own low and
+           took the same random walk to 88%. Whichever comes
            first decides it -- price moving `move` ATR back the way it came
            (REJECTION) or `move` ATR through (BREAK). Neither within the
            horizon is UNRESOLVED and is excluded from rates rather than
            silently counted as a failure.
 Statistic: rejection rate per rank = rejections / (rejections + breaks).
+
+Both of those were live for the first real runs, which is why SPX scored 80.6%
+for our levels against 76.0% for random strikes and looked like a null result.
+It was not a null result; it was a broken measurement, and the giveaway was the
+control sitting nowhere near 50%. --sweep exists to keep that check in view.
 
 HOW MANY SESSIONS
 -----------------
@@ -274,7 +284,15 @@ def classify_touch(
     reject_at = level - move if from_below else level + move
     break_at = level + move if from_below else level - move
 
-    for c in candles[start:start + horizon]:
+    # From the bar AFTER the touch, never the touch bar itself. Including it
+    # manufactured rejections: approaching from below, the touch bar's low is
+    # typically a bar-range beneath the level, so `level - move` sat inside that
+    # same bar and scored an instant rejection before price had done anything.
+    # On a pure random walk, where the true rate must be 50%, this produced 88%.
+    # It inflated the real and random columns alike, which is why arbitrary
+    # strikes and gamma-ranked strikes both scored ~76-80% on live data and
+    # looked indistinguishable -- they were, but at the wrong number.
+    for c in candles[start + 1:start + 1 + horizon]:
         hi, lo = c.get("high"), c.get("low")
         if hi is None or lo is None:
             continue
@@ -315,7 +333,14 @@ def evaluate_levels(
             hi, lo = c.get("high"), c.get("low")
             if hi is None or lo is None:
                 continue
-            if not (float(lo) - tol <= level <= float(hi) + tol):
+            # A touch is a CLOSE near the level, not a wick tagging it. With a
+            # wick the bar closes back on the approach side, so `level - move`
+            # is nearer than `level + move` and rejection wins on geometry
+            # alone -- 72% on a random walk that should give 50%. Anchoring to
+            # the close puts the two barriers at equal distance and makes the
+            # null what it is supposed to be.
+            cl = c.get("close")
+            if cl is None or abs(float(cl) - level) > tol:
                 continue
             if outcome == "untouched":
                 outcome = "unresolved"          # it was reached; the rest is what happened next
@@ -430,6 +455,81 @@ def session_observations(
         "shuffled": shuffled,
         "random_outcomes": rand_outcomes,
     }
+
+
+# --------------------------------------------------------------------------
+# Calibration
+# --------------------------------------------------------------------------
+
+def sweep_session(
+    payload: Dict[str, Any], ranks: int, anchor_hhmm: str, tol_atr: float,
+    horizon: int, first_touch_only: bool, rng: random.Random, thresholds: Sequence[float],
+) -> Optional[Dict[float, Dict[str, Dict[str, int]]]]:
+    """Real and random outcome counts at several resolve thresholds, one fetch.
+
+    Exists because the first real runs produced a rejection rate near 80% for
+    OUR levels and near 76% for RANDOM strikes on the same grid, on both SPX and
+    NQ. Two lines that share a score that high are not being told apart, and the
+    reason was the threshold: ATR here is the mean ONE-MINUTE true range, so
+    "moved 1 ATR away before moving 1 ATR through" is satisfied by ordinary
+    wiggle at almost any line drawn anywhere.
+
+    A test only discriminates where its control sits near 50%. This finds that
+    threshold from the data instead of guessing it, and re-uses one fetch across
+    all of them because the alternative is pulling fifty sessions per candidate.
+    """
+    frames, candles = payload.get("frames") or [], payload.get("candles") or []
+    if not frames or len(candles) < 60:
+        return None
+    frame = anchor_frame(frames, anchor_hhmm)
+    if not frame:
+        return None
+    anchor_ts = parse_ts(frame.get("timestamp"))
+    forward = [c for c in candles if (parse_ts(c.get("timestamp")) or anchor_ts) >= anchor_ts] \
+        if anchor_ts else list(candles)
+    if len(forward) < 60:
+        return None
+    atr = true_range_atr(forward)
+    if not atr:
+        return None
+
+    ranked = rank_strikes(frame.get("strikes") or [], ranks)
+    if len(ranked) < 2:
+        return None
+    levels = [s for s, _ in ranked]
+    grid = sorted({float(s["strike"]) for s in (frame.get("strikes") or [])
+                   if s.get("strike") is not None})
+    pool = [g for g in grid if g not in set(levels)]
+    rand_levels = rng.sample(pool, min(len(levels), len(pool))) if pool else []
+
+    out: Dict[float, Dict[str, Dict[str, int]]] = {}
+    for mv in thresholds:
+        tally = {"real": {"rejection": 0, "break": 0}, "random": {"rejection": 0, "break": 0}}
+        for label, lv in (("real", levels), ("random", rand_levels)):
+            for outcome in evaluate_levels(forward, lv, atr, tol_atr, mv, horizon, first_touch_only):
+                if outcome in ("rejection", "break"):
+                    tally[label][outcome] += 1
+        out[mv] = tally
+    return out
+
+
+def report_sweep(symbol: str, totals: Dict[float, Dict[str, Dict[str, int]]], n: int) -> None:
+    print(f"\nThreshold calibration — {symbol}, {n} sessions")
+    print("  A usable threshold is one where RANDOM lands near 50%. Above that the test")
+    print("  is scoring noise, and our levels and arbitrary strikes both look good.\n")
+    print("  move(ATR)   real n   real     random n   random    gap")
+    print("  " + "-" * 58)
+    for mv in sorted(totals):
+        t = totals[mv]
+        rn = t["real"]["rejection"] + t["real"]["break"]
+        dn = t["random"]["rejection"] + t["random"]["break"]
+        rr = rate(t["real"]["rejection"], t["real"]["break"])
+        dr = rate(t["random"]["rejection"], t["random"]["break"])
+        gap = (rr - dr) * 100 if (rr is not None and dr is not None) else None
+        print(f"  {mv:>7.1f}   {rn:6d}   {fmt_rate(rr)}   {dn:8d}   {fmt_rate(dr)}   "
+              f"{'  -- ' if gap is None else f'{gap:+5.1f}'}")
+    print("\n  Pick the smallest threshold whose random column is near 50%, then re-run")
+    print("  the main report with --move-atr set to it.\n")
 
 
 # --------------------------------------------------------------------------
@@ -606,6 +706,15 @@ def synthetic_session(rng: random.Random, plant_rank: Optional[int]) -> Dict[str
 
     order = list(strikes)
     random.Random(11).shuffle(order)                 # fixed across sessions
+    if plant_rank:
+        # Put the planted rank on a strike the walk actually reaches. Left to
+        # the shuffle it landed near the edge of the range, was visited a
+        # handful of times across 120 sessions, and the test then failed to find
+        # an effect that was really there -- a false alarm about the pipeline
+        # caused entirely by where the fixture put the target.
+        reachable = base + 10.0
+        order.remove(reachable)
+        order.insert(plant_rank - 1, reachable)
     gex = {s: (1000.0 - i * 7.0) * (1 if i % 2 else -1) for i, s in enumerate(order)}
     target = order[plant_rank - 1] if plant_rank else None
 
@@ -613,14 +722,35 @@ def synthetic_session(rng: random.Random, plant_rank: Optional[int]) -> Dict[str
     step, repel = 2.5, 0
     candles = []
     for m in range(390):
-        if target is not None and repel == 0 and abs(price - target) <= 1.0:
-            repel = 12 if price <= target else -12   # sign carries the direction
         if repel > 0:
             price -= abs(rng.gauss(step * 2.0, step)); repel -= 1
         elif repel < 0:
             price += abs(rng.gauss(step * 2.0, step)); repel += 1
         else:
+            prev = price
             price += rng.gauss(0, step)
+            # The planted level is a REFLECTING BARRIER: the walk crosses it,
+            # closes on it, and leaves the way it came. Modelled as a crossing
+            # rather than "wanders within a whisker" because classify_touch
+            # declines to judge a touch whose previous close was already inside
+            # the tolerance band -- there is no approach to reject -- so a level
+            # the walk drifts onto is invisible to the test by design. The
+            # previous close must also be clear of the band for the same reason.
+            crossed = target is not None and (prev - target) * (price - target) < 0
+            if crossed and abs(prev - target) > 1.5:
+                # Close ON the level this bar, then leave from the next one. The
+                # earlier version pushed away in the same step, so the bar never
+                # closed near the level -- and once a touch was defined as a
+                # CLOSE near the level rather than a wick, the planted effect
+                # became invisible to the very test built to find it.
+                # Direction comes from PREV, not from price. After a crossing
+                # price is already on the far side, so reading the approach off
+                # it inverted every plant: a level approached from below was
+                # pushed further up, i.e. planted as a BREAK, and the test
+                # dutifully found a significant effect pointing the wrong way.
+                approached_from_below = prev < target
+                price = target
+                repel = 12 if approached_from_below else -12
 
         wick = step * 0.8
         candles.append({
@@ -640,8 +770,35 @@ def synthetic_session(rng: random.Random, plant_rank: Optional[int]) -> Dict[str
 
 
 def self_test(args: argparse.Namespace) -> int:
+    """Two phases, because there are two separate things to be sure of.
+
+    A test that only plants an effect cannot tell you it is not inventing one,
+    and a test that only checks the null cannot tell you it would notice a real
+    effect. They are also not checkable in the same run: the planted level is a
+    reflecting barrier, so it bends the whole price path and the other ranks in
+    that run are legitimately not a 50/50 null. Asserting they were is what made
+    an earlier version fail a working pipeline.
+    """
+    print("Self-test, phase 1: 80 sessions with NO effect. Both columns must be near 50%.")
     rng = random.Random(SEED)
-    print("Self-test: 120 synthetic sessions, GEX 3 planted to reject, others drifting.")
+    null_tot = {"real": {"rejection": 0, "break": 0}, "random": {"rejection": 0, "break": 0}}
+    for _ in range(80):
+        payload = synthetic_session(rng, plant_rank=None)
+        sw = sweep_session(payload, args.ranks, args.anchor, args.tol_atr,
+                           args.horizon, not args.all_touches, rng, [args.move_atr])
+        if not sw:
+            continue
+        for label in ("real", "random"):
+            for k in ("rejection", "break"):
+                null_tot[label][k] += sw[args.move_atr][label][k]
+
+    null_real = rate(null_tot["real"]["rejection"], null_tot["real"]["break"])
+    null_rand = rate(null_tot["random"]["rejection"], null_tot["random"]["break"])
+    print(f"  levels {fmt_rate(null_real)} (n={null_tot['real']['rejection'] + null_tot['real']['break']})"
+          f"   random {fmt_rate(null_rand)} (n={null_tot['random']['rejection'] + null_tot['random']['break']})")
+
+    print("\nSelf-test, phase 2: 120 sessions with GEX 3 planted as a reflecting barrier.")
+    rng = random.Random(SEED + 1)
     sessions = []
     for _ in range(120):
         payload = synthetic_session(rng, plant_rank=3)
@@ -651,44 +808,35 @@ def self_test(args: argparse.Namespace) -> int:
         )
         if obs:
             sessions.append(obs)
-
     if not sessions:
-        print("FAIL: no sessions survived the pipeline"); return 1
+        print("  FAIL: no sessions survived the pipeline\n")
+        return 1
 
     s = summarize(sessions, args.ranks)
     planted = rate(s["per_rank"][2]["rejection"], s["per_rank"][2]["break"])
-    others = [rate(s["per_rank"][i]["rejection"], s["per_rank"][i]["break"])
-              for i in range(args.ranks) if i != 2]
-    others = [o for o in others if o is not None]
-
-    others_mean = sum(others) / len(others) if others else None
+    rest_r = sum(s["per_rank"][i]["rejection"] for i in range(args.ranks) if i != 2)
+    rest_b = sum(s["per_rank"][i]["break"] for i in range(args.ranks) if i != 2)
+    rest = rate(rest_r, rest_b)
     p_planted = empirical_p(planted, s["null_rates"][2])
+    print(f"  planted rank 3 {fmt_rate(planted)}   all other ranks pooled {fmt_rate(rest)}"
+          f"   p={'--' if p_planted is None else f'{p_planted:.4f}'}")
 
-    print(f"  sessions kept        : {len(sessions)}")
-    print(f"  planted rank 3 rate  : {fmt_rate(planted)}")
-    print(f"  other ranks (mean)   : {fmt_rate(others_mean)}")
-    print(f"  planted vs shuffled p: {'--' if p_planted is None else f'{p_planted:.4f}'}")
-
-    # Deliberately NOT "the planted rank beats every other rank". With ten ranks
-    # each rank carries roughly one observation per session, so some other
-    # rank will top the planted one on noise alone -- an earlier version of this
-    # check asserted exactly that and failed a pipeline that was working. What
-    # the tool claims to detect is a rank standing above the SHUFFLED NULL, so
-    # that is what is asserted.
     checks = [
-        ("planted rate above 0.70", planted is not None and planted > 0.70),
-        ("planted at least 15pts above the mean of the rest",
-         planted is not None and others_mean is not None and planted - others_mean > 0.15),
-        ("others average near the 50% null",
-         others_mean is not None and 0.35 < others_mean < 0.65),
-        ("planted separates from the shuffled null (p < 0.05)",
+        ("no-effect run: our levels within 40-60%",
+         null_real is not None and 0.40 <= null_real <= 0.60),
+        ("no-effect run: random control within 40-60%",
+         null_rand is not None and 0.40 <= null_rand <= 0.60),
+        ("planted rank beats the other ranks pooled",
+         planted is not None and rest is not None and planted > rest),
+        ("planted rank separates from the shuffled null (p < 0.05)",
          p_planted is not None and p_planted < 0.05),
     ]
+    print()
     for label, ok_one in checks:
         print(f"    {'PASS' if ok_one else 'FAIL'}  {label}")
 
     ok = all(c[1] for c in checks)
-    print("\n  PASS — a planted effect is recovered and a null is not invented\n" if ok
+    print("\n  PASS — the null is a null and a planted effect is found\n" if ok
           else "\n  FAIL — see the failing check above\n")
     return 0 if ok else 1
 
@@ -713,6 +861,8 @@ def main() -> int:
     p.add_argument("--sleep", type=float, default=0.0,
                    help="seconds between sessions; raise it if the limiter pushes back")
     p.add_argument("--json", help="write the raw per-session observations here")
+    p.add_argument("--sweep", help="comma-separated --move-atr values to calibrate against "
+                                   "the random control, e.g. 1,2,3,5,8")
     p.add_argument("--self-test", action="store_true")
     args = p.parse_args()
 
@@ -738,12 +888,30 @@ def main() -> int:
               file=sys.stderr)
 
     rng = random.Random(SEED)
+    sweep_thresholds = [float(x) for x in args.sweep.split(",")] if args.sweep else None
+    sweep_totals = {mv: {"real": {"rejection": 0, "break": 0},
+                         "random": {"rejection": 0, "break": 0}}
+                    for mv in (sweep_thresholds or [])}
     sessions, skipped = [], []
     for d in dates:
         try:
             payload = fetch_session(args.base, args.key, symbol, d, args.band_pct)
         except SystemExit as exc:
             skipped.append(f"{d}: {exc}")
+            continue
+        if sweep_thresholds:
+            sw = sweep_session(payload, args.ranks, args.anchor, args.tol_atr,
+                               args.horizon, not args.all_touches, rng, sweep_thresholds)
+            if sw:
+                for mv, tally in sw.items():
+                    for label in ("real", "random"):
+                        for k in ("rejection", "break"):
+                            sweep_totals[mv][label][k] += tally[label][k]
+            obs = sw
+            (sessions.append({"date": d}) if obs else skipped.append(f"{d}: too little data"))
+            print(f"  {d} … {'ok' if obs else 'skipped'}", file=sys.stderr)
+            if args.sleep:
+                time.sleep(args.sleep)
             continue
         obs = session_observations(
             payload, args.ranks, args.anchor, args.tol_atr, args.move_atr,
@@ -760,6 +928,10 @@ def main() -> int:
     if skipped:
         print(f"\n  skipped {len(skipped)}: " + "; ".join(skipped[:5]) +
               (" …" if len(skipped) > 5 else ""), file=sys.stderr)
+
+    if sweep_thresholds:
+        report_sweep(symbol, sweep_totals, len(sessions))
+        return 0
 
     report(symbol, sessions, args.ranks, args)
 
