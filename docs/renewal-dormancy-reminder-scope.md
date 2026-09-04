@@ -3,9 +3,28 @@
 *A dormancy-aware notice before a **renewal** charge, mirroring what
 `core/trialEngagement.ts` already does before a **trial conversion**.*
 
-> **Status:** step 0 built — `make renewal-engagement` (read-only) plus
-> `core/renewalEngagement.ts` and its tests. The send path is NOT built.
-> Read the cohort size out of the scan before writing a single email.
+> **Status: measured, and the recommendation is NOT to build it.** Step 0 —
+> `make renewal-engagement` (read-only), `core/renewalEngagement.ts`, tests —
+> is built and stays as a diagnostic. The send path is not built and should
+> not be, on the evidence below. Nothing in this document sends, writes, or
+> acts on any account; the only action ever proposed was one informational
+> email before a renewal charge.
+>
+> **Why not.** The dormant cohort is small — 0 at the 30-day bar (not yet
+> measurable, §6a), 7 per cycle at a deliberately loose 7-day bar — against a
+> book of 115 where most members log in the same day. Meanwhile §4a is a hard
+> prerequisite: engagement here sees web sessions only, so the API and
+> integration users would have to be folded in before a single email could
+> safely send. That is real work to prevent an occasional $29 dispute.
+>
+> **What would change the answer.** A materially larger dormant cohort as the
+> paid book grows, or a run of disputes traced to dormant renewals. Re-run the
+> scan then. A 30-day reading becomes available after 2026-09-22 if the number
+> is wanted for its own sake, but it will still be unreliable for API-only
+> members until §4a is addressed.
+>
+> **The bigger churn signal on the same screen:** 15 of 115 members are already
+> set to cancel at period end. That needs nothing built.
 
 ---
 
