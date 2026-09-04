@@ -3,7 +3,7 @@ import { ArrowRight, BookOpen, Newspaper, GraduationCap, LifeBuoy } from 'lucide
 import ItemListJsonLd from '@/components/ItemListJsonLd';
 
 export const metadata = {
-  title: 'Options Gamma Education: GEX, Gamma Flip, Call Walls & 0DTE Dealer Positioning',
+  title: 'Gamma Exposure Education: GEX, Gamma Flip, Walls & 0DTE',
   description:
     'Plain-English explainers for GEX, the gamma flip, call and put walls, 0DTE dealer positioning and max pain — plus today’s live SPX, SPY and QQQ levels.',
   alternates: { canonical: '/education' },
@@ -46,7 +46,8 @@ const sections = [
 const popularExplainers = [
   { href: '/education/what-is-gex-in-trading', label: 'What Is GEX in Trading?' },
   { href: '/education/gamma-exposure-explained', label: 'Gamma Exposure (GEX) Explained: The Complete Guide' },
-  { href: '/education/how-to-read-a-gamma-flip', label: 'How to Read a Gamma Flip' },
+  { href: '/education/how-to-read-a-gamma-flip', label: 'What Is a Gamma Flip? The Gamma Flip Level Explained' },
+  { href: '/education/zero-gamma-level-explained', label: 'What Is Zero Gamma? The Zero Gamma Level Explained' },
   { href: '/education/what-is-a-put-wall', label: 'What Is a Put Wall?' },
   { href: '/education/what-is-a-call-wall', label: 'What Is a Call Wall?' },
   { href: '/education/what-is-a-gamma-wall', label: 'What Is a Gamma Wall?' },

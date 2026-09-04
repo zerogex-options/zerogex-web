@@ -105,12 +105,18 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
   'how-to-read-a-gamma-flip': {
     slug: 'how-to-read-a-gamma-flip',
     href: '/education/how-to-read-a-gamma-flip',
-    title: 'How to Read a Gamma Flip (Gamma Flip Explained)',
+    // Search Console: "gamma flip", "gamma flip meaning", "gamma flip
+    // explained", "what is a gamma flip", "gamma flip line" — a definitional
+    // cluster of ~200 impressions a month sitting at positions 10-25. The old
+    // "How to Read…" title answered a narrower how-to intent; the page itself
+    // has always opened with the definition.
+    title: 'What Is a Gamma Flip? The Gamma Flip Level Explained',
     blurb:
-      'The practical intraday read on the gamma flip — what changes above versus below, how dealer hedging behavior shifts, and how to use it as a filter.',
+      'What the gamma flip level actually is, what changes above versus below it, how dealer hedging behavior shifts across it, and how to read it intraday as a filter.',
     description:
-      'How to read a gamma flip intraday — what the flip level is, what changes above versus below it, and how dealer hedging shifts. Gamma flip explained for SPX.',
+      'What is a gamma flip? The level where modeled dealer gamma changes sign — what changes above vs below it, how it is calculated, and how to read it intraday.',
     datePublished: '2026-06-11',
+    dateModified: '2026-09-04',
     readMinutes: 8,
     kind: 'tier1',
   },
@@ -190,19 +196,25 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
   'best-gex-tools': {
     slug: 'best-gex-tools',
     href: '/education/best-gex-tools',
-    title: 'Best Gamma Exposure (GEX) Tools: A Fair Comparison',
+    // "gex tools", "best gex platform", "gex tool", "best gamma exposure
+    // platform", "gex platforms", "gex software" — the page already ranks
+    // 6-10 for all of them; the title now carries the year (the H1 always
+    // did) and "platforms", the word half of those queries use.
+    title: 'Best GEX Tools in 2026: Gamma Exposure Platforms Compared',
     blurb:
-      'A balanced comparison of GEX tools and gamma exposure trackers — real-time vs delayed, 0DTE coverage, methodology, signal quality, and price.',
+      'A balanced comparison of GEX tools and gamma exposure platforms in 2026 — real-time vs delayed, 0DTE coverage, methodology, signal quality, free tiers, and price.',
     description:
-      'Best GEX tools and gamma exposure trackers compared fairly — what matters in a GEX tool, real-time vs delayed, 0DTE coverage, methodology, signals, and price.',
+      'The best GEX tools and gamma exposure platforms of 2026, compared fairly — real-time vs delayed data, 0DTE coverage, methodology, signals, free tiers and price.',
     datePublished: '2026-06-11',
+    dateModified: '2026-09-04',
     readMinutes: 11,
     kind: 'article',
   },
   'real-time-gex-0dte': {
     slug: 'real-time-gex-0dte',
     href: '/real-time-gex-0dte',
-    title: 'Real-Time 0DTE GEX: SPX / SPY / QQQ / NDX Gamma Flip, Call Walls & Dealer Positioning',
+    // 86 characters before; Google was truncating it mid-list. 62 now.
+    title: 'Real-Time 0DTE GEX Dashboard: SPX, SPY, QQQ & NDX Gamma Levels',
     blurb:
       'Live gamma flip, call and put walls, dealer positioning, and composite signals — built for SPX/0DTE intraday flow. Free dashboard, no signup required.',
     description:
@@ -352,6 +364,7 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     description:
       'What is a put wall? The strike below spot where put gamma concentrates — why support there is conditional on the broader profile, and how it migrates.',
     datePublished: '2026-07-07',
+    dateModified: '2026-09-04',
     readMinutes: 8,
     kind: 'tier1',
   },
@@ -379,6 +392,18 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     readMinutes: 6,
     kind: 'tier1',
   },
+  'zero-gamma-level-explained': {
+    slug: 'zero-gamma-level-explained',
+    href: '/education/zero-gamma-level-explained',
+    title: 'What Is Zero Gamma? The Zero Gamma Level Explained for Traders',
+    blurb:
+      'The zero gamma level is the price where modeled net dealer gamma crosses zero — the same level as the gamma flip. What it is, how it is found, what tends to change above and below it, and where to see today’s SPX, SPY, QQQ and NDX level.',
+    description:
+      'Zero gamma explained — the zero gamma level is where modeled dealer gamma changes sign. What changes above and below it, how it is found, and today’s SPX level.',
+    datePublished: '2026-09-04',
+    readMinutes: 7,
+    kind: 'tier1',
+  },
   'what-is-gex-in-trading': {
     slug: 'what-is-gex-in-trading',
     href: '/education/what-is-gex-in-trading',
@@ -394,12 +419,20 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
   'spx-net-gamma-exposure-today': {
     slug: 'spx-net-gamma-exposure-today',
     href: '/education/spx-net-gamma-exposure-today',
-    title: 'SPX Net Gamma Exposure Today: How to Read Current Net GEX',
+    // The largest non-brand cluster in Search Console — "spx net gex current
+    // value", "spx net gex dollar gamma current", "spx net gamma exposure
+    // current", "spx 0dte net gex current" and a dozen variants, ~450
+    // impressions a month at positions 19-35. Searchers want the number. The
+    // page now shows today's delayed reading at the top (see its page.tsx,
+    // which also leads the meta description with the live value), and the
+    // title says "current value" in the words the queries use.
+    title: 'SPX Net GEX Today: Current SPX Net Gamma Exposure Value',
     blurb:
-      '“What’s the current SPX net gamma exposure?” The answer changes every session. What net GEX is, how to read a positive versus negative reading, where the gamma-flip zero-cross sits, and how to pull up today’s live SPX net GEX in one click.',
+      '“What’s the current SPX net gamma exposure?” Today’s delayed SPX net GEX, gamma flip, call wall and put wall at the top of the page — then what net GEX is, how to read a positive versus negative print, what dollar gamma means, and where the zero-cross sits.',
     description:
-      'SPX net gamma exposure today — what current net GEX means, how to read a positive versus negative print, and where the zero-cross (gamma flip) sits.',
+      'Current SPX net GEX value (delayed 15 min) with the gamma-flip zero-cross, call wall and put wall — and how to read a positive vs negative net gamma exposure print.',
     datePublished: '2026-07-07',
+    dateModified: '2026-09-04',
     readMinutes: 9,
     kind: 'tier1',
   },
@@ -479,6 +512,7 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'best-gex-tools',
   ],
   'how-to-read-a-gamma-flip': [
+    'zero-gamma-level-explained',
     'gamma-exposure-explained',
     'gamma-walls-explained',
     'spx-net-gamma-exposure-today',
@@ -567,6 +601,7 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
   'what-is-negative-gamma': [
     'gamma-exposure-explained',
     'how-to-read-a-gamma-flip',
+    'zero-gamma-level-explained',
     'spx-net-gamma-exposure-today',
   ],
   'why-spy-pins-near-strikes': [
@@ -576,6 +611,7 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
   ],
   'how-to-trade-around-gamma-flip': [
     'how-to-read-a-gamma-flip',
+    'zero-gamma-level-explained',
     'what-is-negative-gamma',
     'gamma-exposure-explained',
   ],
@@ -607,6 +643,12 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
   'spx-net-gamma-exposure-today': [
     'gamma-exposure-explained',
     'how-to-read-a-gamma-flip',
+    'zero-gamma-level-explained',
+    'what-is-negative-gamma',
+  ],
+  'zero-gamma-level-explained': [
+    'how-to-read-a-gamma-flip',
+    'spx-net-gamma-exposure-today',
     'what-is-negative-gamma',
   ],
   'why-market-makers-trade-stock': [

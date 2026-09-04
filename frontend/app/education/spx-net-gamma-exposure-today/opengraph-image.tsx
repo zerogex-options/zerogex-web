@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og';
 
 export const runtime = 'nodejs';
-export const alt = 'SPX Net Gamma Exposure Today: How to Read Current Net GEX';
+export const alt = 'SPX Net GEX Today: Current SPX Net Gamma Exposure Value';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 

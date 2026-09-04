@@ -19,6 +19,13 @@ type Article = {
 
 const ARTICLES: Article[] = [
   {
+    href: '/education/zero-gamma-level-explained',
+    kind: 'Published • September 4, 2026 • 16:00 UTC',
+    title: 'What Is Zero Gamma? The Zero Gamma Level Explained for Traders',
+    blurb:
+      'The zero gamma level is the price where modeled net dealer gamma crosses zero — the same level as the gamma flip. What it is, how it is found, what tends to change above and below it, why it can be blank, and where to see today’s SPX, SPY, QQQ and NDX level.',
+  },
+  {
     href: '/education/how-often-do-gamma-walls-break',
     kind: 'Published • September 4, 2026 • 16:00 UTC',
     title: 'How Often Do Gamma Walls Actually Break? We Measured It',
@@ -76,7 +83,7 @@ const ARTICLES: Article[] = [
   },
   {
     href: '/education/what-is-a-put-wall',
-    kind: 'Published • July 7, 2026 • 16:00 UTC',
+    kind: 'Updated • September 4, 2026 • 16:00 UTC',
     title: 'What Is a Put Wall? Put Gamma Concentration Explained',
     blurb:
       'The put wall is the strike where put-side dealer gamma piles up — usually the sturdiest dealer-hedged support on the board. What it is, why price reacts there, how it migrates intraday, when it holds versus breaks, and how to find today’s SPX, SPY, QQQ, and NDX put walls.',
@@ -97,10 +104,10 @@ const ARTICLES: Article[] = [
   },
   {
     href: '/education/spx-net-gamma-exposure-today',
-    kind: 'Published • July 7, 2026 • 16:00 UTC',
-    title: 'SPX Net Gamma Exposure Today: How to Read Current Net GEX',
+    kind: 'Updated • September 4, 2026 • 16:00 UTC',
+    title: 'SPX Net GEX Today: Current SPX Net Gamma Exposure Value',
     blurb:
-      '“What’s the current SPX net gamma exposure?” The answer changes every session. What net GEX is, how to read a positive versus negative reading, where the gamma-flip zero-cross sits, and how to pull up today’s live SPX net GEX in one click.',
+      '“What’s the current SPX net gamma exposure?” Today’s delayed SPX net GEX, gamma flip, call wall and put wall at the top of the page — then what net GEX is, how to read a positive versus negative print, what dollar gamma means, and where the zero-cross sits.',
   },
   {
     href: '/education/spy-vs-spx-gamma-levels',
@@ -182,8 +189,8 @@ const ARTICLES: Article[] = [
   },
   {
     href: '/education/best-gex-tools',
-    kind: 'Published • June 11, 2026 • 16:00 UTC',
-    title: 'Best Gamma Exposure (GEX) Tools: A Fair Comparison for 2026',
+    kind: 'Updated • September 4, 2026 • 16:00 UTC',
+    title: 'Best GEX Tools in 2026: Gamma Exposure Platforms Compared',
     blurb:
       'A balanced comparison of the real category of GEX/options-flow tools — real-time vs delayed, 0DTE coverage, methodology, signal quality, and price — including ZeroGEX on equal footing with the rest of the category.',
   },
@@ -224,8 +231,8 @@ const ARTICLES: Article[] = [
   },
   {
     href: '/education/how-to-read-a-gamma-flip',
-    kind: 'Published • June 11, 2026 • 16:00 UTC',
-    title: 'How to Read a Gamma Flip',
+    kind: 'Updated • September 4, 2026 • 16:00 UTC',
+    title: 'What Is a Gamma Flip? The Gamma Flip Level Explained',
     blurb:
       'The practical intraday read on the gamma flip — what the level actually is, what changes above versus below it, how dealer hedging behavior shifts across the regime line, and how to use it as a filter rather than a signal.',
   },

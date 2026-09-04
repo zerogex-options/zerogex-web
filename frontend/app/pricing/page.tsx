@@ -5,10 +5,13 @@ import { normalizeCampaignCode } from '@/core/campaigns';
 import { REFERRAL_COOKIE_NAME } from '@/core/serverAuth';
 import PricingClient from './Client';
 
+// /pricing takes ~4,400 search impressions a quarter at position ~3 (it is a
+// brand sitelink) and converts about 1% of them. The snippet was two flat
+// sentences that named neither what the plans buy nor the trial.
 export const metadata = {
-  title: 'Pricing — ZeroGEX',
+  title: 'ZeroGEX Pricing: Basic & Pro Plans, 7-Day Free Trial',
   description:
-    'ZeroGEX paid plans. Monthly and annual billing for Basic and Pro tiers.',
+    'ZeroGEX pricing: Basic and Pro plans for real-time GEX, dealer positioning and signals on SPX, SPY, QQQ and NDX. 7-day free trial, monthly or annual billing.',
   alternates: { canonical: '/pricing' },
 };
 

@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og';
 
 export const runtime = 'nodejs';
-export const alt = 'Best Gamma Exposure (GEX) Tools: A Fair Comparison';
+export const alt = 'Best GEX Tools in 2026: Gamma Exposure Platforms Compared';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 

@@ -17,6 +17,15 @@ import TwitterPixelProvider from '@/components/TwitterPixelProvider';
 import SiteJsonLd from '@/components/SiteJsonLd';
 import { OG_IMAGE_PATH, OG_IMAGE_WIDTH, OG_IMAGE_HEIGHT } from '@/core/ogImageManifest';
 
+// Only the three faces the default "ZeroGEX OG" palette paints with (Inter,
+// JetBrains Mono, Space Grotesk) are preloaded. next/font/local preloads every
+// declared file by default, and with eighteen families declared here that put
+// ~690KB of <link rel="preload" as="font"> on every page — fifteen of them for
+// palettes the visitor has not chosen, fetched at high priority ahead of the
+// page's own content. The other faces keep their @font-face declarations, so
+// a saved palette still loads its fonts on demand; they just no longer tax
+// the first paint of every organic landing. (Core Web Vitals feed ranking,
+// and mobile is where the free levels pages earn their best CTR.)
 // Site body sans — Inter is the shared body font across every palette.
 const inter = localFont({
   src: [{ path: './fonts/inter/inter-variable.woff2', weight: '400 700', style: 'normal' }],
@@ -44,6 +53,7 @@ const libreBaskerville = localFont({
   src: [{ path: './fonts/libre-baskerville/libre-baskerville-variable.woff2', weight: '400 700', style: 'normal' }],
   variable: '--font-libre-baskerville',
   display: 'swap',
+  preload: false,
   adjustFontFallback: 'Times New Roman',
 });
 
@@ -52,6 +62,7 @@ const playfair = localFont({
   src: [{ path: './fonts/playfair/playfair-variable.woff2', weight: '400 800', style: 'normal' }],
   variable: '--font-playfair',
   display: 'swap',
+  preload: false,
   adjustFontFallback: 'Times New Roman',
 });
 
@@ -60,6 +71,7 @@ const cormorant = localFont({
   src: [{ path: './fonts/cormorant/cormorant-variable.woff2', weight: '300 700', style: 'normal' }],
   variable: '--font-cormorant',
   display: 'swap',
+  preload: false,
   adjustFontFallback: 'Times New Roman',
 });
 
@@ -68,6 +80,7 @@ const notoSans = localFont({
   src: [{ path: './fonts/noto-sans/noto-sans-variable.woff2', weight: '400 700', style: 'normal' }],
   variable: '--font-noto-sans',
   display: 'swap',
+  preload: false,
 });
 
 // London Fog — English editorial serif, foggy and financial.
@@ -75,6 +88,7 @@ const newsreader = localFont({
   src: [{ path: './fonts/newsreader/newsreader-variable.woff2', weight: '400 600', style: 'normal' }],
   variable: '--font-newsreader',
   display: 'swap',
+  preload: false,
   adjustFontFallback: 'Times New Roman',
 });
 
@@ -83,6 +97,7 @@ const archivo = localFont({
   src: [{ path: './fonts/archivo/archivo-variable.woff2', weight: '400 700', style: 'normal' }],
   variable: '--font-archivo',
   display: 'swap',
+  preload: false,
 });
 
 // Maldives Lagoon — airy geometric sans, resort-modern.
@@ -90,6 +105,7 @@ const outfit = localFont({
   src: [{ path: './fonts/outfit/outfit-variable.woff2', weight: '400 700', style: 'normal' }],
   variable: '--font-outfit',
   display: 'swap',
+  preload: false,
 });
 
 // Tulum Jungle — soft organic serif, boho-editorial.
@@ -97,6 +113,7 @@ const fraunces = localFont({
   src: [{ path: './fonts/fraunces/fraunces-variable.woff2', weight: '400 700', style: 'normal' }],
   variable: '--font-fraunces',
   display: 'swap',
+  preload: false,
   adjustFontFallback: 'Times New Roman',
 });
 
@@ -110,6 +127,7 @@ const chakraPetch = localFont({
   ],
   variable: '--font-chakra-petch',
   display: 'swap',
+  preload: false,
 });
 
 // Vinyl Topanga — chunky rounded 70s display (Cooper-Black lineage). Ships a
@@ -119,6 +137,7 @@ const bagelFatOne = localFont({
   src: [{ path: './fonts/bagel-fat-one/bagel-fat-one-variable.woff2', weight: '400', style: 'normal' }],
   variable: '--font-bagel-fat-one',
   display: 'swap',
+  preload: false,
 });
 
 // Vinyl Topanga — warm rounded body sans.
@@ -126,6 +145,7 @@ const rubik = localFont({
   src: [{ path: './fonts/rubik/rubik-variable.woff2', weight: '400 700', style: 'normal' }],
   variable: '--font-rubik',
   display: 'swap',
+  preload: false,
 });
 
 // Monochrome Madison — Futura-style geometric display, mid-century modernist.
@@ -133,6 +153,7 @@ const jost = localFont({
   src: [{ path: './fonts/jost/jost-variable.woff2', weight: '400 700', style: 'normal' }],
   variable: '--font-jost',
   display: 'swap',
+  preload: false,
 });
 
 // Monochrome Madison — serious editorial reading serif.
@@ -144,6 +165,7 @@ const spectral = localFont({
   ],
   variable: '--font-spectral',
   display: 'swap',
+  preload: false,
   adjustFontFallback: 'Times New Roman',
 });
 
@@ -152,6 +174,7 @@ const gloock = localFont({
   src: [{ path: './fonts/gloock/gloock-variable.woff2', weight: '400', style: 'normal' }],
   variable: '--font-gloock',
   display: 'swap',
+  preload: false,
   adjustFontFallback: 'Times New Roman',
 });
 
@@ -160,6 +183,7 @@ const hankenGrotesk = localFont({
   src: [{ path: './fonts/hanken-grotesk/hanken-grotesk-variable.woff2', weight: '400 700', style: 'normal' }],
   variable: '--font-hanken-grotesk',
   display: 'swap',
+  preload: false,
 });
 
 const FONT_VARIABLES = [
@@ -203,7 +227,7 @@ const LEGACY_PALETTE_MAP: Record<string, PaletteId> = {
 const SITE_DESCRIPTION = 'Real-time gamma exposure, dealer positioning, gamma walls, and live options flow for SPX/0DTE traders. Free 15-min-delayed gamma levels, no signup required.';
 
 export const metadata: Metadata = {
-  title: 'ZeroGEX™ | Real-Time Options Analytics',
+  title: 'ZeroGEX™ | Real-Time Gamma Exposure (GEX) & Options Analytics',
   description: SITE_DESCRIPTION,
   // No `icons` entry on purpose. app/favicon.ico is an App Router metadata
   // file, so Next emits the <link rel="icon"> itself with a content hash in the
@@ -213,7 +237,7 @@ export const metadata: Metadata = {
   // keeps resolving to whatever the browser already cached.
   metadataBase: new URL('https://zerogex.io'),
   openGraph: {
-    title: 'ZeroGEX™ | Real-Time Options Analytics',
+    title: 'ZeroGEX™ | Real-Time Gamma Exposure (GEX) & Options Analytics',
     description: SITE_DESCRIPTION,
     url: 'https://zerogex.io',
     siteName: 'ZeroGEX',
@@ -230,7 +254,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'ZeroGEX™ | Real-Time Options Analytics',
+    title: 'ZeroGEX™ | Real-Time Gamma Exposure (GEX) & Options Analytics',
     description: SITE_DESCRIPTION,
     images: [OG_IMAGE_PATH],
   },

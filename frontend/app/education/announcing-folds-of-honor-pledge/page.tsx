@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { ArrowRight, Heart } from 'lucide-react';
 import { renderMarkdown } from '@/components/MarkdownContent';
 import ArticleJsonLd from '@/components/ArticleJsonLd';
+import ArticleMeta from '@/components/ArticleMeta';
 import { articleMetadata } from '@/core/articleRegistry';
 import { loadLocalizedMarkdown } from '@/core/localizedContent';
 
@@ -28,6 +29,8 @@ export default async function AnnouncingFoldsOfHonorPledgePage() {
       </Link>
 
       <article className="rounded-3xl border border-[var(--color-border)] bg-[var(--bg-card)]/95 px-8 py-10 shadow-[0_20px_60px_var(--color-info-soft)] md:px-14">
+
+        <ArticleMeta slug="announcing-folds-of-honor-pledge" />
         <div className="mb-6 flex flex-col items-center gap-4 border-b border-[var(--color-border)] pb-8 text-center">
           <div className="flex items-center justify-center rounded-full bg-white p-2" style={{ width: 128, height: 128 }}>
             <Image

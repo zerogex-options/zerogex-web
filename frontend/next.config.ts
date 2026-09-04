@@ -47,6 +47,34 @@ const nextConfig: NextConfig = {
         destination: '/education/why-spy-pins-near-strikes',
         permanent: true,
       },
+      {
+        // Search Console lists 224 URLs under "Not found (404)", and nearly all
+        // of them have one shape: /education/<slug>.de (and .es, .fr, .it),
+        // plus the same suffixes under /guides and /help/platform. Those are
+        // the cookie-selected markdown translations (content/articles/*.de.md
+        // etc.), which an earlier sitemap build emitted as if they were
+        // standalone pages. The sitemap stopped listing them, but Google keeps
+        // recrawling them from its own index and reporting each as an error.
+        // Every one of them is a translation of an English page that exists,
+        // so send it there with a 301: the error report drains instead of
+        // lingering, and whatever links or signals those URLs collected
+        // consolidate onto the canonical route rather than dying at a 404.
+        // The slug class is deliberately narrow so a real file-ish path
+        // (nothing under these prefixes has one) cannot be caught by accident.
+        source: '/education/:slug([a-z0-9-]+).:locale(de|es|fr|it)',
+        destination: '/education/:slug',
+        permanent: true,
+      },
+      {
+        source: '/guides/:slug([a-z0-9-]+).:locale(de|es|fr|it)',
+        destination: '/guides/:slug',
+        permanent: true,
+      },
+      {
+        source: '/help/platform/:slug([a-z0-9-]+).:locale(de|es|fr|it)',
+        destination: '/help/platform/:slug',
+        permanent: true,
+      },
     ];
   },
 };

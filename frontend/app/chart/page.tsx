@@ -43,12 +43,19 @@ export async function generateMetadata(): Promise<Metadata> {
       title: 'Gamma Chart — Live SPY Dealer Positioning | ZeroGEX',
       description:
         'The live ZeroGEX gamma chart: SPY, QQQ, SPX and NDX price with the Gamma Flip, Call/Put Walls, Max Pain and a real-time dealer-gamma structure rail drawn inline.',
+      alternates: { canonical: '/chart' },
     };
   }
+  // Self-canonical in both modes. /chart is a public, indexable lead magnet
+  // (the free delayed chart) and until now was the one public page with no
+  // canonical at all — the likeliest source of the "Duplicate without
+  // user-selected canonical" row in Search Console, since the same page is
+  // reachable with query strings and via the symbol picker.
   return {
     title: 'Free Gamma Chart — SPY Dealer Positioning (15-min delayed) | ZeroGEX',
     description:
       'A free, ~15-minute-delayed gamma chart for SPY: price with the Gamma Flip, Call/Put Walls, Max Pain and a live-style dealer-gamma structure rail drawn inline. Real-time and every symbol inside ZeroGEX.',
+    alternates: { canonical: '/chart' },
   };
 }
 

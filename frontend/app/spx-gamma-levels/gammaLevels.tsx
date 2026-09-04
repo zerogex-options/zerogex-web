@@ -23,6 +23,8 @@ import { loadChartSnapshot } from '@/app/chart/snapshot';
 import { futuresDelayNote } from '@/core/futuresDataStatus';
 import { netGexAtSpotOrNull } from '@/core/gammaRegime';
 import { volatilityIndexFor } from '@/core/symbols';
+import DelayedLevelsTable from '@/components/DelayedLevelsTable';
+import { fmtNetGex, fmtPrice, fmtTimestampET, levelsSentence, type GexSummary } from '@/core/gexSummary';
 
 // Shared, ticker-first view behind the free gamma-levels pages. One component
 // renders four routes — /spx-gamma-levels, /spy-gamma-levels, /qqq-gamma-levels,
@@ -49,27 +51,6 @@ const STALE_THRESHOLD_MS = 90 * 60 * 1000;
 
 const SYMBOLS = ['SPX', 'SPY', 'QQQ', 'NDX', 'ES', 'NQ'] as const;
 type Symbol = (typeof SYMBOLS)[number];
-
-interface GexSummary {
-  timestamp: string;
-  symbol: string;
-  spot_price: number;
-  total_call_gex: number;
-  total_put_gex: number;
-  net_gex: number;
-  net_gex_at_spot?: number | null;
-  gamma_flip?: number | null;
-  max_pain?: number | null;
-  call_wall?: number | null;
-  put_wall?: number | null;
-  put_call_ratio?: number | null;
-  // Pin Strike — reachable 0DTE strike with the strongest modeled positive
-  // (restoring) dealer gamma into expiration. Null when no meaningful pin.
-  pin_strike?: number | null;
-  pin_score?: number | null;
-  pin_confidence?: number | null;
-  pin_strike_reason?: string | null;
-}
 
 // Per-ticker copy. Each page leads with its own symbol so it reads as the best
 // possible answer for that symbol's query ("SPY gamma levels today", "QQQ call
@@ -137,10 +118,15 @@ function buildSymbolContent(primary: Symbol): SymbolContent {
   return {
     path,
     shareUrl: `${SITE}${path}`,
-    title: `${primary} Gamma Levels Today: Gamma Flip, Call Wall, Put Wall & Net GEX`,
+    // 64 characters. The previous title (66) said "Net GEX" last and was being
+    // cut there; this one keeps the ranking phrase first, says "Free" — the
+    // one word the "free gamma levels" / "gex free" / "spotgamma free
+    // alternative" queries have in common and every competitor's title lacks
+    // — and names GEX up front so "<ticker> gamma exposure" queries see it.
+    title: `${primary} Gamma Levels Today (Free): GEX, Gamma Flip, Call & Put Walls`,
     description: `Free daily ${primary} gamma levels — the ${primary} gamma flip, call wall, put wall, max pain, and net dealer GEX (Net GEX). Delayed dealer-positioning levels, refreshed every 15 minutes. No signup required.`,
     h1: `${primary} Gamma Levels Today`,
-    intro: `Track today's ${primary} gamma levels — the ${primary} gamma flip, call wall, put wall, max pain, and net dealer GEX. These free levels are delayed roughly 15 minutes and help ${SYMBOL_AUDIENCE[primary]} see the key dealer-positioning zones where price may pin, reject, or accelerate before it gets there.${derivationNote(primary)}`,
+    intro: `Track today's ${primary} gamma levels — the ${primary} gamma flip (zero gamma level), call wall, put wall, max pain, and net dealer gamma exposure (net GEX). These free levels are delayed roughly 15 minutes and help ${SYMBOL_AUDIENCE[primary]} see the key dealer-positioning zones where price may pin, reject, or accelerate before it gets there.${derivationNote(primary)}`,
   };
 }
 
@@ -285,7 +271,8 @@ function faqItems(primary: Symbol): { q: string; a: string }[] {
 // explainers behind each level. Points only at existing articles; anchor text
 // mirrors the question-style intents these pages also target.
 const LEARN_MORE_LINKS: { href: string; label: string }[] = [
-  { href: '/education/how-to-read-a-gamma-flip', label: 'What Is a Gamma Flip?' },
+  { href: '/education/how-to-read-a-gamma-flip', label: 'What Is a Gamma Flip? The Gamma Flip Level Explained' },
+  { href: '/education/zero-gamma-level-explained', label: 'What Is Zero Gamma? The Zero Gamma Level Explained' },
   { href: '/education/what-is-a-call-wall', label: 'What Is a Call Wall?' },
   { href: '/education/what-is-a-put-wall', label: 'What Is a Put Wall?' },
   { href: '/education/gamma-walls-explained', label: 'Gamma Walls Explained: Call Wall & Put Wall' },
@@ -295,22 +282,6 @@ const LEARN_MORE_LINKS: { href: string; label: string }[] = [
   { href: '/education/best-gex-tools', label: 'Best GEX Tools & Platforms: A Fair Comparison' },
   { href: '/education/spy-vs-spx-gamma-levels', label: 'SPY vs SPX Options: Which Gamma Levels Matter?' },
 ];
-
-function fmtPrice(value: number | null | undefined): string {
-  if (value == null || !Number.isFinite(value)) return '—';
-  if (value >= 1000) return value.toFixed(0);
-  return value.toFixed(2);
-}
-
-function fmtNetGex(value: number | null | undefined): string {
-  if (value == null || !Number.isFinite(value)) return '—';
-  const abs = Math.abs(value);
-  const sign = value >= 0 ? '+' : '−';
-  if (abs >= 1e9) return `${sign}$${(abs / 1e9).toFixed(2)}B`;
-  if (abs >= 1e6) return `${sign}$${(abs / 1e6).toFixed(1)}M`;
-  if (abs >= 1e3) return `${sign}$${(abs / 1e3).toFixed(0)}K`;
-  return `${sign}$${abs.toFixed(0)}`;
-}
 
 // ── Copy/paste share snippet ────────────────────────────────────────────────
 // The shareable block is built server-side from the same ISR snapshot that
@@ -372,25 +343,6 @@ function buildShareSnippet(
     'Free delayed levels:',
     SYMBOL_CONTENT[primary].shareUrl,
   ].join('\n');
-}
-
-function fmtTimestampET(iso: string | undefined): string {
-  if (!iso) return '—';
-  try {
-    const d = new Date(iso);
-    return new Intl.DateTimeFormat('en-US', {
-      timeZone: 'America/New_York',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-      timeZoneName: 'short',
-    }).format(d);
-  } catch {
-    return iso;
-  }
 }
 
 // Regime shown on each ticker card. Determined the same way as the live app
@@ -723,6 +675,10 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
   const primaryNetGex = netGexAtSpotOrNull(primaryData?.net_gex_at_spot);
   const primaryFlip = primaryData?.gamma_flip ?? null;
   const primarySpotPrice = primaryData?.spot_price ?? null;
+  // The walls and max pain folded into the same quotable paragraph as the net
+  // GEX reading, so one passage carries every level a featured snippet or an
+  // answer engine would cite. Only levels the snapshot actually has.
+  const primaryLevels = primaryData ? levelsSentence(primaryData) : '';
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -731,6 +687,9 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
     description: content.description,
     url: content.shareUrl,
     isAccessibleForFree: true,
+    // The freshest snapshot on the page, so the "as of" a reader sees is the
+    // dateModified a crawler reads — these pages rank for "today" queries.
+    ...(latestTimestamp ? { dateModified: latestTimestamp } : {}),
     publisher: { '@type': 'Organization', name: 'ZeroGEX', url: SITE },
     about: [
       { '@type': 'Thing', name: 'Gamma exposure (GEX)' },
@@ -1024,7 +983,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
         {primaryData && primaryNetGex != null && (
           <section style={{ marginBottom: 40 }}>
             <h2 style={{ fontSize: 24, fontWeight: 800, margin: '0 0 12px 0', letterSpacing: '-0.3px' }}>
-              Today&apos;s {primary} net GEX
+              Today&apos;s {primary} net GEX and gamma levels
             </h2>
             <p style={{ margin: 0, fontSize: 15, lineHeight: 1.7, color: 'var(--color-text-secondary)' }}>
               As of {fmtTimestampET(primaryData.timestamp)}, {primary} net gamma exposure at spot is{' '}
@@ -1039,9 +998,15 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
                   {primarySpotPrice != null ? <>, with {primary} spot at {fmtPrice(primarySpotPrice)}</> : null}.
                 </>
               )}
+              {primaryLevels ? <> {primaryLevels}</> : null}
               {' '}This free reading is delayed roughly 15 minutes; for the live, session-long value, open the{' '}
               <Link href="/register" style={{ color: 'var(--color-brand-primary)' }}>ZeroGEX dashboard</Link>.
             </p>
+            {/* The same levels as a real <table>: the cards above are styled
+                <div> rows inside a link, which reads fine to a person and
+                poorly to a tabular featured snippet, an AI answer engine's
+                extractor, or a screen reader. Same snapshot, same formatters. */}
+            <DelayedLevelsTable symbol={primary} data={primaryData} chainSymbol={SYMBOL_CHAIN[primary]} />
           </section>
         )}
 

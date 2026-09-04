@@ -90,6 +90,7 @@ export const it: Dictionary = {
   'footer.terms': 'Termini',
   'footer.col.company': 'Azienda',
   'footer.col.legal': 'Note legali',
+  'footer.col.learn': 'Impara',
   'footer.pricing': 'Prezzi',
   'footer.faqs': 'FAQ',
   'footer.tagline':

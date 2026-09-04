@@ -1,6 +1,6 @@
-# How to Read a Gamma Flip
+# What Is a Gamma Flip? The Gamma Flip Level Explained
 
-*The practical read on the gamma flip — what the level actually is, what changes above versus below it, and how to act on it intraday. Gamma flip explained without the hand-waving.*
+*Gamma flip explained without the hand-waving — what the level actually is, how it is found, what changes above versus below it, and how to read it intraday. Also called the zero gamma level.*
 
 ---
 
@@ -14,7 +14,7 @@ This piece is the trader-facing read. We will cover what the flip level actually
 
 ## What is a gamma flip?
 
-The gamma flip is the price level at which the *modeled* aggregate dealer gamma exposure crosses zero. Above the flip, the model has dealers net long gamma; below it, net short. It is not a fixed strike — it is the spot level at which the modeled gamma profile changes sign, and as the chain reweights through the day, that price moves. Because it comes out of a model, it depends on the sign convention and the modeling choices behind it (which expirations, how they're weighted, the IV and open-interest inputs), and it can occasionally be non-unique, absent, or ambiguous.
+The gamma flip is the price level at which the *modeled* aggregate dealer gamma exposure crosses zero. Above the flip, the model has dealers net long gamma; below it, net short. It is not a fixed strike — it is the spot level at which the modeled gamma profile changes sign, and as the chain reweights through the day, that price moves. The same level is also called the [zero gamma level](/education/zero-gamma-level-explained): "zero gamma" names the value, "gamma flip" names the sign change. Because it comes out of a model, it depends on the sign convention and the modeling choices behind it (which expirations, how they're weighted, the IV and open-interest inputs), and it can occasionally be non-unique, absent, or ambiguous.
 
 A few things worth being explicit about:
 

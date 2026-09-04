@@ -145,6 +145,15 @@ export default async function ReplayDatePage({
   // and a screenshot of it rules nothing out for whoever gets asked why the
   // replay is blank. The reason lands in the Next.js server log either way
   // (see `serverApiGet`); this just stops the page from overstating it.
+  // A past session the API answers for with no frames is a page with nothing
+  // to show, and it says so with a real 404. These dated URLs are indexed —
+  // they rank for "spx gamma flip call wall put wall august 20 2026"-style
+  // searches — and once a date's data is gone, a 200 with an apology is a
+  // soft 404: Search Console files it as "crawled, currently not indexed" and
+  // Googlebot keeps spending its budget re-checking empty dates. Today is the
+  // one exception: before the open the current session legitimately has no
+  // frames yet, and that page stays up with the note below.
+  if (data && data.frames.length === 0 && !data.is_today) notFound();
   if (!data || data.frames.length === 0) {
     const unavailable = !data;
     return (
@@ -170,8 +179,8 @@ export default async function ReplayDatePage({
             </>
           ) : (
             <>
-              No replayable frames for {sym} on {formatHumanDate(date)}. Either the session
-              predates GEX ingestion or the analytics engine didn&rsquo;t write that day.
+              No replayable frames for {sym} on {formatHumanDate(date)} yet — today&rsquo;s
+              session fills in minute by minute once the cash session opens.
             </>
           )}
         </div>

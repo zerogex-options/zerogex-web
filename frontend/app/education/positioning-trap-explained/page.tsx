@@ -2,6 +2,7 @@ import path from 'node:path';
 import Link from 'next/link';
 import { renderMarkdown } from '@/components/MarkdownContent';
 import ArticleJsonLd from '@/components/ArticleJsonLd';
+import ArticleMeta from '@/components/ArticleMeta';
 import RelatedArticles from '@/components/RelatedArticles';
 import { articleMetadata } from '@/core/articleRegistry';
 import LiveLevelsCTA from '@/components/LiveLevelsCTA';
@@ -22,7 +23,7 @@ export default async function PositioningTrapExplainedPage() {
       </Link>
 
       <article className="rounded-3xl border border-[var(--color-border)] bg-[var(--bg-card)]/95 px-8 py-10 shadow-[0_20px_60px_var(--color-info-soft)] md:px-14">
-        <div className="mb-8 text-sm uppercase tracking-[0.2em] text-[var(--text-muted)]">ZeroGEX Education • 9 min read</div>
+        <ArticleMeta slug="positioning-trap-explained" />
         <div className="blog-medium-style">{renderMarkdown(markdown)}</div>
       </article>
 

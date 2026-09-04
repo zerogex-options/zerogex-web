@@ -1,12 +1,12 @@
-# SPX Net Gamma Exposure Today: How to Read Current Net GEX
+# SPX Net GEX Today: Current SPX Net Gamma Exposure Value
 
-*"What's the current SPX net gamma exposure?" The number changes every session — but how you read it doesn't. This is what SPX net GEX is, how to tell a positive reading from a negative one, where the zero-cross sits, and how to pull up today's live value.*
+*"What's the current SPX net gamma exposure?" Today's delayed reading is at the top of this page and refreshes through the session. Below it: what SPX net GEX is, how to read a positive print versus a negative one, what the "dollar gamma" unit means, and where the zero-cross sits.*
 
 ---
 
 ## Where to see today's SPX net gamma exposure
 
-If you're here for the current number, start here: ZeroGEX publishes today's **SPX net GEX** — with the gamma flip, call wall, put wall, and max pain — free and delayed about 15 minutes on the [SPX gamma levels page](/spx-gamma-levels). The same read is available for [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels), and [NDX](/ndx-gamma-levels). For the live, sub-second value, the [real-time 0DTE GEX dashboard](/real-time-gex-0dte) updates through the session. The rest of this page explains what that number means and how to use it.
+If you're here for the current number, it's in the box above — the same ~15-minute-delayed **SPX net GEX**, gamma flip, call wall, put wall, and max pain that the free [SPX gamma levels page](/spx-gamma-levels) publishes, refreshed on the same schedule. The same read is available for [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels), and [NDX](/ndx-gamma-levels). For the live, sub-second value, the [real-time 0DTE GEX dashboard](/real-time-gex-0dte) updates through the session. The rest of this page explains what that number means and how to use it.
 
 ---
 
@@ -20,6 +20,12 @@ If you're here for the current number, start here: ZeroGEX publishes today's **S
 Net GEX is the headline number in the broader [gamma exposure](/education/what-is-gex-in-trading) framework. It's evaluated at the current spot price, so it moves as SPX moves and as the option chain re-prices through the day.
 
 > Net GEX is a *modeled* estimate. It uses the traditional call-positive / put-negative open-interest convention — dealers modeled as net long the calls customers sell and net short the puts customers buy. Actual dealer inventory is not directly observable from public option-chain data.
+
+---
+
+## Net GEX in "dollar gamma": what the unit means
+
+Net GEX is quoted in dollars — "$1.5B of gamma" — because it is scaled to answer a dollar question: roughly how much S&P index exposure would dealers need to trade to re-hedge if SPX moved 1%? That is why searches for "SPX net GEX dollar gamma" and "SPX net gamma exposure" land on the same figure: dollar gamma *is* net GEX, expressed per 1% move. The sign carries the regime; the dollar magnitude carries how much modeled hedging sits behind it. A print of +$1.5B and one of +$150M describe the same regime with ten times the cushion.
 
 ---
 

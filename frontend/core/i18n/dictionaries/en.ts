@@ -102,6 +102,7 @@ export const en = {
   // footer surfaces (the rest reuse their nav.* labels).
   'footer.col.company': 'Company',
   'footer.col.legal': 'Legal',
+  'footer.col.learn': 'Learn',
   'footer.pricing': 'Pricing',
   'footer.faqs': 'FAQs',
   'footer.tagline':

@@ -121,6 +121,14 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
       q: 'How often does net GEX change?',
       a: 'It moves through the day as price, time, and volatility shift the modeled exposure, and large expirations can change it sharply. ZeroGEX refreshes free delayed SPX levels through the trading day.',
     },
+    {
+      q: 'Where can I see the current SPX net GEX value?',
+      a: 'Today’s SPX net GEX, delayed roughly 15 minutes, is shown at the top of this page with the gamma flip, call wall, put wall, and max pain — the same snapshot the free SPX gamma levels page publishes. The live, session-long value updates inside the ZeroGEX dashboard.',
+    },
+    {
+      q: 'What does "dollar gamma" mean for SPX net GEX?',
+      a: 'Dollar gamma is net GEX expressed in dollars per 1% move: a rough estimate of how much S&P index exposure dealers would need to trade to re-hedge if SPX moved 1%. A print like +$1.5B is dollar gamma. The sign gives the regime; the magnitude says how much modeled hedging sits behind it.',
+    },
   ],
   'pin-strike-explained': [
     {
@@ -332,6 +340,24 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
     {
       q: 'How does charm affect the close?',
       a: 'Charm bleeds delta as expiration nears, pressuring dealers to hedge as the clock runs down. Because time passes predictably, charm is one of the few dealer flows you can anticipate — though spot and volatility moves can still override it — and it often shapes a directional drift into the final hours of the session.',
+    },
+  ],
+  'zero-gamma-level-explained': [
+    {
+      q: 'What is the zero gamma level?',
+      a: 'The zero gamma level is the price at which modeled net dealer gamma exposure equals zero — the boundary between a positive-gamma regime above it and a negative-gamma regime below it. It is the same level as the gamma flip.',
+    },
+    {
+      q: 'Is zero gamma the same as the gamma flip?',
+      a: 'Yes. "Zero gamma" names the value — net dealer gamma is zero there — and "gamma flip" names the event, the sign of dealer gamma flipping there. Tools label the same price either way; ZeroGEX labels it "gamma flip".',
+    },
+    {
+      q: 'What happens when price crosses the zero gamma level?',
+      a: 'The modeled sign of dealer hedging changes. Above the level, hedging tends to lean against moves and dampen volatility; below it, hedging tends to lean with moves and amplify it. Crossing does not by itself predict direction.',
+    },
+    {
+      q: 'Why is there no zero gamma level today?',
+      a: 'When the modeled dealer-gamma profile has no zero crossing close enough to spot — deep inside one regime, or a thin, one-sided chain — there is no honest level to publish, so ZeroGEX leaves it blank. The sign of net GEX still shows which regime is in force.',
     },
   ],
 };

@@ -100,7 +100,7 @@ const MISTAKES: Mistake[] = [
       'Above the flip (long-gamma), breakouts fade and mean-reversion works. Below the flip (short-gamma), breakouts extend and mean-reversion gets crushed. Same setup, opposite results, depending on a single threshold most traders never see.',
     zerogex:
       'The Gamma Flip card shows live distance from spot at every refresh. When spot crosses the flip, the regime has changed — and the playbook should change with it. The Net GEX magnitude tells you how sharp the regime is right now.',
-    reference: { href: '/education/how-to-read-a-gamma-flip', label: 'How to Read a Gamma Flip' },
+    reference: { href: '/education/how-to-read-a-gamma-flip', label: 'What Is a Gamma Flip? The Gamma Flip Level Explained' },
     imagePath: '/blog/zerogex-gamma-flip-card.png',
     imageAlt: 'ZeroGEX Gamma Flip card showing SPX spot above the flip with live distance',
   },

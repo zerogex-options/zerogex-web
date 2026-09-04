@@ -24,16 +24,48 @@ type FooterLink = { href: string; external?: boolean } & (
 );
 type FooterColumn = { headingKey: TranslationKey; links: FooterLink[] };
 
-// Four semantic columns instead of one flat list of nine links under a generic
+// Five semantic columns instead of one flat list of nine links under a generic
 // "Navigation" head. Grouping is the whole point: a visitor scanning for the
 // API docs, the risk disclaimer, and the education hub should find each in the
 // column they'd expect it in on any other platform, without reading all nine.
 const FOOTER_COLUMNS: FooterColumn[] = [
   {
+    // The six free levels pages are the site's organic front door — they carry
+    // the highest sitemap priority after the homepage and take most of the
+    // non-brand search impressions — yet only SPX was linked from every page.
+    // A site-wide link is the strongest internal signal there is, so each
+    // ticker page gets one. Tickers read the same in every locale.
+    headingKey: 'footer.freeGammaLevels',
+    links: [
+      { href: '/spx-gamma-levels', label: 'SPX gamma levels' },
+      { href: '/spy-gamma-levels', label: 'SPY gamma levels' },
+      { href: '/qqq-gamma-levels', label: 'QQQ gamma levels' },
+      { href: '/ndx-gamma-levels', label: 'NDX gamma levels' },
+      { href: '/es-gamma-levels', label: 'ES gamma levels' },
+      { href: '/nq-gamma-levels', label: 'NQ gamma levels' },
+    ],
+  },
+  {
+    // One explainer per search intent the education library competes for
+    // (gamma exposure, gamma flip, zero gamma, the walls, net GEX, GEX tools),
+    // so the pages that answer those queries inherit authority from every
+    // page on the site rather than only from the hub. Article titles stay in
+    // English here for the same reason they do in the sidebar's article list.
+    headingKey: 'footer.col.learn',
+    links: [
+      { href: '/education/gamma-exposure-explained', label: 'Gamma exposure (GEX) explained' },
+      { href: '/education/how-to-read-a-gamma-flip', label: 'What is a gamma flip?' },
+      { href: '/education/zero-gamma-level-explained', label: 'What is zero gamma?' },
+      { href: '/education/gamma-walls-explained', label: 'Gamma walls: call & put wall' },
+      { href: '/education/spx-net-gamma-exposure-today', label: 'SPX net GEX today' },
+      { href: '/education/best-gex-tools', label: 'Best GEX tools' },
+    ],
+  },
+  {
     headingKey: 'footer.platform',
     links: [
       { href: '/dashboard', labelKey: 'footer.platform' },
-      { href: '/spx-gamma-levels', labelKey: 'footer.freeGammaLevels' },
+      { href: '/chart', label: 'Gamma Chart' },
       // One link, not one per platform — the four landings live under
       // /integrations and the hub is the only entry the menus carry too.
       // See core/integrations.ts.
@@ -46,12 +78,16 @@ const FOOTER_COLUMNS: FooterColumn[] = [
     headingKey: 'nav.group.education',
     links: [
       { href: '/education', labelKey: 'nav.hub' },
+      { href: '/articles', labelKey: 'nav.articles' },
       { href: '/guides', labelKey: 'nav.guides' },
       { href: '/help/platform', labelKey: 'nav.platformGuide' },
       { href: '/help/faqs', labelKey: 'footer.faqs' },
     ],
   },
   {
+    // Privacy and Terms moved in here from their own column: they are also in
+    // the legal bar directly below, and a sixth column was the difference
+    // between the grid fitting on a laptop and wrapping.
     headingKey: 'footer.col.company',
     links: [
       { href: '/about', labelKey: 'nav.about' },
@@ -61,11 +97,6 @@ const FOOTER_COLUMNS: FooterColumn[] = [
       { href: '/methodology', labelKey: 'footer.methodology' },
       { href: '/updates', labelKey: 'footer.updates' },
       { href: '/giving', labelKey: 'footer.givingBack' },
-    ],
-  },
-  {
-    headingKey: 'footer.col.legal',
-    links: [
       { href: '/privacy', labelKey: 'footer.privacy' },
       { href: '/terms', labelKey: 'footer.terms' },
     ],

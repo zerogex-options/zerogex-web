@@ -75,6 +75,10 @@ const GAMMA_LEVEL_PATHS = [
   '/nq-gamma-levels',
 ];
 
+// Public tools whose content changes every trading day: the free delayed
+// chart and the replay / forecast indexes.
+const DAILY_TOOL_PATHS = ['/chart', '/replay', '/forecast'];
+
 /** @type {import('next-sitemap').IConfig} */
 const config = {
   siteUrl: 'https://zerogex.io',
@@ -160,7 +164,14 @@ const config = {
       '/',
       '/about',
       '/articles',
+      // The free delayed chart and the two public daily tools. All three are
+      // public, self-canonical and rendered per request (they read the session
+      // or searchParams), so they were never prerendered and never made it
+      // into the sitemap. Only their index pages are listed: the dated
+      // /replay and /forecast permalinks are discovered from those.
+      '/chart',
       '/education',
+      '/forecast',
       '/giving',
       '/guides',
       '/help',
@@ -179,6 +190,7 @@ const config = {
       '/pricing',
       '/privacy',
       '/real-time-gex-0dte',
+      '/replay',
       '/sierra-chart-indicator',
       '/terms',
       '/thinkorswim-indicator',
@@ -228,6 +240,10 @@ const config = {
     }
     if (urlPath === '/pricing') {
       return { loc: urlPath, changefreq: 'monthly', priority: 0.9, lastmod };
+    }
+    if (DAILY_TOOL_PATHS.includes(urlPath)) {
+      // Refreshed every market day like the gamma pages, one notch below them.
+      return { loc: urlPath, changefreq: 'daily', priority: 0.8, lastmod };
     }
     if (GAMMA_LEVEL_PATHS.includes(urlPath)) {
       // Ticker-first lead-magnet pages — the SEO landings for "<ticker> gamma

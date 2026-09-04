@@ -1937,7 +1937,7 @@ html {
   gap: 32px 24px;
 }
 @media (min-width: 640px) { .zg-footer-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (min-width: 1024px) { .zg-footer-cols { grid-template-columns: 1.4fr repeat(4, minmax(0, 1fr)); } }
+@media (min-width: 1024px) { .zg-footer-cols { grid-template-columns: 1.4fr repeat(5, minmax(0, 1fr)); } }
 
 .zg-footer-link {
   display: inline-block;

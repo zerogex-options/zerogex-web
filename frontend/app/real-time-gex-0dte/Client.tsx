@@ -568,7 +568,7 @@ export default function RealTimeGexLandingClient() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
             {[
               { href: '/education/gamma-exposure-explained', title: 'Gamma Exposure (GEX) Explained', body: 'The complete guide — pillar piece.' },
-              { href: '/education/how-to-read-a-gamma-flip', title: 'How to Read a Gamma Flip', body: 'Practical intraday workflow.' },
+              { href: '/education/how-to-read-a-gamma-flip', title: 'What Is a Gamma Flip?', body: 'The regime line, and the practical intraday workflow.' },
               { href: '/education/gamma-walls-explained', title: 'Gamma Walls Explained', body: 'Call wall, put wall, and how price reacts.' },
               { href: '/education/0dte-dealer-positioning-explained', title: '0DTE Dealer Positioning', body: 'Why same-day expiries dominate the read.' },
               { href: '/education/max-pain-explained', title: 'Max Pain — Does It Work?', body: 'Evidence-honest read.' },
