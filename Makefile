@@ -1,5 +1,4 @@
-.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription honor-winback-discount recover-orphan-payment scan-orphan-payments clear-zombie-customers webhook-health cancellation-alerts trial-reminders trial-engagement renewal-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback reactivation checkout-recovery founding-final-call public-cohort cancellations churn-breakdown enable-portal-cancel-reasons save-url reset-save-latch diagnose-user subscriber-headcount reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo og-check verify-gate blog-images ninjatrader-package
-# Default target
+.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription honor-winback-discount recover-orphan-payment scan-orphan-payments clear-zombie-customers webhook-health cancellation-alerts trial-reminders trial-engagement renewal-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback reactivation checkout-recovery founding-final-call public-cohort cancellations churn-breakdown enable-portal-cancel-reasons save-url reset-save-latch gex-rank-backtest diagnose-user subscriber-headcount reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo og-check verify-gate blog-images ninjatrader-package
 help:
 	@echo "ZeroGEX Web - Available Commands:"
 	@echo ""
@@ -58,6 +57,7 @@ help:
 	@echo "  make cancellation-alerts - Email yourself one alert per cancellation, carrying the reason the member typed on their way out. Sweeps the audit log (so a failed send retries instead of vanishing) and latches each event once. Driven every 15m by the cancellation-alerts systemd timer. DRY_RUN=1 to preview, SINCE=<YYYY-MM-DD|iso> to backfill history, PREVIEW_TO=<email> for a sample, MARK_ONLY=1 to silence a backlog without emailing (ignores LIMIT — it takes the whole backlog), KIND=pending|lapsed, INCLUDE_SILENT_LAPSES=1 to also see lapses that captured no reason (skipped by default), LIMIT=<n>/LOOKBACK=<hours>/THROTTLE_MS=<ms> to tune, TO=<email> to override the recipient"
 	@echo "  make churn-breakdown - Diagnose a cancellation spike: split recent cancels into trial-abandon vs paid-cancel vs lapsed (and lapses into payment-failed vs voluntary/expired), by tier, tenure (trial-cliff detector), signup source, daily timeline, and captured cancel reasons. WINDOW=<days> (default 14) or SINCE=<YYYY-MM-DD> to set the window, CSV=1 for per-user rows"
 	@echo "  make enable-portal-cancel-reasons - Turn on the Stripe billing-portal cancellation survey (feedback + free-text) so future cancels record a WHY. DRY_RUN=1 to preview, YES=1 to apply. CHANGES THE LIVE CUSTOMER PORTAL"
+	@echo "  make gex-rank-backtest [SYMBOL=NQ] [SESSIONS=120] - Measure whether GEX rank actually predicts where price reacts, against a shuffled-label null and a random-strike control, bucketed by distance from the open. Needs ~80 sessions minimum to detect anything. SELF_TEST=1 runs it against synthetic data with a planted answer."
 	@echo "  make diagnose-user EMAIL=<email> - Read-only dump of one user: DB row, last 20 audit events, live Stripe customer/subscription/invoices, and notes on whether the July-1 founding deferral applied"
 	@echo "  make subscriber-headcount [NAMES=1] - Decompose the admin Total Subscribers chart (Full Subscriber / Converting / Free Trial / Trial Grace) and account for every subscription-carrying account it does not count — paused, setup-withheld, lapsed. Answers 'why did the headcount move' (read-only)"
 	@echo "  make recover-orphan-payment EMAIL=<email> - Restore a member who PAID an invoice after Stripe had already canceled their subscription for nonpayment (money collected, still on Public). Re-creates the plan with billing anchored at the end of the period they paid for, so they are never charged twice. DRY by default, YES=1 to apply, INVOICE=in_... to pick the invoice"
@@ -1171,6 +1171,19 @@ blog-images:
 # documented .cs-only path (the same one taken when no archive exists at all)
 # and warns. Withholding one download is not worth blocking a whole deploy —
 # and the old hard failure blocked every unrelated fix in the same push.
+# Does GEX rank predict where price reacts, or is the number next to each line
+# decoration? Prompted by a tester who kept pointing at levels we had told him
+# were noise -- GEX 7, 8, and then 10 marking the high of day to the tick --
+# against advice ("past 5 is mostly noise") that had no measurement behind it.
+#
+# The controls are the point. Sixteen lines on a chart means "a level got
+# touched" is nearly certain, so the script compares against the same strikes
+# with their rank labels shuffled, and against random strikes on the same grid,
+# and reports everything inside distance buckets because the largest gamma
+# strike is not the nearest one.
+gex-rank-backtest:
+	@cd $(CURDIR) && python3 scripts/gex-rank-backtest.py $(if $(SELF_TEST),--self-test,--symbol $(or $(SYMBOL),NQ) --last $(or $(SESSIONS),120)) $(if $(RANKS),--ranks $(RANKS),) $(if $(JSON),--json $(JSON),)
+
 ninjatrader-package:
 	@echo "Publishing NinjaTrader package..."
 	@mkdir -p frontend/public/ninjatrader
