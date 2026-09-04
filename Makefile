@@ -1,4 +1,4 @@
-.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription honor-winback-discount recover-orphan-payment scan-orphan-payments clear-zombie-customers webhook-health cancellation-alerts trial-reminders trial-engagement renewal-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback reactivation checkout-recovery founding-final-call public-cohort cancellations churn-breakdown enable-portal-cancel-reasons save-url reset-save-latch gex-rank-backtest diagnose-user subscriber-headcount reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo og-check verify-gate blog-images ninjatrader-package
+.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription honor-winback-discount recover-orphan-payment scan-orphan-payments clear-zombie-customers webhook-health cancellation-alerts trial-reminders trial-engagement renewal-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback reactivation checkout-recovery founding-final-call public-cohort cancellations churn-breakdown backfill-refund-audit enable-portal-cancel-reasons save-url reset-save-latch gex-rank-backtest diagnose-user subscriber-headcount reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo og-check verify-gate blog-images ninjatrader-package
 help:
 	@echo "ZeroGEX Web - Available Commands:"
 	@echo ""
@@ -56,6 +56,7 @@ help:
 	@echo "  make cancellations - List customers who canceled and when (pending = clicked Cancel, still has access; lapsed = subscription ended). STATUS=pending|lapsed to filter, EMAILS=1 for a recipient list, CSV=1 to export, SINCE=<YYYY-MM-DD> for cancellations on/after a date"
 	@echo "  make cancellation-alerts - Email yourself one alert per cancellation, carrying the reason the member typed on their way out. Sweeps the audit log (so a failed send retries instead of vanishing) and latches each event once. Driven every 15m by the cancellation-alerts systemd timer. DRY_RUN=1 to preview, SINCE=<YYYY-MM-DD|iso> to backfill history, PREVIEW_TO=<email> for a sample, MARK_ONLY=1 to silence a backlog without emailing (ignores LIMIT — it takes the whole backlog), KIND=pending|lapsed, INCLUDE_SILENT_LAPSES=1 to also see lapses that captured no reason (skipped by default), LIMIT=<n>/LOOKBACK=<hours>/THROTTLE_MS=<ms> to tune, TO=<email> to override the recipient"
 	@echo "  make churn-breakdown - Diagnose a cancellation spike: split recent cancels into trial-abandon vs paid-cancel vs lapsed (and lapses into payment-failed vs voluntary/expired), by tier, tenure (trial-cliff detector), signup source, daily timeline, and captured cancel reasons. WINDOW=<days> (default 14) or SINCE=<YYYY-MM-DD> to set the window, CSV=1 for per-user rows"
+	@echo "  make backfill-refund-audit - Write the refund_issued audit rows for refunds issued before the webhook recorded them (idempotent, rows carry the refund's own timestamp). DRY_RUN=1 to preview, YES=1 to write, SINCE=<YYYY-MM-DD>, LIMIT=<n>"
 	@echo "  make enable-portal-cancel-reasons - Turn on the Stripe billing-portal cancellation survey (feedback + free-text) so future cancels record a WHY. DRY_RUN=1 to preview, YES=1 to apply. CHANGES THE LIVE CUSTOMER PORTAL"
 	@echo "  make gex-rank-backtest [SYMBOL=NQ] [SESSIONS=120] - Measure whether GEX rank actually predicts where price reacts, against a shuffled-label null and a random-strike control, bucketed by distance from the open. Needs ~80 sessions minimum to detect anything. SELF_TEST=1 runs it against synthetic data with a planted answer."
 	@echo "  make diagnose-user EMAIL=<email> - Read-only dump of one user: DB row, last 20 audit events, live Stripe customer/subscription/invoices, and notes on whether the July-1 founding deferral applied"
@@ -828,6 +829,18 @@ cancellations:
 #   make churn-breakdown SINCE=2026-07-24 CSV=1 > churn.csv
 churn-breakdown:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/churn-breakdown.mjs $(if $(WINDOW),--window $(WINDOW),) $(if $(SINCE),--since $(SINCE),) $(if $(CSV),--csv,)'
+
+# One-shot: write the refund_issued audit rows for refunds issued before the
+# webhook recorded them. The old charge.refunded handler logged only when a
+# partner commission reversed, so refunds to members without a referrer left no
+# trace — and Stripe keeps a refunded invoice 'paid', so diagnose-user showed
+# the money leaving with nothing explaining it. Idempotent; rows carry the
+# refund's own timestamp, not the run time. Always start with DRY_RUN=1.
+#   make backfill-refund-audit DRY_RUN=1
+#   make backfill-refund-audit YES=1
+#   make backfill-refund-audit DRY_RUN=1 SINCE=2026-06-01
+backfill-refund-audit:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/backfill-refund-audit.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(SINCE),--since $(SINCE),) $(if $(LIMIT),--limit $(LIMIT),)'
 
 # Enable the Stripe billing-portal cancellation survey so every future cancel
 # records WHY (a feedback enum + optional free-text comment). Without this the
