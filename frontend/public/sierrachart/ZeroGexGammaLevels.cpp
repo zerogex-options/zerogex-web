@@ -61,6 +61,7 @@
 
 #include <cstring>
 #include <cstdlib>
+#include <string>
 
 SCDLLName("ZeroGEX Studies")
 
@@ -116,10 +117,14 @@ static const int REQUEST_TIMEOUT_SECONDS = 30;
 static const int MINIMUM_REFRESH_SECONDS = 30;
 
 // One day expressed in seconds. SCDateTime counts in days, and the refresh
-// interval is configured in seconds, so every comparison needs this. Defined
-// locally rather than relying on a platform macro so the file has one less
-// version-dependent symbol in it.
-static const double SECONDS_PER_DAY = 86400.0;
+// interval is configured in seconds, so every comparison needs this.
+//
+// Prefixed rather than named SECONDS_PER_DAY, because sierrachart.h already
+// defines that symbol. An unprefixed definition here is a redefinition at the
+// same scope with a different type, and the file does not compile against the
+// real SDK — which an audit that stubs the SDK out cannot see. Every file-scope
+// name this study introduces carries the ZG_ prefix for that reason.
+static const double ZG_SECONDS_PER_DAY = 86400.0;
 
 // SCDateTime counts days from 1899-12-30, which puts "now" around 46,000 —
 // and 46,000 × 86,400 overflows a signed 32-bit int. So the poll clock counts
@@ -138,7 +143,75 @@ static const double POLL_CLOCK_EPOCH_DAYS = 40000.0;
 static int PollClockNow(SCStudyInterfaceRef sc)
 {
     const double DaysSinceEpoch = sc.CurrentSystemDateTime.GetAsDouble() - POLL_CLOCK_EPOCH_DAYS;
-    return static_cast<int>(DaysSinceEpoch * SECONDS_PER_DAY + 0.5);
+    return static_cast<int>(DaysSinceEpoch * ZG_SECONDS_PER_DAY + 0.5);
+}
+
+// ---------------------------------------------------------------------------
+//  SCString helpers.
+//
+//  SCString is not MFC's CString. Trim() and MakeUpper() are CString's, and
+//  calling them on an SCString is a compile error against the real SDK — the
+//  second reason this study did not build. Both are re-implemented here against
+//  the part of SCString that is stable across Sierra Chart versions:
+//  GetChars(), GetLength() and Format().
+//
+//  ASCII-only on purpose. isspace() and toupper() both honor the active locale,
+//  and under a Turkish locale toupper('i') yields a non-ASCII dotted capital.
+//  That is the same class of locale dependency that made strtod misread a
+//  decimal point in this file's JSON path, so the classification is written out
+//  here rather than delegated. Tickers and URLs are ASCII.
+// ---------------------------------------------------------------------------
+
+static bool ZG_IsAsciiSpace(char Character)
+{
+    return Character == ' '  || Character == '\t' || Character == '\n'
+        || Character == '\r' || Character == '\f' || Character == '\v';
+}
+
+/** Copy of Text with leading and trailing ASCII whitespace removed.
+ *
+ *  Takes const char* because every caller is reading an input string straight
+ *  off sc.Input, and returns by value so the result can initialize the local
+ *  rather than mutate it in a second statement. */
+static SCString ZG_Trimmed(const char* Text)
+{
+    SCString Result;
+
+    if (Text == NULL)
+    {
+        Result.Format("%s", "");
+        return Result;
+    }
+
+    int Start = 0;
+    while (Text[Start] != '\0' && ZG_IsAsciiSpace(Text[Start]))
+        ++Start;
+
+    int End = static_cast<int>(strlen(Text));
+    while (End > Start && ZG_IsAsciiSpace(Text[End - 1]))
+        --End;
+
+    // "%.*s" bounds the copy by length instead of by a terminator, so trimming
+    // the tail needs no scratch buffer and nothing can be silently truncated.
+    Result.Format("%.*s", End - Start, Text + Start);
+    return Result;
+}
+
+/** Copy of Source with every ASCII lowercase letter folded to uppercase. */
+static SCString ZG_UpperCased(const SCString& Source)
+{
+    const char* const Chars = Source.GetChars();
+    std::string Buffer(Chars != NULL ? Chars : "");
+
+    for (std::string::size_type Index = 0; Index < Buffer.size(); ++Index)
+    {
+        if (Buffer[Index] >= 'a' && Buffer[Index] <= 'z')
+            Buffer[Index] = static_cast<char>(Buffer[Index] - 'a' + 'A');
+    }
+
+    SCString Result;
+    Result.Format("%s", Buffer.c_str());
+    return Result;
 }
 
 // ---------------------------------------------------------------------------
@@ -460,8 +533,7 @@ SCSFExport scsf_ZeroGexGammaLevels(SCStudyInterfaceRef sc)
     // -----------------------------------------------------------------------
     //  Poll.
     // -----------------------------------------------------------------------
-    SCString ApiKey = sc.Input[IN_API_KEY].GetString();
-    ApiKey.Trim();
+    SCString ApiKey = ZG_Trimmed(sc.Input[IN_API_KEY].GetString());
     if (ApiKey.GetLength() == 0)
     {
         // Logged once per study instance, not once per update. sc.UpdateAlways
@@ -504,12 +576,9 @@ SCSFExport scsf_ZeroGexGammaLevels(SCStudyInterfaceRef sc)
     if (LastPollSeconds != 0 && (NowSeconds - LastPollSeconds) < RefreshSeconds)
         return;
 
-    SCString Symbol = sc.Input[IN_SYMBOL].GetString();
-    Symbol.Trim();
-    Symbol.MakeUpper();
+    SCString Symbol = ZG_UpperCased(ZG_Trimmed(sc.Input[IN_SYMBOL].GetString()));
 
-    SCString BaseUrl = sc.Input[IN_API_BASE_URL].GetString();
-    BaseUrl.Trim();
+    SCString BaseUrl = ZG_Trimmed(sc.Input[IN_API_BASE_URL].GetString());
     while (BaseUrl.GetLength() > 0 && BaseUrl.GetChars()[BaseUrl.GetLength() - 1] == '/')
         BaseUrl = BaseUrl.Left(BaseUrl.GetLength() - 1);
 
