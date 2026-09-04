@@ -27,6 +27,7 @@ import {
   decideRenewalReminder,
   idleDays,
   clampDormancyDays,
+  LAST_SEEN_TRACKING_SINCE,
   clampLeadHours,
   DEFAULT_DORMANCY_DAYS,
   DEFAULT_LEAD_HOURS,
@@ -173,6 +174,7 @@ type Row = {
   current_period_end: string | null;
   cancel_at_period_end: number | null;
   first_payment_at: string | null;
+  created_at: string | null;
   renewal_dormancy_notified_period: string | null;
 };
 
@@ -182,6 +184,7 @@ type Row = {
 const rows = querySqlite<Row>(
   dbPath,
   `SELECT email, last_seen_at, current_period_end, cancel_at_period_end, first_payment_at,
+          created_at,
           ${hasLatchColumn ? 'renewal_dormancy_notified_period' : 'NULL AS renewal_dormancy_notified_period'}
    FROM users
    WHERE subscription_status = 'active'
@@ -198,6 +201,9 @@ type Scored = Row & {
   reason: RenewalSkipReason | 'eligible';
   wouldSend: boolean;
   idle: number | null;
+  // For rows with no last_seen_at: the minimum absence the tracking window
+  // itself evidences, so the report shows "≥12d" rather than an empty dash.
+  floorIdle: number | null;
   hoursToRenewal: number | null;
 };
 
@@ -208,6 +214,7 @@ const scored: Scored[] = rows.map((r) => {
     currentPeriodEndIso: r.current_period_end,
     lastSeenAtIso: r.last_seen_at,
     alreadyNotifiedPeriod: r.renewal_dormancy_notified_period,
+    createdAtIso: r.created_at,
     nowIso,
     leadHours: cliArgs.leadHours,
     dormancyDays: cliArgs.dormancyDays,
@@ -218,6 +225,15 @@ const scored: Scored[] = rows.map((r) => {
     reason: decision.reason,
     wouldSend: decision.shouldSend,
     idle: idleDays(r.last_seen_at, nowIso),
+    floorIdle:
+      r.last_seen_at === null
+        ? idleDays(
+            r.created_at && r.created_at > LAST_SEEN_TRACKING_SINCE
+              ? r.created_at
+              : LAST_SEEN_TRACKING_SINCE,
+            nowIso,
+          )
+        : null,
     hoursToRenewal: decision.hoursToRenewal,
   };
 });
@@ -283,7 +299,7 @@ for (const r of shown) {
   console.log(
     r.email.slice(0, 33).padEnd(34) +
       r.engagement.padEnd(12) +
-      (r.idle === null ? '—' : `${r.idle}d`).padEnd(8) +
+      (r.idle === null ? (r.floorIdle === null ? '—' : `≥${r.floorIdle}d`) : `${r.idle}d`).padEnd(8) +
       renewsIn.padEnd(12) +
       (r.wouldSend ? 'yes' : 'no').padEnd(7) +
       r.reason,
@@ -306,15 +322,23 @@ const historyTooShort = maxIdle !== null && maxIdle < cliArgs.dormancyDays;
 console.log('');
 if (unknownCount > 0) {
   console.log(
-    `${unknownCount} member(s) have no last_seen_at at all — no authenticated request since` +
-      ` that column`,
+    `${unknownCount} member(s) have no last_seen_at at all — no web session since tracking began`,
   );
   console.log(
-    'shipped. They are excluded from every count above: unknown is not dormant. They are',
+    `(${LAST_SEEN_TRACKING_SINCE.slice(0, 10)}). Their IDLE reads "≥Nd": the absence the tracking window itself`,
   );
-  console.log('the closest thing to a dormancy signal available, and the first place to look.');
+  console.log(
+    'evidences. They stay unknown until that floor alone exceeds the dormancy window, then',
+  );
+  console.log('they count as dormant like anyone else.');
   console.log('');
 }
+console.log('CAVEAT: last_seen_at records WEB sessions only. API keys live in a separate');
+console.log('service with their own last_used_at, which never reaches this column, so a member');
+console.log('using ZeroGEX purely through the API or the NinjaTrader / thinkorswim integrations');
+console.log('reads as idle here while using it daily. Fine for a report; fold the key service in');
+console.log('before anything sends on this signal.');
+console.log('');
 if (dormant.length === 0 && historyTooShort) {
   console.log(
     `No member can be dormant yet: the longest idle stretch on record is ${maxIdle}d, short of the`,

@@ -117,6 +117,38 @@ created before that column shipped. Treat NULL as dormant and the first run does
 not miss a notice, it mails the whole legacy book at once. `unknown` → **never
 send**.
 
+## 4a. Blocker: this measures WEB engagement only
+
+`core/serverAuth.ts` writes `users.last_seen_at` from the session-cookie path
+alone. API keys live in a **separate service** with their own `last_used_at`,
+reached over HTTP, which never reaches this column and cannot be joined to in
+SQL.
+
+So a Pro member driving ZeroGEX through the API, or through the shipped
+NinjaTrader / thinkorswim integrations, and never opening the site reads as
+completely idle here while using the product every day.
+
+That is tolerable in a read-only report, which is why the scan prints the
+caveat and ships anyway. It is **not** tolerable in an email: "you haven't had
+a chance to use ZeroGEX" landing on a heavy API user is precisely the insult
+`core/trialEngagement.ts` exists to avoid, and it would be sent with total
+confidence. **Folding the key service's `last_used_at` into the engagement
+signal is a hard prerequisite for the send path**, ahead of everything in §6.
+
+## 4b. A blank `last_seen_at` is not unknowable forever
+
+The first cut treated a NULL as permanently `unknown`. That excluded exactly
+the members most likely to be dormant: someone who never returns keeps a NULL
+forever and could never be counted, so the September re-read would have
+measured only the people who had already come back at least once.
+
+An empty field is now floored: it evidences no web session since tracking began
+for that member — the column's ship date (2026-08-24, rounded forward from
+`a349643` so the floor is never overstated) or their signup, whichever is later.
+Below the dormancy window that is still `unknown`; once the floor alone exceeds
+it, the member is dormant on the evidence, no timestamp needed. The scan shows
+these as `≥Nd`.
+
 ## 5. The copy — the actual design risk
 
 The trial email can open "you haven't had a chance to use ZeroGEX yet" because

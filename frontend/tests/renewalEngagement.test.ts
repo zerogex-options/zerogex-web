@@ -213,3 +213,87 @@ test('idleDays floors to whole days and is null when unknown', () => {
   assert.equal(idleDays(null, NOW), null);
   assert.equal(idleDays('garbage', NOW), null);
 });
+
+// --- no last_seen_at at all -------------------------------------------
+
+const TRACKING = '2026-08-24T00:00:00.000Z';
+
+test('a blank last_seen_at is unknown while tracking is younger than the window', () => {
+  // 12 days of tracking cannot evidence a 30-day absence.
+  assert.equal(
+    classifyRenewalEngagement({
+      lastSeenAtIso: null,
+      nowIso: NOW,
+      createdAtIso: '2026-01-01T00:00:00.000Z',
+      trackingSinceIso: TRACKING,
+    }),
+    'unknown',
+  );
+});
+
+test('a blank last_seen_at becomes dormant once tracking alone outlives the window', () => {
+  // Same member, four weeks later: no web session in 30+ days is now a fact
+  // about them, not a gap in the data. Without this they stay 'unknown'
+  // forever and the likeliest dormant members are permanently excluded.
+  assert.equal(
+    classifyRenewalEngagement({
+      lastSeenAtIso: null,
+      nowIso: '2026-09-30T12:00:00.000Z',
+      createdAtIso: '2026-01-01T00:00:00.000Z',
+      trackingSinceIso: TRACKING,
+    }),
+    'dormant',
+  );
+});
+
+test('a recent signup is not dormant just because tracking is old', () => {
+  // Registered 3 days ago, never logged back in. Absence is floored at signup,
+  // not at the column's ship date.
+  assert.equal(
+    classifyRenewalEngagement({
+      lastSeenAtIso: null,
+      nowIso: '2026-09-30T12:00:00.000Z',
+      createdAtIso: '2026-09-27T12:00:00.000Z',
+      trackingSinceIso: TRACKING,
+    }),
+    'unknown',
+  );
+});
+
+test('an unknown created_at falls back to the tracking date', () => {
+  assert.equal(
+    classifyRenewalEngagement({
+      lastSeenAtIso: null,
+      nowIso: '2026-09-30T12:00:00.000Z',
+      createdAtIso: null,
+      trackingSinceIso: TRACKING,
+    }),
+    'dormant',
+  );
+});
+
+test('the floor never sends: a floored-dormant member still reaches the send gate', () => {
+  // The floor decides engagement, not eligibility — every other gate still runs.
+  const d = decideRenewalReminder({
+    ...DORMANT_RENEWAL,
+    lastSeenAtIso: null,
+    createdAtIso: '2026-01-01T00:00:00.000Z',
+    nowIso: '2026-09-30T12:00:00.000Z',
+    currentPeriodEndIso: '2026-10-02T12:00:00.000Z',
+    trackingSinceIso: TRACKING,
+  });
+  assert.equal(d.engagement, 'dormant');
+  assert.equal(d.shouldSend, true);
+});
+
+test('a blank last_seen_at with no tracking date stays unknown', () => {
+  assert.equal(
+    classifyRenewalEngagement({
+      lastSeenAtIso: null,
+      nowIso: NOW,
+      createdAtIso: null,
+      trackingSinceIso: 'garbage',
+    }),
+    'unknown',
+  );
+});

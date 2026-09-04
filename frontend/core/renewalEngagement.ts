@@ -12,6 +12,17 @@
 // charge landing on someone who has not used the product — does not stop at
 // the trial boundary, so the mitigation should not either.
 //
+// LIMIT, and a blocker for any send path built on this: engagement here means
+// WEB engagement only. core/serverAuth.ts writes users.last_seen_at from the
+// session-cookie path alone; API keys live in a separate service and record
+// their own last_used_at, which never reaches this column. A Pro member driving
+// ZeroGEX through the API or one of the NinjaTrader / thinkorswim integrations
+// and never opening the site therefore looks completely idle while using the
+// product daily. That is tolerable in a read-only report and NOT tolerable in
+// an email — mailing "you haven't used ZeroGEX" to a heavy API user is the
+// exact insult core/trialEngagement.ts is built to avoid. Fold the key
+// service's last_used_at into this signal before anything sends.
+//
 // Kept PURE (no imports) so it is unit-tested without Stripe or a DB, the same
 // discipline as core/cardExpiry.ts and core/paymentGrace.ts. Callers supply the
 // persisted row and inject the clock. Locked down in
@@ -46,6 +57,14 @@ export type RenewalEngagement =
   // is NOT evidence of dormancy.
   | 'unknown';
 
+// The day users.last_seen_at started being written (commit a349643, 2026-08-23),
+// rounded FORWARD to the next midnight on purpose. An empty last_seen_at means
+// "no web session since tracking began", so the floor below is only as trustworthy
+// as this date — rounding forward understates idle time rather than overstating
+// it, and understating keeps a member in 'unknown' (never mailed) rather than
+// wrongly calling them dormant.
+export const LAST_SEEN_TRACKING_SINCE = '2026-08-24T00:00:00.000Z';
+
 export type ClassifyRenewalEngagementInput = {
   // users.last_seen_at — rewritten on authenticated requests, throttled to
   // AUTH_LAST_SEEN_THROTTLE_SECONDS (15m) in core/serverAuth.ts. Far finer
@@ -54,6 +73,12 @@ export type ClassifyRenewalEngagementInput = {
   lastSeenAtIso: string | null;
   nowIso: string;
   dormancyDays?: number;
+  // users.created_at. With no last_seen_at, idle time is floored at the time
+  // since tracking could first have recorded this member — which is when the
+  // column shipped, or when they registered, whichever is later.
+  createdAtIso?: string | null;
+  // Override for tests; defaults to LAST_SEEN_TRACKING_SINCE.
+  trackingSinceIso?: string;
 };
 
 export type RenewalSkipReason =
@@ -90,6 +115,8 @@ export type RenewalReminderInput = {
   nowIso: string;
   leadHours?: number;
   dormancyDays?: number;
+  createdAtIso?: string | null;
+  trackingSinceIso?: string;
 };
 
 export type RenewalReminderDecision = {
@@ -133,10 +160,30 @@ export function classifyRenewalEngagement(
   const now = parse(input.nowIso);
 
   if (now === null) return 'unknown';
-  // NULL last_seen_at is a pre-cutover account, not a member who never showed
-  // up. Reading it as dormancy would mail the entire legacy book on the first
-  // run — the same trap core/trialEngagement.ts calls out.
-  if (lastSeen === null) return 'unknown';
+
+  // No last_seen_at at all. This is NOT automatically dormancy — on the day the
+  // column shipped it was true of every account at once, and reading it as
+  // dormancy would have mailed the entire legacy book (the trap
+  // core/trialEngagement.ts calls out).
+  //
+  // But it is not permanently unknowable either. The field is written on every
+  // authenticated web request, so an empty one means no web session since
+  // tracking began for this member: the column's ship date, or their signup,
+  // whichever came later. Once THAT floor alone exceeds the dormancy window,
+  // the member is dormant on the evidence — no timestamp required. Without
+  // this, an account that never returns stays 'unknown' forever and the
+  // members most likely to be dormant are the ones permanently excluded.
+  if (lastSeen === null) {
+    const trackingSince = parse(input.trackingSinceIso ?? LAST_SEEN_TRACKING_SINCE);
+    const createdAt = parse(input.createdAtIso ?? null);
+    if (trackingSince === null) return 'unknown';
+    // Whichever is later: we cannot claim absence from before we were watching,
+    // nor from before the account existed.
+    const watchingSince = createdAt === null ? trackingSince : Math.max(trackingSince, createdAt);
+    const floorMs = now - watchingSince;
+    if (floorMs > clampDormancyDays(input.dormancyDays) * DAY_MS) return 'dormant';
+    return 'unknown';
+  }
 
   const idleMs = now - lastSeen;
   // A last_seen marginally in the future (clock skew, a mirror written ahead)
@@ -165,6 +212,8 @@ export function decideRenewalReminder(input: RenewalReminderInput): RenewalRemin
     lastSeenAtIso: input.lastSeenAtIso,
     nowIso: input.nowIso,
     dormancyDays: input.dormancyDays,
+    createdAtIso: input.createdAtIso,
+    trackingSinceIso: input.trackingSinceIso,
   });
 
   const now = parse(input.nowIso);
