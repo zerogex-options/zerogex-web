@@ -12,7 +12,7 @@ export const THINKORSWIM_STUDY_HASH = 'a490a64e';
 export const THINKORSWIM_STUDY_PATH = '/thinkorswim/zerogex-daily-gamma-levels.a490a64e.thinkscript';
 
 /** Content hash of the Sierra Chart ACSIL study source (auto-updating) (first 8 hex of its sha256). */
-export const SIERRACHART_STUDY_HASH = '52018a6c';
+export const SIERRACHART_STUDY_HASH = '8499772f';
 
 /** Cache-busting path for the Sierra Chart ACSIL study source (auto-updating), relative to the site root. */
-export const SIERRACHART_STUDY_PATH = '/sierrachart/ZeroGexGammaLevels.52018a6c.cpp';
+export const SIERRACHART_STUDY_PATH = '/sierrachart/ZeroGexGammaLevels.8499772f.cpp';
