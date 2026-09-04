@@ -177,7 +177,17 @@ So the question is not yet answerable at 30 days. Two ways to get a real read:
 - **Re-cut inside the history now:** `make renewal-engagement DORMANCY_DAYS=7`,
   which the 11-day window can actually express.
 
-The **18 unknowns (16% of the paid book)** are the more interesting number
+Re-run the same day at `DORMANCY_DAYS=7`, which the 11-day window can express:
+**87 engaged, 11 dormant, 17 unknown** — and 0 would-send again, because
+WOULD-SEND is one day's slice of a 72h lead window. On a book of ~90 monthly
+subscribers only ~4 renew in any 72h, so that number reads 0 on most days at any
+plausible dormancy rate; it is not a cohort size. The scan now also reports the
+per-cycle count — dormant, not already canceling, renewing within 30 days —
+which on this run is **7**. That is the number the send path would mail per
+cycle, and the one §2/§5 should be weighed against. At a 30-day dormancy bar it
+will be smaller; that reading is not available until 2026-09-22.
+
+The **17 unknowns (15% of the paid book)** are the more interesting number
 today. `last_seen_at` is written on every authenticated request, so a NULL means
 no authenticated request since 2026-08-23 — these members have not logged in for
 11+ days. That is the closest thing to a dormancy signal currently available,

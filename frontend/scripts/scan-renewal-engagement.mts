@@ -224,6 +224,22 @@ const scored: Scored[] = rows.map((r) => {
 
 const countBy = (e: RenewalEngagement) => scored.filter((r) => r.engagement === e).length;
 const unknownCount = countBy('unknown');
+
+// One monthly billing cycle. WOULD-SEND is a single day's slice of a lead
+// window only hours wide, so on a book this size it is nearly always 0 whatever
+// the underlying dormancy rate — reading it as "no cohort" is the same mistake
+// as reading a truncated history as "no dormancy". The decision-relevant number
+// is how many dormant renewals arrive over a whole cycle.
+const RENEWAL_HORIZON_DAYS = 30;
+const cycleCohort = scored.filter(
+  (r) =>
+    r.engagement === 'dormant' &&
+    Number(r.cancel_at_period_end) !== 1 &&
+    r.first_payment_at !== null &&
+    r.hoursToRenewal !== null &&
+    r.hoursToRenewal > 0 &&
+    r.hoursToRenewal <= RENEWAL_HORIZON_DAYS * 24,
+);
 const dormant = scored.filter((r) => r.engagement === 'dormant');
 const wouldSend = scored.filter((r) => r.wouldSend);
 
@@ -234,7 +250,11 @@ console.log(
   `Breakdown:      ${countBy('engaged')} engaged, ${countBy('dormant')} dormant, ` +
     `${countBy('unknown')} unknown`,
 );
-console.log(`Would send:     ${wouldSend.length} (dormant AND renewing within ${cliArgs.leadHours}h)`);
+console.log(`Would send:     ${wouldSend.length} (dormant AND renewing within ${cliArgs.leadHours}h — today only)`);
+console.log(
+  `${`Next ${RENEWAL_HORIZON_DAYS}d:`.padEnd(16)}${cycleCohort.length} dormant renewal(s) — the per-cycle ` +
+    `cohort, and the number to build on`,
+);
 if (!hasLatchColumn) {
   console.log(`                (no latch column yet — send path unbuilt, nothing suppressed)`);
 }
@@ -312,10 +332,17 @@ if (dormant.length === 0 && historyTooShort) {
   console.log('yet; re-run this as the paid book grows.');
 } else {
   console.log(
-    `${dormant.length} paying member(s) have not used the product in ` +
-      `${cliArgs.dormancyDays}+ days; ${wouldSend.length} would be mailed today.`,
+    `${dormant.length} paying member(s) have not used the product in ${cliArgs.dormancyDays}+ days.`,
   );
-  console.log('Nothing warns them before the renewal charge lands — that is the gap in');
-  console.log('docs/renewal-dormancy-reminder-scope.md. Weigh this cohort size against the churn');
-  console.log('risk of contacting them at all (scope §2 and §5) before building the send path.');
+  console.log(
+    `${cycleCohort.length} of them renew within ${RENEWAL_HORIZON_DAYS}d and are not already canceling: that is what the`,
+  );
+  console.log("send path would mail per cycle, and the number to weigh. Today's would-send");
+  console.log(
+    `(${wouldSend.length}) is only a ${cliArgs.leadHours}h slice of it and will read 0 on most days regardless.`,
+  );
+  console.log('');
+  console.log('Nothing warns these members before the renewal charge lands — the gap in');
+  console.log('docs/renewal-dormancy-reminder-scope.md. Weigh it against the churn risk of');
+  console.log('contacting them at all (scope §2 and §5) before building the send path.');
 }
