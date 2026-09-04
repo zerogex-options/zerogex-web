@@ -121,6 +121,15 @@ make backfill-daily-metrics X_CSV=~/x-analytics.csv GOOGLE_CSV=~/search-console.
 
 ## Importing X and Google
 
+**These two feeds are the only thing on this page that does not maintain
+itself.** Every other column re-derives from the audit log on each load, so it
+backfills on first deploy and stays current with no action forever after. X and
+Google do not: nothing collects them in the background, and if you never import
+again the columns simply stop at the last day you imported, quietly shrinking
+the `n` on the three acquisition relationships. The import card shows how
+current each feed is ("X: current through 2026-08-28 — 7 days behind") and turns
+amber past three days, so the gap is visible rather than silent.
+
 From the panel (bottom of the Daily Signals tab) or via the variables above.
 
 - **X:** Analytics → Account overview → export the daily view. The importer
@@ -152,7 +161,11 @@ draws the whole 0–14 day lag profile underneath.
    a cohort's first charge lands a week after it signed up
 
 Plus **day of week** for registrations, trial starts, cancels and payment
-failures, tested with a one-way ANOVA across the seven weekdays.
+failures, tested with a one-way ANOVA across the seven weekdays. The default
+**Combined** view stacks all four on one axis — acquisition above the line,
+churn below — with each metric's own verdict listed underneath; the per-metric
+views carry the error bars and are where a churn weekday effect is actually
+legible, since acquisition dwarfs it on any healthy week.
 
 ### What the numbers mean
 

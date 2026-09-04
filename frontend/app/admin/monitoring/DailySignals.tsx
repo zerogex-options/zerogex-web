@@ -158,7 +158,9 @@ const REGISTRATION_COLOR = '#bc5090';
 const X_COLOR = '#58508d';
 const GOOGLE_COLOR = '#4CAF93';
 const FAILURE_COLOR = '#ff6361';
-const CANCEL_COLOR = '#ff6361';
+// Distinct from FAILURE_COLOR: these two now stack, and same-hue-different-alpha
+// is unreadable once the segments sit on top of each other.
+const CANCEL_COLOR = '#58508d';
 const SMOOTH_COLOR = '#ffffff';
 
 const CSV_COLUMNS: Array<{ key: 'day' | MetricKey; header: string }> = [
@@ -416,6 +418,8 @@ export default function DailySignals({ cardBg, borderColor, axisStroke, mutedTex
       <DailyTable rows={data.rows} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} />
 
       <ImportCard
+        coverage={data.coverage}
+        latestDay={data.rows[data.rows.length - 1]?.day ?? null}
         cardBg={cardBg}
         borderColor={borderColor}
         mutedText={mutedText}
@@ -646,9 +650,10 @@ function AcquisitionChart({
         </div>
       </div>
       <p className="text-xs mb-3" style={{ color: mutedText }}>
-        Bars are the raw daily counts; the pale lines are their 7-day trailing means. If the bars
-        jump around while the lines stay flat, the swing is measurement noise, not a change in the
-        business.
+        Stacked bars are the raw daily counts — acquisition <em>events</em>, not distinct people:
+        someone who registers and starts a trial the same day appears in both segments. The pale
+        lines are their 7-day trailing means; if the bars jump around while the lines stay flat, the
+        swing is measurement noise, not a change in the business.
       </p>
       <MobileScrollableChart>
         <ResponsiveContainer width="100%" height={300}>
@@ -686,8 +691,8 @@ function AcquisitionChart({
                 );
               }}
             />
-            <Bar yAxisId="counts" dataKey="registrations" name="Registrations" fill={REGISTRATION_COLOR} maxBarSize={14} isAnimationActive={false} />
-            <Bar yAxisId="counts" dataKey="trialStarts" name="Trial starts" fill={TRIAL_COLOR} maxBarSize={14} isAnimationActive={false} />
+            <Bar yAxisId="counts" stackId="acquisition" dataKey="registrations" name="Registrations" fill={REGISTRATION_COLOR} maxBarSize={18} isAnimationActive={false} />
+            <Bar yAxisId="counts" stackId="acquisition" dataKey="trialStarts" name="Trial starts" fill={TRIAL_COLOR} maxBarSize={18} isAnimationActive={false} />
             <Line yAxisId="counts" type="monotone" dataKey="trialSmooth" name="Trial starts (7d mean)" stroke={SMOOTH_COLOR} strokeOpacity={0.75} strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
             <Line yAxisId="counts" type="monotone" dataKey="registrationSmooth" name="Registrations (7d mean)" stroke={SMOOTH_COLOR} strokeOpacity={0.4} strokeWidth={2} strokeDasharray="4 3" dot={false} connectNulls isAnimationActive={false} />
             {hasX && (
@@ -747,8 +752,9 @@ function TrialEchoChart({
       </div>
       <p className="text-xs mb-3" style={{ color: mutedText }}>
         Trial starts are plotted on the day that cohort&rsquo;s first charge lands, not the day it
-        signed up. Where the orange line rises and the red bars follow underneath it, a burst of
-        signups is arriving as a burst of declines a week later.
+        signed up. Where the orange line rises and the stacked bars follow underneath it, a burst of
+        signups is arriving as a burst of losses a week later. The two loss types are disjoint — a
+        member is counted once — so the stack height is that day&rsquo;s total churn events.
       </p>
       <MobileScrollableChart>
         <ResponsiveContainer width="100%" height={260}>
@@ -781,8 +787,8 @@ function TrialEchoChart({
                 );
               }}
             />
-            <Bar dataKey="paymentFailures" name="Payment failures" fill={FAILURE_COLOR} maxBarSize={14} isAnimationActive={false} />
-            <Bar dataKey="cancels" name="Cancels" fill={CANCEL_COLOR} fillOpacity={0.4} maxBarSize={14} isAnimationActive={false} />
+            <Bar dataKey="paymentFailures" stackId="churn" name="Payment failures" fill={FAILURE_COLOR} maxBarSize={18} isAnimationActive={false} />
+            <Bar dataKey="cancels" stackId="churn" name="Cancels" fill={CANCEL_COLOR} maxBarSize={18} isAnimationActive={false} />
             <Line type="monotone" dataKey="trialsDueToday" name="Trials due today" stroke={TRIAL_COLOR} strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
           </ComposedChart>
         </ResponsiveContainer>
@@ -794,6 +800,192 @@ function TrialEchoChart({
 // ---------------------------------------------------------------------------
 // Weekday seasonality
 // ---------------------------------------------------------------------------
+
+type WeekdaySelection = MetricKey | 'combined';
+
+function WeekdaySelector({
+  options,
+  selected,
+  onSelect,
+  borderColor,
+  mutedText,
+}: {
+  options: Array<{ key: WeekdaySelection; label: string }>;
+  selected: WeekdaySelection;
+  onSelect: (key: WeekdaySelection) => void;
+  borderColor: string;
+  mutedText: string;
+}) {
+  return (
+    <div className="flex gap-2 flex-wrap">
+      {options.map((option) => (
+        <button
+          key={option.key}
+          type="button"
+          onClick={() => onSelect(option.key)}
+          className="px-2.5 py-1 text-xs font-semibold rounded"
+          style={{
+            color: selected === option.key ? 'var(--color-text-primary)' : mutedText,
+            border: `1px solid ${selected === option.key ? 'var(--color-warning)' : borderColor}`,
+          }}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Which side of the axis each metric sits on, and what colour it draws in. */
+const COMBINED_SERIES: Array<{ key: MetricKey; label: string; color: string; sign: 1 | -1 }> = [
+  { key: 'registrations', label: 'Registrations', color: REGISTRATION_COLOR, sign: 1 },
+  { key: 'trialStarts', label: 'Trial starts', color: TRIAL_COLOR, sign: 1 },
+  { key: 'cancels', label: 'Cancels', color: CANCEL_COLOR, sign: -1 },
+  { key: 'paymentFailures', label: 'Payment failures', color: FAILURE_COLOR, sign: -1 },
+];
+
+/**
+ * All four weekday breakdowns on one axis: what the week brings in above the
+ * line, what it loses below it. Recharts stacks same-signed values together
+ * within a stackId, so negating the churn means is all it takes to get two
+ * stacks growing away from zero.
+ *
+ * Note the asymmetry of scale — acquisition is an order of magnitude larger
+ * than churn on a healthy week, so the lower half is deliberately a sliver.
+ * The per-metric views next to this one are where a churn weekday effect is
+ * actually legible, and where its significance test lives.
+ */
+function CombinedWeekdayCard({
+  weekday,
+  options,
+  selected,
+  onSelect,
+  cardBg,
+  borderColor,
+  axisStroke,
+  mutedText,
+  textColor,
+}: {
+  weekday: WeekdayMetric[];
+  options: Array<{ key: WeekdaySelection; label: string }>;
+  selected: WeekdaySelection;
+  onSelect: (key: WeekdaySelection) => void;
+  cardBg: string;
+  borderColor: string;
+  axisStroke: string;
+  mutedText: string;
+  textColor: string;
+}) {
+  const byKey = new Map(weekday.map((w) => [w.key, w]));
+  const series = COMBINED_SERIES.filter((spec) => byKey.has(spec.key));
+
+  // Seven rows by four metrics — not worth memoizing, and hand-memoizing it
+  // would only re-derive on the same input anyway.
+  const labels = byKey.get(series[0]?.key)?.analysis.buckets.map((b) => b.label) ?? [];
+  const chartData = labels.map((label, i) => {
+    const row: Record<string, string | number> = { label };
+    for (const spec of series) {
+      const bucket = byKey.get(spec.key)!.analysis.buckets[i];
+      // Negating the churn means is the whole trick: Recharts stacks same-signed
+      // values together, so these grow downward from zero on their own.
+      row[spec.key] = (bucket?.mean ?? 0) * spec.sign;
+      row[`${spec.key}Raw`] = bucket?.mean ?? 0;
+      row[`${spec.key}Days`] = bucket?.days ?? 0;
+    }
+    return row;
+  });
+
+  return (
+    <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
+      <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
+        <h3 className="zg-h3" style={{ color: textColor }}>Day of week</h3>
+        <WeekdaySelector options={options} selected={selected} onSelect={onSelect} borderColor={borderColor} mutedText={mutedText} />
+      </div>
+
+      <div className="flex items-center gap-x-4 gap-y-1 text-xs flex-wrap mb-3" style={{ color: mutedText }}>
+        {series.map((spec) => (
+          <span key={spec.key}>
+            <span style={{ color: spec.color }}>●</span> {spec.label} {spec.sign > 0 ? '(above)' : '(below)'}
+          </span>
+        ))}
+      </div>
+
+      <ResponsiveContainer width="100%" height={260}>
+        <BarChart data={chartData} margin={{ top: 8, right: 12, left: -16, bottom: 8 }} stackOffset="sign">
+          <CartesianGrid strokeOpacity={0.1} vertical={false} />
+          <XAxis dataKey="label" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} />
+          <YAxis
+            stroke={axisStroke}
+            tick={{ fill: axisStroke, fontSize: 10 }}
+            tickLine={false}
+            tickFormatter={(v: number) => String(Math.abs(v))}
+          />
+          <ReferenceLine y={0} stroke={axisStroke} strokeOpacity={0.5} />
+          <Tooltip
+            cursor={{ fill: 'var(--color-text-primary)', fillOpacity: 0.06 }}
+            content={({ active, payload }) => {
+              if (!active || !payload?.length) return null;
+              const row = payload[0].payload as Record<string, string | number>;
+              return (
+                <div
+                  className="rounded-lg border px-3 py-2 text-xs"
+                  style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', color: 'var(--color-chart-tooltip-text)' }}
+                >
+                  <div className="font-semibold mb-1">Average {String(row.label)}</div>
+                  {series.map((spec) => (
+                    <div key={spec.key} style={{ color: spec.color }}>
+                      {spec.label}: {fmtRatio(Number(row[`${spec.key}Raw`]))}/day
+                    </div>
+                  ))}
+                  <div className="mt-1" style={{ color: mutedText }}>
+                    across {String(row[`${series[0]?.key}Days`] ?? 0)} of them
+                  </div>
+                </div>
+              );
+            }}
+          />
+          {series.map((spec) => (
+            <Bar
+              key={spec.key}
+              dataKey={spec.key}
+              name={spec.label}
+              stackId="weekday"
+              fill={spec.color}
+              maxBarSize={52}
+              isAnimationActive={false}
+            />
+          ))}
+        </BarChart>
+      </ResponsiveContainer>
+
+      <div className="mt-3 space-y-1">
+        {series.map((spec) => {
+          const { anova, peak, trough } = byKey.get(spec.key)!.analysis;
+          if (!peak || peak.days === 0) return null;
+          const significant = anova.p !== null && anova.p < 0.05;
+          return (
+            <p key={spec.key} className="text-xs" style={{ color: mutedText }}>
+              <span style={{ color: spec.color }}>●</span>{' '}
+              <strong style={{ color: textColor }}>{spec.label}</strong> peak {fmtRatio(peak.mean)} on{' '}
+              {peak.label}, low {fmtRatio(trough?.mean ?? null)} on {trough?.label} —{' '}
+              {anova.p === null
+                ? 'not enough variation yet to test.'
+                : significant
+                  ? `a real weekday effect (${fmtP(anova.p)}).`
+                  : `within what chance produces (${fmtP(anova.p)}), so unproven.`}
+            </p>
+          );
+        })}
+      </div>
+
+      <p className="text-xs mt-2" style={{ color: mutedText }}>
+        Bars are the mean per occurrence of that weekday (a window rarely holds seven of each).
+        Acquisition normally dwarfs churn, so the lower half is a sliver by design — open a single
+        metric above to see its own scale, error bars and significance test.
+      </p>
+    </div>
+  );
+}
 
 function WeekdayCard({
   weekday,
@@ -810,8 +1002,33 @@ function WeekdayCard({
   mutedText: string;
   textColor: string;
 }) {
-  const [selected, setSelected] = useState<MetricKey>(weekday[0]?.key ?? 'registrations');
-  const active = weekday.find((w) => w.key === selected) ?? weekday[0];
+  // 'combined' is the default: the one view that answers "does the week have a
+  // shape" for acquisition and churn at once. The per-metric views stay, because
+  // they are where the error bars and the ANOVA verdict live.
+  const [selected, setSelected] = useState<MetricKey | 'combined'>('combined');
+  const byKey = new Map(weekday.map((w) => [w.key, w]));
+  const options: Array<{ key: MetricKey | 'combined'; label: string }> = [
+    { key: 'combined', label: 'Combined' },
+    ...weekday.map((w) => ({ key: w.key as MetricKey | 'combined', label: w.label })),
+  ];
+
+  if (selected === 'combined') {
+    return (
+      <CombinedWeekdayCard
+        weekday={weekday}
+        options={options}
+        selected={selected}
+        onSelect={setSelected}
+        cardBg={cardBg}
+        borderColor={borderColor}
+        axisStroke={axisStroke}
+        mutedText={mutedText}
+        textColor={textColor}
+      />
+    );
+  }
+
+  const active = byKey.get(selected) ?? weekday[0];
   if (!active) return null;
 
   const chartData = active.analysis.buckets.map((b) => ({
@@ -830,22 +1047,7 @@ function WeekdayCard({
     <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
       <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
         <h3 className="zg-h3" style={{ color: textColor }}>Day of week</h3>
-        <div className="flex gap-2 flex-wrap">
-          {weekday.map((w) => (
-            <button
-              key={w.key}
-              type="button"
-              onClick={() => setSelected(w.key)}
-              className="px-2.5 py-1 text-xs font-semibold rounded"
-              style={{
-                color: selected === w.key ? 'var(--color-text-primary)' : mutedText,
-                border: `1px solid ${selected === w.key ? 'var(--color-warning)' : borderColor}`,
-              }}
-            >
-              {w.label}
-            </button>
-          ))}
-        </div>
+        <WeekdaySelector options={options} selected={selected} onSelect={setSelected} borderColor={borderColor} mutedText={mutedText} />
       </div>
 
       <p className="text-sm mb-3" style={{ color: mutedText }}>
@@ -1052,13 +1254,68 @@ type ImportOutcome = {
   details: string[];
 };
 
+/** Whole days between two 'YYYY-MM-DD' keys, or null if either is unusable. */
+function daysBetween(from: string | null, to: string | null): number | null {
+  if (!from || !to) return null;
+  const a = Date.parse(`${from}T00:00:00Z`);
+  const b = Date.parse(`${to}T00:00:00Z`);
+  if (Number.isNaN(a) || Number.isNaN(b)) return null;
+  return Math.round((b - a) / 86_400_000);
+}
+
+/**
+ * How current each imported feed is. These two columns are the only ones on the
+ * page that do NOT keep themselves up to date — everything else is derived from
+ * the audit log on every load — so the page has to say so out loud, or they go
+ * quietly stale and every correlation above starts silently shrinking its n.
+ */
+function FeedFreshness({
+  coverage,
+  latestDay,
+  mutedText,
+  textColor,
+}: {
+  coverage: CoverageRow[];
+  latestDay: string | null;
+  mutedText: string;
+  textColor: string;
+}) {
+  const feeds: Array<{ key: MetricKey; label: string }> = [
+    { key: 'xImpressions', label: 'X' },
+    { key: 'googleClicks', label: 'Google' },
+  ];
+  return (
+    <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs mb-3">
+      {feeds.map(({ key, label }) => {
+        const row = coverage.find((c) => c.key === key);
+        const behind = daysBetween(row?.lastDay ?? null, latestDay);
+        const stale = behind === null || behind > 3;
+        return (
+          <span key={key} style={{ color: stale ? 'var(--color-warning)' : mutedText }}>
+            <strong style={{ color: textColor }}>{label}:</strong>{' '}
+            {row && row.days > 0 && row.lastDay
+              ? behind !== null && behind > 0
+                ? `current through ${row.lastDay} — ${behind} day${behind === 1 ? '' : 's'} behind`
+                : `current through ${row.lastDay}`
+              : 'never imported'}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
 function ImportCard({
+  coverage,
+  latestDay,
   cardBg,
   borderColor,
   mutedText,
   textColor,
   onImported,
 }: {
+  coverage: CoverageRow[];
+  latestDay: string | null;
   cardBg: string;
   borderColor: string;
   mutedText: string;
@@ -1128,8 +1385,11 @@ function ImportCard({
         one exports. <strong>X:</strong> Analytics → Account overview → export by day (Impressions,
         Profile visits). <strong>Google:</strong> Search Console → Performance → Export → the
         &ldquo;Dates&rdquo; sheet (Clicks, Impressions). Re-importing a corrected export overwrites
-        only the days and columns it contains, so it is safe to run repeatedly.
+        only the days and columns it contains, so it is safe to run repeatedly. Nothing here updates
+        on its own — these two columns are the only ones on the page that need you.
       </p>
+
+      <FeedFreshness coverage={coverage} latestDay={latestDay} mutedText={mutedText} textColor={textColor} />
 
       <div className="flex gap-2 mb-3 flex-wrap">
         {([
