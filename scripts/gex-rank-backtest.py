@@ -87,6 +87,7 @@ import math
 import os
 import random
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -104,18 +105,40 @@ SEED = 20260903
 # API
 # --------------------------------------------------------------------------
 
-def _get(base: str, path: str, params: Dict[str, Any], key: str, timeout: int = 120) -> Any:
+# Transient on a long run: the rate limiter, or a gateway blinking. One of these
+# used to abort the whole thing, which on a 120-session pass means discarding
+# several minutes of completed work at session 90 -- and the obvious reaction to
+# that is to rerun with fewer sessions, which is exactly the wrong direction
+# when 80 is already the floor for detecting anything.
+_RETRY_STATUS = frozenset({429, 500, 502, 503, 504})
+
+
+def _get(base: str, path: str, params: Dict[str, Any], key: str,
+         timeout: int = 120, attempts: int = 5) -> Any:
     url = base.rstrip("/") + path + "?" + urllib.parse.urlencode(params)
     req = urllib.request.Request(url, headers={
         "Authorization": "Bearer " + key,
         "Accept": "application/json",
     })
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        body = exc.read().decode("utf-8", "replace")[:400]
-        raise SystemExit(f"HTTP {exc.code} on {path}: {body}") from exc
+    for attempt in range(attempts):
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            if exc.code not in _RETRY_STATUS or attempt == attempts - 1:
+                body = exc.read().decode("utf-8", "replace")[:400]
+                raise SystemExit(f"HTTP {exc.code} on {path}: {body}") from exc
+            # Honour Retry-After when the limiter sends one: it knows its own
+            # window better than a doubling guess does.
+            wait = float(exc.headers.get("Retry-After") or 0) or (2.0 ** attempt)
+            print(f"    HTTP {exc.code}, retrying in {wait:.0f}s "
+                  f"({attempt + 1}/{attempts - 1})", file=sys.stderr)
+            time.sleep(wait)
+        except (urllib.error.URLError, TimeoutError) as exc:
+            if attempt == attempts - 1:
+                raise SystemExit(f"network error on {path}: {exc}") from exc
+            time.sleep(2.0 ** attempt)
+    raise SystemExit(f"exhausted retries on {path}")
 
 
 def list_sessions(base: str, key: str, symbol: str, limit: int) -> List[str]:
@@ -656,6 +679,8 @@ def main() -> int:
     p.add_argument("--band-pct", type=float, default=0.04, dest="band_pct")
     p.add_argument("--base", default=os.environ.get("ZEROGEX_API_BASE", DEFAULT_BASE))
     p.add_argument("--key", default=os.environ.get("ZEROGEX_API_KEY", ""))
+    p.add_argument("--sleep", type=float, default=0.0,
+                   help="seconds between sessions; raise it if the limiter pushes back")
     p.add_argument("--json", help="write the raw per-session observations here")
     p.add_argument("--self-test", action="store_true")
     args = p.parse_args()
@@ -691,6 +716,8 @@ def main() -> int:
         )
         (sessions.append(obs) if obs else skipped.append(f"{d}: too little data"))
         print(f"  {d} … {'ok' if obs else 'skipped'}", file=sys.stderr)
+        if args.sleep:
+            time.sleep(args.sleep)
 
     if not sessions:
         print("Nothing usable.", file=sys.stderr)
