@@ -26,6 +26,8 @@
     "test:backtest-featured": "node --experimental-strip-types --test tests/backtestFeatured.test.ts",
     "test:insights-view": "node --experimental-strip-types --test tests/insightsView.test.ts",
     "test:page-analytics": "node --experimental-strip-types --test tests/pageAnalytics.test.ts",
+    "test:daily-metrics": "node --experimental-strip-types --test tests/dailyMetricsMath.test.ts",
+    "test:daily-metrics-db": "node --experimental-strip-types --test tests/dailyMetrics.test.ts",
     "test:premium-breakeven": "node --experimental-strip-types --test tests/premiumBreakeven.test.ts",
     "test:chart-settings": "node --experimental-strip-types --test tests/chartSettings.test.ts",
     "test:bar-clock": "node --experimental-strip-types --test tests/barClock.test.ts",

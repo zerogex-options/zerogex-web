@@ -673,6 +673,86 @@ function initDb(): DatabaseSync {
   // and for accounts created before this shipped.
   ensureColumn('users', 'signup_utm_source', 'TEXT');
 
+  // ── Daily metrics rollup ──────────────────────────────────────────────────
+  // One row per ET calendar day, materialized by core/dailyMetrics.ts from the
+  // append-only sources this DB already holds (audit_events, users,
+  // page_view_events). It is a CACHE for every column but one, and can be
+  // rebuilt from scratch at any time — `make backfill-daily-metrics`.
+  //
+  // The one column it is NOT a cache for is the page-view pair. page_view_events
+  // is pruned at RETENTION_DAYS (180), so a day that ages past the horizon can
+  // never be recomputed; the rollup is where that history survives, and the
+  // upsert in core/dailyMetrics.ts refuses to overwrite a captured count with
+  // the 0 a post-prune recompute would produce (see `pageviews_authoritative`).
+  //
+  // NULL vs 0 is load-bearing throughout: NULL is "not measured" (a day before
+  // the beacon shipped, a metric never imported), 0 is "measured, and it was
+  // zero". The correlation code drops NULL pairs, so conflating the two would
+  // manufacture relationships out of missing data.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS daily_metrics (
+      day TEXT PRIMARY KEY,
+      trial_starts INTEGER NOT NULL DEFAULT 0,
+      paid_starts INTEGER NOT NULL DEFAULT 0,
+      cancels INTEGER NOT NULL DEFAULT 0,
+      payment_failures INTEGER NOT NULL DEFAULT 0,
+      registrations INTEGER NOT NULL DEFAULT 0,
+      unique_users INTEGER,
+      pageviews INTEGER,
+      pageviews_authoritative INTEGER NOT NULL DEFAULT 0,
+      computed_at TEXT NOT NULL
+    );
+  `);
+
+  // Off-platform daily numbers that cannot be derived from anything this app
+  // stores: X (Twitter) analytics and Google Search Console. Kept in their OWN
+  // table rather than as columns on daily_metrics so a rollup rebuild — which
+  // truncates and recomputes every derived column — can never clobber hand-
+  // imported history. Written only by the CSV importer.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS daily_external_metrics (
+      day TEXT PRIMARY KEY,
+      x_impressions INTEGER,
+      x_profile_visits INTEGER,
+      google_clicks INTEGER,
+      google_impressions INTEGER,
+      updated_at TEXT NOT NULL
+    );
+  `);
+
+  // The joined one-row-per-day shape, for ad-hoc `sqlite3` querying outside the
+  // app (the admin page reads the same join through core/dailyMetrics.ts). A
+  // day that exists in either table appears exactly once. Dropped and recreated
+  // on every boot rather than CREATE VIEW IF NOT EXISTS: a view holds no data,
+  // and IF NOT EXISTS would leave a stale definition behind after this file
+  // changes shape.
+  db.exec('DROP VIEW IF EXISTS daily_metrics_view;');
+  db.exec(`
+    CREATE VIEW daily_metrics_view AS
+    SELECT
+      d.day                         AS day,
+      d.trial_starts                AS trial_starts,
+      d.paid_starts                 AS paid_starts,
+      d.cancels                     AS cancels,
+      d.payment_failures            AS payment_failures,
+      d.registrations               AS registrations,
+      d.unique_users                AS unique_users,
+      d.pageviews                   AS pageviews,
+      x.x_impressions               AS x_impressions,
+      x.x_profile_visits            AS x_profile_visits,
+      x.google_clicks               AS google_clicks,
+      x.google_impressions          AS google_impressions
+    FROM daily_metrics d
+    LEFT JOIN daily_external_metrics x ON x.day = d.day
+    UNION ALL
+    SELECT
+      x.day, 0, 0, 0, 0, 0, NULL, NULL,
+      x.x_impressions, x.x_profile_visits, x.google_clicks, x.google_impressions
+    FROM daily_external_metrics x
+    WHERE NOT EXISTS (SELECT 1 FROM daily_metrics d WHERE d.day = x.day)
+    ORDER BY day;
+  `);
+
   return db;
 }
 

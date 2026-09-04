@@ -7,6 +7,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import MobileScrollableChart from '@/components/MobileScrollableChart';
 import BackendMonitoring from './BackendMonitoring';
+import DailySignals from './DailySignals';
 import { formatDayLabel, formatHourLabel, lighten, makeDayLabelFormatter, niceYScale } from './monitoringHelpers';
 import {
   buildSignupImpliedMrrProjection,
@@ -292,7 +293,7 @@ const METRICS: Array<{ key: MetricKey; title: string; color: string; description
   { key: 'uniqueIps', title: 'Unique Source IPs', color: ROW_COLORS.uniqueIps, description: 'Distinct client IPs observed during the bucket.' },
 ];
 
-type TabId = 'frontend' | 'backend' | 'stripe' | 'revenue' | 'conveyor';
+type TabId = 'frontend' | 'backend' | 'stripe' | 'revenue' | 'conveyor' | 'daily';
 
 export default function MonitoringClient() {
   const cardBg = 'var(--color-surface)';
@@ -307,7 +308,9 @@ export default function MonitoringClient() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (tab === 'backend') return;
+    // Both of these tabs own their own fetch, so the shared snapshot poll would
+    // be pure waste while either is open.
+    if (tab === 'backend' || tab === 'daily') return;
     let cancelled = false;
     const load = async () => {
       try {
@@ -346,6 +349,7 @@ export default function MonitoringClient() {
     { id: 'stripe', label: 'Stripe' },
     { id: 'revenue', label: 'Revenue Tracking' },
     { id: 'conveyor', label: 'Conversion Conveyor' },
+    { id: 'daily', label: 'Daily Signals' },
   ];
 
   return (
@@ -397,8 +401,11 @@ export default function MonitoringClient() {
       {tab === 'conveyor' && data && !loading && !error && (
         <ConveyorTab data={data} cardBg={cardBg} borderColor={borderColor} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} />
       )}
-      {tab !== 'backend' && loading && tab !== 'frontend' && <LoadingSpinner size="lg" />}
-      {tab !== 'backend' && error && tab !== 'frontend' && <ErrorMessage message={error} />}
+      {tab === 'daily' && (
+        <DailySignals cardBg={cardBg} borderColor={borderColor} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} />
+      )}
+      {tab !== 'backend' && tab !== 'daily' && loading && tab !== 'frontend' && <LoadingSpinner size="lg" />}
+      {tab !== 'backend' && tab !== 'daily' && error && tab !== 'frontend' && <ErrorMessage message={error} />}
     </PageShell>
   );
 }
