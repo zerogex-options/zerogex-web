@@ -65,9 +65,9 @@ export const RIBBON_BUCKET_MS = 5 * 60_000;
 
 /** Opacity per magnitude tier — three tiers keep the group count small. */
 export const RIBBON_TIER_OPACITY: Record<RibbonTier, number> = {
-  strong: 0.85,
-  mid: 0.6,
-  weak: 0.32,
+  strong: 0.82,
+  mid: 0.48,
+  weak: 0.22,
 };
 
 /** Below this fraction of the strongest orb in view, draw nothing. */
@@ -78,8 +78,9 @@ export const RIBBON_MIN_NORM = 0.03;
 const RX_FRACTION = 0.44;
 // Half-height cap as a fraction of the strike gap — never touches a neighbour.
 const RY_FRACTION = 0.46;
-// Sub-linear size curve so mid-weight strikes stay visible beside the walls.
-const RY_EXPONENT = 0.55;
+// Near-linear size curve: the walls fill their lane, mid-weight strikes stay
+// visible but clearly smaller, and the tape underneath keeps the lead.
+const RY_EXPONENT = 0.85;
 const RY_MIN = 0.7;
 const RX_MIN = 0.6;
 // Fallback strike gap (viewBox px) when the chain has a single strike in view.

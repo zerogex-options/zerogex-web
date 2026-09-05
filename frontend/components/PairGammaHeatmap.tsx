@@ -537,7 +537,21 @@ function HeatmapColumn({
           No strike data
         </div>
       ) : (
-        <div style={fit ? { position: "relative", height: bandH, overflow: "hidden" } : undefined}>
+        // Fit mode clips mid-row at both ends of the band; a short fade at each
+        // edge reads as a window onto the ladder rather than a torn row.
+        <div
+          style={
+            fit
+              ? {
+                  position: "relative",
+                  height: bandH,
+                  overflow: "hidden",
+                  maskImage: "linear-gradient(to bottom, transparent, #000 14px, #000 calc(100% - 14px), transparent)",
+                  WebkitMaskImage: "linear-gradient(to bottom, transparent, #000 14px, #000 calc(100% - 14px), transparent)",
+                }
+              : undefined
+          }
+        >
         <div style={fit ? { position: "absolute", left: 0, right: 0, top: rowsTop } : undefined}>
           {offsets.map((o) => {
             const cell = cellByOffset.get(o);
