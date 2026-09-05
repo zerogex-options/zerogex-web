@@ -17,12 +17,14 @@ Si colloca su una **scala 0–100, dove 50 è neutro.** **Non** è un punteggio 
 
 | Punteggio | Regime | Cosa significa |
 | --- | --- | --- |
-| ≥ 70 | **Trend / Expansion** | Regime direzionale forte — privilegia i trade nel bias prevalente |
-| 40 – 70 | **Controlled Trend** | Edge direzionale moderato — opera con size ridotta |
-| 20 – 40 | **Chop / Range** | Mercato laterale — fai fade degli estremi, evita i trade di trend |
-| < 20 | **High-Risk Reversal** | Solo mean-reversion — rischio di movimenti estremi elevato, tape fragile |
+| ≥ 70 | **Trend / Expansion** | Il maggiore movimento successivo delle quattro bande, storicamente |
+| 40 – 70 | **Controlled Trend** | Movimento successivo sopra la media |
+| 20 – 40 | **Chop / Range** | Movimento successivo sotto la media |
+| < 20 | **Compression** | Il minore movimento successivo delle quattro bande, storicamente |
 
-Nota che le bande riguardano il *regime*, non la *direzione*. Un tape laterale segna **20–40 sia che il mercato stia salendo lentamente, sia che stia scendendo.** È voluto — un punteggio basso in un mercato in salita non è una contraddizione, è il gauge che ti dice che è improbabile che il movimento vada in trend in modo pulito.
+Le bande sono ordinate per movimento successivo misurato: alle letture della banda superiore è storicamente seguito il range più ampio, a quella inferiore il più stretto. L'ordine regge su tutti gli orizzonti testati, ma l'effetto è moderato — sposta le probabilità, non le determina.
+
+Un limite che preferiamo dichiarare piuttosto che nascondere: il punteggio non è una lettura di regime pura. Due delle sue sei componenti misurano la *direzione* del flusso di opzioni anziché quanto si muove il prezzo, ed entrano nel punteggio con segno. In pratica un tape marcatamente ribassista può trascinare il punteggio nelle bande basse anche se la struttura delle opzioni non è cambiata. Stiamo separando le due letture; fino ad allora, considera un punteggio basso durante un calo netto come un segnale in parte direzionale, non come una pura previsione di range.
 
 ## Come viene costruito
 
@@ -46,7 +48,7 @@ Per ciascuna componente, **+1 depone per un regime tradabile / in trend; −1 de
 La pagina Composite Score mostra:
 
 - Il **gauge MSI** — punteggio sull'arco 0–100, colorato per *banda di regime* (non per rialzo/ribasso).
-- L'**etichetta di regime** — Trend / Expansion, Controlled Trend, Chop / Range o High-Risk Reversal.
+- L'**etichetta di regime** — Trend / Expansion, Controlled Trend, Chop / Range o Compression.
 - Il pannello delle **componenti contribuenti** — la spinta attuale di ciascun input, a destra per "trend", a sinistra per "chop / inversione", ordinato per magnitudine.
 - Il **Δ dall'apertura** e il **Δ ultimi 5 min** — di quanto si è mosso il punteggio di regime (verso il trend se positivo, verso il chop se negativo). Sono momentum di regime, non direzione.
 - Uno **sparkline** del punteggio nel corso della sessione.

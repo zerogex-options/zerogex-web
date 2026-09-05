@@ -17,12 +17,14 @@ Il se situe sur une **échelle de 0 à 100, où 50 est neutre.** Ce n'est **pas*
 
 | Score | Régime | Ce que cela signifie |
 | --- | --- | --- |
-| ≥ 70 | **Trend / Expansion** | Régime directionnel fort — privilégiez les trades dans le biais dominant |
-| 40 – 70 | **Controlled Trend** | Edge directionnel modéré — tradez avec une taille réduite |
-| 20 – 40 | **Chop / Range** | Marché en range — fadez les extrêmes, évitez les trades de tendance |
-| < 20 | **High-Risk Reversal** | Retour à la moyenne uniquement — risque de mouvement extrême élevé, tape fragile |
+| ≥ 70 | **Trend / Expansion** | Le plus grand parcours ultérieur des quatre bandes, historiquement |
+| 40 – 70 | **Controlled Trend** | Parcours ultérieur supérieur à la moyenne |
+| 20 – 40 | **Chop / Range** | Parcours ultérieur inférieur à la moyenne |
+| < 20 | **Compression** | Le plus faible parcours ultérieur des quatre bandes, historiquement |
 
-Notez que les bandes portent sur le *régime*, pas sur la *direction*. Un tape haché se lit **20–40 que le marché dérive vers le haut ou vers le bas.** C'est voulu — un score bas dans un marché en hausse n'est pas une contradiction, c'est la jauge qui vous dit que le mouvement a peu de chances de suivre une tendance nette.
+Les bandes sont ordonnées selon le parcours ultérieur mesuré : les lectures de la bande supérieure ont historiquement été suivies de l'amplitude la plus large, celles de la bande inférieure de la plus étroite. Cet ordre tient sur tous les horizons testés, mais l'effet est modéré — il déplace les probabilités, il ne les détermine pas.
+
+Une réserve que nous préférons énoncer plutôt que masquer : le score n'est pas une lecture de régime pure. Deux de ses six composantes mesurent la *direction* du flux d'options plutôt que la distance parcourue par le prix, et elles entrent dans le score de façon signée. En pratique, un tape fortement baissier peut tirer le score vers les bandes basses même si la structure d'options n'a pas changé. Nous séparons les deux lectures ; d'ici là, considérez un score bas pendant une forte baisse comme un signal en partie directionnel, et non comme une pure prévision d'amplitude.
 
 ## Comment il est construit
 
@@ -46,7 +48,7 @@ Pour chaque composante, **+1 plaide pour un régime tradable / de tendance ; −
 La page Composite Score affiche :
 
 - La **jauge MSI** — le score sur l'arc 0–100, coloré par *bande de régime* (pas par haussier/baissier).
-- Le **label de régime** — Trend / Expansion, Controlled Trend, Chop / Range, ou High-Risk Reversal.
+- Le **label de régime** — Trend / Expansion, Controlled Trend, Chop / Range, ou Compression.
 - Le panneau des **composantes contributrices** — la poussée actuelle de chaque entrée, à droite pour « tendance », à gauche pour « chop / retournement », triée par amplitude.
 - Le **Δ depuis l'ouverture** et le **Δ des 5 dernières min** — de combien le score de régime a bougé (vers la tendance si positif, vers le chop si négatif). Ce sont des indicateurs de momentum du régime, pas de direction.
 - Un **sparkline** du score sur la session.
