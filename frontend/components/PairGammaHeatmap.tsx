@@ -82,6 +82,10 @@ export interface HeatmapColumnInput {
   isPositive?: boolean;
   /** Session-open baseline for the Δ triangles (optional — live mode only). */
   sessionBaseline?: SessionBaselineInput | null;
+  /** ISO timestamp of the bucket the rows came from when the live tip had no
+   *  positioning and the ladder reached back through the strike history
+   *  (an ETF after the options close). Null / absent when the rows are live. */
+  positioningAsOf?: string | null;
   loading: boolean;
   error: string | null;
   /** The symbol dropdown, injected by the page so the ladder stays presentational. */
@@ -149,6 +153,14 @@ function fmtLevel(v: number): string {
 
 function fmtStrike(v: number): string {
   return Number.isInteger(v) ? v.toFixed(0) : v.toFixed(1);
+}
+
+/** "15:55 ET" for the as-of note; empty when the timestamp is unusable. */
+function fmtAsOfEt(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (!Number.isFinite(d.getTime())) return "";
+  return `${new Intl.DateTimeFormat("en-US", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "America/New_York" }).format(d)} ET`;
 }
 
 function fmtSpot(v: number | null): string {
@@ -522,6 +534,18 @@ function HeatmapColumn({
         <span>Strike</span>
         <span>Net GEX ({unitLabel})</span>
       </div>
+      {input.positioningAsOf && fmtAsOfEt(input.positioningAsOf) && (
+        // The tip had no positioning (options closed); these rows are the newest
+        // bucket that did. Its own line: the column is too narrow to share the
+        // label row without colliding with the unit label.
+        <div
+          className="px-2 pb-1 text-[9px] whitespace-nowrap"
+          style={{ color: "var(--color-warning)", marginTop: -2 }}
+          title="No live positioning in the latest analytics buckets (options closed or analytics paused). Showing the most recent bucket that carried dealer gamma; the header levels are live."
+        >
+          Positioning as of {fmtAsOfEt(input.positioningAsOf)}
+        </div>
+      )}
       </div>
 
       {input.error ? (

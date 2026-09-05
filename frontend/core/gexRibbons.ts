@@ -65,9 +65,9 @@ export const RIBBON_BUCKET_MS = 5 * 60_000;
 
 /** Opacity per magnitude tier — three tiers keep the group count small. */
 export const RIBBON_TIER_OPACITY: Record<RibbonTier, number> = {
-  strong: 0.9,
-  mid: 0.5,
-  weak: 0.2,
+  strong: 0.62,
+  mid: 0.36,
+  weak: 0.16,
 };
 
 /** Below this fraction of the strongest orb in view, draw nothing. */
@@ -78,11 +78,16 @@ export const RIBBON_MIN_NORM = 0.05;
 const RX_FRACTION = 0.44;
 // Half-height cap as a fraction of the strike gap — never touches a neighbour.
 export const RIBBON_RY_FRACTION = 0.5;
+// Absolute half-height cap, in viewBox units. The lane cap alone scales with
+// the price axis: zoom in (a 1-min chart spanning a dollar) and a $1 lane is
+// hundreds of units tall, so the walls ballooned. Past this the orb stops
+// growing and the ribbon reads the same at every zoom.
+export const RIBBON_RY_MAX = 22;
 // Linear size curve: an orb is as tall as its share of the heaviest strike in
 // view, so the walls fill their lane, ordinary strikes stay slivers, and the
 // tape underneath keeps the lead.
 const RY_EXPONENT = 1;
-const RY_MIN = 0.7;
+const RY_MIN = 1;
 const RX_MIN = 0.6;
 // Fallback strike gap (viewBox px) when the chain has a single strike in view.
 const FALLBACK_GAP = 12;
@@ -168,7 +173,7 @@ export function buildRibbonLayer(
 
   const gapPx =
     strikeStep != null ? Math.abs(geom.yPrice(geom.dMin) - geom.yPrice(geom.dMin + strikeStep)) : FALLBACK_GAP;
-  const maxRy = Math.max(RY_MIN, gapPx * RIBBON_RY_FRACTION);
+  const maxRy = Math.max(RY_MIN, Math.min(RIBBON_RY_MAX, gapPx * RIBBON_RY_FRACTION));
   const rx = Math.max(RX_MIN, geom.xStep * RX_FRACTION);
 
   const groups = new Map<string, { strike: number; positive: boolean; tier: RibbonTier; parts: string[] }>();
