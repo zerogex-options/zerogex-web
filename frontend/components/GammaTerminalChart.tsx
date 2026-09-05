@@ -164,11 +164,22 @@ const RAIL_HALF = (RAIL_RIGHT - RAIL_LEFT) / 2 - 10;
 // Terminal mode (hideRail): the tape runs out to where the rail used to end,
 // keeping the same-width axis / tag column beside it.
 const PLOT_RIGHT_NO_RAIL = RAIL_RIGHT - (RAIL_LEFT - PLOT_RIGHT);
-// Ribbon tints — the ladder's own sign tokens (PairGammaHeatmap), so a
-// ribbon on the tape and the row beside it in the Gamma Terminal read alike:
-// warm = dealer long gamma (pinning), cool = short gamma (trending).
-const RIBBON_POS_COLOR = "var(--heat-mid)";
-const RIBBON_NEG_COLOR = "var(--color-info)";
+// Ribbon colors — neon orbs: a saturated hue blooms around each orb (blurred
+// copy underneath) and a hot, near-white rim sits on top; the body is a
+// bright mix of the two. Sign keeps the ladder's warm (dealer long gamma) /
+// cool (short gamma) convention. Tokens live in globals.css with per-theme
+// values; the fallbacks are the dark-theme neon set.
+const RIBBON_POS_GLOW = "var(--ribbon-pos-glow, #FFB300)";
+const RIBBON_POS_CORE = "var(--ribbon-pos-core, #FFF1B8)";
+const RIBBON_NEG_GLOW = "var(--ribbon-neg-glow, #7C6CFF)";
+const RIBBON_NEG_CORE = "var(--ribbon-neg-core, #E4E0FF)";
+const RIBBON_POS_BODY = `color-mix(in srgb, ${RIBBON_POS_CORE} 45%, ${RIBBON_POS_GLOW})`;
+const RIBBON_NEG_BODY = `color-mix(in srgb, ${RIBBON_NEG_CORE} 45%, ${RIBBON_NEG_GLOW})`;
+// Bloom strength per magnitude tier (the crisp orb itself uses
+// RIBBON_TIER_OPACITY from core/gexRibbons).
+const RIBBON_GLOW_OPACITY: Record<"strong" | "mid" | "weak", number> = { strong: 0.7, mid: 0.35, weak: 0.12 };
+// Blur radius of the bloom, in viewBox units (~2 CSS px at typical widths).
+const RIBBON_GLOW_BLUR = 2.8;
 
 // ── Gamma-by-strike rail view ── the rail draws either the smoothed net
 // silhouette (default, existing behavior) or discrete per-strike bars: NET
@@ -1890,6 +1901,7 @@ export default function GammaTerminalChart({
   const RAIL_POS_GRADIENT_ID = `zg-gc-rail-pos-${defsId}`;
   const RAIL_NEG_GRADIENT_ID = `zg-gc-rail-neg-${defsId}`;
   const PLOT_CLIP_ID = `zg-gc-plot-clip-${defsId}`;
+  const RIBBON_GLOW_ID = `zg-gc-ribbon-glow-${defsId}`;
 
   // ── Loading / error / empty ──────────────────────────────────────────────
   if (loading && bars.length === 0) {
@@ -2267,7 +2279,7 @@ export default function GammaTerminalChart({
             <OverlayPill label="Gamma Rail" color="var(--color-bull)" active={overlays.rail} onClick={() => setOverlays((o) => ({ ...o, rail: !o.rail }))} />
           )}
           {live && (
-            <OverlayPill label="Ribbons" color={RIBBON_POS_COLOR} active={overlays.ribbons} onClick={() => setOverlays((o) => ({ ...o, ribbons: !o.ribbons }))} />
+            <OverlayPill label="Ribbons" color={RIBBON_POS_GLOW} active={overlays.ribbons} onClick={() => setOverlays((o) => ({ ...o, ribbons: !o.ribbons }))} />
           )}
           <OverlayPill label="Regime" color="var(--color-accent-hot)" active={overlays.regime} onClick={() => setOverlays((o) => ({ ...o, regime: !o.regime }))} />
           <OverlayPill label="VWAP" color="var(--color-hazy)" active={overlays.vwap} onClick={() => setOverlays((o) => ({ ...o, vwap: !o.vwap }))} />
@@ -2439,6 +2451,12 @@ export default function GammaTerminalChart({
                 <stop offset="0%" stopColor="var(--color-bear)" stopOpacity={0.12} />
                 <stop offset="100%" stopColor="var(--color-bear)" stopOpacity={0.55} />
               </linearGradient>
+              {/* Bloom for the neon ribbons: one blur over the whole glow group,
+                  so a session of orbs costs a single filter pass. The region
+                  is padded past the group's box so the blur is not clipped. */}
+              <filter id={RIBBON_GLOW_ID} x="-5%" y="-15%" width="110%" height="130%" colorInterpolationFilters="sRGB">
+                <feGaussianBlur stdDeviation={RIBBON_GLOW_BLUR} />
+              </filter>
               <clipPath id={PLOT_CLIP_ID}>
                 <rect x={PLOT_LEFT} y={PAD_TOP} width={plotRight - PLOT_LEFT} height={PRICE_BOTTOM - PAD_TOP} />
               </clipPath>
@@ -2491,11 +2509,26 @@ export default function GammaTerminalChart({
                 running along the session. Grouped paths, not per-orb nodes. */}
             {ribbonLayer && ribbonLayer.paths.length > 0 && (
               <g clipPath={`url(#${PLOT_CLIP_ID})`} pointerEvents="none" aria-hidden>
+                {/* Bloom: the saturated hue, blurred, under everything. */}
+                <g className="zg-gc-ribbon-glow" filter={`url(#${RIBBON_GLOW_ID})`}>
+                  {ribbonLayer.paths.map((p) => (
+                    <path
+                      key={`ribbon-glow-${p.strike}-${p.positive ? "p" : "n"}-${p.tier}`}
+                      d={p.d}
+                      fill={p.positive ? RIBBON_POS_GLOW : RIBBON_NEG_GLOW}
+                      opacity={RIBBON_GLOW_OPACITY[p.tier]}
+                    />
+                  ))}
+                </g>
+                {/* Tube: bright body with a hot rim. */}
                 {ribbonLayer.paths.map((p) => (
                   <path
                     key={`ribbon-${p.strike}-${p.positive ? "p" : "n"}-${p.tier}`}
                     d={p.d}
-                    fill={p.positive ? RIBBON_POS_COLOR : RIBBON_NEG_COLOR}
+                    fill={p.positive ? RIBBON_POS_BODY : RIBBON_NEG_BODY}
+                    stroke={p.positive ? RIBBON_POS_CORE : RIBBON_NEG_CORE}
+                    strokeWidth={0.7}
+                    strokeOpacity={0.7}
                     opacity={RIBBON_TIER_OPACITY[p.tier]}
                   />
                 ))}

@@ -98,6 +98,16 @@
 
   --heat-low: #FFD380;
   --heat-mid: #FF8531;
+  /* GEX ribbons (Gamma Terminal): the per-strike gamma history drawn as
+     neon orbs behind the tape. `*-glow` is the saturated hue that blooms
+     around each orb, `*-core` the hot rim. Sign follows the ladder's
+     warm (dealer long gamma) / cool (short gamma) convention. Light themes
+     get deeper hues so the tube reads on a pale ground; the dark variants
+     below are the neon ones. */
+  --ribbon-pos-glow: #F59E0B;
+  --ribbon-pos-core: #B45309;
+  --ribbon-neg-glow: #6366F1;
+  --ribbon-neg-core: #3730A3;
   --heat-high: #FF6361;
 
   --chart-1: #1BC47D;
@@ -168,6 +178,11 @@
 }
 
 :root.dark {
+  /* Neon ribbons: saturated bloom, near-white hot rim. */
+  --ribbon-pos-glow: #FFB300;
+  --ribbon-pos-core: #FFF1B8;
+  --ribbon-neg-glow: #7C6CFF;
+  --ribbon-neg-core: #E4E0FF;
   --background: #00202E;
   --foreground: #FFF1E6;
 
@@ -2338,4 +2353,15 @@ body.zg-col-resizing,
 body.zg-col-resizing * {
   cursor: col-resize !important;
   user-select: none !important;
+}
+
+/* Gamma Chart GEX ribbons — the blurred glow layer under the neon orbs.
+   Screen-blended on dark grounds so overlapping blooms add light the way a
+   tube does; on light grounds screen would only wash toward white, so the
+   glow stays a plain soft halo there. */
+.zg-gc-ribbon-glow {
+  mix-blend-mode: normal;
+}
+:root.dark .zg-gc-ribbon-glow {
+  mix-blend-mode: screen;
 }

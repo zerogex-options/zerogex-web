@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   RIBBON_BUCKET_MS,
+  RIBBON_RY_FRACTION,
   RIBBON_TIER_OPACITY,
   buildRibbonLayer,
   ellipsePath,
@@ -105,7 +106,7 @@ test("orb height follows magnitude, caps below the strike gap, and the noise flo
   assert.equal(layer.count, 3);
   const ry = new Map(layer.paths.map((p) => [p.strike, maxRy(p.d)]));
   assert.ok((ry.get(750) ?? 0) > (ry.get(751) ?? 0), "wall orb is taller");
-  assert.ok((ry.get(750) ?? 0) <= 10 * 0.46 + 1e-9, "never taller than the strike gap");
+  assert.ok((ry.get(750) ?? 0) <= 10 * RIBBON_RY_FRACTION + 1e-9, "never taller than the strike gap");
   assert.equal(ry.has(752), false);
   assert.equal(layer.paths.find((p) => p.strike === 748)?.positive, false);
   assert.equal(layer.paths.find((p) => p.strike === 750)?.tier, "strong");
