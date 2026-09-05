@@ -35,7 +35,7 @@
  * literally this file's column, so the two surfaces can't drift apart.
  */
 
-import { useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Crown } from "lucide-react";
 import { gexScaleFactor, GEX_UNIT_LABEL, type GexUnit } from "@/core/GexUnitContext";
 import { selectActiveCells } from "@/core/strikeFilter";
@@ -54,6 +54,19 @@ export interface HeatmapCell {
 export interface SessionBaselineInput {
   netByStrike: Map<number, number>;
   frameTs: string | null;
+}
+
+/**
+ * Fit the ladder to a band beside another instrument (the Gamma Terminal's
+ * chart): the strike rows are clipped to `bottom` and slid so the spot row's
+ * center lands on `spotY`. Both are CSS px from the top edge of the ladder
+ * element itself; the caller measures where the chart's spot sits and
+ * subtracts the ladder's own offset. Rows keep their fixed height — the
+ * ladder stays a strike list, only its window and its anchor move.
+ */
+export interface LadderFit {
+  spotY: number;
+  bottom: number;
 }
 
 export interface HeatmapColumnInput {
@@ -100,7 +113,10 @@ const LEVEL_META: Record<LevelKey, { label: string; short: string; code: string;
 const LEVEL_ORDER: LevelKey[] = ["flip", "call", "put", "pain"];
 
 // ---- Layout constants -------------------------------------------------------
-const ROW_H = 20; // px per strike row — identical across both columns => aligned
+export const ROW_H = 20; // px per strike row — identical across both columns => aligned
+// Height of the shared session-Δ caption strip under the ladder (fit mode
+// reserves it so the rows band never pushes the strip below the fit bottom).
+const DELTA_LEGEND_H = 22;
 // Strikes shown on each side of the spot-nearest center. Callers can shorten the
 // window (a dashboard tile is far shorter than the page's full-height ladder);
 // the pair page keeps the full depth.
@@ -431,12 +447,31 @@ function HeatmapColumn({
   model,
   offsets,
   gexUnit,
+  fit = null,
 }: {
   model: ColumnModel;
   offsets: number[];
   gexUnit: GexUnit;
+  fit?: LadderFit | null;
 }) {
   const { input, cellByOffset, arrowsByOffset, clip, gexScale, peakOffset } = model;
+  // Fit mode needs the header's rendered height to place the rows band: the
+  // legend wraps differently per width and per theme font, so measure it.
+  const headRef = useRef<HTMLDivElement | null>(null);
+  const [headH, setHeadH] = useState(0);
+  const fitted = fit != null;
+  useEffect(() => {
+    if (!fitted) return;
+    const el = headRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setHeadH(el.getBoundingClientRect().height));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [fitted]);
+  // Slide the rows so the spot row (offset 0) is centered on the fit anchor.
+  const centerRow = Math.max(0, offsets.indexOf(0));
+  const rowsTop = fit ? fit.spotY - headH - (centerRow + 0.5) * ROW_H : 0;
+  const bandH = fit ? Math.max(0, fit.bottom - headH) : 0;
   const unitLabel = GEX_UNIT_LABEL[gexUnit];
   const lv = model.levelValues;
   // Session-Δ overlay: a column with a baseline reserves a fixed slot before
@@ -448,6 +483,7 @@ function HeatmapColumn({
 
   return (
     <div className="min-w-0 flex flex-col">
+      <div ref={headRef}>
       {/* Column header — dropdown + regime, then spot + change, then level legend */}
       <div
         className="px-2 pt-2 pb-2 flex flex-col gap-1.5"
@@ -486,6 +522,7 @@ function HeatmapColumn({
         <span>Strike</span>
         <span>Net GEX ({unitLabel})</span>
       </div>
+      </div>
 
       {input.error ? (
         <div className="px-2">
@@ -500,7 +537,8 @@ function HeatmapColumn({
           No strike data
         </div>
       ) : (
-        <div>
+        <div style={fit ? { position: "relative", height: bandH, overflow: "hidden" } : undefined}>
+        <div style={fit ? { position: "absolute", left: 0, right: 0, top: rowsTop } : undefined}>
           {offsets.map((o) => {
             const cell = cellByOffset.get(o);
             const arrows = arrowsByOffset.get(o) ?? [];
@@ -589,6 +627,7 @@ function HeatmapColumn({
             );
           })}
         </div>
+        </div>
       )}
     </div>
   );
@@ -599,6 +638,8 @@ export default function PairGammaHeatmap({
   right,
   gexUnit,
   activeOnly = true,
+  fit = null,
+  maxSide = MAX_SIDE,
 }: {
   left: HeatmapColumnInput;
   right: HeatmapColumnInput;
@@ -607,9 +648,23 @@ export default function PairGammaHeatmap({
    *  real levels. Defaults on — high-priced chains (NDX) list many empty
    *  fine-grid strikes that otherwise crowd out the active 25-pt levels. */
   activeOnly?: boolean;
+  /** Pin the spot rows to a y and clip the rows to a band — see LadderFit. */
+  fit?: LadderFit | null;
+  /** Strikes kept on each side of spot; a fitted band may want more than the
+   *  page default so the clip never runs out of rows. */
+  maxSide?: number;
 }) {
-  const leftModel = useMemo(() => buildModel(left, gexUnit, activeOnly, MAX_SIDE), [left, gexUnit, activeOnly]);
-  const rightModel = useMemo(() => buildModel(right, gexUnit, activeOnly, MAX_SIDE), [right, gexUnit, activeOnly]);
+  const leftModel = useMemo(() => buildModel(left, gexUnit, activeOnly, maxSide), [left, gexUnit, activeOnly, maxSide]);
+  const rightModel = useMemo(() => buildModel(right, gexUnit, activeOnly, maxSide), [right, gexUnit, activeOnly, maxSide]);
+  // The Δ caption strip renders under the columns; in fit mode the rows band
+  // gives up that much so the strip still ends at the fit bottom.
+  const hasLegend = !!(left.sessionBaseline || right.sessionBaseline);
+  const fitSpotY = fit?.spotY ?? null;
+  const fitBottom = fit?.bottom ?? null;
+  const columnFit = useMemo<LadderFit | null>(
+    () => (fitSpotY != null && fitBottom != null ? { spotY: fitSpotY, bottom: fitBottom - (hasLegend ? DELTA_LEGEND_H : 0) } : null),
+    [fitSpotY, fitBottom, hasLegend],
+  );
 
   const offsets = useMemo(() => columnOffsets([leftModel, rightModel]), [leftModel, rightModel]);
 
@@ -622,13 +677,13 @@ export default function PairGammaHeatmap({
     <div className="overflow-x-auto">
       <div className="flex" style={{ gap: 1, background: "var(--border-default)" }}>
         <div style={{ flex: "1 1 175px", minWidth: 175, background: "var(--bg-card)" }}>
-          <HeatmapColumn model={leftModel} offsets={offsets} gexUnit={gexUnit} />
+          <HeatmapColumn model={leftModel} offsets={offsets} gexUnit={gexUnit} fit={columnFit} />
         </div>
         <div style={{ flex: "1 1 175px", minWidth: 175, background: "var(--bg-card)" }}>
-          <HeatmapColumn model={rightModel} offsets={offsets} gexUnit={gexUnit} />
+          <HeatmapColumn model={rightModel} offsets={offsets} gexUnit={gexUnit} fit={columnFit} />
         </div>
       </div>
-      {(left.sessionBaseline || right.sessionBaseline) && <DeltaLegend />}
+      {hasLegend && <DeltaLegend />}
     </div>
   );
 }

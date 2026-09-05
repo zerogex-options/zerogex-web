@@ -46,6 +46,7 @@ import { netGexAtSpotOrNull, aboveFlipBandIsLong, offScaleBandIsLong } from "@/c
 import { computeMaxPainFromStrikes } from "@/core/keyLevels";
 import { pinLineLabel } from "@/core/pinStrike";
 import { barClock, formatBarDuration } from "@/core/barClock";
+import { buildRibbonLayer, RIBBON_TIER_OPACITY } from "@/core/gexRibbons";
 import {
   buildExpirationSplit,
   expirationOpacityRamp,
@@ -100,6 +101,7 @@ interface OverlayState {
   regime: boolean; // long/short gamma background zones
   expectedRange: boolean; // IV-derived ±1σ expected-range band (Daily/Weekly/Monthly)
   barTimer: boolean; // countdown + elapsed on the forming candle
+  ribbons: boolean; // GEX ribbons: per-strike dealer gamma through time, behind the tape
 }
 
 const DEFAULT_OVERLAYS: OverlayState = {
@@ -114,6 +116,7 @@ const DEFAULT_OVERLAYS: OverlayState = {
   king: false,
   expectedRange: false,
   barTimer: false,
+  ribbons: false,
 };
 
 const OVERLAY_STORAGE_KEY = "zg.gammaChart.overlays.v1";
@@ -138,7 +141,8 @@ const INNER_PAD_X = 12; // left inset before the first bar
 // sit on the axis. (Grid + level lines still run the full width to PLOT_RIGHT;
 // only the bars are inset.)
 const PAD_RIGHT = 82;
-const AXIS_COL_X = PLOT_RIGHT + 10; // right-hand price axis / tag column
+// The right-hand price axis / tag column sits 10 units past the plot edge —
+// `axisColX` inside the component, since the edge moves in terminal mode.
 
 // View window (zoom + pan). We keep a deep pool of bars in memory and show a
 // movable slice of it; the price axis auto-fits whatever is visible.
@@ -157,6 +161,14 @@ const RAIL_LEFT = 1172;
 const RAIL_RIGHT = 1352;
 const RAIL_CENTER = (RAIL_LEFT + RAIL_RIGHT) / 2;
 const RAIL_HALF = (RAIL_RIGHT - RAIL_LEFT) / 2 - 10;
+// Terminal mode (hideRail): the tape runs out to where the rail used to end,
+// keeping the same-width axis / tag column beside it.
+const PLOT_RIGHT_NO_RAIL = RAIL_RIGHT - (RAIL_LEFT - PLOT_RIGHT);
+// Ribbon tints — the ladder's own sign tokens (PairGammaHeatmap), so a
+// ribbon on the tape and the row beside it in the Gamma Terminal read alike:
+// warm = dealer long gamma (pinning), cool = short gamma (trending).
+const RIBBON_POS_COLOR = "var(--heat-mid)";
+const RIBBON_NEG_COLOR = "var(--color-info)";
 
 // ── Gamma-by-strike rail view ── the rail draws either the smoothed net
 // silhouette (default, existing behavior) or discrete per-strike bars: NET
@@ -339,20 +351,59 @@ export interface ChartSnapshot {
   vwap: number | null;
 }
 
+/**
+ * Where the tape sits on screen, in CSS px from the top edge of the chart card,
+ * reported through `onGeometry` so a surface mounting instruments beside the
+ * chart (the Gamma Terminal's ladders) can pin its rows to the same y. Measured
+ * from the rendered SVG, not derived: the viewBox scales with the container.
+ */
+export interface ChartGeometry {
+  /** Top / bottom of the price plot band. */
+  plotTop: number;
+  plotBottom: number;
+  /** y of the live spot price, null when spot is unknown. */
+  spotY: number | null;
+  /** Rendered height of the whole chart card. */
+  height: number;
+}
+
 // ── Component ────────────────────────────────────────────────────────────────
 export default function GammaTerminalChart({
   className = "",
   snapshot = null,
   delayed: delayedProp = false,
+  hideRail = false,
+  centerPriceOnSpot = false,
+  storageScope,
+  overlayDefaults,
+  onGeometry,
 }: {
   className?: string;
   snapshot?: ChartSnapshot | null;
   /** Force delayed (public) mode even without a snapshot, so a failed snapshot
    *  fetch degrades to an empty delayed chart rather than live client polling. */
   delayed?: boolean;
+  /** Terminal mode: drop the gamma-structure rail column (a ladder beside the
+   *  chart carries that information) and give its width to the tape. */
+  hideRail?: boolean;
+  /** Hold the live spot at the vertical center of the tape, so instruments
+   *  beside the chart that are centered on spot line up with it. */
+  centerPriceOnSpot?: boolean;
+  /** Suffix for the persisted view preferences, so a surface with its own
+   *  defaults never rewrites /chart's saved view (or the reverse). */
+  storageScope?: string;
+  /** Overlay defaults for this surface; a saved view still wins after hydration. */
+  overlayDefaults?: Partial<OverlayState>;
+  /** Receives the tape's on-screen geometry whenever it changes. */
+  onGeometry?: (geometry: ChartGeometry) => void;
 }) {
   const delayed = delayedProp || !!snapshot;
   const live = !delayed;
+  // Per-instance plot geometry: without the rail the tape widens to where the
+  // rail used to end and the axis / tag column moves out with it.
+  const plotRight = hideRail ? PLOT_RIGHT_NO_RAIL : PLOT_RIGHT;
+  const axisColX = plotRight + 10;
+  const axisRight = hideRail ? VW : RAIL_LEFT;
   const { symbol: ctxSymbol, setSymbol } = useTimeframe();
   const symbol = snapshot ? snapshot.symbol : ctxSymbol;
   // On a linked split board the price axis is shared with the other half — see
@@ -368,7 +419,9 @@ export default function GammaTerminalChart({
   const [timeframeState, setTimeframe] = useState<ChartTimeframe>("5min");
   const timeframe = snapshot ? snapshot.timeframe : timeframeState;
   const [style, setStyle] = useState<PriceStyle>("candles");
-  const [overlays, setOverlays] = useState<OverlayState>(DEFAULT_OVERLAYS);
+  const [overlays, setOverlays] = useState<OverlayState>(() => ({ ...DEFAULT_OVERLAYS, ...overlayDefaults }));
+  // The rail cannot be shown at all in terminal mode — its column is gone.
+  const railOn = overlays.rail && !hideRail;
   const [erHorizon, setErHorizon] = useState<HorizonKey>("daily");
   const [hydrated, setHydrated] = useState(false);
   const [view, setView] = useState<{ count: number; offset: number }>({ count: DEFAULT_COUNT, offset: 0 });
@@ -445,6 +498,14 @@ export default function GammaTerminalChart({
     if (!selectionIsRollingZeroDte(rawRailExpiries)) setRailExpiries([]);
   }
 
+  // Persisted-preference keys. A surface that mounts this chart beside other
+  // instruments (the Gamma Terminal) scopes them so its defaults — ribbons on,
+  // no rail — never leak into /chart's saved view, and vice versa.
+  const overlayKey = storageScope ? `${OVERLAY_STORAGE_KEY}.${storageScope}` : OVERLAY_STORAGE_KEY;
+  const styleKey = storageScope ? `${STYLE_STORAGE_KEY}.${storageScope}` : STYLE_STORAGE_KEY;
+  const erKey = storageScope ? `${ER_HORIZON_STORAGE_KEY}.${storageScope}` : ER_HORIZON_STORAGE_KEY;
+  const railKey = storageScope ? `${RAIL_STORAGE_KEY}.${storageScope}` : RAIL_STORAGE_KEY;
+
   // Restore persisted view preferences once on mount. Server and the first
   // client render intentionally use the defaults; we only reconcile from
   // localStorage after mount so there is no hydration mismatch. The rule below
@@ -453,13 +514,13 @@ export default function GammaTerminalChart({
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     try {
-      const rawO = localStorage.getItem(OVERLAY_STORAGE_KEY);
+      const rawO = localStorage.getItem(overlayKey);
       if (rawO) setOverlays((cur) => ({ ...cur, ...JSON.parse(rawO) }));
-      const rawS = localStorage.getItem(STYLE_STORAGE_KEY);
+      const rawS = localStorage.getItem(styleKey);
       if (rawS === "candles" || rawS === "line" || rawS === "area") setStyle(rawS);
-      const rawH = localStorage.getItem(ER_HORIZON_STORAGE_KEY);
+      const rawH = localStorage.getItem(erKey);
       if (rawH === "daily" || rawH === "weekly" || rawH === "monthly") setErHorizon(rawH);
-      const rawR = localStorage.getItem(RAIL_STORAGE_KEY);
+      const rawR = localStorage.getItem(railKey);
       if (rawR) {
         const parsed = JSON.parse(rawR);
         if (parsed && typeof parsed === "object") {
@@ -473,44 +534,44 @@ export default function GammaTerminalChart({
       /* ignore malformed prefs */
     }
     setHydrated(true);
-  }, []);
+  }, [overlayKey, styleKey, erKey, railKey]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     if (!hydrated) return;
     try {
-      localStorage.setItem(OVERLAY_STORAGE_KEY, JSON.stringify(overlays));
+      localStorage.setItem(overlayKey, JSON.stringify(overlays));
     } catch {
       /* storage unavailable */
     }
-  }, [overlays, hydrated]);
+  }, [overlays, hydrated, overlayKey]);
 
   useEffect(() => {
     if (!hydrated) return;
     try {
-      localStorage.setItem(STYLE_STORAGE_KEY, style);
+      localStorage.setItem(styleKey, style);
     } catch {
       /* storage unavailable */
     }
-  }, [style, hydrated]);
+  }, [style, hydrated, styleKey]);
 
   useEffect(() => {
     if (!hydrated) return;
     try {
-      localStorage.setItem(ER_HORIZON_STORAGE_KEY, erHorizon);
+      localStorage.setItem(erKey, erHorizon);
     } catch {
       /* storage unavailable */
     }
-  }, [erHorizon, hydrated]);
+  }, [erHorizon, hydrated, erKey]);
 
   useEffect(() => {
     if (!hydrated) return;
     try {
-      localStorage.setItem(RAIL_STORAGE_KEY, JSON.stringify({ mode: railMode, labels: railLabels }));
+      localStorage.setItem(railKey, JSON.stringify({ mode: railMode, labels: railLabels }));
     } catch {
       /* storage unavailable */
     }
-  }, [railMode, railLabels, hydrated]);
+  }, [railMode, railLabels, hydrated, railKey]);
 
   const intervalMinutes = TIMEFRAMES.find((t) => t.value === timeframe)?.minutes ?? 5;
 
@@ -1032,6 +1093,7 @@ export default function GammaTerminalChart({
   const [hover, setHover] = useState<{ idx: number; price: number; px: number; py: number; w: number; h: number } | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{
     startX: number;
     startY: number;
@@ -1049,6 +1111,10 @@ export default function GammaTerminalChart({
   // over it — drives the ns-resize cursor, TradingView-style.
   const [axisZoomActive, setAxisZoomActive] = useState(false);
   const [overAxis, setOverAxis] = useState(false);
+
+  // Terminal mode: the price the tape is held centered on. The live quote when
+  // there is one, else the newest visible bar's close.
+  const centerSpot = centerPriceOnSpot ? (liveClose ?? (bars.length ? bars[bars.length - 1].close : null)) : null;
 
   // ── Domain / scales ──────────────────────────────────────────────────────
   const layout = useMemo(() => {
@@ -1071,6 +1137,14 @@ export default function GammaTerminalChart({
     const pad = (dMax - dMin) * 0.06 || dMax * 0.01;
     dMin -= pad;
     dMax += pad;
+    // Terminal mode: symmetric about spot, wide enough to keep every visible
+    // bar, so spot sits at the vertical center of the tape and the ladders
+    // beside it (centered on spot by construction) line up with it.
+    if (centerSpot != null && Number.isFinite(centerSpot)) {
+      const halfSpan = Math.max(centerSpot - dMin, dMax - centerSpot, barSpan * 0.5);
+      dMin = centerSpot - halfSpan;
+      dMax = centerSpot + halfSpan;
+    }
 
     // Auto-fit domain complete. Apply the manual vertical zoom/pan on top:
     // scrunch by priceView.zoom around a center (priceView.center, or the
@@ -1113,7 +1187,7 @@ export default function GammaTerminalChart({
     const n = bars.length;
     // Asymmetric insets: a small left pad, and a wide right gutter (PAD_RIGHT)
     // so the newest bar sits clear of the axis price tags.
-    const xStep = (PLOT_RIGHT - PLOT_LEFT - INNER_PAD_X - PAD_RIGHT) / Math.max(1, n - 1);
+    const xStep = (plotRight - PLOT_LEFT - INNER_PAD_X - PAD_RIGHT) / Math.max(1, n - 1);
     const candleWidth = Math.max(2, Math.min(15, xStep * 0.62));
     const maxVol = Math.max(...bars.map((b) => b.volume), 1);
     const priceAxis = niceAxis(dMin, dMax, 6);
@@ -1124,7 +1198,57 @@ export default function GammaTerminalChart({
     const yVol = (v: number) => VOL_BOTTOM - (v / maxVol) * (VOL_BOTTOM - VOL_TOP);
 
     return { dMin, dMax, autoMid, autoHalf, baseMid, baseHalf, xStep, candleWidth, maxVol, priceAxis, xForIndex, yPrice, priceForY, yVol, n };
-  }, [bars, flip, callWall, putWall, vwap, priceView.zoom, priceView.center, rewindActive, frozenAxis, priceLink, linkedView, linkedBase]);
+  }, [bars, flip, callWall, putWall, vwap, priceView.zoom, priceView.center, rewindActive, frozenAxis, priceLink, linkedView, linkedBase, centerSpot, plotRight]);
+
+  // Terminal mode: report where the tape's price band and the live spot sit, in
+  // CSS px from the card's top edge, so the ladders beside the chart can pin
+  // their spot row to the same y. Re-measured whenever the layout or the SVG's
+  // rendered size changes; only a real move is reported.
+  const geometryRef = useRef<ChartGeometry | null>(null);
+  const spotForGeometry = liveClose ?? (bars.length ? bars[bars.length - 1].close : null);
+  useEffect(() => {
+    if (!onGeometry) return;
+    const svg = svgRef.current;
+    const root = rootRef.current;
+    if (!svg || !root || !layout) return;
+    const report = () => {
+      const sRect = svg.getBoundingClientRect();
+      const rRect = root.getBoundingClientRect();
+      if (sRect.width <= 0) return;
+      const scale = sRect.width / VW;
+      const top = sRect.top - rRect.top;
+      const next: ChartGeometry = {
+        plotTop: top + PAD_TOP * scale,
+        plotBottom: top + PRICE_BOTTOM * scale,
+        spotY: spotForGeometry != null ? top + layout.yPrice(spotForGeometry) * scale : null,
+        height: rRect.height,
+      };
+      const prev = geometryRef.current;
+      const same = (a: number | null, b: number | null) => (a == null && b == null) || (a != null && b != null && Math.abs(a - b) < 0.5);
+      if (prev && same(prev.plotTop, next.plotTop) && same(prev.plotBottom, next.plotBottom) && same(prev.spotY, next.spotY) && same(prev.height, next.height)) return;
+      geometryRef.current = next;
+      onGeometry(next);
+    };
+    report();
+    const ro = new ResizeObserver(report);
+    ro.observe(svg);
+    ro.observe(root);
+    return () => ro.disconnect();
+  }, [onGeometry, layout, spotForGeometry]);
+
+  // GEX ribbons — the per-strike gamma history behind the tape, from the same
+  // 5-min strike-profile buckets the rail and rewind read (live only; the
+  // delayed snapshot carries no history). Pure geometry in core/gexRibbons.
+  const ribbonLayer = useMemo(() => {
+    if (!layout || !live || !overlays.ribbons || gexBuckets.length === 0) return null;
+    return buildRibbonLayer(bars, gexBuckets, {
+      xForIndex: layout.xForIndex,
+      yPrice: layout.yPrice,
+      xStep: layout.xStep,
+      dMin: layout.dMin,
+      dMax: layout.dMax,
+    });
+  }, [layout, live, overlays.ribbons, gexBuckets, bars]);
 
   // Publish this chart's own auto-fit domain so the link can union it with the
   // other half's (see core/linkedPriceAxis). Reports the RAW auto values, which
@@ -1255,7 +1379,7 @@ export default function GammaTerminalChart({
   // The snapshot is "now", so scrubbing back through rewind drops to the
   // bucket's plain aggregate bars.
   const railStackEnabled =
-    live && overlays.rail && !rewindActive &&
+    live && railOn && !rewindActive &&
     (effectiveRailMode === "split" || effectiveRailMode === "combined");
   // limit / sort match the GEX Strike Profile's call so the two pages hit the
   // identical URL (and therefore the same server-side read cache).
@@ -1408,7 +1532,7 @@ export default function GammaTerminalChart({
     const vx = (e.clientX - rect.left) * (VW / Math.max(1, rect.width));
     // A drag that starts on the right-hand price scale zooms the y-axis
     // (TradingView-style) rather than panning.
-    const axisZone = vx > PLOT_RIGHT && vx < RAIL_LEFT;
+    const axisZone = vx > plotRight && vx < axisRight;
     dragRef.current = {
       startX: e.clientX,
       startY: e.clientY,
@@ -1476,7 +1600,7 @@ export default function GammaTerminalChart({
     const vy = (e.clientY - rect.top) * (VH / Math.max(1, rect.height));
     // Over the price scale (not dragging): show the ns-resize affordance and
     // suppress the crosshair, so the drag-to-zoom target reads clearly.
-    const inAxis = vx > PLOT_RIGHT && vx < RAIL_LEFT;
+    const inAxis = vx > plotRight && vx < axisRight;
     if (inAxis) {
       if (!overAxis) setOverAxis(true);
       setHover(null);
@@ -1585,7 +1709,7 @@ export default function GammaTerminalChart({
       const rect = el.getBoundingClientRect();
       const vx = (e.clientX - rect.left) * (VW / Math.max(1, rect.width));
       const factor = e.deltaY < 0 ? 1 / ZOOM_FACTOR : ZOOM_FACTOR;
-      if (e.shiftKey || vx > PLOT_RIGHT) {
+      if (e.shiftKey || vx > plotRight) {
         zoomPriceRef.current(factor);
         return;
       }
@@ -1595,7 +1719,7 @@ export default function GammaTerminalChart({
       const curEnd = total - curOffset;
       const curStart = Math.max(0, curEnd - curCount);
       const curVisible = Math.max(1, curEnd - curStart);
-      const curXStep = (PLOT_RIGHT - PLOT_LEFT - INNER_PAD_X - PAD_RIGHT) / Math.max(1, curVisible - 1);
+      const curXStep = (plotRight - PLOT_LEFT - INNER_PAD_X - PAD_RIGHT) / Math.max(1, curVisible - 1);
       const rel = clamp((vx - PLOT_LEFT - INNER_PAD_X) / Math.max(1e-9, curXStep), 0, curVisible - 1);
       const cursorAbs = curStart + rel;
       const f = curVisible > 1 ? rel / (curVisible - 1) : 0.5;
@@ -1606,7 +1730,7 @@ export default function GammaTerminalChart({
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [view.count, view.offset, total]);
+  }, [view.count, view.offset, total, plotRight]);
 
   // ── Rewind controls ──────────────────────────────────────────────────────
   // Keep the latest bars in a ref so the playback interval can read them
@@ -1955,7 +2079,7 @@ export default function GammaTerminalChart({
   const headlinePrice = rewindActive ? spot : headline.displayPrice ?? spot;
 
   return (
-    <div className={`zg-feature-shell zg-gc-rise ${className}`} style={{ overflow: "hidden" }}>
+    <div ref={rootRef} className={`zg-feature-shell zg-gc-rise ${className}`} style={{ overflow: "hidden" }}>
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div
         className="flex flex-col gap-4 p-4 sm:p-5"
@@ -2139,7 +2263,12 @@ export default function GammaTerminalChart({
 
           {/* Overlay pills */}
           <OverlayPill label="Gamma Levels" color="var(--color-flip)" active={overlays.levels} onClick={() => setOverlays((o) => ({ ...o, levels: !o.levels }))} />
-          <OverlayPill label="Gamma Rail" color="var(--color-bull)" active={overlays.rail} onClick={() => setOverlays((o) => ({ ...o, rail: !o.rail }))} />
+          {!hideRail && (
+            <OverlayPill label="Gamma Rail" color="var(--color-bull)" active={overlays.rail} onClick={() => setOverlays((o) => ({ ...o, rail: !o.rail }))} />
+          )}
+          {live && (
+            <OverlayPill label="Ribbons" color={RIBBON_POS_COLOR} active={overlays.ribbons} onClick={() => setOverlays((o) => ({ ...o, ribbons: !o.ribbons }))} />
+          )}
           <OverlayPill label="Regime" color="var(--color-accent-hot)" active={overlays.regime} onClick={() => setOverlays((o) => ({ ...o, regime: !o.regime }))} />
           <OverlayPill label="VWAP" color="var(--color-hazy)" active={overlays.vwap} onClick={() => setOverlays((o) => ({ ...o, vwap: !o.vwap }))} />
           <OverlayPill label="Max Pain" color="var(--color-maxpain)" active={overlays.maxPain} onClick={() => setOverlays((o) => ({ ...o, maxPain: !o.maxPain }))} />
@@ -2175,7 +2304,7 @@ export default function GammaTerminalChart({
           {live && (
             <>
               <div className="hidden sm:block" style={{ width: 1, height: 22, background: "var(--border-default)" }} />
-              {overlays.rail && (
+              {railOn && (
                 <>
                   <div className="zg-gc-seg" role="tablist" aria-label="Gamma rail view">
                     {([
@@ -2311,7 +2440,7 @@ export default function GammaTerminalChart({
                 <stop offset="100%" stopColor="var(--color-bear)" stopOpacity={0.55} />
               </linearGradient>
               <clipPath id={PLOT_CLIP_ID}>
-                <rect x={PLOT_LEFT} y={PAD_TOP} width={PLOT_RIGHT - PLOT_LEFT} height={PRICE_BOTTOM - PAD_TOP} />
+                <rect x={PLOT_LEFT} y={PAD_TOP} width={plotRight - PLOT_LEFT} height={PRICE_BOTTOM - PAD_TOP} />
               </clipPath>
             </defs>
 
@@ -2323,19 +2452,19 @@ export default function GammaTerminalChart({
                 and the one on-screen band tints the whole plot. */}
             {overlays.regime && !regimeUnknown && regimeSplitY != null && (
               <g>
-                <rect x={PLOT_LEFT} y={PAD_TOP} width={PLOT_RIGHT - PLOT_LEFT} height={Math.max(0, regimeSplitY - PAD_TOP)} fill={`color-mix(in srgb, ${aboveBandIsLong ? "var(--color-bull)" : "var(--color-bear)"} 7%, transparent)`} />
-                <rect x={PLOT_LEFT} y={regimeSplitY} width={PLOT_RIGHT - PLOT_LEFT} height={Math.max(0, PRICE_BOTTOM - regimeSplitY)} fill={`color-mix(in srgb, ${aboveBandIsLong ? "var(--color-bear)" : "var(--color-bull)"} 7%, transparent)`} />
+                <rect x={PLOT_LEFT} y={PAD_TOP} width={plotRight - PLOT_LEFT} height={Math.max(0, regimeSplitY - PAD_TOP)} fill={`color-mix(in srgb, ${aboveBandIsLong ? "var(--color-bull)" : "var(--color-bear)"} 7%, transparent)`} />
+                <rect x={PLOT_LEFT} y={regimeSplitY} width={plotRight - PLOT_LEFT} height={Math.max(0, PRICE_BOTTOM - regimeSplitY)} fill={`color-mix(in srgb, ${aboveBandIsLong ? "var(--color-bear)" : "var(--color-bull)"} 7%, transparent)`} />
                 {inDomain(flip) ? (
                   <>
-                    <text x={(PLOT_LEFT + PLOT_RIGHT) / 2} y={PAD_TOP + 15} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={10} letterSpacing="0.16em" fill={aboveBandIsLong ? "var(--color-bull)" : "var(--color-bear)"} opacity={0.65}>
+                    <text x={(PLOT_LEFT + plotRight) / 2} y={PAD_TOP + 15} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={10} letterSpacing="0.16em" fill={aboveBandIsLong ? "var(--color-bull)" : "var(--color-bear)"} opacity={0.65}>
                       {aboveBandIsLong ? "LONG Γ · PINNING" : "SHORT Γ · TRENDING"}
                     </text>
-                    <text x={(PLOT_LEFT + PLOT_RIGHT) / 2} y={PRICE_BOTTOM - 9} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={10} letterSpacing="0.16em" fill={aboveBandIsLong ? "var(--color-bear)" : "var(--color-bull)"} opacity={0.65}>
+                    <text x={(PLOT_LEFT + plotRight) / 2} y={PRICE_BOTTOM - 9} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={10} letterSpacing="0.16em" fill={aboveBandIsLong ? "var(--color-bear)" : "var(--color-bull)"} opacity={0.65}>
                       {aboveBandIsLong ? "SHORT Γ · TRENDING" : "LONG Γ · PINNING"}
                     </text>
                   </>
                 ) : (
-                  <text x={(PLOT_LEFT + PLOT_RIGHT) / 2} y={PAD_TOP + 15} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={10} letterSpacing="0.16em" fill={offScaleRegimeIsLong ? "var(--color-bull)" : "var(--color-bear)"} opacity={0.65}>
+                  <text x={(PLOT_LEFT + plotRight) / 2} y={PAD_TOP + 15} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={10} letterSpacing="0.16em" fill={offScaleRegimeIsLong ? "var(--color-bull)" : "var(--color-bear)"} opacity={0.65}>
                     {offScaleRegimeIsLong ? "LONG Γ · PINNING REGIME" : "SHORT Γ · TRENDING REGIME"}
                   </text>
                 )}
@@ -2348,16 +2477,33 @@ export default function GammaTerminalChart({
               if (y < PAD_TOP - 0.5 || y > PRICE_BOTTOM + 0.5) return null;
               return (
                 <g key={`grid-${p}`}>
-                  <line x1={PLOT_LEFT} x2={PLOT_RIGHT} y1={y} y2={y} stroke="var(--color-grid-line)" strokeWidth={1} />
-                  <text x={AXIS_COL_X} y={y + 3.5} fontFamily="var(--font-mono)" fontSize={11} fill="var(--text-muted)" style={{ fontVariantNumeric: "tabular-nums" }}>
+                  <line x1={PLOT_LEFT} x2={plotRight} y1={y} y2={y} stroke="var(--color-grid-line)" strokeWidth={1} />
+                  <text x={axisColX} y={y + 3.5} fontFamily="var(--font-mono)" fontSize={11} fill="var(--text-muted)" style={{ fontVariantNumeric: "tabular-nums" }}>
                     {fmtPrice(p)}
                   </text>
                 </g>
               );
             })}
 
+            {/* ── GEX ribbons — per-strike dealer gamma through time, behind the
+                tape. One orb per bar per strike, sized by |net gamma|; warm =
+                dealer long gamma, cool = short. The walls read as ribbons
+                running along the session. Grouped paths, not per-orb nodes. */}
+            {ribbonLayer && ribbonLayer.paths.length > 0 && (
+              <g clipPath={`url(#${PLOT_CLIP_ID})`} pointerEvents="none" aria-hidden>
+                {ribbonLayer.paths.map((p) => (
+                  <path
+                    key={`ribbon-${p.strike}-${p.positive ? "p" : "n"}-${p.tier}`}
+                    d={p.d}
+                    fill={p.positive ? RIBBON_POS_COLOR : RIBBON_NEG_COLOR}
+                    opacity={RIBBON_TIER_OPACITY[p.tier]}
+                  />
+                ))}
+              </g>
+            )}
+
             {/* ── Gamma structure rail (net silhouette or per-strike bars) ── */}
-            {overlays.rail && (effectiveRailMode === "silhouette" ? rail : railBars) && (
+            {railOn && (effectiveRailMode === "silhouette" ? rail : railBars) && (
               <g>
                 <rect x={RAIL_LEFT - 6} y={PAD_TOP} width={RAIL_RIGHT - RAIL_LEFT + 12} height={PRICE_BOTTOM - PAD_TOP} fill="color-mix(in srgb, var(--text-primary) 3%, transparent)" />
                 <text x={(RAIL_LEFT + RAIL_RIGHT) / 2} y={PAD_TOP - 6} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={10} letterSpacing="0.12em" fill="var(--text-muted)">
@@ -2495,7 +2641,7 @@ export default function GammaTerminalChart({
               const yLo = clamp(yPrice(erModel.low), PAD_TOP, PRICE_BOTTOM);
               const h = yLo - yHi;
               if (!(h > 0)) return null;
-              return <rect x={PLOT_LEFT} y={yHi} width={PLOT_RIGHT - PLOT_LEFT} height={h} fill="var(--color-info)" opacity={0.06} pointerEvents="none" />;
+              return <rect x={PLOT_LEFT} y={yHi} width={plotRight - PLOT_LEFT} height={h} fill="var(--color-info)" opacity={0.06} pointerEvents="none" />;
             })()}
 
             {/* ── Gamma level reference lines (in-domain only) ──────────── */}
@@ -2504,7 +2650,7 @@ export default function GammaTerminalChart({
               const y = clamp(yPrice(l.value), PAD_TOP + 1, PRICE_BOTTOM - 1);
               const emphasized = confluenceKey === l.key;
               return (
-                <line key={`levelline-${l.key}`} x1={PLOT_LEFT} x2={PLOT_RIGHT} y1={y} y2={y} stroke={l.color} strokeWidth={emphasized ? 2 : 1.3} strokeDasharray={l.dash} opacity={emphasized ? 1 : 0.85} />
+                <line key={`levelline-${l.key}`} x1={PLOT_LEFT} x2={plotRight} y1={y} y2={y} stroke={l.color} strokeWidth={emphasized ? 2 : 1.3} strokeDasharray={l.dash} opacity={emphasized ? 1 : 0.85} />
               );
             })}
 
@@ -2576,7 +2722,7 @@ export default function GammaTerminalChart({
               const isLive = feedIsLive;
               return (
                 <g>
-                  <line x1={PLOT_LEFT} x2={PLOT_RIGHT} y1={y} y2={y} stroke="var(--color-accent-hot)" strokeWidth={1} strokeDasharray="2 3" opacity={0.8} />
+                  <line x1={PLOT_LEFT} x2={plotRight} y1={y} y2={y} stroke="var(--color-accent-hot)" strokeWidth={1} strokeDasharray="2 3" opacity={0.8} />
                   {/* The dot marks the live bar — only shown when it's on screen
                       (i.e. at the live edge, not scrolled back into history). */}
                   {atLiveEdge && isLive && <circle className="zg-gc-ping" cx={x} cy={y} r={4} fill="none" stroke="var(--color-accent-hot)" strokeWidth={1.5} />}
@@ -2617,11 +2763,11 @@ export default function GammaTerminalChart({
               return (
                 <>
                   {tags.map((t) => (
-                    <PriceTag key={t.key} x={AXIS_COL_X - 6} y={t.yAdj} value={t.value} bg={t.bg} strong={t.strong} arrow={t.arrow} />
+                    <PriceTag key={t.key} x={axisColX - 6} y={t.yAdj} value={t.value} bg={t.bg} strong={t.strong} arrow={t.arrow} />
                   ))}
                   {liveBarClock && lastTagY != null && (
                     <BarCountdownTag
-                      x={AXIS_COL_X - 6}
+                      x={axisColX - 6}
                       // Below the tag by default, flipped above it when the last
                       // price is riding the bottom of the range — clamping into
                       // the gutter instead would stack the two on the same row.
@@ -2656,7 +2802,7 @@ export default function GammaTerminalChart({
                   </g>
                 );
               })}
-              <line x1={PLOT_LEFT} x2={PLOT_RIGHT} y1={VOL_BOTTOM} y2={VOL_BOTTOM} stroke="var(--border-default)" strokeWidth={1} />
+              <line x1={PLOT_LEFT} x2={plotRight} y1={VOL_BOTTOM} y2={VOL_BOTTOM} stroke="var(--border-default)" strokeWidth={1} />
             </g>
 
             {/* ── Time axis + day separators ────────────────────────────── */}
@@ -2685,7 +2831,7 @@ export default function GammaTerminalChart({
                 let lastRight = -Infinity;
                 return dateGroups.map((g) => {
                   const labelW = g.label.length * 6 + 8;
-                  const cx = clamp((xForIndex(g.startIdx) + xForIndex(g.endIdx)) / 2, PLOT_LEFT + labelW / 2, PLOT_RIGHT - labelW / 2);
+                  const cx = clamp((xForIndex(g.startIdx) + xForIndex(g.endIdx)) / 2, PLOT_LEFT + labelW / 2, plotRight - labelW / 2);
                   // Skip a date that would collide with the previous one so a
                   // cluster of short day-spans doesn't overprint.
                   if (cx - labelW / 2 < lastRight + 6) return null;
@@ -2704,8 +2850,8 @@ export default function GammaTerminalChart({
               return (
                 <g pointerEvents="none">
                   <line x1={xForIndex(activeIdx)} x2={xForIndex(activeIdx)} y1={PAD_TOP} y2={VOL_BOTTOM} stroke="var(--text-secondary)" strokeWidth={1} strokeDasharray="3 3" opacity={0.6} />
-                  <line x1={PLOT_LEFT} x2={PLOT_RIGHT} y1={crossY} y2={crossY} stroke="var(--text-secondary)" strokeWidth={1} strokeDasharray="3 3" opacity={0.5} />
-                  <PriceTag x={AXIS_COL_X - 6} y={crossY} value={fmtPrice(hover.price)} bg="var(--text-secondary)" />
+                  <line x1={PLOT_LEFT} x2={plotRight} y1={crossY} y2={crossY} stroke="var(--text-secondary)" strokeWidth={1} strokeDasharray="3 3" opacity={0.5} />
+                  <PriceTag x={axisColX - 6} y={crossY} value={fmtPrice(hover.price)} bg="var(--text-secondary)" />
                 </g>
               );
             })()}

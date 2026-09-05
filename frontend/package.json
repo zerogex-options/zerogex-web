@@ -89,7 +89,8 @@
     "test:trial-welcome": "node --experimental-strip-types --test tests/trialWelcome.test.ts",
     "test:trial-banner": "node --experimental-strip-types --test tests/trialStartedBanner.test.ts",
     "test:chart-hero": "node --experimental-strip-types --test tests/chartHeroDisclosure.test.ts",
-    "test:gamma-terminal": "node --experimental-strip-types --test tests/gammaTerminal.test.ts"
+    "test:gamma-terminal": "node --experimental-strip-types --test tests/gammaTerminal.test.ts",
+    "test:gex-ribbons": "node --experimental-strip-types --test tests/gexRibbons.test.ts"
   },
   "dependencies": {
     "jose": "^5.9.6",

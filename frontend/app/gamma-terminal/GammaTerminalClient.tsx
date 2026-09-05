@@ -7,12 +7,17 @@
  * way a trading terminal lays them out:
  *
  *   • LEFT  — the Gamma Chart itself (`GammaTerminalChart`, the exact component
- *     /chart renders in live mode): candles with the Gamma Flip, Call/Put
- *     Walls, Max Pain, Pin Strike, GEX King and the gamma-structure rail, plus
- *     its own toolbar (symbol, timeframe, price style, overlays, Expiry filter,
- *     Rewind). Nothing about it is re-implemented here.
+ *     /chart renders in live mode) in terminal mode: candles with the Gamma
+ *     Flip, Call/Put Walls, Max Pain, Pin Strike and GEX King, the GEX
+ *     ribbons (per-strike dealer gamma through time) behind the tape, and its
+ *     own toolbar (symbol, timeframe, price style, overlays, Expiry filter,
+ *     Rewind). The gamma-structure rail is dropped — the ladders beside the
+ *     chart carry that information — and its width goes to the tape.
  *   • RIGHT — two strike-aligned Net-GEX ladders (`PairGammaHeatmap`, the same
- *     element Pair Comparison and the My Dashboard "Gamma Ladder" tile use).
+ *     element Pair Comparison and the My Dashboard "Gamma Ladder" tile use),
+ *     the same height as the chart and pinned to it: the chart holds spot at
+ *     the center of its tape and reports where that is (`onGeometry`); the
+ *     ladders clip their rows to the card and slide the spot row onto that y.
  *
  * Symbols: the underlying is the app-wide symbol (`useTimeframe`), so the chart
  * and the FIRST ladder always agree — pick it from the ladder's dropdown, the
@@ -29,11 +34,11 @@
  * live on the ladder card.
  */
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Sparkles } from "lucide-react";
 import PageShell from "@/components/layout/PageShell";
-import GammaTerminalChart from "@/components/GammaTerminalChart";
-import PairGammaHeatmap, { type HeatmapColumnInput } from "@/components/PairGammaHeatmap";
+import GammaTerminalChart, { type ChartGeometry } from "@/components/GammaTerminalChart";
+import PairGammaHeatmap, { ROW_H, type HeatmapColumnInput, type LadderFit } from "@/components/PairGammaHeatmap";
 import SymbolSelect from "@/components/SymbolSelect";
 import StrikeFilterToggle from "@/components/StrikeFilterToggle";
 import SessionDeltaToggle from "@/components/SessionDeltaToggle";
@@ -51,8 +56,12 @@ import { SYMBOLS, likePairFor } from "@/core/symbols";
 
 const INFO_TEXT =
   "The Gamma Chart with two gamma ladders beside it. The chart is the same instrument as the Gamma Chart page — " +
-  "candles with the Gamma Flip, Call/Put Walls, Max Pain, Pin Strike, GEX King and the gamma-structure rail — " +
-  "with its own toolbar for symbol, timeframe, price style, overlays, Expiry filter and Rewind. The underlying you " +
+  "candles with the Gamma Flip, Call/Put Walls, Max Pain, Pin Strike and GEX King — with the GEX ribbons behind the " +
+  "tape: one orb per bar per strike, sized by that strike's net dealer gamma at the time (warm = long gamma, cool = " +
+  "short), so the walls read as ribbons running along the session. The gamma-structure rail is left off here " +
+  "because the ladders carry it. The chart holds spot at the center of its tape and the ladders pin their spot row " +
+  "to the same height, so the three instruments line up. The chart keeps " +
+  "its own toolbar for symbol, timeframe, price style, overlays, Expiry filter and Rewind. The underlying you " +
   "pick (from the first ladder's dropdown, the chart's switcher or the header) drives the chart AND the first ladder; " +
   "the second ladder compares any other symbol and opens on the natural pair (SPY↔QQQ, SPX↔NDX, ES↔NQ). " +
   "Both ladders stay centered on spot and strike-aligned, with the Gamma Flip, Call/Put Walls and Max Pain marked " +
@@ -62,8 +71,43 @@ const INFO_TEXT =
   "marks whether dealer gamma at each strike has built or eroded since the 09:30 ET open. " +
   "Gamma levels and Net GEX are modeled estimates of dealer positioning — decision-support context only, not investment advice.";
 
+// The side-by-side layout (chart | ladders) engages at Tailwind's xl breakpoint;
+// below it the ladders stack under the chart and keep their natural height.
+const WIDE_QUERY = "(min-width: 1280px)";
+const subscribeWide = (onChange: () => void) => {
+  const mq = window.matchMedia(WIDE_QUERY);
+  mq.addEventListener("change", onChange);
+  return () => mq.removeEventListener("change", onChange);
+};
+const readWide = () => window.matchMedia(WIDE_QUERY).matches;
+const readWideServer = () => false;
+
 export default function GammaTerminalClient() {
   const { symbol: sym1, setSymbol } = useTimeframe();
+  const wide = useSyncExternalStore(subscribeWide, readWide, readWideServer);
+
+  // Alignment: the chart reports its tape geometry (CSS px from its card's top
+  // edge); the ladder card is given the chart's height, and the ladders' own
+  // wrapper is measured so the fit can be expressed from the ladder's top.
+  const [geometry, setGeometry] = useState<ChartGeometry | null>(null);
+  const onGeometry = useCallback((g: ChartGeometry) => setGeometry(g), []);
+  const laddersRef = useRef<HTMLDivElement | null>(null);
+  const [ladderBox, setLadderBox] = useState<{ top: number; height: number } | null>(null);
+  useEffect(() => {
+    const el = laddersRef.current;
+    if (!el || !wide) return;
+    const ro = new ResizeObserver(() => setLadderBox({ top: el.offsetTop, height: el.getBoundingClientRect().height }));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [wide, geometry?.height]);
+  // Both cards share a top edge (same flex row), so a y from the chart card's
+  // top is a y from the ladder card's top; subtract the ladders' own offset.
+  const fit: LadderFit | null =
+    wide && geometry && geometry.spotY != null && ladderBox
+      ? { spotY: geometry.spotY - ladderBox.top, bottom: ladderBox.height }
+      : null;
+  // Enough strikes each side to fill the band from any anchor.
+  const maxSide = fit ? Math.max(20, Math.ceil(fit.bottom / ROW_H) + 1) : 20;
   const { gexUnit } = useGexUnit();
   // Ladder settings — shared, persisted preferences (StrikeFilterContext,
   // SessionDeltaContext) so they stay in sync with Pair Comparison and the
@@ -156,18 +200,26 @@ export default function GammaTerminalClient() {
           stretched to the other. */}
       <div className="flex flex-col xl:flex-row xl:items-start gap-4">
         <div className="flex-1 min-w-0">
-          <GammaTerminalChart />
+          <GammaTerminalChart
+            hideRail
+            centerPriceOnSpot
+            storageScope="terminal"
+            overlayDefaults={{ ribbons: true }}
+            onGeometry={onGeometry}
+          />
         </div>
 
-        {/* 425px on a wide screen: ~212px per column, the same budget Pair
-            Comparison gives its ladders, so the header legend, strike tags and
-            the value column (with the Δ slot) fit without crowding. */}
+        {/* 372px on a wide screen — a little over the two columns' 175px floors,
+            so the header legend, strike tags and the value column fit while
+            the tape keeps as much width as possible. The card takes the
+            chart's exact height once the chart has reported it; the ladders
+            fill the space between the controls and the caption and clip. */}
         <aside
-          className="w-full xl:w-[425px] xl:flex-none zg-feature-shell zg-gc-rise"
-          style={{ overflow: "hidden" }}
+          className="relative w-full xl:w-[372px] xl:flex-none zg-feature-shell zg-gc-rise flex flex-col"
+          style={{ overflow: "hidden", height: wide && geometry ? geometry.height : undefined }}
           aria-label="Gamma ladders"
         >
-          <div>
+          <div className="flex flex-col min-h-0 flex-1">
             {/* Ladder settings — the same three toggles the dashboard ladder
                 tile and Pair Comparison expose; symbol, timeframe and Expiry
                 belong to the chart's toolbar. */}
@@ -189,7 +241,9 @@ export default function GammaTerminalClient() {
               </div>
             </div>
 
-            <PairGammaHeatmap left={leftInput} right={rightInput} gexUnit={gexUnit} activeOnly={activeOnly} />
+            <div ref={laddersRef} className="flex-1 min-h-0" style={{ overflow: "hidden" }}>
+              <PairGammaHeatmap left={leftInput} right={rightInput} gexUnit={gexUnit} activeOnly={activeOnly} fit={fit} maxSide={maxSide} />
+            </div>
             <ChartCaption variant="strip" right="Terminal / Ladders" />
           </div>
         </aside>

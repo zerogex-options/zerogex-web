@@ -31,8 +31,13 @@ test("Gamma Terminal is a Beta, Basic-tier item in the Main section", () => {
 test("the page reuses GammaTerminalChart and PairGammaHeatmap", () => {
   assert.match(page, /export default function GammaTerminalPage/);
   assert.match(page, /\(Beta\)/);
-  assert.match(client, /import GammaTerminalChart from "@\/components\/GammaTerminalChart"/);
-  assert.match(client, /<GammaTerminalChart \/>/);
+  assert.match(client, /import GammaTerminalChart, \{ type ChartGeometry \} from "@\/components\/GammaTerminalChart"/);
+  // Terminal mode: no rail (the ladders carry it), spot held at the tape's
+  // center, ribbons on by default under a scoped preference key, and the
+  // geometry callback that pins the ladders to the chart.
+  assert.match(client, /<GammaTerminalChart\s+hideRail\s+centerPriceOnSpot\s+storageScope="terminal"\s+overlayDefaults=\{\{ ribbons: true \}\}\s+onGeometry=\{onGeometry\}\s*\/>/);
+  assert.match(client, /fit=\{fit\} maxSide=\{maxSide\}/);
+  assert.match(client, /height: wide && geometry \? geometry\.height : undefined/);
   assert.match(client, /import PairGammaHeatmap/);
   assert.match(client, /<PairGammaHeatmap left=\{leftInput\} right=\{rightInput\}/);
   assert.match(client, /<BetaBadge size="md" \/>/);
