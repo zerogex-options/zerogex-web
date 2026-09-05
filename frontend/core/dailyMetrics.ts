@@ -18,6 +18,7 @@ import {
   type WeekdayAnalysis,
 } from './dailyMetricsMath.ts';
 import type { ExternalMetricRow } from './dailyMetricsCsv.ts';
+import { isSearchConsoleConfigured } from './searchConsole.ts';
 
 // One row per ET calendar day, joining what the product does (trial starts,
 // cancels, payment failures, registrations, traffic) to what brought people to
@@ -195,9 +196,16 @@ function emptyCounts(): DerivedCounts {
 }
 
 /**
- * The earliest ET day any source table can speak to — the first account, the
- * first audit row, or the first recorded visit, whichever came first. Returns
- * null on a genuinely empty database.
+ * The earliest day the rollup has anything to say about — the first account, the
+ * first audit row, the first recorded visit, or the earliest imported X/Google
+ * day, whichever came first. Returns null only for a genuinely empty database,
+ * where the right number of rows to materialize is zero rather than a window of
+ * fabricated ones.
+ *
+ * The imported day matters as much as the other three: a Search Console backfill
+ * reaches sixteen months back, usually further than the product's first user,
+ * and without those days in `daily_metrics` the LEFT JOIN the panel reads would
+ * silently drop the earliest imported history.
  */
 function earliestSourceDay(db: ReturnType<typeof getDb>): string | null {
   const candidates: Array<string | null> = [];
@@ -209,6 +217,13 @@ function earliestSourceDay(db: ReturnType<typeof getDb>): string | null {
     const row = db.prepare(sql).get() as { first_at: string | null } | undefined;
     candidates.push(etDayOf(row?.first_at ?? null));
   }
+  // Already a day key rather than an instant, so it needs no bucketing.
+  const importedRow = db
+    .prepare('SELECT MIN(day) AS first_day FROM daily_external_metrics')
+    .get() as { first_day: string | null } | undefined;
+  const imported = importedRow?.first_day ?? null;
+  if (imported && /^\d{4}-\d{2}-\d{2}$/.test(imported)) candidates.push(imported);
+
   const present = candidates.filter((d): d is string => d !== null);
   if (present.length === 0) return null;
   return present.reduce((min, d) => (d < min ? d : min));
@@ -249,7 +264,9 @@ export function rebuildDailyMetrics(opts: { windowDays?: number } = {}): Rebuild
   // table with fabricated zeros, and a zero that means "we did not exist yet" is
   // exactly the kind of value that turns a correlation into an artifact.
   const originDay = earliestSourceDay(db);
-  const days = dayKeysBack(now, windowDays).filter((day) => originDay === null || day >= originDay);
+  // An empty database gets an empty table, not a window of zeros that would
+  // read as "we existed and nothing happened".
+  const days = originDay === null ? [] : dayKeysBack(now, windowDays).filter((day) => day >= originDay);
   const firstDay = days[0];
   const lastDay = days[days.length - 1];
   const acc = new Map<string, DerivedCounts>();
@@ -647,6 +664,8 @@ export type DailySignalsSnapshot = {
   pageViewRetentionDays: number;
   /** True when neither X nor Google has ever been imported. */
   externalMetricsEmpty: boolean;
+  /** True when Search Console credentials are configured, so a sync can run. */
+  googleSyncConfigured: boolean;
 };
 
 export const METRIC_LABELS: Record<MetricKey, string> = {
@@ -845,5 +864,6 @@ export function buildDailySignalsSnapshot(opts: { days?: number } = {}): DailySi
     volatility,
     pageViewRetentionDays: PAGE_VIEW_RETENTION_DAYS,
     externalMetricsEmpty,
+    googleSyncConfigured: isSearchConsoleConfigured(),
   };
 }

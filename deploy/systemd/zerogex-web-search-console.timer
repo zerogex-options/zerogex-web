@@ -1,0 +1,18 @@
+[Unit]
+Description=ZeroGEX web Search Console sync timer (daily)
+
+[Timer]
+# Once a day is the right cadence: Search Console reports on a ~2-day delay and
+# revises the last few days afterwards, so there is nothing new to see hourly.
+# The script fetches a trailing window (GSC_SYNC_DAYS, default 14) rather than
+# just yesterday, so each run also picks up Google's revisions to days it
+# already reported — and a missed day heals on the next run instead of leaving
+# a permanent hole. 04:40 UTC keeps it clear of the 02:00/02:30 jobs and the
+# hourly auth backup at :00.
+OnCalendar=*-*-* 04:40:00
+RandomizedDelaySec=10m
+# If the box was down at the scheduled time, run as soon as it is back up.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

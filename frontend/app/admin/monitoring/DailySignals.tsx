@@ -129,6 +129,7 @@ type Snapshot = {
   volatility: VolatilityRow[];
   pageViewRetentionDays: number;
   externalMetricsEmpty: boolean;
+  googleSyncConfigured: boolean;
 };
 
 // ---------------------------------------------------------------------------
@@ -420,6 +421,7 @@ export default function DailySignals({ cardBg, borderColor, axisStroke, mutedTex
       <ImportCard
         coverage={data.coverage}
         latestDay={data.rows[data.rows.length - 1]?.day ?? null}
+        googleSyncConfigured={data.googleSyncConfigured}
         cardBg={cardBg}
         borderColor={borderColor}
         mutedText={mutedText}
@@ -1308,6 +1310,7 @@ function FeedFreshness({
 function ImportCard({
   coverage,
   latestDay,
+  googleSyncConfigured,
   cardBg,
   borderColor,
   mutedText,
@@ -1316,6 +1319,7 @@ function ImportCard({
 }: {
   coverage: CoverageRow[];
   latestDay: string | null;
+  googleSyncConfigured: boolean;
   cardBg: string;
   borderColor: string;
   mutedText: string;
@@ -1324,17 +1328,49 @@ function ImportCard({
 }) {
   const [source, setSource] = useState<'x' | 'google' | 'combined'>('x');
   const [csv, setCsv] = useState('');
+  const [pending, setPending] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState<ImportOutcome | null>(null);
 
-  const onFile = async (file: File | undefined) => {
-    if (!file) return;
-    setCsv(await file.text());
+  // Multiple files at once, because X only lets you export a bounded date range:
+  // a year of history arrives as a stack of monthly CSVs, and importing them one
+  // at a time is a chore with no upside. They are imported in filename order,
+  // and since a re-import overwrites only the days it carries, overlapping
+  // exports are harmless.
+  const onFiles = async (list: FileList | null) => {
+    if (!list || list.length === 0) return;
+    const files = [...list].sort((a, b) => a.name.localeCompare(b.name));
+    setPending(files);
     setOutcome(null);
+    if (files.length === 1) setCsv(await files[0].text());
+    else setCsv('');
   };
 
-  const submit = async () => {
-    if (!csv.trim() || busy) return;
+  /** Import one CSV body; returns the parsed result or throws with a message. */
+  const importOne = async (body: string, token: string | null) => {
+    const res = await fetch('/api/admin/monitoring/daily', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'x-csrf-token': token } : {}),
+      },
+      body: JSON.stringify({ source, csv: body }),
+    });
+    const json = (await res.json().catch(() => ({}))) as {
+      error?: string;
+      errors?: string[];
+      daysWritten?: number;
+      firstDay?: string | null;
+      lastDay?: string | null;
+      ignoredColumns?: string[];
+    };
+    if (!res.ok) throw new Error(json.error ?? `Import failed (HTTP ${res.status})`);
+    return json;
+  };
+
+  const syncGoogle = async () => {
+    if (busy) return;
     setBusy(true);
     setOutcome(null);
     try {
@@ -1346,29 +1382,95 @@ function ImportCard({
           'Content-Type': 'application/json',
           ...(token ? { 'x-csrf-token': token } : {}),
         },
-        body: JSON.stringify({ source, csv }),
+        body: JSON.stringify({ action: 'sync-google' }),
       });
       const json = (await res.json().catch(() => ({}))) as {
         error?: string;
-        errors?: string[];
         daysWritten?: number;
         firstDay?: string | null;
         lastDay?: string | null;
-        ignoredColumns?: string[];
+        reportedThrough?: string | null;
+        zeroFilled?: number;
       };
       if (!res.ok) {
-        setOutcome({ ok: false, message: json.error ?? `Import failed (HTTP ${res.status})`, details: json.errors ?? [] });
+        setOutcome({ ok: false, message: json.error ?? `Sync failed (HTTP ${res.status})`, details: [] });
         return;
       }
       setOutcome({
         ok: true,
-        message: `Imported ${json.daysWritten ?? 0} day${json.daysWritten === 1 ? '' : 's'}${json.firstDay ? ` (${json.firstDay} → ${json.lastDay})` : ''}.`,
-        details: [
-          ...(json.errors ?? []),
-          ...(json.ignoredColumns?.length ? [`Columns ignored: ${json.ignoredColumns.join(', ')}`] : []),
-        ],
+        message:
+          (json.daysWritten ?? 0) > 0
+            ? `Synced ${json.daysWritten} day${json.daysWritten === 1 ? '' : 's'} from Search Console (${json.firstDay} → ${json.lastDay}).`
+            : 'Search Console had nothing new to report for this window.',
+        details: json.reportedThrough
+          ? [
+              `Google has reported through ${json.reportedThrough}; it runs a couple of days behind and revises recent days, which is why each sync re-fetches a trailing window.`,
+              ...((json.zeroFilled ?? 0) > 0
+                ? [`${json.zeroFilled} day(s) inside that span had no search traffic and were written as real zeros.`]
+                : []),
+            ]
+          : [],
+      });
+      onImported();
+    } catch (err) {
+      setOutcome({ ok: false, message: err instanceof Error ? err.message : 'Sync failed', details: [] });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submit = async () => {
+    const batch = pending.length > 0 ? pending : null;
+    if (!batch && !csv.trim()) return;
+    if (busy) return;
+    setBusy(true);
+    setOutcome(null);
+    try {
+      const token = await getCsrfToken();
+      const bodies = batch
+        ? await Promise.all(batch.map(async (f) => ({ name: f.name, text: await f.text() })))
+        : [{ name: 'pasted text', text: csv }];
+
+      let totalDays = 0;
+      let firstDay: string | null = null;
+      let lastDay: string | null = null;
+      const details: string[] = [];
+      const failures: string[] = [];
+
+      // Sequential rather than parallel: each import is a write to the same
+      // SQLite file, and a partial failure should stop at a known point rather
+      // than interleave.
+      for (const { name, text } of bodies) {
+        try {
+          const json = await importOne(text, token);
+          totalDays += json.daysWritten ?? 0;
+          if (json.firstDay && (firstDay === null || json.firstDay < firstDay)) firstDay = json.firstDay;
+          if (json.lastDay && (lastDay === null || json.lastDay > lastDay)) lastDay = json.lastDay;
+          for (const problem of json.errors ?? []) details.push(`${name}: ${problem}`);
+          if (json.ignoredColumns?.length) {
+            details.push(`${name}: columns ignored — ${json.ignoredColumns.join(', ')}`);
+          }
+        } catch (err) {
+          failures.push(`${name}: ${err instanceof Error ? err.message : 'failed'}`);
+        }
+      }
+
+      if (totalDays === 0 && failures.length > 0) {
+        setOutcome({ ok: false, message: failures[0], details: failures.slice(1) });
+        return;
+      }
+      setOutcome({
+        ok: true,
+        message:
+          `Imported ${totalDays} day${totalDays === 1 ? '' : 's'}` +
+          (firstDay ? ` (${firstDay} → ${lastDay})` : '') +
+          (bodies.length > 1 ? ` from ${bodies.length} files` : '') +
+          (failures.length > 0 ? `, ${failures.length} file(s) failed` : '') +
+          '.',
+        details: [...failures, ...details],
       });
       setCsv('');
+      setPending([]);
       onImported();
     } catch (err) {
       setOutcome({ ok: false, message: err instanceof Error ? err.message : 'Import failed', details: [] });
@@ -1381,12 +1483,18 @@ function ImportCard({
     <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
       <h3 className="zg-h3 mb-1" style={{ color: textColor }}>Import X / Google numbers</h3>
       <p className="text-xs mb-3" style={{ color: mutedText }}>
-        Neither console has an API key configured here, so these columns are filled from the CSV each
-        one exports. <strong>X:</strong> Analytics → Account overview → export by day (Impressions,
-        Profile visits). <strong>Google:</strong> Search Console → Performance → Export → the
-        &ldquo;Dates&rdquo; sheet (Clicks, Impressions). Re-importing a corrected export overwrites
-        only the days and columns it contains, so it is safe to run repeatedly. Nothing here updates
-        on its own — these two columns are the only ones on the page that need you.
+        Paste or upload each console&rsquo;s per-day export. <strong>X:</strong> Analytics → Account
+        overview → export by day (Impressions, Profile visits). <strong>Google:</strong> Search
+        Console → Performance → Export → the &ldquo;Dates&rdquo; sheet (Clicks, Impressions) — only
+        needed as a one-off, since the sync below fetches the same numbers from the API.
+        Re-importing a corrected export overwrites only the days and columns it contains, so it is
+        safe to run repeatedly — and the file picker takes several exports at once, which is how you
+        load a year of X history that only exports a month at a time.
+      </p>
+      <p className="text-xs mb-3" style={{ color: mutedText }}>
+        {googleSyncConfigured
+          ? 'Google syncs itself daily from Search Console (and on demand with the button below); X has no equivalent — its account-level profile visits are not exposed by any API, so that one stays a paste.'
+          : 'Neither feed updates on its own yet. Google can: add a service account to the Search Console property and set GSC_SITE_URL + GSC_SERVICE_ACCOUNT_KEY_FILE (see docs/daily-metrics.md), then a daily timer keeps it current. X has no equivalent — its account-level profile visits are not exposed by any API, so that one stays a paste.'}
       </p>
 
       <FeedFreshness coverage={coverage} latestDay={latestDay} mutedText={mutedText} textColor={textColor} />
@@ -1414,13 +1522,21 @@ function ImportCard({
 
       <input
         type="file"
+        multiple
         accept=".csv,.tsv,text/csv,text/tab-separated-values,text/plain"
-        onChange={(e) => onFile(e.target.files?.[0])}
+        onChange={(e) => onFiles(e.target.files)}
         className="text-xs mb-2 block"
         style={{ color: mutedText }}
       />
+      {pending.length > 1 && (
+        <p className="text-xs mb-2" style={{ color: mutedText }}>
+          {pending.length} files queued, imported oldest-name first:{' '}
+          {pending.map((f) => f.name).join(', ')}
+        </p>
+      )}
       <textarea
         value={csv}
+        disabled={pending.length > 1}
         onChange={(e) => {
           setCsv(e.target.value);
           setOutcome(null);
@@ -1436,15 +1552,29 @@ function ImportCard({
         <button
           type="button"
           onClick={submit}
-          disabled={busy || !csv.trim()}
+          disabled={busy || (!csv.trim() && pending.length === 0)}
           className="px-3 py-1.5 text-xs font-semibold rounded"
           style={{
             color: 'var(--color-text-primary)',
-            border: `1px solid ${csv.trim() ? 'var(--color-warning)' : borderColor}`,
-            opacity: busy || !csv.trim() ? 0.5 : 1,
+            border: `1px solid ${csv.trim() || pending.length > 0 ? 'var(--color-warning)' : borderColor}`,
+            opacity: busy || (!csv.trim() && pending.length === 0) ? 0.5 : 1,
           }}
         >
-          {busy ? 'Importing…' : 'Import'}
+          {busy ? 'Importing…' : pending.length > 1 ? `Import ${pending.length} files` : 'Import'}
+        </button>
+        <button
+          type="button"
+          onClick={syncGoogle}
+          disabled={busy}
+          className="px-3 py-1.5 text-xs font-semibold rounded"
+          style={{ color: mutedText, border: `1px solid ${borderColor}`, opacity: busy ? 0.5 : 1 }}
+          title={
+            googleSyncConfigured
+              ? 'Pull the last two weeks straight from Search Console'
+              : 'Search Console credentials are not configured on this server yet'
+          }
+        >
+          {busy ? 'Working…' : 'Sync Google now'}
         </button>
         {outcome && (
           <span className="text-xs" style={{ color: outcome.ok ? 'var(--color-warning)' : FAILURE_COLOR }}>

@@ -1,0 +1,169 @@
+#!/bin/bash
+
+# ==============================================
+# Step 099: Search Console Sync Timer (systemd)
+# ==============================================
+#
+# Installs and enables the daily Google Search Console sync (see
+# deploy/systemd/zerogex-web-search-console.{service,timer}). The timer fires
+# once a day and runs `make sync-search-console`, which pulls daily clicks +
+# impressions into the google_clicks / google_impressions columns of the daily
+# metrics rollup behind Admin -> Monitoring -> Daily Signals.
+#
+# The sync is idempotent and re-fetches a trailing window each run, so it
+# absorbs Google's own revisions to recent days and heals a missed run on the
+# next tick.
+#
+# Idempotent — safe to re-run. Unit files are overwritten from the repo (they
+# are version-controlled, so that is the desired behavior) and
+# `systemctl enable --now` is a no-op for an already-enabled timer.
+#
+# Credentials are NOT provisioned here. The operator sets, in
+# frontend/.env.local:
+#   GSC_SITE_URL=sc-domain:zerogex.io
+#   GSC_SERVICE_ACCOUNT_KEY_FILE=/var/lib/zerogex/gsc-service-account.json
+# and adds that key's client_email as a user on the Search Console property.
+# Until then the script exits 0 with a "skipped: not configured" line, so the
+# timer installs green rather than alarming every day over an incomplete setup.
+
+set -e
+
+# Fallback log if this step is invoked directly (deploy.sh exports a log
+# function, but operators sometimes run a single step in isolation).
+type log >/dev/null 2>&1 || log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
+
+log "Search Console Sync Timer Setup"
+
+OWNER="${SUDO_USER:-$USER}"
+APP_DIR="$HOME/zerogex-web"
+SYSTEMD_SOURCE="$APP_DIR/deploy/systemd"
+SYSTEMD_TARGET="/etc/systemd/system"
+UNIT="zerogex-web-search-console"
+ENV_FILE="$APP_DIR/frontend/.env.local"
+
+# --- Preconditions ---------------------------------------------------
+if [ ! -d "$SYSTEMD_SOURCE" ]; then
+    log "  ✗ systemd source dir not found: $SYSTEMD_SOURCE"
+    exit 1
+fi
+for f in "${UNIT}.service" "${UNIT}.timer"; do
+    if [ ! -f "$SYSTEMD_SOURCE/$f" ]; then
+        log "  ✗ missing unit file: $SYSTEMD_SOURCE/$f"
+        exit 1
+    fi
+done
+
+if [ -s "$HOME/.nvm/nvm.sh" ]; then
+    log "  ✓ nvm present at $HOME/.nvm/nvm.sh"
+else
+    log "  ✗ nvm not found at $HOME/.nvm/nvm.sh — run step 020.nodejs first"
+    exit 1
+fi
+
+# --- Env soft-check ---------------------------------------------------
+read_env() {
+    grep -E "^${1}=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'"
+}
+
+GSC_SITE_URL=""
+GSC_KEY_FILE=""
+GSC_KEY_JSON=""
+if [ -f "$ENV_FILE" ]; then
+    GSC_SITE_URL=$(read_env GSC_SITE_URL)
+    GSC_KEY_FILE=$(read_env GSC_SERVICE_ACCOUNT_KEY_FILE)
+    GSC_KEY_JSON=$(read_env GSC_SERVICE_ACCOUNT_JSON)
+
+    if [ -n "$GSC_SITE_URL" ]; then
+        log "  ✓ GSC_SITE_URL is set ($GSC_SITE_URL)"
+    else
+        log "  ⚠ GSC_SITE_URL unset — timer installs, syncs skip until it is set"
+    fi
+    if [ -n "$GSC_KEY_FILE" ]; then
+        if sudo -u "$OWNER" test -r "$GSC_KEY_FILE"; then
+            log "  ✓ GSC_SERVICE_ACCOUNT_KEY_FILE readable by $OWNER"
+        else
+            log "  ⚠ GSC_SERVICE_ACCOUNT_KEY_FILE set but not readable by $OWNER: $GSC_KEY_FILE"
+        fi
+    elif [ -n "$GSC_KEY_JSON" ]; then
+        log "  ✓ GSC_SERVICE_ACCOUNT_JSON is set (inline key)"
+    else
+        log "  ⚠ No service-account key configured — syncs skip until one is set"
+    fi
+else
+    log "  ⚠ $ENV_FILE not found — step 030 should have created it"
+fi
+
+# --- Install + enable the units --------------------------------------
+log "  → Installing ${UNIT}.{service,timer}..."
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.service" "$SYSTEMD_TARGET/"
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.timer"   "$SYSTEMD_TARGET/"
+
+# --- Sandbox drop-in ---------------------------------------------------
+# ProtectSystem=strict seals the filesystem, so the SQLite writes need their
+# directory listed explicitly whenever AUTH_DB_PATH lives outside the repo
+# (e.g. /var/lib/zerogex). The service-account key usually lives beside it and
+# is only ever READ, so it needs no exception. Same drop-in pattern as step 085.
+DROPIN_DIR="$SYSTEMD_TARGET/${UNIT}.service.d"
+DROPIN="$DROPIN_DIR/auth-db-path.conf"
+AUTH_DB_PATH=""
+if [ -f "$ENV_FILE" ]; then
+    AUTH_DB_PATH=$(read_env AUTH_DB_PATH)
+fi
+if [ -n "$AUTH_DB_PATH" ] && [[ "$AUTH_DB_PATH" == /* ]]; then
+    AUTH_DB_DIR=$(dirname "$AUTH_DB_PATH")
+    log "  → Writing sandbox drop-in (ReadWritePaths=$AUTH_DB_DIR)..."
+    sudo mkdir -p "$DROPIN_DIR"
+    sudo tee "$DROPIN" >/dev/null <<EOF
+[Service]
+ReadWritePaths=$AUTH_DB_DIR
+EOF
+    log "     ✓ drop-in installed at $DROPIN"
+else
+    if [ -f "$DROPIN" ]; then
+        log "  → Removing stale drop-in (AUTH_DB_PATH unset or relative)..."
+        sudo rm -f "$DROPIN"
+        sudo rmdir "$DROPIN_DIR" 2>/dev/null || true
+    fi
+    log "  → AUTH_DB_PATH absolute path unset; using unit-default ReadWritePaths"
+fi
+
+sudo systemctl daemon-reload
+
+log "  → Enabling ${UNIT}.timer (daily 04:40 UTC, Persistent=true)..."
+if sudo systemctl enable --now "${UNIT}.timer" 2>/dev/null; then
+    NEXT=$(systemctl list-timers --no-pager --no-legend "${UNIT}.timer" 2>/dev/null | awk '{print $1, $2}')
+    log "     ✓ ${UNIT}.timer enabled (next run: ${NEXT:-unknown})"
+else
+    log "     ✗ ${UNIT}.timer failed to enable"
+    exit 1
+fi
+
+# --- Smoke test --------------------------------------------------------
+# Safe to run for real: the sync is idempotent and read-only against Google.
+# A DRY_RUN pass proves credentials + property access without writing, which is
+# exactly the setup mistake worth catching at deploy time rather than at 04:40.
+if [ -n "$GSC_SITE_URL" ] && { [ -n "$GSC_KEY_FILE" ] || [ -n "$GSC_KEY_JSON" ]; }; then
+    log "  → Smoke test (DRY_RUN=1, 3-day window)..."
+    if sudo -u "$OWNER" -H bash -lc "cd '$APP_DIR' && make sync-search-console DAYS=3 DRY_RUN=1" 2>&1 | sed 's/^/       /'; then
+        log "     ✓ credentials and property access look good"
+    else
+        log "     ⚠ smoke test failed — check the message above; the timer is still installed"
+    fi
+else
+    log "  → Skipping smoke test (not configured yet)"
+fi
+
+log ""
+log "Search Console sync timer setup complete!"
+log ""
+log "Summary:"
+log "  ✓ ${UNIT}.timer enabled (daily 04:40 UTC, Persistent=true catches missed runs)"
+log "  ✓ Each run re-fetches a trailing window, so Google's revisions land and a missed day heals"
+log "  ✓ Writes google_clicks / google_impressions, then rebuilds the daily rollup"
+log ""
+log "Useful commands:"
+log "  • systemctl list-timers ${UNIT}.timer                            - next/last run"
+log "  • cd $APP_DIR && make sync-search-console DRY_RUN=1              - fetch + print, write nothing"
+log "  • cd $APP_DIR && make sync-search-console DAYS=480               - one-off backfill (~16 months)"
+log "  • sudo systemctl start ${UNIT}.service                           - run the sync now"
+log "  • journalctl -u ${UNIT} -n 50                                     - recent sync logs"

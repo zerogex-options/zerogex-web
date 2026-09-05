@@ -42,20 +42,28 @@ const db = getDb();
 const DAY_MS = 86_400_000;
 const now = Date.now();
 
-/** An ISO instant `daysAgo` days back, at a UTC hour that is the same ET day. */
-function isoDaysAgo(daysAgo: number, hourUtc = 15): string {
-  const d = new Date(now - daysAgo * DAY_MS);
-  d.setUTCHours(hourUtc, 30, 0, 0);
-  return d.toISOString();
-}
-
 const ET_DAY = new Intl.DateTimeFormat('en-CA', {
   timeZone: 'America/New_York',
   year: 'numeric',
   month: '2-digit',
   day: '2-digit',
 });
-const dayOf = (daysAgo: number, hourUtc = 15) => ET_DAY.format(new Date(isoDaysAgo(daysAgo, hourUtc)));
+
+/**
+ * The ET day `daysAgo` days back — derived from the real instant, exactly as the
+ * code under test derives it. Re-anchoring to a fixed UTC hour first (the
+ * obvious way to write this) makes the suite fail between 00:00 and 04:00 UTC,
+ * when "today" in UTC is already tomorrow relative to ET.
+ */
+const dayOf = (daysAgo: number) => ET_DAY.format(new Date(now - daysAgo * DAY_MS));
+
+/**
+ * An instant inside that ET day. Hours 12–20 UTC are 08:00–16:00 ET in either
+ * DST offset, so the calendar day never slips regardless of when the suite runs.
+ */
+function isoDaysAgo(daysAgo: number, hourUtc = 16): string {
+  return `${dayOf(daysAgo)}T${String(hourUtc).padStart(2, '0')}:30:00.000Z`;
+}
 
 let auditSeq = 0;
 function audit(type: string, iso: string, message: string, userId: string | null = null): void {
@@ -188,6 +196,22 @@ test('a short-window rebuild cannot re-book an older subscription as new', () =>
   assert.equal(rows.get(dayOf(3))!.trialStarts, 0);
   // Days outside the write window are left exactly as they were.
   assert.equal(rows.get(dayOf(10))!.trialStarts, 1);
+});
+
+test('imported history older than the first user still materializes', () => {
+  // A Search Console backfill reaches ~16 months, usually past the first
+  // account. Without those days in daily_metrics the panel's LEFT JOIN would
+  // drop them and the earliest imported history would be invisible.
+  importExternalMetrics([{ day: '2025-01-15', googleClicks: 5, googleImpressions: 90 }]);
+  rebuildDailyMetrics();
+  const row = db
+    .prepare('SELECT day, registrations FROM daily_metrics WHERE day = ?')
+    .get('2025-01-15') as { day: string; registrations: number } | undefined;
+  assert.ok(row, 'the imported day is materialized');
+  assert.equal(row!.registrations, 0);
+  // …and it comes back through the joined read.
+  const joined = getDailyMetricRows({ days: 730 }).find((r) => r.day === '2025-01-15');
+  assert.equal(joined?.googleClicks, 5);
 });
 
 test('rebuilding twice changes nothing', () => {

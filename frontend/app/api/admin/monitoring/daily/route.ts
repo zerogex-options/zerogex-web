@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSession, validateCsrf } from '@/core/serverAuth';
 import {
@@ -8,6 +9,7 @@ import {
   refreshDailyMetrics,
 } from '@/core/dailyMetrics';
 import { MAX_CSV_ROWS, parseExternalMetricsCsv, type MetricSource } from '@/core/dailyMetricsCsv';
+import { SearchConsoleError, syncSearchConsole } from '@/core/searchConsole';
 
 export const dynamic = 'force-dynamic';
 
@@ -66,9 +68,43 @@ export async function POST(request: NextRequest) {
     return adminOnly(NextResponse.json({ error: 'Admin access required' }, { status: 403 }));
   }
 
-  const body = (await request.json().catch(() => null)) as { source?: unknown; csv?: unknown } | null;
+  const body = (await request.json().catch(() => null)) as
+    | { action?: unknown; days?: unknown; source?: unknown; csv?: unknown }
+    | null;
+
+  // Pull straight from Search Console instead of taking a pasted CSV. Same
+  // destination, same idempotency — this is the button next to the paste box.
+  if (body?.action === 'sync-google') {
+    const requestedDays = Number(body.days);
+    try {
+      const result = await syncSearchConsole({
+        days: Number.isFinite(requestedDays) && requestedDays > 0 ? requestedDays : undefined,
+        readFile: (path) => readFileSync(path, 'utf8'),
+      });
+      const written = result.rows.length > 0 ? importExternalMetrics(result.rows) : null;
+      if (written) rebuildDailyMetrics();
+      return adminOnly(
+        NextResponse.json({
+          ok: true,
+          daysWritten: written?.daysWritten ?? 0,
+          firstDay: written?.firstDay ?? null,
+          lastDay: written?.lastDay ?? null,
+          reportedThrough: result.reportedThrough,
+          zeroFilled: result.zeroFilled,
+          siteUrl: result.siteUrl,
+        }),
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Search Console sync failed';
+      // An unconfigured install is a setup gap, not a server fault — 400 so the
+      // panel shows the instructions rather than a red 500.
+      const status = err instanceof SearchConsoleError && err.unconfigured ? 400 : 502;
+      return adminOnly(NextResponse.json({ error: message }, { status }));
+    }
+  }
+
   if (!body || typeof body.csv !== 'string') {
-    return adminOnly(NextResponse.json({ error: 'Expected { source, csv }' }, { status: 400 }));
+    return adminOnly(NextResponse.json({ error: 'Expected { source, csv } or { action: "sync-google" }' }, { status: 400 }));
   }
   if (body.csv.length > MAX_CSV_BYTES) {
     return adminOnly(

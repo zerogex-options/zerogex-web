@@ -119,23 +119,93 @@ Reconstructs the entire history and prints the relationship tests. Options:
 make backfill-daily-metrics X_CSV=~/x-analytics.csv GOOGLE_CSV=~/search-console.csv
 ```
 
-## Importing X and Google
+## Google Search Console (automatic)
 
-**These two feeds are the only thing on this page that does not maintain
-itself.** Every other column re-derives from the audit log on each load, so it
-backfills on first deploy and stays current with no action forever after. X and
-Google do not: nothing collects them in the background, and if you never import
-again the columns simply stop at the last day you imported, quietly shrinking
-the `n` on the three acquisition relationships. The import card shows how
-current each feed is ("X: current through 2026-08-28 — 7 days behind") and turns
-amber past three days, so the gap is visible rather than silent.
+Once credentials are configured, this column keeps itself current: a daily timer
+runs `make sync-search-console`, which pulls per-day clicks and impressions
+straight from the Search Console API. The panel also has a **Sync Google now**
+button for an on-demand pull.
 
-From the panel (bottom of the Daily Signals tab) or via the variables above.
+### Setup, once
 
-- **X:** Analytics → Account overview → export the daily view. The importer
-  reads `Impressions` and `Profile visits` and ignores the rest.
-- **Google:** Search Console → Performance → Export → the **Dates** sheet. The
-  importer reads `Clicks` and `Impressions`.
+1. **Google Cloud console** → create a service account → create a **JSON key**.
+   It needs no IAM roles; the account is authorized on the Search Console
+   property, not on the project.
+2. Enable the **Google Search Console API** on that project.
+3. **Search Console → Settings → Users and permissions → Add user** → paste the
+   service account's `client_email` → Full or Restricted. *This step is the one
+   people forget; skipping it produces a 403, and the sync says so in those
+   words.*
+4. Put the key file somewhere the app user can read (`chmod 600`), then in
+   `frontend/.env.local`:
+
+   ```sh
+   GSC_SITE_URL=sc-domain:zerogex.io          # exactly as Search Console names it
+   GSC_SERVICE_ACCOUNT_KEY_FILE=/var/lib/zerogex/gsc-service-account.json
+   ```
+
+   `GSC_SITE_URL` must match the property exactly: a Domain property is
+   `sc-domain:example.com`, a URL-prefix property is `https://example.com/`
+   *including* the trailing slash. A mismatch produces a 404, and again the sync
+   names the fix.
+
+   Alternatives: `GSC_SERVICE_ACCOUNT_JSON` holds the key inline instead of by
+   path; `GSC_DATA_STATE=final` restricts the pull to Google's finalized
+   numbers (the default `all` includes fresh days, which later runs correct).
+
+5. Deploy step `099.search-console` installs the timer and runs a `DRY_RUN`
+   smoke test, so a credential or permission mistake surfaces at deploy time
+   rather than at 04:40 the next morning.
+
+### Backfill
+
+Search Console retains ~16 months. Load all of it once:
+
+```sh
+make sync-search-console DAYS=480
+```
+
+Then the timer keeps up. `DRY_RUN=1` fetches and prints without writing;
+`END=<YYYY-MM-DD>` moves the window's end.
+
+### Two behaviours worth knowing
+
+- **Google runs ~2 days behind and revises what it already reported.** Each run
+  therefore re-fetches a trailing window (`GSC_SYNC_DAYS`, default 14) rather
+  than just yesterday, so revisions land and a missed run heals on the next tick
+  instead of leaving a hole.
+- **A day Google omits is not automatically a zero.** It omits a day both when
+  the site truly had no impressions and when the day is too new to have been
+  processed. The sync bounds "real zero" by the newest day Google actually
+  returned: missing days at or before it are written as `0`, anything after it
+  is left `NULL` for a later run. Writing `0` for a day Google simply has not
+  counted would assert an absence of traffic that nobody measured.
+
+## Importing X (manual)
+
+X has no equivalent automation, and not for want of trying: the public API
+exposes impressions only per-tweet under OAuth user context, and **account-level
+profile visits is not in the API at all** — it exists only in the Analytics UI.
+So this one stays a paste.
+
+Analytics → Account overview → export the daily view. The importer reads
+`Impressions` and `Profile visits` and ignores the rest.
+
+**Batching.** X only exports a bounded date range, so a year of history arrives
+as a stack of monthly CSVs. The file picker takes **several files at once** and
+imports them in filename order; overlapping exports are harmless, because an
+import overwrites only the days and columns it actually contains. From the
+command line, `X_CSV=<path>` takes one file per run — loop it, or concatenate
+into the combined shape below.
+
+The import card shows how current each feed is ("X: current through 2026-08-28 —
+7 days behind") and turns amber past three days, so a lapsed import is visible
+rather than silent.
+
+### Both feeds, from the panel or the command line
+
+- **Google:** Search Console → Performance → Export → the **Dates** sheet. Only
+  needed for a one-off or before the API is wired up.
 
 Both exports carry a bare `Impressions` column meaning different things, so the
 source is an explicit choice in the UI (and an explicit variable on the command
@@ -209,6 +279,9 @@ you that a single day's number carries very little information on its own.
 | `frontend/core/dailyMetrics.ts` | Rebuild, import, read, and the panel's snapshot. Deliberately not `server-only` and using relative imports, so the backfill script can load it under bare Node. |
 | `frontend/app/api/admin/monitoring/daily/route.ts` | Admin-gated `GET` (snapshot) and `POST` (CSV import, CSRF-protected). |
 | `frontend/app/admin/monitoring/DailySignals.tsx` | The panel. |
+| `frontend/core/searchConsole.ts` | Search Console client: service-account JWT → access token → `searchAnalytics.query`, and the zero-vs-NULL rule for days Google omits. |
 | `frontend/scripts/backfill-daily-metrics.mts` | `make backfill-daily-metrics`. |
+| `frontend/scripts/sync-search-console.mts` | `make sync-search-console`, run daily by `deploy/steps/099.search-console`. |
 | `frontend/tests/dailyMetricsMath.test.ts` | Pure-function suite — `npm run test:daily-metrics`. |
+| `frontend/tests/searchConsole.test.ts` | Search Console suite (config, day ranges, response mapping, a real signed assertion) — `npm run test:search-console`. |
 | `frontend/tests/dailyMetrics.test.ts` | DB suite against a throwaway SQLite file (column definitions, the retention guard, importer merge semantics, the view) — `npm run test:daily-metrics-db`. |
