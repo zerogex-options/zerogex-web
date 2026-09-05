@@ -62,7 +62,27 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import Stripe from 'stripe';
 
 const AUDIT_TYPE = 'billing_winback_discount_honored';
-const DEFAULT_PERCENT = 25;
+
+// The rate the "coupon does not match what you promised" warning checks
+// against. It has to track WINBACK_DISCOUNT_LABEL, which is what the win-back
+// emails and the /pricing welcome-back banner actually offer: once that moved
+// to 50%, a hardcoded 25% here fired the warning on every correct run, which is
+// how a warning stops being read. Falls back to 25 when the label is unset or
+// says nothing numeric; --percent still overrides either way.
+//
+// Read at module load rather than through envValue() below, because parseArgs
+// needs it and runs before envLocal exists. parseEnvFile is a hoisted function
+// declaration, so calling it up here is fine.
+function defaultWinbackPercent(): number {
+  const label =
+    process.env.WINBACK_DISCOUNT_LABEL ||
+    parseEnvFile(path.join(process.cwd(), '.env.local')).WINBACK_DISCOUNT_LABEL ||
+    '';
+  const matched = label.trim().match(/^(\d{1,2})\s*%/);
+  const percent = matched ? Number(matched[1]) : Number.NaN;
+  return Number.isInteger(percent) && percent >= 1 && percent <= 99 ? percent : 25;
+}
+const DEFAULT_PERCENT = defaultWinbackPercent();
 
 type Tier = 'basic' | 'pro';
 type Cadence = 'monthly' | 'annual';
