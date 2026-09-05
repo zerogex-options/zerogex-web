@@ -177,7 +177,7 @@ const RIBBON_POS_BODY = `color-mix(in srgb, ${RIBBON_POS_CORE} 45%, ${RIBBON_POS
 const RIBBON_NEG_BODY = `color-mix(in srgb, ${RIBBON_NEG_CORE} 45%, ${RIBBON_NEG_GLOW})`;
 // Bloom strength per magnitude tier (the crisp orb itself uses
 // RIBBON_TIER_OPACITY from core/gexRibbons).
-const RIBBON_GLOW_OPACITY: Record<"strong" | "mid" | "weak", number> = { strong: 0.7, mid: 0.35, weak: 0.12 };
+const RIBBON_GLOW_OPACITY: Record<"strong" | "mid" | "weak", number> = { strong: 0.5, mid: 0.25, weak: 0.1 };
 // Blur radius of the bloom, in viewBox units (~2 CSS px at typical widths).
 const RIBBON_GLOW_BLUR = 2.8;
 
@@ -2528,7 +2528,7 @@ export default function GammaTerminalChart({
                     fill={p.positive ? RIBBON_POS_BODY : RIBBON_NEG_BODY}
                     stroke={p.positive ? RIBBON_POS_CORE : RIBBON_NEG_CORE}
                     strokeWidth={0.7}
-                    strokeOpacity={0.7}
+                    strokeOpacity={0.5}
                     opacity={RIBBON_TIER_OPACITY[p.tier]}
                   />
                 ))}

@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   RIBBON_BUCKET_MS,
   RIBBON_RY_FRACTION,
+  RIBBON_RY_MAX,
   RIBBON_TIER_OPACITY,
   buildRibbonLayer,
   ellipsePath,
@@ -111,4 +112,18 @@ test("orb height follows magnitude, caps below the strike gap, and the noise flo
   assert.equal(layer.paths.find((p) => p.strike === 748)?.positive, false);
   assert.equal(layer.paths.find((p) => p.strike === 750)?.tier, "strong");
   assert.equal(layer.paths.find((p) => p.strike === 751)?.tier, "mid");
+});
+
+// Zooming the price axis in (a 1-min chart a dollar tall) makes a $1 lane
+// hundreds of units tall; the orb must stop growing at the absolute cap so
+// the ribbon reads the same at every zoom instead of ballooning.
+test("orb height stops at the absolute cap when the strike lane is huge", () => {
+  const zoomed: RibbonGeometry = { ...geom, yPrice: (p) => 460 - (p - 740) * 200, dMin: 749, dMax: 751 };
+  // Two strikes so the $1 lane is known (200 units tall at this zoom).
+  const buckets = [{ timestamp: iso(T0), strikes: [{ strike: 750, net_gamma: 1_000 }, { strike: 751, net_gamma: 100 }] }];
+  const layer = buildRibbonLayer([{ timestamp: iso(T0) }], buckets, zoomed);
+  assert.equal(layer.strikeStep, 1);
+  const ry = maxRy(layer.paths.find((p) => p.strike === 750)?.d ?? "");
+  assert.ok(ry <= RIBBON_RY_MAX + 1e-9, `capped: ${ry}`);
+  assert.ok(ry > RIBBON_RY_MAX - 1, "a wall orb fills the cap");
 });

@@ -28,6 +28,7 @@ import { useApiData, useGEXSummary, useMarketQuote, useSessionCloses } from "./u
 import { getSpotPriorCloseChange } from "@/core/priceChange";
 import { resolvePriceSession } from "@/core/sessionCloses";
 import { baselineNetByStrike, sessionOpenIsoFor, type FrameStrikeRow } from "@/core/sessionDelta";
+import { useStrikeProfileTimeseries } from "./useStrikeProfileTimeseries";
 
 /** Everything a ladder column renders except the header control, which the
  *  surface injects (a symbol dropdown on Pair Comparison, a plain label in a
@@ -172,11 +173,26 @@ export function useGammaLadderColumn(
 
   const tipBucket = useMemo(() => latestLiveBucket(tip), [tip]);
 
+  // Reach-back: the 3-bucket tip can come back with no positioning at all —
+  // an ETF after the options close, where the extended-hours cycles keep
+  // writing summaries (spot, levels) over an empty book, or a symbol whose
+  // analytics paused. A cash index never hits this (its timeseries is
+  // anchored to the regular session), which is why SPY / QQQ blanked while
+  // SPX / NDX did not. Rather than show "No strike data" next to a live
+  // header, subscribe to the shared strike history the chart pages already
+  // seed (one seed, background reload only — no 1 Hz poll) and take the
+  // newest bucket that carries positioning. The header keeps the live
+  // levels; the rows are marked with the bucket's time.
+  const tipEmpty = enabled && !loading && !error && Array.isArray(tip) && tipBucket == null;
+  const { buckets: history } = useStrikeProfileTimeseries(symbol, "5min", expParam, true, tipEmpty);
+  const historyBucket = useMemo(() => (tipEmpty ? latestLiveBucket(history) : null), [tipEmpty, history]);
+  const liveBucket = tipBucket ?? historyBucket;
+
   // Session-open anchor: the ET session the ladder's own data belongs to, so
   // a weekend view baselines against Friday's open, not an empty Saturday.
   const openIso = useMemo(
-    () => (options?.sessionDelta ? sessionOpenIsoFor(tipBucket?.timestamp) : null),
-    [options?.sessionDelta, tipBucket?.timestamp],
+    () => (options?.sessionDelta ? sessionOpenIsoFor(liveBucket?.timestamp) : null),
+    [options?.sessionDelta, liveBucket?.timestamp],
   );
   const { data: baselineFrame } = useApiData<BaselineFrame>(
     openIso ? baselineUrl(symbol, openIso) : "",
@@ -212,15 +228,18 @@ export function useGammaLadderColumn(
     );
     return {
       symbol,
-      cells: bucketCells(tipBucket),
+      cells: bucketCells(liveBucket),
+      // Set only when the rows come from the reach-back, so the column can
+      // say the book is as of that bucket rather than live.
+      positioningAsOf: tipBucket == null && historyBucket ? historyBucket.timestamp : null,
       spot,
       // With a specific expiration set, the walls and flip must describe that
       // set's gamma alone — the timeseries bucket recomputes them for the
       // filter, while /api/gex/summary is always the whole chain. "All" keeps
       // the canonical summary levels (parity with every other surface).
-      gammaFlip: filtered ? num(tipBucket?.gamma_flip) : summary?.gamma_flip ?? null,
-      callWall: filtered ? num(tipBucket?.call_wall) : summary?.call_wall ?? null,
-      putWall: filtered ? num(tipBucket?.put_wall) : summary?.put_wall ?? null,
+      gammaFlip: filtered ? num(liveBucket?.gamma_flip) : summary?.gamma_flip ?? null,
+      callWall: filtered ? num(liveBucket?.call_wall) : summary?.call_wall ?? null,
+      putWall: filtered ? num(liveBucket?.put_wall) : summary?.put_wall ?? null,
       maxPain: filtered ? null : summary?.max_pain ?? null,
       changePercent: change.changePercent,
       isPositive: change.isPositive,
@@ -228,5 +247,5 @@ export function useGammaLadderColumn(
       loading,
       error,
     };
-  }, [symbol, tipBucket, summary, quote, closes, filtered, sessionBaseline, loading, error]);
+  }, [symbol, tipBucket, historyBucket, liveBucket, summary, quote, closes, filtered, sessionBaseline, loading, error]);
 }

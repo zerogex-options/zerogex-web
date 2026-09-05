@@ -57,15 +57,22 @@ import { SYMBOLS, likePairFor } from "@/core/symbols";
 const INFO_TEXT =
   "The Gamma Chart with two gamma ladders beside it. The chart is the same instrument as the Gamma Chart page — " +
   "candles with the Gamma Flip, Call/Put Walls, Max Pain, Pin Strike and GEX King — with the GEX ribbons behind the " +
-  "tape: one orb per bar per strike, sized by that strike's net dealer gamma at the time (warm = long gamma, cool = " +
-  "short), so the walls read as ribbons running along the session. The gamma-structure rail is left off here " +
-  "because the ladders carry it. The chart holds spot at the center of its tape and the ladders pin their spot row " +
-  "to the same height, so the three instruments line up. The chart keeps " +
+  "tape. Reading the ribbons: every strike is a horizontal lane; every bar drops one orb in that lane sized by the " +
+  "strike's net dealer gamma in the 5-minute analytics bucket the bar falls in, relative to the heaviest strike on " +
+  "screen. Gold means dealers are net long gamma at that strike (they sell rallies and buy dips into it — a magnet " +
+  "and a brake); violet means net short (they chase — an accelerant). A fat ribbon that persists all session is a " +
+  "wall; one that thickens is positioning building, one that thins is eroding; a lane changing color is the strike " +
+  "flipping sides. Orbs are capped to the lane, so a zoomed-in price axis makes them fatter and a wide one thinner, " +
+  "and the history covers the polled strike window, so earlier bars stay blank. The gamma-structure rail is left off " +
+  "here because the ladders carry it. The chart holds spot at the center of its tape and the ladders pin their spot " +
+  "row to the same height, so the three instruments line up. The chart keeps " +
   "its own toolbar for symbol, timeframe, price style, overlays, Expiry filter and Rewind. The underlying you " +
   "pick (from the first ladder's dropdown, the chart's switcher or the header) drives the chart AND the first ladder; " +
   "the second ladder compares any other symbol and opens on the natural pair (SPY↔QQQ, SPX↔NDX, ES↔NQ). " +
   "Both ladders stay centered on spot and strike-aligned, with the Gamma Flip, Call/Put Walls and Max Pain marked " +
-  "and the heaviest strike in view crowned. The chart's Expiry filter scopes the ladders too (Max Pain reads NA while filtered, " +
+  "and the heaviest strike in view crowned. After the options close, an ETF's latest analytics buckets can carry no " +
+  "positioning; the ladder then shows the newest bucket that did and marks the rows 'as of' that time, while the " +
+  "header levels stay live. The chart's Expiry filter scopes the ladders too (Max Pain reads NA while filtered, " +
   "as it has no per-expiry-set equivalent). The ladders are live and do not follow the chart's Rewind clock. " +
   "Strikes shows only strikes carrying dealer gamma (Active) or every listed strike near spot (All); Session Δ " +
   "marks whether dealer gamma at each strike has built or eroded since the 09:30 ET open. " +
