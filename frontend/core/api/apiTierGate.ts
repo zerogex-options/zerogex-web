@@ -137,7 +137,8 @@ const RULES: readonly Rule[] = [
   //                    /gex-heatmap + /gamma-exposure + /my-dashboard
   //                    (GammaHeatmapCanvas), /my-dashboard +
   //                    /gex-strike-profile (MarketMakerExposures,
-  //                    UnderlyingCandlesChart), /dashboard (GammaTerminalChart).
+  //                    UnderlyingCandlesChart), /dashboard + /gamma-terminal
+  //                    (GammaTerminalChart).
   //                    The PUBLIC GammaTerminalChart mounts (/chart,
   //                    /spx-gamma-levels) pass `delayed`/`snapshot`, which sets
   //                    `live = false` and disables the poll entirely.

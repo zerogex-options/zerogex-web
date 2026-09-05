@@ -128,6 +128,9 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   // member); the page itself further gates individual Pro-only widgets and
   // shows Basic members an upgrade prompt in their place.
   { pattern: '/my-dashboard', minimumTier: 'basic' },
+  // Gamma Terminal (beta) — the live Gamma Chart beside two gamma ladders.
+  // Live-only (no delayed public snapshot), so it is gated at Basic unlike /chart.
+  { pattern: '/gamma-terminal', minimumTier: 'basic' },
   { pattern: '/basic-signals', minimumTier: 'basic' },
   { pattern: '/tape-flow-bias', minimumTier: 'basic' },
   { pattern: '/skew-delta', minimumTier: 'basic' },

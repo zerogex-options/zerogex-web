@@ -12,7 +12,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import PageShell from "@/components/layout/PageShell";
 import PairGammaHeatmap, { type HeatmapCell, type HeatmapColumnInput } from "@/components/PairGammaHeatmap";
 import StrikeFilterToggle from "@/components/StrikeFilterToggle";
@@ -22,6 +22,7 @@ import PairReplayScrubber from "@/components/PairReplayScrubber";
 import PairCandleChart from "@/components/PairCandleChart";
 import GexUnitToggle from "@/components/GexUnitToggle";
 import BetaBadge from "@/components/BetaBadge";
+import SymbolSelect from "@/components/SymbolSelect";
 import TooltipWrapper from "@/components/TooltipWrapper";
 import ChartCaption from "@/components/ChartCaption";
 import { type ChartTimeframe } from "@/components/ChartTimeframeSelect";
@@ -36,7 +37,7 @@ import { useGexUnit } from "@/core/GexUnitContext";
 import { useStrikeFilter } from "@/core/StrikeFilterContext";
 import { useSessionDelta } from "@/core/SessionDeltaContext";
 import { useTimeframe, type UnderlyingSymbol } from "@/core/TimeframeContext";
-import { SYMBOLS } from "@/core/symbols";
+import { likePairFor } from "@/core/symbols";
 
 const TIMEFRAME_OPTIONS: Array<{ value: ChartTimeframe; label: string }> = [
   { value: "1min", label: "1m" },
@@ -60,17 +61,6 @@ const INFO_TEXT =
   "dealer gamma (Active) or every listed strike near spot (All) — Active keeps high-priced chains like NDX, " +
   "which list a fine grid but concentrate open interest on the round strikes, from reading as sparse. " +
   "Net GEX is a modeled estimate of dealer gamma by strike — decision-support context only, not investment advice.";
-
-// Default "compare against" symbol for each header symbol — its like-pair, so a
-// fresh visit opens on a meaningful comparison (SPY↔QQQ, SPX↔NDX, ES↔NQ).
-const COMPARE_DEFAULT: Record<UnderlyingSymbol, UnderlyingSymbol> = {
-  SPY: "QQQ",
-  QQQ: "SPY",
-  SPX: "NDX",
-  NDX: "SPX",
-  ES: "NQ",
-  NQ: "ES",
-};
 
 // Last replay frame at-or-before a timestamp (frames are chronological ascending).
 function frameAtOrBefore(frames: ReplayFrame[], targetTs: string | null): ReplayFrame | null {
@@ -111,47 +101,6 @@ function frameToCells(frame: ReplayFrame | null): HeatmapCell[] {
     }
   }
   return out;
-}
-
-// A styled native dropdown — this is literally the "dropdown at the top of the
-// column" the design calls for; column 1's is wired to the global header symbol
-// so changing it here also moves the app header.
-function SymbolSelect({
-  value,
-  onChange,
-  ariaLabel,
-}: {
-  value: UnderlyingSymbol;
-  onChange: (s: UnderlyingSymbol) => void;
-  ariaLabel: string;
-}) {
-  return (
-    <div className="relative inline-flex items-center">
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value as UnderlyingSymbol)}
-        aria-label={ariaLabel}
-        className="appearance-none font-mono font-bold"
-        style={{
-          fontSize: 14,
-          letterSpacing: "0.04em",
-          color: "var(--text-primary)",
-          background: "var(--bg-card)",
-          border: "1px solid var(--border-default)",
-          borderRadius: "var(--radius-control)",
-          padding: "3px 22px 3px 8px",
-          cursor: "pointer",
-        }}
-      >
-        {SYMBOLS.map((s) => (
-          <option key={s} value={s}>
-            {s}
-          </option>
-        ))}
-      </select>
-      <ChevronDown size={13} style={{ position: "absolute", right: 5, pointerEvents: "none", color: "var(--text-secondary)" }} />
-    </div>
-  );
 }
 
 // Compact timeframe segmented control for the candle charts — the zg-gc-seg
@@ -205,7 +154,7 @@ export default function PairComparisonClient() {
   const { gexUnit } = useGexUnit();
 
   const sym1 = headerSymbol;
-  const [sym2, setSym2] = useState<UnderlyingSymbol>(() => COMPARE_DEFAULT[headerSymbol] ?? "QQQ");
+  const [sym2, setSym2] = useState<UnderlyingSymbol>(() => likePairFor(headerSymbol));
 
   const [mode, setMode] = useState<"live" | "replay">("live");
   // Sticky: once replay is armed the session buffers stay mounted so toggling

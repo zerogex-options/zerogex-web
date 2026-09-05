@@ -128,6 +128,7 @@ const config = {
     '/gex-gradient',
     '/positioning-trap',
     '/live-bulletin',
+    '/gamma-terminal',
     '/gamma-exposure',
     '/max-pain',
     '/greeks-gex',

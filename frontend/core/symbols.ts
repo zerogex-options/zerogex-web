@@ -84,3 +84,26 @@ export function volatilityIndexFor(symbol: string | null | undefined): 'VIX' | '
   const upper = (symbol || '').toUpperCase();
   return upper === 'QQQ' || upper === 'NDX' || upper === 'NQ' ? 'VXN' : 'VIX';
 }
+
+/**
+ * The natural "compare against" partner for a symbol — its like-pair, so a
+ * two-symbol surface opens on a meaningful comparison instead of a symbol
+ * beside itself (SPY↔QQQ, SPX↔NDX, ES↔NQ). Shared by Pair Comparison and the
+ * Gamma Terminal so both open the same way.
+ */
+export const LIKE_PAIR: Readonly<Record<PickerSymbol, PickerSymbol>> = {
+  SPY: 'QQQ',
+  QQQ: 'SPY',
+  SPX: 'NDX',
+  NDX: 'SPX',
+  ES: 'NQ',
+  NQ: 'ES',
+};
+
+/** The like-pair partner of `symbol`, falling back to QQQ (or SPY for QQQ itself). */
+export function likePairFor(symbol: string): PickerSymbol {
+  const upper = (symbol || '').toUpperCase() as PickerSymbol;
+  const pair = LIKE_PAIR[upper];
+  if (pair) return pair;
+  return upper === 'QQQ' ? 'SPY' : 'QQQ';
+}

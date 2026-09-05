@@ -41,6 +41,10 @@ export const NAV_GROUPS: NavGroup[] = [
       // route table in core/auth.ts keeps it public and the page branches on
       // the session. Marking it 'basic' here would wrongly hide it from guests.
       { id: '/chart', label: 'Gamma Chart' },
+      // Gamma Terminal (beta): the Gamma Chart's price chart with two gamma
+      // ladders beside it. Live-only (no delayed public snapshot), so unlike
+      // /chart it is a member page and carries the Basic tier.
+      { id: '/gamma-terminal', label: 'Gamma Terminal', requiredTier: 'basic', beta: true },
       { id: '/live-bulletin', label: 'Live Bulletin', labelKey: 'nav.liveBulletin', requiredTier: 'basic' },
     ],
   },
