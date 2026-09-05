@@ -17,12 +17,14 @@ Er liegt auf einer **0–100-Skala, wobei 50 neutral ist.** Er ist **kein** Rich
 
 | Score | Regime | Bedeutung |
 | --- | --- | --- |
-| ≥ 70 | **Trend / Expansion** | Starkes direktionales Regime — Trades im vorherrschenden Bias bevorzugen |
-| 40 – 70 | **Kontrollierter Trend** | Moderater direktionaler Edge — mit reduzierter Größe handeln |
-| 20 – 40 | **Chop / Range** | Seitwärts — Extreme faden, Trend-Trades vermeiden |
-| < 20 | **Hochriskantes Reversal** | Nur Mean-Reversion — erhöhtes Risiko extremer Bewegungen, fragiles Tape |
+| ≥ 70 | **Trend / Expansion** | Historisch die größte Vorwärtsbewegung der vier Bänder |
+| 40 – 70 | **Kontrollierter Trend** | Überdurchschnittliche Vorwärtsbewegung |
+| 20 – 40 | **Chop / Range** | Unterdurchschnittliche Vorwärtsbewegung |
+| < 20 | **Kompression** | Historisch die geringste Vorwärtsbewegung der vier Bänder |
 
-Beachte: Die Bänder beziehen sich auf das *Regime*, nicht auf die *Richtung*. Ein choppy Tape liest sich als **20–40, egal ob der Markt nach oben oder unten driftet.** Das ist Absicht — ein niedriger Score in einem steigenden Markt ist kein Widerspruch, sondern der Gauge, der dir sagt, dass die Bewegung wahrscheinlich nicht sauber trendet.
+Die Bänder sind nach gemessener Vorwärtsbewegung geordnet: Auf Werte im obersten Band folgte historisch die größte Spanne, auf das unterste die geringste. Diese Reihenfolge gilt über alle getesteten Zeithorizonte, der Effekt ist jedoch moderat — er verschiebt die Wahrscheinlichkeiten, er bestimmt sie nicht.
+
+Eine Einschränkung, die wir lieber nennen als verschweigen: Der Score ist kein reiner Regime-Wert. Zwei seiner sechs Komponenten messen die *Richtung* des Options-Flows und nicht, wie weit sich der Preis bewegt, und sie gehen vorzeichenbehaftet in den Score ein. In der Praxis kann ein stark bärisches Tape den Score in die unteren Bänder ziehen, auch wenn sich die Optionsstruktur nicht verändert hat. Wir trennen die beiden Messungen gerade; bis dahin sollte ein niedriger Score während eines scharfen Rückgangs eher als teilweise direktionales Signal gelesen werden denn als reine Spannenprognose.
 
 ## Wie er aufgebaut ist
 
@@ -46,7 +48,7 @@ Für jede Komponente gilt: **+1 spricht für ein handelbares / trendendes Regime
 Die Composite-Score-Seite zeigt:
 
 - Den **MSI-Gauge** — Score auf dem 0–100-Bogen, eingefärbt nach *Regime-Band* (nicht nach bullisch/bärisch).
-- Das **Regime-Label** — Trend / Expansion, Kontrollierter Trend, Chop / Range oder Hochriskantes Reversal.
+- Das **Regime-Label** — Trend / Expansion, Kontrollierter Trend, Chop / Range oder Kompression.
 - Das Panel der **beitragenden Komponenten** — der aktuelle Schub jedes Inputs, rechts für „trendend", links für „Chop / Reversal", sortiert nach Größe.
 - Das **Δ seit Eröffnung** und **Δ letzte 5 Min** — wie weit sich der Regime-Score bewegt hat (Richtung Trend, wenn positiv; Richtung Chop, wenn negativ). Das ist Regime-Momentum, keine Richtung.
 - Eine **Sparkline** des Scores über die Session.

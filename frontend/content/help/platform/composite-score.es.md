@@ -17,12 +17,14 @@ Se ubica en una **escala de 0 a 100, donde 50 es neutral.** **No** es un puntaje
 
 | Puntaje | Régimen | Qué significa |
 | --- | --- | --- |
-| ≥ 70 | **Trend / Expansion** | Régimen direccional fuerte — favorece trades en el sesgo predominante |
-| 40 – 70 | **Controlled Trend** | Ventaja direccional moderada — opera con tamaño reducido |
-| 20 – 40 | **Chop / Range** | Mercado en rango — haz fade de los extremos, evita trades de tendencia |
-| < 20 | **High-Risk Reversal** | Solo reversión a la media — riesgo elevado de movimientos extremos, tape frágil |
+| ≥ 70 | **Trend / Expansion** | El mayor recorrido posterior de las cuatro bandas, históricamente |
+| 40 – 70 | **Controlled Trend** | Recorrido posterior por encima de la media |
+| 20 – 40 | **Chop / Range** | Recorrido posterior por debajo de la media |
+| < 20 | **Compression** | El menor recorrido posterior de las cuatro bandas, históricamente |
 
-Fíjate en que las bandas son sobre el *régimen*, no sobre la *dirección*. Un tape lateral marca **20–40 tanto si el mercado deriva al alza como a la baja.** Es intencional — un puntaje bajo en un mercado que sube no es una contradicción, es el indicador diciéndote que es improbable que el movimiento tienda de forma limpia.
+Las bandas están ordenadas por recorrido posterior medido: a las lecturas de la banda superior les siguió históricamente el mayor rango, y a la inferior el menor. Ese orden se mantiene en todos los horizontes que probamos, pero el efecto es moderado — desplaza las probabilidades, no las determina.
+
+Una salvedad que preferimos declarar antes que ocultar: el puntaje no es una lectura de régimen pura. Dos de sus seis componentes miden la *dirección* del flujo de opciones en lugar de cuánto recorre el precio, y entran en el puntaje con signo. En la práctica, un tape marcadamente bajista puede arrastrar el puntaje a las bandas inferiores aunque la estructura de opciones no haya cambiado. Estamos separando ambas lecturas; hasta entonces, trata un puntaje bajo durante una caída fuerte como una señal en parte direccional, no como un pronóstico puro de rango.
 
 ## Cómo se construye
 
@@ -46,7 +48,7 @@ Para cada componente, **+1 argumenta a favor de un régimen operable / con tende
 La página del Composite Score muestra:
 
 - El **gauge de MSI** — el puntaje en el arco de 0 a 100, coloreado por *banda de régimen* (no por alcista/bajista).
-- La **etiqueta de régimen** — Trend / Expansion, Controlled Trend, Chop / Range o High-Risk Reversal.
+- La **etiqueta de régimen** — Trend / Expansion, Controlled Trend, Chop / Range o Compression.
 - El panel de **componentes contribuyentes** — el empuje actual de cada input, a la derecha para "tendencia", a la izquierda para "lateralización / reversión", ordenados por magnitud.
 - El **Δ desde la apertura** y el **Δ últimos 5 min** — cuánto se ha movido el puntaje de régimen (hacia tendencia si es positivo, hacia lateralización si es negativo). Son momentum de régimen, no dirección.
 - Un **sparkline** del puntaje durante la sesión.

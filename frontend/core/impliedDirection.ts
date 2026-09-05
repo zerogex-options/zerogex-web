@@ -3,9 +3,26 @@ import type { FlowSeriesPoint } from '@/hooks/useFlowSeries';
 /**
  * Direction overlay for the Composite Score / MSI.
  *
- * The MSI itself is a *regime* gauge (0–100): high = trends can run, low =
- * reversal-prone. It is deliberately directionless. This helper layers a
- * directional read on top for the gauge color only, by combining:
+ * The MSI is banded as a *regime* gauge (0–100): high = wider forward travel,
+ * low = narrower.
+ *
+ * It is NOT directionless, and this comment used to claim it was. Two of the six
+ * components feeding the composite are documented in the backend as directional
+ * reads rather than as reads on how far price travels —
+ * `order_flow_imbalance` ("call premium dominates (bullish model output)") and
+ * `dealer_delta_pressure` ("dealers are net short delta → bullish for price") —
+ * and they enter the sum signed. Holding the entire options structure fixed and
+ * varying only the direction of flow moves the composite about 39 points and
+ * across three regime bands. Measured against the production scoring engine; see
+ * research/msi_regime_excursion/structural.py in zerogex-oa.
+ *
+ * The practical consequence for anyone reading this file: a hard DOWN move can
+ * push the score into the low bands, whose copy describes narrow travel. So the
+ * directional read below is layered on a scale that already carries some
+ * direction of its own, and the two are not independent.
+ *
+ * This helper layers a directional read on top for the gauge color only, by
+ * combining:
  *
  *   1. the underlying's recent intraday trend (up / down / flat), and
  *   2. the regime's continuation-vs-reversal lean (score above 50 → the

@@ -2,21 +2,13 @@
 
 import { useMemo } from 'react';
 
+import { classifyRegime } from '@/core/regime';
+
 interface MsiGaugeProps {
   score: number | null;
   size?: number;
   label?: string;
   subLabel?: string;
-}
-
-function regimeBand(score: number | null): { label: string; color: string; description: string } {
-  if (score == null || !Number.isFinite(score)) {
-    return { label: 'No data', color: 'var(--color-text-secondary)', description: 'No reading available.' };
-  }
-  if (score >= 70) return { label: 'Trend / Expansion', color: 'var(--regime-trend)', description: 'Directional trades in prevailing bias.' };
-  if (score >= 40) return { label: 'Controlled Trend', color: 'var(--regime-controlled)', description: 'Moderate directional edge; size down.' };
-  if (score >= 20) return { label: 'Chop / Range', color: 'var(--regime-chop)', description: 'Fade extremes; avoid trend trades.' };
-  return { label: 'High-Risk Reversal', color: 'var(--regime-reversal)', description: 'Broken or dislocated; mean-reversion only.' };
 }
 
 export default function MsiGauge({ score, size = 260, label = 'Composite Score', subLabel }: MsiGaugeProps) {
@@ -31,7 +23,12 @@ export default function MsiGauge({ score, size = 260, label = 'Composite Score',
   const endAngle = 360;
   const angleRange = endAngle - startAngle;
 
-  const band = regimeBand(score);
+  // Bands, labels and copy come from core/regime.ts. This component used to
+  // carry its own copy of all three, which had already drifted: it still said
+  // "Broken or dislocated; mean-reversion only" for the bottom band after that
+  // description was found to be backwards (it is the band with the LEAST
+  // forward travel). One source of truth avoids the next drift.
+  const band = classifyRegime(score);
   const safeScore = score != null && Number.isFinite(score) ? Math.max(0, Math.min(100, score)) : null;
 
   const segments = useMemo(() => {
@@ -116,7 +113,7 @@ export default function MsiGauge({ score, size = 260, label = 'Composite Score',
         {subLabel ? (
           <div className="text-xs text-[var(--color-text-secondary)] mt-0.5">{subLabel}</div>
         ) : (
-          <div className="text-xs text-[var(--color-text-secondary)] mt-0.5">{band.description}</div>
+          <div className="text-xs text-[var(--color-text-secondary)] mt-0.5">{band.copy}</div>
         )}
       </div>
     </div>

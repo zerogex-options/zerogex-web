@@ -17,12 +17,14 @@ It lives on a **0–100 scale, where 50 is neutral.** It is **not** a directiona
 
 | Score | Regime | What it means |
 | --- | --- | --- |
-| ≥ 70 | **Trend / Expansion** | Strong directional regime — favor trades in the prevailing bias |
-| 40 – 70 | **Controlled Trend** | Moderate directional edge — trade with reduced size |
-| 20 – 40 | **Chop / Range** | Range-bound — fade extremes, avoid trend trades |
-| < 20 | **High-Risk Reversal** | Mean-reversion only — extreme-move risk elevated, fragile tape |
+| ≥ 70 | **Trend / Expansion** | Widest forward travel of the four bands, historically |
+| 40 – 70 | **Controlled Trend** | Above-average forward travel |
+| 20 – 40 | **Chop / Range** | Below-average forward travel |
+| < 20 | **Compression** | Narrowest forward travel of the four bands, historically |
 
-Note the bands are about *regime*, not *direction*. A choppy tape reads **20–40 whether the market is drifting up or down.** That is by design — a low score in a rising market is not a contradiction, it is the gauge telling you the move is unlikely to trend cleanly.
+The bands are ordered by measured forward travel: readings in the top band have historically been followed by the widest range, the bottom band by the narrowest. That ordering holds at every horizon we tested, but the effect is modest — it shifts the odds, it does not determine them.
+
+One caveat we would rather state than hide: the score is not a pure regime read. Two of its six components measure the *direction* of options flow rather than how far price travels, and they enter the score signed. In practice a strongly bearish tape can pull the score into the lower bands even when the options structure has not changed. We are separating the two reads; until that lands, treat a low score during a sharp decline as partly a directional signal rather than purely a range forecast.
 
 ## How it's built
 
@@ -46,7 +48,7 @@ For each component, **+1 argues for a tradable / trending regime; −1 argues fo
 The Composite Score page shows:
 
 - The **MSI gauge** — score on the 0–100 arc, colored by *regime band* (not by bull/bear).
-- The **regime label** — Trend / Expansion, Controlled Trend, Chop / Range, or High-Risk Reversal.
+- The **regime label** — Trend / Expansion, Controlled Trend, Chop / Range, or Compression.
 - The **contributing components** panel — each input's current push, right for "trending," left for "chop / reversal," sorted by magnitude.
 - The **Δ since open** and **Δ last 5 min** — how far the regime score has moved (toward trend if positive, toward chop if negative). These are regime momentum, not direction.
 - A **sparkline** of the score over the session.

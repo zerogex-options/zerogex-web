@@ -11,6 +11,7 @@ import ContributionStack from './ContributionStack';
 import ComponentCard from './ComponentCard';
 import { useCompositeData } from './useCompositeData';
 import { REGIME_BANDS, classifyRegime } from '@/core/regime';
+import { FUTURES_BACKING_INDEX, isFuturesSymbol } from '@/core/symbols';
 import { COMPONENT_KEYS, ComponentEntry } from './data';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { getMarketSession } from '@/core/utils';
@@ -379,6 +380,18 @@ export default function CompositeScorePage() {
                 <span><span className="text-[var(--color-text-primary)] font-semibold">Symbol</span> {symbol}</span>
                 <span><span className="text-[var(--color-text-primary)] font-semibold">Scale</span> 0 – 100</span>
                 <span><span className="text-[var(--color-text-primary)] font-semibold">Neutral</span> 50</span>
+                {/* ES and NQ have no score of their own. The backend computes the
+                    composite from the SPX / NDX option chains and does not project
+                    scores onto the futures axis — only price-space levels are
+                    carried across. Without this line a futures trader reads an
+                    index-derived regime gauge with nothing saying where it came
+                    from. */}
+                {isFuturesSymbol(symbol) && (
+                  <span>
+                    <span className="text-[var(--color-text-primary)] font-semibold">Derived from</span>{' '}
+                    {FUTURES_BACKING_INDEX[symbol.toUpperCase()]} options
+                  </span>
+                )}
               </div>
             </div>
             <div>
