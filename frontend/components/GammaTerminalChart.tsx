@@ -19,7 +19,7 @@
  */
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
-import { Activity, Camera, ChevronsRight, Info, Moon, Pause, Play, Repeat, Rewind, Sun } from "lucide-react";
+import { Activity, Camera, ChevronsRight, HelpCircle, Info, Moon, Pause, Play, Repeat, Rewind, Sun } from "lucide-react";
 import TooltipWrapper from "./TooltipWrapper";
 import { useApiData, useMarketQuote, useGEXByStrike, useGEXProfile, useGEXSummary, useSessionCloses, type SessionClosesData, type VolatilityGaugeData } from "@/hooks/useApiData";
 import { useMarketHistorical, type PriceBar } from "@/hooks/useMarketHistorical";
@@ -44,6 +44,7 @@ import { useChartExpirations } from "@/hooks/useChartExpirations";
 import { useLinkedPriceAxis } from "@/core/linkedPriceAxis";
 import { netGexAtSpotOrNull, aboveFlipBandIsLong, offScaleBandIsLong } from "@/core/gammaRegime";
 import { computeMaxPainFromStrikes } from "@/core/keyLevels";
+import { flipStatusChip } from "@/core/flipStatusChip";
 import { pinLineLabel } from "@/core/pinStrike";
 import { barClock, formatBarDuration } from "@/core/barClock";
 import { buildRibbonLayer, ribbonBucketKey, tierFor, RIBBON_MIN_NORM, RIBBON_TIER_OPACITY } from "@/core/gexRibbons";
@@ -2044,6 +2045,42 @@ export default function GammaTerminalChart({
     return placed;
   })();
 
+  // Flip status chip — why there is no FLIP line. The flip is the one level
+  // whose ABSENCE is itself a question: users see an empty plot where they
+  // expected a line and can't tell whether the level is off the visible scale
+  // or simply wasn't resolved. The arrowed axis tag (off-scale) and the "—" in
+  // the regime badge (unresolved) both answer it, but neither sits where the
+  // user is looking. This says it in place.
+  //   * off scale  → flip color, arrow toward it, price included so the chip
+  //                  is self-sufficient
+  //   * unresolved → muted, no price, and the same amber "?" the dashboard
+  //                  card and the Key Levels strip put beside an empty level,
+  //                  carrying the same explainer (core/keyLevels): the resolver
+  //                  DECLINED to publish, and on ES / NQ which chain missed.
+  // Label and copy are pure (core/flipStatusChip); only the placement is the
+  // chart's. Pinned to the edge the flip lies beyond, so the chip points at the
+  // off-screen level rather than floating mid-plot. Two things already own the
+  // top-left of the plot: the OHLC readout (an absolutely-positioned div
+  // painted OVER the svg — a chip up there is invisible, not just crowded) and
+  // the centered off-scale regime caption. So the top slot sits below both, and
+  // the unresolved case — which has no direction to point in, and no caption
+  // since the regime band needs a flip — is parked at the bottom edge, the one
+  // corner nothing else claims. De-collided against the level chips the same
+  // way they de-collide against each other: shifted right past any chip whose
+  // row this one would land in.
+  const flipChip = (() => {
+    if (!overlays.levels) return null;
+    const aboveView = flip != null && flip > layout.dMax;
+    const chip = flipStatusChip({ flip, onScreen: inDomain(flip), aboveView, formatPrice: fmtPrice, symbol });
+    if (!chip) return null;
+    const y = chip.kind === "off-scale" && aboveView ? PAD_TOP + 46 : PRICE_BOTTOM - 10;
+    const x = chipPlacements.reduce(
+      (acc, c) => (Math.abs(c.y - y) < 16 ? Math.max(acc, c.x + c.w + 5) : acc),
+      PLOT_LEFT + 6,
+    );
+    return { ...chip, x, y, w: labelWidth(chip.label), color: chip.kind === "unresolved" ? "var(--text-muted)" : "var(--color-flip)" };
+  })();
+
   // Line/area path for the close series (used by line + area styles).
   const closePath = bars.map((b, i) => `${i === 0 ? "M" : "L"} ${xForIndex(i).toFixed(1)} ${yPrice(b.close).toFixed(1)}`).join(" ");
   const areaPath = `${closePath} L ${xForIndex(lastIdx).toFixed(1)} ${PRICE_BOTTOM} L ${xForIndex(0).toFixed(1)} ${PRICE_BOTTOM} Z`;
@@ -2455,6 +2492,12 @@ export default function GammaTerminalChart({
       {/* ── Chart body ─────────────────────────────────────────────────── */}
       <div ref={containerRef} className="relative" style={{ background: "var(--bg-card)" }}>
         <MobileScrollableChart minWidthClass="min-w-[1000px]" initialScroll="end">
+          {/* The wrapper is exactly the SVG's box (block SVG, width 100%, fixed
+              aspect ratio), so an HTML element placed in percentages of it
+              lands on a viewBox coordinate at any width and scrolls with the
+              SVG on mobile — the one overlay that has to track a point INSIDE
+              the plot rather than a corner of the card. */}
+          <div className="relative">
           <svg
             ref={svgRef}
             width="100%"
@@ -2736,53 +2779,19 @@ export default function GammaTerminalChart({
               </g>
             ))}
 
-            {/* ── Flip status chip — why there is no FLIP line ─────────────
-                 The flip is the one level whose ABSENCE is itself a question:
-                 users see an empty plot where they expected a line and can't
-                 tell whether the level is off the visible scale or simply
-                 wasn't resolved. The arrowed axis tag (off-scale) and the "—"
-                 in the regime badge (unresolved) both answer it, but neither
-                 sits where the user is looking. This says it in place.
-                   * off scale  → flip color, arrow toward it, price included
-                                  so the chip is self-sufficient
-                   * unresolved → muted, no price: the profile came back
-                                  one-signed or too thin to place a crossing */}
-            {overlays.levels && (flip == null || !inDomain(flip)) && (() => {
-              const offScaleUp = flip != null && flip > layout.dMax;
-              const label =
-                flip == null ? "FLIP UNAVAILABLE" : `FLIP ${offScaleUp ? "↑" : "↓"} ${fmtPrice(flip)}`;
-              const color = flip == null ? "var(--text-muted)" : "var(--color-flip)";
-              // Pinned to the edge the flip lies beyond, so the chip points at
-              // the off-screen level rather than floating mid-plot. Two things
-              // already own the top-left of the plot: the OHLC readout (an
-              // absolutely-positioned div painted OVER the svg — a chip up
-              // there is invisible, not just crowded) and the centered
-              // off-scale regime caption. So the top slot sits below both, and
-              // the unresolved case — which has no direction to point in, and
-              // no caption since the regime band needs a flip — is parked at
-              // the bottom edge, the one corner nothing else claims.
-              const y = offScaleUp ? PAD_TOP + 46 : PRICE_BOTTOM - 10;
-              // De-collide against the level chips the same way they
-              // de-collide against each other: shift right past any chip whose
-              // row this one would land in.
-              const x = chipPlacements.reduce(
-                (acc, c) => (Math.abs(c.y - y) < 16 ? Math.max(acc, c.x + c.w + 5) : acc),
-                PLOT_LEFT + 6,
-              );
-              return (
-                <g transform={`translate(${x}, ${y})`} opacity={0.9}>
-                  <rect x={0} y={-8} width={labelWidth(label)} height={16} rx={2} fill="var(--bg-card)" stroke={color} strokeWidth={1} strokeDasharray={flip == null ? "2 2" : undefined} opacity={0.95} />
-                  <text x={6} y={3.5} fontFamily="var(--font-mono)" fontSize={9.5} letterSpacing="0.08em" fill={color} fontWeight={600}>
-                    {label}
-                  </text>
-                  <title>
-                    {flip == null
-                      ? "No gamma flip could be resolved for this snapshot — the scanned gamma profile came back one-signed, or the chain was too thin to place the zero crossing. Nothing is drawn rather than a level we don't trust."
-                      : `The gamma flip sits at ${fmtPrice(flip)}, outside the price range on screen. Zoom the price axis out (Price −, Shift+scroll, or drag the right-hand price scale) to bring it into view.`}
-                  </title>
-                </g>
-              );
-            })()}
+            {/* ── Flip status chip — why there is no FLIP line (see flipChip) ──
+                 The chip body carries the same copy as a native title so the
+                 story is there even where the HTML "?" mark beside it is not
+                 (a PNG export, a still). */}
+            {flipChip && (
+              <g transform={`translate(${flipChip.x}, ${flipChip.y})`} opacity={0.9}>
+                <rect x={0} y={-8} width={flipChip.w} height={16} rx={2} fill="var(--bg-card)" stroke={flipChip.color} strokeWidth={1} strokeDasharray={flipChip.kind === "unresolved" ? "2 2" : undefined} opacity={0.95} />
+                <text x={6} y={3.5} fontFamily="var(--font-mono)" fontSize={9.5} letterSpacing="0.08em" fill={flipChip.color} fontWeight={600}>
+                  {flipChip.label}
+                </text>
+                <title>{flipChip.tooltip}</title>
+              </g>
+            )}
 
             {/* ── Last-price line + live cursor (tag drawn in declutter pass) ── */}
             {(() => {
@@ -2928,6 +2937,36 @@ export default function GammaTerminalChart({
               );
             })()}
           </svg>
+          {/* ── The "?" beside an unresolved flip chip ──────────────────────
+               An SVG <title> nobody knows to hover for is indistinguishable
+               from no explanation at all, which is what turns a blank flip into
+               "is your feed broken?" mail. So the unresolved chip gets the same
+               amber HelpCircle + TooltipWrapper the dashboard card and the Key
+               Levels strip use — same mark, same color, same copy — placed
+               just past the chip's right edge, on its center line. It is HTML
+               rather than SVG so it reads at the UI's own 14px at any chart
+               width, and so it stays out of PNG exports (a mark that promises
+               a hover is noise in a still). Percentages of the wrapper map
+               straight to viewBox units. A sibling of the SVG, not a child,
+               so the chart's crosshair / drag-pan / double-click handlers
+               never see a pointer that is on the mark. */}
+          {flipChip?.explain && (
+            <div
+              className="absolute z-20 flex items-center"
+              style={{
+                left: `${((flipChip.x + flipChip.w + 4) / VW) * 100}%`,
+                top: `${(flipChip.y / VH) * 100}%`,
+                transform: "translateY(-50%)",
+                color: "var(--color-warning)",
+                lineHeight: 0,
+              }}
+            >
+              <TooltipWrapper text={flipChip.tooltip} inlineInExpanded={false}>
+                <HelpCircle size={14} strokeWidth={2.5} aria-hidden="true" />
+              </TooltipWrapper>
+            </div>
+          )}
+          </div>
         </MobileScrollableChart>
 
         {/* ── In-plot legend (OHLC of active bar) ───────────────────────── */}

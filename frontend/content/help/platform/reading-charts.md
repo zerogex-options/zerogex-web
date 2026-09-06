@@ -90,10 +90,15 @@ the price, and the right-hand price axis carries a matching arrowed tag. Zoom
 the price axis out (the **Price −** button, Shift+scroll, or drag the right-hand
 price scale) to bring the line itself into view.
 
-Occasionally no flip can be resolved at all — the scanned gamma profile comes
-back one-signed, or the chain is too thin to place the zero crossing. Then the
-chip reads `FLIP UNAVAILABLE` and the "Dealer Gamma @ Spot" badge shows a plain
-`—`. Nothing is drawn rather than a level we don't trust.
+Occasionally no flip can be resolved at all. The resolver only publishes a
+zero crossing that sits close enough to spot to trade and is backed by real
+open interest, so when spot is deep inside one gamma regime, or the chain is
+thin or one-sided (extended hours, an implied-volatility spike), nothing clears
+that bar. Then the chip reads `FLIP UNAVAILABLE` with an amber `?` beside it —
+hover the mark for the reason, and on ES / NQ for which chain the miss happened
+on — and the "Dealer Gamma @ Spot" badge shows a plain `—`. Nothing is drawn
+rather than a level we don't trust; it normally resolves again on a later
+snapshot.
 
 ## Hover behavior
 
