@@ -46,7 +46,7 @@ import { netGexAtSpotOrNull, aboveFlipBandIsLong, offScaleBandIsLong } from "@/c
 import { computeMaxPainFromStrikes } from "@/core/keyLevels";
 import { pinLineLabel } from "@/core/pinStrike";
 import { barClock, formatBarDuration } from "@/core/barClock";
-import { buildRibbonLayer, RIBBON_TIER_OPACITY } from "@/core/gexRibbons";
+import { buildRibbonLayer, ribbonBucketKey, tierFor, RIBBON_MIN_NORM, RIBBON_TIER_OPACITY } from "@/core/gexRibbons";
 import {
   buildExpirationSplit,
   expirationOpacityRamp,
@@ -180,6 +180,19 @@ const RIBBON_NEG_BODY = `color-mix(in srgb, ${RIBBON_NEG_CORE} 45%, ${RIBBON_NEG
 const RIBBON_GLOW_OPACITY: Record<"strong" | "mid" | "weak", number> = { strong: 0.5, mid: 0.25, weak: 0.1 };
 // Blur radius of the bloom, in viewBox units (~2 CSS px at typical widths).
 const RIBBON_GLOW_BLUR = 2.8;
+// The reading guide behind the legend's info icon — every visual channel of
+// the ribbons, in the order a reader meets them: what an orb is, then height,
+// opacity, colour, and how a lane evolves.
+const RIBBON_GUIDE =
+  "GEX ribbons: every strike is a horizontal lane, and every bar drops one orb in it. " +
+  "HEIGHT is that strike's net dealer gamma in the bar's 5-minute analytics bucket, as a share of the heaviest " +
+  "strike on screen — an orb never exceeds its lane and is capped so zooming the price axis does not balloon it. " +
+  "OPACITY steps with the same share: faint below 15%, medium to 50%, solid above; orbs under 5% are not drawn. " +
+  "COLOR is the sign: gold means dealers are net LONG gamma at the strike (they sell into strength and buy weakness " +
+  "there — a magnet and a brake), violet means net SHORT (they chase — an accelerant). " +
+  "A fat lane that persists all session is a wall; a lane thickening is positioning building, thinning is eroding, " +
+  "and a lane changing colour is the strike flipping sides. Hover a bar on a lane to read the exact strike and value. " +
+  "History covers the polled strike window, so earlier bars stay blank.";
 
 // ── Gamma-by-strike rail view ── the rail draws either the smoothed net
 // silhouette (default, existing behavior) or discrete per-strike bars: NET
@@ -2041,6 +2054,32 @@ export default function GammaTerminalChart({
 
   // Crosshair-price gamma context for the floating readout.
   const hoverGex = hover ? gexAtPrice(hover.price) : null;
+  // The ribbon orb under the cursor: the hovered bar's bucket, the strike lane
+  // nearest the hovered price (within half a lane), its net gamma and its
+  // weight against the heaviest strike on screen — the same numbers the orb
+  // was drawn from, so the readout explains exactly what is on the tape.
+  const hoverRibbon = (() => {
+    if (!hover || !ribbonLayer || ribbonLayer.maxAbs <= 0) return null;
+    const bar = bars[hover.idx];
+    if (!bar) return null;
+    const ms = new Date(bar.timestamp).getTime();
+    if (!Number.isFinite(ms)) return null;
+    const bucket = gexByTs.get(ribbonBucketKey(ms));
+    if (!bucket || !Array.isArray(bucket.strikes)) return null;
+    const halfLane = (ribbonLayer.strikeStep ?? 1) / 2;
+    let best: { strike: number; net: number } | null = null;
+    for (const row of bucket.strikes) {
+      const strike = coerceNum(row.strike);
+      const net = coerceNum(row.net_gamma);
+      if (strike == null || net == null || net === 0) continue;
+      const dist = Math.abs(strike - hover.price);
+      if (dist > halfLane) continue;
+      if (!best || dist < Math.abs(best.strike - hover.price)) best = { strike, net };
+    }
+    if (!best) return null;
+    const norm = Math.abs(best.net) / ribbonLayer.maxAbs;
+    return { ...best, norm, tier: tierFor(norm), drawn: norm >= RIBBON_MIN_NORM };
+  })();
   const nearestLevel = hover
     ? levelDefs
         .filter((l) => l.value != null)
@@ -2279,7 +2318,7 @@ export default function GammaTerminalChart({
             <OverlayPill label="Gamma Rail" color="var(--color-bull)" active={overlays.rail} onClick={() => setOverlays((o) => ({ ...o, rail: !o.rail }))} />
           )}
           {live && (
-            <OverlayPill label="Ribbons" color={RIBBON_POS_GLOW} active={overlays.ribbons} onClick={() => setOverlays((o) => ({ ...o, ribbons: !o.ribbons }))} />
+            <OverlayPill label="Ribbons" color={RIBBON_POS_GLOW} active={overlays.ribbons} onClick={() => setOverlays((o) => ({ ...o, ribbons: !o.ribbons }))} title="GEX ribbons — per-strike dealer gamma through time, behind the tape. Gold = long gamma, violet = short; height and opacity = weight. Key and reading guide in the legend below; hover a lane for the exact value." />
           )}
           <OverlayPill label="Regime" color="var(--color-accent-hot)" active={overlays.regime} onClick={() => setOverlays((o) => ({ ...o, regime: !o.regime }))} />
           <OverlayPill label="VWAP" color="var(--color-hazy)" active={overlays.vwap} onClick={() => setOverlays((o) => ({ ...o, vwap: !o.vwap }))} />
@@ -2981,6 +3020,27 @@ export default function GammaTerminalChart({
                   </span>
                 </div>
               )}
+              {hoverRibbon && (
+                <>
+                  <div style={{ height: 1, background: "var(--border-subtle)", margin: "7px 0" }} />
+                  <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.1em", color: hoverRibbon.net >= 0 ? RIBBON_POS_GLOW : RIBBON_NEG_GLOW, marginBottom: 4 }}>
+                    RIBBON · {fmtPrice(hoverRibbon.strike)} STRIKE
+                  </div>
+                  <div className="flex items-center justify-between" style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>
+                    <span style={{ color: "var(--text-secondary)" }}>Net dealer &#915;</span>
+                    <span style={{ fontWeight: 600, color: hoverRibbon.net >= 0 ? RIBBON_POS_GLOW : RIBBON_NEG_GLOW }}>{fmtGex(hoverRibbon.net)}</span>
+                  </div>
+                  <div className="flex items-center justify-between" style={{ fontFamily: "var(--font-mono)", fontSize: 11, marginTop: 2 }}>
+                    <span style={{ color: "var(--text-secondary)" }}>{hoverRibbon.net >= 0 ? "Long Γ · magnet / brake" : "Short Γ · accelerant"}</span>
+                    <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>
+                      {hoverRibbon.drawn ? `${hoverRibbon.tier} · ${Math.round(hoverRibbon.norm * 100)}%` : "under floor"}
+                    </span>
+                  </div>
+                  <div style={{ fontFamily: "var(--font-mono)", fontSize: 9.5, color: "var(--text-muted)", marginTop: 3 }}>
+                    share of the heaviest strike on screen
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}
@@ -3123,6 +3183,7 @@ export default function GammaTerminalChart({
         <LegendDot color="var(--color-pin)" label="Pin Strike" />
         <LegendDot color="var(--color-hazy)" label="VWAP" />
         <LegendDot color="var(--color-accent-hot)" label="Last" />
+        {live && overlays.ribbons && <RibbonKey />}
         {railStackingActive && (
           <span
             className="flex items-center gap-1.5"
@@ -3328,9 +3389,9 @@ function Row({ k, v, color }: { k: string; v: string; color?: string }) {
   );
 }
 
-function OverlayPill({ label, color, active, onClick }: { label: string; color: string; active: boolean; onClick: () => void }) {
+function OverlayPill({ label, color, active, onClick, title }: { label: string; color: string; active: boolean; onClick: () => void; title?: string }) {
   return (
-    <button type="button" className="zg-gc-pill" data-active={active} onClick={onClick} style={{ ["--pill-color" as string]: color }} aria-pressed={active}>
+    <button type="button" className="zg-gc-pill" data-active={active} onClick={onClick} style={{ ["--pill-color" as string]: color }} aria-pressed={active} title={title}>
       <span className="zg-gc-swatch" />
       {label}
     </button>
@@ -3375,6 +3436,48 @@ function ZoomCluster({ label, onIn, onOut }: { label: string; onIn: () => void; 
         +
       </button>
     </div>
+  );
+}
+
+// A tiny orb for the legend key, drawn like the tape's (an ellipse, not a dot).
+function KeyOrb({ fill, ry, opacity }: { fill: string; ry: number; opacity: number }) {
+  return (
+    <svg width={14} height={12} viewBox="0 0 14 12" aria-hidden style={{ display: "inline-block", flex: "0 0 auto" }}>
+      <ellipse cx={7} cy={6} rx={5.5} ry={ry} fill={fill} opacity={opacity} />
+    </svg>
+  );
+}
+
+// Legend key for the GEX ribbons: colour (sign), then the height + opacity
+// scale (weight), then the full reading guide behind an info icon.
+function RibbonKey() {
+  return (
+    <span
+      className="flex items-center gap-1.5"
+      style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, color: "var(--text-secondary)", letterSpacing: "0.03em" }}
+    >
+      <span style={{ color: "var(--text-muted)" }}>Ribbons</span>
+      <span className="flex items-center gap-1" title="Gold: dealers net long gamma at the strike — a magnet and a brake">
+        <KeyOrb fill={RIBBON_POS_GLOW} ry={4.5} opacity={0.9} />
+        long &#915;
+      </span>
+      <span className="flex items-center gap-1" title="Violet: dealers net short gamma at the strike — an accelerant">
+        <KeyOrb fill={RIBBON_NEG_GLOW} ry={4.5} opacity={0.9} />
+        short &#915;
+      </span>
+      <span
+        className="flex items-center gap-1"
+        title="Height and opacity: the strike's net dealer gamma as a share of the heaviest strike on screen — a sliver is a light strike, a full lane is the wall"
+      >
+        <span className="flex items-center" style={{ gap: 1 }}>
+          <KeyOrb fill="var(--text-primary)" ry={1.3} opacity={RIBBON_TIER_OPACITY.weak + 0.15} />
+          <KeyOrb fill="var(--text-primary)" ry={2.8} opacity={RIBBON_TIER_OPACITY.mid + 0.15} />
+          <KeyOrb fill="var(--text-primary)" ry={4.5} opacity={RIBBON_TIER_OPACITY.strong + 0.1} />
+        </span>
+        light &#8594; heavy
+      </span>
+      <TooltipWrapper text={RIBBON_GUIDE} />
+    </span>
   );
 }
 
