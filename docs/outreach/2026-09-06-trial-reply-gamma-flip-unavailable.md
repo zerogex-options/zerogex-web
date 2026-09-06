@@ -1,13 +1,15 @@
 # Trial reply — "gamma flip unavailable" (Mat, 2026-09-06)
 
-Mat replied to the day-2 value email (`buildTrialValueEmail`, sent 2026-09-06
-11:48):
+Mat (mathenan.aa24@gmail.com) replied to the day-2 value email
+(`buildTrialValueEmail`, sent 2026-09-06 10:48 UTC):
 
 > I have had gamma flip as unavailable so far, does it only appear
 > occasionally? I was most interested in seeing that gamma level?
 
 This is a 1:1 founder reply from your own inbox, same as the cancellation
-follow-ups. Trial runs through 2026-09-11, so it started Friday 2026-09-04.
+follow-ups. **The trial has already been extended** (`make extend-trial`,
+2026-09-06 21:56 UTC): it now runs through **2026-09-18**, and the ~48h
+reminder is re-armed for the new window.
 
 ## The read
 
@@ -20,41 +22,49 @@ follow-ups. Trial runs through 2026-09-11, so it started Friday 2026-09-04.
   profile in `src/config.py`). Otherwise `gamma_flip_point` persists NULL and
   every surface shows it as such. The methodology page, the calculation guide
   and the zero-gamma article all say this in public.
-- **What he saw depends on the surface.** The Gamma Chart chip reads
-  `FLIP UNAVAILABLE` with no tooltip; the dashboard card reads
-  "N/A · Gamma Flip unresolved this snapshot" with the amber "?" explainer
-  (added 2026-09-03, `9658a97`); the Key Levels strip shows an em-dash. Step 2
-  of the email sent him to the chart, so the chip is the likely one — and it is
-  the one surface that still explains nothing.
-- **Timing explains "so far".** He started on the Friday before Labor Day.
-  Outside the session the engine re-serves the last frozen snapshot, so from
-  Friday's close through Monday every page shows one snapshot. If that one
-  came up unresolved (after-hours chain, or the crossing >8% below spot — the
-  May 22, 2026 pre-holiday SPX regime is the precedent the engine's own
-  throttle comment cites), he has seen a single blank for three days, not a
-  pattern.
-- **Symbol unknown.** If he was on ES or NQ, the levels come from the SPX /
-  NDX chain and the blank is an SPX / NDX miss; the card's tooltip says so, the
-  chip does not.
-- **He has four live sessions left** (Tue 8 – Fri 11). A trial that lands on a
-  holiday weekend is a fair reason to extend.
+- **When Mat looked.** The audit trail (`make diagnose-user`) puts the whole
+  visit on Friday 2026-09-04: registered 13:13 UTC, last seen 16:38 UTC — that
+  is 09:13 to 12:38 ET, pre-open through midday — and no return since. So the
+  blank was seen during the live morning session, not on a frozen weekend
+  snapshot. Both failure modes fit that window: the morning-open degraded
+  chain (implied vols spike, modeled gamma collapses, the structural gate
+  rejects everything until the book settles) and a flip genuinely sitting more
+  than 8% from spot in a one-sided pre-holiday regime (the May 22, 2026 SPX
+  precedent the engine's own throttle comment cites). Which one it was on
+  Friday is checkable — see "Verify first".
+- **Which surface.** Step 2 of the value email sent Mat to the Gamma Chart,
+  whose chip reads `FLIP UNAVAILABLE`. Until this branch, that chip explained
+  itself only through a native SVG `<title>` — a slow hover nobody knows to
+  make, no visible mark, and copy ("one-signed or too thin") older than the
+  declined-publish explainer the dashboard card and the Key Levels strip got
+  on 2026-09-03 (`9658a97`). The chip now carries the same amber "?" and the
+  same shared copy, chain attribution for ES / NQ included (see below).
+- **Symbol unknown.** If Mat was on ES or NQ, the levels come from the SPX /
+  NDX chain and the blank is an SPX / NDX miss.
+- **Tier is Basic.** Step 3 of the value email (Trade Bias) is a Pro-tier
+  page (`core/navigation.ts`), so a Basic trialer following the email hits a
+  gate on the third step. Not this thread's problem, but the template should
+  pick its third step by tier — noted at the end.
 
 ## Verify first
 
-- Open `/dashboard` (or the free `/spx-gamma-levels`) and check whether the
-  SPX / SPY flip is resolved now and what the Net GEX sign is. Fill in the
-  bracketed sentence in the draft with what you actually see; do not send the
+- Which day it was on Friday: open the replay for the session,
+  `https://zerogex.io/replay/SPX/2026-09-04` (and `/SPY/`, `/QQQ/`,
+  `/NDX/` — the replay says when a level is absent rather than drawing
+  nothing, `2fec1ad`). If the flip resolved late morning, say so and give the
+  level; if it never resolved, say that instead. Fill in the bracketed
+  sentence in the draft with what you actually see; do not send the
   placeholder.
-- `make diagnose-user EMAIL=<mat's address>` for the exact trial dates and
-  whether the audit trail shows which pages he opened.
-- Extension, if you want it:
-  `make extend-trial EMAIL=<addr> EXTEND_DAYS=7 DRY_RUN=1`, then `YES=1`.
+- Nothing more to verify for the extension: the second `diagnose-user` run
+  already shows Stripe `trial_end` and the users row at 2026-09-18, and the
+  re-armed 48h reminder will quote the new date. The in-app trial banner
+  carries no date, so there is nothing for Mat to see until that reminder.
 
 ## Links
 
 - https://zerogex.io/education/zero-gamma-level-explained — "How the zero
   gamma level is found", point 1: *The level can be absent.* The closest
-  thing we have to an article on exactly his question.
+  thing we have to an article on exactly this question.
 - https://zerogex.io/guides/gamma-flip-calculation-before-vs-after — "The
   hardened flip resolver": the three gates and the honest NULL.
 - https://zerogex.io/help/platform/reading-charts — "When there's no flip
@@ -86,16 +96,18 @@ follow-ups. Trial runs through 2026-09-11, so it started Friday 2026-09-04.
 > 1. Spot is deep inside one regime. In a strong long-gamma grind the zero
 >    crossing can sit more than 8% below the market, and a level that far away
 >    isn't tradeable on any horizon.
-> 2. The chain is thin or one-sided when you look: extended hours, weekends,
->    or an implied-vol spike. Outside the session the whole app is re-serving
->    the last snapshot, so if Friday's close came up blank it stays blank until
->    Tuesday's open.
+> 2. The chain is degraded when you look. Around the open, implied vols spike
+>    and modeled gamma collapses across the board; the same happens in
+>    extended hours or on a thin, one-sided chain. Those blanks usually clear
+>    as the session settles.
 >
-> That second point is probably most of your experience so far. You started
-> Friday, the market has been shut since, and Monday is Labor Day.
-> [CONFIRM AND FILL IN — e.g. "I've just checked SPX: the flip has been
-> unresolved since Friday's close because the crossing sits about 9% below
-> spot, so you weren't seeing a fault."]
+> You were in the app on Friday morning, which is exactly when the second one
+> bites hardest. [CONFIRM AND FILL IN from Friday's replay — e.g. "I pulled
+> Friday's SPX snapshots: the flip was unresolved from the open until about
+> 11:40 ET, then printed about 3% below spot for the rest of the day." — or,
+> if it never resolved: "SPX's flip didn't resolve at all on Friday: the
+> crossing sat about 9% below spot all session. That's the regime, not a
+> fault."]
 >
 > Two things you can do whenever the flip is blank:
 >
@@ -107,10 +119,10 @@ follow-ups. Trial runs through 2026-09-11, so it started Friday 2026-09-04.
 >   the whole curve, and if it never crosses zero anywhere near spot, that's
 >   the blank explained in one picture.
 >
-> On the dashboard, hover the amber "?" on the empty Gamma Flip card and it
-> will say which chain came up short. That matters if you were looking at ES
-> or NQ: they have no options of their own, so their levels come from the SPX
-> and NDX chains.
+> On the dashboard, hover the amber "?" next to a blank Gamma Flip and it will
+> say why, including which chain came up short. That matters if you were
+> looking at ES or NQ: they have no options of their own, so their levels come
+> from the SPX and NDX chains.
 >
 > The write-ups, if you want them: the zero gamma article has a short section
 > on why the level can be absent
@@ -118,22 +130,28 @@ follow-ups. Trial runs through 2026-09-11, so it started Friday 2026-09-04.
 > calculation guide walks through the exact gates
 > (https://zerogex.io/guides/gamma-flip-calculation-before-vs-after).
 >
-> One question back: which symbol were you on, and roughly when? If it was
-> during Friday's session on SPX or SPY I'd like to pull that snapshot and
-> look at it myself.
+> One question back: which symbol were you on? If it was SPX or SPY I'd like
+> to pull Friday's snapshots and look at them myself.
 >
-> [OPTIONAL: Since the holiday weekend ate three of your seven days, I've
-> extended your trial by a week so you get a proper run of live sessions with
-> it.]
+> And since the holiday weekend ate three of your seven days, I've extended
+> your trial by a week: it now runs through September 18, so you get a proper
+> run of live sessions with it.
 >
 > Michael
 > Founder, ZeroGEX
 
-## Follow-up worth a ticket
+## Done on this branch
 
-The Gamma Chart's `FLIP UNAVAILABLE` chip is now the only unresolved-flip
-surface with no explanation attached. The 2026-09-03 change gave the dashboard
-card, the Key Levels strip and the public pages an explainer for exactly the
-"is there no data?" email; the chip should carry the same copy (or a link to
-the reading-charts help section), since the value email sends every new trial
-to the chart as step 2.
+- The Gamma Chart's `FLIP UNAVAILABLE` chip now carries the shared
+  unresolved-level explainer (`core/keyLevels.unresolvedLevelTooltip`) behind
+  the same amber `?` + TooltipWrapper the dashboard card and the Key Levels
+  strip use, with the ES / NQ chain attribution. Label and copy live in
+  `core/flipStatusChip.ts` and are pinned by `tests/flipStatusChip.test.ts`;
+  the reading-charts help page says so in all five locales.
+
+## Worth a separate ticket
+
+- `buildTrialValueEmail` (`core/mailer.ts`) sends every trialer to Trade
+  Bias as step 3, but Trade Bias is Pro-only and the trial can be Basic (as
+  Mat's is). Pick the third step by tier — Live Bulletin or Dealer Positioning
+  for Basic — so the "fastest path" never ends at an upgrade gate.
