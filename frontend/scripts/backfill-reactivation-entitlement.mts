@@ -34,6 +34,18 @@
 // account that already has the column set is left alone — its existing
 // timestamp is the real one.
 //
+// That prior-paid filter is also what keeps the two audiences apart. Both write
+// the SAME `<key>_sent` audit type, so selecting by campaign picks up the
+// `cancelled` recipients too — but every one of them is churned
+// (subscription_lapsed=1, the definition of that cohort), so they land in the
+// skip bucket rather than being handed an offer their email never made.
+//
+// The skipped accounts are LISTED, not just counted, because two of them need
+// different handling: a recipient who already started the standard trial off
+// this campaign was promised the longer one and cannot be fixed by a stamp —
+// their trial already exists on the Stripe subscription. Extend it with
+// scripts/extend-trial.mts instead.
+//
 // The stamp is written with the timestamp the offer was actually MADE (the
 // campaign audit row's created_at), not "now", so the column keeps meaning
 // "when this account was pitched the extended trial".
@@ -255,12 +267,28 @@ const toStamp = candidates.filter(
   (c) => !hasPriorPaid(c) && c.reactivation_email_sent_at == null,
 );
 
+const SAMPLE = 30;
+
 console.log(`Auth DB:         ${dbPath}`);
 console.log(`Selection:       ${cli.email ? `email ${cli.email}` : `audit type ${auditType}`}`);
 console.log(`Matched:         ${candidates.length}`);
 console.log(`Already stamped: ${alreadyStamped.length} (left as-is)`);
 console.log(`Not trial-eligible: ${priorPaid.length} (prior paid subscription — skipped)`);
 console.log(`To stamp:        ${toStamp.length}`);
+
+// Named, not just counted: a stamp cannot help these accounts, but some of them
+// may still be owed something. Anyone here who is mid-trial started that trial
+// AFTER the campaign promised a longer one, and needs scripts/extend-trial.mts;
+// the rest are churned members whose email made a different offer entirely.
+if (priorPaid.length > 0) {
+  console.log('\nSkipped (no trial available at checkout — check whether any are mid-trial');
+  console.log('on the standard length and owed the longer one via extend-trial.mts):');
+  for (const c of priorPaid.slice(0, SAMPLE)) {
+    const why = Number(c.subscription_lapsed) === 1 ? 'churned' : 'has paid before';
+    console.log(`  - ${c.email}  (${why})`);
+  }
+  if (priorPaid.length > SAMPLE) console.log(`  ... and ${priorPaid.length - SAMPLE} more`);
+}
 
 if (cli.email && toStamp.length > 0 && toStamp[0].offered_at == null) {
   console.warn(
@@ -275,8 +303,7 @@ if (toStamp.length === 0) {
   process.exit(0);
 }
 
-const SAMPLE = 30;
-console.log('');
+console.log('\nWill stamp:');
 for (const c of toStamp.slice(0, SAMPLE)) {
   console.log(`  - ${c.email}  (offered ${c.offered_at ?? 'n/a — manual grant'})`);
 }
