@@ -24,6 +24,7 @@
     "test:mrr": "node --experimental-strip-types --test tests/mrr.test.ts",
     "test:campaigns": "node --experimental-strip-types --test tests/campaigns.test.ts",
     "test:stripe-invoice-preview": "node --experimental-strip-types --test tests/stripeInvoicePreview.test.ts",
+    "test:newsletter-offers": "node --experimental-strip-types --test tests/newsletterOffers.test.ts",
     "test:backtest-featured": "node --experimental-strip-types --test tests/backtestFeatured.test.ts",
     "test:insights-view": "node --experimental-strip-types --test tests/insightsView.test.ts",
     "test:page-analytics": "node --experimental-strip-types --test tests/pageAnalytics.test.ts",

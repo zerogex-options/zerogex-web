@@ -45,6 +45,40 @@ So August keeps them. The flag is per-campaign
 dry-run reports the overlap either way — `Excluded:` when the campaign skips
 them, `Second touch:` when it doesn't.
 
+### The `registrants` audience grants the extended trial
+
+The August email tells registrants "your **extended free trial** is still on the
+table" and its CTA is `/pricing?trial=1&reactivate=1`. That link is only a
+*signal*: `/pricing` renders the longer number straight off the URL parameter,
+but `app/api/billing/checkout/route.ts` re-derives the actual grant server-side
+and gives the extended `REACTIVATION_TRIAL_DAYS` trial **only** when
+`users.reactivation_email_sent_at` is set. So each successful `registrants` send
+on a campaign flagged `grantsExtendedTrial` stamps that column. Two
+consequences, both intended:
+
+- the recipient actually gets the trial length the email promised, instead of
+  seeing 30 days on `/pricing` and being charged by Stripe after 7, and
+- the daily reactivation timer (`scripts/send-reactivation.mts`) will never
+  pitch the same extended-trial offer to them a second time.
+
+The flag lives per-campaign in `CAMPAIGNS` because it is a property of the copy:
+July's registrant email linked to a bare `/pricing` and named no length, so it is
+`grantsExtendedTrial: false`. Before sending, the script cross-checks the flag
+against what the template actually links to and **refuses to run** if the two
+disagree in either direction — a campaign cannot promise the offer without
+claiming the latch, or claim the latch without promising the offer.
+
+> The 2026-08 send went out before this was wired up, so its recipients were
+> promised the extended trial without the stamp. Repair that batch with
+> `make backfill-reactivation-entitlement DRY_RUN=1` and then `YES=1`. It also
+> takes `EMAIL=<addr>` for honoring the offer for one member who writes in.
+
+Write query strings in the HTML as `&amp;` (`?trial=1&amp;reactivate=1`). A raw
+`&` is invalid in an attribute, and a mail client that sanitizes links can drop
+the second parameter — which sends the reader to a pricing page showing the
+standard trial. `npm run test:newsletter-offers` enforces this and the flag
+cross-check.
+
 ### The `cancelled` audience needs a win-back coupon
 
 The email's CTA is `/pricing?winback=1`, and `app/api/billing/checkout/route.ts`

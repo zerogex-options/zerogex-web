@@ -7,6 +7,11 @@
 // short interpretation that flags the most common subscription-state bugs
 // (no-trial founder, stale stripe_customer_id, drifted webhook state, etc.).
 //
+// Also prints where the account came from (first-touch signup source) and the
+// lifecycle-email latches with the offer entitlements they imply — the answer
+// to "the email promised an extended trial / a discount, why doesn't checkout
+// give it?", which is otherwise only visible by hand-querying the users table.
+//
 // Read-only — no DB or Stripe mutations.
 
 import fs from 'node:fs';
@@ -24,6 +29,14 @@ import { previewNextInvoice, isNoUpcomingInvoiceError } from '../core/stripeInvo
 // should have a trial_end of July 1, 09:30 ET.
 const FOUNDING_DEFERRAL_DEPLOY_ISO = '2026-06-10T14:33:00.000Z';
 const FOUNDING_DEADLINE_ISO = '2026-07-01T13:30:00.000Z';
+
+// Mirrors TRIAL_PERIOD_DAYS / REACTIVATION_TRIAL_DAYS_DEFAULT in
+// app/api/billing/checkout/route.ts. Copied rather than imported: that module
+// is a Next.js route handler and pulling it into a CLI script would drag the
+// whole server runtime in. Keep the two in sync — this script exists to say
+// what checkout WOULD do, so a drifted copy is worse than no line at all.
+const TRIAL_PERIOD_DAYS = 7;
+const REACTIVATION_TRIAL_DAYS_DEFAULT = 30;
 
 type Args = {
   email: string | null;
@@ -159,7 +172,29 @@ type UserRow = {
   trial_reminder_email_sent_at: string | null;
   referred_by_code: string | null;
   referral_credit_months: number | null;
+  // First-touch acquisition source (users.signup_utm_source, from the zgx_src
+  // cookie dropped on the landing page). NULL = organic/direct, or an account
+  // that predates the column.
+  signup_utm_source: string | null;
+  // Lifecycle-email latches. Each one is BOTH "did this campaign reach them"
+  // and, for the two offer emails, the server-side entitlement the checkout
+  // route re-derives from — so "why did this user see the standard trial /
+  // no discount?" is answerable here instead of by hand-querying the DB.
+  marketing_unsubscribed_at: string | null;
+  verified_never_paid_email_sent_at: string | null;
+  reactivation_email_sent_at: string | null;
+  winback_email_sent_at: string | null;
 };
+
+// The lifecycle columns above are added by the app's lazy migration in
+// core/db.ts, which only runs once the Next.js app boots and calls getDb(). On
+// a DB that predates one of them, SELECTing it dies with a raw "no such
+// column". Select what exists and hand back NULL for the rest, so a diagnostic
+// still prints on an unmigrated database instead of erroring out.
+const userCols = new Set(
+  querySqlite<{ name: string }>(dbPath, `PRAGMA table_info(users);`).map((c) => c.name),
+);
+const col = (name: string) => (userCols.has(name) ? name : `NULL AS ${name}`);
 
 const rows = querySqlite<UserRow>(
   dbPath,
@@ -171,7 +206,12 @@ const rows = querySqlite<UserRow>(
           current_period_end, cancel_at_period_end,
           payment_grace_started_at, payment_grace_reason, first_payment_at,
           trial_reminder_email_sent_at,
-          referred_by_code, referral_credit_months
+          referred_by_code, referral_credit_months,
+          ${col('signup_utm_source')},
+          ${col('marketing_unsubscribed_at')},
+          ${col('verified_never_paid_email_sent_at')},
+          ${col('reactivation_email_sent_at')},
+          ${col('winback_email_sent_at')}
    FROM users
    WHERE LOWER(email) = '${escapeSqlLiteral(cliArgs.email.toLowerCase())}'
    LIMIT 1;`,
@@ -245,6 +285,9 @@ kv(
   );
 }
 kv('Founding eligible', yesNo(user.founding_eligible));
+// Where the account came from. Distinct from `Referred by code` below: that is
+// the in-product referral program, this is the first-touch marketing source.
+kv('Signup source', user.signup_utm_source ? user.signup_utm_source : '— (organic/direct)');
 kv('Referred by code', orDash(user.referred_by_code));
 kv('Referral credit months', String(user.referral_credit_months ?? 0));
 
@@ -265,6 +308,44 @@ kv('First payment cleared', orDash(user.first_payment_at));
 kv('Paid welcome sent', orDash(user.paid_welcome_email_sent_at));
 kv('Subscription lapsed', yesNo(user.subscription_lapsed));
 kv('Trial reminder sent', orDash(user.trial_reminder_email_sent_at));
+
+// Lifecycle-email latches and, more usefully, what they ENTITLE the account to.
+// Both re-engagement offers are server-authoritative: the ?winback=1 and
+// ?reactivate=1 links only signal intent, and app/api/billing/checkout/route.ts
+// re-derives the actual grant from these columns. So a member reporting "the
+// email promised X but checkout offered Y" is answered here — the rules below
+// are the same ones the checkout route applies.
+header('Lifecycle emails & offer entitlements');
+kv('Marketing unsubscribed', orDash(user.marketing_unsubscribed_at));
+kv('Onboarding nudge sent', orDash(user.verified_never_paid_email_sent_at));
+kv('Reactivation email sent', orDash(user.reactivation_email_sent_at));
+kv('Win-back email sent', orDash(user.winback_email_sent_at));
+{
+  // Mirrors hasPriorPaidSubscription in app/api/billing/checkout/route.ts.
+  const hasPriorPaid =
+    user.paid_welcome_email_sent_at != null || Number(user.subscription_lapsed) === 1;
+  // Mirrors getReactivationTrialDays() in the same file, clamp included, so the
+  // number printed is the number checkout would actually grant.
+  const rawReactivationDays = Number(envOrLocal('REACTIVATION_TRIAL_DAYS'));
+  const reactivationDays = Number.isFinite(rawReactivationDays)
+    ? Math.max(TRIAL_PERIOD_DAYS, Math.min(90, Math.floor(rawReactivationDays)))
+    : REACTIVATION_TRIAL_DAYS_DEFAULT;
+  kv(
+    'Trial checkout would grant',
+    hasPriorPaid
+      ? 'none — prior paid subscription on this account'
+      : user.reactivation_email_sent_at != null
+        ? `${reactivationDays}d via /pricing?trial=1&reactivate=1 (${TRIAL_PERIOD_DAYS}d without it)`
+        : `${TRIAL_PERIOD_DAYS}d — NOT entitled to the extended trial ` +
+          '(reactivation_email_sent_at is unset)',
+  );
+  kv(
+    'Win-back discount',
+    Number(user.subscription_lapsed) === 1 && user.winback_email_sent_at != null
+      ? 'attachable via /pricing?winback=1'
+      : 'no — needs subscription_lapsed=1 AND winback_email_sent_at set',
+  );
+}
 
 // Which line of the admin Total Subscribers chart this member is on RIGHT NOW,
 // and why. Uses the same classifier the chart's buckets are tested against

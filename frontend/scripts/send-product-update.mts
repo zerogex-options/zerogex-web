@@ -49,6 +49,17 @@
 // the run refuses to start unless STRIPE_COUPON_WINBACK_* is present (override
 // with --allow-missing-coupon when the offer is being honored by hand).
 //
+// EXTENDED TRIAL (registrants, campaigns flagged grantsExtendedTrial): the
+// email's CTA is /pricing?trial=1&reactivate=1, and checkout only grants the
+// longer REACTIVATION_TRIAL_DAYS trial when users.reactivation_email_sent_at is
+// set. This sender therefore stamps that column on each successful send — the
+// same discipline as the win-back latch above. Without it the copy promises an
+// extended trial the checkout route will not honor, and the daily reactivation
+// timer re-pitches the same offer to people who already have it. The flag is
+// cross-checked against the template's own CTA before anything is sent, so a
+// campaign can neither promise the offer without claiming the latch nor claim
+// the latch without promising the offer.
+//
 // Idempotency: a `<campaign key>_sent` row is written to audit_events on each
 // successful send; already-stamped users are skipped on re-run.
 //
@@ -85,6 +96,23 @@ type CampaignSpec = {
   // Per-campaign rather than removed outright so re-running a past campaign
   // still reproduces the cohort it actually sent to.
   excludeOnboardingNudged: boolean;
+  // Whether this campaign's `registrants` email PROMISES the extended trial and
+  // links to /pricing?trial=1&reactivate=1.
+  //
+  // If it does, the send must claim users.reactivation_email_sent_at, exactly
+  // as the `cancelled` path claims winback_email_sent_at: checkout re-derives
+  // the extended trial from that column alone
+  // (app/api/billing/checkout/route.ts, reactivationEligible), so without the
+  // stamp the email promises a longer trial and Stripe still charges after
+  // TRIAL_PERIOD_DAYS. Claiming the latch also stops the daily reactivation
+  // timer sending the SAME offer again weeks later — one extended-trial pitch
+  // per account, whichever sender gets there first.
+  //
+  // Per-campaign because it is a property of the copy: July's registrant email
+  // pitched a bare /pricing link and named no length, so stamping for it would
+  // burn the latch on people who were never made the offer. checkTemplateOffer()
+  // below cross-checks this flag against what the template actually links to.
+  grantsExtendedTrial: boolean;
 };
 
 type Args = {
@@ -117,6 +145,8 @@ const CAMPAIGNS: Record<string, CampaignSpec> = {
   '2026-07': {
     key: 'product_update_2026_07',
     excludeOnboardingNudged: true,
+    // Its CTA is a bare /pricing and the copy names no trial length.
+    grantsExtendedTrial: false,
     content: {
       subscribers: {
         subject: "What's new at ZeroGEX — and what's coming next",
@@ -133,6 +163,8 @@ const CAMPAIGNS: Record<string, CampaignSpec> = {
   '2026-08': {
     key: 'product_update_2026_08',
     excludeOnboardingNudged: false,
+    // "your extended free trial is still on the table", CTA /pricing?trial=1&reactivate=1.
+    grantsExtendedTrial: true,
     content: {
       registrants: {
         subject: "What's new at ZeroGEX since you signed up",
@@ -424,6 +456,36 @@ if (!fs.existsSync(dbPath)) {
 }
 ensureSqlite3Cli();
 
+// Pre-flight schema check for the latch this run will claim. These columns come
+// from the lazy migration in core/db.ts, which only runs when the Next.js app
+// boots and first calls getDb(); on a DB where the app has not restarted since
+// the column shipped, the UPDATE would fail mid-send — after the email is
+// already delivered — leaving a promise with no entitlement behind it. Mirrors
+// the guard in scripts/send-reactivation.mts.
+{
+  const needed =
+    audience === 'cancelled'
+      ? ['winback_email_sent_at']
+      : audience === 'registrants' && campaignSpec.grantsExtendedTrial
+        ? ['reactivation_email_sent_at']
+        : [];
+  if (needed.length > 0) {
+    const userCols = new Set(
+      querySqlite<{ name: string }>(dbPath, `PRAGMA table_info(users);`).map((c) => c.name),
+    );
+    const missing = needed.filter((c) => !userCols.has(c));
+    if (missing.length > 0) {
+      console.error(
+        `\nError: auth DB at ${dbPath} is missing column(s): ${missing.join(', ')}.\n` +
+          'This send grants an offer that checkout reads from that column, so it cannot\n' +
+          'proceed. Start (or restart) the Next.js app once to run the lazy migration in\n' +
+          'core/db.ts, then re-run.',
+      );
+      process.exit(1);
+    }
+  }
+}
+
 const docsDir = path.join(cwd, '..', 'docs', 'newsletters');
 const htmlPath = path.join(docsDir, content.html);
 const textPath = path.join(docsDir, content.text);
@@ -567,6 +629,12 @@ if (audience === 'registrants') {
       ? `Excluded:       ${excludedNudged} already got the ~2h onboarding nudge`
       : `Second touch:   ${excludedNudged} of these already got the ~2h onboarding nudge`,
   );
+  console.log(
+    campaignSpec.grantsExtendedTrial
+      ? `Offer:          extended trial (stamps reactivation_email_sent_at; ` +
+          `suppresses the daily reactivation email)`
+      : `Offer:          none beyond the standard trial`,
+  );
 }
 console.log(`Cohort size:    ${rows.length}`);
 if (alreadyCount > 0) console.log(`Already emailed: ${alreadyCount} (skipped)`);
@@ -626,6 +694,39 @@ function escapeHtmlText(v: string): string {
 
 let html = fs.readFileSync(htmlPath, 'utf8');
 let text = fs.readFileSync(textPath, 'utf8');
+
+// The copy and the entitlement have to agree, and the only way to be sure is to
+// read the template. A campaign promising the extended trial without claiming
+// the latch is exactly the August bug: /pricing renders the longer number from
+// the URL param while checkout, which reads reactivation_email_sent_at, still
+// grants the standard trial — so the member is told 30 days and billed after 7.
+// The reverse (claiming the latch with no offer in the copy) silently spends a
+// one-shot pitch nobody was made. Refuse both, before a single email goes out.
+if (audience === 'registrants') {
+  // Matches the raw and the HTML-escaped form, so an entity-encoded href
+  // (which is the correct way to write it) still counts as the offer.
+  const linksReactivate = /reactivate=1/.test(html) || /reactivate=1/.test(text);
+  if (campaignSpec.grantsExtendedTrial && !linksReactivate) {
+    console.error(
+      `\nError: campaign ${cli.campaign} is flagged grantsExtendedTrial, but neither\n` +
+        `${content.html} nor ${content.text} links to /pricing?trial=1&reactivate=1.\n` +
+        'Checkout only grants the extended trial for a visitor arriving on that link,\n' +
+        'so stamping the latch would spend the offer without ever making it.\n' +
+        'Fix the CTA, or set grantsExtendedTrial: false for this campaign.',
+    );
+    process.exit(1);
+  }
+  if (!campaignSpec.grantsExtendedTrial && linksReactivate) {
+    console.error(
+      `\nError: ${content.html} / ${content.text} links to ?reactivate=1, but campaign\n` +
+        `${cli.campaign} is not flagged grantsExtendedTrial. Recipients would land on a\n` +
+        'pricing page showing the extended trial and then be charged after the standard\n' +
+        'one, because checkout reads users.reactivation_email_sent_at and this send\n' +
+        'would not set it. Set grantsExtendedTrial: true, or drop ?reactivate=1.',
+    );
+    process.exit(1);
+  }
+}
 
 const needsDiscountLabel =
   html.includes('{{DISCOUNT_LABEL}}') ||
@@ -753,11 +854,20 @@ if (cli.send) {
       // is all-or-nothing. Splitting them meant a failure between the two left
       // a member emailed, unlatched and unaudited — re-sent on the next run.
       // One statement is also one lock acquisition instead of two.
+      // The registrants variant of a grantsExtendedTrial campaign IS the
+      // reactivation offer, so it claims that sender's latch for the same two
+      // reasons: checkout requires the column to be set before it will grant
+      // the longer trial, and the daily reactivation timer must not pitch the
+      // identical offer again a few weeks later. `AND ... IS NULL` so a user
+      // the automated sender already reached keeps their original timestamp.
       const latchSql =
         audience === 'cancelled'
           ? `UPDATE users SET winback_email_sent_at = '${esc(nowIso)}'
                WHERE id = '${esc(user.id)}' AND winback_email_sent_at IS NULL;`
-          : '';
+          : audience === 'registrants' && campaignSpec.grantsExtendedTrial
+            ? `UPDATE users SET reactivation_email_sent_at = '${esc(nowIso)}'
+               WHERE id = '${esc(user.id)}' AND reactivation_email_sent_at IS NULL;`
+            : '';
       try {
         execSqlite(
           dbPath,
