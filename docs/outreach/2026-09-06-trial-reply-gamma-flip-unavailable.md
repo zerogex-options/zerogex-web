@@ -11,6 +11,11 @@ follow-ups. **The trial has already been extended** (`make extend-trial`,
 2026-09-06 21:56 UTC): it now runs through **2026-09-18**, and the ~48h
 reminder is re-armed for the new window.
 
+> **Status:** round one was sent on 2026-09-06 (the first draft, with the
+> weekend-snapshot line; Mat did not mind). Mat replied the same evening,
+> warmly, and asked for content on trading the levels on **NQ** charts. That
+> answers the open symbol question. Round two is at the end of this file.
+
 ## The read
 
 - **"Unavailable" is a declined publish, not a gap in the feed.**
@@ -155,3 +160,105 @@ reminder is re-armed for the new window.
   Bias as step 3, but Trade Bias is Pro-only and the trial can be Basic (as
   Mat's is). Pick the third step by tier — Live Bulletin or Dealer Positioning
   for Basic — so the "fastest path" never ends at an upgrade gate.
+
+---
+
+## Round 2 — Mat's reply, and the NQ follow-up
+
+Mat's reply, in full effect: the explanation landed ("the chances of me being a
+long-term subscriber of yours have now dramatically improved"), the extension
+was appreciated, and one ask: *recommendations for content that breaks down
+optimal ways to trade these gamma levels on NQ charts.*
+
+### The read
+
+- **NQ answers "which symbol".** ES / NQ carry no chain of their own
+  (`core/symbols.ts`): NQ's levels are the NDX book projected onto the NQ
+  price axis with the live futures basis (`src/jobs/futures_projection.py`).
+  So the blank Mat saw on Friday morning was the NDX chain declining to
+  publish, exactly the case the 2026-09-03 chain-attribution copy was written
+  for.
+- **What we actually have for an NQ trader.** Nothing is NQ-specific by
+  title, but one piece is squarely about Nasdaq: *How Often Do Gamma Walls
+  Actually Break?* measured 737 wall tests across SPY / SPX / QQQ / NDX and
+  found S&P walls held about two times in three within the hour while Nasdaq
+  walls were close to a coin flip (QQQ 50.1%, NDX 46.8% break within 60 min),
+  with QQQ and NDX statistically indistinguishable — the odds belong to the
+  index, not the chain you watch. That is the single most useful thing to
+  tell someone about to trade NQ off these levels, and it argues for sizing,
+  not for a different level.
+- **Tools that fit Basic.** Replay is public and takes NQ
+  (`/replay?symbol=NQ`, `/replay/NQ/<date>`; about thirty NQ sessions exist
+  per the 2026-09-04 backtest note). The TradingView and thinkorswim scripts
+  are free and manual-entry; NinjaTrader and Sierra Chart auto-update but need
+  a Pro API key (`docs/integrations.md`). Pair Comparison and Gamma Terminal
+  are Basic. Trade Bias and Backtesting are Pro — not offered below.
+- **Keep the caveat in.** The same study found none of nineteen wall
+  properties predicted which wall would break. Recommending "how to trade
+  the levels" content without that sentence would oversell.
+
+### Links used
+
+- https://zerogex.io/education/how-often-do-gamma-walls-break
+- https://zerogex.io/education/how-to-trade-around-gamma-flip
+- https://zerogex.io/education/gamma-walls-explained
+- https://zerogex.io/replay?symbol=NQ
+- https://zerogex.io/integrations
+
+### Draft
+
+> **Subject:** Re: Getting a real read out of your ZeroGEX trial
+>
+> Hi Mat,
+>
+> That's good to hear, and thank you for saying so.
+>
+> NQ answers my question too. ES and NQ don't have an options chain of their
+> own, so your levels are the NDX book converted onto NQ prices with the live
+> futures basis. Two things follow. The blank you saw was the NDX chain
+> declining to publish a flip, not a gap in the NQ data. And NDX is the coarse
+> Nasdaq book, with strikes every 25 points, so don't expect NQ to respect a
+> level to the tick.
+>
+> For "how to trade these on NQ", three reads, in this order:
+>
+> 1. How Often Do Gamma Walls Actually Break? We Measured It. This is the one
+>    for you. We measured 737 wall tests across SPY, SPX, QQQ and NDX. S&P
+>    walls held about two times in three within the hour; Nasdaq walls were
+>    close to a coin flip, and it made no difference whether you watched QQQ
+>    or NDX. The break odds belong to the index, not the chain you watch. For
+>    an NQ trader that means a wall is a prior with a known hit rate, not a
+>    line that holds, and the same trade deserves smaller size than it would
+>    on ES. https://zerogex.io/education/how-often-do-gamma-walls-break
+>
+> 2. How to Trade Around Gamma Flip Levels. The regime-switch workflow: check
+>    which side of the flip you're on at the open, set a trigger for a cross,
+>    watch the distance and the drift, and read Net GEX magnitude alongside
+>    it. https://zerogex.io/education/how-to-trade-around-gamma-flip
+>
+> 3. Gamma Walls Explained, for the mechanics of why a wall behaves the way it
+>    does. https://zerogex.io/education/gamma-walls-explained
+>
+> Then two ways to see it on an NQ chart rather than read about it:
+>
+> - Replay. Pick a past NQ session and scrub through it with the levels drawn
+>   as they were at each minute. Watching how NQ treated the call wall and
+>   the flip across ten or so recent sessions will teach you more than any
+>   article: https://zerogex.io/replay?symbol=NQ
+>
+> - Your own chart. There's a free TradingView script and a free thinkorswim
+>   study that draw the day's four levels on your NQ chart; you type the
+>   numbers in from the free NQ page each morning. If you're on NinjaTrader or
+>   Sierra Chart there are auto-updating versions, though those need a Pro API
+>   key. https://zerogex.io/integrations
+>
+> One caveat I'd rather say now than have you find out: nothing in that study
+> predicted which individual wall would break. The edge is in the base rate
+> and the regime, not in reading a specific level. The levels are context for
+> a decision, not the decision.
+>
+> If you tell me which platform you chart NQ on, I'll point you at the exact
+> script. Enjoy the rest of the long weekend.
+>
+> Michael
+> Founder, ZeroGEX
