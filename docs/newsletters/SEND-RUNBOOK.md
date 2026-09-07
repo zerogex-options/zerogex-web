@@ -80,9 +80,13 @@ claiming the latch, or claim the latch without promising the offer.
 > `EXTEND_DAYS`. Being mid-trial is not by itself a shortfall — someone the
 > reactivation email had already reached started a full-length trial, and those
 > are listed separately as **already on N days**, with a do-not-extend. The
-> length comes from the `trial=<n>d` in the account's own
-> `billing_checkout_started` audit row, because `trial_end` records when a trial
-> ends and never how long it was. **ALREADY CHARGED** converted off a short
+> length is measured from the account's own `billing_checkout_started` audit row
+> (when the trial began) to where `trial_end` sits now, because neither the
+> users row nor Stripe records how long a trial is — only when it ends. That
+> measures the trial as it stands TODAY, so an account you have already extended
+> drops off the list by itself; deciding on the `trial=<n>d` the checkout row
+> records instead would re-report it forever, and a second pass would push a
+> 30-day trial to 53. **ALREADY CHARGED** converted off a short
 > trial and was billed on day 7 having been told 30 — a refund or credit
 > decision, by hand.
 > Both lists are restricted to recipients of the *registrants* copy, so a

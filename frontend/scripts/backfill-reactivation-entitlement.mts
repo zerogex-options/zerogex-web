@@ -240,11 +240,12 @@ type Candidate = {
   subscription_status: string | null;
   current_period_end: string | null;
   first_payment_at: string | null;
-  // Message of the account's most recent billing_checkout_started audit row.
-  // Carries `trial=<n>d`, which is what checkout ACTUALLY granted — the only
-  // record of the trial length, since neither the users row nor Stripe's
-  // trial_end says how long the trial was, only when it ends.
+  // The account's most recent billing_checkout_started audit row: its message
+  // carries `trial=<n>d` (what checkout granted), and its timestamp is when the
+  // trial began. Neither the users row nor Stripe records a trial's LENGTH —
+  // trial_end says only when it ends — so the length is derived from these.
   checkout_message: string | null;
+  checkout_started_at: string | null;
 };
 
 // offered_at is the campaign audit row's timestamp — when the promise was
@@ -277,6 +278,9 @@ const notDeleted = userCols.has('deleted_at') ? 'AND u.deleted_at IS NULL' : '';
 const checkoutMessageSubquery = `(SELECT a.message FROM audit_events a
                                    WHERE a.user_id = u.id AND a.type = 'billing_checkout_started'
                                    ORDER BY a.created_at DESC LIMIT 1)`;
+const checkoutStartedAtSubquery = `(SELECT a.created_at FROM audit_events a
+                                      WHERE a.user_id = u.id AND a.type = 'billing_checkout_started'
+                                      ORDER BY a.created_at DESC LIMIT 1)`;
 
 const candidates = querySqlite<Candidate>(
   dbPath,
@@ -289,7 +293,8 @@ const candidates = querySqlite<Candidate>(
           ${col('subscription_status')},
           ${col('current_period_end')},
           ${col('first_payment_at')},
-          ${checkoutMessageSubquery} AS checkout_message
+          ${checkoutMessageSubquery} AS checkout_message,
+          ${checkoutStartedAtSubquery} AS checkout_started_at
      FROM users u
     WHERE ${selection}
       ${notDeleted}
@@ -360,26 +365,41 @@ console.log(`To stamp:        ${toStamp.length}`);
     (c) => !midTrial.includes(c) && !chargedAfterOffer.includes(c),
   );
 
-  // How long the trial they are on ACTUALLY is. "Mid-trial" alone does not mean
-  // shortchanged: someone the daily reactivation email had already reached
-  // before this campaign started a full-length trial, and telling the operator
-  // to extend them would push a 30-day trial to 53. trial_end says when the
-  // trial ends, never how long it was, so the length comes from the
-  // `trial=<n>d` the checkout route writes into its own audit row.
+  // What checkout originally granted. Historical: it records the decision made
+  // at signup and never changes afterwards.
   const grantedTrialDays = (c: Candidate): number | null => {
     const m = /\btrial=(\d+)d\b/.exec(c.checkout_message ?? '');
     return m ? Number(m[1]) : null;
   };
 
+  // How long the trial they are on runs for TODAY: from when it started (the
+  // checkout row's timestamp) to where trial_end sits now. This, not the
+  // granted length, is what decides whether anything is owed.
+  //
+  // The distinction is the whole point. An operator who acts on this list
+  // extends the Stripe subscription, which moves trial_end and writes a
+  // billing_trial_extended row — it does not rewrite the original checkout
+  // row, so `trial=7d` still reads 7d forever. Deciding on the granted length
+  // therefore re-reports an account that has already been made whole, and a
+  // second pass would push a 30-day trial to 53. Deciding on the effective
+  // length makes the report self-correcting: it empties as the work is done.
+  const effectiveTrialDays = (c: Candidate): number | null => {
+    if (!c.checkout_started_at || !c.current_period_end) return null;
+    const startMs = Date.parse(c.checkout_started_at);
+    const endMs = Date.parse(c.current_period_end);
+    if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return null;
+    return Math.round((endMs - startMs) / 86_400_000);
+  };
+
   const owed = midTrial.filter((c) => {
-    const days = grantedTrialDays(c);
+    const days = effectiveTrialDays(c);
     return days != null && days < reactivationTrialDays;
   });
   const fullLength = midTrial.filter((c) => {
-    const days = grantedTrialDays(c);
+    const days = effectiveTrialDays(c);
     return days != null && days >= reactivationTrialDays;
   });
-  const unknownLength = midTrial.filter((c) => grantedTrialDays(c) == null);
+  const unknownLength = midTrial.filter((c) => effectiveTrialDays(c) == null);
 
   if (owed.length > 0) {
     console.log(
@@ -387,7 +407,7 @@ console.log(`To stamp:        ${toStamp.length}`);
     );
     console.log('this campaign promised. Run each (add YES=1 in place of DRY_RUN=1 to apply):');
     for (const c of owed) {
-      const days = grantedTrialDays(c)!;
+      const days = effectiveTrialDays(c)!;
       console.log(
         `  # ${c.email}: on ${days}d, ends ${c.current_period_end ?? 'unknown'}\n` +
           `  make extend-trial EMAIL=${c.email} EXTEND_DAYS=${reactivationTrialDays - days} DRY_RUN=1`,
@@ -397,19 +417,28 @@ console.log(`To stamp:        ${toStamp.length}`);
 
   if (fullLength.length > 0) {
     console.log(
-      `\nMid-trial, already on ${reactivationTrialDays} days — ${fullLength.length}, nothing owed`,
+      `\nMid-trial, already on ${reactivationTrialDays}+ days — ${fullLength.length}, nothing owed.`,
     );
-    console.log('(the reactivation email had already reached them). Do NOT extend these:');
+    console.log('Do NOT extend these:');
     for (const c of fullLength) {
-      console.log(`  - ${c.email}  (ends ${c.current_period_end ?? 'unknown'})`);
+      const granted = grantedTrialDays(c);
+      // Say which of the two ways they got there, because they read very
+      // differently in a review: one was never short, the other was fixed.
+      const how =
+        granted != null && granted < reactivationTrialDays
+          ? `granted ${granted}d, already extended`
+          : 'granted the full length at checkout';
+      console.log(
+        `  - ${c.email}  (on ${effectiveTrialDays(c)}d, ends ${c.current_period_end ?? 'unknown'} — ${how})`,
+      );
     }
   }
 
   if (unknownLength.length > 0) {
     console.log(
-      `\nMid-trial, length unknown — ${unknownLength.length}. No billing_checkout_started audit`,
+      `\nMid-trial, length unknown — ${unknownLength.length}. No billing_checkout_started audit row`,
     );
-    console.log('row to read the granted length from; check each with diagnose-user:');
+    console.log('or no trial end to measure against; check each with diagnose-user:');
     for (const c of unknownLength) {
       console.log(`  - ${c.email}  (ends ${c.current_period_end ?? 'unknown'})`);
     }
