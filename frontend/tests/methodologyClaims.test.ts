@@ -70,6 +70,31 @@ test('the methodology page does not claim the MM-attribution research has conclu
   assert.doesNotMatch(page, /\b(proved|proven|validated|confirmed)\s+(that\s+)?(our|the)\s+(model|methodology)/i);
 });
 
+test('the methodology page separates aggressor classification from participant attribution', () => {
+  // The tape can say which side INITIATED a print. It cannot say who was on
+  // either side. Products that read a print at the ask as "a customer bought,
+  // so a dealer sold" are adding an assumption, and the page has to say so in
+  // as many words rather than describe the tape as a positioning observation.
+  const page = read('../content/methodology.md');
+  assert.match(page, /aggressor classification is not participant attribution/i);
+  assert.match(page, /buyer-initiated trade does not by itself establish/i);
+  assert.doesNotMatch(page, /used to classify aggressor side and infer intraday positioning/i);
+});
+
+test('the methodology page does not overstate what no dataset can provide', () => {
+  // "No public dataset resolves that" and "nobody has that" were true of public
+  // chain data and false of proprietary participant-classified exchange data.
+  // The page now says what such datasets do and do not provide instead of
+  // asserting nobody has anything, and it does not promise an edge the
+  // evaluation section has not yet measured.
+  const page = read('../content/methodology.md');
+  assert.doesNotMatch(page, /nobody has that/i);
+  assert.doesNotMatch(page, /no public dataset resolves/i);
+  assert.doesNotMatch(page, /real and durable edge/i);
+  assert.match(page, /participant type/i);
+  assert.match(page, /reconstruction/i);
+});
+
 test('the in-product disclosure names the limitation and links to /methodology', () => {
   const note = read('../components/ModeledPositioningNote.tsx');
   assert.match(note, /Dealer positioning is modeled, not directly observed\./);
