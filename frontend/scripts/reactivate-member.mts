@@ -420,11 +420,10 @@ if (!user.stripe_customer_id) {
 // matters here in a way it does not for a read-only script: the account's default
 // version is newer, and a subscription created on it comes out with
 // billing_mode=flexible, while every subscription Checkout creates is classic.
-// A flexible sub is not wrong, but it is not what the rest of the tooling expects
-// -- invoices.retrieveUpcoming refuses it, so the ~48h trial reminder silently
-// loses the line quoting the charge and the card, and diagnose-user cannot preview
-// the next invoice. Reactivating someone must produce the same shape of
-// subscription they would have got by checking out themselves.
+// Reactivating someone has to produce the same subscription they would have got
+// by checking out themselves — a member's billing shape should not depend on
+// which door they came back through. (The invoice-preview reads that a flexible
+// sub used to break are handled either way now: core/stripeInvoicePreview.ts.)
 const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: STRIPE_API_VERSION });
 const customerId = user.stripe_customer_id;
 

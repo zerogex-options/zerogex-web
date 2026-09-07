@@ -61,6 +61,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 // dependency on node_modules (the Stripe client itself is lazy-imported below,
 // after arg parsing, so --help works without deps installed).
 import type Stripe from 'stripe';
+import { previewNextInvoice } from '../core/stripeInvoicePreview.ts';
 
 type Tier = 'basic' | 'pro';
 type Cadence = 'monthly' | 'annual';
@@ -410,38 +411,20 @@ const alreadyFounding = !!user.founding_member_started_at;
 // already stamped founding in the DB.
 const noChange = !priceChanges && couponAlreadyCorrect && metaFoundingSet && alreadyFounding;
 
-// Best-effort preview of the immediate charge. Stripe renamed the upcoming-
-// invoice preview across versions, so try both method names and fall back to a
-// rate label when neither is available or the call errors.
+// Best-effort preview of the immediate charge, with the founding coupon and (on
+// a plan switch) the target price priced in. previewNextInvoice handles the
+// endpoint choice — this used to hand-roll that here, and the two copies could
+// drift.
 async function previewImmediateCharge(): Promise<string | null> {
   if (cliArgs.proration === 'none') return null;
-  const invoicesApi = stripe.invoices as unknown as {
-    createPreview?: (params: Record<string, unknown>) => Promise<Stripe.Invoice>;
-    retrieveUpcoming?: (params: Record<string, unknown>) => Promise<Stripe.Invoice>;
-  };
-  const items = priceChanges ? [{ id: item0.id, price: targetPriceId }] : undefined;
   try {
-    let inv: Stripe.Invoice | null = null;
-    if (typeof invoicesApi.createPreview === 'function') {
-      inv = await invoicesApi.createPreview({
-        customer: customerId,
-        subscription: subscription.id,
-        subscription_details: {
-          ...(items ? { items } : {}),
-          proration_behavior: cliArgs.proration,
-        },
-        discounts: [{ coupon: foundingCouponId }],
-      });
-    } else if (typeof invoicesApi.retrieveUpcoming === 'function') {
-      inv = await invoicesApi.retrieveUpcoming({
-        customer: customerId,
-        subscription: subscription.id,
-        ...(items ? { subscription_items: items } : {}),
-        subscription_proration_behavior: cliArgs.proration,
-        coupon: foundingCouponId,
-      });
-    }
-    if (!inv) return null;
+    const inv = await previewNextInvoice(stripe, {
+      customer: customerId,
+      subscription: subscription.id,
+      ...(priceChanges ? { items: [{ id: item0.id, price: targetPriceId }] } : {}),
+      prorationBehavior: cliArgs.proration,
+      discounts: [{ coupon: foundingCouponId }],
+    });
     const minor = typeof inv.amount_due === 'number' ? inv.amount_due : inv.total;
     if (typeof minor !== 'number') return null;
     return formatMoney(minor, inv.currency ?? 'usd');

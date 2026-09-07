@@ -43,6 +43,7 @@ import Stripe from 'stripe';
 import { buildTrialReminderEmail, sendTrialReminderEmail } from '../core/mailer.ts';
 import { formatCardBrand } from '../core/stripeCard.ts';
 import { buildConvertUrl } from '../core/retentionToken.ts';
+import { previewNextInvoice } from '../core/stripeInvoicePreview.ts';
 import {
   classifyTrialEngagement,
   shouldSendDormantTrialCopy,
@@ -329,11 +330,10 @@ async function resolveBillingDetails(
   const price = sub.items.data[0]?.price ?? null;
   const interval = price?.recurring?.interval ?? null;
 
-  const upcoming = await stripe.invoices.retrieveUpcoming(
-    customerId
-      ? { customer: customerId, subscription: subscriptionId }
-      : { subscription: subscriptionId },
-  );
+  const upcoming = await previewNextInvoice(stripe, {
+    subscription: subscriptionId,
+    customer: customerId,
+  });
 
   // amount_due <= 0 means the first period is fully covered (e.g. a
   // 100%-off-first-month referee coupon, or an account credit that zeroes the

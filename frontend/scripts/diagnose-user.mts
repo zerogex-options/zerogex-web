@@ -17,6 +17,7 @@ import Stripe from 'stripe';
 import { formatCardBrand } from '../core/stripeCard.ts';
 import { classifyTrialEngagement, daysSinceLastSeen } from '../core/trialEngagement.ts';
 import { classifySubscriberBucket } from '../core/subscriberBucket.ts';
+import { previewNextInvoice, isNoUpcomingInvoiceError } from '../core/stripeInvoicePreview.ts';
 
 // The July-1 founding deferral landed in commit 06b7128. founders whose
 // subscription started before this got charged immediately; founders after it
@@ -586,7 +587,7 @@ if (user.stripe_subscription_id) {
     // coupon, $29 upcoming). Best-effort: a sub with nothing upcoming (set to
     // cancel at period end, etc.) has no preview, so we say so rather than crash.
     try {
-      const upcoming = await stripe.invoices.retrieveUpcoming({
+      const upcoming = await previewNextInvoice(stripe, {
         customer: user.stripe_customer_id,
         subscription: sub.id,
       });
@@ -598,7 +599,7 @@ if (user.stripe_subscription_id) {
       const upErr = e as StripeError;
       kv(
         'Upcoming invoice',
-        upErr.code === 'invoice_upcoming_none'
+        isNoUpcomingInvoiceError(upErr)
           ? 'none scheduled (e.g. cancels at period end)'
           : `unavailable (${upErr.message})`,
       );

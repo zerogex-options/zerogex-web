@@ -76,6 +76,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import Stripe from 'stripe';
 
 import { couponResultCents, holdSteadyDiscountCents } from '../core/holdRate.ts';
+import { previewNextInvoice } from '../core/stripeInvoicePreview.ts';
 
 const AUDIT_TYPE = 'billing_tier_upgraded_at_current_price';
 // Stamped on every coupon this script mints, so a later run can find and reuse
@@ -551,7 +552,7 @@ if (targetPrice.currency !== currency) {
 let detectedCents: number | null = null;
 let detectionNote = '';
 try {
-  const upcoming = await stripe.invoices.retrieveUpcoming({
+  const upcoming = await previewNextInvoice(stripe, {
     customer: user.stripe_customer_id as string,
     subscription: subscription.id,
   });
@@ -788,7 +789,7 @@ try {
 //    paper over.
 async function previewCents(): Promise<number | null> {
   try {
-    const preview = await stripe.invoices.retrieveUpcoming({
+    const preview = await previewNextInvoice(stripe, {
       customer: user.stripe_customer_id as string,
       subscription: subscription.id,
     });

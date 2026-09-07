@@ -60,6 +60,7 @@ import crypto from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 
 import Stripe from 'stripe';
+import { previewNextInvoice } from '../core/stripeInvoicePreview.ts';
 
 const AUDIT_TYPE = 'billing_winback_discount_honored';
 
@@ -732,7 +733,7 @@ if (willClearCancel) {
 // upcoming-invoice read in scripts/diagnose-user.mts.
 if (user.stripe_customer_id) {
   try {
-    const upcoming = await stripe.invoices.retrieveUpcoming({
+    const upcoming = await previewNextInvoice(stripe, {
       customer: user.stripe_customer_id,
       subscription: subscription.id,
     });
