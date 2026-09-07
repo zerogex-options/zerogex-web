@@ -1,4 +1,4 @@
-.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription honor-winback-discount recover-orphan-payment scan-orphan-payments clear-zombie-customers backfill-daily-metrics sync-search-console webhook-health cancellation-alerts trial-reminders trial-engagement renewal-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback reactivation checkout-recovery founding-final-call public-cohort cancellations churn-breakdown backfill-refund-audit enable-portal-cancel-reasons save-url reset-save-latch gex-rank-backtest diagnose-user subscriber-headcount reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo og-check verify-gate blog-images ninjatrader-package
+.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription reactivate-member honor-winback-discount recover-orphan-payment scan-orphan-payments clear-zombie-customers backfill-daily-metrics sync-search-console webhook-health cancellation-alerts trial-reminders trial-engagement renewal-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback reactivation checkout-recovery founding-final-call public-cohort cancellations churn-breakdown backfill-refund-audit enable-portal-cancel-reasons save-url reset-save-latch gex-rank-backtest diagnose-user subscriber-headcount reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo og-check verify-gate blog-images ninjatrader-package
 help:
 	@echo "ZeroGEX Web - Available Commands:"
 	@echo ""
@@ -29,6 +29,7 @@ help:
 	@echo "  make grant-founding-on-existing-sub EMAIL=<email> [TIER=pro] [CADENCE=annual] [PRORATION=always_invoice|create_prorations|none] - Convert an EXISTING paying member's live subscription to the founding rate in place (swap plan + founding coupon + metadata.founding=1, so the webhook grants founding + schedules the lifetime 25%-off). The has-a-sub twin of activate-late-founder. DRY_RUN=1 to preview, YES=1 to apply"
 	@echo "  make apply-founding-lifetime - One-time batch: apply the founding lifetime 25%-off coupon to founders past month 11 that the event-driven webhook misses (annual founders emit no mid-year events). Idempotent; run once the cohort's intro year ends (~mid-2027). EMAIL=<addr> for one member, FORCE=1 to ignore the 11-month gate, DRY_RUN=1 to preview, YES=1 to apply"
 	@echo "  make extend-trial EMAIL=<email> (EXTEND_DAYS=N | TRIAL_END=<iso>) - Manually lengthen one customer's free trial by pushing out Stripe trial_end; re-arms the ~48h reminder so the reminder + trial->paid cutover still run automatically (DRY_RUN=1 to preview, YES=1 to apply)"
+	@echo "  make reactivate-member EMAIL=<email> [DAYS=21] [TIER=basic|pro] [CADENCE=monthly|annual] [PRICE=price_...] [PAYMENT_METHOD=pm_...] - Bring a CHURNED member back on a goodwill trial with NOTHING for them to do: re-creates their subscription in Stripe on the card already on file, with an absolute trial_end. The webhook grants the tier and sends the welcome-back email. Use extend-trial instead while they still HAVE a trialing sub. DRY_RUN=1 to preview, YES=1 to apply"
 	@echo "  make quarterly-receipt - Interactive end-to-end quarterly FOH receipt: prompts for amount/quarter/date, updates content/giving/totals.json, commits, pushes, and rebuilds. Never posts to X — prints the tweet for you to paste. Optional flags: AMOUNT=<usd> QUARTER=<label> DATE=<YYYY-MM-DD> EMAIL=<addr> NO_PUSH=1 NO_REBUILD=1 YES=1 DRY_RUN=1"
 	@echo "  make foh-donation-reminder - Send the quarterly FOH reminder email to the admin (fully self-contained instructions inside). Meant for cron on the 5th of Jan/Apr/Jul/Oct; TO=<addr> overrides the FOH_REMINDER_EMAIL env; QUARTER=<label> overrides the auto-detected closing quarter; DRY_RUN=1 to preview"
 	@echo "  make set-cancellation EMAIL=<email> (OFF=1 | ON=1) - Flip one customer's cancel_at_period_end: OFF=1 stops a scheduled cancel (renews, or converts a trial to paid); ON=1 schedules a cancel at period end (DRY_RUN=1 to preview, YES=1 to apply)"
@@ -599,6 +600,39 @@ dedupe-payment-methods:
 extend-trial:
 	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make extend-trial EMAIL=foo@example.com EXTEND_DAYS=14 DRY_RUN=1)"; exit 1; fi
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/extend-trial.mts --email $(EMAIL) $(if $(EXTEND_DAYS),--extend-days $(EXTEND_DAYS),) $(if $(TRIAL_END),--trial-end $(TRIAL_END),) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
+
+# Bring a CHURNED member back on a goodwill free trial with NOTHING for them to
+# do -- no second checkout, no re-entering a card. Re-creates the subscription in
+# Stripe on the customer + payment method already on file, with an absolute
+# trial_end, and lets the webhook grant the tier from the price.
+#
+# This is the target that fills the gap after a cancellation lands. extend-trial
+# only pushes out trial_end on a sub Stripe still reports as 'trialing'; once
+# customer.subscription.deleted has fired there is nothing left to extend, and
+# set-cancellation / honor-winback-discount / the one-click /save link all need a
+# live sub too. Sending them back through checkout works but the once-per-account
+# trial gate (hasPriorPaidSubscription) gives a returning member NO trial -- they
+# are charged on the spot -- unless you first rewrite their history with
+# reset-user-for-testing, and it is still a step for THEM.
+#
+# Writes nothing to the users row: the webhook owns it (tier is recomputed from
+# the PRICE on every sync, so a hand-written one would not survive a renewal),
+# and this waits for that webhook and reports what it wrote. The only local write
+# is an audit_events row. Sends no email of its own -- the webhook's welcome-back
+# email does go out, and both trial nudges are re-armed for the new window.
+#
+# Plan and card default to whatever the member last had; override either when
+# they are coming back on something different. Refuses a member who still has a
+# live or pending subscription, one with no Stripe customer, and one with no
+# usable card (a trial with no card just cancels itself at trial end).
+# Run `make diagnose-user EMAIL=...` first.
+# Usage:
+#   make reactivate-member EMAIL=foo@example.com DRY_RUN=1
+#   make reactivate-member EMAIL=foo@example.com DAYS=21 YES=1
+#   make reactivate-member EMAIL=foo@example.com TIER=pro CADENCE=annual YES=1
+reactivate-member:
+	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make reactivate-member EMAIL=foo@example.com DAYS=21 DRY_RUN=1)"; exit 1; fi
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/reactivate-member.mts --email $(EMAIL) $(if $(DAYS),--days $(DAYS),) $(if $(TRIAL_END),--trial-end $(TRIAL_END),) $(if $(TIER),--tier $(TIER),) $(if $(CADENCE),--cadence $(CADENCE),) $(if $(PRICE),--price $(PRICE),) $(if $(PAYMENT_METHOD),--payment-method $(PAYMENT_METHOD),) $(if $(WAIT_SECONDS),--wait-seconds $(WAIT_SECONDS),) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
 
 # Interactive end-to-end quarterly Folds of Honor receipt workflow.
 # Prompts for amount/quarter/date, updates content/giving/totals.json,
