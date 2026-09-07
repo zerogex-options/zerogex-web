@@ -211,9 +211,19 @@ optimal ways to trade these gamma levels on NQ charts.*
 >
 > Hi Mat,
 >
-> That's good to hear, and thank you for saying so.
+> Thank you for that. It's kind, and it's also useful: the only way I find out
+> where the product confuses people is when someone tells me, so a thorough
+> answer is partly self-interest. On the long-term part, no pressure from me.
+> The trial's job is to let you decide on evidence rather than on a hunch, and
+> if you get to the end still unsure, I'd rather hear that than have you
+> subscribe anyway.
 >
-> NQ answers my question too. ES and NQ don't have an options chain of their
+> On the extension, that's exactly what it's for. The honest test of this is
+> a run of live sessions with the levels open next to your NQ chart, and a
+> trial that starts on the Friday before a long weekend doesn't give you one.
+> You have through September 18 now; use all of it.
+>
+> NQ also answers my question. ES and NQ don't have an options chain of their
 > own, so your levels are the NDX book converted onto NQ prices with the live
 > futures basis. Two things follow. The blank you saw was the NDX chain
 > declining to publish a flip, not a gap in the NQ data. And NDX is the coarse
