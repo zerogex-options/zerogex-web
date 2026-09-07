@@ -72,6 +72,16 @@ claiming the latch, or claim the latch without promising the offer.
 > promised the extended trial without the stamp. Repair that batch with
 > `make backfill-reactivation-entitlement DRY_RUN=1` and then `YES=1`. It also
 > takes `EMAIL=<addr>` for honoring the offer for one member who writes in.
+>
+> Read the dry run's two call-out lists before applying — a stamp cannot help
+> either. **OWED AN EXTENSION** is anyone who started a trial off the campaign
+> and is on the standard length right now; their trial lives on the Stripe
+> subscription, so push out `trial_end` with `make extend-trial EMAIL=<addr>
+> EXTEND_DAYS=<n>`. **ALREADY CHARGED** converted off that short trial and was
+> billed on day 7 having been told 30 — a refund or credit decision, by hand.
+> Both lists are restricted to recipients of the *registrants* copy, so a
+> churned member who resubscribed after the win-back email is not mistaken for
+> one of them.
 
 Write query strings in the HTML as `&amp;` (`?trial=1&amp;reactivate=1`). A raw
 `&` is invalid in an attribute, and a mail client that sanitizes links can drop

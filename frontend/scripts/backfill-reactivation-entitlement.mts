@@ -203,13 +203,22 @@ ensureSqlite3Cli();
 const userCols = new Set(
   querySqlite<{ name: string }>(dbPath, `PRAGMA table_info(users);`).map((c) => c.name),
 );
-if (!userCols.has('reactivation_email_sent_at')) {
+// These two decide WHO gets stamped, so a DB missing either cannot be reasoned
+// about safely — a NULL-for-missing fallback would read as "never paid" and hand
+// the offer to accounts that should be skipped.
+const required = ['reactivation_email_sent_at', 'paid_welcome_email_sent_at', 'subscription_lapsed'];
+const missingRequired = required.filter((c) => !userCols.has(c));
+if (missingRequired.length > 0) {
   console.error(
-    `Auth DB at ${dbPath} has no users.reactivation_email_sent_at column.\n` +
+    `Auth DB at ${dbPath} is missing column(s): ${missingRequired.join(', ')}.\n` +
       'Start (or restart) the Next.js app once to run the migration in core/db.ts.',
   );
   process.exit(1);
 }
+
+// The rest only feed the report, so an older DB degrades to "unknown" rather
+// than failing outright.
+const col = (name: string) => (userCols.has(name) ? `u.${name}` : `NULL AS ${name}`);
 
 const auditType = `${cli.campaign}_sent`;
 
@@ -218,9 +227,13 @@ type Candidate = {
   email: string;
   created_at: string | null;
   offered_at: string | null;
+  offered_message: string | null;
   reactivation_email_sent_at: string | null;
   paid_welcome_email_sent_at: string | null;
   subscription_lapsed: number | null;
+  subscription_status: string | null;
+  current_period_end: string | null;
+  first_payment_at: string | null;
 };
 
 // offered_at is the campaign audit row's timestamp — when the promise was
@@ -228,6 +241,17 @@ type Candidate = {
 // the first one is when the member was told.
 const offeredAtSubquery = `(SELECT MIN(a.created_at) FROM audit_events a
                              WHERE a.user_id = u.id AND a.type = '${esc(auditType)}')`;
+
+// Which audience's copy this account actually received. Both audiences write the
+// same audit TYPE, and only the message distinguishes them ('registrants product
+// update sent' vs 'cancelled ...'). Current columns cannot: a churned member who
+// resubscribed has had subscription_lapsed flipped back to 0 by the webhook, so
+// they look exactly like a registrant who converted. The reporting below needs
+// that difference — a cancelled recipient charged after their email is a member
+// who resubscribed, not someone shortchanged on a promised trial.
+const offeredMessageSubquery = `(SELECT a.message FROM audit_events a
+                                  WHERE a.user_id = u.id AND a.type = '${esc(auditType)}'
+                                  ORDER BY a.created_at ASC LIMIT 1)`;
 
 const selection = cli.email
   ? `LOWER(u.email) = '${esc(cli.email.toLowerCase())}'`
@@ -241,9 +265,13 @@ const candidates = querySqlite<Candidate>(
   dbPath,
   `SELECT u.id, u.email, u.created_at,
           ${offeredAtSubquery} AS offered_at,
+          ${offeredMessageSubquery} AS offered_message,
           u.reactivation_email_sent_at,
           u.paid_welcome_email_sent_at,
-          u.subscription_lapsed
+          u.subscription_lapsed,
+          ${col('subscription_status')},
+          ${col('current_period_end')},
+          ${col('first_payment_at')}
      FROM users u
     WHERE ${selection}
       ${notDeleted}
@@ -276,18 +304,65 @@ console.log(`Already stamped: ${alreadyStamped.length} (left as-is)`);
 console.log(`Not trial-eligible: ${priorPaid.length} (prior paid subscription — skipped)`);
 console.log(`To stamp:        ${toStamp.length}`);
 
-// Named, not just counted: a stamp cannot help these accounts, but some of them
-// may still be owed something. Anyone here who is mid-trial started that trial
-// AFTER the campaign promised a longer one, and needs scripts/extend-trial.mts;
-// the rest are churned members whose email made a different offer entirely.
-if (priorPaid.length > 0) {
-  console.log('\nSkipped (no trial available at checkout — check whether any are mid-trial');
-  console.log('on the standard length and owed the longer one via extend-trial.mts):');
-  for (const c of priorPaid.slice(0, SAMPLE)) {
-    const why = Number(c.subscription_lapsed) === 1 ? 'churned' : 'has paid before';
-    console.log(`  - ${c.email}  (${why})`);
+// A stamp cannot help any of the skipped accounts, but two subsets of them are
+// still owed something, and both are invisible in a bare count. Split them out
+// and list them IN FULL — they are a to-do list, not a sample.
+//
+//   mid-trial   Started a trial after being promised a longer one, and is on
+//               the standard length right now. The trial already exists on the
+//               Stripe subscription, so it is fixed by pushing out trial_end:
+//               scripts/extend-trial.mts.
+//   charged     Already converted off that short trial — billed on day 7 having
+//               been told 30. Nothing a script should decide on its own; it is a
+//               refund or credit conversation.
+//
+// Both are restricted to accounts that received the REGISTRANTS copy. A
+// cancelled-audience recipient who subscribed after their email correctly got
+// no trial (their copy offered a discount, not a longer trial), and would
+// otherwise show up here as a false alarm.
+{
+  const wasRegistrant = (c: Candidate) => (c.offered_message ?? '').startsWith('registrants');
+  const midTrial = priorPaid.filter((c) => wasRegistrant(c) && c.subscription_status === 'trialing');
+  const chargedAfterOffer = priorPaid.filter(
+    (c) =>
+      wasRegistrant(c) &&
+      c.subscription_status !== 'trialing' &&
+      c.first_payment_at != null &&
+      c.offered_at != null &&
+      c.first_payment_at > c.offered_at,
+  );
+  const noAction = priorPaid.filter(
+    (c) => !midTrial.includes(c) && !chargedAfterOffer.includes(c),
+  );
+
+  if (midTrial.length > 0) {
+    console.log(
+      `\nOWED AN EXTENSION — ${midTrial.length} started a trial after this campaign and are on`,
+    );
+    console.log('the standard length. Push out trial_end with extend-trial.mts:');
+    for (const c of midTrial) {
+      console.log(`  - ${c.email}  (trial ends ${c.current_period_end ?? 'unknown'})`);
+    }
   }
-  if (priorPaid.length > SAMPLE) console.log(`  ... and ${priorPaid.length - SAMPLE} more`);
+
+  if (chargedAfterOffer.length > 0) {
+    console.log(
+      `\nALREADY CHARGED — ${chargedAfterOffer.length} converted off the standard trial after`,
+    );
+    console.log('being promised the longer one. Decide refund/credit by hand:');
+    for (const c of chargedAfterOffer) {
+      console.log(`  - ${c.email}  (first payment ${c.first_payment_at})`);
+    }
+  }
+
+  if (noAction.length > 0) {
+    console.log(`\nSkipped, no action — ${noAction.length} (churned, or paid before this campaign):`);
+    for (const c of noAction.slice(0, SAMPLE)) {
+      const why = Number(c.subscription_lapsed) === 1 ? 'churned' : 'has paid before';
+      console.log(`  - ${c.email}  (${why})`);
+    }
+    if (noAction.length > SAMPLE) console.log(`  ... and ${noAction.length - SAMPLE} more`);
+  }
 }
 
 if (cli.email && toStamp.length > 0 && toStamp[0].offered_at == null) {
