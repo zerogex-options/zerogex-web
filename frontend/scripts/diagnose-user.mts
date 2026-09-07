@@ -384,6 +384,63 @@ function isoFromUnix(unix: number | null | undefined): string {
   return new Date(unix * 1000).toISOString();
 }
 
+// One discount on a subscription, as much of it as Stripe chose to send. Every
+// field is optional because the shape varies with what was expanded and with the
+// API version the caller ran on.
+type DiscountShape = {
+  id?: string;
+  coupon?: {
+    id?: string;
+    name?: string | null;
+    percent_off?: number | null;
+    amount_off?: number | null;
+    currency?: string | null;
+    duration?: string | null;
+    duration_in_months?: number | null;
+  } | null;
+  promotion_code?: string | { id?: string } | null;
+};
+
+// Render a discount as something an operator can act on. The old version printed
+// a bare '?' whenever the coupon wasn't expanded onto the discount, which is the
+// one case where you most need the detail: you are looking at this line BECAUSE
+// you are asking what discount a member has. So: full terms when the coupon is
+// there ("cNfEtdq0 — $30.00 off for 6 months"), else the promotion code, else the
+// discount id, and as a last resort the keys we did get, which at least says what
+// to go and expand.
+function describeDiscount(discount: DiscountShape | string): string {
+  if (typeof discount === 'string') return discount;
+
+  const coupon = discount.coupon;
+  if (coupon) {
+    const label = coupon.id ?? coupon.name ?? 'coupon';
+    const terms: string[] = [];
+    if (typeof coupon.amount_off === 'number') {
+      terms.push(`${formatMoney(coupon.amount_off, coupon.currency)} off`);
+    } else if (typeof coupon.percent_off === 'number') {
+      terms.push(`${coupon.percent_off}% off`);
+    }
+    if (coupon.duration === 'repeating' && typeof coupon.duration_in_months === 'number') {
+      terms.push(`for ${coupon.duration_in_months} months`);
+    } else if (coupon.duration === 'once') {
+      terms.push('once');
+    } else if (coupon.duration === 'forever') {
+      terms.push('forever');
+    }
+    return terms.length ? `${label} — ${terms.join(' ')}` : label;
+  }
+
+  const promo =
+    typeof discount.promotion_code === 'string'
+      ? discount.promotion_code
+      : discount.promotion_code?.id;
+  if (promo) return `promotion code ${promo}`;
+  if (discount.id) return discount.id;
+
+  const keys = Object.keys(discount);
+  return keys.length ? `unrecognized discount (keys: ${keys.join(', ')})` : 'unrecognized discount';
+}
+
 function formatMoney(amount: number | null | undefined, currency: string | null | undefined): string {
   if (amount == null || currency == null) return '—';
   try {
@@ -516,14 +573,9 @@ if (user.stripe_subscription_id) {
     const subPeriodEnd = (sub as unknown as { current_period_end?: number }).current_period_end;
     kv('Current period end', isoFromUnix(itemPeriodEnd ?? subPeriodEnd ?? null));
     kv('Cancel at period end', sub.cancel_at_period_end ? 'yes' : 'no');
-    const discounts = (sub as unknown as { discounts?: Array<{ coupon?: { id?: string } } | string> })
-      .discounts;
+    const discounts = (sub as unknown as { discounts?: Array<DiscountShape | string> }).discounts;
     if (discounts && discounts.length > 0) {
-      const ids = discounts.map((d) => {
-        if (typeof d === 'string') return d;
-        return d.coupon?.id ?? '?';
-      });
-      kv('Discounts', ids.join(', '));
+      kv('Discounts', discounts.map(describeDiscount).join(', '));
     } else {
       kv('Discounts', 'none');
     }

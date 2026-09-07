@@ -49,6 +49,10 @@ import Stripe from 'stripe';
 
 const AUDIT_TYPE = 'billing_manual_reactivation';
 
+// Must track core/stripe.ts. Duplicated rather than imported because that module
+// pulls the '@/core/auth' path alias, which a raw strip-types run cannot resolve.
+const STRIPE_API_VERSION = '2025-02-24.acacia';
+
 // A goodwill reactivation is worth more than the stock 7 days — the member
 // already churned once, and the usual reason is "I never got to use it".
 const DEFAULT_TRIAL_DAYS = 21;
@@ -412,7 +416,16 @@ if (!user.stripe_customer_id) {
   process.exit(1);
 }
 
-const stripe = new Stripe(STRIPE_SECRET_KEY);
+// Pinned to the SAME API version the app itself runs on (core/stripe.ts), which
+// matters here in a way it does not for a read-only script: the account's default
+// version is newer, and a subscription created on it comes out with
+// billing_mode=flexible, while every subscription Checkout creates is classic.
+// A flexible sub is not wrong, but it is not what the rest of the tooling expects
+// -- invoices.retrieveUpcoming refuses it, so the ~48h trial reminder silently
+// loses the line quoting the charge and the card, and diagnose-user cannot preview
+// the next invoice. Reactivating someone must produce the same shape of
+// subscription they would have got by checking out themselves.
+const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: STRIPE_API_VERSION });
 const customerId = user.stripe_customer_id;
 
 let customer: Stripe.Customer | Stripe.DeletedCustomer;
