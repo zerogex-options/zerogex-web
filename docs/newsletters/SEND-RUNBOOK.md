@@ -73,12 +73,18 @@ claiming the latch, or claim the latch without promising the offer.
 > `make backfill-reactivation-entitlement DRY_RUN=1` and then `YES=1`. It also
 > takes `EMAIL=<addr>` for honoring the offer for one member who writes in.
 >
-> Read the dry run's two call-out lists before applying — a stamp cannot help
-> either. **OWED AN EXTENSION** is anyone who started a trial off the campaign
-> and is on the standard length right now; their trial lives on the Stripe
-> subscription, so push out `trial_end` with `make extend-trial EMAIL=<addr>
-> EXTEND_DAYS=<n>`. **ALREADY CHARGED** converted off that short trial and was
-> billed on day 7 having been told 30 — a refund or credit decision, by hand.
+> Read the dry run's call-out lists before applying — a stamp cannot help any of
+> them. **OWED AN EXTENSION** is anyone mid-trial on less than the promised
+> length; their trial lives on the Stripe subscription, so the run prints a
+> ready-to-paste `make extend-trial` line per account with the exact
+> `EXTEND_DAYS`. Being mid-trial is not by itself a shortfall — someone the
+> reactivation email had already reached started a full-length trial, and those
+> are listed separately as **already on N days**, with a do-not-extend. The
+> length comes from the `trial=<n>d` in the account's own
+> `billing_checkout_started` audit row, because `trial_end` records when a trial
+> ends and never how long it was. **ALREADY CHARGED** converted off a short
+> trial and was billed on day 7 having been told 30 — a refund or credit
+> decision, by hand.
 > Both lists are restricted to recipients of the *registrants* copy, so a
 > churned member who resubscribed after the win-back email is not mistaken for
 > one of them.

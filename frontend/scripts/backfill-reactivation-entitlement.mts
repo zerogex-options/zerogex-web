@@ -66,6 +66,12 @@ import { execFileSync, spawnSync } from 'node:child_process';
 
 const DEFAULT_CAMPAIGN_KEY = 'product_update_2026_08';
 
+// Mirrors TRIAL_PERIOD_DAYS / REACTIVATION_TRIAL_DAYS_DEFAULT and
+// getReactivationTrialDays()'s clamp in app/api/billing/checkout/route.ts. Used
+// only to say how much of a promised trial an account is short by.
+const TRIAL_PERIOD_DAYS = 7;
+const REACTIVATION_TRIAL_DAYS_DEFAULT = 30;
+
 type Args = {
   campaign: string;
   email: string | null;
@@ -234,6 +240,11 @@ type Candidate = {
   subscription_status: string | null;
   current_period_end: string | null;
   first_payment_at: string | null;
+  // Message of the account's most recent billing_checkout_started audit row.
+  // Carries `trial=<n>d`, which is what checkout ACTUALLY granted — the only
+  // record of the trial length, since neither the users row nor Stripe's
+  // trial_end says how long the trial was, only when it ends.
+  checkout_message: string | null;
 };
 
 // offered_at is the campaign audit row's timestamp — when the promise was
@@ -261,6 +272,12 @@ const selection = cli.email
 // on a DB that predates it (a DB without it has no self-deleted accounts).
 const notDeleted = userCols.has('deleted_at') ? 'AND u.deleted_at IS NULL' : '';
 
+// Latest checkout attempt: a member who bounced once and came back has more
+// than one row, and the last one is the one that produced the live trial.
+const checkoutMessageSubquery = `(SELECT a.message FROM audit_events a
+                                   WHERE a.user_id = u.id AND a.type = 'billing_checkout_started'
+                                   ORDER BY a.created_at DESC LIMIT 1)`;
+
 const candidates = querySqlite<Candidate>(
   dbPath,
   `SELECT u.id, u.email, u.created_at,
@@ -271,7 +288,8 @@ const candidates = querySqlite<Candidate>(
           u.subscription_lapsed,
           ${col('subscription_status')},
           ${col('current_period_end')},
-          ${col('first_payment_at')}
+          ${col('first_payment_at')},
+          ${checkoutMessageSubquery} AS checkout_message
      FROM users u
     WHERE ${selection}
       ${notDeleted}
@@ -296,6 +314,13 @@ const toStamp = candidates.filter(
 );
 
 const SAMPLE = 30;
+
+// What the extended trial is worth right now, read the same way checkout reads
+// it so the arithmetic below matches what a member would actually be granted.
+const rawReactivationDays = Number(process.env.REACTIVATION_TRIAL_DAYS || envLocal.REACTIVATION_TRIAL_DAYS);
+const reactivationTrialDays = Number.isFinite(rawReactivationDays)
+  ? Math.max(TRIAL_PERIOD_DAYS, Math.min(90, Math.floor(rawReactivationDays)))
+  : REACTIVATION_TRIAL_DAYS_DEFAULT;
 
 console.log(`Auth DB:         ${dbPath}`);
 console.log(`Selection:       ${cli.email ? `email ${cli.email}` : `audit type ${auditType}`}`);
@@ -335,13 +360,58 @@ console.log(`To stamp:        ${toStamp.length}`);
     (c) => !midTrial.includes(c) && !chargedAfterOffer.includes(c),
   );
 
-  if (midTrial.length > 0) {
+  // How long the trial they are on ACTUALLY is. "Mid-trial" alone does not mean
+  // shortchanged: someone the daily reactivation email had already reached
+  // before this campaign started a full-length trial, and telling the operator
+  // to extend them would push a 30-day trial to 53. trial_end says when the
+  // trial ends, never how long it was, so the length comes from the
+  // `trial=<n>d` the checkout route writes into its own audit row.
+  const grantedTrialDays = (c: Candidate): number | null => {
+    const m = /\btrial=(\d+)d\b/.exec(c.checkout_message ?? '');
+    return m ? Number(m[1]) : null;
+  };
+
+  const owed = midTrial.filter((c) => {
+    const days = grantedTrialDays(c);
+    return days != null && days < reactivationTrialDays;
+  });
+  const fullLength = midTrial.filter((c) => {
+    const days = grantedTrialDays(c);
+    return days != null && days >= reactivationTrialDays;
+  });
+  const unknownLength = midTrial.filter((c) => grantedTrialDays(c) == null);
+
+  if (owed.length > 0) {
     console.log(
-      `\nOWED AN EXTENSION — ${midTrial.length} started a trial after this campaign and are on`,
+      `\nOWED AN EXTENSION — ${owed.length} ${owed.length === 1 ? 'is' : 'are'} mid-trial on less than the ${reactivationTrialDays} days`,
     );
-    console.log('the standard length. Push out trial_end with extend-trial.mts:');
-    for (const c of midTrial) {
-      console.log(`  - ${c.email}  (trial ends ${c.current_period_end ?? 'unknown'})`);
+    console.log('this campaign promised. Run each (add YES=1 in place of DRY_RUN=1 to apply):');
+    for (const c of owed) {
+      const days = grantedTrialDays(c)!;
+      console.log(
+        `  # ${c.email}: on ${days}d, ends ${c.current_period_end ?? 'unknown'}\n` +
+          `  make extend-trial EMAIL=${c.email} EXTEND_DAYS=${reactivationTrialDays - days} DRY_RUN=1`,
+      );
+    }
+  }
+
+  if (fullLength.length > 0) {
+    console.log(
+      `\nMid-trial, already on ${reactivationTrialDays} days — ${fullLength.length}, nothing owed`,
+    );
+    console.log('(the reactivation email had already reached them). Do NOT extend these:');
+    for (const c of fullLength) {
+      console.log(`  - ${c.email}  (ends ${c.current_period_end ?? 'unknown'})`);
+    }
+  }
+
+  if (unknownLength.length > 0) {
+    console.log(
+      `\nMid-trial, length unknown — ${unknownLength.length}. No billing_checkout_started audit`,
+    );
+    console.log('row to read the granted length from; check each with diagnose-user:');
+    for (const c of unknownLength) {
+      console.log(`  - ${c.email}  (ends ${c.current_period_end ?? 'unknown'})`);
     }
   }
 
