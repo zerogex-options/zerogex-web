@@ -117,7 +117,10 @@ the tier, and accepting the caching change that comes with it.
   arrives projected like every other level, and the `technicals` scope it needs
   is already in every external tier (see *Which key works*).
 - An **info panel** (top-right) showing the five values, the symbol, and how
-  many seconds ago the snapshot was computed.
+  old the snapshot is. That age is the API's `age_seconds` at fetch time plus
+  the seconds since the fetch, so it keeps counting between polls and drops
+  back when a new snapshot lands, rather than freezing at whatever the last
+  poll reported.
 - Optional **price-cross alerts** (NinjaTrader `Alert()`) when price crosses
   a level.
 
@@ -244,6 +247,13 @@ frozen at the 16:00 close while the future keeps trading.
   belongs to the render target and must be created then disposed. Per shape
   that is forty creates a frame with the histogram on; there are only nine
   distinct colors, so they are converted once and dropped together.
+- **The panel age counts up between polls.** `age_seconds` is the API's
+  measurement at the instant it answered, so printed unchanged it froze for a
+  whole poll interval and understated staleness by up to that interval. The
+  snapshot records its fetch time (`FetchedUtc`) and `LiveAgeSeconds` adds the
+  seconds since; `OnRender` repaints on its own, so the counter moves without
+  a trade. A tester reading levels as "late" could not see this part of the
+  lag before.
 - **`OnRender` is wrapped in try/catch.** NinjaTrader calls it every frame, so
   an uncaught exception throws every frame forever. It is trapped, reported
   through the info panel's status line, and the chart stays usable.

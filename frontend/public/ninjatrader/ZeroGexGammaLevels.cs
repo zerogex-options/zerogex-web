@@ -88,6 +88,12 @@ namespace NinjaTrader.NinjaScript.Indicators
         public int? AgeSeconds;
         public string AsOf;
         public string Symbol;
+
+        // When this snapshot arrived, by the local clock. AgeSeconds is the
+        // API's measurement at the instant it answered; this is what lets the
+        // panel keep counting from there instead of freezing until the next
+        // poll replaces it (see LiveAgeSeconds).
+        public DateTime FetchedUtc;
     }
 
     public class ZeroGexGammaLevels : Indicator
@@ -261,6 +267,9 @@ namespace NinjaTrader.NinjaScript.Indicators
                     var snap = await FetchAsync().ConfigureAwait(false);
                     if (snap != null)
                     {
+                        // Stamped before the publish: the volatile write of
+                        // _snapshot below is what makes it visible to OnRender.
+                        snap.FetchedUtc = DateTime.UtcNow;
                         _snapshot = snap;
                         _status = "ok";
                     }
@@ -1066,7 +1075,9 @@ namespace NinjaTrader.NinjaScript.Indicators
         /// Painting it here instead fixes that by construction: the chart
         /// drives OnRender, so the panel is as current as the pixels around it,
         /// and the age counter ticks up on its own rather than freezing at
-        /// whatever the last trade happened to leave behind.</summary>
+        /// whatever the last trade happened to leave behind. (What it counts
+        /// is LiveAgeSeconds: the repaint alone was never enough, because the
+        /// number being repainted did not move between polls.)</summary>
         private void RenderInfoPanel(ZeroGexLevelsSnapshot s,
                                      SharpDX.DirectWrite.TextFormat font,
                                      BrushCache brushes)
@@ -1110,7 +1121,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         /// again, so a report naming it can only mean the old pair, and a
         /// report naming 2.0 can only mean this. Anyone bumping from here
         /// should check what release already says first.</summary>
-        private const string BuildVersion = "v2.0";
+        private const string BuildVersion = "v2.1";
 
         private string BuildInfoText(ZeroGexLevelsSnapshot s)
         {
@@ -1121,7 +1132,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                        (warn.Length > 0 ? "\n" + warn : "");
             }
 
-            string age = Age(s.AgeSeconds);
+            string age = Age(LiveAgeSeconds(s));
             string sym = string.IsNullOrEmpty(s.Symbol) ? (Symbol ?? "") : s.Symbol;
 
             // Levels are held through a failure rather than wiped, so the panel
@@ -1150,6 +1161,37 @@ namespace NinjaTrader.NinjaScript.Indicators
         private double LabelY(double price)
         {
             return price + Math.Max(0, LabelOffsetTicks) * TickSize;
+        }
+
+        /// <summary>The snapshot's age now, not at the moment it was fetched.
+        ///
+        /// age_seconds is measured by the API when it answers the request, and
+        /// the panel used to print that number unchanged until the next poll
+        /// replaced it. So the counter froze for a poll interval at a time and
+        /// understated the staleness by up to that interval: a panel reading
+        /// "updated 63s ago" for thirty seconds straight is wrong for
+        /// twenty-nine of them, and it is wrong about exactly the number a
+        /// trader asking "how far behind is this?" is trying to read. A tester
+        /// watching levels arrive after price had come and gone reached for
+        /// the poll interval as the explanation, and the panel could not help
+        /// him, because it never showed the part of the lag on his side of
+        /// the wire.
+        ///
+        /// Adding the seconds since the fetch makes the counter tick up between
+        /// polls (OnRender repaints on its own, so it moves without a trade)
+        /// and drop back when a fresh snapshot lands. Accurate to within one
+        /// HTTP round trip, which is noise next to the analytics cycle. A
+        /// snapshot with no fetch time recorded falls back to the server's
+        /// number rather than adding the years since MinValue.</summary>
+        private static int? LiveAgeSeconds(ZeroGexLevelsSnapshot s)
+        {
+            if (s == null || !s.AgeSeconds.HasValue)
+                return null;
+            if (s.FetchedUtc == DateTime.MinValue)
+                return s.AgeSeconds;
+
+            double since = (DateTime.UtcNow - s.FetchedUtc).TotalSeconds;
+            return s.AgeSeconds.Value + (int)Math.Max(0.0, since);
         }
 
         /// <summary>How old the snapshot is, in units a person can read.
