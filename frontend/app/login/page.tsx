@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getCsrfToken } from '@/core/csrfClient';
 import { useAuthSession } from '@/hooks/useAuthSession';
+import { isAppleAuthEnabled } from '@/core/authFlags';
 import { useLanguage } from '@/core/LanguageContext';
 
 // Friendly copy for the ?error=... codes the OAuth callbacks redirect with on
@@ -31,6 +32,12 @@ function describeOAuthError(code: string): string {
       return 'We couldn’t verify your account with the provider. Please try again or use email and password.';
     case 'oauth_link_unauthenticated':
       return 'You need to be signed in before linking an account.';
+    case 'apple_cancelled':
+      return 'Apple sign-in was cancelled.';
+    case 'apple_not_configured':
+      return 'Apple sign-in is not available right now. Please use Google or email and password.';
+    case 'apple_account_unavailable':
+      return 'This Apple ID can’t be used to sign in. Please contact support.';
     default:
       if (code.startsWith('apple_')) return 'Apple sign-in failed. Please try again or use email and password.';
       if (code.startsWith('oauth_')) return 'Google sign-in failed. Please try again or use email and password.';
@@ -47,6 +54,7 @@ export default function LoginPage() {
 }
 
 function LoginPageContent() {
+  const appleEnabled = isAppleAuthEnabled();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t } = useLanguage();
@@ -216,12 +224,21 @@ function LoginPageContent() {
           >
             {t('login.continueGoogle')}
           </a>
-          <span
-            aria-disabled="true"
-            className="w-full cursor-not-allowed rounded-lg border border-[var(--color-border)] px-4 py-2 text-center text-sm font-semibold opacity-50"
-          >
-            {t('login.continueApple')}
-          </span>
+          {appleEnabled ? (
+            <a
+              href="/api/auth/oauth/apple/start"
+              className="w-full rounded-lg border border-[var(--color-border)] px-4 py-2 text-center text-sm font-semibold hover:bg-[var(--bg-hover)]"
+            >
+              {t('login.continueApple')}
+            </a>
+          ) : (
+            <span
+              aria-disabled="true"
+              className="w-full cursor-not-allowed rounded-lg border border-[var(--color-border)] px-4 py-2 text-center text-sm font-semibold opacity-50"
+            >
+              {t('login.continueAppleSoon')}
+            </span>
+          )}
         </div>
 
         <div className="mt-6 flex items-center justify-between text-sm">

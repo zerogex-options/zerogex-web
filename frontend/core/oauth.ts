@@ -1,4 +1,4 @@
-import { createPublicKey, verify } from 'crypto';
+import { createPrivateKey, createPublicKey, sign, verify } from 'crypto';
 import { randomBytes } from 'crypto';
 
 export type OAuthProvider = 'google' | 'apple';
@@ -22,7 +22,6 @@ type AppleOAuthConfig = {
   jwksUrl: string;
   scope: string;
   responseMode: string;
-  clientSecret: string;
 };
 
 const STATE_COOKIE_PREFIX = 'zgx_oauth_state_';
@@ -131,6 +130,12 @@ export function getOAuthNonceCookieName(provider: OAuthProvider) {
 
 export const OAUTH_INTENT_COOKIE_NAME = 'oauth_intent';
 
+// Apple gets its own linking cookie rather than sharing OAUTH_INTENT_COOKIE_NAME:
+// the value is a signed ticket (see core/oauthLinkTicket.ts), not the literal
+// 'link' Google uses, and a separate name keeps two in-flight flows from
+// clobbering each other.
+export const APPLE_LINK_TICKET_COOKIE_NAME = 'zgx_oauth_link_apple';
+
 export function getOAuthConfig(provider: 'google'): GoogleOAuthConfig;
 export function getOAuthConfig(provider: 'apple'): AppleOAuthConfig;
 export function getOAuthConfig(provider: OAuthProvider): GoogleOAuthConfig | AppleOAuthConfig {
@@ -151,9 +156,11 @@ export function getOAuthConfig(provider: OAuthProvider): GoogleOAuthConfig | App
     };
   }
 
+  // No client secret here on purpose: Apple's is a short-lived signed JWT, not
+  // a static string, and /apple/start must work with only the id + redirect URI.
+  // The callback mints one via getAppleClientSecret() at token-exchange time.
   const clientId = requireEnv('APPLE_CLIENT_ID');
   const redirectUri = requireEnv('APPLE_REDIRECT_URI');
-  const clientSecret = requireEnv('APPLE_CLIENT_SECRET');
 
   return {
     clientId,
@@ -163,8 +170,109 @@ export function getOAuthConfig(provider: OAuthProvider): GoogleOAuthConfig | App
     jwksUrl: 'https://appleid.apple.com/auth/keys',
     scope: 'name email',
     responseMode: 'form_post',
-    clientSecret,
   };
+}
+
+// --- Apple client secret ---------------------------------------------------
+//
+// Apple is the odd one out among OAuth providers: there is no static client
+// secret to paste into an env var. The "secret" is an ES256-signed JWT the
+// relying party mints itself from the .p8 signing key downloaded once from the
+// Apple Developer portal, and Apple caps its lifetime at 6 months. Storing a
+// hand-generated one in APPLE_CLIENT_SECRET therefore turns into a silent
+// outage twice a year the moment it expires. We mint it per-process instead
+// and cache it until shortly before expiry.
+
+const APPLE_SECRET_TTL_SECONDS = 150 * 24 * 60 * 60; // under Apple's 6-month cap
+const APPLE_SECRET_REFRESH_MARGIN_SECONDS = 24 * 60 * 60;
+
+let appleSecretCache: { token: string; expiresAt: number; fingerprint: string } | null = null;
+
+function toBase64Url(input: Buffer | string) {
+  return (typeof input === 'string' ? Buffer.from(input, 'utf8') : input)
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+}
+
+/**
+ * The .p8 contents as pasted into the environment. Both shapes are accepted:
+ * a real multi-line PEM (fine in a .env file read by dotenv, or a k8s secret)
+ * and a single line with literal `\n` escapes (what most CI secret stores and
+ * `pm2 ecosystem` configs give you back).
+ */
+function readApplePrivateKey() {
+  const raw = requireEnv('APPLE_PRIVATE_KEY').trim();
+  const pem = raw.includes('-----BEGIN')
+    ? raw.replace(/\\n/g, '\n')
+    : `-----BEGIN PRIVATE KEY-----\n${raw.replace(/\s+/g, '')}\n-----END PRIVATE KEY-----`;
+  return createPrivateKey({ key: pem, format: 'pem' });
+}
+
+/**
+ * True when Sign in with Apple has everything it needs to complete a round
+ * trip. Used by the callback to fail with a clear error instead of a generic
+ * token-exchange failure, and mirrors what NEXT_PUBLIC_APPLE_AUTH_ENABLED
+ * advertises to the browser.
+ */
+export function isAppleOAuthConfigured() {
+  const hasSigningKey =
+    !!process.env.APPLE_TEAM_ID && !!process.env.APPLE_KEY_ID && !!process.env.APPLE_PRIVATE_KEY;
+  return (
+    !!process.env.APPLE_CLIENT_ID &&
+    !!process.env.APPLE_REDIRECT_URI &&
+    (hasSigningKey || !!process.env.APPLE_CLIENT_SECRET)
+  );
+}
+
+/**
+ * Mint (or reuse) the client_secret JWT for the /auth/token exchange.
+ *
+ * A literal APPLE_CLIENT_SECRET still wins if one is set, so an operator can
+ * drop in a secret generated elsewhere without a code change — but the signing
+ * key is the supported path, since only it survives past six months.
+ */
+export function getAppleClientSecret(clientId: string) {
+  const literal = process.env.APPLE_CLIENT_SECRET;
+  if (literal) return literal;
+
+  const teamId = requireEnv('APPLE_TEAM_ID');
+  const keyId = requireEnv('APPLE_KEY_ID');
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const fingerprint = `${teamId}:${keyId}:${clientId}`;
+
+  if (
+    appleSecretCache &&
+    appleSecretCache.fingerprint === fingerprint &&
+    appleSecretCache.expiresAt - APPLE_SECRET_REFRESH_MARGIN_SECONDS > nowSeconds
+  ) {
+    return appleSecretCache.token;
+  }
+
+  const expiresAt = nowSeconds + APPLE_SECRET_TTL_SECONDS;
+  const header = toBase64Url(JSON.stringify({ alg: 'ES256', kid: keyId, typ: 'JWT' }));
+  const payload = toBase64Url(
+    JSON.stringify({
+      iss: teamId,
+      iat: nowSeconds,
+      exp: expiresAt,
+      aud: 'https://appleid.apple.com',
+      sub: clientId,
+    })
+  );
+
+  // ieee-p1363 is the raw r||s encoding JOSE requires; Node defaults to DER,
+  // which Apple rejects with invalid_client.
+  const signature = sign(
+    'sha256',
+    Buffer.from(`${header}.${payload}`),
+    { key: readApplePrivateKey(), dsaEncoding: 'ieee-p1363' }
+  );
+
+  const token = `${header}.${payload}.${toBase64Url(signature)}`;
+  appleSecretCache = { token, expiresAt, fingerprint };
+  return token;
 }
 
 type AppleClaims = {

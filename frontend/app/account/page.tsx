@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Bell, CreditCard, Copy, Fingerprint, Gift, KeyRound, Link2, Mail, Rocket, Settings, ShieldCheck, Trash2, Users } from 'lucide-react';
 import { AUTH_TIERS, normalizeTier, TierId } from '@/core/auth';
+import { isAppleAuthEnabled } from '@/core/authFlags';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import VerifyEmailBanner from '@/components/VerifyEmailBanner';
 import AccountApiKeys from '@/components/AccountApiKeys';
@@ -97,6 +98,7 @@ function AccountPageContent() {
   const { data: authSession, loading } = useAuthSession();
   const [opening, setOpening] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const appleEnabled = isAppleAuthEnabled();
   const [identities, setIdentities] = useState<IdentitiesPayload | null>(null);
   const [identitiesLoading, setIdentitiesLoading] = useState(true);
   const [unlinkingProvider, setUnlinkingProvider] = useState<string | null>(null);
@@ -930,12 +932,33 @@ function AccountPageContent() {
               <SignInMethodRow
                 icon={<Link2 size={16} />}
                 label={t('apple')}
-                status={t('comingSoon')}
-                statusActive={false}
+                status={
+                  appleEnabled
+                    ? identities?.identities.some((i) => i.provider === 'apple')
+                      ? t('connected')
+                      : t('notConnected')
+                    : t('comingSoon')
+                }
+                statusActive={appleEnabled && !!identities?.identities.some((i) => i.provider === 'apple')}
                 action={
-                  <span style={secondaryButtonStyle(true)} aria-disabled="true">
-                    {t('connect')}
-                  </span>
+                  !appleEnabled ? (
+                    <span style={secondaryButtonStyle(true)} aria-disabled="true">
+                      {t('connect')}
+                    </span>
+                  ) : identities?.identities.some((i) => i.provider === 'apple') ? (
+                    <button
+                      type="button"
+                      onClick={() => handleUnlink('apple')}
+                      disabled={unlinkingProvider === 'apple'}
+                      style={secondaryButtonStyle(unlinkingProvider === 'apple')}
+                    >
+                      {unlinkingProvider === 'apple' ? t('disconnecting') : t('disconnect')}
+                    </button>
+                  ) : (
+                    <a href="/api/auth/oauth/apple/start?intent=link" style={primaryLinkButtonStyle()}>
+                      {t('connect')}
+                    </a>
+                  )
                 }
               />
             </div>
