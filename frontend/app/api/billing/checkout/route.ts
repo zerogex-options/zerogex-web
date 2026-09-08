@@ -19,6 +19,7 @@ import {
 } from '@/core/stripe';
 import { getRefereeCouponId, isReferralProgramEnabled } from '@/core/referrals';
 import { resolveRefereeBonusCoupon, splitRefereeBonus } from '@/core/refereeBonus';
+import { shouldRestoreFoundingRate } from '@/core/foundingRestore';
 import {
   findCreatorByReferralCode,
   getPartnerAudienceCouponId,
@@ -58,6 +59,10 @@ type UserBillingRow = {
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
   founding_eligible: number;
+  // Proof this account actually redeemed the founding offer (vs merely being
+  // invited to). Drives founding-rate restoration for a lapsed founder — see
+  // core/foundingRestore.ts for why this column, and not founding_eligible.
+  founding_member_started_at: string | null;
   email_verified_at: string | null;
   referred_by_code: string | null;
   paid_welcome_email_sent_at: string | null;
@@ -122,7 +127,7 @@ export async function POST(request: NextRequest) {
   const db = getDb();
   const row = db
     .prepare(
-      'SELECT stripe_customer_id, stripe_subscription_id, founding_eligible, email_verified_at, referred_by_code, paid_welcome_email_sent_at, subscription_lapsed, winback_email_sent_at, reactivation_email_sent_at FROM users WHERE id = ?',
+      'SELECT stripe_customer_id, stripe_subscription_id, founding_eligible, founding_member_started_at, email_verified_at, referred_by_code, paid_welcome_email_sent_at, subscription_lapsed, winback_email_sent_at, reactivation_email_sent_at FROM users WHERE id = ?',
     )
     .get(actor.user.id) as UserBillingRow | undefined;
 
@@ -170,6 +175,17 @@ export async function POST(request: NextRequest) {
   const hasPriorPaidSubscription =
     row?.paid_welcome_email_sent_at != null || (row?.subscription_lapsed ?? 0) === 1;
 
+  // Founding-rate restoration for a member who redeemed the founding offer and
+  // later lapsed — typically involuntarily, when a stolen or expired card ran out
+  // Stripe's dunning retries and the subscription was deleted. Server-authoritative
+  // and derived purely from persisted account state: there is no request flag to
+  // forge, because the entitlement is the founding redemption itself. See
+  // core/foundingRestore.ts for why this is not gated on the founding deadline.
+  const foundingRestore = shouldRestoreFoundingRate({
+    foundingMemberStartedAt: row?.founding_member_started_at ?? null,
+    hasActiveSubscription: row?.stripe_subscription_id != null,
+  });
+
   // Resolve any discount before talking to Stripe so we can fail fast on
   // misconfiguration (e.g. founding code accepted but coupon env unset)
   // without leaving a half-created customer behind on retries.
@@ -178,6 +194,7 @@ export async function POST(request: NextRequest) {
     cadence,
     foundingCode,
     foundingEligible: (row?.founding_eligible ?? 0) === 1,
+    foundingRestore,
     referredByCode: row?.referred_by_code ?? null,
     winbackEligible,
     hasPriorPaid: hasPriorPaidSubscription,
@@ -397,7 +414,7 @@ export async function POST(request: NextRequest) {
     userId: actor.user.id,
     email: actor.user.email,
     ip: getClientIp(request),
-    message: `tier=${tier} cadence=${cadence} founding=${discountResult.foundingApplied ? '1' : '0'} referral=${discountResult.referralApplied ? '1' : '0'} partner=${discountResult.partnerApplied ? '1' : '0'} winback=${discountResult.winbackApplied ? '1' : '0'} reactivate=${reactivationEligible ? '1' : '0'} campaign=${discountResult.campaignApplied && discountResult.campaignCode ? discountResult.campaignCode : '0'} trial=${foundingTrialEndUnix ? 'founding_july1' : trialDays ? `${trialDays}d` : '0'} session=${session.id}`,
+    message: `tier=${tier} cadence=${cadence} founding=${discountResult.foundingApplied ? '1' : '0'} foundingRestore=${foundingRestore ? '1' : '0'} referral=${discountResult.referralApplied ? '1' : '0'} partner=${discountResult.partnerApplied ? '1' : '0'} winback=${discountResult.winbackApplied ? '1' : '0'} reactivate=${reactivationEligible ? '1' : '0'} campaign=${discountResult.campaignApplied && discountResult.campaignCode ? discountResult.campaignCode : '0'} trial=${foundingTrialEndUnix ? 'founding_july1' : trialDays ? `${trialDays}d` : '0'} session=${session.id}`,
   });
 
   return NextResponse.json({ url: session.url });
@@ -432,6 +449,9 @@ function resolveDiscount(input: {
   cadence: BillingCadence;
   foundingCode: string | null;
   foundingEligible: boolean;
+  // Decided by shouldRestoreFoundingRate (core/foundingRestore.ts): this account
+  // already redeemed the founding offer and is resubscribing after a lapse.
+  foundingRestore: boolean;
   referredByCode: string | null;
   winbackEligible: boolean;
   // True when the account has held a paid sub before. The standard referee
@@ -453,6 +473,57 @@ function resolveDiscount(input: {
     couponForCadence: getRefereeCouponId(input.cadence),
     monthlyCoupon: getRefereeCouponId('monthly'),
   });
+
+  // Founding RESTORATION, resolved before every other offer — including the
+  // founding-code branch below, which is an ACQUISITION path and permanently
+  // closed after the deadline. A returning founder reaches checkout from
+  // /pricing with no founding code at all (the /founding page 404s once the
+  // deadline passes), so without this branch they would fall through to the
+  // public-promo/rack-rate tail and be charged standard pricing for a rate that
+  // cannot be re-acquired at any price.
+  //
+  // Exclusive, like the acquisition branch it mirrors: the founding rate is the
+  // best offer on the board, so no win-back, partner, campaign or public promo
+  // stacks on top of it. No refer-a-friend bonus rides along either — a
+  // restoring founder necessarily has hasPriorPaid true, which already made
+  // refereeCouponId null above.
+  //
+  // Attaching this coupon is only half the job: the session's
+  // subscription_data.metadata.founding='1' below (stamped whenever
+  // foundingApplied is true) is what makes the webhook treat the new
+  // subscription as a real founding one, so the lifetime 25%-off coupon still
+  // lands on schedule. The webhook COALESCEs founding_member_started_at, so the
+  // ORIGINAL redemption date survives and the lifetime clock is not pushed back
+  // by the lapse.
+  if (input.foundingRestore) {
+    const couponId = getFoundingIntroCouponId(input.tier, input.cadence);
+    if (!couponId) {
+      // Refuse rather than fall through. Falling through would silently sell a
+      // founder standard pricing — the precise harm this branch exists to
+      // prevent — and it is unrecoverable self-serve once the subscription
+      // exists. A 409 sends them to support, who can restore the rate in place
+      // with scripts/grant-founding-on-existing-sub.mts. Only reachable on
+      // misconfiguration (the founding coupon for this tier/cadence not set in
+      // env), never on a normal resubscribe.
+      return {
+        ok: false,
+        status: 409,
+        error:
+          'Your founding-member rate cannot be applied to this plan automatically. Please contact support and we will restore it for you — do not subscribe at standard pricing.',
+      };
+    }
+    return {
+      ok: true,
+      couponId,
+      stackCouponId: null,
+      foundingApplied: true,
+      referralApplied: false,
+      partnerApplied: false,
+      winbackApplied: false,
+      campaignApplied: false,
+      campaignCode: null,
+    };
+  }
 
   if (input.foundingCode) {
     const expected = getFoundingPromoCode();

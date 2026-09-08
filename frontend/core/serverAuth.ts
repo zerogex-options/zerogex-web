@@ -46,6 +46,12 @@ type SessionWithUser = {
     email: string;
     tier: TierId;
     hasActiveSubscription: boolean;
+    // True when Stripe holds a customer record for this account — the actual
+    // precondition for the billing portal, which outlives any one subscription.
+    hasBillingAccount: boolean;
+    // True when this account redeemed the founding offer (and still has the rate
+    // to restore, even while lapsed). See core/foundingRestore.ts.
+    foundingMember: boolean;
     // True iff this account has ever held a paid subscription (a stamped paid
     // welcome, or the lapsed flag set on churn). Checkout suppresses the 7-day
     // trial for these users, so the UI must not promise them a free trial.
@@ -205,6 +211,7 @@ function getSessionByToken(token: string): SessionWithUser | null {
       `SELECT s.id as session_id, s.user_id, s.token_hash, s.csrf_secret, s.created_at as session_created_at,
               s.expires_at, s.last_rotated_at,
               u.id as user_id2, u.email, u.tier, u.stripe_subscription_id,
+              u.stripe_customer_id, u.founding_member_started_at,
               u.email_verified_at, u.paid_welcome_email_sent_at, u.subscription_lapsed,
               u.disclaimer_acknowledged_at, u.disclaimer_version_acknowledged,
               u.founding_eligible, u.founding_lockin_dismissed_at, u.pro_welcome_seen_at,
@@ -228,6 +235,21 @@ function getSessionByToken(token: string): SessionWithUser | null {
       // Stripe sub) returns false here so the client knows to route to
       // checkout, not the portal (which would 400 on missing stripe_customer_id).
       hasActiveSubscription: !!row.stripe_subscription_id,
+      // Whether Stripe holds a customer record for this account, which is the
+      // real precondition for opening the billing portal (/api/billing/portal
+      // needs only stripe_customer_id). Deliberately separate from
+      // hasActiveSubscription: a member whose subscription was deleted after its
+      // dunning retries ran out keeps their customer record, and gating the
+      // portal on the SUBSCRIPTION hid the "update payment method" button from
+      // exactly the cohort that needed it — they saw a disabled control and
+      // reasonably concluded they had been locked out of their account.
+      hasBillingAccount: !!row.stripe_customer_id,
+      // Whether this account ever redeemed the founding offer. Survives a lapse
+      // (the webhook COALESCEs the column), so the account page can reassure a
+      // churned founder that their rate is preserved before they resubscribe.
+      // Mirrors the server-side entitlement in core/foundingRestore.ts — the UI
+      // only reflects it; checkout re-derives it and remains the authority.
+      foundingMember: !!row.founding_member_started_at,
       // Ever-paid: a stamped paid welcome, or the churn flag. Drives the
       // pricing UI's "trial vs resubscribe" copy so returning members aren't
       // promised a free trial that checkout will suppress.

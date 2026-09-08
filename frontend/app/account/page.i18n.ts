@@ -37,6 +37,8 @@ export const dict: PageDictionary = {
     noActiveSubscription: "You don't have an active subscription yet. Choose a plan on the",
     pricingPage: 'pricing page',
     toGetStarted: 'to get started.',
+    foundingRatePreserved:
+      'Your founding-member rate is preserved. Choose the same plan again and it will be applied automatically at checkout — you will not be moved to standard pricing.',
     signInMethods: 'Sign-in methods',
     signInMethodsDescription:
       'Connect or disconnect the providers you use to sign in. You must keep at least one method active.',
@@ -143,6 +145,8 @@ export const dict: PageDictionary = {
     noActiveSubscription: 'Non hai ancora un abbonamento attivo. Scegli un piano nella',
     pricingPage: 'pagina dei prezzi',
     toGetStarted: 'per iniziare.',
+    foundingRatePreserved:
+      'La tua tariffa da membro fondatore è conservata. Scegli di nuovo lo stesso piano e verrà applicata automaticamente al pagamento — non passerai alla tariffa standard.',
     signInMethods: 'Metodi di accesso',
     signInMethodsDescription:
       'Collega o scollega i provider che usi per accedere. Devi mantenere attivo almeno un metodo.',
@@ -239,6 +243,8 @@ export const dict: PageDictionary = {
     noActiveSubscription: 'Du hast noch kein aktives Abonnement. Wähle einen Plan auf der',
     pricingPage: 'Preisseite',
     toGetStarted: 'um loszulegen.',
+    foundingRatePreserved:
+      'Dein Gründermitglied-Tarif bleibt erhalten. Wähle einfach wieder denselben Plan — er wird beim Bezahlen automatisch angewendet, und du wechselst nicht zum Standardpreis.',
     signInMethods: 'Anmeldemethoden',
     signInMethodsDescription:
       'Verbinde oder trenne die Anbieter, die du zum Anmelden nutzt. Mindestens eine Methode muss aktiv bleiben.',
@@ -335,6 +341,8 @@ export const dict: PageDictionary = {
     noActiveSubscription: 'Aún no tienes una suscripción activa. Elige un plan en la',
     pricingPage: 'página de precios',
     toGetStarted: 'para comenzar.',
+    foundingRatePreserved:
+      'Tu tarifa de miembro fundador se conserva. Elige de nuevo el mismo plan y se aplicará automáticamente al pagar: no pasarás a la tarifa estándar.',
     signInMethods: 'Métodos de inicio de sesión',
     signInMethodsDescription:
       'Conecta o desconecta los proveedores que usas para iniciar sesión. Debes mantener al menos un método activo.',
@@ -431,6 +439,8 @@ export const dict: PageDictionary = {
     noActiveSubscription: "Vous n'avez pas encore d'abonnement actif. Choisissez un forfait sur la",
     pricingPage: 'page des tarifs',
     toGetStarted: 'pour commencer.',
+    foundingRatePreserved:
+      'Votre tarif de membre fondateur est conservé. Choisissez à nouveau la même formule et il sera appliqué automatiquement au paiement — vous ne passerez pas au tarif standard.',
     signInMethods: 'Méthodes de connexion',
     signInMethodsDescription:
       'Connectez ou déconnectez les fournisseurs que vous utilisez pour vous connecter. Vous devez conserver au moins une méthode active.',

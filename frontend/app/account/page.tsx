@@ -365,11 +365,24 @@ function AccountPageContent() {
   const tierLabel = TIER_LABELS[tier] ?? 'Public';
   const canUpgrade = tier !== 'pro' && tier !== 'admin';
   const hasActiveSubscription = !!authSession?.user?.hasActiveSubscription;
-  // Also allow anyone with a Stripe subscription on file — a customer whose
-  // first charge failed sits at tier=public but has stripe_subscription_id
-  // set, and the billing portal is precisely where they update the card that
-  // got declined. Gating on tier alone would lock them out of the fix.
-  const canManageBilling = tier !== 'admin' && (tier !== 'public' || hasActiveSubscription);
+  const hasBillingAccount = !!authSession?.user?.hasBillingAccount;
+  const foundingMember = !!authSession?.user?.foundingMember;
+  // Also allow anyone Stripe holds a customer record for — a customer whose
+  // charge failed sits at tier=public, and the billing portal is precisely where
+  // they update the card that got declined. Gating on tier alone would lock them
+  // out of the fix.
+  //
+  // The gate is the CUSTOMER record, not the subscription: once dunning retries
+  // are exhausted Stripe deletes the subscription and the webhook nulls
+  // stripe_subscription_id, but stripe_customer_id (and the card on it) remains,
+  // and /api/billing/portal needs only that. Gating on hasActiveSubscription
+  // disabled this button for precisely the members who most needed it — they
+  // could still sign in, saw a dead control, and wrote in asking to be let back
+  // into their own account. hasActiveSubscription is kept in the condition as a
+  // defensive fallback for any legacy row carrying a subscription id without a
+  // customer id.
+  const canManageBilling =
+    tier !== 'admin' && (tier !== 'public' || hasBillingAccount || hasActiveSubscription);
 
   const handleManageSubscription = async () => {
     setOpening(true);
@@ -709,13 +722,31 @@ function AccountPageContent() {
                 ? t('updatePaymentMethod')
                 : t('manageSubscription')}
           </button>
-          {!canManageBilling && tier === 'public' && (
+          {/* Route to /pricing whenever there's no subscription to manage — keyed
+              on the subscription rather than on canManageBilling, because a
+              lapsed member can now open the portal (to fix their card) and still
+              needs somewhere to actually restart the plan. Read from the session
+              rather than the async billing-status fetch so it doesn't flicker in
+              on load. */}
+          {tier === 'public' && !hasActiveSubscription && (
             <p style={{ margin: '10px 0 0', color: C.muted, fontSize: 13 }}>
               {t('noActiveSubscription')}{' '}
               <Link href="/pricing" style={{ color: C.amber, fontWeight: 700, textDecoration: 'none' }}>
                 {t('pricingPage')}
               </Link>{' '}
               {t('toGetStarted')}
+            </p>
+          )}
+
+          {/* A founder who lapsed cannot tell from the pricing page that their
+              locked-in rate still follows them — the page quotes standard prices.
+              Say so here, where they land when a charge fails, so the resubscribe
+              they're about to do doesn't feel like paying full freight. Checkout
+              re-derives the entitlement server-side (core/foundingRestore.ts);
+              this only reflects it. */}
+          {foundingMember && !hasActiveSubscription && (
+            <p style={{ margin: '10px 0 0', color: C.muted, fontSize: 13 }}>
+              {t('foundingRatePreserved')}
             </p>
           )}
 

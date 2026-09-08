@@ -9,9 +9,19 @@ type SessionUser = {
   tier: TierId;
   // True iff the user has a Stripe subscription on file (stripe_subscription_id
   // is non-null). Distinct from `tier` so the UI can tell grandfathered users
-  // (tier=basic|pro without a Stripe sub) apart from real subscribers; only
-  // real subscribers can use the billing portal.
+  // (tier=basic|pro without a Stripe sub) apart from real subscribers, and used
+  // to route between the billing portal (change an existing plan) and checkout
+  // (start one). NOT the gate for portal ACCESS — see hasBillingAccount.
   hasActiveSubscription?: boolean;
+  // True iff Stripe holds a customer record for this account
+  // (stripe_customer_id is non-null), which is all /api/billing/portal needs.
+  // Outlives any single subscription, so a lapsed member can still open the
+  // portal to update the card that got declined.
+  hasBillingAccount?: boolean;
+  // True iff this account redeemed the founding offer. Survives a lapse, so the
+  // account page can tell a churned founder their locked-in rate is preserved
+  // and will be re-applied when they resubscribe (core/foundingRestore.ts).
+  foundingMember?: boolean;
   // True iff the account has ever held a paid subscription. Checkout suppresses
   // the free trial for these users, so the pricing UI shows "Subscribe" copy
   // rather than promising a trial they won't get.
