@@ -105,7 +105,32 @@ Un breve flusso di lavoro:
 4. **Verifica incrociata con il max pain.** Stesso strike o entro lo 0,3% dal magnete → pin netto. Sostanzialmente diverso → tesi del pin più debole; fidati del magnete.
 5. **Leggi l'orario della giornata.** Prima di mezzogiorno ET, il charm non si è ancora accumulato abbastanza da guidare il pin con forza. Dopo le 14:00 ET, la trazione si intensifica. Dopo le 15:30 ET, dominano le dinamiche della finestra di chiusura.
 
+---
+
+## Come capire se lo SPY è pinnato: i cinque segnali
+
 Una volta identificato il pin, il playbook operativo è in [Come sapere se SPY è ancorato](/education/how-to-know-if-spy-is-pinned) — versione breve: fai fade sugli estremi, salta il centro, size ridotta.
+
+**1. Il Net GEX è nettamente positivo (regime di gamma lungo).** Spot sopra il gamma flip e Net GEX chiaramente positivo. (Il Net GEX è gamma dei dealer stimata sotto la convenzione tradizionale call-positive/put-negative sull'open interest — un modello, non inventario osservato.) ZeroGEX considera su scala SPY circa $500M+ come «sostanziale», ma è un'euristica interna — la magnitudine conta più di qualsiasi cifra specifica. Un Net GEX negativo o vicino a zero depone contro il pin.
+
+**2. Max pain e magnete di gamma concordano vicino allo spot.** Quando entrambi indicano lo stesso livello e questo si trova entro circa lo 0,3% dallo spot, la trazione strutturale è al massimo. Quando divergono, ZeroGEX si appoggia al magnete di gamma — corrisponde al meccanismo di copertura modellato, mentre il max pain è geometria dei payoff.
+
+**3. Lo spot oscilla attorno al magnete da un'ora.** Grafica lo SPY contro lo strike del magnete di gamma sul timeframe a 5 minuti. Tre o più attraversamenti negli ultimi 60 minuti, con ogni escursione più piccola, suggerisce un pin in formazione. Una deriva costante che si allontana dal magnete depone contro — quella è una direzione, non un range.
+
+**4. La volatilità realizzata si è compressa sotto l'implicita.** La copertura in gamma lungo smorza la volatilità realizzata, quindi un pin che funziona si vede come realizzata sotto l'implicita. Se la realizzata si espande, il pin non tiene — il book viene travolto da altro flusso.
+
+**5. L'EOD Pressure è vicino a zero nella finestra attiva.** Dopo le 14:30 ET, una lettura di EOD Pressure vicina a zero (circa −0,20/+0,20) è una firma modellata di pin — i termini di charm e di gravità del pin si annullano in buona parte perché il prezzo sta sul magnete. Una lettura ampia significa che il prezzo è *lontano* dal magnete. Vedi [Segnale EOD Pressure spiegato: leggere la chiusura](/education/eod-pressure-explained).
+
+---
+
+## Il playbook per un tape pinnato
+
+Quando la maggior parte dei cinque segnali si allinea, il playbook è contrarian e semplice:
+
+- **Sì: opera contro gli estremi del range di compressione.** La trazione strutturale riporta verso il magnete, quindi vendere gli allunghi vicino al massimo del range e comprare i ribassi vicino al minimo è l'unico assetto in cui il riflesso del dealer è dalla tua parte. Size piccola — i pin sono probabilistici, non garantiti.
+- **No: inseguire il centro.** Al centro sta il magnete; comprare o vendere lì significa combattere il livello verso cui il prezzo tenta strutturalmente di tornare. È da qui che arriva la maggior parte delle perdite su un tape pinnato.
+- **No: prendere assetti di momentum.** I playbook di breakout, espansione di volatilità e squeeze presuppongono che il movimento si estenda — l'opposto di un tape pinnato. Eseguire il playbook sbagliato è gran parte dell'errore.
+- **Sì: riduci la size della posizione.** I range pinnati sono stretti e gli stop ancora di più; una size da giornata normale invita a essere stoppati prematuramente.
 
 ---
 

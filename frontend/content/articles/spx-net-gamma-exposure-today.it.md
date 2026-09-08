@@ -21,6 +21,14 @@ La **net gamma exposure (net GEX)** di SPX è la somma della gamma dei dealer su
 
 Il net GEX è il numero principale nel più ampio framework della [gamma exposure](/education/what-is-gex-in-trading). Viene calcolato al prezzo spot attuale, quindi si muove man mano che SPX si muove e la catena di opzioni si riprezza durante la giornata.
 
+> Il net GEX è una stima *modellata*. Usa la convenzione tradizionale call-positive/put-negative sull'open interest — dealer modellati come netti lunghi delle call vendute dai clienti e netti corti delle put comprate dai clienti. L'inventario reale dei dealer non è direttamente osservabile dai dati pubblici della catena delle opzioni.
+
+---
+
+## Il net GEX in «dollar gamma»: che cosa significa l'unità
+
+Il net GEX è quotato in dollari — «$1.5B di gamma» — perché è scalato per rispondere a una domanda in dollari: quanta esposizione all'indice S&P dovrebbero grosso modo negoziare i dealer per ricoprirsi se l'SPX si muovesse dell'1%? Per questo le ricerche di «SPX net GEX dollar gamma» e «SPX net gamma exposure» arrivano alla stessa cifra: il dollar gamma *è* il net GEX, espresso per movimento dell'1%. Il segno porta il regime; la magnitudine in dollari porta quanta copertura modellata ci sta dietro. Una lettura di +$1.5B e una di +$150M descrivono lo stesso regime con dieci volte il cuscinetto.
+
 ---
 
 ## Come leggere l'attuale lettura del net GEX

@@ -20,6 +20,8 @@ Cet article présente le workflow pratique pour identifier le S/R basé sur les 
 
 ## Les quatre types de S/R basés sur les options
 
+Les libellés ci-dessous — call wall comme résistance, put wall comme support — décrivent le comportement *typique en gamma positive*. Ce ne sont pas des propriétés fixes du strike : le type d'option ne détermine pas à lui seul la direction, et chacun peut s'inverser quand le signe de la gamma dealer modélisée ou le flux environnant change.
+
 ### 1. Les call walls (résistance)
 
 Le **call wall** est le strike au-dessus du spot présentant l'exposition gamma call la plus lourde. Dans un régime de gamma longue, les dealers qui couvrent leur inventaire long-call doivent vendre lors des rallyes qui approchent du wall. Cette vente agit comme une résistance structurelle.
@@ -43,6 +45,12 @@ Le magnet est le plus fort à l'approche de l'échéance, lorsque les options ex
 ### 4. Le gamma flip (ligne de régime)
 
 Le **gamma flip** n'est pas du S/R au sens traditionnel — c'est la frontière de régime. Mais il fonctionne comme une ligne de support/résistance souple, car le prix tend à marquer une pause ou à s'inverser brièvement en la franchissant (le réflexe du dealer change de signe exactement à ce prix). Au-dessus du flip, le réflexe est de fader ; en dessous, de suivre (chase).
+
+Voir [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) pour la méthode.
+
+---
+
+## Pourquoi le SPY se retourne-t-il à ces niveaux ?
 
 Voir [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) pour le workflow.
 
