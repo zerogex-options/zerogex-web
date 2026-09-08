@@ -1,4 +1,4 @@
-# Die besten Gamma-Exposure-(GEX)-Tools: Ein fairer Vergleich für 2026
+# Die besten GEX-Tools 2026: Gamma-Exposure-Plattformen, fair verglichen
 > **Aktualisierter Methodikhinweis — er hat Vorrang vor abweichenden Formulierungen weiter unten.** ZeroGEX schätzt Dealerbestände aus öffentlichen Daten; es beobachtet sie nicht. Das Modell behält die Call-positiv/Put-negativ-Konvention bei (`Net GEX = Call GEX − Put GEX`) und unterstellt Dealer netto long Calls und netto short Puts. Long Calls und Long Puts haben positives Gamma; Short Calls und Short Puts negatives Gamma. Die Put Wall ist die größte Put-Gamma-Konzentration unter Spot und lokal modelliertes negatives Dealer-Gamma: Sie kann mit Unterstützung zusammenfallen, doch das Hedging eines Short Puts erzeugt keinen mechanischen Boden. Walls können sich durch Spot, Zeit und implizite Volatilität verschieben, obwohl das offizielle Open Interest intraday unverändert bleibt. Nahe Verfall konzentriert sich Gamma am Geld; ATM-Gamma kann steigen, während deutlich ITM- oder OTM-Gamma gegen null geht. Der ausgewählte Gamma Flip ist ein lokaler Übergang; ein Profil kann mehrere oder keine aussagekräftige Kreuzung haben. Charm und Vanna sind bedingte Deltaänderungen, keine geplanten Orders. Signalwerte sind heuristische Modellergebnisse, keine kalibrierten Wahrscheinlichkeiten. Negatives Gamma verstärkt die bereits laufende Richtung; die Entfernung zu einem Ziel impliziert keine Abstoßung. Die Vorzeichenumkehr des EOD-Pressure-Pin-Terms bleibt daher eine ZeroGEX-Heuristik. Max Pain minimiert die aggregierte intrinsische Auszahlung und maximiert nicht exakt den wertlos verfallenden Nominalwert. Rohes DEX misst Optionsdelta, nicht künftigen Hedge-Flow; Prämie und Aggressorseite beweisen weder Information noch Eröffnung oder Überzeugung.
 
 
@@ -8,7 +8,7 @@
 
 ## Was ein „bestes GEX-Tool" wirklich ausmacht
 
-Die Suche nach dem besten GEX-Tool ist nützlicher, als es klingt, aber der Rahmen ist entscheidend. Gamma Exposure ist ein Modell-Output, keine Primitive — jeder Anbieter, der ein GEX-Produkt liefert, trifft Entscheidungen über Chain-Abdeckung, Berechnungsmethodik, Latenz und wie das Ergebnis dargestellt wird. Das „beste" Tool für einen 0DTE-SPX-Trader ist nicht das beste Tool für einen Swing-Trader, der Positionsgrößen anhand monatlicher Exposure festlegt, und ein Tool, das auf einem Homepage-Chart sauber aussieht, kann eine Methodik verschleiern, die bei degradierten Chains versagt.
+Die Suche nach dem besten GEX-Tool ist nützlicher, als es klingt, aber der Rahmen ist entscheidend. Gamma Exposure ist ein Modell-Output, keine Primitive — die rohen Gamma-Beträge einer Chain, versehen mit dem Vorzeichen einer Dealer-Positioning-Konvention (traditionell Calls positiv, Puts negativ), denn der tatsächliche Dealerbestand ist aus öffentlichen Optionsdaten nicht direkt beobachtbar. Jeder Anbieter, der ein GEX-Produkt liefert, trifft Entscheidungen über Chain-Abdeckung, Berechnungsmethodik, Latenz und wie das Ergebnis dargestellt wird. Das „beste" Tool für einen 0DTE-SPX-Trader ist nicht das beste Tool für einen Swing-Trader, der Positionsgrößen anhand monatlicher Exposure festlegt, und ein Tool, das auf einem Homepage-Chart sauber aussieht, kann eine Methodik verschleiern, die bei degradierten Chains versagt.
 
 Dieser Beitrag ist der ehrliche Vergleich. Wir legen die Kriterien dar, die bei der Auswahl eines Gamma-Exposure-Trackers tatsächlich zählen, gehen die Kategorien von Tools am Markt durch und beleuchten konkrete Stärken und Kompromisse. ZeroGEX ist eine der Optionen in dieser Kategorie — hier gleichberechtigt mit den anderen aufgeführt, nicht als vorweggenommenes Fazit. Wenn du dein Verständnis dafür, was GEX überhaupt ist, noch aufbaust, ist der [Gamma-Exposure-Grundlagenartikel](/education/gamma-exposure-explained) der richtige Ausgangspunkt.
 
@@ -24,21 +24,21 @@ Der größte einzelne Unterscheidungsfaktor. Ein GEX-Wert auf Basis von 15 Minut
 
 ### 2. 0DTE- und Same-Day-Expiry-Abdeckung
 
-Same-Day-Expiries dominieren mittlerweile den Intraday-Flow bei SPX. Ein Tool, das die 0DTE-Bucketing unterrepräsentiert oder auslässt, liefert einen veralteten Intraday-Wert — die Chain, die es anzeigt, ist nicht die Chain, die das Band bewegt. Achte auf Tools, die GEX pro Expiry aufschlüsseln und 0DTE angemessen gewichten. Die tiefere Erklärung, warum das wichtig ist, findest du in [0DTE Dealer Positioning Explained](/education/0dte-dealer-positioning-explained).
+0DTE-Optionen machen einen großen Teil der SPX-Aktivität aus und können an manchen Sessions die Gamma-Sensitivität nahe dem Spot dominieren. Bucketing pro Expiry hilft Nutzern, diese Sensitivität zu isolieren, während Bruttovolumen und Open Interest nichts über den Netto-Dealerbestand aussagen. Die tiefere Erklärung, warum das wichtig ist, findest du in [0DTE Dealer Positioning Explained](/education/0dte-dealer-positioning-explained).
 
 ### 3. Berechnungsmethodik
 
 Die drei Hauptansätze:
 
-- **Spot-Shift-Dealer-Gamma-Profil** (jede Option wird über ein Raster hypothetischer Spot-Preise neu bepreist, die Gammawerte werden zu einer Kurve summiert). Dies ist die branchenübliche Methodik, die von der ursprünglichen GEX-Forschung eingeführt wurde; sowohl die Headline-Kennzahl Net GEX als auch der Gamma Flip stammen aus derselben Kurve, sodass sie sich nicht widersprechen können.
+- **Spot-Shift-Dealer-Gamma-Profil** (jede Option wird über ein Raster hypothetischer Spot-Preise neu bepreist, die Gammawerte werden zu einer Kurve summiert). ZeroGEX bevorzugt diese Methode, weil sie modelliertes Gamma über hypothetische Kurse des Basiswerts auswertet und die Headline-Kennzahl Net GEX und die ausgewählte Kreuzung aus einem gemeinsamen Profil kommen lässt.
 - **Per-Strike-GEX-Aggregation** (Gamma × OI an jedem Strike zum aktuellen Spot multiplizieren, summieren). Schneller und günstiger zu berechnen; intuitives Per-Strike-Balkendiagramm. Kann inkonsistentes Vorzeichenverhalten zwischen der Headline-Zahl und dem Flip-Level erzeugen, besonders wenn sich die Chain verschiebt.
 - **Aus dem Tape rekonstruiertes Dealer-Book** (jeder Options-Print wird als Dealer-Kauf oder Dealer-Verkauf signiert, über die Session kumuliert, und das Gamma wird aus dem resultierenden Bestand berechnet). Das verwirft die Konvention „Calls positiv, Puts negativ“ vollständig und aktualisiert sich mit dem eintreffenden Flow, statt auf die nächste Open-Interest-Datei zu warten. Der Preis dafür: Alles hängt nun an der Signierung jedes einzelnen Prints, und die ist wirklich schwierig — ein Trade zum Mid, ein mehrbeiniger Spread oder ein in Teile zerlegter Block hat oft keine rekonstruierbare Seite, und weil der Bestand kumulativ ist, summieren sich die Fehler über die Session, statt sich auszumitteln. Ein Anbieter, der diesen Weg geht, sollte veröffentlichen, wie oft seine Signierung gegen eine unabhängige Quelle richtig liegt. Behandle diese Zahl, nicht die Erzählung darum herum, als die eigentliche Behauptung.
 
-Die Spot-Shift-Methode ist die bessere Methodik für ernsthafte Arbeit. Die Per-Strike-Methode eignet sich für oberflächliche Visualisierungen, versagt aber in Momenten des Regimewechsels. Die Tape-Rekonstruktion tauscht eine Modellannahme gegen ein Messproblem — ein echter Kompromiss, keine schlichte Verbesserung.
+Die Ansätze beantworten unterschiedliche Fragen. Die Per-Strike-Aggregation ist intuitiv, um aktuelle Konzentrationen zu lokalisieren; Spot-Shift ergänzt eine Szenariokurve und einen Nulldurchgangs-Resolver zu höheren Rechen- und Modellierungskosten. Die Tape-Rekonstruktion tauscht eine Modellannahme gegen ein Messproblem — ein echter Kompromiss, keine schlichte Verbesserung.
 
 ### 4. Qualität der Gamma-Flip-Auflösung
 
-Der Gamma Flip ist die Regimelinie — der Preis, an dem die Dealer-Gamma die Nulllinie kreuzt. Naive Implementierungen können Flip-Werte erzeugen, die unrealistisch driften (Grid-Rand-Artefakte bei degradierten Chains, hauchdünne Kreuzungen weit vom Spot entfernt, eingefrorene Flips bei Lücken im Feed). Achte auf Tools, die ihre Flip-Methodik veröffentlichen und Edge-Cases bei degradierten Chains ehrlich behandeln — einschließlich der Meldung von NULL, wenn die Daten keine verlässliche Antwort zulassen, statt stillschweigend einen veralteten Wert fortzuschreiben. Die detaillierte Methodik dahinter findest du in [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) und im [Gamma Flip Calculation guide](/guides/gamma-flip-calculation-before-vs-after).
+Der Gamma Flip ist die modellierte Regimelinie — der Preis, an dem die modellierte Dealer-Gamma-Kurve die Nulllinie kreuzt. Naive Implementierungen können Flip-Werte erzeugen, die unrealistisch driften (Grid-Rand-Artefakte bei degradierten Chains, hauchdünne Kreuzungen weit vom Spot entfernt, eingefrorene Flips bei Lücken im Feed). Achte auf Tools, die ihre Flip-Methodik veröffentlichen und Edge-Cases bei degradierten Chains ehrlich behandeln — einschließlich der Meldung von NULL, wenn die Daten keine verlässliche Antwort zulassen, statt stillschweigend einen veralteten Wert fortzuschreiben. Die detaillierte Methodik dahinter findest du in [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) und im [Gamma Flip Calculation guide](/guides/gamma-flip-calculation-before-vs-after).
 
 ### 5. Gamma Walls und strukturelle Levels
 
@@ -64,13 +64,13 @@ Die Kategorie lässt sich grob in vier Gruppen unterteilen. Konkrete Feature-Beh
 
 ### Gruppe 1: Etablierte Gamma-Research-Anbieter
 
-Die Anbieter, die die öffentlich verfolgte GEX-Kategorie begründet haben. Nutzen in der Regel die Spot-Shift-Methodik, verfügen über tiefe historische Archive und bedienen sowohl Retail- als auch Profi-Zielgruppen. Die Taktung reicht von täglichen Research-Produkten bis zu vollständig Echtzeit-Intraday-Tracking, wobei der Echtzeitzugang typischerweise höheren Abo-Stufen vorbehalten ist. Die methodische Herkunft ist die Stärke; der Kompromiss sind oft Closed-Source-Berechnungen und begrenzte 0DTE-spezifische Werkzeuge. Ihre veröffentlichte Forschung ist oft die Referenz für das Feld.
+Die Anbieter, die die öffentlich verfolgte GEX-Kategorie begründet haben. Bieten unter Umständen Szenarioprofile, historische Archive und Produkte für unterschiedliche Zielgruppen; aktuelle Methodik und Abdeckung sollten anhand der offiziellen Materialien des jeweiligen Anbieters geprüft werden. Die Taktung reicht von täglichen Research-Produkten bis zu vollständig Echtzeit-Intraday-Tracking, wobei der Echtzeitzugang typischerweise höheren Abo-Stufen vorbehalten ist. Die methodische Herkunft ist die Stärke; der Kompromiss sind oft Closed-Source-Berechnungen und begrenzte 0DTE-spezifische Werkzeuge. Ihre veröffentlichte Forschung ist oft die Referenz für das Feld.
 
 *In dieser Gruppe häufig genannte Tools: SpotGamma, SqueezeMetrics. Prüfe aktuelle Preise und Abdeckung auf deren Websites.*
 
 ### Gruppe 2: Flow-Aggregator-Plattformen mit GEX-Oberflächen
 
-Breitere Options-Flow-Plattformen (ungewöhnliche Optionsaktivität, Dark-Pool-Prints, Flow-Scanner), die ein GEX-Modul als eines von vielen Features enthalten. Nutzen häufig die Per-Strike-Aggregationsmethode, die schnell und optisch sauber, aber methodisch weniger rigoros als Spot-Shift ist. Die Stärke liegt in der Breite der komplementären Daten; der Kompromiss ist, dass die GEX-Oberfläche selten die tiefgehendste im Produkt ist.
+Breitere Options-Flow-Plattformen (ungewöhnliche Optionsaktivität, Dark-Pool-Prints, Flow-Scanner), die ein GEX-Modul als eines von vielen Features enthalten. Können Per-Strike-Aggregation enthalten, die schnell und intuitiv ist; die Methodik sollte geprüft und nicht aus der Darstellung abgeleitet werden. Die Stärke liegt in der Breite der komplementären Daten; der Kompromiss ist, dass die GEX-Oberfläche selten die tiefgehendste im Produkt ist.
 
 *In dieser Gruppe häufig genannte Tools: Unusual Whales, Cheddar Flow. Prüfe aktuelle Preise und Abdeckung auf deren Websites.*
 
@@ -94,7 +94,7 @@ Kostenlose Websites, die tägliche oder nahezu tägliche GEX-Snapshots veröffen
 
 Ein kurzer Entscheidungsbaum:
 
-**Wenn du SPX 0DTE handelst:** Echtzeit und 0DTE-bewusstes Bucketing sind nicht verhandelbar. Schau dir die Berechnungsmethodik genau an — ein reiner Per-Strike-Ansatz liefert dir in Momenten des Regimewechsels vorzeichen-inkonsistente Werte. Tools der Gruppe 3 sind für diesen Anwendungsfall gebaut; manche Anbieter der Gruppe 1 bieten Echtzeit auch in ihren höheren Stufen an.
+**Wenn du SPX 0DTE handelst:** Echtzeit und 0DTE-bewusstes Bucketing sind nicht verhandelbar. Schau dir die Berechnungsmethodik genau an — verstehe, ob die angezeigten Konzentrationen und der ausgewählte Flip aus kompatiblen Universen und Annahmen stammen. Tools der Gruppe 3 sind für diesen Anwendungsfall gebaut; manche Anbieter der Gruppe 1 bieten Echtzeit auch in ihren höheren Stufen an.
 
 **Wenn du SPX-Swing / mehrtägige Exposure handelst:** Echtzeit ist schön, aber nicht essenziell; methodische Tiefe und historische Archive zählen mehr. Anbieter der Gruppe 1 sind hier stark.
 
@@ -108,7 +108,7 @@ Ein kurzer Entscheidungsbaum:
 
 Um von vornherein transparent zu sein, wo dieser Vergleich gehostet wird: ZeroGEX ist ein Tool der Gruppe 3, speziell gebaut für die Echtzeit-, Intraday-, auf SPX/0DTE fokussierte Dealer-Positioning-Analyse. Die Entscheidungen, die in das Produkt eingeflossen sind:
 
-- **Spot-Shift-Dealer-Gamma-Profil** als zentrale Primitive. Headline-Net-GEX und der Gamma Flip werden aus derselben Kurve abgelesen und können sich daher nicht widersprechen — eine strukturelle Invariante der Berechnung.
+- **Spot-Shift-Dealer-Gamma-Profil** als zentrale Primitive. Headline-Net-GEX und der ausgewählte Flip werden aus einer gemeinsamen Kurve abgeleitet, was die Konsistenz verbessert, während der Resolver weiterhin mehrfache, schwache oder fehlende Kreuzungen behandelt.
 - **Gehärteter Gamma-Flip-Resolver** mit Gates für Innenlage, Struktur und handlungsrelevante Distanz gegen Grid-Rand-Artefakte, Rauschgrenz-Kreuzungen und weit vom Spot entfernte Levels. Meldet NULL, wenn die Chain keine verlässliche Antwort zulässt, statt einen veralteten Wert fortzuschreiben.
 - **Gamma-Bucketing pro DTE**, sodass 0DTE-Konzentration direkt sichtbar und für Intraday-Lesarten angemessen gewichtet ist.
 - **Zusammengesetzte Signalebene** über den strukturellen Lesarten — Squeeze Setup, Positioning Trap, Trap Detection, EOD Pressure und weitere — jeweils mit veröffentlichter Methodik im [Education-Bereich](/articles), keine Black-Box-Outputs.
@@ -125,7 +125,7 @@ Die ehrliche Antwort ist, dass „beste" vom Workflow abhängt, aber einige Krit
 
 - **Echtzeit-Chain-Daten**, nicht 15 Minuten verzögert.
 - **0DTE-/Per-Expiry-Bucketing**, das es erlaubt, das Same-Day-Buch zu isolieren.
-- **Spot-Shift-Methodik** oder gleichwertige Rigorosität in der Berechnung, sodass die Headline-Regime-Lesart und das Flip-Level sich nicht widersprechen können.
+- **Spot-Shift-Methodik** oder gleichwertige Rigorosität in der Berechnung, sodass die Headline-Regime-Lesart und die ausgewählte Kreuzung ein klar dokumentiertes und in sich konsistentes Universum verwenden.
 - **Ein Live-Gamma-Flip mit ehrlichem Umgang mit degradierten Daten** — ein Flip, der bei Feed-Lücken stillschweigend einfriert, ist schlimmer als ein Flip, der NULL meldet.
 - **Eine lesbare Signalebene** — zusammengesetzte Scores, deren Methodik veröffentlicht ist, keine Black-Box-Alerts.
 

@@ -1,4 +1,4 @@
-# I migliori strumenti di Gamma Exposure (GEX): un confronto onesto per il 2026
+# I migliori strumenti GEX nel 2026: le piattaforme di gamma exposure, confrontate con equità
 > **Nota metodologica aggiornata — prevale su eventuali formulazioni incompatibili più avanti nella pagina.** ZeroGEX stima, ma non osserva, l’inventario dei dealer dai dati pubblici. Il modello conserva la convenzione call-positive/put-negative (`Net GEX = Call GEX − Put GEX`): i dealer sono ipotizzati net long call e net short put. Call e put long hanno gamma positivo; call e put short hanno gamma negativo. Il Put Wall è la maggiore concentrazione di gamma put sotto lo spot e rappresenta localmente gamma dealer negativo: può coincidere con supporto, ma la copertura della put short non crea meccanicamente un pavimento. I wall possono migrare con spot, tempo e volatilità implicita anche quando l’open interest ufficiale non cambia intraday. Verso la scadenza il gamma si concentra vicino all’ATM: il gamma ATM può aumentare, mentre quello decisamente ITM o OTM tende a zero. Il Gamma Flip selezionato è un passaggio locale; il profilo può avere più passaggi o nessun passaggio significativo. Charm e vanna descrivono variazioni condizionali del delta, non ordini programmati. I punteggi sono output euristici, non probabilità calibrate. Il gamma negativo amplifica la direzione già in corso: la distanza da un target non implica repulsione, quindi l’inversione del termine pin di EOD Pressure resta un’euristica ZeroGEX. Max Pain minimizza il payout intrinseco aggregato, non massimizza esattamente il nozionale che scade senza valore. Il DEX grezzo misura delta delle sole opzioni, non il futuro flusso di copertura; premio e lato aggressore non provano informazione, apertura o convinzione.
 
 
@@ -8,7 +8,7 @@
 
 ## Cosa rende davvero un "miglior strumento GEX"
 
-Cercare il miglior strumento GEX è più utile di quanto sembri, ma il modo in cui si imposta la domanda conta. La gamma exposure è l'output di un modello, non un dato primitivo — ogni fornitore che offre un prodotto GEX fa scelte su copertura della catena, metodologia di calcolo, latenza e su come l'output viene presentato. Lo strumento "migliore" per un trader SPX 0DTE non è il migliore per uno swing trader che dimensiona le posizioni sull'esposizione mensile, e uno strumento che appare pulito in un grafico da homepage può nascondere una metodologia che si rompe su catene degradate.
+Cercare il miglior strumento GEX è più utile di quanto sembri, ma il modo in cui si imposta la domanda conta. La gamma exposure è l'output di un modello, non un dato primitivo — le magnitudini grezze di gamma di una catena a cui viene applicato il segno di una convenzione di posizionamento dei dealer (tradizionalmente call positive, put negative), poiché l'inventario reale dei dealer non è direttamente osservabile dai dati pubblici sulle opzioni. Ogni fornitore che offre un prodotto GEX fa scelte su copertura della catena, metodologia di calcolo, latenza e su come l'output viene presentato. Lo strumento "migliore" per un trader SPX 0DTE non è il migliore per uno swing trader che dimensiona le posizioni sull'esposizione mensile, e uno strumento che appare pulito in un grafico da homepage può nascondere una metodologia che si rompe su catene degradate.
 
 Questo articolo è il confronto onesto. Esporremo i criteri che contano davvero nella scelta di un tracker di gamma exposure, passeremo in rassegna le categorie di strumenti presenti sul mercato e metteremo in luce punti di forza e compromessi specifici. ZeroGEX è una delle opzioni in questa categoria — incluso qui alla pari con gli altri, non come conclusione scontata. Se stai ancora costruendo la tua intuizione su cosa sia il GEX, il [pillar sulla Gamma Exposure](/education/gamma-exposure-explained) è il punto da cui partire.
 
@@ -24,21 +24,21 @@ Il singolo fattore più determinante. Una lettura GEX su dati della catena ritar
 
 ### 2. Copertura 0DTE e scadenze giornaliere
 
-Le scadenze giornaliere ormai dominano il flusso intraday su SPX. Uno strumento che sottopesa o omette la suddivisione per 0DTE produce una lettura intraday obsoleta — la catena che ti mostra non è quella che sta muovendo il mercato. Cerca strumenti che espongono il GEX suddiviso per scadenza e pesano correttamente lo 0DTE. L'approfondimento su perché questo conta è in [0DTE Dealer Positioning Explained](/education/0dte-dealer-positioning-explained).
+Le opzioni 0DTE rappresentano una quota rilevante dell'attività su SPX e in alcune sessioni possono dominare la sensibilità della gamma vicino allo spot. La suddivisione per scadenza aiuta a isolare quella sensibilità, mentre volume lordo e open interest non rivelano la proprietà netta dei dealer. L'approfondimento su perché questo conta è in [0DTE Dealer Positioning Explained](/education/0dte-dealer-positioning-explained).
 
 ### 3. Metodologia di calcolo
 
 I tre approcci principali:
 
-- **Profilo di gamma dealer con spot-shift** (riprezza la gamma di ogni opzione su una griglia di spot ipotetici, somma per ottenere una curva). Questa è la metodologia standard del settore, ideata dalla ricerca GEX originale; sia il Net GEX principale sia il gamma flip derivano dalla stessa curva, quindi non possono contraddirsi.
+- **Profilo di gamma dealer con spot-shift** (riprezza la gamma di ogni opzione su una griglia di spot ipotetici, somma per ottenere una curva). ZeroGEX preferisce questo metodo perché valuta la gamma modellata su prezzi ipotetici del sottostante e fa derivare il Net GEX principale e l'attraversamento selezionato da un profilo comune.
 - **Aggregazione GEX per strike** (moltiplica gamma × OI a ogni strike allo spot attuale, somma). Più veloce ed economica da calcolare; grafico a barre per strike intuitivo. Può produrre un comportamento del segno incoerente tra il numero principale e il livello di flip, specialmente quando la catena si sposta.
 - **Book dei dealer ricostruito dal tape** (si firma ogni print di opzioni come acquistato o venduto dal dealer, si accumula lungo la sessione e la gamma si calcola dall'inventario risultante). Questo abbandona del tutto la convenzione call positive / put negative e si aggiorna man mano che arriva il flusso, invece di aspettare il prossimo file di open interest. Il costo è che tutto poggia sulla firma di ogni singolo print, che è davvero difficile: un'operazione al mid, uno spread a più gambe o un blocco spezzettato spesso non hanno un lato recuperabile, e poiché l'inventario è cumulativo gli errori si compongono lungo la sessione invece di compensarsi. Un fornitore che segue questa strada dovrebbe pubblicare quanto spesso la sua firma è corretta rispetto a una fonte indipendente. Tratta quel numero, non il racconto che lo circonda, come l'affermazione che viene fatta.
 
-Il metodo spot-shift è la metodologia migliore per un lavoro serio. Il metodo per strike va bene per una visualizzazione superficiale ma cede nei momenti di ribaltamento del regime. La ricostruzione dal tape scambia un'assunzione di modello con un problema di misura, il che è un compromesso reale e non un miglioramento puro e semplice.
+Gli approcci rispondono a domande diverse. L'aggregazione per strike è intuitiva per localizzare le concentrazioni attuali; lo spot-shift aggiunge una curva di scenario e un risolutore dell'attraversamento dello zero a un costo computazionale e di modellazione maggiore. La ricostruzione dal tape scambia un'assunzione di modello con un problema di misura, il che è un compromesso reale e non un miglioramento puro e semplice.
 
 ### 4. Qualità della risoluzione del gamma flip
 
-Il gamma flip è la linea di regime — il prezzo a cui la gamma del dealer attraversa lo zero. Implementazioni ingenue possono produrre valori di flip che derivano in modo irrealistico (artefatti ai bordi della griglia su catene degradate, attraversamenti sottili lontani dallo spot, flip congelati quando il feed presenta buchi). Cerca strumenti che pubblicano la propria metodologia di flip e gestiscono onestamente i casi limite di catene degradate — inclusa la restituzione di NULL quando i dati non supportano una risposta affidabile, invece di riportare in modo silenzioso un valore obsoleto. La metodologia dettagliata dietro a tutto questo è in [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) e nella [Gamma Flip Calculation guide](/guides/gamma-flip-calculation-before-vs-after).
+Il gamma flip è la linea di regime modellata — il prezzo a cui la curva modellata di gamma dei dealer attraversa lo zero. Implementazioni ingenue possono produrre valori di flip che derivano in modo irrealistico (artefatti ai bordi della griglia su catene degradate, attraversamenti sottili lontani dallo spot, flip congelati quando il feed presenta buchi). Cerca strumenti che pubblicano la propria metodologia di flip e gestiscono onestamente i casi limite di catene degradate — inclusa la restituzione di NULL quando i dati non supportano una risposta affidabile, invece di riportare in modo silenzioso un valore obsoleto. La metodologia dettagliata dietro a tutto questo è in [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) e nella [Gamma Flip Calculation guide](/guides/gamma-flip-calculation-before-vs-after).
 
 ### 5. Gamma wall e livelli strutturali
 
@@ -64,13 +64,13 @@ La categoria si suddivide grosso modo in quattro gruppi. Le affermazioni specifi
 
 ### Gruppo 1: Fornitori consolidati di ricerca sulla gamma
 
-I fornitori che hanno inaugurato la categoria GEX tracciata pubblicamente. Generalmente usano la metodologia spot-shift, hanno archivi storici profondi e servono un mix di pubblico retail e professionale. La cadenza va da prodotti di ricerca giornalieri al tracking intraday completamente in tempo reale, con l'accesso in tempo reale tipicamente riservato ai livelli di abbonamento superiori. Il lignaggio metodologico è il punto di forza; il compromesso è spesso rappresentato da calcoli a codice chiuso e strumenti specifici per 0DTE limitati. La loro ricerca pubblicata è spesso il riferimento del settore.
+I fornitori che hanno inaugurato la categoria GEX tracciata pubblicamente. Possono offrire profili di scenario, archivi storici e prodotti per pubblici diversi; metodologia e copertura attuali andrebbero verificate sui materiali ufficiali di ciascun fornitore. La cadenza va da prodotti di ricerca giornalieri al tracking intraday completamente in tempo reale, con l'accesso in tempo reale tipicamente riservato ai livelli di abbonamento superiori. Il lignaggio metodologico è il punto di forza; il compromesso è spesso rappresentato da calcoli a codice chiuso e strumenti specifici per 0DTE limitati. La loro ricerca pubblicata è spesso il riferimento del settore.
 
 *Strumenti comunemente citati in questo gruppo: SpotGamma, SqueezeMetrics. Verifica prezzi e copertura attuali sui rispettivi siti.*
 
 ### Gruppo 2: Piattaforme aggregatrici di flusso con superfici GEX
 
-Piattaforme più ampie di flusso di opzioni (attività di opzioni insolite, stampe dark pool, scanner di flusso) che includono un modulo GEX come una delle tante funzionalità. Spesso usano il metodo di aggregazione per strike, veloce e visivamente pulito ma metodologicamente meno rigoroso dello spot-shift. Il punto di forza è l'ampiezza dei dati complementari; il compromesso è che la superficie GEX raramente è la più approfondita del prodotto.
+Piattaforme più ampie di flusso di opzioni (attività di opzioni insolite, stampe dark pool, scanner di flusso) che includono un modulo GEX come una delle tante funzionalità. Possono includere l'aggregazione per strike, veloce e intuitiva; la metodologia andrebbe verificata anziché dedotta da come viene visualizzata. Il punto di forza è l'ampiezza dei dati complementari; il compromesso è che la superficie GEX raramente è la più approfondita del prodotto.
 
 *Strumenti comunemente citati in questo gruppo: Unusual Whales, Cheddar Flow. Verifica prezzi e copertura attuali sui rispettivi siti.*
 
@@ -94,7 +94,7 @@ Siti web gratuiti che pubblicano snapshot GEX giornalieri o quasi giornalieri, s
 
 Un breve albero decisionale:
 
-**Se fai trading su SPX 0DTE:** Tempo reale e suddivisione consapevole dello 0DTE sono irrinunciabili. Guarda attentamente la metodologia di calcolo — un approccio basato solo sul per-strike ti darà letture con segno incoerente nei momenti di ribaltamento di regime. Gli strumenti del Gruppo 3 sono costruiti per questo caso d'uso; anche alcuni fornitori del Gruppo 1 offrono il tempo reale ai livelli superiori.
+**Se fai trading su SPX 0DTE:** Tempo reale e suddivisione consapevole dello 0DTE sono irrinunciabili. Guarda attentamente la metodologia di calcolo — verifica se le concentrazioni mostrate e il flip selezionato provengono da universi e assunzioni compatibili. Gli strumenti del Gruppo 3 sono costruiti per questo caso d'uso; anche alcuni fornitori del Gruppo 1 offrono il tempo reale ai livelli superiori.
 
 **Se fai swing trading su SPX / esposizione multi-day:** Il tempo reale è utile ma non essenziale; la profondità metodologica e gli archivi storici contano di più. I fornitori del Gruppo 1 sono forti in questo ambito.
 
@@ -108,7 +108,7 @@ Un breve albero decisionale:
 
 Per essere trasparenti su dove è ospitato questo confronto: ZeroGEX è uno strumento del Gruppo 3, costruito specificamente per l'analisi del posizionamento dei dealer in tempo reale, intraday, focalizzata su SPX/0DTE. Le decisioni che sono confluite nel prodotto:
 
-- **Profilo di gamma dealer con spot-shift** come primitiva centrale. Il Net GEX principale e il gamma flip sono letti dalla stessa curva, quindi non possono contraddirsi — un invariante strutturale del calcolo.
+- **Profilo di gamma dealer con spot-shift** come primitiva centrale. Il Net GEX principale e il flip selezionato derivano da una curva comune, il che migliora la coerenza mentre il risolutore continua a gestire attraversamenti multipli, deboli o assenti.
 - **Risolutore del gamma flip rafforzato** con controlli su interiorità, struttura e distanza azionabile contro artefatti ai bordi della griglia, attraversamenti nel rumore di fondo e livelli lontani dallo spot. Restituisce NULL quando la catena non supporta una risposta affidabile, invece di riportare in avanti un valore obsoleto.
 - **Suddivisione della gamma per DTE** così che la concentrazione 0DTE sia visibile direttamente e pesata correttamente per le letture intraday.
 - **Livello di segnale composto** sopra le letture strutturali — Squeeze Setup, Positioning Trap, Trap Detection, EOD Pressure e altri — ciascuno con metodologia pubblicata nella [sezione Education](/articles), non output a scatola nera.
@@ -125,7 +125,7 @@ La risposta onesta è che "migliore" dipende dal workflow, ma alcuni criteri son
 
 - **Dati di catena in tempo reale**, non ritardati di 15 minuti.
 - **Suddivisione 0DTE / per scadenza** che permetta di isolare il book dello stesso giorno.
-- **Metodologia spot-shift** o rigore equivalente nel calcolo, così che la lettura di regime principale e il livello di flip non possano contraddirsi.
+- **Metodologia spot-shift** o rigore equivalente nel calcolo, così che la lettura di regime principale e l'attraversamento selezionato usino un universo chiaramente documentato e internamente coerente.
 - **Un gamma flip live con una gestione onesta dei dati degradati** — un flip che si congela silenziosamente quando il feed presenta buchi è peggio di un flip che restituisce NULL.
 - **Un livello di segnale leggibile** — punteggi composti la cui metodologia è pubblicata, non alert a scatola nera.
 
