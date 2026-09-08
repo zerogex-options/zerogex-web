@@ -28,6 +28,9 @@ if [ -n "${SUDO_USER:-}" ] && [ "${SUDO_USER:-}" != "root" ]; then
 fi
 [ -z "${HOME:-}" ] && export HOME="/home/ubuntu"
 
+# Fallback log if this step is invoked directly.
+type log >/dev/null 2>&1 || log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
+
 log "Auth DB Backup Timer Setup"
 
 # Resolve the owning user even when deploy.sh is invoked via sudo (deploy.sh
