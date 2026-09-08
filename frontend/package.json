@@ -96,7 +96,8 @@
     "test:chart-hero": "node --experimental-strip-types --test tests/chartHeroDisclosure.test.ts",
     "test:gamma-terminal": "node --experimental-strip-types --test tests/gammaTerminal.test.ts",
     "test:gex-ribbons": "node --experimental-strip-types --test tests/gexRibbons.test.ts",
-    "test:flip-status-chip": "node --experimental-strip-types --test tests/flipStatusChip.test.ts"
+    "test:flip-status-chip": "node --experimental-strip-types --test tests/flipStatusChip.test.ts",
+    "test:mcp": "node --experimental-strip-types --test tests/mcp.test.ts"
   },
   "dependencies": {
     "jose": "^5.9.6",

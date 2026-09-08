@@ -28,12 +28,13 @@ Los vencimientos del mismo día dominan ahora el flujo intradía de SPX. Una her
 
 ### 3. Metodología de cálculo
 
-Los dos enfoques principales:
+Los tres enfoques principales:
 
 - **Perfil de gamma del dealer con spot-shift** (se reprecia la gamma de cada opción a lo largo de una grilla de spots hipotéticos y se suma para formar una curva). Esta es la metodología estándar de la industria, impulsada por la investigación original sobre GEX; tanto la cifra principal de Net GEX como el gamma flip provienen de la misma curva, por lo que no pueden contradecirse entre sí.
 - **Agregación de GEX por strike** (se multiplica gamma × OI en cada strike al spot actual y se suma). Más rápido y económico de calcular; gráfico de barras por strike intuitivo. Puede producir un comportamiento de signo inconsistente entre la cifra principal y el nivel de flip, especialmente cuando la cadena se desplaza.
+- **Libro del dealer reconstruido desde la cinta** (se firma cada print de opciones como comprado o vendido por el dealer, se acumula a lo largo de la sesión y la gamma se calcula a partir del inventario resultante). Esto descarta por completo la convención de calls positivas / puts negativas y se actualiza a medida que llega el flujo, en lugar de esperar al siguiente archivo de interés abierto. El coste es que todo pasa a depender de la firma de cada print, que es genuinamente difícil: una operación al medio, un spread de varias patas o un bloque troceado a menudo no tienen un lado recuperable, y como el inventario es acumulativo los errores se componen a lo largo de la sesión en vez de promediarse. Un proveedor que tome este camino debería publicar con qué frecuencia acierta su firma frente a una fuente independiente. Trata ese número, y no el relato que lo rodea, como la afirmación que se está haciendo.
 
-El método spot-shift es la mejor metodología para un trabajo serio. El método por strike funciona bien para una visualización superficial, pero falla en momentos de cambio de régimen.
+El método spot-shift es la mejor metodología para un trabajo serio. El método por strike funciona bien para una visualización superficial, pero falla en momentos de cambio de régimen. La reconstrucción desde la cinta cambia un supuesto de modelado por un problema de medición, lo que es un intercambio real y no una mejora sin más.
 
 ### 4. Calidad de la resolución del gamma flip
 
@@ -75,9 +76,13 @@ Plataformas más amplias de flujo de opciones (actividad de opciones inusual, pr
 
 ### Grupo 3: Herramientas en tiempo real centradas en el posicionamiento de los dealers
 
-Una categoría más reciente de productos construidos específicamente en torno al posicionamiento de los dealers en tiempo real para traders intradía, con segmentación consciente del 0DTE y capas de señales compuestas. La metodología spot-shift es cada vez más el estándar aquí. La fortaleza es la profundidad intradía; el compromiso es que los archivos históricos de investigación suelen ser menos profundos que los de los proveedores consolidados.
+Una categoría más reciente de productos construidos específicamente en torno al posicionamiento de los dealers en tiempo real para traders intradía, con segmentación consciente del 0DTE y capas de señales compuestas. Algunos usan perfiles spot-shift, otros agregación por strike o reconstrucción desde la cinta, y algunos no revelan el método en absoluto. La fortaleza es la profundidad intradía; el compromiso es que los archivos históricos de investigación suelen ser menos profundos que los de los proveedores consolidados.
 
 ZeroGEX se ubica en este grupo — construido en torno a la gamma del dealer en tiempo real, la metodología spot-shift con un resolutor de flip reforzado, el seguimiento de gamma segmentado por vencimiento y una capa de señales compuesta sobre las lecturas estructurales.
+
+FirmTape es la otra herramienta de este grupo que conviene conocer, y está construida sobre cimientos distintos: el libro del dealer se reconstruye print a print desde la cinta de opciones en lugar de a partir del interés abierto y una convención de signo, su flip de gamma cero se publica con una incertidumbre declarada en vez de como un número desnudo, y detrás hay un archivo gratuito de repetición de sesiones pasadas del SPX. También tiene un servidor alojado listado en el registro oficial del Model Context Protocol, de modo que un asistente puede leer directamente los niveles de una sesión. Si no confías en ninguna convención de signo, esa es la herramienta de la categoría hecha para ti — sujeta a la advertencia del criterio 3 anterior, que FirmTape dice medir y publicar en su propia investigación.
+
+*Herramientas comúnmente citadas en este grupo: ZeroGEX, FirmTape. Verifica los precios y la cobertura actuales en sus sitios.*
 
 ### Grupo 4: Sitios gratuitos / de instantáneas retrasadas
 
@@ -108,8 +113,9 @@ Para ser transparentes sobre dónde se aloja esta comparación: ZeroGEX es una h
 - **Segmentación de gamma por DTE**, de modo que la concentración de 0DTE sea directamente visible y esté ponderada adecuadamente para lecturas intradía.
 - **Capa de señales compuesta** sobre las lecturas estructurales — Squeeze Setup, Positioning Trap, Trap Detection, EOD Pressure y otras — cada una con metodología publicada en la [sección de Educación](/articles), no resultados de caja negra.
 - **Páginas gratuitas de Gamma Levels** (SPX, SPY, QQQ, NDX), retrasadas 15 minutos, para las lecturas estructurales principales (Net GEX, Gamma Flip, Call Wall, Put Wall, Max Pain, perfil de gamma del dealer), sin necesidad de registro — los planes de pago (Basic, Pro) añaden el Dashboard en tiempo real, la capa de señales, datos históricos más profundos y Advanced Signals.
+- **Un servidor MCP alojado y gratuito** sobre esos mismos niveles retrasados, en `https://zerogex.io/mcp`, para que Claude, ChatGPT, Cursor o cualquier otro cliente del Model Context Protocol pueda leer el flip y los walls directamente en una conversación. Sin clave y sin cuenta; la API en tiempo real sigue siendo una función Pro.
 
-Como cualquier herramienta de la categoría, ZeroGEX tiene compromisos. La profundidad de su archivo histórico es menor que la de los proveedores consolidados del Grupo 1. La cobertura se concentra en SPX/SPY y los principales ETF de índices, no en una cobertura profunda de acciones individuales. La capa de señales es deliberadamente marcada por su enfoque, lo cual es una ventaja para los traders que quieren un marco definido y una limitación para quienes quieren solo datos crudos. Si esos compromisos encajan con tu flujo de trabajo es una pregunta que vale la pena responder antes de comprometerte con cualquier herramienta, incluida esta.
+Como cualquier herramienta de la categoría, ZeroGEX tiene compromisos. La profundidad de su archivo histórico es menor que la de los proveedores consolidados del Grupo 1, y no hay un archivo gratuito de repetición de sesiones como el que publica FirmTape. La cobertura se concentra en SPX/SPY y los principales ETF de índices, no en una cobertura profunda de acciones individuales. La capa de señales es deliberadamente marcada por su enfoque, lo cual es una ventaja para los traders que quieren un marco definido y una limitación para quienes quieren solo datos crudos. Si esos compromisos encajan con tu flujo de trabajo es una pregunta que vale la pena responder antes de comprometerte con cualquier herramienta, incluida esta.
 
 ---
 
@@ -136,6 +142,7 @@ Una breve lista de trampas que evitar:
 - **Niveles de "GEX máximo" en un solo strike comercializados como el flip.** El gamma flip es el cruce por cero de la curva de gamma del dealer, no el strike con el mayor GEX absoluto. Confundir ambos es un error minorista habitual — y algunas herramientas presentan el "strike de GEX máximo" etiquetado de forma que sugiere que es el flip.
 - **Capturas de pantalla estáticas que insinúan que los niveles son fijos.** Los walls, el flip y el imán de gamma migran todos durante el día. Las herramientas que muestran niveles sin su migración te dan solo la mitad de la lectura.
 - **Capas de señales sin divulgación de metodología.** Si una herramienta te dice "GEX score: 7" sin explicar qué produce ese 7, no tienes forma de evaluar cuándo confiar en ella y cuándo no.
+- **Un libro del dealer firmado sin precisión de firma publicada.** Cualquier herramienta que infiera el inventario del dealer desde la cinta está tomando una decisión de compra o venta en cada print, y esa decisión es medible como acierto o error. Si el proveedor no dice con qué frecuencia acierta frente a una fuente independiente, el inventario es una afirmación y no una medición.
 
 ---
 

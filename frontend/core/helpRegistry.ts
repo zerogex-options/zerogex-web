@@ -152,6 +152,13 @@ export const HELP_ARTICLES: HelpArticle[] = [
     section: 'API & Data Access',
   },
   {
+    slug: 'mcp-server',
+    title: 'The ZeroGEX MCP Server (free, no key)',
+    description:
+      'Connect Claude, ChatGPT or Cursor to the free delayed gamma levels — no key, no account.',
+    section: 'API & Data Access',
+  },
+  {
     slug: 'mcp-integration',
     title: 'Building an MCP Server on the ZeroGEX API',
     description:

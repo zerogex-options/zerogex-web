@@ -1,0 +1,14 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.zerogex/gamma-levels",
+  "title": "ZeroGEX — SPX/SPY/QQQ/NDX dealer positioning",
+  "description": "Free delayed gamma flip, call and put walls, max pain and net dealer gamma",
+  "version": "1.0.0",
+  "websiteUrl": "https://zerogex.io",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://zerogex.io/mcp"
+    }
+  ]
+}

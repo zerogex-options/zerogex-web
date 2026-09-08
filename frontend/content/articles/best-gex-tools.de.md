@@ -28,12 +28,13 @@ Same-Day-Expiries dominieren mittlerweile den Intraday-Flow bei SPX. Ein Tool, d
 
 ### 3. Berechnungsmethodik
 
-Die zwei Hauptansätze:
+Die drei Hauptansätze:
 
 - **Spot-Shift-Dealer-Gamma-Profil** (jede Option wird über ein Raster hypothetischer Spot-Preise neu bepreist, die Gammawerte werden zu einer Kurve summiert). Dies ist die branchenübliche Methodik, die von der ursprünglichen GEX-Forschung eingeführt wurde; sowohl die Headline-Kennzahl Net GEX als auch der Gamma Flip stammen aus derselben Kurve, sodass sie sich nicht widersprechen können.
 - **Per-Strike-GEX-Aggregation** (Gamma × OI an jedem Strike zum aktuellen Spot multiplizieren, summieren). Schneller und günstiger zu berechnen; intuitives Per-Strike-Balkendiagramm. Kann inkonsistentes Vorzeichenverhalten zwischen der Headline-Zahl und dem Flip-Level erzeugen, besonders wenn sich die Chain verschiebt.
+- **Aus dem Tape rekonstruiertes Dealer-Book** (jeder Options-Print wird als Dealer-Kauf oder Dealer-Verkauf signiert, über die Session kumuliert, und das Gamma wird aus dem resultierenden Bestand berechnet). Das verwirft die Konvention „Calls positiv, Puts negativ“ vollständig und aktualisiert sich mit dem eintreffenden Flow, statt auf die nächste Open-Interest-Datei zu warten. Der Preis dafür: Alles hängt nun an der Signierung jedes einzelnen Prints, und die ist wirklich schwierig — ein Trade zum Mid, ein mehrbeiniger Spread oder ein in Teile zerlegter Block hat oft keine rekonstruierbare Seite, und weil der Bestand kumulativ ist, summieren sich die Fehler über die Session, statt sich auszumitteln. Ein Anbieter, der diesen Weg geht, sollte veröffentlichen, wie oft seine Signierung gegen eine unabhängige Quelle richtig liegt. Behandle diese Zahl, nicht die Erzählung darum herum, als die eigentliche Behauptung.
 
-Die Spot-Shift-Methode ist die bessere Methodik für ernsthafte Arbeit. Die Per-Strike-Methode eignet sich für oberflächliche Visualisierungen, versagt aber in Momenten des Regimewechsels.
+Die Spot-Shift-Methode ist die bessere Methodik für ernsthafte Arbeit. Die Per-Strike-Methode eignet sich für oberflächliche Visualisierungen, versagt aber in Momenten des Regimewechsels. Die Tape-Rekonstruktion tauscht eine Modellannahme gegen ein Messproblem — ein echter Kompromiss, keine schlichte Verbesserung.
 
 ### 4. Qualität der Gamma-Flip-Auflösung
 
@@ -75,9 +76,13 @@ Breitere Options-Flow-Plattformen (ungewöhnliche Optionsaktivität, Dark-Pool-P
 
 ### Gruppe 3: Auf Echtzeit-Dealer-Positioning fokussierte Tools
 
-Eine neuere Kategorie von Produkten, die speziell um Echtzeit-Dealer-Positioning für Intraday-Trader herum gebaut sind, mit 0DTE-bewusstem Bucketing und zusammengesetzten Signalebenen. Die Spot-Shift-Methodik wird hier zunehmend zum Standard. Die Stärke liegt in der Intraday-Tiefe; der Kompromiss ist, dass die historischen Research-Archive typischerweise flacher sind als bei den etablierten Anbietern.
+Eine neuere Kategorie von Produkten, die speziell um Echtzeit-Dealer-Positioning für Intraday-Trader herum gebaut sind, mit 0DTE-bewusstem Bucketing und zusammengesetzten Signalebenen. Manche nutzen Spot-Shift-Profile, andere Per-Strike-Aggregation oder Tape-Rekonstruktion, und manche legen die Methode gar nicht offen. Die Stärke liegt in der Intraday-Tiefe; der Kompromiss ist, dass die historischen Research-Archive typischerweise flacher sind als bei den etablierten Anbietern.
 
 ZeroGEX ist in dieser Gruppe angesiedelt — aufgebaut um Echtzeit-Dealer-Gamma, die Spot-Shift-Methodik mit einem gehärteten Flip-Resolver, Per-Expiry-Bucket-Gamma-Tracking und eine zusammengesetzte Signalebene über den strukturellen Lesarten.
+
+FirmTape ist das andere Tool dieser Gruppe, das man kennen sollte, und es steht auf anderen Fundamenten: Das Dealer-Book wird Print für Print aus dem Options-Tape rekonstruiert statt aus Open Interest plus Vorzeichenkonvention, der Zero-Gamma-Flip wird mit einer ausgewiesenen Unsicherheit statt als nackte Zahl veröffentlicht, und dahinter liegt ein kostenloses Replay-Archiv vergangener SPX-Sessions. Zudem ist dort ein gehosteter Server in der offiziellen Model-Context-Protocol-Registry gelistet, sodass ein Assistent die Levels einer Session direkt abrufen kann. Wer keiner Vorzeichenkonvention traut, findet hier das dafür gebaute Tool — vorbehaltlich des Einwands aus Kriterium 3 oben, den FirmTape nach eigenen Angaben in seiner veröffentlichten Research misst und ausweist.
+
+*In dieser Gruppe häufig genannte Tools: ZeroGEX, FirmTape. Prüfe aktuelle Preise und Abdeckung auf deren Websites.*
 
 ### Gruppe 4: Kostenlose / verzögerte Snapshot-Seiten
 
@@ -108,8 +113,9 @@ Um von vornherein transparent zu sein, wo dieser Vergleich gehostet wird: ZeroGE
 - **Gamma-Bucketing pro DTE**, sodass 0DTE-Konzentration direkt sichtbar und für Intraday-Lesarten angemessen gewichtet ist.
 - **Zusammengesetzte Signalebene** über den strukturellen Lesarten — Squeeze Setup, Positioning Trap, Trap Detection, EOD Pressure und weitere — jeweils mit veröffentlichter Methodik im [Education-Bereich](/articles), keine Black-Box-Outputs.
 - **Kostenlose Gamma-Levels-Seiten** (SPX, SPY, QQQ, NDX), 15 Minuten verzögert, für die zentralen strukturellen Lesarten (Net GEX, Gamma Flip, Call Wall, Put Wall, Max Pain, Dealer-Gamma-Profil), ohne Registrierung — bezahlte Pläne (Basic, Pro) ergänzen das Echtzeit-Dashboard, die Signalebene, tiefere historische Daten und Advanced Signals.
+- **Ein kostenloser gehosteter MCP-Server** auf denselben verzögerten Levels, unter `https://zerogex.io/mcp`, sodass Claude, ChatGPT, Cursor oder jeder andere Model-Context-Protocol-Client den Flip und die Walls direkt im Gespräch lesen kann. Kein Key, kein Account; die Echtzeit-API bleibt ein Pro-Feature.
 
-Wie jedes Tool in dieser Kategorie hat ZeroGEX Kompromisse. Die Tiefe des historischen Archivs ist geringer als bei den etablierten Anbietern der Gruppe 1. Die Abdeckung konzentriert sich auf SPX/SPY und die großen Index-ETFs, nicht auf eine tiefe Einzelaktien-Abdeckung. Die Signalebene ist bewusst meinungsstark konzipiert, was für Trader, die ein definiertes Framework wollen, ein Vorteil ist, und für Trader, die nur Rohdaten wollen, eine Einschränkung. Ob diese Kompromisse zu deinem Workflow passen, ist eine Frage, die es wert ist, beantwortet zu werden, bevor man sich auf irgendein Tool festlegt — einschließlich dieses hier.
+Wie jedes Tool in dieser Kategorie hat ZeroGEX Kompromisse. Die Tiefe des historischen Archivs ist geringer als bei den etablierten Anbietern der Gruppe 1, und es gibt kein kostenloses Session-Replay-Archiv, wie FirmTape es veröffentlicht. Die Abdeckung konzentriert sich auf SPX/SPY und die großen Index-ETFs, nicht auf eine tiefe Einzelaktien-Abdeckung. Die Signalebene ist bewusst meinungsstark konzipiert, was für Trader, die ein definiertes Framework wollen, ein Vorteil ist, und für Trader, die nur Rohdaten wollen, eine Einschränkung. Ob diese Kompromisse zu deinem Workflow passen, ist eine Frage, die es wert ist, beantwortet zu werden, bevor man sich auf irgendein Tool festlegt — einschließlich dieses hier.
 
 ---
 
@@ -136,6 +142,7 @@ Eine kurze Liste von Fallen, die man vermeiden sollte:
 - **Single-Strike-„Max-GEX"-Levels, die als Flip vermarktet werden.** Der Gamma Flip ist der Nulldurchgang der Dealer-Gamma-Kurve, nicht der Strike mit dem höchsten absoluten GEX. Die beiden zu verwechseln ist ein häufiger Retail-Fehler — und manche Tools präsentieren den „Max-GEX-Strike" auf eine Weise, die suggeriert, es sei der Flip.
 - **Statische Screenshots, die suggerieren, die Levels seien fix.** Walls, der Flip und der Gamma-Magnet wandern alle im Tagesverlauf. Tools, die Levels ohne ihre Wanderung zeigen, geben dir nur die halbe Lesart.
 - **Signalebenen ohne Offenlegung der Methodik.** Wenn dir ein Tool „GEX-Score: 7" sagt, ohne zu erklären, was die 7 erzeugt, hast du keine Möglichkeit zu beurteilen, wann man ihm vertrauen sollte und wann nicht.
+- **Ein signiertes Dealer-Book ohne veröffentlichte Signierungsgenauigkeit.** Jedes Tool, das den Dealer-Bestand aus dem Tape ableitet, trifft bei jedem Print eine Kauf-oder-Verkauf-Entscheidung, und die ist messbar richtig oder falsch. Wenn der Anbieter nicht angibt, wie oft er gegen eine unabhängige Quelle richtig liegt, ist der Bestand eine Behauptung und keine Messung.
 
 ---
 

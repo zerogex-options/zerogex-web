@@ -12,6 +12,8 @@ MCP is the bridge. You run a small server that exposes a few tools; the assistan
 
 It assumes you have a Pro key. If you don't, start with [API Access & Keys](/help/platform/api-access).
 
+**Before you build anything: there is already a hosted one.** [The ZeroGEX MCP Server](/help/platform/mcp-server) is live at `https://zerogex.io/mcp`, free, with no key and no account — it serves the same 15-minute-delayed levels as the public Gamma Levels pages. If delayed levels answer your question, connect to that and skip this page entirely. Build your own when you need the real-time feed, your own tool shapes, or endpoints beyond the levels.
+
 This is also the answer for platforms whose scripting language can't reach the network. Pine Script (TradingView) and thinkScript (thinkorswim) are both sandboxed with no outbound HTTP, so no study running inside them can pull the levels — but an assistant with an MCP server can, and you can read the answer alongside your chart.
 
 ## Start with the consolidated levels endpoint
@@ -209,8 +211,11 @@ The code is yours. Publish it, open-source it, put it on a registry — our own 
 
 The one thing that isn't allowed is running your integration as a hosted service on *your* key for other people. That's reselling paid access, and it's the line in our [Terms](/terms). Anyone using what you build should bring their own key.
 
+Our own hosted server is not an exception to that rule; it is on the other side of it. It serves only the free delayed levels that are already public on the Gamma Levels pages, and no Pro data passes through it.
+
 ## See also
 
+- [The ZeroGEX MCP Server (free, no key)](/help/platform/mcp-server)
 - [API Access & Keys (Pro)](/help/platform/api-access)
 - [Data Coverage & Refresh](/help/platform/data-coverage)
 - [API Docs (external)](https://api.zerogex.io/docs)
