@@ -73,3 +73,5 @@ Wenn der Schreckmoment, der nie eintritt, endlich vorbei ist, muss sich die Angs
 Für das uhrgetriebene Geschwister siehe [Charm: Die Uhr ist ein Trader](/education/charm-the-clock-is-a-trader), für das Fundament siehe [Warum Market Maker gezwungen sind, Aktien zu handeln](/education/why-market-makers-trade-stock), und um die Vanna-Leiter live mit dem heutigen Buch zu sehen, öffnen Sie die Live-Seite [Forced Flow](/forced-flow).
 
 Nur zu Bildungszwecken — nichts davon ist eine Handelsempfehlung.
+
+> Unter der traditionellen Konvention Dealer-long-Call/Dealer-short-Put können einige Kettenkonfigurationen bei fallender IV modellierten Kaufdruck im Underlying erzeugen. Das Vorzeichen hängt von Besitz, Optionstyp, Moneyness, Verfall, Skew und davon ab, wie sich die Volatilitätsoberfläche verändert; Kaufen ist keine inhärente Eigenschaft von Vanna.

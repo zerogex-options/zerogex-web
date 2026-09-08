@@ -205,3 +205,5 @@ Contenu à visée éducative uniquement — rien de ce qui précède ne constitu
 ---
 
 Si vous souhaitez voir en temps réel les flux de vanna et charm du jour, ainsi que le régime gamma qui détermine s'ils produiront une dérive ou seront balayés, le dashboard gratuit de ZeroGEX affiche tout cela.
+
+> Les scores de signaux ZeroGEX sont des résultats dérivés reposant sur des entrées, des pondérations et des seuils choisis à la main, sauf mention contraire. Ce ne sont ni des probabilités calibrées ni des garanties ; une validation historique est nécessaire avant de les interpréter comme un avantage de performance.

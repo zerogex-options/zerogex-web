@@ -83,6 +83,8 @@ Dalla stessa chain derivano due numeri aggregati:
 - Il **Total GEX** è la somma del contributo *assoluto* a ogni strike — una lettura di magnitudine, indifferente al segno. Indica quanto gamma è presente nel sistema nel complesso.
 - Il **Net GEX** è la somma *con segno* — call meno put. Indica quale lato del book dei dealer domina, e se il riflesso aggregato di hedging sta smorzando o amplificando.
 
+> Il Net GEX è gamma dei dealer stimata/modellata, calcolata sotto la convenzione tradizionale call-positive/put-negative sull'open interest — dealer modellati come netti lunghi delle call vendute dai clienti e netti corti delle put comprate dai clienti. Non è inventario osservato; il posizionamento reale dei dealer non è direttamente osservabile dai dati pubblici della catena delle opzioni.
+
 La maggior parte dell'analisi di regime usa il Net GEX. Anche la magnitudine conta — un Net GEX di +$2 miliardi è un regime molto più marcato di +$200 milioni — ma il segno è la prima lettura.
 
 ### Gamma dei dealer via spot-shift contro aggregazione per strike

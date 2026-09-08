@@ -71,6 +71,8 @@ pin_score    = sign × normalized
 
 **Limitación metodológica:** la inversión con gamma negativa es una heurística de ZeroGEX, no una consecuencia mecánica. La gamma negativa amplifica una dirección ya iniciada; la distancia al objetivo no determina esa dirección.
 
+**Limitación metodológica:** la inversión de signo con gamma negativa es una heurística propia de ZeroGEX, no una consecuencia directa de la mecánica del gamma negativo. El gamma negativo amplifica la dirección ya en marcha; la distancia al objetivo por sí sola no puede determinar esa dirección. El repositorio de analítica no estaba disponible en este workspace para un cambio seguro de implementación y pruebas, así que esta documentación identifica la limitación en lugar de disimularla.
+
 
 
 ### Componente 3: Rampa temporal (la puerta)

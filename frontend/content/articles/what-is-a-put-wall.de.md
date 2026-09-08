@@ -1,110 +1,99 @@
 # Was ist eine Put Wall? Put-Gamma-Konzentration erklärt
 > **Aktualisierter Methodikhinweis — er hat Vorrang vor abweichenden Formulierungen weiter unten.** ZeroGEX schätzt Dealerbestände aus öffentlichen Daten; es beobachtet sie nicht. Das Modell behält die Call-positiv/Put-negativ-Konvention bei (`Net GEX = Call GEX − Put GEX`) und unterstellt Dealer netto long Calls und netto short Puts. Long Calls und Long Puts haben positives Gamma; Short Calls und Short Puts negatives Gamma. Die Put Wall ist die größte Put-Gamma-Konzentration unter Spot und lokal modelliertes negatives Dealer-Gamma: Sie kann mit Unterstützung zusammenfallen, doch das Hedging eines Short Puts erzeugt keinen mechanischen Boden. Walls können sich durch Spot, Zeit und implizite Volatilität verschieben, obwohl das offizielle Open Interest intraday unverändert bleibt. Nahe Verfall konzentriert sich Gamma am Geld; ATM-Gamma kann steigen, während deutlich ITM- oder OTM-Gamma gegen null geht. Der ausgewählte Gamma Flip ist ein lokaler Übergang; ein Profil kann mehrere oder keine aussagekräftige Kreuzung haben. Charm und Vanna sind bedingte Deltaänderungen, keine geplanten Orders. Signalwerte sind heuristische Modellergebnisse, keine kalibrierten Wahrscheinlichkeiten. Negatives Gamma verstärkt die bereits laufende Richtung; die Entfernung zu einem Ziel impliziert keine Abstoßung. Die Vorzeichenumkehr des EOD-Pressure-Pin-Terms bleibt daher eine ZeroGEX-Heuristik. Max Pain minimiert die aggregierte intrinsische Auszahlung und maximiert nicht exakt den wertlos verfallenden Nominalwert. Rohes DEX misst Optionsdelta, nicht künftigen Hedge-Flow; Prämie und Aggressorseite beweisen weder Information noch Eröffnung oder Überzeugung.
 
-
-*Wie große Put-Gamma-Konzentrationen gelesen werden, warum sie mit Unterstützung zusammenfallen können und wann das Niveau scheitern kann.*
+*Die Put Wall in einfachen Worten — was sie ist, warum der Preis in ihrer Nähe oft reagiert, warum der modellierte Short-Put-Hedge sie nicht zu einem mechanischen Boden macht, wie sie sich von der Call Wall unterscheidet, was ein Bruch bedeutet und wo du die heutige Put Wall für SPX, SPY, QQQ und NDX findest.*
 
 ---
 
 ## Was ist eine Put Wall?
 
-Eine **Put Wall** ist der Strike unterhalb des Spot-Preises, der die stärkste Konzentration an Put-seitigem Dealer-Gamma-Exposure in der Optionskette trägt. Es ist das Preisniveau, an dem Dealer-Hedging-Flüsse am ehesten *die Abwärtsseite verteidigen* — weshalb Trader die Put Wall als den strukturellen Boden der aktuellen Dealer-Positionierungsspanne betrachten.
+Eine **Put Wall** ist der Strike unterhalb des aktuellen Preises, an dem die Put-seitige Gamma-Exposure in der Optionskette am stärksten konzentriert ist. Trader beobachten sie als untere Kante der Spanne, zu der das aktuelle Positioning am besten passt — der Strike, an dem ein Rückgang am ehesten auf eine Reaktion aus Hedging, Liquidität und dem übrigen Flow trifft, der sich um einen schweren Strike sammelt.
 
-Die Bedeutung von Put Wall in einem Satz: Es handelt sich nicht um ein psychologisches Level oder einen gleitenden Durchschnitt — es ist reale Positionierung. Open Interest, Kontrakt für Kontrakt, gewichtet mit dem Gamma, das jeder Kontrakt trägt. Der einzelne Strike, an dem dieses Put-Gamma unterhalb des aktuellen Preises am dichtesten ist, ist die Put Wall.
+Genauer: Die Put Wall ist der Strike auf oder unter Spot mit dem größten vorzeichenlosen Put-Gamma-Betrag in der ausgewählten Optionskette. ZeroGEX rankt Strikes aus modelliertem Gamma multipliziert mit dem offiziellen Open Interest und wendet den Spot-seitigen Filter an. Sie ist eine strukturelle Referenz, kein Versprechen, dass der Preis abprallt.
 
-Die Put Wall hat ein Spiegelbild oberhalb des Spot-Preises: die [Call Wall](/education/what-is-a-call-wall), den Strike mit dem stärksten Call-Gamma, der tendenziell den Aufwärtsbereich begrenzt. Zusammen skizzieren die beiden Walls die Spanne, die durch die Dealer-Hedging-Mechanik tendenziell verteidigt wird. Dieser Beitrag befasst sich speziell mit der Put Wall — was sie ist, warum sie als Support wirkt, wie sie sich bewegt und wann die Lesart bricht. Für das vollständige strukturelle Bild kombiniere ihn mit [Gamma Walls Explained](/education/gamma-walls-explained) und dem [Gamma-Exposure-Grundlagenartikel](/education/gamma-exposure-explained).
+Unter der traditionellen Call-positiv/Put-negativ-Konvention von ZeroGEX ist der Put-Bestand an diesem Strike **lokal negatives modelliertes Dealer-Gamma**. Für einen delta-gehedgten Dealer, der einen Put short ist, macht ein Preisrückgang die Optionsposition positiver im Delta; um den Hedge zu halten, muss er in der Regel mehr Underlying verkaufen. Diese lokale Anpassung kann den Rückgang verstärken. Die Put Wall ist damit kein mechanisch verteidigter Dealer-Boden und kein Spiegelbild einer positiven Call Wall.
 
----
+## Wie ZeroGEX Dealer-Positioning modelliert
 
-## Warum die Put Wall als Support wirkt
+Öffentliche Optionsketten-Daten geben den vollständigen Long- und Short-Bestand der Dealer nicht preis. ZeroGEX weist Calls daher positive und Puts negative modellierte Exposure zu, was grob dem Bild entspricht, dass Dealer netto long die von Kunden verkauften Calls und netto short die von Kunden gekauften Puts sind. Die Konvention ist nützlich, um Kettenstrukturen zu vergleichen, sie ist aber keine direkte Beobachtung des Dealerbestands; das tatsächliche Positioning kann davon abweichen.
 
-Der Mechanismus ist Dealer-Hedging, nicht Sentiment. In einem **positiven Gamma**-Regime — Spot oberhalb des [Gamma Flip](/education/how-to-read-a-gamma-flip) — sind Dealer netto long Gamma und hedgen daher über das gesamte Buch hinweg gegen den Preis: Sie kaufen das Underlying, wenn es fällt, und verkaufen, wenn es steigt. Dieses Dip-Buying ist dort am stärksten, wo die Put-Gamma am dichtesten ist — am Put-Wall-Strike —, sodass der Long-Gamma-Hedge einspringt und **kauft**, während der Preis auf die Wall zufällt.
+Das modellierte Net GEX bleibt:
 
-Dieses Kaufen ist der Support. Nähert sich der Preis einem dichten Put-Strike, verstärkt sich der Hedging-Reflex: Eine kleine Abwärtsbewegung erzwingt einen relativ größeren Hedging-Kauf zurück nach oben. Das Ergebnis ist ein Niveau, an dem Verkaufsdruck absorbiert wird und Rücksetzer tendenziell gekauft werden — nicht weil jemand an die Zahl glaubt, sondern weil der Hedge mechanisch ist.
+```text
+Modelliertes Net GEX = Call GEX - Put GEX
+```
 
-Einige Dinge, die sich direkt aus dem Mechanismus ergeben:
+Long Calls und Long Puts haben jeweils positives Gamma; Short Calls und Short Puts jeweils negatives Gamma. Das negative Vorzeichen der Puts oben stammt aus der unterstellten Dealerposition, nicht aus einem inhärent negativen Gamma von Puts.
 
-- Die Put Wall ist **probabilistischer Support**, kein harter Boden. Sie ist der Ort, an dem sich absorbierender Flow konzentriert, kein garantierter Bounce.
-- Sie ist am stärksten in einem positiven Gamma-Regime und bei hohem relativem Gamma am Strike.
-- Sie ist eine *Tendenz*, die ein echter Katalysator — CPI, FOMC, ein Vol-Spike — innerhalb von Sekunden außer Kraft setzen kann.
+## Warum die Put Wall oft mit Unterstützung zusammenfällt
 
----
+Eine Put Wall kann mit beobachteter Unterstützung zusammenfallen — wegen des vollständigen Gamma-Profils, der Liquidität, der Monetarisierung von Puts, des Kundenverhaltens, systematischer Nachfrage oder anderer Marktflüsse. Positives modelliertes Call-Gamma an anderer Stelle kann das negative modellierte Put-Gamma an der Wall zudem überwiegen, sodass das aggregierte Net GEX positiv bleibt. Aggregiert positives Gamma beweist aber nicht, dass Dealer-Käufe genau an der Put Wall konzentriert sind.
+
+Behandle das Level als:
+
+- eine große Put-Gamma-Konzentration;
+- eine mögliche Liquiditäts- und Positioning-Referenz;
+- ein Level, das sich empirisch wie Unterstützung verhalten kann; und
+- ein Level, dessen Verhalten vom aggregierten und lokalen Gamma sowie vom umgebenden Flow abhängt.
 
 ## Put Wall vs. Call Wall
 
-Die beiden Walls sind symmetrisch, aber gegensätzlich:
+Die beiden Walls werden auf gegenüberliegenden Seiten des Spot auf dieselbe Weise gebildet — und dort endet die Symmetrie.
 
-|Wall|Wo|Dealer-Hedge bei positivem Gamma|Typisches Verhalten|
-|---|---|---|---|
-|Put Wall|Stärkstes Put-Gamma unterhalb des Spot|Kauft, wenn der Preis sich ihm nähert (fällt)|Support / Abwärtsboden|
-|Call Wall|Stärkstes Call-Gamma oberhalb des Spot|Verkauft, wenn der Preis sich ihm nähert (steigt)|Widerstand / Aufwärtsdeckel|
+| | Put Wall | Call Wall |
+|---|---|---|
+| Seite des Spot | Auf oder unter | Auf oder über |
+| Gerankt nach | Größtem Put-Gamma-Betrag (modelliertes Gamma × Open Interest) | Größtem Call-Gamma-Betrag (modelliertes Gamma × Open Interest) |
+| Modelliertes Dealer-Vorzeichen | Negativ — Dealer modelliert short die von Kunden gekauften Puts | Positiv — Dealer modelliert long die von Kunden verkauften Calls |
+| Übliche Lesart | Untere Kante der Positioning-Spanne; kann mit Unterstützung zusammenfallen | Obere Kante der Positioning-Spanne; kann mit Widerstand oder Pinning zusammenfallen |
+| Lokaler Hedge, isoliert betrachtet | Ein Rückgang kann weiteres Verkaufen erfordern, was die Bewegung verstärken kann | Eine Rally kann Verkäufe erfordern, was sich gegen die Bewegung lehnen kann |
+| Bei einem Bruch | Die Referenz ist gescheitert oder gewandert; bei negativem Gamma kann sich die Bewegung beschleunigen | Die Referenz ist gescheitert oder gewandert; oft als Positioning-Verschiebung gelesen |
 
-Keine der beiden Walls ist für sich genommen richtungsweisend. Die Put Wall ist nicht "bullisch" und die Call Wall nicht "bearisch" — es sind Konzentrationsniveaus, deren *Wirkung* davon abhängt, auf welcher Seite des Gamma Flip man sich befindet. Oberhalb des Flip absorbieren beide Walls Bewegungen. Unterhalb können sich beide umkehren und sie freisetzen.
+Call und Put Wall sind nicht mechanisch symmetrisch. Eine Call Wall ist der Strike auf oder über Spot mit dem größten Call-Gamma-Betrag; eine Put Wall nutzt den Put-Gamma-Betrag unter Spot. Der Optionstyp allein entscheidet weder über Widerstand noch Unterstützung, Anziehung oder Beschleunigung. Der ausführlichere Vergleich steht in [Was ist eine Call Wall?](/education/what-is-a-call-wall) und [Gamma Walls Explained](/education/gamma-walls-explained).
 
----
+## Put Wall vs. Gamma Flip vs. Max Pain
 
-## Wie sich die Put Wall im Tagesverlauf bewegt
+Drei Levels, die häufig miteinander verwechselt werden:
 
-Die Put Wall ist eine lebendige Lesart, keine Linie, die man bei Handelseröffnung festlegt und bis zum Handelsschluss darauf vertraut. Sie wandert aus drei häufigen Gründen:
+- Die **Put Wall** ist eine *Konzentration* — der dichteste Put-Gamma-Strike unter Spot.
+- Der [Gamma Flip](/education/how-to-read-a-gamma-flip), auch [Zero-Gamma-Level](/education/zero-gamma-level-explained), ist eine *Regimelinie* — der Preis, an dem das modellierte Netto-Dealer-Gamma das Vorzeichen wechselt. Er entscheidet, ob Hedging nahe den Walls Bewegungen eher dämpft oder verstärkt. Der Flip liegt häufig über der Put Wall, sodass der Preis die Put Wall brechen kann, während er noch in positivem Gamma steht — oder sie halten kann, während er bereits in negativem Gamma ist.
+- [Max Pain](/education/max-pain-explained) ist eine *Verfallswert*-Rechnung — der Strike, an dem der verfallende Wert für Optionsinhaber minimiert wird. Es ist keine Gamma-Konzentration und liegt oft nirgends in der Nähe einer der beiden Walls.
 
-1. **OI-Neugewichtung.** Frisches Volumen an einem anderen Strike kann die stärkste Put-Gamma-Konzentration verschieben. Die Put Wall um 10:00 ET kann bis Mittag einen Strike tiefer liegen.
-2. **Migration mit dem Preis.** Wenn der Preis sich langsam der Put Wall nähert und Trader weiterhin knapp darunter Absicherung kaufen, kann die Wall mit der Bewegung nach unten driften. Eine Put Wall, die den Preis *verfolgt*, ist eine schwächere Support-Lesart als eine, die *hält* — die Wall läuft hinterher, statt zu verteidigen.
-3. **Verfallsverfall.** In 0DTE-lastigen Ketten laufen die Kontrakte, die die Wall aufgebaut haben, im Laufe des Nachmittags aus. Eine Put Wall, auf die man sich um 11:00 ET gestützt hat, kann bis 14:30 ET ausdünnen.
+Die Put Wall ohne den Flip zu lesen ist der häufigste Fehler auf dieser Seite. Die Wall sagt dir, wo das Positioning dicht ist; der Flip sagt dir, was dichtes Positioning wahrscheinlich tut.
 
-Die Wall in Bewegung zu lesen macht den größten Teil des Edge aus. Eine Put Wall, die sich zwei Stunden lang nicht bewegt hat, ist ein ganz anderes Signal als eine, die dreimal mit dem Preis nach unten gerutscht ist.
+## Warum eine Wall im Tagesverlauf wandern kann
 
----
+Offizielles Open Interest wird in der Regel nach dem Clearing aktualisiert, nicht fortlaufend im Tagesverlauf. ZeroGEX-Walls können dennoch während der Session wandern, weil Spot, Restlaufzeit und implizite Volatilität das modellierte Gamma jedes Strikes verändern. Das relative Ranking kann sich ändern, ein Strike kann von einer Seite des Spot auf die andere wechseln, oder ein anderer Strike mit unverändertem OI kann zum Maximum werden.
 
-## Wann die Put Wall hält bzw. bricht
+Die Wall-Berechnung belegt nicht, dass frisches Volumen neue Positionen eröffnet hat. Volumen kann eröffnende nicht von schließenden Aktivitäten unterscheiden, und es ist kein verifiziertes Intraday-Open-Interest. Mit näher rückendem Verfall konzentriert sich Gamma zunehmend nahe dem At-the-Money-Strike: ATM-Gamma kann stark steigen, während Gamma an Strikes, die deutlich im oder aus dem Geld landen, gegen null geht. Diese Neubewertung ist etwas anderes als das Schließen von Kontrakten oder eine Aktualisierung des offiziellen OI.
 
-Die Put Wall ist eine Tendenz, die häufiger funktioniert, wenn die Struktur sie stützt. Eine kurze Checkliste:
+## Was passiert, wenn die Put Wall bricht
 
-**Wahrscheinlicher hält sie:**
+Ein Bruch unter die Put Wall ist eine Information, kein Urteil. Lies ihn anhand von vier Fragen:
 
-- Der Spot befindet sich in einem positiven Gamma-Regime (oberhalb des Flip).
-- Der Strike trägt großes relatives Gamma und das Net GEX ist deutlich positiv.
-- Die Wall migriert *nicht* mit dem Preis nach unten.
-- Der Verkaufsdruck auf das Niveau nimmt ab.
+1. **Welches Regime war in Kraft?** Oberhalb des Gamma Flip lehnt sich das aggregierte Hedging tendenziell gegen den Rückgang, und ein Bruch bleibt häufiger an der nächsten Put-Konzentration stehen. Unterhalb des Flip läuft der Reflex mit der Bewegung, und ein Bruch kann sich beschleunigen — der oben beschriebene lokale Short-Put-Hedge zeigt nun in dieselbe Richtung wie das Gesamtbuch.
+2. **Ist die Wall gewandert oder gescheitert?** Eine Wall, die sich bei veränderten Inputs auf einen tieferen Strike umsortiert hat, wurde nicht „gebrochen"; die Referenz ist umgezogen. Vergleiche den Strike der Wall vor und nach dem Bruch.
+3. **Hat Flow sie überrollt?** Makro-Schlagzeilen, Index-Rebalancings und große Einzelorders liefern Flow, der Hedging in den Schatten stellt. Ein Bruch auf einer solchen Tape sagt wenig über die Wall aus.
+4. **Wurde der Gamma Flip gekreuzt?** Ein Bruch kann bedeuten, dass die Referenz gescheitert ist, dass umgebender Flow dominiert hat, dass lokales Gamma schwächer wurde oder dass die Wall gewandert ist. Nur eine Kreuzung des berechneten Gamma Flip — oder ein tatsächlicher Vorzeichenwechsel im modellierten Net GEX — stützt die Behauptung eines Gamma-Regimewechsels.
 
-**Wahrscheinlicher bricht sie:**
+Nach einem Bruch wird der nächstgrößere Put-Gamma-Strike darunter im nächsten Snapshot zur neuen Put Wall. So „steigt" das Level in einer trendigen Session stufenweise herab.
 
-- Der Spot befindet sich in einem **negativen Gamma**-Regime (unterhalb des Flip). Hier kehrt sich der Dealer-Reflex um — statt den Rücksetzer zu kaufen, kann das Hedging den Ausverkauf *verstärken*, und die Put Wall wird zu einem Slippage-Punkt statt zu einem Boden.
-- Das Net GEX ist klein oder schrumpft schnell.
-- Die Wall läuft dem Preis nach unten hinterher.
-- Ein makroökonomischer Katalysator trifft ein, während das Niveau getestet wird.
-- Der gerichtete Verkaufsdruck am Strike *beschleunigt* sich.
+## Eine praktische Lesart
 
-Das Wichtigste davon ist das Regime. Eine Put Wall bei positivem Gamma ist ein Boden, den Dealer verteidigen. Derselbe Strike bei negativem Gamma ist eine Falltür — sobald der Preis ihn durchbricht, verstärken die Hedging-Flüsse die Abwärtsbewegung, statt sie abzufedern.
+Angenommen, SPX steht bei 5.830, die Put Wall liegt bei 5.790, die Call Wall bei 5.850, und das modellierte Net GEX ist positiv. Die Put Wall weist den größten Put-Gamma-Betrag unter Spot aus. Sie identifiziert damit **nicht** von sich aus eine Kaufzone. Ein Trader kann beobachten, ob Liquidität dort Verkäufe aufnimmt, ob das aggregierte Gamma-Profil stabil bleibt, ob die Wall bei veränderten Inputs wandert und ob gerichteter Flow das Level bestätigt oder überrollt.
 
----
-
-## Ein durchgerechnetes Beispiel
-
-Angenommen, SPX handelt bei 5.830 und das Dealer-Book zeigt:
-
-- **Put Wall:** 5.790 (−0,69 % vom Spot)
-- **Call Wall:** 5.850 (+0,34 % vom Spot)
-- **Gamma Flip:** 5.810
-- **Net GEX:** +1,5 Mrd. $
-
-Der Spot liegt komfortabel oberhalb des Flip, es handelt sich also um eine Long-Gamma-Session, und die Put Wall bei 5.790 ist die stabilere Kante der Spanne. Die praktische Tendenz: Rücksetzer in Richtung 5.790 sind die Zone mit höherer *Kauf*-Wahrscheinlichkeit, und ein sauberer Bruch von 5.790 wäre ein echtes Signal — es bedeutet wahrscheinlich entweder einen Flip-Übergang unter 5.810 in negatives Gamma oder einen Katalysator, der stark genug ist, um den Hedge zu überwältigen. Unterhalb des Flip hört genau diese 5.790 auf, Support zu sein, und kann den nächsten Abwärtsschub beschleunigen.
-
-Ändere eine Variable — sagen wir, die Put Wall wandert von 5.790 auf 5.782, während der Preis 5.795 testet — und die Lesart ändert sich mit. Die Wall läuft dem Preis jetzt nach unten hinterher, die Support-Tendenz schwächt sich ab, und ein Bruch wird glaubwürdiger, als es zehn Minuten zuvor aussah.
-
----
+Nehmen wir nun an, SPX rutscht eine Stunde später auf 5.785, und der bei 5.815 veröffentlichte Gamma Flip wurde gekreuzt. Zwei Dinge haben sich gleichzeitig geändert: Die Put-Wall-Referenz ist gescheitert, und das modellierte Regime ist negativ geworden. Das Zweite ist das, was für den nächsten Trade zählt — der Hedging-Reflex, der sich vielleicht gegen den Rückgang gelehnt hätte, ist nun modelliert mit ihm ausgerichtet, und die nächste Put-Konzentration darunter ist die neue Referenz, kein Abprallziel.
 
 ## Wie man die heutige Put Wall findet
 
-Du musst das Dealer-Gamma nicht von Hand berechnen. ZeroGEX veröffentlicht die aktuelle Put Wall — zusammen mit Call Wall, Gamma Flip, Max Pain und Net GEX — für die vier meistgehandelten Indexprodukte, kostenlos und mit etwa 15 Minuten Verzögerung: sieh dir die heutige Put Wall für [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) und [NDX](/ndx-gamma-levels) an. Für die Live-Version im Sub-Sekundenbereich mit dem vollständigen Gamma-Profil und der Strike-nach-DTE-Heatmap zeichnet das [Echtzeit-0DTE-GEX-Dashboard](/real-time-gex-0dte) die Put Wall nach, während sie sich im Sitzungsverlauf verschiebt.
+ZeroGEX veröffentlicht die Put Wall — zusammen mit Call Wall, Gamma Flip, Max Pain und Net GEX — kostenlos und rund 15 Minuten verzögert für [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels), [NDX](/ndx-gamma-levels), [ES](/es-gamma-levels) und [NQ](/nq-gamma-levels). Jede Seite aktualisiert sich im Lauf der Session und zeigt neben jedem Level die Snapshot-Zeit. Um das Level in deinen eigenen Chart zu zeichnen, plotten der kostenlose [TradingView-Indikator](/tradingview-indicator) und die [thinkorswim-Studie](/thinkorswim-indicator) die Put Wall als horizontale Linie; der Live-Wert im Sekundenbereich aktualisiert sich im ZeroGEX-Dashboard.
 
----
+Zwei Gewohnheiten machen die Zahl nützlich statt dekorativ: Achte auf die Snapshot-Zeit (eine morgendliche Put Wall, gelesen gegen eine Nachmittags-Tape, ist ein anderes Buch), und lies sie mit dem Gamma Flip auf demselben Bildschirm.
 
 ## Fazit
 
-> Die Put Wall ist reale Positionierung, keine Psychologie — der Strike, an dem Dealer-Hedging am ehesten die Abwärtsseite verteidigt. Aber sie ist nur ein Boden, solange der Spot im positiven Gamma liegt. Lies zuerst das Regime, dann die Wall, und drittens die Migration der Wall.
+> Die Put Wall ist eine modellierte Put-Gamma-Konzentration und eine nützliche strukturelle Referenz. Sie kann mit Unterstützung zusammenfallen, aber Unterstützung ist keine direkte Folge des modellierten Dealer-Short-Put-Hedges an diesem Strike.
+
+Sieh dir die heutigen modellierten Walls für [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) und [NDX](/ndx-gamma-levels) an, oder vergleiche den breiteren Rahmen in [Gamma Walls Explained](/education/gamma-walls-explained).
 
 Nur zu Bildungszwecken — nichts davon ist eine Handelsempfehlung.
-
----
-
-Möchtest du das in Echtzeit sehen? Sieh dir die heutigen **SPX-/SPY-/QQQ-/NDX-Put-Walls** auf ZeroGEX an — die kostenlosen Gamma-Levels-Seiten für [SPX](/spx-gamma-levels), [SPY](/spy-gamma-levels), [QQQ](/qqq-gamma-levels) und [NDX](/ndx-gamma-levels) zeichnen die Put Wall neben der [Call Wall](/education/what-is-a-call-wall), dem Gamma Flip und dem Net GEX. Für die Levels, die als Support und Widerstand am wichtigsten sind, siehe [optionsbasierte Support- und Widerstandsniveaus](/education/options-support-and-resistance), und für die Live-Lesart öffne das [Echtzeit-0DTE-GEX-Dashboard](/real-time-gex-0dte).

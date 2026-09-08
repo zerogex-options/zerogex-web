@@ -39,6 +39,8 @@ La exposición gamma se calcula a partir del open interest de una cadena de opci
 
 Como ambas cadenas hacen referencia al mismo índice, esos niveles usualmente apuntan al mismo lugar en términos del S&P. Pero están construidos por perfiles de participantes diferentes — SPX está sesgado hacia institucionales e índice/0DTE, SPY carga un fuerte flujo retail y de cobertura de acciones — así que los dos libros pueden ponderar los strikes de forma distinta y separarse en los márgenes. Cuando divergen, eso es información, no ruido.
 
+Como ambas cadenas se refieren al mismo índice, esos niveles suelen apuntar al mismo lugar en términos del S&P. Pero las construyen públicos distintos — el SPX se inclina hacia lo institucional y hacia el índice/0DTE, el SPY carga una mezcla mayor de inversores individuales y flujo de cobertura sobre acciones —, así que los dos libros pueden ponderar los strikes de forma diferente y separarse en los márgenes. Cuando divergen, eso puede ser información en lugar de ruido.
+
 ---
 
 ## Traducir un nivel de uno a otro

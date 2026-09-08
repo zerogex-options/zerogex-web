@@ -205,3 +205,5 @@ Solo a scopo educativo — nulla di quanto sopra è una raccomandazione di tradi
 ---
 
 Se volete vedere in tempo reale i flussi vanna e charm di oggi, insieme al regime gamma che determina se produrranno deriva o verranno sopraffatti, la dashboard gratuita di ZeroGEX mostra tutto questo.
+
+> I punteggi dei segnali ZeroGEX sono output derivati che usano input, pesi e soglie selezionati a mano, salvo diversa indicazione. Non sono probabilità calibrate né garanzie; è necessaria una validazione storica prima di interpretarli come un vantaggio di performance.

@@ -28,6 +28,8 @@ Questa è l'intera famiglia. Gamma, charm e vanna sono le tre derivate prime del
 
 Questo è il modello mentale più pulito per il flusso dealer: un dealer non copre il delta, copre il **cambiamento** del delta. E ci sono esattamente tre canali attraverso cui il cambiamento può arrivare. Nomina il canale e hai nominato il flusso.
 
+Questo è il modello mentale più pulito del flusso dei dealer: un dealer non copre il delta, copre la **variazione** del delta. E tre canali trasportano la maggior parte di quella variazione. Dai un nome al canale e avrai dato un nome al flusso.
+
 ---
 
 ## Gamma: il delta si muove perché il prezzo si è mosso

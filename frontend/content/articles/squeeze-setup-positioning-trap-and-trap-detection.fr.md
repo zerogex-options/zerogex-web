@@ -115,3 +115,5 @@ Quelques schémas à surveiller :
 **Contradiction (restez à l'écart) :** Squeeze Setup indique +0,6 (aller long sur la cassure). Trap Detection indique −0,5 (la cassure haussière échoue). L'un des deux se trompe. Passez votre tour.
 
 Les signaux sont indépendants pour une raison — quand ils s'accordent, écoutez-les. Quand ils se contredisent, le trade le plus intelligent consiste généralement à ne pas trader.
+
+> Les scores de signaux ZeroGEX sont des résultats dérivés reposant sur des entrées, des pondérations et des seuils choisis à la main, sauf mention contraire. Ce ne sont ni des probabilités calibrées ni des garanties ; une validation historique est nécessaire avant de les interpréter comme un avantage de performance.

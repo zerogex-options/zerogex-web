@@ -115,3 +115,5 @@ Alcuni pattern da cercare:
 **Contraddizione (fermati):** Squeeze Setup dice +0.6 (vai long con la rottura). Trap Detection dice −0.5 (la rottura al rialzo sta fallendo). Uno dei due ha torto. Salta il trade.
 
 I segnali sono indipendenti per un motivo — quando concordano, ascoltali. Quando sono in conflitto, il trade più intelligente è di solito nessun trade.
+
+> I punteggi dei segnali ZeroGEX sono output derivati che usano input, pesi e soglie selezionati a mano, salvo diversa indicazione. Non sono probabilità calibrate né garanzie; è necessaria una validazione storica prima di interpretarli come un vantaggio di performance.

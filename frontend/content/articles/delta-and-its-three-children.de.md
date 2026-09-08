@@ -28,6 +28,8 @@ Das ist die gesamte Familie. Gamma, charm und vanna sind die drei Ableitungen er
 
 Das ist das sauberste mentale Modell für Dealer-Flow: Ein Dealer hedgt nicht delta, ein Dealer hedgt die **Änderung** von delta. Und es gibt genau drei Kanäle, über die diese Änderung ankommen kann. Nenne den Kanal, und du hast den Flow benannt.
 
+Das ist das sauberste mentale Modell für Dealer-Flow: Ein Dealer hedgt nicht Delta, ein Dealer hedgt die **Veränderung** des Deltas. Und drei Kanäle tragen den größten Teil dieser Veränderung. Benenne den Kanal, und du hast den Flow benannt.
+
 ---
 
 ## Gamma: delta bewegt sich, weil sich der Preis bewegt hat

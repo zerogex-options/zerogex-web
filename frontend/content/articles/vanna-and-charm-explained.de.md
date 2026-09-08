@@ -205,3 +205,5 @@ Nur zu Bildungszwecken — nichts davon ist eine Handelsempfehlung.
 ---
 
 Wenn Sie die heutigen Vanna- und Charm-Flows in Echtzeit sehen möchten, zusammen mit dem Gamma-Regime, das darüber entscheidet, ob sie Drift erzeugen oder überrollt werden — das kostenlose ZeroGEX-Dashboard zeigt das alles.
+
+> ZeroGEX-Signalwerte sind abgeleitete Ergebnisse auf Basis handverlesener Inputs, Gewichte und Schwellenwerte, sofern nicht anders angegeben. Sie sind keine kalibrierten Wahrscheinlichkeiten und keine Garantien; bevor man sie als Performance-Vorteil interpretiert, ist eine historische Validierung erforderlich.
