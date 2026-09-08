@@ -424,6 +424,21 @@ card-expiry-reminders:
 payment-failed-preview:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-payment-failed-preview.mts $(if $(PREVIEW_TO),--to $(PREVIEW_TO),) $(if $(FINAL),--final,) $(if $(NO_CARD),--no-card,) $(if $(NO_AMOUNT),--no-amount,)'
 
+# Grace-expiry warning: the SECOND dunning touch. Warns members whose
+# payment-recovery grace window closes within ~24h and whose card still hasn't
+# cleared, so the deadline is actionable before access drops to Public. Fills the
+# gap where the webhook's single first-attempt email (gated on attempt_count==1)
+# was the ONLY contact and the window then expired silently. Latched once per
+# window via users.payment_grace_warning_sent_for, so re-runs are safe.
+# DRY_RUN=1 previews who is due (and why others are skipped), YES=1 sends,
+# PREVIEW_TO=<email> sends one sample. LEAD_HOURS=N / MIN_OPEN_HOURS=N tune the
+# timing, REASON=trial|renewal narrows the cohort, GRACE_DAYS=N overrides the
+# window length. Driven every 4h by zerogex-web-grace-expiry-warnings.timer.
+#   make grace-expiry-warnings DRY_RUN=1
+#   make grace-expiry-warnings YES=1
+grace-expiry-warnings:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-grace-expiry-warnings.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),) $(if $(LEAD_HOURS),--lead-hours $(LEAD_HOURS),) $(if $(MIN_OPEN_HOURS),--min-open-hours $(MIN_OPEN_HOURS),) $(if $(REASON),--reason $(REASON),) $(if $(GRACE_DAYS),--grace-days $(GRACE_DAYS),)'
+
 # Send the founder-voice trial-pitch nudge to every user in the verified-
 # never-paid cohort (public tier, verified email, no subscription, NOT
 # founding-eligible-not-redeemed, NOT churned) whose account is at least
