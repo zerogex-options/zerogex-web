@@ -29,10 +29,22 @@ type log >/dev/null 2>&1 || log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 log "Grace-Expiry Warning Timer Setup"
 
 # Resolve the owning user even when deploy.sh is invoked via sudo
-# (deploy.sh re-points HOME to the SUDO_USER but not USER).
+# (deploy.sh re-points HOME to the SUDO_USER but not USER), and resolve that
+# user's real home from passwd rather than trusting $HOME. Running this step
+# directly under `sudo` sets HOME=/root, which would otherwise look for nvm at
+# /root/.nvm and fail a precondition that is actually satisfied.
 OWNER="${SUDO_USER:-$USER}"
+OWNER_HOME=$(getent passwd "$OWNER" 2>/dev/null | cut -d: -f6)
+OWNER_HOME="${OWNER_HOME:-$HOME}"
 
-APP_DIR="$HOME/zerogex-web"
+# Derive the repo root from THIS script's own location (deploy/steps/..) rather
+# than assuming $HOME/zerogex-web. The step self-elevates per command (sudo cp,
+# sudo systemctl), so it is meant to run as the owning user — but an operator
+# reaching for `sudo ./deploy/steps/099...` out of habit would otherwise send it
+# hunting for the repo under /root and fail with a confusing "source dir not
+# found". Now it works under either invocation, and from any checkout path.
+STEP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APP_DIR="$(cd "$STEP_DIR/../.." && pwd)"
 SYSTEMD_SOURCE="$APP_DIR/deploy/systemd"
 SYSTEMD_TARGET="/etc/systemd/system"
 UNIT="zerogex-web-grace-expiry-warnings"
@@ -50,13 +62,13 @@ for f in "${UNIT}.service" "${UNIT}.timer"; do
     fi
 done
 
-# nvm + Node 22 are installed by step 020.nodejs. The Makefile target
-# sources $HOME/.nvm/nvm.sh at runtime, so presence here is enough — we
-# don't need node on PATH for this step itself.
-if [ -s "$HOME/.nvm/nvm.sh" ]; then
-    log "  ✓ nvm present at $HOME/.nvm/nvm.sh"
+# nvm + Node 22 are installed by step 020.nodejs. The Makefile target sources
+# the owning user's nvm.sh at runtime, so presence here is enough — we don't
+# need node on PATH for this step itself.
+if [ -s "$OWNER_HOME/.nvm/nvm.sh" ]; then
+    log "  ✓ nvm present at $OWNER_HOME/.nvm/nvm.sh"
 else
-    log "  ✗ nvm not found at $HOME/.nvm/nvm.sh — run step 020.nodejs first"
+    log "  ✗ nvm not found at $OWNER_HOME/.nvm/nvm.sh — run step 020.nodejs first"
     exit 1
 fi
 
