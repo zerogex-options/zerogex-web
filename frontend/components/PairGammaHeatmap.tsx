@@ -86,6 +86,9 @@ export interface HeatmapColumnInput {
    *  positioning and the ladder reached back through the strike history
    *  (an ETF after the options close). Null / absent when the rows are live. */
   positioningAsOf?: string | null;
+  /** Why the rows are dated: a reach-back past an empty live tip, or the
+   *  surface rewinding to that moment. Drives the note's wording and tint. */
+  positioningKind?: "reachback" | "rewind";
   loading: boolean;
   error: string | null;
   /** The symbol dropdown, injected by the page so the ladder stays presentational. */
@@ -540,10 +543,15 @@ function HeatmapColumn({
         // label row without colliding with the unit label.
         <div
           className="px-2 pb-1 text-[9px] whitespace-nowrap"
-          style={{ color: "var(--color-warning)", marginTop: -2 }}
-          title="No live positioning in the latest analytics buckets (options closed or analytics paused). Showing the most recent bucket that carried dealer gamma; the header levels are live."
+          style={{ color: input.positioningKind === "rewind" ? "var(--color-flip)" : "var(--color-warning)", marginTop: -2 }}
+          title={
+            input.positioningKind === "rewind"
+              ? "Rewind: the book, spot and levels as of this bucket — the chart's replay clock. Exit Rewind on the chart to return to live."
+              : "No live positioning in the latest analytics buckets (options closed or analytics paused). Showing the most recent bucket that carried dealer gamma; the header levels are live."
+          }
         >
-          Positioning as of {fmtAsOfEt(input.positioningAsOf)}
+          {input.positioningKind === "rewind" ? "Rewind · " : "Positioning as of "}
+          {fmtAsOfEt(input.positioningAsOf)}
         </div>
       )}
       </div>
