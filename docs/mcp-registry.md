@@ -40,6 +40,16 @@ Changing it means re-verifying, so treat it as permanent.
    That should return a JSON-RPC result listing `get_gamma_levels` and
    `get_market_gamma_overview`. If it returns HTML, the route did not deploy.
 
+   Or run the full check, which is the same thing plus twelve more:
+
+   ```bash
+   cd frontend && npm run verify:mcp
+   ```
+
+   Run it against the **public URL**, not `127.0.0.1:3000`. A localhost run only
+   proves the Next.js process serves the route; it says nothing about whether
+   Nginx passes POST through to it, which is the half that breaks on a deploy.
+
 2. **DNS control over `zerogex.io`**, to add one apex TXT record.
 
 3. **OpenSSL 3.0 or later.** The Ed25519 path below needs it. macOS ships
@@ -64,10 +74,13 @@ Add that TXT record **on the apex** (`zerogex.io`), not under a selector like
 under a selector is invisible to the registry and fails with a generic signature
 error that does not point at the cause.
 
-`key.pem` is a credential. Keep it in the password manager next to the other
-deploy secrets and out of this repository — `.gitignore` does not cover it by
-name. If it is ever rotated, delete the old TXT record at the same time: a stale
-record is tried first and breaks verification.
+`key.pem` is a credential: it is what authorises publishing under the
+`io.zerogex` namespace. `.gitignore` now covers `*.pem` and `mcp-registry-auth`,
+because the publisher runs from the repository root and that is exactly where
+the key gets generated — but keep the real copy in the password manager next to
+the other deploy secrets, not only on the box. If it is ever rotated, delete the
+old TXT record at the same time: a stale record is tried first and breaks
+verification with a generic signature error that does not name the cause.
 
 ## Install the publisher CLI
 
