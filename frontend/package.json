@@ -46,6 +46,8 @@
     "test:my-dashboard": "node --experimental-strip-types --test tests/myDashboardLayout.test.ts",
     "test:pro-welcome": "node --experimental-strip-types --test tests/proWelcome.test.ts",
     "test:welcome-api-key": "node --experimental-strip-types --test tests/welcomeEmailApiKey.test.ts",
+    "test:decline-reason": "node --experimental-strip-types --test tests/declineReason.test.ts",
+    "test:billing-user": "node --experimental-strip-types --test tests/billingUser.test.ts",
     "test:payment-grace": "node --experimental-strip-types --test tests/paymentGrace.test.ts",
     "test:grace-expiry-warning": "node --experimental-strip-types --test tests/graceExpiryWarning.test.ts",
     "test:subscriber-bucket": "node --experimental-strip-types --test tests/subscriberBucket.test.ts",
