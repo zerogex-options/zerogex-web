@@ -77,6 +77,11 @@ export const runtime = 'nodejs';
 type UserRow = {
   id: string;
   email: string;
+  // Soft-delete marker (users.deleted_at). Non-null means the person asked us
+  // to delete their account and the row is retained only for referential
+  // integrity. Carried here so the webhook can refuse to re-grant a tier to,
+  // or email, someone who is gone — see findUserByCustomerId below.
+  deleted_at: string | null;
   founding_member_started_at: string | null;
   founding_lifetime_applied_at: string | null;
   referred_by_code: string | null;
@@ -233,14 +238,39 @@ function formatInvoiceAmount(
   }
 }
 
+const USER_BY_CUSTOMER_COLUMNS = `id, email, deleted_at, tier, founding_member_started_at,
+       founding_lifetime_applied_at, referred_by_code, referral_credit_months, stripe_customer_id,
+       stripe_subscription_id, stripe_price_id, subscription_status, cancel_at_period_end,
+       payment_grace_started_at, payment_grace_reason, paused_until, trial_converted_email_sent_at,
+       first_payment_at`;
+
+// The DEFAULT lookup, and deliberately the safe one: it never returns a
+// soft-deleted account. A deleted row keeps its stripe_customer_id, and Stripe
+// keeps emitting events against that customer — a still-open invoice can be
+// paid from a hosted link months later, and a canceled subscription can still
+// raise events. Matching those to the deleted row would let the webhook
+// re-grant a paid tier, re-create a subscription (maybeRecoverOrphanPayment),
+// or email someone who asked to be forgotten. Every branch that grants
+// entitlement or sends mail uses this, so a branch added later is safe by
+// default rather than safe only if its author remembered.
 function findUserByCustomerId(customerId: string): UserRow | null {
   const row = getDb()
     .prepare(
-      `SELECT id, email, tier, founding_member_started_at, founding_lifetime_applied_at,
-              referred_by_code, referral_credit_months, stripe_customer_id, stripe_subscription_id,
-              stripe_price_id, subscription_status, cancel_at_period_end, payment_grace_started_at,
-              payment_grace_reason, paused_until, trial_converted_email_sent_at,
-              first_payment_at
+      `SELECT ${USER_BY_CUSTOMER_COLUMNS}
+       FROM users WHERE stripe_customer_id = ? AND deleted_at IS NULL`,
+    )
+    .get(customerId) as UserRow | undefined;
+  return row ?? null;
+}
+
+// The escape hatch, for the few branches that must still see a deleted account:
+// bookkeeping that keeps the retained row internally consistent, and audit rows
+// that would otherwise lose their attribution. Neither grants a tier nor sends
+// mail. Anything that does must use findUserByCustomerId above.
+function findUserByCustomerIdIncludingDeleted(customerId: string): UserRow | null {
+  const row = getDb()
+    .prepare(
+      `SELECT ${USER_BY_CUSTOMER_COLUMNS}
        FROM users WHERE stripe_customer_id = ?`,
     )
     .get(customerId) as UserRow | undefined;
@@ -263,6 +293,27 @@ function logAudit(input: { type: string; userId?: string; email?: string; messag
       input.message,
       nowIso(),
     );
+}
+
+// Money arrived against an account the person asked us to delete. Every branch
+// under invoice.paid correctly no-ops on it now — findUserByCustomerId skips
+// deleted rows — but silence is the wrong outcome. A deleted account keeps its
+// still-open invoices, and their Stripe-hosted payment pages stay live
+// indefinitely, so a payment landing here is most likely one we owe back. This
+// is the only thing in the system that would ever surface it. Audit-only, by
+// design: it deliberately restores nothing.
+function auditPaymentOnDeletedAccount(invoice: Stripe.Invoice): void {
+  const customerId =
+    typeof invoice.customer === 'string' ? invoice.customer : (invoice.customer?.id ?? null);
+  if (!customerId) return;
+  const user = findUserByCustomerIdIncludingDeleted(customerId);
+  if (!user?.deleted_at) return;
+  logAudit({
+    type: 'stripe_paid_invoice_on_deleted_account',
+    userId: user.id,
+    email: user.email,
+    message: `Invoice ${invoice.id} was paid on an account deleted at ${user.deleted_at}. Nothing was granted or emailed — review for a refund.`,
+  });
 }
 
 // Best-effort auto-revoke of a member's personal API keys when their tier
@@ -1758,7 +1809,12 @@ async function maybeRecoverOrphanPayment(invoice: Stripe.Invoice): Promise<void>
 async function clearSubscriptionFromUser(subscription: Stripe.Subscription) {
   const customerId =
     typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id;
-  const user = findUserByCustomerId(customerId);
+  // Includes deleted accounts on purpose: this only CLEARS state (tier to
+  // public, subscription ids nulled, grace anchor released). A self-delete
+  // cancels the subscription, so this branch runs for deleted users routinely,
+  // and skipping it would strand a retained row still claiming a live paid
+  // subscription. It grants nothing and sends nothing.
+  const user = findUserByCustomerIdIncludingDeleted(customerId);
   if (!user) return;
 
   // subscription_lapsed = 1 is the signal maybeSendPaidWelcomeEmail consumes
@@ -2019,6 +2075,11 @@ export async function POST(request: NextRequest) {
         // commission ledger row via UNIQUE(stripe_invoice_id) — retries
         // and out-of-order deliveries are safe.
         const invoice = event.data.object as Stripe.Invoice;
+        // Flag a payment on a deleted account before anything else runs. The
+        // branches below all no-op for one; this is what stops that no-op from
+        // being invisible. Partner commission still accrues either way — the
+        // partner earned it, and that ledger is about them, not the customer.
+        auditPaymentOnDeletedAccount(invoice);
         const outcome = await maybeAccruePartnerCommission(invoice);
         if (outcome.kind === 'accrued') {
           logAudit({
@@ -2057,7 +2118,13 @@ export async function POST(request: NextRequest) {
         // the refund is a fact even if that lookup throws.
         const customerId =
           typeof charge.customer === 'string' ? charge.customer : charge.customer?.id ?? null;
-        const refundedUser = customerId ? findUserByCustomerId(customerId) : null;
+        // Includes deleted accounts: this is an audit row, not an entitlement.
+        // A refund to someone who has since deleted their account is exactly
+        // when the operator most needs the row attributed to a name rather than
+        // a bare customer id.
+        const refundedUser = customerId
+          ? findUserByCustomerIdIncludingDeleted(customerId)
+          : null;
         // amount_refunded is CUMULATIVE, not this event's delta: a second
         // partial refund reports the running total. Always stating it as
         // "X of Y charged" keeps that unambiguous instead of reading as the
@@ -2263,7 +2330,9 @@ export async function POST(request: NextRequest) {
         const si = event.data.object as Stripe.SetupIntent;
         const customerId =
           typeof si.customer === 'string' ? si.customer : si.customer?.id ?? null;
-        const user = customerId ? findUserByCustomerId(customerId) : null;
+        // Includes deleted accounts: audit attribution only, same as the refund
+        // row above. Nothing here grants or sends.
+        const user = customerId ? findUserByCustomerIdIncludingDeleted(customerId) : null;
         const reason =
           si.last_setup_error?.decline_code || si.last_setup_error?.code || 'unknown';
         logAudit({
