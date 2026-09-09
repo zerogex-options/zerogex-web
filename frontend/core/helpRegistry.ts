@@ -80,6 +80,12 @@ export const HELP_ARTICLES: HelpArticle[] = [
     section: 'Metrics',
   },
   {
+    slug: 'hedging-flow',
+    title: 'Hedging Flow',
+    description: "Estimated dealer hedging pressure created by today's option trades, against price.",
+    section: 'Metrics',
+  },
+  {
     slug: 'smart-money',
     title: 'Smart Money',
     description: 'The smart-money screen and the C/P ratio.',

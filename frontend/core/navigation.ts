@@ -111,6 +111,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { id: '/pair-comparison', label: 'Pair Comparison', requiredTier: 'basic', beta: true },
       { id: '/forced-flow', label: 'Forced Flow', requiredTier: 'basic', beta: true },
       { id: '/flow-analysis', label: 'Flow Analysis', requiredTier: 'basic' },
+      { id: '/hedging-flow', label: 'Hedging Flow', requiredTier: 'basic', beta: true },
       { id: '/market-tide', label: 'Market Tide', requiredTier: 'basic', beta: true },
       { id: '/smart-money', label: 'Smart Money', requiredTier: 'basic' },
       { id: '/max-pain', label: 'Max Pain', requiredTier: 'basic' },
