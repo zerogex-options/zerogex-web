@@ -132,7 +132,21 @@ Other gates that are **not** DB latches:
   `pending → rewarded` (a user can only be referred once — `UNIQUE referee_user_id`).
 - **TradeWorkz alerts** are gated by rows in the `tw_notifications_log` table
   (one send per queued `channel='email'` row).
-- **`deleted_at`** (soft-deleted accounts) are excluded from all outbound email.
+- **`deleted_at`** (soft-deleted accounts) are excluded from all outbound email,
+  and enforced in **both** send paths: the cron/sweeper scripts filter
+  `deleted_at IS NULL` in their cohort queries, and the Stripe webhook's
+  `findUserByCustomerId` refuses to resolve a deleted row at all — so no webhook
+  branch can email, grant a tier to, or re-subscribe someone who asked to be
+  forgotten. A deleted account keeps its `stripe_customer_id` and its still-open
+  invoices (whose hosted payment pages stay live indefinitely), so those events
+  do keep arriving; they simply no longer match anyone. The three branches that
+  must still see a deleted row — the `customer.subscription.deleted` bookkeeping
+  that clears its retained state, and the `charge.refunded` /
+  `setup_intent.setup_failed` audit rows that would otherwise lose their
+  attribution — opt in explicitly via `findUserByCustomerIdIncludingDeleted`,
+  and none of them grants or sends anything. A payment that lands on a deleted
+  account is recorded as `stripe_paid_invoice_on_deleted_account` for refund
+  review, since nothing else in the system would surface it.
 
 ---
 
