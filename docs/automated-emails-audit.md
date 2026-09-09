@@ -134,10 +134,12 @@ Other gates that are **not** DB latches:
   (one send per queued `channel='email'` row).
 - **`deleted_at`** (soft-deleted accounts) are excluded from all outbound email,
   and enforced in **both** send paths: the cron/sweeper scripts filter
-  `deleted_at IS NULL` in their cohort queries, and the Stripe webhook's
-  `findUserByCustomerId` refuses to resolve a deleted row at all — so no webhook
-  branch can email, grant a tier to, or re-subscribe someone who asked to be
-  forgotten. A deleted account keeps its `stripe_customer_id` and its still-open
+  `deleted_at IS NULL` in their cohort queries, and `findUserByCustomerId`
+  (`core/billingUser.ts`, used by the Stripe webhook) refuses to resolve a
+  deleted row at all — so no webhook branch can email, grant a tier to, or
+  re-subscribe someone who asked to be forgotten. Both lookups are locked down
+  against a real schema in `tests/billingUser.test.ts`
+  (`npm run test:billing-user`). A deleted account keeps its `stripe_customer_id` and its still-open
   invoices (whose hosted payment pages stay live indefinitely), so those events
   do keep arriving; they simply no longer match anyone. The three branches that
   must still see a deleted row — the `customer.subscription.deleted` bookkeeping
