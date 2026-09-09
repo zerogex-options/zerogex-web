@@ -29,6 +29,8 @@ import { getSpotPriorCloseChange } from "@/core/priceChange";
 import { resolvePriceSession } from "@/core/sessionCloses";
 import { baselineNetByStrike, sessionOpenIsoFor, type FrameStrikeRow } from "@/core/sessionDelta";
 import { useStrikeProfileTimeseries } from "./useStrikeProfileTimeseries";
+import { computeMaxPainFromStrikes } from "@/core/keyLevels";
+import { bucketAtOrNearest, rewoundChangePercent } from "@/core/strikeHistory";
 
 /** Everything a ladder column renders except the header control, which the
  *  surface injects (a symbol dropdown on Pair Comparison, a plain label in a
@@ -77,9 +79,12 @@ interface TipBucket {
   gamma_flip?: number | string | null;
   call_wall?: number | string | null;
   put_wall?: number | string | null;
+  close?: number | string | null;
   strikes?: Array<{
     strike?: number | string;
     net_gamma?: number | string | null;
+    call_oi?: number | string | null;
+    put_oi?: number | string | null;
   }>;
 }
 
@@ -147,6 +152,15 @@ export interface GammaLadderOptions {
   expirations?: readonly string[];
   /** Fetch + expose the Δ-since-open baseline (the session-delta triangles). */
   sessionDelta?: boolean;
+  /**
+   * Replay clock (ms) while the surface is rewinding, null / omitted when
+   * live. Set, the column shows the book as of that moment — the strike
+   * history bucket at or before the clock, with that bucket's spot, flip and
+   * walls — instead of the live tip, and labels the rows with the bucket's
+   * time. The chart symbol's history is the same cache the chart rewinds
+   * from; a second symbol seeds its own once.
+   */
+  rewindTime?: number | null;
 }
 
 /**
@@ -184,9 +198,17 @@ export function useGammaLadderColumn(
   // newest bucket that carries positioning. The header keeps the live
   // levels; the rows are marked with the bucket's time.
   const tipEmpty = enabled && !loading && !error && Array.isArray(tip) && tipBucket == null;
-  const { buckets: history } = useStrikeProfileTimeseries(symbol, "5min", expParam, true, tipEmpty);
+  // Rewind shares the same history subscription: the book as of the replay
+  // clock is just a different bucket of the same list.
+  const rewindMs = options?.rewindTime ?? null;
+  const rewinding = rewindMs != null && Number.isFinite(rewindMs);
+  const { buckets: history, loading: historyLoading } = useStrikeProfileTimeseries(symbol, "5min", expParam, true, enabled && (tipEmpty || rewinding));
   const historyBucket = useMemo(() => (tipEmpty ? latestLiveBucket(history) : null), [tipEmpty, history]);
-  const liveBucket = tipBucket ?? historyBucket;
+  const rewindBucket = useMemo(
+    () => (rewinding ? bucketAtOrNearest(history, rewindMs as number) : null),
+    [rewinding, history, rewindMs],
+  );
+  const liveBucket = rewinding ? rewindBucket : (tipBucket ?? historyBucket);
 
   // Session-open anchor: the ET session the ladder's own data belongs to, so
   // a weekend view baselines against Friday's open, not an empty Saturday.
@@ -217,6 +239,33 @@ export function useGammaLadderColumn(
     // side on the official close in extended hours and swaps indices to a
     // futures-vs-futures basis overnight, so its % can describe a different
     // number than the analytics spot this header actually shows.
+    // Rewinding: everything the column shows is as of the rewound bucket — its
+    // close is the spot, its flip / walls are the levels, max pain is rebuilt
+    // from its open interest, and the day change is measured against the
+    // previous session's close like the live badge is during the session.
+    if (rewinding) {
+      const bucket = rewindBucket;
+      const rewoundSpot = num(bucket?.close) ?? summary?.spot_price ?? null;
+      const pct = bucket ? rewoundChangePercent(rewoundSpot, bucket.timestamp, closes ?? null) : null;
+      return {
+        symbol,
+        cells: bucketCells(bucket),
+        positioningAsOf: bucket?.timestamp ?? null,
+        positioningKind: "rewind" as const,
+        spot: rewoundSpot,
+        gammaFlip: num(bucket?.gamma_flip),
+        callWall: num(bucket?.call_wall),
+        putWall: num(bucket?.put_wall),
+        maxPain: filtered ? null : computeMaxPainFromStrikes(bucket?.strikes),
+        changePercent: pct,
+        isPositive: pct != null ? pct >= 0 : false,
+        sessionBaseline,
+        // A second symbol seeds its history on entering rewind; show the spinner
+        // rather than "No strike data" until that first seed lands.
+        loading: !bucket && historyLoading,
+        error,
+      };
+    }
     const spot = summary?.spot_price ?? null;
     // Read as `open` while the served closes have not rolled past 16:00 yet: the
     // payload is still the pre-flip pair, and taking prior_session_close off it would
@@ -232,6 +281,7 @@ export function useGammaLadderColumn(
       // Set only when the rows come from the reach-back, so the column can
       // say the book is as of that bucket rather than live.
       positioningAsOf: tipBucket == null && historyBucket ? historyBucket.timestamp : null,
+      positioningKind: "reachback" as const,
       spot,
       // With a specific expiration set, the walls and flip must describe that
       // set's gamma alone — the timeseries bucket recomputes them for the
@@ -247,5 +297,5 @@ export function useGammaLadderColumn(
       loading,
       error,
     };
-  }, [symbol, tipBucket, historyBucket, liveBucket, summary, quote, closes, filtered, sessionBaseline, loading, error]);
+  }, [symbol, tipBucket, historyBucket, liveBucket, rewinding, rewindBucket, historyLoading, summary, quote, closes, filtered, sessionBaseline, loading, error]);
 }
