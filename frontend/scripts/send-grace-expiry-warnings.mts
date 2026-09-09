@@ -362,7 +362,9 @@ for (const user of candidates) {
 
 // A window that ran out before anyone warned about it means the sweep is not
 // running often enough — an operational problem, not a quiet no-op, so it gets
-// its own line rather than being buried in the skip tally.
+// its own line rather than being buried in the skip tally. Members who WERE
+// warned and whose window has since closed count as 'already-warned', not here
+// (see core/graceExpiryWarning), so any number on this line is a real miss.
 const elapsedCount = skipped.get('window-elapsed') ?? 0;
 
 console.log(`Auth DB:          ${dbPath}`);
@@ -376,10 +378,14 @@ if (skipped.size > 0) {
   console.log(`Skipped:          ${parts.join(', ')}`);
 }
 if (elapsedCount > 0) {
+  // Deliberately not phrased as "watch whether this falls": a missed window
+  // stays missed. The anchor persists while the subscription is past_due, so
+  // these members keep reporting until they recover or churn.
   console.warn(
-    `\nWarning: ${elapsedCount} member(s) have a grace window that already elapsed without a` +
-      '\n         warning going out. If that number is not falling, this sweep is running less' +
-      '\n         often than the window is long — tighten the timer cadence.',
+    `\nWarning: ${elapsedCount} member(s) lost their grace window with no warning ever sent.` +
+      '\n         Each one is a member who dropped to Public with no heads-up. Anything above' +
+      '\n         zero means this sweep ran less often than the window is long — tighten the' +
+      '\n         timer cadence (or --lead-hours) so the next cohort is caught in time.',
   );
 }
 

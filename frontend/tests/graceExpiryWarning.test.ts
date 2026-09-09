@@ -116,6 +116,28 @@ test('an already-elapsed window is reported separately and never warned about', 
   assert.equal(d.graceUntilIso, null);
 });
 
+// 'window-elapsed' drives an operational alarm meaning "this member lost their
+// window with no warning sent". A member who WAS warned reaches the same
+// elapsed state a day later — decidePaymentGrace keeps the anchor while the
+// subscription stays past_due — so counting them here would make the alarm
+// climb forever and bury the real misses.
+test('a warned member whose window later elapsed is not counted as a miss', () => {
+  const anchor = openedHoursAgo(100);
+  const d = decideGraceExpiryWarning(input({ graceStartedAt: anchor, warnedFor: anchor }));
+  assert.equal(d.send, false);
+  assert.equal(d.skip, 'already-warned');
+});
+
+// The latch still has to match THIS window: a stale value from an earlier
+// window must not disguise a genuine miss as handled.
+test('a stale latch from an earlier window still reports an elapsed miss', () => {
+  const d = decideGraceExpiryWarning(
+    input({ graceStartedAt: openedHoursAgo(100), warnedFor: openedHoursAgo(900) }),
+  );
+  assert.equal(d.send, false);
+  assert.equal(d.skip, 'window-elapsed');
+});
+
 // The warning and the first dunning email must never disagree about when a
 // member's access actually ends, so both read the deadline from the same helper.
 test('the deadline it quotes is the one graceWindowEndIso computes', () => {

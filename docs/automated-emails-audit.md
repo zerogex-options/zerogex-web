@@ -245,8 +245,13 @@ auth/transactional and TradeWorkz alerts.
 - Idempotency is the `payment_grace_warning_sent_for` latch above. Excluded:
   soft-deleted accounts, anyone not currently `past_due`, and anyone who already
   clicked Cancel. `--dry-run` reports why each skipped member was skipped, and
-  counts windows that elapsed with no warning — a non-falling count there means
-  the timer is running less often than the window is long.
+  counts `window-elapsed` separately as an operational alarm: **anything above
+  zero is a member who dropped to Public with no heads-up**, which means the
+  sweep ran less often than the window is long. A member who *was* warned and
+  whose window has since closed counts as `already-warned`, not as a miss —
+  `payment_grace_started_at` survives for as long as the subscription stays
+  `past_due`, so every warned member eventually reaches the elapsed state, and
+  counting them would make the alarm climb forever and bury the real misses.
 
 **Payment recovered** — `sendPaymentRecoveredEmail(to)`
 - **Subject:** `You're all set — your ZeroGEX payment went through`
