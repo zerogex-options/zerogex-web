@@ -46,8 +46,8 @@ export const DEFAULT_MIN_OPEN_HOURS = 12;
 // "everyone is already warned" or "the window elapsed before we ever ran".
 export type GraceExpiryWarningSkip =
   | 'no-window' // no anchor, grace disabled, or a malformed anchor
-  | 'window-elapsed' // the window already ran out — too late to warn honestly
-  | 'already-warned' // this exact window has been warned about
+  | 'window-elapsed' // the window ran out and this member was NEVER warned
+  | 'already-warned' // this exact window has been warned about, open or elapsed
   | 'too-soon-after-opening' // open < minOpenHours; would stack on the first email
   | 'not-yet-due'; // still more than leadHours left to run
 
@@ -101,6 +101,12 @@ export function decideGraceExpiryWarning(
     minOpenHours = DEFAULT_MIN_OPEN_HOURS,
   } = input;
 
+  // The latch is compared against the anchor, not merely tested for presence, so
+  // a member who recovers and fails again is warned about the new window too.
+  // Resolved up front because BOTH the elapsed branch and the live branch below
+  // need it.
+  const alreadyWarned = warnedFor !== null && warnedFor === graceStartedAt;
+
   // graceWindowEndIso already encodes every "there is no live window" case —
   // null anchor, graceDays <= 0, an unparseable anchor, and a window that has
   // already elapsed — and it is the same helper the first dunning email uses to
@@ -111,6 +117,14 @@ export function decideGraceExpiryWarning(
     // Distinguish "no window at all" from "there was one and we missed it": the
     // second means a sweep did not run often enough, which is an operational
     // problem worth seeing rather than a quiet no-op.
+    //
+    // A window this member WAS warned about is 'already-warned' here, never
+    // 'window-elapsed'. Every correctly-warned member eventually reaches this
+    // state — decidePaymentGrace keeps the anchor for as long as the
+    // subscription stays past_due, so a warned member lingers in the cohort
+    // long after their window closes — and counting them as missed would make
+    // the sweeper's alarm climb forever and bury the one case it exists to
+    // surface: a window that closed with no warning ever sent.
     const startedMs = graceStartedAt ? Date.parse(graceStartedAt) : NaN;
     const elapsed =
       Number.isFinite(startedMs) && graceDays > 0 && nowMs >= startedMs + graceDays * 24 * HOUR_MS;
@@ -118,7 +132,7 @@ export function decideGraceExpiryWarning(
       send: false,
       graceUntilIso: null,
       hoursRemaining: null,
-      skip: elapsed ? 'window-elapsed' : 'no-window',
+      skip: elapsed ? (alreadyWarned ? 'already-warned' : 'window-elapsed') : 'no-window',
     };
   }
 
@@ -127,9 +141,7 @@ export function decideGraceExpiryWarning(
   const untilMs = Date.parse(graceUntilIso);
   const hoursRemaining = Math.max(0, Math.floor((untilMs - nowMs) / HOUR_MS));
 
-  // The latch is compared against the anchor, not merely tested for presence, so
-  // a member who recovers and fails again is warned about the new window too.
-  if (warnedFor !== null && warnedFor === graceStartedAt) {
+  if (alreadyWarned) {
     return { send: false, graceUntilIso, hoursRemaining, skip: 'already-warned' };
   }
 
