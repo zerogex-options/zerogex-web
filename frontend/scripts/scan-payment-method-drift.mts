@@ -64,6 +64,21 @@ import {
 } from '../core/paymentMethodDrift.ts';
 import { formatCardBrand } from '../core/stripeCard.ts';
 
+// Exit quietly when the reader downstream closes the pipe. `| head`, `| grep -m1`
+// and quitting a pager all close the read end early, and Node surfaces that as
+// an unhandled 'error' event on the stream — which crashes the process with a
+// stack trace and a non-zero exit code. On a read-only diagnostic that noise
+// prints immediately after the line the reader actually asked for, so a
+// successful lookup reads like a failure and `make diagnose-user` reports an
+// error. Nothing is left half-done: the reader stopped listening, which is its
+// right.
+for (const stream of [process.stdout, process.stderr]) {
+  stream.on('error', (err) => {
+    if ((err as { code?: string }).code === 'EPIPE') process.exit(0);
+    throw err;
+  });
+}
+
 type Args = {
   verbose: boolean;
   help: boolean;

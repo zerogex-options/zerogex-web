@@ -31,6 +31,21 @@ import {
   type ChargeDecline,
 } from '../core/declineReason.ts';
 
+// Exit quietly when the reader downstream closes the pipe. `| head`, `| grep -m1`
+// and quitting a pager all close the read end early, and Node surfaces that as
+// an unhandled 'error' event on the stream — which crashes the process with a
+// stack trace and a non-zero exit code. On a read-only diagnostic that noise
+// prints immediately after the line the reader actually asked for, so a
+// successful lookup reads like a failure and `make diagnose-user` reports an
+// error. Nothing is left half-done: the reader stopped listening, which is its
+// right.
+for (const stream of [process.stdout, process.stderr]) {
+  stream.on('error', (err) => {
+    if ((err as { code?: string }).code === 'EPIPE') process.exit(0);
+    throw err;
+  });
+}
+
 // The July-1 founding deferral landed in commit 06b7128. founders whose
 // subscription started before this got charged immediately; founders after it
 // should have a trial_end of July 1, 09:30 ET.
