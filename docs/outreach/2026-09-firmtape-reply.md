@@ -2,26 +2,31 @@
 
 Context: FirmTape's founder emailed cold, asking to be considered for the next
 update of [Best GEX Tools](/education/best-gex-tools) and offering a screenshot
-or a one-line description. We added them to Bucket 3 in that update, and added
-tape reconstruction as a third calculation methodology. This is the reply.
+or a one-line description. They are now in Bucket 3, and tape reconstruction is
+documented as a third calculation methodology.
 
 **Send from:** whichever address the original landed on, so it threads.
 **Subject:** Re: SPX dealer positioning
 
-Two things worth knowing before sending:
+Three things worth knowing before sending:
 
-- The article is already live with their entry. Saying so is the whole reason
-  this reply gets answered — it costs nothing and it is true.
-- The four questions are the claims we could not verify from outside. Their
-  answers either firm up the entry or tell us to trim it. Asking is cheaper
-  than guessing, and we currently publish neither the price nor the session
-  count because neither could be confirmed.
+- The article is live with their entry. Saying so is the whole reason this reply
+  gets answered — it costs nothing and it is true.
+- The four questions are the claims that could not be verified from outside.
+  Their answers either firm up the entry or tell us to trim it. We currently
+  publish neither their price nor their session count, because neither could be
+  confirmed.
+- Our own MCP server is live at `https://zerogex.io/mcp` and listed in the
+  official registry as `io.zerogex/gamma-levels` (published 2026-09-10). Telling
+  them beats having them find it. Sharpnel Trading listed theirs on 2026-09-09,
+  so this is now three tools in one comparison — worth saying out loud to
+  someone who tracks the category.
 
-Optional addition, if a relationship with them seems worth having: offer a
-research trade. Our flip resolver reports NULL on degraded chains instead of
-carrying the last good value forward, and the failure cases behind that would
-probably be recognisable to someone who publishes their own misses. Left out of
-the draft below to keep a first reply short.
+Optional addition, if a relationship seems worth having: offer a research trade.
+Our flip resolver reports NULL on degraded chains instead of carrying the last
+good value forward, and the failure cases behind that would probably be
+recognisable to someone who publishes their own misses. Left out below to keep a
+first reply short.
 
 ---
 
@@ -37,8 +42,8 @@ your copy, which I hope you would expect. The short version: the dealer book is
 reconstructed from the tape print by print rather than from open interest and a
 sign convention, the zero-gamma flip carries a stated uncertainty, and there is
 a free replay archive behind it. I also added tape reconstruction as a third
-calculation methodology alongside spot-shift and per-strike aggregation,
-because it belonged there regardless of who was doing it.
+calculation methodology alongside spot-shift and per-strike aggregation, because
+it belonged there regardless of who was doing it.
 
 It is not a free win. The same update says the approach trades a modeling
 assumption for a measurement problem, that per-print signing is genuinely hard,
@@ -57,10 +62,14 @@ the entry:
    their site".
 4. A direct link to the signing-accuracy study, and its headline number.
 
-One thing in return, since you clearly track the category: we shipped a free
+Two things in return, since you clearly track the category. We shipped a free
 hosted MCP server of our own this week, at zerogex.io/mcp, on our free delayed
-levels. So the comparison now has two in it. Your email is what made me look at
-that gap, and I would rather tell you than have you find it.
+levels — it is in the registry as `io.zerogex/gamma-levels`. And Sharpnel
+Trading listed one the day before us. So the comparison now names three, and
+I have added a note to the pricing-and-access section saying that reading a
+vendor's levels inside an assistant is becoming a normal access route rather
+than a differentiator. Your email is what made me look at that gap, and I would
+rather tell you than have you find it.
 
 Good luck with the launch.
 

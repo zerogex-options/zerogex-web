@@ -56,6 +56,8 @@ Die meisten Retail-GEX-Tools konzentrieren sich auf SPX/SPY (wo der Flow am dich
 
 Kostenlose Testphasen, monatliche Abos, Lifetime-Deals und gestaffelte Gratis-/Bezahl-Splits gibt es alle in dieser Kategorie. Echtzeit-Dateninfrastruktur verursacht Kosten, die Anbieter refinanzieren müssen, daher ist wirklich „kostenloses Echtzeit-GEX" selten und lohnt eine genauere Prüfung (manche sind echt, manche sind verzögerte Feeds, die als Echtzeit vermarktet werden). Prüfe das Zugangsmodell, bevor du das Ergebnis bewertest.
 
+Ein neuerer Zugangsweg lohnt neben der Web-App eine Prüfung. Mehrere Anbieter veröffentlichen inzwischen einen gehosteten MCP-Server, gelistet in der offiziellen Model-Context-Protocol-Registry, über den ein KI-Assistent ihre Levels direkt im Gespräch lesen kann — ZeroGEX, FirmTape und Sharpnel Trading haben jeweils einen, und alle drei sind kostenlos lesbar. Das ist eine Bequemlichkeit, kein methodischer Unterschied: Es sind dieselben Zahlen, die der Anbieter auch anderswo veröffentlicht, mit derselben Verzögerung. Wer aber ohnehin in einem Assistenten arbeitet, prüft ein Level damit deutlich schneller.
+
 ---
 
 ## Die Kategorien von GEX-Tools
@@ -72,7 +74,9 @@ Die Anbieter, die die öffentlich verfolgte GEX-Kategorie begründet haben. Biet
 
 Breitere Options-Flow-Plattformen (ungewöhnliche Optionsaktivität, Dark-Pool-Prints, Flow-Scanner), die ein GEX-Modul als eines von vielen Features enthalten. Können Per-Strike-Aggregation enthalten, die schnell und intuitiv ist; die Methodik sollte geprüft und nicht aus der Darstellung abgeleitet werden. Die Stärke liegt in der Breite der komplementären Daten; der Kompromiss ist, dass die GEX-Oberfläche selten die tiefgehendste im Produkt ist.
 
-*In dieser Gruppe häufig genannte Tools: Unusual Whales, Cheddar Flow. Prüfe aktuelle Preise und Abdeckung auf deren Websites.*
+Sharpnel Trading sitzt am futures-orientierten Rand dieser Gruppe. Es ist ein Desktop-Terminal, das Call Wall, Put Wall und Gamma Flip in denselben Chart zeichnet wie die Depth-of-Market-Leiter, den Footprint und die Tape — gerichtet an ES- und NQ-Trader statt an ein Browser-Dashboard. Die GEX-Ebene ist als Zusatz über dem Order-Flow-Produkt bepreist, und genau das ist das Kennzeichen dieser Gruppe: Die Levels kommen dorthin, wo du ausführst, statt das zu sein, was du gekauft hast. Es gibt eine kostenlose verzögerte Stufe und einen kostenlosen gehosteten MCP-Server für ES, NQ, SPX und QQQ.
+
+*In dieser Gruppe häufig genannte Tools: Unusual Whales, Cheddar Flow, Sharpnel Trading. Prüfe aktuelle Preise und Abdeckung auf deren Websites.*
 
 ### Gruppe 3: Auf Echtzeit-Dealer-Positioning fokussierte Tools
 

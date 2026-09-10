@@ -54,6 +54,8 @@ Most GEX tools aimed at individual traders focus on SPX/SPY (where flow is dense
 
 Free trials, monthly subscriptions, lifetime deals, and tiered free/paid splits all exist in the category. Real-time data infrastructure has costs vendors have to recover, so genuinely "free real-time GEX" is rare and worth examining carefully (some are real, some are delayed feeds marketed as real-time). Check the access model before evaluating the read.
 
+One newer access route is worth checking alongside the web app. Several vendors now publish a hosted MCP server, listed in the official Model Context Protocol registry, that lets an AI assistant read their levels inside a conversation — ZeroGEX, FirmTape and Sharpnel Trading all ship one, and all three are free to read. It is a convenience rather than a methodology difference: the numbers are the same ones the vendor publishes elsewhere, carrying the same delay. But if you already work inside an assistant, it changes how fast you can check a level.
+
 ---
 
 ## The categories of GEX tools
@@ -70,7 +72,9 @@ The vendors that pioneered the publicly-tracked GEX category. May offer scenario
 
 Broader options-flow platforms (unusual options activity, dark pool prints, flow scanners) that include a GEX module as one feature among many. May include per-strike aggregation, which is fast and intuitive; methodology should be verified rather than inferred from the display. The strength is the breadth of complementary data; the trade-off is that the GEX surface is rarely the deepest in the product.
 
-*Tools commonly cited in this bucket: Unusual Whales, Cheddar Flow. Verify current pricing and coverage on their sites.*
+Sharpnel Trading sits at the futures-first edge of this bucket. It is a desktop terminal that draws the call wall, put wall and gamma flip on the same chart as the depth-of-market ladder, the footprint and the tape — aimed at ES and NQ traders rather than at a browser dashboard. The GEX layer is priced as an add-on above the order-flow product, which is the tell for this bucket: the levels arrive where you execute rather than being the thing you bought. There is a free delayed tier and a free hosted MCP server covering ES, NQ, SPX and QQQ.
+
+*Tools commonly cited in this bucket: Unusual Whales, Cheddar Flow, Sharpnel Trading. Verify current pricing and coverage on their sites.*
 
 ### Bucket 3: Real-time, dealer-positioning-focused tools
 

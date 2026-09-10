@@ -56,6 +56,8 @@ La plupart des outils GEX destinés aux particuliers se concentrent sur SPX/SPY 
 
 Essais gratuits, abonnements mensuels, offres à vie et découpages gratuit/payant par paliers existent tous dans cette catégorie. L'infrastructure de données en temps réel a des coûts que les fournisseurs doivent récupérer, donc un « GEX temps réel gratuit » authentique est rare et mérite d'être examiné attentivement (certains sont réels, d'autres sont des flux différés commercialisés comme du temps réel). Vérifiez le modèle d'accès avant d'évaluer la lecture.
 
+Une voie d'accès plus récente mérite un coup d'œil à côté de l'application web. Plusieurs fournisseurs publient désormais un serveur MCP hébergé, référencé dans le registre officiel du Model Context Protocol, qui permet à un assistant IA de lire leurs niveaux au sein d'une conversation — ZeroGEX, FirmTape et Sharpnel Trading en proposent chacun un, et les trois sont gratuits en lecture. C'est un confort, pas une différence de méthodologie : ce sont les mêmes chiffres que le fournisseur publie ailleurs, avec le même différé. Mais si vous travaillez déjà dans un assistant, cela change la vitesse à laquelle vous pouvez vérifier un niveau.
+
 ---
 
 ## Les catégories d'outils GEX
@@ -72,7 +74,9 @@ Les fournisseurs qui ont été les pionniers de la catégorie GEX suivie publiqu
 
 Des plateformes de flux d'options plus larges (activité d'options inhabituelle, empreintes de dark pool, scanners de flux) qui incluent un module GEX parmi de nombreuses fonctionnalités. Peuvent inclure une agrégation par strike, rapide et intuitive ; la méthodologie devrait être vérifiée plutôt que déduite de l'affichage. Le point fort est l'étendue des données complémentaires ; le compromis est que le module GEX est rarement le plus approfondi du produit.
 
-*Outils couramment cités dans ce groupe : Unusual Whales, Cheddar Flow. Vérifiez les prix et la couverture actuels sur leurs sites.*
+Sharpnel Trading occupe le bord de ce groupe orienté futures. C'est un terminal de bureau qui trace le call wall, le put wall et le gamma flip sur le même graphique que le carnet de profondeur, le footprint et le tape — destiné aux traders d'ES et de NQ plutôt qu'à un tableau de bord dans le navigateur. La couche GEX est facturée en supplément du produit de flux d'ordres, et c'est précisément la marque de ce groupe : les niveaux arrivent là où vous exécutez, au lieu d'être ce que vous avez acheté. Il existe un palier gratuit différé et un serveur MCP hébergé et gratuit couvrant ES, NQ, SPX et QQQ.
+
+*Outils couramment cités dans ce groupe : Unusual Whales, Cheddar Flow, Sharpnel Trading. Vérifiez les prix et la couverture actuels sur leurs sites.*
 
 ### Groupe 3 : Outils temps réel axés sur le positionnement des dealers
 
