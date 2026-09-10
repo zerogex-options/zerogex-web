@@ -105,7 +105,7 @@ function FlipBadge({ flip }: { flip: HedgingFlowFlip }) {
         backgroundColor: buying ? 'var(--color-bull-soft)' : 'var(--color-bear-soft)',
         color: buying ? 'var(--color-positive)' : 'var(--color-negative)',
       }}
-      title={`Swing across zero: ${USD(flip.magnitude_usd)} — ${flip.session_ratio.toFixed(1)}x the session's typical swing`}
+      title={`Swing across zero: ${USD(flip.magnitude_usd)}, ${flip.session_ratio.toFixed(1)}x the session's typical swing`}
     >
       {buying ? '▲' : '▼'} Flipped to {buying ? 'buying' : 'selling'} pressure at{' '}
       {safeTimeLabel(flip.bar_start)}

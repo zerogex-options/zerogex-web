@@ -118,23 +118,23 @@ export function regimeLabel(
   if (stability >= 0 && lean >= 0) {
     return {
       title: 'Firming',
-      meaning: 'Structure is stabilizing and supportive — dips are being absorbed.',
+      meaning: 'Structure is stabilizing and supportive, so dips are being absorbed.',
     };
   }
   if (stability >= 0 && lean < 0) {
     return {
       title: 'Capping',
-      meaning: 'Structure is stabilizing but building above — rallies are being sold into.',
+      meaning: 'Structure is stabilizing but building above, so rallies are being sold into.',
     };
   }
   if (stability < 0 && lean >= 0) {
     return {
       title: 'Fragile bid',
-      meaning: 'Supportive lean but thinning gamma — a bid that can gap if it breaks.',
+      meaning: 'Supportive lean but thinning gamma: a bid that can gap if it breaks.',
     };
   }
   return {
     title: 'Deteriorating',
-    meaning: 'Gamma thinning and leaning heavy — moves are more likely to accelerate.',
+    meaning: 'Gamma thinning and leaning heavy, so moves are more likely to accelerate.',
   };
 }
