@@ -42,7 +42,7 @@ claude mcp add --transport http zerogex https://zerogex.io/mcp
 
 **Anything else.** Any client that accepts a remote MCP server URL will work. Clients that browse the official registry can find it by name as `io.zerogex/gamma-levels`. If yours only supports local `stdio` servers, put a bridge such as `mcp-remote` in front of it.
 
-The full setup notes, including how to check the connection with `curl` and what to do when a client misbehaves, are in [the help centre](/help/platform/mcp-server).
+The full setup notes, including how to check the connection with `curl` and what to do when a client misbehaves, are in [the Help Center](/help/platform/mcp-server).
 
 ## What to ask it
 
