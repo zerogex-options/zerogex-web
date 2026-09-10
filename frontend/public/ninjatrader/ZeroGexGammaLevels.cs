@@ -747,7 +747,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                     // Panel first, and deliberately OUTSIDE the snapshot guard:
                     // when there is no snapshot the panel is the only thing on
                     // the chart that can say why.
-                    RenderInfoPanel(s, font, brushes);
+                    float panelBottom = RenderInfoPanel(s, font, brushes);
 
                     if (s == null)
                         return;
@@ -755,7 +755,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                     BuildLevels(s);
 
                     RenderProfile(s, chartScale, brushes);
-                    RenderLevels(chartScale, font, brushes);
+                    RenderLevels(chartScale, font, brushes, panelBottom);
                 }
             }
             catch (Exception ex)
@@ -893,7 +893,8 @@ namespace NinjaTrader.NinjaScript.Indicators
             });
         }
 
-        private void RenderLevels(ChartScale chartScale, SharpDX.DirectWrite.TextFormat font, BrushCache brushes)
+        private void RenderLevels(ChartScale chartScale, SharpDX.DirectWrite.TextFormat font,
+                                  BrushCache brushes, float panelBottom)
         {
             float left = ChartPanel.X;
             float right = ChartPanel.X + ChartPanel.W;
@@ -958,7 +959,18 @@ namespace NinjaTrader.NinjaScript.Indicators
             //
             // Downward only, so the topmost label of a cluster stays on its own
             // line and the drift is predictable rather than centered and moving.
-            float prevBottom = float.NegativeInfinity;
+            //
+            // Seeded with the info panel's bottom edge, because the panel and
+            // the labels are both right-aligned into the same margin and
+            // neither knew about the other: a level near the top of the chart
+            // printed straight through the panel's text, taking out both. A
+            // tester's screenshots showed "GEX 10  29555" and "GEX 4  29724.5"
+            // written across the Flip line on three separate charts. The panel
+            // is drawn first and reports the band it fills, so the same
+            // downward push that separates two labels now also carries a label
+            // clear of the panel. NegativeInfinity when the panel is off, so
+            // the whole chart stays available to labels as before.
+            float prevBottom = panelBottom;
 
             for (int k = 0; k < _labelOrder.Count; k++)
             {
@@ -1078,26 +1090,45 @@ namespace NinjaTrader.NinjaScript.Indicators
         /// whatever the last trade happened to leave behind. (What it counts
         /// is LiveAgeSeconds: the repaint alone was never enough, because the
         /// number being repainted did not move between polls.)</summary>
-        private void RenderInfoPanel(ZeroGexLevelsSnapshot s,
-                                     SharpDX.DirectWrite.TextFormat font,
-                                     BrushCache brushes)
+        private float RenderInfoPanel(ZeroGexLevelsSnapshot s,
+                                      SharpDX.DirectWrite.TextFormat font,
+                                      BrushCache brushes)
         {
             if (!ShowInfoPanel)
-                return;
+                return float.NegativeInfinity;
 
             SharpDX.Direct2D1.Brush ink = brushes.Get(InfoPanelBrush);
             if (ink == null)
-                return;
+                return float.NegativeInfinity;
 
             float left = ChartPanel.X;
             float right = ChartPanel.X + ChartPanel.W;
             float boxWidth = Math.Max(1f, (right - 8f) - left);
+            float top = ChartPanel.Y + 6f;
 
-            RenderTarget.DrawText(BuildInfoText(s), font,
-                                  new SharpDX.RectangleF(left, ChartPanel.Y + 6f, boxWidth,
-                                                         LabelLineHeight * 8f),
+            string text = BuildInfoText(s);
+
+            RenderTarget.DrawText(text, font,
+                                  new SharpDX.RectangleF(left, top, boxWidth,
+                                                         LabelLineHeight * MaxPanelLines),
                                   ink);
+
+            // Report the band the text actually fills, not the box it was
+            // given: the box is sized for the warning lines, which are usually
+            // absent, and reserving those would push labels down for nothing.
+            // Counted rather than Split, because this runs every frame.
+            int lines = 1;
+            for (int i = 0; i < text.Length; i++)
+                if (text[i] == '\n')
+                    lines++;
+
+            return top + Math.Min((float)lines, MaxPanelLines) * LabelLineHeight;
         }
+
+        /// <summary>Height of the info panel's box, in lines. Five for the
+        /// normal panel plus room for the symbol-mismatch and health lines,
+        /// which is what DrawText clips against.</summary>
+        private const float MaxPanelLines = 8f;
 
         /// <summary>Shown in the info panel so a screenshot identifies its own
         /// build. Two beta testers now compile this by hand from files sent by
@@ -1121,7 +1152,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         /// again, so a report naming it can only mean the old pair, and a
         /// report naming 2.0 can only mean this. Anyone bumping from here
         /// should check what release already says first.</summary>
-        private const string BuildVersion = "v2.1";
+        private const string BuildVersion = "v2.2";
 
         private string BuildInfoText(ZeroGexLevelsSnapshot s)
         {
