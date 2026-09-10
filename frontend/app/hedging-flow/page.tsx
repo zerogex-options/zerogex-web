@@ -8,12 +8,18 @@ import ErrorMessage from '@/components/ErrorMessage';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import MetricCard from '@/components/MetricCard';
 import HedgingFlowChart from '@/components/HedgingFlowChart';
+import GammaRegimeChart from '@/components/GammaRegimeChart';
 import { useTimeframe } from '@/core/TimeframeContext';
 import {
   latestRateFlip,
   latestRealBar,
   useHedgingFlow,
 } from '@/hooks/useHedgingFlow';
+import {
+  latestRegimeBar,
+  regimeLabel,
+  useGammaRegimeSeries,
+} from '@/hooks/useGammaRegimeSeries';
 import { etTodayDateKey } from '@/core/utils';
 import { safeTimeLabel } from '@/core/flowSeriesCharts';
 
@@ -25,7 +31,21 @@ import { safeTimeLabel } from '@/core/flowSeriesCharts';
  * The 0DTE toggle is the expirations filter carrying today's date, which is
  * also why it can honestly report "no 0DTE today": when today is not an expiry
  * the filter resolves to nothing rather than silently substituting Friday.
+ *
+ * The structure panel underneath is the other half of the same instrument.
+ * Flow says how hard the tape is pushing; structure says whether the book
+ * absorbs that push or amplifies it. They share a session window, a 5-minute
+ * grid, a view toggle and a Recharts syncId, so hovering either crosshairs the
+ * same bar on both — one timeline, not two pictures.
+ *
+ * The structure series is materialised by the Analytics Engine, so an empty
+ * response on a live session means "not written yet", not "unavailable". The
+ * panel says exactly that rather than rendering an error.
  */
+
+// Recharts syncs tooltips across charts sharing this id, which is what makes
+// the flow and structure panels one instrument rather than two stacked images.
+const SYNC_ID = 'zgx-hedging-session';
 
 const USD = (value: number): string => {
   const abs = Math.abs(value);
@@ -39,6 +59,10 @@ const USD = (value: number): string => {
 export default function HedgingFlowPage() {
   const { symbol } = useTimeframe();
   const [zeroDteOnly, setZeroDteOnly] = useState(false);
+  // One toggle drives both panels. Two that could disagree would let a reader
+  // compare a 30-minute flow rate against a since-the-open structure change
+  // and believe they lined up.
+  const [mode, setMode] = useState<'rate' | 'cumulative'>('rate');
 
   const expirations = useMemo(
     () => (zeroDteOnly ? [etTodayDateKey()] : undefined),
@@ -46,9 +70,18 @@ export default function HedgingFlowPage() {
   );
 
   const { data, loading, error, refetch } = useHedgingFlow(symbol, { expirations });
+  // Deliberately unfiltered by expiration: dealer gamma structure is a
+  // property of the whole book, and scoping it to 0DTE would answer a
+  // different question than the flow panel above it appears to be asking.
+  const { data: regime, loading: regimeLoading } = useGammaRegimeSeries(symbol);
 
   const latest = latestRealBar(data);
   const flip = latestRateFlip(data);
+  const regimeBar = latestRegimeBar(regime);
+  const read = regimeLabel(
+    mode === 'rate' ? regimeBar?.rolling_stability : regimeBar?.anchored_stability,
+    mode === 'rate' ? regimeBar?.rolling_lean : regimeBar?.anchored_lean,
+  );
 
   const leaning = latest == null ? null : latest.cum_net_usd >= 0 ? 'Buying' : 'Selling';
 
@@ -133,7 +166,56 @@ export default function HedgingFlowPage() {
               backgroundColor: 'var(--color-surface)',
             }}
           >
-            <HedgingFlowChart payload={data} />
+            {/* The stack shares one time axis, on the structure panel below. */}
+            <HedgingFlowChart
+              payload={data}
+              mode={mode}
+              onModeChange={setMode}
+              syncId={SYNC_ID}
+              hideTimeAxis
+            />
+
+            <div
+              className="mt-5 border-t pt-5"
+              style={{ borderColor: 'var(--color-border)' }}
+            >
+              <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+                <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                  Dealer gamma structure
+                </h3>
+                {read && (
+                  <span
+                    className="text-xs font-semibold"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                    title={read.meaning}
+                  >
+                    {read.title}
+                  </span>
+                )}
+              </div>
+
+              {regimeLoading && !regime && <LoadingSpinner />}
+
+              {regime && regime.bars.length > 0 && (
+                <GammaRegimeChart payload={regime} mode={mode} syncId={SYNC_ID} />
+              )}
+
+              {regime && regime.bars.length === 0 && (
+                <p className="py-4 text-sm italic" style={{ color: 'var(--color-text-secondary)' }}>
+                  No structure reading for this session yet — the series is written once per
+                  analytics cycle, so it fills in as the session runs.
+                </p>
+              )}
+
+              {read && (
+                <p
+                  className="mt-2 text-[11px] leading-relaxed"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                >
+                  {read.meaning}
+                </p>
+              )}
+            </div>
           </div>
         </>
       )}

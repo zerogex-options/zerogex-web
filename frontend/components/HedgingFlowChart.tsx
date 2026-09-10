@@ -99,7 +99,10 @@ function FlipBadge({ flip }: { flip: HedgingFlowFlip }) {
     <span
       className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold"
       style={{
-        backgroundColor: buying ? 'var(--color-positive-soft)' : 'var(--color-negative-soft)',
+        // bull/bear-soft, not positive/negative-soft: --color-positive and
+        // --color-negative are aliases of bull/bear, but no -soft alias
+        // exists, so the badge rendered with no background at all.
+        backgroundColor: buying ? 'var(--color-bull-soft)' : 'var(--color-bear-soft)',
         color: buying ? 'var(--color-positive)' : 'var(--color-negative)',
       }}
       title={`Swing across zero: ${USD(flip.magnitude_usd)} — ${flip.session_ratio.toFixed(1)}x the session's typical swing`}
@@ -117,10 +120,35 @@ export interface HedgingFlowChartProps {
   payload: HedgingFlowPayload;
   /** Compact mode drops the controls and legend for dashboard-tile use. */
   compact?: boolean;
+  /**
+   * Lift the view mode when a page pairs this with the structure chart, so one
+   * toggle drives both. Omitted, the chart owns its own mode — which is what
+   * the standalone dashboard widget wants.
+   */
+  mode?: ViewMode;
+  onModeChange?: (mode: ViewMode) => void;
+  /** Shared with the structure chart so hovering either crosshairs both. */
+  syncId?: string;
+  /**
+   * Hide this chart's time labels. Stacked synchronized panels should show ONE
+   * axis, at the bottom of the stack: two sets of labels on identical
+   * geometry can still pick different ticks, which reads as disagreement
+   * between panels that are in fact aligned to the pixel.
+   */
+  hideTimeAxis?: boolean;
 }
 
-export default function HedgingFlowChart({ payload, compact = false }: HedgingFlowChartProps) {
-  const [mode, setMode] = useState<ViewMode>('rate');
+export default function HedgingFlowChart({
+  payload,
+  compact = false,
+  mode: controlledMode,
+  onModeChange,
+  syncId,
+  hideTimeAxis = false,
+}: HedgingFlowChartProps) {
+  const [uncontrolledMode, setUncontrolledMode] = useState<ViewMode>('rate');
+  const mode = controlledMode ?? uncontrolledMode;
+  const setMode = onModeChange ?? setUncontrolledMode;
   const [onlySignificant, setOnlySignificant] = useState(true);
 
   const rows = useMemo(() => alignToTimeline(payload.bars, mode), [payload.bars, mode]);
@@ -206,12 +234,13 @@ export default function HedgingFlowChart({ payload, compact = false }: HedgingFl
       )}
 
       <ResponsiveContainer width="100%" height={compact ? 220 : 360}>
-        <ComposedChart data={rows} margin={{ top: 8, right: 8, bottom: 4, left: 8 }}>
+        <ComposedChart data={rows} syncId={syncId} margin={{ top: 8, right: 8, bottom: 4, left: 8 }}>
           <XAxis
             dataKey="timestamp"
             tickFormatter={safeTimeLabel}
             stroke={axisStroke}
-            tick={{ fontSize: 10 }}
+            tick={hideTimeAxis ? false : { fontSize: 10 }}
+            height={hideTimeAxis ? 8 : undefined}
             minTickGap={40}
           />
           <YAxis
