@@ -25,12 +25,16 @@ import type { PickerSymbol } from '@/core/symbols';
 import {
   PROTOCOL_VERSION,
   RPC,
+  clientLabel,
   handleRpcMessage,
   isSupportedProtocolVersion,
   rpcError,
+  type JsonRpcResponse,
 } from '@/core/mcp/protocol';
 import { DELAY_SECONDS, type GexSnapshot, type MarketPhase } from '@/core/mcp/levels';
 import { createToolRegistry } from '@/core/mcp/tools';
+import { TelemetryEvent } from '@/core/telemetry/events';
+import { captureServer } from '@/core/telemetry/posthog-server';
 
 // Reads request headers and a request body, so it can never be statically
 // rendered. Upstream data is still cached: `serverApiGet` sets the 900s fetch
@@ -125,6 +129,50 @@ const registry = createToolRegistry({
   now: () => new Date(),
 });
 
+/**
+ * Record a completed handshake.
+ *
+ * This is the conversion half of the funnel that starts at the "Read these
+ * levels inside Claude" block on the gamma-levels pages: that block's clicks
+ * are intent, and this is somebody having actually added the server to an
+ * assistant. It fires on `initialize` rather than on `tools/call`, so the
+ * number counts connections and not questions asked.
+ *
+ * Read the event count, not the person count. There is no key and no session
+ * here, so we cannot tell two Claude users apart and will not try — an IP would
+ * distinguish them and is exactly the personal data this endpoint has no
+ * business collecting. The distinctId is therefore the client name, which
+ * collapses every caller of one kind into one PostHog "visitor" on purpose,
+ * the same trick the opengraph-image routes use for crawlers. Reconnects count
+ * too: a client restarting re-handshakes, so this is connections over time
+ * rather than distinct installs.
+ */
+function trackHandshake(message: unknown, response: JsonRpcResponse | null): void {
+  if (!message || typeof message !== 'object') return;
+  const request = message as { method?: unknown; params?: unknown };
+  if (request.method !== 'initialize') return;
+  // Only a handshake we actually answered counts; a rejected or malformed one
+  // came back as an error and nobody connected.
+  if (!response || !('result' in response)) return;
+
+  const params = request.params;
+  const clientInfo =
+    params && typeof params === 'object' ? (params as { clientInfo?: unknown }).clientInfo : undefined;
+  const label = clientLabel(clientInfo);
+  const negotiated = (response.result as { protocolVersion?: unknown }).protocolVersion;
+
+  // Not awaited: an analytics round trip must never sit in a client's connect
+  // path. captureServer swallows its own failures, and the .catch() covers the
+  // construction of the PostHog client itself, so a floating rejection can
+  // never take down the Node process this route runs in.
+  captureServer(`mcp:${label}`, TelemetryEvent.McpClientConnected, {
+    client: label,
+    protocol_version: typeof negotiated === 'string' ? negotiated : null,
+  }).catch(() => {
+    /* analytics must never affect the handshake */
+  });
+}
+
 // ---------------------------------------------------------------------------
 // HTTP methods
 // ---------------------------------------------------------------------------
@@ -203,6 +251,8 @@ export async function POST(request: Request): Promise<Response> {
     console.error(`[mcp] unhandled dispatch failure: ${detail}`);
     return json(rpcError(null, RPC.INTERNAL_ERROR, 'Internal server error.'), 500, origin);
   }
+
+  trackHandshake(message, response);
 
   // A notification (or a response to a request we never sent) has nothing to
   // reply with. The spec's answer is 202 with no body.

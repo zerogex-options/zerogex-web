@@ -980,7 +980,7 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
             to use today's numbers where they already are — but it is not a
             chart platform, so it is not in the integrations registry and does
             not appear in the strip. */}
-        <ReadInAssistant />
+        <ReadInAssistant symbol={primary} />
 
         {/* "Today's <ticker> net GEX" — a plain-language answer for the
             "<ticker> net gamma exposure current / today / value / zero-cross"

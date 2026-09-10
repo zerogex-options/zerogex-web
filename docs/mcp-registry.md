@@ -139,6 +139,28 @@ match, so change both together.
 Bump it when the tool surface changes — a tool added, removed or renamed, or an
 input schema changed. Do not bump it for wording changes inside a tool result.
 
+## Is anyone using it?
+
+Two PostHog events, one per end of the funnel:
+
+- `mcp_server_clicked` — a CTA in the "Read these levels inside Claude" block on
+  the gamma-levels pages. `action` is `setup` or `learn_more`, `symbol` is the
+  page's ticker. This is intent.
+- `mcp_client_connected` — an assistant completed the `initialize` handshake
+  against `/mcp`. `client` is the sanitized client name (`claude-ai`, `cursor`,
+  …) and `protocol_version` is what was negotiated. This is the conversion.
+
+Read `mcp_client_connected` by **event count, not unique users**. There is no
+key and no session on this endpoint, so we cannot tell two Claude users apart
+and deliberately do not try — the distinctId is the client name, which collapses
+every caller of one kind into a single PostHog person. Reconnects count too: a
+restarted client re-handshakes.
+
+Registry-sourced connections are not separable from ones that came off the
+website, because a client sends nothing to say where it found the URL. A rise in
+`mcp_client_connected` with flat `mcp_server_clicked` is the closest signal that
+the listing itself is doing the work.
+
 ## Optional follow-ups
 
 - **Icons.** The registry accepts `icons[]` pointing at HTTPS images (PNG, JPEG,

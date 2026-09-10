@@ -1,5 +1,8 @@
+'use client';
+
 import Link from 'next/link';
 import { ArrowRight, Bot } from 'lucide-react';
+import { capture } from '@/core/telemetry/posthog-client';
 
 // "Read these levels inside Claude" — the assistant counterpart to the
 // plot-on-your-chart blocks above it on the gamma-levels pages.
@@ -11,9 +14,14 @@ import { ArrowRight, Bot } from 'lucide-react';
 // download, and the strip it feeds is headed "Trade on a different platform?",
 // which an MCP server is not. Same funnel step, different category.
 //
-// A server component with no interactivity, for the reason IntegrationsStrip
-// gives: these pages are force-static and read by anonymous visitors, so a
-// copy-to-clipboard button would ship JS to all of them to save one selection.
+// A client component, unlike IntegrationsStrip, for the two CTA clicks alone.
+// The reason that strip stays a server component still holds — these pages are
+// force-static and mostly read by anonymous visitors, so shipping JS to all of
+// them needs to buy something — and here it does: this block is a new bet on a
+// new surface, and `mcp_server_clicked` is how we find out whether it is being
+// used or scrolled past. Nothing else here is interactive, and the PostHog
+// bundle is already on these pages for the paid funnel, so the marginal cost is
+// this file. Drop the 'use client' if the event is ever retired.
 //
 // Kept compact on purpose. The Sierra Chart note above explains the constraint
 // — there is already a lot below the fold here, and the evergreen content that
@@ -21,7 +29,7 @@ import { ArrowRight, Bot } from 'lucide-react';
 
 const MCP_URL = 'https://zerogex.io/mcp';
 
-export default function ReadInAssistant() {
+export default function ReadInAssistant({ symbol }: { symbol?: string }) {
   const code: React.CSSProperties = {
     fontFamily: 'var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)',
     fontSize: 13,
@@ -32,6 +40,12 @@ export default function ReadInAssistant() {
     color: 'var(--color-text-primary)',
     whiteSpace: 'nowrap',
   };
+
+  // `symbol` is the page's primary ticker, so an SPX reader's take-up rate is
+  // separable from an NQ reader's. Omitted rather than defaulted when the block
+  // is rendered somewhere without one, so a missing value never reads as SPX.
+  const track = (action: 'setup' | 'learn_more') =>
+    capture('mcp_server_clicked', symbol ? { action, symbol } : { action });
 
   return (
     <section
@@ -100,6 +114,7 @@ export default function ReadInAssistant() {
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
         <Link
           href="/help/platform/mcp-server"
+          onClick={() => track('setup')}
           style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -117,6 +132,7 @@ export default function ReadInAssistant() {
         </Link>
         <Link
           href="/education/gamma-levels-in-claude"
+          onClick={() => track('learn_more')}
           style={{
             display: 'inline-flex',
             alignItems: 'center',

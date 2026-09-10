@@ -173,6 +173,25 @@ export function isSupportedProtocolVersion(version: string): boolean {
 }
 
 /**
+ * The connecting client's software name, reduced to a short slug — `claude-ai`,
+ * `cursor`, `claude-code`, or `unknown` when the client sent nothing usable.
+ *
+ * Read from `initialize`'s `clientInfo`, which is software identity, not a
+ * person: this endpoint is unauthenticated and cannot know who anyone is. It is
+ * still a string an anonymous caller chose, and it ends up in an analytics
+ * property, so it is normalized on the same terms as sanitizeUtmSource() in
+ * core/utils.ts — lowercased, restricted to a small charset, and cut short —
+ * rather than trusted. That also collapses the casing and spacing variants of
+ * one client into a single key, which is what makes the number countable.
+ */
+export function clientLabel(clientInfo: unknown): string {
+  const name = isPlainObject(clientInfo) ? clientInfo.name : undefined;
+  if (typeof name !== 'string') return 'unknown';
+  const cleaned = name.trim().toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 64);
+  return cleaned.length > 0 ? cleaned : 'unknown';
+}
+
+/**
  * Handle one JSON-RPC message.
  *
  * Returns the response to send, or `null` when the message was a notification

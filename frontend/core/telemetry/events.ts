@@ -68,6 +68,28 @@ export const TelemetryEvent = {
   SierraChartIndicatorClicked: 'sierrachart_indicator_clicked',
   /** Social crawler fetched an opengraph-image (server, one per URL per cache TTL). */
   OgPreviewed: 'og_previewed',
+  /** A CTA in the "Read these levels inside Claude" block was clicked (client,
+   *  the six gamma-levels pages). `action` records which: setup (→ the help
+   *  page) | learn_more (→ the education article). `symbol` is the page's
+   *  primary ticker, so it is visible whether SPX readers take this up at a
+   *  different rate to NQ readers.
+   *
+   *  This is intent, not conversion — see mcp_client_connected below, which is
+   *  the same funnel's other end. A wide gap between them means the setup page
+   *  is losing people; clicks near zero means the block itself is being
+   *  scrolled past, which is a placement problem rather than a copy one. */
+  McpServerClicked: 'mcp_server_clicked',
+  /** An MCP client completed the `initialize` handshake against /mcp (server,
+   *  once per client session — not per tool call). This is the actual
+   *  conversion for the block above: somebody added the server to an assistant
+   *  and it connected.
+   *
+   *  `client` is the sanitized clientInfo.name the caller sent (claude-ai,
+   *  cursor, claude-code, …), which is software identity rather than anything
+   *  personal — the endpoint is unauthenticated and has no idea who anyone is.
+   *  It is attacker-controlled all the same, so it is normalized to a short
+   *  lowercase slug before it is ever sent anywhere; see clientLabel(). */
+  McpClientConnected: 'mcp_client_connected',
 
   // ── Paid-traffic conversion funnel ────────────────────────────────────────
   // The free gamma-levels pages double as the paid-X landing page. These events
