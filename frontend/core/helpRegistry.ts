@@ -104,6 +104,13 @@ export const HELP_ARTICLES: HelpArticle[] = [
     section: 'Metrics',
   },
   {
+    slug: 'spread-monitor',
+    title: 'Spread Monitor',
+    description:
+      'Quoted bid/ask width and liquidity across the chain — whether the market is tradeable, not just what it means.',
+    section: 'Metrics',
+  },
+  {
     slug: 'options-calculator',
     title: 'Strategy Builder',
     description: 'Build and price any single- or multi-leg options strategy.',

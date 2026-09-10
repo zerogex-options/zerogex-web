@@ -155,6 +155,7 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   { pattern: '/max-pain', minimumTier: 'basic' },
   { pattern: '/intraday-tools', minimumTier: 'basic' },
   { pattern: '/volatility', minimumTier: 'basic' },
+  { pattern: '/spread-monitor', minimumTier: 'basic' },
   // Strategy tools — included with Basic.
   { pattern: '/options-calculator', minimumTier: 'basic' },
   { pattern: '/option-contracts', minimumTier: 'basic' },

@@ -38,6 +38,7 @@
     "test:chart-viewport": "node --experimental-strip-types --test tests/chartViewport.test.ts",
     "test:symbol-persistence": "node --experimental-strip-types --test tests/symbolPersistence.test.ts",
     "test:futures-symbols": "node --experimental-strip-types --test tests/futuresSymbols.test.ts",
+    "test:spread-monitor": "node --experimental-strip-types --test tests/spreadMonitor.test.ts",
     "test:expiration-persistence": "node --experimental-strip-types --test tests/expirationPersistence.test.ts",
     "test:trial-engagement": "node --experimental-strip-types --test tests/trialEngagement.test.ts",
     "test:renewal-engagement": "node --experimental-strip-types --test tests/renewalEngagement.test.ts",

@@ -117,6 +117,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { id: '/max-pain', label: 'Max Pain', requiredTier: 'basic' },
       { id: '/intraday-tools', label: 'Technicals', requiredTier: 'basic' },
       { id: '/volatility', label: 'Volatility', requiredTier: 'basic', beta: true },
+      { id: '/spread-monitor', label: 'Spread Monitor', requiredTier: 'basic', beta: true },
     ],
   },
   {
