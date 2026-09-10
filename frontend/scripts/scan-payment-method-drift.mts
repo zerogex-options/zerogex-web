@@ -509,11 +509,17 @@ if (visibility.allClear) {
   console.log("method that is still the member's default, or has no pin at all and will");
   console.log('correctly fall back to whatever the customer has on file.');
   if (visibility.hiddenDuplicateCount > 0) {
+    const n = visibility.hiddenDuplicateCount;
     console.log('');
+    // One whole sentence per line here, rather than prose hard-wrapped to the
+    // width of the block above. The count is interpolated, so the line's width
+    // moves with it: a wrap tuned for 2 findings breaks in the wrong place for
+    // 200, and a short ragged first line reads as broken text rather than as
+    // deliberate wrapping.
     console.log(
-      `${visibility.hiddenDuplicateCount} subscription(s) do carry two payment-method ids for what looks`,
+      `${n} subscription${n === 1 ? ' carries' : 's carry'} two payment-method ids for a single instrument.`,
     );
-    console.log('like one instrument, but none is failing, so nothing there needs doing.');
+    console.log('None is failing, so there is nothing to do about them.');
     console.log('Pass --verbose to see them.');
   }
 }
