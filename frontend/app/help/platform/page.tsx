@@ -147,6 +147,12 @@ const sections: Section[] = [
         blurb:
           'The intraday technical snapshot — price, candles, volatility gauges, and how the levels overlay the GEX walls.',
       },
+      {
+        href: '/help/platform/spread-monitor',
+        title: 'Spread Monitor',
+        blurb:
+          'Quoted bid/ask width and liquidity across the chain — which side of the book is expensive to trade, where it thins out, and whether today is unusual.',
+      },
     ],
   },
   {
