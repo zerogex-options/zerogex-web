@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   classifyPaymentMethodPin,
+  decideDriftReportVisibility,
   type PaymentMethodPinInput,
 } from '../core/paymentMethodDrift.ts';
 
@@ -167,5 +168,76 @@ test('pinnedExists is ignored when there is no pin at all', () => {
       input({ pinnedPaymentMethodId: null, customerDefaultPaymentMethodId: 'pm_new', pinnedExists }),
     );
     assert.equal(v.kind, 'ok');
+  }
+});
+
+// --- Report visibility -----------------------------------------------------
+//
+// A live run against 179 subscriptions printed the scanned count, then the
+// footer, and nothing in between: the all-clear was keyed on what was FOUND
+// while the sections were keyed on what would be SHOWN, so healthy
+// same-instrument pairs suppressed the all-clear and were themselves hidden.
+// A clean sweep has to be distinguishable from truncated output.
+
+function visibility(over: Partial<Parameters<typeof decideDriftReportVisibility>[0]> = {}) {
+  return decideDriftReportVisibility({
+    brokenCount: 0,
+    driftCount: 0,
+    duplicateCount: 0,
+    failingDuplicateCount: 0,
+    verbose: false,
+    ...over,
+  });
+}
+
+test('the exact live case: healthy same-instrument pairs still print the all-clear', () => {
+  const v = visibility({ duplicateCount: 2, failingDuplicateCount: 0 });
+  assert.equal(v.allClear, true);
+  assert.equal(v.shownDuplicateCount, 0);
+  assert.equal(v.hiddenDuplicateCount, 2, 'the all-clear must be able to say they exist');
+});
+
+test('a failing same-instrument pair is shown and withholds the all-clear', () => {
+  const v = visibility({ duplicateCount: 2, failingDuplicateCount: 1 });
+  assert.equal(v.allClear, false);
+  assert.equal(v.shownDuplicateCount, 1);
+  assert.equal(v.hiddenDuplicateCount, 1);
+});
+
+test('--verbose shows every duplicate and hides none', () => {
+  const v = visibility({ duplicateCount: 3, failingDuplicateCount: 0, verbose: true });
+  assert.equal(v.shownDuplicateCount, 3);
+  assert.equal(v.hiddenDuplicateCount, 0);
+  assert.equal(v.allClear, false);
+});
+
+test('THE INVARIANT: a run is never silent, and never says both things', () => {
+  for (const brokenCount of [0, 1]) {
+    for (const driftCount of [0, 2]) {
+      for (const duplicateCount of [0, 1, 3]) {
+        for (const failingDuplicateCount of [0, 1]) {
+          if (failingDuplicateCount > duplicateCount) continue;
+          for (const verbose of [false, true]) {
+            const v = visibility({
+              brokenCount,
+              driftCount,
+              duplicateCount,
+              failingDuplicateCount,
+              verbose,
+            });
+            const printsASection =
+              brokenCount > 0 || driftCount > 0 || v.shownDuplicateCount > 0;
+            assert.notEqual(
+              v.allClear,
+              printsASection,
+              `silent or contradictory report for ${JSON.stringify({
+                brokenCount, driftCount, duplicateCount, failingDuplicateCount, verbose,
+              })}`,
+            );
+            assert.ok(v.hiddenDuplicateCount >= 0, 'hidden count must never go negative');
+          }
+        }
+      }
+    }
   }
 });

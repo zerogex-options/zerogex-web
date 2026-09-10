@@ -59,6 +59,7 @@ import Stripe from 'stripe';
 
 import {
   classifyPaymentMethodPin,
+  decideDriftReportVisibility,
   type InstrumentSameness,
 } from '../core/paymentMethodDrift.ts';
 import { formatCardBrand } from '../core/stripeCard.ts';
@@ -480,10 +481,41 @@ if (hitCap) {
 }
 console.log('');
 
-if (broken.length === 0 && drift.length === 0 && duplicate.length === 0) {
+// Same-instrument pairs are mostly bookkeeping: Stripe minted a second object
+// for one card and nothing is actually being mis-charged, so listing them
+// beside real drift would drown it. The exception is a subscription that is
+// ALREADY failing — there the re-point is cheap enough to try even at low
+// confidence, and the operator needs to see that this member's two methods are
+// NOT the tidy old-card/new-card story, so the copy they send does not promise
+// a fix the re-point cannot deliver.
+const failingDuplicates = duplicate.filter((f) => FAILING_STATUSES.has(f.status));
+const visibility = decideDriftReportVisibility({
+  brokenCount: broken.length,
+  driftCount: drift.length,
+  duplicateCount: duplicate.length,
+  failingDuplicateCount: failingDuplicates.length,
+  verbose: cliArgs.verbose,
+});
+const duplicateShown = cliArgs.verbose ? duplicate : failingDuplicates;
+
+// The all-clear has to be keyed on what this run will actually PRINT, not on
+// what it found. Keying it on duplicate.length meant a base whose only pairs
+// were same-instrument and healthy suppressed the all-clear AND suppressed the
+// duplicates section that suppressed it — so the report said nothing at all
+// between the scanned count and the footer, and an operator could not tell a
+// clean sweep from truncated output.
+if (visibility.allClear) {
   console.log('No payment-method drift. Every billable subscription is either pinned to a');
   console.log("method that is still the member's default, or has no pin at all and will");
   console.log('correctly fall back to whatever the customer has on file.');
+  if (visibility.hiddenDuplicateCount > 0) {
+    console.log('');
+    console.log(
+      `${visibility.hiddenDuplicateCount} subscription(s) do carry two payment-method ids for what looks`,
+    );
+    console.log('like one instrument, but none is failing, so nothing there needs doing.');
+    console.log('Pass --verbose to see them.');
+  }
 }
 
 if (broken.length > 0) {
@@ -503,16 +535,6 @@ if (drift.length > 0) {
   for (const f of drift) printFinding(f);
 }
 
-// Same-instrument pairs are mostly bookkeeping: Stripe minted a second object
-// for one card and nothing is actually being mis-charged, so listing them
-// beside real drift would drown it. The exception is a subscription that is
-// ALREADY failing — there the re-point is cheap enough to try even at low
-// confidence, and the operator needs to see that this member's two methods are
-// NOT the tidy old-card/new-card story, so the copy they send does not promise
-// a fix the re-point cannot deliver.
-const duplicateShown = cliArgs.verbose
-  ? duplicate
-  : duplicate.filter((f) => FAILING_STATUSES.has(f.status));
 if (duplicateShown.length > 0) {
   console.log(
     `SAME INSTRUMENT, TWO OBJECTS: ${duplicateShown.length}${

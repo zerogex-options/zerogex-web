@@ -149,3 +149,45 @@ export function classifyPaymentMethodPin(
 
   return { kind: 'ok', reason: 'pin is live, owned, and agrees with the customer default' };
 }
+
+// What the report will actually PRINT, decided apart from the printing itself.
+//
+// This is here because the visibility rules and the all-clear line drifted apart
+// twice: the all-clear was keyed on what the sweep FOUND while the sections were
+// keyed on what it would SHOW, so a base whose only pairs were same-instrument
+// and healthy printed nothing at all between the scanned count and the footer.
+// An operator cannot tell that from truncated output or a crashed sweep, which
+// makes a clean run indistinguishable from a broken one.
+//
+// The invariant worth protecting is simply: a run is never silent. Either the
+// all-clear prints, or at least one findings section does — never neither, and
+// never both.
+export type DriftReportVisibility = {
+  // Same-instrument pairs this run will list.
+  shownDuplicateCount: number;
+  // Same-instrument pairs held back, so the all-clear can mention they exist
+  // rather than implying the sweep found nothing whatsoever.
+  hiddenDuplicateCount: number;
+  // Whether to print the "nothing to do" line.
+  allClear: boolean;
+};
+
+export function decideDriftReportVisibility(input: {
+  brokenCount: number;
+  driftCount: number;
+  duplicateCount: number;
+  // Same-instrument pairs whose subscription is ALREADY failing. Shown even
+  // without --verbose: there a re-point is cheap enough to try at low
+  // confidence, and the operator needs to know the pair is not the tidy
+  // old-card/new-card story before they write to the member.
+  failingDuplicateCount: number;
+  verbose: boolean;
+}): DriftReportVisibility {
+  const { brokenCount, driftCount, duplicateCount, failingDuplicateCount, verbose } = input;
+  const shownDuplicateCount = verbose ? duplicateCount : failingDuplicateCount;
+  return {
+    shownDuplicateCount,
+    hiddenDuplicateCount: duplicateCount - shownDuplicateCount,
+    allClear: brokenCount === 0 && driftCount === 0 && shownDuplicateCount === 0,
+  };
+}
