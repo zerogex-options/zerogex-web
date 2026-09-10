@@ -21,15 +21,70 @@ function input(over: Partial<PaymentMethodPinInput> = {}): PaymentMethodPinInput
     customerDefaultPaymentMethodId: 'pm_old',
     pinnedExists: true,
     pinnedOwnerCustomerId: CUSTOMER,
+    instrumentSameness: 'different',
     ...over,
   };
 }
 
-test('the ibfinanzas shape: pin and customer default disagree', () => {
+test('pin and default that are genuinely different instruments is drift', () => {
   const v = classifyPaymentMethodPin(
-    input({ pinnedPaymentMethodId: 'pm_old', customerDefaultPaymentMethodId: 'pm_new' }),
+    input({
+      pinnedPaymentMethodId: 'pm_old',
+      customerDefaultPaymentMethodId: 'pm_new',
+      instrumentSameness: 'different',
+    }),
   );
   assert.equal(v.kind, 'drift');
+});
+
+// The false positive that a live run produced three of: Stripe mints a fresh
+// PaymentMethod on many checkouts, so a member who re-paid with the SAME card
+// ends up with two ids for one instrument. Reported as drift, that sends an
+// operator to tell a member their old card was the problem when it never was.
+test('two ids for one instrument is not drift', () => {
+  const v = classifyPaymentMethodPin(
+    input({
+      pinnedPaymentMethodId: 'pm_a',
+      customerDefaultPaymentMethodId: 'pm_b',
+      instrumentSameness: 'same',
+    }),
+  );
+  assert.equal(v.kind, 'duplicate');
+});
+
+test('an unreadable method is reported as drift, not quietly cleared', () => {
+  // 'unknown' means we learned nothing about one side. Silence would be the
+  // wrong default: the whole point is to surface pairs worth a human look.
+  const v = classifyPaymentMethodPin(
+    input({
+      pinnedPaymentMethodId: 'pm_a',
+      customerDefaultPaymentMethodId: 'pm_b',
+      instrumentSameness: 'unknown',
+    }),
+  );
+  assert.equal(v.kind, 'drift');
+});
+
+test('sameness defaults to unknown when the caller cannot compare', () => {
+  const v = classifyPaymentMethodPin(
+    input({ pinnedPaymentMethodId: 'pm_a', customerDefaultPaymentMethodId: 'pm_b' }),
+  );
+  assert.equal(v.kind, 'drift');
+});
+
+test('sameness never rescues a broken pin', () => {
+  // A method that is detached cannot be charged even if it is "the same
+  // instrument" as the default. Broken has to win over the duplicate check.
+  const v = classifyPaymentMethodPin(
+    input({
+      pinnedPaymentMethodId: 'pm_a',
+      customerDefaultPaymentMethodId: 'pm_b',
+      instrumentSameness: 'same',
+      pinnedExists: false,
+      pinnedOwnerCustomerId: null,
+    }),
+  );
+  assert.equal(v.kind, 'broken');
 });
 
 test('pin agreeing with the customer default is not a finding', () => {

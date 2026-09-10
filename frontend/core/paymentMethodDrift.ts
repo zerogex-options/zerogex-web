@@ -18,6 +18,24 @@
 // the dunning copy correctly stays neutral. The only trace is two Stripe fields
 // quietly disagreeing, which is what this classifies.
 
+// Whether the two PaymentMethod objects actually represent different money.
+// Two ids differing is NOT enough: Stripe mints a fresh PaymentMethod on many
+// checkouts, so a member who re-paid with the very same card leaves behind two
+// objects for one instrument, and re-pointing between them changes nothing.
+// Resolved by the caller from the identity scripts/dedupe-payment-methods.mjs
+// already uses — card.fingerprint for cards, link.email for Link wallets.
+//
+//   'different' — provably distinct instruments (different fingerprints, or
+//                 different types entirely). The finding worth acting on.
+//   'same'      — one instrument behind two objects, as far as Stripe exposes.
+//                 For Link that means one wallet address; the funding card
+//                 inside it is never exposed, so this is the weaker claim of
+//                 the two and the copy must not promise a re-point will help.
+//   'unknown'   — a method could not be read, or exposes no comparable
+//                 identity. Reported as drift: an unread method is a reason to
+//                 look, not a reason to stay quiet.
+export type InstrumentSameness = 'same' | 'different' | 'unknown';
+
 // A pin is only meaningful once the payment method behind it has been resolved,
 // so the caller does the Stripe reads and hands the facts in — same shape as
 // decideOrphanPayment.
@@ -38,15 +56,25 @@ export type PaymentMethodPinInput = {
   // The customer the pinned method is currently attached to, or null when it is
   // attached to nobody. Ignored when the pin does not exist.
   pinnedOwnerCustomerId: string | null;
+  // How the pinned method compares to the customer default as an INSTRUMENT
+  // rather than as an id. Only consulted when the two ids already disagree.
+  // Defaults to 'unknown' so a caller that cannot compare still gets the
+  // finding rather than silently losing it.
+  instrumentSameness?: InstrumentSameness;
 };
 
 export type PaymentMethodPinVerdict =
   // The pinned method cannot be charged at all. The next renewal fails no
   // matter what the member's bank would have said.
   | { kind: 'broken'; reason: string }
-  // Pin and customer default are both live and different: the member chose
-  // something else and the subscription never heard about it.
+  // Pin and customer default are both live and are different instruments: the
+  // member chose other money and the subscription never heard about it.
   | { kind: 'drift'; reason: string }
+  // The ids disagree but the instrument behind them looks like one and the
+  // same. Re-pointing is close to a no-op, so this must not be reported beside
+  // real drift — it would send an operator to "fix" a member whose card was
+  // never the problem, and make the genuine findings harder to see.
+  | { kind: 'duplicate'; reason: string }
   // Nothing is named anywhere, so Stripe falls back to the legacy
   // default_source. Often harmless, occasionally a charge with no instrument.
   | { kind: 'no_default'; reason: string }
@@ -63,6 +91,7 @@ export function classifyPaymentMethodPin(
     customerDefaultPaymentMethodId,
     pinnedExists,
     pinnedOwnerCustomerId,
+    instrumentSameness = 'unknown',
   } = input;
 
   // No pin at all is NOT drift: Stripe's own fallback to the customer default
@@ -100,6 +129,18 @@ export function classifyPaymentMethodPin(
   // then the only instruction Stripe has, and it is live and owned — nothing to
   // report, even though there is no second opinion to check it against.
   if (customerDefaultPaymentMethodId && customerDefaultPaymentMethodId !== pinnedPaymentMethodId) {
+    // Two ids is not two instruments. Stripe mints a new PaymentMethod on many
+    // checkouts, so a member who rescued an invoice with the same card leaves
+    // two objects for one card — which reads as textbook drift and is nothing
+    // of the kind. Separate them, or the report sends an operator chasing
+    // members whose payment method was never the problem.
+    if (instrumentSameness === 'same') {
+      return {
+        kind: 'duplicate',
+        reason:
+          'pin and default are two PaymentMethod objects for what looks like one instrument',
+      };
+    }
     return {
       kind: 'drift',
       reason: 'subscription charges a method the member has since replaced as their default',

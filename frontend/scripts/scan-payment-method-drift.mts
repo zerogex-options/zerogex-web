@@ -29,9 +29,14 @@
 //   BROKEN   the pinned method is gone or is no longer attached to this
 //            customer. That subscription cannot be charged at all — the next
 //            renewal is guaranteed to fail, whatever the card behind it says.
-//   DRIFT    the pin and the customer default are both live but different. The
-//            pinned one may be perfectly good; it is the one the member stopped
-//            choosing, which is exactly the signal that it is stale.
+//   DRIFT    the pin and the customer default are live and are DIFFERENT
+//            instruments. The pinned one may be perfectly good; it is the one
+//            the member stopped choosing, which is the signal that it is stale.
+//   SAME     the two ids differ but resolve to one instrument (same card
+//            fingerprint, or one Link wallet address). Stripe mints a fresh
+//            PaymentMethod on many checkouts, so this is bookkeeping, not
+//            mis-charging — reported apart from real drift precisely so nobody
+//            tells a member their old card was the problem when it was not.
 //   NO PIN   neither default is set, so Stripe falls back to the legacy
 //            default_source. Usually fine, occasionally the reason a charge
 //            fails with nothing on file. Verbose only, unless already failing.
@@ -52,7 +57,10 @@ import { execFileSync, spawnSync } from 'node:child_process';
 
 import Stripe from 'stripe';
 
-import { classifyPaymentMethodPin } from '../core/paymentMethodDrift.ts';
+import {
+  classifyPaymentMethodPin,
+  type InstrumentSameness,
+} from '../core/paymentMethodDrift.ts';
 import { formatCardBrand } from '../core/stripeCard.ts';
 
 type Args = {
@@ -175,6 +183,10 @@ function idOf(ref: unknown): string | null {
 // at all — name the wallet and its email rather than inventing a card, which is
 // the same neutral fallback core/stripeCard.ts takes.
 function describePaymentMethod(pm: Stripe.PaymentMethod | null, pmId: string | null): string {
+  // Always carry the id. Two Link wallets on one address render an identical
+  // label, and a report whose two lines read the same is unreadable — the id is
+  // the only thing that tells the reader which line is which.
+  const suffix = pmId ? `  [${pmId}]` : '';
   if (!pm) return pmId ? `${pmId} (not retrievable)` : 'none';
   if (pm.card?.last4) {
     const brand = formatCardBrand(pm.card.brand) ?? 'Card';
@@ -182,16 +194,46 @@ function describePaymentMethod(pm: Stripe.PaymentMethod | null, pmId: string | n
       pm.card.exp_month && pm.card.exp_year
         ? ` exp ${pm.card.exp_month}/${pm.card.exp_year}`
         : '';
-    return `${brand} ····${pm.card.last4}${exp}`;
+    return `${brand} ····${pm.card.last4}${exp}${suffix}`;
   }
   if (pm.type === 'link') {
     const linkEmail = pm.link?.email;
-    return linkEmail ? `Link wallet (${linkEmail})` : 'Link wallet';
+    return `${linkEmail ? `Link wallet (${linkEmail})` : 'Link wallet'}${suffix}`;
   }
   if (pm.type === 'us_bank_account' && pm.us_bank_account?.last4) {
-    return `Bank account ····${pm.us_bank_account.last4}`;
+    return `Bank account ····${pm.us_bank_account.last4}${suffix}`;
   }
-  return pm.type ?? 'unknown method';
+  return `${pm.type ?? 'unknown method'}${suffix}`;
+}
+
+// Stable per-instrument identity, the same one scripts/dedupe-payment-methods.mjs
+// groups on: card.fingerprint survives re-tokenizing the same card, and a Link
+// wallet is identified by its address. Null when the method exposes neither, so
+// the caller degrades to 'unknown' rather than calling two things equal on the
+// strength of having learned nothing about either.
+function instrumentIdentity(pm: Stripe.PaymentMethod): string | null {
+  const fingerprint = pm.card?.fingerprint;
+  if (fingerprint) return `card:${fingerprint}`;
+  if (pm.type === 'link' && pm.link?.email) return `link:${pm.link.email.toLowerCase()}`;
+  if (pm.type === 'us_bank_account' && pm.us_bank_account?.fingerprint) {
+    return `bank:${pm.us_bank_account.fingerprint}`;
+  }
+  return null;
+}
+
+// Is the pin actually different MONEY from the customer default, or just a
+// second object for the same instrument? Differing types settle it outright;
+// otherwise compare identities, and admit ignorance when either side has none.
+function compareInstruments(
+  a: Stripe.PaymentMethod | null,
+  b: Stripe.PaymentMethod | null,
+): InstrumentSameness {
+  if (!a || !b) return 'unknown';
+  if (a.type !== b.type) return 'different';
+  const idA = instrumentIdentity(a);
+  const idB = instrumentIdentity(b);
+  if (!idA || !idB) return 'unknown';
+  return idA === idB ? 'same' : 'different';
 }
 
 // ---------------------------------------------------------------------------
@@ -263,6 +305,7 @@ type Finding = {
 
 const broken: Finding[] = [];
 const drift: Finding[] = [];
+const duplicate: Finding[] = [];
 const noPin: Finding[] = [];
 const healthy: Finding[] = [];
 // Live subscriptions whose customer has no local account — a different failure
@@ -369,6 +412,7 @@ try {
         customerDefaultPaymentMethodId: customerDefaultId,
         pinnedExists: pinnedPm !== null,
         pinnedOwnerCustomerId: idOf(pinnedPm?.customer),
+        instrumentSameness: compareInstruments(pinnedPm, customerDefaultPm),
       });
 
       const record: Finding = {
@@ -381,6 +425,7 @@ try {
 
       if (verdict.kind === 'broken') broken.push({ ...record, brokenReason: verdict.reason });
       else if (verdict.kind === 'drift') drift.push(record);
+      else if (verdict.kind === 'duplicate') duplicate.push(record);
       else if (verdict.kind === 'no_default') noPin.push(record);
       else healthy.push(record);
     }
@@ -404,6 +449,7 @@ function byUrgency(a: Finding, b: Finding): number {
 }
 broken.sort(byUrgency);
 drift.sort(byUrgency);
+duplicate.sort(byUrgency);
 noPin.sort(byUrgency);
 
 function printFinding(f: Finding) {
@@ -434,7 +480,7 @@ if (hitCap) {
 }
 console.log('');
 
-if (broken.length === 0 && drift.length === 0) {
+if (broken.length === 0 && drift.length === 0 && duplicate.length === 0) {
   console.log('No payment-method drift. Every billable subscription is either pinned to a');
   console.log("method that is still the member's default, or has no pin at all and will");
   console.log('correctly fall back to whatever the customer has on file.');
@@ -455,6 +501,34 @@ if (drift.length > 0) {
   console.log('The pinned method may still be good; it is the one they stopped choosing.');
   console.log('');
   for (const f of drift) printFinding(f);
+}
+
+// Same-instrument pairs are mostly bookkeeping: Stripe minted a second object
+// for one card and nothing is actually being mis-charged, so listing them
+// beside real drift would drown it. The exception is a subscription that is
+// ALREADY failing — there the re-point is cheap enough to try even at low
+// confidence, and the operator needs to see that this member's two methods are
+// NOT the tidy old-card/new-card story, so the copy they send does not promise
+// a fix the re-point cannot deliver.
+const duplicateShown = cliArgs.verbose
+  ? duplicate
+  : duplicate.filter((f) => FAILING_STATUSES.has(f.status));
+if (duplicateShown.length > 0) {
+  console.log(
+    `SAME INSTRUMENT, TWO OBJECTS: ${duplicateShown.length}${
+      cliArgs.verbose ? '' : ` of ${duplicate.length}`
+    }`,
+  );
+  console.log('The pin and the default are different ids for what looks like one instrument');
+  console.log('(same card fingerprint, or one Link wallet address). Re-pointing is close to');
+  console.log('a no-op, so do NOT tell these members their old card was the problem — for a');
+  console.log('Link pair especially, the funding card inside the wallet is never exposed and');
+  console.log('may differ or may not. Treat a re-point here as cheap to try, not as a fix.');
+  if (!cliArgs.verbose) {
+    console.log('Only the already-failing ones are shown; --verbose for all.');
+  }
+  console.log('');
+  for (const f of duplicateShown) printFinding(f);
 }
 
 if (noPin.length > 0 && (cliArgs.verbose || noPin.some((f) => FAILING_STATUSES.has(f.status)))) {
