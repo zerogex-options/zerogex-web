@@ -392,6 +392,18 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     readMinutes: 6,
     kind: 'tier1',
   },
+  'gamma-levels-in-claude': {
+    slug: 'gamma-levels-in-claude',
+    href: '/education/gamma-levels-in-claude',
+    title: 'How to Get SPX Gamma Levels in Claude, ChatGPT and Cursor',
+    blurb:
+      'Ask an assistant where the gamma flip is and it will usually invent a number. How to connect Claude, ChatGPT or Cursor to a live source, what to ask it, and how to tell a real answer from a fabricated one.',
+    description:
+      'Get live SPX gamma levels inside Claude, ChatGPT or Cursor with a free MCP server — setup, what to ask, and how to spot a fabricated level.',
+    datePublished: '2026-09-10',
+    readMinutes: 7,
+    kind: 'article',
+  },
   'zero-gamma-level-explained': {
     slug: 'zero-gamma-level-explained',
     href: '/education/zero-gamma-level-explained',
@@ -542,6 +554,11 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'charm-the-clock-is-a-trader',
     'vanna-when-fear-fades',
     'why-we-dont-publish-dex',
+  ],
+  'gamma-levels-in-claude': [
+    'how-to-read-a-gamma-flip',
+    'gamma-exposure-explained',
+    'best-gex-tools',
   ],
   'best-gex-tools': [
     'gamma-exposure-explained',

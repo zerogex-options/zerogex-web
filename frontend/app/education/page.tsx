@@ -55,6 +55,7 @@ const popularExplainers = [
   { href: '/education/best-gex-tools', label: 'Best GEX Tools, Fairly Compared' },
   { href: '/education/max-pain-explained', label: 'Max Pain Explained' },
   { href: '/education/pin-strike-explained', label: 'Pin Strike Explained' },
+  { href: '/education/gamma-levels-in-claude', label: 'SPX Gamma Levels in Claude and ChatGPT' },
 ];
 
 export default function EducationHubPage() {

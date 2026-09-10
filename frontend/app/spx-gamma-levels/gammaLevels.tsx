@@ -10,6 +10,7 @@ import PlotOnTradingView from '@/components/PlotOnTradingView';
 import PlotOnNinjaTrader from '@/components/PlotOnNinjaTrader';
 import PlotOnThinkorswim from '@/components/PlotOnThinkorswim';
 import IntegrationsStrip from '@/components/IntegrationsStrip';
+import ReadInAssistant from '@/components/ReadInAssistant';
 import { NT_PACKAGE_PATH } from '@/core/ninjaTraderManifest';
 import Footer from './Footer';
 import ShareBlock from './ShareBlock';
@@ -973,6 +974,13 @@ export default async function GammaLevelsView({ primary }: { primary: Symbol }) 
           exclude={['tradingview', 'ninjatrader', 'thinkorswim']}
           heading="On Sierra Chart instead?"
         />
+
+        {/* The same funnel step for people who work in an assistant rather than
+            on a chart. It belongs with the blocks above — hand the reader a way
+            to use today's numbers where they already are — but it is not a
+            chart platform, so it is not in the integrations registry and does
+            not appear in the strip. */}
+        <ReadInAssistant />
 
         {/* "Today's <ticker> net GEX" — a plain-language answer for the
             "<ticker> net gamma exposure current / today / value / zero-cross"
