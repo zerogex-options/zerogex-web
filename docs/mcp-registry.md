@@ -112,6 +112,19 @@ Confirm it landed:
 curl -sS "https://registry.modelcontextprotocol.io/v0/servers?search=io.zerogex"
 ```
 
+## Current listing
+
+First published 2026-09-10, verified by DNS against the `zerogex.io` apex.
+
+| | |
+| --- | --- |
+| Name | `io.zerogex/gamma-levels` |
+| Version | 1.0.0 |
+| Status | active, isLatest |
+
+Anything from here is an **update**, not a first publish — which means the
+version has to move. See below.
+
 ## Publishing an update
 
 Bump `version` in `server.json` — the registry rejects a republish at an existing
