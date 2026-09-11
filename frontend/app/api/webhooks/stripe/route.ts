@@ -1669,8 +1669,17 @@ async function maybeRecoverOrphanPayment(invoice: Stripe.Invoice): Promise<void>
     return;
   }
 
-  const carriedSuffix = carryOver.carry.length
-    ? `; carried forever coupon(s) ${carryOver.carry.join(', ')}`
+  // Name each carried coupon with its duration, and say outright when one has
+  // restarted its clock — a repeating promo re-applied in full grants the
+  // months already used a second time, which an operator reading this row
+  // months later must not have to infer.
+  const carriedSuffix = carryOver.carried.length
+    ? `; carried coupon(s) ${carryOver.carried
+        .map(
+          (c) =>
+            `${c.couponId} (duration=${c.duration}${c.restartsClock ? ', clock restarted — re-grants any months already used' : ''})`,
+        )
+        .join(', ')}`
     : '';
   const droppedSuffix = droppedParams.length
     ? `; Stripe rejected ${droppedParams.join(', ')} — recreated without them`

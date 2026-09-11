@@ -23,6 +23,12 @@ export type ChargeDecline = {
   // The issuer's actual reason ('insufficient_funds', 'do_not_honor', …). This
   // is the field that carries the signal; code alone rarely distinguishes.
   declineCode: string | null;
+  // The RAW ISO-8583 code the card network returned ('51', '05', …), which is
+  // what charge.outcome.network_decline_code holds. Kept separate from
+  // declineCode because they are different alphabets: mixing them means a
+  // numeric lands in a string lookup and silently classifies as unknown, which
+  // is exactly how the first real decline this module saw was mis-read.
+  networkDeclineCode: string | null;
   // charge.failure_message — Stripe's customer-facing sentence.
   message: string | null;
   // charge.outcome.seller_message — the plain-English "why" written for the
@@ -66,15 +72,21 @@ export function readChargeDecline(charge: unknown): ChargeDecline | null {
   const outcome = obj(c.outcome);
   const decline: ChargeDecline = {
     code: str(c.failure_code),
-    // network_decline_code is the raw issuer code; Stripe's own decline_code
-    // lives on the PaymentIntent error, so accept either shape here.
-    declineCode: str(outcome?.network_decline_code) ?? str(c.decline_code),
+    // outcome.reason is Stripe's NORMALIZED decline code on an issuer decline
+    // ('insufficient_funds'), and is the field to trust. decline_code is the
+    // same alphabet where a payload carries it. network_decline_code is NOT —
+    // it is the raw numeric network code — so it is read separately below.
+    declineCode: str(outcome?.reason) ?? str(c.decline_code),
+    networkDeclineCode: str(outcome?.network_decline_code),
     message: str(c.failure_message),
     sellerMessage: str(outcome?.seller_message),
   };
   const failedStatus = str(c.status) === 'failed';
   const hasSignal =
-    decline.code !== null || decline.declineCode !== null || decline.message !== null;
+    decline.code !== null ||
+    decline.declineCode !== null ||
+    decline.networkDeclineCode !== null ||
+    decline.message !== null;
   if (!failedStatus && !hasSignal) return null;
   return decline;
 }
@@ -88,9 +100,50 @@ export function readPaymentIntentDecline(paymentIntent: unknown): ChargeDecline 
   return {
     code: str(err.code),
     declineCode: str(err.decline_code),
+    networkDeclineCode: str(err.network_decline_code),
     message: str(err.message),
     sellerMessage: null,
   };
+}
+
+// Raw ISO-8583 network codes, for the payloads that carry only
+// outcome.network_decline_code. Same categories as the string map — this is a
+// second alphabet for the same question, not a second question. Deliberately
+// partial: an unlisted code stays 'unknown' rather than being approximated.
+const BY_NETWORK_CODE: Record<string, DeclineCategory> = {
+  '51': 'insufficient_funds', // not sufficient funds
+  '61': 'insufficient_funds', // exceeds withdrawal amount limit
+  '65': 'insufficient_funds', // exceeds withdrawal count limit
+
+  '01': 'issuer_block', // refer to card issuer
+  '02': 'issuer_block', // refer to card issuer, special condition
+  '04': 'issuer_block', // pick up card
+  '05': 'issuer_block', // do not honor
+  '07': 'issuer_block', // pick up card, special condition
+  '12': 'issuer_block', // invalid transaction
+  '41': 'issuer_block', // lost card
+  '43': 'issuer_block', // stolen card
+  '57': 'issuer_block', // transaction not permitted to cardholder
+  '59': 'issuer_block', // suspected fraud
+  '62': 'issuer_block', // restricted card
+  '63': 'issuer_block', // security violation
+
+  '14': 'card_problem', // invalid card number
+  '54': 'card_problem', // expired card
+  '82': 'card_problem', // negative CAM / CVV results
+
+  '19': 'try_again', // re-enter transaction
+  '91': 'try_again', // issuer or switch inoperative
+  '96': 'try_again', // system malfunction
+};
+
+// '5' and '051' both mean 51. Normalize numeric codes to their two-digit form
+// so a leading zero or a stray pad does not defeat the lookup.
+function normalizeNetworkCode(raw: string | null): string | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (!/^\d+$/.test(trimmed)) return null;
+  return String(Number(trimmed)).padStart(2, '0');
 }
 
 // Stripe's documented decline_code values, grouped by what the member has to do
@@ -161,10 +214,15 @@ const BY_CODE: Record<string, DeclineCategory> = {
 
 export function classifyDecline(decline: ChargeDecline | null): DeclineCategory {
   if (!decline) return 'unknown';
+  // Most specific first: Stripe's normalized decline code, then the raw network
+  // code, then the coarse failure code.
   const byDecline = decline.declineCode
     ? BY_DECLINE_CODE[decline.declineCode.toLowerCase()]
     : undefined;
   if (byDecline) return byDecline;
+  const network = normalizeNetworkCode(decline.networkDeclineCode);
+  const byNetwork = network ? BY_NETWORK_CODE[network] : undefined;
+  if (byNetwork) return byNetwork;
   const byCode = decline.code ? BY_CODE[decline.code.toLowerCase()] : undefined;
   return byCode ?? 'unknown';
 }
@@ -193,7 +251,9 @@ export function declineGuidance(category: DeclineCategory): string {
 export function describeDecline(decline: ChargeDecline | null): string {
   if (!decline) return 'no decline data';
   const category = classifyDecline(decline);
-  const codes = [decline.code, decline.declineCode].filter(Boolean).join('/') || 'no code';
+  const codes =
+    [decline.code, decline.declineCode, decline.networkDeclineCode].filter(Boolean).join('/') ||
+    'no code';
   const text = decline.sellerMessage ?? decline.message;
   return text ? `${category} — "${text}" [${codes}]` : `${category} [${codes}]`;
 }
