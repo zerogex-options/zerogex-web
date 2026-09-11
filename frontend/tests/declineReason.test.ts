@@ -15,25 +15,80 @@ import {
 // unhelpful but slightly insulting in either direction, so lock the mapping down.
 
 function decline(over: Partial<ChargeDecline> = {}): ChargeDecline {
-  return { code: null, declineCode: null, message: null, sellerMessage: null, ...over };
+  return {
+    code: null,
+    declineCode: null,
+    networkDeclineCode: null,
+    message: null,
+    sellerMessage: null,
+    ...over,
+  };
 }
 
 // --- reading off the wire ---------------------------------------------------
 
-test('reads a failed charge, preferring the issuer code and seller message', () => {
+test('reads a failed charge, taking the normalized reason and the seller message', () => {
   const d = readChargeDecline({
     status: 'failed',
     failure_code: 'card_declined',
     failure_message: 'Your card was declined.',
     outcome: {
-      network_decline_code: 'insufficient_funds',
+      reason: 'insufficient_funds',
+      network_decline_code: '51',
       seller_message: 'The bank returned the decline code insufficient_funds.',
     },
   });
   assert.equal(d?.code, 'card_declined');
   assert.equal(d?.declineCode, 'insufficient_funds');
+  assert.equal(d?.networkDeclineCode, '51');
   assert.equal(d?.sellerMessage, 'The bank returned the decline code insufficient_funds.');
   assert.equal(classifyDecline(d), 'insufficient_funds');
+});
+
+// REGRESSION. The first real decline this module met in production carried NO
+// outcome.reason -- only the raw network code 51 -- and the original read put
+// that numeric into declineCode, where the string lookup missed it and the whole
+// thing classified as 'unknown'. The seller message said insufficient_funds in
+// plain sight. Five retries across five days never cleared, and the operator was
+// told to use neutral copy when the gentler insufficient-funds copy was right.
+test('a raw network code classifies even with no outcome.reason', () => {
+  const d = readChargeDecline({
+    status: 'failed',
+    failure_code: 'card_declined',
+    outcome: {
+      network_decline_code: '51',
+      seller_message: 'The bank returned the decline code `insufficient_funds`.',
+    },
+  });
+  assert.equal(d?.declineCode, null, 'a numeric must never land in the string field');
+  assert.equal(d?.networkDeclineCode, '51');
+  assert.equal(classifyDecline(d), 'insufficient_funds');
+});
+
+test('network codes classify across the categories, padded or not', () => {
+  const cases: Array<[string, string]> = [
+    ['51', 'insufficient_funds'],
+    ['61', 'insufficient_funds'],
+    ['05', 'issuer_block'],
+    ['5', 'issuer_block'],
+    ['041', 'issuer_block'],
+    ['54', 'card_problem'],
+    ['91', 'try_again'],
+    ['99', 'unknown'],
+    ['not-a-number', 'unknown'],
+  ];
+  for (const [networkDeclineCode, expected] of cases) {
+    assert.equal(classifyDecline(decline({ networkDeclineCode })), expected, networkDeclineCode);
+  }
+});
+
+// The string alphabet is the more specific signal and must win outright, so a
+// mismatched pair can never be resolved by the numeric.
+test('the normalized reason outranks the raw network code', () => {
+  assert.equal(
+    classifyDecline(decline({ declineCode: 'expired_card', networkDeclineCode: '51' })),
+    'card_problem',
+  );
 });
 
 test('a succeeded charge carries no decline', () => {
@@ -144,11 +199,12 @@ test('describeDecline names the category, the text and the codes', () => {
     decline({
       code: 'card_declined',
       declineCode: 'insufficient_funds',
+      networkDeclineCode: '51',
       sellerMessage: 'The bank returned the decline code insufficient_funds.',
     }),
   );
   assert.match(line, /^insufficient_funds — "/);
-  assert.match(line, /\[card_declined\/insufficient_funds\]$/);
+  assert.match(line, /\[card_declined\/insufficient_funds\/51\]$/);
   assert.equal(describeDecline(null), 'no decline data');
 });
 
