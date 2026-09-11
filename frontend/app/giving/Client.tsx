@@ -10,9 +10,14 @@ import { usePageT } from '@/core/LanguageContext';
 import { dict } from './Client.i18n';
 import type { GivingTotals } from '@/core/giving';
 import {
+  PATRIOT_PLEDGE_DEADLINE_LABEL,
+  PATRIOT_PLEDGE_DISCOUNT_PCT,
+} from '@/core/patriotPledge';
+import {
   ArrowRight,
   Heart,
   Shield,
+  ShieldCheck,
   HandHeart,
   Receipt,
   CalendarCheck,
@@ -138,8 +143,56 @@ function FAQItem({ q, a, isDark = true }: { q: string; a: React.ReactNode; isDar
   );
 }
 
+// ── September 11 anniversary banner ───────────────────────────────────────────
+// Time-boxed; `pledgeOpen` is resolved server-side in page.tsx. Deliberately
+// fundraiser-first: the donation leads, the discount is named once as the
+// mechanism. No countdown, no "SALE" — this runs on a day of remembrance and
+// has to read that way if it gets screenshotted.
+function PledgeBanner({ t }: { t: (k: string, v?: Record<string, string | number>) => string }) {
+  return (
+    <section style={{ padding: '0 24px', marginTop: 84 }}>
+      <div
+        className="zg-panel"
+        style={{
+          maxWidth: 980, margin: '0 auto', padding: '32px 32px 28px',
+          borderColor: `${C.amber}55`,
+          background: `linear-gradient(135deg, ${C.amber}0E 0%, transparent 60%)`,
+        }}
+      >
+        <div className="zg-eyebrow" style={{
+          display: 'inline-flex', alignItems: 'center', gap: 8,
+          color: C.amber, marginBottom: 14,
+        }}>
+          <ShieldCheck size={13} /> {t('pledgeEyebrow')}
+        </div>
+        <h2 style={{
+          fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 800, color: C.light,
+          margin: '0 0 14px', lineHeight: 1.2, letterSpacing: '-0.5px',
+        }}>
+          {t('pledgeTitle')}
+        </h2>
+        <p style={{ fontSize: 16, color: C.muted, lineHeight: 1.7, margin: '0 0 12px' }}>
+          {t('pledgeBody', {
+            end: PATRIOT_PLEDGE_DEADLINE_LABEL,
+            pct: DONATION_PCT,
+            discount: PATRIOT_PLEDGE_DISCOUNT_PCT,
+          })}
+        </p>
+        <p style={{ fontSize: 13.5, color: C.muted, lineHeight: 1.65, margin: '0 0 22px', opacity: 0.85 }}>
+          {t('pledgeNote', { pct: DONATION_PCT })}
+        </p>
+        <Link href="/pricing" style={{ textDecoration: 'none' }}>
+          <button className="zg-btn zg-btn--primary" style={{ padding: '13px 26px', fontSize: 15 }}>
+            {t('pledgeCta')} <ArrowRight size={15} />
+          </button>
+        </Link>
+      </div>
+    </section>
+  );
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
-export default function GivingPage({ totals }: { totals: GivingTotals }) {
+export default function GivingPage({ totals, pledgeOpen = false }: { totals: GivingTotals; pledgeOpen?: boolean }) {
   const { theme } = useTheme();
   const t = usePageT(dict);
   const isDark = theme === 'dark';
@@ -152,6 +205,8 @@ export default function GivingPage({ totals }: { totals: GivingTotals }) {
     <div style={{ background: bg, color: text, fontFamily: 'DM Sans, sans-serif', overflowX: 'hidden' }}>
 
       <LandingHeader />
+
+      {pledgeOpen && <PledgeBanner t={t} />}
 
       {/* ── Hero ─────────────────────────────────────────────────────────────── */}
       <section style={{

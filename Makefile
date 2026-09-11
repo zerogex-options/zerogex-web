@@ -664,6 +664,26 @@ reactivate-member:
 quarterly-receipt:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/quarterly-receipt.mts $(if $(AMOUNT),--amount $(AMOUNT),) $(if $(QUARTER),--quarter "$(QUARTER)",) $(if $(DATE),--date $(DATE),) $(if $(EMAIL),--email $(EMAIL),) $(if $(NO_PUSH),--no-push,) $(if $(NO_REBUILD),--no-rebuild,) $(if $(YES),--yes,) $(if $(DRY_RUN),--dry-run,)'
 
+# Tally what we owe Folds of Honor under the September 11 25th-anniversary
+# drive: 100% of the first month collected from every subscription started in
+# the window, annual counted at one twelfth. Read-only — it never writes to
+# Stripe, the DB or the repo; it just prints the number you then publish with
+# `make quarterly-receipt`.
+#
+# TIMING: do NOT run this on the last day of the drive. Every signup carries a
+# 7-day trial, so a Sunday Sept 14 signup isn't charged until ~Sept 21. Run it
+# Sept 22 or later, once the last trial has converted. ALL=1 shows what's still
+# pending so you can see what you're waiting on.
+#
+# Env: STRIPE_SECRET_KEY + the four STRIPE_PRICE_* ids (frontend/.env.local).
+#
+# Examples:
+#   make patriot-pledge-tally                       # the number owed
+#   make patriot-pledge-tally ALL=1 VERBOSE=1       # + pending trials, refund detail
+#   make patriot-pledge-tally CSV=foh-ledger.csv    # per-invoice ledger for the receipt
+patriot-pledge-tally:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/patriot-pledge-tally.mts $(if $(CSV),--csv "$(CSV)",) $(if $(JSON),--json "$(JSON)",) $(if $(ALL),--all,) $(if $(VERBOSE),--verbose,)'
+
 # Send the "time to make the FOH donation" reminder email to the admin.
 # Auto-detects the just-closed calendar quarter. Ships the actual four-step
 # instructions inside the email so the admin never has to look them up. Runs
