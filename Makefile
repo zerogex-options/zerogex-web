@@ -671,7 +671,7 @@ quarterly-receipt:
 # `make quarterly-receipt`.
 #
 # TIMING: do NOT run this on the last day of the drive. Every signup carries a
-# 7-day trial, so a Sunday Sept 14 signup isn't charged until ~Sept 21. Run it
+# 7-day trial, so a Monday Sept 14 signup isn't charged until ~Sept 21. Run it
 # Sept 22 or later, once the last trial has converted. ALL=1 shows what's still
 # pending so you can see what you're waiting on.
 #

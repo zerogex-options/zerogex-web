@@ -20,8 +20,9 @@ import type { BillableTier, BillingCadence } from '@/core/pricing';
 
 // ── The window ────────────────────────────────────────────────────────────────
 // Opens 00:00 ET on September 11, 2026 (the 25th anniversary) and closes at the
-// end of Sunday, September 14 — Patriot Day weekend. September is EDT (UTC−4),
-// so ET midnight is 04:00 UTC.
+// end of Monday, September 14 — the Patriot Day weekend plus the Monday after,
+// so the drive covers two full trading days. September is EDT (UTC−4), so ET
+// midnight is 04:00 UTC.
 export const PATRIOT_PLEDGE_START_ISO = '2026-09-11T04:00:00.000Z';
 export const PATRIOT_PLEDGE_END_ISO = '2026-09-15T03:59:59.999Z';
 

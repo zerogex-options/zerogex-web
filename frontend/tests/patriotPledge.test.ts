@@ -17,10 +17,10 @@ import {
 const START = Date.parse(PATRIOT_PLEDGE_START_ISO);
 const END = Date.parse(PATRIOT_PLEDGE_END_ISO);
 
-test('window opens at ET midnight on the 25th anniversary and closes Sunday night', () => {
+test('window opens at ET midnight on the 25th anniversary and closes Monday night', () => {
   // 2026-09-11T04:00Z is 00:00 EDT on September 11 — the anniversary itself.
   assert.equal(new Date(START).toISOString(), '2026-09-11T04:00:00.000Z');
-  // Closes at the last millisecond of Sunday September 14 ET.
+  // Closes at the last millisecond of Monday September 14 ET.
   assert.equal(new Date(END).toISOString(), '2026-09-15T03:59:59.999Z');
   assert.ok(END > START);
 });
@@ -32,15 +32,15 @@ test('isPatriotPledgeOpen is inclusive of both endpoints', () => {
   assert.equal(isPatriotPledgeOpen(END + 1), false);
 });
 
-test('isPatriotPledgeOpen rejects times outside the weekend', () => {
+test('isPatriotPledgeOpen rejects times outside the window', () => {
   // 11:59 PM ET on September 10 — one minute early.
   assert.equal(isPatriotPledgeOpen(Date.parse('2026-09-11T03:59:00Z')), false);
   // Midday Friday September 11, squarely inside.
   assert.equal(isPatriotPledgeOpen(Date.parse('2026-09-11T16:00:00Z')), true);
-  // Saturday and Sunday still count.
+  // Sunday, and the closing Monday, still count.
   assert.equal(isPatriotPledgeOpen(Date.parse('2026-09-13T16:00:00Z')), true);
   assert.equal(isPatriotPledgeOpen(Date.parse('2026-09-14T23:00:00Z')), true);
-  // Monday morning ET — shut.
+  // Tuesday morning ET — shut.
   assert.equal(isPatriotPledgeOpen(Date.parse('2026-09-15T13:00:00Z')), false);
 });
 
@@ -50,7 +50,7 @@ test('qualifiesForPledge keys on subscription start, so trials still count', () 
   // qualify, because we advertised it to them on the 11th.
   const signedUp = Date.parse('2026-09-11T15:00:00Z');
   assert.equal(qualifiesForPledge(signedUp), true);
-  // Someone who signs up the following Tuesday does not.
+  // Someone who signs up that Wednesday does not.
   assert.equal(qualifiesForPledge(Date.parse('2026-09-16T15:00:00Z')), false);
 });
 

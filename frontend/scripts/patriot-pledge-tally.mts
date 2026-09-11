@@ -15,7 +15,7 @@
 //
 // WHEN TO RUN IT
 //   Not on the last day of the drive. Every signup carries a 7-day trial, so a
-//   subscription started Sunday September 14 is not charged until roughly
+//   subscription started Monday September 14 is not charged until roughly
 //   September 21. Run it once the last trial has converted — September 22 or
 //   later — or the total will be missing most of the campaign. `--all` shows
 //   the still-pending rows so you can see what you are waiting on.
