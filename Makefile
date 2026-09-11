@@ -70,6 +70,7 @@ help:
 	@echo "  make reset-save-latch EMAIL=<email> - TESTING: clear a member's one-shot save latch (retention_offer_claimed_at) so the /save flow can be claimed again"
 	@echo "  make reset-user-for-testing EMAIL=<email> - TESTING: reset one account to a clean pre-signup state (tier=public, subscription/trial latches cleared) so you can re-run signup + plan switching. DRY by default, APPLY=1 to write, KEEP_FOUNDING=1 / KEEP_CUSTOMER=1 to preserve those"
 	@echo "  make dedupe-payment-methods (EMAIL=<email> | CUSTOMER=cus_... | ALL=1) - Detach duplicate same-card/same-Link payment methods from Stripe customers, keeping the default/subscription method (INSPECT=1 to just list, DRY by default, APPLY=1 to detach)"
+	@echo "  make scan-payment-method-drift [VERBOSE=1] - Sweep every billable subscription for one pinned to a payment method the member has since replaced (the renewal that fails again next month after they rescued the last invoice with a new card). Read-only"
 	@echo "  make backup-monitoring - Backup Admin->Monitoring JSON data (S3_BUCKET=s3://... optional)"
 	@echo "  make backup-auth - Online backup of the SQLite auth DB (S3_BUCKET=, BACKUP_GPG_RECIPIENT= optional)"
 	@echo "  make auth-backups-prune - Prune old auth-DB backups: delete auth-*.db.gz* older than AUTH_BACKUP_RETENTION_DAYS (default 30) but ALWAYS keep the newest AUTH_BACKUP_KEEP (default 48; 0 = raw mtime-only). Shared by backup-auth + janitor"
@@ -424,6 +425,21 @@ card-expiry-reminders:
 payment-failed-preview:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-payment-failed-preview.mts $(if $(PREVIEW_TO),--to $(PREVIEW_TO),) $(if $(FINAL),--final,) $(if $(NO_CARD),--no-card,) $(if $(NO_AMOUNT),--no-amount,)'
 
+# Grace-expiry warning: the SECOND dunning touch. Warns members whose
+# payment-recovery grace window closes within ~24h and whose card still hasn't
+# cleared, so the deadline is actionable before access drops to Public. Fills the
+# gap where the webhook's single first-attempt email (gated on attempt_count==1)
+# was the ONLY contact and the window then expired silently. Latched once per
+# window via users.payment_grace_warning_sent_for, so re-runs are safe.
+# DRY_RUN=1 previews who is due (and why others are skipped), YES=1 sends,
+# PREVIEW_TO=<email> sends one sample. LEAD_HOURS=N / MIN_OPEN_HOURS=N tune the
+# timing, REASON=trial|renewal narrows the cohort, GRACE_DAYS=N overrides the
+# window length. Driven every 4h by zerogex-web-grace-expiry-warnings.timer.
+#   make grace-expiry-warnings DRY_RUN=1
+#   make grace-expiry-warnings YES=1
+grace-expiry-warnings:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-grace-expiry-warnings.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),) $(if $(LEAD_HOURS),--lead-hours $(LEAD_HOURS),) $(if $(MIN_OPEN_HOURS),--min-open-hours $(MIN_OPEN_HOURS),) $(if $(REASON),--reason $(REASON),) $(if $(GRACE_DAYS),--grace-days $(GRACE_DAYS),)'
+
 # Send the founder-voice trial-pitch nudge to every user in the verified-
 # never-paid cohort (public tier, verified email, no subscription, NOT
 # founding-eligible-not-redeemed, NOT churned) whose account is at least
@@ -600,6 +616,21 @@ reset-user-for-testing:
 dedupe-payment-methods:
 	@if [ -z "$(EMAIL)" ] && [ -z "$(CUSTOMER)" ] && [ -z "$(ALL)" ]; then echo "Error: provide EMAIL=<addr>, CUSTOMER=cus_..., or ALL=1"; exit 1; fi
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/dedupe-payment-methods.mjs $(if $(CUSTOMER),--customer $(CUSTOMER),$(if $(EMAIL),--email $(EMAIL),--all)) $(if $(INSPECT),--inspect,) $(if $(APPLY),--apply,)'
+
+# Sweep every billable subscription for a PINNED payment method the member has
+# effectively replaced. Stripe charges a subscription's own
+# default_payment_method when one is set and only falls back to the customer
+# default when it is not — so a member who rescues a failed invoice with a new
+# card gets that card marked as the CUSTOMER default while the subscription
+# keeps billing the old one. The invoice clears, the recovered email goes out,
+# and the same dead method fails again next month. `make diagnose-user` shows it
+# per-member as two disagreeing lines (Sub default PM vs Customer default PM);
+# this finds the disagreement across the whole base.
+# Read-only — creates nothing, changes no Stripe object, sends no email.
+#   make scan-payment-method-drift
+#   make scan-payment-method-drift VERBOSE=1
+scan-payment-method-drift:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/scan-payment-method-drift.mts $(if $(VERBOSE),--verbose,)'
 
 # Manually lengthen ONE customer's free trial (e.g. to thank a helpful early
 # user) by pushing out the Stripe subscription's trial_end. Everything else

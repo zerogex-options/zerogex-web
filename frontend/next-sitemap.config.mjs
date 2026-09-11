@@ -140,6 +140,10 @@ const config = {
     '/range-break-imminence',
     '/market-pressure',
     '/backtesting',
+    // The MCP endpoint is a JSON-RPC route handler, not a page: it answers a
+    // crawler's GET with 405. It is dynamic so it is not auto-discovered today,
+    // but listing it keeps that true if the route config ever changes.
+    '/mcp',
     // Defensive — none currently exist under app/, but match spec.
     '/api/*',
     '/checkout/*',

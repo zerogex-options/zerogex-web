@@ -94,6 +94,7 @@ stops a cron re-firing the same email every run. Verified list of latch columns:
 | `cancel_ack_email_sent_at` | Cancellation acknowledgment | Stripe flips `cancel_at_period_end`→true | on reactivation (re-cancel can re-fire) |
 | `winback_email_sent_at` | ~1-month-after-churn win-back | win-back sent | on welcome-back (`subscription_lapsed` 1→0) |
 | `marketing_unsubscribed_at` | **opt-out** — excludes from marketing sends | user unsubscribes | (opt back in only manually) |
+| `payment_grace_warning_sent_for` | Grace-expiry warning (~24h before the window closes) | warning sent | **never cleared** — it stores the `payment_grace_started_at` anchor it was sent for, so a re-opened window (new anchor) stops matching and re-arms it by itself |
 
 Two **flags** (not timestamps) drive the dunning/welcome logic:
 
@@ -106,14 +107,20 @@ Two **flags** (not timestamps) drive the dunning/welcome logic:
   when the welcome-back fires. Discriminates "canceled then came back" (welcome-back)
   from "upgrading in place" (silent).
 - **`payment_grace_started_at`**: anchors the `BILLING_PAYMENT_GRACE_DAYS` grace
-  window so an established sub keeps its paid tier through Stripe's Smart Retries
-  instead of dropping to Public on the first failed renewal. (Trial-conversion
-  failures get no grace.)
+  window so a sub keeps its paid tier through Stripe's Smart Retries instead of
+  dropping to Public on the first failed charge. Trial-conversion failures **do**
+  get grace (`BILLING_TRIAL_GRACE_ENABLED`, default on) provided the trial had
+  already been granted access; `payment_grace_reason` records which failure
+  opened the window (`'trial'` vs `'renewal'`) and picks the dunning copy.
 
 Other gates that are **not** DB latches:
 
 - **Payment-failed** email is gated in the webhook by `invoice.attempt_count === 1`
-  so it does not re-fire on each Stripe Smart Retry.
+  so it does not re-fire on each Stripe Smart Retry. That gate is also why dunning
+  needs a **second** touch: retries emit further `invoice.payment_failed` events
+  that send nothing, and the grace window then expires with no email at all, so
+  the member's last contact would otherwise be day 0. See the **grace-expiry
+  warning** below, which is latched per window rather than per invoice.
 - **Trial-conversion** emails (both the confirmation and its dunning bookend) are
   gated by `isTrialConversionInvoice` in `core/trialDunning.ts` — a pure predicate
   that identifies the conversion charge as "a `subscription_cycle` invoice created
@@ -125,7 +132,23 @@ Other gates that are **not** DB latches:
   `pending → rewarded` (a user can only be referred once — `UNIQUE referee_user_id`).
 - **TradeWorkz alerts** are gated by rows in the `tw_notifications_log` table
   (one send per queued `channel='email'` row).
-- **`deleted_at`** (soft-deleted accounts) are excluded from all outbound email.
+- **`deleted_at`** (soft-deleted accounts) are excluded from all outbound email,
+  and enforced in **both** send paths: the cron/sweeper scripts filter
+  `deleted_at IS NULL` in their cohort queries, and `findUserByCustomerId`
+  (`core/billingUser.ts`, used by the Stripe webhook) refuses to resolve a
+  deleted row at all — so no webhook branch can email, grant a tier to, or
+  re-subscribe someone who asked to be forgotten. Both lookups are locked down
+  against a real schema in `tests/billingUser.test.ts`
+  (`npm run test:billing-user`). A deleted account keeps its `stripe_customer_id` and its still-open
+  invoices (whose hosted payment pages stay live indefinitely), so those events
+  do keep arriving; they simply no longer match anyone. The three branches that
+  must still see a deleted row — the `customer.subscription.deleted` bookkeeping
+  that clears its retained state, and the `charge.refunded` /
+  `setup_intent.setup_failed` audit rows that would otherwise lose their
+  attribution — opt in explicitly via `findUserByCustomerIdIncludingDeleted`,
+  and none of them grants or sends anything. A payment that lands on a deleted
+  account is recorded as `stripe_paid_invoice_on_deleted_account` for refund
+  review, since nothing else in the system would surface it.
 
 ---
 
@@ -212,6 +235,39 @@ auth/transactional and TradeWorkz alerts.
 - Names the failed card, states the access state (grace window vs. dropped to Public),
   gives Stripe's next retry date, links the billing portal. Each enrichment degrades to
   neutral wording if unresolved. No FOH footer (urgent).
+
+**Grace-expiry warning** — `sendGraceExpiryWarningEmail(to, { reason, graceUntilIso, cardBrand?, cardLast4?, nextAttemptIso? })`
+- **Subject (2 variants):** trial → `Your ZeroGEX access ends {date} — the first charge didn't go through`; renewal → `Your ZeroGEX access ends {date} — your last payment didn't go through`
+- The **second dunning touch**, ~24h before the payment-recovery grace window
+  closes and access drops to Public. Leads with the deadline (the first nudge
+  already explained the failure), names Stripe's next retry or says the schedule
+  is exhausted, and states plainly that the downgrade is non-destructive and
+  reverses automatically on the next successful charge — the member's real fear
+  at this point is losing the account, and the honest answer is also the one most
+  likely to get the card fixed. No FOH footer (urgent), same trial/renewal copy
+  split the first nudge makes.
+- **Sweeper, not a webhook send**, on purpose: no Stripe event fires at "24h
+  before the window closes", and the `past_due` syncs that do arrive follow
+  Stripe's retry schedule, which is unrelated to `graceDays`. Runs from
+  `frontend/scripts/send-grace-expiry-warnings.mts` / `make grace-expiry-warnings`,
+  driven every 4h by `zerogex-web-grace-expiry-warnings.timer`.
+- Timing decision is pure and unit-tested in `core/graceExpiryWarning.ts`
+  (`tests/graceExpiryWarning.test.ts`, `npm run test:grace-expiry-warning`): send
+  when the window has ≤ `--lead-hours` (24) left **and** has been open ≥
+  `--min-open-hours` (12), the second guard stopping the warning from stacking on
+  the day-0 email when `BILLING_PAYMENT_GRACE_DAYS` is short. The deadline itself
+  comes from the same `graceWindowEndIso` the first nudge quotes, so the two
+  emails can never disagree about when access ends.
+- Idempotency is the `payment_grace_warning_sent_for` latch above. Excluded:
+  soft-deleted accounts, anyone not currently `past_due`, and anyone who already
+  clicked Cancel. `--dry-run` reports why each skipped member was skipped, and
+  counts `window-elapsed` separately as an operational alarm: **anything above
+  zero is a member who dropped to Public with no heads-up**, which means the
+  sweep ran less often than the window is long. A member who *was* warned and
+  whose window has since closed counts as `already-warned`, not as a miss —
+  `payment_grace_started_at` survives for as long as the subscription stays
+  `past_due`, so every warned member eventually reaches the elapsed state, and
+  counting them would make the alarm climb forever and bury the real misses.
 
 **Payment recovered** — `sendPaymentRecoveredEmail(to)`
 - **Subject:** `You're all set — your ZeroGEX payment went through`

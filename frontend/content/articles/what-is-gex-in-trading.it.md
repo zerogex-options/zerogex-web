@@ -20,6 +20,8 @@ I market maker che ti vendono opzioni non vogliono una scommessa direzionale —
 
 Il GEX riassume tutto questo in un unico numero con segno — solitamente espresso in dollari di gamma, o "dollar gamma" — per un intero indice come lo S&P 500. Un valore assoluto più grande significa più hedging forzato sotto il mercato. Il **segno** ti dice in quale direzione spinge quell'hedging.
 
+Un'avvertenza da tenere a mente: il GEX è una stima *modellata*, non una misurazione dei book dei dealer. I dealer non pubblicano le proprie posizioni, quindi il segno deriva da un'assunzione standard — i dealer sono trattati come netti lunghi delle call vendute dai clienti e netti corti delle put comprate dai clienti. È una convenzione consolidata dedotta dall'open interest, non inventario osservato.
+
 ---
 
 ## GEX positivo vs. negativo (perché è importante)

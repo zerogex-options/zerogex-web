@@ -39,6 +39,8 @@ L'esposizione gamma viene calcolata a partire dall'open interest di una catena d
 
 Poiché entrambe le catene fanno riferimento allo stesso indice, questi livelli di solito puntano allo stesso punto in termini di S&P. Ma sono costruiti da platee diverse — SPX è sbilanciato verso istituzionali e indice/0DTE, SPY porta un forte flusso retail e di copertura su azioni — quindi i due libri possono pesare gli strike in modo diverso e divergere ai margini. Quando divergono, questa è informazione, non rumore.
 
+Poiché entrambe le catene fanno riferimento allo stesso indice, quei livelli di solito puntano allo stesso punto in termini di S&P. Ma sono costruite da platee diverse — l'SPX pende verso l'istituzionale e verso indice/0DTE, lo SPY porta una quota maggiore di investitori individuali e di flusso di copertura sulle azioni — quindi i due book possono pesare gli strike in modo diverso e divergere ai margini. Quando divergono, può essere informazione anziché rumore.
+
 ---
 
 ## Tradurre un livello dall'uno all'altro

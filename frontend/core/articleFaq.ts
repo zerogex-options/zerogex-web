@@ -198,6 +198,20 @@ export const ARTICLE_FAQ: Record<string, FaqItem[]> = {
       a: 'Traders typically favor momentum and breakout setups, widen stops and targets for the bigger ranges, and are more cautious fading moves, since dips and rips can accelerate rather than revert.',
     },
   ],
+  'gamma-levels-in-claude': [
+    {
+      q: 'Can Claude or ChatGPT tell me where the SPX gamma flip is?',
+      a: 'Not on its own — with no live source it answers from training data and will state a plausible number that is not today\u2019s. Connect it to an MCP server that publishes the levels and it reads the real figure instead. ZeroGEX runs a free one at https://zerogex.io/mcp, no key and no account.',
+    },
+    {
+      q: 'Is the ZeroGEX MCP server free?',
+      a: 'Yes. Reading is free and unauthenticated — no key, no account, no per-user quota. It serves the same 15-minute-delayed levels as the public gamma levels pages. The real-time feed stays a Pro feature behind an API key.',
+    },
+    {
+      q: 'How do I know the assistant is giving me a real level and not making one up?',
+      a: 'Every response from the server leads with the snapshot time and how old it is, and tells the assistant to repeat that. A gamma flip quoted with no mention of when it was computed probably came from the model rather than the server — ask it directly where the number came from and how old it is.',
+    },
+  ],
   'best-gex-tools': [
     {
       q: 'What should I look for in a GEX tool?',

@@ -25,6 +25,12 @@ Le net GEX est le chiffre phare du cadre plus large de la [gamma exposure](/educ
 
 ---
 
+## Le net GEX en « dollar gamma » : ce que signifie l'unité
+
+Le net GEX est exprimé en dollars — « 1,5 Md$ de gamma » — parce qu'il est calibré pour répondre à une question en dollars : quelle exposition à l'indice S&P les dealers devraient-ils environ traiter pour se recouvrir si le SPX bougeait de 1 % ? C'est pourquoi les recherches « SPX net GEX dollar gamma » et « SPX net gamma exposure » aboutissent au même chiffre : le dollar gamma *est* le net GEX, exprimé par mouvement de 1 %. Le signe porte le régime ; l'ordre de grandeur en dollars porte le volume de couverture modélisée qui se tient derrière. Un relevé de +1,5 Md$ et un de +150 M$ décrivent le même régime avec dix fois le coussin.
+
+---
+
 ## Comment lire la lecture actuelle du net GEX
 
 Deux cas, deux playbooks opposés :

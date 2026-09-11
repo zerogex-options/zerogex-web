@@ -83,6 +83,8 @@ Dalla stessa chain derivano due numeri aggregati:
 - Il **Total GEX** è la somma del contributo *assoluto* a ogni strike — una lettura di magnitudine, indifferente al segno. Indica quanto gamma è presente nel sistema nel complesso.
 - Il **Net GEX** è la somma *con segno* — call meno put. Indica quale lato del book dei dealer domina, e se il riflesso aggregato di hedging sta smorzando o amplificando.
 
+> Il Net GEX è gamma dei dealer stimata/modellata, calcolata sotto la convenzione tradizionale call-positive/put-negative sull'open interest — dealer modellati come netti lunghi delle call vendute dai clienti e netti corti delle put comprate dai clienti. Non è inventario osservato; il posizionamento reale dei dealer non è direttamente osservabile dai dati pubblici della catena delle opzioni.
+
 La maggior parte dell'analisi di regime usa il Net GEX. Anche la magnitudine conta — un Net GEX di +$2 miliardi è un regime molto più marcato di +$200 milioni — ma il segno è la prima lettura.
 
 ### Gamma dei dealer via spot-shift contro aggregazione per strike
@@ -92,7 +94,7 @@ Ci sono due modi per estrarre informazioni di regime dalla chain:
 1. L'**aggregazione per strike** somma la gamma exposure con segno a ogni strike, allo spot odierno. È veloce e intuitiva.
 2. Il **gamma dei dealer via spot-shift** riprezza il gamma di ogni opzione a ogni prezzo spot ipotetico su una griglia, e poi somma per ottenere una *curva* del gamma dei dealer rispetto al prezzo. Lo zero-crossing di quella curva è il gamma flip; il valore allo spot odierno è il Net GEX-at-spot.
 
-L'approccio spot-shift ha un vantaggio strutturale: poiché il Net GEX principale e il gamma flip vengono letti dalla stessa curva, non possono contraddirsi a vicenda. Un Net GEX positivo corrisponde sempre a uno spot sopra il flip; uno negativo si trova sempre sotto. L'approccio per strike può produrre segni incoerenti quando la chain si sposta, motivo per cui l'approccio spot-shift è lo standard del settore per l'analisi di regime seria. La metodologia dietro l'implementazione di ZeroGEX è documentata in dettaglio in [GEX e il Gamma Flip — come li calcola ZeroGEX](/guides/gamma-flip-calculation-before-vs-after).
+ZeroGEX preferisce un profilo spot-shift perché valuta la gamma modellata su prezzi ipotetici del sottostante. Derivare il Net GEX principale e l'attraversamento selezionato dallo stesso profilo migliora la coerenza interna, mentre il risolutore deve comunque gestire attraversamenti multipli, deboli o assenti e differenze negli universi di scadenza. La metodologia dietro l'implementazione di ZeroGEX è documentata in dettaglio in [GEX e il Gamma Flip — come li calcola ZeroGEX](/guides/gamma-flip-calculation-before-vs-after).
 
 ---
 

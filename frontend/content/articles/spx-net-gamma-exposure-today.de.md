@@ -25,6 +25,12 @@ Net GEX ist die zentrale Kennzahl im übergeordneten [Gamma-Exposure](/education
 
 ---
 
+## Net GEX in „Dollar-Gamma“: was die Einheit bedeutet
+
+Net GEX wird in Dollar angegeben — „1,5 Mrd. $ Gamma“ —, weil es so skaliert ist, dass es eine Dollarfrage beantwortet: Wie viel S&P-Index-Exposure müssten Dealer ungefähr handeln, um sich neu abzusichern, wenn SPX sich um 1 % bewegt? Deshalb landen Suchen nach „SPX net GEX dollar gamma“ und „SPX net gamma exposure“ bei derselben Zahl: Dollar-Gamma *ist* Net GEX, ausgedrückt je 1-%-Bewegung. Das Vorzeichen trägt das Regime; die Dollar-Größe trägt, wie viel modelliertes Hedging dahintersteht. Ein Wert von +1,5 Mrd. $ und einer von +150 Mio. $ beschreiben dasselbe Regime mit dem zehnfachen Puffer.
+
+---
+
 ## So liest du die aktuelle Net-GEX-Lesart
 
 Zwei Fälle, entgegengesetzte Spielpläne:

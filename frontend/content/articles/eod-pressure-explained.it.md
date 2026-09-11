@@ -71,6 +71,8 @@ pin_score    = sign × normalized
 
 **Limite metodologico:** l’inversione in gamma negativo è un’euristica ZeroGEX, non una conseguenza meccanica. Il gamma negativo amplifica una direzione già in corso; la sola distanza dal target non determina tale direzione.
 
+**Limite metodologico:** l'inversione di segno in gamma negativo è un'euristica interna di ZeroGEX, non una conseguenza diretta della meccanica del gamma negativo. Il gamma negativo amplifica la direzione già in corso; la distanza dal target da sola non può determinare quella direzione. Il repository di analytics non era disponibile in questo workspace per una modifica sicura con implementazione e test, quindi questa documentazione identifica il limite invece di mascherarlo.
+
 
 
 ### Componente 3: Rampa temporale (il gate)

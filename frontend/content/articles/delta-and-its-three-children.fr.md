@@ -28,6 +28,8 @@ Voilà toute la famille. Gamma, charm et vanna sont les trois dérivées premiè
 
 C'est le modèle mental le plus clair pour le flux du dealer : un dealer ne couvre pas delta, il couvre la **variation** de delta. Et il n'existe précisément que trois canaux par lesquels cette variation peut arriver. Nommez le canal, et vous avez nommé le flux.
 
+C'est le modèle mental le plus propre du flux des dealers : un dealer ne couvre pas le delta, il couvre la **variation** du delta. Et trois canaux portent l'essentiel de cette variation. Nommez le canal et vous avez nommé le flux.
+
 ---
 
 ## Gamma : delta bouge parce que le prix a bougé

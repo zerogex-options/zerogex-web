@@ -60,9 +60,33 @@ Deshalb wirken Walls manche Tage so, als würden sie "funktionieren", und an and
 
 Walls werden nicht beim Open verkündet und bleiben bis zum Close bestehen. Sie wandern. Drei häufige Muster:
 
+**Breite.** Eine enge Wall-Spanne bedeutet, dass Gamma auf beiden Seiten nahe am Spot konzentriert ist. In einem Regime mit positivem Gamma ist das das klassische Pinning-Setup — Hedging lehnt sich in beide Richtungen gegen Bewegungen, und die Spanne hält tendenziell. Eine weite Spanne bedeutet, dass die nächsten dichten Strikes weit entfernt sind, sodass dazwischen weniger konzentriertes Hedging liegt und der Preis weiter laufen kann, bevor er auf welches trifft.
+
+**Asymmetrie.** Der Spot sitzt selten in der Mitte. Wenn eine Wall deutlich näher liegt als die andere, ist die nahe Wall das Level, das tatsächlich getestet wird, und die ferne ist überwiegend Kontext. Ein Spot 0,3 % unter der Call Wall und 1,4 % über der Put Wall ist ein anderer Tag als ein Spot auf halbem Weg zwischen beiden: Der erste hat einen kurzfristigen Entscheidungspunkt, der zweite nicht.
+
+Die Falle besteht darin, Breite oder Asymmetrie ohne das Regime zu lesen. Beide Lesarten oben setzen positives Gamma voraus. Unterhalb des Flip ist dieselbe enge Spanne kein Pin — sie ist eine kurze Distanz zwischen zwei Levels, durch die Hedging den Preis hindurchbewegen hilft.
+
+---
+
+## Wie Gamma Walls im Tagesverlauf wandern
+
+Walls werden nicht bei Eröffnung verkündet und halten dann bis zum Schluss. Sie wandern. Drei häufige Muster:
+
 1. **OI-Neugewichtung.** Frisches Volumen auf einem anderen Strike kann die stärkste Konzentration verschieben. Bis zur Sitzungsmitte kann ein neuer Strike die Wall sein.
 2. **Wall-Migration mit dem Preis.** Nähert sich der Preis der Call Wall, kann frisches Hedging OI knapp darüber aufbauen und die Wall damit effektiv nach oben schieben. Eine Wall, die dem Preis *folgt*, ist strukturell etwas anderes als eine, die *hält* — die Trap-Fade-These ist deutlich schwächer, wenn die Wall sich mit der Bewegung mitbewegt.
 3. **Verfallszerfall.** Nahe an Verfällen am selben Tag — besonders in Ketten mit hohem 0DTE-Anteil — können Walls bis zum frühen Nachmittag verschwinden, weil die Kontrakte, die sie gebildet haben, auslaufen. Die Wall, der du um 10:30 ET vertraut hast, ist um 14:30 ET womöglich nicht mehr die Wall.
+
+Eine Wall kann sich auch allein deshalb verschieben, weil sich Spot, Zeit und implizite Vol bewegen — der Strike mit der größten modellierten Exposure ändert sich, selbst wenn das Positioning gleich bleibt. Eine Gamma Wall ist der *aktuell* schwerste Strike nach modelliertem Gamma. Behandle sie als lebende Lesart, nicht als feste Linie.
+
+---
+
+## Gamma Walls zum Same-Day-Verfall
+
+0DTE ist der Bereich, in dem sich Wall-Verhalten am extremsten zeigt — in beide Richtungen.
+
+Gamma auf einer Same-Day-Chain ist nahe am Spot sehr groß und fällt von dort rasch ab, sodass die Walls eng am Preis liegen und die Konzentration an ihnen weit schwerer ist als auf einer länger laufenden Chain. Wenn das Regime es stützt, erzeugt das das stärkste Pinning, das man wahrscheinlich zu sehen bekommt — der Preis mahlt in einem engen Band zwischen zwei Walls, die nur wenige Punkte auseinanderliegen.
+
+Dieselbe Konzentration macht diese Walls instabil. Weil 0DTE-Gamma sich mit dem Spot und mit der laufenden Uhr scharf neu bewertet, kann eine 0DTE-Wall innerhalb einer Stunde mehrfach wandern, ohne dass eine einzige neue Position eröffnet wurde. Walls können auch verschwinden: Sobald Strikes deutlich im oder aus dem Geld landen, geht ihr modelliertes Gamma gegen null, und das Ranking sortiert sich um das herum neu, was nahe am Spot übrig bleibt.
 
 Ein Gamma Wall ist der *aktuell* stärkste Gamma-Strike. Behandle ihn als Live-Lesart, nicht als feste Linie.
 

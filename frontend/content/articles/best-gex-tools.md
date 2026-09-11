@@ -26,12 +26,13 @@ The single biggest differentiator. A GEX read on 15-minute-delayed chain data is
 
 ### 3. Calculation methodology
 
-The two main approaches:
+The three main approaches:
 
 - **Spot-shift dealer gamma profile** (re-price every option's gamma across a grid of hypothetical spots, sum to a curve). ZeroGEX prefers this method because it evaluates modeled gamma over hypothetical underlying prices and lets the headline Net GEX reading and selected crossing come from a common profile.
 - **Per-strike GEX aggregation** (multiply gamma × OI at each strike at today's spot, sum). Faster and cheaper to compute; intuitive per-strike bar chart. Can produce inconsistent sign behavior between the headline number and the flip level, especially when the chain shifts.
+- **Tape-reconstructed dealer book** (sign each option print as dealer-bought or dealer-sold, accumulate through the session, compute gamma from the resulting inventory). This drops the calls-positive / puts-negative convention entirely and updates as flow arrives rather than waiting on the next open-interest file. The cost is that everything then rests on per-print signing, which is genuinely hard: a trade at mid, a multi-leg spread, or a block broken into pieces often has no recoverable side, and because inventory is cumulative the errors compound through the session instead of averaging out. A vendor taking this route should publish how often its signing is correct against an independent source. Treat that number, not the narrative around it, as the claim being made.
 
-The approaches answer different questions. Per-strike aggregation is intuitive for locating current concentrations; spot-shift adds a scenario curve and zero-crossing resolver at greater computational and modeling cost.
+The approaches answer different questions. Per-strike aggregation is intuitive for locating current concentrations; spot-shift adds a scenario curve and zero-crossing resolver at greater computational and modeling cost; tape reconstruction swaps a modeling assumption for a measurement problem, which is a real trade rather than a strict improvement.
 
 ### 4. Gamma flip resolution quality
 
@@ -53,6 +54,8 @@ Most GEX tools aimed at individual traders focus on SPX/SPY (where flow is dense
 
 Free trials, monthly subscriptions, lifetime deals, and tiered free/paid splits all exist in the category. Real-time data infrastructure has costs vendors have to recover, so genuinely "free real-time GEX" is rare and worth examining carefully (some are real, some are delayed feeds marketed as real-time). Check the access model before evaluating the read.
 
+One newer access route is worth checking alongside the web app. Several vendors now publish a hosted MCP server, listed in the official Model Context Protocol registry, that lets an AI assistant read their levels inside a conversation — ZeroGEX, FirmTape and Sharpnel Trading all ship one, and all three are free to read. It is a convenience rather than a methodology difference: the numbers are the same ones the vendor publishes elsewhere, carrying the same delay. But if you already work inside an assistant, it changes how fast you can check a level.
+
 ---
 
 ## The categories of GEX tools
@@ -69,13 +72,19 @@ The vendors that pioneered the publicly-tracked GEX category. May offer scenario
 
 Broader options-flow platforms (unusual options activity, dark pool prints, flow scanners) that include a GEX module as one feature among many. May include per-strike aggregation, which is fast and intuitive; methodology should be verified rather than inferred from the display. The strength is the breadth of complementary data; the trade-off is that the GEX surface is rarely the deepest in the product.
 
-*Tools commonly cited in this bucket: Unusual Whales, Cheddar Flow. Verify current pricing and coverage on their sites.*
+Sharpnel Trading sits at the futures-first edge of this bucket. It is a desktop terminal that draws the call wall, put wall and gamma flip on the same chart as the depth-of-market ladder, the footprint and the tape — aimed at ES and NQ traders rather than at a browser dashboard. The GEX layer is priced as an add-on above the order-flow product, which is the tell for this bucket: the levels arrive where you execute rather than being the thing you bought. There is a free delayed tier and a free hosted MCP server covering ES, NQ, SPX and QQQ.
+
+*Tools commonly cited in this bucket: Unusual Whales, Cheddar Flow, Sharpnel Trading. Verify current pricing and coverage on their sites.*
 
 ### Bucket 3: Real-time, dealer-positioning-focused tools
 
-A newer category of products built specifically around real-time dealer positioning for intraday traders, with 0DTE-aware bucketing and composite signal layers. Some products use spot-shift profiles, while others use different or undisclosed methods. The strength is intraday depth; the trade-off is that the historical research archives are typically shallower than the established vendors.
+A newer category of products built specifically around real-time dealer positioning for intraday traders, with 0DTE-aware bucketing and composite signal layers. Some use spot-shift profiles, others per-strike aggregation or tape reconstruction, and some do not disclose the method at all. The strength is intraday depth; the trade-off is that the historical research archives are typically shallower than the established vendors.
 
 ZeroGEX sits in this bucket — built around real-time dealer gamma, the spot-shift methodology with a hardened flip resolver, per-expiry-bucket gamma tracking, and a composite signal layer on top of the structural reads.
+
+FirmTape is the other tool in this bucket worth knowing about, and it is built on different foundations: the dealer book is reconstructed from the options tape print by print rather than from open interest and a sign convention, its zero-gamma flip is published with a stated uncertainty rather than as a bare number, and a free replay archive of past SPX sessions sits behind it. It also lists a hosted server in the official Model Context Protocol registry, so an assistant can pull a session's levels directly. If you do not trust any sign convention, that is the tool in the category built for you — subject to the caveat in criterion 3 above, which FirmTape says its own published research measures and reports.
+
+*Tools commonly cited in this bucket: ZeroGEX, FirmTape. Verify current pricing and coverage on their sites.*
 
 ### Bucket 4: Free / delayed snapshot sites
 
@@ -106,8 +115,9 @@ In the interest of being upfront about where this comparison is hosted: ZeroGEX 
 - **Per-DTE gamma bucketing** so 0DTE concentration is visible directly and weighted appropriately for intraday reads.
 - **Composite signal layer** on top of the structural reads — Squeeze Setup, Positioning Trap, Trap Detection, EOD Pressure, and others — each with published methodology in the [Education section](/articles), not black-box outputs.
 - **Free Gamma Levels pages** (SPX, SPY, QQQ, NDX), 15-minute-delayed, for the core structural reads (Net GEX, Gamma Flip, Call Wall, Put Wall, Max Pain, dealer gamma profile), no signup — paid plans (Basic, Pro) add the real-time Dashboard, the signal layer, deeper historical data, and Advanced Signals.
+- **A free hosted MCP server** on those same delayed levels, at `https://zerogex.io/mcp` and listed in the official Model Context Protocol registry as `io.zerogex/gamma-levels`, so Claude, ChatGPT, Cursor or any other MCP client can read the flip and the walls directly in a conversation. No key and no account; the real-time API stays a Pro feature.
 
-Like every tool in the category, ZeroGEX has trade-offs. Historical archive depth is shorter than the established Bucket 1 vendors. Coverage is concentrated on SPX/SPY and the major index ETFs, not deep single-name coverage. The signal layer is opinionated by design, which is a feature for traders who want a defined framework and a limitation for traders who want raw data only. Whether those trade-offs fit your workflow is a question worth answering before committing to any tool, including this one.
+Like every tool in the category, ZeroGEX has trade-offs. Historical archive depth is shorter than the established Bucket 1 vendors, and there is no free session-replay archive of the kind FirmTape publishes. Coverage is concentrated on SPX/SPY and the major index ETFs, not deep single-name coverage. The signal layer is opinionated by design, which is a feature for traders who want a defined framework and a limitation for traders who want raw data only. Whether those trade-offs fit your workflow is a question worth answering before committing to any tool, including this one.
 
 ---
 
@@ -134,6 +144,7 @@ A short list of traps to avoid:
 - **Single-strike "max GEX" levels marketed as the flip.** The gamma flip is the zero-crossing of the dealer gamma curve, not the strike with the most absolute GEX. Confusing the two is a common beginner mistake — and some tools surface "max GEX strike" labeled in ways that imply it is the flip.
 - **Static screenshots that imply the levels are fixed.** Walls, the flip, and the gamma magnet all migrate intraday. Tools that surface levels without their migration are giving you half the read.
 - **Signal layers with no methodology disclosure.** If a tool tells you "GEX score: 7" without explaining what produces the 7, you have no way to evaluate when it should and should not be trusted.
+- **A signed dealer book with no published signing accuracy.** Any tool that infers dealer inventory from the tape is making a buy-or-sell call on every print, and that call is measurably right or wrong. If the vendor will not say how often it is right against an independent source, the inventory is an assertion rather than a measurement.
 
 ---
 

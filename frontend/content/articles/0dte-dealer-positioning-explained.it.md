@@ -20,6 +20,8 @@ Questo articolo è la lettura pratica di cosa significano realmente in tempo rea
 
 Il posizionamento dei dealer 0DTE è l'esposizione gamma aggregata che i dealer detengono su opzioni con scadenza lo stesso giorno. Meccanicamente, non è diverso dalla gamma dei dealer a scadenza più lunga — secondo la convenzione standard i dealer sono lunghi di call (i clienti le vendono in overwriting) e corti di put (i clienti le comprano per protezione), quindi l'inventario di call lunghe contribuisce positivamente alla gamma dei dealer mentre l'inventario di put corte contribuisce negativamente, e il riflesso di hedging è lo stesso: mantenere il delta piatto, tradare il sottostante man mano che la gamma cambia.
 
+> Questo segno dei dealer è una convenzione modellata, non inventario osservato — il posizionamento reale non è direttamente osservabile dall'open interest pubblico.
+
 Ciò che rende diverso 0DTE è la **densità di gamma**. Le opzioni con scadenza giornaliera portano la loro gamma massima proprio a livello del prezzo di mercato, e la gamma per contratto scala approssimativamente con `1/√T`. Con `T` misurato in frazioni di giorno, quel denominatore è piccolo — e la gamma per contratto diventa molto grande. Uno strike 0DTE vicino allo spot può superare uno strike mensile allo stesso livello di un ordine di grandezza.
 
 L'implicazione pratica: il bucket 0DTE detta in modo sproporzionato l'hedging intraday dei dealer. Anche quando l'open interest totale è dominato da strike a scadenza più lunga, l'esposizione *ponderata per gamma* vicino allo spot è spesso una storia 0DTE.

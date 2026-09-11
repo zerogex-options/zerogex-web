@@ -1,0 +1,23 @@
+[Unit]
+Description=ZeroGEX web grace-expiry warning email timer (~every 4h)
+
+[Timer]
+# Every 4 hours, at :35 so it misses the hourly auth backup (:00), the
+# cancellation-alert sweep (every 15m), the trial-reminder timer (00/6:15),
+# card-expiry (04:20) and reactivation (:40).
+#
+# The cadence is bounded by the send window, not by load: the script warns a
+# member once their grace window has <= 24h left, so a sweep interval well under
+# that leaves plenty of room to catch everyone. At 4h the worst case is a member
+# crossing into the band right after a run and being warned ~20h before access
+# drops — still a full evening to fix a card. Widening this past ~12h starts
+# eating the warning's whole purpose, and the script's own "window elapsed
+# without a warning" counter is the signal that it has been widened too far.
+OnCalendar=00/4:35:00
+# Spread load across deploys / coalesce if many boxes hit the same minute.
+RandomizedDelaySec=5m
+# If the box was down at the scheduled time, run as soon as it is back up.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

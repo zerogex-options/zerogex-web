@@ -80,6 +80,12 @@ export const HELP_ARTICLES: HelpArticle[] = [
     section: 'Metrics',
   },
   {
+    slug: 'hedging-flow',
+    title: 'Hedging Flow',
+    description: "Estimated dealer hedging pressure created by today's option trades, against price.",
+    section: 'Metrics',
+  },
+  {
     slug: 'smart-money',
     title: 'Smart Money',
     description: 'The smart-money screen and the C/P ratio.',
@@ -95,6 +101,13 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'technicals',
     title: 'Technicals',
     description: 'The intraday technical snapshot — price, candles, volatility gauges.',
+    section: 'Metrics',
+  },
+  {
+    slug: 'spread-monitor',
+    title: 'Spread Monitor',
+    description:
+      'Quoted bid/ask width and liquidity across the chain — whether the market is tradeable, not just what it means.',
     section: 'Metrics',
   },
   {
@@ -149,6 +162,13 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'api-access',
     title: 'API Access & Keys (Pro)',
     description: 'Reading the API docs, what Pro unlocks, and the rate-limit model.',
+    section: 'API & Data Access',
+  },
+  {
+    slug: 'mcp-server',
+    title: 'The ZeroGEX MCP Server (free, no key)',
+    description:
+      'Connect Claude, ChatGPT or Cursor to the free delayed gamma levels — no key, no account.',
     section: 'API & Data Access',
   },
   {

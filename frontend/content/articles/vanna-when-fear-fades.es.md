@@ -73,3 +73,5 @@ Cuando el susto que nunca llega finalmente pasa, el miedo tiene que desmontarse 
 Para el hermano gobernado por el reloj, ver [Charm: el reloj es un trader](/education/charm-the-clock-is-a-trader); para los fundamentos, ver [Por qué los market makers están obligados a negociar acciones](/education/why-market-makers-trade-stock); y para ver la escalera de vanna moverse con el libro de hoy, abre la página en vivo [Forced Flow](/forced-flow).
 
 Contenido solo con fines educativos — nada de lo anterior es una recomendación de trading.
+
+> Bajo la convención tradicional de dealer largo de calls y corto de puts, algunas configuraciones de la cadena pueden generar presión compradora modelada sobre el subyacente cuando cae la volatilidad implícita. El signo depende de la propiedad, el tipo de opción, la moneyness, el vencimiento, el skew y de cómo cambia la superficie de volatilidad; comprar no es una propiedad inherente de la vanna.

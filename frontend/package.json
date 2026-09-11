@@ -39,6 +39,7 @@
     "test:chart-viewport": "node --experimental-strip-types --test tests/chartViewport.test.ts",
     "test:symbol-persistence": "node --experimental-strip-types --test tests/symbolPersistence.test.ts",
     "test:futures-symbols": "node --experimental-strip-types --test tests/futuresSymbols.test.ts",
+    "test:spread-monitor": "node --experimental-strip-types --test tests/spreadMonitor.test.ts",
     "test:expiration-persistence": "node --experimental-strip-types --test tests/expirationPersistence.test.ts",
     "test:trial-engagement": "node --experimental-strip-types --test tests/trialEngagement.test.ts",
     "test:renewal-engagement": "node --experimental-strip-types --test tests/renewalEngagement.test.ts",
@@ -47,7 +48,11 @@
     "test:my-dashboard": "node --experimental-strip-types --test tests/myDashboardLayout.test.ts",
     "test:pro-welcome": "node --experimental-strip-types --test tests/proWelcome.test.ts",
     "test:welcome-api-key": "node --experimental-strip-types --test tests/welcomeEmailApiKey.test.ts",
+    "test:decline-reason": "node --experimental-strip-types --test tests/declineReason.test.ts",
+    "test:billing-user": "node --experimental-strip-types --test tests/billingUser.test.ts",
     "test:payment-grace": "node --experimental-strip-types --test tests/paymentGrace.test.ts",
+    "test:grace-expiry-warning": "node --experimental-strip-types --test tests/graceExpiryWarning.test.ts",
+    "test:payment-method-drift": "node --experimental-strip-types --test tests/paymentMethodDrift.test.ts",
     "test:subscriber-bucket": "node --experimental-strip-types --test tests/subscriberBucket.test.ts",
     "test:payment-setup": "node --experimental-strip-types --test tests/paymentSetup.test.ts",
     "test:api-tier-gate": "node --experimental-strip-types --test tests/apiTierGate.test.ts",
@@ -96,7 +101,10 @@
     "test:chart-hero": "node --experimental-strip-types --test tests/chartHeroDisclosure.test.ts",
     "test:gamma-terminal": "node --experimental-strip-types --test tests/gammaTerminal.test.ts",
     "test:gex-ribbons": "node --experimental-strip-types --test tests/gexRibbons.test.ts",
-    "test:flip-status-chip": "node --experimental-strip-types --test tests/flipStatusChip.test.ts"
+    "test:strike-history": "node --experimental-strip-types --test tests/strikeHistory.test.ts",
+    "test:flip-status-chip": "node --experimental-strip-types --test tests/flipStatusChip.test.ts",
+    "test:mcp": "node --experimental-strip-types --test tests/mcp.test.ts",
+    "verify:mcp": "bash scripts/verify-mcp.sh"
   },
   "dependencies": {
     "jose": "^5.9.6",

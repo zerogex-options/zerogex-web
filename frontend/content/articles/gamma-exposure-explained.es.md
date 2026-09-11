@@ -94,7 +94,7 @@ Hay dos maneras de extraer información de régimen de la cadena:
 1. La **agregación por strike** suma la gamma exposure con signo en cada strike al spot de hoy. Es rápida e intuitiva.
 2. El **gamma de dealers vía spot-shift** recalcula el gamma de cada opción para cada precio spot hipotético en una cuadrícula, y luego suma para obtener una *curva* del gamma de los dealers frente al precio. El cruce por cero de esa curva es el gamma flip; el valor en el spot de hoy es el Net GEX-at-spot.
 
-El enfoque de spot-shift tiene una ventaja estructural: como el Net GEX principal y el gamma flip se leen de una única curva, no pueden contradecirse entre sí. Un Net GEX positivo siempre corresponde a un spot por encima del flip; uno negativo siempre está por debajo. El enfoque por strike puede producir signos inconsistentes cuando la cadena se desplaza, razón por la cual el enfoque de spot-shift es el estándar del sector para el análisis de régimen serio. La metodología detrás de la implementación de ZeroGEX está documentada en detalle en [GEX y el Gamma Flip: cómo los calcula ZeroGEX](/guides/gamma-flip-calculation-before-vs-after).
+ZeroGEX prefiere un perfil spot-shift porque evalúa la gamma modelada sobre precios hipotéticos del subyacente. Derivar el Net GEX principal y el flip seleccionado del mismo perfil mejora la consistencia interna, mientras que el resolutor todavía debe manejar cruces múltiples, débiles o ausentes y diferencias en los universos de vencimientos. La metodología detrás de la implementación de ZeroGEX está documentada en detalle en [GEX y el Gamma Flip: cómo los calcula ZeroGEX](/guides/gamma-flip-calculation-before-vs-after).
 
 ---
 

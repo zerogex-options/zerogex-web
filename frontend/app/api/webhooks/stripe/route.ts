@@ -31,6 +31,13 @@ import {
   priceIdToTier,
 } from '@/core/stripe';
 import { decidePaymentGrace, graceWindowEndIso } from '@/core/paymentGrace';
+// The customer lookup and its soft-delete guard live in core/ so the guard is
+// unit-testable against a real schema — see tests/billingUser.test.ts.
+import {
+  findUserByCustomerId,
+  findUserByCustomerIdIncludingDeleted,
+  type BillingUserRow as UserRow,
+} from '@/core/billingUser';
 import {
   buildRecoverySubscriptionParams,
   decideDiscountCarryOver,
@@ -74,48 +81,6 @@ import { TwitterEvent } from '@/core/telemetry/twitter-events';
 
 export const runtime = 'nodejs';
 
-type UserRow = {
-  id: string;
-  email: string;
-  founding_member_started_at: string | null;
-  founding_lifetime_applied_at: string | null;
-  referred_by_code: string | null;
-  referral_credit_months: number;
-  stripe_customer_id: string | null;
-  stripe_subscription_id: string | null;
-  // Last-synced tier, read pre-UPDATE so a drop out of Pro can trigger
-  // auto-revocation of the member's personal API keys.
-  tier: string;
-  // Last-synced price id, read pre-UPDATE so a plan/cadence switch (old price
-  // != new price) can be detected and the member's rate carried across it.
-  stripe_price_id: string | null;
-  // Last-synced Stripe status, used to detect transitions (e.g. trialing →
-  // active) so the funnel events fire exactly once on the actual change.
-  subscription_status: string | null;
-  // Last-synced cancel_at_period_end flag (0/1). Read pre-UPDATE so the
-  // 0→1 transition fires the cancellation acknowledgment email once.
-  cancel_at_period_end: number;
-  // ISO timestamp anchoring an open payment-recovery grace window, or null.
-  // Read pre-UPDATE so each past_due sync can enforce the bounded window
-  // (see the grace block in syncSubscriptionToUser).
-  payment_grace_started_at: string | null;
-  // Which failure opened that window ('renewal' | 'trial'), or null when none is
-  // open. Read pre-UPDATE so the follow-up past_due syncs (whose previousStatus
-  // is itself `past_due`) carry the original cohort forward instead of losing it.
-  payment_grace_reason: string | null;
-  // Last-synced pause auto-resume instant (ISO), or null when not paused. Read
-  // pre-UPDATE so a pause→resume transition can be detected for the audit log.
-  paused_until: string | null;
-  // Stamp for the trial-conversion confirmation email, or null when it hasn't
-  // been sent. Read only as a cheap short-circuit (see
-  // maybeSendTrialConvertedEmail) — the CAS UPDATE there stays the authority.
-  trial_converted_email_sent_at: string | null;
-  // ISO instant this member's first subscription invoice was actually PAID, or
-  // null if none ever has been. Read as a cheap short-circuit for the once-per
-  // -account stamp in maybeStampFirstPayment; the CAS UPDATE there is the
-  // authority. See core/db.ts for why subscription_status can't answer this.
-  first_payment_at: string | null;
-};
 
 // `past_due` is intentionally NOT active: once a payment fails Stripe moves
 // the subscription to past_due and emits customer.subscription.updated, so
@@ -233,19 +198,6 @@ function formatInvoiceAmount(
   }
 }
 
-function findUserByCustomerId(customerId: string): UserRow | null {
-  const row = getDb()
-    .prepare(
-      `SELECT id, email, tier, founding_member_started_at, founding_lifetime_applied_at,
-              referred_by_code, referral_credit_months, stripe_customer_id, stripe_subscription_id,
-              stripe_price_id, subscription_status, cancel_at_period_end, payment_grace_started_at,
-              payment_grace_reason, paused_until, trial_converted_email_sent_at,
-              first_payment_at
-       FROM users WHERE stripe_customer_id = ?`,
-    )
-    .get(customerId) as UserRow | undefined;
-  return row ?? null;
-}
 
 function logAudit(input: { type: string; userId?: string; email?: string; message: string }) {
   getDb()
@@ -263,6 +215,27 @@ function logAudit(input: { type: string; userId?: string; email?: string; messag
       input.message,
       nowIso(),
     );
+}
+
+// Money arrived against an account the person asked us to delete. Every branch
+// under invoice.paid correctly no-ops on it now — findUserByCustomerId skips
+// deleted rows — but silence is the wrong outcome. A deleted account keeps its
+// still-open invoices, and their Stripe-hosted payment pages stay live
+// indefinitely, so a payment landing here is most likely one we owe back. This
+// is the only thing in the system that would ever surface it. Audit-only, by
+// design: it deliberately restores nothing.
+function auditPaymentOnDeletedAccount(invoice: Stripe.Invoice): void {
+  const customerId =
+    typeof invoice.customer === 'string' ? invoice.customer : (invoice.customer?.id ?? null);
+  if (!customerId) return;
+  const user = findUserByCustomerIdIncludingDeleted(customerId);
+  if (!user?.deleted_at) return;
+  logAudit({
+    type: 'stripe_paid_invoice_on_deleted_account',
+    userId: user.id,
+    email: user.email,
+    message: `Invoice ${invoice.id} was paid on an account deleted at ${user.deleted_at}. Nothing was granted or emailed — review for a refund.`,
+  });
 }
 
 // Best-effort auto-revoke of a member's personal API keys when their tier
@@ -1696,8 +1669,17 @@ async function maybeRecoverOrphanPayment(invoice: Stripe.Invoice): Promise<void>
     return;
   }
 
-  const carriedSuffix = carryOver.carry.length
-    ? `; carried forever coupon(s) ${carryOver.carry.join(', ')}`
+  // Name each carried coupon with its duration, and say outright when one has
+  // restarted its clock — a repeating promo re-applied in full grants the
+  // months already used a second time, which an operator reading this row
+  // months later must not have to infer.
+  const carriedSuffix = carryOver.carried.length
+    ? `; carried coupon(s) ${carryOver.carried
+        .map(
+          (c) =>
+            `${c.couponId} (duration=${c.duration}${c.restartsClock ? ', clock restarted — re-grants any months already used' : ''})`,
+        )
+        .join(', ')}`
     : '';
   const droppedSuffix = droppedParams.length
     ? `; Stripe rejected ${droppedParams.join(', ')} — recreated without them`
@@ -1758,7 +1740,12 @@ async function maybeRecoverOrphanPayment(invoice: Stripe.Invoice): Promise<void>
 async function clearSubscriptionFromUser(subscription: Stripe.Subscription) {
   const customerId =
     typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id;
-  const user = findUserByCustomerId(customerId);
+  // Includes deleted accounts on purpose: this only CLEARS state (tier to
+  // public, subscription ids nulled, grace anchor released). A self-delete
+  // cancels the subscription, so this branch runs for deleted users routinely,
+  // and skipping it would strand a retained row still claiming a live paid
+  // subscription. It grants nothing and sends nothing.
+  const user = findUserByCustomerIdIncludingDeleted(customerId);
   if (!user) return;
 
   // subscription_lapsed = 1 is the signal maybeSendPaidWelcomeEmail consumes
@@ -2019,6 +2006,11 @@ export async function POST(request: NextRequest) {
         // commission ledger row via UNIQUE(stripe_invoice_id) — retries
         // and out-of-order deliveries are safe.
         const invoice = event.data.object as Stripe.Invoice;
+        // Flag a payment on a deleted account before anything else runs. The
+        // branches below all no-op for one; this is what stops that no-op from
+        // being invisible. Partner commission still accrues either way — the
+        // partner earned it, and that ledger is about them, not the customer.
+        auditPaymentOnDeletedAccount(invoice);
         const outcome = await maybeAccruePartnerCommission(invoice);
         if (outcome.kind === 'accrued') {
           logAudit({
@@ -2057,7 +2049,13 @@ export async function POST(request: NextRequest) {
         // the refund is a fact even if that lookup throws.
         const customerId =
           typeof charge.customer === 'string' ? charge.customer : charge.customer?.id ?? null;
-        const refundedUser = customerId ? findUserByCustomerId(customerId) : null;
+        // Includes deleted accounts: this is an audit row, not an entitlement.
+        // A refund to someone who has since deleted their account is exactly
+        // when the operator most needs the row attributed to a name rather than
+        // a bare customer id.
+        const refundedUser = customerId
+          ? findUserByCustomerIdIncludingDeleted(customerId)
+          : null;
         // amount_refunded is CUMULATIVE, not this event's delta: a second
         // partial refund reports the running total. Always stating it as
         // "X of Y charged" keeps that unambiguous instead of reading as the
@@ -2263,7 +2261,9 @@ export async function POST(request: NextRequest) {
         const si = event.data.object as Stripe.SetupIntent;
         const customerId =
           typeof si.customer === 'string' ? si.customer : si.customer?.id ?? null;
-        const user = customerId ? findUserByCustomerId(customerId) : null;
+        // Includes deleted accounts: audit attribution only, same as the refund
+        // row above. Nothing here grants or sends.
+        const user = customerId ? findUserByCustomerIdIncludingDeleted(customerId) : null;
         const reason =
           si.last_setup_error?.decline_code || si.last_setup_error?.code || 'unknown';
         logAudit({
