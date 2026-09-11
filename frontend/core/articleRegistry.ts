@@ -157,6 +157,18 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     readMinutes: 16,
     kind: 'pillar',
   },
+  'gamma-vwap-confluence-explained': {
+    slug: 'gamma-vwap-confluence-explained',
+    href: '/education/gamma-vwap-confluence-explained',
+    title: 'Gamma / VWAP Confluence Explained — and Why Two Symbols Can Disagree',
+    blurb:
+      'What the confluence score measures, how the cluster is built from the gamma flip and VWAP, why cluster quality matters more than the sign, and why the gamma regime inverts the same picture from a fade into a breakout — so SPX, SPY and QQQ can legitimately point opposite ways on the same afternoon.',
+    description:
+      'Gamma / VWAP Confluence explained — how the cluster is built, why the gamma regime inverts the reading, and why two symbols can score opposite at the same moment.',
+    datePublished: '2026-09-11',
+    readMinutes: 8,
+    kind: 'tier2',
+  },
   'pin-strike-explained': {
     slug: 'pin-strike-explained',
     href: '/education/pin-strike-explained',
