@@ -22,6 +22,8 @@ import {
   putCallReadout,
   sessionDrift,
   widestBucket,
+  widestExpiration,
+  dteLabel,
   SPREAD_SYMBOLS,
   type Verdict,
 } from '@/core/spreadMonitor';
@@ -33,6 +35,7 @@ import {
 } from '@/hooks/useSpreadMonitor';
 
 import CrossSymbolTable from './CrossSymbolTable';
+import ExpirationCurve from './ExpirationCurve';
 import MoneynessCurve from './MoneynessCurve';
 import SpreadHistoryChart from './SpreadHistoryChart';
 import SpreadSessionChart from './SpreadSessionChart';
@@ -70,7 +73,9 @@ const BAND_CHOICES = [2, 5, 10] as const;
 /** Days to expiration included. 0 isolates the 0DTE book. */
 const DTE_CHOICES = [0, 1, 7, 30] as const;
 
-function dteLabel(dte: number): string {
+/** The scope CHIP label ("Through 7DTE"), distinct from core's `dteLabel`,
+ *  which names a single expiry on a chart axis ("7d"). */
+function scopeChipLabel(dte: number): string {
   if (dte === 0) return '0DTE only';
   if (dte === 1) return 'Through 1DTE';
   return `Through ${dte}DTE`;
@@ -155,7 +160,11 @@ export default function SpreadMonitorPage() {
 
   const { data, loading, error, refetch } = useSpreadSnapshot(symbol, scope);
   const { data: series } = useSpreadSeries(symbol, { ...scope, bucketMinutes: 15 });
+  // Both sides of the book, so the daily record can show the put/call cut
+  // rather than the puts alone. Separate requests because the rollup stores
+  // one row per option type — medians do not combine.
   const { data: history } = useSpreadHistory(symbol, 'P', HISTORY_DAYS, !futures);
+  const { data: callHistory } = useSpreadHistory(symbol, 'C', HISTORY_DAYS, !futures);
   const { data: compare } = useSpreadCompare(SPREAD_SYMBOLS, scope);
 
   const putVerdict = percentileVerdict(
@@ -166,6 +175,7 @@ export default function SpreadMonitorPage() {
   const coverage = coverageReadout(data?.all);
   const drift = sessionDrift(series?.bars, 'puts');
   const worstPutBucket = widestBucket(data?.puts_by_moneyness);
+  const worstExpiry = widestExpiration(data?.by_expiration);
 
   if (futures) {
     return (
@@ -202,7 +212,7 @@ export default function SpreadMonitorPage() {
           <div className="flex flex-wrap items-center gap-2">
             {DTE_CHOICES.map((choice) => (
               <Chip key={choice} active={dteMax === choice} onClick={() => setDteMax(choice)}>
-                {dteLabel(choice)}
+                {scopeChipLabel(choice)}
               </Chip>
             ))}
             <span className="mx-1 opacity-40">|</span>
@@ -387,9 +397,26 @@ export default function SpreadMonitorPage() {
           <Panel
             title="By expiration"
             tooltip="Per-expiration rather than per-DTE-bucket. A range like '2-7 DTE' blends Wednesday's expiry with Friday's, and those routinely differ by more than the change worth noticing."
-            sub="Nearest expiry first — quotes go first where time does."
+            sub={
+              worstExpiry ? (
+                <>
+                  Widest puts are <strong>{dteLabel(worstExpiry.dte)}</strong> at{' '}
+                  {formatPct(worstExpiry.pct)} of premium. Nearest expiry first —
+                  quotes go first where time does.
+                </>
+              ) : (
+                'Nearest expiry first — quotes go first where time does.'
+              )
+            }
           >
-            <div className="overflow-x-auto">
+            <ExpirationCurve slices={data.by_expiration} />
+            {/* The table is not redundant with the chart above it. The chart
+                carries the shape — which expiry is worst, and by how much
+                against the other side of the book. The table carries the
+                exact values and the two columns the chart deliberately does
+                not put on a second y-scale: width against the index, and
+                what share has no bid at all. */}
+            <div className="mt-4 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr
@@ -450,7 +477,10 @@ export default function SpreadMonitorPage() {
           >
             {history ? (
               <>
-                <SpreadHistoryChart rows={history.rows} />
+                <SpreadHistoryChart
+                  putRows={history.rows}
+                  callRows={callHistory?.rows ?? []}
+                />
                 {(history.excluded_thin_sessions ?? 0) > 0 && (
                   <p
                     className="mt-2 text-[11px] leading-relaxed"

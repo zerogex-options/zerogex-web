@@ -14,6 +14,7 @@ import assert from 'node:assert/strict';
 import {
   EMPTY,
   coverageReadout,
+  dteLabel,
   formatBps,
   formatCrossCost,
   formatMultiple,
@@ -24,6 +25,8 @@ import {
   putCallReadout,
   sessionDrift,
   widestBucket,
+  widestExpiration,
+  type ExpirationSlice,
   type MoneynessBucket,
   type SpreadAggregate,
   type SpreadSeriesBar,
@@ -250,6 +253,40 @@ test('widest bucket is null when nothing qualifies', () => {
     widestBucket([bucket({ median_relative_spread_pct: 40, tradable_count: 1 })]),
     null,
   );
+});
+
+function slice(dte: number, puts: number | null, calls: number | null = 2): ExpirationSlice {
+  return {
+    expiration: `2026-09-${11 + dte}`,
+    dte,
+    puts: aggregate({ median_relative_spread_pct: puts }),
+    calls: aggregate({ median_relative_spread_pct: calls }),
+    all: aggregate(),
+  };
+}
+
+test('the widest expiration is read off the puts, not the blended chain', () => {
+  // Orderly calls on the same expiry must not mask a wide put wing.
+  const out = widestExpiration([slice(0, 8.4, 2.9), slice(1, 6.2, 30)]);
+  assert.equal(out?.dte, 0);
+  assert.equal(out?.pct, 8.4);
+});
+
+test('an expiration with no put market is skipped, not treated as zero', () => {
+  const out = widestExpiration([slice(0, null), slice(4, 3.1)]);
+  assert.equal(out?.dte, 4);
+});
+
+test('widest expiration is null when nothing is quoted', () => {
+  assert.equal(widestExpiration([]), null);
+  assert.equal(widestExpiration(null), null);
+  assert.equal(widestExpiration([slice(0, null), slice(1, null)]), null);
+});
+
+test('dteLabel names an expiry the way a trader says it', () => {
+  assert.equal(dteLabel(0), '0DTE');
+  assert.equal(dteLabel(1), '1d');
+  assert.equal(dteLabel(7), '7d');
 });
 
 test('moneyness labels read as a distance from spot, with a side', () => {

@@ -370,6 +370,34 @@ export function widestBucket(
   return worst;
 }
 
+/**
+ * The expiration whose puts are quoted widest, for the panel's standfirst.
+ *
+ * Puts specifically, not the blended chain: the question the page is here to
+ * answer is where the DOWNSIDE is expensive, and a blend would let orderly
+ * calls mask a wide put wing on the same expiry.
+ *
+ * Expirations with no put market are skipped rather than treated as zero —
+ * "no market" is not "free to cross".
+ */
+export function widestExpiration(
+  slices: readonly ExpirationSlice[] | null | undefined,
+): { dte: number; pct: number } | null {
+  if (!slices) return null;
+  let worst: { dte: number; pct: number } | null = null;
+  for (const slice of slices) {
+    const pct = slice.puts.median_relative_spread_pct;
+    if (pct == null || !Number.isFinite(pct)) continue;
+    if (worst == null || pct > worst.pct) worst = { dte: slice.dte, pct };
+  }
+  return worst;
+}
+
+/** `0` → `0DTE`; anything else → `4d`. The label traders actually use. */
+export function dteLabel(dte: number): string {
+  return dte === 0 ? '0DTE' : `${dte}d`;
+}
+
 /** `-5.0% to -3.0%` → `5.0–3.0% below spot`; reads better in a chart axis. */
 export function moneynessAxisLabel(bucket: MoneynessBucket): string {
   const { moneyness_low_pct: low, moneyness_high_pct: high } = bucket;
