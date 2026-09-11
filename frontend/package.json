@@ -23,7 +23,6 @@
     "test:news-headlines": "node --experimental-strip-types --test tests/newsHeadlines.test.ts",
     "test:mrr": "node --experimental-strip-types --test tests/mrr.test.ts",
     "test:campaigns": "node --experimental-strip-types --test tests/campaigns.test.ts",
-    "test:patriot-pledge": "node --experimental-strip-types --test tests/patriotPledge.test.ts",
     "test:stripe-invoice-preview": "node --experimental-strip-types --test tests/stripeInvoicePreview.test.ts",
     "test:newsletter-offers": "node --experimental-strip-types --test tests/newsletterOffers.test.ts",
     "test:backtest-featured": "node --experimental-strip-types --test tests/backtestFeatured.test.ts",
