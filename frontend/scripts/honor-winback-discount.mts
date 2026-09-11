@@ -2,7 +2,7 @@
 // Run from the frontend/ directory (nvm 22):
 //   node --experimental-strip-types --no-warnings scripts/honor-winback-discount.mts \
 //     --email <addr> [--coupon <coupon_id> | --create-coupon [--percent N]] \
-//     [--keep-cancellation] [--dry-run | --yes]
+//     [--stack] [--keep-cancellation] [--dry-run | --yes]
 //
 // Honors the evergreen win-back "reply 'discount'" offer for ONE member by hand
 // — the manual twin of the automated ?winback=1 checkout path. Use it when a
@@ -10,12 +10,23 @@
 // note) and you want to keep them on their EXISTING subscription, with no
 // re-subscribe and no re-entered card. It does two things atomically:
 //
-//   1. STACKS a "25% off for one year" coupon on top of whatever discounts are
-//      already on the subscription. It never strips or replaces an existing
-//      coupon (a public promo, a referral bonus, anything hand-applied) — the
-//      new coupon is ADDED so both ride the next invoice. This is deliberately
-//      the opposite of scripts/fix-plan-switch-discount.mts, which RECONCILES
-//      (strips stale cadence-specific coupons). Here we are granting, not fixing.
+//   1. Applies a "<percent>% off for one year" coupon alongside whatever
+//      discounts are already on the subscription. Someone else's discount — a
+//      public promo, a referral bonus, a founding intro or lifetime coupon,
+//      anything hand-applied — is never stripped: the new coupon is ADDED so
+//      both ride the next invoice. In that sense this is still the opposite of
+//      scripts/fix-plan-switch-discount.mts, which RECONCILES stale
+//      cadence-specific coupons; here we are granting, not fixing.
+//
+//      The ONE exception is an earlier grant from this same script. Two
+//      win-back coupons on one subscription compound (Stripe applies discounts
+//      sequentially), so honoring 30% over an existing 50% would bill 65% off —
+//      a rate nobody chose and nobody was promised. The earlier win-back coupon
+//      is therefore SUPERSEDED rather than stacked under the new one, and the
+//      plan prints a "Superseding:" line naming what comes off. --stack keeps
+//      the old pure-stacking behavior for the deliberate exception.
+//      isWinbackFamilyCoupon defines "from this script"; it is deliberately
+//      narrow, so no other discount family is ever eligible for removal.
 //
 //   2. Clears cancel_at_period_end (unless --keep-cancellation) so the offer
 //      actually retains them: a trialing sub converts to paid at trial_end
@@ -24,7 +35,7 @@
 //      --off, including clearing cancel_ack_email_sent_at so a future re-cancel
 //      can re-send the acknowledgment.)
 //
-// The coupon to stack is resolved in this order:
+// The coupon to apply is resolved in this order:
 //   --coupon <id>                         pin an exact, already-created coupon.
 //   STRIPE_COUPON_WINBACK_<TIER>_<CADENCE> the standing win-back coupon for the
 //                                         member's plan (by design this IS the
@@ -43,7 +54,7 @@
 //   --percent N, env coupon is N%   → standing env coupon (no duplicate minted).
 //   --percent N, env coupon is not  → refuses, and names both ways out:
 //                                     --create-coupon to mint/reuse at N%
-//                                     (this DOES override the env coupon), or
+//                                     (PICKED over the env coupon), or
 //                                     drop --percent to take the standing rate.
 // Before this, the env coupon won unconditionally and --create-coupon was dead
 // code on any deploy that set it, so `--percent 50` against a 25% standing
@@ -114,6 +125,11 @@ type Args = {
   // happens to say this" — and that distinction decides whether an explicit
   // request outranks the standing env coupon below.
   percentExplicit: boolean;
+  // Preserve the old pure-stacking behavior: add the new coupon and leave every
+  // existing one in place, including a previous win-back grant. Off by default
+  // because two win-back coupons on one subscription compound into a rate
+  // nobody chose; on for the deliberate exception.
+  stack: boolean;
   keepCancellation: boolean;
   dryRun: boolean;
   yes: boolean;
@@ -149,6 +165,7 @@ function parseArgs(argv: string[]): Args {
     createCoupon: false,
     percent: DEFAULT_PERCENT,
     percentExplicit: false,
+    stack: false,
     keepCancellation: false,
     dryRun: false,
     yes: false,
@@ -167,7 +184,8 @@ function parseArgs(argv: string[]): Args {
       }
       args.percent = value;
       args.percentExplicit = true;
-    } else if (arg === '--keep-cancellation') args.keepCancellation = true;
+    } else if (arg === '--stack') args.stack = true;
+    else if (arg === '--keep-cancellation') args.keepCancellation = true;
     else if (arg === '--dry-run') args.dryRun = true;
     else if (arg === '--yes' || arg === '-y') args.yes = true;
     else if (arg === '--help' || arg === '-h') args.help = true;
@@ -184,13 +202,15 @@ function usage() {
   console.log(`Usage:
   node --experimental-strip-types --no-warnings scripts/honor-winback-discount.mts \\
     --email <addr> [--coupon <coupon_id> | --create-coupon [--percent N]] \\
-    [--keep-cancellation] [--dry-run | --yes]
+    [--stack] [--keep-cancellation] [--dry-run | --yes]
 
-Honors the manual win-back "reply 'discount'" offer for one member: STACKS a
-"<percent>% off for one year" coupon on top of any discounts already on their
+Honors the manual win-back "reply 'discount'" offer for one member: applies a
+"<percent>% off for one year" coupon alongside any discounts already on their
 subscription, and (by default) stops a scheduled cancellation so the sub
 converts (trial) or renews (active) on the card already on file — no
-re-subscribe. Existing coupons are preserved, never stripped.
+re-subscribe. Other discount families (promo, referral, founding) are preserved,
+never stripped; an EARLIER WIN-BACK coupon is superseded rather than stacked
+under the new one, so the two rates cannot compound (--stack to keep it).
 
 Coupon resolution (first match wins):
       --coupon <id>       Pin an exact, already-created coupon to stack.
@@ -211,6 +231,12 @@ Coupon resolution (first match wins):
                           standing rate.
 
 Other:
+      --stack             Keep an earlier win-back coupon in place instead of
+                          superseding it, so both ride the next invoice and the
+                          rates compound. Off by default: two win-back grants on
+                          one sub bill a rate nobody promised. Other discount
+                          families (promo, referral, founding) are preserved
+                          either way.
       --keep-cancellation Do NOT clear cancel_at_period_end (just pre-load the
                           coupon; leave the member's cancel decision intact).
       --dry-run           Print the plan; no Stripe or DB writes.
@@ -287,6 +313,7 @@ type CouponShape = {
   currency?: string | null;
   duration?: string | null;
   duration_in_months?: number | null;
+  metadata?: Record<string, string> | null;
 };
 
 function describeCoupon(c: CouponShape | undefined, fallbackId: string): string {
@@ -318,6 +345,30 @@ function couponMatchesOneYear(c: CouponShape, cadence: Cadence, percent: number)
   if (c.percent_off !== percent) return false;
   if (cadence === 'annual') return c.duration === 'once';
   return c.duration === 'repeating' && c.duration_in_months === 12;
+}
+
+// Ids minted by createOrReuseOneYearCoupon below. Kept as a pattern rather than
+// a list because the rate is part of the id, so the set is open-ended.
+const MINTED_WINBACK_ID = /^winback-\d{1,2}pct-1yr-(monthly|annual)$/;
+
+/**
+ * Is this coupon one of OURS — a win-back grant, from any rate or cadence?
+ *
+ * Three ways to be in the family, any one is enough:
+ *   • it is a configured STRIPE_COUPON_WINBACK_* coupon (any tier/cadence, not
+ *     just this member's — the env var could have been re-pointed since the
+ *     member's last grant, and the stale one is still a win-back coupon);
+ *   • its id is one this script mints;
+ *   • it carries the metadata stamp createOrReuseOneYearCoupon writes.
+ *
+ * Deliberately narrow. A public promo, a referral bonus, a founding intro or
+ * lifetime coupon, or anything hand-applied is NOT family and is never touched
+ * by the supersede pass — those legitimately coexist with a win-back grant.
+ */
+function isWinbackFamilyCoupon(id: string, meta: CouponShape | undefined): boolean {
+  if (configuredWinbackCouponIds.has(id)) return true;
+  if (MINTED_WINBACK_ID.test(id)) return true;
+  return meta?.metadata?.source === 'honor-winback-discount';
 }
 
 // ---------------------------------------------------------------------------
@@ -382,6 +433,20 @@ function winbackCouponEnvKey(tier: Tier, cadence: Cadence): string {
     ? 'STRIPE_COUPON_WINBACK_BASIC_ANNUAL'
     : 'STRIPE_COUPON_WINBACK_PRO_ANNUAL';
 }
+
+// Every configured win-back coupon, across all four (tier, cadence) slots — not
+// only the member's own plan. A member who switched cadence, or whose grant
+// predates a re-pointed env var, can be carrying a win-back coupon from another
+// slot, and that is still a win-back coupon for supersede purposes.
+const configuredWinbackCouponIds: ReadonlySet<string> = new Set(
+  (['basic', 'pro'] as Tier[])
+    .flatMap((tier) =>
+      (['monthly', 'annual'] as Cadence[]).map((cadence) =>
+        envOrLocal(winbackCouponEnvKey(tier, cadence)),
+      ),
+    )
+    .filter((id): id is string => !!id),
+);
 
 const dbPath =
   process.env.AUTH_DB_PATH || envLocal.AUTH_DB_PATH || path.join(cwd, 'data', 'auth.db');
@@ -526,6 +591,10 @@ async function createOrReuseOneYearCoupon(cadence: Cadence, percent: number): Pr
 let addCouponId: string | null = null;
 let addCouponMeta: CouponShape | null = null;
 let resolutionNote = '';
+// True when resolution landed on the create-or-reuse branch, so the dry-run
+// hint can say a Stripe coupon would be minted. Not inferrable from "the env
+// var is unset" any more — --create-coupon can now win with it set.
+let willMintCoupon = false;
 
 if (cliArgs.coupon) {
   addCouponId = cliArgs.coupon;
@@ -569,6 +638,7 @@ if (cliArgs.coupon) {
     addCouponMeta = envCouponMeta;
     resolutionNote = `${envKey}`;
   } else if (cliArgs.createCoupon) {
+    willMintCoupon = true;
     // Say so in the plan when this deliberately stepped over a configured
     // standing coupon, so the resolution line reads as a choice rather than as
     // the env var being unset.
@@ -601,7 +671,8 @@ if (cliArgs.coupon) {
         `       Refusing to guess which rate you promised the member. Pick one:\n` +
         `         • drop --percent to apply the standing ${envKey} coupon as-is, or\n` +
         `         • add --create-coupon to mint/reuse a ${cliArgs.percent}% off / 1-year\n` +
-        `           coupon and stack that instead (overrides ${envKey}), or\n` +
+        `           coupon and apply that instead — it is PICKED over ${envKey},\n` +
+        `           and it supersedes any earlier win-back coupon on the sub, or\n` +
         `         • pass --coupon <coupon_id> to pin an exact coupon.`,
     );
     process.exit(1);
@@ -628,18 +699,37 @@ const matchesOffer = addCouponMeta
   ? couponMatchesOneYear(addCouponMeta, sku.cadence, cliArgs.percent)
   : false;
 
-// Idempotency: already stacked?
+// Idempotency: already applied?
 const alreadyPresent = addCouponId != null && currentCouponIds.includes(addCouponId);
 
-// Resulting stack = every existing coupon preserved + the new one (if absent).
-const resultingCouponIds = [...currentCouponIds];
+// Supersede pass: an EARLIER WIN-BACK GRANT is replaced, not stacked under the
+// new one. Stripe applies discounts sequentially, so leaving both on would
+// compound them — honoring 30% over an existing 50% would bill 65% off, which is
+// not a rate anyone chose or promised. Replacing is what "the rate is now N%"
+// means. Pass --stack for the deliberate exception.
+//
+// Only the win-back family is eligible (see isWinbackFamilyCoupon): a public
+// promo, referral bonus, founding coupon or anything hand-applied is left
+// exactly where it is, which is the "never strips" guarantee the top of this
+// file makes about OTHER people's discounts.
+const supersededCouponIds = cliArgs.stack
+  ? []
+  : currentCouponIds.filter(
+      (id) => id !== addCouponId && isWinbackFamilyCoupon(id, couponMeta.get(id)),
+    );
+
+// Resulting stack = existing coupons, less any superseded win-back grant, plus
+// the new one if it isn't already there.
+const resultingCouponIds = currentCouponIds.filter((id) => !supersededCouponIds.includes(id));
 if (addCouponId && !alreadyPresent) resultingCouponIds.push(addCouponId);
 
 // Cancellation change.
 const isCancelling = subscription.cancel_at_period_end === true;
 const willClearCancel = isCancelling && !cliArgs.keepCancellation;
 
-const noChange = alreadyPresent && !willClearCancel;
+// Superseding a stale win-back coupon is itself a change worth writing, even
+// when the new coupon is already on the sub and the cancellation needs nothing.
+const noChange = alreadyPresent && !willClearCancel && supersededCouponIds.length === 0;
 
 // --- Print the plan ----------------------------------------------------------
 
@@ -669,6 +759,16 @@ console.log(
 console.log(
   `Coupon to stack:    ${describeCoupon(addCouponMeta ?? undefined, addCouponId ?? '?')}  [${resolutionNote}]`,
 );
+// Removals are the one thing in this plan that takes something away from the
+// member, so they get their own line rather than being inferred from the diff
+// between "Current discounts" and "Resulting stack".
+if (supersededCouponIds.length > 0) {
+  console.log(
+    `Superseding:        ${supersededCouponIds
+      .map((id) => describeCoupon(couponMeta.get(id), id))
+      .join(', ')}  (earlier win-back grant, replaced not stacked — --stack to keep)`,
+  );
+}
 console.log(
   `Resulting stack:    ${resultingCouponIds
     .map((id) => describeCoupon(couponMeta.get(id) ?? (id === addCouponId ? addCouponMeta ?? undefined : undefined), id))
@@ -711,7 +811,11 @@ if (!matchesOffer) {
   );
 }
 
-if (currentCouponIds.length > 0 && !alreadyPresent) {
+// Only worth saying when the END STATE really has more than one discount. After
+// the supersede pass a run that replaces a stale win-back grant leaves a single
+// coupon, and warning about compounding there would describe the opposite of
+// what is about to happen.
+if (resultingCouponIds.length > 1) {
   console.log('');
   console.log(
     'Note: Stripe stacks discounts sequentially (each applies to the amount left',
@@ -745,7 +849,7 @@ if (noChange) {
 
 if (cliArgs.dryRun) {
   console.log('\n[dry-run] No Stripe or DB writes.');
-  if (cliArgs.createCoupon && !envOrLocal(winbackCouponEnvKey(sku.tier, sku.cadence)) && !cliArgs.coupon) {
+  if (willMintCoupon) {
     console.log('          (--yes would create-or-reuse the coupon shown above before applying.)');
   }
   process.exit(0);
@@ -794,7 +898,8 @@ if (willClearCancel) {
 const auditId = `audit_${crypto.randomBytes(12).toString('hex')}`;
 const auditMessage =
   `Honored win-back discount on sub ${subscription.id} (${sku.tier}/${sku.cadence}): ` +
-  `stacked ${addCouponId} on [${currentCouponIds.join(', ') || 'none'}]` +
+  `applied ${addCouponId} over [${currentCouponIds.join(', ') || 'none'}]` +
+  `${supersededCouponIds.length ? `, superseded [${supersededCouponIds.join(', ')}]` : ''}` +
   `${willClearCancel ? ', cleared cancel_at_period_end' : ''} (${resolutionNote})`;
 execSqlite(
   dbPath,
@@ -814,6 +919,12 @@ execSqlite(
 console.log(
   `\nDone. ${user.email}'s subscription ${subscription.id} now carries: ${resultingCouponIds.join(', ')}.`,
 );
+if (supersededCouponIds.length > 0) {
+  console.log(
+    `Superseded (removed from the sub): ${supersededCouponIds.join(', ')} — an earlier win-back grant, ` +
+      `replaced so the two rates don't compound.`,
+  );
+}
 if (willClearCancel) {
   const at = periodEndIso ?? 'period end';
   console.log(

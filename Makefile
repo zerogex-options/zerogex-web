@@ -33,7 +33,7 @@ help:
 	@echo "  make quarterly-receipt - Interactive end-to-end quarterly FOH receipt: prompts for amount/quarter/date, updates content/giving/totals.json, commits, pushes, and rebuilds. Never posts to X — prints the tweet for you to paste. Optional flags: AMOUNT=<usd> QUARTER=<label> DATE=<YYYY-MM-DD> EMAIL=<addr> NO_PUSH=1 NO_REBUILD=1 YES=1 DRY_RUN=1"
 	@echo "  make foh-donation-reminder - Send the quarterly FOH reminder email to the admin (fully self-contained instructions inside). Meant for cron on the 5th of Jan/Apr/Jul/Oct; TO=<addr> overrides the FOH_REMINDER_EMAIL env; QUARTER=<label> overrides the auto-detected closing quarter; DRY_RUN=1 to preview"
 	@echo "  make set-cancellation EMAIL=<email> (OFF=1 | ON=1) - Flip one customer's cancel_at_period_end: OFF=1 stops a scheduled cancel (renews, or converts a trial to paid); ON=1 schedules a cancel at period end (DRY_RUN=1 to preview, YES=1 to apply)"
-	@echo "  make honor-winback-discount EMAIL=<email> - Honor the manual 'reply discount' win-back offer: STACK a percent-off-for-one-year coupon on top of any existing discounts and (default) stop a scheduled cancel so the sub converts/renews on the card on file. Defaults to the standing STRIPE_COUPON_WINBACK_* coupon for the member's plan, i.e. the rate WINBACK_DISCOUNT_LABEL advertises. COUPON=<id> pins an exact coupon; PERCENT=N makes that rate BINDING (refuses rather than granting a different one); CREATE_COUPON=1 mints/reuses a coupon at PERCENT and overrides the standing one; KEEP_CANCELLATION=1 leaves the cancel intact. DRY_RUN=1 to preview, YES=1 to apply"
+	@echo "  make honor-winback-discount EMAIL=<email> - Honor the manual 'reply discount' win-back offer: apply a percent-off-for-one-year coupon alongside any existing discounts and (default) stop a scheduled cancel so the sub converts/renews on the card on file. Defaults to the standing STRIPE_COUPON_WINBACK_* coupon for the member's plan, i.e. the rate WINBACK_DISCOUNT_LABEL advertises. COUPON=<id> pins an exact coupon; PERCENT=N makes that rate BINDING (refuses rather than granting a different one); CREATE_COUPON=1 mints/reuses a coupon at PERCENT and is picked over the standing one; an EARLIER win-back coupon on the sub is superseded rather than stacked (STACK=1 keeps it, other discount families are always preserved); KEEP_CANCELLATION=1 leaves the cancel intact. DRY_RUN=1 to preview, YES=1 to apply"
 	@echo "  make scan-orphan-payments [SINCE_DAYS=120] [VERBOSE=1] - Sweep every paid Stripe invoice for members who paid in full and are still on a free tier (the ones who never wrote in). Read-only; prints the recover-orphan-payment command for each hit"
 	@echo "  make clear-zombie-customers - NULL stripe_customer_id on rows with no subscription (APPLY=1 to write, dry-run by default)"
 	@echo "  make webhook-health - Stripe webhook health summary (errors/orphans/failed payments, last 24h + 7d)"
@@ -770,11 +770,19 @@ cancel-subscription:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/cancel-subscription.mts --email $(EMAIL) $(if $(VOID_INVOICE),--void-invoice,) $(if $(FORCE),--force,) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
 
 # Honor the evergreen win-back "reply 'discount'" offer for ONE member by hand:
-# STACK a "<PERCENT>% off for one year" coupon on top of any discounts already on
-# their subscription (existing coupons are preserved, never stripped), and —
-# unless KEEP_CANCELLATION=1 — clear cancel_at_period_end so a trialing sub
+# Apply a "<PERCENT>% off for one year" coupon alongside any discounts already on
+# their subscription, and — unless KEEP_CANCELLATION=1 — clear
+# cancel_at_period_end so a trialing sub
 # converts to paid at trial_end (an active one renews) on the card already on
 # file. No re-subscribe. The manual twin of the automated ?winback=1 path.
+#
+# Other discount families (public promo, referral, founding intro/lifetime,
+# anything hand-applied) are preserved and never stripped. An EARLIER WIN-BACK
+# coupon is the exception: Stripe applies discounts sequentially, so leaving both
+# on would compound them — honoring 30% over an existing 50% bills 65% off, a
+# rate nobody promised. The earlier grant is superseded instead, and the plan
+# prints a "Superseding:" line naming what comes off. STACK=1 keeps the old
+# stack-everything behavior for the deliberate exception.
 # Coupon resolution: COUPON=<id> pins an exact coupon; otherwise the standing
 # STRIPE_COUPON_WINBACK_<TIER>_<CADENCE> env for the member's plan; otherwise
 # CREATE_COUPON=1 mints a deterministic PERCENT%-off 1-year coupon (annual:
@@ -796,7 +804,7 @@ cancel-subscription:
 #   make honor-winback-discount EMAIL=foo@example.com PERCENT=50 CREATE_COUPON=1 YES=1
 honor-winback-discount:
 	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make honor-winback-discount EMAIL=foo@example.com DRY_RUN=1)"; exit 1; fi
-	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/honor-winback-discount.mts --email $(EMAIL) $(if $(COUPON),--coupon $(COUPON),) $(if $(CREATE_COUPON),--create-coupon,) $(if $(PERCENT),--percent $(PERCENT),) $(if $(KEEP_CANCELLATION),--keep-cancellation,) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/honor-winback-discount.mts --email $(EMAIL) $(if $(COUPON),--coupon $(COUPON),) $(if $(CREATE_COUPON),--create-coupon,) $(if $(PERCENT),--percent $(PERCENT),) $(if $(STACK),--stack,) $(if $(KEEP_CANCELLATION),--keep-cancellation,) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
 
 # Activate a Creator Partner end-to-end: flip partner_tier='creator', grant
 # them DAYS days of Pro access (no Stripe sub), pre-mint a referral_code,
