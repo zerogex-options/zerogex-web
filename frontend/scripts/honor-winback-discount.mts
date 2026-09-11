@@ -28,18 +28,33 @@
 //   --coupon <id>                         pin an exact, already-created coupon.
 //   STRIPE_COUPON_WINBACK_<TIER>_<CADENCE> the standing win-back coupon for the
 //                                         member's plan (by design this IS the
-//                                         "25% off first year" coupon — reuse it
-//                                         rather than minting duplicates).
+//                                         "<percent>% off first year" coupon —
+//                                         reuse it rather than minting duplicates).
 //   --create-coupon                       create-or-reuse a deterministic
 //                                         "<percent>% off, 1 year" coupon for the
 //                                         member's cadence (annual: duration=once;
 //                                         monthly: repeating, 12 months).
 // With none of the above the script refuses and tells you how to configure one.
 //
+// An EXPLICIT --percent changes that order: it outranks the standing env coupon
+// whenever the two disagree, because the rate you typed is the rate you promised
+// the member. Concretely, with the env coupon set:
+//   (no --percent)                  → standing env coupon, as before.
+//   --percent N, env coupon is N%   → standing env coupon (no duplicate minted).
+//   --percent N, env coupon is not  → refuses, and names both ways out:
+//                                     --create-coupon to mint/reuse at N%
+//                                     (this DOES override the env coupon), or
+//                                     drop --percent to take the standing rate.
+// Before this, the env coupon won unconditionally and --create-coupon was dead
+// code on any deploy that set it, so `--percent 50` against a 25% standing
+// coupon granted 25% and said so only in a WARNING.
+//
 // Whatever it resolves, it inspects the coupon's real percent_off/duration and
 // WARNS (without blocking) if they don't match "<percent>% off for one year" for
 // the member's cadence — so a mis-created coupon can't silently apply the wrong
-// rate. The win-back coupon family is intentionally NOT in the webhook's managed
+// rate. That warning turns into a REFUSAL when --percent was explicit (the
+// reachable case being a --coupon override at the wrong rate): nothing is
+// written. The win-back coupon family is intentionally NOT in the webhook's managed
 // cadence set (core/stripe.ts getManagedCadenceCouponIds), so a coupon applied
 // here persists across a later plan switch instead of being reconciled away.
 //
@@ -93,6 +108,12 @@ type Args = {
   coupon: string | null;
   createCoupon: boolean;
   percent: number;
+  // True only when --percent was typed on the command line. `percent` always
+  // holds a usable number (DEFAULT_PERCENT otherwise), so this is the only way
+  // to tell "the operator asked for this exact rate" from "the standing label
+  // happens to say this" — and that distinction decides whether an explicit
+  // request outranks the standing env coupon below.
+  percentExplicit: boolean;
   keepCancellation: boolean;
   dryRun: boolean;
   yes: boolean;
@@ -127,6 +148,7 @@ function parseArgs(argv: string[]): Args {
     coupon: null,
     createCoupon: false,
     percent: DEFAULT_PERCENT,
+    percentExplicit: false,
     keepCancellation: false,
     dryRun: false,
     yes: false,
@@ -144,6 +166,7 @@ function parseArgs(argv: string[]): Args {
         process.exit(1);
       }
       args.percent = value;
+      args.percentExplicit = true;
     } else if (arg === '--keep-cancellation') args.keepCancellation = true;
     else if (arg === '--dry-run') args.dryRun = true;
     else if (arg === '--yes' || arg === '-y') args.yes = true;
@@ -176,6 +199,16 @@ Coupon resolution (first match wins):
       --create-coupon     Create-or-reuse a deterministic "<percent>% off, 1 yr"
                           coupon for the member's cadence (annual: once; monthly:
                           repeating 12 months). --percent sets the rate (default ${DEFAULT_PERCENT}).
+                          Overrides the (env) coupon when --percent disagrees
+                          with it — see --percent below.
+      --percent N         The rate you promised, 1..99. Defaults to
+                          WINBACK_DISCOUNT_LABEL (${DEFAULT_PERCENT}). Passing it EXPLICITLY
+                          makes it binding: if the resolved coupon isn't N% off
+                          for one year, the run refuses and writes nothing,
+                          rather than applying a rate you didn't promise. With
+                          the (env) coupon set and not at N%, add --create-coupon
+                          to mint/reuse at N%, or drop --percent to take the
+                          standing rate.
 
 Other:
       --keep-cancellation Do NOT clear cancel_at_period_end (just pre-load the
@@ -505,20 +538,44 @@ if (cliArgs.coupon) {
 } else {
   const envKey = winbackCouponEnvKey(sku.tier, sku.cadence);
   const envCoupon = envOrLocal(envKey) ?? null;
+  // An explicit --percent outranks the standing env coupon, but only when the
+  // two actually disagree. The standing coupon IS the published win-back offer,
+  // so reusing it (rather than minting a near-duplicate at the same rate) is
+  // right whenever it already matches what was asked for — that is the common
+  // case and it keeps the Stripe coupon list from growing a twin per run.
+  //
+  // When they disagree, the operator wins. Before this, the env branch returned
+  // unconditionally and --create-coupon was unreachable on any deploy that set
+  // the env var, so `--percent 50` against a 25% standing coupon silently
+  // granted 25% and said so only in a WARNING line. An operator who promised a
+  // member one rate could hand them another.
+  let envCouponMeta: CouponShape | null = null;
   if (envCoupon) {
-    addCouponId = envCoupon;
-    addCouponMeta = await retrieveCoupon(envCoupon);
-    if (!addCouponMeta) {
+    envCouponMeta = await retrieveCoupon(envCoupon);
+    if (!envCouponMeta) {
       console.error(
         `Error: ${envKey}=${envCoupon} is set but that coupon doesn't exist on this Stripe account. Aborting.`,
       );
       process.exit(1);
     }
+  }
+  const envCouponSatisfiesRequest =
+    envCouponMeta != null &&
+    (!cliArgs.percentExplicit ||
+      couponMatchesOneYear(envCouponMeta, sku.cadence, cliArgs.percent));
+
+  if (envCoupon && envCouponMeta && envCouponSatisfiesRequest) {
+    addCouponId = envCoupon;
+    addCouponMeta = envCouponMeta;
     resolutionNote = `${envKey}`;
   } else if (cliArgs.createCoupon) {
+    // Say so in the plan when this deliberately stepped over a configured
+    // standing coupon, so the resolution line reads as a choice rather than as
+    // the env var being unset.
+    const overrode = envCoupon ? ` overriding ${envKey}` : '';
     if (cliArgs.dryRun) {
       // Don't mint a Stripe object during a preview. Describe what --yes would create.
-      resolutionNote = `--create-coupon (would create winback-${cliArgs.percent}pct-1yr-${sku.cadence})`;
+      resolutionNote = `--create-coupon${overrode} (would create winback-${cliArgs.percent}pct-1yr-${sku.cadence})`;
       addCouponId = `winback-${cliArgs.percent}pct-1yr-${sku.cadence}`;
       addCouponMeta = {
         id: addCouponId,
@@ -529,8 +586,25 @@ if (cliArgs.coupon) {
     } else {
       addCouponMeta = await createOrReuseOneYearCoupon(sku.cadence, cliArgs.percent);
       addCouponId = addCouponMeta.id ?? `winback-${cliArgs.percent}pct-1yr-${sku.cadence}`;
-      resolutionNote = `--create-coupon (${addCouponId})`;
+      resolutionNote = `--create-coupon${overrode} (${addCouponId})`;
     }
+  } else if (envCoupon && envCouponMeta) {
+    // Reached only when an explicit --percent disagrees with the standing
+    // coupon. Refuse rather than pick for them: applying the standing rate
+    // would grant a rate they didn't ask for (the old silent bug), and minting
+    // a new Stripe coupon off the back of --percent alone is a write they
+    // haven't asked for either. Name both exits instead.
+    console.error(
+      `Error: --percent ${cliArgs.percent} was requested, but ${envKey} is ` +
+        `${describeCoupon(envCouponMeta, envCoupon)}, which is not ` +
+        `${cliArgs.percent}% off ${expectedDurationLabel(sku.cadence)} for a ${sku.cadence} plan.\n` +
+        `       Refusing to guess which rate you promised the member. Pick one:\n` +
+        `         • drop --percent to apply the standing ${envKey} coupon as-is, or\n` +
+        `         • add --create-coupon to mint/reuse a ${cliArgs.percent}% off / 1-year\n` +
+        `           coupon and stack that instead (overrides ${envKey}), or\n` +
+        `         • pass --coupon <coupon_id> to pin an exact coupon.`,
+    );
+    process.exit(1);
   } else {
     console.error(
       `Error: no coupon to apply. ${envKey} is not set for ${sku.tier}/${sku.cadence}.\n` +
@@ -546,7 +620,10 @@ if (cliArgs.coupon) {
 }
 
 // Sanity-check the resolved coupon against "<percent>% off for one year" for the
-// member's cadence. Warn but don't block — the operator may intend something else.
+// member's cadence. Warn but don't block when the rate came from the standing
+// label — the operator may intend something else, and a --coupon override is a
+// deliberate act. A mismatch against an EXPLICIT --percent is different: see the
+// blocking check after the plan prints.
 const matchesOffer = addCouponMeta
   ? couponMatchesOneYear(addCouponMeta, sku.cadence, cliArgs.percent)
   : false;
@@ -609,6 +686,26 @@ if (!matchesOffer) {
     `WARNING: the resolved coupon is not exactly ${cliArgs.percent}% off, ${expectedDurationLabel(sku.cadence)} ` +
       `for a ${sku.cadence} plan.`,
   );
+  // An explicit --percent that doesn't survive resolution must not be written.
+  // Two paths reach here with percentExplicit set (the env branch can't — it
+  // only wins when it already matched the request):
+  //   • --coupon pinned an exact coupon that isn't the promised rate.
+  //   • --create-coupon REUSED the deterministic winback-<N>pct-1yr-<cadence>
+  //     id, but that Stripe object has since been edited away from N%.
+  // Both are the promise-vs-charge mismatch this guard exists to stop. Refuse
+  // before the Stripe write rather than trusting a WARNING to be read in a
+  // 20-line plan dump.
+  if (cliArgs.percentExplicit) {
+    console.log('');
+    console.error(
+      `Error: --percent ${cliArgs.percent} was requested explicitly, so this mismatch is a refusal, ` +
+        `not a warning.\n` +
+        `       Nothing was written. Either pass a coupon that is ${cliArgs.percent}% off ` +
+        `${expectedDurationLabel(sku.cadence)}, or drop --percent to apply ` +
+        `${describeCoupon(addCouponMeta ?? undefined, addCouponId ?? '?')} as-is.`,
+    );
+    process.exit(1);
+  }
   console.log(
     '         It will still be applied as-is — double-check it matches what you promised the member.',
   );
