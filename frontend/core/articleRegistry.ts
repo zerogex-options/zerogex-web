@@ -218,8 +218,8 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     description:
       'The best GEX tools and gamma exposure platforms of 2026, compared fairly — real-time vs delayed data, 0DTE coverage, methodology, signals, free tiers and price.',
     datePublished: '2026-06-11',
-    dateModified: '2026-09-10',
-    readMinutes: 13,
+    dateModified: '2026-09-11',
+    readMinutes: 14,
     kind: 'article',
   },
   'real-time-gex-0dte': {
