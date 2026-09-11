@@ -142,6 +142,12 @@ const sections: Section[] = [
           'How max pain is calculated, when it acts as a magnet versus a coincidence, and how to read it next to the gamma profile.',
       },
       {
+        href: '/help/platform/pin-strike',
+        title: 'Pin Strike',
+        blurb:
+          'The pin score and the Strong / Moderate / Weak label explained — including why a big, isolated gamma peak can still read Weak.',
+      },
+      {
         href: '/help/platform/technicals',
         title: 'Technicals',
         blurb:

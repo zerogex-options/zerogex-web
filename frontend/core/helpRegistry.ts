@@ -98,6 +98,13 @@ export const HELP_ARTICLES: HelpArticle[] = [
     section: 'Metrics',
   },
   {
+    slug: 'pin-strike',
+    title: 'Pin Strike',
+    description:
+      'How the pin score and the Strong / Moderate / Weak strength label are computed, and what "Weak" actually means.',
+    section: 'Metrics',
+  },
+  {
     slug: 'technicals',
     title: 'Technicals',
     description: 'The intraday technical snapshot — price, candles, volatility gauges.',

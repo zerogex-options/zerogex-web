@@ -17,6 +17,7 @@ import {
   PIN_STRIKE_EMPTY,
   PIN_STRENGTH_STRONG_MIN_CONFIDENCE,
   PIN_STRENGTH_MODERATE_MIN_CONFIDENCE,
+  PIN_STRIKE_TOOLTIP,
 } from '../core/pinStrike.ts';
 
 test('formatPinStrike renders a dollar strike for an active pin', () => {
@@ -43,6 +44,23 @@ test('classifyPinStrength buckets on confidence and returns none when no pin', (
   // No strike ⇒ none regardless of confidence.
   assert.equal(classifyPinStrength(null, 0.99), 'none');
   assert.equal(classifyPinStrength(undefined, 0.99), 'none');
+});
+
+// The strength label is a SHARE-OF-FIELD measure: the winner's dominance over
+// the other viable pins, not the size of its gamma. Readers reliably take
+// "Weak" for "small" — a support ticket where a strike carrying ~3x its
+// neighbors' gamma labelled Weak because the kernel spread that gamma across
+// the neighborhood, diluting its share to just under the 33% threshold. The
+// tooltip is the only place that correction reaches someone mid-chart, so it
+// may be reworded but must not lose the distinction.
+test('the tooltip explains that strength is dominance, not magnitude', () => {
+  const tip = PIN_STRIKE_TOOLTIP.toLowerCase();
+  assert.ok(tip.includes('dominates'), 'tooltip must say the label measures dominance');
+  assert.ok(tip.includes('weak'), 'tooltip must say what "Weak" means');
+  assert.ok(
+    tip.includes('not how large') || tip.includes('not how big'),
+    'tooltip must deny that the label measures size',
+  );
 });
 
 test('pinStrengthLabel maps buckets to human labels', () => {

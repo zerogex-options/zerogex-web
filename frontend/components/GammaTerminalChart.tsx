@@ -2076,7 +2076,14 @@ export default function GammaTerminalChart({
   // shown by their arrowed axis tag alone.
   const chipPlacements = (() => {
     const CHIP_H = 16;
-    const GAP = 5;
+    // Two coincident levels (a Pin sitting exactly on the Call Wall, say) land
+    // on one row as "CALL WALL" "PIN · WEAK", and at 5px they read as a single
+    // compound phrase — a support ticket where the reader took "WEAK" to be
+    // qualifying the wall. Each chip has its own bordered box, so the fix is
+    // just enough air between boxes for them to read as two labels. Cheap at
+    // this plot width: ~70px per chip against ~1076px of plot, so even five
+    // colliding levels stay well inside the right edge.
+    const GAP = 10;
     const visible = levelDefs
       .filter((l): l is LevelDef & { value: number } => l.show && l.value != null && inDomain(l.value))
       .map((l) => ({ key: l.key, label: l.label, color: l.color, y: clamp(yPrice(l.value), PAD_TOP + 1, PRICE_BOTTOM - 1), w: labelWidth(l.label) }))
