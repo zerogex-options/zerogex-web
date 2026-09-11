@@ -449,7 +449,22 @@ export default function SpreadMonitorPage() {
             sub="Put markets by session. When both the line and the band rise the whole chain got worse; when only the band rises, the wings blew out while the money stayed orderly."
           >
             {history ? (
-              <SpreadHistoryChart rows={history.rows} />
+              <>
+                <SpreadHistoryChart rows={history.rows} />
+                {(history.excluded_thin_sessions ?? 0) > 0 && (
+                  <p
+                    className="mt-2 text-[11px] leading-relaxed"
+                    style={{ color: 'var(--text-secondary)' }}
+                  >
+                    {history.excluded_thin_sessions} session
+                    {history.excluded_thin_sessions === 1 ? '' : 's'} in this window
+                    had too little of the chain quoted to measure and {history.excluded_thin_sessions === 1 ? 'is' : 'are'}{' '}
+                    left out rather than drawn. That is a gap in the data, not a
+                    quiet market — a session nobody could price is not the same as
+                    one nobody traded.
+                  </p>
+                )}
+              </>
             ) : (
               <LoadingSpinner size="sm" />
             )}

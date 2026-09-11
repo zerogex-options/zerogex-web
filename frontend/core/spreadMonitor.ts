@@ -144,6 +144,17 @@ export interface SpreadHistory {
   dte_max: number;
   moneyness_band_pct: number;
   disclosure: string;
+  /**
+   * Sessions in the window whose chain was too thin to measure — an
+   * ingestion outage, not a quiet market — and which are therefore absent
+   * from `rows` rather than plotted as real days.
+   *
+   * Rendered rather than ignored: a gap in the chart should be explicable,
+   * and a number climbing here is a data problem the reader deserves to
+   * see instead of a line that quietly describes fewer sessions than it
+   * appears to.
+   */
+  excluded_thin_sessions?: number;
   rows: SpreadHistoryRow[];
 }
 
