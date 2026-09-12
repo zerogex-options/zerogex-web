@@ -76,6 +76,7 @@
     "test:offer-pricing": "node --experimental-strip-types --test tests/offerPricing.test.ts",
     "test:delayed-quote": "node --experimental-strip-types --test tests/delayedQuote.test.ts",
     "test:live-quote-ordering": "node --experimental-strip-types --test tests/liveQuoteOrdering.test.ts",
+    "test:stream-liveness": "node --experimental-strip-types --test tests/streamLiveness.test.ts",
     "test:price-change": "node --experimental-strip-types --test tests/priceChange.test.ts",
     "test:session-closes": "node --experimental-strip-types --test tests/sessionCloses.test.ts",
     "test:market-tide": "node --experimental-strip-types --test tests/marketTide.test.ts",
