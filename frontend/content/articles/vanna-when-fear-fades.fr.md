@@ -73,3 +73,5 @@ Quand la frayeur qui ne vient jamais finit par passer, la peur doit bien se rés
 Pour le pendant rythmé par l'horloge, voir [Charm : l'horloge est un trader](/education/charm-the-clock-is-a-trader), pour les fondations, voir [Pourquoi les market makers sont contraints de trader des actions](/education/why-market-makers-trade-stock), et pour voir l'échelle de vanna bouger avec le book du jour, ouvrez la page en direct [Forced Flow](/forced-flow).
 
 Contenu à visée uniquement éducative — rien de ce qui précède ne constitue une recommandation de trading.
+
+> Sous la convention traditionnelle dealer acheteur de calls / vendeur de puts, certaines configurations de la chaîne peuvent générer une pression acheteuse modélisée sur le sous-jacent lorsque la volatilité implicite baisse. Le signe dépend de la détention, du type d'option, de la moneyness, de l'échéance, du skew et de la façon dont la surface de volatilité évolue ; acheter n'est pas une propriété intrinsèque de la vanna.

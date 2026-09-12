@@ -39,6 +39,8 @@ Die Gamma-Exposure wird aus dem Open Interest einer Optionskette berechnet — S
 
 Da sich beide Ketten auf denselben Index beziehen, zeigen diese Levels meist auf dieselbe Stelle in S&P-Notation. Aber sie werden von unterschiedlichen Klientel-Gruppen gebildet — SPX ist stärker institutionell und index-/0DTE-lastig, SPY trägt einen hohen Retail- und Aktien-Hedging-Flow — sodass die beiden Bücher Strikes unterschiedlich gewichten und an den Rändern auseinanderdriften können. Wenn sie divergieren, ist das Information, kein Rauschen.
 
+Da sich beide Ketten auf denselben Index beziehen, zeigen diese Levels in S&P-Größen normalerweise auf dieselbe Stelle. Sie werden aber von unterschiedlichen Gruppen gebaut — SPX tendiert institutionell und index-/0DTE-lastig, SPY trägt eine schwerere Mischung aus Privatanlegern und Aktien-Hedging-Flow —, sodass die beiden Bücher Strikes unterschiedlich gewichten und an den Rändern auseinanderdriften können. Wenn sie divergieren, kann das Information statt Rauschen sein.
+
 ---
 
 ## Ein Level vom einen ins andere übersetzen

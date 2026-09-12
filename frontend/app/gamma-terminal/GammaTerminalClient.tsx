@@ -28,16 +28,16 @@
  *
  * The chart's Expiry filter is tab-shared (useSharedExpirations), so it scopes
  * the ladders too — each column reconciles the selection to its own chain
- * (useChartExpirations), exactly as Pair Comparison does. The ladders are live;
- * the chart's Rewind does not drive them (Pair Comparison owns the replay
- * variant of the ladders). Strikes / Session Δ / Unit are ladder settings and
- * live on the ladder card.
+ * (useChartExpirations), exactly as Pair Comparison does. The chart's Rewind
+ * drives the ladders too: the chart broadcasts its replay clock (`onRewind`)
+ * and each column shows the book as of that bucket, labelled with its time.
+ * Strikes / Session Δ / Unit are ladder settings and live on the ladder card.
  */
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Sparkles } from "lucide-react";
 import PageShell from "@/components/layout/PageShell";
-import GammaTerminalChart, { type ChartGeometry } from "@/components/GammaTerminalChart";
+import GammaTerminalChart, { type ChartGeometry, type RewindState } from "@/components/GammaTerminalChart";
 import PairGammaHeatmap, { ROW_H, type HeatmapColumnInput, type LadderFit } from "@/components/PairGammaHeatmap";
 import SymbolSelect from "@/components/SymbolSelect";
 import StrikeFilterToggle from "@/components/StrikeFilterToggle";
@@ -73,7 +73,8 @@ const INFO_TEXT =
   "and the heaviest strike in view crowned. After the options close, an ETF's latest analytics buckets can carry no " +
   "positioning; the ladder then shows the newest bucket that did and marks the rows 'as of' that time, while the " +
   "header levels stay live. The chart's Expiry filter scopes the ladders too (Max Pain reads NA while filtered, " +
-  "as it has no per-expiry-set equivalent). The ladders are live and do not follow the chart's Rewind clock. " +
+  "as it has no per-expiry-set equivalent). In Rewind, both ladders follow the chart's clock and show the book, spot " +
+  "and levels as of that bucket, labelled with its time. " +
   "Strikes shows only strikes carrying dealer gamma (Active) or every listed strike near spot (All); Session Δ " +
   "marks whether dealer gamma at each strike has built or eroded since the 09:30 ET open. " +
   "Gamma levels and Net GEX are modeled estimates of dealer positioning — decision-support context only, not investment advice.";
@@ -98,6 +99,11 @@ export default function GammaTerminalClient() {
   // wrapper is measured so the fit can be expressed from the ladder's top.
   const [geometry, setGeometry] = useState<ChartGeometry | null>(null);
   const onGeometry = useCallback((g: ChartGeometry) => setGeometry(g), []);
+  // The chart's replay clock: while rewinding, both ladders show the book as
+  // of this moment instead of the live tip.
+  const [rewind, setRewind] = useState<RewindState>({ active: false, time: null });
+  const onRewind = useCallback((state: RewindState) => setRewind(state), []);
+  const rewindTime = rewind.active ? rewind.time : null;
   const laddersRef = useRef<HTMLDivElement | null>(null);
   const [ladderBox, setLadderBox] = useState<{ top: number; height: number } | null>(null);
   useEffect(() => {
@@ -154,10 +160,12 @@ export default function GammaTerminalClient() {
   const left = useGammaLadderColumn(sym1, true, {
     expirations: exp1.selection,
     sessionDelta: showSessionDelta,
+    rewindTime,
   });
   const right = useGammaLadderColumn(sym2, true, {
     expirations: exp2.selection,
     sessionDelta: showSessionDelta,
+    rewindTime,
   });
 
   const leftInput: HeatmapColumnInput = {
@@ -213,6 +221,7 @@ export default function GammaTerminalClient() {
             storageScope="terminal"
             overlayDefaults={{ ribbons: true }}
             onGeometry={onGeometry}
+            onRewind={onRewind}
           />
         </div>
 

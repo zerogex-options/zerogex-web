@@ -105,7 +105,32 @@ Un flujo de trabajo breve:
 4. **Contrasta con el max pain.** Mismo strike o dentro del 0,3% del imán → pin nítido. Materialmente distinto → tesis de pin más débil; confía en el imán.
 5. **Lee la hora del día.** Antes del mediodía ET, el charm no se ha acumulado lo suficiente como para impulsar el pin con fuerza. Después de las 14:00 ET, el tirón se intensifica. Después de las 15:30 ET, dominan las dinámicas de la ventana de cierre.
 
+---
+
+## Cómo saber si el SPY está pinneado: las cinco señales
+
 Una vez identificado el pin, el playbook de trading está en [Cómo saber si SPY está pineado](/education/how-to-know-if-spy-is-pinned) — versión corta: hacer fade a los extremos, evitar el centro, tamaño pequeño.
+
+**1. El Net GEX es claramente positivo (régimen de gamma larga).** Spot por encima del gamma flip y Net GEX claramente positivo. (El Net GEX es gamma estimada de los dealers bajo la convención tradicional call-positiva/put-negativa sobre interés abierto — un modelo, no inventario observado.) ZeroGEX trata en escala SPY unos $500M+ como «sustancial», pero es una heurística propia — la magnitud importa más que cualquier cifra concreta. Un Net GEX negativo o próximo a cero argumenta en contra del pin.
+
+**2. El max pain y el imán de gamma coinciden cerca del spot.** Cuando ambos apuntan al mismo nivel y este queda dentro de aproximadamente un 0,3 % del spot, el tirón estructural es más marcado. Cuando divergen, ZeroGEX se apoya en el imán de gamma — se corresponde con el mecanismo de cobertura modelado, mientras que el max pain es geometría de pagos.
+
+**3. El spot lleva una hora oscilando alrededor del imán.** Grafica el SPY contra el strike del imán de gamma en temporalidad de 5 minutos. Tres o más cruces en los últimos 60 minutos, con cada excursión más pequeña, sugiere un pin en formación. Una deriva constante alejándose del imán argumenta en contra — eso es una dirección, no un rango.
+
+**4. La volatilidad realizada se ha comprimido por debajo de la implícita.** La cobertura en gamma larga amortigua la volatilidad realizada, así que un pin que funciona aparece como realizada por debajo de implícita. Si la realizada se expande, el pin no aguanta — el libro está siendo arrollado por otro flujo.
+
+**5. El EOD Pressure está cerca de cero dentro de la ventana activa.** Después de las 14:30 ET, una lectura de EOD Pressure cercana a cero (aproximadamente −0,20 a +0,20) es una firma modelada de pin — los términos de charm y de gravedad del pin se cancelan en buena medida porque el precio está sobre el imán. Una lectura grande significa que el precio está *lejos* del imán. Consulta [Señal EOD Pressure explicada: cómo leer el cierre](/education/eod-pressure-explained).
+
+---
+
+## El manual para un tape pinneado
+
+Cuando la mayoría de las cinco señales encajan, el manual es contrario y sencillo:
+
+- **Sí: opera contra los extremos del rango de compresión.** El tirón estructural va de vuelta hacia el imán, así que vender los impulsos cerca del techo del rango y comprar las caídas cerca del suelo es el único montaje en el que el reflejo del dealer está de tu lado. Tamaño pequeño — los pins son probabilísticos, no garantizados.
+- **No: persigas el medio.** En el medio está el imán; comprar o vender ahí es pelearse con el nivel al que el precio intenta estructuralmente volver. De ahí vienen la mayoría de las pérdidas en un tape pinneado.
+- **No: tomes montajes de momentum.** Los manuales de ruptura, expansión de volatilidad y squeeze suponen que el movimiento se extiende — lo contrario de un tape pinneado. Ejecutar el manual equivocado es la mayor parte del error.
+- **Sí: reduce el tamaño de la posición.** Los rangos pinneados son estrechos y los stops todavía más; un tamaño de día normal invita a saltar de la posición antes de tiempo.
 
 ---
 

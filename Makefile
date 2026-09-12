@@ -1,4 +1,4 @@
-.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription reactivate-member honor-winback-discount recover-orphan-payment scan-orphan-payments clear-zombie-customers backfill-daily-metrics sync-search-console webhook-health cancellation-alerts trial-reminders trial-engagement renewal-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback reactivation backfill-reactivation-entitlement checkout-recovery founding-final-call public-cohort cancellations churn-breakdown backfill-refund-audit enable-portal-cancel-reasons save-url reset-save-latch gex-rank-backtest diagnose-user subscriber-headcount reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo og-check verify-gate blog-images ninjatrader-package
+.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime founding-demote founding-cohort-revoke-backfill unit-failure-alert activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription reactivate-member honor-winback-discount recover-orphan-payment scan-orphan-payments clear-zombie-customers backfill-daily-metrics sync-search-console webhook-health cancellation-alerts trial-reminders trial-engagement renewal-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback reactivation backfill-reactivation-entitlement checkout-recovery founding-final-call public-cohort cancellations churn-breakdown backfill-refund-audit enable-portal-cancel-reasons save-url reset-save-latch gex-rank-backtest diagnose-user subscriber-headcount reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partner-grant-revoke-backfill partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo og-check verify-gate blog-images ninjatrader-package
 help:
 	@echo "ZeroGEX Web - Available Commands:"
 	@echo ""
@@ -28,12 +28,15 @@ help:
 	@echo "  make activate-late-founder EMAIL=<email> [TIER=basic|pro] [CADENCE=monthly|annual] [TRIAL_DAYS=N|TRIAL_END=<iso>] - Mint a founding-rate Stripe Checkout link for a member who missed the July-1 deadline (DRY_RUN=1 to preview, YES=1 to mint)"
 	@echo "  make grant-founding-on-existing-sub EMAIL=<email> [TIER=pro] [CADENCE=annual] [PRORATION=always_invoice|create_prorations|none] - Convert an EXISTING paying member's live subscription to the founding rate in place (swap plan + founding coupon + metadata.founding=1, so the webhook grants founding + schedules the lifetime 25%-off). The has-a-sub twin of activate-late-founder. DRY_RUN=1 to preview, YES=1 to apply"
 	@echo "  make apply-founding-lifetime - One-time batch: apply the founding lifetime 25%-off coupon to founders past month 11 that the event-driven webhook misses (annual founders emit no mid-year events). Idempotent; run once the cohort's intro year ends (~mid-2027). EMAIL=<addr> for one member, FORCE=1 to ignore the 11-month gate, DRY_RUN=1 to preview, YES=1 to apply"
+	@echo "  make founding-demote [DRY_RUN=1|YES=1] - Founding-cohort demotion sweep: comped founding-eligible users who never redeemed the rate revert to tier=public AND their API keys are revoked. Driven by the founding-cohort-demotion systemd timer. Needs ZEROGEX_API_TOKEN + ZEROGEX_ADMIN_TOKEN for the revocation leg; exits non-zero if keys could not be revoked"
+	@echo "  make founding-cohort-revoke-backfill [DRY_RUN=1|YES=1] - Revoke API keys for accounts the demotion sweep already downgraded but never deprovisioned (the 2026-07-01 batch), and retry any revocation that failed mid-sweep. Skips anyone who has since returned to Pro"
+	@echo "  make unit-failure-alert UNIT=<unit> [DRY_RUN=1] - Email the operator that a scheduled unit failed. Wired into units via OnFailure=zerogex-web-alert@%n.service; you should not need to run it by hand except to test that the recipient resolves"
 	@echo "  make extend-trial EMAIL=<email> (EXTEND_DAYS=N | TRIAL_END=<iso>) - Manually lengthen one customer's free trial by pushing out Stripe trial_end; re-arms the ~48h reminder so the reminder + trial->paid cutover still run automatically (DRY_RUN=1 to preview, YES=1 to apply)"
 	@echo "  make reactivate-member EMAIL=<email> [DAYS=21] [TIER=basic|pro] [CADENCE=monthly|annual] [PRICE=price_...] [PAYMENT_METHOD=pm_...] - Bring a CHURNED member back on a goodwill trial with NOTHING for them to do: re-creates their subscription in Stripe on the card already on file, with an absolute trial_end. The webhook grants the tier and sends the welcome-back email. Use extend-trial instead while they still HAVE a trialing sub. DRY_RUN=1 to preview, YES=1 to apply"
 	@echo "  make quarterly-receipt - Interactive end-to-end quarterly FOH receipt: prompts for amount/quarter/date, updates content/giving/totals.json, commits, pushes, and rebuilds. Never posts to X — prints the tweet for you to paste. Optional flags: AMOUNT=<usd> QUARTER=<label> DATE=<YYYY-MM-DD> EMAIL=<addr> NO_PUSH=1 NO_REBUILD=1 YES=1 DRY_RUN=1"
 	@echo "  make foh-donation-reminder - Send the quarterly FOH reminder email to the admin (fully self-contained instructions inside). Meant for cron on the 5th of Jan/Apr/Jul/Oct; TO=<addr> overrides the FOH_REMINDER_EMAIL env; QUARTER=<label> overrides the auto-detected closing quarter; DRY_RUN=1 to preview"
 	@echo "  make set-cancellation EMAIL=<email> (OFF=1 | ON=1) - Flip one customer's cancel_at_period_end: OFF=1 stops a scheduled cancel (renews, or converts a trial to paid); ON=1 schedules a cancel at period end (DRY_RUN=1 to preview, YES=1 to apply)"
-	@echo "  make honor-winback-discount EMAIL=<email> - Honor the manual 'reply discount' win-back offer: STACK a 25%-off-1-year coupon on top of any existing discounts and (default) stop a scheduled cancel so the sub converts/renews on the card on file. COUPON=<id> pins a coupon; CREATE_COUPON=1 [PERCENT=25] mints one; KEEP_CANCELLATION=1 leaves the cancel intact. DRY_RUN=1 to preview, YES=1 to apply"
+	@echo "  make honor-winback-discount EMAIL=<email> - Honor the manual 'reply discount' win-back offer: apply a percent-off-for-one-year coupon alongside any existing discounts and (default) stop a scheduled cancel so the sub converts/renews on the card on file. Defaults to the standing STRIPE_COUPON_WINBACK_* coupon for the member's plan, i.e. the rate WINBACK_DISCOUNT_LABEL advertises. COUPON=<id> pins an exact coupon; PERCENT=N makes that rate BINDING (refuses rather than granting a different one); CREATE_COUPON=1 mints/reuses a coupon at PERCENT and is picked over the standing one; an EARLIER win-back coupon on the sub is superseded rather than stacked (STACK=1 keeps it, other discount families are always preserved); KEEP_CANCELLATION=1 leaves the cancel intact. DRY_RUN=1 to preview, YES=1 to apply"
 	@echo "  make scan-orphan-payments [SINCE_DAYS=120] [VERBOSE=1] - Sweep every paid Stripe invoice for members who paid in full and are still on a free tier (the ones who never wrote in). Read-only; prints the recover-orphan-payment command for each hit"
 	@echo "  make clear-zombie-customers - NULL stripe_customer_id on rows with no subscription (APPLY=1 to write, dry-run by default)"
 	@echo "  make webhook-health - Stripe webhook health summary (errors/orphans/failed payments, last 24h + 7d)"
@@ -53,6 +56,7 @@ help:
 	@echo "  make founding-final-call - Send the one-shot founding final-call urgency email to founding-eligible non-redeemers before the lock-in deadline (quotes live founding rates from Stripe; no-op once the deadline passes). DRY_RUN=1 previews, YES=1 sends, PREVIEW_TO=<email> for a sample"
 	@echo "  make grant-partner-pro EMAIL=<email> [DAYS=90] [COMMISSION_BPS=3000] [WINDOW_MONTHS=12] [PROMO_CODE=...] [COUPON_ID=...] [DISCLOSURE_URL=...] [X_HANDLE=...] - Activate a Creator Partner: flips partner_tier='creator', stamps Pro grant, registers the Stripe promotion_code, optionally sets the X handle (DRY_RUN=1 to preview, YES=1 to apply)"
 	@echo "  make revoke-partner EMAIL=<email> [KEEP_STRIPE_PROMO=1] - Wind down a Creator Partner: clears partner_* state, deactivates the Stripe promo code, downgrades tier if no paying sub. Keeps referral_code + accrued commission ledger. (DRY_RUN=1 to preview, YES=1 to apply)"
+	@echo "  make partner-grant-revoke-backfill [DRY_RUN=1|YES=1] - Revoke API keys for partners whose Pro grant already expired but whose keys were never deprovisioned, and retry any revocation that failed mid-sweep. Skips partners who have since started paying for Pro"
 	@echo "  make partner-grant-expiry - Sweep expired Creator Partner Pro grants and downgrade to public (DRY_RUN=1 to preview, YES=1 to apply). Driven daily by systemd timer; this target is the same thing the timer fires."
 	@echo "  make partners [EMAIL=<partner>] - Roster of every Creator Partner: X handle, referral + promo codes, commission rate/window, Pro-grant expiry, activation date, disclosure URL. The 'who are my partners' view."
 	@echo "  make partner-commissions [EMAIL=<partner>] [FULL=1] [STATUS=accrued|paid|reversed] - Print the Creator Partner commission ledger: per-partner totals and (with --full) full row-by-row view. Use at month-end to figure out payouts."
@@ -70,6 +74,7 @@ help:
 	@echo "  make reset-save-latch EMAIL=<email> - TESTING: clear a member's one-shot save latch (retention_offer_claimed_at) so the /save flow can be claimed again"
 	@echo "  make reset-user-for-testing EMAIL=<email> - TESTING: reset one account to a clean pre-signup state (tier=public, subscription/trial latches cleared) so you can re-run signup + plan switching. DRY by default, APPLY=1 to write, KEEP_FOUNDING=1 / KEEP_CUSTOMER=1 to preserve those"
 	@echo "  make dedupe-payment-methods (EMAIL=<email> | CUSTOMER=cus_... | ALL=1) - Detach duplicate same-card/same-Link payment methods from Stripe customers, keeping the default/subscription method (INSPECT=1 to just list, DRY by default, APPLY=1 to detach)"
+	@echo "  make scan-payment-method-drift [VERBOSE=1] - Sweep every billable subscription for one pinned to a payment method the member has since replaced (the renewal that fails again next month after they rescued the last invoice with a new card). Read-only"
 	@echo "  make backup-monitoring - Backup Admin->Monitoring JSON data (S3_BUCKET=s3://... optional)"
 	@echo "  make backup-auth - Online backup of the SQLite auth DB (S3_BUCKET=, BACKUP_GPG_RECIPIENT= optional)"
 	@echo "  make auth-backups-prune - Prune old auth-DB backups: delete auth-*.db.gz* older than AUTH_BACKUP_RETENTION_DAYS (default 30) but ALWAYS keep the newest AUTH_BACKUP_KEEP (default 48; 0 = raw mtime-only). Shared by backup-auth + janitor"
@@ -339,6 +344,58 @@ grant-founding-on-existing-sub:
 apply-founding-lifetime:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/apply-founding-lifetime.mts $(if $(EMAIL),--email $(EMAIL),) $(if $(FORCE),--force,) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
 
+# Run the founding-cohort demotion sweep: founding-eligible users comped onto
+# pro/basic who never redeemed the founding rate (and hold no active/trialing
+# sub) revert to tier='public', AND their API keys are revoked — a key minted
+# while the comp was live keeps authenticating after it ends, because the
+# backend does not re-derive tier per request.
+#
+# deploy/systemd/zerogex-web-founding-cohort-demotion.service has invoked this
+# target name since it was written; the target itself was never committed, so
+# the unit's ExecStart pointed at nothing. Runs under --experimental-strip-types
+# because the script imports core/apiKeyAdmin.ts for the revocation.
+#
+# Revocation needs ZEROGEX_API_TOKEN + ZEROGEX_ADMIN_TOKEN (env or
+# frontend/.env.local). Without them the sweep still downgrades, reports that no
+# keys were revoked, and exits non-zero so the timer records a failure.
+# Usage:
+#   make founding-demote DRY_RUN=1
+#   make founding-demote YES=1
+founding-demote:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/expire-founding-cohort.mjs $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
+
+# Email the operator that a scheduled unit failed. Invoked by systemd via
+# OnFailure=zerogex-web-alert@%n.service, not by hand and not on a timer —
+# UNIT is the failed unit's name. Every sweep in deploy/systemd/ exits non-zero
+# on a real failure, and before this that exit reached journald and nothing
+# else; the sweeps exist so nobody has to remember to check, so a failure
+# nobody is told about defeats the point. DRY_RUN=1 prints the mail instead of
+# sending (use it to check the recipient resolves).
+#
+# Recipient: UNIT_ALERT_EMAIL, else SIGNUP_ALARM_EMAIL, else FOH_REMINDER_EMAIL.
+# Usage:
+#   make unit-failure-alert UNIT=zerogex-web-founding-lifetime.service DRY_RUN=1
+unit-failure-alert:
+	@if [ -z "$(UNIT)" ]; then echo "Error: UNIT is required (e.g. make unit-failure-alert UNIT=zerogex-web-founding-lifetime.service DRY_RUN=1)"; exit 1; fi
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-unit-failure-alert.mts --unit $(UNIT) $(if $(TO),--to $(TO),) $(if $(LINES),--lines $(LINES),) $(if $(DRY_RUN),--dry-run,)'
+
+# Revoke API keys for accounts the demotion sweep ALREADY downgraded but whose
+# keys were never deprovisioned — the sweep did not revoke anything before the
+# revocation wiring landed, so every account it demoted (the 2026-07-01 batch)
+# kept a working key. Also the retry path when the key service was unreachable
+# during a sweep: those accounts no longer match the downgrade query, so a plain
+# re-run of founding-demote will not pick them up.
+#
+# Selects users with a founding_cohort_expired audit row whose CURRENT tier is
+# still not API-key-eligible, so anyone who later subscribed to Pro is left
+# alone. Exits non-zero if any revocation fails, so re-running is safe and
+# visible.
+# Usage:
+#   make founding-cohort-revoke-backfill DRY_RUN=1
+#   make founding-cohort-revoke-backfill YES=1
+founding-cohort-revoke-backfill:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/expire-founding-cohort.mjs --backfill-revocations $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
+
 # Clear stripe_customer_id on rows that never produced a subscription —
 # pre-cutover beta artifacts that would cause "No such customer" 400s the
 # next time those users click Subscribe. Dry-run by default; pass APPLY=1
@@ -423,6 +480,21 @@ card-expiry-reminders:
 # "declined by your card issuer" fallback; NO_AMOUNT=1 drops the dollar amount.
 payment-failed-preview:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-payment-failed-preview.mts $(if $(PREVIEW_TO),--to $(PREVIEW_TO),) $(if $(FINAL),--final,) $(if $(NO_CARD),--no-card,) $(if $(NO_AMOUNT),--no-amount,)'
+
+# Grace-expiry warning: the SECOND dunning touch. Warns members whose
+# payment-recovery grace window closes within ~24h and whose card still hasn't
+# cleared, so the deadline is actionable before access drops to Public. Fills the
+# gap where the webhook's single first-attempt email (gated on attempt_count==1)
+# was the ONLY contact and the window then expired silently. Latched once per
+# window via users.payment_grace_warning_sent_for, so re-runs are safe.
+# DRY_RUN=1 previews who is due (and why others are skipped), YES=1 sends,
+# PREVIEW_TO=<email> sends one sample. LEAD_HOURS=N / MIN_OPEN_HOURS=N tune the
+# timing, REASON=trial|renewal narrows the cohort, GRACE_DAYS=N overrides the
+# window length. Driven every 4h by zerogex-web-grace-expiry-warnings.timer.
+#   make grace-expiry-warnings DRY_RUN=1
+#   make grace-expiry-warnings YES=1
+grace-expiry-warnings:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-grace-expiry-warnings.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),) $(if $(LEAD_HOURS),--lead-hours $(LEAD_HOURS),) $(if $(MIN_OPEN_HOURS),--min-open-hours $(MIN_OPEN_HOURS),) $(if $(REASON),--reason $(REASON),) $(if $(GRACE_DAYS),--grace-days $(GRACE_DAYS),)'
 
 # Send the founder-voice trial-pitch nudge to every user in the verified-
 # never-paid cohort (public tier, verified email, no subscription, NOT
@@ -601,6 +673,21 @@ dedupe-payment-methods:
 	@if [ -z "$(EMAIL)" ] && [ -z "$(CUSTOMER)" ] && [ -z "$(ALL)" ]; then echo "Error: provide EMAIL=<addr>, CUSTOMER=cus_..., or ALL=1"; exit 1; fi
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/dedupe-payment-methods.mjs $(if $(CUSTOMER),--customer $(CUSTOMER),$(if $(EMAIL),--email $(EMAIL),--all)) $(if $(INSPECT),--inspect,) $(if $(APPLY),--apply,)'
 
+# Sweep every billable subscription for a PINNED payment method the member has
+# effectively replaced. Stripe charges a subscription's own
+# default_payment_method when one is set and only falls back to the customer
+# default when it is not — so a member who rescues a failed invoice with a new
+# card gets that card marked as the CUSTOMER default while the subscription
+# keeps billing the old one. The invoice clears, the recovered email goes out,
+# and the same dead method fails again next month. `make diagnose-user` shows it
+# per-member as two disagreeing lines (Sub default PM vs Customer default PM);
+# this finds the disagreement across the whole base.
+# Read-only — creates nothing, changes no Stripe object, sends no email.
+#   make scan-payment-method-drift
+#   make scan-payment-method-drift VERBOSE=1
+scan-payment-method-drift:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/scan-payment-method-drift.mts $(if $(VERBOSE),--verbose,)'
+
 # Manually lengthen ONE customer's free trial (e.g. to thank a helpful early
 # user) by pushing out the Stripe subscription's trial_end. Everything else
 # stays automatic: Stripe re-schedules the trial->paid cutover to the new date,
@@ -739,23 +826,41 @@ cancel-subscription:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/cancel-subscription.mts --email $(EMAIL) $(if $(VOID_INVOICE),--void-invoice,) $(if $(FORCE),--force,) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
 
 # Honor the evergreen win-back "reply 'discount'" offer for ONE member by hand:
-# STACK a "25% off for one year" coupon on top of any discounts already on their
-# subscription (existing coupons are preserved, never stripped), and — unless
-# KEEP_CANCELLATION=1 — clear cancel_at_period_end so a trialing sub converts to
-# paid at trial_end (an active one renews) on the card already on file. No
-# re-subscribe. The manual twin of the automated ?winback=1 checkout path.
+# Apply a "<PERCENT>% off for one year" coupon alongside any discounts already on
+# their subscription, and — unless KEEP_CANCELLATION=1 — clear
+# cancel_at_period_end so a trialing sub
+# converts to paid at trial_end (an active one renews) on the card already on
+# file. No re-subscribe. The manual twin of the automated ?winback=1 path.
+#
+# Other discount families (public promo, referral, founding intro/lifetime,
+# anything hand-applied) are preserved and never stripped. An EARLIER WIN-BACK
+# coupon is the exception: Stripe applies discounts sequentially, so leaving both
+# on would compound them — honoring 30% over an existing 50% bills 65% off, a
+# rate nobody promised. The earlier grant is superseded instead, and the plan
+# prints a "Superseding:" line naming what comes off. STACK=1 keeps the old
+# stack-everything behavior for the deliberate exception.
 # Coupon resolution: COUPON=<id> pins an exact coupon; otherwise the standing
 # STRIPE_COUPON_WINBACK_<TIER>_<CADENCE> env for the member's plan; otherwise
-# CREATE_COUPON=1 mints a deterministic PERCENT%-off (default 25) 1-year coupon
-# (annual: duration=once; monthly: repeating 12 months). Sends NO email — reply
-# to the member yourself. Run `make diagnose-user EMAIL=...` first to confirm
-# status/plan/discounts. Examples:
+# CREATE_COUPON=1 mints a deterministic PERCENT%-off 1-year coupon (annual:
+# duration=once; monthly: repeating 12 months). PERCENT defaults to whatever
+# rate WINBACK_DISCOUNT_LABEL advertises.
+#
+# PERCENT is BINDING when you pass it. The standing env coupon normally wins
+# over CREATE_COUPON, so the rate you type has to be able to override it or it
+# would be decoration: pass PERCENT=N and the run applies that rate or nothing.
+# With the env coupon set and NOT at N%, it refuses and names the two ways out —
+# add CREATE_COUPON=1 to mint/reuse at N% (overriding the standing coupon), or
+# drop PERCENT to take the standing rate. Omit PERCENT for the ordinary case.
+# Sends NO email — reply to the member yourself. Run
+# `make diagnose-user EMAIL=...` first to confirm status/plan/discounts.
+# Examples:
 #   make honor-winback-discount EMAIL=foo@example.com DRY_RUN=1
 #   make honor-winback-discount EMAIL=foo@example.com CREATE_COUPON=1 YES=1
 #   make honor-winback-discount EMAIL=foo@example.com COUPON=winback25 YES=1
+#   make honor-winback-discount EMAIL=foo@example.com PERCENT=50 CREATE_COUPON=1 YES=1
 honor-winback-discount:
 	@if [ -z "$(EMAIL)" ]; then echo "Error: EMAIL is required (e.g. make honor-winback-discount EMAIL=foo@example.com DRY_RUN=1)"; exit 1; fi
-	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/honor-winback-discount.mts --email $(EMAIL) $(if $(COUPON),--coupon $(COUPON),) $(if $(CREATE_COUPON),--create-coupon,) $(if $(PERCENT),--percent $(PERCENT),) $(if $(KEEP_CANCELLATION),--keep-cancellation,) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/honor-winback-discount.mts --email $(EMAIL) $(if $(COUPON),--coupon $(COUPON),) $(if $(CREATE_COUPON),--create-coupon,) $(if $(PERCENT),--percent $(PERCENT),) $(if $(STACK),--stack,) $(if $(KEEP_CANCELLATION),--keep-cancellation,) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
 
 # Activate a Creator Partner end-to-end: flip partner_tier='creator', grant
 # them DAYS days of Pro access (no Stripe sub), pre-mint a referral_code,
@@ -862,7 +967,23 @@ revoke-partner:
 # this Makefile target is what the timer's service unit invokes, and what
 # operators use to dry-run before the next scheduled tick.
 partner-grant-expiry:
-	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --no-warnings scripts/expire-partner-grants.mjs $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/expire-partner-grants.mjs $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
+
+# Revoke API keys for partners the expiry sweep ALREADY downgraded but whose
+# keys were never deprovisioned — nothing revoked before the revocation wiring
+# landed, so every partner it demoted kept a working key. Also the retry path
+# when the key service was unreachable during a sweep: those partners no longer
+# match the downgrade query, so a plain re-run will not pick them up.
+#
+# Selects users with a partner_grant_expired audit row whose CURRENT tier is
+# still not API-key-eligible, so a partner who has since started paying for Pro
+# is left alone. Exits non-zero if any revocation fails, so re-running is safe
+# and visible.
+# Usage:
+#   make partner-grant-revoke-backfill DRY_RUN=1
+#   make partner-grant-revoke-backfill YES=1
+partner-grant-revoke-backfill:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/expire-partner-grants.mjs --backfill-revocations $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
 
 # Roster of every Creator Partner (partner_tier='creator'): X handle,
 # referral + audience promo codes, commission rate/window, Pro-grant expiry,

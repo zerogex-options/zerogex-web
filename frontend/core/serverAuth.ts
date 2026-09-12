@@ -1315,7 +1315,7 @@ export async function updateUserTier(actorUserId: string, targetEmail: string, t
   try {
     const { revokeApiKeysIfTierDropped } = await import('@/core/apiKeys');
     const result = await revokeApiKeysIfTierDropped(user.email, previousTier, nextTier);
-    if (result && result.revoked > 0) {
+    if (result.status === 'revoked' && result.revoked > 0) {
       appendAuditEvent({
         type: 'api_key_auto_revoked',
         userId: user.id,
@@ -1323,6 +1323,24 @@ export async function updateUserTier(actorUserId: string, targetEmail: string, t
         email: user.email,
         ip,
         message: `Revoked ${result.revoked} API key(s): tier dropped ${previousTier} → ${nextTier}`,
+      });
+    } else if (result.status === 'unconfigured') {
+      // An admin dropped this user out of Pro and their keys could NOT be
+      // deprovisioned — this deploy has no ZEROGEX_ADMIN_TOKEN. The key stays
+      // live because the backend does not re-derive tier per request. Record
+      // it: a silent skip here is indistinguishable from a clean revocation,
+      // which is how keys survived their subscriptions before this branch
+      // existed.
+      appendAuditEvent({
+        type: 'api_key_revoke_skipped_unconfigured',
+        userId: user.id,
+        actorUserId,
+        email: user.email,
+        ip,
+        message:
+          `API keys NOT revoked on tier drop ${previousTier} → ${nextTier}: key administration ` +
+          `is not configured (ZEROGEX_API_TOKEN / ZEROGEX_ADMIN_TOKEN). Any key this user ` +
+          `holds is still live — set both, then audit with make api-keys-list.`,
       });
     }
   } catch (err) {

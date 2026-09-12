@@ -20,6 +20,8 @@ Dieser Artikel ist der praktische Workflow, um Options-basierte S/R zu identifiz
 
 ## Die vier Arten von Options-basierter S/R
 
+Die Bezeichnungen unten — Call Wall als Widerstand, Put Wall als Unterstützung — beschreiben das *typische Verhalten bei positivem Gamma*. Sie sind keine festen Eigenschaften des Strikes: Der Optionstyp allein legt die Richtung nicht fest, und beide können sich umkehren, wenn sich das Vorzeichen des modellierten Dealer-Gammas oder der umgebende Flow ändert.
+
 ### 1. Call Walls (Resistance)
 
 Der **Call Wall** ist der Strike oberhalb des Spot mit der stärksten Call-Gamma-Exposure. In einem Long-Gamma-Regime müssen Dealer, die ihr Long-Call-Inventar hedgen, in Rallyes verkaufen, die sich dem Wall nähern. Dieses Verkaufen wirkt als struktureller Widerstand.
@@ -43,6 +45,12 @@ Der Magnet ist am stärksten in der Nähe des Verfalls, wenn Optionen mit Verfal
 ### 4. Der Gamma Flip (Regime-Linie)
 
 Der **Gamma Flip** ist im klassischen Sinne kein S/R — er ist die Regime-Grenze. Aber er funktioniert wie eine weiche Support-/Resistance-Linie, weil der Preis beim Überqueren tendenziell innehält oder kurz umkehrt (der Dealer-Reflex wechselt genau bei diesem Preis das Vorzeichen). Oberhalb des Flips ist der Reflex, gegen die Bewegung zu handeln (Fade); darunter, ihr zu folgen (Chase).
+
+Siehe [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) für den Workflow.
+
+---
+
+## Warum dreht SPY an diesen Levels?
 
 Siehe [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) für den Workflow.
 

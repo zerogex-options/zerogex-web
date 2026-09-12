@@ -23,6 +23,28 @@ import { formatCardBrand } from '../core/stripeCard.ts';
 import { classifyTrialEngagement, daysSinceLastSeen } from '../core/trialEngagement.ts';
 import { classifySubscriberBucket } from '../core/subscriberBucket.ts';
 import { previewNextInvoice, isNoUpcomingInvoiceError } from '../core/stripeInvoicePreview.ts';
+import {
+  classifyDecline,
+  declineGuidance,
+  describeDecline,
+  readChargeDecline,
+  type ChargeDecline,
+} from '../core/declineReason.ts';
+
+// Exit quietly when the reader downstream closes the pipe. `| head`, `| grep -m1`
+// and quitting a pager all close the read end early, and Node surfaces that as
+// an unhandled 'error' event on the stream — which crashes the process with a
+// stack trace and a non-zero exit code. On a read-only diagnostic that noise
+// prints immediately after the line the reader actually asked for, so a
+// successful lookup reads like a failure and `make diagnose-user` reports an
+// error. Nothing is left half-done: the reader stopped listening, which is its
+// right.
+for (const stream of [process.stdout, process.stderr]) {
+  stream.on('error', (err) => {
+    if ((err as { code?: string }).code === 'EPIPE') process.exit(0);
+    throw err;
+  });
+}
 
 // The July-1 founding deferral landed in commit 06b7128. founders whose
 // subscription started before this got charged immediately; founders after it
@@ -82,6 +104,9 @@ function usage() {
 
 Prints the DB row, last 20 audit_events (with the originating IP), and live
 Stripe state (customer, subscription, last 5 invoices) for one user. Read-only.
+
+A failed invoice also prints WHY the card was declined and what that implies
+for the follow-up — an issuer block and an empty account need opposite advice.
 
 Options:
   -e, --email <email>   Target user. Required.
@@ -752,11 +777,39 @@ if (user.stripe_subscription_id) {
   }
 }
 
+// Why each failed invoice failed, keyed by invoice id. Read from CHARGES rather
+// than expanding the invoice's payment_intent: charges carry failure_code and
+// outcome.seller_message in a shape that has been stable across the API versions
+// this repo spans, whereas the invoice→PaymentIntent link moved in Stripe's
+// 2025-03-31.basil release (see core/stripeInvoice.ts) and this script does not
+// pin a version at all. Best-effort — a lookup failure just omits the line.
+async function loadDeclinesByInvoice(customerId: string): Promise<Map<string, ChargeDecline>> {
+  const byInvoice = new Map<string, ChargeDecline>();
+  const charges = await stripe.charges.list({ customer: customerId, limit: 20 });
+  // Stripe lists newest first, so the FIRST failure seen for an invoice is its
+  // most recent attempt — which is the one that explains where things stand.
+  for (const charge of charges.data) {
+    const invoiceId =
+      typeof charge.invoice === 'string' ? charge.invoice : (charge.invoice?.id ?? null);
+    if (!invoiceId || byInvoice.has(invoiceId)) continue;
+    const decline = readChargeDecline(charge);
+    if (decline) byInvoice.set(invoiceId, decline);
+  }
+  return byInvoice;
+}
+
 try {
   const invoices = await stripe.invoices.list({
     customer: user.stripe_customer_id,
     limit: 5,
   });
+  let declines = new Map<string, ChargeDecline>();
+  try {
+    declines = await loadDeclinesByInvoice(user.stripe_customer_id);
+  } catch (err) {
+    const e = err as StripeError;
+    console.log(`  (decline lookup failed: ${e.message})`);
+  }
   header('Stripe invoices (last 5)');
   if (invoices.data.length === 0) {
     console.log('  (none)');
@@ -769,6 +822,15 @@ try {
     );
     if (inv.hosted_invoice_url) {
       console.log(`    hosted_invoice_url: ${inv.hosted_invoice_url}`);
+    }
+    // The decline reason, and what it means for the follow-up. This is the
+    // difference between "ask them to approve it with their bank" and "wait for
+    // the retry / offer a cheaper plan" — opposite advice, and until this landed
+    // the only way to tell them apart was opening the Stripe dashboard.
+    const decline = inv.id ? declines.get(inv.id) : undefined;
+    if (decline) {
+      console.log(`    decline: ${describeDecline(decline)}`);
+      console.log(`    → ${declineGuidance(classifyDecline(decline))}`);
     }
   }
 } catch (err) {

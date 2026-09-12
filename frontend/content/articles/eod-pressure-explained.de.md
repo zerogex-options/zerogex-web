@@ -71,6 +71,8 @@ pin_score    = sign × normalized
 
 **Methodische Einschränkung:** Die Umkehr bei negativem Gamma ist eine ZeroGEX-Heuristik, keine mechanische Folge. Negatives Gamma verstärkt eine bereits laufende Richtung; die Zielentfernung allein bestimmt diese Richtung nicht.
 
+**Methodische Einschränkung:** Die Vorzeichenumkehr bei negativem Gamma ist eine ZeroGEX-eigene Heuristik, keine direkte Folge der Mechanik negativen Gammas. Negatives Gamma verstärkt die bereits laufende Richtung; die Entfernung zum Ziel allein kann diese Richtung nicht bestimmen. Das Analytics-Repository stand in diesem Workspace für eine sichere Implementierungs- und Teständerung nicht zur Verfügung, daher benennt diese Dokumentation die Einschränkung, statt sie zu verschleiern.
+
 
 
 ### Komponente 3: Zeitrampe (die Sperre)

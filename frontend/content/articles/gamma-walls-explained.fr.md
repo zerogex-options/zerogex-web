@@ -60,9 +60,33 @@ C'est pourquoi les walls semblent « fonctionner » certains jours et pas d'autr
 
 Les walls ne sont pas annoncés à l'ouverture pour tenir jusqu'à la clôture. Ils migrent. Trois schémas courants :
 
+**Largeur.** Une fourchette de walls étroite signifie que la gamma est concentrée près du spot des deux côtés. En régime de gamma positive, c'est la configuration classique de pinning — la couverture s'oppose aux mouvements dans les deux sens et la fourchette tend à tenir. Une fourchette large signifie que les strikes denses les plus proches sont éloignés, donc il y a moins de couverture concentrée entre les deux et le prix peut parcourir plus de chemin avant d'en rencontrer.
+
+**Asymétrie.** Le spot se situe rarement au milieu. Quand un wall est bien plus proche que l'autre, le wall proche est le niveau qui est réellement testé et le lointain n'est surtout qu'un contexte. Un spot à 0,3 % sous le call wall et à 1,4 % au-dessus du put wall, ce n'est pas la même journée qu'un spot à mi-chemin entre les deux : le premier comporte un point de décision à court terme, le second non.
+
+Le piège est de lire la largeur ou l'asymétrie sans le régime. Les deux lectures ci-dessus supposent une gamma positive. Sous le flip, cette même fourchette étroite n'est pas un pin — c'est une courte distance entre deux niveaux que la couverture aidera le prix à franchir.
+
+---
+
+## Comment les gamma walls se déplacent en séance
+
+Les walls ne sont pas annoncés à l'ouverture pour tenir jusqu'à la clôture. Ils migrent. Trois schémas courants :
+
 1. **Rééquilibrage de l'OI.** Un volume frais sur un strike différent peut déplacer la concentration la plus lourde. En milieu de séance, un nouveau strike peut devenir le wall.
 2. **Migration du wall avec le prix.** À mesure que le prix se rapproche du call wall, une nouvelle couverture peut construire de l'OI juste au-dessus, poussant de fait le wall plus haut. Un wall qui *suit* le prix est structurellement différent d'un wall qui *tient* — la thèse du trap-fade est bien plus faible quand le wall se déplace avec le mouvement.
 3. **Décroissance à l'échéance.** Près des échéances du jour même — en particulier dans les chaînes riches en 0DTE — les walls peuvent disparaître en début d'après-midi à mesure que les contrats qui les avaient formés s'éteignent. Le wall en lequel vous aviez confiance à 10h30 ET peut ne plus être le wall à 14h30 ET.
+
+Un wall peut aussi se déplacer uniquement parce que le spot, le temps et la volatilité implicite bougent — le strike portant le plus d'exposition modélisée change même quand le positionnement, lui, ne change pas. Un gamma wall est le strike le plus chargé en gamma modélisée *à cet instant*. Traitez-le comme une lecture vivante, pas comme une ligne fixe.
+
+---
+
+## Les gamma walls à l'approche de l'échéance du jour
+
+Le 0DTE est le terrain où le comportement des walls est le plus extrême, dans les deux sens.
+
+La gamma sur une chaîne du jour même est très importante près du spot et décroît rapidement en s'en éloignant, si bien que les walls se collent au prix et que la concentration qui s'y trouve est bien plus lourde que sur une chaîne à échéance plus longue. Quand le régime le permet, cela produit le pinning le plus fort que vous ayez des chances d'observer — un prix qui broie dans une bande étroite entre deux walls distants de quelques points seulement.
+
+Cette même concentration rend ces walls instables. Comme la gamma 0DTE se revalorise brutalement à mesure que le spot bouge et que l'horloge tourne, un wall 0DTE peut migrer plusieurs fois en une heure sans qu'une seule position nouvelle soit ouverte. Les walls peuvent aussi disparaître : dès que des strikes se retrouvent nettement dans ou hors de la monnaie, leur gamma modélisée tend vers zéro et le classement se réorganise autour de ce qui reste près du spot.
 
 Un gamma wall est le strike gamma le *plus lourd actuellement*. Traitez-le comme une lecture en direct, pas comme une ligne fixe.
 

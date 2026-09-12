@@ -523,6 +523,21 @@ function initDb(): DatabaseSync {
   // out of the Total Subscribers chart.
   ensureColumn('users', 'payment_grace_reason', 'TEXT');
 
+  // Once-per-window latch for the grace-expiry warning (the ~24h-before-close
+  // second dunning touch; core/graceExpiryWarning.ts, sent by
+  // scripts/send-grace-expiry-warnings.mts). Stores the
+  // `payment_grace_started_at` anchor the member was last warned about — NOT a
+  // timestamp of the send and NOT a boolean. Keying it to the window is what
+  // makes it self-invalidating: decidePaymentGrace stamps a fresh anchor
+  // whenever a window opens, so a member who recovers and later fails again no
+  // longer matches and is warned about the new window, while every repeat sweep
+  // inside one window matches and sends nothing. Nothing in the Stripe webhook
+  // clears it, which is the point — there is no reset path on which a stale
+  // latch could silently suppress a member's next warning. Same idempotency
+  // discipline as the cancellation alert's `alert_for=<audit id>`. NULL = never
+  // warned.
+  ensureColumn('users', 'payment_grace_warning_sent_for', 'TEXT');
+
   // ISO instant this member's FIRST subscription invoice was actually PAID, or
   // NULL if no payment of theirs has ever cleared. Stamped once (COALESCE, so
   // renewals and webhook redeliveries never move it) from the invoice.paid

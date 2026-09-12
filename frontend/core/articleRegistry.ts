@@ -157,6 +157,18 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     readMinutes: 16,
     kind: 'pillar',
   },
+  'gamma-vwap-confluence-explained': {
+    slug: 'gamma-vwap-confluence-explained',
+    href: '/education/gamma-vwap-confluence-explained',
+    title: 'Gamma / VWAP Confluence Explained — and Why Two Symbols Can Disagree',
+    blurb:
+      'What the confluence score measures, how the cluster is built from the gamma flip and VWAP, why cluster quality matters more than the sign, and why the gamma regime inverts the same picture from a fade into a breakout — so SPX, SPY and QQQ can legitimately point opposite ways on the same afternoon.',
+    description:
+      'Gamma / VWAP Confluence explained — how the cluster is built, why the gamma regime inverts the reading, and why two symbols can score opposite at the same moment.',
+    datePublished: '2026-09-11',
+    readMinutes: 8,
+    kind: 'tier2',
+  },
   'pin-strike-explained': {
     slug: 'pin-strike-explained',
     href: '/education/pin-strike-explained',
@@ -206,8 +218,8 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     description:
       'The best GEX tools and gamma exposure platforms of 2026, compared fairly — real-time vs delayed data, 0DTE coverage, methodology, signals, free tiers and price.',
     datePublished: '2026-06-11',
-    dateModified: '2026-09-04',
-    readMinutes: 11,
+    dateModified: '2026-09-11',
+    readMinutes: 14,
     kind: 'article',
   },
   'real-time-gex-0dte': {
@@ -392,6 +404,18 @@ export const ARTICLE_REGISTRY: Record<string, ArticleMeta> = {
     readMinutes: 6,
     kind: 'tier1',
   },
+  'gamma-levels-in-claude': {
+    slug: 'gamma-levels-in-claude',
+    href: '/education/gamma-levels-in-claude',
+    title: 'How to Get SPX Gamma Levels in Claude, ChatGPT and Cursor',
+    blurb:
+      'Ask an assistant where the gamma flip is and it will usually invent a number. How to connect Claude, ChatGPT or Cursor to a live source, what to ask it, and how to tell a real answer from a fabricated one.',
+    description:
+      'Get live SPX gamma levels inside Claude, ChatGPT or Cursor with a free MCP server — setup, what to ask, and how to spot a fabricated level.',
+    datePublished: '2026-09-10',
+    readMinutes: 7,
+    kind: 'article',
+  },
   'zero-gamma-level-explained': {
     slug: 'zero-gamma-level-explained',
     href: '/education/zero-gamma-level-explained',
@@ -542,6 +566,11 @@ const RELATED_BY_SLUG: Record<string, string[]> = {
     'charm-the-clock-is-a-trader',
     'vanna-when-fear-fades',
     'why-we-dont-publish-dex',
+  ],
+  'gamma-levels-in-claude': [
+    'how-to-read-a-gamma-flip',
+    'gamma-exposure-explained',
+    'best-gex-tools',
   ],
   'best-gex-tools': [
     'gamma-exposure-explained',

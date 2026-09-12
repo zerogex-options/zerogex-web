@@ -448,8 +448,11 @@ const carryOver = decideDiscountCarryOver(readSubscriptionDiscounts(canceledSubs
 console.log(`Plan to restore:    ${sku.tier} / ${sku.cadence}  (price ${decision.priceId})`);
 console.log(`First renewal:      ${isoOf(decision.billingCycleAnchorUnix)}  ← paid period honored until here`);
 console.log(`Charge now:         $0.00  (proration_behavior=none — they already paid for this period)`);
-if (carryOver.carry.length) {
-  console.log(`Discounts carried:  ${carryOver.carry.join(', ')}  (duration=forever)`);
+for (const c of carryOver.carried) {
+  const note = c.restartsClock
+    ? '  <- clock RESTARTS: months already used are granted again'
+    : '';
+  console.log(`Discounts carried:  ${c.couponId}  (duration=${c.duration})${note}`);
 }
 for (const flagged of carryOver.flagged) {
   console.log(`Discount NOT carried: ${flagged.couponId} (duration=${flagged.duration})`);
@@ -604,7 +607,7 @@ execSqlite(
      NULL,
      '${escapeSqlLiteral(user.email)}',
      'manual-script',
-     '${escapeSqlLiteral(`Invoice ${invoice.id} recovered as subscription ${created.id} on price ${decision.priceId}; paid period honored through ${isoOf(decision.billingCycleAnchorUnix)} (first renewal charge); tier set to ${sku.tier}${carryOver.carry.length ? `; carried forever coupon(s) ${carryOver.carry.join(', ')}` : ''}${droppedParams.length ? `; Stripe rejected ${droppedParams.join(', ')}` : ''}`)}',
+     '${escapeSqlLiteral(`Invoice ${invoice.id} recovered as subscription ${created.id} on price ${decision.priceId}; paid period honored through ${isoOf(decision.billingCycleAnchorUnix)} (first renewal charge); tier set to ${sku.tier}${carryOver.carried.length ? `; carried coupon(s) ${carryOver.carried.map((c) => `${c.couponId} (duration=${c.duration}${c.restartsClock ? ', clock restarted' : ''})`).join(', ')}` : ''}${droppedParams.length ? `; Stripe rejected ${droppedParams.join(', ')}` : ''}`)}',
      '${escapeSqlLiteral(stamp)}'
    );`,
 );

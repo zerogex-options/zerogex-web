@@ -94,7 +94,7 @@ Es gibt zwei Wege, Regimeinformationen aus der Optionskette zu extrahieren:
 1. Die **Aggregation pro Strike** summiert das vorzeichenbehaftete Gamma an jedem Strike beim heutigen Spot. Sie ist schnell und intuitiv.
 2. Das **Spot-Shift-Dealer-Gamma** bewertet das Gamma jeder Option bei jedem hypothetischen Spot-Preis auf einem Raster neu und summiert dann zu einer *Kurve* des Dealer-Gammas gegenüber dem Kurs. Der Nulldurchgang dieser Kurve ist der Gamma-Flip; der Wert beim heutigen Spot ist das Net GEX-at-Spot.
 
-Der Spot-Shift-Ansatz hat einen strukturellen Vorteil: Da das Headline-Net-GEX und der Gamma-Flip aus derselben Kurve abgelesen werden, können sie sich nicht widersprechen. Ein positives Net GEX entspricht immer einem Spot oberhalb des Flips; ein negatives liegt immer darunter. Der Ansatz pro Strike kann bei einer Verschiebung der Optionskette widersprüchliche Vorzeichen produzieren, weshalb der Spot-Shift-Ansatz der Branchenstandard für ernsthafte Regimearbeit ist. Die Methodik hinter der ZeroGEX-Implementierung ist detailliert dokumentiert in [GEX und der Gamma-Flip — Wie ZeroGEX sie berechnet](/guides/gamma-flip-calculation-before-vs-after).
+ZeroGEX bevorzugt ein Spot-Shift-Profil, weil es modelliertes Gamma über hypothetische Kurse des Basiswerts auswertet. Headline-Net-GEX und den ausgewählten Flip aus demselben Profil abzuleiten verbessert die interne Konsistenz, während der Resolver weiterhin mehrfache, schwache oder fehlende Kreuzungen sowie Unterschiede in den Verfallsuniversen behandeln muss. Die Methodik hinter der ZeroGEX-Implementierung ist detailliert dokumentiert in [GEX und der Gamma-Flip — Wie ZeroGEX sie berechnet](/guides/gamma-flip-calculation-before-vs-after).
 
 ---
 

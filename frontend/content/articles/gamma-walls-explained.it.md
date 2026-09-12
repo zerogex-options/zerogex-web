@@ -60,9 +60,33 @@ Questo è il motivo per cui i wall sembrano "funzionare" alcuni giorni e altri n
 
 I wall non vengono annunciati all'apertura e non restano fissi fino alla chiusura. Migrano. Tre schemi comuni:
 
+**Ampiezza.** Un range di wall stretto significa che la gamma è concentrata vicino allo spot su entrambi i lati. In un regime di gamma positivo è il classico assetto da pinning — la copertura si oppone ai movimenti in entrambe le direzioni e il range tende a tenere. Un range ampio significa che gli strike densi più vicini sono lontani, quindi in mezzo c'è meno copertura concentrata e il prezzo può percorrere più strada prima di incontrarne.
+
+**Asimmetria.** Lo spot sta raramente nel mezzo. Quando un wall è molto più vicino dell'altro, il wall vicino è il livello che viene davvero testato e quello lontano è soprattutto contesto. Uno spot che sta lo 0,3% sotto il call wall e l'1,4% sopra il put wall è una giornata diversa da uno spot a metà strada tra i due: il primo ha un punto di decisione a breve, il secondo no.
+
+La trappola è leggere ampiezza o asimmetria senza il regime. Entrambe le letture qui sopra presuppongono gamma positivo. Sotto il flip, lo stesso range stretto non è un pin — è una distanza breve tra due livelli che la copertura aiuterà il prezzo ad attraversare.
+
+---
+
+## Come i gamma wall si spostano durante la seduta
+
+I wall non vengono annunciati in apertura per poi tenere fino alla chiusura. Migrano. Tre schemi comuni:
+
 1. **Ribilanciamento dell'OI.** Nuovo volume su uno strike diverso può spostare la concentrazione più pesante. A metà seduta un nuovo strike potrebbe essere il wall.
 2. **Migrazione del wall con il prezzo.** Man mano che il prezzo si avvicina al call wall, un nuovo hedging può costruire OI appena sopra di esso, spingendo di fatto il wall più in alto. Un wall che *insegue* il prezzo è strutturalmente diverso da uno che *tiene* — la tesi del trap-fade è molto più debole quando il wall si muove insieme al movimento.
 3. **Decadimento verso la scadenza.** Vicino alle scadenze dello stesso giorno — specialmente in catene ricche di 0DTE — i wall possono sparire entro il primo pomeriggio man mano che i contratti che li avevano costruiti si esauriscono. Il wall in cui si aveva fiducia alle 10:30 ET potrebbe non essere più il wall alle 14:30 ET.
+
+Un wall può spostarsi anche solo perché si muovono spot, tempo e volatilità implicita — lo strike che porta la maggiore esposizione modellata cambia anche quando il posizionamento resta uguale. Un gamma wall è lo strike con più gamma modellata *in questo momento*. Trattalo come una lettura viva, non come una linea fissa.
+
+---
+
+## I gamma wall verso la scadenza dello stesso giorno
+
+Lo 0DTE è il terreno in cui il comportamento dei wall è più estremo, in entrambe le direzioni.
+
+La gamma su una catena a scadenza giornaliera è molto grande vicino allo spot e cala rapidamente allontanandosi, quindi i wall stanno stretti al prezzo e la concentrazione su di essi è molto più pesante che su una catena a scadenza più lunga. Quando il regime lo sostiene, questo produce il pinning più forte che ti capiterà probabilmente di vedere — il prezzo che macina in una banda stretta tra due wall distanti solo pochi punti.
+
+La stessa concentrazione rende quei wall instabili. Poiché la gamma 0DTE si rivaluta bruscamente al muoversi dello spot e allo scorrere dell'orologio, un wall 0DTE può migrare più volte in un'ora senza che venga aperta una sola posizione nuova. I wall possono anche sparire: quando gli strike finiscono decisamente dentro o fuori dal denaro, la loro gamma modellata tende a zero e l'ordinamento si riorganizza attorno a ciò che resta vicino allo spot.
 
 Un gamma wall è lo strike gamma *attualmente* più pesante. Va trattato come una lettura in tempo reale, non come una linea fissa.
 

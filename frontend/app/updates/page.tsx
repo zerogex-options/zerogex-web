@@ -20,6 +20,29 @@ type Update = {
 // Newest first. Add a new object to the top of this array to publish an update.
 const UPDATES: Update[] = [
   {
+    date: 'September 10, 2026',
+    title: 'Spread Monitor: can you actually get filled?',
+    intro:
+      'A question came up on X this week that we could not answer: index put spreads had gone wide enough to be untradeable, and nobody had a number for how wide, or whether it was unusual. The quote data was already in the pipeline — nothing was summarising it. Now something is.',
+    whatsNew: [
+      {
+        title: 'Spread Monitor',
+        href: '/spread-monitor',
+        body: 'A new Metrics page for execution quality. It shows how wide the option market is quoted, which side of the book is the expensive one, where in the chain the market thins out, and how much of the chain has no bid at all — contracts you cannot sell at any price, which no width statistic can express and which a median alone would hide. Puts and calls are always plotted apart, because the days people complain about are days when the puts widened and the calls did not.',
+      },
+      {
+        title: 'A baseline, not a threshold',
+        href: '/help/platform/spread-monitor',
+        body: 'There is no universal "wide" for a quoted spread — an SPX put is structurally wider than an SPY put on the calmest day of the year. So the page never calls a reading wide in the abstract. It ranks today against the same symbol\u2019s own trailing sessions, and when it does not have that history it shows the measurement and withholds the verdict.',
+      },
+      {
+        title: 'Side by side across the indices',
+        href: '/spread-monitor',
+        body: 'A cross-symbol table answers "is NDX any better than SPX today?" on a comparable basis — width in basis points of the index level, since a dollar-wide market means something different on an index near 6,800 than on one near 25,000. ES and NQ are deliberately absent: they carry no option chain of their own here, and scaling an SPX quote by the futures basis would invent a market nobody published.',
+      },
+    ],
+  },
+  {
     date: 'August 30, 2026',
     title: 'Your levels on your own charts, plus futures',
     intro:

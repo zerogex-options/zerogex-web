@@ -205,3 +205,5 @@ Contenido solo con fines educativos — nada de lo anterior es una recomendació
 ---
 
 Si quieres ver los flujos de vanna y charm de hoy en tiempo real, junto con el régimen gamma que determina si producirán deriva o serán arrollados, el dashboard gratuito de ZeroGEX muestra todo esto.
+
+> Las puntuaciones de señal de ZeroGEX son resultados derivados que usan inputs, pesos y umbrales seleccionados a mano, salvo que se indique lo contrario. No son probabilidades calibradas ni garantías; se requiere validación histórica antes de interpretarlas como una ventaja de rendimiento.

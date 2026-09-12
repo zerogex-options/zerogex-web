@@ -28,6 +28,9 @@ import SessionDeltaToggle from '@/components/SessionDeltaToggle';
 import ExpirationMultiSelect from '@/components/ExpirationMultiSelect';
 import { GammaLadder } from '@/components/PairGammaHeatmap';
 import OptionsFlowChart from '@/components/OptionsFlowChart';
+import HedgingFlowChart from '@/components/HedgingFlowChart';
+import ErrorMessage from '@/components/ErrorMessage';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import SignalScorePanel from '@/components/SignalScorePanel';
 import SignalEventsPanel from '@/components/SignalEventsPanel';
 import ConfluenceMatrix from '@/components/ConfluenceMatrix';
@@ -37,6 +40,7 @@ import WorldClocks from '@/components/WorldClocks';
 import HeadlinesWire from '@/components/HeadlinesWire';
 
 import { useTimeframe } from '@/core/TimeframeContext';
+import { useHedgingFlow } from '@/hooks/useHedgingFlow';
 import { useGexUnit } from '@/core/GexUnitContext';
 import { useStrikeFilter } from '@/core/StrikeFilterContext';
 import { useSessionDelta } from '@/core/SessionDeltaContext';
@@ -506,6 +510,25 @@ export function EodPressureEventsWidget() {
 }
 
 // ── Volatility ────────────────────────────────────────────────────────────────
+
+// Hedging Flow — the estimated dealer hedge pressure created by today's option
+// trades. Self-fetching like GammaPulseWidget rather than reading a shared
+// feed: it is the only surface on the board that needs /api/flow/hedging, so
+// putting it in the shared feed set would make every board poll for it.
+// Renders in compact mode, which drops the view toggle and legend; the full
+// controls live on the page the card links to.
+export function HedgingFlowPanel() {
+  const { symbol } = useTimeframe();
+  const { data, loading, error } = useHedgingFlow(symbol);
+
+  return (
+    <WidgetCard title="Hedging Flow" href="/hedging-flow" fill minHeight={280}>
+      {error && <ErrorMessage message={error} />}
+      {!error && loading && !data && <LoadingSpinner />}
+      {!error && data && <HedgingFlowChart payload={data} compact />}
+    </WidgetCard>
+  );
+}
 
 export function VolatilityPanel() {
   const t = usePageT(dict);

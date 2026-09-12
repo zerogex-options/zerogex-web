@@ -1,0 +1,117 @@
+#!/bin/bash
+
+# ==============================================
+# Step 084: Unit Failure Alert Template
+# ==============================================
+#
+# Installs deploy/systemd/zerogex-web-alert@.service, the template unit that
+# other units reference as `OnFailure=zerogex-web-alert@%n.service`. When one
+# of them exits non-zero, systemd starts this template with the failed unit's
+# name and it emails the operator with the exit status and journal tail.
+#
+# Numbered 084 so it lands BEFORE the steps that install units referencing it
+# (087 partner-grant-expiry, 089 founding-cohort-demotion, 090
+# founding-lifetime). A dangling OnFailure= is not fatal — systemd logs that it
+# could not start the alert unit and carries on — but the whole point is that
+# the failure gets seen, and an alerter that isn't installed yet is the one
+# failure nobody hears about.
+#
+# There is NO timer and nothing to enable: systemd starts a template instance
+# on demand. Installing the file and reloading is the whole job.
+#
+# Idempotent — safe to re-run. The unit file is overwritten from the repo
+# (it's version-controlled, so that's the desired behavior).
+
+set -e
+
+# Re-point HOME when this step is run directly under `sudo`: $HOME is then
+# /root, but the repo and the env file live in the invoking user's home, so
+# every path below would resolve under /root and fail a precondition that is
+# actually satisfied. deploy.sh does this for the steps it runs; doing it here
+# too means a standalone `sudo ./deploy/steps/<step>` resolves the same paths.
+if [ -n "${SUDO_USER:-}" ] && [ "${SUDO_USER:-}" != "root" ]; then
+    STEP_SUDO_HOME="$(getent passwd "$SUDO_USER" | cut -d: -f6)"
+    [ -n "$STEP_SUDO_HOME" ] && export HOME="$STEP_SUDO_HOME"
+fi
+[ -z "${HOME:-}" ] && export HOME="/home/ubuntu"
+
+# Fallback log if this step is invoked directly.
+type log >/dev/null 2>&1 || log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
+
+log "Unit Failure Alert Template Setup"
+
+APP_DIR="$HOME/zerogex-web"
+SYSTEMD_SOURCE="$APP_DIR/deploy/systemd"
+SYSTEMD_TARGET="/etc/systemd/system"
+UNIT="zerogex-web-alert@.service"
+ENV_FILE="$APP_DIR/frontend/.env.local"
+
+# --- Preconditions ---------------------------------------------------
+if [ ! -f "$SYSTEMD_SOURCE/$UNIT" ]; then
+    log "  ✗ missing unit file: $SYSTEMD_SOURCE/$UNIT"
+    exit 1
+fi
+if [ -s "$HOME/.nvm/nvm.sh" ]; then
+    log "  ✓ nvm present at $HOME/.nvm/nvm.sh"
+else
+    log "  ✗ nvm not found at $HOME/.nvm/nvm.sh — run step 020.nodejs first"
+    exit 1
+fi
+
+# --- Env soft-check ---------------------------------------------------
+# Without a recipient and Resend credentials the alerter installs fine and then
+# refuses at send time — which would make the FIRST thing you learn about a
+# broken sweep be that you never learned about it. Warn now, loudly, rather
+# than discovering it during the incident it was meant to report.
+read_env() {
+    grep -E "^$1=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'"
+}
+if [ -f "$ENV_FILE" ]; then
+    RECIPIENT=""
+    for key in UNIT_ALERT_EMAIL SIGNUP_ALARM_EMAIL FOH_REMINDER_EMAIL; do
+        value=$(read_env "$key")
+        if [ -n "$value" ]; then
+            RECIPIENT="$key"
+            break
+        fi
+    done
+    if [ -n "$RECIPIENT" ]; then
+        log "  ✓ alert recipient resolves via $RECIPIENT"
+    else
+        log "  ⚠ no alert recipient: set UNIT_ALERT_EMAIL (or SIGNUP_ALARM_EMAIL /"
+        log "    FOH_REMINDER_EMAIL) in $ENV_FILE, or unit failures stay silent"
+    fi
+    for key in RESEND_API_KEY RESEND_FROM_EMAIL; do
+        if [ -n "$(read_env "$key")" ]; then
+            log "  ✓ $key present"
+        else
+            log "  ⚠ $key missing — the alerter cannot send mail without it"
+        fi
+    done
+else
+    log "  ⚠ $ENV_FILE not found — step 030 should have created it"
+fi
+
+# --- Install ----------------------------------------------------------
+log "  → Installing $UNIT..."
+sudo cp "$SYSTEMD_SOURCE/$UNIT" "$SYSTEMD_TARGET/"
+sudo systemctl daemon-reload
+log "     ✓ installed at $SYSTEMD_TARGET/$UNIT"
+
+# Nothing to enable: a template unit is started on demand by OnFailure=.
+log "  → No enable step — systemd starts a template instance on demand."
+
+log ""
+log "Unit failure alert template setup complete!"
+log ""
+log "Summary:"
+log "  ✓ $UNIT installed (started on demand by OnFailure=, no timer)"
+log "  ✓ Units wired to it: founding-lifetime, founding-cohort-demotion, partner-grant-expiry"
+log ""
+log "Useful commands:"
+log "  • cd $APP_DIR && make unit-failure-alert UNIT=zerogex-web-founding-lifetime.service DRY_RUN=1"
+log "                                                                  - render the mail, send nothing"
+log "  • sudo systemctl start 'zerogex-web-alert@zerogex-web-founding-lifetime.service.service'"
+log "                                                                  - fire a real alert end to end"
+log "  • journalctl -u 'zerogex-web-alert@*' -n 50                     - what the alerter did"
+log "  • grep -l OnFailure $SYSTEMD_SOURCE/*.service                   - which units are wired"

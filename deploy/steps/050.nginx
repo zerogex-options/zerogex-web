@@ -6,6 +6,9 @@
 
 set -euo pipefail
 
+# Fallback log if this step is invoked directly.
+type log >/dev/null 2>&1 || log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
+
 log "Nginx Reverse Proxy (HTTP bootstrap)"
 
 # Config (supports independent or co-hosted deployments)

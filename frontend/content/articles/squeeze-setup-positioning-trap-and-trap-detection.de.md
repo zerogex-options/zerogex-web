@@ -115,3 +115,5 @@ Ein paar Muster, auf die man achten sollte:
 **Widerspruch (nicht handeln):** Squeeze Setup sagt +0,6 (long gehen mit dem Ausbruch). Trap Detection sagt −0,5 (der Ausbruch nach oben scheitert). Eines der beiden liegt falsch. Auslassen.
 
 Die Signale sind aus gutem Grund unabhängig — wenn sie übereinstimmen, hören Sie hin. Wenn sie sich widersprechen, ist der klügste Trade meist kein Trade.
+
+> ZeroGEX-Signalwerte sind abgeleitete Ergebnisse auf Basis handverlesener Inputs, Gewichte und Schwellenwerte, sofern nicht anders angegeben. Sie sind keine kalibrierten Wahrscheinlichkeiten und keine Garantien; bevor man sie als Performance-Vorteil interpretiert, ist eine historische Validierung erforderlich.

@@ -71,6 +71,8 @@ pin_score    = sign × normalized
 
 **Limite méthodologique :** l’inversion en gamma négatif est une heuristique ZeroGEX, non une conséquence mécanique. Le gamma négatif amplifie une direction déjà engagée ; la distance à la cible ne détermine pas cette direction.
 
+**Limite méthodologique :** l'inversion de signe en gamma négative est une heuristique propre à ZeroGEX, et non une conséquence directe de la mécanique de la gamma négative. La gamma négative amplifie la direction déjà engagée ; la distance à la cible ne peut à elle seule déterminer cette direction. Le dépôt d'analytique n'était pas disponible dans cet espace de travail pour une modification sûre avec implémentation et tests, aussi cette documentation identifie la limite plutôt que de la masquer.
+
 
 
 ### Composante 3 : la rampe temporelle (le verrou)

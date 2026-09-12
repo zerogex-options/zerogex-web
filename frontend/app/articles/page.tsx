@@ -19,6 +19,13 @@ type Article = {
 
 const ARTICLES: Article[] = [
   {
+    href: '/education/gamma-vwap-confluence-explained',
+    kind: 'Published • September 11, 2026 • 16:00 UTC',
+    title: 'Gamma / VWAP Confluence Explained — and Why Two Symbols Can Disagree',
+    blurb:
+      'What the confluence score measures, how the cluster is built from the gamma flip and VWAP, and why cluster quality matters more than the sign. The core idea: the gamma regime inverts the same picture from a fade into a breakout, which is why SPX, SPY and QQQ can legitimately point opposite ways on the same afternoon — and why you should never read one symbol\u2019s score to trade another.',
+  },
+  {
     href: '/education/zero-gamma-level-explained',
     kind: 'Published • September 4, 2026 • 16:00 UTC',
     title: 'What Is Zero Gamma? The Zero Gamma Level Explained for Traders',
