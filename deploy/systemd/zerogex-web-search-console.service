@@ -4,6 +4,11 @@ Documentation=https://github.com/zerogex-options/zerogex-web/blob/release/docs/d
 After=network-online.target
 Wants=network-online.target
 
+# A non-zero exit here reached journald and nothing else. Route failures to
+# an email instead; %n is this unit's own name, which the alert template turns
+# into the subject line and the journal it quotes.
+OnFailure=zerogex-web-alert@%n.service
+
 [Service]
 Type=oneshot
 User=ubuntu
