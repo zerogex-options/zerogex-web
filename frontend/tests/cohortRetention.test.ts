@@ -5,7 +5,7 @@ import { buildCohortReport, type CohortAuditInput, type CohortUserInput } from '
 const user = (id: string, createdAt: string, firstPaymentAt: string | null = null): CohortUserInput => ({
   id, email: `${id}@example.com`, createdAt, firstPaymentAt, currentStatus: firstPaymentAt ? 'active' : null,
   currentTier: firstPaymentAt ? 'pro' : 'public', currentPriceId: firstPaymentAt ? 'price_pro' : null,
-  currentPeriodEnd: null, cancelAtPeriodEnd: false, signupUtmSource: id === 'active' ? 'x' : null,
+  currentPeriodEnd: null, cancelAtPeriodEnd: false, signupUtmSource: id === 'active' ? 'x' : null, cadence: 'monthly',
 });
 const event = (userId: string, type: string, createdAt: string, message: string): CohortAuditInput => ({ userId, type, createdAt, message });
 const sync = (id: string, at: string, status: string, tier: string, sub = `sub_${id}`) => event(id, 'stripe_subscription_sync', at, `Subscription ${sub} status=${status} tier=${tier} cancelAtPeriodEnd=false`);
@@ -72,7 +72,7 @@ test('resubscription does not bridge an unpaid gap', () => {
   assert.equal(report.summary.becamePaid, 1);
 });
 
-test('scheduled cancellation keeps retention until actual access end', () => {
+test('scheduled cancellation ends economic retention at cancel intent, not access end', () => {
   const report = buildCohortReport(
     [user('scheduled', '2026-01-01T00:00:00Z', '2026-01-02T00:00:00Z')],
     [
@@ -82,5 +82,21 @@ test('scheduled cancellation keeps retention until actual access end', () => {
     ],
     '2026-05-01T00:00:00Z',
   );
-  assert.equal(report.users[0].retained['30'], true);
+  assert.equal(report.users[0].retained['30'], false);
+});
+
+test('monthly renewal counts use successful invoices and actual period-end eligibility', () => {
+  const report = buildCohortReport(
+    [user('renewing', '2026-01-01T00:00:00Z', '2026-01-05T00:00:00Z')],
+    [
+      sync('renewing', '2026-01-05T00:00:00Z', 'active', 'pro'),
+      event('renewing', 'stripe_invoice_paid', '2026-01-05T00:00:00Z', 'Invoice in_1 paid for sub sub_renewing amount=1900 billing_reason=subscription_cycle period_end=1769990400 price=price_pro'),
+      event('renewing', 'stripe_invoice_paid', '2026-02-02T00:00:00Z', 'Invoice in_2 paid for sub sub_renewing amount=1900 billing_reason=subscription_cycle period_end=1772409600 price=price_pro'),
+    ],
+    '2026-02-15T00:00:00Z',
+  );
+  assert.equal(report.cohorts[0].payments['1'].successful, 1);
+  assert.equal(report.cohorts[0].payments['2'].successful, 1);
+  assert.equal(report.cohorts[0].payments['2'].eligible, 1);
+  assert.equal(report.cohorts[0].payments['3'].eligible, 0);
 });
