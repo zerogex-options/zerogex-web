@@ -89,7 +89,7 @@ On the signing study, I have published 52.3% of volume, the documented correctio
 
 The flat-dealer number went somewhere else. It is not in your entry, because it is not about you. It is in criterion 3, as the open question underneath the whole category, and it names ZeroGEX as exposed to it alongside everyone else — we infer positioning from open interest under a stated sign convention, which assumes a dealer side on every contract rather than measuring one, so if the market-maker capacity ends a session flat then our "net dealer gamma" has the same attribution problem yours does, by a different route. Publishing the number that costs you while leaving out the number that costs me would have been cherry-picking, and you would have been the one person who could tell.
 
-I have not been able to open firmtape.com from where I build the site, so everything above is attributed to you in the copy rather than asserted. Not a complaint, just so you know why it reads that way. I will run list_sessions against your MCP server and check it against the entry.
+I have not been able to open firmtape.com from where I build the site, so everything above is attributed to you in the copy rather than asserted. Not a complaint, just so you know why it reads that way — and list_sessions is the obvious way to close that gap when I next touch the entry.
 
 The screenshot is useful, thank you — the three-book disagreement strip is the part I had not understood from the site description.
 
