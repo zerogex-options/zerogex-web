@@ -757,7 +757,7 @@ console.log(
   }`,
 );
 console.log(
-  `Coupon to stack:    ${describeCoupon(addCouponMeta ?? undefined, addCouponId ?? '?')}  [${resolutionNote}]`,
+  `Coupon to apply:    ${describeCoupon(addCouponMeta ?? undefined, addCouponId ?? '?')}  [${resolutionNote}]`,
 );
 // Removals are the one thing in this plan that takes something away from the
 // member, so they get their own line rather than being inferred from the diff
