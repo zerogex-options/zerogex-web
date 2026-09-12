@@ -96,9 +96,21 @@ before it is unobservable, because the absence of a renewal invoice back there i
 the absence of a record, not evidence of a failure.
 
 The app only began writing `stripe_invoice_paid` audit rows when that event type
-shipped. `make backfill-stripe-invoices` imports the real invoice history from
-Stripe (read-only, analytics-only) into `stripe_invoice_history`, which is what
-moves most customers out of the unobservable bucket.
+shipped, so Stripe — not the audit log — is the source of truth here.
+`make backfill-stripe-invoices` lists paid invoices from Stripe (read-only,
+analytics-only) into `stripe_invoice_history`, which is what moves customers out
+of the unobservable bucket.
+
+It runs **daily at 05:20 UTC** via `zerogex-web-stripe-invoices.timer`, installed
+by `deploy/steps/099.stripe-invoices`, so renewals become visible as they fall
+due rather than only when someone remembers to re-run it. Every run re-scans the
+full paid-invoice list; invoices are immutable once paid and the write is an
+upsert keyed on invoice id, so the scan is idempotent and a missed run leaves no
+gap. Failures route to the standard `zerogex-web-alert@` unit.
+
+    systemctl list-timers zerogex-web-stripe-invoices.timer   # next / last run
+    journalctl -u zerogex-web-stripe-invoices -n 50           # what it imported
+    sudo systemctl start zerogex-web-stripe-invoices.service  # run it now
 
 ## Scheduled cancellation
 

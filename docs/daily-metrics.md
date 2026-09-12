@@ -319,6 +319,6 @@ you that a single day's number carries very little information on its own.
 | `frontend/core/excludedAccounts.ts` / `excludedAccountsServer.ts` | Who is not a customer: the pure rule and the query that finds them. |
 | `frontend/core/cohortRetention.ts` | Per-customer lifecycle: paid-access spans, retention milestones, trial→paid, interruption vs. permanent loss. |
 | `frontend/core/renewalRetention.ts` | The monthly renewal ladder and the scheduled-cancellation risk pool. |
-| `frontend/scripts/backfill-stripe-invoices.mts` | `make backfill-stripe-invoices` — imports real invoice history so renewals can be seen rather than inferred. |
+| `frontend/scripts/backfill-stripe-invoices.mts` | `make backfill-stripe-invoices`, run daily by `deploy/steps/099.stripe-invoices`. Imports real invoice history so renewals can be seen rather than inferred. |
 | `frontend/scripts/audit-customer-classification.mts` | `make audit-customers` — traces real customers through the classification so it can be checked by hand. |
 | `frontend/tests/excludedAccounts.test.ts` | Proves the exclusion reaches the daily rollup, not just the cohort report — `npm run test:excluded-accounts`. |
