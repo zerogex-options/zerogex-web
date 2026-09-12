@@ -100,3 +100,45 @@ test('monthly renewal counts use successful invoices and actual period-end eligi
   assert.equal(report.cohorts[0].payments['2'].eligible, 1);
   assert.equal(report.cohorts[0].payments['3'].eligible, 0);
 });
+
+test('ever-paid current states are mutually exclusive and never-paid failures stay separate', () => {
+  const paid = (id: string, overrides: Partial<CohortUserInput> = {}): CohortUserInput => ({
+    ...user(id, '2026-01-01T00:00:00Z', '2026-01-02T00:00:00Z'),
+    ...overrides,
+  });
+  const report = buildCohortReport(
+    [
+      paid('active'),
+      paid('voluntary', { currentTier: 'public', currentStatus: 'canceled' }),
+      paid('involuntary', { currentTier: 'public', currentStatus: 'canceled' }),
+      paid('unknown', { currentTier: 'public', currentStatus: 'canceled' }),
+      user('neverpaid', '2026-01-03T00:00:00Z'),
+    ],
+    [
+      sync('active', '2026-01-02T00:00:00Z', 'active', 'pro'),
+      sync('voluntary', '2026-01-02T00:00:00Z', 'active', 'pro'),
+      event('voluntary', 'stripe_cancellation_requested', '2026-01-10T00:00:00Z', 'Cancellation requested for sub sub_voluntary'),
+      event('voluntary', 'stripe_subscription_deleted', '2026-02-02T00:00:00Z', 'Subscription sub_voluntary ended; tier reset to public'),
+      sync('involuntary', '2026-01-02T00:00:00Z', 'active', 'pro'),
+      event('involuntary', 'stripe_payment_failed', '2026-01-30T00:00:00Z', 'Invoice in_bad payment failed for sub sub_involuntary (attempt 1)'),
+      sync('involuntary', '2026-02-01T00:00:00Z', 'past_due', 'public'),
+      sync('unknown', '2026-01-02T00:00:00Z', 'active', 'pro'),
+      event('unknown', 'stripe_subscription_deleted', '2026-02-01T00:00:00Z', 'Subscription sub_unknown ended; tier reset to public'),
+      event('neverpaid', 'stripe_payment_failed', '2026-01-09T00:00:00Z', 'Invoice in_trial payment failed for sub sub_neverpaid (attempt 1)'),
+      event('neverpaid', 'stripe_payment_failed', '2026-01-10T00:00:00Z', 'Invoice in_trial payment failed for sub sub_neverpaid (attempt 2)'),
+    ],
+    '2026-04-01T00:00:00Z',
+  );
+  assert.equal(report.summary.becamePaid, 4);
+  assert.deepEqual(report.summary.paidCustomerStates, {
+    active: 1,
+    voluntarily_churned: 1,
+    involuntarily_churned: 1,
+    other_unknown: 1,
+  });
+  assert.equal(Object.values(report.summary.paidCustomerStates).reduce((sum, count) => sum + count, 0), 4);
+  assert.equal(report.summary.failedPaymentCustomers, 1);
+  assert.equal(report.summary.failedPaymentAttempts, 1);
+  assert.equal(report.summary.neverPaidFailedPaymentCustomers, 1);
+  assert.equal(report.summary.neverPaidFailedPaymentEvents, 2);
+});
