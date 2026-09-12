@@ -240,12 +240,18 @@ export function buildCohortReport(
       : null;
     // Exhaustive CURRENT economic state for the ever-paid population. Current
     // paid state wins over historical churn so a resubscriber returns to Active.
-    // A scheduled cancellation is voluntary economic churn immediately even
-    // while prepaid entitlement remains. Everyone else falls into exactly one
-    // terminal/unknown bucket; never-paid users intentionally receive null.
+    // Scheduled cancellation affects economic retention above but remains a
+    // current Active subscription until its prepaid access actually ends.
+    // Everyone else falls into exactly one terminal/unknown bucket; never-paid
+    // users intentionally receive null.
     const paidCustomerState: PaidCustomerState | null = firstPaid == null ? null
-      : (user.currentTier === 'basic' || user.currentTier === 'pro') && !user.cancelAtPeriodEnd ? 'active'
-      : user.cancelAtPeriodEnd || churnKind === 'voluntary' ? 'voluntarily_churned'
+      // Current subscriber status follows the same paid-tier mirror used by the
+      // admin subscriber headcount. A scheduled cancellation remains Active
+      // until prepaid access actually ends; cancel intent still ends the
+      // separate economic-retention interval above.
+      : ['basic', 'pro', 'starter', 'elite'].includes(user.currentTier)
+          && ['active', 'trialing', 'past_due'].includes(user.currentStatus ?? '') ? 'active'
+      : churnKind === 'voluntary' ? 'voluntarily_churned'
       : churnKind === 'payment_failure' ? 'involuntarily_churned'
       : 'other_unknown';
     return [{

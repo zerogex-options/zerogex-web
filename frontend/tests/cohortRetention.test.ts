@@ -83,6 +83,7 @@ test('scheduled cancellation ends economic retention at cancel intent, not acces
     '2026-05-01T00:00:00Z',
   );
   assert.equal(report.users[0].retained['30'], false);
+  assert.equal(report.users[0].paidCustomerState, 'active');
 });
 
 test('monthly renewal counts use successful invoices and actual period-end eligibility', () => {
