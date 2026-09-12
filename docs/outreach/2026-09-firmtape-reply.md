@@ -16,6 +16,16 @@ hard wrapping, so it can be pasted straight into a mail client.
    signing study.
 3. **2026-09-11, inbound.** Answered all four with a source for each, and
    volunteered two things that damage him. See below.
+4. **2026-09-11, outbound.** Sent. Confirms where each number landed, explains
+   why the flat-dealer finding went to criterion 3 rather than his entry, and
+   offers the NULL-flip-resolver writeup.
+
+**Outstanding commitment from (4):** the reply says "I will run list_sessions
+against your MCP server and check it against the entry." firmtape.com and
+mcp.firmtape.com are both unreachable from the build environment, so this has
+to be run from a machine that can reach them. Until it is, the entry's "roughly
+1,100 sessions back to April 2022" rests entirely on his email. Check against
+1,099 as of the 10 Sep close and a first session of 2022-04-14.
 
 ## What he answered
 
@@ -77,7 +87,7 @@ offered.
 
 ---
 
-## Draft reply
+## Reply as sent, 2026-09-11
 
 Yevhen,
 
@@ -89,7 +99,7 @@ On the signing study, I have published 52.3% of volume, the documented correctio
 
 The flat-dealer number went somewhere else. It is not in your entry, because it is not about you. It is in criterion 3, as the open question underneath the whole category, and it names ZeroGEX as exposed to it alongside everyone else — we infer positioning from open interest under a stated sign convention, which assumes a dealer side on every contract rather than measuring one, so if the market-maker capacity ends a session flat then our "net dealer gamma" has the same attribution problem yours does, by a different route. Publishing the number that costs you while leaving out the number that costs me would have been cherry-picking, and you would have been the one person who could tell.
 
-I have not been able to open firmtape.com from where I build the site, so everything above is attributed to you in the copy rather than asserted. Not a complaint, just so you know why it reads that way — and list_sessions is the obvious way to close that gap when I next touch the entry.
+I have not been able to open firmtape.com from where I build the site, so everything above is attributed to you in the copy rather than asserted. Not a complaint, just so you know why it reads that way. I will run list_sessions against your MCP server and check it against the entry.
 
 The screenshot is useful, thank you — the three-book disagreement strip is the part I had not understood from the site description.
 
