@@ -2006,6 +2006,21 @@ export async function POST(request: NextRequest) {
         // commission ledger row via UNIQUE(stripe_invoice_id) — retries
         // and out-of-order deliveries are safe.
         const invoice = event.data.object as Stripe.Invoice;
+        // Append-only economic-retention ledger. Unlike first_payment_at, this
+        // records every successful subscription invoice so reporting can count
+        // real renewals rather than infer them from remaining entitlement.
+        const paidCustomerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
+        const paidUser = paidCustomerId ? findUserByCustomerIdIncludingDeleted(paidCustomerId) : null;
+        const paidSubId = readInvoiceSubscriptionId(invoice);
+        if (paidUser && paidSubId) {
+          const periodEnd = readInvoicePeriodEndUnix(invoice);
+          logAudit({
+            type: 'stripe_invoice_paid',
+            userId: paidUser.id,
+            email: paidUser.email,
+            message: `Invoice ${invoice.id} paid for sub ${paidSubId} amount=${invoice.amount_paid} billing_reason=${invoice.billing_reason ?? 'unknown'} period_end=${periodEnd ?? 'unknown'} price=${paidUser.stripe_price_id ?? 'unknown'}`,
+          });
+        }
         // Flag a payment on a deleted account before anything else runs. The
         // branches below all no-op for one; this is what stops that no-op from
         // being invisible. Partner commission still accrues either way — the

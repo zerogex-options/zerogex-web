@@ -15,6 +15,7 @@ export type CohortUserInput = {
   currentPeriodEnd: string | null;
   cancelAtPeriodEnd: boolean;
   signupUtmSource: string | null;
+  cadence: 'monthly' | 'annual' | null;
 };
 
 export type CohortAuditInput = {
@@ -39,8 +40,15 @@ export type CohortUser = {
   churnKind: ChurnKind | null;
   tier: string;
   plan: string | null;
+  cadence: 'monthly' | 'annual' | null;
   acquisitionSource: string | null;
   cancellationReason: string | null;
+  failedPaymentAttempts: number;
+  paymentFailureState: 'recovered' | 'retrying' | 'lost' | null;
+  classificationExplanation: string | null;
+  auditEvents: CohortAuditInput[];
+  successfulPayments: number;
+  eligiblePaymentNumber: number;
   retained: Record<string, boolean | null>;
 };
 
@@ -52,6 +60,7 @@ export type CohortRow = {
   retention: Record<string, { eligible: number; retained: number; rate: number | null }>;
   churn: { voluntary: number; paymentFailure: number; other: number; stillActive: number };
   earlyChurn: Record<string, { lost: number; rate: number | null }>;
+  payments: Record<string, { successful: number; eligible: number; rate: number | null }>;
 };
 
 export type CohortReport = {
@@ -67,12 +76,16 @@ export type CohortReport = {
     retention: Record<string, { eligible: number; retained: number; rate: number | null }>;
     voluntaryChurn: number;
     paymentFailureChurn: number;
+    failedPaymentCustomers: number;
+    failedPaymentAttempts: number;
+    paymentRecovered: number;
+    paymentRetrying: number;
   };
   limitations: string[];
 };
 
 type Interval = { start: number; end: number | null };
-type ParsedSync = { at: number; subId: string; status: string | null; tier: string | null };
+type ParsedSync = { at: number; subId: string; status: string | null; tier: string | null; cancelAtPeriodEnd: boolean };
 
 function time(value: string | null): number | null {
   if (!value) return null;
@@ -96,14 +109,20 @@ function inIntervals(at: number, intervals: Interval[]): boolean {
   return intervals.some((interval) => interval.start <= at && (interval.end == null || at < interval.end));
 }
 
-function buildIntervals(firstPaid: number, syncs: ParsedSync[], deletions: CohortAuditInput[]): Interval[] {
+function buildIntervals(firstPaid: number, syncs: ParsedSync[], deletions: CohortAuditInput[], cancellations: CohortAuditInput[]): Interval[] {
   const events: Array<{ at: number; entitled: boolean }> = [];
   for (const sync of syncs) {
     if (sync.at < firstPaid || sync.tier == null) continue;
-    events.push({ at: sync.at, entitled: sync.tier === 'basic' || sync.tier === 'pro' });
+    events.push({ at: sync.at, entitled: (sync.tier === 'basic' || sync.tier === 'pro') && !sync.cancelAtPeriodEnd });
   }
   for (const deletion of deletions) {
     const at = time(deletion.createdAt);
+    if (at != null && at >= firstPaid) events.push({ at, entitled: false });
+  }
+  // Economic retention ends when the customer elects not to renew, even though
+  // billing-period entitlement can continue until Stripe deletes the sub.
+  for (const cancellation of cancellations) {
+    const at = time(cancellation.createdAt);
     if (at != null && at >= firstPaid) events.push({ at, entitled: false });
   }
   events.sort((a, b) => a.at - b.at || Number(b.entitled) - Number(a.entitled));
@@ -146,13 +165,14 @@ export function buildCohortReport(
         const subscription = subId(event.message);
         return at == null || subscription == null
           ? []
-          : [{ at, subId: subscription, status: syncStatus(event.message), tier: parseSyncTierStrict(event.message) }];
+          : [{ at, subId: subscription, status: syncStatus(event.message), tier: parseSyncTierStrict(event.message), cancelAtPeriodEnd: /\bcancelAtPeriodEnd=true\b/.test(event.message) }];
       });
     const trial = syncs.find((event) => event.status === 'trialing');
     const paidAudit = events.find((event) => event.type === 'stripe_first_payment');
     const firstPaid = time(user.firstPaymentAt) ?? time(paidAudit?.createdAt ?? null);
     const deletions = events.filter((event) => event.type === 'stripe_subscription_deleted');
-    const intervals = firstPaid == null ? [] : buildIntervals(firstPaid, syncs, deletions);
+    const cancelRequests = events.filter((event) => event.type === 'stripe_cancellation_requested');
+    const intervals = firstPaid == null ? [] : buildIntervals(firstPaid, syncs, deletions, cancelRequests);
     // A paid -> public sync with Stripe still `active` is the product's pause
     // state, not churn. It closes entitlement for point-in-time retention, but
     // only a non-active downgrade or terminal deletion is a paid loss.
@@ -165,7 +185,6 @@ export function buildCohortReport(
     const relevantEnd = firstEnd == null
       ? null
       : deletions.find((event) => time(event.createdAt) === firstEnd) ?? null;
-    const cancelRequests = events.filter((event) => event.type === 'stripe_cancellation_requested');
     const relevantCancel = [...cancelRequests].reverse().find((event) => {
       const at = time(event.createdAt);
       return at != null && firstPaid != null && at >= firstPaid && (firstEnd == null || at <= firstEnd)
@@ -193,6 +212,27 @@ export function buildCohortReport(
       retained[String(day)] = milestone == null || now < milestone ? null : inIntervals(milestone, intervals);
     }
     const lastPaidTier = [...syncs].reverse().find((event) => event.tier === 'basic' || event.tier === 'pro')?.tier;
+    const paidInvoices = events.filter((event) => event.type === 'stripe_invoice_paid' && !/\bamount=0\b/.test(event.message));
+    const successfulPayments = Math.max(firstPaid == null ? 0 : 1, paidInvoices.length);
+    let eligiblePaymentNumber = firstPaid == null ? 0 : 1;
+    for (let index = 0; index < Math.min(paidInvoices.length, 3); index++) {
+      const periodEnd = Number(paidInvoices[index].message.match(/\bperiod_end=(\d+)/)?.[1]);
+      if (Number.isFinite(periodEnd) && periodEnd * 1000 <= now) eligiblePaymentNumber = Math.max(eligiblePaymentNumber, index + 2);
+    }
+    const lastFailureAt = time(failures.at(-1)?.createdAt ?? null);
+    const recoveredAfterFailure = lastFailureAt != null && events.some((event) =>
+      time(event.createdAt) != null && (time(event.createdAt) as number) > lastFailureAt
+      && (event.type === 'stripe_invoice_paid' || event.type === 'payment_recovered_email_sent'));
+    const paymentFailureState = failures.length === 0 ? null
+      : churnKind === 'payment_failure' ? 'lost'
+      : user.currentStatus === 'past_due' ? 'retrying'
+      : recoveredAfterFailure ? 'recovered'
+      : null;
+    const classificationExplanation = churnKind === 'other'
+      ? 'Paid access ended without a matching cancellation-request event or a payment-failure event in the 35 days before loss; the available audit trail cannot attribute a cause.'
+      : churnKind === 'voluntary' ? 'Matched to an explicit cancellation-request event before paid access ended.'
+      : churnKind === 'payment_failure' ? 'Matched to a failed-payment event before the terminal paid-access loss.'
+      : null;
     return [{
       id: user.id,
       email: user.email,
@@ -209,8 +249,15 @@ export function buildCohortReport(
       churnKind,
       tier: (lastPaidTier as PaidTier | undefined) ?? user.currentTier,
       plan: user.currentPriceId,
+      cadence: user.cadence,
       acquisitionSource: user.signupUtmSource,
       cancellationReason,
+      failedPaymentAttempts: failures.length,
+      paymentFailureState,
+      classificationExplanation,
+      auditEvents: events,
+      successfulPayments,
+      eligiblePaymentNumber,
       retained,
     }];
   });
@@ -224,6 +271,7 @@ export function buildCohortReport(
         retention: Object.fromEntries(RETENTION_DAYS.map((day) => [String(day), { eligible: 0, retained: 0, rate: null }])),
         churn: { voluntary: 0, paymentFailure: 0, other: 0, stillActive: 0 },
         earlyChurn: Object.fromEntries([7, 30, 60].map((day) => [String(day), { lost: 0, rate: null }])),
+        payments: Object.fromEntries([1, 2, 3, 4].map((number) => [String(number), { successful: 0, eligible: 0, rate: null }])),
       };
       cohortMap.set(user.cohort, row);
     }
@@ -245,12 +293,17 @@ export function buildCohortReport(
       for (const day of [7, 30, 60]) {
         if (user.daysPaidBeforeChurn != null && user.daysPaidBeforeChurn <= day) row.earlyChurn[String(day)].lost++;
       }
+      for (const number of [1, 2, 3, 4]) {
+        if (user.successfulPayments >= number) row.payments[String(number)].successful++;
+        if (user.eligiblePaymentNumber >= number) row.payments[String(number)].eligible++;
+      }
     }
   }
   const cohorts = [...cohortMap.values()].sort((a, b) => b.cohort.localeCompare(a.cohort));
   for (const row of cohorts) {
     for (const day of RETENTION_DAYS) row.retention[String(day)].rate = rate(row.retention[String(day)].retained, row.retention[String(day)].eligible);
     for (const day of [7, 30, 60]) row.earlyChurn[String(day)].rate = rate(row.earlyChurn[String(day)].lost, row.becamePaid);
+    for (const number of [1, 2, 3, 4]) row.payments[String(number)].rate = rate(row.payments[String(number)].successful, row.payments[String(number)].eligible);
   }
   const summaryRetention = Object.fromEntries(RETENTION_DAYS.map((day) => {
     const eligible = cohorts.reduce((sum, row) => sum + row.retention[String(day)].eligible, 0);
@@ -269,6 +322,10 @@ export function buildCohortReport(
       retention: summaryRetention,
       voluntaryChurn: users.filter((user) => user.churnKind === 'voluntary').length,
       paymentFailureChurn: users.filter((user) => user.churnKind === 'payment_failure').length,
+      failedPaymentCustomers: users.filter((user) => user.failedPaymentAttempts > 0).length,
+      failedPaymentAttempts: users.reduce((sum, user) => sum + user.failedPaymentAttempts, 0),
+      paymentRecovered: users.filter((user) => user.paymentFailureState === 'recovered').length,
+      paymentRetrying: users.filter((user) => user.paymentFailureState === 'retrying').length,
     },
     limitations: [
       'Exact retention depends on the append-only Stripe audit history. Subscription activity before those audit events existed cannot be reconstructed perfectly.',

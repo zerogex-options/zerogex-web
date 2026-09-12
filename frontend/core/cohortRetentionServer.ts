@@ -1,8 +1,9 @@
 import 'server-only';
 import { getDb } from './db';
 import { buildCohortReport, type CohortAuditInput, type CohortUserInput } from './cohortRetention';
+import { priceIdToSku, type BillingCadence } from './stripe';
 
-export function getCohortRetentionReport() {
+export function getCohortRetentionReport(cadence?: BillingCadence) {
   const db = getDb();
   const users = db.prepare(`
     SELECT id, email, created_at, first_payment_at, subscription_status, tier,
@@ -16,12 +17,12 @@ export function getCohortRetentionReport() {
       FROM audit_events
      WHERE user_id IS NOT NULL AND type IN (
        'stripe_subscription_sync', 'stripe_first_payment', 'stripe_cancellation_requested',
-       'stripe_subscription_deleted', 'stripe_payment_failed'
+       'stripe_subscription_deleted', 'stripe_payment_failed', 'stripe_invoice_paid',
+       'payment_recovered_email_sent', 'billing_payment_grace_active', 'billing_payment_grace_ended'
      )
      ORDER BY user_id, created_at ASC
   `).all() as Array<Record<string, string>>;
-  return buildCohortReport(
-    users.map((row): CohortUserInput => ({
+  const mappedUsers = users.map((row): CohortUserInput => ({
       id: String(row.id), email: String(row.email), createdAt: String(row.created_at),
       firstPaymentAt: row.first_payment_at == null ? null : String(row.first_payment_at),
       currentStatus: row.subscription_status == null ? null : String(row.subscription_status),
@@ -29,7 +30,10 @@ export function getCohortRetentionReport() {
       currentPeriodEnd: row.current_period_end == null ? null : String(row.current_period_end),
       cancelAtPeriodEnd: Boolean(row.cancel_at_period_end),
       signupUtmSource: row.signup_utm_source == null ? null : String(row.signup_utm_source),
-    })),
+      cadence: row.stripe_price_id == null ? null : priceIdToSku(String(row.stripe_price_id))?.cadence ?? null,
+    }));
+  return buildCohortReport(
+    cadence ? mappedUsers.filter((user) => user.cadence === cadence) : mappedUsers,
     events.map((row): CohortAuditInput => ({ userId: row.user_id, type: row.type, message: row.message, createdAt: row.created_at })),
   );
 }
