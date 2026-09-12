@@ -39,6 +39,11 @@
 
 import type { LiveQuoteIncoming } from '@/hooks/useApiData';
 import { applyLiveQuote, resetLiveQuoteOrdering, setLiveStreamActive } from '@/hooks/useApiData';
+import {
+  PING_INTERVAL_MS,
+  STALL_TIMEOUT_MS,
+  feedsStallWatchdog,
+} from '@/core/streamLiveness';
 
 // ---------- feature flag & config ----------
 
@@ -56,14 +61,13 @@ const TICKET_ENDPOINT = '/api/ws/ticket';
 const BACKOFF_MIN_MS = 1_000;
 const BACKOFF_MAX_MS = 30_000;
 
-// Client-side liveness watchdog. If no server frame in this window we
-// treat the socket as dead and force a reconnect — TCP keepalive is
-// usually 2+ hours in the browser so we can't rely on it detecting a
-// dropped route between us and the API. Server sends at least the
-// per-symbol quote once a second during market hours; we ping to keep
-// this true during closed markets too.
-const PING_INTERVAL_MS = 15_000;
-const STALL_TIMEOUT_MS = 45_000;
+// Client-side liveness watchdog. If no route-proving frame arrives in this
+// window we treat the socket as dead and force a reconnect — TCP keepalive is
+// usually 2+ hours in the browser so we can't rely on it detecting a dropped
+// route between us and the API. The server sends at least the per-symbol quote
+// once a second during market hours; outside them our own ping/pong round-trip
+// keeps the window fed. Both constants and the rule for which frames count
+// live in core/streamLiveness.ts, where they are unit-tested together.
 
 // Types matching the server-side JSON wire contract in
 // src/api/quote_broadcaster.py::QuoteBroadcaster._fanout.
@@ -265,7 +269,7 @@ class QuoteStream {
     // Re-arm ping + stall watchdog.
     if (this.pingTimer) clearInterval(this.pingTimer);
     this.pingTimer = setInterval(() => this.pingIfIdle(), PING_INTERVAL_MS);
-    this.markQuoteReceived();
+    this.markServerAlive();
     // Re-issue every desired subscription (this covers reconnect and
     // any acquires that happened while the socket was in CONNECTING).
     const wanted = Array.from(this.desiredSymbols);
@@ -273,13 +277,29 @@ class QuoteStream {
   }
 
   /**
-   * Reset the stall watchdog. Only real quote frames call this — a
-   * pong from the server keeps ``lastMessageAt`` fresh (so we don't
-   * ping in a busy loop) but doesn't mask an ingestion-down state
-   * where the API server is alive and pongs cheerfully while no
-   * NOTIFYs are flowing.
+   * Reset the stall watchdog. Fed by the frames that prove the route is up —
+   * a server-pushed 'quote' or the 'pong' answering our ping.
+   *
+   * The watchdog exists to notice a DEAD ROUTE, which a pong disproves: it
+   * only comes back if the socket still reaches the API. It used to be reset
+   * by quote frames alone, so that an ingestion-down state (API alive,
+   * ponging cheerfully, no NOTIFYs flowing) would still trip it. But a
+   * reconnect never fixed ingestion-down, and "no quotes" is the NORMAL state
+   * of a healthy socket whenever the market is shut — nights, weekends,
+   * holidays. So the watchdog fired every 45s all weekend, each firing
+   * re-minting a ticket, reopening the socket, and re-subscribing, which
+   * replays the server's cached last tick. That churn is what made the header
+   * quote visibly switch back and forth on a Saturday (the replayed frame
+   * carried a frozen `after-hours` session label; see zerogex-oa
+   * QuoteBroadcaster.subscribe).
+   *
+   * Data liveness is not this timer's job and never needed to be: useApiData's
+   * per-symbol WS-live TTL (WS_SYMBOL_LIVE_TTL_MS) demotes any symbol that
+   * stops ticking back to full-rate HTTP polling within 6s, connected or not.
+   * That is the real ingestion-down guard, it covers the
+   * socket-open-but-silent case exactly, and it costs no reconnect.
    */
-  private markQuoteReceived(): void {
+  private markServerAlive(): void {
     if (this.stallTimer) clearTimeout(this.stallTimer);
     this.stallTimer = setTimeout(() => {
       try {
@@ -292,10 +312,10 @@ class QuoteStream {
 
   private onMessage(ev: MessageEvent): void {
     // lastMessageAt tracks ANY server frame — used by pingIfIdle to
-    // suppress redundant pings when the market's already busy. The
-    // stall watchdog, however, is only reset on real 'quote' frames
-    // (via markQuoteReceived()) so an ingestion-down state where the
-    // server still answers our pings can't defeat detection.
+    // suppress redundant pings when the market's already busy. The stall
+    // watchdog is fed separately, by markServerAlive(), from the frames that
+    // actually prove the route is up ('quote' and 'pong' — not 'ack', which
+    // the server emits in reply to our own subscribe).
     this.lastMessageAt = Date.now();
     let frame: ServerFrame | null = null;
     try {
@@ -304,6 +324,9 @@ class QuoteStream {
       return;
     }
     if (!frame || typeof frame !== 'object') return;
+    // One place decides which frames prove the route is up. 'quote' and
+    // 'pong' do; our own subscribe 'ack' does not (see core/streamLiveness.ts).
+    if (feedsStallWatchdog(frame.type)) this.markServerAlive();
     switch (frame.type) {
       case 'quote': {
         // Preserve null OHLC as null (not coerced to 0) — a data hole
@@ -330,17 +353,13 @@ class QuoteStream {
           server_ts: frame.server_ts ?? null,
         };
         applyLiveQuote(frame.symbol, row);
-        // Only 'quote' frames should reset the stall watchdog —
-        // pongs would otherwise mask an ingestion-down state (the
-        // stall timeout never fires because our own pings elicit
-        // pongs that count as messages).
-        this.markQuoteReceived();
         break;
       }
       case 'welcome':
       case 'ack':
       case 'pong':
-        // No-op — protocol acks; we don't surface them to the UI.
+        // No-op for the UI — protocol frames. 'pong' has already fed the
+        // stall watchdog above, which is the whole reason we send the ping.
         break;
       case 'error':
         // Log server-side errors but don't surface them; a bad symbol
