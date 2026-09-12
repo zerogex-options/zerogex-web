@@ -26,6 +26,7 @@ export type CohortAuditInput = {
 };
 
 export type ChurnKind = 'voluntary' | 'payment_failure' | 'other';
+export type PaidCustomerState = 'active' | 'voluntarily_churned' | 'involuntarily_churned' | 'other_unknown';
 export type CohortUser = {
   id: string;
   email: string;
@@ -38,6 +39,7 @@ export type CohortUser = {
   currentStatus: string | null;
   daysPaidBeforeChurn: number | null;
   churnKind: ChurnKind | null;
+  paidCustomerState: PaidCustomerState | null;
   tier: string;
   plan: string | null;
   cadence: 'monthly' | 'annual' | null;
@@ -80,6 +82,9 @@ export type CohortReport = {
     failedPaymentAttempts: number;
     paymentRecovered: number;
     paymentRetrying: number;
+    paidCustomerStates: Record<PaidCustomerState, number>;
+    neverPaidFailedPaymentCustomers: number;
+    neverPaidFailedPaymentEvents: number;
   };
   limitations: string[];
 };
@@ -233,6 +238,16 @@ export function buildCohortReport(
       : churnKind === 'voluntary' ? 'Matched to an explicit cancellation-request event before paid access ended.'
       : churnKind === 'payment_failure' ? 'Matched to a failed-payment event before the terminal paid-access loss.'
       : null;
+    // Exhaustive CURRENT economic state for the ever-paid population. Current
+    // paid state wins over historical churn so a resubscriber returns to Active.
+    // A scheduled cancellation is voluntary economic churn immediately even
+    // while prepaid entitlement remains. Everyone else falls into exactly one
+    // terminal/unknown bucket; never-paid users intentionally receive null.
+    const paidCustomerState: PaidCustomerState | null = firstPaid == null ? null
+      : (user.currentTier === 'basic' || user.currentTier === 'pro') && !user.cancelAtPeriodEnd ? 'active'
+      : user.cancelAtPeriodEnd || churnKind === 'voluntary' ? 'voluntarily_churned'
+      : churnKind === 'payment_failure' ? 'involuntarily_churned'
+      : 'other_unknown';
     return [{
       id: user.id,
       email: user.email,
@@ -247,6 +262,7 @@ export function buildCohortReport(
       currentStatus: user.currentStatus,
       daysPaidBeforeChurn: firstPaid != null && firstEnd != null ? Math.floor((firstEnd - firstPaid) / DAY_MS) : null,
       churnKind,
+      paidCustomerState,
       tier: (lastPaidTier as PaidTier | undefined) ?? user.currentTier,
       plan: user.currentPriceId,
       cadence: user.cadence,
@@ -279,10 +295,10 @@ export function buildCohortReport(
     if (user.trialStartedAt) row.trialStarted++;
     if (user.firstPaidAt) {
       row.becamePaid++;
-      if (user.churnKind === 'voluntary') row.churn.voluntary++;
-      else if (user.churnKind === 'payment_failure') row.churn.paymentFailure++;
-      else if (user.churnKind === 'other') row.churn.other++;
-      else row.churn.stillActive++;
+      if (user.paidCustomerState === 'voluntarily_churned') row.churn.voluntary++;
+      else if (user.paidCustomerState === 'involuntarily_churned') row.churn.paymentFailure++;
+      else if (user.paidCustomerState === 'other_unknown') row.churn.other++;
+      else if (user.paidCustomerState === 'active') row.churn.stillActive++;
       for (const day of RETENTION_DAYS) {
         const value = user.retained[String(day)];
         if (value != null) {
@@ -313,6 +329,17 @@ export function buildCohortReport(
   const registrations = users.length;
   const trialStarts = users.filter((user) => user.trialStartedAt).length;
   const becamePaid = users.filter((user) => user.firstPaidAt).length;
+  const paidCustomerStates: Record<PaidCustomerState, number> = {
+    active: users.filter((user) => user.paidCustomerState === 'active').length,
+    voluntarily_churned: users.filter((user) => user.paidCustomerState === 'voluntarily_churned').length,
+    involuntarily_churned: users.filter((user) => user.paidCustomerState === 'involuntarily_churned').length,
+    other_unknown: users.filter((user) => user.paidCustomerState === 'other_unknown').length,
+  };
+  const reconciledPaidCustomers = Object.values(paidCustomerStates).reduce((sum, count) => sum + count, 0);
+  if (reconciledPaidCustomers !== becamePaid) {
+    throw new Error(`Paid-customer state invariant failed: ${reconciledPaidCustomers} states for ${becamePaid} ever-paid users`);
+  }
+  const paidUsers = users.filter((user) => user.firstPaidAt != null);
   return {
     generatedAt: new Date(now).toISOString(), cohorts, users,
     summary: {
@@ -320,12 +347,15 @@ export function buildCohortReport(
       registrationToPaid: rate(becamePaid, registrations),
       trialToPaid: rate(becamePaid, trialStarts),
       retention: summaryRetention,
-      voluntaryChurn: users.filter((user) => user.churnKind === 'voluntary').length,
-      paymentFailureChurn: users.filter((user) => user.churnKind === 'payment_failure').length,
-      failedPaymentCustomers: users.filter((user) => user.failedPaymentAttempts > 0).length,
-      failedPaymentAttempts: users.reduce((sum, user) => sum + user.failedPaymentAttempts, 0),
-      paymentRecovered: users.filter((user) => user.paymentFailureState === 'recovered').length,
-      paymentRetrying: users.filter((user) => user.paymentFailureState === 'retrying').length,
+      voluntaryChurn: paidCustomerStates.voluntarily_churned,
+      paymentFailureChurn: paidCustomerStates.involuntarily_churned,
+      failedPaymentCustomers: paidUsers.filter((user) => user.failedPaymentAttempts > 0).length,
+      failedPaymentAttempts: paidUsers.reduce((sum, user) => sum + user.failedPaymentAttempts, 0),
+      paymentRecovered: paidUsers.filter((user) => user.paymentFailureState === 'recovered').length,
+      paymentRetrying: paidUsers.filter((user) => user.paymentFailureState === 'retrying').length,
+      paidCustomerStates,
+      neverPaidFailedPaymentCustomers: users.filter((user) => !user.firstPaidAt && user.failedPaymentAttempts > 0).length,
+      neverPaidFailedPaymentEvents: users.filter((user) => !user.firstPaidAt).reduce((sum, user) => sum + user.failedPaymentAttempts, 0),
     },
     limitations: [
       'Exact retention depends on the append-only Stripe audit history. Subscription activity before those audit events existed cannot be reconstructed perfectly.',
