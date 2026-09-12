@@ -13,14 +13,25 @@ WorkingDirectory=/home/ubuntu/zerogex-web
 # `make founding-demote` shells through nvm to get Node 22 on PATH for
 # the .mjs script. Same approach as the trial-reminders / partner-grant-
 # expiry units.
+#
+# The sweep also revokes each demoted member's API keys, which is an HTTP call
+# to the backend's key-admin endpoint (ZEROGEX_API_BASE_URL, default
+# 127.0.0.1:8000). It reads ZEROGEX_API_TOKEN / ZEROGEX_ADMIN_TOKEN out of
+# frontend/.env.local, which ProtectHome=read-only still permits. Missing
+# tokens, or a key service that refuses, make the unit exit non-zero AFTER the
+# downgrades commit — re-run `make founding-cohort-revoke-backfill YES=1` to
+# finish the revocation leg; the downgrade itself is idempotent.
 Environment="HOME=/home/ubuntu"
 Environment="PATH=/usr/local/bin:/usr/bin:/bin"
 
 ExecStart=/usr/bin/make -C /home/ubuntu/zerogex-web founding-demote YES=1
 
-# No outbound network legs (pure SQLite sweep), so a short timeout is
-# fine. Capped low so a hung sqlite3 process can't pile up.
-TimeoutStartSec=120
+# No longer a pure SQLite sweep: each demoted account costs one key-admin
+# round trip, so the budget has to cover the whole cohort serially rather than
+# just sqlite3. Still capped so a hung request or a wedged sqlite3 can't pile
+# up — the sweep is idempotent for downgrades, and a revocation cut short is
+# recoverable with founding-cohort-revoke-backfill.
+TimeoutStartSec=600
 
 # Security hardening (mirrors zerogex-web-partner-grant-expiry.service).
 NoNewPrivileges=true
