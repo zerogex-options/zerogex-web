@@ -16,6 +16,29 @@ hard wrapping, so it can be pasted straight into a mail client.
    signing study.
 3. **2026-09-11, inbound.** Answered all four with a source for each, and
    volunteered two things that damage him. See below.
+4. **2026-09-11, outbound.** Sent. Confirms where each number landed, explains
+   why the flat-dealer finding went to criterion 3 rather than his entry, and
+   offers the NULL-flip-resolver writeup.
+
+**Commitment from (4), discharged 2026-09-12.** `list_sessions` on
+`https://mcp.firmtape.com/mcp` returned `total_sessions: 1100`, spanning
+2022-04-14 through 2026-09-11 — one more than the 1,099 he quoted as of the
+10 Sep close, which is the session added on the evening of the 11th. The
+archive size and span in the entry are now first-party verified rather than
+taken from his email, and the call needed no token, which corroborates the
+no-account claim too.
+
+One correction fell out of it. His email said the archive replays "second by
+second"; his own server describes the replay as minute-by-minute, and the
+gamma ladder as one frame every five minutes. The entry no longer asserts a
+granularity — it says the sessions are replayable from the open, free and
+without an account, which is what can be stood behind. His terminal may well
+be second-by-second on price; that is not something the MCP server says.
+
+Worth knowing for the next revision: `get_gex_profile` reads the same minute
+as three books — `measured`, `open_interest`, `volume` — and its own
+description calls open interest "the convention rival tools print." Their
+server will render their own tape in our convention, on request.
 
 ## What he answered
 
@@ -77,7 +100,7 @@ offered.
 
 ---
 
-## Draft reply
+## Reply as sent, 2026-09-11
 
 Yevhen,
 

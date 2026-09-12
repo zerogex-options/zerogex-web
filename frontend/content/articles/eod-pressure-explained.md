@@ -69,7 +69,7 @@ pin_score    = sign × normalized
 
 A pin target 0.3% above spot in a modeled positive-gamma regime gives a pin score of +1.0 — the magnet is above and gravity is on. In a modeled negative-gamma regime, the same pin above spot produces a *negative* pin score, because the current implementation reverses target distance when Net GEX is negative.
 
-**Methodology limitation:** the negative-gamma sign reversal is a ZeroGEX house heuristic, not a direct consequence of negative-gamma mechanics. Negative gamma amplifies the direction already underway; target distance alone cannot determine that direction. The analytics repository was not available in this workspace for a safe implementation-and-test change, so this documentation identifies rather than disguises the limitation.
+**Methodology limitation:** the negative-gamma sign reversal is a ZeroGEX house heuristic, not a direct consequence of negative-gamma mechanics. Negative gamma amplifies the direction already underway; target distance alone cannot determine that direction. It is documented here rather than left implicit, and it is a candidate for revision.
 
 ### Component 3: Time ramp (the gate)
 

@@ -15,8 +15,9 @@ has to be set by hand in the Stripe Dashboard.*
 > timestamp would assert an act that did not happen. That is worse than the
 > honest blank in the one situation the column exists for.
 >
-> **One manual step remains:** set a Terms of service URL in the Stripe
-> Dashboard (§4b), or the checkout consent box stays off.
+> **Verified in production 2026-09-12** — see §4d. The acceptance gate is
+> confirmed working on live traffic. The Stripe checkout box (§4b) is configured
+> but awaits the first post-deploy checkout to confirm end to end.
 
 ## 1. Where the record lives
 
@@ -143,6 +144,30 @@ now on nobody is charged without an acceptance recorded somewhere.
 `tests/termsGate.test.ts` (`npm run test:terms-gate`) pins the gate matrix:
 absent, current, superseded, empty-string, signed-out, and non-string values
 that must not be coerced into consent.
+
+### 4d. Production verification (2026-09-12)
+
+Deployed to `release` and validated on the live host the same day.
+
+| Check | Result |
+| --- | --- |
+| `POST /api/auth/terms-accept` reachable | `403` (CSRF rejected — route live, not a 404) |
+| Gate fires on login | `login_success` 15:03:02 → `terms_accept` 15:03:07 |
+| Column written | `Terms accepted —` → `2026-09-12T15:03:07.224Z (effective 2026-04-25)` |
+| Audit trail | `User accepted Terms of Service and Privacy Policy (effective 2026-04-25); no prior acceptance was recorded for this account` |
+| Backlog moving on real traffic | 898 / 110 → **896 / 109** within the first hour, one of the two a payer |
+
+The account used for the first check (`banaski.1@gmail.com`) was itself the case
+this work exists for: a paying Google signup with no record. It has one now.
+
+**Still to confirm: the Stripe consent box.** It cannot be self-tested —
+`/api/billing/checkout` returns 409 for an account with an active subscription,
+so an operator account cannot reach a checkout page. Confirm instead on the
+next real checkout, either from Dashboard → Developers → Logs (a `POST
+/v1/checkout/sessions` returning 200 with `consent_collection` in the body), or
+by the absence of `[checkout] Stripe rejected consent_collection` in
+`make logs`. A 400 there means the Dashboard URL did not save; fix it and
+`make restart`, since the latch survives for the life of the process.
 
 ## 5. Why the column was not backfilled
 
