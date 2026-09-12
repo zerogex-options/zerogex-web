@@ -1,4 +1,4 @@
-.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription reactivate-member honor-winback-discount recover-orphan-payment scan-orphan-payments clear-zombie-customers backfill-daily-metrics sync-search-console webhook-health cancellation-alerts trial-reminders trial-engagement renewal-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback reactivation backfill-reactivation-entitlement checkout-recovery founding-final-call public-cohort cancellations churn-breakdown backfill-refund-audit enable-portal-cancel-reasons save-url reset-save-latch gex-rank-backtest diagnose-user subscriber-headcount reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo og-check verify-gate blog-images ninjatrader-package
+.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime founding-demote founding-cohort-revoke-backfill activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription reactivate-member honor-winback-discount recover-orphan-payment scan-orphan-payments clear-zombie-customers backfill-daily-metrics sync-search-console webhook-health cancellation-alerts trial-reminders trial-engagement renewal-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback reactivation backfill-reactivation-entitlement checkout-recovery founding-final-call public-cohort cancellations churn-breakdown backfill-refund-audit enable-portal-cancel-reasons save-url reset-save-latch gex-rank-backtest diagnose-user subscriber-headcount reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo og-check verify-gate blog-images ninjatrader-package
 help:
 	@echo "ZeroGEX Web - Available Commands:"
 	@echo ""
@@ -28,6 +28,8 @@ help:
 	@echo "  make activate-late-founder EMAIL=<email> [TIER=basic|pro] [CADENCE=monthly|annual] [TRIAL_DAYS=N|TRIAL_END=<iso>] - Mint a founding-rate Stripe Checkout link for a member who missed the July-1 deadline (DRY_RUN=1 to preview, YES=1 to mint)"
 	@echo "  make grant-founding-on-existing-sub EMAIL=<email> [TIER=pro] [CADENCE=annual] [PRORATION=always_invoice|create_prorations|none] - Convert an EXISTING paying member's live subscription to the founding rate in place (swap plan + founding coupon + metadata.founding=1, so the webhook grants founding + schedules the lifetime 25%-off). The has-a-sub twin of activate-late-founder. DRY_RUN=1 to preview, YES=1 to apply"
 	@echo "  make apply-founding-lifetime - One-time batch: apply the founding lifetime 25%-off coupon to founders past month 11 that the event-driven webhook misses (annual founders emit no mid-year events). Idempotent; run once the cohort's intro year ends (~mid-2027). EMAIL=<addr> for one member, FORCE=1 to ignore the 11-month gate, DRY_RUN=1 to preview, YES=1 to apply"
+	@echo "  make founding-demote [DRY_RUN=1|YES=1] - Founding-cohort demotion sweep: comped founding-eligible users who never redeemed the rate revert to tier=public AND their API keys are revoked. Driven by the founding-cohort-demotion systemd timer. Needs ZEROGEX_API_TOKEN + ZEROGEX_ADMIN_TOKEN for the revocation leg; exits non-zero if keys could not be revoked"
+	@echo "  make founding-cohort-revoke-backfill [DRY_RUN=1|YES=1] - Revoke API keys for accounts the demotion sweep already downgraded but never deprovisioned (the 2026-07-01 batch), and retry any revocation that failed mid-sweep. Skips anyone who has since returned to Pro"
 	@echo "  make extend-trial EMAIL=<email> (EXTEND_DAYS=N | TRIAL_END=<iso>) - Manually lengthen one customer's free trial by pushing out Stripe trial_end; re-arms the ~48h reminder so the reminder + trial->paid cutover still run automatically (DRY_RUN=1 to preview, YES=1 to apply)"
 	@echo "  make reactivate-member EMAIL=<email> [DAYS=21] [TIER=basic|pro] [CADENCE=monthly|annual] [PRICE=price_...] [PAYMENT_METHOD=pm_...] - Bring a CHURNED member back on a goodwill trial with NOTHING for them to do: re-creates their subscription in Stripe on the card already on file, with an absolute trial_end. The webhook grants the tier and sends the welcome-back email. Use extend-trial instead while they still HAVE a trialing sub. DRY_RUN=1 to preview, YES=1 to apply"
 	@echo "  make quarterly-receipt - Interactive end-to-end quarterly FOH receipt: prompts for amount/quarter/date, updates content/giving/totals.json, commits, pushes, and rebuilds. Never posts to X — prints the tweet for you to paste. Optional flags: AMOUNT=<usd> QUARTER=<label> DATE=<YYYY-MM-DD> EMAIL=<addr> NO_PUSH=1 NO_REBUILD=1 YES=1 DRY_RUN=1"
@@ -339,6 +341,43 @@ grant-founding-on-existing-sub:
 #   make apply-founding-lifetime EMAIL=foo@example.com FORCE=1 YES=1
 apply-founding-lifetime:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/apply-founding-lifetime.mts $(if $(EMAIL),--email $(EMAIL),) $(if $(FORCE),--force,) $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
+
+# Run the founding-cohort demotion sweep: founding-eligible users comped onto
+# pro/basic who never redeemed the founding rate (and hold no active/trialing
+# sub) revert to tier='public', AND their API keys are revoked — a key minted
+# while the comp was live keeps authenticating after it ends, because the
+# backend does not re-derive tier per request.
+#
+# deploy/systemd/zerogex-web-founding-cohort-demotion.service has invoked this
+# target name since it was written; the target itself was never committed, so
+# the unit's ExecStart pointed at nothing. Runs under --experimental-strip-types
+# because the script imports core/apiKeyAdmin.ts for the revocation.
+#
+# Revocation needs ZEROGEX_API_TOKEN + ZEROGEX_ADMIN_TOKEN (env or
+# frontend/.env.local). Without them the sweep still downgrades, reports that no
+# keys were revoked, and exits non-zero so the timer records a failure.
+# Usage:
+#   make founding-demote DRY_RUN=1
+#   make founding-demote YES=1
+founding-demote:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/expire-founding-cohort.mjs $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
+
+# Revoke API keys for accounts the demotion sweep ALREADY downgraded but whose
+# keys were never deprovisioned — the sweep did not revoke anything before the
+# revocation wiring landed, so every account it demoted (the 2026-07-01 batch)
+# kept a working key. Also the retry path when the key service was unreachable
+# during a sweep: those accounts no longer match the downgrade query, so a plain
+# re-run of founding-demote will not pick them up.
+#
+# Selects users with a founding_cohort_expired audit row whose CURRENT tier is
+# still not API-key-eligible, so anyone who later subscribed to Pro is left
+# alone. Exits non-zero if any revocation fails, so re-running is safe and
+# visible.
+# Usage:
+#   make founding-cohort-revoke-backfill DRY_RUN=1
+#   make founding-cohort-revoke-backfill YES=1
+founding-cohort-revoke-backfill:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/expire-founding-cohort.mjs --backfill-revocations $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
 
 # Clear stripe_customer_id on rows that never produced a subscription —
 # pre-cutover beta artifacts that would cause "No such customer" 400s the

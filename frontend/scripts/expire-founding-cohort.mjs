@@ -42,11 +42,12 @@ function parseEnvFile(filePath) {
 }
 
 function parseArgs(argv) {
-  const args = { dryRun: false, yes: false, help: false };
+  const args = { dryRun: false, yes: false, backfillRevocations: false, help: false };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === '--dry-run') args.dryRun = true;
     else if (arg === '--yes' || arg === '-y') args.yes = true;
+    else if (arg === '--backfill-revocations') args.backfillRevocations = true;
     else if (arg === '--help' || arg === '-h') args.help = true;
   }
   return args;
@@ -61,13 +62,31 @@ who never redeemed the founding rate AND have no active/trialing Stripe
 subscription. Intended as a one-shot at the FOUNDING_LOCKIN_DEADLINE
 (2026-07-01 09:30 ET), driven by the systemd timer of the same name.
 
+Downgrading a member out of Pro also REVOKES their API keys, matching every
+other downgrade path (core/serverAuth.ts and the Stripe webhook both call
+revokeApiKeysIfTierDropped). Keys outlive the entitlement otherwise: a key
+issued while the comp was live keeps authenticating against the backend after
+the comp ends, because the backend does not re-derive tier per request.
+
 Options:
       --dry-run    List the affected accounts without writing.
-  -y, --yes        Apply the downgrade.
+  -y, --yes        Apply the downgrade (and revoke keys).
+      --backfill-revocations
+                   Do NOT downgrade anyone. Instead, revoke keys for accounts
+                   this script has ALREADY downgraded (a founding_cohort_expired
+                   audit row) whose tier is still not key-eligible. Use it once
+                   to clean up downgrades made before revocation was wired in,
+                   and to retry a run where the key service was unreachable —
+                   those accounts no longer match the downgrade query, so
+                   re-running without this flag will not retry them. Combine
+                   with --dry-run to list, or --yes to apply.
   -h, --help       Show this help.
 
 Requires the sqlite3 CLI. Set AUTH_DB_PATH (env or frontend/.env.local) to
-override the default DB path.`);
+override the default DB path. Key revocation additionally needs
+ZEROGEX_API_TOKEN and ZEROGEX_ADMIN_TOKEN (env or frontend/.env.local); without
+them the run reports the skip and exits non-zero rather than quietly leaving
+keys live.`);
 }
 
 function ensureSqlite3Cli() {
@@ -122,6 +141,45 @@ if (!cliArgs.dryRun && !cliArgs.yes) {
 
 const cwd = process.cwd();
 const envLocal = parseEnvFile(path.join(cwd, '.env.local'));
+
+// core/apiKeyAdmin.ts reads its credentials from process.env ONLY — it is
+// written for the Next runtime, where .env.local is already loaded. This script
+// runs from a systemd timer with a bare environment, so without this seeding
+// isApiKeyAdminConfigured() returns false and revocation silently no-ops, which
+// is exactly the failure this change exists to remove. Seed before the dynamic
+// import below: the module captures ZEROGEX_API_BASE_URL at load time.
+for (const key of ['ZEROGEX_API_BASE_URL', 'ZEROGEX_API_TOKEN', 'ZEROGEX_API_KEY', 'ZEROGEX_ADMIN_TOKEN']) {
+  if (!process.env[key] && envLocal[key]) process.env[key] = envLocal[key];
+}
+
+// Imported dynamically, AFTER the seeding above. A static import is hoisted and
+// would evaluate the module before process.env is populated.
+const { isApiKeyAdminConfigured, revokeAllApiKeys, revokeApiKeysIfTierDropped } = await import(
+  '../core/apiKeyAdmin.ts'
+);
+const { isApiKeyEligibleTier } = await import('../core/auth.ts');
+const keyAdminReady = isApiKeyAdminConfigured();
+
+// Revoke one member's keys, never throwing: a key-service failure must not
+// unwind or abort the tier change, which is the primary job and already
+// committed by the time this runs. Returns what happened so the caller can
+// tally and, crucially, so the run can exit non-zero when anything was missed —
+// a silent failure here is indistinguishable from success and leaves a live
+// credential on an account that no longer pays for it.
+async function revokeKeysFor(email, previousTier) {
+  if (!keyAdminReady) return { status: 'skipped-unconfigured', revoked: 0 };
+  try {
+    const result = previousTier
+      ? await revokeApiKeysIfTierDropped(email, previousTier, 'public')
+      : { revoked: await revokeAllApiKeys(email) };
+    // null means the helper judged this not to be a drop out of eligibility.
+    if (result === null) return { status: 'not-a-drop', revoked: 0 };
+    return { status: 'revoked', revoked: result.revoked ?? 0 };
+  } catch (err) {
+    return { status: 'failed', revoked: 0, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 const dbPath =
   process.env.AUTH_DB_PATH || envLocal.AUTH_DB_PATH || path.join(cwd, 'data', 'auth.db');
 
@@ -153,6 +211,66 @@ if (missingCols.length > 0) {
 }
 
 const nowIso = new Date().toISOString();
+
+if (cliArgs.backfillRevocations) {
+  // Accounts this script already downgraded, identified by the audit row it
+  // writes, whose tier is STILL not key-eligible. Anyone who later subscribed
+  // to Pro is excluded by that second condition rather than by a guess: their
+  // keys are legitimately theirs again.
+  const rows = querySqlite(
+    dbPath,
+    `SELECT DISTINCT u.id, u.email, u.tier
+       FROM users u
+       JOIN audit_events a ON a.user_id = u.id
+      WHERE a.type = 'founding_cohort_expired'
+      ORDER BY u.email;`,
+  );
+  const stale = rows.filter((r) => !isApiKeyEligibleTier(r.tier));
+
+  console.log(`Auth DB:   ${dbPath}`);
+  console.log(`Key admin: ${keyAdminReady ? 'configured' : 'NOT CONFIGURED'}`);
+  console.log(
+    `Downgraded by this script: ${rows.length}; still not key-eligible: ${stale.length}`,
+  );
+  for (const r of stale) console.log(`  - ${r.email}  tier=${r.tier}`);
+
+  if (stale.length === 0) {
+    console.log('\nNothing to do.');
+    process.exit(0);
+  }
+  if (cliArgs.dryRun) {
+    console.log('\n[dry-run] No keys revoked.');
+    process.exit(0);
+  }
+  if (!keyAdminReady) {
+    console.error(
+      '\nError: ZEROGEX_API_TOKEN / ZEROGEX_ADMIN_TOKEN are not set, so no keys can be revoked.',
+    );
+    process.exit(3);
+  }
+
+  let revokedTotal = 0;
+  const failures = [];
+  for (const r of stale) {
+    // previousTier is unknown for a historical downgrade, so revoke outright,
+    // gated on the same eligibility predicate the helper would apply.
+    const outcome = await revokeKeysFor(r.email, null);
+    if (outcome.status === 'failed') {
+      failures.push(`${r.email}: ${outcome.error}`);
+      console.error(`  FAILED ${r.email} — ${outcome.error}`);
+    } else {
+      revokedTotal += outcome.revoked;
+      console.log(`  ${r.email} — revoked ${outcome.revoked} key(s)`);
+    }
+  }
+  console.log(`\nRevoked ${revokedTotal} key(s) across ${stale.length} account(s).`);
+  if (failures.length > 0) {
+    console.error(`${failures.length} account(s) FAILED — re-run to retry:`);
+    for (const f of failures) console.error(`  - ${f}`);
+    process.exit(3);
+  }
+  process.exit(0);
+}
 
 // Eligible to downgrade: founding-cohort user currently comped onto pro/
 // basic, who never redeemed the founding rate AND who does not have an
@@ -190,9 +308,17 @@ if (candidates.length === 0) {
 }
 
 if (cliArgs.dryRun) {
-  console.log('\n[dry-run] No changes written.');
+  console.log(
+    `\nWould also revoke API keys for each account above (key admin: ${
+      keyAdminReady ? 'configured' : 'NOT CONFIGURED — revocation would be skipped'
+    }).`,
+  );
+  console.log('[dry-run] No changes written.');
   process.exit(0);
 }
+
+let keysRevokedTotal = 0;
+const revokeFailures = [];
 
 for (const c of candidates) {
   // Guard the UPDATE with the same predicates from the SELECT so a
@@ -227,6 +353,41 @@ for (const c of candidates) {
        '${escapeSqlLiteral(nowIso)}'
      );`,
   );
+
+  // Revoke AFTER the tier change is committed: the downgrade is the primary
+  // job and must stand even if the key service is down. The cost of that
+  // ordering is that a failure here is not retried by a later run (the account
+  // no longer matches the candidate query), which is what
+  // --backfill-revocations exists to sweep up — so failures are collected and
+  // surfaced as a non-zero exit rather than logged and forgotten.
+  const outcome = await revokeKeysFor(c.email, c.tier);
+  if (outcome.status === 'failed') {
+    revokeFailures.push(`${c.email}: ${outcome.error}`);
+    console.error(`  key revocation FAILED for ${c.email} — ${outcome.error}`);
+  } else {
+    keysRevokedTotal += outcome.revoked;
+  }
 }
 
 console.log(`\nDowngraded ${candidates.length} founding-cohort user(s) to tier='public'.`);
+if (keyAdminReady) {
+  console.log(`Revoked ${keysRevokedTotal} API key(s) across those accounts.`);
+} else {
+  console.error(
+    'WARNING: ZEROGEX_API_TOKEN / ZEROGEX_ADMIN_TOKEN are not set, so NO API keys were revoked.',
+  );
+  console.error(
+    '         Keys issued while the comp was live still authenticate. Set both, then run:',
+  );
+  console.error('           make founding-cohort-revoke-backfill YES=1');
+}
+if (revokeFailures.length > 0) {
+  console.error(`\n${revokeFailures.length} key revocation(s) FAILED:`);
+  for (const f of revokeFailures) console.error(`  - ${f}`);
+  console.error('Retry with: make founding-cohort-revoke-backfill YES=1');
+}
+if (!keyAdminReady || revokeFailures.length > 0) {
+  // Non-zero so the systemd timer records a failure. The downgrades above are
+  // committed and the script is idempotent, so a retry is safe.
+  process.exit(3);
+}
