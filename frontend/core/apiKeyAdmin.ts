@@ -197,21 +197,45 @@ export async function revokeAllApiKeys(email: string): Promise<number> {
 }
 
 /**
+ * What a tier-drop revocation actually did. Three outcomes, kept DISTINCT
+ * because two of them used to be the same `null` and that cost us live keys:
+ *
+ *   not-a-drop    the transition doesn't leave API-key eligibility. Routine,
+ *                 the overwhelming majority of calls, nothing to say.
+ *   unconfigured  it IS a drop, but key administration isn't configured on this
+ *                 deploy, so nothing was revoked and the member's key stays
+ *                 live. Nothing else in the system will notice this.
+ *   revoked       the drop was honored; `revoked` is how many keys went.
+ *
+ * Collapsing the first two into `null` meant a caller writing
+ * `if (result && result.revoked > 0)` logged nothing in either case, so a
+ * deploy missing ZEROGEX_ADMIN_TOKEN churned members out of Pro and left their
+ * keys authenticating, silently and indistinguishably from a clean run. Two
+ * such keys survived from June 2026 and were only found by auditing the key
+ * service against the user table months later. A union makes the caller choose,
+ * and makes the dangerous branch impossible to leave unhandled by accident.
+ */
+export type TierDropRevocation =
+  | { status: 'not-a-drop' }
+  | { status: 'unconfigured' }
+  | { status: 'revoked'; revoked: number };
+
+/**
  * Auto-deprovision a member's API keys when their tier drops out of API-key
- * eligibility (i.e. they leave Pro). No-op — returning null — when the
- * transition isn't a drop, or when key administration isn't configured on this
- * deploy. Throws on an upstream failure so the caller can log it; callers treat
- * this as best-effort and must not let a failure unwind the tier change itself.
+ * eligibility (i.e. they leave Pro). Throws on an upstream failure so the
+ * caller can log it; callers treat this as best-effort and must not let a
+ * failure unwind the tier change itself. Callers SHOULD record the
+ * 'unconfigured' outcome — it is the one that leaves a credential live.
  */
 export async function revokeApiKeysIfTierDropped(
   email: string,
   previousTier: TierId,
   nextTier: TierId,
-): Promise<{ revoked: number } | null> {
+): Promise<TierDropRevocation> {
   if (!isApiKeyEligibleTier(previousTier) || isApiKeyEligibleTier(nextTier)) {
-    return null;
+    return { status: 'not-a-drop' };
   }
-  if (!isApiKeyAdminConfigured()) return null;
+  if (!isApiKeyAdminConfigured()) return { status: 'unconfigured' };
   const revoked = await revokeAllApiKeys(email);
-  return { revoked };
+  return { status: 'revoked', revoked };
 }

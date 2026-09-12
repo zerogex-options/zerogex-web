@@ -160,8 +160,15 @@ async function revokeKeysFor(email, previousTier) {
   try {
     const result = previousTier
       ? await revokeApiKeysIfTierDropped(email, previousTier, 'public')
-      : { revoked: await revokeAllApiKeys(email) };
-    if (result === null) return { status: 'not-a-drop', revoked: 0 };
+      : { status: 'revoked', revoked: await revokeAllApiKeys(email) };
+    // 'unconfigured' means the drop was real but nothing could be revoked, so
+    // the partner keeps a live key. keyAdminReady above should make that
+    // unreachable here, but route it to the failure path rather than trusting
+    // that: counting it as a quiet zero is the exact bug this union removed.
+    if (result.status === 'unconfigured') {
+      return { status: 'failed', revoked: 0, error: 'key administration is not configured' };
+    }
+    if (result.status !== 'revoked') return { status: result.status, revoked: 0 };
     return { status: 'revoked', revoked: result.revoked ?? 0 };
   } catch (err) {
     return { status: 'failed', revoked: 0, error: err instanceof Error ? err.message : String(err) };

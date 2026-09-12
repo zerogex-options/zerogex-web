@@ -250,12 +250,27 @@ async function maybeRevokeApiKeysOnTierDrop(
 ): Promise<void> {
   try {
     const result = await revokeApiKeysIfTierDropped(user.email, previousTier, nextTier);
-    if (result && result.revoked > 0) {
+    if (result.status === 'revoked' && result.revoked > 0) {
       logAudit({
         type: 'api_key_auto_revoked',
         userId: user.id,
         email: user.email,
         message: `Revoked ${result.revoked} API key(s): tier dropped ${previousTier} → ${nextTier}`,
+      });
+    } else if (result.status === 'unconfigured') {
+      // The member just lost Pro and we could NOT deprovision their keys,
+      // because this deploy has no ZEROGEX_ADMIN_TOKEN. Their key keeps
+      // authenticating against the backend, which does not re-derive tier per
+      // request. Nothing else notices, so say it here or it is invisible —
+      // exactly how two keys from June 2026 outlived their subscriptions.
+      logAudit({
+        type: 'api_key_revoke_skipped_unconfigured',
+        userId: user.id,
+        email: user.email,
+        message:
+          `API keys NOT revoked on tier drop ${previousTier} → ${nextTier}: key administration ` +
+          `is not configured (ZEROGEX_API_TOKEN / ZEROGEX_ADMIN_TOKEN). Any key this member ` +
+          `holds is still live — set both, then audit with make api-keys-list.`,
       });
     }
   } catch (err) {
