@@ -7,6 +7,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import MobileScrollableChart from '@/components/MobileScrollableChart';
 import BackendMonitoring from './BackendMonitoring';
+import CohortRetention from './CohortRetention';
 import DailySignals from './DailySignals';
 import { formatDayLabel, formatHourLabel, lighten, makeDayLabelFormatter, niceYScale } from './monitoringHelpers';
 import {
@@ -293,7 +294,7 @@ const METRICS: Array<{ key: MetricKey; title: string; color: string; description
   { key: 'uniqueIps', title: 'Unique Source IPs', color: ROW_COLORS.uniqueIps, description: 'Distinct client IPs observed during the bucket.' },
 ];
 
-type TabId = 'frontend' | 'backend' | 'stripe' | 'revenue' | 'conveyor' | 'daily';
+type TabId = 'frontend' | 'backend' | 'stripe' | 'revenue' | 'conveyor' | 'cohorts' | 'daily';
 
 export default function MonitoringClient() {
   const cardBg = 'var(--color-surface)';
@@ -310,7 +311,7 @@ export default function MonitoringClient() {
   useEffect(() => {
     // Both of these tabs own their own fetch, so the shared snapshot poll would
     // be pure waste while either is open.
-    if (tab === 'backend' || tab === 'daily') return;
+    if (tab === 'backend' || tab === 'daily' || tab === 'cohorts') return;
     let cancelled = false;
     const load = async () => {
       try {
@@ -349,6 +350,7 @@ export default function MonitoringClient() {
     { id: 'stripe', label: 'Stripe' },
     { id: 'revenue', label: 'Revenue Tracking' },
     { id: 'conveyor', label: 'Conversion Conveyor' },
+    { id: 'cohorts', label: 'Cohort Retention' },
     { id: 'daily', label: 'Daily Signals' },
   ];
 
@@ -404,8 +406,9 @@ export default function MonitoringClient() {
       {tab === 'daily' && (
         <DailySignals cardBg={cardBg} borderColor={borderColor} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} />
       )}
-      {tab !== 'backend' && tab !== 'daily' && loading && tab !== 'frontend' && <LoadingSpinner size="lg" />}
-      {tab !== 'backend' && tab !== 'daily' && error && tab !== 'frontend' && <ErrorMessage message={error} />}
+      {tab === 'cohorts' && <CohortRetention />}
+      {tab !== 'backend' && tab !== 'daily' && tab !== 'cohorts' && loading && tab !== 'frontend' && <LoadingSpinner size="lg" />}
+      {tab !== 'backend' && tab !== 'daily' && tab !== 'cohorts' && error && tab !== 'frontend' && <ErrorMessage message={error} />}
     </PageShell>
   );
 }
