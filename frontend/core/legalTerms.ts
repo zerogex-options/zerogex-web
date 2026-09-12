@@ -28,3 +28,32 @@ export const TERMS_EFFECTIVE_DATE_LABEL = 'April 25, 2026';
 export function isAcceptedTermsVersionCurrent(version: unknown): boolean {
   return typeof version === 'string' && version === TERMS_VERSION;
 }
+
+// Minimal shape the acceptance gate needs. Kept loose so the client session
+// user (hooks/useAuthSession) can be passed straight through.
+export type TermsAcceptanceUser = {
+  termsVersionAccepted?: string | null;
+};
+
+/**
+ * Whether this member still owes an acceptance of the currently published
+ * Terms of Service and Privacy Policy — the gate behind the acceptance modal in
+ * components/ClientLayout.
+ *
+ * Keyed on the recorded VERSION rather than on whether anything is recorded at
+ * all, which lets one rule answer two different questions:
+ *   - NULL: no acceptance was ever recorded. That is every account created
+ *     before the signup checkbox shipped, and every Google/Apple signup, whose
+ *     callback mints an account with no checkbox to read. Such a row is absent,
+ *     not false — so the gate asks the member rather than assuming either way.
+ *   - a superseded date: the member agreed to text that is no longer the
+ *     published text, so a revision re-asks instead of landing silently on
+ *     people who never saw it.
+ *
+ * A signed-out visitor is never asked; ClientLayout gates on authentication
+ * before this is consulted, and the null-guard keeps that true independently.
+ */
+export function needsTermsAcceptance(user: TermsAcceptanceUser | null | undefined): boolean {
+  if (!user) return false;
+  return !isAcceptedTermsVersionCurrent(user.termsVersionAccepted);
+}

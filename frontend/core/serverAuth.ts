@@ -65,6 +65,14 @@ type SessionWithUser = {
     // dismissed. NULL = the member has never seen it, so a new Pro subscriber
     // is greeted once on their first landing back from Stripe checkout.
     proWelcomeSeenAt: string | null;
+    // Affirmative acceptance of the Terms of Service and Privacy Policy.
+    // Served to the browser because it is the gate ClientLayout enforces: a
+    // session whose recorded version isn't the current one is shown the
+    // acceptance modal before it can use the app. NULL means no acceptance
+    // has ever been recorded for this account (a pre-cutover signup, or an
+    // OAuth signup from before the gate existed) — absent, never falsified.
+    termsAcceptedAt: string | null;
+    termsVersionAccepted: string | null;
   };
   session: SessionRecord;
 };
@@ -215,6 +223,7 @@ function getSessionByToken(token: string): SessionWithUser | null {
               u.email_verified_at, u.paid_welcome_email_sent_at, u.subscription_lapsed,
               u.disclaimer_acknowledged_at, u.disclaimer_version_acknowledged,
               u.founding_eligible, u.founding_lockin_dismissed_at, u.pro_welcome_seen_at,
+              u.terms_accepted_at, u.terms_version_accepted,
               u.last_seen_at
        FROM sessions s
        JOIN users u ON u.id = s.user_id
@@ -262,6 +271,8 @@ function getSessionByToken(token: string): SessionWithUser | null {
       emailVerified: !!row.email_verified_at,
       disclaimerAcknowledgedAt: (row.disclaimer_acknowledged_at as string | null) ?? null,
       disclaimerVersionAcknowledged: (row.disclaimer_version_acknowledged as string | null) ?? null,
+      termsAcceptedAt: (row.terms_accepted_at as string | null) ?? null,
+      termsVersionAccepted: (row.terms_version_accepted as string | null) ?? null,
       foundingEligible: !!row.founding_eligible,
       foundingLockinDismissedAt: (row.founding_lockin_dismissed_at as string | null) ?? null,
       proWelcomeSeenAt: (row.pro_welcome_seen_at as string | null) ?? null,
@@ -321,7 +332,8 @@ function createSessionForUser(user: AuthUser) {
     .prepare(
       `SELECT disclaimer_acknowledged_at, disclaimer_version_acknowledged,
               stripe_subscription_id, email_verified_at,
-              founding_eligible, founding_lockin_dismissed_at, pro_welcome_seen_at
+              founding_eligible, founding_lockin_dismissed_at, pro_welcome_seen_at,
+              terms_accepted_at, terms_version_accepted
        FROM users WHERE id = ?`
     )
     .get(user.id) as
@@ -333,6 +345,8 @@ function createSessionForUser(user: AuthUser) {
         founding_eligible: number | null;
         founding_lockin_dismissed_at: string | null;
         pro_welcome_seen_at: string | null;
+        terms_accepted_at: string | null;
+        terms_version_accepted: string | null;
       }
     | undefined;
 
@@ -351,6 +365,8 @@ function createSessionForUser(user: AuthUser) {
       foundingEligible: !!ackRow?.founding_eligible,
       foundingLockinDismissedAt: ackRow?.founding_lockin_dismissed_at ?? null,
       proWelcomeSeenAt: ackRow?.pro_welcome_seen_at ?? null,
+      termsAcceptedAt: ackRow?.terms_accepted_at ?? null,
+      termsVersionAccepted: ackRow?.terms_version_accepted ?? null,
     },
   };
 }
@@ -1353,6 +1369,66 @@ export async function acknowledgeDisclaimerForRequest(request: NextRequest, vers
 
   return {
     acknowledgedAt: now,
+    version,
+    rotatedToken: data.rotatedToken,
+    csrfToken: data.csrfToken,
+  };
+}
+
+/**
+ * Record an affirmative acceptance of the Terms of Service and Privacy Policy
+ * for the signed-in member, from the acceptance gate in ClientLayout.
+ *
+ * This exists because registerUser is not the only way an account comes into
+ * being. createOrLoginOAuthUser mints one from a Google or Apple callback with
+ * no acceptance to record, and every account created before the signup
+ * checkbox shipped has both columns NULL. Those rows cannot be repaired by
+ * writing a timestamp into them: the members never saw a checkbox, so an
+ * invented date would assert an act that did not happen, which is worse than
+ * the honest absence in the one situation the column exists for. The only
+ * remedy that yields a record worth holding is to ask, which is what this is.
+ *
+ * The version is re-checked here rather than trusted from the route: the value
+ * arrives from a browser, and a client that posts a superseded version has by
+ * definition not agreed to the text now published.
+ */
+export async function acceptTermsForRequest(request: NextRequest, version: string) {
+  if (!isAcceptedTermsVersionCurrent(version)) return { error: 'stale_version' as const };
+
+  const data = await getSessionFromRequest(request);
+  if (!data) return null;
+
+  const db = getDb();
+  // What this acceptance replaces, read before the write so the audit row can
+  // say it. "No prior acceptance recorded" is the whole point of the exercise
+  // and is worth stating explicitly in the trail, not inferring later from the
+  // absence of an earlier row.
+  const prior = db
+    .prepare('SELECT terms_version_accepted FROM users WHERE id = ?')
+    .get(data.user.id) as { terms_version_accepted: string | null } | undefined;
+
+  const now = nowIso();
+  db.prepare(
+    'UPDATE users SET terms_accepted_at = ?, terms_version_accepted = ?, updated_at = ? WHERE id = ?'
+  ).run(now, version, now, data.user.id);
+
+  appendAuditEvent({
+    type: 'terms_accept',
+    userId: data.user.id,
+    email: data.user.email,
+    ip: getClientIp(request),
+    // Self-contained and quotable, like the register event: the row already
+    // carries the timestamp and IP of the act, so this one line answers "what
+    // did the customer agree to, when, and what did it replace".
+    message:
+      `User accepted Terms of Service and Privacy Policy (effective ${version})` +
+      (prior?.terms_version_accepted
+        ? `, superseding the version effective ${prior.terms_version_accepted}`
+        : '; no prior acceptance was recorded for this account'),
+  });
+
+  return {
+    acceptedAt: now,
     version,
     rotatedToken: data.rotatedToken,
     csrfToken: data.csrfToken,

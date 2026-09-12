@@ -115,4 +115,15 @@ export const it: Dictionary = {
   'login.backToLanding': 'Torna alla home',
   'login.csrfError': 'Impossibile inizializzare l’accesso sicuro. Aggiorna la pagina e riprova.',
   'login.genericError': 'Accesso non riuscito',
+
+  'termsGate.eyebrow': 'Termini di servizio',
+  'termsGate.title': 'Accetta i nostri Termini per continuare',
+  'termsGate.body': 'Per il tuo account non risulta registrata alcuna accettazione dei nostri Termini di servizio e della Politica sulla privacy. Leggili e accettali per continuare a usare ZeroGEX.',
+  'termsGate.submit': 'Accetta e continua',
+  'termsGate.submitting': 'Registrazione…',
+  'termsGate.error': 'Non è stato possibile registrare la tua accettazione. Riprova.',
+  'termsGate.networkError': 'Errore di rete. Riprova.',
+  'termsGate.csrfError': 'Non è stato possibile inizializzare una richiesta sicura. Aggiorna la pagina e riprova.',
+  'termsGate.effective': 'In vigore dal',
+  'login.oauthTermsIntro': 'Continuando con Google o Apple accetti i',
 };

@@ -127,6 +127,21 @@ export const en = {
   'login.backToLanding': 'Back to landing',
   'login.csrfError': 'Unable to initialize secure login. Please refresh and try again.',
   'login.genericError': 'Login failed',
+
+  // Terms-of-Service acceptance gate (components/TermsAcceptanceModal). Shown
+  // to any signed-in member whose recorded acceptance isn't the published
+  // version — accounts created before the signup checkbox, and Google/Apple
+  // signups, whose callback has no checkbox to read.
+  'termsGate.eyebrow': 'Terms of Service',
+  'termsGate.title': 'Please accept our Terms to continue',
+  'termsGate.body': 'Your account has no recorded acceptance of our Terms of Service and Privacy Policy. Please review and accept them to carry on using ZeroGEX.',
+  'termsGate.submit': 'Accept and continue',
+  'termsGate.submitting': 'Recording…',
+  'termsGate.error': 'Could not record your acceptance. Please try again.',
+  'termsGate.networkError': 'Network error. Please try again.',
+  'termsGate.csrfError': 'Could not initialize a secure request. Please refresh and try again.',
+  'termsGate.effective': 'Effective',
+  'login.oauthTermsIntro': 'By continuing with Google or Apple you agree to the',
 } as const;
 
 export type TranslationKey = keyof typeof en;

@@ -38,6 +38,13 @@ type SessionUser = {
   // dismissed. NULL/absent = never shown, so a freshly-subscribed Pro member is
   // greeted once on their first landing back from Stripe checkout.
   proWelcomeSeenAt?: string | null;
+  // Recorded acceptance of the Terms of Service and Privacy Policy. ClientLayout
+  // gates the app on termsVersionAccepted matching the published TERMS_VERSION,
+  // so a NULL (an account created before the signup checkbox, or through the
+  // Google/Apple callback, which has no checkbox to read) surfaces the
+  // acceptance modal rather than persisting unnoticed forever.
+  termsAcceptedAt?: string | null;
+  termsVersionAccepted?: string | null;
 };
 
 type SessionResponse = {

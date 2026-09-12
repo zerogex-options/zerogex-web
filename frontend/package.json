@@ -42,6 +42,7 @@
     "test:trial-engagement": "node --experimental-strip-types --test tests/trialEngagement.test.ts",
     "test:renewal-engagement": "node --experimental-strip-types --test tests/renewalEngagement.test.ts",
     "test:legal-terms": "node --experimental-strip-types --test tests/legalTerms.test.ts",
+    "test:terms-gate": "node --experimental-strip-types --test tests/termsGate.test.ts",
     "test:api-keys": "node --experimental-strip-types --test tests/apiKeys.test.ts",
     "test:my-dashboard": "node --experimental-strip-types --test tests/myDashboardLayout.test.ts",
     "test:pro-welcome": "node --experimental-strip-types --test tests/proWelcome.test.ts",
