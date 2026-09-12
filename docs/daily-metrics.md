@@ -1,6 +1,8 @@
 # Daily metrics — one row per day, and the four relationships it answers
 
-Admin → Monitoring → **Daily Signals**.
+Admin → Monitoring → **Growth**, under “Day by day” and “Does marketing move the needle?”.
+(Until September 2026 this was its own **Daily Signals** tab; the panels are unchanged,
+they now sit below the growth story rather than beside it.)
 
 ## Why it exists
 
@@ -28,6 +30,30 @@ answerable:
 | `x_profile_visits` | X profile visits. |
 | `google_clicks` | Google Search clicks. |
 | `google_impressions` | Google Search impressions (carried in the same export as clicks; makes the click count interpretable). |
+
+## Who is counted
+
+Every column counts **customers only**. Three kinds of account hold a paid tier
+without ever having been one, and each is removed from the source rows before
+any of the counting below happens (`frontend/core/excludedAccounts.ts`):
+
+| Rule | How it is recognized |
+| --- | --- |
+| `admin` | `users.tier = 'admin'` — the operator's own account. |
+| `partner_grant` | `users.partner_tier = 'creator'` or a non-null `users.partner_pro_grant_expires_at` — a creator partner given Pro for free by `scripts/grant-partner-pro.mts`. |
+| `comped` | A `billing_member_comped` audit row — a member handed a paid tier permanently by `scripts/comp-member.mts`. |
+
+They are dropped **entirely**, not merely excluded from the paid stages: leaving
+them in `registrations` and out of `paid_starts` would understate conversion by
+exactly their number. Their page views are dropped too — otherwise the operator
+reading this dashboard every morning is a permanent +1 under `unique_users`.
+
+The rule is deliberately *not* routed through `isCreatorPartner()`, which returns
+false when the `CREATOR_PARTNER_PROGRAM_ENABLED` kill switch is off: flipping a
+feature flag must not quietly readmit comped accounts into the revenue funnel.
+
+The Growth tab names every held-out account, and its rule, under “What is held
+out, and what this cannot tell you”.
 
 ## Where each number comes from
 
@@ -93,7 +119,7 @@ totals survive. The upsert therefore refuses to overwrite a captured count with
 the `0` a post-prune recompute would produce.
 
 The practical consequence: the rollup has to see a day **at some point within
-180 days of it happening**. Opening the Daily Signals panel refreshes it (the
+180 days of it happening**. Opening the Growth tab refreshes it (the
 route rebuilds on load, throttled to once every five minutes per process), and
 so does `make backfill-daily-metrics`. A six-month margin is generous, but if
 the admin page genuinely goes untouched for longer, that window's page-view
@@ -278,10 +304,13 @@ you that a single day's number carries very little information on its own.
 | `frontend/core/dailyMetricsCsv.ts` | Pure: the tolerant CSV reader for both console exports. |
 | `frontend/core/dailyMetrics.ts` | Rebuild, import, read, and the panel's snapshot. Deliberately not `server-only` and using relative imports, so the backfill script can load it under bare Node. |
 | `frontend/app/api/admin/monitoring/daily/route.ts` | Admin-gated `GET` (snapshot) and `POST` (CSV import, CSRF-protected). |
-| `frontend/app/admin/monitoring/DailySignals.tsx` | The panel. |
+| `frontend/app/admin/monitoring/growth/dailyPanels.tsx` | The day-grain panels. |
+| `frontend/app/admin/monitoring/growth/GrowthClient.tsx` | The Growth tab that composes them, and decides what is above the fold. |
 | `frontend/core/searchConsole.ts` | Search Console client: service-account JWT → access token → `searchAnalytics.query`, and the zero-vs-NULL rule for days Google omits. |
 | `frontend/scripts/backfill-daily-metrics.mts` | `make backfill-daily-metrics`. |
 | `frontend/scripts/sync-search-console.mts` | `make sync-search-console`, run daily by `deploy/steps/099.search-console`. |
 | `frontend/tests/dailyMetricsMath.test.ts` | Pure-function suite — `npm run test:daily-metrics`. |
 | `frontend/tests/searchConsole.test.ts` | Search Console suite (config, day ranges, response mapping, a real signed assertion) — `npm run test:search-console`. |
 | `frontend/tests/dailyMetrics.test.ts` | DB suite against a throwaway SQLite file (column definitions, the retention guard, importer merge semantics, the view) — `npm run test:daily-metrics-db`. |
+| `frontend/core/excludedAccounts.ts` / `excludedAccountsServer.ts` | Who is not a customer: the pure rule and the query that finds them. |
+| `frontend/tests/excludedAccounts.test.ts` | Proves the exclusion reaches the daily rollup, not just the cohort report — `npm run test:excluded-accounts`. |

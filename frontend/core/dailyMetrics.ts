@@ -18,12 +18,13 @@ import {
   type WeekdayAnalysis,
 } from './dailyMetricsMath.ts';
 import type { ExternalMetricRow } from './dailyMetricsCsv.ts';
+import { excludedAccountIds } from './excludedAccountsServer.ts';
 import { isSearchConsoleConfigured } from './searchConsole.ts';
 
 // One row per ET calendar day, joining what the product does (trial starts,
 // cancels, payment failures, registrations, traffic) to what brought people to
 // it (X impressions and profile visits, Google Search clicks) — the fact table
-// the admin "Daily Signals" panel reads.
+// the admin Growth tab reads.
 //
 // Everything except the two off-platform feeds is DERIVED, so the table is a
 // cache that `rebuildDailyMetrics()` can reconstruct from the append-only
@@ -58,6 +59,13 @@ import { isSearchConsoleConfigured } from './searchConsole.ts';
 //
 // All bucketing is on the America/New_York day, matching every other chart on
 // the admin page (see etDayKey), so a "day" here is the same day there.
+//
+// Every column above counts CUSTOMERS ONLY. The operator's admin account,
+// creator partners on a comped Pro grant, and comped members are held out of all
+// five derived columns and out of the traffic columns — see
+// core/excludedAccounts.ts. Without that, the operator's own daily visits are a
+// standing floor under `unique_users` and a partner's grant sync books a trial
+// start that no one ever bought.
 
 const DAY_MS = 86_400_000;
 
@@ -207,14 +215,25 @@ function emptyCounts(): DerivedCounts {
  * and without those days in `daily_metrics` the LEFT JOIN the panel reads would
  * silently drop the earliest imported history.
  */
-function earliestSourceDay(db: ReturnType<typeof getDb>): string | null {
+function earliestSourceDay(db: ReturnType<typeof getDb>, heldOut: ReadonlySet<string>): string | null {
   const candidates: Array<string | null> = [];
-  for (const sql of [
-    'SELECT MIN(created_at) AS first_at FROM users',
-    'SELECT MIN(created_at) AS first_at FROM audit_events',
-    'SELECT MIN(created_at) AS first_at FROM page_view_events',
-  ]) {
-    const row = db.prepare(sql).get() as { first_at: string | null } | undefined;
+  // The admin account is usually the very first row in `users`, so without this
+  // the axis would open months before the first customer existed and fill the
+  // gap with zeros that mean "nobody but me was here yet". Rows with no user at
+  // all (anonymous page views) are kept: `NULL NOT IN (…)` is NULL, which would
+  // silently drop every one of them.
+  const ids = [...heldOut];
+  const placeholders = ids.map(() => '?').join(', ');
+  const notHeldOut = (column: string, nullable: boolean) =>
+    ids.length === 0
+      ? ''
+      : ` WHERE (${nullable ? `${column} IS NULL OR ` : ''}${column} NOT IN (${placeholders}))`;
+  for (const [sql, params] of [
+    [`SELECT MIN(created_at) AS first_at FROM users${notHeldOut('id', false)}`, ids],
+    [`SELECT MIN(created_at) AS first_at FROM audit_events${notHeldOut('user_id', true)}`, ids],
+    [`SELECT MIN(created_at) AS first_at FROM page_view_events${notHeldOut('user_id', true)}`, ids],
+  ] as Array<[string, string[]]>) {
+    const row = db.prepare(sql).get(...params) as { first_at: string | null } | undefined;
     candidates.push(etDayOf(row?.first_at ?? null));
   }
   // Already a day key rather than an instant, so it needs no bucketing.
@@ -258,12 +277,15 @@ export function rebuildDailyMetrics(opts: { windowDays?: number } = {}): Rebuild
   const now = new Date();
   const windowDays = Math.max(1, Math.min(REBUILD_WINDOW_DAYS, opts.windowDays ?? REBUILD_WINDOW_DAYS));
   const db = getDb();
+  // Resolved once per rebuild, then applied to every stream below. See
+  // core/excludedAccounts.ts for which accounts this holds out and why.
+  const heldOut = excludedAccountIds();
 
   // Start the axis at the product's first day of life, not at the window's far
   // edge. Materializing the 800-odd days before anything existed would fill the
   // table with fabricated zeros, and a zero that means "we did not exist yet" is
   // exactly the kind of value that turns a correlation into an artifact.
-  const originDay = earliestSourceDay(db);
+  const originDay = earliestSourceDay(db, heldOut);
   // An empty database gets an empty table, not a window of zeros that would
   // read as "we existed and nothing happened".
   const days = originDay === null ? [] : dayKeysBack(now, windowDays).filter((day) => day >= originDay);
@@ -279,15 +301,16 @@ export function rebuildDailyMetrics(opts: { windowDays?: number } = {}): Rebuild
   // observation older than the write window is simply not booked anywhere.
   const syncRows = db
     .prepare(
-      `SELECT created_at, message FROM audit_events
+      `SELECT user_id, created_at, message FROM audit_events
         WHERE type = 'stripe_subscription_sync'
           AND created_at > datetime('now', '-${REBUILD_WINDOW_DAYS} days')
         ORDER BY created_at ASC`,
     )
-    .all() as Array<{ created_at: string; message: string }>;
+    .all() as Array<{ user_id: string | null; created_at: string; message: string }>;
 
   const seenSubscriptions = new Set<string>();
   for (const row of syncRows) {
+    if (row.user_id != null && heldOut.has(row.user_id)) continue;
     const subId = parseSubId(row.message);
     if (!subId || seenSubscriptions.has(subId)) continue;
     if (!parsePaidTier(row.message)) continue; // not yet a paid state — keep looking
@@ -314,6 +337,7 @@ export function rebuildDailyMetrics(opts: { windowDays?: number } = {}): Rebuild
   const cancelKeys = new Set<string>();
   const failureKeys = new Set<string>();
   for (const row of churnRows) {
+    if (row.user_id != null && heldOut.has(row.user_id)) continue;
     const day = etDayOf(row.created_at);
     if (!day || !acc.has(day)) continue;
     if (row.type === 'stripe_payment_failed') {
@@ -338,10 +362,11 @@ export function rebuildDailyMetrics(opts: { windowDays?: number } = {}): Rebuild
   // ── Registrations ─────────────────────────────────────────────────────────
   const userRows = db
     .prepare(
-      `SELECT created_at FROM users WHERE created_at > datetime('now', '-${windowDays} days')`,
+      `SELECT id, created_at FROM users WHERE created_at > datetime('now', '-${windowDays} days')`,
     )
-    .all() as Array<{ created_at: string }>;
+    .all() as Array<{ id: string; created_at: string }>;
   for (const row of userRows) {
+    if (heldOut.has(row.id)) continue;
     const day = etDayOf(row.created_at);
     const bucket = day ? acc.get(day) : undefined;
     if (bucket) bucket.registrations += 1;
@@ -351,8 +376,11 @@ export function rebuildDailyMetrics(opts: { windowDays?: number } = {}): Rebuild
   // Aggregated by UTC hour in SQL, then folded onto ET days in JS. Grouping
   // straight to a day in SQL would need a fixed UTC offset, which is wrong for
   // half the year; grouping by hour is DST-safe and still collapses the table
-  // to a few thousand rows. Unique users can't be summed across hours, so that
-  // query returns distinct (hour, user) pairs and the fold does the counting.
+  // to a few thousand rows. Grouping by (hour, user) rather than by hour alone
+  // is what lets a held-out account's own visits be subtracted from BOTH
+  // columns — the operator reading this dashboard every morning is otherwise a
+  // permanent +1 under `unique_users` — and it still lets the fold count
+  // distinct users, which no per-hour SUM could.
   const pageviewsByDay = new Map<string, number>();
   const usersByDay = new Map<string, Set<string>>();
   let pageViewsFrom: string | null = null;
@@ -365,28 +393,18 @@ export function rebuildDailyMetrics(opts: { windowDays?: number } = {}): Rebuild
   if (pageViewsFrom) {
     const hourRows = db
       .prepare(
-        `SELECT substr(created_at, 1, 13) AS h, COUNT(*) AS c
+        `SELECT substr(created_at, 1, 13) AS h, user_id, COUNT(*) AS c
            FROM page_view_events
-          GROUP BY h`,
+          GROUP BY h, user_id`,
       )
-      .all() as Array<{ h: string; c: number }>;
+      .all() as Array<{ h: string; user_id: string | null; c: number }>;
     for (const row of hourRows) {
+      if (row.user_id != null && heldOut.has(row.user_id)) continue;
       const day = etDayOfHourBucket(row.h);
       if (!day) continue;
       pageviewsByDay.set(day, (pageviewsByDay.get(day) ?? 0) + (Number(row.c) || 0));
-    }
-
-    const userHourRows = db
-      .prepare(
-        `SELECT substr(created_at, 1, 13) AS h, user_id
-           FROM page_view_events
-          WHERE user_id IS NOT NULL
-          GROUP BY h, user_id`,
-      )
-      .all() as Array<{ h: string; user_id: string }>;
-    for (const row of userHourRows) {
-      const day = etDayOfHourBucket(row.h);
-      if (!day) continue;
+      // Anonymous visits have no stable id, so they are views without a user.
+      if (row.user_id == null) continue;
       let set = usersByDay.get(day);
       if (!set) {
         set = new Set<string>();

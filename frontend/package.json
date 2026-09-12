@@ -59,6 +59,8 @@
     "test:signal-availability": "node --experimental-strip-types --test tests/signalAvailability.test.ts",
     "test:subscription-flow": "node --experimental-strip-types --test tests/subscriptionFlow.test.ts",
     "test:cohort-retention": "node --experimental-strip-types --test tests/cohortRetention.test.ts",
+    "test:growth-story": "node --experimental-strip-types --test tests/growthStory.test.ts",
+    "test:excluded-accounts": "node --experimental-strip-types --test tests/excludedAccounts.test.ts",
     "test:trial-conveyor": "node --experimental-strip-types --test tests/trialConveyor.test.ts",
     "test:plan-switch": "node --experimental-strip-types --test tests/planSwitch.test.ts",
     "test:cancellation-reason": "node --experimental-strip-types --test tests/cancellationReason.test.ts",

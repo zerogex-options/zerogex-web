@@ -1,15 +1,26 @@
 import 'server-only';
 import { getDb } from './db';
-import { buildCohortReport, type CohortAuditInput, type CohortUserInput } from './cohortRetention';
+import { buildCohortReport, type CohortAuditInput, type CohortReport, type CohortUserInput } from './cohortRetention';
+import { summarizeExcluded, type ExcludedAccountsSummary } from './excludedAccounts';
+import { loadExcludedAccounts } from './excludedAccountsServer';
 import { priceIdToSku, type BillingCadence } from './stripe';
 
-export function getCohortRetentionReport(cadence?: BillingCadence) {
+export type CohortRetentionPayload = CohortReport & {
+  /** Who was held out of every number above, and under which rule. */
+  excluded: ExcludedAccountsSummary;
+};
+
+export function getCohortRetentionReport(cadence?: BillingCadence): CohortRetentionPayload {
   const db = getDb();
+  // Admin, comped partners and comped members are removed from the SOURCE rows,
+  // not netted out downstream, so they cannot reach a denominator anywhere in
+  // the report. See core/excludedAccounts.ts for why each rule exists.
+  const excludedAccounts = loadExcludedAccounts();
+  const excludedIds = new Set(excludedAccounts.map((account) => account.id));
   const users = db.prepare(`
     SELECT id, email, created_at, first_payment_at, subscription_status, tier,
            stripe_price_id, current_period_end, cancel_at_period_end, signup_utm_source
       FROM users
-     WHERE tier != 'admin'
      ORDER BY created_at ASC
   `).all() as Array<Record<string, string | number | null>>;
   const events = db.prepare(`
@@ -22,7 +33,9 @@ export function getCohortRetentionReport(cadence?: BillingCadence) {
      )
      ORDER BY user_id, created_at ASC
   `).all() as Array<Record<string, string>>;
-  const mappedUsers = users.map((row): CohortUserInput => ({
+  const mappedUsers = users
+    .filter((row) => !excludedIds.has(String(row.id)))
+    .map((row): CohortUserInput => ({
       id: String(row.id), email: String(row.email), createdAt: String(row.created_at),
       firstPaymentAt: row.first_payment_at == null ? null : String(row.first_payment_at),
       currentStatus: row.subscription_status == null ? null : String(row.subscription_status),
@@ -32,8 +45,11 @@ export function getCohortRetentionReport(cadence?: BillingCadence) {
       signupUtmSource: row.signup_utm_source == null ? null : String(row.signup_utm_source),
       cadence: row.stripe_price_id == null ? null : priceIdToSku(String(row.stripe_price_id))?.cadence ?? null,
     }));
-  return buildCohortReport(
+  const report = buildCohortReport(
     cadence ? mappedUsers.filter((user) => user.cadence === cadence) : mappedUsers,
-    events.map((row): CohortAuditInput => ({ userId: row.user_id, type: row.type, message: row.message, createdAt: row.created_at })),
+    events.flatMap((row): CohortAuditInput[] => excludedIds.has(row.user_id)
+      ? []
+      : [{ userId: row.user_id, type: row.type, message: row.message, createdAt: row.created_at }]),
   );
+  return { ...report, excluded: summarizeExcluded(excludedAccounts) };
 }
