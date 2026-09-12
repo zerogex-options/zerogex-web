@@ -29,7 +29,9 @@ const user = (
   currentPeriodEnd: null,
   cancelAtPeriodEnd: false,
   signupUtmSource: null,
+  foundingRate: false,
   cadence: 'monthly',
+  cadenceSource: 'current_price',
   ...overrides,
 });
 
@@ -72,7 +74,7 @@ test('the ledger counts money moving in the window; the funnel follows who regis
 
   assert.equal(result.newPaid, 2, 'both first payments landed inside the window');
   assert.equal(result.funnel[0].value, 2, 'only the two accounts registered in the window');
-  assert.equal(result.funnel[2].value, 1, 'only one of those has paid');
+  assert.equal(result.funnel[3].value, 1, 'only one of those has paid');
   assert.equal(result.payingNow, 2);
 });
 
@@ -134,7 +136,7 @@ test('the 30-day stage reports against payers old enough to answer it', () => {
     90,
   );
 
-  const retainedStage = result.funnel[3];
+  const retainedStage = result.funnel[4];
   assert.equal(retainedStage.eligible, 1, 'only the mature payer is measurable');
   assert.equal(retainedStage.value, 1);
   assert.equal(retainedStage.ofPrevious, 1);
@@ -156,7 +158,8 @@ test('the biggest leak is the largest real drop-off, and it is named in words', 
 
   assert.equal(result.funnel[0].value, 55);
   assert.equal(result.funnel[1].value, 15);
-  assert.equal(result.funnel[2].value, 10);
+  assert.equal(result.funnel[2].value, 10, 'trial starters who paid');
+  assert.equal(result.funnel[3].value, 10, 'paying customers in all');
   assert.equal(result.biggestLeak?.key, 'trial', '40 never-trialed beats 5 never-paid');
   assert.match(result.leakSentence ?? '', /40 registrations never started a trial/);
   assert.match(result.funnelSentence, /55 people who registered in the last 30 days/);
@@ -176,7 +179,7 @@ test('acquisition sources are folded, named, and ranked by paying customers', ()
 
   assert.deepEqual(
     result.sources.map((row) => [row.label, row.registered, row.paid]),
-    [['X / Twitter', 2, 1], ['Google', 6, 0], ['Organic / direct', 1, 0]],
+    [['X / Twitter', 2, 1], ['Google', 6, 0], ['Organic / direct / unattributed', 1, 0]],
     'x and Twitter fold together, and the one paying channel outranks the bigger one',
   );
 });
@@ -189,4 +192,42 @@ test('an empty window states that plainly instead of dividing by zero', () => {
   assert.equal(result.leakSentence, null);
   assert.match(result.funnelSentence, /Nobody registered in the last 30 days/);
   assert.equal(result.payingNow, 1, 'current headcount is not scoped to the window');
+});
+
+test('never-paid accounts are not "new payers" on the all-time window', () => {
+  // The regression this guards: `inWindow(null)` returned true when no window was
+  // set, so `newPaid` counted every registration and the headline read
+  // "1,166 new payers in" on a base of 137 real customers.
+  const result = story(
+    [paying('paid', ago(400), ago(390)), user('never1', ago(300)), user('never2', ago(200))],
+    [sync('paid', ago(390), 'active', 'pro')],
+    null,
+  );
+  assert.equal(result.newPaid, 1, 'one account has ever paid');
+  assert.equal(result.registrationsAllTime, 3);
+  assert.equal(result.everPaidAllTime, 1);
+  assert.match(result.subhead, /1 first payment in/);
+});
+
+test('trial → paid uses only trial starters who paid', () => {
+  const result = story(
+    [
+      paying('converted', ago(60), ago(50)),
+      user('trialonly', ago(60)),
+      paying('direct', ago(60), ago(50)),
+      paying('direct2', ago(60), ago(50)),
+    ],
+    [
+      sync('converted', ago(58), 'trialing', 'pro'), sync('converted', ago(50), 'active', 'pro'),
+      sync('trialonly', ago(58), 'trialing', 'pro'),
+      sync('direct', ago(50), 'active', 'pro'),
+      sync('direct2', ago(50), 'active', 'pro'),
+    ],
+    90,
+  );
+  assert.equal(result.trialStarters, 2);
+  assert.equal(result.trialStartersWhoPaid, 1);
+  assert.equal(result.directToPaid, 2);
+  assert.equal(result.trialToPaidRate, 0.5, 'not 3/2 = 150%');
+  assert.match(result.funnelSentence, /plus 2 customers who paid without trialling/);
 });

@@ -31,7 +31,7 @@ const DAY_MS = 86_400_000;
 export type WindowDays = 30 | 90 | 180 | 365 | null;
 
 export type FunnelStage = {
-  key: 'registered' | 'trial' | 'paid' | 'retained';
+  key: 'registered' | 'trial' | 'paidAfterTrial' | 'paid' | 'retained';
   label: string;
   /** What the number counts, in the operator's words. */
   caption: string;
@@ -66,8 +66,14 @@ export type SurvivalPoint = {
 
 export type EarlyLossPoint = {
   withinDays: number;
+  /** Paid access stopped inside N days AND has not resumed. */
   lost: number;
+  /** Paid access stopped inside N days, whether or not they came back. */
+  interrupted: number;
+  /** Interrupted inside N days and paying again now. */
+  recovered: number;
   rate: number | null;
+  interruptedRate: number | null;
 };
 
 export type SourceRow = {
@@ -85,6 +91,10 @@ export type GrowthStory = {
   windowDays: number | null;
   /** Inclusive ISO instant the window opens at; null for all time. */
   since: string | null;
+  /** ── All-time ledger, stated in the words each number actually means ── */
+  registrationsAllTime: number;
+  everPaidAllTime: number;
+  accessEndedAllTime: number;
   /** ── Right now ─────────────────────────────────────────────── */
   payingNow: number;
   /** Active subscribers who have already asked to leave at period end. */
@@ -93,12 +103,21 @@ export type GrowthStory = {
   newPaid: number;
   lost: number;
   net: number;
+  /** ── Trial conversion, stated the only way it is meaningful ── */
+  trialStarters: number;
+  /** Trial starters who LATER PAID. Never includes direct-to-paid customers. */
+  trialStartersWhoPaid: number;
+  directToPaid: number;
+  /** trialStartersWhoPaid / trialStarters. Cannot exceed 100%. */
+  trialToPaidRate: number | null;
   /** ── Funnel (cohort-timed, registered inside the window) ───── */
   funnel: FunnelStage[];
   /** The stage that loses the most people, for the callout. */
   biggestLeak: FunnelStage | null;
   /** ── Retention of everyone old enough to measure ───────────── */
   survival: SurvivalPoint[];
+  /** Ever-paid customers in the window whose access stopped and then resumed. */
+  interrupted: number;
   /** ── Why we lose them ──────────────────────────────────────── */
   losses: LossBreakdown;
   earlyLoss: EarlyLossPoint[];
@@ -112,7 +131,10 @@ export type GrowthStory = {
   leakSentence: string | null;
 };
 
-const ORGANIC = 'Organic / direct';
+// NOT "organic": it is the absence of a utm_source, which also covers direct
+// visits, untagged social and referral links, and word of mouth. Naming it
+// "organic" quietly credits one channel with everything we failed to tag.
+const UNATTRIBUTED = 'Organic / direct / unattributed';
 
 function rate(numerator: number, denominator: number): number | null {
   return denominator > 0 ? numerator / denominator : null;
@@ -145,7 +167,7 @@ export function windowLabel(windowDays: number | null): string {
  */
 function sourceLabel(source: string | null): string {
   const trimmed = (source ?? '').trim();
-  if (!trimmed) return ORGANIC;
+  if (!trimmed) return UNATTRIBUTED;
   const lower = trimmed.toLowerCase();
   if (lower === 'x' || lower === 'twitter') return 'X / Twitter';
   if (lower === 'google') return 'Google';
@@ -160,10 +182,14 @@ export function buildGrowthStory(
   const now = time(nowIso) ?? Date.now();
   const since = windowDays == null ? null : now - windowDays * DAY_MS;
   const sinceIso = since == null ? null : new Date(since).toISOString();
+  // A date that does not exist is not "inside the window" — it is an event that
+  // never happened. The previous version returned true for null on the all-time
+  // window, which made `newPaid` count every account that had never paid: the
+  // headline read "1,166 new payers in" when 1,166 was the registration count.
   const inWindow = (value: string | null): boolean => {
-    if (since == null) return true;
     const at = time(value);
-    return at != null && at >= since && at <= now;
+    if (at == null) return false;
+    return at <= now && (since == null || at >= since);
   };
 
   const users = report.users;
@@ -175,7 +201,7 @@ export function buildGrowthStory(
   const state = (value: PaidCustomerState) => users.filter((user) => user.paidCustomerState === value).length;
   const payingNow = state('active');
   const scheduledToLeave = users.filter(
-    (user) => user.paidCustomerState === 'active' && (time(user.accessEndedAt) ?? 0) > now,
+    (user) => user.paidCustomerState === 'active' && user.scheduledAccessEndAt != null,
   ).length;
 
   // ── Ledger: money that started and stopped inside the window ─────────────
@@ -183,19 +209,30 @@ export function buildGrowthStory(
   // future date is an intention, not a loss. Only endings that have actually
   // happened count.
   const newPaid = users.filter((user) => inWindow(user.firstPaidAt)).length;
+  // A LOSS is a customer who is not entitled now and whose access ended inside
+  // the window. `lastAccessEndedAt` is null whenever they are entitled, so a
+  // customer who lapsed and came back is not counted here — their interruption
+  // shows in the interruption columns instead.
   const endedUsers = users.filter(
-    (user) => user.firstPaidAt != null
-      && user.accessEndedAt != null
-      && (time(user.accessEndedAt) ?? Infinity) <= now
-      && inWindow(user.accessEndedAt),
+    (user) => user.firstPaidAt != null && user.lastAccessEndedAt != null && inWindow(user.lastAccessEndedAt),
   );
   const lost = endedUsers.length;
+  const interruptedUsers = users.filter(
+    (user) => user.firstPaidAt != null
+      && user.reactivatedAfterInterruption
+      && inWindow(user.firstAccessEndedAt),
+  );
 
   // ── Funnel: the people who registered inside the window ──────────────────
   const cohort = users.filter((user) => inWindow(user.registeredAt));
   const registered = cohort.length;
   const trials = cohort.filter((user) => user.trialStartedAt != null).length;
   const paid = cohort.filter((user) => user.firstPaidAt != null).length;
+  // The intersection, not the union. Counting every payer against the trial
+  // denominator is what let this rate print "150% of trials" for a month where
+  // most customers skipped the trial entirely.
+  const trialThenPaid = cohort.filter((user) => user.paidAfterTrial).length;
+  const directToPaid = cohort.filter((user) => user.directToPaid).length;
   // Only payers old enough for the 30-day milestone can answer it, so the last
   // stage reports against them rather than against everyone who paid.
   const retentionEligible = cohort.filter((user) => user.retained['30'] != null).length;
@@ -223,19 +260,34 @@ export function buildGrowthStory(
       eligible: null,
     },
     {
+      key: 'paidAfterTrial',
+      label: 'Paid after a trial',
+      caption: 'the trial converted',
+      value: trialThenPaid,
+      ofPrevious: rate(trialThenPaid, trials),
+      ofTop: rate(trialThenPaid, registered),
+      droppedFromPrevious: Math.max(0, trials - trialThenPaid),
+      eligible: null,
+    },
+    {
+      // Not a conversion step — a total. Direct-to-paid customers enter the
+      // funnel here without passing through a trial, so this row is the sum of
+      // two paths and its "of previous" would be meaningless.
       key: 'paid',
-      label: 'Paid',
-      caption: 'money actually moved',
+      label: 'Paying customers',
+      caption: directToPaid > 0
+        ? `incl. ${directToPaid.toLocaleString()} who never trialled`
+        : 'money actually moved',
       value: paid,
-      ofPrevious: rate(paid, trials),
+      ofPrevious: null,
       ofTop: rate(paid, registered),
-      droppedFromPrevious: Math.max(0, trials - paid),
+      droppedFromPrevious: null,
       eligible: null,
     },
     {
       key: 'retained',
       label: 'Still paying at 30d',
-      caption: 'of those old enough to tell',
+      caption: 'of the payers old enough to tell',
       value: retained,
       ofPrevious: rate(retained, retentionEligible),
       ofTop: rate(retained, registered),
@@ -282,11 +334,25 @@ export function buildGrowthStory(
   // how fast a new customer leaves, so its denominator is everyone in the
   // window's cohort who paid at all.
   const paidCohort = cohort.filter((user) => user.firstPaidAt != null);
+  // Two different questions, kept apart: how many had paid access STOP inside
+  // N days (interruptions, reactivations included), and how many of those are
+  // still gone. Reporting only the first under the word "lost" turns every
+  // customer who ever had a billing hiccup into permanent churn.
   const earlyLoss: EarlyLossPoint[] = [7, 30, 60].map((withinDays) => {
-    const lostBy = paidCohort.filter(
-      (user) => user.daysPaidBeforeChurn != null && user.daysPaidBeforeChurn <= withinDays,
+    const interrupted = paidCohort.filter(
+      (user) => user.daysToFirstInterruption != null && user.daysToFirstInterruption <= withinDays,
     ).length;
-    return { withinDays, lost: lostBy, rate: rate(lostBy, paidCohort.length) };
+    const stillGone = paidCohort.filter(
+      (user) => user.daysPaidBeforePermanentLoss != null && user.daysPaidBeforePermanentLoss <= withinDays,
+    ).length;
+    return {
+      withinDays,
+      lost: stillGone,
+      interrupted,
+      recovered: Math.max(0, interrupted - stillGone),
+      rate: rate(stillGone, paidCohort.length),
+      interruptedRate: rate(interrupted, paidCohort.length),
+    };
   });
 
   const recovery = {
@@ -325,7 +391,7 @@ export function buildGrowthStory(
     : `${net > 0 ? '+' : '−'}${Math.abs(net).toLocaleString()}`;
   const subhead = [
     `${netPhrase} over ${where}`,
-    `${plural(newPaid, 'new payer')} in, ${lost.toLocaleString()} lost`,
+    `${plural(newPaid, 'first payment')} in, ${plural(lost, 'customer')} lost`,
     scheduledToLeave > 0 ? `${plural(scheduledToLeave, 'cancellation')} already scheduled` : null,
   ].filter(Boolean).join(' · ');
 
@@ -333,27 +399,38 @@ export function buildGrowthStory(
     ? `Nobody registered in ${where}.`
     : `Of the ${plural(registered, 'person', 'people')} who registered in ${where}, `
       + `${trials.toLocaleString()} started a trial (${pct(rate(trials, registered))}) `
-      + `and ${paid.toLocaleString()} have paid (${pct(rate(paid, trials))} of trials).`;
+      + `and ${trialThenPaid.toLocaleString()} of those went on to pay (${pct(rate(trialThenPaid, trials))})`
+      + (directToPaid > 0
+        ? `, plus ${plural(directToPaid, 'customer')} who paid without trialling — ${plural(paid, 'paying customer')} in all.`
+        : '.');
 
   const leakSentence = biggestLeak == null || biggestLeak.droppedFromPrevious == null
     ? null
     : biggestLeak.key === 'trial'
       ? `Biggest drop-off: ${plural(biggestLeak.droppedFromPrevious, 'registration')} never started a trial.`
-      : biggestLeak.key === 'paid'
+      : biggestLeak.key === 'paidAfterTrial'
         ? `Biggest drop-off: ${plural(biggestLeak.droppedFromPrevious, 'trial')} ended without a payment.`
-        : `Biggest drop-off: ${plural(biggestLeak.droppedFromPrevious, 'paying customer')} was lost inside 30 days.`;
+        : `Biggest drop-off: ${plural(biggestLeak.droppedFromPrevious, 'paying customer')} lost paid access inside 30 days.`;
 
   return {
     windowDays,
     since: sinceIso,
+    registrationsAllTime: users.length,
+    everPaidAllTime: users.filter((user) => user.firstPaidAt != null).length,
+    accessEndedAllTime: users.filter((user) => user.lastAccessEndedAt != null).length,
     payingNow,
     scheduledToLeave,
     newPaid,
     lost,
     net,
+    trialStarters: trials,
+    trialStartersWhoPaid: trialThenPaid,
+    directToPaid,
+    trialToPaidRate: rate(trialThenPaid, trials),
     funnel,
     biggestLeak,
     survival,
+    interrupted: interruptedUsers.length,
     losses,
     earlyLoss,
     recovery,

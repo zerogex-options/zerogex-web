@@ -735,6 +735,39 @@ function initDb(): DatabaseSync {
     );
   `);
 
+  // Successful Stripe invoices, imported from the Stripe API by
+  // scripts/backfill-stripe-invoices.mts. ANALYTICS ONLY: nothing in the billing
+  // path reads this table, and the importer never writes to Stripe.
+  //
+  // It exists because a renewal cannot be inferred — it has to be seen — and the
+  // `stripe_invoice_paid` audit event only started being written when that event
+  // type shipped. Every renewal that fell due before then is invisible in
+  // audit_events, so a renewal rate computed from audit rows alone reports the
+  // product's entire early history as "did not renew". This table carries the
+  // real invoices back to the first customer.
+  //
+  // `billing_reason` is the column that matters: only `subscription_create` and
+  // `subscription_cycle` are billing periods. A `subscription_update` proration
+  // is real money and is NOT a renewal.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS stripe_invoice_history (
+      invoice_id TEXT PRIMARY KEY,
+      user_id TEXT,
+      customer_id TEXT,
+      subscription_id TEXT,
+      price_id TEXT,
+      status TEXT NOT NULL,
+      billing_reason TEXT,
+      amount_paid INTEGER NOT NULL,
+      currency TEXT,
+      paid_at TEXT NOT NULL,
+      period_start TEXT,
+      period_end TEXT,
+      imported_at TEXT NOT NULL
+    );
+  `);
+  db.exec('CREATE INDEX IF NOT EXISTS idx_stripe_invoice_history_user ON stripe_invoice_history(user_id, paid_at);');
+
   // The joined one-row-per-day shape, for ad-hoc `sqlite3` querying outside the
   // app (the admin page reads the same join through core/dailyMetrics.ts). A
   // day that exists in either table appears exactly once. Dropped and recreated

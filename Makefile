@@ -20,6 +20,8 @@ help:
 	@echo "  make migrate    - Force the auth DB's lazy migration to run now (use after --start-from <step> deploys that add new columns)"
 	@echo "  make migrate-tiers - Migrate legacy starter/elite users to basic/pro (DRY_RUN=1 to preview)"
 	@echo "  make backfill-daily-metrics - Rebuild the one-row-per-day metrics table behind Admin->Monitoring->Growth, and print the relationship tests. DAYS=<n> to limit the window, X_CSV=<path> / GOOGLE_CSV=<path> / COMBINED_CSV=<path> to import an X or Search Console export, REPORT=0 to skip the readout"
+	@echo "  make audit-customers   - Trace a sample of real customers through the growth dashboard's classification (read-only). EMAIL=<addr> for one customer, EVENTS=0 for a summary"
+	@echo "  make backfill-stripe-invoices - Import real Stripe invoice history into stripe_invoice_history so the renewal metrics on Admin->Monitoring->Growth can see renewals that predate the invoice audit trail. Read-only against Stripe. SINCE=<YYYY-MM-DD> / LIMIT=<n> / DRY_RUN=1"
 	@echo "  make sync-search-console - Pull daily clicks+impressions from Google Search Console into the daily metrics rollup (runs on a timer; see deploy/steps/099.search-console). DAYS=<n> for the window (default 14, use 480 for a full ~16-month backfill), END=<YYYY-MM-DD> to end elsewhere, DRY_RUN=1 to fetch and print without writing"
 	@echo "  make all-to-pro - Promote every non-admin user to pro (DRY_RUN=1 to preview)"
 	@echo "  make delete-user EMAIL=<email> - Delete a user (DRY_RUN=1 to preview, YES=1 to skip prompt)"
@@ -238,6 +240,36 @@ migrate:
 #   REPORT=0             rebuild only, skip the correlation readout
 backfill-daily-metrics:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/backfill-daily-metrics.mts'
+
+# Import the real successful-invoice history from Stripe into
+# stripe_invoice_history, which is what the renewal metrics on
+# Admin -> Monitoring -> Growth read.
+#
+# A renewal is money moving a second time and has to be SEEN, not inferred from
+# access having lasted about a month. The app only began writing
+# stripe_invoice_paid audit rows when that event type shipped, so every renewal
+# due before then is invisible without this import and is reported as
+# "unobservable" rather than as churn. This fills in the history Stripe already
+# has.
+#
+# READ-ONLY against Stripe: it lists invoices and writes one analytics table.
+# It touches no user, subscription, tier or access state. Idempotent.
+#
+#   SINCE=<YYYY-MM-DD>   only import invoices created on or after this date
+#   LIMIT=<n>            stop after n invoices (smoke test)
+#   DRY_RUN=1            fetch and report, write nothing
+backfill-stripe-invoices:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/backfill-stripe-invoices.mts'
+
+# Print, for a sample of real customers, every event the growth dashboard reads
+# and every conclusion it draws — so a human can check the classification against
+# Stripe rather than trusting it. Read-only; writes nothing anywhere.
+#
+#   EMAIL=<addr>   trace one customer instead of the sample
+#   LIMIT=<n>      how many customers per shape (default 1)
+#   EVENTS=0       summary only, no event timeline
+audit-customers:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/audit-customer-classification.mts'
 
 # Pull daily clicks + impressions from Google Search Console into the
 # google_clicks / google_impressions columns of the daily metrics rollup, then

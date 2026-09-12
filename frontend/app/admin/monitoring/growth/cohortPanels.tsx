@@ -68,8 +68,8 @@ export type SelectMetric = (cohort: string, metric: string) => void;
 export function CohortConversionTable({ rows, select }: { rows: CohortRow[]; select: SelectMetric }) {
   return (
     <Table
-      minWidth={860}
-      head={['Registration cohort', 'Registered', 'Started trial', 'Paid', 'Kept 30d', 'Kept 60d', 'Kept 90d']}
+      minWidth={960}
+      head={['Registration cohort', 'Registered', 'Started trial', 'Trial → paid', 'Direct to paid', 'Paid in all', 'Kept 30d', 'Kept 60d', 'Kept 90d']}
     >
       {rows.map((row) => (
         <tr key={row.cohort} style={{ borderTop: '1px solid var(--color-border)' }}>
@@ -83,9 +83,22 @@ export function CohortConversionTable({ rows, select }: { rows: CohortRow[]; sel
             />
           </td>
           <td className={TD}>
+            {/* Trial starters who LATER PAID over trial starters. Dividing all
+                payers by trial starters — which this column used to do — prints
+                rates above 100% in any month where customers skipped the trial. */}
+            <Drill
+              count={row.trialThenPaid}
+              sub={pct(row.trialStarted ? row.trialThenPaid / row.trialStarted : null)}
+              onClick={() => select(row.cohort, 'trialThenPaid')}
+            />
+          </td>
+          <td className={TD}>
+            <Drill count={row.directToPaid} sub="no trial" onClick={() => select(row.cohort, 'directToPaid')} />
+          </td>
+          <td className={TD}>
             <Drill
               count={row.becamePaid}
-              sub={`${pct(row.trialStarted ? row.becamePaid / row.trialStarted : null)} of trials`}
+              sub={pct(row.registered ? row.becamePaid / row.registered : null)}
               onClick={() => select(row.cohort, 'paid')}
             />
           </td>
@@ -120,8 +133,14 @@ export function CohortConversionTable({ rows, select }: { rows: CohortRow[]; sel
 export function CohortStateTable({ rows, select }: { rows: CohortRow[]; select: SelectMetric }) {
   return (
     <Table
-      minWidth={820}
-      head={['Registration cohort', 'Ever paid', 'Paying now', 'Chose to leave', 'Card failed', 'Unattributed', 'Lost ≤7d', 'Lost ≤30d', 'Lost ≤60d']}
+      minWidth={980}
+      head={[
+        'Registration cohort', 'Ever paid', 'Paying now', 'Chose to leave', 'Card failed', 'Unattributed',
+        // "Lost" and "interrupted" are different populations: a customer who
+        // lapsed for a week and came back is an interruption and is NOT lost.
+        // The old columns said "Lost" and counted both.
+        'Interrupted ≤7d', 'Interrupted ≤30d', 'Still gone ≤30d', 'Still gone ≤60d',
+      ]}
     >
       {rows.map((row) => (
         <tr key={row.cohort} style={{ borderTop: '1px solid var(--color-border)' }}>
@@ -132,36 +151,16 @@ export function CohortStateTable({ rows, select }: { rows: CohortRow[]; select: 
               <Drill count={row.churn[key]} onClick={() => select(row.cohort, key)} />
             </td>
           ))}
-          {['7', '30', '60'].map((day) => (
-            <td key={day} className={TD} style={{ borderLeft: day === '7' ? '1px solid var(--color-border)' : undefined }}>
-              {row.earlyChurn[day].lost.toLocaleString()}
-              <span className="block text-xs" style={{ color: 'var(--color-text-secondary)' }}>{pct(row.earlyChurn[day].rate)}</span>
+          {(['7', '30'] as const).map((day) => (
+            <td key={`i${day}`} className={TD} style={{ borderLeft: day === '7' ? '1px solid var(--color-border)' : undefined }}>
+              {row.interrupted[day].count.toLocaleString()}
+              <span className="block text-xs" style={{ color: 'var(--color-text-secondary)' }}>{pct(row.interrupted[day].rate)}</span>
             </td>
           ))}
-        </tr>
-      ))}
-    </Table>
-  );
-}
-
-export function RenewalPaymentsTable({ rows }: { rows: CohortRow[] }) {
-  return (
-    <Table
-      minWidth={760}
-      head={['Cohort', 'Payment 1', 'Payment 2', 'Payment 3', 'Payment 4', '2nd / eligible', '3rd / eligible', '4th / eligible']}
-    >
-      {rows.map((row) => (
-        <tr key={row.cohort} style={{ borderTop: '1px solid var(--color-border)' }}>
-          <td className="px-3 py-2.5 font-semibold whitespace-nowrap">{cohortLabel(row.cohort)}</td>
-          {['1', '2', '3', '4'].map((number) => (
-            <td key={number} className={`${TD} font-semibold`}>{row.payments[number].successful.toLocaleString()}</td>
-          ))}
-          {['2', '3', '4'].map((number) => (
-            <td key={number} className={TD}>
-              {pct(row.payments[number].rate)}
-              <span className="block text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                {row.payments[number].successful}/{row.payments[number].eligible}
-              </span>
+          {(['30', '60'] as const).map((day) => (
+            <td key={`p${day}`} className={TD} style={{ borderLeft: day === '30' ? '1px solid var(--color-border)' : undefined }}>
+              {row.permanentlyLost[day].count.toLocaleString()}
+              <span className="block text-xs" style={{ color: 'var(--color-text-secondary)' }}>{pct(row.permanentlyLost[day].rate)}</span>
             </td>
           ))}
         </tr>
@@ -180,6 +179,10 @@ export function matchesMetric(user: CohortUser, metric: string): boolean {
     case 'registered': return true;
     case 'trial': return Boolean(user.trialStartedAt);
     case 'paid': return Boolean(user.firstPaidAt);
+    case 'paidAfterTrial':
+    case 'trialThenPaid': return user.paidAfterTrial;
+    case 'directToPaid': return user.directToPaid;
+    case 'interrupted': return user.reactivatedAfterInterruption;
     case 'voluntary': return user.paidCustomerState === 'voluntarily_churned';
     case 'paymentFailure': return user.paidCustomerState === 'involuntarily_churned';
     case 'other': return user.paidCustomerState === 'other_unknown';
@@ -195,6 +198,10 @@ export const METRIC_TITLE: Record<string, string> = {
   registered: 'Registered',
   trial: 'Started a trial',
   paid: 'Paid at least once',
+  paidAfterTrial: 'Started a trial, then paid',
+  trialThenPaid: 'Started a trial, then paid',
+  directToPaid: 'Paid without a trial',
+  interrupted: 'Lost access and came back',
   retained30: 'Still paying at 30 days',
   retained60: 'Still paying at 60 days',
   retained90: 'Still paying at 90 days',
@@ -244,7 +251,7 @@ export function PeopleDrilldown({
           <table className="w-full text-xs" style={{ minWidth: 1020 }}>
             <thead className="sticky top-0" style={{ backgroundColor: 'var(--color-surface-elevated)' }}>
               <tr>
-                {['Email', 'Registered', 'Trial', 'First paid', 'Access ended', 'Days paid', 'Status', 'Source', 'Failed charges', 'Why they left'].map((head) => (
+                {['Email', 'Registered', 'Trial', 'First paid', 'Payments', 'Access ended', 'Days paid', 'Status', 'Plan', 'Failed charges', 'Why they left'].map((head) => (
                   <th key={head} className="px-3 py-2 text-left font-semibold whitespace-nowrap">{head}</th>
                 ))}
               </tr>
@@ -256,12 +263,27 @@ export function PeopleDrilldown({
                   <td className="px-3 py-2 whitespace-nowrap tabular-nums">{shortDate(user.registeredAt)}</td>
                   <td className="px-3 py-2 whitespace-nowrap tabular-nums">{shortDate(user.trialStartedAt)}</td>
                   <td className="px-3 py-2 whitespace-nowrap tabular-nums">{shortDate(user.firstPaidAt)}</td>
-                  <td className="px-3 py-2 whitespace-nowrap tabular-nums">{shortDate(user.accessEndedAt)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{user.daysPaidBeforeChurn ?? '—'}</td>
+                  <td className="px-3 py-2 text-right tabular-nums" title="Successful billing-period invoices on record">
+                    {user.cycleInvoices.length || '—'}
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap tabular-nums">
+                    {user.lastAccessEndedAt
+                      ? shortDate(user.lastAccessEndedAt)
+                      : user.scheduledAccessEndAt
+                        ? `${shortDate(user.scheduledAccessEndAt)} (scheduled)`
+                        : '—'}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {user.daysPaidBeforePermanentLoss ?? user.daysToFirstInterruption ?? '—'}
+                  </td>
                   <td className="px-3 py-2 whitespace-nowrap">
                     {user.paidCustomerState ? STATE_LABEL[user.paidCustomerState] : 'Never paid'}
+                    {user.reactivatedAfterInterruption && ' · returned'}
                   </td>
-                  <td className="px-3 py-2 whitespace-nowrap">{user.acquisitionSource ?? 'Organic / direct'}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    {user.cadence ?? 'cadence unknown'}
+                    {user.cadenceSource !== 'current_price' && user.cadence != null && ' *'}
+                  </td>
                   <td className="px-3 py-2 text-right tabular-nums">{user.failedPaymentAttempts || '—'}</td>
                   <td className="px-3 py-2" title={user.classificationExplanation ?? undefined}>
                     {user.cancellationReason ?? (user.churnKind === 'other' ? 'Not recorded' : '—')}

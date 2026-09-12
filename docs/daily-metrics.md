@@ -1,5 +1,9 @@
 # Daily metrics — one row per day, and the four relationships it answers
 
+> Metric definitions for the rest of the Growth tab — trial→paid, retention
+> eligibility, renewals, churn attribution — are in
+> [growth-metric-definitions.md](growth-metric-definitions.md).
+
 Admin → Monitoring → **Growth**, under “Day by day” and “Does marketing move the needle?”.
 (Until September 2026 this was its own **Daily Signals** tab; the panels are unchanged,
 they now sit below the growth story rather than beside it.)
@@ -313,4 +317,8 @@ you that a single day's number carries very little information on its own.
 | `frontend/tests/searchConsole.test.ts` | Search Console suite (config, day ranges, response mapping, a real signed assertion) — `npm run test:search-console`. |
 | `frontend/tests/dailyMetrics.test.ts` | DB suite against a throwaway SQLite file (column definitions, the retention guard, importer merge semantics, the view) — `npm run test:daily-metrics-db`. |
 | `frontend/core/excludedAccounts.ts` / `excludedAccountsServer.ts` | Who is not a customer: the pure rule and the query that finds them. |
+| `frontend/core/cohortRetention.ts` | Per-customer lifecycle: paid-access spans, retention milestones, trial→paid, interruption vs. permanent loss. |
+| `frontend/core/renewalRetention.ts` | The monthly renewal ladder and the scheduled-cancellation risk pool. |
+| `frontend/scripts/backfill-stripe-invoices.mts` | `make backfill-stripe-invoices` — imports real invoice history so renewals can be seen rather than inferred. |
+| `frontend/scripts/audit-customer-classification.mts` | `make audit-customers` — traces real customers through the classification so it can be checked by hand. |
 | `frontend/tests/excludedAccounts.test.ts` | Proves the exclusion reaches the daily rollup, not just the cohort report — `npm run test:excluded-accounts`. |

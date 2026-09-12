@@ -3,19 +3,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ErrorMessage from '@/components/ErrorMessage';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import type { CohortReport, CohortUser } from '@/core/cohortRetention';
-import { EXCLUSION_REASON_LABEL, type ExcludedAccountsSummary } from '@/core/excludedAccounts';
+import type { CohortUser } from '@/core/cohortRetention';
+import { EXCLUSION_REASON_LABEL } from '@/core/excludedAccounts';
 import { buildGrowthStory, windowLabel, type WindowDays } from '@/core/growthStory';
+import type { CohortRetentionPayload } from '@/core/cohortRetentionServer';
 import {
   CohortConversionTable,
   CohortStateTable,
   METRIC_TITLE,
   PeopleDrilldown,
-  RenewalPaymentsTable,
   cohortLabel,
   matchesMetric,
   pct,
 } from './cohortPanels';
+import { AtRiskPanel, FirstRenewalCard, RenewalCohortTable, RenewalLadder } from './renewalPanels';
 import {
   ArrivalsChart,
   CoverageStrip,
@@ -58,7 +59,7 @@ import { ChoiceRow, Disclosure, Panel, ProportionBar, RankBar, Sentence, StatTil
 // comped Pro grant, and comped members — see core/excludedAccounts.ts. The
 // "What's held out" disclosure at the bottom names them.
 
-type CohortPayload = CohortReport & { excluded?: ExcludedAccountsSummary };
+type CohortPayload = CohortRetentionPayload;
 
 type Cadence = 'all' | 'monthly' | 'annual';
 
@@ -164,16 +165,18 @@ export default function GrowthClient({ cardBg, borderColor, axisStroke, mutedTex
           return report.users.filter((user) => user.paidCustomerState === 'active');
         case 'scheduled':
           return report.users.filter(
-            (user) => user.paidCustomerState === 'active' && (Date.parse(user.accessEndedAt ?? '') || 0) > now,
+            (user) => user.paidCustomerState === 'active' && user.scheduledAccessEndAt != null,
           );
         case 'newPaid':
           return report.users.filter(
             (user) => user.firstPaidAt != null && (since == null || Date.parse(user.firstPaidAt) >= since),
           );
         case 'lostInWindow':
+          // `lastAccessEndedAt` is null whenever the customer is entitled now, so
+          // a resubscriber never appears in a list of losses.
           return report.users.filter((user) => {
-            if (user.firstPaidAt == null || user.accessEndedAt == null) return false;
-            const endedAt = Date.parse(user.accessEndedAt);
+            if (user.firstPaidAt == null || user.lastAccessEndedAt == null) return false;
+            const endedAt = Date.parse(user.lastAccessEndedAt);
             return endedAt <= now && (since == null || endedAt >= since);
           });
         default:
@@ -197,7 +200,6 @@ export default function GrowthClient({ cardBg, borderColor, axisStroke, mutedTex
 
   const where = windowLabel(windowDays);
   const survival30 = story.survival[0];
-  const trialToPaid = story.funnel[2].ofPrevious;
   const maxSourceRegistrations = story.sources.reduce((max, row) => Math.max(max, row.registered), 0);
 
   return (
@@ -226,13 +228,20 @@ export default function GrowthClient({ cardBg, borderColor, axisStroke, mutedTex
         </p>
         <h2 className="zg-h2 tabular-nums">{story.headline}</h2>
         <Sentence lead>{story.subhead}</Sentence>
+        <p className="mt-2 text-xs" style={{ color: mutedText }}>
+          All time: {story.registrationsAllTime.toLocaleString()} registrations ·{' '}
+          {story.everPaidAllTime.toLocaleString()} unique customers ever paid ·{' '}
+          {story.accessEndedAllTime.toLocaleString()} whose paid access has ended ·{' '}
+          {story.scheduledToLeave.toLocaleString()} more with a cancellation scheduled
+        </p>
         <div className="mt-5 grid grid-cols-2 lg:grid-cols-4 gap-3">
           <StatTile
             label="Trial → paid"
-            value={pct(trialToPaid)}
-            hint={`${story.funnel[2].value.toLocaleString()} of ${story.funnel[1].value.toLocaleString()} trials started in ${where}`}
+            value={pct(story.trialToPaidRate)}
+            hint={`${story.trialStartersWhoPaid.toLocaleString()} of ${story.trialStarters.toLocaleString()} trial starters`
+              + (story.directToPaid > 0 ? ` · ${story.directToPaid.toLocaleString()} more paid without one` : '')}
             tone={FUNNEL_COLOR}
-            onClick={() => open('paid')}
+            onClick={() => open('paidAfterTrial')}
           />
           <StatTile
             label="Still paying at 30 days"
@@ -257,6 +266,22 @@ export default function GrowthClient({ cardBg, borderColor, axisStroke, mutedTex
           />
         </div>
       </Panel>
+
+      {/* ── 1b. Does the second payment happen? ──────────────────────────── */}
+      {cadence !== 'annual' && <FirstRenewalCard report={report.renewals} />}
+      {cadence === 'annual' && (
+        <Panel title="First renewal" subtitle="Monthly billing only.">
+          <p className="text-sm" style={{ color: mutedText }}>
+            A renewal ladder measures the month-to-month decision. An annual subscriber does not make
+            one until their year is up, so the monthly rates are not shown here rather than being
+            re-labelled as though they applied. {report.cadenceCoverage.annual} annual customer
+            {report.cadenceCoverage.annual === 1 ? '' : 's'} on record; their access and retention are
+            in the cohort tables below.
+          </p>
+        </Panel>
+      )}
+
+      {report.renewals.atRisk.total > 0 && <AtRiskPanel pool={report.renewals.atRisk} />}
 
       {/* ── 2. The funnel ────────────────────────────────────────────────── */}
       <Panel
@@ -304,6 +329,7 @@ export default function GrowthClient({ cardBg, borderColor, axisStroke, mutedTex
                 <button
                   type="button"
                   onClick={() => open(stage.key === 'retained' ? 'retained30' : stage.key)}
+                  title={stage.key === 'paid' ? 'Trial converts plus direct-to-paid customers' : undefined}
                   className="w-full grid grid-cols-[1fr] sm:grid-cols-[11rem_1fr_12rem] items-center gap-x-4 gap-y-1 rounded px-2 py-2 text-left hover:opacity-80"
                 >
                   <span className="text-sm font-semibold">{stage.label}</span>
@@ -345,7 +371,7 @@ export default function GrowthClient({ cardBg, borderColor, axisStroke, mutedTex
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
         <Panel
           title="Where growth comes from"
-          subtitle={`Attribution is the utm_source captured at signup, so anyone who arrived without a tagged link is organic. Ranked by paying customers, not by traffic.`}
+          subtitle="Ranked by paying customers, not by traffic. Attribution is the utm_source captured at signup and is never rewritten after the fact — so “Organic / direct / unattributed” means no UTM source was captured, and may include organic search, direct visits, untagged social and referral links, and word of mouth."
         >
           {story.sources.length === 0 ? (
             <p className="text-sm" style={{ color: mutedText }}>Nobody registered in {where}.</p>
@@ -399,16 +425,37 @@ export default function GrowthClient({ cardBg, borderColor, axisStroke, mutedTex
 
           <h4 className="zg-h4 mt-6 mb-1">How fast new customers leave</h4>
           <p className="text-xs mb-3" style={{ color: mutedText }}>
-            Of the {story.funnel[2].value.toLocaleString()} people who registered in {where} and went
-            on to pay. Each row counts everyone lost by that age, so they nest rather than add up.
+            Of the {story.funnel[3].value.toLocaleString()} people who registered in {where} and went on
+            to pay. Solid is customers who are still gone; the paler part is access that stopped and
+            then resumed — a billing interruption, not churn. Each row counts everyone by that age, so
+            they nest rather than add up.
           </p>
           <ul className="space-y-1.5">
             {story.earlyLoss.map((point) => (
               <li key={point.withinDays} className="flex items-baseline gap-3 text-sm">
-                <span className="w-28">Gone within {point.withinDays}d</span>
-                <span className="flex-1"><RankBar value={point.lost} max={story.funnel[2].value} color={DROP_COLOR} /></span>
+                <span className="w-32">Stopped within {point.withinDays}d</span>
+                <span className="flex-1 relative h-1.5 rounded-full" style={{ backgroundColor: 'var(--color-border)' }}>
+                  <span
+                    className="absolute inset-y-0 left-0 rounded-full"
+                    style={{
+                      width: `${story.funnel[3].value > 0 ? (point.interrupted / story.funnel[3].value) * 100 : 0}%`,
+                      backgroundColor: DROP_COLOR,
+                      opacity: 0.35,
+                    }}
+                  />
+                  <span
+                    className="absolute inset-y-0 left-0 rounded-full"
+                    style={{
+                      width: `${story.funnel[3].value > 0 ? (point.lost / story.funnel[3].value) * 100 : 0}%`,
+                      backgroundColor: DROP_COLOR,
+                    }}
+                  />
+                </span>
                 <span className="tabular-nums font-semibold w-8 text-right">{point.lost}</span>
-                <span className="tabular-nums text-xs w-12 text-right" style={{ color: mutedText }}>{pct(point.rate)}</span>
+                <span className="tabular-nums text-xs w-24 text-right" style={{ color: mutedText }}>
+                  {pct(point.rate)}
+                  {point.recovered > 0 && ` · ${point.recovered} back`}
+                </span>
               </li>
             ))}
           </ul>
@@ -481,16 +528,25 @@ export default function GrowthClient({ cardBg, borderColor, axisStroke, mutedTex
           now, not as the churn they once were.
         </p>
         <CohortStateTable rows={cohortRows} select={(cohort, metric) => open(metric, cohort)} />
-        {cadence === 'monthly' && (
-          <>
-            <h4 className="zg-h4 pt-2">Monthly renewals</h4>
-            <p className="text-xs" style={{ color: mutedText }}>
-              Counts successful invoices, not access. Eligibility comes from the preceding paid
-              invoice&rsquo;s actual period end, so a renewal that is not yet due is not counted as missed.
-            </p>
-            <RenewalPaymentsTable rows={cohortRows} />
-          </>
-        )}
+      </Disclosure>
+
+      <Disclosure
+        title="Do they keep renewing?"
+        summary={report.renewals.observableFrom
+          ? `Renewal #1–#3 for ${report.renewals.monthlyCustomers} monthly customers · first renewal by cohort`
+          : 'No invoice history imported yet'}
+      >
+        <RenewalLadder steps={report.renewals.steps} />
+        <h4 className="zg-h4 pt-2">First renewal by registration cohort</h4>
+        <p className="text-xs" style={{ color: mutedText }}>
+          Whether the product is getting better or worse at holding a customer through month two.
+          &ldquo;Cancelling first&rdquo; are customers still inside month one who have already scheduled
+          a cancellation — they are not in the rate, because their outcome has not happened yet.
+        </p>
+        <RenewalCohortTable rows={report.renewals.cohorts} />
+        <ul className="list-disc pl-5 space-y-1 text-xs" style={{ color: mutedText }}>
+          {report.renewals.limitations.map((item) => <li key={item}>{item}</li>)}
+        </ul>
       </Disclosure>
 
       <Disclosure
