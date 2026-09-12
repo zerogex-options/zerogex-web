@@ -124,8 +124,8 @@ const upsert = db.prepare(`
 const isoOf = (unix: number | null | undefined): string | null =>
   unix == null || !Number.isFinite(unix) ? null : new Date(unix * 1000).toISOString();
 
-type Counters = { seen: number; written: number; unmatched: number; zero: number };
-const counters: Counters = { seen: 0, written: 0, unmatched: 0, zero: 0 };
+type Counters = { seen: number; written: number; unmatched: number; zero: number; priced: number };
+const counters: Counters = { seen: 0, written: 0, unmatched: 0, zero: 0, priced: 0 };
 const byReason = new Map<string, number>();
 let earliest: string | null = null;
 let latest: string | null = null;
@@ -163,8 +163,15 @@ for await (const invoice of stripe.invoices.list({
     : subscriptionField?.id
       ?? (typeof line?.subscription === 'string' ? line.subscription : line?.subscription?.id)
       ?? null;
+  // Stripe has moved the price id around across API versions — `pricing
+  // .price_details.price` on current versions, `price.id` before that, `plan.id`
+  // before that again. Try all three: when none answers, the row lands with a
+  // null price and cadence falls back to the period length, which never needed
+  // the price id in the first place.
+  const legacyLine = line as unknown as { price?: { id?: string }; plan?: { id?: string } } | undefined;
   const priceId = line?.pricing?.price_details?.price
-    ?? (line as unknown as { price?: { id?: string } } | undefined)?.price?.id
+    ?? legacyLine?.price?.id
+    ?? legacyLine?.plan?.id
     ?? null;
   const paidAt = isoOf(invoice.status_transitions?.paid_at ?? invoice.created);
   const period = line?.period;
@@ -191,6 +198,7 @@ for await (const invoice of stripe.invoices.list({
     );
   }
   counters.written += 1;
+  if (priceId) counters.priced += 1;
   if (counters.seen % 200 === 0) console.log(`  …${counters.seen} invoices scanned`);
 }
 
@@ -200,6 +208,7 @@ console.log(`Imported:                ${counters.written}${dryRun ? ' (DRY_RUN �
 console.log(`Skipped, no local user:  ${counters.unmatched}`);
 console.log(`Skipped, zero amount:    ${counters.zero}`);
 console.log(`Paid between:            ${earliest ?? '—'} … ${latest ?? '—'}`);
+console.log(`Price id captured on:     ${counters.priced} of ${counters.written} imported`);
 console.log('By billing reason:');
 for (const [reason, count] of [...byReason.entries()].sort((a, b) => b[1] - a[1])) {
   const note = reason === 'subscription_cycle' ? '  ← renewals'

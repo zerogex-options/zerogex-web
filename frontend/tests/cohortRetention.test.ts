@@ -329,3 +329,47 @@ test('a tier change inside one subscription is not an interruption', () => {
   assert.equal(result.tier, 'pro', 'reports the tier they ended up on');
   assert.equal(result.currentlyEntitled, true);
 });
+
+test('a real invoice beats the backfilled first_payment_at column', () => {
+  // Production case: users.first_payment_at was backfilled from updated_at, so
+  // this customer's column says August while their first invoice says June.
+  // Trusting the column pushed every milestone two months forward and emptied
+  // the 60- and 90-day denominators of everyone still subscribed.
+  const result = only(
+    [paying('legacy', ago(200), ago(42))],
+    [
+      sync('legacy', ago(103), 'active', 'pro'),
+      event('legacy', 'stripe_invoice_paid', ago(103), `Invoice in_l1 paid for sub sub_legacy amount=1200 billing_reason=subscription_create period_start=${Math.floor(Date.parse(ago(103)) / 1000)} period_end=${Math.floor(Date.parse(ago(73)) / 1000)} price=price_basic`),
+      event('legacy', 'stripe_invoice_paid', ago(73), `Invoice in_l2 paid for sub sub_legacy amount=1200 billing_reason=subscription_cycle period_start=${Math.floor(Date.parse(ago(73)) / 1000)} period_end=${Math.floor(Date.parse(ago(43)) / 1000)} price=price_basic`),
+    ],
+  );
+  assert.equal(result.firstPaidAt, ago(103), 'the invoice is the first payment');
+  assert.equal(result.retained['90'], true, 'day 90 has passed and they still have access');
+});
+
+test('a first_payment_at earlier than any invoice is still believed', () => {
+  // A partial invoice import must not shorten a customer's history: the column
+  // is then the only evidence of an earlier payment, so the earliest wins.
+  const result = only(
+    [paying('partial', ago(300), ago(280))],
+    [
+      sync('partial', ago(280), 'active', 'pro'),
+      event('partial', 'stripe_invoice_paid', ago(40), 'Invoice in_p1 paid for sub sub_partial amount=1200 billing_reason=subscription_cycle period_end=1790000000 price=price_basic'),
+    ],
+  );
+  assert.equal(result.firstPaidAt, ago(280));
+});
+
+test('an invoice carries the period it paid for, at both ends', () => {
+  const result = only(
+    [paying('annualish', ago(200), ago(190))],
+    [
+      sync('annualish', ago(190), 'active', 'pro'),
+      event('annualish', 'stripe_invoice_paid', ago(190), `Invoice in_a1 paid for sub sub_annualish amount=19000 billing_reason=subscription_create period_start=${Math.floor(Date.parse(ago(190)) / 1000)} period_end=${Math.floor(Date.parse(ago(-175)) / 1000)} price=price_unmapped`),
+    ],
+  );
+  const invoice = result.cycleInvoices[0];
+  assert.equal(invoice.periodStart, ago(190));
+  const days = (Date.parse(invoice.periodEnd ?? '') - Date.parse(invoice.periodStart ?? '')) / 86_400_000;
+  assert.ok(days > 300, 'a year-long period is visible without mapping the price');
+});

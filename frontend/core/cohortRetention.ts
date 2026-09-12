@@ -46,7 +46,7 @@ export type BillingCadence = 'monthly' | 'annual';
  * whose price id was nulled when their subscription was deleted — without them
  * every churned customer silently vanishes from a cadence-filtered view.
  */
-export type CadenceSource = 'current_price' | 'invoice_price' | 'checkout_audit' | 'unknown';
+export type CadenceSource = 'current_price' | 'invoice_price' | 'invoice_period' | 'checkout_audit' | 'unknown';
 
 export type CohortUserInput = {
   id: string;
@@ -86,6 +86,8 @@ export type PaidInvoice = {
    * be counted as one.
    */
   billingReason: string | null;
+  /** Start of the period this invoice paid for. */
+  periodStart: string | null;
   /** End of the period this invoice paid for; the moment the next one is due. */
   periodEnd: string | null;
   priceId: string | null;
@@ -235,6 +237,7 @@ export function parsePaidInvoice(event: CohortAuditInput): PaidInvoice | null {
     ?? null;
   if (paidAt == null || invoiceId == null) return null;
   const amount = Number(event.message.match(/\bamount=(\d+)/)?.[1]);
+  const periodStartUnix = Number(event.message.match(/\bperiod_start=(\d+)/)?.[1]);
   const periodEndUnix = Number(event.message.match(/\bperiod_end=(\d+)/)?.[1]);
   const priceToken = event.message.match(/\bprice=(\S+)/)?.[1] ?? null;
   return {
@@ -243,6 +246,7 @@ export function parsePaidInvoice(event: CohortAuditInput): PaidInvoice | null {
     paidAt: new Date(paidAt).toISOString(),
     amountCents: Number.isFinite(amount) ? amount : 0,
     billingReason: event.message.match(/\bbilling_reason=([a-z_]+)/)?.[1] ?? null,
+    periodStart: Number.isFinite(periodStartUnix) ? new Date(periodStartUnix * 1000).toISOString() : null,
     periodEnd: Number.isFinite(periodEndUnix) ? new Date(periodEndUnix * 1000).toISOString() : null,
     // `unknown` is what the webhook writes when Stripe gave it nothing; it is an
     // absent price, not a price literally called "unknown".
@@ -380,9 +384,26 @@ export function buildCohortReport(
       .sort((a, b) => Date.parse(a.paidAt) - Date.parse(b.paidAt));
     const cycleInvoices = paidInvoices.filter(isPeriodInvoice);
 
-    const firstPaid = time(user.firstPaymentAt)
-      ?? time(paidAudit?.createdAt)
-      ?? time(cycleInvoices[0]?.paidAt);
+    // THE EARLIEST EVIDENCE OF MONEY, not the first source that happens to have
+    // a value. `users.first_payment_at` was backfilled from `updated_at` for
+    // rows that were active at migration time, so for anyone who paid before
+    // that migration it reads LATER than the real first payment — in production
+    // by up to two months. Taking it in preference to a real invoice pushed
+    // every retention milestone forward by the same amount, which emptied the
+    // 60- and 90-day denominators of everyone still subscribed and left them
+    // holding only customers who were eligible by having already churned. That
+    // is how a healthy product reports 0% retention at 90 days.
+    //
+    // A paid invoice is ground truth. The backfilled column can still win when
+    // it is EARLIER — which means a payment exists that the invoice import did
+    // not reach — so the answer is the minimum of what we have, never the first
+    // non-null.
+    const firstPaid = [
+      time(cycleInvoices[0]?.paidAt),
+      time(paidAudit?.createdAt),
+      time(user.firstPaymentAt),
+    ].filter((value): value is number => value != null)
+      .reduce<number | null>((earliest, value) => (earliest == null || value < earliest ? value : earliest), null);
     const deletions = events.filter((event) => event.type === 'stripe_subscription_deleted');
     const cancelRequests = events.filter((event) => event.type === 'stripe_cancellation_requested');
     const intervals = firstPaid == null ? [] : buildEntitlementIntervals(firstPaid, syncs, deletions);
@@ -601,7 +622,7 @@ export function buildCohortReport(
     },
     limitations: [
       'Retention reads the append-only Stripe audit history. Subscription activity from before those audit events existed cannot be reconstructed, so a customer whose whole life predates them can be invisible.',
-      'Legacy first_payment_at values were backfilled from users.updated_at, and only for rows that were active at the time — customers who had already churned before that migration are only counted as ever-paid if an audit row proves it.',
+      'First payment is read from the earliest paid invoice where one exists. The legacy users.first_payment_at column was backfilled from updated_at and reads later than reality for anyone who paid before that migration, so it is only used when no invoice or audit row is available.',
       'Paid access means an entitled tier on the subscription. A scheduled cancellation keeps access until Stripe deletes the subscription, and is never counted as churn before then.',
       'Plan is the current Stripe price when available; historical price changes appear only as tier changes in sync events.',
     ],

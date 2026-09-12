@@ -48,6 +48,7 @@ type InvoiceHistoryRow = {
   billing_reason: string | null;
   amount_paid: number;
   paid_at: string;
+  period_start: string | null;
   period_end: string | null;
 };
 
@@ -65,7 +66,7 @@ function loadImportedInvoices(db: ReturnType<typeof getDb>): CohortAuditInput[] 
   try {
     rows = db.prepare(`
       SELECT invoice_id, user_id, subscription_id, price_id, billing_reason,
-             amount_paid, paid_at, period_end
+             amount_paid, paid_at, period_start, period_end
         FROM stripe_invoice_history
        WHERE user_id IS NOT NULL AND status = 'paid'
        ORDER BY paid_at ASC
@@ -74,6 +75,7 @@ function loadImportedInvoices(db: ReturnType<typeof getDb>): CohortAuditInput[] 
     return [];
   }
   return rows.map((row): CohortAuditInput => {
+    const periodStartUnix = row.period_start == null ? null : Math.floor(Date.parse(row.period_start) / 1000);
     const periodEndUnix = row.period_end == null ? null : Math.floor(Date.parse(row.period_end) / 1000);
     return {
       userId: String(row.user_id),
@@ -82,6 +84,7 @@ function loadImportedInvoices(db: ReturnType<typeof getDb>): CohortAuditInput[] 
       message: `Invoice ${row.invoice_id} paid for sub ${row.subscription_id ?? 'unknown'}`
         + ` amount=${row.amount_paid}`
         + ` billing_reason=${row.billing_reason ?? 'unknown'}`
+        + ` period_start=${periodStartUnix != null && Number.isFinite(periodStartUnix) ? periodStartUnix : 'unknown'}`
         + ` period_end=${periodEndUnix != null && Number.isFinite(periodEndUnix) ? periodEndUnix : 'unknown'}`
         + ` price=${row.price_id ?? 'unknown'}`,
     };
@@ -92,7 +95,7 @@ function loadImportedInvoices(db: ReturnType<typeof getDb>): CohortAuditInput[] 
  * What was this customer billed on? Three sources, most reliable first, because
  * the obvious one disappears the moment a subscription is deleted.
  */
-function resolveCadence(
+export function resolveCadence(
   currentPriceId: string | null,
   events: ReadonlyArray<CohortAuditInput>,
 ): { cadence: BillingCadence | null; source: CadenceSource } {
@@ -109,7 +112,24 @@ function resolveCadence(
     const sku = priceId ? priceIdToSku(priceId) : null;
     if (sku) return { cadence: sku.cadence, source: 'invoice_price' };
   }
-  // Last resort: what they chose at checkout.
+  // The period the invoice actually paid for. A price id that maps to no SKU —
+  // a retired price, a founding rate, anything the env table has not been told
+  // about — leaves the length of the billing period as plain evidence, and a
+  // year-long period is an annual subscription whatever the price is called.
+  for (let index = events.length - 1; index >= 0; index--) {
+    const event = events[index];
+    if (event.type !== 'stripe_invoice_paid') continue;
+    const start = Number(event.message.match(/\bperiod_start=(\d+)/)?.[1]);
+    const end = Number(event.message.match(/\bperiod_end=(\d+)/)?.[1]);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) continue;
+    const days = (end - start) / 86_400;
+    // Well clear of both: a month is 28–31 days, a year is 365–366.
+    if (days >= 300) return { cadence: 'annual', source: 'invoice_period' };
+    if (days <= 45) return { cadence: 'monthly', source: 'invoice_period' };
+  }
+  // Last resort: what they chose at checkout. Weakest of the four — a customer
+  // who opened three checkout sessions and bought on the fourth leaves a trail
+  // whose last entry is not necessarily what they bought.
   for (let index = events.length - 1; index >= 0; index--) {
     const event = events[index];
     if (event.type !== 'billing_checkout_started') continue;

@@ -143,14 +143,39 @@ the four always sum to the ever-paid count (the report throws if they do not):
 | **Involuntarily churned** | Not entitled; the standing loss followed a decline. |
 | **Other / unknown** | Not entitled; the cause cannot be attributed. |
 
+## First payment
+
+The **earliest evidence of money**, taken as the minimum of: the earliest paid
+invoice, a `stripe_first_payment` audit row, and `users.first_payment_at`.
+
+The column is last for a reason. It was backfilled from `updated_at`, and only
+for rows that were active at migration time, so for anyone who paid before that
+migration it reads *later* than reality — in production by up to two months.
+Preferring it pushed every retention milestone forward by the same amount, which
+emptied the 60- and 90-day denominators of everyone still subscribed and left
+them holding only customers who were eligible by having already churned. Taking
+the minimum also means a partial invoice import can never shorten a customer's
+history.
+
 ## Billing cadence
 
-Read from the current Stripe price where there is one. A cancelled subscription
-has its `stripe_price_id` nulled, so for churned customers the cadence is
-recovered from the `price=` token on a paid invoice, then from the `cadence=`
-token on their `billing_checkout_started` audit row. Anything still unresolved is
-reported as **cadence unknown** rather than dropped — a cadence filter that
-silently deletes every churned customer computes its rates over survivors only.
+Four sources, most reliable first, because the obvious one disappears the moment
+a subscription is cancelled (`clearSubscriptionFromUser` nulls
+`stripe_price_id`):
+
+1. **`current_price`** — the live Stripe price mapped to a SKU.
+2. **`invoice_price`** — the `price=` token on a paid invoice.
+3. **`invoice_period`** — the length of the period an invoice paid for. A price
+   the env-built SKU table has never been told about (a retired price, a founding
+   rate) maps to nothing, but a year-long billing period is an annual
+   subscription whatever the price is called.
+4. **`checkout_audit`** — `cadence=` on a `billing_checkout_started` row. Weakest,
+   because a customer who opened four checkout sessions and bought on the third
+   leaves a trail whose last entry is not what they bought.
+
+Anything still unresolved is reported as **cadence unknown** rather than dropped
+— a cadence filter that silently deletes every churned customer computes its
+rates over survivors only.
 
 ## Attribution
 
