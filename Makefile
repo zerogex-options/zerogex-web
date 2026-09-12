@@ -1,4 +1,4 @@
-.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime founding-demote founding-cohort-revoke-backfill activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription reactivate-member honor-winback-discount recover-orphan-payment scan-orphan-payments clear-zombie-customers backfill-daily-metrics sync-search-console webhook-health cancellation-alerts trial-reminders trial-engagement renewal-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback reactivation backfill-reactivation-entitlement checkout-recovery founding-final-call public-cohort cancellations churn-breakdown backfill-refund-audit enable-portal-cancel-reasons save-url reset-save-latch gex-rank-backtest diagnose-user subscriber-headcount reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partner-grant-revoke-backfill partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo og-check verify-gate blog-images ninjatrader-package
+.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime founding-demote founding-cohort-revoke-backfill unit-failure-alert activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription reactivate-member honor-winback-discount recover-orphan-payment scan-orphan-payments clear-zombie-customers backfill-daily-metrics sync-search-console webhook-health cancellation-alerts trial-reminders trial-engagement renewal-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback reactivation backfill-reactivation-entitlement checkout-recovery founding-final-call public-cohort cancellations churn-breakdown backfill-refund-audit enable-portal-cancel-reasons save-url reset-save-latch gex-rank-backtest diagnose-user subscriber-headcount reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partner-grant-revoke-backfill partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo og-check verify-gate blog-images ninjatrader-package
 help:
 	@echo "ZeroGEX Web - Available Commands:"
 	@echo ""
@@ -30,6 +30,7 @@ help:
 	@echo "  make apply-founding-lifetime - One-time batch: apply the founding lifetime 25%-off coupon to founders past month 11 that the event-driven webhook misses (annual founders emit no mid-year events). Idempotent; run once the cohort's intro year ends (~mid-2027). EMAIL=<addr> for one member, FORCE=1 to ignore the 11-month gate, DRY_RUN=1 to preview, YES=1 to apply"
 	@echo "  make founding-demote [DRY_RUN=1|YES=1] - Founding-cohort demotion sweep: comped founding-eligible users who never redeemed the rate revert to tier=public AND their API keys are revoked. Driven by the founding-cohort-demotion systemd timer. Needs ZEROGEX_API_TOKEN + ZEROGEX_ADMIN_TOKEN for the revocation leg; exits non-zero if keys could not be revoked"
 	@echo "  make founding-cohort-revoke-backfill [DRY_RUN=1|YES=1] - Revoke API keys for accounts the demotion sweep already downgraded but never deprovisioned (the 2026-07-01 batch), and retry any revocation that failed mid-sweep. Skips anyone who has since returned to Pro"
+	@echo "  make unit-failure-alert UNIT=<unit> [DRY_RUN=1] - Email the operator that a scheduled unit failed. Wired into units via OnFailure=zerogex-web-alert@%n.service; you should not need to run it by hand except to test that the recipient resolves"
 	@echo "  make extend-trial EMAIL=<email> (EXTEND_DAYS=N | TRIAL_END=<iso>) - Manually lengthen one customer's free trial by pushing out Stripe trial_end; re-arms the ~48h reminder so the reminder + trial->paid cutover still run automatically (DRY_RUN=1 to preview, YES=1 to apply)"
 	@echo "  make reactivate-member EMAIL=<email> [DAYS=21] [TIER=basic|pro] [CADENCE=monthly|annual] [PRICE=price_...] [PAYMENT_METHOD=pm_...] - Bring a CHURNED member back on a goodwill trial with NOTHING for them to do: re-creates their subscription in Stripe on the card already on file, with an absolute trial_end. The webhook grants the tier and sends the welcome-back email. Use extend-trial instead while they still HAVE a trialing sub. DRY_RUN=1 to preview, YES=1 to apply"
 	@echo "  make quarterly-receipt - Interactive end-to-end quarterly FOH receipt: prompts for amount/quarter/date, updates content/giving/totals.json, commits, pushes, and rebuilds. Never posts to X — prints the tweet for you to paste. Optional flags: AMOUNT=<usd> QUARTER=<label> DATE=<YYYY-MM-DD> EMAIL=<addr> NO_PUSH=1 NO_REBUILD=1 YES=1 DRY_RUN=1"
@@ -362,6 +363,21 @@ apply-founding-lifetime:
 #   make founding-demote YES=1
 founding-demote:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/expire-founding-cohort.mjs $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,)'
+
+# Email the operator that a scheduled unit failed. Invoked by systemd via
+# OnFailure=zerogex-web-alert@%n.service, not by hand and not on a timer —
+# UNIT is the failed unit's name. Every sweep in deploy/systemd/ exits non-zero
+# on a real failure, and before this that exit reached journald and nothing
+# else; the sweeps exist so nobody has to remember to check, so a failure
+# nobody is told about defeats the point. DRY_RUN=1 prints the mail instead of
+# sending (use it to check the recipient resolves).
+#
+# Recipient: UNIT_ALERT_EMAIL, else SIGNUP_ALARM_EMAIL, else FOH_REMINDER_EMAIL.
+# Usage:
+#   make unit-failure-alert UNIT=zerogex-web-founding-lifetime.service DRY_RUN=1
+unit-failure-alert:
+	@if [ -z "$(UNIT)" ]; then echo "Error: UNIT is required (e.g. make unit-failure-alert UNIT=zerogex-web-founding-lifetime.service DRY_RUN=1)"; exit 1; fi
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-unit-failure-alert.mts --unit $(UNIT) $(if $(TO),--to $(TO),) $(if $(LINES),--lines $(LINES),) $(if $(DRY_RUN),--dry-run,)'
 
 # Revoke API keys for accounts the demotion sweep ALREADY downgraded but whose
 # keys were never deprovisioned — the sweep did not revoke anything before the
