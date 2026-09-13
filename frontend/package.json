@@ -112,6 +112,7 @@
     "test:strike-history": "node --experimental-strip-types --test tests/strikeHistory.test.ts",
     "test:flip-status-chip": "node --experimental-strip-types --test tests/flipStatusChip.test.ts",
     "test:mcp": "node --experimental-strip-types --test tests/mcp.test.ts",
+    "test:strategy-catalog-view": "node --experimental-strip-types --test tests/strategyCatalogView.test.ts",
     "verify:mcp": "bash scripts/verify-mcp.sh"
   },
   "dependencies": {

@@ -22,6 +22,7 @@ import Sparkline from './Sparkline';
 import { botColor, botColorSoft } from './palette';
 import { fmtMoney, fmtPct, fmtSignedMoney, toneVar } from './format';
 import type { BotRow, EquityCurveResponse } from './types';
+import { StageBadge } from '../backtesting/CatalogBadges';
 
 interface Props {
   bot: BotRow;
@@ -79,7 +80,7 @@ export default function BotRosterCard({
             >
               {bot.display_name}
             </h3>
-            <div className="text-[10px] text-[var(--color-text-secondary)] uppercase tracking-wider mt-1 flex items-center gap-2">
+            <div className="text-[10px] text-[var(--color-text-secondary)] uppercase tracking-wider mt-1 flex flex-wrap items-center gap-2">
               <span
                 className="px-1.5 py-0.5 rounded"
                 style={{ backgroundColor: botColorSoft(bot.id, paletteIndex), color }}
@@ -89,6 +90,10 @@ export default function BotRosterCard({
               <span>{bot.direction_mode}</span>
               <span aria-hidden>·</span>
               <span>{bot.universe}</span>
+              {/* Research stage from the shared strategy catalog, so this card
+                  and the Backtesting / Pattern Insights rows for the same
+                  strategy cannot disagree about where it stands. */}
+              {bot.stage ? <StageBadge stage={bot.stage} /> : null}
             </div>
           </div>
           <span
@@ -98,7 +103,7 @@ export default function BotRosterCard({
               color: bot.enabled ? 'var(--color-bull)' : 'var(--color-bear)',
             }}
           >
-            {bot.enabled ? 'LIVE' : 'PAUSED'}
+            {bot.enabled ? 'LIVE' : bot.in_catalog ? 'UNFUNDED' : 'PAUSED'}
           </span>
         </div>
 

@@ -12,6 +12,7 @@ import type { PatternInsight } from '../types';
 export type InsightsSortKey =
   | 'pattern'
   | 'underlying'
+  | 'stage'
   | 'n_resolved'
   | 'hit_rate'
   | 'profit_factor'
@@ -20,11 +21,31 @@ export type InsightsSortKey =
   | 'avg_win_pnl'
   | 'avg_loss_pnl';
 
+/** Text columns sort ascending by default; numeric ones descending. */
+export const TEXT_SORT_KEYS: readonly InsightsSortKey[] = ['pattern', 'underlying', 'stage'];
+
+/** Research-pipeline order, so sorting by stage reads as progress. */
+const STAGE_ORDER: Record<string, number> = {
+  validated: 0,
+  candidate: 1,
+  research: 2,
+  superseded: 3,
+  retired: 4,
+};
+
 export interface InsightsViewOptions {
   trustworthyOnly: boolean;
   trustworthyMinN: number;
   sortKey: InsightsSortKey;
   sortDir: 'asc' | 'desc';
+  /**
+   * Keep the catalog coverage rows — strategies with no measurement in this
+   * source. They carry `measured: false` and zero counts, so the
+   * trustworthy-sample filter would otherwise silently drop them, which is
+   * exactly the wrong outcome: an unscreened strategy would read as one we
+   * measured and found dull.
+   */
+  showUnmeasured?: boolean;
 }
 
 /**
@@ -40,16 +61,23 @@ export function applyInsightsView(
   rows: PatternInsight[],
   opts: InsightsViewOptions,
 ): PatternInsight[] {
-  const { trustworthyOnly, trustworthyMinN, sortKey, sortDir } = opts;
-  const filtered = trustworthyOnly
-    ? rows.filter((r) => r.n_resolved >= trustworthyMinN)
-    : rows.slice();
+  const { trustworthyOnly, trustworthyMinN, sortKey, sortDir, showUnmeasured = true } = opts;
+  const filtered = rows.filter((r) => {
+    const unmeasured = r.measured === false;
+    if (unmeasured) return showUnmeasured;
+    return !trustworthyOnly || r.n_resolved >= trustworthyMinN;
+  });
 
   const cmp = makeComparator(sortKey, sortDir);
   // Decorate-sort-undecorate for stability across sort backends.
   return filtered
     .map((row, idx) => ({ row, idx }))
     .sort((a, b) => {
+      // Coverage rows always sink to the bottom: they have no numbers, so
+      // letting them interleave would scatter "no data" through the results.
+      const aUn = a.row.measured === false ? 1 : 0;
+      const bUn = b.row.measured === false ? 1 : 0;
+      if (aUn !== bUn) return aUn - bUn;
       const primary = cmp(a.row, b.row);
       return primary !== 0 ? primary : a.idx - b.idx;
     })
@@ -61,8 +89,12 @@ export function makeComparator(
   dir: 'asc' | 'desc',
 ): (a: PatternInsight, b: PatternInsight) => number {
   const factor = dir === 'desc' ? -1 : 1;
+  if (key === 'stage') {
+    return (a, b) =>
+      factor * ((STAGE_ORDER[a.stage ?? ''] ?? 99) - (STAGE_ORDER[b.stage ?? ''] ?? 99));
+  }
   if (key === 'pattern' || key === 'underlying') {
-    return (a, b) => factor * a[key].localeCompare(b[key]);
+    return (a, b) => factor * ((a[key] ?? '').localeCompare(b[key] ?? ''));
   }
   return (a, b) => {
     const av = a[key] as number | null;
