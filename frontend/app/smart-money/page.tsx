@@ -1,10 +1,15 @@
 'use client';
 
 import PageShell from '@/components/layout/PageShell';
+import PageHeader from '@/components/layout/PageHeader';
+import ChartPanel from '@/components/layout/ChartPanel';
+import SectionHead from '@/components/layout/SectionHead';
+import { FilterBar, FilterSelect } from '@/components/controls/Filters';
+import ChartTooltipShell, { ChartTooltipRow } from '@/components/ChartTooltipShell';
 import FuturesUnsupportedPanel from '@/components/FuturesUnsupportedPanel';
 import { isFuturesSymbol } from '@/core/symbols';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Filter, Info } from 'lucide-react';
+import { Filter } from 'lucide-react';
 import { Bar, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useApiData } from '@/hooks/useApiData';
 import { useMarketHistorical } from '@/hooks/useMarketHistorical';
@@ -14,10 +19,8 @@ import {
   type FlowByContractPoint,
 } from '@/hooks/useFlowByContract';
 import { useTimeframe } from '@/core/TimeframeContext';
-import { useTheme } from '@/core/ThemeContext';
 import { normalizeToMinute, getSessionTimestamps } from '@/core/utils';
 import ErrorMessage from '@/components/ErrorMessage';
-import TooltipWrapper from '@/components/TooltipWrapper';
 import MobileScrollableChart from '@/components/MobileScrollableChart';
 import RegimeSummaryBanner from '@/components/RegimeSummaryBanner';
 
@@ -320,18 +323,24 @@ const SmartMoneyTableRow = memo(function SmartMoneyTableRow({
   );
 });
 
+const HEADER_SUB =
+  "Block-sized option trades as they print, against price — who is paying up, and where.";
+
+const HEADER_TOOLTIP =
+  "A screen for the trades big enough to be somebody's position rather than somebody's hedge scrap: block prints above a notional threshold, classified by which side crossed the spread and how far from the money they sit. Size is evidence, not intent — a large print can be an opening bet, a closing exit or one leg of a spread whose other leg is elsewhere in the chain, and the tape cannot tell you which. Read it for where the money is concentrating, and check the aggressor and delta columns before reading direction into it.";
+
 export default function SmartMoneyPage() {
   const { symbol } = useTimeframe();
-  const { theme } = useTheme();
-  const isDark = theme === 'dark';
-  const cardBg = isDark ? 'var(--color-surface)' : 'var(--color-surface)';
-  const inputBg = 'var(--color-surface-subtle)';
-  const inputBorder = 'var(--color-border)';
+  const cardBg = 'var(--bg-card)';
+  const inputBorder = 'var(--border-default)';
   const rowBorderColor = `${inputBorder}66`;
-  const inputColor = 'var(--color-text-primary)';
-  const axisStroke = isDark ? 'var(--color-text-primary)' : 'var(--color-text-primary)';
-  const mutedText = isDark ? 'var(--color-text-secondary)' : 'var(--color-text-secondary)';
-  const textColor = isDark ? 'var(--color-text-primary)' : 'var(--color-surface)';
+  const inputColor = 'var(--text-primary)';
+  const axisStroke = 'var(--text-primary)';
+  const mutedText = 'var(--text-secondary)';
+  // Was `isDark ? --color-text-primary : --color-surface`, which in a light
+  // theme is white text on a white card — the two headings below and the sort
+  // arrows were invisible there.
+  const textColor = 'var(--text-primary)';
   const [sortStack, setSortStack] = useState<SortLevel[]>([{ key: 'notional', dir: 'desc' }]);
   const [columnFilters, setColumnFilters] = useState<Record<FilterableKey, string>>({ strike: '', expiration: '', option_type: '' });
   const [openFilter, setOpenFilter] = useState<FilterableKey | null>(null);
@@ -718,6 +727,7 @@ export default function SmartMoneyPage() {
   if (isFuturesSymbol(symbol)) {
     return (
       <PageShell>
+        <PageHeader title="Smart Money" sub={HEADER_SUB} tooltip={HEADER_TOOLTIP} />
         <FuturesUnsupportedPanel symbol={symbol} surface="Smart money flow" />
       </PageShell>
     );
@@ -725,6 +735,7 @@ export default function SmartMoneyPage() {
 
   return (
     <PageShell>
+      <PageHeader title="Smart Money" sub={HEADER_SUB} tooltip={HEADER_TOOLTIP} />
       <RegimeSummaryBanner
         title="Smart Money Regime"
         badge={smartMoneyBadge}
@@ -737,48 +748,37 @@ export default function SmartMoneyPage() {
             __html: `.smart-money-section tr[data-smart-row-key]{cursor:default}.smart-money-section tr[data-smart-row-key][data-smart-hover='true']{background-color:var(--color-warning-soft)}.smart-money-section rect[data-smart-cell-key][data-smart-hover='true']{fill-opacity:1;stroke:var(--color-brand-primary);stroke-width:2.5}`,
           }}
         />
-        <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">Smart Money Flow
-          <TooltipWrapper text="Session view overlays smart-money block notional versus underlying price, with a sortable detail table below."><Info size={14} /></TooltipWrapper>
-        </h2>
-        <div className="flex flex-wrap items-center justify-start gap-3 mb-4">
-          <label className="text-sm" style={{ color: mutedText }}>Session
-            <select className="ml-2 rounded px-2 py-1" style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor, border: `1px solid ${inputBorder}` }} value={sessionView} onChange={(e) => setSessionView(e.target.value as 'current' | 'prior')}>
-              <option value="current">Current{currentDateLabel ? ` (${currentDateLabel})` : ''}</option>
-              <option value="prior">Prior{priorDateLabel ? ` (${priorDateLabel})` : ''}</option>
-            </select>
-          </label>
-            <label className="text-sm" style={{ color: mutedText }}>Min Class
-              <select className="ml-2 rounded px-2 py-1" style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor, border: `1px solid ${inputBorder}` }} value={minClass} onChange={(e) => setMinClass(e.target.value as MinClassFilter)}>
-                {minClassOptions.map((option) => (<option key={option.value} value={option.value}>{option.label}</option>))}
-              </select>
-            </label>
-            <label className="text-sm" style={{ color: mutedText }}>Side
-              <select className="ml-2 rounded px-2 py-1" style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor, border: `1px solid ${inputBorder}` }} value={sideFilter} onChange={(e) => setSideFilter(e.target.value as SideFilter)}>
-                {sideOptions.map((option) => (<option key={option.value} value={option.value}>{option.label}</option>))}
-              </select>
-            </label>
-            <label className="text-sm" style={{ color: mutedText }}>Min |Δ|
-              <select className="ml-2 rounded px-2 py-1" style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor, border: `1px solid ${inputBorder}` }} value={minDelta} onChange={(e) => setMinDelta(e.target.value as DeltaFilter)}>
-                {deltaOptions.map((option) => (<option key={option.value} value={option.value}>{option.label}</option>))}
-              </select>
-            </label>
-            <label className="text-sm" style={{ color: mutedText }}>Expiry
-              <select className="ml-2 rounded px-2 py-1" style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor, border: `1px solid ${inputBorder}` }} value={dteFilter} onChange={(e) => setDteFilter(e.target.value as DteFilter)}>
-                {dteOptions.map((option) => (<option key={option.value} value={option.value}>{option.label}</option>))}
-              </select>
-            </label>
-        </div>
+        <FilterBar className="mb-4 gap-x-3">
+          <FilterSelect
+            label="Session"
+            value={sessionView}
+            onChange={setSessionView}
+            options={[
+              { value: 'current' as const, label: `Current${currentDateLabel ? ` (${currentDateLabel})` : ''}` },
+              { value: 'prior' as const, label: `Prior${priorDateLabel ? ` (${priorDateLabel})` : ''}` },
+            ]}
+          />
+          <FilterSelect label="Min class" value={minClass} onChange={setMinClass} options={minClassOptions} />
+          <FilterSelect label="Side" value={sideFilter} onChange={setSideFilter} options={sideOptions} />
+          <FilterSelect label="Min |Δ|" value={minDelta} onChange={setMinDelta} options={deltaOptions} />
+          <FilterSelect label="Expiry" value={dteFilter} onChange={setDteFilter} options={dteOptions} />
+        </FilterBar>
         <div className="text-sm mb-3" style={{ color: mutedText }}>
           Daily Totals as of: {dailyTotalsTimestamp ? new Date(dailyTotalsTimestamp).toLocaleString() : '--'}
         </div>
-        <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
+        <ChartPanel
+          className=""
+          title="Smart Money Flow"
+          tooltip="Session view overlays smart-money block notional versus underlying price, with a sortable detail table below."
+        >
           {effectiveSmartMoneyError ? <ErrorMessage message={effectiveSmartMoneyError} /> : !filteredSmartMoneyData.length ? <div className="text-center py-6" style={{ color: mutedText }}>{!smartMoneyData && !smartMoneyError ? 'Loading...' : `No smart money flow matches the current filters for the ${sessionView} session. Try a different session, Min Class, Side, Δ, or Expiry.`}</div> : (
             <>
               <div className="mb-5">
-                <div className="flex items-center gap-2 mb-2">
-                  <h3 className="zg-h3" style={{ color: textColor }}>Smart-money blocks vs. underlying price</h3>
-                  <TooltipWrapper text="Stacked bars show filtered smart-money notional by minute; yellow line overlays underlying price across the full 09:30–16:15 ET session timeline."><Info size={14} /></TooltipWrapper>
-                </div>
+                <SectionHead
+                  title="Blocks vs. underlying price"
+                  titleClassName="zg-h3"
+                  tooltip="Stacked bars show filtered smart-money notional by minute; yellow line overlays underlying price across the full 09:30–16:15 ET session timeline."
+                />
                 <MobileScrollableChart>
                 <ResponsiveContainer width="100%" height={300}>
                   <ComposedChart data={smartMoneySessionChart} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
@@ -786,7 +786,7 @@ export default function SmartMoneyPage() {
                       const x = Number(props?.x ?? 0); const y = Number(props?.y ?? 0); const ts = String(props?.payload?.value || '');
                       const info = xAxisTickInfo.get(ts);
                       if (!info) return <g transform={`translate(${x},${y})`} />;
-                      return <g transform={`translate(${x},${y})`}><line x1={0} y1={0} x2={0} y2={5} stroke={axisStroke} strokeWidth={1} opacity={0.6} />{info.time ? <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>{info.time}</text> : null}{info.date ? <text dy={info.time ? 26 : 14} textAnchor="middle" fill={isDark ? 'var(--color-text-secondary)' : 'var(--color-text-secondary)'} fontSize={9}>{info.date}</text> : null}</g>;
+                      return <g transform={`translate(${x},${y})`}><line x1={0} y1={0} x2={0} y2={5} stroke={axisStroke} strokeWidth={1} opacity={0.6} />{info.time ? <text dy={14} textAnchor="middle" fill={axisStroke} fontSize={10}>{info.time}</text> : null}{info.date ? <text dy={info.time ? 26 : 14} textAnchor="middle" fill="var(--text-secondary)" fontSize={9}>{info.date}</text> : null}</g>;
                     }} />
                     <YAxis yAxisId="notional" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} tickFormatter={(v) => `$${Number(v).toFixed(1)}M`} />
                     <YAxis yAxisId="price" orientation="right" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} domain={["auto", "auto"]} tickFormatter={(v) => `$${Number(v).toFixed(0)}`} />
@@ -808,14 +808,15 @@ export default function SmartMoneyPage() {
                           .filter(Boolean) as Array<{ name: string; value: number; optionType: string }>;
 
                         return (
-                          <div style={{ backgroundColor: "var(--color-chart-tooltip-bg)", borderColor: "var(--color-border)", color: "var(--color-chart-tooltip-text)" }} className="rounded-lg border px-3 py-2 text-sm">
-                            <div className="font-semibold">{new Date(String(label)).toLocaleString()}</div>
+                          <ChartTooltipShell label={new Date(String(label)).toLocaleString()}>
                             {blockEntries.map((block) => (
-                              <div key={block.name}>
-                                {block.name}: ${block.value.toFixed(2)}M
-                              </div>
+                              <ChartTooltipRow
+                                key={block.name}
+                                label={block.name}
+                                value={`$${block.value.toFixed(2)}M`}
+                              />
                             ))}
-                          </div>
+                          </ChartTooltipShell>
                         );
                       }}
                     />
@@ -837,9 +838,12 @@ export default function SmartMoneyPage() {
                 </ResponsiveContainer>
                 </MobileScrollableChart>
               </div>
-              <div className="flex items-center gap-2 mb-2">
-                <h3 className="zg-h3" style={{ color: textColor }}>Smart-money flow</h3>
-                <TooltipWrapper text="Click the funnel icon on Strike, Expiration, or Type to pick a value to filter by. Click a header to sort; clicking a second header keeps the prior sort as a secondary tiebreaker (up to 3 levels)."><Info size={14} /></TooltipWrapper>
+              <div className="border-t pt-5" style={{ borderColor: 'var(--border-default)' }}>
+                <SectionHead
+                  title="Block detail"
+                  titleClassName="zg-h3"
+                  tooltip="Click the funnel icon on Strike, Expiration, or Type to pick a value to filter by. Click a header to sort; clicking a second header keeps the prior sort as a secondary tiebreaker (up to 3 levels)."
+                />
               </div>
               <div className="overflow-x-auto mt-2">
                 <table className="w-full min-w-[960px] text-sm"><thead><tr className="text-left border-b" style={{ borderColor: inputBorder, color: mutedText }}>
@@ -929,10 +933,10 @@ export default function SmartMoneyPage() {
                     })}
                   </tbody></table>
               </div>
-              {tableRowLimit < sortedSmartMoneyRows.length ? <div className="mt-3 text-right"><button type="button" className="px-3 py-1 rounded border text-xs" style={{ borderColor: inputBorder, color: mutedText }} onClick={() => setTableRowLimit((v) => v + 50)}>Show more</button></div> : null}
+              {tableRowLimit < sortedSmartMoneyRows.length ? <div className="mt-3 text-right"><button type="button" className="zg-btn zg-btn--secondary" style={{ padding: '6px 14px', fontSize: 11 }} onClick={() => setTableRowLimit((v) => v + 50)}>Show more</button></div> : null}
             </>
           )}
-        </div>
+        </ChartPanel>
       </section>
     </PageShell>
   );

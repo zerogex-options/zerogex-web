@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Activity, Gauge, RefreshCw, Users } from "lucide-react";
 import PageShell from "@/components/layout/PageShell";
-import BetaBadge from "@/components/BetaBadge";
+import PageHeader from "@/components/layout/PageHeader";
+import { FilterBar, FilterChip, FilterGroup } from "@/components/controls/Filters";
 import ErrorMessage from "@/components/ErrorMessage";
 import TooltipWrapper from "@/components/TooltipWrapper";
 import { formatEtDate, formatEtTime } from "@/core/signalHelpers";
@@ -36,13 +37,15 @@ function formatUpdated(value: unknown): string {
 }
 
 const WINDOWS = [5, 15, 30, 60] as const;
-const card = "rounded-2xl border p-5 sm:p-6";
-const cardStyle = { background: "var(--bg-card)", borderColor: "var(--color-border)" };
-const border = { borderColor: "var(--color-border)" };
+// The page's surfaces are the site's one panel. `cardStyle` stays as an empty
+// passthrough rather than being deleted from nine call sites at once.
+const card = "zg-panel p-5 sm:p-6";
+const cardStyle = undefined;
+const border = { borderColor: "var(--border-default)" };
 
 function MetricTitle({ children, tip }: { children: React.ReactNode; tip: string }) {
   return (
-    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[.16em] text-[var(--text-secondary)]">
+    <div className="zg-eyebrow flex items-center gap-2">
       {children}
       <TooltipWrapper text={tip} />
     </div>
@@ -83,7 +86,7 @@ function ScorePanel({ data }: { data: MarketTideResponse }) {
       ) : (
         <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
           <span className="text-[var(--text-secondary)]">Dealer gamma</span>
-          <span className="rounded-md border px-2 py-0.5 font-mono text-xs uppercase tracking-wider" style={{ color: gammaTone, borderColor: "var(--color-border)" }}>
+          <span className="zg-chip" style={{ "--chip-color": gammaTone } as CSSProperties}>
             {formatLabel(gammaLabel)}
           </span>
           <span className="text-[var(--text-secondary)]">
@@ -102,7 +105,7 @@ function ScorePanel({ data }: { data: MarketTideResponse }) {
           aria-valuenow={score}
           aria-valuetext={`${formatNumber(score, 1)}, ${formatLabel(data.label)}`}
         >
-          <div className="relative h-2.5 rounded-full bg-gradient-to-r from-[var(--color-bear)] via-[var(--color-border)] to-[var(--color-bull)]">
+          <div className="relative h-2.5 rounded-full bg-gradient-to-r from-[var(--color-bear)] via-[var(--border-default)] to-[var(--color-bull)]">
             <span className="absolute left-1/2 top-[-4px] h-4.5 w-px bg-[var(--text-muted)]" aria-hidden="true" />
             <span
               data-testid="gauge-marker"
@@ -151,19 +154,13 @@ function TideCard({ windowMinutes }: { windowMinutes: number }) {
         <MetricTitle tip="Market-wide flow score over time. Flow floods green above zero (net bullish) and ebbs red below (net bearish). Frozen at the 16:00 ET close after hours.">
           The Tide
         </MetricTitle>
-        <div role="group" aria-label="Tide range" className="inline-flex rounded-lg border p-0.5" style={cardStyle}>
+        <FilterBar>
           {(["intraday", "daily"] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              aria-pressed={mode === m}
-              onClick={() => setMode(m)}
-              className="rounded-md px-3 py-1.5 text-xs font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 aria-pressed:bg-[var(--color-brand-primary)] aria-pressed:text-white text-[var(--text-secondary)] aria-pressed:text-white"
-            >
+            <FilterChip key={m} active={mode === m} onClick={() => setMode(m)}>
               {m === "intraday" ? "Today" : "30-day trend"}
-            </button>
+            </FilterChip>
           ))}
-        </div>
+        </FilterBar>
       </div>
       <div className="mt-4">
         <MarketTideChart points={points} mode={mode} live={live} />
@@ -220,7 +217,7 @@ function ReadCard({ data }: { data: MarketTideResponse }) {
 function ByTickerStrip({ rows }: { rows: MarketTideComponent[] }) {
   if (rows.length === 0) {
     return (
-      <p className="rounded-xl border border-dashed p-6 text-center text-sm text-[var(--text-secondary)]" style={border}>
+      <p className="border border-dashed p-6 text-center text-sm text-[var(--text-secondary)]" style={{ ...border, borderRadius: "var(--radius-panel)" }}>
         No eligible symbols in this window.
       </p>
     );
@@ -253,12 +250,11 @@ function ByTickerStrip({ rows }: { rows: MarketTideComponent[] }) {
             </div>
             <div className="hidden sm:block">
               <span
-                className="whitespace-nowrap rounded-md border px-2 py-1 font-mono text-[10.5px] uppercase tracking-wider"
+                className="zg-chip whitespace-nowrap"
                 style={{
-                  color: short ? "var(--color-bear)" : "var(--color-bull)",
-                  borderColor: "var(--color-border)",
+                  "--chip-color": short ? "var(--color-bear)" : "var(--color-bull)",
                   background: short ? "var(--color-bear-soft)" : "var(--color-bull-soft)",
-                }}
+                } as CSSProperties}
               >
                 {short ? "short γ · amplifies" : "long γ · pins"}
               </span>
@@ -280,12 +276,12 @@ function MarketTideSkeleton() {
   return (
     <div data-testid="market-tide-skeleton" className="space-y-6 animate-pulse motion-reduce:animate-none" aria-label="Loading Market Tide">
       <div className="grid gap-4 lg:grid-cols-3">
-        <div className="h-64 rounded-2xl bg-[var(--color-border)] opacity-40" />
-        <div className="h-64 rounded-2xl bg-[var(--color-border)] opacity-40 lg:col-span-2" />
+        <div className="h-64 zg-skeleton-line" />
+        <div className="h-64 zg-skeleton-line lg:col-span-2" />
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         {[1, 2].map((x) => (
-          <div key={x} className="h-72 rounded-2xl bg-[var(--color-border)] opacity-40" />
+          <div key={x} className="h-72 zg-skeleton-line" />
         ))}
       </div>
     </div>
@@ -313,42 +309,36 @@ export default function MarketTidePage() {
 
   return (
     <PageShell width="wide" className="space-y-6">
-      <header>
-        <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-bold">Market Tide</h1>
-          <BetaBadge size="md" />
-        </div>
-        <p className="mt-2 text-sm text-[var(--text-secondary)]" style={{ maxWidth: 760 }}>
-          Where market-wide options money is flowing — and whether dealer gamma will amplify or absorb the move — across every index we track.
-        </p>
-        <div className="mt-4 flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">Window</span>
-            <div role="group" aria-label="Market Tide window" className="inline-flex rounded-xl border p-1" style={cardStyle}>
+      <PageHeader
+        title="Market Tide"
+        beta
+        sub="Where market-wide option money is flowing, and whether dealer gamma will amplify or absorb it."
+        tooltip="Every other page here reads one symbol. This reads every index we track at once and scores the aggregate on a −100 to +100 scale, then adjusts that score for the dealer gamma regime behind it — the same flow means something different when dealers are short gamma and amplifying moves than when they are long it and pinning. Breadth says how much of the market agrees with the headline number; participation says how much of it is reporting at all, which is the figure to check first when a reading looks extreme. The window sets how much recent tape the score is computed over."
+        actions={
+          <FilterBar>
+            <FilterGroup label="Window">
               {WINDOWS.map((value) => (
-                <button
+                <FilterChip
                   key={value}
-                  type="button"
-                  aria-label={`${value} minute window`}
-                  aria-pressed={windowMinutes === value}
+                  active={windowMinutes === value}
                   onClick={() => setWindowMinutes(value)}
-                  className="rounded-lg px-4 py-2 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 aria-pressed:bg-[var(--color-brand-primary)] aria-pressed:text-white"
+                  title={`${value} minute window`}
                 >
                   {value}m
-                </button>
+                </FilterChip>
               ))}
-            </div>
-          </div>
-          <p className="text-xs text-[var(--text-secondary)] sm:ml-auto">
-            Last updated: {formatUpdated(data?.timestamp)}
-            {data && loading && (
-              <span className="ml-2 inline-flex items-center gap-1">
-                <RefreshCw size={11} className="animate-spin motion-reduce:animate-none" /> Refreshing
-              </span>
-            )}
-          </p>
-        </div>
-      </header>
+            </FilterGroup>
+          </FilterBar>
+        }
+      />
+      <p className="-mt-2 text-xs text-[var(--text-secondary)]">
+        Last updated: {formatUpdated(data?.timestamp)}
+        {data && loading && (
+          <span className="ml-2 inline-flex items-center gap-1">
+            <RefreshCw size={11} className="animate-spin motion-reduce:animate-none" /> Refreshing
+          </span>
+        )}
+      </p>
 
       {!data && loading ? (
         <MarketTideSkeleton />
@@ -417,7 +407,7 @@ export default function MarketTidePage() {
                 <div className="mt-4 text-3xl font-bold">
                   {formatNumber(data.eligible_symbols, 0)} <span className="text-lg text-[var(--text-secondary)]">of {formatNumber(data.configured_symbols, 0)}</span>
                 </div>
-                <div className="mt-4 h-2 overflow-hidden rounded-full bg-[var(--color-border)]" role="progressbar" aria-label="Market Tide participation" aria-valuemin={0} aria-valuemax={100} aria-valuenow={participation}>
+                <div className="mt-4 h-2 overflow-hidden rounded-full bg-[var(--border-default)]" role="progressbar" aria-label="Market Tide participation" aria-valuemin={0} aria-valuemax={100} aria-valuenow={participation}>
                   <div className="h-full bg-[var(--color-brand-primary)]" style={{ width: `${participation}%` }} />
                 </div>
                 <p className="mt-2 text-sm font-semibold">
@@ -429,7 +419,7 @@ export default function MarketTidePage() {
             {/* by ticker */}
             <section className={card} style={cardStyle}>
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-lg font-semibold">By ticker</h2>
+                <h2 className="zg-h3">By ticker</h2>
                 <div className="flex gap-4 font-mono text-xs text-[var(--text-secondary)]">
                   <span className="inline-flex items-center gap-1.5"><i className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: "var(--color-bull)" }} /> adds lift</span>
                   <span className="inline-flex items-center gap-1.5"><i className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: "var(--color-bear)" }} /> adds drag</span>
@@ -442,14 +432,14 @@ export default function MarketTidePage() {
 
             {/* breadth */}
             <section className={card} style={cardStyle}>
-              <h2 className="text-lg font-semibold">Market Breadth</h2>
+              <h2 className="zg-h3">Market Breadth</h2>
               <div
                 className="mt-5 flex h-5 overflow-hidden rounded-full"
                 role="img"
                 aria-label={`Market breadth — bullish ${formatNumber(data.bullish_breadth_pct, 1)}%, neutral ${formatNumber(data.neutral_breadth_pct, 1)}%, bearish ${formatNumber(data.bearish_breadth_pct, 1)}%`}
               >
                 <div className="bg-[var(--color-bull)]" style={{ width: `${breadth[0]}%` }} />
-                <div className="bg-[var(--color-border)]" style={{ width: `${breadth[1]}%` }} />
+                <div className="bg-[var(--border-default)]" style={{ width: `${breadth[1]}%` }} />
                 <div className="bg-[var(--color-bear)]" style={{ width: `${breadth[2]}%` }} />
               </div>
               <div className="mt-4 grid gap-2 text-sm sm:grid-cols-3">
