@@ -337,7 +337,7 @@ export default function SmartMoneyPage() {
   const inputColor = 'var(--text-primary)';
   const axisStroke = 'var(--text-primary)';
   const mutedText = 'var(--text-secondary)';
-  // Was `isDark ? --color-text-primary : --color-surface`, which in a light
+  // Was `isDark ? --text-primary : --color-surface`, which in a light
   // theme is white text on a white card — the two headings below and the sort
   // arrows were invisible there.
   const textColor = 'var(--text-primary)';

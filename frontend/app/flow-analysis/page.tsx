@@ -498,7 +498,7 @@ export default function FlowAnalysisPage() {
                             </text>
                           ) : null}
                           {dateLabel ? (
-                            <text dy={26} textAnchor="middle" fill={isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)"} fontSize={9}>
+                            <text dy={26} textAnchor="middle" fill={isDark ? "var(--text-secondary)" : "var(--text-secondary)"} fontSize={9}>
                               {dateLabel}
                             </text>
                           ) : null}
@@ -605,7 +605,7 @@ export default function FlowAnalysisPage() {
                             </text>
                           ) : null}
                           {dateLabel ? (
-                            <text dy={26} textAnchor="middle" fill={isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)"} fontSize={9}>
+                            <text dy={26} textAnchor="middle" fill={isDark ? "var(--text-secondary)" : "var(--text-secondary)"} fontSize={9}>
                               {dateLabel}
                             </text>
                           ) : null}
@@ -645,7 +645,7 @@ export default function FlowAnalysisPage() {
                     content={({ active, label, payload }) => {
                       if (!active || !payload || payload.length === 0) return null;
                       return (
-                        <div className="rounded border px-3 py-2 text-sm" style={{ backgroundColor: isDark ? "var(--color-surface)" : "var(--color-surface)", borderColor: isDark ? "var(--color-surface)" : "var(--color-border)", color: isDark ? "var(--color-text-primary)" : "var(--color-text-primary)" }}>
+                        <div className="rounded border px-3 py-2 text-sm" style={{ backgroundColor: isDark ? "var(--color-surface)" : "var(--color-surface)", borderColor: isDark ? "var(--color-surface)" : "var(--border-default)", color: isDark ? "var(--text-primary)" : "var(--text-primary)" }}>
                           <div className="font-semibold">{new Date(String(label)).toLocaleString()}</div>
                           <div>Put/Call Ratio: {Number(payload[0]?.value ?? 0).toFixed(2)}</div>
                         </div>
@@ -712,7 +712,7 @@ export default function FlowAnalysisPage() {
                             </text>
                           ) : null}
                           {dateLabel ? (
-                            <text dy={26} textAnchor="middle" fill={isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)"} fontSize={9}>
+                            <text dy={26} textAnchor="middle" fill={isDark ? "var(--text-secondary)" : "var(--text-secondary)"} fontSize={9}>
                               {dateLabel}
                             </text>
                           ) : null}
@@ -755,7 +755,7 @@ export default function FlowAnalysisPage() {
                       );
                     }}
                   />
-                  <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: 11, paddingBottom: 6, color: isDark ? "var(--color-border)" : "var(--color-text-primary)" }} />
+                  <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: 11, paddingBottom: 6, color: isDark ? "var(--border-default)" : "var(--text-primary)" }} />
                   <ReferenceLine y={0} stroke={axisStroke} opacity={0.55} />
                   <Line
                     type="monotone"

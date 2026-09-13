@@ -385,7 +385,7 @@ export default function MarketTidePage() {
                 <MetricTitle tip="Directional aggregate options pressure; it does not replace the Market Tide label.">
                   <Activity size={15} /> Flow Direction
                 </MetricTitle>
-                <div className="mt-4 text-3xl font-bold tabular-nums">{formatNumber(flow)}</div>
+                <div className="zg-metric mt-4 text-3xl">{formatNumber(flow)}</div>
                 <p className="mt-2 font-semibold">
                   {flow == null ? "Unavailable" : Math.abs(flow) < 0.005 ? "Balanced" : flow > 0 ? "Call-led / bullish" : "Put-led / bearish"}
                 </p>
@@ -395,7 +395,7 @@ export default function MarketTidePage() {
                   <Gauge size={15} /> Gamma Regime
                 </MetricTitle>
                 <div className="mt-4 flex items-baseline gap-3">
-                  <span className="text-3xl font-bold tabular-nums">{formatNumber(gamma)}</span>
+                  <span className="zg-metric text-3xl">{formatNumber(gamma)}</span>
                   <span className="font-semibold">{gammaLabel}</span>
                 </div>
                 <p className="mt-3 text-sm text-[var(--text-secondary)]">{gammaCopy}</p>
@@ -404,8 +404,9 @@ export default function MarketTidePage() {
                 <MetricTitle tip="Share of configured symbols with fresh flow and gamma data.">
                   <Users size={15} /> Participation
                 </MetricTitle>
-                <div className="mt-4 text-3xl font-bold">
-                  {formatNumber(data.eligible_symbols, 0)} <span className="text-lg text-[var(--text-secondary)]">of {formatNumber(data.configured_symbols, 0)}</span>
+                <div className="zg-metric mt-4 text-3xl">
+                  {formatNumber(data.eligible_symbols, 0)}{" "}
+                  <span className="text-lg" style={{ color: "var(--text-secondary)" }}>of {formatNumber(data.configured_symbols, 0)}</span>
                 </div>
                 <div className="mt-4 h-2 overflow-hidden rounded-full bg-[var(--border-default)]" role="progressbar" aria-label="Market Tide participation" aria-valuemin={0} aria-valuemax={100} aria-valuenow={participation}>
                   <div className="h-full bg-[var(--color-brand-primary)]" style={{ width: `${participation}%` }} />

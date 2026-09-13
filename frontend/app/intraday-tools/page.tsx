@@ -124,7 +124,7 @@ export default function IntradayToolsPage() {
   const { symbol } = useTimeframe();
   const axisStroke = 'var(--text-primary)';
   const mutedText = 'var(--text-secondary)';
-  // Was `isDark ? --color-text-primary : --color-surface`: in a light theme the
+  // Was `isDark ? --text-primary : --color-surface`: in a light theme the
   // four chart headings below rendered white on a white card.
   const textColor = 'var(--text-primary)';
   const borderColor = 'var(--border-default)';
@@ -402,7 +402,7 @@ export default function IntradayToolsPage() {
                       <XAxis dataKey="timestamp" stroke={axisStroke} tickLine={false} interval={0} minTickGap={20} tick={renderTimelineTick} />
                       <YAxis stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} domain={['auto', 'auto']} ticks={vwapPriceTicks.length ? vwapPriceTicks : undefined} tickFormatter={(v) => `$${Number(v).toFixed(2)}`} padding={{ top: 12, bottom: 12 }} />
                       <Tooltip
-                        cursor={{ stroke: 'var(--color-text-primary)', strokeOpacity: 0.2 }}
+                        cursor={{ stroke: 'var(--text-primary)', strokeOpacity: 0.2 }}
                         content={({ active, label, payload }) => {
                           if (!active || !payload?.length) return null;
                           const point = payload[0]?.payload as { price: number | null; vwap: number | null; deviationPct: number | null } | undefined;
@@ -425,7 +425,7 @@ export default function IntradayToolsPage() {
                       <Area dataKey="channelAbove" stroke="none" fill="url(#vwapAboveGrad)" connectNulls={false} isAnimationActive={false} activeDot={false} />
                       <Area dataKey="channelBelow" stroke="none" fill="url(#vwapBelowGrad)" connectNulls={false} isAnimationActive={false} activeDot={false} />
                       <Line type="monotone" dataKey="vwap" name="VWAP" stroke="var(--color-warning)" strokeWidth={2} strokeDasharray="5 3" dot={false} connectNulls isAnimationActive={false} />
-                      <Line type="monotone" dataKey="price" name="Price" stroke="var(--color-text-primary)" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
+                      <Line type="monotone" dataKey="price" name="Price" stroke="var(--text-primary)" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
                     </ComposedChart>
                   </ResponsiveContainer>
                 </MobileScrollableChart>
@@ -484,11 +484,11 @@ export default function IntradayToolsPage() {
                       className="relative h-5 rounded-full overflow-visible"
                       style={{ background: 'linear-gradient(to right, var(--color-bear) 0%, color-mix(in srgb, var(--color-bear) 30%, transparent) 33%, color-mix(in srgb, var(--color-warning) 35%, transparent) 50%, color-mix(in srgb, var(--color-bull) 30%, transparent) 67%, var(--color-bull) 100%)' }}
                     >
-                      <div className="absolute top-0 bottom-0 w-px" style={{ left: `${lowPct}%`, backgroundColor: 'var(--color-text-primary)', opacity: 0.45 }} />
-                      <div className="absolute top-0 bottom-0 w-px" style={{ left: `${highPct}%`, backgroundColor: 'var(--color-text-primary)', opacity: 0.45 }} />
+                      <div className="absolute top-0 bottom-0 w-px" style={{ left: `${lowPct}%`, backgroundColor: 'var(--text-primary)', opacity: 0.45 }} />
+                      <div className="absolute top-0 bottom-0 w-px" style={{ left: `${highPct}%`, backgroundColor: 'var(--text-primary)', opacity: 0.45 }} />
                       <div
                         className="absolute -top-1 -bottom-1 w-1 -translate-x-1/2 rounded"
-                        style={{ left: spectrumIndicatorLeft(pricePct, 20, 4), backgroundColor: 'var(--color-text-primary)', boxShadow: '0 0 10px rgba(255,255,255,0.55)' }}
+                        style={{ left: spectrumIndicatorLeft(pricePct, 20, 4), backgroundColor: 'var(--text-primary)', boxShadow: '0 0 10px rgba(255,255,255,0.55)' }}
                       />
                     </div>
                     <div className="relative h-5 mt-2 text-[10px]" style={{ color: mutedText }}>
@@ -519,7 +519,7 @@ export default function IntradayToolsPage() {
                       <XAxis dataKey="timestamp" stroke={axisStroke} tickLine={false} interval={0} minTickGap={20} tick={renderTimelineTick} />
                       <YAxis stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} domain={orbDomain ?? ['auto', 'auto']} ticks={orbPriceTicks.length ? orbPriceTicks : undefined} tickFormatter={(v) => `$${Number(v).toFixed(2)}`} allowDataOverflow={false} padding={{ top: 12, bottom: 12 }} />
                       <Tooltip
-                        cursor={{ stroke: 'var(--color-text-primary)', strokeOpacity: 0.2 }}
+                        cursor={{ stroke: 'var(--text-primary)', strokeOpacity: 0.2 }}
                         content={({ active, label, payload }) => {
                           if (!active || !payload?.length) return null;
                           const point = payload[0]?.payload as { price: number | null; orbHigh: number | null; orbLow: number | null } | undefined;
@@ -546,7 +546,7 @@ export default function IntradayToolsPage() {
                       <Area type="stepAfter" dataKey="orbBand" stroke="none" fill="url(#orbZoneGrad)" connectNulls={false} isAnimationActive={false} activeDot={false} />
                       <Line type="stepAfter" dataKey="orbHigh" name="ORB High" stroke="var(--color-bull)" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
                       <Line type="stepAfter" dataKey="orbLow" name="ORB Low" stroke="var(--color-bear)" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
-                      <Line type="monotone" dataKey="price" name="Price" stroke="var(--color-text-primary)" strokeWidth={2.25} dot={false} connectNulls isAnimationActive={false} />
+                      <Line type="monotone" dataKey="price" name="Price" stroke="var(--text-primary)" strokeWidth={2.25} dot={false} connectNulls isAnimationActive={false} />
                       {orbLatest?.orb_high != null ? (
                         <ReferenceLine y={orbLatest.orb_high} stroke="transparent" label={{ value: `H $${(safeNum(orbLatest.orb_high) ?? 0).toFixed(2)}`, position: 'right', fill: 'var(--color-bull)', fontSize: 11, fontWeight: 600 }} />
                       ) : null}
@@ -588,7 +588,7 @@ export default function IntradayToolsPage() {
                   }} />
                   <YAxis yAxisId="price" orientation="right" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} domain={["auto", "auto"]} ticks={volumeSpikePriceTicks.length ? volumeSpikePriceTicks : undefined} tickFormatter={(v) => `$${Number(v).toFixed(0)}`} padding={{ top: 12, bottom: 12 }} />
                   <Tooltip
-                    cursor={{ fill: 'var(--color-text-primary)', fillOpacity: 0.08 }}
+                    cursor={{ fill: 'var(--text-primary)', fillOpacity: 0.08 }}
                     content={({ active, label, payload }) => {
                       if (!active || !payload?.length) return null;
                       const point = payload[0]?.payload as {
