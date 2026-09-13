@@ -3,8 +3,10 @@
 import { useMemo, useState } from 'react';
 
 import PageShell from '@/components/layout/PageShell';
-import PanelSurface from '@/components/layout/Panel';
-import SectionHead from '@/components/layout/SectionHead';
+import PageHeader from '@/components/layout/PageHeader';
+import ChartPanel from '@/components/layout/ChartPanel';
+import ReadoutTile from '@/components/layout/ReadoutTile';
+import { FilterBar, FilterChip, FilterDivider } from '@/components/controls/Filters';
 import ErrorMessage from '@/components/ErrorMessage';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import MetricCard from '@/components/MetricCard';
@@ -76,50 +78,6 @@ function dteLabel(dte: number): string {
   return `Through ${dte}DTE`;
 }
 
-function Chip({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="rounded-full border px-3 py-1 text-xs font-semibold transition"
-      style={{
-        borderColor: active ? 'var(--color-warning)' : 'var(--border-default)',
-        backgroundColor: active ? 'var(--color-warning-soft)' : 'transparent',
-        color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
-      }}
-    >
-      {children}
-    </button>
-  );
-}
-
-function Panel({
-  title,
-  tooltip,
-  sub,
-  children,
-}: {
-  title: string;
-  tooltip?: string;
-  sub?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <PanelSurface className="mt-6">
-      <SectionHead title={title} titleClassName="zg-h3" tooltip={tooltip} sub={sub} />
-      {children}
-    </PanelSurface>
-  );
-}
-
 function Readout({ verdict }: { verdict: Verdict | null }) {
   if (!verdict) return null;
   const color =
@@ -170,9 +128,9 @@ export default function SpreadMonitorPage() {
   if (futures) {
     return (
       <PageShell>
-        <SectionHead
-          eyebrow="Execution Quality"
+        <PageHeader
           title="Spread Monitor"
+          beta
           sub="Quoted bid/ask width and liquidity across the option chain."
         />
         <FuturesUnsupportedPanel symbol={symbol} surface="Spread Monitor" />
@@ -187,31 +145,25 @@ export default function SpreadMonitorPage() {
 
   return (
     <PageShell>
-      <SectionHead
-        eyebrow="Execution Quality"
+      <PageHeader
         title="Spread Monitor"
-        sub={
-          <>
-            How wide the option market is quoted, and how much of the chain has a market at
-            all. Everything else on this site reads the book to say what it means; this says
-            whether you can get filled in it.
-          </>
-        }
-        tooltip="Quoted (NBBO) spreads, not effective spreads: the width market makers are showing, not what trades filled at. The feed carries no sizes, so a tight quote for one contract and a tight quote for a thousand look identical here."
+        beta
+        sub="How wide the chain is quoted, and how much of it has a market at all — whether you can get filled."
+        tooltip="Quoted (NBBO) spreads, not effective spreads: the width market makers are showing, not what trades filled at. Everything else on this site reads the book to say what it means; this says whether the market is tradeable. Read every verdict as a comparison against this symbol's own history — there is no universal 'wide', since an SPX put is structurally wider than an SPY put on the calmest day of the year. The feed carries no sizes, so a tight quote for one contract and a tight quote for a thousand look identical here."
         actions={
-          <div className="flex flex-wrap items-center gap-2">
+          <FilterBar>
             {DTE_CHOICES.map((choice) => (
-              <Chip key={choice} active={dteMax === choice} onClick={() => setDteMax(choice)}>
+              <FilterChip key={choice} active={dteMax === choice} onClick={() => setDteMax(choice)}>
                 {dteLabel(choice)}
-              </Chip>
+              </FilterChip>
             ))}
-            <span className="mx-1 opacity-40">|</span>
+            <FilterDivider />
             {BAND_CHOICES.map((choice) => (
-              <Chip key={choice} active={bandPct === choice} onClick={() => setBandPct(choice)}>
+              <FilterChip key={choice} active={bandPct === choice} onClick={() => setBandPct(choice)}>
                 ±{choice}%
-              </Chip>
+              </FilterChip>
             ))}
-          </div>
+          </FilterBar>
         }
       />
 
@@ -262,108 +214,68 @@ export default function SpreadMonitorPage() {
           </div>
 
           <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <PanelSurface>
-              <h3 className="zg-eyebrow mb-2">Against this symbol&rsquo;s own history</h3>
+            <ReadoutTile
+              title={<>Against this symbol&rsquo;s own history</>}
+              value={putVerdict ? putVerdict.label : 'No baseline yet'}
+              tone={putVerdict ? putVerdict.tone : 'muted'}
+            >
               {putVerdict ? (
                 <>
-                  <div
-                    className="zg-metric text-2xl"
-                    style={{
-                      color:
-                        putVerdict.tone === 'bearish'
-                          ? 'var(--color-bear)'
-                          : putVerdict.tone === 'bullish'
-                            ? 'var(--color-bull)'
-                            : 'var(--text-primary)',
-                    }}
-                  >
-                    {putVerdict.label}
-                  </div>
-                  <p
-                    className="mt-2 text-[11px] leading-relaxed"
-                    style={{ color: 'var(--text-secondary)' }}
-                  >
-                    {putVerdict.meaning}
-                    {data.history?.puts_vs_window_ratio != null && (
-                      <>
-                        {' '}
-                        Put markets are{' '}
-                        <strong>{formatMultiple(data.history.puts_vs_window_ratio)}</strong> the
-                        median width of that window.
-                      </>
-                    )}
-                  </p>
+                  {putVerdict.meaning}
+                  {data.history?.puts_vs_window_ratio != null && (
+                    <>
+                      {' '}
+                      Put markets are{' '}
+                      <strong>{formatMultiple(data.history.puts_vs_window_ratio)}</strong> the
+                      median width of that window.
+                    </>
+                  )}
                 </>
               ) : (
                 <>
-                  <div className="zg-metric text-2xl" style={{ color: 'var(--text-secondary)' }}>
-                    No baseline yet
-                  </div>
-                  <p
-                    className="mt-2 text-[11px] leading-relaxed"
-                    style={{ color: 'var(--text-secondary)' }}
-                  >
-                    There is no universal &ldquo;wide&rdquo; for a quoted spread — an SPX put is
-                    structurally wider than an SPY put on the calmest day of the year. So this
-                    page only calls a reading unusual against the same symbol&rsquo;s own past
-                    sessions, and stays quiet until it has them.
-                  </p>
+                  There is no universal &ldquo;wide&rdquo; for a quoted spread — an SPX put is
+                  structurally wider than an SPY put on the calmest day of the year. So this
+                  page only calls a reading unusual against the same symbol&rsquo;s own past
+                  sessions, and stays quiet until it has them.
                 </>
               )}
-            </PanelSurface>
+            </ReadoutTile>
 
-            <PanelSurface>
-              <h3 className="zg-eyebrow mb-2">Since the open</h3>
+            <ReadoutTile
+              title="Since the open"
+              value={drift ? formatMultiple(drift.ratio) : EMPTY}
+              tone={
+                !drift
+                  ? 'muted'
+                  : drift.ratio >= 1.5
+                    ? 'bearish'
+                    : drift.ratio <= 0.75
+                      ? 'bullish'
+                      : 'neutral'
+              }
+            >
               {drift ? (
                 <>
-                  <div
-                    className="zg-metric text-2xl"
-                    style={{
-                      color:
-                        drift.ratio >= 1.5
-                          ? 'var(--color-bear)'
-                          : drift.ratio <= 0.75
-                            ? 'var(--color-bull)'
-                            : 'var(--text-primary)',
-                    }}
-                  >
-                    {formatMultiple(drift.ratio)}
-                  </div>
-                  <p
-                    className="mt-2 text-[11px] leading-relaxed"
-                    style={{ color: 'var(--text-secondary)' }}
-                  >
-                    Put markets opened at {formatPct(drift.open)} and are now{' '}
-                    {formatPct(drift.latest)}. This is a different question from the one on the
-                    left: a chain can be wide all day, or start orderly and deteriorate into
-                    the close, and only one of those shows up here.
-                  </p>
+                  Put markets opened at {formatPct(drift.open)} and are now{' '}
+                  {formatPct(drift.latest)}. This is a different question from the one on the
+                  left: a chain can be wide all day, or start orderly and deteriorate into
+                  the close, and only one of those shows up here.
                 </>
               ) : (
-                <>
-                  <div className="zg-metric text-2xl" style={{ color: 'var(--text-secondary)' }}>
-                    {EMPTY}
-                  </div>
-                  <p
-                    className="mt-2 text-[11px] leading-relaxed"
-                    style={{ color: 'var(--text-secondary)' }}
-                  >
-                    Needs at least two readings in the session to compare.
-                  </p>
-                </>
+                'Needs at least two readings in the session to compare.'
               )}
-            </PanelSurface>
+            </ReadoutTile>
           </div>
 
-          <Panel
+          <ChartPanel
             title="Through the session"
             tooltip="One reading per 15-minute bucket, taken at the last chain snapshot inside it. Puts and calls are plotted separately because a blended median reports about half of a one-sided move."
             sub="Quoted width through today, puts against calls, with the share of puts carrying no market at all shaded underneath."
           >
             {series ? <SpreadSessionChart series={series} /> : <LoadingSpinner size="sm" />}
-          </Panel>
+          </ChartPanel>
 
-          <Panel
+          <ChartPanel
             title="Where the chain thins"
             tooltip="Median quoted width by strike distance from spot, signed — downside strikes left, upside right. Bucketing by unsigned distance would fold the two wings together and average away exactly the asymmetry this shows."
             sub={
@@ -382,9 +294,9 @@ export default function SpreadMonitorPage() {
               calls={data.calls_by_moneyness}
             />
             <Readout verdict={coverage} />
-          </Panel>
+          </ChartPanel>
 
-          <Panel
+          <ChartPanel
             title="By expiration"
             tooltip="Per-expiration rather than per-DTE-bucket. A range like '2-7 DTE' blends Wednesday's expiry with Friday's, and those routinely differ by more than the change worth noticing."
             sub="Nearest expiry first — quotes go first where time does."
@@ -441,9 +353,9 @@ export default function SpreadMonitorPage() {
                 </tbody>
               </table>
             </div>
-          </Panel>
+          </ChartPanel>
 
-          <Panel
+          <ChartPanel
             title={`Daily record — last ${HISTORY_DAYS} sessions`}
             tooltip="One row per trading day, written from the same reduction as the live reading above so the two are directly comparable. The band is the gap between the typical contract and the worst tenth."
             sub="Put markets by session. When both the line and the band rise the whole chain got worse; when only the band rises, the wings blew out while the money stayed orderly."
@@ -468,9 +380,9 @@ export default function SpreadMonitorPage() {
             ) : (
               <LoadingSpinner size="sm" />
             )}
-          </Panel>
+          </ChartPanel>
 
-          <Panel
+          <ChartPanel
             title="Across symbols"
             tooltip="The same reading on every index with an option chain of its own. ES and NQ are absent because they have none here — their levels are SPX/NDX derived, and there is no futures quote to measure a width from."
             sub="Click a row to switch the page to that symbol."
@@ -484,7 +396,7 @@ export default function SpreadMonitorPage() {
             ) : (
               <LoadingSpinner size="sm" />
             )}
-          </Panel>
+          </ChartPanel>
 
           <p
             className="mt-6 text-[11px] leading-relaxed"

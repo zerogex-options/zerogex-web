@@ -3,7 +3,9 @@
 import { useMemo, useState } from 'react';
 
 import PageShell from '@/components/layout/PageShell';
-import SectionHead from '@/components/layout/SectionHead';
+import PageHeader from '@/components/layout/PageHeader';
+import PanelSurface from '@/components/layout/Panel';
+import { FilterToggle } from '@/components/controls/Filters';
 import ErrorMessage from '@/components/ErrorMessage';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import MetricCard from '@/components/MetricCard';
@@ -87,28 +89,24 @@ export default function HedgingFlowPage() {
 
   return (
     <PageShell>
-      <SectionHead
-        eyebrow="Options Flow"
+      <PageHeader
         title="Hedging Flow"
+        beta
         sub={
           <>
-            Estimated dealer hedging pressure created by today&rsquo;s option trades, on the same
-            timeline as price. Positive means the delta-flat hedge <strong>buys</strong> stock.
+            Dealer hedging pressure from today&rsquo;s option trades, on price&rsquo;s timeline.
+            Positive means the hedge <strong>buys</strong> stock.
           </>
         }
-        tooltip="For every option that traded, the net customer position change is converted to the stock a delta-flat hedge implies: (buy - sell) x delta x 100 x spot, accumulated across the session."
+        tooltip="For every option that traded, the net customer position change is converted to the stock a delta-flat hedge implies: (buy - sell) x delta x 100 x spot, accumulated across the session. This is the observed counterpart to every open-interest surface on the site — Net GEX, the walls, the flip and Forced Flow all read the BOOK and ask what it would do; this reads what the tape did to that book today. The structure panel underneath shares the session window and the crosshair: flow says how hard the tape is pushing, structure says whether the book absorbs that push or amplifies it."
         actions={
-          <label
-            className="flex cursor-pointer items-center gap-2 text-xs"
-            style={{ color: 'var(--color-text-secondary)' }}
+          <FilterToggle
+            active={zeroDteOnly}
+            onChange={setZeroDteOnly}
+            title="Scope the flow panel to contracts expiring today"
           >
-            <input
-              type="checkbox"
-              checked={zeroDteOnly}
-              onChange={(e) => setZeroDteOnly(e.target.checked)}
-            />
             0DTE only
-          </label>
+          </FilterToggle>
         }
       />
 
@@ -153,19 +151,13 @@ export default function HedgingFlowPage() {
           {zeroDteOnly && data.bars.length === 0 && (
             <p
               className="mt-6 text-sm italic"
-              style={{ color: 'var(--color-text-secondary)' }}
+              style={{ color: 'var(--text-secondary)' }}
             >
               No 0DTE contracts traded this session — today may not be an expiry for {symbol}.
             </p>
           )}
 
-          <div
-            className="mt-6 rounded-2xl border p-5"
-            style={{
-              borderColor: 'var(--color-border)',
-              backgroundColor: 'var(--color-surface)',
-            }}
-          >
+          <PanelSurface className="mt-6">
             {/* The stack shares one time axis, on the structure panel below. */}
             <HedgingFlowChart
               payload={data}
@@ -177,16 +169,14 @@ export default function HedgingFlowPage() {
 
             <div
               className="mt-5 border-t pt-5"
-              style={{ borderColor: 'var(--color-border)' }}
+              style={{ borderColor: 'var(--border-default)' }}
             >
               <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-                <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                  Dealer gamma structure
-                </h3>
+                <h3 className="zg-h3">Dealer gamma structure</h3>
                 {read && (
                   <span
                     className="text-xs font-semibold"
-                    style={{ color: 'var(--color-text-secondary)' }}
+                    style={{ color: 'var(--text-secondary)' }}
                     title={read.meaning}
                   >
                     {read.title}
@@ -201,7 +191,7 @@ export default function HedgingFlowPage() {
               )}
 
               {regime && regime.bars.length === 0 && (
-                <p className="py-4 text-sm italic" style={{ color: 'var(--color-text-secondary)' }}>
+                <p className="py-4 text-sm italic" style={{ color: 'var(--text-secondary)' }}>
                   No structure reading for this session yet — the series is written once per
                   analytics cycle, so it fills in as the session runs.
                 </p>
@@ -210,13 +200,13 @@ export default function HedgingFlowPage() {
               {read && (
                 <p
                   className="mt-2 text-[11px] leading-relaxed"
-                  style={{ color: 'var(--color-text-secondary)' }}
+                  style={{ color: 'var(--text-secondary)' }}
                 >
                   {read.meaning}
                 </p>
               )}
             </div>
-          </div>
+          </PanelSurface>
         </>
       )}
     </PageShell>
