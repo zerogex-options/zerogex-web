@@ -176,12 +176,6 @@ const sections: Section[] = [
         ],
       },
       {
-        // Hedging Flow is deliberately absent. core/helpRegistry.ts carries an
-        // entry for it, but content/help/platform/hedging-flow.md was never
-        // written, so /help/platform/hedging-flow answers 404 — linking it from
-        // here would just route readers into that. (The registry entry still
-        // puts the 404 in the prev/next chain either side of it; writing the
-        // article is the fix, and this list should gain the link when it lands.)
         title: 'Options Flow',
         entries: [
           {
@@ -189,6 +183,12 @@ const sections: Section[] = [
             title: 'Flow Analysis',
             blurb:
               'Premium-weighted and net-volume flow, smart-money buckets, the Lee-Ready aggressor split, and how to spot real conviction in the tape.',
+          },
+          {
+            href: '/help/platform/hedging-flow',
+            title: 'Hedging Flow',
+            blurb:
+              "Estimated dealer hedging pressure from today's trades, against price — the two views, what a flip is, and why put activity often reads as buying.",
           },
           {
             href: '/help/platform/smart-money',
