@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight, PencilLine, RefreshCw } from 'lucide-react';
+import BrokerConnectionNote from '@/components/BrokerConnectionNote';
 import IndicatorPageShell from '@/components/IndicatorPageShell';
 import LiveLevelsCTA from '@/components/LiveLevelsCTA';
 import { SITE_DEFAULT_OG_IMAGE, SITE_NAME, SITE_URL } from '@/core/articleRegistry';
@@ -260,6 +261,13 @@ export default function IntegrationsPage() {
         intro="These poll the ZeroGEX API on a timer and redraw themselves — set the symbol once and the levels stay current all session, including across a futures roll. Both need a ZeroGEX API key, which comes with Pro."
         entries={AUTO_UPDATING}
       />
+
+      {/* Sits under the auto-updating pair because it only concerns those two:
+          a broker connection is what a desktop charting platform has, and the
+          manual scripts below are typed in by hand on platforms that do not
+          have one. See core/brokerConnections.ts for why a broker is not an
+          entry in the registry above. */}
+      <BrokerConnectionNote />
 
       <Group
         title="Free · manual entry"

@@ -24,9 +24,11 @@ and only one of the two is mostly engineering.
 Both also add channels to audit finding **F8**, which is open
 (`oa:docs/compliance/market-data-licensing-audit-2026-09-02.md:170`). See §3.
 
-**Status:** assessment only. No production code written. References are
-`file:line` into this repo (`frontend/…`, `docs/…`) or `zerogex-oa`
-(prefixed `oa:`), as of the commit this document was added in.
+**Status:** IBKR **Option A is shipped** (§1.2) — `core/brokerConnections.ts`,
+`components/BrokerConnectionNote.tsx`, the hub, the two Pro landings and the
+FAQ. Everything else here is assessment only, with no production code.
+References are `file:line` into this repo (`frontend/…`, `docs/…`) or
+`zerogex-oa` (prefixed `oa:`), as of the commit each claim was written in.
 
 ---
 
@@ -80,6 +82,14 @@ fetched from our API, and we never touch the platform's tick quality.
 **Cost:** a paragraph on `/integrations`, on the two Pro landings, and in the
 FAQ. No registry entry — IBKR is a *connection*, not a platform, and modelling
 it as an `Integration` would be the first dishonest row in that table.
+
+**Shipped.** The facts live in `frontend/core/brokerConnections.ts` and render
+through `frontend/components/BrokerConnectionNote.tsx` on all three surfaces,
+plus the `api-interactive-brokers` FAQ entry. Both halves of the answer are
+given together and in that order, because either one alone misleads: "no IBKR
+indicator, and here is why none can exist" followed by "and here is how to do
+it today". `frontend/tests/brokerConnections.test.ts` holds the two lists
+together. See the "Brokers are a separate list" section of `docs/integrations.md`.
 
 **Option B — the levels as IBKR price alerts. A real build.**
 
@@ -224,10 +234,11 @@ category of user.
 
 ## 4. Recommendation
 
-1. **Now, about a day:** ship Option A. Say plainly on `/integrations`, on the
-   two Pro landings and in the FAQ that IBKR is supported through NinjaTrader
-   8 or Sierra Chart. It is true today and it turns "do you support IBKR?"
-   from a no into a yes without a line of new integration code.
+1. ~~**Now, about a day:** ship Option A.~~ **Done.** `/integrations`, the two
+   Pro landings and the FAQ now say that IBKR is supported through NinjaTrader
+   8 or Sierra Chart, and why there is no TWS indicator. It was true before we
+   said it; saying it turns "do you support IBKR?" from a no into a yes
+   without a line of new integration code.
 2. **Decide before any C2 code is written:** whether ZeroGEX publishes a
    trading strategy at all (§2.4). If yes, C2 is a well-scoped build against
    an engine that already exists — the symbol layer and the idempotent
