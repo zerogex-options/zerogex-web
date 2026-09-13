@@ -2,7 +2,9 @@
 
 import PageShell from '@/components/layout/PageShell';
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import SectionHead from "@/components/layout/SectionHead";
+import PageHeader from "@/components/layout/PageHeader";
+import ChartPanel from "@/components/layout/ChartPanel";
+import { FilterBar, FilterChip, FilterGroup } from "@/components/controls/Filters";
 import {
   useGEXSummary,
   useGEXByStrike,
@@ -35,7 +37,6 @@ import ModeledPositioningNote from '@/components/ModeledPositioningNote';
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useStrikeFilter } from '@/core/StrikeFilterContext';
 import { selectActive } from '@/core/strikeFilter';
-import { useTheme } from '@/core/ThemeContext';
 import { etTodayDateKey } from '@/core/utils';
 import { useSharedExpirations } from '@/hooks/useSharedExpirations';
 import { useZeroDteOption } from '@/hooks/useZeroDteOption';
@@ -78,15 +79,20 @@ const StrikeTableScroll = React.forwardRef<HTMLDivElement, { children: React.Rea
 
 type SortKey = keyof StrikeAggregate;
 
+const HEADER_SUB =
+  "The whole dealer gamma surface — regime, flip, walls and term structure — off the current book.";
+
+const HEADER_TOOLTIP =
+  "The most complete positioning view on the site, and the one the others are slices of. It reads the live option chain, models which side of each contract dealers are on, and sums the gamma that implies: the regime (long gamma dampens moves, short gamma amplifies them), the flip level where the sign changes, the strikes carrying the heaviest hedging, and how all of it is spread across expirations. Modeled from open interest, not observed — a wall is where hedging flow would be largest if price got there, not a level anyone is obliged to defend. Decision-support context, not investment advice.";
+
 export default function GammaExposurePage() {
   const { symbol, timeframe, setTimeframe } = useTimeframe();
   const { activeOnly } = useStrikeFilter();
-  const { theme } = useTheme();
-  const isDark = theme === 'dark';
-  const cardBg = isDark ? 'var(--color-surface)' : 'var(--color-surface)';
-  const inputBg = isDark ? 'var(--color-bg)' : 'var(--color-surface-subtle)';
-  const mutedText = isDark ? 'var(--color-text-secondary)' : 'var(--color-text-secondary)';
-  const borderColor = 'var(--color-border)';
+  // Both branches of these were identical, so the theme never actually chose
+  // anything — they are the panel's own tokens, which already theme themselves.
+  const cardBg = 'var(--bg-card)';
+  const mutedText = 'var(--text-secondary)';
+  const borderColor = 'var(--border-default)';
 
   // Data fetching — all at page level, passed as props to children
   const { data: gexData, loading: gexLoading, error: gexError, refetch: refetchGex } = useGEXSummary(symbol, 5000);
@@ -496,7 +502,7 @@ export default function GammaExposurePage() {
   if (gexLoading && !gexData) {
     return (
       <PageShell>
-        <h1 className="text-3xl font-bold mb-8">Dealer Positioning Analysis</h1>
+        <PageHeader title="Dealer Positioning Analysis" sub={HEADER_SUB} tooltip={HEADER_TOOLTIP} />
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <LoadingCard /><LoadingCard /><LoadingCard /><LoadingCard />
         </div>
@@ -506,10 +512,16 @@ export default function GammaExposurePage() {
 
   return (
     <PageShell>
-      <h1 className="text-3xl font-bold mb-6">Dealer Positioning Analysis</h1>
-      <div className="mb-4">
-        <GexUnitToggle />
-      </div>
+      <PageHeader
+        title="Dealer Positioning Analysis"
+        sub={HEADER_SUB}
+        tooltip={HEADER_TOOLTIP}
+        actions={
+          <FilterGroup label="GEX unit">
+            <GexUnitToggle showHint={false} />
+          </FilterGroup>
+        }
+      />
       {gexError && <ErrorMessage message={gexError} onRetry={refetchGex} />}
       {/* Section 1: Regime Header */}
       <GexRegimeHeader
@@ -643,65 +655,53 @@ export default function GammaExposurePage() {
       {/* Section 7: Strike Data Table */}
       <section className="mb-8">
         <ExpandableCard expandTrigger="button" expandButtonLabel="Expand card">
-          <div className="rounded-lg p-6" style={{ backgroundColor: cardBg, border: `1px solid ${borderColor}` }}>
-            <SectionHead title="GEX Metrics Snapshot" tooltip="Filter expirations and inspect strike-level net GEX, vanna, charm, OI, and volume from /api/gex/by-strike. The Strikes toggle hides strikes with no open interest (Active) or shows every listed strike (All)." />
+          <ChartPanel
+            className=""
+            title="GEX Metrics Snapshot"
+            tooltip="Filter expirations and inspect strike-level net GEX, vanna, charm, OI, and volume from /api/gex/by-strike. The Strikes toggle hides strikes with no open interest (Active) or shows every listed strike (All)."
+          >
             {byStrikeError ? <ErrorMessage message={byStrikeError} /> : expirationOptions.length === 0 ? (
               <div className="text-center py-8" style={{ color: mutedText }}>No strike-level gamma data available</div>
             ) : (
               <>
-                <div className="mb-5 flex flex-wrap gap-2 items-center">
-                  <span className="text-sm" style={{ color: mutedText }}>Expirations:</span>
-                  {(() => {
-                    const allSelected =
-                      selectedExpirations === null ||
-                      (expirationOptions.length > 0 && selectedExpirations.length === expirationOptions.length);
-                    return (
-                      <button
-                        // "All" is the shared empty selection — release any
-                        // local clear and broadcast it so every chart resets too.
-                        onClick={() => { setClearedAgainst(null); setSharedExpirations([]); }}
-                        disabled={allSelected}
-                        style={
-                          allSelected
-                            ? { backgroundColor: inputBg, borderColor: borderColor, color: mutedText, opacity: 0.5, cursor: 'not-allowed' }
-                            : undefined
-                        }
-                        className={`px-3 py-1 text-xs rounded border ${allSelected ? '' : 'bg-[var(--color-info-soft)] border-[var(--color-info)] text-[var(--text-primary)]'}`}
-                      >
-                        All
-                      </button>
-                    );
-                  })()}
-                  {(() => {
-                    const isEmpty = Array.isArray(selectedExpirations) && selectedExpirations.length === 0;
-                    const canClear = !isEmpty;
-                    return (
-                      <button
-                        type="button"
-                        // Table-local "none" (empty table): not shared. Marked
-                        // against the current shared value so it releases as soon
-                        // as the shared selection changes.
-                        onClick={() => setClearedAgainst(sharedExpirations)}
-                        disabled={!canClear}
-                        style={{
-                          backgroundColor: inputBg,
-                          borderColor: borderColor,
-                          color: mutedText,
-                          opacity: canClear ? 1 : 0.5,
-                          cursor: canClear ? 'pointer' : 'not-allowed',
-                        }}
-                        className="px-3 py-1 text-xs rounded border"
-                        title="Clear all expiration selections"
-                      >
-                        Clear
-                      </button>
-                    );
-                  })()}
-                  {expirationOptions.map((exp) => {
-                    const active = selectedExpirations === null || selectedExpirations.includes(exp);
-                    return (
-                      <button
+                <FilterBar className="mb-5">
+                  <FilterGroup label="Expirations">
+                    {(() => {
+                      const allSelected =
+                        selectedExpirations === null ||
+                        (expirationOptions.length > 0 && selectedExpirations.length === expirationOptions.length);
+                      return (
+                        <FilterChip
+                          // "All" is the shared empty selection — release any
+                          // local clear and broadcast it so every chart resets too.
+                          active={allSelected}
+                          disabled={allSelected}
+                          onClick={() => { setClearedAgainst(null); setSharedExpirations([]); }}
+                        >
+                          All
+                        </FilterChip>
+                      );
+                    })()}
+                    {(() => {
+                      const canClear = !(Array.isArray(selectedExpirations) && selectedExpirations.length === 0);
+                      return (
+                        <FilterChip
+                          // Table-local "none" (empty table): not shared. Marked
+                          // against the current shared value so it releases as soon
+                          // as the shared selection changes.
+                          active={false}
+                          disabled={!canClear}
+                          onClick={() => setClearedAgainst(sharedExpirations)}
+                          title="Clear all expiration selections"
+                        >
+                          Clear
+                        </FilterChip>
+                      );
+                    })()}
+                    {expirationOptions.map((exp) => (
+                      <FilterChip
                         key={exp}
+                        active={selectedExpirations === null || selectedExpirations.includes(exp)}
                         onClick={() => {
                           // Toggle from the current view (null = All → every
                           // other expiration once one is switched off).
@@ -719,18 +719,17 @@ export default function GammaExposurePage() {
                             setClearedAgainst(sharedExpirations);
                           }
                         }}
-                        style={active ? undefined : { backgroundColor: inputBg, borderColor: borderColor, color: mutedText }}
-                        className={`px-3 py-1 text-xs rounded border ${active ? 'bg-[var(--color-info-soft)] border-[var(--color-info)] text-[var(--text-primary)]' : ''}`}
                       >
                         {exp}
-                      </button>
-                    );
-                  })}
-                  <div className="flex items-center gap-1.5 ml-auto">
-                    <span className="text-sm" style={{ color: mutedText }}>Strikes:</span>
-                    <StrikeFilterToggle showHint={false} />
+                      </FilterChip>
+                    ))}
+                  </FilterGroup>
+                  <div className="ml-auto">
+                    <FilterGroup label="Strikes">
+                      <StrikeFilterToggle showHint={false} />
+                    </FilterGroup>
                   </div>
-                </div>
+                </FilterBar>
 
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-2 zg-eyebrow" style={{ color: 'var(--text-secondary)' }}>
                   <span className="flex items-center gap-1.5"><span style={{ width: 10, height: 2, background: 'var(--color-accent-hot)', display: 'inline-block' }} />Spot</span>
@@ -813,7 +812,7 @@ export default function GammaExposurePage() {
                 </StrikeTableScroll>
               </>
             )}
-          </div>
+          </ChartPanel>
         </ExpandableCard>
       </section>
 
