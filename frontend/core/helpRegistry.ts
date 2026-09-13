@@ -3,6 +3,14 @@ export type HelpArticle = {
   title: string;
   description: string;
   section: string;
+  /**
+   * The subcategory within `section`, mirroring the nav's subgroups (see
+   * NAV_GROUPS in core/navigation.ts). Set on the Metrics articles, whose
+   * pages print the same label as their eyebrow, so a reader arriving from the
+   * menu finds the guide filed where the page said it lived. Sections with no
+   * subgroups in the nav leave it unset.
+   */
+  subsection?: string;
 };
 
 // Ordered list — drives next/prev navigation on each article page.
@@ -66,36 +74,21 @@ export const HELP_ARTICLES: HelpArticle[] = [
     title: 'Dealer Positioning',
     description: 'The full GEX surface — net GEX, gamma flip, walls, term structure.',
     section: 'Metrics',
+    subsection: 'Positioning',
   },
   {
     slug: 'gex-summary',
     title: 'GEX Summary & Greeks',
     description: 'Headline GEX numbers plus delta, gamma, vanna and charm.',
     section: 'Metrics',
-  },
-  {
-    slug: 'flow-analysis',
-    title: 'Flow Analysis',
-    description: 'Premium-weighted and net-volume flow, smart-money buckets, aggressor split.',
-    section: 'Metrics',
-  },
-  {
-    slug: 'hedging-flow',
-    title: 'Hedging Flow',
-    description: "Estimated dealer hedging pressure created by today's option trades, against price.",
-    section: 'Metrics',
-  },
-  {
-    slug: 'smart-money',
-    title: 'Smart Money',
-    description: 'The smart-money screen and the C/P ratio.',
-    section: 'Metrics',
+    subsection: 'Positioning',
   },
   {
     slug: 'max-pain',
     title: 'Max Pain',
     description: 'How max pain is calculated and when to trust it.',
     section: 'Metrics',
+    subsection: 'Positioning',
   },
   {
     slug: 'pin-strike',
@@ -103,12 +96,35 @@ export const HELP_ARTICLES: HelpArticle[] = [
     description:
       'How the pin score and the Strong / Moderate / Weak strength label are computed, and what "Weak" actually means.',
     section: 'Metrics',
+    subsection: 'Positioning',
+  },
+  {
+    slug: 'flow-analysis',
+    title: 'Flow Analysis',
+    description: 'Premium-weighted and net-volume flow, smart-money buckets, aggressor split.',
+    section: 'Metrics',
+    subsection: 'Options Flow',
+  },
+  {
+    slug: 'hedging-flow',
+    title: 'Hedging Flow',
+    description: "Estimated dealer hedging pressure created by today's option trades, against price.",
+    section: 'Metrics',
+    subsection: 'Options Flow',
+  },
+  {
+    slug: 'smart-money',
+    title: 'Smart Money',
+    description: 'The smart-money screen and the C/P ratio.',
+    section: 'Metrics',
+    subsection: 'Options Flow',
   },
   {
     slug: 'technicals',
     title: 'Technicals',
     description: 'The intraday technical snapshot — price, candles, volatility gauges.',
     section: 'Metrics',
+    subsection: 'Market Context',
   },
   {
     slug: 'spread-monitor',
@@ -116,6 +132,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     description:
       'Quoted bid/ask width and liquidity across the chain — whether the market is tradeable, not just what it means.',
     section: 'Metrics',
+    subsection: 'Market Context',
   },
   {
     slug: 'options-calculator',

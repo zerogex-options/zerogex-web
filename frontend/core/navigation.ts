@@ -113,7 +113,10 @@ export const NAV_GROUPS: NavGroup[] = [
     labelKey: 'nav.group.metrics',
     subgroups: [
       {
-        label: 'Dealer Positioning',
+        // Named for the question, not for the page inside it: a subgroup called
+        // "Dealer Positioning" containing a page called "Dealer Positioning"
+        // made that page's header read POSITIONING / Dealer Positioning twice.
+        label: 'Positioning',
         items: [
           { id: '/gamma-exposure', label: 'Dealer Positioning', requiredTier: 'basic' },
           { id: '/greeks-gex', label: 'GEX Summary', requiredTier: 'basic' },

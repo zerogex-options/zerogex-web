@@ -23,12 +23,47 @@ export const metadata = {
 
 type GuideEntry = { href: string; title: string; blurb: string };
 
+/**
+ * A subcategory inside a section, mirroring the nav's subgroups. Only Metrics
+ * has them today — fifteen routes behind one menu entry is a wall, so the menu
+ * splits them and the guide follows, using the same three labels.
+ */
+type GuideGroup = { title: string; entries: GuideEntry[] };
+
 type Section = {
   title: string;
   eyebrow: string;
   icon: typeof LayoutDashboard;
-  entries: GuideEntry[];
+  /** A flat section. Mutually exclusive with `groups`. */
+  entries?: GuideEntry[];
+  /** A section split into subcategories. Mutually exclusive with `entries`. */
+  groups?: GuideGroup[];
 };
+
+function renderEntry(entry: GuideEntry) {
+  return (
+    <Link
+      key={entry.href}
+      href={entry.href}
+      className="zg-feature-shell group flex flex-col gap-2 p-5 transition hover:border-[var(--color-warning-soft)] sm:flex-row sm:items-start sm:justify-between"
+    >
+      <div className="flex-1">
+        <h3
+          className="mb-1 text-base font-semibold text-[var(--color-text-primary)]"
+          dangerouslySetInnerHTML={{ __html: entry.title }}
+        />
+        <p
+          className="text-sm leading-6 text-[var(--color-text-secondary)]"
+          dangerouslySetInnerHTML={{ __html: entry.blurb }}
+        />
+      </div>
+      <span className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-warning)] transition group-hover:text-[var(--heat-low)] sm:pt-1">
+        Read
+        <ArrowRight size={14} />
+      </span>
+    </Link>
+  );
+}
 
 const sections: Section[] = [
   {
@@ -110,54 +145,75 @@ const sections: Section[] = [
     title: 'Metrics',
     eyebrow: 'Market structure',
     icon: Gauge,
-    entries: [
+    groups: [
       {
-        href: '/help/platform/dealer-positioning',
-        title: 'Dealer Positioning',
-        blurb:
-          'The full GEX surface — net GEX at spot, the gamma flip, call wall and put wall, and how to read the term structure.',
+        title: 'Positioning',
+        entries: [
+          {
+            href: '/help/platform/dealer-positioning',
+            title: 'Dealer Positioning',
+            blurb:
+              'The full GEX surface — net GEX at spot, the gamma flip, call wall and put wall, and how to read the term structure.',
+          },
+          {
+            href: '/help/platform/gex-summary',
+            title: 'GEX Summary &amp; Greeks',
+            blurb:
+              'Headline GEX numbers plus delta, gamma, vanna and charm aggregates. What each tile is, why it matters, and what changes intraday.',
+          },
+          {
+            href: '/help/platform/max-pain',
+            title: 'Max Pain',
+            blurb:
+              'How max pain is calculated, when it acts as a magnet versus a coincidence, and how to read it next to the gamma profile.',
+          },
+          {
+            href: '/help/platform/pin-strike',
+            title: 'Pin Strike',
+            blurb:
+              'The pin score and the Strong / Moderate / Weak label explained — including why a big, isolated gamma peak can still read Weak.',
+          },
+        ],
       },
       {
-        href: '/help/platform/gex-summary',
-        title: 'GEX Summary &amp; Greeks',
-        blurb:
-          'Headline GEX numbers plus delta, gamma, vanna and charm aggregates. What each tile is, why it matters, and what changes intraday.',
+        // Hedging Flow is deliberately absent. core/helpRegistry.ts carries an
+        // entry for it, but content/help/platform/hedging-flow.md was never
+        // written, so /help/platform/hedging-flow answers 404 — linking it from
+        // here would just route readers into that. (The registry entry still
+        // puts the 404 in the prev/next chain either side of it; writing the
+        // article is the fix, and this list should gain the link when it lands.)
+        title: 'Options Flow',
+        entries: [
+          {
+            href: '/help/platform/flow-analysis',
+            title: 'Flow Analysis',
+            blurb:
+              'Premium-weighted and net-volume flow, smart-money buckets, the Lee-Ready aggressor split, and how to spot real conviction in the tape.',
+          },
+          {
+            href: '/help/platform/smart-money',
+            title: 'Smart Money',
+            blurb:
+              'The smart-money screen — what qualifies a trade as smart-money, how the C/P ratio is computed, and how to use the bias intraday.',
+          },
+        ],
       },
       {
-        href: '/help/platform/flow-analysis',
-        title: 'Flow Analysis',
-        blurb:
-          'Premium-weighted and net-volume flow, smart-money buckets, the Lee-Ready aggressor split, and how to spot real conviction in the tape.',
-      },
-      {
-        href: '/help/platform/smart-money',
-        title: 'Smart Money',
-        blurb:
-          'The smart-money screen — what qualifies a trade as smart-money, how the C/P ratio is computed, and how to use the bias intraday.',
-      },
-      {
-        href: '/help/platform/max-pain',
-        title: 'Max Pain',
-        blurb:
-          'How max pain is calculated, when it acts as a magnet versus a coincidence, and how to read it next to the gamma profile.',
-      },
-      {
-        href: '/help/platform/pin-strike',
-        title: 'Pin Strike',
-        blurb:
-          'The pin score and the Strong / Moderate / Weak label explained — including why a big, isolated gamma peak can still read Weak.',
-      },
-      {
-        href: '/help/platform/technicals',
-        title: 'Technicals',
-        blurb:
-          'The intraday technical snapshot — price, candles, volatility gauges, and how the levels overlay the GEX walls.',
-      },
-      {
-        href: '/help/platform/spread-monitor',
-        title: 'Spread Monitor',
-        blurb:
-          'Quoted bid/ask width and liquidity across the chain — which side of the book is expensive to trade, where it thins out, and whether today is unusual.',
+        title: 'Market Context',
+        entries: [
+          {
+            href: '/help/platform/technicals',
+            title: 'Technicals',
+            blurb:
+              'The intraday technical snapshot — price, candles, volatility gauges, and how the levels overlay the GEX walls.',
+          },
+          {
+            href: '/help/platform/spread-monitor',
+            title: 'Spread Monitor',
+            blurb:
+              'Quoted bid/ask width and liquidity across the chain — which side of the book is expensive to trade, where it thins out, and whether today is unusual.',
+          },
+        ],
       },
     ],
   },
@@ -330,30 +386,25 @@ export default function PlatformGuidePage() {
                 </div>
               </div>
 
-              <div className="space-y-3">
-                {section.entries.map((entry) => (
-                  <Link
-                    key={entry.href}
-                    href={entry.href}
-                    className="zg-feature-shell group flex flex-col gap-2 p-5 transition hover:border-[var(--color-warning-soft)] sm:flex-row sm:items-start sm:justify-between"
-                  >
-                    <div className="flex-1">
-                      <h3
-                        className="mb-1 text-base font-semibold text-[var(--color-text-primary)]"
-                        dangerouslySetInnerHTML={{ __html: entry.title }}
-                      />
-                      <p
-                        className="text-sm leading-6 text-[var(--color-text-secondary)]"
-                        dangerouslySetInnerHTML={{ __html: entry.blurb }}
-                      />
+              {section.entries ? (
+                <div className="space-y-3">{section.entries.map(renderEntry)}</div>
+              ) : null}
+
+              {/* A subcategorised section (Metrics). Each group is labelled with
+                  the same string the nav files those pages under and the pages
+                  themselves print as their eyebrow, so the three surfaces agree. */}
+              {section.groups ? (
+                <div className="space-y-6">
+                  {section.groups.map((group) => (
+                    <div key={group.title}>
+                      <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-secondary)]">
+                        {group.title}
+                      </h3>
+                      <div className="space-y-3">{group.entries.map(renderEntry)}</div>
                     </div>
-                    <span className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-warning)] transition group-hover:text-[var(--heat-low)] sm:pt-1">
-                      Read
-                      <ArrowRight size={14} />
-                    </span>
-                  </Link>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : null}
             </section>
           );
         })}

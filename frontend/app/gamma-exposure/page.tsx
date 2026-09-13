@@ -502,7 +502,7 @@ export default function GammaExposurePage() {
   if (gexLoading && !gexData) {
     return (
       <PageShell>
-        <PageHeader title="Dealer Positioning Analysis" sub={HEADER_SUB} tooltip={HEADER_TOOLTIP} />
+        <PageHeader title="Dealer Positioning" sub={HEADER_SUB} tooltip={HEADER_TOOLTIP} />
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <LoadingCard /><LoadingCard /><LoadingCard /><LoadingCard />
         </div>
@@ -513,7 +513,7 @@ export default function GammaExposurePage() {
   return (
     <PageShell>
       <PageHeader
-        title="Dealer Positioning Analysis"
+        title="Dealer Positioning"
         sub={HEADER_SUB}
         tooltip={HEADER_TOOLTIP}
         actions={
