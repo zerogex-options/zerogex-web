@@ -14,6 +14,12 @@ Per-platform detail lives in `docs/tradingview-indicator.md`,
 `docs/thinkorswim-indicator.md`, `docs/ninjatrader-indicator.md` and
 `docs/sierra-chart-indicator.md`.
 
+Platforms that were asked for and are **not** in the table above are
+assessed in `docs/integrations-ibkr-collective2-feasibility.md` — IBKR
+(which cannot host a chart integration at all, because TWS runs no user
+code) and Collective2 (which is a signals marketplace, not a chart
+platform, and belongs to the signal engine rather than to this registry).
+
 ## The split is a platform constraint, not a pricing decision
 
 This is the single most important thing to keep straight when writing copy for
