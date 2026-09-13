@@ -24,11 +24,18 @@ and only one of the two is mostly engineering.
 Both also add channels to audit finding **F8**, which is open
 (`oa:docs/compliance/market-data-licensing-audit-2026-09-02.md:170`). See §3.
 
-**Status:** IBKR **Option A is shipped** (§1.2) — `core/brokerConnections.ts`,
-`components/BrokerConnectionNote.tsx`, the hub, the two Pro landings and the
-FAQ. Everything else here is assessment only, with no production code.
-References are `file:line` into this repo (`frontend/…`, `docs/…`) or
-`zerogex-oa` (prefixed `oa:`), as of the commit each claim was written in.
+**Status:** two of the four recommendations are shipped.
+
+- IBKR **Option A** (§1.2) — `core/brokerConnections.ts`,
+  `components/BrokerConnectionNote.tsx`, the hub, the two Pro landings, the FAQ.
+- The **C2 partner page** (§2.4, third bullet) — `/collective2-strategy-data`.
+
+Both ship copy against products that already existed. Neither is an
+integration, neither adds a channel to the F8 inventory (§3), and the two
+things that would — IBKR price alerts and a published ZeroGEX strategy on C2 —
+remain assessment only, with no production code. References are `file:line`
+into this repo (`frontend/…`, `docs/…`) or `zerogex-oa` (prefixed `oa:`), as of
+the commit each claim was written in.
 
 ---
 
@@ -198,11 +205,23 @@ specific things in it are.
   Publishing to C2 makes that record externally audited and permanent —
   including the drawdowns. That is the entire value of C2 and also the entire
   risk: a bad quarter cannot be unpublished.
-- **The reverse direction is cheaper and may be worth doing first.** C2 has
-  thousands of strategy managers, and they are an exact match for the API's
-  customer profile — people who already trade systematically and would pay for
-  a dealer-positioning input. A "use ZeroGEX levels in your C2 strategy"
-  partner page needs no C2 integration at all, and no strategy of our own.
+- **The reverse direction is cheaper, and was done first.** C2 has thousands of
+  strategy managers, and they are an exact match for the API's customer profile
+  — people who already trade systematically and would pay for a
+  dealer-positioning input. A "use ZeroGEX levels in your C2 strategy" partner
+  page needs no C2 integration at all, and no strategy of our own.
+
+  **Shipped** as `/collective2-strategy-data`
+  (`frontend/app/collective2-strategy-data/page.tsx`), linked from the
+  integrations hub and registered in `core/auth.ts` and the sitemap. It sells
+  the existing Pro API to that audience and holds one line carefully: ZeroGEX is
+  *upstream* of the manager's decision, never between them and C2. The "What
+  this is not" section — no signal relay, no C2 bridge, no affiliation, not
+  advice — is load-bearing rather than boilerplate, and
+  `frontend/tests/partnerLandings.test.ts` fails if any of the four statements
+  is edited away. The same suite asserts the route never acquires a registry
+  entry in `core/integrations.ts`, because the page's own copy would become
+  false if it did.
 
 ---
 
@@ -243,7 +262,11 @@ category of user.
    trading strategy at all (§2.4). If yes, C2 is a well-scoped build against
    an engine that already exists — the symbol layer and the idempotent
    emitter are most of it.
-3. **Cheap either way, independent of (2):** the C2-strategy-manager-as-API-
-   customer page. No integration, no strategy, no compliance surface.
+3. ~~**Cheap either way, independent of (2):** the
+   C2-strategy-manager-as-API-customer page.~~ **Done.**
+   `/collective2-strategy-data`. No integration, no strategy of our own, and no
+   new compliance surface — it points an audience at the API they would buy
+   anyway, so the data still leaves through exactly the one door it already
+   did.
 4. **Not now:** IBKR price alerts (Option B). Revisit if Option A produces
    real IBKR volume.

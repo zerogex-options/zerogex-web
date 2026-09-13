@@ -175,6 +175,7 @@ const config = {
       // into the sitemap. Only their index pages are listed: the dated
       // /replay and /forecast permalinks are discovered from those.
       '/chart',
+      '/collective2-strategy-data',
       '/education',
       '/forecast',
       '/giving',

@@ -276,6 +276,51 @@ export default function IntegrationsPage() {
         entries={MANUAL_ENTRY}
       />
 
+      {/* Not a card in either group above, deliberately: Collective2 runs none
+          of our code and there is nothing to download, so it is not an
+          Integration (see core/integrations.ts). It is here because someone
+          who lands on this page building a strategy rather than reading a
+          chart has otherwise arrived at the wrong page and will leave. */}
+      <section
+        style={{
+          border: '1px solid var(--border-subtle)',
+          borderRadius: 16,
+          padding: '22px 24px',
+          marginBottom: 48,
+          background: 'var(--color-bg)',
+        }}
+      >
+        <h2 style={{ margin: '0 0 8px 0', fontSize: 18, fontWeight: 800, letterSpacing: '-0.2px' }}>
+          Writing a strategy rather than reading a chart?
+        </h2>
+        <p
+          style={{
+            margin: '0 0 14px 0',
+            fontSize: 14,
+            lineHeight: 1.7,
+            color: 'var(--color-text-secondary)',
+            maxWidth: 760,
+          }}
+        >
+          The same levels these studies draw are one REST call away, which is the form they take if your
+          rules consume them instead of your eyes — including in a strategy you publish on Collective2.
+        </p>
+        <Link
+          href="/collective2-strategy-data"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 7,
+            fontSize: 14,
+            fontWeight: 800,
+            textDecoration: 'none',
+            color: 'var(--color-brand-accent)',
+          }}
+        >
+          Dealer positioning in your own strategy <ArrowRight size={15} />
+        </Link>
+      </section>
+
       <LiveLevelsCTA
         headline="Where today's numbers come from"
         intro="Every integration above draws the same four levels these pages publish. The free ones ask you to copy them across; the Pro ones fetch them for you."

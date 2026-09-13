@@ -55,6 +55,11 @@ const PUBLIC_ROUTE_PATTERNS = [
   '/thinkorswim-indicator',
   '/ninjatrader-indicator',
   '/sierra-chart-indicator',
+  // A landing for Collective2 strategy managers — marketing copy for the
+  // Pro API, carrying no member data and nothing gated. It is NOT a chart
+  // integration and is deliberately absent from core/integrations.ts, so it
+  // is listed here on its own rather than with the block above.
+  '/collective2-strategy-data',
   '/login',
   '/register',
   '/forgot-password',
