@@ -3,6 +3,8 @@
  * the top-level client and drill-down panel agree on the wire shape.
  */
 
+import type { StrategyStage } from '../backtesting/types';
+
 export interface FleetSummary {
   fleet_capital_starting: number;
   fleet_capital_current: number;
@@ -25,6 +27,25 @@ export interface BotRow {
   id: string;
   display_name: string;
   strategy_class: string;
+  /**
+   * Strategy-catalog identity, resolved server-side from the legacy bot id.
+   * The catalog (`src/strategies` on the engine server) is shared with
+   * Backtesting and Pattern Insights, so a bot card shows the same research
+   * stage and thesis family those surfaces show for the same strategy.
+   *
+   * All optional: the two legacy symbol-specific bot ids and user-deployed
+   * `spec_strategy` bots have no catalog entry.
+   */
+  strategy_id?: string | null;
+  stage?: StrategyStage | null;
+  family?: string | null;
+  family_label?: string | null;
+  backtestable?: boolean;
+  /** Eligible for a live capital sleeve: validated evidence AND a bot to run it. */
+  provisionable?: boolean;
+  in_catalog?: boolean;
+  /** A bot created from a user's saved backtest rather than a catalog thesis. */
+  is_user_deployed?: boolean;
   tier: string;
   direction_mode: string;
   universe: string;
