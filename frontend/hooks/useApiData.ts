@@ -1696,6 +1696,50 @@ export function useSignalEvents(
   );
 }
 
+export interface SignalTrailingRecordRow {
+  name: string;
+  label?: string;
+  flips: number;
+  /** Flips that had a same-session forward price to grade against. */
+  scored: number;
+  wins: number;
+  losses: number;
+  /** null when `scored` is 0 — never 0, which would read as "0% wins". */
+  win_rate: number | null;
+  avg_directional_return: number | null;
+}
+
+export interface SignalTrailingRecordResponse {
+  symbol: string;
+  sessions_requested: number;
+  horizon_minutes: number;
+  signals: SignalTrailingRecordRow[];
+  is_empty?: boolean;
+}
+
+/**
+ * A signal's flip record across the last N sessions.
+ *
+ * The daily scorecard covers one session, which cannot answer "is this signal
+ * any good" — so nothing in the product could, and a subscriber judging a
+ * signal on the one day it called correctly had nothing to check it against.
+ */
+export function useSignalTrailingRecord(
+  signalName: string,
+  symbol = 'SPY',
+  options: { sessions?: number; refreshInterval?: number; enabled?: boolean } = {},
+) {
+  const { sessions = 30, refreshInterval = 0, enabled = true } = options;
+  const query = symbolQuery(symbol, {
+    sessions: Math.max(2, Math.min(120, Math.floor(sessions))),
+    signal: signalName,
+  });
+  return useApiData<SignalTrailingRecordResponse>(
+    `/api/scorecard/signal-record?${query}`,
+    { refreshInterval, enabled },
+  );
+}
+
 export interface ConfluenceMatrixCell {
   observations?: number;
   active_observations?: number;
