@@ -16,6 +16,7 @@ import {
 } from 'recharts';
 
 import { getFiveMinuteSessionTimeline, safeTimeLabel } from '@/core/flowSeriesCharts';
+import ChartHoverReadout, { readoutSide, type ReadoutRow } from '@/components/ChartHoverReadout';
 import { etDateKeyFor, etTodayDateKey } from '@/core/utils';
 import type {
   HedgingFlowBar,
@@ -136,6 +137,13 @@ export interface HedgingFlowChartProps {
    * between panels that are in fact aligned to the pixel.
    */
   hideTimeAxis?: boolean;
+  /**
+   * Lift the hovered bar when this chart is stacked with another. Only the
+   * chart under the mouse receives mouse events, so without lifting, the other
+   * panel's readout would stay blank while its cursor line moved.
+   */
+  hoveredLabel?: string | null;
+  onHoverChange?: (label: string | null) => void;
 }
 
 export default function HedgingFlowChart({
@@ -145,7 +153,12 @@ export default function HedgingFlowChart({
   onModeChange,
   syncId,
   hideTimeAxis = false,
+  hoveredLabel: controlledHover,
+  onHoverChange,
 }: HedgingFlowChartProps) {
+  const [uncontrolledHover, setUncontrolledHover] = useState<string | null>(null);
+  const hoveredLabel = controlledHover !== undefined ? controlledHover : uncontrolledHover;
+  const setHovered = onHoverChange ?? setUncontrolledHover;
   const [uncontrolledMode, setUncontrolledMode] = useState<ViewMode>('rate');
   const mode = controlledMode ?? uncontrolledMode;
   const setMode = onModeChange ?? setUncontrolledMode;
@@ -177,6 +190,24 @@ export default function HedgingFlowChart({
   }, [payload.flips, mode, onlySignificant]);
 
   const latestFlip = flipMarkers.length > 0 ? flipMarkers[flipMarkers.length - 1] : null;
+
+  const hoverIndex = hoveredLabel ? rows.findIndex((r) => r.timestamp === hoveredLabel) : -1;
+  const hovered = hoverIndex >= 0 ? rows[hoverIndex] : null;
+  const readoutRows: ReadoutRow[] = hovered
+    ? (mode === 'cumulative'
+        ? [
+            { label: 'Call-driven', value: hovered.callFlow == null ? '—' : USD(hovered.callFlow), color: 'var(--color-positive)' },
+            { label: 'Put-driven', value: hovered.putFlow == null ? '—' : USD(hovered.putFlow), color: 'var(--color-negative)' },
+            { label: 'Net pressure', value: hovered.netFlow == null ? '—' : USD(hovered.netFlow), color: 'var(--color-info)' },
+          ]
+        : [
+            { label: 'This bar', value: hovered.netFlow == null ? '—' : USD(hovered.netFlow), color: 'var(--color-info)' },
+            { label: `${payload.smoothing_bars}-bar avg`, value: hovered.netFlowMa == null ? '—' : USD(hovered.netFlowMa), color: 'var(--color-info)' },
+          ]
+      ).concat([
+        { label: 'Price', value: hovered.price == null ? '—' : `$${hovered.price.toFixed(2)}`, color: 'var(--color-warning)' },
+      ])
+    : [];
 
   // Both themes resolve this token themselves, so the axis needs no branch.
   const axisStroke = 'var(--color-text-primary)';
@@ -233,8 +264,25 @@ export default function HedgingFlowChart({
         </div>
       )}
 
+      <div className="relative">
+      {hovered && (
+        <ChartHoverReadout
+          title={safeTimeLabel(hovered.timestamp)}
+          rows={readoutRows}
+          side={readoutSide(hoverIndex, rows.length)}
+          top={compact ? 4 : 22}
+        />
+      )}
       <ResponsiveContainer width="100%" height={compact ? 220 : 360}>
-        <ComposedChart data={rows} syncId={syncId} margin={{ top: 8, right: 8, bottom: 4, left: 8 }}>
+        <ComposedChart
+          data={rows}
+          syncId={syncId}
+          margin={{ top: 8, right: 8, bottom: 4, left: 8 }}
+          onMouseMove={(state: { activeLabel?: string | number }) =>
+            setHovered(state?.activeLabel != null ? String(state.activeLabel) : null)
+          }
+          onMouseLeave={() => setHovered(null)}
+        >
           <XAxis
             dataKey="timestamp"
             tickFormatter={safeTimeLabel}
@@ -259,22 +307,12 @@ export default function HedgingFlowChart({
             width={56}
           />
 
+          {/* The cursor line is the useful half; the floating box is what
+              covered the bars. Content renders nothing and the readout is
+              drawn in a corner outside the chart (see ChartHoverReadout). */}
           <Tooltip
-            contentStyle={{
-              backgroundColor: 'var(--color-chart-tooltip-bg)',
-              borderColor: 'var(--color-border)',
-              borderRadius: 8,
-              color: 'var(--color-chart-tooltip-text)',
-            }}
-            labelStyle={{ color: 'var(--color-chart-tooltip-text)', fontWeight: 600 }}
-            itemStyle={{ color: 'var(--color-chart-tooltip-muted)' }}
-            labelFormatter={(v) => safeTimeLabel(String(v))}
-            formatter={(value, name) => {
-              if (value == null) return ['—', name];
-              const n = Number(value);
-              if (!Number.isFinite(n)) return ['—', name];
-              return [name === 'Price' ? `$${n.toFixed(2)}` : USD(n), name];
-            }}
+            content={() => null}
+            cursor={{ stroke: axisStroke, strokeWidth: 1, strokeOpacity: 0.7 }}
           />
 
           {!compact && <Legend verticalAlign="top" wrapperStyle={{ fontSize: 11, paddingBottom: 6 }} />}
@@ -369,6 +407,7 @@ export default function HedgingFlowChart({
           ))}
         </ComposedChart>
       </ResponsiveContainer>
+      </div>
 
       {/*
         Server-authored and non-negotiable. The estimate rests on the

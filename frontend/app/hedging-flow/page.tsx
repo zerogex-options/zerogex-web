@@ -65,6 +65,10 @@ export default function HedgingFlowPage() {
   // compare a 30-minute flow rate against a since-the-open structure change
   // and believe they lined up.
   const [mode, setMode] = useState<'rate' | 'cumulative'>('rate');
+  // Lifted for the same reason as mode: only the chart under the mouse gets
+  // mouse events, so without sharing it the other panel's readout would sit
+  // blank while its cursor line tracked along.
+  const [hovered, setHovered] = useState<string | null>(null);
 
   const expirations = useMemo(
     () => (zeroDteOnly ? [etTodayDateKey()] : undefined),
@@ -165,6 +169,8 @@ export default function HedgingFlowPage() {
               onModeChange={setMode}
               syncId={SYNC_ID}
               hideTimeAxis
+              hoveredLabel={hovered}
+              onHoverChange={setHovered}
             />
 
             <div
@@ -187,7 +193,13 @@ export default function HedgingFlowPage() {
               {regimeLoading && !regime && <LoadingSpinner />}
 
               {regime && regime.bars.length > 0 && (
-                <GammaRegimeChart payload={regime} mode={mode} syncId={SYNC_ID} />
+                <GammaRegimeChart
+                  payload={regime}
+                  mode={mode}
+                  syncId={SYNC_ID}
+                  hoveredLabel={hovered}
+                  onHoverChange={setHovered}
+                />
               )}
 
               {regime && regime.bars.length === 0 && (
