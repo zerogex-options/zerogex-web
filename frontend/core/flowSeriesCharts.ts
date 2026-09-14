@@ -39,11 +39,25 @@ export interface FlowTimeseriesRow {
 }
 
 /**
- * Which volume cumulative the net-volume area plots: `directional` nets buys
+ * Which volume cumulative the bottom area plots: `directional` nets buys
  * against sells (net_volume_cum), `raw` plots total contracts traded
  * (raw_volume_cum).
  */
 export type NetVolumeMode = 'raw' | 'directional';
+
+/**
+ * Control copy for each basis, shared by the chart's own selector and the
+ * Flow Analysis page's control bar so the two can never drift.
+ *
+ * `raw` is deliberately NOT called "Raw Net": raw_volume_cum nets nothing. It
+ * is every contract that changed hands — calls and puts, both sides of every
+ * trade — so it is non-negative and only ever rises. Only `directional` is a
+ * net, and only it can print below zero.
+ */
+export const NET_VOLUME_MODE_LABELS: Record<NetVolumeMode, string> = {
+  directional: 'Directional',
+  raw: 'Total Traded',
+};
 
 // The subset of a /api/flow/series row this module reads. Declared structurally
 // rather than importing FlowSeriesPoint so the module stays free of the hooks
