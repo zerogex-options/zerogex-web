@@ -32,6 +32,15 @@ import { resolvePriceSession } from "@/core/sessionCloses";
 import { futuresDelayLabel } from "@/core/futuresDataStatus";
 import { omitClosedMarketTimes, shouldOmitClosedMarketTimes, isIndexSymbol, isWithinRegularMarketHours, etTodayDateKey, etTradingDateLabel, omitOutOfHoursForSymbol } from "@/core/utils";
 import { SYMBOLS } from "@/core/symbols";
+import {
+  cumulativeNetVolume,
+  netVolumeAreaPaths,
+  netVolumeScale,
+  sessionStartIndices,
+  signedAreaSegments,
+  VOLUME_MODE_LABELS,
+  type VolumeMode,
+} from "@/core/netVolumeSeries";
 import { seriesRollNote, summarizeSeriesContracts } from "@/core/futuresContract";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import LoadingSpinner from "./LoadingSpinner";
@@ -124,6 +133,9 @@ const DEFAULT_OVERLAYS: OverlayState = {
 
 const OVERLAY_STORAGE_KEY = "zg.gammaChart.overlays.v1";
 const STYLE_STORAGE_KEY = "zg.gammaChart.style.v1";
+// Persisted volume pane view: stacked up/down columns, or the running net
+// cumulative (see core/netVolumeSeries).
+const VOLUME_MODE_STORAGE_KEY = "zg.gammaChart.volumeMode.v1";
 // Persisted Expected-range horizon (Daily / Weekly / Monthly) for the overlay.
 const ER_HORIZON_STORAGE_KEY = "zg.gammaChart.erHorizon.v1";
 // Persisted ribbon opacity multiplier (see RIBBON_OPACITY_DEFAULT).
@@ -269,6 +281,12 @@ function fmtVol(v: number): string {
   if (abs >= 1_000_000) return `${(v / 1_000_000).toFixed(abs >= 10_000_000 ? 0 : 1)}M`;
   if (abs >= 1_000) return `${(v / 1_000).toFixed(abs >= 10_000 ? 0 : 1)}K`;
   return `${Math.round(v)}`;
+}
+
+// Net cumulative volume is a signed quantity, and a "+" is what separates
+// "buyers are up 1.2M contracts on the day" from a plain volume count.
+function fmtVolSigned(v: number): string {
+  return `${v >= 0 ? "+" : "−"}${fmtVol(Math.abs(v))}`;
 }
 
 function fmtGex(v: number): string {
@@ -484,6 +502,7 @@ export default function GammaTerminalChart({
   const [timeframeState, setTimeframe] = useState<ChartTimeframe>("5min");
   const timeframe = snapshot ? snapshot.timeframe : timeframeState;
   const [style, setStyle] = useState<PriceStyle>("candles");
+  const [volumeMode, setVolumeMode] = useState<VolumeMode>("updown");
   const [overlays, setOverlays] = useState<OverlayState>(() => ({ ...DEFAULT_OVERLAYS, ...overlayDefaults }));
   // The rail cannot be shown at all in terminal mode — its column is gone.
   const railOn = overlays.rail && !hideRail;
@@ -569,6 +588,7 @@ export default function GammaTerminalChart({
   // no rail — never leak into /chart's saved view, and vice versa.
   const overlayKey = storageScope ? `${OVERLAY_STORAGE_KEY}.${storageScope}` : OVERLAY_STORAGE_KEY;
   const styleKey = storageScope ? `${STYLE_STORAGE_KEY}.${storageScope}` : STYLE_STORAGE_KEY;
+  const volumeModeKey = storageScope ? `${VOLUME_MODE_STORAGE_KEY}.${storageScope}` : VOLUME_MODE_STORAGE_KEY;
   const erKey = storageScope ? `${ER_HORIZON_STORAGE_KEY}.${storageScope}` : ER_HORIZON_STORAGE_KEY;
   const railKey = storageScope ? `${RAIL_STORAGE_KEY}.${storageScope}` : RAIL_STORAGE_KEY;
   const ribbonOpacityKey = storageScope ? `${RIBBON_OPACITY_STORAGE_KEY}.${storageScope}` : RIBBON_OPACITY_STORAGE_KEY;
@@ -585,6 +605,8 @@ export default function GammaTerminalChart({
       if (rawO) setOverlays((cur) => ({ ...cur, ...JSON.parse(rawO) }));
       const rawS = localStorage.getItem(styleKey);
       if (rawS === "candles" || rawS === "line" || rawS === "area") setStyle(rawS);
+      const rawV = localStorage.getItem(volumeModeKey);
+      if (rawV === "updown" || rawV === "net") setVolumeMode(rawV);
       const rawH = localStorage.getItem(erKey);
       if (rawH === "daily" || rawH === "weekly" || rawH === "monthly") setErHorizon(rawH);
       const rawA = localStorage.getItem(ribbonOpacityKey);
@@ -606,7 +628,7 @@ export default function GammaTerminalChart({
       /* ignore malformed prefs */
     }
     setHydrated(true);
-  }, [overlayKey, styleKey, erKey, railKey, ribbonOpacityKey]);
+  }, [overlayKey, styleKey, volumeModeKey, erKey, railKey, ribbonOpacityKey]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
@@ -626,6 +648,15 @@ export default function GammaTerminalChart({
       /* storage unavailable */
     }
   }, [style, hydrated, styleKey]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      localStorage.setItem(volumeModeKey, volumeMode);
+    } catch {
+      /* storage unavailable */
+    }
+  }, [volumeMode, hydrated, volumeModeKey]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -981,6 +1012,37 @@ export default function GammaTerminalChart({
     }
     return base;
   }, [allBars, viewStart, viewEnd, partialCurrentBar]);
+
+  // ── Net cumulative volume (the volume pane's second view) ────────────────
+  // A running session total of uptick MINUS downtick volume, drawn as an area
+  // off a zero line — green while buyers have led the day's tape, red once
+  // sellers have taken it back. Same instrument, and the same read, as the
+  // Options Flow chart's Directional net volume.
+  //
+  // The total is accumulated over every bar up to the right edge, not just the
+  // bars on screen: a cumulative that restarted at the left edge of the
+  // viewport would print a different number for the same bar at every zoom.
+  // Panning back into the session therefore shows exactly the curve the live
+  // view showed. The replay's growing edge candle is substituted the same way
+  // `bars` substitutes it, so the total fills in with the replay instead of
+  // snapping. Intraday bars restart the total each ET trading date (the day
+  // separators the chart already draws); daily candles are one bar per session
+  // already, so their total runs across the window.
+  const netVolume = useMemo(() => {
+    if (volumeMode !== "net" || bars.length === 0) return null;
+    const throughEdge = allBars.slice(0, viewEnd);
+    if (partialCurrentBar && throughEdge.length > 0) throughEdge[throughEdge.length - 1] = partialCurrentBar;
+    const perDay = timeframe !== "1day";
+    const values = cumulativeNetVolume(throughEdge, { resetPerDay: perDay }).slice(viewStart, viewEnd);
+    if (values.length === 0) return null;
+    return {
+      values,
+      segments: signedAreaSegments(values, perDay ? sessionStartIndices(bars) : []),
+      scale: netVolumeScale(values, { top: VOL_TOP, bottom: VOL_BOTTOM }),
+      last: values[values.length - 1],
+    };
+  }, [volumeMode, bars, allBars, viewStart, viewEnd, partialCurrentBar, timeframe]);
+
   const atLiveEdge = !rewindActive && effOffset === 0;
   const isCustomView = view.offset !== 0 || view.count !== DEFAULT_COUNT || priceIsManual;
 
@@ -2452,6 +2514,32 @@ export default function GammaTerminalChart({
             ))}
           </div>
 
+          {/* Volume pane view. Carries a visible "VOL" label because the
+              buttons sit beside the price-style ones and "Cumulative" has to
+              say what it is cumulative OF. */}
+          <div className="flex items-center gap-1.5">
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--text-muted)" }}>Vol</span>
+            <div className="zg-gc-seg" role="tablist" aria-label="Volume pane">
+              {(["updown", "net"] as VolumeMode[]).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  className="zg-gc-seg-btn"
+                  data-active={m === volumeMode}
+                  onClick={() => setVolumeMode(m)}
+                  aria-pressed={m === volumeMode}
+                  title={
+                    m === "updown"
+                      ? "Uptick volume (green) stacked over downtick volume (red), one column per bar."
+                      : "Running session total of uptick minus downtick volume, from the day's first bar. Above zero (green) buyers have led the tape; below it (red) sellers have."
+                  }
+                >
+                  {VOLUME_MODE_LABELS[m]}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="hidden sm:block" style={{ width: 1, height: 22, background: "var(--border-default)" }} />
 
           {/* Overlay pills */}
@@ -2973,24 +3061,54 @@ export default function GammaTerminalChart({
             <g>
               <text x={PLOT_LEFT + 4} y={VOL_TOP + 11} fontFamily="var(--font-mono)" fontSize={9.5} letterSpacing="0.12em" fill="var(--text-muted)">
                 VOLUME
+                {/* The pane names its own view, so a PNG export of the
+                    cumulative reading can't be mistaken for the columns. */}
+                {netVolume && <tspan>{"  ·  NET CUMULATIVE"}</tspan>}
+                {netVolume && (
+                  <tspan dx={10} fill={netVolume.last >= 0 ? "var(--color-bull)" : "var(--color-bear)"}>
+                    {fmtVolSigned(netVolume.last)}
+                  </tspan>
+                )}
                 {symbolIsIndex && <tspan fill="var(--color-warning)" fontSize={8.5}>{"   ·  PROXY (EST.)"}</tspan>}
                 {symbolIsIndex && (
                   <title>{`${symbol} is a cash index — it doesn't trade, so this volume is a derived proxy, not native index volume.`}</title>
                 )}
               </text>
-              {bars.map((b, i) => {
-                const x = xForIndex(i);
-                const w = Math.max(1.5, candleWidth);
-                const downTop = yVol(b.downVolume);
-                const upTop = yVol(b.upVolume + b.downVolume);
-                const dim = hover ? (i === activeIdx ? 1 : 0.5) : 0.72;
-                return (
-                  <g key={`vol-${b.timestamp}`} opacity={dim}>
-                    {b.downVolume > 0 && <rect x={x - w / 2} y={downTop} width={w} height={Math.max(0.6, VOL_BOTTOM - downTop)} fill="var(--color-bear)" />}
-                    {b.upVolume > 0 && <rect x={x - w / 2} y={upTop} width={w} height={Math.max(0.6, downTop - upTop)} fill="var(--color-bull)" />}
-                  </g>
-                );
-              })}
+              {netVolume ? (
+                <>
+                  {/* Zero line first: the area is measured off it, so it reads
+                      as the axis the fills hang from rather than a gridline. */}
+                  <line x1={PLOT_LEFT} x2={plotRight} y1={netVolume.scale.zeroY} y2={netVolume.scale.zeroY} stroke="var(--text-muted)" strokeWidth={1} opacity={0.55} />
+                  {netVolumeAreaPaths(netVolume.segments, {
+                    x: xForIndex,
+                    y: netVolume.scale.y,
+                    zeroY: netVolume.scale.zeroY,
+                    columnWidth: Math.max(1.5, candleWidth),
+                  }).map((area, i) => {
+                    const color = area.sign > 0 ? "var(--color-bull)" : "var(--color-bear)";
+                    return (
+                      <g key={`nv-${i}`}>
+                        <path d={area.fill} fill={color} opacity={0.45} />
+                        {area.line && <path d={area.line} fill="none" stroke={color} strokeWidth={1.25} />}
+                      </g>
+                    );
+                  })}
+                </>
+              ) : (
+                bars.map((b, i) => {
+                  const x = xForIndex(i);
+                  const w = Math.max(1.5, candleWidth);
+                  const downTop = yVol(b.downVolume);
+                  const upTop = yVol(b.upVolume + b.downVolume);
+                  const dim = hover ? (i === activeIdx ? 1 : 0.5) : 0.72;
+                  return (
+                    <g key={`vol-${b.timestamp}`} opacity={dim}>
+                      {b.downVolume > 0 && <rect x={x - w / 2} y={downTop} width={w} height={Math.max(0.6, VOL_BOTTOM - downTop)} fill="var(--color-bear)" />}
+                      {b.upVolume > 0 && <rect x={x - w / 2} y={upTop} width={w} height={Math.max(0.6, downTop - upTop)} fill="var(--color-bull)" />}
+                    </g>
+                  );
+                })
+              )}
               <line x1={PLOT_LEFT} x2={plotRight} y1={VOL_BOTTOM} y2={VOL_BOTTOM} stroke="var(--border-default)" strokeWidth={1} />
             </g>
 
@@ -3119,6 +3237,13 @@ export default function GammaTerminalChart({
                 <Row k="L" v={fmtPrice(activeBar.low)} />
                 <Row k="C" v={fmtPrice(activeBar.close)} color={activeBar.close >= activePrevClose ? "var(--color-bull)" : "var(--color-bear)"} />
                 <Row k="Vol" v={fmtVol(activeBar.volume)} />
+                {netVolume && (
+                  <Row
+                    k="Net"
+                    v={fmtVolSigned(netVolume.values[activeIdx] ?? 0)}
+                    color={(netVolume.values[activeIdx] ?? 0) >= 0 ? "var(--color-bull)" : "var(--color-bear)"}
+                  />
+                )}
               </div>
               {liveBarClock && activeBar.timestamp === liveBarTimestamp && (
                 <div style={{ marginTop: 6 }}>
