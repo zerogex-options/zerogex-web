@@ -45,7 +45,7 @@ import {
 } from '@/core/subscriberBucket';
 import {
   accumulateTrialOutcomes,
-  bucketUpcomingChanges,
+  buildUpcomingSteps,
   classifyRider,
   NOMINAL_TRIAL_DAYS,
   projectFullSubscribers,
@@ -252,9 +252,13 @@ export type WebhookHealth = {
 export type UpcomingChangesSnapshot = UpcomingChanges & {
   horizonDays: number;
   // Trials whose first charge has already been declined once. Genuinely
-  // undecided — Stripe is still retrying — so they are kept off the bars and
+  // undecided — Stripe is still retrying — so they are kept off the line and
   // reported here instead of being guessed either way.
   undecidedStalled: number;
+  // Where each ET day begins inside the window, for the chart's time axis.
+  // Resolved here because the ET calendar lives on this side; the client only
+  // has the instants and the day names to hang off them.
+  dayMarks: Array<{ at: string; day: string }>;
 };
 
 // The live trial→paying assembly line behind the admin "Conversion Conveyor"
@@ -1454,38 +1458,44 @@ function dayOf(iso: string | null): string | null {
 // ── What's coming up ───────────────────────────────────────────────────────
 // How far ahead the Conversion Conveyor's net-change chart looks. Matches
 // SUBSCRIBER_PROJECTION_DAYS so the two views of the same committed events are
-// read over the same horizon, but this one STARTS at today: a charge due three
-// hours from now is the most imminent thing on the belt, and the projection
-// can't show it (its first day has to clear the chart's last real point).
+// read over the same horizon, but this one runs from RIGHT NOW: the projection
+// cannot show anything due today, because its first day has to clear the
+// subscriber chart's last real point.
 const UPCOMING_HORIZON_DAYS = 7;
 
-// The next `count` ET day keys, today first (generateDailyKeys only walks
-// backward). Anchored at today's ET date and then stepped in UTC, where a day is
-// always exactly 24h: adding 24h to a real instant near midnight SKIPS a
-// calendar day across a spring-forward transition, which would leave a hole in
-// the middle of the window twice a year.
-function forwardDailyKeys(now: Date, count: number): string[] {
-  let cursor = Date.parse(`${etBucketKeys(now).day}T12:00:00Z`);
-  const keys: string[] = [];
-  for (let i = 0; i < count; i++) {
-    keys.push(new Date(cursor).toISOString().slice(0, 10));
-    cursor += 86_400_000;
+// Where each ET day starts inside the window. An ET day always begins on an
+// hour boundary, so stepping hour by hour and taking the first instant of each
+// new day finds every boundary exactly — DST included — off the same ET calendar
+// the rest of the page buckets on, with no timezone arithmetic of its own.
+function etDayBoundaries(startMs: number, endMs: number): Array<{ at: string; day: string }> {
+  const marks: Array<{ at: string; day: string }> = [];
+  let previous = etBucketKeys(new Date(startMs)).day;
+  const firstHour = Math.ceil(startMs / 3_600_000) * 3_600_000;
+  for (let ms = firstHour; ms <= endMs; ms += 3_600_000) {
+    const { day } = etBucketKeys(new Date(ms));
+    if (day !== previous) marks.push({ at: new Date(ms).toISOString(), day });
+    previous = day;
   }
-  return keys;
+  return marks;
 }
 
 function buildUpcomingChanges(now: Date, conveyor: ConveyorParts): UpcomingChangesSnapshot {
+  // The window opens at this instant rather than at midnight: a charge due in
+  // three hours is the most imminent thing on the belt, and "the next 7 days"
+  // is the next 7 days, not the remainder of today plus six.
+  const startMs = now.getTime();
+  const endMs = startMs + UPCOMING_HORIZON_DAYS * 86_400_000;
   return {
-    ...bucketUpcomingChanges(
+    ...buildUpcomingSteps(
       upcomingChangesFromConveyor({
         riders: conveyor.riders,
         departures: conveyor.departures,
-        dayOf,
       }),
-      forwardDailyKeys(now, UPCOMING_HORIZON_DAYS),
+      { startMs, endMs },
     ),
     horizonDays: UPCOMING_HORIZON_DAYS,
     undecidedStalled: conveyor.totals.stalled,
+    dayMarks: etDayBoundaries(startMs, endMs),
   };
 }
 

@@ -1,7 +1,7 @@
 'use client';
 
 import PageShell from '@/components/layout/PageShell';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { Area, Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
@@ -25,9 +25,8 @@ import {
   type ConveyorRider,
   type ConveyorState,
   type ConveyorTotals,
-  type UpcomingChange,
-  type UpcomingChangePoint,
   type UpcomingChanges,
+  type UpcomingStep,
 } from '@/core/trialConveyor';
 import { ledgerKindLabel, type LedgerEventKind, type LedgerRow } from '@/core/subscriberBucket';
 import type { SubscriberProjectionPoint } from '@/core/trialConveyor';
@@ -217,12 +216,13 @@ type TrialConveyor = {
   generatedAt: string;
 };
 
-// Mirrors UpcomingChangesSnapshot in core/monitoring.ts. The `drops` counts and
-// `dropValue` amounts arrive NEGATIVE (pre-negated server-side) so they stack
-// below the axis without the client having to remember to flip them.
+// Mirrors UpcomingChangesSnapshot in core/monitoring.ts. The `drops` count and
+// `dropValue` amount arrive NEGATIVE (pre-negated server-side) so they read the
+// way the chart draws them, with no flipping on this side.
 type UpcomingChangesSnapshot = UpcomingChanges & {
   horizonDays: number;
   undecidedStalled: number;
+  dayMarks: Array<{ at: string; day: string }>;
 };
 
 // Mirrors SubscriberLedgerSnapshot in core/monitoring.ts (hand-synced — that
@@ -1312,50 +1312,40 @@ function ScheduledDeparturesCard({
 }
 
 // ── What's coming up ───────────────────────────────────────────────────────
-// The belt's committed events as a per-day ledger: every trial due to be charged
-// is a +1 above the axis on the day it converts, every scheduled cancellation a
-// −1 below it. Nothing here is forecast — each bar is an event Stripe already
-// has a date for — which is what makes it worth acting on.
+// The belt's committed events on a real clock: a step that rises at the instant
+// a trial is due to be charged and falls at the instant a cancellation takes
+// effect, read against zero — today's paid count. Green above the line, red
+// below. Nothing here is forecast: every step is an event Stripe already has a
+// date for, which is what makes it worth acting on.
 
-// Day keys are ET calendar dates, so they're parsed as UTC and formatted as UTC:
-// naming the day by the viewer's clock would slide the label off its own bar.
-function upcomingDayDate(day: string): Date | null {
+// Day names come off ET day keys, which are calendar dates — parsed and
+// formatted as UTC so the label can't slide a day on the viewer's clock.
+function upcomingDayLabel(day: string, opts?: { withDate?: boolean }): string {
   const ms = Date.parse(`${day}T00:00:00Z`);
-  return Number.isFinite(ms) ? new Date(ms) : null;
-}
-
-function upcomingDayTick(day: string, index: number): string {
-  if (index === 0) return 'Today';
-  const d = upcomingDayDate(day);
-  return d ? d.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' }) : day;
-}
-
-function upcomingDayHeading(day: string, index: number): string {
-  const d = upcomingDayDate(day);
-  if (!d) return day;
-  const full = d.toLocaleDateString('en-US', {
+  if (!Number.isFinite(ms)) return day;
+  return new Date(ms).toLocaleDateString('en-US', {
     weekday: 'short',
-    month: 'numeric',
-    day: 'numeric',
     timeZone: 'UTC',
+    ...(opts?.withDate ? { month: 'numeric', day: 'numeric' } : {}),
   });
-  return index === 0 ? `Today · ${full}` : full;
 }
 
-// Clock time a single change is due, in ET — the same axis every bucket on this
-// page is cut on, so "9:40 PM" here and the day it lands on always agree.
-function upcomingEventTime(at: string | null): string {
-  const ms = at ? Date.parse(at) : NaN;
+// An instant on the belt, in ET — the same clock every bucket on this page is
+// cut on, so the time shown and the day it sits under always agree.
+function upcomingInstant(at: string, opts?: { withDay?: boolean }): string {
+  const ms = Date.parse(at);
   if (!Number.isFinite(ms)) return '—';
-  return new Date(ms).toLocaleTimeString('en-US', {
+  return new Date(ms).toLocaleString('en-US', {
+    ...(opts?.withDay ? { weekday: 'short', month: 'numeric', day: 'numeric' } : {}),
     hour: 'numeric',
     minute: '2-digit',
     timeZone: 'America/New_York',
   });
 }
 
-// Longest list of individual members shown in one day's tooltip before it is
-// summarized. Deep enough for a normal day, short enough to stay a tooltip.
+// Longest list of members named in one step's tooltip before it is summarized.
+// A step usually carries one event; several only collide when Stripe schedules
+// them for the same instant.
 const UPCOMING_TOOLTIP_ROWS = 8;
 
 function UpcomingChangesCard({
@@ -1371,35 +1361,48 @@ function UpcomingChangesCard({
   mutedText: string;
   textColor: string;
 }) {
-  const points = upcoming.points;
+  const steps = upcoming.steps;
   const addColor = CONVEYOR_COLORS.running;
   const dropColor = CONVEYOR_COLORS.rollingOff;
+  // SVG gradient ids have to be unique across the whole DOCUMENT: a duplicate id
+  // makes every `url(#…)` on the page resolve to the FIRST one, so a second card
+  // would silently paint itself with the first card's zero crossing.
+  const gradientId = useId();
+  const fillId = `upcomingNetFill${gradientId}`;
+  const strokeId = `upcomingNetStroke${gradientId}`;
 
-  const dayIndex = useMemo(
-    () => new Map(points.map((p, i) => [p.day, i] as const)),
-    [points],
-  );
-  const byDay = useMemo(
-    () => new Map(points.map((p) => [p.day, p] as const)),
-    [points],
-  );
+  const startMs = useMemo(() => Date.parse(upcoming.startsAt), [upcoming.startsAt]);
+  const endMs = useMemo(() => Date.parse(upcoming.endsAt), [upcoming.endsAt]);
+  const stepByTime = useMemo(() => new Map(steps.map((s) => [s.t, s] as const)), [steps]);
 
-  // Integer ticks either side of zero. Both halves are floored at one unit so an
-  // all-adds (or empty) week still renders a zero line with room under it —
-  // "nothing is leaving" reads as a fact rather than as a cropped axis.
-  const yScale = useMemo(() => {
-    const maxUp = Math.max(1, ...points.map((p) => p.adds));
-    const maxDown = Math.max(1, ...points.map((p) => -p.drops));
-    const step = Math.max(1, Math.ceil(Math.max(maxUp, maxDown) / 4));
-    const top = Math.ceil(maxUp / step) * step;
-    const bottom = -Math.ceil(maxDown / step) * step;
-    const ticks: number[] = [];
-    for (let v = bottom; v <= top; v += step) ticks.push(v);
-    return { domain: [bottom, top] as [number, number], ticks };
-  }, [points]);
+  // Where zero sits inside the plotted shape, as a 0..1 fraction from the top.
+  // An SVG gradient on a Recharts <Area> is measured against the PATH's own
+  // bounding box, not the axis, so this is computed from the values the path
+  // actually reaches — never from the padded axis domain, which would put the
+  // color change above or below the line it is meant to trace. The step always
+  // opens at zero, so the box always contains it.
+  const { splitOffset, yScale } = useMemo(() => {
+    const values = steps.map((s) => s.net);
+    const high = Math.max(0, ...values);
+    const low = Math.min(0, ...values);
+    const offset = high === low ? 1 : high / (high - low);
+    // One unit of headroom either side, so the line never runs along the frame
+    // and an all-green week still shows the room below zero it isn't using.
+    // Ticks are spaced separately and walked OUTWARD FROM ZERO, because zero is
+    // the one value on this axis that has to carry a label — it is what the
+    // whole chart is read against.
+    const step = Math.max(1, Math.ceil((high - low) / 3));
+    const ticks = [0];
+    for (let v = step; v <= high + 1; v += step) ticks.push(v);
+    for (let v = -step; v >= low - 1; v -= step) ticks.unshift(v);
+    return {
+      splitOffset: offset,
+      yScale: { domain: [low - 1, high + 1] as [number, number], ticks },
+    };
+  }, [steps]);
 
-  // Server-side counts arrive pre-negated for plotting; the header reads them
-  // back as plain magnitudes, and a zero never wears a minus sign.
+  // Server-side counts arrive pre-negated to match the chart; the header reads
+  // them back as plain magnitudes, and a zero never wears a minus sign.
   const drops = upcoming.drops === 0 ? 0 : -upcoming.drops;
   const dropValue = upcoming.dropValue === 0 ? 0 : -upcoming.dropValue;
   const quiet = upcoming.adds === 0 && drops === 0;
@@ -1435,28 +1438,46 @@ function UpcomingChangesCard({
         </span>
       </div>
 
-      <ResponsiveContainer width="100%" height={132}>
-        {/* stackOffset="sign" is what makes this a DIVERGING chart rather than a
-            stacked one: positives accumulate upward from zero and negatives
-            downward, so a day with 4 conversions and 1 departure draws +4 above
-            the line and −1 below it. The default offset would sum them into a
-            single 3-tall bar and lose the departure entirely. */}
-        <ComposedChart
-          data={points}
-          margin={{ top: 6, right: 8, left: 0, bottom: 0 }}
-          stackOffset="sign"
-          barCategoryGap="34%"
-          maxBarSize={44}
-        >
+      <ResponsiveContainer width="100%" height={140}>
+        <ComposedChart data={steps} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
+          <defs>
+            {/* One shape, two colors, split exactly where the line crosses zero. */}
+            <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset={0} stopColor={addColor} stopOpacity={0.5} />
+              <stop offset={splitOffset} stopColor={addColor} stopOpacity={0.12} />
+              <stop offset={splitOffset} stopColor={dropColor} stopOpacity={0.12} />
+              <stop offset={1} stopColor={dropColor} stopOpacity={0.5} />
+            </linearGradient>
+            <linearGradient id={strokeId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset={0} stopColor={addColor} />
+              <stop offset={splitOffset} stopColor={addColor} />
+              <stop offset={splitOffset} stopColor={dropColor} />
+              <stop offset={1} stopColor={dropColor} />
+            </linearGradient>
+          </defs>
           <CartesianGrid strokeOpacity={0.1} vertical={false} />
+          {/* A real time axis: each step sits at the instant it is due, not in a
+              bucket. Ticks are the ET midnights inside the window, resolved
+              server-side, plus "Now" pinning the left edge. */}
           <XAxis
-            dataKey="day"
+            dataKey="t"
+            type="number"
+            scale="time"
+            domain={[startMs, endMs]}
             stroke={mutedText}
             tick={{ fill: mutedText, fontSize: 10 }}
             tickLine={false}
             axisLine={false}
-            interval={0}
-            tickFormatter={(day: string) => upcomingDayTick(day, dayIndex.get(day) ?? 1)}
+            // No interval={0}: "Now" and the first midnight sit close together
+            // whenever the page is opened late in the day, and at phone width
+            // they collide. minTickGap drops whichever the axis has no room for
+            // rather than overprinting them.
+            minTickGap={26}
+            ticks={[startMs, ...upcoming.dayMarks.map((m) => Date.parse(m.at))]}
+            tickFormatter={(t: number) => {
+              const mark = upcoming.dayMarks.find((m) => Date.parse(m.at) === t);
+              return mark ? upcomingDayLabel(mark.day) : 'Now';
+            }}
           />
           <YAxis
             stroke={mutedText}
@@ -1469,35 +1490,44 @@ function UpcomingChangesCard({
             ticks={yScale.ticks}
             interval={0}
           />
-          {/* The neutral midpoint of the diverging pair, and the secondary
-              encoding that makes the two colors readable without hue: adds are
-              above this line, drops below it. */}
-          <ReferenceLine y={0} stroke={mutedText} strokeOpacity={0.55} />
           <Tooltip
-            cursor={{ fill: 'var(--color-text-primary)', fillOpacity: 0.05 }}
+            cursor={{ stroke: 'var(--color-text-primary)', strokeOpacity: 0.2 }}
             content={({ active, label }) => {
               if (!active) return null;
-              const point = byDay.get(String(label));
-              if (!point) return null;
-              return (
-                <UpcomingDayTooltip
-                  point={point}
-                  index={dayIndex.get(point.day) ?? 0}
-                  addColor={addColor}
-                  dropColor={dropColor}
-                />
-              );
+              const step = stepByTime.get(Number(label));
+              if (!step) return null;
+              return <UpcomingStepTooltip step={step} addColor={addColor} dropColor={dropColor} />;
             }}
           />
-          <Bar dataKey="adds" stackId="net" fill={addColor} radius={[4, 4, 0, 0]} isAnimationActive={false} />
-          <Bar dataKey="drops" stackId="net" fill={dropColor} radius={[0, 0, 4, 4]} isAnimationActive={false} />
+          {/* stepAfter, never a curve: a headcount moves in whole subscribers,
+              so the value holds flat until the next event and then jumps. */}
+          <Area
+            dataKey="net"
+            type="stepAfter"
+            stroke={`url(#${strokeId})`}
+            strokeWidth={2}
+            fill={`url(#${fillId})`}
+            baseValue={0}
+            dot={{ r: 2, strokeWidth: 0, fill: 'var(--color-text-primary)', fillOpacity: 0.45 }}
+            activeDot={{ r: 4, strokeWidth: 0 }}
+            isAnimationActive={false}
+          />
+          {/* Today's count. The whole chart is read as a distance from this
+              line, and it is the secondary encoding that keeps the two colors
+              legible without hue: up is green, down is red.
+              Drawn AFTER the area, on purpose. A stretch where nothing has
+              landed yet sits exactly on zero, and the gradient bisects that
+              stroke — leaving a flat, unchanged week showing a red edge. The
+              neutral line covers it, which is also the honest reading: a net of
+              zero is neither a gain nor a loss. */}
+          <ReferenceLine y={0} stroke={mutedText} strokeOpacity={0.7} strokeWidth={2} />
         </ComposedChart>
       </ResponsiveContainer>
 
       <p className="text-xs mt-2" style={{ color: mutedText }}>
         {quiet
           ? `Nothing is scheduled to land in the next ${upcoming.horizonDays} days — no trial reaches its first charge and no cancellation takes effect.`
-          : `Each bar is what lands that day. A trialer who clicks Cancel stops heading for a charge, so their +1 simply leaves the chart.`}
+          : 'The line is the running net against today, stepping at the instant each charge or cancellation lands. A trialer who clicks Cancel stops heading for a charge, so their step simply leaves the chart.'}
         {upcoming.undecidedStalled > 0 &&
           ` ${upcoming.undecidedStalled} trial${upcoming.undecidedStalled === 1 ? '' : 's'} retrying a declined charge ${upcoming.undecidedStalled === 1 ? 'is' : 'are'} left off — genuinely undecided until the retry lands.`}
       </p>
@@ -1505,20 +1535,18 @@ function UpcomingChangesCard({
   );
 }
 
-function UpcomingDayTooltip({
-  point,
-  index,
+function UpcomingStepTooltip({
+  step,
   addColor,
   dropColor,
 }: {
-  point: UpcomingChangePoint;
-  index: number;
+  step: UpcomingStep;
   addColor: string;
   dropColor: string;
 }) {
-  const drops = point.drops === 0 ? 0 : -point.drops;
-  const shown = point.events.slice(0, UPCOMING_TOOLTIP_ROWS);
-  const hidden = point.events.length - shown.length;
+  const shown = step.events.slice(0, UPCOMING_TOOLTIP_ROWS);
+  const hidden = step.events.length - shown.length;
+  const netColor = step.net > 0 ? addColor : step.net < 0 ? dropColor : undefined;
   return (
     <div
       className="rounded-lg border px-3 py-2 text-xs"
@@ -1528,29 +1556,20 @@ function UpcomingDayTooltip({
         color: 'var(--color-chart-tooltip-text)',
       }}
     >
-      <div className="font-semibold mb-1">{upcomingDayHeading(point.day, index)}</div>
-      {point.events.length === 0 ? (
-        <div style={{ opacity: 0.8 }}>Nothing due</div>
+      <div className="font-semibold mb-1">{upcomingInstant(step.at, { withDay: true })}</div>
+      <div className="mb-1" style={{ opacity: 0.85 }}>
+        Running net vs today:{' '}
+        <span className="tabular-nums font-semibold" style={{ color: netColor }}>
+          {step.net >= 0 ? '+' : '−'}{Math.abs(step.net)}
+        </span>
+      </div>
+      {step.events.length === 0 ? (
+        <div style={{ opacity: 0.7 }}>Nothing lands at this moment</div>
       ) : (
         <>
-          <div style={{ opacity: 0.8 }}>
-            <span style={{ color: addColor }}>
-              {point.adds === 0 ? 'none' : `+${point.adds}`} converting
-            </span>
-            {' · '}
-            <span style={{ color: dropColor }}>{drops === 0 ? 'none' : `−${drops}`} leaving</span>
-            {' · net '}
-            {point.net >= 0 ? '+' : '−'}
-            {Math.abs(point.net)}
-          </div>
-          <div className="mb-1" style={{ opacity: 0.8 }}>
-            Running total through this day: {point.cumulative >= 0 ? '+' : '−'}
-            {Math.abs(point.cumulative)} vs today
-          </div>
           <ul>
-            {shown.map((e: UpcomingChange) => (
+            {shown.map((e) => (
               <li key={`${e.kind}-${e.userId}`} className="flex gap-2">
-                <span className="tabular-nums" style={{ opacity: 0.7 }}>{upcomingEventTime(e.at)}</span>
                 <span
                   className="tabular-nums font-semibold"
                   style={{ color: e.kind === 'conversion' ? addColor : dropColor }}
@@ -1558,10 +1577,15 @@ function UpcomingDayTooltip({
                   {e.kind === 'conversion' ? '+1' : '−1'}
                 </span>
                 <span className="truncate" style={{ maxWidth: '16rem' }}>{e.email ?? e.userId}</span>
+                {e.monthlyValue > 0 && (
+                  <span className="tabular-nums" style={{ opacity: 0.7 }}>
+                    {formatUsd(e.monthlyValue)}/mo
+                  </span>
+                )}
               </li>
             ))}
           </ul>
-          {hidden > 0 && <div style={{ opacity: 0.7 }}>+ {hidden} more</div>}
+          {hidden > 0 && <div style={{ opacity: 0.7 }}>+ {hidden} more at this instant</div>}
         </>
       )}
     </div>

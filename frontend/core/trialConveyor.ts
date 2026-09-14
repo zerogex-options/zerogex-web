@@ -515,52 +515,55 @@ export function projectFullSubscribers(input: {
 
 // ── What's coming up ───────────────────────────────────────────────────────
 // The same committed events projectFullSubscribers rolls into a running total,
-// kept as a per-day LEDGER instead: every trial whose first charge is scheduled
-// inside the window is a +1 on the day it converts, and every paying member
-// whose cancellation takes effect inside it is a −1 on the day their access
-// ends. The projection answers "where does the line end up"; this answers "what
-// actually lands, and when" — which is the question an operator has when
-// deciding whether next week needs attention.
+// kept on a real CLOCK instead: a step that rises +1 at the instant a trial is
+// due to be charged and falls −1 at the instant a cancellation takes effect.
+// The projection answers "where does the line end up"; this answers "what lands,
+// and exactly when" — which is the question an operator has when deciding
+// whether the next few days need attention.
+//
+// A step, not a curve, because a headcount only ever moves in whole subscribers:
+// interpolating between two events would draw fractional members that never
+// exist. The value between two steps is the running net against today's count,
+// which is why the chart is read against zero — above it the week is up, below
+// it the week is down.
 //
 // A trialer clicking Cancel is not a special case here. That trial flips to
 // `rollingOff`, which this never counts, so its +1 is simply absent from the
-// next render — the bar drops by one on its own.
+// next render — the step disappears on its own.
 
 export type UpcomingChangeKind = 'conversion' | 'departure';
 
 export type UpcomingChange = {
   kind: UpcomingChangeKind;
-  // When it is scheduled for, and the day bucket that lands in. Both are
-  // nullable because a subscription Stripe has not reported a period end for
-  // has neither — those are skipped rather than guessed onto a day.
+  // The instant it is scheduled for. Nullable because a subscription Stripe has
+  // not reported a period end for has none; those are skipped rather than
+  // guessed onto a time.
   at: string | null;
-  day: string | null;
   userId: string;
   email: string | null;
   // $/month this change brings in (conversion) or takes away (departure).
   monthlyValue: number;
 };
 
-export type UpcomingChangePoint = {
-  day: string;
-  // Counts, signed the way they plot: adds above the axis, drops below. `drops`
-  // and `dropValue` are therefore ZERO OR NEGATIVE — pre-negated here so no
-  // caller has to remember to do it, matching the flow series' convention.
-  adds: number;
-  drops: number;
+// One point on the step. `net` is the running total the line holds FROM this
+// instant until the next step — so the value carried is the one after the
+// events listed here have landed.
+export type UpcomingStep = {
+  // Epoch ms: the x value on a time axis, not a label.
+  t: number;
+  at: string;
   net: number;
-  // Running net from the start of the window through the end of this day, so
-  // the line reads "where the paid headcount stands against today" throughout.
-  cumulative: number;
-  addValue: number;
-  dropValue: number;
-  // The individual changes landing on this day, soonest first — who, and when.
+  // What lands at this instant. Empty on the two anchors that pin the line to
+  // the edges of the window.
   events: UpcomingChange[];
 };
 
 export type UpcomingChanges = {
-  points: UpcomingChangePoint[];
-  // Window totals. `drops`/`dropValue` are negated like the points above.
+  startsAt: string;
+  endsAt: string;
+  steps: UpcomingStep[];
+  // Window totals. `drops`/`dropValue` are negative, matching how they read on
+  // the chart, so no caller has to remember to flip them.
   adds: number;
   drops: number;
   net: number;
@@ -568,8 +571,8 @@ export type UpcomingChanges = {
   dropValue: number;
 };
 
-export function emptyUpcomingChanges(): UpcomingChanges {
-  return { points: [], adds: 0, drops: 0, net: 0, addValue: 0, dropValue: 0 };
+export function emptyUpcomingChanges(startsAt = '', endsAt = ''): UpcomingChanges {
+  return { startsAt, endsAt, steps: [], adds: 0, drops: 0, net: 0, addValue: 0, dropValue: 0 };
 }
 
 /**
@@ -583,18 +586,13 @@ export function emptyUpcomingChanges(): UpcomingChanges {
 export function upcomingChangesFromConveyor(input: {
   riders: ConveyorRider[];
   departures: ConveyorRider[];
-  // Resolves an ISO instant to the day bucket it belongs in. Injected so this
-  // module stays free of timezone handling (the admin charts bucket on ET).
-  dayOf: (iso: string | null) => string | null;
 }): UpcomingChange[] {
-  const { dayOf } = input;
   const out: UpcomingChange[] = [];
   for (const r of input.riders) {
     if (r.state !== 'running') continue;
     out.push({
       kind: 'conversion',
       at: r.convertsAt,
-      day: dayOf(r.convertsAt),
       userId: r.userId,
       email: r.email,
       monthlyValue: r.monthlyValue,
@@ -604,7 +602,6 @@ export function upcomingChangesFromConveyor(input: {
     out.push({
       kind: 'departure',
       at: d.convertsAt,
-      day: dayOf(d.convertsAt),
       userId: d.userId,
       email: d.email,
       monthlyValue: d.monthlyValue,
@@ -614,76 +611,72 @@ export function upcomingChangesFromConveyor(input: {
 }
 
 /**
- * Bucket committed changes onto `days` (ascending day keys).
+ * Walk committed changes into the step the chart draws, across [startMs, endMs].
  *
  * Same window rules as projectFullSubscribers, for the same reasons: anything
- * already overdue folds into the first day (it is imminent, not absent),
- * anything past the last day is outside the window, and an undated change is
- * skipped rather than guessed onto a day.
+ * already overdue is clamped to the window start (it is imminent, not absent —
+ * Stripe owes us that charge now), anything past the end is outside the window,
+ * and an undated change is skipped rather than guessed onto a time.
+ *
+ * The line is pinned at both edges: it opens at zero — today's count, before
+ * anything lands — and closes at the final net, so the last stretch of the week
+ * is drawn rather than implied. Changes sharing an instant become ONE step, so
+ * two trials converting together move the line by two in a single jump.
  */
-export function bucketUpcomingChanges(changes: UpcomingChange[], days: string[]): UpcomingChanges {
-  // Negation that keeps a zero a zero: -0 is a value a chart library, a JSON
-  // round-trip, or an equality check can all disagree about, and "no drops" is
-  // the most common value in this whole structure.
-  const below = (n: number) => (n === 0 ? 0 : -n);
-  if (days.length === 0) return emptyUpcomingChanges();
-  const first = days[0];
-  const last = days[days.length - 1];
-
-  const byDay = new Map<string, UpcomingChange[]>();
-  for (const change of changes) {
-    if (!change.day || change.day > last) continue;
-    const key = change.day < first ? first : change.day;
-    const list = byDay.get(key);
-    if (list) list.push(change);
-    else byDay.set(key, [change]);
+export function buildUpcomingSteps(
+  changes: UpcomingChange[],
+  window: { startMs: number; endMs: number },
+): UpcomingChanges {
+  const { startMs, endMs } = window;
+  const startsAt = new Date(startMs).toISOString();
+  const endsAt = new Date(endMs).toISOString();
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) {
+    return emptyUpcomingChanges(startsAt, endsAt);
   }
 
-  let cumulative = 0;
-  let totalAdds = 0;
-  let totalDrops = 0;
-  let totalAddValue = 0;
-  let totalDropValue = 0;
-  const points = days.map((day) => {
-    // ISO instants sort correctly as plain strings; an undated change can't
-    // reach here, so the `?? ''` only keeps the comparator total.
-    const events = (byDay.get(day) ?? []).sort((a, b) => (a.at ?? '').localeCompare(b.at ?? ''));
-    let adds = 0;
-    let drops = 0;
-    let addValue = 0;
-    let dropValue = 0;
-    for (const e of events) {
-      if (e.kind === 'conversion') {
-        adds += 1;
-        addValue += e.monthlyValue;
-      } else {
-        drops += 1;
-        dropValue += e.monthlyValue;
-      }
+  const byInstant = new Map<number, UpcomingChange[]>();
+  let adds = 0;
+  let drops = 0;
+  let addValue = 0;
+  let dropValue = 0;
+  for (const change of changes) {
+    const at = change.at ? Date.parse(change.at) : NaN;
+    if (!Number.isFinite(at) || at > endMs) continue;
+    const t = Math.max(startMs, at);
+    const list = byInstant.get(t);
+    if (list) list.push(change);
+    else byInstant.set(t, [change]);
+    if (change.kind === 'conversion') {
+      adds += 1;
+      addValue += change.monthlyValue;
+    } else {
+      drops += 1;
+      dropValue += change.monthlyValue;
     }
-    cumulative += adds - drops;
-    totalAdds += adds;
-    totalDrops += drops;
-    totalAddValue += addValue;
-    totalDropValue += dropValue;
-    return {
-      day,
-      adds,
-      drops: below(drops),
-      net: adds - drops,
-      cumulative,
-      addValue,
-      dropValue: below(dropValue),
-      events,
-    };
-  });
+  }
+
+  // Negation that keeps a zero a zero: -0 is a value a chart library, a JSON
+  // round-trip and an equality check can all disagree about, and "nothing is
+  // leaving" is the most common value in this whole structure.
+  const below = (n: number) => (n === 0 ? 0 : -n);
+
+  let net = 0;
+  const steps: UpcomingStep[] = [{ t: startMs, at: startsAt, net: 0, events: [] }];
+  for (const t of [...byInstant.keys()].sort((a, b) => a - b)) {
+    const events = byInstant.get(t)!;
+    for (const e of events) net += e.kind === 'conversion' ? 1 : -1;
+    steps.push({ t, at: new Date(t).toISOString(), net, events });
+  }
+  steps.push({ t: endMs, at: endsAt, net, events: [] });
 
   return {
-    points,
-    adds: totalAdds,
-    drops: below(totalDrops),
-    net: totalAdds - totalDrops,
-    addValue: totalAddValue,
-    dropValue: below(totalDropValue),
+    startsAt,
+    endsAt,
+    steps,
+    adds,
+    drops: below(drops),
+    net: adds - drops,
+    addValue,
+    dropValue: below(dropValue),
   };
 }
