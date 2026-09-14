@@ -13,6 +13,7 @@ import {
 } from 'recharts';
 
 import { getFiveMinuteSessionTimeline, safeTimeLabel } from '@/core/flowSeriesCharts';
+import ChartHoverReadout, { readoutSide, type ReadoutRow } from '@/components/ChartHoverReadout';
 import { etDateKeyFor, etTodayDateKey } from '@/core/utils';
 import type { GammaRegimeBar, GammaRegimeSeriesPayload } from '@/hooks/useGammaRegimeSeries';
 
@@ -128,6 +129,9 @@ export interface GammaRegimeChartProps {
   syncId?: string;
   height?: number;
   showLegend?: boolean;
+  /** Lifted hover, shared with the flow chart above so both read one bar. */
+  hoveredLabel?: string | null;
+  onHoverChange?: (label: string | null) => void;
 }
 
 export default function GammaRegimeChart({
@@ -136,10 +140,32 @@ export default function GammaRegimeChart({
   syncId,
   height = 200,
   showLegend = true,
+  hoveredLabel: controlledHover,
+  onHoverChange,
 }: GammaRegimeChartProps) {
   const [fullRange, setFullRange] = useState(false);
+  const [uncontrolledHover, setUncontrolledHover] = useState<string | null>(null);
+  const hoveredLabel = controlledHover !== undefined ? controlledHover : uncontrolledHover;
+  const setHovered = onHoverChange ?? setUncontrolledHover;
   const rows = useMemo(() => alignToTimeline(payload.bars, mode), [payload.bars, mode]);
   const { domain, clipped } = useMemo(() => robustDomain(rows), [rows]);
+
+  const hoverIndex = hoveredLabel ? rows.findIndex((r) => r.timestamp === hoveredLabel) : -1;
+  const hovered = hoverIndex >= 0 ? rows[hoverIndex] : null;
+  const readoutRows: ReadoutRow[] = hovered
+    ? [
+        {
+          label: 'Stability',
+          value: hovered.stability == null ? '—' : SCORE(hovered.stability),
+          color: 'var(--color-king)',
+        },
+        {
+          label: 'Lean',
+          value: hovered.lean == null ? '—' : SCORE(hovered.lean),
+          color: 'var(--color-pin)',
+        },
+      ]
+    : [];
 
   const axisStroke = 'var(--color-text-primary)';
 
@@ -153,6 +179,15 @@ export default function GammaRegimeChart({
 
   return (
     <>
+      <div className="relative">
+      {hovered && (
+        <ChartHoverReadout
+          title={safeTimeLabel(hovered.timestamp)}
+          rows={readoutRows}
+          side={readoutSide(hoverIndex, rows.length)}
+          top={showLegend ? 22 : 4}
+        />
+      )}
       <ResponsiveContainer width="100%" height={height}>
       {/*
         Margins must match HedgingFlowChart's exactly, and both axes must carry
@@ -160,7 +195,15 @@ export default function GammaRegimeChart({
         so a mismatched gutter slides one plot relative to the other and the
         crosshair lands on a bar the reader is not looking at.
       */}
-      <ComposedChart data={rows} syncId={syncId} margin={{ top: 8, right: 8, bottom: 4, left: 8 }}>
+      <ComposedChart
+        data={rows}
+        syncId={syncId}
+        margin={{ top: 8, right: 8, bottom: 4, left: 8 }}
+        onMouseMove={(state: { activeLabel?: string | number }) =>
+          setHovered(state?.activeLabel != null ? String(state.activeLabel) : null)
+        }
+        onMouseLeave={() => setHovered(null)}
+      >
         <XAxis
           dataKey="timestamp"
           tickFormatter={safeTimeLabel}
@@ -181,22 +224,11 @@ export default function GammaRegimeChart({
             same width. No series is drawn on it. */}
         <YAxis yAxisId="spacer" orientation="right" width={56} tick={false} axisLine={false} />
 
+        {/* Cursor line only; the values are drawn in a corner instead of
+            floating over the plot. See ChartHoverReadout. */}
         <Tooltip
-          contentStyle={{
-            backgroundColor: 'var(--color-chart-tooltip-bg)',
-            borderColor: 'var(--color-border)',
-            borderRadius: 8,
-            color: 'var(--color-chart-tooltip-text)',
-          }}
-          labelStyle={{ color: 'var(--color-chart-tooltip-text)', fontWeight: 600 }}
-          itemStyle={{ color: 'var(--color-chart-tooltip-muted)' }}
-          labelFormatter={(v) => safeTimeLabel(String(v))}
-          formatter={(value, name) => {
-            if (value == null) return ['—', name];
-            const n = Number(value);
-            if (!Number.isFinite(n)) return ['—', name];
-            return [SCORE(n), name];
-          }}
+          content={() => null}
+          cursor={{ stroke: axisStroke, strokeWidth: 1, strokeOpacity: 0.7 }}
         />
 
         {showLegend && (
@@ -229,6 +261,7 @@ export default function GammaRegimeChart({
         />
         </ComposedChart>
       </ResponsiveContainer>
+      </div>
 
       {clipped > 0 && (
         <button
