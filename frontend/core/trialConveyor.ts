@@ -512,3 +512,178 @@ export function projectFullSubscribers(input: {
     return { day, projected: running, conversions: added, departures: lost };
   });
 }
+
+// ── What's coming up ───────────────────────────────────────────────────────
+// The same committed events projectFullSubscribers rolls into a running total,
+// kept as a per-day LEDGER instead: every trial whose first charge is scheduled
+// inside the window is a +1 on the day it converts, and every paying member
+// whose cancellation takes effect inside it is a −1 on the day their access
+// ends. The projection answers "where does the line end up"; this answers "what
+// actually lands, and when" — which is the question an operator has when
+// deciding whether next week needs attention.
+//
+// A trialer clicking Cancel is not a special case here. That trial flips to
+// `rollingOff`, which this never counts, so its +1 is simply absent from the
+// next render — the bar drops by one on its own.
+
+export type UpcomingChangeKind = 'conversion' | 'departure';
+
+export type UpcomingChange = {
+  kind: UpcomingChangeKind;
+  // When it is scheduled for, and the day bucket that lands in. Both are
+  // nullable because a subscription Stripe has not reported a period end for
+  // has neither — those are skipped rather than guessed onto a day.
+  at: string | null;
+  day: string | null;
+  userId: string;
+  email: string | null;
+  // $/month this change brings in (conversion) or takes away (departure).
+  monthlyValue: number;
+};
+
+export type UpcomingChangePoint = {
+  day: string;
+  // Counts, signed the way they plot: adds above the axis, drops below. `drops`
+  // and `dropValue` are therefore ZERO OR NEGATIVE — pre-negated here so no
+  // caller has to remember to do it, matching the flow series' convention.
+  adds: number;
+  drops: number;
+  net: number;
+  // Running net from the start of the window through the end of this day, so
+  // the line reads "where the paid headcount stands against today" throughout.
+  cumulative: number;
+  addValue: number;
+  dropValue: number;
+  // The individual changes landing on this day, soonest first — who, and when.
+  events: UpcomingChange[];
+};
+
+export type UpcomingChanges = {
+  points: UpcomingChangePoint[];
+  // Window totals. `drops`/`dropValue` are negated like the points above.
+  adds: number;
+  drops: number;
+  net: number;
+  addValue: number;
+  dropValue: number;
+};
+
+export function emptyUpcomingChanges(): UpcomingChanges {
+  return { points: [], adds: 0, drops: 0, net: 0, addValue: 0, dropValue: 0 };
+}
+
+/**
+ * Turn the live conveyor into the list of changes it has already committed to.
+ *
+ * Only `running` trials are conversions: a rolling-off trial never joins the
+ * paid line at all, and a stalled one's first charge has already been declined,
+ * which makes it undecided rather than scheduled. Departures are the paying
+ * members who have clicked Cancel — the caller decides who qualifies as paying.
+ */
+export function upcomingChangesFromConveyor(input: {
+  riders: ConveyorRider[];
+  departures: ConveyorRider[];
+  // Resolves an ISO instant to the day bucket it belongs in. Injected so this
+  // module stays free of timezone handling (the admin charts bucket on ET).
+  dayOf: (iso: string | null) => string | null;
+}): UpcomingChange[] {
+  const { dayOf } = input;
+  const out: UpcomingChange[] = [];
+  for (const r of input.riders) {
+    if (r.state !== 'running') continue;
+    out.push({
+      kind: 'conversion',
+      at: r.convertsAt,
+      day: dayOf(r.convertsAt),
+      userId: r.userId,
+      email: r.email,
+      monthlyValue: r.monthlyValue,
+    });
+  }
+  for (const d of input.departures) {
+    out.push({
+      kind: 'departure',
+      at: d.convertsAt,
+      day: dayOf(d.convertsAt),
+      userId: d.userId,
+      email: d.email,
+      monthlyValue: d.monthlyValue,
+    });
+  }
+  return out;
+}
+
+/**
+ * Bucket committed changes onto `days` (ascending day keys).
+ *
+ * Same window rules as projectFullSubscribers, for the same reasons: anything
+ * already overdue folds into the first day (it is imminent, not absent),
+ * anything past the last day is outside the window, and an undated change is
+ * skipped rather than guessed onto a day.
+ */
+export function bucketUpcomingChanges(changes: UpcomingChange[], days: string[]): UpcomingChanges {
+  // Negation that keeps a zero a zero: -0 is a value a chart library, a JSON
+  // round-trip, or an equality check can all disagree about, and "no drops" is
+  // the most common value in this whole structure.
+  const below = (n: number) => (n === 0 ? 0 : -n);
+  if (days.length === 0) return emptyUpcomingChanges();
+  const first = days[0];
+  const last = days[days.length - 1];
+
+  const byDay = new Map<string, UpcomingChange[]>();
+  for (const change of changes) {
+    if (!change.day || change.day > last) continue;
+    const key = change.day < first ? first : change.day;
+    const list = byDay.get(key);
+    if (list) list.push(change);
+    else byDay.set(key, [change]);
+  }
+
+  let cumulative = 0;
+  let totalAdds = 0;
+  let totalDrops = 0;
+  let totalAddValue = 0;
+  let totalDropValue = 0;
+  const points = days.map((day) => {
+    // ISO instants sort correctly as plain strings; an undated change can't
+    // reach here, so the `?? ''` only keeps the comparator total.
+    const events = (byDay.get(day) ?? []).sort((a, b) => (a.at ?? '').localeCompare(b.at ?? ''));
+    let adds = 0;
+    let drops = 0;
+    let addValue = 0;
+    let dropValue = 0;
+    for (const e of events) {
+      if (e.kind === 'conversion') {
+        adds += 1;
+        addValue += e.monthlyValue;
+      } else {
+        drops += 1;
+        dropValue += e.monthlyValue;
+      }
+    }
+    cumulative += adds - drops;
+    totalAdds += adds;
+    totalDrops += drops;
+    totalAddValue += addValue;
+    totalDropValue += dropValue;
+    return {
+      day,
+      adds,
+      drops: below(drops),
+      net: adds - drops,
+      cumulative,
+      addValue,
+      dropValue: below(dropValue),
+      events,
+    };
+  });
+
+  return {
+    points,
+    adds: totalAdds,
+    drops: below(totalDrops),
+    net: totalAdds - totalDrops,
+    addValue: totalAddValue,
+    dropValue: below(totalDropValue),
+  };
+}

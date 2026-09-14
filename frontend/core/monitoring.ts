@@ -36,6 +36,7 @@ import {
 } from '@/core/cancellationReason';
 import {
   buildSubscriberLedger,
+  classifySubscriberBucket,
   summarizeLedger,
   type LedgerDeleteEvent,
   type LedgerPaymentEvent,
@@ -44,10 +45,13 @@ import {
 } from '@/core/subscriberBucket';
 import {
   accumulateTrialOutcomes,
+  bucketUpcomingChanges,
   classifyRider,
   NOMINAL_TRIAL_DAYS,
   projectFullSubscribers,
+  upcomingChangesFromConveyor,
   type SubscriberProjectionPoint,
+  type UpcomingChanges,
   sortRidersByDeadline,
   summarizeRiders,
   summarizeTrialOutcomes,
@@ -241,6 +245,18 @@ export type WebhookHealth = {
   }>;
 };
 
+// The next few days of the paid headcount as a per-day ledger of events that
+// are ALREADY scheduled — a trial's first charge, a canceling member's last day.
+// Same inputs as SubscriberProjection below, shown as what lands and when rather
+// than as a running total. See bucketUpcomingChanges in core/trialConveyor.
+export type UpcomingChangesSnapshot = UpcomingChanges & {
+  horizonDays: number;
+  // Trials whose first charge has already been declined once. Genuinely
+  // undecided — Stripe is still retrying — so they are kept off the bars and
+  // reported here instead of being guessed either way.
+  undecidedStalled: number;
+};
+
 // The live trial→paying assembly line behind the admin "Conversion Conveyor"
 // tab: every free trial currently in flight, each with the instant it is due to
 // be charged, plus what happened to the trials that already reached the end of
@@ -262,6 +278,9 @@ export type TrialConveyorSnapshot = {
   trialDays: number;
   // Length of the payment-recovery window a stalled trial gets, in days.
   graceDays: number;
+  // What the belt has committed to over the next few days: every scheduled
+  // conversion as a +1 and every scheduled departure as a −1, per day.
+  upcoming: UpcomingChangesSnapshot;
   generatedAt: string;
 };
 
@@ -292,6 +311,12 @@ export type SubscriberProjection = {
   // the line because they are genuinely undecided. Surfaced so the projection
   // can say how much of the picture it is leaving out.
   undecidedStalled: number;
+  // Members whose trial has ENDED and whose first invoice is raised but not yet
+  // charged (the Converting band). Excluded for the same reason as the stalled
+  // trials — the outcome is unknown until the charge lands, usually within the
+  // hour — and reported for the same reason: they are the other slice of the
+  // picture this line deliberately does not draw.
+  undecidedConverting: number;
 };
 
 export type MonitoringSnapshot = {
@@ -1383,7 +1408,7 @@ const SUBSCRIBER_PROJECTION_DAYS = 7;
 function buildSubscriberProjection(
   now: Date,
   signups: SignupPoint[],
-  conveyor: TrialConveyorSnapshot,
+  conveyor: ConveyorParts,
 ): SubscriberProjection {
   const last = signups.length > 0 ? signups[signups.length - 1] : null;
   const anchorDay = last?.day ?? null;
@@ -1396,13 +1421,6 @@ function buildSubscriberProjection(
     SUBSCRIBER_PROJECTION_DAYS + 1,
   );
   const days = anchorDay ? keys.filter((d) => d > anchorDay) : keys;
-
-  const dayOf = (iso: string | null): string | null => {
-    if (!iso) return null;
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return null;
-    return etBucketKeys(d).day;
-  };
 
   return {
     horizonDays: SUBSCRIBER_PROJECTION_DAYS,
@@ -1418,6 +1436,55 @@ function buildSubscriberProjection(
         .map((r) => dayOf(r.convertsAt)),
       departureDays: conveyor.departures.map((d) => dayOf(d.convertsAt)),
     }),
+    undecidedStalled: conveyor.totals.stalled,
+    undecidedConverting: last?.converting ?? 0,
+  };
+}
+
+// An ISO instant's ET day bucket, or null when there isn't one. Shared by the
+// projection and the upcoming-changes ledger so both land an event on the same
+// day the rest of the page would.
+function dayOf(iso: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return etBucketKeys(d).day;
+}
+
+// ── What's coming up ───────────────────────────────────────────────────────
+// How far ahead the Conversion Conveyor's net-change chart looks. Matches
+// SUBSCRIBER_PROJECTION_DAYS so the two views of the same committed events are
+// read over the same horizon, but this one STARTS at today: a charge due three
+// hours from now is the most imminent thing on the belt, and the projection
+// can't show it (its first day has to clear the chart's last real point).
+const UPCOMING_HORIZON_DAYS = 7;
+
+// The next `count` ET day keys, today first (generateDailyKeys only walks
+// backward). Anchored at today's ET date and then stepped in UTC, where a day is
+// always exactly 24h: adding 24h to a real instant near midnight SKIPS a
+// calendar day across a spring-forward transition, which would leave a hole in
+// the middle of the window twice a year.
+function forwardDailyKeys(now: Date, count: number): string[] {
+  let cursor = Date.parse(`${etBucketKeys(now).day}T12:00:00Z`);
+  const keys: string[] = [];
+  for (let i = 0; i < count; i++) {
+    keys.push(new Date(cursor).toISOString().slice(0, 10));
+    cursor += 86_400_000;
+  }
+  return keys;
+}
+
+function buildUpcomingChanges(now: Date, conveyor: ConveyorParts): UpcomingChangesSnapshot {
+  return {
+    ...bucketUpcomingChanges(
+      upcomingChangesFromConveyor({
+        riders: conveyor.riders,
+        departures: conveyor.departures,
+        dayOf,
+      }),
+      forwardDailyKeys(now, UPCOMING_HORIZON_DAYS),
+    ),
+    horizonDays: UPCOMING_HORIZON_DAYS,
     undecidedStalled: conveyor.totals.stalled,
   };
 }
@@ -1565,11 +1632,23 @@ type ConveyorUserRow = {
   subId: string | null;
   priceId: string | null;
   status: string | null;
+  tier: string | null;
+  firstPaymentAt: string | null;
   periodEnd: string | null;
   cancelAtPeriodEnd: number;
   graceStartedAt: string | null;
   graceReason: string | null;
   founding: number;
+};
+
+// One conveyor read, UNTRUNCATED, as everything downstream needs it.
+type ConveyorParts = {
+  riders: ConveyorRider[];
+  departures: ConveyorRider[];
+  departingValue: number;
+  totals: ConveyorTotals;
+  outcomes: ConveyorOutcomes;
+  graceDays: number;
 };
 
 // The live trial→paying assembly line. Three reads, all bounded:
@@ -1580,18 +1659,21 @@ type ConveyorUserRow = {
 //     roll-off rather than silently vanishing.
 // Every failure path falls through to an empty belt: this panel must never
 // 500 the admin page.
-function buildTrialConveyor(now: Date): TrialConveyorSnapshot {
+//
+// Done once per snapshot and shared, because three things consume it: the tab's
+// queue, which is capped at CONVEYOR_MAX_RIDERS so a promo spike can't balloon
+// the payload, and the forward projection and net-change chart, which must count
+// EVERY scheduled charge — reading the capped list would have them quietly stop
+// booking the 61st trial's conversion.
+function readConveyorParts(now: Date): ConveyorParts {
   const graceDays = getPaymentGraceDays();
-  const empty: TrialConveyorSnapshot = {
+  const empty: ConveyorParts = {
     riders: [],
-    truncated: 0,
     departures: [],
     departingValue: 0,
     totals: summarizeRiders([]),
     outcomes: summarizeTrialOutcomes(new Map(), [], CONVEYOR_OUTCOMES_WINDOW_DAYS),
-    trialDays: NOMINAL_TRIAL_DAYS,
     graceDays,
-    generatedAt: now.toISOString(),
   };
 
   try {
@@ -1605,6 +1687,8 @@ function buildTrialConveyor(now: Date): TrialConveyorSnapshot {
                 stripe_subscription_id AS subId,
                 stripe_price_id AS priceId,
                 subscription_status AS status,
+                tier,
+                first_payment_at AS firstPaymentAt,
                 current_period_end AS periodEnd,
                 cancel_at_period_end AS cancelAtPeriodEnd,
                 payment_grace_started_at AS graceStartedAt,
@@ -1616,7 +1700,7 @@ function buildTrialConveyor(now: Date): TrialConveyorSnapshot {
           WHERE deleted_at IS NULL
             AND (subscription_status = 'trialing'
                  OR (subscription_status = 'past_due' AND payment_grace_reason = 'trial')
-                 OR (subscription_status = 'active' AND cancel_at_period_end = 1))`,
+                 OR (subscription_status IN ('active', 'past_due') AND cancel_at_period_end = 1))`,
       )
       .all() as ConveyorUserRow[];
 
@@ -1673,28 +1757,55 @@ function buildTrialConveyor(now: Date): TrialConveyorSnapshot {
     const riders: ConveyorRider[] = [];
     const departures: ConveyorRider[] = [];
     for (const row of userRows) {
+      const cancelScheduled = Number(row.cancelAtPeriodEnd) === 1;
       const state = classifyRider({
         subscriptionStatus: row.status,
-        cancelAtPeriodEnd: Number(row.cancelAtPeriodEnd) === 1,
+        cancelAtPeriodEnd: cancelScheduled,
         paymentGraceReason: row.graceReason,
       });
       // A PAYING subscriber with a scheduled cancel isn't on the belt — they
       // already converted — but they are the other thing an operator must not be
       // surprised by, so they get the same countdown treatment below.
+      //
+      // "Paying" is decided by the chart's own rule rather than by the status,
+      // because three rows look like an `active` cancel without being on the
+      // Full Subscriber line at all: a PAUSED subscription (active, tier
+      // public), a conversion charge still in flight (active, never paid), and a
+      // member whose grace already lapsed. Subtracting any of them from that
+      // line would be booking a departure from a count they were never in. The
+      // same rule is what lets an established payer who clicked Cancel while
+      // already in renewal dunning (past_due) be counted — they ARE on the line.
       const isScheduledDeparture =
-        !state && row.status === 'active' && Number(row.cancelAtPeriodEnd) === 1;
+        !state &&
+        cancelScheduled &&
+        classifySubscriberBucket({
+          subscriptionStatus: row.status,
+          tier: row.tier,
+          paymentGraceReason: row.graceReason,
+          cancelAtPeriodEnd: cancelScheduled,
+          firstPaymentAt: row.firstPaymentAt,
+        }).bucket === 'fullSubscriber';
       if (!state && !isScheduledDeparture) continue;
 
       // The deadline the belt counts down to. A running/rolling-off rider is
       // due at the trial end (Stripe's current_period_end while `trialing`);
       // a stalled one is counted down to the end of its recovery window — the
       // last moment a retry can still convert it.
-      let convertsAt: string | null = row.periodEnd;
-      if (state === 'stalled') {
+      const graceDeadline = (): string | null => {
         const startedMs = row.graceStartedAt ? Date.parse(row.graceStartedAt) : NaN;
-        convertsAt = Number.isFinite(startedMs)
+        return Number.isFinite(startedMs)
           ? new Date(startedMs + graceDays * CONVEYOR_DAY_MS).toISOString()
           : null;
+      };
+      let convertsAt: string | null = row.periodEnd;
+      if (state === 'stalled') {
+        convertsAt = graceDeadline();
+      } else if (isScheduledDeparture && row.status === 'past_due') {
+        // Cancelling while in renewal dunning means no further invoice is ever
+        // raised, so current_period_end is a date that has already passed and
+        // will not move again. Access actually ends when the recovery window
+        // does — that is the day this departure lands on.
+        convertsAt = graceDeadline() ?? row.periodEnd;
       }
 
       // Priced exactly like the MRR snapshot: unmappable price ids contribute
@@ -1720,29 +1831,39 @@ function buildTrialConveyor(now: Date): TrialConveyorSnapshot {
       else departures.push(entry);
     }
 
-    const totals = summarizeRiders(riders);
-    const ordered = sortRidersByDeadline(riders);
-    const outcomes = summarizeTrialOutcomes(
-      accumulateTrialOutcomes(syncEvents, deleteEvents, paymentEvents),
-      generateDailyKeys(now, CONVEYOR_OUTCOMES_WINDOW_DAYS),
-      CONVEYOR_OUTCOMES_WINDOW_DAYS,
-    );
-
     return {
-      riders: ordered.slice(0, CONVEYOR_MAX_RIDERS),
-      truncated: Math.max(0, ordered.length - CONVEYOR_MAX_RIDERS),
-      departures: sortRidersByDeadline(departures).slice(0, CONVEYOR_MAX_RIDERS),
+      riders: sortRidersByDeadline(riders),
+      departures: sortRidersByDeadline(departures),
       departingValue: departures.reduce((sum, d) => sum + d.monthlyValue, 0),
-      totals,
-      outcomes,
-      trialDays: NOMINAL_TRIAL_DAYS,
+      totals: summarizeRiders(riders),
+      outcomes: summarizeTrialOutcomes(
+        accumulateTrialOutcomes(syncEvents, deleteEvents, paymentEvents),
+        generateDailyKeys(now, CONVEYOR_OUTCOMES_WINDOW_DAYS),
+        CONVEYOR_OUTCOMES_WINDOW_DAYS,
+      ),
       graceDays,
-      generatedAt: now.toISOString(),
     };
   } catch {
     // Query/parse failure: render an empty belt rather than 500-ing the page.
     return empty;
   }
+}
+
+// Shape the read above for the client: the queues are trimmed to what the tab
+// renders, and the forward ledger is built from the full lists.
+function buildTrialConveyor(now: Date, parts: ConveyorParts): TrialConveyorSnapshot {
+  return {
+    riders: parts.riders.slice(0, CONVEYOR_MAX_RIDERS),
+    truncated: Math.max(0, parts.riders.length - CONVEYOR_MAX_RIDERS),
+    departures: parts.departures.slice(0, CONVEYOR_MAX_RIDERS),
+    departingValue: parts.departingValue,
+    totals: parts.totals,
+    outcomes: parts.outcomes,
+    trialDays: NOMINAL_TRIAL_DAYS,
+    graceDays: parts.graceDays,
+    upcoming: buildUpcomingChanges(now, parts),
+    generatedAt: now.toISOString(),
+  };
 }
 
 // Counts audit_events rows of `type` whose created_at is newer than
@@ -1887,7 +2008,10 @@ export function getSnapshot(): MonitoringSnapshot {
   // Built once and shared: the projection reads both, and anchoring it to the
   // series' own last point is what makes the dashed line meet the solid one.
   const signups = buildSignupSeries(now);
-  const trialConveyor = buildTrialConveyor(now);
+  // Read once, untruncated, and shared: the tab renders a trimmed queue while
+  // the projection counts every scheduled charge.
+  const conveyorParts = readConveyorParts(now);
+  const trialConveyor = buildTrialConveyor(now, conveyorParts);
   return {
     mrr,
     mrrSeries,
@@ -1903,7 +2027,7 @@ export function getSnapshot(): MonitoringSnapshot {
     cancellationReasons: buildCancellationReasons(),
     trialConveyor,
     subscriberLedger: buildSubscriberLedger_(now),
-    subscriberProjection: buildSubscriberProjection(now, signups, trialConveyor),
+    subscriberProjection: buildSubscriberProjection(now, signups, conveyorParts),
     hourly: hourlyKeys.map((key) => bucketToPoint(key, live.hourly[key])),
     daily: dailyKeys.map((key) => bucketToPoint(key, live.daily[key])),
     topIps: aggregateTopIps(live.daily, 10),

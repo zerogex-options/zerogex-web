@@ -25,6 +25,9 @@ import {
   type ConveyorRider,
   type ConveyorState,
   type ConveyorTotals,
+  type UpcomingChange,
+  type UpcomingChangePoint,
+  type UpcomingChanges,
 } from '@/core/trialConveyor';
 import { ledgerKindLabel, type LedgerEventKind, type LedgerRow } from '@/core/subscriberBucket';
 import type { SubscriberProjectionPoint } from '@/core/trialConveyor';
@@ -210,7 +213,16 @@ type TrialConveyor = {
   outcomes: ConveyorOutcomes;
   trialDays: number;
   graceDays: number;
+  upcoming: UpcomingChangesSnapshot;
   generatedAt: string;
+};
+
+// Mirrors UpcomingChangesSnapshot in core/monitoring.ts. The `drops` counts and
+// `dropValue` amounts arrive NEGATIVE (pre-negated server-side) so they stack
+// below the axis without the client having to remember to flip them.
+type UpcomingChangesSnapshot = UpcomingChanges & {
+  horizonDays: number;
+  undecidedStalled: number;
 };
 
 // Mirrors SubscriberLedgerSnapshot in core/monitoring.ts (hand-synced — that
@@ -231,6 +243,7 @@ type SubscriberProjection = {
   anchorPaying: number;
   points: SubscriberProjectionPoint[];
   undecidedStalled: number;
+  undecidedConverting: number;
 };
 
 type Snapshot = {
@@ -1070,7 +1083,8 @@ const LEDGER_TONE: Record<LedgerEventKind, string> = {
   recovered: CONVEYOR_COLORS.running,
   trialChargeDeclined: CONVEYOR_COLORS.stalled,
   renewalFailed: CONVEYOR_COLORS.stalled,
-  cancelScheduled: CONVEYOR_COLORS.stalled,
+  cancelScheduledTrial: CONVEYOR_COLORS.stalled,
+  cancelScheduledPaid: CONVEYOR_COLORS.rollingOff,
   cancelReverted: CONVEYOR_COLORS.running,
   paused: PAUSE_COLOR,
   resumed: CONVEYOR_COLORS.running,
@@ -1297,6 +1311,263 @@ function ScheduledDeparturesCard({
   );
 }
 
+// ── What's coming up ───────────────────────────────────────────────────────
+// The belt's committed events as a per-day ledger: every trial due to be charged
+// is a +1 above the axis on the day it converts, every scheduled cancellation a
+// −1 below it. Nothing here is forecast — each bar is an event Stripe already
+// has a date for — which is what makes it worth acting on.
+
+// Day keys are ET calendar dates, so they're parsed as UTC and formatted as UTC:
+// naming the day by the viewer's clock would slide the label off its own bar.
+function upcomingDayDate(day: string): Date | null {
+  const ms = Date.parse(`${day}T00:00:00Z`);
+  return Number.isFinite(ms) ? new Date(ms) : null;
+}
+
+function upcomingDayTick(day: string, index: number): string {
+  if (index === 0) return 'Today';
+  const d = upcomingDayDate(day);
+  return d ? d.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' }) : day;
+}
+
+function upcomingDayHeading(day: string, index: number): string {
+  const d = upcomingDayDate(day);
+  if (!d) return day;
+  const full = d.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'numeric',
+    day: 'numeric',
+    timeZone: 'UTC',
+  });
+  return index === 0 ? `Today · ${full}` : full;
+}
+
+// Clock time a single change is due, in ET — the same axis every bucket on this
+// page is cut on, so "9:40 PM" here and the day it lands on always agree.
+function upcomingEventTime(at: string | null): string {
+  const ms = at ? Date.parse(at) : NaN;
+  if (!Number.isFinite(ms)) return '—';
+  return new Date(ms).toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: 'America/New_York',
+  });
+}
+
+// Longest list of individual members shown in one day's tooltip before it is
+// summarized. Deep enough for a normal day, short enough to stay a tooltip.
+const UPCOMING_TOOLTIP_ROWS = 8;
+
+function UpcomingChangesCard({
+  upcoming,
+  cardBg,
+  borderColor,
+  mutedText,
+  textColor,
+}: {
+  upcoming: UpcomingChangesSnapshot;
+  cardBg: string;
+  borderColor: string;
+  mutedText: string;
+  textColor: string;
+}) {
+  const points = upcoming.points;
+  const addColor = CONVEYOR_COLORS.running;
+  const dropColor = CONVEYOR_COLORS.rollingOff;
+
+  const dayIndex = useMemo(
+    () => new Map(points.map((p, i) => [p.day, i] as const)),
+    [points],
+  );
+  const byDay = useMemo(
+    () => new Map(points.map((p) => [p.day, p] as const)),
+    [points],
+  );
+
+  // Integer ticks either side of zero. Both halves are floored at one unit so an
+  // all-adds (or empty) week still renders a zero line with room under it —
+  // "nothing is leaving" reads as a fact rather than as a cropped axis.
+  const yScale = useMemo(() => {
+    const maxUp = Math.max(1, ...points.map((p) => p.adds));
+    const maxDown = Math.max(1, ...points.map((p) => -p.drops));
+    const step = Math.max(1, Math.ceil(Math.max(maxUp, maxDown) / 4));
+    const top = Math.ceil(maxUp / step) * step;
+    const bottom = -Math.ceil(maxDown / step) * step;
+    const ticks: number[] = [];
+    for (let v = bottom; v <= top; v += step) ticks.push(v);
+    return { domain: [bottom, top] as [number, number], ticks };
+  }, [points]);
+
+  // Server-side counts arrive pre-negated for plotting; the header reads them
+  // back as plain magnitudes, and a zero never wears a minus sign.
+  const drops = upcoming.drops === 0 ? 0 : -upcoming.drops;
+  const dropValue = upcoming.dropValue === 0 ? 0 : -upcoming.dropValue;
+  const quiet = upcoming.adds === 0 && drops === 0;
+
+  return (
+    <div className="rounded-lg p-4" style={{ background: cardBg, border: `1px solid ${borderColor}` }}>
+      <div className="flex items-baseline justify-between flex-wrap gap-x-4 gap-y-2 mb-2">
+        <div className="flex items-center gap-4 flex-wrap text-xs" style={{ color: mutedText }}>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-3 w-3 rounded-sm" style={{ background: addColor }} />
+            Converting <span className="tabular-nums font-semibold" style={{ color: addColor }}>+{upcoming.adds}</span>
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-3 w-3 rounded-sm" style={{ background: dropColor }} />
+            Leaving{' '}
+            <span className="tabular-nums font-semibold" style={{ color: dropColor }}>
+              {drops === 0 ? '0' : `−${drops}`}
+            </span>
+          </span>
+          <span style={{ color: textColor }}>
+            Net{' '}
+            <span
+              className="tabular-nums font-semibold"
+              style={{ color: upcoming.net >= 0 ? addColor : dropColor }}
+            >
+              {upcoming.net >= 0 ? '+' : '−'}{Math.abs(upcoming.net)}
+            </span>{' '}
+            paid subscriber{Math.abs(upcoming.net) === 1 ? '' : 's'} over the next {upcoming.horizonDays} days
+          </span>
+        </div>
+        <span className="text-xs tabular-nums" style={{ color: mutedText }}>
+          {formatUsd(upcoming.addValue)}/mo arriving · {formatUsd(dropValue)}/mo leaving
+        </span>
+      </div>
+
+      <ResponsiveContainer width="100%" height={132}>
+        {/* stackOffset="sign" is what makes this a DIVERGING chart rather than a
+            stacked one: positives accumulate upward from zero and negatives
+            downward, so a day with 4 conversions and 1 departure draws +4 above
+            the line and −1 below it. The default offset would sum them into a
+            single 3-tall bar and lose the departure entirely. */}
+        <ComposedChart
+          data={points}
+          margin={{ top: 6, right: 8, left: 0, bottom: 0 }}
+          stackOffset="sign"
+          barCategoryGap="34%"
+          maxBarSize={44}
+        >
+          <CartesianGrid strokeOpacity={0.1} vertical={false} />
+          <XAxis
+            dataKey="day"
+            stroke={mutedText}
+            tick={{ fill: mutedText, fontSize: 10 }}
+            tickLine={false}
+            axisLine={false}
+            interval={0}
+            tickFormatter={(day: string) => upcomingDayTick(day, dayIndex.get(day) ?? 1)}
+          />
+          <YAxis
+            stroke={mutedText}
+            tick={{ fill: mutedText, fontSize: 10 }}
+            tickLine={false}
+            axisLine={false}
+            width={28}
+            allowDecimals={false}
+            domain={yScale.domain}
+            ticks={yScale.ticks}
+            interval={0}
+          />
+          {/* The neutral midpoint of the diverging pair, and the secondary
+              encoding that makes the two colors readable without hue: adds are
+              above this line, drops below it. */}
+          <ReferenceLine y={0} stroke={mutedText} strokeOpacity={0.55} />
+          <Tooltip
+            cursor={{ fill: 'var(--color-text-primary)', fillOpacity: 0.05 }}
+            content={({ active, label }) => {
+              if (!active) return null;
+              const point = byDay.get(String(label));
+              if (!point) return null;
+              return (
+                <UpcomingDayTooltip
+                  point={point}
+                  index={dayIndex.get(point.day) ?? 0}
+                  addColor={addColor}
+                  dropColor={dropColor}
+                />
+              );
+            }}
+          />
+          <Bar dataKey="adds" stackId="net" fill={addColor} radius={[4, 4, 0, 0]} isAnimationActive={false} />
+          <Bar dataKey="drops" stackId="net" fill={dropColor} radius={[0, 0, 4, 4]} isAnimationActive={false} />
+        </ComposedChart>
+      </ResponsiveContainer>
+
+      <p className="text-xs mt-2" style={{ color: mutedText }}>
+        {quiet
+          ? `Nothing is scheduled to land in the next ${upcoming.horizonDays} days — no trial reaches its first charge and no cancellation takes effect.`
+          : `Each bar is what lands that day. A trialer who clicks Cancel stops heading for a charge, so their +1 simply leaves the chart.`}
+        {upcoming.undecidedStalled > 0 &&
+          ` ${upcoming.undecidedStalled} trial${upcoming.undecidedStalled === 1 ? '' : 's'} retrying a declined charge ${upcoming.undecidedStalled === 1 ? 'is' : 'are'} left off — genuinely undecided until the retry lands.`}
+      </p>
+    </div>
+  );
+}
+
+function UpcomingDayTooltip({
+  point,
+  index,
+  addColor,
+  dropColor,
+}: {
+  point: UpcomingChangePoint;
+  index: number;
+  addColor: string;
+  dropColor: string;
+}) {
+  const drops = point.drops === 0 ? 0 : -point.drops;
+  const shown = point.events.slice(0, UPCOMING_TOOLTIP_ROWS);
+  const hidden = point.events.length - shown.length;
+  return (
+    <div
+      className="rounded-lg border px-3 py-2 text-xs"
+      style={{
+        backgroundColor: 'var(--color-chart-tooltip-bg)',
+        borderColor: 'var(--color-border)',
+        color: 'var(--color-chart-tooltip-text)',
+      }}
+    >
+      <div className="font-semibold mb-1">{upcomingDayHeading(point.day, index)}</div>
+      {point.events.length === 0 ? (
+        <div style={{ opacity: 0.8 }}>Nothing due</div>
+      ) : (
+        <>
+          <div style={{ opacity: 0.8 }}>
+            <span style={{ color: addColor }}>
+              {point.adds === 0 ? 'none' : `+${point.adds}`} converting
+            </span>
+            {' · '}
+            <span style={{ color: dropColor }}>{drops === 0 ? 'none' : `−${drops}`} leaving</span>
+            {' · net '}
+            {point.net >= 0 ? '+' : '−'}
+            {Math.abs(point.net)}
+          </div>
+          <div className="mb-1" style={{ opacity: 0.8 }}>
+            Running total through this day: {point.cumulative >= 0 ? '+' : '−'}
+            {Math.abs(point.cumulative)} vs today
+          </div>
+          <ul>
+            {shown.map((e: UpcomingChange) => (
+              <li key={`${e.kind}-${e.userId}`} className="flex gap-2">
+                <span className="tabular-nums" style={{ opacity: 0.7 }}>{upcomingEventTime(e.at)}</span>
+                <span
+                  className="tabular-nums font-semibold"
+                  style={{ color: e.kind === 'conversion' ? addColor : dropColor }}
+                >
+                  {e.kind === 'conversion' ? '+1' : '−1'}
+                </span>
+                <span className="truncate" style={{ maxWidth: '16rem' }}>{e.email ?? e.userId}</span>
+              </li>
+            ))}
+          </ul>
+          {hidden > 0 && <div style={{ opacity: 0.7 }}>+ {hidden} more</div>}
+        </>
+      )}
+    </div>
+  );
+}
+
 function ConveyorTab({ data, cardBg, borderColor, mutedText, textColor }: DataTabProps) {
   const conveyor = data.trialConveyor;
 
@@ -1391,6 +1662,26 @@ function ConveyorTab({ data, cardBg, borderColor, mutedText, textColor }: DataTa
           </div>
         </div>
       </div>
+    </section>
+
+    <section className="mb-8">
+      <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
+        <h2 className="text-lg font-semibold" style={{ color: textColor }}>
+          Next {conveyor.upcoming.horizonDays} Days
+        </h2>
+        <span className="text-xs" style={{ color: mutedText }}>
+          Net paid subscription adds against drops, day by day: every trial due to be charged is a +1 on the day it
+          converts, every scheduled cancellation a −1 on the day access ends. Committed events only — it re-reads
+          itself every minute, so a new trial appears and a canceled one disappears on its own.
+        </span>
+      </div>
+      <UpcomingChangesCard
+        upcoming={conveyor.upcoming}
+        cardBg={cardBg}
+        borderColor={borderColor}
+        mutedText={mutedText}
+        textColor={textColor}
+      />
     </section>
 
     <section className="mb-8">
@@ -2940,8 +3231,19 @@ function projectionTitle(projection: SubscriberProjection): string {
     `Committed projection: today's ${projection.anchorPaying} full subscribers, plus trials already scheduled ` +
     `to be charged over the next ${projection.horizonDays} days, minus members whose cancellation takes effect ` +
     `in that window. No new signups are assumed.`;
-  return projection.undecidedStalled > 0
-    ? `${base} ${projection.undecidedStalled} trial${projection.undecidedStalled === 1 ? '' : 's'} retrying a declined charge are excluded as undecided.`
+  const undecided: string[] = [];
+  if (projection.undecidedStalled > 0) {
+    undecided.push(
+      `${projection.undecidedStalled} trial${projection.undecidedStalled === 1 ? '' : 's'} retrying a declined charge`,
+    );
+  }
+  if (projection.undecidedConverting > 0) {
+    undecided.push(
+      `${projection.undecidedConverting} whose first charge is in flight right now`,
+    );
+  }
+  return undecided.length > 0
+    ? `${base} Excluded as undecided: ${undecided.join(', ')}.`
     : base;
 }
 
