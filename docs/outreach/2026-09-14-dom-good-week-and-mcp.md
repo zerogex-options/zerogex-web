@@ -76,38 +76,87 @@ Also worth telling him: **the page he built from has changed.**
 `mcp-integration.md` now opens with a callout pointing at the hosted server, so
 the structure moved. The endpoint contract and tool shapes did not change.
 
-### EOD Pressure: one accurate call, and evidence that cuts against it
+### The scorecard is unreachable from the website
 
-This is the part of the mail that deserves the most care. Dom trusted a signal,
-it worked, and he is one good week from sizing up on it. What we can show him:
+Michael did not know these pages existed. Checked, and he could not have:
 
-- **Friday's scorecard is public.** `/scorecard/{SYMBOL}/{DATE}` server-renders
-  one day's per-signal `flips` / `scored` / `wins` / `losses` /
-  `avg_directional_return` (`zerogex-oa: src/api/routers/scorecard.py`;
-  `eod_pressure` is in `ADVANCED_SIGNAL_NAMES`). Friday was **2026-09-11**.
-- **It is one day and nothing more.** The router's window is "always one calendar
-  day." There is no running hit-rate surface for EOD Pressure anywhere in the
-  product. That is a real gap and the draft says so.
-- **The nearest measured thing points the wrong way.**
-  `zerogex-oa: src/strategies/catalog.py` carries `eod_pressure_drift`
-  ("Last-Hour Hedging Drift") at **profit factor 0.55 over 163 trades**, verdict
-  `NO_EDGE`, from the 2026-08-09 fleet screen — 45-day window, SPY/QQQ/SPX.
+| route | in `core/navigation.ts` | inbound links in app |
+| --- | --- | --- |
+| `/scorecard/*` | **0** | **0** |
+| `/forecast/*` | 1 | 1 |
+| `/cards/*` | 0 | 1 |
+| `/replay/*` | 1 | 2 |
+
+`/scorecard` is the **only** member of the public-receipt family with no way in.
+It is not in the sidebar, not linked from any page or component, not referenced in
+any help or education content, and there is no `sitemap.ts` in the app at all
+(only `robots.ts`). It is deliberately anonymous-accessible (`core/auth.ts`
+allowlists `/scorecard/*` so OG crawlers and non-members can load it), and it was
+built as the landing page for the 4:15 PM ET auto-tweet — so the only entrances
+are that post, the X profile link to `/scorecard/today`, and knowing the URL.
+
+The draft says this to Dom plainly rather than presenting the link as something he
+should have found. It is also the single highest-value ticket to come out of this
+mail: a public, per-session, per-signal receipt page that nobody can navigate to.
+
+### EOD Pressure: the scorecard row is mismeasured, and that is the story
+
+Friday's page was opened before sending. It shows, for QQQ on 2026-09-11:
+
+| | flips | wins | losses | avg fwd return |
+| --- | --- | --- | --- | --- |
+| Eod Pressure | 3 | 2 | 1 | **−0.00%** |
+
+Eleventh of twelve signals, closing regime long gamma, MSI 0.7, 55 Playbook calls.
+
+**Do not send Dom that number as a verdict — it is a measurement artifact.**
+
+- `eod_pressure` is **structurally confined to the last 90 minutes.** Its time
+  ramp is zero until 90 minutes before the close and full by 15 minutes before
+  (`src/signals/advanced/eod_pressure.py`: `_WINDOW_START_MIN_TO_CLOSE = 90`,
+  `_WINDOW_RAMP_END_MIN_TO_CLOSE = 15`; `SESSION_CLOSE_MIN_ET = 16*60`). Every
+  non-zero reading, and therefore every flip it can register, falls in
+  **14:30–16:00 ET**.
+- **The scorer has no session bound.** `src/api/queries/signals.py` (~1435) takes
+  the forward price from a lateral join: the first `underlying_quotes` row with
+  `timestamp >= scs.timestamp + INTERVAL '60 minutes'`, ordered ascending, LIMIT 1.
+  Nothing caps how far past that point it may reach and nothing requires the same
+  session.
+- **So any flip after 15:00 ET is scored against a post-close print.** On Friday
+  2026-09-11 that is an after-hours quote or **Monday's open** — a weekend gap
+  reported as a 60-minute forward return.
+
+All three of Friday's flips were scored (3 flips, 2+1 resolved, no NULLs), which is
+consistent with the join reaching past the close rather than returning nothing —
+compare Trap Detection, 6 flips but only 5 scored.
+
+Exact flip timestamps are not readable from here, so the claim in the draft is
+kept to what the code guarantees: the window is unreliable **by construction** for
+this signal, and at least the post-15:00 flips were scored across the close. It
+does not assert that all three were.
+
+This is the best thing in the mail. A subscriber praised a signal, and the honest
+answer is that our own page cannot currently grade it — found because he wrote in.
+
+**The remaining evidence still points the wrong way, and still ships.**
+`zerogex-oa: src/strategies/catalog.py` carries `eod_pressure_drift`
+("Last-Hour Hedging Drift") at **profit factor 0.55 over 163 trades**, verdict
+`NO_EDGE`, from the 2026-08-09 fleet screen — 45-day window, SPY/QQQ/SPX.
 
 **Two qualifiers make that fair rather than cherry-picked, and both go in the mail.**
 
 1. It is **not a measurement of the signal Dom read.** The catalog note is
    explicit: it "entered on displacement from `max_pain` alone — no measurement of
    whether dealers actually had to trade toward the pin." It measures a naive way
-   of trading the same idea, not the `eod_pressure` signal itself.
+   of trading the same idea.
 2. It was **one of a whole fleet that was underwater.** `_fleet_screen()`'s
    default note: "best PF in the fleet was 0.78." Quoting 0.55 without that would
    single out the strategy he likes.
 
 The successor, `charm_close_magnet` ("Charm Close Magnet"), adds the forced-flow
 test and screens at **PF 1.31 — on 11 trades, verdict `INSUFFICIENT`**. Not a
-result. All of this is readable by him: Pattern Insights
-(`/backtesting/insights`, Pro, beta) shows each strategy's research stage and one
-line of measured evidence, including failures (`1e85370`).
+result. All of this is readable by him at Pattern Insights (`/backtesting/insights`,
+Pro, beta), which shows research stage and evidence including failures (`1e85370`).
 
 This is the FirmTape move applied to ourselves: publish the number that costs us,
 with its denominator, in the same sentence as its sample size.
@@ -128,12 +177,15 @@ favorites is his actual workflow.
 
 ## Verify first
 
-- **Open `https://zerogex.io/scorecard/QQQ/2026-09-11` before sending.** If it is
-  empty, renders no `eod_pressure` row, or shows the signal losing on Friday, cut
-  the link rather than sending Dom to a page that contradicts the mail. Nothing
-  else in the draft depends on it.
-- Confirm Dom's symbol is still QQQ — the whole thread is QQQ, but the scorecard
-  URL bakes it in.
+- **Friday's scorecard was checked — the link stays in.** It renders, the
+  `eod_pressure` row is present, and the draft now describes exactly what he will
+  see (2-1, −0.00%, near the bottom) before he clicks, plus why that number is not
+  a grade. Sending him there blind, in either direction, was the thing to avoid.
+- **Decide whether to fix the scorer before sending.** The draft promises "I'll fix
+  the window." If that promise is not going to be kept promptly, soften it to an
+  intention. Do not send a commitment and then leave the page mismeasuring.
+- Dom's symbol is QQQ throughout the thread and the screenshot confirms the QQQ
+  page is the right one.
 - The 0.55 / 163 / 0.78 / 1.31 / 11 figures are read from `catalog.py` as
   committed. If the catalog has been re-screened since, re-read it.
 
@@ -155,13 +207,27 @@ That's good to hear, and thank you for saying it. The part that stands out to me
 
 "Cautiously optimistic" is the right register, so let me give you the material to stay cautious with, because I'd rather do that than take a victory lap on your week.
 
-On Friday's EOD Pressure call, there's a public recap page for every session that breaks out each signal — how many times it flipped, how many were scored, and how they resolved on a forward window. Friday's QQQ page is here: https://zerogex.io/scorecard/QQQ/2026-09-11
+On Friday's EOD Pressure call, I went and looked. I owe you a link, an admission, and a warning about the link.
 
-That's one day, though, and I want to be straight with you about what sits behind it. We don't publish a running hit rate for EOD Pressure. That's a gap, not a decision, and you asking about it is the reason I'm noticing it.
+The link: https://zerogex.io/scorecard/QQQ/2026-09-11
 
-The nearest measured thing I have points the wrong way. We screened a mechanical strategy built on that last-hour drift — "Last-Hour Hedging Drift" — over a 45-day window across SPY, QQQ and SPX in August. 163 trades, profit factor 0.55. It lost money and we shelved it.
+Every session gets one. It breaks out each signal's flips, wins, losses and average forward return, alongside the closing regime and how many Playbook calls fired. Friday was 55 calls, closed long gamma.
 
-Two things stop that from being the whole story, and you should have both rather than the scary half. That strategy entered on displacement from max pain alone — it never tested whether dealers actually had to trade toward the pin — so it measures a naive way of trading the idea, not the signal you read on Friday. And it was one of an entire fleet screened that day, where the best profit factor of anything was 0.78. Everything was underwater, not just that one. The successor that adds the forced-flow test screens at 1.31, but on 11 trades, which isn't a result yet.
+The admission, because it's the embarrassing half: you could not have found that page. There's no link to it anywhere on the site — not in the sidebar, not in the help center, nothing anywhere links to it. It was built as the landing page for the daily recap post, so the only ways in are that post or already knowing the URL. I didn't notice until I went looking for your Friday. Every other page of that kind — the replay, the morning forecast, the card permalinks — you can reach from inside the product. This one got missed, and it's the one I'd most want you reading. That's getting fixed this week.
+
+Now the warning, because you'll find EOD Pressure near the bottom of that table at 2 wins, 1 loss, average −0.00%, and I don't want you taking that as a verdict.
+
+It isn't one. EOD Pressure is the only signal there that can't fire during most of the day — it's zero until ninety minutes before the close, by construction. The scorecard grades every signal on where price sat sixty minutes after it fired. For anything firing after 15:00, sixty minutes later is past the bell, so it gets graded against an after-hours print — and Friday being a Friday, possibly against Monday's open. That's a weekend gap reported as an hour of trading.
+
+So that −0.00% isn't the signal being flat. It's my scorer measuring the wrong window for the one signal that only lives near the close. It's a bug, it's mine, and your email is the reason I found it. It matters more than one page, too: the same number picks the best and worst signal in the recap post that goes out every afternoon, so a mismeasured signal can get named in public. I'm fixing the window.
+
+Which leaves us somewhere less satisfying than either of us would like. I can't tell you the signal is good, and as of Friday I can't tell you my own page grades it correctly either.
+
+What I do have is one measurement that points the wrong way, and you should have it rather than not.
+
+We screened a mechanical strategy built on that last-hour drift — "Last-Hour Hedging Drift" — over a 45-day window across SPY, QQQ and SPX in August. 163 trades, profit factor 0.55. It lost money and we shelved it.
+
+Two things stop that from being the whole story, and you should have both rather than only the scary half. That strategy entered on displacement from max pain alone — it never tested whether dealers actually had to trade toward the pin — so it measures a naive way of trading the idea, not the signal you read on Friday. And it was one of an entire fleet screened that day, where the best profit factor of anything was 0.78. Everything was underwater, not just that one. The successor that adds the forced-flow test screens at 1.31, but on 11 trades, which isn't a result yet.
 
 You can read all of it yourself rather than take my summary: Pattern Insights lists every strategy with its research stage and a line of measured evidence, failures included. https://zerogex.io/backtesting/insights
 
@@ -193,15 +259,36 @@ Founder, ZeroGEX
 
 ## Worth a separate ticket
 
+Two of these came out of one subscriber email and both are bigger than the reply.
+
+- **P1 — Scorecard forward returns have no session bound.**
+  `src/api/queries/signals.py` (~1435) resolves the forward price as the first
+  `underlying_quotes` row at `timestamp >= event + INTERVAL '<horizon> minutes'`,
+  unbounded above and with no same-session constraint. Any signal firing within
+  `horizon` of the close is graded against a post-close print — across a weekend
+  on Fridays. `eod_pressure` is affected on **every** flip it can ever make
+  (its ramp is zero before 90 minutes to close), and any late-firing signal is
+  affected intermittently. This is not cosmetic: `get_daily_scorecard` derives
+  `best` / `worst` from the same average and bakes them into `tweet_text`, which
+  the 4:15 PM ET job posts verbatim — so the bug can name a signal as the day's
+  worst in public. Fix is to bound the lateral join to the session close (or null
+  the return when the horizon crosses it) and show "not scorable" rather than a
+  number, the way Trap Detection's unscored flip already behaves.
+- **P1 — `/scorecard/*` is unreachable from the product.** Zero navigation
+  entries, zero inbound links, no help-center mention, no `sitemap.ts`. It is the
+  only public-receipt route in that state (`/forecast`, `/cards` and `/replay` are
+  all linked). A per-session, per-signal public receipt that only arrives via the
+  daily X post is the strongest evidence surface we have and nobody inside the app
+  can reach it. Minimum: a sidebar entry, a link from each signal page to that
+  signal's row for the last session, and a sitemap.
 - **No running hit rate for any advanced signal.** `/scorecard/{symbol}/{date}` is
   strictly one calendar day, and nothing aggregates a signal's record across
-  sessions. A subscriber who asks "is EOD Pressure any good?" cannot be answered
-  from the product — only from `catalog.py`, which measures strategies rather than
-  signals. This mail works around it by hand and it should not have to.
-- **Favorites are `localStorage`-only** (`zg.nav.favorites.v1`). Now that at least
-  one Pro subscriber has adopted favorites as their primary navigation over My
-  Dashboard, per-browser storage is a data-loss surface. My Dashboard layouts
-  persist server-side; favorites should too.
-- **Preset adoption is unmeasured.** The 0DTE preset was built for a named user
-  who then didn't use it, and we found out because he volunteered it. There is no
-  event distinguishing "applied a preset" from "still using it a week later."
+  sessions. A subscriber asking "is EOD Pressure any good?" cannot be answered from
+  the product — only from `catalog.py`, which measures strategies, not signals.
+- **Favorites are `localStorage`-only** (`zg.nav.favorites.v1`). Now that a Pro
+  subscriber has adopted favorites as primary navigation over My Dashboard,
+  per-browser storage is a data-loss surface. Dashboard layouts persist
+  server-side; favorites should too.
+- **Preset adoption is unmeasured.** The 0DTE preset was built for a named user who
+  then didn't use it, and we found out because he volunteered it. No event
+  distinguishes "applied a preset" from "still using it a week later."
