@@ -33,9 +33,11 @@ import { etTodayDateKey, getMarketSession, isIndexSymbol, omitClosedMarketTimes,
 import { loadChartSettings, saveChartSettings } from '@/core/chartSettings';
 import { visibleViewBoxRight } from '@/core/chartViewport';
 import { PIN_STRIKE_COLOR_HEX } from '@/core/pinStrike';
+import { seriesRollNote, summarizeSeriesContracts } from '@/core/futuresContract';
 import { useSharedExpirations } from '@/hooks/useSharedExpirations';
 import { isRollingZeroDte, reconcileExpirations } from '@/core/expirationPersistence';
 import ChartCaption from './ChartCaption';
+import FuturesContractBadge from './FuturesContractBadge';
 
 interface StrikeAggregation {
   strike: number;
@@ -590,6 +592,21 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
   const futuresChartTicker = useMemo(
     () => marketHistoricalAll.find((b) => b.display_source === 'futures')?.data_symbol ?? null,
     [marketHistoricalAll],
+  );
+  // WHICH CME contract these candles are. The contract is per-bar on this
+  // endpoint — a range spanning a roll really does hold two of them — so the
+  // whole series is read rather than one bar: the chip names the newest
+  // contract, and says so when the visible range crosses a roll, because the
+  // step in price at that boundary is cost of carry rather than a market move.
+  // Covers both futures paths: the overnight display swap and a natively-served
+  // ES / NQ series, which sets none of the swap fields above.
+  const seriesContracts = useMemo(
+    () => summarizeSeriesContracts(marketHistoricalAll),
+    [marketHistoricalAll],
+  );
+  const seriesContractRollNote = useMemo(
+    () => seriesRollNote(seriesContracts),
+    [seriesContracts],
   );
   const candleBuckets = useMemo(() => {
     const base = isFuturesMode
@@ -2014,6 +2031,14 @@ export default function MarketMakerExposures({ compact = false }: MarketMakerExp
             <span>◆ {futuresChartTicker ?? 'FUTURES'} · levels frozen</span>
           </div>
         )}
+
+        <FuturesContractBadge
+          contract={seriesContracts.latest}
+          expiry={seriesContracts.latestExpiry}
+          note={seriesContractRollNote}
+          className={toolbarBtnClass}
+          style={{ ...toolbarBtnStyle(), color: 'var(--color-brand-coral)', borderColor: 'var(--color-brand-coral)' }}
+        />
 
         {/* Expiry dropdown */}
         <div ref={expiryRef} className="relative">

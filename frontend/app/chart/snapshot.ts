@@ -36,6 +36,8 @@ interface RawBar {
   volume?: unknown;
   up_volume?: unknown;
   down_volume?: unknown;
+  data_contract?: string | null;
+  data_contract_expiry?: string | null;
 }
 interface RawProfile {
   profile?: Array<{ price: unknown; gex: unknown }>;
@@ -59,6 +61,10 @@ interface RawQuote {
   data_symbol?: string | null;
   futures_close?: unknown;
   futures_reference_close?: unknown;
+  // Carried through so the delayed public chart names its contract like the
+  // live terminal does. Absent on every cash symbol.
+  data_contract?: string | null;
+  data_contract_expiry?: string | null;
 }
 interface RawTechnicals {
   bars?: Array<{ vwap_deviation?: { vwap?: unknown } }>;
@@ -132,6 +138,10 @@ export async function loadChartSnapshot(
       volume: num(b.volume) ?? undefined,
       up_volume: num(b.up_volume),
       down_volume: num(b.down_volume),
+      // Per-bar: a delayed range spanning a quarterly roll carries the old
+      // contract before it and the new one after, and the chart's chip says so.
+      data_contract: b.data_contract ?? null,
+      data_contract_expiry: b.data_contract_expiry ?? null,
     }))
     // /api/market/historical does NOT guarantee chronological order (the live
     // hook and the chart's aggregateBars both sort it defensively). Sort here
@@ -181,6 +191,8 @@ export async function loadChartSnapshot(
       data_symbol: quote?.data_symbol ?? null,
       futures_close: num(quote?.futures_close),
       futures_reference_close: num(quote?.futures_reference_close),
+      data_contract: quote?.data_contract ?? null,
+      data_contract_expiry: quote?.data_contract_expiry ?? null,
     },
     sessionCloses: closes ?? null,
     gamma: {

@@ -241,6 +241,12 @@ const sections: Section[] = [
         blurb:
           'Supported symbols, market hours behavior, how often each surface updates, and what happens around holidays and half-days.',
       },
+      {
+        href: '/help/platform/futures-contract-months',
+        title: 'Why Our Futures Price Can Differ From Another Platform',
+        blurb:
+          'ES and NQ trade as dated contracts that roll every quarter, and providers roll on their own schedules. Why two charts both labelled &ldquo;NQ&rdquo; can sit a few hundred points apart, and how to line them up.',
+      },
     ],
   },
   {

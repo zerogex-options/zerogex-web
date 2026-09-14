@@ -21,6 +21,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
 import { Activity, Camera, ChevronsRight, HelpCircle, Info, Moon, Pause, Play, Repeat, Rewind, Sun } from "lucide-react";
 import TooltipWrapper from "./TooltipWrapper";
+import FuturesContractBadge from "./FuturesContractBadge";
 import { useApiData, useMarketQuote, useGEXByStrike, useGEXProfile, useGEXSummary, useSessionCloses, type SessionClosesData, type VolatilityGaugeData } from "@/hooks/useApiData";
 import { useMarketHistorical, type PriceBar } from "@/hooks/useMarketHistorical";
 import { useStrikeProfileTimeseries, type StrikeProfileStrike } from "@/hooks/useStrikeProfileTimeseries";
@@ -31,6 +32,7 @@ import { resolvePriceSession } from "@/core/sessionCloses";
 import { futuresDelayLabel } from "@/core/futuresDataStatus";
 import { omitClosedMarketTimes, shouldOmitClosedMarketTimes, isIndexSymbol, isWithinRegularMarketHours, etTodayDateKey, etTradingDateLabel, omitOutOfHoursForSymbol } from "@/core/utils";
 import { SYMBOLS } from "@/core/symbols";
+import { seriesRollNote, summarizeSeriesContracts } from "@/core/futuresContract";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import LoadingSpinner from "./LoadingSpinner";
 import ErrorMessage from "./ErrorMessage";
@@ -352,6 +354,21 @@ interface ProfilePoint {
  * public visitor can never pull real-time data off the wire. Built on the
  * server from ~15-min ISR-cached `serverApiGet` calls.
  */
+/** The terminal headline's futures chip — shared by the display-swap badge and
+ *  the contract chip that replaces it on a natively-served ES / NQ chart, so
+ *  the two never differ in shape. */
+const FUTURES_CHIP_STYLE: CSSProperties = {
+  fontFamily: "var(--font-mono)",
+  fontSize: 10,
+  fontWeight: 700,
+  letterSpacing: "0.04em",
+  color: "var(--color-brand-coral)",
+  border: "1px solid var(--color-brand-coral)",
+  borderRadius: 3,
+  padding: "1px 5px",
+  lineHeight: 1.4,
+};
+
 export interface ChartSnapshot {
   symbol: string;
   timeframe: ChartTimeframe;
@@ -365,6 +382,8 @@ export interface ChartSnapshot {
     data_symbol?: string | null;
     futures_close?: number | null;
     futures_reference_close?: number | null;
+    data_contract?: string | null;
+    data_contract_expiry?: string | null;
   } | null;
   sessionCloses: SessionClosesData | null;
   gamma: { flip: number | null; callWall: number | null; putWall: number | null; maxPain: number | null; netGexAtSpot: number | null };
@@ -672,6 +691,16 @@ export default function GammaTerminalChart({
   const futuresTicker = futuresSwap
     ? (snapshot ? snapshot.quote?.data_symbol : quote?.data_symbol) ?? null
     : null;
+  // Which CME contract the headline price is. Read off the quote on BOTH
+  // futures paths — the overnight swap above and a natively-served ES / NQ
+  // chart, which sets none of the swap fields — because "NQ 29,302.25" with no
+  // contract beside it is exactly what readers were comparing against another
+  // platform's different contract. Absent on every cash symbol, and on a
+  // response that predates the field, in which case nothing extra renders.
+  const contractCode =
+    (snapshot ? snapshot.quote?.data_contract : quote?.data_contract) ?? null;
+  const contractExpiry =
+    (snapshot ? snapshot.quote?.data_contract_expiry : quote?.data_contract_expiry) ?? null;
 
   // Stamp the wall-clock instant each fresh live tick lands, so the header can
   // show a realtime "updated HH:MM:SS ET" that advances with the tape instead of
@@ -690,6 +719,17 @@ export default function GammaTerminalChart({
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const data = useMemo(() => dataAll.slice(-POOL), [dataAll]);
+
+  // The bars' own contracts, which are per-row and can differ across the pool:
+  // a multi-day futures range spanning a roll really does hold two contracts,
+  // and the step in price where they meet is cost of carry rather than a market
+  // move. Saying so on the chart is cheaper than answering "your chart has a
+  // gap in it" once a quarter. Null on a single-contract range, which is the
+  // ordinary case, and on every cash series.
+  const contractRollNote = useMemo(
+    () => seriesRollNote(summarizeSeriesContracts(data)),
+    [data],
+  );
 
   // ── Sub-interval bars for SMOOTH candle replay ── While rewinding a
   // candlestick chart, the current (right-edge) candle is rebuilt from the
@@ -2202,12 +2242,23 @@ export default function GammaTerminalChart({
                   {headlinePrice != null ? fmtPrice(headlinePrice) : "--"}
                 </span>
                 {!rewindActive && futuresTicker && (
-                  <span
-                    title={`Outside the cash session — showing ${futuresTicker} futures for ${symbol}`}
-                    style={{ fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 700, letterSpacing: "0.04em", color: "var(--color-brand-coral)", border: "1px solid var(--color-brand-coral)", borderRadius: 3, padding: "1px 5px", lineHeight: 1.4 }}
+                  <FuturesContractBadge
+                    contract={contractCode}
+                    expiry={contractExpiry}
+                    note={contractRollNote}
+                    fallbackTitle={`Outside the cash session — showing ${futuresTicker} futures for ${symbol}`}
+                    style={FUTURES_CHIP_STYLE}
                   >
                     ◆ {futuresTicker} FUT
-                  </span>
+                  </FuturesContractBadge>
+                )}
+                {!rewindActive && !futuresTicker && (
+                  <FuturesContractBadge
+                    contract={contractCode}
+                    expiry={contractExpiry}
+                    note={contractRollNote}
+                    style={FUTURES_CHIP_STYLE}
+                  />
                 )}
                 {!rewindActive && headline.change != null && (
                   <span

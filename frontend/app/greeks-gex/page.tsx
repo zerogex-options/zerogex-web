@@ -8,6 +8,7 @@
 import PageShell from '@/components/layout/PageShell';
 import { useGEXSummary, useMarketQuote } from '@/hooks/useApiData';
 import MetricCard from '@/components/MetricCard';
+import FuturesContractBadge from '@/components/FuturesContractBadge';
 import { LoadingCard } from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import FlipTermStructureChart from '@/components/FlipTermStructureChart';
@@ -70,6 +71,16 @@ export default function GreeksGEXPage() {
       ? quoteData.futures_close
       : quoteData?.close;
   const futuresTicker = isFuturesQuote ? quoteData?.data_symbol ?? 'FUT' : null;
+  // The CME contract behind the price on this card, for both futures paths —
+  // the overnight swap above and a natively-served ES / NQ quote, which sets
+  // none of the swap fields. Null (and so no chip at all) for every cash
+  // symbol, and for a response that predates the field.
+  const contractCode = quoteData?.data_contract ?? null;
+  const priceSubtitle = futuresTicker
+    ? `◆ ${futuresTicker} futures`
+    : quoteData && !isIndexSymbol(symbol)
+      ? `Vol: ${(((quoteData.volume ?? 0) / 1000000)).toFixed(1)}M`
+      : '';
 
   // Show loading state only on initial load
   if (gexLoading && !gexData) {
@@ -116,11 +127,19 @@ export default function GreeksGEXPage() {
             title={`${symbol} Price`}
             value={quoteData && quoteDisplayPrice != null ? `$${quoteDisplayPrice.toFixed(2)}` : '--'}
             subtitle={
-              futuresTicker
-                ? `◆ ${futuresTicker} futures`
-                : quoteData && !isIndexSymbol(symbol)
-                  ? `Vol: ${(((quoteData.volume ?? 0) / 1000000)).toFixed(1)}M`
-                  : ''
+              priceSubtitle || contractCode ? (
+                <span className="flex flex-wrap items-center gap-2">
+                  {priceSubtitle && <span>{priceSubtitle}</span>}
+                  <FuturesContractBadge
+                    contract={contractCode}
+                    expiry={quoteData?.data_contract_expiry}
+                    className="zg-chip"
+                    style={{ '--chip-color': 'var(--color-brand-coral)' } as React.CSSProperties}
+                  />
+                </span>
+              ) : (
+                ''
+              )
             }
             subtitleColor={futuresTicker ? 'var(--color-brand-coral)' : undefined}
             tooltip={

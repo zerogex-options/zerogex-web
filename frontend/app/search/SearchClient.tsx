@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Search as SearchIcon, ArrowRight } from 'lucide-react';
 import { ARTICLE_REGISTRY } from '@/core/articleRegistry';
+import { HELP_ARTICLES } from '@/core/helpRegistry';
 
 type Entry = { title: string; href: string; blurb: string; kind: string };
 
@@ -31,7 +32,12 @@ const PRIMARY_PAGES: Entry[] = [
   { title: 'About ZeroGEX', href: '/about', kind: 'Page', blurb: 'The open options analytics platform — what ZeroGEX is and how it is built.' },
 ];
 
-// Full search index: primary pages + every registered education article.
+// Full search index: primary pages, every registered education article, and
+// every Platform Guide help article. The help pages were missing here, so a
+// reader searching the words on the page they were looking at ("futures
+// contract", "billing", "gamma flip") got the education essay and not the help
+// article that answers it. Both registries are spread rather than re-listed, so
+// a new article is searchable the moment it is registered.
 const INDEX: Entry[] = [
   ...PRIMARY_PAGES,
   ...Object.values(ARTICLE_REGISTRY).map((a) => ({
@@ -39,6 +45,12 @@ const INDEX: Entry[] = [
     href: a.href,
     blurb: a.blurb,
     kind: 'Article',
+  })),
+  ...HELP_ARTICLES.map((a) => ({
+    title: a.title,
+    href: `/help/platform/${a.slug}`,
+    blurb: a.description,
+    kind: 'Help',
   })),
 ];
 

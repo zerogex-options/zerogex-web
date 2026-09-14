@@ -164,6 +164,14 @@ export interface MarketQuoteRow {
   data_symbol?: string | null;
   futures_close?: number | null;
   futures_reference_close?: number | null;
+  // Which CME contract the futures price actually is, and when that contract
+  // expires. Served on BOTH futures paths — the overnight display swap above
+  // and a natively-served ES / NQ quote, where none of the other fields in this
+  // block are set — so read them on their own rather than behind
+  // display_source. Absent on every cash index / ETF quote. Display labels
+  // only; see core/futuresContract.ts.
+  data_contract?: string | null;
+  data_contract_expiry?: string | null;
   // FEED freshness on the natively-served futures quote (ES / NQ). Separate
   // from `session`, which describes the CME calendar: a "closed" session
   // makes getPrimaryPriceChangeSummary swap the headline price for the last

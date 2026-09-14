@@ -165,6 +165,13 @@ export const HELP_ARTICLES: HelpArticle[] = [
     section: 'API & Data Access',
   },
   {
+    slug: 'futures-contract-months',
+    title: 'Why Our Futures Price Can Differ From Another Platform',
+    description:
+      'ES and NQ trade as dated contracts. When two providers roll to the next one on different days, both charts say "NQ" and neither is wrong.',
+    section: 'API & Data Access',
+  },
+  {
     slug: 'reading-charts',
     title: 'How to Read ZeroGEX Charts',
     description: 'A shared visual vocabulary for every chart on the platform.',
