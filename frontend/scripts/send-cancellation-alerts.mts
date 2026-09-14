@@ -43,9 +43,8 @@
 //   CANCELLATION_ALERT_LOOKBACK_HOURS   trailing window, default 72
 //   CANCELLATION_ALERT_LIMIT            max sends per run, default 25
 //   CANCELLATION_ALERT_THROTTLE_MS      gap between sends, default 550
-//   CANCELLATION_ALERT_INCLUDE_SILENT_LAPSES=1
-//                                       alert on lapses that captured no reason
-//                                       too (default: they are skipped)
+//   CANCELLATION_ALERT_INCLUDE_SILENT=1 alert on churn that captured no reason at
+//                                       all too (default: it is skipped)
 //   CANCELLATION_ALERT_BUSY_TIMEOUT_MS  SQLite lock wait, default 10000
 //
 // Flags:
@@ -62,14 +61,19 @@
 //                     with a 429, and a capped run of 25 goes out far faster than
 //                     that unthrottled. Default 550 (~1.8/s), matching
 //                     send-product-update.mts.
-//   --kind <k>        pending | lapsed | both (default both)
-//   --include-silent-lapses
-//                     Also alert on lapsed subscriptions whose cancellation
-//                     survey captured nothing. Off by default: access is already
-//                     gone and no reason was given, so there is nothing to act on
-//                     — almost always a trial that simply ended. Pending cancels
-//                     are NEVER filtered, reason or not; they still have a live
-//                     save window. See shouldAlertOnChurn in core/cancellationAlert.ts.
+//   --kind <k>        pending | lapsed | both (default pending). `pending` is the
+//                     moment the member clicked Cancel and answered the survey.
+//                     The `lapsed` row that follows weeks later carries the SAME
+//                     survey answer, so alerting on both is two emails for one
+//                     departure — the second arriving after the save window it
+//                     reports on has already closed. `lapsed` stays available as
+//                     the backstop for a churn that never emitted a pending row.
+//   --include-silent  Also alert on churn that captured NO reason at all —
+//                     neither a survey selection nor a typed comment. Off by
+//                     default: such a row reports a departure and nothing else,
+//                     which the dashboard already carries, and on real data it
+//                     was most of the stream. See shouldAlertOnChurn in
+//                     core/cancellationAlert.ts.
 //   --dry-run         Print what would be sent; send nothing, latch nothing
 //   --mark-only       Latch WITHOUT sending. The "I have already dealt with this
 //                     backlog by hand, don't email me about history" escape hatch:
@@ -87,6 +91,7 @@ import { DatabaseSync } from 'node:sqlite';
 import {
   CHURN_EVENT_TYPES,
   CHURN_EVENT_TYPE_VALUES,
+  DEFAULT_CHURN_ALERT_KIND,
   ALERT_SENT_EVENT_TYPE,
   classifyChurnEvent,
   buildAlertLatchMessage,
@@ -154,7 +159,7 @@ type Args = {
   markOnly: boolean;
   preview: string | null;
   throttleMs: number;
-  includeSilentLapses: boolean;
+  includeSilent: boolean;
 };
 
 function usage(): never {
@@ -164,8 +169,8 @@ function usage(): never {
   --since <when>   Backfill from an ISO stamp or YYYY-MM-DD instead of the lookback window
   --lookback <h>   Trailing window in hours (default 72)
   --limit <n>      Max alerts per run (default 25; 0 = unlimited)
-  --kind <k>       pending | lapsed | both (default both)
-  --include-silent-lapses
+  --kind <k>       pending | lapsed | both (default pending)
+  --include-silent
                    Also alert on lapses with no reason captured (default: skipped)
   --dry-run        Print the alerts; send nothing, latch nothing
   --mark-only      Latch without sending (silence a historical backlog)
@@ -181,12 +186,12 @@ function parseArgs(argv: string[]): Args {
     since: null,
     lookback: null,
     limit: null,
-    kind: 'both',
+    kind: DEFAULT_CHURN_ALERT_KIND,
     dryRun: false,
     markOnly: false,
     preview: null,
     throttleMs: envThrottleMs(),
-    includeSilentLapses: process.env.CANCELLATION_ALERT_INCLUDE_SILENT_LAPSES === '1',
+    includeSilent: process.env.CANCELLATION_ALERT_INCLUDE_SILENT === '1',
   };
   for (let i = 0; i < argv.length; i += 1) {
     switch (argv[i]) {
@@ -220,8 +225,8 @@ function parseArgs(argv: string[]): Args {
       case '--preview':
         args.preview = argv[++i] ?? null;
         break;
-      case '--include-silent-lapses':
-        args.includeSilentLapses = true;
+      case '--include-silent':
+        args.includeSilent = true;
         break;
       case '--throttle-ms': {
         const v = Number(argv[++i]);
@@ -349,10 +354,9 @@ async function main(): Promise<void> {
   }
 
   const unalerted = churnRows.filter((r) => !alreadyAlerted.has(r.id) && r.email);
-  const pending = unalerted.filter((r) => {
-    const kind = classifyChurnEvent(r.type);
-    return kind ? shouldAlertOnChurn(kind, r.message, args.includeSilentLapses) : false;
-  });
+  const pending = unalerted.filter(
+    (r) => classifyChurnEvent(r.type) !== null && shouldAlertOnChurn(r.message, args.includeSilent),
+  );
   const suppressed = unalerted.length - pending.length;
   // Count latched rows that belong to THIS window, not every latch in the latch
   // scan. A `--since` backfill writes its latches today, so the raw set size
@@ -367,7 +371,7 @@ async function main(): Promise<void> {
   );
   if (suppressed > 0) {
     console.log(
-      `[cancellation-alerts] ${suppressed} lapsed with no reason captured — skipped (--include-silent-lapses to see them)`,
+      `[cancellation-alerts] ${suppressed} with no reason captured — skipped (--include-silent to see them)`,
     );
   }
 
