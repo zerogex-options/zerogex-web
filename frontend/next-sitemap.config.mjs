@@ -76,8 +76,8 @@ const GAMMA_LEVEL_PATHS = [
 ];
 
 // Public tools whose content changes every trading day: the free delayed
-// chart and the replay / forecast indexes.
-const DAILY_TOOL_PATHS = ['/chart', '/replay', '/forecast'];
+// chart and the replay / forecast / scorecard indexes.
+const DAILY_TOOL_PATHS = ['/chart', '/replay', '/forecast', '/scorecard'];
 
 /** @type {import('next-sitemap').IConfig} */
 const config = {
@@ -197,6 +197,13 @@ const config = {
       '/privacy',
       '/real-time-gex-0dte',
       '/replay',
+      // The per-session public receipt. It was missing from this list
+      // entirely — not excluded, just never added — which together with
+      // having no sidebar entry and no inbound link left it reachable only
+      // from the 4:15 PM ET post that links one specific date. Only the
+      // index is listed; the dated /scorecard/{symbol}/{date} permalinks are
+      // discovered from it, the same way /replay and /forecast work.
+      '/scorecard',
       '/sierra-chart-indicator',
       '/terms',
       '/thinkorswim-indicator',

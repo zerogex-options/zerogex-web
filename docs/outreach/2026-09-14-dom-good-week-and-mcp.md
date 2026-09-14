@@ -89,8 +89,10 @@ Michael did not know these pages existed. Checked, and he could not have:
 
 `/scorecard` is the **only** member of the public-receipt family with no way in.
 It is not in the sidebar, not linked from any page or component, not referenced in
-any help or education content, and there is no `sitemap.ts` in the app at all
-(only `robots.ts`). It is deliberately anonymous-accessible (`core/auth.ts`
+any help or education content, and it is absent from the sitemap — `next-sitemap`
+generates one at build time from `frontend/next-sitemap.config.mjs`, whose
+`additionalPaths` lists `/replay` and `/forecast` but never `/scorecard`. It was
+not excluded; it was never added. It is deliberately anonymous-accessible (`core/auth.ts`
 allowlists `/scorecard/*` so OG crawlers and non-members can load it), and it was
 built as the landing page for the 4:15 PM ET auto-tweet — so the only entrances
 are that post, the X profile link to `/scorecard/today`, and knowing the URL.
@@ -177,17 +179,28 @@ favorites is his actual workflow.
 
 ## Verify first
 
-- **Friday's scorecard was checked — the link stays in.** It renders, the
-  `eod_pressure` row is present, and the draft now describes exactly what he will
-  see (2-1, −0.00%, near the bottom) before he clicks, plus why that number is not
-  a grade. Sending him there blind, in either direction, was the thing to avoid.
-- **Decide whether to fix the scorer before sending.** The draft promises "I'll fix
-  the window." If that promise is not going to be kept promptly, soften it to an
-  intention. Do not send a commitment and then leave the page mismeasuring.
-- Dom's symbol is QQQ throughout the thread and the screenshot confirms the QQQ
-  page is the right one.
-- The 0.55 / 163 / 0.78 / 1.31 / 11 figures are read from `catalog.py` as
-  committed. If the catalog has been re-screened since, re-read it.
+**Send this after the fixes are deployed, not before.** The draft says the
+scorer is fixed and the Scorecard is in the sidebar, and it describes what Dom
+will see when he clicks. If it goes out against the old build, he clicks
+through to the `−0.00%` the mail spends four paragraphs disowning, and to a
+sidebar with no Scorecard in it.
+
+Once deployed, check in this order:
+
+1. **`https://zerogex.io/scorecard/QQQ/2026-09-11`** — the EOD Pressure row
+   should now show a `Scored` count below its 3 flips, and read "not scorable"
+   if none of the three could be graded. If it still shows `−0.00%`, the
+   backend did not deploy; do not send.
+2. **The sidebar** — "Daily Scorecard" under Strategy Tools, and `/scorecard`
+   should land on the most recent completed session.
+3. **A signal page** (`/eod-pressure`) — the last-30-sessions line under the
+   event timeline. If the trailing endpoint is not live the line simply does
+   not render, which is safe, but the mail promises it, so confirm it.
+4. The 0.55 / 163 / 0.78 / 1.31 / 11 figures are read from `catalog.py` as
+   committed. If the catalog has been re-screened since, re-read it.
+
+Dom's symbol is QQQ throughout the thread and the screenshot confirms the QQQ
+page is the right one.
 
 ## Links used
 
@@ -207,23 +220,25 @@ That's good to hear, and thank you for saying it. The part that stands out to me
 
 "Cautiously optimistic" is the right register, so let me give you the material to stay cautious with, because I'd rather do that than take a victory lap on your week.
 
-On Friday's EOD Pressure call, I went and looked. I owe you a link, an admission, and a warning about the link.
+On Friday's EOD Pressure call, I went and looked. What I owe you is a link, an admission, and a bug you found without knowing it.
 
 The link: https://zerogex.io/scorecard/QQQ/2026-09-11
 
 Every session gets one. It breaks out each signal's flips, wins, losses and average forward return, alongside the closing regime and how many Playbook calls fired. Friday was 55 calls, closed long gamma.
 
-The admission, because it's the embarrassing half: you could not have found that page. There's no link to it anywhere on the site — not in the sidebar, not in the help center, nothing anywhere links to it. It was built as the landing page for the daily recap post, so the only ways in are that post or already knowing the URL. I didn't notice until I went looking for your Friday. Every other page of that kind — the replay, the morning forecast, the card permalinks — you can reach from inside the product. This one got missed, and it's the one I'd most want you reading. That's getting fixed this week.
+The admission, because it's the embarrassing half: until this week you could not have found that page. There was no link to it anywhere on the site — not in the sidebar, not in the help center, and it wasn't even in our sitemap. It was built as the landing page for the daily recap post, so the only ways in were that post or already knowing the URL. I didn't notice until I went looking for your Friday. Every other page of that kind — the replay, the morning forecast, the card permalinks — you could reach from inside the product. That one got missed. It's in the sidebar now, under Strategy Tools, next to Daily Replay.
 
-Now the warning, because you'll find EOD Pressure near the bottom of that table at 2 wins, 1 loss, average −0.00%, and I don't want you taking that as a verdict.
+Now the part I'd rather you heard from me. When I opened Friday to check it before writing this, EOD Pressure was sitting near the bottom of the table at 2 wins, 1 loss, average −0.00%. That number was wrong, and not in my favor.
 
-It isn't one. EOD Pressure is the only signal there that can't fire during most of the day — it's zero until ninety minutes before the close, by construction. The scorecard grades every signal on where price sat sixty minutes after it fired. For anything firing after 15:00, sixty minutes later is past the bell, so it gets graded against an after-hours print — and Friday being a Friday, possibly against Monday's open. That's a weekend gap reported as an hour of trading.
+EOD Pressure is the only signal there that can't fire during most of the day — it's zero until ninety minutes before the close, by construction. The scorecard graded every signal on where price sat sixty minutes after it fired. For anything firing after 15:00, sixty minutes later is past the bell, so it was being graded against an after-hours print — and Friday being a Friday, potentially against Monday's open. A weekend gap was being reported as an hour of trading.
 
-So that −0.00% isn't the signal being flat. It's my scorer measuring the wrong window for the one signal that only lives near the close. It's a bug, it's mine, and your email is the reason I found it. It matters more than one page, too: the same number picks the best and worst signal in the recap post that goes out every afternoon, so a mismeasured signal can get named in public. I'm fixing the window.
+So that −0.00% was never the signal being flat. It was my scorer measuring the wrong window for the one signal that only lives near the close, and it had been doing that on every session since the page shipped. Your email is the only reason I found it. It mattered more than one page, too: that same number picks the best and worst signal in the recap post that goes out every afternoon, so a mismeasured signal could get named in public.
 
-Which leaves us somewhere less satisfying than either of us would like. I can't tell you the signal is good, and as of Friday I can't tell you my own page grades it correctly either.
+It's fixed. The forward price now has to come from the same session, and a flip too close to the bell to grade shows as "not scorable" instead of a number. You'll see a new Scored column next to Flips — that's how many of a signal's flips could actually be graded. For EOD Pressure it will often be well under its flip count, and on some sessions it will be none at all. That reads worse than a tidy −0.00%. It's also the truth, which is the only version worth having.
 
-What I do have is one measurement that points the wrong way, and you should have it rather than not.
+The other half of that gap is fixed too, and it's the one I think you'll actually use. Nothing in the product aggregated a signal across sessions — the scorecard was one day, so "is EOD Pressure any good?" was a question my own product couldn't answer. Each signal's page now carries its last 30 sessions underneath the event timeline: flips, how many were scorable, the win/loss split and the average. That's the number to judge a signal on. Friday is an anecdote.
+
+What I do have, and you should have it rather than not, is one measurement that points the wrong way.
 
 We screened a mechanical strategy built on that last-hour drift — "Last-Hour Hedging Drift" — over a 45-day window across SPY, QQQ and SPX in August. 163 trades, profit factor 0.55. It lost money and we shelved it.
 
@@ -257,38 +272,51 @@ Best,
 Michael
 Founder, ZeroGEX
 
-## Worth a separate ticket
+## What was built, and what was not
 
-Two of these came out of one subscriber email and both are bigger than the reply.
+Both P1s and two of the three follow-ups are implemented on
+`claude/upbeat-carson-bnw2qc` in both repos.
 
-- **P1 — Scorecard forward returns have no session bound.**
-  `src/api/queries/signals.py` (~1435) resolves the forward price as the first
-  `underlying_quotes` row at `timestamp >= event + INTERVAL '<horizon> minutes'`,
-  unbounded above and with no same-session constraint. Any signal firing within
-  `horizon` of the close is graded against a post-close print — across a weekend
-  on Fridays. `eod_pressure` is affected on **every** flip it can ever make
-  (its ramp is zero before 90 minutes to close), and any late-firing signal is
-  affected intermittently. This is not cosmetic: `get_daily_scorecard` derives
-  `best` / `worst` from the same average and bakes them into `tweet_text`, which
-  the 4:15 PM ET job posts verbatim — so the bug can name a signal as the day's
-  worst in public. Fix is to bound the lateral join to the session close (or null
-  the return when the horizon crosses it) and show "not scorable" rather than a
-  number, the way Trap Detection's unscored flip already behaves.
-- **P1 — `/scorecard/*` is unreachable from the product.** Zero navigation
-  entries, zero inbound links, no help-center mention, no `sitemap.ts`. It is the
-  only public-receipt route in that state (`/forecast`, `/cards` and `/replay` are
-  all linked). A per-session, per-signal public receipt that only arrives via the
-  daily X post is the strongest evidence surface we have and nobody inside the app
-  can reach it. Minimum: a sidebar entry, a link from each signal page to that
-  signal's row for the last session, and a sitemap.
-- **No running hit rate for any advanced signal.** `/scorecard/{symbol}/{date}` is
-  strictly one calendar day, and nothing aggregates a signal's record across
-  sessions. A subscriber asking "is EOD Pressure any good?" cannot be answered from
-  the product — only from `catalog.py`, which measures strategies, not signals.
-- **Favorites are `localStorage`-only** (`zg.nav.favorites.v1`). Now that a Pro
-  subscriber has adopted favorites as primary navigation over My Dashboard,
-  per-browser storage is a data-loss surface. Dashboard layouts persist
-  server-side; favorites should too.
-- **Preset adoption is unmeasured.** The 0DTE preset was built for a named user who
-  then didn't use it, and we found out because he volunteered it. No event
-  distinguishes "applied a preset" from "still using it a week later."
+**Fixed — forward returns are session-bounded** (`zerogex-oa`). All three
+forward-return queries now bound the forward price to the event's own session:
+`get_daily_scorecard`, `get_signal_component_events` (the per-signal Event
+Timeline — same bug, found by the regression test) and the new trailing-record
+query. A flip too near the close is counted in `flips` and absent from
+`scored`, which the aggregate already modeled. Half-days resolve through the
+shared `session_close_for`, so an early close bounds at 13:00 ET.
+`tests/test_scorecard_session_bound.py` pins the boundary arithmetic, both DST
+sides, the half-day path, the calendar-failure fallback, and asserts every
+`q1` join carries a bound — it is what caught the second instance.
+
+**Fixed — the Scorecard is reachable** (`zerogex-web`). A `/scorecard` landing
+route resolving the most recent *completed* session; a "Daily Scorecard" entry
+under Strategy Tools in all five locales; `matchPrefix` on nav items so a
+section whose real pages are dated permalinks still highlights; `/scorecard`
+added to `next-sitemap.config.mjs` (`additionalPaths` and `DAILY_TOOL_PATHS`);
+and a link from every signal page via the shared `SignalEventsPanel`.
+
+**Fixed — a signal's record across sessions** (both repos).
+`GET /api/scorecard/signal-record` aggregates the same flips over 2–120
+sessions, and every signal page now shows its last 30 underneath the event
+timeline. `win_rate` is `null` rather than `0` when nothing was scorable, so an
+unmeasurable signal never reads as a 0% win rate.
+
+**Fixed in passing — signal labels.** `_humanize_signal_name` was `.title()`,
+which produced "Eod Pressure" and "Zero Dte Position Imbalance" on the public
+page *and* in the 4:15 PM ET post. Now "EOD Pressure" and "0DTE Position
+Imbalance".
+
+**Fixed — preset adoption is measured.** `dashboard_preset_applied` on apply,
+and `dashboard_preset_retained` at most once a day on any later day the
+preset-seeded board is still in use, carrying `days_since_applied`. An emptied
+board clears the stamp rather than counting as retention. The retention check
+is gated on `hydrated` — unguarded it would read the pre-hydration empty layout
+as abandonment and wipe the record on every page load.
+
+**Not built — server-side user preferences.** The original ticket said
+favorites should persist server-side "like dashboard layouts". That premise was
+wrong: `saveLayout` writes to `localStorage` too. No user preference in the
+product survives a new browser, and `zerogex-oa` has no preferences table or
+endpoint to sync to. This needs new infrastructure plus a product decision —
+what syncs, what wins on conflict, what happens to existing local state — so it
+is left for a deliberate change rather than improvised here.

@@ -70,6 +70,7 @@ export const en = {
   'nav.liveOptionsQuotes': 'Live Options Quotes',
   'nav.dailyReplay': 'Daily Replay',
   'nav.dailyForecast': 'Daily Forecast',
+  'nav.dailyScorecard': 'Daily Scorecard',
   'nav.hub': 'Hub',
   'nav.guides': 'Guides',
   'nav.articles': 'Articles',

@@ -61,6 +61,7 @@ export const it: Dictionary = {
   'nav.liveOptionsQuotes': 'Quotazioni opzioni live',
   'nav.dailyReplay': 'Replay giornaliero',
   'nav.dailyForecast': 'Previsione giornaliera',
+  'nav.dailyScorecard': 'Pagella giornaliera',
   'nav.hub': 'Hub',
   'nav.guides': 'Guide',
   'nav.articles': 'Articoli',

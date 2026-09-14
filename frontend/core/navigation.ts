@@ -12,6 +12,15 @@ export type NavItem = {
   external?: boolean;
   /** Flags an in-development feature; renders a "Beta" pill next to the label. */
   beta?: boolean;
+  /**
+   * Treat `id` as a path PREFIX for active-state, not an exact match. For
+   * sections whose real pages are dated permalinks (`/scorecard/SPY/2026-09-11`)
+   * and whose `id` is only the entry point, exact matching would leave the item
+   * unhighlighted everywhere the reader actually is. Off by default, because
+   * for nested entries like `/backtesting` and `/backtesting/insights` a prefix
+   * would light up both.
+   */
+  matchPrefix?: boolean;
 };
 
 export type NavSubgroup = {
@@ -156,6 +165,11 @@ export const NAV_GROUPS: NavGroup[] = [
       { id: '/premium-heatmap', label: 'Premium Surface', requiredTier: 'basic', beta: true },
       { id: '/replay', label: 'Daily Replay', labelKey: 'nav.dailyReplay' },
       { id: '/forecast', label: 'Daily Forecast', labelKey: 'nav.dailyForecast', beta: true },
+      // Public per-session receipt: every signal's flips, what was scorable,
+      // and how it resolved. It existed for months reachable only from the
+      // 4:15 PM ET post that links one date — no sidebar entry, no inbound
+      // link, no sitemap — so nobody inside the product could find it.
+      { id: '/scorecard', label: 'Daily Scorecard', labelKey: 'nav.dailyScorecard', matchPrefix: true },
     ],
   },
   {

@@ -79,6 +79,23 @@ export const TelemetryEvent = {
    *  is losing people; clicks near zero means the block itself is being
    *  scrolled past, which is a placement problem rather than a copy one. */
   McpServerClicked: 'mcp_server_clicked',
+  /** A My Dashboard quick-start preset was applied (client, /my-dashboard).
+   *  `preset` is the preset id, `symbol` the board symbol at the time.
+   *
+   *  Applying a preset is not the same as adopting it. The 0DTE preset was
+   *  built for a specific subscriber who then did not use it, and we only
+   *  found out because he volunteered it weeks later — nothing distinguished
+   *  "applied once" from "still on it a week later". Pair this with
+   *  `dashboard_preset_retained` for that. */
+  DashboardPresetApplied: 'dashboard_preset_applied',
+  /** A board that was created from a preset is still in use on a later day
+   *  (client, /my-dashboard, at most once per preset per UTC day).
+   *
+   *  `preset` is the preset id, `days_since_applied` the whole days since it
+   *  was applied, and `modified` whether the layout has diverged from the
+   *  preset since. Retention, not adoption: `days_since_applied >= 1` is the
+   *  first evidence a preset is actually someone's board. */
+  DashboardPresetRetained: 'dashboard_preset_retained',
   /** An MCP client completed the `initialize` handshake against /mcp (server,
    *  once per client session — not per tool call). This is the actual
    *  conversion for the block above: somebody added the server to an assistant
