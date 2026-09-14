@@ -107,3 +107,93 @@ test('dynamic values are HTML-escaped, never interpolated raw', () => {
   assert.match(html, /&lt;script&gt;/);
   assert.match(html, /Visa &quot;&amp;&quot; Co/);
 });
+
+// A member who cancels in the hour between trial end and Stripe finalizing the
+// draft cycle invoice still gets charged — the trial ran its full term, so that
+// charge stands. But this email then arrives ~30 minutes after we acknowledged
+// their cancellation, and in its default form it congratulates them on becoming
+// a "full member" and tells them the plan "renews automatically from there
+// until you cancel". The second claim is simply false — they HAVE canceled —
+// and it is the one that reads as a surprise recurring charge.
+
+const ACCESS_END = new Date(Date.UTC(2026, 9, 14, 10, 3, 14)).toISOString();
+
+test('an already-canceled member gets a receipt, not a welcome', () => {
+  const { subject, text, html } = buildTrialConvertedEmail({
+    amountFormatted: '$59.00',
+    cardLast4: null,
+    nextChargeIso: ACCESS_END,
+    alreadyCanceled: true,
+  });
+
+  assert.equal(subject, 'Your ZeroGEX trial ended — your receipt, and your cancellation');
+  assert.doesNotMatch(subject, /full membership/);
+  assert.doesNotMatch(text, /You're now a full ZeroGEX member/);
+  assert.doesNotMatch(html, /You're now a full ZeroGEX member/);
+  // Celebrating the member's "early backing" as they walk out the door.
+  assert.doesNotMatch(text, /Thank you for backing ZeroGEX this early/);
+
+  // The charge is still stated exactly — this email's whole job.
+  assert.match(text, /\$59\.00 on your payment method on file/);
+  assert.match(html, /\$59\.00 on your payment method on file/);
+});
+
+test('an already-canceled member is never told the plan renews', () => {
+  const { text, html } = buildTrialConvertedEmail({
+    amountFormatted: '$59.00',
+    nextChargeIso: ACCESS_END,
+    alreadyCanceled: true,
+  });
+
+  // The false claim, in both bodies.
+  assert.doesNotMatch(text, /renews automatically/);
+  assert.doesNotMatch(html, /renews automatically/);
+  assert.doesNotMatch(text, /Your next charge is on/);
+  assert.doesNotMatch(html, /Your next charge is on/);
+
+  // The correction: same date, opposite meaning.
+  assert.match(text, /access stays on until October 14, 2026/);
+  assert.match(html, /access stays on until October 14, 2026/);
+  assert.match(text, /no next charge and nothing renews/);
+  assert.match(html, /no next charge and nothing renews/);
+  assert.match(text, /cancellation is confirmed/);
+});
+
+test('the "nothing renews" correction survives a missing period end', () => {
+  // The date is nice to have; "you will not be billed again" is not optional.
+  const { text } = buildTrialConvertedEmail({
+    amountFormatted: '$59.00',
+    alreadyCanceled: true,
+  });
+
+  assert.match(text, /no next charge and nothing renews/);
+  assert.match(text, /end of this billing period/);
+  assert.doesNotMatch(text, /renews automatically/);
+});
+
+test('a canceled member whose final period was fully credited is told the truth', () => {
+  const { text } = buildTrialConvertedEmail({
+    amountFormatted: '$0.00',
+    fullyCredited: true,
+    nextChargeIso: ACCESS_END,
+    alreadyCanceled: true,
+  });
+
+  assert.doesNotMatch(text, /payment went through/);
+  assert.match(text, /covered this final period in full/);
+  assert.match(text, /nothing to pay/);
+  assert.match(text, /no next charge and nothing renews/);
+});
+
+test('a continuing member is completely unaffected by the cancel branch', () => {
+  const { subject, text } = buildTrialConvertedEmail({
+    amountFormatted: '$59.00',
+    nextChargeIso: ACCESS_END,
+  });
+
+  assert.equal(subject, 'Your ZeroGEX trial just became a full membership');
+  assert.match(text, /You're now a full ZeroGEX member/);
+  assert.match(text, /Your next charge is on October 14, 2026/);
+  assert.match(text, /renews automatically/);
+  assert.doesNotMatch(text, /nothing renews/);
+});

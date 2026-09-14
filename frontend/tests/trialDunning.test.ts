@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  hasConversionChargeInFlight,
   isTrialConversionFailure,
   isWithinTrialConversionWindow,
   type TrialConversionFailureInput,
@@ -100,5 +101,116 @@ test('isWithinTrialConversionWindow: window is configurable and matches the invo
   assert.equal(
     isWithinTrialConversionWindow(TRIAL_END, oneDayLate),
     isTrialConversionFailure({ trialEndUnix: TRIAL_END, invoiceCreatedUnix: oneDayLate / 1000 }),
+  );
+});
+
+// hasConversionChargeInFlight answers "is money about to move right now?" at the
+// moment a member cancels. Stripe creates the post-trial cycle invoice as a
+// DRAFT at trial_end and only finalizes (and charges) it ~1h later, and
+// cancel_at_period_end does nothing to an invoice that already exists — so a
+// cancel inside that hour is still followed by a charge. The charge stands;
+// what this predicate buys is a cancellation email that says so up front
+// instead of promising "nothing changes yet on your end".
+
+const CONVERSION_TRIAL_END = Math.floor(Date.UTC(2026, 8, 14, 10, 3, 14) / 1000);
+const MS_HOUR = 60 * 60 * 1000;
+
+test('hasConversionChargeInFlight: the real case — canceled between trial end and the charge', () => {
+  // Exactly the reported incident: trial ended 10:03, canceled 10:33, the draft
+  // invoice finalized and charged 11:04.
+  assert.equal(
+    hasConversionChargeInFlight({
+      status: 'active',
+      trialEndUnix: CONVERSION_TRIAL_END,
+      firstPaymentAtIso: null,
+      nowMs: CONVERSION_TRIAL_END * 1000 + 30 * 60 * 1000,
+    }),
+    true,
+  );
+});
+
+test('hasConversionChargeInFlight: canceling DURING the trial is the happy path', () => {
+  // Still trialing → no invoice exists yet and they are never charged at all.
+  // This member must keep the reassuring copy.
+  assert.equal(
+    hasConversionChargeInFlight({
+      status: 'trialing',
+      trialEndUnix: CONVERSION_TRIAL_END,
+      firstPaymentAtIso: null,
+      nowMs: CONVERSION_TRIAL_END * 1000 - 2 * MS_HOUR,
+    }),
+    false,
+  );
+});
+
+test('hasConversionChargeInFlight: an established member has nothing in flight', () => {
+  assert.equal(
+    hasConversionChargeInFlight({
+      status: 'active',
+      trialEndUnix: CONVERSION_TRIAL_END,
+      firstPaymentAtIso: '2026-09-14T11:04:09.443Z',
+      nowMs: CONVERSION_TRIAL_END * 1000 + 40 * 24 * MS_HOUR,
+    }),
+    false,
+  );
+});
+
+test('hasConversionChargeInFlight: past_due is left to the payment-failed email', () => {
+  // That member already got told the amount and that it failed; this email must
+  // not claim a payment "will go through shortly" on top of it.
+  assert.equal(
+    hasConversionChargeInFlight({
+      status: 'past_due',
+      trialEndUnix: CONVERSION_TRIAL_END,
+      firstPaymentAtIso: null,
+      nowMs: CONVERSION_TRIAL_END * 1000 + 30 * 60 * 1000,
+    }),
+    false,
+  );
+});
+
+test('hasConversionChargeInFlight: a trial_end still in the future is never "already charged"', () => {
+  // Guards clock skew: isWithinTrialConversionWindow tolerates an hour either
+  // side by design, which would otherwise read as a charge that cannot exist.
+  assert.equal(
+    hasConversionChargeInFlight({
+      status: 'active',
+      trialEndUnix: CONVERSION_TRIAL_END,
+      firstPaymentAtIso: null,
+      nowMs: CONVERSION_TRIAL_END * 1000 - 30 * 60 * 1000,
+    }),
+    false,
+  );
+});
+
+test('hasConversionChargeInFlight: outside the conversion window it is some other billing state', () => {
+  assert.equal(
+    hasConversionChargeInFlight({
+      status: 'active',
+      trialEndUnix: CONVERSION_TRIAL_END,
+      firstPaymentAtIso: null,
+      nowMs: CONVERSION_TRIAL_END * 1000 + 5 * 24 * MS_HOUR,
+    }),
+    false,
+  );
+});
+
+test('hasConversionChargeInFlight: malformed inputs are never trusted', () => {
+  const now = CONVERSION_TRIAL_END * 1000 + 30 * 60 * 1000;
+  assert.equal(
+    hasConversionChargeInFlight({ status: 'active', trialEndUnix: null, firstPaymentAtIso: null, nowMs: now }),
+    false,
+  );
+  assert.equal(
+    hasConversionChargeInFlight({ status: null, trialEndUnix: CONVERSION_TRIAL_END, firstPaymentAtIso: null, nowMs: now }),
+    false,
+  );
+  assert.equal(
+    hasConversionChargeInFlight({ status: 'active', trialEndUnix: Number.NaN, firstPaymentAtIso: null, nowMs: now }),
+    false,
+  );
+  assert.equal(
+    hasConversionChargeInFlight({ status: 'active', trialEndUnix: CONVERSION_TRIAL_END, firstPaymentAtIso: null, nowMs: Number.NaN }),
+    false,
   );
 });
