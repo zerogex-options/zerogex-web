@@ -83,3 +83,52 @@ export function isWithinTrialConversionWindow(
   const deltaSeconds = nowMs / 1000 - trialEndUnix;
   return deltaSeconds >= -SKEW_SECONDS && deltaSeconds <= windowDays * DAY_SECONDS;
 }
+
+// Does this member have a trial-conversion charge that has NOT settled yet —
+// i.e. is money about to move right now?
+//
+// Stripe does not charge a `subscription_cycle` invoice the instant it creates
+// it. At trial end the invoice is created as a DRAFT and auto-finalizes roughly
+// an hour later; only then is the card charged. A member who cancels inside
+// that hour has genuinely canceled before the charge — but `cancel_at_period_end`
+// does nothing to an already-created invoice, so the charge still lands on them
+// half an hour later.
+//
+// Letting that charge land is deliberate: the trial ran its full length, and a
+// cancel after it expires still owes the period. What is NOT acceptable is our
+// email contradicting itself — acknowledging the cancellation with "nothing
+// changes yet on your end" and then charging them thirty minutes later. This
+// predicate is what lets the cancellation acknowledgment say so up front.
+export type ConversionChargeInFlightInput = {
+  // subscription.status as Stripe reports it at the moment of the cancellation.
+  status: string | null | undefined;
+  // subscription.trial_end (Unix seconds), or null when the sub never had one.
+  trialEndUnix: number | null | undefined;
+  // users.first_payment_at — ISO instant this account's first real invoice was
+  // actually PAID, or null if none ever has been. Still null after trial_end is
+  // exactly what says the conversion charge has not settled yet.
+  firstPaymentAtIso: string | null | undefined;
+  nowMs: number;
+};
+
+export function hasConversionChargeInFlight(input: ConversionChargeInFlightInput): boolean {
+  const { status, trialEndUnix, firstPaymentAtIso, nowMs } = input;
+  // A first payment already on record means this account's conversion charge
+  // settled at some point — an ordinary member canceling, nothing in flight.
+  if (firstPaymentAtIso != null) return false;
+  // Still `trialing` means the cycle invoice does not exist yet, and canceling
+  // now means they are never charged at all — the happy path, which must keep
+  // its existing reassuring copy. `past_due` is deliberately excluded too:
+  // those members already received the payment-failed email, which owns that
+  // conversation and states the amount itself.
+  if (status !== 'active') return false;
+  if (trialEndUnix == null || !Number.isFinite(trialEndUnix)) return false;
+  if (!Number.isFinite(nowMs)) return false;
+  // The trial must actually be over. isWithinTrialConversionWindow tolerates an
+  // hour of skew on EITHER side by design; here a trial_end still in the future
+  // means no invoice yet, so it is pinned strictly to the past.
+  if (trialEndUnix * 1000 > nowMs) return false;
+  // Past the conversion window an unpaid `active` sub is some other billing
+  // state, not a trial that just converted.
+  return isWithinTrialConversionWindow(trialEndUnix, nowMs);
+}

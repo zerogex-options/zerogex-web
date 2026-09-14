@@ -85,6 +85,29 @@ function formatTrialEndDate(iso: string): string {
   }).format(new Date(iso));
 }
 
+// Same instant, but naming the HOUR — for the one email whose whole purpose is
+// a deadline. A trial does not end at midnight: it ends at the exact instant it
+// started, seven days on, which for a mid-morning signup is a mid-morning
+// cutoff. "Your free trial ends on September 14" therefore reads to a member as
+// "any time on the 14th", and someone who cancels at 6:33 AM on the 14th — half
+// an hour after a 6:03 AM trial end — has done exactly what our own email told
+// them to and is still charged.
+//
+// Naming the time does not extend anything or excuse a late cancel. It is what
+// makes the deadline enforceable: a member who misses 6:03 AM ET missed a
+// stated time, not a date they were left to interpret.
+function formatTrialEndDateTime(iso: string): string {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZoneName: 'short',
+  }).format(new Date(iso));
+}
+
 // How a welcome email names the length of the trial that just started. The
 // trial is NOT always the standard 7 days: a cold signup returning through the
 // ?reactivate=1 link in the second-touch reactivation email is granted the
@@ -696,7 +719,10 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
   html: string;
   text: string;
 } {
-  const trialEndDate = formatTrialEndDate(opts.trialEndIso);
+  // Precise to the minute on purpose — see formatTrialEndDateTime. Every use of
+  // this value in this email is a cutoff ("ends on X", "cancel before X"), not
+  // a decorative date.
+  const trialEndDate = formatTrialEndDateTime(opts.trialEndIso);
   const promoLabel = opts.promoIntroLabel ?? null;
   const dormant = opts.dormant === true;
   // The dormant subject names the charge instead of the trial ending. A member
@@ -1772,6 +1798,19 @@ export type TrialConvertedEmailOptions = {
   // taken, which would be a false statement on the one email whose whole job
   // is being accurate about money.
   fullyCredited?: boolean;
+  // True when the member had ALREADY canceled by the time this conversion
+  // charge settled — they clicked cancel inside the window between trial end
+  // and Stripe finalizing the draft cycle invoice (~1h), so the charge still
+  // landed on them. Read live off the Stripe subscription at send time, never
+  // off the local mirror, which races customer.subscription.updated.
+  //
+  // The charge itself is correct and stands. The copy, however, cannot be a
+  // welcome: congratulating a member on becoming a "full member" — and telling
+  // them the plan "renews automatically from there until you cancel" — thirty
+  // minutes after we emailed them a cancellation acknowledgment is both
+  // tone-deaf and, on the renewal claim, flatly false. It reads as a surprise
+  // recurring charge, which is how a reply-to-support becomes a chargeback.
+  alreadyCanceled?: boolean;
 };
 
 // Pure builder for the trial-conversion confirmation: subject + text + HTML from
@@ -1783,7 +1822,12 @@ export function buildTrialConvertedEmail(opts?: TrialConvertedEmailOptions): {
   html: string;
   text: string;
 } {
-  const subject = 'Your ZeroGEX trial just became a full membership';
+  // A canceled member is getting a RECEIPT for a final charge, not a welcome.
+  const alreadyCanceled = opts?.alreadyCanceled === true;
+
+  const subject = alreadyCanceled
+    ? 'Your ZeroGEX trial ended — your receipt, and your cancellation'
+    : 'Your ZeroGEX trial just became a full membership';
 
   const accountUrl = `${getAppUrl()}/account`;
   const safeAccountUrl = escapeHtml(accountUrl);
@@ -1808,23 +1852,44 @@ export function buildTrialConvertedEmail(opts?: TrialConvertedEmailOptions): {
       : 'the first payment went through';
 
   const openerSentence = opts?.fullyCredited
-    ? 'Your free trial just wrapped up and your membership rolled straight on — a credit on your account covered this first period in full, so there was nothing to pay.'
-    : `Your free trial just wrapped up and ${chargeClause}. You're now a full ZeroGEX member.`;
+    ? alreadyCanceled
+      ? 'Your free trial ran to the end of its term, and a credit on your account covered this final period in full — so there was nothing to pay.'
+      : 'Your free trial just wrapped up and your membership rolled straight on — a credit on your account covered this first period in full, so there was nothing to pay.'
+    : alreadyCanceled
+      ? `Your free trial ran to the end of its term, so ${chargeClause}.`
+      : `Your free trial just wrapped up and ${chargeClause}. You're now a full ZeroGEX member.`;
 
-  const accessSentence =
-    "Nothing changes on your end and there's nothing to do — your full access simply carries on uninterrupted.";
+  const accessSentence = alreadyCanceled
+    ? 'I can see you canceled just after that, and your cancellation is confirmed — this is the last time you will be billed.'
+    : "Nothing changes on your end and there's nothing to do — your full access simply carries on uninterrupted.";
 
-  const nextChargeSentence = opts?.nextChargeIso
-    ? `Your next charge is on ${formatTrialEndDate(opts.nextChargeIso)}, and it renews automatically from there until you cancel.`
-    : null;
+  // Same input (the conversion invoice's period end), opposite meaning: for a
+  // continuing member it is the next charge date, for a canceled one it is the
+  // day access ends. The "nothing renews" half is stated even when the date is
+  // missing — it is the correction that matters most to someone who just
+  // watched a charge land after they canceled.
+  const nextChargeSentence = alreadyCanceled
+    ? opts?.nextChargeIso
+      ? `Your access stays on until ${formatTrialEndDate(opts.nextChargeIso)}, and the subscription ends there. There is no next charge and nothing renews.`
+      : 'Your access stays on until the end of this billing period, and the subscription ends there. There is no next charge and nothing renews.'
+    : opts?.nextChargeIso
+      ? `Your next charge is on ${formatTrialEndDate(opts.nextChargeIso)}, and it renews automatically from there until you cancel.`
+      : null;
 
-  const manageSentenceText = `Your invoices, your card, and the cancel button all live on your account page — you're free to change or cancel any of it at any time: ${accountUrl}`;
+  const manageSentenceText = alreadyCanceled
+    ? `Your invoices and receipts stay on your account page for as long as you need them: ${accountUrl}`
+    : `Your invoices, your card, and the cancel button all live on your account page — you're free to change or cancel any of it at any time: ${accountUrl}`;
 
-  const thanksSentence =
-    "Thank you for backing ZeroGEX this early. Paid members are what make it possible for me to keep improving the platform, and I don't take that lightly.";
+  const thanksSentence = alreadyCanceled
+    ? 'Thank you for giving ZeroGEX a run. If you ever want to pick it back up, your account and your API keys will be here waiting.'
+    : "Thank you for backing ZeroGEX this early. Paid members are what make it possible for me to keep improving the platform, and I don't take that lightly.";
 
-  const questionsSentence =
-    "If anything about this charge looks off, or you have a question about your plan, just reply to this email — I read every one and I'm happy to sort it out.";
+  // The reply invitation is the whole dispute-deflection budget of this email.
+  // For someone who just watched a charge land after canceling it is the most
+  // important line in it, so it asks directly rather than hedging.
+  const questionsSentence = alreadyCanceled
+    ? 'If this charge is not what you expected, just reply to this email — I read every one, and I would much rather sort it out with you directly.'
+    : "If anything about this charge looks off, or you have a question about your plan, just reply to this email — I read every one and I'm happy to sort it out.";
 
   const text = [
     'Hello,',
@@ -1852,7 +1917,9 @@ export function buildTrialConvertedEmail(opts?: TrialConvertedEmailOptions): {
       <p>Hello,</p>
       <p>${escapeHtml(openerSentence)} ${escapeHtml(accessSentence)}</p>
       ${nextChargeSentence ? `<p>${escapeHtml(nextChargeSentence)}</p>` : ''}
-      <p>Your invoices, your card, and the cancel button all live on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> &mdash; you're free to change or cancel any of it at any time.</p>
+      ${alreadyCanceled
+        ? `<p>Your invoices and receipts stay on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> for as long as you need them.</p>`
+        : `<p>Your invoices, your card, and the cancel button all live on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> &mdash; you're free to change or cancel any of it at any time.</p>`}
       <p style="margin: 24px 0;">
         <a href="${safeDashboardUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Open the live dashboard</a>
       </p>
@@ -1948,22 +2015,57 @@ export async function sendPaymentRecoveredEmail(to: string) {
 // is the retention window, not a farewell. Manual discount fulfillment
 // (customer replies "discount", Michael sets it up) is intentional: reading
 // the reply is worth more than automating the coupon.
-export async function sendCancellationEmail(
-  to: string,
-  opts: { periodEndIso: string | null; saveUrl?: string | null },
-) {
+export type CancellationEmailOptions = {
+  // End of the period the member keeps access through (ISO), or null when the
+  // subscription did not expose one.
+  periodEndIso: string | null;
+  // One-click 25%-off save link, or null when the token secret is unset.
+  saveUrl?: string | null;
+  // True when a trial-conversion charge for this period is already in flight —
+  // the member canceled after their trial expired but before Stripe finalized
+  // the draft cycle invoice, so a charge lands on them within the hour.
+  // See core/trialDunning.hasConversionChargeInFlight.
+  //
+  // Without this the email tells them "nothing changes yet on your end" and
+  // then bills them thirty minutes later. That sentence is the single most
+  // expensive false statement we make: it is what turns a charge the member
+  // arguably owes into one they are certain was a mistake.
+  conversionChargePending?: boolean;
+};
+
+// Pure builder for the cancellation acknowledgment: subject + text + HTML from
+// already-resolved inputs, no Resend I/O. Split from the sender on the same
+// rationale as buildTrialConvertedEmail — the branch matrix is unit-testable
+// (tests/cancellationEmail.test.ts) and a preview renders the exact wire copy.
+export function buildCancellationEmail(opts: CancellationEmailOptions): {
+  subject: string;
+  html: string;
+  text: string;
+} {
   const subject = 'Sorry to see you go — mind sharing why?';
   const periodEndDate = opts.periodEndIso
     ? formatTrialEndDate(opts.periodEndIso)
     : 'the end of your current billing period';
   const saveUrl = opts.saveUrl ?? null;
+  const chargePending = opts.conversionChargePending === true;
+
+  // The one paragraph that has to be true about money. When a conversion charge
+  // is already in flight, leading with it is the whole point — the member finds
+  // out from us, before their bank, and knows it is the last one.
+  const billingSentenceText = chargePending
+    ? `First, so it doesn't catch you out: your trial had already ended when you canceled, so the payment for this billing period was already in motion and will go through shortly. That is your final charge — nothing renews after it — and you keep full access until ${periodEndDate}.`
+    : `You still have full access until ${periodEndDate}, so nothing changes yet on your end. I just wanted to reach out personally before that day comes.`;
+
+  const billingSentenceHtml = chargePending
+    ? `First, so it doesn't catch you out: your trial had already ended when you canceled, so the payment for this billing period was already in motion and will go through shortly. <strong>That is your final charge</strong> &mdash; nothing renews after it &mdash; and you keep full access until <strong>${escapeHtml(periodEndDate)}</strong>.`
+    : `You still have full access until <strong>${escapeHtml(periodEndDate)}</strong>, so nothing changes yet on your end. I just wanted to reach out personally before that day comes.`;
 
   const text = [
     'Hello,',
     '',
     'I saw you just canceled your ZeroGEX subscription — first, thank you. You\'ve been a real part of what I\'ve been building here, and I don\'t take that lightly.',
     '',
-    `You still have full access until ${periodEndDate}, so nothing changes yet on your end. I just wanted to reach out personally before that day comes.`,
+    billingSentenceText,
     '',
     ...(saveUrl
       ? [
@@ -1995,7 +2097,7 @@ export async function sendCancellationEmail(
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
       <p>Hello,</p>
       <p>I saw you just canceled your ZeroGEX subscription &mdash; first, thank you. You've been a real part of what I've been building here, and I don't take that lightly.</p>
-      <p>You still have full access until <strong>${escapeHtml(periodEndDate)}</strong>, so nothing changes yet on your end. I just wanted to reach out personally before that day comes.</p>
+      <p>${billingSentenceHtml}</p>
       ${saveUrl
         ? `<div style="background: #f4fbf6; border: 1px solid #bfe6cf; border-radius: 10px; padding: 16px 18px; margin: 20px 0; text-align: center;">
         <p style="margin: 0 0 12px; font-size: 15px; color: #1a1a1a;">If it comes down to price &mdash; keep your access at <strong>25% off for a full year</strong>, in one click. No re-subscribe, no re-entering a card.</p>
@@ -2018,6 +2120,14 @@ export async function sendCancellationEmail(
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
     </div>
   `.trim();
+
+  return { subject, html, text };
+}
+
+// Thin wrapper over buildCancellationEmail so the wire copy and any preview
+// never drift.
+export async function sendCancellationEmail(to: string, opts: CancellationEmailOptions) {
+  const { subject, html, text } = buildCancellationEmail(opts);
 
   const client = getClient();
   const result = await client.emails.send({

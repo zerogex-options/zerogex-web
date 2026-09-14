@@ -53,6 +53,7 @@ import {
   readInvoiceSubscriptionId,
 } from '@/core/stripeInvoice';
 import {
+  hasConversionChargeInFlight,
   isTrialConversionFailure,
   isTrialConversionInvoice,
   isWithinTrialConversionWindow,
@@ -915,6 +916,16 @@ async function syncSubscriptionToUser(
     next: nextCancelAtPeriodEnd,
     periodEndIso,
     subscriptionId: subscription.id,
+    // Did they cancel after their trial expired but before Stripe finalized the
+    // draft cycle invoice? Then a charge lands on them within the hour and the
+    // acknowledgment has to say so — `user` is still the PRE-UPDATE row here,
+    // which is what we want: first_payment_at as it stood when they canceled.
+    conversionChargePending: hasConversionChargeInFlight({
+      status: subscription.status,
+      trialEndUnix: typeof subscription.trial_end === 'number' ? subscription.trial_end : null,
+      firstPaymentAtIso: user.first_payment_at,
+      nowMs: Date.now(),
+    }),
     // Stripe attaches the portal cancellation survey (feedback + free-text
     // comment) here; captured into the audit message so the "why" is queryable.
     cancellationDetails: subscription.cancellation_details,
@@ -942,6 +953,10 @@ async function maybeHandleCancelAckTransition(
     next: number;
     periodEndIso: string | null;
     subscriptionId: string;
+    // True when a trial-conversion charge for this period is already in flight
+    // (see core/trialDunning.hasConversionChargeInFlight). Decided at the call
+    // site, where the live subscription is in scope.
+    conversionChargePending: boolean;
     // Typed with our own structurally-compatible shape (Stripe's enum fields
     // widen to string) so this doesn't depend on the Stripe nested type path.
     cancellationDetails?: CancellationDetails;
@@ -977,7 +992,11 @@ async function maybeHandleCancelAckTransition(
       } catch {
         saveUrl = null;
       }
-      await sendCancellationEmail(user.email, { periodEndIso: opts.periodEndIso, saveUrl });
+      await sendCancellationEmail(user.email, {
+        periodEndIso: opts.periodEndIso,
+        saveUrl,
+        conversionChargePending: opts.conversionChargePending,
+      });
       logAudit({
         type: 'cancellation_ack_email_sent',
         userId: user.id,
@@ -1433,6 +1452,12 @@ async function maybeSendTrialConvertedEmail(invoice: Stripe.Invoice): Promise<vo
       // (a banked referral free month). The copy must not claim a payment was
       // taken when none was.
       fullyCredited: invoice.amount_paid === 0,
+      // Read off the subscription we just retrieved from Stripe — authoritative
+      // and current as of this send, so it cannot lose the race against
+      // customer.subscription.updated the way the local mirror would. A member
+      // who canceled inside the draft-invoice window gets a receipt for a final
+      // charge instead of a welcome that claims the plan renews.
+      alreadyCanceled: subscription.cancel_at_period_end === true,
     });
     logAudit({
       type: 'trial_converted_email_sent',
