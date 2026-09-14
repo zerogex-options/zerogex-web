@@ -109,33 +109,43 @@ export function alertRunExitCode(sent: number, failed: number): 0 | 1 {
 }
 
 // ── Which churn events are worth an alert ────────────────────────────────────
-// The first week of live running answered this empirically: most churn rows
-// carry no reason at all, and an alert stream that is ~85% "no reason given"
-// gets filtered to a folder — taking the 15% that matters with it.
+// Two filters, applied on different axes, that together reduce the stream to the
+// one thing an alert can actually be acted on: a member who left AND said why.
 //
-// The split that survives that pressure is by what you can DO about the event,
-// not by how much text it carries:
+// WHICH EVENT (the kind, selected by the caller — see DEFAULT_CHURN_ALERT_KIND).
+// A portal or in-app cancel writes BOTH rows for the same departure: `pending`
+// when they click Cancel, then `lapsed` weeks later when the period ends. Stripe
+// carries `cancellation_details` onto the terminal row too, so the survey answer
+// appears on both — and alerting on both meant two emails for one churn, the
+// second arriving long after the save window it was reporting on had closed.
+// The first one is the one with a decision attached.
 //
-//   pending — always alerts, reason or not. They still have access, so there is
-//             a live save window and a decision to make. Tenure alone is enough
-//             to act on: a silent cancel at four months is worth a reply.
-//   lapsed  — alerts only when the survey captured something. Access is already
-//             gone, so a lapse with no reason carries no decision and no
-//             information; it is overwhelmingly a trial that simply ended
-//             without anyone touching the cancel flow, which is why there is no
-//             reason to report. A lapse WITH a reason is the opposite: it is the
-//             member telling you why, which is the whole point of the alert.
+// WHETHER IT SAID ANYTHING (this function). A churn row that captured neither a
+// feedback selection nor a typed comment reports a departure and nothing else,
+// which is a fact the dashboard already carries. On real data that class was the
+// large majority of the stream — enough noise to get the whole thing filtered to
+// a folder, taking the alerts that mattered with it.
 //
-// Set includeSilentLapses to restore the unfiltered firehose.
-export function shouldAlertOnChurn(
-  kind: ChurnEventKind,
-  auditMessage: string,
-  includeSilentLapses: boolean,
-): boolean {
-  if (kind === 'pending') return true;
-  if (includeSilentLapses) return true;
+// Note there is no race to worry about between the two: both the Stripe portal
+// and the in-app cancel flow (app/api/billing/cancel-flow) set
+// `cancellation_details` in the SAME subscription update that schedules the
+// cancel, so the survey is on the `pending` row the moment it is written. A row
+// with no reason means none was given, not that one is still coming.
+//
+// Set includeSilent to restore the unfiltered firehose.
+export function shouldAlertOnChurn(auditMessage: string, includeSilent: boolean): boolean {
+  if (includeSilent) return true;
   return hasCancellationSignal(parseCancellationReasonFromMessage(auditMessage));
 }
+
+// Which churn event the alert sweep looks at unless the operator asks for more.
+// `pending` is the moment the member clicked Cancel and answered the survey —
+// the only point at which a reply can still save the subscription, and the only
+// one of the two rows that isn't a duplicate of the other. `lapsed` stays
+// reachable (--kind lapsed|both) as the backstop for a departure that never
+// emitted a pending row at all: a Stripe-dashboard admin cancel, or a sub
+// deleted straight out of dunning.
+export const DEFAULT_CHURN_ALERT_KIND: ChurnEventKind = 'pending';
 
 // ── Per-run batching ─────────────────────────────────────────────────────────
 // How many of the pending churn events a single run takes.

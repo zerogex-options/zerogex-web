@@ -1,5 +1,5 @@
 # Warum pinnt SPY nahe an einem Strike? Options-Pinning erklärt
-> **Aktualisierter Methodikhinweis — er hat Vorrang vor abweichenden Formulierungen weiter unten.** ZeroGEX schätzt Dealerbestände aus öffentlichen Daten; es beobachtet sie nicht. Das Modell behält die Call-positiv/Put-negativ-Konvention bei (`Net GEX = Call GEX − Put GEX`) und unterstellt Dealer netto long Calls und netto short Puts. Long Calls und Long Puts haben positives Gamma; Short Calls und Short Puts negatives Gamma. Die Put Wall ist die größte Put-Gamma-Konzentration unter Spot und lokal modelliertes negatives Dealer-Gamma: Sie kann mit Unterstützung zusammenfallen, doch das Hedging eines Short Puts erzeugt keinen mechanischen Boden. Walls können sich durch Spot, Zeit und implizite Volatilität verschieben, obwohl das offizielle Open Interest intraday unverändert bleibt. Nahe Verfall konzentriert sich Gamma am Geld; ATM-Gamma kann steigen, während deutlich ITM- oder OTM-Gamma gegen null geht. Der ausgewählte Gamma Flip ist ein lokaler Übergang; ein Profil kann mehrere oder keine aussagekräftige Kreuzung haben. Charm und Vanna sind bedingte Deltaänderungen, keine geplanten Orders. Signalwerte sind heuristische Modellergebnisse, keine kalibrierten Wahrscheinlichkeiten. Negatives Gamma verstärkt die bereits laufende Richtung; die Entfernung zu einem Ziel impliziert keine Abstoßung. Die Vorzeichenumkehr des EOD-Pressure-Pin-Terms bleibt daher eine ZeroGEX-Heuristik. Max Pain minimiert die aggregierte intrinsische Auszahlung und maximiert nicht exakt den wertlos verfallenden Nominalwert. Rohes DEX misst Optionsdelta, nicht künftigen Hedge-Flow; Prämie und Aggressorseite beweisen weder Information noch Eröffnung oder Überzeugung.
+> **Methodikhinweis.** ZeroGEX schätzt Dealerbestände aus öffentlichen Daten; es beobachtet sie nicht. Das Modell behält die Call-positiv/Put-negativ-Konvention bei (`Net GEX = Call GEX − Put GEX`) und unterstellt Dealer netto long Calls und netto short Puts. Long Calls und Long Puts haben positives Gamma; Short Calls und Short Puts negatives Gamma. Die Put Wall ist die größte Put-Gamma-Konzentration unter Spot und lokal modelliertes negatives Dealer-Gamma: Sie kann mit Unterstützung zusammenfallen, doch das Hedging eines Short Puts erzeugt keinen mechanischen Boden. Walls können sich durch Spot, Zeit und implizite Volatilität verschieben, obwohl das offizielle Open Interest intraday unverändert bleibt. Nahe Verfall konzentriert sich Gamma am Geld; ATM-Gamma kann steigen, während deutlich ITM- oder OTM-Gamma gegen null geht. Der ausgewählte Gamma Flip ist ein lokaler Übergang; ein Profil kann mehrere oder keine aussagekräftige Kreuzung haben. Charm und Vanna sind bedingte Deltaänderungen, keine geplanten Orders. Signalwerte sind heuristische Modellergebnisse, keine kalibrierten Wahrscheinlichkeiten. Negatives Gamma verstärkt die bereits laufende Richtung; die Entfernung zu einem Ziel impliziert keine Abstoßung. Die Vorzeichenumkehr des EOD-Pressure-Pin-Terms bleibt daher eine ZeroGEX-Heuristik. Max Pain minimiert die aggregierte intrinsische Auszahlung und maximiert nicht exakt den wertlos verfallenden Nominalwert. Rohes DEX misst Optionsdelta, nicht künftigen Hedge-Flow; Prämie und Aggressorseite beweisen weder Information noch Eröffnung oder Überzeugung.
 
 
 *Warum pinnt SPY in der Nähe bestimmter Strikes — besonders freitags und zum Handelsschluss? Das ist kein Zufall. Options-Pinning erklärt: der Dealer-Hedging-Mechanismus hinter diesem Sog, warum er am OPEX und am Ende des Handelstages am stärksten ist, und wie man erkennt, ob der heutige Handel pinnen wird.*
@@ -105,7 +105,32 @@ Ein kurzer Ablauf:
 4. **Max Pain gegenprüfen.** Gleicher Strike oder innerhalb von 0,3 % des Magneten → scharfer Pin. Deutlich abweichend → schwächere Pin-These; dem Magneten vertrauen.
 5. **Die Tageszeit lesen.** Vor 12 Uhr ET hat sich Charm noch nicht genug aufgebaut, um den Pin stark zu treiben. Nach 14:00 ET verstärkt sich der Sog. Nach 15:30 ET dominieren die Dynamiken des Schlussfensters.
 
+---
+
+## Woran du erkennst, ob SPY gepinnt ist: die fünf Anzeichen
+
 Sobald der Pin identifiziert ist, findet sich das Trading-Playbook in [Wie man erkennt, ob SPY gepinnt ist](/education/how-to-know-if-spy-is-pinned) — Kurzfassung: Extreme fade-n, die Mitte auslassen, klein positionieren.
+
+**1. Das Net GEX ist deutlich positiv (Long-Gamma-Regime).** Spot über dem Gamma Flip und Net GEX klar positiv. (Net GEX ist geschätztes Dealer-Gamma unter der traditionellen Call-positiv/Put-negativ-Konvention auf Open Interest — ein Modell, kein beobachteter Bestand.) ZeroGEX behandelt auf SPY-Größenordnung grob 500 Mio. $+ als „substanziell“, aber das ist eine Hausheuristik — die Größenordnung zählt mehr als irgendeine konkrete Zahl. Negatives oder nahe null liegendes Net GEX spricht gegen den Pin.
+
+**2. Max Pain und der Gamma-Magnet stimmen nahe am Spot überein.** Wenn beide auf dasselbe Level zeigen und dieses innerhalb von etwa 0,3 % des Spot liegt, ist der strukturelle Zug am schärfsten. Wenn sie auseinandergehen, stützt sich ZeroGEX auf den Gamma-Magneten — er bildet den modellierten Hedging-Mechanismus ab, während Max Pain Auszahlungsgeometrie ist.
+
+**3. Der Spot pendelt seit einer Stunde um den Magneten.** Trage SPY gegen den Gamma-Magnet-Strike im 5-Minuten-Chart ab. Drei oder mehr Kreuzungen in den letzten 60 Minuten, jede Auslenkung kleiner, deutet auf einen sich bildenden Pin hin. Ein stetiges Wegdriften vom Magneten spricht dagegen — das ist eine Richtung, keine Spanne.
+
+**4. Die realisierte Volatilität ist unter die implizite gefallen.** Long-Gamma-Hedging dämpft die realisierte Vol, daher zeigt sich ein funktionierender Pin als realisierte unter impliziter Vol. Wenn die realisierte expandiert, hält der Pin nicht — das Buch wird von anderem Flow überrollt.
+
+**5. EOD Pressure liegt im aktiven Fenster nahe null.** Nach 14:30 ET ist ein EOD-Pressure-Wert nahe null (grob −0,20 bis +0,20) eine modellierte Pin-Signatur — die Charm- und Pin-Gravitations-Terme heben sich weitgehend auf, weil der Preis am Magneten sitzt. Ein großer Wert bedeutet, dass der Preis *weg* vom Magneten ist. Siehe [EOD Pressure Signal erklärt: den Schluss richtig lesen](/education/eod-pressure-explained).
+
+---
+
+## Das Playbook für eine gepinnte Tape
+
+Wenn die meisten der fünf Anzeichen zusammenpassen, ist das Playbook konträr und einfach:
+
+- **Tu es: fade die Extreme der Kompressionsspanne.** Der strukturelle Zug geht zurück zum Magneten, daher ist das Verkaufen von Schüben nahe dem oberen Rand und das Kaufen von Dips nahe dem unteren Rand das eine Setup, bei dem der Dealer-Reflex auf deiner Seite ist. Klein positionieren — Pins sind probabilistisch, nicht garantiert.
+- **Tu es nicht: der Mitte hinterherjagen.** In der Mitte sitzt der Magnet; dort zu kaufen oder zu verkaufen kämpft gegen das Level, zu dem der Preis strukturell zurückkehren will. Von hier stammen die meisten Verluste auf gepinnter Tape.
+- **Tu es nicht: Momentum-Setups nehmen.** Breakout-, Vol-Expansions- und Squeeze-Playbooks setzen voraus, dass die Bewegung sich fortsetzt — das Gegenteil einer gepinnten Tape. Das falsche Playbook zu fahren ist der größte Teil des Fehlers.
+- **Tu es: die Positionsgröße verkleinern.** Gepinnte Spannen sind eng und Stops noch enger; eine Normaltagsgröße lädt zu vorzeitigen Ausstoppungen ein.
 
 ---
 

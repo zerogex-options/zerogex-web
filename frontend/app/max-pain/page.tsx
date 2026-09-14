@@ -1,7 +1,7 @@
 "use client";
 
-import { Info, TrendingDown, TrendingUp } from "lucide-react";
-import { useState, type MouseEvent } from "react";
+import { TrendingDown, TrendingUp } from "lucide-react";
+import { useState, type CSSProperties, type MouseEvent } from "react";
 import {
   Bar,
   BarChart,
@@ -17,15 +17,17 @@ import { useApiData, useGEXSummary } from "@/hooks/useApiData";
 import { useMarketHistorical } from "@/hooks/useMarketHistorical";
 import MetricCard from "@/components/MetricCard";
 import PageShell from "@/components/layout/PageShell";
+import PageHeader from "@/components/layout/PageHeader";
+import ChartPanel from "@/components/layout/ChartPanel";
 import SectionHead from "@/components/layout/SectionHead";
+import { FilterSelect } from "@/components/controls/Filters";
+import ChartTooltipShell, { ChartTooltipRow, CHART_TOOLTIP_PROPS } from "@/components/ChartTooltipShell";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ErrorMessage from "@/components/ErrorMessage";
-import TooltipWrapper from "@/components/TooltipWrapper";
 import RegimeSummaryBanner from "@/components/RegimeSummaryBanner";
 import { useTimeframe } from "@/core/TimeframeContext";
 import ChartTimeframeSelect, { type ChartTimeframe } from "@/components/ChartTimeframeSelect";
 import { useTheme } from "@/core/ThemeContext";
-import { colors } from "@/core/colors";
 import { etTodayDateKey, omitOutOfHoursForSymbol, shouldOmitClosedMarketTimes } from "@/core/utils";
 import MobileScrollableChart from "@/components/MobileScrollableChart";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -277,7 +279,6 @@ export default function MaxPainPage() {
   } Day and swing traders can use this as context: fade overextensions near the pin, but treat decisive breaks away from max pain as trend-confirmation signals.`;
 
   const textColor = 'var(--text-primary)';
-  const panelBg = 'var(--bg-card)';
 
   const tsWidth = 1200;
   const tsHeight = 444;
@@ -399,7 +400,11 @@ export default function MaxPainPage() {
 
   return (
     <PageShell>
-      <h1 className="zg-h1 mb-8">Max Pain</h1>
+      <PageHeader
+        title="Max Pain"
+        sub="The strike where the most option value expires worthless, and how far price sits from it."
+        tooltip="Pool every listed contract into one payout curve and find the strike at which option holders collectively lose the most — that is max pain. It is a magnet, not a mechanism: open interest only changes at settlement, so the whole-chain figure is recomputed once a day pre-market and stays flat intraday. It tends to matter most into expiration, when the contracts pinned to it are the ones still alive, and least on a day when a catalyst supplies flow that dwarfs hedging. The nearest-expiration figure can sit a few points from the whole-chain one because it covers a single expiry rather than the pooled book."
+      />
       <RegimeSummaryBanner
         title="Max Pain Regime"
         badge={maxPainBadge}
@@ -410,30 +415,22 @@ export default function MaxPainPage() {
       <section className="mb-8">
         <SectionHead title="Max Pain Snapshot" tooltip="Current max pain context combining summary and intraday series." />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="rounded-lg p-4 border" style={{ backgroundColor: panelBg, borderColor: 'var(--text-secondary)' }}>
-            <div className="text-xs mb-1 flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
-              Current Max Pain (All Expirations)
-              <TooltipWrapper text="Whole-chain max pain: the single strike where the most option value across ALL listed expirations would expire worthless, pooled into one payout curve. Open interest only changes at settlement, so this is recomputed once a day (pre-market). It's the authoritative value and is what drives the Implied Move below.">
-                <Info size={12} />
-              </TooltipWrapper>
-            </div>
-            <div className="text-2xl font-bold" style={{ color: textColor }}>{currentMaxPain ? `$${currentMaxPain.toFixed(2)}` : "--"}</div>
-            <div
-              className="flex items-center gap-1 px-2 py-0.5 rounded-lg font-semibold text-xs w-fit mt-2"
-              style={{
-                backgroundColor:
-                  theme === "dark"
-                    ? `${impliedMove >= 0 ? 'var(--color-bull)' : 'var(--color-bear)'}15`
-                    : `${impliedMove >= 0 ? 'var(--color-bull)' : 'var(--color-bear)'}10`,
-                color: impliedMove >= 0 ? 'var(--color-bull)' : 'var(--color-bear)',
-              }}
-              title="Implied move = Max Pain - Current Underlying"
-            >
-              <span>Implied Move:</span>
-              {impliedMove >= 0 ? <TrendingUp size={12} strokeWidth={2.5} /> : <TrendingDown size={12} strokeWidth={2.5} />}
-              {impliedMove >= 0 ? "+" : ""}{impliedMove.toFixed(2)} ({impliedMove >= 0 ? "+" : ""}{impliedMovePct.toFixed(2)}%)
-            </div>
-          </div>
+          <MetricCard
+            title="Current Max Pain (All Expirations)"
+            value={currentMaxPain ? `$${currentMaxPain.toFixed(2)}` : "--"}
+            tooltip="Whole-chain max pain: the single strike where the most option value across ALL listed expirations would expire worthless, pooled into one payout curve. Open interest only changes at settlement, so this is recomputed once a day (pre-market). It's the authoritative value and is what drives the Implied Move below."
+            theme={theme}
+            contextBadge={
+              <span
+                className="zg-chip"
+                style={{ '--chip-color': impliedMove >= 0 ? 'var(--color-bull)' : 'var(--color-bear)' } as CSSProperties}
+                title="Implied move = Max Pain - Current Underlying"
+              >
+                {impliedMove >= 0 ? <TrendingUp size={11} strokeWidth={2.5} /> : <TrendingDown size={11} strokeWidth={2.5} />}
+                {impliedMove >= 0 ? "+" : ""}{impliedMove.toFixed(2)} ({impliedMove >= 0 ? "+" : ""}{impliedMovePct.toFixed(2)}%)
+              </span>
+            }
+          />
           <MetricCard title="Nearest-Expiration Max Pain" value={nearestExpirationMaxPain ? `$${nearestExpirationMaxPain.toFixed(2)}` : "--"} tooltip="Max pain for only the nearest non-expired expiration (often a daily or weekly contract) — the same value shown on the dashed Max Pain line in the chart below when its dropdown is set to that expiration. Because it covers a single expiration, it can sit a few points apart from the whole-chain Current Max Pain above, and it stays flat intraday since open interest only changes at settlement." theme={theme} />
           <MetricCard
             title="Underlying Price"
@@ -445,24 +442,24 @@ export default function MaxPainPage() {
         </div>
       </section>
 
-      <section className="mb-8 rounded-lg p-6" style={{ backgroundColor: panelBg }}>
-        <SectionHead title="Notional Open Interest by Strike" tooltip="Select expiration and view call/put notional by strike with max pain and underlying reference lines." />
-
-        {expirationOptions.length > 0 ? (
-          <div className="mb-4">
-            <label className="mr-3" style={{ color: textColor }}>Expiration:</label>
-            <select
+      <ChartPanel
+        className="mb-8"
+        title="Notional Open Interest by Strike"
+        tooltip="Call and put notional at each listed strike for the selected expiration, with max pain and spot marked. The bars are where the money actually sits; max pain is where those two stacks balance."
+        actions={
+          expirationOptions.length > 0 ? (
+            <FilterSelect
+              label="Expiration"
               value={activeExpirationValue}
-              onChange={(e) => setSelectedExpiration(e.target.value)}
-              className="px-3 py-2 rounded border"
-              style={{ backgroundColor: panelBg, borderColor: 'var(--text-secondary)', color: textColor }}
-            >
-              {expirationOptions.map((exp) => (
-                <option key={exp.expiration} value={exp.expiration}>{exp.expiration}</option>
-              ))}
-            </select>
-          </div>
-        ) : null}
+              onChange={setSelectedExpiration}
+              options={expirationOptions.map((exp) => ({
+                value: exp.expiration,
+                label: exp.expiration,
+              }))}
+            />
+          ) : undefined
+        }
+      >
 
         {oiError ? (
           <ErrorMessage message={`Error loading data: ${oiError}`} />
@@ -497,9 +494,7 @@ export default function MaxPainPage() {
               />
               <YAxis stroke={textColor} tickFormatter={(v) => `${Number(v).toFixed(1)}M`} domain={["auto", "auto"]} />
               <Tooltip
-                contentStyle={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', borderRadius: 8, color: 'var(--color-chart-tooltip-text)' }}
-                labelStyle={{ color: 'var(--color-chart-tooltip-text)' }}
-                itemStyle={{ color: 'var(--color-chart-tooltip-muted)' }}
+                {...CHART_TOOLTIP_PROPS}
                 formatter={(value) => `$${Number(value ?? 0).toFixed(2)}M`}
               />
               <Legend />
@@ -535,15 +530,20 @@ export default function MaxPainPage() {
           </ResponsiveContainer>
           </MobileScrollableChart>
         )}
-      </section>
+      </ChartPanel>
 
-      <section className="mb-8 rounded-lg p-6" style={{ backgroundColor: panelBg }}>
-        <div className="flex items-start justify-between gap-4 mb-4 flex-wrap">
-          <SectionHead title="Max Pain vs Underlying Price" tooltip="Timeseries of max pain (line) overlaid with underlying candlesticks." />
-          <div className="flex items-center gap-3 flex-wrap">
-            <ChartTimeframeSelect value={timeseriesTimeframe} onChange={setTimeseriesTimeframe} className="mb-0" />
-          </div>
-        </div>
+      <ChartPanel
+        className="mb-8"
+        title="Max Pain vs Underlying Price"
+        tooltip="Max pain (line) against the underlying's own candles, so you can see whether price is being drawn toward the level or simply passing through it. Max pain steps rather than drifts — it only moves when open interest is rewritten at settlement."
+        actions={
+          <ChartTimeframeSelect
+            value={timeseriesTimeframe}
+            onChange={setTimeseriesTimeframe}
+            className="mb-0"
+          />
+        }
+      >
         {seriesError ? (
           <ErrorMessage message={seriesError} />
         ) : seriesLoading && !maxPainSeries ? (
@@ -628,25 +628,28 @@ export default function MaxPainPage() {
             <text x={padLeft + 16} y={12} fill={textColor} fontSize="11">Max Pain</text>
           </svg>
           {hoveredRow && hoverPx ? (
-            <div
-              className="absolute z-10 text-xs rounded-lg px-3 py-2 font-mono pointer-events-none whitespace-nowrap"
+            <ChartTooltipShell
+              className="absolute z-10 pointer-events-none whitespace-nowrap"
               style={{
                 left: `min(calc(100% - 240px), ${hoverPx.x + 16}px)`,
                 top: Math.max(8, hoverPx.y - 12),
-                backgroundColor: 'var(--color-chart-tooltip-bg)',
-                border: '1px solid var(--color-border)',
-                color: 'var(--color-chart-tooltip-text)',
-                boxShadow: '0 8px 24px var(--color-info-soft)',
               }}
+              label={new Date(hoveredRow.timestamp).toLocaleString()}
             >
-              <div>{new Date(hoveredRow.timestamp).toLocaleString()}</div>
-              <div>O: {hoveredRow.open.toFixed(2)} H: {hoveredRow.high.toFixed(2)} L: {hoveredRow.low.toFixed(2)} C: {hoveredRow.close.toFixed(2)}</div>
-              <div>Max Pain: {hoveredRow.maxPain.toFixed(2)}</div>
-            </div>
+              <ChartTooltipRow
+                label="O / H / L / C"
+                value={`${hoveredRow.open.toFixed(2)} / ${hoveredRow.high.toFixed(2)} / ${hoveredRow.low.toFixed(2)} / ${hoveredRow.close.toFixed(2)}`}
+              />
+              <ChartTooltipRow
+                label="Max Pain"
+                value={hoveredRow.maxPain.toFixed(2)}
+                swatch="var(--color-brand-primary)"
+              />
+            </ChartTooltipShell>
           ) : null}
           </div>
         )}
-      </section>
+      </ChartPanel>
     </PageShell>
   );
 }

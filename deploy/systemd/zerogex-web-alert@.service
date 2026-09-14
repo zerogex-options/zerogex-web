@@ -1,0 +1,45 @@
+[Unit]
+Description=ZeroGEX web failure alert for %i
+Documentation=https://github.com/zerogex-options/zerogex-web
+After=network-online.target
+Wants=network-online.target
+
+# A TEMPLATE unit. Other units reference it as:
+#
+#   OnFailure=zerogex-web-alert@%n.service
+#
+# where %n is the failing unit's full name, which arrives here as %i. systemd
+# starts this only when the referring unit enters a failed state, so there is no
+# timer and nothing to enable — installing the file is enough.
+#
+# Deliberately NOT itself carrying OnFailure=: an alerter that alerts on its own
+# failure is a loop. If this unit fails, that lands in journald under
+# zerogex-web-alert@<unit> and nowhere else, which is the accepted floor.
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/zerogex-web
+
+Environment="HOME=/home/ubuntu"
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+
+ExecStart=/usr/bin/make -C /home/ubuntu/zerogex-web unit-failure-alert UNIT=%i
+
+# One outbound mail plus two local probes (systemctl / journalctl). Short: a
+# hung alerter is worse than a late one, because the failure it describes is
+# already over.
+TimeoutStartSec=120
+
+# Security hardening. Lighter than the sweeps deliberately — this reads the
+# journal and sends mail, and writes nothing.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+
+# Logging -> journald (view with: journalctl -u 'zerogex-web-alert@*')
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=zerogex-web-alert

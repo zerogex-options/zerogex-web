@@ -1,6 +1,9 @@
 'use client';
 
 import { useTimeframe, type UnderlyingSymbol } from '@/core/TimeframeContext';
+import PageShell from '@/components/layout/PageShell';
+import PageHeader from '@/components/layout/PageHeader';
+import { FilterBar, FilterChip } from '@/components/controls/Filters';
 import ForcedFlowRead from '@/components/ForcedFlowRead';
 import ForcedFlowRail from '@/components/ForcedFlowRail';
 import ForcedFlowCurveChart from '@/components/ForcedFlowCurveChart';
@@ -18,37 +21,27 @@ export default function ForcedFlowPage() {
   const { symbol, setSymbol } = useTimeframe();
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex flex-wrap items-center gap-3 mb-2">
-        <h1 className="text-3xl font-bold">Forced Flow</h1>
-        {/* Symbol selector — styled to match the global SymbolPicker. */}
-        <div className="flex items-center gap-2" aria-label="Symbol">
-          {SYMBOLS.map((s) => {
-            const active = s === symbol;
-            return (
-              <button
-                key={s}
-                type="button"
-                onClick={() => setSymbol(s)}
-                aria-pressed={active}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold tracking-wider uppercase transition-colors"
-                style={{
-                  background: active ? 'var(--color-warning-soft)' : 'transparent',
-                  border: `1px solid ${active ? 'var(--color-warning)' : 'var(--color-border)'}`,
-                  color: active ? 'var(--color-warning)' : 'var(--color-text-secondary)',
-                }}
-              >
+    <PageShell>
+      <PageHeader
+        title="Forced Flow"
+        beta
+        sub={
+          <>
+            The stock dealers must trade to stay hedged if spot, time or vol moves.
+            Positive means they must <strong>buy</strong>.
+          </>
+        }
+        tooltip="Every other flow surface on the site measures what traded. This measures what the current book OBLIGES dealers to trade next, under a scenario: move spot along the reprice curve, advance the clock into the close (charm), or shift implied vol (vanna), and read off the dollars of stock a delta-flat hedge would have to buy or sell. Positive is buying pressure, negative selling. It is a projection from open interest, not an observation of the tape — pair it with Hedging Flow, which is the same question asked of today's actual trades."
+        actions={
+          <FilterBar>
+            {SYMBOLS.map((s) => (
+              <FilterChip key={s} active={s === symbol} onClick={() => setSymbol(s)}>
                 {s}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <p className="text-sm mb-6" style={{ color: 'var(--text-secondary)' }}>
-        <strong>Forced Flow</strong> = the dollars of stock dealers are mechanically compelled to trade to stay
-        delta-hedged under a scenario of spot, time, or implied vol. Positive = dealers must buy; negative = sell.
-      </p>
+              </FilterChip>
+            ))}
+          </FilterBar>
+        }
+      />
 
       {/* The Read: verdict-first hero. One plain-language call — regime,
           into-close forced flow, and the magnet level — off the live
@@ -59,9 +52,7 @@ export default function ForcedFlowPage() {
 
       {/* Evidence — the scenario views the read is built from. */}
       <div className="flex items-baseline gap-3 mb-3">
-        <h2 className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
-          The evidence
-        </h2>
+        <h2 className="zg-eyebrow">The evidence</h2>
         <span className="flex-1 h-px" style={{ background: 'var(--border-default)' }} />
       </div>
 
@@ -84,6 +75,6 @@ export default function ForcedFlowPage() {
 
       {/* Track record: does the charm-into-close forecast actually work? */}
       <ForcedFlowTrackRecord symbol={symbol} />
-    </div>
+    </PageShell>
   );
 }

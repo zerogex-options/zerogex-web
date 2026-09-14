@@ -523,6 +523,21 @@ function initDb(): DatabaseSync {
   // out of the Total Subscribers chart.
   ensureColumn('users', 'payment_grace_reason', 'TEXT');
 
+  // Once-per-window latch for the grace-expiry warning (the ~24h-before-close
+  // second dunning touch; core/graceExpiryWarning.ts, sent by
+  // scripts/send-grace-expiry-warnings.mts). Stores the
+  // `payment_grace_started_at` anchor the member was last warned about — NOT a
+  // timestamp of the send and NOT a boolean. Keying it to the window is what
+  // makes it self-invalidating: decidePaymentGrace stamps a fresh anchor
+  // whenever a window opens, so a member who recovers and later fails again no
+  // longer matches and is warned about the new window, while every repeat sweep
+  // inside one window matches and sends nothing. Nothing in the Stripe webhook
+  // clears it, which is the point — there is no reset path on which a stale
+  // latch could silently suppress a member's next warning. Same idempotency
+  // discipline as the cancellation alert's `alert_for=<audit id>`. NULL = never
+  // warned.
+  ensureColumn('users', 'payment_grace_warning_sent_for', 'TEXT');
+
   // ISO instant this member's FIRST subscription invoice was actually PAID, or
   // NULL if no payment of theirs has ever cleared. Stamped once (COALESCE, so
   // renewals and webhook redeliveries never move it) from the invoice.paid
@@ -719,6 +734,39 @@ function initDb(): DatabaseSync {
       updated_at TEXT NOT NULL
     );
   `);
+
+  // Successful Stripe invoices, imported from the Stripe API by
+  // scripts/backfill-stripe-invoices.mts. ANALYTICS ONLY: nothing in the billing
+  // path reads this table, and the importer never writes to Stripe.
+  //
+  // It exists because a renewal cannot be inferred — it has to be seen — and the
+  // `stripe_invoice_paid` audit event only started being written when that event
+  // type shipped. Every renewal that fell due before then is invisible in
+  // audit_events, so a renewal rate computed from audit rows alone reports the
+  // product's entire early history as "did not renew". This table carries the
+  // real invoices back to the first customer.
+  //
+  // `billing_reason` is the column that matters: only `subscription_create` and
+  // `subscription_cycle` are billing periods. A `subscription_update` proration
+  // is real money and is NOT a renewal.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS stripe_invoice_history (
+      invoice_id TEXT PRIMARY KEY,
+      user_id TEXT,
+      customer_id TEXT,
+      subscription_id TEXT,
+      price_id TEXT,
+      status TEXT NOT NULL,
+      billing_reason TEXT,
+      amount_paid INTEGER NOT NULL,
+      currency TEXT,
+      paid_at TEXT NOT NULL,
+      period_start TEXT,
+      period_end TEXT,
+      imported_at TEXT NOT NULL
+    );
+  `);
+  db.exec('CREATE INDEX IF NOT EXISTS idx_stripe_invoice_history_user ON stripe_invoice_history(user_id, paid_at);');
 
   // The joined one-row-per-day shape, for ad-hoc `sqlite3` querying outside the
   // app (the admin page reads the same join through core/dailyMetrics.ts). A

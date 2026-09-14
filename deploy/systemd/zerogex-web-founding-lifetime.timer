@@ -1,0 +1,36 @@
+[Unit]
+Description=ZeroGEX web founding lifetime-discount timer (weekly, Mon 04:15)
+
+[Timer]
+# WEEKLY, not monthly, and the eligibility window is why.
+#
+# A founder becomes due at start + 11 months (FOUNDING_LIFETIME_ELIGIBLE_AFTER_
+# MONTHS in scripts/apply-founding-lifetime.mts) and renews at start + 12. That
+# is a window roughly one month wide, so a monthly timer is not a margin — it is
+# a single attempt that can land anywhere in the window, including the day
+# before renewal, with no retry if it fails. A founder who matures on the 2nd
+# would wait until the 1st of the following month, ~24h before being billed.
+#
+# Weekly puts four attempts inside every founder's window. The run is cheap and
+# self-limiting: the 11-month gate means most weeks select nobody and the script
+# exits 0 after printing "Nothing due right now", and founding_lifetime_applied_
+# at makes a re-run on an already-treated founder a no-op.
+#
+# This exists because the webhook's maybeApplyFoundingLifetime only reaches
+# MONTHLY founders — a monthly invoice event lands inside the month-11 window,
+# while an annual subscription emits no events at all between signup and
+# renewal. Without a recurring sweep, an annual founder's 25%-for-life silently
+# fails to apply and they renew at full rack rate. That is a promise we made,
+# so it should not depend on someone remembering to run a batch by hand.
+OnCalendar=Mon *-*-* 04:15:00
+# 04:15 server-local: clear of the hourly auth backup (~:00), the 02:00 / 02:30
+# ad-hoc cron window, the 03:30 partner-grant sweep, and the 6h trial-reminder
+# ticks (00/6:15).
+# Spread load across deploys / coalesce simultaneous timers.
+RandomizedDelaySec=10m
+# If the box was down at the scheduled time, run as soon as it is back up —
+# a missed week is a week of the window spent.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -206,7 +206,7 @@ export function computeMaxPainFromStrikes(
  */
 export interface KeyLevelPinInput {
   strike: number | null | undefined;
-  /** "Pin strength: Strong" for an active pin; null when there is none. */
+  /** "Pin strength: Strong · 62%" for an active pin; null when there is none. */
   note: string | null;
   /** Shown when there is no pin at all — pinStrengthLabel('none'). */
   absentLabel: string;

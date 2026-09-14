@@ -115,4 +115,15 @@ export const fr: Dictionary = {
   'login.backToLanding': 'Retour à l’accueil',
   'login.csrfError': 'Impossible d’initialiser la connexion sécurisée. Veuillez actualiser la page et réessayer.',
   'login.genericError': 'Échec de la connexion',
+
+  'termsGate.eyebrow': 'Conditions d’utilisation',
+  'termsGate.title': 'Veuillez accepter nos Conditions pour continuer',
+  'termsGate.body': 'Aucune acceptation de nos Conditions d’utilisation et de notre Politique de confidentialité n’est enregistrée pour votre compte. Veuillez les consulter et les accepter pour continuer à utiliser ZeroGEX.',
+  'termsGate.submit': 'Accepter et continuer',
+  'termsGate.submitting': 'Enregistrement…',
+  'termsGate.error': 'Impossible d’enregistrer votre acceptation. Veuillez réessayer.',
+  'termsGate.networkError': 'Erreur réseau. Veuillez réessayer.',
+  'termsGate.csrfError': 'Impossible d’initialiser une requête sécurisée. Veuillez actualiser la page et réessayer.',
+  'termsGate.effective': 'En vigueur depuis le',
+  'login.oauthTermsIntro': 'En continuant avec Google ou Apple, vous acceptez les',
 };

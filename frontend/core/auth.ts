@@ -55,6 +55,11 @@ const PUBLIC_ROUTE_PATTERNS = [
   '/thinkorswim-indicator',
   '/ninjatrader-indicator',
   '/sierra-chart-indicator',
+  // A landing for Collective2 strategy managers — marketing copy for the
+  // Pro API, carrying no member data and nothing gated. It is NOT a chart
+  // integration and is deliberately absent from core/integrations.ts, so it
+  // is listed here on its own rather than with the block above.
+  '/collective2-strategy-data',
   '/login',
   '/register',
   '/forgot-password',
@@ -148,12 +153,14 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   { pattern: '/pair-comparison', minimumTier: 'basic' },
   { pattern: '/gex-strike-profile', minimumTier: 'basic' },
   { pattern: '/flow-analysis', minimumTier: 'basic' },
+  { pattern: '/hedging-flow', minimumTier: 'basic' },
   { pattern: '/forced-flow', minimumTier: 'basic' },
   { pattern: '/market-tide', minimumTier: 'basic' },
   { pattern: '/smart-money', minimumTier: 'basic' },
   { pattern: '/max-pain', minimumTier: 'basic' },
   { pattern: '/intraday-tools', minimumTier: 'basic' },
   { pattern: '/volatility', minimumTier: 'basic' },
+  { pattern: '/spread-monitor', minimumTier: 'basic' },
   // Strategy tools — included with Basic.
   { pattern: '/options-calculator', minimumTier: 'basic' },
   { pattern: '/option-contracts', minimumTier: 'basic' },

@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import {
   accumulateTrialOutcomes,
   beltProgress,
+  buildUpcomingSteps,
+  upcomingChangesFromConveyor,
   classifyRider,
   countdownParts,
   emptyConveyorDelta,
@@ -576,4 +578,163 @@ test('projection: an empty horizon yields no points', () => {
     projectFullSubscribers({ startCount: 5, days: [], conversionDays: ['2026-08-28'], departureDays: [] }),
     [],
   );
+});
+
+
+
+// ── What's coming up ───────────────────────────────────────────────────────
+// The forward net-change chart on the Conversion Conveyor tab. Its contracts:
+// only trials still heading for a charge step the line up, only scheduled
+// departures step it down, each lands at its OWN instant rather than in a
+// bucket, and a trialer clicking Cancel removes their step without leaving
+// anything behind.
+
+const WINDOW_START = Date.parse('2026-08-27T12:00:00.000Z');
+const WINDOW = { startMs: WINDOW_START, endMs: WINDOW_START + 7 * DAY };
+
+function upcoming(riders: ConveyorRider[], departures: ConveyorRider[] = [], window = WINDOW) {
+  return buildUpcomingSteps(upcomingChangesFromConveyor({ riders, departures }), window);
+}
+
+// The line without its two edge anchors — just the events that move it.
+function moves(u: ReturnType<typeof upcoming>) {
+  return u.steps.filter((s) => s.events.length > 0).map((s) => ({ at: s.at, net: s.net }));
+}
+
+test('upcoming: a running trial steps the line up at the instant it converts', () => {
+  const u = upcoming([rider({ convertsAt: '2026-08-29T14:00:00.000Z' })]);
+  assert.equal(u.adds, 1);
+  assert.equal(u.net, 1);
+  assert.deepEqual(moves(u), [{ at: '2026-08-29T14:00:00.000Z', net: 1 }]);
+});
+
+test('upcoming: a scheduled departure steps it down, and the totals are pre-negated', () => {
+  const u = upcoming([], [rider({ state: 'rollingOff', convertsAt: '2026-08-28T09:00:00.000Z' })]);
+  assert.equal(u.drops, -1);
+  assert.equal(u.dropValue, -59);
+  assert.equal(u.net, -1);
+  assert.deepEqual(moves(u), [{ at: '2026-08-28T09:00:00.000Z', net: -1 }]);
+});
+
+test('upcoming: the line is pinned at zero on the left and the final net on the right', () => {
+  // Without both anchors the chart would open mid-air and stop short of the
+  // right edge, leaving the last stretch of the week undrawn.
+  const u = upcoming([rider({ convertsAt: '2026-08-29T00:00:00.000Z' })]);
+  const first = u.steps[0];
+  const last = u.steps[u.steps.length - 1];
+  assert.equal(first.at, u.startsAt);
+  assert.equal(first.net, 0);
+  assert.deepEqual(first.events, []);
+  assert.equal(last.at, u.endsAt);
+  assert.equal(last.net, 1);
+  assert.deepEqual(last.events, []);
+});
+
+test('upcoming: a trialer who clicked Cancel is not a step that later needs removing', () => {
+  // The whole point of the chart: the moment a trial rolls off, its step is
+  // simply gone, because a rolling-off rider was never a conversion in the first
+  // place. A stalled one is left out too — undecided, not scheduled.
+  const u = upcoming([
+    rider({ userId: 'u1', state: 'running', convertsAt: '2026-08-29T00:00:00.000Z' }),
+    rider({ userId: 'u2', state: 'rollingOff', convertsAt: '2026-08-29T00:00:00.000Z' }),
+    rider({ userId: 'u3', state: 'stalled', convertsAt: '2026-08-29T00:00:00.000Z' }),
+  ]);
+  assert.equal(u.adds, 1);
+  assert.equal(u.drops, 0);
+  assert.deepEqual(moves(u), [{ at: '2026-08-29T00:00:00.000Z', net: 1 }]);
+});
+
+test('upcoming: the running net carries across the window and can go negative', () => {
+  const u = upcoming(
+    [
+      rider({ userId: 'u1', convertsAt: '2026-08-28T00:00:00.000Z' }),
+      rider({ userId: 'u2', convertsAt: '2026-08-30T00:00:00.000Z' }),
+    ],
+    [
+      rider({ userId: 'u3', state: 'rollingOff', convertsAt: '2026-09-01T00:00:00.000Z' }),
+      rider({ userId: 'u4', state: 'rollingOff', convertsAt: '2026-09-02T00:00:00.000Z' }),
+      rider({ userId: 'u5', state: 'rollingOff', convertsAt: '2026-09-02T06:00:00.000Z' }),
+    ],
+  );
+  assert.deepEqual(moves(u).map((m) => m.net), [1, 2, 1, 0, -1]);
+  assert.equal(u.net, -1);
+});
+
+test('upcoming: changes sharing an instant become one step, not several', () => {
+  const u = upcoming([
+    rider({ userId: 'u1', convertsAt: '2026-08-28T00:00:00.000Z' }),
+    rider({ userId: 'u2', convertsAt: '2026-08-28T00:00:00.000Z' }),
+  ]);
+  assert.deepEqual(moves(u), [{ at: '2026-08-28T00:00:00.000Z', net: 2 }]);
+  assert.equal(u.steps.filter((s) => s.events.length > 0)[0].events.length, 2);
+});
+
+test('upcoming: steps are ordered by time however the riders arrive', () => {
+  const u = upcoming([
+    rider({ userId: 'late', convertsAt: '2026-08-31T22:00:00.000Z' }),
+    rider({ userId: 'early', convertsAt: '2026-08-28T06:00:00.000Z' }),
+  ]);
+  assert.deepEqual(
+    moves(u).map((m) => m.at),
+    ['2026-08-28T06:00:00.000Z', '2026-08-31T22:00:00.000Z'],
+  );
+});
+
+test('upcoming: something already overdue is clamped to now, not dropped', () => {
+  // Stripe owes us that charge already — imminent, not absent.
+  const u = upcoming(
+    [rider({ convertsAt: '2026-08-20T00:00:00.000Z' })],
+    [rider({ userId: 'u2', state: 'rollingOff', convertsAt: '2026-08-01T00:00:00.000Z' })],
+  );
+  assert.equal(u.adds, 1);
+  assert.equal(u.drops, -1);
+  const overdue = u.steps.filter((s) => s.events.length > 0);
+  assert.equal(overdue.length, 1, 'both land at the window start, so they share one step');
+  assert.equal(overdue[0].at, u.startsAt);
+  assert.equal(overdue[0].net, 0);
+});
+
+test('upcoming: anything past the horizon is outside the window, not folded in', () => {
+  const u = upcoming(
+    [rider({ convertsAt: '2026-12-01T00:00:00.000Z' })],
+    [rider({ userId: 'u2', state: 'rollingOff', convertsAt: '2026-12-02T00:00:00.000Z' })],
+  );
+  assert.equal(u.adds, 0);
+  assert.equal(u.drops, 0);
+  assert.deepEqual(moves(u), []);
+  assert.deepEqual(u.steps.map((s) => s.net), [0, 0], 'just the two anchors, flat at zero');
+});
+
+test('upcoming: a rider with no deadline is skipped rather than guessed onto a time', () => {
+  const u = upcoming([rider({ convertsAt: null }), rider({ userId: 'u2', convertsAt: 'not-a-date' })]);
+  assert.equal(u.adds, 0);
+  assert.deepEqual(moves(u), []);
+});
+
+test('upcoming: $/mo arriving and leaving are tallied alongside the counts', () => {
+  const u = upcoming(
+    [rider({ convertsAt: '2026-08-28T00:00:00.000Z', monthlyValue: 99 })],
+    [rider({ userId: 'u2', state: 'rollingOff', convertsAt: '2026-08-29T00:00:00.000Z', monthlyValue: 29 })],
+  );
+  assert.equal(u.addValue, 99);
+  assert.equal(u.dropValue, -29);
+});
+
+test('upcoming: nothing scheduled still draws a flat line across the whole window', () => {
+  const u = upcoming([]);
+  assert.deepEqual(u.steps.map((s) => s.net), [0, 0]);
+  assert.equal(u.steps[0].at, u.startsAt);
+  assert.equal(u.steps[1].at, u.endsAt);
+  assert.equal(u.net, 0);
+  assert.equal(u.drops, 0);
+  assert.ok(!Object.is(u.drops, -0), 'a zero never carries a sign into the chart');
+});
+
+test('upcoming: an inverted or empty window yields no steps', () => {
+  const u = upcoming([rider({ convertsAt: '2026-08-28T00:00:00.000Z' })], [], {
+    startMs: WINDOW_START,
+    endMs: WINDOW_START,
+  });
+  assert.deepEqual(u.steps, []);
+  assert.equal(u.net, 0);
 });

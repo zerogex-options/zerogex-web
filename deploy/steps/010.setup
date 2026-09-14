@@ -6,6 +6,9 @@
 
 set -e
 
+# Fallback log if this step is invoked directly.
+type log >/dev/null 2>&1 || log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
+
 log "System Setup and Basic Configuration"
 
 # Update system

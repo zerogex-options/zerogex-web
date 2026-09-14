@@ -22,6 +22,18 @@
 
 set -e
 
+# Re-point HOME when this step is run directly under `sudo`: $HOME is then
+# /root, but the repo, nvm, pm2 and the auth DB all live in the invoking user's
+# home, so every path below would resolve under /root and fail a precondition
+# that is actually satisfied. deploy.sh does this for the steps it runs; doing
+# it here too means a standalone `sudo ./deploy/steps/<step>` resolves the same
+# paths. A no-op when already running as the owning user.
+if [ -n "${SUDO_USER:-}" ] && [ "${SUDO_USER:-}" != "root" ]; then
+    STEP_SUDO_HOME="$(getent passwd "$SUDO_USER" | cut -d: -f6)"
+    [ -n "$STEP_SUDO_HOME" ] && export HOME="$STEP_SUDO_HOME"
+fi
+[ -z "${HOME:-}" ] && export HOME="/home/ubuntu"
+
 type log >/dev/null 2>&1 || log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 
 log "TradeWorkz Follower Email Delivery Timer Setup"

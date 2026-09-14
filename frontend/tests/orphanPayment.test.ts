@@ -128,38 +128,59 @@ test('recovery params omit optional wiring when it is unknown', () => {
 
 // --- Discount carry-over ---------------------------------------------------
 // The re-created subscription is a NEW Stripe object with no discounts of its
-// own. Getting this wrong is a silent price change either way: dropping a
-// forever coupon overcharges every future renewal, re-applying a spent one
-// discounts a period the member never bought.
+// own. Getting this wrong is a silent price change either way: dropping a rate
+// the member is still owed overcharges them for losing a card, re-applying a
+// spent one discounts a period they never bought.
 
 test('a forever coupon follows the member onto the new subscription', () => {
   const result = decideDiscountCarryOver([
     { couponId: 'founding_lifetime_25', duration: 'forever', durationInMonths: null },
   ]);
   assert.deepEqual(result.carry, ['founding_lifetime_25']);
+  assert.deepEqual(result.carried, [
+    { couponId: 'founding_lifetime_25', duration: 'forever', restartsClock: false },
+  ]);
   assert.deepEqual(result.flagged, []);
 });
 
-test('a spent or partly-spent coupon is flagged, never re-applied', () => {
+// A member part-way through an intro rate who lost their subscription to a
+// failed charge must not come back priced above what they were promised. The
+// cost is that Stripe restarts the coupon's months — accepted deliberately,
+// and reported so an operator is never surprised by it.
+test('a repeating coupon carries, and says its clock restarted', () => {
+  const result = decideDiscountCarryOver([
+    { couponId: 'promo_pro_monthly_6mo', duration: 'repeating', durationInMonths: 6 },
+  ]);
+  assert.deepEqual(result.carry, ['promo_pro_monthly_6mo']);
+  assert.deepEqual(result.carried, [
+    { couponId: 'promo_pro_monthly_6mo', duration: 'repeating', restartsClock: true },
+  ]);
+  assert.deepEqual(result.flagged, []);
+});
+
+// A once-off is a different question, not the same one. It was fully spent on
+// the invoice just paid, and full price afterwards is what the pricing page
+// promised — carrying it would hand out a second discount, not restore a rate.
+test('a spent once-off is still never re-applied', () => {
   const result = decideDiscountCarryOver([
     { couponId: 'promo_first_year', duration: 'once', durationInMonths: null },
     { couponId: 'intro_12mo', duration: 'repeating', durationInMonths: 12 },
   ]);
-  assert.deepEqual(result.carry, []);
+  assert.deepEqual(result.carry, ['intro_12mo']);
   assert.deepEqual(result.flagged, [
-    // A fully-spent intro price is the designed outcome — the pricing page says
-    // "$229 first year, then $299" — so it is reported but not raised for review.
     { couponId: 'promo_first_year', duration: 'once', needsReview: false },
-    // A repeating coupon may be partly unspent, which is a judgment call.
-    { couponId: 'intro_12mo', duration: 'repeating', needsReview: true },
   ]);
 });
 
+// Safety, not policy: a bare-id payload gives no duration, so a spent `once`
+// and a live `repeating` are indistinguishable. Guessing could hand out a
+// discount the member is not owed.
 test('an unreadable duration is flagged rather than trusted', () => {
   const result = decideDiscountCarryOver([
     { couponId: 'mystery', duration: null, durationInMonths: null },
   ]);
   assert.deepEqual(result.carry, []);
+  assert.deepEqual(result.carried, []);
   assert.deepEqual(result.flagged, [
     { couponId: 'mystery', duration: 'unknown', needsReview: true },
   ]);
@@ -172,6 +193,7 @@ test('mixed discounts split correctly and never duplicate', () => {
     { couponId: 'promo_first_year', duration: 'once', durationInMonths: null },
   ]);
   assert.deepEqual(result.carry, ['forever_winback']);
+  assert.equal(result.carried.length, 1, 'a duplicated coupon is carried once');
   assert.equal(result.flagged.length, 1);
 });
 
@@ -185,7 +207,7 @@ test("the standard first-year promo raises no review — it expired as advertise
 });
 
 test('no discounts on the canceled sub → nothing to carry', () => {
-  assert.deepEqual(decideDiscountCarryOver([]), { carry: [], flagged: [] });
+  assert.deepEqual(decideDiscountCarryOver([]), { carry: [], carried: [], flagged: [] });
 });
 
 test('subscription discounts are read across shapes and expansion levels', () => {
@@ -215,7 +237,7 @@ test('subscription discounts are read across shapes and expansion levels', () =>
 
 test('a bare discount id is unusable and is not carried', () => {
   const discounts = readSubscriptionDiscounts({ discounts: ['di_1'] });
-  assert.deepEqual(decideDiscountCarryOver(discounts), { carry: [], flagged: [] });
+  assert.deepEqual(decideDiscountCarryOver(discounts), { carry: [], carried: [], flagged: [] });
 });
 
 test('carried coupons land in the create params, absent when there are none', () => {

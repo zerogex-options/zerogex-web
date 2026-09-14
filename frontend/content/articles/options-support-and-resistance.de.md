@@ -1,5 +1,5 @@
 # Wie man Support und Resistance aus dem Options-Positioning ableitet
-> **Aktualisierter Methodikhinweis — er hat Vorrang vor abweichenden Formulierungen weiter unten.** ZeroGEX schätzt Dealerbestände aus öffentlichen Daten; es beobachtet sie nicht. Das Modell behält die Call-positiv/Put-negativ-Konvention bei (`Net GEX = Call GEX − Put GEX`) und unterstellt Dealer netto long Calls und netto short Puts. Long Calls und Long Puts haben positives Gamma; Short Calls und Short Puts negatives Gamma. Die Put Wall ist die größte Put-Gamma-Konzentration unter Spot und lokal modelliertes negatives Dealer-Gamma: Sie kann mit Unterstützung zusammenfallen, doch das Hedging eines Short Puts erzeugt keinen mechanischen Boden. Walls können sich durch Spot, Zeit und implizite Volatilität verschieben, obwohl das offizielle Open Interest intraday unverändert bleibt. Nahe Verfall konzentriert sich Gamma am Geld; ATM-Gamma kann steigen, während deutlich ITM- oder OTM-Gamma gegen null geht. Der ausgewählte Gamma Flip ist ein lokaler Übergang; ein Profil kann mehrere oder keine aussagekräftige Kreuzung haben. Charm und Vanna sind bedingte Deltaänderungen, keine geplanten Orders. Signalwerte sind heuristische Modellergebnisse, keine kalibrierten Wahrscheinlichkeiten. Negatives Gamma verstärkt die bereits laufende Richtung; die Entfernung zu einem Ziel impliziert keine Abstoßung. Die Vorzeichenumkehr des EOD-Pressure-Pin-Terms bleibt daher eine ZeroGEX-Heuristik. Max Pain minimiert die aggregierte intrinsische Auszahlung und maximiert nicht exakt den wertlos verfallenden Nominalwert. Rohes DEX misst Optionsdelta, nicht künftigen Hedge-Flow; Prämie und Aggressorseite beweisen weder Information noch Eröffnung oder Überzeugung.
+> **Methodikhinweis.** ZeroGEX schätzt Dealerbestände aus öffentlichen Daten; es beobachtet sie nicht. Das Modell behält die Call-positiv/Put-negativ-Konvention bei (`Net GEX = Call GEX − Put GEX`) und unterstellt Dealer netto long Calls und netto short Puts. Long Calls und Long Puts haben positives Gamma; Short Calls und Short Puts negatives Gamma. Die Put Wall ist die größte Put-Gamma-Konzentration unter Spot und lokal modelliertes negatives Dealer-Gamma: Sie kann mit Unterstützung zusammenfallen, doch das Hedging eines Short Puts erzeugt keinen mechanischen Boden. Walls können sich durch Spot, Zeit und implizite Volatilität verschieben, obwohl das offizielle Open Interest intraday unverändert bleibt. Nahe Verfall konzentriert sich Gamma am Geld; ATM-Gamma kann steigen, während deutlich ITM- oder OTM-Gamma gegen null geht. Der ausgewählte Gamma Flip ist ein lokaler Übergang; ein Profil kann mehrere oder keine aussagekräftige Kreuzung haben. Charm und Vanna sind bedingte Deltaänderungen, keine geplanten Orders. Signalwerte sind heuristische Modellergebnisse, keine kalibrierten Wahrscheinlichkeiten. Negatives Gamma verstärkt die bereits laufende Richtung; die Entfernung zu einem Ziel impliziert keine Abstoßung. Die Vorzeichenumkehr des EOD-Pressure-Pin-Terms bleibt daher eine ZeroGEX-Heuristik. Max Pain minimiert die aggregierte intrinsische Auszahlung und maximiert nicht exakt den wertlos verfallenden Nominalwert. Rohes DEX misst Optionsdelta, nicht künftigen Hedge-Flow; Prämie und Aggressorseite beweisen weder Information noch Eröffnung oder Überzeugung.
 
 
 *Klassische Support- und Resistance-Level sind vor allem Psychologie — gezeichnete Linien, frühere Swings, runde Zahlen. Options-basierte Support- und Resistance-Level sind Mechanik — reales Positioning, das reale Hedging-Flüsse antreibt. So identifiziert man sie und liest sie in Echtzeit.*
@@ -19,6 +19,8 @@ Dieser Artikel ist der praktische Workflow, um Options-basierte S/R zu identifiz
 ---
 
 ## Die vier Arten von Options-basierter S/R
+
+Die Bezeichnungen unten — Call Wall als Widerstand, Put Wall als Unterstützung — beschreiben das *typische Verhalten bei positivem Gamma*. Sie sind keine festen Eigenschaften des Strikes: Der Optionstyp allein legt die Richtung nicht fest, und beide können sich umkehren, wenn sich das Vorzeichen des modellierten Dealer-Gammas oder der umgebende Flow ändert.
 
 ### 1. Call Walls (Resistance)
 
@@ -43,6 +45,12 @@ Der Magnet ist am stärksten in der Nähe des Verfalls, wenn Optionen mit Verfal
 ### 4. Der Gamma Flip (Regime-Linie)
 
 Der **Gamma Flip** ist im klassischen Sinne kein S/R — er ist die Regime-Grenze. Aber er funktioniert wie eine weiche Support-/Resistance-Linie, weil der Preis beim Überqueren tendenziell innehält oder kurz umkehrt (der Dealer-Reflex wechselt genau bei diesem Preis das Vorzeichen). Oberhalb des Flips ist der Reflex, gegen die Bewegung zu handeln (Fade); darunter, ihr zu folgen (Chase).
+
+Siehe [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) für den Workflow.
+
+---
+
+## Warum dreht SPY an diesen Levels?
 
 Siehe [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) für den Workflow.
 
