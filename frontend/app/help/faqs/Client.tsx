@@ -281,6 +281,11 @@ const FAQ_DATA: FAQCategory[] = [
         a: 'Yes — our NinjaTrader 8 indicator draws the Gamma Flip, Call Wall, Put Wall, Max Pain, and Pin Strike on your chart and keeps them current by polling the API. It is included with Pro: signed in to a Pro plan, download it from any of the free gamma levels pages (for example <a href="/spx-gamma-levels">/spx-gamma-levels</a>), compile it in the NinjaScript Editor, and paste in your API key. On any other plan those pages show an <a href="/pricing?plan=pro">upgrade link</a> in place of the download. Unlike our TradingView script, which is manual-entry because Pine Script can\'t make HTTP calls, this one updates itself.',
       },
       {
+        id: 'api-interactive-brokers',
+        q: 'Can I use ZeroGEX with Interactive Brokers?',
+        a: 'Yes — through NinjaTrader 8 or Sierra Chart, both of which connect to an IBKR account, and both of which run one of our auto-updating studies. What we can\'t offer is an indicator for Trader Workstation itself: TWS has no scripting language and no way to draw on its charts from outside, so no indicator — ours or anyone else\'s — can be installed into it. The setup is the same whichever platform you pick: TWS or IB Gateway running with its socket API enabled, then the <a href="/ninjatrader-indicator">NinjaTrader indicator</a> or the <a href="/sierra-chart-indicator">Sierra Chart study</a> with your ZeroGEX API key. Both are included with Pro. One thing that sounds like a problem and isn\'t: IBKR\'s own market data is thin by charting standards, which is why many traders pair a dedicated feed with IBKR for execution — it makes no difference to the levels, because both studies fetch those from the ZeroGEX API rather than from the platform\'s quotes. See <a href="/integrations">all integrations</a>.',
+      },
+      {
         id: 'api-streaming',
         q: 'Is there a streaming endpoint or websocket?',
         a: 'Not currently exposed publicly. The web platform uses an internal channel. For most use cases, polling at a sane cadence (every few seconds for live metrics) is sufficient.',

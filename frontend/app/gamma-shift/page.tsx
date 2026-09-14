@@ -34,6 +34,8 @@
 
 import { useState } from 'react';
 import PageShell from '@/components/layout/PageShell';
+import PageHeader from '@/components/layout/PageHeader';
+import { FilterBar, FilterChip, FilterGroup } from '@/components/controls/Filters';
 import GammaRegimeShiftCard from '@/components/GammaRegimeShiftCard';
 import GammaTrendPanel from '@/components/GammaTrendPanel';
 import ExpiryRolloffPanel from '@/components/ExpiryRolloffPanel';
@@ -68,60 +70,51 @@ export default function GammaShiftPage() {
 
   return (
     <PageShell>
-      <div className="mb-5">
-        <h1 className="text-3xl font-bold">Gamma Shift</h1>
-        <p className="mt-2 max-w-3xl text-[15px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-          Everyone else shows where dealer gamma sits <em>right now</em>. This shows how it{' '}
-          <strong>changed</strong> — whether the book is{' '}
-          <span style={{ color: 'var(--color-bull)' }}>firming</span> or{' '}
-          <span style={{ color: 'var(--color-bear)' }}>deteriorating</span>, how much of it
-          expires at the next close, and how today compares to every recent session.
-        </p>
-      </div>
-
-      {/* One control bar for every surface below. */}
-      <div
-        className="zg-panel mb-5 flex flex-wrap items-center gap-x-5 gap-y-3 px-5 py-3"
-      >
-        <div className="flex items-center gap-2">
-          <span className="zg-label">Compare</span>
-          <div className="flex flex-wrap gap-1">
-            {LOOKBACK_ORDER.map((key) => {
-              const active = key === lookback;
-              return (
-                <button
+      <PageHeader
+        title="Gamma Shift"
+        beta
+        sub={
+          <>
+            Not where dealer gamma sits, but how it <strong>changed</strong> — a book{' '}
+            <span style={{ color: 'var(--color-bull)' }}>firming</span> or{' '}
+            <span style={{ color: 'var(--color-bear)' }}>deteriorating</span>.
+          </>
+        }
+        tooltip="Every other GEX surface is a photograph of the book right now. This is the difference between two photographs: pick a comparison window and read what dealer gamma did across it, split into the part that came from new positioning and the part that is just the same contracts re-pricing as spot moved. Also shows how much of the current book expires at the next close — gamma that will simply stop existing rather than being traded away — and where today's shift sits against recent sessions. A large shift with price unchanged is positioning; a large shift with price moved may be nothing but re-pricing."
+        actions={
+          <FilterBar>
+            <FilterGroup label="Compare">
+              {LOOKBACK_ORDER.map((key) => (
+                <FilterChip
                   key={key}
-                  type="button"
+                  active={key === lookback}
                   onClick={() => setLookback(key)}
-                  aria-pressed={active}
-                  className="rounded-md px-3 py-1.5 font-mono text-[12px] transition-colors"
-                  style={{
-                    background: active ? 'var(--color-warning-soft)' : 'transparent',
-                    border: `1px solid ${active ? 'var(--color-warning)' : 'var(--border-default)'}`,
-                    color: active ? 'var(--color-warning)' : 'var(--text-secondary)',
-                    fontWeight: active ? 600 : 500,
-                  }}
                 >
                   {LOOKBACK_LABEL[key]}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+                </FilterChip>
+              ))}
+            </FilterGroup>
+          </FilterBar>
+        }
+      />
 
-        <div className="ml-auto flex flex-wrap items-center gap-3">
-          <ExpirationMultiSelect
-            options={available}
-            selected={selection}
-            onChange={setSelection}
-            label="Expiry"
-            disabled={available.length === 0}
-            zeroDte={zeroDte}
-          />
-          <GexUnitToggle />
-          <StrikeFilterToggle />
-        </div>
-      </div>
+      {/* One control bar for every surface below. */}
+      <FilterBar className="mb-5 gap-x-3">
+        <ExpirationMultiSelect
+          options={available}
+          selected={selection}
+          onChange={setSelection}
+          label="Expiry"
+          disabled={available.length === 0}
+          zeroDte={zeroDte}
+        />
+        <FilterGroup label="GEX unit">
+          <GexUnitToggle showHint={false} />
+        </FilterGroup>
+        <FilterGroup label="Strikes">
+          <StrikeFilterToggle showHint={false} />
+        </FilterGroup>
+      </FilterBar>
 
       <div className="flex flex-col gap-5">
         <GammaRegimeShiftCard

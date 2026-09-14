@@ -1,5 +1,5 @@
 # Pourquoi SPY s'ancre-t-il près d'un strike ? Le pinning des options expliqué
-> **Note méthodologique mise à jour — elle prévaut sur toute formulation incompatible plus bas.** ZeroGEX estime l’inventaire des dealers à partir de données publiques sans l’observer directement. Le modèle conserve la convention calls positifs/puts négatifs (`Net GEX = Call GEX − Put GEX`) et suppose les dealers nets longs calls et nets shorts puts. Les calls et puts longs ont un gamma positif ; les calls et puts shorts ont un gamma négatif. Le Put Wall est la plus grande concentration de gamma put sous le spot et représente localement un gamma dealer négatif : il peut coïncider avec un support, mais la couverture du put short ne crée pas mécaniquement un plancher. Les walls peuvent migrer avec le spot, le temps et la volatilité implicite alors que l’open interest officiel ne change pas en séance. À l’approche de l’échéance, le gamma se concentre près de l’ATM : le gamma ATM peut augmenter, tandis que le gamma nettement ITM ou OTM tend vers zéro. Le Gamma Flip sélectionné est une transition locale ; le profil peut avoir plusieurs croisements ou aucun croisement significatif. Charm et vanna sont des variations conditionnelles du delta, pas des ordres programmés. Les scores sont des résultats heuristiques du modèle, pas des probabilités calibrées. Un gamma négatif amplifie la direction déjà engagée ; la distance à une cible n’implique pas une répulsion. L’inversion du terme de pin d’EOD Pressure reste donc une heuristique ZeroGEX. Max Pain minimise le paiement intrinsèque agrégé et ne maximise pas exactement le notionnel expirant sans valeur. Le DEX brut mesure le delta des seules options, pas le futur flux de couverture ; prime et côté agresseur ne prouvent ni information, ni ouverture, ni conviction.
+> **Note méthodologique.** ZeroGEX estime l’inventaire des dealers à partir de données publiques sans l’observer directement. Le modèle conserve la convention calls positifs/puts négatifs (`Net GEX = Call GEX − Put GEX`) et suppose les dealers nets longs calls et nets shorts puts. Les calls et puts longs ont un gamma positif ; les calls et puts shorts ont un gamma négatif. Le Put Wall est la plus grande concentration de gamma put sous le spot et représente localement un gamma dealer négatif : il peut coïncider avec un support, mais la couverture du put short ne crée pas mécaniquement un plancher. Les walls peuvent migrer avec le spot, le temps et la volatilité implicite alors que l’open interest officiel ne change pas en séance. À l’approche de l’échéance, le gamma se concentre près de l’ATM : le gamma ATM peut augmenter, tandis que le gamma nettement ITM ou OTM tend vers zéro. Le Gamma Flip sélectionné est une transition locale ; le profil peut avoir plusieurs croisements ou aucun croisement significatif. Charm et vanna sont des variations conditionnelles du delta, pas des ordres programmés. Les scores sont des résultats heuristiques du modèle, pas des probabilités calibrées. Un gamma négatif amplifie la direction déjà engagée ; la distance à une cible n’implique pas une répulsion. L’inversion du terme de pin d’EOD Pressure reste donc une heuristique ZeroGEX. Max Pain minimise le paiement intrinsèque agrégé et ne maximise pas exactement le notionnel expirant sans valeur. Le DEX brut mesure le delta des seules options, pas le futur flux de couverture ; prime et côté agresseur ne prouvent ni information, ni ouverture, ni conviction.
 
 
 *Pourquoi SPY s'ancre-t-il près de strikes spécifiques — surtout le vendredi et vers la clôture ? Ce n'est pas une coïncidence. Le pinning des options expliqué : le mécanisme de couverture des dealers derrière cette attraction, pourquoi il est le plus fort lors de l'OPEX et en fin de journée, et comment savoir si la séance du jour va s'ancrer.*
@@ -105,7 +105,32 @@ Une démarche rapide :
 4. **Recoupez avec le max pain.** Même strike ou à moins de 0,3 % de l'aimant → pin net. Nettement différent → thèse de pin plus faible ; faites confiance à l'aimant.
 5. **Lisez l'heure de la journée.** Avant midi ET, le charm ne s'est pas encore suffisamment accumulé pour imposer fortement le pin. Après 14h00 ET, l'attraction s'intensifie. Après 15h30 ET, les dynamiques de la fenêtre de clôture dominent.
 
+---
+
+## Comment savoir si le SPY est pinné : les cinq signes
+
 Une fois le pin identifié, le playbook de trading se trouve dans [Comment savoir si SPY est ancré](/education/how-to-know-if-spy-is-pinned) — version courte : fader les extrêmes, éviter le milieu, taille de position réduite.
+
+**1. Le Net GEX est nettement positif (régime de gamma longue).** Spot au-dessus du gamma flip et Net GEX clairement positif. (Le Net GEX est une gamma dealer estimée sous la convention traditionnelle calls positifs / puts négatifs sur l'open interest — un modèle, pas un inventaire observé.) ZeroGEX considère à l'échelle du SPY qu'environ 500 M$+ est « substantiel », mais c'est une heuristique maison — l'ordre de grandeur compte plus que n'importe quel chiffre précis. Un Net GEX négatif ou proche de zéro plaide contre le pin.
+
+**2. Le max pain et l'aimant de gamma concordent près du spot.** Quand les deux pointent le même niveau et que celui-ci se situe à environ 0,3 % du spot, la traction structurelle est à son maximum. Quand ils divergent, ZeroGEX s'appuie sur l'aimant de gamma — il correspond au mécanisme de couverture modélisé, alors que le max pain relève de la géométrie des paiements.
+
+**3. Le spot oscille autour de l'aimant depuis une heure.** Tracez le SPY face au strike de l'aimant de gamma en unité de 5 minutes. Trois croisements ou plus sur les 60 dernières minutes, chaque excursion plus petite, suggère un pin en formation. Une dérive continue en s'éloignant de l'aimant plaide contre — c'est une direction, pas une fourchette.
+
+**4. La volatilité réalisée s'est comprimée sous l'implicite.** La couverture en gamma longue amortit la volatilité réalisée : un pin qui fonctionne se voit donc à une réalisée sous l'implicite. Si la réalisée s'étend, le pin ne tient pas — le livre est submergé par d'autres flux.
+
+**5. L'EOD Pressure est proche de zéro dans la fenêtre active.** Après 14h30 ET, une lecture d'EOD Pressure proche de zéro (environ −0,20 à +0,20) est une signature modélisée de pin — les termes de charm et de gravité du pin s'annulent en grande partie parce que le prix se tient sur l'aimant. Une lecture élevée signifie que le prix est *loin* de l'aimant. Voir [Le signal EOD Pressure expliqué : lire la clôture](/education/eod-pressure-explained).
+
+---
+
+## Le playbook d'un tape pinné
+
+Quand la plupart des cinq signes s'alignent, le playbook est à contre-courant et simple :
+
+- **À faire : jouer contre les extrêmes de la fourchette de compression.** La traction structurelle ramène vers l'aimant : vendre les poussées près du haut de la fourchette et acheter les creux près du bas est la seule configuration où le réflexe du dealer est de votre côté. Taille réduite — les pins sont probabilistes, pas garantis.
+- **À éviter : courir après le milieu.** C'est au milieu que se tient l'aimant ; y acheter ou y vendre revient à combattre le niveau vers lequel le prix cherche structurellement à revenir. C'est de là que vient l'essentiel des pertes sur un tape pinné.
+- **À éviter : prendre des configurations de momentum.** Les playbooks de cassure, d'expansion de volatilité et de squeeze supposent que le mouvement se prolonge — l'inverse d'un tape pinné. Dérouler le mauvais playbook constitue l'essentiel de l'erreur.
+- **À faire : réduire la taille de position.** Les fourchettes pinnées sont serrées et les stops encore plus ; une taille de journée normale invite à se faire sortir prématurément.
 
 ---
 

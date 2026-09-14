@@ -68,6 +68,7 @@ export default async function HelpPlatformArticlePage({ params }: { params: Prom
       <article className="rounded-3xl border border-[var(--color-border)] bg-[var(--bg-card)]/95 px-8 py-10 shadow-[0_20px_60px_var(--color-info-soft)] md:px-14">
         <div className="mb-8 text-sm uppercase tracking-[0.2em] text-[var(--text-muted)]">
           ZeroGEX Help • {article.section}
+          {article.subsection ? ` • ${article.subsection}` : ''}
         </div>
         <div className="blog-medium-style">{renderMarkdown(markdown)}</div>
       </article>

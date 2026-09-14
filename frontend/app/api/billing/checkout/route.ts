@@ -27,6 +27,31 @@ import {
 } from '@/core/creatorPartners';
 import { getCampaignCouponId, normalizeCampaignCode } from '@/core/campaigns';
 
+// Stripe renders its own "I agree to the Terms of Service" checkbox when a
+// session asks for it, and records the acceptance on the session
+// (consent.terms_of_service) — a record held by the processor itself, which is
+// the form of evidence an issuer actually weighs in a dispute. It is collected
+// here as well as at signup because checkout is the moment money is authorized,
+// and because a member who signed up before the signup checkbox existed would
+// otherwise reach a charge with nothing recorded anywhere.
+//
+// Stripe requires a Terms of service URL under Dashboard → Settings → Public
+// business information before it will accept the parameter, and rejects the
+// whole session-create call when it is missing. Checkout must not break over
+// this, so the first such rejection latches the parameter off for the life of
+// the process and the session is created again without it. Set the URL in the
+// Dashboard and the parameter starts applying on the next deploy or restart,
+// with no code change.
+let tosConsentUnsupported = false;
+
+function isTosConsentUnsupportedError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const candidate = err as { type?: string; param?: string; message?: string };
+  if (candidate.type !== 'StripeInvalidRequestError') return false;
+  const haystack = `${candidate.param ?? ''} ${candidate.message ?? ''}`.toLowerCase();
+  return haystack.includes('consent_collection') || haystack.includes('terms of service');
+}
+
 // Card is collected at checkout (Stripe subscription mode defaults
 // payment_method_collection to 'always'); tier is granted immediately
 // because the webhook treats 'trialing' as active. Once-per-account: a
@@ -361,6 +386,10 @@ export async function POST(request: NextRequest) {
     // (otherwise the API errors at session-create time).
     automatic_tax: { enabled: true },
     customer_update: { address: 'auto', name: 'auto' },
+    // See isTosConsentUnsupportedError above: omitted once Stripe has told us
+    // the Dashboard URL it needs is not set, so a missing setting degrades to
+    // the previous behaviour instead of failing checkout.
+    ...(tosConsentUnsupported ? {} : { consent_collection: { terms_of_service: 'required' as const } }),
     subscription_data: {
       metadata: {
         user_id: actor.user.id,
@@ -400,7 +429,29 @@ export async function POST(request: NextRequest) {
     sessionParams.allow_promotion_codes = true;
   }
 
-  const session = await stripe.checkout.sessions.create(sessionParams);
+  let session: Stripe.Checkout.Session;
+  try {
+    session = await stripe.checkout.sessions.create(sessionParams);
+  } catch (err) {
+    // Keyed on what THIS request actually sent, not on the module latch: two
+    // checkouts can be in flight when the first one latches, and the second
+    // still carries the parameter Stripe is about to reject. Testing the latch
+    // here would rethrow that one as a 500 instead of retrying it.
+    if (!sessionParams.consent_collection || !isTosConsentUnsupportedError(err)) throw err;
+    // Latch it off so this costs one rejected call per process, not one per
+    // checkout, and say plainly in the log what has to be configured — the
+    // consent box silently not appearing is exactly the failure this whole
+    // change exists to stop.
+    tosConsentUnsupported = true;
+    console.error(
+      '[checkout] Stripe rejected consent_collection[terms_of_service] — set a Terms of service URL in ' +
+        'Dashboard → Settings → Public business information to collect terms acceptance at checkout. ' +
+        'Proceeding without it.',
+      err,
+    );
+    delete sessionParams.consent_collection;
+    session = await stripe.checkout.sessions.create(sessionParams);
+  }
 
   if (!session.url) {
     return NextResponse.json({ error: 'Stripe did not return a checkout URL' }, { status: 502 });

@@ -241,6 +241,25 @@ function LoginPageContent() {
           )}
         </div>
 
+        {/* Disclosure at the point of action for the OAuth buttons above. They
+            are an account-CREATION path as much as a sign-in one — the callback
+            mints an account when no identity or email matches — and unlike the
+            /register form there is no checkbox in the flow to carry the
+            agreement. The acceptance itself is collected and recorded once the
+            member is signed in, by the gate in ClientLayout; this line is what
+            tells them so before they hand over a Google or Apple identity. */}
+        <p className="mt-3 text-center text-xs text-[var(--color-text-secondary)] opacity-80">
+          {t('login.oauthTermsIntro')}{' '}
+          <Link href="/terms" target="_blank" className="text-[var(--color-brand-primary)] hover:underline">
+            {t('register.termsLinkText')}
+          </Link>{' '}
+          {t('register.termsAnd')}{' '}
+          <Link href="/privacy" target="_blank" className="text-[var(--color-brand-primary)] hover:underline">
+            {t('register.privacyLinkText')}
+          </Link>
+          {t('register.termsOutro')}
+        </p>
+
         <div className="mt-6 flex items-center justify-between text-sm">
           <Link href="/register" className="text-[var(--color-brand-primary)] hover:underline">
             {t('login.createAccount')}

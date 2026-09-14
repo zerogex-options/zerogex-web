@@ -20,6 +20,8 @@ Il gamma è un Greek del secondo ordine che misura come il delta di un'opzione c
 
 Quando il *netto* di questi contributi con segno è negativo, il book dei dealer è complessivamente short gamma. Il modo convenzionale in cui questo appare negli strumenti di flow: Net GEX < 0.
 
+> Questa è una convenzione modellata, non inventario osservato. Usa l'assunzione tradizionale call-positive/put-negative sull'open interest; il posizionamento reale dei dealer non è direttamente osservabile dai dati pubblici della catena delle opzioni.
+
 La convenzione standard — i clienti vendono call in overwriting e comprano put per protezione — implica che i dealer siano tipicamente long di call e short di put, ma le *magnitudini* variano con il positioning. Quando la domanda dei clienti si sbilancia pesantemente verso le put (ad esempio durante regimi di paura), l'inventario short-put crescente del book dei dealer può spingere il gamma netto in negativo; quando dominano le call (ad esempio in trend rialzisti calmi dove l'overwriting costruisce gamma long-call per i dealer), il book è long gamma.
 
 La statistica riassuntiva più utile in assoluto: il **gamma flip** — il prezzo al quale il profilo gamma dei dealer attraversa lo zero. Sopra il flip, i dealer sono tipicamente long gamma (positivo). Sotto il flip, short gamma (negativo). Leggere il flip equivale essenzialmente a leggere la linea del regime. Vedi [Come Leggere un Gamma Flip](/education/how-to-read-a-gamma-flip).

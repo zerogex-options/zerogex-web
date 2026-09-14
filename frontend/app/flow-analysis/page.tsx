@@ -1,7 +1,11 @@
 "use client";
 
 import PageShell from '@/components/layout/PageShell';
+import PageHeader from "@/components/layout/PageHeader";
+import ChartPanel from "@/components/layout/ChartPanel";
 import SectionHead from "@/components/layout/SectionHead";
+import { FilterBar, FilterSelect } from "@/components/controls/Filters";
+import ChartTooltipShell, { ChartTooltipRow } from "@/components/ChartTooltipShell";
 import { useMemo, useState } from "react";
 import {
   Area,
@@ -238,12 +242,10 @@ export default function FlowAnalysisPage() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const isMobile = useIsMobile();
-  const cardBg = isDark ? "var(--color-surface)" : "var(--color-surface)";
-  const inputBg = "var(--color-surface-subtle)";
-  const inputBorder = "var(--color-border)";
-  const inputColor = "var(--color-text-primary)";
-  const mutedText = isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)";
-  const axisStroke = isDark ? "var(--color-text-primary)" : "var(--color-text-primary)";
+  // These read as theme branches but both arms were the same string — the
+  // tokens already theme themselves, so the ternaries decided nothing.
+  const mutedText = "var(--text-secondary)";
+  const axisStroke = "var(--text-primary)";
 
   // ── Session selector (current = most recent session, prior = previous full session)
   const [flowSession, setFlowSession] = useState<"current" | "prior">("current");
@@ -354,7 +356,33 @@ export default function FlowAnalysisPage() {
 
   return (
     <PageShell>
-      <h1 className="text-3xl font-bold mb-8">Flow Analysis</h1>
+      <PageHeader
+        title="Flow Analysis"
+        sub="What traded today — premium, net volume, and the aggressor split behind both."
+        tooltip="The tape rather than the book. Premium is the dollars that changed hands; net volume is the contract count behind them, and the two can disagree — a thousand cheap far-dated calls move volume without moving premium. The aggressor split says which side crossed the spread, which is the closest the feed gets to intent: volume alone cannot tell an opening buy from a closing sell. 'Directional' basis signs each trade by that aggressor read; 'Raw Net' just nets the contracts, so compare the two when a reading looks surprising. Prior session is there so you can see whether today is unusual at all."
+        actions={
+          <FilterBar>
+            <FilterSelect
+              label="Session"
+              value={flowSession}
+              onChange={setFlowSession}
+              options={[
+                { value: "current" as const, label: `Current${currentDateLabel ? ` (${currentDateLabel})` : ""}` },
+                { value: "prior" as const, label: `Prior${priorDateLabel ? ` (${priorDateLabel})` : ""}` },
+              ]}
+            />
+            <FilterSelect
+              label="Net volume basis"
+              value={netVolumeMode}
+              onChange={setNetVolumeMode}
+              options={[
+                { value: "directional" as NetVolumeMode, label: "Directional" },
+                { value: "raw" as NetVolumeMode, label: "Raw Net" },
+              ]}
+            />
+          </FilterBar>
+        }
+      />
       {flowError && !flowSeriesUnfiltered && <ErrorMessage message={flowError} />}
       <RegimeSummaryBanner
         title="Flow Analysis Regime"
@@ -362,34 +390,6 @@ export default function FlowAnalysisPage() {
         tone={flowTone}
         summary={flowSummary}
       />
-
-      {/* Session selector — shared across all sections */}
-      <div className="mb-6 flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-3">
-          <span className="text-sm" style={{ color: mutedText }}>Session</span>
-          <select
-            value={flowSession}
-            onChange={(e) => setFlowSession(e.target.value as "current" | "prior")}
-            className="px-3 py-1.5 text-sm rounded-md border focus:outline-none cursor-pointer"
-            style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor }}
-          >
-            <option value="current">Current{currentDateLabel ? ` (${currentDateLabel})` : ""}</option>
-            <option value="prior">Prior{priorDateLabel ? ` (${priorDateLabel})` : ""}</option>
-          </select>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-sm" style={{ color: mutedText }}>Net Volume Basis</span>
-          <select
-            value={netVolumeMode}
-            onChange={(e) => setNetVolumeMode(e.target.value as NetVolumeMode)}
-            className="px-3 py-1.5 text-sm rounded-md border focus:outline-none cursor-pointer"
-            style={{ backgroundColor: inputBg, borderColor: inputBorder, color: inputColor }}
-          >
-            <option value="directional">Directional</option>
-            <option value="raw">Raw Net</option>
-          </select>
-        </div>
-      </div>
 
       {/* ── Flow Snapshot ─────────────────────────────────────────────── */}
       <section className="mb-8">
@@ -458,12 +458,7 @@ export default function FlowAnalysisPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
       {/* ── Net Directional Premium ───────────────────────────────────── */}
       <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart" className="h-full">
-      <div className="rounded-lg p-6 h-full" style={{ backgroundColor: cardBg }}>
-        <SectionHead
-          title="Net Directional Premium"
-          titleClassName="zg-h3"
-          tooltip="Running session total of net_premium aggregated across every contract (accumulated across 5-minute bars). Positive values indicate net bullish premium pressure, negative values indicate net bearish premium pressure."
-        />
+      <ChartPanel className="h-full" title={"Net Directional Premium"} tooltip={"Running session total of net_premium aggregated across every contract (accumulated across 5-minute bars). Positive values indicate net bullish premium pressure, negative values indicate net bearish premium pressure."}>
         {!hasDirectionalPremiumData ? (
           <div className="text-center py-8" style={{ color: mutedText }}>No net directional premium data available</div>
         ) : (
@@ -503,7 +498,7 @@ export default function FlowAnalysisPage() {
                             </text>
                           ) : null}
                           {dateLabel ? (
-                            <text dy={26} textAnchor="middle" fill={isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)"} fontSize={9}>
+                            <text dy={26} textAnchor="middle" fill={isDark ? "var(--text-secondary)" : "var(--text-secondary)"} fontSize={9}>
                               {dateLabel}
                             </text>
                           ) : null}
@@ -529,10 +524,12 @@ export default function FlowAnalysisPage() {
                       if (!active || !payload || payload.length === 0) return null;
                       const point = payload[0]?.payload as { premium?: number | null } | undefined;
                       return (
-                        <div className="rounded border px-3 py-2 text-sm" style={{ backgroundColor: "var(--color-chart-tooltip-bg)", borderColor: "var(--color-border)", color: "var(--color-chart-tooltip-text)" }}>
-                          <div className="font-semibold">{new Date(String(label)).toLocaleString()}</div>
-                          <div>Cumulative Net Premium: {point?.premium != null ? `$${point.premium.toLocaleString()}` : "—"}</div>
-                        </div>
+                        <ChartTooltipShell label={new Date(String(label)).toLocaleString()}>
+                          <ChartTooltipRow
+                            label="Cumulative Net Premium"
+                            value={point?.premium != null ? `$${point.premium.toLocaleString()}` : "—"}
+                          />
+                        </ChartTooltipShell>
                       );
                     }}
                   />
@@ -562,17 +559,12 @@ export default function FlowAnalysisPage() {
             </div>
           </div>
         )}
-      </div>
+      </ChartPanel>
       </ExpandableCard>
 
       {/* ── Put/Call Ratio ────────────────────────────────────────────── */}
       <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart" className="h-full">
-      <div className="rounded-lg p-6 h-full" style={{ backgroundColor: cardBg }}>
-        <SectionHead
-          title="Put/Call Ratio"
-          titleClassName="zg-h3"
-          tooltip="Session-cumulative put volume ÷ session-cumulative call volume at each 5-minute bar. Sums total puts traded through the day over total calls traded up to that point, carrying forward contracts that stopped reporting in earlier bars."
-        />
+      <ChartPanel className="h-full" title={"Put/Call Ratio"} tooltip={"Session-cumulative put volume ÷ session-cumulative call volume at each 5-minute bar. Sums total puts traded through the day over total calls traded up to that point, carrying forward contracts that stopped reporting in earlier bars."}>
         {!hasRatioData ? (
           <div className="text-center py-8" style={{ color: mutedText }}>No put/call ratio data available</div>
         ) : (
@@ -613,7 +605,7 @@ export default function FlowAnalysisPage() {
                             </text>
                           ) : null}
                           {dateLabel ? (
-                            <text dy={26} textAnchor="middle" fill={isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)"} fontSize={9}>
+                            <text dy={26} textAnchor="middle" fill={isDark ? "var(--text-secondary)" : "var(--text-secondary)"} fontSize={9}>
                               {dateLabel}
                             </text>
                           ) : null}
@@ -653,7 +645,7 @@ export default function FlowAnalysisPage() {
                     content={({ active, label, payload }) => {
                       if (!active || !payload || payload.length === 0) return null;
                       return (
-                        <div className="rounded border px-3 py-2 text-sm" style={{ backgroundColor: isDark ? "var(--color-surface)" : "var(--color-surface)", borderColor: isDark ? "var(--color-surface)" : "var(--color-border)", color: isDark ? "var(--color-text-primary)" : "var(--color-text-primary)" }}>
+                        <div className="rounded border px-3 py-2 text-sm" style={{ backgroundColor: isDark ? "var(--color-surface)" : "var(--color-surface)", borderColor: isDark ? "var(--color-surface)" : "var(--border-default)", color: isDark ? "var(--text-primary)" : "var(--text-primary)" }}>
                           <div className="font-semibold">{new Date(String(label)).toLocaleString()}</div>
                           <div>Put/Call Ratio: {Number(payload[0]?.value ?? 0).toFixed(2)}</div>
                         </div>
@@ -674,17 +666,12 @@ export default function FlowAnalysisPage() {
             </div>
           </div>
         )}
-      </div>
+      </ChartPanel>
       </ExpandableCard>
 
       {/* ── Net Position (Buys vs Sells) ─────────────────────────────── */}
       <ExpandableCard expandTrigger="button" expandButtonLabel="Expand chart" className="h-full">
-      <div className="rounded-lg p-6 h-full" style={{ backgroundColor: cardBg }}>
-        <SectionHead
-          title="Net Position (Buys vs. Sells)"
-          titleClassName="zg-h3"
-          tooltip="Running session totals of net_volume per 5-minute bar, split by option_type. Positive values mean net buying pressure, negative values mean net selling pressure. The Put/Call Ratio above measures raw activity — this chart accounts for trade direction to distinguish buying from selling."
-        />
+      <ChartPanel className="h-full" title={"Net Position (Buys vs. Sells)"} tooltip={"Running session totals of net_volume per 5-minute bar, split by option_type. Positive values mean net buying pressure, negative values mean net selling pressure. The Put/Call Ratio above measures raw activity — this chart accounts for trade direction to distinguish buying from selling."}>
         {!hasNetPositionData ? (
           <div className="text-center py-8" style={{ color: mutedText }}>No net position data available</div>
         ) : (
@@ -725,7 +712,7 @@ export default function FlowAnalysisPage() {
                             </text>
                           ) : null}
                           {dateLabel ? (
-                            <text dy={26} textAnchor="middle" fill={isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)"} fontSize={9}>
+                            <text dy={26} textAnchor="middle" fill={isDark ? "var(--text-secondary)" : "var(--text-secondary)"} fontSize={9}>
                               {dateLabel}
                             </text>
                           ) : null}
@@ -753,15 +740,22 @@ export default function FlowAnalysisPage() {
                       if (!active || !payload || payload.length === 0) return null;
                       const point = payload[0]?.payload as { callPosition?: number | null; putPosition?: number | null } | undefined;
                       return (
-                        <div className="rounded border px-3 py-2 text-sm" style={{ backgroundColor: "var(--color-chart-tooltip-bg)", borderColor: "var(--color-border)", color: "var(--color-chart-tooltip-text)" }}>
-                          <div className="font-semibold">{new Date(String(label)).toLocaleString()}</div>
-                          <div>Net Call Position: {point?.callPosition != null ? Number(point.callPosition).toLocaleString() : "—"}</div>
-                          <div>Net Put Position: {point?.putPosition != null ? Number(point.putPosition).toLocaleString() : "—"}</div>
-                        </div>
+                        <ChartTooltipShell label={new Date(String(label)).toLocaleString()}>
+                          <ChartTooltipRow
+                            label="Net Call Position"
+                            value={point?.callPosition != null ? Number(point.callPosition).toLocaleString() : "—"}
+                            swatch="var(--color-positive)"
+                          />
+                          <ChartTooltipRow
+                            label="Net Put Position"
+                            value={point?.putPosition != null ? Number(point.putPosition).toLocaleString() : "—"}
+                            swatch="var(--color-negative)"
+                          />
+                        </ChartTooltipShell>
                       );
                     }}
                   />
-                  <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: 11, paddingBottom: 6, color: isDark ? "var(--color-border)" : "var(--color-text-primary)" }} />
+                  <Legend verticalAlign="top" align="center" wrapperStyle={{ fontSize: 11, paddingBottom: 6, color: isDark ? "var(--border-default)" : "var(--text-primary)" }} />
                   <ReferenceLine y={0} stroke={axisStroke} opacity={0.55} />
                   <Line
                     type="monotone"
@@ -786,7 +780,7 @@ export default function FlowAnalysisPage() {
             </div>
           </div>
         )}
-      </div>
+      </ChartPanel>
       </ExpandableCard>
       </div>
     </PageShell>

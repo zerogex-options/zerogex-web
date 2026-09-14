@@ -1,8 +1,11 @@
 'use client';
 
 import PageShell from '@/components/layout/PageShell';
+import PageHeader from '@/components/layout/PageHeader';
+import ChartPanel from '@/components/layout/ChartPanel';
+import { FilterBar, FilterChip } from '@/components/controls/Filters';
+import { CHART_AXIS, CHART_GRID, CHART_TOOLTIP_PROPS } from '@/components/ChartTooltipShell';
 import { useMemo, useState } from 'react';
-import { Info } from 'lucide-react';
 import {
   CartesianGrid,
   Legend,
@@ -17,7 +20,6 @@ import {
 import { useApiData } from '@/hooks/useApiData';
 import { useMarketHistorical } from '@/hooks/useMarketHistorical';
 import { useTimeframe } from '@/core/TimeframeContext';
-import TooltipWrapper from '@/components/TooltipWrapper';
 import MobileScrollableChart from '@/components/MobileScrollableChart';
 
 // ---- /api/gex/vol_surface response (per-strike call & put IV, ATM term structure) ----
@@ -84,8 +86,6 @@ const fmtPct = (v: unknown): string => {
 
 export default function VolatilityPage() {
   const { symbol } = useTimeframe();
-  const axisStroke = 'var(--color-text-secondary)';
-  const textColor = 'var(--text-primary)';
 
   const { data: vsData, loading: vsLoading, error: vsError } = useApiData<VolSurfaceResponse>(
     `/api/gex/vol_surface?symbol=${encodeURIComponent(symbol)}&underlying=${encodeURIComponent(symbol)}`,
@@ -142,43 +142,32 @@ export default function VolatilityPage() {
     return mid.putIv - mid.callIv;
   }, [skew]);
 
-  const cardStyle = { backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-default)' } as const;
-
   return (
     <PageShell>
-      <h1 className="text-3xl font-bold mb-2">Volatility</h1>
-      <p className="text-sm mb-6" style={{ color: 'var(--color-text-secondary)' }}>
-        Put vs. call implied-volatility skew across strikes, and realized volatility against the chain&apos;s current implied vol — for {symbol}.
-      </p>
+      <PageHeader
+        title="Volatility"
+        beta
+        sub={`Put against call implied vol across strikes, and realized vol against what the ${symbol} chain is pricing.`}
+        tooltip="Two questions about the same chain. The skew panel asks which side the market is paying up for: puts quoted above calls at the same distance from spot is downside fear being priced, calls above puts is right-tail demand. The realized-vs-implied panel asks whether that pricing has been earned — realized vol running below implied means options have been expensive relative to what the underlying actually delivered, above it means cheap. Neither is a signal on its own; both are the backdrop every gamma reading on this site sits against."
+      />
 
       {/* Panel A — Put vs Call IV skew */}
-      <section className="mb-8 rounded-2xl p-6" style={cardStyle}>
-        <div className="flex flex-wrap items-center gap-2 mb-4">
-          <h3 className="zg-h3" style={{ color: textColor }}>Put vs Call IV — Skew</h3>
-          <TooltipWrapper text="Implied volatility of calls vs puts at each strike for the selected expiration. Puts trading above calls (a downside skew) is the market pricing more fear of a drop; calls above puts is upside / right-tail demand.">
-            <Info size={14} />
-          </TooltipWrapper>
-          <div className="ml-auto flex flex-wrap items-center gap-1">
+      <ChartPanel
+        className="mb-8"
+        title="Put vs Call IV — Skew"
+        tooltip="Implied volatility of calls vs puts at each strike for the selected expiration. Puts trading above calls (a downside skew) is the market pricing more fear of a drop; calls above puts is upside / right-tail demand."
+        actions={
+          <FilterBar>
             {tenors.map((d) => (
-              <button
-                key={d}
-                type="button"
-                onClick={() => setSelectedDte(d)}
-                className="px-2.5 py-1 text-xs rounded border"
-                style={
-                  d === activeDte
-                    ? { borderColor: 'var(--color-info)', background: 'var(--color-info-soft)', color: textColor }
-                    : { borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }
-                }
-              >
+              <FilterChip key={d} active={d === activeDte} onClick={() => setSelectedDte(d)}>
                 {d}DTE
-              </button>
+              </FilterChip>
             ))}
-          </div>
-        </div>
-
+          </FilterBar>
+        }
+      >
         {atmSkew != null && (
-          <div className="text-xs mb-3" style={{ color: 'var(--color-text-secondary)' }}>
+          <div className="text-xs mb-3" style={{ color: 'var(--text-secondary)' }}>
             ATM skew (put − call IV):{' '}
             <span style={{ color: atmSkew >= 0 ? 'var(--color-bear)' : 'var(--color-bull)', fontWeight: 600 }}>
               {atmSkew >= 0 ? '+' : ''}{atmSkew.toFixed(1)} pts
@@ -190,18 +179,18 @@ export default function VolatilityPage() {
         {vsError ? (
           <div className="h-[320px] flex items-center justify-center text-sm text-[var(--color-bear)]">{vsError}</div>
         ) : vsLoading && skew.length === 0 ? (
-          <div className="h-[320px] flex items-center justify-center text-sm" style={{ color: 'var(--color-text-secondary)' }}>Loading vol surface…</div>
+          <div className="h-[320px] flex items-center justify-center text-sm" style={{ color: 'var(--text-secondary)' }}>Loading vol surface…</div>
         ) : skew.length === 0 ? (
-          <div className="h-[320px] flex items-center justify-center text-sm" style={{ color: 'var(--color-text-secondary)' }}>No IV data available for this expiration.</div>
+          <div className="h-[320px] flex items-center justify-center text-sm" style={{ color: 'var(--text-secondary)' }}>No IV data available for this expiration.</div>
         ) : (
           <MobileScrollableChart>
             <ResponsiveContainer width="100%" height={340}>
               <LineChart data={skew} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
-                <CartesianGrid vertical={false} stroke="var(--color-grid-line)" />
-                <XAxis dataKey="strike" type="number" domain={['dataMin', 'dataMax']} stroke={axisStroke} tick={{ fontSize: 10, fill: axisStroke }} tickMargin={8} />
-                <YAxis stroke={axisStroke} tick={{ fontSize: 10, fill: axisStroke }} width={48} tickFormatter={(v) => `${Number(v).toFixed(0)}%`} domain={['auto', 'auto']} />
+                <CartesianGrid {...CHART_GRID} />
+                <XAxis dataKey="strike" type="number" domain={['dataMin', 'dataMax']} {...CHART_AXIS} tickMargin={8} />
+                <YAxis {...CHART_AXIS} width={48} tickFormatter={(v) => `${Number(v).toFixed(0)}%`} domain={['auto', 'auto']} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', borderRadius: 8, color: 'var(--color-chart-tooltip-text)' }}
+                  {...CHART_TOOLTIP_PROPS}
                   formatter={(value, name) => [fmtPct(value), String(name)]}
                   labelFormatter={(l) => `Strike ${l}`}
                 />
@@ -212,33 +201,35 @@ export default function VolatilityPage() {
             </ResponsiveContainer>
           </MobileScrollableChart>
         )}
-      </section>
+      </ChartPanel>
 
       {/* Panel B — Realized vs Implied */}
-      <section className="mb-8 rounded-2xl p-6" style={cardStyle}>
-        <div className="flex flex-wrap items-center gap-2 mb-4">
-          <h3 className="zg-h3" style={{ color: textColor }}>Realized vs Implied Volatility</h3>
-          <TooltipWrapper text="Realized volatility is the annualized standard deviation of daily log returns over a rolling 10- and 20-session window. The dashed line is the chain's current at-the-money implied vol (~30D). Realized running below implied = options are 'expensive' (net-seller friendly); realized above implied = 'cheap' (net-buyer friendly).">
-            <Info size={14} />
-          </TooltipWrapper>
-          {impliedAtm != null && (
-            <span className="ml-auto text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-              Implied ATM (~{impliedAtm.dte}D): <span style={{ color: 'var(--color-gold)', fontWeight: 600 }}>{impliedAtm.iv.toFixed(1)}%</span>
+      <ChartPanel
+        className="mb-8"
+        title="Realized vs Implied Volatility"
+        tooltip="Realized volatility is the annualized standard deviation of daily log returns over a rolling 10- and 20-session window. The dashed line is the chain's current at-the-money implied vol (~30D). Realized running below implied = options are 'expensive' (net-seller friendly); realized above implied = 'cheap' (net-buyer friendly)."
+        actions={
+          impliedAtm != null ? (
+            <span className="zg-small" style={{ color: 'var(--text-secondary)' }}>
+              Implied ATM (~{impliedAtm.dte}D):{' '}
+              <span className="zg-datum" style={{ fontSize: 12, color: 'var(--color-gold)' }}>
+                {impliedAtm.iv.toFixed(1)}%
+              </span>
             </span>
-          )}
-        </div>
-
+          ) : undefined
+        }
+      >
         {rv.length === 0 ? (
-          <div className="h-[320px] flex items-center justify-center text-sm" style={{ color: 'var(--color-text-secondary)' }}>Loading realized-vol history…</div>
+          <div className="h-[320px] flex items-center justify-center text-sm" style={{ color: 'var(--text-secondary)' }}>Loading realized-vol history…</div>
         ) : (
           <MobileScrollableChart>
             <ResponsiveContainer width="100%" height={340}>
               <LineChart data={rv} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
-                <CartesianGrid vertical={false} stroke="var(--color-grid-line)" />
-                <XAxis dataKey="date" stroke={axisStroke} tick={{ fontSize: 10, fill: axisStroke }} tickMargin={8} minTickGap={24} />
-                <YAxis stroke={axisStroke} tick={{ fontSize: 10, fill: axisStroke }} width={48} tickFormatter={(v) => `${Number(v).toFixed(0)}%`} domain={['auto', 'auto']} />
+                <CartesianGrid {...CHART_GRID} />
+                <XAxis dataKey="date" {...CHART_AXIS} tickMargin={8} minTickGap={24} />
+                <YAxis {...CHART_AXIS} width={48} tickFormatter={(v) => `${Number(v).toFixed(0)}%`} domain={['auto', 'auto']} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', borderRadius: 8, color: 'var(--color-chart-tooltip-text)' }}
+                  {...CHART_TOOLTIP_PROPS}
                   formatter={(value, name) => [fmtPct(value), String(name)]}
                 />
                 <Legend />
@@ -257,10 +248,10 @@ export default function VolatilityPage() {
             </ResponsiveContainer>
           </MobileScrollableChart>
         )}
-        <p className="text-[11px] mt-3" style={{ color: 'var(--color-text-muted)' }}>
+        <p className="text-[11px] mt-3" style={{ color: 'var(--text-muted)' }}>
           Realized vol is computed from daily closes; the implied reference is the chain&apos;s current ~30-day ATM IV. A full historical implied-vol line is a small backend follow-up — the daily ATM-IV series already exists in the database.
         </p>
-      </section>
+      </ChartPanel>
     </PageShell>
   );
 }

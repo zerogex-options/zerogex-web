@@ -6,10 +6,10 @@
 // still holding the previous bytes — see the header comment in that script.
 
 /** Content hash of the indicator source (first 8 hex of its sha256). */
-export const NT_INDICATOR_HASH = '884dfe9d';
+export const NT_INDICATOR_HASH = 'debe5565';
 
 /** Cache-busting path for the indicator source, relative to the site root. */
-export const NT_INDICATOR_PATH = '/ninjatrader/ZeroGexGammaLevels.884dfe9d.cs';
+export const NT_INDICATOR_PATH = '/ninjatrader/ZeroGexGammaLevels.debe5565.cs';
 
 /** Content hash of the packaged NinjaTrader export, or null when none is published. */
 export const NT_PACKAGE_HASH = null;

@@ -1598,6 +1598,148 @@ export async function sendTrialConversionFailedEmail(
   }
 }
 
+// The SECOND dunning touch: the payment-recovery grace window is about to close
+// and the card still hasn't cleared. Until this existed the dunning flow was a
+// single email — the webhook nudges once on `invoice.attempt_count === 1` and
+// says nothing on Stripe's later retries, and nothing at all fires when the
+// window runs out, so a member got one email on day 0 and quietly lost access on
+// day 3. This is the email that makes the deadline actionable while it still is.
+//
+// Deliberately NOT a re-send of the first nudge: that one explained what
+// happened, so this one leads with the date access ends and what happens after
+// it. It is the reason the copy states the downgrade is non-destructive — the
+// member's real fear at this point is losing their account, not their tier, and
+// the honest answer (settings and history stay; access returns automatically on
+// the next successful charge) is also the one most likely to get the card fixed.
+// No FOH footer: urgent/transactional, like both of its dunning siblings.
+export type GraceExpiryWarningEmailOptions = {
+  // Which failure opened the window (users.payment_grace_reason). A trialer
+  // never completed a payment, so renewal-framed copy ("your last payment")
+  // describes a charge they never made; a renewal member conversely shouldn't be
+  // told their "trial" ended. Same trial/renewal split the first nudge makes via
+  // core/trialDunning — the two emails must never disagree about which the
+  // member is.
+  reason: 'trial' | 'renewal';
+  // ISO instant the grace window closes (graceWindowEndIso). Required: naming
+  // this date is the email's entire purpose, so there is no neutral fallback
+  // branch the way there is on the first nudge.
+  graceUntilIso: string;
+  // Display-ready card brand ("Visa"), already normalized by formatCardBrand.
+  // Null for wallet/Link/unmapped methods → neutral wording.
+  cardBrand?: string | null;
+  // Last four of the failing card. Null when no card is resolvable.
+  cardLast4?: string | null;
+  // ISO instant of Stripe's next automatic retry, or null when the retry
+  // schedule is exhausted — which flips the copy from "this may clear on its
+  // own" to "only a card update will pick this back up."
+  nextAttemptIso?: string | null;
+};
+
+// Pure builder: subject + text + HTML from already-resolved inputs, no
+// Resend/Stripe/DB I/O. Split from the sender on the same rationale as
+// buildTrialConvertedEmail — the sweeper's --preview-to renders the exact wire
+// copy, and the reason/card/retry branch matrix is unit-testable
+// (tests/graceExpiryWarning.test.ts).
+export function buildGraceExpiryWarningEmail(opts: GraceExpiryWarningEmailOptions): {
+  subject: string;
+  html: string;
+  text: string;
+} {
+  const deadlineLabel = formatTrialEndDate(opts.graceUntilIso);
+  const accountUrl = `${getAppUrl()}/account`;
+  const safeAccountUrl = escapeHtml(accountUrl);
+
+  const subject =
+    opts.reason === 'trial'
+      ? `Your ZeroGEX access ends ${deadlineLabel} — the first charge didn't go through`
+      : `Your ZeroGEX access ends ${deadlineLabel} — your last payment didn't go through`;
+
+  // Identical card phrasing to sendPaymentFailedEmail / the trial-conversion
+  // nudge, so a member who receives both reads one consistent voice.
+  const cardPhrase = opts.cardLast4
+    ? opts.cardBrand
+      ? `your ${opts.cardBrand} card ending in ${opts.cardLast4}`
+      : `the card ending in ${opts.cardLast4}`
+    : null;
+
+  const cardClause = cardPhrase ? ` on ${cardPhrase}` : '';
+  const openerSentence =
+    opts.reason === 'trial'
+      ? `Your free trial has ended and the first subscription charge${cardClause} still hasn't gone through. I've kept your full access switched on while the card is retried — but that runs out on ${deadlineLabel}.`
+      : `Your most recent ZeroGEX payment${cardClause} still hasn't gone through. I've kept your full access switched on while the card is retried — but that runs out on ${deadlineLabel}.`;
+
+  const retrySentence = opts.nextAttemptIso
+    ? `Stripe will try again automatically on ${formatTrialEndDate(opts.nextAttemptIso)}, so an expired-or-replaced card or a momentary hold from your bank may still clear on its own.`
+    : 'Stripe has made its final automatic attempt, so updating your card is the one thing that will pick this back up.';
+
+  // The reassurance is load-bearing, not padding: at this point the member's
+  // real question is whether they are about to lose their account. Saying
+  // plainly that they aren't — and that access returns by itself on the next
+  // successful charge — is both true and the version most likely to get the
+  // card updated.
+  const consequenceSentence = `If nothing clears by then, the account simply moves to the free Public tier. Nothing is deleted — your account, your settings and your history all stay exactly as they are, and full access switches back on automatically the moment a charge succeeds.`;
+
+  const closingSentence =
+    "Updating your card takes about a minute. And if something's holding you back, or the timing is just bad, reply to this email and tell me — I read every one and I'd rather sort it out with you than lose you over a card.";
+
+  const text = [
+    'Hello,',
+    '',
+    openerSentence,
+    '',
+    retrySentence,
+    '',
+    consequenceSentence,
+    '',
+    'You can update your card here:',
+    accountUrl,
+    '',
+    closingSentence,
+    '',
+    'Best,',
+    'Michael',
+    'Founder, ZeroGEX',
+  ].join('\n');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <p>Hello,</p>
+      <p>${escapeHtml(openerSentence)}</p>
+      <p>${escapeHtml(retrySentence)}</p>
+      <p>${escapeHtml(consequenceSentence)}</p>
+      <p style="margin: 24px 0;">
+        <a href="${safeAccountUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Update your card</a>
+      </p>
+      <p>${escapeHtml(closingSentence)}</p>
+      <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+    </div>
+  `.trim();
+
+  return { subject, html, text };
+}
+
+// Sends the grace-expiry warning. Thin wrapper over buildGraceExpiryWarningEmail
+// so the wire copy and any preview never drift.
+export async function sendGraceExpiryWarningEmail(
+  to: string,
+  opts: GraceExpiryWarningEmailOptions,
+) {
+  const { subject, html, text } = buildGraceExpiryWarningEmail(opts);
+
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject,
+    text,
+    html,
+  });
+
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
 // The success bookend to sendTrialConversionFailedEmail: the trial ended and
 // the FIRST real charge cleared. Until this existed the lifecycle was
 // asymmetric — a failed conversion got an email, a successful one got silence,

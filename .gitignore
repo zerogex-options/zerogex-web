@@ -275,3 +275,12 @@ deploy/systemd/monitoring-backup.env
 # run from a Mac; nothing here ever wants them.
 .DS_Store
 **/.DS_Store
+
+# MCP registry signing keys. `mcp-publisher` runs from the repository root
+# (where server.json lives), so the Ed25519 key it needs is generated right
+# here. That key is the credential that lets anyone publish under the
+# io.zerogex namespace — it belongs in the password manager, never in git.
+# See docs/mcp-registry.md.
+key.pem
+*.pem
+mcp-registry-auth

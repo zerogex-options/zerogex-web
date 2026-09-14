@@ -48,6 +48,7 @@ import {
   PIN_STRIKE_TOOLTIP,
   classifyPinStrength,
   pinStrengthLabel,
+  pinStrikeSubtitle,
   pinStabilityNote,
 } from '@/core/pinStrike';
 
@@ -321,7 +322,15 @@ export function KeyLevelsBoard({
     flip: read.flip,
     pin: {
       strike: read.pinStrike,
-      note: pinStrength === 'none' ? null : `Pin strength: ${pinStrengthLabel(pinStrength)}`,
+      // The percent, not just the bucket — `pinStrikeSubtitle`, the same copy
+      // the replay snapshot renders. The bucket alone reads as a verdict on the
+      // level's SIZE, which is the one thing confidence does not measure: it is
+      // the winner's share of the field, so a heavy strike whose gamma is
+      // spread across its neighbors lands at 32% and labels "Weak". Showing
+      // "Weak · 32%" makes it legible as a score near a threshold rather than a
+      // dismissal, and stops the live strip being less informative than a
+      // replay permalink of the same moment.
+      note: pinStrength === 'none' ? null : pinStrikeSubtitle(read.pinStrike, read.pinConfidence),
       subnote: pinStabilityNote(pinStability),
       absentLabel: pinStrengthLabel('none'),
       tooltip: PIN_STRIKE_TOOLTIP,

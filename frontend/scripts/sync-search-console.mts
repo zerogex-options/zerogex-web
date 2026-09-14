@@ -4,7 +4,7 @@
 //
 // Pulls daily clicks + impressions from Google Search Console into the
 // `google_clicks` / `google_impressions` columns of the daily metrics rollup
-// behind Admin → Monitoring → Daily Signals. Designed to run on a timer (see
+// behind Admin → Monitoring → Growth. Designed to run on a timer (see
 // deploy/systemd/zerogex-web-search-console.timer) so that column keeps itself
 // current, and to run by hand for the initial backfill.
 //

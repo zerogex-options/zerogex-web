@@ -12,8 +12,9 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Sparkles } from "lucide-react";
 import PageShell from "@/components/layout/PageShell";
+import PageHeader from "@/components/layout/PageHeader";
+import { FilterBar, FilterGroup } from "@/components/controls/Filters";
 import PairGammaHeatmap, { type HeatmapCell, type HeatmapColumnInput } from "@/components/PairGammaHeatmap";
 import StrikeFilterToggle from "@/components/StrikeFilterToggle";
 import SessionDeltaToggle from "@/components/SessionDeltaToggle";
@@ -21,9 +22,7 @@ import ExpirationMultiSelect from "@/components/ExpirationMultiSelect";
 import PairReplayScrubber from "@/components/PairReplayScrubber";
 import PairCandleChart from "@/components/PairCandleChart";
 import GexUnitToggle from "@/components/GexUnitToggle";
-import BetaBadge from "@/components/BetaBadge";
 import SymbolSelect from "@/components/SymbolSelect";
-import TooltipWrapper from "@/components/TooltipWrapper";
 import ChartCaption from "@/components/ChartCaption";
 import { type ChartTimeframe } from "@/components/ChartTimeframeSelect";
 import { useGammaLadderColumn, type GammaLadderColumnData } from "@/hooks/useGammaLadder";
@@ -307,28 +306,22 @@ export default function PairComparisonClient() {
 
   return (
     <PageShell width="wide">
-      {/* Hero — compact: the descriptive subtext now lives in the info tooltip. */}
-      <header className="mb-5">
-        <div className="flex items-center gap-2 mb-3">
-          <Sparkles size={14} style={{ color: "var(--color-brand-primary)" }} />
-          <span className="zg-eyebrow" style={{ color: "var(--color-brand-primary)" }}>
-            Dealer gamma · side by side
-          </span>
-        </div>
-        <div className="flex items-center gap-2.5">
-          <h1 className="zg-h1" style={{ margin: 0 }}>Pair Comparison</h1>
-          <BetaBadge size="md" />
-          <TooltipWrapper text={INFO_TEXT} placement="bottom" />
-        </div>
-      </header>
+      <PageHeader
+        title="Pair Comparison"
+        beta
+        sub="Two strike-aligned Net GEX ladders side by side, so you can see where the books disagree."
+        tooltip={INFO_TEXT}
+      />
 
       {/* Global controls: candle timeframe · ladder strike filter · expiry
           filter · session-Δ overlay (left) · GEX unit (right) */}
-      <div className="flex flex-wrap items-center gap-3 mb-4">
-        <span className="zg-eyebrow" style={{ fontSize: 10 }}>Candles</span>
-        <TimeframeSeg value={timeframe} onChange={setTimeframe} />
-        <span className="zg-eyebrow" style={{ fontSize: 10 }}>Strikes</span>
-        <StrikeFilterToggle />
+      <FilterBar className="mb-4 gap-x-3">
+        <FilterGroup label="Candles">
+          <TimeframeSeg value={timeframe} onChange={setTimeframe} />
+        </FilterGroup>
+        <FilterGroup label="Strikes">
+          <StrikeFilterToggle showHint={false} />
+        </FilterGroup>
         <ExpirationMultiSelect
           options={expiryOptions}
           selected={expirySelected}
@@ -337,13 +330,15 @@ export default function PairComparisonClient() {
           disabled={expiryOptions.length === 0}
           zeroDte={zeroDte}
         />
-        <span className="zg-eyebrow" style={{ fontSize: 10 }}>Session Δ</span>
-        <SessionDeltaToggle />
-        <div className="flex items-center gap-2 ml-auto">
-          <span className="zg-eyebrow" style={{ fontSize: 10 }}>GEX unit</span>
-          <GexUnitToggle showHint={false} />
+        <FilterGroup label="Session Δ">
+          <SessionDeltaToggle showHint={false} />
+        </FilterGroup>
+        <div className="ml-auto">
+          <FilterGroup label="GEX unit">
+            <GexUnitToggle showHint={false} />
+          </FilterGroup>
         </div>
-      </div>
+      </FilterBar>
 
       {/* One rectangular instrument: narrow strike-aligned ladders on the left,
           the two candle charts stacked on the right to fill the space, and the

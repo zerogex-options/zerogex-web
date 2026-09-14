@@ -100,22 +100,51 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    // Fifteen flat entries was a wall, not a menu. The three subgroups below
+    // are the three questions the pages actually answer — what the book HOLDS,
+    // what the tape DID to it, and what surrounds both — and each subgroup
+    // label is also the eyebrow its pages print (see `navSubcategoryLabel`), so
+    // a page can never advertise a category the menu does not put it in.
+    //
+    // No labelKey on the subgroups on purpose: every item inside them is an
+    // untranslated trading term ('GEX Summary', 'Max Pain'), and a translated
+    // parent over untranslated children reads worse than leaving both English.
     label: 'Metrics',
     labelKey: 'nav.group.metrics',
-    items: [
-      { id: '/gamma-exposure', label: 'Dealer Positioning', requiredTier: 'basic' },
-      { id: '/greeks-gex', label: 'GEX Summary', requiredTier: 'basic' },
-      { id: '/gex-strike-profile', label: 'GEX Strike Profile', requiredTier: 'basic' },
-      { id: '/gex-heatmap', label: 'GEX Heatmap', requiredTier: 'basic' },
-      { id: '/gamma-shift', label: 'Gamma Shift', requiredTier: 'basic', beta: true },
-      { id: '/pair-comparison', label: 'Pair Comparison', requiredTier: 'basic', beta: true },
-      { id: '/forced-flow', label: 'Forced Flow', requiredTier: 'basic', beta: true },
-      { id: '/flow-analysis', label: 'Flow Analysis', requiredTier: 'basic' },
-      { id: '/market-tide', label: 'Market Tide', requiredTier: 'basic', beta: true },
-      { id: '/smart-money', label: 'Smart Money', requiredTier: 'basic' },
-      { id: '/max-pain', label: 'Max Pain', requiredTier: 'basic' },
-      { id: '/intraday-tools', label: 'Technicals', requiredTier: 'basic' },
-      { id: '/volatility', label: 'Volatility', requiredTier: 'basic', beta: true },
+    subgroups: [
+      {
+        // Named for the question, not for the page inside it: a subgroup called
+        // "Dealer Positioning" containing a page called "Dealer Positioning"
+        // made that page's header read POSITIONING / Dealer Positioning twice.
+        label: 'Positioning',
+        items: [
+          { id: '/gamma-exposure', label: 'Dealer Positioning', requiredTier: 'basic' },
+          { id: '/greeks-gex', label: 'GEX Summary', requiredTier: 'basic' },
+          { id: '/gex-strike-profile', label: 'GEX Strike Profile', requiredTier: 'basic' },
+          { id: '/gex-heatmap', label: 'GEX Heatmap', requiredTier: 'basic' },
+          { id: '/gamma-shift', label: 'Gamma Shift', requiredTier: 'basic', beta: true },
+          { id: '/pair-comparison', label: 'Pair Comparison', requiredTier: 'basic', beta: true },
+          { id: '/max-pain', label: 'Max Pain', requiredTier: 'basic' },
+        ],
+      },
+      {
+        label: 'Options Flow',
+        items: [
+          { id: '/flow-analysis', label: 'Flow Analysis', requiredTier: 'basic' },
+          { id: '/hedging-flow', label: 'Hedging Flow', requiredTier: 'basic', beta: true },
+          { id: '/forced-flow', label: 'Forced Flow', requiredTier: 'basic', beta: true },
+          { id: '/smart-money', label: 'Smart Money', requiredTier: 'basic' },
+          { id: '/market-tide', label: 'Market Tide', requiredTier: 'basic', beta: true },
+        ],
+      },
+      {
+        label: 'Market Context',
+        items: [
+          { id: '/volatility', label: 'Volatility', requiredTier: 'basic', beta: true },
+          { id: '/intraday-tools', label: 'Technicals', requiredTier: 'basic' },
+          { id: '/spread-monitor', label: 'Spread Monitor', requiredTier: 'basic', beta: true },
+        ],
+      },
     ],
   },
   {
@@ -179,3 +208,22 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
 ];
+
+/**
+ * The subcategory a route sits under, e.g. '/max-pain' → 'Dealer Positioning'.
+ *
+ * Pages print this as the eyebrow above their title, which is the whole point:
+ * the label a page shows and the label the menu files it under are the same
+ * string from the same array, so reorganising the menu moves the page copy with
+ * it and the two can never drift. Returns undefined for routes that sit
+ * directly in a group (no subcategory to name) or are not in the menu at all.
+ */
+export function navSubcategoryLabel(pathname: string | null | undefined): string | undefined {
+  if (!pathname) return undefined;
+  for (const group of NAV_GROUPS) {
+    for (const subgroup of group.subgroups ?? []) {
+      if (subgroup.items.some((item) => item.id === pathname)) return subgroup.label;
+    }
+  }
+  return undefined;
+}

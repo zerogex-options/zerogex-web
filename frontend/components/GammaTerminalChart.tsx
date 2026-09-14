@@ -124,6 +124,8 @@ const OVERLAY_STORAGE_KEY = "zg.gammaChart.overlays.v1";
 const STYLE_STORAGE_KEY = "zg.gammaChart.style.v1";
 // Persisted Expected-range horizon (Daily / Weekly / Monthly) for the overlay.
 const ER_HORIZON_STORAGE_KEY = "zg.gammaChart.erHorizon.v1";
+// Persisted ribbon opacity multiplier (see RIBBON_OPACITY_DEFAULT).
+const RIBBON_OPACITY_STORAGE_KEY = "zg.gammaChart.ribbonOpacity.v1";
 
 // ── Geometry (SVG viewBox coordinates; the SVG scales to its container) ──────
 const VW = 1360;
@@ -181,6 +183,13 @@ const RIBBON_NEG_BODY = `color-mix(in srgb, ${RIBBON_NEG_CORE} 45%, ${RIBBON_NEG
 const RIBBON_GLOW_OPACITY: Record<"strong" | "mid" | "weak", number> = { strong: 0.5, mid: 0.25, weak: 0.1 };
 // Blur radius of the bloom, in viewBox units (~2 CSS px at typical widths).
 const RIBBON_GLOW_BLUR = 2.8;
+// User-adjustable opacity multiplier over every ribbon channel (body, bloom,
+// rim). 1 is the tuned look; the default sits a notch under it so the tape
+// leads by default and a reader who wants the ribbons louder can turn them up.
+const RIBBON_OPACITY_DEFAULT = 0.9;
+const RIBBON_OPACITY_MIN = 0.1;
+const RIBBON_OPACITY_MAX = 1.5;
+const clampRibbonOpacity = (v: number) => Math.min(RIBBON_OPACITY_MAX, Math.max(RIBBON_OPACITY_MIN, v));
 // The reading guide behind the legend's info icon — every visual channel of
 // the ribbons, in the order a reader meets them: what an orb is, then height,
 // opacity, colour, and how a lane evolves.
@@ -193,7 +202,8 @@ const RIBBON_GUIDE =
   "there — a magnet and a brake), violet means net SHORT (they chase — an accelerant). " +
   "A fat lane that persists all session is a wall; a lane thickening is positioning building, thinning is eroding, " +
   "and a lane changing colour is the strike flipping sides. Hover a bar on a lane to read the exact strike and value. " +
-  "History covers the polled strike window, so earlier bars stay blank.";
+  "History covers the polled strike window, so earlier bars stay blank. " +
+  "The slider beside the Ribbons pill scales the overall opacity.";
 
 // ── Gamma-by-strike rail view ── the rail draws either the smoothed net
 // silhouette (default, existing behavior) or discrete per-strike bars: NET
@@ -392,6 +402,14 @@ export interface ChartGeometry {
   height: number;
 }
 
+/** The chart's replay clock, reported through `onRewind` so instruments beside
+ *  the chart (the Gamma Terminal's ladders) can show the book as of the same
+ *  moment. `time` is the clock in ms while rewinding, null when live. */
+export interface RewindState {
+  active: boolean;
+  time: number | null;
+}
+
 // ── Component ────────────────────────────────────────────────────────────────
 export default function GammaTerminalChart({
   className = "",
@@ -402,6 +420,7 @@ export default function GammaTerminalChart({
   storageScope,
   overlayDefaults,
   onGeometry,
+  onRewind,
 }: {
   className?: string;
   snapshot?: ChartSnapshot | null;
@@ -421,6 +440,8 @@ export default function GammaTerminalChart({
   overlayDefaults?: Partial<OverlayState>;
   /** Receives the tape's on-screen geometry whenever it changes. */
   onGeometry?: (geometry: ChartGeometry) => void;
+  /** Receives the replay clock whenever rewind starts, moves, or ends. */
+  onRewind?: (state: RewindState) => void;
 }) {
   const delayed = delayedProp || !!snapshot;
   const live = !delayed;
@@ -448,6 +469,7 @@ export default function GammaTerminalChart({
   // The rail cannot be shown at all in terminal mode — its column is gone.
   const railOn = overlays.rail && !hideRail;
   const [erHorizon, setErHorizon] = useState<HorizonKey>("daily");
+  const [ribbonOpacity, setRibbonOpacity] = useState(RIBBON_OPACITY_DEFAULT);
   const [hydrated, setHydrated] = useState(false);
   const [view, setView] = useState<{ count: number; offset: number }>({ count: DEFAULT_COUNT, offset: 0 });
   const [priceView, setPriceView] = useState<{ zoom: number; center: number | null }>(DEFAULT_PRICE_VIEW);
@@ -530,6 +552,7 @@ export default function GammaTerminalChart({
   const styleKey = storageScope ? `${STYLE_STORAGE_KEY}.${storageScope}` : STYLE_STORAGE_KEY;
   const erKey = storageScope ? `${ER_HORIZON_STORAGE_KEY}.${storageScope}` : ER_HORIZON_STORAGE_KEY;
   const railKey = storageScope ? `${RAIL_STORAGE_KEY}.${storageScope}` : RAIL_STORAGE_KEY;
+  const ribbonOpacityKey = storageScope ? `${RIBBON_OPACITY_STORAGE_KEY}.${storageScope}` : RIBBON_OPACITY_STORAGE_KEY;
 
   // Restore persisted view preferences once on mount. Server and the first
   // client render intentionally use the defaults; we only reconcile from
@@ -545,6 +568,11 @@ export default function GammaTerminalChart({
       if (rawS === "candles" || rawS === "line" || rawS === "area") setStyle(rawS);
       const rawH = localStorage.getItem(erKey);
       if (rawH === "daily" || rawH === "weekly" || rawH === "monthly") setErHorizon(rawH);
+      const rawA = localStorage.getItem(ribbonOpacityKey);
+      if (rawA != null) {
+        const parsed = parseFloat(rawA);
+        if (Number.isFinite(parsed)) setRibbonOpacity(clampRibbonOpacity(parsed));
+      }
       const rawR = localStorage.getItem(railKey);
       if (rawR) {
         const parsed = JSON.parse(rawR);
@@ -559,7 +587,7 @@ export default function GammaTerminalChart({
       /* ignore malformed prefs */
     }
     setHydrated(true);
-  }, [overlayKey, styleKey, erKey, railKey]);
+  }, [overlayKey, styleKey, erKey, railKey, ribbonOpacityKey]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
@@ -597,6 +625,15 @@ export default function GammaTerminalChart({
       /* storage unavailable */
     }
   }, [railMode, railLabels, hydrated, railKey]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      localStorage.setItem(ribbonOpacityKey, String(ribbonOpacity));
+    } catch {
+      /* storage unavailable */
+    }
+  }, [ribbonOpacity, hydrated, ribbonOpacityKey]);
 
   const intervalMinutes = TIMEFRAMES.find((t) => t.value === timeframe)?.minutes ?? 5;
 
@@ -1230,7 +1267,11 @@ export default function GammaTerminalChart({
   // their spot row to the same y. Re-measured whenever the layout or the SVG's
   // rendered size changes; only a real move is reported.
   const geometryRef = useRef<ChartGeometry | null>(null);
-  const spotForGeometry = liveClose ?? (bars.length ? bars[bars.length - 1].close : null);
+  // While rewinding the tape's "spot" is the rewound edge bar, so anything
+  // pinned to it (the ladders' spot row) follows the replay, not the live print.
+  const spotForGeometry = rewindActive
+    ? (bars.length ? bars[bars.length - 1].close : null)
+    : (liveClose ?? (bars.length ? bars[bars.length - 1].close : null));
   useEffect(() => {
     if (!onGeometry) return;
     const svg = svgRef.current;
@@ -1260,6 +1301,12 @@ export default function GammaTerminalChart({
     ro.observe(root);
     return () => ro.disconnect();
   }, [onGeometry, layout, spotForGeometry]);
+
+  // Broadcast the replay clock so a surface can show the book as of the same
+  // moment. Fires on enter, every scrub / playback step, and exit.
+  useEffect(() => {
+    onRewind?.({ active: rewindActive, time: rewindActive ? rewindTime : null });
+  }, [onRewind, rewindActive, rewindTime]);
 
   // GEX ribbons — the per-strike gamma history behind the tape, from the same
   // 5-min strike-profile buckets the rail and rewind read (live only; the
@@ -2029,7 +2076,14 @@ export default function GammaTerminalChart({
   // shown by their arrowed axis tag alone.
   const chipPlacements = (() => {
     const CHIP_H = 16;
-    const GAP = 5;
+    // Two coincident levels (a Pin sitting exactly on the Call Wall, say) land
+    // on one row as "CALL WALL" "PIN · WEAK", and at 5px they read as a single
+    // compound phrase — a support ticket where the reader took "WEAK" to be
+    // qualifying the wall. Each chip has its own bordered box, so the fix is
+    // just enough air between boxes for them to read as two labels. Cheap at
+    // this plot width: ~70px per chip against ~1076px of plot, so even five
+    // colliding levels stay well inside the right edge.
+    const GAP = 10;
     const visible = levelDefs
       .filter((l): l is LevelDef & { value: number } => l.show && l.value != null && inDomain(l.value))
       .map((l) => ({ key: l.key, label: l.label, color: l.color, y: clamp(yPrice(l.value), PAD_TOP + 1, PRICE_BOTTOM - 1), w: labelWidth(l.label) }))
@@ -2357,6 +2411,9 @@ export default function GammaTerminalChart({
           {live && (
             <OverlayPill label="Ribbons" color={RIBBON_POS_GLOW} active={overlays.ribbons} onClick={() => setOverlays((o) => ({ ...o, ribbons: !o.ribbons }))} title="GEX ribbons — per-strike dealer gamma through time, behind the tape. Gold = long gamma, violet = short; height and opacity = weight. Key and reading guide in the legend below; hover a lane for the exact value." />
           )}
+          {live && overlays.ribbons && (
+            <RibbonOpacityControl value={ribbonOpacity} onChange={setRibbonOpacity} />
+          )}
           <OverlayPill label="Regime" color="var(--color-accent-hot)" active={overlays.regime} onClick={() => setOverlays((o) => ({ ...o, regime: !o.regime }))} />
           <OverlayPill label="VWAP" color="var(--color-hazy)" active={overlays.vwap} onClick={() => setOverlays((o) => ({ ...o, vwap: !o.vwap }))} />
           <OverlayPill label="Max Pain" color="var(--color-maxpain)" active={overlays.maxPain} onClick={() => setOverlays((o) => ({ ...o, maxPain: !o.maxPain }))} />
@@ -2598,7 +2655,7 @@ export default function GammaTerminalChart({
                       key={`ribbon-glow-${p.strike}-${p.positive ? "p" : "n"}-${p.tier}`}
                       d={p.d}
                       fill={p.positive ? RIBBON_POS_GLOW : RIBBON_NEG_GLOW}
-                      opacity={RIBBON_GLOW_OPACITY[p.tier]}
+                      opacity={Math.min(1, RIBBON_GLOW_OPACITY[p.tier] * ribbonOpacity)}
                     />
                   ))}
                 </g>
@@ -2610,8 +2667,8 @@ export default function GammaTerminalChart({
                     fill={p.positive ? RIBBON_POS_BODY : RIBBON_NEG_BODY}
                     stroke={p.positive ? RIBBON_POS_CORE : RIBBON_NEG_CORE}
                     strokeWidth={0.7}
-                    strokeOpacity={0.5}
-                    opacity={RIBBON_TIER_OPACITY[p.tier]}
+                    strokeOpacity={Math.min(1, 0.5 * ribbonOpacity)}
+                    opacity={Math.min(1, RIBBON_TIER_OPACITY[p.tier] * ribbonOpacity)}
                   />
                 ))}
               </g>
@@ -3425,6 +3482,34 @@ function Row({ k, v, color }: { k: string; v: string; color?: string }) {
       <span style={{ color: "var(--text-muted)" }}>{k}</span>
       <span style={{ color: color ?? "var(--text-primary)", fontWeight: 600 }}>{v}</span>
     </div>
+  );
+}
+
+// Opacity slider for the ribbons — the one continuous control in the toolbar,
+// styled to sit beside the pills: a mono label, a short native range (keyboard
+// and screen-reader friendly for free), and the value read out as a percent.
+function RibbonOpacityControl({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const pct = Math.round(value * 100);
+  return (
+    <label
+      className="flex items-center gap-1.5"
+      title="Ribbon opacity — scales the orbs, their glow and their rim together. 100% is the tuned look; the default sits a notch under it so the tape leads."
+      style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.04em", color: "var(--text-secondary)", height: 26, padding: "0 8px", border: "1px solid var(--border-default)", borderRadius: "var(--radius-control)", background: "var(--bg-card)" }}
+    >
+      <span style={{ textTransform: "uppercase" }}>Opacity</span>
+      <input
+        type="range"
+        min={Math.round(RIBBON_OPACITY_MIN * 100)}
+        max={Math.round(RIBBON_OPACITY_MAX * 100)}
+        step={5}
+        value={pct}
+        onChange={(e) => onChange(clampRibbonOpacity(Number(e.target.value) / 100))}
+        aria-label="Ribbon opacity"
+        aria-valuetext={`${pct}%`}
+        style={{ width: 76, accentColor: RIBBON_POS_GLOW, cursor: "pointer" }}
+      />
+      <span style={{ minWidth: 34, textAlign: "right", fontVariantNumeric: "tabular-nums", color: "var(--text-primary)" }}>{pct}%</span>
+    </label>
   );
 }
 

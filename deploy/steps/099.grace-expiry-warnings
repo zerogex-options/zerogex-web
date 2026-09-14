@@ -1,0 +1,193 @@
+#!/bin/bash
+
+# ==============================================
+# Step 099: Grace-Expiry Warning Timer (systemd)
+# ==============================================
+#
+# Installs and enables the grace-expiry warning timer (see
+# deploy/systemd/zerogex-web-grace-expiry-warnings.{service,timer}). The
+# timer fires every 4h and triggers `make grace-expiry-warnings YES=1`,
+# which warns every member whose payment-recovery grace window closes
+# within ~24h and whose card still hasn't cleared — the SECOND dunning
+# touch, filling the gap where the webhook's single first-attempt email
+# was the only contact and the window then expired silently.
+#
+# Idempotent — safe to re-run. The unit files are overwritten from the
+# repo (they're version-controlled, so this is the desired behavior), and
+# `systemctl enable --now` is a no-op for an already-enabled timer. No
+# config file is written (the script reads RESEND_API_KEY,
+# RESEND_FROM_EMAIL, NEXT_PUBLIC_APP_URL and BILLING_PAYMENT_GRACE_DAYS
+# from frontend/.env.local, which step 030 / 036 already manage).
+
+set -e
+
+# Re-point HOME when this step is run directly under `sudo`: $HOME is then
+# /root, but the repo, nvm, pm2 and the auth DB all live in the invoking user's
+# home, so every path below would resolve under /root and fail a precondition
+# that is actually satisfied. deploy.sh does this for the steps it runs; doing
+# it here too means a standalone `sudo ./deploy/steps/<step>` resolves the same
+# paths. A no-op when already running as the owning user.
+if [ -n "${SUDO_USER:-}" ] && [ "${SUDO_USER:-}" != "root" ]; then
+    STEP_SUDO_HOME="$(getent passwd "$SUDO_USER" | cut -d: -f6)"
+    [ -n "$STEP_SUDO_HOME" ] && export HOME="$STEP_SUDO_HOME"
+fi
+[ -z "${HOME:-}" ] && export HOME="/home/ubuntu"
+
+# Fallback log if this step is invoked directly (deploy.sh exports a log
+# function, but operators sometimes run a single step in isolation to
+# rotate units without re-running the whole pipeline).
+type log >/dev/null 2>&1 || log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
+
+log "Grace-Expiry Warning Timer Setup"
+
+# Derive the repo root from THIS script's own location (deploy/steps/..) rather
+# than assuming $HOME/zerogex-web. The step self-elevates per command (sudo cp,
+# sudo systemctl), so it is meant to run as the owning user — but an operator
+# reaching for `sudo ./deploy/steps/099...` out of habit would otherwise send it
+# hunting for the repo under /root and fail with a confusing "source dir not
+# found". Now it works under either invocation, and from any checkout path.
+STEP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APP_DIR="$(cd "$STEP_DIR/../.." && pwd)"
+SYSTEMD_SOURCE="$APP_DIR/deploy/systemd"
+SYSTEMD_TARGET="/etc/systemd/system"
+UNIT="zerogex-web-grace-expiry-warnings"
+ENV_FILE="$APP_DIR/frontend/.env.local"
+
+# --- Preconditions ---------------------------------------------------
+if [ ! -d "$SYSTEMD_SOURCE" ]; then
+    log "  ✗ systemd source dir not found: $SYSTEMD_SOURCE"
+    exit 1
+fi
+for f in "${UNIT}.service" "${UNIT}.timer"; do
+    if [ ! -f "$SYSTEMD_SOURCE/$f" ]; then
+        log "  ✗ missing unit file: $SYSTEMD_SOURCE/$f"
+        exit 1
+    fi
+done
+
+# nvm + Node 22 are installed by step 020.nodejs. The Makefile target sources
+# the owning user's nvm.sh at runtime, so presence here is enough — we don't
+# need node on PATH for this step itself.
+if [ -s "$HOME/.nvm/nvm.sh" ]; then
+    log "  ✓ nvm present at $HOME/.nvm/nvm.sh"
+else
+    log "  ✗ nvm not found at $HOME/.nvm/nvm.sh — run step 020.nodejs first"
+    exit 1
+fi
+
+# The send loop shells out to the sqlite3 CLI for the cohort query, the
+# latch UPDATE and the audit INSERT.
+if command -v sqlite3 >/dev/null 2>&1; then
+    log "  ✓ sqlite3 CLI present"
+else
+    log "  ✗ sqlite3 CLI not found — install with: sudo apt-get install -y sqlite3"
+    exit 1
+fi
+
+# --- Env soft-check ---------------------------------------------------
+# The script needs Resend creds to actually send mail; warn (don't fail)
+# if they're empty, because step 036 seeds the keys with empty placeholders
+# and the operator may not have filled them in yet. The timer still
+# installs — if the keys land later, the next scheduled tick just works.
+warn_missing_env() {
+    local key="$1"
+    local value
+    value=$(grep -E "^${key}=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+    if [ -z "$value" ]; then
+        log "  ⚠ $key is unset in $ENV_FILE — timer will install but sends will error until set"
+    else
+        log "  ✓ $key is set"
+    fi
+}
+if [ -f "$ENV_FILE" ]; then
+    warn_missing_env RESEND_API_KEY
+    warn_missing_env RESEND_FROM_EMAIL
+    warn_missing_env NEXT_PUBLIC_APP_URL
+
+    # BILLING_PAYMENT_GRACE_DAYS is the window this timer warns about the
+    # end of. Unset is fine (the script defaults to 3, matching
+    # getPaymentGraceDays), but an explicit 0 disables grace entirely and
+    # makes every tick a no-op — worth saying out loud rather than
+    # leaving an operator to wonder why nothing ever sends.
+    GRACE_DAYS_VALUE=$(grep -E "^BILLING_PAYMENT_GRACE_DAYS=" "$ENV_FILE" 2>/dev/null \
+        | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+    if [ -z "$GRACE_DAYS_VALUE" ]; then
+        log "  ✓ BILLING_PAYMENT_GRACE_DAYS unset — using the 3-day default"
+    elif [ "$GRACE_DAYS_VALUE" = "0" ]; then
+        log "  ⚠ BILLING_PAYMENT_GRACE_DAYS=0 — grace is disabled, so this timer will never send"
+    else
+        log "  ✓ BILLING_PAYMENT_GRACE_DAYS is ${GRACE_DAYS_VALUE}"
+    fi
+else
+    log "  ⚠ $ENV_FILE not found — step 030 should have created it"
+fi
+
+# --- Install + enable the units --------------------------------------
+log "  → Installing ${UNIT}.{service,timer}..."
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.service" "$SYSTEMD_TARGET/"
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.timer"   "$SYSTEMD_TARGET/"
+
+# --- Sandbox drop-in for AUTH_DB_PATH --------------------------------
+# Derive the writable DB dir from .env.local so the sandbox stays sealed
+# but the SQLite UPDATE actually lands wherever the operator points the
+# DB. Without this, ProtectSystem=strict silently blocks the latch write
+# whenever AUTH_DB_PATH lives outside the repo (e.g. /var/lib/zerogex):
+# the Resend HTTPS call succeeds, the UPDATE errors as readonly, and the
+# next tick re-sends. That failure mode is worse here than for the trial
+# reminder — this timer runs every 4h, so an unwritable latch means the
+# same member is warned about the same deadline six times a day.
+DROPIN_DIR="$SYSTEMD_TARGET/${UNIT}.service.d"
+DROPIN="$DROPIN_DIR/auth-db-path.conf"
+AUTH_DB_PATH=""
+if [ -f "$ENV_FILE" ]; then
+    AUTH_DB_PATH=$(grep -E "^AUTH_DB_PATH=" "$ENV_FILE" 2>/dev/null \
+        | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+fi
+if [ -n "$AUTH_DB_PATH" ] && [[ "$AUTH_DB_PATH" == /* ]]; then
+    AUTH_DB_DIR=$(dirname "$AUTH_DB_PATH")
+    log "  → Writing sandbox drop-in (ReadWritePaths=$AUTH_DB_DIR)..."
+    sudo mkdir -p "$DROPIN_DIR"
+    sudo tee "$DROPIN" >/dev/null <<EOF
+[Service]
+ReadWritePaths=$AUTH_DB_DIR
+EOF
+    log "     ✓ drop-in installed at $DROPIN"
+else
+    if [ -f "$DROPIN" ]; then
+        log "  → Removing stale drop-in (AUTH_DB_PATH unset or relative)..."
+        sudo rm -f "$DROPIN"
+        sudo rmdir "$DROPIN_DIR" 2>/dev/null || true
+    fi
+    log "  → AUTH_DB_PATH absolute path unset; using unit-default ReadWritePaths"
+fi
+
+sudo systemctl daemon-reload
+
+log "  → Enabling ${UNIT}.timer (every 4h, Persistent=true)..."
+if sudo systemctl enable --now "${UNIT}.timer" 2>/dev/null; then
+    NEXT=$(systemctl list-timers --no-pager --no-legend "${UNIT}.timer" 2>/dev/null | awk '{print $1, $2}')
+    log "     ✓ ${UNIT}.timer enabled (next run: ${NEXT:-unknown})"
+else
+    log "     ✗ ${UNIT}.timer failed to enable"
+    exit 1
+fi
+
+# Deliberately NO test run: the service's ExecStart is the real YES=1
+# send path. Use `make grace-expiry-warnings DRY_RUN=1` for a safe
+# preview; the first scheduled tick is the validation, and journalctl
+# shows the result.
+
+log ""
+log "Grace-expiry warning timer setup complete!"
+log ""
+log "Summary:"
+log "  ✓ ${UNIT}.timer enabled (every 4h on 00/4:35, Persistent=true catches missed runs)"
+log "  ✓ Warns when a grace window has <=24h left and has been open >=12h"
+log "  ✓ Idempotent: users.payment_grace_warning_sent_for latches per window; a re-opened window re-arms it automatically"
+log ""
+log "Useful commands:"
+log "  • systemctl list-timers ${UNIT}.timer                                   - next/last run"
+log "  • cd $APP_DIR && make grace-expiry-warnings DRY_RUN=1                   - preview who is due (no send)"
+log "  • sudo systemctl start ${UNIT}.service                                  - fire the send loop now"
+log "  • journalctl -u ${UNIT} -n 50                                            - recent send logs"
+log "  • cd $APP_DIR && make grace-expiry-warnings PREVIEW_TO=you@example.com  - render + send one sample email"

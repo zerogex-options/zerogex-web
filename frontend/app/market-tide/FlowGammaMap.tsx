@@ -79,7 +79,7 @@ export default function FlowGammaMap({ components }: { components: MarketTideCom
         </text>
 
         {/* frame + center cross */}
-        <rect x={L} y={T} width={PW} height={PH} fill="none" stroke="var(--color-border)" strokeWidth="1" />
+        <rect x={L} y={T} width={PW} height={PH} fill="none" stroke="var(--border-default)" strokeWidth="1" />
         <line x1={L} y1={cy} x2={VW - R} y2={cy} stroke="var(--border-strong)" strokeWidth="1" />
         <line x1={cx} y1={T} x2={cx} y2={T + PH} stroke="var(--border-strong)" strokeWidth="1" />
 
@@ -123,8 +123,8 @@ export default function FlowGammaMap({ components }: { components: MarketTideCom
 
       {hoverC && (
         <div
-          className="pointer-events-none absolute left-1/2 top-2 z-10 max-w-[220px] -translate-x-1/2 rounded-lg border px-3 py-2 text-xs font-mono shadow-lg"
-          style={{ background: "var(--bg-card)", borderColor: "var(--border-strong)" }}
+          className="pointer-events-none absolute left-1/2 top-2 z-10 max-w-[220px] -translate-x-1/2 border px-3 py-2 text-xs font-mono"
+          style={{ borderRadius: "var(--radius-panel)", background: "var(--bg-card)", borderColor: "var(--border-strong)" }}
         >
           <div className="flex items-baseline justify-between gap-3">
             <b className="text-sm">{hoverC.symbol}</b>

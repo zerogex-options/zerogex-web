@@ -1,17 +1,22 @@
 'use client';
 
 /**
- * /backtesting/insights — Pattern Leaderboard
+ * /backtesting/insights — the strategy catalog's scoreboard
  *
- * A transparent, read-only view of how each playbook pattern has performed
- * on the standardized realized-P&L calibration backtest. One row per
- * (pattern, underlying) pair; the latest persisted window. Subscribers can
- * sort by any column and toggle a "trustworthy sample" filter (n ≥ 40).
+ * A transparent, read-only view of how each strategy in the consolidated
+ * catalog has performed on the standardized realized-P&L backtest. One row
+ * per (strategy, underlying) pair; the latest persisted window.
  *
- * This page intentionally shows EVERY pattern, not just the winners — a
- * losing pattern's −$1,400 expectancy is useful information ("don't take
- * this card in QQQ even if the engine fires it"), and showing only winners
- * would create cherry-picked-looking marketing.
+ * This page intentionally shows EVERY strategy, not just the winners. Two
+ * kinds of honesty matter here:
+ *
+ *  - a losing strategy's −$1,400 expectancy is useful information ("don't
+ *    take this card in QQQ even if the engine fires it"), and showing only
+ *    winners would be cherry-picked marketing;
+ *  - a strategy that has never been screened appears as an explicit
+ *    "not screened yet" row rather than being omitted, because an absent row
+ *    reads as "measured and dull" — the opposite of the truth, and it would
+ *    hide exactly the strategies most in need of a screen.
  */
 
 import PageShell from '@/components/layout/PageShell';
@@ -24,6 +29,7 @@ import { backtestAPI } from '@/core/api/endpoints';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import type { BacktestMeta, InsightsSource, PatternInsight } from '../types';
 import {
+  TEXT_SORT_KEYS,
   applyInsightsView,
   formatPatternLabel,
   formatPnl,
@@ -31,6 +37,8 @@ import {
   formatProfitFactor,
   type InsightsSortKey,
 } from './view';
+import { StageBadge } from '../CatalogBadges';
+import { strategiesFromMeta } from '../catalogView';
 
 const TRUSTWORTHY_MIN_N = 40;
 
@@ -51,6 +59,15 @@ const ALL_SOURCE_OPTIONS: SourceOption[] = [
       "real option fills, slippage, and commission. The honest measure.",
   },
   {
+    value: 'bot_replay',
+    label: 'Bot replay',
+    tooltip:
+      "Realized P&L from replaying a bot-bound strategy's own entry rule against the " +
+      'market as it looked at each past instant. Same fills, slippage and commission as ' +
+      'Realized P&L; the difference is that the entries were reconstructed rather than ' +
+      'having fired live, which is a weaker claim.',
+  },
+  {
     value: 'underlying_touch',
     label: 'Touch proxy (debug)',
     tooltip:
@@ -68,8 +85,17 @@ interface HeaderSpec {
 }
 
 const HEADERS: HeaderSpec[] = [
-  { key: 'pattern', label: 'Pattern', align: 'left' },
+  { key: 'pattern', label: 'Strategy', align: 'left' },
   { key: 'underlying', label: 'Undl.', align: 'left' },
+  {
+    key: 'stage',
+    label: 'Stage',
+    align: 'left',
+    tooltip:
+      'Research standing in the strategy catalog — evidence, not deployment. Most ' +
+      'strategies sit in Research: that is the normal resting state, not a failure ' +
+      'grade. Only a Validated strategy with a bot behind it can take live capital.',
+  },
   {
     key: 'n_resolved',
     label: 'N',
@@ -140,6 +166,7 @@ export default function InsightsPage() {
     : 'option_pnl';
   const [underlying, setUnderlying] = useState<string>('');   // '' = all
   const [trustworthyOnly, setTrustworthyOnly] = useState(true);
+  const [showUnmeasured, setShowUnmeasured] = useState(true);
   const [sortKey, setSortKey] = useState<InsightsSortKey>('net_pnl');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
@@ -172,15 +199,15 @@ export default function InsightsPage() {
 
   const patternCatalog = useMemo<Record<string, string>>(() => {
     if (!meta) return {};
-    return Object.fromEntries(meta.patterns.map((p) => [p.id, p.name]));
+    return Object.fromEntries(strategiesFromMeta(meta).map((p) => [p.id, p.name]));
   }, [meta]);
 
   const patternDescriptions = useMemo<Record<string, string>>(() => {
     if (!meta) return {};
     return Object.fromEntries(
-      meta.patterns
-        .filter((p) => p.description && p.description.trim() !== '')
-        .map((p) => [p.id, p.description]),
+      strategiesFromMeta(meta)
+        .filter((p) => p.thesis && p.thesis.trim() !== '')
+        .map((p) => [p.id, p.thesis]),
     );
   }, [meta]);
 
@@ -210,13 +237,16 @@ export default function InsightsPage() {
         trustworthyMinN: TRUSTWORTHY_MIN_N,
         sortKey,
         sortDir,
+        showUnmeasured,
       }),
-    [rows, trustworthyOnly, sortKey, sortDir],
+    [rows, trustworthyOnly, sortKey, sortDir, showUnmeasured],
   );
 
   const underlyings = useMemo(() => {
     if (!rows) return [];
-    const set = new Set(rows.map((r) => r.underlying));
+    const set = new Set(
+      rows.map((r) => r.underlying).filter((u): u is string => typeof u === 'string' && u !== ''),
+    );
     return Array.from(set).sort();
   }, [rows]);
 
@@ -227,7 +257,7 @@ export default function InsightsPage() {
       setSortKey(key);
       // Numeric columns default to descending (biggest first); text columns
       // default to ascending (alphabetical).
-      setSortDir(key === 'pattern' || key === 'underlying' ? 'asc' : 'desc');
+      setSortDir(TEXT_SORT_KEYS.includes(key) ? 'asc' : 'desc');
     }
   };
 
@@ -247,10 +277,12 @@ export default function InsightsPage() {
       </div>
 
       <p className="text-sm text-[var(--color-text-secondary)] max-w-3xl mb-6">
-        Measured performance for each playbook pattern on the standardized
-        realized-P&L backtest — net of bid/ask fills, slippage, and
-        commission. One row per (pattern, underlying) pair, latest window per
-        pair. <span className="font-semibold">Past performance does not
+        Measured performance for every strategy in the catalog — the same
+        catalog Bot Trading and Backtesting use — on the standardized
+        realized-P&amp;L backtest, net of bid/ask fills, slippage, and
+        commission. One row per (strategy, underlying) pair, latest window per
+        pair; strategies never screened in this source appear at the bottom as
+        explicit gaps. <span className="font-semibold">Past performance does not
         guarantee future returns.</span> Use these as a sanity check, not a
         promise.
       </p>
@@ -296,6 +328,21 @@ export default function InsightsPage() {
           <span>Hide pairs with N &lt; {TRUSTWORTHY_MIN_N}</span>
           <TooltipWrapper
             text={`Sub-${TRUSTWORTHY_MIN_N} samples are noisy: the measured rate can swing materially as more trades resolve. Filter on to see only the pairs we'd trust today.`}
+            placement="bottom"
+          >
+            <Info size={12} className="text-[var(--color-text-secondary)] cursor-help" />
+          </TooltipWrapper>
+        </label>
+
+        <label className="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)]">
+          <input
+            type="checkbox"
+            checked={showUnmeasured}
+            onChange={(e) => setShowUnmeasured(e.target.checked)}
+          />
+          <span>Show unscreened strategies</span>
+          <TooltipWrapper
+            text="Strategies in the catalog with no measurement in this source. Shown so the gaps are visible: an omitted row would read as measured-and-dull rather than never tested."
             placement="bottom"
           >
             <Info size={12} className="text-[var(--color-text-secondary)] cursor-help" />
@@ -412,24 +459,54 @@ export default function InsightsPage() {
                 </td>
               </tr>
             ) : (
-              view.map((r) => (
+              view.map((r) => {
+                const unmeasured = r.measured === false;
+                return (
                 <tr
-                  key={`${r.pattern}|${r.underlying}|${r.source}`}
+                  key={`${r.pattern}|${r.underlying ?? 'all'}|${r.source}`}
                   className="border-t"
-                  style={{ borderColor: 'var(--color-border)' }}
+                  style={{
+                    borderColor: 'var(--color-border)',
+                    // Coverage rows are de-emphasised: present and countable,
+                    // but never competing visually with a measured result.
+                    opacity: unmeasured ? 0.6 : 1,
+                  }}
                 >
                   <td className="px-3 py-2">
                     <TooltipWrapper
-                      text={patternDescriptions[r.pattern] || `pattern_id: ${r.pattern}`}
+                      text={patternDescriptions[r.pattern] || `strategy_id: ${r.pattern}`}
                       placement="top"
                     >
                       <span className="font-medium cursor-help">
-                        {formatPatternLabel(r.pattern, patternCatalog)}
+                        {r.name || formatPatternLabel(r.pattern, patternCatalog)}
                       </span>
                     </TooltipWrapper>
+                    {r.in_catalog === false ? (
+                      <TooltipWrapper
+                        text="History holds measurements for this id but it is no longer in the strategy catalog."
+                        placement="top"
+                      >
+                        <span className="ml-1.5 text-[10px] text-[var(--color-warning)] cursor-help">
+                          off-catalog
+                        </span>
+                      </TooltipWrapper>
+                    ) : null}
                   </td>
-                  <td className="px-3 py-2 font-semibold">{r.underlying}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{r.n_resolved}</td>
+                  <td className="px-3 py-2 font-semibold">
+                    {r.underlying ?? <span className="font-normal text-[var(--color-text-secondary)]">—</span>}
+                  </td>
+                  <td className="px-3 py-2">
+                    {r.stage ? <StageBadge stage={r.stage} /> : null}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {unmeasured ? (
+                      <span className="text-[10px] uppercase tracking-wider text-[var(--color-text-secondary)]">
+                        not screened
+                      </span>
+                    ) : (
+                      r.n_resolved
+                    )}
+                  </td>
                   <td className="px-3 py-2 text-right tabular-nums">
                     {formatPercent(r.hit_rate)}
                   </td>
@@ -449,7 +526,8 @@ export default function InsightsPage() {
                     {formatPnl(r.avg_loss_pnl != null ? -Math.abs(r.avg_loss_pnl) : null)}
                   </td>
                 </tr>
-              ))
+                );
+              })
             )}
           </tbody>
         </table>
@@ -459,7 +537,9 @@ export default function InsightsPage() {
         Standardized spec: single-leg ATM entries at each card&apos;s own
         target/stop, with a +75% premium take-profit and −50% premium stop
         overlaid. Net of 1% slippage and $0.65 / contract commission. Rows
-        refresh nightly from the calibration backtest.{' '}
+        refresh nightly from the calibration backtest. Bot-replay rows use the
+        same pricing, with entries reconstructed from the bot&apos;s own rule
+        against as-of market state rather than from cards that fired live.{' '}
         <Link href="/backtesting" className="underline">
           Run your own backtest →
         </Link>

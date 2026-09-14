@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Bar,
   BarChart,
@@ -15,28 +15,43 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import LoadingSpinner from '@/components/LoadingSpinner';
-import ErrorMessage from '@/components/ErrorMessage';
 import MobileScrollableChart from '@/components/MobileScrollableChart';
 import { getCsrfToken } from '@/core/csrfClient';
 import { rollingMean, type CorrelationStrength, type LagPoint } from '@/core/dailyMetricsMath';
-import { makeDayLabelFormatter } from './monitoringHelpers';
+import { makeDayLabelFormatter } from '../monitoringHelpers';
+import {
+  FAILURE_COLOR,
+  REGISTRATION_COLOR,
+  SMOOTH_COLOR,
+  TRIAL_COLOR,
+  X_COLOR,
+} from './palette';
 
-// Admin → Monitoring → "Daily Signals". One row per ET calendar day joining
-// product events (trial starts, cancels, payment failures, registrations,
-// traffic) to acquisition inputs (X impressions / profile visits, Google
-// clicks), plus the four relationship tests those columns exist to answer.
+// The day-grain half of Admin → Monitoring → Growth: one row per ET calendar day
+// joining product events (trial starts, cancels, payment failures,
+// registrations, traffic) to acquisition inputs (X impressions / profile visits,
+// Google clicks), plus the relationship tests those columns exist to answer.
 //
-// The panel deliberately leads with n and p rather than with a big r. On thirty
-// days of bursty counts almost any pair of series will show |r| ≈ 0.3, and a
-// dashboard that renders that as a trend line is a machine for manufacturing
-// confidence. Every number here is labeled with how much data stands behind it.
+// A PANEL LIBRARY, not a page. GrowthClient.tsx decides which of these the
+// operator sees first and which stay folded away behind a disclosure; nothing
+// here assumes it is the whole screen. That split is the point of the rebuild:
+// the page used to open on fifteen simultaneous charts with no stated order of
+// importance.
+//
+// The statistics deliberately lead with n and p rather than with a big r. On
+// thirty days of bursty counts almost any pair of series will show |r| ≈ 0.3,
+// and a dashboard that renders that as a trend line is a machine for
+// manufacturing confidence. Every number here is labeled with how much data
+// stands behind it.
+//
+// All counts exclude the operator's own admin account, comped partners and
+// comped members — see core/excludedAccounts.ts.
 
 // ---------------------------------------------------------------------------
 // Wire types (mirror core/dailyMetrics.ts)
 // ---------------------------------------------------------------------------
 
-type MetricKey =
+export type MetricKey =
   | 'trialStarts'
   | 'paidStarts'
   | 'cancels'
@@ -49,7 +64,7 @@ type MetricKey =
   | 'googleClicks'
   | 'googleImpressions';
 
-type DailyMetricRow = {
+export type DailyMetricRow = {
   day: string;
   trialStarts: number;
   paidStarts: number;
@@ -66,7 +81,7 @@ type DailyMetricRow = {
 
 type ScoredLag = LagPoint & { strength: CorrelationStrength };
 
-type RelationshipTest = {
+export type RelationshipTest = {
   id: string;
   title: string;
   hypothesis: string;
@@ -91,7 +106,7 @@ type WeekdayBucket = {
   stderr: number;
 };
 
-type WeekdayMetric = {
+export type WeekdayMetric = {
   key: MetricKey;
   label: string;
   analysis: {
@@ -102,7 +117,7 @@ type WeekdayMetric = {
   };
 };
 
-type CoverageRow = {
+export type CoverageRow = {
   key: MetricKey;
   label: string;
   days: number;
@@ -111,7 +126,7 @@ type CoverageRow = {
   total: number | null;
 };
 
-type VolatilityRow = {
+export type VolatilityRow = {
   key: MetricKey;
   label: string;
   raw: number | null;
@@ -119,7 +134,7 @@ type VolatilityRow = {
   mean: number | null;
 };
 
-type Snapshot = {
+export type DailySnapshot = {
   generatedAt: string;
   windowDays: number;
   rows: DailyMetricRow[];
@@ -136,7 +151,7 @@ type Snapshot = {
 // Presentation constants
 // ---------------------------------------------------------------------------
 
-const WINDOWS = [30, 90, 180, 365, 730] as const;
+export const WINDOWS = [30, 90, 180, 365, 730] as const;
 
 const STRENGTH_LABEL: Record<CorrelationStrength, string> = {
   insufficient: 'Not enough data',
@@ -146,23 +161,22 @@ const STRENGTH_LABEL: Record<CorrelationStrength, string> = {
   strong: 'Strong link',
 };
 
+// A sequential ramp, not a categorical one: these four are ordered rungs of the
+// same quantity, so they climb in saturation toward the page's attention color
+// rather than each taking a hue of its own.
 const STRENGTH_TONE: Record<CorrelationStrength, string> = {
   insufficient: 'var(--color-text-secondary)',
   none: 'var(--color-text-secondary)',
-  weak: '#58508d',
-  moderate: '#bc5090',
-  strong: '#ffa600',
+  weak: X_COLOR,
+  moderate: REGISTRATION_COLOR,
+  strong: TRIAL_COLOR,
 };
 
-const TRIAL_COLOR = '#ffa600';
-const REGISTRATION_COLOR = '#bc5090';
-const X_COLOR = '#58508d';
-const GOOGLE_COLOR = '#4CAF93';
-const FAILURE_COLOR = '#ff6361';
-// Distinct from FAILURE_COLOR: these two now stack, and same-hue-different-alpha
-// is unreadable once the segments sit on top of each other.
-const CANCEL_COLOR = '#58508d';
-const SMOOTH_COLOR = '#ffffff';
+// Series colors and the record of what was validated live in ./palette.ts.
+// CANCEL_COLOR is the reach indigo rather than a second warm hue: cancels stack
+// directly on payment failures, and the two warm tones this palette owns are
+// 11.8 ΔE apart — fine side by side, not fine sharing a bar edge.
+const CANCEL_COLOR = X_COLOR;
 
 const CSV_COLUMNS: Array<{ key: 'day' | MetricKey; header: string }> = [
   { key: 'day', header: 'date' },
@@ -240,7 +254,7 @@ function verdictText(point: ScoredLag, driver: string, outcome: string): string 
   return `Across ${point.n} days, ${driver} ${direction} ${outcome} ${when}, accounting for about ${shareOfVariance}% of its day-to-day variation.${rankNote}`;
 }
 
-function downloadCsv(rows: DailyMetricRow[]): void {
+export function downloadCsv(rows: DailyMetricRow[]): void {
   const header = CSV_COLUMNS.map((c) => c.header).join(',');
   const body = rows
     .map((row) =>
@@ -262,187 +276,10 @@ function downloadCsv(rows: DailyMetricRow[]): void {
 }
 
 // ---------------------------------------------------------------------------
-// Panel
-// ---------------------------------------------------------------------------
-
-type PanelProps = {
-  cardBg: string;
-  borderColor: string;
-  axisStroke: string;
-  mutedText: string;
-  textColor: string;
-};
-
-export default function DailySignals({ cardBg, borderColor, axisStroke, mutedText, textColor }: PanelProps) {
-  const [days, setDays] = useState<number>(90);
-  const [data, setData] = useState<Snapshot | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [rebuilding, setRebuilding] = useState(false);
-  // Bumping this re-runs the fetch below without changing the window — how the
-  // Rebuild button and a finished CSV import ask for fresh data.
-  const [reload, setReload] = useState({ seq: 0, rebuild: false });
-
-  useEffect(() => {
-    // `cancelled` is what keeps a slow 730-day response from overwriting the
-    // fast 30-day one the user switched to while it was still in flight.
-    let cancelled = false;
-    const run = async () => {
-      try {
-        const res = await fetch(
-          `/api/admin/monitoring/daily?days=${days}${reload.rebuild ? '&rebuild=1' : ''}`,
-          { cache: 'no-store', credentials: 'same-origin' },
-        );
-        if (cancelled) return;
-        if (!res.ok) {
-          setError(res.status === 403 ? 'Admin access required' : `Failed to load daily metrics (HTTP ${res.status})`);
-          return;
-        }
-        const json = (await res.json()) as Snapshot;
-        if (cancelled) return;
-        setData(json);
-        setError(null);
-      } catch (err) {
-        if (cancelled) return;
-        setError(err instanceof Error ? err.message : 'Failed to load daily metrics');
-      } finally {
-        if (!cancelled) setRebuilding(false);
-      }
-    };
-    run();
-    return () => {
-      cancelled = true;
-    };
-  }, [days, reload]);
-
-  const refresh = (rebuild: boolean) => setReload((prev) => ({ seq: prev.seq + 1, rebuild }));
-
-  const onRebuild = () => {
-    setRebuilding(true);
-    refresh(true);
-  };
-
-  // Derived rather than a `loading` state flag: what makes the view stale is
-  // simply that the loaded snapshot is not the window now selected, and holding
-  // that in state would mean setting it synchronously from the effect above.
-  const stale = data !== null && data.windowDays !== days;
-
-  if (!data) return error ? <ErrorMessage message={error} /> : <LoadingSpinner size="lg" />;
-
-  return (
-    <div className="space-y-6">
-      <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div className="max-w-3xl">
-            <h2 className="zg-h3 mb-1" style={{ color: textColor }}>Daily Signals</h2>
-            <p className="text-sm" style={{ color: mutedText }}>
-              One row per calendar day (America/New_York), joining what the product did to what brought
-              people to it. Product columns are derived from the audit log and can be rebuilt from
-              scratch at any time; the X and Google columns are imported from those consoles&rsquo; own
-              CSV exports below.
-            </p>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            {WINDOWS.map((w) => (
-              <button
-                key={w}
-                type="button"
-                onClick={() => setDays(w)}
-                className="px-2.5 py-1 text-xs font-semibold rounded"
-                style={{
-                  color: days === w ? 'var(--color-text-primary)' : mutedText,
-                  border: `1px solid ${days === w ? 'var(--color-warning)' : borderColor}`,
-                }}
-              >
-                {w}d
-              </button>
-            ))}
-            <button
-              type="button"
-              onClick={onRebuild}
-              disabled={rebuilding}
-              className="px-2.5 py-1 text-xs font-semibold rounded"
-              style={{ color: mutedText, border: `1px solid ${borderColor}`, opacity: rebuilding ? 0.5 : 1 }}
-            >
-              {rebuilding ? 'Rebuilding…' : 'Rebuild'}
-            </button>
-            <button
-              type="button"
-              onClick={() => downloadCsv(data.rows)}
-              className="px-2.5 py-1 text-xs font-semibold rounded"
-              style={{ color: mutedText, border: `1px solid ${borderColor}` }}
-            >
-              Download CSV
-            </button>
-          </div>
-        </div>
-        {(stale || error) && (
-          <p className="mt-2 text-xs" style={{ color: error ? FAILURE_COLOR : mutedText }}>
-            {error ?? `Loading ${days} days…`}
-          </p>
-        )}
-        <CoverageStrip coverage={data.coverage} borderColor={borderColor} mutedText={mutedText} textColor={textColor} />
-      </div>
-
-      {data.externalMetricsEmpty && (
-        <div
-          className="rounded-lg p-4 text-sm"
-          style={{ backgroundColor: cardBg, border: `1px solid ${borderColor}`, color: mutedText }}
-        >
-          No X or Google numbers have been imported yet, so the first three relationships below have
-          nothing to test. Import them from the panel at the bottom of this page — both consoles
-          export the per-day CSV this table wants, so a single import backfills the whole history.
-        </div>
-      )}
-
-      <AcquisitionChart rows={data.rows} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} />
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {data.relationships.map((relationship) => (
-          <RelationshipCard
-            key={relationship.id}
-            test={relationship}
-            cardBg={cardBg}
-            borderColor={borderColor}
-            axisStroke={axisStroke}
-            mutedText={mutedText}
-            textColor={textColor}
-          />
-        ))}
-      </div>
-
-      <TrialEchoChart rows={data.rows} cardBg={cardBg} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} />
-
-      <WeekdayCard weekday={data.weekday} cardBg={cardBg} borderColor={borderColor} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} />
-
-      <VolatilityCard volatility={data.volatility} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} />
-
-      <DailyTable rows={data.rows} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} />
-
-      <ImportCard
-        coverage={data.coverage}
-        latestDay={data.rows[data.rows.length - 1]?.day ?? null}
-        googleSyncConfigured={data.googleSyncConfigured}
-        cardBg={cardBg}
-        borderColor={borderColor}
-        mutedText={mutedText}
-        textColor={textColor}
-        onImported={() => refresh(true)}
-      />
-
-      <p className="text-xs" style={{ color: mutedText }}>
-        Snapshot generated {new Date(data.generatedAt).toLocaleString()}. Pageviews and unique users
-        are retained for {data.pageViewRetentionDays} days in their raw form; this table keeps the
-        daily totals permanently once captured.
-      </p>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Coverage
 // ---------------------------------------------------------------------------
 
-function CoverageStrip({
+export function CoverageStrip({
   coverage,
   borderColor,
   mutedText,
@@ -474,7 +311,7 @@ function CoverageStrip({
 // Relationship card
 // ---------------------------------------------------------------------------
 
-function RelationshipCard({
+export function RelationshipCard({
   test,
   cardBg,
   borderColor,
@@ -588,10 +425,19 @@ function RelationshipCard({
 }
 
 // ---------------------------------------------------------------------------
-// Acquisition chart
+// Arrivals, and the reach that may have caused them
+//
+// Deliberately TWO charts rather than one with two y-axes. Daily signups are
+// counted in single digits and X impressions in thousands; putting both on one
+// frame means choosing a scale factor, and whichever factor is chosen decides
+// by itself whether the two lines appear to move together. A reader cannot see
+// that choice, which is what makes the dual-axis version worse than useless
+// here — it manufactures a correlation, and the four relationship tests further
+// down the page exist precisely to measure that honestly.
 // ---------------------------------------------------------------------------
 
-function AcquisitionChart({
+/** The people who showed up, on one axis, with their 7-day trailing means. */
+export function ArrivalsChart({
   rows,
   cardBg,
   axisStroke,
@@ -613,52 +459,27 @@ function AcquisitionChart({
       registrations: row.registrations,
       trialSmooth: trialSmooth[i],
       registrationSmooth: registrationSmooth[i],
-      xImpressions: row.xImpressions,
-      googleClicks: row.googleClicks,
     }));
   }, [rows]);
-
   const dayLabel = useMemo(() => makeDayLabelFormatter(rows.map((r) => r.day)), [rows]);
-  const hasX = chartData.some((p) => p.xImpressions !== null);
-  const hasGoogle = chartData.some((p) => p.googleClicks !== null);
-
-  // Which axis each reach series belongs on. X impressions run three orders of
-  // magnitude above a daily signup count, so they need their own scale — but
-  // Google clicks usually do NOT, and parking both on that scale draws the
-  // clicks line flat along the x-axis where it says nothing. Decide per series
-  // by magnitude rather than hardcoding, so this still reads correctly for a
-  // site whose search traffic eventually dwarfs its signups.
-  const axisOf = useMemo(() => {
-    const peak = (pick: (p: (typeof chartData)[number]) => number | null) =>
-      chartData.reduce((max, p) => Math.max(max, pick(p) ?? 0), 0);
-    const counts = Math.max(peak((p) => p.registrations), peak((p) => p.trialStarts), 1);
-    const fits = (value: number) => value <= counts * 3;
-    return {
-      xImpressions: fits(peak((p) => p.xImpressions)) ? 'counts' : 'reach',
-      googleClicks: fits(peak((p) => p.googleClicks)) ? 'counts' : 'reach',
-    } as const;
-  }, [chartData]);
-  const axisNote = (axis: 'counts' | 'reach') => (axis === 'counts' ? 'left' : 'right');
 
   return (
-    <div className="rounded-lg p-4" style={{ backgroundColor: cardBg }}>
+    <div className="rounded-lg p-4" style={{ backgroundColor: cardBg, border: '1px solid var(--color-border)' }}>
       <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
-        <h3 className="zg-h3" style={{ color: textColor }}>Acquisition vs. reach</h3>
+        <h3 className="zg-h4" style={{ color: textColor }}>Who arrived, by day</h3>
         <div className="flex items-center gap-x-4 gap-y-1 text-xs flex-wrap" style={{ color: mutedText }}>
-          <span><span style={{ color: TRIAL_COLOR }}>●</span> Trial starts</span>
           <span><span style={{ color: REGISTRATION_COLOR }}>●</span> Registrations</span>
-          {hasX && <span><span style={{ color: X_COLOR }}>●</span> X impressions ({axisNote(axisOf.xImpressions)})</span>}
-          {hasGoogle && <span><span style={{ color: GOOGLE_COLOR }}>●</span> Google clicks ({axisNote(axisOf.googleClicks)})</span>}
+          <span><span style={{ color: TRIAL_COLOR }}>●</span> Trial starts</span>
+          <span><span style={{ color: mutedText }}>—</span> 7-day mean</span>
         </div>
       </div>
       <p className="text-xs mb-3" style={{ color: mutedText }}>
-        Stacked bars are the raw daily counts — acquisition <em>events</em>, not distinct people:
-        someone who registers and starts a trial the same day appears in both segments. The pale
-        lines are their 7-day trailing means; if the bars jump around while the lines stay flat, the
-        swing is measurement noise, not a change in the business.
+        Stacked bars are raw daily counts — acquisition <em>events</em>, not distinct people: someone
+        who registers and starts a trial the same day appears in both segments. If the bars jump
+        around while the pale lines stay flat, the swing is noise, not a change in the business.
       </p>
       <MobileScrollableChart>
-        <ResponsiveContainer width="100%" height={300}>
+        <ResponsiveContainer width="100%" height={280}>
           <ComposedChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
             <CartesianGrid strokeOpacity={0.1} vertical={false} />
             <XAxis
@@ -669,8 +490,7 @@ function AcquisitionChart({
               minTickGap={40}
               tickFormatter={dayLabel}
             />
-            <YAxis yAxisId="counts" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 10 }} tickLine={false} allowDecimals={false} />
-            <YAxis yAxisId="reach" orientation="right" stroke={X_COLOR} tick={{ fill: X_COLOR, fontSize: 10 }} tickLine={false} allowDecimals={false} />
+            <YAxis stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 10 }} tickLine={false} allowDecimals={false} />
             <Tooltip
               cursor={{ stroke: 'var(--color-text-primary)', strokeOpacity: 0.2 }}
               content={({ active, label, payload }) => {
@@ -682,30 +502,101 @@ function AcquisitionChart({
                     style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', color: 'var(--color-chart-tooltip-text)' }}
                   >
                     <div className="font-semibold mb-1">{dayLabel(String(label))}</div>
-                    <div style={{ color: TRIAL_COLOR }}>Trial starts: {fmtInt(point.trialStarts)}</div>
-                    <div style={{ color: REGISTRATION_COLOR }}>Registrations: {fmtInt(point.registrations)}</div>
-                    <div style={{ color: X_COLOR }}>X impressions: {fmtInt(point.xImpressions)}</div>
-                    <div style={{ color: GOOGLE_COLOR }}>Google clicks: {fmtInt(point.googleClicks)}</div>
+                    <div>Registrations: {fmtInt(point.registrations)}</div>
+                    <div>Trial starts: {fmtInt(point.trialStarts)}</div>
                     <div className="mt-1" style={{ color: mutedText }}>
-                      7-day mean — trials {fmtRatio(point.trialSmooth)}, registrations {fmtRatio(point.registrationSmooth)}
+                      7-day mean — registrations {fmtRatio(point.registrationSmooth)}, trials{' '}
+                      {fmtRatio(point.trialSmooth)}
                     </div>
                   </div>
                 );
               }}
             />
-            <Bar yAxisId="counts" stackId="acquisition" dataKey="registrations" name="Registrations" fill={REGISTRATION_COLOR} maxBarSize={18} isAnimationActive={false} />
-            <Bar yAxisId="counts" stackId="acquisition" dataKey="trialStarts" name="Trial starts" fill={TRIAL_COLOR} maxBarSize={18} isAnimationActive={false} />
-            <Line yAxisId="counts" type="monotone" dataKey="trialSmooth" name="Trial starts (7d mean)" stroke={SMOOTH_COLOR} strokeOpacity={0.75} strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
-            <Line yAxisId="counts" type="monotone" dataKey="registrationSmooth" name="Registrations (7d mean)" stroke={SMOOTH_COLOR} strokeOpacity={0.4} strokeWidth={2} strokeDasharray="4 3" dot={false} connectNulls isAnimationActive={false} />
-            {hasX && (
-              <Line yAxisId={axisOf.xImpressions} type="monotone" dataKey="xImpressions" name="X impressions" stroke={X_COLOR} strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
-            )}
-            {hasGoogle && (
-              <Line yAxisId={axisOf.googleClicks} type="monotone" dataKey="googleClicks" name="Google clicks" stroke={GOOGLE_COLOR} strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
-            )}
+            <Bar stackId="arrivals" dataKey="registrations" name="Registrations" fill={REGISTRATION_COLOR} maxBarSize={18} isAnimationActive={false} />
+            <Bar stackId="arrivals" dataKey="trialStarts" name="Trial starts" fill={TRIAL_COLOR} maxBarSize={18} isAnimationActive={false} />
+            <Line type="monotone" dataKey="registrationSmooth" name="Registrations (7d mean)" stroke={SMOOTH_COLOR} strokeOpacity={0.45} strokeWidth={2} strokeDasharray="4 3" dot={false} connectNulls isAnimationActive={false} />
+            <Line type="monotone" dataKey="trialSmooth" name="Trial starts (7d mean)" stroke={SMOOTH_COLOR} strokeOpacity={0.8} strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
           </ComposedChart>
         </ResponsiveContainer>
       </MobileScrollableChart>
+    </div>
+  );
+}
+
+/**
+ * One reach feed on its own scale. Rendered as a small multiple per feed rather
+ * than as two lines, for the same reason the arrivals chart is separate: X
+ * impressions and Google clicks differ by two orders of magnitude, and sharing a
+ * frame would flatten the smaller one onto the axis.
+ */
+export function ReachChart({
+  rows,
+  metric,
+  label,
+  color,
+  axisStroke,
+  mutedText,
+  textColor,
+}: {
+  rows: DailyMetricRow[];
+  metric: 'xImpressions' | 'xProfileVisits' | 'googleClicks' | 'googleImpressions';
+  label: string;
+  color: string;
+  axisStroke: string;
+  mutedText: string;
+  textColor: string;
+}) {
+  const chartData = useMemo(() => rows.map((row) => ({ day: row.day, value: row[metric] })), [rows, metric]);
+  const dayLabel = useMemo(() => makeDayLabelFormatter(rows.map((r) => r.day)), [rows]);
+  const total = chartData.reduce((sum, point) => sum + (point.value ?? 0), 0);
+  if (!chartData.some((point) => point.value !== null)) return null;
+
+  return (
+    <div className="rounded-lg p-4" style={{ border: '1px solid var(--color-border)' }}>
+      <div className="flex items-baseline justify-between gap-2 mb-2">
+        <h4 className="text-xs font-semibold" style={{ color: textColor }}>{label}</h4>
+        <span className="text-xs tabular-nums" style={{ color: mutedText }}>{fmtInt(total)} total</span>
+      </div>
+      <ResponsiveContainer width="100%" height={120}>
+        <ComposedChart data={chartData} margin={{ top: 4, right: 4, left: -18, bottom: 0 }}>
+          <CartesianGrid strokeOpacity={0.1} vertical={false} />
+          <XAxis
+            dataKey="day"
+            stroke={axisStroke}
+            tick={{ fill: axisStroke, fontSize: 9 }}
+            tickLine={false}
+            minTickGap={44}
+            tickFormatter={dayLabel}
+          />
+          <YAxis
+            stroke={axisStroke}
+            tick={{ fill: axisStroke, fontSize: 9 }}
+            tickLine={false}
+            width={38}
+            // Impressions run to six figures; the full number does not fit in a
+            // small multiple's gutter, and clipping it to "000" is worse than
+            // rounding it to "12k".
+            tickFormatter={(value: number) => (value >= 1000 ? `${Math.round(value / 1000)}k` : String(value))}
+          />
+          <Tooltip
+            cursor={{ stroke: 'var(--color-text-primary)', strokeOpacity: 0.2 }}
+            content={({ active, label: day, payload }) => {
+              if (!active || !payload?.length) return null;
+              const point = payload[0].payload as { value: number | null };
+              return (
+                <div
+                  className="rounded-lg border px-3 py-2 text-xs"
+                  style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', color: 'var(--color-chart-tooltip-text)' }}
+                >
+                  <div className="font-semibold">{dayLabel(String(day))}</div>
+                  <div>{label}: {fmtInt(point.value)}</div>
+                </div>
+              );
+            }}
+          />
+          <Line type="monotone" dataKey="value" name={label} stroke={color} strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
+        </ComposedChart>
+      </ResponsiveContainer>
     </div>
   );
 }
@@ -714,7 +605,7 @@ function AcquisitionChart({
 // Trial → payment-failure echo
 // ---------------------------------------------------------------------------
 
-function TrialEchoChart({
+export function TrialEchoChart({
   rows,
   cardBg,
   axisStroke,
@@ -989,7 +880,7 @@ function CombinedWeekdayCard({
   );
 }
 
-function WeekdayCard({
+export function WeekdayCard({
   weekday,
   cardBg,
   borderColor,
@@ -1108,7 +999,7 @@ function WeekdayCard({
 // Volatility
 // ---------------------------------------------------------------------------
 
-function VolatilityCard({
+export function VolatilityCard({
   volatility,
   cardBg,
   borderColor,
@@ -1169,7 +1060,7 @@ function VolatilityCard({
 // The table itself
 // ---------------------------------------------------------------------------
 
-function DailyTable({
+export function DailyTable({
   rows,
   cardBg,
   borderColor,
@@ -1307,7 +1198,7 @@ function FeedFreshness({
   );
 }
 
-function ImportCard({
+export function ImportCard({
   coverage,
   latestDay,
   googleSyncConfigured,

@@ -305,6 +305,23 @@ frozen at the 16:00 close while the future keeps trading.
   dealer positioning agree on this strike. Walls are added before ranks, so the
   merged entry keeps the wall's color and stays solid unless every part is
   dashed.
+- **Labels keep clear of the info panel.** Both are right-aligned into the
+  same margin and neither knew about the other, so a level near the top of the
+  chart printed straight through the panel's text and took out both. A
+  tester's screenshots showed `GEX 10  29555` and `GEX 4  29724.5` written
+  across the Flip line on three separate charts. `RenderInfoPanel` now returns
+  the band its text fills — measured from the line count, not the box, which
+  is sized for warning lines that are usually absent — and `RenderLevels`
+  seeds its downward push with that, so the pass that separates two labels
+  also carries a label clear of the panel. With the panel off it seeds
+  negative infinity and nothing changes.
+
+  This does **not** cover a *second indicator's* labels in the same margin. A
+  tester running an opening-range study had our `GEX 3` sitting on his `S2`
+  and our `VWAP (cash)` on his `OR-High`. Nothing here can see another
+  indicator's draw objects; `Label distance from right edge (pixels)` is the
+  setting for it, at something like 120 rather than the default 8.
+
 - **Labels that are close but not equal are stacked, not merged.** Pin Strike
   at 7741.75 and VWAP at 7741.5 are different levels a tick apart that still
   land in one pixel row. `RenderLevels` insertion-sorts labels by y and pushes
