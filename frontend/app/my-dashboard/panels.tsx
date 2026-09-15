@@ -40,6 +40,25 @@ import WorldClocks from '@/components/WorldClocks';
 import HeadlinesWire from '@/components/HeadlinesWire';
 import MetricCard from '@/components/MetricCard';
 import { useTechnicals } from '@/hooks/useTechnicals';
+import { useAuthSession } from '@/hooks/useAuthSession';
+import { hasTierAccess, normalizeTier, type TierId } from '@/core/auth';
+import type { UnderlyingSymbol } from '@/core/symbolPersistence';
+import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
+import { asObject, getNumber, toTrend, scoreTrend, humanize, formatSigned } from '@/core/signalHelpers';
+import {
+  useSqueezeSetupSignal,
+  useTrapDetectionSignal,
+  useTapeFlowBiasSignal,
+  useSkewDeltaSignal,
+  useVannaCharmFlowSignal,
+  useDealerDeltaPressureSignal,
+  useGexGradientSignal,
+  useZeroDtePositionImbalanceSignal,
+  useRangeBreakImminenceSignal,
+  useMarketPressureSignal,
+  useGammaVwapConfluenceSignal,
+  usePositioningTrapSignal,
+} from '@/hooks/useApiData';
 import { usePersistedFlag } from '@/hooks/usePersistedFlag';
 
 import { useTimeframe } from '@/core/TimeframeContext';
@@ -688,6 +707,254 @@ export function VwapDeviationPanel() {
         </div>
       )}
     </WidgetCard>
+  );
+}
+
+// ── Proprietary signals (generic) ────────────────────────────────────────────
+
+// Every /api/signals/advanced/* endpoint answers with the same shape — a score,
+// a direction, a triggered flag — so one panel serves all of them rather than a
+// dozen near-identical ones. The registry supplies the hook and the labels.
+type SignalHook = (
+  symbol: UnderlyingSymbol,
+  refreshMs?: number,
+) => { data: unknown; loading: boolean; error: string | null };
+
+/**
+ * Inner half. Split out so the hook only ever mounts for a member entitled to
+ * the endpoint: six of these hooks take no `enabled` flag, so the only way to
+ * stop a non-entitled viewer polling a 403 in a loop is not to render the
+ * component that calls them.
+ */
+function SignalSnapshotBody({
+  useSignal,
+  refreshMs,
+  scoreLabel,
+}: {
+  useSignal: SignalHook;
+  refreshMs: number;
+  scoreLabel: string;
+}) {
+  const t = usePageT(dict);
+  const { symbol } = useMyDashboardData();
+  const { data, loading, error } = useSignal(symbol, refreshMs);
+
+  const payload = useMemo(() => asObject(data) ?? {}, [data]);
+  const score = getNumber(payload.score);
+  const direction = payload.direction ?? payload.signal;
+  const trend = direction ? toTrend(direction) : scoreTrend(score);
+  const triggered = payload.triggered === true;
+
+  if (error && score == null) return <ErrorMessage message={error} />;
+  if (loading && score == null) return <LoadingSpinner />;
+
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <MetricCard
+        title={scoreLabel}
+        value={score != null ? formatSigned(score, 1) : '—'}
+        subtitle={t('signalScoreSubtitle')}
+        tooltip={t('signalScoreTooltip')}
+        theme="dark"
+        trend={trend}
+      />
+      <MetricCard
+        title={t('signalStateTitle')}
+        value={humanize(direction ?? '') || '—'}
+        subtitle={triggered ? t('signalTriggered') : t('signalNotTriggered')}
+        tooltip={t('signalStateTooltip')}
+        theme="dark"
+        trend={trend}
+      />
+    </div>
+  );
+}
+
+function SignalSnapshotPanel({
+  title,
+  href,
+  scoreLabel,
+  requiredTier,
+  useSignal,
+  refreshMs,
+}: {
+  title: string;
+  href: string;
+  scoreLabel: string;
+  requiredTier: TierId;
+  useSignal: SignalHook;
+  refreshMs: number;
+}) {
+  const t = usePageT(dict);
+  const { data: authSession } = useAuthSession();
+  const entitled = hasTierAccess(normalizeTier(authSession?.user?.tier ?? 'public'), requiredTier);
+
+  return (
+    <WidgetCard title={title} href={href} hrefLabel={t('openSignal')}>
+      {entitled ? (
+        <SignalSnapshotBody useSignal={useSignal} refreshMs={refreshMs} scoreLabel={scoreLabel} />
+      ) : (
+        <div className="zg-small p-2" style={{ color: 'var(--text-secondary)' }}>
+          {t('signalLocked')}
+        </div>
+      )}
+    </WidgetCard>
+  );
+}
+
+export function SqueezeSetupPanel() {
+  return (
+    <SignalSnapshotPanel
+      title="Squeeze Setup"
+      href="/squeeze-setup"
+      scoreLabel="Squeeze Score"
+      requiredTier="pro"
+      useSignal={useSqueezeSetupSignal as SignalHook}
+      refreshMs={PROPRIETARY_SIGNALS_REFRESH.squeezeSetupMs}
+    />
+  );
+}
+
+export function TrapDetectionPanel() {
+  return (
+    <SignalSnapshotPanel
+      title="Trap Detection"
+      href="/trap-detection"
+      scoreLabel="Trap Score"
+      requiredTier="pro"
+      useSignal={useTrapDetectionSignal as SignalHook}
+      refreshMs={PROPRIETARY_SIGNALS_REFRESH.trapDetectionMs}
+    />
+  );
+}
+
+export function TapeFlowBiasPanel() {
+  return (
+    <SignalSnapshotPanel
+      title="Tape Flow Bias"
+      href="/tape-flow-bias"
+      scoreLabel="Bias Score"
+      requiredTier="basic"
+      useSignal={useTapeFlowBiasSignal as SignalHook}
+      refreshMs={PROPRIETARY_SIGNALS_REFRESH.tapeFlowBiasMs}
+    />
+  );
+}
+
+export function SkewDeltaPanel() {
+  return (
+    <SignalSnapshotPanel
+      title="Skew Delta"
+      href="/skew-delta"
+      scoreLabel="Skew Score"
+      requiredTier="basic"
+      useSignal={useSkewDeltaSignal as SignalHook}
+      refreshMs={PROPRIETARY_SIGNALS_REFRESH.skewDeltaMs}
+    />
+  );
+}
+
+export function VannaCharmFlowPanel() {
+  return (
+    <SignalSnapshotPanel
+      title="Vanna / Charm Flow"
+      href="/vanna-charm-flow"
+      scoreLabel="Flow Score"
+      requiredTier="basic"
+      useSignal={useVannaCharmFlowSignal as SignalHook}
+      refreshMs={PROPRIETARY_SIGNALS_REFRESH.vannaCharmFlowMs}
+    />
+  );
+}
+
+export function DealerDeltaPressurePanel() {
+  return (
+    <SignalSnapshotPanel
+      title="Dealer Delta Pressure"
+      href="/dealer-delta-pressure"
+      scoreLabel="Pressure Score"
+      requiredTier="basic"
+      useSignal={useDealerDeltaPressureSignal as SignalHook}
+      refreshMs={PROPRIETARY_SIGNALS_REFRESH.dealerDeltaPressureMs}
+    />
+  );
+}
+
+export function GexGradientPanel() {
+  return (
+    <SignalSnapshotPanel
+      title="GEX Gradient"
+      href="/gex-gradient"
+      scoreLabel="Gradient Score"
+      requiredTier="basic"
+      useSignal={useGexGradientSignal as SignalHook}
+      refreshMs={PROPRIETARY_SIGNALS_REFRESH.gexGradientMs}
+    />
+  );
+}
+
+export function PositioningTrapPanel() {
+  return (
+    <SignalSnapshotPanel
+      title="Positioning Trap"
+      href="/positioning-trap"
+      scoreLabel="Trap Score"
+      requiredTier="basic"
+      useSignal={usePositioningTrapSignal as SignalHook}
+      refreshMs={PROPRIETARY_SIGNALS_REFRESH.positioningTrapMs}
+    />
+  );
+}
+
+export function ZeroDteImbalancePanel() {
+  return (
+    <SignalSnapshotPanel
+      title="0DTE Position Imbalance"
+      href="/0dte-position-imbalance"
+      scoreLabel="Imbalance Score"
+      requiredTier="pro"
+      useSignal={useZeroDtePositionImbalanceSignal as SignalHook}
+      refreshMs={PROPRIETARY_SIGNALS_REFRESH.zeroDteImbalanceMs}
+    />
+  );
+}
+
+export function RangeBreakImminencePanel() {
+  return (
+    <SignalSnapshotPanel
+      title="Range Break Imminence"
+      href="/range-break-imminence"
+      scoreLabel="Break Score"
+      requiredTier="pro"
+      useSignal={useRangeBreakImminenceSignal as SignalHook}
+      refreshMs={PROPRIETARY_SIGNALS_REFRESH.rangeBreakImminenceMs}
+    />
+  );
+}
+
+export function MarketPressurePanel() {
+  return (
+    <SignalSnapshotPanel
+      title="Market Pressure"
+      href="/market-pressure"
+      scoreLabel="Pressure Score"
+      requiredTier="pro"
+      useSignal={useMarketPressureSignal as SignalHook}
+      refreshMs={PROPRIETARY_SIGNALS_REFRESH.marketPressureMs}
+    />
+  );
+}
+
+export function GammaVwapConfluencePanel() {
+  return (
+    <SignalSnapshotPanel
+      title="Gamma / VWAP Confluence"
+      href="/gamma-vwap-confluence"
+      scoreLabel="Confluence Score"
+      requiredTier="pro"
+      useSignal={useGammaVwapConfluenceSignal as SignalHook}
+      refreshMs={PROPRIETARY_SIGNALS_REFRESH.gammaVwapConfluenceMs}
+    />
   );
 }
 
