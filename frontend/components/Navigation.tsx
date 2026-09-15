@@ -3,7 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { MarketSession, Theme } from "@/core/types";
 import { brandLogo } from "@/core/brand";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight, Pin } from "lucide-react";
 import { NAV_GROUPS, type NavGroup, type NavItem } from "@/core/navigation";
 import { INTEGRATIONS_HUB } from "@/core/integrations";
@@ -20,12 +20,17 @@ import BetaBadge from "./BetaBadge";
 import TierBadge from "./TierBadge";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import { useAuthSession } from "@/hooks/useAuthSession";
+import { usePersistedFlag } from "@/hooks/usePersistedFlag";
+import { MENU_TAB_WIDTH, SIDEBAR_WIDTH, UI_COOKIE } from "@/core/uiCookies";
 
 interface NavigationProps {
   theme: Theme;
+  /** Server's reads of the chrome cookies — see app/layout.tsx. */
+  initialSidebarVisible?: boolean;
+  initialHeaderCollapsed?: boolean;
 }
 
-const SIDEBAR_WIDTH = 272;
+
 
 // Per-browser pinned-pages list for the sidebar "Favorites" group.
 const FAVORITES_STORAGE_KEY = "zg.nav.favorites.v1";
@@ -42,7 +47,11 @@ function isNavItemActive(pathname: string | null, item: { id: string; matchPrefi
 }
 
 
-export default function Navigation({ theme }: NavigationProps) {
+export default function Navigation({
+  theme,
+  initialSidebarVisible = true,
+  initialHeaderCollapsed = false,
+}: NavigationProps) {
   const { symbol } = useTimeframe();
   const { t } = useLanguage();
   // Resolve a nav entry's display text: translated when it carries a labelKey,
@@ -52,22 +61,21 @@ export default function Navigation({ theme }: NavigationProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [session, setSession] = useState(getMarketSession());
-  const [sidebarVisible, setSidebarVisible] = useState(() => {
-    if (typeof window === "undefined") return true;
-    try {
-      return localStorage.getItem("sidebarVisible") !== "false";
-    } catch {
-      return true;
-    }
-  });
-  const [headerCollapsed, setHeaderCollapsed] = useState(() => {
-    if (typeof window === "undefined") return false;
-    try {
-      return localStorage.getItem("headerCollapsed") === "true";
-    } catch {
-      return false;
-    }
-  });
+  // Both read through usePersistedFlag so the server and the hydrating render
+  // agree; see that hook for why seeding useState from localStorage cannot.
+  // Sharing the "headerCollapsed" key with Header is also what keeps the two
+  // in step — the hook notifies every reader of a key, so this no longer needs
+  // the header to announce itself over a custom event.
+  const [sidebarVisible, toggleSidebarFlag] = usePersistedFlag(
+    UI_COOKIE.sidebarVisible,
+    initialSidebarVisible,
+    "cookie",
+  );
+  const [headerCollapsed] = usePersistedFlag(
+    UI_COOKIE.headerCollapsed,
+    initialHeaderCollapsed,
+    "cookie",
+  );
   const { data: authSession } = useAuthSession();
   const currentTier = authSession?.user?.tier ?? "public";
   const isAuthenticated = !!authSession?.authenticated;
@@ -261,37 +269,42 @@ export default function Navigation({ theme }: NavigationProps) {
     row1Change !== null && row1BaseClose ? (row1Change / row1BaseClose) * 100 : null;
   const row1Positive = row1Change !== null ? row1Change >= 0 : false;
 
-  useEffect(() => {
-    const syncNavVars = () => {
-      const desktop = typeof window !== "undefined" && window.innerWidth >= 768;
-      const width = sidebarVisible && desktop ? SIDEBAR_WIDTH : 0;
-      document.documentElement.style.setProperty("--zgx-nav-height", "0px");
-      document.documentElement.style.setProperty("--zgx-nav-width", `${width}px`);
-    };
+  // Collapsed, the sidebar leaves behind a fixed "Menu" tab at left:0. The
+  // gutter below is what stops the page from running underneath it, so it has
+  // to track the tab's real width: the label is translated, so it is measured
+  // rather than assumed.
+  const menuTabRef = useRef<HTMLButtonElement | null>(null);
 
-    syncNavVars();
-    window.addEventListener("resize", syncNavVars);
-    return () => window.removeEventListener("resize", syncNavVars);
+  const syncNavVars = useCallback(() => {
+    const desktop = typeof window !== "undefined" && window.innerWidth >= 768;
+    let width = 0;
+    if (desktop) {
+      width = sidebarVisible
+        ? SIDEBAR_WIDTH
+        : Math.round(menuTabRef.current?.getBoundingClientRect().width || 0) ||
+          MENU_TAB_WIDTH;
+    }
+    document.documentElement.style.setProperty("--zgx-nav-height", "0px");
+    document.documentElement.style.setProperty("--zgx-nav-width", `${width}px`);
   }, [sidebarVisible]);
 
   useEffect(() => {
-    const handleCollapseChanged = (event: Event) => {
-      const detail = (event as CustomEvent<boolean>).detail;
-      setHeaderCollapsed(Boolean(detail));
-    };
+    syncNavVars();
+    window.addEventListener("resize", syncNavVars);
+    return () => window.removeEventListener("resize", syncNavVars);
+  }, [syncNavVars]);
 
-    window.addEventListener("header:collapse-changed", handleCollapseChanged as EventListener);
-    return () =>
-      window.removeEventListener("header:collapse-changed", handleCollapseChanged as EventListener);
-  }, []);
+  // Re-measure when the tab itself changes width — a late-loading webfont or a
+  // language switch both resize the label after the effect above has run.
+  useEffect(() => {
+    const tab = menuTabRef.current;
+    if (!tab || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => syncNavVars());
+    observer.observe(tab);
+    return () => observer.disconnect();
+  }, [syncNavVars]);
 
-  const toggleSidebar = () => {
-    const next = !sidebarVisible;
-    setSidebarVisible(next);
-    try {
-      localStorage.setItem("sidebarVisible", String(next));
-    } catch {}
-  };
+  const toggleSidebar = toggleSidebarFlag;
 
   const border = "var(--color-border)";
 
@@ -556,6 +569,7 @@ export default function Navigation({ theme }: NavigationProps) {
         </nav>
       ) : (
         <button
+          ref={menuTabRef}
           type="button"
           onClick={toggleSidebar}
           className="hidden md:flex fixed z-30 items-center gap-1 border border-l-0 px-2"

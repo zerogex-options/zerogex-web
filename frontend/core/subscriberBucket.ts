@@ -22,14 +22,30 @@ export type SubscriberBucketInput = {
   tier: string | null;
   paymentGraceReason: string | null;
   cancelAtPeriodEnd?: boolean;
-  // users.first_payment_at — when this member's first subscription invoice was
-  // actually PAID, or null if no payment of theirs has ever cleared. This is
-  // what separates Full Subscriber from Converting: Stripe flips a subscription
-  // to `active` when the post-trial invoice is CREATED, about an hour before the
-  // charge is attempted, so `active` on its own is evidence of an invoice, not
-  // of money. Defaults to null (never paid) so a caller that hasn't been taught
-  // about the column can't accidentally promote an unpaid member.
-  firstPaymentAt?: string | null;
+  // The subscription this member is on right now (users.stripe_subscription_id)
+  // and the pair recording which subscription last had an invoice paid on it
+  // (users.last_paid_subscription_id / users.last_paid_invoice_at).
+  //
+  // Together these separate Full Subscriber from Converting: Stripe flips a
+  // subscription to `active` when the post-trial invoice is CREATED, about an
+  // hour before the charge is attempted, so `active` on its own is evidence of
+  // an invoice, not of money.
+  //
+  // Taken RAW rather than pre-reduced to one "has paid" date on purpose. The
+  // reduction is the part that has to agree with the chart's SQL, so it lives
+  // exactly once, in subscriptionPaidAt below, instead of at each call site.
+  // The account-scoped users.first_payment_at deliberately has no say: it is
+  // stamped once per ACCOUNT, so a returning member carries it into every later
+  // subscription and it cannot answer "has THIS one been paid" — which is what
+  // put a reactivated member on the Full Subscriber line an hour before their
+  // card was charged. See core/db.ts.
+  //
+  // REQUIRED, with no default. An optional field quietly defaulting to "never
+  // paid" is how that confusion survived: a caller which had never been taught
+  // about these columns still compiled.
+  stripeSubscriptionId: string | null;
+  lastPaidSubscriptionId: string | null;
+  lastPaidInvoiceAt: string | null;
 };
 
 export type SubscriberBucketVerdict = {
@@ -51,6 +67,31 @@ export function normalizeBucketTier(tier: string | null): string | null {
   if (tier === 'starter') return 'basic';
   if (tier === 'elite') return 'pro';
   return tier;
+}
+
+/**
+ * When an invoice was paid ON THE SUBSCRIPTION THIS MEMBER IS CURRENTLY ON, or
+ * null if none has been.
+ *
+ * The recorded pointer has to NAME that subscription. A member returning on a
+ * new subscription still carries the record of their previous one, and that is
+ * evidence about a subscription they are no longer on — counting it is what made
+ * the Full Subscriber line tick up before the money arrived.
+ *
+ * Mirrored exactly by the CASE in currentPayingCounts (core/monitoring.ts);
+ * tests/subscriberBucket.test.ts reproduces that SQL as an oracle and holds the
+ * two in lockstep, so a change here without a change there fails the suite.
+ */
+export function subscriptionPaidAt(input: {
+  stripeSubscriptionId: string | null;
+  lastPaidSubscriptionId: string | null;
+  lastPaidInvoiceAt: string | null;
+}): string | null {
+  if (!input.stripeSubscriptionId || !input.lastPaidSubscriptionId) return null;
+  if (input.stripeSubscriptionId !== input.lastPaidSubscriptionId) return null;
+  // Pointer set with no date is a half-written row; treat it as unpaid, which
+  // is the direction that cannot promote someone who has not been charged.
+  return input.lastPaidInvoiceAt;
 }
 
 export function classifySubscriberBucket(input: SubscriberBucketInput): SubscriberBucketVerdict {
@@ -117,12 +158,19 @@ export function classifySubscriberBucket(input: SubscriberBucketInput): Subscrib
     // recorded payment is a charge in flight, not a customer. Counting it as a
     // Full Subscriber is what used to make the line tick up and then back down
     // an hour later when the card declined.
-    return input.firstPaymentAt
-      ? verdict('fullSubscriber', `active, first payment cleared ${input.firstPaymentAt}`)
-      : verdict(
-          'converting',
-          'active but no payment has ever cleared — the post-trial invoice exists and the charge is still in flight',
-        );
+    const paidAt = subscriptionPaidAt(input);
+    if (paidAt) {
+      return verdict('fullSubscriber', `active, an invoice has cleared on this subscription (${paidAt})`);
+    }
+    // Naming the stale pointer matters here: "active but never paid" reads as a
+    // brand-new member, and for a returning one that is the wrong investigation.
+    return verdict(
+      'converting',
+      input.lastPaidSubscriptionId
+        ? `active, but the last paid invoice was on ${input.lastPaidSubscriptionId}, not the current ` +
+          `subscription — this subscription's charge is still in flight`
+        : 'active but no invoice has ever cleared — the post-trial invoice exists and the charge is still in flight',
+    );
   }
 
   // A renewal-failure grace window (or one opened before the reason column
@@ -158,9 +206,12 @@ export function classifySubscriberBucket(input: SubscriberBucketInput): Subscrib
 // flag) actually changes reproduces the headcount's history by construction,
 // and skips the many no-op re-syncs Stripe sends in between.
 //
-// The `stripe_first_payment` stream is merged in alongside it, because the
-// Converting -> Full Subscriber step is the one transition the sync stream
-// cannot see: nothing about the subscription changes when its invoice is paid.
+// A payment stream is merged in alongside it, because the Converting -> Full
+// Subscriber step is the one transition the sync stream cannot see: nothing
+// about the subscription changes when its invoice is paid. Which audit rows
+// count as a payment ON A SUBSCRIPTION — and why the account-scoped
+// `stripe_first_payment` stamp is not enough on its own — is
+// core/subscriptionPayments.ts.
 //
 // It lives in this file rather than its own so there is exactly ONE bucket
 // rule: the ledger classifies with classifySubscriberBucket above, so a change
@@ -168,8 +219,8 @@ export function classifySubscriberBucket(input: SubscriberBucketInput): Subscrib
 
 // How long an `active` with no observed payment stays in Converting before the
 // ledger accepts it as paid, in days. This is a FALLBACK for history the
-// payment stream doesn't cover — subscriptions that converted before
-// `stripe_first_payment` was being written, which are exactly the rows the
+// payment stream doesn't cover — subscriptions that converted before either
+// payment audit event was being written, which are exactly the rows the
 // users.first_payment_at backfill marks as paid. A real payment event promotes
 // immediately and is always preferred. Mirrors CONVERSION_CONFIRM_DAYS in
 // core/trialConveyor and the window in core/trialDunning, for the same reason.
@@ -501,7 +552,12 @@ export function buildSubscriberLedger(
       tier: ev.tier,
       paymentGraceReason: derivedGraceReason,
       cancelAtPeriodEnd: ev.cancelAtPeriodEnd,
-      firstPaymentAt: s.paidAt,
+      // The walk is per-subscription, so the pointer is this sub whenever a
+      // payment of its own has been seen. This is what makes the ledger and the
+      // chart agree by construction rather than by coincidence.
+      stripeSubscriptionId: ev.subId,
+      lastPaidSubscriptionId: s.paidAt ? ev.subId : null,
+      lastPaidInvoiceAt: s.paidAt,
     }).bucket;
 
     if (next !== s.bucket) {

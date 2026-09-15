@@ -181,8 +181,11 @@ export default function GammaProfileHero({ symbol = 'SPY' }: { symbol?: string }
         ctx.stroke();
       }
       if (done) {
-        tick(callWall, c.bull, 'CALL WALL', false);
-        tick(putWall, c.bear, 'PUT WALL', false);
+        // Walls are coloured by what the LEVEL does, not the instrument behind
+        // it: the call wall is resistance, the put wall support. Matches the
+        // Gamma Chart, the ladder, the replay views and the articles.
+        tick(callWall, c.bear, 'CALL WALL', false);
+        tick(putWall, c.bull, 'PUT WALL', false);
         if (spot != null && spot >= minP && spot <= maxP) {
           const sx = X(spot);
           // find nearest curve point for the cursor dot
@@ -243,8 +246,8 @@ export default function GammaProfileHero({ symbol = 'SPY' }: { symbol?: string }
         {[
           { l: 'Net GEX', v: fmtUsd(netGex), c: netGex == null ? 'var(--text-primary)' : netGex >= 0 ? 'var(--color-bull)' : 'var(--color-bear)' },
           { l: 'Flip', v: flip != null ? `$${flip.toFixed(0)}` : '--', c: 'var(--color-flip)' },
-          { l: 'Call Wall', v: callWall != null ? `$${callWall.toFixed(0)}` : '--', c: 'var(--color-bull)' },
-          { l: 'Put Wall', v: putWall != null ? `$${putWall.toFixed(0)}` : '--', c: 'var(--color-bear)' },
+          { l: 'Call Wall', v: callWall != null ? `$${callWall.toFixed(0)}` : '--', c: 'var(--color-bear)' },
+          { l: 'Put Wall', v: putWall != null ? `$${putWall.toFixed(0)}` : '--', c: 'var(--color-bull)' },
         ].map((cell, i) => (
           <div
             key={cell.l}

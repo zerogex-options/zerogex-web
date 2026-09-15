@@ -38,6 +38,28 @@ import MsiGauge from '@/components/MsiGauge';
 import TodaysReadCard from '@/components/TodaysReadCard';
 import WorldClocks from '@/components/WorldClocks';
 import HeadlinesWire from '@/components/HeadlinesWire';
+import MetricCard from '@/components/MetricCard';
+import { useTechnicals } from '@/hooks/useTechnicals';
+import { useAuthSession } from '@/hooks/useAuthSession';
+import { hasTierAccess, normalizeTier, type TierId } from '@/core/auth';
+import type { UnderlyingSymbol } from '@/core/symbolPersistence';
+import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
+import { asObject, getNumber, toTrend, scoreTrend, humanize, formatSigned } from '@/core/signalHelpers';
+import {
+  useSqueezeSetupSignal,
+  useTrapDetectionSignal,
+  useTapeFlowBiasSignal,
+  useSkewDeltaSignal,
+  useVannaCharmFlowSignal,
+  useDealerDeltaPressureSignal,
+  useGexGradientSignal,
+  useZeroDtePositionImbalanceSignal,
+  useRangeBreakImminenceSignal,
+  useMarketPressureSignal,
+  useGammaVwapConfluenceSignal,
+  usePositioningTrapSignal,
+} from '@/hooks/useApiData';
+import { usePersistedFlag } from '@/hooks/usePersistedFlag';
 
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useHedgingFlow } from '@/hooks/useHedgingFlow';
@@ -539,6 +561,403 @@ export function VolatilityPanel() {
   );
 }
 
+// ── Technicals ────────────────────────────────────────────────────────────────
+
+// Both panels below read the same /api/technicals payload that powers
+// /intraday-tools. useTechnicals caches per symbol and refcounts its
+// subscribers, so mounting both costs one subscription, not two.
+
+/** A number that is actually a number — the feed uses null for "not yet". */
+function techNum(value: number | null | undefined): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function fmtPrice(value: number | null): string {
+  return value != null ? `$${value.toFixed(2)}` : '—';
+}
+
+// Terms the feed sends as ordinary words but which are acronyms on screen —
+// title-casing alone would render "above_vwap" as "Above Vwap".
+const STATUS_ACRONYMS = new Set(['vwap', 'orb', 'eod', 'gex']);
+
+/**
+ * Turn the feed's snake_case status into something readable. Unknown values
+ * are title-cased rather than dropped, so a new backend status still shows up
+ * instead of silently rendering as a dash.
+ */
+function humanizeStatus(status: string | null | undefined): string {
+  if (!status) return '—';
+  return status
+    .split(/[_\s]+/)
+    .filter(Boolean)
+    .map((word) =>
+      STATUS_ACRONYMS.has(word.toLowerCase())
+        ? word.toUpperCase()
+        : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase(),
+    )
+    .join(' ');
+}
+
+export function OrbBreakoutPanel() {
+  const t = usePageT(dict);
+  const { theme, symbol } = useMyDashboardData();
+  const { latest, loading, error } = useTechnicals(symbol);
+
+  const orb = latest?.opening_range ?? null;
+  const high = techNum(orb?.orb_high);
+  const low = techNum(orb?.orb_low);
+  const range = techNum(orb?.orb_range);
+  const status = orb?.orb_status ?? null;
+
+  // The opening range only exists once the 09:30–09:59 ET window has closed,
+  // so "no levels yet" is the normal pre-market state, not a failure.
+  const hasRange = high != null && low != null;
+
+  // Above the range reads bullish, below it bearish, inside it neutral.
+  const trend: 'bullish' | 'bearish' | 'neutral' = !hasRange
+    ? 'neutral'
+    : techNum(orb?.distance_above_orb_high) != null && (orb?.distance_above_orb_high ?? 0) > 0
+      ? 'bullish'
+      : techNum(orb?.distance_below_orb_low) != null && (orb?.distance_below_orb_low ?? 0) > 0
+        ? 'bearish'
+        : 'neutral';
+
+  return (
+    <WidgetCard title={t('orbBreakout')} href="/intraday-tools" hrefLabel={t('technicals')}>
+      {error && !hasRange ? (
+        <ErrorMessage message={error} />
+      ) : loading && !hasRange ? (
+        <LoadingSpinner />
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          <MetricCard
+            title={t('orbHigh')}
+            value={fmtPrice(high)}
+            subtitle={t('orbHighSubtitle')}
+            tooltip={t('orbHighTooltip')}
+            theme={theme}
+            trend="bullish"
+          />
+          <MetricCard
+            title={t('orbLow')}
+            value={fmtPrice(low)}
+            subtitle={t('orbLowSubtitle')}
+            tooltip={t('orbLowTooltip')}
+            theme={theme}
+            trend="bearish"
+          />
+          <MetricCard
+            title={t('orbRange')}
+            value={fmtPrice(range)}
+            subtitle={t('orbRangeSubtitle')}
+            tooltip={t('orbRangeTooltip')}
+            theme={theme}
+          />
+          <MetricCard
+            title={t('orbStatus')}
+            value={humanizeStatus(status)}
+            subtitle={hasRange ? t('orbStatusSubtitle') : t('orbAwaitingRange')}
+            tooltip={t('orbStatusTooltip')}
+            theme={theme}
+            trend={trend}
+          />
+        </div>
+      )}
+    </WidgetCard>
+  );
+}
+
+export function VwapDeviationPanel() {
+  const t = usePageT(dict);
+  const { theme, symbol } = useMyDashboardData();
+  const { latest, loading, error } = useTechnicals(symbol);
+
+  const dev = latest?.vwap_deviation ?? null;
+  const vwap = techNum(dev?.vwap);
+  const pct = techNum(dev?.vwap_deviation_pct);
+  const position = dev?.vwap_position ?? null;
+
+  // Trading above VWAP is the bullish side of it; below is the bearish side.
+  const trend: 'bullish' | 'bearish' | 'neutral' =
+    pct == null ? 'neutral' : pct > 0 ? 'bullish' : pct < 0 ? 'bearish' : 'neutral';
+
+  return (
+    <WidgetCard title={t('vwapDeviation')} href="/intraday-tools" hrefLabel={t('technicals')}>
+      {error && vwap == null ? (
+        <ErrorMessage message={error} />
+      ) : loading && vwap == null ? (
+        <LoadingSpinner />
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          <MetricCard
+            title={t('vwapTitle')}
+            value={fmtPrice(vwap)}
+            subtitle={t('vwapSubtitle')}
+            tooltip={t('vwapTooltip')}
+            theme={theme}
+          />
+          <MetricCard
+            title={t('vwapDeviationTitle')}
+            value={pct != null ? `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%` : '—'}
+            subtitle={humanizeStatus(position)}
+            tooltip={t('vwapDeviationTooltip')}
+            theme={theme}
+            trend={trend}
+          />
+        </div>
+      )}
+    </WidgetCard>
+  );
+}
+
+// ── Proprietary signals (generic) ────────────────────────────────────────────
+
+// Every /api/signals/advanced/* endpoint answers with the same shape — a score,
+// a direction, a triggered flag — so one panel serves all of them rather than a
+// dozen near-identical ones. The registry supplies the hook and the labels.
+type SignalHook = (
+  symbol: UnderlyingSymbol,
+  refreshMs?: number,
+) => { data: unknown; loading: boolean; error: string | null };
+
+/**
+ * Inner half. Split out so the hook only ever mounts for a member entitled to
+ * the endpoint: six of these hooks take no `enabled` flag, so the only way to
+ * stop a non-entitled viewer polling a 403 in a loop is not to render the
+ * component that calls them.
+ */
+function SignalSnapshotBody({
+  useSignal,
+  refreshMs,
+  scoreLabel,
+}: {
+  useSignal: SignalHook;
+  refreshMs: number;
+  scoreLabel: string;
+}) {
+  const t = usePageT(dict);
+  const { symbol } = useMyDashboardData();
+  const { data, loading, error } = useSignal(symbol, refreshMs);
+
+  const payload = useMemo(() => asObject(data) ?? {}, [data]);
+  const score = getNumber(payload.score);
+  const direction = payload.direction ?? payload.signal;
+  const trend = direction ? toTrend(direction) : scoreTrend(score);
+  const triggered = payload.triggered === true;
+
+  if (error && score == null) return <ErrorMessage message={error} />;
+  if (loading && score == null) return <LoadingSpinner />;
+
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <MetricCard
+        title={scoreLabel}
+        value={score != null ? formatSigned(score, 1) : '—'}
+        subtitle={t('signalScoreSubtitle')}
+        tooltip={t('signalScoreTooltip')}
+        theme="dark"
+        trend={trend}
+      />
+      <MetricCard
+        title={t('signalStateTitle')}
+        value={humanize(direction ?? '') || '—'}
+        subtitle={triggered ? t('signalTriggered') : t('signalNotTriggered')}
+        tooltip={t('signalStateTooltip')}
+        theme="dark"
+        trend={trend}
+      />
+    </div>
+  );
+}
+
+function SignalSnapshotPanel({
+  title,
+  href,
+  scoreLabel,
+  requiredTier,
+  useSignal,
+  refreshMs,
+}: {
+  title: string;
+  href: string;
+  scoreLabel: string;
+  requiredTier: TierId;
+  useSignal: SignalHook;
+  refreshMs: number;
+}) {
+  const t = usePageT(dict);
+  const { data: authSession } = useAuthSession();
+  const entitled = hasTierAccess(normalizeTier(authSession?.user?.tier ?? 'public'), requiredTier);
+
+  return (
+    <WidgetCard title={title} href={href} hrefLabel={t('openSignal')}>
+      {entitled ? (
+        <SignalSnapshotBody useSignal={useSignal} refreshMs={refreshMs} scoreLabel={scoreLabel} />
+      ) : (
+        <div className="zg-small p-2" style={{ color: 'var(--text-secondary)' }}>
+          {t('signalLocked')}
+        </div>
+      )}
+    </WidgetCard>
+  );
+}
+
+export function SqueezeSetupPanel() {
+  return (
+    <SignalSnapshotPanel
+      title="Squeeze Setup"
+      href="/squeeze-setup"
+      scoreLabel="Squeeze Score"
+      requiredTier="pro"
+      useSignal={useSqueezeSetupSignal as SignalHook}
+      refreshMs={PROPRIETARY_SIGNALS_REFRESH.squeezeSetupMs}
+    />
+  );
+}
+
+export function TrapDetectionPanel() {
+  return (
+    <SignalSnapshotPanel
+      title="Trap Detection"
+      href="/trap-detection"
+      scoreLabel="Trap Score"
+      requiredTier="pro"
+      useSignal={useTrapDetectionSignal as SignalHook}
+      refreshMs={PROPRIETARY_SIGNALS_REFRESH.trapDetectionMs}
+    />
+  );
+}
+
+export function TapeFlowBiasPanel() {
+  return (
+    <SignalSnapshotPanel
+      title="Tape Flow Bias"
+      href="/tape-flow-bias"
+      scoreLabel="Bias Score"
+      requiredTier="basic"
+      useSignal={useTapeFlowBiasSignal as SignalHook}
+      refreshMs={PROPRIETARY_SIGNALS_REFRESH.tapeFlowBiasMs}
+    />
+  );
+}
+
+export function SkewDeltaPanel() {
+  return (
+    <SignalSnapshotPanel
+      title="Skew Delta"
+      href="/skew-delta"
+      scoreLabel="Skew Score"
+      requiredTier="basic"
+      useSignal={useSkewDeltaSignal as SignalHook}
+      refreshMs={PROPRIETARY_SIGNALS_REFRESH.skewDeltaMs}
+    />
+  );
+}
+
+export function VannaCharmFlowPanel() {
+  return (
+    <SignalSnapshotPanel
+      title="Vanna / Charm Flow"
+      href="/vanna-charm-flow"
+      scoreLabel="Flow Score"
+      requiredTier="basic"
+      useSignal={useVannaCharmFlowSignal as SignalHook}
+      refreshMs={PROPRIETARY_SIGNALS_REFRESH.vannaCharmFlowMs}
+    />
+  );
+}
+
+export function DealerDeltaPressurePanel() {
+  return (
+    <SignalSnapshotPanel
+      title="Dealer Delta Pressure"
+      href="/dealer-delta-pressure"
+      scoreLabel="Pressure Score"
+      requiredTier="basic"
+      useSignal={useDealerDeltaPressureSignal as SignalHook}
+      refreshMs={PROPRIETARY_SIGNALS_REFRESH.dealerDeltaPressureMs}
+    />
+  );
+}
+
+export function GexGradientPanel() {
+  return (
+    <SignalSnapshotPanel
+      title="GEX Gradient"
+      href="/gex-gradient"
+      scoreLabel="Gradient Score"
+      requiredTier="basic"
+      useSignal={useGexGradientSignal as SignalHook}
+      refreshMs={PROPRIETARY_SIGNALS_REFRESH.gexGradientMs}
+    />
+  );
+}
+
+export function PositioningTrapPanel() {
+  return (
+    <SignalSnapshotPanel
+      title="Positioning Trap"
+      href="/positioning-trap"
+      scoreLabel="Trap Score"
+      requiredTier="basic"
+      useSignal={usePositioningTrapSignal as SignalHook}
+      refreshMs={PROPRIETARY_SIGNALS_REFRESH.positioningTrapMs}
+    />
+  );
+}
+
+export function ZeroDteImbalancePanel() {
+  return (
+    <SignalSnapshotPanel
+      title="0DTE Position Imbalance"
+      href="/0dte-position-imbalance"
+      scoreLabel="Imbalance Score"
+      requiredTier="pro"
+      useSignal={useZeroDtePositionImbalanceSignal as SignalHook}
+      refreshMs={PROPRIETARY_SIGNALS_REFRESH.zeroDteImbalanceMs}
+    />
+  );
+}
+
+export function RangeBreakImminencePanel() {
+  return (
+    <SignalSnapshotPanel
+      title="Range Break Imminence"
+      href="/range-break-imminence"
+      scoreLabel="Break Score"
+      requiredTier="pro"
+      useSignal={useRangeBreakImminenceSignal as SignalHook}
+      refreshMs={PROPRIETARY_SIGNALS_REFRESH.rangeBreakImminenceMs}
+    />
+  );
+}
+
+export function MarketPressurePanel() {
+  return (
+    <SignalSnapshotPanel
+      title="Market Pressure"
+      href="/market-pressure"
+      scoreLabel="Pressure Score"
+      requiredTier="pro"
+      useSignal={useMarketPressureSignal as SignalHook}
+      refreshMs={PROPRIETARY_SIGNALS_REFRESH.marketPressureMs}
+    />
+  );
+}
+
+export function GammaVwapConfluencePanel() {
+  return (
+    <SignalSnapshotPanel
+      title="Gamma / VWAP Confluence"
+      href="/gamma-vwap-confluence"
+      scoreLabel="Confluence Score"
+      requiredTier="pro"
+      useSignal={useGammaVwapConfluenceSignal as SignalHook}
+      refreshMs={PROPRIETARY_SIGNALS_REFRESH.gammaVwapConfluenceMs}
+    />
+  );
+}
+
 // ── Tools ─────────────────────────────────────────────────────────────────────
 
 export function WorldClocksPanel() {
@@ -553,14 +972,29 @@ export function WorldClocksPanel() {
   );
 }
 
+// Frame heights for the wire. The tall one is the long-standing default and
+// stays the default; the banner is about two rows, for running the wire as a
+// thin strip across the top or bottom of a board.
+const HEADLINES_HEIGHT = 360;
+const HEADLINES_COMPACT_KEY = 'zg.mydash.headlinesCompact';
+
 export function TopHeadlinesPanel() {
   const { theme } = useMyDashboardData();
   const t = usePageT(dict);
-  // fill + a fixed minHeight give the crawl a stable frame to scroll within;
-  // pad={false} lets the dense wire rows run edge-to-edge like a real ticker.
+  const [compact, toggleCompact] = usePersistedFlag(HEADLINES_COMPACT_KEY);
+
+  // fill + a fixed minHeight give the wire a stable frame to scroll within;
+  // pad={false} lets the dense rows run edge-to-edge like a real ticker.
   return (
-    <WidgetCard title={t('topHeadlines')} pad={false} fill minHeight={360}>
-      <HeadlinesWire theme={theme} />
+    <WidgetCard
+      title={t('topHeadlines')}
+      pad={false}
+      fill
+      // In banner mode the wire sets its own exact height, so the card must
+      // not also impose a floor — a minHeight here would win and un-shrink it.
+      minHeight={compact ? undefined : HEADLINES_HEIGHT}
+    >
+      <HeadlinesWire theme={theme} compact={compact} onToggleCompact={toggleCompact} />
     </WidgetCard>
   );
 }
