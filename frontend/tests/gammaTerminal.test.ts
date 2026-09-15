@@ -103,3 +103,31 @@ test("ribbon opacity is adjustable, persisted per surface, and defaults to 90%",
   assert.match(chart, /RIBBON_TIER_OPACITY\[p\.tier\] \* ribbonOpacity/);
   assert.match(chart, /RIBBON_GLOW_OPACITY\[p\.tier\] \* ribbonOpacity/);
 });
+
+// The volume pane has two views: the stacked up/down columns it has always
+// drawn, and a running net cumulative (core/netVolumeSeries) in the style of
+// the Options Flow chart's directional net volume.
+test("the volume pane offers both views, persisted per surface", () => {
+  const chart = readFileSync(new URL("../components/GammaTerminalChart.tsx", import.meta.url), "utf8");
+  assert.match(chart, /const \[volumeMode, setVolumeMode\] = useState<VolumeMode>\("updown"\)/);
+  assert.match(chart, /aria-label="Volume pane"/);
+  assert.match(chart, /onClick=\{\(\) => setVolumeMode\(m\)\}/);
+  assert.match(chart, /localStorage\.setItem\(volumeModeKey, volumeMode\)/);
+  assert.match(chart, /VOLUME_MODE_STORAGE_KEY = "zg\.gammaChart\.volumeMode\.v1"/);
+  // The pane's geometry comes from the tested module, not from inline math.
+  assert.match(chart, /netVolumeAreaPaths\(netVolume\.segments/);
+  assert.match(chart, /netVolumeScale\(values, \{ top: VOL_TOP, bottom: VOL_BOTTOM \}\)/);
+});
+
+// The running total has to be accumulated from the session's first bar, so the
+// number under a given bar is the same however the view is zoomed or panned.
+// Accumulating over the visible slice would restate it at every zoom.
+test("the net cumulative is accumulated through the right edge, not from the viewport", () => {
+  const chart = readFileSync(new URL("../components/GammaTerminalChart.tsx", import.meta.url), "utf8");
+  assert.match(chart, /const throughEdge = allBars\.slice\(0, viewEnd\);/);
+  assert.match(chart, /cumulativeNetVolume\(throughEdge, \{ resetPerDay: perDay \}\)\.slice\(viewStart, viewEnd\)/);
+  // Daily candles are one bar per session already, so they don't reset.
+  assert.match(chart, /const perDay = timeframe !== "1day";/);
+  // The replay's growing edge candle is substituted the way `bars` does it.
+  assert.match(chart, /if \(partialCurrentBar && throughEdge\.length > 0\) throughEdge\[throughEdge\.length - 1\] = partialCurrentBar;/);
+});

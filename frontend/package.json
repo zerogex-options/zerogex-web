@@ -93,6 +93,7 @@
     "test:gex-strike-charts": "node --experimental-strip-types --test tests/gexStrikeCharts.test.ts",
     "test:expiration-gradient": "node --experimental-strip-types --test tests/expirationGradient.test.ts",
     "test:flow-series-charts": "node --experimental-strip-types --test tests/flowSeriesCharts.test.ts",
+    "test:net-volume-series": "node --experimental-strip-types --test tests/netVolumeSeries.test.ts",
     "test:gamma-regime": "node --experimental-strip-types --test tests/gammaRegime.test.ts",
     "test:gamma-playbook": "node --experimental-strip-types --test tests/gammaPlaybook.test.ts",
     "test:regime-triggers": "node --experimental-strip-types --test tests/regimeTriggers.test.ts",

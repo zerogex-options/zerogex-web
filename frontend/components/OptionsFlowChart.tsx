@@ -50,6 +50,7 @@ import {
   type FlowSeriesPoint,
 } from '@/hooks/useFlowSeries';
 import {
+  NET_VOLUME_MODE_LABELS,
   generateNiceTicks,
   getDateMarkerMeta,
   getDynamicLeftMargin,
@@ -85,7 +86,7 @@ const OPTIONS_FLOW_DEFAULTS: OptionsFlowSettings = {
 };
 
 const CHART_TOOLTIP =
-  'Primary axis: net call premium (green) and net put premium (red). Bottom axis: net volume area, green above zero and red below zero. Aggregates every contract returned by the by-contract endpoint in 5-minute intervals. Use the filters below to narrow by strike or expiration.';
+  'Primary axis: net call premium (green) and net put premium (red). Bottom axis: the volume area — on the Directional basis, net volume signed by the aggressor read, green above zero and red below; on Total Traded, every contract that changed hands, which only ever rises. Aggregates every contract returned by the by-contract endpoint in 5-minute intervals. Use the filters below to narrow by strike or expiration.';
 
 // ── Filter chips ─────────────────────────────────────────────────────────────
 
@@ -268,13 +269,18 @@ function FullWidthFlowChart({
   isDark,
   isMobile,
   showUnderlyingPrice,
+  netVolumeMode,
 }: {
   rows: FlowTimeseriesRow[];
   isDark: boolean;
   isMobile: boolean;
   showUnderlyingPrice: boolean;
+  netVolumeMode: NetVolumeMode;
 }) {
   const axisStroke = isDark ? "var(--color-text-primary)" : "var(--color-text-primary)";
+  // The bottom axis plots a different quantity per basis, so it says which one:
+  // labelling a gross running total "Net Volume" is the misread this names away.
+  const volumeLabel = netVolumeMode === "raw" ? NET_VOLUME_MODE_LABELS.raw : NET_VOLUME_MODE_LABELS.directional;
 
   if (rows.length === 0) {
     return <div className="text-center py-8" style={{ color: isDark ? "var(--color-text-secondary)" : "var(--color-text-secondary)" }}>No chart data available</div>;
@@ -485,7 +491,7 @@ function FullWidthFlowChart({
             tick={{ fontSize: isMobile ? 9 : 10, fill: axisStroke }}
             tickMargin={isMobile ? 2 : 8}
             width={yAxisWidthRight}
-            label={isMobile ? undefined : { value: "Net Volume", angle: 90, position: "right", fill: axisStroke, fontSize: 10, offset: 16 }}
+            label={isMobile ? undefined : { value: volumeLabel, angle: 90, position: "right", fill: axisStroke, fontSize: 10, offset: 16 }}
           />
           <Tooltip
             content={({ active, label, payload }) => {
@@ -494,7 +500,7 @@ function FullWidthFlowChart({
               return (
                 <div style={{ backgroundColor: "var(--color-chart-tooltip-bg)", borderColor: "var(--color-border)", color: "var(--color-chart-tooltip-text)" }} className="rounded-lg border px-3 py-2 text-sm">
                   <div className="font-semibold">{new Date(String(label)).toLocaleString()}</div>
-                  <div>Net Volume: {Number(point?.netVolume ?? 0).toLocaleString()}</div>
+                  <div>{volumeLabel}: {Number(point?.netVolume ?? 0).toLocaleString()}</div>
                 </div>
               );
             }}
@@ -505,7 +511,7 @@ function FullWidthFlowChart({
             yAxisId="volume"
             type="monotone"
             dataKey="positiveNetVolume"
-            name="Positive Net Volume"
+            name={`Positive ${volumeLabel}`}
             stroke="var(--color-positive)"
             fill="var(--color-positive)"
             fillOpacity={0.45}
@@ -517,7 +523,7 @@ function FullWidthFlowChart({
             yAxisId="volume"
             type="monotone"
             dataKey="negativeNetVolume"
-            name="Negative Net Volume"
+            name={`Negative ${volumeLabel}`}
             stroke="var(--color-negative)"
             fill="var(--color-negative)"
             fillOpacity={0.45}
@@ -786,11 +792,11 @@ export default function OptionsFlowChart({
             )}
             {netVolumeModeProp === undefined && (
               <InlineSelect<NetVolumeMode>
-                label="Net Volume"
+                label="Volume"
                 value={netVolumeMode}
                 options={[
-                  { value: 'directional', label: 'Directional' },
-                  { value: 'raw', label: 'Raw Net' },
+                  { value: 'directional', label: NET_VOLUME_MODE_LABELS.directional },
+                  { value: 'raw', label: NET_VOLUME_MODE_LABELS.raw },
                 ]}
                 onChange={setOwnNetVolumeMode}
               />
@@ -831,6 +837,7 @@ export default function OptionsFlowChart({
         isDark={isDark}
         isMobile={isMobile}
         showUnderlyingPrice={showUnderlyingPrice}
+        netVolumeMode={netVolumeMode}
       />
     </section>
   );

@@ -61,6 +61,7 @@ export const de: Dictionary = {
   'nav.liveOptionsQuotes': 'Live-Optionskurse',
   'nav.dailyReplay': 'Tägliches Replay',
   'nav.dailyForecast': 'Tagesprognose',
+  'nav.dailyScorecard': 'Tages-Scorecard',
   'nav.hub': 'Hub',
   'nav.guides': 'Anleitungen',
   'nav.articles': 'Artikel',

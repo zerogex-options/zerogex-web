@@ -362,7 +362,7 @@ export const WIDGETS: WidgetDef[] = [
     id: 'options-flow',
     title: 'Options Flow',
     blurb:
-      'Net call and put premium against net volume through the session, with the underlying price overlaid. Session, net-volume basis and strike / expiration filters built in.',
+      'Net call and put premium against net volume through the session, with the underlying price overlaid. Session, volume basis and strike / expiration filters built in.',
     category: 'flow',
     tier: 'basic',
     icon: Waves,

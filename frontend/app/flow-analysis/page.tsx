@@ -41,6 +41,7 @@ import { etDateKeyFor } from "@/core/utils";
 // session timeline, labels and axis helpers from there so every chart on this
 // page lands on the same slots.
 import {
+  NET_VOLUME_MODE_LABELS,
   getDateMarkerMeta,
   getFiveMinuteSessionTimeline,
   isBarWindowComplete,
@@ -359,7 +360,7 @@ export default function FlowAnalysisPage() {
       <PageHeader
         title="Flow Analysis"
         sub="What traded today — premium, net volume, and the aggressor split behind both."
-        tooltip="The tape rather than the book. Premium is the dollars that changed hands; net volume is the contract count behind them, and the two can disagree — a thousand cheap far-dated calls move volume without moving premium. The aggressor split says which side crossed the spread, which is the closest the feed gets to intent: volume alone cannot tell an opening buy from a closing sell. 'Directional' basis signs each trade by that aggressor read; 'Raw Net' just nets the contracts, so compare the two when a reading looks surprising. Prior session is there so you can see whether today is unusual at all."
+        tooltip="The tape rather than the book. Premium is the dollars that changed hands; net volume is the contract count behind them, and the two can disagree — a thousand cheap far-dated calls move volume without moving premium. The aggressor split says which side crossed the spread, which is the closest the feed gets to intent: volume alone cannot tell an opening buy from a closing sell. 'Directional' basis signs each trade by that aggressor read, so it can print below zero; 'Total Traded' counts every contract that changed hands and only ever rises, so compare the two when a reading looks surprising. Prior session is there so you can see whether today is unusual at all."
         actions={
           <FilterBar>
             <FilterSelect
@@ -372,12 +373,12 @@ export default function FlowAnalysisPage() {
               ]}
             />
             <FilterSelect
-              label="Net volume basis"
+              label="Volume basis"
               value={netVolumeMode}
               onChange={setNetVolumeMode}
               options={[
-                { value: "directional" as NetVolumeMode, label: "Directional" },
-                { value: "raw" as NetVolumeMode, label: "Raw Net" },
+                { value: "directional" as NetVolumeMode, label: NET_VOLUME_MODE_LABELS.directional },
+                { value: "raw" as NetVolumeMode, label: NET_VOLUME_MODE_LABELS.raw },
               ]}
             />
           </FilterBar>

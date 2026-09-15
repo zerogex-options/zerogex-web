@@ -15,6 +15,9 @@
  */
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { capture } from '@/core/telemetry/posthog-client';
+import { TelemetryEvent } from '@/core/telemetry/events';
+import { notePresetApplied, reportPresetRetention } from '@/core/presetAdoption';
 import {
   LayoutGrid,
   Pencil,
@@ -233,9 +236,29 @@ export default function MyDashboardPage() {
       setLayout(next);
       setEditing(false);
       setGalleryPane(null);
+      // Adoption, not just the click: `notePresetApplied` stamps the board so
+      // the retention check below can tell "applied once" from "still using
+      // it". Without that pair, a preset built for a named subscriber can go
+      // unused for weeks and the only way we find out is if they mention it.
+      capture(TelemetryEvent.DashboardPresetApplied, { preset: preset.id });
+      notePresetApplied(preset.id, scope);
     },
-    [hasPro],
+    [hasPro, scope],
   );
+
+  // Fires at most once per preset per day, only on a later day than the one the
+  // preset was applied on — so it measures a board someone came back to.
+  //
+  // Gated on `hydrated`: before the saved layout loads, `layout` is the empty
+  // default, and reportPresetRetention reads an empty board as abandonment and
+  // clears the stamp. Running this unguarded would erase the adoption record on
+  // every single page load — the metric would report nothing but churn.
+  useEffect(() => {
+    if (!hydrated) return;
+    const retention = reportPresetRetention(scope, isLayoutEmpty(layout));
+    if (!retention) return;
+    capture(TelemetryEvent.DashboardPresetRetained, { ...retention });
+  }, [scope, layout, hydrated]);
 
   const handleReset = useCallback(() => {
     if (typeof window !== 'undefined' && !window.confirm(t('confirmResetBoard'))) {
