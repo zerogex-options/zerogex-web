@@ -7,7 +7,7 @@
  * they need (symbol / theme / a context-derived model).
  */
 
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Gauge, ListOrdered } from 'lucide-react';
 
 import MarketMakerExposures from '@/components/MarketMakerExposures';
@@ -704,14 +704,48 @@ export function WorldClocksPanel() {
   );
 }
 
+// Frame heights for the wire. The tall one is the long-standing default and
+// stays the default; the banner is about two rows, for running the wire as a
+// thin strip across the top or bottom of a board.
+const HEADLINES_HEIGHT = 360;
+const HEADLINES_COMPACT_KEY = 'zg.mydash.headlinesCompact';
+
 export function TopHeadlinesPanel() {
   const { theme } = useMyDashboardData();
   const t = usePageT(dict);
-  // fill + a fixed minHeight give the crawl a stable frame to scroll within;
-  // pad={false} lets the dense wire rows run edge-to-edge like a real ticker.
+  const [compact, setCompact] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      return localStorage.getItem(HEADLINES_COMPACT_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleCompact = useCallback(() => {
+    setCompact((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(HEADLINES_COMPACT_KEY, String(next));
+      } catch {
+        // Private mode / blocked storage: the toggle still works this session.
+      }
+      return next;
+    });
+  }, []);
+
+  // fill + a fixed minHeight give the wire a stable frame to scroll within;
+  // pad={false} lets the dense rows run edge-to-edge like a real ticker.
   return (
-    <WidgetCard title={t('topHeadlines')} pad={false} fill minHeight={360}>
-      <HeadlinesWire theme={theme} />
+    <WidgetCard
+      title={t('topHeadlines')}
+      pad={false}
+      fill
+      // In banner mode the wire sets its own exact height, so the card must
+      // not also impose a floor — a minHeight here would win and un-shrink it.
+      minHeight={compact ? undefined : HEADLINES_HEIGHT}
+    >
+      <HeadlinesWire theme={theme} compact={compact} onToggleCompact={toggleCompact} />
     </WidgetCard>
   );
 }
