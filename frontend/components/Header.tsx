@@ -383,8 +383,14 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
       style={{
         backgroundColor: "transparent",
         borderColor: isCollapsed ? "transparent" : border,
-        backdropFilter: isCollapsed ? "none" : "blur(20px)",
-        WebkitBackdropFilter: isCollapsed ? "none" : "blur(20px)",
+        // The header is sticky and its background is transparent, so this blur
+        // is the only thing separating it from the page scrolling underneath.
+        // It used to be switched off while collapsed, which left the page
+        // legible straight through the collapsed controls — worst on a narrow
+        // or portrait viewport, where there is the least room between them.
+        // The collapsed bar keeps its borderless look; only the backdrop stays.
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
       }}
     >
       <div
