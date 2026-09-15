@@ -35,6 +35,7 @@ import SessionBadge from "./SessionBadge";
 import FuturesContractBadge from "./FuturesContractBadge";
 import FuturesDelayBadge from "./FuturesDelayBadge";
 import WorldClocks from "./WorldClocks";
+import { usePersistedFlag } from "@/hooks/usePersistedFlag";
 import OptionsCalendarBadge from "./OptionsCalendarBadge";
 import NewsHeadlinesBadge from "./NewsHeadlinesBadge";
 import { useMarketQuote, useSessionCloses } from "@/hooks/useApiData";
@@ -53,14 +54,10 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
   const { symbol, setSymbol } = useTimeframe();
   const [showCountdown, setShowCountdown] = useState(false);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(() => {
-    if (typeof window === "undefined") return false;
-    try {
-      return localStorage.getItem("headerCollapsed") === "true";
-    } catch {
-      return false;
-    }
-  });
+  // usePersistedFlag rather than a localStorage seed: the server has no
+  // storage, so seeding useState from it renders expanded on the server and
+  // collapsed on the client, which React reports as a hydration mismatch.
+  const [isCollapsed, toggleCollapsed] = usePersistedFlag("headerCollapsed");
   const headerRef = useRef<HTMLElement | null>(null);
   const mobileTopBarRef = useRef<HTMLDivElement | null>(null);
   const router = useRouter();
@@ -179,16 +176,6 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
   // Fetch real market data
   const { data: quoteData } = useMarketQuote(symbol, 1000);
   const { data: sessionClosesData } = useSessionCloses(symbol, 60000, quoteData?.session ?? null);
-
-  // Save collapsed state to localStorage
-  const toggleCollapsed = () => {
-    const newState = !isCollapsed;
-    setIsCollapsed(newState);
-    localStorage.setItem("headerCollapsed", String(newState));
-    window.dispatchEvent(
-      new CustomEvent("header:collapse-changed", { detail: newState }),
-    );
-  };
 
 
   useEffect(() => {

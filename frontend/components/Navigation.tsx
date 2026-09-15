@@ -20,6 +20,7 @@ import BetaBadge from "./BetaBadge";
 import TierBadge from "./TierBadge";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import { useAuthSession } from "@/hooks/useAuthSession";
+import { usePersistedFlag } from "@/hooks/usePersistedFlag";
 
 interface NavigationProps {
   theme: Theme;
@@ -58,22 +59,13 @@ export default function Navigation({ theme }: NavigationProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [session, setSession] = useState(getMarketSession());
-  const [sidebarVisible, setSidebarVisible] = useState(() => {
-    if (typeof window === "undefined") return true;
-    try {
-      return localStorage.getItem("sidebarVisible") !== "false";
-    } catch {
-      return true;
-    }
-  });
-  const [headerCollapsed, setHeaderCollapsed] = useState(() => {
-    if (typeof window === "undefined") return false;
-    try {
-      return localStorage.getItem("headerCollapsed") === "true";
-    } catch {
-      return false;
-    }
-  });
+  // Both read through usePersistedFlag so the server and the hydrating render
+  // agree; see that hook for why seeding useState from localStorage cannot.
+  // Sharing the "headerCollapsed" key with Header is also what keeps the two
+  // in step — the hook notifies every reader of a key, so this no longer needs
+  // the header to announce itself over a custom event.
+  const [sidebarVisible, toggleSidebarFlag] = usePersistedFlag("sidebarVisible", true);
+  const [headerCollapsed] = usePersistedFlag("headerCollapsed");
   const { data: authSession } = useAuthSession();
   const currentTier = authSession?.user?.tier ?? "public";
   const isAuthenticated = !!authSession?.authenticated;
@@ -302,24 +294,7 @@ export default function Navigation({ theme }: NavigationProps) {
     return () => observer.disconnect();
   }, [syncNavVars]);
 
-  useEffect(() => {
-    const handleCollapseChanged = (event: Event) => {
-      const detail = (event as CustomEvent<boolean>).detail;
-      setHeaderCollapsed(Boolean(detail));
-    };
-
-    window.addEventListener("header:collapse-changed", handleCollapseChanged as EventListener);
-    return () =>
-      window.removeEventListener("header:collapse-changed", handleCollapseChanged as EventListener);
-  }, []);
-
-  const toggleSidebar = () => {
-    const next = !sidebarVisible;
-    setSidebarVisible(next);
-    try {
-      localStorage.setItem("sidebarVisible", String(next));
-    } catch {}
-  };
+  const toggleSidebar = toggleSidebarFlag;
 
   const border = "var(--color-border)";
 
