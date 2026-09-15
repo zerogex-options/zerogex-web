@@ -30,6 +30,8 @@ import {
   RotateCcw,
   Sparkles,
   Lock,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react';
 
 import PageShell from '@/components/layout/PageShell';
@@ -378,6 +380,12 @@ function BoardPanes({ linked, children }: { linked: boolean; children: ReactNode
   return <LinkedPriceAxisProvider>{children}</LinkedPriceAxisProvider>;
 }
 
+// Per-browser collapse state for the board's title + management controls. On a
+// short or portrait viewport that block is a large slice of the page, and it is
+// only touched while rearranging the board — so it can be folded away without
+// losing anything you use during a session.
+const CONTROLS_COLLAPSED_KEY = 'zg.mydash.controlsCollapsed';
+
 // ── Header ────────────────────────────────────────────────────────────────────
 
 function Header({
@@ -407,6 +415,53 @@ function Header({
   onReset: () => void;
 }) {
   const t = usePageT(dict);
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      return localStorage.getItem(CONTROLS_COLLAPSED_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleCollapsed = useCallback(() => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(CONTROLS_COLLAPSED_KEY, String(next));
+      } catch {
+        // Private mode / blocked storage: the toggle still works this session.
+      }
+      return next;
+    });
+  }, []);
+
+  // The collapse control itself is never hidden — folding the block away has to
+  // leave something to unfold it with.
+  const collapseToggle = (
+    <button
+      type="button"
+      onClick={toggleCollapsed}
+      aria-expanded={!collapsed}
+      className="zg-btn zg-btn--ghost"
+      title={collapsed ? t('showControls') : t('hideControls')}
+      aria-label={collapsed ? t('showControls') : t('hideControls')}
+    >
+      {collapsed ? <ChevronDown size={15} /> : <ChevronUp size={15} />}
+    </button>
+  );
+
+  // Collapsed, the board keeps the one control that gets used while reading it
+  // — the underlying — and drops the title block and the management buttons.
+  if (collapsed) {
+    return (
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <SymbolToggle />
+        {collapseToggle}
+      </div>
+    );
+  }
+
   return (
     <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
       <div>
@@ -423,6 +478,7 @@ function Header({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
+        {collapseToggle}
         <SymbolToggle />
         {!isEmpty && (
           <>
