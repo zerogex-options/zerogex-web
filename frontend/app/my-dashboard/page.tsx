@@ -18,6 +18,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { capture } from '@/core/telemetry/posthog-client';
 import { TelemetryEvent } from '@/core/telemetry/events';
 import { notePresetApplied, reportPresetRetention } from '@/core/presetAdoption';
+import { usePersistedFlag } from '@/hooks/usePersistedFlag';
 import {
   LayoutGrid,
   Pencil,
@@ -415,26 +416,7 @@ function Header({
   onReset: () => void;
 }) {
   const t = usePageT(dict);
-  const [collapsed, setCollapsed] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    try {
-      return localStorage.getItem(CONTROLS_COLLAPSED_KEY) === 'true';
-    } catch {
-      return false;
-    }
-  });
-
-  const toggleCollapsed = useCallback(() => {
-    setCollapsed((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem(CONTROLS_COLLAPSED_KEY, String(next));
-      } catch {
-        // Private mode / blocked storage: the toggle still works this session.
-      }
-      return next;
-    });
-  }, []);
+  const [collapsed, toggleCollapsed] = usePersistedFlag(CONTROLS_COLLAPSED_KEY);
 
   // The collapse control itself is never hidden — folding the block away has to
   // leave something to unfold it with.

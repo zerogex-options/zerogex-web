@@ -7,7 +7,7 @@
  * they need (symbol / theme / a context-derived model).
  */
 
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Gauge, ListOrdered } from 'lucide-react';
 
 import MarketMakerExposures from '@/components/MarketMakerExposures';
@@ -40,6 +40,7 @@ import WorldClocks from '@/components/WorldClocks';
 import HeadlinesWire from '@/components/HeadlinesWire';
 import MetricCard from '@/components/MetricCard';
 import { useTechnicals } from '@/hooks/useTechnicals';
+import { usePersistedFlag } from '@/hooks/usePersistedFlag';
 
 import { useTimeframe } from '@/core/TimeframeContext';
 import { useHedgingFlow } from '@/hooks/useHedgingFlow';
@@ -713,26 +714,7 @@ const HEADLINES_COMPACT_KEY = 'zg.mydash.headlinesCompact';
 export function TopHeadlinesPanel() {
   const { theme } = useMyDashboardData();
   const t = usePageT(dict);
-  const [compact, setCompact] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    try {
-      return localStorage.getItem(HEADLINES_COMPACT_KEY) === 'true';
-    } catch {
-      return false;
-    }
-  });
-
-  const toggleCompact = useCallback(() => {
-    setCompact((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem(HEADLINES_COMPACT_KEY, String(next));
-      } catch {
-        // Private mode / blocked storage: the toggle still works this session.
-      }
-      return next;
-    });
-  }, []);
+  const [compact, toggleCompact] = usePersistedFlag(HEADLINES_COMPACT_KEY);
 
   // fill + a fixed minHeight give the wire a stable frame to scroll within;
   // pad={false} lets the dense rows run edge-to-edge like a real ticker.
