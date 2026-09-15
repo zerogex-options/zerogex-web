@@ -221,11 +221,20 @@ auth/transactional and TradeWorkz alerts.
 
 ### 3.3 Trial-end & billing / dunning
 
-**48h trial-end reminder** — `sendTrialReminderEmail(to, { trialEndIso, promoIntroLabel?, billing? })`
+**48h trial-end reminder** — `sendTrialReminderEmail(to, { trialEndIso, promoIntroLabel?, billing?, convertOfferUrl?, dormant? })`
 - **Subject:** `Your ZeroGEX free trial ends in 2 days`
 - Courtesy heads-up before auto-conversion. When `billing` is resolved from Stripe it
   names the exact charge + card ("Your subscription will begin at $X/month using your
   Visa card ending in 1234"). Manage-subscription CTA. No FOH footer.
+- **The email must never imply the trial needs an action to continue.** The opener says
+  the trial "turns into a paid subscription automatically"; the "there's nothing you
+  need to do" line is printed ABOVE the `convertOfferUrl` block, not below it; and the
+  discount CTA reads *Take {pct}% off my subscription*, never "keep my access" /
+  "keep going" — that framing belongs on the cancellation save (`/save`), where access
+  genuinely is at stake. Here the offer moves the **price** only, and says so beside
+  the button. Locked down in `tests/trialReminder.test.ts`.
+- `dormant` (member never returned after signup) leads with the charge and the exit and
+  suppresses the discount offer entirely.
 
 **Trial-conversion confirmation** — `sendTrialConvertedEmail(to, { amountFormatted?, cardBrand?, cardLast4?, nextChargeIso?, fullyCredited? })`
 - **Subject:** `Your ZeroGEX trial just became a full membership`

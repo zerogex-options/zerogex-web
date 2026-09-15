@@ -77,6 +77,7 @@
     "test:return-intent": "node --experimental-strip-types --test tests/returnIntent.test.ts",
     "test:trial-dunning": "node --experimental-strip-types --test tests/trialDunning.test.ts",
     "test:trial-converted": "node --experimental-strip-types --test tests/trialConverted.test.ts",
+    "test:trial-reminder": "node --experimental-strip-types --test tests/trialReminder.test.ts",
     "test:trial-offer": "node --experimental-strip-types --test tests/trialOffer.test.ts",
     "test:card-expiry": "node --experimental-strip-types --test tests/cardExpiry.test.ts",
     "test:subscription-pause": "node --experimental-strip-types --test tests/subscriptionPause.test.ts",
