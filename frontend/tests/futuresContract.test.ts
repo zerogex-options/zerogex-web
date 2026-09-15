@@ -39,6 +39,7 @@ import {
   summarizeSeriesContracts,
 } from '../core/futuresContract.ts';
 import { HELP_ARTICLES, getHelpArticleBySlug } from '../core/helpRegistry.ts';
+import { projectedIndexSpot } from '../app/live-bulletin/bulletinHelpers.ts';
 
 const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), 'utf8');
 
@@ -238,4 +239,55 @@ test('the article does not concede the prices are wrong', () => {
   // apologises for the data invites a support ticket instead of closing one.
   assert.match(ARTICLE, /Both numbers are correct/i);
   assert.doesNotMatch(ARTICLE, /our (price|feed|data) is (wrong|incorrect|off)/i);
+});
+
+// ── The Live Bulletin card ───────────────────────────────────────────────
+// The card is screenshotted into tweets and support replies, so its label is
+// read far from any tooltip. "futures-implied via ES" carries the same
+// ambiguity that started the reports — it does not say WHICH ES — so the
+// projection names the contract wherever the quote gives one.
+
+test('the bulletin card names the contract the spot was projected from', () => {
+  const projection = projectedIndexSpot(
+    {
+      display_source: 'futures',
+      data_symbol: 'ES',
+      data_contract: 'ESZ26',
+      futures_close: 6120,
+      futures_reference_close: 6100,
+    },
+    5990,
+  );
+  assert.equal(projection?.sourceLabel, 'ESZ26');
+  // The projection itself is untouched: the future's overnight move applied to
+  // the cash close. Only the label changed.
+  assert.equal(projection?.spot, 6010);
+});
+
+test('the bulletin card falls back to the ticker when no contract is served', () => {
+  // An older backend or a cached response. The card reads exactly as it did.
+  const projection = projectedIndexSpot(
+    {
+      display_source: 'futures',
+      data_symbol: 'ES',
+      futures_close: 6120,
+      futures_reference_close: 6100,
+    },
+    5990,
+  );
+  assert.equal(projection?.sourceLabel, 'ES');
+
+  // And with neither, the generic word rather than an empty label.
+  assert.equal(
+    projectedIndexSpot(
+      { display_source: 'futures', futures_close: 6120, futures_reference_close: 6100 },
+      5990,
+    )?.sourceLabel,
+    'futures',
+  );
+});
+
+test('an in-session cash quote is never projected or labelled', () => {
+  assert.equal(projectedIndexSpot({ display_source: null, data_contract: 'ESZ26' }, 5990), null);
+  assert.equal(projectedIndexSpot(null, 5990), null);
 });

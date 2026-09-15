@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
   FUTURES_CONTRACT_EXPLAINER,
@@ -36,10 +37,19 @@ import { estimateTooltipHeight, resolveTooltipGeometry, type TooltipGeometry } f
  *  3. It is display only. The contract code is rendered and never used to key a
  *     cache, a request, or persisted state — see core/futuresContract.ts.
  *
- * The panel is a DOM sibling of the trigger rather than a portal, which is what
- * puts the link next in the tab order; `position: fixed` keeps it out of the
- * document flow and clear of an ancestor's overflow, and its coordinates come
- * from the same core/tooltipPlacement geometry every other tooltip uses.
+ * The panel is portaled to <body> and positioned from the same
+ * core/tooltipPlacement geometry every other tooltip uses. It has to be: the
+ * gamma terminal's card carries `overflow: hidden` AND a retained
+ * `transform: translateY(0)` from its entrance animation, and a transform makes
+ * an element a containing block for `position: fixed` descendants — so an
+ * in-flow panel was laid out against the card and then clipped away by it. A
+ * portal is the only placement that survives an arbitrary ancestor.
+ *
+ * The cost of the portal is the browser's sequential focus order, which the
+ * panel leaves when it leaves the DOM subtree, so Tab is bridged explicitly
+ * between the trigger and the article link (see onKeyDown below). React's
+ * synthetic focus events still bubble through the React tree from a portal, so
+ * the open/close tracking on the wrapper is unaffected.
  */
 interface Props {
   /** `data_contract` from the quote or bar. Absent for anything not a future. */
@@ -87,9 +97,19 @@ export default function FuturesContractBadge({
   const wrapperRef = useRef<HTMLSpanElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLSpanElement>(null);
+  const linkRef = useRef<HTMLAnchorElement>(null);
   const hoverCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const panelId = useId();
   const descriptionId = useId();
+
+  // The panel is portaled, so it is NOT a DOM descendant of the wrapper: both
+  // halves have to be asked whether a node is still inside this control, or a
+  // click or a focus landing in the panel reads as one landing outside it.
+  const insideControl = useCallback(
+    (node: Node | null) =>
+      !!node && (!!wrapperRef.current?.contains(node) || !!panelRef.current?.contains(node)),
+    [],
+  );
 
   // The panel sits a gap away from the chip, so the pointer is briefly over
   // neither on its way to the article link. Closing on the first `pointerleave`
@@ -155,7 +175,7 @@ export default function FuturesContractBadge({
       triggerRef.current?.focus();
     };
     const handlePointerDown = (event: PointerEvent) => {
-      if (wrapperRef.current?.contains(event.target as Node)) return;
+      if (insideControl(event.target as Node)) return;
       setPinned(false);
     };
 
@@ -169,7 +189,7 @@ export default function FuturesContractBadge({
       window.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("pointerdown", handlePointerDown);
     };
-  }, [open, updateLayout, cancelHoverClose]);
+  }, [open, updateLayout, cancelHoverClose, insideControl]);
 
   // No contract: render exactly what this surface rendered before. A surface
   // that had no chip (the natively-served ES / NQ header price) passes no
@@ -184,15 +204,82 @@ export default function FuturesContractBadge({
     );
   }
 
+  const panel = (
+    <span
+      ref={panelRef}
+      id={panelId}
+      className="zg-contract-panel"
+      style={{
+        top: layout?.top ?? 0,
+        left: layout?.left ?? 0,
+        width: layout ? `${layout.width}px` : undefined,
+        // Hidden until the geometry lands, so the panel never flashes at the
+        // top-left corner on its first frame.
+        visibility: layout ? "visible" : "hidden",
+      }}
+      onPointerEnter={(event) => {
+        if (event.pointerType !== "mouse") return;
+        openOnHover();
+      }}
+      onPointerLeave={(event) => {
+        if (event.pointerType !== "mouse") return;
+        scheduleHoverClose();
+      }}
+    >
+      {/* The prose duplicates the accessible description above, so it is hidden
+          from assistive tech to avoid reading the same paragraph twice. The
+          link is deliberately outside it and stays reachable. */}
+      <span aria-hidden="true" style={{ display: "block" }}>
+        <span className="zg-contract-panel-code">{resolved.code}</span>
+        {resolved.descriptor && <span> — {resolved.descriptor}</span>}
+        {resolved.expiryLine && (
+          <span style={{ display: "block", opacity: 0.8 }}>{resolved.expiryLine}</span>
+        )}
+        {note && <span style={{ display: "block", marginTop: 6, opacity: 0.9 }}>{note}</span>}
+        <span style={{ display: "block", marginTop: 6, opacity: 0.9 }}>
+          {FUTURES_CONTRACT_EXPLAINER}
+        </span>
+      </span>
+      <Link
+        ref={linkRef}
+        href={FUTURES_CONTRACT_HELP_HREF}
+        className="zg-contract-panel-link"
+        onKeyDown={(event) => {
+          if (event.key !== "Tab") return;
+          if (event.shiftKey) {
+            // Back to the chip itself, not to whatever precedes it — the
+            // portal would otherwise drop the user at the end of the document.
+            event.preventDefault();
+            triggerRef.current?.focus();
+            return;
+          }
+          // Forward: move the focus back to the chip WITHOUT preventing the
+          // default, so the browser resumes its own tab order from there and
+          // lands on whatever follows the chip on the page. The trigger's blur
+          // then closes the panel.
+          triggerRef.current?.focus();
+        }}
+        onClick={() => {
+          cancelHoverClose();
+          setPinned(false);
+          setHovered(false);
+        }}
+      >
+        {FUTURES_CONTRACT_HELP_LABEL} →
+      </Link>
+    </span>
+  );
+
   return (
     <span
       ref={wrapperRef}
-      style={{ display: "inline-flex", position: "relative" }}
+      style={{ display: "inline-flex" }}
       // Focus is tracked on the wrapper, not the trigger, because React's
-      // onFocus / onBlur are focusin / focusout and therefore bubble: keyboard
-      // focus moving from the chip INTO the panel (to the article link) has to
-      // keep the panel open, and focus leaving the link for the next control on
-      // the page has to close it. Watching the button alone gets the first case
+      // onFocus / onBlur are focusin / focusout and therefore bubble — through
+      // the portal too, since React events follow the React tree rather than
+      // the DOM one. Keyboard focus moving from the chip INTO the panel has to
+      // keep it open, and focus leaving the link for the next control on the
+      // page has to close it. Watching the button alone gets the first case
       // right and then never hears about the second, leaving the panel open
       // over the page for the rest of the session.
       onFocus={() => {
@@ -200,7 +287,7 @@ export default function FuturesContractBadge({
         setFocused(true);
       }}
       onBlur={(event) => {
-        if (wrapperRef.current?.contains(event.relatedTarget as Node | null)) return;
+        if (insideControl(event.relatedTarget as Node | null)) return;
         setFocused(false);
       }}
     >
@@ -228,6 +315,14 @@ export default function FuturesContractBadge({
           if (event.pointerType !== "mouse") return;
           scheduleHoverClose();
         }}
+        onKeyDown={(event) => {
+          // The panel is portaled, so the browser's next tab stop after this
+          // chip is whatever follows it on the page, not the article link.
+          // Hand focus across explicitly, or the link is mouse-only.
+          if (!open || event.key !== "Tab" || event.shiftKey || !linkRef.current) return;
+          event.preventDefault();
+          linkRef.current.focus();
+        }}
         onClick={(event) => {
           // Touch has no hover, so the tap has to latch the panel open. Stop
           // the click here: several of these chips sit inside cards that toggle
@@ -245,57 +340,7 @@ export default function FuturesContractBadge({
         {description}
       </span>
 
-      {open && (
-        <span
-          ref={panelRef}
-          id={panelId}
-          className="zg-contract-panel"
-          style={{
-            top: layout?.top ?? 0,
-            left: layout?.left ?? 0,
-            width: layout ? `${layout.width}px` : undefined,
-            // Hidden until the geometry lands, so the panel never flashes at
-            // the top-left corner on its first frame.
-            visibility: layout ? "visible" : "hidden",
-          }}
-          onPointerEnter={(event) => {
-            if (event.pointerType !== "mouse") return;
-            openOnHover();
-          }}
-          onPointerLeave={(event) => {
-            if (event.pointerType !== "mouse") return;
-            scheduleHoverClose();
-          }}
-        >
-          {/* The prose duplicates the accessible description above, so it is
-              hidden from assistive tech to avoid reading the same paragraph
-              twice. The link is deliberately outside it and stays reachable. */}
-          <span aria-hidden="true" style={{ display: "block" }}>
-            <span className="zg-contract-panel-code">{resolved.code}</span>
-            {resolved.descriptor && <span> — {resolved.descriptor}</span>}
-            {resolved.expiryLine && (
-              <span style={{ display: "block", opacity: 0.8 }}>{resolved.expiryLine}</span>
-            )}
-            {note && (
-              <span style={{ display: "block", marginTop: 6, opacity: 0.9 }}>{note}</span>
-            )}
-            <span style={{ display: "block", marginTop: 6, opacity: 0.9 }}>
-              {FUTURES_CONTRACT_EXPLAINER}
-            </span>
-          </span>
-          <Link
-            href={FUTURES_CONTRACT_HELP_HREF}
-            className="zg-contract-panel-link"
-            onClick={() => {
-              cancelHoverClose();
-              setPinned(false);
-              setHovered(false);
-            }}
-          >
-            {FUTURES_CONTRACT_HELP_LABEL} →
-          </Link>
-        </span>
-      )}
+      {open && typeof document !== "undefined" && createPortal(panel, document.body)}
     </span>
   );
 }
