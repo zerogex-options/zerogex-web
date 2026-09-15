@@ -117,7 +117,8 @@
     "test:mcp": "node --experimental-strip-types --test tests/mcp.test.ts",
     "test:strategy-catalog-view": "node --experimental-strip-types --test tests/strategyCatalogView.test.ts",
     "test:futures-contract": "node --experimental-strip-types --test tests/futuresContract.test.ts",
-    "verify:mcp": "bash scripts/verify-mcp.sh"
+    "verify:mcp": "bash scripts/verify-mcp.sh",
+    "test:appearance": "node --experimental-strip-types --test tests/appearance.test.ts"
   },
   "dependencies": {
     "jose": "^5.9.6",

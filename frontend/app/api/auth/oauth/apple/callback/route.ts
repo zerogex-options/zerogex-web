@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createOrLoginOAuthUser, attachSessionCookie, enforceSignupRateLimit, getClientIp, isOAuthReturningUser, issueCsrfCookie, linkUserIdentity } from '@/core/serverAuth';
+import { createOrLoginOAuthUser, applyAppearanceCookies, attachSessionCookie, enforceSignupRateLimit, getClientIp, isOAuthReturningUser, issueCsrfCookie, linkUserIdentity } from '@/core/serverAuth';
 import { APPLE_LINK_TICKET_COOKIE_NAME, getAppleClientSecret, getOAuthConfig, getOAuthNonceCookieName, getOAuthStateCookieName, isAppleOAuthConfigured, verifyAppleIdToken } from '@/core/oauth';
 import { readLinkTicket } from '@/core/oauthLinkTicket';
 
@@ -123,6 +123,7 @@ async function handleCallback(request: NextRequest, state: string | null, code: 
   const response = NextResponse.redirect(new URL(destination, baseUrl));
   attachSessionCookie(response, session.token);
   issueCsrfCookie(response, session.csrfToken);
+  applyAppearanceCookies(response, session.user.id);
   clearAppleFlowCookies(response);
   return response;
 }

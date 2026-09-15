@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { UI_COOKIE, flagFromCookie, navWidthFor } from '@/core/uiCookies';
+import { PALETTE_COOKIE, THEME_COOKIE, normalizePalette, normalizeTheme } from '@/core/appearance';
 import localFont from 'next/font/local';
 import './globals.css';
 import { ThemeProvider } from '@/core/ThemeContext';
@@ -208,20 +209,6 @@ const FONT_VARIABLES = [
   hankenGrotesk.variable,
 ].join(' ');
 
-type PaletteId = 'zerogex-og' | 'mars' | 'california' | 'wallstreet' | 'kyoto' | 'london' | 'zurich' | 'maldives' | 'tulum' | 'vinyl-topanga' | 'monochrome-madison' | 'palm-springs';
-const PALETTES: PaletteId[] = ['zerogex-og', 'mars', 'california', 'wallstreet', 'kyoto', 'london', 'zurich', 'maldives', 'tulum', 'vinyl-topanga', 'monochrome-madison', 'palm-springs'];
-const DEFAULT_PALETTE: PaletteId = 'zerogex-og';
-// Retired palettes migrate to their nearest successor so a saved preference
-// never resolves to nothing (walnut/pacific/deluxe were earlier renames).
-const LEGACY_PALETTE_MAP: Record<string, PaletteId> = {
-  walnut: 'kyoto',
-  deluxe: 'wallstreet',
-  pacific: 'palm-springs',
-  miami: 'palm-springs',
-  monaco: 'monochrome-madison',
-  amalfi: 'palm-springs',
-};
-
 // Shared site-wide description, sized for both Google SERP snippets and
 // LinkedIn/X social cards (LinkedIn warns under 100 chars; Google truncates
 // around 160). 138 characters lands cleanly inside both windows.
@@ -270,12 +257,8 @@ export default async function RootLayout({
   // the user's chosen palette. Prevents a flash of default styling when the
   // client hydrates.
   const cookieStore = await cookies();
-  const rawPalette = cookieStore.get('palette')?.value;
-  const mappedPalette = rawPalette && LEGACY_PALETTE_MAP[rawPalette] ? LEGACY_PALETTE_MAP[rawPalette] : rawPalette;
-  const palette: PaletteId = PALETTES.includes(mappedPalette as PaletteId)
-    ? (mappedPalette as PaletteId)
-    : DEFAULT_PALETTE;
-  const theme = cookieStore.get('theme')?.value === 'light' ? 'light' : 'dark';
+  const palette = normalizePalette(cookieStore.get(PALETTE_COOKIE)?.value);
+  const theme = normalizeTheme(cookieStore.get(THEME_COOKIE)?.value);
 
   // Persisted UI language — seeds both <html lang> (for a11y/SEO and correct
   // initial paint) and the LanguageProvider so SSR and the first client render
@@ -305,7 +288,7 @@ export default async function RootLayout({
         <SiteJsonLd />
       </head>
       <body style={{ margin: 0, padding: 0 }}>
-        <ThemeProvider>
+        <ThemeProvider initialTheme={theme} initialPalette={palette}>
           <LanguageProvider initialLocale={locale}>
             <TimeframeProvider>
               <GexUnitProvider>

@@ -22,7 +22,11 @@ import { useCallback, useEffect, useSyncExternalStore } from 'react';
 import { readUiCookie, writeUiCookie } from '@/core/uiCookies';
 
 // Every hook instance shares one listener set, so two components reading the
-// same key stay in step — and a change in another tab lands in this one.
+// same key stay in step within a tab — that is what lets Header and Navigation
+// share "headerCollapsed" without passing anything between them. The `storage`
+// listener below additionally picks up another TAB's change, but only for the
+// localStorage-backed flags: writing document.cookie raises no event, so the
+// cookie-backed ones settle on the next navigation instead.
 const listeners = new Set<() => void>();
 
 // Fallback for browsers that refuse localStorage (private mode, blocked site
@@ -96,7 +100,10 @@ export function usePersistedFlag(
   }, [storageKey, store]);
 
   const toggle = useCallback(() => {
-    const next = !value;
+    // Read the live snapshot rather than closing over the rendered `value`, so
+    // two toggles dispatched before the next render cannot both act on the
+    // same stale reading.
+    const next = !getSnapshot();
     memory.set(storageKey, next);
     try {
       if (store === 'cookie') writeUiCookie(storageKey, String(next));
@@ -106,7 +113,7 @@ export function usePersistedFlag(
       // for this session, it just will not survive a reload.
     }
     emit();
-  }, [storageKey, value, store]);
+  }, [storageKey, store, getSnapshot]);
 
   return [value, toggle];
 }

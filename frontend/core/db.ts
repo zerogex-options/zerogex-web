@@ -186,6 +186,11 @@ function initDb(): DatabaseSync {
   // not falsified. Read them as "no recorded acceptance" and fall back to the
   // footer-linked published terms.
   ensureColumn('users', 'terms_accepted_at', 'TEXT');
+  // Appearance, stored against the account so it follows the member to a new
+  // browser or device instead of living only in that browser's cookie. Null
+  // means "never chosen" — the site default applies.
+  ensureColumn('users', 'ui_theme', 'TEXT');
+  ensureColumn('users', 'ui_palette', 'TEXT');
   ensureColumn('users', 'terms_version_accepted', 'TEXT');
 
   // Last authenticated request, throttled to one write per
