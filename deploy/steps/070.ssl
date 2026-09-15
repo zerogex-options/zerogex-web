@@ -123,20 +123,48 @@ server {
     listen [::]:80;
     server_name ${DOMAIN_NAME} www.${DOMAIN_NAME};
 
-    # ACME challenge path for certbot
+    # ACME challenge path for certbot. A longer prefix than "location /", so
+    # it still wins over the canonical redirect below and both ${DOMAIN_NAME}
+    # and www.${DOMAIN_NAME} keep validating at renewal time.
     location /.well-known/acme-challenge/ {
         root /var/www/html;
     }
 
+    # Redirect to the canonical apex host rather than \$host, so http://www
+    # reaches https://${DOMAIN_NAME} in ONE hop instead of two.
     location / {
-        return 301 https://\$host\$request_uri;
+        return 301 https://${DOMAIN_NAME}\$request_uri;
     }
+}
+
+# Canonical-host redirect. ${DOMAIN_NAME} and www.${DOMAIN_NAME} are separate
+# cookie origins to the browser: a host-only cookie (theme/palette, language,
+# referral) set on one is never sent to the other, so a visitor bouncing
+# between the two silently loses preferences. The apex is canonical
+# (frontend/core/articleRegistry.ts SITE_URL), which also keeps SEO signal on
+# one hostname. The certificate covers both names, so TLS must terminate here
+# before the redirect can be sent.
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name www.${DOMAIN_NAME};
+
+    ssl_certificate /etc/letsencrypt/live/${DOMAIN_NAME}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN_NAME}/privkey.pem;
+${MTLS_DIRECTIVES}
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+
+    server_tokens off;
+
+    return 301 https://${DOMAIN_NAME}\$request_uri;
 }
 
 server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
-    server_name ${DOMAIN_NAME} www.${DOMAIN_NAME};
+    server_name ${DOMAIN_NAME};
 
     ssl_certificate /etc/letsencrypt/live/${DOMAIN_NAME}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/${DOMAIN_NAME}/privkey.pem;

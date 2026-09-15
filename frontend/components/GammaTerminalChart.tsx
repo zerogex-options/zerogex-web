@@ -2001,8 +2001,16 @@ export default function GammaTerminalChart({
   type LevelDef = { key: string; label: string; value: number | null; color: string; dash: string; show: boolean };
   const levelDefs: LevelDef[] = [
     { key: "flip", label: "FLIP", value: flip, color: "var(--color-flip)", dash: "7 4", show: overlays.levels },
-    { key: "call", label: "CALL WALL", value: callWall, color: "var(--color-bull)", dash: "3 4", show: overlays.levels },
-    { key: "put", label: "PUT WALL", value: putWall, color: "var(--color-bear)", dash: "3 4", show: overlays.levels },
+    // Walls are colored by what the LEVEL does, not by the instrument behind
+    // it: the call wall is resistance (bear) and the put wall is support
+    // (bull). That matches the articles ("Why the call wall acts as
+    // resistance" / "Why the put wall often coincides with support") and the
+    // rest of the app — PairCandleChart, GammaShiftLadder and PairGammaHeatmap
+    // all already draw the walls this way. The instrument convention (calls
+    // green / puts red) still applies where a mark means call-vs-put
+    // QUANTITY, such as the gamma rail below and GexWallsChart.
+    { key: "call", label: "CALL WALL", value: callWall, color: "var(--color-bear)", dash: "3 4", show: overlays.levels },
+    { key: "put", label: "PUT WALL", value: putWall, color: "var(--color-bull)", dash: "3 4", show: overlays.levels },
     { key: "pain", label: "MAX PAIN", value: maxPain, color: "var(--color-maxpain)", dash: "1 5", show: overlays.maxPain },
     { key: "king", label: "GEX KING", value: gexKing, color: "var(--color-king)", dash: "5 3", show: overlays.king },
     { key: "pin", label: pinLabel, value: pinStrike, color: "var(--color-pin)", dash: "2 3", show: overlays.pin },
@@ -3216,8 +3224,8 @@ export default function GammaTerminalChart({
       {/* ── Footer legend ───────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-4 py-2.5" style={{ borderTop: "1px solid var(--border-default)", background: "var(--bg-subtle)" }}>
         <LegendDot color="var(--color-flip)" label="Gamma Flip" />
-        <LegendDot color="var(--color-bull)" label="Call Wall" />
-        <LegendDot color="var(--color-bear)" label="Put Wall" />
+        <LegendDot color="var(--color-bear)" label="Call Wall" />
+        <LegendDot color="var(--color-bull)" label="Put Wall" />
         <LegendDot color="var(--color-maxpain)" label="Max Pain" />
         <LegendDot color="var(--color-pin)" label="Pin Strike" />
         <LegendDot color="var(--color-hazy)" label="VWAP" />
