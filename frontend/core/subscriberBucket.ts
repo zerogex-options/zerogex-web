@@ -158,9 +158,12 @@ export function classifySubscriberBucket(input: SubscriberBucketInput): Subscrib
 // flag) actually changes reproduces the headcount's history by construction,
 // and skips the many no-op re-syncs Stripe sends in between.
 //
-// The `stripe_first_payment` stream is merged in alongside it, because the
-// Converting -> Full Subscriber step is the one transition the sync stream
-// cannot see: nothing about the subscription changes when its invoice is paid.
+// A payment stream is merged in alongside it, because the Converting -> Full
+// Subscriber step is the one transition the sync stream cannot see: nothing
+// about the subscription changes when its invoice is paid. Which audit rows
+// count as a payment ON A SUBSCRIPTION — and why the account-scoped
+// `stripe_first_payment` stamp is not enough on its own — is
+// core/subscriptionPayments.ts.
 //
 // It lives in this file rather than its own so there is exactly ONE bucket
 // rule: the ledger classifies with classifySubscriberBucket above, so a change
@@ -168,8 +171,8 @@ export function classifySubscriberBucket(input: SubscriberBucketInput): Subscrib
 
 // How long an `active` with no observed payment stays in Converting before the
 // ledger accepts it as paid, in days. This is a FALLBACK for history the
-// payment stream doesn't cover — subscriptions that converted before
-// `stripe_first_payment` was being written, which are exactly the rows the
+// payment stream doesn't cover — subscriptions that converted before either
+// payment audit event was being written, which are exactly the rows the
 // users.first_payment_at backfill marks as paid. A real payment event promotes
 // immediately and is always preferred. Mirrors CONVERSION_CONFIRM_DAYS in
 // core/trialConveyor and the window in core/trialDunning, for the same reason.

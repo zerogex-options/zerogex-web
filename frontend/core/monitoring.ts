@@ -44,6 +44,10 @@ import {
   type LedgerSyncEvent,
 } from '@/core/subscriberBucket';
 import {
+  isSubscriptionPaymentEvidence,
+  SUBSCRIPTION_PAYMENT_AUDIT_TYPES,
+} from '@/core/subscriptionPayments';
+import {
   accumulateTrialOutcomes,
   buildUpcomingSteps,
   classifyRider,
@@ -1505,6 +1509,49 @@ const LEDGER_WINDOW_DAYS = 30;
 // the net totals are computed over every row, so only the list is trimmed.
 const LEDGER_MAX_ROWS = 200;
 
+// Rows proving a payment cleared on a SUBSCRIPTION, oldest-first, for the two
+// views that must see money move: the Subscriber Ledger's Converting -> Full
+// Subscriber step and the Conversion Conveyor's conversion confirmation. Which
+// audit types count — and why the $0 trial-opening invoice does not — is
+// core/subscriptionPayments.ts.
+//
+// Every paid invoice on a subscription is returned, renewals included. Both
+// consumers already reduce to the first one per subscription themselves (the
+// ledger ignores payments after a sub's first; the conveyor only asks whether
+// the sub appears at all), so narrowing it here would just duplicate that.
+type SubscriptionPaymentRow = {
+  subId: string;
+  userId: string | null;
+  email: string | null;
+  createdAt: string;
+};
+
+function readSubscriptionPayments(sinceDays: number): SubscriptionPaymentRow[] {
+  const types = SUBSCRIPTION_PAYMENT_AUDIT_TYPES.map((type) => `'${type}'`).join(', ');
+  const rows = getDb()
+    .prepare(
+      `SELECT created_at, user_id, email, type, message FROM audit_events
+        WHERE type IN (${types})
+          AND created_at > datetime('now', '-${sinceDays} days')
+        ORDER BY created_at ASC`,
+    )
+    .all() as Array<{
+      created_at: string;
+      user_id: string | null;
+      email: string | null;
+      type: string;
+      message: string;
+    }>;
+  const out: SubscriptionPaymentRow[] = [];
+  for (const row of rows) {
+    if (!isSubscriptionPaymentEvidence(row.type, row.message)) continue;
+    const subId = parseSubIdFromMessage(row.message);
+    if (!subId) continue;
+    out.push({ subId, userId: row.user_id, email: row.email, createdAt: row.created_at });
+  }
+  return out;
+}
+
 // Reconstruct the headcount's recent history from the same audit streams the
 // flow charts read. Named with a trailing underscore because the pure builder it
 // delegates to owns the plain name. Any failure yields an empty ledger rather
@@ -1566,25 +1613,12 @@ function buildSubscriberLedger_(now: Date): SubscriberLedgerSnapshot {
     // The Converting -> Full Subscriber step. Nothing about the SUBSCRIPTION
     // changes when its invoice is paid, so the sync stream above cannot see it;
     // this is the only record that money moved.
-    const paidRows = db
-      .prepare(
-        `SELECT created_at, user_id, email, message FROM audit_events
-         WHERE type = 'stripe_first_payment'
-           AND created_at > datetime('now', '-${since} days')
-         ORDER BY created_at ASC`,
-      )
-      .all() as Array<{ created_at: string; user_id: string | null; email: string | null; message: string }>;
-    const payments: LedgerPaymentEvent[] = [];
-    for (const row of paidRows) {
-      const subId = parseSubIdFromMessage(row.message);
-      if (!subId) continue;
-      payments.push({
-        subId,
-        userId: row.user_id,
-        email: row.email,
-        at: toIsoInstant(row.created_at),
-      });
-    }
+    const payments: LedgerPaymentEvent[] = readSubscriptionPayments(since).map((row) => ({
+      subId: row.subId,
+      userId: row.userId,
+      email: row.email,
+      at: toIsoInstant(row.createdAt),
+    }));
 
     const cutoffMs = now.getTime() - LEDGER_WINDOW_DAYS * 86_400_000;
     const all = buildSubscriberLedger(syncs, deletes, payments, now.getTime()).filter(
@@ -1751,18 +1785,9 @@ function readConveyorParts(now: Date): ConveyorParts {
     // Proof that a conversion charge actually cleared, which settles the
     // provisional `active` booking positively instead of waiting out the
     // confirmation window. See accumulateTrialOutcomes.
-    const paidRows = db
-      .prepare(
-        `SELECT created_at, message FROM audit_events
-         WHERE type = 'stripe_first_payment'
-           AND created_at > datetime('now', '-${CONVEYOR_SYNC_WINDOW_DAYS} days')`,
-      )
-      .all() as Array<{ created_at: string; message: string }>;
-    const paymentEvents: ConveyorPaymentEvent[] = [];
-    for (const row of paidRows) {
-      const subId = parseSubIdFromMessage(row.message);
-      if (subId) paymentEvents.push({ subId, day: etDayKey(row.created_at) });
-    }
+    const paymentEvents: ConveyorPaymentEvent[] = readSubscriptionPayments(
+      CONVEYOR_SYNC_WINDOW_DAYS,
+    ).map((row) => ({ subId: row.subId, day: etDayKey(row.createdAt) }));
 
     const riders: ConveyorRider[] = [];
     const departures: ConveyorRider[] = [];
