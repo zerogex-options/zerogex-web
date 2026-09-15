@@ -32,6 +32,7 @@ import {
   PIN_STRIKE_TOOLTIP,
   classifyPinStrength,
   pinStrengthLabel,
+  pinStrikeSubtitle,
 } from '../core/pinStrike.ts';
 
 /**
@@ -43,7 +44,7 @@ const pinInput = (strike: number | null, confidence: number | null) => {
   const strength = classifyPinStrength(strike, confidence);
   return {
     strike,
-    note: strength === 'none' ? null : `Pin strength: ${pinStrengthLabel(strength)}`,
+    note: strength === 'none' ? null : pinStrikeSubtitle(strike, confidence),
     absentLabel: pinStrengthLabel('none'),
     tooltip: PIN_STRIKE_TOOLTIP,
   };
@@ -198,7 +199,7 @@ test('an active pin carries its strength as a note alongside the distance', () =
   const pin = byId(buildKeyLevels(RESOLVED), 'pin');
   assert.equal(pin.valueLabel, '$609.00');
   assert.equal(pin.distance?.label, '-$1.00 / -0.16% below spot');
-  assert.equal(pin.note, 'Pin strength: Strong');
+  assert.equal(pin.note, 'Pin strength: Strong · 62%');
 });
 
 test('no pin reads as "No active pin" and carries no strength', () => {
@@ -212,7 +213,7 @@ test('a resolved pin with no spot must not claim there is no pin', () => {
   const pin = byId(buildKeyLevels({ ...RESOLVED, spot: null }), 'pin');
   assert.equal(pin.valueLabel, '$609.00');
   assert.equal(pin.emptyNote, 'Awaiting price');
-  assert.equal(pin.note, 'Pin strength: Strong');
+  assert.equal(pin.note, 'Pin strength: Strong · 62%');
 });
 
 // ── Max Pain from a filtered book ───────────────────────────────────────────

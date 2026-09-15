@@ -186,15 +186,31 @@ export function decideOrphanPayment(input: OrphanPaymentInput): OrphanPaymentDec
 //   forever    A permanent entitlement — the founding lifetime 25%, a forever
 //              winback rate. Losing it silently overcharges the member on every
 //              future renewal. Carry it.
-//   once       Fully spent, on the very invoice that was just paid. Re-applying
-//              it would discount the NEXT period too, which the member never
-//              bought. Do not carry — and this needs no review: the intro price
-//              ending is exactly what the pricing page promised ("$229 first
-//              year, then $299"), so the undiscounted renewal is correct.
-//   repeating  Partly spent, by an amount this module cannot see (the count
-//              lives in the old subscription's invoice history). Re-applying
-//              restarts the clock. Do not carry, and DO flag for review — how
-//              much of it the member is still owed is a judgment call.
+//   repeating  A rate the member is still part-way through — the 6-month intro
+//              promo. Carry it. The member lost their subscription to a failed
+//              charge, not to a choice, and coming back to a higher price than
+//              they were promised is the wrong outcome: it reads as a penalty
+//              for a card problem they already apologised for.
+//
+//              The cost of carrying is that Stripe restarts the coupon's clock:
+//              re-applying a 6-month coupon to someone who had used one month
+//              grants seven in total, because a coupon's duration is fixed at
+//              the coupon and "apply this, but only for the five months left"
+//              is not something Stripe expresses. Trimming it would mean
+//              minting a bespoke coupon per recovery. So the over-grant is
+//              accepted deliberately and reported (`restartsClock`) rather than
+//              hidden — it is bounded by the promo length, and cheaper than a
+//              member who feels overcharged on their way back.
+//   once       NOT carried, and this is not the same question. A once-off was
+//              fully spent on the very invoice just paid, and the member's rate
+//              after it was always going to be full price — the pricing page
+//              said so ("$229 first year, then $299"). Re-applying it would not
+//              restore their deal, it would hand them a second discount they
+//              never had. Needs no review: the intro price ending on schedule
+//              is the designed outcome.
+//   unknown    NOT carried. A bare-id payload gives no duration, so we cannot
+//              tell a spent `once` from a live `repeating`. Flagged for review
+//              rather than guessed — this is a safety case, not a policy one.
 //
 // Anything not carried is reported rather than dropped in silence, so the
 // recovery script names every coupon while it is still a dry run. Only the
@@ -209,35 +225,52 @@ export type SubscriptionDiscount = {
 };
 
 export type DiscountCarryOver = {
-  // Coupon ids to re-apply to the re-created subscription.
+  // Coupon ids to re-apply to the re-created subscription. Bare ids because
+  // that is the shape Stripe's subscription-create call takes.
   carry: string[];
+  // The same coupons with the detail needed to describe them honestly.
+  // `restartsClock` marks the ones whose duration begins again on the new
+  // subscription (every `repeating` coupon), so the audit row can say that
+  // rather than implying the member merely resumed where they left off.
+  carried: Array<{ couponId: string; duration: string; restartsClock: boolean }>;
   // Coupons deliberately NOT re-applied, with the duration that decided it.
-  // `needsReview` separates "a human should look at this" (a partly-spent
-  // repeating coupon, a duration we could not read) from "this is the designed
-  // outcome" (a fully-spent `once` intro price).
+  // `needsReview` separates "a human should look at this" (a duration we could
+  // not read) from "this is the designed outcome" (a fully-spent `once`).
   flagged: Array<{ couponId: string; duration: string; needsReview: boolean }>;
 };
 
 export function decideDiscountCarryOver(discounts: SubscriptionDiscount[]): DiscountCarryOver {
   const carry: string[] = [];
+  const carried: DiscountCarryOver['carried'] = [];
   const flagged: DiscountCarryOver['flagged'] = [];
   for (const discount of discounts) {
     const couponId = discount.couponId;
     if (!couponId) continue;
-    if (discount.duration === 'forever') {
-      if (!carry.includes(couponId)) carry.push(couponId);
+    // A rate the member is still owed some of. Carry it — losing it to a failed
+    // charge would price them above what they were promised.
+    if (discount.duration === 'forever' || discount.duration === 'repeating') {
+      if (!carry.includes(couponId)) {
+        carry.push(couponId);
+        carried.push({
+          couponId,
+          duration: discount.duration,
+          // Stripe fixes a coupon's duration at the coupon, so re-applying a
+          // repeating one starts its months over. Accepted, but never silent.
+          restartsClock: discount.duration === 'repeating',
+        });
+      }
       continue;
     }
-    // 'once', 'repeating', and an unresolved duration all land here: never hand
-    // out a discount we cannot show the member is still owed. Only the ones
-    // whose remaining value is genuinely unclear are raised for review.
+    // 'once' was fully spent on the invoice just paid; an unreadable duration
+    // could be that or a live one, and guessing risks handing out a discount
+    // the member is not owed.
     flagged.push({
       couponId,
       duration: discount.duration ?? 'unknown',
       needsReview: discount.duration !== 'once',
     });
   }
-  return { carry, flagged };
+  return { carry, carried, flagged };
 }
 
 // Structural read of a Stripe subscription's discounts, tolerant of the shapes

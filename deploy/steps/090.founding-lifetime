@@ -1,0 +1,194 @@
+#!/bin/bash
+
+# ==============================================
+# Step 090: Founding Lifetime-Discount Timer
+# ==============================================
+#
+# Installs and enables the weekly founding lifetime-discount timer (see
+# deploy/systemd/zerogex-web-founding-lifetime.{service,timer}). The timer
+# fires Mondays at 04:15 server-local and triggers
+# `make apply-founding-lifetime YES=1`, which applies the founding
+# 25%-off-for-life coupon to every founder who has passed the 11-month
+# gate and not yet received it.
+#
+# Why a recurring timer and not a hand-run batch: the Stripe webhook's
+# maybeApplyFoundingLifetime only reaches MONTHLY founders, because a
+# monthly invoice event lands inside the month-11 window. An ANNUAL
+# subscription emits no events between signup and renewal, so an annual
+# founder's lifetime discount never gets applied by the event path and
+# they renew at full rack rate — breaking the founding promise silently,
+# a year after anyone was looking. Weekly gives every founder ~4 attempts
+# inside their one-month eligibility window.
+#
+# Idempotent — safe to re-run. The unit files are overwritten from the
+# repo (they're version-controlled, so this is the desired behavior) and
+# `systemctl enable --now` is a no-op for an already-enabled timer. No
+# config is written — the script reads AUTH_DB_PATH from
+# frontend/.env.local, which step 030 / 036 already manage.
+
+set -e
+
+# Re-point HOME when this step is run directly under `sudo`: $HOME is then
+# /root, but the repo, nvm, pm2 and the auth DB all live in the invoking user's
+# home, so every path below would resolve under /root and fail a precondition
+# that is actually satisfied. deploy.sh does this for the steps it runs; doing
+# it here too means a standalone `sudo ./deploy/steps/<step>` resolves the same
+# paths. A no-op when already running as the owning user.
+if [ -n "${SUDO_USER:-}" ] && [ "${SUDO_USER:-}" != "root" ]; then
+    STEP_SUDO_HOME="$(getent passwd "$SUDO_USER" | cut -d: -f6)"
+    [ -n "$STEP_SUDO_HOME" ] && export HOME="$STEP_SUDO_HOME"
+fi
+[ -z "${HOME:-}" ] && export HOME="/home/ubuntu"
+
+# Fallback log if this step is invoked directly.
+type log >/dev/null 2>&1 || log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
+
+log "Founding Lifetime-Discount Timer Setup"
+
+# Resolve the owning user even when deploy.sh is invoked via sudo.
+OWNER="${SUDO_USER:-$USER}"
+
+APP_DIR="$HOME/zerogex-web"
+SYSTEMD_SOURCE="$APP_DIR/deploy/systemd"
+SYSTEMD_TARGET="/etc/systemd/system"
+UNIT="zerogex-web-founding-lifetime"
+ENV_FILE="$APP_DIR/frontend/.env.local"
+
+# --- Preconditions ---------------------------------------------------
+if [ ! -d "$SYSTEMD_SOURCE" ]; then
+    log "  ✗ systemd source dir not found: $SYSTEMD_SOURCE"
+    exit 1
+fi
+for f in "${UNIT}.service" "${UNIT}.timer"; do
+    if [ ! -f "$SYSTEMD_SOURCE/$f" ]; then
+        log "  ✗ missing unit file: $SYSTEMD_SOURCE/$f"
+        exit 1
+    fi
+done
+
+# nvm + Node 22 are installed by step 020.nodejs. The Makefile target sources
+# $HOME/.nvm/nvm.sh at runtime, so presence here is enough.
+if [ -s "$HOME/.nvm/nvm.sh" ]; then
+    log "  ✓ nvm present at $HOME/.nvm/nvm.sh"
+else
+    log "  ✗ nvm not found at $HOME/.nvm/nvm.sh — run step 020.nodejs first"
+    exit 1
+fi
+
+# --- Env soft-check ---------------------------------------------------
+# The sweep needs a Stripe key AND the lifetime coupon id. Without the
+# coupon the script aborts on every run, which would turn into a weekly
+# failed unit — noisy, and the kind of alarm that gets muted rather than
+# fixed. Warn loudly here instead, but still install: the timer is
+# harmless while the cohort is immature, and the operator may be setting
+# the coupon up in the same session.
+soft_check_env() {
+    local key missing=0
+    for key in STRIPE_SECRET_KEY STRIPE_COUPON_FOUNDING_LIFETIME; do
+        local value
+        value=$(grep -E "^${key}=" "$ENV_FILE" 2>/dev/null \
+            | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+        if [ -z "$value" ]; then
+            log "  ⚠ ${key} is not set in $ENV_FILE"
+            missing=1
+        else
+            log "  ✓ ${key} present"
+        fi
+    done
+    if [ "$missing" = "1" ]; then
+        log "    The weekly sweep will ABORT until both are set. Fix them, then"
+        log "    verify with: cd $APP_DIR && make apply-founding-lifetime DRY_RUN=1"
+    fi
+}
+if [ -f "$ENV_FILE" ]; then
+    soft_check_env
+else
+    log "  ⚠ $ENV_FILE not found — step 030 should have created it"
+fi
+
+# --- Force the lazy DB migration ----------------------------------------
+# founding_member_started_at / founding_lifetime_applied_at are added by the
+# App's lazy migration in frontend/core/db.ts (initDb), which normally fires
+# on the first DB touch from the live PM2 process AFTER a rebuild + restart.
+# When this step runs in isolation (`./deploy.sh --start-from 090`), step 030
+# (rebuild) and step 040 (PM2 restart) are skipped — so PM2 is still on the
+# previous deploy's code and the columns wouldn't land until someone hit
+# /api/. `make migrate` opens a SEPARATE Node process that imports the fresh
+# core/db.ts directly and lands the ALTERs in the SQLite file.
+log "  → Forcing the auth DB lazy migration to land the founding_* schema..."
+if sudo -u "$OWNER" -H bash -lc "cd '$APP_DIR' && make migrate" >/dev/null 2>&1; then
+    log "     ✓ schema migration applied"
+else
+    log "     ⚠ make migrate failed — founding_* columns may be missing"
+    log "       Re-run manually: cd $APP_DIR && make migrate"
+fi
+
+# --- Install + enable the units --------------------------------------
+log "  → Installing ${UNIT}.{service,timer}..."
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.service" "$SYSTEMD_TARGET/"
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.timer"   "$SYSTEMD_TARGET/"
+
+# --- Sandbox drop-in for AUTH_DB_PATH --------------------------------
+# Derive the writable DB dir from .env.local so the sandbox stays sealed but
+# the founding_lifetime_applied_at stamp actually lands wherever the operator
+# points the DB. Without this, ProtectSystem=strict silently blocks the write
+# whenever AUTH_DB_PATH lives outside the repo (e.g. /var/lib/zerogex) — and
+# that stamp is the idempotency guard, so a blocked write means the coupon is
+# re-applied to the same founder every week. Drop-in (vs. editing the
+# version-controlled .service file) keeps the repo defaults clean and lets each
+# environment carry its own ReadWritePaths.
+DROPIN_DIR="$SYSTEMD_TARGET/${UNIT}.service.d"
+DROPIN="$DROPIN_DIR/auth-db-path.conf"
+AUTH_DB_PATH=""
+if [ -f "$ENV_FILE" ]; then
+    AUTH_DB_PATH=$(grep -E "^AUTH_DB_PATH=" "$ENV_FILE" 2>/dev/null \
+        | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+fi
+if [ -n "$AUTH_DB_PATH" ] && [[ "$AUTH_DB_PATH" == /* ]]; then
+    AUTH_DB_DIR=$(dirname "$AUTH_DB_PATH")
+    log "  → Writing sandbox drop-in (ReadWritePaths=$AUTH_DB_DIR)..."
+    sudo mkdir -p "$DROPIN_DIR"
+    sudo tee "$DROPIN" >/dev/null <<EOF
+[Service]
+ReadWritePaths=$AUTH_DB_DIR
+EOF
+    log "     ✓ drop-in installed at $DROPIN"
+else
+    if [ -f "$DROPIN" ]; then
+        log "  → Removing stale drop-in (AUTH_DB_PATH unset or relative)..."
+        sudo rm -f "$DROPIN"
+        sudo rmdir "$DROPIN_DIR" 2>/dev/null || true
+    fi
+    log "  → AUTH_DB_PATH absolute path unset; using unit-default ReadWritePaths"
+fi
+
+sudo systemctl daemon-reload
+
+log "  → Enabling ${UNIT}.timer (weekly Mon 04:15, Persistent=true)..."
+if sudo systemctl enable --now "${UNIT}.timer" 2>/dev/null; then
+    NEXT=$(systemctl list-timers --no-pager --no-legend "${UNIT}.timer" 2>/dev/null | awk '{print $1, $2}')
+    log "     ✓ ${UNIT}.timer enabled (next run: ${NEXT:-unknown})"
+else
+    log "     ✗ ${UNIT}.timer failed to enable"
+    exit 1
+fi
+
+# Deliberately NO test run on enable: the service's ExecStart is the real
+# YES=1 sweep. It is gated and idempotent, so firing it is safe — but a
+# DRY_RUN preview tells you what it would do without spending a Stripe
+# write, which is the better first look.
+
+log ""
+log "Founding lifetime-discount timer setup complete!"
+log ""
+log "Summary:"
+log "  ✓ ${UNIT}.timer enabled (weekly Mon 04:15, Persistent=true catches missed runs)"
+log "  ✓ Applies the founding 25%-off-for-life coupon past the 11-month gate"
+log "  ✓ Covers ANNUAL founders, whom the Stripe webhook's event path cannot reach"
+log "  ✓ Idempotent: founding_lifetime_applied_at guards against re-application"
+log ""
+log "Useful commands:"
+log "  • systemctl list-timers ${UNIT}.timer                              - next/last run"
+log "  • cd $APP_DIR && make apply-founding-lifetime DRY_RUN=1            - preview who is due"
+log "  • sudo systemctl start ${UNIT}.service                             - fire the sweep now"
+log "  • journalctl -u ${UNIT} -n 50                                      - recent sweep logs"

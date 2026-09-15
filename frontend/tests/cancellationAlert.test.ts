@@ -13,6 +13,7 @@ import {
   buildChurnAlert,
   selectBatch,
   shouldAlertOnChurn,
+  DEFAULT_CHURN_ALERT_KIND,
   alertRunExitCode,
   type ChurnAlertInput,
 } from '../core/cancellationAlert.ts';
@@ -55,43 +56,56 @@ test('alertRunExitCode: only a run where NOTHING succeeded fails the unit', () =
   assert.equal(alertRunExitCode(0, 0), 0);
 });
 
-test('shouldAlertOnChurn: a pending cancel always alerts, reason or not', () => {
-  // They still have access, so there is a live save window and a decision to
-  // make. Tenure alone can justify a reply — a silent cancel at four months is
-  // worth an email. Filtering these would defeat the point of the alert.
-  assert.equal(shouldAlertOnChurn('pending', 'Cancellation requested for sub_1', false), true);
-  assert.equal(
-    shouldAlertOnChurn('pending', 'Cancellation requested | cancel_feedback=unused', false),
-    true,
-  );
+test('shouldAlertOnChurn: churn that said nothing does not email', () => {
+  // Neither a survey selection nor a typed comment. The row reports a departure
+  // and nothing else, which the admin dashboard already carries; on real data
+  // this class was most of the stream, enough noise to get the whole alert
+  // filtered to a folder and take the useful ones with it.
+  assert.equal(shouldAlertOnChurn('Cancellation requested for sub_1', false), false);
+  assert.equal(shouldAlertOnChurn('Subscription sub_1 ended', false), false);
 });
 
-test('shouldAlertOnChurn: a lapse only alerts when the survey captured something', () => {
-  // Access is already gone. A lapse with no reason carries no decision and no
-  // information — overwhelmingly a trial that just ended — and on real data that
-  // class was ~85% of the stream, enough noise to bury the signal with it.
-  assert.equal(shouldAlertOnChurn('lapsed', 'Subscription sub_1 ended', false), false);
-
-  // A captured enum is signal.
+test('shouldAlertOnChurn: either half of the survey is enough to email', () => {
+  // A selected enum on its own is signal...
   assert.equal(
-    shouldAlertOnChurn('lapsed', 'Subscription sub_1 ended | cancel_feedback=switched_service', false),
+    shouldAlertOnChurn('Cancellation requested | cancel_feedback=too_expensive', false),
     true,
   );
-  // So is free text, which is the richest case of all.
+  // ...so is free text on its own, which is the richest case of all...
   assert.equal(
     shouldAlertOnChurn(
-      'lapsed',
-      'Subscription sub_1 ended | cancel_comment="dealer hedging flows are missing"',
+      'Cancellation requested | cancel_comment="dealer hedging flows are missing"',
+      false,
+    ),
+    true,
+  );
+  // ...and so is both together.
+  assert.equal(
+    shouldAlertOnChurn(
+      'Cancellation requested | cancel_feedback=missing_features cancel_comment="no 0DTE"',
       false,
     ),
     true,
   );
 });
 
+test('shouldAlertOnChurn: an empty comment is not a reason', () => {
+  // The suffix is present but carries nothing — a survey submitted blank must
+  // not read as "they told us why".
+  assert.equal(shouldAlertOnChurn('Cancellation requested | cancel_comment=""', false), false);
+});
+
 test('shouldAlertOnChurn: the escape hatch restores the unfiltered stream', () => {
-  assert.equal(shouldAlertOnChurn('lapsed', 'Subscription sub_1 ended', true), true);
-  // ...and never suppresses anything that was already alerting.
-  assert.equal(shouldAlertOnChurn('pending', 'Cancellation requested', true), true);
+  assert.equal(shouldAlertOnChurn('Cancellation requested for sub_1', true), true);
+  assert.equal(shouldAlertOnChurn('Subscription sub_1 ended', true), true);
+});
+
+test('the sweep defaults to the cancel CLICK, not the lapse that repeats it', () => {
+  // Stripe carries the same cancellation_details onto the terminal row, so
+  // alerting on both kinds sent two emails for one departure — the second
+  // arriving after the save window it reported on had already closed.
+  assert.equal(DEFAULT_CHURN_ALERT_KIND, 'pending');
+  assert.equal(CHURN_EVENT_TYPES[DEFAULT_CHURN_ALERT_KIND], 'stripe_cancellation_requested');
 });
 
 test('selectBatch: the per-run cap is an INBOX guard, so mark-only ignores it', () => {

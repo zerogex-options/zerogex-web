@@ -6,8 +6,11 @@
 'use client';
 
 import PageShell from '@/components/layout/PageShell';
+import PageHeader from '@/components/layout/PageHeader';
+import { FilterGroup } from '@/components/controls/Filters';
 import { useGEXSummary, useMarketQuote } from '@/hooks/useApiData';
 import MetricCard from '@/components/MetricCard';
+import FuturesContractBadge from '@/components/FuturesContractBadge';
 import { LoadingCard } from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import FlipTermStructureChart from '@/components/FlipTermStructureChart';
@@ -37,6 +40,12 @@ function formatGexInUnit(value: number | null | undefined, unit: GexUnit, spot: 
   if (value == null) return '--';
   return formatGexValue(value * gexScaleFactor(unit, spot));
 }
+
+const HEADER_SUB =
+  "The headline GEX numbers and the levels they imply, on one screen.";
+
+const HEADER_TOOLTIP =
+  "The ten numbers the rest of the Metrics section elaborates on: where net dealer gamma sits at spot, the flip level where its sign changes, the call and put walls, max pain and the pin strike, plus the call/put split behind them. Every GEX figure is a dollar amount per unit move in the underlying — the toggle switches the denominator between a 1% move and a single point; the exposure is the same either way. All of it is modeled from open interest rather than observed, so treat the levels as where hedging flow would concentrate, not as levels anyone is obliged to defend.";
 
 export default function GreeksGEXPage() {
   const { theme } = useTheme();
@@ -70,12 +79,22 @@ export default function GreeksGEXPage() {
       ? quoteData.futures_close
       : quoteData?.close;
   const futuresTicker = isFuturesQuote ? quoteData?.data_symbol ?? 'FUT' : null;
+  // The CME contract behind the price on this card, for both futures paths —
+  // the overnight swap above and a natively-served ES / NQ quote, which sets
+  // none of the swap fields. Null (and so no chip at all) for every cash
+  // symbol, and for a response that predates the field.
+  const contractCode = quoteData?.data_contract ?? null;
+  const priceSubtitle = futuresTicker
+    ? `◆ ${futuresTicker} futures`
+    : quoteData && !isIndexSymbol(symbol)
+      ? `Vol: ${(((quoteData.volume ?? 0) / 1000000)).toFixed(1)}M`
+      : '';
 
   // Show loading state only on initial load
   if (gexLoading && !gexData) {
     return (
       <PageShell>
-        <h1 className="text-3xl font-bold mb-8">GEX Summary</h1>
+        <PageHeader title="GEX Summary" sub={HEADER_SUB} tooltip={HEADER_TOOLTIP} />
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
           <LoadingCard />
           <LoadingCard />
@@ -95,7 +114,17 @@ export default function GreeksGEXPage() {
 
   return (
     <PageShell>
-      <h1 className="text-3xl font-bold mb-8">GEX Summary</h1>
+      <PageHeader
+        title="GEX Summary"
+        sub={HEADER_SUB}
+        tooltip={HEADER_TOOLTIP}
+        actions={
+          /* per 1% move (stored convention) vs per 1 point */
+          <FilterGroup label="GEX unit">
+            <GexUnitToggle showHint={false} />
+          </FilterGroup>
+        }
+      />
 
       {/* Error Messages */}
       {gexError && (
@@ -104,11 +133,6 @@ export default function GreeksGEXPage() {
         </div>
       )}
 
-      {/* GEX unit toggle: per 1% move (stored convention) vs per 1 point */}
-      <div className="mb-4">
-        <GexUnitToggle />
-      </div>
-
       {/* Top row: 5 cards */}
       <section className="mb-4">
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
@@ -116,11 +140,19 @@ export default function GreeksGEXPage() {
             title={`${symbol} Price`}
             value={quoteData && quoteDisplayPrice != null ? `$${quoteDisplayPrice.toFixed(2)}` : '--'}
             subtitle={
-              futuresTicker
-                ? `◆ ${futuresTicker} futures`
-                : quoteData && !isIndexSymbol(symbol)
-                  ? `Vol: ${(((quoteData.volume ?? 0) / 1000000)).toFixed(1)}M`
-                  : ''
+              priceSubtitle || contractCode ? (
+                <span className="flex flex-wrap items-center gap-2">
+                  {priceSubtitle && <span>{priceSubtitle}</span>}
+                  <FuturesContractBadge
+                    contract={contractCode}
+                    expiry={quoteData?.data_contract_expiry}
+                    className="zg-chip"
+                    style={{ '--chip-color': 'var(--color-brand-coral)' } as React.CSSProperties}
+                  />
+                </span>
+              ) : (
+                ''
+              )
             }
             subtitleColor={futuresTicker ? 'var(--color-brand-coral)' : undefined}
             tooltip={

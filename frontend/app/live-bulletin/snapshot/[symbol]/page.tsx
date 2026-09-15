@@ -66,6 +66,7 @@ interface MarketQuoteResponse {
   data_symbol?: string | null; // future ticker for the badge, e.g. "ES"
   futures_close?: number | null; // @ES now
   futures_reference_close?: number | null; // @ES at the session's 16:00 print
+  data_contract?: string | null; // the CME contract, e.g. "ESZ26" — named on the card
 }
 
 interface SessionClosesResponse {

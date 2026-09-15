@@ -24,6 +24,7 @@ import {
 import ChartTimeAxisTick from './ChartTimeAxisTick';
 import MobileScrollableChart from './MobileScrollableChart';
 import ChartCaption from "./ChartCaption";
+import ScorecardLink from './ScorecardLink';
 
 interface SignalEventsPanelProps {
   signalName: SignalEventName;
@@ -443,6 +444,11 @@ export default function SignalEventsPanel({ signalName, symbol, title = 'Event T
         )}
       </div>
       <ChartCaption />
+      {/* The timeline shows this signal's flips; the Scorecard shows how the
+          last completed session's flips actually resolved. Every signal page
+          renders this panel, so this is the one place that makes the public
+          receipt reachable from inside the product. */}
+      <ScorecardLink signalName={signalName} symbol={symbol} />
     </section>
   );
 }

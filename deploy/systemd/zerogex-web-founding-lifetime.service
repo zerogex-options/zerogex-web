@@ -1,0 +1,48 @@
+[Unit]
+Description=ZeroGEX web founding lifetime-discount sweep
+Documentation=https://github.com/zerogex-options/zerogex-web
+After=network-online.target
+Wants=network-online.target
+
+# A non-zero exit here reached journald and nothing else, which defeats the
+# point of a sweep that exists so nobody has to remember to check it. Route
+# failures to an email instead. %n is this unit's own name, which the
+# template turns into the subject line and the journal it quotes.
+OnFailure=zerogex-web-alert@%n.service
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/zerogex-web
+
+# `make apply-founding-lifetime` shells through nvm to get Node 22 on PATH for
+# the .mts script. Same approach as the partner-grant-expiry unit.
+Environment="HOME=/home/ubuntu"
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+
+ExecStart=/usr/bin/make -C /home/ubuntu/zerogex-web apply-founding-lifetime YES=1
+
+# Talks to Stripe: one subscription read plus one discount write per founder
+# who matured this week, so the budget covers a cohort serially rather than a
+# single round trip. Most runs do nothing and exit in seconds — the script
+# selects on an 11-month gate and prints "Nothing due right now" (exit 0) when
+# no one has matured, which is the expected state for most of the year.
+TimeoutStartSec=900
+
+# Security hardening (mirrors zerogex-web-partner-grant-expiry.service).
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+# RW exception: the auth DB dir. The script stamps founding_lifetime_applied_at
+# on the same SQLite file as the live PM2 writer, and that stamp is what makes
+# the sweep idempotent — without the write the coupon would be re-applied on
+# every run. Update this if AUTH_DB_PATH in frontend/.env.local moves; the
+# deploy step also writes a drop-in with the resolved path.
+ReadWritePaths=/home/ubuntu/zerogex-web/frontend/data
+
+# Logging -> journald (view with: journalctl -u zerogex-web-founding-lifetime)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=zerogex-web-founding-lifetime

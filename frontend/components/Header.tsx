@@ -26,12 +26,13 @@ import { useLanguage } from "@/core/LanguageContext";
 import { Theme, MarketSession } from "@/core/types";
 import type { UnderlyingSymbol } from "@/core/TimeframeContext";
 import { useTimeframe } from "@/core/TimeframeContext";
-import { SYMBOLS } from "@/core/symbols";
+import { SYMBOLS, isFuturesSymbol } from "@/core/symbols";
 import { getMarketSession } from "@/core/utils";
 import { getPrimaryPriceChangeSummary, getExtendedHoursRow } from "@/core/priceChange";
 import { resolvePriceSession, sessionClosesLagBehind } from "@/core/sessionCloses";
 import { brandTitle } from "@/core/brand";
 import SessionBadge from "./SessionBadge";
+import FuturesContractBadge from "./FuturesContractBadge";
 import FuturesDelayBadge from "./FuturesDelayBadge";
 import WorldClocks from "./WorldClocks";
 import OptionsCalendarBadge from "./OptionsCalendarBadge";
@@ -302,6 +303,14 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
   const futuresTicker =
     quoteData?.display_source === 'futures' ? quoteData?.data_symbol ?? null : null;
 
+  // Natively-served ES / NQ. The swap badge above covers a cash index showing
+  // its future overnight; this covers the case the complaints actually came
+  // from, where the header reads "NQ 29,302.25" and nothing on screen says
+  // WHICH NQ. The chip renders the contract code itself, so the label gap is
+  // closed on the surface rather than only inside a tooltip. Renders nothing at
+  // all when the quote carries no contract (older backend, cached response).
+  const nativeFuturesQuote = !futuresTicker && isFuturesSymbol(symbol);
+
   // ── Row 2 (pre-market / after-hours only) ────────────────────────────────
   // pre/ah → icon + live quote close  vs  current_session_close
   const showExtendedRow = isExtendedHours && !!quoteData && !!sessionClosesData;
@@ -478,13 +487,23 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                           pins each glyph to one advance width. */}
                       <span className="zg-metric" style={{ fontSize: "1.5rem" }} title={row1PriceLabel}>${row1Price.toFixed(2)}</span>
                       {futuresTicker && (
-                        <span
+                        <FuturesContractBadge
+                          contract={quoteData?.data_contract}
+                          expiry={quoteData?.data_contract_expiry}
                           className="zg-chip w-fit"
-                          title={`Outside cash session — showing ${futuresTicker} futures for ${symbol}`}
+                          fallbackTitle={`Outside cash session — showing ${futuresTicker} futures for ${symbol}`}
                           style={{ '--chip-color': 'var(--color-brand-coral)' } as React.CSSProperties}
                         >
                           ◆ {futuresTicker} FUT
-                        </span>
+                        </FuturesContractBadge>
+                      )}
+                      {nativeFuturesQuote && (
+                        <FuturesContractBadge
+                          contract={quoteData?.data_contract}
+                          expiry={quoteData?.data_contract_expiry}
+                          className="zg-chip w-fit"
+                          style={{ '--chip-color': 'var(--color-brand-coral)' } as React.CSSProperties}
+                        />
                       )}
                       <FuturesDelayBadge
                         symbol={symbol}
@@ -866,13 +885,23 @@ export default function Header({ theme, onToggleTheme }: HeaderProps) {
                     ${row1Price.toFixed(2)}
                   </span>
                   {futuresTicker && (
-                    <span
+                    <FuturesContractBadge
+                      contract={quoteData?.data_contract}
+                      expiry={quoteData?.data_contract_expiry}
                       className="zg-chip w-fit"
-                      title={`Outside cash session — showing ${futuresTicker} futures for ${symbol}`}
+                      fallbackTitle={`Outside cash session — showing ${futuresTicker} futures for ${symbol}`}
                       style={{ '--chip-color': 'var(--color-brand-coral)' } as React.CSSProperties}
                     >
                       ◆ {futuresTicker} FUT
-                    </span>
+                    </FuturesContractBadge>
+                  )}
+                  {nativeFuturesQuote && (
+                    <FuturesContractBadge
+                      contract={quoteData?.data_contract}
+                      expiry={quoteData?.data_contract_expiry}
+                      className="zg-chip w-fit"
+                      style={{ '--chip-color': 'var(--color-brand-coral)' } as React.CSSProperties}
+                    />
                   )}
                   <FuturesDelayBadge
                     symbol={symbol}

@@ -76,8 +76,8 @@ const GAMMA_LEVEL_PATHS = [
 ];
 
 // Public tools whose content changes every trading day: the free delayed
-// chart and the replay / forecast indexes.
-const DAILY_TOOL_PATHS = ['/chart', '/replay', '/forecast'];
+// chart and the replay / forecast / scorecard indexes.
+const DAILY_TOOL_PATHS = ['/chart', '/replay', '/forecast', '/scorecard'];
 
 /** @type {import('next-sitemap').IConfig} */
 const config = {
@@ -140,6 +140,10 @@ const config = {
     '/range-break-imminence',
     '/market-pressure',
     '/backtesting',
+    // The MCP endpoint is a JSON-RPC route handler, not a page: it answers a
+    // crawler's GET with 405. It is dynamic so it is not auto-discovered today,
+    // but listing it keeps that true if the route config ever changes.
+    '/mcp',
     // Defensive — none currently exist under app/, but match spec.
     '/api/*',
     '/checkout/*',
@@ -171,6 +175,7 @@ const config = {
       // into the sitemap. Only their index pages are listed: the dated
       // /replay and /forecast permalinks are discovered from those.
       '/chart',
+      '/collective2-strategy-data',
       '/education',
       '/forecast',
       '/giving',
@@ -192,6 +197,13 @@ const config = {
       '/privacy',
       '/real-time-gex-0dte',
       '/replay',
+      // The per-session public receipt. It was missing from this list
+      // entirely — not excluded, just never added — which together with
+      // having no sidebar entry and no inbound link left it reachable only
+      // from the 4:15 PM ET post that links one specific date. Only the
+      // index is listed; the dated /scorecard/{symbol}/{date} permalinks are
+      // discovered from it, the same way /replay and /forecast work.
+      '/scorecard',
       '/sierra-chart-indicator',
       '/terms',
       '/thinkorswim-indicator',

@@ -1,4 +1,4 @@
-// Pure math + parsing for the admin "Daily Signals" panel: no I/O, no DB, no
+// Pure math + parsing for the admin Growth tab's day-grain panels: no I/O, no DB, no
 // server-only imports, so every branch below is unit-testable (see
 // tests/dailyMetricsMath.test.ts). The side-effecting half — reading the audit
 // log, materializing the per-day rollup table, importing CSVs — lives in

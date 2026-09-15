@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import IndicatorPageShell from '@/components/IndicatorPageShell';
+import BrokerConnectionNote from '@/components/BrokerConnectionNote';
 import IntegrationsStrip from '@/components/IntegrationsStrip';
 import LiveLevelsCTA from '@/components/LiveLevelsCTA';
 import PlotOnSierraChart from '@/components/PlotOnSierraChart';
@@ -70,6 +71,8 @@ export default function SierraChartIndicatorPage() {
       jsonLd={JSON_LD}
     >
       <PlotOnSierraChart standalone />
+
+      <BrokerConnectionNote integration="sierrachart" />
 
       <IntegrationsStrip exclude="sierrachart" />
 

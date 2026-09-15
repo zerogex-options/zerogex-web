@@ -252,7 +252,7 @@ export default async function ScorecardPage({
       {data.signals.events.length > 0 && (
         <section className="mb-8">
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">
-            All signals · 60-minute forward return
+            All signals · {data.horizon_minutes}-minute forward return
           </h2>
           <div className="overflow-x-auto rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]">
             <table className="w-full min-w-[640px] text-sm">
@@ -260,6 +260,7 @@ export default async function ScorecardPage({
                 <tr className="bg-[var(--color-surface-subtle)] text-[10px] uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">
                   <th className="px-4 py-2 text-left">Signal</th>
                   <th className="px-4 py-2 text-right">Flips</th>
+                  <th className="px-4 py-2 text-right">Scored</th>
                   <th className="px-4 py-2 text-right">Wins</th>
                   <th className="px-4 py-2 text-right">Losses</th>
                   <th className="px-4 py-2 text-right">Avg fwd return</th>
@@ -268,6 +269,12 @@ export default async function ScorecardPage({
               <tbody>
                 {data.signals.events.map((row) => {
                   const avg = row.avg_directional_return;
+                  // A flip inside the forward window of the close has no
+                  // same-session price to grade against, so it is counted but
+                  // not scored. Signals that only fire near the close can be
+                  // entirely unscorable on a given day — say that, rather than
+                  // printing a dash that reads as "flat".
+                  const unscorable = row.scored === 0 && row.flips > 0;
                   const color =
                     avg == null ? 'var(--color-text-secondary)' :
                     avg > 0 ? 'var(--color-bull)' :
@@ -278,11 +285,33 @@ export default async function ScorecardPage({
                     <tr key={row.name} className="border-t border-[var(--color-border)]">
                       <td className="px-4 py-2 font-medium">{humanizeName(row.name)}</td>
                       <td className="px-4 py-2 text-right font-mono">{row.flips}</td>
+                      <td
+                        className="px-4 py-2 text-right font-mono"
+                        style={{ color: row.scored < row.flips ? 'var(--color-warning)' : undefined }}
+                        title={
+                          row.scored < row.flips
+                            ? `${row.flips - row.scored} of ${row.flips} flips fired too close to the bell to be graded over ${data.horizon_minutes} minutes in the same session.`
+                            : undefined
+                        }
+                      >
+                        {row.scored}
+                      </td>
                       <td className="px-4 py-2 text-right font-mono" style={{ color: 'var(--color-bull)' }}>{row.wins}</td>
                       <td className="px-4 py-2 text-right font-mono" style={{ color: 'var(--color-bear)' }}>{row.losses}</td>
                       <td className="px-4 py-2 text-right font-mono" style={{ color }}>
-                        {Arrow ? <Arrow size={12} className="inline mr-1 -mt-0.5" /> : null}
-                        {formatPct(avg)}
+                        {unscorable ? (
+                          <span
+                            className="font-sans italic text-[var(--color-text-secondary)]"
+                            title={`Every flip fired within ${data.horizon_minutes} minutes of the close, so there is no same-session forward price to grade it against. This is not a flat result.`}
+                          >
+                            not scorable
+                          </span>
+                        ) : (
+                          <>
+                            {Arrow ? <Arrow size={12} className="inline mr-1 -mt-0.5" /> : null}
+                            {formatPct(avg)}
+                          </>
+                        )}
                       </td>
                     </tr>
                   );
@@ -300,8 +329,12 @@ export default async function ScorecardPage({
         /cards/{'<id>'} permalink. &ldquo;Best/Worst signal&rdquo; picks the signal whose
         direction-flip events that day produced the highest/lowest average 60-minute forward
         return on {sym}, with a 2-flip minimum so a single outlier doesn&rsquo;t crown a signal
-        of the day. The receipt is immutable once written — the engine cannot retroactively edit
-        a published scorecard.
+        of the day. &ldquo;Scored&rdquo; is how many of a signal&rsquo;s flips could be graded:
+        the forward price always comes from the same regular session, so a flip inside the last{' '}
+        {data.horizon_minutes} minutes has nothing to grade against and is counted but not scored.
+        A signal that only fires near the bell can read &ldquo;not scorable&rdquo; for a whole
+        session — that is an absent measurement, not a flat one. The receipt is immutable once
+        written — the engine cannot retroactively edit a published scorecard.
       </section>
     </main>
   );

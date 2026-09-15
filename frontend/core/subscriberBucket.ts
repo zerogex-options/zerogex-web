@@ -184,7 +184,8 @@ export type LedgerEventKind =
   | 'trialChargeDeclined'
   | 'renewalFailed'
   | 'recovered'
-  | 'cancelScheduled'
+  | 'cancelScheduledTrial'
+  | 'cancelScheduledPaid'
   | 'cancelReverted'
   | 'paused'
   | 'resumed'
@@ -243,7 +244,8 @@ const KIND_LABELS: Record<LedgerEventKind, string> = {
   trialChargeDeclined: 'First charge declined',
   renewalFailed: 'Renewal payment failed',
   recovered: 'Payment recovered',
-  cancelScheduled: 'Cancellation scheduled',
+  cancelScheduledTrial: 'Cancellation scheduled: trial',
+  cancelScheduledPaid: 'Cancellation scheduled: paid subscription',
   cancelReverted: 'Cancellation reversed',
   paused: 'Subscription paused',
   resumed: 'Subscription resumed',
@@ -307,6 +309,25 @@ function isTrialPhase(s: SubState, nowMs: number): boolean {
   if (!s.sawTrial) return false;
   if (s.firstActiveMs == null) return true;
   return nowMs - s.firstActiveMs <= CONVERSION_CONFIRM_DAYS * DAY_MS;
+}
+
+// Whether a scheduled cancellation is ending a PAID subscription rather than a
+// free trial. Money having actually moved is the deciding fact, so an observed
+// (or fallback-settled) first payment answers it outright; the Full Subscriber
+// bucket is accepted alongside it because an established payer whose history
+// predates the payment stream reaches that bucket without one. Everything else
+// — trialing, the conversion charge still in flight, a first charge already
+// declined — has never completed a payment, so it is a trial being called off.
+function isPaidSubscription(s: SubState): boolean {
+  if (s.paidAt != null) return true;
+  if (s.bucket === 'fullSubscriber') return true;
+  // `converting` on a subscription whose trial was never observed is an artifact
+  // of the scan starting mid-life: an established payer's routine renewal sync
+  // looks identical to a trial's first `active`, and only the absence of any
+  // `trialing` sync tells them apart. Two days later settleDue promotes them to
+  // Full Subscriber anyway; this just keeps a cancel clicked inside that window
+  // from reading as a trial the member never had.
+  return s.bucket === 'converting' && !s.sawTrial;
 }
 
 /**
@@ -570,20 +591,30 @@ export function buildSubscriberLedger(
     }
 
     // The cancel flag moves no counts (they keep access to period end) but it is
-    // the single best early warning there is, so it always gets a row.
+    // the single best early warning there is, so it always gets a row — split by
+    // WHAT is being canceled, because the two cost completely different things.
+    // A trial cancel forfeits a conversion that was never charged; a paid cancel
+    // is revenue already in hand walking out at the end of the period.
     if (ev.cancelAtPeriodEnd !== s.cancelAtPeriodEnd && !s.ended) {
       s.cancelAtPeriodEnd = ev.cancelAtPeriodEnd;
+      const paid = isPaidSubscription(s);
       rows.push({
         at: ev.at,
         email: ev.email,
         userId: ev.userId,
-        kind: ev.cancelAtPeriodEnd ? 'cancelScheduled' : 'cancelReverted',
+        kind: ev.cancelAtPeriodEnd
+          ? paid
+            ? 'cancelScheduledPaid'
+            : 'cancelScheduledTrial'
+          : 'cancelReverted',
         fullSubscriberDelta: 0,
         convertingDelta: 0,
         freeTrialDelta: 0,
         trialGraceDelta: 0,
         detail: ev.cancelAtPeriodEnd
-          ? 'Clicked Cancel — keeps access until the period ends, then drops off'
+          ? paid
+            ? 'Clicked Cancel on a paid subscription — keeps access until the paid period ends, then drops off'
+            : 'Clicked Cancel during the free trial — keeps access until the trial ends, then leaves without ever being charged'
           : 'Cancellation reversed — staying on',
       });
     }

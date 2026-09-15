@@ -157,6 +157,13 @@ export interface UnderlyingQuote {
   open?: number;
   high?: number;
   low?: number;
+  // The CME contract a futures price resolves to, and that contract's expiry.
+  // Optional and ABSENT on anything that is not a future, so every reader must
+  // treat them as `string | undefined` — an SPX or SPY quote carries neither.
+  // Display labels only: see core/futuresContract.ts for why they must never
+  // key data, and why the contract is never derived on the client.
+  data_contract?: string | null;
+  data_contract_expiry?: string | null;
 }
 
 export interface HealthStatus {

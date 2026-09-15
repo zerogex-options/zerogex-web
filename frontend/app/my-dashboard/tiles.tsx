@@ -10,6 +10,7 @@
 import MetricCard from '@/components/MetricCard';
 import PriceDistanceMetricCard from '@/components/PriceDistanceMetricCard';
 import HistoricalContextBadge from '@/components/HistoricalContextBadge';
+import FuturesContractBadge from '@/components/FuturesContractBadge';
 import { getPrimaryPriceChangeSummary } from '@/core/priceChange';
 import { resolvePriceSession } from '@/core/sessionCloses';
 import { isIndexSymbol } from '@/core/utils';
@@ -58,6 +59,15 @@ export function PriceTile() {
               {t('priceFuturesLabel', { ticker: dashFuturesTicker })}
             </span>
           )}
+          {/* Names the CME contract this price is, on both futures paths — the
+              overnight swap above and a natively-served ES / NQ quote. Renders
+              nothing for a cash symbol or a response without the field. */}
+          <FuturesContractBadge
+            contract={quote?.data_contract}
+            expiry={quote?.data_contract_expiry}
+            className="zg-chip w-fit"
+            style={{ '--chip-color': 'var(--color-brand-coral)' } as React.CSSProperties}
+          />
           <span
             style={{
               color:

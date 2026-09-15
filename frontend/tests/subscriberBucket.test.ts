@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   buildSubscriberLedger,
   classifySubscriberBucket,
+  ledgerKindLabel,
   normalizeBucketTier,
   summarizeLedger,
   type LedgerPaymentEvent,
@@ -371,13 +372,81 @@ test('a scheduled cancellation warns first, then accounts for the drop', () => {
   const kinds = rows.map((r) => r.kind);
   // The conversion is now two steps — charge raised, then confirmed — before the
   // cancellation warning and the departure it eventually causes.
-  assert.deepEqual(kinds, ['accessEnded', 'cancelScheduled', 'converted', 'conversionPending']);
+  assert.deepEqual(kinds, ['accessEnded', 'cancelScheduledPaid', 'converted', 'conversionPending']);
   // The warning itself moves nothing — they keep access until the period ends.
-  const scheduled = rows.find((r) => r.kind === 'cancelScheduled')!;
+  const scheduled = rows.find((r) => r.kind === 'cancelScheduledPaid')!;
   assert.equal(scheduled.fullSubscriberDelta, 0);
   // The departure a month later is the row that moves the count.
   assert.equal(rows[0].fullSubscriberDelta, -1);
   assert.match(rows[0].detail, /Scheduled cancellation took effect/);
+});
+
+// A cancel clicked mid-trial and a cancel clicked on a paid subscription are
+// the same Stripe flag and cost completely different things: one forfeits a
+// conversion that was never charged, the other is revenue already in hand
+// walking out. The ledger has to name which one it is.
+
+test('a cancel clicked during the free trial is labeled as a trial cancellation', () => {
+  const rows = buildSubscriberLedger(
+    [
+      sync({ at: '2026-07-01T00:00:00Z', status: 'trialing' }),
+      sync({ at: '2026-07-03T00:00:00Z', status: 'trialing', cancelAtPeriodEnd: true }),
+    ],
+    [],
+  );
+  const scheduled = rows.find((r) => r.kind.startsWith('cancelScheduled'))!;
+  assert.equal(scheduled.kind, 'cancelScheduledTrial');
+  assert.equal(ledgerKindLabel(scheduled.kind), 'Cancellation scheduled: trial');
+  assert.match(scheduled.detail, /without ever being charged/);
+  // Still no count movement — they keep access to the end of the trial.
+  assert.equal(scheduled.freeTrialDelta, 0);
+});
+
+test('a cancel clicked while the conversion charge is in flight is still a trial cancellation', () => {
+  // The trial ended and Stripe raised the invoice, but no payment has cleared —
+  // there is no paid subscription to cancel yet.
+  const rows = buildSubscriberLedger(
+    [
+      sync({ at: '2026-07-01T00:00:00Z', status: 'trialing' }),
+      sync({ at: '2026-07-08T00:00:00Z', status: 'active' }),
+      sync({ at: '2026-07-08T00:30:00Z', status: 'active', cancelAtPeriodEnd: true }),
+    ],
+    [],
+    [],
+    Date.parse('2026-07-08T01:00:00Z'),
+  );
+  assert.equal(rows.find((r) => r.kind.startsWith('cancelScheduled'))!.kind, 'cancelScheduledTrial');
+});
+
+test('a cancel after the first payment cleared is a paid-subscription cancellation', () => {
+  const rows = buildSubscriberLedger(
+    [
+      sync({ at: '2026-07-01T00:00:00Z', status: 'trialing' }),
+      sync({ at: '2026-07-08T00:00:00Z', status: 'active' }),
+      sync({ at: '2026-07-20T00:00:00Z', status: 'active', cancelAtPeriodEnd: true }),
+    ],
+    [],
+    [payment({ at: '2026-07-08T01:00:00Z' })],
+  );
+  const scheduled = rows.find((r) => r.kind.startsWith('cancelScheduled'))!;
+  assert.equal(scheduled.kind, 'cancelScheduledPaid');
+  assert.equal(ledgerKindLabel(scheduled.kind), 'Cancellation scheduled: paid subscription');
+  assert.match(scheduled.detail, /paid period ends/);
+});
+
+test('an established payer whose trial predates the scan is not mislabeled as a trial', () => {
+  // The scan opens on a routine renewal sync, which looks exactly like a trial's
+  // first `active`. Never having seen a `trialing` sync is what tells them apart.
+  const rows = buildSubscriberLedger(
+    [
+      sync({ at: '2026-07-01T00:00:00Z', status: 'active' }),
+      sync({ at: '2026-07-01T06:00:00Z', status: 'active', cancelAtPeriodEnd: true }),
+    ],
+    [],
+    [],
+    Date.parse('2026-07-01T12:00:00Z'),
+  );
+  assert.equal(rows.find((r) => r.kind.startsWith('cancelScheduled'))!.kind, 'cancelScheduledPaid');
 });
 
 test('a reversed cancellation is recorded and moves nothing', () => {

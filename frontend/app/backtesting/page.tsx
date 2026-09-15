@@ -27,6 +27,8 @@ import TooltipWrapper from '@/components/TooltipWrapper';
 import BetaBadge from '@/components/BetaBadge';
 import { backtestAPI } from '@/core/api/endpoints';
 import { useBacktest, TRADES_PAGE_SIZE } from './useBacktest';
+import { RouteBadge, StageBadge } from './CatalogBadges';
+import { evidenceSummary, groupByFamily, strategiesFromMeta } from './catalogView';
 import type {
   BacktestCondition,
   BacktestConfigSummary,
@@ -552,12 +554,10 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
     );
   }
 
-  const patternsByTier = new Map<string, BacktestMeta['patterns']>();
-  for (const p of meta.patterns) {
-    const list = patternsByTier.get(p.tier) ?? [];
-    list.push(p);
-    patternsByTier.set(p.tier, list);
-  }
+  // Grouped by thesis FAMILY rather than tier: the catalog's point is that
+  // strategies reading the same market mechanism belong together, so a
+  // family-wide result is legible as a finding about the mechanism.
+  const strategyGroups = groupByFamily(strategiesFromMeta(meta));
 
   const togglePattern = (id: string) => {
     setForm((prev) =>
@@ -769,7 +769,7 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
           >
             {(
               [
-                ['patterns', 'Playbook patterns'],
+                ['patterns', 'Strategy catalog'],
                 ['strategy', 'Custom strategy'],
               ] as const
             ).map(([value, label]) => {
@@ -797,31 +797,65 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
 
         {form.mode === 'patterns' ? (
           <div>
-            <div className="text-[11px] uppercase tracking-[0.16em] text-[var(--color-text-secondary)] mb-2">
-              Patterns
+            <div className="flex items-baseline justify-between mb-2">
+              <div className="text-[11px] uppercase tracking-[0.16em] text-[var(--color-text-secondary)]">
+                Strategies
+              </div>
+              <div className="text-[10px] text-[var(--color-text-secondary)]">
+                {form.patterns.length} selected
+              </div>
             </div>
+            <p className="text-[11px] text-[var(--color-text-secondary)] leading-snug mb-3">
+              The same catalog Bot Trading and Pattern Insights use. A strategy marked{' '}
+              <span style={{ color: 'var(--color-accent)' }}>Replay</span> is measured by
+              re-running its bot&apos;s entry rule over history rather than replaying cards it
+              emitted live.
+            </p>
             <div className="flex flex-col gap-3">
-              {[...patternsByTier.entries()].map(([tier, list]) => (
-                <fieldset key={tier} className="rounded-lg border p-3" style={{ borderColor: 'var(--color-border)' }}>
+              {strategyGroups.map((group) => (
+                <fieldset
+                  key={group.family}
+                  className="rounded-lg border p-3"
+                  style={{ borderColor: 'var(--color-border)' }}
+                >
                   <legend className="px-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">
-                    {tier}
+                    {group.label}
                   </legend>
-                  <div className="flex flex-col gap-2">
-                    {list.map((p) => (
-                      <label key={p.id} className="flex items-start gap-2 cursor-pointer text-sm">
+                  <div className="flex flex-col gap-2.5">
+                    {group.strategies.map((p) => (
+                      <label
+                        key={p.id}
+                        className="flex items-start gap-2 text-sm"
+                        style={{
+                          cursor: p.backtestable ? 'pointer' : 'not-allowed',
+                          opacity: p.backtestable ? 1 : 0.55,
+                        }}
+                        title={p.not_backtestable_reason ?? undefined}
+                      >
                         <input
                           type="checkbox"
                           className="mt-0.5"
+                          disabled={!p.backtestable}
                           checked={form.patterns.includes(p.id)}
                           onChange={() => togglePattern(p.id)}
                         />
-                        <span className="flex-1">
-                          <span className="font-medium">{p.name}</span>
-                          {p.description ? (
-                            <span className="block text-[11px] text-[var(--color-text-secondary)] leading-snug">
-                              {p.description}
+                        <span className="flex-1 min-w-0">
+                          <span className="flex flex-wrap items-center gap-1.5">
+                            <span className="font-medium">{p.name}</span>
+                            <span className="text-[10px] text-[var(--color-text-secondary)]">
+                              {p.tier}
+                            </span>
+                            <StageBadge stage={p.stage} />
+                            <RouteBadge route={p.backtest_via} />
+                          </span>
+                          {p.thesis ? (
+                            <span className="block text-[11px] text-[var(--color-text-secondary)] leading-snug mt-0.5">
+                              {p.thesis}
                             </span>
                           ) : null}
+                          <span className="block text-[10px] text-[var(--color-text-secondary)] mt-0.5 opacity-80">
+                            {p.not_backtestable_reason ?? evidenceSummary(p)}
+                          </span>
                         </span>
                       </label>
                     ))}
@@ -1166,7 +1200,7 @@ function ConfigPanel({ bt }: { bt: ReturnType<typeof useBacktest> }) {
 
         {form.mode === 'patterns' && form.patterns.length === 0 ? (
           <p className="text-[11px] text-[var(--color-text-secondary)]">
-            Select at least one pattern to run a backtest.
+            Select at least one strategy to run a backtest.
           </p>
         ) : null}
 
@@ -2455,7 +2489,7 @@ function DiagnosticsPanel({
   const drops = Object.entries(diagnostics.drops ?? {}).sort((a, b) => b[1] - a[1]);
   const hint =
     diagnostics.cards_in_scope === 0
-      ? 'None of the selected patterns fired in this window — try other patterns or a wider date range.'
+      ? 'None of the selected strategies fired in this window — try other strategies or a wider date range.'
       : diagnostics.priced_candidates === 0 && diagnostics.cards_after_cooldown > 0
         ? 'Cards fired but none could be priced — see the drop reasons below.'
         : nTrades === 0 && diagnostics.priced_candidates > 0

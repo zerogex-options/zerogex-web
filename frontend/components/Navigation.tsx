@@ -30,6 +30,18 @@ const SIDEBAR_WIDTH = 272;
 // Per-browser pinned-pages list for the sidebar "Favorites" group.
 const FAVORITES_STORAGE_KEY = "zg.nav.favorites.v1";
 
+// Whether `pathname` is "inside" a nav item. Exact match by default; items
+// flagged `matchPrefix` (a section whose real pages are dated permalinks, e.g.
+// /scorecard/SPY/2026-09-11) also match their descendants, so the sidebar
+// still shows where the reader is. The "/" guard keeps /scorecard from
+// claiming a sibling like /scorecard-archive.
+function isNavItemActive(pathname: string | null, item: { id: string; matchPrefix?: boolean }): boolean {
+  if (!pathname) return false;
+  if (pathname === item.id) return true;
+  return item.matchPrefix === true && pathname.startsWith(`${item.id}/`);
+}
+
+
 export default function Navigation({ theme }: NavigationProps) {
   const { symbol } = useTimeframe();
   const { t } = useLanguage();
@@ -210,14 +222,14 @@ export default function Navigation({ theme }: NavigationProps) {
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
     navGroups.forEach((group) => {
-      const directMatch = (group.items ?? []).some((item) => pathname === item.id);
+      const directMatch = (group.items ?? []).some((item) => isNavItemActive(pathname, item));
       const subMatch = (group.subgroups ?? []).some((sg) =>
-        sg.id === pathname || sg.items.some((item) => pathname === item.id),
+        sg.id === pathname || sg.items.some((item) => isNavItemActive(pathname, item)),
       );
       initial[group.label] = directMatch || subMatch;
       (group.subgroups ?? []).forEach((sg) => {
         initial[`${group.label}::${sg.label}`] =
-          sg.id === pathname || sg.items.some((item) => pathname === item.id);
+          sg.id === pathname || sg.items.some((item) => isNavItemActive(pathname, item));
       });
     });
     return initial;
@@ -299,7 +311,7 @@ export default function Navigation({ theme }: NavigationProps) {
   // as a button rather than a location.
   const renderItem = (page: NavItem) => {
     const isExternal = page.external === true;
-    const isActive = pathname === page.id;
+    const isActive = isNavItemActive(pathname, page);
     const lock = lockedTier(page);
     const isFav = favorites.includes(page.id);
     const favLabel = isFav

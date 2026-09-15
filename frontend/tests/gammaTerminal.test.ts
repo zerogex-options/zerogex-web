@@ -31,11 +31,11 @@ test("Gamma Terminal is a Beta, Basic-tier item in the Main section", () => {
 test("the page reuses GammaTerminalChart and PairGammaHeatmap", () => {
   assert.match(page, /export default function GammaTerminalPage/);
   assert.match(page, /\(Beta\)/);
-  assert.match(client, /import GammaTerminalChart, \{ type ChartGeometry \} from "@\/components\/GammaTerminalChart"/);
+  assert.match(client, /import GammaTerminalChart, \{ type ChartGeometry, type RewindState \} from "@\/components\/GammaTerminalChart"/);
   // Terminal mode: no rail (the ladders carry it), spot held at the tape's
   // center, ribbons on by default under a scoped preference key, and the
   // geometry callback that pins the ladders to the chart.
-  assert.match(client, /<GammaTerminalChart\s+hideRail\s+centerPriceOnSpot\s+storageScope="terminal"\s+overlayDefaults=\{\{ ribbons: true \}\}\s+onGeometry=\{onGeometry\}\s*\/>/);
+  assert.match(client, /<GammaTerminalChart\s+hideRail\s+centerPriceOnSpot\s+storageScope="terminal"\s+overlayDefaults=\{\{ ribbons: true \}\}\s+onGeometry=\{onGeometry\}\s+onRewind=\{onRewind\}\s*\/>/);
   assert.match(client, /fit=\{fit\} maxSide=\{maxSide\}/);
   assert.match(client, /height: wide && geometry \? geometry\.height : undefined/);
   assert.match(client, /import PairGammaHeatmap/);
@@ -78,4 +78,56 @@ test("Pair Comparison and the Gamma Terminal share one SymbolSelect", () => {
   assert.match(pair, /import SymbolSelect from "@\/components\/SymbolSelect"/);
   assert.match(client, /import SymbolSelect from "@\/components\/SymbolSelect"/);
   assert.doesNotMatch(pair, /function SymbolSelect\(/);
+});
+
+// Rewind drives both ladders: the chart broadcasts its replay clock and each
+// column receives it, so the book beside the tape is the book as of the same
+// moment rather than the live tip.
+test("both ladders follow the chart's rewind clock", () => {
+  assert.match(client, /const rewindTime = rewind\.active \? rewind\.time : null;/);
+  assert.equal((client.match(/rewindTime,\n\s*\}\);/g) ?? []).length, 2, "both ladder columns take the clock");
+  const chart = readFileSync(new URL("../components/GammaTerminalChart.tsx", import.meta.url), "utf8");
+  assert.match(chart, /onRewind\?\.\(\{ active: rewindActive, time: rewindActive \? rewindTime : null \}\)/);
+  const hook = readFileSync(new URL("../hooks/useGammaLadder.ts", import.meta.url), "utf8");
+  assert.match(hook, /bucketAtOrNearest\(history, rewindMs as number\)/);
+  assert.match(hook, /positioningKind: "rewind" as const/);
+});
+
+// The ribbons' opacity is user-adjustable and persisted, with the default a
+// notch under the tuned look.
+test("ribbon opacity is adjustable, persisted per surface, and defaults to 90%", () => {
+  const chart = readFileSync(new URL("../components/GammaTerminalChart.tsx", import.meta.url), "utf8");
+  assert.match(chart, /const RIBBON_OPACITY_DEFAULT = 0\.9;/);
+  assert.match(chart, /<RibbonOpacityControl value=\{ribbonOpacity\} onChange=\{setRibbonOpacity\} \/>/);
+  assert.match(chart, /localStorage\.setItem\(ribbonOpacityKey, String\(ribbonOpacity\)\)/);
+  assert.match(chart, /RIBBON_TIER_OPACITY\[p\.tier\] \* ribbonOpacity/);
+  assert.match(chart, /RIBBON_GLOW_OPACITY\[p\.tier\] \* ribbonOpacity/);
+});
+
+// The volume pane has two views: the stacked up/down columns it has always
+// drawn, and a running net cumulative (core/netVolumeSeries) in the style of
+// the Options Flow chart's directional net volume.
+test("the volume pane offers both views, persisted per surface", () => {
+  const chart = readFileSync(new URL("../components/GammaTerminalChart.tsx", import.meta.url), "utf8");
+  assert.match(chart, /const \[volumeMode, setVolumeMode\] = useState<VolumeMode>\("updown"\)/);
+  assert.match(chart, /aria-label="Volume pane"/);
+  assert.match(chart, /onClick=\{\(\) => setVolumeMode\(m\)\}/);
+  assert.match(chart, /localStorage\.setItem\(volumeModeKey, volumeMode\)/);
+  assert.match(chart, /VOLUME_MODE_STORAGE_KEY = "zg\.gammaChart\.volumeMode\.v1"/);
+  // The pane's geometry comes from the tested module, not from inline math.
+  assert.match(chart, /netVolumeAreaPaths\(netVolume\.segments/);
+  assert.match(chart, /netVolumeScale\(values, \{ top: VOL_TOP, bottom: VOL_BOTTOM \}\)/);
+});
+
+// The running total has to be accumulated from the session's first bar, so the
+// number under a given bar is the same however the view is zoomed or panned.
+// Accumulating over the visible slice would restate it at every zoom.
+test("the net cumulative is accumulated through the right edge, not from the viewport", () => {
+  const chart = readFileSync(new URL("../components/GammaTerminalChart.tsx", import.meta.url), "utf8");
+  assert.match(chart, /const throughEdge = allBars\.slice\(0, viewEnd\);/);
+  assert.match(chart, /cumulativeNetVolume\(throughEdge, \{ resetPerDay: perDay \}\)\.slice\(viewStart, viewEnd\)/);
+  // Daily candles are one bar per session already, so they don't reset.
+  assert.match(chart, /const perDay = timeframe !== "1day";/);
+  // The replay's growing edge candle is substituted the way `bars` does it.
+  assert.match(chart, /if \(partialCurrentBar && throughEdge\.length > 0\) throughEdge\[throughEdge\.length - 1\] = partialCurrentBar;/);
 });

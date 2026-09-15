@@ -21,6 +21,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
 import { Activity, Camera, ChevronsRight, HelpCircle, Info, Moon, Pause, Play, Repeat, Rewind, Sun } from "lucide-react";
 import TooltipWrapper from "./TooltipWrapper";
+import FuturesContractBadge from "./FuturesContractBadge";
 import { useApiData, useMarketQuote, useGEXByStrike, useGEXProfile, useGEXSummary, useSessionCloses, type SessionClosesData, type VolatilityGaugeData } from "@/hooks/useApiData";
 import { useMarketHistorical, type PriceBar } from "@/hooks/useMarketHistorical";
 import { useStrikeProfileTimeseries, type StrikeProfileStrike } from "@/hooks/useStrikeProfileTimeseries";
@@ -31,6 +32,16 @@ import { resolvePriceSession } from "@/core/sessionCloses";
 import { futuresDelayLabel } from "@/core/futuresDataStatus";
 import { omitClosedMarketTimes, shouldOmitClosedMarketTimes, isIndexSymbol, isWithinRegularMarketHours, etTodayDateKey, etTradingDateLabel, omitOutOfHoursForSymbol } from "@/core/utils";
 import { SYMBOLS } from "@/core/symbols";
+import {
+  cumulativeNetVolume,
+  netVolumeAreaPaths,
+  netVolumeScale,
+  sessionStartIndices,
+  signedAreaSegments,
+  VOLUME_MODE_LABELS,
+  type VolumeMode,
+} from "@/core/netVolumeSeries";
+import { seriesRollNote, summarizeSeriesContracts } from "@/core/futuresContract";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import LoadingSpinner from "./LoadingSpinner";
 import ErrorMessage from "./ErrorMessage";
@@ -122,8 +133,13 @@ const DEFAULT_OVERLAYS: OverlayState = {
 
 const OVERLAY_STORAGE_KEY = "zg.gammaChart.overlays.v1";
 const STYLE_STORAGE_KEY = "zg.gammaChart.style.v1";
+// Persisted volume pane view: stacked up/down columns, or the running net
+// cumulative (see core/netVolumeSeries).
+const VOLUME_MODE_STORAGE_KEY = "zg.gammaChart.volumeMode.v1";
 // Persisted Expected-range horizon (Daily / Weekly / Monthly) for the overlay.
 const ER_HORIZON_STORAGE_KEY = "zg.gammaChart.erHorizon.v1";
+// Persisted ribbon opacity multiplier (see RIBBON_OPACITY_DEFAULT).
+const RIBBON_OPACITY_STORAGE_KEY = "zg.gammaChart.ribbonOpacity.v1";
 
 // ── Geometry (SVG viewBox coordinates; the SVG scales to its container) ──────
 const VW = 1360;
@@ -181,6 +197,13 @@ const RIBBON_NEG_BODY = `color-mix(in srgb, ${RIBBON_NEG_CORE} 45%, ${RIBBON_NEG
 const RIBBON_GLOW_OPACITY: Record<"strong" | "mid" | "weak", number> = { strong: 0.5, mid: 0.25, weak: 0.1 };
 // Blur radius of the bloom, in viewBox units (~2 CSS px at typical widths).
 const RIBBON_GLOW_BLUR = 2.8;
+// User-adjustable opacity multiplier over every ribbon channel (body, bloom,
+// rim). 1 is the tuned look; the default sits a notch under it so the tape
+// leads by default and a reader who wants the ribbons louder can turn them up.
+const RIBBON_OPACITY_DEFAULT = 0.9;
+const RIBBON_OPACITY_MIN = 0.1;
+const RIBBON_OPACITY_MAX = 1.5;
+const clampRibbonOpacity = (v: number) => Math.min(RIBBON_OPACITY_MAX, Math.max(RIBBON_OPACITY_MIN, v));
 // The reading guide behind the legend's info icon — every visual channel of
 // the ribbons, in the order a reader meets them: what an orb is, then height,
 // opacity, colour, and how a lane evolves.
@@ -193,7 +216,8 @@ const RIBBON_GUIDE =
   "there — a magnet and a brake), violet means net SHORT (they chase — an accelerant). " +
   "A fat lane that persists all session is a wall; a lane thickening is positioning building, thinning is eroding, " +
   "and a lane changing colour is the strike flipping sides. Hover a bar on a lane to read the exact strike and value. " +
-  "History covers the polled strike window, so earlier bars stay blank.";
+  "History covers the polled strike window, so earlier bars stay blank. " +
+  "The slider beside the Ribbons pill scales the overall opacity.";
 
 // ── Gamma-by-strike rail view ── the rail draws either the smoothed net
 // silhouette (default, existing behavior) or discrete per-strike bars: NET
@@ -257,6 +281,12 @@ function fmtVol(v: number): string {
   if (abs >= 1_000_000) return `${(v / 1_000_000).toFixed(abs >= 10_000_000 ? 0 : 1)}M`;
   if (abs >= 1_000) return `${(v / 1_000).toFixed(abs >= 10_000 ? 0 : 1)}K`;
   return `${Math.round(v)}`;
+}
+
+// Net cumulative volume is a signed quantity, and a "+" is what separates
+// "buyers are up 1.2M contracts on the day" from a plain volume count.
+function fmtVolSigned(v: number): string {
+  return `${v >= 0 ? "+" : "−"}${fmtVol(Math.abs(v))}`;
 }
 
 function fmtGex(v: number): string {
@@ -352,6 +382,21 @@ interface ProfilePoint {
  * public visitor can never pull real-time data off the wire. Built on the
  * server from ~15-min ISR-cached `serverApiGet` calls.
  */
+/** The terminal headline's futures chip — shared by the display-swap badge and
+ *  the contract chip that replaces it on a natively-served ES / NQ chart, so
+ *  the two never differ in shape. */
+const FUTURES_CHIP_STYLE: CSSProperties = {
+  fontFamily: "var(--font-mono)",
+  fontSize: 10,
+  fontWeight: 700,
+  letterSpacing: "0.04em",
+  color: "var(--color-brand-coral)",
+  border: "1px solid var(--color-brand-coral)",
+  borderRadius: 3,
+  padding: "1px 5px",
+  lineHeight: 1.4,
+};
+
 export interface ChartSnapshot {
   symbol: string;
   timeframe: ChartTimeframe;
@@ -365,6 +410,8 @@ export interface ChartSnapshot {
     data_symbol?: string | null;
     futures_close?: number | null;
     futures_reference_close?: number | null;
+    data_contract?: string | null;
+    data_contract_expiry?: string | null;
   } | null;
   sessionCloses: SessionClosesData | null;
   gamma: { flip: number | null; callWall: number | null; putWall: number | null; maxPain: number | null; netGexAtSpot: number | null };
@@ -392,6 +439,14 @@ export interface ChartGeometry {
   height: number;
 }
 
+/** The chart's replay clock, reported through `onRewind` so instruments beside
+ *  the chart (the Gamma Terminal's ladders) can show the book as of the same
+ *  moment. `time` is the clock in ms while rewinding, null when live. */
+export interface RewindState {
+  active: boolean;
+  time: number | null;
+}
+
 // ── Component ────────────────────────────────────────────────────────────────
 export default function GammaTerminalChart({
   className = "",
@@ -402,6 +457,7 @@ export default function GammaTerminalChart({
   storageScope,
   overlayDefaults,
   onGeometry,
+  onRewind,
 }: {
   className?: string;
   snapshot?: ChartSnapshot | null;
@@ -421,6 +477,8 @@ export default function GammaTerminalChart({
   overlayDefaults?: Partial<OverlayState>;
   /** Receives the tape's on-screen geometry whenever it changes. */
   onGeometry?: (geometry: ChartGeometry) => void;
+  /** Receives the replay clock whenever rewind starts, moves, or ends. */
+  onRewind?: (state: RewindState) => void;
 }) {
   const delayed = delayedProp || !!snapshot;
   const live = !delayed;
@@ -444,10 +502,12 @@ export default function GammaTerminalChart({
   const [timeframeState, setTimeframe] = useState<ChartTimeframe>("5min");
   const timeframe = snapshot ? snapshot.timeframe : timeframeState;
   const [style, setStyle] = useState<PriceStyle>("candles");
+  const [volumeMode, setVolumeMode] = useState<VolumeMode>("updown");
   const [overlays, setOverlays] = useState<OverlayState>(() => ({ ...DEFAULT_OVERLAYS, ...overlayDefaults }));
   // The rail cannot be shown at all in terminal mode — its column is gone.
   const railOn = overlays.rail && !hideRail;
   const [erHorizon, setErHorizon] = useState<HorizonKey>("daily");
+  const [ribbonOpacity, setRibbonOpacity] = useState(RIBBON_OPACITY_DEFAULT);
   const [hydrated, setHydrated] = useState(false);
   const [view, setView] = useState<{ count: number; offset: number }>({ count: DEFAULT_COUNT, offset: 0 });
   const [priceView, setPriceView] = useState<{ zoom: number; center: number | null }>(DEFAULT_PRICE_VIEW);
@@ -528,8 +588,10 @@ export default function GammaTerminalChart({
   // no rail — never leak into /chart's saved view, and vice versa.
   const overlayKey = storageScope ? `${OVERLAY_STORAGE_KEY}.${storageScope}` : OVERLAY_STORAGE_KEY;
   const styleKey = storageScope ? `${STYLE_STORAGE_KEY}.${storageScope}` : STYLE_STORAGE_KEY;
+  const volumeModeKey = storageScope ? `${VOLUME_MODE_STORAGE_KEY}.${storageScope}` : VOLUME_MODE_STORAGE_KEY;
   const erKey = storageScope ? `${ER_HORIZON_STORAGE_KEY}.${storageScope}` : ER_HORIZON_STORAGE_KEY;
   const railKey = storageScope ? `${RAIL_STORAGE_KEY}.${storageScope}` : RAIL_STORAGE_KEY;
+  const ribbonOpacityKey = storageScope ? `${RIBBON_OPACITY_STORAGE_KEY}.${storageScope}` : RIBBON_OPACITY_STORAGE_KEY;
 
   // Restore persisted view preferences once on mount. Server and the first
   // client render intentionally use the defaults; we only reconcile from
@@ -543,8 +605,15 @@ export default function GammaTerminalChart({
       if (rawO) setOverlays((cur) => ({ ...cur, ...JSON.parse(rawO) }));
       const rawS = localStorage.getItem(styleKey);
       if (rawS === "candles" || rawS === "line" || rawS === "area") setStyle(rawS);
+      const rawV = localStorage.getItem(volumeModeKey);
+      if (rawV === "updown" || rawV === "net") setVolumeMode(rawV);
       const rawH = localStorage.getItem(erKey);
       if (rawH === "daily" || rawH === "weekly" || rawH === "monthly") setErHorizon(rawH);
+      const rawA = localStorage.getItem(ribbonOpacityKey);
+      if (rawA != null) {
+        const parsed = parseFloat(rawA);
+        if (Number.isFinite(parsed)) setRibbonOpacity(clampRibbonOpacity(parsed));
+      }
       const rawR = localStorage.getItem(railKey);
       if (rawR) {
         const parsed = JSON.parse(rawR);
@@ -559,7 +628,7 @@ export default function GammaTerminalChart({
       /* ignore malformed prefs */
     }
     setHydrated(true);
-  }, [overlayKey, styleKey, erKey, railKey]);
+  }, [overlayKey, styleKey, volumeModeKey, erKey, railKey, ribbonOpacityKey]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
@@ -583,6 +652,15 @@ export default function GammaTerminalChart({
   useEffect(() => {
     if (!hydrated) return;
     try {
+      localStorage.setItem(volumeModeKey, volumeMode);
+    } catch {
+      /* storage unavailable */
+    }
+  }, [volumeMode, hydrated, volumeModeKey]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
       localStorage.setItem(erKey, erHorizon);
     } catch {
       /* storage unavailable */
@@ -597,6 +675,15 @@ export default function GammaTerminalChart({
       /* storage unavailable */
     }
   }, [railMode, railLabels, hydrated, railKey]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      localStorage.setItem(ribbonOpacityKey, String(ribbonOpacity));
+    } catch {
+      /* storage unavailable */
+    }
+  }, [ribbonOpacity, hydrated, ribbonOpacityKey]);
 
   const intervalMinutes = TIMEFRAMES.find((t) => t.value === timeframe)?.minutes ?? 5;
 
@@ -672,6 +759,16 @@ export default function GammaTerminalChart({
   const futuresTicker = futuresSwap
     ? (snapshot ? snapshot.quote?.data_symbol : quote?.data_symbol) ?? null
     : null;
+  // Which CME contract the headline price is. Read off the quote on BOTH
+  // futures paths — the overnight swap above and a natively-served ES / NQ
+  // chart, which sets none of the swap fields — because "NQ 29,302.25" with no
+  // contract beside it is exactly what readers were comparing against another
+  // platform's different contract. Absent on every cash symbol, and on a
+  // response that predates the field, in which case nothing extra renders.
+  const contractCode =
+    (snapshot ? snapshot.quote?.data_contract : quote?.data_contract) ?? null;
+  const contractExpiry =
+    (snapshot ? snapshot.quote?.data_contract_expiry : quote?.data_contract_expiry) ?? null;
 
   // Stamp the wall-clock instant each fresh live tick lands, so the header can
   // show a realtime "updated HH:MM:SS ET" that advances with the tape instead of
@@ -690,6 +787,17 @@ export default function GammaTerminalChart({
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const data = useMemo(() => dataAll.slice(-POOL), [dataAll]);
+
+  // The bars' own contracts, which are per-row and can differ across the pool:
+  // a multi-day futures range spanning a roll really does hold two contracts,
+  // and the step in price where they meet is cost of carry rather than a market
+  // move. Saying so on the chart is cheaper than answering "your chart has a
+  // gap in it" once a quarter. Null on a single-contract range, which is the
+  // ordinary case, and on every cash series.
+  const contractRollNote = useMemo(
+    () => seriesRollNote(summarizeSeriesContracts(data)),
+    [data],
+  );
 
   // ── Sub-interval bars for SMOOTH candle replay ── While rewinding a
   // candlestick chart, the current (right-edge) candle is rebuilt from the
@@ -904,6 +1012,37 @@ export default function GammaTerminalChart({
     }
     return base;
   }, [allBars, viewStart, viewEnd, partialCurrentBar]);
+
+  // ── Net cumulative volume (the volume pane's second view) ────────────────
+  // A running session total of uptick MINUS downtick volume, drawn as an area
+  // off a zero line — green while buyers have led the day's tape, red once
+  // sellers have taken it back. Same instrument, and the same read, as the
+  // Options Flow chart's Directional net volume.
+  //
+  // The total is accumulated over every bar up to the right edge, not just the
+  // bars on screen: a cumulative that restarted at the left edge of the
+  // viewport would print a different number for the same bar at every zoom.
+  // Panning back into the session therefore shows exactly the curve the live
+  // view showed. The replay's growing edge candle is substituted the same way
+  // `bars` substitutes it, so the total fills in with the replay instead of
+  // snapping. Intraday bars restart the total each ET trading date (the day
+  // separators the chart already draws); daily candles are one bar per session
+  // already, so their total runs across the window.
+  const netVolume = useMemo(() => {
+    if (volumeMode !== "net" || bars.length === 0) return null;
+    const throughEdge = allBars.slice(0, viewEnd);
+    if (partialCurrentBar && throughEdge.length > 0) throughEdge[throughEdge.length - 1] = partialCurrentBar;
+    const perDay = timeframe !== "1day";
+    const values = cumulativeNetVolume(throughEdge, { resetPerDay: perDay }).slice(viewStart, viewEnd);
+    if (values.length === 0) return null;
+    return {
+      values,
+      segments: signedAreaSegments(values, perDay ? sessionStartIndices(bars) : []),
+      scale: netVolumeScale(values, { top: VOL_TOP, bottom: VOL_BOTTOM }),
+      last: values[values.length - 1],
+    };
+  }, [volumeMode, bars, allBars, viewStart, viewEnd, partialCurrentBar, timeframe]);
+
   const atLiveEdge = !rewindActive && effOffset === 0;
   const isCustomView = view.offset !== 0 || view.count !== DEFAULT_COUNT || priceIsManual;
 
@@ -1230,7 +1369,11 @@ export default function GammaTerminalChart({
   // their spot row to the same y. Re-measured whenever the layout or the SVG's
   // rendered size changes; only a real move is reported.
   const geometryRef = useRef<ChartGeometry | null>(null);
-  const spotForGeometry = liveClose ?? (bars.length ? bars[bars.length - 1].close : null);
+  // While rewinding the tape's "spot" is the rewound edge bar, so anything
+  // pinned to it (the ladders' spot row) follows the replay, not the live print.
+  const spotForGeometry = rewindActive
+    ? (bars.length ? bars[bars.length - 1].close : null)
+    : (liveClose ?? (bars.length ? bars[bars.length - 1].close : null));
   useEffect(() => {
     if (!onGeometry) return;
     const svg = svgRef.current;
@@ -1260,6 +1403,12 @@ export default function GammaTerminalChart({
     ro.observe(root);
     return () => ro.disconnect();
   }, [onGeometry, layout, spotForGeometry]);
+
+  // Broadcast the replay clock so a surface can show the book as of the same
+  // moment. Fires on enter, every scrub / playback step, and exit.
+  useEffect(() => {
+    onRewind?.({ active: rewindActive, time: rewindActive ? rewindTime : null });
+  }, [onRewind, rewindActive, rewindTime]);
 
   // GEX ribbons — the per-strike gamma history behind the tape, from the same
   // 5-min strike-profile buckets the rail and rewind read (live only; the
@@ -2037,7 +2186,14 @@ export default function GammaTerminalChart({
   // shown by their arrowed axis tag alone.
   const chipPlacements = (() => {
     const CHIP_H = 16;
-    const GAP = 5;
+    // Two coincident levels (a Pin sitting exactly on the Call Wall, say) land
+    // on one row as "CALL WALL" "PIN · WEAK", and at 5px they read as a single
+    // compound phrase — a support ticket where the reader took "WEAK" to be
+    // qualifying the wall. Each chip has its own bordered box, so the fix is
+    // just enough air between boxes for them to read as two labels. Cheap at
+    // this plot width: ~70px per chip against ~1076px of plot, so even five
+    // colliding levels stay well inside the right edge.
+    const GAP = 10;
     const visible = levelDefs
       .filter((l): l is LevelDef & { value: number } => l.show && l.value != null && inDomain(l.value))
       .map((l) => ({ key: l.key, label: l.label, color: l.color, y: clamp(yPrice(l.value), PAD_TOP + 1, PRICE_BOTTOM - 1), w: labelWidth(l.label) }))
@@ -2210,12 +2366,23 @@ export default function GammaTerminalChart({
                   {headlinePrice != null ? fmtPrice(headlinePrice) : "--"}
                 </span>
                 {!rewindActive && futuresTicker && (
-                  <span
-                    title={`Outside the cash session — showing ${futuresTicker} futures for ${symbol}`}
-                    style={{ fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 700, letterSpacing: "0.04em", color: "var(--color-brand-coral)", border: "1px solid var(--color-brand-coral)", borderRadius: 3, padding: "1px 5px", lineHeight: 1.4 }}
+                  <FuturesContractBadge
+                    contract={contractCode}
+                    expiry={contractExpiry}
+                    note={contractRollNote}
+                    fallbackTitle={`Outside the cash session — showing ${futuresTicker} futures for ${symbol}`}
+                    style={FUTURES_CHIP_STYLE}
                   >
                     ◆ {futuresTicker} FUT
-                  </span>
+                  </FuturesContractBadge>
+                )}
+                {!rewindActive && !futuresTicker && (
+                  <FuturesContractBadge
+                    contract={contractCode}
+                    expiry={contractExpiry}
+                    note={contractRollNote}
+                    style={FUTURES_CHIP_STYLE}
+                  />
                 )}
                 {!rewindActive && headline.change != null && (
                   <span
@@ -2355,6 +2522,32 @@ export default function GammaTerminalChart({
             ))}
           </div>
 
+          {/* Volume pane view. Carries a visible "VOL" label because the
+              buttons sit beside the price-style ones and "Cumulative" has to
+              say what it is cumulative OF. */}
+          <div className="flex items-center gap-1.5">
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--text-muted)" }}>Vol</span>
+            <div className="zg-gc-seg" role="tablist" aria-label="Volume pane">
+              {(["updown", "net"] as VolumeMode[]).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  className="zg-gc-seg-btn"
+                  data-active={m === volumeMode}
+                  onClick={() => setVolumeMode(m)}
+                  aria-pressed={m === volumeMode}
+                  title={
+                    m === "updown"
+                      ? "Uptick volume (green) stacked over downtick volume (red), one column per bar."
+                      : "Running session total of uptick minus downtick volume, from the day's first bar. Above zero (green) buyers have led the tape; below it (red) sellers have."
+                  }
+                >
+                  {VOLUME_MODE_LABELS[m]}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="hidden sm:block" style={{ width: 1, height: 22, background: "var(--border-default)" }} />
 
           {/* Overlay pills */}
@@ -2364,6 +2557,9 @@ export default function GammaTerminalChart({
           )}
           {live && (
             <OverlayPill label="Ribbons" color={RIBBON_POS_GLOW} active={overlays.ribbons} onClick={() => setOverlays((o) => ({ ...o, ribbons: !o.ribbons }))} title="GEX ribbons — per-strike dealer gamma through time, behind the tape. Gold = long gamma, violet = short; height and opacity = weight. Key and reading guide in the legend below; hover a lane for the exact value." />
+          )}
+          {live && overlays.ribbons && (
+            <RibbonOpacityControl value={ribbonOpacity} onChange={setRibbonOpacity} />
           )}
           <OverlayPill label="Regime" color="var(--color-accent-hot)" active={overlays.regime} onClick={() => setOverlays((o) => ({ ...o, regime: !o.regime }))} />
           <OverlayPill label="VWAP" color="var(--color-hazy)" active={overlays.vwap} onClick={() => setOverlays((o) => ({ ...o, vwap: !o.vwap }))} />
@@ -2606,7 +2802,7 @@ export default function GammaTerminalChart({
                       key={`ribbon-glow-${p.strike}-${p.positive ? "p" : "n"}-${p.tier}`}
                       d={p.d}
                       fill={p.positive ? RIBBON_POS_GLOW : RIBBON_NEG_GLOW}
-                      opacity={RIBBON_GLOW_OPACITY[p.tier]}
+                      opacity={Math.min(1, RIBBON_GLOW_OPACITY[p.tier] * ribbonOpacity)}
                     />
                   ))}
                 </g>
@@ -2618,8 +2814,8 @@ export default function GammaTerminalChart({
                     fill={p.positive ? RIBBON_POS_BODY : RIBBON_NEG_BODY}
                     stroke={p.positive ? RIBBON_POS_CORE : RIBBON_NEG_CORE}
                     strokeWidth={0.7}
-                    strokeOpacity={0.5}
-                    opacity={RIBBON_TIER_OPACITY[p.tier]}
+                    strokeOpacity={Math.min(1, 0.5 * ribbonOpacity)}
+                    opacity={Math.min(1, RIBBON_TIER_OPACITY[p.tier] * ribbonOpacity)}
                   />
                 ))}
               </g>
@@ -2873,24 +3069,54 @@ export default function GammaTerminalChart({
             <g>
               <text x={PLOT_LEFT + 4} y={VOL_TOP + 11} fontFamily="var(--font-mono)" fontSize={9.5} letterSpacing="0.12em" fill="var(--text-muted)">
                 VOLUME
+                {/* The pane names its own view, so a PNG export of the
+                    cumulative reading can't be mistaken for the columns. */}
+                {netVolume && <tspan>{"  ·  NET CUMULATIVE"}</tspan>}
+                {netVolume && (
+                  <tspan dx={10} fill={netVolume.last >= 0 ? "var(--color-bull)" : "var(--color-bear)"}>
+                    {fmtVolSigned(netVolume.last)}
+                  </tspan>
+                )}
                 {symbolIsIndex && <tspan fill="var(--color-warning)" fontSize={8.5}>{"   ·  PROXY (EST.)"}</tspan>}
                 {symbolIsIndex && (
                   <title>{`${symbol} is a cash index — it doesn't trade, so this volume is a derived proxy, not native index volume.`}</title>
                 )}
               </text>
-              {bars.map((b, i) => {
-                const x = xForIndex(i);
-                const w = Math.max(1.5, candleWidth);
-                const downTop = yVol(b.downVolume);
-                const upTop = yVol(b.upVolume + b.downVolume);
-                const dim = hover ? (i === activeIdx ? 1 : 0.5) : 0.72;
-                return (
-                  <g key={`vol-${b.timestamp}`} opacity={dim}>
-                    {b.downVolume > 0 && <rect x={x - w / 2} y={downTop} width={w} height={Math.max(0.6, VOL_BOTTOM - downTop)} fill="var(--color-bear)" />}
-                    {b.upVolume > 0 && <rect x={x - w / 2} y={upTop} width={w} height={Math.max(0.6, downTop - upTop)} fill="var(--color-bull)" />}
-                  </g>
-                );
-              })}
+              {netVolume ? (
+                <>
+                  {/* Zero line first: the area is measured off it, so it reads
+                      as the axis the fills hang from rather than a gridline. */}
+                  <line x1={PLOT_LEFT} x2={plotRight} y1={netVolume.scale.zeroY} y2={netVolume.scale.zeroY} stroke="var(--text-muted)" strokeWidth={1} opacity={0.55} />
+                  {netVolumeAreaPaths(netVolume.segments, {
+                    x: xForIndex,
+                    y: netVolume.scale.y,
+                    zeroY: netVolume.scale.zeroY,
+                    columnWidth: Math.max(1.5, candleWidth),
+                  }).map((area, i) => {
+                    const color = area.sign > 0 ? "var(--color-bull)" : "var(--color-bear)";
+                    return (
+                      <g key={`nv-${i}`}>
+                        <path d={area.fill} fill={color} opacity={0.45} />
+                        {area.line && <path d={area.line} fill="none" stroke={color} strokeWidth={1.25} />}
+                      </g>
+                    );
+                  })}
+                </>
+              ) : (
+                bars.map((b, i) => {
+                  const x = xForIndex(i);
+                  const w = Math.max(1.5, candleWidth);
+                  const downTop = yVol(b.downVolume);
+                  const upTop = yVol(b.upVolume + b.downVolume);
+                  const dim = hover ? (i === activeIdx ? 1 : 0.5) : 0.72;
+                  return (
+                    <g key={`vol-${b.timestamp}`} opacity={dim}>
+                      {b.downVolume > 0 && <rect x={x - w / 2} y={downTop} width={w} height={Math.max(0.6, VOL_BOTTOM - downTop)} fill="var(--color-bear)" />}
+                      {b.upVolume > 0 && <rect x={x - w / 2} y={upTop} width={w} height={Math.max(0.6, downTop - upTop)} fill="var(--color-bull)" />}
+                    </g>
+                  );
+                })
+              )}
               <line x1={PLOT_LEFT} x2={plotRight} y1={VOL_BOTTOM} y2={VOL_BOTTOM} stroke="var(--border-default)" strokeWidth={1} />
             </g>
 
@@ -3019,6 +3245,13 @@ export default function GammaTerminalChart({
                 <Row k="L" v={fmtPrice(activeBar.low)} />
                 <Row k="C" v={fmtPrice(activeBar.close)} color={activeBar.close >= activePrevClose ? "var(--color-bull)" : "var(--color-bear)"} />
                 <Row k="Vol" v={fmtVol(activeBar.volume)} />
+                {netVolume && (
+                  <Row
+                    k="Net"
+                    v={fmtVolSigned(netVolume.values[activeIdx] ?? 0)}
+                    color={(netVolume.values[activeIdx] ?? 0) >= 0 ? "var(--color-bull)" : "var(--color-bear)"}
+                  />
+                )}
               </div>
               {liveBarClock && activeBar.timestamp === liveBarTimestamp && (
                 <div style={{ marginTop: 6 }}>
@@ -3433,6 +3666,34 @@ function Row({ k, v, color }: { k: string; v: string; color?: string }) {
       <span style={{ color: "var(--text-muted)" }}>{k}</span>
       <span style={{ color: color ?? "var(--text-primary)", fontWeight: 600 }}>{v}</span>
     </div>
+  );
+}
+
+// Opacity slider for the ribbons — the one continuous control in the toolbar,
+// styled to sit beside the pills: a mono label, a short native range (keyboard
+// and screen-reader friendly for free), and the value read out as a percent.
+function RibbonOpacityControl({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const pct = Math.round(value * 100);
+  return (
+    <label
+      className="flex items-center gap-1.5"
+      title="Ribbon opacity — scales the orbs, their glow and their rim together. 100% is the tuned look; the default sits a notch under it so the tape leads."
+      style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, letterSpacing: "0.04em", color: "var(--text-secondary)", height: 26, padding: "0 8px", border: "1px solid var(--border-default)", borderRadius: "var(--radius-control)", background: "var(--bg-card)" }}
+    >
+      <span style={{ textTransform: "uppercase" }}>Opacity</span>
+      <input
+        type="range"
+        min={Math.round(RIBBON_OPACITY_MIN * 100)}
+        max={Math.round(RIBBON_OPACITY_MAX * 100)}
+        step={5}
+        value={pct}
+        onChange={(e) => onChange(clampRibbonOpacity(Number(e.target.value) / 100))}
+        aria-label="Ribbon opacity"
+        aria-valuetext={`${pct}%`}
+        style={{ width: 76, accentColor: RIBBON_POS_GLOW, cursor: "pointer" }}
+      />
+      <span style={{ minWidth: 34, textAlign: "right", fontVariantNumeric: "tabular-nums", color: "var(--text-primary)" }}>{pct}%</span>
+    </label>
   );
 }
 

@@ -13,6 +13,7 @@ import type { ReactNode } from 'react';
 import {
   Activity,
   AlarmClock,
+  ArrowLeftRight,
   BarChart3,
   CandlestickChart,
   Compass,
@@ -67,6 +68,7 @@ import {
   OpenInterestByStrikePanel,
   GexHeatmapPanel,
   OptionsFlowPanel,
+  HedgingFlowPanel,
   PriceActionPanel,
   GammaPulseWidget,
   SignalsSynthesisPanel,
@@ -360,7 +362,7 @@ export const WIDGETS: WidgetDef[] = [
     id: 'options-flow',
     title: 'Options Flow',
     blurb:
-      'Net call and put premium against net volume through the session, with the underlying price overlaid. Session, net-volume basis and strike / expiration filters built in.',
+      'Net call and put premium against net volume through the session, with the underlying price overlaid. Session, volume basis and strike / expiration filters built in.',
     category: 'flow',
     tier: 'basic',
     icon: Waves,
@@ -368,6 +370,19 @@ export const WIDGETS: WidgetDef[] = [
     allowedSizes: ALL_SIZES,
     feeds: [],
     render: () => <OptionsFlowPanel />,
+  },
+  {
+    id: 'hedging-flow',
+    title: 'Hedging Flow',
+    blurb:
+      "Estimated dealer hedging pressure created by today's option trades, against price on the same timeline. Splits call-driven from put-driven pressure and flags when the push reverses.",
+    category: 'flow',
+    tier: 'basic',
+    icon: ArrowLeftRight,
+    defaultSize: 'xl',
+    allowedSizes: ALL_SIZES,
+    feeds: [],
+    render: () => <HedgingFlowPanel />,
   },
   {
     id: 'net-flow',

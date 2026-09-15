@@ -1,5 +1,5 @@
 # Come identificare supporto e resistenza dal posizionamento sulle opzioni
-> **Nota metodologica aggiornata — prevale su eventuali formulazioni incompatibili più avanti nella pagina.** ZeroGEX stima, ma non osserva, l’inventario dei dealer dai dati pubblici. Il modello conserva la convenzione call-positive/put-negative (`Net GEX = Call GEX − Put GEX`): i dealer sono ipotizzati net long call e net short put. Call e put long hanno gamma positivo; call e put short hanno gamma negativo. Il Put Wall è la maggiore concentrazione di gamma put sotto lo spot e rappresenta localmente gamma dealer negativo: può coincidere con supporto, ma la copertura della put short non crea meccanicamente un pavimento. I wall possono migrare con spot, tempo e volatilità implicita anche quando l’open interest ufficiale non cambia intraday. Verso la scadenza il gamma si concentra vicino all’ATM: il gamma ATM può aumentare, mentre quello decisamente ITM o OTM tende a zero. Il Gamma Flip selezionato è un passaggio locale; il profilo può avere più passaggi o nessun passaggio significativo. Charm e vanna descrivono variazioni condizionali del delta, non ordini programmati. I punteggi sono output euristici, non probabilità calibrate. Il gamma negativo amplifica la direzione già in corso: la distanza da un target non implica repulsione, quindi l’inversione del termine pin di EOD Pressure resta un’euristica ZeroGEX. Max Pain minimizza il payout intrinseco aggregato, non massimizza esattamente il nozionale che scade senza valore. Il DEX grezzo misura delta delle sole opzioni, non il futuro flusso di copertura; premio e lato aggressore non provano informazione, apertura o convinzione.
+> **Nota metodologica.** ZeroGEX stima, ma non osserva, l’inventario dei dealer dai dati pubblici. Il modello conserva la convenzione call-positive/put-negative (`Net GEX = Call GEX − Put GEX`): i dealer sono ipotizzati net long call e net short put. Call e put long hanno gamma positivo; call e put short hanno gamma negativo. Il Put Wall è la maggiore concentrazione di gamma put sotto lo spot e rappresenta localmente gamma dealer negativo: può coincidere con supporto, ma la copertura della put short non crea meccanicamente un pavimento. I wall possono migrare con spot, tempo e volatilità implicita anche quando l’open interest ufficiale non cambia intraday. Verso la scadenza il gamma si concentra vicino all’ATM: il gamma ATM può aumentare, mentre quello decisamente ITM o OTM tende a zero. Il Gamma Flip selezionato è un passaggio locale; il profilo può avere più passaggi o nessun passaggio significativo. Charm e vanna descrivono variazioni condizionali del delta, non ordini programmati. I punteggi sono output euristici, non probabilità calibrate. Il gamma negativo amplifica la direzione già in corso: la distanza da un target non implica repulsione, quindi l’inversione del termine pin di EOD Pressure resta un’euristica ZeroGEX. Max Pain minimizza il payout intrinseco aggregato, non massimizza esattamente il nozionale che scade senza valore. Il DEX grezzo misura delta delle sole opzioni, non il futuro flusso di copertura; premio e lato aggressore non provano informazione, apertura o convinzione.
 
 
 *Il supporto e la resistenza classici sono soprattutto psicologia — linee disegnate, swing precedenti, numeri tondi. Il supporto e la resistenza basati sulle opzioni sono meccanica — posizionamento reale che genera flussi di hedging reali. Ecco come identificarli e come leggerli in tempo reale.*
@@ -19,6 +19,8 @@ Questo articolo è il workflow pratico per identificare S/R basati sulle opzioni
 ---
 
 ## I quattro tipi di S/R basati sulle opzioni
+
+Le etichette qui sotto — call wall come resistenza, put wall come supporto — descrivono il comportamento *tipico in gamma positivo*. Non sono proprietà fisse dello strike: il tipo di opzione da solo non fissa la direzione, e ciascuna può invertirsi quando cambia il segno della gamma dealer modellata o il flusso circostante.
 
 ### 1. Call wall (resistenza)
 
@@ -43,6 +45,12 @@ Il magnet è più forte in prossimità della scadenza, quando le opzioni in scad
 ### 4. Il gamma flip (linea di regime)
 
 Il **gamma flip** non è S/R in senso tradizionale — è il confine di regime. Ma funziona come una linea di supporto/resistenza debole perché il prezzo tende a fermarsi o invertire brevemente mentre lo attraversa (il riflesso del dealer cambia segno esattamente a quel prezzo). Sopra il flip, il riflesso è fadare; sotto, inseguire.
+
+Vedi [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) per il flusso di lavoro.
+
+---
+
+## Perché lo SPY inverte a questi livelli?
 
 Vedi [How to Read a Gamma Flip](/education/how-to-read-a-gamma-flip) per il workflow.
 

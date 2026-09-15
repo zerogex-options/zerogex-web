@@ -9,18 +9,18 @@
 'use client';
 
 import PageShell from '@/components/layout/PageShell';
+import PageHeader from '@/components/layout/PageHeader';
+import SectionHead from '@/components/layout/SectionHead';
+import ChartTooltipShell, { ChartTooltipRow } from '@/components/ChartTooltipShell';
 import { useMemo } from 'react';
-import { Info } from 'lucide-react';
 import { Area, Bar, Cell, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useTechnicals, type TechnicalsBar } from '@/hooks/useTechnicals';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import MetricCard from '@/components/MetricCard';
 import MobileScrollableChart from '@/components/MobileScrollableChart';
-import TooltipWrapper from '@/components/TooltipWrapper';
 import { isWithinExtendedMarketHours } from '@/core/utils';
 import { useTimeframe } from '@/core/TimeframeContext';
-import { useTheme } from '@/core/ThemeContext';
 import { spectrumIndicatorLeft } from '@/core/spectrumIndicator';
 
 function getDateMarkerMeta(timestamps: string[]) {
@@ -122,13 +122,12 @@ const VOLUME_BUCKET_MS = 5 * 60 * 1000;
 
 export default function IntradayToolsPage() {
   const { symbol } = useTimeframe();
-  const { theme } = useTheme();
-  const isDark = theme === 'dark';
-  const cardBg = isDark ? 'var(--color-surface)' : 'var(--color-surface)';
-  const axisStroke = isDark ? 'var(--color-text-primary)' : 'var(--color-text-primary)';
-  const mutedText = isDark ? 'var(--color-text-secondary)' : 'var(--color-text-secondary)';
-  const textColor = isDark ? 'var(--color-text-primary)' : 'var(--color-surface)';
-  const borderColor = isDark ? 'var(--border-default)' : 'var(--border-default)';
+  const axisStroke = 'var(--text-primary)';
+  const mutedText = 'var(--text-secondary)';
+  // Was `isDark ? --text-primary : --color-surface`: in a light theme the
+  // four chart headings below rendered white on a white card.
+  const textColor = 'var(--text-primary)';
+  const borderColor = 'var(--border-default)';
 
   const { bars, latest, sessionStartEt, sessionEndEt, fetchedAt, loading, error } = useTechnicals(symbol);
 
@@ -345,24 +344,31 @@ export default function IntradayToolsPage() {
 
   return (
     <PageShell>
-      {lastUpdatedLabel ? (
-        <div className="text-right text-sm text-[var(--text-muted)] mb-4">
-          Last updated: {lastUpdatedLabel}
-        </div>
-      ) : null}
+      <PageHeader
+        title="Technicals"
+        sub="The intraday price picture the option book sits on — VWAP, opening range, volume and momentum."
+        tooltip="The only page in this section that reads price rather than the option chain, and it is here because every gamma level is a level on this chart. VWAP is the session's volume-weighted average and the reference most institutional execution is measured against; the opening range is the first 30 minutes held flat for the rest of the day; volume spikes are minutes trading far above their own recent average, shaded by whether the volume was buying or selling; divergence flags price making a new extreme that momentum does not confirm. Context for the positioning surfaces, not signals in their own right."
+        actions={
+          lastUpdatedLabel ? (
+            <span className="zg-small" style={{ color: 'var(--text-muted)' }}>
+              Last updated: {lastUpdatedLabel}
+            </span>
+          ) : undefined
+        }
+      />
 
       {showInitialError ? (
         <ErrorMessage message={error as string} />
       ) : null}
 
       <section className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4">VWAP Analysis</h2>
+        <SectionHead title="VWAP Analysis" />
         {showInitialLoading ? (
-          <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
+          <div className="zg-panel p-5">
             <LoadingSpinner />
           </div>
         ) : !hasVwap ? (
-          <div className="rounded-lg p-6 text-center" style={{ backgroundColor: cardBg, color: mutedText }}>
+          <div className="zg-panel p-5 text-center" style={{ color: mutedText }}>
             No VWAP data available (market may be closed)
           </div>
         ) : (
@@ -374,11 +380,8 @@ export default function IntradayToolsPage() {
               <MetricCard title="Position" value={vwapLatest?.vwap_position ?? '--'} tooltip="Price position relative to VWAP" />
             </div>
             {vwapChart.length > 0 ? (
-              <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
-                <div className="flex items-center gap-2 mb-2">
-                  <h3 className="zg-h3" style={{ color: textColor }}>VWAP vs. underlying price</h3>
-                  <TooltipWrapper text="VWAP (yellow dashed) and underlying price (white) for the current session, sourced from the unified technicals API. The shaded channel widens as price diverges from VWAP — green when above, red when below."><Info size={14} /></TooltipWrapper>
-                </div>
+              <div className="zg-panel p-5">
+                <SectionHead title="VWAP vs. underlying price" titleClassName="zg-h3" tooltip="VWAP (yellow dashed) and underlying price (white) for the current session, sourced from the unified technicals API. The shaded channel widens as price diverges from VWAP — green when above, red when below." />
                 <MobileScrollableChart>
                   <ResponsiveContainer width="100%" height={320}>
                     <ComposedChart data={vwapChart} margin={{ top: 16, right: 12, left: 0, bottom: 16 }}>
@@ -399,7 +402,7 @@ export default function IntradayToolsPage() {
                       <XAxis dataKey="timestamp" stroke={axisStroke} tickLine={false} interval={0} minTickGap={20} tick={renderTimelineTick} />
                       <YAxis stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} domain={['auto', 'auto']} ticks={vwapPriceTicks.length ? vwapPriceTicks : undefined} tickFormatter={(v) => `$${Number(v).toFixed(2)}`} padding={{ top: 12, bottom: 12 }} />
                       <Tooltip
-                        cursor={{ stroke: 'var(--color-text-primary)', strokeOpacity: 0.2 }}
+                        cursor={{ stroke: 'var(--text-primary)', strokeOpacity: 0.2 }}
                         content={({ active, label, payload }) => {
                           if (!active || !payload?.length) return null;
                           const point = payload[0]?.payload as { price: number | null; vwap: number | null; deviationPct: number | null } | undefined;
@@ -407,19 +410,22 @@ export default function IntradayToolsPage() {
                           const labelStr = label ? new Date(String(label)).toLocaleString('en-US', { timeZone: 'America/New_York' }) : '--';
                           const devColor = point.deviationPct == null ? mutedText : point.deviationPct >= 0 ? 'var(--color-bull)' : 'var(--color-bear)';
                           return (
-                            <div style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', color: 'var(--color-chart-tooltip-text)' }} className="rounded-lg border px-3 py-2 text-sm">
-                              <div className="font-semibold mb-1">{labelStr}</div>
-                              <div>Price: {point.price != null ? `$${point.price.toFixed(2)}` : '--'}</div>
-                              <div>VWAP: {point.vwap != null ? `$${point.vwap.toFixed(2)}` : '--'}</div>
-                              <div style={{ color: devColor }}>Deviation: {point.deviationPct != null ? `${point.deviationPct >= 0 ? '+' : ''}${point.deviationPct.toFixed(2)}%` : '--'}</div>
-                            </div>
+                            <ChartTooltipShell label={labelStr}>
+                              <ChartTooltipRow label="Price" value={point.price != null ? `$${point.price.toFixed(2)}` : '--'} swatch="var(--text-primary)" />
+                              <ChartTooltipRow label="VWAP" value={point.vwap != null ? `$${point.vwap.toFixed(2)}` : '--'} swatch="var(--color-warning)" />
+                              <ChartTooltipRow
+                                label="Deviation"
+                                value={point.deviationPct != null ? `${point.deviationPct >= 0 ? '+' : ''}${point.deviationPct.toFixed(2)}%` : '--'}
+                                color={devColor}
+                              />
+                            </ChartTooltipShell>
                           );
                         }}
                       />
                       <Area dataKey="channelAbove" stroke="none" fill="url(#vwapAboveGrad)" connectNulls={false} isAnimationActive={false} activeDot={false} />
                       <Area dataKey="channelBelow" stroke="none" fill="url(#vwapBelowGrad)" connectNulls={false} isAnimationActive={false} activeDot={false} />
                       <Line type="monotone" dataKey="vwap" name="VWAP" stroke="var(--color-warning)" strokeWidth={2} strokeDasharray="5 3" dot={false} connectNulls isAnimationActive={false} />
-                      <Line type="monotone" dataKey="price" name="Price" stroke="var(--color-text-primary)" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
+                      <Line type="monotone" dataKey="price" name="Price" stroke="var(--text-primary)" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
                     </ComposedChart>
                   </ResponsiveContainer>
                 </MobileScrollableChart>
@@ -430,13 +436,13 @@ export default function IntradayToolsPage() {
       </section>
 
       <section className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4">Opening Range Breakout</h2>
+        <SectionHead title="Opening Range Breakout" />
         {showInitialLoading ? (
-          <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
+          <div className="zg-panel p-5">
             <LoadingSpinner />
           </div>
         ) : !hasOrb || latest?.close == null ? (
-          <div className="rounded-lg p-6 text-center" style={{ backgroundColor: cardBg, color: mutedText }}>
+          <div className="zg-panel p-5 text-center" style={{ color: mutedText }}>
             No ORB data available (market may be closed)
           </div>
         ) : (
@@ -447,7 +453,7 @@ export default function IntradayToolsPage() {
               <MetricCard title="ORB Low" value={`$${fmtFixed(orbLatest?.orb_low)}`} subtitle={`-${fmtFixed(orbLatest?.distance_below_orb_low)}`} tooltip="Opening range low" />
               <MetricCard title="ORB Range" value={`$${fmtFixed(orbLatest?.orb_range)}`} tooltip="Opening range size" />
             </div>
-            <div className="rounded-lg p-6 mb-4" style={{ backgroundColor: cardBg }}>
+            <div className="zg-panel p-5 mb-4">
               {(() => {
                 const orbHigh = safeNum(orbLatest?.orb_high) ?? 0;
                 const orbLow = safeNum(orbLatest?.orb_low) ?? 0;
@@ -466,7 +472,7 @@ export default function IntradayToolsPage() {
                 return (
                   <div>
                     <div className="flex items-baseline justify-between mb-3">
-                      <h3 className="zg-h3" style={{ color: textColor }}>Position Within Range</h3>
+                      <h3 className="zg-h3">Position Within Range</h3>
                       <div className="text-sm" style={{ color: statusColor, fontWeight: 600 }}>{status}</div>
                     </div>
                     <div className="flex items-center justify-between text-[10px] uppercase tracking-wider mb-2" style={{ color: mutedText }}>
@@ -478,11 +484,11 @@ export default function IntradayToolsPage() {
                       className="relative h-5 rounded-full overflow-visible"
                       style={{ background: 'linear-gradient(to right, var(--color-bear) 0%, color-mix(in srgb, var(--color-bear) 30%, transparent) 33%, color-mix(in srgb, var(--color-warning) 35%, transparent) 50%, color-mix(in srgb, var(--color-bull) 30%, transparent) 67%, var(--color-bull) 100%)' }}
                     >
-                      <div className="absolute top-0 bottom-0 w-px" style={{ left: `${lowPct}%`, backgroundColor: 'var(--color-text-primary)', opacity: 0.45 }} />
-                      <div className="absolute top-0 bottom-0 w-px" style={{ left: `${highPct}%`, backgroundColor: 'var(--color-text-primary)', opacity: 0.45 }} />
+                      <div className="absolute top-0 bottom-0 w-px" style={{ left: `${lowPct}%`, backgroundColor: 'var(--text-primary)', opacity: 0.45 }} />
+                      <div className="absolute top-0 bottom-0 w-px" style={{ left: `${highPct}%`, backgroundColor: 'var(--text-primary)', opacity: 0.45 }} />
                       <div
                         className="absolute -top-1 -bottom-1 w-1 -translate-x-1/2 rounded"
-                        style={{ left: spectrumIndicatorLeft(pricePct, 20, 4), backgroundColor: 'var(--color-text-primary)', boxShadow: '0 0 10px rgba(255,255,255,0.55)' }}
+                        style={{ left: spectrumIndicatorLeft(pricePct, 20, 4), backgroundColor: 'var(--text-primary)', boxShadow: '0 0 10px rgba(255,255,255,0.55)' }}
                       />
                     </div>
                     <div className="relative h-5 mt-2 text-[10px]" style={{ color: mutedText }}>
@@ -499,11 +505,8 @@ export default function IntradayToolsPage() {
               })()}
             </div>
             {orbChart.length > 0 ? (
-              <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
-                <div className="flex items-center gap-2 mb-2">
-                  <h3 className="zg-h3" style={{ color: textColor }}>ORB breakout map</h3>
-                  <TooltipWrapper text="30-minute opening range (09:30–09:59 ET). The green line is the ORB High and the red line is the ORB Low, both computed from that first 30 minutes of the regular session and then held flat for the rest of the day. The yellow band is the live opening range, and the white line is the underlying price."><Info size={14} /></TooltipWrapper>
-                </div>
+              <div className="zg-panel p-5">
+                <SectionHead title="ORB breakout map" titleClassName="zg-h3" tooltip="30-minute opening range (09:30–09:59 ET). The green line is the ORB High and the red line is the ORB Low, both computed from that first 30 minutes of the regular session and then held flat for the rest of the day. The yellow band is the live opening range, and the white line is the underlying price." />
                 <MobileScrollableChart>
                   <ResponsiveContainer width="100%" height={320}>
                     <ComposedChart data={orbChart} margin={{ top: 16, right: 56, left: 0, bottom: 16 }}>
@@ -516,7 +519,7 @@ export default function IntradayToolsPage() {
                       <XAxis dataKey="timestamp" stroke={axisStroke} tickLine={false} interval={0} minTickGap={20} tick={renderTimelineTick} />
                       <YAxis stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} domain={orbDomain ?? ['auto', 'auto']} ticks={orbPriceTicks.length ? orbPriceTicks : undefined} tickFormatter={(v) => `$${Number(v).toFixed(2)}`} allowDataOverflow={false} padding={{ top: 12, bottom: 12 }} />
                       <Tooltip
-                        cursor={{ stroke: 'var(--color-text-primary)', strokeOpacity: 0.2 }}
+                        cursor={{ stroke: 'var(--text-primary)', strokeOpacity: 0.2 }}
                         content={({ active, label, payload }) => {
                           if (!active || !payload?.length) return null;
                           const point = payload[0]?.payload as { price: number | null; orbHigh: number | null; orbLow: number | null } | undefined;
@@ -529,22 +532,21 @@ export default function IntradayToolsPage() {
                             : point.price > point.orbHigh ? 'Above ORB High' : point.price < point.orbLow ? 'Below ORB Low' : 'Inside ORB Range';
                           const zoneColor = zone === 'Above ORB High' ? 'var(--color-bull)' : zone === 'Below ORB Low' ? 'var(--color-bear)' : 'var(--color-warning)';
                           return (
-                            <div style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', color: 'var(--color-chart-tooltip-text)' }} className="rounded-lg border px-3 py-2 text-sm">
-                              <div className="font-semibold mb-1">{labelStr}</div>
-                              <div>Price: {point.price != null ? `$${point.price.toFixed(2)}` : '--'}</div>
-                              <div>ORB High: {point.orbHigh != null ? `$${point.orbHigh.toFixed(2)}` : '--'}</div>
-                              <div>ORB Low: {point.orbLow != null ? `$${point.orbLow.toFixed(2)}` : '--'}</div>
-                              {distHigh != null ? <div>vs High: {distHigh >= 0 ? '+' : ''}${'$'}{distHigh.toFixed(2)}</div> : null}
-                              {distLow != null ? <div>vs Low: {distLow >= 0 ? '+' : ''}${'$'}{distLow.toFixed(2)}</div> : null}
-                              {zone ? <div style={{ color: zoneColor }}>{zone}</div> : null}
-                            </div>
+                            <ChartTooltipShell label={labelStr}>
+                              <ChartTooltipRow label="Price" value={point.price != null ? `$${point.price.toFixed(2)}` : '--'} swatch="var(--text-primary)" />
+                              <ChartTooltipRow label="ORB High" value={point.orbHigh != null ? `$${point.orbHigh.toFixed(2)}` : '--'} swatch="var(--color-bull)" />
+                              <ChartTooltipRow label="ORB Low" value={point.orbLow != null ? `$${point.orbLow.toFixed(2)}` : '--'} swatch="var(--color-bear)" />
+                              {distHigh != null ? <ChartTooltipRow label="vs High" value={`${distHigh >= 0 ? '+' : ''}$${distHigh.toFixed(2)}`} /> : null}
+                              {distLow != null ? <ChartTooltipRow label="vs Low" value={`${distLow >= 0 ? '+' : ''}$${distLow.toFixed(2)}`} /> : null}
+                              {zone ? <ChartTooltipRow label="Zone" value={zone} color={zoneColor} /> : null}
+                            </ChartTooltipShell>
                           );
                         }}
                       />
                       <Area type="stepAfter" dataKey="orbBand" stroke="none" fill="url(#orbZoneGrad)" connectNulls={false} isAnimationActive={false} activeDot={false} />
                       <Line type="stepAfter" dataKey="orbHigh" name="ORB High" stroke="var(--color-bull)" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
                       <Line type="stepAfter" dataKey="orbLow" name="ORB Low" stroke="var(--color-bear)" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
-                      <Line type="monotone" dataKey="price" name="Price" stroke="var(--color-text-primary)" strokeWidth={2.25} dot={false} connectNulls isAnimationActive={false} />
+                      <Line type="monotone" dataKey="price" name="Price" stroke="var(--text-primary)" strokeWidth={2.25} dot={false} connectNulls isAnimationActive={false} />
                       {orbLatest?.orb_high != null ? (
                         <ReferenceLine y={orbLatest.orb_high} stroke="transparent" label={{ value: `H $${(safeNum(orbLatest.orb_high) ?? 0).toFixed(2)}`, position: 'right', fill: 'var(--color-bull)', fontSize: 11, fontWeight: 600 }} />
                       ) : null}
@@ -561,21 +563,18 @@ export default function IntradayToolsPage() {
       </section>
 
       <section className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4">Unusual Volume Spikes</h2>
+        <SectionHead title="Unusual Volume Spikes" />
         {showInitialLoading ? (
-          <div className="rounded-lg p-6 text-center" style={{ backgroundColor: cardBg, color: mutedText }}>
+          <div className="zg-panel p-5 text-center" style={{ color: mutedText }}>
             Loading volume spikes...
           </div>
         ) : volumeSpikesChart.length === 0 ? (
-          <div className="rounded-lg p-6 text-center" style={{ backgroundColor: cardBg, color: mutedText }}>
+          <div className="zg-panel p-5 text-center" style={{ color: mutedText }}>
             No unusual volume detected
           </div>
         ) : (
-          <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
-            <div className="flex items-center gap-2 mb-2">
-              <h3 className="zg-h3" style={{ color: textColor }}>Volume spikes vs. underlying price</h3>
-              <TooltipWrapper text="Bars show spike volume by minute (taller = larger spike). Bar color shades from bright red (all down-volume) through neutral (balanced) to bright green (all up-volume). The yellow line overlays the underlying price on the right axis. Hover any bar for full detail."><Info size={14} /></TooltipWrapper>
-            </div>
+          <div className="zg-panel p-5">
+            <SectionHead title="Volume spikes vs. underlying price" titleClassName="zg-h3" tooltip="Bars show spike volume by minute (taller = larger spike). Bar color shades from bright red (all down-volume) through neutral (balanced) to bright green (all up-volume). The yellow line overlays the underlying price on the right axis. Hover any bar for full detail." />
             <MobileScrollableChart>
               <ResponsiveContainer width="100%" height={320}>
                 <ComposedChart data={volumeSpikesChart} margin={{ top: 16, right: 12, left: 0, bottom: 16 }}>
@@ -589,7 +588,7 @@ export default function IntradayToolsPage() {
                   }} />
                   <YAxis yAxisId="price" orientation="right" stroke={axisStroke} tick={{ fill: axisStroke, fontSize: 11 }} tickLine={false} domain={["auto", "auto"]} ticks={volumeSpikePriceTicks.length ? volumeSpikePriceTicks : undefined} tickFormatter={(v) => `$${Number(v).toFixed(0)}`} padding={{ top: 12, bottom: 12 }} />
                   <Tooltip
-                    cursor={{ fill: 'var(--color-text-primary)', fillOpacity: 0.08 }}
+                    cursor={{ fill: 'var(--text-primary)', fillOpacity: 0.08 }}
                     content={({ active, label, payload }) => {
                       if (!active || !payload?.length) return null;
                       const point = payload[0]?.payload as {
@@ -606,22 +605,21 @@ export default function IntradayToolsPage() {
                       const labelStr = label ? new Date(String(label)).toLocaleString('en-US', { timeZone: 'America/New_York' }) : '--';
                       const hasSpike = point.volumeRaw != null;
                       return (
-                        <div style={{ backgroundColor: 'var(--color-chart-tooltip-bg)', borderColor: 'var(--color-border)', color: 'var(--color-chart-tooltip-text)' }} className="rounded-lg border px-3 py-2 text-sm">
-                          <div className="font-semibold mb-1">{labelStr}</div>
+                        <ChartTooltipShell label={labelStr}>
                           {hasSpike ? (
                             <>
-                              <div>Volume: {point.volumeRaw!.toLocaleString()}</div>
-                              {point.upVolume != null ? <div>Up Volume: {point.upVolume.toLocaleString()}</div> : null}
-                              {point.downVolume != null ? <div>Down Volume: {point.downVolume.toLocaleString()}</div> : null}
-                              {point.volumeRatio != null ? <div>Ratio: {point.volumeRatio.toFixed(1)}x avg</div> : null}
-                              {point.volumeSigma != null ? <div>Sigma: {point.volumeSigma.toFixed(1)}σ</div> : null}
-                              {point.volumeClass ? <div>Class: {point.volumeClass}</div> : null}
-                              {point.buyingPressurePct != null ? <div>Buying Pressure: {point.buyingPressurePct.toFixed(1)}%</div> : null}
+                              <ChartTooltipRow label="Volume" value={point.volumeRaw!.toLocaleString()} />
+                              {point.upVolume != null ? <ChartTooltipRow label="Up Volume" value={point.upVolume.toLocaleString()} swatch="var(--color-bull)" /> : null}
+                              {point.downVolume != null ? <ChartTooltipRow label="Down Volume" value={point.downVolume.toLocaleString()} swatch="var(--color-bear)" /> : null}
+                              {point.volumeRatio != null ? <ChartTooltipRow label="Ratio" value={`${point.volumeRatio.toFixed(1)}x avg`} /> : null}
+                              {point.volumeSigma != null ? <ChartTooltipRow label="Sigma" value={`${point.volumeSigma.toFixed(1)}σ`} /> : null}
+                              {point.volumeClass ? <ChartTooltipRow label="Class" value={point.volumeClass} /> : null}
+                              {point.buyingPressurePct != null ? <ChartTooltipRow label="Buying Pressure" value={`${point.buyingPressurePct.toFixed(1)}%`} /> : null}
                             </>
                           ) : (
                             <div style={{ color: mutedText }}>No spike at this minute</div>
                           )}
-                        </div>
+                        </ChartTooltipShell>
                       );
                     }}
                   />
@@ -646,15 +644,15 @@ export default function IntradayToolsPage() {
       </section>
 
       <section className="mb-8">
-        <h2 className="text-2xl font-semibold mb-4">Momentum Divergence Signals</h2>
+        <SectionHead title="Momentum Divergence Signals" />
         {showInitialLoading ? (
-          <div className="rounded-lg p-6 text-center" style={{ backgroundColor: cardBg, color: mutedText }}>
+          <div className="zg-panel p-5 text-center" style={{ color: mutedText }}>
             Loading divergence signals...
           </div>
         ) : divergenceRows.length === 0 ? (
-          <div className="rounded-lg p-6 text-center" style={{ backgroundColor: cardBg, color: mutedText }}>No divergence signals</div>
+          <div className="zg-panel p-5 text-center" style={{ color: mutedText }}>No divergence signals</div>
         ) : (
-          <div className="rounded-lg p-6" style={{ backgroundColor: cardBg }}>
+          <div className="zg-panel p-5">
             <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
               {divergenceRows.map((signal, idx) => {
                 const divergenceSignal = signal.signal;
@@ -667,7 +665,7 @@ export default function IntradayToolsPage() {
                         divergenceSignal.includes('🚨') ? 'bg-[var(--color-warning-soft)] text-[var(--color-warning)]' :
                         divergenceSignal.includes('🟢') ? 'bg-[var(--color-bull-soft)] text-[var(--color-bull)]' :
                         divergenceSignal.includes('🔴') ? 'bg-[var(--color-bear-soft)] text-[var(--color-bear)]' :
-                        'bg-[var(--bg-card)] text-[var(--color-text-secondary)]'
+                        'bg-[var(--bg-card)] text-[var(--text-secondary)]'
                       }`}>
                         {divergenceSignal}
                       </div>
