@@ -21,9 +21,25 @@ function setToday(iso: string) {
   const fixed = new Date(`${iso}T12:00:00Z`);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (globalThis as any).Date = class extends Date {
+    // `new Date()` is the call under test — presetAdoption reads today off it,
+    // so with no arguments this must read as `iso`. Every OTHER form has to
+    // forward unchanged: setToday builds the next fixed date from a string
+    // while this stub is already the global Date, so a pass-through that
+    // dropped its argument would silently freeze the clock at the first date
+    // the suite ever set.
+    //
+    // Forwarded per arity rather than by spreading `unknown[]` into `super`:
+    // none of Date's overloads takes an array, so an untyped spread is a
+    // compile error (TS2556) that only `tsc` sees — the test runner strips
+    // types and runs it regardless, which is how it went unnoticed.
     constructor(...args: unknown[]) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      super(...(args.length ? (args as any) : [fixed]));
+      if (args.length === 0) {
+        super(fixed);
+      } else if (args.length === 1) {
+        super(args[0] as string | number | Date);
+      } else {
+        super(...(args as [number, number, number?, number?, number?, number?, number?]));
+      }
     }
     static now() { return fixed.getTime(); }
   } as DateConstructor;
