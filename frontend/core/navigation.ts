@@ -163,12 +163,15 @@ export const NAV_GROUPS: NavGroup[] = [
       { id: '/options-calculator', label: 'Strategy Builder', labelKey: 'nav.strategyBuilder', requiredTier: 'basic' },
       { id: '/option-contracts', label: 'Live Options Quotes', labelKey: 'nav.liveOptionsQuotes', requiredTier: 'basic' },
       { id: '/premium-heatmap', label: 'Premium Surface', requiredTier: 'basic', beta: true },
-      { id: '/replay', label: 'Daily Replay', labelKey: 'nav.dailyReplay' },
-      { id: '/forecast', label: 'Daily Forecast', labelKey: 'nav.dailyForecast', beta: true },
+      // All three are landing pages whose real content lives at dated
+      // permalinks, so each matches its own subtree for active-state.
+      { id: '/replay', label: 'Daily Replay', labelKey: 'nav.dailyReplay', matchPrefix: true },
+      { id: '/forecast', label: 'Daily Forecast', labelKey: 'nav.dailyForecast', beta: true, matchPrefix: true },
       // Public per-session receipt: every signal's flips, what was scorable,
       // and how it resolved. It existed for months reachable only from the
       // 4:15 PM ET post that links one date — no sidebar entry, no inbound
-      // link, no sitemap — so nobody inside the product could find it.
+      // link, absent from the sitemap — so nobody inside the product could
+      // find it. Now a landing page of session cards, like Daily Replay.
       { id: '/scorecard', label: 'Daily Scorecard', labelKey: 'nav.dailyScorecard', matchPrefix: true },
     ],
   },
