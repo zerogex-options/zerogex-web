@@ -9,6 +9,9 @@ import {
 
 const { STORAGE_KEY } = __presetAdoptionInternals;
 
+// Captured before any test swaps globalThis.Date for a pinned one.
+const RealDate = Date;
+
 // Minimal localStorage stand-in; the module is browser-only by design.
 class MemoryStorage {
   private map = new Map<string, string>();
@@ -18,18 +21,22 @@ class MemoryStorage {
 }
 
 function setToday(iso: string) {
-  const fixed = new Date(`${iso}T12:00:00Z`);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (globalThis as any).Date = class extends Date {
-    constructor(...args: unknown[]) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      super(...(args.length ? (args as any) : [fixed]));
+  const fixed = new RealDate(`${iso}T12:00:00Z`);
+  // The module reads "today" via `new Date()`; pin that, but leave an
+  // explicit argument alone so `daysBetween` can still parse real date
+  // strings. A rest-spread into super() has no tuple type, so the two
+  // arities are written out instead.
+  class FixedDate extends RealDate {
+    constructor(value?: string | number | Date) {
+      if (value === undefined) super(fixed.getTime());
+      else super(value as string);
     }
-    static now() { return fixed.getTime(); }
-  } as DateConstructor;
+    static now(): number {
+      return fixed.getTime();
+    }
+  }
+  globalThis.Date = FixedDate as unknown as DateConstructor;
 }
-
-const RealDate = Date;
 
 beforeEach(() => {
   globalThis.Date = RealDate;

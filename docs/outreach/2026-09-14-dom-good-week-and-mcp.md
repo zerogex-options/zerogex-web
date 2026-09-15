@@ -192,7 +192,8 @@ Once deployed, check in this order:
    if none of the three could be graded. If it still shows `−0.00%`, the
    backend did not deploy; do not send.
 2. **The sidebar** — "Daily Scorecard" under Strategy Tools, and `/scorecard`
-   should land on the most recent completed session.
+   should open the card grid with one tile per recent session. Check the
+   symbol picker switches the list, and that a tile opens its dated page.
 3. **A signal page** (`/eod-pressure`) — the last-30-sessions line under the
    event timeline. If the trailing endpoint is not live the line simply does
    not render, which is safe, but the mail promises it, so confirm it.
@@ -226,7 +227,7 @@ The link: https://zerogex.io/scorecard/QQQ/2026-09-11
 
 Every session gets one. It breaks out each signal's flips, wins, losses and average forward return, alongside the closing regime and how many Playbook calls fired. Friday was 55 calls, closed long gamma.
 
-The admission, because it's the embarrassing half: until this week you could not have found that page. There was no link to it anywhere on the site — not in the sidebar, not in the help center, and it wasn't even in our sitemap. It was built as the landing page for the daily recap post, so the only ways in were that post or already knowing the URL. I didn't notice until I went looking for your Friday. Every other page of that kind — the replay, the morning forecast, the card permalinks — you could reach from inside the product. That one got missed. It's in the sidebar now, under Strategy Tools, next to Daily Replay.
+The admission, because it's the embarrassing half: until this week you could not have found that page. There was no link to it anywhere on the site — not in the sidebar, not in the help center, and it wasn't even in our sitemap. It was built as the landing page for the daily recap post, so the only ways in were that post or already knowing the URL. I didn't notice until I went looking for your Friday. Every other page of that kind — the replay, the morning forecast, the card permalinks — you could reach from inside the product. That one got missed. It's in the sidebar now, under Strategy Tools next to Daily Replay, and it opens on a list of every recent session rather than dropping you on one date — so you can go straight to the day you want to look at.
 
 Now the part I'd rather you heard from me. When I opened Friday to check it before writing this, EOD Pressure was sitting near the bottom of the table at 2 wins, 1 loss, average −0.00%. That number was wrong, and not in my favor.
 
@@ -288,12 +289,21 @@ shared `session_close_for`, so an early close bounds at 13:00 ET.
 sides, the half-day path, the calendar-failure fallback, and asserts every
 `q1` join carries a bound — it is what caught the second instance.
 
-**Fixed — the Scorecard is reachable** (`zerogex-web`). A `/scorecard` landing
-route resolving the most recent *completed* session; a "Daily Scorecard" entry
-under Strategy Tools in all five locales; `matchPrefix` on nav items so a
-section whose real pages are dated permalinks still highlights; `/scorecard`
-added to `next-sitemap.config.mjs` (`additionalPaths` and `DAILY_TOOL_PATHS`);
-and a link from every signal page via the shared `SignalEventsPanel`.
+**Fixed — the Scorecard is reachable** (`zerogex-web`). `/scorecard` is now a
+landing page built to match Daily Replay: the same shell, header, symbol
+picker, card grid and about-panel, with one tile per recent session. Each tile
+carries the date, the regime the day closed in (colored bull / bear / warning,
+and "unknown" in muted text when the engine wrote no regime — it must not
+borrow the color of a real one) and the Playbook call count, with the same
+`useLinkStatus` click feedback the replay tiles use. Backed by a new
+`GET /api/scorecard/sessions`, mirroring the `/api/replay/sessions` and
+`/api/forecast/available-dates` contract so a card renders without a fetch per
+day. Plus: a "Daily Scorecard" entry under Strategy Tools in all five locales;
+`matchPrefix` on nav items so a section whose real pages are dated permalinks
+still highlights (now on Replay and Forecast too, which had the same gap);
+`/scorecard` added to `next-sitemap.config.mjs` (`additionalPaths` and
+`DAILY_TOOL_PATHS`); and a link from every signal page via the shared
+`SignalEventsPanel`.
 
 **Fixed — a signal's record across sessions** (both repos).
 `GET /api/scorecard/signal-record` aggregates the same flips over 2–120
