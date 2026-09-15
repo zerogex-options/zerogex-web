@@ -319,6 +319,40 @@ if (!fs.existsSync(dbPath)) {
 
 ensureSqlite3Cli();
 
+// Preflight: every column the query below reads is added by an ensureColumn()
+// migration in core/db.ts, which runs lazily on the app's first getDb() — i.e.
+// when the Next process boots. This script talks to the DB through the sqlite3
+// CLI, which runs no migrations at all, so on a box that has pulled this change
+// but not yet restarted the app, the main query dies with a raw
+// "no such column: u.return_intent_email_sent_at" and a stack trace.
+//
+// That is a deploy-ordering fact, not a bug, and the operator's fix is one
+// command — so say so. Mirrors the same guard in scripts/list-public-cohort.mjs,
+// which learned this lesson first.
+const REQUIRED_COLUMNS = [
+  'subscription_lapsed',
+  'stripe_subscription_id',
+  'email_verified_at',
+  'deleted_at',
+  'marketing_unsubscribed_at',
+  'founding_member_started_at',
+  'return_intent_email_sent_at',
+];
+{
+  const present = new Set(
+    querySqlite<{ name: string }>(dbPath, 'PRAGMA table_info(users);').map((c) => c.name),
+  );
+  const missing = REQUIRED_COLUMNS.filter((c) => !present.has(c));
+  if (missing.length > 0) {
+    console.error(`Auth DB at ${dbPath} is missing column(s): ${missing.join(', ')}.`);
+    console.error('');
+    console.error('These are added by core/db.ts migrations, which run when the app boots.');
+    console.error('Run the migration now, then re-run this command:');
+    console.error('  make migrate');
+    process.exit(1);
+  }
+}
+
 type CandidateRow = {
   id: string;
   email: string;
