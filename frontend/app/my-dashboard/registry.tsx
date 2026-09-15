@@ -82,6 +82,8 @@ import {
   VolatilityPanel,
   WorldClocksPanel,
   TopHeadlinesPanel,
+  OrbBreakoutPanel,
+  VwapDeviationPanel,
 } from './panels';
 
 // Every widget can take every footprint. Charts included: a chart at M is half
@@ -92,7 +94,7 @@ const ALL_SIZES: WidgetSize[] = [...WIDGET_SIZES];
 
 export type WidgetTier = 'basic' | 'pro';
 
-export type WidgetCategory = 'overview' | 'gamma' | 'flow' | 'signals' | 'volatility' | 'tools';
+export type WidgetCategory = 'overview' | 'gamma' | 'flow' | 'signals' | 'volatility' | 'technicals' | 'tools';
 
 export type WidgetDef = {
   id: string;
@@ -117,6 +119,7 @@ export const CATEGORY_META: Record<WidgetCategory, { label: string; blurb: strin
   flow: { label: 'Options Flow', blurb: 'Live volume & premium' },
   signals: { label: 'Signals', blurb: 'Proprietary directional reads' },
   volatility: { label: 'Volatility', blurb: 'Implied-vol regime' },
+  technicals: { label: 'Technicals', blurb: 'Intraday price structure' },
   tools: { label: 'Tools', blurb: 'Utilities & context' },
 };
 
@@ -126,6 +129,7 @@ export const CATEGORY_ORDER: WidgetCategory[] = [
   'flow',
   'signals',
   'volatility',
+  'technicals',
   'tools',
 ];
 
@@ -553,6 +557,36 @@ export const WIDGETS: WidgetDef[] = [
     allowedSizes: ALL_SIZES,
     feeds: ['vol'],
     render: () => <VixTile />,
+  },
+
+  // ── Technicals ──
+  // Both read the same /api/technicals payload as /intraday-tools, and
+  // useTechnicals refcounts per symbol, so running both costs one subscription.
+  {
+    id: 'orb-breakout',
+    title: 'ORB Breakout',
+    blurb:
+      'The opening range (09:30–09:59 ET) — its high, low and size — plus where price is trading against it. The level intraday breakout traders work from.',
+    category: 'technicals',
+    tier: 'basic',
+    icon: Crosshair,
+    defaultSize: 'md',
+    allowedSizes: ALL_SIZES,
+    feeds: [],
+    render: () => <OrbBreakoutPanel />,
+  },
+  {
+    id: 'vwap-deviation',
+    title: 'VWAP Deviation',
+    blurb:
+      'Session VWAP and how far price has strayed from it, with the side it is trading on — the intraday mean the tape keeps reverting to.',
+    category: 'technicals',
+    tier: 'basic',
+    icon: LineChart,
+    defaultSize: 'md',
+    allowedSizes: ALL_SIZES,
+    feeds: [],
+    render: () => <VwapDeviationPanel />,
   },
 
   // ── Tools ──
