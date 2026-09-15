@@ -56,6 +56,8 @@
     "test:grace-expiry-warning": "node --experimental-strip-types --test tests/graceExpiryWarning.test.ts",
     "test:payment-method-drift": "node --experimental-strip-types --test tests/paymentMethodDrift.test.ts",
     "test:subscriber-bucket": "node --experimental-strip-types --test tests/subscriberBucket.test.ts",
+    "test:subscription-payments": "node --experimental-strip-types --test tests/subscriptionPayments.test.ts",
+    "test:subscriber-bucket-migration": "node --experimental-strip-types --test tests/subscriberBucketMigration.test.ts",
     "test:payment-setup": "node --experimental-strip-types --test tests/paymentSetup.test.ts",
     "test:api-tier-gate": "node --experimental-strip-types --test tests/apiTierGate.test.ts",
     "test:signal-availability": "node --experimental-strip-types --test tests/signalAvailability.test.ts",

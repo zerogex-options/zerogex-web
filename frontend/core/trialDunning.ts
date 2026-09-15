@@ -104,18 +104,25 @@ export type ConversionChargeInFlightInput = {
   status: string | null | undefined;
   // subscription.trial_end (Unix seconds), or null when the sub never had one.
   trialEndUnix: number | null | undefined;
-  // users.first_payment_at — ISO instant this account's first real invoice was
-  // actually PAID, or null if none ever has been. Still null after trial_end is
-  // exactly what says the conversion charge has not settled yet.
-  firstPaymentAtIso: string | null | undefined;
+  // ISO instant an invoice cleared on THE SUBSCRIPTION BEING CANCELED, or null
+  // if none has. Still null after trial_end is exactly what says the conversion
+  // charge has not settled yet.
+  //
+  // Per-subscription, via subscriptionPaidAt in core/subscriberBucket. The
+  // account-scoped users.first_payment_at cannot be used here: a returning
+  // member carries it in from an earlier subscription, which disarmed this
+  // predicate for exactly the people most likely to hit it — someone
+  // reactivating, canceling inside the conversion hour, and being told nothing
+  // would be charged.
+  subscriptionPaidAtIso: string | null | undefined;
   nowMs: number;
 };
 
 export function hasConversionChargeInFlight(input: ConversionChargeInFlightInput): boolean {
-  const { status, trialEndUnix, firstPaymentAtIso, nowMs } = input;
-  // A first payment already on record means this account's conversion charge
-  // settled at some point — an ordinary member canceling, nothing in flight.
-  if (firstPaymentAtIso != null) return false;
+  const { status, trialEndUnix, subscriptionPaidAtIso, nowMs } = input;
+  // A payment already cleared on THIS subscription means its conversion charge
+  // settled — an ordinary member canceling, nothing in flight.
+  if (subscriptionPaidAtIso != null) return false;
   // Still `trialing` means the cycle invoice does not exist yet, and canceling
   // now means they are never charged at all — the happy path, which must keep
   // its existing reassuring copy. `past_due` is deliberately excluded too:
