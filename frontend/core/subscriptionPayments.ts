@@ -71,3 +71,43 @@ export function isSubscriptionPaymentEvidence(type: string, message: string): bo
   if (type !== 'stripe_invoice_paid') return false;
   return !isTrialOpeningInvoice(message);
 }
+
+/**
+ * Whether a paid invoice for `invoiceSubscriptionId` should move this member's
+ * users.last_paid_subscription_id pointer.
+ *
+ * Almost always yes. The pointer is what tells Full Subscriber from Converting,
+ * and it is deliberately NOT cleared when the subscription changes: `invoice.paid`
+ * and `customer.subscription.created` arrive in no guaranteed order, so a
+ * clear-on-change scheme would drop the stamp whenever the payment landed first
+ * — routine for a no-trial signup, and it would park a brand-new paying member
+ * on Converting indefinitely. Accepting the write whenever nothing is recorded
+ * yet is what makes the pair order-independent.
+ *
+ * The one write to refuse is a LATE invoice on a subscription the member has
+ * already moved off: paying an old invoice must not drag the pointer backwards
+ * off the subscription they are actually on, which would read as an established
+ * member falling back into Converting.
+ */
+export function acceptsSubscriptionPaymentStamp(input: {
+  // users.last_paid_subscription_id as it stands now.
+  lastPaidSubscriptionId: string | null;
+  // users.stripe_subscription_id — the subscription the member is on.
+  currentSubscriptionId: string | null;
+  // The subscription the freshly-paid invoice belongs to.
+  invoiceSubscriptionId: string;
+}): boolean {
+  const { lastPaidSubscriptionId, currentSubscriptionId, invoiceSubscriptionId } = input;
+  // Nothing recorded yet — including the ordering case above, where the sync
+  // that sets stripe_subscription_id has not landed.
+  if (lastPaidSubscriptionId == null) return true;
+  // The same subscription paying again: an ordinary renewal moving the date on.
+  if (lastPaidSubscriptionId === invoiceSubscriptionId) return true;
+  // The sync has not caught up, so we cannot tell this is stale. Accept — the
+  // failure mode of refusing here (a paying member stuck on Converting) is worse
+  // than of accepting (corrected by their next invoice).
+  if (currentSubscriptionId == null) return true;
+  // This IS the subscription they are on: a returning member's first payment on
+  // their new subscription, which is exactly what has to move the pointer.
+  return currentSubscriptionId === invoiceSubscriptionId;
+}

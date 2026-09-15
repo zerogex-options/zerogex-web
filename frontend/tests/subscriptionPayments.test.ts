@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  acceptsSubscriptionPaymentStamp,
   isSubscriptionPaymentEvidence,
   SUBSCRIPTION_PAYMENT_AUDIT_TYPES,
 } from '../core/subscriptionPayments.ts';
@@ -213,4 +214,49 @@ test('a renewal after the first payment adds no second row', () => {
     1,
     'one member, counted once',
   );
+});
+
+// ── Which paid invoice moves the pointer ───────────────────────────────────
+// users.last_paid_subscription_id is what separates Full Subscriber from
+// Converting. It is never cleared, so every question about it is "does this
+// invoice move it".
+
+const accepts = (lastPaid: string | null, current: string | null, invoice: string) =>
+  acceptsSubscriptionPaymentStamp({
+    lastPaidSubscriptionId: lastPaid,
+    currentSubscriptionId: current,
+    invoiceSubscriptionId: invoice,
+  });
+
+test('a first payment moves the pointer, whatever order the webhooks arrive in', () => {
+  // The ordering case the pointer design exists for. A no-trial signup can have
+  // invoice.paid delivered before customer.subscription.created, so the users
+  // row still carries no subscription id — refusing here would park a paying
+  // member on Converting until their next renewal.
+  assert.equal(accepts(null, null, 'sub_new'), true);
+  assert.equal(accepts(null, 'sub_new', 'sub_new'), true);
+});
+
+test('a renewal on the same subscription moves the date forward', () => {
+  assert.equal(accepts('sub_a', 'sub_a', 'sub_a'), true);
+});
+
+test("a returning member's first payment moves the pointer off the old sub", () => {
+  // lukaszrymarczyk79 at 12:44: the pointer names August's subscription, the
+  // $19 just cleared on the reactivated one. This is the write that takes him
+  // from Converting to Full Subscriber.
+  assert.equal(accepts('sub_august', 'sub_reactivated', 'sub_reactivated'), true);
+});
+
+test('a LATE invoice on an abandoned subscription does NOT drag the pointer back', () => {
+  // The only write to refuse: an old invoice paid after the member moved on
+  // would read as an established subscriber falling back into Converting.
+  assert.equal(accepts('sub_new', 'sub_new', 'sub_old'), false);
+});
+
+test('a late invoice is still accepted while the current sub has never paid', () => {
+  // The pointer already names the old sub and the new one has not been charged,
+  // so accepting only moves the date within a subscription they have left — the
+  // member stays on Converting either way, which is correct.
+  assert.equal(accepts('sub_old', 'sub_new', 'sub_old'), true);
 });

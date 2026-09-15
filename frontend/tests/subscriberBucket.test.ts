@@ -5,6 +5,7 @@ import {
   classifySubscriberBucket,
   ledgerKindLabel,
   normalizeBucketTier,
+  subscriptionPaidAt,
   summarizeLedger,
   type LedgerPaymentEvent,
   type LedgerSyncEvent,
@@ -22,7 +23,10 @@ import {
 //        WHEN subscription_status = 'past_due'
 //             AND payment_grace_reason = 'trial'                THEN 'graceTrial'
 //        WHEN subscription_status = 'active'
-//             AND first_payment_at IS NULL                      THEN 'converting'
+//             AND (last_paid_subscription_id IS NULL
+//                  OR stripe_subscription_id IS NULL
+//                  OR last_paid_subscription_id <> stripe_subscription_id
+//                  OR last_paid_invoice_at IS NULL)             THEN 'converting'
 //        ELSE                                                        'active'
 function sqlOracle(row: SubscriberBucketInput): string {
   const tier = normalizeBucketTier(row.tier);
@@ -34,30 +38,99 @@ function sqlOracle(row: SubscriberBucketInput): string {
   if (!inWhere) return 'notCounted';
   if (row.subscriptionStatus === 'trialing') return 'freeTrial';
   if (row.subscriptionStatus === 'past_due' && row.paymentGraceReason === 'trial') return 'trialGrace';
-  if (row.subscriptionStatus === 'active' && !row.firstPaymentAt) return 'converting';
+  if (
+    row.subscriptionStatus === 'active' &&
+    (row.lastPaidSubscriptionId == null ||
+      row.stripeSubscriptionId == null ||
+      row.lastPaidSubscriptionId !== row.stripeSubscriptionId ||
+      row.lastPaidInvoiceAt == null)
+  ) {
+    return 'converting';
+  }
   return 'fullSubscriber';
 }
+
+// The three states of the per-subscription payment pointer, named rather than
+// spelled as three opaque nulls at each call site. PAID_ON_A_PREVIOUS_SUB is the
+// one that used to be indistinguishable from PAID_ON_THIS_SUB, because the old
+// account-scoped column could not tell them apart.
+const PAID_ON_THIS_SUB = {
+  stripeSubscriptionId: 'sub_current',
+  lastPaidSubscriptionId: 'sub_current',
+  lastPaidInvoiceAt: '2026-08-28T00:45:00Z',
+};
+const NEVER_PAID = {
+  stripeSubscriptionId: 'sub_current',
+  lastPaidSubscriptionId: null,
+  lastPaidInvoiceAt: null,
+};
+const PAID_ON_A_PREVIOUS_SUB = {
+  stripeSubscriptionId: 'sub_current',
+  lastPaidSubscriptionId: 'sub_previous',
+  lastPaidInvoiceAt: '2026-08-03T03:42:56.466Z',
+};
 
 const STATUSES = ['active', 'trialing', 'past_due', 'canceled', 'unpaid', 'incomplete', 'paused', null];
 const TIERS = ['pro', 'basic', 'public', 'starter', 'elite', 'admin', null];
 const REASONS = ['trial', 'renewal', null];
-const PAID = ['2026-08-01T00:00:00Z', null];
+const CURRENT_SUBS = ['sub_current', null];
+const PAID_SUBS = ['sub_current', 'sub_previous', null];
+const PAID_ATS = ['2026-08-01T00:00:00Z', null];
 
 test('classifier agrees with the chart SQL across every state combination', () => {
   for (const subscriptionStatus of STATUSES) {
     for (const tier of TIERS) {
       for (const paymentGraceReason of REASONS) {
-        for (const firstPaymentAt of PAID) {
-          const row = { subscriptionStatus, tier, paymentGraceReason, firstPaymentAt };
-          assert.equal(
-            classifySubscriberBucket(row).bucket,
-            sqlOracle(row),
-            `status=${subscriptionStatus} tier=${tier} reason=${paymentGraceReason} paid=${firstPaymentAt}`,
-          );
+        for (const stripeSubscriptionId of CURRENT_SUBS) {
+          for (const lastPaidSubscriptionId of PAID_SUBS) {
+            for (const lastPaidInvoiceAt of PAID_ATS) {
+              const row = {
+                subscriptionStatus,
+                tier,
+                paymentGraceReason,
+                stripeSubscriptionId,
+                lastPaidSubscriptionId,
+                lastPaidInvoiceAt,
+              };
+              assert.equal(
+                classifySubscriberBucket(row).bucket,
+                sqlOracle(row),
+                `status=${subscriptionStatus} tier=${tier} reason=${paymentGraceReason} `
+                  + `sub=${stripeSubscriptionId} paidSub=${lastPaidSubscriptionId} paidAt=${lastPaidInvoiceAt}`,
+              );
+            }
+          }
         }
       }
     }
   }
+});
+
+// ── The pointer rule ───────────────────────────────────────────────────────
+
+test('subscriptionPaidAt only answers for the CURRENT subscription', () => {
+  assert.equal(subscriptionPaidAt(PAID_ON_THIS_SUB), '2026-08-28T00:45:00Z');
+  assert.equal(subscriptionPaidAt(NEVER_PAID), null);
+  assert.equal(subscriptionPaidAt(PAID_ON_A_PREVIOUS_SUB), null);
+  // A half-written row (pointer set, date missing) must read as unpaid — the
+  // only direction that cannot promote someone who has not been charged.
+  assert.equal(
+    subscriptionPaidAt({
+      stripeSubscriptionId: 'sub_current',
+      lastPaidSubscriptionId: 'sub_current',
+      lastPaidInvoiceAt: null,
+    }),
+    null,
+  );
+  // No subscription on the row at all.
+  assert.equal(
+    subscriptionPaidAt({
+      stripeSubscriptionId: null,
+      lastPaidSubscriptionId: 'sub_previous',
+      lastPaidInvoiceAt: '2026-08-03T00:00:00Z',
+    }),
+    null,
+  );
 });
 
 // ── The access gate ────────────────────────────────────────────────────────
@@ -72,7 +145,7 @@ test('a PAUSED subscription is not a Full Subscriber', () => {
     subscriptionStatus: 'active',
     tier: 'public',
     paymentGraceReason: null,
-    firstPaymentAt: '2026-01-01T00:00:00Z',
+    ...PAID_ON_THIS_SUB,
   });
   assert.equal(v.bucket, 'notCounted');
   assert.match(v.why, /paused/);
@@ -86,6 +159,7 @@ test('a trial held at the payment-setup gate is not a Free Trial', () => {
     subscriptionStatus: 'trialing',
     tier: 'public',
     paymentGraceReason: null,
+    ...NEVER_PAID,
   });
   assert.equal(v.bucket, 'notCounted');
   assert.match(v.why, /payment setup/);
@@ -100,11 +174,11 @@ test('active with no payment on file is Converting, not a Full Subscriber', () =
     subscriptionStatus: 'active',
     tier: 'pro',
     paymentGraceReason: null,
-    firstPaymentAt: null,
+    ...NEVER_PAID,
   });
   assert.equal(v.bucket, 'converting');
   assert.equal(v.label, 'Converting');
-  assert.match(v.why, /no payment has ever cleared/);
+  assert.match(v.why, /no invoice has ever cleared/);
 });
 
 test('the same member becomes a Full Subscriber once a payment clears', () => {
@@ -112,19 +186,53 @@ test('the same member becomes a Full Subscriber once a payment clears', () => {
     subscriptionStatus: 'active',
     tier: 'pro',
     paymentGraceReason: null,
-    firstPaymentAt: '2026-08-28T00:45:00Z',
+    ...PAID_ON_THIS_SUB,
   });
   assert.equal(v.bucket, 'fullSubscriber');
 });
 
+test('a RETURNING member is Converting until THIS subscription is charged', () => {
+  // lukaszrymarczyk79's production state at 11:44 on 2026-09-15: reactivated
+  // onto a new subscription, an earlier one paid back in August, the post-trial
+  // invoice raised but not yet charged. The account-scoped column said "has
+  // paid" and put him on the Full Subscriber line an hour before his card was
+  // touched — if it had then declined, the line would have ticked up and back
+  // down, the exact sawtooth the Converting band exists to prevent.
+  const v = classifySubscriberBucket({
+    subscriptionStatus: 'active',
+    tier: 'pro',
+    paymentGraceReason: null,
+    ...PAID_ON_A_PREVIOUS_SUB,
+  });
+  assert.equal(v.bucket, 'converting');
+  // The verdict has to name the stale pointer: "never paid" would send whoever
+  // is debugging this off after a brand-new member.
+  assert.match(v.why, /sub_previous/);
+  assert.match(v.why, /PREVIOUS|not the current/i);
+});
+
+test('and becomes a Full Subscriber when that subscription is charged', () => {
+  // 12:44 the same day: the $19 cleared, so the pointer now names this sub.
+  const v = classifySubscriberBucket({
+    subscriptionStatus: 'active',
+    tier: 'pro',
+    paymentGraceReason: null,
+    stripeSubscriptionId: 'sub_current',
+    lastPaidSubscriptionId: 'sub_current',
+    lastPaidInvoiceAt: '2026-09-15T12:44:36.348Z',
+  });
+  assert.equal(v.bucket, 'fullSubscriber');
+  assert.match(v.why, /2026-09-15T12:44:36/);
+});
+
 test('a renewal-grace member counts as paying even with no stamp', () => {
-  // Rows predating the column have no first_payment_at, and reaching a renewal
-  // is itself proof they paid — so history is never re-attributed downward.
+  // Rows predating the columns have no pointer, and reaching a renewal is
+  // itself proof they paid — so history is never re-attributed downward.
   const v = classifySubscriberBucket({
     subscriptionStatus: 'past_due',
     tier: 'pro',
     paymentGraceReason: 'renewal',
-    firstPaymentAt: null,
+    ...NEVER_PAID,
   });
   assert.equal(v.bucket, 'fullSubscriber');
 });
@@ -134,9 +242,23 @@ test('a trial-conversion failure inside the window reads Trial Grace', () => {
     subscriptionStatus: 'past_due',
     tier: 'pro',
     paymentGraceReason: 'trial',
+    ...NEVER_PAID,
   });
   assert.equal(v.bucket, 'trialGrace');
   assert.equal(v.label, 'Trial Grace');
+});
+
+test('a returning member whose conversion charge fails still reads Trial Grace', () => {
+  // Grace attribution comes from trial_end (decidePaymentGrace), not from any
+  // payment column, so it was already correct for returning members. Pinned so
+  // the per-subscription change cannot quietly move them to the paying line.
+  const v = classifySubscriberBucket({
+    subscriptionStatus: 'past_due',
+    tier: 'pro',
+    paymentGraceReason: 'trial',
+    ...PAID_ON_A_PREVIOUS_SUB,
+  });
+  assert.equal(v.bucket, 'trialGrace');
 });
 
 test('the same failure MISLABELED renewal hides in Full Subscriber', () => {
@@ -146,6 +268,7 @@ test('the same failure MISLABELED renewal hides in Full Subscriber', () => {
     subscriptionStatus: 'past_due',
     tier: 'pro',
     paymentGraceReason: 'renewal',
+    ...NEVER_PAID,
   });
   assert.equal(v.bucket, 'fullSubscriber');
 });
@@ -158,6 +281,7 @@ test('once the tier drops to public the member leaves the chart entirely', () =>
       subscriptionStatus: 'past_due',
       tier: 'public',
       paymentGraceReason,
+      ...NEVER_PAID,
     });
     assert.equal(v.bucket, 'notCounted', `reason=${paymentGraceReason}`);
     assert.match(v.why, /dropped to public/);
@@ -170,6 +294,7 @@ test('a trialer who has clicked Cancel still counts as Free Trial', () => {
     tier: 'pro',
     paymentGraceReason: null,
     cancelAtPeriodEnd: true,
+    ...NEVER_PAID,
   });
   assert.equal(v.bucket, 'freeTrial');
   assert.match(v.why, /cancel already scheduled/);
@@ -180,6 +305,7 @@ test('an unattributed legacy grace window still reads Full Subscriber', () => {
     subscriptionStatus: 'past_due',
     tier: 'basic',
     paymentGraceReason: null,
+    ...NEVER_PAID,
   });
   assert.equal(v.bucket, 'fullSubscriber');
   assert.match(v.why, /unattributed/);
@@ -196,6 +322,7 @@ test('legacy tier ids fold like currentTierCounts', () => {
       subscriptionStatus: 'past_due',
       tier: 'elite',
       paymentGraceReason: 'trial',
+      ...NEVER_PAID,
     }).bucket,
     'trialGrace',
   );

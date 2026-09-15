@@ -672,7 +672,8 @@ function currentTierCounts(): { basic: number; pro: number; public: number } {
 
 // Headcount split by subscription state, for the Total Subscribers chart:
 //   active     — fully paying subscribers: a live subscription on which at least
-//                one invoice has actually been PAID (users.first_payment_at).
+//                one invoice has actually been PAID (users.last_paid_subscription_id
+//                names THIS subscription).
 //                Includes members in a RENEWAL-failure payment-recovery grace
 //                window (subscription `past_due` but tier still pro/basic: a
 //                failed renewal Stripe is still retrying, with access retained —
@@ -682,9 +683,15 @@ function currentTierCounts(): { basic: number; pro: number; public: number } {
 //                loss only at the real downgrade (tier -> public), not at
 //                past_due entry.
 //   converting — the trial ended, Stripe raised the first invoice and flipped
-//                the subscription to `active`, but no payment of theirs has ever
-//                cleared. Stripe does that about an hour BEFORE it attempts the
-//                charge, so this is a charge in flight, not a customer. Broken
+//                the subscription to `active`, but no invoice has cleared on
+//                THIS subscription. Stripe does that about an hour BEFORE it
+//                attempts the charge, so this is a charge in flight, not a
+//                customer. Keyed on the subscription rather than the account
+//                because a returning member carries the account-scoped
+//                users.first_payment_at in from an earlier subscription, which
+//                used to promote them here before their card was charged at
+//                all — the same sawtooth, invisible because it only ever hit
+//                second subscriptions. Broken
 //                out because folding it into `active` made the Full Subscriber
 //                line tick up at every trial end and back down an hour later on
 //                each decline — a real subscriber and a card about to be refused
@@ -711,7 +718,7 @@ function currentTierCounts(): { basic: number; pro: number; public: number } {
 // A past_due row with no recorded reason (a window opened before the reason
 // column existed) counts as `active`, exactly as every past_due grace row did
 // before the split, so no history is retroactively re-attributed. So does a
-// past_due row with no first_payment_at: reaching a renewal means they paid.
+// past_due row with no payment on record: reaching a renewal means they paid.
 function currentPayingCounts(): {
   active: number;
   converting: number;
@@ -725,7 +732,11 @@ function currentPayingCounts(): {
            CASE
              WHEN subscription_status = 'trialing' THEN 'trialing'
              WHEN subscription_status = 'past_due' AND payment_grace_reason = 'trial' THEN 'graceTrial'
-             WHEN subscription_status = 'active' AND first_payment_at IS NULL THEN 'converting'
+             WHEN subscription_status = 'active'
+                  AND (last_paid_subscription_id IS NULL
+                       OR stripe_subscription_id IS NULL
+                       OR last_paid_subscription_id <> stripe_subscription_id
+                       OR last_paid_invoice_at IS NULL) THEN 'converting'
              ELSE 'active'
            END AS bucket,
            COUNT(*) AS c
@@ -1677,7 +1688,8 @@ type ConveyorUserRow = {
   priceId: string | null;
   status: string | null;
   tier: string | null;
-  firstPaymentAt: string | null;
+  lastPaidSubscriptionId: string | null;
+  lastPaidInvoiceAt: string | null;
   periodEnd: string | null;
   cancelAtPeriodEnd: number;
   graceStartedAt: string | null;
@@ -1732,7 +1744,8 @@ function readConveyorParts(now: Date): ConveyorParts {
                 stripe_price_id AS priceId,
                 subscription_status AS status,
                 tier,
-                first_payment_at AS firstPaymentAt,
+                last_paid_subscription_id AS lastPaidSubscriptionId,
+                last_paid_invoice_at AS lastPaidInvoiceAt,
                 current_period_end AS periodEnd,
                 cancel_at_period_end AS cancelAtPeriodEnd,
                 payment_grace_started_at AS graceStartedAt,
@@ -1818,7 +1831,9 @@ function readConveyorParts(now: Date): ConveyorParts {
           tier: row.tier,
           paymentGraceReason: row.graceReason,
           cancelAtPeriodEnd: cancelScheduled,
-          firstPaymentAt: row.firstPaymentAt,
+          stripeSubscriptionId: row.subId,
+          lastPaidSubscriptionId: row.lastPaidSubscriptionId,
+          lastPaidInvoiceAt: row.lastPaidInvoiceAt,
         }).bucket === 'fullSubscriber';
       if (!state && !isScheduledDeparture) continue;
 
