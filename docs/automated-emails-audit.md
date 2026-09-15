@@ -93,6 +93,7 @@ stops a cron re-firing the same email every run. Verified list of latch columns:
 | `founding_final_call_email_sent_at` | Founding final-call | email sent | **never** (deadline crosses once) |
 | `cancel_ack_email_sent_at` | Cancellation acknowledgment | Stripe flips `cancel_at_period_end`→true | on reactivation (re-cancel can re-fire) |
 | `winback_email_sent_at` | ~1-month-after-churn win-back | win-back sent | on welcome-back (`subscription_lapsed` 1→0) |
+| `return_intent_email_sent_at` | Return-intent reply to a churned member who logged back in | reply sent | **never cleared — it is a COOLDOWN anchor, not a latch** (see below) |
 | `marketing_unsubscribed_at` | **opt-out** — excludes from marketing sends | user unsubscribes | (opt back in only manually) |
 | `payment_grace_warning_sent_for` | Grace-expiry warning (~24h before the window closes) | warning sent | **never cleared** — it stores the `payment_grace_started_at` anchor it was sent for, so a re-opened window (new anchor) stops matching and re-arms it by itself |
 
@@ -114,6 +115,15 @@ Two **flags** (not timestamps) drive the dunning/welcome logic:
   opened the window (`'trial'` vs `'renewal'`) and picks the dunning copy.
 
 Other gates that are **not** DB latches:
+
+- **Return-intent** is the one nudge that is deliberately **not** one-shot.
+  `return_intent_email_sent_at` is read as *how long since we last answered this
+  member*, and `core/returnIntent.ts` additionally requires the login to be
+  **newer than that timestamp**. Both guards are needed: the cooldown alone
+  would let a stale visit re-fire the moment it lapsed, which would turn a reply
+  into a recurring newsletter. Every other nudge column here is spent the first
+  time it fires; this one re-arms, which is the only reason the churned cohort
+  can be worked again without being spammed.
 
 - **Payment-failed** email is gated in the webhook by `invoice.attempt_count === 1`
   so it does not re-fire on each Stripe Smart Retry. That gate is also why dunning
@@ -318,6 +328,51 @@ auth/transactional and TradeWorkz alerts.
   "What's new" bullets come from `content/winback-highlights.json` (falls back to
   `DEFAULT_WINBACK_HIGHLIGHTS`). Plain-language opt-out footer pointing at self-service
   account deletion.
+
+**Return intent** — `sendReturnIntentEmail(to, { angle, highlights, freshCount, foundingMember, unsubUrl })`
+- **Subject (2 variants):** something shipped since they left → `What's changed at ZeroGEX since you left`; otherwise → `Your ZeroGEX account is still here`
+- The reply to a churned member who came back to the site **on their own** — the
+  only churn touch that fires on behaviour rather than a calendar. Sent by
+  `frontend/scripts/send-return-intent.mts` / `make return-intent`, driven daily
+  at 16:50 UTC by `zerogex-web-return-intent.timer` (deploy step 093), in
+  **review-digest mode** by default: the timer mails the operator who qualifies
+  and sends nothing to members until `make return-intent YES=1`.
+- **Sweeper, not a webhook send**, on purpose: the trigger is a `login_success`
+  audit row, which no Stripe event corresponds to. Eligibility is a pure,
+  unit-tested predicate in `core/returnIntent.ts` (`tests/returnIntent.test.ts`,
+  `npm run test:return-intent`): lapsed, verified, not deleted, not
+  unsubscribed, non-admin, and a login **after** their most recent
+  `stripe_subscription_deleted` that is between `--quiet-hours` (24) and
+  `--max-login-age-days` (14) old. The quiet floor matters — a member still in
+  the session may convert on their own, and same-minute mail reads as
+  surveillance rather than service.
+- **No discount and no trial claim.** They walked back unprompted; paying
+  someone to do what they are already doing erodes margin on the likeliest
+  conversion in the book (the reasoning `core/trialOffer.ts` applies to coupon
+  stacking). The 25% save (`core/retentionOffer.ts`) stays unspent for a later
+  touch.
+- **Per-reason copy.** `returnIntentAngle()` maps the member's own Stripe
+  cancellation survey (`cancel_feedback`, parsed back out of the churn audit row
+  by `core/cancellationReason.ts`) to one paragraph that answers *that*
+  objection. Unknown or absent feedback falls to `neutral` and addresses none —
+  inventing an objection the member never raised tells them the mail is
+  automated and wrong.
+- **Per-cohort "what's new."** The bullets come from
+  `content/winback-highlights.json` filtered by `core/winbackHighlights.ts`
+  against the member's own churn date, so a June leaver and a September leaver
+  get different mail from one template. `freshCount` governs the subject and the
+  framing, so the copy never claims "a lot has changed" to someone for whom it
+  hasn't.
+- Carries a real marketing unsubscribe footer **and** the one-click
+  `List-Unsubscribe` / `List-Unsubscribe-Post` headers (RFC 8058), and honors
+  `marketing_unsubscribed_at`.
+
+**Return-intent founder digest** — `sendReturnIntentDigestEmail(to, { recipients, sendCommand, draft })`
+- **Subject:** `[ZeroGEX] Return-intent review — N returning member(s) ready`
+- Pre-send review digest listing each member with when they left, when they came
+  back, and which angle their copy will take. Embeds the **first recipient's
+  real rendered email** rather than a synthetic sample, so the reviewer sees
+  what will actually go out. **Sends nothing to members.**
 
 **Win-back founder digest** — `sendWinbackDigestEmail(to, { recipients, mode, sendCommand, draft })`
 - **Subject:** `[ZeroGEX] Win-back review — N churned members ready (mode)`

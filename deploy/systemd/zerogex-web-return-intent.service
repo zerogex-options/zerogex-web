@@ -1,0 +1,56 @@
+[Unit]
+Description=ZeroGEX web return-intent review digest (churned members who came back)
+Documentation=https://github.com/zerogex-options/zerogex-web
+After=network-online.target
+Wants=network-online.target
+
+# A non-zero exit here reached journald and nothing else. Route failures to
+# an email instead; %n is this unit's own name, which the alert template turns
+# into the subject line and the journal it quotes.
+OnFailure=zerogex-web-alert@%n.service
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/zerogex-web
+
+# `make return-intent` shells through nvm to get the correct Node 22 binary (the
+# script is a .mts that needs --experimental-strip-types). The Makefile target
+# sources $HOME/.nvm/nvm.sh internally, so all we need here is HOME pointing at
+# the user's home — the system PATH suffices for /usr/bin/make + /usr/bin/bash;
+# node lands on PATH via nvm.sh at runtime.
+Environment="HOME=/home/ubuntu"
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+
+# REVIEW MODE, not auto-send — same posture as the win-back unit. The daily
+# timer emails the founder who came back and has not been answered, with one
+# rendered draft, and sends NOTHING to those members. Approve a batch with
+# `make return-intent YES=1`. To auto-send instead, change this to
+# `return-intent YES=1` (the job then writes the cooldown stamp, so the
+# ReadWritePaths exception below still applies either way). The digest
+# recipient comes from RETURN_INTENT_DIGEST_TO in frontend/.env.local.
+ExecStart=/usr/bin/make -C /home/ubuntu/zerogex-web return-intent DIGEST=1
+
+# Resend + SQLite are the only outbound legs; cap so a hung HTTPS connect can't
+# pile up overlapping timer fires.
+TimeoutStartSec=300
+
+# Security hardening (mirrors the win-back unit).
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+# RW exception: the auth DB dir. The digest run itself is read-only, but the
+# approve step (`make return-intent YES=1`) writes UPDATE users SET
+# return_intent_email_sent_at + the audit_events INSERT to the same SQLite file
+# as the live PM2 writer, and shares this unit's sandbox if triggered via
+# systemctl. Update this if you change AUTH_DB_PATH in frontend/.env.local.
+# Deploy step 093 also writes a drop-in that mirrors ReadWritePaths onto
+# whatever you set there.
+ReadWritePaths=/home/ubuntu/zerogex-web/frontend/data
+
+# Logging -> journald (view with: journalctl -u zerogex-web-return-intent)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=zerogex-web-return-intent

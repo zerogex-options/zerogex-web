@@ -1,4 +1,4 @@
-.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime founding-demote founding-cohort-revoke-backfill unit-failure-alert activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription reactivate-member honor-winback-discount recover-orphan-payment scan-orphan-payments clear-zombie-customers backfill-daily-metrics sync-search-console webhook-health cancellation-alerts trial-reminders trial-engagement renewal-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback reactivation backfill-reactivation-entitlement checkout-recovery founding-final-call public-cohort cancellations churn-breakdown backfill-refund-audit enable-portal-cancel-reasons save-url reset-save-latch gex-rank-backtest diagnose-user subscriber-headcount reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partner-grant-revoke-backfill partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo og-check verify-gate blog-images ninjatrader-package
+.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime founding-demote founding-cohort-revoke-backfill unit-failure-alert activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription reactivate-member honor-winback-discount recover-orphan-payment scan-orphan-payments clear-zombie-customers backfill-daily-metrics sync-search-console webhook-health cancellation-alerts trial-reminders trial-engagement renewal-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback return-intent reactivation backfill-reactivation-entitlement checkout-recovery founding-final-call public-cohort cancellations churn-breakdown backfill-refund-audit enable-portal-cancel-reasons save-url reset-save-latch gex-rank-backtest diagnose-user subscriber-headcount reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partner-grant-revoke-backfill partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm clean deploy logo og-check verify-gate blog-images ninjatrader-package
 help:
 	@echo "ZeroGEX Web - Available Commands:"
 	@echo ""
@@ -52,6 +52,7 @@ help:
 	@echo "  make verified-never-paid - Send the founder-voice trial-nudge to users who signed up + verified but never opened checkout (DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, LAG_HOURS=<n> to override the 2h default)"
 	@echo "  make verify-reminders - Send the founder-voice 'finish verifying to unlock the trial' nudge to users who signed up but never confirmed their email (mints a fresh 24h verify link; DRY_RUN=1 to preview, YES=1 to send, PREVIEW_TO=<email> for a sample, LAG_HOURS=<n> to override the 2h default)"
 	@echo "  make winback - Send the ~1-month-after-churn win-back email to lapsed subscribers (what's new + a discount, no pressure). DIGEST=1 [DIGEST_TO=<email>] emails you the recipient list + draft and sends nothing (weekly review); YES=1 delivers; DRY_RUN=1 previews; PREVIEW_TO=<email> sends one sample; PREVIEW_MODE=auto|promo|manual forces a variant; LAG_DAYS/LOOKBACK_DAYS override the window"
+	@echo "  make return-intent - Answer churned members who logged back in on their own (no discount, no trial claim; per-reason copy from their cancel survey). DIGEST=1 [DIGEST_TO=<email>] emails you the list + draft and sends nothing (the daily default); YES=1 delivers; DRY_RUN=1 previews with a per-member skip tally; PREVIEW_TO=<email> sends one sample; COOLDOWN_DAYS/QUIET_HOURS/MAX_LOGIN_AGE_DAYS tune the windows; LIMIT caps a run"
 	@echo "  make reactivation - Send the second-touch reactivation email (extended free trial) to cold verified-never-paid signups who signed up >=21d ago. DIGEST=1 [DIGEST_TO=<email>] emails you the recipient list + draft and sends nothing (review); YES=1 delivers; DRY_RUN=1 previews; PREVIEW_TO=<email> sends one sample; LAG_DAYS/LOOKBACK_DAYS override the 21d/3650d window; LIMIT=<n> caps the drip (default 50; 0=unlimited)"
 	@echo "  make backfill-reactivation-entitlement - Grant the extended-trial entitlement (users.reactivation_email_sent_at) to accounts a campaign email already promised it to but never stamped, so checkout honors it. CAMPAIGN=<audit key> selects the send (default product_update_2026_08); EMAIL=<addr> does one account; DRY_RUN=1 lists, YES=1 applies"
 	@echo "  make checkout-recovery - Send the one-shot abandoned-checkout recovery nudge to users who started Stripe Checkout but never subscribed (promo copy quotes the live Basic/Pro rates from Stripe). Fired by the checkout-recovery systemd timer. DRY_RUN=1 previews, YES=1 sends, PREVIEW_TO=<email> for a sample, PREVIEW_FOUNDING=1 for the founding variant, LAG_HOURS/LOOKBACK_HOURS override the window"
@@ -566,6 +567,24 @@ verify-reminders:
 # LAG_DAYS=<n>/LOOKBACK_DAYS=<n> override the window.
 winback:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-winback.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(DIGEST),--digest $(DIGEST_TO),) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),) $(if $(PREVIEW_MODE),--preview-mode $(PREVIEW_MODE),) $(if $(LAG_DAYS),--lag-days $(LAG_DAYS),) $(if $(LOOKBACK_DAYS),--lookback-days $(LOOKBACK_DAYS),)'
+
+# Answer a churned member who came back to the site on their own — the one
+# churn touch that fires on BEHAVIOUR rather than a calendar. Targets lapsed
+# members with a login_success AFTER their most recent subscription deletion,
+# at least QUIET_HOURS old (default 24, so they get the session to convert by
+# themselves) and at most MAX_LOGIN_AGE_DAYS old (default 14). Throttled by a
+# COOLDOWN (users.return_intent_email_sent_at, default 90d) rather than a
+# permanent latch, and the visit must also postdate the last send — so this
+# re-arms for every future return instead of spending the cohort in one run.
+# No discount and no trial claim; where the member left a cancellation reason
+# the email answers that specific objection. Honors marketing_unsubscribed_at
+# and carries a one-click List-Unsubscribe. DRY_RUN=1 also prints why every
+# skipped member was skipped.
+#   make return-intent DRY_RUN=1
+#   make return-intent DIGEST=1 DIGEST_TO=you@example.com
+#   make return-intent YES=1 LIMIT=25
+return-intent:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-return-intent.mts $(if $(DRY_RUN),--dry-run,) $(if $(YES),--yes,) $(if $(DIGEST),--digest $(DIGEST_TO),) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),) $(if $(COOLDOWN_DAYS),--cooldown-days $(COOLDOWN_DAYS),) $(if $(QUIET_HOURS),--quiet-hours $(QUIET_HOURS),) $(if $(MAX_LOGIN_AGE_DAYS),--max-login-age-days $(MAX_LOGIN_AGE_DAYS),) $(if $(LIMIT),--limit $(LIMIT),)'
 
 # Send the second-touch reactivation email to cold verified-never-paid signups —
 # the inactive-signup analog of the win-back above. Targets public-tier,
