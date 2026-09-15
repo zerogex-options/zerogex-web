@@ -18,7 +18,8 @@
 
 'use client';
 
-import { useCallback, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useSyncExternalStore } from 'react';
+import { readUiCookie, writeUiCookie } from '@/core/uiCookies';
 
 // Every hook instance shares one listener set, so two components reading the
 // same key stay in step — and a change in another tab lands in this one.
@@ -43,37 +44,69 @@ function subscribe(onStoreChange: () => void): () => void {
   };
 }
 
+/**
+ * `store` picks where the flag lives:
+ *  - 'local'  (default) — localStorage. Invisible to the server, so `initial`
+ *    is whatever the component would render before it knows better, and the
+ *    stored value lands one frame after mount.
+ *  - 'cookie' — readable by the server. Pass the value the SERVER read for
+ *    this cookie as `initial` and the first paint is already correct: server
+ *    and client derive the same answer from the same cookie, so there is no
+ *    mismatch AND no visible correction afterwards.
+ */
 export function usePersistedFlag(
   storageKey: string,
   initial = false,
+  store: 'local' | 'cookie' = 'local',
 ): [boolean, () => void] {
   // Returns a primitive, so repeated calls compare equal and React settles.
   const getSnapshot = useCallback(() => {
     try {
-      const stored = localStorage.getItem(storageKey);
+      const stored = store === 'cookie' ? readUiCookie(storageKey) : localStorage.getItem(storageKey);
       if (stored === 'true') return true;
       if (stored === 'false') return false;
     } catch {
       // Blocked site data — fall through to whatever this session has set.
     }
     return memory.get(storageKey) ?? initial;
-  }, [storageKey, initial]);
+  }, [storageKey, initial, store]);
 
   const getServerSnapshot = useCallback(() => initial, [initial]);
 
   const value = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
+  // One-time adoption of a preference that predates this cookie. Anyone who
+  // set one of these before it moved to a cookie has the value in
+  // localStorage and no cookie, and would otherwise silently revert to the
+  // default. Their first load after the change still renders the default —
+  // the server had no cookie to read — and corrects on mount; every load
+  // after that is right from the first paint.
+  useEffect(() => {
+    if (store !== 'cookie') return;
+    if (readUiCookie(storageKey) !== null) return;
+    let legacy: string | null = null;
+    try {
+      legacy = localStorage.getItem(storageKey);
+    } catch {
+      return;
+    }
+    if (legacy !== 'true' && legacy !== 'false') return;
+    writeUiCookie(storageKey, legacy);
+    emit();
+  }, [storageKey, store]);
+
   const toggle = useCallback(() => {
     const next = !value;
     memory.set(storageKey, next);
     try {
-      localStorage.setItem(storageKey, String(next));
+      if (store === 'cookie') writeUiCookie(storageKey, String(next));
+      else localStorage.setItem(storageKey, String(next));
     } catch {
       // Storage unavailable: the memory entry above still carries the change
       // for this session, it just will not survive a reload.
     }
     emit();
-  }, [storageKey, value]);
+  }, [storageKey, value, store]);
 
   return [value, toggle];
 }

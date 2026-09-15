@@ -21,18 +21,16 @@ import TierBadge from "./TierBadge";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import { useAuthSession } from "@/hooks/useAuthSession";
 import { usePersistedFlag } from "@/hooks/usePersistedFlag";
+import { MENU_TAB_WIDTH, SIDEBAR_WIDTH, UI_COOKIE } from "@/core/uiCookies";
 
 interface NavigationProps {
   theme: Theme;
+  /** Server's reads of the chrome cookies — see app/layout.tsx. */
+  initialSidebarVisible?: boolean;
+  initialHeaderCollapsed?: boolean;
 }
 
-const SIDEBAR_WIDTH = 272;
 
-// Fallback gutter reserved for the collapsed "Menu" tab before it has been
-// measured (and if the measurement ever fails). The tab is position:fixed at
-// left:0, so without a gutter the page runs underneath it. Real width is read
-// off the element — the label is translated, so it is not a fixed number.
-const MENU_TAB_FALLBACK_WIDTH = 74;
 
 // Per-browser pinned-pages list for the sidebar "Favorites" group.
 const FAVORITES_STORAGE_KEY = "zg.nav.favorites.v1";
@@ -49,7 +47,11 @@ function isNavItemActive(pathname: string | null, item: { id: string; matchPrefi
 }
 
 
-export default function Navigation({ theme }: NavigationProps) {
+export default function Navigation({
+  theme,
+  initialSidebarVisible = true,
+  initialHeaderCollapsed = false,
+}: NavigationProps) {
   const { symbol } = useTimeframe();
   const { t } = useLanguage();
   // Resolve a nav entry's display text: translated when it carries a labelKey,
@@ -64,8 +66,16 @@ export default function Navigation({ theme }: NavigationProps) {
   // Sharing the "headerCollapsed" key with Header is also what keeps the two
   // in step — the hook notifies every reader of a key, so this no longer needs
   // the header to announce itself over a custom event.
-  const [sidebarVisible, toggleSidebarFlag] = usePersistedFlag("sidebarVisible", true);
-  const [headerCollapsed] = usePersistedFlag("headerCollapsed");
+  const [sidebarVisible, toggleSidebarFlag] = usePersistedFlag(
+    UI_COOKIE.sidebarVisible,
+    initialSidebarVisible,
+    "cookie",
+  );
+  const [headerCollapsed] = usePersistedFlag(
+    UI_COOKIE.headerCollapsed,
+    initialHeaderCollapsed,
+    "cookie",
+  );
   const { data: authSession } = useAuthSession();
   const currentTier = authSession?.user?.tier ?? "public";
   const isAuthenticated = !!authSession?.authenticated;
@@ -272,7 +282,7 @@ export default function Navigation({ theme }: NavigationProps) {
       width = sidebarVisible
         ? SIDEBAR_WIDTH
         : Math.round(menuTabRef.current?.getBoundingClientRect().width || 0) ||
-          MENU_TAB_FALLBACK_WIDTH;
+          MENU_TAB_WIDTH;
     }
     document.documentElement.style.setProperty("--zgx-nav-height", "0px");
     document.documentElement.style.setProperty("--zgx-nav-width", `${width}px`);

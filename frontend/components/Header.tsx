@@ -36,6 +36,7 @@ import FuturesContractBadge from "./FuturesContractBadge";
 import FuturesDelayBadge from "./FuturesDelayBadge";
 import WorldClocks from "./WorldClocks";
 import { usePersistedFlag } from "@/hooks/usePersistedFlag";
+import { UI_COOKIE } from "@/core/uiCookies";
 import OptionsCalendarBadge from "./OptionsCalendarBadge";
 import NewsHeadlinesBadge from "./NewsHeadlinesBadge";
 import { useMarketQuote, useSessionCloses } from "@/hooks/useApiData";
@@ -45,19 +46,26 @@ import { useAuthSession } from "@/hooks/useAuthSession";
 interface HeaderProps {
   theme: Theme;
   onToggleTheme: () => void;
+  /** Server's read of the headerCollapsed cookie — see app/layout.tsx. */
+  initialCollapsed?: boolean;
 }
 
-export default function Header({ theme, onToggleTheme }: HeaderProps) {
+export default function Header({ theme, onToggleTheme, initialCollapsed = false }: HeaderProps) {
   const { t } = useLanguage();
   const [session, setSession] = useState(getMarketSession());
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { symbol, setSymbol } = useTimeframe();
   const [showCountdown, setShowCountdown] = useState(false);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
-  // usePersistedFlag rather than a localStorage seed: the server has no
-  // storage, so seeding useState from it renders expanded on the server and
-  // collapsed on the client, which React reports as a hydration mismatch.
-  const [isCollapsed, toggleCollapsed] = usePersistedFlag("headerCollapsed");
+  // Cookie-backed, with the server's read of the same cookie as the initial
+  // value: the server emits the collapsed chrome directly, so there is no
+  // hydration mismatch and — unlike a localStorage seed — nothing to visibly
+  // correct afterwards.
+  const [isCollapsed, toggleCollapsed] = usePersistedFlag(
+    UI_COOKIE.headerCollapsed,
+    initialCollapsed,
+    "cookie",
+  );
   const headerRef = useRef<HTMLElement | null>(null);
   const mobileTopBarRef = useRef<HTMLDivElement | null>(null);
   const router = useRouter();

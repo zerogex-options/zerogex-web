@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
+import { UI_COOKIE, flagFromCookie, navWidthFor } from '@/core/uiCookies';
 import localFont from 'next/font/local';
 import './globals.css';
 import { ThemeProvider } from '@/core/ThemeContext';
@@ -281,10 +282,24 @@ export default async function RootLayout({
   // agree. Defaults to English when the cookie is absent.
   const locale = normalizeLocale(cookieStore.get('lang')?.value);
 
+  // Chrome collapse state, for the same reason as the palette above: these
+  // decide what MARKUP the header and sidebar render, not just how it is
+  // painted, so the server has to know them or it emits the wrong chrome and
+  // the page rearranges itself once the client reads storage. Stamping
+  // --zgx-nav-width here is what stops page content rendering underneath the
+  // sidebar on the first paint — <main> reserves its gutter from this var, and
+  // Navigation only assigns it from an effect.
+  const headerCollapsed = flagFromCookie(cookieStore.get(UI_COOKIE.headerCollapsed)?.value, false);
+  const sidebarVisible = flagFromCookie(cookieStore.get(UI_COOKIE.sidebarVisible)?.value, true);
+
   const htmlClass = `${FONT_VARIABLES} palette-${palette}${theme === 'dark' ? ' dark' : ''}`;
 
   return (
-    <html lang={locale} className={htmlClass}>
+    <html
+      lang={locale}
+      className={htmlClass}
+      style={{ ['--zgx-nav-width' as string]: `${navWidthFor(sidebarVisible)}px` }}
+    >
       <head>
         {/* Site-wide Organization + WebSite structured data (brand entity). */}
         <SiteJsonLd />
@@ -300,7 +315,10 @@ export default async function RootLayout({
                       <TelemetryProvider />
                       <TwitterPixelProvider />
                       <PageAnalytics />
-                      <ClientLayout>
+                      <ClientLayout
+                        initialHeaderCollapsed={headerCollapsed}
+                        initialSidebarVisible={sidebarVisible}
+                      >
                         {children}
                       </ClientLayout>
                     </DensityProvider>
