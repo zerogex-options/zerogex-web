@@ -3,7 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { MarketSession, Theme } from "@/core/types";
 import { brandLogo } from "@/core/brand";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight, Pin } from "lucide-react";
 import { NAV_GROUPS, type NavGroup, type NavItem } from "@/core/navigation";
 import { INTEGRATIONS_HUB } from "@/core/integrations";
@@ -26,6 +26,12 @@ interface NavigationProps {
 }
 
 const SIDEBAR_WIDTH = 272;
+
+// Fallback gutter reserved for the collapsed "Menu" tab before it has been
+// measured (and if the measurement ever fails). The tab is position:fixed at
+// left:0, so without a gutter the page runs underneath it. Real width is read
+// off the element — the label is translated, so it is not a fixed number.
+const MENU_TAB_FALLBACK_WIDTH = 74;
 
 // Per-browser pinned-pages list for the sidebar "Favorites" group.
 const FAVORITES_STORAGE_KEY = "zg.nav.favorites.v1";
@@ -261,18 +267,40 @@ export default function Navigation({ theme }: NavigationProps) {
     row1Change !== null && row1BaseClose ? (row1Change / row1BaseClose) * 100 : null;
   const row1Positive = row1Change !== null ? row1Change >= 0 : false;
 
-  useEffect(() => {
-    const syncNavVars = () => {
-      const desktop = typeof window !== "undefined" && window.innerWidth >= 768;
-      const width = sidebarVisible && desktop ? SIDEBAR_WIDTH : 0;
-      document.documentElement.style.setProperty("--zgx-nav-height", "0px");
-      document.documentElement.style.setProperty("--zgx-nav-width", `${width}px`);
-    };
+  // Collapsed, the sidebar leaves behind a fixed "Menu" tab at left:0. The
+  // gutter below is what stops the page from running underneath it, so it has
+  // to track the tab's real width: the label is translated, so it is measured
+  // rather than assumed.
+  const menuTabRef = useRef<HTMLButtonElement | null>(null);
 
+  const syncNavVars = useCallback(() => {
+    const desktop = typeof window !== "undefined" && window.innerWidth >= 768;
+    let width = 0;
+    if (desktop) {
+      width = sidebarVisible
+        ? SIDEBAR_WIDTH
+        : Math.round(menuTabRef.current?.getBoundingClientRect().width || 0) ||
+          MENU_TAB_FALLBACK_WIDTH;
+    }
+    document.documentElement.style.setProperty("--zgx-nav-height", "0px");
+    document.documentElement.style.setProperty("--zgx-nav-width", `${width}px`);
+  }, [sidebarVisible]);
+
+  useEffect(() => {
     syncNavVars();
     window.addEventListener("resize", syncNavVars);
     return () => window.removeEventListener("resize", syncNavVars);
-  }, [sidebarVisible]);
+  }, [syncNavVars]);
+
+  // Re-measure when the tab itself changes width — a late-loading webfont or a
+  // language switch both resize the label after the effect above has run.
+  useEffect(() => {
+    const tab = menuTabRef.current;
+    if (!tab || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => syncNavVars());
+    observer.observe(tab);
+    return () => observer.disconnect();
+  }, [syncNavVars]);
 
   useEffect(() => {
     const handleCollapseChanged = (event: Event) => {
@@ -556,6 +584,7 @@ export default function Navigation({ theme }: NavigationProps) {
         </nav>
       ) : (
         <button
+          ref={menuTabRef}
           type="button"
           onClick={toggleSidebar}
           className="hidden md:flex fixed z-30 items-center gap-1 border border-l-0 px-2"
