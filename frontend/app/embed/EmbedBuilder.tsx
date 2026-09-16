@@ -51,6 +51,18 @@ function buildSnippet(symbol: PickerSymbol, theme: Theme, host: string): string 
 <script async src="${SITE}/embed.js"></script>`;
 }
 
+/**
+ * The PNG card's URL for a symbol and theme.
+ *
+ * Kept deliberately bare — no utm parameters. This string gets pasted as an
+ * <img src> or dropped in a chat box, where a query string is visible clutter
+ * and, on the platforms that re-host the file, discarded anyway. The card
+ * carries its own attribution on its face instead.
+ */
+function buildImageUrl(symbol: PickerSymbol, theme: Theme): string {
+  return `${SITE}/embed/image/${symbol}.png${theme === 'light' ? '?theme=light' : ''}`;
+}
+
 async function copy(text: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(text);
@@ -100,6 +112,7 @@ export default function EmbedBuilder() {
   const [theme, setTheme] = useState<Theme>('dark');
   const [host, setHost] = useState('');
   const [copied, setCopied] = useState(false);
+  const [copiedImage, setCopiedImage] = useState(false);
 
   const trimmedHost = host.trim().slice(0, 64);
   const snippet = useMemo(
@@ -107,20 +120,29 @@ export default function EmbedBuilder() {
     [symbol, theme, trimmedHost],
   );
   const previewSrc = `/embed/${symbol}?theme=${theme}`;
+  const imageUrl = buildImageUrl(symbol, theme);
 
-  const onCopy = async () => {
-    const ok = await copy(snippet);
+  const copyWithTelemetry = async (
+    text: string,
+    format: 'iframe' | 'image',
+    done: (v: boolean) => void,
+  ) => {
+    const ok = await copy(text);
     capture(TelemetryEvent.EmbedSnippetCopied, {
       action: ok ? 'copy' : 'copy_failed',
+      format,
       symbol,
       theme,
       host: trimmedHost || null,
     });
     if (ok) {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      done(true);
+      setTimeout(() => done(false), 2000);
     }
   };
+
+  const onCopy = () => copyWithTelemetry(snippet, 'iframe', setCopied);
+  const onCopyImage = () => copyWithTelemetry(imageUrl, 'image', setCopiedImage);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -203,6 +225,72 @@ export default function EmbedBuilder() {
             lineHeight: 1.6,
             resize: 'vertical',
           }}
+        />
+      </div>
+
+      {/* The image alternative. Presented as a peer of the snippet rather than
+          a footnote: for anyone publishing on Substack, in Discord or by
+          email, it is not a fallback, it is the only thing that works. */}
+      <div
+        style={{
+          borderTop: '1px solid var(--border-default)',
+          paddingTop: 22,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 12,
+        }}
+      >
+        <div>
+          <h3 style={{ fontSize: 16, fontWeight: 800, margin: '0 0 6px 0' }}>
+            Can&rsquo;t paste HTML? Use the image
+          </h3>
+          <p style={{ fontSize: 13.5, lineHeight: 1.65, color: 'var(--color-text-secondary)', margin: 0 }}>
+            Substack, Medium, Discord and email newsletters all refuse custom embeds. They accept
+            an image, and this URL renders the same levels as a PNG.{' '}
+            <strong style={{ color: 'var(--color-text-primary)' }}>
+              It is a snapshot, not a live card
+            </strong>{' '}
+            &mdash; those platforms copy the file onto their own servers when you post it, so your
+            readers see the levels as they were at that moment. That is why the card prints its own
+            &ldquo;as of&rdquo; time: a snapshot that can tell you how old it is stays honest, and
+            for a daily note that is usually exactly what you want.
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <input
+            readOnly
+            value={imageUrl}
+            onFocus={(e) => e.currentTarget.select()}
+            aria-label="Image URL"
+            style={{
+              ...fieldStyle,
+              flex: 1,
+              minWidth: 260,
+              fontFamily: 'var(--font-jetbrains-mono), ui-monospace, monospace',
+              fontSize: 12.5,
+            }}
+          />
+          <button
+            type="button"
+            onClick={onCopyImage}
+            className="btn-primary"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', fontSize: 14 }}
+          >
+            {copiedImage ? <Check size={15} /> : <Copy size={15} />}
+            {copiedImage ? 'Copied' : 'Copy URL'}
+          </button>
+        </div>
+
+        {/* eslint-disable-next-line @next/next/no-img-element -- a plain <img>
+            is the point: this is exactly the markup an embedder will paste, and
+            next/image would rewrite the URL through the optimizer and show them
+            something they cannot reproduce. */}
+        <img
+          src={imageUrl.replace(SITE, '')}
+          alt={`${symbol} gamma levels card`}
+          width={680}
+          style={{ width: '100%', maxWidth: 680, height: 'auto', borderRadius: 10 }}
         />
       </div>
     </div>

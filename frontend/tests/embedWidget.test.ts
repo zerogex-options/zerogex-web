@@ -22,6 +22,8 @@ const ROOT = path.join(HERE, '..');
 const nextConfig = readFileSync(path.join(ROOT, 'next.config.ts'), 'utf8');
 const sitemapConfig = readFileSync(path.join(ROOT, 'next-sitemap.config.mjs'), 'utf8');
 const embedRoute = readFileSync(path.join(ROOT, 'app/embed/[symbol]/route.ts'), 'utf8');
+const imageRoute = readFileSync(path.join(ROOT, 'app/embed/image/[symbol]/route.tsx'), 'utf8');
+const levelsCard = readFileSync(path.join(ROOT, 'app/embed/image/[symbol]/levelsCard.tsx'), 'utf8');
 const embedBuilder = readFileSync(path.join(ROOT, 'app/embed/EmbedBuilder.tsx'), 'utf8');
 const llmsTxt = readFileSync(path.join(ROOT, 'core/llmsTxt.ts'), 'utf8');
 
@@ -121,6 +123,56 @@ test('the resizer only accepts messages from our own origin', () => {
   const resizer = readFileSync(path.join(ROOT, 'public/embed.js'), 'utf8');
   assert.match(resizer, /event\.origin !== ORIGIN/);
   assert.match(resizer, /contentWindow === event\.source/);
+});
+
+// ---------------------------------------------------------------------------
+// The PNG card — for every surface that refuses an iframe
+// ---------------------------------------------------------------------------
+
+test('the image route is anonymously reachable for every symbol', () => {
+  // Hotlinked from Substack, Discord and mail clients. A tier gate here is a
+  // broken image on someone else's post.
+  for (const symbol of SYMBOLS) {
+    assert.ok(isPublicRoute(`/embed/image/${symbol}`), `/embed/image/${symbol} is not public`);
+    assert.equal(requiredTierForRoute(`/embed/image/${symbol}`), null);
+  }
+});
+
+test('the image route accepts the .png suffix the builder hands out', () => {
+  // Several target platforms decide whether a pasted URL is an image from the
+  // extension before they look at Content-Type, so the builder always emits
+  // `.png`. If the route stops stripping it, every published card 404s.
+  assert.match(imageRoute, /replace\(\/\\\.png\$\/i, ''\)/);
+  assert.match(embedBuilder, /\/embed\/image\/\$\{symbol\}\.png/);
+});
+
+test('the card states its own age, and says it is a snapshot', () => {
+  // The whole risk of shipping an image: Substack re-hosts it, Gmail proxies
+  // it, Discord serves its own copy — none of them honor our Cache-Control,
+  // so a card outlives its 15 minutes and cannot be recalled. A cached card
+  // that cannot date itself will eventually present a stale level as current.
+  assert.match(levelsCard, /fmtTimestampET\(data\.timestamp\)/);
+  assert.ok(levelsCard.includes('snapshot, not live'), 'the card must say it is a snapshot');
+});
+
+test('the card can render with no data at all', () => {
+  // serverApiGet returns null on any upstream failure. An image route that
+  // throws serves a broken-image icon on every page that embeds it, which is
+  // far worse than a card that says the levels are unavailable.
+  assert.match(levelsCard, /data: GexSummary \| null/);
+  assert.match(levelsCard, /levels are not available right now/);
+});
+
+test('the image is noindex and carries no utm parameters', () => {
+  // It repeats across every host that posts it, and the pasted URL is visible
+  // clutter in a chat box. Attribution is printed on the card instead.
+  assert.match(imageRoute, /'X-Robots-Tag': 'noindex, follow'/);
+  const builder = embedBuilder.slice(
+    embedBuilder.indexOf('function buildImageUrl'),
+    embedBuilder.indexOf('async function copy'),
+  );
+  assert.ok(!builder.includes('utm_'), 'the image URL must stay bare');
+  assert.match(levelsCard, /zerogex\.io\/\{symbol\.toLowerCase\(\)\}-gamma-levels/);
 });
 
 // ---------------------------------------------------------------------------

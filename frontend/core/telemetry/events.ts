@@ -44,14 +44,20 @@ export const TelemetryEvent = {
   /** Free TradingView Pine indicator copied / downloaded / opened (client,
    *  /spx-gamma-levels + /spy-gamma-levels + /qqq-gamma-levels). */
   TradingViewIndicatorClicked: 'tradingview_indicator_clicked',
-  /** Embed snippet copied from the /embed builder (client). The `symbol`,
-   *  `theme` and `host` properties record what was configured, and `action`
-   *  records copy | copy_failed.
+  /** Something copied from the /embed builder (client). The `symbol`, `theme`
+   *  and `host` properties record what was configured, `action` records
+   *  copy | copy_failed, and `format` records WHICH artifact was taken:
+   *  iframe (the embeddable widget) | image (the PNG card URL).
    *
    *  This is the top of the distribution funnel the widget exists for: a copy
    *  here should later show up as referral sessions carrying
    *  `utm_source=embed`, and the gap between the two counts is how many
-   *  snippets were taken but never published. */
+   *  snippets were taken but never published.
+   *
+   *  The `format` split is the one that decides what to build next. The image
+   *  exists because Substack, Medium, Discord and email refuse iframes; if it
+   *  turns out to be what most people take, that is the larger audience
+   *  saying so. */
   EmbedSnippetCopied: 'embed_snippet_copied',
   /** NinjaTrader 8 NinjaScript indicator downloaded, or its "get your API key"
    *  CTA clicked (client, the four gamma-levels pages). The `action` property

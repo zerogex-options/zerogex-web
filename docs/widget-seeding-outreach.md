@@ -52,16 +52,22 @@ cannot render it *at all* — no snippet, no workaround.
 | Squarespace | Business plan and up | Code block |
 | Notion | Yes | Embed block takes the frame URL directly |
 | Hand-written HTML / static sites | Yes | The easy case |
-| **Substack** | **No** | No custom iframes or scripts in posts |
-| **Medium** | **No** | Same |
-| **Discord / Slack** | **No** | Chat apps. Not a web page. |
-| **Email newsletters** | **No** | No mail client executes an iframe |
+| **Substack** | No iframe — **image** | No custom iframes or scripts in posts |
+| **Medium** | No iframe — **image** | Same |
+| **Discord / Slack** | No iframe — **image** | Chat apps. Not a web page. |
+| **Email newsletters** | No iframe — **image** | No mail client executes a frame; `<img>` is fine |
 
 **Check the prospect's platform before drafting.** Sending "paste this iframe"
 to a Substack writer wastes the contact and makes you look like you did not
 look at their site. View-source on any post tells you in ten seconds.
 
-For the "No" rows, the offer is different — see §5.
+Every "No iframe" row takes the PNG card instead —
+`https://zerogex.io/embed/image/SPX.png`, same levels, same 15-minute
+schedule. **It is not the same product, and you must not pitch it as one.**
+Those platforms copy the file onto their own CDN when the post publishes, so
+the reader sees the levels frozen at that moment rather than a card that keeps
+updating. The card prints its own "as of" time on its face for exactly this
+reason. See §5.
 
 ---
 
@@ -181,26 +187,86 @@ Send once. No follow-up.
 
 ---
 
-## 5. Where the iframe cannot go (Substack, Discord, newsletters)
+## 5. Substack, Discord and newsletters — pitch the image, not the embed
 
-**Do not send any of the above to these people.** The embed will not render and
-you will have asked them to do something impossible.
+These are the people most likely to be hand-typing levels into a post every
+morning, and the embed is useless to them. The PNG card is the offer.
 
-This segment is currently parked. What would unlock it is a PNG variant of the
-card — an image URL that updates daily, which pastes into a Substack post, a
-Discord channel or a newsletter the way an iframe cannot. That does not exist
-yet.
+**Get the framing right or this backfires.** The image is a *snapshot*: correct
+when the platform fetched it, frozen afterwards, because Substack re-hosts it,
+Gmail proxies it and Discord serves its own copy. For a daily note that is
+usually what you want — the levels as of publication, dated on the card. For a
+page someone expects to stay live, it is wrong, and promising otherwise gets
+noticed the next morning when the numbers have not moved.
 
-Until it does, the offer for this segment is the daily share block that already
-ships on every levels page (`ShareBlock`, the copy/X/Reddit/StockTwits row):
+**Say "snapshot" in the DM.** Every time.
+
+### 5a. Substack / Medium writers
 
 ```
-Hey [Name] — Substack won't render a custom embed, so I won't send you
-one. But if you're typing SPX levels into your Monday note by hand:
-zerogex.io/spx-gamma-levels has a one-click copy of the whole day's
-snapshot as plain text, free and no account. Paste-ready.
+Hey [Name] — [your Thursday note pinned the 6,700 call wall two days
+before it actually capped the move].
 
-That's it — no ask attached.
+I build ZeroGEX. Substack won't render a custom embed, so I'm not going
+to send you one — but we do publish the levels as an image you can drop
+straight into a post:
+
+  https://zerogex.io/embed/image/SPX.png
+
+SPX, SPY, QQQ, NDX, ES or NQ; swap the ticker in the URL, add
+?theme=light for a white background. Free, no account.
+
+Worth being precise about what it is: Substack copies the image onto
+its own servers when you publish, so it's a snapshot of that morning's
+levels rather than something that keeps updating. The card prints its
+own "as of" timestamp so it never reads as more current than it is.
+For a daily note that's usually exactly right.
+
+Saves you typing four numbers in by hand, and that's the whole pitch.
+```
+
+### 5b. Discord communities with a levels or premarket channel
+
+No SEO value here at all — these links are nofollow at best and usually
+unfurled previews. It is pure distribution, and the audience is exact.
+
+Pitch the **owner or a mod**, never drop it in a channel yourself.
+
+```
+Hey — mod question rather than a promo. I build ZeroGEX; we publish
+free 15-min-delayed gamma levels for SPX/SPY/QQQ/NDX.
+
+There's a plain image of the day's card here:
+
+  https://zerogex.io/embed/image/SPX.png
+
+If a premarket or levels channel would find that useful, it posts
+cleanly and it's dated on the image, so nobody can mistake an old
+paste for a live read. Happy for someone to post it manually, or I can
+give you the URL list for all six tickers if you want to automate it.
+
+Not asking for a partnership or a pin — if it's not useful, no
+problem. And tell me if you'd rather I hadn't DM'd; I won't follow up.
+```
+
+If they say yes to automating: the URLs are stable and cacheable, so a webhook
+posting one image a morning is a five-line script on their side. Offer it; do
+not build it for them unsolicited.
+
+### 5c. Email newsletters
+
+```
+Hi [Name] — quick one. If you're putting SPX levels in [newsletter] by
+hand, this is an <img> tag you can drop into the template:
+
+  https://zerogex.io/embed/image/SPX.png
+
+Free, no account, and it renders in every mail client because it's a
+plain image. One caveat worth knowing up front: mail clients (Gmail
+especially) proxy and cache images, so each send captures the levels as
+they were when it went out. That's fine for a morning letter — the card
+timestamps itself — but it won't refresh inside an already-delivered
+email.
 ```
 
 ---
@@ -213,7 +279,7 @@ numbers matter and they measure different things:
 
 | Number | Where | What it tells you |
 |---|---|---|
-| `embed_snippet_copied` | PostHog | Intent. Someone built a snippet. |
+| `embed_snippet_copied` | PostHog | Intent. Someone took a snippet. `format` splits iframe vs image. |
 | Sessions with `utm_source=embed` | PostHog / GA | Reality. Someone published it and a reader clicked. |
 
 **The gap between them is the whole story.** A high copy count with no referral
@@ -224,6 +290,12 @@ the sends.
 
 Referring domains in Search Console is the slower, truer measure; give it 6-8
 weeks before reading anything into it.
+
+**Watch the `format` split too.** The image exists because a large segment
+cannot use the embed; if it turns out most people take the PNG even when they
+could have pasted HTML, that is the audience telling you the iframe is more
+friction than it looks, and the answer is to make the image the default rather
+than to send more DMs.
 
 ---
 
@@ -253,4 +325,7 @@ weeks before reading anything into it.
 3. **Newsletter/blog writers** (§2) — the volume segment.
 4. **GEX explainer pages** (§3) — slower, but the most on-topic links.
 5. **Listicle authors** (§4) — one send each, batched.
-6. **The parked segment** (§5) — only once a PNG variant exists.
+6. **Substack / Discord / newsletters** (§5) — the image segment. Largest by
+   headcount and the only one where a wrong framing ("it updates itself") gets
+   caught the next morning. Send it last, once you have said "snapshot" enough
+   times for it to be automatic.

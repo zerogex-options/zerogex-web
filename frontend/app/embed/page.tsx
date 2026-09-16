@@ -73,8 +73,8 @@ const FAQ = [
     a: 'Yes, and you are welcome to. Reword the link text so it fits your page, or describe the widget in your own sentence. We ask only that the credit points at the relevant gamma-levels page so your readers can find the full picture.',
   },
   {
-    q: 'Can I use it on Substack or Medium?',
-    a: 'No \u2014 neither allows custom iframes or scripts inside a post, so no embed code of any kind will render there. Link the gamma-levels page for your symbol instead; it carries the same numbers and updates on the same schedule. The widget is for platforms where you control the HTML: WordPress, Ghost, Webflow, Squarespace, Notion, or your own pages.',
+    q: 'Can I use it on Substack, Medium, Discord or in an email?',
+    a: 'Not the embed \u2014 none of them allow custom iframes or scripts. Use the image version instead: the builder gives you a PNG URL of the same card, and all four accept an image. One difference worth knowing: those platforms copy the file onto their own servers when you post, so the image is a snapshot of the levels at that moment rather than a card that keeps updating. The card prints its own \u201cas of\u201d time so it never reads as more current than it is.',
   },
   {
     q: 'Will the widget break my page layout?',
@@ -138,7 +138,7 @@ const PROMISES = [
   {
     icon: Zap,
     title: 'One line of HTML',
-    body: 'No build step, no npm package, no API key. It goes anywhere you can paste HTML \u2014 WordPress, Ghost, Webflow, Squarespace, Notion, or a hand-written page.',
+    body: 'No build step, no npm package, no API key. It goes anywhere you can paste HTML \u2014 WordPress, Ghost, Webflow, Squarespace, Notion, or a hand-written page. Somewhere that blocks embeds? There is a PNG of the same card.',
   },
   {
     icon: RefreshCw,
