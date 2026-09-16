@@ -61,6 +61,20 @@ const LEAN_LABEL: Record<string, string> = {
   CAPPING: 'Capping',
 };
 
+/** Title-case for display; the codes stay uppercase everywhere else. */
+const AGE_LABEL: Record<string, string> = {
+  DEVELOPING: 'Developing',
+  ESTABLISHED: 'Established',
+  CONFIRMED: 'Confirmed',
+  DURABLE: 'Durable',
+};
+
+const PERSISTENCE_LABEL: Record<string, string> = {
+  PULSE: 'pulse',
+  DEVELOPING: 'developing',
+  ESTABLISHED: 'established',
+};
+
 const CUSHION_LABEL: Record<string, string> = {
   TRANSITION_RISK: 'Thin and closing',
   NARROWING: 'Narrowing',
@@ -120,6 +134,16 @@ export default function GammaWeatherStrip({ payload }: GammaWeatherStripProps) {
         <span className="text-lg font-bold" style={{ color }}>
           {payload.label}
         </span>
+        {payload.age_label && (
+          <span
+            className="text-xs font-medium tabular-nums"
+            style={{ color: 'var(--color-text-secondary)' }}
+            title="How long this state has held. The question is not whether gamma calls direction, but whether a condition that exists is healthy enough to persist."
+          >
+            {AGE_LABEL[payload.age_label] ?? payload.age_label}
+            {payload.age_minutes != null && ` ${Math.round(payload.age_minutes)}m`}
+          </span>
+        )}
         {transitionRisk && (
           <span
             className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
@@ -144,7 +168,16 @@ export default function GammaWeatherStrip({ payload }: GammaWeatherStripProps) {
         {/* "now", because the metric card below reads Session pressure and the
             two legitimately disagree: a session can be cumulatively buying
             while this bar sells. Without the qualifier that looks like a bug. */}
-        <Chip label="Pressure now" value={PRESSURE_LABEL[payload.pressure] ?? payload.pressure} />
+        <Chip
+          label="Pressure now"
+          value={
+            payload.pressure === 'MIXED'
+              ? PRESSURE_LABEL.MIXED
+              : `${PRESSURE_LABEL[payload.pressure] ?? payload.pressure} · ${
+                  PERSISTENCE_LABEL[payload.persistence] ?? payload.persistence
+                }`
+          }
+        />
         <Chip label="Lean" value={payload.lean_side ? LEAN_LABEL[payload.lean_side] : '—'} />
         <Chip label="Stability" value={STRUCTURE_LABEL[payload.structure] ?? payload.structure} />
         <Chip label="Gamma trend" value={TREND_LABEL[payload.gamma_trend] ?? payload.gamma_trend} />

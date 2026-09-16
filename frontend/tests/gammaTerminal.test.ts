@@ -125,9 +125,21 @@ test("the volume pane offers both views, persisted per surface", () => {
 test("the net cumulative is accumulated through the right edge, not from the viewport", () => {
   const chart = readFileSync(new URL("../components/GammaTerminalChart.tsx", import.meta.url), "utf8");
   assert.match(chart, /const throughEdge = allBars\.slice\(0, viewEnd\);/);
-  assert.match(chart, /cumulativeNetVolume\(throughEdge, \{ resetPerDay: perDay \}\)\.slice\(viewStart, viewEnd\)/);
-  // Daily candles are one bar per session already, so they don't reset.
-  assert.match(chart, /const perDay = timeframe !== "1day";/);
+  assert.match(chart, /cumulativeNetVolume\(throughEdge, \{ scope, symbol \}\)\.slice\(viewStart, viewEnd\)/);
+  // Daily candles are one bar per session already, so they never reset.
+  assert.match(chart, /const scope = timeframe === "1day" \? "window" : "session";/);
   // The replay's growing edge candle is substituted the way `bars` does it.
   assert.match(chart, /if \(partialCurrentBar && throughEdge\.length > 0\) throughEdge\[throughEdge\.length - 1\] = partialCurrentBar;/);
+});
+
+// Intraday, the pane measures ONE session: the total starts at the most recent
+// session's open (resolved through the right edge, so a panned-back or rewound
+// view reads the session it is showing) and every bar before it is flat zero.
+test("the net cumulative covers the most recent session only", () => {
+  const chart = readFileSync(new URL("../components/GammaTerminalChart.tsx", import.meta.url), "utf8");
+  assert.match(chart, /const sessionStart = scope === "session" \? lastSessionStartIndex\(bars, symbol\) : 0;/);
+  // The area breaks at that open rather than drawing a cliff off the flat run.
+  assert.match(chart, /segments: signedAreaSegments\(values, \[sessionStart\]\)/);
+  // A bar before the open has no total to report, so the readout dashes it.
+  assert.match(chart, /activeIdx < netVolume\.sessionStart \? \(/);
 });

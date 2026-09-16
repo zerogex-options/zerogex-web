@@ -263,7 +263,7 @@ export const CATALOG = {
     latch: 'winback_email_sent_at — cleared on welcome-back',
     optOut: 'Honors marketing_unsubscribed_at; plain-language opt-out footer', foh: false,
     source: 'core/mailer.ts:2353 · scripts/send-winback.mts (LAG 30d)',
-    notes: 'HUMAN IN THE LOOP. The installed unit passes DIGEST=1, not YES=1.',
+    notes: 'HUMAN IN THE LOOP. The installed unit passes DIGEST=1, not YES=1. The discount percentage shown below comes from WINBACK_DISCOUNT_LABEL — it is a display string only, and MUST match what the four STRIPE_COUPON_WINBACK_* coupons actually apply at checkout, or the email promises a rate the member does not get.',
   },
   'return-intent': {
     group: 'churn', title: 'Return intent', channel: 'member', autoSends: false,

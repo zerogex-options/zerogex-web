@@ -84,7 +84,7 @@ help:
 	@echo "  make auth-backups-prune - Prune old auth-DB backups: delete auth-*.db.gz* older than AUTH_BACKUP_RETENTION_DAYS (default 30) but ALWAYS keep the newest AUTH_BACKUP_KEEP (default 48; 0 = raw mtime-only). Shared by backup-auth + janitor"
 	@echo "  make janitor     - Nightly cleanup (interactive): prune auth backups (keep-newest floor) + drop frontend/.next/cache + npm cache clean. Prints the plan and asks before acting"
 	@echo "  make janitor-noconfirm - Same as janitor but no prompt (what the zerogex-web-janitor systemd timer runs nightly)"
-	@echo "  make email-audit [OUT=dir] - Render EVERY automated email as the recipient sees it, with its exact trigger + schedule, into one PDF. Re-run after any email copy change"
+	@echo "  make email-audit [OUT=dir] - Render EVERY automated email as the recipient sees it, with its exact trigger + schedule, into one PDF (docs/automated-email-audit.pdf). DEV MACHINE ONLY - needs a Chromium to print; the prod box has none and does not need one. Re-run after any email copy change"
 	@echo "  make clean      - Remove build artifacts"
 	@echo "  make deploy     - Full deployment (pull, install, rebuild)"
 	@echo "  make logo       - Copy logos from assets to public"
@@ -1264,7 +1264,9 @@ backup-auth:
 # Three safe/regenerable jobs: (1) prune old auth-DB backups with the
 # keep-newest-K floor (the shared auth-backups-prune target), (2) delete ONLY
 # Renders EVERY automated email as the recipient sees it, next to its exact
-# trigger and schedule, into one PDF. The bodies are captured from the live
+# trigger and schedule, into one PDF. Run this on a DEV MACHINE: it needs a
+# Chromium to print, which the production box has no reason to carry. The
+# committed docs/automated-email-audit.pdf is the artifact; prod never renders it. The bodies are captured from the live
 # senders (the Resend transport is stubbed), so the audit cannot drift from the
 # shipped copy; the trigger/schedule metadata is hand-maintained in
 # scripts/email-audit/catalog.mjs and must be updated when a unit or cohort

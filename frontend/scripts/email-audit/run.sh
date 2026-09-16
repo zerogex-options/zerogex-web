@@ -2,8 +2,11 @@
 # Regenerates docs/automated-email-audit.pdf: every automated email rendered as
 # the recipient sees it, with its exact trigger and schedule.
 #
-#   make email-audit                 # -> build/email-audit/automated-email-audit.pdf
-#   make email-audit OUT=/tmp/audit  # somewhere else
+#   make email-audit                 # -> docs/automated-email-audit.pdf (committed)
+#   make email-audit OUT=/tmp/audit  # working files somewhere else
+#
+# DEV MACHINE ONLY: printing needs a Chromium, which the production box has no
+# reason to carry. The committed PDF is the artifact; prod never renders it.
 #
 # Run it after ANY change to email copy — a stale audit is worse than none,
 # because it reads as authoritative. The catalogue metadata (what fires each
@@ -38,16 +41,25 @@ export UNIT_ALERT_EMAIL="${UNIT_ALERT_EMAIL:-ops@zerogex.io}"
 export FOH_REMINDER_EMAIL="${FOH_REMINDER_EMAIL:-ops@zerogex.io}"
 export SIGNUP_ALARM_EMAIL="${SIGNUP_ALARM_EMAIL:-ops@zerogex.io}"
 
+# Exit 0 is NOT proof of a render: these scripts exit cleanly when they decide
+# there is nothing to alert about, which reported "ok" for a body that was never
+# captured. Check the ndjson for this id instead.
 capture_script() {
   local id="$1"; shift
-  CAPTURE_ID="$id" "${NODE_RUN[@]}" --import="$HERE/stub-resend.mts" "$@" >/dev/null 2>&1 \
-    && echo "    ok   $id" \
-    || echo "    skip $id (needs the live box)"
+  CAPTURE_ID="$id" "${NODE_RUN[@]}" --import="$HERE/stub-resend.mts" "$@" >/dev/null 2>&1 || true
+  if grep -q "\"__id\":\"$id\"" "$CAPTURE_OUT" 2>/dev/null; then
+    echo "    ok   $id"
+  else
+    echo "    skip $id (no send issued — needs the live box)"
+  fi
 }
 cd "$FRONTEND"
 capture_script unit-failure-alert     scripts/send-unit-failure-alert.mts --unit zerogex-web-trial-reminders.service
 capture_script foh-donation-reminder  scripts/send-foh-donation-reminder.mts --quarter "Q3 2026"
-capture_script signup-alarm           scripts/send-signup-alarm.mts --force
+# --force clears the active-hours and cooldown gates but NOT the signup floor, so
+# on a box with healthy signups the alarm correctly declines to fire and renders
+# nothing. An absurd --min puts the count below the floor so the body renders.
+capture_script signup-alarm           scripts/send-signup-alarm.mts --force --min 999999
 
 echo "==> building report"
 (cd "$HERE" && node build-report.mjs "$OUT")
@@ -63,7 +75,18 @@ if [ -z "$CHROME" ]; then
   done
 fi
 if [ -z "$CHROME" ]; then
-  echo "No Chromium found. Set CHROME=/path/to/chrome. HTML is at $OUT/report.html" >&2
+  cat >&2 <<MSG
+
+Everything rendered, but there is no Chromium here to print the PDF.
+HTML (complete, openable in any browser): $OUT/report.html
+
+This is a DEV-MACHINE command — the production box has no browser and does not
+need one. Run it where you edit the copy, and commit the refreshed
+docs/automated-email-audit.pdf. To print it here anyway, either:
+  CHROME=/path/to/chrome make email-audit
+  npx playwright install chromium && make email-audit
+  sudo apt-get install -y chromium-browser && make email-audit
+MSG
   exit 1
 fi
 
