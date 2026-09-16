@@ -128,6 +128,72 @@ test('the auto-renew reassurance is read before the offer, not after it', () => 
   }
 });
 
+// The dormant variant goes to someone who signed up and never came back. It
+// used to open by telling them so, then put the exit straight after the price,
+// sold as "one click, no email or support request needed" — friction-free and
+// ahead of any reason to stay. For a member who has not used the product that
+// is not neutral disclosure, it is a recommendation to cancel.
+
+test('the dormant reminder says no action is needed before it says anything else', () => {
+  const { text, html } = buildTrialReminderEmail({
+    trialEndIso: TRIAL_END_EDT,
+    billing: { chargeLabel: '$59.00/month', cardBrand: 'Visa', cardLast4: '4242' },
+    dormant: true,
+  });
+
+  for (const body of [text, html]) {
+    const noAction = body.search(/nothing you need to do/);
+    const cancel = body.search(/cancel your subscription/);
+    assert.ok(noAction >= 0, 'the reassurance must be present');
+    assert.ok(cancel >= 0, 'the cancel route must still be present');
+    assert.ok(noAction < cancel, 'the reassurance must come first');
+  }
+  // And in the subject, where a member who opens nothing still reads it.
+  assert.match(
+    buildTrialReminderEmail({ trialEndIso: TRIAL_END_EDT, dormant: true }).subject,
+    /nothing you need to do/,
+  );
+});
+
+test('the dormant reminder states the exit without selling it', () => {
+  const { text, html } = buildTrialReminderEmail({
+    trialEndIso: TRIAL_END_EDT,
+    billing: { chargeLabel: '$59.00/month', cardBrand: 'Visa', cardLast4: '4242' },
+    dormant: true,
+  });
+
+  for (const body of [text, html]) {
+    // The friction-removing pitch is gone.
+    assert.doesNotMatch(body, /no email or support request needed/i);
+    assert.doesNotMatch(body, /rather not be charged/i);
+    // Replaced by a conditional the member has to opt into.
+    assert.match(body, /if you've decided ZeroGEX isn't for you/i);
+  }
+  // An email claiming nothing is needed must not end in a call to action; the
+  // cancel route is linked inline in its own sentence instead.
+  assert.doesNotMatch(html, /Manage subscription/);
+  assert.match(html, /billing portal/);
+});
+
+test('softening the dormant copy does not soften the charge disclosure', () => {
+  // The guard on the change above: the amount, the card and the exact instant
+  // still land in the first two paragraphs, before any of the retention copy.
+  const { text } = buildTrialReminderEmail({
+    trialEndIso: TRIAL_END_EDT,
+    billing: { chargeLabel: '$59.00/month', cardBrand: 'Visa', cardLast4: '4242' },
+    dormant: true,
+  });
+
+  assert.match(text, /turns into a paid subscription automatically/);
+  assert.match(text, /\$59\.00\/month/);
+  assert.match(text, /your Visa card ending in 4242/);
+  assert.ok(
+    text.indexOf('$59.00/month') < text.indexOf("if you've decided"),
+    'the price must be stated before the retention copy, not after it',
+  );
+  assert.match(text, /September 14, 2026 at 6:03 AM EDT/);
+});
+
 test('a dormant member is never shown the discount offer', () => {
   // Unchanged behaviour, guarded while the offer copy moves around it.
   const { text, html } = buildTrialReminderEmail({

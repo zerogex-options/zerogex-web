@@ -730,9 +730,11 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
   // The dormant subject names the charge instead of the trial ending. A member
   // who never came back has no mental model of "my trial" to attach a reminder
   // to; what they will recognize later is the line on their statement, so the
-  // subject is written to be recognized now rather than then.
+  // subject is written to be recognized now rather than then. It says outright
+  // that no action is needed — "a quick check" implied one was, which for a
+  // member who has not used the product reads as a prompt to cancel.
   const subject = dormant
-    ? 'Before your ZeroGEX trial converts — a quick check'
+    ? 'Before your ZeroGEX trial converts — nothing you need to do'
     : 'Your ZeroGEX free trial ends in 2 days';
 
   const accountUrl = `${getAppUrl()}/account`;
@@ -824,15 +826,21 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
   // down mistake the discount CTA for the thing that keeps their access, and
   // the same sentence is what makes the charge fair notice.
   //
-  // The ordinary opener assumes the member knows what their trial is. The
-  // dormant one cannot: it names the date, the charge and the exit in the first
-  // two sentences, on the assumption this email is the only thing standing
-  // between them and an unrecognized line on a statement.
+  // The dormant opener carries its own "nothing you need to do" rather than
+  // taking the shared one below, so a member who reads one paragraph and stops
+  // has already read it. What it no longer does is open by telling them they
+  // never came back: true, but it primes exactly the conclusion this email
+  // should not be arguing for. The offer of help further down says the same
+  // thing usefully instead.
+  //
+  // The charge, the date and the amount stay in the first two paragraphs in
+  // both variants. That is the part that makes an unrecognized statement line
+  // impossible, and it is not the part that was reading as a cancel prompt.
   const openerText = dormant
-    ? `I noticed you haven't been back to ZeroGEX since you signed up, so I wanted to flag this rather than let it surprise you: your free trial ends on ${trialEndDate} and turns into a paid subscription automatically, so your first payment goes through then.`
+    ? `A quick heads-up so nothing catches you out: your ZeroGEX free trial ends on ${trialEndDate} and turns into a paid subscription automatically. There's nothing you need to do — your access simply carries on.`
     : `A quick heads-up: your ZeroGEX free trial ends on ${trialEndDate} and turns into a paid subscription automatically — your first payment will be charged then unless you cancel before that.`;
   const openerHtml = dormant
-    ? `I noticed you haven't been back to ZeroGEX since you signed up, so I wanted to flag this rather than let it surprise you: your free trial ends on <strong>${escapeHtml(trialEndDate)}</strong> and turns into a paid subscription automatically, so your first payment goes through then.`
+    ? `A quick heads-up so nothing catches you out: your ZeroGEX free trial ends on <strong>${escapeHtml(trialEndDate)}</strong> and <strong>turns into a paid subscription automatically</strong>. There's nothing you need to do &mdash; your access simply carries on.`
     : `A quick heads-up: your ZeroGEX free trial ends on <strong>${escapeHtml(trialEndDate)}</strong> and <strong>turns into a paid subscription automatically</strong> &mdash; your first payment will be charged then unless you cancel before that.`;
 
   // The "you don't have to do anything" line, hoisted ABOVE the discount offer
@@ -852,22 +860,31 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
     ? ''
     : `<p>If ZeroGEX is working for you, there's nothing you need to do &mdash; your access carries straight on and the subscription renews by itself.</p>`;
 
-  // Closing. For a dormant member the exit comes first and unhedged — burying
-  // it under a pitch is what turns an unwanted charge into a dispute. The offer
-  // of help is second and genuine: most of this cohort signed up meaning to use
-  // it and never found their way in.
+  // Closing. For a dormant member the offer of help comes first and the exit
+  // last, which is the reverse of how this used to read.
+  //
+  // The old order put the exit immediately after the price, sold as "one click,
+  // no email or support request needed" — friction-free, ahead of any reason to
+  // stay. For someone who has not used the product that is not neutral
+  // disclosure, it is a recommendation. The cancel route is still stated
+  // plainly, still names the deadline, and is still the last thing before the
+  // sign-off, so anyone looking for it finds it; it just is not the loudest
+  // thing in the email any more.
+  //
+  // The offer of help is genuine, not a delaying tactic: most of this cohort
+  // signed up meaning to use it and never found their way in.
   const closingText = dormant
     ? [
-        `If you'd rather not be charged, cancel from the billing portal on your account page (${accountUrl}) before ${trialEndDate} and you won't pay anything. One click, no email or support request needed.`,
+        "If you haven't had a chance to dig in yet, that's the part I'd like to fix. Reply to this email and tell me what you trade — I'll point you at the two or three levels on the board that actually matter for it. That's usually the whole gap between signing up and it being useful.",
         '',
-        "And if you did mean to give it a proper look, reply to this email and tell me what you trade — I'll point you at the two or three levels on the board that actually matter for it. That's usually the whole gap between signing up and it being useful.",
+        `And if you've decided ZeroGEX isn't for you, you can cancel your subscription from the billing portal on your account page (${accountUrl}) before ${trialEndDate} and you won't be charged.`,
       ]
     : [
         `If it isn't the right fit, you can cancel anytime before ${trialEndDate} from the billing portal on your account page (${accountUrl}) and you won't be charged a cent.`,
       ];
   const closingHtml = dormant
-    ? `<p>If you'd rather not be charged, <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">cancel from the billing portal</a> before ${escapeHtml(trialEndDate)} and you won't pay anything. One click, no email or support request needed.</p>
-      <p>And if you did mean to give it a proper look, reply to this email and tell me what you trade &mdash; I'll point you at the two or three levels on the board that actually matter for it. That's usually the whole gap between signing up and it being useful.</p>`
+    ? `<p>If you haven't had a chance to dig in yet, that's the part I'd like to fix. Reply to this email and tell me what you trade &mdash; I'll point you at the two or three levels on the board that actually matter for it. That's usually the whole gap between signing up and it being useful.</p>
+      <p>And if you've decided ZeroGEX isn't for you, you can cancel your subscription from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> before ${escapeHtml(trialEndDate)} and you won't be charged.</p>`
     : `<p>If it isn't the right fit, you can cancel anytime before ${escapeHtml(trialEndDate)} from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> and you won't be charged a cent.</p>`;
 
   const text = [
@@ -897,9 +914,16 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
       ${continuationHtml}
       ${convertOfferHtml}
       ${closingHtml}
-      <p style="margin: 24px 0;">
+      ${dormant
+        // No button at all for a dormant member. It landed directly under the
+        // cancel sentence, where the loudest element on the page pointed at the
+        // billing portal — an email whose whole claim is "nothing you need to
+        // do" should not end in a call to action. The cancel route is linked
+        // inline in the sentence above for anyone who wants it.
+        ? ''
+        : `<p style="margin: 24px 0;">
         <a href="${safeAccountUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Manage subscription</a>
-      </p>
+      </p>`}
       <p>Either way, thanks for giving ZeroGEX a try &mdash; if there's anything I can do to make it more useful for you, just reply to this email. I read every message.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
     </div>
