@@ -688,10 +688,11 @@ export type TrialReminderEmailOptions = {
     // isn't a card.
     cardLast4?: string | null;
   } | null;
-  // A signed one-click "lock in <pct>% off and keep going" link (buildConvertUrl),
-  // when the cron could mint one (ZEROGEX_END_USER_TOKEN_SECRET set). Present it
-  // and the reminder becomes a conversion push with the incentive CTA; omit/null
-  // and it's the plain courtesy reminder, unchanged.
+  // A signed one-click "take <pct>% off the price" link (buildConvertUrl), when
+  // the cron could mint one (ZEROGEX_END_USER_TOKEN_SECRET set). Present it and
+  // the reminder carries the discount offer; omit/null and it's the plain
+  // courtesy reminder, unchanged. The offer is a PRICE change only — the trial
+  // converts on its own whether or not it's claimed, and the copy says so.
   convertOfferUrl?: string | null;
   // True when this member never came back after signing up, so the trial is
   // about to convert on someone who has not used the product. Swaps in copy
@@ -792,9 +793,18 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
   // an unused account into a discounted year is how a chargeback becomes a
   // twelve-month chargeback. They get the plain reminder and a clear exit.
   const showConvertOffer = !!opts.convertOfferUrl && !dormant;
+  // The offer is worded, and placed, so it can never be mistaken for a step the
+  // member has to take to stay subscribed. The trial converts on its own; this
+  // only moves the price. Hence no "keep my access" / "keep going" framing on
+  // the CTA (that belongs on a CANCELLATION save, where access really is at
+  // stake), an explicit "either way" sentence next to the button, and the
+  // auto-renew line printed ABOVE this block — a reader who skims to the yellow
+  // button has already been told they don't need to press it.
   const convertOfferText = showConvertOffer
     ? [
-        `By now you've had the full board — Today's Read, the GEX strike profile, the gamma flip, and the call/put walls across SPY, SPX, QQQ and NDX. If it's earned a spot in your routine, you can lock in ${CONVERT_OFFER_PERCENT}% off for a full year before your trial ends:`,
+        `By now you've had the full board — Today's Read, the GEX strike profile, the gamma flip, and the call/put walls across SPY, SPX, QQQ and NDX. If it's earned a spot in your routine, there's one optional extra: ${CONVERT_OFFER_PERCENT}% off for a full year.`,
+        '',
+        `This changes the price only — your subscription starts either way. Claiming it just lowers what you're charged:`,
         opts.convertOfferUrl,
         '',
       ]
@@ -802,27 +812,50 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
   // Re-tests opts.convertOfferUrl rather than relying on showConvertOffer alone
   // so the url stays narrowed to a string for escapeHtml below.
   const convertOfferHtml = showConvertOffer && opts.convertOfferUrl
-    ? `<p>By now you've had the full board &mdash; Today's Read, the GEX strike profile, the gamma flip, and the call/put walls across SPY, SPX, QQQ and NDX. If it's earned a spot in your routine, you can <strong>lock in ${CONVERT_OFFER_PERCENT}% off for a full year</strong> before your trial ends.</p>
+    ? `<p>By now you've had the full board &mdash; Today's Read, the GEX strike profile, the gamma flip, and the call/put walls across SPY, SPX, QQQ and NDX. If it's earned a spot in your routine, there's one optional extra: <strong>${CONVERT_OFFER_PERCENT}% off for a full year</strong>.</p>
+      <p>This changes the price only &mdash; your subscription starts either way. Claiming it just lowers what you're charged.</p>
       <p style="margin: 20px 0;">
-        <a href="${escapeHtml(opts.convertOfferUrl)}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 700; text-decoration: none; border-radius: 8px;">Lock in ${CONVERT_OFFER_PERCENT}% off &amp; keep my access</a>
+        <a href="${escapeHtml(opts.convertOfferUrl)}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 700; text-decoration: none; border-radius: 8px;">Take ${CONVERT_OFFER_PERCENT}% off my subscription</a>
       </p>`
     : '';
 
-  // Openers. The ordinary one assumes the member knows what their trial is.
-  // The dormant one cannot: it names the date, the charge and the exit in the
-  // first two sentences, on the assumption this email is the only thing
-  // standing between them and an unrecognized line on a statement.
+  // Openers. Both name the auto-conversion outright: the trial BECOMES a paid
+  // subscription by itself. Leaving that implicit is what lets a reader further
+  // down mistake the discount CTA for the thing that keeps their access, and
+  // the same sentence is what makes the charge fair notice.
+  //
+  // The ordinary opener assumes the member knows what their trial is. The
+  // dormant one cannot: it names the date, the charge and the exit in the first
+  // two sentences, on the assumption this email is the only thing standing
+  // between them and an unrecognized line on a statement.
   const openerText = dormant
-    ? `I noticed you haven't been back to ZeroGEX since you signed up, so I wanted to flag this rather than let it surprise you: your free trial ends on ${trialEndDate}, and your first payment goes through then.`
-    : `A quick heads-up: your ZeroGEX free trial ends on ${trialEndDate}, and your first payment will be charged then unless you cancel before that.`;
+    ? `I noticed you haven't been back to ZeroGEX since you signed up, so I wanted to flag this rather than let it surprise you: your free trial ends on ${trialEndDate} and turns into a paid subscription automatically, so your first payment goes through then.`
+    : `A quick heads-up: your ZeroGEX free trial ends on ${trialEndDate} and turns into a paid subscription automatically — your first payment will be charged then unless you cancel before that.`;
   const openerHtml = dormant
-    ? `I noticed you haven't been back to ZeroGEX since you signed up, so I wanted to flag this rather than let it surprise you: your free trial ends on <strong>${escapeHtml(trialEndDate)}</strong>, and your first payment goes through then.`
-    : `A quick heads-up: your ZeroGEX free trial ends on <strong>${escapeHtml(trialEndDate)}</strong>, and your first payment will be charged then unless you cancel before that.`;
+    ? `I noticed you haven't been back to ZeroGEX since you signed up, so I wanted to flag this rather than let it surprise you: your free trial ends on <strong>${escapeHtml(trialEndDate)}</strong> and turns into a paid subscription automatically, so your first payment goes through then.`
+    : `A quick heads-up: your ZeroGEX free trial ends on <strong>${escapeHtml(trialEndDate)}</strong> and <strong>turns into a paid subscription automatically</strong> &mdash; your first payment will be charged then unless you cancel before that.`;
 
-  // Closing pair. For a dormant member the exit comes first and unhedged —
-  // burying it under a pitch is what turns an unwanted charge into a dispute.
-  // The offer of help is second and genuine: most of this cohort signed up
-  // meaning to use it and never found their way in.
+  // The "you don't have to do anything" line, hoisted ABOVE the discount offer
+  // so it is read before the yellow button rather than after it. Below the
+  // button it read as a contradiction — press this to keep your access, and
+  // also you don't need to — and the button won that argument.
+  //
+  // Dormant members get none of this: they have no offer block to disarm, and
+  // "nothing you need to do" is the wrong note for someone who never came back.
+  const continuationText = dormant
+    ? []
+    : [
+        "If ZeroGEX is working for you, there's nothing you need to do — your access carries straight on and the subscription renews by itself.",
+        '',
+      ];
+  const continuationHtml = dormant
+    ? ''
+    : `<p>If ZeroGEX is working for you, there's nothing you need to do &mdash; your access carries straight on and the subscription renews by itself.</p>`;
+
+  // Closing. For a dormant member the exit comes first and unhedged — burying
+  // it under a pitch is what turns an unwanted charge into a dispute. The offer
+  // of help is second and genuine: most of this cohort signed up meaning to use
+  // it and never found their way in.
   const closingText = dormant
     ? [
         `If you'd rather not be charged, cancel from the billing portal on your account page (${accountUrl}) before ${trialEndDate} and you won't pay anything. One click, no email or support request needed.`,
@@ -830,15 +863,12 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
         "And if you did mean to give it a proper look, reply to this email and tell me what you trade — I'll point you at the two or three levels on the board that actually matter for it. That's usually the whole gap between signing up and it being useful.",
       ]
     : [
-        "If ZeroGEX is working for you, there's nothing you need to do — you'll keep full access and the renewal will go through automatically.",
-        '',
-        `If it isn't the right fit, you can cancel anytime from the billing portal on your account page (${accountUrl}) and you won't be charged a cent.`,
+        `If it isn't the right fit, you can cancel anytime before ${trialEndDate} from the billing portal on your account page (${accountUrl}) and you won't be charged a cent.`,
       ];
   const closingHtml = dormant
     ? `<p>If you'd rather not be charged, <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">cancel from the billing portal</a> before ${escapeHtml(trialEndDate)} and you won't pay anything. One click, no email or support request needed.</p>
       <p>And if you did mean to give it a proper look, reply to this email and tell me what you trade &mdash; I'll point you at the two or three levels on the board that actually matter for it. That's usually the whole gap between signing up and it being useful.</p>`
-    : `<p>If ZeroGEX is working for you, there's nothing you need to do &mdash; you'll keep full access and the renewal will go through automatically.</p>
-      <p>If it isn't the right fit, you can cancel anytime from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> and you won't be charged a cent.</p>`;
+    : `<p>If it isn't the right fit, you can cancel anytime before ${escapeHtml(trialEndDate)} from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> and you won't be charged a cent.</p>`;
 
   const text = [
     'Hello,',
@@ -847,6 +877,7 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
     '',
     ...(billingLineText ? [billingLineText, ''] : []),
     ...(promoLineText ? [promoLineText, ''] : []),
+    ...continuationText,
     ...convertOfferText,
     ...closingText,
     '',
@@ -863,6 +894,7 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
       <p>${openerHtml}</p>
       ${billingLineHtml ? `<p>${billingLineHtml}</p>` : ''}
       ${promoLineHtml ? `<p>${promoLineHtml}</p>` : ''}
+      ${continuationHtml}
       ${convertOfferHtml}
       ${closingHtml}
       <p style="margin: 24px 0;">

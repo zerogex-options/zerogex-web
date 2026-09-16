@@ -61,3 +61,82 @@ test('the reminder still states the amount and the charge warning', () => {
   assert.match(text, /your Visa card ending in 4242/);
   assert.match(text, /unless you cancel before that/);
 });
+
+// The other half of fair notice: WHAT happens at the cutoff. A trial that
+// converts by itself has to be described as converting by itself. The failure
+// mode this guards is not a missing sentence but a contradicting one — a
+// discount CTA reading "keep my access" tells a skimmer their access is
+// conditional on clicking it, which is the opposite of the truth and the
+// shortest path from "I never clicked that" to a chargeback.
+
+const OFFER_URL = 'https://zerogex.io/convert?u=user_123&t=tok';
+
+test('the reminder says the trial converts on its own', () => {
+  for (const dormant of [false, true]) {
+    const { text, html } = buildTrialReminderEmail({
+      trialEndIso: TRIAL_END_EDT,
+      billing: { chargeLabel: '$59.00/month', cardBrand: 'Visa', cardLast4: '4242' },
+      convertOfferUrl: OFFER_URL,
+      dormant,
+    });
+
+    for (const body of [text, html]) {
+      assert.match(body, /turns into a paid subscription automatically/, `dormant=${dormant}`);
+    }
+  }
+});
+
+test('nothing in the reminder makes access conditional on clicking the offer', () => {
+  const { text, html } = buildTrialReminderEmail({
+    trialEndIso: TRIAL_END_EDT,
+    billing: { chargeLabel: '$59.00/month', cardBrand: 'Visa', cardLast4: '4242' },
+    convertOfferUrl: OFFER_URL,
+  });
+
+  for (const body of [text, html]) {
+    // Retention framing belongs on a CANCELLATION save (app/save), where access
+    // really is at stake. Here it is simply false.
+    assert.doesNotMatch(body, /keep (my|your) access/i);
+    assert.doesNotMatch(body, /keep going/i);
+    // ...and the offer says outright which of the two things it moves.
+    assert.match(body, /changes the price only/);
+    assert.match(body, /your subscription starts either way/i);
+  }
+});
+
+test('the auto-renew reassurance is read before the offer, not after it', () => {
+  // Ordering is the whole point: below the yellow button, "there's nothing you
+  // need to do" reads as a contradiction of it, and the button wins.
+  const { text, html } = buildTrialReminderEmail({
+    trialEndIso: TRIAL_END_EDT,
+    billing: { chargeLabel: '$59.00/month', cardBrand: 'Visa', cardLast4: '4242' },
+    convertOfferUrl: OFFER_URL,
+  });
+
+  const reassurance = /there(?:'|&rsquo;)s nothing you need to do/;
+  // In text the offer is its bare URL; in HTML it's the button label (the href
+  // itself is escaped, so match the thing the reader actually sees).
+  for (const [body, offerMarker] of [
+    [text, OFFER_URL],
+    [html, 'Take 25% off my subscription'],
+  ] as const) {
+    const at = body.search(reassurance);
+    const offerAt = body.indexOf(offerMarker);
+    assert.ok(at >= 0, 'the reassurance must be present');
+    assert.ok(offerAt >= 0, 'the offer must be present');
+    assert.ok(at < offerAt, 'the reassurance must come before the offer');
+  }
+});
+
+test('a dormant member is never shown the discount offer', () => {
+  // Unchanged behaviour, guarded while the offer copy moves around it.
+  const { text, html } = buildTrialReminderEmail({
+    trialEndIso: TRIAL_END_EDT,
+    convertOfferUrl: OFFER_URL,
+    dormant: true,
+  });
+
+  assert.doesNotMatch(text, /25% off/);
+  assert.doesNotMatch(html, /25% off/);
+  assert.ok(!text.includes(OFFER_URL));
+});

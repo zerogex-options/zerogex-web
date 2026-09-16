@@ -1,8 +1,11 @@
 # Automated Emails — Full Audit
 
-> Status: **draft in progress.** Infrastructure, idempotency, and copy sections are
-> complete and verified against source. Trigger/activation and per-script cohort
-> sections are being finalized.
+> Status: **complete and verified against source.** Section 4 (triggers, schedules,
+> cohort windows) was read out of `deploy/systemd/`, the Makefile targets those units
+> call, and each script's cohort SQL.
+>
+> For the rendered version — every email as the recipient sees it, beside its exact
+> trigger and schedule — run `make email-audit`.
 
 Every automated email ZeroGEX sends, with its copy, its trigger, how it runs on the
 server, and how it is activated. Line references are to the current `release`-lineage
@@ -221,11 +224,20 @@ auth/transactional and TradeWorkz alerts.
 
 ### 3.3 Trial-end & billing / dunning
 
-**48h trial-end reminder** — `sendTrialReminderEmail(to, { trialEndIso, promoIntroLabel?, billing? })`
+**48h trial-end reminder** — `sendTrialReminderEmail(to, { trialEndIso, promoIntroLabel?, billing?, convertOfferUrl?, dormant? })`
 - **Subject:** `Your ZeroGEX free trial ends in 2 days`
 - Courtesy heads-up before auto-conversion. When `billing` is resolved from Stripe it
   names the exact charge + card ("Your subscription will begin at $X/month using your
   Visa card ending in 1234"). Manage-subscription CTA. No FOH footer.
+- **The email must never imply the trial needs an action to continue.** The opener says
+  the trial "turns into a paid subscription automatically"; the "there's nothing you
+  need to do" line is printed ABOVE the `convertOfferUrl` block, not below it; and the
+  discount CTA reads *Take {pct}% off my subscription*, never "keep my access" /
+  "keep going" — that framing belongs on the cancellation save (`/save`), where access
+  genuinely is at stake. Here the offer moves the **price** only, and says so beside
+  the button. Locked down in `tests/trialReminder.test.ts`.
+- `dormant` (member never returned after signup) leads with the charge and the exit and
+  suppresses the discount offer entirely.
 
 **Trial-conversion confirmation** — `sendTrialConvertedEmail(to, { amountFormatted?, cardBrand?, cardLast4?, nextChargeIso?, fullyCredited? })`
 - **Subject:** `Your ZeroGEX trial just became a full membership`
@@ -435,5 +447,77 @@ auth/transactional and TradeWorkz alerts.
 
 ## 4. Triggers & activation
 
-_(Being finalized from the in-flight investigations: exact cron/Makefile scheduling,
-per-Stripe-event webhook mapping, and per-script cohort queries.)_
+Read out of `deploy/systemd/*.{timer,service}`, the Makefile targets those units call,
+and the cohort SQL in each script. Times are **server time (UTC)** unless marked ET;
+every unit carries a `RandomizedDelaySec` (15s–10m) so they don't all fire on the
+same second, and `Persistent=true` so a missed run catches up after a reboot.
+
+### 4.1 Scheduled (systemd timers)
+
+| Unit | `OnCalendar` | Cadence | Sends | Auto-sends to members? |
+|---|---|---|---|---|
+| `tradeworkz-notify` | `*:0/1:12` | every minute | TradeWorkz bot alert | yes |
+| `cancellation-alerts` | `*:07,22,37,52` | every 15 min | Cancellation alert | operator only |
+| `signup-alarm` | `*:35:00` | hourly | Signup-rate alarm | operator only |
+| `verify-reminders` | `00/2:20:00` | every 2h | Verify reminder | yes |
+| `verified-never-paid` | `00/2:30:00` | every 2h | Verified, never paid | yes |
+| `grace-expiry-warnings` | `00/4:35:00` | every 4h | Grace-expiry warning | yes |
+| `trial-reminders` | `00/6:15:00` | every 6h | 48h trial-end reminder | yes |
+| `checkout-recovery` | `00/6:45:00` | every 6h | Abandoned-checkout recovery | yes |
+| `trial-value-nudge` | `00/6:45:00` | every 6h | Mid-trial value nudge | yes |
+| `card-expiry` | `04:20:00` | daily | Card expiring | yes |
+| `reactivation` | `16:40:00` | daily | Reactivation (extended trial) | **yes** |
+| `return-intent` | `16:50:00` | daily | Return-intent **digest** | **no — operator digest only** |
+| `winback` | `Mon 16:35:00` | weekly | Win-back **digest** | **no — operator digest only** |
+| `foh-donation-reminder` | `*-01,04,07,10-05 09:00 ET` | quarterly | Folds of Honor reminder | operator only |
+
+**The digest asymmetry is deliberate but easy to misread.** The installed units pass:
+
+- `winback DIGEST=1` and `return-intent DIGEST=1` — nothing reaches a member until
+  someone runs `make winback YES=1` / `make return-intent YES=1` by hand.
+- `reactivation YES=1` — this one **does** deliver to members on the daily tick.
+  `--digest` is an exclusive branch that `process.exit(0)`s before sending
+  (`scripts/send-reactivation.mts:446`), and the unit doesn't pass it, so **no one
+  reviews the reactivation batch before it goes out**. If that is not intended, the
+  fix is a one-word change to `zerogex-web-reactivation.service`.
+
+### 4.2 Event-driven (no clock)
+
+| Source | Event | Sends |
+|---|---|---|
+| Stripe webhook | `checkout.session.completed` / `customer.subscription.created` | Trial/paid welcome, Founding welcome |
+| Stripe webhook | subscription sync, `subscription_lapsed` 1→0 | Welcome back |
+| Stripe webhook | subscription sync, `cancel_at_period_end` false→true | Cancellation acknowledgment |
+| Stripe webhook | subscription sync, `past_due` → `active` | Payment recovered |
+| Stripe webhook | `invoice.paid` + `isTrialConversionInvoice` | Trial conversion confirmation |
+| Stripe webhook | `invoice.payment_failed`, `attempt_count === 1` | Trial conversion declined **or** Payment failed (split by the same conversion predicate) |
+| App (`core/serverAuth.ts`) | registration | Email verification |
+| App (`app/api/auth/password/forgot`) | forgot-password submit | Password reset |
+| App (`core/referrals.ts`) | referral ledger `pending` → `rewarded` | Referral reward |
+| systemd `OnFailure=` | any scheduled unit exits non-zero | Scheduled-unit failure alert |
+
+### 4.3 Cohort windows at a glance
+
+| Email | Anchor | Window |
+|---|---|---|
+| Verify reminder | `created_at` | 2h–7d after signup, unverified |
+| Verified, never paid | `created_at` | 2h–7d after signup, verified, no checkout |
+| Abandoned-checkout recovery | `billing_checkout_started` audit row | 24h–7d after, still no subscription |
+| Mid-trial value nudge | `current_period_end` | 120h before trial end, ±3h |
+| 48h trial-end reminder | `current_period_end` | 48h before trial end, ±3h |
+| Grace-expiry warning | `payment_grace_started_at` | ≤24h left **and** ≥12h open |
+| Card expiring | card `exp_month`/`exp_year` from Stripe | within 45 days, once per calendar month |
+| Reactivation | `created_at` | 21+ days, max 50 per run |
+| Win-back | `stripe_subscription_deleted` audit row | 30+ days after lapse |
+| Return intent | `login_success` after their churn row | 24h–14d after the visit, 90-day cooldown |
+
+### 4.4 Regenerating the rendered audit
+
+`make email-audit` renders **every** email in this catalog exactly as the recipient
+sees it, next to its trigger and schedule, into a single PDF
+(`frontend/build/email-audit/automated-email-audit.pdf`). The bodies are captured
+from the live senders with the Resend transport stubbed, so the rendered copy cannot
+drift from what ships. The trigger/schedule metadata is hand-maintained in
+`frontend/scripts/email-audit/catalog.mjs` and **does** need updating when a unit,
+Makefile flag, or cohort query changes. Re-run it after any email copy change — a
+stale audit reads as authoritative, which is worse than not having one.
