@@ -80,6 +80,19 @@ const nextConfig: NextConfig = {
 
   // Clickjacking defense, with one deliberate hole in it.
   //
+  // In production this is belt AND braces: deploy/steps/070.ssl already adds
+  // `X-Frame-Options "DENY"` at the nginx server level, so a normal page goes
+  // out carrying both that and the SAMEORIGIN below. nginx `add_header`
+  // appends rather than replaces, and a browser reading a conflicting pair
+  // takes the stricter — DENY — which is the intended production policy. The
+  // app-level header is kept anyway because it is the only framing protection
+  // in any environment that is NOT behind that nginx: local dev, a preview
+  // deploy, a different reverse proxy. It never weakens production and it
+  // stops a new environment shipping with no policy at all.
+  //
+  // nginx carves out the same /embed/ exception with a regex location; see the
+  // comment there for why the prefix form could not be used.
+  //
   // Nothing set a framing policy before, which meant every page on the site —
   // /login, /account, the billing screens — could be loaded into a frame on
   // any origin. Default to SAMEORIGIN everywhere.

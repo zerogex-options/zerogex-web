@@ -89,6 +89,32 @@ test('the frame route serves frame-ancestors and sets no X-Frame-Options', () =>
   assert.ok(!embedRoute.includes('X-Frame-Options'), 'the frame route must not set X-Frame-Options');
 });
 
+test('the production nginx exempts the frames from its site-wide DENY', () => {
+  // The app's own headers are not the last word in production. nginx adds
+  // `X-Frame-Options "DENY"` at the server level, `always`, and DENY forbids
+  // framing outright — cross-origin AND same-origin. Without an exception
+  // every published embed renders as a blocked box and the live preview on
+  // /embed breaks too, and nothing in the Next app can tell. That is exactly
+  // how this nearly shipped.
+  const ssl = readFileSync(path.join(ROOT, '../deploy/steps/070.ssl'), 'utf8');
+  assert.match(ssl, /add_header X-Frame-Options "DENY" always;/, 'the site-wide policy moved');
+
+  // A REGEX location, not the `^~ /embed/` prefix. With the prefix form nginx
+  // answers /embed with a 301 to /embed/ — and /embed is the canonical URL and
+  // the sitemap entry. Verified against nginx 1.24 both ways.
+  assert.match(ssl, /location ~ \^\/embed\/ \{/, 'the embed exception must use the regex form');
+
+  // nginx inherits add_header from the enclosing level ONLY when the current
+  // level declares none. The block therefore has to re-state the headers that
+  // still apply, and must not re-state X-Frame-Options.
+  const block = ssl.slice(ssl.indexOf('location ~ ^/embed/ {'));
+  const body = block.slice(0, block.indexOf('\n    }'));
+  assert.ok(!body.includes('X-Frame-Options'), 'the embed block must not carry X-Frame-Options');
+  for (const header of ['X-Content-Type-Options', 'Referrer-Policy', 'Permissions-Policy']) {
+    assert.ok(body.includes(header), `${header} is dropped by the embed block's add_header override`);
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Indexation
 // ---------------------------------------------------------------------------
