@@ -71,6 +71,15 @@ echo "==> printing PDF via $(basename "$(dirname "$(dirname "$CHROME")")")"
 "$CHROME" --headless --disable-gpu --no-sandbox --no-pdf-header-footer \
   --print-to-pdf="$OUT/automated-email-audit.pdf" "file://$OUT/report.html" 2>/dev/null
 
+# The copy under docs/ is the one that ships in the repo, so refresh it on every
+# run — a committed audit that lags the copy it documents is worse than none.
+# NO_DOC_COPY=1 skips it (e.g. rendering a scratch build somewhere else).
+DOC_PDF="$(cd "$FRONTEND/.." && pwd)/docs/automated-email-audit.pdf"
+if [ -z "${NO_DOC_COPY:-}" ]; then
+  cp "$OUT/automated-email-audit.pdf" "$DOC_PDF"
+fi
+
 echo
 echo "PDF:  $OUT/automated-email-audit.pdf"
+[ -z "${NO_DOC_COPY:-}" ] && echo "      $DOC_PDF (committed copy, refreshed)"
 echo "HTML: $OUT/report.html"

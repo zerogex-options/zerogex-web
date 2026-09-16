@@ -49,7 +49,6 @@ const NEXT_ATTEMPT = '2026-09-19T14:00:00.000Z';
 const GRACE_UNTIL = '2026-09-19T16:00:00.000Z';
 const UNSUB = `${APP_URL}/unsubscribe?u=user_123&t=abc123`;
 const SAVE_URL = `${APP_URL}/save?u=user_123&t=abc123`;
-const CONVERT_URL = `${APP_URL}/convert?u=user_123&t=abc123`;
 const VERIFY_URL = `${APP_URL}/verify?token=abc123def456`;
 
 const HIGHLIGHTS = [
@@ -96,8 +95,9 @@ const JOBS: Array<{ id: string; variant: string; run: () => Promise<Sent> }> = [
 
   // --- trial lifecycle ------------------------------------------------------
   { id: 'trial-value-nudge', variant: 'default', run: () => capture(() => M.sendTrialValueEmail(TO, { trialEndIso: TRIAL_END, unsubUrl: UNSUB })) },
-  { id: 'trial-reminder', variant: 'engaged + discount offer', run: () => capture(() => M.sendTrialReminderEmail(TO, { trialEndIso: TRIAL_END, billing: { chargeLabel: '$59.00/month', cardBrand: 'Visa', cardLast4: '4242' }, convertOfferUrl: CONVERT_URL })) },
-  { id: 'trial-reminder', variant: 'dormant (never returned)', run: () => capture(() => M.sendTrialReminderEmail(TO, { trialEndIso: TRIAL_END, billing: { chargeLabel: '$59.00/month', cardBrand: 'Visa', cardLast4: '4242' }, convertOfferUrl: CONVERT_URL, dormant: true })) },
+  { id: 'trial-reminder', variant: 'engaged', run: () => capture(() => M.sendTrialReminderEmail(TO, { trialEndIso: TRIAL_END, billing: { chargeLabel: '$59.00/month', cardBrand: 'Visa', cardLast4: '4242' } })) },
+  { id: 'trial-reminder', variant: 'on a promo intro rate', run: () => capture(() => M.sendTrialReminderEmail(TO, { trialEndIso: TRIAL_END, billing: { chargeLabel: '$29.00/month', cardBrand: 'Visa', cardLast4: '4242' }, promoIntroLabel: 'first 6 months' })) },
+  { id: 'trial-reminder', variant: 'dormant (never returned)', run: () => capture(() => M.sendTrialReminderEmail(TO, { trialEndIso: TRIAL_END, billing: { chargeLabel: '$59.00/month', cardBrand: 'Visa', cardLast4: '4242' }, dormant: true })) },
   { id: 'trial-converted', variant: 'charged', run: () => capture(() => M.sendTrialConvertedEmail(TO, { amountFormatted: '$59.00', cardBrand: 'Visa', cardLast4: '4242', nextChargeIso: PERIOD_END })) },
   { id: 'trial-converted', variant: 'fully credited ($0 invoice)', run: () => capture(() => M.sendTrialConvertedEmail(TO, { amountFormatted: '$0.00', cardBrand: 'Visa', cardLast4: '4242', nextChargeIso: PERIOD_END, fullyCredited: true })) },
   { id: 'trial-conversion-failed', variant: 'default', run: () => capture(() => M.sendTrialConversionFailedEmail(TO, { amountFormatted: '$59.00', cardBrand: 'Visa', cardLast4: '4242', nextAttemptIso: NEXT_ATTEMPT, graceUntilIso: GRACE_UNTIL })) },

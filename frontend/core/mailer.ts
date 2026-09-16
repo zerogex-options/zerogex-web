@@ -688,16 +688,25 @@ export type TrialReminderEmailOptions = {
     // isn't a card.
     cardLast4?: string | null;
   } | null;
-  // A signed one-click "take <pct>% off the price" link (buildConvertUrl), when
-  // the cron could mint one (ZEROGEX_END_USER_TOKEN_SECRET set). Present it and
-  // the reminder carries the discount offer; omit/null and it's the plain
-  // courtesy reminder, unchanged. The offer is a PRICE change only — the trial
-  // converts on its own whether or not it's claimed, and the copy says so.
-  convertOfferUrl?: string | null;
+  // NOTE: this email carries no discount, by design. It used to offer 25% off
+  // for a year via a signed one-click /convert link. That was a discount handed
+  // to the highest-intent cohort in the book — a trialer with a card on file
+  // who is about to be charged automatically — without them ever asking for it,
+  // and it cost twice over: the margin, and the retention lever itself. The 25%
+  // save is latched once per account (users.retention_offer_claimed_at, shared
+  // by /save and /convert), so a trialer who took it at conversion had already
+  // spent it. If they later cancelled, the cancellation email's save button
+  // found them claimed and showed "you're all set" instead of making a real
+  // attempt to keep them. The discount is a win-back lever: it belongs where
+  // someone is actually leaving.
+  //
+  // This is the same reasoning core/returnIntent.ts already applies to a
+  // churned member who came back on their own — paying someone to do what they
+  // are already doing erodes margin on the likeliest conversion in the book.
+  //
   // True when this member never came back after signing up, so the trial is
   // about to convert on someone who has not used the product. Swaps in copy
-  // that leads with the charge and states the cancel option outright, and
-  // suppresses the annual lock-in offer.
+  // that leads with the charge and states the cancel option outright.
   //
   // A resolved boolean rather than the engagement enum, so this presenter
   // stays free of any dependency on core/trialEngagement — the same reason
@@ -730,9 +739,11 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
   // The dormant subject names the charge instead of the trial ending. A member
   // who never came back has no mental model of "my trial" to attach a reminder
   // to; what they will recognize later is the line on their statement, so the
-  // subject is written to be recognized now rather than then.
+  // subject is written to be recognized now rather than then. It says outright
+  // that no action is needed — "a quick check" implied one was, which for a
+  // member who has not used the product reads as a prompt to cancel.
   const subject = dormant
-    ? 'Before your ZeroGEX trial converts — a quick check'
+    ? 'Before your ZeroGEX trial converts — nothing you need to do'
     : 'Your ZeroGEX free trial ends in 2 days';
 
   const accountUrl = `${getAppUrl()}/account`;
@@ -784,64 +795,35 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
       }`
     : null;
 
-  // Pre-trial-end CONVERSION incentive — present only when the cron minted a
-  // signed /convert link. Mirrors SAVE_PERCENT in core/retentionOffer.ts (kept
-  // local so this presenter stays free of the Stripe-importing module).
-  const CONVERT_OFFER_PERCENT = 25;
-  // Never offered to a dormant member. The pitch reads "by now you've had the
-  // full board", which is false for someone who never came back, and locking
-  // an unused account into a discounted year is how a chargeback becomes a
-  // twelve-month chargeback. They get the plain reminder and a clear exit.
-  const showConvertOffer = !!opts.convertOfferUrl && !dormant;
-  // The offer is worded, and placed, so it can never be mistaken for a step the
-  // member has to take to stay subscribed. The trial converts on its own; this
-  // only moves the price. Hence no "keep my access" / "keep going" framing on
-  // the CTA (that belongs on a CANCELLATION save, where access really is at
-  // stake), an explicit "either way" sentence next to the button, and the
-  // auto-renew line printed ABOVE this block — a reader who skims to the yellow
-  // button has already been told they don't need to press it.
-  const convertOfferText = showConvertOffer
-    ? [
-        `By now you've had the full board — Today's Read, the GEX strike profile, the gamma flip, and the call/put walls across SPY, SPX, QQQ and NDX. If it's earned a spot in your routine, there's one optional extra: ${CONVERT_OFFER_PERCENT}% off for a full year.`,
-        '',
-        `This changes the price only — your subscription starts either way. Claiming it just lowers what you're charged:`,
-        opts.convertOfferUrl,
-        '',
-      ]
-    : [];
-  // Re-tests opts.convertOfferUrl rather than relying on showConvertOffer alone
-  // so the url stays narrowed to a string for escapeHtml below.
-  const convertOfferHtml = showConvertOffer && opts.convertOfferUrl
-    ? `<p>By now you've had the full board &mdash; Today's Read, the GEX strike profile, the gamma flip, and the call/put walls across SPY, SPX, QQQ and NDX. If it's earned a spot in your routine, there's one optional extra: <strong>${CONVERT_OFFER_PERCENT}% off for a full year</strong>.</p>
-      <p>This changes the price only &mdash; your subscription starts either way. Claiming it just lowers what you're charged.</p>
-      <p style="margin: 20px 0;">
-        <a href="${escapeHtml(opts.convertOfferUrl)}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 700; text-decoration: none; border-radius: 8px;">Take ${CONVERT_OFFER_PERCENT}% off my subscription</a>
-      </p>`
-    : '';
-
   // Openers. Both name the auto-conversion outright: the trial BECOMES a paid
   // subscription by itself. Leaving that implicit is what lets a reader further
   // down mistake the discount CTA for the thing that keeps their access, and
   // the same sentence is what makes the charge fair notice.
   //
-  // The ordinary opener assumes the member knows what their trial is. The
-  // dormant one cannot: it names the date, the charge and the exit in the first
-  // two sentences, on the assumption this email is the only thing standing
-  // between them and an unrecognized line on a statement.
+  // The dormant opener carries its own "nothing you need to do" rather than
+  // taking the shared one below, so a member who reads one paragraph and stops
+  // has already read it. What it no longer does is open by telling them they
+  // never came back: true, but it primes exactly the conclusion this email
+  // should not be arguing for. The offer of help further down says the same
+  // thing usefully instead.
+  //
+  // The charge, the date and the amount stay in the first two paragraphs in
+  // both variants. That is the part that makes an unrecognized statement line
+  // impossible, and it is not the part that was reading as a cancel prompt.
   const openerText = dormant
-    ? `I noticed you haven't been back to ZeroGEX since you signed up, so I wanted to flag this rather than let it surprise you: your free trial ends on ${trialEndDate} and turns into a paid subscription automatically, so your first payment goes through then.`
+    ? `A quick heads-up so nothing catches you out: your ZeroGEX free trial ends on ${trialEndDate} and turns into a paid subscription automatically. There's nothing you need to do — your access simply carries on.`
     : `A quick heads-up: your ZeroGEX free trial ends on ${trialEndDate} and turns into a paid subscription automatically — your first payment will be charged then unless you cancel before that.`;
   const openerHtml = dormant
-    ? `I noticed you haven't been back to ZeroGEX since you signed up, so I wanted to flag this rather than let it surprise you: your free trial ends on <strong>${escapeHtml(trialEndDate)}</strong> and turns into a paid subscription automatically, so your first payment goes through then.`
+    ? `A quick heads-up so nothing catches you out: your ZeroGEX free trial ends on <strong>${escapeHtml(trialEndDate)}</strong> and <strong>turns into a paid subscription automatically</strong>. There's nothing you need to do &mdash; your access simply carries on.`
     : `A quick heads-up: your ZeroGEX free trial ends on <strong>${escapeHtml(trialEndDate)}</strong> and <strong>turns into a paid subscription automatically</strong> &mdash; your first payment will be charged then unless you cancel before that.`;
 
-  // The "you don't have to do anything" line, hoisted ABOVE the discount offer
-  // so it is read before the yellow button rather than after it. Below the
-  // button it read as a contradiction — press this to keep your access, and
-  // also you don't need to — and the button won that argument.
+  // The "you don't have to do anything" line. It sits directly under the price
+  // so the two facts a member needs — what you'll be charged, and that you need
+  // do nothing about it — arrive together.
   //
-  // Dormant members get none of this: they have no offer block to disarm, and
-  // "nothing you need to do" is the wrong note for someone who never came back.
+  // Dormant members don't take it here: their opener already carries the same
+  // sentence, which is where it has to be for someone likely to read one
+  // paragraph and stop.
   const continuationText = dormant
     ? []
     : [
@@ -852,22 +834,31 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
     ? ''
     : `<p>If ZeroGEX is working for you, there's nothing you need to do &mdash; your access carries straight on and the subscription renews by itself.</p>`;
 
-  // Closing. For a dormant member the exit comes first and unhedged — burying
-  // it under a pitch is what turns an unwanted charge into a dispute. The offer
-  // of help is second and genuine: most of this cohort signed up meaning to use
-  // it and never found their way in.
+  // Closing. For a dormant member the offer of help comes first and the exit
+  // last, which is the reverse of how this used to read.
+  //
+  // The old order put the exit immediately after the price, sold as "one click,
+  // no email or support request needed" — friction-free, ahead of any reason to
+  // stay. For someone who has not used the product that is not neutral
+  // disclosure, it is a recommendation. The cancel route is still stated
+  // plainly, still names the deadline, and is still the last thing before the
+  // sign-off, so anyone looking for it finds it; it just is not the loudest
+  // thing in the email any more.
+  //
+  // The offer of help is genuine, not a delaying tactic: most of this cohort
+  // signed up meaning to use it and never found their way in.
   const closingText = dormant
     ? [
-        `If you'd rather not be charged, cancel from the billing portal on your account page (${accountUrl}) before ${trialEndDate} and you won't pay anything. One click, no email or support request needed.`,
+        "If you haven't had a chance to dig in yet, that's the part I'd like to fix. Reply to this email and tell me what you trade — I'll point you at the two or three levels on the board that actually matter for it. That's usually the whole gap between signing up and it being useful.",
         '',
-        "And if you did mean to give it a proper look, reply to this email and tell me what you trade — I'll point you at the two or three levels on the board that actually matter for it. That's usually the whole gap between signing up and it being useful.",
+        `And if you've decided ZeroGEX isn't for you, you can cancel your subscription from the billing portal on your account page (${accountUrl}) before ${trialEndDate} and you won't be charged.`,
       ]
     : [
         `If it isn't the right fit, you can cancel anytime before ${trialEndDate} from the billing portal on your account page (${accountUrl}) and you won't be charged a cent.`,
       ];
   const closingHtml = dormant
-    ? `<p>If you'd rather not be charged, <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">cancel from the billing portal</a> before ${escapeHtml(trialEndDate)} and you won't pay anything. One click, no email or support request needed.</p>
-      <p>And if you did mean to give it a proper look, reply to this email and tell me what you trade &mdash; I'll point you at the two or three levels on the board that actually matter for it. That's usually the whole gap between signing up and it being useful.</p>`
+    ? `<p>If you haven't had a chance to dig in yet, that's the part I'd like to fix. Reply to this email and tell me what you trade &mdash; I'll point you at the two or three levels on the board that actually matter for it. That's usually the whole gap between signing up and it being useful.</p>
+      <p>And if you've decided ZeroGEX isn't for you, you can cancel your subscription from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> before ${escapeHtml(trialEndDate)} and you won't be charged.</p>`
     : `<p>If it isn't the right fit, you can cancel anytime before ${escapeHtml(trialEndDate)} from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> and you won't be charged a cent.</p>`;
 
   const text = [
@@ -878,7 +869,6 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
     ...(billingLineText ? [billingLineText, ''] : []),
     ...(promoLineText ? [promoLineText, ''] : []),
     ...continuationText,
-    ...convertOfferText,
     ...closingText,
     '',
     "Either way, thanks for giving ZeroGEX a try — if there's anything I can do to make it more useful for you, just reply to this email. I read every message.",
@@ -895,11 +885,17 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
       ${billingLineHtml ? `<p>${billingLineHtml}</p>` : ''}
       ${promoLineHtml ? `<p>${promoLineHtml}</p>` : ''}
       ${continuationHtml}
-      ${convertOfferHtml}
       ${closingHtml}
-      <p style="margin: 24px 0;">
+      ${dormant
+        // No button at all for a dormant member. It landed directly under the
+        // cancel sentence, where the loudest element on the page pointed at the
+        // billing portal — an email whose whole claim is "nothing you need to
+        // do" should not end in a call to action. The cancel route is linked
+        // inline in the sentence above for anyone who wants it.
+        ? ''
+        : `<p style="margin: 24px 0;">
         <a href="${safeAccountUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Manage subscription</a>
-      </p>
+      </p>`}
       <p>Either way, thanks for giving ZeroGEX a try &mdash; if there's anything I can do to make it more useful for you, just reply to this email. I read every message.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
     </div>
@@ -2045,9 +2041,21 @@ export async function sendPaymentRecoveredEmail(to: string) {
 
 // Sent when a customer clicks Cancel and Stripe flips cancel_at_period_end
 // from false → true. They still have full access until periodEndIso — this
-// is the retention window, not a farewell. Manual discount fulfillment
-// (customer replies "discount", Michael sets it up) is intentional: reading
-// the reply is worth more than automating the coupon.
+// is the retention window, not a farewell.
+//
+// The 25% save is offered exactly once, by the one-click /save button, and
+// there is no second route. The email used to carry a manual one as well
+// ("reply 'discount' and I'll set it up"), which read as a different deal on
+// different terms and, worse, invited a member who had already clicked the
+// button to ask again — at which point the shared one-shot latch in
+// core/retentionOffer refuses them and the reply goes unanswered.
+//
+// So a null saveUrl now means NO discount offer, not a manual one. That only
+// happens when ZEROGEX_END_USER_TOKEN_SECRET is unset, which is a broken
+// deployment rather than a mode worth writing copy for: the same missing secret
+// already disables the trial-conversion offer and every unsubscribe link. Fix
+// the secret, not the email. The cancellation survey still goes out either way,
+// so the reply that actually matters is never the one being dropped here.
 export type CancellationEmailOptions = {
   // End of the period the member keeps access through (ISO), or null when the
   // subscription did not expose one.
@@ -2117,8 +2125,6 @@ export function buildCancellationEmail(opts: CancellationEmailOptions): {
     '',
     "Whatever the reason, I'd genuinely like to hear it.",
     '',
-    'And if it\'s a matter of cost: I can offer you 25% off for a full year if you\'d like to stay. Just reply with "discount" and I\'ll set it up on your account — no need to re-subscribe or re-enter a card.',
-    '',
     'Either way — thanks for giving ZeroGEX a shot. If you ever come back, your account will be here waiting.',
     '',
     'Best,',
@@ -2146,9 +2152,6 @@ export function buildCancellationEmail(opts: CancellationEmailOptions): {
         <li>Just trying it out for a stretch</li>
       </ul>
       <p>Whatever the reason, I'd genuinely like to hear it.</p>
-      <p style="background: #fff8e1; border-left: 3px solid #f5b400; padding: 12px 14px; margin: 20px 0;">
-        <strong>And if it's a matter of cost:</strong> I can offer you 25% off for a full year if you'd like to stay. Just reply with <strong>"discount"</strong> and I'll set it up on your account &mdash; no need to re-subscribe or re-enter a card.
-      </p>
       <p>Either way &mdash; thanks for giving ZeroGEX a shot. If you ever come back, your account will be here waiting.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
     </div>
@@ -2185,19 +2188,23 @@ export async function sendCancellationEmail(to: string, opts: CancellationEmailO
 // users.winback_email_sent_at (cleared on re-subscribe so a future re-churn can
 // re-fire, mirroring cancel_ack_email_sent_at).
 //
-// Three discount variants, resolved by the caller and ranked auto > promo >
-// manual so the email always carries the best redeemable offer:
+// Two discount variants, resolved by the caller and ranked auto > promo. Both
+// redeem themselves at checkout; an offer this email cannot honor on its own is
+// not offered at all:
 //   - winbackAutoApply → the fully-automated one-click coupon. The CTA links to
 //     /pricing?winback=1 and the checkout route attaches STRIPE_COUPON_WINBACK_*
 //     for this eligible churner (verified server-side). No code, no reply.
 //   - promoDeadlineLabel → the live limited-time public promo (auto-applies at
 //     /pricing) with a time-boxed deadline. Fallback when no win-back coupon is
 //     configured but a public promo happens to be running.
-//   - neither → the evergreen manual offer: reply "discount" and it's set up by
-//     hand. Last-resort fallback so the email still makes a concrete offer even
-//     with no coupon plumbing configured at all.
-// discountLabel (e.g. "25% off your first year") is shown in the auto + manual
-// copy and MUST match the actual STRIPE_COUPON_WINBACK_* value.
+//   - neither → NO discount paragraph. There used to be a manual third variant
+//     here ("reply 'discount' and I'll set it up by hand"), which put the member
+//     on different terms from everyone else and made a promise no system could
+//     keep — the coupon plumbing it was standing in for is exactly what wasn't
+//     configured. The email still has plenty to say: what shipped since they
+//     left, and an open door. It just stops pricing a deal it can't apply.
+// discountLabel (e.g. "25% off your first year") is shown in the auto copy and
+// MUST match the actual STRIPE_COUPON_WINBACK_* value.
 //
 // Every send carries a plain-language opt-out footer ("you're receiving this
 // because you created a ZeroGEX account… delete your account here"), where the
@@ -2271,17 +2278,19 @@ export function renderWinbackEmail(opts?: WinbackEmailOptions): {
       ? `Your ZeroGEX intro rate is open again — through ${promo}`
       : 'A lot has changed at ZeroGEX since you left';
 
+  // Null when neither coupon is configured — see the variant note above. Both
+  // surviving variants describe a discount that applies itself at checkout.
   const discountLineText = auto
     ? `And to make coming back easy, I've set aside ${label} for you — it's already on your account, so when you tap the button below you'll see the lower price before you confirm anything. No code to type, nothing to reply to.`
     : promo
       ? `And on price: our limited-time introductory pricing is open again right now — the discounted rate applies automatically at checkout, but only through ${promo}. If cost was part of why you left, this is the moment.`
-      : `And if price was part of why you left, that offer still stands: just reply with the word "discount" and I'll get you set up with ${label}. I'll take care of the coupon on my end — you won't have to sort out anything fiddly.`;
+      : null;
 
   const discountLineHtml = auto
     ? `And to make coming back easy, I've set aside <strong>${escapeHtml(label)}</strong> for you &mdash; it's already on your account, so when you tap the button below you'll see the lower price before you confirm anything. No code to type, nothing to reply to.`
     : promo
       ? `And on price: our <strong>limited-time introductory pricing is open again</strong> right now &mdash; the discounted rate applies automatically at checkout, but only through <strong>${escapeHtml(promo)}</strong>. If cost was part of why you left, this is the moment.`
-      : `And if price was part of why you left, that offer still stands: just reply with the word <strong>&ldquo;discount&rdquo;</strong> and I'll get you set up with <strong>${escapeHtml(label)}</strong>. I'll take care of the coupon on my end &mdash; you won't have to sort out anything fiddly.`;
+      : null;
 
   const ctaLabel = auto
     ? 'Come back at a discount'
@@ -2303,8 +2312,7 @@ export function renderWinbackEmail(opts?: WinbackEmailOptions): {
     '',
     "I'll be honest: if you still trade the way you used to, I think a couple of these would genuinely change your workflow, and it's a little bit of a shame to be missing them.",
     '',
-    discountLineText,
-    '',
+    ...(discountLineText ? [discountLineText, ''] : []),
     "No pressure at all, though. If the timing isn't right, just ignore this and I won't keep nudging you. But your account is still here exactly as you left it, the door's open, and I'd love to have you back.",
     '',
     'If anything specific pushed you away — a missing feature, a bug, a pricing thing — just hit reply and tell me. I read every message myself, and it genuinely shapes what I build next.',
@@ -2334,7 +2342,9 @@ export function renderWinbackEmail(opts?: WinbackEmailOptions): {
       <p>A fair amount has changed since you left. A few of the bigger ones:</p>
       <ul style="padding-left: 20px; margin: 12px 0;">${highlightsHtml}</ul>
       <p>I'll be honest: if you still trade the way you used to, I think a couple of these would genuinely change your workflow, and it's a little bit of a shame to be missing them.</p>
-      <p style="background: #fff8e1; border-left: 3px solid #f5b400; padding: 12px 14px; margin: 20px 0;">${discountLineHtml}</p>
+      ${discountLineHtml
+        ? `<p style="background: #fff8e1; border-left: 3px solid #f5b400; padding: 12px 14px; margin: 20px 0;">${discountLineHtml}</p>`
+        : ''}
       <p style="margin: 24px 0;">
         <a href="${safeCtaHref}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">${escapeHtml(ctaLabel)}</a>
       </p>

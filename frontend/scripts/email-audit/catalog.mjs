@@ -117,7 +117,7 @@ export const CATALOG = {
     latch: 'trial_reminder_email_sent_at — re-arms on each fresh trialing window',
     optOut: 'None (billing notice — sends regardless of marketing opt-out)', foh: false,
     source: 'core/mailer.ts:719 · scripts/send-trial-reminders.mts (TARGET_HOURS 48)',
-    notes: 'The charge amount and card are resolved live from Stripe per member at send time. Anyone who already clicked Cancel is excluded — their trial will not convert.',
+    notes: 'The charge amount and card are resolved live from Stripe per member at send time. Anyone who already clicked Cancel is excluded — their trial will not convert. Carries NO discount: the 25% is a win-back lever, not something handed to a trialer who is about to convert anyway.',
   },
   'trial-converted': {
     group: 'trial', title: 'Trial conversion confirmation', channel: 'member', autoSends: true,

@@ -4,11 +4,14 @@
 //     --email <addr> [--coupon <coupon_id> | --create-coupon [--percent N]] \
 //     [--stack] [--keep-cancellation] [--dry-run | --yes]
 //
-// Honors the evergreen win-back "reply 'discount'" offer for ONE member by hand
-// — the manual twin of the automated ?winback=1 checkout path. Use it when a
-// member replies "discount" to the ~1-month win-back email (or the cancellation
-// note) and you want to keep them on their EXISTING subscription, with no
-// re-subscribe and no re-entered card. It does two things atomically:
+// Applies a win-back discount to ONE member by hand — the manual twin of the
+// automated ?winback=1 checkout path. The emails no longer advertise a
+// reply-for-discount route (see renderWinbackEmail / buildCancellationEmail), so
+// this is now an operator tool rather than the fulfillment arm of a published
+// offer: use it when a member writes in about price, or when /save or /convert
+// told them to reply because the automated coupon couldn't be applied. Keeps
+// them on their EXISTING subscription, with no re-subscribe and no re-entered
+// card. It does two things atomically:
 //
 //   1. Applies a "<percent>% off for one year" coupon alongside whatever
 //      discounts are already on the subscription. Someone else's discount — a
@@ -204,9 +207,9 @@ function usage() {
     --email <addr> [--coupon <coupon_id> | --create-coupon [--percent N]] \\
     [--stack] [--keep-cancellation] [--dry-run | --yes]
 
-Honors the manual win-back "reply 'discount'" offer for one member: applies a
-"<percent>% off for one year" coupon alongside any discounts already on their
-subscription, and (by default) stops a scheduled cancellation so the sub
+Applies a win-back discount to one member by hand: a "<percent>% off for one
+year" coupon alongside any discounts already on their subscription, and (by
+default) stops a scheduled cancellation so the sub
 converts (trial) or renews (active) on the card already on file — no
 re-subscribe. Other discount families (promo, referral, founding) are preserved,
 never stripped; an EARLIER WIN-BACK coupon is superseded rather than stacked
