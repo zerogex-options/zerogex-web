@@ -51,6 +51,12 @@ const UNSUB = `${APP_URL}/unsubscribe?u=user_123&t=abc123`;
 const SAVE_URL = `${APP_URL}/save?u=user_123&t=abc123`;
 const VERIFY_URL = `${APP_URL}/verify?token=abc123def456`;
 
+// The win-back's discount label comes from WINBACK_DISCOUNT_LABEL in production
+// (send-winback.mts), so read the same var rather than hardcoding a percentage.
+// Rendering "25% off" while the box is configured for 50% would put a number in
+// the audit that nobody actually receives. Same default as the script.
+const WINBACK_LABEL = (process.env.WINBACK_DISCOUNT_LABEL || '').trim() || '25% off your first year';
+
 const HIGHLIGHTS = [
   { title: 'Trade Bias', body: 'One signed directional call that fuses the gamma and volatility regime with live flow, tape and momentum.' },
   { title: 'Session rewind', body: 'Replay any session on the gamma chart and watch how a level actually held.' },
@@ -75,7 +81,7 @@ const CHURN_ALERT = buildChurnAlert(
   },
   '2026-09-15T18:25:00.000Z',
 );
-const WINBACK_DRAFT = M.renderWinbackEmail({ winbackAutoApply: true, discountLabel: '25% off for a year', highlights: HIGHLIGHTS });
+const WINBACK_DRAFT = M.renderWinbackEmail({ winbackAutoApply: true, discountLabel: WINBACK_LABEL, highlights: HIGHLIGHTS });
 const REACTIVATION_DRAFT = M.renderReactivationEmail({ trialDays: 30, unsubUrl: UNSUB });
 const RETURN_INTENT_DRAFT = M.renderReturnIntentEmail({ angle: 'price', highlights: HIGHLIGHTS, freshCount: 3, foundingMember: false, unsubUrl: UNSUB });
 
@@ -122,8 +128,9 @@ const JOBS: Array<{ id: string; variant: string; run: () => Promise<Sent> }> = [
   // --- retention / churn ----------------------------------------------------
   { id: 'cancellation-ack', variant: 'with save link', run: () => capture(() => M.sendCancellationEmail(TO, { periodEndIso: PERIOD_END, saveUrl: SAVE_URL })) },
   { id: 'cancellation-ack', variant: 'conversion charge pending', run: () => capture(() => M.sendCancellationEmail(TO, { periodEndIso: PERIOD_END, saveUrl: SAVE_URL, conversionChargePending: true })) },
-  { id: 'winback', variant: 'auto-apply discount', run: () => capture(() => M.sendWinbackEmail(TO, { winbackAutoApply: true, discountLabel: '25% off for a year', highlights: HIGHLIGHTS })) },
-  { id: 'winback', variant: 'manual (reply for discount)', run: () => capture(() => M.sendWinbackEmail(TO, { winbackAutoApply: false, highlights: HIGHLIGHTS })) },
+  { id: 'winback', variant: 'auto (win-back coupon configured)', run: () => capture(() => M.sendWinbackEmail(TO, { winbackAutoApply: true, discountLabel: WINBACK_LABEL, highlights: HIGHLIGHTS })) },
+  { id: 'winback', variant: 'promo (public promo live)', run: () => capture(() => M.sendWinbackEmail(TO, { promoDeadlineLabel: 'October 1, 2026', highlights: HIGHLIGHTS })) },
+  { id: 'winback', variant: 'none (no coupon configured)', run: () => capture(() => M.sendWinbackEmail(TO, { highlights: HIGHLIGHTS })) },
   { id: 'return-intent', variant: 'price objection, 3 new', run: () => capture(() => M.sendReturnIntentEmail(TO, { angle: 'price', highlights: HIGHLIGHTS, freshCount: 3, foundingMember: false, unsubUrl: UNSUB })) },
   { id: 'return-intent', variant: 'neutral, nothing new', run: () => capture(() => M.sendReturnIntentEmail(TO, { angle: 'neutral', highlights: [], freshCount: 0, foundingMember: false, unsubUrl: UNSUB })) },
 
