@@ -68,6 +68,38 @@ test('the save offer still rides along on a charge-pending cancel', () => {
   assert.match(text, /25% off/);
 });
 
+// The 25% save is one offer, and the email must present exactly one way to
+// take it. Carrying both the one-click button and "reply 'discount'" read as
+// two different deals, and a member who clicked the button and then replied
+// anyway hit the shared one-shot latch in core/retentionOffer — the second ask
+// cannot be honored, so it just goes unanswered.
+
+test('the button is the only way the offer is made when there is a button', () => {
+  const { text, html } = buildCancellationEmail({
+    periodEndIso: PERIOD_END,
+    saveUrl: 'https://zerogex.io/save?t=abc',
+  });
+
+  for (const body of [text, html]) {
+    assert.doesNotMatch(body, /reply with .?"?discount/i);
+    assert.doesNotMatch(body, /I'?ll set it up on your account/i);
+  }
+  // The offer itself is still made — once, by the button.
+  assert.match(text, /25% off/);
+  assert.match(html, /25% off/);
+});
+
+test('with no save link the offer survives as the manual fallback', () => {
+  // buildSaveUrl throws when ZEROGEX_END_USER_TOKEN_SECRET is unset and the
+  // webhook passes null. Dropping the paragraph here too would leave a
+  // cancelling member no route to the discount at all.
+  const { text, html } = buildCancellationEmail({ periodEndIso: PERIOD_END, saveUrl: null });
+
+  assert.match(text, /reply with "discount"/);
+  assert.match(html, /reply with <strong>"discount"<\/strong>/);
+  assert.match(text, /25% off for a full year/);
+});
+
 test('a missing period end degrades to neutral wording, never a guessed date', () => {
   const { text } = buildCancellationEmail({
     periodEndIso: null,
