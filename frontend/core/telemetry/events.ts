@@ -38,6 +38,15 @@ export const TelemetryEvent = {
   /** Free TradingView Pine indicator copied / downloaded / opened (client,
    *  /spx-gamma-levels + /spy-gamma-levels + /qqq-gamma-levels). */
   TradingViewIndicatorClicked: 'tradingview_indicator_clicked',
+  /** Embed snippet copied from the /embed builder (client). The `symbol`,
+   *  `theme` and `host` properties record what was configured, and `action`
+   *  records copy | copy_failed.
+   *
+   *  This is the top of the distribution funnel the widget exists for: a copy
+   *  here should later show up as referral sessions carrying
+   *  `utm_source=embed`, and the gap between the two counts is how many
+   *  snippets were taken but never published. */
+  EmbedSnippetCopied: 'embed_snippet_copied',
   /** NinjaTrader 8 NinjaScript indicator downloaded, or its "get your API key"
    *  CTA clicked (client, the four gamma-levels pages). The `action` property
    *  records which: download (.cs source) | download_package (NT8 .zip) |

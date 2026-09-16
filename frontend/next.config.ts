@@ -77,6 +77,42 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+
+  // Clickjacking defense, with one deliberate hole in it.
+  //
+  // Nothing set a framing policy before, which meant every page on the site —
+  // /login, /account, the billing screens — could be loaded into a frame on
+  // any origin. Default to SAMEORIGIN everywhere.
+  //
+  // /embed/* is the exception, and it is the whole point of the widget: those
+  // frames exist to be rendered inside other people's pages, so the route
+  // handler sets its own `Content-Security-Policy: frame-ancestors *`. The
+  // negative lookahead below keeps this rule off that path entirely, because
+  // an X-Frame-Options header here would be the stricter of the two and would
+  // silently break every published embed. The embed route carries nothing
+  // private — no cookies, no session, no member data — so there is nothing for
+  // a hostile framer to steal from it.
+  async headers() {
+    return [
+      {
+        // `embed/` with the slash: the per-symbol FRAMES are the exception,
+        // not the /embed builder page, which is an ordinary landing and has
+        // the same reason as every other page to refuse being framed.
+        source: '/((?!embed/).*)',
+        headers: [{ key: 'X-Frame-Options', value: 'SAMEORIGIN' }],
+      },
+      {
+        // The resizer runs on third-party origins, so it has to be fetchable
+        // from them, and it is safe to hold for a long time: it is versionless
+        // by design and its behavior is fixed.
+        source: '/embed.js',
+        headers: [
+          { key: 'Access-Control-Allow-Origin', value: '*' },
+          { key: 'Cache-Control', value: 'public, max-age=3600, stale-while-revalidate=86400' },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;
