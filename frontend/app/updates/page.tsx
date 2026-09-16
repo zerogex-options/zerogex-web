@@ -21,9 +21,9 @@ type Update = {
 const UPDATES: Update[] = [
   {
     date: 'September 16, 2026',
-    title: 'Spread Monitor: is this wide, or is it just Tuesday?',
+    title: 'A baseline for spreads, and 0DTE on the replay',
     intro:
-      'The Spread Monitor could already tell you how wide the market was. What it could not tell you is whether that width was unusual \u2014 and a number with nothing to compare it to is a number you still have to guess about. It has a baseline now, and the baseline knows what time it is.',
+      'Two things shipped today, and both of them were a question the site could not answer. The Spread Monitor could tell you how wide the market was, but not whether that width was unusual \u2014 and a number with nothing to compare it to is a number you still have to guess about; it has a baseline now, and the baseline knows what time it is. The Daily Replay had the opposite problem: it answered, but only ever about the whole chain. A member cancelled last week and told me so, and he was right. It knows both books now.',
     whatsNew: [
       {
         title: 'Spread surface vs history',
@@ -44,6 +44,21 @@ const UPDATES: Update[] = [
         title: 'It says when it cannot say',
         href: '/help/platform/spread-monitor',
         body: 'The panel prints how many comparable sessions are behind every comparison, over what dates, at what time of day \u2014 and prints zero when that is the answer. Below eight sessions no percentile is shown at all, because "the widest of the four days we have" is not a distribution, and drawing it as one would be the most misleading thing on the page.',
+      },
+      {
+        title: 'All exps / 0DTE on any replayed session',
+        href: '/replay',
+        body: 'Every session page has a switch above the scrubber. 0DTE means the contracts that expired that afternoon \u2014 on a replay of September 15, that is the September 15 expiry, and it stays that expiry however long from now you open the link. The filter and the playhead both live in the address bar, so sending someone the 0DTE surface at 2:47 PM is a copy and a paste. A session whose chain carried no same-day expiration says so, instead of quietly showing you everything.',
+      },
+      {
+        title: 'On the replay, the levels follow the filter \u2014 not just the bars',
+        href: '/replay',
+        body: 'This is the part that matters. On 0DTE the Call Wall, Put Wall, Gamma Flip and Max Pain are rebuilt from that day\u2019s expiry alone, so what you are reading is the book that actually had to be hedged into the bell \u2014 not a whole-chain level drawn over same-day bars. Pin Strike and GEX King stay whole-chain, because both are whole-chain by definition; that is also how they behave under the Expiry selector on the live charts.',
+      },
+      {
+        title: 'And one that was already there: the Gamma Chart rewinds by expiration',
+        href: '/chart',
+        body: 'Worth saying out loud, since it took a cancellation to learn it was not obvious. The Gamma Chart has a Rewind button that replays the session minute by minute, and the Expiry selector beside the gamma rail has its own 0DTE row. Set it, and the rewind, the walls and the flip all follow the same-day book. That has been live for members the whole time. It was just too well hidden \u2014 which is mine to fix, not yours to find.',
       },
     ],
   },
@@ -285,7 +300,11 @@ export default function UpdatesPage() {
 
       <div className="space-y-8">
         {UPDATES.map((u) => (
-          <article key={u.date} className="zg-feature-shell p-8">
+          // Keyed on date AND title, not the date alone: two notes shipping on
+          // one day is normal here (it nearly happened the day this was
+          // written), and duplicate keys make React reuse one article's DOM for
+          // the other.
+          <article key={`${u.date} · ${u.title}`} className="zg-feature-shell p-8">
             <div className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-secondary)]">
               {u.date}
             </div>
