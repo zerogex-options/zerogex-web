@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { SYMBOLS } from '../core/symbols.ts';
 import { isPublicRoute, requiredTierForRoute } from '../core/auth.ts';
@@ -208,6 +208,35 @@ test('the levels pages offer the widget, pre-filled with their own symbol', () =
   const view = readFileSync(path.join(ROOT, 'app/spx-gamma-levels/gammaLevels.tsx'), 'utf8');
   assert.match(view, /<PutOnYourSite symbol=\{primary\}/);
   assert.match(levelsBlock, /surface: 'levels_page'/, 'the copy must be attributable to this surface');
+});
+
+test('the education pages point at the widget, on every article that has the levels CTA', () => {
+  // LiveLevelsCTA is the one place the article -> levels link graph lives, by
+  // its own design note. Adding the widget offer there reaches 35 of the 36
+  // articles automatically; the one it skips (the Folds of Honor announcement)
+  // is the one where a levels CTA does not belong either. A per-page component
+  // would have meant 35 edits and 35 chances to miss one.
+  const cta = readFileSync(path.join(ROOT, 'components/LiveLevelsCTA.tsx'), 'utf8');
+  assert.match(cta, /href="\/embed"/, 'LiveLevelsCTA lost the widget link');
+
+  const articleDirs = readdirSync(path.join(ROOT, 'app/education'), { withFileTypes: true })
+    .filter((e) => e.isDirectory())
+    .map((e) => e.name);
+  const withCta = articleDirs.filter((slug) => {
+    try {
+      return readFileSync(path.join(ROOT, 'app/education', slug, 'page.tsx'), 'utf8').includes(
+        'LiveLevelsCTA',
+      );
+    } catch {
+      return false;
+    }
+  });
+  // A floor rather than an exact count, so adding an article does not fail
+  // this — but dropping the CTA from most of the library does.
+  assert.ok(
+    withCta.length >= articleDirs.length - 1,
+    `only ${withCta.length} of ${articleDirs.length} education pages carry LiveLevelsCTA`,
+  );
 });
 
 test('llms.txt covers every registered article exactly once', () => {
