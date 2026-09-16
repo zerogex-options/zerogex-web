@@ -2071,13 +2071,19 @@ export async function sendPaymentRecoveredEmail(to: string) {
 // from false → true. They still have full access until periodEndIso — this
 // is the retention window, not a farewell.
 //
-// The 25% save is offered ONCE, and the one-click /save button is the offer
-// whenever it exists. The email used to carry a second, manual route as well
+// The 25% save is offered exactly once, by the one-click /save button, and
+// there is no second route. The email used to carry a manual one as well
 // ("reply 'discount' and I'll set it up"), which read as a different deal on
 // different terms and, worse, invited a member who had already clicked the
 // button to ask again — at which point the shared one-shot latch in
-// core/retentionOffer refuses them and the reply goes unanswered. The manual
-// wording now survives only as the fallback for a missing saveUrl, below.
+// core/retentionOffer refuses them and the reply goes unanswered.
+//
+// So a null saveUrl now means NO discount offer, not a manual one. That only
+// happens when ZEROGEX_END_USER_TOKEN_SECRET is unset, which is a broken
+// deployment rather than a mode worth writing copy for: the same missing secret
+// already disables the trial-conversion offer and every unsubscribe link. Fix
+// the secret, not the email. The cancellation survey still goes out either way,
+// so the reply that actually matters is never the one being dropped here.
 export type CancellationEmailOptions = {
   // End of the period the member keeps access through (ISO), or null when the
   // subscription did not expose one.
@@ -2147,14 +2153,6 @@ export function buildCancellationEmail(opts: CancellationEmailOptions): {
     '',
     "Whatever the reason, I'd genuinely like to hear it.",
     '',
-    // Fallback only. With a saveUrl the button above already made this offer,
-    // and repeating it by reply is the redundancy this branch exists to avoid.
-    ...(saveUrl
-      ? []
-      : [
-          'And if it\'s a matter of cost: I can offer you 25% off for a full year if you\'d like to stay. Just reply with "discount" and I\'ll set it up on your account — no need to re-subscribe or re-enter a card.',
-          '',
-        ]),
     'Either way — thanks for giving ZeroGEX a shot. If you ever come back, your account will be here waiting.',
     '',
     'Best,',
@@ -2182,11 +2180,6 @@ export function buildCancellationEmail(opts: CancellationEmailOptions): {
         <li>Just trying it out for a stretch</li>
       </ul>
       <p>Whatever the reason, I'd genuinely like to hear it.</p>
-      ${saveUrl
-        ? ''
-        : `<p style="background: #fff8e1; border-left: 3px solid #f5b400; padding: 12px 14px; margin: 20px 0;">
-        <strong>And if it's a matter of cost:</strong> I can offer you 25% off for a full year if you'd like to stay. Just reply with <strong>"discount"</strong> and I'll set it up on your account &mdash; no need to re-subscribe or re-enter a card.
-      </p>`}
       <p>Either way &mdash; thanks for giving ZeroGEX a shot. If you ever come back, your account will be here waiting.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
     </div>

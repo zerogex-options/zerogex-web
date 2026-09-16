@@ -329,10 +329,23 @@ auth/transactional and TradeWorkz alerts.
 
 ### 3.5 Retention / churn
 
-**Cancellation acknowledgment** — `sendCancellationEmail(to, { periodEndIso })`
+**Cancellation acknowledgment** — `sendCancellationEmail(to, { periodEndIso, saveUrl?, conversionChargePending? })`
 - **Subject:** `Sorry to see you go — mind sharing why?`
-- Fires at the click-Cancel moment (still has access until period end). Asks why,
-  offers 25% off for a year via manual "reply 'discount'" fulfillment. No FOH footer.
+- Fires at the click-Cancel moment (still has access until period end). Asks why, and
+  offers 25% off for a year **through the one-click `/save` button and nothing else**.
+  No FOH footer.
+- **One offer, one route.** The email used to carry a manual second route as well
+  ("reply 'discount' and I'll set it up"). Two routes to one offer read as two
+  different deals, and a member who clicked the button and then replied anyway hit the
+  shared one-shot latch in `core/retentionOffer` — the second ask can't be honored, so
+  the reply goes unanswered. A null `saveUrl` (only possible when
+  `ZEROGEX_END_USER_TOKEN_SECRET` is unset) therefore means **no discount offer at
+  all**, not a manual one: that is a broken deployment, not a mode worth writing copy
+  for. The acknowledgment and the survey still send. Locked down in
+  `tests/cancellationEmail.test.ts`.
+- `conversionChargePending` (they cancelled after trial end but before Stripe finalized
+  the draft cycle invoice) replaces "nothing changes yet on your end" with the charge
+  that is already in flight — see the test file's note on the dispute that prompted it.
 
 **Win-back** — `sendWinbackEmail(to, opts)` / `renderWinbackEmail(opts)`
 - **Subject (3 variants):** auto → `A lot has changed at ZeroGEX — and your discount's ready`; promo → `Your ZeroGEX intro rate is open again — through {date}`; manual → `A lot has changed at ZeroGEX since you left`

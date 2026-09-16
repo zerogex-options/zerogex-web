@@ -68,13 +68,13 @@ test('the save offer still rides along on a charge-pending cancel', () => {
   assert.match(text, /25% off/);
 });
 
-// The 25% save is one offer, and the email must present exactly one way to
-// take it. Carrying both the one-click button and "reply 'discount'" read as
-// two different deals, and a member who clicked the button and then replied
-// anyway hit the shared one-shot latch in core/retentionOffer — the second ask
-// cannot be honored, so it just goes unanswered.
+// The 25% save has exactly one route: the one-click button. Carrying a manual
+// "reply 'discount'" route as well read as two different deals, and a member
+// who clicked the button and then replied anyway hit the shared one-shot latch
+// in core/retentionOffer — the second ask cannot be honored, so it just goes
+// unanswered.
 
-test('the button is the only way the offer is made when there is a button', () => {
+test('the button is the only way the offer is ever made', () => {
   const { text, html } = buildCancellationEmail({
     periodEndIso: PERIOD_END,
     saveUrl: 'https://zerogex.io/save?t=abc',
@@ -89,15 +89,20 @@ test('the button is the only way the offer is made when there is a button', () =
   assert.match(html, /25% off/);
 });
 
-test('with no save link the offer survives as the manual fallback', () => {
+test('with no save link there is no discount offer, manual or otherwise', () => {
   // buildSaveUrl throws when ZEROGEX_END_USER_TOKEN_SECRET is unset and the
-  // webhook passes null. Dropping the paragraph here too would leave a
-  // cancelling member no route to the discount at all.
+  // webhook passes null. That is a broken deployment, not a mode to write copy
+  // for — the email makes no offer it cannot honor.
   const { text, html } = buildCancellationEmail({ periodEndIso: PERIOD_END, saveUrl: null });
 
-  assert.match(text, /reply with "discount"/);
-  assert.match(html, /reply with <strong>"discount"<\/strong>/);
-  assert.match(text, /25% off for a full year/);
+  for (const body of [text, html]) {
+    assert.doesNotMatch(body, /discount/i);
+    assert.doesNotMatch(body, /25% off/);
+  }
+  // What must survive the missing secret: the acknowledgment and the survey.
+  assert.match(text, /full access until October 14, 2026/);
+  assert.match(text, /what made you cancel/);
+  assert.match(html, /what made you cancel/);
 });
 
 test('a missing period end degrades to neutral wording, never a guessed date', () => {

@@ -996,7 +996,10 @@ async function maybeHandleCancelAckTransition(
     try {
       // One-click self-serve save link (25% off + un-cancel via app/save).
       // Best-effort: if the token secret is unset, buildSaveUrl throws and the
-      // email degrades to the evergreen reply-'discount' offer only.
+      // email goes out with NO discount offer at all — there is no manual
+      // fallback any more (see buildCancellationEmail). The acknowledgment and
+      // the cancellation survey still send, which is the part that must not be
+      // lost to a config problem.
       let saveUrl: string | null = null;
       try {
         saveUrl = buildSaveUrl(getAppUrl(), user.id);
