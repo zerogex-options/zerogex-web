@@ -53,7 +53,7 @@ import { selectionIsRollingZeroDte } from "@/core/expirationPersistence";
 import { chartSvgToPngBlob, downloadBlob, resolvedBackground } from "@/core/chartImageExport";
 import { useChartExpirations } from "@/hooks/useChartExpirations";
 import { useLinkedPriceAxis } from "@/core/linkedPriceAxis";
-import { netGexAtSpotOrNull, aboveFlipBandIsLong, offScaleBandIsLong } from "@/core/gammaRegime";
+import { netGexAtSpotOrNull, atSpotGammaForScope, aboveFlipBandIsLong, offScaleBandIsLong } from "@/core/gammaRegime";
 import { computeMaxPainFromStrikes } from "@/core/keyLevels";
 import { flipStatusChip } from "@/core/flipStatusChip";
 import { pinLineLabel } from "@/core/pinStrike";
@@ -1117,7 +1117,7 @@ export default function GammaTerminalChart({
   // ── Gamma levels ── Rewind takes flip/walls/pin from the historical bucket,
   // Max Pain from the bucket's per-strike OI and VWAP from the bars;
   // net-GEX-at-spot isn't recoverable from the timeseries, so it's hidden
-  // while rewinding (it's the only level still withheld there). When
+  // whenever the levels come from a bucket (see netGexAtSpot below). When
   // an expiration filter is active the LIVE flip/walls also come from the
   // filtered timeseries bucket (the endpoint aggregates to the selected
   // expirations), so the level lines track the filtered bars — not the
@@ -1149,7 +1149,21 @@ export default function GammaTerminalChart({
   // the opposite sign and would let the badge contradict the gamma flip. When
   // the point value is absent the badge falls back to the geometric
   // spot-vs-flip read (see longGammaNow), not an opposite-signed total.
-  const netGexAtSpot = rewindActive ? null : snapshot ? snapshot.gamma.netGexAtSpot : netGexAtSpotOrNull(gexProfile?.net_gex_at_spot);
+  //
+  // Withheld whenever `flip` above did NOT come from the live whole-chain
+  // spot-shift profile — i.e. while rewinding, and while an expiration filter
+  // has the flip coming off `levelBucket`. net_gex_at_spot is always served
+  // whole-chain, so pairing it with a subset's (or an earlier moment's) flip
+  // reads two different books at once: the badge could say SHORT with price
+  // sitting above the flip drawn beside it, and because the bands take their
+  // orientation from the badge that inverts the whole regime shading. The
+  // Playbook below the chart already applies this rule to the same levels
+  // (atSpotGammaForPlaybook); atSpotGammaForScope is the shared statement of
+  // it, so the two surfaces can't drift apart again.
+  const netGexAtSpot = atSpotGammaForScope(
+    snapshot ? snapshot.gamma.netGexAtSpot : netGexAtSpotOrNull(gexProfile?.net_gex_at_spot),
+    rewindActive || levelBucket != null,
+  );
   // Pin Strike — reachable 0DTE positive-gamma pin, drawn during rewind from
   // the bucket's stored value (the server ships the same per-cycle pin the
   // Daily Replay reads, as of the bucket's close).

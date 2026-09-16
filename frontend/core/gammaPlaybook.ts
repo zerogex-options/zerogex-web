@@ -21,9 +21,12 @@
  *     hundred pixels above it, and this module stays runtime-self-contained for
  *     node's --experimental-strip-types runner (the convention every
  *     unit-tested module under core/ follows). `atSpotGammaForPlaybook` below
- *     is the one piece of that pipeline the Playbook owns: an
+ *     is the one piece of that pipeline the Playbook names for itself: an
  *     expiration-filtered book must NOT be read through the whole-chain at-spot
- *     value.
+ *     value. The rule itself is shared with the chart (`atSpotGammaForScope` in
+ *     core/gammaRegime) — the chart draws the same filtered flip and had to
+ *     learn the same lesson, and a second copy of the rule is how the two
+ *     surfaces would end up disagreeing again.
  *
  *   • Approach — the wall in play, i.e. the level price interacts with next.
  *     Proximity decides: the wall nearer to spot wins, whichever side of it
@@ -33,6 +36,8 @@
  *     momentum never overrides a materially closer wall, because that is the
  *     level price trades against first however the day has leaned.
  */
+
+import { atSpotGammaForScope } from './gammaRegime.ts';
 
 export type PlaybookRegime = 'positive' | 'negative';
 /** 'up' → approaching the Call Wall, 'down' → approaching the Put Wall. */
@@ -137,10 +142,15 @@ function finite(value: number | null | undefined): number | null {
  * Playbook deaf to the expiration picker, which is exactly the selection this
  * component is supposed to follow. Filtered → null, which sends
  * `longGammaAtSpot` to its geometric spot-vs-FILTERED-flip fallback.
+ *
+ * Thin wrapper over {@link atSpotGammaForScope}, which states the same rule for
+ * every surface that can draw a non-whole-chain flip (the chart's badge and
+ * regime bands included). Kept as a named entry point because "filtered" is the
+ * only scope the Playbook has — it never rewinds — and the name is what the
+ * hook and its tests read.
  */
 export function atSpotGammaForPlaybook(netGexAtSpot: number | null, filtered: boolean): number | null {
-  if (filtered) return null;
-  return finite(netGexAtSpot);
+  return atSpotGammaForScope(finite(netGexAtSpot), filtered);
 }
 
 function wallOf(side: 'call' | 'put', level: number, spot: number): PlaybookWall {
