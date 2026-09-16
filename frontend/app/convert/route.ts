@@ -6,13 +6,26 @@ import { verifyConvertToken } from '@/core/retentionToken';
 import { resolveSaveCoupon, stackCoupon, subscriptionCouponIds, SAVE_PERCENT } from '@/core/retentionOffer';
 import { canClaimTrialConversionOffer, shouldStackTrialDiscount } from '@/core/trialOffer';
 
-// Pre-trial-end CONVERSION offer — the sibling of /save. The ~48h trial-reminder
-// email carries a one-click "take {SAVE_PERCENT}% off the price" link; this route
-// honors it by stacking the standing retention coupon onto the member's TRIALING
-// subscription so the trial-end charge (and the following year) is discounted,
-// without an operator. Latched one claim per account via the SAME
-// users.retention_offer_claimed_at as /save, so a member gets at most one
-// retention/conversion discount ever.
+// Pre-trial-end CONVERSION offer.
+//
+// RETIRED: nothing mints links to this route any more. The ~48h trial reminder
+// used to carry a signed one-click "take {SAVE_PERCENT}% off" link, which handed
+// a discount to the highest-intent cohort there is — a trialer with a card on
+// file, about to be charged automatically — without them asking. It also spent
+// the once-per-account retention latch below, so a member who took it here and
+// later cancelled found the cancellation email's save button already claimed.
+// The 25% is a win-back lever now (/save, and the ~1-month win-back email).
+//
+// The route is kept alive rather than deleted so the last reminders sent before
+// the change don't 404 on anyone who clicks. It expires on its own: claiming
+// requires subscription_status === 'trialing', so every outstanding link goes
+// inert once that trial converts — within ~48h of the mail that carried it.
+// Safe to delete once none are outstanding.
+//
+// It honors a valid link by stacking the standing retention coupon onto the
+// member's TRIALING subscription so the trial-end charge (and the following
+// year) is discounted, without an operator. Latched one claim per account via
+// the SAME users.retention_offer_claimed_at as /save.
 //
 // Unlike /save, nothing here gates access: the trial converts on its own whether
 // or not this is claimed, so the copy must never imply the member is clicking to

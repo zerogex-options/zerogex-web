@@ -224,20 +224,31 @@ auth/transactional and TradeWorkz alerts.
 
 ### 3.3 Trial-end & billing / dunning
 
-**48h trial-end reminder** — `sendTrialReminderEmail(to, { trialEndIso, promoIntroLabel?, billing?, convertOfferUrl?, dormant? })`
+**48h trial-end reminder** — `sendTrialReminderEmail(to, { trialEndIso, promoIntroLabel?, billing?, dormant? })`
 - **Subject:** `Your ZeroGEX free trial ends in 2 days`
 - Courtesy heads-up before auto-conversion. When `billing` is resolved from Stripe it
   names the exact charge + card ("Your subscription will begin at $X/month using your
   Visa card ending in 1234"). Manage-subscription CTA. No FOH footer.
 - **The email must never imply the trial needs an action to continue.** The opener says
-  the trial "turns into a paid subscription automatically"; the "there's nothing you
-  need to do" line is printed ABOVE the `convertOfferUrl` block, not below it; and the
-  discount CTA reads *Take {pct}% off my subscription*, never "keep my access" /
-  "keep going" — that framing belongs on the cancellation save (`/save`), where access
-  genuinely is at stake. Here the offer moves the **price** only, and says so beside
-  the button. Locked down in `tests/trialReminder.test.ts`.
-- `dormant` (member never returned after signup) leads with the charge and the exit and
-  suppresses the discount offer entirely.
+  the trial "turns into a paid subscription automatically", and the "there's nothing you
+  need to do" line sits directly under the price. Locked down in
+  `tests/trialReminder.test.ts`.
+- **Carries no discount.** It used to offer 25% off for a year via a signed one-click
+  `/convert` link. That handed a discount to the highest-intent cohort in the book — a
+  trialer with a card on file, about to be charged automatically — without them asking,
+  and it spent the once-per-account retention latch
+  (`users.retention_offer_claimed_at`, shared with `/save`): a member who claimed it at
+  conversion and later cancelled found the cancellation email's save button already
+  claimed. The 25% is a win-back lever, offered where someone is actually leaving. Same
+  reasoning `core/returnIntent.ts` applies to a churned member who returns unprompted.
+  A test asserts neither variant contains `discount`, `% off` or `/convert`.
+- The `/convert` route still resolves so links sent before the change don't 404. It
+  expires on its own — claiming requires `subscription_status = 'trialing'`, so every
+  outstanding link goes inert within ~48h of the mail that carried it.
+- `promoIntroLabel` is NOT an offer: it names an intro rate the member already locked in
+  at signup, and still renders.
+- `dormant` (member never returned after signup) leads with the charge, puts the help
+  offer before the exit, and carries no CTA button at all.
 
 **Trial-conversion confirmation** — `sendTrialConvertedEmail(to, { amountFormatted?, cardBrand?, cardLast4?, nextChargeIso?, fullyCredited? })`
 - **Subject:** `Your ZeroGEX trial just became a full membership`

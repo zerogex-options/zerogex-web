@@ -688,16 +688,25 @@ export type TrialReminderEmailOptions = {
     // isn't a card.
     cardLast4?: string | null;
   } | null;
-  // A signed one-click "take <pct>% off the price" link (buildConvertUrl), when
-  // the cron could mint one (ZEROGEX_END_USER_TOKEN_SECRET set). Present it and
-  // the reminder carries the discount offer; omit/null and it's the plain
-  // courtesy reminder, unchanged. The offer is a PRICE change only — the trial
-  // converts on its own whether or not it's claimed, and the copy says so.
-  convertOfferUrl?: string | null;
+  // NOTE: this email carries no discount, by design. It used to offer 25% off
+  // for a year via a signed one-click /convert link. That was a discount handed
+  // to the highest-intent cohort in the book — a trialer with a card on file
+  // who is about to be charged automatically — without them ever asking for it,
+  // and it cost twice over: the margin, and the retention lever itself. The 25%
+  // save is latched once per account (users.retention_offer_claimed_at, shared
+  // by /save and /convert), so a trialer who took it at conversion had already
+  // spent it. If they later cancelled, the cancellation email's save button
+  // found them claimed and showed "you're all set" instead of making a real
+  // attempt to keep them. The discount is a win-back lever: it belongs where
+  // someone is actually leaving.
+  //
+  // This is the same reasoning core/returnIntent.ts already applies to a
+  // churned member who came back on their own — paying someone to do what they
+  // are already doing erodes margin on the likeliest conversion in the book.
+  //
   // True when this member never came back after signing up, so the trial is
   // about to convert on someone who has not used the product. Swaps in copy
-  // that leads with the charge and states the cancel option outright, and
-  // suppresses the annual lock-in offer.
+  // that leads with the charge and states the cancel option outright.
   //
   // A resolved boolean rather than the engagement enum, so this presenter
   // stays free of any dependency on core/trialEngagement — the same reason
@@ -786,41 +795,6 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
       }`
     : null;
 
-  // Pre-trial-end CONVERSION incentive — present only when the cron minted a
-  // signed /convert link. Mirrors SAVE_PERCENT in core/retentionOffer.ts (kept
-  // local so this presenter stays free of the Stripe-importing module).
-  const CONVERT_OFFER_PERCENT = 25;
-  // Never offered to a dormant member. The pitch reads "by now you've had the
-  // full board", which is false for someone who never came back, and locking
-  // an unused account into a discounted year is how a chargeback becomes a
-  // twelve-month chargeback. They get the plain reminder and a clear exit.
-  const showConvertOffer = !!opts.convertOfferUrl && !dormant;
-  // The offer is worded, and placed, so it can never be mistaken for a step the
-  // member has to take to stay subscribed. The trial converts on its own; this
-  // only moves the price. Hence no "keep my access" / "keep going" framing on
-  // the CTA (that belongs on a CANCELLATION save, where access really is at
-  // stake), an explicit "either way" sentence next to the button, and the
-  // auto-renew line printed ABOVE this block — a reader who skims to the yellow
-  // button has already been told they don't need to press it.
-  const convertOfferText = showConvertOffer
-    ? [
-        `By now you've had the full board — Today's Read, the GEX strike profile, the gamma flip, and the call/put walls across SPY, SPX, QQQ and NDX. If it's earned a spot in your routine, there's one optional extra: ${CONVERT_OFFER_PERCENT}% off for a full year.`,
-        '',
-        `This changes the price only — your subscription starts either way. Claiming it just lowers what you're charged:`,
-        opts.convertOfferUrl,
-        '',
-      ]
-    : [];
-  // Re-tests opts.convertOfferUrl rather than relying on showConvertOffer alone
-  // so the url stays narrowed to a string for escapeHtml below.
-  const convertOfferHtml = showConvertOffer && opts.convertOfferUrl
-    ? `<p>By now you've had the full board &mdash; Today's Read, the GEX strike profile, the gamma flip, and the call/put walls across SPY, SPX, QQQ and NDX. If it's earned a spot in your routine, there's one optional extra: <strong>${CONVERT_OFFER_PERCENT}% off for a full year</strong>.</p>
-      <p>This changes the price only &mdash; your subscription starts either way. Claiming it just lowers what you're charged.</p>
-      <p style="margin: 20px 0;">
-        <a href="${escapeHtml(opts.convertOfferUrl)}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 700; text-decoration: none; border-radius: 8px;">Take ${CONVERT_OFFER_PERCENT}% off my subscription</a>
-      </p>`
-    : '';
-
   // Openers. Both name the auto-conversion outright: the trial BECOMES a paid
   // subscription by itself. Leaving that implicit is what lets a reader further
   // down mistake the discount CTA for the thing that keeps their access, and
@@ -843,13 +817,13 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
     ? `A quick heads-up so nothing catches you out: your ZeroGEX free trial ends on <strong>${escapeHtml(trialEndDate)}</strong> and <strong>turns into a paid subscription automatically</strong>. There's nothing you need to do &mdash; your access simply carries on.`
     : `A quick heads-up: your ZeroGEX free trial ends on <strong>${escapeHtml(trialEndDate)}</strong> and <strong>turns into a paid subscription automatically</strong> &mdash; your first payment will be charged then unless you cancel before that.`;
 
-  // The "you don't have to do anything" line, hoisted ABOVE the discount offer
-  // so it is read before the yellow button rather than after it. Below the
-  // button it read as a contradiction — press this to keep your access, and
-  // also you don't need to — and the button won that argument.
+  // The "you don't have to do anything" line. It sits directly under the price
+  // so the two facts a member needs — what you'll be charged, and that you need
+  // do nothing about it — arrive together.
   //
-  // Dormant members get none of this: they have no offer block to disarm, and
-  // "nothing you need to do" is the wrong note for someone who never came back.
+  // Dormant members don't take it here: their opener already carries the same
+  // sentence, which is where it has to be for someone likely to read one
+  // paragraph and stop.
   const continuationText = dormant
     ? []
     : [
@@ -895,7 +869,6 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
     ...(billingLineText ? [billingLineText, ''] : []),
     ...(promoLineText ? [promoLineText, ''] : []),
     ...continuationText,
-    ...convertOfferText,
     ...closingText,
     '',
     "Either way, thanks for giving ZeroGEX a try — if there's anything I can do to make it more useful for you, just reply to this email. I read every message.",
@@ -912,7 +885,6 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
       ${billingLineHtml ? `<p>${billingLineHtml}</p>` : ''}
       ${promoLineHtml ? `<p>${promoLineHtml}</p>` : ''}
       ${continuationHtml}
-      ${convertOfferHtml}
       ${closingHtml}
       ${dormant
         // No button at all for a dormant member. It landed directly under the
