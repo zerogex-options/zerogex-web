@@ -57,7 +57,13 @@ export const TelemetryEvent = {
    *  The `format` split is the one that decides what to build next. The image
    *  exists because Substack, Medium, Discord and email refuse iframes; if it
    *  turns out to be what most people take, that is the larger audience
-   *  saying so. */
+   *  saying so.
+   *
+   *  `surface` records where the copy happened: builder (the /embed page) |
+   *  levels_page (the block on each free /<ticker>-gamma-levels page). The
+   *  levels pages carry almost all of the organic traffic, so that split
+   *  answers whether the widget needs its own destination at all or simply
+   *  needed to be where the readers already were. */
   EmbedSnippetCopied: 'embed_snippet_copied',
   /** NinjaTrader 8 NinjaScript indicator downloaded, or its "get your API key"
    *  CTA clicked (client, the four gamma-levels pages). The `action` property

@@ -24,6 +24,8 @@ const sitemapConfig = readFileSync(path.join(ROOT, 'next-sitemap.config.mjs'), '
 const embedRoute = readFileSync(path.join(ROOT, 'app/embed/[symbol]/route.ts'), 'utf8');
 const imageRoute = readFileSync(path.join(ROOT, 'app/embed/image/[symbol]/route.tsx'), 'utf8');
 const levelsCard = readFileSync(path.join(ROOT, 'app/embed/image/[symbol]/levelsCard.tsx'), 'utf8');
+const snippetModule = readFileSync(path.join(ROOT, 'core/embedSnippet.ts'), 'utf8');
+const levelsBlock = readFileSync(path.join(ROOT, 'components/PutOnYourSite.tsx'), 'utf8');
 const embedBuilder = readFileSync(path.join(ROOT, 'app/embed/EmbedBuilder.tsx'), 'utf8');
 const llmsTxt = readFileSync(path.join(ROOT, 'core/llmsTxt.ts'), 'utf8');
 
@@ -107,13 +109,33 @@ test('the snippet puts a real anchor in the host page, not only an iframe', () =
   // A link inside the frame points from our origin to our origin and is worth
   // nothing. The <a> the snippet writes into the HOST's markup is the link.
   // If this assertion is ever deleted, so is the reason the widget exists.
-  const snippet = embedBuilder.slice(
-    embedBuilder.indexOf('function buildSnippet'),
-    embedBuilder.indexOf('async function copy'),
+  assert.ok(snippetModule.includes('<iframe'), 'snippet lost its iframe');
+  assert.match(
+    snippetModule,
+    /<a href="\$\{SITE\}\/\$\{slug\}">/,
+    'snippet lost the host-page anchor',
   );
-  assert.ok(snippet.includes('<iframe'), 'snippet lost its iframe');
-  assert.match(snippet, /<a href="\$\{SITE\}\/\$\{slug\}">/, 'snippet lost the host-page anchor');
-  assert.ok(snippet.includes('data-zerogex-embed'), 'embed.js matches frames by this attribute');
+  assert.ok(
+    snippetModule.includes('data-zerogex-embed'),
+    'embed.js matches frames by this attribute',
+  );
+});
+
+test('both surfaces build the snippet from the one module', () => {
+  // The snippet is offered from the /embed builder AND from the block on every
+  // levels page. A second local copy would still render and still look right
+  // while quietly dropping the attribution link, which is the only part that
+  // does anything for us.
+  for (const [name, source] of [
+    ['EmbedBuilder', embedBuilder],
+    ['PutOnYourSite', levelsBlock],
+  ] as const) {
+    assert.match(source, /from '@\/core\/embedSnippet'/, `${name} must import the shared builders`);
+    assert.ok(
+      !/^(export )?function build(Embed)?(Snippet|ImageUrl)/m.test(source),
+      `${name} defines its own snippet builder — it will drift`,
+    );
+  }
 });
 
 test('the resizer only accepts messages from our own origin', () => {
@@ -143,7 +165,7 @@ test('the image route accepts the .png suffix the builder hands out', () => {
   // extension before they look at Content-Type, so the builder always emits
   // `.png`. If the route stops stripping it, every published card 404s.
   assert.match(imageRoute, /replace\(\/\\\.png\$\/i, ''\)/);
-  assert.match(embedBuilder, /\/embed\/image\/\$\{symbol\}\.png/);
+  assert.match(snippetModule, /\/embed\/image\/\$\{symbol\}\.png/);
 });
 
 test('the card states its own age, and says it is a snapshot', () => {
@@ -167,17 +189,26 @@ test('the image is noindex and carries no utm parameters', () => {
   // It repeats across every host that posts it, and the pasted URL is visible
   // clutter in a chat box. Attribution is printed on the card instead.
   assert.match(imageRoute, /'X-Robots-Tag': 'noindex, follow'/);
-  const builder = embedBuilder.slice(
-    embedBuilder.indexOf('function buildImageUrl'),
-    embedBuilder.indexOf('async function copy'),
-  );
-  assert.ok(!builder.includes('utm_'), 'the image URL must stay bare');
+  const imageUrlFn = snippetModule.slice(snippetModule.indexOf('export function buildEmbedImageUrl'));
+  assert.ok(imageUrlFn.length > 40, 'failed to locate buildEmbedImageUrl');
+  assert.ok(!imageUrlFn.includes('utm_'), 'the image URL must stay bare');
   assert.match(levelsCard, /zerogex\.io\/\{symbol\.toLowerCase\(\)\}-gamma-levels/);
 });
 
 // ---------------------------------------------------------------------------
 // llms.txt
 // ---------------------------------------------------------------------------
+
+test('the levels pages offer the widget, pre-filled with their own symbol', () => {
+  // /embed was reachable only from the footer, which is roughly how /scorecard
+  // ended up unreachable. The levels pages carry almost all of the organic
+  // traffic and are where anyone who might publish these numbers already
+  // lands, so the offer belongs there — and pre-filled with the page's symbol,
+  // which is the whole reason it is a block rather than a link.
+  const view = readFileSync(path.join(ROOT, 'app/spx-gamma-levels/gammaLevels.tsx'), 'utf8');
+  assert.match(view, /<PutOnYourSite symbol=\{primary\}/);
+  assert.match(levelsBlock, /surface: 'levels_page'/, 'the copy must be attributable to this surface');
+});
 
 test('llms.txt covers every registered article exactly once', () => {
   // The file is assembled from four `kind` buckets. A fifth kind added to the

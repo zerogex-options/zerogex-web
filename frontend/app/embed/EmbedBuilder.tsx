@@ -3,6 +3,13 @@
 import { useMemo, useState } from 'react';
 import { Check, Copy } from 'lucide-react';
 import { SYMBOLS, type PickerSymbol } from '@/core/symbols';
+import {
+  FALLBACK_HEIGHT,
+  SITE,
+  buildEmbedImageUrl,
+  buildEmbedSnippet,
+  type EmbedTheme,
+} from '@/core/embedSnippet';
 import { capture } from '@/core/telemetry/posthog-client';
 import { TelemetryEvent } from '@/core/telemetry/events';
 
@@ -21,47 +28,14 @@ import { TelemetryEvent } from '@/core/telemetry/events';
 // scheme; an honest, editable credit line is not. That is also the only version
 // worth shipping under the white-hat rule the outreach kit already sets.
 
-const SITE = 'https://zerogex.io';
-
-type Theme = 'dark' | 'light';
-
-/** Mirrors the widget's own fallback height, before embed.js sizes it. */
-const FALLBACK_HEIGHT = 200;
-
 const LABEL: Record<PickerSymbol, string> = {
-  SPX: 'SPX · S&P 500 index',
-  SPY: 'SPY · S&P 500 ETF',
-  QQQ: 'QQQ · Nasdaq-100 ETF',
-  NDX: 'NDX · Nasdaq-100 index',
-  ES: 'ES · S&P 500 futures',
-  NQ: 'NQ · Nasdaq-100 futures',
+  SPX: 'SPX \u00b7 S&P 500 index',
+  SPY: 'SPY \u00b7 S&P 500 ETF',
+  QQQ: 'QQQ \u00b7 Nasdaq-100 ETF',
+  NDX: 'NDX \u00b7 Nasdaq-100 index',
+  ES: 'ES \u00b7 S&P 500 futures',
+  NQ: 'NQ \u00b7 Nasdaq-100 futures',
 };
-
-function buildSnippet(symbol: PickerSymbol, theme: Theme, host: string): string {
-  const slug = `${symbol.toLowerCase()}-gamma-levels`;
-  const ref = host ? `&ref=${encodeURIComponent(host)}` : '';
-  return `<!-- ZeroGEX — free ${symbol} gamma levels, 15-minute delayed -->
-<iframe src="${SITE}/embed/${symbol}?theme=${theme}${ref}"
-        title="${symbol} gamma levels by ZeroGEX"
-        width="100%" height="${FALLBACK_HEIGHT}" loading="lazy"
-        style="border:0;max-width:680px" data-zerogex-embed></iframe>
-<p style="font:400 12px/1.4 sans-serif;opacity:.7;max-width:680px">
-  <a href="${SITE}/${slug}">${symbol} gamma levels</a> by ZeroGEX — free, 15-minute delayed.
-</p>
-<script async src="${SITE}/embed.js"></script>`;
-}
-
-/**
- * The PNG card's URL for a symbol and theme.
- *
- * Kept deliberately bare — no utm parameters. This string gets pasted as an
- * <img src> or dropped in a chat box, where a query string is visible clutter
- * and, on the platforms that re-host the file, discarded anyway. The card
- * carries its own attribution on its face instead.
- */
-function buildImageUrl(symbol: PickerSymbol, theme: Theme): string {
-  return `${SITE}/embed/image/${symbol}.png${theme === 'light' ? '?theme=light' : ''}`;
-}
 
 async function copy(text: string): Promise<boolean> {
   try {
@@ -109,18 +83,18 @@ const legendStyle = {
 
 export default function EmbedBuilder() {
   const [symbol, setSymbol] = useState<PickerSymbol>('SPX');
-  const [theme, setTheme] = useState<Theme>('dark');
+  const [theme, setTheme] = useState<EmbedTheme>('dark');
   const [host, setHost] = useState('');
   const [copied, setCopied] = useState(false);
   const [copiedImage, setCopiedImage] = useState(false);
 
   const trimmedHost = host.trim().slice(0, 64);
   const snippet = useMemo(
-    () => buildSnippet(symbol, theme, trimmedHost),
+    () => buildEmbedSnippet(symbol, theme, trimmedHost),
     [symbol, theme, trimmedHost],
   );
   const previewSrc = `/embed/${symbol}?theme=${theme}`;
-  const imageUrl = buildImageUrl(symbol, theme);
+  const imageUrl = buildEmbedImageUrl(symbol, theme);
 
   const copyWithTelemetry = async (
     text: string,
@@ -164,7 +138,7 @@ export default function EmbedBuilder() {
 
         <label>
           <span style={legendStyle}>Theme</span>
-          <select style={fieldStyle} value={theme} onChange={(e) => setTheme(e.target.value as Theme)}>
+          <select style={fieldStyle} value={theme} onChange={(e) => setTheme(e.target.value as EmbedTheme)}>
             <option value="dark">Dark</option>
             <option value="light">Light</option>
           </select>
