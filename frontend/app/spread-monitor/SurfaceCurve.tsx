@@ -70,6 +70,8 @@ interface CurveRow {
 // say "tight" next to an expiry chart in which green means exactly that. The
 // violet accent means only "the reading being placed", which is what it is.
 const CURRENT_COLOR = 'var(--color-king)';
+/** Shared by the Area and its legend swatch so the two cannot drift. */
+const BAND_FILL_OPACITY = 0.14;
 const NORMAL_COLOR = 'var(--color-chart-axis)';
 const BAND_COLOR = 'var(--color-chart-axis)';
 
@@ -221,7 +223,7 @@ export default function SurfaceCurve({
                     value: 'Usual range (25th-75th)',
                     color: BAND_COLOR,
                     shape: 'rect',
-                    opacity: 0.3,
+                    opacity: BAND_FILL_OPACITY,
                   },
                 ],
           )}
@@ -258,7 +260,7 @@ export default function SurfaceCurve({
               name="Usual range (25th-75th)"
               stroke="none"
               fill={BAND_COLOR}
-              fillOpacity={0.14}
+              fillOpacity={BAND_FILL_OPACITY}
               connectNulls={false}
               isAnimationActive={false}
               activeDot={false}

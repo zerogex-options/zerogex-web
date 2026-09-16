@@ -36,14 +36,23 @@ import { legendProps } from './chartLegend';
  *   wide, and that is only answerable against a reference that didn't. A
  *   second band would double the ink to answer a question nobody asked.
  *
- * The call line is dashed. Green and red sit in the 6-8 CVD separation band
- * (measured, not guessed), which is legal only with secondary encoding —
- * here the dash pattern, which survives every form of colour blindness and
- * greyscale printing.
+ * Both median lines are dashed, and deliberately NOT with the same pattern.
+ * Green and red sit in the 6-8 CVD separation band (measured, not guessed),
+ * which is legal only with secondary encoding, so the dash is doing real
+ * work: puts take a long dash and calls a short one, which survives every
+ * form of colour blindness and greyscale printing. Giving them one identical
+ * pattern would leave hue as the only thing telling two lines apart, which
+ * is the state the encoding exists to avoid.
  *
  * One y-axis. Both series are the same measure in the same unit, which is
  * the only reason they may share a plot at all.
  */
+
+/** Long dash for puts, short for calls — see the note on CVD above. */
+const PUT_DASH = '10 4';
+const CALL_DASH = '5 3';
+/** Shared by the Area and its legend swatch so the two cannot drift. */
+const TAIL_FILL_OPACITY = 0.16;
 
 interface HistoryRow {
   trading_date: string;
@@ -145,13 +154,24 @@ export default function SpreadHistoryChart({
         />
         <Legend
           {...legendProps([
-            { value: 'Puts (typical)', color: 'var(--color-bear)', shape: 'line' },
-            { value: 'Put tail (worst 10%)', color: 'var(--color-bear)' },
+            {
+              value: 'Puts (typical)',
+              color: 'var(--color-bear)',
+              shape: 'line',
+              dasharray: PUT_DASH,
+            },
+            {
+              value: 'Put tail (worst 10%)',
+              color: 'var(--color-bear)',
+              // The same 0.16 the Area is filled at. A swatch at full
+              // strength advertises a mark the plot does not contain.
+              opacity: TAIL_FILL_OPACITY,
+            },
             {
               value: 'Calls (typical)',
               color: 'var(--color-bull)',
               shape: 'line',
-              dasharray: '5 3',
+              dasharray: CALL_DASH,
             },
           ])}
         />
@@ -174,7 +194,7 @@ export default function SpreadHistoryChart({
           name="Put tail (worst 10%)"
           stroke="none"
           fill="var(--color-bear)"
-          fillOpacity={0.16}
+          fillOpacity={TAIL_FILL_OPACITY}
           isAnimationActive={false}
         />
         <Line
@@ -183,6 +203,7 @@ export default function SpreadHistoryChart({
           name="Puts (typical)"
           stroke="var(--color-bear)"
           strokeWidth={2}
+          strokeDasharray={PUT_DASH}
           strokeLinecap="round"
           strokeLinejoin="round"
           dot={false}
@@ -195,7 +216,7 @@ export default function SpreadHistoryChart({
           name="Calls (typical)"
           stroke="var(--color-bull)"
           strokeWidth={2}
-          strokeDasharray="5 3"
+          strokeDasharray={CALL_DASH}
           strokeLinecap="round"
           strokeLinejoin="round"
           dot={false}
