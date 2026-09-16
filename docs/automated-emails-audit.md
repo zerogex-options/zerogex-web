@@ -348,11 +348,21 @@ auth/transactional and TradeWorkz alerts.
   that is already in flight — see the test file's note on the dispute that prompted it.
 
 **Win-back** — `sendWinbackEmail(to, opts)` / `renderWinbackEmail(opts)`
-- **Subject (3 variants):** auto → `A lot has changed at ZeroGEX — and your discount's ready`; promo → `Your ZeroGEX intro rate is open again — through {date}`; manual → `A lot has changed at ZeroGEX since you left`
-- ~1 month after a sub actually lapses. Discount precedence **auto > promo > manual**.
+- **Subject (3 variants):** auto → `A lot has changed at ZeroGEX — and your discount's ready`; promo → `Your ZeroGEX intro rate is open again — through {date}`; none → `A lot has changed at ZeroGEX since you left`
+- ~1 month after a sub actually lapses. Discount precedence **auto > promo > none**,
+  and both surviving variants redeem themselves at checkout.
   "What's new" bullets come from `content/winback-highlights.json` (falls back to
   `DEFAULT_WINBACK_HIGHLIGHTS`). Plain-language opt-out footer pointing at self-service
   account deletion.
+- **No reply-for-discount fallback.** The third variant used to be a manual offer
+  ("reply 'discount' and I'll set it up by hand"), which put that member on different
+  terms from everyone else and promised a coupon precisely when the coupon plumbing was
+  the thing not configured. With neither `STRIPE_COUPON_WINBACK_*` nor a live
+  `PROMO_END_AT`, the email now ships with **no discount paragraph at all** — the
+  what's-new bullets and the open door still carry it. Same rule as the cancellation
+  acknowledgment: an offer the system can't apply itself isn't made.
+- The script's third mode is named `none` (was `manual`); `--preview-mode manual` still
+  resolves to it with a note, for runbooks that predate the rename.
 
 **Return intent** — `sendReturnIntentEmail(to, { angle, highlights, freshCount, foundingMember, unsubUrl })`
 - **Subject (2 variants):** something shipped since they left → `What's changed at ZeroGEX since you left`; otherwise → `Your ZeroGEX account is still here`

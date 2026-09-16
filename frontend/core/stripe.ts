@@ -163,8 +163,10 @@ export function getActivePromoDeadlineLabel(): string | null {
 // win-back is a standing, per-user reactivation offer that only reaches an
 // eligible churner (subscription_lapsed=1 AND a win-back email on record). One
 // coupon per (tier, cadence), same env structure as the promo coupons above.
-// Returns null when the matching coupon env isn't set, which makes the whole
-// automated path degrade to the email's evergreen reply-'discount' offer.
+// Returns null when the matching coupon env isn't set. The win-back email then
+// falls back to the public-promo copy, or — with no live promo either — ships
+// with no discount paragraph at all. There is no manual reply-for-discount
+// fallback any more; see renderWinbackEmail.
 export function getWinbackCouponId(sku: Sku): string | null {
   const envKey = (() => {
     if (sku.cadence === 'monthly') {

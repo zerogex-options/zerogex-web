@@ -175,7 +175,10 @@ export async function POST(request: NextRequest) {
     return htmlResponse(
       shell(
         'Reply and I&rsquo;ll set it up',
-        `<p style="font-size:15px; line-height:1.6; color:#3a4650; margin:0;">I couldn&rsquo;t apply the discount automatically on your plan. Just reply <strong>&ldquo;discount&rdquo;</strong> to your trial-reminder email and I&rsquo;ll set up ${SAVE_PERCENT}% off for a year by hand.</p>`,
+        // The member already took the offer and our automation is what failed,
+        // so a human fallback is right here. No magic keyword: the emails never
+        // taught one, so asking for it would send them hunting for nothing.
+        `<p style="font-size:15px; line-height:1.6; color:#3a4650; margin:0;">I couldn&rsquo;t apply the discount automatically on your plan. Just reply to your trial-reminder email and I&rsquo;ll set up ${SAVE_PERCENT}% off for a year by hand.</p>`,
       ),
       200,
     );

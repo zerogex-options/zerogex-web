@@ -2216,19 +2216,23 @@ export async function sendCancellationEmail(to: string, opts: CancellationEmailO
 // users.winback_email_sent_at (cleared on re-subscribe so a future re-churn can
 // re-fire, mirroring cancel_ack_email_sent_at).
 //
-// Three discount variants, resolved by the caller and ranked auto > promo >
-// manual so the email always carries the best redeemable offer:
+// Two discount variants, resolved by the caller and ranked auto > promo. Both
+// redeem themselves at checkout; an offer this email cannot honor on its own is
+// not offered at all:
 //   - winbackAutoApply → the fully-automated one-click coupon. The CTA links to
 //     /pricing?winback=1 and the checkout route attaches STRIPE_COUPON_WINBACK_*
 //     for this eligible churner (verified server-side). No code, no reply.
 //   - promoDeadlineLabel → the live limited-time public promo (auto-applies at
 //     /pricing) with a time-boxed deadline. Fallback when no win-back coupon is
 //     configured but a public promo happens to be running.
-//   - neither → the evergreen manual offer: reply "discount" and it's set up by
-//     hand. Last-resort fallback so the email still makes a concrete offer even
-//     with no coupon plumbing configured at all.
-// discountLabel (e.g. "25% off your first year") is shown in the auto + manual
-// copy and MUST match the actual STRIPE_COUPON_WINBACK_* value.
+//   - neither → NO discount paragraph. There used to be a manual third variant
+//     here ("reply 'discount' and I'll set it up by hand"), which put the member
+//     on different terms from everyone else and made a promise no system could
+//     keep — the coupon plumbing it was standing in for is exactly what wasn't
+//     configured. The email still has plenty to say: what shipped since they
+//     left, and an open door. It just stops pricing a deal it can't apply.
+// discountLabel (e.g. "25% off your first year") is shown in the auto copy and
+// MUST match the actual STRIPE_COUPON_WINBACK_* value.
 //
 // Every send carries a plain-language opt-out footer ("you're receiving this
 // because you created a ZeroGEX account… delete your account here"), where the
@@ -2302,17 +2306,19 @@ export function renderWinbackEmail(opts?: WinbackEmailOptions): {
       ? `Your ZeroGEX intro rate is open again — through ${promo}`
       : 'A lot has changed at ZeroGEX since you left';
 
+  // Null when neither coupon is configured — see the variant note above. Both
+  // surviving variants describe a discount that applies itself at checkout.
   const discountLineText = auto
     ? `And to make coming back easy, I've set aside ${label} for you — it's already on your account, so when you tap the button below you'll see the lower price before you confirm anything. No code to type, nothing to reply to.`
     : promo
       ? `And on price: our limited-time introductory pricing is open again right now — the discounted rate applies automatically at checkout, but only through ${promo}. If cost was part of why you left, this is the moment.`
-      : `And if price was part of why you left, that offer still stands: just reply with the word "discount" and I'll get you set up with ${label}. I'll take care of the coupon on my end — you won't have to sort out anything fiddly.`;
+      : null;
 
   const discountLineHtml = auto
     ? `And to make coming back easy, I've set aside <strong>${escapeHtml(label)}</strong> for you &mdash; it's already on your account, so when you tap the button below you'll see the lower price before you confirm anything. No code to type, nothing to reply to.`
     : promo
       ? `And on price: our <strong>limited-time introductory pricing is open again</strong> right now &mdash; the discounted rate applies automatically at checkout, but only through <strong>${escapeHtml(promo)}</strong>. If cost was part of why you left, this is the moment.`
-      : `And if price was part of why you left, that offer still stands: just reply with the word <strong>&ldquo;discount&rdquo;</strong> and I'll get you set up with <strong>${escapeHtml(label)}</strong>. I'll take care of the coupon on my end &mdash; you won't have to sort out anything fiddly.`;
+      : null;
 
   const ctaLabel = auto
     ? 'Come back at a discount'
@@ -2334,8 +2340,7 @@ export function renderWinbackEmail(opts?: WinbackEmailOptions): {
     '',
     "I'll be honest: if you still trade the way you used to, I think a couple of these would genuinely change your workflow, and it's a little bit of a shame to be missing them.",
     '',
-    discountLineText,
-    '',
+    ...(discountLineText ? [discountLineText, ''] : []),
     "No pressure at all, though. If the timing isn't right, just ignore this and I won't keep nudging you. But your account is still here exactly as you left it, the door's open, and I'd love to have you back.",
     '',
     'If anything specific pushed you away — a missing feature, a bug, a pricing thing — just hit reply and tell me. I read every message myself, and it genuinely shapes what I build next.',
@@ -2365,7 +2370,9 @@ export function renderWinbackEmail(opts?: WinbackEmailOptions): {
       <p>A fair amount has changed since you left. A few of the bigger ones:</p>
       <ul style="padding-left: 20px; margin: 12px 0;">${highlightsHtml}</ul>
       <p>I'll be honest: if you still trade the way you used to, I think a couple of these would genuinely change your workflow, and it's a little bit of a shame to be missing them.</p>
-      <p style="background: #fff8e1; border-left: 3px solid #f5b400; padding: 12px 14px; margin: 20px 0;">${discountLineHtml}</p>
+      ${discountLineHtml
+        ? `<p style="background: #fff8e1; border-left: 3px solid #f5b400; padding: 12px 14px; margin: 20px 0;">${discountLineHtml}</p>`
+        : ''}
       <p style="margin: 24px 0;">
         <a href="${safeCtaHref}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">${escapeHtml(ctaLabel)}</a>
       </p>
