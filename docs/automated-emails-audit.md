@@ -224,20 +224,31 @@ auth/transactional and TradeWorkz alerts.
 
 ### 3.3 Trial-end & billing / dunning
 
-**48h trial-end reminder** — `sendTrialReminderEmail(to, { trialEndIso, promoIntroLabel?, billing?, convertOfferUrl?, dormant? })`
+**48h trial-end reminder** — `sendTrialReminderEmail(to, { trialEndIso, promoIntroLabel?, billing?, dormant? })`
 - **Subject:** `Your ZeroGEX free trial ends in 2 days`
 - Courtesy heads-up before auto-conversion. When `billing` is resolved from Stripe it
   names the exact charge + card ("Your subscription will begin at $X/month using your
   Visa card ending in 1234"). Manage-subscription CTA. No FOH footer.
 - **The email must never imply the trial needs an action to continue.** The opener says
-  the trial "turns into a paid subscription automatically"; the "there's nothing you
-  need to do" line is printed ABOVE the `convertOfferUrl` block, not below it; and the
-  discount CTA reads *Take {pct}% off my subscription*, never "keep my access" /
-  "keep going" — that framing belongs on the cancellation save (`/save`), where access
-  genuinely is at stake. Here the offer moves the **price** only, and says so beside
-  the button. Locked down in `tests/trialReminder.test.ts`.
-- `dormant` (member never returned after signup) leads with the charge and the exit and
-  suppresses the discount offer entirely.
+  the trial "turns into a paid subscription automatically", and the "there's nothing you
+  need to do" line sits directly under the price. Locked down in
+  `tests/trialReminder.test.ts`.
+- **Carries no discount.** It used to offer 25% off for a year via a signed one-click
+  `/convert` link. That handed a discount to the highest-intent cohort in the book — a
+  trialer with a card on file, about to be charged automatically — without them asking,
+  and it spent the once-per-account retention latch
+  (`users.retention_offer_claimed_at`, shared with `/save`): a member who claimed it at
+  conversion and later cancelled found the cancellation email's save button already
+  claimed. The 25% is a win-back lever, offered where someone is actually leaving. Same
+  reasoning `core/returnIntent.ts` applies to a churned member who returns unprompted.
+  A test asserts neither variant contains `discount`, `% off` or `/convert`.
+- The `/convert` route still resolves so links sent before the change don't 404. It
+  expires on its own — claiming requires `subscription_status = 'trialing'`, so every
+  outstanding link goes inert within ~48h of the mail that carried it.
+- `promoIntroLabel` is NOT an offer: it names an intro rate the member already locked in
+  at signup, and still renders.
+- `dormant` (member never returned after signup) leads with the charge, puts the help
+  offer before the exit, and carries no CTA button at all.
 
 **Trial-conversion confirmation** — `sendTrialConvertedEmail(to, { amountFormatted?, cardBrand?, cardLast4?, nextChargeIso?, fullyCredited? })`
 - **Subject:** `Your ZeroGEX trial just became a full membership`
@@ -329,17 +340,40 @@ auth/transactional and TradeWorkz alerts.
 
 ### 3.5 Retention / churn
 
-**Cancellation acknowledgment** — `sendCancellationEmail(to, { periodEndIso })`
+**Cancellation acknowledgment** — `sendCancellationEmail(to, { periodEndIso, saveUrl?, conversionChargePending? })`
 - **Subject:** `Sorry to see you go — mind sharing why?`
-- Fires at the click-Cancel moment (still has access until period end). Asks why,
-  offers 25% off for a year via manual "reply 'discount'" fulfillment. No FOH footer.
+- Fires at the click-Cancel moment (still has access until period end). Asks why, and
+  offers 25% off for a year **through the one-click `/save` button and nothing else**.
+  No FOH footer.
+- **One offer, one route.** The email used to carry a manual second route as well
+  ("reply 'discount' and I'll set it up"). Two routes to one offer read as two
+  different deals, and a member who clicked the button and then replied anyway hit the
+  shared one-shot latch in `core/retentionOffer` — the second ask can't be honored, so
+  the reply goes unanswered. A null `saveUrl` (only possible when
+  `ZEROGEX_END_USER_TOKEN_SECRET` is unset) therefore means **no discount offer at
+  all**, not a manual one: that is a broken deployment, not a mode worth writing copy
+  for. The acknowledgment and the survey still send. Locked down in
+  `tests/cancellationEmail.test.ts`.
+- `conversionChargePending` (they cancelled after trial end but before Stripe finalized
+  the draft cycle invoice) replaces "nothing changes yet on your end" with the charge
+  that is already in flight — see the test file's note on the dispute that prompted it.
 
 **Win-back** — `sendWinbackEmail(to, opts)` / `renderWinbackEmail(opts)`
-- **Subject (3 variants):** auto → `A lot has changed at ZeroGEX — and your discount's ready`; promo → `Your ZeroGEX intro rate is open again — through {date}`; manual → `A lot has changed at ZeroGEX since you left`
-- ~1 month after a sub actually lapses. Discount precedence **auto > promo > manual**.
+- **Subject (3 variants):** auto → `A lot has changed at ZeroGEX — and your discount's ready`; promo → `Your ZeroGEX intro rate is open again — through {date}`; none → `A lot has changed at ZeroGEX since you left`
+- ~1 month after a sub actually lapses. Discount precedence **auto > promo > none**,
+  and both surviving variants redeem themselves at checkout.
   "What's new" bullets come from `content/winback-highlights.json` (falls back to
   `DEFAULT_WINBACK_HIGHLIGHTS`). Plain-language opt-out footer pointing at self-service
   account deletion.
+- **No reply-for-discount fallback.** The third variant used to be a manual offer
+  ("reply 'discount' and I'll set it up by hand"), which put that member on different
+  terms from everyone else and promised a coupon precisely when the coupon plumbing was
+  the thing not configured. With neither `STRIPE_COUPON_WINBACK_*` nor a live
+  `PROMO_END_AT`, the email now ships with **no discount paragraph at all** — the
+  what's-new bullets and the open door still carry it. Same rule as the cancellation
+  acknowledgment: an offer the system can't apply itself isn't made.
+- The script's third mode is named `none` (was `manual`); `--preview-mode manual` still
+  resolves to it with a note, for runbooks that predate the rename.
 
 **Return intent** — `sendReturnIntentEmail(to, { angle, highlights, freshCount, foundingMember, unsubUrl })`
 - **Subject (2 variants):** something shipped since they left → `What's changed at ZeroGEX since you left`; otherwise → `Your ZeroGEX account is still here`
