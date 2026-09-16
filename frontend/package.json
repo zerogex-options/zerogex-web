@@ -122,6 +122,7 @@
     "test:flip-status-chip": "node --experimental-strip-types --test tests/flipStatusChip.test.ts",
     "test:mcp": "node --experimental-strip-types --test tests/mcp.test.ts",
     "test:embed-widget": "node --experimental-strip-types --test tests/embedWidget.test.ts",
+    "test:page-shell": "node --experimental-strip-types --test tests/pageShell.test.ts",
     "test:strategy-catalog-view": "node --experimental-strip-types --test tests/strategyCatalogView.test.ts",
     "test:futures-contract": "node --experimental-strip-types --test tests/futuresContract.test.ts",
     "verify:mcp": "bash scripts/verify-mcp.sh",

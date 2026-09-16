@@ -61,18 +61,9 @@ test('every pickable symbol has the levels page its widget links back to', () =>
   }
 });
 
-test('the builder page renders standalone, without the app chrome', () => {
-  // IndicatorPageShell brings its own landing header and site footer. A page
-  // using it that is missing from STANDALONE_ROUTES renders that shell INSIDE
-  // the app sidebar and header — two headers, a nav rail, and a marketing page
-  // that looks like a logged-in screen.
-  const clientLayout = readFileSync(path.join(ROOT, 'components/ClientLayout.tsx'), 'utf8');
-  const line = clientLayout
-    .split('\n')
-    .find((l) => l.includes('const STANDALONE_ROUTES'));
-  assert.ok(line, 'STANDALONE_ROUTES is gone from ClientLayout');
-  assert.ok(line.includes("'/embed'"), '/embed must render standalone');
-});
+// /embed also has to render without the app chrome. That is not asserted here:
+// it is one instance of a rule covering every IndicatorPageShell consumer, and
+// it lives with the rule in tests/pageShell.test.ts.
 
 // ---------------------------------------------------------------------------
 // Framing
