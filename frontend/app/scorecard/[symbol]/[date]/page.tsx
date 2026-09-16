@@ -158,10 +158,10 @@ export default async function ScorecardPage({
     <main className="mx-auto max-w-5xl px-4 py-8 sm:py-10">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <Link
-          href="/trading-signals"
+          href={sym === 'SPY' ? '/scorecard' : `/scorecard?symbol=${sym}`}
           className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)]"
         >
-          <ChevronLeft size={14} /> Trading Signals
+          <ChevronLeft size={14} /> Daily Scorecard
         </Link>
         <ShareCardButton
           cardId={`${sym}:${date}`}
