@@ -107,6 +107,12 @@ export default function SpreadMonitorPage() {
   const { symbol, setSymbol } = useTimeframe();
   const [dteMax, setDteMax] = useState<number>(7);
   const [bandPct, setBandPct] = useState<number>(5);
+  // The comparison table gets its own expiry scope. Which expiries you are
+  // comparing changes the answer completely — SPX and NDX can rank one way
+  // on 0DTE and the other way across a month — so "is NDX any better?" is
+  // not a question with a single answer, and the panel should not make the
+  // reader scroll back to the page header to find out which one it gave.
+  const [compareDteMax, setCompareDteMax] = useState<number>(7);
 
   // ES / NQ carry no option chain here, so the API answers 400. That is a
   // state the page can recognise before asking, so it does not ask: every
@@ -125,7 +131,11 @@ export default function SpreadMonitorPage() {
   // one row per option type — medians do not combine.
   const { data: history } = useSpreadHistory(symbol, 'P', HISTORY_DAYS, !futures);
   const { data: callHistory } = useSpreadHistory(symbol, 'C', HISTORY_DAYS, !futures);
-  const { data: compare } = useSpreadCompare(SPREAD_SYMBOLS, scope);
+  const compareScope = useMemo(
+    () => ({ dteMax: compareDteMax, moneynessBandPct: bandPct, enabled: !futures }),
+    [compareDteMax, bandPct, futures],
+  );
+  const { data: compare } = useSpreadCompare(SPREAD_SYMBOLS, compareScope);
 
   const putVerdict = percentileVerdict(
     data?.history?.puts_percentile,
@@ -425,8 +435,27 @@ export default function SpreadMonitorPage() {
 
           <ChartPanel
             title="Across symbols"
-            tooltip="The same reading on every index with an option chain of its own. ES and NQ are absent because they have none here — their levels are SPX/NDX derived, and there is no futures quote to measure a width from."
-            sub="Click a row to switch the page to that symbol."
+            tooltip="The same reading on every index with an option chain of its own. Read it on the 'put width vs index' column: SPX near 6,800 and NDX near 25,000 are not on one dollar scale. ES and NQ are absent because they carry no option chain here — their levels are SPX/NDX derived, and there is no futures quote to measure a width from."
+            sub={
+              <>
+                Puts and calls within ±{bandPct}% of spot,{' '}
+                {compareDteMax === 0 ? '0DTE only' : `expiries through ${compareDteMax}DTE`}.
+                Click a row to switch the page to that symbol.
+              </>
+            }
+            actions={
+              <FilterBar>
+                {DTE_CHOICES.map((choice) => (
+                  <FilterChip
+                    key={choice}
+                    active={compareDteMax === choice}
+                    onClick={() => setCompareDteMax(choice)}
+                  >
+                    {scopeChipLabel(choice)}
+                  </FilterChip>
+                ))}
+              </FilterBar>
+            }
           >
             {compare ? (
               <CrossSymbolTable
