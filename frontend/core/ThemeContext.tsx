@@ -1,37 +1,21 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
+import { getCsrfToken } from '@/core/csrfClient';
+import {
+  DEFAULT_PALETTE,
+  DEFAULT_THEME,
+  PALETTES,
+  normalizePalette,
+  normalizeTheme,
+  type PaletteId,
+  type Theme,
+} from '@/core/appearance';
 
-type Theme = 'light' | 'dark';
-export type Palette =
-  | 'zerogex-og'
-  | 'mars'
-  | 'california'
-  | 'kyoto'
-  | 'wallstreet'
-  | 'london'
-  | 'zurich'
-  | 'maldives'
-  | 'tulum'
-  | 'vinyl-topanga'
-  | 'monochrome-madison'
-  | 'palm-springs';
-
-const PALETTES: Palette[] = [
-  'zerogex-og',
-  'mars',
-  'california',
-  'wallstreet',
-  'kyoto',
-  'london',
-  'zurich',
-  'maldives',
-  'tulum',
-  'vinyl-topanga',
-  'monochrome-madison',
-  'palm-springs',
-];
-const DEFAULT_PALETTE: Palette = 'zerogex-og';
+// Vocabulary lives in core/appearance so the server layout and this provider
+// validate against one list. `Palette` is re-exported because callers across
+// the app import it from here.
+export type Palette = PaletteId;
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365; // 1 year
 
 function readCookie(name: string): string | null {
@@ -73,33 +57,51 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-function getInitialTheme(): Theme {
-  if (typeof document === 'undefined') return 'dark';
-  const saved = readCookie('theme') ?? readStoredValue('theme');
-  return saved === 'light' || saved === 'dark' ? saved : 'dark';
-}
 
-function getInitialPalette(): Palette {
-  if (typeof document === 'undefined') return DEFAULT_PALETTE;
-  const saved = readCookie('palette') ?? readStoredValue('palette');
-  // Migrate legacy/retired IDs to a valid palette so an old saved preference
-  // never resolves to nothing (walnut/pacific/deluxe were earlier renames;
-  // miami/monaco/amalfi were retired in favor of the three newer themes).
-  const legacyMap: Record<string, Palette> = {
-    walnut: 'kyoto',
-    deluxe: 'wallstreet',
-    pacific: 'palm-springs',
-    miami: 'palm-springs',
-    monaco: 'monochrome-madison',
-    amalfi: 'palm-springs',
-  };
-  const normalized = saved && legacyMap[saved] ? legacyMap[saved] : saved;
-  return PALETTES.includes(normalized as Palette) ? (normalized as Palette) : DEFAULT_PALETTE;
-}
 
-export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>(getInitialTheme);
-  const [palette, setPalette] = useState<Palette>(getInitialPalette);
+export function ThemeProvider({
+  children,
+  // What the SERVER read from the cookies, so the provider's first render
+  // matches the markup the server sent. Seeding this from the cookie on the
+  // client instead (the old getInitialTheme/getInitialPalette path) meant the
+  // server always assumed the dark default while the client knew better, so
+  // every page load in the light theme was a hydration mismatch — measured at
+  // 6 loads in 6 before this, 0 after. Dark was unaffected, which is why it
+  // went unnoticed.
+  initialTheme = DEFAULT_THEME,
+  initialPalette = DEFAULT_PALETTE,
+}: {
+  children: ReactNode;
+  initialTheme?: Theme;
+  initialPalette?: Palette;
+}) {
+  const [theme, setTheme] = useState<Theme>(initialTheme);
+  const [palette, setPalette] = useState<Palette>(initialPalette);
+
+  // Adopt a preference that only ever reached localStorage — someone who last
+  // set their theme before it moved to a cookie. Nothing has written
+  // localStorage here for some time, so this is legacy support, and the
+  // effects below put the value in the cookie straight after: it runs once,
+  // and that member is on the server-rendered path from their next load on.
+  //
+  // Deferred a microtask rather than set during the effect: the adoption is
+  // rare and one-shot, and there is no reason for it to force a second render
+  // pass synchronously inside the commit for the overwhelming majority of
+  // loads that have a cookie and skip it entirely.
+  useEffect(() => {
+    const storedTheme = readCookie('theme') === null ? readStoredValue('theme') : null;
+    const storedPalette = readCookie('palette') === null ? readStoredValue('palette') : null;
+    if (!storedTheme && !storedPalette) return;
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      if (storedTheme) setTheme(normalizeTheme(storedTheme));
+      if (storedPalette) setPalette(normalizePalette(storedPalette));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     writeCookie('theme', theme);
@@ -111,6 +113,47 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const root = document.documentElement;
     PALETTES.forEach((p) => root.classList.toggle(`palette-${p}`, p === palette));
   }, [palette]);
+
+  // Mirror the choice onto the account, so it survives this browser. The
+  // cookie above is still what paints the page; this is what puts the same
+  // look on a second device, and what brings it back when the cookie is
+  // cleared or expired early (Safari's ITP and Brave's shields both cut
+  // script-written cookies short). Signed-out visitors get a 401 and keep the
+  // cookie-only behaviour — nothing is surfaced either way, because a
+  // preference that did not sync is not worth interrupting anyone over.
+  const savedRef = useRef<string | null>(null);
+  useEffect(() => {
+    const desired = `${theme}:${palette}`;
+    // Skip the write triggered by simply loading the page in whatever the
+    // cookie already said; only an actual change is worth a request.
+    if (savedRef.current === null) {
+      savedRef.current = desired;
+      return;
+    }
+    if (savedRef.current === desired) return;
+    savedRef.current = desired;
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const csrf = await getCsrfToken();
+        if (cancelled || !csrf) return;
+        await fetch('/api/account/appearance', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-csrf-token': csrf },
+          body: JSON.stringify({ theme, palette }),
+          credentials: 'same-origin',
+          cache: 'no-store',
+        });
+      } catch {
+        // Offline, signed out, or the request was refused — the cookie still
+        // holds the choice for this browser.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [theme, palette]);
 
   return (
     <ThemeContext.Provider value={{ theme, setTheme, palette, setPalette }}>

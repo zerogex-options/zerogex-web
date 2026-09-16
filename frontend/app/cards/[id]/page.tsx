@@ -6,6 +6,7 @@ import { ChevronLeft } from 'lucide-react';
 import ShareCardButton from '@/components/ShareCardButton';
 import { StandDownCard, TradeCard } from '@/components/ActionCard';
 import { serverApiGet } from '@/core/api/serverFetch';
+import { resolveSymbol } from '@/core/symbols';
 import type { SignalActionResponse } from '@/hooks/useApiData';
 
 // Public permalink for a single Playbook Action Card. Server-rendered so the
@@ -118,6 +119,10 @@ export default async function ActionCardPage({
 
   const isStandDown = String(card.action ?? '').toUpperCase() === 'STAND_DOWN';
   const symbol = (card.underlying || 'SPY').toUpperCase();
+  // The display symbol is whatever the API wrote; the Scorecard index only
+  // understands the six picker symbols, so the back link carries the resolved
+  // one rather than a ?symbol= the landing page would silently discard.
+  const scorecardSymbol = resolveSymbol(symbol);
   const tweetText = buildTweetText(card, `ZeroGEX Action Card #${cardId} for ${symbol}.`);
   const cardUrl = `${SITE_URL}/cards/${cardId}`;
   const issuedAt = card.timestamp ? new Date(String(card.timestamp)) : null;
@@ -126,10 +131,10 @@ export default async function ActionCardPage({
     <main className="mx-auto max-w-5xl px-4 py-8 sm:py-10">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <Link
-          href="/trading-signals"
+          href={scorecardSymbol === 'SPY' ? '/scorecard' : `/scorecard?symbol=${scorecardSymbol}`}
           className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)]"
         >
-          <ChevronLeft size={14} /> Trading Signals
+          <ChevronLeft size={14} /> Daily Scorecard
         </Link>
         <ShareCardButton cardId={cardId} tweetText={tweetText} cardUrl={cardUrl} />
       </div>

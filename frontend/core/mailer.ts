@@ -1,5 +1,6 @@
 import { Resend } from 'resend';
 import type { ChurnAlert } from './cancellationAlert.ts';
+import type { ReturnAngle } from './returnIntent.ts';
 
 // Inlined rather than imported from core/stripe so this module stays
 // importable from standalone `node --experimental-strip-types` scripts —
@@ -687,10 +688,11 @@ export type TrialReminderEmailOptions = {
     // isn't a card.
     cardLast4?: string | null;
   } | null;
-  // A signed one-click "lock in <pct>% off and keep going" link (buildConvertUrl),
-  // when the cron could mint one (ZEROGEX_END_USER_TOKEN_SECRET set). Present it
-  // and the reminder becomes a conversion push with the incentive CTA; omit/null
-  // and it's the plain courtesy reminder, unchanged.
+  // A signed one-click "take <pct>% off the price" link (buildConvertUrl), when
+  // the cron could mint one (ZEROGEX_END_USER_TOKEN_SECRET set). Present it and
+  // the reminder carries the discount offer; omit/null and it's the plain
+  // courtesy reminder, unchanged. The offer is a PRICE change only — the trial
+  // converts on its own whether or not it's claimed, and the copy says so.
   convertOfferUrl?: string | null;
   // True when this member never came back after signing up, so the trial is
   // about to convert on someone who has not used the product. Swaps in copy
@@ -791,9 +793,18 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
   // an unused account into a discounted year is how a chargeback becomes a
   // twelve-month chargeback. They get the plain reminder and a clear exit.
   const showConvertOffer = !!opts.convertOfferUrl && !dormant;
+  // The offer is worded, and placed, so it can never be mistaken for a step the
+  // member has to take to stay subscribed. The trial converts on its own; this
+  // only moves the price. Hence no "keep my access" / "keep going" framing on
+  // the CTA (that belongs on a CANCELLATION save, where access really is at
+  // stake), an explicit "either way" sentence next to the button, and the
+  // auto-renew line printed ABOVE this block — a reader who skims to the yellow
+  // button has already been told they don't need to press it.
   const convertOfferText = showConvertOffer
     ? [
-        `By now you've had the full board — Today's Read, the GEX strike profile, the gamma flip, and the call/put walls across SPY, SPX, QQQ and NDX. If it's earned a spot in your routine, you can lock in ${CONVERT_OFFER_PERCENT}% off for a full year before your trial ends:`,
+        `By now you've had the full board — Today's Read, the GEX strike profile, the gamma flip, and the call/put walls across SPY, SPX, QQQ and NDX. If it's earned a spot in your routine, there's one optional extra: ${CONVERT_OFFER_PERCENT}% off for a full year.`,
+        '',
+        `This changes the price only — your subscription starts either way. Claiming it just lowers what you're charged:`,
         opts.convertOfferUrl,
         '',
       ]
@@ -801,27 +812,50 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
   // Re-tests opts.convertOfferUrl rather than relying on showConvertOffer alone
   // so the url stays narrowed to a string for escapeHtml below.
   const convertOfferHtml = showConvertOffer && opts.convertOfferUrl
-    ? `<p>By now you've had the full board &mdash; Today's Read, the GEX strike profile, the gamma flip, and the call/put walls across SPY, SPX, QQQ and NDX. If it's earned a spot in your routine, you can <strong>lock in ${CONVERT_OFFER_PERCENT}% off for a full year</strong> before your trial ends.</p>
+    ? `<p>By now you've had the full board &mdash; Today's Read, the GEX strike profile, the gamma flip, and the call/put walls across SPY, SPX, QQQ and NDX. If it's earned a spot in your routine, there's one optional extra: <strong>${CONVERT_OFFER_PERCENT}% off for a full year</strong>.</p>
+      <p>This changes the price only &mdash; your subscription starts either way. Claiming it just lowers what you're charged.</p>
       <p style="margin: 20px 0;">
-        <a href="${escapeHtml(opts.convertOfferUrl)}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 700; text-decoration: none; border-radius: 8px;">Lock in ${CONVERT_OFFER_PERCENT}% off &amp; keep my access</a>
+        <a href="${escapeHtml(opts.convertOfferUrl)}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 700; text-decoration: none; border-radius: 8px;">Take ${CONVERT_OFFER_PERCENT}% off my subscription</a>
       </p>`
     : '';
 
-  // Openers. The ordinary one assumes the member knows what their trial is.
-  // The dormant one cannot: it names the date, the charge and the exit in the
-  // first two sentences, on the assumption this email is the only thing
-  // standing between them and an unrecognized line on a statement.
+  // Openers. Both name the auto-conversion outright: the trial BECOMES a paid
+  // subscription by itself. Leaving that implicit is what lets a reader further
+  // down mistake the discount CTA for the thing that keeps their access, and
+  // the same sentence is what makes the charge fair notice.
+  //
+  // The ordinary opener assumes the member knows what their trial is. The
+  // dormant one cannot: it names the date, the charge and the exit in the first
+  // two sentences, on the assumption this email is the only thing standing
+  // between them and an unrecognized line on a statement.
   const openerText = dormant
-    ? `I noticed you haven't been back to ZeroGEX since you signed up, so I wanted to flag this rather than let it surprise you: your free trial ends on ${trialEndDate}, and your first payment goes through then.`
-    : `A quick heads-up: your ZeroGEX free trial ends on ${trialEndDate}, and your first payment will be charged then unless you cancel before that.`;
+    ? `I noticed you haven't been back to ZeroGEX since you signed up, so I wanted to flag this rather than let it surprise you: your free trial ends on ${trialEndDate} and turns into a paid subscription automatically, so your first payment goes through then.`
+    : `A quick heads-up: your ZeroGEX free trial ends on ${trialEndDate} and turns into a paid subscription automatically — your first payment will be charged then unless you cancel before that.`;
   const openerHtml = dormant
-    ? `I noticed you haven't been back to ZeroGEX since you signed up, so I wanted to flag this rather than let it surprise you: your free trial ends on <strong>${escapeHtml(trialEndDate)}</strong>, and your first payment goes through then.`
-    : `A quick heads-up: your ZeroGEX free trial ends on <strong>${escapeHtml(trialEndDate)}</strong>, and your first payment will be charged then unless you cancel before that.`;
+    ? `I noticed you haven't been back to ZeroGEX since you signed up, so I wanted to flag this rather than let it surprise you: your free trial ends on <strong>${escapeHtml(trialEndDate)}</strong> and turns into a paid subscription automatically, so your first payment goes through then.`
+    : `A quick heads-up: your ZeroGEX free trial ends on <strong>${escapeHtml(trialEndDate)}</strong> and <strong>turns into a paid subscription automatically</strong> &mdash; your first payment will be charged then unless you cancel before that.`;
 
-  // Closing pair. For a dormant member the exit comes first and unhedged —
-  // burying it under a pitch is what turns an unwanted charge into a dispute.
-  // The offer of help is second and genuine: most of this cohort signed up
-  // meaning to use it and never found their way in.
+  // The "you don't have to do anything" line, hoisted ABOVE the discount offer
+  // so it is read before the yellow button rather than after it. Below the
+  // button it read as a contradiction — press this to keep your access, and
+  // also you don't need to — and the button won that argument.
+  //
+  // Dormant members get none of this: they have no offer block to disarm, and
+  // "nothing you need to do" is the wrong note for someone who never came back.
+  const continuationText = dormant
+    ? []
+    : [
+        "If ZeroGEX is working for you, there's nothing you need to do — your access carries straight on and the subscription renews by itself.",
+        '',
+      ];
+  const continuationHtml = dormant
+    ? ''
+    : `<p>If ZeroGEX is working for you, there's nothing you need to do &mdash; your access carries straight on and the subscription renews by itself.</p>`;
+
+  // Closing. For a dormant member the exit comes first and unhedged — burying
+  // it under a pitch is what turns an unwanted charge into a dispute. The offer
+  // of help is second and genuine: most of this cohort signed up meaning to use
+  // it and never found their way in.
   const closingText = dormant
     ? [
         `If you'd rather not be charged, cancel from the billing portal on your account page (${accountUrl}) before ${trialEndDate} and you won't pay anything. One click, no email or support request needed.`,
@@ -829,15 +863,12 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
         "And if you did mean to give it a proper look, reply to this email and tell me what you trade — I'll point you at the two or three levels on the board that actually matter for it. That's usually the whole gap between signing up and it being useful.",
       ]
     : [
-        "If ZeroGEX is working for you, there's nothing you need to do — you'll keep full access and the renewal will go through automatically.",
-        '',
-        `If it isn't the right fit, you can cancel anytime from the billing portal on your account page (${accountUrl}) and you won't be charged a cent.`,
+        `If it isn't the right fit, you can cancel anytime before ${trialEndDate} from the billing portal on your account page (${accountUrl}) and you won't be charged a cent.`,
       ];
   const closingHtml = dormant
     ? `<p>If you'd rather not be charged, <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">cancel from the billing portal</a> before ${escapeHtml(trialEndDate)} and you won't pay anything. One click, no email or support request needed.</p>
       <p>And if you did mean to give it a proper look, reply to this email and tell me what you trade &mdash; I'll point you at the two or three levels on the board that actually matter for it. That's usually the whole gap between signing up and it being useful.</p>`
-    : `<p>If ZeroGEX is working for you, there's nothing you need to do &mdash; you'll keep full access and the renewal will go through automatically.</p>
-      <p>If it isn't the right fit, you can cancel anytime from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> and you won't be charged a cent.</p>`;
+    : `<p>If it isn't the right fit, you can cancel anytime before ${escapeHtml(trialEndDate)} from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a> and you won't be charged a cent.</p>`;
 
   const text = [
     'Hello,',
@@ -846,6 +877,7 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
     '',
     ...(billingLineText ? [billingLineText, ''] : []),
     ...(promoLineText ? [promoLineText, ''] : []),
+    ...continuationText,
     ...convertOfferText,
     ...closingText,
     '',
@@ -862,6 +894,7 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
       <p>${openerHtml}</p>
       ${billingLineHtml ? `<p>${billingLineHtml}</p>` : ''}
       ${promoLineHtml ? `<p>${promoLineHtml}</p>` : ''}
+      ${continuationHtml}
       ${convertOfferHtml}
       ${closingHtml}
       <p style="margin: 24px 0;">
@@ -3056,6 +3089,272 @@ export async function sendTradeworkzNotification(
     text: textLines.join('\n'),
     html,
   });
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Return-intent — the reply to a churned member who came back to the site on
+// their own. Sent by scripts/send-return-intent.mts; see core/returnIntent.ts
+// for the eligibility matrix and for why this one throttles on a COOLDOWN
+// rather than latching once per account like every other nudge.
+//
+// Two deliberate omissions, both of which would be easy points to add and both
+// of which would make this worse:
+//
+//   NO DISCOUNT. This member walked back to the site unprompted. Paying someone
+//   to do a thing they are already doing erodes margin on the most likely
+//   conversion in the book — the same reasoning core/trialOffer.ts uses to
+//   refuse stacking a second coupon on a member who already has an intro rate.
+//   The 25% save (core/retentionOffer.ts) stays available for a later touch if
+//   this one doesn't land.
+//
+//   NO CLAIM ABOUT WHAT THEY LOOKED AT. The sweep knows they logged in; it does
+//   not know which page they wanted, because proxy.ts redirects at the edge
+//   before any page renders. The returning-member wall names it (it has the
+//   ?path= param); this email doesn't, and says nothing it can't stand behind.
+// ---------------------------------------------------------------------------
+
+export type ReturnIntentEmailOptions = {
+  // Which objection to answer, derived from the member's own cancellation
+  // survey by core/returnIntent.ts returnIntentAngle(). 'neutral' addresses
+  // none, which is correct when they never told us.
+  angle: ReturnAngle;
+  // Already filtered to what shipped after THIS member left, newest first, by
+  // core/winbackHighlights.ts. The mailer does no date logic of its own.
+  highlights: WinbackHighlight[];
+  // How many of the above are genuinely new to them. Governs the subject line
+  // and the framing: claiming "here's what's changed" to someone who left last
+  // week is a promise the bullets underneath immediately break.
+  freshCount: number;
+  // A redeemed founding rate survives a lapse and is re-applied at checkout
+  // (core/foundingRestore.ts). Most lapsed founders have no idea.
+  foundingMember: boolean;
+  // Signed per-user opt-out link from core/unsubToken.ts buildUnsubUrl().
+  unsubUrl: string;
+};
+
+// The one paragraph that answers the reason they gave on the way out. Returns
+// null for 'neutral' — an email that invents an objection tells the reader it
+// is automated and wrong, which is worse than one that addresses none.
+function returnAngleParagraph(angle: ReturnAngle): { text: string; html: string } | null {
+  switch (angle) {
+    case 'price':
+      return {
+        text:
+          "You said the price was the problem, so I'll be straight about it: the monthly rate is what it is, but annual billing brings the effective monthly cost down a long way, and the side-by-side is right there on the pricing page. I'd rather have you on the plan that actually fits than not have you here at all.",
+        html:
+          "You said the price was the problem, so I'll be straight about it: the monthly rate is what it is, but <strong>annual billing</strong> brings the effective monthly cost down a long way, and the side-by-side is right there on the pricing page. I'd rather have you on the plan that actually fits than not have you here at all.",
+      };
+    case 'features':
+      return {
+        text:
+          "You left because something you needed wasn't there. Some of it may be now — the list below is what's shipped since. If the specific thing you wanted still isn't on it, hit reply and tell me what it is. That's not a courtesy line; it is genuinely how I pick what to build next.",
+        html:
+          "You left because something you needed wasn't there. Some of it may be now &mdash; the list below is what's shipped since. If the specific thing you wanted still isn't on it, <strong>hit reply and tell me what it is</strong>. That's not a courtesy line; it is genuinely how I pick what to build next.",
+      };
+    case 'complexity':
+      return {
+        text:
+          "You said it was more than you needed, and that's fair — there is a lot on the screen. If you do come back, start with Today's Read on the dashboard and ignore everything else: one screen, one paragraph, the levels that actually matter for the session. The rest is there when you want it and invisible when you don't.",
+        html:
+          "You said it was more than you needed, and that's fair &mdash; there is a lot on the screen. If you do come back, start with <strong>Today's Read</strong> on the dashboard and ignore everything else: one screen, one paragraph, the levels that actually matter for the session. The rest is there when you want it and invisible when you don't.",
+      };
+    case 'unused':
+      return {
+        text:
+          "You said you weren't really using it, which is the most honest reason to leave and the one I can argue with least. The one thing I'd point you at is the Daily Gamma Forecast — it lands before the open and takes a minute to read, so it earns its keep on the days you never open the charts at all.",
+        html:
+          "You said you weren't really using it, which is the most honest reason to leave and the one I can argue with least. The one thing I'd point you at is the <strong>Daily Gamma Forecast</strong> &mdash; it lands before the open and takes a minute to read, so it earns its keep on the days you never open the charts at all.",
+      };
+    case 'switched':
+      return {
+        text:
+          "You moved to something else. If it's working, genuinely — stay. I'd rather you had the right tool than the loyal one. If it's only mostly working, here's what's changed on our side since you left.",
+        html:
+          "You moved to something else. If it's working, genuinely &mdash; stay. I'd rather you had the right tool than the loyal one. If it's only <em>mostly</em> working, here's what's changed on our side since you left.",
+      };
+    default:
+      return null;
+  }
+}
+
+// Pure render — no network. Returns subject + text + html so the same content
+// can go to a member (sendReturnIntentEmail) or be embedded in the founder's
+// pre-send review digest (sendReturnIntentDigestEmail) without drift. Mirrors
+// renderWinbackEmail / renderReactivationEmail.
+export function renderReturnIntentEmail(opts: ReturnIntentEmailOptions): {
+  subject: string;
+  text: string;
+  html: string;
+} {
+  const hasFresh = opts.freshCount > 0;
+  const ctaHref = `${getAppUrl()}/pricing`;
+  const safeCtaHref = escapeHtml(ctaHref);
+  const safeUnsubUrl = escapeHtml(opts.unsubUrl);
+
+  const subject = hasFresh
+    ? "What's changed at ZeroGEX since you left"
+    : 'Your ZeroGEX account is still here';
+
+  const angle = returnAngleParagraph(opts.angle);
+
+  const foundingText = opts.foundingMember
+    ? "One thing you may not know: you're a Founding Member, and that rate is still yours. It re-applies automatically if you resubscribe — founding pricing closed to new members, but it never closed to the people who took it."
+    : null;
+  const foundingHtml = opts.foundingMember
+    ? "One thing you may not know: <strong>you're a Founding Member, and that rate is still yours.</strong> It re-applies automatically if you resubscribe &mdash; founding pricing closed to new members, but it never closed to the people who took it."
+    : null;
+
+  const listHeadingText = hasFresh
+    ? "Here's what's shipped since you left:"
+    : "In case it's useful, here's what we've been building:";
+
+  const text = [
+    'Hello,',
+    '',
+    "I noticed your ZeroGEX account was active again recently, and I'd rather reach out myself than let you bump into a paywall and quietly leave.",
+    '',
+    "Your account is exactly as you left it — the layouts, the symbols, the settings are all still on it. Nothing was deleted when the subscription ended, and resubscribing turns it all back on as it was.",
+    ...(angle ? ['', angle.text] : []),
+    ...(foundingText ? ['', foundingText] : []),
+    '',
+    listHeadingText,
+    '',
+    ...opts.highlights.map((h) => `  • ${h.title} — ${h.body}`),
+    '',
+    `Pick up where you left off: ${ctaHref}`,
+    '',
+    "And if the answer is no, that's completely fine — no follow-up sequence, no countdown timer. You can reply to this and tell me what's missing, or ignore it entirely and I'll leave you alone.",
+    '',
+    'Best,',
+    'Michael',
+    'Founder, ZeroGEX',
+    '',
+    '—',
+    "You're receiving this because you have a ZeroGEX account. Unsubscribe from emails like this:",
+    opts.unsubUrl,
+  ].join('\n');
+
+  const highlightsHtml = opts.highlights
+    .map(
+      (h) =>
+        `<li style="margin: 0 0 10px;"><strong>${escapeHtml(h.title)}</strong> &mdash; ${escapeHtml(h.body)}</li>`,
+    )
+    .join('');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.55;">
+      <p>Hello,</p>
+      <p>I noticed your ZeroGEX account was active again recently, and I'd rather reach out myself than let you bump into a paywall and quietly leave.</p>
+      <p>Your account is exactly as you left it &mdash; the layouts, the symbols, the settings are all still on it. Nothing was deleted when the subscription ended, and resubscribing turns it all back on as it was.</p>
+      ${angle ? `<p>${angle.html}</p>` : ''}
+      ${foundingHtml ? `<p style="background: #fff8e1; border-left: 3px solid #f5b400; padding: 12px 14px; margin: 20px 0;">${foundingHtml}</p>` : ''}
+      <p>${escapeHtml(listHeadingText)}</p>
+      <ul style="padding-left: 20px; margin: 12px 0;">${highlightsHtml}</ul>
+      <p style="margin: 24px 0;">
+        <a href="${safeCtaHref}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Pick up where you left off</a>
+      </p>
+      <p>And if the answer is no, that's completely fine &mdash; no follow-up sequence, no countdown timer. You can reply to this and tell me what's missing, or ignore it entirely and I'll leave you alone.</p>
+      <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
+      <p style="font-size: 12px; color: #999; margin-top: 28px; border-top: 1px solid #eee; padding-top: 14px; line-height: 1.5;">
+        You're receiving this because you have a ZeroGEX account.
+        <a href="${safeUnsubUrl}" style="color: #999; text-decoration: underline;">Unsubscribe from emails like this</a>.
+      </p>
+    </div>
+  `.trim();
+
+  return { subject, text, html };
+}
+
+export async function sendReturnIntentEmail(to: string, opts: ReturnIntentEmailOptions) {
+  const { subject, text, html } = renderReturnIntentEmail(opts);
+
+  const client = getClient();
+  const result = await client.emails.send({
+    from: getFromAddress(),
+    to,
+    subject,
+    text,
+    html,
+    // One-click unsubscribe (RFC 8058), same as the reactivation send: this is
+    // re-engagement mail, so opting out must be one tap for the recipient and
+    // machine-readable for the mailbox provider.
+    headers: {
+      'List-Unsubscribe': `<${opts.unsubUrl}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    },
+  });
+
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
+// Pre-send review digest to the founder (scripts/send-return-intent.mts
+// --digest). Lists exactly who would be mailed this run, with the reason each
+// member gave when they left, and embeds one rendered draft. Sends nothing to
+// those members — the real send is a separate, deliberate `make return-intent YES=1`.
+// Mirrors sendWinbackDigestEmail / sendReactivationDigestEmail.
+export async function sendReturnIntentDigestEmail(
+  to: string,
+  opts: {
+    recipients: Array<{ email: string; angle: string; lastLoginAt: string; churnedAt: string }>;
+    sendCommand: string;
+    draft: { subject: string; text: string; html: string };
+  },
+) {
+  const { recipients, sendCommand, draft } = opts;
+  const count = recipients.length;
+  const subject = `[ZeroGEX] Return-intent review — ${count} returning member${count === 1 ? '' : 's'} ready`;
+
+  const describe = (r: (typeof recipients)[number]) =>
+    `${r.email} — left ${r.churnedAt.slice(0, 10)}, back ${r.lastLoginAt.slice(0, 10)}, angle: ${r.angle}`;
+  const listText = count > 0 ? recipients.map((r) => `  - ${describe(r)}`).join('\n') : '  (none)';
+
+  const text = [
+    `${count} churned member${count === 1 ? ' has' : 's have'} logged back in and not been answered.`,
+    '',
+    'Nothing has been sent yet. To send to everyone below, run:',
+    `  ${sendCommand}`,
+    '',
+    `Recipients (${count}):`,
+    listText,
+    '',
+    '======================================================',
+    'DRAFT that will be sent (subject + body shown for the first recipient;',
+    'the angle paragraph and the highlight list vary per member):',
+    `Subject: ${draft.subject}`,
+    '======================================================',
+    '',
+    draft.text,
+  ].join('\n');
+
+  const safeList =
+    count > 0
+      ? recipients.map((r) => `<li style="margin:2px 0;">${escapeHtml(describe(r))}</li>`).join('')
+      : '<li style="margin:2px 0; color:#999;">(none)</li>';
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 640px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <h1 style="font-size: 18px; margin: 0 0 6px;">Return-intent review &mdash; ${count} eligible</h1>
+      <p style="margin: 0 0 16px; color: #444;">These members churned, came back to the site, and have not been answered. Nothing has been sent yet. To send to everyone listed, run:<br>
+        <code style="display:inline-block; margin-top:6px; background:#f5f5f5; padding:6px 10px; border-radius:6px; font-size:13px;">${escapeHtml(sendCommand)}</code>
+      </p>
+      <h2 style="font-size: 14px; margin: 18px 0 6px;">Recipients (${count})</h2>
+      <ul style="padding-left: 18px; margin: 0 0 20px; font-size: 13px; color: #333;">${safeList}</ul>
+      <div style="border: 1px solid #e5e5e5; border-radius: 10px; overflow: hidden;">
+        <div style="background: #f5b400; color: #000; font-weight: 700; font-size: 13px; padding: 8px 12px;">
+          DRAFT PREVIEW &mdash; Subject: ${escapeHtml(draft.subject)}
+        </div>
+        <div style="padding: 4px 8px;">${draft.html}</div>
+      </div>
+    </div>
+  `.trim();
+
+  const client = getClient();
+  const result = await client.emails.send({ from: getFromAddress(), to, subject, text, html });
   if (result.error) {
     throw new Error(`Resend error: ${result.error.message}`);
   }

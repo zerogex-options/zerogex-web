@@ -81,7 +81,18 @@ const FOUNDING_LOCKIN_SUPPRESSED_ROUTES = new Set(['/login', '/register', '/unau
 // non-suppressed page instead (e.g. the /dashboard the checkout returns to).
 const PRO_WELCOME_SUPPRESSED_ROUTES = new Set(['/login', '/register', '/unauthorized', '/terms', '/privacy', '/forgot-password', '/reset-password', '/pricing', '/founding', '/account']);
 
-export default function ClientLayout({ children }: { children: React.ReactNode }) {
+export default function ClientLayout({
+  children,
+  // Read from cookies in app/layout.tsx so the server emits the same chrome the
+  // client will settle on. Passed down rather than read here so there is one
+  // read per request and both components agree.
+  initialHeaderCollapsed = false,
+  initialSidebarVisible = true,
+}: {
+  children: React.ReactNode;
+  initialHeaderCollapsed?: boolean;
+  initialSidebarVisible?: boolean;
+}) {
   const { theme, setTheme } = useTheme();
   const pathname = usePathname();
   const { data: authSession, refresh: refreshAuth } = useAuthSession();
@@ -284,8 +295,12 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     >
       <TechnicalSnapshotPrewarm />
       <OptionChainPrewarm />
-      <Header theme={theme} onToggleTheme={toggleTheme} />
-      <Navigation theme={theme} />
+      <Header theme={theme} onToggleTheme={toggleTheme} initialCollapsed={initialHeaderCollapsed} />
+      <Navigation
+        theme={theme}
+        initialSidebarVisible={initialSidebarVisible}
+        initialHeaderCollapsed={initialHeaderCollapsed}
+      />
       <main className="md:pl-[var(--zgx-nav-width,0px)]" style={{ flex: 1, paddingTop: "var(--zgx-nav-height, 0px)" }}>
         {children}
       </main>

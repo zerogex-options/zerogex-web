@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createOrLoginOAuthUser, attachSessionCookie, enforceSignupRateLimit, getClientIp, isOAuthReturningUser, issueCsrfCookie, linkUserIdentity, requireSession } from '@/core/serverAuth';
+import { createOrLoginOAuthUser, applyAppearanceCookies, attachSessionCookie, enforceSignupRateLimit, getClientIp, isOAuthReturningUser, issueCsrfCookie, linkUserIdentity, requireSession } from '@/core/serverAuth';
 import { getOAuthConfig, getOAuthNonceCookieName, getOAuthStateCookieName, OAUTH_INTENT_COOKIE_NAME, verifyGoogleIdToken } from '@/core/oauth';
 
 function clearOAuthCookies(response: NextResponse) {
@@ -95,6 +95,7 @@ export async function GET(request: NextRequest) {
   const response = NextResponse.redirect(redirectTo);
   attachSessionCookie(response, session.token);
   issueCsrfCookie(response, session.csrfToken);
+  applyAppearanceCookies(response, session.user.id);
   clearOAuthCookies(response);
   return response;
 }
