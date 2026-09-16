@@ -29,25 +29,41 @@ function logServerApiFailure(path: string, reason: string): void {
 }
 
 /**
- * Fetch a GET endpoint on the FastAPI backend with the server-only bearer
- * key attached. ``revalidateSeconds`` plugs into the Next.js fetch cache so
- * an ISR page rebuilds at that cadence. Returns ``null`` on any failure
- * (missing token, network error, non-2xx) so the caller can render a clean
- * empty state instead of crashing the page render.
+ * Why a fetch produced no data — the distinction ``serverApiGet``'s ``null``
+ * throws away.
  *
- * Every ``null`` is logged with its discriminating reason (see
- * ``logServerApiFailure``) so the otherwise-invisible empty state can be
- * traced to a missing env var vs. an unreachable backend vs. a specific HTTP
- * status from the API.
+ * ``missing`` is the API answering successfully that the thing does not
+ * exist: a 404 or a 410. There is nothing to show and there never will be.
+ *
+ * ``unavailable`` is everything else — no token, the backend unreachable, a
+ * 500, a 503, a 401 from a rotated key. Nothing was learned about whether the
+ * data exists.
+ *
+ * Collapsing the two is only safe for a page that renders an empty state
+ * either way. It is NOT safe for a page that calls ``notFound()``, because a
+ * hard 404 tells Google the URL is gone: a backend blip during a crawl then
+ * de-indexes a permalink that has perfectly good data behind it, and the URL
+ * has to earn its place back. Those callers want ``serverApiGetResult``.
  */
-export async function serverApiGet<T>(
+export type ApiResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; reason: 'missing' | 'unavailable' };
+
+/**
+ * ``serverApiGet`` with the reason kept.
+ *
+ * Same request, same cache entry, same logging — the only difference is that a
+ * failure says which kind it was. Use this wherever the answer decides an HTTP
+ * status; use ``serverApiGet`` when a clean empty state is right either way.
+ */
+export async function serverApiGetResult<T>(
   path: string,
   revalidateSeconds: number,
-): Promise<T | null> {
+): Promise<ApiResult<T>> {
   const token = process.env.ZEROGEX_API_TOKEN || process.env.ZEROGEX_API_KEY;
   if (!token) {
     logServerApiFailure(path, 'ZEROGEX_API_TOKEN/ZEROGEX_API_KEY not set on the server');
-    return null;
+    return { ok: false, reason: 'unavailable' };
   }
   try {
     const res = await fetch(`${UPSTREAM_BASE}${path}`, {
@@ -71,9 +87,14 @@ export async function serverApiGet<T>(
         path,
         `HTTP ${res.status} ${res.statusText}${detail ? ` — ${detail}` : ''}`,
       );
-      return null;
+      // 404/410 is the API telling us the row is not there, which is a fact
+      // about the data. Every other status is a fact about the service.
+      return {
+        ok: false,
+        reason: res.status === 404 || res.status === 410 ? 'missing' : 'unavailable',
+      };
     }
-    return (await res.json()) as T;
+    return { ok: true, data: (await res.json()) as T };
   } catch (err) {
     // Network-level failure reaching UPSTREAM_BASE (backend down, connection
     // refused, DNS, TLS) — the request never got a reply, distinct from a
@@ -81,6 +102,29 @@ export async function serverApiGet<T>(
     // line scannable.
     const message = err instanceof Error ? err.message : String(err);
     logServerApiFailure(path, `fetch failed reaching ${UPSTREAM_BASE} — ${message}`);
-    return null;
+    return { ok: false, reason: 'unavailable' };
   }
+}
+
+/**
+ * Fetch a GET endpoint on the FastAPI backend with the server-only bearer
+ * key attached. ``revalidateSeconds`` plugs into the Next.js fetch cache so
+ * an ISR page rebuilds at that cadence. Returns ``null`` on any failure
+ * (missing token, network error, non-2xx) so the caller can render a clean
+ * empty state instead of crashing the page render.
+ *
+ * Every ``null`` is logged with its discriminating reason (see
+ * ``logServerApiFailure``) so the otherwise-invisible empty state can be
+ * traced to a missing env var vs. an unreachable backend vs. a specific HTTP
+ * status from the API.
+ *
+ * A thin wrapper over ``serverApiGetResult`` so there is one request path and
+ * one place the logging lives.
+ */
+export async function serverApiGet<T>(
+  path: string,
+  revalidateSeconds: number,
+): Promise<T | null> {
+  const result = await serverApiGetResult<T>(path, revalidateSeconds);
+  return result.ok ? result.data : null;
 }

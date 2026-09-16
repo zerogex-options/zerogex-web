@@ -16,7 +16,7 @@ const BILLING_USER_COLUMNS = `id, email, deleted_at, tier, founding_member_start
        founding_lifetime_applied_at, referred_by_code, referral_credit_months, stripe_customer_id,
        stripe_subscription_id, stripe_price_id, subscription_status, cancel_at_period_end,
        payment_grace_started_at, payment_grace_reason, paused_until, trial_converted_email_sent_at,
-       first_payment_at`;
+       first_payment_at, last_paid_subscription_id, last_paid_invoice_at`;
 
 export type BillingUserRow = {
   id: string;
@@ -64,6 +64,16 @@ export type BillingUserRow = {
   // -account stamp in maybeStampFirstPayment; the CAS UPDATE there is the
   // authority. See core/db.ts for why subscription_status can't answer this.
   first_payment_at: string | null;
+  // Which subscription last had an invoice PAID on it, and when. Unlike
+  // first_payment_at these are per-SUBSCRIPTION: the id is compared against
+  // stripe_subscription_id to answer "has the subscription this member is on
+  // right now actually been charged", which first_payment_at cannot do for
+  // anyone on their second subscription. Read pre-UPDATE so the cancellation
+  // acknowledgment can tell a conversion charge in flight from an ordinary
+  // cancel. See core/db.ts for why this is a pointer rather than a stamp that
+  // gets cleared.
+  last_paid_subscription_id: string | null;
+  last_paid_invoice_at: string | null;
 };
 
 // The DEFAULT lookup, and deliberately the safe one: it never returns a

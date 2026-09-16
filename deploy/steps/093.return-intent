@@ -1,0 +1,199 @@
+#!/bin/bash
+
+# ==============================================
+# Step 093: Return-Intent Timer (systemd)
+# ==============================================
+#
+# Installs and enables the return-intent REVIEW-DIGEST timer (see
+# deploy/systemd/zerogex-web-return-intent.{service,timer}). The timer fires
+# daily (:50) and triggers `make return-intent DIGEST=1`, which emails the
+# founder (RETURN_INTENT_DIGEST_TO) every churned member who has logged back in
+# since they left and has not been answered, plus one rendered draft — and sends
+# NOTHING to those members. The founder approves a batch with
+# `make return-intent YES=1`.
+#
+# This is the one churn touch that fires on BEHAVIOUR rather than a calendar.
+# The cancellation acknowledgment fires at the click; the win-back fires ~30
+# days after access ends. Both are guesses, and both are one-shot latches that
+# are already spent. A churned member who logs back in is not a guess, and
+# nothing else in the system reads that signal.
+#
+# Throttled by a COOLDOWN (users.return_intent_email_sent_at, default 90 days)
+# rather than a permanent latch, and the visit must also postdate the last send
+# — so it re-arms for every future return instead of spending the cohort on one
+# run. No discount and no trial claim; where the member left a cancellation
+# reason the copy answers that objection. To auto-send daily instead of
+# reviewing first, change the service ExecStart to `return-intent YES=1`.
+#
+# Idempotent — safe to re-run. The unit files are overwritten from the repo
+# (they're version-controlled, so this is the desired behavior), and
+# `systemctl enable --now` is a no-op for an already-enabled timer. No config
+# file is written (the script reads RESEND_API_KEY, RESEND_FROM_EMAIL,
+# NEXT_PUBLIC_APP_URL, ZEROGEX_END_USER_TOKEN_SECRET and the optional
+# RETURN_INTENT_DIGEST_TO from frontend/.env.local, which step 030 / 036
+# already manage).
+
+set -e
+
+# Re-point HOME when this step is run directly under `sudo`: $HOME is then
+# /root, but the repo, nvm, pm2 and the auth DB all live in the invoking user's
+# home, so every path below would resolve under /root and fail a precondition
+# that is actually satisfied. deploy.sh does this for the steps it runs; doing
+# it here too means a standalone `sudo ./deploy/steps/<step>` resolves the same
+# paths. A no-op when already running as the owning user.
+if [ -n "${SUDO_USER:-}" ] && [ "${SUDO_USER:-}" != "root" ]; then
+    STEP_SUDO_HOME="$(getent passwd "$SUDO_USER" | cut -d: -f6)"
+    [ -n "$STEP_SUDO_HOME" ] && export HOME="$STEP_SUDO_HOME"
+fi
+[ -z "${HOME:-}" ] && export HOME="/home/ubuntu"
+
+# Fallback log if this step is invoked directly (deploy.sh exports a log
+# function, but operators sometimes run a single step in isolation to rotate
+# units without re-running the whole pipeline).
+type log >/dev/null 2>&1 || log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
+
+log "Return-Intent Timer Setup"
+
+# Resolve the owning user even when deploy.sh is invoked via sudo (deploy.sh
+# re-points HOME to the SUDO_USER but not USER).
+OWNER="${SUDO_USER:-$USER}"
+
+APP_DIR="$HOME/zerogex-web"
+SYSTEMD_SOURCE="$APP_DIR/deploy/systemd"
+SYSTEMD_TARGET="/etc/systemd/system"
+UNIT="zerogex-web-return-intent"
+ENV_FILE="$APP_DIR/frontend/.env.local"
+
+# --- Preconditions ---------------------------------------------------
+if [ ! -d "$SYSTEMD_SOURCE" ]; then
+    log "  ✗ systemd source dir not found: $SYSTEMD_SOURCE"
+    exit 1
+fi
+for f in "${UNIT}.service" "${UNIT}.timer"; do
+    if [ ! -f "$SYSTEMD_SOURCE/$f" ]; then
+        log "  ✗ missing unit file: $SYSTEMD_SOURCE/$f"
+        exit 1
+    fi
+done
+
+# nvm + Node 22 are installed by step 020.nodejs. The Makefile target sources
+# $HOME/.nvm/nvm.sh at runtime, so presence here is enough — we don't need node
+# on PATH for this step itself.
+if [ -s "$HOME/.nvm/nvm.sh" ]; then
+    log "  ✓ nvm present at $HOME/.nvm/nvm.sh"
+else
+    log "  ✗ nvm not found at $HOME/.nvm/nvm.sh — run step 020.nodejs first"
+    exit 1
+fi
+
+# --- Env soft-check ---------------------------------------------------
+# The script needs Resend creds to actually send mail; warn (don't fail) if
+# they're empty, because step 036 seeds the keys with empty placeholders and the
+# operator may not have filled them in yet. The timer still installs — if the
+# keys land later, the next scheduled tick just works.
+warn_missing_env() {
+    local key="$1"
+    local value
+    value=$(grep -E "^${key}=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+    if [ -z "$value" ]; then
+        log "  ⚠ $key is unset in $ENV_FILE — timer will install but sends will error until set"
+    else
+        log "  ✓ $key is set"
+    fi
+}
+if [ -f "$ENV_FILE" ]; then
+    warn_missing_env RESEND_API_KEY
+    warn_missing_env RESEND_FROM_EMAIL
+    warn_missing_env NEXT_PUBLIC_APP_URL
+else
+    log "  ⚠ $ENV_FILE not found — step 030 should have created it"
+fi
+
+# --- Install + enable the units --------------------------------------
+log "  → Installing ${UNIT}.{service,timer}..."
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.service" "$SYSTEMD_TARGET/"
+sudo cp "$SYSTEMD_SOURCE/${UNIT}.timer"   "$SYSTEMD_TARGET/"
+
+# --- Sandbox drop-in for AUTH_DB_PATH --------------------------------
+# Derive the writable DB dir from .env.local so the sandbox stays sealed but the
+# SQLite UPDATE actually lands wherever the operator points the DB. Without this,
+# ProtectSystem=strict silently blocks the latch write whenever AUTH_DB_PATH
+# lives outside the repo (e.g. /var/lib/zerogex): the Resend HTTPS call succeeds,
+# the UPDATE errors as readonly, and the next tick re-sends. Drop-in (vs. editing
+# the version-controlled .service file) keeps the repo defaults clean and lets
+# each environment carry its own ReadWritePaths addition.
+DROPIN_DIR="$SYSTEMD_TARGET/${UNIT}.service.d"
+DROPIN="$DROPIN_DIR/auth-db-path.conf"
+AUTH_DB_PATH=""
+if [ -f "$ENV_FILE" ]; then
+    AUTH_DB_PATH=$(grep -E "^AUTH_DB_PATH=" "$ENV_FILE" 2>/dev/null \
+        | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
+fi
+if [ -n "$AUTH_DB_PATH" ] && [[ "$AUTH_DB_PATH" == /* ]]; then
+    AUTH_DB_DIR=$(dirname "$AUTH_DB_PATH")
+    log "  → Writing sandbox drop-in (ReadWritePaths=$AUTH_DB_DIR)..."
+    sudo mkdir -p "$DROPIN_DIR"
+    sudo tee "$DROPIN" >/dev/null <<EOF
+[Service]
+ReadWritePaths=$AUTH_DB_DIR
+EOF
+    log "     ✓ drop-in installed at $DROPIN"
+else
+    # Stale drop-in removal: if a past deploy wrote one and the operator later
+    # cleared AUTH_DB_PATH (or pointed it to a relative path), don't leave a
+    # now-misleading whitelist behind.
+    if [ -f "$DROPIN" ]; then
+        log "  → Removing stale drop-in (AUTH_DB_PATH unset or relative)..."
+        sudo rm -f "$DROPIN"
+        sudo rmdir "$DROPIN_DIR" 2>/dev/null || true
+    fi
+    log "  → AUTH_DB_PATH absolute path unset; using unit-default ReadWritePaths"
+fi
+
+sudo systemctl daemon-reload
+
+log "  → Enabling ${UNIT}.timer (daily :50, Persistent=true)..."
+if sudo systemctl enable --now "${UNIT}.timer" 2>/dev/null; then
+    NEXT=$(systemctl list-timers --no-pager --no-legend "${UNIT}.timer" 2>/dev/null | awk '{print $1, $2}')
+    log "     ✓ ${UNIT}.timer enabled (next run: ${NEXT:-unknown})"
+else
+    log "     ✗ ${UNIT}.timer failed to enable"
+    exit 1
+fi
+
+# --- Env soft-check for the digest recipient -------------------------
+# The daily job runs in DIGEST mode, which needs a founder address to send the
+# review email to. Warn (don't fail) if it's unset — the timer still installs.
+if [ -f "$ENV_FILE" ]; then
+    warn_missing_env RETURN_INTENT_DIGEST_TO
+fi
+
+# The script also needs ZEROGEX_END_USER_TOKEN_SECRET to sign the one-click
+# unsubscribe link. The DIGEST run does not sign one, so an unset secret shows
+# up only when the operator approves a batch — check it here instead of at 2am.
+if [ -f "$ENV_FILE" ]; then
+    warn_missing_env ZEROGEX_END_USER_TOKEN_SECRET
+fi
+
+# Deliberately NO test run: the service's ExecStart is the real DIGEST run (it
+# emails the founder). We let the first scheduled tick be the validation.
+# journalctl shows the result.
+
+log ""
+log "Return-intent review-digest timer setup complete!"
+log ""
+log "Summary:"
+log "  ✓ ${UNIT}.timer enabled (daily 16:50 UTC, Persistent=true catches missed runs)"
+log "  ✓ REVIEW MODE: the daily run emails RETURN_INTENT_DIGEST_TO the eligible list + draft and sends NOTHING to members"
+log "  ✓ Approve a batch with: make return-intent YES=1  (auto-send instead: set service ExecStart to 'return-intent YES=1')"
+log "  ✓ Eligibility: lapsed + verified + not deleted + not unsubscribed + non-admin + a login AFTER their churn, 24h-14d old"
+log "  ✓ Throttled by a COOLDOWN (users.return_intent_email_sent_at, 90d) — NOT a one-shot latch, so it re-arms for every future return"
+log "  ✓ No discount and no trial claim; per-reason copy comes from the member's own Stripe cancellation survey"
+log ""
+log "Useful commands:"
+log "  • systemctl list-timers ${UNIT}.timer                                  - next/last run"
+log "  • cd $APP_DIR && make return-intent DRY_RUN=1                          - who qualifies, and why everyone else did not"
+log "  • cd $APP_DIR && make return-intent DIGEST=1 DIGEST_TO=you@example.com - send yourself the review digest now"
+log "  • cd $APP_DIR && make return-intent YES=1 LIMIT=25                     - APPROVE + send, capped at 25 this run"
+log "  • cd $APP_DIR && make return-intent PREVIEW_TO=you@example.com         - one sample email"
+log "  • journalctl -u ${UNIT} -n 50                                          - recent run logs"
