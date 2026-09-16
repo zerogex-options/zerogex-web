@@ -34,9 +34,9 @@ import { omitClosedMarketTimes, shouldOmitClosedMarketTimes, isIndexSymbol, isWi
 import { SYMBOLS } from "@/core/symbols";
 import {
   cumulativeNetVolume,
+  lastSessionStartIndex,
   netVolumeAreaPaths,
   netVolumeScale,
-  sessionStartIndices,
   signedAreaSegments,
   VOLUME_MODE_LABELS,
   type VolumeMode,
@@ -1015,33 +1015,45 @@ export default function GammaTerminalChart({
 
   // ── Net cumulative volume (the volume pane's second view) ────────────────
   // A running session total of uptick MINUS downtick volume, drawn as an area
-  // off a zero line — green while buyers have led the day's tape, red once
+  // off a zero line — green while buyers have led the session's tape, red once
   // sellers have taken it back. Same instrument, and the same read, as the
   // Options Flow chart's Directional net volume.
   //
-  // The total is accumulated over every bar up to the right edge, not just the
-  // bars on screen: a cumulative that restarted at the left edge of the
-  // viewport would print a different number for the same bar at every zoom.
-  // Panning back into the session therefore shows exactly the curve the live
-  // view showed. The replay's growing edge candle is substituted the same way
-  // `bars` substitutes it, so the total fills in with the replay instead of
-  // snapping. Intraday bars restart the total each ET trading date (the day
-  // separators the chart already draws); daily candles are one bar per session
-  // already, so their total runs across the window.
+  // It measures ONE session: the total starts at zero on the most recent
+  // session's opening bar and every bar before that open reads flat zero, so
+  // the pane is "where this session's tape has got to" rather than a hump per
+  // day, and the pane's scale belongs to the session on screen instead of being
+  // squashed by a busier day beside it.
+  //
+  // "Most recent" is resolved through the RIGHT EDGE, not the wall clock: the
+  // total is accumulated over every bar up to the edge, so a rewound or
+  // panned-back view measures the session that edge sits in (the live view's
+  // own curve, at the zoom that shows it) instead of blanking out because the
+  // live session is off screen. That is also why a cumulative may never be
+  // accumulated from the left edge of the viewport: it would print a different
+  // number for the same bar at every zoom. The replay's growing edge candle is
+  // substituted the same way `bars` substitutes it, so the total fills in with
+  // the replay instead of snapping. Daily candles are one bar per session
+  // already, so they accumulate across the whole window instead.
   const netVolume = useMemo(() => {
     if (volumeMode !== "net" || bars.length === 0) return null;
     const throughEdge = allBars.slice(0, viewEnd);
     if (partialCurrentBar && throughEdge.length > 0) throughEdge[throughEdge.length - 1] = partialCurrentBar;
-    const perDay = timeframe !== "1day";
-    const values = cumulativeNetVolume(throughEdge, { resetPerDay: perDay }).slice(viewStart, viewEnd);
+    const scope = timeframe === "1day" ? "window" : "session";
+    const values = cumulativeNetVolume(throughEdge, { scope, symbol }).slice(viewStart, viewEnd);
     if (values.length === 0) return null;
+    // Viewport-relative index of the session's first bar — 0 when the open is
+    // already off to the left. `bars` ends on the same edge bar `throughEdge`
+    // does, so the two agree on which session is the last one.
+    const sessionStart = scope === "session" ? lastSessionStartIndex(bars, symbol) : 0;
     return {
       values,
-      segments: signedAreaSegments(values, perDay ? sessionStartIndices(bars) : []),
+      sessionStart,
+      segments: signedAreaSegments(values, [sessionStart]),
       scale: netVolumeScale(values, { top: VOL_TOP, bottom: VOL_BOTTOM }),
       last: values[values.length - 1],
     };
-  }, [volumeMode, bars, allBars, viewStart, viewEnd, partialCurrentBar, timeframe]);
+  }, [volumeMode, bars, allBars, viewStart, viewEnd, partialCurrentBar, timeframe, symbol]);
 
   const atLiveEdge = !rewindActive && effOffset === 0;
   const isCustomView = view.offset !== 0 || view.count !== DEFAULT_COUNT || priceIsManual;
@@ -2539,7 +2551,7 @@ export default function GammaTerminalChart({
                   title={
                     m === "updown"
                       ? "Uptick volume (green) stacked over downtick volume (red), one column per bar."
-                      : "Running session total of uptick minus downtick volume, from the day's first bar. Above zero (green) buyers have led the tape; below it (red) sellers have."
+                      : "Running total of uptick minus downtick volume for the current session only — it starts at zero on the session's opening bar, and earlier sessions read flat zero. Above zero (green) buyers have led the tape; below it (red) sellers have."
                   }
                 >
                   {VOLUME_MODE_LABELS[m]}
@@ -3246,11 +3258,17 @@ export default function GammaTerminalChart({
                 <Row k="C" v={fmtPrice(activeBar.close)} color={activeBar.close >= activePrevClose ? "var(--color-bull)" : "var(--color-bear)"} />
                 <Row k="Vol" v={fmtVol(activeBar.volume)} />
                 {netVolume && (
-                  <Row
-                    k="Net"
-                    v={fmtVolSigned(netVolume.values[activeIdx] ?? 0)}
-                    color={(netVolume.values[activeIdx] ?? 0) >= 0 ? "var(--color-bull)" : "var(--color-bear)"}
-                  />
+                  /* Before the session opened there is no running total to
+                     report — a dash, not a "+0" that reads like a measurement. */
+                  activeIdx < netVolume.sessionStart ? (
+                    <Row k="Net" v="—" color="var(--text-muted)" />
+                  ) : (
+                    <Row
+                      k="Net"
+                      v={fmtVolSigned(netVolume.values[activeIdx] ?? 0)}
+                      color={(netVolume.values[activeIdx] ?? 0) >= 0 ? "var(--color-bull)" : "var(--color-bear)"}
+                    />
+                  )
                 )}
               </div>
               {liveBarClock && activeBar.timestamp === liveBarTimestamp && (
