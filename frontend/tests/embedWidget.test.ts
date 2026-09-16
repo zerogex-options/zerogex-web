@@ -115,6 +115,30 @@ test('the production nginx exempts the frames from its site-wide DENY', () => {
   }
 });
 
+test('the nginx heredoc contains no backticks', () => {
+  // 070.ssl writes the site config with an UNQUOTED heredoc, because the
+  // config interpolates ${DOMAIN_NAME} and friends. That also makes the shell
+  // expand backticks INSIDE COMMENTS. A backtick pair there runs as a command:
+  // it prints "command not found" mid-deploy and silently deletes that text
+  // from the file being written. Shipped exactly that way once — five pairs in
+  // a comment explaining the block below it — and the only reason it was
+  // harmless is that every one of them sat behind a '#'.
+  const ssl = readFileSync(path.join(ROOT, '../deploy/steps/070.ssl'), 'utf8');
+  const start = ssl.indexOf('<<EOF_CONF');
+  const end = ssl.indexOf('\nEOF_CONF', start);
+  assert.ok(start > 0 && end > start, 'could not locate the config heredoc');
+  const heredoc = ssl.slice(start, end);
+  const offending = heredoc
+    .split('\n')
+    .filter((line) => line.includes('`'))
+    .map((line) => line.trim());
+  assert.deepEqual(
+    offending,
+    [],
+    `backticks inside the unquoted heredoc will be executed by the shell:\n${offending.join('\n')}`,
+  );
+});
+
 // ---------------------------------------------------------------------------
 // Indexation
 // ---------------------------------------------------------------------------

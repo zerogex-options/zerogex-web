@@ -120,6 +120,13 @@ if [ -n "$ORIGIN_MTLS" ] && [ "$ORIGIN_MTLS" != "off" ] && [ "$ORIGIN_MTLS" != "
 fi
 
 log "  → Installing hardened HTTPS nginx config..."
+# NOTE: an UNQUOTED heredoc, because the config below interpolates
+# ${DOMAIN_NAME}, ${WEB_PORT}, ${API_UPSTREAM} and ${MTLS_DIRECTIVES}. That
+# means the shell also expands backticks and bare $ IN COMMENTS. A backtick
+# pair anywhere below runs as a command: it prints "command not found" during
+# deploy and silently deletes that text from the written config. Quote things
+# in these comments with "double quotes", never with backticks, and escape any
+# nginx variable as \$foo.
 sudo tee "$SITE_CONF" > /dev/null <<EOF_CONF
 server {
     listen 80;
@@ -304,26 +311,26 @@ ${MTLS_DIRECTIVES}
     # Frontend reverse proxy
     # The embeddable gamma-levels widget, and only it.
     #
-    # The server-level `X-Frame-Options "DENY"` above is right for every other
+    # The server-level X-Frame-Options DENY above is right for every other
     # URL on this host and fatal here: these frames exist to be rendered inside
     # other people's pages, and DENY forbids framing outright — not merely
     # cross-origin, but same-origin too, which would also break the live
-    # preview on /embed itself. Worse, nginx `add_header` APPENDS rather than
+    # preview on /embed itself. Worse, nginx add_header APPENDS rather than
     # replaces, so the response would carry both the app's SAMEORIGIN and this
     # DENY, and a browser resolves a conflicting pair as the stricter one.
     #
-    # nginx inherits `add_header` from the enclosing level ONLY when the
+    # nginx inherits add_header from the enclosing level ONLY when the
     # current level declares none of its own. So re-stating the three headers
     # that still apply, and omitting X-Frame-Options, is what drops DENY for
     # this prefix without weakening anything anywhere else. The route handler
-    # then supplies its own `Content-Security-Policy: frame-ancestors *`,
+    # then supplies its own Content-Security-Policy of frame-ancestors *,
     # which is the modern directive and the one that actually governs here.
     #
     # Nothing behind this prefix is private: no cookies, no session, no member
     # data — every byte is already public on the free /<ticker>-gamma-levels
     # pages — so there is nothing for a hostile framer to obtain from it.
     #
-    # A REGEX location, not the `^~ /embed/` prefix it looks like it should be.
+    # A REGEX location, not the "^~ /embed/" prefix it looks like it should be.
     # With the prefix form nginx answers a request for /embed (no slash) with a
     # 301 to /embed/ — and /embed is the builder page, the canonical URL, and
     # the one entry for this feature in the sitemap. Redirecting it would spend
