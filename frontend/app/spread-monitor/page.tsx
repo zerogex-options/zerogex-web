@@ -41,6 +41,7 @@ import ExpirationCurve from './ExpirationCurve';
 import MoneynessCurve from './MoneynessCurve';
 import SpreadHistoryChart from './SpreadHistoryChart';
 import SpreadSessionChart from './SpreadSessionChart';
+import SurfaceSection from './SurfaceSection';
 
 /**
  * Spread Monitor — can you actually get filled in this chain?
@@ -56,8 +57,9 @@ import SpreadSessionChart from './SpreadSessionChart';
  *   1. How wide is it right now, and which side is worse?
  *   2. Has it got worse THROUGH today?          (session chart)
  *   3. WHERE in the chain?                      (moneyness curve, expiries)
- *   4. Is today unusual for this symbol?        (daily record)
- *   5. Is another index any better?             (cross-symbol table)
+ *   4. Is today unusual for this symbol?        (surface vs history)
+ *   5. And how has that run over time?          (daily record)
+ *   6. Is another index any better?             (cross-symbol table)
  *
  * The one rule the whole page follows: no invented thresholds. Quoted
  * width has no universal "wide" line — SPX puts are structurally wider
@@ -381,6 +383,15 @@ export default function SpreadMonitorPage() {
               </table>
             </div>
           </ChartPanel>
+
+          {/* The readout at the top ranks the chain as one number; this ranks
+              it strike by strike and expiry by expiry, which is the cut that
+              separates "everything is wide" from "the front-month put wing
+              is wide". It carries its own scope pills because a percentile is
+              only meaningful inside a scope history was stored for, and the
+              page filters above are free to take values the rollup never
+              wrote. */}
+          <SurfaceSection symbol={symbol} enabled={!futures} historyDays={HISTORY_DAYS} />
 
           <ChartPanel
             title={`Daily record — last ${HISTORY_DAYS} sessions`}

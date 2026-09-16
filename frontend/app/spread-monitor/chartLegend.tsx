@@ -34,6 +34,13 @@ export interface LegendItem {
   /** `line` honours `dasharray`; `rect` is a fill swatch. */
   shape?: 'line' | 'rect';
   dasharray?: string;
+  /**
+   * Match the series' own `fillOpacity` when it is not 1. A shaded envelope
+   * drawn at 0.14 and legended at full strength is a swatch that looks like
+   * a different series — on a dark theme the solid chip reads as the
+   * brightest thing in the legend, next to the faintest thing in the plot.
+   */
+  opacity?: number;
 }
 
 function Swatch({ item }: { item: LegendItem }) {
@@ -62,6 +69,7 @@ function Swatch({ item }: { item: LegendItem }) {
         height: 10,
         borderRadius: 2,
         backgroundColor: item.color,
+        opacity: item.opacity ?? 1,
         flex: 'none',
       }}
     />

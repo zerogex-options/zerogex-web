@@ -20,6 +20,34 @@ type Update = {
 // Newest first. Add a new object to the top of this array to publish an update.
 const UPDATES: Update[] = [
   {
+    date: 'September 16, 2026',
+    title: 'Spread Monitor: is this wide, or is it just Tuesday?',
+    intro:
+      'The Spread Monitor could already tell you how wide the market was. What it could not tell you is whether that width was unusual \u2014 and a number with nothing to compare it to is a number you still have to guess about. It has a baseline now, and the baseline knows what time it is.',
+    whatsNew: [
+      {
+        title: 'Spread surface vs history',
+        href: '/spread-monitor',
+        body: 'A new section that draws today\u2019s quoted width across the strikes on top of what the same symbol normally quotes in the same band \u2014 the median, and the middle half of its own distribution shaded behind it. Puts and calls are a toggle rather than an overlay, because the reading people care about is the one where the puts moved and the calls did not.',
+      },
+      {
+        title: 'Compared at the same time of day',
+        href: '/spread-monitor',
+        body: 'Spreads have a shape through the session: the open and the close are structurally wider than midday. So a 3:40pm reading is ranked against prior sessions at 3:40pm, not against their whole day, and the panel names the half-hour it matched. Without that, every late-afternoon reading looks like a deterioration and every lunchtime one looks calm.',
+      },
+      {
+        title: 'Which expiry is actually unusual',
+        href: '/spread-monitor',
+        body: 'A second chart ranks each expiry bucket against its own history rather than plotting its width. 0DTE is the widest book every day of the year, so a width chart there says the same thing forever; a percentile chart says "the chain is broadly normal and the front expiry is not", which is the thing worth knowing. Buckets without enough stored history say so instead of drawing a bar.',
+      },
+      {
+        title: 'It says when it cannot say',
+        href: '/help/platform/spread-monitor',
+        body: 'The panel prints how many comparable sessions are behind every comparison, over what dates, at what time of day \u2014 and prints zero when that is the answer. Below eight sessions no percentile is shown at all, because "the widest of the four days we have" is not a distribution, and drawing it as one would be the most misleading thing on the page.',
+      },
+    ],
+  },
+  {
     date: 'September 10, 2026',
     title: 'Spread Monitor: can you actually get filled?',
     intro:

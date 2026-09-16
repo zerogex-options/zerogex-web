@@ -405,3 +405,198 @@ export function moneynessAxisLabel(bucket: MoneynessBucket): string {
   if (low >= 0) return `${low.toFixed(1)}–${high.toFixed(1)}% above`;
   return 'At the money';
 }
+
+// ---------------------------------------------------------------------------
+// Spread Surface vs History
+// ---------------------------------------------------------------------------
+//
+// The rest of this file describes how wide the chain is. This part describes
+// whether that width is UNUSUAL, and where across the strikes it is unusual —
+// which needs a second thing the snapshot does not carry: the same measurement
+// on the same symbol, in the same strike band, at the same time of day, on
+// prior sessions.
+//
+// Every refusal in here exists because the honest answer is sometimes "we
+// cannot say". A percentile computed from four days is not a percentile, a
+// bucket with no stored history is a gap rather than a zero, and a session
+// count has to describe the same days as the date range printed beside it.
+
+/** One moneyness slice of the strike curve, current against its own history. */
+export interface SurfacePoint {
+  money_bucket: string;
+  label: string;
+  moneyness_low_pct: number;
+  moneyness_high_pct: number;
+  /** Bucket midpoint — the curve's x position. */
+  center_pct: number;
+  current_pct: number | null;
+  historical_median_pct: number | null;
+  historical_p25_pct: number | null;
+  historical_p75_pct: number | null;
+  /** Where today sits in this slice's own history, 0-100. */
+  percentile: number | null;
+  vs_normal: number | null;
+  contract_count: number;
+  two_sided_pct: number | null;
+  /** Comparable prior sessions behind this slice, after every filter. */
+  sessions: number;
+}
+
+/** One expiry bucket in the "where does it rank" view. */
+export interface SurfaceDteRank {
+  dte_scope: string;
+  label: string;
+  percentile: number | null;
+  current_pct: number | null;
+  historical_median_pct: number | null;
+  sessions: number;
+  /** True when there is not enough history to rank. Say so; draw nothing. */
+  insufficient_history: boolean;
+}
+
+/** Exactly what the comparison was made against. Rendered, never buried. */
+export interface SurfaceBaseline {
+  sessions: number;
+  earliest_date: string | null;
+  latest_date: string | null;
+  time_matched: boolean;
+  /** e.g. `15:30-16:00 ET`. */
+  time_bucket_label: string;
+  fell_back_to_last_bucket: boolean;
+  min_sessions: number;
+}
+
+export interface SurfaceSummary {
+  current_pct: number | null;
+  normal_pct: number | null;
+  vs_normal: number | null;
+  percentile: number | null;
+  two_sided_pct: number | null;
+  contract_count: number;
+  sessions: number;
+}
+
+export interface SpreadSurface {
+  symbol: string;
+  option_type: 'C' | 'P';
+  spot_price: number;
+  timestamp: string;
+  session_date: string;
+  dte_max: number;
+  dte_scope: string;
+  moneyness_band_pct: number;
+  basis: string;
+  disclosure: string;
+  baseline: SurfaceBaseline;
+  summary: SurfaceSummary;
+  curve: SurfacePoint[];
+  by_dte: SurfaceDteRank[];
+}
+
+/**
+ * The baseline sentence — how many sessions, over what dates, at what clock.
+ *
+ * Built from the response rather than from the request, which is the whole
+ * point: the page asked for 60 days, and what came back is however many of
+ * those sessions had enough of this exact scope quoted to measure. Printing
+ * the request would claim history the comparison does not have.
+ */
+export function baselineSummary(baseline: SurfaceBaseline | null | undefined): string {
+  if (!baseline || baseline.sessions === 0) {
+    return 'No comparable sessions stored for this scope yet.';
+  }
+  const plural = baseline.sessions === 1 ? 'session' : 'sessions';
+  const range =
+    baseline.earliest_date && baseline.latest_date
+      ? ` (${baseline.earliest_date} to ${baseline.latest_date})`
+      : '';
+  const clock = baseline.time_matched
+    ? ` · time-matched history: ${baseline.time_bucket_label}`
+    : '';
+  return `${baseline.sessions} comparable ${plural}${range}${clock}`;
+}
+
+/**
+ * Is the baseline thick enough to rank against?
+ *
+ * The API already withholds the percentile below its own floor, so this is
+ * only for the page's copy — it needs to say WHY a rank is missing, and
+ * "not enough history yet" is a different sentence from "this scope has no
+ * rows at all".
+ */
+export function hasUsableBaseline(baseline: SurfaceBaseline | null | undefined): boolean {
+  return !!baseline && baseline.sessions >= baseline.min_sessions;
+}
+
+/**
+ * Where the deterioration is, as a sentence — the page's one interpretation.
+ *
+ * Rules, not prose generation: the thresholds are the same ones
+ * `percentileVerdict` already uses for the rest of the page (95 / 80 / 20),
+ * so the strike curve and the header cards cannot disagree about what
+ * "wider than usual" means. Nothing here invents a number; it names the
+ * slices the response already ranked.
+ *
+ * Returns null when there is no baseline. A view whose entire job is "is
+ * this unusual" must be able to say nothing.
+ */
+export function surfaceReadout(
+  surface: SpreadSurface | null | undefined,
+): Verdict | null {
+  if (!surface) return null;
+  const { summary, baseline, curve } = surface;
+  const verdict = percentileVerdict(summary.percentile, baseline.sessions);
+  if (!verdict) return null;
+
+  const side = surface.option_type === 'P' ? 'put' : 'call';
+  const elevated = curve
+    .filter((point) => point.percentile != null && point.percentile >= 80)
+    .sort((a, b) => (b.percentile ?? 0) - (a.percentile ?? 0));
+  const ranked = curve.filter((point) => point.percentile != null);
+
+  let where: string;
+  if (ranked.length === 0) {
+    where = `No ${side} strike band in this scope has enough stored history to place today within it.`;
+  } else if (elevated.length === 0) {
+    where = `No individual strike band is above its own 80th percentile, so the ${side} reading is broad rather than concentrated in one part of the chain.`;
+  } else if (elevated.length === ranked.length && ranked.length >= 3) {
+    // "The whole book" is only sayable with enough bands ranked to mean it.
+    // Claiming it off one or two would describe the chain from the only
+    // corner of it that happens to have a baseline.
+    where = `All ${ranked.length} ranked strike bands are elevated — the whole ${side} book in this scope, not one part of it.`;
+  } else {
+    const names = elevated.slice(0, 3).map((point) => point.label);
+    const more = elevated.length > names.length ? ` and ${elevated.length - names.length} more` : '';
+    where = `Concentrated in ${names.join(', ')}${more} — ${elevated.length} of ${ranked.length} ranked bands.`;
+  }
+
+  // The shared sentence is carried VERBATIM rather than spliced into a new
+  // one. Reusing the thresholds but rewording the result is how two panels
+  // end up saying different things about the same number — and lowercasing
+  // someone else's sentence to graft it onto a clause produced "Put markets
+  // in this scope are quotes are wider than...".
+  return {
+    label: verdict.label,
+    tone: verdict.tone,
+    meaning: `${verdict.meaning} ${where}`,
+  };
+}
+
+/**
+ * The expiry whose current reading ranks highest against its own history.
+ *
+ * Ranks, not widths. The widest bucket is almost always the nearest expiry
+ * and says nothing — 0DTE is structurally wider than 30DTE every day of the
+ * year. "Which expiry is furthest from its own normal" is the finding.
+ */
+export function mostElevatedExpiry(
+  ranks: readonly SurfaceDteRank[] | null | undefined,
+): SurfaceDteRank | null {
+  if (!ranks) return null;
+  let worst: SurfaceDteRank | null = null;
+  for (const rank of ranks) {
+    if (rank.percentile == null) continue;
+    if (worst == null || rank.percentile > (worst.percentile ?? -Infinity)) worst = rank;
+  }
+  return worst;
+}
