@@ -73,6 +73,10 @@ const FAQ = [
     a: 'Yes, and you are welcome to. Reword the link text so it fits your page, or describe the widget in your own sentence. We ask only that the credit points at the relevant gamma-levels page so your readers can find the full picture.',
   },
   {
+    q: 'Can I use it on Substack or Medium?',
+    a: 'No \u2014 neither allows custom iframes or scripts inside a post, so no embed code of any kind will render there. Link the gamma-levels page for your symbol instead; it carries the same numbers and updates on the same schedule. The widget is for platforms where you control the HTML: WordPress, Ghost, Webflow, Squarespace, Notion, or your own pages.',
+  },
+  {
     q: 'Will the widget break my page layout?',
     a: 'It is responsive down to phone width and ships with a fixed fallback height. The optional embed.js script sizes the frame to its content so there is never a scrollbar or a gap; without it the snippet still renders correctly at the fallback height.',
   },
@@ -134,7 +138,7 @@ const PROMISES = [
   {
     icon: Zap,
     title: 'One line of HTML',
-    body: 'No build step, no npm package, no API key. It works in WordPress, Ghost, Substack, Webflow, Notion-backed sites and plain hand-written HTML.',
+    body: 'No build step, no npm package, no API key. It goes anywhere you can paste HTML \u2014 WordPress, Ghost, Webflow, Squarespace, Notion, or a hand-written page.',
   },
   {
     icon: RefreshCw,
