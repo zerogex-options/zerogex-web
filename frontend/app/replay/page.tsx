@@ -94,8 +94,9 @@ export default async function ReplayLanding({
         <p className="mt-2 max-w-2xl text-sm text-[var(--color-text-secondary)] leading-relaxed">
           Every per-minute dealer gamma snapshot from the last {sessions.length || '90'} trading
           days is replayable. Drag the playhead to watch walls shift, gamma flip drift, and
-          per-strike GEX migrate. Drop two pins and see the strike-by-strike delta between any
-          two moments. Share the exact minute that mattered.
+          per-strike GEX migrate. Replay the whole chain or just that day&rsquo;s 0DTE book — the
+          walls, flip and max pain follow the expirations you pick. Drop two pins and see the
+          strike-by-strike delta between any two moments. Share the exact minute that mattered.
         </p>
       </header>
 
@@ -134,7 +135,9 @@ export default async function ReplayLanding({
         <span className="font-mono">gex_summary</span> and{' '}
         <span className="font-mono">gex_by_strike</span> rows that power the live dashboard —
         the replay just lets you scrub the timestamp. Per-minute resolution; cash-session
-        only (09:30–16:00 ET). MP4 export of arbitrary windows is a v2 feature; today you
+        only (09:30–16:00 ET). Inside a session you can switch the surface between all
+        expirations and 0DTE; on 0DTE the call wall, put wall, gamma flip and max pain are
+        re-derived from that day&rsquo;s expiry alone rather than the whole chain. MP4 export of arbitrary windows is a v2 feature; today you
         can share branded snapshot cards of any specific moment via the snapshot button on
         the player.
       </section>

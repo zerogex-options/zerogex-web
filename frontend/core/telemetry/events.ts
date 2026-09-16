@@ -31,6 +31,12 @@ export const TelemetryEvent = {
   ForecastShareClicked: 'forecast_share_clicked',
   /** GEX Replay snapshot share button clicked (client, /replay/[date]). */
   ReplayShareClicked: 'replay_share_clicked',
+  /** Daily Replay expiration scope toggled (client, /replay/[symbol]/[date]).
+   *  The `scope` property records which book was asked for: all | 0dte. This
+   *  is the read we cannot infer from pageviews — the 0DTE scope is a
+   *  same-URL toggle, so how often people actually reach for the same-day
+   *  book only shows up here. */
+  ReplayExpirationScopeChanged: 'replay_expiration_scope_changed',
   /** Free gamma-levels daily snapshot share/copy button clicked (client,
    *  /spx-gamma-levels + /spy-gamma-levels + /qqq-gamma-levels). The `channel`
    *  property records the surface: copy | x | reddit | stocktwits | native. */
