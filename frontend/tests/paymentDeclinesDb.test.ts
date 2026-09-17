@@ -32,6 +32,7 @@ const {
   loadPaidInvoicesForSubscription,
   markDeclinesLostForInvoice,
   markDeclinesLostForSubscription,
+  recategorizeFromStoredCodes,
   reconcileOpenDeclines,
   reclassifyUnknownKinds,
   recordPaymentDecline,
@@ -904,4 +905,44 @@ test('every attempt on one invoice gets the same answer', () => {
   // an invoice ends up counted under two different kinds at once.
   assert.equal(kinds.size, 1);
   assert.equal([...kinds][0], 'trial_conversion');
+});
+
+test('a code that was unmapped when it was written is named once the classifier learns it', () => {
+  // The category is decided at write time, so a decline whose code the mapping
+  // did not yet recognise sits in "no usable decline code" forever — even after
+  // the mapping is added. On a live product that was the single most common
+  // decline there is, permanently parked in the one bucket nobody can act on.
+  db.prepare(
+    `INSERT INTO payment_declines (id, invoice_id, attempt_count, kind, amount_due,
+       failure_code, decline_code, category, failed_at, outcome, source, recorded_at)
+     VALUES ('d_late', 'in_late', 1, 'renewal', 4900, 'card_declined',
+             'partner_insufficient_funds', 'unknown', ?, 'lost', 'stripe_backfill', ?)`,
+  ).run(ago(20), ago(0));
+
+  const result = recategorizeFromStoredCodes();
+  assert.ok(result.recategorized >= 1);
+  assert.equal(declineRows('in_late')[0].category, 'insufficient_funds');
+  // Idempotent: nothing left to re-ask.
+  assert.equal(recategorizeFromStoredCodes().recategorized, 0);
+});
+
+test('re-asking never rewrites a category that was already decided', () => {
+  db.prepare(
+    `INSERT INTO payment_declines (id, invoice_id, attempt_count, kind, amount_due,
+       decline_code, category, failed_at, outcome, source, recorded_at)
+     VALUES ('d_settled', 'in_settled', 1, 'renewal', 4900, 'expired_card',
+             'card_problem', ?, 'lost', 'webhook', ?)`,
+  ).run(ago(20), ago(0));
+  recategorizeFromStoredCodes();
+  assert.equal(declineRows('in_settled')[0].category, 'card_problem');
+});
+
+test('a row with no code at all is left alone entirely', () => {
+  db.prepare(
+    `INSERT INTO payment_declines (id, invoice_id, attempt_count, kind, amount_due,
+       category, failed_at, outcome, source, recorded_at)
+     VALUES ('d_bare', 'in_bare', 1, 'renewal', 4900, 'unknown', ?, 'lost', 'stripe_backfill', ?)`,
+  ).run(ago(20), ago(0));
+  recategorizeFromStoredCodes();
+  assert.equal(declineRows('in_bare')[0].category, 'unknown');
 });
