@@ -37,6 +37,7 @@
 //   STRIPE_SECRET_KEY   required for pass 2 only; read from env or .env.local
 //   SKIP_STRIPE=1       run pass 1 only
 //   LIMIT=<n>           cap how many invoices pass 2 re-reads (default 500)
+//   RECHECK=1           also re-read invoices a previous run already fetched
 //   DRY_RUN=1           report what pass 2 WOULD stamp, write nothing
 //
 // IMPORTANT: core/db.ts reads AUTH_DB_PATH from process.env only — it does NOT
@@ -77,13 +78,17 @@ for (const key of ['AUTH_DB_PATH', 'STRIPE_SECRET_KEY']) {
 const dryRun = process.env.DRY_RUN === '1';
 const skipStripe = process.env.SKIP_STRIPE === '1';
 const limit = Number(process.env.LIMIT) > 0 ? Number(process.env.LIMIT) : 500;
+// Re-read invoices an earlier run already fetched. Needed once after the reader
+// learns to keep something it used to discard — otherwise those rows are settled
+// against the older, poorer read forever.
+const recheck = process.env.RECHECK === '1';
 
 const {
   backfillDeclinesFromAudit,
   countPaidInvoices,
   enrichDeclineWithReason,
-  listDeclinesMissingReason,
-  markDeclineReasonUnavailable,
+  listDeclinesNeedingInvoiceRead,
+  markDeclineInvoiceRead,
   recategorizeFromStoredCodes,
   reclassifyUnknownKinds,
 } = await import('../core/paymentDeclinesServer.ts');
@@ -166,19 +171,21 @@ if (!secretKey) {
   process.exit(0);
 }
 
-const pending = listDeclinesMissingReason(limit);
+const pending = listDeclinesNeedingInvoiceRead(limit, { includeAlreadyRead: recheck });
 if (pending.length === 0) {
-  console.log('\nPass 2 — every decline on record already carries a reason. Nothing to do.');
+  console.log('\nPass 2 — every decline on record has been read from Stripe. Nothing to do.');
+  console.log('  (RECHECK=1 re-reads them, for when this reader keeps more than the one that ran before.)');
   runPass3();
   process.exit(0);
 }
 
-console.log(`\nPass 2 — re-reading ${pending.length} invoice(s) from Stripe for their decline reason…`);
+console.log(`\nPass 2 — re-reading ${pending.length} invoice(s) from Stripe…`);
 const stripe = new Stripe(secretKey);
 
 const byCategory = new Map<string, number>();
 let stamped = 0;
 let noReason = 0;
+let facts = 0;
 let failed = 0;
 
 for (const row of pending) {
@@ -188,19 +195,23 @@ for (const row of pending) {
     // lookupInvoiceDecline is the one place that knows the order to try.
     const invoice = await stripe.invoices.retrieve(row.invoiceId);
     const lookup = await lookupInvoiceDecline(stripe, invoice);
-    if (!lookup.decline) {
+    if (lookup.decline) {
+      const category = classifyDecline(lookup.decline);
+      byCategory.set(category, (byCategory.get(category) ?? 0) + 1);
+    } else {
       noReason += 1;
-      // Stripe has been asked and had nothing. Record that so the next run does
-      // not spend an API read asking again.
-      if (!dryRun) markDeclineReasonUnavailable(row.invoiceId, row.attemptCount);
-      continue;
     }
-    const category = classifyDecline(lookup.decline);
-    byCategory.set(category, (byCategory.get(category) ?? 0) + 1);
     if (dryRun) {
-      console.log(`  [dry] ${row.invoiceId} attempt ${row.attemptCount}: ${describeDecline(lookup.decline)}`);
+      console.log(
+        `  [dry] ${row.invoiceId} attempt ${row.attemptCount}: ${describeDecline(lookup.decline)}` +
+          ` · billing_reason=${invoice.billing_reason ?? 'unknown'}`,
+      );
       continue;
     }
+    // Written whether or not a reason came back. The invoice has been fetched
+    // and it carries the billing reason, the real amount, the plan and the card
+    // — discarding all of that because the ONE field we came for was missing is
+    // how rows end up permanently unclassifiable AND stuck on an estimate.
     const wrote = enrichDeclineWithReason(row.invoiceId, row.attemptCount, lookup.decline, {
       chargeId: lookup.chargeId,
       amountDue: typeof invoice.amount_due === 'number' ? invoice.amount_due : null,
@@ -212,7 +223,14 @@ for (const row of pending) {
       cardFunding: lookup.card?.funding ?? null,
       cardCountry: lookup.card?.country ?? null,
     });
-    if (wrote) stamped += 1;
+    // The invoice has been read. Recorded whatever came back, so the next run
+    // spends no API call asking again.
+    markDeclineInvoiceRead(row.invoiceId, row.attemptCount);
+    if (lookup.decline) {
+      if (wrote) stamped += 1;
+    } else if (wrote) {
+      facts += 1;
+    }
   } catch (err) {
     failed += 1;
     const message = err instanceof Error ? err.message : 'lookup failed';
@@ -221,8 +239,9 @@ for (const row of pending) {
 }
 
 console.log(
-  `\n${dryRun ? 'Would stamp' : 'Stamped'} ${dryRun ? byCategory.size : stamped} decline(s) · ` +
-    `${noReason} carried no reason even in Stripe · ${failed} lookup error(s)`,
+  `\n${dryRun ? 'Would stamp' : 'Stamped'} ${dryRun ? byCategory.size : stamped} decline(s) with a reason · ` +
+    `${noReason} carried none even in Stripe${dryRun ? '' : ` (${facts} still gave up their billing reason and real amount)`} · ` +
+    `${failed} lookup error(s)`,
 );
 for (const [category, count] of [...byCategory.entries()].sort((a, b) => b[1] - a[1])) {
   console.log(`  ${category.padEnd(24)} ${count}`);

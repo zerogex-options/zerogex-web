@@ -26,9 +26,9 @@ const {
   backfillDeclinesFromAudit,
   enrichDeclineWithReason,
   getPaymentDeclineReport,
-  listDeclinesMissingReason,
+  listDeclinesNeedingInvoiceRead,
   loadPaidInvoices,
-  markDeclineReasonUnavailable,
+  markDeclineInvoiceRead,
   loadPaidInvoicesForSubscription,
   markDeclinesLostForInvoice,
   markDeclinesLostForSubscription,
@@ -641,7 +641,7 @@ test('a reconstructed row can be given its real reason later, and only once', ()
     createdAt: ago(15),
   });
   backfillDeclinesFromAudit({ nowMs: NOW_MS });
-  assert.ok(listDeclinesMissingReason(500).some((row) => row.invoiceId === 'in_enrich'));
+  assert.ok(listDeclinesNeedingInvoiceRead(500).some((row) => row.invoiceId === 'in_enrich'));
 
   const wrote = enrichDeclineWithReason(
     'in_enrich',
@@ -674,7 +674,7 @@ test('a reconstructed row can be given its real reason later, and only once', ()
   // Marked as having come from a Stripe re-read rather than from the webhook.
   assert.equal(row.source, 'stripe_backfill');
   // …and it drops out of the enrichment worklist.
-  assert.ok(!listDeclinesMissingReason(500).some((r) => r.invoiceId === 'in_enrich'));
+  assert.ok(!listDeclinesNeedingInvoiceRead(500).some((r) => r.invoiceId === 'in_enrich'));
 });
 
 test('an attempt Stripe has no reason for drops off the worklist instead of being re-fetched forever', () => {
@@ -685,12 +685,13 @@ test('an attempt Stripe has no reason for drops off the worklist instead of bein
     createdAt: ago(300),
   });
   backfillDeclinesFromAudit({ nowMs: NOW_MS });
-  assert.ok(listDeclinesMissingReason(999).some((row) => row.invoiceId === 'in_noanswer'));
+  assert.ok(listDeclinesNeedingInvoiceRead(999).some((row) => row.invoiceId === 'in_noanswer'));
 
-  // The charge is too old for Stripe to still hand one over.
-  assert.equal(markDeclineReasonUnavailable('in_noanswer', 1), true);
+  // The charge is too old for Stripe to still hand one over. The invoice was
+  // still READ, and that is the fact that settles the row.
+  assert.equal(markDeclineInvoiceRead('in_noanswer', 1), true);
   assert.ok(
-    !listDeclinesMissingReason(999).some((row) => row.invoiceId === 'in_noanswer'),
+    !listDeclinesNeedingInvoiceRead(999).some((row) => row.invoiceId === 'in_noanswer'),
     'having asked and been told nothing is different from never having asked',
   );
   // It still has no reason — it is simply not worth another API read.
@@ -702,7 +703,7 @@ test('a webhook row whose capture-time lookup failed gets another chance', () =>
   // Stripe, and a transient failure at capture time should not cost the reason
   // permanently.
   recordPaymentDecline({ invoiceId: 'in_missedcapture', attemptCount: 1, amountDue: 4900, decline: null, failedAt: ago(3) });
-  assert.ok(listDeclinesMissingReason(999).some((row) => row.invoiceId === 'in_missedcapture'));
+  assert.ok(listDeclinesNeedingInvoiceRead(999).some((row) => row.invoiceId === 'in_missedcapture'));
 });
 
 // ---------------------------------------------------------------------------
@@ -945,4 +946,45 @@ test('a row with no code at all is left alone entirely', () => {
   ).run(ago(20), ago(0));
   recategorizeFromStoredCodes();
   assert.equal(declineRows('in_bare')[0].category, 'unknown');
+});
+
+test('an invoice with no billing reason is re-read even after Stripe gave no decline reason', () => {
+  // The defect this pins: pass 2 fetched the invoice, found no decline reason,
+  // and threw the whole invoice away — billing reason, real amount, plan and
+  // card included. Those rows were then marked as asked-and-answered, so they
+  // could never be classified and were stuck on an estimated amount forever.
+  db.prepare(
+    `INSERT INTO payment_declines (id, invoice_id, attempt_count, kind, amount_due,
+       decline_code, category, failed_at, outcome, source, recorded_at)
+     VALUES ('d_facts', 'in_facts', 1, 'unknown', 4900, 'do_not_honor', 'issuer_block',
+             ?, 'lost', 'stripe_backfill', ?)`,
+  ).run(ago(20), ago(0));
+
+  // Already read by an earlier, poorer reader, so it is off the ordinary list…
+  assert.ok(!listDeclinesNeedingInvoiceRead(999).some((row) => row.invoiceId === 'in_facts'));
+  // …and RECHECK is what brings it back, precisely because it lacks the billing
+  // reason that read should have kept.
+  assert.ok(
+    listDeclinesNeedingInvoiceRead(999, { includeAlreadyRead: true }).some((row) => row.invoiceId === 'in_facts'),
+  );
+
+  // Enrichment WITHOUT a decline still stamps everything else the invoice knows.
+  enrichDeclineWithReason('in_facts', 1, null, {
+    billingReason: 'subscription_cycle',
+    amountDue: 1900,
+    currency: 'usd',
+    priceId: 'price_pro_monthly',
+  });
+  const [row] = declineRows('in_facts');
+  assert.equal(row.billing_reason, 'subscription_cycle');
+  assert.equal(Number(row.amount_due), 1900);
+  // A null decline must never downgrade a category that was already known.
+  assert.equal(row.category, 'issuer_block');
+  // And now it can be classified.
+  reclassifyUnknownKinds();
+  assert.notEqual(declineRows('in_facts')[0].kind, 'unknown');
+  // And now even a recheck has nothing to ask about it.
+  assert.ok(
+    !listDeclinesNeedingInvoiceRead(999, { includeAlreadyRead: true }).some((r) => r.invoiceId === 'in_facts'),
+  );
 });
