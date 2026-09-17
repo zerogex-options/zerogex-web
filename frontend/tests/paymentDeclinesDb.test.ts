@@ -33,6 +33,7 @@ const {
   markDeclinesLostForInvoice,
   markDeclinesLostForSubscription,
   reconcileOpenDeclines,
+  reclassifyUnknownKinds,
   recordPaymentDecline,
   resolveDeclinesForInvoice,
 } = await import('../core/paymentDeclinesServer.ts');
@@ -799,4 +800,108 @@ test('the report reads end to end and its money adds up', () => {
   assert.equal(byKind, report.totals.invoices);
   const byCategory = report.byCategory.reduce((sum, row) => sum + row.invoices, 0);
   assert.equal(byCategory, report.totals.invoices);
+});
+
+// ---------------------------------------------------------------------------
+// Classifying what the audit log could not
+// ---------------------------------------------------------------------------
+
+test('a reconstructed decline is placed once the billing reason is known', () => {
+  // The production failure this fixes: the audit message carries no billing
+  // reason, and the $0 trial-opening invoice that would prove the subscription
+  // had a trial is skipped by the invoice importer (it is not a payment). Both
+  // choices are right on their own and together they left every reconstructed
+  // decline unclassifiable. The Stripe enrichment pass supplies the missing
+  // input, and the ordinary rule then needs no trial marker at all.
+  seedUser('u_place', 'place@example.com');
+  db.prepare(
+    `INSERT INTO payment_declines (id, invoice_id, attempt_count, subscription_id, kind,
+       billing_reason, amount_due, category, failed_at, outcome, source, recorded_at)
+     VALUES ('d_place', 'in_place', 1, 'sub_place', 'unknown', 'subscription_cycle', 4900,
+             'insufficient_funds', ?, 'lost', 'stripe_backfill', ?)`,
+  ).run(ago(30), ago(0));
+
+  const result = reclassifyUnknownKinds();
+  assert.ok(result.reclassified >= 1);
+  // Never collected money on this subscription → its first cycle invoice is the
+  // charge at the end of the trial.
+  assert.equal(declineRows('in_place')[0].kind, 'trial_conversion');
+});
+
+test('a subscription that has already paid reclassifies as a renewal, not a conversion', () => {
+  seedUser('u_renew2', 'renew2@example.com');
+  seedPaidInvoice({
+    invoiceId: 'in_renew2_prior',
+    userId: 'u_renew2',
+    subscriptionId: 'sub_renew2',
+    amount: 4900,
+    billingReason: 'subscription_cycle',
+    paidAt: ago(60),
+  });
+  db.prepare(
+    `INSERT INTO payment_declines (id, invoice_id, attempt_count, subscription_id, kind,
+       billing_reason, amount_due, category, failed_at, outcome, source, recorded_at)
+     VALUES ('d_renew2', 'in_renew2', 1, 'sub_renew2', 'unknown', 'subscription_cycle', 4900,
+             'issuer_block', ?, 'lost', 'stripe_backfill', ?)`,
+  ).run(ago(30), ago(0));
+
+  reclassifyUnknownKinds();
+  assert.equal(declineRows('in_renew2')[0].kind, 'renewal');
+});
+
+test('a decline with no billing reason stays unclassified rather than being guessed', () => {
+  db.prepare(
+    `INSERT INTO payment_declines (id, invoice_id, attempt_count, subscription_id, kind,
+       amount_due, category, failed_at, outcome, source, recorded_at)
+     VALUES ('d_noreason', 'in_noreason', 1, 'sub_noreason', 'unknown', 4900,
+             'unknown', ?, 'lost', 'stripe_backfill', ?)`,
+  ).run(ago(30), ago(0));
+  reclassifyUnknownKinds();
+  assert.equal(declineRows('in_noreason')[0].kind, 'unknown');
+});
+
+test('reclassifying never overwrites a kind decided with better evidence', () => {
+  // The webhook sets this from the subscription's own trial_end, which is the
+  // one source event ordering cannot corrupt. Nothing here may second-guess it.
+  recordPaymentDecline({
+    invoiceId: 'in_authoritative',
+    attemptCount: 1,
+    subscriptionId: 'sub_authoritative',
+    billingReason: 'subscription_cycle',
+    amountDue: 4900,
+    trialConversion: true,
+    failedAt: ago(5),
+  });
+  seedPaidInvoice({
+    invoiceId: 'in_auth_prior',
+    userId: 'u_place',
+    subscriptionId: 'sub_authoritative',
+    amount: 4900,
+    billingReason: 'subscription_cycle',
+    paidAt: ago(40),
+  });
+  // History alone would now say "renewal"; the authoritative answer stands.
+  reclassifyUnknownKinds();
+  assert.equal(declineRows('in_authoritative')[0].kind, 'trial_conversion');
+});
+
+test('every attempt on one invoice gets the same answer', () => {
+  db.prepare(
+    `INSERT INTO payment_declines (id, invoice_id, attempt_count, subscription_id, kind,
+       billing_reason, amount_due, category, failed_at, outcome, source, recorded_at)
+     VALUES ('d_multi1', 'in_multi', 1, 'sub_multi', 'unknown', 'subscription_cycle', 4900,
+             'insufficient_funds', ?, 'lost', 'stripe_backfill', ?)`,
+  ).run(ago(40), ago(0));
+  db.prepare(
+    `INSERT INTO payment_declines (id, invoice_id, attempt_count, subscription_id, kind,
+       billing_reason, amount_due, category, failed_at, outcome, source, recorded_at)
+     VALUES ('d_multi2', 'in_multi', 2, 'sub_multi', 'unknown', 'subscription_cycle', 4900,
+             'insufficient_funds', ?, 'lost', 'stripe_backfill', ?)`,
+  ).run(ago(35), ago(0));
+  reclassifyUnknownKinds();
+  const kinds = new Set(declineRows('in_multi').map((row) => row.kind));
+  // Retries of one charge are one charge. Classifying them per attempt is how
+  // an invoice ends up counted under two different kinds at once.
+  assert.equal(kinds.size, 1);
+  assert.equal([...kinds][0], 'trial_conversion');
 });

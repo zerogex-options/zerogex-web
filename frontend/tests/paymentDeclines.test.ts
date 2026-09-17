@@ -541,3 +541,39 @@ test('an empty window renders rather than dividing by zero', () => {
   assert.deepEqual(report.byCode, []);
   assert.equal(report.recoveryLag.medianHours, null);
 });
+
+test('the two never-paid-before kinds roll up into one figure', () => {
+  const report = buildDeclineReport({
+    declines: [
+      decline({ invoiceId: 'in_k1', kind: 'trial_conversion', amountDue: 4900, outcome: 'lost', resolvedAt: ago(1), lostReason: 'canceled' }),
+      decline({ invoiceId: 'in_k2', kind: 'first_charge', amountDue: 1900, outcome: 'lost', resolvedAt: ago(1), lostReason: 'canceled' }),
+      decline({ invoiceId: 'in_k3', kind: 'renewal', amountDue: 4900 }),
+    ],
+    paid: [
+      paid({ invoiceId: 'in_t0', subscriptionId: 'sub_t', billingReason: 'subscription_create', amountPaid: 0, paidAt: ago(20) }),
+      paid({ invoiceId: 'in_t1', subscriptionId: 'sub_t', billingReason: 'subscription_cycle', amountPaid: 4900, paidAt: ago(10) }),
+      paid({ invoiceId: 'in_d1', subscriptionId: 'sub_d', billingReason: 'subscription_create', amountPaid: 1900, paidAt: ago(9) }),
+    ],
+    windowDays: 30,
+    nowMs: NOW_MS,
+  });
+  assert.ok(report.firstPayment);
+  // A conversion that did not close is one loss however the member reached the
+  // charge, so the rollup spans both kinds and their denominators.
+  assert.deepEqual(report.firstPayment.kinds, ['trial_conversion', 'first_charge']);
+  assert.equal(report.firstPayment.invoices, 2);
+  assert.equal(report.firstPayment.lostAmount, 6800);
+  assert.equal(report.firstPayment.attemptedInvoices, 4);
+  // The renewal is not in it.
+  assert.ok(!report.firstPayment.lostAmount.toString().includes('11700'));
+});
+
+test('the rollup is absent when no first payment was ever charged', () => {
+  const report = buildDeclineReport({
+    declines: [decline({ invoiceId: 'in_only', kind: 'renewal' })],
+    paid: [],
+    windowDays: 30,
+    nowMs: NOW_MS,
+  });
+  assert.equal(report.firstPayment, null);
+});

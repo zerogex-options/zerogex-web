@@ -65,8 +65,16 @@ export { declineGuidance };
  *                     nothing about the product's value is in question — a bank
  *                     said no at the one moment the funnel had already worked.
  *   first_charge      the first charge of a subscription that had NO trial
- *                     (checkout straight to paid). Same "never paid yet" cohort,
- *                     different acquisition path, so it is not folded in.
+ *                     (checkout straight to paid).
+ *
+ * The last two are the SAME LOSS — a conversion that did not close, by a member
+ * who has never paid — and the report rolls them up as one figure. They are
+ * stored apart for one reason worth keeping: the card behind a trial conversion
+ * has been sitting on file since the trial started, while a no-trial first
+ * charge runs on a card that cleared Checkout minutes ago. Card-on-file age is a
+ * real decline driver, so if both paths are ever live at once, comparing their
+ * rates says something the combined number cannot. On a product where every
+ * signup takes a trial, `first_charge` is simply empty and never renders.
  *   renewal           an established paying customer's recurring charge. This is
  *                     involuntary churn in progress.
  *   other             prorations, plan-change invoices, manual invoices. Real
@@ -95,7 +103,7 @@ export const DECLINE_KIND_LABEL: Record<DeclineKind, string> = {
 
 export const DECLINE_KIND_BLURB: Record<DeclineKind, string> = {
   trial_conversion: 'Free trial ended and the first charge was declined. They have never paid.',
-  first_charge: 'Signed up straight to paid and the very first charge was declined.',
+  first_charge: 'Signed up straight to paid, with no trial, and the very first charge was declined. Same loss as a trial conversion — the card is just newer.',
   renewal: 'An established paying member’s recurring charge was declined — involuntary churn in progress.',
   other: 'A plan-change proration or manual invoice. Counted, but excluded from the conversion and renewal rates.',
   unknown: 'Not enough history to say which kind of charge this was.',
@@ -118,6 +126,7 @@ export const DECLINE_CATEGORY_ORDER: readonly DeclineCategory[] = [
   'card_problem',
   'authentication_required',
   'try_again',
+  'blocked_by_risk',
   'unknown',
 ];
 
@@ -127,6 +136,7 @@ export const DECLINE_CATEGORY_LABEL: Record<DeclineCategory, string> = {
   card_problem: 'Card unusable (expired / wrong)',
   authentication_required: '3DS not completed',
   try_again: 'Transient — retry likely to clear',
+  blocked_by_risk: 'We blocked it (Stripe Radar)',
   unknown: 'No usable decline code',
 };
 
@@ -142,6 +152,8 @@ export const CATEGORY_NEEDS_MEMBER_ACTION: Record<DeclineCategory, boolean> = {
   card_problem: true,
   authentication_required: true,
   try_again: false,
+  // Nothing the member can do — the decision is ours to review.
+  blocked_by_risk: false,
   unknown: false,
 };
 
@@ -522,6 +534,13 @@ export type DeclineCoverage = {
   firstRecordedAt: string | null;
 };
 
+/**
+ * The two never-paid-before kinds added together — the number to read first,
+ * because a conversion that did not close is one loss however the member got to
+ * the charge. Null when neither kind is present at all.
+ */
+export type FirstPaymentRollup = DeclineHeadline & { kinds: DeclineKind[] };
+
 export type DeclineReport = {
   windowDays: number | null;
   since: string | null;
@@ -532,6 +551,8 @@ export type DeclineReport = {
   /** The immediately preceding window of equal length, or null for all-time. */
   previous: DeclineHeadline | null;
   byKind: DeclineKindRow[];
+  /** trial_conversion + first_charge, as one figure. */
+  firstPayment: FirstPaymentRollup | null;
   byCategory: DeclineBucket[];
   byCode: DeclineCodeRow[];
   byBrand: DeclineBucket[];
@@ -990,6 +1011,22 @@ function buildKindRows(
   }).filter((row) => row.invoices > 0 || row.paidInvoices > 0);
 }
 
+/** The never-paid-before cohort, whichever door they came in through. */
+const FIRST_PAYMENT_KINDS: readonly DeclineKind[] = ['trial_conversion', 'first_charge'];
+
+function buildFirstPaymentRollup(
+  invoices: readonly DeclinedInvoice[],
+  paid: readonly ClassifiedPaidInvoice[],
+): FirstPaymentRollup | null {
+  const kinds = FIRST_PAYMENT_KINDS.filter(
+    (kind) => invoices.some((i) => i.last.kind === kind) || paid.some((p) => p.kind === kind),
+  );
+  if (kinds.length === 0) return null;
+  const mine = invoices.filter((i) => FIRST_PAYMENT_KINDS.includes(i.last.kind));
+  const minePaid = paid.filter((p) => FIRST_PAYMENT_KINDS.includes(p.kind));
+  return { kinds, ...headlineFor(mine, minePaid) };
+}
+
 function modeCurrency(records: readonly DeclineRecord[]): string {
   const counts = new Map<string, number>();
   for (const record of records) {
@@ -1178,6 +1215,7 @@ export function buildDeclineReport(input: DeclineReportInput): DeclineReport {
     totals: headlineFor(invoices, windowPaid),
     previous: windowDays == null ? null : headlineFor(previousInvoices, previousPaid),
     byKind: buildKindRows(invoices, windowPaid),
+    firstPayment: buildFirstPaymentRollup(invoices, windowPaid),
     byCategory: bucketize(
       invoices,
       (i) => i.last.category,
