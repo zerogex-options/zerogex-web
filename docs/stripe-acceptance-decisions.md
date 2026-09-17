@@ -246,6 +246,14 @@ Fill a row in when a setting actually changes. The date is the point of this
 table: without it, a later move in the decline rate cannot be attributed to
 anything.
 
-| Date | Change | Made by | Baseline before | Reviewed |
-|---|---|---|---|---|
-| _(none yet)_ | | | | |
+| Date | Change | Baseline before | Reviewed |
+|---|---|---|---|
+| 2026-09-17 | Authorization Boost enabled | 122 declined invoices, 115 of them first payments, $3,525.50 never collected. `issuer_block` 29 invoices / $649.00 — the bucket this aims at. First-payment decline rate 45.3%. | Due 2026-10-17 |
+| 2026-09-17 | Link confirmed on at checkout | Payment-method split as `make audit-trial-conversions` reported it: card entry 58.9% decline, Link 30.2%. Trial starts are the number to watch alongside it, not just conversion. | Due 2026-10-17 |
+| 2026-09-17 | Dunning emails made decline-reason-aware; hosted invoice link added | `insufficient_funds` 63 invoices, 60 first payments, **10 recovered (15.9%)**, $2,177.50 never collected. Both emails previously told every member to update their card and linked only the account page. | Due 2026-10-17 |
+
+The third row is the one to watch. It is the only change of the three aimed at
+`insufficient_funds`, which is 62% of the loss, and the only one with enough
+volume behind it to show a result inside a month. The number to compare is the
+recovery rate on that category, not the decline rate — the change cannot stop a
+charge failing, only make the follow-up useful.
