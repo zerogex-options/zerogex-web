@@ -62,8 +62,8 @@ AM ET on the 17th; arnab's failed at 10:22 AM ET on the 17th with the day-0 emai
 an hour behind it. Both get their automated warning on the **19th** and lose
 access on the **20th**.
 
-**Send the first four today, and hollandsp and arnab tomorrow.** For the four, tomorrow
-the automation sends the deadline email, and a founder note arriving *after* it
+**Send the first four today, and hollandsp and arnab tomorrow.** For the four,
+tomorrow the automation sends the deadline email, and a founder note arriving *after* it
 is the third email in three days saying the same thing — today it is the one in
 the middle that says something new. For the other two, today would put your note
 within hours of an automated email they have barely read; the 18th gives it a
@@ -72,14 +72,18 @@ day of air on both sides and still lands a full day before their warning.
 ## What none of these drafts do
 
 - **No retry dates.** `next_payment_attempt` is not in the `diagnose-user`
-  output, so no draft names one. If you want to say "Stripe tries again on X,"
-  pull it from the invoice first.
+  output, so no draft names one. It *is* obtainable:
+  `make audit-trial-conversions` has a "Still unpaid: is Stripe going to try
+  again?" section reporting, per open invoice, whether a retry is scheduled or
+  the schedule is spent. Worth running before sending if you want to name a date
+  — and worth running regardless for lmckaiden, whose draft asserts the retries
+  are nearly exhausted on an attempt count alone.
 - **No guessed decline reasons.** The judgment about what is usable is not mine:
   `make diagnose-user` prints it from `core/declineReason.ts`, the same
   classifier the new Payment Declines panel uses, so "no usable decline code"
   means the same thing in both places. The sanba, lmckaiden and hollandsp
-  invoices carry none, so those drafts say what is true — the charge didn't go through, no
-  reason given — and never invent insufficient funds. gsavinova's is an issuer
+  invoices carry none, so those drafts say what is true — the charge didn't go
+  through, no reason given — and never invent insufficient funds. gsavinova's is an issuer
   block; the draft says the bank refused the charge and never repeats the
   fraud-flavored code back to them.
 - **No to-the-minute cutoff.** The drop lands on the next sync after the window
@@ -116,7 +120,7 @@ through **Sat Sep 19, 3:38 PM ET**
 
 ### The read
 
-The most valuable of the four and the one needing the lightest touch. A real
+The most valuable of the six and the one needing the lightest touch. A real
 paying member since August 18, logging in on a dozen-plus separate days in the
 visible audit window and last seen **last night**. Monitoring counts them as a
 Full Subscriber precisely because access never dropped.
@@ -172,8 +176,8 @@ through **Sat Sep 19, 2:48 PM ET**
 
 ### The read
 
-The only one of the four where the fix is unambiguous and the member has to do
-something. Stripe's code is `card_declined / transaction_not_allowed` with an
+One of two cases — arnab is the other — where the fix is unambiguous and the
+member has to do something. Stripe's code is `card_declined / transaction_not_allowed` with an
 `issuer_block` flavor: the card is valid and the details are right, and the bank
 refused this particular charge. That is the classic cross-border recurring
 decline, and it does **not** clear on retries — it repeats until the cardholder
@@ -235,7 +239,7 @@ Founder, ZeroGEX
 ## Priority 3 — lmckaiden@gmail.com
 
 **Trial conversion declined** 2026-09-16 · $59.00 · Link, no card resolvable ·
-access through **Sat Sep 19, 1:50 AM ET** — the earliest of the four
+access through **Sat Sep 19, 1:50 AM ET** — the earliest of the six
 
 ### The read
 
@@ -299,7 +303,7 @@ through **Sat Sep 19, 4:54 PM ET**
 
 ### The read
 
-Weakest save of the four, and the draft is written to admit that rather than
+Weakest save of the six, and the draft is written to admit that rather than
 paper over it.
 
 The card is genuinely dead: `card_declined / invalid_account`, the bank saying
@@ -359,7 +363,7 @@ Founder, ZeroGEX
 ## Priority 5 — hollandsp@ymail.com
 
 **Trial conversion declined** 2026-09-17 · $59.00 · Link, no card resolvable ·
-access through **Sun Sep 20, 12:51 AM ET** — the latest of the five
+access through **Sun Sep 20, 12:51 AM ET** — second-latest of the six
 
 *Fifth in send order, not in value. This one goes out on the 18th rather than
 today, which is the only reason it sits at the bottom; by engagement it belongs
@@ -367,7 +371,7 @@ next to gsavinova.*
 
 ### The read
 
-The freshest and the most hopeful of the five. Their trial ended at 11:50 PM
+The most hopeful of the six. Their trial ended at 11:50 PM
 Eastern last night, the first charge was declined, and the automated nudge went
 out an hour later. The invoice carries no usable decline code and they pay
 through Link, so — as with sanba and lmckaiden — the draft names no reason and
@@ -601,6 +605,14 @@ it writes. If the daily rows come back empty, the capture path has no history
 yet — run `make backfill-payment-declines SKIP_STRIPE=1 DRY_RUN=1` first and see
 what it says it would reconstruct.
 
+**The Stripe-side complement is `make audit-trial-conversions`** (`DAYS=14`).
+The panel reports what our own tables recorded; that script goes back to Stripe
+and reports what actually happened — the payment method type behind each
+conversion, whether its SetupIntent completed, how many attempts were really
+made, and whether each still-unpaid invoice has another retry coming. Between
+the two, every open question in the asides below is answerable today, and
+neither one writes anything.
+
 ---
 
 ## Ops asides — not customer-facing
@@ -620,21 +632,33 @@ what it says it would reconstruct.
   of the September 10 signups, converting on the 17th. Five different decline
   codes — `invalid_account`, `transaction_not_allowed`, `do_not_honor` and two
   distinct no-detail failures — argue for coincidence rather than anything
-  systemic, and a two-day cohort is small. But four for four is worth ten minutes, and there
-  is now a purpose-built place to spend them: **Admin → Monitoring → Stripe →
-  Payment Declines**, which landed on `release` today. It classifies
-  `trial_conversion` as its own kind and answers "do trial conversions recover
-  as well as renewals" directly, with money counted per invoice rather than per
-  retry (`docs/payment-decline-metrics.md`). Run `make backfill-payment-declines`
-  first if the history behind the panel is thin. If some conversions cleared this
-  week, this is a bad run of cards. If none did, it is a different conversation,
-  and these emails are the wrong response to it.
+  systemic, and a two-day cohort is small. But five for five is worth ten
+  minutes, and as of today there are two purpose-built places to spend them,
+  both landed on `release` while this document was being written.
+
+  **`make audit-trial-conversions`** is the direct answer — read-only, writes
+  nothing anywhere, and its headline is literally "trials examined / reached a
+  real first charge / of those, declined at least once / eventually paid." Use
+  `DAYS=14` to cover this batch and its neighbours. Start here.
+
+  **Admin → Monitoring → Stripe → Payment Declines** is the money view over the
+  same events: `trial_conversion` as its own kind, recovery counted per invoice
+  rather than per retry (`docs/payment-decline-metrics.md`). Run
+  `make backfill-payment-declines` first if its history is thin.
+
+  If some conversions cleared this week, this is a bad run of cards. If none
+  did, it is a different conversation, and these emails are the wrong response
+  to it.
 - **Three of the six pay through Link, and all three failed** — two of them
   reporting `partner_insufficient_funds`. Tempting to read as a Link problem,
   and worth holding at arm's length: sanba's Link method has successfully
   collected on this deploy before — their August trial conversion, which cleared
-  on attempt 3 — so Link charges demonstrably work here. Worth a second
-  look only if the count above comes back bad. Note `core/paymentMethodDrift.ts`
+  on attempt 3 — so Link charges demonstrably work here. And there is now a way
+  to settle it rather than argue it: `make audit-trial-conversions` breaks its
+  decline rate down **by payment method type**, under a heading saying
+  off-session reliability differs sharply between them, and reports SetupIntent
+  completion — the mechanism that would explain a wallet that cannot be charged
+  off-session at all. Note `core/paymentMethodDrift.ts`
   would not flag any of these — drift is a subscription pin disagreeing with a
   customer default, and every one of these accounts has no customer default set
   at all, which is the ordinary arrangement.
