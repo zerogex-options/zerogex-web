@@ -40,11 +40,12 @@ import WorldClocks from '@/components/WorldClocks';
 import HeadlinesWire from '@/components/HeadlinesWire';
 import MetricCard from '@/components/MetricCard';
 import { useTechnicals } from '@/hooks/useTechnicals';
+import { isWithinExtendedMarketHours } from '@/core/utils';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { hasTierAccess, normalizeTier, type TierId } from '@/core/auth';
 import type { UnderlyingSymbol } from '@/core/symbolPersistence';
 import { PROPRIETARY_SIGNALS_REFRESH } from '@/core/refreshProfiles';
-import { asObject, getNumber, toTrend, scoreTrend, humanize, formatSigned } from '@/core/signalHelpers';
+import { asObject, getNumber, toTrend, scoreTrend, humanize, formatSigned, formatEtTime } from '@/core/signalHelpers';
 import {
   useSqueezeSetupSignal,
   useTrapDetectionSignal,
@@ -701,6 +702,123 @@ export function VwapDeviationPanel() {
             value={pct != null ? `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%` : '—'}
             subtitle={humanizeStatus(position)}
             tooltip={t('vwapDeviationTooltip')}
+            theme={theme}
+            trend={trend}
+          />
+        </div>
+      )}
+    </WidgetCard>
+  );
+}
+
+/**
+ * Recent momentum-divergence events — price making a new extreme that momentum
+ * does not confirm. A list rather than a metric because it IS a list: each
+ * qualifying 5-minute bar is its own event, newest first, the same reading
+ * /intraday-tools shows.
+ */
+export function MomentumDivergencePanel() {
+  const t = usePageT(dict);
+  const { symbol } = useMyDashboardData();
+  const { bars, loading, error } = useTechnicals(symbol);
+
+  const events = useMemo(() => {
+    return bars
+      .filter((bar) => Boolean(bar?.momentum_divergence?.divergence_signal))
+      // Same window as the page, so the widget and the page never disagree
+      // about whether something "happened today".
+      .filter((bar) => isWithinExtendedMarketHours(bar.timestamp))
+      .map((bar) => ({
+        timestamp: bar.timestamp,
+        signal: String(bar.momentum_divergence.divergence_signal),
+        price: techNum(bar.close),
+        chg5m: techNum(bar.momentum_divergence.chg_5m),
+      }))
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, 6);
+  }, [bars]);
+
+  return (
+    <WidgetCard title={t('momentumDivergence')} href="/intraday-tools" hrefLabel={t('technicals')}>
+      {error && events.length === 0 ? (
+        <ErrorMessage message={error} />
+      ) : loading && bars.length === 0 ? (
+        <LoadingSpinner />
+      ) : events.length === 0 ? (
+        // A quiet session is the normal case, not an error: say so plainly
+        // rather than leaving an empty frame that reads as broken.
+        <div className="zg-small p-2" style={{ color: 'var(--text-secondary)' }}>
+          {t('noDivergence')}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          {events.map((e) => {
+            const up = (e.chg5m ?? 0) > 0;
+            return (
+              <div
+                key={e.timestamp}
+                className="flex items-baseline justify-between gap-2 rounded px-2 py-1.5"
+                style={{ background: 'var(--bg-subtle)' }}
+              >
+                <span
+                  className="zg-caption tabular-nums"
+                  style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}
+                >
+                  {formatEtTime(e.timestamp)}
+                </span>
+                <span className="zg-small min-w-0 flex-1 truncate" style={{ color: 'var(--text-primary)' }}>
+                  {e.signal}
+                </span>
+                <span
+                  className="zg-caption tabular-nums"
+                  style={{ color: up ? 'var(--color-bull)' : 'var(--color-bear)', whiteSpace: 'nowrap' }}
+                >
+                  {e.chg5m != null ? `${up ? '+' : ''}${e.chg5m.toFixed(2)}%` : '—'}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </WidgetCard>
+  );
+}
+
+export function VolumeSpikePanel() {
+  const t = usePageT(dict);
+  const { theme, symbol } = useMyDashboardData();
+  const { latest, loading, error } = useTechnicals(symbol);
+
+  const spike = latest?.volume_spike ?? null;
+  const sigma = techNum(spike?.volume_sigma);
+  const ratio = techNum(spike?.volume_ratio);
+  const buying = techNum(spike?.buying_pressure_pct);
+
+  // Buying pressure is a 0-100 split, so 50 is balanced — not zero.
+  const trend: 'bullish' | 'bearish' | 'neutral' =
+    buying == null ? 'neutral' : buying > 55 ? 'bullish' : buying < 45 ? 'bearish' : 'neutral';
+
+  return (
+    <WidgetCard title={t('volumeSpike')} href="/intraday-tools" hrefLabel={t('technicals')}>
+      {error && sigma == null ? (
+        <ErrorMessage message={error} />
+      ) : loading && sigma == null ? (
+        <LoadingSpinner />
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          <MetricCard
+            title={t('volumeSigmaTitle')}
+            value={sigma != null ? `${sigma >= 0 ? '+' : ''}${sigma.toFixed(2)}σ` : '—'}
+            subtitle={humanize(spike?.volume_class ?? '') || t('volumeSigmaSubtitle')}
+            tooltip={t('volumeSigmaTooltip')}
+            theme={theme}
+            trend={sigma != null && sigma >= 2 ? 'bullish' : 'neutral'}
+          />
+          <MetricCard
+            title={t('buyingPressureTitle')}
+            value={buying != null ? `${buying.toFixed(0)}%` : '—'}
+            subtitle={ratio != null ? `${ratio.toFixed(2)}× ${t('volumeVsAverage')}` : t('buyingPressureSubtitle')}
+            tooltip={t('buyingPressureTooltip')}
             theme={theme}
             trend={trend}
           />
