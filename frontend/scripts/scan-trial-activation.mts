@@ -45,13 +45,22 @@ import { DatabaseSync } from 'node:sqlite';
 
 import { classifyExclusion } from '../core/excludedAccounts.ts';
 
-type Cohort = 'converted' | 'lost_in_trial' | 'paid_then_left' | 'still_deciding';
+type Cohort =
+  | 'converted'
+  | 'lost_in_trial'
+  | 'paid_then_left'
+  | 'in_trial_now'
+  | 'never_started';
 
 const COHORT_LABEL: Record<Cohort, string> = {
   converted: 'CONVERTED & STAYED',
   lost_in_trial: 'LEFT DURING TRIAL',
   paid_then_left: 'PAID, THEN LEFT',
-  still_deciding: 'STILL DECIDING',
+  in_trial_now: 'IN TRIAL RIGHT NOW',
+  // Registered an account and never reached checkout at all. The first run
+  // lumped these in with live trials under "STILL DECIDING", which hid the
+  // largest group on the page behind a label implying they were mid-decision.
+  never_started: 'NEVER STARTED A TRIAL',
 };
 
 type Args = { days: number; hours: number; minSupport: number; top: number; help: boolean };
@@ -146,13 +155,14 @@ type UserRow = {
   subscription_status: string | null;
   cancel_at_period_end: number;
   subscription_lapsed: number;
+  stripe_subscription_id: string | null;
 };
 
 const users = db
   .prepare(
     `SELECT u.id, u.email, u.created_at, u.tier, u.partner_tier,
             u.partner_pro_grant_expires_at, u.first_payment_at, u.subscription_status,
-            u.cancel_at_period_end, u.subscription_lapsed,
+            u.cancel_at_period_end, u.subscription_lapsed, u.stripe_subscription_id,
             EXISTS(SELECT 1 FROM audit_events a
                     WHERE a.user_id = u.id AND a.type = 'billing_member_comped') AS comped
        FROM users u
@@ -168,7 +178,8 @@ function cohortOf(u: UserRow): Cohort {
   const paid = u.first_payment_at != null;
   if (gone) return paid ? 'paid_then_left' : 'lost_in_trial';
   if (paid && u.subscription_status === 'active') return 'converted';
-  return 'still_deciding';
+  if (u.stripe_subscription_id) return 'in_trial_now';
+  return 'never_started';
 }
 
 const viewsStmt = db.prepare(
@@ -235,7 +246,13 @@ console.log(
   `${pad('COHORT', 22)}${pad('MEMBERS', 9)}${pad('MED. PAGES', 12)}${pad('MED. MINUTES', 14)}SAW AN EXPLAINER`,
 );
 console.log('-'.repeat(84));
-for (const c of ['converted', 'lost_in_trial', 'paid_then_left', 'still_deciding'] as Cohort[]) {
+for (const c of [
+  'converted',
+  'lost_in_trial',
+  'paid_then_left',
+  'in_trial_now',
+  'never_started',
+] as Cohort[]) {
   const group = byCohort(c);
   if (group.length === 0) continue;
   const withExplainer = group.filter((m) => [...m.paths].some(isExplainer)).length;
@@ -288,6 +305,64 @@ for (const d of diffs.slice(0, cliArgs.top)) {
       pad(`${d.lN}/${lost.length} (${Math.round(d.lPct)}%)`, 14) +
       `${d.gap > 0 ? '+' : ''}${Math.round(d.gap)}pt`,
   );
+}
+
+// THE CONTROL. A page that converters reached more often is only interesting if
+// they reached it more often than their extra browsing alone explains. Converters
+// open more pages and stay longer than leavers, so EVERY page inherits a positive
+// gap from that difference and the raw table above can rank pages by nothing but
+// total usage. Comparing only the members of each cohort who browsed at least as
+// much as the pooled median removes that: a gap that survives is about the page,
+// a gap that collapses was volume all along.
+const pooledMedianPages = median([...converted, ...lost].map((m) => m.paths.size));
+const cMatched = converted.filter((m) => m.paths.size >= pooledMedianPages);
+const lMatched = lost.filter((m) => m.paths.size >= pooledMedianPages);
+
+function medianGap(list: Array<{ gap: number }>): number {
+  return median(list.map((d) => d.gap));
+}
+
+if (cMatched.length >= cliArgs.minSupport && lMatched.length >= cliArgs.minSupport) {
+  const matched: Diff[] = [];
+  for (const p of allPaths) {
+    const cN = cMatched.filter((m) => m.paths.has(p)).length;
+    const lN = lMatched.filter((m) => m.paths.has(p)).length;
+    if (cN < cliArgs.minSupport && lN < cliArgs.minSupport) continue;
+    const cPct = (cN / cMatched.length) * 100;
+    const lPct = (lN / lMatched.length) * 100;
+    matched.push({ path: p, cN, lN, cPct, lPct, gap: cPct - lPct });
+  }
+  matched.sort((a, b) => b.gap - a.gap);
+
+  console.log(
+    `\n\nSAME COMPARISON, ENGAGEMENT MATCHED (both cohorts limited to members who`,
+  );
+  console.log(
+    `opened >= ${pooledMedianPages} pages: ${cMatched.length} converted, ${lMatched.length} left)`,
+  );
+  console.log('-'.repeat(84));
+  console.log(`${pad('PAGE', 44)}${pad('CONVERTED', 14)}${pad('LEFT', 14)}GAP`);
+  for (const d of matched.slice(0, 10)) {
+    console.log(
+      pad(d.path, 44) +
+        pad(`${d.cN}/${cMatched.length} (${Math.round(d.cPct)}%)`, 14) +
+        pad(`${d.lN}/${lMatched.length} (${Math.round(d.lPct)}%)`, 14) +
+        `${d.gap > 0 ? '+' : ''}${Math.round(d.gap)}pt`,
+    );
+  }
+  const rawMed = medianGap(diffs);
+  const matchedMed = medianGap(matched);
+  console.log(
+    `\n  Median gap across every page — raw: ${rawMed > 0 ? '+' : ''}${rawMed.toFixed(1)}pt  ·  ` +
+      `engagement-matched: ${matchedMed > 0 ? '+' : ''}${matchedMed.toFixed(1)}pt`,
+  );
+  console.log(
+    `  A raw median well above zero means the untouched table is ranking pages by how much`,
+  );
+  console.log(
+    `  each cohort browsed overall. Read the matched table, and only a page that stays well`,
+  );
+  console.log(`  clear of the matched median is a real discovery difference.`);
 }
 
 const reverse = diffs.filter((d) => d.gap < 0).slice(-6).reverse();
