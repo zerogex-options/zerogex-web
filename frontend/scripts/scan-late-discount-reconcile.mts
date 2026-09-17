@@ -377,5 +377,19 @@ if (under.length) {
 console.log(
   `  • Each member is affected for ONE cycle only; the reconciled coupon binds every cycle after it.`,
 );
-console.log(`\nCredit an overcharged member with scripts/back-credit-trial.mts or a one-off Stripe`);
-console.log(`credit note, and confirm the amount on the hosted invoice first.`);
+console.log(`\nHow to make each one whole depends on whether they are staying:`);
+console.log(
+  `  • STAYING — a negative customer balance transaction (the mechanism`,
+);
+console.log(`    scripts/back-credit-trial.mts uses); Stripe auto-applies it to the next invoice.`);
+console.log(
+  `  • LEAVING or already gone — REFUND the invoice instead. A balance credit is applied to`,
+);
+console.log(
+  `    a next invoice that will never be drawn, so it silently returns nothing. Being`,
+);
+console.log(
+  `    overcharged is itself a reason to cancel, so expect this column to skew to leavers:`,
+);
+console.log(`    check each member's cancel_at_period_end before choosing.`);
+console.log(`\nConfirm the amount on the hosted invoice before either.`);
