@@ -104,6 +104,8 @@ type DeclineRow = {
   card_country: string | null;
   next_attempt_at: string | null;
   grace_until: string | null;
+  collection_method: string | null;
+  invoice_status: string | null;
   failed_at: string;
   outcome: string;
   resolved_at: string | null;
@@ -156,6 +158,10 @@ function toRecord(row: DeclineRow): DeclineRecord {
     cardCountry: row.card_country,
     nextAttemptAt: row.next_attempt_at,
     graceUntil: row.grace_until,
+    // NULL on every row written before these columns existed, which
+    // deriveRetryState reads as "we have not asked" — never as "retries running".
+    collectionMethod: row.collection_method ?? null,
+    invoiceStatus: row.invoice_status ?? null,
     failedAt: row.failed_at,
     outcome: (OUTCOMES.has(row.outcome) ? row.outcome : 'open') as DeclineRecord['outcome'],
     resolvedAt: row.resolved_at,
@@ -199,6 +205,8 @@ export type RecordDeclineInput = {
   cardCountry?: string | null;
   nextAttemptAt?: string | null;
   graceUntil?: string | null;
+  collectionMethod?: string | null;
+  invoiceStatus?: string | null;
   failedAt?: string | null;
   /**
    * Authoritative trial-conversion answer from the subscription's `trial_end`
@@ -231,9 +239,10 @@ export function recordPaymentDecline(input: RecordDeclineInput): boolean {
          subscription_id, price_id, tier, cadence, kind, billing_reason,
          amount_due, currency, failure_code, decline_code, network_decline_code,
          failure_message, seller_message, category, card_brand, card_last4,
-         card_funding, card_country, next_attempt_at, grace_until, failed_at,
+         card_funding, card_country, next_attempt_at, grace_until,
+         collection_method, invoice_status, failed_at,
          outcome, source, recorded_at
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)
        ON CONFLICT(invoice_id, attempt_count) DO UPDATE SET
          charge_id = COALESCE(excluded.charge_id, payment_declines.charge_id),
          user_id = COALESCE(excluded.user_id, payment_declines.user_id),
@@ -257,6 +266,8 @@ export function recordPaymentDecline(input: RecordDeclineInput): boolean {
          card_country = COALESCE(excluded.card_country, payment_declines.card_country),
          next_attempt_at = COALESCE(excluded.next_attempt_at, payment_declines.next_attempt_at),
          grace_until = COALESCE(excluded.grace_until, payment_declines.grace_until),
+         collection_method = COALESCE(excluded.collection_method, payment_declines.collection_method),
+         invoice_status = COALESCE(excluded.invoice_status, payment_declines.invoice_status),
          -- A real reason never loses to 'unknown', and a resolved row is never
          -- reopened by a redelivery of the failure that started it.
          category = CASE WHEN excluded.category = 'unknown' THEN payment_declines.category ELSE excluded.category END,
@@ -290,6 +301,8 @@ export function recordPaymentDecline(input: RecordDeclineInput): boolean {
       input.cardCountry ?? null,
       input.nextAttemptAt ?? null,
       input.graceUntil ?? null,
+      input.collectionMethod ?? null,
+      input.invoiceStatus ?? null,
       failedAt,
       input.source ?? 'webhook',
       nowIso(),
@@ -1270,6 +1283,9 @@ export function enrichDeclineWithReason(
     cardLast4?: string | null;
     cardFunding?: string | null;
     cardCountry?: string | null;
+    nextAttemptAt?: string | null;
+    collectionMethod?: string | null;
+    invoiceStatus?: string | null;
   } = {},
 ): boolean {
   try {
@@ -1298,6 +1314,12 @@ export function enrichDeclineWithReason(
                 card_last4 = COALESCE(?, card_last4),
                 card_funding = COALESCE(?, card_funding),
                 card_country = COALESCE(?, card_country),
+                -- Retry state comes from the invoice, and the backfill never had
+                -- it. These are what let an open decline say where it actually
+                -- stands instead of being reported as still in flight.
+                next_attempt_at = COALESCE(?, next_attempt_at),
+                collection_method = COALESCE(?, collection_method),
+                invoice_status = COALESCE(?, invoice_status),
                 source = CASE WHEN source = 'audit_backfill' THEN 'stripe_backfill' ELSE source END
           WHERE invoice_id = ? AND attempt_count = ?`,
       )
@@ -1321,6 +1343,9 @@ export function enrichDeclineWithReason(
         extras.cardLast4 ?? null,
         extras.cardFunding ?? null,
         extras.cardCountry ?? null,
+        extras.nextAttemptAt ?? null,
+        extras.collectionMethod ?? null,
+        extras.invoiceStatus ?? null,
         invoiceId,
         attemptCount,
       ) as { changes: number | bigint };

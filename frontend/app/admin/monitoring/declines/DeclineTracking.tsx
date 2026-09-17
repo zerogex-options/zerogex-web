@@ -20,6 +20,7 @@ import {
   CATEGORY_NEEDS_MEMBER_ACTION,
   DECLINE_CATEGORY_LABEL,
   LOST_REASON_LABEL,
+  RETRY_STATE_LABEL,
   declineGuidance,
   type DeclineBucket,
   type DeclineCategory,
@@ -27,6 +28,7 @@ import {
   type DeclineReport,
   type DeclineTotals,
   type LostReason,
+  type RetryState,
 } from '@/core/paymentDeclines';
 import { makeDayLabelFormatter } from '../monitoringHelpers';
 import { ChoiceRow, Disclosure, Panel, ProportionBar, RankBar, Sentence, StatTile } from '../growth/ui';
@@ -1034,19 +1036,44 @@ function OpenWorklistPanel({
   nowMs: number;
   mutedText: string;
 }) {
-  const { openWorklist, currency, totals } = report;
+  const { openWorklist, openByRetryState, currency, totals } = report;
   const chase = openWorklist.filter((row) => row.needsMemberAction);
   const wait = openWorklist.filter((row) => !row.needsMemberAction);
+  const unknownState = openByRetryState.find((row) => row.key === 'unknown');
 
   return (
     <Panel
       title="Open right now"
-      subtitle={`${fmtInt(totals.openInvoices)} unpaid invoice${totals.openInvoices === 1 ? '' : 's'} worth ${fmtMoney(totals.openAmount, currency)}, split by whether the member has to do something or the retry will most likely handle it.`}
+      subtitle={`${fmtInt(totals.openInvoices)} unpaid invoice${totals.openInvoices === 1 ? '' : 's'} worth ${fmtMoney(totals.openAmount, currency)}. An invoice being unpaid is NOT evidence that Stripe is still trying — where each one actually stands is read from the invoice itself, below.`}
     >
       {openWorklist.length === 0 ? (
         <Sentence>Nothing is open. Every decline in this window has resolved one way or the other.</Sentence>
       ) : (
         <div className="space-y-6">
+          <div>
+            <h4 className="zg-h4">Where Stripe has these</h4>
+            <p className="text-xs mt-0.5 mb-3" style={{ color: mutedText }}>
+              From the invoice&apos;s own collection method, status and next scheduled attempt — never inferred
+              from the invoice merely still being unpaid. Only <em>Retry scheduled</em> means doing nothing is a
+              plan.
+            </p>
+            <ProportionBar
+              total={openByRetryState.reduce((sum, row) => sum + row.invoices, 0)}
+              parts={openByRetryState.map((row) => ({
+                key: row.key,
+                label: `${row.label} — ${fmtMoney(row.amount, currency)}`,
+                value: row.invoices,
+                color: row.key === 'retry_scheduled' ? RECOVERED_COLOR : row.needsAction ? LOST_COLOR : PAID_COLOR,
+              }))}
+            />
+            {unknownState && unknownState.invoices > 0 && (
+              <p className="mt-3 text-xs" style={{ color: mutedText }}>
+                {fmtInt(unknownState.invoices)} of these predate retry-state capture and have not had their
+                invoice re-read, so their state is genuinely unknown rather than fine.{' '}
+                <code className="text-xs">make backfill-payment-declines RECHECK=1</code> resolves them.
+              </p>
+            )}
+          </div>
           <WorklistTable
             heading="Needs the member"
             note="The card itself is unusable, the issuer refused it, or a 3DS step-up was not completed. No retry fixes any of these on its own."
@@ -1057,7 +1084,7 @@ function OpenWorklistPanel({
           />
           <WorklistTable
             heading="Leave it to the retry"
-            note="A short balance or a transient error. Stripe's own retry collects most of these; pressing someone whose account was empty spends goodwill on a charge that was going to clear anyway."
+            note="A short balance or a transient error — the decline reason says the member is not the blocker. Check the Stripe state column before leaving one alone: a retry that is no longer scheduled will not collect it however recoverable the reason looks."
             rows={wait}
             currency={currency}
             nowMs={nowMs}
@@ -1105,7 +1132,7 @@ function WorklistTable({
                 <th className={TH}>Reason</th>
                 <th className={`${TH} text-right`}>Tries</th>
                 <th className={`${TH} text-right`}>Unpaid for</th>
-                <th className={`${TH} text-right`}>Next retry</th>
+                <th className={TH}>Stripe state</th>
               </tr>
             </thead>
             <tbody>
@@ -1138,8 +1165,24 @@ function WorklistTable({
                   </td>
                   <td className={NUM}>{fmtInt(row.attempts)}</td>
                   <td className={NUM}>{fmtHours(row.ageHours)}</td>
-                  <td className={NUM}>
-                    {fmtCountdown(row.nextAttemptAt, nowMs)}
+                  <td className={TD}>
+                    <div
+                      style={{
+                        color:
+                          row.retryState === 'retry_scheduled'
+                            ? RECOVERED_COLOR
+                            : row.retryNeedsAction
+                              ? LOST_COLOR
+                              : undefined,
+                      }}
+                    >
+                      {RETRY_STATE_LABEL[row.retryState as RetryState]}
+                    </div>
+                    {row.retryState === 'retry_scheduled' && (
+                      <div className="text-xs" style={{ color: mutedText }}>
+                        {fmtCountdown(row.nextAttemptAt, nowMs)}
+                      </div>
+                    )}
                     {row.graceUntil && (
                       <div className="text-xs" style={{ color: AT_RISK_COLOR }}>
                         access until {fmtWhen(row.graceUntil)}

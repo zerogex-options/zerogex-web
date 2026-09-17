@@ -93,7 +93,7 @@ const {
   unifyInvoiceKinds,
   reclassifyUnknownKinds,
 } = await import('../core/paymentDeclinesServer.ts');
-const { lookupInvoiceDecline } = await import('../core/stripeDeclineLookup.ts');
+const { declineForAttempt, lookupInvoiceDecline } = await import('../core/stripeDeclineLookup.ts');
 const { classifyDecline, describeDecline } = await import('../core/declineReason.ts');
 const { readInvoicePriceId } = await import('../core/stripeInvoice.ts');
 
@@ -193,6 +193,7 @@ const byCategory = new Map<string, number>();
 let stamped = 0;
 let noReason = 0;
 let facts = 0;
+let recoveredFromHistory = 0;
 let failed = 0;
 
 for (const row of pending) {
@@ -201,7 +202,11 @@ for (const row of pending) {
     // the reason depends on the API version the invoice renders in, and
     // lookupInvoiceDecline is the one place that knows the order to try.
     const invoice = await stripe.invoices.retrieve(row.invoiceId);
-    const lookup = await lookupInvoiceDecline(stripe, invoice);
+    const found = await lookupInvoiceDecline(stripe, invoice);
+    // Line this ATTEMPT up with its own failure where the lookup recovered
+    // several, rather than stamping one reason across every retry.
+    const lookup = { ...found, decline: declineForAttempt(found, row.attemptCount) };
+    if (found.fromHistory) recoveredFromHistory += 1;
     if (lookup.decline) {
       const category = classifyDecline(lookup.decline);
       byCategory.set(category, (byCategory.get(category) ?? 0) + 1);
@@ -229,6 +234,12 @@ for (const row of pending) {
       cardLast4: lookup.card?.last4 ?? null,
       cardFunding: lookup.card?.funding ?? null,
       cardCountry: lookup.card?.country ?? null,
+      nextAttemptAt:
+        typeof invoice.next_payment_attempt === 'number'
+          ? new Date(invoice.next_payment_attempt * 1000).toISOString()
+          : null,
+      collectionMethod: invoice.collection_method ?? null,
+      invoiceStatus: invoice.status ?? null,
     });
     // The invoice has been read. Recorded whatever came back, so the next run
     // spends no API call asking again.
@@ -252,6 +263,12 @@ console.log(
 );
 for (const [category, count] of [...byCategory.entries()].sort((a, b) => b[1] - a[1])) {
   console.log(`  ${category.padEnd(24)} ${count}`);
+}
+if (recoveredFromHistory > 0) {
+  console.log(
+    `  ${recoveredFromHistory} reason(s) recovered from a FAILED charge in history — invoices that were\n` +
+      '    later paid, whose latest charge is the successful one and carries no decline data.',
+  );
 }
 if (pending.length === limit) {
   console.log(`\nStopped at LIMIT=${limit}. Re-run to continue.`);
