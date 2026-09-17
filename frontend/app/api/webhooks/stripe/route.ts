@@ -52,6 +52,7 @@ import {
   readInvoicePriceId,
   readInvoiceSubscriptionId,
 } from '@/core/stripeInvoice';
+import { classifyDecline, type DeclineCategory } from '@/core/declineReason';
 import { lookupInvoiceDecline } from '@/core/stripeDeclineLookup';
 import {
   markDeclinesLostForInvoice,
@@ -250,9 +251,12 @@ async function recordInvoiceDecline(input: {
   // CONVERSION or a lost RENEWAL, which are different failures.
   trialConversion: boolean | null;
   graceUntilIso: string | null;
-}): Promise<void> {
+  // What core/declineReason.ts made of the issuer's answer, returned so the
+  // dunning email can say something TRUE about why the charge failed rather
+  // than telling every member to update a card that may be perfectly fine.
+}): Promise<DeclineCategory | null> {
   const { invoice } = input;
-  if (!invoice.id) return;
+  if (!invoice.id) return null;
   try {
     const lookup = await lookupInvoiceDecline(getStripe(), invoice);
     recordPaymentDecline({
@@ -290,6 +294,7 @@ async function recordInvoiceDecline(input: {
       trialConversion: input.trialConversion,
       source: 'webhook',
     });
+    return lookup.decline ? classifyDecline(lookup.decline) : null;
   } catch (err) {
     const message = err instanceof Error ? err.message : 'decline capture failed';
     logAudit({
@@ -298,6 +303,9 @@ async function recordInvoiceDecline(input: {
       email: input.user?.email,
       message: `Could not record the decline on invoice ${invoice.id}: ${message}`,
     });
+    // Capture is best-effort and must never fail the webhook; with no
+    // classification the email falls back to its neutral wording.
+    return null;
   }
 }
 
@@ -2399,7 +2407,7 @@ export async function POST(request: NextRequest) {
         // Capture the reason BEFORE anything that can fail, and regardless of
         // whether the customer maps to a live account: an unattributed decline is
         // still money that did not arrive.
-        await recordInvoiceDecline({
+        const declineCategory = await recordInvoiceDecline({
           invoice,
           invoiceSub,
           user,
@@ -2447,6 +2455,13 @@ export async function POST(request: NextRequest) {
               cardLast4: card?.last4 ?? null,
               nextAttemptIso,
               graceUntilIso,
+              // Both were already in scope and neither was being passed. The
+              // category is what stops us telling a member with an empty
+              // account to fix a card that works; the hosted invoice page is
+              // the only link in the email that can actually collect the money,
+              // from any card, the moment they have it.
+              declineCategory,
+              hostedInvoiceUrl: invoice.hosted_invoice_url ?? null,
             };
             try {
               if (trialConversionEmail) {

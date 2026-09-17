@@ -1,4 +1,6 @@
 import { Resend } from 'resend';
+import { buildDeclineEmailCopy } from './declineEmailCopy.ts';
+import type { DeclineCategory } from './declineReason.ts';
 import type { ChurnAlert } from './cancellationAlert.ts';
 import type { ReturnAngle } from './returnIntent.ts';
 
@@ -1516,27 +1518,48 @@ export async function sendCardExpiringEmail(to: string, opts: CardExpiringEmailO
   }
 }
 
-export async function sendPaymentFailedEmail(
-  to: string,
-  opts?: {
-    amountFormatted?: string | null;
-    // The card Stripe just tried and failed to charge, so the nudge can name it.
-    // Resolved from Stripe by the caller; brand is display-ready (or null for a
-    // wallet/Link/unmapped method → neutral phrasing), last4 like "6284".
-    cardBrand?: string | null;
-    cardLast4?: string | null;
-    // Stripe's next automatic retry (invoice.next_payment_attempt), ISO, so the
-    // email can give a concrete "we'll try again on …" date. Null when Stripe has
-    // exhausted its automatic retries (this was the final attempt).
-    nextAttemptIso?: string | null;
-    // When an ACTIVE payment-recovery grace window is open for this account (an
-    // established renewal failure — see BILLING_PAYMENT_GRACE_DAYS), the ISO
-    // instant it runs through. Lets the email say access is retained until then
-    // instead of implying an immediate downgrade. Null/omitted when no window is
-    // open, its state isn't known yet, or grace is disabled.
-    graceUntilIso?: string | null;
-  },
-) {
+/**
+ * The two dunning emails share one problem and now one fix: what they say about
+ * WHY the charge failed, and where they send the member as a result. See
+ * core/declineEmailCopy.ts — 60 first payments were told to update a card that
+ * had nothing wrong with it.
+ */
+type DeclineEmailExtras = {
+  /** What core/declineReason.ts made of the issuer's answer. Null when unknown. */
+  declineCategory?: DeclineCategory | null;
+  /**
+   * Stripe's hosted payment page for the unpaid invoice. It takes ANY card and
+   * settles the debt in one step, which is the right destination for every
+   * decline except a genuine card fault. Null when Stripe did not publish one.
+   */
+  hostedInvoiceUrl?: string | null;
+};
+
+export type PaymentFailedEmailOptions = {
+  amountFormatted?: string | null;
+  // The card Stripe just tried and failed to charge, so the nudge can name it.
+  // Resolved from Stripe by the caller; brand is display-ready (or null for a
+  // wallet/Link/unmapped method → neutral phrasing), last4 like "6284".
+  cardBrand?: string | null;
+  cardLast4?: string | null;
+  // Stripe's next automatic retry (invoice.next_payment_attempt), ISO, so the
+  // email can give a concrete "we'll try again on …" date. Null when Stripe has
+  // exhausted its automatic retries (this was the final attempt).
+  nextAttemptIso?: string | null;
+  // When an ACTIVE payment-recovery grace window is open for this account (an
+  // established renewal failure — see BILLING_PAYMENT_GRACE_DAYS), the ISO
+  // instant it runs through. Lets the email say access is retained until then
+  // instead of implying an immediate downgrade. Null/omitted when no window is
+  // open, its state isn't known yet, or grace is disabled.
+  graceUntilIso?: string | null;
+} & DeclineEmailExtras;
+
+/** Split from its sender for the same reason as its trial-side twin above. */
+export function buildPaymentFailedEmail(opts?: PaymentFailedEmailOptions): {
+  subject: string;
+  html: string;
+  text: string;
+} {
   const subject = "We couldn't process your ZeroGEX payment";
   const accountUrl = `${getAppUrl()}/account`;
   const safeAccountUrl = escapeHtml(accountUrl);
@@ -1548,13 +1571,22 @@ export async function sendPaymentFailedEmail(
       : `the payment method ending in ${opts.cardLast4}`
     : null;
 
+  // The reason now comes from what the issuer actually said. The old line
+  // asserted "declined by your card issuer" for every failure, which is simply
+  // false when our own Radar check stopped it — see core/declineEmailCopy.ts.
+  const copy = buildDeclineEmailCopy({
+    category: opts?.declineCategory ?? null,
+    cardPhrase,
+    nextAttemptLabel: opts?.nextAttemptIso ? formatTrialEndDate(opts.nextAttemptIso) : null,
+    hasInvoiceUrl: Boolean(opts?.hostedInvoiceUrl),
+    trialConversion: false,
+  });
   const amountSentence = opts?.amountFormatted
-    ? cardPhrase
-      ? `Your subscription payment of ${opts.amountFormatted} was declined — ${cardPhrase} didn't go through.`
-      : `Your subscription payment of ${opts.amountFormatted} was declined by your card issuer.`
-    : cardPhrase
-      ? `Your subscription payment was declined — ${cardPhrase} didn't go through.`
-      : 'Your subscription payment was declined by your card issuer.';
+    ? `Your subscription payment of ${opts.amountFormatted} did not go through. ${copy.reason}`
+    : copy.reason;
+  const actionUrl = copy.preferInvoice && opts?.hostedInvoiceUrl ? opts.hostedInvoiceUrl : accountUrl;
+  const safeActionUrl = escapeHtml(actionUrl);
+  const actionIsInvoice = actionUrl !== accountUrl;
 
   // Access-state wording. An established (previously active) subscription that
   // fails a renewal now keeps Pro through a short grace window (see
@@ -1567,13 +1599,16 @@ export async function sendPaymentFailedEmail(
   // trial-conversion case). Retry timing is covered separately by retrySentence.
   const accessSentence = opts?.graceUntilIso
     ? `Your Pro access stays on through ${formatTrialEndDate(opts.graceUntilIso)}, so nothing changes right now. If the payment still can't be collected by then, your account moves to the free Public tier — and full Pro switches back on automatically the moment a charge succeeds.`
-    : 'Updating your payment method is the fastest way to keep your Pro access from lapsing — and if the account has already dropped to the free Public tier, full Pro switches back on automatically the moment a payment succeeds.';
+    : copy.preferInvoice
+      ? 'If the account has already dropped to the free Public tier, full Pro switches back on automatically the moment a payment succeeds.'
+      : 'Updating your payment method is the fastest way to keep your Pro access from lapsing — and if the account has already dropped to the free Public tier, full Pro switches back on automatically the moment a payment succeeds.';
 
   // Concrete next-retry date when Stripe still has attempts left; a firmer note
   // when this was the final automatic attempt and cancellation is imminent.
-  const retrySentence = opts?.nextAttemptIso
-    ? `Stripe will automatically try again on ${formatTrialEndDate(opts.nextAttemptIso)}. If the retries don't succeed, the subscription will be canceled and you'd need to resubscribe to get Pro back.`
-    : 'Stripe has made its final automatic attempt, so the subscription will be canceled shortly unless you update your payment method now.';
+  const consequence = opts?.nextAttemptIso
+    ? " If the retries don't succeed, the subscription will be canceled and you'd need to resubscribe to get Pro back."
+    : ' Unless it is settled, the subscription will be canceled shortly.';
+  const retrySentence = `${copy.remedy}${consequence}`;
 
   const text = [
     'Hello,',
@@ -1582,10 +1617,10 @@ export async function sendPaymentFailedEmail(
     '',
     retrySentence,
     '',
-    "If you'd rather fix it now, you can update your payment method in a minute from the billing portal on your account page:",
-    accountUrl,
-    '',
-    'If it was just a temporary hiccup (insufficient funds, an expired or replaced card), the next retry may clear it with nothing needed from you.',
+    actionIsInvoice
+      ? "If you'd rather settle it now, that page takes any card:"
+      : "If you'd rather fix it now, you can update your payment method in a minute from the billing portal on your account page:",
+    actionUrl,
     '',
     "And if you have any questions, just reply to this email — I'm happy to help.",
     '',
@@ -1599,16 +1634,24 @@ export async function sendPaymentFailedEmail(
       <p>Hello,</p>
       <p>${escapeHtml(amountSentence)} ${escapeHtml(accessSentence)}</p>
       <p>${escapeHtml(retrySentence)}</p>
-      <p>If you'd rather fix it now, you can update your payment method in a minute from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a>.</p>
+      <p>${
+        actionIsInvoice
+          ? `If you'd rather settle it now, <a href="${safeActionUrl}" style="color: #f5b400; font-weight: 600;">this page</a> takes any card.`
+          : `If you'd rather fix it now, you can update your payment method in a minute from the billing portal on your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a>.`
+      }</p>
       <p style="margin: 24px 0;">
-        <a href="${safeAccountUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Update payment method</a>
+        <a href="${safeActionUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">${escapeHtml(copy.ctaLabel)}</a>
       </p>
-      <p>If it was just a temporary hiccup (insufficient funds, an expired or replaced card), the next retry may clear it with nothing needed from you.</p>
       <p>And if you have any questions, just reply to this email &mdash; I'm happy to help.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
     </div>
   `.trim();
 
+  return { subject, html, text };
+}
+
+export async function sendPaymentFailedEmail(to: string, opts?: PaymentFailedEmailOptions) {
+  const { subject, html, text } = buildPaymentFailedEmail(opts);
   const client = getClient();
   const result = await client.emails.send({
     from: getFromAddress(),
@@ -1631,46 +1674,72 @@ export async function sendPaymentFailedEmail(
 // enrichments (named card, grace deadline, next retry) but welcoming, not lapse-
 // framed. No FOH footer: urgent/transactional like its renewal sibling. The
 // webhook chooses between the two via core/trialDunning isTrialConversionFailure.
-export async function sendTrialConversionFailedEmail(
-  to: string,
-  opts?: {
-    amountFormatted?: string | null;
-    cardBrand?: string | null;
-    cardLast4?: string | null;
-    nextAttemptIso?: string | null;
-    graceUntilIso?: string | null;
-  },
-) {
-  const subject = 'Your ZeroGEX trial ended — a quick card fix to keep your access';
-  const accountUrl = `${getAppUrl()}/account`;
-  const safeAccountUrl = escapeHtml(accountUrl);
+export type TrialConversionFailedEmailOptions = {
+  amountFormatted?: string | null;
+  cardBrand?: string | null;
+  cardLast4?: string | null;
+  nextAttemptIso?: string | null;
+  graceUntilIso?: string | null;
+} & DeclineEmailExtras;
 
+/**
+ * Split from its sender so the copy can be rendered and reviewed without
+ * emailing anybody — the same shape buildTrialReminderEmail and
+ * buildOpenInvoiceRecoveryEmail already use. Customer-facing wording that
+ * cannot be read before it ships is wording nobody checks.
+ */
+export function buildTrialConversionFailedEmail(opts?: TrialConversionFailedEmailOptions): {
+  subject: string;
+  html: string;
+  text: string;
+} {
   const cardPhrase = opts?.cardLast4
     ? opts.cardBrand
       ? `your ${opts.cardBrand} card ending in ${opts.cardLast4}`
       : `the card ending in ${opts.cardLast4}`
     : null;
 
+  const copy = buildDeclineEmailCopy({
+    category: opts?.declineCategory ?? null,
+    cardPhrase,
+    nextAttemptLabel: opts?.nextAttemptIso ? formatTrialEndDate(opts.nextAttemptIso) : null,
+    hasInvoiceUrl: Boolean(opts?.hostedInvoiceUrl),
+    trialConversion: true,
+  });
+  // The subject promised a card fix to everybody. For an empty account that is
+  // the wrong instruction in the one line a member is guaranteed to read.
+  const subject = copy.preferInvoice
+    ? 'Your ZeroGEX trial ended — the first payment did not go through'
+    : 'Your ZeroGEX trial ended — a quick card fix to keep your access';
+  const accountUrl = `${getAppUrl()}/account`;
+  const safeAccountUrl = escapeHtml(accountUrl);
+
   // Trial-framed opener: they were on a free trial, so this is the FIRST charge —
-  // not a renewal of something they already pay for.
+  // not a renewal of something they already pay for. The REASON now comes from
+  // what the issuer actually said rather than one sentence for every decline.
   const declineSentence = opts?.amountFormatted
-    ? cardPhrase
-      ? `Your free trial just wrapped up and I went to start your subscription (${opts.amountFormatted}) — but ${cardPhrase} was declined, so the first charge didn't go through.`
-      : `Your free trial just wrapped up and I went to start your subscription (${opts.amountFormatted}) — but your card was declined, so the first charge didn't go through.`
-    : cardPhrase
-      ? `Your free trial just wrapped up and I went to start your subscription — but ${cardPhrase} was declined, so the first charge didn't go through.`
-      : `Your free trial just wrapped up and I went to start your subscription — but your card was declined, so the first charge didn't go through.`;
+    ? `Your free trial just wrapped up and I went to start your subscription (${opts.amountFormatted}). ${copy.reason}`
+    : `Your free trial just wrapped up and I went to start your subscription. ${copy.reason}`;
 
   // Access wording: if a trial-grace window is open (BILLING_TRIAL_GRACE_ENABLED),
   // access is held through it; otherwise stay tense-neutral (the account may have
   // dropped to Public, and re-grants automatically the moment a charge clears).
   const accessSentence = opts?.graceUntilIso
-    ? `Good news: your full access stays on through ${formatTrialEndDate(opts.graceUntilIso)}, so nothing changes right now. Update your card before then and you won't miss a beat — if a charge still can't be collected, the account moves to the free Public tier, and full access switches back on automatically the moment one succeeds.`
-    : `Updating your card is the fastest way to keep your access going — and if the account has already dropped to the free Public tier, full access switches back on automatically the moment a charge succeeds.`;
+    ? `Good news: your full access stays on through ${formatTrialEndDate(opts.graceUntilIso)}, so nothing changes right now. ${copy.preferInvoice ? 'Settle it' : 'Update your card'} before then and you won't miss a beat — if a charge still can't be collected, the account moves to the free Public tier, and full access switches back on automatically the moment one succeeds.`
+    : copy.preferInvoice
+      // Saying "updating your card is the fastest way" immediately after "there
+      // is nothing to fix or re-enter" is the same self-contradiction the
+      // worklist had: two sentences in a row telling the reader opposite things.
+      ? `If the account has already dropped to the free Public tier, full access switches back on automatically the moment a charge succeeds.`
+      : `Updating your card is the fastest way to keep your access going — and if the account has already dropped to the free Public tier, full access switches back on automatically the moment a charge succeeds.`;
 
-  const retrySentence = opts?.nextAttemptIso
-    ? `Stripe will automatically try the card again on ${formatTrialEndDate(opts.nextAttemptIso)}, so an expired-or-replaced card or a momentary insufficient-funds hold may simply clear on its own.`
-    : `Stripe has made its final automatic attempt, so updating your card now is the way to pick your subscription back up.`;
+  const retrySentence = copy.remedy;
+  // Where the button goes. Stripe's hosted invoice page takes any card and
+  // settles the debt in one step; the account page only re-saves a card, which
+  // helps solely when the card is the thing at fault.
+  const actionUrl = copy.preferInvoice && opts?.hostedInvoiceUrl ? opts.hostedInvoiceUrl : accountUrl;
+  const safeActionUrl = escapeHtml(actionUrl);
+  const actionIsInvoice = actionUrl !== accountUrl;
 
   const text = [
     'Hello,',
@@ -1679,8 +1748,10 @@ export async function sendTrialConversionFailedEmail(
     '',
     retrySentence,
     '',
-    'You can update your card in about a minute from your account page:',
-    accountUrl,
+    actionIsInvoice
+      ? 'You can complete it here:'
+      : 'You can update your card in about a minute from your account page:',
+    actionUrl,
     '',
     "If ZeroGEX earned a spot in your routine this week, that's all it takes to keep it. And if something's holding you back, just reply to this email — I read every one and I'm happy to help.",
     '',
@@ -1694,15 +1765,24 @@ export async function sendTrialConversionFailedEmail(
       <p>Hello,</p>
       <p>${escapeHtml(declineSentence)} ${escapeHtml(accessSentence)}</p>
       <p>${escapeHtml(retrySentence)}</p>
-      <p>You can update your card in about a minute from your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a>.</p>
+      <p>${
+        actionIsInvoice
+          ? `You can <a href="${safeActionUrl}" style="color: #f5b400; font-weight: 600;">complete it here</a> &mdash; that page takes any card.`
+          : `You can update your card in about a minute from your <a href="${safeAccountUrl}" style="color: #f5b400; font-weight: 600;">account page</a>.`
+      }</p>
       <p style="margin: 24px 0;">
-        <a href="${safeAccountUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Update your card</a>
+        <a href="${safeActionUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">${escapeHtml(copy.ctaLabel)}</a>
       </p>
       <p>If ZeroGEX earned a spot in your routine this week, that&rsquo;s all it takes to keep it. And if something&rsquo;s holding you back, just reply to this email &mdash; I read every one and I&rsquo;m happy to help.</p>
       <p>Best,<br>Michael<br>Founder, ZeroGEX</p>
     </div>
   `.trim();
 
+  return { subject, html, text };
+}
+
+export async function sendTrialConversionFailedEmail(to: string, opts?: TrialConversionFailedEmailOptions) {
+  const { subject, html, text } = buildTrialConversionFailedEmail(opts);
   const client = getClient();
   const result = await client.emails.send({
     from: getFromAddress(),
