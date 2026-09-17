@@ -300,6 +300,8 @@ export type DeclineRecord = {
   failureMessage: string | null;
   sellerMessage: string | null;
   category: DeclineCategory;
+  /** card | link | cashapp | … — the strongest single predictor of a failure. */
+  methodType: string | null;
   cardBrand: string | null;
   cardLast4: string | null;
   cardFunding: string | null;
@@ -651,6 +653,15 @@ export type DeclineReport = {
   byCategory: DeclineBucket[];
   byCode: DeclineCodeRow[];
   byBrand: DeclineBucket[];
+  /**
+   * The three cuts a live audit found actually separate a failed conversion from
+   * a successful one. Each carries its own attempt volume, because "debit cards
+   * are 40% of my declines" and "debit cards decline twice as often as credit"
+   * are different claims and only the second is a reason to do anything.
+   */
+  byMethodType: DeclineKindRow[];
+  byFunding: DeclineKindRow[];
+  byCountry: DeclineKindRow[];
   byAttempt: DeclineBucket[];
   byPlan: DeclineBucket[];
   /** How the recovered invoices came back. Computed over recoveries only. */
@@ -1066,6 +1077,53 @@ function recoveryRouteOf(invoice: DeclinedInvoice): RecoveryRoute {
   return route === 'auto_retry' || route === 'member_action' ? route : 'unknown';
 }
 
+const METHOD_TYPE_LABEL: Record<string, string> = {
+  card: 'Card entered at checkout',
+  link: 'Link',
+  cashapp: 'Cash App Pay',
+  us_bank_account: 'Bank account',
+};
+
+const FUNDING_LABEL: Record<string, string> = {
+  credit: 'Credit',
+  debit: 'Debit',
+  prepaid: 'Prepaid',
+};
+
+/**
+ * A breakdown by a property of the PAYMENT INSTRUMENT, each row against its own
+ * attempt volume.
+ *
+ * Reusing DeclineKindRow rather than DeclineBucket is the point: a bucket can
+ * only say how many declines a category produced, and the actionable question is
+ * its RATE. The denominator is unavoidably approximate here — a successful
+ * charge leaves no decline row, so the instrument behind it is not in this table
+ * — so these rows report the declines they know about and leave the paid side at
+ * zero rather than inventing one. Read the shares against each other; the audit
+ * script (`make audit-trial-conversions`) is what computes true per-instrument
+ * rates, because only Stripe holds the successful charges' instruments.
+ */
+function byInstrument(
+  invoices: readonly DeclinedInvoice[],
+  keyOf: (invoice: DeclinedInvoice) => string | null,
+  labels: Record<string, string> | null,
+): DeclineKindRow[] {
+  const keys = new Set<string>();
+  for (const invoice of invoices) keys.add(keyOf(invoice) ?? 'unknown');
+  return [...keys]
+    .map((key) => {
+      const mine = invoices.filter((i) => (keyOf(i) ?? 'unknown') === key);
+      return {
+        key: key as DeclineKind,
+        label: key === 'unknown' ? 'Not recorded' : (labels?.[key] ?? key.toUpperCase()),
+        blurb: '',
+        share: rate(mine.length, invoices.length),
+        ...headlineFor(mine, []),
+      };
+    })
+    .sort((a, b) => b.invoices - a.invoices);
+}
+
 function attemptBucketKey(invoice: DeclinedInvoice): string {
   const n = invoice.attempts.length;
   if (n <= 1) return '1';
@@ -1385,6 +1443,9 @@ export function buildDeclineReport(input: DeclineReportInput): DeclineReport {
       null,
       (b) => b,
     ),
+    byMethodType: byInstrument(invoices, (i) => i.last.methodType, METHOD_TYPE_LABEL),
+    byFunding: byInstrument(invoices, (i) => i.last.cardFunding, FUNDING_LABEL),
+    byCountry: byInstrument(invoices, (i) => i.last.cardCountry, null),
     byAttempt: bucketize(invoices, attemptBucketKey, ATTEMPT_BUCKET_ORDER, (k) => ATTEMPT_BUCKET_LABEL[k] ?? k),
     byPlan: bucketize(invoices, (i) => planKey(i.last), null, planLabel),
     byRecoveryRoute: bucketize(

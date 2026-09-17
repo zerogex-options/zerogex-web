@@ -556,6 +556,8 @@ function DeclineReportView({
         <RepeatMembersTable report={report} mutedText={mutedText} />
       </Disclosure>
 
+      <InstrumentPanel report={report} mutedText={mutedText} />
+
       <Disclosure
         title="Cards, retries and plans"
         summary="The same declines cut by card brand, by how many attempts they took, and by plan"
@@ -573,6 +575,82 @@ function DeclineReportView({
 
       <CoverageNote report={report} mutedText={mutedText} />
     </div>
+  );
+}
+
+/**
+ * What the member was paying WITH. A live audit of the trial-to-paid step found
+ * these three cuts separate a failed conversion from a successful one more
+ * sharply than anything else on the charge — debit at more than twice credit's
+ * rate, card entry at nearly twice Link's.
+ */
+function InstrumentPanel({ report, mutedText }: { report: DeclinePayload; mutedText: string }) {
+  const { byMethodType, byFunding, byCountry, currency } = report;
+  const sections: Array<{ title: string; note: string; rows: typeof byMethodType }> = [
+    {
+      title: 'By payment method',
+      note: 'A wallet is not a card and does not fail like one. Where Link carries real volume it typically declines at around half the rate of a card typed in at checkout — the same customer, a card they have already verified and used elsewhere.',
+      rows: byMethodType,
+    },
+    {
+      title: 'By funding',
+      note: 'Debit and prepaid decline far more often than credit, because the money has to actually be in the account at the moment of an off-session charge. That is the whole insufficient-funds story, and it is a property of the instrument rather than of the customer\u2019s intent.',
+      rows: byFunding,
+    },
+    {
+      title: 'By issuing country',
+      note: 'A cross-border recurring charge from a US merchant is the textbook issuer block. Small per-country counts are not a trend — read a country with a handful of charges as a hint to check, not a finding.',
+      rows: byCountry.slice(0, 12),
+    },
+  ];
+
+  const total = report.totals.invoices;
+  if (total === 0) return null;
+
+  return (
+    <Panel
+      title="What they were paying with"
+      subtitle="Declined invoices only — a successful charge leaves no row here, so these are shares of the failures, not per-instrument rates. `make audit-trial-conversions` computes the true rates against Stripe, which is the only place the successful charges' instruments live."
+    >
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {sections.map((section) => {
+          const max = section.rows.reduce((m, row) => Math.max(m, row.invoices), 0);
+          return (
+            <div key={section.title}>
+              <h4 className="zg-h4">{section.title}</h4>
+              <p className="text-xs mt-0.5 mb-3" style={{ color: mutedText }}>
+                {section.note}
+              </p>
+              {section.rows.length === 0 ? (
+                <p className="text-sm" style={{ color: mutedText }}>
+                  Nothing recorded yet.
+                </p>
+              ) : (
+                <ul className="space-y-2.5">
+                  {section.rows.map((row) => (
+                    <li key={row.key} className="text-sm">
+                      <div className="flex items-baseline gap-2">
+                        <span className="flex-1 min-w-0">{row.label}</span>
+                        <span className="tabular-nums font-semibold">{fmtInt(row.invoices)}</span>
+                        <span className="tabular-nums text-xs w-20 text-right" style={{ color: mutedText }}>
+                          {fmtMoney(row.lostAmount, currency)}
+                        </span>
+                      </div>
+                      <div className="mt-1">
+                        <RankBar value={row.invoices} max={max} color={CAUSE_RANK_COLOR} />
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <p className="mt-4 text-xs" style={{ color: mutedText }}>
+        Amounts shown are the revenue each group <strong>lost</strong>, not the amount at risk.
+      </p>
+    </Panel>
   );
 }
 

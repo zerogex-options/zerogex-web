@@ -253,3 +253,12 @@ test('a generic payment failure is still not guessed at', () => {
   // it would turn every unexplained decline into a confident wrong answer.
   assert.equal(classifyDecline(decline({ declineCode: 'payment_intent_generic_payment_failed' })), 'unknown');
 });
+
+test('a Radar rule firing on a postcode or CVC mismatch is OUR block, not the card being broken', () => {
+  // These look like a card problem and are not one: the member cannot fix a rule
+  // they cannot see, and "update your card" is the wrong ask.
+  for (const code of ['requested_block_on_incorrect_zip', 'requested_block_on_incorrect_cvc', 'requested_block']) {
+    assert.equal(classifyDecline(decline({ declineCode: code })), 'blocked_by_risk', code);
+  }
+  assert.notEqual(classifyDecline(decline({ declineCode: 'requested_block_on_incorrect_zip' })), 'card_problem');
+});

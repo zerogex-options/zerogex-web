@@ -964,6 +964,12 @@ function initDb(): DatabaseSync {
   // distinguishes an open invoice from one already voided or written off. Both
   // are NULL on rows captured before this column existed, which reads as "retry
   // state unknown" — deliberately NOT as "retries still running".
+  // What the payment method IS — card, link, cashapp. A live audit of the
+  // trial-to-paid step put a card-entry decline rate of 59% against Link's 30%
+  // on comparable volume, which no other field on the charge came close to
+  // separating. It was not being stored at all, so the strongest predictor of a
+  // failed conversion was invisible to every report.
+  ensureColumn('payment_declines', 'method_type', 'TEXT');
   ensureColumn('payment_declines', 'collection_method', 'TEXT');
   ensureColumn('payment_declines', 'invoice_status', 'TEXT');
   db.exec('CREATE INDEX IF NOT EXISTS idx_payment_declines_failed_at ON payment_declines(failed_at);');

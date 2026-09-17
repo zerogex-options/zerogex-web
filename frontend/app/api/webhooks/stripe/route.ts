@@ -272,6 +272,7 @@ async function recordInvoiceDecline(input: {
       // The card that was ACTUALLY charged, off the charge itself, rather than
       // the subscription's current default: on a retry after a card swap those
       // are different cards, and the one that declined is the one to report.
+      methodType: lookup.card?.type ?? null,
       cardBrand: lookup.card?.brand ?? null,
       cardLast4: lookup.card?.last4 ?? null,
       cardFunding: lookup.card?.funding ?? null,
