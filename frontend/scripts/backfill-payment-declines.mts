@@ -90,6 +90,7 @@ const {
   listDeclinesNeedingInvoiceRead,
   markDeclineInvoiceRead,
   recategorizeFromStoredCodes,
+  unifyInvoiceKinds,
   reclassifyUnknownKinds,
 } = await import('../core/paymentDeclinesServer.ts');
 const { lookupInvoiceDecline } = await import('../core/stripeDeclineLookup.ts');
@@ -112,6 +113,12 @@ function runPass3(): void {
   console.log(
     `  charges:  ${kinds.examined} invoice(s) examined · ${kinds.reclassified} moved off "unclassified"`,
   );
+  const unified = unifyInvoiceKinds();
+  if (unified.split > 0) {
+    console.log(
+      `  split:    ${unified.split} invoice(s) held more than one kind · ${unified.unified} collapsed to one`,
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
