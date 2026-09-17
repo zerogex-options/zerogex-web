@@ -163,3 +163,57 @@ export function readInvoicePaymentMethodId(invoice: unknown): string | null {
   // Some invoices carry the member's chosen default directly.
   return idOf(inv.default_payment_method as Expandable);
 }
+
+// The CHARGE this invoice's payment attempt produced — the only object that
+// carries the issuer's decline reason. Same version split as everything above:
+//
+//   acacia and earlier: `invoice.charge`
+//   basil and later:    the charge hangs off the settled payment intent at
+//                       `payments.data[].payment.payment_intent.latest_charge`
+//
+// Returns null when the invoice carries no charge (never attempted, paid from
+// credit balance, or rendered without the expansion), in which case the caller
+// falls back to the payment intent below.
+export function readInvoiceChargeId(invoice: unknown): string | null {
+  const inv = obj(invoice);
+  if (!inv) return null;
+
+  const flat = idOf(inv.charge as Expandable);
+  if (flat) return flat;
+
+  const payments = obj(inv.payments);
+  const paymentsData = payments ? payments.data : null;
+  if (Array.isArray(paymentsData)) {
+    for (const entry of paymentsData) {
+      const payment = obj(obj(entry)?.payment);
+      const pi = obj(payment?.payment_intent);
+      const latest = pi ? idOf(pi.latest_charge as Expandable) : null;
+      if (latest) return latest;
+    }
+  }
+
+  const expandedIntent = obj(inv.payment_intent);
+  return expandedIntent ? idOf(expandedIntent.latest_charge as Expandable) : null;
+}
+
+// The payment intent behind this invoice's attempt. Read when no charge is to
+// hand: a payment that never produced a charge (a 3DS step-up abandoned before
+// authorization) still records its failure in `last_payment_error`.
+export function readInvoicePaymentIntentId(invoice: unknown): string | null {
+  const inv = obj(invoice);
+  if (!inv) return null;
+
+  const flat = idOf(inv.payment_intent as Expandable);
+  if (flat) return flat;
+
+  const payments = obj(inv.payments);
+  const paymentsData = payments ? payments.data : null;
+  if (Array.isArray(paymentsData)) {
+    for (const entry of paymentsData) {
+      const payment = obj(obj(entry)?.payment);
+      const pi = payment ? idOf(payment.payment_intent as Expandable) : null;
+      if (pi) return pi;
+    }
+  }
+  return null;
+}
