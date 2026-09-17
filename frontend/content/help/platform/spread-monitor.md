@@ -92,6 +92,10 @@ Today's curve is drawn on top of two things: the median of the symbol's own comp
 
 **Puts and calls are a toggle, not an overlay.** Two ranked curves on one plot is four lines plus two envelopes, and the reading it exists to support — the puts widened and the calls did not — is easier to see by flipping between two clean charts.
 
+**Coverage is ranked too, and read the other way round.** The two-sided figure is the share of contracts in range carrying a real market, so a *high* percentile is the good outcome — the opposite of every width on this page. It gets its own baseline because it is the number that matches the complaint: "untradeable" usually means a contract with no bid rather than a wide one, and a contract with no bid has no width, so it leaves every median by construction. A chain can read *tighter* as more of it becomes impossible to sell, and this is the only figure that says so.
+
+It also needs a baseline to be readable at all. A 0DTE book at 51% two-sided into the close sounds alarming and is an ordinary afternoon; without the comparison there is no way to tell those apart from the number alone.
+
 **Compared at the same time of day.** Spreads have a shape through the session: the open and the close are structurally wider than midday. Ranking a 3:40pm reading against whole prior sessions would make every late-afternoon reading look like a deterioration and every lunchtime one look calm. So history is stored in half-hour buckets and matched to the current one, and the panel names the bucket it matched. Outside market hours the comparison falls back to the session's last bucket and says that it did.
 
 **The scope choices are limited on purpose.** The expiry and strike-band pills here offer fewer options than the ones at the top of the page, because a percentile is only meaningful inside a scope that history was actually stored for. Ranking a ±3% reading against ±5% history would call it extreme for no reason other than that ±5% reaches further into the wings.

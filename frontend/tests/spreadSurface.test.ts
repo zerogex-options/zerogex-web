@@ -21,6 +21,7 @@ import {
   hasUsableBaseline,
   mostElevatedExpiry,
   percentileVerdict,
+  coverageVerdict,
   surfaceReadout,
   unrankedExpiry,
   type SpreadSurface,
@@ -94,6 +95,8 @@ function surface(overrides: Partial<SpreadSurface> = {}): SpreadSurface {
       vs_normal: 1,
       percentile: 50,
       two_sided_pct: 98,
+      two_sided_normal_pct: 97,
+      two_sided_percentile: 60,
       contract_count: 120,
       sessions: 30,
     },
@@ -303,4 +306,47 @@ test('a ranked bucket has no note at all', () => {
 test('one stored session reads as singular', () => {
   const note = unrankedExpiry(rank({ percentile: null, current_pct: 4.2, sessions: 1 }));
   assert.match(note!.meaning, /1 comparable session stored/);
+});
+
+// ---------------------------------------------------------------------------
+// Coverage, read the other way round
+// ---------------------------------------------------------------------------
+//
+// Coverage is the only figure on this panel where a HIGH percentile is the
+// good outcome. Running it through the width verdict would paint the
+// best-covered session of the quarter bearish red — the one rendering
+// mistake that makes a new number worse than no number at all.
+
+test('a well covered chain is bullish, not bearish', () => {
+  const verdict = coverageVerdict(96, 32);
+  assert.ok(verdict);
+  assert.equal(verdict.tone, 'bullish');
+  // The width verdict would call the same percentile the widest 5%.
+  assert.equal(percentileVerdict(96, 32)?.tone, 'bearish');
+});
+
+test('a chain going no-bid is the bearish end', () => {
+  const verdict = coverageVerdict(3, 32);
+  assert.ok(verdict);
+  assert.equal(verdict.tone, 'bearish');
+  assert.match(verdict.label, /Thinnest/);
+  // And it says why no spread figure will corroborate it.
+  assert.match(verdict.meaning, /no width to report/);
+});
+
+test('ordinary coverage is neutral at both ends of the normal band', () => {
+  assert.equal(coverageVerdict(21, 32)?.tone, 'neutral');
+  assert.equal(coverageVerdict(79, 32)?.tone, 'neutral');
+});
+
+test('the thresholds match the width verdict so the two cannot disagree', () => {
+  // 20 and 80 are the boundaries on both, just mirrored.
+  assert.equal(coverageVerdict(20, 32)?.tone, 'bearish');
+  assert.equal(coverageVerdict(80, 32)?.tone, 'bullish');
+});
+
+test('no rank and no sessions produce no verdict', () => {
+  assert.equal(coverageVerdict(null, 32), null);
+  assert.equal(coverageVerdict(50, 0), null);
+  assert.equal(coverageVerdict(undefined, 32), null);
 });
