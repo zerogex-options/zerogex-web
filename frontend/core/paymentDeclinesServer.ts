@@ -1061,6 +1061,57 @@ function insertBackfillRow(input: {
 }
 
 /**
+ * Re-run the CATEGORY classifier over codes already stored.
+ *
+ * The category is decided at write time from whatever the issuer said, so a code
+ * that core/declineReason.ts did not recognise then lands as 'unknown' and stays
+ * there — even after the mapping is added. That is the wrong behaviour for a
+ * table whose whole purpose is naming causes: the codes are on the rows, the
+ * classifier has improved, and nothing was re-asking it. Every decline that ever
+ * carried an unmapped code would sit in "no usable decline code" forever, which
+ * is precisely the bucket nobody can act on.
+ *
+ * Only ever moves a row OFF 'unknown'. A category already decided is left alone,
+ * so a mapping change can add knowledge but never rewrite a settled answer.
+ */
+export function recategorizeFromStoredCodes(): { examined: number; recategorized: number } {
+  const result = { examined: 0, recategorized: 0 };
+  try {
+    const db = getDb();
+    const rows = db
+      .prepare(
+        `SELECT id, failure_code, decline_code, network_decline_code
+           FROM payment_declines
+          WHERE category = 'unknown'
+            AND (decline_code IS NOT NULL OR network_decline_code IS NOT NULL OR failure_code IS NOT NULL)`,
+      )
+      .all() as Array<{
+      id: string;
+      failure_code: string | null;
+      decline_code: string | null;
+      network_decline_code: string | null;
+    }>;
+    const update = db.prepare(`UPDATE payment_declines SET category = ? WHERE id = ? AND category = 'unknown'`);
+    for (const row of rows) {
+      result.examined += 1;
+      const category = classifyDecline({
+        code: row.failure_code,
+        declineCode: row.decline_code,
+        networkDeclineCode: row.network_decline_code,
+        message: null,
+        sellerMessage: null,
+      });
+      if (category === 'unknown') continue;
+      const changed = update.run(category, row.id) as { changes: number | bigint };
+      if (Number(changed.changes) > 0) result.recategorized += 1;
+    }
+  } catch {
+    // Leaves the rows honest at 'unknown'.
+  }
+  return result;
+}
+
+/**
  * Re-decide the CHARGE KIND of rows still sitting on 'unknown', using evidence
  * that has arrived since they were written.
  *

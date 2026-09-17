@@ -84,11 +84,30 @@ const {
   enrichDeclineWithReason,
   listDeclinesMissingReason,
   markDeclineReasonUnavailable,
+  recategorizeFromStoredCodes,
   reclassifyUnknownKinds,
 } = await import('../core/paymentDeclinesServer.ts');
 const { lookupInvoiceDecline } = await import('../core/stripeDeclineLookup.ts');
 const { classifyDecline, describeDecline } = await import('../core/declineReason.ts');
 const { readInvoicePriceId } = await import('../core/stripeInvoice.ts');
+
+// Pass 3 — re-ask both classifiers now that more is known about each row. Runs
+// whether or not pass 2 had anything to fetch: an enrichment that finished on an
+// earlier run still needs converting into categories and kinds, and a decline
+// code that only became recognisable when core/declineReason.ts learned it needs
+// re-asking regardless.
+function runPass3(): void {
+  console.log('\nPass 3 — re-reading what is already on record…');
+  const categories = recategorizeFromStoredCodes();
+  console.log(
+    `  reasons:  ${categories.examined} attempt(s) with an unnamed code · ` +
+      `${categories.recategorized} now named`,
+  );
+  const kinds = reclassifyUnknownKinds();
+  console.log(
+    `  charges:  ${kinds.examined} invoice(s) examined · ${kinds.reclassified} moved off "unclassified"`,
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Pass 1 — reconstruct from the audit log
@@ -131,24 +150,26 @@ console.log(
 // ---------------------------------------------------------------------------
 
 const secretKey = process.env.STRIPE_SECRET_KEY;
+// Pass 3 reads only what is already stored, so it runs on every path — including
+// the ones that cannot talk to Stripe. Skipping it with pass 2 meant a
+// classifier improvement could never reach an existing row without a Stripe key,
+// which is the opposite of what pass 3 is for.
 if (skipStripe) {
-  console.log('\nPass 2 skipped (SKIP_STRIPE=1). Reconstructed rows carry no decline reason.');
+  console.log('\nPass 2 skipped (SKIP_STRIPE=1). Newly reconstructed rows carry no decline reason.');
+  runPass3();
   process.exit(0);
 }
 if (!secretKey) {
   console.log('\nPass 2 skipped: STRIPE_SECRET_KEY is not set (env or .env.local).');
   console.log('Counts and outcomes are complete; the reasons behind them are not.');
+  runPass3();
   process.exit(0);
 }
 
 const pending = listDeclinesMissingReason(limit);
 if (pending.length === 0) {
   console.log('\nPass 2 — every decline on record already carries a reason. Nothing to do.');
-  console.log('\nPass 3 — classifying declines the billing reason can now place…');
-  const settled = reclassifyUnknownKinds();
-  console.log(
-    `  ${settled.examined} invoice(s) examined · ${settled.reclassified} moved off "unclassified"`,
-  );
+  runPass3();
   process.exit(0);
 }
 
@@ -213,9 +234,5 @@ if (pending.length === limit) {
 if (!dryRun) {
   // Pass 3 consumes what pass 2 wrote: the real billing reason is what lets a
   // reconstructed decline be told apart as a conversion or a renewal.
-  console.log('\nPass 3 — classifying declines the billing reason can now place…');
-  const classified = reclassifyUnknownKinds();
-  console.log(
-    `  ${classified.examined} invoice(s) examined · ${classified.reclassified} moved off "unclassified"`,
-  );
+  runPass3();
 }
