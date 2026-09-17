@@ -129,6 +129,7 @@
     "test:embed-widget": "node --experimental-strip-types --test tests/embedWidget.test.ts",
     "test:page-shell": "node --experimental-strip-types --test tests/pageShell.test.ts",
     "test:page-snapshot": "node --experimental-strip-types --test tests/pageSnapshot.test.ts",
+    "test:hedging-flow-history": "node --experimental-strip-types --test tests/hedgingFlowHistory.test.ts",
     "test:dated-permalinks": "node --experimental-strip-types --test tests/datedPermalinks.test.ts",
     "test:strategy-catalog-view": "node --experimental-strip-types --test tests/strategyCatalogView.test.ts",
     "test:futures-contract": "node --experimental-strip-types --test tests/futuresContract.test.ts",

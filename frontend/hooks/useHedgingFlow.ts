@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 
 import { useApiData } from '@/hooks/useApiData';
-import { canonicalTimestamp } from '@/core/flowSeriesCharts';
+import { normalizeHedgingFlow } from '@/core/hedgingFlowSeries';
 
 /**
  * One 5-minute bar of estimated hedging pressure from GET /api/flow/hedging.
@@ -77,10 +77,18 @@ export interface HedgingFlowPayload {
 }
 
 export interface UseHedgingFlowOptions {
-  /** Expirations to include, ISO dates. Today's date alone isolates 0DTE. */
+  /** Expirations to include, ISO dates. The session's own date isolates 0DTE. */
   expirations?: readonly string[];
   /** Trailing SMA length in 5-minute bars for the rate line and flip detection. */
   smoothing?: number;
+  /**
+   * An explicit ET trading day, `YYYY-MM-DD`, for a historical session.
+   *
+   * Served from the retention-exempt snapshot rather than recomputed, so it
+   * reaches back past the 90-day window that bounds the live pipeline. Setting
+   * it also stops the poll — see the note in the hook.
+   */
+  date?: string;
   refreshMs?: number;
 }
 
@@ -88,6 +96,9 @@ const DEFAULT_REFRESH_MS = 15_000;
 
 function buildEndpoint(symbol: string, options: UseHedgingFlowOptions): string {
   const params = new URLSearchParams({ symbol });
+  if (options.date) {
+    params.set('date', options.date);
+  }
   if (options.expirations && options.expirations.length > 0) {
     params.set('expirations', [...options.expirations].sort().join(','));
   }
@@ -98,12 +109,16 @@ function buildEndpoint(symbol: string, options: UseHedgingFlowOptions): string {
 }
 
 /**
- * Estimated hedging pressure for a symbol's current session.
+ * Estimated hedging pressure for one of a symbol's sessions.
  *
  * Returns bars OLDEST-FIRST — the wire order is newest-first to match
  * /api/flow/series, but every consumer here is a chart, and charts read left
  * to right. Timestamps are canonicalised so rows key identically to the
  * Options Flow series and the two can be joined bar-for-bar.
+ *
+ * With `date` set the poll is switched off entirely. A closed session is
+ * immutable, so re-fetching it is pure cost — and on a page a reader leaves
+ * open it is cost that never stops.
  */
 export function useHedgingFlow(symbol: string, options: UseHedgingFlowOptions = {}) {
   const { refreshMs = DEFAULT_REFRESH_MS } = options;
@@ -111,22 +126,13 @@ export function useHedgingFlow(symbol: string, options: UseHedgingFlowOptions = 
 
   const { data, loading, error, errorStatus, refetch } = useApiData<HedgingFlowPayload>(
     endpoint,
-    { refreshInterval: refreshMs },
+    { refreshInterval: options.date ? 0 : refreshMs },
   );
 
-  const payload = useMemo(() => {
-    if (!data) return null;
-    return {
-      ...data,
-      bars: [...(data.bars ?? [])]
-        .map((bar) => ({ ...bar, timestamp: canonicalTimestamp(bar.timestamp) }))
-        .reverse(),
-      flips: (data.flips ?? []).map((flip) => ({
-        ...flip,
-        bar_start: canonicalTimestamp(flip.bar_start),
-      })),
-    } satisfies HedgingFlowPayload;
-  }, [data]);
+  // Shared with the dated permalink's server fetch (core/hedgingFlowSeries),
+  // so the live page and a historical one cannot disagree about which bar is
+  // which.
+  const payload = useMemo(() => normalizeHedgingFlow(data), [data]);
 
   return { data: payload, loading, error, errorStatus, refetch };
 }
