@@ -13,6 +13,7 @@ import assert from 'node:assert/strict';
 
 import {
   EMPTY,
+  baselineScopeNote,
   coverageReadout,
   dteLabel,
   formatBps,
@@ -23,6 +24,7 @@ import {
   moneynessAxisLabel,
   percentileVerdict,
   putCallReadout,
+  scopeLabel,
   sessionDrift,
   widestBucket,
   widestExpiration,
@@ -302,4 +304,51 @@ test('moneyness labels read as a distance from spot, with a side', () => {
     moneynessAxisLabel(bucket({ moneyness_low_pct: -0.5, moneyness_high_pct: 0.5 })),
     'At the money',
   );
+});
+
+// ---------------------------------------------------------------------------
+// Baseline scope
+// ---------------------------------------------------------------------------
+//
+// The daily rollup stores one scope per session, so a percentile exists only
+// inside it. The API withholds the ranking anywhere else — and these guard
+// the sentence that keeps the resulting empty state from reading as a
+// deployment with no history at all, which is what a bare "no baseline yet"
+// says two scrolls above a surface panel showing sixty sessions.
+
+test('scopeLabel names the cumulative expiry scope, not a single expiry', () => {
+  assert.equal(scopeLabel(0), '0DTE only');
+  assert.equal(scopeLabel(1), 'Through 1DTE');
+  assert.equal(scopeLabel(7), 'Through 7DTE');
+  // The distinction from dteLabel, which names one expiry on a chart axis.
+  assert.equal(dteLabel(7), '7d');
+});
+
+test('a scope matching the rollup produces no note', () => {
+  assert.equal(
+    baselineScopeNote(7, 5, { dte_max: 7, moneyness_band_pct: 5 }),
+    null,
+  );
+});
+
+test('the 0DTE filter is explained rather than left as missing data', () => {
+  const note = baselineScopeNote(0, 5, { dte_max: 7, moneyness_band_pct: 5 });
+  assert.ok(note);
+  // Both scopes are named: the reader has to be able to match them against
+  // the pills they can see, and to know where the history actually is.
+  assert.match(note, /Through 7DTE/);
+  assert.match(note, /0DTE only/);
+});
+
+test('a narrower band is a mismatch too', () => {
+  const note = baselineScopeNote(7, 2, { dte_max: 7, moneyness_band_pct: 5 });
+  assert.ok(note);
+  assert.match(note, /±2%/);
+});
+
+test('an unread rollup is not announced as a mismatch', () => {
+  // Null while the history request is in flight. "Unknown" and "different"
+  // must not render identically, or the note flashes on every page load.
+  assert.equal(baselineScopeNote(0, 5, null), null);
+  assert.equal(baselineScopeNote(0, 5, undefined), null);
 });

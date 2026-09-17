@@ -58,6 +58,12 @@ There is no universal "wide" for a quoted spread. SPX puts are structurally wide
 
 So this page never calls a reading wide in the abstract. It ranks today against the same symbol's own trailing sessions — "wider than 96% of the last 60 sessions" — and when it doesn't have that history yet, it shows the measurement and says **no baseline yet** rather than inventing a verdict.
 
+**The ranking is scope-bound, and the filters at the top of the page are not.** The daily record is written at one fixed scope — through 7DTE, ±5% of spot — so that every session in the window measures the same population. Move the expiry or strike-band pills off that scope and this tile stops giving a verdict and says **no baseline at this scope** instead, naming the scope the history is in.
+
+That is deliberate, and it matters most on the pill you are most likely to reach for. Selecting *0DTE only* reduces today's chain to the front expiry, which is structurally the widest book of the year — ranked against a through-7DTE window it would sit at the top of the distribution every session, and the tile would report "widest 5% of sessions" on an ordinary Tuesday. For a ranked 0DTE reading, use **Spread surface vs history** below: its rollup is stored per scope and per half-hour of the session, so 0DTE is ranked against 0DTE at the same time of day.
+
+The same applies to the **vs its own history** column in the cross-symbol table, which carries its own expiry pills for the same reason and empties out the same way.
+
 ### Since the open
 
 A different question from the one above, and both matter. A chain can be wide all day (bad percentile, flat drift) or start orderly and deteriorate into the close (ordinary percentile, drift of 3×). Neither reading substitutes for the other.

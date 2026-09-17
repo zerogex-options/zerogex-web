@@ -13,6 +13,7 @@ import {
   formatPct,
   hasUsableBaseline,
   mostElevatedExpiry,
+  scopeLabel,
   surfaceReadout,
   type SpreadSurface,
 } from '@/core/spreadMonitor';
@@ -48,12 +49,6 @@ import SurfaceCurve, { type SurfaceMetric } from './SurfaceCurve';
 /** The universes the rollup stores. Anything else has nothing to rank against. */
 const DTE_CHOICES = [0, 1, 7, 30] as const;
 const BAND_CHOICES = [2, 5, 10] as const;
-
-function scopeLabel(dte: number): string {
-  if (dte === 0) return '0DTE only';
-  if (dte === 1) return 'Through 1DTE';
-  return `Through ${dte}DTE`;
-}
 
 function SummaryCell({
   label,

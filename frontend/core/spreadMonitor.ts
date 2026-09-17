@@ -398,6 +398,52 @@ export function dteLabel(dte: number): string {
   return dte === 0 ? '0DTE' : `${dte}d`;
 }
 
+/**
+ * The CHIP label for a cumulative expiry scope — `Through 7DTE`.
+ *
+ * Distinct from `dteLabel`, which names a single expiry on a chart axis.
+ * Canonical here rather than local to each panel because the scope note
+ * below has to name a scope the reader can match against a pill they can
+ * see, and two spellings of the same scope would defeat that.
+ */
+export function scopeLabel(dte: number): string {
+  if (dte === 0) return '0DTE only';
+  if (dte === 1) return 'Through 1DTE';
+  return `Through ${dte}DTE`;
+}
+
+/**
+ * Why the header verdict is missing when the page filters have been moved.
+ *
+ * The daily rollup writes ONE scope per session, so a percentile only
+ * exists inside that scope. The API withholds the ranking at any other one
+ * rather than scoring a 0DTE reading against a through-7DTE window — which
+ * is correct, and which on its own renders as "no baseline yet": a sentence
+ * that reads as "this deployment has no history", contradicted by the
+ * surface panel two scrolls further down showing sixty sessions.
+ *
+ * So the state gets its own explanation naming both scopes. Returns null
+ * when they agree, and when the rollup has not been read yet — an unknown
+ * scope is not a mismatch worth announcing.
+ */
+export function baselineScopeNote(
+  dteMax: number,
+  bandPct: number,
+  stored: { dte_max: number; moneyness_band_pct: number } | null | undefined,
+): string | null {
+  if (!stored) return null;
+  if (dteMax === stored.dte_max && bandPct === stored.moneyness_band_pct) return null;
+  const storedScope = `${scopeLabel(stored.dte_max)}, ±${stored.moneyness_band_pct}% of spot`;
+  const pageScope = `${scopeLabel(dteMax)}, ±${bandPct}%`;
+  return (
+    `Ranked readings come from the daily record, which is measured at ${storedScope}. ` +
+    `These filters measure ${pageScope} — a different population, and a percentile ` +
+    `across two populations ranks the populations rather than the sessions. Move the ` +
+    `filters back, or read the spread surface panel below, which stores its history ` +
+    `per scope and ranks 0DTE against 0DTE.`
+  );
+}
+
 /** `-5.0% to -3.0%` → `5.0–3.0% below spot`; reads better in a chart axis. */
 export function moneynessAxisLabel(bucket: MoneynessBucket): string {
   const { moneyness_low_pct: low, moneyness_high_pct: high } = bucket;
