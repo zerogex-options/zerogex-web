@@ -98,7 +98,11 @@ console.log(
     `${reconstructed.skipped} already present or unparseable`,
 );
 console.log(
-  `  settled against the invoice ledger: ${reconstructed.recovered} recovered, ${reconstructed.lost} aged out`,
+  `  settled: ${reconstructed.recovered} recovered · ${reconstructed.cancelled} lost to a cancellation · ` +
+    `${reconstructed.agedOut} unresolved after ${30} days`,
+);
+console.log(
+  '  amounts on reconstructed rows are ESTIMATED from the prevailing price; pass 2 replaces them with the real figure.',
 );
 
 // ---------------------------------------------------------------------------

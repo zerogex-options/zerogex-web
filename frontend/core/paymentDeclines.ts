@@ -566,6 +566,13 @@ export type DeclinedInvoice = {
   outcome: DeclineOutcome;
   resolvedAt: string | null;
   recoveredAmount: number;
+  /**
+   * From the attempt that recorded the loss, NOT from the last attempt. An
+   * invoice can be closed by an event that lands against one of its attempts
+   * while a later retry is still marked open, and reading `last` there reports
+   * a lost invoice with no reason at all.
+   */
+  lostReason: string | null;
 };
 
 export function foldDeclinesToInvoices(records: readonly DeclineRecord[]): DeclinedInvoice[] {
@@ -601,6 +608,7 @@ export function foldDeclinesToInvoices(records: readonly DeclineRecord[]): Decli
       outcome,
       resolvedAt: resolved?.resolvedAt ?? null,
       recoveredAmount: recovered ? (recovered.recoveredAmount ?? amount) : 0,
+      lostReason: recovered ? null : (lost?.lostReason ?? null),
     });
   }
   return out.sort((a, b) => a.first.failedAt.localeCompare(b.first.failedAt));
@@ -827,7 +835,7 @@ function detailOf(invoice: DeclinedInvoice, nowMs: number): DeclineDetail {
     graceUntil: last.graceUntil,
     outcome: invoice.outcome,
     resolvedAt: invoice.resolvedAt,
-    lostReason: last.lostReason,
+    lostReason: invoice.lostReason,
     ageHours,
   };
 }
