@@ -335,6 +335,12 @@ lost conversion as costing nothing, and the headline loss figure reads $0 while
 real money walks out of the door. Under-reporting a loss as zero is the worst of
 the available errors.
 
+Decisions about LIVE STRIPE SETTINGS that follow from these metrics — Radar
+rules, Authorization Boost, Link prominence — are recorded separately in
+`stripe-acceptance-decisions.md`, with what each one risks and the date it was
+actually changed. This file defines the numbers; that one records what was done
+about them.
+
 ## Acquisition source — the one cut with a denominator on both sides
 
 Every instrument breakdown on the panel (card brand, funding, issuing country,
