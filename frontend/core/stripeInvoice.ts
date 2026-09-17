@@ -217,3 +217,33 @@ export function readInvoicePaymentIntentId(invoice: unknown): string | null {
   }
   return null;
 }
+
+// EVERY payment intent this invoice has attempted through, oldest first.
+//
+// `readInvoicePaymentIntentId` returns one; a retried invoice has more than one
+// in the basil shape, where `payments` is the list of attempts and each carries
+// its own intent. That matters for finding the ORIGINAL decline on an invoice
+// that later succeeded: the last attempt is the one that worked, and reading
+// only it yields a successful charge with no decline data at all — which is
+// exactly how a recovered invoice ends up reported as having failed for no
+// reason.
+export function readInvoicePaymentIntentIds(invoice: unknown): string[] {
+  const inv = obj(invoice);
+  if (!inv) return [];
+  const ids: string[] = [];
+  const push = (id: string | null) => {
+    if (id && !ids.includes(id)) ids.push(id);
+  };
+
+  const payments = obj(inv.payments);
+  const paymentsData = payments ? payments.data : null;
+  if (Array.isArray(paymentsData)) {
+    for (const entry of paymentsData) {
+      const payment = obj(obj(entry)?.payment);
+      if (payment) push(idOf(payment.payment_intent as Expandable));
+    }
+  }
+
+  push(idOf(inv.payment_intent as Expandable));
+  return ids;
+}

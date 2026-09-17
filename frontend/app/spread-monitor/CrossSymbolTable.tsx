@@ -23,6 +23,12 @@ import {
  * A symbol whose chain could not be read gets a row saying so. Dropping it
  * would read as "not compared" and zero-filling it as "perfectly tight";
  * both are worse than the truth.
+ *
+ * The same applies to the "vs its own history" column, which is the only
+ * ranked thing in here. This panel carries its own expiry pills, and the
+ * daily rollup stores one scope — so the column empties out whenever they
+ * disagree, and `scopeNote` says which scope the history is in rather than
+ * leaving a row of em dashes that reads as "we have no history".
  */
 
 const HEAD_CLASS = 'px-3 py-2 text-left font-semibold whitespace-nowrap';
@@ -40,10 +46,13 @@ export default function CrossSymbolTable({
   rows,
   activeSymbol,
   onSelect,
+  scopeNote,
 }: {
   rows: CompareRow[];
   activeSymbol?: string;
   onSelect?: (symbol: string) => void;
+  /** Set when this panel's scope is not one the daily rollup stored. */
+  scopeNote?: string | null;
 }) {
   return (
     <div className="overflow-x-auto">
@@ -147,7 +156,8 @@ export default function CrossSymbolTable({
         Compare across symbols using <strong>put width vs index</strong> — spreads in dollars
         are not comparable between an index near 6,800 and one near 25,000.{' '}
         <span style={{ fontStyle: 'italic' }}>
-          vs its own history is null until the daily record has sessions to rank against.
+          {scopeNote ??
+            'vs its own history is empty until the daily record has sessions measured at this scope to rank against.'}
         </span>
       </p>
     </div>

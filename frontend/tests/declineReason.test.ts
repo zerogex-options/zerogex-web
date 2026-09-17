@@ -211,3 +211,45 @@ test('describeDecline names the category, the text and the codes', () => {
 test('describeDecline degrades when there is no message', () => {
   assert.equal(describeDecline(decline({ declineCode: 'do_not_honor' })), 'issuer_block [do_not_honor]');
 });
+
+// ---------------------------------------------------------------------------
+// Codes seen on real production declines that previously fell through to
+// 'unknown'. Each was left unmapped until it actually turned up; the ones still
+// absent below are absent on purpose.
+// ---------------------------------------------------------------------------
+
+test('a banking-partner shortfall is still a shortfall', () => {
+  // The single most common decline on a live product, and it was reading as
+  // "no usable decline code" — the one bucket nobody can act on.
+  assert.equal(classifyDecline(decline({ declineCode: 'partner_insufficient_funds' })), 'insufficient_funds');
+});
+
+test('"do not retry" is the issuer conversation, not a retry', () => {
+  assert.equal(
+    classifyDecline(decline({ declineCode: 'previously_declined_do_not_retry' })),
+    'issuer_block',
+  );
+});
+
+test('a Radar block is OURS, and never reported as the bank refusing', () => {
+  // Telling a member to call their bank about a charge our own fraud rules
+  // refused sends them somewhere that cannot help and makes us look broken.
+  assert.equal(classifyDecline(decline({ declineCode: 'highest_risk_level' })), 'blocked_by_risk');
+  const guidance = declineGuidance('blocked_by_risk');
+  assert.match(guidance, /Radar/);
+  // It must say WHOSE decision this was, and forbid the bank framing outright —
+  // the issuer_block advice would send the member somewhere that cannot help.
+  assert.match(guidance, /never tell the member their bank/i);
+  assert.notEqual(guidance, declineGuidance('issuer_block'));
+});
+
+test('dropped connections and undelivered mandate notices are transient', () => {
+  assert.equal(classifyDecline(decline({ declineCode: 'link_connection_closed' })), 'try_again');
+  assert.equal(classifyDecline(decline({ declineCode: 'debit_notification_undelivered' })), 'try_again');
+});
+
+test('a generic payment failure is still not guessed at', () => {
+  // Same rule as `card_declined`: it names the outcome, not the cause. Mapping
+  // it would turn every unexplained decline into a confident wrong answer.
+  assert.equal(classifyDecline(decline({ declineCode: 'payment_intent_generic_payment_failed' })), 'unknown');
+});

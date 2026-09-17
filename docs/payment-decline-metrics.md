@@ -143,6 +143,14 @@ never closed; a declined renewal is a paying customer on the way out.
     unknown           no billing reason and no subscription history to infer
                       from — never guessed into a real bucket
 
+`trial_conversion` and `first_charge` are the **same loss** — a conversion that
+did not close, by a member who has never paid — and the report rolls them up into
+a single **First payment** figure. They are stored apart for one reason worth
+keeping: the card behind a trial conversion has been sitting on file since the
+trial started, while a no-trial first charge runs on a card that cleared Checkout
+minutes ago, and card-on-file age is a real decline driver. Where only one path
+is live, the other is simply empty and never renders.
+
 **Every kind is rated against its own attempt volume.** Forty declined
 conversions is a catastrophe against a hundred conversion attempts and a footnote
 against four thousand, and the blended rate across all charges is the wrong scale
@@ -179,6 +187,12 @@ are opposite problems with opposite remedies.
                              is the right ask.
     authentication_required  3DS/SCA was not completed.
     try_again                transient on Stripe or the issuer.
+    blocked_by_risk          WE declined it — Stripe Radar scored the payment too
+                             risky and no bank ever saw it. Kept apart from
+                             issuer_block because the remedy is the opposite one:
+                             nothing the member does can help, and the decision is
+                             ours to review. A false positive here is revenue
+                             turned away by our own rules.
     unknown                  no usable decline code. Never guessed.
 
 Three alphabets feed this, read most-specific first: Stripe's normalized
@@ -191,6 +205,31 @@ mixing them means a numeric lands in a string lookup and silently classifies as
 short on Monday and blocked by the issuer on Thursday is stuck on the block;
 telling the member to wait for payday would be the wrong advice. Attempt-level
 counts sit beside it, which is why attempts exceed invoices.
+
+## Retry state — where an unpaid invoice actually stands
+
+"Nobody has paid this" and "Stripe is going to try again" are different claims,
+and only the second is a reason to wait. Reporting every open decline as in
+flight quietly converts revenue that needs a human into revenue that looks
+handled, so the state is read from the invoice's own fields and never inferred
+from the invoice merely being unpaid:
+
+    retry_scheduled          Stripe has a next attempt queued, in the future.
+                             The only state where doing nothing is a plan.
+    authentication_required  3DS was not completed. No retry clears it.
+    payment_method_required  the card itself is unusable. Needs a new one.
+    hard_decline             the network said do not retry.
+    recovery_exhausted       no attempt queued, or the invoice is void or
+                             written off. Stripe has stopped.
+    manual_collection        collection_method is `send_invoice`, so Stripe will
+                             never charge it at all.
+    unknown                  we do not hold the invoice state needed to say —
+                             notably every row reconstructed from the audit log
+                             whose invoice has not been re-read.
+
+`unknown` is a real answer, not a placeholder. Rows written before this was
+captured say so rather than claiming a retry that may not exist;
+`make backfill-payment-declines RECHECK=1` resolves them.
 
 ## Recovery route
 
@@ -212,6 +251,21 @@ is what an "at risk" balance is worth waiting for. Reported as a median, a 90th
 percentile and five buckets.
 
 ## Where the data comes from
+
+### Reading a reason off an invoice that was later PAID
+
+A recovered invoice's latest charge is the one that **succeeded**, and a
+successful charge carries no decline data at all. Reading only it reports every
+recovered invoice as having failed for no reason — which silently breaks
+recovery-by-reason, the most actionable cut on the page, because the recovered
+invoices all pile into "no usable decline code" and every real reason's recovery
+rate reads near zero.
+
+So when the cheap reads come back empty, the lookup walks every payment intent
+the invoice attempted through and collects the charges that FAILED, oldest first.
+The first failure is the reason the invoice entered dunning, and it is what the
+invoice is reported against; where several are recovered, each attempt is lined
+up with its own rather than one reason being stamped across every retry.
 
 **Declines** are captured by the Stripe webhook the moment a charge fails
 (`app/api/webhooks/stripe/route.ts` → `recordPaymentDecline`). This is not
@@ -240,6 +294,28 @@ recorded **why**, so those rows land in "No usable decline code" with
 `source = audit_backfill`, and the coverage note states the split. A second pass
 re-reads each of those invoices from Stripe to stamp on the real reason where it
 is still retrievable; it never overwrites a reason the webhook already captured.
+
+### Classifying what the audit log could not
+
+A reconstructed decline has no billing reason, so classification falls back to
+needing the $0 trial-opening invoice as proof the subscription had a trial — and
+`make backfill-stripe-invoices` skips zero-amount invoices, because they are not
+payments. Both decisions are right on their own, and together they leave every
+reconstructed decline as `unknown`: the record that says "this was a trial" is
+the one nobody imports.
+
+Reading an invoice is recorded as a fact in its own right, and it is what stops
+the enrichment worklist re-asking Stripe about a charge it already answered for.
+`RECHECK=1` lifts that once, for the case it exists for: rows settled by an
+earlier reader that kept less than the current one does.
+
+The Stripe enrichment pass resolves it. It fetches each real invoice and stamps
+the actual `billing_reason`, after which the ordinary rule applies and needs no
+trial marker: a `subscription_cycle` invoice on a subscription that has never
+collected money **is** the first charge at the end of a trial. A third pass then
+re-runs the classifier over rows still sitting on `unknown`. It only ever moves a
+row OFF `unknown`, never revises a kind decided with better evidence, and works
+per invoice so retries of one charge cannot land under two different kinds.
 
 **The amount on a reconstructed row is an estimate**, because the audit message
 never carried one. It is resolved in this order, and replaced with the real

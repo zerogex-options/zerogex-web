@@ -104,6 +104,8 @@ type DeclineRow = {
   card_country: string | null;
   next_attempt_at: string | null;
   grace_until: string | null;
+  collection_method: string | null;
+  invoice_status: string | null;
   failed_at: string;
   outcome: string;
   resolved_at: string | null;
@@ -120,6 +122,7 @@ const CATEGORIES = new Set<string>([
   'card_problem',
   'authentication_required',
   'try_again',
+  'blocked_by_risk',
   'unknown',
 ]);
 const OUTCOMES = new Set<string>(['open', 'recovered', 'lost']);
@@ -155,6 +158,10 @@ function toRecord(row: DeclineRow): DeclineRecord {
     cardCountry: row.card_country,
     nextAttemptAt: row.next_attempt_at,
     graceUntil: row.grace_until,
+    // NULL on every row written before these columns existed, which
+    // deriveRetryState reads as "we have not asked" — never as "retries running".
+    collectionMethod: row.collection_method ?? null,
+    invoiceStatus: row.invoice_status ?? null,
     failedAt: row.failed_at,
     outcome: (OUTCOMES.has(row.outcome) ? row.outcome : 'open') as DeclineRecord['outcome'],
     resolvedAt: row.resolved_at,
@@ -198,6 +205,8 @@ export type RecordDeclineInput = {
   cardCountry?: string | null;
   nextAttemptAt?: string | null;
   graceUntil?: string | null;
+  collectionMethod?: string | null;
+  invoiceStatus?: string | null;
   failedAt?: string | null;
   /**
    * Authoritative trial-conversion answer from the subscription's `trial_end`
@@ -230,9 +239,10 @@ export function recordPaymentDecline(input: RecordDeclineInput): boolean {
          subscription_id, price_id, tier, cadence, kind, billing_reason,
          amount_due, currency, failure_code, decline_code, network_decline_code,
          failure_message, seller_message, category, card_brand, card_last4,
-         card_funding, card_country, next_attempt_at, grace_until, failed_at,
+         card_funding, card_country, next_attempt_at, grace_until,
+         collection_method, invoice_status, failed_at,
          outcome, source, recorded_at
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)
        ON CONFLICT(invoice_id, attempt_count) DO UPDATE SET
          charge_id = COALESCE(excluded.charge_id, payment_declines.charge_id),
          user_id = COALESCE(excluded.user_id, payment_declines.user_id),
@@ -256,6 +266,8 @@ export function recordPaymentDecline(input: RecordDeclineInput): boolean {
          card_country = COALESCE(excluded.card_country, payment_declines.card_country),
          next_attempt_at = COALESCE(excluded.next_attempt_at, payment_declines.next_attempt_at),
          grace_until = COALESCE(excluded.grace_until, payment_declines.grace_until),
+         collection_method = COALESCE(excluded.collection_method, payment_declines.collection_method),
+         invoice_status = COALESCE(excluded.invoice_status, payment_declines.invoice_status),
          -- A real reason never loses to 'unknown', and a resolved row is never
          -- reopened by a redelivery of the failure that started it.
          category = CASE WHEN excluded.category = 'unknown' THEN payment_declines.category ELSE excluded.category END,
@@ -289,6 +301,8 @@ export function recordPaymentDecline(input: RecordDeclineInput): boolean {
       input.cardCountry ?? null,
       input.nextAttemptAt ?? null,
       input.graceUntil ?? null,
+      input.collectionMethod ?? null,
+      input.invoiceStatus ?? null,
       failedAt,
       input.source ?? 'webhook',
       nowIso(),
@@ -1060,6 +1074,196 @@ function insertBackfillRow(input: {
 }
 
 /**
+ * Re-run the CATEGORY classifier over codes already stored.
+ *
+ * The category is decided at write time from whatever the issuer said, so a code
+ * that core/declineReason.ts did not recognise then lands as 'unknown' and stays
+ * there — even after the mapping is added. That is the wrong behaviour for a
+ * table whose whole purpose is naming causes: the codes are on the rows, the
+ * classifier has improved, and nothing was re-asking it. Every decline that ever
+ * carried an unmapped code would sit in "no usable decline code" forever, which
+ * is precisely the bucket nobody can act on.
+ *
+ * Only ever moves a row OFF 'unknown'. A category already decided is left alone,
+ * so a mapping change can add knowledge but never rewrite a settled answer.
+ */
+export function recategorizeFromStoredCodes(): { examined: number; recategorized: number } {
+  const result = { examined: 0, recategorized: 0 };
+  try {
+    const db = getDb();
+    const rows = db
+      .prepare(
+        `SELECT id, failure_code, decline_code, network_decline_code
+           FROM payment_declines
+          WHERE category = 'unknown'
+            AND (decline_code IS NOT NULL OR network_decline_code IS NOT NULL OR failure_code IS NOT NULL)`,
+      )
+      .all() as Array<{
+      id: string;
+      failure_code: string | null;
+      decline_code: string | null;
+      network_decline_code: string | null;
+    }>;
+    const update = db.prepare(`UPDATE payment_declines SET category = ? WHERE id = ? AND category = 'unknown'`);
+    for (const row of rows) {
+      result.examined += 1;
+      const category = classifyDecline({
+        code: row.failure_code,
+        declineCode: row.decline_code,
+        networkDeclineCode: row.network_decline_code,
+        message: null,
+        sellerMessage: null,
+      });
+      if (category === 'unknown') continue;
+      const changed = update.run(category, row.id) as { changes: number | bigint };
+      if (Number(changed.changes) > 0) result.recategorized += 1;
+    }
+  } catch {
+    // Leaves the rows honest at 'unknown'.
+  }
+  return result;
+}
+
+/**
+ * Collapse an invoice whose attempts disagree about what kind of charge it was.
+ *
+ * Retries are one charge, so an invoice holding two kinds is counted once under
+ * each and every per-kind total is quietly inflated — the exact double-count the
+ * invoice-level fold exists to prevent, arriving through the back door. It
+ * happens when one attempt is classified from one source and a sibling from
+ * another.
+ *
+ * Which kind wins, in order:
+ *
+ *   1. one the WEBHOOK recorded. That came from the subscription's own
+ *      trial_end, which is the only source event ordering cannot corrupt, and it
+ *      beats anything inferred from invoice history afterwards.
+ *   2. otherwise the earliest attempt's, because the first classification was
+ *      made closest to the event.
+ *
+ * Distinct from reclassifyUnknownKinds, which cannot see these rows at all: they
+ * are not unknown, they are inconsistent.
+ */
+export function unifyInvoiceKinds(): { split: number; unified: number } {
+  const result = { split: 0, unified: 0 };
+  try {
+    const db = getDb();
+    const conflicted = db
+      .prepare(
+        `SELECT invoice_id FROM payment_declines
+          GROUP BY invoice_id
+         HAVING COUNT(DISTINCT kind) > 1`,
+      )
+      .all() as Array<{ invoice_id: string }>;
+    const pick = db.prepare(
+      `SELECT kind, source, attempt_count FROM payment_declines
+        WHERE invoice_id = ? AND kind != 'unknown'
+        ORDER BY (source = 'webhook') DESC, attempt_count ASC
+        LIMIT 1`,
+    );
+    const update = db.prepare(`UPDATE payment_declines SET kind = ? WHERE invoice_id = ? AND kind != ?`);
+    for (const row of conflicted) {
+      result.split += 1;
+      const winner = pick.get(row.invoice_id) as { kind: string } | undefined;
+      if (!winner || !KINDS.has(winner.kind)) continue;
+      const changed = update.run(winner.kind, row.invoice_id, winner.kind) as { changes: number | bigint };
+      if (Number(changed.changes) > 0) result.unified += 1;
+    }
+  } catch {
+    // Leaves the rows as they are; the report's own fold still reads the invoice
+    // by its last attempt, so a split shows up in raw queries rather than on the
+    // dashboard.
+  }
+  return result;
+}
+
+/**
+ * Re-decide the CHARGE KIND of rows still sitting on 'unknown', using evidence
+ * that has arrived since they were written.
+ *
+ * Why they are unknown in the first place: a row reconstructed from the audit
+ * log has no billing reason — the audit message never carried one — so
+ * classification falls back to needing the $0 trial-opening invoice as proof
+ * that the subscription had a trial. And `make backfill-stripe-invoices`
+ * deliberately skips zero-amount invoices, because they are not payments. Both
+ * decisions are individually right and together they leave every reconstructed
+ * decline unclassifiable: the marker that says "this was a trial" is the one
+ * record nobody imports.
+ *
+ * What rescues them is the Stripe enrichment pass, which fetches each real
+ * invoice and stamps its actual `billing_reason`. With that on the row, the
+ * ordinary rule applies and needs no trial marker at all: a `subscription_cycle`
+ * invoice on a subscription that has never collected money IS the first charge
+ * at the end of a trial. This pass simply re-runs the classifier now that the
+ * input exists.
+ *
+ * Only ever moves a row OFF 'unknown'. It never revises a kind that was decided
+ * with better evidence — least of all one the webhook set from the
+ * subscription's own trial_end.
+ */
+export function reclassifyUnknownKinds(): { examined: number; reclassified: number } {
+  const result = { examined: 0, reclassified: 0 };
+  try {
+    const db = getDb();
+    // Grouped by invoice so every attempt on it gets the same answer: they are
+    // retries of one charge, and `hadPriorPaidCharge` is judged at the moment
+    // the invoice FIRST failed rather than per attempt.
+    const invoices = db
+      .prepare(
+        `SELECT invoice_id, subscription_id, billing_reason, MIN(failed_at) AS first_failed_at
+           FROM payment_declines
+          WHERE kind = 'unknown' AND billing_reason IS NOT NULL
+          GROUP BY invoice_id, subscription_id, billing_reason`,
+      )
+      .all() as Array<{
+      invoice_id: string;
+      subscription_id: string | null;
+      billing_reason: string;
+      first_failed_at: string;
+    }>;
+    const update = db.prepare(`UPDATE payment_declines SET kind = ? WHERE invoice_id = ? AND kind = 'unknown'`);
+    // An invoice whose OTHER attempts already carry a kind takes that one rather
+    // than deriving a second answer. Retries are one charge, and letting an
+    // invoice hold two kinds at once makes it count twice in any per-kind total
+    // — the exact double-count the invoice-level fold exists to prevent.
+    const settled = db.prepare(
+      `SELECT kind FROM payment_declines
+        WHERE invoice_id = ? AND kind != 'unknown' ORDER BY attempt_count ASC LIMIT 1`,
+    );
+    for (const row of invoices) {
+      result.examined += 1;
+      const known = settled.get(row.invoice_id) as { kind: string } | undefined;
+      if (known && KINDS.has(known.kind)) {
+        const changed = update.run(known.kind, row.invoice_id) as { changes: number | bigint };
+        if (Number(changed.changes) > 0) result.reclassified += 1;
+        continue;
+      }
+      const history = row.subscription_id ? loadPaidInvoicesForSubscription(row.subscription_id) : [];
+      const hadTrialOpener = history.some(
+        (invoice) => invoice.amountPaid === 0 && invoice.billingReason?.toLowerCase() === 'subscription_create',
+      );
+      const hadPriorPaidCharge = history.some(
+        (invoice) =>
+          invoice.amountPaid > 0 &&
+          invoice.invoiceId !== row.invoice_id &&
+          invoice.paidAt < row.first_failed_at,
+      );
+      const kind = classifyAttemptKind({
+        billingReason: row.billing_reason,
+        hadPriorPaidCharge,
+        hadTrialOpener,
+      });
+      if (kind === 'unknown') continue;
+      const changed = update.run(kind, row.invoice_id) as { changes: number | bigint };
+      if (Number(changed.changes) > 0) result.reclassified += 1;
+    }
+  } catch {
+    // A classification that cannot run leaves the rows honest at 'unknown'.
+  }
+  return result;
+}
+
+/**
  * Attach a real decline reason to a row that has none — the enrichment half of
  * `make backfill-payment-declines`, which re-reads each backfilled invoice's
  * charge from the Stripe API. Kept here rather than in the script so the write
@@ -1079,6 +1283,9 @@ export function enrichDeclineWithReason(
     cardLast4?: string | null;
     cardFunding?: string | null;
     cardCountry?: string | null;
+    nextAttemptAt?: string | null;
+    collectionMethod?: string | null;
+    invoiceStatus?: string | null;
   } = {},
 ): boolean {
   try {
@@ -1107,6 +1314,12 @@ export function enrichDeclineWithReason(
                 card_last4 = COALESCE(?, card_last4),
                 card_funding = COALESCE(?, card_funding),
                 card_country = COALESCE(?, card_country),
+                -- Retry state comes from the invoice, and the backfill never had
+                -- it. These are what let an open decline say where it actually
+                -- stands instead of being reported as still in flight.
+                next_attempt_at = COALESCE(?, next_attempt_at),
+                collection_method = COALESCE(?, collection_method),
+                invoice_status = COALESCE(?, invoice_status),
                 source = CASE WHEN source = 'audit_backfill' THEN 'stripe_backfill' ELSE source END
           WHERE invoice_id = ? AND attempt_count = ?`,
       )
@@ -1130,6 +1343,9 @@ export function enrichDeclineWithReason(
         extras.cardLast4 ?? null,
         extras.cardFunding ?? null,
         extras.cardCountry ?? null,
+        extras.nextAttemptAt ?? null,
+        extras.collectionMethod ?? null,
+        extras.invoiceStatus ?? null,
         invoiceId,
         attemptCount,
       ) as { changes: number | bigint };
@@ -1140,14 +1356,16 @@ export function enrichDeclineWithReason(
 }
 
 /**
- * Record that Stripe was asked about this attempt and had no reason to give —
- * an invoice too old for the charge to still be retrievable, or a failure that
- * never produced one. Without this the enrichment worklist never drains: those
- * rows still have no codes, so every future run re-fetches them from Stripe and
- * the command can never report "nothing to do". `source` carries the fact that
- * we LOOKED, which is different from never having tried.
+ * Record that this attempt's invoice has been READ from Stripe — whatever came
+ * back. `source = 'stripe_backfill'` means the question has been put, which is a
+ * different fact from never having asked, and it is the single stop condition
+ * for the enrichment worklist below.
+ *
+ * Without it the worklist never drains: an invoice Stripe has no decline reason
+ * for still has no codes, so every future run re-fetches it and the command can
+ * never report "nothing to do".
  */
-export function markDeclineReasonUnavailable(invoiceId: string, attemptCount: number): boolean {
+export function markDeclineInvoiceRead(invoiceId: string, attemptCount: number): boolean {
   try {
     const result = getDb()
       .prepare(
@@ -1162,14 +1380,33 @@ export function markDeclineReasonUnavailable(invoiceId: string, attemptCount: nu
 }
 
 /**
- * Attempts with a decline on record but no reason, and which Stripe has not
- * already been asked about — the enrichment worklist.
+ * Attempts whose invoice is worth reading from Stripe — the enrichment worklist.
  *
- * A `webhook` row with no codes IS included: its lookup failed at capture time,
- * possibly transiently, and is worth one more try. A `stripe_backfill` row is
- * not: that source means the question has been put to Stripe and answered.
+ * TWO reasons to fetch, not one:
+ *
+ *   no decline reason   the cause is missing. A `webhook` row with no codes is
+ *                       included: its lookup failed at capture time, possibly
+ *                       transiently, and is worth one more try.
+ *   no billing reason   the row cannot be CLASSIFIED at all — the billing reason
+ *                       is what tells a lost conversion from a lost customer —
+ *                       and the same read brings back the invoice's real amount,
+ *                       which replaces the backfill's estimate.
+ *
+ * The second reason existed only implicitly before, and the rows that needed it
+ * most were exactly the ones the first clause had already written off.
+ *
+ * Both are gated on the invoice not having been read yet, so one read settles
+ * the row either way and the list always drains.
+ *
+ * `includeAlreadyRead` lifts that gate, for the one case it exists for: a row
+ * read by an EARLIER version of the reader that kept less than this one does.
+ * Operator-driven (`RECHECK=1`) rather than automatic, because it spends an API
+ * call per row to re-ask a question already asked.
  */
-export function listDeclinesMissingReason(limit = 500): Array<{
+export function listDeclinesNeedingInvoiceRead(
+  limit = 500,
+  options: { includeAlreadyRead?: boolean } = {},
+): Array<{
   invoiceId: string;
   attemptCount: number;
   subscriptionId: string | null;
@@ -1180,12 +1417,13 @@ export function listDeclinesMissingReason(limit = 500): Array<{
       .prepare(
         `SELECT invoice_id, attempt_count, subscription_id, failed_at
            FROM payment_declines
-          WHERE decline_code IS NULL AND failure_code IS NULL AND network_decline_code IS NULL
-            AND source != 'stripe_backfill'
+          WHERE (? = 1 OR source != 'stripe_backfill')
+            AND ((decline_code IS NULL AND failure_code IS NULL AND network_decline_code IS NULL)
+                 OR billing_reason IS NULL)
           ORDER BY failed_at DESC
           LIMIT ?`,
       )
-      .all(Math.max(1, Math.trunc(limit))) as Array<{
+      .all(options.includeAlreadyRead ? 1 : 0, Math.max(1, Math.trunc(limit))) as Array<{
       invoice_id: string;
       attempt_count: number;
       subscription_id: string | null;

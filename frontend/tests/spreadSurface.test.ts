@@ -22,6 +22,7 @@ import {
   mostElevatedExpiry,
   percentileVerdict,
   surfaceReadout,
+  unrankedExpiry,
   type SpreadSurface,
   type SurfaceBaseline,
   type SurfaceDteRank,
@@ -260,4 +261,46 @@ test('an unrankable expiry never wins and never blocks the others', () => {
   assert.equal(mostElevatedExpiry([rank({ percentile: null })]), null);
   assert.equal(mostElevatedExpiry([]), null);
   assert.equal(mostElevatedExpiry(null), null);
+});
+
+// ---------------------------------------------------------------------------
+// Why a bar is missing
+// ---------------------------------------------------------------------------
+//
+// A null percentile arrives in two states that used to render identically.
+// One of them recurs on a calendar: 2-3 DTE covers the weekend from Thursday
+// and Friday, 1DTE does from Friday, so on roughly two sessions in five the
+// chart was reporting a data shortage where the real answer is that nothing
+// expires then.
+
+test('an empty expiry bucket is the calendar, not a data shortage', () => {
+  // A reading cannot exist, but the history behind the bucket is plentiful.
+  const note = unrankedExpiry(rank({ percentile: null, current_pct: null, sessions: 24 }));
+  assert.ok(note);
+  assert.match(note.label, /No expiry/);
+  assert.doesNotMatch(note.meaning, /Insufficient|not enough/);
+});
+
+test('a real baseline shortage still says so', () => {
+  const note = unrankedExpiry(rank({ percentile: null, current_pct: 4.2, sessions: 3 }));
+  assert.ok(note);
+  assert.equal(note.label, 'Insufficient history');
+  assert.match(note.meaning, /3 comparable sessions/);
+});
+
+test('the shortage message is not self-contradicting', () => {
+  // The bug: 24 stored sessions against a floor of 8, reported as "only 24
+  // comparable sessions stored — not enough to rank".
+  const note = unrankedExpiry(rank({ percentile: null, current_pct: null, sessions: 24 }));
+  assert.ok(note);
+  assert.doesNotMatch(note.meaning, /24/);
+});
+
+test('a ranked bucket has no note at all', () => {
+  assert.equal(unrankedExpiry(rank({ percentile: 94, current_pct: 5.0 })), null);
+});
+
+test('one stored session reads as singular', () => {
+  const note = unrankedExpiry(rank({ percentile: null, current_pct: 4.2, sessions: 1 }));
+  assert.match(note!.meaning, /1 comparable session stored/);
 });

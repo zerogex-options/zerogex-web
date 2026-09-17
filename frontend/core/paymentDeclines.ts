@@ -65,8 +65,16 @@ export { declineGuidance };
  *                     nothing about the product's value is in question — a bank
  *                     said no at the one moment the funnel had already worked.
  *   first_charge      the first charge of a subscription that had NO trial
- *                     (checkout straight to paid). Same "never paid yet" cohort,
- *                     different acquisition path, so it is not folded in.
+ *                     (checkout straight to paid).
+ *
+ * The last two are the SAME LOSS — a conversion that did not close, by a member
+ * who has never paid — and the report rolls them up as one figure. They are
+ * stored apart for one reason worth keeping: the card behind a trial conversion
+ * has been sitting on file since the trial started, while a no-trial first
+ * charge runs on a card that cleared Checkout minutes ago. Card-on-file age is a
+ * real decline driver, so if both paths are ever live at once, comparing their
+ * rates says something the combined number cannot. On a product where every
+ * signup takes a trial, `first_charge` is simply empty and never renders.
  *   renewal           an established paying customer's recurring charge. This is
  *                     involuntary churn in progress.
  *   other             prorations, plan-change invoices, manual invoices. Real
@@ -95,7 +103,7 @@ export const DECLINE_KIND_LABEL: Record<DeclineKind, string> = {
 
 export const DECLINE_KIND_BLURB: Record<DeclineKind, string> = {
   trial_conversion: 'Free trial ended and the first charge was declined. They have never paid.',
-  first_charge: 'Signed up straight to paid and the very first charge was declined.',
+  first_charge: 'Signed up straight to paid, with no trial, and the very first charge was declined. Same loss as a trial conversion — the card is just newer.',
   renewal: 'An established paying member’s recurring charge was declined — involuntary churn in progress.',
   other: 'A plan-change proration or manual invoice. Counted, but excluded from the conversion and renewal rates.',
   unknown: 'Not enough history to say which kind of charge this was.',
@@ -118,6 +126,7 @@ export const DECLINE_CATEGORY_ORDER: readonly DeclineCategory[] = [
   'card_problem',
   'authentication_required',
   'try_again',
+  'blocked_by_risk',
   'unknown',
 ];
 
@@ -127,6 +136,7 @@ export const DECLINE_CATEGORY_LABEL: Record<DeclineCategory, string> = {
   card_problem: 'Card unusable (expired / wrong)',
   authentication_required: '3DS not completed',
   try_again: 'Transient — retry likely to clear',
+  blocked_by_risk: 'We blocked it (Stripe Radar)',
   unknown: 'No usable decline code',
 };
 
@@ -142,6 +152,8 @@ export const CATEGORY_NEEDS_MEMBER_ACTION: Record<DeclineCategory, boolean> = {
   card_problem: true,
   authentication_required: true,
   try_again: false,
+  // Nothing the member can do — the decision is ours to review.
+  blocked_by_risk: false,
   unknown: false,
 };
 
@@ -161,6 +173,94 @@ export const RECOVERY_ROUTE_LABEL: Record<RecoveryRoute, string> = {
   member_action: 'Member fixed it themselves',
   unknown: 'Route unknown',
 };
+
+/**
+ * WHERE AN UNPAID INVOICE ACTUALLY STANDS — asked of Stripe's own state, never
+ * inferred from the invoice merely still being unpaid.
+ *
+ * The distinction this exists to enforce: "nobody has paid this" and "Stripe is
+ * going to try again" are different claims, and only the second is a reason to
+ * wait. Reporting every open decline as in-flight quietly converts revenue that
+ * needs a human into revenue that looks handled.
+ *
+ *   retry_scheduled          Stripe has a next attempt queued. The only state in
+ *                            which doing nothing is a plan.
+ *   authentication_required  3DS was not completed. No retry clears it.
+ *   payment_method_required  the card itself is unusable. Needs a new one.
+ *   hard_decline             the network said do not retry.
+ *   recovery_exhausted       Stripe has stopped: no attempt queued, or the
+ *                            invoice is void or written off.
+ *   manual_collection        the invoice is not on automatic collection, so
+ *                            Stripe will never charge it at all.
+ *   unknown                  we do not hold the invoice state needed to say.
+ *                            Notably every row reconstructed from the audit log
+ *                            before its invoice was re-read.
+ */
+export type RetryState =
+  | 'retry_scheduled'
+  | 'authentication_required'
+  | 'payment_method_required'
+  | 'hard_decline'
+  | 'recovery_exhausted'
+  | 'manual_collection'
+  | 'unknown';
+
+export const RETRY_STATE_LABEL: Record<RetryState, string> = {
+  retry_scheduled: 'Retry scheduled',
+  authentication_required: 'Needs 3DS',
+  payment_method_required: 'Needs a new card',
+  hard_decline: 'Hard decline — no retry',
+  recovery_exhausted: 'Stripe has stopped trying',
+  manual_collection: 'Not on automatic collection',
+  unknown: 'Retry state unknown',
+};
+
+/** Whether this state means somebody has to do something. */
+export const RETRY_STATE_NEEDS_ACTION: Record<RetryState, boolean> = {
+  retry_scheduled: false,
+  authentication_required: true,
+  payment_method_required: true,
+  hard_decline: true,
+  recovery_exhausted: true,
+  manual_collection: true,
+  // Not actionable, but not safe to ignore either: it means we have not asked.
+  unknown: false,
+};
+
+/**
+ * Decide the retry state from Stripe's own fields, in descending order of
+ * authority. Every branch is a fact we hold; the fall-through is 'unknown'
+ * rather than an optimistic guess.
+ */
+export function deriveRetryState(input: {
+  collectionMethod: string | null;
+  invoiceStatus: string | null;
+  nextAttemptAt: string | null;
+  category: DeclineCategory;
+  declineCode: string | null;
+  nowMs: number;
+}): RetryState {
+  // Stripe is not collecting this at all.
+  if (input.collectionMethod === 'send_invoice') return 'manual_collection';
+  if (input.invoiceStatus === 'void' || input.invoiceStatus === 'uncollectible') return 'recovery_exhausted';
+
+  // A queued attempt is the one positive signal, and it has to be in the future
+  // to mean anything — a next_payment_attempt in the past is an attempt that has
+  // already come and gone.
+  if (input.nextAttemptAt) {
+    const at = Date.parse(input.nextAttemptAt);
+    if (Number.isFinite(at) && at >= input.nowMs) return 'retry_scheduled';
+  }
+
+  if (input.category === 'authentication_required') return 'authentication_required';
+  if (input.category === 'card_problem') return 'payment_method_required';
+  if (input.declineCode?.toLowerCase() === 'previously_declined_do_not_retry') return 'hard_decline';
+
+  // We have the invoice's own state and it carries no queued attempt, so Stripe
+  // is done. Without that state we have not asked, and say so.
+  if (input.collectionMethod !== null || input.invoiceStatus !== null) return 'recovery_exhausted';
+  return 'unknown';
+}
 
 export type LostReason = 'canceled' | 'uncollectible' | 'voided' | 'grace_expired' | 'unknown';
 
@@ -208,6 +308,10 @@ export type DeclineRecord = {
   nextAttemptAt: string | null;
   /** End of the payment-recovery grace window, ISO, when one was open. */
   graceUntil: string | null;
+  /** Stripe's `collection_method` — 'send_invoice' means it never auto-charges. */
+  collectionMethod: string | null;
+  /** Stripe's invoice `status` — void/uncollectible mean recovery is over. */
+  invoiceStatus: string | null;
   failedAt: string;
   outcome: DeclineOutcome;
   resolvedAt: string | null;
@@ -488,6 +592,9 @@ export type DeclineDetail = {
   lastFailedAt: string;
   nextAttemptAt: string | null;
   graceUntil: string | null;
+  /** Where this invoice actually stands with Stripe. Never inferred from age. */
+  retryState: RetryState;
+  retryNeedsAction: boolean;
   outcome: DeclineOutcome;
   resolvedAt: string | null;
   lostReason: string | null;
@@ -522,6 +629,13 @@ export type DeclineCoverage = {
   firstRecordedAt: string | null;
 };
 
+/**
+ * The two never-paid-before kinds added together — the number to read first,
+ * because a conversion that did not close is one loss however the member got to
+ * the charge. Null when neither kind is present at all.
+ */
+export type FirstPaymentRollup = DeclineHeadline & { kinds: DeclineKind[] };
+
 export type DeclineReport = {
   windowDays: number | null;
   since: string | null;
@@ -532,6 +646,8 @@ export type DeclineReport = {
   /** The immediately preceding window of equal length, or null for all-time. */
   previous: DeclineHeadline | null;
   byKind: DeclineKindRow[];
+  /** trial_conversion + first_charge, as one figure. */
+  firstPayment: FirstPaymentRollup | null;
   byCategory: DeclineBucket[];
   byCode: DeclineCodeRow[];
   byBrand: DeclineBucket[];
@@ -542,6 +658,8 @@ export type DeclineReport = {
   daily: DeclineDayPoint[];
   recoveryLag: RecoveryLag;
   openWorklist: DeclineDetail[];
+  /** The still-open invoices grouped by where they stand with Stripe. */
+  openByRetryState: Array<{ key: RetryState; label: string; invoices: number; amount: number; needsAction: boolean }>;
   recentLosses: DeclineDetail[];
   repeatMembers: RepeatMember[];
   coverage: DeclineCoverage;
@@ -807,6 +925,14 @@ function buildRecoveryLag(invoices: readonly DeclinedInvoice[]): RecoveryLag {
 
 function detailOf(invoice: DeclinedInvoice, nowMs: number): DeclineDetail {
   const last = invoice.last;
+  const retryState = deriveRetryState({
+    collectionMethod: last.collectionMethod,
+    invoiceStatus: last.invoiceStatus,
+    nextAttemptAt: last.nextAttemptAt,
+    category: last.category,
+    declineCode: last.declineCode,
+    nowMs,
+  });
   const endMs = invoice.resolvedAt ? Date.parse(invoice.resolvedAt) : nowMs;
   const startMs = Date.parse(invoice.first.failedAt);
   const ageHours =
@@ -833,11 +959,36 @@ function detailOf(invoice: DeclinedInvoice, nowMs: number): DeclineDetail {
     lastFailedAt: last.failedAt,
     nextAttemptAt: last.nextAttemptAt,
     graceUntil: last.graceUntil,
+    retryState,
+    retryNeedsAction: RETRY_STATE_NEEDS_ACTION[retryState],
     outcome: invoice.outcome,
     resolvedAt: invoice.resolvedAt,
     lostReason: invoice.lostReason,
     ageHours,
   };
+}
+
+const RETRY_STATE_ORDER: readonly RetryState[] = [
+  'retry_scheduled',
+  'authentication_required',
+  'payment_method_required',
+  'hard_decline',
+  'recovery_exhausted',
+  'manual_collection',
+  'unknown',
+];
+
+function summarizeRetryStates(details: readonly DeclineDetail[]) {
+  return RETRY_STATE_ORDER.map((key) => {
+    const mine = details.filter((d) => d.retryState === key);
+    return {
+      key,
+      label: RETRY_STATE_LABEL[key],
+      invoices: mine.length,
+      amount: mine.reduce((sum, d) => sum + d.amount, 0),
+      needsAction: RETRY_STATE_NEEDS_ACTION[key],
+    };
+  }).filter((row) => row.invoices > 0);
 }
 
 function buildRepeatMembers(invoices: readonly DeclinedInvoice[]): RepeatMember[] {
@@ -977,9 +1128,10 @@ function buildKindRows(
   invoices: readonly DeclinedInvoice[],
   paid: readonly ClassifiedPaidInvoice[],
 ): DeclineKindRow[] {
+  const reconciledPaid = reconcilePaidKinds(invoices, paid);
   return DECLINE_KIND_ORDER.map((kind) => {
     const kindInvoices = invoices.filter((i) => i.last.kind === kind);
-    const kindPaid = paid.filter((p) => p.kind === kind);
+    const kindPaid = reconciledPaid.filter((p) => p.kind === kind);
     return {
       key: kind,
       label: DECLINE_KIND_LABEL[kind],
@@ -988,6 +1140,47 @@ function buildKindRows(
       ...headlineFor(kindInvoices, kindPaid),
     };
   }).filter((row) => row.invoices > 0 || row.paidInvoices > 0);
+}
+
+/**
+ * An invoice that DECLINED and was later paid appears in both lists, and each
+ * side classifies it independently: the decline row carries the kind decided at
+ * capture (or by the Stripe re-read), while the paid invoice is classified from
+ * payment history. When those disagree the invoice lands in two kinds at once
+ * and the per-kind totals sum to MORE than the invoices actually charged — the
+ * same double-count the invoice-level fold prevents everywhere else, arriving
+ * through the seam between the two populations.
+ *
+ * The decline side wins. It is the record made about this specific charge, and
+ * for a first payment it can carry the subscription's own trial_end, which the
+ * paid-side inference cannot see.
+ */
+function reconcilePaidKinds(
+  invoices: readonly DeclinedInvoice[],
+  paid: readonly ClassifiedPaidInvoice[],
+): ClassifiedPaidInvoice[] {
+  if (invoices.length === 0) return [...paid];
+  const declinedKind = new Map(invoices.map((i) => [i.invoiceId, i.last.kind]));
+  return paid.map((invoice) => {
+    const kind = declinedKind.get(invoice.invoiceId);
+    return kind && kind !== invoice.kind ? { ...invoice, kind } : invoice;
+  });
+}
+
+/** The never-paid-before cohort, whichever door they came in through. */
+const FIRST_PAYMENT_KINDS: readonly DeclineKind[] = ['trial_conversion', 'first_charge'];
+
+function buildFirstPaymentRollup(
+  invoices: readonly DeclinedInvoice[],
+  paid: readonly ClassifiedPaidInvoice[],
+): FirstPaymentRollup | null {
+  const kinds = FIRST_PAYMENT_KINDS.filter(
+    (kind) => invoices.some((i) => i.last.kind === kind) || paid.some((p) => p.kind === kind),
+  );
+  if (kinds.length === 0) return null;
+  const mine = invoices.filter((i) => FIRST_PAYMENT_KINDS.includes(i.last.kind));
+  const minePaid = reconcilePaidKinds(invoices, paid).filter((p) => FIRST_PAYMENT_KINDS.includes(p.kind));
+  return { kinds, ...headlineFor(mine, minePaid) };
 }
 
 function modeCurrency(records: readonly DeclineRecord[]): string {
@@ -1178,6 +1371,7 @@ export function buildDeclineReport(input: DeclineReportInput): DeclineReport {
     totals: headlineFor(invoices, windowPaid),
     previous: windowDays == null ? null : headlineFor(previousInvoices, previousPaid),
     byKind: buildKindRows(invoices, windowPaid),
+    firstPayment: buildFirstPaymentRollup(invoices, windowPaid),
     byCategory: bucketize(
       invoices,
       (i) => i.last.category,
@@ -1202,6 +1396,7 @@ export function buildDeclineReport(input: DeclineReportInput): DeclineReport {
     daily: buildDaily(invoices, windowPaid, startMs, nowMs),
     recoveryLag: buildRecoveryLag(invoices),
     openWorklist: openInvoices.slice(0, limit).map((i) => detailOf(i, nowMs)),
+    openByRetryState: summarizeRetryStates(openInvoices.map((i) => detailOf(i, nowMs))),
     recentLosses: lostInvoices.slice(0, limit).map((i) => detailOf(i, nowMs)),
     repeatMembers: buildRepeatMembers(invoices).slice(0, 20),
     coverage: coverageOf(windowDeclines),

@@ -15,6 +15,7 @@ import { useTimeframe } from '@/core/TimeframeContext';
 import { isFuturesSymbol } from '@/core/symbols';
 import {
   EMPTY,
+  baselineScopeNote,
   coverageReadout,
   formatBps,
   formatCrossCost,
@@ -22,6 +23,7 @@ import {
   formatPct,
   percentileVerdict,
   putCallReadout,
+  scopeLabel,
   sessionDrift,
   widestBucket,
   widestExpiration,
@@ -76,14 +78,6 @@ const HISTORY_DAYS = 60;
 const BAND_CHOICES = [2, 5, 10] as const;
 /** Days to expiration included. 0 isolates the 0DTE book. */
 const DTE_CHOICES = [0, 1, 7, 30] as const;
-
-/** The scope CHIP label ("Through 7DTE"), distinct from core's `dteLabel`,
- *  which names a single expiry on a chart axis ("7d"). */
-function scopeChipLabel(dte: number): string {
-  if (dte === 0) return '0DTE only';
-  if (dte === 1) return 'Through 1DTE';
-  return `Through ${dte}DTE`;
-}
 
 function Readout({ verdict }: { verdict: Verdict | null }) {
   if (!verdict) return null;
@@ -141,6 +135,12 @@ export default function SpreadMonitorPage() {
     data?.history?.puts_percentile,
     data?.history?.sessions ?? 0,
   );
+  // Why the verdict is missing, when the reason is the filters rather than a
+  // deployment with no history. The API withholds a ranking outside the scope
+  // the rollup stored — correctly, since a 0DTE reading scored against a
+  // through-7DTE window reports the widest 5% of sessions on an ordinary day
+  // — and this is the sentence that keeps that from reading as missing data.
+  const scopeNote = baselineScopeNote(dteMax, bandPct, history);
   const sideVerdict = putCallReadout(data?.put_call_width_ratio);
   const coverage = coverageReadout(data?.all);
   const drift = sessionDrift(series?.bars, 'puts');
@@ -176,7 +176,7 @@ export default function SpreadMonitorPage() {
           <FilterBar>
             {DTE_CHOICES.map((choice) => (
               <FilterChip key={choice} active={dteMax === choice} onClick={() => setDteMax(choice)}>
-                {scopeChipLabel(choice)}
+                {scopeLabel(choice)}
               </FilterChip>
             ))}
             <FilterDivider />
@@ -238,7 +238,13 @@ export default function SpreadMonitorPage() {
           <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
             <ReadoutTile
               title={<>Against this symbol&rsquo;s own history</>}
-              value={putVerdict ? putVerdict.label : 'No baseline yet'}
+              value={
+                putVerdict
+                  ? putVerdict.label
+                  : scopeNote
+                    ? 'No baseline at this scope'
+                    : 'No baseline yet'
+              }
               tone={putVerdict ? putVerdict.tone : 'muted'}
             >
               {putVerdict ? (
@@ -253,6 +259,8 @@ export default function SpreadMonitorPage() {
                     </>
                   )}
                 </>
+              ) : scopeNote ? (
+                scopeNote
               ) : (
                 <>
                   There is no universal &ldquo;wide&rdquo; for a quoted spread — an SPX put is
@@ -451,7 +459,7 @@ export default function SpreadMonitorPage() {
                     active={compareDteMax === choice}
                     onClick={() => setCompareDteMax(choice)}
                   >
-                    {scopeChipLabel(choice)}
+                    {scopeLabel(choice)}
                   </FilterChip>
                 ))}
               </FilterBar>
@@ -462,6 +470,7 @@ export default function SpreadMonitorPage() {
                 rows={compare.rows}
                 activeSymbol={symbol}
                 onSelect={(next) => setSymbol(next as typeof symbol)}
+                scopeNote={baselineScopeNote(compareDteMax, bandPct, history)}
               />
             ) : (
               <LoadingSpinner size="sm" />

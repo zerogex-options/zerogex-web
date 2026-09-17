@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildDeclineReport,
+  deriveRetryState,
   classifyAttemptKind,
   classifyPaidInvoices,
   foldDeclinesToInvoices,
@@ -56,6 +57,8 @@ function decline(overrides: Partial<DeclineRecord> = {}): DeclineRecord {
     cardCountry: 'US',
     nextAttemptAt: null,
     graceUntil: null,
+    collectionMethod: null,
+    invoiceStatus: null,
     failedAt: ago(3),
     outcome: 'open',
     resolvedAt: null,
@@ -540,4 +543,134 @@ test('an empty window renders rather than dividing by zero', () => {
   assert.equal(report.totals.lossRate, null);
   assert.deepEqual(report.byCode, []);
   assert.equal(report.recoveryLag.medianHours, null);
+});
+
+test('the two never-paid-before kinds roll up into one figure', () => {
+  const report = buildDeclineReport({
+    declines: [
+      decline({ invoiceId: 'in_k1', kind: 'trial_conversion', amountDue: 4900, outcome: 'lost', resolvedAt: ago(1), lostReason: 'canceled' }),
+      decline({ invoiceId: 'in_k2', kind: 'first_charge', amountDue: 1900, outcome: 'lost', resolvedAt: ago(1), lostReason: 'canceled' }),
+      decline({ invoiceId: 'in_k3', kind: 'renewal', amountDue: 4900 }),
+    ],
+    paid: [
+      paid({ invoiceId: 'in_t0', subscriptionId: 'sub_t', billingReason: 'subscription_create', amountPaid: 0, paidAt: ago(20) }),
+      paid({ invoiceId: 'in_t1', subscriptionId: 'sub_t', billingReason: 'subscription_cycle', amountPaid: 4900, paidAt: ago(10) }),
+      paid({ invoiceId: 'in_d1', subscriptionId: 'sub_d', billingReason: 'subscription_create', amountPaid: 1900, paidAt: ago(9) }),
+    ],
+    windowDays: 30,
+    nowMs: NOW_MS,
+  });
+  assert.ok(report.firstPayment);
+  // A conversion that did not close is one loss however the member reached the
+  // charge, so the rollup spans both kinds and their denominators.
+  assert.deepEqual(report.firstPayment.kinds, ['trial_conversion', 'first_charge']);
+  assert.equal(report.firstPayment.invoices, 2);
+  assert.equal(report.firstPayment.lostAmount, 6800);
+  assert.equal(report.firstPayment.attemptedInvoices, 4);
+  // The renewal is not in it.
+  assert.ok(!report.firstPayment.lostAmount.toString().includes('11700'));
+});
+
+test('the rollup is absent when no first payment was ever charged', () => {
+  const report = buildDeclineReport({
+    declines: [decline({ invoiceId: 'in_only', kind: 'renewal' })],
+    paid: [],
+    windowDays: 30,
+    nowMs: NOW_MS,
+  });
+  assert.equal(report.firstPayment, null);
+});
+
+test('a declined-then-paid invoice lands in ONE kind, not two', () => {
+  // The 306-vs-307 defect: the invoice appears in both populations, and each
+  // classifies it independently. When they disagree the per-kind totals sum to
+  // more invoices than were actually charged.
+  const report = buildDeclineReport({
+    declines: [
+      decline({
+        invoiceId: 'in_both_kinds',
+        subscriptionId: 'sub_bk',
+        kind: 'trial_conversion',
+        outcome: 'recovered',
+        resolvedAt: ago(2),
+        recoveredAmount: 4900,
+        failedAt: ago(3),
+      }),
+    ],
+    paid: [
+      // Paid-side history says renewal: an earlier charge cleared on this sub.
+      paid({ invoiceId: 'in_bk_prior', subscriptionId: 'sub_bk', amountPaid: 4900, paidAt: ago(40) }),
+      paid({ invoiceId: 'in_both_kinds', subscriptionId: 'sub_bk', amountPaid: 4900, paidAt: ago(2) }),
+    ],
+    windowDays: 30,
+    nowMs: NOW_MS,
+  });
+
+  const perKind = report.byKind.reduce((sum, row) => sum + row.attemptedInvoices, 0);
+  assert.equal(
+    perKind,
+    report.totals.attemptedInvoices,
+    'per-kind invoices must sum to the invoices actually charged',
+  );
+  // The decline record wins: it was made about this specific charge.
+  const conversions = report.byKind.find((row) => row.key === 'trial_conversion');
+  assert.equal(conversions?.attemptedInvoices, 1);
+  assert.equal(report.byKind.find((row) => row.key === 'renewal')?.attemptedInvoices, undefined);
+});
+
+test('retry state is read from Stripe, never from the invoice being unpaid', () => {
+  const base = { category: 'insufficient_funds' as const, declineCode: 'insufficient_funds', nowMs: NOW_MS };
+  // Nothing known: we have not asked. Never "retries running".
+  assert.equal(
+    deriveRetryState({ ...base, collectionMethod: null, invoiceStatus: null, nextAttemptAt: null }),
+    'unknown',
+  );
+  // We hold the invoice state and it carries no queued attempt: Stripe is done.
+  assert.equal(
+    deriveRetryState({ ...base, collectionMethod: 'charge_automatically', invoiceStatus: 'open', nextAttemptAt: null }),
+    'recovery_exhausted',
+  );
+  // A queued attempt in the FUTURE is the one positive signal.
+  assert.equal(
+    deriveRetryState({
+      ...base,
+      collectionMethod: 'charge_automatically',
+      invoiceStatus: 'open',
+      nextAttemptAt: new Date(NOW_MS + DAY).toISOString(),
+    }),
+    'retry_scheduled',
+  );
+  // One in the past has already come and gone.
+  assert.equal(
+    deriveRetryState({
+      ...base,
+      collectionMethod: 'charge_automatically',
+      invoiceStatus: 'open',
+      nextAttemptAt: ago(1),
+    }),
+    'recovery_exhausted',
+  );
+  // Stripe is not collecting this at all.
+  assert.equal(
+    deriveRetryState({ ...base, collectionMethod: 'send_invoice', invoiceStatus: 'open', nextAttemptAt: null }),
+    'manual_collection',
+  );
+  // A dead invoice outranks everything but manual collection.
+  assert.equal(
+    deriveRetryState({ ...base, collectionMethod: 'charge_automatically', invoiceStatus: 'void', nextAttemptAt: null }),
+    'recovery_exhausted',
+  );
+  // Causes no retry can fix.
+  assert.equal(
+    deriveRetryState({ ...base, category: 'card_problem', collectionMethod: null, invoiceStatus: null, nextAttemptAt: null }),
+    'payment_method_required',
+  );
+  assert.equal(
+    deriveRetryState({ ...base, category: 'authentication_required', collectionMethod: null, invoiceStatus: null, nextAttemptAt: null }),
+    'authentication_required',
+  );
+  assert.equal(
+    deriveRetryState({ ...base, declineCode: 'previously_declined_do_not_retry', collectionMethod: null, invoiceStatus: null, nextAttemptAt: null }),
+    'hard_decline',
+  );
 });

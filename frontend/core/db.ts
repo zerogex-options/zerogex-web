@@ -958,6 +958,14 @@ function initDb(): DatabaseSync {
   // The report reads by window (failed_at), resolves by invoice, and closes out
   // by subscription when one is canceled. One index each; the UNIQUE above
   // already covers the invoice lookup's leading column.
+  // Answering "is Stripe still going to try" needs the invoice's own state, not
+  // the absence of a payment. `collection_method` says whether Stripe is
+  // collecting at all (`send_invoice` means it never will), and `invoice_status`
+  // distinguishes an open invoice from one already voided or written off. Both
+  // are NULL on rows captured before this column existed, which reads as "retry
+  // state unknown" — deliberately NOT as "retries still running".
+  ensureColumn('payment_declines', 'collection_method', 'TEXT');
+  ensureColumn('payment_declines', 'invoice_status', 'TEXT');
   db.exec('CREATE INDEX IF NOT EXISTS idx_payment_declines_failed_at ON payment_declines(failed_at);');
   db.exec('CREATE INDEX IF NOT EXISTS idx_payment_declines_sub ON payment_declines(subscription_id, outcome);');
   db.exec('CREATE INDEX IF NOT EXISTS idx_payment_declines_user ON payment_declines(user_id, failed_at);');

@@ -734,7 +734,7 @@ function StripeTab({ data, loading, error, cardBg, borderColor, axisStroke, mute
         <h2 className="text-lg font-semibold" style={{ color: textColor }}>Payment Declines</h2>
         <span className="text-xs" style={{ color: mutedText }}>Revenue that did not arrive because a card said no — how much is gone, how much is still coming back, and why.</span>
       </div>
-      <DeclineTracking mutedText={mutedText} axisStroke={axisStroke} />
+      <DeclineTracking mutedText={mutedText} axisStroke={axisStroke} borderColor={borderColor} />
     </section>
     {loading && !data && <LoadingSpinner size="lg" />}
     {error && <ErrorMessage message={error} />}

@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 
 import { useApiData } from '@/hooks/useApiData';
-import { canonicalTimestamp } from '@/core/flowSeriesCharts';
+import { normalizeGammaRegime } from '@/core/hedgingFlowSeries';
 
 /**
  * One 5-minute bar of the intraday Gamma Shift read, from
@@ -57,36 +57,47 @@ export interface GammaRegimeSeriesPayload {
 
 const DEFAULT_REFRESH_MS = 30_000;
 
+export interface UseGammaRegimeSeriesOptions {
+  /** An explicit ET trading day, `YYYY-MM-DD`, for a historical session. */
+  date?: string;
+  refreshMs?: number;
+}
+
 /**
- * The intraday structure series for a symbol's current session.
+ * The intraday structure series for one of a symbol's sessions.
  *
  * Polls at half the Hedging Flow cadence: this is written once per Analytics
  * Engine cycle rather than accumulated per trade, so a faster poll would only
- * re-fetch identical rows.
+ * re-fetch identical rows. With `date` set it does not poll at all — a closed
+ * session cannot change.
  *
  * Bars come back OLDEST-FIRST (the wire order is newest-first, matching the
  * other series endpoints) with canonicalised timestamps, so rows key
  * identically to the Hedging Flow series and the two charts can share an axis.
+ * `date` has to reach both hooks for that to hold on a historical session:
+ * one panel dated and the other live would crosshair two different days.
  *
- * An empty `bars` array on a live session means the engine has not written
- * this session yet — not that the data is unavailable. Callers should say so
- * rather than rendering an error.
+ * An empty `bars` array means the engine never wrote this session — not that
+ * the data is unavailable. Callers should say so rather than rendering an
+ * error, and on a historical session it is a permanent answer rather than a
+ * "not yet".
  */
-export function useGammaRegimeSeries(symbol: string, refreshMs: number = DEFAULT_REFRESH_MS) {
+export function useGammaRegimeSeries(
+  symbol: string,
+  options: UseGammaRegimeSeriesOptions = {},
+) {
+  const { date, refreshMs = DEFAULT_REFRESH_MS } = options;
+  const params = new URLSearchParams({ symbol });
+  if (date) params.set('date', date);
+
   const { data, loading, error, errorStatus, refetch } = useApiData<GammaRegimeSeriesPayload>(
-    `/api/gex/regime-series?symbol=${encodeURIComponent(symbol)}`,
-    { refreshInterval: refreshMs },
+    `/api/gex/regime-series?${params.toString()}`,
+    { refreshInterval: date ? 0 : refreshMs },
   );
 
-  const payload = useMemo(() => {
-    if (!data) return null;
-    return {
-      ...data,
-      bars: [...(data.bars ?? [])]
-        .map((bar) => ({ ...bar, timestamp: canonicalTimestamp(bar.timestamp) }))
-        .reverse(),
-    } satisfies GammaRegimeSeriesPayload;
-  }, [data]);
+  // Shared with the dated permalink's server fetch (core/hedgingFlowSeries),
+  // so the structure panel lands on the same grid either way.
+  const payload = useMemo(() => normalizeGammaRegime(data), [data]);
 
   return { data: payload, loading, error, errorStatus, refetch };
 }
