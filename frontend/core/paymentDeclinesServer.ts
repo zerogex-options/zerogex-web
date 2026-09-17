@@ -1112,6 +1112,59 @@ export function recategorizeFromStoredCodes(): { examined: number; recategorized
 }
 
 /**
+ * Collapse an invoice whose attempts disagree about what kind of charge it was.
+ *
+ * Retries are one charge, so an invoice holding two kinds is counted once under
+ * each and every per-kind total is quietly inflated — the exact double-count the
+ * invoice-level fold exists to prevent, arriving through the back door. It
+ * happens when one attempt is classified from one source and a sibling from
+ * another.
+ *
+ * Which kind wins, in order:
+ *
+ *   1. one the WEBHOOK recorded. That came from the subscription's own
+ *      trial_end, which is the only source event ordering cannot corrupt, and it
+ *      beats anything inferred from invoice history afterwards.
+ *   2. otherwise the earliest attempt's, because the first classification was
+ *      made closest to the event.
+ *
+ * Distinct from reclassifyUnknownKinds, which cannot see these rows at all: they
+ * are not unknown, they are inconsistent.
+ */
+export function unifyInvoiceKinds(): { split: number; unified: number } {
+  const result = { split: 0, unified: 0 };
+  try {
+    const db = getDb();
+    const conflicted = db
+      .prepare(
+        `SELECT invoice_id FROM payment_declines
+          GROUP BY invoice_id
+         HAVING COUNT(DISTINCT kind) > 1`,
+      )
+      .all() as Array<{ invoice_id: string }>;
+    const pick = db.prepare(
+      `SELECT kind, source, attempt_count FROM payment_declines
+        WHERE invoice_id = ? AND kind != 'unknown'
+        ORDER BY (source = 'webhook') DESC, attempt_count ASC
+        LIMIT 1`,
+    );
+    const update = db.prepare(`UPDATE payment_declines SET kind = ? WHERE invoice_id = ? AND kind != ?`);
+    for (const row of conflicted) {
+      result.split += 1;
+      const winner = pick.get(row.invoice_id) as { kind: string } | undefined;
+      if (!winner || !KINDS.has(winner.kind)) continue;
+      const changed = update.run(winner.kind, row.invoice_id, winner.kind) as { changes: number | bigint };
+      if (Number(changed.changes) > 0) result.unified += 1;
+    }
+  } catch {
+    // Leaves the rows as they are; the report's own fold still reads the invoice
+    // by its last attempt, so a split shows up in raw queries rather than on the
+    // dashboard.
+  }
+  return result;
+}
+
+/**
  * Re-decide the CHARGE KIND of rows still sitting on 'unknown', using evidence
  * that has arrived since they were written.
  *

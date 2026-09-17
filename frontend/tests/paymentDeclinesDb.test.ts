@@ -33,6 +33,7 @@ const {
   markDeclinesLostForInvoice,
   markDeclinesLostForSubscription,
   recategorizeFromStoredCodes,
+  unifyInvoiceKinds,
   reconcileOpenDeclines,
   reclassifyUnknownKinds,
   recordPaymentDecline,
@@ -1012,4 +1013,51 @@ test('an invoice never holds two kinds at once', () => {
   const kinds = new Set(declineRows('in_split_kind').map((row) => row.kind));
   assert.equal(kinds.size, 1);
   assert.equal([...kinds][0], 'renewal');
+});
+
+test('an invoice that already disagrees with itself is repaired, webhook answer winning', () => {
+  // reclassifyUnknownKinds cannot see these: they are not unknown, they are
+  // inconsistent. Left alone, the invoice counts once under each kind and every
+  // per-kind total is inflated by one.
+  db.prepare(
+    `INSERT INTO payment_declines (id, invoice_id, attempt_count, kind, billing_reason,
+       amount_due, category, failed_at, outcome, source, recorded_at)
+     VALUES ('d_c1', 'in_conflict', 1, 'trial_conversion', 'subscription_cycle', 4900,
+             'issuer_block', ?, 'lost', 'stripe_backfill', ?)`,
+  ).run(ago(30), ago(0));
+  db.prepare(
+    `INSERT INTO payment_declines (id, invoice_id, attempt_count, kind, billing_reason,
+       amount_due, category, failed_at, outcome, source, recorded_at)
+     VALUES ('d_c2', 'in_conflict', 2, 'renewal', 'subscription_cycle', 4900,
+             'issuer_block', ?, 'lost', 'webhook', ?)`,
+  ).run(ago(28), ago(0));
+
+  const result = unifyInvoiceKinds();
+  assert.ok(result.split >= 1);
+  const kinds = new Set(declineRows('in_conflict').map((row) => row.kind));
+  assert.equal(kinds.size, 1);
+  // The webhook read this from the subscription's own trial_end, even though it
+  // is the LATER attempt. Provenance beats recency.
+  assert.equal([...kinds][0], 'renewal');
+  // Idempotent.
+  assert.equal(unifyInvoiceKinds().unified, 0);
+});
+
+test('with no webhook answer the earliest attempt decides', () => {
+  db.prepare(
+    `INSERT INTO payment_declines (id, invoice_id, attempt_count, kind, billing_reason,
+       amount_due, category, failed_at, outcome, source, recorded_at)
+     VALUES ('d_e1', 'in_earliest', 1, 'trial_conversion', 'subscription_cycle', 4900,
+             'issuer_block', ?, 'lost', 'stripe_backfill', ?)`,
+  ).run(ago(30), ago(0));
+  db.prepare(
+    `INSERT INTO payment_declines (id, invoice_id, attempt_count, kind, billing_reason,
+       amount_due, category, failed_at, outcome, source, recorded_at)
+     VALUES ('d_e2', 'in_earliest', 2, 'renewal', 'subscription_cycle', 4900,
+             'issuer_block', ?, 'lost', 'stripe_backfill', ?)`,
+  ).run(ago(28), ago(0));
+  unifyInvoiceKinds();
+  const kinds = new Set(declineRows('in_earliest').map((row) => row.kind));
+  assert.equal(kinds.size, 1);
+  assert.equal([...kinds][0], 'trial_conversion');
 });
