@@ -45,35 +45,12 @@
 // process.env before the dynamic imports below; a static import would be
 // hoisted above the mutation and open the wrong database.
 
-import fs from 'node:fs';
-import path from 'node:path';
+import { loadEnvLocal, warnIfPricesUnconfigured } from './env-local.mts';
 import Stripe from 'stripe';
 
-function parseEnvFile(filePath: string): Record<string, string> {
-  if (!fs.existsSync(filePath)) return {};
-  const env: Record<string, string> = {};
-  for (const rawLine of fs.readFileSync(filePath, 'utf8').split('\n')) {
-    const line = rawLine.trim();
-    if (!line || line.startsWith('#')) continue;
-    const eq = line.indexOf('=');
-    if (eq === -1) continue;
-    const key = line.slice(0, eq).trim();
-    let value = line.slice(eq + 1).trim();
-    if (
-      value.length >= 2 &&
-      ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'")))
-    ) {
-      value = value.slice(1, -1);
-    }
-    env[key] = value;
-  }
-  return env;
-}
-
-const envLocal = parseEnvFile(path.join(process.cwd(), '.env.local'));
-for (const key of ['AUTH_DB_PATH', 'STRIPE_SECRET_KEY']) {
-  if (envLocal[key] && !process.env[key]) process.env[key] = envLocal[key];
-}
+// Load the WHOLE of .env.local — see scripts/env-local.mts for why an
+// allowlist of keys cannot be kept correct here.
+loadEnvLocal();
 
 const dryRun = process.env.DRY_RUN === '1';
 const skipStripe = process.env.SKIP_STRIPE === '1';
@@ -143,6 +120,7 @@ if (ledger.imported === 0) {
       '    unresolved close is revisited once the evidence exists.',
   );
 }
+warnIfPricesUnconfigured();
 console.log('\nPass 1 — reconstructing declines from stripe_payment_failed audit rows…');
 const reconstructed = backfillDeclinesFromAudit();
 console.log(
