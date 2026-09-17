@@ -197,3 +197,59 @@ test('the dormant variant carries no CTA button at all', () => {
   assert.doesNotMatch(html, /display: inline-block; padding: 12px 20px/);
   assert.match(html, /billing portal/);
 });
+
+// ---------------------------------------------------------------------------
+// Telling the member what the bank will see, BEFORE the charge.
+//
+// A live audit of the trial-to-paid step found the two structural drivers of a
+// declined first charge: an issuer that does not recognise the merchant, and a
+// debit card that simply has nothing in it on the day. Both are addressable in
+// this email and nowhere else — after the charge fails it is too late.
+// ---------------------------------------------------------------------------
+
+test('the reminder names the statement descriptor so the charge is recognised', () => {
+  const { text, html } = buildTrialReminderEmail({
+    trialEndIso: '2026-10-01T12:00:00Z',
+    billing: { chargeLabel: '$29.00/month', cardBrand: 'Visa', cardLast4: '4242', statementDescriptor: 'ZEROGEX' },
+  });
+  assert.match(text, /ZEROGEX/);
+  assert.match(html, /ZEROGEX/);
+  // It must tell them what to DO about a query, not merely name the word.
+  assert.match(text, /confirming it rather than declining it/i);
+});
+
+test('a debit member is told the funds need to be there on the day', () => {
+  const { text } = buildTrialReminderEmail({
+    trialEndIso: '2026-10-01T12:00:00Z',
+    billing: { chargeLabel: '$29.00/month', cardBrand: 'Visa', cardLast4: '4242', cardFunding: 'debit' },
+  });
+  assert.match(text, /debit card/i);
+  assert.match(text, /available on the day/i);
+});
+
+test('a credit member is told nothing about funds — the sentence is not for them', () => {
+  const { text } = buildTrialReminderEmail({
+    trialEndIso: '2026-10-01T12:00:00Z',
+    billing: { chargeLabel: '$29.00/month', cardBrand: 'Visa', cardLast4: '4242', cardFunding: 'credit' },
+  });
+  assert.doesNotMatch(text, /available on the day/i);
+});
+
+test('the dormant variant stays silent: its whole premise is that nothing is being asked', () => {
+  const { text } = buildTrialReminderEmail({
+    trialEndIso: '2026-10-01T12:00:00Z',
+    dormant: true,
+    billing: { chargeLabel: '$29.00/month', cardLast4: '4242', cardFunding: 'debit', statementDescriptor: 'ZEROGEX' },
+  });
+  assert.doesNotMatch(text, /available on the day/i);
+  assert.doesNotMatch(text, /confirming it rather than declining it/i);
+});
+
+test('neither line appears when there is nothing true to say', () => {
+  const { text } = buildTrialReminderEmail({
+    trialEndIso: '2026-10-01T12:00:00Z',
+    billing: { chargeLabel: '$29.00/month', cardBrand: 'Visa', cardLast4: '4242' },
+  });
+  assert.doesNotMatch(text, /available on the day/i);
+  assert.doesNotMatch(text, /statement it will read/i);
+});

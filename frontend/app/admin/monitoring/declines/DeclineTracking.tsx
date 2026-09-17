@@ -25,6 +25,7 @@ import {
   type DeclineBucket,
   type DeclineCategory,
   type DeclineDetail,
+  type DeclineInstrumentRow,
   type DeclineReport,
   type DeclineTotals,
   type LostReason,
@@ -586,7 +587,7 @@ function DeclineReportView({
  */
 function InstrumentPanel({ report, mutedText }: { report: DeclinePayload; mutedText: string }) {
   const { byMethodType, byFunding, byCountry, currency } = report;
-  const sections: Array<{ title: string; note: string; rows: typeof byMethodType }> = [
+  const sections: Array<{ title: string; note: string; rows: DeclineInstrumentRow[] }> = [
     {
       title: 'By payment method',
       note: 'A wallet is not a card and does not fail like one. Where Link carries real volume it typically declines at around half the rate of a card typed in at checkout — the same customer, a card they have already verified and used elsewhere.',
