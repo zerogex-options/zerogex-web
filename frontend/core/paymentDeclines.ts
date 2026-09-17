@@ -525,6 +525,21 @@ export type DeclineKindRow = DeclineHeadline & {
   share: number | null;
 };
 
+/**
+ * A breakdown by a property of the PAYMENT INSTRUMENT — what the member paid
+ * with, rather than what kind of charge it was. Its own type because the key is
+ * an open set (card brands, ISO country codes, payment-method types) rather than
+ * the closed DeclineKind union, and because it carries no paid-side denominator:
+ * a successful charge leaves no row in this table, so the instrument behind it
+ * is not here to count. Shares, not rates — see byInstrument.
+ */
+export type DeclineInstrumentRow = DeclineTotals & {
+  key: string;
+  label: string;
+  /** This instrument's share of all declined invoices in the window. */
+  share: number | null;
+};
+
 export type DeclineCodeRow = {
   /** The most specific code the payload carried, as the issuer spelled it. */
   code: string;
@@ -659,9 +674,9 @@ export type DeclineReport = {
    * are 40% of my declines" and "debit cards decline twice as often as credit"
    * are different claims and only the second is a reason to do anything.
    */
-  byMethodType: DeclineKindRow[];
-  byFunding: DeclineKindRow[];
-  byCountry: DeclineKindRow[];
+  byMethodType: DeclineInstrumentRow[];
+  byFunding: DeclineInstrumentRow[];
+  byCountry: DeclineInstrumentRow[];
   byAttempt: DeclineBucket[];
   byPlan: DeclineBucket[];
   /** How the recovered invoices came back. Computed over recoveries only. */
@@ -1094,31 +1109,29 @@ const FUNDING_LABEL: Record<string, string> = {
  * A breakdown by a property of the PAYMENT INSTRUMENT, each row against its own
  * attempt volume.
  *
- * Reusing DeclineKindRow rather than DeclineBucket is the point: a bucket can
- * only say how many declines a category produced, and the actionable question is
- * its RATE. The denominator is unavoidably approximate here — a successful
- * charge leaves no decline row, so the instrument behind it is not in this table
- * — so these rows report the declines they know about and leave the paid side at
- * zero rather than inventing one. Read the shares against each other; the audit
- * script (`make audit-trial-conversions`) is what computes true per-instrument
- * rates, because only Stripe holds the successful charges' instruments.
+ * These are SHARES OF THE FAILURES, never rates, and the type says so by
+ * carrying no paid-side denominator at all. A successful charge leaves no row in
+ * this table, so the instrument behind it is not here to divide by, and inventing
+ * one would turn "debit is 40% of my declines" into the very different — and
+ * unsupported — claim that debit declines 40% of the time. The true per-
+ * instrument rate needs Stripe, which is what `make audit-trial-conversions`
+ * computes.
  */
 function byInstrument(
   invoices: readonly DeclinedInvoice[],
   keyOf: (invoice: DeclinedInvoice) => string | null,
   labels: Record<string, string> | null,
-): DeclineKindRow[] {
+): DeclineInstrumentRow[] {
   const keys = new Set<string>();
   for (const invoice of invoices) keys.add(keyOf(invoice) ?? 'unknown');
   return [...keys]
     .map((key) => {
       const mine = invoices.filter((i) => (keyOf(i) ?? 'unknown') === key);
       return {
-        key: key as DeclineKind,
+        key,
         label: key === 'unknown' ? 'Not recorded' : (labels?.[key] ?? key.toUpperCase()),
-        blurb: '',
         share: rate(mine.length, invoices.length),
-        ...headlineFor(mine, []),
+        ...totalsFor(mine),
       };
     })
     .sort((a, b) => b.invoices - a.invoices);

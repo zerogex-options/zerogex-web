@@ -209,6 +209,13 @@ type BillingDetails = {
   // Display-ready brand ("Visa") or null when unknown (wallet / Link / a brand
   // code we don't map), in which case the mailer uses a neutral phrasing.
   cardBrand: string | null;
+  // 'credit' | 'debit' | 'prepaid' from the card on file, or null. Debit and
+  // prepaid cards need the funds present on the charge date, which is what the
+  // reminder's extra sentence tells the member.
+  cardFunding: string | null;
+  // What the charge reads as on a statement, from the Stripe ACCOUNT rather
+  // than a hardcoded string, so it cannot drift from what the bank shows.
+  statementDescriptor: string | null;
   // Last four of the card that will be charged, or null when no card can be
   // named at all — a Link/wallet member has a chargeable method but no
   // brand/last4 to show. The mailer then quotes the price with neutral
@@ -258,12 +265,12 @@ async function resolveCard(
   stripe: Stripe,
   sub: Stripe.Subscription,
   customerId: string | null,
-): Promise<{ brand: string | null; last4: string } | null> {
+): Promise<{ brand: string | null; last4: string; funding: string | null } | null> {
   // default_payment_method is expanded on the subscription retrieve below, so
   // when set it arrives as a full PaymentMethod object.
   const subPm = sub.default_payment_method;
   if (subPm && typeof subPm === 'object' && 'card' in subPm && subPm.card?.last4) {
-    return { brand: subPm.card.brand ?? null, last4: subPm.card.last4 };
+    return { brand: subPm.card.brand ?? null, last4: subPm.card.last4, funding: subPm.card.funding ?? null };
   }
 
   let pmId = idOf(subPm);
@@ -276,7 +283,7 @@ async function resolveCard(
 
   if (pmId) {
     const pm = await stripe.paymentMethods.retrieve(pmId);
-    if (pm.card?.last4) return { brand: pm.card.brand ?? null, last4: pm.card.last4 };
+    if (pm.card?.last4) return { brand: pm.card.brand ?? null, last4: pm.card.last4, funding: pm.card.funding ?? null };
     return null;
   }
 
@@ -305,6 +312,23 @@ async function resolveCard(
 // (a Link/wallet member), the card fields come back null and the mailer quotes
 // the price with neutral wording. Stripe errors propagate to the caller, which
 // treats them as non-fatal and sends the reminder without the line.
+// What the charge will read as on a statement, read once per run from the
+// Stripe ACCOUNT. Hardcoding it would let the email and the bank statement drift
+// apart, which is worse than saying nothing: a member told to look for the wrong
+// word will not recognise the right one. Cached because it is the same for every
+// member, and best-effort because a failed lookup must not stop the reminder.
+let cachedDescriptor: string | null | undefined;
+async function resolveStatementDescriptor(stripe: Stripe): Promise<string | null> {
+  if (cachedDescriptor !== undefined) return cachedDescriptor;
+  try {
+    const account = await stripe.accounts.retrieve();
+    cachedDescriptor = account.settings?.payments?.statement_descriptor ?? null;
+  } catch {
+    cachedDescriptor = null;
+  }
+  return cachedDescriptor;
+}
+
 async function resolveBillingDetails(
   stripe: Stripe,
   customerId: string | null,
@@ -352,6 +376,8 @@ async function resolveBillingDetails(
     chargeLabel,
     cardBrand: card ? formatCardBrand(card.brand) : null,
     cardLast4: card ? card.last4 : null,
+    cardFunding: card?.funding ?? null,
+    statementDescriptor: await resolveStatementDescriptor(stripe),
   };
 }
 

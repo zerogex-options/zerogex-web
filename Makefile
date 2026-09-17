@@ -1,4 +1,4 @@
-.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime founding-demote founding-cohort-revoke-backfill unit-failure-alert activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription reactivate-member honor-winback-discount recover-orphan-payment scan-orphan-payments clear-zombie-customers backfill-daily-metrics backfill-payment-declines audit-trial-conversions sync-search-console webhook-health cancellation-alerts trial-reminders trial-engagement renewal-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback return-intent reactivation backfill-reactivation-entitlement checkout-recovery founding-final-call public-cohort cancellations churn-breakdown backfill-refund-audit enable-portal-cancel-reasons save-url reset-save-latch gex-rank-backtest diagnose-user subscriber-headcount verify-bucket-migration reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partner-grant-revoke-backfill partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm email-audit clean deploy logo og-check verify-gate blog-images ninjatrader-package
+.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime founding-demote founding-cohort-revoke-backfill unit-failure-alert activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription reactivate-member honor-winback-discount recover-orphan-payment scan-orphan-payments clear-zombie-customers backfill-daily-metrics backfill-payment-declines audit-trial-conversions open-invoice-recovery sync-search-console webhook-health cancellation-alerts trial-reminders trial-engagement renewal-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback return-intent reactivation backfill-reactivation-entitlement checkout-recovery founding-final-call public-cohort cancellations churn-breakdown backfill-refund-audit enable-portal-cancel-reasons save-url reset-save-latch gex-rank-backtest diagnose-user subscriber-headcount verify-bucket-migration reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partner-grant-revoke-backfill partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm email-audit clean deploy logo og-check verify-gate blog-images ninjatrader-package
 help:
 	@echo "ZeroGEX Web - Available Commands:"
 	@echo ""
@@ -24,6 +24,7 @@ help:
 	@echo "  make backfill-stripe-invoices - Import real Stripe invoice history into stripe_invoice_history so the renewal metrics on Admin->Monitoring->Growth can see renewals that predate the invoice audit trail. Read-only against Stripe. SINCE=<YYYY-MM-DD> / LIMIT=<n> / DRY_RUN=1"
 	@echo "  make backfill-payment-declines - Rebuild the decline history behind Admin->Monitoring->Stripe->Payment Declines: reconstruct every past failed charge from the audit log, settle each against the invoice ledger, then re-read Stripe for the issuer's actual decline code. Read-only against Stripe. SKIP_STRIPE=1 for pass 1 only, LIMIT=<n>, RECHECK=1 to re-read invoices an earlier run already fetched, DRY_RUN=1"
 	@echo "  make audit-trial-conversions - READ-ONLY forensic audit of why trial conversions fail: payment-method type, SetupIntent completion, attempts actually made, first decline reason off the FAILED charge, and whether each unpaid invoice still has a retry scheduled. Writes nothing anywhere. DAYS=<n>, LIMIT=<n>, JSON=<path>"
+	@echo "  make open-invoice-recovery - Find revenue that is STILL COLLECTIBLE: invoices Stripe stopped retrying but never voided, whose hosted payment pages are still live, on accounts that have lapsed. DRY RUN by default (prints the money, sends nothing); YES=1 to send one email each, PREVIEW_TO=<addr> to see the email, DAYS=<n>, LIMIT=<n>"
 	@echo "  make sync-search-console - Pull daily clicks+impressions from Google Search Console into the daily metrics rollup (runs on a timer; see deploy/steps/099.search-console). DAYS=<n> for the window (default 14, use 480 for a full ~16-month backfill), END=<YYYY-MM-DD> to end elsewhere, DRY_RUN=1 to fetch and print without writing"
 	@echo "  make all-to-pro - Promote every non-admin user to pro (DRY_RUN=1 to preview)"
 	@echo "  make delete-user EMAIL=<email> - Delete a user (DRY_RUN=1 to preview, YES=1 to skip prompt)"
@@ -307,6 +308,30 @@ backfill-payment-declines:
 #   JSON=<path>          also dump the per-subscription detail
 audit-trial-conversions:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/audit-trial-conversions.mts'
+
+# Revenue that is still collectible and nobody knows about.
+#
+# When a payment fails, Stripe retries on its Smart Retry schedule and then
+# stops. What it does NOT do is void the invoice: it stays `open` on a hosted
+# payment page that stays live indefinitely. So a member whose card was short
+# months ago has, today, an invoice they could still settle in two clicks — and
+# almost certainly does not know their subscription lapsed at all.
+#
+# DRY RUN BY DEFAULT: with no flags it sends nothing and prints what is sitting
+# there — how many invoices, how much money, and who. Deliberately narrow about
+# who it will ever email: never an invoice Stripe is still retrying, never an
+# account that has not actually lost access, never the same invoice twice, and
+# not members who opted out of marketing.
+#
+# It never charges anything, never creates or voids an invoice, and never
+# changes a subscription or anyone's access.
+#
+#   YES=1                actually send (default sends nothing)
+#   PREVIEW_TO=<addr>    render one real email to that address and stop
+#   DAYS=<n>             how far back to look (default 180)
+#   LIMIT=<n>            cap sends in one run (default 50)
+open-invoice-recovery:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/send-open-invoice-recovery.mts $(if $(YES),--yes,) $(if $(PREVIEW_TO),--preview-to $(PREVIEW_TO),)'
 
 # Print, for a sample of real customers, every event the growth dashboard reads
 # and every conclusion it draws — so a human can check the classification against

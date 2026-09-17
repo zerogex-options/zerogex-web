@@ -687,6 +687,23 @@ export type TrialReminderEmailOptions = {
     // of naming a card, so the price is never dropped just because the method
     // isn't a card.
     cardLast4?: string | null;
+    // 'credit' | 'debit' | 'prepaid', from the card on file. A live audit of the
+    // trial-to-paid step put debit at a 77% decline rate against credit's 33%,
+    // for one structural reason: an off-session charge on a debit card needs the
+    // money to actually BE in the account at that moment, and a card on file for
+    // seven days lands wherever it lands in somebody's month. So a debit member
+    // gets one extra sentence telling them the date to have it covered by.
+    // Absent or null drops the line entirely — it is only useful when true.
+    cardFunding?: string | null;
+    // What the charge will read as on their statement, e.g. "ZEROGEX". Resolved
+    // from the Stripe account by the caller so it cannot drift from reality.
+    //
+    // This is the single cheapest thing that makes a bank approve a charge: the
+    // most common reason an issuer blocks a recurring payment is that neither
+    // the bank nor the customer recognises the merchant. Naming it BEFORE the
+    // charge means the customer can recognise it — and, if their bank does query
+    // it, confirm it rather than dispute it. Null omits the line.
+    statementDescriptor?: string | null;
   } | null;
   // NOTE: this email carries no discount, by design. It used to offer 25% off
   // for a year via a signed one-click /convert link. That was a discount handed
@@ -795,6 +812,51 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
       }`
     : null;
 
+  // WHAT THE BANK WILL SEE, and what to do if it says no.
+  //
+  // The most common reason an issuer blocks a recurring charge is that neither
+  // the bank nor the customer recognises the merchant, and the cheapest fix for
+  // that is to name the merchant BEFORE the charge rather than after. A member
+  // who has read the word once can recognise it on a statement, and can confirm
+  // it to their bank instead of disputing it.
+  //
+  // The debit sentence exists because an off-session charge on a debit card
+  // needs the money to actually be in the account at that moment — a structural
+  // property of the instrument, not a judgement about the member — and a card
+  // captured seven days earlier lands wherever it lands in their month. Saying
+  // the date plainly is the whole intervention.
+  //
+  // Both are omitted from the dormant variant, whose entire premise is that
+  // nothing is being asked of the reader.
+  const descriptor = billing?.statementDescriptor ?? null;
+  const needsFunds = billing?.cardFunding === 'debit' || billing?.cardFunding === 'prepaid';
+  const bankLineText =
+    dormant || (!descriptor && !needsFunds)
+      ? null
+      : [
+          descriptor
+            ? `On your statement it will read ${descriptor}. If your bank queries it, that is us — confirming it rather than declining it keeps your access uninterrupted.`
+            : null,
+          needsFunds
+            ? 'One practical note: your card on file is a debit card, so the funds need to be available on the day the charge runs. Banks decline these for timing far more often than for anything else.'
+            : null,
+        ]
+          .filter(Boolean)
+          .join(' ');
+  const bankLineHtml =
+    dormant || (!descriptor && !needsFunds)
+      ? null
+      : [
+          descriptor
+            ? `On your statement it will read <strong>${escapeHtml(descriptor)}</strong>. If your bank queries it, that's us &mdash; confirming it rather than declining it keeps your access uninterrupted.`
+            : null,
+          needsFunds
+            ? 'One practical note: your card on file is a debit card, so the funds need to be available on the day the charge runs. Banks decline these for timing far more often than for anything else.'
+            : null,
+        ]
+          .filter(Boolean)
+          .join(' ');
+
   // Openers. Both name the auto-conversion outright: the trial BECOMES a paid
   // subscription by itself. Leaving that implicit is what lets a reader further
   // down mistake the discount CTA for the thing that keeps their access, and
@@ -867,6 +929,7 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
     openerText,
     '',
     ...(billingLineText ? [billingLineText, ''] : []),
+    ...(bankLineText ? [bankLineText, ''] : []),
     ...(promoLineText ? [promoLineText, ''] : []),
     ...continuationText,
     ...closingText,
@@ -883,6 +946,7 @@ export function buildTrialReminderEmail(opts: TrialReminderEmailOptions): {
       <p>Hello,</p>
       <p>${openerHtml}</p>
       ${billingLineHtml ? `<p>${billingLineHtml}</p>` : ''}
+      ${bankLineHtml ? `<p>${bankLineHtml}</p>` : ''}
       ${promoLineHtml ? `<p>${promoLineHtml}</p>` : ''}
       ${continuationHtml}
       ${closingHtml}
@@ -1989,6 +2053,99 @@ export async function sendTrialConvertedEmail(to: string, opts?: TrialConvertedE
 // carries the FOH footer like the other positive subscriber touchpoints.
 // Latched in the webhook (payment_recovery_pending) so it only fires after a
 // real failure, never on an ordinary renewal.
+export type OpenInvoiceRecoveryEmailOptions = {
+  /** Formatted amount still owed on the invoice, e.g. "$29.00". */
+  amountFormatted: string;
+  /** Stripe's hosted invoice page — the thing that makes this email useful. */
+  hostedInvoiceUrl: string;
+  /** "Pro monthly", when the plan is resolvable. Null keeps the copy generic. */
+  planLabel: string | null;
+  /** How long ago the invoice was raised, e.g. "in July". Null omits it. */
+  raisedLabel: string | null;
+};
+
+/**
+ * Pure builder for the open-invoice recovery nudge: a member whose subscription
+ * lapsed because a payment never completed, whose invoice Stripe has STOPPED
+ * retrying but has not voided — so it is still sitting there, payable, on a
+ * hosted page that stays live indefinitely.
+ *
+ * COPY RULES, because this email is about somebody's money and a failure they
+ * may not know happened:
+ *
+ *   • It never says why the payment failed. We frequently do not know, and a
+ *     wrong guess ("your bank declined it") sends someone to argue with a bank
+ *     that did nothing wrong. It says only that it did not complete.
+ *   • It never implies they did something wrong, and never manufactures
+ *     urgency. The invoice has been sitting there for weeks; pretending it
+ *     expires tonight would be a lie.
+ *   • It leads with the ONE thing that makes it actionable — the link — and
+ *     mentions that a different card can be used there, which is the actual
+ *     remedy for most of these without asserting that their card is the problem.
+ *   • It offers a way out. Somebody who does not want the product back should
+ *     not have to pay to make the email stop.
+ */
+export function buildOpenInvoiceRecoveryEmail(opts: OpenInvoiceRecoveryEmailOptions): {
+  subject: string;
+  html: string;
+  text: string;
+} {
+  const subject = 'Your ZeroGEX invoice is still open';
+  const plan = opts.planLabel ? `your ${opts.planLabel} subscription` : 'your subscription';
+  const raised = opts.raisedLabel ? ` ${opts.raisedLabel}` : '';
+  const safeUrl = escapeHtml(opts.hostedInvoiceUrl);
+  const safeAmount = escapeHtml(opts.amountFormatted);
+
+  const text = [
+    'Hello,',
+    '',
+    `A payment for ${plan} did not complete${raised}, so your access lapsed. I am not writing to chase you — ` +
+      'I am writing because that invoice is still open, and most people in this position never found out it happened.',
+    '',
+    `The invoice is for ${opts.amountFormatted}. If you want to pick your subscription back up, you can settle it here:`,
+    '',
+    opts.hostedInvoiceUrl,
+    '',
+    'That page takes any card — if the one on file has changed, or you would rather use a different one, ' +
+      'you can enter it there. Access comes back as soon as the payment clears.',
+    '',
+    'If you would rather leave it, that is completely fine and you do not need to do anything at all. ' +
+      'Nothing further will be charged and this is the only email you will get about it.',
+    '',
+    'If something about the product was the reason, I would genuinely like to know — just reply.',
+    '',
+    'Best,',
+    'Michael',
+    'Founder, ZeroGEX',
+  ].join('\n');
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 24px; line-height: 1.5;">
+      <p>Hello,</p>
+      <p>A payment for ${escapeHtml(plan)} did not complete${escapeHtml(raised)}, so your access lapsed. I'm not writing to chase you &mdash; I'm writing because that invoice is still open, and most people in this position never found out it happened.</p>
+      <p>The invoice is for <strong>${safeAmount}</strong>. If you'd like to pick your subscription back up:</p>
+      <p style="margin: 24px 0;">
+        <a href="${safeUrl}" style="display: inline-block; padding: 12px 20px; background: #f5b400; color: #000; font-weight: 600; text-decoration: none; border-radius: 8px;">Settle the invoice</a>
+      </p>
+      <p>That page takes any card &mdash; if the one on file has changed, or you'd rather use a different one, you can enter it there. Access comes back as soon as the payment clears.</p>
+      <p>If you'd rather leave it, that's completely fine and you don't need to do anything at all. Nothing further will be charged, and this is the only email you'll get about it.</p>
+      <p>If something about the product was the reason, I'd genuinely like to know &mdash; just reply.</p>
+      <p style="margin-top: 24px;">Best,<br />Michael<br />Founder, ZeroGEX</p>
+    </div>
+  `;
+
+  return { subject, html, text };
+}
+
+export async function sendOpenInvoiceRecoveryEmail(to: string, opts: OpenInvoiceRecoveryEmailOptions) {
+  const { subject, html, text } = buildOpenInvoiceRecoveryEmail(opts);
+  const client = getClient();
+  const result = await client.emails.send({ from: getFromAddress(), to, subject, text, html });
+  if (result.error) {
+    throw new Error(`Resend error: ${result.error.message}`);
+  }
+}
+
 export async function sendPaymentRecoveredEmail(to: string) {
   const subject = "You're all set — your ZeroGEX payment went through";
   const dashboardUrl = `${getAppUrl()}/dashboard`;

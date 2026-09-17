@@ -1,0 +1,274 @@
+#!/usr/bin/env node
+// Run from the frontend/ directory (or via `make open-invoice-recovery`):
+//   node --experimental-strip-types scripts/send-open-invoice-recovery.mts [--yes] [--preview-to <email>]
+//
+// Finds money that is STILL COLLECTIBLE and nobody knows about.
+//
+// When a subscription's payment fails, Stripe retries on its Smart Retry
+// schedule and then stops. What it does NOT do is void the invoice: it stays
+// `open` on a hosted payment page that remains live indefinitely. So a member
+// whose card was short in July has, today, an invoice they could still settle in
+// two clicks — and almost certainly does not know their subscription lapsed at
+// all, because the only notice was a dunning email sent at the moment their card
+// failed.
+//
+// DRY RUN BY DEFAULT. With no flags this sends nothing and prints what is
+// sitting there: how many invoices, how much money, and who. That report is the
+// point of the script as much as the email is — run it whenever you want the
+// number, without any risk of contacting anyone.
+//
+// IT NEVER: charges anything, creates or voids an invoice, changes a
+// subscription, or alters access. It reads Stripe and sends one email. Access is
+// restored by the member paying, through Stripe's own hosted page and the
+// ordinary invoice.paid webhook — this script has no part in it.
+//
+// Eligibility, deliberately narrow:
+//   - invoice.status = 'open' and amount_due > 0
+//   - no next_payment_attempt: Stripe has STOPPED. An invoice still being
+//     retried must not be emailed about; the retry may well collect it, and a
+//     nudge in the middle of that is noise at best.
+//   - the customer maps to a live local account (not soft-deleted)
+//   - that account has actually LOST access. Someone still inside the
+//     payment-recovery grace window has not lapsed, and telling them they have
+//     is both wrong and alarming.
+//   - no prior `open_invoice_recovery_email_sent` audit row for this invoice.
+//     One email per invoice, ever.
+//   - not unsubscribed from marketing. This invoice is arguably transactional,
+//     but a lapse from months ago is close enough to win-back that the
+//     conservative read is the right one; MARKETING_OPTOUT=ignore overrides.
+//
+// Flags / environment:
+//   --yes                actually send (default is a dry run that sends nothing)
+//   --preview-to <addr>  render one real email to that address and stop
+//   DAYS=<n>             how far back to look (default 180)
+//   LIMIT=<n>            cap sends in one run (default 50)
+//   MARKETING_OPTOUT=ignore   include members who opted out of marketing
+
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import Stripe from 'stripe';
+
+function parseEnvFile(filePath: string): Record<string, string> {
+  if (!fs.existsSync(filePath)) return {};
+  const env: Record<string, string> = {};
+  for (const rawLine of fs.readFileSync(filePath, 'utf8').split('\n')) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) continue;
+    const eq = line.indexOf('=');
+    if (eq === -1) continue;
+    const key = line.slice(0, eq).trim();
+    let value = line.slice(eq + 1).trim();
+    if (
+      value.length >= 2 &&
+      ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'")))
+    ) {
+      value = value.slice(1, -1);
+    }
+    env[key] = value;
+  }
+  return env;
+}
+
+const envLocal = parseEnvFile(path.join(process.cwd(), '.env.local'));
+for (const key of ['AUTH_DB_PATH', 'STRIPE_SECRET_KEY', 'RESEND_API_KEY', 'EMAIL_FROM', 'NEXT_PUBLIC_APP_URL']) {
+  if (envLocal[key] && !process.env[key]) process.env[key] = envLocal[key];
+}
+
+const argv = process.argv.slice(2);
+const send = argv.includes('--yes');
+const previewIndex = argv.indexOf('--preview-to');
+const previewTo = previewIndex >= 0 ? argv[previewIndex + 1] : null;
+const days = Number(process.env.DAYS) > 0 ? Number(process.env.DAYS) : 180;
+const limit = Number(process.env.LIMIT) > 0 ? Number(process.env.LIMIT) : 50;
+const ignoreOptOut = process.env.MARKETING_OPTOUT === 'ignore';
+
+const secretKey = process.env.STRIPE_SECRET_KEY;
+if (!secretKey) {
+  console.error('STRIPE_SECRET_KEY is not set (env or .env.local). Nothing to do.');
+  process.exit(1);
+}
+
+const { getDb } = await import('../core/db.ts');
+const { sendOpenInvoiceRecoveryEmail, buildOpenInvoiceRecoveryEmail } = await import('../core/mailer.ts');
+const { priceIdToSku } = await import('../core/stripe.ts');
+const { readInvoicePriceId } = await import('../core/stripeInvoice.ts');
+
+if (previewTo) {
+  const preview = buildOpenInvoiceRecoveryEmail({
+    amountFormatted: '$29.00',
+    hostedInvoiceUrl: 'https://invoice.stripe.com/i/example',
+    planLabel: 'Pro monthly',
+    raisedLabel: 'in July',
+  });
+  await sendOpenInvoiceRecoveryEmail(previewTo, {
+    amountFormatted: '$29.00',
+    hostedInvoiceUrl: 'https://invoice.stripe.com/i/example',
+    planLabel: 'Pro monthly',
+    raisedLabel: 'in July',
+  });
+  console.log(`Preview "${preview.subject}" sent to ${previewTo}. Nothing else was touched.`);
+  process.exit(0);
+}
+
+const db = getDb();
+const stripe = new Stripe(secretKey);
+const sinceUnix = Math.floor(Date.now() / 1000) - days * 86_400;
+
+type Candidate = {
+  invoiceId: string;
+  userId: string;
+  email: string;
+  amountDue: number;
+  currency: string;
+  hostedInvoiceUrl: string;
+  planLabel: string | null;
+  raisedAt: string;
+  lapsed: boolean;
+  optedOut: boolean;
+  alreadyEmailed: boolean;
+};
+
+const userByCustomer = new Map<string, { id: string; email: string; tier: string; lapsed: boolean; optedOut: boolean }>();
+for (const row of db
+  .prepare(
+    `SELECT id, email, tier, stripe_customer_id, subscription_lapsed, marketing_unsubscribed_at
+       FROM users WHERE stripe_customer_id IS NOT NULL AND deleted_at IS NULL`,
+  )
+  .all() as Array<{
+  id: string;
+  email: string;
+  tier: string;
+  stripe_customer_id: string;
+  subscription_lapsed: number;
+  marketing_unsubscribed_at: string | null;
+}>) {
+  userByCustomer.set(row.stripe_customer_id, {
+    id: row.id,
+    email: row.email,
+    tier: row.tier,
+    // Lost access: the lapse latch, or simply no longer holding a paid tier.
+    lapsed: Number(row.subscription_lapsed) === 1 || row.tier === 'public',
+    optedOut: row.marketing_unsubscribed_at != null,
+  });
+}
+
+const emailed = new Set<string>();
+for (const row of db
+  .prepare(`SELECT message FROM audit_events WHERE type = 'open_invoice_recovery_email_sent'`)
+  .all() as Array<{ message: string }>) {
+  const id = row.message.match(/\b(in_[A-Za-z0-9]+)\b/)?.[1];
+  if (id) emailed.add(id);
+}
+
+const money = (cents: number, currency: string) => {
+  try {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency.toUpperCase() }).format(cents / 100);
+  } catch {
+    return `${currency.toUpperCase()} ${(cents / 100).toFixed(2)}`;
+  }
+};
+
+console.log(`Scanning open Stripe invoices raised in the last ${days} days…\n`);
+
+const candidates: Candidate[] = [];
+let stillRetrying = 0;
+let noAccount = 0;
+let notLapsed = 0;
+
+for await (const invoice of stripe.invoices.list({ status: 'open', created: { gte: sinceUnix }, limit: 100 })) {
+  if ((invoice.amount_due ?? 0) <= 0) continue;
+  // Stripe has another attempt queued: leave it alone. The retry may well
+  // collect it, and a nudge in the middle of that is noise at best.
+  if (typeof invoice.next_payment_attempt === 'number') {
+    stillRetrying += 1;
+    continue;
+  }
+  const customerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
+  const user = customerId ? userByCustomer.get(customerId) : undefined;
+  if (!user) {
+    noAccount += 1;
+    continue;
+  }
+  if (!invoice.hosted_invoice_url || !invoice.id) continue;
+  if (!user.lapsed) {
+    notLapsed += 1;
+    continue;
+  }
+  const priceId = readInvoicePriceId(invoice);
+  const sku = priceId ? priceIdToSku(priceId) : null;
+  candidates.push({
+    invoiceId: invoice.id,
+    userId: user.id,
+    email: user.email,
+    amountDue: invoice.amount_due ?? 0,
+    currency: invoice.currency ?? 'usd',
+    hostedInvoiceUrl: invoice.hosted_invoice_url,
+    planLabel: sku ? `${sku.tier === 'pro' ? 'Pro' : 'Basic'} ${sku.cadence}` : null,
+    raisedAt: new Date((invoice.created ?? 0) * 1000).toISOString(),
+    lapsed: user.lapsed,
+    optedOut: user.optedOut,
+    alreadyEmailed: emailed.has(invoice.id),
+  });
+}
+
+candidates.sort((a, b) => b.amountDue - a.amountDue);
+
+const total = candidates.reduce((sum, c) => sum + c.amountDue, 0);
+const sendable = candidates.filter((c) => !c.alreadyEmailed && (ignoreOptOut || !c.optedOut));
+const sendableTotal = sendable.reduce((sum, c) => sum + c.amountDue, 0);
+
+console.log('── Still payable right now ──');
+console.log(`  ${candidates.length} open invoice(s) Stripe has stopped retrying, on lapsed accounts`);
+console.log(`  ${money(total, 'usd')} total, on hosted pages that are still live`);
+console.log(`  ${sendable.length} emailable (${money(sendableTotal, 'usd')}) — the rest are already emailed or opted out`);
+console.log('');
+console.log('── Held back ──');
+console.log(`  ${stillRetrying} invoice(s) Stripe is STILL retrying — left alone on purpose`);
+console.log(`  ${notLapsed} on accounts that have not lost access`);
+console.log(`  ${noAccount} with no live local account`);
+
+console.log('\n── The invoices ──');
+for (const c of candidates.slice(0, 200)) {
+  const flags = [c.alreadyEmailed ? 'already emailed' : null, c.optedOut ? 'opted out' : null]
+    .filter(Boolean)
+    .join(', ');
+  console.log(
+    `  ${money(c.amountDue, c.currency).padStart(9)}  ${c.email.padEnd(34)} ${c.raisedAt.slice(0, 10)}  ${c.planLabel ?? 'plan unknown'}${flags ? `  [${flags}]` : ''}`,
+  );
+}
+
+if (!send) {
+  console.log(`\nDRY RUN — nothing was sent. ${money(sendableTotal, 'usd')} is reachable with one email each.`);
+  console.log('Send it with:  make open-invoice-recovery YES=1');
+  process.exit(0);
+}
+
+console.log(`\nSending up to ${limit}…`);
+let sent = 0;
+let failed = 0;
+for (const c of sendable.slice(0, limit)) {
+  try {
+    await sendOpenInvoiceRecoveryEmail(c.email, {
+      amountFormatted: money(c.amountDue, c.currency),
+      hostedInvoiceUrl: c.hostedInvoiceUrl,
+      planLabel: c.planLabel,
+      raisedLabel: null,
+    });
+    db.prepare(
+      `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
+       VALUES (?, 'open_invoice_recovery_email_sent', ?, NULL, ?, 'script', ?, ?)`,
+    ).run(
+      `audit_${crypto.randomBytes(12).toString('hex')}`,
+      c.userId,
+      c.email,
+      `Open-invoice recovery sent for ${c.invoiceId} (${money(c.amountDue, c.currency)})`,
+      new Date().toISOString(),
+    );
+    sent += 1;
+  } catch (err) {
+    failed += 1;
+    console.warn(`  ! ${c.email}: ${err instanceof Error ? err.message : 'send failed'}`);
+  }
+}
+console.log(`\nSent ${sent}, failed ${failed}. Each invoice is latched — re-running will not email anyone twice.`);
