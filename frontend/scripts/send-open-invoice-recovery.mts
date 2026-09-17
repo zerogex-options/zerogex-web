@@ -36,6 +36,12 @@
 //   - not unsubscribed from marketing. This invoice is arguably transactional,
 //     but a lapse from months ago is close enough to win-back that the
 //     conservative read is the right one; MARKETING_OPTOUT=ignore overrides.
+//   - users.email_verified_at IS NOT NULL. The same guard every other sender in
+//     this repo applies: an address that never proved ownership is as likely to
+//     bounce or be a spam trap as to be read, and the cost of that is not this
+//     campaign, it is the deliverability of every email the product sends
+//     afterwards. Trial-abuse signups on disposable domains cluster in exactly
+//     this population, so the guard matters more here than almost anywhere.
 //
 // Flags / environment:
 //   --yes                actually send (default is a dry run that sends nothing)
@@ -71,7 +77,7 @@ function parseEnvFile(filePath: string): Record<string, string> {
 }
 
 const envLocal = parseEnvFile(path.join(process.cwd(), '.env.local'));
-for (const key of ['AUTH_DB_PATH', 'STRIPE_SECRET_KEY', 'RESEND_API_KEY', 'EMAIL_FROM', 'NEXT_PUBLIC_APP_URL']) {
+for (const key of ['AUTH_DB_PATH', 'STRIPE_SECRET_KEY', 'RESEND_API_KEY', 'RESEND_FROM_EMAIL', 'NEXT_PUBLIC_APP_URL']) {
   if (envLocal[key] && !process.env[key]) process.env[key] = envLocal[key];
 }
 
@@ -126,13 +132,17 @@ type Candidate = {
   raisedAt: string;
   lapsed: boolean;
   optedOut: boolean;
+  verified: boolean;
   alreadyEmailed: boolean;
 };
 
-const userByCustomer = new Map<string, { id: string; email: string; tier: string; lapsed: boolean; optedOut: boolean }>();
+const userByCustomer = new Map<
+  string,
+  { id: string; email: string; tier: string; lapsed: boolean; optedOut: boolean; verified: boolean }
+>();
 for (const row of db
   .prepare(
-    `SELECT id, email, tier, stripe_customer_id, subscription_lapsed, marketing_unsubscribed_at
+    `SELECT id, email, tier, stripe_customer_id, subscription_lapsed, marketing_unsubscribed_at, email_verified_at
        FROM users WHERE stripe_customer_id IS NOT NULL AND deleted_at IS NULL`,
   )
   .all() as Array<{
@@ -142,6 +152,7 @@ for (const row of db
   stripe_customer_id: string;
   subscription_lapsed: number;
   marketing_unsubscribed_at: string | null;
+  email_verified_at: string | null;
 }>) {
   userByCustomer.set(row.stripe_customer_id, {
     id: row.id,
@@ -150,6 +161,7 @@ for (const row of db
     // Lost access: the lapse latch, or simply no longer holding a paid tier.
     lapsed: Number(row.subscription_lapsed) === 1 || row.tier === 'public',
     optedOut: row.marketing_unsubscribed_at != null,
+    verified: row.email_verified_at != null,
   });
 }
 
@@ -176,7 +188,14 @@ let stillRetrying = 0;
 let noAccount = 0;
 let notLapsed = 0;
 
-for await (const invoice of stripe.invoices.list({ status: 'open', created: { gte: sinceUnix }, limit: 100 })) {
+for await (const invoice of stripe.invoices.list({
+  status: 'open',
+  created: { gte: sinceUnix },
+  limit: 100,
+  // Without this the list payload carries no line items, so every invoice
+  // resolves to "plan unknown" and the email drops to generic copy.
+  expand: ['data.lines'],
+})) {
   if ((invoice.amount_due ?? 0) <= 0) continue;
   // Stripe has another attempt queued: leave it alone. The retry may well
   // collect it, and a nudge in the middle of that is noise at best.
@@ -208,6 +227,7 @@ for await (const invoice of stripe.invoices.list({ status: 'open', created: { gt
     raisedAt: new Date((invoice.created ?? 0) * 1000).toISOString(),
     lapsed: user.lapsed,
     optedOut: user.optedOut,
+    verified: user.verified,
     alreadyEmailed: emailed.has(invoice.id),
   });
 }
@@ -215,13 +235,21 @@ for await (const invoice of stripe.invoices.list({ status: 'open', created: { gt
 candidates.sort((a, b) => b.amountDue - a.amountDue);
 
 const total = candidates.reduce((sum, c) => sum + c.amountDue, 0);
-const sendable = candidates.filter((c) => !c.alreadyEmailed && (ignoreOptOut || !c.optedOut));
+const sendable = candidates.filter(
+  (c) => !c.alreadyEmailed && c.verified && (ignoreOptOut || !c.optedOut),
+);
+const unverified = candidates.filter((c) => !c.verified);
 const sendableTotal = sendable.reduce((sum, c) => sum + c.amountDue, 0);
 
 console.log('── Still payable right now ──');
 console.log(`  ${candidates.length} open invoice(s) Stripe has stopped retrying, on lapsed accounts`);
 console.log(`  ${money(total, 'usd')} total, on hosted pages that are still live`);
-console.log(`  ${sendable.length} emailable (${money(sendableTotal, 'usd')}) — the rest are already emailed or opted out`);
+console.log(`  ${sendable.length} emailable (${money(sendableTotal, 'usd')})`);
+if (unverified.length > 0) {
+  console.log(
+    `  ${unverified.length} held back (${money(unverified.reduce((s, c) => s + c.amountDue, 0), 'usd')}) — address never verified`,
+  );
+}
 console.log('');
 console.log('── Held back ──');
 console.log(`  ${stillRetrying} invoice(s) Stripe is STILL retrying — left alone on purpose`);
@@ -230,7 +258,11 @@ console.log(`  ${noAccount} with no live local account`);
 
 console.log('\n── The invoices ──');
 for (const c of candidates.slice(0, 200)) {
-  const flags = [c.alreadyEmailed ? 'already emailed' : null, c.optedOut ? 'opted out' : null]
+  const flags = [
+    c.alreadyEmailed ? 'already emailed' : null,
+    c.optedOut ? 'opted out' : null,
+    c.verified ? null : 'UNVERIFIED — not emailed',
+  ]
     .filter(Boolean)
     .join(', ');
   console.log(
