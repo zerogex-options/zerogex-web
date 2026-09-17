@@ -1,11 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  readInvoiceSubscriptionId,
-  readInvoicePriceId,
+  readInvoiceChargeId,
+  readInvoicePaymentIntentId,
+  readInvoicePaymentMethodId,
   readInvoicePeriodEndUnix,
   readInvoicePeriodStartUnix,
-  readInvoicePaymentMethodId,
+  readInvoicePriceId,
+  readInvoiceSubscriptionId,
 } from '../core/stripeInvoice.ts';
 
 // Webhook events are rendered in the API version pinned on the WEBHOOK ENDPOINT,
@@ -118,5 +120,45 @@ test('garbage in, null out (never throws)', () => {
     assert.equal(readInvoicePeriodEndUnix(junk), null);
     assert.equal(readInvoicePeriodStartUnix(junk), null);
     assert.equal(readInvoicePaymentMethodId(junk), null);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// The charge behind a failed attempt — the only object carrying the issuer's
+// decline reason, and the field Stripe moved in basil.
+// ---------------------------------------------------------------------------
+
+test('the charge id is read from the acacia shape', () => {
+  assert.equal(readInvoiceChargeId({ charge: 'ch_1' }), 'ch_1');
+  assert.equal(readInvoiceChargeId({ charge: { id: 'ch_2' } }), 'ch_2');
+});
+
+test('the charge id is read from the basil payments shape', () => {
+  const invoice = {
+    payments: { data: [{ payment: { payment_intent: { id: 'pi_1', latest_charge: 'ch_3' } } }] },
+  };
+  assert.equal(readInvoiceChargeId(invoice), 'ch_3');
+});
+
+test('the charge id falls back to an expanded payment intent', () => {
+  assert.equal(readInvoiceChargeId({ payment_intent: { id: 'pi_2', latest_charge: { id: 'ch_4' } } }), 'ch_4');
+});
+
+test('the payment intent is read from both shapes', () => {
+  assert.equal(readInvoicePaymentIntentId({ payment_intent: 'pi_3' }), 'pi_3');
+  assert.equal(
+    readInvoicePaymentIntentId({ payments: { data: [{ payment: { payment_intent: 'pi_4' } }] } }),
+    'pi_4',
+  );
+  assert.equal(
+    readInvoicePaymentIntentId({ payments: { data: [{ payment: { payment_intent: { id: 'pi_5' } } }] } }),
+    'pi_5',
+  );
+});
+
+test('an invoice with no attempt yields null rather than throwing', () => {
+  for (const junk of [null, undefined, 42, 'in_x', {}, { payments: null }, { payments: { data: 7 } }]) {
+    assert.equal(readInvoiceChargeId(junk), null);
+    assert.equal(readInvoicePaymentIntentId(junk), null);
   }
 });

@@ -3,6 +3,12 @@ import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import { CSRF_COOKIE_NAME, SESSION_COOKIE_NAME, TierId, normalizeTier } from '@/core/auth';
 import {
+  MAX_LAYOUT_BYTES,
+  MAX_LAYOUT_NAME_LENGTH,
+  MAX_SAVED_LAYOUTS,
+  normalizeLayoutName,
+} from '@/core/savedBoards';
+import {
   PALETTE_COOKIE,
   THEME_COOKIE,
   normalizePalette,
@@ -1492,6 +1498,134 @@ export async function dismissFoundingLockinForRequest(request: NextRequest) {
 // modal, so it never greets them again (across devices — the flag lives on the
 // user row, not just sessionStorage). Idempotent: writing the same latch twice
 // is harmless; the first non-null value is what "seen" means.
+// ── Saved dashboard boards ───────────────────────────────────────────────────
+
+export type SavedLayoutRow = {
+  id: string;
+  name: string;
+  layout: unknown;
+  createdAt: string;
+  updatedAt: string;
+};
+
+function rowToSavedLayout(row: {
+  id: string; name: string; layout_json: string; created_at: string; updated_at: string;
+}): SavedLayoutRow {
+  let layout: unknown = null;
+  try {
+    layout = JSON.parse(row.layout_json);
+  } catch {
+    // A row that will not parse is returned with a null layout rather than
+    // throwing the whole list away; the client sanitizes anyway and simply
+    // treats it as an empty board.
+    layout = null;
+  }
+  return { id: row.id, name: row.name, layout, createdAt: row.created_at, updatedAt: row.updated_at };
+}
+
+export function listSavedLayouts(userId: string): SavedLayoutRow[] {
+  const rows = getDb()
+    .prepare(
+      'SELECT id, name, layout_json, created_at, updated_at FROM dashboard_layouts WHERE user_id = ? ORDER BY updated_at DESC'
+    )
+    .all(userId) as Array<{ id: string; name: string; layout_json: string; created_at: string; updated_at: string }>;
+  return rows.map(rowToSavedLayout);
+}
+
+export async function listSavedLayoutsForRequest(request: NextRequest) {
+  const data = await getSessionFromRequest(request);
+  if (!data) return null;
+  return { layouts: listSavedLayouts(data.user.id), rotatedToken: data.rotatedToken, csrfToken: data.csrfToken };
+}
+
+/**
+ * Create or overwrite a board by name. Saving over an existing name is the
+ * expected way to update a board you have just rearranged, so it replaces
+ * rather than erroring — the client confirms first.
+ */
+export async function saveLayoutForRequest(
+  request: NextRequest,
+  input: { name?: unknown; layout?: unknown },
+) {
+  const data = await getSessionFromRequest(request);
+  if (!data) return null;
+
+  const name = normalizeLayoutName(input.name);
+  if (!name) return { error: 'A board name is required' as const };
+  if (name.length > MAX_LAYOUT_NAME_LENGTH) return { error: 'That board name is too long' as const };
+  if (input.layout == null || typeof input.layout !== 'object') {
+    return { error: 'A board layout is required' as const };
+  }
+
+  const layoutJson = JSON.stringify(input.layout);
+  if (Buffer.byteLength(layoutJson, 'utf8') > MAX_LAYOUT_BYTES) {
+    return { error: 'That board is too large to save' as const };
+  }
+
+  const db = getDb();
+  const now = nowIso();
+  const existing = db
+    .prepare('SELECT id FROM dashboard_layouts WHERE user_id = ? AND name = ?')
+    .get(data.user.id, name) as { id: string } | undefined;
+
+  if (existing) {
+    db.prepare('UPDATE dashboard_layouts SET layout_json = ?, updated_at = ? WHERE id = ?')
+      .run(layoutJson, now, existing.id);
+  } else {
+    const count = db
+      .prepare('SELECT COUNT(*) AS n FROM dashboard_layouts WHERE user_id = ?')
+      .get(data.user.id) as { n: number };
+    if (count.n >= MAX_SAVED_LAYOUTS) {
+      return { error: `You can keep up to ${MAX_SAVED_LAYOUTS} saved boards` as const };
+    }
+    db.prepare(
+      'INSERT INTO dashboard_layouts (id, user_id, name, layout_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
+    ).run(createId('board'), data.user.id, name, layoutJson, now, now);
+  }
+
+  return {
+    layouts: listSavedLayouts(data.user.id),
+    rotatedToken: data.rotatedToken,
+    csrfToken: data.csrfToken,
+  };
+}
+
+/** Rename or delete one board. Scoped by user_id so an id alone is not enough. */
+export async function mutateSavedLayoutForRequest(
+  request: NextRequest,
+  layoutId: string,
+  input: { name?: unknown; deleted?: unknown },
+) {
+  const data = await getSessionFromRequest(request);
+  if (!data) return null;
+
+  const db = getDb();
+  const owned = db
+    .prepare('SELECT id FROM dashboard_layouts WHERE id = ? AND user_id = ?')
+    .get(layoutId, data.user.id) as { id: string } | undefined;
+  if (!owned) return { error: 'No such board' as const };
+
+  if (input.deleted === true) {
+    db.prepare('DELETE FROM dashboard_layouts WHERE id = ?').run(layoutId);
+  } else {
+    const name = normalizeLayoutName(input.name);
+    if (!name) return { error: 'A board name is required' as const };
+    if (name.length > MAX_LAYOUT_NAME_LENGTH) return { error: 'That board name is too long' as const };
+    const clash = db
+      .prepare('SELECT id FROM dashboard_layouts WHERE user_id = ? AND name = ? AND id != ?')
+      .get(data.user.id, name, layoutId) as { id: string } | undefined;
+    if (clash) return { error: 'You already have a board with that name' as const };
+    db.prepare('UPDATE dashboard_layouts SET name = ?, updated_at = ? WHERE id = ?')
+      .run(name, nowIso(), layoutId);
+  }
+
+  return {
+    layouts: listSavedLayouts(data.user.id),
+    rotatedToken: data.rotatedToken,
+    csrfToken: data.csrfToken,
+  };
+}
+
 /**
  * Appearance saved against the account. The browser cookie is still what the
  * server paints from — this is the copy that survives a new device, a cleared

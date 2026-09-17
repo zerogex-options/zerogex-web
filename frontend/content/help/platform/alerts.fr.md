@@ -64,9 +64,13 @@ La carte de signal sur la page explique l'état actuel du déclenchement en lang
 
 Le Live Bulletin est le **système de référence** pour les déclenchements. Si vous étiez parti déjeuner, vous n'ouvrez pas chaque page pour voir ce qui s'est déclenché — vous ouvrez le bulletin, filtrez par symbole et famille de signaux, et lisez les événements de la journée dans l'ordre chronologique.
 
-## Ce qui arrive bientôt
+## Alertes sortantes
 
-Nous n'envoyons actuellement pas d'alertes par e-mail, SMS, notification push ou webhook. Si la demande le justifie, ces canaux pourront être ajoutés — écrivez à [support@zerogex.io](mailto:support@zerogex.io) pour voter.
+Les alertes sont distribuées **uniquement dans l'application** : le Live Bulletin, les cartes de signal et le panneau composite. Les alertes de signal ne sont pas envoyées par e-mail, SMS, notification push ou webhook.
+
+Si vous avez vu des commutateurs de canaux dans [Compte → Notifications](/account/notifications), ils appartiennent à la page **Bot Trading**, qui est en bêta. Ne construisez rien dessus pour l'instant — le canal webhook enregistre votre préférence mais ne distribue rien. Pour automatiser aujourd'hui, interrogez l'[API](/help/platform/api-access) plutôt que d'attendre un push qui n'arrivera pas.
+
+La distribution sortante est sur la liste, pas livrée. Si elle changeait votre façon de trader, écrivez à [support@zerogex.io](mailto:support@zerogex.io) en précisant le canal et les signaux souhaités — les détails concrets la font remonter.
 
 ## Voir aussi
 

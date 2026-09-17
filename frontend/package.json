@@ -21,6 +21,7 @@
     "test:end-user-token": "node --experimental-strip-types --test tests/endUserToken.test.ts",
     "test:smart-money": "node --experimental-strip-types --test tests/smartMoneyFilters.test.ts",
     "test:gamma-trend": "node --experimental-strip-types --test tests/gammaTrend.test.ts",
+    "test:wheel-zoom": "node --experimental-strip-types --test tests/wheelZoom.test.ts",
     "test:options-calendar": "node --experimental-strip-types --test tests/optionsCalendar.test.ts",
     "test:news-headlines": "node --experimental-strip-types --test tests/newsHeadlines.test.ts",
     "test:mrr": "node --experimental-strip-types --test tests/mrr.test.ts",
@@ -53,6 +54,8 @@
     "test:pro-welcome": "node --experimental-strip-types --test tests/proWelcome.test.ts",
     "test:welcome-api-key": "node --experimental-strip-types --test tests/welcomeEmailApiKey.test.ts",
     "test:decline-reason": "node --experimental-strip-types --test tests/declineReason.test.ts",
+    "test:payment-declines": "node --experimental-strip-types --test tests/paymentDeclines.test.ts",
+    "test:payment-declines-db": "node --experimental-strip-types --test tests/paymentDeclinesDb.test.ts",
     "test:billing-user": "node --experimental-strip-types --test tests/billingUser.test.ts",
     "test:payment-grace": "node --experimental-strip-types --test tests/paymentGrace.test.ts",
     "test:grace-expiry-warning": "node --experimental-strip-types --test tests/graceExpiryWarning.test.ts",
@@ -125,11 +128,13 @@
     "test:mcp": "node --experimental-strip-types --test tests/mcp.test.ts",
     "test:embed-widget": "node --experimental-strip-types --test tests/embedWidget.test.ts",
     "test:page-shell": "node --experimental-strip-types --test tests/pageShell.test.ts",
+    "test:page-snapshot": "node --experimental-strip-types --test tests/pageSnapshot.test.ts",
     "test:dated-permalinks": "node --experimental-strip-types --test tests/datedPermalinks.test.ts",
     "test:strategy-catalog-view": "node --experimental-strip-types --test tests/strategyCatalogView.test.ts",
     "test:futures-contract": "node --experimental-strip-types --test tests/futuresContract.test.ts",
     "verify:mcp": "bash scripts/verify-mcp.sh",
-    "test:appearance": "node --experimental-strip-types --test tests/appearance.test.ts"
+    "test:appearance": "node --experimental-strip-types --test tests/appearance.test.ts",
+    "test:saved-boards": "node --experimental-strip-types --test tests/savedBoards.test.ts"
   },
   "dependencies": {
     "jose": "^5.9.6",

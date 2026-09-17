@@ -8,6 +8,7 @@ import ErrorMessage from '@/components/ErrorMessage';
 import MobileScrollableChart from '@/components/MobileScrollableChart';
 import BackendMonitoring from './BackendMonitoring';
 import GrowthClient from './growth/GrowthClient';
+import DeclineTracking from './declines/DeclineTracking';
 import { formatDayLabel, formatHourLabel, lighten, makeDayLabelFormatter, niceYScale } from './monitoringHelpers';
 import {
   buildSignupImpliedMrrProjection,
@@ -405,8 +406,8 @@ export default function MonitoringClient() {
         />
       )}
       {tab === 'backend' && <BackendMonitoring />}
-      {tab === 'stripe' && data && !loading && !error && (
-        <StripeTab data={data} cardBg={cardBg} borderColor={borderColor} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} />
+      {tab === 'stripe' && (
+        <StripeTab data={data} loading={loading} error={error} cardBg={cardBg} borderColor={borderColor} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} />
       )}
       {tab === 'revenue' && data && !loading && !error && (
         <RevenueTab data={data} cardBg={cardBg} borderColor={borderColor} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} />
@@ -417,8 +418,8 @@ export default function MonitoringClient() {
       {tab === 'growth' && (
         <GrowthClient cardBg={cardBg} borderColor={borderColor} axisStroke={axisStroke} mutedText={mutedText} textColor={textColor} />
       )}
-      {tab !== 'backend' && tab !== 'growth' && loading && tab !== 'frontend' && <LoadingSpinner size="lg" />}
-      {tab !== 'backend' && tab !== 'growth' && error && tab !== 'frontend' && <ErrorMessage message={error} />}
+      {tab !== 'backend' && tab !== 'growth' && tab !== 'stripe' && loading && tab !== 'frontend' && <LoadingSpinner size="lg" />}
+      {tab !== 'backend' && tab !== 'growth' && tab !== 'stripe' && error && tab !== 'frontend' && <ErrorMessage message={error} />}
     </PageShell>
   );
 }
@@ -719,16 +720,36 @@ function ConversionBySourceSection({
 
 type DataTabProps = Omit<FrontendTabProps, 'loading' | 'error'> & { data: Snapshot };
 
-function StripeTab({ data, cardBg, borderColor, axisStroke, mutedText, textColor }: DataTabProps) {
+// The billing tab, in the order the money matters: what is being lost without
+// anyone choosing it, then what is being lost because someone did, then whether
+// the pipe carrying either of them is healthy.
+//
+// Payment Declines owns its own fetch (its window is caller-chosen and its read
+// runs a reconcile pass, neither of which belongs on the shared 60-second
+// snapshot poll), so it renders immediately rather than waiting on `data`.
+function StripeTab({ data, loading, error, cardBg, borderColor, axisStroke, mutedText, textColor }: FrontendTabProps) {
   return <div>
     <section className="mb-8">
-      <h2 className="text-lg font-semibold mb-2" style={{ color: textColor }}>Stripe Webhook Health</h2>
-      <WebhookHealthCard health={data.webhookHealth} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} axisStroke={axisStroke} />
+      <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
+        <h2 className="text-lg font-semibold" style={{ color: textColor }}>Payment Declines</h2>
+        <span className="text-xs" style={{ color: mutedText }}>Revenue that did not arrive because a card said no — how much is gone, how much is still coming back, and why.</span>
+      </div>
+      <DeclineTracking mutedText={mutedText} axisStroke={axisStroke} />
     </section>
-    <section className="mb-8">
-      <h2 className="text-lg font-semibold mb-2" style={{ color: textColor }}>Why Members Cancel</h2>
-      <CancellationReasonsCard reasons={data.cancellationReasons} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} />
-    </section>
+    {loading && !data && <LoadingSpinner size="lg" />}
+    {error && <ErrorMessage message={error} />}
+    {data && (
+      <>
+        <section className="mb-8">
+          <h2 className="text-lg font-semibold mb-2" style={{ color: textColor }}>Why Members Cancel</h2>
+          <CancellationReasonsCard reasons={data.cancellationReasons} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} />
+        </section>
+        <section className="mb-8">
+          <h2 className="text-lg font-semibold mb-2" style={{ color: textColor }}>Stripe Webhook Health</h2>
+          <WebhookHealthCard health={data.webhookHealth} cardBg={cardBg} borderColor={borderColor} mutedText={mutedText} textColor={textColor} axisStroke={axisStroke} />
+        </section>
+      </>
+    )}
   </div>;
 }
 

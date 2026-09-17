@@ -275,6 +275,21 @@ if ((cliArgs.yes || cliArgs.previewTo) && !process.env.ZEROGEX_END_USER_TOKEN_SE
 const digestTo =
   cliArgs.digestTo || (process.env.RETURN_INTENT_DIGEST_TO || envLocal.RETURN_INTENT_DIGEST_TO || '').trim() || null;
 
+// Fail fast on a missing digest recipient. This check used to live at the digest
+// branch far below — i.e. AFTER the whole churned book had been read, every
+// candidate scored and the eligible roster printed. Nothing between here and
+// there can supply an address, so all that run bought was a longer path to the
+// same exit: the nightly timer swept the DB, listed the members it had found,
+// and only then said it had nowhere to send them. In the journal (and in the
+// OnFailure alert quoting it) that reads like a job that broke at the end,
+// which is the most expensive way to report a value that was never set.
+if (cliArgs.digest && !digestTo) {
+  console.error(
+    'Error: --digest needs a recipient. Pass --digest <email> or set RETURN_INTENT_DIGEST_TO in .env.local.',
+  );
+  process.exit(1);
+}
+
 // "What's new" bullets, dated in content/winback-highlights.json so each member
 // is shown only what shipped after THEY left (core/winbackHighlights.ts). Any
 // problem reading the file leaves this null and the run falls back to the
@@ -497,12 +512,11 @@ function optsFor(e: Eligible) {
 }
 
 if (cliArgs.digest) {
-  if (!digestTo) {
-    console.error(
-      'Error: --digest needs a recipient. Pass --digest <email> or set RETURN_INTENT_DIGEST_TO in .env.local.',
-    );
-    process.exit(1);
-  }
+  // Validated at startup by the fail-fast check above; this only narrows the
+  // type for the send call below. Loud rather than a silent no-op so that
+  // removing the early check can never turn a misconfigured run into a
+  // zero-exit one that quietly mails nobody.
+  if (!digestTo) throw new Error('unreachable: digest recipient missing');
   // The embedded draft is the FIRST recipient's real email, rendered with their
   // angle and their filtered highlights — a representative sample rather than a
   // synthetic one, so the reviewer sees what will actually go out.
