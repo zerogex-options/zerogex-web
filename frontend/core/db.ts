@@ -875,6 +875,93 @@ function initDb(): DatabaseSync {
   `);
   db.exec('CREATE INDEX IF NOT EXISTS idx_stripe_invoice_history_user ON stripe_invoice_history(user_id, paid_at);');
 
+  // Every DECLINED subscription payment attempt, with the reason the issuer
+  // gave and what eventually happened to the money.
+  //
+  // Why a table rather than another audit_events type: `stripe_payment_failed`
+  // records THAT a charge failed and nothing about WHY, so the only way to ask
+  // "how much revenue am I losing to insufficient funds versus to issuer blocks,
+  // and how much of it comes back" was to open Stripe invoice by invoice. The
+  // decline codes exist for about as long as the webhook handler's stack frame
+  // — Stripe does not hand them to you again later, and the charge they hang off
+  // can only be re-read one API call at a time — so they have to be captured at
+  // failure time or not at all.
+  //
+  // The row is APPEND-ONLY except for its outcome columns. One row per
+  // (invoice, attempt): Stripe's Smart Retries fire invoice.payment_failed again
+  // with attempt_count 2, 3, … for the SAME invoice, and each of those is a
+  // separate decline with its own (possibly different) reason — a card that was
+  // short on Monday can be blocked by the issuer on Thursday. Counting attempts
+  // and counting invoices are therefore different questions, and both are asked:
+  // UNIQUE(invoice_id, attempt_count) keeps a redelivered webhook from inflating
+  // either.
+  //
+  // `kind` is the question the money view turns on: a declined FIRST charge at
+  // the end of a free trial is a conversion that did not happen, a declined
+  // renewal is a customer walking out. They are recorded separately because they
+  // are different failures with different remedies.
+  //
+  // `outcome` walks open → recovered | lost and is the only mutable part:
+  //   open       the invoice is still live — Stripe has retries left, or the
+  //              member is inside the payment-recovery grace window.
+  //   recovered  the same invoice was later PAID (any route: an automatic retry,
+  //              a new card, the hosted invoice link).
+  //   lost       the subscription was canceled, or the invoice was voided /
+  //              marked uncollectible, with this attempt still unpaid.
+  //
+  // `source` records how the row got here, because it decides what may be read
+  // off it: 'webhook' rows carry real decline codes; 'audit_backfill' rows are
+  // reconstructed from the pre-existing `stripe_payment_failed` audit history and
+  // have NO codes at all (category 'unknown'). Mixing them silently would report
+  // the product's early history as a wall of unexplained declines; the report
+  // states the split instead.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS payment_declines (
+      id TEXT PRIMARY KEY,
+      invoice_id TEXT NOT NULL,
+      attempt_count INTEGER NOT NULL,
+      charge_id TEXT,
+      user_id TEXT,
+      email TEXT,
+      customer_id TEXT,
+      subscription_id TEXT,
+      price_id TEXT,
+      tier TEXT,
+      cadence TEXT,
+      kind TEXT NOT NULL,
+      billing_reason TEXT,
+      amount_due INTEGER NOT NULL DEFAULT 0,
+      currency TEXT,
+      failure_code TEXT,
+      decline_code TEXT,
+      network_decline_code TEXT,
+      failure_message TEXT,
+      seller_message TEXT,
+      category TEXT NOT NULL,
+      card_brand TEXT,
+      card_last4 TEXT,
+      card_funding TEXT,
+      card_country TEXT,
+      next_attempt_at TEXT,
+      grace_until TEXT,
+      failed_at TEXT NOT NULL,
+      outcome TEXT NOT NULL DEFAULT 'open',
+      resolved_at TEXT,
+      recovered_amount INTEGER,
+      recovery_route TEXT,
+      lost_reason TEXT,
+      source TEXT NOT NULL DEFAULT 'webhook',
+      recorded_at TEXT NOT NULL,
+      UNIQUE(invoice_id, attempt_count)
+    );
+  `);
+  // The report reads by window (failed_at), resolves by invoice, and closes out
+  // by subscription when one is canceled. One index each; the UNIQUE above
+  // already covers the invoice lookup's leading column.
+  db.exec('CREATE INDEX IF NOT EXISTS idx_payment_declines_failed_at ON payment_declines(failed_at);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_payment_declines_sub ON payment_declines(subscription_id, outcome);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_payment_declines_user ON payment_declines(user_id, failed_at);');
+
   // The joined one-row-per-day shape, for ad-hoc `sqlite3` querying outside the
   // app (the admin page reads the same join through core/dailyMetrics.ts). A
   // day that exists in either table appears exactly once. Dropped and recreated

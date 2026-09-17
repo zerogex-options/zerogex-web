@@ -52,6 +52,13 @@ import {
   readInvoicePriceId,
   readInvoiceSubscriptionId,
 } from '@/core/stripeInvoice';
+import { lookupInvoiceDecline } from '@/core/stripeDeclineLookup';
+import {
+  markDeclinesLostForInvoice,
+  markDeclinesLostForSubscription,
+  recordPaymentDecline,
+  resolveDeclinesForInvoice,
+} from '@/core/paymentDeclinesServer';
 import {
   hasConversionChargeInFlight,
   isTrialConversionFailure,
@@ -218,6 +225,74 @@ function logAudit(input: { type: string; userId?: string; email?: string; messag
       input.message,
       nowIso(),
     );
+}
+
+// Write down WHY a charge was declined, while the reason still exists.
+//
+// Stripe hands the decline code to the webhook exactly once, on the charge the
+// attempt produced — it is not on the invoice, not on the subscription, and not
+// replayable in bulk afterwards. Miss it here and the only way to answer "how
+// much revenue am I losing to insufficient funds versus to issuer blocks" is to
+// open Stripe invoice by invoice.
+//
+// Everything about this is best-effort on purpose: the lookup swallows its own
+// Stripe errors (core/stripeDeclineLookup.ts) and the write swallows its own DB
+// errors (core/paymentDeclinesServer.ts). Reporting must never be able to fail
+// the webhook — a 500 here makes Stripe retry the event, which re-sends the
+// member's dunning email.
+async function recordInvoiceDecline(input: {
+  invoice: Stripe.Invoice;
+  invoiceSub: string | null;
+  user: UserRow | null;
+  customerId: string | null;
+  // Order-independent trial-conversion answer from the subscription's trial_end,
+  // or null when it could not be resolved. Decides whether this counts as a lost
+  // CONVERSION or a lost RENEWAL, which are different failures.
+  trialConversion: boolean | null;
+  graceUntilIso: string | null;
+}): Promise<void> {
+  const { invoice } = input;
+  if (!invoice.id) return;
+  try {
+    const lookup = await lookupInvoiceDecline(getStripe(), invoice);
+    recordPaymentDecline({
+      invoiceId: invoice.id,
+      attemptCount: typeof invoice.attempt_count === 'number' ? invoice.attempt_count : 1,
+      chargeId: lookup.chargeId,
+      userId: input.user?.id ?? null,
+      email: input.user?.email ?? null,
+      customerId: input.customerId,
+      subscriptionId: input.invoiceSub,
+      priceId: readInvoicePriceId(invoice) ?? input.user?.stripe_price_id ?? null,
+      billingReason: invoice.billing_reason ?? null,
+      // What Stripe was trying to collect — the money actually at risk.
+      amountDue: typeof invoice.amount_due === 'number' ? invoice.amount_due : 0,
+      currency: invoice.currency ?? null,
+      decline: lookup.decline,
+      // The card that was ACTUALLY charged, off the charge itself, rather than
+      // the subscription's current default: on a retry after a card swap those
+      // are different cards, and the one that declined is the one to report.
+      cardBrand: lookup.card?.brand ?? null,
+      cardLast4: lookup.card?.last4 ?? null,
+      cardFunding: lookup.card?.funding ?? null,
+      cardCountry: lookup.card?.country ?? null,
+      nextAttemptAt:
+        typeof invoice.next_payment_attempt === 'number'
+          ? new Date(invoice.next_payment_attempt * 1000).toISOString()
+          : null,
+      graceUntil: input.graceUntilIso,
+      trialConversion: input.trialConversion,
+      source: 'webhook',
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'decline capture failed';
+    logAudit({
+      type: 'payment_decline_record_error',
+      userId: input.user?.id,
+      email: input.user?.email,
+      message: `Could not record the decline on invoice ${invoice.id}: ${message}`,
+    });
+  }
 }
 
 // Money arrived against an account the person asked us to delete. Every branch
@@ -2101,7 +2176,19 @@ export async function POST(request: NextRequest) {
         break;
       }
       case 'customer.subscription.deleted': {
-        await clearSubscriptionFromUser(event.data.object as Stripe.Subscription);
+        const deleted = event.data.object as Stripe.Subscription;
+        await clearSubscriptionFromUser(deleted);
+        // Whatever was still being retried on this subscription is not coming
+        // back. This is the event that turns "Stripe is still trying" into
+        // revenue actually lost, and without it every open decline on a
+        // cancelled subscription would sit in the report as recoverable forever.
+        const lostToCancel = markDeclinesLostForSubscription(deleted.id, 'canceled');
+        if (lostToCancel > 0) {
+          logAudit({
+            type: 'payment_decline_lost',
+            message: `Subscription ${deleted.id} ended with ${lostToCancel} declined attempt(s) unpaid`,
+          });
+        }
         break;
       }
       case 'invoice.paid': {
@@ -2124,6 +2211,24 @@ export async function POST(request: NextRequest) {
             email: paidUser.email,
             message: `Invoice ${invoice.id} paid for sub ${paidSubId} amount=${invoice.amount_paid} billing_reason=${invoice.billing_reason ?? 'unknown'} period_end=${periodEnd ?? 'unknown'} price=${paidUser.stripe_price_id ?? 'unknown'}`,
           });
+        }
+        // The money arrived after all: close out every declined attempt on this
+        // invoice. Runs for EVERY paid invoice and is a no-op for the
+        // overwhelming majority, which never declined — that is cheaper than
+        // trying to guess which ones did, and it is the only thing that
+        // distinguishes revenue recovered from revenue lost.
+        if (invoice.id) {
+          const closedDeclines = resolveDeclinesForInvoice(invoice.id, {
+            recoveredAmount: typeof invoice.amount_paid === 'number' ? invoice.amount_paid : null,
+          });
+          if (closedDeclines > 0) {
+            logAudit({
+              type: 'payment_decline_recovered',
+              userId: paidUser?.id,
+              email: paidUser?.email,
+              message: `Invoice ${invoice.id} paid after ${closedDeclines} declined attempt(s)`,
+            });
+          }
         }
         // Flag a payment on a deleted account before anything else runs. The
         // branches below all no-op for one; this is what stops that no-op from
@@ -2244,12 +2349,60 @@ export async function POST(request: NextRequest) {
         const customerId =
           typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
         const user = customerId ? findUserByCustomerId(customerId) : null;
+        // Version-tolerant read — see core/stripeInvoice.ts. Getting this
+        // wrong is not cosmetic: a null here silently skipped the
+        // trial-conversion branch below, so every trialer whose first charge
+        // declined got the renewal-framed dunning email.
+        const invoiceSub = readInvoiceSubscriptionId(invoice);
+
+        // Trial-conversion failures need different copy than renewal failures: a
+        // trialer never "subscribed", so the renewal-framed nudge confuses (and
+        // can alarm) them. Detected order-independently from the sub's trial_end
+        // vs this invoice (core/trialDunning). Resolved ONCE here rather than
+        // inside the email branch because the decline record below needs the same
+        // answer — a declined first charge is a lost CONVERSION, a declined
+        // renewal is a customer walking out, and the report keeps them apart.
+        // Best-effort: null means "could not tell", and both consumers degrade
+        // to the renewal reading rather than guessing.
+        let trialConversion: boolean | null = null;
+        try {
+          if (invoiceSub) {
+            const sub = await getStripe().subscriptions.retrieve(invoiceSub);
+            trialConversion = isTrialConversionFailure({
+              trialEndUnix: typeof sub.trial_end === 'number' ? sub.trial_end : null,
+              invoiceCreatedUnix: typeof invoice.created === 'number' ? invoice.created : null,
+              billingReason: invoice.billing_reason ?? null,
+            });
+          }
+        } catch {
+          // Non-fatal — the email falls back to the renewal frame, the decline
+          // record falls back to inferring the kind from invoice history.
+        }
+
+        // If a payment-recovery grace window is currently open for this account
+        // (set by the past_due subscription sync for an established renewal
+        // failure), tell the member their access is retained until it ends rather
+        // than implying an immediate downgrade. Null when no window is open —
+        // including the race where the subscription.updated sync hasn't landed
+        // yet, in which case the email falls back to tense-neutral wording (never
+        // a false downgrade claim).
+        const graceUntilIso = user
+          ? graceWindowEndIso(user.payment_grace_started_at, getPaymentGraceDays(), Date.now())
+          : null;
+
+        // Capture the reason BEFORE anything that can fail, and regardless of
+        // whether the customer maps to a live account: an unattributed decline is
+        // still money that did not arrive.
+        await recordInvoiceDecline({
+          invoice,
+          invoiceSub,
+          user,
+          customerId: customerId ?? null,
+          trialConversion,
+          graceUntilIso,
+        });
+
         if (user) {
-          // Version-tolerant read — see core/stripeInvoice.ts. Getting this
-          // wrong is not cosmetic: a null here silently skipped the
-          // trial-conversion branch below, so every trialer whose first charge
-          // declined got the renewal-framed dunning email.
-          const invoiceSub = readInvoiceSubscriptionId(invoice);
           logAudit({
             type: 'stripe_payment_failed',
             userId: user.id,
@@ -2278,36 +2431,9 @@ export async function POST(request: NextRequest) {
               typeof invoice.next_payment_attempt === 'number'
                 ? new Date(invoice.next_payment_attempt * 1000).toISOString()
                 : null;
-            // If a payment-recovery grace window is currently open for this
-            // account (set by the past_due subscription sync for an established
-            // renewal failure), tell the member their access is retained until it
-            // ends rather than implying an immediate downgrade. Null when no
-            // window is open — including the race where the subscription.updated
-            // sync hasn't landed yet, in which case the email falls back to
-            // tense-neutral wording (never a false downgrade claim).
-            const graceUntilIso = graceWindowEndIso(
-              user.payment_grace_started_at,
-              getPaymentGraceDays(),
-              Date.now(),
-            );
-            // Trial-conversion failures need different copy than renewal
-            // failures: a trialer never "subscribed", so the renewal-framed nudge
-            // confuses (and can alarm) them. Detect it order-independently from
-            // the sub's trial_end vs this invoice (core/trialDunning). Best-effort
-            // — any lookup failure falls back to the renewal email.
-            let trialConversion = false;
-            try {
-              if (invoiceSub) {
-                const sub = await getStripe().subscriptions.retrieve(invoiceSub);
-                trialConversion = isTrialConversionFailure({
-                  trialEndUnix: typeof sub.trial_end === 'number' ? sub.trial_end : null,
-                  invoiceCreatedUnix: typeof invoice.created === 'number' ? invoice.created : null,
-                  billingReason: invoice.billing_reason ?? null,
-                });
-              }
-            } catch {
-              // Non-fatal — default to the renewal-framed email.
-            }
+            // An unresolved trial check (null) sends the renewal-framed email —
+            // the same fallback this branch had before the check was hoisted.
+            const trialConversionEmail = trialConversion === true;
 
             const failedEmailArgs = {
               amountFormatted,
@@ -2317,7 +2443,7 @@ export async function POST(request: NextRequest) {
               graceUntilIso,
             };
             try {
-              if (trialConversion) {
+              if (trialConversionEmail) {
                 await sendTrialConversionFailedEmail(user.email, failedEmailArgs);
               } else {
                 await sendPaymentFailedEmail(user.email, failedEmailArgs);
@@ -2326,7 +2452,7 @@ export async function POST(request: NextRequest) {
                 type: 'payment_failed_email_sent',
                 userId: user.id,
                 email: user.email,
-                message: `Sent ${trialConversion ? 'trial-conversion ' : ''}payment-failed email for invoice ${invoice.id}`,
+                message: `Sent ${trialConversionEmail ? 'trial-conversion ' : ''}payment-failed email for invoice ${invoice.id}`,
               });
             } catch (err) {
               const message = err instanceof Error ? err.message : 'payment-failed email send failed';
@@ -2341,6 +2467,27 @@ export async function POST(request: NextRequest) {
               // emails, so a transient Resend error must not 500 the webhook
               // (which would make Stripe retry and double-log).
             }
+          }
+        }
+        break;
+      }
+      case 'invoice.marked_uncollectible':
+      case 'invoice.voided': {
+        // The invoice itself died. Observability only — nothing is granted or
+        // revoked here (the subscription events do that) — but it is the moment
+        // a declined charge stops being recoverable, and the decline report
+        // would otherwise carry it as still in flight.
+        const dead = event.data.object as Stripe.Invoice;
+        if (dead.id) {
+          const closed = markDeclinesLostForInvoice(
+            dead.id,
+            event.type === 'invoice.voided' ? 'voided' : 'uncollectible',
+          );
+          if (closed > 0) {
+            logAudit({
+              type: 'payment_decline_lost',
+              message: `Invoice ${dead.id} ${event.type === 'invoice.voided' ? 'voided' : 'written off'} with ${closed} declined attempt(s) unpaid`,
+            });
           }
         }
         break;
