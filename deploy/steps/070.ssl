@@ -330,6 +330,21 @@ ${MTLS_DIRECTIVES}
     # data — every byte is already public on the free /<ticker>-gamma-levels
     # pages — so there is nothing for a hostile framer to obtain from it.
     #
+    # ONE LAYER THIS FILE CANNOT REACH. zerogex.io sits behind Cloudflare (see
+    # the AOP block above). A Transform Rule or managed security header there
+    # can ADD X-Frame-Options back onto these responses after nginx is done,
+    # and one currently does: the public URL answers with SAMEORIGIN even
+    # though both the origin and this proxy send none. Verified by curling
+    # 127.0.0.1:3000 (Next) and 127.0.0.1:80 (nginx) on the box - both clean.
+    #
+    # It is not breaking anything. CSP Level 2 says a response carrying both
+    # frame-ancestors and X-Frame-Options must have the X-Frame-Options
+    # ignored, and every current browser does that, so frame-ancestors * still
+    # governs and third-party embeds still render. But it is worth clearing at
+    # the edge rather than leaving two directives that disagree: nothing here
+    # can strip it, and the next person to debug a blocked embed will find
+    # SAMEORIGIN on the response and reasonably suspect this file.
+    #
     # A REGEX location, not the "^~ /embed/" prefix it looks like it should be.
     # With the prefix form nginx answers a request for /embed (no slash) with a
     # 301 to /embed/ — and /embed is the builder page, the canonical URL, and
