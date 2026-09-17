@@ -290,6 +290,22 @@ export type DeclineRecord = {
   tier: string | null;
   cadence: string | null;
   kind: DeclineKind;
+  /**
+   * Which acquisition channel first brought this member in
+   * (users.signup_utm_source), resolved by joining the member at READ time
+   * rather than stored on the row. First-touch attribution never changes once
+   * set, so the join is as stable as a copy would be, and it works on the whole
+   * history instead of only on rows written after a migration.
+   *
+   * Never a bare null in a loaded report: the loader resolves an unattributable
+   * invoice to SIGNUP_SOURCE_UNATTRIBUTED and a member with no campaign to
+   * SIGNUP_SOURCE_DIRECT or SIGNUP_SOURCE_UNTRACKED, because "we don't know who
+   * this was" and "we know exactly who this was, and they came in organically"
+   * are opposite facts that a shared null would merge. Null only on a record
+   * built without attribution (a webhook write, a fixture), and read as
+   * unattributed.
+   */
+  signupSource: string | null;
   billingReason: string | null;
   /** Cents Stripe tried to collect. The money at risk on this invoice. */
   amountDue: number;
@@ -335,6 +351,14 @@ export type PaidInvoice = {
   /** Cents actually collected. Zero marks the trial-opening invoice. */
   amountPaid: number;
   paidAt: string;
+  /**
+   * The paying member's acquisition channel, same resolution as on a decline.
+   * This side is what makes a per-source DECLINE RATE possible at all: the
+   * instrument cuts have no paid-side denominator because a successful charge
+   * leaves no row behind, but a successful charge does leave a member, and a
+   * member carries a source.
+   */
+  signupSource?: string | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -540,6 +564,173 @@ export type DeclineInstrumentRow = DeclineTotals & {
   share: number | null;
 };
 
+// ---------------------------------------------------------------------------
+// Acquisition source
+// ---------------------------------------------------------------------------
+
+/**
+ * The three buckets that are NOT a marketing channel, kept apart from each
+ * other because collapsing them is how a source report starts lying.
+ *
+ *   DIRECT       a member we know, who arrived with no campaign on them. A real
+ *                acquisition channel — organic search, word of mouth, a link
+ *                somebody pasted — and usually the largest one.
+ *   UNTRACKED    a member we know, who signed up before first-touch attribution
+ *                existed. Their channel is not unknown-for-now; it was never
+ *                recorded and never will be. Counting them as direct would
+ *                inflate organic by the entire pre-tracking back catalogue.
+ *   UNATTRIBUTED an invoice that could not be tied to a local account at all —
+ *                a deleted member, a Stripe customer created outside signup.
+ *                A data-quality bucket, not a channel.
+ *
+ * The parenthesized spelling is deliberate and load-bearing: sanitizeUtmSource
+ * strips everything outside [a-z0-9._-], so no real utm_source can ever collide
+ * with one of these keys.
+ */
+export const SIGNUP_SOURCE_DIRECT = '(direct / none)';
+export const SIGNUP_SOURCE_UNTRACKED = '(before tracking)';
+export const SIGNUP_SOURCE_UNATTRIBUTED = '(no local account)';
+
+/** Keys that describe our records rather than a channel. */
+export const SIGNUP_SOURCE_NON_CHANNEL: ReadonlySet<string> = new Set([
+  SIGNUP_SOURCE_UNTRACKED,
+  SIGNUP_SOURCE_UNATTRIBUTED,
+]);
+
+const SIGNUP_SOURCE_LABEL: Record<string, string> = {
+  [SIGNUP_SOURCE_DIRECT]: 'Direct / organic',
+  [SIGNUP_SOURCE_UNTRACKED]: 'Signed up before tracking',
+  [SIGNUP_SOURCE_UNATTRIBUTED]: 'No local account',
+};
+
+export const SIGNUP_SOURCE_BLURB: Record<string, string> = {
+  [SIGNUP_SOURCE_DIRECT]: 'Arrived with no campaign tag — organic search, word of mouth, a pasted link.',
+  [SIGNUP_SOURCE_UNTRACKED]:
+    'Joined before first-touch attribution shipped. Their channel was never recorded, so this row is a hole in the data rather than a finding about a channel.',
+  [SIGNUP_SOURCE_UNATTRIBUTED]:
+    'The invoice could not be matched to an account here — a deleted member, or a Stripe customer created outside signup. Shown so the rows still add up to the totals.',
+};
+
+/** Networks worth spelling properly; everything else is just capitalized. */
+const SIGNUP_SOURCE_DISPLAY: Record<string, string> = {
+  x: 'X',
+  twitter: 'X (twitter tag)',
+  reddit: 'Reddit',
+  youtube: 'YouTube',
+  discord: 'Discord',
+  tiktok: 'TikTok',
+  instagram: 'Instagram',
+  facebook: 'Facebook',
+  linkedin: 'LinkedIn',
+  substack: 'Substack',
+  stocktwits: 'StockTwits',
+  google: 'Google',
+  bing: 'Bing',
+  newsletter: 'Newsletter',
+  email: 'Email',
+};
+
+export function signupSourceLabel(key: string): string {
+  const preset = SIGNUP_SOURCE_LABEL[key];
+  if (preset) return preset;
+  const known = SIGNUP_SOURCE_DISPLAY[key];
+  if (known) return known;
+  return key.charAt(0).toUpperCase() + key.slice(1);
+}
+
+/**
+ * 95% Wilson score interval for a proportion.
+ *
+ * The reason every source row carries one: this report's whole job is to answer
+ * "does this channel decline more than that one", and at the volumes a single
+ * campaign produces, a point estimate cannot answer it. Nine declines out of
+ * twenty is 45% and also anywhere from 26% to 66% — which overlaps almost
+ * every other row on the page. Wilson rather than the normal approximation
+ * because it stays inside [0, 1] and does not collapse at 0 or 100%, which is
+ * exactly where the small campaigns sit.
+ */
+export function wilsonInterval(successes: number, trials: number): { low: number; high: number } | null {
+  if (!Number.isFinite(successes) || !Number.isFinite(trials) || trials <= 0) return null;
+  const z = 1.959964;
+  const p = successes / trials;
+  const z2 = z * z;
+  const denominator = 1 + z2 / trials;
+  const center = (p + z2 / (2 * trials)) / denominator;
+  const half = (z * Math.sqrt((p * (1 - p)) / trials + z2 / (4 * trials * trials))) / denominator;
+  return { low: Math.max(0, center - half), high: Math.min(1, center + half) };
+}
+
+/**
+ * Charges below this in a source row cannot support a rate. Chosen from the
+ * arithmetic, not taste: against a ~40% base rate the 95% interval is still
+ * wider than ±18 points at n = 30, so anything thinner than this is a hint to
+ * go and look, never a finding to act on.
+ */
+export const THIN_SOURCE_VOLUME = 25;
+
+/**
+ * One acquisition channel WITH a real denominator — the cut that separates "this
+ * campaign sends people whose cards decline" from "this campaign sends more
+ * people".
+ *
+ * Unlike the instrument rows (see byInstrument), this one can carry a true rate.
+ * A successful charge leaves no row in payment_declines, so the card behind it
+ * is unrecoverable; but it does leave a member, and the member carries a
+ * first-touch source. So both sides of the ratio exist, and the row reports
+ * declined ÷ charged rather than a share of the failures.
+ */
+export type DeclineSignupSourceRow = DeclineHeadline & {
+  key: string;
+  label: string;
+  /** This source's share of all declined invoices in the window. */
+  share: number | null;
+  /** False for the untracked and unattributed buckets — records, not channels. */
+  channel: boolean;
+  /** Too few charges for the rate to mean anything. See THIN_SOURCE_VOLUME. */
+  thin: boolean;
+  /** 95% Wilson interval around declineRate. Null when nothing was charged. */
+  declineRateInterval: { low: number; high: number } | null;
+};
+
+/**
+ * Whether the per-source rates above can be compared to each other at all.
+ *
+ * The failure mode this exists to catch: if declines attribute to a member 98%
+ * of the time and successful charges only 60% of the time, every named source
+ * is missing two fifths of its denominator and every decline rate on the page is
+ * inflated — uniformly enough to look like a real signal. Publishing the two
+ * coverage figures next to the table is the only thing that makes that visible.
+ */
+export type SignupSourceAttribution = {
+  declinedAttributed: number;
+  declinedTotal: number;
+  paidAttributed: number;
+  paidTotal: number;
+  /** Declined invoices tied to a member ÷ all declined invoices. */
+  declineCoverage: number | null;
+  /** Paid invoices tied to a member ÷ all paid invoices. */
+  paidCoverage: number | null;
+  /** Charges belonging to members who joined before attribution was captured. */
+  untrackedInvoices: number;
+  /** Charges on members who arrived with no campaign on them. */
+  directInvoices: number;
+  /**
+   * The earliest signup that carries a campaign — the point before which
+   * attribution was demonstrably not being captured. A DB fact, so it is passed
+   * into the builder rather than derived here. Null when nothing is tagged at
+   * all, which means every row below is a hole rather than a channel.
+   */
+  trackingSince: string | null;
+  /** Distinct channels with at least one charge, excluding the two record buckets. */
+  channels: number;
+  /**
+   * False when either side is under-attributed or the two sides differ enough
+   * that the rates are not comparable. The UI must say so rather than let a
+   * reader treat the ranking as real.
+   */
+  comparable: boolean;
+};
+
 export type DeclineCodeRow = {
   /** The most specific code the payload carried, as the issuer spelled it. */
   code: string;
@@ -677,6 +868,23 @@ export type DeclineReport = {
   byMethodType: DeclineInstrumentRow[];
   byFunding: DeclineInstrumentRow[];
   byCountry: DeclineInstrumentRow[];
+  /**
+   * Decline rate by the channel the member was acquired through — the one cut
+   * that asks whether a share of the losses was ever a billing problem at all.
+   * A campaign that sends people who start a trial and then decline at twice
+   * everyone else's rate is an acquisition-quality finding, and no amount of
+   * dunning, retry tuning or card-update prompting will fix it.
+   */
+  bySignupSource: DeclineSignupSourceRow[];
+  /**
+   * The same cut over FIRST payments only. This is the one to read: a renewal
+   * decline says something about a card two years after the click that won it,
+   * while a trial conversion that will not close is the campaign's own result.
+   * Null when the window holds no first payments at all.
+   */
+  bySignupSourceFirstPayment: DeclineSignupSourceRow[] | null;
+  /** Whether the two lists above can be compared across rows. Read it first. */
+  signupSourceAttribution: SignupSourceAttribution;
   byAttempt: DeclineBucket[];
   byPlan: DeclineBucket[];
   /** How the recovered invoices came back. Computed over recoveries only. */
@@ -1137,6 +1345,153 @@ function byInstrument(
     .sort((a, b) => b.invoices - a.invoices);
 }
 
+/** The bucket an invoice belongs to, with null read as "we could not tell". */
+function sourceKeyOf(value: string | null | undefined): string {
+  return value ?? SIGNUP_SOURCE_UNATTRIBUTED;
+}
+
+/**
+ * Decline rate per acquisition channel, each against its own charge volume.
+ *
+ * Every invoice lands in exactly one bucket, including the two that describe our
+ * records rather than a channel, so the rows still sum to the window's totals —
+ * dropping the unattributable ones would quietly shrink the denominator and lift
+ * every rate on the page.
+ *
+ * Ordering puts the real channels first by volume and pins the two record
+ * buckets to the bottom: "signed up before tracking" is usually large and is
+ * never the answer to anything.
+ */
+/**
+ * An invoice that DECLINED and was later paid appears in both populations, and
+ * each side resolves its member independently — the decline row from its own
+ * user_id, the paid row from whatever the Stripe import or the audit trail
+ * recorded. When those disagree the same invoice lands in two source rows at
+ * once, the rows stop summing to the window's charges, and both rates move.
+ *
+ * The decline side wins, for the same reason it wins on kind: it is the record
+ * made about this specific charge, written at the moment it failed.
+ *
+ * This is the identical seam reconcilePaidKinds closes for charge kind. It is
+ * worth closing twice because it is invisible in aggregate — the totals stay
+ * plausible and only the row sum gives it away.
+ */
+function reconcilePaidSources(
+  invoices: readonly DeclinedInvoice[],
+  paid: readonly ClassifiedPaidInvoice[],
+): ClassifiedPaidInvoice[] {
+  if (invoices.length === 0) return [...paid];
+  const declinedSource = new Map(invoices.map((i) => [i.invoiceId, sourceKeyOf(i.last.signupSource)]));
+  return paid.map((invoice) => {
+    const source = declinedSource.get(invoice.invoiceId);
+    return source && source !== sourceKeyOf(invoice.signupSource)
+      ? { ...invoice, signupSource: source }
+      : invoice;
+  });
+}
+
+function buildSignupSourceRows(
+  invoices: readonly DeclinedInvoice[],
+  rawPaid: readonly ClassifiedPaidInvoice[],
+): DeclineSignupSourceRow[] {
+  const paid = reconcilePaidSources(invoices, rawPaid);
+  const keys = new Set<string>();
+  for (const invoice of invoices) keys.add(sourceKeyOf(invoice.last.signupSource));
+  for (const invoice of paid) keys.add(sourceKeyOf(invoice.signupSource));
+
+  return [...keys]
+    .map((key) => {
+      const mine = invoices.filter((i) => sourceKeyOf(i.last.signupSource) === key);
+      const minePaid = paid.filter((p) => sourceKeyOf(p.signupSource) === key);
+      const headline = headlineFor(mine, minePaid);
+      return {
+        key,
+        label: signupSourceLabel(key),
+        share: rate(mine.length, invoices.length),
+        channel: !SIGNUP_SOURCE_NON_CHANNEL.has(key),
+        thin: headline.attemptedInvoices < THIN_SOURCE_VOLUME,
+        declineRateInterval: wilsonInterval(headline.invoices, headline.attemptedInvoices),
+        ...headline,
+      };
+    })
+    .filter((row) => row.attemptedInvoices > 0)
+    .sort(
+      (a, b) =>
+        Number(b.channel) - Number(a.channel) ||
+        b.attemptedInvoices - a.attemptedInvoices ||
+        b.invoices - a.invoices ||
+        a.key.localeCompare(b.key),
+    );
+}
+
+const MIN_SOURCE_COVERAGE = 0.8;
+const MAX_SOURCE_COVERAGE_GAP = 0.1;
+
+function attributionOf(
+  invoices: readonly DeclinedInvoice[],
+  rawPaid: readonly ClassifiedPaidInvoice[],
+  trackingSince: string | null,
+): SignupSourceAttribution {
+  const paid = reconcilePaidSources(invoices, rawPaid);
+  const declinedKeys = invoices.map((i) => sourceKeyOf(i.last.signupSource));
+  const paidKeys = paid.map((p) => sourceKeyOf(p.signupSource));
+
+  // Per DISTINCT INVOICE, not per row on each side. An invoice that declined and
+  // was then paid is present in both lists, and the figures below are published
+  // as charge counts — "30 charges from members who joined before tracking" has
+  // to mean thirty invoices, not thirty rows.
+  const byInvoice = new Map<string, string>();
+  for (const invoice of paid) byInvoice.set(invoice.invoiceId, sourceKeyOf(invoice.signupSource));
+  for (const invoice of invoices) byInvoice.set(invoice.invoiceId, sourceKeyOf(invoice.last.signupSource));
+  const all = [...byInvoice.values()];
+
+  const attributed = (keys: readonly string[]) =>
+    keys.filter((key) => key !== SIGNUP_SOURCE_UNATTRIBUTED).length;
+  const declinedAttributed = attributed(declinedKeys);
+  const paidAttributed = attributed(paidKeys);
+  const declineCoverage = rate(declinedAttributed, declinedKeys.length);
+  const paidCoverage = rate(paidAttributed, paidKeys.length);
+
+  // Both sides have to be well attributed AND attributed to a similar degree.
+  // One of those alone is not enough: 95% and 55% are both "mostly attributed"
+  // and put a 40-point systematic bias between the numerator and the
+  // denominator of every named channel.
+  const comparable =
+    declineCoverage != null
+    && paidCoverage != null
+    && declineCoverage >= MIN_SOURCE_COVERAGE
+    && paidCoverage >= MIN_SOURCE_COVERAGE
+    && Math.abs(declineCoverage - paidCoverage) <= MAX_SOURCE_COVERAGE_GAP;
+
+  return {
+    declinedAttributed,
+    declinedTotal: declinedKeys.length,
+    paidAttributed,
+    paidTotal: paidKeys.length,
+    declineCoverage,
+    paidCoverage,
+    trackingSince,
+    untrackedInvoices: all.filter((key) => key === SIGNUP_SOURCE_UNTRACKED).length,
+    directInvoices: all.filter((key) => key === SIGNUP_SOURCE_DIRECT).length,
+    channels: new Set(all.filter((key) => !SIGNUP_SOURCE_NON_CHANNEL.has(key))).size,
+    comparable,
+  };
+}
+
+/**
+ * Whether the "these rates are not comparable" warning has anything to say.
+ *
+ * `comparable` is false in two completely different situations: the two sides
+ * really do diverge, and there is nothing to measure at all. A window with no
+ * charges in it would otherwise render "— of declined invoices and — of paid
+ * invoices could be tied to an account", which reads as a data problem where
+ * there is only an empty window. The warning is about the RATIO, so it needs
+ * both sides to exist before it means anything.
+ */
+export function sourceRatesAreSkewed(attribution: SignupSourceAttribution): boolean {
+  return !attribution.comparable && attribution.declinedTotal > 0 && attribution.paidTotal > 0;
+}
+
 function attemptBucketKey(invoice: DeclinedInvoice): string {
   const n = invoice.attempts.length;
   if (n <= 1) return '1';
@@ -1252,6 +1607,22 @@ function buildFirstPaymentRollup(
   const mine = invoices.filter((i) => FIRST_PAYMENT_KINDS.includes(i.last.kind));
   const minePaid = reconcilePaidKinds(invoices, paid).filter((p) => FIRST_PAYMENT_KINDS.includes(p.kind));
   return { kinds, ...headlineFor(mine, minePaid) };
+}
+
+/**
+ * The by-source cut narrowed to charges that would have been a member's FIRST
+ * payment, which is the only version of it that reports on the campaign rather
+ * than on a card. Null when the window holds no first payment either way, so
+ * the UI can drop the panel instead of rendering an empty one.
+ */
+function buildFirstPaymentSourceRows(
+  invoices: readonly DeclinedInvoice[],
+  paid: readonly ClassifiedPaidInvoice[],
+): DeclineSignupSourceRow[] | null {
+  const mine = invoices.filter((i) => FIRST_PAYMENT_KINDS.includes(i.last.kind));
+  const minePaid = reconcilePaidKinds(invoices, paid).filter((p) => FIRST_PAYMENT_KINDS.includes(p.kind));
+  if (mine.length === 0 && minePaid.length === 0) return null;
+  return buildSignupSourceRows(mine, minePaid);
 }
 
 function modeCurrency(records: readonly DeclineRecord[]): string {
@@ -1397,6 +1768,13 @@ export type DeclineReportInput = {
   nowMs: number;
   /** How many rows the worklists carry. */
   worklistLimit?: number;
+  /**
+   * The earliest signup carrying a campaign, from the attribution index. Passed
+   * in because it is a fact about the members table, not about these invoices —
+   * a window can easily contain no tagged signup at all and still sit years
+   * after attribution started working.
+   */
+  attributionTrackingSince?: string | null;
 };
 
 const DEFAULT_WORKLIST_LIMIT = 50;
@@ -1459,6 +1837,9 @@ export function buildDeclineReport(input: DeclineReportInput): DeclineReport {
     byMethodType: byInstrument(invoices, (i) => i.last.methodType, METHOD_TYPE_LABEL),
     byFunding: byInstrument(invoices, (i) => i.last.cardFunding, FUNDING_LABEL),
     byCountry: byInstrument(invoices, (i) => i.last.cardCountry, null),
+    bySignupSource: buildSignupSourceRows(invoices, windowPaid),
+    bySignupSourceFirstPayment: buildFirstPaymentSourceRows(invoices, windowPaid),
+    signupSourceAttribution: attributionOf(invoices, windowPaid, input.attributionTrackingSince ?? null),
     byAttempt: bucketize(invoices, attemptBucketKey, ATTEMPT_BUCKET_ORDER, (k) => ATTEMPT_BUCKET_LABEL[k] ?? k),
     byPlan: bucketize(invoices, (i) => planKey(i.last), null, planLabel),
     byRecoveryRoute: bucketize(

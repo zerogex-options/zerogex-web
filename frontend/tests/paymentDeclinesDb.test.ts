@@ -38,7 +38,14 @@ const {
   reclassifyUnknownKinds,
   recordPaymentDecline,
   resolveDeclinesForInvoice,
+  loadSignupSourceIndex,
+  attributeSignupSources,
 } = await import('../core/paymentDeclinesServer.ts');
+const {
+  SIGNUP_SOURCE_DIRECT,
+  SIGNUP_SOURCE_UNATTRIBUTED,
+  SIGNUP_SOURCE_UNTRACKED,
+} = await import('../core/paymentDeclines.ts');
 
 const db = getDb();
 
@@ -1060,4 +1067,188 @@ test('with no webhook answer the earliest attempt decides', () => {
   const kinds = new Set(declineRows('in_earliest').map((row) => row.kind));
   assert.equal(kinds.size, 1);
   assert.equal([...kinds][0], 'trial_conversion');
+});
+
+// ---------------------------------------------------------------------------
+// Acquisition-source attribution
+//
+// The join that gives the by-source cut a denominator. It is resolved at read
+// time rather than stored, so these tests are what stand between the report and
+// a per-channel decline rate computed from a denominator that quietly lost half
+// its members.
+// ---------------------------------------------------------------------------
+
+function seedSourcedUser(input: {
+  id: string;
+  email: string;
+  source: string | null;
+  createdAt: string;
+  customerId?: string | null;
+  subscriptionId?: string | null;
+  deletedAt?: string | null;
+}) {
+  db.prepare(
+    `INSERT OR REPLACE INTO users
+       (id, email, password_hash, tier, created_at, updated_at, signup_utm_source,
+        stripe_customer_id, stripe_subscription_id, deleted_at)
+     VALUES (?, ?, NULL, 'pro', ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    input.id,
+    input.email,
+    input.createdAt,
+    input.createdAt,
+    input.source,
+    input.customerId ?? null,
+    input.subscriptionId ?? null,
+    input.deletedAt ?? null,
+  );
+}
+
+test('the tracking boundary is the earliest tagged signup, and splits direct from untracked', () => {
+  seedSourcedUser({ id: 'u_src_x', email: 'srcx@example.com', source: 'x', createdAt: ago(100) });
+  seedSourcedUser({ id: 'u_src_old', email: 'srcold@example.com', source: null, createdAt: ago(300) });
+  seedSourcedUser({ id: 'u_src_direct', email: 'srcdirect@example.com', source: null, createdAt: ago(50) });
+
+  const index = loadSignupSourceIndex();
+  assert.equal(index.trackingSince, ago(100));
+  assert.equal(index.byUserId.get('u_src_x'), 'x');
+  // Joined 300 days ago, before anything was ever tagged: their channel was
+  // never written down. Calling that "direct" would credit organic with the
+  // entire pre-tracking back catalogue.
+  assert.equal(index.byUserId.get('u_src_old'), SIGNUP_SOURCE_UNTRACKED);
+  // Joined after tagging was demonstrably working and still arrived clean.
+  assert.equal(index.byUserId.get('u_src_direct'), SIGNUP_SOURCE_DIRECT);
+});
+
+test('a decline resolves by user id, then email, then subscription', () => {
+  seedSourcedUser({
+    id: 'u_join',
+    email: 'Join@Example.com',
+    source: 'reddit',
+    createdAt: ago(40),
+    subscriptionId: 'sub_join',
+  });
+
+  const base = {
+    id: 'x', invoiceId: 'x', attemptCount: 1, chargeId: null, userId: null, email: null,
+    subscriptionId: null, priceId: null, tier: null, cadence: null, kind: 'renewal' as const,
+    signupSource: null, billingReason: null, amountDue: 4900, currency: 'usd', failureCode: null,
+    declineCode: null, networkDeclineCode: null, failureMessage: null, sellerMessage: null,
+    category: 'unknown' as const, methodType: null, cardBrand: null, cardLast4: null,
+    cardFunding: null, cardCountry: null, nextAttemptAt: null, graceUntil: null,
+    collectionMethod: null, invoiceStatus: null, failedAt: ago(5), outcome: 'open' as const,
+    resolvedAt: null, recoveredAmount: null, recoveryRoute: null, lostReason: null,
+    source: 'webhook' as const,
+  };
+
+  const { declines } = attributeSignupSources(
+    [
+      { ...base, id: 'd_by_user', invoiceId: 'in_by_user', userId: 'u_join' },
+      // Case differs from the stored address; the lookup lowercases both sides.
+      { ...base, id: 'd_by_email', invoiceId: 'in_by_email', email: 'join@example.com' },
+      { ...base, id: 'd_by_sub', invoiceId: 'in_by_sub', subscriptionId: 'sub_join' },
+      { ...base, id: 'd_nobody', invoiceId: 'in_nobody' },
+    ],
+    [],
+  );
+
+  assert.deepEqual(
+    declines.map((record) => record.signupSource),
+    ['reddit', 'reddit', 'reddit', SIGNUP_SOURCE_UNATTRIBUTED],
+  );
+});
+
+test('paid invoices attribute through the import, the customer id and the audit row', () => {
+  seedSourcedUser({
+    id: 'u_paid_src',
+    email: 'paidsrc@example.com',
+    source: 'youtube',
+    createdAt: ago(60),
+    customerId: 'cus_u_paid_src',
+  });
+  seedPaidInvoice({
+    invoiceId: 'in_src_direct',
+    userId: 'u_paid_src',
+    subscriptionId: 'sub_src',
+    amount: 4900,
+    billingReason: 'subscription_cycle',
+    paidAt: ago(5),
+  });
+  // The import matched no user — only the Stripe customer landed on the row.
+  db.prepare(
+    `INSERT OR REPLACE INTO stripe_invoice_history
+       (invoice_id, user_id, customer_id, subscription_id, price_id, status, billing_reason,
+        amount_paid, currency, paid_at, period_start, period_end, imported_at)
+     VALUES ('in_src_cus', NULL, 'cus_u_paid_src', 'sub_src2', NULL, 'paid', 'subscription_cycle',
+             4900, 'usd', ?, NULL, NULL, ?)`,
+  ).run(ago(4), ago(0));
+  // No import row at all — only the webhook's audit trail.
+  seedAudit('stripe_invoice_paid', {
+    userId: 'u_paid_src',
+    email: 'paidsrc@example.com',
+    message: 'Invoice in_src_audit paid for sub sub_src3 amount=4900 billing_reason=subscription_cycle',
+    createdAt: ago(3),
+  });
+
+  const { paid } = attributeSignupSources([], loadPaidInvoices());
+  const sourceOf = (invoiceId: string) =>
+    paid.find((invoice) => invoice.invoiceId === invoiceId)?.signupSource;
+
+  assert.equal(sourceOf('in_src_direct'), 'youtube');
+  assert.equal(sourceOf('in_src_cus'), 'youtube');
+  assert.equal(sourceOf('in_src_audit'), 'youtube');
+});
+
+test('a deleted member still attributes, so coverage is not understated', () => {
+  seedSourcedUser({
+    id: 'u_gone',
+    email: 'gone@example.com',
+    source: 'substack',
+    createdAt: ago(45),
+    deletedAt: ago(2),
+  });
+  const index = loadSignupSourceIndex();
+  // Their charges really happened. Excluding them would not remove those
+  // invoices from the report — it would move them into the unattributed bucket
+  // and make the attribution warning fire for no reason.
+  assert.equal(index.byUserId.get('u_gone'), 'substack');
+});
+
+test('the report carries per-source rows built from the live join', () => {
+  seedSourcedUser({
+    id: 'u_rep_src',
+    email: 'repsrc@example.com',
+    source: 'discord',
+    createdAt: ago(35),
+    customerId: 'cus_u_rep_src',
+  });
+  recordPaymentDecline({
+    invoiceId: 'in_rep_src',
+    attemptCount: 1,
+    chargeId: 'ch_rep_src',
+    userId: 'u_rep_src',
+    email: 'repsrc@example.com',
+    customerId: 'cus_u_rep_src',
+    subscriptionId: 'sub_rep_src',
+    priceId: 'price_pro_monthly',
+    billingReason: 'subscription_cycle',
+    amountDue: 4900,
+    currency: 'usd',
+    decline: { code: 'card_declined', declineCode: 'insufficient_funds', networkDeclineCode: null, message: null, sellerMessage: null },
+    cardBrand: 'visa',
+    cardLast4: '4242',
+    cardFunding: 'debit',
+    cardCountry: 'US',
+    failedAt: ago(6),
+    trialConversion: false,
+  });
+
+  const report = getPaymentDeclineReport({ windowDays: 30, reconcile: false });
+  const row = report.bySignupSource.find((entry) => entry.key === 'discord');
+  assert.ok(row, 'the decline should be attributed to the channel that acquired the member');
+  assert.equal(row.channel, true);
+  assert.ok(row.invoices >= 1);
+  // Never invented: every row on the report sums back to the window's charges.
+  const summed = report.bySignupSource.reduce((total, entry) => total + entry.attemptedInvoices, 0);
+  assert.equal(summed, report.totals.attemptedInvoices);
 });

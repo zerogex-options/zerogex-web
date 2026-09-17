@@ -30,6 +30,9 @@ import { summarizeExcluded, type ExcludedAccountsSummary } from './excludedAccou
 import {
   buildDeclineReport,
   classifyAttemptKind,
+  SIGNUP_SOURCE_DIRECT,
+  SIGNUP_SOURCE_UNATTRIBUTED,
+  SIGNUP_SOURCE_UNTRACKED,
   type DeclineKind,
   type DeclineRecord,
   type DeclineReport,
@@ -37,6 +40,7 @@ import {
   type PaidInvoice,
 } from './paymentDeclines.ts';
 import { priceIdToSku } from './stripe.ts';
+import { sanitizeUtmSource } from './utils.ts';
 
 export type PaymentDeclinePayload = DeclineReport & {
   /** Who is held out of every number above, and under which rule. */
@@ -171,6 +175,9 @@ function toRecord(row: DeclineRow): DeclineRecord {
     recoveryRoute: row.recovery_route,
     lostReason: row.lost_reason,
     source: (SOURCES.has(row.source) ? row.source : 'webhook') as DeclineSource,
+    // Filled in by attributeSignupSources at report time, never stored: see the
+    // field's comment on DeclineRecord for why the join beats a column.
+    signupSource: null,
   };
 }
 
@@ -792,6 +799,196 @@ export function countPaidInvoices(): { total: number; imported: number; newestAt
   };
 }
 
+// ---------------------------------------------------------------------------
+// Acquisition-source attribution
+// ---------------------------------------------------------------------------
+
+/**
+ * Every member's first-touch acquisition channel, indexed by each identifier an
+ * invoice might carry.
+ *
+ * Resolved at READ time rather than stamped onto payment_declines when the row
+ * is written. users.signup_utm_source is first-touch: it is set once at signup
+ * and never changes, so the join cannot drift from a stored copy — and unlike a
+ * column, it answers for the whole back catalogue on the first deploy instead of
+ * only for declines recorded after a migration. On a decline table this matters
+ * more than usual: the rows that most need explaining are the oldest ones.
+ *
+ * Deleted members are INCLUDED. Their invoices really were charged and really
+ * did decline; dropping them would not remove those charges from the report, it
+ * would move them into the unattributed bucket and make coverage look worse than
+ * it is.
+ */
+export type SignupSourceIndex = {
+  byUserId: Map<string, string>;
+  byEmail: Map<string, string>;
+  byCustomerId: Map<string, string>;
+  bySubscriptionId: Map<string, string>;
+  /**
+   * The earliest signup that carries a campaign — the point before which
+   * attribution demonstrably was not being captured.
+   *
+   * A LOWER BOUND, not the deploy date: if the first tagged signup arrived a
+   * week after the feature shipped, that week's organic signups are filed as
+   * untracked. That is the conservative direction — it understates what we know
+   * rather than inventing certainty about a member whose channel may simply
+   * never have been written down.
+   */
+  trackingSince: string | null;
+};
+
+type UserSourceRow = {
+  id: string;
+  email: string | null;
+  signup_utm_source: string | null;
+  created_at: string | null;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  last_paid_subscription_id: string | null;
+};
+
+function emptySourceIndex(): SignupSourceIndex {
+  return {
+    byUserId: new Map(),
+    byEmail: new Map(),
+    byCustomerId: new Map(),
+    bySubscriptionId: new Map(),
+    trackingSince: null,
+  };
+}
+
+export function loadSignupSourceIndex(): SignupSourceIndex {
+  const index = emptySourceIndex();
+  let rows: UserSourceRow[] = [];
+  try {
+    rows = getDb()
+      .prepare(
+        `SELECT id, email, signup_utm_source, created_at, stripe_customer_id,
+                stripe_subscription_id, last_paid_subscription_id
+           FROM users`,
+      )
+      .all() as UserSourceRow[];
+  } catch {
+    // Column absent on a deploy that predates the migration — every invoice
+    // then reads as untracked, which is exactly true.
+    return index;
+  }
+
+  // Two passes: the boundary has to be known before any member can be told
+  // apart from one who simply predates tracking.
+  for (const row of rows) {
+    if (!sanitizeUtmSource(row.signup_utm_source)) continue;
+    const at = row.created_at;
+    if (!at) continue;
+    if (index.trackingSince == null || at < index.trackingSince) index.trackingSince = at;
+  }
+
+  for (const row of rows) {
+    const tagged = sanitizeUtmSource(row.signup_utm_source);
+    const bucket = tagged
+      ?? (index.trackingSince == null || (row.created_at ?? '') < index.trackingSince
+        ? SIGNUP_SOURCE_UNTRACKED
+        : SIGNUP_SOURCE_DIRECT);
+    index.byUserId.set(row.id, bucket);
+    if (row.email) index.byEmail.set(row.email.trim().toLowerCase(), bucket);
+    if (row.stripe_customer_id) index.byCustomerId.set(row.stripe_customer_id, bucket);
+    // Both subscription columns, because a member who lapsed and resubscribed
+    // has the old id on the invoices that declined and the new one on `users`.
+    if (row.stripe_subscription_id) index.bySubscriptionId.set(row.stripe_subscription_id, bucket);
+    if (row.last_paid_subscription_id) {
+      index.bySubscriptionId.set(row.last_paid_subscription_id, bucket);
+    }
+  }
+  return index;
+}
+
+/**
+ * Which member each PAID invoice belongs to, as a source bucket.
+ *
+ * The paid side is the half that makes a per-source decline RATE possible, and
+ * it is also the half most likely to be under-attributed: the imported Stripe
+ * rows carry a user_id only where the import could match the customer, and the
+ * audit rows carry whoever the webhook resolved at the time. Both are read, and
+ * the customer id is used as a second key, because a denominator that is
+ * missing members inflates every rate computed from it.
+ */
+function loadPaidInvoiceSources(index: SignupSourceIndex): Map<string, string> {
+  const out = new Map<string, string>();
+  const db = getDb();
+  try {
+    const rows = db
+      .prepare(
+        `SELECT invoice_id, user_id, customer_id, subscription_id
+           FROM stripe_invoice_history
+          WHERE status = 'paid'`,
+      )
+      .all() as Array<{
+      invoice_id: string;
+      user_id: string | null;
+      customer_id: string | null;
+      subscription_id: string | null;
+    }>;
+    for (const row of rows) {
+      const bucket =
+        (row.user_id ? index.byUserId.get(row.user_id) : undefined)
+        ?? (row.customer_id ? index.byCustomerId.get(row.customer_id) : undefined)
+        ?? (row.subscription_id ? index.bySubscriptionId.get(row.subscription_id) : undefined);
+      if (bucket) out.set(row.invoice_id, bucket);
+    }
+  } catch {
+    // Table absent — degrade, never throw.
+  }
+  try {
+    const rows = db
+      .prepare(
+        `SELECT user_id, message FROM audit_events
+          WHERE type = 'stripe_invoice_paid' AND user_id IS NOT NULL`,
+      )
+      .all() as Array<{ user_id: string; message: string }>;
+    for (const row of rows) {
+      const invoiceId = row.message.match(PAID_MESSAGE)?.[1];
+      if (!invoiceId || invoiceId === 'undefined' || out.has(invoiceId)) continue;
+      const bucket = index.byUserId.get(row.user_id);
+      if (bucket) out.set(invoiceId, bucket);
+    }
+  } catch {
+    // Same rule.
+  }
+  return out;
+}
+
+/**
+ * Stamp the acquisition channel onto both sides of the report.
+ *
+ * Runs once per report read and nowhere else — in particular NOT inside
+ * loadPaidInvoices, which the webhook path calls on a hot code path to decide
+ * whether a subscription has ever been paid, and which has no use for a channel.
+ */
+export function attributeSignupSources(
+  declines: readonly DeclineRecord[],
+  paid: readonly PaidInvoice[],
+  index: SignupSourceIndex = loadSignupSourceIndex(),
+): { declines: DeclineRecord[]; paid: PaidInvoice[] } {
+  const paidSources = loadPaidInvoiceSources(index);
+  return {
+    declines: declines.map((record) => ({
+      ...record,
+      signupSource:
+        (record.userId ? index.byUserId.get(record.userId) : undefined)
+        ?? (record.email ? index.byEmail.get(record.email.trim().toLowerCase()) : undefined)
+        ?? (record.subscriptionId ? index.bySubscriptionId.get(record.subscriptionId) : undefined)
+        ?? SIGNUP_SOURCE_UNATTRIBUTED,
+    })),
+    paid: paid.map((invoice) => ({
+      ...invoice,
+      signupSource:
+        paidSources.get(invoice.invoiceId)
+        ?? (invoice.subscriptionId ? index.bySubscriptionId.get(invoice.subscriptionId) : undefined)
+        ?? SIGNUP_SOURCE_UNATTRIBUTED,
+    })),
+  };
+}
+
 function loadDeclineRecords(sinceIso: string | null, excludedUserIds: ReadonlySet<string>): DeclineRecord[] {
   try {
     const sql = sinceIso
@@ -841,10 +1038,20 @@ export function getPaymentDeclineReport(options: DeclineReportOptions = {}): Pay
   // against the immediately preceding window of equal length.
   const sinceIso =
     windowDays == null ? null : new Date(nowMs - windowDays * 2 * 86_400_000).toISOString();
-  const declines = loadDeclineRecords(sinceIso, excludedIds);
-  const paid = loadPaidInvoices();
+  const sourceIndex = loadSignupSourceIndex();
+  const attributed = attributeSignupSources(
+    loadDeclineRecords(sinceIso, excludedIds),
+    loadPaidInvoices(),
+    sourceIndex,
+  );
 
-  const report = buildDeclineReport({ declines, paid, windowDays, nowMs });
+  const report = buildDeclineReport({
+    declines: attributed.declines,
+    paid: attributed.paid,
+    windowDays,
+    nowMs,
+    attributionTrackingSince: sourceIndex.trackingSince,
+  });
   return { ...report, excluded: summarizeExcluded(excludedAccounts), reconciled };
 }
 

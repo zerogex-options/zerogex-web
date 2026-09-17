@@ -6,6 +6,12 @@ import {
   classifyAttemptKind,
   classifyPaidInvoices,
   foldDeclinesToInvoices,
+  sourceRatesAreSkewed,
+  wilsonInterval,
+  SIGNUP_SOURCE_DIRECT,
+  SIGNUP_SOURCE_UNATTRIBUTED,
+  SIGNUP_SOURCE_UNTRACKED,
+  THIN_SOURCE_VOLUME,
   type DeclineRecord,
   type PaidInvoice,
 } from '../core/paymentDeclines.ts';
@@ -37,6 +43,7 @@ function decline(overrides: Partial<DeclineRecord> = {}): DeclineRecord {
     chargeId: `ch_${seq}`,
     userId: `user_${seq}`,
     email: `member${seq}@example.com`,
+    signupSource: SIGNUP_SOURCE_DIRECT,
     subscriptionId: `sub_${seq}`,
     priceId: 'price_pro_monthly',
     tier: 'pro',
@@ -79,6 +86,7 @@ function paid(overrides: Partial<PaidInvoice> = {}): PaidInvoice {
     billingReason: 'subscription_cycle',
     amountPaid: 4900,
     paidAt: ago(3),
+    signupSource: SIGNUP_SOURCE_DIRECT,
     ...overrides,
   };
 }
@@ -708,4 +716,335 @@ test('the instrument cuts separate what a member paid WITH', () => {
   for (const cut of [report.byMethodType, report.byFunding, report.byCountry]) {
     assert.equal(cut.reduce((sum, row) => sum + row.invoices, 0), report.totals.invoices);
   }
+});
+
+// ---------------------------------------------------------------------------
+// Acquisition source
+//
+// The by-source cut is the only breakdown on the panel besides charge kind that
+// carries a denominator, which makes it the only one that can state a RATE — and
+// therefore the only one that can be wrong in the specific, expensive way a rate
+// is wrong: right numerator, quietly incomplete denominator. Every case below is
+// one of those.
+// ---------------------------------------------------------------------------
+
+test('a source row is a rate against its own charges, not a share of the failures', () => {
+  const report = buildDeclineReport({
+    declines: [
+      decline({ invoiceId: 'in_x1', signupSource: 'x', failedAt: ago(5) }),
+      decline({ invoiceId: 'in_x2', signupSource: 'x', failedAt: ago(4) }),
+      decline({ invoiceId: 'in_r1', signupSource: 'reddit', failedAt: ago(3) }),
+    ],
+    paid: [
+      ...Array.from({ length: 8 }, (_, i) => paid({ invoiceId: `in_xp_${i}`, signupSource: 'x' })),
+      ...Array.from({ length: 19 }, (_, i) => paid({ invoiceId: `in_rp_${i}`, signupSource: 'reddit' })),
+    ],
+    windowDays: 30,
+    nowMs: NOW_MS,
+  });
+
+  const x = report.bySignupSource.find((row) => row.key === 'x');
+  const reddit = report.bySignupSource.find((row) => row.key === 'reddit');
+  assert.ok(x && reddit);
+  // 2 of 10, not 2 of 3. The share-of-failures reading would say 67%.
+  assert.equal(x.attemptedInvoices, 10);
+  assert.equal(x.declineRate, 0.2);
+  assert.equal(reddit.attemptedInvoices, 20);
+  assert.equal(reddit.declineRate, 0.05);
+  // Share is still reported, and is a DIFFERENT number from the rate.
+  assert.ok(x.share != null && Math.abs(x.share - 2 / 3) < 1e-9);
+});
+
+test('an invoice that declined and then paid is one charge in its source denominator', () => {
+  const report = buildDeclineReport({
+    declines: [
+      decline({
+        invoiceId: 'in_back',
+        signupSource: 'x',
+        outcome: 'recovered',
+        resolvedAt: ago(1),
+        recoveredAmount: 4900,
+        failedAt: ago(2),
+      }),
+    ],
+    paid: [paid({ invoiceId: 'in_back', signupSource: 'x' })],
+    windowDays: 30,
+    nowMs: NOW_MS,
+  });
+
+  const x = report.bySignupSource.find((row) => row.key === 'x');
+  assert.ok(x);
+  // Counting both sides would give 2 charges and a 50% decline rate on a source
+  // that made exactly one charge and collected it.
+  assert.equal(x.attemptedInvoices, 1);
+  assert.equal(x.declineRate, 1);
+  assert.equal(x.lossRate, 0);
+  assert.equal(x.recoveredInvoices, 1);
+});
+
+test('unattributable invoices keep their own row instead of shrinking the denominator', () => {
+  const report = buildDeclineReport({
+    declines: [
+      decline({ invoiceId: 'in_u1', signupSource: SIGNUP_SOURCE_UNATTRIBUTED, failedAt: ago(4) }),
+      decline({ invoiceId: 'in_x1', signupSource: 'x', failedAt: ago(3) }),
+    ],
+    paid: [
+      paid({ invoiceId: 'in_up1', signupSource: SIGNUP_SOURCE_UNATTRIBUTED }),
+      paid({ invoiceId: 'in_xp1', signupSource: 'x' }),
+    ],
+    windowDays: 30,
+    nowMs: NOW_MS,
+  });
+
+  const summed = report.bySignupSource.reduce((total, row) => total + row.attemptedInvoices, 0);
+  assert.equal(summed, report.totals.attemptedInvoices);
+  assert.equal(summed, 4);
+
+  const unattributed = report.bySignupSource.find((row) => row.key === SIGNUP_SOURCE_UNATTRIBUTED);
+  assert.ok(unattributed);
+  assert.equal(unattributed.channel, false);
+  // Last, because it describes our records rather than a channel.
+  assert.equal(report.bySignupSource[report.bySignupSource.length - 1].key, SIGNUP_SOURCE_UNATTRIBUTED);
+});
+
+test('"no campaign" and "joined before tracking existed" stay in separate rows', () => {
+  const report = buildDeclineReport({
+    declines: [
+      decline({ invoiceId: 'in_d1', signupSource: SIGNUP_SOURCE_DIRECT, failedAt: ago(4) }),
+      decline({ invoiceId: 'in_o1', signupSource: SIGNUP_SOURCE_UNTRACKED, failedAt: ago(3) }),
+    ],
+    paid: [
+      paid({ invoiceId: 'in_dp1', signupSource: SIGNUP_SOURCE_DIRECT }),
+      paid({ invoiceId: 'in_op1', signupSource: SIGNUP_SOURCE_UNTRACKED }),
+    ],
+    windowDays: 30,
+    nowMs: NOW_MS,
+  });
+
+  const keys = report.bySignupSource.map((row) => row.key);
+  assert.ok(keys.includes(SIGNUP_SOURCE_DIRECT));
+  assert.ok(keys.includes(SIGNUP_SOURCE_UNTRACKED));
+  // Direct is a channel and sorts with the others; untracked is a hole in the
+  // data and sinks. Merging them would move the whole pre-tracking back
+  // catalogue into "organic" and make it look like the best channel we have.
+  assert.equal(report.bySignupSource.find((row) => row.key === SIGNUP_SOURCE_DIRECT)?.channel, true);
+  assert.equal(report.bySignupSource.find((row) => row.key === SIGNUP_SOURCE_UNTRACKED)?.channel, false);
+  assert.equal(report.signupSourceAttribution.untrackedInvoices, 2);
+  assert.equal(report.signupSourceAttribution.directInvoices, 2);
+  assert.equal(report.signupSourceAttribution.channels, 1);
+});
+
+test('a source with too few charges is flagged rather than ranked', () => {
+  const report = buildDeclineReport({
+    declines: [decline({ invoiceId: 'in_t1', signupSource: 'tiktok', failedAt: ago(3) })],
+    paid: [
+      ...Array.from({ length: 3 }, (_, i) => paid({ invoiceId: `in_tp_${i}`, signupSource: 'tiktok' })),
+      ...Array.from({ length: 40 }, (_, i) => paid({ invoiceId: `in_bp_${i}`, signupSource: 'x' })),
+    ],
+    windowDays: 30,
+    nowMs: NOW_MS,
+  });
+
+  const tiktok = report.bySignupSource.find((row) => row.key === 'tiktok');
+  const x = report.bySignupSource.find((row) => row.key === 'x');
+  assert.ok(tiktok && x);
+  assert.equal(tiktok.attemptedInvoices, 4);
+  assert.ok(tiktok.attemptedInvoices < THIN_SOURCE_VOLUME);
+  assert.equal(tiktok.thin, true);
+  assert.equal(x.thin, false);
+  // 25% looks alarming next to x's 0%. The interval says it is 4%–64%, which
+  // is the honest answer and overlaps almost anything.
+  assert.equal(tiktok.declineRate, 0.25);
+  assert.ok(tiktok.declineRateInterval!.low < 0.1);
+  assert.ok(tiktok.declineRateInterval!.high > 0.6);
+});
+
+test('the interval brackets the rate and survives 0% and 100%', () => {
+  const mid = wilsonInterval(20, 50)!;
+  assert.ok(mid.low < 0.4 && mid.high > 0.4);
+  assert.ok(mid.low > 0 && mid.high < 1);
+
+  // The normal approximation collapses to a zero-width interval at both ends,
+  // which is where the small campaigns actually sit. Wilson does not.
+  const none = wilsonInterval(0, 10)!;
+  assert.equal(none.low, 0);
+  assert.ok(none.high > 0.2 && none.high < 0.4);
+
+  const all = wilsonInterval(10, 10)!;
+  // Analytically exactly 1 at p = 1; asserted with a tolerance because the two
+  // halves of the expression lose the last bit before Math.min sees them.
+  assert.ok(all.high > 1 - 1e-12);
+  assert.ok(all.low > 0.6 && all.low < 0.8);
+
+  assert.equal(wilsonInterval(0, 0), null);
+});
+
+test('rates are marked not-comparable when one side is under-attributed', () => {
+  // Declines attribute cleanly; two thirds of the successful charges do not.
+  // Every named channel is then missing most of its denominator, which inflates
+  // its decline rate — uniformly enough to pass for a finding.
+  const report = buildDeclineReport({
+    declines: Array.from({ length: 10 }, (_, i) =>
+      decline({ invoiceId: `in_sk_${i}`, signupSource: 'x', failedAt: ago(4) }),
+    ),
+    paid: [
+      ...Array.from({ length: 10 }, (_, i) => paid({ invoiceId: `in_skp_${i}`, signupSource: 'x' })),
+      ...Array.from({ length: 20 }, (_, i) =>
+        paid({ invoiceId: `in_sku_${i}`, signupSource: SIGNUP_SOURCE_UNATTRIBUTED }),
+      ),
+    ],
+    windowDays: 30,
+    nowMs: NOW_MS,
+  });
+
+  const attribution = report.signupSourceAttribution;
+  assert.equal(attribution.declineCoverage, 1);
+  assert.ok(attribution.paidCoverage != null && Math.abs(attribution.paidCoverage - 1 / 3) < 1e-9);
+  assert.equal(attribution.comparable, false);
+});
+
+test('rates are comparable when both sides attribute at a similar rate', () => {
+  const report = buildDeclineReport({
+    declines: Array.from({ length: 10 }, (_, i) =>
+      decline({ invoiceId: `in_ok_${i}`, signupSource: 'x', failedAt: ago(4) }),
+    ),
+    paid: Array.from({ length: 30 }, (_, i) =>
+      paid({ invoiceId: `in_okp_${i}`, signupSource: i < 28 ? 'x' : SIGNUP_SOURCE_UNATTRIBUTED }),
+    ),
+    windowDays: 30,
+    nowMs: NOW_MS,
+  });
+  assert.equal(report.signupSourceAttribution.comparable, true);
+});
+
+test('the first-payment cut drops renewals from both sides of the ratio', () => {
+  const report = buildDeclineReport({
+    declines: [
+      decline({ invoiceId: 'in_conv', signupSource: 'x', kind: 'trial_conversion', failedAt: ago(4) }),
+      decline({ invoiceId: 'in_ren', signupSource: 'x', kind: 'renewal', failedAt: ago(3) }),
+    ],
+    paid: [
+      // One trial that opened at $0 and then converted, plus a renewal after it.
+      paid({ invoiceId: 'in_t0', subscriptionId: 'sub_q', billingReason: 'subscription_create', amountPaid: 0, paidAt: ago(20), signupSource: 'x' }),
+      paid({ invoiceId: 'in_t1', subscriptionId: 'sub_q', billingReason: 'subscription_cycle', amountPaid: 4900, paidAt: ago(10), signupSource: 'x' }),
+      paid({ invoiceId: 'in_t2', subscriptionId: 'sub_q', billingReason: 'subscription_cycle', amountPaid: 4900, paidAt: ago(2), signupSource: 'x' }),
+    ],
+    windowDays: 30,
+    nowMs: NOW_MS,
+  });
+
+  const firstRows = report.bySignupSourceFirstPayment;
+  assert.ok(firstRows);
+  const x = firstRows.find((row) => row.key === 'x');
+  assert.ok(x);
+  // The conversion that declined plus the one that converted. The renewal
+  // decline and the renewal payment are both out.
+  assert.equal(x.invoices, 1);
+  assert.equal(x.attemptedInvoices, 2);
+  assert.equal(x.declineRate, 0.5);
+
+  // The all-charges row sees everything.
+  const all = report.bySignupSource.find((row) => row.key === 'x');
+  assert.equal(all!.invoices, 2);
+  assert.equal(all!.attemptedInvoices, 4);
+});
+
+test('a record with no source at all reads as unattributed, never as direct', () => {
+  const report = buildDeclineReport({
+    declines: [decline({ invoiceId: 'in_null', signupSource: null, failedAt: ago(3) })],
+    paid: [],
+    windowDays: 30,
+    nowMs: NOW_MS,
+  });
+  assert.equal(report.bySignupSource.length, 1);
+  assert.equal(report.bySignupSource[0].key, SIGNUP_SOURCE_UNATTRIBUTED);
+  assert.equal(report.signupSourceAttribution.declinedAttributed, 0);
+});
+
+test('an empty window is not reported as a data-quality problem', () => {
+  const report = buildDeclineReport({ declines: [], paid: [], windowDays: 7, nowMs: NOW_MS });
+  // Nothing was charged, so nothing is comparable — but there is no skew to warn
+  // about either, and saying there is would send an operator looking for a bug
+  // in the attribution join that does not exist.
+  assert.equal(report.signupSourceAttribution.comparable, false);
+  assert.equal(sourceRatesAreSkewed(report.signupSourceAttribution), false);
+  assert.equal(report.bySignupSource.length, 0);
+  assert.equal(report.bySignupSourceFirstPayment, null);
+
+  // Declines but no successful charges: still nothing to compare a rate against.
+  const noPaid = buildDeclineReport({
+    declines: [decline({ invoiceId: 'in_only', signupSource: 'x', failedAt: ago(2) })],
+    paid: [],
+    windowDays: 7,
+    nowMs: NOW_MS,
+  });
+  assert.equal(sourceRatesAreSkewed(noPaid.signupSourceAttribution), false);
+});
+
+test('the tracking boundary is carried through to the report, not inferred from the window', () => {
+  const report = buildDeclineReport({
+    declines: [decline({ invoiceId: 'in_ts', signupSource: 'x', failedAt: ago(2) })],
+    paid: [paid({ invoiceId: 'in_tsp', signupSource: 'x' })],
+    windowDays: 7,
+    nowMs: NOW_MS,
+    attributionTrackingSince: ago(400),
+  });
+  // A window can sit entirely inside the tracked era or entirely outside it, so
+  // the boundary is a fact about the members table and cannot be read off these
+  // invoices. Passing it in is what lets the panel say "attributed since" at all.
+  assert.equal(report.signupSourceAttribution.trackingSince, ago(400));
+  assert.notEqual(report.signupSourceAttribution.trackingSince, report.since);
+});
+
+test('an invoice attributed differently on each side is not counted in two channels', () => {
+  // The same invoice: the decline row resolved to a member acquired through x,
+  // the imported paid row resolved through a stale customer mapping to reddit.
+  // Left alone, the invoice is one charge for reddit AND one charge for x, the
+  // rows stop summing to the window, and both rates move.
+  const report = buildDeclineReport({
+    declines: [
+      decline({
+        invoiceId: 'in_split',
+        signupSource: 'x',
+        outcome: 'recovered',
+        resolvedAt: ago(1),
+        recoveredAmount: 4900,
+        failedAt: ago(2),
+      }),
+    ],
+    paid: [paid({ invoiceId: 'in_split', signupSource: 'reddit' })],
+    windowDays: 30,
+    nowMs: NOW_MS,
+  });
+
+  const summed = report.bySignupSource.reduce((total, row) => total + row.attemptedInvoices, 0);
+  assert.equal(summed, report.totals.attemptedInvoices);
+  assert.equal(summed, 1);
+  // The decline row wins: it is the record made about this specific charge.
+  assert.equal(report.bySignupSource.length, 1);
+  assert.equal(report.bySignupSource[0].key, 'x');
+  assert.equal(report.bySignupSource[0].attemptedInvoices, 1);
+});
+
+test('the untracked and direct charge counts are per invoice, not per row', () => {
+  const report = buildDeclineReport({
+    declines: [
+      decline({
+        invoiceId: 'in_dup',
+        signupSource: SIGNUP_SOURCE_UNTRACKED,
+        outcome: 'recovered',
+        resolvedAt: ago(1),
+        recoveredAmount: 4900,
+        failedAt: ago(2),
+      }),
+    ],
+    paid: [paid({ invoiceId: 'in_dup', signupSource: SIGNUP_SOURCE_UNTRACKED })],
+    windowDays: 30,
+    nowMs: NOW_MS,
+  });
+  // One invoice that declined and then paid. The panel prints this as a charge
+  // count, so it has to be 1 — counting the decline row and the paid row would
+  // report two charges that never happened.
+  assert.equal(report.signupSourceAttribution.untrackedInvoices, 1);
+  assert.equal(report.totals.attemptedInvoices, 1);
 });

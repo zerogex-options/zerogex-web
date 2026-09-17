@@ -335,6 +335,95 @@ lost conversion as costing nothing, and the headline loss figure reads $0 while
 real money walks out of the door. Under-reporting a loss as zero is the worst of
 the available errors.
 
+## Acquisition source — the one cut with a denominator on both sides
+
+Every instrument breakdown on the panel (card brand, funding, issuing country,
+wallet vs. typed card) is a **share of the failures**, never a rate. A successful
+charge leaves no row in `payment_declines`, so the card behind it is not there to
+divide by. "Debit is 40% of my declines" and "debit declines 40% of the time" are
+different claims and only the first is supported.
+
+A successful charge does leave a **member**, and a member carries a first-touch
+`users.signup_utm_source`. So both sides of the ratio exist, and this cut reports
+a real rate:
+
+    declined invoices from source S
+    ───────────────────────────────
+    every invoice charged to a member from source S
+
+It exists to answer a question the rest of the panel structurally cannot: whether
+a slice of the lost conversions was ever a billing problem at all. If one
+channel's trial signups decline at twice everyone else's rate, no retry tuning,
+card-update prompt or dunning rewrite will recover them — the fix is upstream, in
+what that channel is sending.
+
+Read it in the **first payments** scope by default. A renewal that declines says
+something about a card, often years after the click that won it; a trial
+conversion that will not close is the campaign's own result.
+
+    make decline-by-source                    # first payments, 90 days
+    make decline-by-source SCOPE=all DAYS=0   # every charge, all time
+
+That command is read-only: no Stripe call, no email, no write, and the report's
+reconcile pass is explicitly disabled.
+
+### Resolved at read time, not stored
+
+The channel is joined from `users` when the report is built rather than stamped
+onto each decline row. First-touch attribution is set once at signup and never
+changes, so the join cannot drift from a stored copy — and unlike a column it
+answers for the whole back catalogue on the first deploy instead of only for
+declines recorded after a migration. On a decline table that matters more than
+usual: the rows most in need of explaining are the oldest ones.
+
+Deleted members are included. Their invoices really were charged and really did
+decline; dropping them would not remove those charges from the report, it would
+move them into the unattributed bucket and make coverage look worse than it is.
+
+### Three buckets that are not channels
+
+    (direct / none)      a member we know who arrived with no campaign on them.
+                         A real channel — organic search, word of mouth, a link
+                         somebody pasted — and usually the largest one.
+    (before tracking)    a member we know who signed up before first-touch
+                         attribution existed. Their channel was never recorded
+                         and never will be.
+    (no local account)   an invoice that could not be tied to an account here —
+                         a deleted member, a Stripe customer created outside
+                         signup. A data-quality bucket.
+
+Collapsing the second into the first is how this report starts lying: it credits
+organic with the entire pre-tracking back catalogue. The boundary between them is
+the **earliest signup carrying a campaign**, which is a lower bound on when
+tracking began, not the deploy date — if the first tagged signup arrived a week
+after the feature shipped, that week's organic signups are filed as untracked.
+That errs toward admitting ignorance rather than inventing certainty.
+
+Unattributable invoices keep their own row rather than being dropped. Dropping
+them would shrink the denominator and lift every rate on the page.
+
+### Two guards against over-reading
+
+**A 95% Wilson interval on every rate.** The whole job of this cut is comparing
+channels, and at campaign volumes a point estimate cannot do it. Nine declines
+out of twenty is 45% and also anywhere from 26% to 66%, which overlaps nearly
+every other row. Wilson rather than the normal approximation because it stays
+inside [0, 1] and does not collapse to zero width at 0% or 100% — exactly where
+the small campaigns sit. **Two channels whose ranges overlap have not been shown
+to differ, however far apart their percentages look.**
+
+**An attribution-skew warning.** If declines resolve to a member 98% of the time
+and successful charges only 60% of the time, every named channel is missing two
+fifths of its denominator and every rate is inflated — uniformly enough to look
+like a real signal. The panel publishes both coverage figures and refuses to
+present the rates as comparable when they diverge (`sourceRatesAreSkewed`). An
+empty window is *not* that condition: nothing measured is not the same as
+something skewed.
+
+Rows under 25 charges are dimmed and marked. At a ~40% base rate the 95% interval
+is still wider than ±18 points at n = 30, so anything thinner is a hint to go and
+look, never a finding to act on.
+
 ## Reading the panel
 
 Color is **what happened to the money** — recovered, at risk, lost — and never
