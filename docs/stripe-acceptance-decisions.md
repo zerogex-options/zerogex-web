@@ -78,36 +78,68 @@ separately; it is not a Stripe-configuration question.*
 
 ## Decisions
 
-### 1. Radar block rules — DO IT, but for correctness, not revenue
+### 1. Radar block rules — CLOSED: already configured correctly
 
-**What changes.** Dashboard → Radar → Rules. The `requested_block_on_incorrect_zip`
-and `requested_block_on_incorrect_cvc` declines are most likely Stripe's
-*default* block rules rather than anything we wrote; they are enforced on
-subscription flows when Radar evaluates Setup Intents, which our trial does (we
-gate on `pending_setup_intent`). Stripe now ships adaptive versions of these two
-rules that combine the issuer's CVC/postal response with a risk score instead of
-blocking outright, and reports +1.3pp payment success at minimal fraud cost.
+**Proposed, then withdrawn on inspection.** The recommendation was to migrate
+the CVC and postal-code block rules to Stripe's adaptive versions, which fold the
+issuer response together with a risk score instead of blocking outright.
+Inspecting Radar → Rules on 2026-09-17 showed that migration has already
+happened. Recorded here rather than deleted, because a decision record that only
+lists things worth doing teaches nothing about what was already right.
 
-**Confirm before changing.** These rules were INFERRED from decline codes. Open
-Radar → Rules and check which are actually active, and whether they are Stripe
-defaults or custom, before touching anything.
+Radar → Rules, as configured (matches over Apr 21 – Sep 17 2026):
 
-**What it is worth: $87.** Four invoices, one of which recovered. That is the
-whole prize, and it is not a revenue argument.
+| Action | Condition | Status | Matches | Volume |
+|---|---|---|---:|---:|
+| Block | payment matches default Stripe block lists | Enabled | 0 | $0.00 |
+| Block | **CVC verification fails based on risk score** | Enabled | 5 | $145.00 |
+| Block | **Postal code verification fails based on risk score** | Enabled | 1 | $29.00 |
+| Request 3DS | 3D Secure is supported for card | Disabled | 0 | $0.00 |
+| Block | `:risk_level: = 'highest'` | Disabled | 0 | $0.00 |
+| Review | `:risk_level: = 'elevated'` | Disabled | 0 | $0.00 |
 
-**Why do it anyway.** It is the only category where *we* refused the money rather
-than a bank, and the member cannot see or fix a rule they do not know exists —
-which is exactly what the admin panel already says when it fires. It is cheap,
-instantly reversible, and it is the right behaviour. Do it because it is correct,
-and do not expect the metrics to move.
+Three things settle the question:
 
-**What it risks.** Genuine fraud getting through. Mitigated here by population:
-these are members who completed a seven-day trial on a verified email address,
-which is not the anonymous-first-checkout profile the default rules are tuned for.
+* **"based on risk score" IS the adaptive rule.** The blunt versions block on any
+  CVC or postal mismatch; these consult the risk score as well. Nothing to
+  migrate.
+* **The aggressive rules are already off.** Block-on-highest-risk and
+  review-on-elevated are both disabled.
+* **Custom rules are not available to us anyway.** The account is on standard
+  Radar, not Radar Plus, so "write a narrower rule" was never an option. The
+  proposal assumed a lever we do not have.
 
-**How we would know.** `category = 'blocked_by_risk'` in the query above should
-trend to zero. At four invoices, expect to wait a quarter before the absence
-means anything.
+**Leave Request 3DS disabled.** Enabling it on a subscription flow would create
+`authentication_required` failures on off-session charges, where the member is
+not present to complete a challenge. The France cohort — 11 declines out of 11 —
+contained **zero** authentication failures, so there is no problem here for 3DS
+to solve and a real one for it to cause.
+
+**What is left: a reconciliation gap, and a five-minute manual review.**
+
+Our ledger and Radar do not obviously describe the same events:
+
+| Source | What it says |
+|---|---|
+| Radar rules | CVC 5 matches / $145, postal 1 match / $29 |
+| Decline ledger | `highest_risk_level` 3 invoices / $87 (all trial conversions, none recovered), `requested_block_on_incorrect_zip` 1 invoice / recovered / $0 |
+
+Two things do not line up, and neither is worth a code change to chase:
+
+* The `:risk_level: = 'highest'` rule is **disabled with 0 matches**, yet three
+  invoices carry `highest_risk_level` as their decline reason. Either Stripe's
+  baseline Radar blocks highest-risk payments independently of that rule entry,
+  or the Matches counter does not count what it appears to.
+* Radar's CVC rule has 5 matches while the ledger holds no
+  `requested_block_on_incorrect_cvc` at all. Those matches may be the ones
+  landing in our ledger as `highest_risk_level` — a rule that fires "based on
+  risk score" plausibly reports the risk reason — or they may be on payments that
+  are not subscription invoices.
+
+**The action is to look, not to configure.** Dashboard → Payments, filter to
+blocked, and read the four. If they are plainly real customers, that is evidence;
+at four payments over five months and $87 nothing else is. Do not change a Radar
+setting on this volume.
 
 ### 2. Authorization Boost — ENABLE IF INCLUDED, do not pay much for it
 
@@ -115,6 +147,21 @@ means anything.
 are no longer three separate toggles; Stripe bundles them as Authorization Boost.
 Published effect is +3.8% acceptance on average, explicitly incremental — it only
 counts features not already in use.
+
+**Do it as the built-in A/B test, not as a switch.** Dashboard → Optimization →
+"Test Authorization Boost" → "Test for 30 days". Stripe runs a real control /
+treatment split and reports the lift against our own volume, which is a better
+answer to "is this worth paying for" than anybody's published average.
+
+**Expect the test to come back inconclusive, and run it anyway.** We charge
+roughly 85 first payments a month. Split two ways that is ~42 per arm over 30
+days, and a 3.8% effect is invisible at that size — the same power problem the
+per-source cut has. The test costs nothing and cannot mislead us the way a
+before/after comparison would, but it is not going to settle anything soon.
+
+**The test does not measure card account updater.** CAU runs across both arms
+regardless, so the experiment isolates Adaptive Acceptance and network tokens.
+That is fine here, for the reason below.
 
 **Check the price first.** Network tokens are 15¢ per token provisioned for
 accounts without Authorization Boost on custom interchange pricing, and Stripe
@@ -139,7 +186,10 @@ the comparison is unattributable.
 
 **What changes.** Nothing in code: `app/api/billing/checkout/route.ts` sets no
 `payment_method_types`, so Stripe's Dashboard payment method configuration
-decides entirely. Step one is to look at what is already configured.
+decides entirely. Settings (gear) → Product settings → Payments → Payment methods
+→ Link. **Step one is to look at whether it is already on** — the decline data
+shows Link volume, so it probably is, which would make this a question about
+prominence and defaults rather than activation.
 
 **The evidence, and why it is weaker than it looks.** The Stripe audit put
 card-entry at 58.9% against Link's 30.2%. That comparison is **confounded**, and
