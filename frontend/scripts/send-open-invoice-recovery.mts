@@ -75,7 +75,7 @@ if (!secretKey) {
 const { getDb } = await import('../core/db.ts');
 const { sendOpenInvoiceRecoveryEmail, buildOpenInvoiceRecoveryEmail } = await import('../core/mailer.ts');
 const { priceIdToSku } = await import('../core/stripe.ts');
-const { readInvoicePriceId } = await import('../core/stripeInvoice.ts');
+const { readInvoicePeriodEndUnix, readInvoicePriceId } = await import('../core/stripeInvoice.ts');
 
 if (previewTo) {
   const preview = buildOpenInvoiceRecoveryEmail({
@@ -107,6 +107,20 @@ type Candidate = {
   hostedInvoiceUrl: string;
   planLabel: string | null;
   raisedAt: string;
+  /**
+   * Whether paying this invoice will RESTORE ACCESS on its own.
+   *
+   * The webhook's orphan-payment recovery re-creates the plan anchored at the
+   * end of the period the invoice paid for (core/orphanPayment.ts). When that
+   * period has already elapsed there is no future access left to grant and
+   * Stripe rejects an anchor in the past, so the payment is recorded as
+   * "needs a human" and the member stays on the free tier having paid in full.
+   *
+   * Which makes this the most important column in the report: emailing somebody
+   * to settle an invoice that will silently grant them nothing is worse than not
+   * emailing them at all.
+   */
+  autoRestores: boolean;
   lapsed: boolean;
   optedOut: boolean;
   verified: boolean;
@@ -194,6 +208,8 @@ for await (const invoice of stripe.invoices.list({
   }
   const priceId = readInvoicePriceId(invoice);
   const sku = priceId ? priceIdToSku(priceId) : null;
+  const periodEnd = readInvoicePeriodEndUnix(invoice);
+  const autoRestores = periodEnd != null && periodEnd > Math.floor(Date.now() / 1000);
   candidates.push({
     invoiceId: invoice.id,
     userId: user.id,
@@ -203,6 +219,7 @@ for await (const invoice of stripe.invoices.list({
     hostedInvoiceUrl: invoice.hosted_invoice_url,
     planLabel: sku ? `${sku.tier === 'pro' ? 'Pro' : 'Basic'} ${sku.cadence}` : null,
     raisedAt: new Date((invoice.created ?? 0) * 1000).toISOString(),
+    autoRestores,
     lapsed: user.lapsed,
     optedOut: user.optedOut,
     verified: user.verified,
@@ -219,6 +236,9 @@ const sendable = candidates.filter(
 const unverified = candidates.filter((c) => !c.verified);
 const sendableTotal = sendable.reduce((sum, c) => sum + c.amountDue, 0);
 
+const autoRestoring = candidates.filter((c) => c.autoRestores);
+const needsHuman = candidates.filter((c) => !c.autoRestores);
+
 console.log('── Still payable right now ──');
 console.log(`  ${candidates.length} open invoice(s) Stripe has stopped retrying, on lapsed accounts`);
 console.log(`  ${money(total, 'usd')} total, on hosted pages that are still live`);
@@ -229,6 +249,20 @@ if (unverified.length > 0) {
   );
 }
 console.log('');
+console.log('── What happens if they pay ──');
+console.log(
+  `  ${autoRestoring.length} (${money(autoRestoring.reduce((s, c) => s + c.amountDue, 0), 'usd')}) restore access AUTOMATICALLY —`,
+);
+console.log('    the period the invoice covers is still ahead, so the webhook re-creates the plan.');
+if (needsHuman.length > 0) {
+  console.log(
+    `  ${needsHuman.length} (${money(needsHuman.reduce((s, c) => s + c.amountDue, 0), 'usd')}) DO NOT — the period they paid for has elapsed.`,
+  );
+  console.log('    The payment is collected and audited, but the member stays on the free tier until');
+  console.log('    you run:  make recover-orphan-payment EMAIL=<them> YES=1');
+  console.log('    Watch for them with:  make scan-orphan-payments   (read-only)');
+}
+console.log('');
 console.log('── Held back ──');
 console.log(`  ${stillRetrying} invoice(s) Stripe is STILL retrying — left alone on purpose`);
 console.log(`  ${notLapsed} on accounts that have not lost access`);
@@ -237,6 +271,7 @@ console.log(`  ${noAccount} with no live local account`);
 console.log('\n── The invoices ──');
 for (const c of candidates.slice(0, 200)) {
   const flags = [
+    c.autoRestores ? null : 'needs manual restore if paid',
     c.alreadyEmailed ? 'already emailed' : null,
     c.optedOut ? 'opted out' : null,
     c.verified ? null : 'UNVERIFIED — not emailed',
@@ -255,9 +290,19 @@ if (!send) {
 }
 
 console.log(`\nSending up to ${limit}…`);
+// Resend allows 10 requests a second and rejects the rest outright. A dropped
+// send is not free: the member never hears from us, and only the latch below
+// tells the difference — so pace the loop well under the ceiling rather than
+// discovering the limit one failure at a time.
+const SEND_INTERVAL_MS = 150;
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const isRateLimited = (err: unknown) =>
+  /rate limit|too many requests/i.test(err instanceof Error ? err.message : String(err));
+
 let sent = 0;
 let failed = 0;
-for (const c of sendable.slice(0, limit)) {
+for (const [index, c] of sendable.slice(0, limit).entries()) {
+  if (index > 0) await sleep(SEND_INTERVAL_MS);
   try {
     await sendOpenInvoiceRecoveryEmail(c.email, {
       amountFormatted: money(c.amountDue, c.currency),
@@ -277,8 +322,39 @@ for (const c of sendable.slice(0, limit)) {
     );
     sent += 1;
   } catch (err) {
+    // One retry on a rate limit, after a full second. Anything else is a real
+    // failure and is left for the next run — the latch is only written on a
+    // SUCCESSFUL send, so nothing is lost by giving up here.
+    if (isRateLimited(err)) {
+      await sleep(1000);
+      try {
+        await sendOpenInvoiceRecoveryEmail(c.email, {
+          amountFormatted: money(c.amountDue, c.currency),
+          hostedInvoiceUrl: c.hostedInvoiceUrl,
+          planLabel: c.planLabel,
+          raisedLabel: null,
+        });
+        db.prepare(
+          `INSERT INTO audit_events (id, type, user_id, actor_user_id, email, ip, message, created_at)
+           VALUES (?, 'open_invoice_recovery_email_sent', ?, NULL, ?, 'script', ?, ?)`,
+        ).run(
+          `audit_${crypto.randomBytes(12).toString('hex')}`,
+          c.userId,
+          c.email,
+          `Open-invoice recovery sent for ${c.invoiceId} (${money(c.amountDue, c.currency)})`,
+          new Date().toISOString(),
+        );
+        sent += 1;
+        continue;
+      } catch {
+        // Fall through to the failure path.
+      }
+    }
     failed += 1;
     console.warn(`  ! ${c.email}: ${err instanceof Error ? err.message : 'send failed'}`);
   }
 }
-console.log(`\nSent ${sent}, failed ${failed}. Each invoice is latched — re-running will not email anyone twice.`);
+console.log(
+  `\nSent ${sent}, failed ${failed}. The latch is written only on a SUCCESSFUL send, so a failure` +
+    ' here is retried by the next run — nobody is emailed twice and nobody is silently skipped.',
+);
