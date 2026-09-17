@@ -264,6 +264,11 @@ payments. Both decisions are right on their own, and together they leave every
 reconstructed decline as `unknown`: the record that says "this was a trial" is
 the one nobody imports.
 
+Reading an invoice is recorded as a fact in its own right, and it is what stops
+the enrichment worklist re-asking Stripe about a charge it already answered for.
+`RECHECK=1` lifts that once, for the case it exists for: rows settled by an
+earlier reader that kept less than the current one does.
+
 The Stripe enrichment pass resolves it. It fetches each real invoice and stamps
 the actual `billing_reason`, after which the ordinary rule applies and needs no
 trial marker: a `subscription_cycle` invoice on a subscription that has never

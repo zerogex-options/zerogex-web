@@ -1264,14 +1264,16 @@ export function enrichDeclineWithReason(
 }
 
 /**
- * Record that Stripe was asked about this attempt and had no reason to give —
- * an invoice too old for the charge to still be retrievable, or a failure that
- * never produced one. Without this the enrichment worklist never drains: those
- * rows still have no codes, so every future run re-fetches them from Stripe and
- * the command can never report "nothing to do". `source` carries the fact that
- * we LOOKED, which is different from never having tried.
+ * Record that this attempt's invoice has been READ from Stripe — whatever came
+ * back. `source = 'stripe_backfill'` means the question has been put, which is a
+ * different fact from never having asked, and it is the single stop condition
+ * for the enrichment worklist below.
+ *
+ * Without it the worklist never drains: an invoice Stripe has no decline reason
+ * for still has no codes, so every future run re-fetches it and the command can
+ * never report "nothing to do".
  */
-export function markDeclineReasonUnavailable(invoiceId: string, attemptCount: number): boolean {
+export function markDeclineInvoiceRead(invoiceId: string, attemptCount: number): boolean {
   try {
     const result = getDb()
       .prepare(
@@ -1286,14 +1288,33 @@ export function markDeclineReasonUnavailable(invoiceId: string, attemptCount: nu
 }
 
 /**
- * Attempts with a decline on record but no reason, and which Stripe has not
- * already been asked about — the enrichment worklist.
+ * Attempts whose invoice is worth reading from Stripe — the enrichment worklist.
  *
- * A `webhook` row with no codes IS included: its lookup failed at capture time,
- * possibly transiently, and is worth one more try. A `stripe_backfill` row is
- * not: that source means the question has been put to Stripe and answered.
+ * TWO reasons to fetch, not one:
+ *
+ *   no decline reason   the cause is missing. A `webhook` row with no codes is
+ *                       included: its lookup failed at capture time, possibly
+ *                       transiently, and is worth one more try.
+ *   no billing reason   the row cannot be CLASSIFIED at all — the billing reason
+ *                       is what tells a lost conversion from a lost customer —
+ *                       and the same read brings back the invoice's real amount,
+ *                       which replaces the backfill's estimate.
+ *
+ * The second reason existed only implicitly before, and the rows that needed it
+ * most were exactly the ones the first clause had already written off.
+ *
+ * Both are gated on the invoice not having been read yet, so one read settles
+ * the row either way and the list always drains.
+ *
+ * `includeAlreadyRead` lifts that gate, for the one case it exists for: a row
+ * read by an EARLIER version of the reader that kept less than this one does.
+ * Operator-driven (`RECHECK=1`) rather than automatic, because it spends an API
+ * call per row to re-ask a question already asked.
  */
-export function listDeclinesMissingReason(limit = 500): Array<{
+export function listDeclinesNeedingInvoiceRead(
+  limit = 500,
+  options: { includeAlreadyRead?: boolean } = {},
+): Array<{
   invoiceId: string;
   attemptCount: number;
   subscriptionId: string | null;
@@ -1304,12 +1325,13 @@ export function listDeclinesMissingReason(limit = 500): Array<{
       .prepare(
         `SELECT invoice_id, attempt_count, subscription_id, failed_at
            FROM payment_declines
-          WHERE decline_code IS NULL AND failure_code IS NULL AND network_decline_code IS NULL
-            AND source != 'stripe_backfill'
+          WHERE (? = 1 OR source != 'stripe_backfill')
+            AND ((decline_code IS NULL AND failure_code IS NULL AND network_decline_code IS NULL)
+                 OR billing_reason IS NULL)
           ORDER BY failed_at DESC
           LIMIT ?`,
       )
-      .all(Math.max(1, Math.trunc(limit))) as Array<{
+      .all(options.includeAlreadyRead ? 1 : 0, Math.max(1, Math.trunc(limit))) as Array<{
       invoice_id: string;
       attempt_count: number;
       subscription_id: string | null;

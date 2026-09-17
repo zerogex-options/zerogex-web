@@ -22,7 +22,7 @@ help:
 	@echo "  make backfill-daily-metrics - Rebuild the one-row-per-day metrics table behind Admin->Monitoring->Growth, and print the relationship tests. DAYS=<n> to limit the window, X_CSV=<path> / GOOGLE_CSV=<path> / COMBINED_CSV=<path> to import an X or Search Console export, REPORT=0 to skip the readout"
 	@echo "  make audit-customers   - Trace a sample of real customers through the growth dashboard's classification (read-only). EMAIL=<addr> for one customer, EVENTS=0 for a summary"
 	@echo "  make backfill-stripe-invoices - Import real Stripe invoice history into stripe_invoice_history so the renewal metrics on Admin->Monitoring->Growth can see renewals that predate the invoice audit trail. Read-only against Stripe. SINCE=<YYYY-MM-DD> / LIMIT=<n> / DRY_RUN=1"
-	@echo "  make backfill-payment-declines - Rebuild the decline history behind Admin->Monitoring->Stripe->Payment Declines: reconstruct every past failed charge from the audit log, settle each against the invoice ledger, then re-read Stripe for the issuer's actual decline code. Read-only against Stripe. SKIP_STRIPE=1 for pass 1 only, LIMIT=<n>, DRY_RUN=1"
+	@echo "  make backfill-payment-declines - Rebuild the decline history behind Admin->Monitoring->Stripe->Payment Declines: reconstruct every past failed charge from the audit log, settle each against the invoice ledger, then re-read Stripe for the issuer's actual decline code. Read-only against Stripe. SKIP_STRIPE=1 for pass 1 only, LIMIT=<n>, RECHECK=1 to re-read invoices an earlier run already fetched, DRY_RUN=1"
 	@echo "  make sync-search-console - Pull daily clicks+impressions from Google Search Console into the daily metrics rollup (runs on a timer; see deploy/steps/099.search-console). DAYS=<n> for the window (default 14, use 480 for a full ~16-month backfill), END=<YYYY-MM-DD> to end elsewhere, DRY_RUN=1 to fetch and print without writing"
 	@echo "  make all-to-pro - Promote every non-admin user to pro (DRY_RUN=1 to preview)"
 	@echo "  make delete-user EMAIL=<email> - Delete a user (DRY_RUN=1 to preview, YES=1 to skip prompt)"
@@ -282,6 +282,8 @@ backfill-stripe-invoices:
 #
 #   SKIP_STRIPE=1        pass 1 only (no Stripe key needed)
 #   LIMIT=<n>            cap how many invoices pass 2 re-reads (default 500)
+#   RECHECK=1            also re-read invoices a previous run already fetched,
+#                        for when this reader keeps more than the one before it
 #   DRY_RUN=1            report what pass 2 would stamp, write nothing
 backfill-payment-declines:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/backfill-payment-declines.mts'
