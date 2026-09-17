@@ -80,8 +80,10 @@ const limit = Number(process.env.LIMIT) > 0 ? Number(process.env.LIMIT) : 500;
 
 const {
   backfillDeclinesFromAudit,
+  countPaidInvoices,
   enrichDeclineWithReason,
   listDeclinesMissingReason,
+  markDeclineReasonUnavailable,
 } = await import('../core/paymentDeclinesServer.ts');
 const { lookupInvoiceDecline } = await import('../core/stripeDeclineLookup.ts');
 const { classifyDecline, describeDecline } = await import('../core/declineReason.ts');
@@ -91,11 +93,29 @@ const { readInvoicePriceId } = await import('../core/stripeInvoice.ts');
 // Pass 1 — reconstruct from the audit log
 // ---------------------------------------------------------------------------
 
-console.log('Pass 1 — reconstructing declines from stripe_payment_failed audit rows…');
+// How much of the paid-invoice ledger exists decides how many declines can be
+// settled as RECOVERED. A decline is aged out as unresolved only when no payment
+// for it can be found, so running this before `make backfill-stripe-invoices`
+// reports collected money as lost. Say so up front rather than letting the
+// operator discover it in the report.
+const ledger = countPaidInvoices();
+console.log(
+  `Invoice ledger: ${ledger.total} paid invoices on record` +
+    (ledger.newestAt ? `, newest ${ledger.newestAt.slice(0, 10)}` : ''),
+);
+if (ledger.imported === 0) {
+  console.log(
+    '  ! stripe_invoice_history is EMPTY. Declines can only be settled against payments this\n' +
+      '    database can see, so run `make backfill-stripe-invoices` first and then re-run this —\n' +
+      '    otherwise recovered invoices are reported as unresolved. Re-running is safe: an\n' +
+      '    unresolved close is revisited once the evidence exists.',
+  );
+}
+console.log('\nPass 1 — reconstructing declines from stripe_payment_failed audit rows…');
 const reconstructed = backfillDeclinesFromAudit();
 console.log(
   `  ${reconstructed.scanned} audit rows read · ${reconstructed.inserted} declines added · ` +
-    `${reconstructed.skipped} already present or unparseable`,
+    `${reconstructed.duplicates} already on record · ${reconstructed.unparseable} with no usable invoice id`,
 );
 console.log(
   `  settled: ${reconstructed.recovered} recovered · ${reconstructed.cancelled} lost to a cancellation · ` +
@@ -143,6 +163,9 @@ for (const row of pending) {
     const lookup = await lookupInvoiceDecline(stripe, invoice);
     if (!lookup.decline) {
       noReason += 1;
+      // Stripe has been asked and had nothing. Record that so the next run does
+      // not spend an API read asking again.
+      if (!dryRun) markDeclineReasonUnavailable(row.invoiceId, row.attemptCount);
       continue;
     }
     const category = classifyDecline(lookup.decline);

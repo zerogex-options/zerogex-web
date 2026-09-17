@@ -69,6 +69,24 @@ the panel, in descending order of certainty:
    arrived. "Never seen to recover" is a weaker claim than "known to be gone",
    and the report makes the weaker one.
 
+**An unresolved close is not final** — that is the point of having made the weak
+claim. Passes 1 and 2 reconsider rows already closed as *unresolved* alongside
+the open ones, so evidence arriving later (most often a
+`make backfill-stripe-invoices` import bringing in years of payments the ledger
+could not previously see) revises them to recovered, or upgrades them to a
+cancellation. A cancellation or a write-off is a **fact the log recorded** and is
+never revisited; only the weak claim is revisable.
+
+### Run order matters
+
+A decline is settled against the payments this database can see. Run
+`make backfill-stripe-invoices` **before** `make backfill-payment-declines`, or
+collected money is reported as unresolved. The decline backfill prints the size
+of the invoice ledger on every run and warns when it is empty. Getting the order
+wrong is recoverable — re-running after the import revises those closes — but the
+report is wrong in the meantime, and wrong in the direction that overstates the
+loss.
+
 The age sweep works **per invoice, not per attempt**: an invoice Stripe retried
 last week is not stale because its first attempt was five weeks ago, and closing
 only the old attempt would leave one invoice half open and half lost, with the

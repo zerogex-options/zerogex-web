@@ -468,6 +468,30 @@ export function markDeclinesLostForSubscription(
 const SUB_DELETED_MESSAGE = /^Subscription (\S+) ended/;
 
 /**
+ * The reconcile-side cancellation close. Unlike markDeclinesLostForSubscription
+ * — which the webhook calls, where only an OPEN attempt may be closed — this
+ * also upgrades an attempt previously aged out as 'unknown': learning that the
+ * subscription was deleted turns "we never heard anything" into a reason, and
+ * refusing the upgrade would leave the better answer unused. It never touches a
+ * recovered attempt or one already attributed to a different cause.
+ */
+function attributeLostToCancellation(subscriptionId: string, at: string): number {
+  try {
+    const result = getDb()
+      .prepare(
+        `UPDATE payment_declines
+            SET outcome = 'lost', resolved_at = ?, lost_reason = 'canceled'
+          WHERE subscription_id = ?
+            AND (outcome = 'open' OR (outcome = 'lost' AND lost_reason = 'unknown'))`,
+      )
+      .run(at, subscriptionId) as { changes: number | bigint };
+    return Number(result.changes) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+/**
  * Close out open declines whose closing event never arrived. Three passes, in
  * descending order of certainty — and in this order for a reason: money that
  * actually arrived outranks a cancellation, and a known cancellation outranks
@@ -489,7 +513,17 @@ const SUB_DELETED_MESSAGE = /^Subscription (\S+) ended/;
  * closing only the old attempt would leave one invoice half open and half lost,
  * with the surviving attempt carrying no reason.
  *
- * Idempotent and cheap: every pass touches only rows still marked open.
+ * AN 'unknown' CLOSE IS NOT FINAL, and this is what makes the whole thing
+ * honest. It records an absence of evidence, and the evidence can arrive later:
+ * running `make backfill-stripe-invoices` imports years of paid invoices the
+ * ledger could not previously see, and any decline aged out for want of exactly
+ * that record should then be re-read as recovered. So passes 1 and 2 reconsider
+ * rows already closed as 'unknown' alongside the open ones. A cancellation or a
+ * write-off is a FACT the log recorded and is never revisited; only the weak
+ * claim is revisable, which is the point of having made the weak claim.
+ *
+ * Idempotent and cheap: nothing is reopened, only upgraded to a better-supported
+ * outcome.
  */
 export function reconcileOpenDeclines(nowMs: number = Date.now()): ReconcileResult {
   let recovered = 0;
@@ -498,7 +532,10 @@ export function reconcileOpenDeclines(nowMs: number = Date.now()): ReconcileResu
   try {
     const db = getDb();
     const open = db
-      .prepare(`SELECT DISTINCT invoice_id, subscription_id FROM payment_declines WHERE outcome = 'open'`)
+      .prepare(
+        `SELECT DISTINCT invoice_id, subscription_id FROM payment_declines
+          WHERE outcome = 'open' OR (outcome = 'lost' AND lost_reason = 'unknown')`,
+      )
       .all() as Array<{ invoice_id: string; subscription_id: string | null }>;
     if (open.length === 0) return { recovered: 0, cancelled: 0, agedOut: 0 };
 
@@ -528,7 +565,7 @@ export function reconcileOpenDeclines(nowMs: number = Date.now()): ReconcileResu
       for (const row of deletions) {
         const subscriptionId = row.message.match(SUB_DELETED_MESSAGE)?.[1];
         if (!subscriptionId || !openSubs.has(subscriptionId)) continue;
-        cancelled += markDeclinesLostForSubscription(subscriptionId, 'canceled', row.created_at);
+        cancelled += attributeLostToCancellation(subscriptionId, row.created_at);
       }
     }
 
@@ -713,6 +750,29 @@ export function loadPaidInvoicesForSubscription(subscriptionId: string): PaidInv
   return [...byId.values()].sort((a, b) => a.paidAt.localeCompare(b.paidAt));
 }
 
+/**
+ * How much payment history this database can actually see — the ceiling on how
+ * many declines can ever be settled as recovered. `imported` is the Stripe
+ * import specifically, because that is the half an operator can go and fetch.
+ */
+export function countPaidInvoices(): { total: number; imported: number; newestAt: string | null } {
+  let imported = 0;
+  try {
+    const row = getDb()
+      .prepare(`SELECT COUNT(*) AS c FROM stripe_invoice_history WHERE status = 'paid'`)
+      .get() as { c?: number } | undefined;
+    imported = Number(row?.c) || 0;
+  } catch {
+    imported = 0;
+  }
+  const all = loadPaidInvoices();
+  return {
+    total: all.length,
+    imported,
+    newestAt: all.length > 0 ? all[all.length - 1].paidAt : null,
+  };
+}
+
 function loadDeclineRecords(sinceIso: string | null, excludedUserIds: ReadonlySet<string>): DeclineRecord[] {
   try {
     const sql = sinceIso
@@ -774,9 +834,14 @@ export function getPaymentDeclineReport(options: DeclineReportOptions = {}): Pay
 // ---------------------------------------------------------------------------
 
 export type BackfillResult = {
+  /** Audit rows read — the true total, including the ones nothing could be made of. */
   scanned: number;
+  /** New decline rows written. */
   inserted: number;
-  skipped: number;
+  /** Rows whose (invoice, attempt) was already on record. */
+  duplicates: number;
+  /** Rows carrying no usable invoice id — nothing to reconstruct from. */
+  unparseable: number;
 } & ReconcileResult;
 
 /**
@@ -798,7 +863,15 @@ export type BackfillResult = {
  */
 export function backfillDeclinesFromAudit(options: { nowMs?: number } = {}): BackfillResult {
   const nowMs = options.nowMs ?? Date.now();
-  const result: BackfillResult = { scanned: 0, inserted: 0, skipped: 0, recovered: 0, cancelled: 0, agedOut: 0 };
+  const result: BackfillResult = {
+    scanned: 0,
+    inserted: 0,
+    duplicates: 0,
+    unparseable: 0,
+    recovered: 0,
+    cancelled: 0,
+    agedOut: 0,
+  };
   const db = getDb();
 
   let rows: Array<{ created_at: string; user_id: string | null; email: string | null; message: string }> = [];
@@ -864,13 +937,13 @@ export function backfillDeclinesFromAudit(options: { nowMs?: number } = {}): Bac
   };
 
   for (const row of rows) {
+    result.scanned += 1;
     const match = row.message.match(FAILED_MESSAGE);
     const invoiceId = match?.[1];
     if (!invoiceId || invoiceId === 'undefined') {
-      result.skipped += 1;
+      result.unparseable += 1;
       continue;
     }
-    result.scanned += 1;
     const subscriptionId = match?.[2] && match[2] !== 'unknown' ? match[2] : null;
     const attemptCount = Number(match?.[3]) || 1;
     const history = subscriptionId ? (paidBySub.get(subscriptionId) ?? []) : [];
@@ -898,7 +971,7 @@ export function backfillDeclinesFromAudit(options: { nowMs?: number } = {}): Bac
       failedAt: row.created_at,
     });
     if (inserted) result.inserted += 1;
-    else result.skipped += 1;
+    else result.duplicates += 1;
   }
 
   const closed = reconcileOpenDeclines(nowMs);
@@ -1066,7 +1139,36 @@ export function enrichDeclineWithReason(
   }
 }
 
-/** Invoices with a decline on record but no reason — the enrichment worklist. */
+/**
+ * Record that Stripe was asked about this attempt and had no reason to give —
+ * an invoice too old for the charge to still be retrievable, or a failure that
+ * never produced one. Without this the enrichment worklist never drains: those
+ * rows still have no codes, so every future run re-fetches them from Stripe and
+ * the command can never report "nothing to do". `source` carries the fact that
+ * we LOOKED, which is different from never having tried.
+ */
+export function markDeclineReasonUnavailable(invoiceId: string, attemptCount: number): boolean {
+  try {
+    const result = getDb()
+      .prepare(
+        `UPDATE payment_declines SET source = 'stripe_backfill'
+          WHERE invoice_id = ? AND attempt_count = ? AND source != 'stripe_backfill'`,
+      )
+      .run(invoiceId, attemptCount) as { changes: number | bigint };
+    return Number(result.changes) > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Attempts with a decline on record but no reason, and which Stripe has not
+ * already been asked about — the enrichment worklist.
+ *
+ * A `webhook` row with no codes IS included: its lookup failed at capture time,
+ * possibly transiently, and is worth one more try. A `stripe_backfill` row is
+ * not: that source means the question has been put to Stripe and answered.
+ */
 export function listDeclinesMissingReason(limit = 500): Array<{
   invoiceId: string;
   attemptCount: number;
@@ -1079,6 +1181,7 @@ export function listDeclinesMissingReason(limit = 500): Array<{
         `SELECT invoice_id, attempt_count, subscription_id, failed_at
            FROM payment_declines
           WHERE decline_code IS NULL AND failure_code IS NULL AND network_decline_code IS NULL
+            AND source != 'stripe_backfill'
           ORDER BY failed_at DESC
           LIMIT ?`,
       )
