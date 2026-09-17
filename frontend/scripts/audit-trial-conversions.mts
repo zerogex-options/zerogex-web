@@ -256,6 +256,45 @@ for (const [reason, count] of [...byReason.entries()].sort((a, b) => b[1] - a[1]
   console.log(`  ${reason.padEnd(36)} ${count}`);
 }
 
+// A country that declines everything is only actionable once you know WHY.
+// "The issuer refused a cross-border recurring charge" and "authentication was
+// required and never completed" look identical in a country table and have
+// opposite fixes: the first is risk scoring you largely cannot argue with, the
+// second is a mandate problem you can actually solve. Small samples are called
+// out as such rather than being quietly presented as a finding.
+console.log('\n── Decline reasons for the worst countries ──');
+const countryTotals = new Map<string, { total: number; failed: number }>();
+for (const row of billedRows) {
+  const key = row.cardCountry ?? '(unknown)';
+  const cell = countryTotals.get(key) ?? { total: 0, failed: 0 };
+  cell.total += 1;
+  if (row.failedCharges > 0) cell.failed += 1;
+  countryTotals.set(key, cell);
+}
+const worst = [...countryTotals.entries()]
+  .filter(([country, cell]) => country !== '(unknown)' && cell.failed > 0 && cell.failed / cell.total >= 0.5)
+  .sort((a, b) => b[1].failed - a[1].failed);
+if (worst.length === 0) {
+  console.log('  No country is failing at 50% or worse.');
+}
+for (const [country, cell] of worst) {
+  const reasons = new Map<string, number>();
+  for (const row of declined.filter((r) => (r.cardCountry ?? '(unknown)') === country)) {
+    const code = row.firstDeclineCode ?? '(none)';
+    reasons.set(code, (reasons.get(code) ?? 0) + 1);
+  }
+  const caveat = cell.total < 5 ? '  ← too few charges to call a trend' : '';
+  console.log(`  ${country}  ${cell.failed}/${cell.total} declined${caveat}`);
+  for (const [code, count] of [...reasons.entries()].sort((a, b) => b[1] - a[1])) {
+    console.log(`      ${code.padEnd(36)} ${count}`);
+  }
+}
+console.log(
+  '  Read these two ways: authentication_required / *_authentication_* means an SCA mandate\n' +
+    '  problem, which IS fixable. transaction_not_allowed / do_not_honor / generic_decline on a\n' +
+    '  foreign card is cross-border risk scoring, which mostly is not.',
+);
+
 if (jsonPath) {
   fs.writeFileSync(jsonPath, JSON.stringify(rows, null, 2));
   console.log(`\nPer-subscription detail written to ${jsonPath}`);
