@@ -98,6 +98,7 @@ type DeclineRow = {
   failure_message: string | null;
   seller_message: string | null;
   category: string;
+  method_type: string | null;
   card_brand: string | null;
   card_last4: string | null;
   card_funding: string | null;
@@ -152,6 +153,7 @@ function toRecord(row: DeclineRow): DeclineRecord {
     failureMessage: row.failure_message,
     sellerMessage: row.seller_message,
     category: (CATEGORIES.has(row.category) ? row.category : 'unknown') as DeclineCategory,
+    methodType: row.method_type ?? null,
     cardBrand: row.card_brand,
     cardLast4: row.card_last4,
     cardFunding: row.card_funding,
@@ -199,6 +201,7 @@ export type RecordDeclineInput = {
   amountDue?: number | null;
   currency?: string | null;
   decline?: ChargeDecline | null;
+  methodType?: string | null;
   cardBrand?: string | null;
   cardLast4?: string | null;
   cardFunding?: string | null;
@@ -238,11 +241,11 @@ export function recordPaymentDecline(input: RecordDeclineInput): boolean {
          id, invoice_id, attempt_count, charge_id, user_id, email, customer_id,
          subscription_id, price_id, tier, cadence, kind, billing_reason,
          amount_due, currency, failure_code, decline_code, network_decline_code,
-         failure_message, seller_message, category, card_brand, card_last4,
+         failure_message, seller_message, category, method_type, card_brand, card_last4,
          card_funding, card_country, next_attempt_at, grace_until,
          collection_method, invoice_status, failed_at,
          outcome, source, recorded_at
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)
        ON CONFLICT(invoice_id, attempt_count) DO UPDATE SET
          charge_id = COALESCE(excluded.charge_id, payment_declines.charge_id),
          user_id = COALESCE(excluded.user_id, payment_declines.user_id),
@@ -260,6 +263,7 @@ export function recordPaymentDecline(input: RecordDeclineInput): boolean {
          network_decline_code = COALESCE(excluded.network_decline_code, payment_declines.network_decline_code),
          failure_message = COALESCE(excluded.failure_message, payment_declines.failure_message),
          seller_message = COALESCE(excluded.seller_message, payment_declines.seller_message),
+         method_type = COALESCE(excluded.method_type, payment_declines.method_type),
          card_brand = COALESCE(excluded.card_brand, payment_declines.card_brand),
          card_last4 = COALESCE(excluded.card_last4, payment_declines.card_last4),
          card_funding = COALESCE(excluded.card_funding, payment_declines.card_funding),
@@ -295,6 +299,7 @@ export function recordPaymentDecline(input: RecordDeclineInput): boolean {
       input.decline?.message ?? null,
       input.decline?.sellerMessage ?? null,
       category,
+      input.methodType ?? null,
       input.cardBrand ?? null,
       input.cardLast4 ?? null,
       input.cardFunding ?? null,
@@ -1281,6 +1286,7 @@ export function enrichDeclineWithReason(
     priceId?: string | null;
     cardBrand?: string | null;
     cardLast4?: string | null;
+    methodType?: string | null;
     cardFunding?: string | null;
     cardCountry?: string | null;
     nextAttemptAt?: string | null;
@@ -1310,6 +1316,7 @@ export function enrichDeclineWithReason(
                 price_id = COALESCE(?, price_id),
                 tier = COALESCE(?, tier),
                 cadence = COALESCE(?, cadence),
+                method_type = COALESCE(?, method_type),
                 card_brand = COALESCE(?, card_brand),
                 card_last4 = COALESCE(?, card_last4),
                 card_funding = COALESCE(?, card_funding),
@@ -1339,6 +1346,7 @@ export function enrichDeclineWithReason(
         extras.priceId ?? null,
         sku?.tier ?? null,
         sku?.cadence ?? null,
+        extras.methodType ?? null,
         extras.cardBrand ?? null,
         extras.cardLast4 ?? null,
         extras.cardFunding ?? null,

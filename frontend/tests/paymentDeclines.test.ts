@@ -51,6 +51,7 @@ function decline(overrides: Partial<DeclineRecord> = {}): DeclineRecord {
     failureMessage: 'Your card has insufficient funds.',
     sellerMessage: 'The bank returned the decline code insufficient_funds.',
     category: 'insufficient_funds',
+    methodType: 'card',
     cardBrand: 'visa',
     cardLast4: '4242',
     cardFunding: 'credit',
@@ -673,4 +674,38 @@ test('retry state is read from Stripe, never from the invoice being unpaid', () 
     deriveRetryState({ ...base, declineCode: 'previously_declined_do_not_retry', collectionMethod: null, invoiceStatus: null, nextAttemptAt: null }),
     'hard_decline',
   );
+});
+
+test('the instrument cuts separate what a member paid WITH', () => {
+  // These are the dimensions a live audit found actually discriminate: debit at
+  // more than twice credit's decline rate, card entry at nearly twice Link's.
+  // They were being captured for the card and thrown away for everything else.
+  const report = buildDeclineReport({
+    declines: [
+      decline({ invoiceId: 'in_d1', methodType: 'card', cardFunding: 'debit', cardCountry: 'US', amountDue: 2900, outcome: 'lost', resolvedAt: ago(1), lostReason: 'canceled' }),
+      decline({ invoiceId: 'in_d2', methodType: 'card', cardFunding: 'debit', cardCountry: 'FR', amountDue: 2900, outcome: 'lost', resolvedAt: ago(1), lostReason: 'canceled' }),
+      decline({ invoiceId: 'in_c1', methodType: 'card', cardFunding: 'credit', cardCountry: 'US', amountDue: 2900 }),
+      // A wallet has no card object at all — its type must still be recorded.
+      decline({ invoiceId: 'in_l1', methodType: 'link', cardBrand: null, cardFunding: null, cardCountry: null, amountDue: 2900 }),
+    ],
+    paid: [],
+    windowDays: 30,
+    nowMs: NOW_MS,
+  });
+
+  const byType = Object.fromEntries(report.byMethodType.map((row) => [row.key, row.invoices]));
+  assert.deepEqual(byType, { card: 3, link: 1 });
+
+  const byFunding = Object.fromEntries(report.byFunding.map((row) => [row.key, row.invoices]));
+  // The wallet lands in "not recorded" rather than being silently dropped or
+  // counted as a card with no funding.
+  assert.deepEqual(byFunding, { debit: 2, credit: 1, unknown: 1 });
+
+  const fr = report.byCountry.find((row) => row.key === 'FR');
+  assert.equal(fr?.invoices, 1);
+  assert.equal(fr?.lostAmount, 2900);
+  // Every cut partitions the same invoices.
+  for (const cut of [report.byMethodType, report.byFunding, report.byCountry]) {
+    assert.equal(cut.reduce((sum, row) => sum + row.invoices, 0), report.totals.invoices);
+  }
 });

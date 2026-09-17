@@ -230,6 +230,7 @@ for (const row of pending) {
       currency: invoice.currency ?? null,
       billingReason: invoice.billing_reason ?? null,
       priceId: readInvoicePriceId(invoice),
+      methodType: lookup.card?.type ?? null,
       cardBrand: lookup.card?.brand ?? null,
       cardLast4: lookup.card?.last4 ?? null,
       cardFunding: lookup.card?.funding ?? null,

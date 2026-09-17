@@ -24,9 +24,21 @@ import {
 } from './stripeInvoice.ts';
 
 export type DeclineCard = {
+  /**
+   * WHAT the payment method is — card, link, cashapp, … On a live product this
+   * separated a 59% decline rate from a 30% one, which no other dimension on the
+   * charge came close to. A wallet is not a card and does not fail like one, so
+   * reading only `card` details throws away the better predictor and reports
+   * every wallet as "brand unknown".
+   */
+  type: string | null;
   brand: string | null;
   last4: string | null;
-  /** credit | debit | prepaid | unknown — prepaid cards decline differently. */
+  /**
+   * credit | debit | prepaid. Debit and prepaid decline far more often than
+   * credit, because the money has to actually BE there at the moment of an
+   * off-session charge — which is the whole insufficient-funds story.
+   */
   funding: string | null;
   /** Issuing country. A cross-border charge is the classic issuer block. */
   country: string | null;
@@ -58,13 +70,18 @@ const EMPTY: InvoiceDeclineLookup = {
 };
 
 function cardOf(charge: Stripe.Charge | null | undefined): DeclineCard | null {
-  const card = charge?.payment_method_details?.card;
-  if (!card) return null;
+  const details = charge?.payment_method_details;
+  if (!details) return null;
+  // Read the TYPE even when there is no card object behind it. A Link or wallet
+  // charge has no `card`, and returning null for it loses the one field that
+  // most distinguishes how it fails.
+  const card = details.card;
   return {
-    brand: card.brand ?? null,
-    last4: card.last4 ?? null,
-    funding: card.funding ?? null,
-    country: card.country ?? null,
+    type: details.type ?? null,
+    brand: card?.brand ?? null,
+    last4: card?.last4 ?? null,
+    funding: card?.funding ?? null,
+    country: card?.country ?? null,
   };
 }
 

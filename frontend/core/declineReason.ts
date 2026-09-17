@@ -208,6 +208,12 @@ const BY_DECLINE_CODE: Record<string, DeclineCategory> = {
   // Stripe Radar, not a bank. See 'blocked_by_risk'.
   highest_risk_level: 'blocked_by_risk',
   elevated_risk_level: 'blocked_by_risk',
+  // `requested_block_*` is a Radar RULE firing — our own rule, on a postcode or
+  // CVC mismatch. The bank never refused these; we did. They look like a card
+  // problem and are not one: the member cannot fix a rule they cannot see.
+  requested_block_on_incorrect_zip: 'blocked_by_risk',
+  requested_block_on_incorrect_cvc: 'blocked_by_risk',
+  requested_block: 'blocked_by_risk',
 
   processing_error: 'try_again',
   // A dropped wallet connection is transient by definition.
