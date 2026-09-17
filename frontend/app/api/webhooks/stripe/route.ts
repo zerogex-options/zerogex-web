@@ -281,6 +281,11 @@ async function recordInvoiceDecline(input: {
           ? new Date(invoice.next_payment_attempt * 1000).toISOString()
           : null,
       graceUntil: input.graceUntilIso,
+      // Where the invoice actually stands, straight from Stripe. Without these
+      // an unpaid invoice can only be reported as "still open", which reads as
+      // "Stripe is still trying" whether or not it is.
+      collectionMethod: invoice.collection_method ?? null,
+      invoiceStatus: invoice.status ?? null,
       trialConversion: input.trialConversion,
       source: 'webhook',
     });

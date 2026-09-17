@@ -1,4 +1,4 @@
-.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime founding-demote founding-cohort-revoke-backfill unit-failure-alert activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription reactivate-member honor-winback-discount recover-orphan-payment scan-orphan-payments clear-zombie-customers backfill-daily-metrics backfill-payment-declines sync-search-console webhook-health cancellation-alerts trial-reminders trial-engagement renewal-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback return-intent reactivation backfill-reactivation-entitlement checkout-recovery founding-final-call public-cohort cancellations churn-breakdown backfill-refund-audit enable-portal-cancel-reasons save-url reset-save-latch gex-rank-backtest diagnose-user subscriber-headcount verify-bucket-migration reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partner-grant-revoke-backfill partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm email-audit clean deploy logo og-check verify-gate blog-images ninjatrader-package
+.PHONY: integration-assets help install dev build rebuild start stop restart logs status users x-handles referrals attribute-referral send-403-notice migrate migrate-tiers all-to-pro delete-user seed-founders grant-founding grant-founding-on-existing-sub apply-founding-lifetime founding-demote founding-cohort-revoke-backfill unit-failure-alert activate-late-founder extend-trial quarterly-receipt foh-donation-reminder signup-alarm set-cancellation cancel-subscription reactivate-member honor-winback-discount recover-orphan-payment scan-orphan-payments clear-zombie-customers backfill-daily-metrics backfill-payment-declines audit-trial-conversions sync-search-console webhook-health cancellation-alerts trial-reminders trial-engagement renewal-engagement trial-value-nudge payment-failed-preview verified-never-paid verify-reminders winback return-intent reactivation backfill-reactivation-entitlement checkout-recovery founding-final-call public-cohort cancellations churn-breakdown backfill-refund-audit enable-portal-cancel-reasons save-url reset-save-latch gex-rank-backtest diagnose-user subscriber-headcount verify-bucket-migration reset-user-for-testing dedupe-payment-methods grant-partner-pro revoke-partner partner-grant-expiry partner-grant-revoke-backfill partners partner-commissions backup-monitoring backup-auth auth-backups-prune janitor janitor-noconfirm email-audit clean deploy logo og-check verify-gate blog-images ninjatrader-package
 help:
 	@echo "ZeroGEX Web - Available Commands:"
 	@echo ""
@@ -23,6 +23,7 @@ help:
 	@echo "  make audit-customers   - Trace a sample of real customers through the growth dashboard's classification (read-only). EMAIL=<addr> for one customer, EVENTS=0 for a summary"
 	@echo "  make backfill-stripe-invoices - Import real Stripe invoice history into stripe_invoice_history so the renewal metrics on Admin->Monitoring->Growth can see renewals that predate the invoice audit trail. Read-only against Stripe. SINCE=<YYYY-MM-DD> / LIMIT=<n> / DRY_RUN=1"
 	@echo "  make backfill-payment-declines - Rebuild the decline history behind Admin->Monitoring->Stripe->Payment Declines: reconstruct every past failed charge from the audit log, settle each against the invoice ledger, then re-read Stripe for the issuer's actual decline code. Read-only against Stripe. SKIP_STRIPE=1 for pass 1 only, LIMIT=<n>, RECHECK=1 to re-read invoices an earlier run already fetched, DRY_RUN=1"
+	@echo "  make audit-trial-conversions - READ-ONLY forensic audit of why trial conversions fail: payment-method type, SetupIntent completion, attempts actually made, first decline reason off the FAILED charge, and whether each unpaid invoice still has a retry scheduled. Writes nothing anywhere. DAYS=<n>, LIMIT=<n>, JSON=<path>"
 	@echo "  make sync-search-console - Pull daily clicks+impressions from Google Search Console into the daily metrics rollup (runs on a timer; see deploy/steps/099.search-console). DAYS=<n> for the window (default 14, use 480 for a full ~16-month backfill), END=<YYYY-MM-DD> to end elsewhere, DRY_RUN=1 to fetch and print without writing"
 	@echo "  make all-to-pro - Promote every non-admin user to pro (DRY_RUN=1 to preview)"
 	@echo "  make delete-user EMAIL=<email> - Delete a user (DRY_RUN=1 to preview, YES=1 to skip prompt)"
@@ -287,6 +288,25 @@ backfill-stripe-invoices:
 #   DRY_RUN=1            report what pass 2 would stamp, write nothing
 backfill-payment-declines:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/backfill-payment-declines.mts'
+
+# READ-ONLY forensic audit of the trial-to-paid step, for investigating WHY
+# conversions decline rather than counting that they did.
+#
+# Answers what the local decline table cannot, because it lives in Stripe: which
+# payment method was actually set up and whether its SetupIntent completed, how
+# many attempts each invoice really received, the first decline reason read off
+# the FAILED charge (still visible on invoices that were later paid), and for
+# every still-unpaid invoice whether Stripe has another attempt queued or has
+# stopped.
+#
+# WRITES NOTHING, anywhere. Every Stripe call is a list or a retrieve; the local
+# database is not touched. Safe to run on production as often as you like.
+#
+#   DAYS=<n>             window back from now (default 90)
+#   LIMIT=<n>            cap subscriptions examined (default 400)
+#   JSON=<path>          also dump the per-subscription detail
+audit-trial-conversions:
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/audit-trial-conversions.mts'
 
 # Print, for a sample of real customers, every event the growth dashboard reads
 # and every conclusion it draws — so a human can check the classification against

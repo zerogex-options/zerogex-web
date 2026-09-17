@@ -206,6 +206,31 @@ short on Monday and blocked by the issuer on Thursday is stuck on the block;
 telling the member to wait for payday would be the wrong advice. Attempt-level
 counts sit beside it, which is why attempts exceed invoices.
 
+## Retry state — where an unpaid invoice actually stands
+
+"Nobody has paid this" and "Stripe is going to try again" are different claims,
+and only the second is a reason to wait. Reporting every open decline as in
+flight quietly converts revenue that needs a human into revenue that looks
+handled, so the state is read from the invoice's own fields and never inferred
+from the invoice merely being unpaid:
+
+    retry_scheduled          Stripe has a next attempt queued, in the future.
+                             The only state where doing nothing is a plan.
+    authentication_required  3DS was not completed. No retry clears it.
+    payment_method_required  the card itself is unusable. Needs a new one.
+    hard_decline             the network said do not retry.
+    recovery_exhausted       no attempt queued, or the invoice is void or
+                             written off. Stripe has stopped.
+    manual_collection        collection_method is `send_invoice`, so Stripe will
+                             never charge it at all.
+    unknown                  we do not hold the invoice state needed to say —
+                             notably every row reconstructed from the audit log
+                             whose invoice has not been re-read.
+
+`unknown` is a real answer, not a placeholder. Rows written before this was
+captured say so rather than claiming a retry that may not exist;
+`make backfill-payment-declines RECHECK=1` resolves them.
+
 ## Recovery route
 
 Whether Stripe's own retry collected the money or the member had to act. Only the
@@ -226,6 +251,21 @@ is what an "at risk" balance is worth waiting for. Reported as a median, a 90th
 percentile and five buckets.
 
 ## Where the data comes from
+
+### Reading a reason off an invoice that was later PAID
+
+A recovered invoice's latest charge is the one that **succeeded**, and a
+successful charge carries no decline data at all. Reading only it reports every
+recovered invoice as having failed for no reason — which silently breaks
+recovery-by-reason, the most actionable cut on the page, because the recovered
+invoices all pile into "no usable decline code" and every real reason's recovery
+rate reads near zero.
+
+So when the cheap reads come back empty, the lookup walks every payment intent
+the invoice attempted through and collects the charges that FAILED, oldest first.
+The first failure is the reason the invoice entered dunning, and it is what the
+invoice is reported against; where several are recovered, each attempt is lined
+up with its own rather than one reason being stamped across every retry.
 
 **Declines** are captured by the Stripe webhook the moment a charge fails
 (`app/api/webhooks/stripe/route.ts` → `recordPaymentDecline`). This is not
