@@ -1,24 +1,51 @@
-# Hedging Flow history — what exists, and what a dated permalink needs
+# Hedging Flow history — the dated permalinks
 
 *Companion to `docs/flow-series-endpoint.md`. That document specified the
-endpoint that made the Flow Analysis page a dumb renderer; this one specifies
-what would make the Hedging Flow page replayable.*
+endpoint that made the Flow Analysis page a dumb renderer; this one records
+what made the Hedging Flow page replayable.*
+
+> **Status: implemented.** This began as a spec and is kept as the design
+> record. Sections 1–3 describe the problem as it stood; §4 is what shipped,
+> and where the built thing differs from what was first proposed, §4 says so
+> and why. §6 is the deploy order, which still has one step an operator must
+> run by hand and should run SOON.
 
 ---
 
 ## 0. The short answer
 
-**No — Hedging Flow is not stored historically today, and it cannot be read for
-a past day through any endpoint the web app calls.** It is a live-session
-surface and nothing else: `/hedging-flow` mounts, polls the current session
-every 15 seconds, and has no notion of a date at all.
+**Hedging Flow was not stored historically, and could not be read for a past
+day through any endpoint the web app called.** It was a live-session surface
+and nothing else: `/hedging-flow` mounted, polled the current session every 15
+seconds, and had no notion of a date.
 
-**Yes — it can be handled the way Replay and the Scorecard are**, and the
-backend already contains the two pieces that make that cheap: a materialised
-5-minute snapshot table (`flow_series_5min`) and a retention exemption for
-exactly this shape of table. The work is a session-list endpoint, a `date`
-parameter, and a dated route on the front end. None of it requires a new data
-source.
+It is now handled the way Replay and the Scorecard are — a session list, dated
+permalinks, ISR, an OG card — and the reason it can be is **retention**, not
+performance. The page's own pipeline reads `flow_contract_facts`, which
+`make db-prune` deletes at `DATA_RETENTION_DAYS` (90). Recomputing a past
+session from it answers for a quarter and then returns an empty series that a
+reader cannot tell from a quiet day. The finished bars are now written once per
+analytics cycle into a retention-exempt table and kept.
+
+Three things turned out to be already done, which is why the change is smaller
+than the original spec assumed:
+
+* **`gamma_regime_5min` already existed** and was already retention-exempt. The
+  structure panel needed only a `date` parameter threaded to it — no table, no
+  writer.
+* **`/api/gex/weather` stores nothing at all** and derives its classification on
+  read. The spec proposed a `gamma_weather_5min` table; building it would have
+  been actively wrong, because deriving on read is what lets a retuned
+  threshold reclassify the whole archive instead of leaving old sessions
+  labelled by a rule that is no longer live. No table was built.
+* **`src/hedging_flow_sql.py` already rendered a psycopg2 form of its canonical
+  CTE** for "a future snapshot writer", with the window-invariance argument
+  spelled out. The writer uses that text rather than a second copy.
+
+All three endpoints also already accepted `session=current|prior`, so exactly
+one session of history was reachable before this — which is not enough to
+build a permalink on, but is why the shape of the `date` parameter fits
+naturally beside it.
 
 ---
 
@@ -82,9 +109,10 @@ computation over that day's trades — works for about a quarter and then
 quietly stops.
 
 `make db-prune` deletes rows older than `DATA_RETENTION_DAYS` (90) from
-`DB_MAINTAIN_TABLES`, and `flow_by_contract` and `flow_contract_facts` are both
-on that list. Those are the per-contract tables a from-scratch hedging-flow
-computation reads. So a recompute endpoint would answer for the last 90 days
+`DB_MAINTAIN_TABLES`, and `flow_contract_facts` is on that list. That is the
+table a from-scratch hedging-flow computation reads — and it has to be that
+one, not `flow_by_contract`, because `flow_by_contract` does not carry `delta`
+at all (the column was dropped) so the notional cannot be formed there. So a recompute endpoint would answer for the last 90 days
 and return an empty session for day 91 — the worst failure mode available,
 because it looks exactly like a quiet day.
 
@@ -97,152 +125,207 @@ The backend has already made this decision twice, in the same direction:
   them "capped every screen at a rolling ~90 days", and "both tables are tiny
   (~1 row/min/symbol ≈ a few hundred K rows a year)".
 
-A 5-minute hedging-flow bar series is **smaller than either** — 78 bars per
-symbol per session, roughly 20k rows per symbol per year. Storing it forever
+A 5-minute hedging-flow bar series is **smaller than either** — 82 bars per
+symbol per session per scope, roughly 40k rows per symbol per year. Storing it forever
 costs approximately nothing.
 
 ---
 
-## 4. The proposal
+## 4. What shipped
 
-### 4.1 Persist what is already computed
+### 4.1 One new table, not three
 
-`flow_series_5min` is the precedent to copy, not merely an analogy: it is a
-snapshot table the Analytics Engine materialises once per cycle off the
-per-contract facts, and `/api/flow/series` reads it instead of re-aggregating.
-It is not in `DB_MAINTAIN_TABLES`.
+`flow_series_5min` was the precedent to copy: a snapshot the Analytics Engine
+materialises once per cycle off the per-contract facts, absent from
+`DB_MAINTAIN_TABLES`, read instead of re-aggregated.
 
-Do the same for the three series behind this page — one table each, or one
-table with a `series` discriminator:
+The original spec proposed three tables. Two of them were wrong:
 
-```
-hedging_flow_5min   (symbol, session_date, bar_start, expiration_scope,
-                     call_flow_usd, put_flow_usd, net_flow_usd, net_flow_ma_usd,
-                     cum_call_usd, cum_put_usd, cum_net_usd,
-                     underlying_price, contract_count, classified_ratio,
-                     is_synthetic)
-gamma_regime_5min   (symbol, session_date, bar_start, spot,
-                     anchored_lean, anchored_stability, anchored_net_shift,
-                     anchored_gross_shift, rolling_lean, rolling_stability,
-                     rolling_net_shift, rolling_gross_shift,
-                     sigma_price, near_spot_stock, strike_count, rolling_bars)
-gamma_weather_5min  (symbol, session_date, bar_start, state, pressure,
-                     structure, gamma_trend, lean_side, cushion, persistence,
-                     components JSONB)
-```
+* `gamma_regime_5min` **already exists** and is already retention-exempt, so
+  the structure series was historical the whole time — nobody had asked it for
+  a date.
+* `gamma_weather_5min` **should not exist**. `/api/gex/weather` stores nothing
+  and classifies on read, which is a deliberate property: retuning a threshold
+  reclassifies the archive rather than leaving old sessions labelled by a rule
+  that is no longer live. Freezing a verdict into a row would throw that away.
+  A dated weather read is the same derivation applied to that day's two series.
 
-`expiration_scope` is the one column that is not just a copy of the wire
-format. The 0DTE toggle has to keep working on a past session, and re-deriving
-it from raw trades is the thing this design is avoiding — so write two rows per
-bar, `'all'` and `'0dte'`, and let the toggle pick a scope rather than compute
-one. On a session that was not an expiry, the `'0dte'` rows are simply absent,
-which is the same honest "no 0DTE today" the live page reports.
+So one table:
 
-Do NOT add these tables to `DB_MAINTAIN_TABLES`. Add them to
-`DB_VACUUM_EXTRA_TABLES` if they need vacuuming.
-
-### 4.2 Endpoints
-
-**`GET /api/flow/hedging/sessions`**
-
-| Name | Type | Required | Default | Notes |
-| --- | --- | --- | --- | --- |
-| `symbol` | string | yes | | `^[A-Z.]{1,10}$`, uppercased server-side |
-| `limit` | integer | no | 60 | 1–250 |
-
-```json
-{
-  "symbol": "SPY",
-  "count": 2,
-  "sessions": [
-    { "date": "2026-09-16", "bar_count": 78, "had_0dte": true,
-      "cum_net_usd": -412300000.0, "last_flip": "to_selling" },
-    { "date": "2026-09-15", "bar_count": 78, "had_0dte": false,
-      "cum_net_usd": 118400000.0, "last_flip": null }
-  ]
-}
+```sql
+hedging_flow_5min (
+    symbol, scope, bar_start,            -- PK (symbol, scope, bar_start)
+    call_flow_usd, put_flow_usd, net_flow_usd,
+    cum_call_usd,  cum_put_usd,  cum_net_usd,
+    classified_ratio, underlying_price, contract_count, is_synthetic,
+    created_at, updated_at
+)
 ```
 
-Newest first. `bar_count` drives the Full / Partial / Thin chip the replay
-landing page already renders; `cum_net_usd` and `last_flip` let the card say
-something about the day rather than just naming it.
+`scope` is `'all'` or `'0dte'`, and it is a column rather than a filter for the
+reason §3 gives. The live CTE takes arbitrary strike/expiration arrays and a
+snapshot cannot pre-compute an arbitrary filter — which is exactly why
+`flow_series_5min` supersedes only the *unfiltered* read. But this page offers
+one filter, a 0DTE toggle resolving to the session's own date, so that closed
+set of two is materialised and the toggle picks a scope. A session that was not
+an expiry simply has no `0dte` rows, which is the same honest answer the live
+page gives rather than a fabricated flat line. Any other filter still falls
+through to the CTE and still inherits the 90-day horizon.
 
-**`GET /api/flow/hedging`** — add one parameter, change nothing else.
+**The table is deliberately absent from `DB_MAINTAIN_TABLES`** and present in
+`DB_VACUUM_EXTRA_TABLES` instead — vacuumed, never pruned. Adding it to the
+prune list would delete precisely the history that exists *because* the source
+is pruned. Both the schema comment and the Makefile say so at the point where
+someone would be tempted.
 
-| Name | Type | Required | Default | Notes |
-| --- | --- | --- | --- | --- |
-| `date` | date | no | current session | `YYYY-MM-DD`. Absent = today, exactly as now. |
+### 4.2 The writer
 
-Same response envelope, with `session` already naming the day. A `date` in the
-future, or one with no rows, returns `200` with `bars: []` — never `404`, for
-the crawl reason in §2. A malformed `date` is `400`.
+`AnalyticsEngine._refresh_hedging_flow_snapshot` runs beside the two existing
+snapshot writers, once per flow cycle, both scopes. It executes
+`HEDGING_FLOW_SNAPSHOT_UPSERT_PSYCOPG2` — the canonical CTE rendered for
+psycopg2 from the same template the live read uses, which
+`src/hedging_flow_sql.py` had already prepared "so that writer inherits this
+text instead of transcribing it".
 
-`expirations` keeps its current meaning. The frontend sends the session's own
-date for the 0DTE view rather than today's, which is the fix noted in §1.
+No incremental form, unlike the flow series. That one exists because its CTE
+walks `flow_by_contract` with LAG-and-recumulate over the whole session
+(~30s/cycle measured); this pipeline reads `flow_contract_facts`, whose values
+are already per-bucket deltas, so the full-session form *is* the cheap one. It
+converges rather than churns because closed bars are window-invariant and the
+`IS DISTINCT FROM` guard turns a recomputed closed bar into a read with no
+write — verified: a second pass over a written session writes **zero** rows.
 
-**`GET /api/gex/regime-series`** and **`GET /api/gex/weather`** take the same
-`date` parameter, with the same defaults and the same empty-not-404 rule.
-Without them the structure panel and the weather strip go blank on a historical
-day and the page is half a page.
+Both flow writers now share `_flow_session_window`, so the two series cannot
+drift onto grids a bar apart.
 
-### 4.3 Front end
+### 4.3 Endpoints
+
+| Endpoint | Change |
+| --- | --- |
+| `GET /api/flow/hedging` | new optional `date=YYYY-MM-DD`, overrides `session` |
+| `GET /api/gex/regime-series` | same |
+| `GET /api/gex/weather` | same, passed through to both series it reads |
+| `GET /api/flow/hedging/sessions` | **new** — the stored days, newest first |
+
+A `date` resolves the window arithmetically and **does not probe
+`flow_by_contract`** to decide whether the session existed. That probe is what
+the other session modes use, and against a pruned table it would report "no
+such session" for every day old enough to need a permalink. A well-formed date
+with nothing stored returns `200` with `bars: []`; a malformed one is `400`,
+never a silent fall back to the live session, which would serve today's chart
+under someone else's permalink.
+
+`session` in the response echoes the date when one was asked for, so a dated
+payload is self-describing.
+
+The sessions listing reads `hedging_flow_5min` and nothing else — listing from
+the live tables would advertise exactly the 90 days the prune window keeps and
+hide every older session that is still perfectly readable. Each entry carries
+`bar_count`, `real_bar_count` (carry-forward bars excluded, so "thin" is
+distinguishable from "short"), `had_0dte`, and the session's closing
+`cum_net_usd`, which is what lets a card say something about the day rather
+than only name it.
+
+### 4.4 Front end
 
 ```
-app/hedging-flow/page.tsx                    unchanged — live session
-app/hedging-flow/sessions/page.tsx           session list (mirror app/replay/page.tsx)
-app/hedging-flow/[symbol]/[date]/page.tsx    dated permalink, ISR 3600
+app/hedging-flow/page.tsx                       live: owns the polling
+app/hedging-flow/HedgingFlowPanels.tsx          the rendering, owns no data
+app/hedging-flow/sessions/page.tsx              the index, ISR 3600
+app/hedging-flow/[symbol]/[date]/page.tsx       the permalink, ISR 3600
+app/hedging-flow/[symbol]/[date]/DatedHedgingFlow.tsx
 app/hedging-flow/[symbol]/[date]/opengraph-image.tsx
+core/hedgingFlowSeries.ts                       shared wire-shape normalisation
 ```
 
-- Thread an optional `date` through `useHedgingFlow`, `useGammaRegimeSeries`
-  and `useGammaWeather`. When it is set, **stop polling** — `refreshInterval`
-  must be 0 for a closed session, or the page re-fetches immutable rows forever.
-- Lift the page body into a shared component that takes `{ symbol, date? }`, so
-  the live route and the dated route cannot drift into two different pages.
-- Use `serverApiGetResult`, and distinguish "no data" from "no answer"
-  (`tests/datedPermalinks.test.ts` will check this).
-- Add `/hedging-flow/sessions` to `DAILY_TOOL_PATHS` and to the additional-paths
-  list in `next-sitemap.config.mjs`, next to `/replay` and `/scorecard`.
-- Add a "Past sessions" link to the live page's header actions.
+Both routes render the same `HedgingFlowPanels`. A historical session that
+drifted from the live one would be a receipt for a chart nobody can reproduce,
+and the drift would be invisible until someone compared them side by side.
+`core/hedgingFlowSeries.ts` exists for the same reason one layer down: the
+hooks and the server fetch reshape the wire order through one function.
 
-### 4.4 Backfill
+**The dated page fetches entirely on the server** and the client component
+fetches nothing. This is what makes the permalink public: browser calls to
+`/api/flow/*` are Basic-gated at the BFF, so a client fetch would serve an
+anonymous visitor — or a crawler — a header and an error. It is also free: a
+finished session is immutable, so the hooks switch their poll off when `date`
+is set, and the dated route does not use them at all. Both 0DTE scopes arrive
+with the page and the toggle switches locally.
 
-`flow_by_contract` still holds 90 days at the moment of the first deploy, so
-the new tables can be seeded with 90 days of history on day one rather than
-starting empty. `src/tools/market_tide_backfill.py` and
-`src/tools/forced_flow_backfill.py` are the two existing precedents for exactly
-this move — a live-only series given a past by replaying the retained
-per-contract tables through the same code path that writes it live. Run it
-once, before the prune window eats another week.
+`/hedging-flow/sessions` is in the sitemap; `/hedging-flow` was **removed** from
+it. The live tool is gated, so Googlebot following it lands on a 307 to
+`/login` — "Page with redirect" in Search Console, which is exactly what the
+exclude block above it already says. Ten other gated routes have the same
+omission and were left alone; see the note in `next-sitemap.config.mjs`.
+
+### 4.5 A bug found on the way
+
+Every dated OG image on the site destructured `params` synchronously. It is a
+Promise in this Next version, so `params.date` was `undefined`: the previews
+rendered with no date and skipped their payload fetch entirely. A shared
+scorecard card read "SPY ·" and then nothing. Fixed in all five
+(`hedging-flow`, `scorecard`, `forecast`, `replay/snapshot`, `cards`) and
+pinned by `tests/hedgingFlowHistory.test.ts`.
 
 ---
 
 ## 5. What this is not
 
-This does not make Hedging Flow *scrubbable* the way `/replay` is. Replay has
-per-minute frames of a whole surface and a playhead; this is 78 bars of three
-series, and the useful historical view is the finished session as one picture —
-the same page, for a past day. A scrubber can come later from the same tables.
-
-It also does not change the estimate's standing. `basis` stays
+It does not change the estimate's standing. `basis` stays
 `aggressor_inferred` and `disclosure` still has to render on a historical
 session: a day-old estimate is not an observation, and storing it does not
 promote it.
 
 ---
 
-## 6. Status
+## 6. Deploying it
 
-| Piece | Where | State |
+In this order. Step 2 is the one with a clock on it.
+
+| # | Step | Where |
 | --- | --- | --- |
-| Live page | `frontend/app/hedging-flow/page.tsx` | shipped |
-| Snapshot tables | Analytics Engine | **not started** |
-| `date` on the three endpoints | Analytics Engine | **not started** |
-| Session-list endpoint | Analytics Engine | **not started** |
-| Dated routes + OG image | `frontend/app/hedging-flow/` | **not started** |
-| 90-day backfill | Analytics Engine | **not started** |
+| 1 | `make schema-apply` — creates `hedging_flow_5min` | zerogex-oa |
+| 2 | **`make hedging-flow-backfill`** — seeds history from retained facts | zerogex-oa |
+| 3 | Deploy the engine + API | zerogex-oa |
+| 4 | Deploy the web app | zerogex-web |
 
-Backend references in this document were read from `zerogex-options/zerogex-oa`
-at `main` (2026-08-26), which predates the Hedging Flow endpoint itself —
-confirm the table names and the prune list against the deployed engine before
-implementing.
+**Step 2 is a one-way door with a clock on it.** The engine writes only the
+current session each cycle, so on the day this ships the table holds one day.
+Everything before that exists solely in `flow_contract_facts`, and once a day
+falls out of the 90-day prune window it is gone — the snapshot is the only
+thing that would have outlived it. Run the backfill and ~90 days of history
+exists permanently; don't, and it ages out a day at a time while nobody
+notices. It is idempotent, commits per session, and takes `DRY_RUN=1` and
+`DAYS=<n>`.
+
+Verification, against a scratch database with the schema applied:
+
+```
+make hedging-flow-parity HEDGING_FLOW_PARITY_DSN=postgres://...
+```
+
+That seeds its own synthetic sessions under a sentinel symbol and asserts the
+three properties the feature rests on: a stored bar equals what the live CTE
+computes for the same window, re-running the writer over a closed session
+writes zero rows, and a non-expiry session materialises no `0dte` scope.
+
+### Tests
+
+| Suite | Covers |
+| --- | --- |
+| `tests/test_hedging_flow_history.py` | routing, the `date` parameter, the sessions endpoint contract |
+| `tests/test_hedging_flow_snapshot_sql.py` | the SQL, against a real Postgres (`integration`-marked) |
+| `npm run test:hedging-flow-history` | normalisation, no-poll-when-dated, no client fetch, the OG params fix |
+| `npm run test:dated-permalinks` | the 404-on-outage rule, now covering this page too |
+
+### Still open
+
+* Ten other Basic/Pro routes are missing from the sitemap's exclude list
+  (`/my-dashboard`, `/gex-heatmap`, `/gamma-shift`, `/pair-comparison`,
+  `/gex-strike-profile`, `/forced-flow`, `/market-tide`, `/volatility`,
+  `/spread-monitor`, `/premium-heatmap`). Same omission as `/hedging-flow` had;
+  left alone because changing what Google indexes for ten unrelated tools is
+  not this change's call.
+* No scrubber. Replay has per-minute frames of a whole surface and a playhead;
+  this is 82 bars of two series, and the useful historical view is the finished
+  session as one picture. A scrubber could come later from the same table.
