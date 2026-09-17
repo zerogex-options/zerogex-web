@@ -72,8 +72,11 @@ day of air on both sides and still lands a full day before their warning.
 - **No retry dates.** `next_payment_attempt` is not in the `diagnose-user`
   output, so no draft names one. If you want to say "Stripe tries again on X,"
   pull it from the invoice first.
-- **No guessed decline reasons.** The sanba, lmckaiden and hollandsp invoices
-  carry no usable code, so those drafts say what is true — the charge didn't go through, no
+- **No guessed decline reasons.** The judgment about what is usable is not mine:
+  `make diagnose-user` prints it from `core/declineReason.ts`, the same
+  classifier the new Payment Declines panel uses, so "no usable decline code"
+  means the same thing in both places. The sanba, lmckaiden and hollandsp
+  invoices carry none, so those drafts say what is true — the charge didn't go through, no
   reason given — and never invent insufficient funds. gsavinova's is an issuer
   block; the draft says the bank refused the charge and never repeats the
   fraud-flavored code back to them.
@@ -441,11 +444,15 @@ Founder, ZeroGEX
   hollandsp from the 10th (converting on the 17th). Four different decline
   codes — `invalid_account`, `transaction_not_allowed`, and two distinct
   no-detail failures — argue for coincidence rather than anything systemic, and
-  a two-day cohort is small. But four for four is worth ten minutes: count the
-  trial-conversion invoices created on the 16th and 17th and see how many are
-  `paid` rather than `open`. If some converted cleanly, this is a bad run of
-  cards. If none did, it is a different conversation, and these emails are the
-  wrong response to it.
+  a two-day cohort is small. But four for four is worth ten minutes, and there
+  is now a purpose-built place to spend them: **Admin → Monitoring → Stripe →
+  Payment Declines**, which landed on `release` today. It classifies
+  `trial_conversion` as its own kind and answers "do trial conversions recover
+  as well as renewals" directly, with money counted per invoice rather than per
+  retry (`docs/payment-decline-metrics.md`). Run `make backfill-payment-declines`
+  first if the history behind the panel is thin. If some conversions cleared this
+  week, this is a bad run of cards. If none did, it is a different conversation,
+  and these emails are the wrong response to it.
 - **Three of the five pay through Link, and all three failed** — two of them
   reporting `partner_insufficient_funds`. Tempting to read as a Link problem,
   and worth holding at arm's length: sanba's Link method has successfully
