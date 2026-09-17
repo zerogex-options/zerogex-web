@@ -19,6 +19,7 @@ import { capture } from '@/core/telemetry/posthog-client';
 import { TelemetryEvent } from '@/core/telemetry/events';
 import { notePresetApplied, reportPresetRetention } from '@/core/presetAdoption';
 import { usePersistedFlag } from '@/hooks/usePersistedFlag';
+import BoardSwitcher from './BoardSwitcher';
 import {
   LayoutGrid,
   Pencil,
@@ -212,6 +213,12 @@ export default function MyDashboardPage() {
     [t],
   );
 
+  const handleApplyBoard = useCallback((next: DashboardLayout) => {
+    setLayout(next);
+    setEditing(false);
+    setGalleryPane(null);
+  }, []);
+
   const applyPreset = useCallback(
     (preset: DashboardPreset) => {
       // A preset seeds the first half only; cloning it across is the member's
@@ -289,6 +296,9 @@ export default function MyDashboardPage() {
         onClone={() => handleClone('a')}
         onOpenGallery={() => setGalleryPane('a')}
         onReset={handleReset}
+        boardSwitcher={
+          <BoardSwitcher layout={layout} validWidgetIds={WIDGET_IDS} onApply={handleApplyBoard} />
+        }
       />
 
       {!hydrated ? (
@@ -401,6 +411,7 @@ function Header({
   onClone,
   onOpenGallery,
   onReset,
+  boardSwitcher,
 }: {
   editing: boolean;
   isEmpty: boolean;
@@ -414,6 +425,8 @@ function Header({
   onClone: () => void;
   onOpenGallery: () => void;
   onReset: () => void;
+  /** Named-board menu, passed in so the toolbar stays presentational. */
+  boardSwitcher?: ReactNode;
 }) {
   const t = usePageT(dict);
   const [collapsed, toggleCollapsed] = usePersistedFlag(CONTROLS_COLLAPSED_KEY);
@@ -462,6 +475,7 @@ function Header({
       <div className="flex flex-wrap items-center gap-2">
         {collapseToggle}
         <SymbolToggle />
+        {boardSwitcher}
         {!isEmpty && (
           <>
             {!split && (

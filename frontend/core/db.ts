@@ -76,6 +76,32 @@ function initDb(): DatabaseSync {
     );
   `);
 
+  // Named boards a member has saved on My Dashboard. One row per saved board;
+  // the live working board still lives in localStorage and is untouched by
+  // this. `layout_json` holds the same serialized DashboardLayout that
+  // sanitizeLayout() already validates on read, so a row written by an older
+  // release — or, later, by another member — is checked against the current
+  // widget registry before anything is rendered.
+  //
+  // Shaped with sharing in mind: a published board is this row plus a
+  // visibility flag and an author, so that becomes an added column rather than
+  // a second table.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS dashboard_layouts (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      layout_json TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      -- Two boards with the same name under one account are indistinguishable
+      -- in the switcher, so the database refuses them rather than the UI.
+      UNIQUE(user_id, name),
+      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+  `);
+  db.exec('CREATE INDEX IF NOT EXISTS idx_dashboard_layouts_user_id ON dashboard_layouts(user_id);');
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS password_reset_tokens (
       id TEXT PRIMARY KEY,
