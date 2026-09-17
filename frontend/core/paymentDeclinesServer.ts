@@ -1156,8 +1156,22 @@ export function reclassifyUnknownKinds(): { examined: number; reclassified: numb
       first_failed_at: string;
     }>;
     const update = db.prepare(`UPDATE payment_declines SET kind = ? WHERE invoice_id = ? AND kind = 'unknown'`);
+    // An invoice whose OTHER attempts already carry a kind takes that one rather
+    // than deriving a second answer. Retries are one charge, and letting an
+    // invoice hold two kinds at once makes it count twice in any per-kind total
+    // — the exact double-count the invoice-level fold exists to prevent.
+    const settled = db.prepare(
+      `SELECT kind FROM payment_declines
+        WHERE invoice_id = ? AND kind != 'unknown' ORDER BY attempt_count ASC LIMIT 1`,
+    );
     for (const row of invoices) {
       result.examined += 1;
+      const known = settled.get(row.invoice_id) as { kind: string } | undefined;
+      if (known && KINDS.has(known.kind)) {
+        const changed = update.run(known.kind, row.invoice_id) as { changes: number | bigint };
+        if (Number(changed.changes) > 0) result.reclassified += 1;
+        continue;
+      }
       const history = row.subscription_id ? loadPaidInvoicesForSubscription(row.subscription_id) : [];
       const hadTrialOpener = history.some(
         (invoice) => invoice.amountPaid === 0 && invoice.billingReason?.toLowerCase() === 'subscription_create',

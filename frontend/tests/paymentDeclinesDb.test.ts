@@ -988,3 +988,28 @@ test('an invoice with no billing reason is re-read even after Stripe gave no dec
     !listDeclinesNeedingInvoiceRead(999, { includeAlreadyRead: true }).some((r) => r.invoiceId === 'in_facts'),
   );
 });
+
+test('an invoice never holds two kinds at once', () => {
+  // Retries are one charge. When one attempt was already classified — by the
+  // webhook, or by an earlier pass — the rest take THAT answer instead of
+  // deriving a second one, or the invoice counts once under each and every
+  // per-kind total is quietly inflated.
+  db.prepare(
+    `INSERT INTO payment_declines (id, invoice_id, attempt_count, subscription_id, kind,
+       billing_reason, amount_due, category, failed_at, outcome, source, recorded_at)
+     VALUES ('d_split1', 'in_split_kind', 1, 'sub_split_kind', 'renewal', 'subscription_cycle',
+             4900, 'issuer_block', ?, 'lost', 'webhook', ?)`,
+  ).run(ago(30), ago(0));
+  db.prepare(
+    `INSERT INTO payment_declines (id, invoice_id, attempt_count, subscription_id, kind,
+       billing_reason, amount_due, category, failed_at, outcome, source, recorded_at)
+     VALUES ('d_split2', 'in_split_kind', 2, 'sub_split_kind', 'unknown', 'subscription_cycle',
+             4900, 'issuer_block', ?, 'lost', 'stripe_backfill', ?)`,
+  ).run(ago(28), ago(0));
+
+  // History alone would call attempt 2 a trial conversion; the settled answer wins.
+  reclassifyUnknownKinds();
+  const kinds = new Set(declineRows('in_split_kind').map((row) => row.kind));
+  assert.equal(kinds.size, 1);
+  assert.equal([...kinds][0], 'renewal');
+});
