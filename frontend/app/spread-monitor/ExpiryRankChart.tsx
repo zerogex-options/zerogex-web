@@ -12,7 +12,7 @@ import {
   YAxis,
 } from 'recharts';
 
-import { formatPct, type SurfaceDteRank } from '@/core/spreadMonitor';
+import { EMPTY, formatPct, unrankedExpiry, type SurfaceDteRank } from '@/core/spreadMonitor';
 
 /**
  * Where the current reading ranks, expiry by expiry — 0 to 100.
@@ -23,10 +23,13 @@ import { formatPct, type SurfaceDteRank } from '@/core/spreadMonitor';
  * ranks, a 0DTE bar at 99 beside four bars at 45 is the finding — the book
  * is broadly normal and the front expiry is not.
  *
- * A bucket with too little stored history gets no bar. It gets the words
- * "Insufficient history" where the bar would be, because a bar at any height
- * is a claim, and the shortest bar on a percentile axis is the strong claim
- * that this expiry is unusually TIGHT.
+ * A bucket that cannot be ranked gets no bar. It gets words where the bar
+ * would be, because a bar at any height is a claim, and the shortest bar on a
+ * percentile axis is the strong claim that this expiry is unusually TIGHT.
+ *
+ * WHICH words matters. An empty bucket and an unbacked one are different
+ * facts — nothing expires 2-3 days out from a Thursday, which is the calendar
+ * rather than a data shortage — and `unrankedExpiry` names whichever applies.
  *
  * Colour is a threshold read, not a scale: the same 80 / 20 cut the rest of
  * the page uses. The site's bull/green and bear/red measure ΔE 7.8 under
@@ -71,6 +74,7 @@ function RankTooltip({
 }) {
   const row = active ? payload?.[0]?.payload : undefined;
   if (!row) return null;
+  const unranked = unrankedExpiry(row);
   return (
     <div
       className="rounded-lg border px-3 py-2 text-[11px]"
@@ -81,10 +85,9 @@ function RankTooltip({
       }}
     >
       <div className="mb-1 font-semibold">{row.label}</div>
-      {row.percentile == null ? (
-        <div style={{ color: 'var(--color-chart-tooltip-muted)' }}>
-          Only {row.sessions} comparable session{row.sessions === 1 ? '' : 's'} stored —
-          not enough to rank.
+      {unranked ? (
+        <div style={{ color: 'var(--color-chart-tooltip-muted)', maxWidth: '22rem' }}>
+          {unranked.meaning}
         </div>
       ) : (
         <table>
@@ -93,7 +96,9 @@ function RankTooltip({
               <td className="pr-3" style={{ color: 'var(--color-chart-tooltip-muted)' }}>
                 Percentile
               </td>
-              <td className="tabular-nums text-right">{row.percentile.toFixed(0)}th</td>
+              <td className="tabular-nums text-right">
+                {row.percentile == null ? EMPTY : `${row.percentile.toFixed(0)}th`}
+              </td>
             </tr>
             <tr>
               <td className="pr-3" style={{ color: 'var(--color-chart-tooltip-muted)' }}>
@@ -134,7 +139,7 @@ export default function ExpiryRankChart({
     // Recharts skips a null bar entirely, which is what we want — the label
     // below carries the refusal instead.
     value: rank.percentile,
-    note: rank.percentile == null ? 'Insufficient history' : '',
+    note: unrankedExpiry(rank)?.label ?? '',
   }));
   const axisStroke = 'var(--color-chart-axis)';
 

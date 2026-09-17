@@ -635,6 +635,52 @@ export function surfaceReadout(
  * and says nothing — 0DTE is structurally wider than 30DTE every day of the
  * year. "Which expiry is furthest from its own normal" is the finding.
  */
+export interface UnrankedNote {
+  /** Short enough to sit on the axis where the bar is not. */
+  label: string;
+  /** The full reason, for the tooltip. */
+  meaning: string;
+}
+
+/**
+ * Why an expiry bucket has no bar — and the two reasons are not the same.
+ *
+ * A null percentile arrives from the API in two states that were rendering
+ * identically as "Insufficient history":
+ *
+ *   no current reading   nothing expires in this bucket today. 2-3 DTE from
+ *                        a Thursday or Friday lands on the weekend; 1DTE
+ *                        from a Friday does too. Structural, not a data
+ *                        problem, and it recurs on roughly two sessions in
+ *                        five.
+ *   no baseline          there IS a reading today, but fewer than
+ *                        SPREAD_SURFACE_MIN_SESSIONS stored sessions to rank
+ *                        it against.
+ *
+ * Calling the first one "Insufficient history" is wrong twice over: it names
+ * a data shortage that does not exist, and the tooltip then printed "only 24
+ * comparable sessions stored — not enough to rank" beside a floor of eight.
+ * `current_pct` already separates them, so nothing new is needed from the
+ * API to say which is which.
+ */
+export function unrankedExpiry(rank: SurfaceDteRank): UnrankedNote | null {
+  if (rank.percentile != null) return null;
+  if (rank.current_pct == null) {
+    return {
+      label: 'No expiry here today',
+      meaning:
+        'Nothing expires in this bucket today, so there is no reading to rank. ' +
+        'The near buckets empty out on a schedule — 2-3 DTE covers the weekend ' +
+        'from Thursday and Friday — and that is the calendar, not a gap in the data.',
+    };
+  }
+  const plural = rank.sessions === 1 ? '' : 's';
+  return {
+    label: 'Insufficient history',
+    meaning: `Only ${rank.sessions} comparable session${plural} stored — not enough to rank.`,
+  };
+}
+
 export function mostElevatedExpiry(
   ranks: readonly SurfaceDteRank[] | null | undefined,
 ): SurfaceDteRank | null {
