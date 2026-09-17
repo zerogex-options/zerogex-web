@@ -60,6 +60,13 @@ const PUBLIC_ROUTE_PATTERNS = [
   // integration and is deliberately absent from core/integrations.ts, so it
   // is listed here on its own rather than with the block above.
   '/collective2-strategy-data',
+  // The gamma-levels widget: its builder page and the frames themselves.
+  // Both carry only the delayed levels the free /<ticker>-gamma-levels pages
+  // already publish, and the frames must answer an anonymous request from an
+  // arbitrary third-party site — a /login redirect would render as a broken
+  // box on every page that embeds one.
+  '/embed',
+  '/embed/*',
   '/login',
   '/register',
   '/forgot-password',

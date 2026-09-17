@@ -478,6 +478,20 @@ function initDb(): DatabaseSync {
   // who returns and later churns a second time can receive a fresh win-back.
   ensureColumn('users', 'winback_email_sent_at', 'TEXT');
 
+  // COOLDOWN anchor — deliberately NOT a latch — for the return-intent email
+  // sent by scripts/send-return-intent.mts: the reply to a churned member who
+  // logged back in on their own. Stores the ISO timestamp of the last such send.
+  //
+  // Every other nudge column in this file is a one-shot that is never cleared,
+  // which is right for a milestone (you only abandon your first checkout once)
+  // and wrong for a recurring signal. A member can come back, decide not to
+  // resubscribe, and come back again eight months later; latching would spend
+  // the entire churned book on one sweep and leave nothing for any future
+  // churn. core/returnIntent.ts therefore reads this as "how long since we last
+  // answered them" and additionally requires the visit to be NEWER than this
+  // timestamp, so an expiring cooldown can never re-fire on a stale login.
+  ensureColumn('users', 'return_intent_email_sent_at', 'TEXT');
+
   // One-shot latch for the self-serve retention SAVE (app/save/route.ts): the
   // automated "keep my access + claim the discount" one-click flow linked from
   // the cancellation email. NULL = never claimed; set to the ISO timestamp when

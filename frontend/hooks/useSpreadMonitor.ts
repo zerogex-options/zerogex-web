@@ -6,10 +6,11 @@ import type {
   SpreadHistory,
   SpreadSeries,
   SpreadSnapshot,
+  SpreadSurface,
 } from '@/core/spreadMonitor';
 
 /**
- * The four Spread Monitor reads, each on its own cadence.
+ * The Spread Monitor reads, each on its own cadence.
  *
  * Splitting them is the point. The snapshot changes with every chain write
  * and is what the header cards read; the daily history changes once a
@@ -113,5 +114,35 @@ export function useSpreadHistory(
   return useApiData<SpreadHistory>(`/api/market/spreads/history?${params.toString()}`, {
     refreshInterval: HISTORY_REFRESH_MS,
     enabled,
+  });
+}
+
+/**
+ * The strike surface for one side of the book, against its own history.
+ *
+ * On the snapshot's cadence rather than the daily rollup's: the CURRENT half
+ * of this response is a live chain reduction and moves with every write,
+ * while the historical half is served from a cached rollup read behind it.
+ * Polling on the slow cadence would leave the "vs normal" multiple stale
+ * against the cards directly above it on the same page.
+ *
+ * One side per call, deliberately. The question is whether the PUTS have gone
+ * wide, and that is only answerable next to a side that has not — so the page
+ * asks twice rather than fetching a blend it would have to unpick.
+ */
+export function useSpreadSurface(
+  symbol: string,
+  optionType: 'C' | 'P',
+  options: SpreadScopeOptions & { historyDays?: number } = {},
+) {
+  const params = scopeParams(options);
+  params.set('symbol', symbol);
+  params.set('option_type', optionType);
+  if (options.historyDays != null) {
+    params.set('history_days', String(options.historyDays));
+  }
+  return useApiData<SpreadSurface>(`/api/market/spreads/surface?${params.toString()}`, {
+    refreshInterval: SNAPSHOT_REFRESH_MS,
+    enabled: options.enabled ?? true,
   });
 }

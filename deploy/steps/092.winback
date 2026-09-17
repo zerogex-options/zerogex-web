@@ -83,8 +83,9 @@ fi
 # they're empty, because step 036 seeds the keys with empty placeholders and the
 # operator may not have filled them in yet. The timer still installs — if the
 # keys land later, the next scheduled tick just works. PROMO_END_AT is optional:
-# unset just means the evergreen reply-for-discount copy instead of the promo
-# variant, so we don't warn on it.
+# with the win-back coupons configured the auto variant wins anyway, and without
+# either the email simply ships with no discount paragraph, so we don't warn on
+# it.
 warn_missing_env() {
     local key="$1"
     local value
@@ -182,4 +183,4 @@ log "  • cd $APP_DIR && make winback DIGEST=1 DIGEST_TO=you@example.com - send
 log "  • cd $APP_DIR && make winback DRY_RUN=1                        - preview eligible users (no email)"
 log "  • cd $APP_DIR && make winback YES=1                            - APPROVE + send to everyone eligible"
 log "  • journalctl -u ${UNIT} -n 50                                  - recent run logs"
-log "  • cd $APP_DIR && make winback PREVIEW_TO=you@example.com PREVIEW_MODE=auto - sample a specific variant (auto|promo|manual)"
+log "  • cd $APP_DIR && make winback PREVIEW_TO=you@example.com PREVIEW_MODE=auto - sample a specific variant (auto|promo|none)"

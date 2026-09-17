@@ -45,6 +45,12 @@ export interface GammaWeatherPayload {
   lean_side: string | null;
   /** A modifier on the state, never a competing state. */
   cushion: string;
+  /** PULSE | DEVELOPING | ESTABLISHED — how settled the pressure direction is. */
+  persistence: string;
+  /** DEVELOPING | ESTABLISHED | CONFIRMED | DURABLE, with the clock alongside. */
+  age_label: string | null;
+  age_minutes: number | null;
+  age_bars: number;
   cushion_summary: string | null;
   components: GammaWeatherComponents;
   basis: string;
