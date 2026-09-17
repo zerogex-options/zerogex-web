@@ -50,36 +50,13 @@
 //   LIMIT=<n>            cap sends in one run (default 50)
 //   MARKETING_OPTOUT=ignore   include members who opted out of marketing
 
-import fs from 'node:fs';
-import path from 'node:path';
+import { loadEnvLocal, warnIfPricesUnconfigured } from './env-local.mts';
 import crypto from 'node:crypto';
 import Stripe from 'stripe';
 
-function parseEnvFile(filePath: string): Record<string, string> {
-  if (!fs.existsSync(filePath)) return {};
-  const env: Record<string, string> = {};
-  for (const rawLine of fs.readFileSync(filePath, 'utf8').split('\n')) {
-    const line = rawLine.trim();
-    if (!line || line.startsWith('#')) continue;
-    const eq = line.indexOf('=');
-    if (eq === -1) continue;
-    const key = line.slice(0, eq).trim();
-    let value = line.slice(eq + 1).trim();
-    if (
-      value.length >= 2 &&
-      ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'")))
-    ) {
-      value = value.slice(1, -1);
-    }
-    env[key] = value;
-  }
-  return env;
-}
-
-const envLocal = parseEnvFile(path.join(process.cwd(), '.env.local'));
-for (const key of ['AUTH_DB_PATH', 'STRIPE_SECRET_KEY', 'RESEND_API_KEY', 'RESEND_FROM_EMAIL', 'NEXT_PUBLIC_APP_URL']) {
-  if (envLocal[key] && !process.env[key]) process.env[key] = envLocal[key];
-}
+// Load the WHOLE of .env.local — see scripts/env-local.mts for why an
+// allowlist of keys cannot be kept correct here.
+loadEnvLocal();
 
 const argv = process.argv.slice(2);
 const send = argv.includes('--yes');
@@ -181,6 +158,7 @@ const money = (cents: number, currency: string) => {
   }
 };
 
+warnIfPricesUnconfigured();
 console.log(`Scanning open Stripe invoices raised in the last ${days} days…\n`);
 
 const candidates: Candidate[] = [];

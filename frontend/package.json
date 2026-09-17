@@ -55,6 +55,7 @@
     "test:welcome-api-key": "node --experimental-strip-types --test tests/welcomeEmailApiKey.test.ts",
     "test:decline-reason": "node --experimental-strip-types --test tests/declineReason.test.ts",
     "test:payment-declines": "node --experimental-strip-types --test tests/paymentDeclines.test.ts",
+    "test:script-env": "node --experimental-strip-types --test tests/scriptEnvLocal.test.ts",
     "test:payment-declines-db": "node --experimental-strip-types --test tests/paymentDeclinesDb.test.ts",
     "test:billing-user": "node --experimental-strip-types --test tests/billingUser.test.ts",
     "test:payment-grace": "node --experimental-strip-types --test tests/paymentGrace.test.ts",
