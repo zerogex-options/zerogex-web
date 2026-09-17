@@ -71,10 +71,11 @@ loss**. A realistic few-percent lift on that is tens of dollars. Meanwhile
 touches it: none of them puts money into somebody's account on the day we charge
 it.
 
-*Footnote on `try_again`: 0 of 6 recovered, while `declineReason.ts` tells the
-reader they are "very likely to clear on the next automatic retry". At n = 6
-that is not conclusive, but it does contradict copy we ship. Worth a look
-separately; it is not a Stripe-configuration question.*
+*Footnote on `try_again`: 0 of 6 recovered, against copy that promised they were
+"very likely to clear on the next automatic retry". Investigated and fixed — the
+six had made 27 attempts between them, so the retries demonstrably ran and every
+one failed. See `payment-decline-metrics.md`, "When a transient code stops being
+transient". Not a Stripe-configuration question.*
 
 ## Decisions
 

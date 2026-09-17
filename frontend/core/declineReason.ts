@@ -258,9 +258,48 @@ export function classifyDecline(decline: ChargeDecline | null): DeclineCategory 
   return byCode ?? 'unknown';
 }
 
+/**
+ * Attempts after which a code that CALLS itself transient has demonstrably
+ * stopped being one.
+ *
+ * Stripe's Smart Retries make roughly four tries. By the third recorded failure,
+ * "the next retry will clear it" is no longer a claim the evidence supports — and
+ * a live check put it past doubt: six `try_again` invoices, 27 attempts between
+ * them, zero recovered. Four of the six were `try_again_later`, which reads like
+ * a glitch and behaves, on repetition, like an issuer refusing persistently.
+ */
+export const TRANSIENT_ATTEMPT_LIMIT = 3;
+
+/** What we know about how far this invoice's retries have got. */
+export type DeclineContext = {
+  /** Failures recorded on this invoice so far. */
+  attempts?: number;
+  /** Stripe is not going to try again — from the invoice's own retry state. */
+  retriesExhausted?: boolean;
+};
+
+/**
+ * Has a self-described transient failure outlived its own premise?
+ *
+ * Either signal is enough, because they cover different eras of the data: the
+ * retry state is authoritative but NULL on rows backfilled before those columns
+ * existed, where the attempt count is all there is.
+ */
+export function transientClaimExpired(context?: DeclineContext): boolean {
+  if (!context) return false;
+  if (context.retriesExhausted) return true;
+  return (context.attempts ?? 0) >= TRANSIENT_ATTEMPT_LIMIT;
+}
+
 // What to actually do about each category, phrased for the operator reading
 // `make diagnose-user` and deciding which follow-up to send.
-export function declineGuidance(category: DeclineCategory): string {
+//
+// `context` is optional and only `try_again` consults it. That category is the
+// only one whose advice rests on a PREDICTION — that the next retry will work —
+// rather than on what the issuer said, so it is the only one an attempt count
+// can falsify. The others describe a standing condition and read the same on
+// attempt one and attempt five.
+export function declineGuidance(category: DeclineCategory, context?: DeclineContext): string {
   switch (category) {
     case 'insufficient_funds':
       return 'Account was short. Retries often clear on their own (payday); offer a cheaper plan or a pause rather than pressing. Do NOT tell them to call their bank.';
@@ -271,7 +310,9 @@ export function declineGuidance(category: DeclineCategory): string {
     case 'authentication_required':
       return '3DS/SCA was not completed. Paying the hosted invoice link walks them through the step-up.';
     case 'try_again':
-      return 'Transient on Stripe or the issuer. Very likely to clear on the next automatic retry; no action needed yet.';
+      return transientClaimExpired(context)
+        ? 'It called itself transient and it was not: the retries have run and every one failed. A try_again code that outlives its own retries is an issuer refusing persistently, not a glitch — read it as an issuer block. The member needs to approve it with their bank or use a different card, and nothing will happen until somebody tells them so.'
+        : 'Transient on Stripe or the issuer, and the retries have not run out yet. Likely to clear on its own; check back rather than acting now — but if it is still failing after several attempts it is not transient, whatever the code is called.';
     case 'blocked_by_risk':
       return 'WE declined this, not a bank — Stripe Radar scored it too risky. No retry and nothing the member does will clear it. Review the payment in Radar: if it is a false positive, that is revenue being turned away by our own rules. Never tell the member their bank refused it.';
     case 'unknown':

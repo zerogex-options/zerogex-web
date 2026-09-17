@@ -1048,3 +1048,64 @@ test('the untracked and direct charge counts are per invoice, not per row', () =
   assert.equal(report.signupSourceAttribution.untrackedInvoices, 1);
   assert.equal(report.totals.attemptedInvoices, 1);
 });
+
+test('a worklist row never says "recovery exhausted" and "no action needed" at once', () => {
+  // The bug this pins, found in production: a try_again invoice whose retries
+  // had run out rendered retryState 'recovery_exhausted' with retryNeedsAction
+  // true in one column, and "no action needed yet" with needsMemberAction false
+  // in the next. Six invoices and $164 sat in that contradiction, and the
+  // reassuring half is the one a person reads.
+  const attempts = [1, 2, 3, 4, 5].map((n) =>
+    decline({
+      invoiceId: 'in_spent',
+      attemptCount: n,
+      category: 'try_again',
+      declineCode: 'try_again_later',
+      collectionMethod: 'charge_automatically',
+      invoiceStatus: 'open',
+      nextAttemptAt: null,
+      failedAt: ago(10 - n),
+    }),
+  );
+  const report = buildDeclineReport({ declines: attempts, paid: [], windowDays: 30, nowMs: NOW_MS });
+
+  const row = report.openWorklist.find((detail) => detail.invoiceId === 'in_spent');
+  assert.ok(row);
+  assert.equal(row.attempts, 5);
+  assert.equal(row.retryState, 'recovery_exhausted');
+  assert.equal(row.retryNeedsAction, true);
+  // The two fields that used to disagree with the two above.
+  assert.equal(row.needsMemberAction, true);
+  assert.doesNotMatch(row.guidance, /no action needed/i);
+  assert.match(row.guidance, /issuer block|refusing persistently/i);
+});
+
+test('a try_again invoice Stripe is still retrying is left alone', () => {
+  // The other half of the fix: escalating every try_again would replace a
+  // false reassurance with a false alarm, and bury the operator in rows that
+  // Stripe is about to resolve by itself.
+  const soon = new Date(NOW_MS + 86_400_000).toISOString();
+  const report = buildDeclineReport({
+    declines: [
+      decline({
+        invoiceId: 'in_running',
+        attemptCount: 1,
+        category: 'try_again',
+        declineCode: 'processing_error',
+        collectionMethod: 'charge_automatically',
+        invoiceStatus: 'open',
+        nextAttemptAt: soon,
+        failedAt: ago(1),
+      }),
+    ],
+    paid: [],
+    windowDays: 30,
+    nowMs: NOW_MS,
+  });
+
+  const row = report.openWorklist.find((detail) => detail.invoiceId === 'in_running');
+  assert.ok(row);
+  assert.equal(row.retryState, 'retry_scheduled');
+  assert.equal(row.needsMemberAction, false);
+  assert.match(row.guidance, /clear on its own|check back/i);
+});

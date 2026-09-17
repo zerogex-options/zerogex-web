@@ -45,13 +45,18 @@
 // attempt: that is the reason it currently stands at, or the reason it died of.
 // Attempt-level counts sit beside it, which is why attempts exceed invoices.
 
-import { declineGuidance, type DeclineCategory } from './declineReason.ts';
+import {
+  declineGuidance,
+  transientClaimExpired,
+  type DeclineCategory,
+  type DeclineContext,
+} from './declineReason.ts';
 
 // Re-exported so a consumer of this module — including the client component,
 // which cannot import the server-side one — gets the category vocabulary and
 // the advice that goes with it from one place.
-export type { DeclineCategory };
-export { declineGuidance };
+export type { DeclineCategory, DeclineContext };
+export { declineGuidance, transientClaimExpired };
 
 // ---------------------------------------------------------------------------
 // Vocabulary
@@ -156,6 +161,29 @@ export const CATEGORY_NEEDS_MEMBER_ACTION: Record<DeclineCategory, boolean> = {
   blocked_by_risk: false,
   unknown: false,
 };
+
+/**
+ * Whether THIS invoice needs somebody to contact the member — the table above,
+ * corrected by what actually happened to it.
+ *
+ * The table answers per category, and for one category that is not enough.
+ * `try_again` is marked false on the promise that Stripe's next retry will fix
+ * it; when the retries have run and failed, the promise is broken and the row
+ * needs a human. Leaving it false produced a worklist row that said "recovery
+ * exhausted, needs action" in one column and "no action needed yet" in the next,
+ * and the reassuring half is the one a person reads. Six invoices and $164 sat
+ * in that contradiction.
+ *
+ * Deliberately scoped to `try_again`. It is the only category whose flag rests
+ * on a PREDICTION about the future rather than on a standing fact about the
+ * card, so it is the only one an attempt count can overturn. Whether an
+ * exhausted `insufficient_funds` should also escalate is a real question and a
+ * separate one.
+ */
+export function needsMemberAction(category: DeclineCategory, context?: DeclineContext): boolean {
+  if (CATEGORY_NEEDS_MEMBER_ACTION[category]) return true;
+  return category === 'try_again' && transientClaimExpired(context);
+}
 
 /**
  * WHO got the money in — inferred in core/paymentDeclinesServer.ts from when the
@@ -1166,6 +1194,14 @@ function detailOf(invoice: DeclinedInvoice, nowMs: number): DeclineDetail {
     declineCode: last.declineCode,
     nowMs,
   });
+  // What the row already knows about its own retries, handed to the two fields
+  // that used to ignore it. `retryNeedsAction` is the authoritative read; the
+  // attempt count covers backfilled rows whose retry state is 'unknown' because
+  // the Stripe columns did not exist when they were written.
+  const context: DeclineContext = {
+    attempts: invoice.attempts.length,
+    retriesExhausted: RETRY_STATE_NEEDS_ACTION[retryState],
+  };
   const endMs = invoice.resolvedAt ? Date.parse(invoice.resolvedAt) : nowMs;
   const startMs = Date.parse(invoice.first.failedAt);
   const ageHours =
@@ -1179,8 +1215,8 @@ function detailOf(invoice: DeclinedInvoice, nowMs: number): DeclineDetail {
     category: last.category,
     code: declineCodeOf(last),
     message: last.sellerMessage ?? last.failureMessage,
-    guidance: declineGuidance(last.category),
-    needsMemberAction: CATEGORY_NEEDS_MEMBER_ACTION[last.category],
+    guidance: declineGuidance(last.category, context),
+    needsMemberAction: needsMemberAction(last.category, context),
     amount: invoice.amount,
     currency: last.currency,
     tier: last.tier,

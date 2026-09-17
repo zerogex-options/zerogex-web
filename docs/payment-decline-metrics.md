@@ -206,6 +206,44 @@ short on Monday and blocked by the issuer on Thursday is stuck on the block;
 telling the member to wait for payday would be the wrong advice. Attempt-level
 counts sit beside it, which is why attempts exceed invoices.
 
+## When a transient code stops being transient
+
+`try_again` is the only category whose advice rests on a PREDICTION — that
+Stripe's next retry will fix it — rather than on something the issuer said. A
+prediction can be wrong, and this one was.
+
+A live check found six `try_again` invoices with **27 attempts between them and
+zero recovered**. Four were `try_again_later`, a code that reads like a glitch
+and behaves, on repetition, like an issuer refusing persistently. The retries had
+not been cut short by anything: 5, 5, 5, 5, 4 and 3 attempts respectively.
+
+The cost was not the wording. `detailOf` rendered those rows with
+`retryState: 'recovery_exhausted'` and `retryNeedsAction: true` in one column,
+and "no action needed yet" with `needsMemberAction: false` in the next — **the
+same row contradicting itself**, with the reassuring half in the place a person
+reads. Six invoices and $164 sat in that gap, never surfacing as work.
+
+So both fields now take the invoice's own retry evidence:
+
+    attempts >= TRANSIENT_ATTEMPT_LIMIT (3)   OR   retriesExhausted
+      → guidance escalates to the issuer-block reading
+      → needsMemberAction becomes true
+
+Either signal suffices, because they cover different eras of the table: the
+retry state is authoritative but NULL on rows backfilled before those columns
+existed, where the attempt count is all there is.
+
+**Scoped to `try_again` on purpose.** Every other category describes a standing
+fact about the card or the issuer, which five attempts neither confirm nor
+refute; if their advice varied with attempts it would drift with volume rather
+than with evidence. A test pins that. Whether an exhausted `insufficient_funds`
+should also escalate is a real question and a separate one.
+
+The early-stage copy changed too. It no longer says "very likely to clear" —
+that was the claim the data falsified — only that the retries have not run out
+yet, and that a code still failing after several attempts is not transient
+whatever it is called.
+
 ## Retry state — where an unpaid invoice actually stands
 
 "Nobody has paid this" and "Stripe is going to try again" are different claims,
