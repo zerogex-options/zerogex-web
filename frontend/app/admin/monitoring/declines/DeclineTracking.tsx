@@ -21,12 +21,16 @@ import {
   DECLINE_CATEGORY_LABEL,
   LOST_REASON_LABEL,
   RETRY_STATE_LABEL,
+  SIGNUP_SOURCE_BLURB,
+  THIN_SOURCE_VOLUME,
   declineGuidance,
+  sourceRatesAreSkewed,
   type DeclineBucket,
   type DeclineCategory,
   type DeclineDetail,
   type DeclineInstrumentRow,
   type DeclineReport,
+  type DeclineSignupSourceRow,
   type DeclineTotals,
   type LostReason,
   type RetryState,
@@ -559,6 +563,8 @@ function DeclineReportView({
 
       <InstrumentPanel report={report} mutedText={mutedText} />
 
+      <SourcePanel report={report} mutedText={mutedText} />
+
       <Disclosure
         title="Cards, retries and plans"
         summary="The same declines cut by card brand, by how many attempts they took, and by plan"
@@ -650,6 +656,232 @@ function InstrumentPanel({ report, mutedText }: { report: DeclinePayload; mutedT
       </div>
       <p className="mt-4 text-xs" style={{ color: mutedText }}>
         Amounts shown are the revenue each group <strong>lost</strong>, not the amount at risk.
+      </p>
+    </Panel>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Acquisition source
+// ---------------------------------------------------------------------------
+
+/**
+ * The 95% interval around a decline rate, drawn as a band with the point
+ * estimate marked inside it.
+ *
+ * The bar is the point of this panel, not decoration. A table of bare
+ * percentages invites exactly one reading — rank them and go fix the worst — and
+ * at campaign-sized volumes that ranking is mostly noise. Drawing the intervals
+ * on a shared axis makes the only honest question visible at a glance: do these
+ * two bands overlap? Where they do, the difference between the numbers is not
+ * evidence of anything.
+ */
+function IntervalBar({
+  point,
+  low,
+  high,
+  muted,
+}: {
+  point: number | null;
+  low: number | null;
+  high: number | null;
+  muted: boolean;
+}) {
+  if (point == null || low == null || high == null) return null;
+  const pct = (value: number) => `${Math.max(0, Math.min(1, value)) * 100}%`;
+  return (
+    <div
+      className="relative h-2 rounded-full w-full"
+      style={{ backgroundColor: 'var(--color-border)' }}
+      aria-hidden="true"
+    >
+      <div
+        className="absolute h-full rounded-full"
+        style={{
+          left: pct(low),
+          width: pct(Math.max(high - low, 0.004)),
+          backgroundColor: CAUSE_RANK_COLOR,
+          opacity: muted ? 0.28 : 0.45,
+        }}
+      />
+      <div
+        className="absolute rounded-full"
+        style={{
+          left: pct(point),
+          marginLeft: -1.5,
+          width: 3,
+          top: -2,
+          bottom: -2,
+          backgroundColor: CAUSE_RANK_COLOR,
+          opacity: muted ? 0.55 : 1,
+        }}
+      />
+    </div>
+  );
+}
+
+type SourceScope = 'first' | 'all';
+
+/**
+ * Decline rate by the channel that acquired the member.
+ *
+ * THE ONE CUT ON THIS PAGE WITH A REAL DENOMINATOR BESIDES CHARGE KIND. Every
+ * instrument breakdown above is a share of the failures, because a successful
+ * charge leaves no row in payment_declines and its card is therefore not there
+ * to count. A successful charge does leave a MEMBER, and a member carries a
+ * first-touch source — so both sides of declined ÷ charged exist here, and the
+ * rows report a rate rather than a share.
+ *
+ * It answers a question the rest of the panel structurally cannot: whether a
+ * slice of the lost conversions was ever a billing problem at all. If one
+ * channel's trial signups decline at twice everyone else's rate, no amount of
+ * retry tuning, card-update prompting or dunning copy will recover them — the
+ * fix is upstream, in what that channel is sending.
+ */
+function SourcePanel({ report, mutedText }: { report: DeclinePayload; mutedText: string }) {
+  const [scope, setScope] = useState<SourceScope>('first');
+  const { signupSourceAttribution: attribution, currency } = report;
+  const firstRows = report.bySignupSourceFirstPayment;
+  const rows: DeclineSignupSourceRow[] =
+    scope === 'first' && firstRows ? firstRows : report.bySignupSource;
+
+  if (report.bySignupSource.length === 0) return null;
+
+  const channels = rows.filter((row) => row.channel);
+  const readable = channels.filter((row) => !row.thin);
+  // The axis is shared across rows, so the bands are comparable by eye. It is
+  // scaled to the widest interval actually present rather than to 100%, which
+  // would squash every band into the left quarter and hide the differences the
+  // panel exists to show.
+  const axisMax = Math.min(
+    1,
+    Math.max(0.2, ...rows.map((row) => row.declineRateInterval?.high ?? row.declineRate ?? 0)) * 1.05,
+  );
+  const scaled = (value: number | null) => (value == null ? null : value / axisMax);
+
+  return (
+    <Panel
+      title="Where the declining members came from"
+      subtitle="Decline rate by the channel that first brought each member in. Unlike the instrument cuts above, this one has a real denominator on both sides — a successful charge leaves no card behind, but it does leave a member, and a member carries a source. A channel whose signups decline far more than the rest is an acquisition problem wearing a billing problem's clothes, and dunning will not touch it."
+      right={
+        firstRows && (
+          <ChoiceRow
+            label="Which charges"
+            value={scope}
+            onChange={setScope}
+            options={[
+              { value: 'first' as SourceScope, label: 'First payments' },
+              { value: 'all' as SourceScope, label: 'All charges' },
+            ]}
+          />
+        )
+      }
+    >
+      {sourceRatesAreSkewed(attribution) && (
+        <p
+          className="text-xs mb-3 rounded p-2.5"
+          style={{ color: mutedText, border: `1px solid ${AT_RISK_COLOR}` }}
+        >
+          <strong style={{ color: AT_RISK_COLOR }}>Rates below are not comparable across rows.</strong>{' '}
+          {fmtPct(attribution.declineCoverage, 0)} of declined invoices and{' '}
+          {fmtPct(attribution.paidCoverage, 0)} of paid invoices could be tied back to an account here. When
+          those two figures differ, the named channels are missing part of one side of their ratio and every
+          rate on this table is skewed in the same direction — which looks exactly like a real finding. Read
+          the counts, not the rates, until the gap closes.
+        </p>
+      )}
+
+      <div className="overflow-x-auto -mx-2">
+        <table className="w-full text-sm min-w-[900px]">
+          <thead>
+            <tr style={{ color: mutedText, borderBottom: '1px solid var(--color-border)' }}>
+              <th className={TH}>Source</th>
+              <th className={`${TH} text-right`}>Charged</th>
+              <th className={`${TH} text-right`}>Declined</th>
+              <th className={`${TH} text-right`}>Decline rate</th>
+              <th className={TH}>95% range</th>
+              <th className={TH}>Outcome</th>
+              <th className={`${TH} text-right`}>Lost</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.key} style={{ borderBottom: '1px solid var(--color-border)' }}>
+                <td className={TD}>
+                  <div className="font-semibold" style={{ color: row.channel ? undefined : mutedText }}>
+                    {row.label}
+                  </div>
+                  {SIGNUP_SOURCE_BLURB[row.key] && (
+                    <div className="text-xs mt-0.5 max-w-md" style={{ color: mutedText }}>
+                      {SIGNUP_SOURCE_BLURB[row.key]}
+                    </div>
+                  )}
+                </td>
+                <td className={NUM}>{fmtInt(row.attemptedInvoices)}</td>
+                <td className={NUM}>{fmtInt(row.invoices)}</td>
+                <td
+                  className={NUM}
+                  style={{
+                    color: row.thin
+                      ? mutedText
+                      : row.declineRate != null && row.declineRate > 0.1
+                        ? LOST_COLOR
+                        : undefined,
+                  }}
+                >
+                  {fmtPct(row.declineRate)}
+                </td>
+                <td className={TD} style={{ minWidth: 150 }}>
+                  <IntervalBar
+                    point={scaled(row.declineRate)}
+                    low={scaled(row.declineRateInterval?.low ?? null)}
+                    high={scaled(row.declineRateInterval?.high ?? null)}
+                    muted={row.thin}
+                  />
+                  <div className="text-xs mt-1 tabular-nums" style={{ color: mutedText }}>
+                    {row.declineRateInterval
+                      ? `${fmtPct(row.declineRateInterval.low, 0)}–${fmtPct(row.declineRateInterval.high, 0)}`
+                      : '—'}
+                    {row.thin && ' · too few to read'}
+                  </div>
+                </td>
+                <td className={TD} style={{ minWidth: 90 }}>
+                  <OutcomeMiniBar totals={row} />
+                </td>
+                <td className={NUM} style={{ color: LOST_COLOR }}>
+                  {fmtInt(row.lostInvoices)}
+                  <div className="text-xs" style={{ color: mutedText }}>
+                    {fmtMoney(row.lostAmount, currency)}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <p className="mt-3 text-xs" style={{ color: mutedText }}>
+        {scope === 'first' && firstRows
+          ? 'First payments only — trial conversions and no-trial first charges. This is the version that reports on the CHANNEL: a renewal that declines says something about a card, often years after the click that won it.'
+          : 'All charges, conversions and renewals together. A channel that acquired members long ago carries their renewals here, so a high rate may be an old cohort\u2019s cards rather than the channel\u2019s quality.'}{' '}
+        The <strong>95% range</strong> is a Wilson interval on the decline rate; rows with fewer than{' '}
+        {THIN_SOURCE_VOLUME} charges are dimmed because at that volume the interval spans most of the axis and
+        the point estimate carries almost no information. Two channels whose ranges overlap have not been shown
+        to differ, however far apart their percentages look.
+      </p>
+
+      <p className="mt-2 text-xs" style={{ color: mutedText }}>
+        {fmtInt(attribution.channels)} tagged channel{attribution.channels === 1 ? '' : 's'} in this window.{' '}
+        {readable.length < 2
+          ? 'Fewer than two channels carry enough volume to compare, so treat this table as a record rather than a finding.'
+          : `${fmtInt(readable.length)} carry enough charges to read a rate from.`}{' '}
+        Members who joined before first-touch attribution shipped ({fmtInt(attribution.untrackedInvoices)}{' '}
+        charge{attribution.untrackedInvoices === 1 ? '' : 's'}) are kept in their own row rather than folded
+        into direct — their channel was never recorded, which is not the same as their having arrived without
+        one.{' '}
+        {attribution.trackingSince
+          ? `Attribution has been recorded since ${fmtWhen(attribution.trackingSince)}.`
+          : 'No signup on record carries a campaign at all, so every row below is a hole in the data rather than a channel.'}
       </p>
     </Panel>
   );
