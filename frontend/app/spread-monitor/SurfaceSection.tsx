@@ -9,6 +9,7 @@ import { TONE_COLOR } from '@/components/layout/ReadoutTile';
 import {
   EMPTY,
   baselineSummary,
+  coverageVerdict,
   formatMultiple,
   formatPct,
   hasUsableBaseline,
@@ -81,6 +82,10 @@ function SummaryStrip({ surface }: { surface: SpreadSurface }) {
   const readout = surfaceReadout(surface);
   const percentileText =
     summary.percentile != null ? `${summary.percentile.toFixed(0)}th` : 'No rank yet';
+  // Coverage carries its own verdict rather than the width's. High is good
+  // here, so reusing the width tone would paint the best-covered session of
+  // the quarter red.
+  const coverage = coverageVerdict(summary.two_sided_percentile, baseline.sessions);
 
   return (
     <div
@@ -115,7 +120,12 @@ function SummaryStrip({ surface }: { surface: SpreadSurface }) {
       <SummaryCell
         label="Two-sided"
         value={summary.two_sided_pct != null ? formatPct(summary.two_sided_pct, 0) : EMPTY}
-        sub="of contracts in range"
+        sub={
+          summary.two_sided_normal_pct != null
+            ? `normally ${formatPct(summary.two_sided_normal_pct, 0)}`
+            : 'of contracts in range'
+        }
+        tone={coverage ? TONE_COLOR[coverage.tone] : undefined}
       />
       <SummaryCell
         label="History"
@@ -148,6 +158,9 @@ export default function SurfaceSection({
   });
 
   const readout = data ? surfaceReadout(data) : null;
+  const coverageNote = data
+    ? coverageVerdict(data.summary.two_sided_percentile, data.baseline.sessions)
+    : null;
   const worstExpiry = data ? mostElevatedExpiry(data.by_dte) : null;
   const sideWord = side === 'P' ? 'Put' : 'Call';
 
@@ -272,6 +285,26 @@ export default function SurfaceSection({
                 {readout.label}.
               </span>{' '}
               {readout.meaning}
+            </p>
+          )}
+
+          {/* Separate from the width readout above, because it is a separate
+              question. Every contract counted here is one the width medians
+              had to leave out — there is no spread to take a median of when
+              nothing is bid — so a chain can tighten on this page while more
+              of it becomes impossible to sell. */}
+          {coverageNote && (
+            <p
+              className="mt-2 text-[11px] leading-relaxed"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              <span
+                className="font-semibold"
+                style={{ color: TONE_COLOR[coverageNote.tone] }}
+              >
+                {coverageNote.label}.
+              </span>{' '}
+              {coverageNote.meaning}
             </p>
           )}
 

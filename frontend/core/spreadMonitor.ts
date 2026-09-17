@@ -518,6 +518,9 @@ export interface SurfaceSummary {
   vs_normal: number | null;
   percentile: number | null;
   two_sided_pct: number | null;
+  /** Coverage against the same window. HIGH is GOOD — see `coverageVerdict`. */
+  two_sided_normal_pct: number | null;
+  two_sided_percentile: number | null;
   contract_count: number;
   sessions: number;
 }
@@ -663,6 +666,59 @@ export interface UnrankedNote {
  * `current_pct` already separates them, so nothing new is needed from the
  * API to say which is which.
  */
+/**
+ * Where coverage sits in its own history — the SAME rank, read backwards.
+ *
+ * `percentileVerdict` cannot be reused here, and the reason is not style.
+ * For a width, a high percentile is the bad end: today is wider than most
+ * sessions. For coverage it is the good end: more of the chain has a real
+ * two-sided market than usual. Passing this through the width verdict would
+ * paint the best-covered session of the quarter bearish red, which is the
+ * one rendering mistake that would make the new number worse than no number.
+ *
+ * Coverage is also the figure that matches the complaint. "Untradeable"
+ * usually means a contract with NO bid rather than a wide one, and a no-bid
+ * contract has no width — it leaves every median by construction. So a chain
+ * can read tighter as its wings die, and only this says so.
+ *
+ * Thresholds mirror `percentileVerdict` at 5 / 20 / 80 so the two readouts
+ * cannot disagree about what "unusual" means.
+ */
+export function coverageVerdict(
+  percentile: number | null | undefined,
+  sessions: number,
+): Verdict | null {
+  if (percentile == null || !Number.isFinite(percentile) || sessions <= 0) return null;
+  const window = `${sessions} session${sessions === 1 ? '' : 's'}`;
+
+  if (percentile <= 5) {
+    return {
+      label: 'Thinnest 5% of sessions',
+      tone: 'bearish',
+      meaning: `Less of the chain carries a two-sided market than on 95% of the last ${window}. The contracts that dropped out have no width to report, so no spread figure on this page will show this.`,
+    };
+  }
+  if (percentile <= 20) {
+    return {
+      label: 'Thinner than usual',
+      tone: 'bearish',
+      meaning: `Fewer contracts are quoted two-sided than on roughly ${100 - Math.round(percentile)}% of the last ${window}. Check the strike you want has a bid before planning around it.`,
+    };
+  }
+  if (percentile < 80) {
+    return {
+      label: 'Normal coverage',
+      tone: 'neutral',
+      meaning: `In line with the last ${window}. A 0DTE book thins out into the close on every session; this one is thinning on schedule.`,
+    };
+  }
+  return {
+    label: 'Better covered than usual',
+    tone: 'bullish',
+    meaning: `More of the chain carries a two-sided market than on roughly ${Math.round(percentile)}% of the last ${window}.`,
+  };
+}
+
 export function unrankedExpiry(rank: SurfaceDteRank): UnrankedNote | null {
   if (rank.percentile != null) return null;
   if (rank.current_pct == null) {
