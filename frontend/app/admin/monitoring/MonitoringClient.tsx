@@ -566,6 +566,16 @@ function FrontendTab({ loading, error, data, cardBg, borderColor, axisStroke, mu
 // "Twitter/X" since they're the same channel. `(direct / none)` is the
 // DIRECT_SOURCE_LABEL bucket from core/pageAnalytics.ts. Any source not listed
 // here falls through to its raw key so nothing is silently dropped.
+//
+// `twitter` is now folded into `x` by sanitizeUtmSource itself, so it should no
+// longer reach this map. The entry stays as a backstop for any row written
+// before that landed and not yet caught by `make normalize-utm-sources`.
+//
+// This display-time merge is also why the split went unnoticed for so long: this
+// view showed one combined row while the channel really was stored as two keys,
+// and it took a report that does NOT use this map (the decline-by-source cut) to
+// make the split visible. A merge in the presentation layer hides a data problem
+// that a different report will eventually trip over.
 const CONVERSION_SOURCE_LABELS: Record<string, string> = {
   '(direct / none)': 'Direct/none',
   twitter: 'Twitter/X',

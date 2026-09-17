@@ -1,5 +1,27 @@
 import type { MarketSession } from './types';
 
+/**
+ * Different spellings of the SAME acquisition channel, folded to one key.
+ *
+ * A channel split across two keys is worse than an untagged one: it halves the
+ * volume on both rows, and volume is the only thing that makes a per-source rate
+ * readable at all. The decline-by-source report found exactly this — `x` and
+ * `twitter` arriving as separate channels with 3 and 10 charges, where the one
+ * real channel has 13 and is still too thin to read.
+ *
+ * Kept deliberately small. An alias is only correct where two strings name one
+ * place a visitor actually came from; anything looser destroys real distinctions
+ * (a `newsletter` link and an `email` link may well be different sends).
+ *
+ * Applied in sanitizeUtmSource, which every write path and the attribution join
+ * already go through, so a new entry takes effect everywhere at once. Rows
+ * already stored keep their old spelling until
+ * `make normalize-utm-sources` is run — re-run it whenever this map changes.
+ */
+export const UTM_SOURCE_ALIASES: Readonly<Record<string, string>> = {
+  twitter: 'x',
+};
+
 // UTM source normalization, shared by the page-view beacon and the signup
 // attribution path (zgx_src cookie -> users.signup_utm_source). Lowercased and
 // restricted to a small charset so "X", "x", and "X/promo" collapse to one
@@ -9,7 +31,10 @@ import type { MarketSession } from './types';
 export function sanitizeUtmSource(raw: unknown): string | null {
   if (typeof raw !== 'string') return null;
   const cleaned = raw.trim().toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 64);
-  return cleaned.length > 0 ? cleaned : null;
+  if (cleaned.length === 0) return null;
+  // Aliasing AFTER the charset pass, so "Twitter" and "twitter.com/…" have
+  // already collapsed to the key the map is written against.
+  return UTM_SOURCE_ALIASES[cleaned] ?? cleaned;
 }
 
 export const getMarketSession = (): MarketSession => {

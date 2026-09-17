@@ -614,7 +614,6 @@ export const SIGNUP_SOURCE_BLURB: Record<string, string> = {
 /** Networks worth spelling properly; everything else is just capitalized. */
 const SIGNUP_SOURCE_DISPLAY: Record<string, string> = {
   x: 'X',
-  twitter: 'X (twitter tag)',
   reddit: 'Reddit',
   youtube: 'YouTube',
   discord: 'Discord',
