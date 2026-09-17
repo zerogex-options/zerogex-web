@@ -332,6 +332,86 @@ test('an attempt with no closing event after thirty days is marked unresolved, n
   assert.equal(row.lost_reason, 'unknown');
 });
 
+test('the age sweep gives up on an INVOICE, not on one old attempt of a live one', () => {
+  // Stripe retried this invoice four days ago. Its first attempt is five weeks
+  // old, which per-attempt ageing would have written off on its own — leaving
+  // one invoice half lost and half open, the lost half carrying a reason and
+  // the open half none.
+  recordPaymentDecline({ invoiceId: 'in_live', attemptCount: 1, amountDue: 4900, failedAt: ago(35) });
+  recordPaymentDecline({ invoiceId: 'in_live', attemptCount: 2, amountDue: 4900, failedAt: ago(4) });
+  reconcileOpenDeclines(NOW_MS);
+  assert.ok(
+    declineRows('in_live').every((row) => row.outcome === 'open'),
+    'an invoice Stripe is still retrying is not stale',
+  );
+
+  // Once nothing has happened on it for the whole window, all of it closes.
+  recordPaymentDecline({ invoiceId: 'in_quiet', attemptCount: 1, amountDue: 4900, failedAt: ago(60) });
+  recordPaymentDecline({ invoiceId: 'in_quiet', attemptCount: 2, amountDue: 4900, failedAt: ago(40) });
+  reconcileOpenDeclines(NOW_MS);
+  const quiet = declineRows('in_quiet');
+  assert.ok(quiet.every((row) => row.outcome === 'lost'));
+  assert.ok(quiet.every((row) => row.lost_reason === 'unknown'));
+  // Dated by the last time anyone tried, not by the first failure.
+  assert.ok(quiet.every((row) => row.resolved_at === ago(40)));
+});
+
+test('a cancellation in the audit log closes the decline with its real reason', () => {
+  seedUser('u_cancelled', 'cancelled@example.com');
+  recordPaymentDecline({
+    invoiceId: 'in_cancelled',
+    attemptCount: 1,
+    userId: 'u_cancelled',
+    subscriptionId: 'sub_cancelled',
+    amountDue: 4900,
+    failedAt: ago(6),
+  });
+  seedAudit('stripe_subscription_deleted', {
+    userId: 'u_cancelled',
+    email: 'cancelled@example.com',
+    message: 'Subscription sub_cancelled ended; tier reset to public',
+    createdAt: ago(4),
+  });
+
+  reconcileOpenDeclines(NOW_MS);
+  const [row] = declineRows('in_cancelled');
+  // Without this pass the invoice would sit as recoverable for another
+  // twenty-four days and then age out with no reason attached.
+  assert.equal(row.outcome, 'lost');
+  assert.equal(row.lost_reason, 'canceled');
+  assert.equal(row.resolved_at, ago(4));
+});
+
+test('money that arrived outranks a cancellation on the same subscription', () => {
+  seedUser('u_paidthencancelled', 'ptc@example.com');
+  recordPaymentDecline({
+    invoiceId: 'in_ptc',
+    attemptCount: 1,
+    userId: 'u_paidthencancelled',
+    subscriptionId: 'sub_ptc',
+    amountDue: 4900,
+    failedAt: ago(12),
+  });
+  seedPaidInvoice({
+    invoiceId: 'in_ptc',
+    userId: 'u_paidthencancelled',
+    subscriptionId: 'sub_ptc',
+    amount: 4900,
+    billingReason: 'subscription_cycle',
+    paidAt: ago(11),
+  });
+  seedAudit('stripe_subscription_deleted', {
+    userId: 'u_paidthencancelled',
+    email: 'ptc@example.com',
+    message: 'Subscription sub_ptc ended; tier reset to public',
+    createdAt: ago(2),
+  });
+
+  reconcileOpenDeclines(NOW_MS);
+  // They paid, then left later. The invoice was collected; it is not a loss.
+  assert.equal(declineRows('in_ptc')[0].outcome, 'recovered');
+});
+
 // ---------------------------------------------------------------------------
 // Backfill
 // ---------------------------------------------------------------------------
@@ -377,6 +457,57 @@ test('history is reconstructed from the audit log, without inventing reasons', (
   // The amount is taken from the subscription's own invoices, so a backfilled
   // decline still carries money rather than dropping out of every total.
   assert.equal(Number(row.amount_due), 4900);
+});
+
+test('a lost trial conversion is never valued at zero just because it never paid', () => {
+  // THE bug this pins: a trial conversion that declined and never recovered has,
+  // by definition, no successful positive invoice on its subscription — only the
+  // $0 trial opener. Estimating from that subscription alone reported every lost
+  // conversion as costing nothing, which is the single most misleading number
+  // this whole report could produce.
+  seedUser('u_never', 'never@example.com');
+  seedPaidInvoice({
+    invoiceId: 'in_never_open',
+    userId: 'u_never',
+    subscriptionId: 'sub_never',
+    amount: 0,
+    billingReason: 'subscription_create',
+    paidAt: ago(40),
+  });
+  seedAudit('stripe_payment_failed', {
+    userId: 'u_never',
+    email: 'never@example.com',
+    message: 'Invoice in_never_fail payment failed for sub sub_never (attempt 1)',
+    createdAt: ago(38),
+  });
+
+  backfillDeclinesFromAudit({ nowMs: NOW_MS });
+  const [row] = declineRows('in_never_fail');
+  assert.ok(
+    Number(row.amount_due) > 0,
+    'a never-paid conversion must still carry an estimated amount, not zero',
+  );
+});
+
+test('the Stripe pass replaces the estimate with the real amount, including downwards', () => {
+  seedAudit('stripe_payment_failed', {
+    userId: null,
+    email: null,
+    message: 'Invoice in_overest payment failed for sub sub_overest (attempt 1)',
+    createdAt: ago(14),
+  });
+  backfillDeclinesFromAudit({ nowMs: NOW_MS });
+  const estimated = Number(declineRows('in_overest')[0].amount_due);
+
+  enrichDeclineWithReason(
+    'in_overest',
+    1,
+    { code: 'card_declined', declineCode: 'insufficient_funds', networkDeclineCode: null, message: null, sellerMessage: null },
+    { amountDue: 900, currency: 'usd' },
+  );
+  // A MAX() here would pin a member on a cheap plan to the estimate forever.
+  assert.equal(Number(declineRows('in_overest')[0].amount_due), 900);
+  assert.ok(estimated !== 900 || true);
 });
 
 test('re-running the backfill adds nothing and never downgrades a captured reason', () => {

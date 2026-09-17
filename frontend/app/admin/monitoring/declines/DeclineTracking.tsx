@@ -60,7 +60,7 @@ import { AT_RISK_COLOR, CAUSE_RANK_COLOR, LOST_COLOR, PAID_COLOR, RECOVERED_COLO
 
 type DeclinePayload = DeclineReport & {
   excluded: ExcludedAccountsSummary;
-  reconciled: { recovered: number; lost: number };
+  reconciled: { recovered: number; cancelled: number; agedOut: number };
 };
 
 type WindowDays = 7 | 30 | 90 | 180 | 365 | null;
@@ -1329,9 +1329,9 @@ function CoverageNote({ report, mutedText }: { report: DeclinePayload; mutedText
         </li>
         <li>
           <strong>Still-open declines closed by this read:</strong> {fmtInt(reconciled.recovered)} found paid,{' '}
-          {fmtInt(reconciled.lost)} aged out. An attempt with no closing event after thirty days is marked
-          unresolved rather than lost — never seen to recover is a weaker claim than known to be gone, and the
-          report makes the weaker one.
+          {fmtInt(reconciled.cancelled)} closed by a cancellation, {fmtInt(reconciled.agedOut)} aged out. The
+          last of those is marked unresolved rather than lost — never seen to recover is a weaker claim than
+          known to be gone, and the report makes the weaker one.
         </li>
         <li>
           <strong>Held out of every number:</strong> {fmtInt(excluded.total)} account

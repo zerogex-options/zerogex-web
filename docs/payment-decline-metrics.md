@@ -55,11 +55,28 @@ once in "charged", not twice.
 
 They are never added together, and an open decline is never reported as a loss.
 
-An attempt with no closing event after **30 days** is closed as *unresolved*
-rather than lost-to-a-cause. Stripe's retry schedule runs out at about three
-weeks and both of its endings emit an event; a row still open past thirty days is
-one whose closing event never arrived. "Never seen to recover" is a weaker claim
-than "known to be gone", and the report makes the weaker one.
+Open declines whose closing event never arrived are reconciled on every read of
+the panel, in descending order of certainty:
+
+1. **Paid in the invoice ledger** → recovered, dated by the payment. The
+   webhook's own resolve was missed (an outage, or the decline was backfilled
+   after the payment cleared).
+2. **The subscription was deleted**, per the audit log → lost to a cancellation,
+   dated by that event. This is the real reason most declines die.
+3. **Nothing has happened on the invoice for 30 days** → *unresolved*. Stripe's
+   retry schedule runs out at about three weeks and both of its endings emit an
+   event, so a row still open past thirty days is one whose closing event never
+   arrived. "Never seen to recover" is a weaker claim than "known to be gone",
+   and the report makes the weaker one.
+
+The age sweep works **per invoice, not per attempt**: an invoice Stripe retried
+last week is not stale because its first attempt was five weeks ago, and closing
+only the old attempt would leave one invoice half open and half lost, with the
+surviving attempt carrying no reason at all.
+
+A lost invoice reports the reason of the attempt that **closed** it, not of its
+last retry — closing events land against whichever attempts were open at the
+time.
 
 ## The three rates
 
@@ -200,11 +217,29 @@ webhook writes.
 `make backfill-payment-declines`. The audit log recorded that a charge failed,
 with its invoice, subscription and attempt number — enough to count declines,
 place them in time, split conversions from renewals against the invoice ledger,
-and settle each against the payments that followed. It never recorded **why**, so
-those rows land in "No usable decline code" with `source = audit_backfill`, and
-the coverage note states the split. A second pass re-reads each of those invoices
-from Stripe to stamp on the real reason where it is still retrievable; it never
-overwrites a reason the webhook already captured.
+and settle each against the payments and cancellations that followed. It never
+recorded **why**, so those rows land in "No usable decline code" with
+`source = audit_backfill`, and the coverage note states the split. A second pass
+re-reads each of those invoices from Stripe to stamp on the real reason where it
+is still retrievable; it never overwrites a reason the webhook already captured.
+
+**The amount on a reconstructed row is an estimate**, because the audit message
+never carried one. It is resolved in this order, and replaced with the real
+figure the moment the Stripe pass runs:
+
+1. what that subscription was last actually charged before the failure;
+2. anything that subscription was ever charged;
+3. what that member pays on any other subscription;
+4. the median positive invoice amount across the ledger — the product's
+   prevailing charge.
+
+Steps 3 and 4 exist because the obvious implementation returns **zero** for
+exactly the cohort that matters most. A trial conversion that declined and never
+recovered has, by definition, no successful positive invoice on its subscription
+— only the $0 trial opener. Estimating from that subscription alone reports every
+lost conversion as costing nothing, and the headline loss figure reads $0 while
+real money walks out of the door. Under-reporting a loss as zero is the worst of
+the available errors.
 
 ## Reading the panel
 

@@ -473,6 +473,37 @@ test('a member is only a repeat offender on a SECOND invoice, not a second retry
   assert.equal(withSecond.repeatMembers[0].openAmount, 4900);
 });
 
+test('a lost invoice reports the reason of the attempt that CLOSED it, not of its last retry', () => {
+  // Closing events land against whichever attempts were open at the time, so an
+  // invoice can be lost on attempt 1 while a later retry is still marked open.
+  // Reading the reason off `last` reported those as lost with no reason at all.
+  const report = buildDeclineReport({
+    declines: [
+      decline({ invoiceId: 'in_split', attemptCount: 1, failedAt: ago(40), outcome: 'lost', resolvedAt: ago(9), lostReason: 'canceled' }),
+      decline({ invoiceId: 'in_split', attemptCount: 2, failedAt: ago(35), outcome: 'open', lostReason: null }),
+    ],
+    paid: [],
+    windowDays: 90,
+    nowMs: NOW_MS,
+  });
+  assert.equal(report.totals.lostInvoices, 1);
+  assert.equal(report.recentLosses[0].lostReason, 'canceled');
+});
+
+test('a recovered invoice carries no loss reason even if an attempt was written off first', () => {
+  const report = buildDeclineReport({
+    declines: [
+      decline({ invoiceId: 'in_back', attemptCount: 1, outcome: 'lost', resolvedAt: ago(3), lostReason: 'canceled' }),
+      decline({ invoiceId: 'in_back', attemptCount: 2, outcome: 'recovered', resolvedAt: ago(1), recoveredAmount: 4900 }),
+    ],
+    paid: [],
+    windowDays: 30,
+    nowMs: NOW_MS,
+  });
+  assert.equal(report.totals.recoveredInvoices, 1);
+  assert.equal(report.recentLosses.length, 0);
+});
+
 test('coverage states how many attempts actually carry an issuer reason', () => {
   const report = buildDeclineReport({
     declines: [

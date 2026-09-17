@@ -42,7 +42,22 @@ export type PaymentDeclinePayload = DeclineReport & {
   /** Who is held out of every number above, and under which rule. */
   excluded: ExcludedAccountsSummary;
   /** Open declines closed out by this read's reconcile pass. */
-  reconciled: { recovered: number; lost: number };
+  reconciled: ReconcileResult;
+};
+
+/**
+ * What a reconcile pass closed, split by HOW it knew. Kept apart rather than
+ * summed into one "lost" count because the two are different claims: a
+ * cancellation is a fact the audit log recorded, an age-out is only the absence
+ * of one.
+ */
+export type ReconcileResult = {
+  /** Found paid in the invoice ledger. */
+  recovered: number;
+  /** Closed because the subscription was deleted. */
+  cancelled: number;
+  /** Closed because nothing happened on the invoice for STALE_OPEN_DAYS. */
+  agedOut: number;
 };
 
 /**
@@ -449,27 +464,45 @@ export function markDeclinesLostForSubscription(
   }
 }
 
+/** `Subscription sub_123 ended; tier reset to public` */
+const SUB_DELETED_MESSAGE = /^Subscription (\S+) ended/;
+
 /**
- * Close out open declines whose closing event never arrived. Two passes, in
- * order of certainty:
+ * Close out open declines whose closing event never arrived. Three passes, in
+ * descending order of certainty — and in this order for a reason: money that
+ * actually arrived outranks a cancellation, and a known cancellation outranks
+ * mere silence.
  *
  *   1. The invoice IS paid according to the invoice ledger — the webhook's own
  *      resolve was missed (an outage, or the decline was backfilled after the
  *      payment). Recovered, dated by the payment.
- *   2. The attempt is older than STALE_OPEN_DAYS with nothing since. Closed as
+ *   2. The subscription was deleted, per the audit log. Lost to a cancellation,
+ *      dated by that event. This is the real reason most declines die, and
+ *      reading it here is what stops a cancelled member's unpaid invoice from
+ *      sitting as "recoverable" until the age sweep below eventually gives up
+ *      on it with no reason attached.
+ *   3. Nothing has happened on the INVOICE for STALE_OPEN_DAYS. Closed as
  *      'unknown' — "never seen to recover", not "known lost".
  *
- * Idempotent and cheap: both passes touch only rows still marked open.
+ * The age sweep works per invoice, not per attempt: an invoice Stripe retried
+ * last week is not stale because its FIRST attempt was five weeks ago, and
+ * closing only the old attempt would leave one invoice half open and half lost,
+ * with the surviving attempt carrying no reason.
+ *
+ * Idempotent and cheap: every pass touches only rows still marked open.
  */
-export function reconcileOpenDeclines(nowMs: number = Date.now()): { recovered: number; lost: number } {
+export function reconcileOpenDeclines(nowMs: number = Date.now()): ReconcileResult {
   let recovered = 0;
-  let lost = 0;
+  let cancelled = 0;
+  let agedOut = 0;
   try {
     const db = getDb();
     const open = db
-      .prepare(`SELECT DISTINCT invoice_id FROM payment_declines WHERE outcome = 'open'`)
-      .all() as Array<{ invoice_id: string }>;
-    if (open.length === 0) return { recovered: 0, lost: 0 };
+      .prepare(`SELECT DISTINCT invoice_id, subscription_id FROM payment_declines WHERE outcome = 'open'`)
+      .all() as Array<{ invoice_id: string; subscription_id: string | null }>;
+    if (open.length === 0) return { recovered: 0, cancelled: 0, agedOut: 0 };
+
+    // 1 — money that arrived.
     const paidByInvoice = new Map(loadPaidInvoices().map((p) => [p.invoiceId, p]));
     for (const row of open) {
       const paid = paidByInvoice.get(row.invoice_id);
@@ -480,19 +513,49 @@ export function reconcileOpenDeclines(nowMs: number = Date.now()): { recovered: 
         });
       }
     }
+
+    // 2 — subscriptions the audit log says are gone. Scoped to the
+    // subscriptions that actually have an open decline, so this is a handful of
+    // lookups rather than a scan of every cancellation the product ever had.
+    const openSubs = new Set(open.map((row) => row.subscription_id).filter((id): id is string => !!id));
+    if (openSubs.size > 0) {
+      const deletions = db
+        .prepare(
+          `SELECT created_at, message FROM audit_events
+            WHERE type = 'stripe_subscription_deleted' ORDER BY created_at ASC`,
+        )
+        .all() as Array<{ created_at: string; message: string }>;
+      for (const row of deletions) {
+        const subscriptionId = row.message.match(SUB_DELETED_MESSAGE)?.[1];
+        if (!subscriptionId || !openSubs.has(subscriptionId)) continue;
+        cancelled += markDeclinesLostForSubscription(subscriptionId, 'canceled', row.created_at);
+      }
+    }
+
+    // 3 — silence.
     const cutoff = new Date(nowMs - STALE_OPEN_DAYS * 86_400_000).toISOString();
     const stale = db
       .prepare(
         `UPDATE payment_declines
-            SET outcome = 'lost', resolved_at = failed_at, lost_reason = 'unknown'
-          WHERE outcome = 'open' AND failed_at < ?`,
+            SET outcome = 'lost',
+                resolved_at = (
+                  SELECT MAX(p2.failed_at) FROM payment_declines p2
+                   WHERE p2.invoice_id = payment_declines.invoice_id
+                ),
+                lost_reason = 'unknown'
+          WHERE outcome = 'open'
+            AND invoice_id IN (
+              SELECT invoice_id FROM payment_declines
+               GROUP BY invoice_id
+              HAVING MAX(failed_at) < ?
+            )`,
       )
       .run(cutoff) as { changes: number | bigint };
-    lost = Number(stale.changes) || 0;
+    agedOut = Number(stale.changes) || 0;
   } catch {
     // A reconcile that cannot run must not blank the report.
   }
-  return { recovered, lost };
+  return { recovered, cancelled, agedOut };
 }
 
 // ---------------------------------------------------------------------------
@@ -684,7 +747,8 @@ export type DeclineReportOptions = {
 export function getPaymentDeclineReport(options: DeclineReportOptions = {}): PaymentDeclinePayload {
   const nowMs = options.nowMs ?? Date.now();
   const windowDays = options.windowDays === undefined ? 90 : options.windowDays;
-  const reconciled = options.reconcile === false ? { recovered: 0, lost: 0 } : reconcileOpenDeclines(nowMs);
+  const reconciled: ReconcileResult =
+    options.reconcile === false ? { recovered: 0, cancelled: 0, agedOut: 0 } : reconcileOpenDeclines(nowMs);
 
   let excludedAccounts: ReturnType<typeof loadExcludedAccounts> = [];
   try {
@@ -713,9 +777,7 @@ export type BackfillResult = {
   scanned: number;
   inserted: number;
   skipped: number;
-  recovered: number;
-  lost: number;
-};
+} & ReconcileResult;
 
 /**
  * Reconstruct decline history from the `stripe_payment_failed` audit rows that
@@ -736,7 +798,7 @@ export type BackfillResult = {
  */
 export function backfillDeclinesFromAudit(options: { nowMs?: number } = {}): BackfillResult {
   const nowMs = options.nowMs ?? Date.now();
-  const result: BackfillResult = { scanned: 0, inserted: 0, skipped: 0, recovered: 0, lost: 0 };
+  const result: BackfillResult = { scanned: 0, inserted: 0, skipped: 0, recovered: 0, cancelled: 0, agedOut: 0 };
   const db = getDb();
 
   let rows: Array<{ created_at: string; user_id: string | null; email: string | null; message: string }> = [];
@@ -759,22 +821,46 @@ export function backfillDeclinesFromAudit(options: { nowMs?: number } = {}): Bac
     if (list) list.push(invoice);
     else paidBySub.set(invoice.subscriptionId, [invoice]);
   }
+  const paidByUser = loadPaidInvoicesByUser();
 
-  // The amount at risk is not in the audit message. The subscription's own most
-  // recent successful invoice is the best available stand-in — it is the same
-  // plan at the same price — and it is marked as an estimate by being absent
-  // from the codes: a decline with no amount would drop out of every money
-  // figure, which understates the loss rather than approximating it.
-  const amountForSub = (subscriptionId: string | null, before: string): number => {
-    if (!subscriptionId) return 0;
-    const list = paidBySub.get(subscriptionId) ?? [];
+  // The amount at risk is not in the audit message, so it is ESTIMATED here and
+  // replaced with the real figure by the Stripe pass of
+  // scripts/backfill-payment-declines.mts (see enrichDeclineWithReason).
+  //
+  // The fallback chain matters more than it looks. The obvious implementation —
+  // "use another invoice on the same subscription" — returns zero for exactly
+  // the cohort that matters most: a TRIAL CONVERSION that declined and never
+  // recovered has, by definition, no successful positive invoice on its
+  // subscription, only the $0 trial opener. Every lost conversion then reports
+  // as costing nothing, and the headline loss figure reads $0 while real money
+  // is walking out of the door. Under-reporting a loss as zero is the worst of
+  // the available errors; an estimate at the product's own prevailing price is
+  // approximately right and is superseded the moment the Stripe pass runs.
+  const positiveAmounts = paid.filter((p) => p.amountPaid > 0).map((p) => p.amountPaid).sort((a, b) => a - b);
+  // Median rather than mean: one annual plan among monthlies would drag a mean
+  // far above what a typical declined invoice is worth.
+  const typicalAmount = positiveAmounts.length > 0 ? positiveAmounts[Math.floor(positiveAmounts.length / 2)] : 0;
+
+  const amountForSub = (subscriptionId: string | null, userId: string | null, before: string): number => {
+    const list = subscriptionId ? (paidBySub.get(subscriptionId) ?? []) : [];
+    // 1. what this subscription was last actually charged before it failed
     let best = 0;
     for (const invoice of list) {
       if (invoice.amountPaid > 0 && invoice.paidAt <= before) best = invoice.amountPaid;
     }
     if (best > 0) return best;
+    // 2. anything this subscription was ever charged
     const anyPositive = list.find((invoice) => invoice.amountPaid > 0);
-    return anyPositive?.amountPaid ?? 0;
+    if (anyPositive) return anyPositive.amountPaid;
+    // 3. what this MEMBER pays on any other subscription — covers a trial that
+    //    died and was re-taken later, and a plan switch onto a new sub id
+    if (userId) {
+      const byUser = paidByUser.get(userId) ?? [];
+      const userPositive = byUser.find((invoice) => invoice.amountPaid > 0);
+      if (userPositive) return userPositive.amountPaid;
+    }
+    // 4. the product's prevailing charge
+    return typicalAmount;
   };
 
   for (const row of rows) {
@@ -808,7 +894,7 @@ export function backfillDeclinesFromAudit(options: { nowMs?: number } = {}): Bac
       email: row.email,
       subscriptionId,
       kind,
-      amountDue: amountForSub(subscriptionId, row.created_at),
+      amountDue: amountForSub(subscriptionId, row.user_id, row.created_at),
       failedAt: row.created_at,
     });
     if (inserted) result.inserted += 1;
@@ -817,8 +903,50 @@ export function backfillDeclinesFromAudit(options: { nowMs?: number } = {}): Bac
 
   const closed = reconcileOpenDeclines(nowMs);
   result.recovered = closed.recovered;
-  result.lost = closed.lost;
+  result.cancelled = closed.cancelled;
+  result.agedOut = closed.agedOut;
   return result;
+}
+
+/**
+ * Paid invoices grouped by the member who paid them. Only the imported ledger
+ * carries a user id — the audit-derived rows do not — so this is a narrower
+ * index than loadPaidInvoices and is used only as a price fallback.
+ */
+function loadPaidInvoicesByUser(): Map<string, PaidInvoice[]> {
+  const byUser = new Map<string, PaidInvoice[]>();
+  try {
+    const rows = getDb()
+      .prepare(
+        `SELECT user_id, invoice_id, subscription_id, billing_reason, amount_paid, paid_at
+           FROM stripe_invoice_history
+          WHERE status = 'paid' AND user_id IS NOT NULL AND amount_paid > 0
+          ORDER BY paid_at DESC`,
+      )
+      .all() as Array<{
+      user_id: string;
+      invoice_id: string;
+      subscription_id: string | null;
+      billing_reason: string | null;
+      amount_paid: number;
+      paid_at: string;
+    }>;
+    for (const row of rows) {
+      const invoice: PaidInvoice = {
+        invoiceId: row.invoice_id,
+        subscriptionId: row.subscription_id,
+        billingReason: row.billing_reason,
+        amountPaid: Number(row.amount_paid) || 0,
+        paidAt: row.paid_at,
+      };
+      const list = byUser.get(row.user_id);
+      if (list) list.push(invoice);
+      else byUser.set(row.user_id, [invoice]);
+    }
+  } catch {
+    // Table absent on a deploy that predates the migration.
+  }
+  return byUser;
 }
 
 function insertBackfillRow(input: {
@@ -893,7 +1021,10 @@ export function enrichDeclineWithReason(
                 failure_message = COALESCE(?, failure_message),
                 seller_message = COALESCE(?, seller_message),
                 category = CASE WHEN ? = 'unknown' THEN category ELSE ? END,
-                amount_due = MAX(COALESCE(?, 0), amount_due),
+                -- The fetched amount is the TRUTH and replaces the backfill's
+                -- estimate, including when it is smaller. A MAX() here would
+                -- pin a member on a cheap plan to an over-estimate forever.
+                amount_due = CASE WHEN COALESCE(?, 0) > 0 THEN ? ELSE amount_due END,
                 currency = COALESCE(?, currency),
                 billing_reason = COALESCE(?, billing_reason),
                 price_id = COALESCE(?, price_id),
@@ -915,6 +1046,7 @@ export function enrichDeclineWithReason(
         decline?.sellerMessage ?? null,
         category,
         category,
+        extras.amountDue ?? null,
         extras.amountDue ?? null,
         extras.currency ?? null,
         extras.billingReason ?? null,
