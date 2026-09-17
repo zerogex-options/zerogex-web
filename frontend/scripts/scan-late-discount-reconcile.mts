@@ -206,6 +206,7 @@ async function couponValue(id: string, subtotal: number): Promise<number> {
 const rows: Row[] = [];
 let skippedNoInvoice = 0;
 let skippedClean = 0;
+let noMoneyAtStake = 0;
 
 for (const audit of auditRows) {
   const match = MESSAGE_RE.exec(audit.message);
@@ -255,6 +256,21 @@ for (const audit of auditRows) {
   let intendedDiscount = 0;
   for (const id of intended) intendedDiscount += await couponValue(id, subtotal);
   const should = Math.max(0, subtotal - intendedDiscount);
+  const delta = invoice.total - should;
+
+  // No money at stake, so nothing was mispriced — drop it before it reaches the
+  // table. Overwhelmingly this is the HEALTHY path: a switch made mid-trial
+  // reconciles while the subscription is still `trialing`, and the newest
+  // invoice behind it is the $0.00 one Stripe draws at trial start. That
+  // invoice genuinely lacks the coupon, so the discount comparison flags it —
+  // but $0 discounted by anything is still $0, and the coupon lands correctly
+  // on the trial-end invoice that follows. The webhook skips these via its
+  // `status !== 'active'` guard; the scan reads audit rows after the fact and
+  // has no status to guard on, so it settles the question with the money.
+  if (delta === 0) {
+    noMoneyAtStake += 1;
+    continue;
+  }
 
   rows.push({
     email: audit.email || '(unknown)',
@@ -264,7 +280,7 @@ for (const audit of auditRows) {
     status: invoice.status ?? 'unknown',
     charged: invoice.total,
     should,
-    delta: invoice.total - should,
+    delta,
     currency: invoice.currency || 'usd',
     missing: decision.missing,
     stale: decision.stale,
@@ -306,11 +322,13 @@ console.log(
   `Scanned: ${auditRows.length} plan-switch reconcile events${cliArgs.since ? ` since ${cliArgs.since}` : ''}`,
 );
 console.log(
-  `Matched: ${rows.length} mispriced  ·  ${skippedClean} correctly priced  ·  ${skippedNoInvoice} with no invoice in the ${cliArgs.windowMinutes}m window\n`,
+  `Charged wrong: ${rows.length}  ·  ${noMoneyAtStake} reconciled with no money at stake ` +
+    `(mid-trial switches ahead of a $0 invoice)  ·  ${skippedClean} already correct  ·  ` +
+    `${skippedNoInvoice} with no invoice in the ${cliArgs.windowMinutes}m window\n`,
 );
 
 if (rows.length === 0) {
-  console.log('No mispriced invoices found. Nothing to credit.');
+  console.log('Nobody was charged the wrong amount. Nothing to credit.');
   process.exit(0);
 }
 
@@ -340,12 +358,14 @@ for (const r of rows.sort((a, b) => b.delta - a.delta)) {
 }
 
 console.log(`\nRead:`);
-console.log(
-  `  • OVERCHARGED: ${over.length} member(s), ${money(overTotal, currency)} owed back. These are the ones to credit —`,
-);
-console.log(
-  `    they paid full rate for a plan whose promo the switch was supposed to carry across.`,
-);
+if (over.length) {
+  console.log(
+    `  • OVERCHARGED: ${over.length} member(s), ${money(overTotal, currency)} owed back. These are the ones to credit —`,
+  );
+  console.log(
+    `    they paid full rate for a plan whose promo the switch was supposed to carry across.`,
+  );
+}
 if (under.length) {
   console.log(
     `  • UNDERCHARGED: ${under.length} member(s), ${money(Math.abs(underTotal), currency)} short — the outgoing plan's`,
