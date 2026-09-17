@@ -28,6 +28,7 @@ const {
   getPaymentDeclineReport,
   listDeclinesMissingReason,
   loadPaidInvoices,
+  markDeclineReasonUnavailable,
   loadPaidInvoicesForSubscription,
   markDeclinesLostForInvoice,
   markDeclinesLostForSubscription,
@@ -412,6 +413,84 @@ test('money that arrived outranks a cancellation on the same subscription', () =
   assert.equal(declineRows('in_ptc')[0].outcome, 'recovered');
 });
 
+test('an age-out is revised when the ledger later proves the invoice was paid', () => {
+  // THE defect this pins. `make backfill-stripe-invoices` imports years of paid
+  // invoices the ledger could not previously see. A decline aged out purely for
+  // want of that record must get a second hearing — otherwise importing the
+  // evidence changes nothing, and the report keeps calling recovered money lost.
+  seedUser('u_revise', 'revise@example.com');
+  recordPaymentDecline({
+    invoiceId: 'in_revise',
+    attemptCount: 1,
+    userId: 'u_revise',
+    subscriptionId: 'sub_revise',
+    amountDue: 4900,
+    failedAt: ago(70),
+  });
+  reconcileOpenDeclines(NOW_MS);
+  assert.equal(declineRows('in_revise')[0].outcome, 'lost');
+  assert.equal(declineRows('in_revise')[0].lost_reason, 'unknown');
+
+  // The invoice import lands.
+  seedPaidInvoice({
+    invoiceId: 'in_revise',
+    userId: 'u_revise',
+    subscriptionId: 'sub_revise',
+    amount: 4900,
+    billingReason: 'subscription_cycle',
+    paidAt: ago(68),
+  });
+  const second = reconcileOpenDeclines(NOW_MS);
+  assert.equal(second.recovered, 1);
+  assert.equal(declineRows('in_revise')[0].outcome, 'recovered');
+  assert.equal(declineRows('in_revise')[0].resolved_at, ago(68));
+});
+
+test('an age-out is upgraded when a cancellation turns up to explain it', () => {
+  seedUser('u_upgrade', 'upgrade@example.com');
+  recordPaymentDecline({
+    invoiceId: 'in_upgrade',
+    attemptCount: 1,
+    userId: 'u_upgrade',
+    subscriptionId: 'sub_upgrade',
+    amountDue: 4900,
+    failedAt: ago(80),
+  });
+  reconcileOpenDeclines(NOW_MS);
+  assert.equal(declineRows('in_upgrade')[0].lost_reason, 'unknown');
+
+  seedAudit('stripe_subscription_deleted', {
+    userId: 'u_upgrade',
+    email: 'upgrade@example.com',
+    message: 'Subscription sub_upgrade ended; tier reset to public',
+    createdAt: ago(75),
+  });
+  reconcileOpenDeclines(NOW_MS);
+  const [row] = declineRows('in_upgrade');
+  // "We never heard anything" becomes a reason.
+  assert.equal(row.lost_reason, 'canceled');
+  assert.equal(row.resolved_at, ago(75));
+});
+
+test('a cancellation, once recorded, is never revised away', () => {
+  seedUser('u_final', 'final@example.com');
+  recordPaymentDecline({
+    invoiceId: 'in_final',
+    attemptCount: 1,
+    userId: 'u_final',
+    subscriptionId: 'sub_final',
+    amountDue: 4900,
+    failedAt: ago(50),
+  });
+  markDeclinesLostForSubscription('sub_final', 'canceled', ago(48));
+  // Runs again and again; a recorded fact is not up for reconsideration.
+  reconcileOpenDeclines(NOW_MS);
+  reconcileOpenDeclines(NOW_MS);
+  const [row] = declineRows('in_final');
+  assert.equal(row.lost_reason, 'canceled');
+  assert.equal(row.resolved_at, ago(48));
+});
+
 // ---------------------------------------------------------------------------
 // Backfill
 // ---------------------------------------------------------------------------
@@ -542,8 +621,14 @@ test('an audit row with no usable invoice id is skipped rather than recorded as 
     message: 'Invoice undefined payment failed (attempt 1)',
     createdAt: ago(12),
   });
-  backfillDeclinesFromAudit({ nowMs: NOW_MS });
+  const result = backfillDeclinesFromAudit({ nowMs: NOW_MS });
   assert.equal(declineRows('undefined').length, 0);
+  assert.ok(result.unparseable >= 1);
+  // The printed totals have to add up, or the operator cannot tell a row that
+  // was already on record from one nothing could be read out of. Rolling both
+  // into one "skipped" made `scanned` and the skip count disagree by exactly
+  // the number of duplicates.
+  assert.equal(result.scanned, result.inserted + result.duplicates + result.unparseable);
 });
 
 test('a reconstructed row can be given its real reason later, and only once', () => {
@@ -588,6 +673,34 @@ test('a reconstructed row can be given its real reason later, and only once', ()
   assert.equal(row.source, 'stripe_backfill');
   // …and it drops out of the enrichment worklist.
   assert.ok(!listDeclinesMissingReason(500).some((r) => r.invoiceId === 'in_enrich'));
+});
+
+test('an attempt Stripe has no reason for drops off the worklist instead of being re-fetched forever', () => {
+  seedAudit('stripe_payment_failed', {
+    userId: null,
+    email: null,
+    message: 'Invoice in_noanswer payment failed for sub sub_noanswer (attempt 1)',
+    createdAt: ago(300),
+  });
+  backfillDeclinesFromAudit({ nowMs: NOW_MS });
+  assert.ok(listDeclinesMissingReason(999).some((row) => row.invoiceId === 'in_noanswer'));
+
+  // The charge is too old for Stripe to still hand one over.
+  assert.equal(markDeclineReasonUnavailable('in_noanswer', 1), true);
+  assert.ok(
+    !listDeclinesMissingReason(999).some((row) => row.invoiceId === 'in_noanswer'),
+    'having asked and been told nothing is different from never having asked',
+  );
+  // It still has no reason — it is simply not worth another API read.
+  assert.equal(declineRows('in_noanswer')[0].category, 'unknown');
+});
+
+test('a webhook row whose capture-time lookup failed gets another chance', () => {
+  // Distinct from the case above: the question was never successfully put to
+  // Stripe, and a transient failure at capture time should not cost the reason
+  // permanently.
+  recordPaymentDecline({ invoiceId: 'in_missedcapture', attemptCount: 1, amountDue: 4900, decline: null, failedAt: ago(3) });
+  assert.ok(listDeclinesMissingReason(999).some((row) => row.invoiceId === 'in_missedcapture'));
 });
 
 // ---------------------------------------------------------------------------
