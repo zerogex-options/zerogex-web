@@ -368,8 +368,9 @@ function initDb(): DatabaseSync {
   // (basic → premium with no intervening cancel) trigger nothing.
   ensureColumn('users', 'paid_welcome_email_sent_at', 'TEXT');
 
-  // One-time in-app "Welcome to Pro" onboarding modal (announces self-service
-  // API-key generation). NULL = not yet shown; set to the ISO timestamp the
+  // One-time in-app "Welcome to Pro" onboarding modal (points a new member at
+  // the Signal Dashboard to start; API keys are mentioned second). NULL = not
+  // yet shown; set to the ISO timestamp the
   // first time the member sees/dismisses it, so it greets a new Pro subscriber
   // exactly once — on their first landing back after the Stripe checkout
   // redirect. Backfilled to "already seen" for everyone who ALREADY holds a

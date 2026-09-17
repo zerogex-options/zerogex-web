@@ -1218,10 +1218,16 @@ churn-breakdown:
 # page by page and prints the shortlist a first-run path should route to.
 # Correlation on a small book — read the raw counts, not the percentages.
 # Read-only.
+# Use SINCE/UNTIL to compare signup cohorts either side of a change:
+#   make scan-trial-activation UNTIL=2026-09-18   (signed up before it)
+#   make scan-trial-activation SINCE=2026-09-18   (signed up after it)
+# A 7-day trial plus the time it takes to convert or leave means an "after"
+# cohort needs ~21 days before it can be compared with a mature one; the script
+# says so itself when the window is too recent.
 #   make scan-trial-activation
 #   make scan-trial-activation DAYS=90 HOURS=24
 scan-trial-activation:
-	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/scan-trial-activation.mts $(if $(DAYS),--days $(DAYS),) $(if $(HOURS),--hours $(HOURS),) $(if $(MIN_SUPPORT),--min-support $(MIN_SUPPORT),) $(if $(TOP),--top $(TOP),)'
+	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/scan-trial-activation.mts $(if $(DAYS),--days $(DAYS),) $(if $(HOURS),--hours $(HOURS),) $(if $(MIN_SUPPORT),--min-support $(MIN_SUPPORT),) $(if $(TOP),--top $(TOP),) $(if $(SINCE),--since $(SINCE),) $(if $(UNTIL),--until $(UNTIL),)'
 
 scan-late-discount-reconcile:
 	@cd frontend && bash -lc 'source $$HOME/.nvm/nvm.sh && nvm use 22 >/dev/null && node --experimental-strip-types --no-warnings scripts/scan-late-discount-reconcile.mts $(if $(SINCE),--since $(SINCE),) $(if $(WINDOW_MINUTES),--window-minutes $(WINDOW_MINUTES),) $(if $(CSV),--csv,)'

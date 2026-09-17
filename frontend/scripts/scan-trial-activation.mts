@@ -63,7 +63,15 @@ const COHORT_LABEL: Record<Cohort, string> = {
   never_started: 'NEVER STARTED A TRIAL',
 };
 
-type Args = { days: number; hours: number; minSupport: number; top: number; help: boolean };
+type Args = {
+  days: number;
+  hours: number;
+  minSupport: number;
+  top: number;
+  since: string | null;
+  until: string | null;
+  help: boolean;
+};
 
 function parseEnvFile(filePath: string): Record<string, string> {
   if (!fs.existsSync(filePath)) return {};
@@ -88,13 +96,23 @@ function parseEnvFile(filePath: string): Record<string, string> {
 }
 
 function parseArgs(argv: string[]): Args {
-  const args: Args = { days: 60, hours: 48, minSupport: 4, top: 18, help: false };
+  const args: Args = {
+    days: 60,
+    hours: 48,
+    minSupport: 4,
+    top: 18,
+    since: null,
+    until: null,
+    help: false,
+  };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === '--days') args.days = Number(argv[(i += 1)]);
     else if (arg === '--hours') args.hours = Number(argv[(i += 1)]);
     else if (arg === '--min-support') args.minSupport = Number(argv[(i += 1)]);
     else if (arg === '--top') args.top = Number(argv[(i += 1)]);
+    else if (arg === '--since') args.since = (argv[(i += 1)] ?? '').trim() || null;
+    else if (arg === '--until') args.until = (argv[(i += 1)] ?? '').trim() || null;
     else if (arg === '--help' || arg === '-h') args.help = true;
     else {
       console.error(`Error: unknown argument "${arg}".`);
@@ -123,6 +141,12 @@ Compares what converters and trial leavers looked at in their first hours.
   --hours N         The activation window measured after signup (default 48).
   --min-support N   Hide pages seen by fewer than N users in BOTH cohorts (default 4).
   --top N           Rows in the differentiator table (default 18).
+  --since DATE      Only signups on/after this date (overrides --days).
+  --until DATE      Only signups before this date (overrides --days).
+
+Use --since / --until to compare signup cohorts either side of a change:
+  --until 2026-09-18   the members who signed up BEFORE it
+  --since 2026-09-18   the members who signed up AFTER it
 
 Read-only. Reads AUTH_DB_PATH from env or .env.local.
 `);
@@ -141,7 +165,18 @@ if (!fs.existsSync(dbPath)) {
 
 const db = new DatabaseSync(dbPath, { readOnly: true });
 
-const sinceIso = new Date(Date.now() - cliArgs.days * 24 * 60 * 60 * 1000).toISOString();
+const sinceIso = cliArgs.since
+  ? new Date(cliArgs.since).toISOString()
+  : new Date(Date.now() - cliArgs.days * 24 * 60 * 60 * 1000).toISOString();
+const untilIso = cliArgs.until ? new Date(cliArgs.until).toISOString() : null;
+
+// A trial runs 7 days, and leaving or converting takes longer still. A cohort
+// whose newest members signed up days ago has barely any settled outcomes in it,
+// so comparing it against a mature one reads as collapsed conversion when the
+// real difference is that the clock has not run yet.
+const SETTLE_DAYS = 21;
+const windowEndMs = untilIso ? new Date(untilIso).getTime() : Date.now();
+const windowEndAgeDays = (Date.now() - windowEndMs) / (24 * 60 * 60 * 1000);
 
 type UserRow = {
   id: string;
@@ -166,9 +201,9 @@ const users = db
             EXISTS(SELECT 1 FROM audit_events a
                     WHERE a.user_id = u.id AND a.type = 'billing_member_comped') AS comped
        FROM users u
-      WHERE u.created_at >= ? AND u.deleted_at IS NULL`,
+      WHERE u.created_at >= ? AND (? IS NULL OR u.created_at < ?) AND u.deleted_at IS NULL`,
   )
-  .all(sinceIso) as unknown as UserRow[];
+  .all(sinceIso, untilIso, untilIso) as unknown as UserRow[];
 
 function cohortOf(u: UserRow): Cohort {
   const gone =
@@ -236,10 +271,26 @@ const converted = byCohort('converted');
 const lost = byCohort('lost_in_trial');
 
 console.log(`Auth DB: ${dbPath}`);
+const windowLabel =
+  cliArgs.since || cliArgs.until
+    ? `${cliArgs.since ?? 'the beginning'} to ${cliArgs.until ?? 'now'}`
+    : `the last ${cliArgs.days} days`;
 console.log(
-  `Cohort:  ${members.length} signups in the last ${cliArgs.days} days (${excluded} admin/partner/comped held out)`,
+  `Cohort:  ${members.length} signups, ${windowLabel} (${excluded} admin/partner/comped held out)`,
 );
 console.log(`Window:  first ${cliArgs.hours}h after each signup\n`);
+if (windowEndAgeDays < SETTLE_DAYS) {
+  console.log(
+    `NOTE: this cohort's newest signups are only ${Math.max(0, Math.round(windowEndAgeDays))} days old. A 7-day trial plus`,
+  );
+  console.log(
+    `      the time it takes to convert or leave means outcomes need about ${SETTLE_DAYS} days to settle,`,
+  );
+  console.log(
+    `      so CONVERTED and LEFT are both understated here and IN TRIAL RIGHT NOW is inflated.`,
+  );
+  console.log(`      Comparing this against a mature cohort will mislead you.\n`);
+}
 
 const pad = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s.padEnd(n));
 console.log(

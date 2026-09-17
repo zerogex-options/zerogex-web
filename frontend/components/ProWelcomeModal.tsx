@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, KeyRound, Sparkles, X } from 'lucide-react';
+import { ArrowRight, Compass, KeyRound, X } from 'lucide-react';
 import { Theme } from '@/core/types';
 
 interface ProWelcomeModalProps {
@@ -193,12 +193,29 @@ export default function ProWelcomeModal({ theme, onClose }: ProWelcomeModalProps
             </Link>
             . Five minutes, and it will save you misreading a level.
           </p>
+          {/* Where to start, named explicitly. The Basic Signal Dashboard and four
+              of its six children are the pages that most separate members who
+              convert from members who leave during the trial — and they hold that
+              lead after controlling for how much each group browsed overall, so it
+              is not simply that converters click more (make scan-trial-activation).
+              Naming one starting point beats handing a new member 40+ nav entries
+              and a seven-day clock. */}
           <p style={{ margin: 0 }}>
-            Otherwise, jump into the{' '}
+            If you do one thing today, open the{' '}
+            <Link
+              href="/basic-signals"
+              style={{ color: 'var(--color-brand-primary)', fontWeight: 600 }}
+            >
+              Signal Dashboard
+            </Link>
+            . It reads today&apos;s positioning as six plain signals &mdash; tape flow, skew,
+            vanna/charm, dealer delta, GEX gradient and positioning traps &mdash; each saying what
+            it means in a sentence, which is an easier place to get your bearings than raw levels.
+            The full{' '}
             <Link href="/dashboard" style={{ color: 'var(--color-brand-primary)', fontWeight: 600 }}>
               dashboard
             </Link>{' '}
-            whenever you&apos;re ready. One new thing worth knowing about first:
+            is there whenever you want the wider view.
           </p>
         </div>
 
@@ -230,7 +247,7 @@ export default function ProWelcomeModal({ theme, onClose }: ProWelcomeModalProps
                 color: 'var(--color-brand-primary)',
               }}
             >
-              <Sparkles size={18} aria-hidden="true" />
+              <KeyRound size={18} aria-hidden="true" />
             </span>
             <strong style={{ fontSize: 15, color: 'var(--text-primary)' }}>
               New: Self-service API key generation
@@ -293,7 +310,7 @@ export default function ProWelcomeModal({ theme, onClose }: ProWelcomeModalProps
           </button>
           <Link
             ref={ctaRef}
-            href="/account#api-access"
+            href="/basic-signals"
             onClick={handleCta}
             style={{
               flex: '1 1 auto',
@@ -313,8 +330,8 @@ export default function ProWelcomeModal({ theme, onClose }: ProWelcomeModalProps
               gap: 8,
             }}
           >
-            <KeyRound size={16} aria-hidden="true" />
-            Generate an API key
+            <Compass size={16} aria-hidden="true" />
+            Start with the Signal Dashboard
             <ArrowRight size={16} aria-hidden="true" />
           </Link>
         </div>

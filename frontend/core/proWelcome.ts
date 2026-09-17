@@ -14,8 +14,9 @@ export type ProWelcomeUser = {
   proWelcomeSeenAt?: string | null;
 };
 
-// Whether the one-time "Welcome to Pro" onboarding modal (which announces
-// self-service API-key generation) should greet this user. It fires for a Pro
+// Whether the one-time "Welcome to Pro" onboarding modal (which points a new
+// member at the Signal Dashboard to start, and mentions self-service API keys
+// second) should greet this user. It fires for a Pro
 // member with a live Stripe subscription who hasn't seen it yet — i.e. on their
 // first landing back after the checkout redirect. Excluded by design:
 //   - basic / public: not a Pro benefit.
