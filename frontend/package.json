@@ -118,6 +118,7 @@
     "test:founding-restore": "node --experimental-strip-types --test tests/foundingRestore.test.ts",
     "test:orphan-payment": "node --experimental-strip-types --test tests/orphanPayment.test.ts",
     "test:stripe-invoice": "node --experimental-strip-types --test tests/stripeInvoice.test.ts",
+    "test:late-discount-reconcile": "node --experimental-strip-types --test tests/lateDiscountReconcile.test.ts",
     "test:futures-delay": "node --experimental-strip-types --test tests/futuresDelayDisclosure.test.ts",
     "test:trial-welcome": "node --experimental-strip-types --test tests/trialWelcome.test.ts",
     "test:trial-banner": "node --experimental-strip-types --test tests/trialStartedBanner.test.ts",

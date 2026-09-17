@@ -247,3 +247,103 @@ export function readInvoicePaymentIntentIds(invoice: unknown): string[] {
   push(idOf(inv.payment_intent as Expandable));
   return ids;
 }
+
+// Every coupon id carrying a discount on this invoice, or null when that cannot
+// be determined.
+//
+// The null is the point. A Discount arrives either as a bare id string or as an
+// expanded object, and the coupon sits one level DOWN (`discount.coupon.id`) —
+// an unexpanded discount names itself, not the coupon it carries. Returning []
+// for that case would be indistinguishable from "this invoice has no discounts",
+// and the caller's next move on an empty read is to conclude the intended
+// coupon is missing and rewrite the invoice. So an unresolvable entry returns
+// null ("don't know") and the caller declines to act. Expand `discounts` to get
+// a real answer.
+//
+// Pre-basil invoices carry a single `discount`; basil and later carry
+// `discounts[]`. Both shapes are read, deduped, first-seen order preserved.
+export function readInvoiceCouponIds(invoice: unknown): string[] | null {
+  const inv = obj(invoice);
+  if (!inv) return null;
+
+  const out: string[] = [];
+  let unresolved = false;
+
+  const push = (value: unknown) => {
+    if (value == null) return;
+    const d = obj(value);
+    if (!d) {
+      // A bare id string: present, but its coupon is unknowable from here.
+      unresolved = true;
+      return;
+    }
+    const coupon = idOf(d.coupon as Expandable);
+    if (!coupon) {
+      unresolved = true;
+      return;
+    }
+    if (!out.includes(coupon)) out.push(coupon);
+  };
+
+  if (Array.isArray(inv.discounts)) for (const d of inv.discounts) push(d);
+  if (inv.discount) push(inv.discount);
+
+  return unresolved ? null : out;
+}
+
+export type LateDiscountFix =
+  | { action: 'none'; reason: string; missing: string[]; stale: string[] }
+  | { action: 'patch_draft'; reason: string; missing: string[]; stale: string[] }
+  | { action: 'too_late'; reason: string; missing: string[]; stale: string[] };
+
+// Does the invoice a plan switch just landed on still match the discounts we
+// reconciled onto the SUBSCRIPTION, and can it still be corrected?
+//
+// `subscriptions.update({discounts})` binds the next cycle. When the switch
+// takes effect at a period boundary, Stripe has already drawn that boundary's
+// invoice, so the subscription and the invoice disagree and only the invoice is
+// the one being charged. Draft invoices can still be rewritten; anything
+// further along needs a credit note.
+//
+// Kept pure so the ordering rules are tested without Stripe.
+export function decideLateDiscountFix(input: {
+  invoiceStatus: string | null | undefined;
+  invoiceCouponIds: string[] | null;
+  intendedCouponIds: string[];
+  managedCouponIds: string[];
+}): LateDiscountFix {
+  const { invoiceStatus, invoiceCouponIds, intendedCouponIds, managedCouponIds } = input;
+  const nothing = { missing: [] as string[], stale: [] as string[] };
+
+  if (invoiceCouponIds === null) {
+    return { action: 'none', reason: 'invoice discounts not expanded', ...nothing };
+  }
+
+  const intended = intendedCouponIds.filter(Boolean);
+  const managed = new Set(managedCouponIds.filter(Boolean));
+
+  // Missing: a coupon we intend that the invoice does not carry — the member is
+  // charged MORE than the plan they switched to should cost.
+  const missing = intended.filter((id) => !invoiceCouponIds.includes(id));
+  // Stale: a coupon WE manage that the invoice carries and we no longer intend
+  // — typically the outgoing cadence's promo, which discounts the wrong plan.
+  const stale = invoiceCouponIds.filter((id) => managed.has(id) && !intended.includes(id));
+
+  if (missing.length === 0 && stale.length === 0) {
+    return { action: 'none', reason: 'invoice already matches the reconciled set', ...nothing };
+  }
+
+  // Draft is the whole window: Stripe holds a subscription invoice in draft for
+  // roughly an hour before finalizing it, which is the only period in which the
+  // amount can still be changed without a credit note.
+  if (invoiceStatus === 'draft') {
+    return { action: 'patch_draft', reason: 'draft invoice can still be rewritten', missing, stale };
+  }
+
+  return {
+    action: 'too_late',
+    reason: `invoice already ${invoiceStatus ?? 'unknown'} — needs a credit note`,
+    missing,
+    stale,
+  };
+}
